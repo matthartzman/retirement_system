@@ -57,7 +57,7 @@ def test_v10_results_model_and_report_spec_are_renderer_neutral():
     assert model['source'] == 'semantic_results_model'
     spec = report_spec_from_results_model(model)
     assert spec.schema == 'report_spec_v10'
-    assert any(p.name == 'Cash Flow Projection' for p in spec.pages)
+    assert any(p.name == 'Cash Flow' for p in spec.pages)
 
 
 def test_v10_meta_optimizer_selects_highest_score():

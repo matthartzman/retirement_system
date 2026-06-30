@@ -41,9 +41,9 @@ def build_sheet5(ws, c, rows):
         def _owner_label(acct):
             owner = acct.get('owner_idx', 0)
             if owner == 0:
-                return 'Husband'
+                return str(c.get('h_name') or 'Member 1')
             if owner == 1:
-                return 'Wife'
+                return str(c.get('w_name') or 'Member 2')
             return str(acct.get('owner_name') or f'Owner {owner + 1}')
 
         def _kind_label(acct):
@@ -262,7 +262,7 @@ def build_sheet6(ws, c, rows):
         COL['HC_LTC'] = col; col += 1
     for key in ['Travel', 'Other', 'HELOC_PAI', 'Σ_Spend']:
         COL[key] = col; col += 1
-    for key in ['Total_Tax', 'Other_Cash_Need', 'Total_Cash_Need', 'Income_Funding',
+    for key in ['Total_Tax', 'Total_Cash_Need', 'Income_Funding', 'Portfolio_Income',
                 'Other_Funding', 'Req_Portfolio_Draws', 'Cash_Bridge_Gap']:
         COL[key] = col; col += 1
     for key in [
@@ -295,7 +295,7 @@ def build_sheet6(ws, c, rows):
     hdr2 = [
         (COL['Year'],       'Year'),         (COL['H_Age'],      'H Age'),
         (COL['W_Age'],      'W Age'),        (COL['Earned'],     'Earned'),
-        (COL['H_SS'],       'Matthew SS'),   (COL['W_SS'],       'Patricia SS'),
+        (COL['H_SS'],       f'{c.get("h_name","H")} SS'),  (COL['W_SS'],       f'{c.get("w_name","W")} SS'),
         (COL['Pension'],    'Pension'),      (COL['W_Sgl'],      'W Single Ann'),
         (COL['W_Jnt'],      'W Joint Ann'),  (COL['H_Sgl'],      'H Single Ann'),
         (COL['H_Jnt'],      'H Joint Ann'),  (COL['Note'],       'Note P+I'),
@@ -317,9 +317,10 @@ def build_sheet6(ws, c, rows):
         (COL['Travel'],     'Travel'),
         (COL['Other'],      'Other'),        (COL['HELOC_PAI'],  'HELOC P&I'),
         (COL['Σ_Spend'],    'Σ Spend'),
-        (COL['Total_Tax'], 'Taxes'), (COL['Other_Cash_Need'], 'Other Cash Need'),
+        (COL['Total_Tax'], 'Taxes'),
         (COL['Total_Cash_Need'], 'Total Cash Need'), (COL['Income_Funding'], 'Income Funding'),
-        (COL['Other_Funding'], 'Other Funding'), (COL['Req_Portfolio_Draws'], 'Required Portfolio Cash Draws'),
+        (COL['Portfolio_Income'], 'Portfolio Income'), (COL['Other_Funding'], 'Other Funding'),
+        (COL['Req_Portfolio_Draws'], 'Required Portfolio Cash Draws'),
         (COL['Cash_Bridge_Gap'], 'Cash Bridge Gap / (Surplus)'),
         (COL['H_Trust_WD'], 'H Trust WD'),   (COL['W_Trust_WD'], 'W Trust WD'),
         (COL['Σ_Trust'],    'Σ Trust'),      (COL['HSA_WD'],     'HSA WD'),
@@ -388,35 +389,31 @@ def build_sheet6(ws, c, rows):
                      row['wife_single_ann'] + row['wife_joint_ann'] +
                      row['h_single_ann'] + row['h_joint_ann'] +
                      row['note_princ'] + row['note_int'] + row['rmd_total'])
-        heloc_pai   = row.get('heloc_interest', 0) + row.get('heloc_repayment_principal', 0)
+        heloc_pai       = row.get('heloc_interest', 0) + row.get('heloc_repayment_principal', 0)
+        other_cash_need = row.get('other_cash_need_yr', 0)
         spend_total = (row['spend_base_yr']
                        + row.get('housing_total_yr', row.get('mortgage', 0) + row.get('rent_yr', 0))
                        + row.get('wellness_base_yr', 0) + row.get('ltc_prem_yr', 0)
-                       + row['rec_extra'] + row['lump'] + heloc_pai)
+                       + row['rec_extra'] + row['lump'] + other_cash_need + heloc_pai)
         trust_total = row.get('h_trust_wd', 0) + row.get('w_trust_wd', 0)
         roth_total  = row.get('h_roth_wd', 0)  + row.get('w_roth_wd', 0)
         h_ira_cash  = row.get('rmd_h', 0)       + row.get('h_ira_elective', 0)
         w_ira_cash  = row.get('rmd_w', 0)       + row.get('w_ira_elective', 0)
         h_ira_tot   = row.get('h_ira_total_outflow', h_ira_cash + row.get('h_ira_conversion', 0))
         w_ira_tot   = row.get('w_ira_total_outflow', w_ira_cash + row.get('w_ira_conversion', 0))
-        # Cash bridge terms are intentionally separated so users do not expect
-        # total withdrawals to equal spending.  Roth conversions are account
-        # outflows/taxable income, but not spendable cash.  HELOC draws are
-        # borrowing/other funding, not portfolio withdrawals.  RMDs are shown in
-        # the tax/RMD area, but counted here as required portfolio cash draws.
+        # Cash bridge: RMDs are counted as income (inc_total includes rmd_total) so
+        # only elective IRA draws appear in required_portfolio_draws.  Portfolio income
+        # (dividends/interest) is a separate funding column.  Other cash needs (e.g.
+        # home-purchase down payments) are folded into Σ Spend.
         required_portfolio_draws = (trust_total + row.get('hsa_wd', 0) + roth_total +
-                                    h_ira_cash + w_ira_cash)
-        wd_total = required_portfolio_draws
-        total_tax = row.get('total_tax', row.get('fed_tax', 0) + row.get('state_tax', 0) + row.get('niit', 0) + row.get('irmaa', 0))
-        other_cash_need = row.get('other_cash_need_yr', 0)
-        total_cash_need = row.get('total_cash_need', spend_total + total_tax + other_cash_need)
-        income_funding = (row.get('earned', 0) + row.get('h_ss', 0) + row.get('w_ss', 0) +
-                          row.get('pension', 0) + row.get('wife_single_ann', 0) +
-                          row.get('wife_joint_ann', 0) + row.get('h_single_ann', 0) +
-                          row.get('h_joint_ann', 0) + row.get('note_princ', 0) +
-                          row.get('note_int', 0) + row.get('portfolio_income_total', 0))
-        other_funding = row.get('heloc_draw', 0)
-        cash_bridge_gap = total_cash_need - income_funding - other_funding - required_portfolio_draws
+                                    row.get('h_ira_elective', 0) + row.get('w_ira_elective', 0))
+        wd_total        = required_portfolio_draws + row.get('rmd_h', 0) + row.get('rmd_w', 0)
+        total_tax       = row.get('total_tax', row.get('fed_tax', 0) + row.get('state_tax', 0) + row.get('niit', 0) + row.get('irmaa', 0))
+        total_cash_need = row.get('total_cash_need', spend_total + total_tax)
+        income_funding  = inc_total
+        portfolio_income = row.get('portfolio_income_total', 0)
+        other_funding   = row.get('heloc_draw', 0)
+        cash_bridge_gap = total_cash_need - income_funding - portfolio_income - other_funding - required_portfolio_draws
 
         vals = {
             COL['Year']:      row['year'],
@@ -458,13 +455,13 @@ def build_sheet6(ws, c, rows):
             COL['Wellness_Other']: row.get('wellness_other_yr', 0),
             **({COL['HC_LTC']: row.get('ltc_prem_yr', 0)} if include_ltc else {}),
             COL['Travel']:      row['rec_extra'],
-            COL['Other']:       row['lump'],
+            COL['Other']:       row['lump'] + other_cash_need,
             COL['HELOC_PAI']:   heloc_pai,
             COL['Σ_Spend']:     spend_total,
             COL['Total_Tax']: total_tax,
-            COL['Other_Cash_Need']: other_cash_need,
             COL['Total_Cash_Need']: total_cash_need,
             COL['Income_Funding']: income_funding,
+            COL['Portfolio_Income']: portfolio_income,
             COL['Other_Funding']: other_funding,
             COL['Req_Portfolio_Draws']: required_portfolio_draws,
             COL['Cash_Bridge_Gap']: cash_bridge_gap,
@@ -770,13 +767,13 @@ def build_sheet8(ws, c, rows, mc_data=None):
     INC_YEAR = 11
     INC_SER  = [
         (12, 'earned',   'Earned Income',         '1F3864'),
-        (13, 'h_ss',     'Matthew SS',            '2E75B6'),
-        (14, 'w_ss',     'Patricia SS',           '3D9AB8'),
+        (13, 'h_ss',     f'{c.get("h_name","M1")} SS',       '2E75B6'),
+        (14, 'w_ss',     f'{c.get("w_name","M2")} SS',       '3D9AB8'),
         (15, 'pension',  'Pension',               'C9A84C'),
-        (16, 'w_sgl',    'Wife Single Ann',       '2D6A4F'),
-        (17, 'w_jnt',    'Wife Joint Ann',        '40916C'),
-        (18, 'h_sgl',    'Husband Single Ann',    'C55A11'),
-        (19, 'h_jnt',    'Husband Joint Ann',     'E07540'),
+        (16, 'w_sgl',    f'{c.get("w_name","M2")} Single Ann', '2D6A4F'),
+        (17, 'w_jnt',    f'{c.get("w_name","M2")} Joint Ann',  '40916C'),
+        (18, 'h_sgl',    f'{c.get("h_name","M1")} Single Ann', 'C55A11'),
+        (19, 'h_jnt',    f'{c.get("h_name","M1")} Joint Ann',  'E07540'),
         (20, 'note',     'Note P+I',              '5A3E85'),
         (21, 'rmd',      'RMD',                   '9B2335'),
         (22, 'trust_wd', 'Trust Draw',            '7B3F9E'),

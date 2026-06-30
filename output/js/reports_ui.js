@@ -11,7 +11,7 @@
   function call(fn){try{return typeof fn==='function'?fn():undefined}catch(_e){return undefined}}
 
   // ---- Workbook sheet classification helpers ----
-  function resultDisplayName(name){return String(name||'').replace(/^\s*\d+\.\s*/,'').trim()||String(name||'Results')}
+  function resultDisplayName(name){return String(name||'').replace(/^\s*\d+[A-Za-z]?\.\s*/,'').trim()||String(name||'Results')}
   function workbookTabPrefix(name){var m=String(name||'').match(/^(\d+[A-Za-z]?)[\.\s]/);return m?m[1]:(String(name||'').match(/^(\d+[A-Za-z]?)$/)?String(name||''):null)}
   function isWorkbookSectionDivider(name){return /^\d+[\.\s]/.test(String(name||''))&&!/^\d+[A-Za-z][\.\s]/.test(String(name||''))}
   function isWorkbookContentSheet(name){return workbookTabPrefix(name)!==null&&!isWorkbookSectionDivider(name)}
@@ -47,7 +47,7 @@
   function detailMeaningfulLabel(label){const text=String(label||'').trim();return !!text&&!/^measure\s*\d+$/i.test(text)&&!/^detail\s*\d+$/i.test(text)&&!/^column\s*\d+$/i.test(text)}
   function detailLabelForColumn(section,rows,headers,i){const header=detailText(headers[i]||{});if(detailMeaningfulLabel(header))return header;for(const row of rows.slice(0,18)){const text=detailText((row.cells||[])[i]||{});if(detailMeaningfulLabel(text)&&!_looksLikeDataValueForLabel(text))return text}return detailFallbackHeader(i,0)}
   function _looksLikeDataValueForLabel(text){const t=String(text||'').trim();if(!t)return true;if(detailCellIsYearText(t))return false;if(/^[$(\-\d,.%KMB\s]+$/i.test(t))return true;return false}
-  function detailCleanSectionTitle(title){return String(title||'').replace(/^\s*\d+\.\s*/,'').replace(/\s+section\s+\d+\s*·\s*rows\s*\d+\s*[–-]\s*\d+\s*$/i,'').trim()}
+  function detailCleanSectionTitle(title){return String(title||'').replace(/^\s*\d+[A-Za-z]?\.\s*/,'').replace(/\s+section\s+\d+\s*·\s*rows\s*\d+\s*[–-]\s*\d+\s*$/i,'').trim()}
   function detailGroupLabel(section,labels,cols){const visible=cols.map(i=>String(labels[i]||'').trim()).filter(detailMeaningfulLabel);const years=visible.filter(detailCellIsYearText);if(years.length>=Math.max(2,visible.length-1)){const first=years[0],last=years[years.length-1];return first===last?`Year ${first}`:`Years ${first}–${last}`}
   if(visible.length){const first=visible[0],last=visible[visible.length-1];return first===last?first:`${first} – ${last}`}
   const sectionTitle=detailCleanSectionTitle(section?.title)||'Details';return `${sectionTitle} details ${cols[0]+1}–${cols[cols.length-1]+1}`}
@@ -55,10 +55,124 @@
   function detailSuperHeaderCells(rows,identifierIdx,cols){if(identifierIdx<0)return [];const idCells=rows[identifierIdx]?.cells||[];let current='';const labels=cols.map(i=>{const text=detailText(idCells[i]||{});if(text)current=text;return current});const out=[];labels.forEach((label,idx)=>{const clean=detailMeaningfulLabel(label)?label:'';if(!out.length||out[out.length-1].label!==clean){out.push({label:clean,span:1})}else{out[out.length-1].span++}});return out}
   function renderDetailTableForCols(rows,cols,labels,headers,identifierIdx,headerIdx,section){const superCells=detailSuperHeaderCells(rows,identifierIdx,cols);let html=`<div class="detail-table-wrap"><table class="detail-result-table ${superCells.length?'has-super-head':''}"><thead>`;if(superCells.length){html+='<tr class="detail-super-head">'+superCells.map(g=>`<th colspan="${g.span}">${esc(g.label)}</th>`).join('')+'</tr>';}html+=`<tr class="detail-label-head">${cols.map(i=>`<th>${esc(labels[i])}</th>`).join('')}</tr></thead><tbody>`;rows.forEach((r,ri)=>{if(ri===headerIdx||ri===identifierIdx)return;html+='<tr>';cols.forEach(i=>{const kind=detailCellKind(section,r,i,headers);const val=detailCellDisplay(section,r,i,headers);html+=`<td class="detail-cell-${esc(kind)}${(kind==='currency'&&detailNumericValue((r.cells||[])[i])<0)?' negative-money':''}" title="${esc(String((r.cells||[])[i]?.value??''))}">${esc(val)}</td>`;});html+='</tr>';});html+='</tbody></table></div>';return html;}
 
-  // ---- Column group state (requires ctx.getColumnGroupOpen) ----
+  // ---- Column group state (kept for backward compatibility; new render uses DOM toggling) ----
   function detailVisibleColumns(ctx,section,labels,q){const maxCells=labels.length;const pinned=new Set();labels.forEach((label,i)=>{const low=norm(label);if(i<2||i===maxCells-1||low.includes('total')||low.includes('sum')||low.includes('σ')||low.includes('net worth'))pinned.add(i)});if(maxCells<=8||q){return {cols:Array.from({length:maxCells},(_,i)=>i),groups:[],pinned}}
-  const groups=detailColumnGroups(section,labels,pinned);const visible=new Set([...pinned]);const colGroupOpen=ctx&&ctx.getColumnGroupOpen?ctx.getColumnGroupOpen:()=>undefined;groups.forEach(g=>{const key=detailColumnGroupKey(section,g.index);if(colGroupOpen(key)!==false)g.cols.forEach(c=>visible.add(c))});return {cols:Array.from(visible).sort((a,b)=>a-b),groups,pinned}}
-  function renderDetailedResultTable(ctx,section,q){const rows=filteredDetailRows(section,q);if(!rows.length)return '<div class="section-note">No rows match the current search.</div>';const maxCells=Math.max(1,...rows.map(r=>(r.cells||[]).length));const headerIdx=q?-1:detailHeaderRowIndex(section,rows);const headers=headerIdx>=0?(rows[headerIdx].cells||[]):[];const labels=Array.from({length:maxCells},(_,i)=>detailLabelForColumn(section,rows,headers,i));const plan=detailVisibleColumns(ctx,section,labels,q);const identifierIdx=q?-1:detailIdentifierRowIndex(rows,headerIdx);const colGroupOpen=ctx&&ctx.getColumnGroupOpen?ctx.getColumnGroupOpen:()=>undefined;if(!plan.groups.length||q){return renderDetailTableForCols(rows,plan.cols,labels,headers,identifierIdx,headerIdx,section);}const pinnedArr=[...plan.pinned].sort((a,b)=>a-b);const allKeys=plan.groups.map(g=>detailColumnGroupKey(section,g.index));const keysStr=escJs(allKeys.join(','));const openCount=allKeys.filter(k=>colGroupOpen(k)!==false).length;let html=`<div class="detail-col-group-bar"><div class="detail-col-group-label"><b>Column groups</b><span class="detail-col-group-status">${plan.groups.length} group${plan.groups.length!==1?'s':''}${openCount?' &middot; '+openCount+' expanded':' &middot; all collapsed'}</span></div><div class="detail-col-group-bar-btns"><button class="btn" type="button" onclick="setAllDetailColumnGroups('${keysStr}',true)">Expand all</button><button class="btn" type="button" onclick="setAllDetailColumnGroups('${keysStr}',false)">Collapse all</button></div></div>`;plan.groups.forEach(g=>{const key=detailColumnGroupKey(section,g.index);const isOpen=colGroupOpen(key)!==false;const groupCols=[...pinnedArr,...g.cols].sort((a,b)=>a-b);html+=`<details class="detail-col-group-section" data-group-key="${escJs(key)}" ${isOpen?'open':''} ontoggle="setDetailColGroupOpen('${escJs(key)}',this.open)">`;html+=`<summary class="detail-col-group-summary"><span>${esc(g.label)}</span><small>${g.cols.length} column${g.cols.length!==1?'s':''}</small></summary>`;html+=renderDetailTableForCols(rows,groupCols,labels,headers,identifierIdx,headerIdx,section);html+=`</details>`;});return html;}
+  const groups=detailColumnGroups(section,labels,pinned);const visible=new Set([...pinned]);groups.forEach(g=>{g.cols.forEach(c=>visible.add(c))});return {cols:Array.from(visible).sort((a,b)=>a-b),groups,pinned}}
+  // Find the summary column index for a group (the Σ/Total column that stays visible when collapsed)
+  function _groupSummaryIdx(cols,labels){
+    // Prefer last col in group labeled with Σ/Total/Sum/NW
+    const rev=[...cols].reverse();
+    const found=rev.find(i=>{const low=norm(labels[i]||'');return low.includes('σ')||low.includes('total')||low.includes('sum')||low.includes('net_worth')});
+    return found!==undefined?found:cols[cols.length-1];
+  }
+  function renderDetailedResultTable(ctx,section,q){
+    const rows=filteredDetailRows(section,q);
+    if(!rows.length)return '<div class="section-note">No rows match the current search.</div>';
+    const maxCells=Math.max(1,...rows.map(r=>(r.cells||[]).length));
+    const headerIdx=q?-1:detailHeaderRowIndex(section,rows);
+    const headers=headerIdx>=0?(rows[headerIdx].cells||[]):[];
+    const labels=Array.from({length:maxCells},(_,i)=>detailLabelForColumn(section,rows,headers,i));
+    const identifierIdx=q?-1:detailIdentifierRowIndex(rows,headerIdx);
+    // Small table or active search: flat render
+    if(maxCells<=8||q)return renderDetailTableForCols(rows,Array.from({length:maxCells},(_,i)=>i),labels,headers,identifierIdx,headerIdx,section);
+
+    // Use semantic column_groups when provided by the results model
+    const semanticGroups=section&&Array.isArray(section.column_groups)&&section.column_groups.length>=2?section.column_groups:null;
+    if(semanticGroups){
+      // First group = always-pinned identifiers; remaining groups are collapsible
+      const pinnedGroupEnd=Math.min(semanticGroups[0].end,maxCells-1);
+      const pinnedArr=Array.from({length:pinnedGroupEnd+1},(_,i)=>i);
+      const collapsible=semanticGroups.slice(1).map((g,gi)=>{
+        const cols=[];for(let i=g.start;i<=Math.min(g.end,maxCells-1);i++)cols.push(i);
+        const sumIdx=_groupSummaryIdx(cols,labels);
+        return {index:gi,label:g.label,cols,sumIdx};
+      }).filter(g=>g.cols.length);
+      if(!collapsible.length)return renderDetailTableForCols(rows,Array.from({length:maxCells},(_,i)=>i),labels,headers,identifierIdx,headerIdx,section);
+      const nGroups=collapsible.length;
+      let html=`<div class="detail-single-table-wrap"><div class="detail-col-group-bar"><div class="detail-col-group-label"><b>Column groups</b><span class="detail-col-group-status">${nGroups} group${nGroups!==1?'s':''} · all collapsed</span></div><div class="detail-col-group-bar-btns"><button class="btn" type="button" onclick="expandAllDetailGroups(this)">Expand all</button><button class="btn" type="button" onclick="collapseAllDetailGroups(this)">Collapse all</button></div></div>`;
+      html+=`<div class="detail-table-wrap"><table class="detail-result-table has-col-groups"><thead>`;
+      // Row 1: group headers — spacer for pinned + 2 cols per collapsible group (summary + detail)
+      html+='<tr class="detail-col-group-header-row">';
+      if(pinnedArr.length)html+=`<th class="detail-col-group-spacer" colspan="${pinnedArr.length}"></th>`;
+      collapsible.forEach((g,gi)=>{
+        // Each group occupies: 1 always-visible summary col + (cols.length-1) hidden detail cols
+        const totalColspan=g.cols.length;
+        html+=`<th class="detail-col-group-th collapsed" data-group="${gi}" data-group-label="${esc(g.label)}" colspan="${totalColspan}" onclick="toggleDetailColGroup(this)"><span class="col-group-toggle-label">▶ ${esc(g.label)}</span><small>${g.cols.length-1} detail col${g.cols.length-1!==1?'s':''} + summary</small></th>`;
+      });
+      html+='</tr>';
+      // Row 2: column labels
+      html+='<tr class="detail-label-head">';
+      pinnedArr.forEach(i=>html+=`<th>${esc(labels[i])}</th>`);
+      collapsible.forEach((g,gi)=>{
+        g.cols.forEach(i=>{
+          const isSummary=i===g.sumIdx;
+          // Summary col: always visible; detail cols: hidden when collapsed
+          html+=`<th${isSummary?` class="cg-summary"`:` class="cg-hidden" data-col-group="${gi}"`}>${esc(labels[i])}</th>`;
+        });
+      });
+      html+='</tr></thead><tbody>';
+      rows.forEach((r,ri)=>{
+        if(ri===headerIdx||ri===identifierIdx)return;
+        html+='<tr>';
+        pinnedArr.forEach(i=>{const kind=detailCellKind(section,r,i,headers);const val=detailCellDisplay(section,r,i,headers);const neg=kind==='currency'&&detailNumericValue((r.cells||[])[i])<0;html+=`<td class="detail-cell-${esc(kind)}${neg?' negative-money':''}" title="${esc(String((r.cells||[])[i]?.value??''))}">${esc(val)}</td>`;});
+        collapsible.forEach((g,gi)=>{
+          g.cols.forEach(i=>{
+            const kind=detailCellKind(section,r,i,headers);const val=detailCellDisplay(section,r,i,headers);const neg=kind==='currency'&&detailNumericValue((r.cells||[])[i])<0;
+            const isSummary=i===g.sumIdx;
+            html+=`<td class="${isSummary?'cg-summary':('cg-hidden detail-cell-'+esc(kind)+(neg?' negative-money':''))}${isSummary?' detail-cell-'+esc(kind)+(neg?' negative-money':''):''}"${isSummary?'':` data-col-group="${gi}"`} title="${esc(String((r.cells||[])[i]?.value??''))}">${esc(val)}</td>`;
+          });
+        });
+        html+='</tr>';
+      });
+      html+='</tbody></table></div></div>';
+      return html;
+    }
+
+    // Fallback: auto-generated groups for sheets without semantic column_groups
+    const pinned=new Set();
+    labels.forEach((label,i)=>{const low=norm(label);if(i<2||i===maxCells-1||low.includes('total')||low.includes('sum')||low.includes('σ')||low.includes('net worth'))pinned.add(i)});
+    const groups=detailColumnGroups(section,labels,pinned);
+    if(!groups.length)return renderDetailTableForCols(rows,Array.from({length:maxCells},(_,i)=>i),labels,headers,identifierIdx,headerIdx,section);
+    const pinnedArr=[...pinned].sort((a,b)=>a-b);
+    const nPinned=pinnedArr.length;
+    const nGroups=groups.length;
+    let html=`<div class="detail-single-table-wrap"><div class="detail-col-group-bar"><div class="detail-col-group-label"><b>Column groups</b><span class="detail-col-group-status">${nGroups} group${nGroups!==1?'s':''} · all collapsed</span></div><div class="detail-col-group-bar-btns"><button class="btn" type="button" onclick="expandAllDetailGroups(this)">Expand all</button><button class="btn" type="button" onclick="collapseAllDetailGroups(this)">Collapse all</button></div></div>`;
+    html+=`<div class="detail-table-wrap"><table class="detail-result-table has-col-groups"><thead>`;
+    html+='<tr class="detail-col-group-header-row">';
+    if(nPinned)html+=`<th class="detail-col-group-spacer" colspan="${nPinned}"></th>`;
+    groups.forEach((g,gi)=>{
+      const sumIdx=_groupSummaryIdx(g.cols,labels);
+      const detailCount=g.cols.length-1;
+      html+=`<th class="detail-col-group-th collapsed" data-group="${gi}" data-group-label="${esc(g.label)}" colspan="${g.cols.length}" onclick="toggleDetailColGroup(this)"><span class="col-group-toggle-label">▶ ${esc(g.label)}</span><small>${detailCount} col${detailCount!==1?'s':''} + summary</small></th>`;
+    });
+    html+='</tr>';
+    html+='<tr class="detail-label-head">';
+    pinnedArr.forEach(i=>html+=`<th>${esc(labels[i])}</th>`);
+    groups.forEach((g,gi)=>{
+      const sumIdx=_groupSummaryIdx(g.cols,labels);
+      g.cols.forEach(i=>{
+        const isSummary=i===sumIdx;
+        html+=`<th${isSummary?` class="cg-summary"`:` class="cg-hidden" data-col-group="${gi}"`}>${esc(labels[i])}</th>`;
+      });
+    });
+    html+='</tr></thead><tbody>';
+    rows.forEach((r,ri)=>{
+      if(ri===headerIdx||ri===identifierIdx)return;
+      html+='<tr>';
+      pinnedArr.forEach(i=>{const kind=detailCellKind(section,r,i,headers);const val=detailCellDisplay(section,r,i,headers);const neg=kind==='currency'&&detailNumericValue((r.cells||[])[i])<0;html+=`<td class="detail-cell-${esc(kind)}${neg?' negative-money':''}" title="${esc(String((r.cells||[])[i]?.value??''))}">${esc(val)}</td>`;});
+      groups.forEach((g,gi)=>{
+        const sumIdx=_groupSummaryIdx(g.cols,labels);
+        g.cols.forEach(i=>{
+          const kind=detailCellKind(section,r,i,headers);const val=detailCellDisplay(section,r,i,headers);const neg=kind==='currency'&&detailNumericValue((r.cells||[])[i])<0;
+          const isSummary=i===sumIdx;
+          html+=`<td class="${isSummary?'cg-summary':('cg-hidden detail-cell-'+esc(kind)+(neg?' negative-money':''))}${isSummary?' detail-cell-'+esc(kind)+(neg?' negative-money':''):''}"${isSummary?'':` data-col-group="${gi}"`} title="${esc(String((r.cells||[])[i]?.value??''))}">${esc(val)}</td>`;
+        });
+      });
+      html+='</tr>';
+    });
+    html+='</tbody></table></div></div>';
+    return html;
+  }
 
   // ---- Chart renderers ----
   function niceTickRange(max,count){count=count||5;if(!max||max<=0)return Array.from({length:count},(_,i)=>i);var rawStep=max/(count-1);var mag=Math.pow(10,Math.floor(Math.log10(rawStep)));var nice=[1,2,5];var step=nice.reduce(function(best,m){var s=m*mag;return Math.abs(s-rawStep)<Math.abs(best-rawStep)?s:best},nice[0]*mag);return Array.from({length:count},function(_,i){return step*i})}
@@ -175,10 +289,16 @@
   function detailedProgressHtml(ctx,compact){return call(()=>ctx.detailedProgressHtml(!!compact))||'';}
   function renderDetailedResults(ctx){
     ctx=ctx||{};
-    if(!call(ctx.getDetailedResultsData)&&!call(ctx.getDetailedResultsLoading)&&!call(ctx.getDetailedResultsError)){
+    const hasData=!!call(ctx.getDetailedResultsData);
+    const isLoading=!!call(ctx.getDetailedResultsLoading);
+    const hasError=!!call(ctx.getDetailedResultsError);
+    if(!hasData&&!isLoading&&!hasError){
+      // Kick off the async load, and show loading state immediately so there is no
+      // "Build outputs first" flash while the setTimeout macro-task is pending.
       setTimeout(()=>call(()=>ctx.loadDetailedResults(false)),0);
+      return `<div class="holdings detailed-results"><div class="detail-loading-card"><h3>Loading results index</h3><p class="small">Opening the generated results and loading navigation first. Selected result pages load separately so large workbooks do not freeze the explorer.</p><div class="table-actions"><button class="btn" type="button" onclick="loadDetailedResults(true)" disabled>Refresh results</button></div></div></div>`;
     }
-    if(call(ctx.getDetailedResultsLoading)){
+    if(isLoading){
       return `<div class="holdings detailed-results"><div class="detail-loading-card"><h3>Loading results index</h3><p class="small">Opening the generated results and loading navigation first. Selected result pages load separately so large workbooks do not freeze the explorer.</p>${detailedProgressHtml(ctx,false)}<div class="table-actions"><button class="btn" type="button" onclick="loadDetailedResults(true)" disabled>Refresh results</button></div></div></div>`;
     }
     const detailedResultsError=call(ctx.getDetailedResultsError)||'';

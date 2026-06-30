@@ -56,7 +56,7 @@ def test_items_1_2_result_contract_contains_projection_pages_report_spec_and_eve
     assert pr['schema'] == 'plan_result_v10'
     assert pr['projection_rows'][0]['year'] == 2026
     assert pr['summary_metrics']['terminal_net_worth'] == 1_000_000
-    assert any(p['display_name'] == 'Cash Flow Projection' for p in pr['result_pages'])
+    assert any(p['display_name'] == 'Cash Flow' for p in pr['result_pages'])
     assert pr['report_spec']['schema'] == 'report_spec_v10'
     assert pr['event_log'][0]['stage'] == 'NetWorth'
     assert report_spec_from_plan_result(pr).schema == 'report_spec_v10'

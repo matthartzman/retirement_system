@@ -7,6 +7,14 @@
 
 .field-label-note{font-size:.88em;color:var(--muted);font-weight:600;margin-left:6px;font-style:italic}
 
+/* Reports & Review sub-tab nav in left sidebar */
+.nav-reports-subtabs{display:flex;flex-direction:column;gap:1px;padding:2px 0 6px 12px;border-left:2px solid var(--line);margin:2px 0 4px 12px}
+.nav-reports-subtab{display:block;width:100%;text-align:left;border:none;background:transparent;padding:5px 8px;border-radius:7px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;transition:background .1s,color .1s}
+.nav-reports-subtab:hover{background:var(--accent2);color:var(--accent)}
+.nav-reports-subtab.active{background:var(--accent2);color:var(--accent);font-weight:800}
+/* Workflow view card in Settings */
+.workflow-view-card{border-color:var(--accent);background:var(--accent2)}
+
 .advanced-nav{border:1px solid var(--line);border-radius:12px;margin:12px 0;background:#fff}
 .advanced-nav>summary{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:900;padding:10px 12px;background:#f3f1ea;border-radius:12px}
 .advanced-nav-body{display:flex;flex-direction:column;gap:8px;padding:8px}
@@ -328,6 +336,20 @@ body.chart-modal-open{overflow:hidden}
 .detail-col-group-bar-btns{display:flex;gap:6px}
 .detail-col-group-bar-btns .btn{padding:3px 10px;font-size:12px}
 .detail-col-group-section:not([open])>.detail-col-group-summary{color:var(--muted)}
+/* Single-table collapsible column groups */
+.detail-single-table-wrap .detail-table-wrap{overflow-x:auto}
+.cg-hidden{display:none}
+.detail-col-group-header-row th{position:sticky;top:0;z-index:7;background:var(--well);border-bottom:1px solid var(--line)}
+.detail-col-group-spacer{background:var(--well)!important}
+.detail-col-group-th{cursor:pointer;text-align:center;background:#eef3fb;border-left:2px solid #c6d8f0;font-size:11px;font-weight:700;padding:5px 8px;white-space:nowrap;user-select:none;transition:background .15s}
+.detail-col-group-th:hover{background:#dce9ff}
+.detail-col-group-th.collapsed{background:var(--well);color:var(--muted);border-left:2px solid var(--line)}
+.detail-col-group-th.collapsed:hover{background:#e8e4dc}
+.col-group-toggle-label{display:block;font-weight:700}
+.detail-col-group-th small{display:block;font-weight:400;font-size:10px;opacity:.75}
+.detail-result-table.has-col-groups .detail-col-group-header-row th:first-child{position:sticky;left:0;z-index:9;background:var(--well)}
+.detail-result-table.has-col-groups thead .detail-label-head th{position:sticky;top:34px;z-index:6;background:#fbfaf7}
+.detail-result-table.has-col-groups thead .detail-label-head th:first-child{z-index:8;position:sticky;left:0;background:#fbfaf7}
 
 /* Change 127: Planning Levers source/reference layout and compact inputs */
 .planning-levers .planning-lever-table{min-width:980px;table-layout:fixed}

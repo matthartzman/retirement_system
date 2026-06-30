@@ -9,56 +9,57 @@
   ],
   "sheets": [
     {
-      "name": "1E. Charts",
-      "kind": "chart_dashboard",
-      "category": "Reports",
-      "chart_count": 3,
-      "chart_title_prefixes": [
-        "Net Worth by Component",
-        "Cash Flow",
-        "Cash Flow"
-      ]
-    },
-    {
-      "name": "1. Executive Summary",
+      "name": "1A. Executive Summary",
       "kind": "table",
       "category": "Reports",
       "section_count": 1,
       "min_row_count": 6
     },
     {
-      "name": "4. Asset Allocation",
-      "kind": "table",
-      "category": "Strategy",
-      "section_count": 1,
-      "min_row_count": 2
-    },
-    {
-      "name": "5. Net Worth Projection",
+      "name": "1B. Net Worth",
       "kind": "table",
       "category": "Reports",
       "section_count": 1,
       "min_row_count": 2
     },
     {
-      "name": "6. Cash Flow Projection",
+      "name": "1C. Cash Flow",
       "kind": "table",
       "category": "Reports",
       "section_count": 1,
       "min_row_count": 2
     },
     {
-      "name": "7. Lifetime Tax",
+      "name": "1E. Charts",
+      "kind": "chart_dashboard",
+      "category": "Reports",
+      "chart_count": 3,
+      "chart_title_prefixes": [
+        "Net Worth by",
+        "Cash Flow — ",
+        "Cash Flow — "
+      ]
+    },
+    {
+      "name": "1F. Lifetime Taxes",
       "kind": "table",
       "category": "Reports",
       "section_count": 1,
       "min_row_count": 3
+    },
+    {
+      "name": "2B. Asset Allocation",
+      "kind": "table",
+      "category": "Strategy",
+      "section_count": 1,
+      "min_row_count": 2
     }
   ],
   "required_cell_kinds": [
-    "currency",
-    "percent",
+    "integer",
     "year",
-    "text"
+    "text",
+    "percent",
+    "currency"
   ]
 }

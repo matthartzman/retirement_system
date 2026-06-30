@@ -136,7 +136,7 @@ def _page(name: str, category: str, sections: list[dict[str, Any]], *, kind: str
 
 def _clean_page_name(name: str) -> str:
     import re
-    return re.sub(r"^\s*\d+\.\s*", "", str(name or "Results")).strip() or "Results"
+    return re.sub(r"^\s*\d+[A-Za-z]?\.\s*", "", str(name or "Results")).strip() or "Results"
 
 
 def _result_top_level_category(page: dict[str, Any]) -> str:
@@ -345,7 +345,7 @@ def _cashflow_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, A
     for label, span in group:
         column_groups.append({"label": label, "start": pos, "end": pos + span - 1})
         pos += span
-    return _page("6. Cash Flow Projection", "Reports", [_section("Cash Flow Projection", data_rows, column_groups=column_groups)])
+    return _page("1C. Cash Flow", "Reports", [_section("Cash Flow Projection", data_rows, column_groups=column_groups)])
 
 
 def _net_worth_page(rows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -376,7 +376,7 @@ def _net_worth_page(rows: list[dict[str, Any]]) -> dict[str, Any]:
             (r.get('home_equity'), 'currency'),
             (r.get('other_nw'), 'currency'), (r.get('total_nw'), 'currency'),
         ]))
-    return _page("5. Net Worth Projection", "Reports", [_section("Net Worth Projection", data, column_groups=[
+    return _page("1B. Net Worth", "Reports", [_section("Net Worth Projection", data, column_groups=[
         {"label": "Identifiers", "start": 0, "end": 2},
         {"label": "Account balances", "start": 3, "end": 7},
         {"label": "Real Estate", "start": 8, "end": 11},
@@ -394,7 +394,7 @@ def _lifetime_tax_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[st
         agi = _n(r.get('agi'))
         data.append(row([(r.get('year'), 'year'), (r.get('filing_status', c.get('filing_status', 'MFJ')), 'text'), (agi, 'currency'), (r.get('taxable_inc'), 'currency'), (r.get('roth_conv'), 'currency'), (r.get('fed_tax'), 'currency'), (r.get('state_tax'), 'currency'), (r.get('niit'), 'currency'), (total, 'currency'), ((total / agi) if agi else 0, 'percent')]))
     data.append(row([("Lifetime Total Tax", "text"), ("", "text"), ("", "text"), ("", "text"), ("", "text"), ("", "text"), ("", "text"), ("", "text"), (lifetime, "currency"), ("", "text")]))
-    return _page("7. Lifetime Tax", "Reports", [_section("Lifetime Tax", data)])
+    return _page("1F. Lifetime Taxes", "Reports", [_section("Lifetime Tax", data)])
 
 
 def _asset_allocation_page(c: dict[str, Any]) -> dict[str, Any]:
@@ -412,7 +412,7 @@ def _asset_allocation_page(c: dict[str, Any]) -> dict[str, Any]:
             rows.append(row([(b, "text"), (bv, "currency"), (av, "currency"), (bv / total_before, "percent"), (av / total_after, "percent")]))
     else:
         rows.append(row([("No allocation chart data available in the semantic model.", "text")]))
-    return _page("4. Asset Allocation", "Reports", [_section("Asset Allocation", rows)])
+    return _page("2B. Asset Allocation", "Reports", [_section("Asset Allocation", rows)])
 
 
 def _executive_summary_page(c: dict[str, Any], rows: list[dict[str, Any]], mc_data: dict[str, Any] | None) -> dict[str, Any]:
@@ -430,7 +430,7 @@ def _executive_summary_page(c: dict[str, Any], rows: list[dict[str, Any]], mc_da
     data = [row([("Metric", "text"), ("Value", "text")])]
     for label, value, kind in summary:
         data.append(row([(label, "text"), (value, kind)]))
-    return _page("1. Executive Summary", "Reports", [_section("Executive Summary", data)])
+    return _page("1A. Executive Summary", "Reports", [_section("Executive Summary", data)])
 
 
 def build_result_explorer_model(c: dict[str, Any], rows: list[dict[str, Any]], mc_data: dict[str, Any] | None = None) -> dict[str, Any]:
