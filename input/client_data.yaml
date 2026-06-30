@@ -1,0 +1,889 @@
+Annuity Death Benefits:
+  '2026':
+    H_Joint: $860,000
+    H_Single: $93,041
+    W_Joint: $355,000
+    W_Single: $54,811
+  '2027':
+    H_Joint: $860,000
+    H_Single: $98,029
+    W_Joint: $355,000
+    W_Single: $57,527
+  '2028':
+    H_Joint: $887,765
+    H_Single: $103,285
+    W_Joint: $353,868
+    W_Single: $60,381
+  '2029':
+    H_Joint: $936,024
+    H_Single: $108,826
+    W_Joint: $324,660
+    W_Single: $67,377
+  '2030':
+    H_Joint: $869,290
+    H_Single: $0
+    W_Joint: $295,406
+    W_Single: $0
+  '2031':
+    H_Joint: $793,070
+    H_Single: $0
+    W_Joint: $267,026
+    W_Single: $0
+  '2032':
+    H_Joint: $717,885
+    H_Single: $0
+    W_Joint: $239,467
+    W_Single: $0
+  '2033':
+    H_Joint: $644,998
+    H_Single: $0
+    W_Joint: $212,555
+    W_Single: $0
+  '2034':
+    H_Joint: $574,089
+    H_Single: $0
+    W_Joint: $186,153
+    W_Single: $0
+  '2035':
+    H_Joint: $504,776
+    H_Single: $0
+    W_Joint: $160,180
+    W_Single: $0
+  '2036':
+    H_Joint: $436,878
+    H_Single: $0
+    W_Joint: $134,626
+    W_Single: $0
+  '2037':
+    H_Joint: $370,076
+    H_Single: $0
+    W_Joint: $109,395
+    W_Single: $0
+  '2038':
+    H_Joint: $304,216
+    H_Single: $0
+    W_Joint: $84,451
+    W_Single: $0
+  '2039':
+    H_Joint: $239,205
+    H_Single: $0
+    W_Joint: $59,771
+    W_Single: $0
+  '2040':
+    H_Joint: $173,663
+    H_Single: $0
+    W_Joint: $35,209
+    W_Single: $0
+  '2041':
+    H_Joint: $173,663
+    H_Single: $0
+    W_Joint: $10,736
+    W_Single: $0
+  '2042':
+    H_Joint: $43,892
+    H_Single: $0
+    W_Joint: $0
+    W_Single: $0
+Asset Allocation Policy:
+  Bonds:
+    target_pct: 15%
+  Cash:
+    target_pct: 5%
+  Commodities:
+    target_pct: 0%
+  Emerging Markets:
+    target_pct: 5%
+  Global:
+    allocation_selection_mode: user_target
+  International:
+    target_pct: 20%
+  Managed Futures:
+    target_pct: 0%
+  Municipal Bonds:
+    target_pct: 0%
+  Private Credit:
+    target_pct: 0%
+  REITs:
+    target_pct: 0%
+  Short-Term Bonds:
+    target_pct: 5%
+  TIPS:
+    target_pct: 0%
+  US Large Cap:
+    target_pct: 40%
+  US Mid Cap:
+    target_pct: 5%
+  US Small Cap:
+    target_pct: 5%
+Asset Class Optimizer Controls:
+  Bonds:
+    alternate_asset_class: Guaranteed income + note receivable
+    optimizer_override_pct: ''
+    selection_action: consider_alternate_first
+  Cash:
+    alternate_asset_class: ''
+    optimizer_override_pct: ''
+    selection_action: include
+  Commodities:
+    alternate_asset_class: ''
+    optimizer_override_pct: ''
+    selection_action: include
+  Emerging Markets:
+    alternate_asset_class: ''
+    optimizer_override_pct: ''
+    selection_action: include
+  International:
+    alternate_asset_class: ''
+    optimizer_override_pct: ''
+    selection_action: include
+  Managed Futures:
+    alternate_asset_class: ''
+    optimizer_override_pct: ''
+    selection_action: include
+  Municipal Bonds:
+    alternate_asset_class: ''
+    optimizer_override_pct: ''
+    selection_action: include
+  Private Credit:
+    alternate_asset_class: ''
+    optimizer_override_pct: ''
+    selection_action: include
+  REITs:
+    alternate_asset_class: Home Equity
+    optimizer_override_pct: ''
+    selection_action: consider_alternate_first
+  Short-Term Bonds:
+    alternate_asset_class: ''
+    optimizer_override_pct: ''
+    selection_action: include
+  TIPS:
+    alternate_asset_class: ''
+    optimizer_override_pct: ''
+    selection_action: include
+  US Large Cap:
+    alternate_asset_class: ''
+    optimizer_override_pct: ''
+    selection_action: include
+  US Mid Cap:
+    alternate_asset_class: ''
+    optimizer_override_pct: ''
+    selection_action: include
+  US Small Cap:
+    alternate_asset_class: ''
+    optimizer_override_pct: ''
+    selection_action: include
+Cashflow:
+  Earned Income:
+    annual_earned_income: $290,000
+    earned_income_annual_increase: 3.00%
+    earned_income_last_year: '2027'
+    earned_income_start_year: '2026'
+    entity_type: s_corp
+  Large Discretionary Expenses:
+    extra_1_amount: $100,000
+    extra_1_comment: Child Wedding 1
+    extra_1_end_year: ''
+    extra_1_start_year: ''
+    extra_1_type: Weddings
+    extra_1_year: '2027'
+    extra_2_amount: $50,000
+    extra_2_comment: Child Wedding 2
+    extra_2_end_year: ''
+    extra_2_start_year: ''
+    extra_2_type: Weddings
+    extra_2_year: '2028'
+    extra_3_amount: $100,000
+    extra_3_comment: Child Wedding 3
+    extra_3_end_year: ''
+    extra_3_start_year: ''
+    extra_3_type: Weddings
+    extra_3_year: '2030'
+    extra_4_amount: $25,000
+    extra_4_comment: last year home-project spend is active (model ignores this line
+      after this year)
+    extra_4_end_year: '2030'
+    extra_4_start_year: '2026'
+    extra_4_type: Home Improvement
+    extra_4_year: ''
+    extra_5_amount: $25,000
+    extra_5_comment: last year vacation spend is active
+    extra_5_end_year: '2045'
+    extra_5_start_year: '2026'
+    extra_5_type: Vacations
+    extra_5_year: ''
+  Mortgage:
+    annual_real_estate_taxes: $18,000
+    balance_as_of_plan_start: $293,284
+    interest_rate: 1.99%
+    last_payment_date: 10/31/2034
+    last_payment_year: '2034'
+    monthly_payment: $3,000
+    real_estate_tax_annual_adjustment_pct: ''
+  Post-House-Sale Rent:
+    monthly_rent_post_sale: $0
+  Retirement Contributions:
+    annual_401k_limit_base_year: $32,500
+    index_401k_limit: 'TRUE'
+    monthly_401k_contribution: $2,000
+  S-Corp:
+    qbi_phaseout_applies: 'FALSE'
+    reasonable_salary_annual: $60,000
+    sehi_added_to_w2: 'TRUE'
+    state_corporate_surcharge_rate: 1.50%
+  Self-Employment:
+    business_expenses_annual: $15,000
+    health_insurance_premiums_annual: $10,000
+    home_office_expenses_annual: $4,000
+    qbi_eligible: 'TRUE'
+  Spending:
+    annual_charitable_giving_high: $5,000
+    annual_charitable_giving_low: $3,000
+    annual_spending_base_year: $154,158
+    core_spending_growth_mode: cpi
+    core_spending_manual_growth_rate: 0.00%
+    daf_annual_contribution: $0
+DAF:
+  Settings:
+    annual_grant_amount: $4,000
+    contribution_amount: $20,000
+    contribution_year: '2026'
+    enabled: 'FALSE'
+    grant_end_year: '2031'
+    grant_start_year: '2027'
+Economic Assumptions:
+  ? ''
+  : annuity_default_additional_income_pct: 20.00%
+    annuity_default_dividend_rate: 5.75%
+    annuity_default_pay_in_cash_pct: 80.00%
+    fed_tax_bracket_inflator: 2.00%
+    inflation_general: 2.50%
+    medicare_part_b_inflation: 5.50%
+    medicare_part_d_inflation: 1.25%
+    portfolio_nominal_return: 6.00%
+    social_security_cola: 2.00%
+    social_security_taxable_fraction: 85.00%
+Education Funding:
+  529 Accounts:
+    account_count: '0'
+  529 Plan 1:
+    annual_contribution: $0
+    beneficiary: ''
+    contribution_end_year: ''
+    contribution_start_year: ''
+    current_balance: $0
+    expected_use_year: ''
+  Grandchild_A_529:
+    balance_today: $50,000
+    beneficiary: Grandchild A
+    contribution_end_year: '2035'
+    growth_rate: 6.00%
+    monthly_contribution: $500
+    owner: Husband
+    state_deduction_eligible: 'FALSE'
+  Grandchild_A_Goal:
+    annual_cost_today: $40,000
+    beneficiary: Grandchild A
+    cost_inflation_rate: 5.00%
+    end_year: '2039'
+    start_year: '2036'
+  Policy:
+    allow_secure_2_roth_rollover: 'TRUE'
+    state_deduction_limit_annual: $0
+Equity Compensation:
+  ISO_2023:
+    exercise_price: $25
+    fmv_growth_rate: 10.00%
+    fmv_per_share_today: $150
+    grant_date: 6/1/2023
+    grant_type: ISO
+    planned_exercise_year: '2026'
+    planned_sale_year: '2027'
+    recipient: Husband
+    shares_outstanding: '500'
+    vest_schedule: fully vested
+  RSU_2024:
+    exercise_price: $0
+    fmv_growth_rate: 10.00%
+    fmv_per_share_today: $150
+    grant_date: 3/1/2024
+    grant_type: RSU
+    planned_exercise_year: '0'
+    planned_sale_year: '2026'
+    recipient: Husband
+    shares_outstanding: '2000'
+    vest_schedule: 25%/yr starting 2025
+Estate Planning:
+  Credit Shelter Trust:
+    amount: $4,000,000
+    enabled: 'TRUE'
+    note: Funds up to IL exemption bypasses survivor estate for IL tax
+  Federal:
+    exemption_mfj: $30,000,000
+    portability_enabled: 'TRUE'
+  Gifting:
+    annual_exclusion_per_donee: $19,000
+  Illinois:
+    state_estate_exemption: $4,000,000
+    state_estate_rate_note: graduated 0.8%-16%
+  QTIP Trust:
+    enabled: 'FALSE'
+    funding_amount: '0'
+    manages_annuity_after_first_death: 'TRUE'
+    note: Provides income to surviving spouse
+  SN_ABLE:
+    annual_contribution_limit: $19,000
+    balance_today: $15,000
+    monthly_contribution: '500'
+  SN_Beneficiary:
+    annual_support_today: $30,000
+    dob: 5/1/2000
+    inflation_rate: 2.50%
+    lifetime_to_age: '75'
+    name: ''
+  SN_GovBenefits:
+    medicaid_enrolled: 'TRUE'
+    ssdi_monthly: '0'
+    ssi_monthly: '943'
+  SN_Trust:
+    balance_today: $100,000
+    funding_schedule: $10,000
+    growth_rate: 5.00%
+    is_third_party: 'TRUE'
+  Step-Up:
+    basis_step_up_at_death: 'TRUE'
+    property_regime: COMMON_LAW
+  Trust Structure:
+    credit_shelter_trust: 'TRUE'
+    trust_type: revocable living trust
+HELOC:
+  Setup:
+    heloc_credit_limit: $200,000
+    heloc_draw_end_year: '2029'
+    heloc_enabled: 'NO'
+    heloc_initial_rate_pct: 8.50%
+    heloc_rate_drift_bps_yr: '25'
+    heloc_repayment_years: '10'
+HSA Policy:
+  Contributions:
+    catchup_amount: $1,000
+    catchup_eligible: 'TRUE'
+    contribution_last_year: '2026'
+    coverage_base_year_family_months: '6'
+    coverage_base_year_self_only_months: '6'
+    family_annual_limit_base_year: $8,750
+    index_hsa_limit: 'TRUE'
+    requires_hdhp: 'TRUE'
+    self_only_annual_limit_base_year: $4,400
+  Spousal Rollover:
+    inherited_by_spouse: 'TRUE'
+  Window:
+    withdrawal_window: 2031-2040
+  Withdrawals:
+    hsa_annual_spend_pct: 10.00%
+    hsa_withdrawal_end_year: '2031'
+    hsa_withdrawal_mode: smooth_window
+    hsa_withdrawal_start_year: '2040'
+Household:
+  ? ''
+  : filing_status: MFJ
+    member_1_dob: 8/3/1962
+    member_1_mortality_age: '92'
+    member_1_name: Matthew
+    member_1_retirement_date: '2027-01-01'
+    member_2_dob: 5/30/1961
+    member_2_mortality_age: '95'
+    member_2_name: Patricia
+    member_2_retirement_date: 2/28/2024
+    residence_state: Illinois
+    survivor_filing_status: Single
+    survivor_has_dependent: 'FALSE'
+Housing:
+  current_home:
+    city_type: ''
+    hoa_annual: ''
+    home_maintenance_annual: $2,100
+    homeowners_insurance_annual: $2,000
+    population_size: ''
+    utilities_annual: $2,100
+  next_step_1:
+    city_type: ''
+    down_payment: ''
+    end_year: ''
+    hoa_pct: ''
+    insurance_annual: ''
+    maintenance_annual: ''
+    monthly_rent: ''
+    mortgage_rate_pct: ''
+    population_size: ''
+    purchase_price: ''
+    re_tax_pct: ''
+    start_year: ''
+    state: ''
+    type: ''
+    utilities_annual: ''
+  next_step_2:
+    city_type: ''
+    down_payment: ''
+    end_year: ''
+    hoa_pct: ''
+    insurance_annual: ''
+    maintenance_annual: ''
+    monthly_rent: ''
+    mortgage_rate_pct: ''
+    population_size: ''
+    purchase_price: ''
+    re_tax_pct: ''
+    start_year: ''
+    state: ''
+    type: ''
+    utilities_annual: ''
+Hybrid LTC:
+  Settings:
+    annual_premium: $18,500
+    enabled: 'FALSE'
+    face_value: $500,000
+    insured: Member 1
+    start_year: '2027'
+Income Streams:
+  Joint-and-Survivor Percentage:
+    js_pct: 100%
+  Member 1 Joint Annuity:
+    additional_income_pct: 20.00%
+    base: $860,000
+    credit_rating: A++
+    cumulative_at_death: $1,685,770
+    deferral_years: '4'
+    dividend_rate: 5.75%
+    first_payment: 8/3/2029
+    initial_guaranteed_income_payment: 2,765.82
+    pay_in_cash_pct: 80.00%
+    qualified: 'TRUE'
+    source_account: Member_1_IRA
+  Member 1 Single Annuity:
+    additional_income_pct: 20.00%
+    base: $70,132.07
+    credit_rating: A++
+    cumulative_at_death: $218,924
+    deferral_years: '4'
+    dividend_rate: 5.75%
+    exclusion_ratio: '0.789'
+    first_payment: 8/3/2029
+    initial_guaranteed_income_payment: $395.15
+    pay_in_cash_pct: 80.00%
+    qualified: 'FALSE'
+  Member 2 Joint Annuity:
+    additional_income_pct: 20.00%
+    base: $355,000
+    credit_rating: A++
+    cumulative_at_death: $709,350
+    deferral_years: '2'
+    dividend_rate: 5.75%
+    first_payment: 5/30/2028
+    initial_guaranteed_income_payment: $1,071.33
+    pay_in_cash_pct: 80.00%
+    qualified: 'TRUE'
+    source_account: Member_2_IRA
+  Member 2 Pension:
+    additional_income_pct: 20.00%
+    credit_rating: A
+    cumulative_at_death: $142,560
+    deferral_years: '0'
+    dividend_rate: 5.00%
+    first_payment: 6/1/2026
+    initial_guaranteed_income_payment: $376
+    pay_in_cash_pct: 80.00%
+    qualified: 'TRUE'
+  Member 2 Single Annuity:
+    additional_income_pct: 20.00%
+    base: $41,559.86
+    credit_rating: A++
+    cumulative_at_death: $125,390
+    deferral_dampening: '0.513'
+    deferral_years: '5'
+    dividend_rate: 5.50%
+    exclusion_ratio: '0.738'
+    first_payment: 5/30/2029
+    initial_guaranteed_income_payment: $235.41
+    pay_in_cash_pct: 80.00%
+    qualified: 'FALSE'
+    reserve_factor: '0.74'
+  Present Value Horizon:
+    age_to_value_through: '85'
+  Recovery Age:
+    principal_recovery_age: '86'
+Insurance In Force:
+  DI_Group_Matthew:
+    benefit_period_years: '5'
+    elimination_days: '90'
+    insured: Member 1
+    monthly_benefit: $15,000
+    premium_annual: $1,200
+    premium_pre_tax: 'TRUE'
+    type: group
+  DI_Scenario:
+    simulate_disability_year: '0'
+  Disability:
+    policy_count: '0'
+  Life:
+    policy_count: '0'
+  Life_1:
+    annual_premium: $0
+    beneficiary: ''
+    face_amount: $0
+    insured: ''
+    notes: ''
+    owner: ''
+    policy_type: Life
+    premium_end_year: ''
+    term_end_year: ''
+  Life_Term_Matthew:
+    annual_premium: $1,800
+    beneficiary: Member 2
+    cash_value_growth_rate: 0%
+    cash_value_today: $0
+    face_amount: $500,000
+    insured: Member 1
+    owned_by_ilit: 'FALSE'
+    owner: Member 1
+    policy_type: term
+    premium_end_year: '2035'
+    term_end_year: '2035'
+  Life_Whole_Patricia:
+    annual_premium: $3,500
+    beneficiary: Member 1
+    cash_value_growth_rate: 4.00%
+    cash_value_today: $45,000
+    face_amount: $250,000
+    insured: Member 2
+    owned_by_ilit: 'FALSE'
+    owner: Member 2
+    policy_type: whole
+    premium_end_year: '2040'
+    term_end_year: '0'
+  Long-Term Care:
+    policy_count: '0'
+  PC_Auto:
+    annual_premium: $2,400
+    coverage_limit: $500,000
+    deductible: $1,000
+    policy_type: auto
+  PC_Homeowner:
+    annual_premium: $3,200
+    coverage_limit: $1,500,000
+    deductible: $5,000
+    policy_type: HO
+  PC_Targets:
+    umbrella_target_multiple_of_nw: '1.5'
+  PC_Umbrella:
+    annual_premium: '800'
+    coverage_limit: $5,000,000
+    deductible: '0'
+    policy_type: umbrella
+  Property and Casualty:
+    policy_count: '0'
+  Umbrella Liability:
+    policy_count: '0'
+Liquidity Buffer:
+  buffer_1:
+    end_year: ''
+    reserve_account: Taxable/Trust
+    start_year: ''
+    years_of_expenses: '0'
+Model Constants:
+  Allocation:
+    cash_target_pct: '0.05'
+    concentration_business: 0%
+    concentration_employer_stock: 0%
+    concentration_real_estate: 0%
+    glide_path: static
+    human_capital_stability: '0.5'
+    include_home_equity_in_allocation_view: 'YES'
+    inflation_sensitive_spending_pct: 10%
+    liquid_reit_target_pct_when_home_not_counted: 5%
+    risk_tolerance: '8'
+  Asset Allocation:
+    cash_pct: 5.00%
+    commodity_pct: 10.00%
+    equity_pct: 85.00%
+  Capital Gains:
+    ltcg_0pct_top_mfj_base_year: '96700'
+    ltcg_15pct_top_mfj_base_year: '600050'
+    niit_magi_threshold_mfj: '250000'
+  Home Sale:
+    selling_cost_pct: 6.00%
+  IRMAA:
+    irmaa_annual_inflator: 2.00%
+    irmaa_tier2_mfj_base_year: '268000'
+  Monte Carlo:
+    inflation_sigma: 1.50%
+    mc_engine_mode: quick_vectorized
+    mc_portfolio_sigma: 12.00%
+    mc_sensitivity_simulations: '50'
+    mc_simulations: '1000'
+    recenter_regime_returns: 'TRUE'
+    return_inflation_correlation: '-0.25'
+    return_serial_correlation: '0.15'
+    stochastic_inflation: 'TRUE'
+    stochastic_irmaa: 'TRUE'
+    stochastic_tax_brackets: 'TRUE'
+    success_liquid_floor: '0'
+    use_asset_class_covariance: 'TRUE'
+    wellness_cost_shocks: 'TRUE'
+    wellness_shock_annual_prob: 3.00%
+    wellness_shock_mean_cost: $150,000
+  Retirement:
+    member_1_rmd_start_age: '75'
+    member_2_rmd_start_age: '75'
+    rmd_start_age: '75'
+    rollover_401k_year: '2030'
+    spending_freeze_year: '2040'
+    ss_claim_age: '70'
+  Roth Conversion:
+    roth_conv_window_end_offset: '-1'
+Note Receivable:
+  Interest by Year:
+    '2026': $41,265.01
+    '2027': $32,164
+    '2028': $27,450
+    '2029': $22,735
+    '2030': $18,021
+    '2031': $13,306
+    '2032': $4,448
+    '2033': $2,224.77
+  Summary:
+    annual_principal_base_period: $59,281.62
+    face_value: $474,252.96
+    final_principal_2033: $59,327.50
+    first_payment: 1/2/2026
+    last_payment: 1/2/2033
+    total_cash_flow: $613,394.61
+Optional Functions:
+  ? ''
+  : business_succession: 'FALSE'
+    charitable_giving: 'TRUE'
+    charts_dashboard: 'TRUE'
+    disability_income_insurance: 'FALSE'
+    divorce_qdro: 'FALSE'
+    education_funding_529: 'FALSE'
+    equity_compensation: 'FALSE'
+    estate_legacy_plan: 'TRUE'
+    existing_life_insurance: 'FALSE'
+    glossary: 'TRUE'
+    life_insurance_need: 'TRUE'
+    lifetime_tax_projection: 'YES'
+    long_term_care_stress: 'TRUE'
+    market_luck_stress_test: 'TRUE'
+    methodology_rerun: 'TRUE'
+    property_casualty_umbrella: 'FALSE'
+    retirement_strategy: 'TRUE'
+    rmd_audit: 'TRUE'
+    roth_conversion_plan: 'TRUE'
+    social_security_timing: 'TRUE'
+    special_needs_planning: 'FALSE'
+    state_residency: 'TRUE'
+    survivor_stress_test: 'TRUE'
+    what_if_analysis: 'TRUE'
+Other Assets:
+  Autos:
+    depreciation_per_year: '10'
+    depreciation_years: '7'
+    value: $57,384.27
+  Cash:
+    value: $20,000
+  Home:
+    appreciation_rate: 3.00%
+    home_basis: $800,000
+    home_sale_price: $1,750,000
+    home_sale_proceeds_account: Member_2_Trust
+    home_sale_year: '0'
+    section_121_exclusion_mfj: $500,000
+    value_as_of_plan_start: $1,313,000
+  Startup Equity:
+    basis: $0
+    sale_price: $66,000
+    sale_year: '2030'
+    value: $66,000
+Payroll Tax:
+  Medicare:
+    additional_medicare_rate: 0.90%
+    additional_medicare_threshold_mfj: $250,000
+    medicare_employee_rate: 1.45%
+    medicare_self_employment_rate: 2.90%
+  Self-Employment:
+    se_half_deductible: 'TRUE'
+    se_net_earnings_factor: 92.35%
+  Social Security:
+    ss_employee_rate: 6.20%
+    ss_self_employment_rate: 12.40%
+    ss_wage_base_base_year: $184,500
+Positions:
+  Member_1_401k:
+    CASH: '56206.59'
+  Member_1_HSA:
+    CASH: '58804.31'
+  Member_1_IRA:
+    CASH: '2027682.8'
+  Member_1_Roth:
+    CASH: '121303.07'
+  Member_1_Trust:
+    CASH: '113483.87'
+  Member_2_IRA:
+    CASH: '903985.34'
+  Member_2_Roth:
+    CASH: '58420.94'
+  Member_2_Trust:
+    CASH: '351902.92'
+Reporting:
+  Output:
+    real_dollar_reporting_enabled: 'TRUE'
+Scenarios:
+  Allocation Optimizer Defined:
+    allocation_selection_mode: optimizer_recommendation
+  Allocation User Defined:
+    allocation_selection_mode: user_target
+  Base:
+    description: as-modeled plan
+  Combined Stress Test:
+    include_high_inflation: 'FALSE'
+    include_low_return: 'TRUE'
+    include_pdia_5050: 'FALSE'
+    include_pdia_low_div: 'TRUE'
+    include_retire_later: 'FALSE'
+    include_sell_home: 'TRUE'
+    include_spend_more: 'FALSE'
+  Demo_Divorce_Settlement:
+    divorce_year: '2030'
+  Divorce_Alimony:
+    end_year: '2040'
+    monthly_amount: $5,000
+    payor: Husband
+    start_year: '2031'
+    taxable_pre_2019_rules: 'FALSE'
+  Divorce_Health:
+    cobra_end_year: '2032'
+    cobra_monthly: $1,500
+  Divorce_Property:
+    amount: $500,000
+    from_account: Member_1_Trust
+    year: '2030'
+  Divorce_QDRO_Member1IRA:
+    account_name: Member_1_IRA
+    transfer_amount: '0'
+    transfer_pct: 50.00%
+    transfer_year: '2030'
+  Divorce_Settlement:
+    filing_status_after_divorce: Single
+  Downsize Home:
+    home_downsize_net_proceeds: $400,000
+    home_downsize_year: '2035'
+  High Inflation:
+    inflation_override: 4.50%
+  Higher Spending:
+    spend_multiplier: '1.2'
+  Low Return:
+    portfolio_return_override: 4.00%
+  PDIA 50-50 Split:
+    annuity_div_override: ''
+    annuity_split_override: 50.00%
+  PDIA Lower Dividend:
+    annuity_div_override: 4.50%
+    annuity_split_override: ''
+  Retire Later:
+    income_growth_rate_override: 0.00%
+    member_1_retire_year: '2029'
+    salary_override: $50,000
+  Sell Home:
+    home_sale_proceeds_account: Member_2_Trust
+    home_sale_year: '2045'
+Social Security:
+  Funding Discount:
+    ss_funding_discount_pct: 22.00%
+    ss_funding_discount_year: '2032'
+  Member 1:
+    claim_age: '70'
+    monthly_at_age_70_today_dollars: $5,080
+    monthly_pia_at_fra_today_dollars: '0'
+  Member 2:
+    claim_age: '70'
+    monthly_at_age_70_today_dollars: $4,174
+    monthly_pia_at_fra_today_dollars: '0'
+  Policy:
+    spousal_benefits_enabled: 'TRUE'
+    survivor_benefit_uses_deceased_claim_age: 'TRUE'
+    survivor_pct_of_higher_benefit: '100'
+State Comparison:
+  ? ''
+  : target_state: ''
+  auto_insurance:
+    illinois_baseline_annual: ''
+    notes: ''
+    target_state_annual: ''
+  homeowners_insurance:
+    illinois_baseline_annual: ''
+    notes: ''
+    target_state_annual: ''
+Wellness:
+  ACA Premium Tax Credit:
+    applicable_pct_cap: 8.50%
+    benchmark_silver_premium_annual: '32000'
+    enabled: 'TRUE'
+    enhanced_subsidies_through_year: '2026'
+    federal_poverty_level_base_year: '21150'
+    household_size: '2'
+  Medicare:
+    part_b_base_premium_monthly: $446.30
+    part_d_base_premium_monthly: $174.61
+    part_g_base_premium_monthly: $359.10
+  Out-of-Pocket:
+    annual_oop_estimate_today: $10,000
+    dental_annual: $2,900
+    medical_annual: $10,000
+    oop_utilization_pct: 100.00%
+    pharmacy_annual: $5,000
+    vision_annual: $2,100
+  Pre-65 Bridge:
+    annual_premium_base_year: $12,000
+Withdrawal Policy:
+  Identity:
+    annual_funding_tolerance: $10
+  Priority 1:
+    RMD: mandatory
+  Priority 2:
+    HSA: smooth_window
+  Priority 3:
+    IRA_elective: gross_up_tax
+  Priority 4:
+    Trust: with_buffer
+  Priority 5:
+    Roth: tax_free
+  Priority 6:
+    Home_equity_tap: heloc_or_downsize
+  Roth Conversion:
+    estate_tax_objective_mode: BALANCED
+    future_tax_rate_stress_pct: 10.00%
+    future_tax_risk_weight: '0.35'
+    heir_ordinary_tax_rate_assumption_pct: 24.00%
+    inheritance_tax_burden_weight: '0.25'
+    irmaa_guardrail_mode: WARN_ONLY
+    legacy_objective_mode: BALANCED
+    max_annual_conversion_pct_of_traditional_ira: 100.00%
+    max_conversion_years: '10'
+    pre_tax_bequest_penalty_pct: 15.00%
+    roth_bequest_preference_bonus_pct: 5.00%
+    roth_bracket_strategy: OPTIMIZER_CHOOSES
+    roth_conversion_policy: fill_to_irmaa
+    roth_conversion_target_bracket_base_year: 22.00%
+    roth_fixed_annual_amount: $0
+    roth_headroom_usage_pct: 100.00%
+    roth_irmaa_cap: 'TRUE'
+    roth_irmaa_headroom_usage_pct: 100.00%
+    roth_irmaa_target_tier: TIER_2
+    roth_objective_mode: MAXIMIZE_TERMINAL_NET_WORTH
+    roth_optimize_lifetime_tax_weight: '0.25'
+    roth_optimize_terminal_pretax_tax_rate: 22.00%
+    roth_optimize_terminal_weight: '1.00'
+    roth_target_bracket_rate: 22.00%
+    roth_tax_discount_rate: 2.50%
+    survivor_tax_risk_weight: '0.25'
+  Spousal Rollover:
+    decedent_balances_pass_to_survivor: 'TRUE'

@@ -1,0 +1,107 @@
+super_group,group,category,tracking
+Expenses,Income,Paychecks,income
+Expenses,Income,Interest,income
+Expenses,Income,Other Income,income
+Expenses,Income,Dividends & Capital Gains,income
+Expenses,Business,Business Reimbursement,business
+Expenses,Income,RedMane Annual Note P&I,income
+Expenses,Gifts Charity,Gifts - Family 12,core
+Expenses,Gifts Charity,Gifts - Other,core
+Expenses,Gifts Charity,Church,core
+Expenses,Gifts Charity,Donation,core
+Expenses,Gifts Charity,Charity,core
+Expenses,Auto & Transport,Auto Payment,core
+Expenses,Auto & Transport,Public Transit,core
+Expenses,Auto & Transport,Auto Fuel,core
+Expenses,Auto & Transport,Auto Maintenance,core
+Expenses,Auto & Transport,Parking & Tolls,core
+Expenses,Auto & Transport,Taxi & Ride Shares,core
+Expenses,Auto & Transport,Auto Insurance,core
+Expenses,Auto & Transport,Car Wash,core
+Expenses,Auto & Transport,Auto Licenses & Fees,core
+Expenses,Mortgage,Mortgage,housing
+Expenses,Real Estate Taxes,Real Estate Taxes,housing
+Expenses,Home Improvement,Home Improvement,housing
+Expenses,Other,House Cleaning,housing
+Expenses,Maintenance,Home Maintenance,housing
+Expenses,Homeowners Insurance,Homeowners Insurance,housing
+Expenses,Other,Furniture/Home Decor/Kitchenware,housing
+Expenses,Utilities,Pest Control,housing
+Expenses,Other,Sprinkler Maintenance,housing
+Expenses,Other,Lawn Service/Garden/Flowers,housing
+Expenses,Mortgage,Rent,housing
+Expenses,Utilities,Garbage,housing
+Expenses,Utilities,Water,housing
+Expenses,Utilities,Gas & Electric,housing
+Expenses,Utilities,Internet & Cable,housing
+Expenses,Utilities,Phone,housing
+Expenses,Utilities,Dry Cleaners,housing
+Expenses,Utilities,Sewer,housing
+Expenses,Food & Dining,Groceries,core
+Expenses,Food & Dining,Fast Food,core
+Expenses,Food & Dining,Restaurants & Bars,core
+Expenses,Food & Dining,Coffee Shops,core
+Expenses,Lifestyle,Travel & Vacation,travel
+Expenses,Lifestyle,Travel - Plane/Train/Bus,travel
+Expenses,Lifestyle,Travel - Housing,travel
+Expenses,Lifestyle,Travel - Insurance,travel
+Expenses,Lifestyle,Personal,core
+Expenses,Lifestyle,Cubs Tickets,core
+Expenses,Lifestyle,Movie Theater,core
+Expenses,Lifestyle,Hair/Make-up,core
+Expenses,Lifestyle,Mani-Pedi,core
+Expenses,Lifestyle,Subscriptions,core
+Expenses,Medical,Dermatologist,wellness
+Expenses,Lifestyle,Entertainment & Recreation,travel
+Expenses,Lifestyle,Pets,core
+Expenses,Lifestyle,Books,core
+Expenses,Lifestyle,Children Weddings,large_disc
+Expenses,Shopping,Clothing & Jewelry,core
+Expenses,Shopping,Electronics,core
+Expenses,Shopping,Shopping,core
+Expenses,Shopping,Furniture & Housewares,core
+Expenses,Children,Child Activities,core
+Expenses,Children,Child Care,core
+Expenses,Education,Education,core
+Expenses,Education,Student Loans,core
+Expenses,Medical,Medical,wellness
+Expenses,Drugs - Rx/OTC,Drugs - Rx and OTC,wellness
+Expenses,Dental,Dentist,wellness
+Expenses,Vision,Vision,wellness
+Expenses,Healthcare Premium,Healthcare Premium,wellness
+Expenses,Medical,Health Club,wellness
+Expenses,Medical,Vitamins & Supplements,wellness
+Expenses,Medical,Exercise & Health Equipment,wellness
+Expenses,Medical,Fitness,wellness
+Expenses,Financial,Financial & Legal Services,core
+Expenses,Financial,Financial Fees,core
+Expenses,Financial,Cash & ATM,core
+Expenses,Financial,Insurance,core
+Expenses,Financial,Income Taxes,transfer
+Expenses,Financial,Disability Insurance,core
+Expenses,Financial,Licenses,core
+Expenses,Financial,Loan Repayment,core
+Expenses,Other,Uncategorized,core
+Expenses,Other,Check,core
+Expenses,Other,Miscellaneous,core
+Expenses,Business,Business Events,business
+Expenses,Business,Business Travel & Meals,business
+Expenses,Business,Business Services,business
+Expenses,Business,Business Memberships,business
+Expenses,Business,Business Hardware and Software,business
+Expenses,Business,Business Taxi - Uber,business
+Expenses,Business,Business Auto Expenses,business
+Expenses,Business,Business Insurance,business
+Expenses,Business,Office Supplies & Expenses,business
+Expenses,Business,Postage & Shipping,business
+Expenses,Business,Business Utilities & Communication,business
+Expenses,Business,Office Rent,business
+Expenses,Business,Advertising & Promotion,business
+Expenses,Transfer,Cr Card Payment,transfer
+Expenses,Transfer,Credit Card Payment,transfer
+Expenses,Transfer,Transfer,transfer
+Expenses,Transfer,Buy,transfer
+Expenses,Transfer,Sell,transfer
+Expenses,Transfer,401K Match,transfer
+Expenses,Transfer,401k Contribution,transfer
+Expenses,Transfer,HSA Contribution,transfer

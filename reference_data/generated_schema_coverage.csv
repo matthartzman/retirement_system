@@ -1,0 +1,4 @@
+section,subsection,label,type,required,default,min,max,description
+Forced Actions,Roth Conversion 1,source_account,choice,FALSE,,,,Husband_IRA | Husband_401k | Wife_IRA; pre-tax account to convert from
+Forced Actions,Roth Conversion 1,year,year,FALSE,,,,Calendar year the forced conversion is applied
+Forced Actions,Roth Conversion 1,amount,currency,FALSE,,,,Dollar amount to convert from the selected account to that owner’s Roth account

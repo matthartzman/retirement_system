@@ -1,0 +1,27 @@
+# Build / generated artifacts (regenerable; do not version)
+dist/
+build/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local runtime state and recovery/backup copies
+local_state/
+_recovery_local_state_*/
+*.rpx
+*.db
+*.db-wal
+*.db-shm
+
+# Logs / scratch
+*.log
+build_log.txt
+build_exit.txt
+
+node_modules/
+.env
+dist/
+build/
+.DS_Store
+*.log
+.vscode/

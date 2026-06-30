@@ -1,0 +1,199 @@
+Asset Allocation Policy:
+  Bonds:
+    target_pct: 15%
+  Cash:
+    target_pct: 5%
+  Commodities:
+    target_pct: 0%
+  Emerging Markets:
+    target_pct: 5%
+  Global:
+    allocation_selection_mode: user_target
+  International:
+    target_pct: 20%
+  Managed Futures:
+    target_pct: 0%
+  Municipal Bonds:
+    target_pct: 0%
+  Private Credit:
+    target_pct: 0%
+  REITs:
+    target_pct: 0%
+  Short-Term Bonds:
+    target_pct: 5%
+  TIPS:
+    target_pct: 0%
+  US Large Cap:
+    target_pct: 40%
+  US Mid Cap:
+    target_pct: 5%
+  US Small Cap:
+    target_pct: 5%
+Forced Actions:
+  Roth Conversion 1:
+    amount: $125,000
+    source_account: Wife_IRA
+    year: '2026'
+HSA Policy:
+  Contributions:
+    index_hsa_limit: 'TRUE'
+    requires_hdhp: 'TRUE'
+Model Constants:
+  Allocation:
+    cash_target_pct: '0.05'
+    concentration_business: 0%
+    concentration_employer_stock: 0%
+    concentration_real_estate: 0%
+    glide_path: static
+    human_capital_stability: '0.5'
+    include_home_equity_in_allocation_view: 'YES'
+    inflation_sensitive_spending_pct: 10%
+    liquid_reit_target_pct_when_home_not_counted: 5%
+    risk_tolerance: '8'
+  Asset Allocation:
+    cash_pct: 5.00%
+    commodity_pct: 10.00%
+    equity_pct: 85.00%
+  Capital Gains:
+    ltcg_0pct_top_mfj_base_year: '96700'
+    ltcg_15pct_top_mfj_base_year: '600050'
+    niit_magi_threshold_mfj: '250000'
+  Home Sale:
+    selling_cost_pct: 6.00%
+  IRMAA:
+    irmaa_annual_inflator: 2.00%
+    irmaa_tier2_mfj_base_year: '268000'
+  Monte Carlo:
+    wellness_cost_shocks: 'TRUE'
+    wellness_shock_annual_prob: 3.00%
+    wellness_shock_mean_cost: $150,000
+    inflation_sigma: 1.50%
+    mc_engine_mode: quick_vectorized
+    mc_portfolio_sigma: 12.00%
+    mc_sensitivity_simulations: '50'
+    mc_simulations: '1000'
+    recenter_regime_returns: 'TRUE'
+    return_inflation_correlation: '-0.25'
+    return_serial_correlation: '0.15'
+    stochastic_inflation: 'TRUE'
+    stochastic_irmaa: 'TRUE'
+    stochastic_tax_brackets: 'TRUE'
+    success_liquid_floor: '0'
+    use_asset_class_covariance: 'TRUE'
+  Retirement:
+    husband_rmd_start_age: '75'
+    rmd_start_age: '75'
+    rollover_401k_year: '2030'
+    spending_freeze_year: '2040'
+    ss_claim_age: '70'
+    wife_rmd_start_age: '75'
+  Roth Conversion:
+    roth_conv_window_end_offset: '-1'
+Reporting:
+  Output:
+    real_dollar_reporting_enabled: 'TRUE'
+Scenarios:
+  Allocation Optimizer Defined:
+    allocation_selection_mode: optimizer_recommendation
+  Allocation User Defined:
+    allocation_selection_mode: user_target
+  Base:
+    description: as-modeled plan
+  Combined Stress Test:
+    include_high_inflation: 'FALSE'
+    include_low_return: 'TRUE'
+    include_pdia_5050: 'FALSE'
+    include_pdia_low_div: 'TRUE'
+    include_retire_later: 'FALSE'
+    include_sell_home: 'TRUE'
+    include_spend_more: 'FALSE'
+  Demo_Divorce_Settlement:
+    divorce_year: '2030'
+  Divorce_Alimony:
+    end_year: '2040'
+    monthly_amount: $5,000
+    payor: Husband
+    start_year: '2031'
+    taxable_pre_2019_rules: 'FALSE'
+  Divorce_Health:
+    cobra_end_year: '2032'
+    cobra_monthly: $1,500
+  Divorce_Property:
+    amount: $500,000
+    from_account: Husband_Trust
+    year: '2030'
+  Divorce_QDRO_HusbandIRA:
+    account_name: Husband_IRA
+    transfer_amount: '0'
+    transfer_pct: 50.00%
+    transfer_year: '2030'
+  Divorce_Settlement:
+    filing_status_after_divorce: Single
+  Downsize Home:
+    home_downsize_net_proceeds: $400,000
+    home_downsize_year: '2035'
+  High Inflation:
+    inflation_override: 4.50%
+  Higher Spending:
+    spend_multiplier: '1.2'
+  Low Return:
+    portfolio_return_override: 4.00%
+  PDIA 50-50 Split:
+    annuity_div_override: ''
+    annuity_split_override: 50.00%
+  PDIA Lower Dividend:
+    annuity_div_override: 4.50%
+    annuity_split_override: ''
+  Retire Later:
+    husband_retire_year: '2029'
+    income_growth_rate_override: 0.00%
+    salary_override: $50,000
+  Sell Home:
+    home_basis: $800,000
+    home_sale_price: $2,250,000
+    home_sale_proceeds_account: Wife_Trust
+    home_sale_year: '2045'
+Withdrawal Policy:
+  Identity:
+    annual_funding_tolerance: $10
+  Priority 1:
+    RMD: mandatory
+  Priority 2:
+    HSA: window
+  Priority 3:
+    IRA_elective: gross_up_tax
+  Priority 4:
+    Trust: with_buffer
+  Priority 5:
+    Roth: tax_free
+  Priority 6:
+    Home_equity_tap: heloc_or_downsize
+  Roth Conversion:
+    estate_tax_objective_mode: BALANCED
+    future_tax_rate_stress_pct: 10.00%
+    future_tax_risk_weight: '0.35'
+    heir_ordinary_tax_rate_assumption_pct: 24.00%
+    inheritance_tax_burden_weight: '0.25'
+    irmaa_guardrail_mode: WARN_ONLY
+    legacy_objective_mode: BALANCED
+    max_annual_conversion_pct_of_traditional_ira: 100.00%
+    max_conversion_years: '10'
+    pre_tax_bequest_penalty_pct: 15.00%
+    roth_bequest_preference_bonus_pct: 5.00%
+    roth_bracket_strategy: OPTIMIZER_CHOOSES
+    roth_conversion_policy: optimize_terminal_tax
+    roth_conversion_target_bracket_base_year: 22.00%
+    roth_fixed_annual_amount: $0
+    roth_headroom_usage_pct: 100.00%
+    roth_irmaa_cap: 'TRUE'
+    roth_irmaa_headroom_usage_pct: 100.00%
+    roth_irmaa_target_tier: TIER_2
+    roth_objective_mode: MAXIMIZE_TERMINAL_NET_WORTH
+    roth_optimize_lifetime_tax_weight: '0.25'
+    roth_optimize_terminal_pretax_tax_rate: 22.00%
+    roth_optimize_terminal_weight: '1.00'
+    roth_target_bracket_rate: 22.00%
+    roth_tax_discount_rate: 2.50%
+    survivor_tax_risk_weight: '0.25'
+  Spousal Rollover:
+    decedent_balances_pass_to_survivor: 'TRUE'

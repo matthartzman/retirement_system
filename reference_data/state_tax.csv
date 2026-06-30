@@ -1,0 +1,12 @@
+state,rate,type,exempt_retirement,exempt_ss,prop_rate,sales_rate,estate,estate_exempt,retirement_exempt_over_65,source
+Illinois,4.95%,flat,TRUE,TRUE,2.17%,8.75%,TRUE,4000000,0,IL 35 ILCS 5/203
+Florida,0%,none,TRUE,TRUE,0.83%,7.07%,FALSE,0,0,FL Constitution Art. VII §5
+Texas,0%,none,TRUE,TRUE,1.80%,8.20%,FALSE,0,0,TX Constitution Art. VIII
+Tennessee,0%,none,TRUE,TRUE,0.71%,9.55%,FALSE,0,0,TN Code §67-2-104 (Hall Tax repealed 2021)
+North Carolina,4.50%,flat,FALSE,TRUE,0.85%,7.00%,FALSE,0,0,NC GS §105-153.7
+Arizona,2.50%,flat,FALSE,TRUE,0.63%,8.40%,FALSE,0,0,ARS §43-1011 (flat rate eff. 2023)
+Colorado,4.40%,flat,FALSE,TRUE,0.55%,7.80%,FALSE,0,24000,CRS §39-22-104; §39-22-104(4)(f)
+Nevada,0%,none,TRUE,TRUE,0.55%,8.23%,FALSE,0,0,NV Constitution Art. 10 §1
+California,9.30%,graduated,FALSE,TRUE,0.73%,8.75%,FALSE,0,0,CA Rev. & Tax Code §17041
+New York,6.85%,graduated,FALSE,TRUE,1.68%,8.00%,TRUE,6940000,20000,NY Tax Law §601; §612(c)(3-a)
+Indiana,3.05%,flat,FALSE,TRUE,0.87%,7.00%,FALSE,0,0,IN Department of Revenue flat individual income tax; verify current local/county rates separately

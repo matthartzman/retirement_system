@@ -1,0 +1,111 @@
+section,subsection,label,value,units,notes
+System Configuration,Runtime,system_version,9,version,Current package/version identifier; populated from src/version.py.
+System Configuration,Runtime,app_mode,LOCAL,choice,Local desktop mode only; public-hosting and client-registry modes have been removed.
+System Configuration,Runtime,config_backend,SQLITE,choice,SQLITE is the v10 runtime source of truth; CSV/JSON/YAML remain import-export adapters.
+System Configuration,Runtime,config_file,input/client_data.csv,path,Active Plan Data CSV for the local browser session.
+System Configuration,Runtime,json_config_file,input/client_data.json,path,Optional JSON backend file.
+System Configuration,Runtime,yaml_config_file,input/client_data.yaml,path,Optional YAML backend file.
+System Configuration,Runtime,output_dir,output,path,"Local output folder for generated workbook, PDF, and diagnostics."
+System Configuration,Runtime,local_plan_data_dir,,path,Optional local Plan Data source folder for command-line builds. UI-selected folders are posted by the browser per build.
+System Configuration,Dashboard,enabled,YES,yes/no,Enable web dashboard routes in src/server/.
+System Configuration,Dashboard,host,127.0.0.1,text,Local desktop host. Public/LAN binding has been removed from this package.
+System Configuration,Dashboard,port,5050,integer,Dashboard port. Open this TCP port in the local OS firewall.
+System Configuration,Security,encryption_enabled,NO,yes/no,YES encrypts API keys in SQLite/secret store. Requires cryptography package for strong encryption.
+System Configuration,Security,secrets_store,local_state/secrets.db,path,Local encrypted/obfuscated API key storage for optional Plan Chat and pricing keys.
+# -- Build queue / jobs --------------------------------------,,,,,The default UI runs builds immediately. Enable queue only when using a worker.
+# -- Price refresh / portfolio drift -------------------------,,,,,Shared operational settings used by tools and APIs.
+System Configuration,Price Refresh,nightly_enabled,NO,yes/no,YES enables scheduled/manual nightly price refresh tool.
+System Configuration,Price Refresh,nightly_time,2:00,HH:MM,Preferred local refresh time for scheduler/cron.
+System Configuration,Price Refresh,snapshot_retention_days,365,days,Historical price snapshot retention.
+System Configuration,Portfolio Drift,target_allocation_file,target_allocation.csv,path,Optional target allocation file. Local input folder is searched first.
+System Configuration,Portfolio Drift,security_master_file,security_master.csv,path,Ticker-to-asset-class map. Local input folder is searched first.
+System Configuration,Portfolio Drift,rebalance_threshold_pct,5.00%,pct,Report assets outside target allocation by this absolute threshold.
+Market Pricing,Holdings,pricing_mode,CACHE,choice,CACHE = use any cache first, even stale; LIVE = prefer live providers before cache/fallback; OFFLINE = no live calls. Cost basis is used only when no cache exists.
+Market Pricing,Holdings,cache_hours,24,hours,Fresh cache window for holdings prices.
+Market Pricing,API,fmp_api_key,,secret,Secret value intentionally blank in secure release package; configure via secret store or environment.
+Market Pricing,API,alpha_vantage_api_key,,secret,Secret value intentionally blank in secure release package; configure via secret store or environment.
+Plan Settings,Annuity Valuation,net_worth_method,pv_through_mortality_age,choice,pv_through_mortality_age OR cumulative_at_death
+Plan Settings,Tax Detail,model_niit,TRUE,boolean,Apply 3.8% Net Investment Income Tax above MAGI threshold
+Plan Settings,Estate,model_state_estate_tax,TRUE,boolean,Model residence-state estate tax in addition to federal
+,,,,,
+Asset Class Assumptions,Global,capital_market_assumption_mode,PRESET,choice,PRESET uses built-in horizon/preset assumptions; CUSTOM_FILE reads capital_market_assumptions.csv. Advanced users only.
+Asset Class Assumptions,Global,capital_market_assumption_horizon_years,30,years,"Planning horizon for allocation optimizer assumptions. Supported: 1, 3, 5, 10, 20, 25, 30. 30 is the long-term baseline."
+Asset Class Assumptions,Global,capital_market_assumption_preset,BASELINE,choice,"CONSERVATIVE, BASELINE, or AGGRESSIVE. This shifts return/volatility assumptions before per-asset overrides."
+Asset Class Assumptions,Global,use_custom_capital_market_file,NO,yes/no,YES reads expert assumptions from custom_capital_market_file. Keep NO unless using a reviewed capital-market assumptions CSV.
+Asset Class Assumptions,Global,custom_capital_market_file,capital_market_assumptions.csv,path,"Expert CSV path with horizon_years,preset,asset_class,expected_return,volatility,stock_index_correlation."
+Asset Class Assumptions,Global,correlation_assumption_mode,PRESET,choice,PRESET uses low/moderate/high/stress correlation presets. ADVANCED also applies Asset Correlations rows. CUSTOM_FILE also reads asset_correlations.csv.
+Asset Class Assumptions,Global,correlation_preset,MODERATE,choice,"LOW, MODERATE, HIGH, or STRESS. Higher/stress correlations reduce diversification benefits."
+Asset Class Assumptions,Global,use_custom_correlations_file,NO,yes/no,YES reads expert pairwise correlations from custom_correlations_file.
+Asset Class Assumptions,Global,custom_correlations_file,asset_correlations.csv,path,"Expert CSV path with horizon_years,preset,asset_class_a,asset_class_b,correlation."
+Asset Class Assumptions,US Large Cap,expected_return,10.00%,pct,Default 10.0%; optimizer return input for US Large Cap. Affects recommended allocation only.
+Asset Class Assumptions,US Large Cap,volatility,15.00%,pct,Default 15.0%; optimizer risk input for US Large Cap.
+Asset Class Assumptions,US Mid Cap,expected_return,10.50%,pct,Default 10.5%; optimizer return input for US Mid Cap. Affects recommended allocation only.
+Asset Class Assumptions,US Mid Cap,volatility,18.00%,pct,Default 18.0%; optimizer risk input for US Mid Cap.
+Asset Class Assumptions,US Small Cap,expected_return,11.50%,pct,Default 11.5%; optimizer return input for US Small Cap. Affects recommended allocation only.
+Asset Class Assumptions,US Small Cap,volatility,22.00%,pct,Default 22.0%; optimizer risk input for US Small Cap.
+Asset Class Assumptions,International,expected_return,8.00%,pct,Default 8.0%; optimizer return input for International. Affects recommended allocation only.
+Asset Class Assumptions,International,volatility,17.00%,pct,Default 17.0%; optimizer risk input for International.
+Asset Class Assumptions,Emerging Markets,expected_return,9.00%,pct,Default 9.0%; optimizer return input for Emerging Markets. Affects recommended allocation only.
+Asset Class Assumptions,Emerging Markets,volatility,22.00%,pct,Default 22.0%; optimizer risk input for Emerging Markets.
+Asset Class Assumptions,Commodities,expected_return,5.00%,pct,Default 5.0%; optimizer return input for Commodities. Affects recommended allocation only.
+Asset Class Assumptions,Commodities,volatility,18.00%,pct,Default 18.0%; optimizer risk input for Commodities.
+Asset Class Assumptions,Bonds,expected_return,4.00%,pct,Default 4.0%; optimizer return input for Bonds. Affects recommended allocation only.
+Asset Class Assumptions,Bonds,volatility,5.00%,pct,Default 5.0%; optimizer risk input for Bonds.
+Asset Class Assumptions,Short-Term Bonds,expected_return,3.50%,pct,Default 3.5%; optimizer return input for Short-Term Bonds. Affects recommended allocation only.
+Asset Class Assumptions,Short-Term Bonds,volatility,3.00%,pct,Default 3.0%; optimizer risk input for Short-Term Bonds.
+Asset Class Assumptions,TIPS,expected_return,4.00%,pct,Default 4.0%; optimizer return input for TIPS. Affects recommended allocation only.
+Asset Class Assumptions,TIPS,volatility,5.00%,pct,Default 5.0%; optimizer risk input for TIPS.
+Asset Class Assumptions,Municipal Bonds,expected_return,3.50%,pct,Default 3.5%; optimizer return input for Municipal Bonds. Affects recommended allocation only.
+Asset Class Assumptions,Municipal Bonds,volatility,4.50%,pct,Default 4.5%; optimizer risk input for Municipal Bonds.
+Asset Class Assumptions,Managed Futures,expected_return,6.00%,pct,Default 6.0%; optimizer return input for Managed Futures. Affects recommended allocation only.
+Asset Class Assumptions,Managed Futures,volatility,10.00%,pct,Default 10.0%; optimizer risk input for Managed Futures.
+Asset Class Assumptions,Private Credit,expected_return,7.00%,pct,Default 7.0%; optimizer return input for Private Credit. Affects recommended allocation only.
+Asset Class Assumptions,Private Credit,volatility,8.00%,pct,Default 8.0%; optimizer risk input for Private Credit.
+Asset Class Assumptions,REITs,expected_return,8.00%,pct,Default 8.0%; optimizer return input for REITs. Affects recommended allocation only.
+Asset Class Assumptions,REITs,volatility,19.00%,pct,Default 19.0%; optimizer risk input for REITs.
+Asset Class Assumptions,Cash,expected_return,2.00%,pct,Default 2.0%; optimizer return input for Cash. Affects recommended allocation only.
+Asset Class Assumptions,Cash,volatility,1.00%,pct,Default 1.0%; optimizer risk input for Cash.
+Asset Correlations,US Equity|Emerging Markets,correlation,72%,pct,Default example correlation between US Equity and Emerging Markets. Edit only in advanced/expert mode.
+Asset Correlations,US Equity|Bonds,correlation,-20%,pct,Default example correlation between US Equity and Bonds. Edit only in advanced/expert mode.
+Asset Correlations,US Equity|Managed Futures,correlation,-5%,pct,Default example correlation between US Equity and Managed Futures. Edit only in advanced/expert mode.
+Asset Correlations,Bonds|TIPS,correlation,55%,pct,Default example correlation between Bonds and TIPS. Edit only in advanced/expert mode.
+Asset Correlations,Private Credit|US Equity,correlation,45%,pct,Default example correlation between Private Credit and US Equity. Edit only in advanced/expert mode.
+Rebalancing,Optimization,trade_optimizer_mode,GLOBAL_TAX_AWARE,choice,GLOBAL_TAX_AWARE solves household-level drift/tax/location tradeoffs; HEURISTIC uses the prior account-by-account engine.
+Rebalancing,Optimization,max_tax_cost_bps,25,bps,"Maximum estimated realized-tax drag for ordinary taxable sales before deferral, unless drift/policy allows. 25 bps = 0.25% of sale amount."
+Rebalancing,Optimization,min_trade_amount,500,USD,Suppresses small/noisy trades and false precision.
+Rebalancing,Optimization,max_turnover_pct,20.00%,pct,Maximum sell turnover recommended in one workbook cycle; controls excessive trading.
+Rebalancing,Optimization,wash_sale_policy,FLAG_ONLY,choice,FLAG_ONLY adds review notes; AVOID_SAME_SYMBOL/STRICT_AVOID are conservative policy labels for review workflows.
+Rebalancing,Optimization,allow_taxable_gain_sales,DRIFT_THRESHOLD,choice,"NEVER, DRIFT_THRESHOLD, WITHIN_BUDGET, or ALWAYS. Controls whether allocation benefit can justify taxable gains."
+Rebalancing,Optimization,asset_location_strength,BALANCED,choice,"LIGHT/BALANCED/STRONG controls how aggressively Roth growth, pre-tax income, and taxable tax-efficient equity placement are preferred."
+Rebalancing,Optimization,solver_fallback_policy,HEURISTIC,choice,"If the global optimizer is infeasible/unavailable, HEURISTIC falls back to the previous tax-aware trade engine."
+Rebalancing,Risk Controls,max_account_single_asset_pct,45.00%,pct,Caps one ETF/fund within an account to reduce concentration caused by global optimization.
+Rebalancing,Risk Controls,max_roth_high_growth_pct,85.00%,pct,Caps growth/volatile sleeves inside Roth so tax efficiency does not create an uncomfortable Roth risk tilt.
+Rebalancing,Risk Controls,max_pre_tax_fixed_income_pct,85.00%,pct,Caps fixed-income concentration in pre-tax accounts to reduce future RMD/growth concentration risk.
+Rebalancing,Risk Controls,max_trades_per_account,8,count,Limits recommendation complexity and operational burden.
+Rebalancing,Risk Controls,legacy_gain_deferral_pct,20.00%,pct,Large embedded-gain taxable positions above this share are deferred unless settings are loosened.
+Rebalancing,Tax-aware Trades,taxable_gain_budget_annual,2500,USD,Estimated annual tax-cost budget for recommended taxable gain sales; controls income timing/IRMAA/NIIT surprises.
+Rebalancing,Tax-aware Trades,ltcg_rate,15.00%,pct,Long-term capital gains tax-rate input for trade optimization; adjust for your marginal situation.
+Rebalancing,Tax-aware Trades,max_tax_drag_pct,1.50%,pct,Existing lot-level taxable sell screen limit used by the fallback and global engines.
+Rebalancing,Tax-aware Trades,force_taxable_sell_drift_pct,8.00%,pct,Allows taxable gains when portfolio drift is large enough to outweigh deferral.
+Rebalancing,Tax-aware Trades,taxable_review_drift_pct,5.00%,pct,Review threshold for moderate taxable drift.
+Rebalancing,Objective Weights,drift_penalty_per_dollar,1.0,decimal,Higher values prioritize target allocation completeness over tax/turnover/location penalties.
+Rebalancing,Objective Weights,turnover_penalty_per_dollar,0.02,decimal,Higher values suppress trades unless drift/location/tax-loss benefits justify turnover.
+System Configuration,Plan Chat,enabled,NO,yes/no,NO keeps the Plan Chat UI/API feature disabled until AI chat implementation is intentionally re-enabled.
+System Configuration,Plan Chat,provider,OPENAI,choice,OPENAI uses ChatGPT/OpenAI API only when the named encrypted secret is configured; local fallback remains available.
+System Configuration,Plan Chat,openai_api_key,,secret,Deprecated; plaintext Plan Chat keys in CSV are ignored. Store the key in the encrypted secrets store and reference it with openai_api_key_secret_name.
+System Configuration,Plan Chat,openai_api_key_secret_name,plan_chat_openai_api_key,secret_name,Encrypted secrets-store entry containing the OpenAI API key.
+System Configuration,Plan Chat,openai_model,gpt-4o-mini,model,OpenAI model for plan chat. Change as needed for your account.
+System Configuration,Plan Chat,max_context_chars,24000,characters,Maximum generated plan context sent to ChatGPT or searched locally.
+System Configuration,Plan Chat,allow_local_fallback,YES,yes/no,YES answers from local generated plan context if ChatGPT is not configured or fails.
+System Configuration,Runtime,plan_data_canonical_format,CSV,choice,CSV is authoritative. JSON/YAML exports must be regenerated and checksum-synchronized from CSV Plan Data.
+System Configuration,Runtime,plan_data_manifest,input/plan_data_manifest.json,path,Checksum manifest for canonical CSV Plan Data synchronization.
+System Configuration,Runtime,release_gate_version_grep,YES,yes/no,Release gate scans user-visible surfaces and system_config.csv for stale version labels.
+System Configuration,Security,lan_auth_opt_out_ack,NO,yes/no,Required YES to run LAN mode unauthenticated on 0.0.0.0. Use only on a trusted private LAN.
+System Configuration,Tax Governance,block_stale_tax_tables,YES,yes/no,Advisor-ready status is blocked when tax table freshness warnings exist.
+System Configuration,Tax Governance,max_tax_table_lag_years,1,years,Maximum permitted lag for federal/state/IRMAA/Social Security/RMD constants before blocking advisor-ready status.
+System Configuration,Advisor Governance,require_assumption_signoff,NO,yes/no,Assumption signoff is available as an advisor workflow but does not force illustration-only language by default.
+System Configuration,Advisor Governance,output_status_mode,STANDARD_WITH_WARNINGS,choice,Outputs show warnings and model-risk labels without mandatory illustration-until-signed language.
+Market Pricing,Holdings,advisor_ready_max_fallback_value_pct,10.00%,pct,Block advisor-ready status when fallback/stale pricing exceeds this share of priced holdings value.
+System Configuration,Plan Chat,require_consent,YES,yes/no,Require per-request client consent before any context can be sent to a third-party AI provider.
+System Configuration,Plan Chat,redact_context,YES,yes/no,"Redact names, emails, phone numbers, and addresses before sending Plan Chat context to third-party AI."
+System Configuration,Runtime,max_build_seconds,1800,seconds,"Maximum local workbook build runtime before timeout. Default is 30 minutes; increase for very large Advanced Exact Scalar Monte Carlo, sensitivity grids, or slower machines."

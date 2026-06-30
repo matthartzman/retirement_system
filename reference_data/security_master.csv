@@ -1,0 +1,46 @@
+symbol,asset_class,sleeve,region,style,notes
+ITOT,US EQUITY,Core Equity,US,Broad Market,iShares Core S&P Total U.S. Stock Market ETF
+VTI,US EQUITY,Core Equity,US,Broad Market,Vanguard Total Stock Market ETF
+SPY,US EQUITY,Core Equity,US,Large Blend,SPDR S&P 500 ETF
+AVUV,US EQUITY,Satellite Equity,US,Small Value,Avantis U.S. Small Cap Value ETF
+IXUS,INTERNATIONAL EQUITY,Core Equity,International,Broad Market,iShares Core MSCI Total International Stock ETF
+VXUS,INTERNATIONAL EQUITY,Core Equity,International,Broad Market,Vanguard Total International Stock ETF
+PDBC,COMMODITIES,Alternatives,Global,Commodities,Invesco Optimum Yield Diversified Commodity Strategy No K-1 ETF
+BND,BONDS,Core Fixed Income,US,Aggregate Bonds,Vanguard Total Bond Market ETF
+AGG,BONDS,Core Fixed Income,US,Aggregate Bonds,iShares Core U.S. Aggregate Bond ETF
+CASH,CASH,Liquidity,US,Cash,Cash and sweep balances
+VBR,US EQUITY,Satellite Equity,US,Small Value,Vanguard Small-Cap Value ETF
+SHY,SHORT-TERM BONDS,Core Fixed Income,US,Short Treasury,iShares 1-3 Year Treasury Bond ETF
+SGOV,SHORT-TERM BONDS,Liquidity / Short Bonds,US,T-Bills,iShares 0-3 Month Treasury Bond ETF
+BIL,SHORT-TERM BONDS,Liquidity / Short Bonds,US,T-Bills,SPDR Bloomberg 1-3 Month T-Bill ETF
+USFR,SHORT-TERM BONDS,Liquidity / Short Bonds,US,Floating Rate Treasury,WisdomTree Floating Rate Treasury Fund
+TFLO,SHORT-TERM BONDS,Liquidity / Short Bonds,US,Floating Rate Treasury,iShares Treasury Floating Rate Bond ETF
+VTIP,TIPS,Inflation-Linked Fixed Income,US,Short TIPS,Vanguard Short-Term Inflation-Protected Securities ETF
+TIP,TIPS,Inflation-Linked Fixed Income,US,TIPS,iShares TIPS Bond ETF
+SCHP,TIPS,Inflation-Linked Fixed Income,US,TIPS,Schwab U.S. TIPS ETF
+STIP,TIPS,Inflation-Linked Fixed Income,US,Short TIPS,iShares 0-5 Year TIPS Bond ETF
+DBMF,MANAGED FUTURES,Alternatives,Global,Trend Following,iMGP DBi Managed Futures Strategy ETF
+KMLM,MANAGED FUTURES,Alternatives,Global,Trend Following,KFA Mount Lucas Managed Futures Index Strategy ETF
+CTA,MANAGED FUTURES,Alternatives,Global,Trend Following,Simplify Managed Futures Strategy ETF
+BKLN,PRIVATE CREDIT,Credit Alternatives,US,Senior Loans,Invesco Senior Loan ETF
+SRLN,PRIVATE CREDIT,Credit Alternatives,US,Senior Loans,SPDR Blackstone Senior Loan ETF
+CLOA,PRIVATE CREDIT,Credit Alternatives,US,CLO Debt,BlackRock AAA CLO ETF
+JAAA,PRIVATE CREDIT,Credit Alternatives,US,AAA CLO Debt,Janus Henderson AAA CLO ETF
+BIZD,PRIVATE CREDIT,Credit Alternatives,US,BDC Equity,VanEck BDC Income ETF
+VOO,US EQUITY,Core Equity,US,Large Blend,Vanguard S&P 500 ETF
+IVV,US EQUITY,Core Equity,US,Large Blend,iShares Core S&P 500 ETF
+SCHB,US EQUITY,Core Equity,US,Broad Market,Schwab U.S. Broad Market ETF
+IWM,US EQUITY,Satellite Equity,US,Small Blend,iShares Russell 2000 ETF
+SCHA,US EQUITY,Satellite Equity,US,Small Blend,Schwab U.S. Small-Cap ETF
+VEA,INTERNATIONAL EQUITY,Core Equity,International,Developed Markets,Vanguard FTSE Developed Markets ETF
+SCHF,INTERNATIONAL EQUITY,Core Equity,International,Developed Markets,Schwab International Equity ETF
+VWO,EMERGING MARKETS,Satellite Equity,Emerging Markets,Broad EM,Vanguard FTSE Emerging Markets ETF
+IEMG,EMERGING MARKETS,Satellite Equity,Emerging Markets,Broad EM,iShares Core MSCI Emerging Markets ETF
+EEM,EMERGING MARKETS,Satellite Equity,Emerging Markets,Broad EM,iShares MSCI Emerging Markets ETF
+SCHZ,BONDS,Core Fixed Income,US,Aggregate Bonds,Schwab U.S. Aggregate Bond ETF
+TLT,BONDS,Core Fixed Income,US,Long Treasury,iShares 20+ Year Treasury Bond ETF
+VNQ,REITS,Real Estate,US,Broad REITs,Vanguard Real Estate ETF
+SCHH,REITS,Real Estate,US,Broad REITs,Schwab U.S. REIT ETF
+IYR,REITS,Real Estate,US,Broad REITs,iShares U.S. Real Estate ETF
+DJP,COMMODITIES,Alternatives,Global,Commodities,iPath Bloomberg Commodity Index Total Return ETN
+GSG,COMMODITIES,Alternatives,Global,Commodities,iShares S&P GSCI Commodity-Indexed Trust

@@ -1,0 +1,1266 @@
+{
+  "schema": "tax_law_v10",
+  "version": "v10",
+  "generated_from": "v10 local dated tax-law dataset; no embedded fallback required for new code",
+  "values": [
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "standard_deduction",
+      "value": 29200,
+      "effective_year": 2024,
+      "expires_year": 2024,
+      "source": "v10 local tax-law dataset historical compatibility",
+      "status": "historical"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "standard_deduction_over65",
+      "value": 1550,
+      "effective_year": 2024,
+      "expires_year": 2024,
+      "source": "v10 local tax-law dataset historical compatibility",
+      "status": "historical"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "niit_threshold",
+      "value": 250000,
+      "effective_year": 2024,
+      "expires_year": 2024,
+      "source": "v10 local tax-law dataset historical compatibility",
+      "status": "historical"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "ltcg_0pct_top",
+      "value": 94050,
+      "effective_year": 2024,
+      "expires_year": 2024,
+      "source": "v10 local tax-law dataset historical compatibility",
+      "status": "historical"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "ltcg_15pct_top",
+      "value": 583750,
+      "effective_year": 2024,
+      "expires_year": 2024,
+      "source": "v10 local tax-law dataset historical compatibility",
+      "status": "historical"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "standard_deduction",
+      "value": 14600,
+      "effective_year": 2024,
+      "expires_year": 2024,
+      "source": "v10 local tax-law dataset historical compatibility",
+      "status": "historical"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "standard_deduction_over65",
+      "value": 1950,
+      "effective_year": 2024,
+      "expires_year": 2024,
+      "source": "v10 local tax-law dataset historical compatibility",
+      "status": "historical"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "niit_threshold",
+      "value": 200000,
+      "effective_year": 2024,
+      "expires_year": 2024,
+      "source": "v10 local tax-law dataset historical compatibility",
+      "status": "historical"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "ltcg_0pct_top",
+      "value": 47025,
+      "effective_year": 2024,
+      "expires_year": 2024,
+      "source": "v10 local tax-law dataset historical compatibility",
+      "status": "historical"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "ltcg_15pct_top",
+      "value": 518900,
+      "effective_year": 2024,
+      "expires_year": 2024,
+      "source": "v10 local tax-law dataset historical compatibility",
+      "status": "historical"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "standard_deduction",
+      "value": 21900,
+      "effective_year": 2024,
+      "expires_year": 2024,
+      "source": "v10 local tax-law dataset historical compatibility",
+      "status": "historical"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "standard_deduction_over65",
+      "value": 1950,
+      "effective_year": 2024,
+      "expires_year": 2024,
+      "source": "v10 local tax-law dataset historical compatibility",
+      "status": "historical"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "niit_threshold",
+      "value": 200000,
+      "effective_year": 2024,
+      "expires_year": 2024,
+      "source": "v10 local tax-law dataset historical compatibility",
+      "status": "historical"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "ltcg_0pct_top",
+      "value": 63000,
+      "effective_year": 2024,
+      "expires_year": 2024,
+      "source": "v10 local tax-law dataset historical compatibility",
+      "status": "historical"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "ltcg_15pct_top",
+      "value": 551350,
+      "effective_year": 2024,
+      "expires_year": 2024,
+      "source": "v10 local tax-law dataset historical compatibility",
+      "status": "historical"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "name": "standard_deduction",
+      "value": 14600,
+      "effective_year": 2024,
+      "expires_year": 2024,
+      "source": "v10 local tax-law dataset historical compatibility",
+      "status": "historical"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "name": "standard_deduction_over65",
+      "value": 1550,
+      "effective_year": 2024,
+      "expires_year": 2024,
+      "source": "v10 local tax-law dataset historical compatibility",
+      "status": "historical"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "name": "niit_threshold",
+      "value": 125000,
+      "effective_year": 2024,
+      "expires_year": 2024,
+      "source": "v10 local tax-law dataset historical compatibility",
+      "status": "historical"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "name": "ltcg_0pct_top",
+      "value": 47025,
+      "effective_year": 2024,
+      "expires_year": 2024,
+      "source": "v10 local tax-law dataset historical compatibility",
+      "status": "historical"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "name": "ltcg_15pct_top",
+      "value": 291850,
+      "effective_year": 2024,
+      "expires_year": 2024,
+      "source": "v10 local tax-law dataset historical compatibility",
+      "status": "historical"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "standard_deduction",
+      "value": 30000,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "standard_deduction_over65",
+      "value": 1600,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "niit_threshold",
+      "value": 250000,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "ltcg_0pct_top",
+      "value": 96700,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "ltcg_15pct_top",
+      "value": 600050,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "standard_deduction",
+      "value": 15000,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "standard_deduction_over65",
+      "value": 2000,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "niit_threshold",
+      "value": 200000,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "ltcg_0pct_top",
+      "value": 48350,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "ltcg_15pct_top",
+      "value": 533400,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "standard_deduction",
+      "value": 22500,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "standard_deduction_over65",
+      "value": 2000,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "niit_threshold",
+      "value": 200000,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "ltcg_0pct_top",
+      "value": 64750,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "ltcg_15pct_top",
+      "value": 566700,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "name": "standard_deduction",
+      "value": 15000,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "name": "standard_deduction_over65",
+      "value": 1600,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "name": "niit_threshold",
+      "value": 125000,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "name": "ltcg_0pct_top",
+      "value": 48350,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "name": "ltcg_15pct_top",
+      "value": 300025,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "salt_cap",
+      "value": 10000,
+      "effective_year": 2018,
+      "expires_year": 2025,
+      "source": "TCJA local dataset",
+      "status": "legislated"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "salt_cap",
+      "value": 40000,
+      "effective_year": 2026,
+      "source": "planning assumption dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "irmaa_tier1_threshold",
+      "value": 212000,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "irmaa_tier1_part_b_surcharge_monthly",
+      "value": 76.2,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "irmaa_tier1_part_d_surcharge_monthly",
+      "value": 14.1,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "irmaa_tier2_threshold",
+      "value": 268000,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "irmaa_tier2_part_b_surcharge_monthly",
+      "value": 190.5,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "irmaa_tier2_part_d_surcharge_monthly",
+      "value": 36.6,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "irmaa_tier3_threshold",
+      "value": 335000,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "irmaa_tier3_part_b_surcharge_monthly",
+      "value": 276.1,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "irmaa_tier3_part_d_surcharge_monthly",
+      "value": 59.0,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "irmaa_tier4_threshold",
+      "value": 402000,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "irmaa_tier4_part_b_surcharge_monthly",
+      "value": 367.8,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "irmaa_tier4_part_d_surcharge_monthly",
+      "value": 76.8,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "irmaa_tier5_threshold",
+      "value": 750000,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "irmaa_tier5_part_b_surcharge_monthly",
+      "value": 395.6,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "irmaa_tier5_part_d_surcharge_monthly",
+      "value": 83.5,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "irmaa_tier1_threshold",
+      "value": 106000,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "irmaa_tier1_part_b_surcharge_monthly",
+      "value": 76.2,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "irmaa_tier1_part_d_surcharge_monthly",
+      "value": 14.1,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "irmaa_tier2_threshold",
+      "value": 133000,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "irmaa_tier2_part_b_surcharge_monthly",
+      "value": 190.5,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "irmaa_tier2_part_d_surcharge_monthly",
+      "value": 36.6,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "irmaa_tier3_threshold",
+      "value": 167000,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "irmaa_tier3_part_b_surcharge_monthly",
+      "value": 276.1,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "irmaa_tier3_part_d_surcharge_monthly",
+      "value": 59.0,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "irmaa_tier4_threshold",
+      "value": 200000,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "irmaa_tier4_part_b_surcharge_monthly",
+      "value": 367.8,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "irmaa_tier4_part_d_surcharge_monthly",
+      "value": 76.8,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "irmaa_tier5_threshold",
+      "value": 500000,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "irmaa_tier5_part_b_surcharge_monthly",
+      "value": 395.6,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "irmaa_tier5_part_d_surcharge_monthly",
+      "value": 83.5,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "irmaa_tier1_threshold",
+      "value": 106000,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "irmaa_tier1_part_b_surcharge_monthly",
+      "value": 76.2,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "irmaa_tier1_part_d_surcharge_monthly",
+      "value": 14.1,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "irmaa_tier2_threshold",
+      "value": 133000,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "irmaa_tier2_part_b_surcharge_monthly",
+      "value": 190.5,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "irmaa_tier2_part_d_surcharge_monthly",
+      "value": 36.6,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "irmaa_tier3_threshold",
+      "value": 167000,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "irmaa_tier3_part_b_surcharge_monthly",
+      "value": 276.1,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "irmaa_tier3_part_d_surcharge_monthly",
+      "value": 59.0,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "irmaa_tier4_threshold",
+      "value": 200000,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "irmaa_tier4_part_b_surcharge_monthly",
+      "value": 367.8,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "irmaa_tier4_part_d_surcharge_monthly",
+      "value": 76.8,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "irmaa_tier5_threshold",
+      "value": 500000,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "irmaa_tier5_part_b_surcharge_monthly",
+      "value": 395.6,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "name": "irmaa_tier5_part_d_surcharge_monthly",
+      "value": 83.5,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "name": "irmaa_tier1_threshold",
+      "value": 106000,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "name": "irmaa_tier1_part_b_surcharge_monthly",
+      "value": 367.8,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "name": "irmaa_tier1_part_d_surcharge_monthly",
+      "value": 76.8,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "name": "irmaa_tier2_threshold",
+      "value": 403000,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "name": "irmaa_tier2_part_b_surcharge_monthly",
+      "value": 395.6,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "name": "irmaa_tier2_part_d_surcharge_monthly",
+      "value": 83.5,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "ss_wage_base",
+      "value": 184500,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "part_b_base_premium_monthly",
+      "value": 185.0,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "part_d_base_premium_monthly",
+      "value": 40.0,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "salt_cap",
+      "value": 10000,
+      "effective_year": 2025,
+      "expires_year": null,
+      "source": "v10 local dated tax-law dataset",
+      "status": "assumption"
+    }
+  ],
+  "brackets": [
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "bracket_type": "ordinary",
+      "lower": 0,
+      "upper": 23850,
+      "rate": 0.1,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "bracket_type": "ordinary",
+      "lower": 23850,
+      "upper": 96950,
+      "rate": 0.12,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "bracket_type": "ordinary",
+      "lower": 96950,
+      "upper": 206700,
+      "rate": 0.22,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "bracket_type": "ordinary",
+      "lower": 206700,
+      "upper": 394600,
+      "rate": 0.24,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "bracket_type": "ordinary",
+      "lower": 394600,
+      "upper": 501050,
+      "rate": 0.32,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "bracket_type": "ordinary",
+      "lower": 501050,
+      "upper": 751600,
+      "rate": 0.35,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "bracket_type": "ordinary",
+      "lower": 751600,
+      "upper": null,
+      "rate": 0.37,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "bracket_type": "ordinary",
+      "lower": 0,
+      "upper": 11925,
+      "rate": 0.1,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "bracket_type": "ordinary",
+      "lower": 11925,
+      "upper": 48475,
+      "rate": 0.12,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "bracket_type": "ordinary",
+      "lower": 48475,
+      "upper": 103350,
+      "rate": 0.22,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "bracket_type": "ordinary",
+      "lower": 103350,
+      "upper": 197300,
+      "rate": 0.24,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "bracket_type": "ordinary",
+      "lower": 197300,
+      "upper": 250525,
+      "rate": 0.32,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "bracket_type": "ordinary",
+      "lower": 250525,
+      "upper": 626350,
+      "rate": 0.35,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "bracket_type": "ordinary",
+      "lower": 626350,
+      "upper": null,
+      "rate": 0.37,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "bracket_type": "ordinary",
+      "lower": 0,
+      "upper": 17000,
+      "rate": 0.1,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "bracket_type": "ordinary",
+      "lower": 17000,
+      "upper": 64850,
+      "rate": 0.12,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "bracket_type": "ordinary",
+      "lower": 64850,
+      "upper": 103350,
+      "rate": 0.22,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "bracket_type": "ordinary",
+      "lower": 103350,
+      "upper": 197300,
+      "rate": 0.24,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "bracket_type": "ordinary",
+      "lower": 197300,
+      "upper": 250500,
+      "rate": 0.32,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "bracket_type": "ordinary",
+      "lower": 250500,
+      "upper": 626350,
+      "rate": 0.35,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "HOH",
+      "bracket_type": "ordinary",
+      "lower": 626350,
+      "upper": null,
+      "rate": 0.37,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "bracket_type": "ordinary",
+      "lower": 0,
+      "upper": 11925,
+      "rate": 0.1,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "bracket_type": "ordinary",
+      "lower": 11925,
+      "upper": 48475,
+      "rate": 0.12,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "bracket_type": "ordinary",
+      "lower": 48475,
+      "upper": 103350,
+      "rate": 0.22,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "bracket_type": "ordinary",
+      "lower": 103350,
+      "upper": 197300,
+      "rate": 0.24,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "bracket_type": "ordinary",
+      "lower": 197300,
+      "upper": 250525,
+      "rate": 0.32,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "bracket_type": "ordinary",
+      "lower": 250525,
+      "upper": 375800,
+      "rate": 0.35,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "bracket_type": "ordinary",
+      "lower": 375800,
+      "upper": null,
+      "rate": 0.37,
+      "effective_year": 2025,
+      "source": "v10 local tax-law dataset",
+      "status": "assumption"
+    }
+  ]
+}

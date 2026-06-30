@@ -1,0 +1,7 @@
+Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner
+2026-01-15,Sample Grocery,Groceries,Checking,Bank CSV,,-125.43,,Household
+2026-01-31,Employer Payroll,Payroll,Checking,Bank CSV,,12500.00,earned income,Household
+2026-02-15,IRS,Federal Tax,Checking,Bank CSV,,-2500.00,tax,Household
+2026-03-01,ACH Transfer,Investment Deposit,Joint Brokerage Cash,Bank CSV,,5000.00,deposit,Household
+2026-03-31,ETF Dividend,Dividend,Joint Brokerage Cash,Broker CSV,,200.00,dividend,Household
+2026-04-15,Transfer Out,Investment Withdrawal,Joint Brokerage Cash,Broker CSV,,-1000.00,withdrawal,Household

@@ -1,0 +1,74 @@
+{
+  "Asset Class Optimizer Controls": {
+    "Bonds": {
+      "alternate_asset_class": "Guaranteed income + note receivable",
+      "optimizer_override_pct": "",
+      "selection_action": "consider_alternate_first"
+    },
+    "Cash": {
+      "alternate_asset_class": "",
+      "optimizer_override_pct": "",
+      "selection_action": "include"
+    },
+    "Commodities": {
+      "alternate_asset_class": "",
+      "optimizer_override_pct": "",
+      "selection_action": "include"
+    },
+    "Emerging Markets": {
+      "alternate_asset_class": "",
+      "optimizer_override_pct": "",
+      "selection_action": "include"
+    },
+    "International": {
+      "alternate_asset_class": "",
+      "optimizer_override_pct": "",
+      "selection_action": "include"
+    },
+    "Managed Futures": {
+      "alternate_asset_class": "",
+      "optimizer_override_pct": "",
+      "selection_action": "include"
+    },
+    "Municipal Bonds": {
+      "alternate_asset_class": "",
+      "optimizer_override_pct": "",
+      "selection_action": "include"
+    },
+    "Private Credit": {
+      "alternate_asset_class": "",
+      "optimizer_override_pct": "",
+      "selection_action": "include"
+    },
+    "REITs": {
+      "alternate_asset_class": "Home Equity",
+      "optimizer_override_pct": "",
+      "selection_action": "consider_alternate_first"
+    },
+    "Short-Term Bonds": {
+      "alternate_asset_class": "",
+      "optimizer_override_pct": "",
+      "selection_action": "include"
+    },
+    "TIPS": {
+      "alternate_asset_class": "",
+      "optimizer_override_pct": "",
+      "selection_action": "include"
+    },
+    "US Large Cap": {
+      "alternate_asset_class": "",
+      "optimizer_override_pct": "",
+      "selection_action": "include"
+    },
+    "US Mid Cap": {
+      "alternate_asset_class": "",
+      "optimizer_override_pct": "",
+      "selection_action": "include"
+    },
+    "US Small Cap": {
+      "alternate_asset_class": "",
+      "optimizer_override_pct": "",
+      "selection_action": "include"
+    }
+  }
+}

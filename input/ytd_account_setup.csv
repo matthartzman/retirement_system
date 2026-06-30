@@ -1,0 +1,20 @@
+Account,Role,Mapped Investment Account,Prior Year End Date,Prior Year End Balance,Current Value,Current Balance,Notes
+401k - Hartzman Partners - Matt,Investment,Member_1_401k,2025-12-31,56206.59,0,0,Map to an account from client_holdings.csv
+Annuity Joint - Matt,Annuity,Member 1 Joint Annuity,2025-12-31,0,813168,813168,
+Annuity Joint - Pat,Annuity,Member 2 Joint Annuity,2025-12-31,0,336263,336263,
+Annuity Single - Matt,Annuity,Member 1 Single Annuity,2025-12-31,91418,91418,91418,
+Annuity Single - Pat,Annuity,Member 2 Single Annuity,2025-12-31,53198,53198,53198,
+Costco Anywhere Visa Card by Citi (...1530),Cash / spending,,2025-12-31,0,0,0,Created from transaction upload.
+Family Checking and Bill Pay,Cash / spending,,2025-12-31,0,0,0,Created from transaction upload.
+Hartzman Partners Checking,Cash / spending,,2025-12-31,0,0,0,Created from transaction upload.
+Health Savings Account (HSA),Investment,Member_1_HSA,2025-12-31,58804.31,0,0,
+IRA - Matt,Investment,Member_1_IRA,2025-12-31,2027682.8,0,0,
+IRA - Pat,Investment,Member_2_IRA,2025-12-31,903985.34,0,0,Created from transaction upload.
+Nordstrom Retail Credit Card - 6045 (...6045),Cash / spending,,2025-12-31,0,0,0,Created from transaction upload.
+Pension - Pat,Pension,Member 2 Pension,2025-12-31,0,66619,66619,
+Platinum Card® (...1008),Cash / spending,,2025-12-31,0,0,0,Created from transaction upload.
+Roth - Matt,Investment,Member_1_Roth,2025-12-31,121303.07,0,0,Created from transaction upload.
+Roth - Pat,Investment,Member_2_Roth,2025-12-31,58420.94,0,0,Created from transaction upload.
+Trust - Matt,Investment,Member_1_Trust,2025-12-31,113483.87,0,0,Created from transaction upload.
+Trust - Pat,Investment,Member_2_Trust,2025-12-31,351902.92,0,0,Created from transaction upload.
+Venmo,Cash / spending,,2025-12-31,0,0,0,Created from transaction upload.

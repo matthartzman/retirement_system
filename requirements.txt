@@ -1,0 +1,11 @@
+# Runtime dependencies for the retirement planning system.
+# Keep this manifest authoritative; clean installs should not rely on globally
+# installed packages. Upper bounds protect the report/build pipeline from
+# unreviewed major-version API breaks.
+numpy>=1.26,<3
+openpyxl>=3.1,<4
+reportlab>=4.0,<5
+matplotlib>=3.8,<4
+pillow>=10,<12
+cryptography>=42,<46
+pywebview>=4.0,<7

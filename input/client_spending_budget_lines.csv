@@ -1,0 +1,7 @@
+section,line_id,label,category_id,start_year,end_year,one_time_year,amount_per_year,mode,notes
+large_discretionary,ubl_1,Rebecca,weddings,,,2027,100000,detail,Seeded from large discretionary extras
+large_discretionary,ubl_2,Max,weddings,,,2028,50000,detail,Seeded from large discretionary extras
+large_discretionary,ubl_3,Grace,weddings,,,2032,100000,detail,Seeded from large discretionary extras
+home_improvement,ubl_4,Home Improvement,home_improvement,2026,2030,,25000,detail,Seeded from large discretionary extras; CR116: merged from Other Improvement
+travel,ubl_5,Recurring Travel Projection,recurring_travel,2026,2045,,25000,detail,Seeded from large discretionary extras; CR116: renamed as recurring travel projection
+gifts_charity,ubl_6,Charitable Giving,charitable_donations,,,,5000,detail,Seeded from annual charitable giving

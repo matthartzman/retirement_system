@@ -1,0 +1,242 @@
+{
+  "cache_path": "/mnt/data/pricing_prod/output/market_price_cache.json",
+  "cache_schema_version": "8.3",
+  "config_backend": "SQLITE",
+  "diagnostics": {
+    "advisor_ready_pricing_blocked": true,
+    "advisor_ready_pricing_message": "Advisor-ready status is blocked when fallback/stale pricing exceeds configured tolerance.",
+    "alpha_vantage_api_key_configured": false,
+    "alpha_vantage_api_key_fingerprint": null,
+    "alpha_vantage_api_key_source": "not_configured",
+    "api_key_csv_settings": {
+      "alpha_vantage_api_key": "Alpha Vantage key from system_config.csv or encrypted secret store",
+      "file": "multi_user/system_config.csv",
+      "fmp_api_key": "Financial Modeling Prep key from system_config.csv or encrypted secret store",
+      "section": "Market Pricing",
+      "subsection": "API"
+    },
+    "api_key_source": "system_config.csv, encrypted secret store, or environment variables",
+    "best_guess_cause": "DNS lookup failed for Stooq; check internet access, VPN/proxy, DNS, or corporate filtering.",
+    "cache_as_of_by_symbol": {},
+    "cache_as_of_by_symbol_local": {},
+    "cache_as_of_local": "",
+    "cache_as_of_utc": "",
+    "cache_first_enabled": false,
+    "cache_path": "/mnt/data/pricing_prod/output/market_price_cache.json",
+    "cache_schema_version": "9",
+    "cache_ttl_hours": 24.0,
+    "cached_symbols": [],
+    "csv_settings": {
+      "cache_hours": "fresh-cache window in hours; default 24",
+      "file": "multi_user/system_config.csv",
+      "pricing_mode": "CACHE | LIVE | OFFLINE",
+      "section": "Market Pricing",
+      "subsection": "Holdings"
+    },
+    "diagnostics_path": "/mnt/data/pricing_prod/output/pricing_diagnostics.json",
+    "failure_count": 8,
+    "failure_symbols": [
+      "VTI"
+    ],
+    "failures": [
+      {
+        "cause": "FMP_API_KEY is not set; skipping Financial Modeling Prep.",
+        "detail": "",
+        "provider": "financial_modeling_prep",
+        "status_code": null,
+        "symbol": "VTI",
+        "timestamp": 1781567879.6998067,
+        "url": ""
+      },
+      {
+        "cause": "DNS lookup failed for Yahoo Finance; check internet access, VPN/proxy, DNS, or corporate filtering.",
+        "detail": "ConnectionError(MaxRetryError('HTTPSConnectionPool(host=\\'query1.finance.yahoo.com\\', port=443): Max retries exceeded with url: /v8/finance/chart/VTI?range=1d&interval=1d (Caused by NameResolutionError(\"HTTPSConnection(host=\\'query1.finance.yahoo.com\\', port=443): Failed to resolve \\'query1.finance.yahoo.com\\' ([Errno -3] Temporary failure in name resolution)\"))'))",
+        "provider": "Yahoo Finance",
+        "status_code": null,
+        "symbol": "VTI",
+        "timestamp": 1781567879.7028017,
+        "url": "https://query1.finance.yahoo.com/v8/finance/chart/VTI?range=1d&interval=1d"
+      },
+      {
+        "cause": "ALPHA_VANTAGE_API_KEY is not set; skipping Alpha Vantage.",
+        "detail": "",
+        "provider": "alpha_vantage",
+        "status_code": null,
+        "symbol": "VTI",
+        "timestamp": 1781567879.7029073,
+        "url": ""
+      },
+      {
+        "cause": "DNS lookup failed for Stooq; check internet access, VPN/proxy, DNS, or corporate filtering.",
+        "detail": "URLError(gaierror(-3, 'Temporary failure in name resolution'))",
+        "provider": "stooq",
+        "status_code": null,
+        "symbol": "VTI",
+        "timestamp": 1781567884.7156312,
+        "url": "https://stooq.com/q/l/?s=vti.us&f=sd2t2ohlcv&h&e=csv"
+      },
+      {
+        "cause": "FMP_API_KEY is not set; skipping Financial Modeling Prep.",
+        "detail": "",
+        "provider": "financial_modeling_prep",
+        "status_code": null,
+        "symbol": "VTI",
+        "timestamp": 1781567884.716061,
+        "url": ""
+      },
+      {
+        "cause": "DNS lookup failed for Yahoo Finance; check internet access, VPN/proxy, DNS, or corporate filtering.",
+        "detail": "ConnectionError(MaxRetryError('HTTPSConnectionPool(host=\\'query1.finance.yahoo.com\\', port=443): Max retries exceeded with url: /v8/finance/chart/VTI?range=1d&interval=1d (Caused by NameResolutionError(\"HTTPSConnection(host=\\'query1.finance.yahoo.com\\', port=443): Failed to resolve \\'query1.finance.yahoo.com\\' ([Errno -3] Temporary failure in name resolution)\"))'))",
+        "provider": "Yahoo Finance",
+        "status_code": null,
+        "symbol": "VTI",
+        "timestamp": 1781567884.7187743,
+        "url": "https://query1.finance.yahoo.com/v8/finance/chart/VTI?range=1d&interval=1d"
+      },
+      {
+        "cause": "ALPHA_VANTAGE_API_KEY is not set; skipping Alpha Vantage.",
+        "detail": "",
+        "provider": "alpha_vantage",
+        "status_code": null,
+        "symbol": "VTI",
+        "timestamp": 1781567884.7189806,
+        "url": ""
+      },
+      {
+        "cause": "DNS lookup failed for Stooq; check internet access, VPN/proxy, DNS, or corporate filtering.",
+        "detail": "URLError(gaierror(-3, 'Temporary failure in name resolution'))",
+        "provider": "stooq",
+        "status_code": null,
+        "symbol": "VTI",
+        "timestamp": 1781567889.720496,
+        "url": "https://stooq.com/q/l/?s=vti.us&f=sd2t2ohlcv&h&e=csv"
+      }
+    ],
+    "fallback_symbols": [
+      "AVUV",
+      "ITOT",
+      "IXUS",
+      "PDBC",
+      "VBR",
+      "VTI",
+      "VXUS"
+    ],
+    "fallback_warning_share": 1.0,
+    "fallback_warning_symbols": [
+      "VTI"
+    ],
+    "fmp_api_key_configured": false,
+    "fmp_api_key_fingerprint": null,
+    "fmp_api_key_source": "not_configured",
+    "live_enabled": true,
+    "no_key_providers": [
+      "yahoo",
+      "stooq"
+    ],
+    "prices": {
+      "VTI": 337.78858647756346
+    },
+    "pricing_mode": "LIVE",
+    "pricing_source_category": "OFFLINE",
+    "pricing_source_note": "No live or cached market quotes were used for workbook holdings; offline fallback/cash pricing was used where available.",
+    "pricing_source_summary": {
+      "cache_as_of_by_symbol": {},
+      "cache_as_of_by_symbol_local": {},
+      "cache_as_of_local": "",
+      "cache_as_of_utc": "",
+      "category": "OFFLINE",
+      "label": "OFFLINE",
+      "note": "No live or cached market quotes were used for workbook holdings; offline fallback/cash pricing was used where available.",
+      "pricing_mode": "LIVE",
+      "source_counts": {
+        "holdings_cost_basis_fallback": 1
+      }
+    },
+    "provider_attempts": {
+      "VTI": [
+        "financial_modeling_prep",
+        "yahoo",
+        "alpha_vantage",
+        "stooq"
+      ]
+    },
+    "provider_order": [
+      "financial_modeling_prep",
+      "yahoo",
+      "alpha_vantage",
+      "stooq",
+      "cache_any_age",
+      "holdings_cost_basis_if_no_cache"
+    ],
+    "requests_available": true,
+    "source_counts": {
+      "holdings_cost_basis_fallback": 1
+    },
+    "sources": {
+      "VTI": "holdings_cost_basis_fallback"
+    },
+    "stooq_configured": true,
+    "stooq_symbol_rule": "append .us only for Stooq calls; other providers receive original symbols",
+    "yahoo_configured": true
+  },
+  "pricing_mode": "LIVE",
+  "provider_selection_order": [
+    "financial_modeling_prep",
+    "yahoo",
+    "alpha_vantage",
+    "stooq",
+    "cache_any_age",
+    "holdings_cost_basis_if_no_cache"
+  ],
+  "results": [
+    {
+      "cache_used": false,
+      "provider_attempts": [
+        {
+          "attempted": true,
+          "detail": "",
+          "error": "FMP_API_KEY is not set; skipping Financial Modeling Prep.",
+          "price": null,
+          "provider": "financial_modeling_prep",
+          "status": "FAILED"
+        },
+        {
+          "attempted": true,
+          "detail": "ConnectionError(MaxRetryError('HTTPSConnectionPool(host=\\'query1.finance.yahoo.com\\', port=443): Max retries exceeded with url: /v8/finance/chart/VTI?range=1d&interval=1d (Caused by NameResolutionError(\"HTTPSConnection(host=\\'query1.finance.yahoo.com\\', port=443): Failed to resolve \\'query1.finance.yahoo.com\\' ([Errno -3] Temporary failure in name resolution)\"))'))",
+          "error": "DNS lookup failed for Yahoo Finance; check internet access, VPN/proxy, DNS, or corporate filtering.",
+          "price": null,
+          "provider": "yahoo",
+          "status": "FAILED"
+        },
+        {
+          "attempted": true,
+          "detail": "",
+          "error": "ALPHA_VANTAGE_API_KEY is not set; skipping Alpha Vantage.",
+          "price": null,
+          "provider": "alpha_vantage",
+          "status": "FAILED"
+        },
+        {
+          "attempted": true,
+          "detail": "URLError(gaierror(-3, 'Temporary failure in name resolution'))",
+          "error": "DNS lookup failed for Stooq; check internet access, VPN/proxy, DNS, or corporate filtering.",
+          "price": null,
+          "provider": "stooq",
+          "status": "FAILED"
+        },
+        {
+          "attempted": true,
+          "cache_path": "/mnt/data/pricing_prod/output/market_price_cache.json",
+          "price": null,
+          "provider": "cache",
+          "status": "MISS"
+        }
+      ],
+      "selected_price": 337.78858647756346,
+      "selected_source": "holdings_cost_basis_fallback",
+      "symbol": "VTI"
+    }
+  ],
+  "version": "8.0",
+  "workspace_id": "local"
+}

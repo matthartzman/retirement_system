@@ -1,0 +1,2 @@
+Loaded At,Mode,Rows Received,Rows Added,Rows Skipped,Earliest Transaction Date,Latest Transaction Date,Notes
+2026-06-25T12:07:04,replace,6759,1345,5414,2026-01-01,2026-06-25,Transactions imported from UI upload. Current-year filter: kept 1345 2026 rows; skipped 5414 non-2026 rows.

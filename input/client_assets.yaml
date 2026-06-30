@@ -1,0 +1,84 @@
+DAF:
+  Settings:
+    annual_grant_amount: $4,000
+    contribution_amount: $20,000
+    contribution_year: '2026'
+    enabled: 'FALSE'
+    grant_end_year: '2031'
+    grant_start_year: '2027'
+Education Funding:
+  529 Plan 1:
+    annual_contribution: $0
+    beneficiary: ''
+    contribution_end_year: ''
+    contribution_start_year: ''
+    current_balance: $0
+    expected_use_year: ''
+HSA Policy:
+  Contributions:
+    catchup_amount: $1,000
+    catchup_eligible: 'TRUE'
+    contribution_last_year: '2026'
+    coverage_base_year_family_months: '6'
+    coverage_base_year_self_only_months: '6'
+    family_annual_limit_base_year: $8,750
+    self_only_annual_limit_base_year: $4,400
+  Spousal Rollover:
+    inherited_by_spouse: 'TRUE'
+  Window:
+    withdrawal_window: 2031-2040
+  Withdrawals:
+    hsa_annual_spend_pct: 10.00%
+    hsa_withdrawal_end_year: ''
+    hsa_withdrawal_mode: spend_as_needed
+    hsa_withdrawal_start_year: ''
+Hybrid LTC:
+  Settings:
+    annual_premium: $18,500
+    enabled: 'FALSE'
+    face_value: $500,000
+    insured: Husband
+    start_year: '2027'
+Liquidity Buffer:
+  buffer_1:
+    end_year: ''
+    reserve_account: Taxable/Trust
+    start_year: ''
+    years_of_expenses: '0'
+Note Receivable:
+  Interest by Year:
+    '2026': $41,265.01
+    '2027': $32,164
+    '2028': $27,450
+    '2029': $22,735
+    '2030': $18,021
+    '2031': $13,306
+    '2032': $4,448
+    '2033': $2,224.77
+  Summary:
+    annual_principal_base_period: $59,281.62
+    face_value: $474,252.96
+    final_principal_2033: $59,327.50
+    first_payment: 1/2/2026
+    last_payment: 1/2/2033
+    total_cash_flow: $613,394.61
+Other Assets:
+  Autos:
+    depreciation_per_year: '10'
+    depreciation_years: '7'
+    value: $57,384.27
+  Cash:
+    value: $20,000
+  Home:
+    appreciation_rate: 3.00%
+    home_basis: $800,000
+    home_sale_price: $1,500,000
+    home_sale_proceeds_account: Wife_Trust
+    home_sale_year: '0'
+    section_121_exclusion_mfj: $500,000
+    value_as_of_plan_start: $1,313,000
+  Startup Equity:
+    basis: $0
+    sale_price: $66,000
+    sale_year: '2030'
+    value: $66,000

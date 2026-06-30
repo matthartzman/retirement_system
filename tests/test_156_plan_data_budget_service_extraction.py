@@ -1,0 +1,108 @@
+from pathlib import Path
+
+
+def test_plan_data_file_service_exists_and_is_runtime_independent():
+    service = Path("src/server_services/plan_data_file_service.py").read_text(encoding="utf-8")
+    assert "class PlanDataFileService" in service
+    assert "PlanDataFileServiceContext" in service
+    assert "def files_payload" in service
+    assert "def start_blank_payload" in service
+    assert "def get_file_payload" in service
+    assert "def save_file_payload" in service
+    assert "@app.route" not in service
+    assert "request.get_json" not in service
+    assert "jsonify" not in service
+
+
+def test_workbook_routes_delegate_plan_data_files_budget_lines_and_liabilities():
+    routes = Path("src/server/workbook_routes.py").read_text(encoding="utf-8")
+    assert "def _plan_data_file_feature_service()" in routes
+    assert "PlanDataFileServiceContext" in routes
+    assert ".files_payload()" in routes
+    assert ".start_blank_payload()" in routes
+    assert ".get_file_payload(file_name)" in routes
+    assert ".save_file_payload(file_name" in routes
+    assert "holdings_service.read_liabilities(" in routes
+    assert "holdings_service.save_liabilities(" in routes
+    assert ".budget_lines_payload()" in routes
+    assert ".save_budget_lines_payload(" in routes
+    assert ".budget_lines_defaults_payload()" in routes
+    assert "def _spending_tracker_module" not in routes
+    assert "def _unified_budget_lines_for_ui" not in routes
+    assert "retirement_system_v10.db.before_blank" not in routes
+    assert "workspace_file(\"client_liabilities.csv" not in routes
+
+
+def test_spending_service_owns_budget_line_contracts(tmp_path):
+    from src.server_services.spending_service import SpendingService, SpendingServiceContext
+
+    written = {}
+
+    def read_file(name):
+        if name == "client_spending.csv":
+            return "section,subsection,label,value\nCashflow,Spending,annual_charitable_giving_high,1200\n"
+        return None
+
+    def write_file(name, content):
+        written[name] = content
+        path = tmp_path / name
+        path.write_text(content, encoding="utf-8")
+        return path
+
+    service = SpendingService(SpendingServiceContext(base_dir=tmp_path, read_plan_data_file=read_file, write_plan_data_file=write_file))
+    payload, status = service.budget_lines_defaults_payload()
+    assert status == 200
+    assert payload["success"] is True
+    assert any(line["category_id"] == "charitable_donations" for line in payload["lines"])
+
+    save_payload, save_status = service.save_budget_lines_payload({"lines": payload["lines"]})
+    assert save_status == 200
+    assert save_payload["success"] is True
+    assert "client_spending_budget_lines.csv" in written
+
+
+def test_plan_data_file_service_blank_backup_and_write_callbacks(tmp_path):
+    from src.server_services.plan_data_file_service import PlanDataFileService, PlanDataFileServiceContext
+
+    db = tmp_path / "retirement_system_v10.db"
+    db.write_bytes(b"sqlite placeholder")
+    events = []
+    blank_written = {}
+    normal_written = {}
+
+    def write_normal(name, content):
+        normal_written[name] = content
+        path = tmp_path / name
+        path.write_text(content, encoding="utf-8")
+        return path
+
+    def write_blank(name, content):
+        blank_written[name] = content
+        path = tmp_path / f"blank_{name}"
+        path.write_text(content, encoding="utf-8")
+        return path
+
+    service = PlanDataFileService(PlanDataFileServiceContext(
+        plan_data_files=["client_data.csv"],
+        client_data_csv_file_set={"client_data.csv"},
+        sqlite_db=lambda: db,
+        normalize_plan_data_file_name=lambda name: name,
+        read_plan_data_file=lambda name: "section,subsection,label,value\n" if name == "client_data.csv" else None,
+        write_plan_data_file=write_normal,
+        write_blank_plan_data_file=write_blank,
+        make_blank_plan_files=lambda: {"client_data.csv": "section,subsection,label,value\n"},
+        protected_client_data_status=lambda: {"husband_retirement_date_present": False},
+        ensure_user_ui_plan_data_rows=lambda: None,
+        sync_config_backends=lambda: {"success": True},
+        audit=lambda event, details=None: events.append((event, details or {})),
+    ))
+    payload, status = service.start_blank_payload()
+    assert status == 200
+    assert payload["success"] is True
+    assert "client_data.csv" in blank_written
+    assert not normal_written
+    assert any(event == "blank_plan_backup" for event, _ in events)
+
+    payload, status = service.save_file_payload("client_data.csv", "new")
+    assert status == 200
+    assert normal_written["client_data.csv"] == "new"

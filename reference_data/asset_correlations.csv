@@ -1,0 +1,92 @@
+horizon_years,preset,asset_class_a,asset_class_b,correlation,notes
+,BASELINE,US Large Cap,US Mid Cap,0.94,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Large Cap,US Small Cap,0.88,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Large Cap,International,0.82,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Large Cap,Emerging Markets,0.72,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Large Cap,Commodities,0.15,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Large Cap,Bonds,-0.20,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Large Cap,Short-Term Bonds,0.05,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Large Cap,TIPS,0.10,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Large Cap,Municipal Bonds,-0.10,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Large Cap,Managed Futures,-0.05,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Large Cap,Private Credit,0.45,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Large Cap,REITs,0.65,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Large Cap,Cash,-0.05,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Mid Cap,US Small Cap,0.92,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Mid Cap,International,0.78,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Mid Cap,Emerging Markets,0.70,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Mid Cap,Commodities,0.18,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Mid Cap,Bonds,-0.17,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Mid Cap,Short-Term Bonds,0.05,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Mid Cap,TIPS,0.09,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Mid Cap,Municipal Bonds,-0.08,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Mid Cap,Managed Futures,-0.05,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Mid Cap,Private Credit,0.48,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Mid Cap,REITs,0.68,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Mid Cap,Cash,-0.05,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Small Cap,International,0.75,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Small Cap,Emerging Markets,0.70,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Small Cap,Commodities,0.20,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Small Cap,Bonds,-0.15,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Small Cap,Short-Term Bonds,0.05,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Small Cap,TIPS,0.08,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Small Cap,Municipal Bonds,-0.07,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Small Cap,Managed Futures,-0.05,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Small Cap,Private Credit,0.50,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Small Cap,REITs,0.70,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,US Small Cap,Cash,-0.05,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,International,Emerging Markets,0.85,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,International,Commodities,0.25,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,International,Bonds,-0.10,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,International,Short-Term Bonds,0.02,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,International,TIPS,0.08,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,International,Municipal Bonds,-0.05,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,International,Managed Futures,-0.05,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,International,Private Credit,0.40,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,International,REITs,0.55,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,International,Cash,-0.03,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Emerging Markets,Commodities,0.35,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Emerging Markets,Bonds,-0.05,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Emerging Markets,Short-Term Bonds,0.05,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Emerging Markets,TIPS,0.10,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Emerging Markets,Municipal Bonds,-0.02,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Emerging Markets,Managed Futures,-0.05,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Emerging Markets,Private Credit,0.50,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Emerging Markets,REITs,0.50,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Emerging Markets,Cash,-0.02,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Commodities,Bonds,-0.10,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Commodities,Short-Term Bonds,0.00,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Commodities,TIPS,0.20,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Commodities,Municipal Bonds,-0.05,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Commodities,Managed Futures,0.15,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Commodities,Private Credit,0.20,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Commodities,REITs,0.25,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Commodities,Cash,0.00,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Bonds,Short-Term Bonds,0.75,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Bonds,TIPS,0.55,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Bonds,Municipal Bonds,0.70,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Bonds,Managed Futures,0.00,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Bonds,Private Credit,0.35,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Bonds,REITs,0.20,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Bonds,Cash,0.50,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Short-Term Bonds,TIPS,0.35,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Short-Term Bonds,Municipal Bonds,0.55,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Short-Term Bonds,Managed Futures,0.00,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Short-Term Bonds,Private Credit,0.20,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Short-Term Bonds,REITs,0.10,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Short-Term Bonds,Cash,0.30,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,TIPS,Municipal Bonds,0.40,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,TIPS,Managed Futures,0.00,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,TIPS,Private Credit,0.25,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,TIPS,REITs,0.25,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,TIPS,Cash,0.10,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Municipal Bonds,Managed Futures,0.00,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Municipal Bonds,Private Credit,0.30,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Municipal Bonds,REITs,0.15,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Municipal Bonds,Cash,0.35,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Managed Futures,Private Credit,0.00,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Managed Futures,REITs,0.00,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Managed Futures,Cash,0.00,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Private Credit,REITs,0.35,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,Private Credit,Cash,0.05,Baseline pairwise planning correlation. Blank horizon applies to all horizons.
+,BASELINE,REITs,Cash,0.05,Baseline pairwise planning correlation. Blank horizon applies to all horizons.

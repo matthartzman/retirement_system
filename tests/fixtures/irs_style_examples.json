@@ -1,0 +1,54 @@
+{
+  "social_security_taxable_examples": [
+    {
+      "name": "MFJ below provisional threshold",
+      "filing": "MFJ",
+      "social_security": 30000,
+      "other_income": 10000,
+      "expected_taxable_social_security": 0,
+      "source_note": "IRS Pub. 915 style provisional income: other income + 1/2 Social Security is below the married filing jointly base amount."
+    },
+    {
+      "name": "MFJ above second threshold",
+      "filing": "MFJ",
+      "social_security": 30000,
+      "other_income": 40000,
+      "expected_taxable_social_security": 15350,
+      "source_note": "IRS Pub. 915 style worksheet: 85% phase-in above $44,000 with the lower-tier inclusion amount."
+    },
+    {
+      "name": "Single above second threshold",
+      "filing": "Single",
+      "social_security": 20000,
+      "other_income": 30000,
+      "expected_taxable_social_security": 9600,
+      "source_note": "IRS Pub. 915 style worksheet for single filer above the second provisional income base amount."
+    }
+  ],
+  "rmd_examples": [
+    {
+      "name": "Uniform Lifetime Table age 73",
+      "age": 73,
+      "prior_year_balance": 2650000,
+      "expected_divisor": 26.5,
+      "expected_rmd": 100000,
+      "source_note": "IRS Pub. 590-B Uniform Lifetime Table age 73 divisor."
+    },
+    {
+      "name": "Uniform Lifetime Table age 90",
+      "age": 90,
+      "prior_year_balance": 1220000,
+      "expected_divisor": 12.2,
+      "expected_rmd": 100000,
+      "source_note": "IRS Pub. 590-B Uniform Lifetime Table age 90 divisor."
+    },
+    {
+      "name": "Uniform Lifetime Table age 115",
+      "age": 115,
+      "prior_year_balance": 290000,
+      "expected_divisor": 2.9,
+      "expected_rmd": 100000,
+      "source_note": "IRS Pub. 590-B Uniform Lifetime Table age 115 divisor."
+    }
+  ]
+}

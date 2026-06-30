@@ -1,0 +1,6 @@
+case_id,domain,input_a,input_b,input_c,expected,tolerance,reference_method
+fed_tax_mfj_100k,federal_tax,MFJ,100000,2025,11828.00,0.01,independent bracket ladder using 2025 MFJ brackets
+fed_tax_single_50k,federal_tax,Single,50000,2025,5914.00,0.01,independent bracket ladder using 2025 Single brackets
+ss_mfj_second_tier,social_security,MFJ,30000,40000,15350.00,0.01,IRS Pub 915 style provisional-income worksheet
+rmd_age_73,rmd,73,2650000,,100000.00,0.01,IRS Pub 590-B Uniform Lifetime Table divisor
+il_tax_retirement_exempt,state_tax_il,100000,10000,5000,5692.50,0.01,Illinois flat tax on earned/investment/nonqualified income with retirement and SS exempt

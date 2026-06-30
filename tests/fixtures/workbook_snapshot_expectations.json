@@ -1,0 +1,20 @@
+{
+  "required_sheets": [
+    "1A. Executive Summary",
+    "4B. Assumptions",
+    "2A. Roth Conversion",
+    "2G. Estate & Legacy Planning",
+    "4D. Quality Control"
+  ],
+  "required_phrases": {
+    "1A. Executive Summary": ["RETIREMENT", "Roth"],
+    "2A. Roth Conversion": ["AUTO-OPTIMIZED ROTH CONVERSION STRATEGY", "Target Bracket Top", "Binding Limit"],
+    "4D. Quality Control": ["WORKBOOK WARNINGS", "NO_CONSISTENCY_WARNINGS"]
+  },
+  "forbidden_roth_phrases": [
+    "24% Brkt Top",
+    "AGI > 24% bracket",
+    "Execute Roth conversions annually to fill 22% bracket",
+    "Convert up to 24% bracket annually"
+  ]
+}

@@ -1,0 +1,7 @@
+kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
+line,weddings,Rebecca,100000,,,2027,Seeded from large discretionary extras
+line,weddings,Max,50000,,,2028,Seeded from large discretionary extras
+line,weddings,Grace,100000,,,2032,Seeded from large discretionary extras
+line,home_improvement,Home Improvement,25000,2026,2030,,Seeded from large discretionary extras; CR116: merged from Other Improvement
+line,recurring_travel,Recurring Travel Projection,25000,2026,2045,,Seeded from large discretionary extras; CR116: renamed as recurring travel projection
+line,charitable_donations,Charitable Giving,5000,,,,Seeded from annual charitable giving

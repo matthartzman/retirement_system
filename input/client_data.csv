@@ -1,0 +1,16 @@
+section,subsection,label,value,units,notes,
+# ==============================================================,,,,,,
+#   RETIREMENT PLAN - CLIENT DATA MANIFEST,,,,,,
+#   Client-specific inputs are split into smaller CSV files.,,,,,,
+#   Edit value columns in the client_*.csv files below.,,,,,,
+#   Holdings remain in client_holdings.csv.,,,,,,
+# ==============================================================,,,,,,
+#   client_household.csv,,,,,,
+#   client_income.csv,,,,,,
+#   client_spending.csv,,,,,,
+#   client_assets.csv,,,,,,
+#   client_policy.csv,,,,,,
+#   client_insurance_estate.csv,,,,,,
+#   client_optional_functions.csv,,,,,,
+Scenarios,Allocation User Defined,allocation_selection_mode,user_target,choice,What-if: change allocation scenario to use user-specified target_pct allocation; scenario analysis applies the allocation-implied expected return/volatility.
+Scenarios,Allocation Optimizer Defined,allocation_selection_mode,optimizer_recommendation,choice,What-if: change allocation scenario to use the optimizer-defined allocation; scenario analysis applies the allocation-implied expected return/volatility.

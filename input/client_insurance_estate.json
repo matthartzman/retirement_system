@@ -1,0 +1,299 @@
+{
+  "Annuity Death Benefits": {
+    "2026": {
+      "H_Joint": "$860,000",
+      "H_Single": "$93,041",
+      "W_Joint": "$355,000",
+      "W_Single": "$54,811"
+    },
+    "2027": {
+      "H_Joint": "$860,000",
+      "H_Single": "$98,029",
+      "W_Joint": "$355,000",
+      "W_Single": "$57,527"
+    },
+    "2028": {
+      "H_Joint": "$887,765",
+      "H_Single": "$103,285",
+      "W_Joint": "$353,868",
+      "W_Single": "$60,381"
+    },
+    "2029": {
+      "H_Joint": "$936,024",
+      "H_Single": "$108,826",
+      "W_Joint": "$324,660",
+      "W_Single": "$67,377"
+    },
+    "2030": {
+      "H_Joint": "$869,290",
+      "H_Single": "$0",
+      "W_Joint": "$295,406",
+      "W_Single": "$0"
+    },
+    "2031": {
+      "H_Joint": "$793,070",
+      "H_Single": "$0",
+      "W_Joint": "$267,026",
+      "W_Single": "$0"
+    },
+    "2032": {
+      "H_Joint": "$717,885",
+      "H_Single": "$0",
+      "W_Joint": "$239,467",
+      "W_Single": "$0"
+    },
+    "2033": {
+      "H_Joint": "$644,998",
+      "H_Single": "$0",
+      "W_Joint": "$212,555",
+      "W_Single": "$0"
+    },
+    "2034": {
+      "H_Joint": "$574,089",
+      "H_Single": "$0",
+      "W_Joint": "$186,153",
+      "W_Single": "$0"
+    },
+    "2035": {
+      "H_Joint": "$504,776",
+      "H_Single": "$0",
+      "W_Joint": "$160,180",
+      "W_Single": "$0"
+    },
+    "2036": {
+      "H_Joint": "$436,878",
+      "H_Single": "$0",
+      "W_Joint": "$134,626",
+      "W_Single": "$0"
+    },
+    "2037": {
+      "H_Joint": "$370,076",
+      "H_Single": "$0",
+      "W_Joint": "$109,395",
+      "W_Single": "$0"
+    },
+    "2038": {
+      "H_Joint": "$304,216",
+      "H_Single": "$0",
+      "W_Joint": "$84,451",
+      "W_Single": "$0"
+    },
+    "2039": {
+      "H_Joint": "$239,205",
+      "H_Single": "$0",
+      "W_Joint": "$59,771",
+      "W_Single": "$0"
+    },
+    "2040": {
+      "H_Joint": "$173,663",
+      "H_Single": "$0",
+      "W_Joint": "$35,209",
+      "W_Single": "$0"
+    },
+    "2041": {
+      "H_Joint": "$173,663",
+      "H_Single": "$0",
+      "W_Joint": "$10,736",
+      "W_Single": "$0"
+    },
+    "2042": {
+      "H_Joint": "$43,892",
+      "H_Single": "$0",
+      "W_Joint": "$0",
+      "W_Single": "$0"
+    }
+  },
+  "Education Funding": {
+    "529 Accounts": {
+      "account_count": "0"
+    },
+    "Grandchild_A_529": {
+      "balance_today": "$50,000",
+      "beneficiary": "Grandchild A",
+      "contribution_end_year": "2035",
+      "growth_rate": "6.00%",
+      "monthly_contribution": "$500",
+      "owner": "Husband",
+      "state_deduction_eligible": "FALSE"
+    },
+    "Grandchild_A_Goal": {
+      "annual_cost_today": "$40,000",
+      "beneficiary": "Grandchild A",
+      "cost_inflation_rate": "5.00%",
+      "end_year": "2039",
+      "start_year": "2036"
+    },
+    "Policy": {
+      "allow_secure_2_roth_rollover": "TRUE",
+      "state_deduction_limit_annual": "$0"
+    }
+  },
+  "Equity Compensation": {
+    "ISO_2023": {
+      "exercise_price": "$25",
+      "fmv_growth_rate": "10.00%",
+      "fmv_per_share_today": "$150",
+      "grant_date": "6/1/2023",
+      "grant_type": "ISO",
+      "planned_exercise_year": "2026",
+      "planned_sale_year": "2027",
+      "recipient": "Husband",
+      "shares_outstanding": "500",
+      "vest_schedule": "fully vested"
+    },
+    "RSU_2024": {
+      "exercise_price": "$0",
+      "fmv_growth_rate": "10.00%",
+      "fmv_per_share_today": "$150",
+      "grant_date": "3/1/2024",
+      "grant_type": "RSU",
+      "planned_exercise_year": "0",
+      "planned_sale_year": "2026",
+      "recipient": "Husband",
+      "shares_outstanding": "2000",
+      "vest_schedule": "25%/yr starting 2025"
+    }
+  },
+  "Estate Planning": {
+    "Credit Shelter Trust": {
+      "amount": "$4,000,000",
+      "enabled": "TRUE",
+      "note": "Funds up to IL exemption bypasses survivor estate for IL tax"
+    },
+    "Federal": {
+      "exemption_mfj": "$30,000,000",
+      "portability_enabled": "TRUE"
+    },
+    "Gifting": {
+      "annual_exclusion_per_donee": "$19,000"
+    },
+    "Illinois": {
+      "state_estate_exemption": "$4,000,000",
+      "state_estate_rate_note": "graduated 0.8%-16%"
+    },
+    "QTIP Trust": {
+      "enabled": "FALSE",
+      "funding_amount": "0",
+      "manages_annuity_after_first_death": "TRUE",
+      "note": "Provides income to surviving spouse"
+    },
+    "SN_ABLE": {
+      "annual_contribution_limit": "$19,000",
+      "balance_today": "$15,000",
+      "monthly_contribution": "500"
+    },
+    "SN_Beneficiary": {
+      "annual_support_today": "$30,000",
+      "dob": "5/1/2000",
+      "inflation_rate": "2.50%",
+      "lifetime_to_age": "75",
+      "name": ""
+    },
+    "SN_GovBenefits": {
+      "medicaid_enrolled": "TRUE",
+      "ssdi_monthly": "0",
+      "ssi_monthly": "943"
+    },
+    "SN_Trust": {
+      "balance_today": "$100,000",
+      "funding_schedule": "$10,000",
+      "growth_rate": "5.00%",
+      "is_third_party": "TRUE"
+    },
+    "Step-Up": {
+      "basis_step_up_at_death": "TRUE",
+      "property_regime": "COMMON_LAW"
+    },
+    "Trust Structure": {
+      "credit_shelter_trust": "TRUE",
+      "trust_type": "revocable living trust"
+    }
+  },
+  "Insurance In Force": {
+    "DI_Group_Matthew": {
+      "benefit_period_years": "5",
+      "elimination_days": "90",
+      "insured": "Husband",
+      "monthly_benefit": "$15,000",
+      "premium_annual": "$1,200",
+      "premium_pre_tax": "TRUE",
+      "type": "group"
+    },
+    "DI_Scenario": {
+      "simulate_disability_year": "0"
+    },
+    "Disability": {
+      "policy_count": "0"
+    },
+    "Life": {
+      "policy_count": "0"
+    },
+    "Life_1": {
+      "annual_premium": "$0",
+      "beneficiary": "",
+      "face_amount": "$0",
+      "insured": "",
+      "notes": "",
+      "owner": "",
+      "policy_type": "Life",
+      "premium_end_year": "",
+      "term_end_year": ""
+    },
+    "Life_Term_Matthew": {
+      "annual_premium": "$1,800",
+      "beneficiary": "Wife",
+      "cash_value_growth_rate": "0%",
+      "cash_value_today": "$0",
+      "face_amount": "$500,000",
+      "insured": "Husband",
+      "owned_by_ilit": "FALSE",
+      "owner": "Husband",
+      "policy_type": "term",
+      "premium_end_year": "2035",
+      "term_end_year": "2035"
+    },
+    "Life_Whole_Patricia": {
+      "annual_premium": "$3,500",
+      "beneficiary": "Husband",
+      "cash_value_growth_rate": "4.00%",
+      "cash_value_today": "$45,000",
+      "face_amount": "$250,000",
+      "insured": "Wife",
+      "owned_by_ilit": "FALSE",
+      "owner": "Wife",
+      "policy_type": "whole",
+      "premium_end_year": "2040",
+      "term_end_year": "0"
+    },
+    "Long-Term Care": {
+      "policy_count": "0"
+    },
+    "PC_Auto": {
+      "annual_premium": "$2,400",
+      "coverage_limit": "$500,000",
+      "deductible": "$1,000",
+      "policy_type": "auto"
+    },
+    "PC_Homeowner": {
+      "annual_premium": "$3,200",
+      "coverage_limit": "$1,500,000",
+      "deductible": "$5,000",
+      "policy_type": "HO"
+    },
+    "PC_Targets": {
+      "umbrella_target_multiple_of_nw": "1.5"
+    },
+    "PC_Umbrella": {
+      "annual_premium": "800",
+      "coverage_limit": "$5,000,000",
+      "deductible": "0",
+      "policy_type": "umbrella"
+    },
+    "Property and Casualty": {
+      "policy_count": "0"
+    },
+    "Umbrella Liability": {
+      "policy_count": "0"
+    }
+  }
+}

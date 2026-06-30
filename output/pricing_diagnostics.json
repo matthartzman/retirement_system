@@ -1,0 +1,172 @@
+{
+  "advisor_ready_pricing_blocked": false,
+  "advisor_ready_pricing_message": "Pricing fallback share is within configured tolerance.",
+  "alpha_vantage_api_key_configured": true,
+  "alpha_vantage_api_key_fingerprint": "37e951649172",
+  "api_key_csv_settings": {
+    "alpha_vantage_api_key": "Alpha Vantage key from UI/system_config.csv, RETIREMENT_SYSTEM_ALPHA_VANTAGE_API_KEY, ALPHA_VANTAGE_API_KEY, or encrypted secret store",
+    "file": "multi_user/system_config.csv",
+    "fmp_api_key": "Financial Modeling Prep key from UI/system_config.csv, RETIREMENT_SYSTEM_FMP_API_KEY, FMP_API_KEY, FINANCIAL_MODELING_PREP_API_KEY, or encrypted secret store",
+    "section": "Market Pricing",
+    "subsection": "API"
+  },
+  "api_key_source": "UI/system_config.csv, environment variables, or encrypted secret store",
+  "best_guess_cause": "Market pricing succeeded for all requested symbols.",
+  "cache_as_of_by_symbol": {
+    "AVUV": "2026-06-29T14:35:05.2758348Z",
+    "ITOT": "2026-06-29T14:35:05.2758348Z",
+    "IXUS": "2026-06-29T14:35:05.2758348Z",
+    "PDBC": "2026-06-29T14:35:05.2758348Z",
+    "VBR": "2026-06-29T14:35:05.2758348Z",
+    "VTI": "2026-06-29T14:35:05.2758348Z",
+    "VXUS": "2026-06-29T14:35:05.2758348Z"
+  },
+  "cache_as_of_by_symbol_local": {
+    "AVUV": "06/29/2026 09:35 AM",
+    "ITOT": "06/29/2026 09:35 AM",
+    "IXUS": "06/29/2026 09:35 AM",
+    "PDBC": "06/29/2026 09:35 AM",
+    "VBR": "06/29/2026 09:35 AM",
+    "VTI": "06/29/2026 09:35 AM",
+    "VXUS": "06/29/2026 09:35 AM"
+  },
+  "cache_as_of_local": "06/29/2026 09:35 AM",
+  "cache_as_of_utc": "2026-06-29T14:35:05.2758348Z",
+  "cache_first_enabled": true,
+  "cache_path": "C:\\RetirementPlanning\\Version 10 - ChatpGPT\\output\\market_price_cache.json",
+  "cache_schema_version": "9",
+  "cache_ttl_hours": 24.0,
+  "cached_symbols": [
+    "AVUV",
+    "ITOT",
+    "IXUS",
+    "PDBC",
+    "VB",
+    "VBR",
+    "VEA",
+    "VO",
+    "VOO",
+    "VTI",
+    "VWO",
+    "VXUS"
+  ],
+  "csv_settings": {
+    "cache_hours": "fresh-cache window in hours; default 24",
+    "file": "multi_user/system_config.csv",
+    "pricing_mode": "CACHE | LIVE | OFFLINE",
+    "section": "Market Pricing",
+    "subsection": "Holdings"
+  },
+  "diagnostics_path": "C:\\RetirementPlanning\\Version 10 - ChatpGPT\\output\\pricing_diagnostics.json",
+  "effective_api_key_sources": {
+    "alpha_vantage": "ALPHA_VANTAGE_API_KEY",
+    "alpha_vantage_fingerprint": "37e951649172",
+    "fmp": "FMP_API_KEY",
+    "fmp_fingerprint": "a805fe45c35d"
+  },
+  "failure_count": 0,
+  "failure_symbols": [],
+  "failures": [],
+  "fallback_symbols": [
+    "AVUV",
+    "ITOT",
+    "IXUS",
+    "PDBC",
+    "VBR",
+    "VTI",
+    "VXUS"
+  ],
+  "fallback_warning_share": 0.0,
+  "fallback_warning_symbols": [],
+  "fmp_api_key_configured": true,
+  "fmp_api_key_fingerprint": "a805fe45c35d",
+  "frozen_metadata": {},
+  "frozen_pricing_active": false,
+  "frozen_symbols": [],
+  "live_enabled": true,
+  "max_retries": 2,
+  "nasdaq_asset_classes": [
+    "etf",
+    "stocks"
+  ],
+  "nasdaq_configured": true,
+  "no_key_providers": [
+    "yahoo",
+    "nasdaq",
+    "stooq"
+  ],
+  "prices": {
+    "AVUV": 124.94,
+    "CASH": 1.0,
+    "ITOT": 160.83,
+    "IXUS": 94.26,
+    "PDBC": 15.87,
+    "VBR": 242.77,
+    "VTI": 362.22,
+    "VXUS": 84.48
+  },
+  "pricing_mode": "CACHE",
+  "pricing_source_category": "CACHE",
+  "pricing_source_note": "Cached quotes were used as of 06/29/2026 09:35 AM; cache TTL is 24.0 hours. Some symbols used offline fallback pricing; see Holdings Detail by Account for ticker-level sources.",
+  "pricing_source_summary": {
+    "cache_as_of_by_symbol": {
+      "AVUV": "2026-06-29T14:35:05.2758348Z",
+      "ITOT": "2026-06-29T14:35:05.2758348Z",
+      "IXUS": "2026-06-29T14:35:05.2758348Z",
+      "PDBC": "2026-06-29T14:35:05.2758348Z",
+      "VBR": "2026-06-29T14:35:05.2758348Z",
+      "VTI": "2026-06-29T14:35:05.2758348Z",
+      "VXUS": "2026-06-29T14:35:05.2758348Z"
+    },
+    "cache_as_of_by_symbol_local": {
+      "AVUV": "06/29/2026 09:35 AM",
+      "ITOT": "06/29/2026 09:35 AM",
+      "IXUS": "06/29/2026 09:35 AM",
+      "PDBC": "06/29/2026 09:35 AM",
+      "VBR": "06/29/2026 09:35 AM",
+      "VTI": "06/29/2026 09:35 AM",
+      "VXUS": "06/29/2026 09:35 AM"
+    },
+    "cache_as_of_local": "06/29/2026 09:35 AM",
+    "cache_as_of_utc": "2026-06-29T14:35:05.2758348Z",
+    "category": "CACHE",
+    "label": "CACHE",
+    "note": "Cached quotes were used as of 06/29/2026 09:35 AM; cache TTL is 24.0 hours. Some symbols used offline fallback pricing; see Holdings Detail by Account for ticker-level sources.",
+    "pricing_mode": "CACHE",
+    "source_counts": {
+      "cash": 1,
+      "fresh_cache_24h_from_fixture_cache": 7
+    }
+  },
+  "provider_attempts": {},
+  "provider_order": [
+    "cache_any_age",
+    "financial_modeling_prep",
+    "yahoo",
+    "nasdaq",
+    "alpha_vantage",
+    "stooq",
+    "holdings_cost_basis_if_no_cache"
+  ],
+  "proxy_environment_keys": [],
+  "proxy_environment_present": false,
+  "requests_available": true,
+  "source_counts": {
+    "cash": 1,
+    "fresh_cache_24h_from_fixture_cache": 7
+  },
+  "sources": {
+    "AVUV": "fresh_cache_24h_from_fixture_cache",
+    "CASH": "cash",
+    "ITOT": "fresh_cache_24h_from_fixture_cache",
+    "IXUS": "fresh_cache_24h_from_fixture_cache",
+    "PDBC": "fresh_cache_24h_from_fixture_cache",
+    "VBR": "fresh_cache_24h_from_fixture_cache",
+    "VTI": "fresh_cache_24h_from_fixture_cache",
+    "VXUS": "fresh_cache_24h_from_fixture_cache"
+  },
+  "stooq_configured": true,
+  "stooq_symbol_rule": "append .us only for Stooq calls; other providers receive original symbols",
+  "timeout_seconds": 8,
+  "yahoo_configured": true
+}

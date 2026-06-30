@@ -1,0 +1,26 @@
+section,subsection,label,value,units,notes,
+# -- client_optional_functions.csv: Client-specific workbook sections and optional planning modules to include or exclude.,,,,,,
+Optional Functions,,lifetime_tax_projection,YES,boolean,Sheet 7 - Lifetime Tax Projection
+Optional Functions,,charts_dashboard,TRUE,boolean,Sheet 8 - Charts Dashboard (all visual charts consolidated here)
+Optional Functions,,retirement_strategy,TRUE,boolean,Sheet 9 - Retirement Strategy & Sequencing
+Optional Functions,,social_security_timing,TRUE,boolean,Sheet 10 - Social Security Claiming Strategy
+Optional Functions,,roth_conversion_plan,TRUE,boolean,Sheet 11 - Roth Conversion Plan
+Optional Functions,,charitable_giving,TRUE,boolean,Sheet 12 - Charitable Giving / Bunching / QCD
+Optional Functions,,state_residency,TRUE,boolean,Sheet 13 - State Residency Analysis
+Optional Functions,,estate_legacy_plan,TRUE,boolean,Sheet 14 - Estate & Legacy Plan
+Optional Functions,,market_luck_stress_test,TRUE,boolean,Sheet 15 - Market-Luck (Monte Carlo) Stress Test
+Optional Functions,,what_if_analysis,TRUE,boolean,Sheet 16 - What-If Scenario Analysis
+Optional Functions,,long_term_care_stress,TRUE,boolean,Sheet 17 - Long-Term-Care Stress Test
+Optional Functions,,survivor_stress_test,TRUE,boolean,Sheet 18 - Survivor / Early-Death Stress Test
+Optional Functions,,life_insurance_need,TRUE,boolean,Sheet 19 - Life Insurance Need Analysis
+Optional Functions,,rmd_audit,TRUE,boolean,Sheet 20 - RMD Audit
+Optional Functions,,glossary,TRUE,boolean,Sheet 22 - Glossary of Terms
+Optional Functions,,methodology_rerun,TRUE,boolean,Sheet 23 - Methodology & Re-Run Instructions
+Optional Functions,,education_funding_529,FALSE,boolean,Sheet 24 - Education Funding (529 plans + goals)
+Optional Functions,,existing_life_insurance,FALSE,boolean,Sheet 25 - Existing Life Insurance Policies
+Optional Functions,,disability_income_insurance,FALSE,boolean,Sheet 26 - Disability Income Insurance
+Optional Functions,,property_casualty_umbrella,FALSE,boolean,Sheet 27 - Property & Casualty / Umbrella Liability
+Optional Functions,,business_succession,FALSE,boolean,Sheet 28 - Business Succession Planning
+Optional Functions,,equity_compensation,FALSE,boolean,Sheet 29 - Equity Compensation (RSU/ISO/NSO/ESPP)
+Optional Functions,,special_needs_planning,FALSE,boolean,Sheet 30 - Special-Needs Planning (SNT/ABLE)
+Optional Functions,,divorce_qdro,FALSE,boolean,Sheet 31 - Divorce / QDRO

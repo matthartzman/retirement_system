@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "retirement-planner",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["main.py", "--mode", "server"],
+      "port": 5050,
+      "autoPort": false
+    }
+  ]
+}

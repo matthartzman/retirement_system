@@ -1,0 +1,89 @@
+section,subsection,label,value,units,notes,
+"# -- client_spending.csv: Core spending, mortgage/housing costs, rent, and travel/extra expenses.",,,,,,
+Cashflow,Spending,annual_spending_base_year,,,Base year; excludes taxes and mortgage,
+Cashflow,Spending,annual_charitable_giving_low,,,Low end of giving range,
+Cashflow,Spending,annual_charitable_giving_high,,,High end,
+Cashflow,Spending,daf_annual_contribution,,,DAF funded from spending,
+Cashflow,Spending,core_spending_growth_mode,,choice,cpi | manual_override; Choose whether core spending increases with general CPI or a manual spending-specific rate.
+Cashflow,Spending,core_spending_manual_growth_rate,,percent,Annual core-spending increase used only when core_spending_growth_mode is manual_override.
+Cashflow,Mortgage,monthly_payment,,,Fixed payment,
+Cashflow,Mortgage,balance_as_of_plan_start,,,Outstanding balance 4/1/2026,
+Cashflow,Mortgage,interest_rate,,,,
+Cashflow,Mortgage,last_payment_date,,,,
+Cashflow,Mortgage,last_payment_year,,,Model stops mortgage in this year,
+Cashflow,Mortgage,annual_real_estate_taxes,,USD,Annual real-estate/property tax cash-flow amount; shown with Mortgage and RE Tax instead of core spending.
+Cashflow,Mortgage,real_estate_tax_annual_adjustment_pct,,percent,Annual percentage adjustment applied to real-estate/property taxes in the cash-flow forecast.
+Cashflow,Post-House-Sale Rent,monthly_rent_post_sale,,,Active from home_sale_year; inflated with CPI,
+,,,,,
+# -- Large Discretionary Expenses: one-time and repeatable lifestyle/large-event spending --,,,,,
+Cashflow,Large Discretionary Expenses,extra_1_type,,,Category selected in the UI
+Cashflow,Large Discretionary Expenses,extra_1_amount,,USD,Annual amount if repeatable; one-time amount if year is used
+Cashflow,Large Discretionary Expenses,extra_1_year,,year,Use for a one-time extra; leave blank for repeatable extras
+Cashflow,Large Discretionary Expenses,extra_1_start_year,,year,First year for repeatable extras
+Cashflow,Large Discretionary Expenses,extra_1_end_year,,year,Last year for repeatable extras
+Cashflow,Large Discretionary Expenses,extra_1_comment,,,User note for this item
+Cashflow,Large Discretionary Expenses,extra_2_type,,,Category selected in the UI
+Cashflow,Large Discretionary Expenses,extra_2_amount,,USD,Annual amount if repeatable; one-time amount if year is used
+Cashflow,Large Discretionary Expenses,extra_2_year,,year,Use for a one-time extra; leave blank for repeatable extras
+Cashflow,Large Discretionary Expenses,extra_2_start_year,,year,First year for repeatable extras
+Cashflow,Large Discretionary Expenses,extra_2_end_year,,year,Last year for repeatable extras
+Cashflow,Large Discretionary Expenses,extra_2_comment,,,User note for this item
+Cashflow,Large Discretionary Expenses,extra_3_type,,,Category selected in the UI
+Cashflow,Large Discretionary Expenses,extra_3_amount,,USD,Annual amount if repeatable; one-time amount if year is used
+Cashflow,Large Discretionary Expenses,extra_3_year,,year,Use for a one-time extra; leave blank for repeatable extras
+Cashflow,Large Discretionary Expenses,extra_3_start_year,,year,First year for repeatable extras
+Cashflow,Large Discretionary Expenses,extra_3_end_year,,year,Last year for repeatable extras
+Cashflow,Large Discretionary Expenses,extra_3_comment,,,User note for this item
+Cashflow,Large Discretionary Expenses,extra_4_type,,,Category selected in the UI
+Cashflow,Large Discretionary Expenses,extra_4_amount,,USD,Annual amount if repeatable; one-time amount if year is used
+Cashflow,Large Discretionary Expenses,extra_4_year,,year,Use for a one-time extra; leave blank for repeatable extras
+Cashflow,Large Discretionary Expenses,extra_4_start_year,,year,First year for repeatable extras
+Cashflow,Large Discretionary Expenses,extra_4_end_year,,year,Last year for repeatable extras
+Cashflow,Large Discretionary Expenses,extra_4_comment,,,User note for this item
+Cashflow,Large Discretionary Expenses,extra_5_type,,,Category selected in the UI
+Cashflow,Large Discretionary Expenses,extra_5_amount,,USD,Annual amount if repeatable; one-time amount if year is used
+Cashflow,Large Discretionary Expenses,extra_5_year,,year,Use for a one-time extra; leave blank for repeatable extras
+Cashflow,Large Discretionary Expenses,extra_5_start_year,,year,First year for repeatable extras
+Cashflow,Large Discretionary Expenses,extra_5_end_year,,year,Last year for repeatable extras
+Cashflow,Large Discretionary Expenses,extra_5_comment,,,User note for this item
+,,,,,
+Housing,current_home,homeowners_insurance_annual,,money,Annual homeowners insurance premium
+Housing,current_home,utilities_annual,,money,"Annual utilities (electric, gas, water, internet)"
+Housing,current_home,home_maintenance_annual,,money,Annual home maintenance and repairs
+Housing,current_home,city_type,,text,"Area type: suburban, urban, or rural"
+Housing,current_home,population_size,,int,Approximate population of the area
+Housing,current_home,hoa_annual,,money,Annual HOA fees (if applicable)
+Housing,next_step_1,type,,text,purchase or rent
+Housing,next_step_1,start_year,,int,Year this housing step begins
+Housing,next_step_1,end_year,,int,Year this housing step ends (0 = indefinite)
+Housing,next_step_1,state,,text,US state (e.g. IL)
+Housing,next_step_1,city_type,,text,"Area type: suburban, urban, or rural"
+Housing,next_step_1,population_size,,int,Approximate population of the area (e.g. 20000)
+Housing,next_step_1,purchase_price,,money,Purchase price (purchase only)
+Housing,next_step_1,down_payment,,pct,"Down payment percentage (purchase only, default 20%)"
+Housing,next_step_1,mortgage_rate_pct,,pct,Mortgage interest rate % (purchase only)
+Housing,next_step_1,monthly_rent,,money,Monthly rent (rent only)
+Housing,next_step_1,insurance_annual,,money,Annual insurance (homeowners or renters)
+Housing,next_step_1,utilities_annual,,money,Annual utilities
+Housing,next_step_1,maintenance_annual,,money,Annual home maintenance (purchase only)
+Housing,next_step_1,re_tax_pct,,pct,Real-estate tax as % of value (purchase only)
+Housing,next_step_1,hoa_pct,,pct,"HOA fee as % of value, optional (purchase only)"
+Housing,next_step_2,type,,text,purchase or rent
+Housing,next_step_2,start_year,,int,Year this housing step begins
+Housing,next_step_2,end_year,,int,Year this housing step ends (0 = indefinite)
+Housing,next_step_2,state,,text,US state (e.g. IL)
+Housing,next_step_2,city_type,,text,"Area type: suburban, urban, or rural"
+Housing,next_step_2,population_size,,int,Approximate population of the area (e.g. 20000)
+Housing,next_step_2,purchase_price,,money,Purchase price (purchase only)
+Housing,next_step_2,down_payment,,pct,"Down payment percentage (purchase only, default 20%)"
+Housing,next_step_2,mortgage_rate_pct,,pct,Mortgage interest rate % (purchase only)
+Housing,next_step_2,monthly_rent,,money,Monthly rent (rent only)
+Housing,next_step_2,insurance_annual,,money,Annual insurance (homeowners or renters)
+Housing,next_step_2,utilities_annual,,money,Annual utilities
+Housing,next_step_2,maintenance_annual,,money,Annual home maintenance (purchase only)
+Housing,next_step_2,re_tax_pct,,pct,Real-estate tax as % of value (purchase only)
+Housing,next_step_2,hoa_pct,,pct,"HOA fee as % of value, optional (purchase only)"
+Wellness,Out-of-Pocket,medical_annual,,money,"Annual medical out-of-pocket (deductibles, copays, uncovered services)"
+Wellness,Out-of-Pocket,dental_annual,,money,Annual dental out-of-pocket
+Wellness,Out-of-Pocket,vision_annual,,money,Annual vision out-of-pocket
+Wellness,Out-of-Pocket,pharmacy_annual,,money,Annual pharmacy/drugs out-of-pocket

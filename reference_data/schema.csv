@@ -1,0 +1,366 @@
+section,subsection,label,type,required,default,min,max,description
+Household,,husband_name,text,TRUE,,,Name of husband,
+Household,,husband_dob,date,TRUE,,,Date of birth M/D/YYYY,
+Household,,husband_retirement_date,date,TRUE,,,Retirement date,
+Household,,husband_mortality_age,integer,TRUE,92,70,120,Plan horizon age
+Household,,wife_name,text,TRUE,,,Name of wife,
+Household,,wife_dob,date,TRUE,,,Date of birth M/D/YYYY,
+Household,,wife_retirement_date,date,FALSE,,,Retirement date,
+Household,,wife_mortality_age,integer,TRUE,95,70,120,Plan horizon age
+Household,,residence_state,text,TRUE,Illinois,,,"State for tax, estate analysis"
+Household,,filing_status,choice,TRUE,MFJ,,,MFJ | Single | HOH | MFS
+Household,,survivor_filing_status,choice,FALSE,Single,,,Filing status after first death: Single | HOH
+Plan Settings,Annuity Valuation,net_worth_method,choice,TRUE,pv_through_mortality_age,,,pv_through_mortality_age | cumulative_at_death
+Plan Settings,Tax Detail,model_niit,boolean,TRUE,TRUE,,,Model 3.8% NIIT
+Plan Settings,Estate,model_state_estate_tax,boolean,TRUE,TRUE,,,Model state estate tax
+Economic Assumptions,,inflation_general,percent,TRUE,2.50%,0,10,CPI for spending and home
+Economic Assumptions,,social_security_cola,percent,TRUE,2.00%,0,8,SS benefit COLA
+Economic Assumptions,,portfolio_nominal_return,percent,TRUE,6.00%,0,15,Gross annual portfolio return
+Economic Assumptions,,fed_tax_bracket_inflator,percent,TRUE,2.00%,0,5,Annual bracket expansion
+Economic Assumptions,,social_security_taxable_fraction,percent,TRUE,85.00%,0,100,SS fraction in AGI
+Model Constants,Retirement,rollover_401k_year,year,TRUE,2030,2026,2060,401k->IRA rollover year
+Model Constants,Retirement,spending_freeze_year,year,TRUE,2040,2026,2060,Year spending stops inflating
+Model Constants,Retirement,ss_claim_age,integer,TRUE,70,62,70,SS claim age (both spouses)
+Model Constants,Retirement,rmd_start_age,integer,TRUE,75,72,75,SECURE 2.0 RMD start
+Model Constants,IRMAA,irmaa_annual_inflator,percent,TRUE,2.00%,0,5,IRMAA inflation rate
+Model Constants,Monte Carlo,mc_portfolio_sigma,percent,TRUE,12.00%,0,40,Portfolio return std dev
+Model Constants,Monte Carlo,mc_simulations,integer,TRUE,300,100,10000,Number of exact scalar MC paths; raise for final advisor runs if runtime allows
+Model Constants,Monte Carlo,mc_sensitivity_simulations,integer,TRUE,25,5,500,Exact scalar sims per MC sensitivity-grid cell
+Model Constants,Monte Carlo,mc_engine_mode,choice,FALSE,advanced_exact_scalar,,,advanced_exact_scalar | quick_vectorized; Choose whether Monte Carlo uses the advanced/slower exact scalar engine or the simpler/quicker vectorized approximation.
+Model Constants,Monte Carlo,success_liquid_floor,dollars,TRUE,0,0,,Minimum liquid assets for MC funding success
+Model Constants,Monte Carlo,stochastic_tax_brackets,boolean,TRUE,TRUE,,,Stochastic bracket inflation
+Model Constants,Monte Carlo,stochastic_irmaa,boolean,TRUE,TRUE,,,Stochastic IRMAA thresholds
+Model Constants,Monte Carlo,wellness_cost_shocks,boolean,TRUE,TRUE,,,Poisson wellness events
+Model Constants,Monte Carlo,wellness_shock_annual_prob,percent,TRUE,3.00%,0,20,Annual shock probability
+Model Constants,Monte Carlo,wellness_shock_mean_cost,dollars,TRUE,150000,0,,Mean shock cost
+Model Constants,Asset Allocation,equity_pct,percent,TRUE,85.00%,0,100,Equity allocation
+Model Constants,Asset Allocation,commodity_pct,percent,TRUE,10.00%,0,100,Commodity allocation
+Model Constants,Asset Allocation,cash_pct,percent,TRUE,5.00%,0,100,Cash allocation
+Model Constants,Home Sale,selling_cost_pct,percent,TRUE,6.00%,0,15,Realtor + closing costs
+Model Constants,Capital Gains,ltcg_0pct_top_mfj_base_year,dollars,TRUE,96700,0,,0% LTCG bracket top
+Model Constants,Capital Gains,ltcg_15pct_top_mfj_base_year,dollars,TRUE,600050,0,,15% LTCG bracket top
+Model Constants,Capital Gains,niit_magi_threshold_mfj,dollars,TRUE,250000,0,,NIIT MAGI threshold
+Cashflow,Earned Income,annual_earned_income,dollars,TRUE,,,Gross annual earned income,
+Cashflow,Earned Income,earned_income_start_year,year,TRUE,,,First year of earned income,
+Cashflow,Earned Income,earned_income_annual_increase,percent,TRUE,3.00%,0,20,Annual growth rate
+Cashflow,Earned Income,entity_type,choice,TRUE,s_corp,,,s_corp | sole_prop | W2
+Cashflow,S-Corp,reasonable_salary_annual,dollars,FALSE,60000,0,,W-2 salary for FICA
+Cashflow,Spending,annual_spending_base_year,dollars,TRUE,,,Base annual spending,
+Cashflow,Spending,core_spending_growth_mode,choice,TRUE,cpi,,,cpi | manual_override; Choose whether core spending increases with general CPI or a manual spending-specific rate.
+Cashflow,Spending,core_spending_manual_growth_rate,percent,FALSE,0.00%,0,20,Annual core-spending increase used only when core_spending_growth_mode is manual_override.
+Cashflow,Mortgage,monthly_payment,dollars,FALSE,,,Fixed monthly mortgage,
+Cashflow,Mortgage,balance_as_of_plan_start,dollars,FALSE,,,Outstanding balance,
+Cashflow,Mortgage,interest_rate,percent,FALSE,,,Mortgage rate,
+Cashflow,Mortgage,last_payment_year,year,FALSE,,,Year mortgage paid off,
+Cashflow,Mortgage,annual_real_estate_taxes,dollars,FALSE,0,0,,Annual real-estate/property tax cash-flow amount; shown with Mortgage and RE Tax instead of core spending.
+Cashflow,Mortgage,real_estate_tax_annual_adjustment_pct,percent,FALSE,2.50%,0,20,Annual percentage adjustment applied to real-estate/property taxes in the cash-flow forecast.
+Social Security,Wife,monthly_at_claim_age_today_dollars,dollars,TRUE,,,"Enter the monthly Social Security payment expected at the selected Claim Age, in today dollars. If Monthly at FRA is blank or 0, the model estimates PIA from this payment and claim age.",
+Social Security,Husband,monthly_at_claim_age_today_dollars,dollars,TRUE,,,"Enter the monthly Social Security payment expected at the selected Claim Age, in today dollars. If Monthly at FRA is blank or 0, the model estimates PIA from this payment and claim age.",
+Other Assets,Home,value_as_of_plan_start,dollars,TRUE,,,FMV as of plan start,
+Other Assets,Home,appreciation_rate,percent,TRUE,3.00%,0,10,Annual appreciation
+Other Assets,Home,home_sale_year,year,TRUE,0,0,,0=no sale; >0=sale year
+Other Assets,Home,home_sale_price,dollars,FALSE,,,Gross sale price,
+Other Assets,Home,home_basis,dollars,FALSE,,,Cost basis,
+Other Assets,Home,home_sale_proceeds_account,text,FALSE,Wife_Trust,,,Destination account
+Other Assets,Cash,value,dollars,FALSE,$0,0,,Checking-account cash outside the investment holdings table.
+Scenarios,Retire Later,husband_retire_year,year,TRUE,2029,,,Extended retire year
+Scenarios,Retire Later,income_growth_rate_override,percent,TRUE,0.00%,0,10,Extension year growth
+Scenarios,Retire Later,salary_override,dollars,TRUE,50000,0,,Extension year salary
+Scenarios,Sell Home,home_sale_year,year,TRUE,2045,,,Scenario sale year
+Scenarios,Sell Home,home_sale_proceeds_account,text,TRUE,Wife_Trust,,,Destination account
+Scenarios,Higher Spending,spend_multiplier,number,TRUE,1.20,1,3,Spending multiplier
+Scenarios,High Inflation,inflation_override,percent,TRUE,4.50%,0,15,Scenario inflation rate
+Scenarios,Low Return,portfolio_return_override,percent,TRUE,4.00%,0,15,Scenario return rate
+Withdrawal Policy,Roth Conversion,roth_conversion_policy,choice,FALSE,optimize_terminal_tax,,,optimize_terminal_tax | fill_to_bracket | fill_to_irmaa | fixed_dollar | none
+Withdrawal Policy,Roth Conversion,max_conversion_years,number,FALSE,10,0,50,"Maximum number of years in the voluntary Roth conversion window, also bounded by the RMD-age window."
+Withdrawal Policy,Roth Conversion,max_annual_conversion_pct_of_traditional_ira,percent,FALSE,20.00%,0,100,Maximum voluntary conversion in a year as a percentage of starting traditional IRA/pre-tax balances.
+Withdrawal Policy,Roth Conversion,roth_bracket_strategy,choice,FALSE,OPTIMIZER_CHOOSES,,,NONE | FILL_CURRENT_BRACKET | FILL_TARGET_BRACKET | PARTIAL_TARGET_BRACKET | IRMAA_GUARDED | SURVIVOR_TAX_AWARE | RMD_REDUCTION | LEGACY_TARGETED | OPTIMIZER_CHOOSES | FIXED_DOLLAR; strategy family considered by the Roth optimizer.
+Withdrawal Policy,Roth Conversion,roth_target_bracket_rate,choice,FALSE,22.00%,,,10.00% | 12.00% | 22.00% | 24.00% | 32.00% | 35.00% | 37.00%; Default target marginal bracket ceiling used by bracket-fill policies.
+Withdrawal Policy,Roth Conversion,roth_fixed_annual_amount,dollars,FALSE,50000,0,,Annual amount for fixed_dollar policy
+Withdrawal Policy,Roth Conversion,roth_optimize_terminal_weight,number,FALSE,1.00,0,10,Weight on after-tax terminal net worth in optimizer objective
+Withdrawal Policy,Roth Conversion,roth_optimize_lifetime_tax_weight,number,FALSE,0.25,0,10,Weight on lifetime tax penalty in optimizer objective
+Withdrawal Policy,Roth Conversion,roth_optimize_terminal_pretax_tax_rate,percent,FALSE,24.00%,0,50,After-tax haircut applied to terminal pre-tax balances for objective scoring
+Annuity Calibration,Purchase Rate,seg1_age_start,integer,FALSE,0,0,120,Segment 1 start age
+Annuity Calibration,Purchase Rate,seg1_age_end,integer,FALSE,68,0,120,Segment 1 end age
+Annuity Calibration,Purchase Rate,seg1_base_rate,percent,FALSE,5.00%,0,50,Segment 1 base rate
+Annuity Calibration,Purchase Rate,seg1_slope,percent,FALSE,0.00%,0,10,Segment 1 slope per year
+Annuity Calibration,Reserve Decay,reserve_decay_rate,number,FALSE,0.975,0,2,Annual decay factor (years 0-6)
+Annuity Calibration,Reserve Decay,reserve_decay_period,integer,FALSE,6,0,30,Years of initial decay
+Annuity Calibration,Reserve Decay,mortality_credit_boost,number,FALSE,1.29,0,5,Multiplier at mortality credit onset
+Annuity Calibration,Reserve Decay,post_credit_decay_rate,number,FALSE,0.96,0,2,Annual decay after mortality credit
+Annuity Calibration,Reserve Decay,late_life_growth_rate,number,FALSE,1.07,0,2,Annual growth factor after transition
+Model Constants,Allocation,risk_tolerance,number,FALSE,0,0,10,Risk score 1-10 (0=auto-derive from age/withdrawal rate)
+Model Constants,Allocation,human_capital_stability,number,FALSE,0.80,0,1,Stability factor: 0.8=stable W-2; 0.5=variable/SE
+Model Constants,Allocation,concentration_employer_stock,percent,FALSE,0%,0,100,% of total wealth in employer stock
+Model Constants,Allocation,concentration_real_estate,percent,FALSE,0%,0,100,% of total wealth in non-home real estate
+Model Constants,Allocation,concentration_business,percent,FALSE,0%,0,100,% of total wealth in business equity
+Model Constants,Allocation,glide_path,choice,FALSE,target_date,,,target_date | static
+Model Constants,Allocation,inflation_sensitive_spending_pct,percent,FALSE,15%,0,100,Fraction of spending that is inflation-sensitive (wellness etc.)
+Model Constants,Allocation,include_home_equity_in_allocation_view,yes/no,FALSE,YES,,,Include home equity in total portfolio allocation context.
+Model Constants,Allocation,liquid_reit_target_pct_when_home_not_counted,percent,FALSE,5%,0,25,Liquid REIT target when home equity is not counted and REITs are enabled.
+Market Pricing,Holdings,pricing_mode,choice,TRUE,CACHE,,,CACHE | LIVE | OFFLINE
+Market Pricing,Holdings,cache_hours,number,TRUE,24,0.1,168,Fresh cache TTL
+Market Pricing,API,fmp_api_key,secret,FALSE,,,,Financial Modeling Prep API key
+Market Pricing,API,alpha_vantage_api_key,secret,FALSE,,,,Alpha Vantage API key
+Asset Class Assumptions,US Equity,expected_return,percent,FALSE,10%,0,100,Default 10.0%; optimizer return input for US large-cap equity. Affects recommended allocation only; main projection uses Economic Assumptions > portfolio_nominal_return.
+Asset Class Assumptions,US Equity,volatility,percent,FALSE,15%,0,100,Default 15.0%; optimizer risk input for US large-cap equity.
+Asset Allocation Policy,Global,allocation_selection_mode,choice,FALSE,user_target,,,Allowed values: user_target | optimizer_recommendation. Selects whether Asset Allocation recommendations use the user-specified target_pct rows or the optimizer recommendation.
+Asset Allocation Policy,US Equity,target_pct,percent,FALSE,45%,0,100,Recommended default 45%; user-editable target percentage for US Equity. All Asset Allocation Policy target_pct rows must total 100%.
+Asset Allocation Policy,US Small/Value,target_pct,percent,FALSE,5%,0,100,Recommended default 5%; user-editable target percentage for US Small/Value. All Asset Allocation Policy target_pct rows must total 100%.
+Asset Allocation Policy,International,target_pct,percent,FALSE,20%,0,100,Recommended default 20%; user-editable target percentage for International. All Asset Allocation Policy target_pct rows must total 100%.
+Asset Allocation Policy,Emerging Markets,target_pct,percent,FALSE,5%,0,100,Recommended default 5%; user-editable target percentage for Emerging Markets. All Asset Allocation Policy target_pct rows must total 100%.
+Asset Allocation Policy,Bonds,target_pct,percent,FALSE,15%,0,100,Recommended default 15%; user-editable target percentage for Bonds. All Asset Allocation Policy target_pct rows must total 100%.
+Asset Allocation Policy,Short-Term Bonds,target_pct,percent,FALSE,5%,0,100,Recommended default 5%; user-editable target percentage for Short-Term Bonds. All Asset Allocation Policy target_pct rows must total 100%.
+Asset Allocation Policy,TIPS,target_pct,percent,FALSE,0%,0,100,Recommended default 0%; user-editable target percentage for TIPS. All Asset Allocation Policy target_pct rows must total 100%.
+Asset Allocation Policy,REITs,target_pct,percent,FALSE,0%,0,100,Recommended default 0%; user-editable target percentage for REITs. All Asset Allocation Policy target_pct rows must total 100%.
+Asset Allocation Policy,Commodities,target_pct,percent,FALSE,0%,0,100,Recommended default 0%; user-editable target percentage for Commodities. All Asset Allocation Policy target_pct rows must total 100%.
+Asset Allocation Policy,Managed Futures,target_pct,percent,FALSE,0%,0,100,Recommended default 0%; user-editable target percentage for Managed Futures. All Asset Allocation Policy target_pct rows must total 100%.
+Asset Allocation Policy,Private Credit,target_pct,percent,FALSE,0%,0,100,Recommended default 0%; user-editable target percentage for Private Credit. All Asset Allocation Policy target_pct rows must total 100%.
+Asset Allocation Policy,Cash,target_pct,percent,FALSE,5%,0,100,Recommended default 5%; user-editable target percentage for Cash. All Asset Allocation Policy target_pct rows must total 100%.
+Asset Class Assumptions,US Small/Value,expected_return,percent,FALSE,12%,0,100,Default 12.0%; optimizer return input for US small/value equity. Affects recommended allocation only.
+Asset Class Assumptions,US Small/Value,volatility,percent,FALSE,20%,0,100,Default 20.0%; optimizer risk input for US small/value equity.
+Asset Class Assumptions,International,expected_return,percent,FALSE,8%,0,100,Default 8.0%; optimizer return input for developed international equity. Affects recommended allocation only.
+Asset Class Assumptions,International,volatility,percent,FALSE,17%,0,100,Default 17.0%; optimizer risk input for developed international equity.
+Asset Class Assumptions,Emerging Markets,expected_return,percent,FALSE,9%,0,100,Default 9.0%; optimizer return input for emerging markets equity. Affects recommended allocation only.
+Asset Class Assumptions,Emerging Markets,volatility,percent,FALSE,22%,0,100,Default 22.0%; optimizer risk input for emerging markets equity.
+Asset Class Assumptions,Commodities,expected_return,percent,FALSE,5%,0,100,Default 5.0%; optimizer return input for commodities/real assets. Affects recommended allocation only.
+Asset Class Assumptions,Commodities,volatility,percent,FALSE,18%,0,100,Default 18.0%; optimizer risk input for commodities/real assets.
+Asset Class Assumptions,Bonds,expected_return,percent,FALSE,4%,0,100,Default 4.0%; optimizer return input for investment-grade bonds. Affects recommended allocation only.
+Asset Class Assumptions,Bonds,volatility,percent,FALSE,5%,0,100,Default 5.0%; optimizer risk input for investment-grade bonds.
+Asset Class Assumptions,REITs,expected_return,percent,FALSE,8%,0,100,Default 8.0%; optimizer return input for REITs/real estate securities. Affects recommended allocation only.
+Asset Class Assumptions,REITs,volatility,percent,FALSE,19%,0,100,Default 19.0%; optimizer risk input for REITs/real estate securities.
+Asset Class Assumptions,Cash,expected_return,percent,FALSE,2%,0,100,Default 2.0%; optimizer return input for cash/money market. Affects recommended allocation only.
+Asset Class Assumptions,Cash,volatility,percent,FALSE,1%,0,100,Default 1.0%; optimizer risk input for cash/money market.
+Asset Class Assumptions,Short-Term Bonds,expected_return,percent,FALSE,3.5%,0,100,Default 3.5%; optimizer return input for short-duration bonds/cash-reserve bond sleeve. Lower duration and lower stock-index correlation.
+Asset Class Assumptions,Short-Term Bonds,volatility,percent,FALSE,3.0%,0,100,Default 3.0%; optimizer risk input for lower-duration bond exposure.
+Asset Class Assumptions,TIPS,expected_return,percent,FALSE,4.0%,0,100,Default 4.0%; Treasury Inflation-Protected Securities return input.
+Asset Class Assumptions,TIPS,volatility,percent,FALSE,5.0%,0,100,Default 5.0%; real-rate/inflation-linked bond risk input.
+Asset Class Assumptions,Managed Futures,expected_return,percent,FALSE,6.0%,0,100,Default 6.0%; trend-following diversifier return input.
+Asset Class Assumptions,Managed Futures,volatility,percent,FALSE,10.0%,0,100,Default 10.0%; managed futures risk input.
+Asset Class Assumptions,Private Credit,expected_return,percent,FALSE,7.0%,0,100,Default 7.0%; private-credit/loan/CLO-style income return input.
+Asset Class Assumptions,Private Credit,volatility,percent,FALSE,8.0%,0,100,Default 8.0%; private credit risk input; may understate true drawdown risk.
+Asset Class Assumptions,Global,capital_market_assumption_mode,choice,FALSE,PRESET,,,PRESET|CUSTOM_FILE. PRESET uses built-in horizon/preset tables; CUSTOM_FILE reads capital_market_assumptions.csv.
+Asset Class Assumptions,Global,capital_market_assumption_horizon_years,choice,FALSE,30,1,30,Supported values: 1|3|5|10|20|25|30. Selects the time-horizon basis for allocation optimizer assumptions.
+Asset Class Assumptions,Global,capital_market_assumption_preset,choice,FALSE,BASELINE,,,CONSERVATIVE|BASELINE|AGGRESSIVE. Shifts return/volatility assumptions.
+Asset Class Assumptions,Global,use_custom_capital_market_file,yes/no,FALSE,NO,,,YES reads custom_capital_market_file.
+Asset Class Assumptions,Global,custom_capital_market_file,text,FALSE,capital_market_assumptions.csv,,,Expert CSV path for horizon/preset return and volatility assumptions.
+Asset Class Assumptions,Global,correlation_assumption_mode,choice,FALSE,PRESET,,,PRESET|ADVANCED|CUSTOM_FILE. ADVANCED applies Asset Correlations rows; CUSTOM_FILE also reads CSV.
+Asset Class Assumptions,Global,correlation_preset,choice,FALSE,MODERATE,,,LOW|MODERATE|HIGH|STRESS. Controls how much diversification benefit the optimizer assumes.
+Asset Class Assumptions,Global,use_custom_correlations_file,yes/no,FALSE,NO,,,YES reads custom_correlations_file.
+Asset Class Assumptions,Global,custom_correlations_file,text,FALSE,asset_correlations.csv,,,Expert CSV path for pairwise correlation assumptions.
+Asset Correlations,US Equity|Emerging Markets,correlation,percent,FALSE,72%,-100,100,Advanced pairwise correlation override between US Equity and Emerging Markets. Used only when correlation_assumption_mode is ADVANCED or CUSTOM_FILE.
+Asset Correlations,US Equity|Bonds,correlation,percent,FALSE,-20%,-100,100,Advanced pairwise correlation override between US Equity and Bonds. Used only when correlation_assumption_mode is ADVANCED or CUSTOM_FILE.
+Asset Correlations,US Equity|Managed Futures,correlation,percent,FALSE,-5%,-100,100,Advanced pairwise correlation override between US Equity and Managed Futures. Used only when correlation_assumption_mode is ADVANCED or CUSTOM_FILE.
+Asset Correlations,Bonds|TIPS,correlation,percent,FALSE,55%,-100,100,Advanced pairwise correlation override between Bonds and TIPS. Used only when correlation_assumption_mode is ADVANCED or CUSTOM_FILE.
+Asset Correlations,Private Credit|US Equity,correlation,percent,FALSE,45%,-100,100,Advanced pairwise correlation override between Private Credit and US Equity. Used only when correlation_assumption_mode is ADVANCED or CUSTOM_FILE.
+Model Constants,Monte Carlo,recenter_regime_returns,boolean,FALSE,TRUE,,,Re-center regime/fat-tail MC return draws so configured return is the expected return
+Asset Class Optimizer Controls,US Large Cap,include_in_optimizer,choice,NO,YES,,,YES allows the optimizer to consider this asset class for new target recommendations; NO excludes it while still showing existing holdings.
+Asset Class Optimizer Controls,US Mid Cap,include_in_optimizer,choice,NO,YES,,,YES allows the optimizer to consider this asset class for new target recommendations; NO excludes it while still showing existing holdings.
+Asset Class Optimizer Controls,US Small Cap,include_in_optimizer,choice,NO,YES,,,YES allows the optimizer to consider this asset class for new target recommendations; NO excludes it while still showing existing holdings.
+Asset Class Optimizer Controls,International,include_in_optimizer,choice,NO,YES,,,YES allows the optimizer to consider this asset class for new target recommendations; NO excludes it while still showing existing holdings.
+Asset Class Optimizer Controls,Emerging Markets,include_in_optimizer,choice,NO,YES,,,YES allows the optimizer to consider this asset class for new target recommendations; NO excludes it while still showing existing holdings.
+Asset Class Optimizer Controls,Commodities,include_in_optimizer,choice,NO,YES,,,YES allows the optimizer to consider this asset class for new target recommendations; NO excludes it while still showing existing holdings.
+Asset Class Optimizer Controls,Bonds,include_in_optimizer,choice,NO,YES,,,YES allows the optimizer to consider this asset class for new target recommendations; NO excludes it while still showing existing holdings.
+Asset Class Optimizer Controls,Short-Term Bonds,include_in_optimizer,choice,NO,YES,,,YES allows the optimizer to consider this asset class for new target recommendations; NO excludes it while still showing existing holdings.
+Asset Class Optimizer Controls,TIPS,include_in_optimizer,choice,NO,YES,,,YES allows the optimizer to consider this asset class for new target recommendations; NO excludes it while still showing existing holdings.
+Asset Class Optimizer Controls,Municipal Bonds,include_in_optimizer,choice,NO,YES,,,YES allows the optimizer to consider this asset class for new target recommendations; NO excludes it while still showing existing holdings.
+Asset Class Optimizer Controls,Managed Futures,include_in_optimizer,choice,NO,YES,,,YES allows the optimizer to consider this asset class for new target recommendations; NO excludes it while still showing existing holdings.
+Asset Class Optimizer Controls,Private Credit,include_in_optimizer,choice,NO,YES,,,YES allows the optimizer to consider this asset class for new target recommendations; NO excludes it while still showing existing holdings.
+Asset Class Optimizer Controls,REITs,include_in_optimizer,choice,NO,YES,,,YES allows the optimizer to consider this asset class for new target recommendations; NO excludes it while still showing existing holdings.
+Asset Class Optimizer Controls,Cash,include_in_optimizer,choice,NO,YES,,,YES allows the optimizer to consider this asset class for new target recommendations; NO excludes it while still showing existing holdings.
+Withdrawal Policy,Roth Conversion,roth_objective_mode,choice,FALSE,BALANCED_RETIREMENT,,,BALANCED_RETIREMENT | MINIMIZE_LIFETIME_TAX | MAXIMIZE_TERMINAL_NET_WORTH | MAXIMIZE_PTI | LEGACY_OPTIMIZED | ESTATE_TAX_AWARE | CUSTOM_WEIGHTED; objective used to rank Roth conversion candidates. MAXIMIZE_PTI optimizes Post-Tax Inheritance (after-tax terminal net worth minus estate tax).
+Withdrawal Policy,Roth Conversion,estate_tax_objective_mode,choice,FALSE,BALANCED,,,OFF | MONITOR_ONLY | BALANCED | STRONG; whether projected estate-tax exposure affects Roth optimizer scoring.
+Withdrawal Policy,Roth Conversion,roth_headroom_usage_pct,percent,FALSE,95.00%,0,100,Percentage of tax bracket headroom to use for voluntary Roth conversions.
+Withdrawal Policy,Roth Conversion,irmaa_guardrail_mode,choice,FALSE,AVOID_NEXT_TIER,,,IGNORE | WARN_ONLY | AVOID_NEXT_TIER | AVOID_TIER_2_OR_ABOVE | CUSTOM_MAGI_CAP; Medicare threshold guardrail for Roth conversions.
+Withdrawal Policy,Roth Conversion,roth_irmaa_headroom_usage_pct,percent,FALSE,95.00%,0,100,Percentage of IRMAA headroom to use before stopping voluntary Roth conversions.
+Withdrawal Policy,Roth Conversion,roth_irmaa_target_tier,choice,FALSE,TIER_2,,,TIER_1 | TIER_2 | TIER_3 | TIER_4 | TIER_5; IRMAA target tier threshold used when Roth conversions are capped by Medicare premium guardrails. Dollar thresholds come from the annual IRMAA tax table.
+HSA Policy,Withdrawals,hsa_withdrawal_mode,choice,FALSE,spend_as_needed,,,spend_as_needed | annual_pct | smooth_window; default spend_as_needed uses HSA only when needed before Roth.
+HSA Policy,Withdrawals,hsa_annual_spend_pct,percent,FALSE,10.00%,0,100,Annual HSA draw percentage used only when hsa_withdrawal_mode is annual_pct.
+HSA Policy,Withdrawals,hsa_withdrawal_start_year,year,FALSE,,2026,2100,Optional first year for annual_pct or smooth_window HSA draw policy.
+HSA Policy,Withdrawals,hsa_withdrawal_end_year,year,FALSE,,2026,2100,Optional last year for annual_pct or smooth_window HSA draw policy.
+Social Security,Funding Discount,ss_funding_discount_year,year,FALSE,2032,2026,2100,First year Social Security gross benefits are reduced for funding-shortfall stress.
+Social Security,Funding Discount,ss_funding_discount_pct,percent,FALSE,22.00%,0,100,Gross Social Security benefit reduction percentage from the funding-discount year onward.
+Liquidity Buffer,buffer_1,reserve_account,choice,FALSE,Taxable/Trust,,,Taxable/Trust | Roth | IRA | HSA | Cash; account bucket intended to preserve the reserve for this rule.
+Education Funding,529 Plan 1,beneficiary,text,FALSE,,,,Beneficiary name for this 529 plan.
+Education Funding,529 Plan 1,current_balance,dollars,FALSE,$0,0,,Current 529 plan balance.
+Education Funding,529 Plan 1,annual_contribution,dollars,FALSE,$0,0,,Annual 529 contribution.
+Education Funding,529 Plan 1,contribution_start_year,year,FALSE,,2026,2100,First contribution year.
+Education Funding,529 Plan 1,contribution_end_year,year,FALSE,,2026,2100,Last contribution year.
+Education Funding,529 Plan 1,expected_use_year,year,FALSE,,2026,2100,Expected first use or distribution year.
+Social Security,Husband,monthly_pia_at_fra_today_dollars,dollars,FALSE,0,0,,Enter the monthly Social Security payment from the SSA statement at Full Retirement Age. PIA means Primary Insurance Amount: the base monthly benefit before early-claiming reductions or delayed-retirement credits.
+Social Security,Wife,monthly_pia_at_fra_today_dollars,dollars,FALSE,0,0,,Enter the monthly Social Security payment from the SSA statement at Full Retirement Age. PIA means Primary Insurance Amount: the base monthly benefit before early-claiming reductions or delayed-retirement credits.
+Social Security,Husband,claim_age,integer,FALSE,70,62,70,Social Security claim age for husband.
+Social Security,Wife,claim_age,integer,FALSE,70,62,70,Social Security claim age for wife.
+Social Security,Policy,spousal_benefits_enabled,boolean,FALSE,TRUE,,,Approximate spousal benefit top-up.
+Social Security,Policy,survivor_benefit_uses_deceased_claim_age,boolean,FALSE,TRUE,,,Survivor benefit uses deceased claim-age factor.
+Wellness,ACA Premium Tax Credit,enabled,boolean,FALSE,TRUE,,,Enable ACA premium tax credit model.
+Wellness,ACA Premium Tax Credit,household_size,integer,FALSE,2,1,12,ACA household size.
+Wellness,ACA Premium Tax Credit,federal_poverty_level_base_year,dollars,FALSE,21150,0,,Base-year FPL.
+Wellness,ACA Premium Tax Credit,benchmark_silver_premium_annual,dollars,FALSE,32000,0,,Benchmark silver premium.
+Wellness,ACA Premium Tax Credit,applicable_pct_cap,percent,FALSE,8.50%,0,20,"Highest household contribution percentage used by the ACA premium-tax-credit estimate, shown as a percent such as 8.50%."
+Wellness,ACA Premium Tax Credit,enhanced_subsidies_through_year,year,FALSE,2026,2024,2100,Last enhanced subsidy year.
+Household,,survivor_has_dependent,boolean,FALSE,FALSE,,,Enables QSS brackets.
+Cashflow,Retirement Contributions,index_401k_limit,boolean,FALSE,TRUE,,,Index 401(k) limit.
+HSA Policy,Contributions,index_hsa_limit,boolean,FALSE,TRUE,,,Index HSA limit.
+HSA Policy,Contributions,requires_hdhp,boolean,FALSE,TRUE,,,Require HDHP eligibility for HSA contributions.
+Model Constants,Retirement,husband_rmd_start_age,integer,FALSE,75,72,75,Husband RMD start age.
+Model Constants,Retirement,wife_rmd_start_age,integer,FALSE,75,72,75,Wife RMD start age.
+Reporting,Output,real_dollar_reporting_enabled,boolean,FALSE,TRUE,,,Show today-dollar outputs.
+Withdrawal Policy,Roth Conversion,roth_tax_discount_rate,percent,FALSE,2.50%,0,20,"Annual discount rate for comparing lifetime taxes in the Roth optimizer, shown as a percent such as 2.50%."
+Estate Planning,Federal,portability_enabled,boolean,FALSE,TRUE,,,Federal portability enabled.
+Estate Planning,Step-Up,property_regime,choice,FALSE,COMMON_LAW,,,Basis step-up property regime.
+System Configuration,Plan Chat,openai_api_key_secret_name,text,FALSE,plan_chat_openai_api_key,,,Encrypted secrets-store name for Plan Chat API key; plaintext keys are not read from CSV.
+Wellness,Pre-65 Bridge,annual_premium_base_year,dollars,FALSE,$0,0,,Annual Pre-65 Healthcare Premium per person before Medicare; used until Medicare starts and inflated with medical inflation.
+Wellness,Medicare,part_b_base_premium_monthly,dollars,FALSE,$185,0,,"Monthly Medicare Part B base premium per Medicare-enrolled person, prior to IRMAA."
+Wellness,Medicare,part_d_base_premium_monthly,dollars,FALSE,$55,0,,"Monthly Medicare Part D premium per Medicare-enrolled person, prior to IRMAA."
+Wellness,Medicare,part_g_base_premium_monthly,dollars,FALSE,$0,0,,Monthly Medicare Supplement Plan G / Medigap-style premium per Medicare-enrolled person.
+Wellness,Out-of-Pocket,annual_oop_estimate_today,dollars,FALSE,$10000,0,,"Annual household medical OOP cap; this is a cap/reference, not a standalone expense."
+Payroll Tax,Social Security,ss_wage_base_base_year,currency,FALSE,$184500,0,,Annual Social Security wage base used for payroll tax calculations.
+Social Security,Policy,survivor_pct_of_higher_benefit,number,FALSE,100,0,100,Percent of the higher Social Security benefit preserved for the survivor; enter 100 for full continuation.
+Cashflow,Retirement Contributions,annual_401k_limit_base_year,currency,FALSE,$32500,0,,Annual 401(k) contribution limit including catch-up assumption.
+HSA Policy,Window,withdrawal_window,text,FALSE,2031-2040,,,Year range used to spread HSA withdrawals; format YYYY-YYYY.
+HSA Policy,Contributions,family_annual_limit_base_year,currency,FALSE,$8750,0,,Base-year family HSA contribution limit before indexing.
+HSA Policy,Contributions,self_only_annual_limit_base_year,currency,FALSE,$4400,0,,Base-year self-only HSA contribution limit before indexing.
+Equity Compensation,RSU_2024,vest_schedule,text,FALSE,,,,Plain-English vesting schedule note for the RSU module.
+Scenarios,Sell Home,monthly_rent_post_sale,dollars,FALSE,5000,0,,Monthly rent after the home-sale scenario starts.
+Other Assets,Other Asset 1,type,choice,FALSE,Auto,,,"Type of other asset such as Auto, Boat, Start-up Equity, Art, Collectible, or Other."
+Other Assets,Other Asset 1,name,text,FALSE,,,,User-described name for this asset.
+Other Assets,Other Asset 1,value,dollars,FALSE,$0,0,,Estimated value on the as-of date.
+Other Assets,Other Asset 1,as_of_date,date,FALSE,,,,Date used for the value estimate.
+Other Assets,Other Asset 1,annual_appreciation_pct,percent,FALSE,0.00%,-100,100,Annual appreciation (+) or depreciation (-) used to bring the value forward.
+Other Assets,Other Asset 1,basis,dollars,FALSE,,0,,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 1,sell_date,date,FALSE,,,,Optional planned sale date.
+Other Assets,Other Asset 2,type,choice,FALSE,Auto,,,"Type of other asset such as Auto, Boat, Start-up Equity, Art, Collectible, or Other."
+Other Assets,Other Asset 2,name,text,FALSE,,,,User-described name for this asset.
+Other Assets,Other Asset 2,value,dollars,FALSE,$0,0,,Estimated value on the as-of date.
+Other Assets,Other Asset 2,as_of_date,date,FALSE,,,,Date used for the value estimate.
+Other Assets,Other Asset 2,annual_appreciation_pct,percent,FALSE,0.00%,-100,100,Annual appreciation (+) or depreciation (-) used to bring the value forward.
+Other Assets,Other Asset 2,basis,dollars,FALSE,,0,,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 2,sell_date,date,FALSE,,,,Optional planned sale date.
+Other Assets,Other Asset 3,type,choice,FALSE,Auto,,,"Type of other asset such as Auto, Boat, Start-up Equity, Art, Collectible, or Other."
+Other Assets,Other Asset 3,name,text,FALSE,,,,User-described name for this asset.
+Other Assets,Other Asset 3,value,dollars,FALSE,$0,0,,Estimated value on the as-of date.
+Other Assets,Other Asset 3,as_of_date,date,FALSE,,,,Date used for the value estimate.
+Other Assets,Other Asset 3,annual_appreciation_pct,percent,FALSE,0.00%,-100,100,Annual appreciation (+) or depreciation (-) used to bring the value forward.
+Other Assets,Other Asset 3,basis,dollars,FALSE,,0,,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 3,sell_date,date,FALSE,,,,Optional planned sale date.
+Other Assets,Other Asset 4,type,choice,FALSE,Auto,,,"Type of other asset such as Auto, Boat, Start-up Equity, Art, Collectible, or Other."
+Other Assets,Other Asset 4,name,text,FALSE,,,,User-described name for this asset.
+Other Assets,Other Asset 4,value,dollars,FALSE,$0,0,,Estimated value on the as-of date.
+Other Assets,Other Asset 4,as_of_date,date,FALSE,,,,Date used for the value estimate.
+Other Assets,Other Asset 4,annual_appreciation_pct,percent,FALSE,0.00%,-100,100,Annual appreciation (+) or depreciation (-) used to bring the value forward.
+Other Assets,Other Asset 4,basis,dollars,FALSE,,0,,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 4,sell_date,date,FALSE,,,,Optional planned sale date.
+Other Assets,Other Asset 5,type,choice,FALSE,Auto,,,"Type of other asset such as Auto, Boat, Start-up Equity, Art, Collectible, or Other."
+Other Assets,Other Asset 5,name,text,FALSE,,,,User-described name for this asset.
+Other Assets,Other Asset 5,value,dollars,FALSE,$0,0,,Estimated value on the as-of date.
+Other Assets,Other Asset 5,as_of_date,date,FALSE,,,,Date used for the value estimate.
+Other Assets,Other Asset 5,annual_appreciation_pct,percent,FALSE,0.00%,-100,100,Annual appreciation (+) or depreciation (-) used to bring the value forward.
+Other Assets,Other Asset 5,basis,dollars,FALSE,,0,,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 5,sell_date,date,FALSE,,,,Optional planned sale date.
+Other Assets,Other Asset 6,type,choice,FALSE,Auto,,,"Type of other asset such as Auto, Boat, Start-up Equity, Art, Collectible, or Other."
+Other Assets,Other Asset 6,name,text,FALSE,,,,User-described name for this asset.
+Other Assets,Other Asset 6,value,dollars,FALSE,$0,0,,Estimated value on the as-of date.
+Other Assets,Other Asset 6,as_of_date,date,FALSE,,,,Date used for the value estimate.
+Other Assets,Other Asset 6,annual_appreciation_pct,percent,FALSE,0.00%,-100,100,Annual appreciation (+) or depreciation (-) used to bring the value forward.
+Other Assets,Other Asset 6,basis,dollars,FALSE,,0,,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 6,sell_date,date,FALSE,,,,Optional planned sale date.
+Other Assets,Other Asset 7,type,choice,FALSE,Auto,,,"Type of other asset such as Auto, Boat, Start-up Equity, Art, Collectible, or Other."
+Other Assets,Other Asset 7,name,text,FALSE,,,,User-described name for this asset.
+Other Assets,Other Asset 7,value,dollars,FALSE,$0,0,,Estimated value on the as-of date.
+Other Assets,Other Asset 7,as_of_date,date,FALSE,,,,Date used for the value estimate.
+Other Assets,Other Asset 7,annual_appreciation_pct,percent,FALSE,0.00%,-100,100,Annual appreciation (+) or depreciation (-) used to bring the value forward.
+Other Assets,Other Asset 7,basis,dollars,FALSE,,0,,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 7,sell_date,date,FALSE,,,,Optional planned sale date.
+Other Assets,Other Asset 8,type,choice,FALSE,Auto,,,"Type of other asset such as Auto, Boat, Start-up Equity, Art, Collectible, or Other."
+Other Assets,Other Asset 8,name,text,FALSE,,,,User-described name for this asset.
+Other Assets,Other Asset 8,value,dollars,FALSE,$0,0,,Estimated value on the as-of date.
+Other Assets,Other Asset 8,as_of_date,date,FALSE,,,,Date used for the value estimate.
+Other Assets,Other Asset 8,annual_appreciation_pct,percent,FALSE,0.00%,-100,100,Annual appreciation (+) or depreciation (-) used to bring the value forward.
+Other Assets,Other Asset 8,basis,dollars,FALSE,,0,,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 8,sell_date,date,FALSE,,,,Optional planned sale date.
+Other Assets,Other Asset 9,type,choice,FALSE,Auto,,,"Type of other asset such as Auto, Boat, Start-up Equity, Art, Collectible, or Other."
+Other Assets,Other Asset 9,name,text,FALSE,,,,User-described name for this asset.
+Other Assets,Other Asset 9,value,dollars,FALSE,$0,0,,Estimated value on the as-of date.
+Other Assets,Other Asset 9,as_of_date,date,FALSE,,,,Date used for the value estimate.
+Other Assets,Other Asset 9,annual_appreciation_pct,percent,FALSE,0.00%,-100,100,Annual appreciation (+) or depreciation (-) used to bring the value forward.
+Other Assets,Other Asset 9,basis,dollars,FALSE,,0,,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 9,sell_date,date,FALSE,,,,Optional planned sale date.
+Other Assets,Other Asset 10,type,choice,FALSE,Auto,,,"Type of other asset such as Auto, Boat, Start-up Equity, Art, Collectible, or Other."
+Other Assets,Other Asset 10,name,text,FALSE,,,,User-described name for this asset.
+Other Assets,Other Asset 10,value,dollars,FALSE,$0,0,,Estimated value on the as-of date.
+Other Assets,Other Asset 10,as_of_date,date,FALSE,,,,Date used for the value estimate.
+Other Assets,Other Asset 10,annual_appreciation_pct,percent,FALSE,0.00%,-100,100,Annual appreciation (+) or depreciation (-) used to bring the value forward.
+Other Assets,Other Asset 10,basis,dollars,FALSE,,0,,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 10,sell_date,date,FALSE,,,,Optional planned sale date.
+Other Assets,Other Asset 11,type,choice,FALSE,Auto,,,"Type of other asset such as Auto, Boat, Start-up Equity, Art, Collectible, or Other."
+Other Assets,Other Asset 11,name,text,FALSE,,,,User-described name for this asset.
+Other Assets,Other Asset 11,value,dollars,FALSE,$0,0,,Estimated value on the as-of date.
+Other Assets,Other Asset 11,as_of_date,date,FALSE,,,,Date used for the value estimate.
+Other Assets,Other Asset 11,annual_appreciation_pct,percent,FALSE,0.00%,-100,100,Annual appreciation (+) or depreciation (-) used to bring the value forward.
+Other Assets,Other Asset 11,basis,dollars,FALSE,,0,,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 11,sell_date,date,FALSE,,,,Optional planned sale date.
+Other Assets,Other Asset 12,type,choice,FALSE,Auto,,,"Type of other asset such as Auto, Boat, Start-up Equity, Art, Collectible, or Other."
+Other Assets,Other Asset 12,name,text,FALSE,,,,User-described name for this asset.
+Other Assets,Other Asset 12,value,dollars,FALSE,$0,0,,Estimated value on the as-of date.
+Other Assets,Other Asset 12,as_of_date,date,FALSE,,,,Date used for the value estimate.
+Other Assets,Other Asset 12,annual_appreciation_pct,percent,FALSE,0.00%,-100,100,Annual appreciation (+) or depreciation (-) used to bring the value forward.
+Other Assets,Other Asset 12,basis,dollars,FALSE,,0,,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 12,sell_date,date,FALSE,,,,Optional planned sale date.
+Other Assets,Other Asset 13,type,choice,FALSE,Auto,,,"Type of other asset such as Auto, Boat, Start-up Equity, Art, Collectible, or Other."
+Other Assets,Other Asset 13,name,text,FALSE,,,,User-described name for this asset.
+Other Assets,Other Asset 13,value,dollars,FALSE,$0,0,,Estimated value on the as-of date.
+Other Assets,Other Asset 13,as_of_date,date,FALSE,,,,Date used for the value estimate.
+Other Assets,Other Asset 13,annual_appreciation_pct,percent,FALSE,0.00%,-100,100,Annual appreciation (+) or depreciation (-) used to bring the value forward.
+Other Assets,Other Asset 13,basis,dollars,FALSE,,0,,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 13,sell_date,date,FALSE,,,,Optional planned sale date.
+Other Assets,Other Asset 14,type,choice,FALSE,Auto,,,"Type of other asset such as Auto, Boat, Start-up Equity, Art, Collectible, or Other."
+Other Assets,Other Asset 14,name,text,FALSE,,,,User-described name for this asset.
+Other Assets,Other Asset 14,value,dollars,FALSE,$0,0,,Estimated value on the as-of date.
+Other Assets,Other Asset 14,as_of_date,date,FALSE,,,,Date used for the value estimate.
+Other Assets,Other Asset 14,annual_appreciation_pct,percent,FALSE,0.00%,-100,100,Annual appreciation (+) or depreciation (-) used to bring the value forward.
+Other Assets,Other Asset 14,basis,dollars,FALSE,,0,,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 14,sell_date,date,FALSE,,,,Optional planned sale date.
+Other Assets,Other Asset 15,type,choice,FALSE,Auto,,,"Type of other asset such as Auto, Boat, Start-up Equity, Art, Collectible, or Other."
+Other Assets,Other Asset 15,name,text,FALSE,,,,User-described name for this asset.
+Other Assets,Other Asset 15,value,dollars,FALSE,$0,0,,Estimated value on the as-of date.
+Other Assets,Other Asset 15,as_of_date,date,FALSE,,,,Date used for the value estimate.
+Other Assets,Other Asset 15,annual_appreciation_pct,percent,FALSE,0.00%,-100,100,Annual appreciation (+) or depreciation (-) used to bring the value forward.
+Other Assets,Other Asset 15,basis,dollars,FALSE,,0,,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 15,sell_date,date,FALSE,,,,Optional planned sale date.
+Other Assets,Other Asset 16,type,choice,FALSE,Auto,,,"Type of other asset such as Auto, Boat, Start-up Equity, Art, Collectible, or Other."
+Other Assets,Other Asset 16,name,text,FALSE,,,,User-described name for this asset.
+Other Assets,Other Asset 16,value,dollars,FALSE,$0,0,,Estimated value on the as-of date.
+Other Assets,Other Asset 16,as_of_date,date,FALSE,,,,Date used for the value estimate.
+Other Assets,Other Asset 16,annual_appreciation_pct,percent,FALSE,0.00%,-100,100,Annual appreciation (+) or depreciation (-) used to bring the value forward.
+Other Assets,Other Asset 16,basis,dollars,FALSE,,0,,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 16,sell_date,date,FALSE,,,,Optional planned sale date.
+Other Assets,Other Asset 17,type,choice,FALSE,Auto,,,"Type of other asset such as Auto, Boat, Start-up Equity, Art, Collectible, or Other."
+Other Assets,Other Asset 17,name,text,FALSE,,,,User-described name for this asset.
+Other Assets,Other Asset 17,value,dollars,FALSE,$0,0,,Estimated value on the as-of date.
+Other Assets,Other Asset 17,as_of_date,date,FALSE,,,,Date used for the value estimate.
+Other Assets,Other Asset 17,annual_appreciation_pct,percent,FALSE,0.00%,-100,100,Annual appreciation (+) or depreciation (-) used to bring the value forward.
+Other Assets,Other Asset 17,basis,dollars,FALSE,,0,,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 17,sell_date,date,FALSE,,,,Optional planned sale date.
+Other Assets,Other Asset 18,type,choice,FALSE,Auto,,,"Type of other asset such as Auto, Boat, Start-up Equity, Art, Collectible, or Other."
+Other Assets,Other Asset 18,name,text,FALSE,,,,User-described name for this asset.
+Other Assets,Other Asset 18,value,dollars,FALSE,$0,0,,Estimated value on the as-of date.
+Other Assets,Other Asset 18,as_of_date,date,FALSE,,,,Date used for the value estimate.
+Other Assets,Other Asset 18,annual_appreciation_pct,percent,FALSE,0.00%,-100,100,Annual appreciation (+) or depreciation (-) used to bring the value forward.
+Other Assets,Other Asset 18,basis,dollars,FALSE,,0,,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 18,sell_date,date,FALSE,,,,Optional planned sale date.
+Other Assets,Other Asset 19,type,choice,FALSE,Auto,,,"Type of other asset such as Auto, Boat, Start-up Equity, Art, Collectible, or Other."
+Other Assets,Other Asset 19,name,text,FALSE,,,,User-described name for this asset.
+Other Assets,Other Asset 19,value,dollars,FALSE,$0,0,,Estimated value on the as-of date.
+Other Assets,Other Asset 19,as_of_date,date,FALSE,,,,Date used for the value estimate.
+Other Assets,Other Asset 19,annual_appreciation_pct,percent,FALSE,0.00%,-100,100,Annual appreciation (+) or depreciation (-) used to bring the value forward.
+Other Assets,Other Asset 19,basis,dollars,FALSE,,0,,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 19,sell_date,date,FALSE,,,,Optional planned sale date.
+Other Assets,Other Asset 20,type,choice,FALSE,Auto,,,"Type of other asset such as Auto, Boat, Start-up Equity, Art, Collectible, or Other."
+Other Assets,Other Asset 20,name,text,FALSE,,,,User-described name for this asset.
+Other Assets,Other Asset 20,value,dollars,FALSE,$0,0,,Estimated value on the as-of date.
+Other Assets,Other Asset 20,as_of_date,date,FALSE,,,,Date used for the value estimate.
+Other Assets,Other Asset 20,annual_appreciation_pct,percent,FALSE,0.00%,-100,100,Annual appreciation (+) or depreciation (-) used to bring the value forward.
+Other Assets,Other Asset 20,basis,dollars,FALSE,,0,,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 20,sell_date,date,FALSE,,,,Optional planned sale date.
+Optional Functions,,ltc_life_policy,boolean,FALSE,FALSE,,,Show LTC/Life Policy items on the Other Assets page and related workbook output.

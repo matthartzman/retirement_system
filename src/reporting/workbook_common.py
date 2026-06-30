@@ -1,0 +1,575 @@
+
+"""
+Retirement, Tax & Estate Plan Builder — v5 Institutional
+Workbook/report orchestration layer. Financial engines live in extracted modules.
+"""
+
+import csv, math, random, datetime, sys, traceback
+from copy import copy
+from collections import defaultdict
+import os
+
+from .. import taxes as _td  # consolidated from tax_data
+from .. import core as _ar  # consolidated from account_registry
+from .. import core as _aa  # consolidated from account_access
+from .. import optimization as _ao  # consolidated from allocation_optimizer
+from ..core import *  # shared projection/tax/annuity primitives  # consolidated from engine_core
+from ..market_data import PRICE_CACHE, fetch_price, price_source, pricing_diagnostics, pricing_source_summary, write_pricing_diagnostics  # consolidated from market_data_providers
+
+import openpyxl
+from openpyxl import Workbook
+from openpyxl.styles import (PatternFill, Font, Alignment, Border, Side,
+                              numbers as xl_numbers)
+from openpyxl.utils import get_column_letter
+from openpyxl.chart import BarChart, LineChart, PieChart, Reference
+from openpyxl.chart.series import SeriesLabel
+from openpyxl.chart.shapes import GraphicalProperties
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 1.  DATA INPUT
+# ─────────────────────────────────────────────────────────────────────────────
+from ..data_io import load_csv, parse_client, build_plan_from_json  # consolidated from data_parser
+from ..config_backend import load_active_config  # Version 7 active CSV/JSON/YAML/SQLite config loader
+from ..workspace_context import workspace_output_dir, sanitize_id
+from ..report_compute import prepare_config_from_sectioned_data, run_projection_artifacts
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 2.  LIVE PRICE FETCHING
+# ─────────────────────────────────────────────────────────────────────────────
+# Implemented in market_data_providers.py and imported above.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3.  STYLE HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
+
+NAVY   = '1F3864'
+BLUE   = '2E75B6'
+ORANGE = 'C55A11'
+GREEN  = '375623'
+GRAY   = 'F2F2F2'
+LGRAY  = 'D9D9D9'
+DGRAY  = '595959'
+GOLD   = 'FFC000'
+RED    = 'C00000'
+WHITE  = 'FFFFFF'
+YELLOW_INPUT = 'FFFF00'
+BLUE_TEXT    = '0000FF'
+
+THIN = Side(style='thin')
+MED  = Side(style='medium')
+
+def thin_border():
+    return Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
+
+def med_border():
+    return Border(left=MED, right=MED, top=MED, bottom=MED)
+
+def fill(hex_color):
+    return PatternFill('solid', fgColor=hex_color)
+
+def hdr_font(bold=True, color=WHITE, size=11):
+    return Font(name='Arial', bold=bold, color=color, size=size)
+
+def body_font(bold=False, color='000000', size=10):
+    return Font(name='Arial', bold=bold, color=color, size=size)
+
+def input_style(ws, cell):
+    cell.fill = PatternFill('solid', fgColor=YELLOW_INPUT)
+    cell.font = Font(name='Arial', color=BLUE_TEXT, size=10)
+    cell.border = thin_border()
+
+FMT_DOLLAR   = '$#,##0;($#,##0);"-"'
+FMT_DOLLAR_K = '$#,##0;($#,##0);"-"'
+FMT_PCT      = '0.0%'
+FMT_YEAR     = '0'
+FMT_INT      = '#,##0'
+
+def set_col_width(ws, col, width):
+    ws.column_dimensions[get_column_letter(col)].width = width
+
+def write_hdr(ws, row, col, text, bg=NAVY, fg=WHITE, bold=True, span=1, size=11):
+    c = ws.cell(row=row, column=col, value=text)
+    c.fill = fill(bg)
+    c.font = Font(name='Arial', bold=bold, color=fg, size=size)
+    c.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    c.border = thin_border()
+    if span > 1:
+        ws.merge_cells(start_row=row, start_column=col,
+                       end_row=row, end_column=col+span-1)
+    return c
+
+def write_cell(ws, row, col, value, fmt=None, bold=False, bg=None, fg='000000',
+               align='left', border=True):
+    c = ws.cell(row=row, column=col, value=value)
+    c.font = Font(name='Arial', bold=bold, color=fg, size=10)
+    c.alignment = Alignment(horizontal=align, vertical='center')
+    if border:
+        c.border = thin_border()
+    if bg:
+        c.fill = fill(bg)
+    if fmt:
+        c.number_format = fmt
+    return c
+
+def section_title(ws, row, text, span=8, bg=None):
+    ws.row_dimensions[row].height = 22
+    c = ws.cell(row=row, column=1, value=text)
+    c.fill = fill(bg or NAVY)
+    c.font = Font(name='Arial', bold=True, color=WHITE, size=13)
+    c.alignment = Alignment(horizontal='left', vertical='center')
+    if span > 1:
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=span)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4.  DATA PARSING
+# ─────────────────────────────────────────────────────────────────────────────
+# Implemented in data_parser.py and imported above.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5.  TAX / ANNUITY HELPERS
+# ─────────────────────────────────────────────────────────────────────────────
+# Engine primitives are imported from engine_core.py. Workbook/reporting code must
+# not carry separate financial implementations.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 6.  PROJECTION / MONTE CARLO DELEGATION
+# ─────────────────────────────────────────────────────────────────────────────
+from ..planning_engines import project  # consolidated from projection_engine
+from ..planning_engines import monte_carlo  # consolidated from monte_carlo_engine
+from ..planning_engines import optimize_roth_conversion_strategy
+
+# Projection and Monte Carlo are imported from extracted engine modules above.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 8b. SCENARIO COMPARISON ENGINE
+# ─────────────────────────────────────────────────────────────────────────────
+
+def compare_scenarios(c, scenario_overrides):
+    """Run multiple scenarios and return unified comparison data.
+    
+    Args:
+        c: parsed client dict (base case)
+        scenario_overrides: dict of {name: {key: value, ...}}
+    
+    Returns:
+        list of dicts: [{name, terminal_nw, lifetime_tax, delta_nw, rows}, ...]
+    """
+    import copy
+    base_rows = project(c)
+    base_nw   = base_rows[-1]['total_nw']
+    base_tax  = sum(r['total_tax'] for r in base_rows)
+    
+    results = [{
+        'name': 'Base Case',
+        'terminal_nw': base_nw,
+        'lifetime_tax': base_tax,
+        'delta_nw': 0,
+        'rows': base_rows,
+    }]
+    
+    for name, overrides in scenario_overrides.items():
+        c2 = copy.deepcopy(c)
+        for k, v in overrides.items():
+            c2[k] = v
+        rows2 = project(c2)
+        nw2   = rows2[-1]['total_nw']
+        tax2  = sum(r['total_tax'] for r in rows2)
+        results.append({
+            'name': name,
+            'terminal_nw': nw2,
+            'lifetime_tax': tax2,
+            'delta_nw': nw2 - base_nw,
+            'rows': rows2,
+        })
+    
+    return results
+
+
+def sensitivity_grid(c, param_key, values, label=''):
+    """Run project() for each value of param_key and return terminal NW grid."""
+    import copy
+    grid = []
+    for v in values:
+        c2 = copy.deepcopy(c)
+        c2[param_key] = v
+        rows2 = project(c2)
+        grid.append({
+            'param': param_key,
+            'value': v,
+            'label': label or param_key,
+            'terminal_nw': rows2[-1]['total_nw'],
+            'lifetime_tax': sum(r['total_tax'] for r in rows2),
+        })
+    return grid
+
+
+def tornado_data(c):
+    """Generate tornado chart data: +/- 1 std dev for key parameters."""
+    base_rows = project(c)
+    base_nw = base_rows[-1]['total_nw']
+    
+    params = [
+        ('ret',        c['ret'] - 0.02,     c['ret'] + 0.02,     'Portfolio Return ±2%'),
+        ('inf',        c['inf'] - 0.01,     c['inf'] + 0.01,     'Inflation ±1%'),
+        ('spend_base', c['spend_base']*0.9, c['spend_base']*1.1, 'Spending ±10%'),
+    ]
+    
+    import copy
+    bars = []
+    for key, lo, hi, label in params:
+        c_lo = copy.deepcopy(c); c_lo[key] = lo
+        c_hi = copy.deepcopy(c); c_hi[key] = hi
+        nw_lo = project(c_lo)[-1]['total_nw']
+        nw_hi = project(c_hi)[-1]['total_nw']
+        bars.append({
+            'param': label,
+            'nw_low': nw_lo,
+            'nw_high': nw_hi,
+            'base_nw': base_nw,
+            'spread': abs(nw_hi - nw_lo),
+        })
+    bars.sort(key=lambda x: -x['spread'])
+    return bars
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 9.  WORKBOOK BUILDER
+# ─────────────────────────────────────────────────────────────────────────────
+
+SECTION_COLOR = {
+    '1': '2E75B6',  # Reports — blue
+    '2': '7030A0',  # Optimizers — purple
+    '3': 'C00000',  # Risk & Stress Tests — red
+    '4': 'B45F06',  # System — amber
+    'H': '4472C4',  # Hidden/helper sheets — medium blue
+}
+
+# Final workbook tab layout. Excel exposes one flat tab strip, so visible
+# section-summary tabs are numbered sequentially and their child tabs use
+# section-letter labels (1A, 1B, ...). The source builders still create the
+# legacy numbered sheets first; workbook_builder.apply_final_workbook_structure
+# then merges/relabels/reorders them into this presentation layout.
+WORKBOOK_SECTION_LAYOUT = [
+    {
+        'section': '1. Reports',
+        'code': '1',
+        'description': 'Read-only plan reports and advisor-review outputs.',
+        'sheets': [
+            '1A. Executive Summary', '1B. Net Worth', '1C. Cash Flow',
+            '1D. Balance Sheet', '1E. Charts', '1F. Lifetime Taxes',
+            '1G. Core Spending', '1H. Spending Summary',
+        ],
+    },
+    {
+        'section': '2. Optimizers',
+        'code': '2',
+        'description': 'Decision-support modules and optimization outputs.',
+        'sheets': [
+            '2A. Roth Conversion', '2B. Asset Allocation', '2C. State Residency',
+            '2D. Social Security', '2E. S-Corp vs LLC', '2F. Charitable Giving',
+            '2G. Estate & Legacy Planning', '2H. Planning Levers',
+        ],
+    },
+    {
+        'section': '3. Risk & Stress Tests',
+        'code': '3',
+        'description': 'Monte Carlo, survivor, and protection stress tests.',
+        'sheets': ['3A. Monte Carlo', '3B. Survivor', '3C. LTC + Life Insurance'],
+    },
+    {
+        'section': '4. System',
+        'code': '4',
+        'description': 'Plan data snapshot, assumptions, reconciliation, quality control, RMD audit, methodology, and glossary.',
+        'sheets': [
+            '4A. Plan Data', '4B. Assumptions', '4C. Account Reconciliation',
+            '4D. Quality Control', '4E. RMD Audit', '4F. Methodology', '4G. Glossary',
+        ],
+    },
+]
+
+# Legacy build-time sheet set used by the existing sheet builders. These names
+# are intentionally kept stable so the computation/build code can remain
+# low-risk while the user-facing workbook is reorganized at the end.
+V5_LAYOUT = [
+    ('1. Executive Summary', '1'),
+    ('2. Assumptions', '4'),
+    ('3. Balance Sheet', '1'),
+    ('4. Asset Allocation', '2'),
+    ('5. Net Worth Projection', '1'),
+    ('6. Cash Flow Projection', '1'),
+    ('7. Lifetime Tax', '1'),
+    ('8. Charts Dashboard', '1'),
+    ('9. Retirement Strategy', '1'),
+    ('10. Social Security', '2'),
+    ('11. Roth Conversion', '2'),
+    ('12. Charitable Giving', '2'),
+    ('13. State Residency', '2'),
+    ('14. Estate Plan', '2'),
+    ('15. Market-Luck Stress Test', '3'),
+    ('16. Scenario Analysis', 'H'),
+    ('17. LTC Stress Test', '3'),
+    ('18. Survivor Stress Test', '3'),
+    ('19. Life Insurance', '3'),
+    ('20. RMD Audit', '4'),
+    ('21. Quality Control', '4'),
+    ('22. Glossary', '4'),
+    ('23. Methodology', '4'),
+    ('24. Asset Location', '2'),
+    ('25. Account Reconciliation', '4'),
+    ('26. Workbook Warnings', 'H'),
+    ('27. Planning Levers', '2'),
+    ('28. Core Spending', '1'),
+    ('29. Spending Summary', '1'),
+]
+
+
+
+QC_CHECKS = []   # [(sheet_name, check, status, detail)]
+
+def qc(sheet, check, passed, detail=''):
+    QC_CHECKS.append((sheet, check, 'PASS' if passed else 'FAIL', detail))
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sheet builders
+# ─────────────────────────────────────────────────────────────────────────────
+
+def auto_fit_columns(ws, min_width=8, max_width=50, skip_rows=2):
+    """Auto-fit column widths based on cell content, skipping title rows.
+    Respects min/max bounds. Uses openpyxl cell values only (no rendering)."""
+    col_widths = {}
+    for row in ws.iter_rows(min_row=skip_rows + 1):
+        for cell in row:
+            if cell.value is None:
+                continue
+            col = cell.column
+            try:
+                val_str = str(cell.value)
+                # Format numbers nicely for width estimation
+                if isinstance(cell.value, float):
+                    if cell.number_format and '%' in cell.number_format:
+                        val_str = f'{cell.value:.1%}'
+                    elif cell.number_format and '$' in cell.number_format:
+                        val_str = f'${cell.value:,.0f}'
+                    else:
+                        val_str = f'{cell.value:.2f}'
+                length = max(len(val_str), 6)
+            except Exception:
+                length = 8
+            col_widths[col] = max(col_widths.get(col, min_width), length)
+    # Also check header row
+    for cell in ws[skip_rows]:
+        if cell.value:
+            col_widths[cell.column] = max(col_widths.get(cell.column, min_width),
+                                          len(str(cell.value)) + 1)
+    for col, width in col_widths.items():
+        ws.column_dimensions[get_column_letter(col)].width = min(max(width + 2, min_width), max_width)
+
+
+
+# Export private helper names to sheet modules using star imports.
+__all__ = [name for name in globals() if not name.startswith("__")]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Workbook-wide readability pass
+# ─────────────────────────────────────────────────────────────────────────────
+def _display_len(value):
+    """Approximate rendered character length for data-driven sizing."""
+    if value is None:
+        return 0
+    if isinstance(value, (int, float)):
+        return 10
+    s = str(value)
+    if s.startswith('='):
+        return min(len(s), 10)
+    return max(len(line) for line in s.splitlines() or [''])
+
+
+def _is_textual(value):
+    if value is None:
+        return False
+    return isinstance(value, str) and not value.startswith('=')
+
+
+def _is_heading_row(ws, row_idx):
+    """Identify rows that should not determine column width.
+
+    Table headers and merged section titles are excluded, but label/value rows
+    are kept as data even when bold/fill styling is applied.
+    """
+    if row_idx <= 2:
+        return True
+    cells = [ws.cell(row=row_idx, column=c) for c in range(1, ws.max_column + 1)]
+    nonblank = [c for c in cells if c.value not in (None, '')]
+    if not nonblank:
+        return False
+    for mr in ws.merged_cells.ranges:
+        if mr.min_row <= row_idx <= mr.max_row and mr.min_col == 1 and (mr.max_col - mr.min_col + 1) >= 3:
+            return True
+    if len(nonblank) >= 3:
+        bold = sum(1 for c in nonblank if c.font and c.font.bold)
+        filled = sum(1 for c in nonblank if c.fill and c.fill.fill_type)
+        if bold >= max(2, len(nonblank) * 0.5) or filled >= max(2, len(nonblank) * 0.5):
+            return True
+    return False
+
+
+def optimize_workbook_layout(wb, target_total_width=118):
+    """Apply workbook-wide sizing using data rows, not headings.
+
+    Caps are intentionally expressed in Excel character units approximating the
+    requested pixels: dollars <= 71px (~9.4 chars), integer columns <= 40px
+    (~5 chars), and text columns <= 200px (~27.9 chars). Headings are wrapped
+    within those caps and do not widen columns.
+    """
+    import math as _math
+    from copy import copy as _copy
+    from openpyxl.styles import Alignment as _Alignment
+
+    dollar_cap = (71 - 5) / 7
+    text_cap = (200 - 5) / 7
+    int_cap = (40 - 5) / 7
+    pct_cap = 7.5
+    num_cap = 12.0
+    min_text = 10.0
+    min_dollar = (71 - 5) / 7  # 71 px minimum for dollar columns
+    min_int = 4.4
+    min_num = 7.0
+
+    def _header_text(ws, col):
+        vals = []
+        for r in range(1, min(ws.max_row, 12) + 1):
+            val = ws.cell(r, col).value
+            if isinstance(val, str) and val.strip():
+                vals.append(val.lower())
+        return ' '.join(vals)
+
+    def _cell_len(cell):
+        val = cell.value
+        if val is None:
+            return 0
+        if isinstance(val, (int, float)):
+            fmt = (cell.number_format or '').lower()
+            if '$' in fmt or 'accounting' in fmt:
+                return 10
+            if '%' in fmt:
+                return 6
+            if float(val).is_integer():
+                return len(str(int(abs(val)))) + (1 if val < 0 else 0)
+            return 9
+        return _display_len(val)
+
+    def _classify(ws, col, cells):
+        vals = [c.value for c in cells if c.value not in (None, '')]
+        header = _header_text(ws, col)
+        if not vals:
+            return 'text'
+        if any(isinstance(v, str) and not v.startswith('=') for v in vals):
+            return 'text'
+        if all(isinstance(v, (int, float)) for v in vals):
+            nf = ' '.join((c.number_format or '') for c in cells).lower()
+            if '$' in nf or 'accounting' in nf or any(k in header for k in ('$','amount','value','balance','tax','cash','income','spend','expense','asset','liability','net worth','rmd','ira','roth','trust','portfolio','withdrawal','premium','deduction','contribution')):
+                return 'dollar'
+            if '%' in nf or any(k in header for k in ('percent','%','rate','probability','success')):
+                return 'percent'
+            if all(float(v).is_integer() for v in vals):
+                if any(k in header for k in ('year','age','item','#','count','row')) or max(abs(float(v)) for v in vals) < 10000:
+                    return 'integer'
+            return 'number'
+        return 'text'
+
+    for ws in wb.worksheets:
+        if getattr(ws, 'sheet_state', 'visible') != 'visible':
+            continue
+        max_row = ws.max_row or 1
+        max_col = ws.max_column or 1
+        heading_rows = {r for r in range(1, max_row + 1) if _is_heading_row(ws, r)}
+        specs = {}
+        for col in range(1, max_col + 1):
+            cells = [ws.cell(r, col) for r in range(1, min(max_row, 400) + 1)
+                     if r not in heading_rows and ws.cell(r, col).value not in (None, '')]
+            kind = _classify(ws, col, cells)
+            lengths = sorted([_cell_len(c) for c in cells] or [0])
+            p85 = lengths[int((len(lengths) - 1) * 0.85)] if lengths else 0
+            max_len = max(lengths or [0])
+            if kind == 'dollar':
+                width = max(min_dollar, min(dollar_cap, p85 + 1)); wrap = False
+            elif kind == 'integer':
+                width = max(min_int, min(int_cap, p85 + 1)); wrap = False
+            elif kind == 'percent':
+                width = max(5.5, min(pct_cap, p85 + 1)); wrap = False
+            elif kind == 'text':
+                width = max(min_text, min(text_cap, (p85 + 2) if p85 else 14)); wrap = True
+            else:
+                width = max(min_num, min(num_cap, p85 + 1)); wrap = False
+            ws.column_dimensions[get_column_letter(col)].width = round(width, 1)
+            specs[col] = (kind, width, wrap, max_len)
+
+        if specs and max(specs) <= 18:
+            total_width = sum(width for _kind, width, _wrap, _max_len in specs.values())
+            if total_width > target_total_width:
+                mins = {
+                    'text': 8.0,
+                    'dollar': min_dollar,
+                    'integer': min_int,
+                    'percent': 5.5,
+                    'number': 6.0,
+                }
+                shrinkable = sum(max(0.0, width - mins.get(kind, 6.0)) for kind, width, _wrap, _max_len in specs.values())
+                if shrinkable > 0:
+                    factor = min(1.0, (total_width - target_total_width) / shrinkable)
+                    for col, (kind, width, wrap, max_len) in list(specs.items()):
+                        floor = mins.get(kind, 6.0)
+                        new_width = width - max(0.0, width - floor) * factor
+                        ws.column_dimensions[get_column_letter(col)].width = round(new_width, 1)
+                        specs[col] = (kind, new_width, wrap, max_len)
+
+        for row_idx in range(1, max_row + 1):
+            max_lines = 1
+            any_wrap = False
+            for col, (kind, width, wrap, _) in specs.items():
+                cell = ws.cell(row_idx, col)
+                if cell.value in (None, ''):
+                    continue
+                if kind == 'text' or _is_heading_row(ws, row_idx):
+                    old = cell.alignment or _Alignment()
+                    cell.alignment = _Alignment(
+                        horizontal=old.horizontal,
+                        vertical='top',
+                        text_rotation=old.text_rotation,
+                        wrap_text=True,
+                        shrink_to_fit=old.shrink_to_fit,
+                        indent=old.indent,
+                    )
+                    any_wrap = True
+                    effective_width = width
+                    for mr in ws.merged_cells.ranges:
+                        if mr.min_row <= row_idx <= mr.max_row and mr.min_col <= col <= mr.max_col:
+                            effective_width = sum(specs.get(c, ('text', width, True, 0))[1] for c in range(mr.min_col, mr.max_col + 1))
+                            break
+                    text = str(cell.value)
+                    lines = 0
+                    for line in text.splitlines() or ['']:
+                        lines += max(1, _math.ceil(len(line) / max(effective_width, 1)))
+                    max_lines = max(max_lines, min(lines, 6))
+            if any_wrap:
+                ws.row_dimensions[row_idx].height = min(90, max(15, max_lines * (18 if row_idx <= 2 else 15)))
+
+        if ws.title in {'2B. Asset Allocation', '4. Asset Allocation'}:
+            for row_idx in (211, 285):
+                cell = ws.cell(row=row_idx, column=1)
+                old = cell.alignment or _Alignment()
+                cell.alignment = _Alignment(
+                    horizontal=old.horizontal,
+                    vertical=old.vertical or 'top',
+                    text_rotation=old.text_rotation,
+                    wrap_text=True,
+                    shrink_to_fit=old.shrink_to_fit,
+                    indent=old.indent,
+                )
+            ws.row_dimensions[211].height = max(ws.row_dimensions[211].height or 0, 30)
+
+    return wb
+
+# Refresh exports after workbook-wide helpers are defined.
+__all__ = [name for name in globals() if not name.startswith("__")]

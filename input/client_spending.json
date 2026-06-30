@@ -1,0 +1,54 @@
+{
+  "Cashflow": {
+    "Large Discretionary Expenses": {
+      "extra_1_amount": "$100,000",
+      "extra_1_comment": "Child Wedding 1",
+      "extra_1_end_year": "",
+      "extra_1_start_year": "",
+      "extra_1_type": "Weddings",
+      "extra_1_year": "2027",
+      "extra_2_amount": "$50,000",
+      "extra_2_comment": "Child Wedding 2",
+      "extra_2_end_year": "",
+      "extra_2_start_year": "",
+      "extra_2_type": "Weddings",
+      "extra_2_year": "2028",
+      "extra_3_amount": "$100,000",
+      "extra_3_comment": "Child Wedding 3",
+      "extra_3_end_year": "",
+      "extra_3_start_year": "",
+      "extra_3_type": "Weddings",
+      "extra_3_year": "2030",
+      "extra_4_amount": "$25,000",
+      "extra_4_comment": "last year home-project spend is active (model ignores this line after this year)",
+      "extra_4_end_year": "2030",
+      "extra_4_start_year": "2026",
+      "extra_4_type": "Home Improvement",
+      "extra_4_year": "",
+      "extra_5_amount": "$25,000",
+      "extra_5_comment": "last year vacation spend is active",
+      "extra_5_end_year": "2045",
+      "extra_5_start_year": "2026",
+      "extra_5_type": "Vacations",
+      "extra_5_year": ""
+    },
+    "Mortgage": {
+      "balance_as_of_plan_start": "$293,284",
+      "interest_rate": "1.99%",
+      "last_payment_date": "10/31/2034",
+      "last_payment_year": "2034",
+      "monthly_payment": "$3,000"
+    },
+    "Post-House-Sale Rent": {
+      "monthly_rent_post_sale": "$0"
+    },
+    "Spending": {
+      "annual_charitable_giving_high": "$5,000",
+      "annual_charitable_giving_low": "$3,000",
+      "annual_spending_base_year": "$200,000",
+      "core_spending_growth_mode": "cpi",
+      "core_spending_manual_growth_rate": "0.00%",
+      "daf_annual_contribution": "$0"
+    }
+  }
+}

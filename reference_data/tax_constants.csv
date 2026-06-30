@@ -1,0 +1,18 @@
+key,tax_year,value,source
+# Standard deduction base amounts (2025)
+std_ded_mfj,2025,30000,IRS 2025 inflation adjustments / Rev. Proc. 2024-40
+std_ded_single,2025,15000,IRS 2025 inflation adjustments / Rev. Proc. 2024-40
+std_ded_hoh,2025,22500,IRS 2025 inflation adjustments / Rev. Proc. 2024-40
+std_ded_mfs,2025,15000,IRS 2025 inflation adjustments / Rev. Proc. 2024-40
+# Over-65 additional deduction per person
+over65_add_mfj,2025,1600,IRS 2025 inflation adjustments / Rev. Proc. 2024-40
+over65_add_single,2025,2000,IRS 2025 inflation adjustments / Rev. Proc. 2024-40
+over65_add_hoh,2025,2000,IRS 2025 inflation adjustments / Rev. Proc. 2024-40
+over65_add_mfs,2025,1600,IRS 2025 inflation adjustments / Rev. Proc. 2024-40
+# NIIT thresholds (not indexed — statutory)
+niit_threshold_mfj,2025,250000,IRC §1411 (not inflation-indexed)
+niit_threshold_single,2025,200000,IRC §1411 (not inflation-indexed)
+niit_threshold_hoh,2025,200000,IRC §1411 (not inflation-indexed)
+niit_threshold_mfs,2025,125000,IRC §1411 (not inflation-indexed)
+# SS wage base
+ss_wage_base,2025,176100,SSA 2025 Social Security wage base

@@ -1,0 +1,124 @@
+Cashflow:
+  Earned Income:
+    annual_earned_income: $290,000
+    earned_income_annual_increase: 3.00%
+    earned_income_last_year: 2027
+    earned_income_start_year: '2026'
+    entity_type: s_corp
+  Large Discretionary Expenses:
+    extra_1_amount: $100,000
+    extra_1_comment: Rebecca Wedding
+    extra_1_end_year: ''
+    extra_1_start_year: ''
+    extra_1_type: Weddings
+    extra_1_year: '2027'
+    extra_2_amount: $50,000
+    extra_2_comment: Max Wedding
+    extra_2_end_year: ''
+    extra_2_start_year: ''
+    extra_2_type: Weddings
+    extra_2_year: '2028'
+    extra_3_amount: $100,000
+    extra_3_comment: Grace Wedding
+    extra_3_end_year: ''
+    extra_3_start_year: ''
+    extra_3_type: Weddings
+    extra_3_year: '2030'
+    extra_4_amount: $25,000
+    extra_4_comment: last year home project spend is active (model ignores this line
+      after this year)
+    extra_4_end_year: '2030'
+    extra_4_start_year: '2026'
+    extra_4_type: Home Improvement
+    extra_4_year: ''
+    extra_5_amount: $25,000
+    extra_5_comment: last year vacation spend is active
+    extra_5_end_year: '2046'
+    extra_5_start_year: '2026'
+    extra_5_type: Vacations
+    extra_5_year: ''
+  Retirement Contributions:
+    annual_401k_limit_base_year: $32,500
+    index_401k_limit: 'TRUE'
+    monthly_401k_contribution: $2,000
+  S-Corp:
+    qbi_phaseout_applies: 'FALSE'
+    reasonable_salary_annual: $60,000
+    sehi_added_to_w2: 'TRUE'
+    state_corporate_surcharge_rate: 1.50%
+  Self-Employment:
+    business_expenses_annual: $15,000
+    health_insurance_premiums_annual: $10,000
+    home_office_expenses_annual: $4,000
+    qbi_eligible: 'TRUE'
+Income Streams:
+  Husband Joint Annuity:
+    additional_income_pct: 20.00%
+    base: $860,000
+    credit_rating: A++
+    cumulative_at_death: $1,685,770
+    deferral_years: '4'
+    dividend_rate: 5.75%
+    first_payment: 8/3/2029
+    initial_guaranteed_income_payment: 2,765.82
+    pay_in_cash_pct: 80.00%
+    qualified: 'TRUE'
+    source_account: Husband_IRA
+  Husband Single Annuity:
+    additional_income_pct: 20.00%
+    base: $70,132.07
+    credit_rating: A++
+    cumulative_at_death: $218,924
+    deferral_years: '4'
+    dividend_rate: 5.75%
+    exclusion_ratio: '0.789'
+    first_payment: 8/3/2029
+    initial_guaranteed_income_payment: $395.15
+    pay_in_cash_pct: 80.00%
+    qualified: 'FALSE'
+  Joint-and-Survivor Percentage:
+    js_pct: 100%
+  Present Value Horizon:
+    age_to_value_through: '85'
+  Recovery Age:
+    principal_recovery_age: '86'
+  Wife Joint Annuity:
+    additional_income_pct: 20.00%
+    base: $355,000
+    credit_rating: A++
+    cumulative_at_death: $709,350
+    deferral_years: '2'
+    dividend_rate: 5.75%
+    first_payment: 5/30/2028
+    initial_guaranteed_income_payment: $1,071.33
+    pay_in_cash_pct: 80.00%
+    qualified: 'TRUE'
+    source_account: Wife_IRA
+  Wife Pension:
+    additional_income_pct: 20.00%
+    credit_rating: A
+    cumulative_at_death: $142,560
+    deferral_years: '0'
+    dividend_rate: 5.00%
+    first_payment: 6/1/2026
+    initial_guaranteed_income_payment: $376
+    pay_in_cash_pct: 80.00%
+    qualified: 'TRUE'
+  Wife Single Annuity:
+    additional_income_pct: 20.00%
+    base: $41,559.86
+    credit_rating: A++
+    cumulative_at_death: $125,390
+    deferral_dampening: '0.513'
+    deferral_years: '5'
+    dividend_rate: 5.50%
+    exclusion_ratio: '0.738'
+    first_payment: 5/30/2029
+    initial_guaranteed_income_payment: $235.41
+    pay_in_cash_pct: 80.00%
+    qualified: 'FALSE'
+    reserve_factor: '0.74'
+Social Security:
+  Funding Discount:
+    ss_funding_discount_pct: 22.00%
+    ss_funding_discount_year: '2032'
