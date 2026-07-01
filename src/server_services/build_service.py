@@ -138,12 +138,17 @@ def build_preflight_payload(
             diag = json.loads(pricing_diag_path.read_text(encoding="utf-8"))
             pricing_mode = str(diag.get("pricing_mode") or "unknown")
             failed = diag.get("failed_symbols") or diag.get("failures") or []
-            fallback = diag.get("fallback_symbols") or []
+            # fallback_warning_symbols reflects symbols that actually resolved to a
+            # degraded source (cache/stale/cost-basis); fallback_symbols is just the
+            # configured cost-basis pool available for fallback, which is not the
+            # same thing and overstates how many symbols actually needed it.
+            fallback = diag.get("fallback_warning_symbols") or diag.get("fallback_symbols") or []
             pricing_status = "fallback" if fallback else ("warning" if failed else "ok")
             if failed:
                 warnings.append(f"Market pricing diagnostics contain {len(failed)} failed symbol(s).")
             if fallback:
-                warnings.append(f"Market pricing used fallback values for {len(fallback)} symbol(s).")
+                pricing_note = str(diag.get("pricing_source_note") or "").strip()
+                warnings.append(pricing_note or f"Market pricing used fallback values for {len(fallback)} symbol(s).")
         except Exception:
             warnings.append("Pricing diagnostics could not be parsed.")
     else:
