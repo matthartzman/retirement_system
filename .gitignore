@@ -8,6 +8,7 @@ __pycache__/
 # Local runtime state and recovery/backup copies
 local_state/
 _recovery_local_state_*/
+saved_plans/
 *.rpx
 *.db
 *.db-wal

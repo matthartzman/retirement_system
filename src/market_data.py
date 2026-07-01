@@ -1330,9 +1330,12 @@ class MarketDataProvider:
         frozen_symbols = [sym for sym, src in sources.items() if src == "frozen_snapshot"]
         live_sources = {src for src in sources.values() if src.endswith("_live") or "_live" in src}
         cache_symbols = [sym for sym, src in sources.items() if "cache" in src]
+        # CASH is hardcoded to $1.00 by design (see quote()) and never calls a
+        # live provider — that is expected, permanent behavior, not a pricing
+        # degradation, so it is excluded from offline/fallback reporting.
         offline_sources = {
-            src for src in sources.values()
-            if src in {"holdings_cost_basis_fallback", "cash", "missing"} or "fallback" in src
+            src for sym, src in sources.items()
+            if sym != "CASH" and (src in {"holdings_cost_basis_fallback", "cash", "missing"} or "fallback" in src)
         }
         cache_as_of_by_symbol = {sym: self._cache_iso_for_symbol(sym) for sym in cache_symbols}
         cache_as_of_by_symbol_local = {
