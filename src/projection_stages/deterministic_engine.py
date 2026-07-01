@@ -1515,7 +1515,7 @@ def run_deterministic_projection_stage(c):
         # remaining HSA balance and all pre-tax/taxable sources are exhausted or
         # unavailable for the cash gap, draw HSA before touching Roth.
         if gap > 0 and sum(max(0.0, float(bal.get(_aid, 0.0) or 0.0)) for _aid in c.get('hsa_ids', [])) > 0:
-            hsa_res2 = _we.withdraw_hsa_gap(c, bal, gap)
+            hsa_res2 = _we.withdraw_hsa_gap(c, bal, gap, year=year)
             hsa_wd += hsa_res2['amount']
             gap = hsa_res2['new_gap']
             for _aid, _amt in dict(hsa_res2.get('by_account', {}) or {}).items():

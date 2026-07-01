@@ -2,44 +2,44 @@
   "artifact_count": 5,
   "artifacts": [
     {
-      "bytes": 206341,
+      "bytes": 207118,
       "exists": true,
       "file": "retirement_plan.xlsx",
-      "modified_at": "2026-06-30T12:55:11Z",
-      "path": "C:\\RetirementPlanning\\Version 10 - ChatpGPT\\output\\retirement_plan.xlsx",
-      "sha256": "dcd76e82ddfe7580333b545454a391b671c4061a552eaed30284fa8a9b79ef31"
+      "modified_at": "2026-07-01T11:56:51Z",
+      "path": "C:\\RetirementPlanning\\Version 10\\output\\retirement_plan.xlsx",
+      "sha256": "c761770b7a78f141a4e5f6c2e45f43ce364cad59e98cf26600b9fabf8f034998"
     },
     {
-      "bytes": 29272,
+      "bytes": 29244,
       "exists": true,
       "file": "retirement_dashboard.html",
-      "modified_at": "2026-06-30T12:55:12Z",
-      "path": "C:\\RetirementPlanning\\Version 10 - ChatpGPT\\output\\retirement_dashboard.html",
-      "sha256": "58fede2bd518697513823e57d7b434f0b611739b0a2fef4c55bfb57ddc3226ae"
+      "modified_at": "2026-07-01T11:56:51Z",
+      "path": "C:\\RetirementPlanning\\Version 10\\output\\retirement_dashboard.html",
+      "sha256": "74f17f5a32e6f13c4327e6b2a3abb5597962918caa3cf7e8a0f4eee8f022489f"
     },
     {
-      "bytes": 419160,
+      "bytes": 417777,
       "exists": true,
       "file": "results_explorer_model.json",
-      "modified_at": "2026-06-30T12:55:12Z",
-      "path": "C:\\RetirementPlanning\\Version 10 - ChatpGPT\\output\\results_explorer_model.json",
-      "sha256": "6ebcad27779476c5a8dfbe6a62c4a7f0da57b0b05626709a175ea9cb23f23554"
+      "modified_at": "2026-07-01T11:56:51Z",
+      "path": "C:\\RetirementPlanning\\Version 10\\output\\results_explorer_model.json",
+      "sha256": "992a8c16e10cf7708596169646b97119fa2c6978ed0232dd54b83d23cd4fd6b5"
     },
     {
-      "bytes": 784,
+      "bytes": 832,
       "exists": true,
       "file": "plan_summary.json",
-      "modified_at": "2026-06-30T12:55:12Z",
-      "path": "C:\\RetirementPlanning\\Version 10 - ChatpGPT\\output\\plan_summary.json",
-      "sha256": "c189c44b4337da61db4e9b0580aa5c467bc1d785f891532dbcddb99726606107"
+      "modified_at": "2026-07-01T11:56:51Z",
+      "path": "C:\\RetirementPlanning\\Version 10\\output\\plan_summary.json",
+      "sha256": "39ffccc38b839844b20a95d62d5db9b25a3cccc49626d6a125a8e2a3e70ab772"
     },
     {
-      "bytes": 5820,
+      "bytes": 5893,
       "exists": true,
       "file": "pricing_diagnostics.json",
-      "modified_at": "2026-06-30T12:55:04Z",
-      "path": "C:\\RetirementPlanning\\Version 10 - ChatpGPT\\output\\pricing_diagnostics.json",
-      "sha256": "46fad63fff1d098158aab4c0832ba7a838b94c596ed60521140438da9ebf7cdf"
+      "modified_at": "2026-07-01T11:56:43Z",
+      "path": "C:\\RetirementPlanning\\Version 10\\output\\pricing_diagnostics.json",
+      "sha256": "9d0af81412f0104aa79b869f7a03bf9b219cabdacf360ffee19085910fe4741c"
     }
   ],
   "build_id": "",
@@ -47,76 +47,78 @@
     "build_started_at_ts": "",
     "python": ""
   },
-  "generated_at": "2026-06-30T12:55:12Z",
+  "generated_at": "2026-07-01T11:56:52Z",
   "input_fingerprint": {
     "files": [
       {
-        "bytes": 16283,
+        "bytes": 16286,
         "file": "system_config.csv",
-        "sha256": "ad4f6ba6c6707ac62b8655a012ee8dc777c8f309fc178fc217bb6a35d5410715"
+        "sha256": "891c832855505854a7b754a86a3943de640e8f364dcae2de0d7ad23495b905d7"
       }
     ],
-    "plan_dir": "C:\\RetirementPlanning\\Version 10 - ChatpGPT\\local_state",
-    "sha256": "a97bd8db24422eedcf12180e9367030dd40775918edcc1b59cda51e1a813b3da"
+    "plan_dir": "C:\\RetirementPlanning\\Version 10\\local_state",
+    "sha256": "8ca5e8ca8e9126c0310c405af17879f6933f34da8b2c02857f00b6618f4c05ed"
   },
   "pricing_diagnostics": {
-    "bytes": 5820,
+    "bytes": 5893,
     "exists": true,
     "file": "pricing_diagnostics.json",
-    "modified_at": "2026-06-30T12:55:04Z",
-    "path": "C:\\RetirementPlanning\\Version 10 - ChatpGPT\\output\\pricing_diagnostics.json",
-    "sha256": "46fad63fff1d098158aab4c0832ba7a838b94c596ed60521140438da9ebf7cdf"
+    "modified_at": "2026-07-01T11:56:43Z",
+    "path": "C:\\RetirementPlanning\\Version 10\\output\\pricing_diagnostics.json",
+    "sha256": "9d0af81412f0104aa79b869f7a03bf9b219cabdacf360ffee19085910fe4741c"
   },
   "schema": "build_snapshot_v1",
   "source": "sqlite_snapshot",
   "sqlite_database": {
-    "bytes": 33275904,
+    "bytes": 47996928,
     "exists": true,
     "file": "retirement_system_v10.db",
-    "modified_at": "2026-06-30T12:54:51Z",
-    "path": "C:\\RetirementPlanning\\Version 10 - ChatpGPT\\local_state\\retirement_system_v10.db",
-    "sha256": "f849cb3ed13efb6173210e7aab9e4173d50e591c5626b6f764181f659dbba2c7"
+    "modified_at": "2026-07-01T11:56:35Z",
+    "path": "C:\\RetirementPlanning\\Version 10\\local_state\\retirement_system_v10.db",
+    "sha256": "3c473374837597fcd87ae319a8f1769f637fa19301f8873f5c702f85e81714e4"
   },
   "sqlite_database_snapshot": {
-    "bytes": 33275904,
+    "bytes": 47996928,
     "exists": true,
     "file": "plan_database_snapshot.rpx",
-    "modified_at": "2026-06-30T12:54:51Z",
-    "path": "C:\\RetirementPlanning\\Version 10 - ChatpGPT\\output\\plan_database_snapshot.rpx",
-    "sha256": "f849cb3ed13efb6173210e7aab9e4173d50e591c5626b6f764181f659dbba2c7",
+    "modified_at": "2026-07-01T11:56:35Z",
+    "path": "C:\\RetirementPlanning\\Version 10\\output\\plan_database_snapshot.rpx",
+    "sha256": "3c473374837597fcd87ae319a8f1769f637fa19301f8873f5c702f85e81714e4",
     "snapshot_role": "sqlite_database_copy",
-    "source_path": "C:\\RetirementPlanning\\Version 10 - ChatpGPT\\local_state\\retirement_system_v10.db"
+    "source_path": "C:\\RetirementPlanning\\Version 10\\local_state\\retirement_system_v10.db"
   },
   "success": true,
   "summary": {
-    "after_tax_terminal_net_worth": 4267239.328080034,
-    "after_tax_terminal_nw": 4267239.328080034,
+    "after_tax_terminal_net_worth": 4584854.059682235,
+    "after_tax_terminal_nw": 4584854.059682235,
     "build_id": "",
-    "lifetime_tax": 873087.3914096972,
-    "mc_success": 0.3125,
-    "post_tax_inheritance": 3984310.9462505104,
+    "h_name": "Matthew",
+    "lifetime_tax": 874291.2085969265,
+    "mc_success": 0.6875,
+    "post_tax_inheritance": 4270480.200000384,
     "qc_result": "QC: 32 / 32 PASS",
     "terminal_deferred_pretax_tax": 0.0,
     "terminal_deferred_tax_total": 0.0,
     "terminal_deferred_taxable_cap_gain_tax": 0.0,
-    "terminal_estate_tax": 282928.38182952366,
-    "terminal_nw": 4267239.328080034,
+    "terminal_estate_tax": 314373.8596818515,
+    "terminal_nw": 4584854.059682235,
     "terminal_pretax_nw": 0.0,
-    "terminal_roth_nw": 876965.1902764594,
+    "terminal_roth_nw": 1194579.9218786608,
     "terminal_taxable_basis_est": 0.0,
     "terminal_taxable_unrealized_gain_est": 0.0,
-    "total_roth_conversions": 1215428.9483452903,
+    "total_roth_conversions": 1214020.6359534878,
     "validation_fail_count": 0,
     "validation_first_fail": null,
-    "validation_warn_count": 0
+    "validation_warn_count": 0,
+    "w_name": "Patricia"
   },
   "system_config": {
-    "bytes": 16283,
+    "bytes": 16286,
     "exists": true,
     "file": "system_config.csv",
-    "modified_at": "2026-06-29T14:34:53Z",
-    "path": "C:\\RetirementPlanning\\Version 10 - ChatpGPT\\system_config.csv",
-    "sha256": "ad4f6ba6c6707ac62b8655a012ee8dc777c8f309fc178fc217bb6a35d5410715"
+    "modified_at": "2026-07-01T11:48:55Z",
+    "path": "C:\\RetirementPlanning\\Version 10\\system_config.csv",
+    "sha256": "891c832855505854a7b754a86a3943de640e8f364dcae2de0d7ad23495b905d7"
   },
-  "version": "9"
+  "version": "10"
 }

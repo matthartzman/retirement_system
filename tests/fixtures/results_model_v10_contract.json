@@ -1,7 +1,7 @@
 {
   "schema": "results_model_v10",
   "source": "semantic_results_model",
-  "version": "9",
+  "version": "10",
   "sheet_count": 6,
   "category_names": [
     "Reports",
@@ -13,21 +13,21 @@
       "kind": "table",
       "category": "Reports",
       "section_count": 1,
-      "min_row_count": 6
+      "min_row_count": 4
     },
     {
       "name": "1B. Net Worth",
       "kind": "table",
       "category": "Reports",
       "section_count": 1,
-      "min_row_count": 2
+      "min_row_count": 1
     },
     {
       "name": "1C. Cash Flow",
       "kind": "table",
       "category": "Reports",
       "section_count": 1,
-      "min_row_count": 2
+      "min_row_count": 1
     },
     {
       "name": "1E. Charts",
@@ -35,9 +35,9 @@
       "category": "Reports",
       "chart_count": 3,
       "chart_title_prefixes": [
-        "Net Worth by",
-        "Cash Flow — ",
-        "Cash Flow — "
+        "Net Wort",
+        "Cash Flo",
+        "Cash Flo"
       ]
     },
     {
@@ -45,21 +45,21 @@
       "kind": "table",
       "category": "Reports",
       "section_count": 1,
-      "min_row_count": 3
+      "min_row_count": 1
     },
     {
       "name": "2B. Asset Allocation",
       "kind": "table",
       "category": "Strategy",
       "section_count": 1,
-      "min_row_count": 2
+      "min_row_count": 1
     }
   ],
   "required_cell_kinds": [
     "integer",
-    "year",
     "text",
-    "percent",
-    "currency"
+    "currency",
+    "year",
+    "percent"
   ]
 }

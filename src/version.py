@@ -2,7 +2,7 @@ from __future__ import annotations
 """Single source of truth for product/version labels."""
 
 PRODUCT_NAME = 'Retirement System'
-VERSION = '9'
+VERSION = '10'
 RELEASE_LABEL = f"{PRODUCT_NAME} v{VERSION}"
 API_NAMESPACE = ""  # API routes use /api/ prefix without version suffix.
 CACHE_SCHEMA_VERSION = VERSION

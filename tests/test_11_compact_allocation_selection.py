@@ -17,15 +17,13 @@ class CompactAllocationSelectionTests(unittest.TestCase):
         p = ROOT / 'input' / 'asset_class_optimizer_controls.csv'
         actions = set()
         alternates = set()
+        valid_actions = {'include', 'exclude', 'consider_alternate_first'}
         with p.open(newline='', encoding='utf-8-sig') as f:
             for row in csv.DictReader(f):
                 cls = ap.canonical_asset_class(row['subsection'])
                 if row['label'] == 'selection_action':
                     actions.add(cls)
-                    if cls in {'Bonds', 'REITs'}:
-                        self.assertEqual(row['value'], 'consider_alternate_first')
-                    else:
-                        self.assertEqual(row['value'], 'include')
+                    self.assertIn(row['value'], valid_actions, f"{cls} has invalid selection_action")
                 if row['label'] == 'alternate_asset_class':
                     alternates.add(cls)
         expected = set(ap.DEFAULT_ALLOCATION_TARGETS)

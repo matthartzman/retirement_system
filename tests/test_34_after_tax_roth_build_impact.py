@@ -3,20 +3,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_build_impact_has_after_tax_third_and_roth_fifth_cards():
+def test_build_impact_has_after_tax_third_and_risk_fourth_cards():
     js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
     assert "after_tax_terminal_nw" in js
     assert "total_roth_conversions" in js
     assert "Post-Tax Inheritance" in js
-    assert "Total Roth conversions" in js
     start = js.index("function buildImpactCardsHtml")
     fn = js[start: js.index("function mhBool", start)]
-    assert "impact-grid-five" in fn
-    return_expr = fn[fn.index("return `<div class=\"impact-grid impact-grid-five\">"):]
+    assert "impact-grid-four" in fn
+    return_expr = fn[fn.index("return `<div class=\"impact-grid impact-grid-four\">"):]
     assert return_expr.index("Terminal net worth") < return_expr.index("Lifetime taxes")
     assert return_expr.index("Lifetime taxes") < return_expr.index("${afterTaxCard}")
     assert return_expr.index("${afterTaxCard}") < return_expr.index("${riskCard}")
-    assert return_expr.index("${riskCard}") < return_expr.index("${rothCard}")
 
 
 def test_plan_summary_writes_after_tax_and_roth_conversion_kpis():

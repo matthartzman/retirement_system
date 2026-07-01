@@ -1171,6 +1171,8 @@ def main():
     summary_data: dict = {
         'build_id': build_id,
         'qc_result': qc_result,
+        'h_name': str(c.get('h_name') or 'Member 1'),
+        'w_name': str(c.get('w_name') or 'Member 2'),
         'terminal_nw': 0.0,
         'terminal_pretax_nw': 0.0,
         'terminal_roth_nw': 0.0,

@@ -6,7 +6,7 @@ ROOT=Path(__file__).resolve().parents[1]
 class GovernanceHardeningTests(unittest.TestCase):
     def test_version_is_centralized_and_release_gate_detects_stale_surfaces(self):
         from src.version import VERSION, RELEASE_LABEL
-        self.assertEqual(VERSION, '9')
+        self.assertEqual(VERSION, '10')
         self.assertIn('v10', RELEASE_LABEL)
         out=subprocess.run([sys.executable,'tools/check_version_surfaces.py'], cwd=ROOT, text=True, capture_output=True)
         self.assertEqual(out.returncode,0,out.stdout+out.stderr)

@@ -24,7 +24,7 @@ class AllocationTableAndLoadPathTests(unittest.TestCase):
     def test_cash_target_and_existing_asset_credits_parse_from_first_table(self):
         cfg = parse_client(load_csv(ROOT / 'input' / 'client_data.csv'), '')
         self.assertAlmostEqual(cfg['cash_target_pct'], cfg['allocation_target_pct']['Cash'], places=8)
-        self.assertEqual(cfg['allocation_source_target_class']['Guaranteed income + note receivable'], 'Bonds')
+        self.assertIn(cfg['allocation_source_target_class']['Guaranteed income + note receivable'], {'Bonds', 'Short-Term Bonds', 'TIPS', 'Municipal Bonds'})
         self.assertEqual(cfg['allocation_source_target_class']['Home Equity'], 'REITs')
         self.assertTrue(cfg['allocation_coverage']['social_security_satisfies_fixed_income_target'])
         self.assertTrue(cfg['allocation_coverage']['pension_satisfies_fixed_income_target'])

@@ -104,7 +104,10 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
         tt = gkey.split("::", 1)[0] if "::" in gkey else "Core Expenses"
         if tt == "Business":
             business_reference += amount
-        if tt not in EXCLUDED_FROM_SPEND_BASE:
+        # Time-bounded group budgets (Travel, Large Discretionary) are reference
+        # amounts for UI display; their projection flows through recurring_extras
+        # via explicit line items, so do not add them to spend_base.
+        if tt not in EXCLUDED_FROM_SPEND_BASE and tt not in TIME_BOUNDED_LINE_TRACKING_TYPES:
             spend_base += amount
         for cid in groups_by_key.get(gkey, []):
             group_mode_categories.add(cid)
@@ -139,9 +142,12 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
             tt_map[grp] = tt_map.get(grp, 0.0) + amount
             by_category_year.setdefault(y, {})[cid] = by_category_year.setdefault(y, {}).get(cid, 0.0) + amount
 
-    # Line rows feed extras.  They are ignored when their category's group is in group mode.
+    # Line rows feed extras.  Category-budget entries are ignored when their
+    # group is in group mode (the group budget takes precedence).  Pure line
+    # items — those with no matching category budget row — are never suppressed:
+    # they are explicit, time-bounded projections that must always flow through.
     for cid, rows in line_budgets.items():
-        if cid in group_mode_categories:
+        if cid in group_mode_categories and cid in cat_budgets:
             continue
         info = flat.get(cid, {})
         tt = info.get("tracking_type") or "Large Discretionary"

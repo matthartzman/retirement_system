@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src.version import VERSION
 from openpyxl import Workbook
 from openpyxl.chart import BarChart, PieChart, Reference
 from openpyxl.chart.series import SeriesLabel
@@ -236,7 +239,7 @@ def test_detailed_results_ui_nav_and_endpoint_are_present():
     assert "if(sheet.kind==='chart_dashboard'&&Array.isArray(sheet.charts))" in rui
     assert 'renderChartDashboardSheet' in rui
     assert 'detail-chart-grid' in css
-    assert 'Column groups' in rui
+    assert 'Show / hide columns' in rui
     assert 'toggleDetailColumnGroup' in js
     assert 'Workbook row' not in js
     assert 'detailColumnLabel' not in js
@@ -323,7 +326,7 @@ def test_results_model_sidecar_populates_index_sheets_with_source(tmp_path):
     write_result_explorer_model(tmp_path / RESULTS_MODEL_FILENAME, c, rows, {'success_rate': 0.98})
 
     index = workbook_detailed_index(workbook)
-    assert index['version'] == '9'
+    assert index['version'] == VERSION
     assert any(s['source'] == 'semantic_results_model' for s in index['sheets'])
 
 

@@ -2,12 +2,12 @@
   "canonical_format": "CSV",
   "files": {
     "asset_class_optimizer_controls.csv": {
-      "bytes": 6543,
-      "sha256": "c6097b7ad2a9551685160619c34a5996879acdbc0b5018b76b61d4d93fd6d237"
+      "bytes": 6699,
+      "sha256": "10e0c880ba11f4714e1cf9c5cb10ce11fad2db9a1fb9d735eb3e1c4b4b25ce19"
     },
     "client_assets.csv": {
-      "bytes": 5563,
-      "sha256": "749df17505155f7cb63aaf0175ec7f058aed87e81bf36573fcbeea40ae16b169"
+      "bytes": 6937,
+      "sha256": "355db9fc5af990365c39a97c519c1e32dc15754fa3cbbd89c3bc062d4d757e36"
     },
     "client_data.csv": {
       "bytes": 1141,
@@ -22,8 +22,8 @@
       "sha256": "271d344e73e5dcc95ca529e4b46df63efe5d4109426c29dac76dcacf067066d8"
     },
     "client_income.csv": {
-      "bytes": 9543,
-      "sha256": "9cd49b7028c1a93ef6533b1af9f3311bed44047332c21fc98c3c31083ccec9c8"
+      "bytes": 10669,
+      "sha256": "fc07ae2dbaa4412652972d78f8d0855711a54bf9f8be6adbc41308442d5dac47"
     },
     "client_insurance_estate.csv": {
       "bytes": 13278,
@@ -34,12 +34,12 @@
       "sha256": "3a01cd6ebd0f05d88783ff0992b804102dddea75a3b4751947072cfafdcd9c3e"
     },
     "client_policy.csv": {
-      "bytes": 20236,
-      "sha256": "f9ab8ab7967a6a64b8332abed26c278228d602761c10452bb3d3d4a162caaffa"
+      "bytes": 20753,
+      "sha256": "5588c91ea64908e926444cc25f20a80b34dfe75ca5528ad6098434e02041bd3c"
     },
     "client_spending.csv": {
-      "bytes": 8182,
-      "sha256": "f195f52f1930eeae19a3222f22e468a9a8c2c07df44748330d8a8dc485521214"
+      "bytes": 8185,
+      "sha256": "e3b1f55cad113b18b1b393f9484c18dae86d0ed7c5ac6adbcab2c8255b66cbb3"
     },
     "target_allocation.csv": {
       "bytes": 249,

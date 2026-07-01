@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DESKTOP = Path.home() / 'Desktop'
 DESKTOP.mkdir(exist_ok=True)
-PY = 'python' if platform.system() == 'Windows' else 'python3'
+PY = 'pythonw' if platform.system() == 'Windows' else 'python3'
 ICON = ROOT / 'frontend' / 'assets' / 'retirement_planner.ico'
 UI_SCRIPT = ROOT / 'tools' / 'launchers' / 'START_DESKTOP.py'
 RESET_SCRIPT = ROOT / 'tools' / 'set_local_mode.py'

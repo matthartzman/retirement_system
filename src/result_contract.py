@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from typing import Any, Mapping, Sequence
+from src.version import VERSION
 
 
 @dataclass(frozen=True)
@@ -237,7 +238,7 @@ def attach_plan_result(c: dict[str, Any], rows: Sequence[Mapping[str, Any]], mc_
         report_spec = {}
     plan = PlanResult(
         schema='plan_result_v10',
-        version='9',
+        version=VERSION,
         assumptions_used={
             'plan_start': c.get('plan_start'),
             'plan_end': c.get('plan_end'),

@@ -66,9 +66,28 @@
   function reviewCloseoutHtml(step){
     if(step!=='start'&&step!=='review')return '';
     if(document.querySelector('.review-closeout'))return '';
+    // Don't show when no plan is loaded — no data to close out
+    try{if(!planLoaded)return '';}catch(_e){return '';}
     let reason='';
     try{reason=localStorage.getItem('retirement.first_run.skip_reason.v1')||'';}catch(_e){}
-    return '<div class="first-run-closeout" data-roadmap11="first-run-closeout"><b>First-run closeout</b><span>Required sections should be complete before advisor-ready reports. Optional skips should include a reason.</span><label class="small">Optional skip reason <input id="firstRunSkipReason" value="'+escHtml(reason)+'" placeholder="Example: LTC quote pending" oninput="window.RPDashboardRoadmap11.saveSkipReason(this.value)"></label><button type="button" class="btn primary" data-step-id="review">Review and Build</button></div>';
+    // Find first incomplete workflow step so button goes to data entry, not straight to R&R
+    const WORKFLOW_ITEMS=[
+      {steps:['household_people','household_timing'],next:'household_people'},
+      {steps:['income_work','income_retirement'],next:'income_work'},
+      {steps:['spending_core','retirement_wellness','spending_mortgage_events','spending_travel','spending_travel_extras','ytd_transactions','spending_dashboard'],next:'spending_core'},
+      {steps:['holdings','assets_home_cash','insurance_ltc','annuity_death_benefits','assets_special','estate'],next:'holdings'},
+      {steps:['planning_levers','roth_conversion','allocation_assets','allocation_policy','withdrawal_strategy','ss_timing','state_residency','heloc_strategy','entity_charitable'],next:'distribution_strategy'},
+      {steps:['monte_carlo_options','scenarios','survivor_stress','ltc_stress','divorce_options'],next:'monte_carlo_options'},
+    ];
+    let firstIncompleteStep='reports_and_review';
+    try{
+      for(var i=0;i<WORKFLOW_ITEMS.length;i++){
+        const st=checklistItemStatus(WORKFLOW_ITEMS[i].steps);
+        if(st.cls!=='done'){firstIncompleteStep=WORKFLOW_ITEMS[i].next;break;}
+      }
+    }catch(_e){}
+    const btnLabel=firstIncompleteStep==='reports_and_review'?'Review and Build':'Continue Data Entry';
+    return '<div class="first-run-closeout" data-roadmap11="first-run-closeout"><b>First-run closeout</b><span>Required sections should be complete before advisor-ready reports. Optional skips should include a reason.</span><label class="small">Optional skip reason <input id="firstRunSkipReason" value="'+escHtml(reason)+'" placeholder="Example: LTC quote pending" oninput="window.RPDashboardRoadmap11.saveSkipReason(this.value)"></label><button type="button" class="btn primary" data-step-id="'+escHtml(firstIncompleteStep)+'">'+escHtml(btnLabel)+'</button></div>';
   }
 
   function recommendationsHtml(step){
@@ -122,18 +141,24 @@
   function buildDetailJumpList(){
     const step=currentStep(); if(step!=='detailed_results')return;
     const box=byId('roadmap11DetailJumps'); if(!box)return;
-    const rows=Array.from(document.querySelectorAll('#mainPane table tr')).slice(0,200);
+    // Only scan tbody data rows — thead rows are headers and produce garbled text
+    const rows=Array.from(document.querySelectorAll('#mainPane table tbody tr')).slice(0,300);
     const picks=[];
     rows.forEach(function(tr,idx){
-      const text=(tr.textContent||'').replace(/\s+/g,' ').trim();
-      if(!text)return;
-      if(/terminal|tax|roth|success|probability|net worth|cash flow|risk|warning/i.test(text)||idx<3){
-        if(!tr.id)tr.id='detail-row-jump-'+idx;
-        picks.push({id:tr.id,text:text.slice(0,120)});
-      }
+      const cells=Array.from(tr.querySelectorAll('td'));
+      if(!cells.length)return;
+      const fullText=(tr.textContent||'').replace(/\s+/g,' ').trim();
+      if(!fullText)return;
+      const isKeyRow=/terminal|tax|roth|success|probability|net worth|cash flow|risk|warning|retire|social security/i.test(fullText);
+      if(!isKeyRow&&idx>=5)return;
+      // Label: first 3 non-empty cell values joined with a separator
+      const label=cells.slice(0,4).map(td=>(td.textContent||'').trim()).filter(Boolean).slice(0,3).join(' · ');
+      if(!label)return;
+      if(!tr.id)tr.id='detail-row-jump-'+idx;
+      picks.push({id:tr.id,label:label});
     });
-    if(!picks.length){box.innerHTML='<span class="small">Open a workbook sheet to populate important-row jumps.</span>';return;}
-    box.innerHTML=picks.slice(0,12).map(function(p){return '<a class="detail-jump" href="#'+escHtml(p.id)+'">'+escHtml(p.text)+'</a>';}).join('');
+    if(!picks.length){box.innerHTML='<span class="small">Open a result sheet to see key-row jumps.</span>';return;}
+    box.innerHTML=picks.slice(0,10).map(function(p){return '<a class="detail-jump" href="#'+escHtml(p.id)+'">'+escHtml(p.label)+'</a>';}).join('');
   }
 
   function filterDetailJump(q){

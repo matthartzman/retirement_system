@@ -1,5 +1,5 @@
 section,subsection,label,value,units,notes
-System Configuration,Runtime,system_version,9,version,Current package/version identifier; populated from src/version.py.
+System Configuration,Runtime,system_version,10,version,Current package/version identifier; populated from src/version.py.
 System Configuration,Runtime,app_mode,LOCAL,choice,Local desktop mode only; public-hosting and client-registry modes have been removed.
 System Configuration,Runtime,config_backend,SQLITE,choice,SQLITE is the v10 runtime source of truth; CSV/JSON/YAML remain import-export adapters.
 System Configuration,Runtime,config_file,input/client_data.csv,path,Active Plan Data CSV for the local browser session.

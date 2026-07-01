@@ -20,19 +20,19 @@ Asset Class Optimizer Controls,Commodities,optimizer_override_pct,,percent,Optio
 Asset Class Optimizer Controls,Bonds,selection_action,consider_alternate_first,choice,"include, exclude, or consider_alternate_first"
 Asset Class Optimizer Controls,Bonds,alternate_asset_class,Guaranteed income + note receivable,choice,Existing asset/source or asset class credited first when selection_action is consider_alternate_first
 Asset Class Optimizer Controls,Bonds,optimizer_override_pct,,percent,Optional optimizer override percentage; leave blank to use computed recommendation
-Asset Class Optimizer Controls,Short-Term Bonds,selection_action,include,choice,"include, exclude, or consider_alternate_first"
-Asset Class Optimizer Controls,Short-Term Bonds,alternate_asset_class,,choice,Existing asset/source or asset class credited first when selection_action is consider_alternate_first
+Asset Class Optimizer Controls,Short-Term Bonds,selection_action,consider_alternate_first,choice,"include, exclude, or consider_alternate_first"
+Asset Class Optimizer Controls,Short-Term Bonds,alternate_asset_class,Guaranteed income + note receivable,choice,Existing asset/source or asset class credited first when selection_action is consider_alternate_first
 Asset Class Optimizer Controls,Short-Term Bonds,optimizer_override_pct,,percent,Optional optimizer override percentage; leave blank to use computed recommendation
-Asset Class Optimizer Controls,TIPS,selection_action,include,choice,"include, exclude, or consider_alternate_first"
-Asset Class Optimizer Controls,TIPS,alternate_asset_class,,choice,Existing asset/source or asset class credited first when selection_action is consider_alternate_first
+Asset Class Optimizer Controls,TIPS,selection_action,consider_alternate_first,choice,"include, exclude, or consider_alternate_first"
+Asset Class Optimizer Controls,TIPS,alternate_asset_class,Guaranteed income + note receivable,choice,Existing asset/source or asset class credited first when selection_action is consider_alternate_first
 Asset Class Optimizer Controls,TIPS,optimizer_override_pct,,percent,Optional optimizer override percentage; leave blank to use computed recommendation
-Asset Class Optimizer Controls,Municipal Bonds,selection_action,include,choice,"include, exclude, or consider_alternate_first"
-Asset Class Optimizer Controls,Municipal Bonds,alternate_asset_class,,choice,Existing asset/source or asset class credited first when selection_action is consider_alternate_first
+Asset Class Optimizer Controls,Municipal Bonds,selection_action,consider_alternate_first,choice,"include, exclude, or consider_alternate_first"
+Asset Class Optimizer Controls,Municipal Bonds,alternate_asset_class,Guaranteed income + note receivable,choice,Existing asset/source or asset class credited first when selection_action is consider_alternate_first
 Asset Class Optimizer Controls,Municipal Bonds,optimizer_override_pct,,percent,Optional optimizer override percentage; leave blank to use computed recommendation
-Asset Class Optimizer Controls,Managed Futures,selection_action,include,choice,"include, exclude, or consider_alternate_first"
+Asset Class Optimizer Controls,Managed Futures,selection_action,exclude,choice,"include, exclude, or consider_alternate_first"
 Asset Class Optimizer Controls,Managed Futures,alternate_asset_class,,choice,Existing asset/source or asset class credited first when selection_action is consider_alternate_first
 Asset Class Optimizer Controls,Managed Futures,optimizer_override_pct,,percent,Optional optimizer override percentage; leave blank to use computed recommendation
-Asset Class Optimizer Controls,Private Credit,selection_action,include,choice,"include, exclude, or consider_alternate_first"
+Asset Class Optimizer Controls,Private Credit,selection_action,exclude,choice,"include, exclude, or consider_alternate_first"
 Asset Class Optimizer Controls,Private Credit,alternate_asset_class,,choice,Existing asset/source or asset class credited first when selection_action is consider_alternate_first
 Asset Class Optimizer Controls,Private Credit,optimizer_override_pct,,percent,Optional optimizer override percentage; leave blank to use computed recommendation
 Asset Class Optimizer Controls,REITs,selection_action,consider_alternate_first,choice,"include, exclude, or consider_alternate_first"

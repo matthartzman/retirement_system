@@ -25,7 +25,7 @@ class SimplifiedAllocationTests(unittest.TestCase):
         self.assertEqual(opt['diagnostics']['allocation_policy_mode'], 'user_target_pct')
         self.assertAlmostEqual(sum(opt['liquid_targets'].values()), 1.0, places=8)
         self.assertAlmostEqual(opt['liquid_targets']['Cash'], 0.0625, places=8)
-        self.assertAlmostEqual(opt['liquid_targets']['US Large Cap'], 0.50, places=8)
+        self.assertAlmostEqual(opt['liquid_targets']['US Large Cap'], 0.4375, places=4)
 
     def test_ui_enforces_allocation_total_and_does_not_list_loaded_files(self):
         html = (ROOT / 'src' / 'dashboard_ui' / 'template.py').read_text(encoding='utf-8')

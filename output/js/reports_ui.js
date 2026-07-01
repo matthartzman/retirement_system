@@ -89,7 +89,7 @@
       }).filter(g=>g.cols.length);
       if(!collapsible.length)return renderDetailTableForCols(rows,Array.from({length:maxCells},(_,i)=>i),labels,headers,identifierIdx,headerIdx,section);
       const nGroups=collapsible.length;
-      let html=`<div class="detail-single-table-wrap"><div class="detail-col-group-bar"><div class="detail-col-group-label"><b>Column groups</b><span class="detail-col-group-status">${nGroups} group${nGroups!==1?'s':''} · all collapsed</span></div><div class="detail-col-group-bar-btns"><button class="btn" type="button" onclick="expandAllDetailGroups(this)">Expand all</button><button class="btn" type="button" onclick="collapseAllDetailGroups(this)">Collapse all</button></div></div>`;
+      let html=`<div class="detail-single-table-wrap"><div class="detail-col-group-bar"><div class="detail-col-group-label"><b>Show / hide columns</b><span class="detail-col-group-status">${nGroups} group${nGroups!==1?'s':''} · all collapsed</span></div><div class="detail-col-group-bar-btns"><button class="btn" type="button" onclick="expandAllDetailGroups(this)">Expand all</button><button class="btn" type="button" onclick="collapseAllDetailGroups(this)">Collapse all</button></div></div>`;
       html+=`<div class="detail-table-wrap"><table class="detail-result-table has-col-groups"><thead>`;
       // Row 1: group headers — spacer for pinned + 2 cols per collapsible group (summary + detail)
       html+='<tr class="detail-col-group-header-row">';
@@ -97,7 +97,7 @@
       collapsible.forEach((g,gi)=>{
         // Each group occupies: 1 always-visible summary col + (cols.length-1) hidden detail cols
         const totalColspan=g.cols.length;
-        html+=`<th class="detail-col-group-th collapsed" data-group="${gi}" data-group-label="${esc(g.label)}" colspan="${totalColspan}" onclick="toggleDetailColGroup(this)"><span class="col-group-toggle-label">▶ ${esc(g.label)}</span><small>${g.cols.length-1} detail col${g.cols.length-1!==1?'s':''} + summary</small></th>`;
+        html+=`<th class="detail-col-group-th collapsed" data-group="${gi}" data-group-label="${esc(g.label)}" colspan="${totalColspan}" onclick="toggleDetailColGroup(this)"><span class="col-group-toggle-label">▶ ${esc(g.label)}</span></th>`;
       });
       html+='</tr>';
       // Row 2: column labels
@@ -136,7 +136,7 @@
     const pinnedArr=[...pinned].sort((a,b)=>a-b);
     const nPinned=pinnedArr.length;
     const nGroups=groups.length;
-    let html=`<div class="detail-single-table-wrap"><div class="detail-col-group-bar"><div class="detail-col-group-label"><b>Column groups</b><span class="detail-col-group-status">${nGroups} group${nGroups!==1?'s':''} · all collapsed</span></div><div class="detail-col-group-bar-btns"><button class="btn" type="button" onclick="expandAllDetailGroups(this)">Expand all</button><button class="btn" type="button" onclick="collapseAllDetailGroups(this)">Collapse all</button></div></div>`;
+    let html=`<div class="detail-single-table-wrap"><div class="detail-col-group-bar"><div class="detail-col-group-label"><b>Show / hide columns</b><span class="detail-col-group-status">${nGroups} group${nGroups!==1?'s':''} · all collapsed</span></div><div class="detail-col-group-bar-btns"><button class="btn" type="button" onclick="expandAllDetailGroups(this)">Expand all</button><button class="btn" type="button" onclick="collapseAllDetailGroups(this)">Collapse all</button></div></div>`;
     html+=`<div class="detail-table-wrap"><table class="detail-result-table has-col-groups"><thead>`;
     html+='<tr class="detail-col-group-header-row">';
     if(nPinned)html+=`<th class="detail-col-group-spacer" colspan="${nPinned}"></th>`;

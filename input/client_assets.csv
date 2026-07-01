@@ -17,6 +17,20 @@ Other Assets,Autos,depreciation_per_year,10,,,
 Other Assets,Autos,depreciation_years,7,,,
 ,,,,,,,
 # -- Liquidity Buffer: year-ranged reserve rules --,,,,,,,
+Other Assets,Other Asset 1,type,Start-up Equity,choice,Auto | Boat | Start-up Equity | Art | Collectible | Other; choose the broad asset type.
+Other Assets,Other Asset 1,name,Start-up Equity,text,User-described asset name.
+Other Assets,Other Asset 1,value,"$66,000",dollars,Estimated value as of the as-of date.
+Other Assets,Other Asset 1,as_of_date,2025-12-31,date,Date the value estimate was prepared.
+Other Assets,Other Asset 1,annual_appreciation_pct,0.00%,percent,Annual appreciation (+) or depreciation (-).
+Other Assets,Other Asset 1,basis,"$15,000",dollars,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 1,sell_date,2030-12-31,date,Optional planned sale date.
+Other Assets,Other Asset 2,type,Auto,choice,Auto | Boat | Start-up Equity | Art | Collectible | Other; choose the broad asset type.
+Other Assets,Other Asset 2,name,Autos,text,User-described asset name.
+Other Assets,Other Asset 2,value,"$54,430",dollars,Estimated value as of the as-of date.
+Other Assets,Other Asset 2,as_of_date,2026-06-30,date,Date the value estimate was prepared.
+Other Assets,Other Asset 2,annual_appreciation_pct,-15.00%,percent,Annual appreciation (+) or depreciation (-).
+Other Assets,Other Asset 2,basis,,dollars,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 2,sell_date,,date,Optional planned sale date.
 Liquidity Buffer,buffer_1,years_of_expenses,0,years,,
 Liquidity Buffer,buffer_1,reserve_account,Taxable/Trust,choice,Taxable/Trust | Roth | IRA | HSA | Cash; account bucket intended to preserve the reserve for this rule.,
 Liquidity Buffer,buffer_1,start_year,,year,,
@@ -24,8 +38,8 @@ Liquidity Buffer,buffer_1,end_year,,year,,
 ,,,,,,,
 HSA Policy,Withdrawals,hsa_withdrawal_mode,smooth_window,choice,spend_as_needed | annual_pct | smooth_window; default spend_as_needed uses HSA only when needed before Roth. annual_pct draws the configured percentage each active year. smooth_window spreads balance across start/end years.
 HSA Policy,Withdrawals,hsa_annual_spend_pct,10.00%,percent,Annual HSA draw percentage used only when hsa_withdrawal_mode is annual_pct.
-HSA Policy,Withdrawals,hsa_withdrawal_start_year,2040,year,Optional first year for annual_pct or smooth_window HSA draw policy. Leave blank to avoid a scheduled draw.
-HSA Policy,Withdrawals,hsa_withdrawal_end_year,2031,year,Optional last year for annual_pct or smooth_window HSA draw policy. Leave blank to avoid a scheduled draw.
+HSA Policy,Withdrawals,hsa_withdrawal_start_year,2031,year,Optional first year for annual_pct or smooth_window HSA draw policy. Leave blank to avoid a scheduled draw.
+HSA Policy,Withdrawals,hsa_withdrawal_end_year,2040,year,Optional last year for annual_pct or smooth_window HSA draw policy. Leave blank to avoid a scheduled draw.
 Education Funding,529 Plan 1,beneficiary,,text,Beneficiary name for this 529 plan.,
 Education Funding,529 Plan 1,current_balance,$0,dollars,Current 529 plan balance.,
 Education Funding,529 Plan 1,annual_contribution,$0,dollars,Annual 529 contribution.,

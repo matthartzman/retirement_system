@@ -801,9 +801,74 @@ function allocationRowsOrNote(rs,msg){return rs.length?renderFieldGroups(rs):`<d
 function renderAllocationPolicy(){const rs=allocationPolicyRows();let html=`<div class="holdings"><h3 class="group-title">Allocation policy settings</h3><div class="section-note"><b>Supporting assumptions only.</b> Use this page for risk, glide path, concentration, and capital-market inputs. Asset-class selection and source choice are managed from Allocation Recommendation.</div></div>`;if(!rs.length)return html+'<div class="field-list"><p>No optimizer input rows were found. Reload the current plan so optimizer inputs can be backfilled.</p></div>';return html+`<details open><summary>Optimizer inputs</summary><div class="field-list">${rs.map(fieldHtml).join('')}</div></details>`}
 function renderCurrentAllocationModeNote(){return allocationModeHtml()}
 function renderOptimizerOverrideTable(){const names=assetClassNamesForAllocation();const rowsByClass=optimizerOverrideRows();if(!rowsByClass.length)return `<div class="holdings"><div class="section-note">Optimizer override rows were not found. Reload the current plan so optional optimizer_override_pct rows can be backfilled.</div></div>`;let html=`<div class="holdings"><h3 class="group-title">Optional optimizer override allocation</h3><div class="section-note">Leave override rows blank to use the computed optimizer target. Enter percentages only when you want to override the computed result; if any are entered, the override total must equal 100%.</div><div class="lot-table-wrap"><table class="lot-table allocation-override-table"><thead><tr><th>Subcategory</th><th>Asset class</th><th>Override target %</th></tr></thead><tbody>`;let cat='';names.forEach(asset=>{const r=rowsByClass.find(x=>norm(x.subsection)===norm(asset));if(!r)return;const c=assetCategory(asset);html+=`<tr><td>${c!==cat?`<b>${esc(c)}</b>`:''}</td><td><b>${esc(asset)}</b></td><td><input class="tiny" type="text" value="${esc(displayValueForInput(r,valOf(r)))}" placeholder="blank" oninput="editValue(${r.row_index},this.value,this)" onfocus="beginEdit(${r.row_index},this)" onblur="finishEdit(${r.row_index},this)"></td></tr>`;cat=c});html+=`</tbody></table></div>${optimizerOverrideTotalHtml()}<div class="table-actions"><button class="btn" type="button" onclick="copyOptimizerOverrideToUserTargets()">Copy optimizer override to user-defined</button></div></div>`;return html}
+function allocationCoverageCalloutHtml(){
+  const p=allocationPreview||{};
+  const cov=p.coverage_summary||{};
+  const fiPv=Number(cov.fixed_income_coverage_pv||0);
+  const hePv=Number(cov.home_equity_reit_coverage_value||0);
+  const sources=cov.fixed_income_included_sources||[];
+  const heIncluded=!!cov.home_equity_counts_toward_reit;
+  if(fiPv<=0&&hePv<=0)return '';
+  const fmt=v=>'$'+Math.round(v).toLocaleString();
+  let parts=[];
+  if(fiPv>0){
+    const label=sources.length?sources.join(', '):'Guaranteed income';
+    parts.push(`<b>Fixed Income:</b> ${fmt(fiPv)} PV from ${esc(label)} credited against your fixed income target — liquid bond allocation reduced accordingly.`);
+  }
+  if(hePv>0){
+    parts.push(`<b>Real Estate:</b> ${fmt(hePv)} home equity credited against your REIT/real estate target — liquid REIT allocation reduced accordingly.`);
+  }
+  if(fiPv<=0&&!heIncluded&&Number(cov.gross_home_equity||0)>0){
+    parts.push(`<b>Real Estate:</b> ${fmt(Number(cov.gross_home_equity||0))} home equity available but not counting toward REIT sleeve (policy off).`);
+  }
+  return `<div class="section-note allocation-coverage-callout" id="allocationCoverageCallout"><b>Alternative asset coverage:</b> ${parts.join(' ')}</div>`;
+}
+function renderTotalWealthAllocationHtml(){
+  const p=allocationPreview||{};
+  const cov=p.coverage_summary||{};
+  const liquidTargets=p.selected_liquid_targets||{};
+  const fmt=v=>'$'+Math.round(v).toLocaleString();
+  const fmtPct=v=>(Number(v||0)*100).toFixed(1)+'%';
+  // Sum liquid holdings from rows
+  let liquidNw=0;
+  rows.forEach(r=>{if(isEditable(r)){const l=norm(r.label);if(['pretax_nw','roth_nw','taxable_nw','trust_nw','hsa_nw','other_liquid_nw'].includes(l)){const v=Number(String(valOf(r)||'').replace(/[$,]/g,''));if(Number.isFinite(v))liquidNw+=v;}}});
+  const fiCovPv=Number(cov.fixed_income_coverage_pv||0);
+  const heVal=Number(cov.home_equity_allocation_value||0);
+  const heReit=Number(cov.home_equity_reit_coverage_value||0);
+  const heHaircut=heVal>0?heVal*0.8:0;
+  const total=liquidNw+fiCovPv+heHaircut;
+  if(total<=0)return '';
+  // Build rows
+  const rows2=[];
+  // Liquid by category
+  const equityPct=Object.entries(liquidTargets).filter(([k])=>['US Large Cap','US Mid Cap','US Small Cap','International','Emerging Markets'].some(e=>norm(e)===norm(k))).reduce((s,[,v])=>s+Number(v||0),0);
+  const fiPct=Object.entries(liquidTargets).filter(([k])=>['Bonds','Short-Term Bonds','TIPS','Municipal Bonds','Cash','Private Credit'].some(e=>norm(e)===norm(k))).reduce((s,[,v])=>s+Number(v||0),0);
+  const rePct=Object.entries(liquidTargets).filter(([k])=>['REITs'].some(e=>norm(e)===norm(k))).reduce((s,[,v])=>s+Number(v||0),0);
+  const otherPct=Math.max(0,1-equityPct-fiPct-rePct);
+  if(liquidNw>0){
+    if(equityPct>0)rows2.push({label:'Equity (liquid)',value:liquidNw*equityPct,note:'',tradeable:true});
+    if(fiPct>0)rows2.push({label:'Fixed Income (liquid)',value:liquidNw*fiPct,note:'',tradeable:true});
+    if(rePct>0)rows2.push({label:'Real Estate (liquid/REIT)',value:liquidNw*rePct,note:'',tradeable:true});
+    if(otherPct>0.001)rows2.push({label:'Other (liquid)',value:liquidNw*otherPct,note:'',tradeable:true});
+  }
+  if(fiCovPv>0){
+    const src=(cov.fixed_income_included_sources||[]).join(', ')||'Guaranteed income';
+    rows2.push({label:'Fixed Income (illiquid)',value:fiCovPv,note:`PV of ${src}`,tradeable:false});
+  }
+  if(heHaircut>0){
+    rows2.push({label:'Real Estate (home equity)',value:heHaircut,note:'Gross equity at 80% (non-tradeable)',tradeable:false});
+  }
+  let html=`<div class="holdings total-wealth-allocation-panel"><h3 class="group-title">Total Wealth Allocation <span class="small" style="font-weight:normal;color:var(--muted)">(display only)</span></h3><div class="section-note">Combines liquid portfolio with illiquid sources credited against allocation targets. Illiquid values use a 20% haircut on home equity and present-value of guaranteed income. This panel is read-only.</div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Asset class</th><th>Value</th><th>% of Total</th><th>Type</th><th>Notes</th></tr></thead><tbody>`;
+  rows2.forEach(row2=>{
+    const pct=total>0?row2.value/total:0;
+    html+=`<tr><td>${esc(row2.label)}</td><td>${fmt(row2.value)}</td><td>${fmtPct(pct)}</td><td>${row2.tradeable?'Liquid':'<span class="badge">Illiquid</span>'}</td><td class="small">${esc(row2.note)}</td></tr>`;
+  });
+  html+=`</tbody><tfoot><tr><td><b>Total</b></td><td><b>${fmt(total)}</b></td><td><b>100.0%</b></td><td></td><td></td></tr></tfoot></table></div></div>`;
+  return html;
+}
 function renderUserAllocationPanel(){return `<div class="holdings"><h3 class="group-title">User-defined allocation active</h3><div class="section-note">The table above is the allocation editor. Enter target percentages that sum to 100% before saving or building.</div></div>`}
 function renderOptimizerAllocationPanel(){let html=`<div class="holdings"><h3 class="group-title">Optimizer recommendation active</h3>${allocationOptimizerRecommendationHtml()}<div class="section-note">The table above controls which asset classes the optimizer may use and whether existing holdings satisfy a sleeve before new trades are recommended. Override percentages below lock a specific target, bypassing the optimizer.</div></div>`;html+=renderOptimizerOverrideTable();return html}
-function renderAllocationRecommendation(){let html='<details class="allocation-policy-collapsed"><summary><b>Allocation Assumptions</b><span class="small" style="margin-left:8px;font-weight:normal;color:var(--muted)">Risk tolerance, glide path, and capital-market inputs</span></summary>'+renderAllocationPolicy()+'</details>';html+=renderCurrentAllocationModeNote()+renderAssetClassSelectionTable();const mode=allocationSelectionMode();if(mode==='optimizer_recommendation')html+=renderOptimizerAllocationPanel();else html+=renderUserAllocationPanel();return html}
+function renderAllocationRecommendation(){let html='<details class="allocation-policy-collapsed"><summary><b>Allocation Assumptions</b><span class="small" style="margin-left:8px;font-weight:normal;color:var(--muted)">Risk tolerance, glide path, and capital-market inputs</span></summary>'+renderAllocationPolicy()+'</details>';html+=renderCurrentAllocationModeNote()+renderAssetClassSelectionTable()+allocationCoverageCalloutHtml();const mode=allocationSelectionMode();if(mode==='optimizer_recommendation')html+=renderOptimizerAllocationPanel();else html+=renderUserAllocationPanel();html+=renderTotalWealthAllocationHtml();return html}
 function coreSpendingGrowthMode(){const r=findEditableRow('Cashflow','Spending','core_spending_growth_mode')||rows.find(x=>isEditable(x)&&norm(x.label)==='core_spending_growth_mode');const v=String(r?valOf(r):'cpi').toLowerCase().replace(/[^a-z0-9]+/g,'_');return v==='manual'||v==='manual_override'?'manual_override':'cpi'}
 function renderSpendingCore(){if(searchText.trim())return renderFields('spending_core');/* DAF contributions are intentionally routed to Entity & Charitable Giving, not Core Spending. */const rs=rowsForStep('spending_core').filter(r=>norm(r.label)!=='daf_annual_contribution');const mode=coreSpendingGrowthMode();const hidden=new Set(['core_spending_manual_growth_rate','inflation_general','daf_annual_contribution','annual_charitable_giving_low','annual_charitable_giving_high']);const labels=mode==='manual_override'?['core_spending_growth_mode','annual_spending_base_year','spending_freeze_year','core_spending_manual_growth_rate']:['core_spending_growth_mode','annual_spending_base_year','spending_freeze_year','inflation_general'];const ordered=[];labels.forEach(l=>{const r=rs.find(x=>norm(x.label)===norm(l));if(r)ordered.push(r)});rs.forEach(r=>{if(!ordered.includes(r)&&!hidden.has(norm(r.label)))ordered.push(r)});const have=Object.fromEntries(['annual_spending_base_year','core_spending_growth_mode','core_spending_manual_growth_rate','inflation_general','spending_freeze_year'].map(l=>[l,!!rs.find(x=>norm(x.label)===norm(l))]));let missingMsg='';if(!have.core_spending_growth_mode||!have.spending_freeze_year||(!have.inflation_general&&mode==='cpi')||(!have.core_spending_manual_growth_rate&&mode==='manual_override'))missingMsg=`<div class="section-note warning" id="coreSpendingRowsMissing"><b>Core spending controls are being created:</b> save or reload Plan Data if any control is missing. Expected rows are Core Spending Base, Core Spending Increase Stops, Core Spending Increase Method, and the relevant increase-rate field.</div>`;let html=`<div class="section-note"><b>Projection controls:</b> Core spending base/growth controls feed recurring lifestyle spending. The category hierarchy below is the comprehensive income/expense model except taxes/transfers. Category assignment happens here; Accounts & Sources lives on Income & Expense Transactions.</div>${missingMsg}`;html+=`<div class="field-list core-spending-flat">${ordered.map(fieldHtml).join('')}</div>`;return html}
 function renderFields(step){
@@ -831,13 +896,19 @@ function renderEstateWithAnnuityLink(){return renderEstateInformation()}
 function planKpiMetricsHtml(){
   if(!planLoaded||!kpiHasValues(lastBuildSummary))return '';
   const k=currentKpi(lastBuildSummary);
+  const heRate=lastBuildSummary&&lastBuildSummary.success_rate_with_home_equity;
+  const heEnabled=lastBuildSummary&&lastBuildSummary.home_equity_contingency_enabled;
+  let successVal=Number.isFinite(k.mc_success)?fmtPct(k.mc_success):'—';
+  if(heEnabled&&Number.isFinite(Number(heRate))){
+    successVal=`${Number.isFinite(k.mc_success)?fmtPct(k.mc_success):'—'} <span class="small" title="With home equity contingency">(+HE: ${fmtPct(Number(heRate))})</span>`;
+  }
   const metrics=[
-    {label:'Projected final portfolio',val:Number.isFinite(k.terminal_nw)?fmtMoney(k.terminal_nw):'—'},
-    {label:'After-tax net worth',val:Number.isFinite(k.after_tax_terminal_nw)?fmtMoney(k.after_tax_terminal_nw):'—'},
-    {label:'Probability of Success',val:Number.isFinite(k.mc_success)?fmtPct(k.mc_success):'—'},
-    {label:'Lifetime taxes',val:Number.isFinite(k.lifetime_tax)?fmtMoney(k.lifetime_tax):'—'}
+    {label:'Projected final portfolio',val:Number.isFinite(k.terminal_nw)?fmtMoney(k.terminal_nw):'—',html:false},
+    {label:'After-tax net worth',val:Number.isFinite(k.after_tax_terminal_nw)?fmtMoney(k.after_tax_terminal_nw):'—',html:false},
+    {label:'Probability of Success',val:successVal,html:heEnabled&&Number.isFinite(Number(heRate))},
+    {label:'Lifetime taxes',val:Number.isFinite(k.lifetime_tax)?fmtMoney(k.lifetime_tax):'—',html:false}
   ];
-  const cards=metrics.map(m=>`<div class="plan-kpi-card"><div class="plan-kpi-value">${esc(m.val)}</div><div class="plan-kpi-label">${esc(m.label)}</div></div>`).join('');
+  const cards=metrics.map(m=>`<div class="plan-kpi-card"><div class="plan-kpi-value">${m.html?m.val:esc(m.val)}</div><div class="plan-kpi-label">${esc(m.label)}</div></div>`).join('');
   return `<div class="plan-kpi-section"><div class="plan-kpi-head"><span>Last build results</span><button class="btn tiny" type="button" data-step-id="reports_and_review">View Reports &rarr;</button></div><div class="plan-kpi-grid">${cards}</div></div>`;
 }
 
@@ -964,8 +1035,8 @@ function showInAppPrompt(message,defaultValue,opts){
 function nbaPanelHtml(){
   let state,msg,action,cls='nba-panel';
   if(!planLoaded){
-    state='No plan loaded';msg='Open the current plan or start a new one to begin.';
-    action='<button class="btn primary" type="button" data-requires-app="1" onclick="loadAll({source:\'Local database\',preferLocal:false})">Open Current Plan</button>';
+    state='No plan loaded';msg='Use Start New Plan or load a saved plan from the welcome page below to begin.';
+    action='';
     cls+=' nba-idle';
   } else {
     const unsaved=unsavedChangeCount();
@@ -1031,7 +1102,7 @@ function firstRunChecklistHtml(compact=false){const items=[
   {title:'Stress tests',desc:'Monte Carlo, scenarios, survivor, long-term care, and optional divorce/QDRO stress.',steps:['monte_carlo_options','scenarios','survivor_stress','ltc_stress','divorce_options'],next:'monte_carlo_options'},
   {title:'Review and build',desc:'Run preflight, build reports, review impact and results, and download the final workbook.',steps:['review','build_impact','detailed_results','plan_data_report'],next:'reports_and_review'}
 ];let html=`<div class="first-run-checklist ${compact?'compact':''}"><div class="first-run-head"><div><h3>${compact?'Workflow checklist':'Recommended workflow'}</h3><p class="small">A low-risk path through the plan: enter source data first, then strategy, stress tests, preflight, build, and review.</p></div><button class="btn primary" type="button" data-step-id="review">Review and Build</button></div><div class="first-run-items">`;items.forEach(item=>{const st=checklistItemStatus(item.steps);html+=`<button class="first-run-item ${st.cls}" type="button" data-step-id="${esc(item.next)}"><span class="check-status">${esc(st.label)}</span><b>${esc(item.title)}</b><small>${esc(item.desc)}</small></button>`});html+='</div></div>';return html}
-async function savePlanAs(){if(!window.pywebview){showMessage('File dialogs require the desktop app.','error');return;}try{const result=await window.pywebview.api.show_save_dialog('myplan.rpx');if(!result||result.cancelled)return;const resp=await api('/api/plan/save-as',{method:'POST',body:JSON.stringify({path:result.path})});if(resp&&resp.success)showMessage('Plan saved: '+result.path);else showMessage('Save failed: '+(resp&&resp.error||'unknown error'),'error');}catch(e){showMessage('Error saving plan: '+e.message,'error');}}
+async function savePlanAs(){if(!window.pywebview){showMessage('File dialogs require the desktop app.','error');return;}try{const result=await window.pywebview.api.show_save_dialog('myplan.rpx');if(!result||result.cancelled)return;if(hasUnsavedPlanChanges()){showMessage('Saving current changes before exporting...');const ok=await saveWorkingCopy();if(!ok){showMessage('Could not save current changes before exporting. Plan file not saved.','error');return;}}const resp=await api('/api/plan/save-as',{method:'POST',body:JSON.stringify({path:result.path})});if(resp&&resp.success)showMessage('Plan saved to: '+result.path);else showMessage('Save failed: '+(resp&&resp.error||'unknown error'),'error');}catch(e){showMessage('Error saving plan: '+e.message,'error');}}
 async function loadSavedPlan(){if(hasUnsavedPlanChanges()&&!await showInAppConfirm('You have unsaved changes. Load a saved plan anyway? All unsaved changes will be lost.',{title:'Load Saved Plan',confirmLabel:'Discard & Load',cancelLabel:'Keep Editing',variant:'warn'}))return;if(!window.pywebview){showMessage('File dialogs require the desktop app.','error');return;}if(!await showInAppConfirm('This replaces the current plan in the local database.',{title:'Load Saved Plan',confirmLabel:'Load Plan',variant:'warn'}))return;try{const result=await window.pywebview.api.show_open_dialog();if(!result||result.cancelled)return;const resp=await api('/api/plan/load-file',{method:'POST',body:JSON.stringify({path:result.path})});if(resp&&resp.success){showMessage('Plan loaded from '+result.path);await loadAll({source:'Loaded from file',preferLocal:false});renderMain();}else showMessage('Load failed: '+(resp&&resp.error||'unknown error'),'error');}catch(e){showMessage('Error loading plan: '+e.message,'error');}}
 function markTravelExtrasDirty(){noteSpecialSessionChange('Large Discretionary Expenses table');travelExtrasChanged=true;lastBuildOk=false;updateUnsaved();setAppControls(appReady);scheduleStatusUpdate()}
 function updateTravelExtra(i,field,val){travelExtras[i][field]=val;markTravelExtrasDirty()}
@@ -1606,7 +1677,7 @@ function mcEngineModeValue(){const r=rows.find(x=>isEditable(x)&&rowIsMonteCarlo
 function mcEngineRow(){return rows.find(x=>isEditable(x)&&rowIsMonteCarlo(x)&&norm(x.label)==='mc_engine_mode')||rows.find(x=>isEditable(x)&&norm(x.label)==='mc_engine_mode')}
 function setMcEngineMode(value){const r=mcEngineRow();if(!r){showMessage('Monte Carlo engine row is missing from Plan Data. Reload the current plan with this package to backfill it.','error');return}editValue(r.row_index,value,null);renderMain()}
 function mcEngineToggleHtml(engine){const mode=mcEngineModeValue();if(!engine)return '<p class="small">Monte Carlo engine row is missing from Plan Data. Reloading Plan Data with this package will add it automatically.</p>';return `<div class="mc-mode-toggle" role="radiogroup" aria-label="Monte Carlo engine mode"><button type="button" class="mc-mode-option ${mode==='quick_vectorized'?'active':''}" aria-pressed="${mode==='quick_vectorized'?'true':'false'}" onclick="setMcEngineMode('quick_vectorized')"><b>Simple</b><span>Runs in seconds. Good for testing changes during plan entry. Approximate — not for final outputs.</span></button><button type="button" class="mc-mode-option ${mode==='advanced_exact_scalar'?'active':''}" aria-pressed="${mode==='advanced_exact_scalar'?'true':'false'}" onclick="setMcEngineMode('advanced_exact_scalar')"><b>Complex</b><span>Runs fuller paths per trial. Use for final and advisor-ready workbooks where precision matters.</span></button></div><div class="small mc-mode-current">Saved value: ${esc(valOf(engine)||'advanced_exact_scalar')}</div>`}
-function renderMonteCarloOptions(){if(searchText.trim())return renderFields('monte_carlo_options');const rs=rowsForStep('monte_carlo_options');const engine=mcEngineRow();const mode=mcEngineModeValue();const quick=new Set(['mc_engine_mode','mc_simulations','mc_portfolio_sigma','success_liquid_floor','use_asset_class_covariance']);const advancedOnly=new Set(['mc_sensitivity_simulations','stochastic_tax_brackets','stochastic_irmaa','wellness_cost_shocks','wellness_shock_annual_prob','wellness_shock_mean_cost','recenter_regime_returns','stochastic_inflation','inflation_sigma','return_inflation_correlation','return_serial_correlation']);const rowsToShow=rs.filter(r=>{const l=norm(r.label);if(l==='mc_engine_mode')return false;if(mode==='quick_vectorized')return quick.has(l);return quick.has(l)||advancedOnly.has(l)||l.includes('monte_carlo')||l.includes('simulation')});let html='<div class="field-list"><div class="section-note mc-engine-card"><b>Start here: choose the Monte Carlo engine.</b><p>Use <b>Simple</b> for fast assumption testing. Use <b>Complex</b> for final/advisor-ready workbooks because each simulated path runs the fuller planning engine.</p>'+mcEngineToggleHtml(engine)+'</div></div>';html+=`<div class="field-list"><div class="section-note"><b>Showing ${mode==='quick_vectorized'?'simple / quick-mode':'complex / advanced-mode'} options.</b> ${mode==='quick_vectorized'?'Only the settings that materially affect the faster approximation are shown. Switch to Complex to see sensitivity grids, stochastic tax/IRMAA, inflation-path, serial-correlation, and wellness-shock controls.':'Advanced controls are shown because Complex mode runs fuller scalar paths and can use tax/IRMAA, inflation, sensitivity, wellness-shock, and serial-correlation settings.'}</div></div>`;html+=renderFieldGroups(rowsToShow);return html}
+function renderMonteCarloOptions(){if(searchText.trim())return renderFields('monte_carlo_options');const rs=rowsForStep('monte_carlo_options');const engine=mcEngineRow();const mode=mcEngineModeValue();const quick=new Set(['mc_engine_mode','mc_simulations','mc_portfolio_sigma','success_liquid_floor','use_asset_class_covariance','mc_home_equity_contingency','mc_home_equity_haircut','mc_home_equity_access_lag_years']);const advancedOnly=new Set(['mc_sensitivity_simulations','stochastic_tax_brackets','stochastic_irmaa','wellness_cost_shocks','wellness_shock_annual_prob','wellness_shock_mean_cost','recenter_regime_returns','stochastic_inflation','inflation_sigma','return_inflation_correlation','return_serial_correlation']);const rowsToShow=rs.filter(r=>{const l=norm(r.label);if(l==='mc_engine_mode')return false;if(mode==='quick_vectorized')return quick.has(l);return quick.has(l)||advancedOnly.has(l)||l.includes('monte_carlo')||l.includes('simulation')});let html='<div class="field-list"><div class="section-note mc-engine-card"><b>Start here: choose the Monte Carlo engine.</b><p>Use <b>Simple</b> for fast assumption testing. Use <b>Complex</b> for final/advisor-ready workbooks because each simulated path runs the fuller planning engine.</p>'+mcEngineToggleHtml(engine)+'</div></div>';html+=`<div class="field-list"><div class="section-note"><b>Showing ${mode==='quick_vectorized'?'simple / quick-mode':'complex / advanced-mode'} options.</b> ${mode==='quick_vectorized'?'Only the settings that materially affect the faster approximation are shown. Switch to Complex to see sensitivity grids, stochastic tax/IRMAA, inflation-path, serial-correlation, and wellness-shock controls.':'Advanced controls are shown because Complex mode runs fuller scalar paths and can use tax/IRMAA, inflation, sensitivity, wellness-shock, and serial-correlation settings.'}</div></div>`;html+=renderFieldGroups(rowsToShow);return html}
 
 function renderDivorceOptions(){return optionalFunctionEnabled('divorce_qdro')?renderFields('divorce_options'):'<div class="field-list"><p>Divorce options are hidden until the Divorce/QDRO optional workbook module is enabled on Optional workbook modules.</p></div>'}
 
@@ -2031,7 +2102,7 @@ function renderPlanDataReport(){
     nav+='<button class="'+cls+'" type="button" onclick="setPlanReportSection(\''+s.id+'\')">'+esc(s.label)+'</button>';
   });
   nav+='</div>';
-  var tools='<div class="plan-data-preview-tools"><div><b>Plan Data Summary preview</b><span>Read-only saved input packet for final review. Print or save this section as PDF before sharing reports.</span></div><div class="pane-actions"><button class="btn primary" type="button" onclick="window.print()">Print / Save PDF</button><button class="btn" type="button" onclick="goToReportsTab('Build')">Go to Build</button></div></div>';
+  var tools='<div class="plan-data-preview-tools"><div><b>Plan Data Summary preview</b><span>Read-only saved input packet for final review. Print or save this section as PDF before sharing reports.</span></div><div class="pane-actions"><button class="btn primary" type="button" onclick="window.print()">Print / Save PDF</button><button class="btn" type="button" onclick="goToReportsTab(\'Build\')">Go to Build</button></div></div>';
 
   var body='';
 

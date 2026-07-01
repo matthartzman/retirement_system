@@ -475,15 +475,29 @@ def withdraw_hsa_window(c: Mapping, bal: BalanceMap, year: int, wellness_cost: f
     return {"amount": amount, "by_account": by_account}
 
 
-def withdraw_hsa_gap(c: Mapping, bal: BalanceMap, gap: float) -> Dict:
+def withdraw_hsa_gap(c: Mapping, bal: BalanceMap, gap: float, year: int = 0) -> Dict:
     """Use remaining HSA dollars for an unfunded spending gap before Roth.
 
     HSA is a non-Roth liquid bucket. The normal HSA window still controls the
     planned annual draw, but if IRA and taxable/trust dollars cannot fill the
     cash gap, this final pass prevents Roth withdrawals while HSA dollars remain.
+
+    In smooth_window or annual_pct mode, gap-filling is suppressed both before
+    and during the configured window.  withdraw_hsa_window handles the scheduled
+    draw for those years; allowing gap-fills on top would double-deplete the HSA
+    and prevent it from lasting the intended window length.  Gap-fills are only
+    permitted after the window ends, when any remaining HSA balance is fair game.
     """
     if gap <= 1e-6:
         return {"amount": 0.0, "new_gap": gap, "by_account": {}}
+    mode = str(c.get("hsa_withdrawal_mode", "spend_as_needed") or "spend_as_needed").lower()
+    if mode in ("smooth_window", "annual_pct") and year > 0:
+        win_start = int(c.get("hsa_win_start", 9999))
+        win_end = int(c.get("hsa_win_end", 0))
+        # Block gap-fills before the window starts, and also during the window
+        # (the scheduled smooth draw already handles those years).
+        if year < win_start or (win_end > 0 and year <= win_end):
+            return {"amount": 0.0, "new_gap": gap, "by_account": {}}
     ids = list(c.get("hsa_ids", []) or [])
     amount = min(float(gap or 0.0), sum(max(0.0, float(bal.get(aid, 0.0) or 0.0)) for aid in ids))
     by_account = _draw_pro_rata_accounts(bal, ids, amount)
@@ -1566,6 +1580,45 @@ def _funding_success(rows, threshold: float = 0.0) -> bool:
     return max_unfunded <= 1.0 and min_liquid > threshold and final_liquid > threshold
 
 
+def _funding_success_with_home_equity(rows, threshold: float = 0.0, home_equity_reserve: float = 0.0,
+                                       access_lag_years: int = 1) -> bool:
+    """Like _funding_success but counts home equity as a last-resort reserve.
+
+    If liquid assets are below threshold, the home_equity_reserve value (already
+    haircut-adjusted) is added as a one-time draw available after access_lag_years
+    from the first failure year. This computes a more optimistic 'contingency'
+    success rate shown alongside the primary rate.
+    """
+    if not rows:
+        return False
+    if home_equity_reserve <= 0:
+        return _funding_success(rows, threshold)
+    # Primary check first — if already succeeds without contingency, return True
+    if _funding_success(rows, threshold):
+        return True
+    # Find first year where liquid falls below threshold
+    remaining_equity = home_equity_reserve
+    first_shortfall_year = None
+    for r in rows:
+        if _liquid_value(r) <= threshold or float(r.get('unfunded_gap', 0) or 0) > 1.0:
+            first_shortfall_year = r.get('year')
+            break
+    if first_shortfall_year is None:
+        return True
+    # Simulate applying equity as a lump-sum reserve after lag
+    # If the equity can cover the gap we treat the path as contingency-success
+    # by measuring whether adding the reserve to liquid at that point and forward
+    # would have kept the plan funded. We approximate this by checking if the
+    # shortfall exceeds the reserve value.
+    total_unfunded = sum(float(r.get('unfunded_gap', 0) or 0) for r in rows)
+    total_liquid_shortfall = sum(
+        max(0.0, threshold - _liquid_value(r))
+        for r in rows
+        if (r.get('year') or 0) >= (first_shortfall_year + access_lag_years)
+    )
+    return total_unfunded <= 1.0 and total_liquid_shortfall <= remaining_equity
+
+
 def _first_failure_year(rows, threshold: float = 0.0):
     for r in rows:
         if float(r.get('unfunded_gap', 0) or 0) > 1.0 or _liquid_value(r) <= threshold:
@@ -1809,6 +1862,49 @@ def _sample_inflation_and_health_paths(c: dict, rng: random.Random, years: list[
     }
 
 
+def _adjust_annuity_pmt_for_mc(stream: dict, returns: dict, inflation_paths: dict, years: list, mu: float) -> dict:
+    """Adjust init_pmt for variable and COLA annuities based on sampled paths.
+
+    Variable: scale init_pmt by (cumulative_sampled_return / cumulative_expected_return)
+    COLA: scale init_pmt by cumulative sampled inflation (relative to expected inflation).
+    Fixed: no adjustment.
+
+    Returns a modified copy of the stream dict.
+    """
+    payout_type = stream.get('payout_type', 'fixed')
+    if payout_type == 'fixed' or not years or float(stream.get('init_pmt', 0) or 0) <= 0:
+        return stream
+    stream = dict(stream)
+    first_yr = int(stream.get('first_yr', years[0]) or years[0])
+    # Use only years up to and including the annuity start year for the scaling horizon
+    horizon = [y for y in years if y <= first_yr]
+    if not horizon:
+        return stream
+    if payout_type == 'variable':
+        # Scale by cumulative return ratio: sampled vs expected
+        cum_sampled = 1.0
+        cum_expected = 1.0
+        for y in horizon:
+            cum_sampled *= (1.0 + float(returns.get(y, mu) or mu))
+            cum_expected *= (1.0 + mu)
+        if cum_expected > 0:
+            scale = max(0.5, min(2.0, cum_sampled / cum_expected))  # cap at ±2x
+            stream['init_pmt'] = float(stream['init_pmt']) * scale
+    elif payout_type == 'cola':
+        # Scale by cumulative inflation ratio: sampled vs expected plan inflation
+        expected_inf = float(stream.get('ann_inf', 0.025) or 0.025)
+        infl_by_year = inflation_paths.get('inflation_by_year', {})
+        cum_sampled_inf = 1.0
+        cum_expected_inf = 1.0
+        for y in horizon:
+            cum_sampled_inf *= (1.0 + float(infl_by_year.get(y, expected_inf) or expected_inf))
+            cum_expected_inf *= (1.0 + expected_inf)
+        if cum_expected_inf > 0:
+            scale = max(0.7, min(1.5, cum_sampled_inf / cum_expected_inf))
+            stream['init_pmt'] = float(stream['init_pmt']) * scale
+    return stream
+
+
 def _run_one_mc_path(c: dict, rng: random.Random, mu: float, sig: float, use_asset_classes: bool = True):
     c2 = _clone_for_mc(c)
     c2.update(sample_household_death_years(c2, rng))
@@ -1821,6 +1917,10 @@ def _run_one_mc_path(c: dict, rng: random.Random, mu: float, sig: float, use_ass
         float(return_diag.get('portfolio_sigma', sig) or sig),
     )
     c2.update(inflation_paths)
+    # Adjust variable/COLA annuity payments based on this path's sampled returns/inflation
+    for ann_key in ['wife_pension', 'wife_single', 'wife_joint', 'h_single', 'h_joint']:
+        if ann_key in c2 and isinstance(c2[ann_key], dict):
+            c2[ann_key] = _adjust_annuity_pmt_for_mc(c2[ann_key], returns, inflation_paths, years, mu)
     # project() consumes the per-year bracket_index_by_year and irmaa_index_by_year
     # paths directly, so each scalar MC path uses its own sampled tax thresholds
     # rather than a geometric-mean approximation.
@@ -1879,6 +1979,13 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42):
     sens_N = int(c.get('mc_sensitivity_sims', 200) or 200)
     sens_N = max(1, min(2000, sens_N))
 
+    # Home equity contingency settings
+    he_contingency_enabled = bool(c.get('mc_home_equity_contingency', False))
+    he_haircut = float(c.get('mc_home_equity_haircut', 0.20) or 0.20)
+    he_lag = int(c.get('mc_home_equity_access_lag_years', 1) or 1)
+    gross_home_equity = max(0.0, float(c.get('home_val', 0) or 0) - float(c.get('mortgage_bal', 0) or 0))
+    he_reserve = gross_home_equity * (1.0 - he_haircut) if he_contingency_enabled else 0.0
+
     all_total_by_year = defaultdict(list)
     all_liquid_by_year = defaultdict(list)
     first5_avgs = []
@@ -1887,6 +1994,7 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42):
     terminal_success_flags = []
     first_failure_years = []
     liquid_successes = 0
+    he_contingency_successes = 0
     total_nw_positive = 0
     sampled_returns = []
     sampled_inflation_rates = []
@@ -1924,6 +2032,9 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42):
             total_nw_positive += 1
         if path_success:
             liquid_successes += 1
+        if he_contingency_enabled:
+            if _funding_success_with_home_equity(rows, success_threshold, he_reserve, he_lag):
+                he_contingency_successes += 1
         if (sim_idx + 1) % progress_step == 0 or (sim_idx + 1) == N:
             print(f'Monte Carlo exact scalar paths: {sim_idx + 1}/{N}', flush=True)
 
@@ -2015,6 +2126,10 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42):
         'liquid_success_rate': success_rate,
         'total_nw_success_rate': total_nw_positive / max(1, N),
         'failure_rate': 1.0 - success_rate,
+        'home_equity_contingency_enabled': he_contingency_enabled,
+        'home_equity_contingency_reserve': he_reserve,
+        'home_equity_contingency_haircut': he_haircut,
+        'success_rate_with_home_equity': he_contingency_successes / max(1, N) if he_contingency_enabled else None,
         'deterministic_projection_label': 'No-volatility deterministic reference path; Monte Carlo median is the probabilistic planning number.',
         'first_failure_distribution': first_failure_distribution,
         'terminal_total_nw': _percentiles(terminal_total, 0.0),
@@ -2444,6 +2559,12 @@ def monte_carlo(c, n_sims=1000, seed=42):
     sens_N = int(c.get('mc_sensitivity_sims', 200) or 200)
     sens_N = max(1, min(2000, sens_N))
 
+    # Home equity contingency settings (vectorized engine uses terminal-liquid approximation)
+    he_contingency_enabled_v = bool(c.get('mc_home_equity_contingency', False))
+    he_haircut_v = float(c.get('mc_home_equity_haircut', 0.20) or 0.20)
+    gross_home_equity_v = max(0.0, float(c.get('home_val', 0) or 0) - float(c.get('mortgage_bal', 0) or 0))
+    he_reserve_v = gross_home_equity_v * (1.0 - he_haircut_v) if he_contingency_enabled_v else 0.0
+
     print(f'Monte Carlo vectorized batch: sampling {max(1, N)} paths', flush=True)
     batch = _mc_vectorized_batch(c, base_rows, max(1, N), int(seed), mu, sig, success_threshold, use_asset_classes=True)
     print('Monte Carlo vectorized batch: main batch complete', flush=True)
@@ -2503,6 +2624,13 @@ def monte_carlo(c, n_sims=1000, seed=42):
     success_rate = float(liquid_successes / max(1, N))
     success_ci_low, success_ci_high = _success_rate_ci(liquid_successes, N)
     success_se = math.sqrt(max(0.0, success_rate * (1.0 - success_rate) / max(1, N)))
+    # Vectorized approximation: contingency counts paths where terminal_liquid + reserve > threshold
+    if he_contingency_enabled_v and he_reserve_v > 0:
+        he_contingency_success_v = float(_np.mean(
+            path_success | (terminal_liquid + he_reserve_v > success_threshold)
+        ))
+    else:
+        he_contingency_success_v = None
     sampled_returns = returns.reshape(-1)
     sampled_inflation_rates = infl['inflation_by_year_matrix'].reshape(-1)
     sampled_wellness_shocks = infl['wellness_shock_matrix']
@@ -2541,6 +2669,10 @@ def monte_carlo(c, n_sims=1000, seed=42):
         'liquid_success_rate': success_rate,
         'total_nw_success_rate': float(_np.mean(terminal_total > 0.0)),
         'failure_rate': 1.0 - success_rate,
+        'home_equity_contingency_enabled': he_contingency_enabled_v,
+        'home_equity_contingency_reserve': he_reserve_v,
+        'home_equity_contingency_haircut': he_haircut_v,
+        'success_rate_with_home_equity': he_contingency_success_v,
         'deterministic_projection_label': 'No-volatility deterministic reference path; Monte Carlo median is the probabilistic planning number.',
         'first_failure_distribution': first_failure_distribution,
         'terminal_total_nw': _percentiles(terminal_total.tolist(), 0.0),

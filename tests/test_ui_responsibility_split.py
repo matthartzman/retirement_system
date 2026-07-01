@@ -1,4 +1,7 @@
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src.version import VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -50,4 +53,4 @@ def test_release_surfaces_are_v10():
     for rel in paths:
         text = (ROOT/rel).read_text(encoding='utf-8', errors='ignore')
         assert ('v8.'+'2') not in text
-        assert '9' in text
+        assert VERSION in text

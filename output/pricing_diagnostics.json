@@ -1,6 +1,6 @@
 {
-  "advisor_ready_pricing_blocked": false,
-  "advisor_ready_pricing_message": "Pricing fallback share is within configured tolerance.",
+  "advisor_ready_pricing_blocked": true,
+  "advisor_ready_pricing_message": "Advisor-ready status is blocked when fallback/stale pricing exceeds configured tolerance.",
   "alpha_vantage_api_key_configured": true,
   "alpha_vantage_api_key_fingerprint": "37e951649172",
   "api_key_csv_settings": {
@@ -33,8 +33,8 @@
   "cache_as_of_local": "06/29/2026 09:35 AM",
   "cache_as_of_utc": "2026-06-29T14:35:05.2758348Z",
   "cache_first_enabled": true,
-  "cache_path": "C:\\RetirementPlanning\\Version 10 - ChatpGPT\\output\\market_price_cache.json",
-  "cache_schema_version": "9",
+  "cache_path": "C:\\RetirementPlanning\\Version 10\\output\\market_price_cache.json",
+  "cache_schema_version": "10",
   "cache_ttl_hours": 24.0,
   "cached_symbols": [
     "AVUV",
@@ -57,7 +57,7 @@
     "section": "Market Pricing",
     "subsection": "Holdings"
   },
-  "diagnostics_path": "C:\\RetirementPlanning\\Version 10 - ChatpGPT\\output\\pricing_diagnostics.json",
+  "diagnostics_path": "C:\\RetirementPlanning\\Version 10\\output\\pricing_diagnostics.json",
   "effective_api_key_sources": {
     "alpha_vantage": "ALPHA_VANTAGE_API_KEY",
     "alpha_vantage_fingerprint": "37e951649172",
@@ -76,8 +76,16 @@
     "VTI",
     "VXUS"
   ],
-  "fallback_warning_share": 0.0,
-  "fallback_warning_symbols": [],
+  "fallback_warning_share": 0.875,
+  "fallback_warning_symbols": [
+    "AVUV",
+    "ITOT",
+    "IXUS",
+    "PDBC",
+    "VBR",
+    "VTI",
+    "VXUS"
+  ],
   "fmp_api_key_configured": true,
   "fmp_api_key_fingerprint": "a805fe45c35d",
   "frozen_metadata": {},
@@ -135,7 +143,7 @@
     "pricing_mode": "CACHE",
     "source_counts": {
       "cash": 1,
-      "fresh_cache_24h_from_fixture_cache": 7
+      "stale_cache_from_fixture_cache": 7
     }
   },
   "provider_attempts": {},
@@ -153,17 +161,17 @@
   "requests_available": true,
   "source_counts": {
     "cash": 1,
-    "fresh_cache_24h_from_fixture_cache": 7
+    "stale_cache_from_fixture_cache": 7
   },
   "sources": {
-    "AVUV": "fresh_cache_24h_from_fixture_cache",
+    "AVUV": "stale_cache_from_fixture_cache",
     "CASH": "cash",
-    "ITOT": "fresh_cache_24h_from_fixture_cache",
-    "IXUS": "fresh_cache_24h_from_fixture_cache",
-    "PDBC": "fresh_cache_24h_from_fixture_cache",
-    "VBR": "fresh_cache_24h_from_fixture_cache",
-    "VTI": "fresh_cache_24h_from_fixture_cache",
-    "VXUS": "fresh_cache_24h_from_fixture_cache"
+    "ITOT": "stale_cache_from_fixture_cache",
+    "IXUS": "stale_cache_from_fixture_cache",
+    "PDBC": "stale_cache_from_fixture_cache",
+    "VBR": "stale_cache_from_fixture_cache",
+    "VTI": "stale_cache_from_fixture_cache",
+    "VXUS": "stale_cache_from_fixture_cache"
   },
   "stooq_configured": true,
   "stooq_symbol_rule": "append .us only for Stooq calls; other providers receive original symbols",

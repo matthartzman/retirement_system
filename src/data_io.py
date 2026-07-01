@@ -1124,6 +1124,9 @@ def parse_client(data, url_template):
         # Qualified (IRA) annuities are 100% taxable (no basis). Default 1.0.
         s['exclusion_ratio']  = _n(_v(data,'Income Streams',name,'exclusion_ratio','1.0'), 1.0)
         s['deferral_dampening'] = _n(_v(data,'Income Streams',name,'deferral_dampening','0.55'), 0.55)
+        # Payout type: Fixed (guaranteed), Variable (market-linked), COLA (inflation-linked)
+        raw_payout = str(_v(data,'Income Streams',name,'payout_type','fixed') or 'fixed').strip().lower()
+        s['payout_type'] = 'variable' if 'var' in raw_payout else ('cola' if 'cola' in raw_payout else 'fixed')
         # Annuitant info for recovery logic
         s['annuitant_dob_yr'] = c['w_dob_yr'] if annuitant == 'wife' else c['h_dob_yr']
         s['recovery_age']     = c['ann_recovery_age']

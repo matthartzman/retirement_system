@@ -130,6 +130,7 @@ class ConfigService:
             selected = compute_optimal_allocation(cfg, force_mode=mode)
             optimizer = compute_optimal_allocation(cfg, force_mode=_ap.ALLOCATION_MODE_OPTIMIZER)
             user = compute_optimal_allocation(cfg, force_mode=_ap.ALLOCATION_MODE_USER)
+            coverage = selected.get("allocation_coverage") or {}
             return {
                 "success": True,
                 "mode": mode,
@@ -144,6 +145,20 @@ class ConfigService:
                 "selected_diagnostics": selected.get("diagnostics") or {},
                 "optimizer_diagnostics": optimizer.get("diagnostics") or {},
                 "user_diagnostics": user.get("diagnostics") or {},
+                "coverage_summary": {
+                    "fixed_income_coverage_pv": coverage.get("fixed_income_coverage_pv", 0),
+                    "fixed_income_included_sources": coverage.get("fixed_income_included_sources", []),
+                    "fixed_income_excluded_sources": coverage.get("fixed_income_excluded_sources", []),
+                    "ss_pv": coverage.get("ss_pv", 0),
+                    "pension_pv": coverage.get("pension_pv", 0),
+                    "annuity_pv": coverage.get("annuity_pv", 0),
+                    "gross_home_equity": coverage.get("gross_home_equity", 0),
+                    "home_equity_allocation_value": coverage.get("home_equity_allocation_value", 0),
+                    "home_equity_reit_coverage_value": coverage.get("home_equity_reit_coverage_value", 0),
+                    "home_equity_counts_toward_reit": coverage.get("home_equity_counts_toward_reit", False),
+                    "home_equity_excluded": coverage.get("home_equity_excluded", False),
+                    "funded_ratio": selected.get("funded_ratio", 0),
+                },
             }, 200
         except Exception as exc:
             self._audit("allocation_preview_failed", {"error": str(exc)})

@@ -3,10 +3,9 @@ from src.version import VERSION
 
 
 def test_v10_version_surfaces_are_v10():
-    assert VERSION == '9'
     index = Path('frontend/index.html').read_text(encoding='utf-8')
     assert 'Version' in index
-    assert '<span>9</span>' in index
+    assert f'<span>{VERSION}</span>' in index
     assert 'Log out' not in index
 
 

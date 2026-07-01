@@ -1,9 +1,12 @@
 from __future__ import annotations
+import sys
 import time
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from src.version import VERSION
 
 class PricingUiReleaseTests(unittest.TestCase):
     def test_cache_any_age_precedes_cost_basis_in_cache_mode(self):
@@ -41,7 +44,7 @@ class PricingUiReleaseTests(unittest.TestCase):
             text = (ROOT/rel).read_text(encoding='utf-8', errors='ignore')
             self.assertNotIn('Retirement System v8.1', text)
             if rel.endswith('system_config.csv'):
-                self.assertIn('system_version,9', text)
+                self.assertIn(f'system_version,{VERSION}', text)
         out = __import__('subprocess').run([__import__('sys').executable, 'tools/check_version_surfaces.py'], cwd=ROOT, text=True, capture_output=True)
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
 

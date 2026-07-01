@@ -48,7 +48,7 @@ category,medicare_part_b,Medicare Part B Premium,5356,,,,Source: Wellness Budget
 category,medicare_part_d,Medicare Part D Premium,2095,,,,Source: Wellness Budget Detail / Medicare monthly input annualized
 category,medigap_premium,Medicare Part G / Medigap Premium,4309,,,,Source: Wellness Budget Detail / Medicare monthly input annualized
 category,miscellaneous,Miscellaneous,2,,,,Annualized actual
-category,mortgage,Mortgage,37759,,,,Annualized actual
+category,mortgage,Mortgage,36000,,,,Annualized actual
 category,movie_theater,Movie Theater,138,,,,Annualized actual
 category,office_supplies_expenses,Office Supplies & Expenses,141,,,,Annualized actual
 category,parking_tolls,Parking / Tolls,535,,,,Annualized actual

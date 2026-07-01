@@ -111,7 +111,7 @@
       "target_pct": "5%"
     },
     "Commodities": {
-      "target_pct": "0%"
+      "target_pct": "5%"
     },
     "Emerging Markets": {
       "target_pct": "5%"
@@ -141,7 +141,7 @@
       "target_pct": "0%"
     },
     "US Large Cap": {
-      "target_pct": "40%"
+      "target_pct": "35%"
     },
     "US Mid Cap": {
       "target_pct": "5%"
@@ -179,17 +179,17 @@
     "Managed Futures": {
       "alternate_asset_class": "",
       "optimizer_override_pct": "",
-      "selection_action": "include"
+      "selection_action": "exclude"
     },
     "Municipal Bonds": {
-      "alternate_asset_class": "",
+      "alternate_asset_class": "Guaranteed income + note receivable",
       "optimizer_override_pct": "",
-      "selection_action": "include"
+      "selection_action": "consider_alternate_first"
     },
     "Private Credit": {
       "alternate_asset_class": "",
       "optimizer_override_pct": "",
-      "selection_action": "include"
+      "selection_action": "exclude"
     },
     "REITs": {
       "alternate_asset_class": "Home Equity",
@@ -197,14 +197,14 @@
       "selection_action": "consider_alternate_first"
     },
     "Short-Term Bonds": {
-      "alternate_asset_class": "",
+      "alternate_asset_class": "Guaranteed income + note receivable",
       "optimizer_override_pct": "",
-      "selection_action": "include"
+      "selection_action": "consider_alternate_first"
     },
     "TIPS": {
-      "alternate_asset_class": "",
+      "alternate_asset_class": "Guaranteed income + note receivable",
       "optimizer_override_pct": "",
-      "selection_action": "include"
+      "selection_action": "consider_alternate_first"
     },
     "US Large Cap": {
       "alternate_asset_class": "",
@@ -264,7 +264,7 @@
     },
     "Mortgage": {
       "annual_real_estate_taxes": "$18,000",
-      "balance_as_of_plan_start": "$293,284",
+      "balance_as_of_plan_start": "$290,769.34",
       "interest_rate": "1.99%",
       "last_payment_date": "10/31/2034",
       "last_payment_year": "2034",
@@ -468,9 +468,9 @@
     },
     "Withdrawals": {
       "hsa_annual_spend_pct": "10.00%",
-      "hsa_withdrawal_end_year": "2031",
+      "hsa_withdrawal_end_year": "2040",
       "hsa_withdrawal_mode": "smooth_window",
-      "hsa_withdrawal_start_year": "2040"
+      "hsa_withdrawal_start_year": "2031"
     }
   },
   "Household": {
@@ -838,6 +838,24 @@
       "home_sale_year": "0",
       "section_121_exclusion_mfj": "$500,000",
       "value_as_of_plan_start": "$1,313,000"
+    },
+    "Other Asset 1": {
+      "annual_appreciation_pct": "0.00%",
+      "as_of_date": "2025-12-31",
+      "basis": "$15,000",
+      "name": "Start-up Equity",
+      "sell_date": "2030-12-31",
+      "type": "Start-up Equity",
+      "value": "$66,000"
+    },
+    "Other Asset 2": {
+      "annual_appreciation_pct": "-15.00%",
+      "as_of_date": "2026-06-30",
+      "basis": "",
+      "name": "Autos",
+      "sell_date": "",
+      "type": "Auto",
+      "value": "$54,430"
     },
     "Startup Equity": {
       "basis": "$0",

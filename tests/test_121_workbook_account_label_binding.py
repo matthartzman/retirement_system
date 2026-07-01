@@ -43,6 +43,8 @@ def test_net_worth_account_labels_follow_account_ids_not_sorted_bucket_order():
     cfg = {
         "plan_start": 2026,
         "plan_end": 2026,
+        "h_name": "Husband",
+        "w_name": "Wife",
         "pre_tax_ids": ["Husband_401k", "Husband_IRA", "Wife_IRA"],
         "roth_ids": ["Husband_Roth", "Wife_Roth"],
         "taxable_ids": ["Husband_Trust", "Wife_Trust"],

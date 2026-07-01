@@ -19,7 +19,7 @@ def test_build_overlay_uses_real_milestones_not_fake_ticker():
 
 def test_build_impact_includes_monte_carlo_risk_dimension():
     text = INDEX_HTML.read_text(encoding="utf-8") + "\n" + DASHBOARD_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "css" / "dashboard.css").read_text(encoding="utf-8")
-    assert "Monte Carlo probability of success" in text
+    assert "Probability of Success" in text
     assert "fmtPctDelta" in text
     assert "mc_success" in text
     assert "mc_success" in text

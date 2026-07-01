@@ -949,7 +949,22 @@ def plan_save_as():
 def plan_load_file():
     """Replace the current SQLite database with a user-chosen .rpx file."""
     try:
-        return jsonify(_plan_file_feature_service().load_file(request.get_json(silent=True) or {}))
+        result = _plan_file_feature_service().load_file(request.get_json(silent=True) or {})
+        if result.get("success"):
+            # Materialize client files (holdings, spending, YTD, etc.) from the
+            # loaded SQLite onto disk so that the disk-first read path in
+            # _read_plan_data_file serves loaded-plan data, not stale old files.
+            try:
+                materialize_workspace_files(
+                    workspace_id=_workspace_id(),
+                    client_id=_client_id(),
+                    db_path=_sqlite_db(),
+                    overwrite_existing=True,
+                )
+            except Exception as mat_exc:
+                _audit("plan_load_file_materialize_warning", {"error": str(mat_exc)})
+                result["materialize_warning"] = str(mat_exc)
+        return jsonify(result)
     except Exception as exc:  # noqa: BLE001
         return jsonify({"success": False, "error": str(exc)})
 

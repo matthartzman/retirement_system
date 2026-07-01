@@ -297,7 +297,7 @@ def _chart_page(c: dict[str, Any], rows: list[dict[str, Any]], mc_data: dict[str
 def _cashflow_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, Any]:
     group = [
         ("Identifiers", 3), ("Income", 11), ("Tax & RMD", 6), ("Spending", 7),
-        ("Account Outflows — Cash Draws & IRA Conversions", 16), ("Surplus", 2),
+        ("Portfolio Draws", 16), ("Surplus", 2),
     ]
     group_row = []
     for label, span in group:

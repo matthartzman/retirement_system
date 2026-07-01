@@ -33,6 +33,9 @@ Model Constants,Monte Carlo,stochastic_irmaa,boolean,TRUE,TRUE,,,Stochastic IRMA
 Model Constants,Monte Carlo,wellness_cost_shocks,boolean,TRUE,TRUE,,,Poisson wellness events
 Model Constants,Monte Carlo,wellness_shock_annual_prob,percent,TRUE,3.00%,0,20,Annual shock probability
 Model Constants,Monte Carlo,wellness_shock_mean_cost,dollars,TRUE,150000,0,,Mean shock cost
+Model Constants,Monte Carlo,mc_home_equity_contingency,boolean,FALSE,FALSE,,,Include home equity as last-resort contingency: compute a second success rate counting home equity (after haircut) as spendable if liquid assets are depleted
+Model Constants,Monte Carlo,mc_home_equity_haircut,percent,FALSE,20.00%,0,50,Haircut applied to gross home equity when used as MC contingency reserve
+Model Constants,Monte Carlo,mc_home_equity_access_lag_years,integer,FALSE,1,0,5,Years of delay before home equity can be accessed as contingency in MC paths
 Model Constants,Asset Allocation,equity_pct,percent,TRUE,85.00%,0,100,Equity allocation
 Model Constants,Asset Allocation,commodity_pct,percent,TRUE,10.00%,0,100,Commodity allocation
 Model Constants,Asset Allocation,cash_pct,percent,TRUE,5.00%,0,100,Cash allocation
