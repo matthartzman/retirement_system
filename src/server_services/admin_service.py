@@ -138,6 +138,49 @@ def save_reference_file(base_dir: Path, file_name: str, content: str) -> tuple[d
     return {"success": True, "file": p.name, "path": str(p), "bytes": len(str(content or ""))}, before_rows, after_rows
 
 
+def csv_backup_zip(base_dir: Path, system_config_path: Path) -> tuple[dict[str, Any], int]:
+    """Zip every plan-data, reference, and system CSV for recovery/backup.
+
+    Discovers files by globbing input/*.csv and reference_data/*.csv (plus
+    the top-level system_config.csv) rather than relying on a fixed list, so
+    the backup stays exhaustive as new CSVs are added over time.
+    """
+    import io
+    import zipfile
+    from datetime import datetime
+
+    entries: list[tuple[str, Path]] = []
+    for p in sorted((base_dir / "input").glob("*.csv")):
+        entries.append((f"input/{p.name}", p))
+    for p in sorted((base_dir / "reference_data").glob("*.csv")):
+        entries.append((f"reference_data/{p.name}", p))
+    if system_config_path.exists():
+        entries.append(("system_config.csv", system_config_path))
+
+    if not entries:
+        return {"success": False, "error": "No CSV files were found to back up."}, 404
+
+    buf = io.BytesIO()
+    included: list[str] = []
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for arcname, path in entries:
+            zf.write(path, arcname)
+            included.append(arcname)
+        manifest = (
+            f"CSV backup generated {datetime.now().isoformat(timespec='seconds')}\n"
+            f"{len(included)} file(s) included:\n" + "\n".join(included) + "\n"
+        )
+        zf.writestr("BACKUP_MANIFEST.txt", manifest)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return {
+        "success": True,
+        "filename": f"csv_backup_{timestamp}.zip",
+        "data": buf.getvalue(),
+        "included": included,
+    }, 200
+
+
 def diagnostics_payload(output_dir: Path) -> dict[str, Any]:
     files: list[dict[str, Any]] = []
     for name in ["pricing_diagnostics.json", "plan_summary.json", "forecast_package.json"]:

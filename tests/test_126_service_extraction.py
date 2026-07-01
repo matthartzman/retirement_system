@@ -80,3 +80,54 @@ def test_stdlib_route_smoke_after_service_extraction():
     server = client.get("/api/admin/server", headers={"X-User-Role": "admin"})
     assert server.status_code == 200
     assert server.get_json()["app_mode"] == "LOCAL"
+
+
+def test_admin_csv_backup_zip_is_exhaustive_over_input_and_reference_dirs(tmp_path):
+    import io
+    import zipfile
+
+    from src.server_services import admin_service
+
+    (tmp_path / "input").mkdir()
+    (tmp_path / "input" / "client_data.csv").write_text("a,b\n1,2\n", encoding="utf-8")
+    (tmp_path / "input" / "client_holdings.csv").write_text("c,d\n3,4\n", encoding="utf-8")
+    (tmp_path / "input" / "not_a_csv.txt").write_text("ignore me", encoding="utf-8")
+    (tmp_path / "reference_data").mkdir()
+    (tmp_path / "reference_data" / "security_master.csv").write_text("e,f\n5,6\n", encoding="utf-8")
+    cfg = tmp_path / "system_config.csv"
+    cfg.write_text("section,subsection,label,value\nA,B,C,D\n", encoding="utf-8")
+
+    payload, status = admin_service.csv_backup_zip(tmp_path, cfg)
+    assert status == 200
+    assert payload["success"] is True
+    assert set(payload["included"]) == {
+        "input/client_data.csv",
+        "input/client_holdings.csv",
+        "reference_data/security_master.csv",
+        "system_config.csv",
+    }
+
+    zf = zipfile.ZipFile(io.BytesIO(payload["data"]))
+    names = set(zf.namelist())
+    assert names == set(payload["included"]) | {"BACKUP_MANIFEST.txt"}
+    assert zf.read("system_config.csv") == cfg.read_bytes()
+    assert "not_a_csv.txt" not in "".join(names)
+
+
+def test_admin_csv_backup_zip_reports_no_files_found(tmp_path):
+    from src.server_services import admin_service
+
+    payload, status = admin_service.csv_backup_zip(tmp_path, tmp_path / "system_config.csv")
+    assert status == 404
+    assert payload["success"] is False
+
+
+def test_admin_csv_backup_route_returns_zip_attachment():
+    from src.server import create_app
+
+    client = create_app().test_client()
+    resp = client.get("/api/admin/csv-backup", headers={"X-User-Role": "admin"})
+    assert resp.status_code == 200
+    assert resp.content_type.startswith("application/zip")
+    assert "attachment" in resp.headers.get("Content-Disposition", "")
+    assert resp.headers.get("Content-Disposition", "").endswith('.zip"')

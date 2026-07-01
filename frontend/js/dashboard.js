@@ -1089,6 +1089,15 @@ function renderSystemConfiguration(){return `<div class="system-config-panel"><d
 
 async function freezePricingSnapshot(){try{const out=await api('/api/prices/freeze',{method:'POST',body:JSON.stringify({})});showMessage(`Frozen pricing snapshot with ${Number(out.symbol_count||0)} symbol${Number(out.symbol_count||0)===1?'':'s'}.`,'success');buildPreflight=null;await refreshPreflightForReview()}catch(e){showMessage('Pricing freeze failed: '+(e&&e.message?e.message:e),'error')}}
 async function unfreezePricingSnapshot(){try{await api('/api/prices/unfreeze',{method:'POST',body:JSON.stringify({})});showMessage('Pricing snapshot freeze removed. Future builds will use the configured pricing mode.','success');buildPreflight=null;await refreshPreflightForReview()}catch(e){showMessage('Pricing unfreeze failed: '+(e&&e.message?e.message:e),'error')}}
+function exportCsvBackup(){
+  const url='/api/admin/csv-backup';
+  showMessage('Exporting CSV backup...');
+  if(window.__is_desktop_app__){
+    fetch(apiUrl(url)).then(function(r){return r.json?r.json():r}).then(function(out){if(out&&out.success===false)showMessage('CSV backup failed: '+(out.error||'unknown error'),'error');else showMessage('CSV backup exported.','success')}).catch(function(e){showMessage('CSV backup error: '+(e&&e.message?e.message:e),'error')});
+    return;
+  }
+  window.location.href=apiUrl(url);
+}
 function openSystemConfigurationConsole(){
   if(window.__is_desktop_app__){
     // Call the pywebview bridge directly instead of relying on

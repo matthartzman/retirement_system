@@ -181,3 +181,22 @@ def admin_save_reference_file(file_name):
     payload["change_event"] = change_event
     _audit("admin_reference_file_saved", {"file": payload["file"], "bytes": payload["bytes"], "change_count": (change_event or {}).get("change_count", 0)})
     return jsonify(payload)
+
+
+@app.route("/api/admin/csv-backup", methods=["GET"])
+def admin_csv_backup():
+    denied = _require("manage_clients")
+    if denied:
+        return denied
+    if not _runtime_config().allow_downloads:
+        return jsonify({"success": False, "error": "Downloads are disabled"}), 403
+    payload, status = admin_service.csv_backup_zip(BASE_DIR, _system_config_path())
+    if status != 200:
+        return jsonify(payload), status
+    _audit("admin_csv_backup_exported", {"file_count": len(payload["included"])})
+    return Response(
+        payload["data"],
+        status=200,
+        headers={"Content-Disposition": f'attachment; filename="{payload["filename"]}"'},
+        content_type="application/zip",
+    )
