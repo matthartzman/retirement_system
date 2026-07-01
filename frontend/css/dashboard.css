@@ -141,7 +141,6 @@
 .system-maintenance-details{margin:0;border:0;border-radius:0}
 .system-maintenance-details>summary{border-radius:0;border-bottom:1px solid var(--line);background:#faf9f5}
 .system-maintenance-details[open]>summary{border-bottom:1px solid var(--line)}
-.system-config-frame{width:100%;min-height:760px;border:1px solid var(--line);border-radius:14px;background:#fff;margin-top:14px}
 .optimizer-hub .feature-card .btn,.system-config-panel .feature-card .btn{margin-top:8px;margin-right:8px}
 /* Planning levers sensitivity dashboard */
 .planning-levers .compact-input{padding:6px 8px;border:1px solid var(--line2);border-radius:8px;font:inherit;text-align:right}

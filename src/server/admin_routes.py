@@ -17,7 +17,13 @@ def admin_index():
         return denied
     p = BASE_DIR / "frontend" / "admin.html"
     if p.exists():
-        return send_file(str(p))
+        # Redirect under /frontend/ (like "/" -> "/frontend/index.html") so
+        # admin.html's relative css/admin.css, js/admin.js, and
+        # js/pywebview_bridge.js references resolve against a URL the
+        # /frontend/<path:filename> route actually serves.
+        qs = request.query_string
+        target = "/frontend/admin.html" + (f"?{qs}" if qs else "")
+        return redirect(target, code=302)
     return "<h3>System Configuration UI not found.</h3>", 404
 
 

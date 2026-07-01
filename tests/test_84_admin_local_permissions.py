@@ -17,7 +17,14 @@ def test_admin_route_still_serves_admin_shell_and_uses_local_admin_permission():
     perms = (ROOT / "src/permissions.py").read_text(encoding="utf-8")
 
     assert '@app.route("/admin")' in routes
-    assert 'send_file(str(p))' in routes
+    # /admin and /system-configuration redirect to /frontend/admin.html (like
+    # "/" -> "/frontend/index.html") so admin.html's relative css/admin.css,
+    # js/admin.js, and js/pywebview_bridge.js references resolve against a
+    # URL the /frontend/<path:filename> route actually serves, instead of
+    # 404ing when admin.html is served directly at /admin or
+    # /system-configuration.
+    assert 'redirect(target, code=302)' in routes
+    assert '"/frontend/admin.html"' in routes
     assert '"manage_clients"' in perms
     assert '"manage_users"' in perms
 

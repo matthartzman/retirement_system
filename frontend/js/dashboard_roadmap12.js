@@ -144,7 +144,6 @@
       const box=byId('batchSystemPreview');if(box)box.innerHTML='<div class="batch-preview-empty">System Configuration batch edit applied. Rebuild outputs before relying on reports.</div>';
       const apply=byId('batchSystemApply');if(apply)apply.disabled=true;
       const dl=byId('batchSystemDownload');if(dl)dl.disabled=true;
-      try{refreshSystemConfigurationFrame();}catch(_e){}
       show('System Configuration batch edit saved. Change count: '+((out.change_event&&out.change_event.change_count)||'unknown')+'.','success');
     }catch(e){show('System Configuration batch edit failed: '+(e&&e.message?e.message:e),'error');}
   }
