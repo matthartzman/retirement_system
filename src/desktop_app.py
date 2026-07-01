@@ -80,5 +80,11 @@ def start() -> int:
 
     window.events.closing += on_closing
 
-    webview.start(debug=False)
+    # pywebview defaults to private_mode=True, which discards the WebView2
+    # profile (localStorage, etc.) on every restart. Build history, workbench
+    # nav state, and other browser-local persistence are meant to survive
+    # across app launches, so use a stable on-disk profile instead.
+    storage_path = ROOT / "local_state" / "webview"
+    storage_path.mkdir(parents=True, exist_ok=True)
+    webview.start(debug=False, private_mode=False, storage_path=str(storage_path))
     return 0

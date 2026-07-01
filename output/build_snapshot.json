@@ -2,18 +2,18 @@
   "artifact_count": 5,
   "artifacts": [
     {
-      "bytes": 207118,
+      "bytes": 207334,
       "exists": true,
       "file": "retirement_plan.xlsx",
-      "modified_at": "2026-07-01T11:56:51Z",
+      "modified_at": "2026-07-01T15:31:09Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\retirement_plan.xlsx",
-      "sha256": "c761770b7a78f141a4e5f6c2e45f43ce364cad59e98cf26600b9fabf8f034998"
+      "sha256": "d77ba2b63c57ca86f089992a02f3dfbffcdda405685a7dd09da5dc6a7a10caa4"
     },
     {
       "bytes": 29244,
       "exists": true,
       "file": "retirement_dashboard.html",
-      "modified_at": "2026-07-01T11:56:51Z",
+      "modified_at": "2026-07-01T15:31:10Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\retirement_dashboard.html",
       "sha256": "74f17f5a32e6f13c4327e6b2a3abb5597962918caa3cf7e8a0f4eee8f022489f"
     },
@@ -21,25 +21,25 @@
       "bytes": 417777,
       "exists": true,
       "file": "results_explorer_model.json",
-      "modified_at": "2026-07-01T11:56:51Z",
+      "modified_at": "2026-07-01T15:31:10Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\results_explorer_model.json",
-      "sha256": "992a8c16e10cf7708596169646b97119fa2c6978ed0232dd54b83d23cd4fd6b5"
+      "sha256": "732cc648836e450bf887a7ea9cfa898034a5eee2fefdb85a289078bba16813f6"
     },
     {
       "bytes": 832,
       "exists": true,
       "file": "plan_summary.json",
-      "modified_at": "2026-07-01T11:56:51Z",
+      "modified_at": "2026-07-01T15:31:10Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\plan_summary.json",
       "sha256": "39ffccc38b839844b20a95d62d5db9b25a3cccc49626d6a125a8e2a3e70ab772"
     },
     {
-      "bytes": 5893,
+      "bytes": 6299,
       "exists": true,
       "file": "pricing_diagnostics.json",
-      "modified_at": "2026-07-01T11:56:43Z",
+      "modified_at": "2026-07-01T15:31:01Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\pricing_diagnostics.json",
-      "sha256": "9d0af81412f0104aa79b869f7a03bf9b219cabdacf360ffee19085910fe4741c"
+      "sha256": "8d13f9f6eff5e2b6e8cd2f9912808c8bc1fb9834147e697219678abca1d097d1"
     }
   ],
   "build_id": "",
@@ -47,7 +47,7 @@
     "build_started_at_ts": "",
     "python": ""
   },
-  "generated_at": "2026-07-01T11:56:52Z",
+  "generated_at": "2026-07-01T15:31:10Z",
   "input_fingerprint": {
     "files": [
       {
@@ -60,30 +60,30 @@
     "sha256": "8ca5e8ca8e9126c0310c405af17879f6933f34da8b2c02857f00b6618f4c05ed"
   },
   "pricing_diagnostics": {
-    "bytes": 5893,
+    "bytes": 6299,
     "exists": true,
     "file": "pricing_diagnostics.json",
-    "modified_at": "2026-07-01T11:56:43Z",
+    "modified_at": "2026-07-01T15:31:01Z",
     "path": "C:\\RetirementPlanning\\Version 10\\output\\pricing_diagnostics.json",
-    "sha256": "9d0af81412f0104aa79b869f7a03bf9b219cabdacf360ffee19085910fe4741c"
+    "sha256": "8d13f9f6eff5e2b6e8cd2f9912808c8bc1fb9834147e697219678abca1d097d1"
   },
   "schema": "build_snapshot_v1",
   "source": "sqlite_snapshot",
   "sqlite_database": {
-    "bytes": 47996928,
+    "bytes": 48922624,
     "exists": true,
     "file": "retirement_system_v10.db",
-    "modified_at": "2026-07-01T11:56:35Z",
+    "modified_at": "2026-07-01T15:30:53Z",
     "path": "C:\\RetirementPlanning\\Version 10\\local_state\\retirement_system_v10.db",
-    "sha256": "3c473374837597fcd87ae319a8f1769f637fa19301f8873f5c702f85e81714e4"
+    "sha256": "2b8f2321ee807166fba5c071c6f812799e8fa8ef01a2c6145a535844bec4bcd2"
   },
   "sqlite_database_snapshot": {
-    "bytes": 47996928,
+    "bytes": 48922624,
     "exists": true,
     "file": "plan_database_snapshot.rpx",
-    "modified_at": "2026-07-01T11:56:35Z",
+    "modified_at": "2026-07-01T15:30:53Z",
     "path": "C:\\RetirementPlanning\\Version 10\\output\\plan_database_snapshot.rpx",
-    "sha256": "3c473374837597fcd87ae319a8f1769f637fa19301f8873f5c702f85e81714e4",
+    "sha256": "2b8f2321ee807166fba5c071c6f812799e8fa8ef01a2c6145a535844bec4bcd2",
     "snapshot_role": "sqlite_database_copy",
     "source_path": "C:\\RetirementPlanning\\Version 10\\local_state\\retirement_system_v10.db"
   },

@@ -115,7 +115,7 @@
   },
   "pricing_mode": "CACHE",
   "pricing_source_category": "CACHE",
-  "pricing_source_note": "Cached quotes were used as of 06/29/2026 09:35 AM; cache TTL is 24.0 hours. Some symbols used offline fallback pricing; see Holdings Detail by Account for ticker-level sources.",
+  "pricing_source_note": "Cached quotes were used as of 06/29/2026 09:35 AM; cache TTL is 24.0 hours. CACHE mode checks the cache before calling live providers; this cache passed its 24.0-hour TTL (expired 06/30/2026 09:35 AM) but was used anyway. Some symbols used offline fallback pricing; see Holdings Detail by Account for ticker-level sources.",
   "pricing_source_summary": {
     "cache_as_of_by_symbol": {
       "AVUV": "2026-06-29T14:35:05.2758348Z",
@@ -137,9 +137,11 @@
     },
     "cache_as_of_local": "06/29/2026 09:35 AM",
     "cache_as_of_utc": "2026-06-29T14:35:05.2758348Z",
+    "cache_valid_until_local": "06/30/2026 09:35 AM",
+    "cache_valid_until_utc": "2026-06-30T14:35:05+00:00",
     "category": "CACHE",
     "label": "CACHE",
-    "note": "Cached quotes were used as of 06/29/2026 09:35 AM; cache TTL is 24.0 hours. Some symbols used offline fallback pricing; see Holdings Detail by Account for ticker-level sources.",
+    "note": "Cached quotes were used as of 06/29/2026 09:35 AM; cache TTL is 24.0 hours. CACHE mode checks the cache before calling live providers; this cache passed its 24.0-hour TTL (expired 06/30/2026 09:35 AM) but was used anyway. Some symbols used offline fallback pricing; see Holdings Detail by Account for ticker-level sources.",
     "pricing_mode": "CACHE",
     "source_counts": {
       "cash": 1,

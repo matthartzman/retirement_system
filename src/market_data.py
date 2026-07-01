@@ -1303,6 +1303,20 @@ class MarketDataProvider:
                 return ""
         return ""
 
+    def _cache_expiry_iso_for_symbol(self, symbol: str) -> str:
+        """Return the ISO timestamp at which a symbol's cached quote expires (timestamp + TTL)."""
+        rec = self.cache.get(_clean_symbol(symbol), {})
+        if not isinstance(rec, dict):
+            return ""
+        epoch = self._cache_timestamp_epoch(rec)
+        if epoch <= 0:
+            return ""
+        try:
+            from datetime import datetime, timezone
+            return datetime.fromtimestamp(epoch + self.ttl_seconds, tz=timezone.utc).isoformat()
+        except Exception:
+            return ""
+
     def pricing_source_summary(self) -> Dict[str, object]:
         """Workbook-level summary of the actual price source used.
 
@@ -1336,6 +1350,14 @@ class MarketDataProvider:
             cache_as_of = ""
         cache_as_of_local = _format_local_cache_timestamp(cache_as_of)
 
+        cache_expiry_by_symbol = {sym: self._cache_expiry_iso_for_symbol(sym) for sym in cache_symbols}
+        cache_expiry_values = sorted({v for v in cache_expiry_by_symbol.values() if v})
+        if cache_expiry_values:
+            cache_valid_until = cache_expiry_values[-1] if len(cache_expiry_values) == 1 else f"{cache_expiry_values[0]} to {cache_expiry_values[-1]}"
+        else:
+            cache_valid_until = ""
+        cache_valid_until_local = _format_local_cache_timestamp(cache_valid_until)
+
         if frozen_symbols:
             category = "FROZEN"
             frozen_at = str(self.frozen_metadata.get("frozen_at") or "").strip()
@@ -1351,12 +1373,31 @@ class MarketDataProvider:
             providers = ", ".join(sorted(src.replace("_live", "") for src in live_sources))
             note = f"Live provider quotes were used during this workbook build ({providers})."
             if cache_symbols:
-                note += f" Cached quotes were also used as of {cache_as_of_local or 'the cache timestamp on file'}."
+                note += f" Cached quotes were also used as of {cache_as_of_local or 'the cache timestamp on file'} because live pricing was not available for those symbols."
             if offline_sources:
                 note += " Some symbols used offline fallback pricing; see Holdings Detail by Account for ticker-level sources."
         elif cache_symbols:
             category = "CACHE"
-            note = f"Cached quotes were used as of {cache_as_of_local or 'the cache timestamp on file'}; cache TTL is {round(self.ttl_seconds / 3600, 2)} hours."
+            ttl_hours = round(self.ttl_seconds / 3600, 2)
+            any_stale = any(str(sources.get(sym, "")).startswith("stale_cache_from_") for sym in cache_symbols)
+            live_was_attempted = self.use_live and not self.cache_first
+            if live_was_attempted:
+                # LIVE mode tried live providers first for these symbols and they failed.
+                reason = "Live pricing was not available for these symbols, so the cached quote was used as a fallback."
+            else:
+                policy_phrase = (
+                    "OFFLINE mode never calls live providers"
+                    if self.pricing_mode == "OFFLINE"
+                    else f"{self.pricing_mode} mode checks the cache before calling live providers"
+                )
+                if any_stale:
+                    expired_at = f" (expired {cache_valid_until_local})" if cache_valid_until_local else ""
+                    reason = f"{policy_phrase}; this cache passed its {ttl_hours}-hour TTL{expired_at} but was used anyway."
+                elif cache_valid_until_local:
+                    reason = f"{policy_phrase}; the cache is still valid until {cache_valid_until_local}."
+                else:
+                    reason = f"{policy_phrase}."
+            note = f"Cached quotes were used as of {cache_as_of_local or 'the cache timestamp on file'}; cache TTL is {ttl_hours} hours. {reason}"
             if offline_sources:
                 note += " Some symbols used offline fallback pricing; see Holdings Detail by Account for ticker-level sources."
         else:
@@ -1376,6 +1417,8 @@ class MarketDataProvider:
             "cache_as_of_local": cache_as_of_local,
             "cache_as_of_by_symbol": cache_as_of_by_symbol,
             "cache_as_of_by_symbol_local": cache_as_of_by_symbol_local,
+            "cache_valid_until_utc": cache_valid_until,
+            "cache_valid_until_local": cache_valid_until_local,
             "note": note,
             "source_counts": dict(sorted({src: list(sources.values()).count(src) for src in set(sources.values())}.items())),
         }
