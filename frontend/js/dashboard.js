@@ -1083,7 +1083,19 @@ function renderSystemConfiguration(){return `<div class="system-config-panel"><d
 
 async function freezePricingSnapshot(){try{const out=await api('/api/prices/freeze',{method:'POST',body:JSON.stringify({})});showMessage(`Frozen pricing snapshot with ${Number(out.symbol_count||0)} symbol${Number(out.symbol_count||0)===1?'':'s'}.`,'success');buildPreflight=null;await refreshPreflightForReview()}catch(e){showMessage('Pricing freeze failed: '+(e&&e.message?e.message:e),'error')}}
 async function unfreezePricingSnapshot(){try{await api('/api/prices/unfreeze',{method:'POST',body:JSON.stringify({})});showMessage('Pricing snapshot freeze removed. Future builds will use the configured pricing mode.','success');buildPreflight=null;await refreshPreflightForReview()}catch(e){showMessage('Pricing unfreeze failed: '+(e&&e.message?e.message:e),'error')}}
-function openSystemConfigurationConsole(){location.href='/system-configuration'}
+function openSystemConfigurationConsole(){
+  if(window.__is_desktop_app__){
+    // Call the pywebview bridge directly instead of relying on
+    // location.href interception: WebView2/EdgeChromium does not always
+    // allow pywebview_bridge.js to override Location.prototype.href (see
+    // the try/catch there), so that path can silently fall through to a
+    // real file:// navigation to a URL that doesn't exist on disk.
+    if(window.pywebview&&window.pywebview.api){window.pywebview.api.navigate('/system-configuration')}
+    else{window.addEventListener('pywebviewready',function(){window.pywebview.api.navigate('/system-configuration')},{once:true})}
+    return;
+  }
+  location.href='/system-configuration';
+}
 
 const DEFAULT_TRAVEL_TYPES=['Wedding','Large Gifts','Other'];
 function travelTypeList(){return [...new Set([...(travelTypes||[]),...DEFAULT_TRAVEL_TYPES,...travelExtras.map(e=>e.type).filter(Boolean)])].sort((a,b)=>a.localeCompare(b))}
