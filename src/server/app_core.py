@@ -216,10 +216,36 @@ def _sqlite_db() -> Path:
     return p if p.is_absolute() else BASE_DIR / p
 
 
+
+# Cache key -> (source mtime_ns, source size) for the last-written target,
+# so a request doesn't re-parse/rewrite system_config.active.csv when the
+# source system_config.csv hasn't changed since the previous request.
+_REQUEST_SYSTEM_CONFIG_CSV_CACHE: dict[str, tuple[int, int]] = {}
+
+
 def _request_system_config_csv() -> Path:
-    """Create a per-request system_config.csv copy for subprocess builds/tools."""
+    """Create a per-request system_config.csv copy for subprocess builds/tools.
+
+    The transform below is deterministic given the source file's content (it
+    always sets the same runtime path values), so a request can safely reuse
+    the target written by a previous request as long as the source hasn't
+    changed and the target still exists.
+    """
     source = _system_config_path()
     target = _workspace_output() / "system_config.active.csv"
+
+    source_fingerprint = None
+    if source.exists():
+        stat = source.stat()
+        source_fingerprint = (stat.st_mtime_ns, stat.st_size)
+        cache_key = str(target)
+        if (
+            source_fingerprint is not None
+            and _REQUEST_SYSTEM_CONFIG_CSV_CACHE.get(cache_key) == source_fingerprint
+            and target.exists()
+        ):
+            return target
+
     rows = []
     if source.exists():
         with source.open(newline="", encoding="utf-8-sig") as f:
@@ -244,6 +270,10 @@ def _request_system_config_csv() -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     with target.open("w", newline="", encoding="utf-8") as f:
         csv.writer(f, lineterminator="\n").writerows(rows)
+    if source_fingerprint is not None:
+        _REQUEST_SYSTEM_CONFIG_CSV_CACHE[str(target)] = source_fingerprint
+    else:
+        _REQUEST_SYSTEM_CONFIG_CSV_CACHE.pop(str(target), None)
     return target
 
 
