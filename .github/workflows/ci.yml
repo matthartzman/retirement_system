@@ -36,6 +36,11 @@ jobs:
     - name: Lint with ruff
       run: |
         ruff check src/ tests/
+        pip install pytest pytest-cov ruff
+
+    - name: Lint with ruff
+      run: |
+        ruff check src/ tests/ --select=E,F,W --ignore=E501,W503
 
     - name: Run tests
       run: |
