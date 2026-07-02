@@ -4,7 +4,6 @@ try:
         CLIENT_DATA_CSV_FILE_SET,
         CSV_PATH,
         PLAN_DATA_CSV_FILES,
-        PLAN_DATA_CSV_FILE_SET,
         Path,
         TRAVEL_EXTRA_TYPES,
         _audit,
@@ -56,7 +55,6 @@ except Exception:
         CLIENT_DATA_CSV_FILE_SET,
         CSV_PATH,
         PLAN_DATA_CSV_FILES,
-        PLAN_DATA_CSV_FILE_SET,
         Path,
         TRAVEL_EXTRA_TYPES,
         _audit,
@@ -102,9 +100,6 @@ except Exception:
         request,
         set_client_file,
     )
-import csv
-import io
-import hashlib
 try:
     from ..version import VERSION
 except Exception:
@@ -209,54 +204,6 @@ def _server_path_requires_allowlist():
 
 
 
-
-def _validate_rows_for_csv_file(name: str, rows: list[list[str]]) -> list[str]:
-    """Run the shared schema/cross-field validator on one CSV payload before saving."""
-    if name not in PLAN_DATA_CSV_FILE_SET:
-        return []
-    if not rows:
-        return []
-    try:
-        from ..schema_registry import validate_rows as _schema_validate_rows_full
-    except Exception:  # pragma: no cover - direct execution fallback
-        from src.schema_registry import validate_rows as _schema_validate_rows_full
-    header = list(rows[0])
-    dict_rows = []
-    for raw in rows[1:]:
-        padded = list(raw) + [""] * max(0, len(header) - len(raw))
-        dict_rows.append({header[i]: padded[i] if i < len(padded) else "" for i in range(len(header))})
-    return _schema_validate_rows_full(dict_rows)
-
-def _validate_all_workspace_plan_rows(file_rows: dict[str, list[list[str]]]) -> list[str]:
-    """Validate the effective full Plan Data set after pending edits.
-
-    Cross-field rules can span rows that were not in the current POST. Load the
-    existing workspace files, overlay edited files, and validate all editable Plan
-    Data rows as one set before any write reaches disk.
-    """
-    try:
-        from ..schema_registry import validate_rows as _schema_validate_rows_full
-    except Exception:  # pragma: no cover
-        from src.schema_registry import validate_rows as _schema_validate_rows_full
-    combined=[]
-    names = [n for n in PLAN_DATA_CSV_FILES if n != 'client_holdings.csv']
-    for name in names:
-        rows = file_rows.get(name)
-        if rows is None:
-            p = _plan_data_path(name)
-            if not p.exists():
-                continue
-            with p.open(newline='', encoding='utf-8-sig') as f:
-                rows = list(csv.reader(f))
-        if not rows:
-            continue
-        header = list(rows[0])
-        if not {'section','subsection','label','value'}.issubset(set(header)):
-            continue
-        for raw in rows[1:]:
-            padded = list(raw) + [''] * max(0, len(header) - len(raw))
-            combined.append({header[i]: padded[i] if i < len(padded) else '' for i in range(len(header))})
-    return _schema_validate_rows_full(combined)
 
 def _server_path_allowed(folder: Path):
     cfg = _runtime_config()
