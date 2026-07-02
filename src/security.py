@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 SECRET_PATTERNS = [
-    re.compile(r'("?(?:api[_-]?key|token|secret|password)"?\s*[:=]\s*)[^,\s\n\r]+', re.I),
+    re.compile(r'("?(?:api[_-]?key|token|secret|password)"?\s*[:=]\s*)[^,&\s\n\r]+', re.I),
     re.compile(r'((?:apikey|api_key)=)[^&\s]+', re.I),
 ]
 

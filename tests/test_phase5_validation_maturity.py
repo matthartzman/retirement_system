@@ -10,6 +10,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
 
@@ -152,12 +154,16 @@ class Phase5CrossToolReconciliationTests(unittest.TestCase):
                     self.assertAlmostEqual(engine, independent, delta=tol)
 
 
+@pytest.mark.slow
 class Phase5WorkbookSnapshotTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.mkdtemp(prefix="phase5_workbook_")
-        # Build in-place because the reporting stack uses project-root relative input/output paths.
+        # Build into an isolated output dir (via RETIREMENT_SYSTEM_OUTPUT_DIR) so
+        # this test never overwrites the git-tracked output/retirement_plan.xlsx.
         env = os.environ.copy()
+        env["RETIREMENT_SYSTEM_OUTPUT_DIR"] = cls.tmp
+        env["RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS"] = "1"
         env["RETIREMENT_MC_SIMS"] = "16"
         env["RETIREMENT_MC_SENSITIVITY_SIMS"] = "3"
         env["RETIREMENT_SKIP_REPORT_SIDECARS"] = "1"
@@ -165,7 +171,7 @@ class Phase5WorkbookSnapshotTests(unittest.TestCase):
         cls.build_stdout = result.stdout + result.stderr
         if result.returncode != 0:
             raise AssertionError(cls.build_stdout)
-        cls.workbook_path = ROOT / "output" / "retirement_plan.xlsx"
+        cls.workbook_path = Path(cls.tmp) / "retirement_plan.xlsx"
 
     @classmethod
     def tearDownClass(cls):
