@@ -31,6 +31,18 @@ Data manifest checksum, and one tax-aware-rebalance edge case) — see
 `documentation/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md` Section 1 if a fresh
 clone shows failures beyond what you introduced.
 
+## Running frontend JS tests
+
+```
+node --test "tests/frontend/**/*.test.mjs"
+```
+
+Requires Node 18+ (built-in test runner, no new dependency). Coverage is
+currently limited to the pure/stateless helper functions in
+`frontend/js/dashboard.js` — see `tests/frontend/load_dashboard.mjs` for why
+(most of the file's ~810 functions are tightly coupled to shared UI state and
+aren't yet safely unit-testable in isolation).
+
 ## Linting
 
 ```

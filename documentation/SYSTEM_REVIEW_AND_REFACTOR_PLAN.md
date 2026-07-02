@@ -106,7 +106,35 @@ Ranked by impact (size × how central the module is):
    decomposition into `frontend/js/modules/` was started
    (`phase3_module_manifest.js` declares the intended `extraction_order`) and
    then stalled — the manifest is a 9-line shell with no code actually moved.
-   Resume the planned extraction.
+   **Investigated during Phase 2d; physical extraction deliberately deferred.**
+   Almost every function reads/writes a large set of shared top-level mutable
+   state (`rows`, `dirty`, `activeStep`, `buildHistory`, `ytdData`, ...) — the
+   same kind of cross-section coupling that made splitting `planning_engines.py`
+   risky, except JS has no equivalent of `ruff`'s F821/F401 to catch a mistake,
+   no bundler (extraction means separate `<script>` tags sharing one global
+   namespace, order-dependent), and — until this phase — zero unit-test
+   coverage of any kind (only Python tests asserting the file contains certain
+   substrings, which don't verify behavior). Moving code under those
+   conditions is a good way to introduce a silent runtime regression a user
+   only discovers in the browser. What Phase 2d did instead: added the first
+   JS test coverage in the repo (`tests/frontend/`, Node's built-in
+   `node --test`, 24 tests) covering the handful of functions that genuinely
+   are pure — `esc`, `norm`, `titleWord`, `stripUiLabelPrefix`,
+   `formatAcronyms`, `fmtMoney`, `fmtPct`, `finiteOrNull`, `firstFinite`,
+   `normalizeLanguageMode` — via a small `vm`-based harness
+   (`tests/frontend/load_dashboard.mjs`) that runs the real production file
+   against minimal DOM/timer stubs. This surfaced a real, previously-untested
+   quirk: `finiteOrNull(NaN)` returns `0` instead of `null` (`String(NaN)` →
+   `"NaN"` → stripped of non-numeric characters → `""` → `Number("")` → `0`,
+   which passes `Number.isFinite`), which silently short-circuits
+   `firstFinite(..., NaN, ...)` to `0` instead of skipping past the `NaN` to
+   the next real value — documented as a test case, not fixed, since other
+   code may depend on it and this wasn't the task at hand. Recommended
+   sequencing for whoever picks up the actual extraction: grow this test
+   file's coverage function-by-function *before* moving each one (turns each
+   move into a verified refactor instead of a leap of faith), starting with
+   the next-safest tier (functions that read but don't write the shared
+   state) rather than attempting the stateful majority in one pass.
 6. **`src/data_io.py`** (2304 lines), **`src/market_data.py`** (1741),
    **`src/projection_stages/deterministic_engine.py`** (1669),
    **`src/optimization.py`** (1450), **`src/reporting/workbook_builder.py`**
