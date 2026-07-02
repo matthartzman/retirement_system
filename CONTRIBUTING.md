@@ -7,7 +7,7 @@ pip install -r requirements.txt -r requirements-dev.txt
 ```
 
 `requirements.txt` covers the runtime dependencies; `requirements-dev.txt` adds
-`pytest`, `pytest-cov`, `pytest-timeout`, and `ruff` for local development.
+`pytest`, `pytest-cov`, `pytest-timeout`, `ruff`, and `mypy` for local development.
 
 ## Running the app
 
@@ -52,6 +52,17 @@ ruff check .
 Currently scoped to syntax errors and undefined names (`E9`, `F821`) — see
 the comment in `pyproject.toml` for why the broader ruleset isn't a CI gate
 yet.
+
+## Type checking
+
+```
+mypy src/ --ignore-missing-imports
+```
+
+Runs in CI informationally (doesn't fail the build yet) — there's a ~264-error
+pre-existing backlog, over a third of it false positives from this codebase's
+`from .app_core import *` wildcard-import pattern. See the comment in
+`pyproject.toml`'s `[tool.mypy]` section for the breakdown.
 
 ## Building the desktop package
 

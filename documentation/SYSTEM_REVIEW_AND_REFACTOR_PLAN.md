@@ -46,7 +46,7 @@ name. The actual legacy/dead code is a small, well-defined list (Section 2).
 | `tools/validate_pdia_money_and_negative.js`, `tools/validate_scenario_ui.js` | `tools/` | Zero references anywhere — delete |
 | `documentation/reports/desktop.ini`, `documentation/validations/desktop.ini` | `documentation/` | Windows Explorer folder-customization files listing ~13 report filenames that no longer exist — delete |
 | Stale "no `.git/` metadata" claim | `documentation/CLAUDE.md:186` | Repo has been under git for a while — fix the doc |
-| `_strip_deprecated_allocation_count_rows`/`DEPRECATED_ALLOCATION_COUNT_LABELS` and `_strip_retired_scenario_home_rows`/`RETIRED_SCENARIO_HOME_ROW_KEYS` | `src/server/app_core.py:823-918, 834-885` | Two independent implementations of the identical "filter CSV rows by (section, subsection, label) key" pattern — consolidate into one helper; evaluate whether the migration window has passed and the whole purge can retire |
+| `_strip_deprecated_allocation_count_rows`/`DEPRECATED_ALLOCATION_COUNT_LABELS` and `_strip_retired_scenario_home_rows`/`RETIRED_SCENARIO_HOME_ROW_KEYS` | `src/server/csv_migration.py` (moved out of `app_core.py`) | **Done** — both share `_strip_rows_matching`/`_purge_rows_matching_from_plan_data` already; extracted to their own module in the Section 3 app_core.py split. Still evaluate whether the migration window has passed and the whole purge can retire |
 | Hardcoded personal path (`C:\Users\MattHartzman\OneDrive - Hartzman Partners LLC`) | `tools/backup_to_onedrive.py:63`, invoked unconditionally from `build.py` | Personal name/company baked into the repo and only works on one machine — parameterize via config/env var, or drop from the default `build.py` flow entirely |
 | `flask_compat.py` misleading name | `src/http_runtime/flask_compat.py` | **Not dead** — it's the live stdlib HTTP replacement for Flask, imported by `server/app_core.py`, `workbook_routes.py`, etc., and enforced by `test_125_flask_free_runtime.py`. Rename to something like `http_runtime/wsgi_facade.py` so future readers don't assume it's removable |
 | `dashboard_roadmap11.js`, `dashboard_roadmap12.js` naming | `frontend/js/` | Both are live, loaded in `index.html`, feature-bearing (batch-edit tooling) — not dead, but the "roadmapNN" name reads as scratch/dated. Rename to something intention-revealing |
@@ -91,11 +91,77 @@ Ranked by impact (size × how central the module is):
    safe via the same golden-master diff. Do not attempt a structural split of
    this file without a much deeper, dedicated investigation than a general
    refactor pass allows.
-3. **`src/server/app_core.py`** (2015 lines) — a god-module mixing auth/cookie
-   handling, audit logging, CSV migration, and config mutation. Split each
-   concern into its own module, continuing the `server_services/` extraction
-   pattern already used for `strategy_asset_service.py`, `spending_service.py`,
-   etc.
+3. **`src/server/app_core.py`** (2015 lines originally, **1690 after the
+   split below**) — a god-module mixing auth/cookie handling, audit logging,
+   CSV migration, and config mutation. **CSV migration and the auth+audit
+   clusters were extracted; see below.** The remaining config-mutation
+   cluster (`_set_system_config_values`, `_choice_options_for_config_row`,
+   `_classify_config_row`, `_csv_rows_payload`, etc.) and the security-hook
+   decorators are candidates for a future pass — see the "what deliberately
+   stayed" note below for why they weren't moved in this pass.
+
+   **What actually moved:**
+   - `DEPRECATED_ALLOCATION_COUNT_LABELS`/`RETIRED_SCENARIO_HOME_ROW_KEYS`
+     and every `_strip_*`/`_purge_*` CSV-row migration helper (the exact
+     duplication flagged in Section 2) moved to `src/server/csv_migration.py`
+     — a clean extraction, no coupling to anything else in `app_core.py`
+     beyond `CLIENT_DATA_CSV_FILES` and the plan-data CSV read/write helpers,
+     referenced via the module-alias pattern (`from . import app_core as
+     _app_core`, resolved at call time) to avoid a circular import.
+   - The auth-identity cluster (`_bootstrap_workspace`, `_candidate_token`,
+     `_html_request`, `_public_path`, `_cookie_secure_for_request`,
+     `_set_auth_cookie`/`_clear_auth_cookie`, `_identity_from_token`,
+     `_authorized_and_identity`, `_current_user`, `_workspace_id`/
+     `_client_id`, `_workspace_output`, ...) and the audit-log cluster
+     (`_audit`, `_admin_change_log_path_for`, `_record_admin_config_change`,
+     `_admin_changes_between`, `_read_last_build_timestamp`/
+     `_write_last_build_metadata`, ...) moved to **one combined file**,
+     `src/server/security_audit.py` — an AST call-graph pass (mapping every
+     top-level function to what it calls, the same discipline adopted after
+     the `planning_engines.py` near-miss in Phase 2c) showed the two clusters
+     are bidirectionally coupled (`_security_gate`/`_require` call `_audit`;
+     `_audit`/`_record_admin_config_change` call `_current_user`), so
+     splitting them into two separate files would have created a circular
+     import between them. Combining into one file avoided that with no loss
+     of the underlying goal (getting this code out of the 2000-line
+     god-module).
+   - Four confirmed-dead functions (`_login_rate_limited`,
+     `_record_login_failure`, `_clear_login_failures`, `_remote_addr_key`)
+     and the three module constants that only they used (`_LOGIN_ATTEMPTS`,
+     `_LOGIN_WINDOW_SECONDS`, `_LOGIN_MAX_FAILURES`) were deleted outright
+     rather than relocated — confirmed via `grep -rn` across every `.py` file
+     in the repo, zero call sites beyond their own `def` lines. This looks
+     like the scaffolding for a login rate-limiter that was never wired up
+     to an actual login route (the local-only package has no live login
+     endpoint that calls it).
+
+   **What deliberately stayed in `app_core.py`:**
+   - `_security_gate` (`@app.before_request`) and `_local_cors`
+     (`@app.after_request`) — both are decorator-registered against the
+     `app` object at import time. Moving decorated hook functions to another
+     file adds import-order risk (the decorator needs `app` to already
+     exist) for a security-critical code path, with no maintainability
+     upside — left in place to minimize change surface on the single most
+     security-sensitive code in the server.
+   - The config-mutation cluster (`_set_system_config_values`,
+     `_system_config_path`, `_choice_options_for_config_row` and its
+     `_federal_bracket_choice_options`/`_irmaa_tier_choice_options`/
+     `_pipe_choice_options` helpers, `_classify_config_row`,
+     `_csv_rows_payload`, `_read_schema_map`, `_import_tax_tables_for_choices`,
+     ...) — analyzed and scoped for extraction but deprioritized in this pass
+     in favor of the three concerns above (CSV migration, auth, audit) that
+     were explicitly named as the gap; left as a follow-up.
+   - `_bootstrap_workspace`/`_bootstrap_client`/`_workspace_id`/`_client_id`
+     did move with the auth cluster (they're re-exported back into
+     `app_core.py`'s namespace via `from .security_audit import *`, so every
+     existing caller in `plan_routes.py`/`workbook_routes.py`/
+     `admin_routes.py`/`base_routes.py` is unaffected).
+
+   Both extractions verified via: direct Python import test, `ruff check
+   --select E9,F821`, the full pytest suite (811 passed / 6 pre-existing
+   environment-specific failures, unchanged before and after), and a live
+   `app.test_client()` smoke test confirming `/api/ping` and `/` still route
+   correctly through `_security_gate`/`_local_cors`.
 4. **`src/server/plan_routes.py`** (987 lines) — the service-extraction effort
    (`test_126_service_extraction.py`) is complete for `workbook_routes.py`/
    `base_routes.py`/`admin_routes.py` but **not** for `plan_routes.py`, which
@@ -309,6 +375,12 @@ is a prerequisite for everything after it — do not start large refactors
   `output/`. Migrate the 9 tests that read the real `output/retirement_plan.xlsx`
   to use it.
 - Add `requirements-dev.txt` (pytest, pytest-cov, ruff, mypy at minimum).
+  **Done** — `mypy>=1.10,<2` added, scoped the same way as the ruff
+  backlog: a `[tool.mypy]` block in `pyproject.toml` documents the ~264-error
+  baseline (102 false positives from `from .app_core import *`-style wildcard
+  imports mypy can't resolve, ~162 genuine backlog), CI runs
+  `mypy src/ --ignore-missing-imports || true` informationally rather than
+  gating on it, and `CONTRIBUTING.md` documents the command for local use.
 - Add a GitHub Actions workflow: run `pytest`, `ruff check`, and a workbook
   smoke build on every PR.
 - Add `@pytest.mark.slow` to the test(s) that shell out to
