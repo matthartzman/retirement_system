@@ -11,7 +11,7 @@ def test_documented_reconciliation_files_exist():
     expected = [
         ROOT / "src/api_contracts.py",
         ROOT / "src/server/route_manifest.py",
-        ROOT / "frontend/js/dashboard_roadmap11.js",
+        ROOT / "frontend/js/dashboard_source_truth_banners.js",
         ROOT / "frontend/js/modules/phase3_module_manifest.js",
         ROOT / "frontend/js/api_client.js",
         ROOT / "frontend/js/app_store.js",

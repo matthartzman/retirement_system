@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from .app_core import *
-from ..http_runtime.flask_compat import Response
+from ..http_runtime.wsgi_facade import Response
 try:
     from ..schema_registry import load_schema as _load_schema_registry, validate_value as _schema_validate_value, validate_rows as _schema_validate_rows
 except Exception:
