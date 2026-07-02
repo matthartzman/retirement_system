@@ -81,6 +81,7 @@ def _run_desktop() -> int:
 # ---------------------------------------------------------------------------
 def _run_server() -> int:
     os.environ["RETIREMENT_SYSTEM_NO_AUTO_OPEN"] = "1"
+    from src import platform_runtime  # noqa: PLC0415
     from src.server import create_app, _runtime_config  # noqa: PLC0415
     from src.http_runtime.server import run_local_server  # noqa: PLC0415
 
@@ -98,7 +99,11 @@ def _run_server() -> int:
   Mode:       {cfg.app_mode}
 ======================================================
 """)
-    threading.Timer(1.5, lambda: webbrowser.open(url)).start()
+    # Desktop server mode opens a browser tab explicitly; a mobile host has no
+    # system browser to open, so skip it there. (NO_AUTO_OPEN above suppresses the
+    # inner server's own auto-open, not this intentional desktop open.)
+    if not platform_runtime.is_mobile():
+        threading.Timer(1.5, lambda: webbrowser.open(url)).start()
     run_local_server(create_app(), host=host, port=port, debug=False)
     return 0
 
