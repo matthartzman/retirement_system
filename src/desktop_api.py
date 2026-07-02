@@ -165,8 +165,9 @@ class DesktopApi:
         else:
             suffix = Path(filename).suffix if filename else ".bin"
 
-        tmp = Path(tempfile.mktemp(suffix=suffix))
-        tmp.write_bytes(raw)
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tf:
+            tf.write(raw)
+            tmp = Path(tf.name)
         try:
             os.startfile(str(tmp))
         except Exception:  # noqa: BLE001

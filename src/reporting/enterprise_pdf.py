@@ -41,6 +41,7 @@ from reportlab.lib.units import inch
 
 import matplotlib.pyplot as plt
 from pathlib import Path
+import os
 import tempfile
 import math
 
@@ -189,7 +190,12 @@ def build_enterprise_pdf(c, rows, mc_data, out_path='output/retirement_plan.pdf'
         "Long-term balance sheet evolution under baseline assumptions."
     )
 
-    tmp_chart = Path(tempfile.gettempdir()) / "nw_chart.png"
+    # Unique per-call path avoids clobbering another concurrent PDF build's
+    # chart image (the previous fixed "nw_chart.png" name in the shared temp
+    # dir was a race condition between overlapping build_enterprise_pdf calls).
+    tmp_chart_fd, tmp_chart_name = tempfile.mkstemp(suffix=".png")
+    os.close(tmp_chart_fd)
+    tmp_chart = Path(tmp_chart_name)
     _chart_networth(rows, tmp_chart)
 
     story.append(Image(str(tmp_chart), width=9.5 * inch, height=3.6 * inch))
@@ -360,6 +366,7 @@ def build_enterprise_pdf(c, rows, mc_data, out_path='output/retirement_plan.pdf'
         onFirstPage=_footer,
         onLaterPages=_footer
     )
+    tmp_chart.unlink(missing_ok=True)
 
     print(f"PDF created: {out_path}")
 
