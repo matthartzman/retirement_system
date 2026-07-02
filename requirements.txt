@@ -2,10 +2,21 @@
 # Keep this manifest authoritative; clean installs should not rely on globally
 # installed packages. Upper bounds protect the report/build pipeline from
 # unreviewed major-version API breaks.
+
+# --- Core (all platforms: desktop, server, and mobile hosts) ---
+# The projection engine, workbook/report pipeline, and local runtime need only
+# these. A mobile (Android/Chaquopy) build installs this core set and omits the
+# desktop-only group below.
 numpy>=1.26,<3
 openpyxl>=3.1,<4
 reportlab>=4.0,<5
 matplotlib>=3.8,<4
 pillow>=10,<12
 cryptography>=42,<46
+
+# --- Desktop-only (PyWebView native window shell) ---
+# pywebview powers the desktop native window (src/desktop_app.py). It is imported
+# lazily and only in desktop mode, so server mode and mobile hosts run without it.
+# On a mobile host the native WebView shell replaces pywebview entirely; install
+# the core set above and skip this line.
 pywebview>=4.0,<7

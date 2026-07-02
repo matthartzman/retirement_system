@@ -142,8 +142,18 @@ try:
 except Exception:
     from src import allocation_policy as allocation_policy_mod
 
+try:
+    from .. import platform_runtime
+except Exception:  # direct execution fallback
+    from src import platform_runtime
+
+# BASE_DIR is the code/package root: reference_data/, frontend static assets,
+# system_config.csv, and tools/build_workbook.py live here. WORKSPACE_ROOT is
+# where writable data (input/, output/, local_state/, saved_plans/) lives — the
+# same directory on desktop, app-private storage on mobile.
 BASE_DIR = Path(__file__).resolve().parents[2]
-DEFAULT_CSV_PATH = BASE_DIR / "input" / "client_data.csv"
+WORKSPACE_ROOT = platform_runtime.workspace_root()
+DEFAULT_CSV_PATH = WORKSPACE_ROOT / "input" / "client_data.csv"
 SCHEMA_PATH = BASE_DIR / "reference_data" / "schema.csv"
 BUILD_SCRIPT = BASE_DIR / "tools" / "build_workbook.py"
 app = Flask(__name__, static_folder=str(BASE_DIR))
@@ -176,7 +186,7 @@ def _configured_plan_csv_path(cfg=None) -> Path:
     cfg = cfg or RUNTIME_CONFIG
     raw = getattr(cfg, "config_file", "") or "input/client_data.csv"
     p = Path(raw)
-    return p if p.is_absolute() else BASE_DIR / p
+    return p if p.is_absolute() else WORKSPACE_ROOT / p
 
 CSV_PATH = _configured_plan_csv_path(RUNTIME_CONFIG)
 
@@ -213,7 +223,7 @@ def _runtime_config():
 def _sqlite_db() -> Path:
     cfg = _runtime_config()
     p = Path(cfg.sqlite_db or DEFAULT_DB)
-    return p if p.is_absolute() else BASE_DIR / p
+    return p if p.is_absolute() else WORKSPACE_ROOT / p
 
 
 def _request_system_config_csv() -> Path:
@@ -349,7 +359,7 @@ def _client_id() -> str:
 
 
 def _workspace_output() -> Path:
-    out = workspace_output_dir(_workspace_id(), BASE_DIR)
+    out = workspace_output_dir(_workspace_id(), WORKSPACE_ROOT)
     out.mkdir(parents=True, exist_ok=True)
     return out
 
@@ -382,14 +392,14 @@ def _audit(event: str, details: dict | None = None) -> None:
 def _admin_change_log_path_for(workspace_id: str | None = None) -> Path:
     """Local admin/config change log used by Build Impact."""
     tid = sanitize_id(workspace_id or _workspace_id())
-    out = workspace_output_dir(tid, BASE_DIR)
+    out = workspace_output_dir(tid, WORKSPACE_ROOT)
     out.mkdir(parents=True, exist_ok=True)
     return out / "admin_config_change_log.json"
 
 
 def _last_build_metadata_path_for(workspace_id: str | None = None) -> Path:
     tid = sanitize_id(workspace_id or _workspace_id())
-    out = workspace_output_dir(tid, BASE_DIR)
+    out = workspace_output_dir(tid, WORKSPACE_ROOT)
     out.mkdir(parents=True, exist_ok=True)
     return out / "last_build_metadata.json"
 
@@ -629,7 +639,7 @@ def _blank_liabilities_csv(content: str) -> str:
 
 def _make_blank_plan_files() -> dict[str, str]:
     """Create a blank-client-data Plan Data set from packaged templates."""
-    source_dir = BASE_DIR / "input"
+    source_dir = WORKSPACE_ROOT / "input"
     files: dict[str, str] = {}
     for name in PLAN_DATA_CSV_FILES:
         src = source_dir / name
@@ -727,7 +737,7 @@ def _plan_data_path(file_name: str, prefer_existing: bool = True) -> Path:
         return CSV_PATH if name == "client_data.csv" else CSV_PATH.parent / name
     if name in CLIENT_DATA_DERIVED_FILE_SET:
         return CSV_PATH.parent / name
-    return workspace_file(name, _workspace_id(), BASE_DIR, prefer_existing=prefer_existing)
+    return workspace_file(name, _workspace_id(), WORKSPACE_ROOT, prefer_existing=prefer_existing)
 
 
 

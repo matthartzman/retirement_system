@@ -24,9 +24,9 @@ except Exception:
     from src.build_snapshot import SNAPSHOT_FILENAME, read_build_snapshot
 
 try:
-    from ..server_services import build_job_service, build_service, holdings_service, plan_data_file_service, plan_forms_service, report_service, spending_service
+    from ..server_services import build_job_service, build_runner, build_service, holdings_service, plan_data_file_service, plan_forms_service, report_service, spending_service
 except Exception:
-    from src.server_services import build_job_service, build_service, holdings_service, plan_data_file_service, plan_forms_service, report_service, spending_service
+    from src.server_services import build_job_service, build_runner, build_service, holdings_service, plan_data_file_service, plan_forms_service, report_service, spending_service
 
 
 # Build-job orchestration is owned by server_services.build_job_service.
@@ -301,7 +301,12 @@ def build():
     env["RETIREMENT_SYSTEM_BUILD_STARTED_AT_TS"] = str(start)
     _clear_current_build_outputs(_workspace_output())
     try:
-        result = subprocess.run([sys.executable, str(BUILD_SCRIPT)], cwd=str(BASE_DIR), capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=cfg.max_build_seconds, env=env)
+        if build_runner.should_run_in_process():
+            # Mobile hosts cannot spawn a second interpreter; run the same build
+            # logic in-process. Returns a subprocess.CompletedProcess-shaped object.
+            result = build_runner.run_inprocess_build(env=env, timeout=cfg.max_build_seconds)
+        else:
+            result = subprocess.run([sys.executable, str(BUILD_SCRIPT)], cwd=str(BASE_DIR), capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=cfg.max_build_seconds, env=env)
     except subprocess.TimeoutExpired:
         return jsonify({"success": False, "error": f"Build timed out after {cfg.max_build_seconds} seconds"}), 500
     elapsed = round(time.time() - start, 1)

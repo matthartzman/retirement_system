@@ -17,15 +17,21 @@ from typing import Dict, Iterable, Tuple, Optional as _Optional, List as _List
 
 try:
     from .system_config import discover_system_config_csv, load_system_config, system_setting
+    from . import platform_runtime
 except Exception:
     from src.system_config import discover_system_config_csv, load_system_config, system_setting
+    from src import platform_runtime
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_CSV = PROJECT_ROOT / "input" / "client_data.csv"
-DEFAULT_JSON = PROJECT_ROOT / "input" / "client_data.json"
-DEFAULT_YAML = PROJECT_ROOT / "input" / "client_data.yaml"
-DEFAULT_DB = PROJECT_ROOT / "local_state" / "retirement_system_v10.db"
-DEFAULT_CLIENTS_CSV = PROJECT_ROOT / "local_state" / "local_plan_registry.csv"
+# PROJECT_ROOT stays the code/package root (read-only assets). Writable data
+# (input/, local_state/) hangs off the workspace root, which equals the package
+# root on desktop and app-private storage on mobile.
+PROJECT_ROOT = platform_runtime.package_root()
+_WORKSPACE_ROOT = platform_runtime.workspace_root()
+DEFAULT_CSV = _WORKSPACE_ROOT / "input" / "client_data.csv"
+DEFAULT_JSON = _WORKSPACE_ROOT / "input" / "client_data.json"
+DEFAULT_YAML = _WORKSPACE_ROOT / "input" / "client_data.yaml"
+DEFAULT_DB = _WORKSPACE_ROOT / "local_state" / "retirement_system_v10.db"
+DEFAULT_CLIENTS_CSV = _WORKSPACE_ROOT / "local_state" / "local_plan_registry.csv"
 SettingMap = Dict[str, Dict[str, Dict[str, str]]]
 
 CLIENT_DATA_PART_FILES = [
@@ -211,7 +217,7 @@ def resolve_path(path: str | Path | None, default: Path) -> Path:
     if not path:
         return default
     p = Path(path)
-    return p if p.is_absolute() else PROJECT_ROOT / p
+    return p if p.is_absolute() else platform_runtime.workspace_root() / p
 
 
 def init_sqlite(db_path: str | Path = DEFAULT_DB) -> Path:
@@ -413,7 +419,7 @@ def get_client_file(file_name: str, workspace_id: str = "local", client_id: str 
     return row[0] if row else None
 
 def materialize_workspace_files(workspace_id: str = "local", client_id: str = "local", db_path: str | Path = DEFAULT_DB, file_names: _Optional[_List[str]] = None, overwrite_existing: bool = False) -> Path:
-    out_dir = PROJECT_ROOT / "input"
+    out_dir = platform_runtime.workspace_root() / "input"
     out_dir.mkdir(parents=True, exist_ok=True)
     for name in file_names or ["client_holdings.csv", "target_allocation.csv", "manual_pricing_validation.csv", "client_spending_taxonomy.csv", "client_spending_aliases.csv", "client_spending_budget.csv", "client_spending_budget_lines.csv"]:
         dest = out_dir / Path(name).name
