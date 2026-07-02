@@ -64,8 +64,33 @@ Ranked by impact (size × how central the module is):
    helpers it needs already exist in `workbook_common.py` (53 call sites
    elsewhere), so this is pure decomposition, not new infrastructure.
 2. **`src/planning_engines.py`** (2692 lines, largest file in the repo) —
-   split by concern (projection stages already partly live in
-   `src/projection_stages/`; consolidate the rest there).
+   **investigated during Phase 2c and deliberately left as one file.** The
+   file carries literal `# ===== BEGIN/END <name>.py =====` markers showing
+   it's the result of a prior, deliberate consolidation of 8 previously
+   separate engine files (growth/inheritance/mortality/withdrawal/conversion/
+   projection/monte_carlo/vectorized-monte-carlo engines). Six
+   underscore-prefixed aliases defined near the top (`_ar`, `_aa`, `_we`,
+   `_ce`, `_ie`, `_ge`) look like unused leftovers by local analysis, but are
+   actually consumed by `src/projection_stages/deterministic_engine.py` via
+   `from ..planning_engines import *` (which skips underscore names) followed
+   by explicit `_legacy_pe._aa` etc. rebinding — that module's entire
+   deterministic projection body (RMD computation, Roth conversion,
+   withdrawal ordering, growth application, ~1600 lines) depends on these
+   staying put. A first attempt at "cleaning up" these as dead code broke the
+   engine at import time; caught immediately by a golden-master byte-diff of
+   `project()`/`monte_carlo()` output before attempting any change. Splitting
+   this file into separate modules would require carefully tracing every
+   cross-section call first (the Monte Carlo section alone calls
+   `sample_household_death_years` and `project()`, both defined in other
+   sections) and risks reintroducing whatever circular-import problem the
+   original consolidation likely solved. What Phase 2c actually did instead:
+   removed genuinely-confirmed-dead duplicate `typing` imports and a
+   redundant `_ar` re-import accumulated across the consolidation boundaries
+   (17 caught by `ruff --select F401,F811 --fix`), one dead `end_yr` local
+   variable, and one unused `.observability.observe` import — all verified
+   safe via the same golden-master diff. Do not attempt a structural split of
+   this file without a much deeper, dedicated investigation than a general
+   refactor pass allows.
 3. **`src/server/app_core.py`** (2015 lines) — a god-module mixing auth/cookie
    handling, audit logging, CSV migration, and config mutation. Split each
    concern into its own module, continuing the `server_services/` extraction
