@@ -1,0 +1,20 @@
+[tool.pytest.ini_options]
+# Lets `pytest` run from the repo root with no manual PYTHONPATH=. — the test
+# suite imports `src.*` as an absolute package relative to the project root.
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = [
+    "slow: exercises the full build pipeline via subprocess; skip locally with -m 'not slow'",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+# Start narrow: syntax errors and undefined names are unambiguous bugs with
+# zero pre-existing violations once E9/F821 issues are fixed. F401 (unused
+# imports) etc. currently has ~2800 pre-existing hits across the repo and
+# should be enabled once that backlog is cleaned up (see Phase 5 of
+# documentation/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md), not as a day-one CI gate.
+select = ["E9", "F821"]
