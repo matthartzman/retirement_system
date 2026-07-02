@@ -28,7 +28,10 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install pytest pytest-cov ruff
+        # scipy (portfolio and tax-location optimizers) and lxml (workbook XML
+        # chart-value caches) are optional runtime features with graceful
+        # fallbacks; the test suite exercises them directly, so install them here.
+        pip install pytest pytest-cov ruff scipy lxml
 
     - name: Lint with ruff
       run: |
