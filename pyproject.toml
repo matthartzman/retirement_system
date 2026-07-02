@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "retirement-planner"
+version = "10.0.0"
+description = "Comprehensive retirement planning analysis and workbook generation"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26,<3",
+    "openpyxl>=3.1,<4",
+    "reportlab>=4.0,<5",
+    "matplotlib>=3.8,<4",
+    "pillow>=10,<12",
+    "cryptography>=42,<46",
+    "pywebview>=4.0,<7",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+# The lint gate catches real defects (syntax errors, undefined names, duplicate
+# dict keys, invalid comparisons) while ignoring the codebase's deliberate,
+# pervasive architectural and formatting patterns. Notably the server assembles
+# its route registry via `from .app_core import *` (F403/F405), and modules use
+# a `from __future__` + docstring + try/except import-fallback layout (E402).
+# W503 was removed: it is a flake8 rule ruff does not implement, and current
+# ruff rejects it as an unknown selector, which previously failed the lint step
+# before it could run.
+ignore = [
+    "E501",  # line too long (formatter's concern)
+    "E401",  # multiple imports on one line
+    "E402",  # module import not at top (from-__future__/docstring/try-except house style)
+    "E701",  # multiple statements on one line (colon)
+    "E702",  # multiple statements on one line (semicolon)
+    "E722",  # bare except (pervasive in defensive import fallbacks)
+    "E731",  # lambda assignment
+    "E741",  # ambiguous variable name
+    "F401",  # unused import (re-export / compatibility patterns)
+    "F403",  # star import (deliberate app_core route-registry architecture)
+    "F405",  # name may be from star import (same architecture)
+    "F541",  # f-string without placeholders
+    "F811",  # redefinition (compatibility shims)
+    "F841",  # unused local variable
+    "W291",  # trailing whitespace
+    "W292",  # no newline at end of file
+    "W293",  # whitespace on blank line
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F401"]  # unused imports in test fixtures
+"__init__.py" = ["F401"]  # unused imports in __init__ files
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "--tb=short -q"
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

@@ -365,6 +365,7 @@ def build_enterprise_pdf(c, rows, mc_data, out_path='output/retirement_plan.pdf'
 
 
 if __name__ == '__main__':
+    import sys as _sys
     bw = _sys.modules[__name__]  # consolidated alias for build_workbook
 
     _root = Path(__file__).resolve().parent.parent
