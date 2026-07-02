@@ -1,6 +1,95 @@
 from .workbook_common import *
 from .. import allocation_policy as _ap
 
+# ── Asset Allocation (Sheet 4) shared constants and helpers ──────────────────
+# Hoisted out of build_sheet4 (previously ~1,400 lines in one function): pure
+# lookup tables and small helpers with no dependency on build_sheet4's local
+# state, used only by that sheet's build. Behavior is unchanged from the
+# nested versions this replaces — see documentation/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md
+# Phase 2a.
+
+ASSET_ALLOCATION_BUCKET_MAP = {
+    # US Large Cap
+    'ITOT': 'US Large Cap', 'VTI': 'US Large Cap', 'VOO': 'US Large Cap', 'SPY': 'US Large Cap',
+    'IVV': 'US Large Cap', 'SCHB': 'US Large Cap', 'SPTM': 'US Large Cap', 'QQQ': 'US Large Cap', 'SCHX': 'US Large Cap',
+    # US Mid Cap
+    'VO': 'US Mid Cap', 'IJH': 'US Mid Cap', 'SCHM': 'US Mid Cap', 'IWR': 'US Mid Cap',
+    # US Small Cap
+    'AVUV': 'US Small Cap', 'VBR': 'US Small Cap', 'IWM': 'US Small Cap',
+    'SCHA': 'US Small Cap', 'VB': 'US Small Cap', 'AVDV': 'US Small Cap', 'IJR': 'US Small Cap',
+    # International Developed
+    'IXUS': 'International', 'VXUS': 'International', 'EFA': 'International',
+    'IEFA': 'International', 'SCHF': 'International', 'VEA': 'International',
+    # Emerging Markets
+    'VWO': 'Emerging Markets', 'EEM': 'Emerging Markets', 'IEMG': 'Emerging Markets',
+    # Bonds
+    'BND': 'Bonds', 'AGG': 'Bonds', 'SCHZ': 'Bonds', 'TLT': 'Bonds',
+    'VBTLX': 'Bonds', 'BNDX': 'Bonds', 'IEF': 'Bonds', 'HYG': 'Bonds', 'LQD': 'Bonds',
+    # Short-Term Bonds
+    'SHY': 'Short-Term Bonds', 'SGOV': 'Short-Term Bonds', 'BIL': 'Short-Term Bonds',
+    'USFR': 'Short-Term Bonds', 'TFLO': 'Short-Term Bonds',
+    # TIPS
+    'TIPS': 'TIPS', 'TIP': 'TIPS', 'VTIP': 'TIPS', 'SCHP': 'TIPS', 'STIP': 'TIPS',
+    # Municipal Bonds
+    'MUB': 'Municipal Bonds', 'VTEB': 'Municipal Bonds', 'TFI': 'Municipal Bonds', 'SUB': 'Municipal Bonds',
+    # REITs
+    'VNQ': 'REITs', 'SCHH': 'REITs', 'IYR': 'REITs', 'VGSLX': 'REITs',
+    # Commodities
+    'PDBC': 'Commodities', 'DJP': 'Commodities', 'GSG': 'Commodities',
+    # Managed Futures
+    'DBMF': 'Managed Futures', 'KMLM': 'Managed Futures', 'CTA': 'Managed Futures',
+    # Private Credit / Loan-like income
+    'BKLN': 'Private Credit', 'SRLN': 'Private Credit', 'CLOA': 'Private Credit',
+    'JAAA': 'Private Credit', 'BIZD': 'Private Credit',
+    # Cash
+    'CASH': 'Cash',
+}
+
+_ASSET_ALLOCATION_REAL_ESTATE_BUCKETS = {'REITs'}
+
+
+def _candidate_symbols(*buckets):
+    """ETF candidates for the given asset-class buckets, de-duplicated in order."""
+    out = []
+    for b in buckets:
+        for sym in _ap.ETF_CANDIDATES.get(b, []):
+            if sym not in out:
+                out.append(sym)
+    return out
+
+
+def _hide_zero_before_after_row(before_value, after_value):
+    """True when both before/after dollar amounts round to zero (sub-$0.50 dust)."""
+    try:
+        return abs(float(before_value or 0)) < 0.50 and abs(float(after_value or 0)) < 0.50
+    except Exception:
+        return False
+
+
+def _status_for_bucket(bucket, pct, tgt, fi_covered_full, re_covered_full):
+    if bucket in _ap.FIXED_INCOME_CLASSES and fi_covered_full:
+        return '✓ Covered by fixed-income coverage'
+    if bucket in _ASSET_ALLOCATION_REAL_ESTATE_BUCKETS and re_covered_full:
+        return '✓ Covered by real-estate coverage'
+    if not tgt:
+        return ''
+    delta = pct - tgt
+    return '✓' if abs(delta) < 0.03 else f'{"Over" if delta>0 else "Under"} {abs(delta):.1%}'
+
+
+def _after_status_for_total_mix(label, asset_type, after_pct, tgt, fi_covered_full, re_covered_full):
+    if asset_type == 'Non-liquid':
+        if 'Fixed' in str(label) and fi_covered_full:
+            return '✓ Covered'
+        if ('Real Estate' in str(label) or 'Home Equity' in str(label)) and re_covered_full:
+            return '✓ Covered'
+        if not tgt:
+            return 'Shown for context; no liquid target'
+        _delta = after_pct - tgt
+        return '✓ Covered' if after_pct >= tgt else ('✓ Mostly covered' if after_pct >= tgt * 0.8 else f'Under {abs(_delta):.1%}')
+    return _status_for_bucket(label, after_pct, tgt, fi_covered_full, re_covered_full)
+
+
 def _workbook_pricing_source_label():
     """Return a concise workbook-level label for the actual price source used."""
     try:
@@ -1303,62 +1392,11 @@ def build_sheet4(ws, c):
         else:
             nonliquid_assets.append(('Home Equity (shown, not counted toward REIT target)', home_equity, 'Non-liquid'))
 
-    # Bucket definitions — map symbols to asset class buckets
-    # Expanded to cover common ETFs. Any symbol not listed → 'Uncategorized'.
-    BUCKET_MAP = {
-        # US Large Cap
-        'ITOT': 'US Large Cap', 'VTI': 'US Large Cap', 'VOO': 'US Large Cap', 'SPY': 'US Large Cap',
-        'IVV': 'US Large Cap', 'SCHB': 'US Large Cap', 'SPTM': 'US Large Cap', 'QQQ': 'US Large Cap', 'SCHX': 'US Large Cap',
-        # US Mid Cap
-        'VO': 'US Mid Cap', 'IJH': 'US Mid Cap', 'SCHM': 'US Mid Cap', 'IWR': 'US Mid Cap',
-        # US Small Cap
-        'AVUV': 'US Small Cap', 'VBR': 'US Small Cap', 'IWM': 'US Small Cap',
-        'SCHA': 'US Small Cap', 'VB': 'US Small Cap', 'AVDV': 'US Small Cap', 'IJR': 'US Small Cap',
-        # International Developed
-        'IXUS': 'International', 'VXUS': 'International', 'EFA': 'International',
-        'IEFA': 'International', 'SCHF': 'International', 'VEA': 'International',
-        # Emerging Markets
-        'VWO': 'Emerging Markets', 'EEM': 'Emerging Markets', 'IEMG': 'Emerging Markets',
-        # Bonds
-        'BND': 'Bonds', 'AGG': 'Bonds', 'SCHZ': 'Bonds', 'TLT': 'Bonds',
-        'VBTLX': 'Bonds', 'BNDX': 'Bonds', 'IEF': 'Bonds', 'HYG': 'Bonds', 'LQD': 'Bonds',
-        # Short-Term Bonds
-        'SHY': 'Short-Term Bonds', 'SGOV': 'Short-Term Bonds', 'BIL': 'Short-Term Bonds',
-        'USFR': 'Short-Term Bonds', 'TFLO': 'Short-Term Bonds',
-        # TIPS
-        'TIPS': 'TIPS', 'TIP': 'TIPS', 'VTIP': 'TIPS', 'SCHP': 'TIPS', 'STIP': 'TIPS',
-        # Municipal Bonds
-        'MUB': 'Municipal Bonds', 'VTEB': 'Municipal Bonds', 'TFI': 'Municipal Bonds', 'SUB': 'Municipal Bonds',
-        # REITs
-        'VNQ': 'REITs', 'SCHH': 'REITs', 'IYR': 'REITs', 'VGSLX': 'REITs',
-        # Commodities
-        'PDBC': 'Commodities', 'DJP': 'Commodities', 'GSG': 'Commodities',
-        # Managed Futures
-        'DBMF': 'Managed Futures', 'KMLM': 'Managed Futures', 'CTA': 'Managed Futures',
-        # Private Credit / Loan-like income
-        'BKLN': 'Private Credit', 'SRLN': 'Private Credit', 'CLOA': 'Private Credit',
-        'JAAA': 'Private Credit', 'BIZD': 'Private Credit',
-        # Cash
-        'CASH': 'Cash',
-    }
+    # Bucket definitions — map symbols to asset class buckets. Hoisted to
+    # module level as ASSET_ALLOCATION_BUCKET_MAP (see top of file).
+    BUCKET_MAP = ASSET_ALLOCATION_BUCKET_MAP
 
     ETF_CANDIDATES = _ap.ETF_CANDIDATES
-
-    ETF_NOTES = {
-        'US Large Cap': 'broad U.S. large-cap equity index exposure',
-        'US Mid Cap': 'U.S. mid-cap equity exposure',
-        'US Small Cap': 'U.S. small-cap equity exposure',
-        'International': 'developed international equity exposure',
-        'Emerging Markets': 'emerging-markets equity exposure',
-        'Commodities': 'broad commodities exposure',
-        'Bonds': 'core investment-grade bond exposure',
-        'Short-Term Bonds': 'Treasury bill/short-duration bond exposure',
-        'TIPS': 'inflation-linked Treasury exposure',
-        'Municipal Bonds': 'tax-exempt municipal bond exposure',
-        'Managed Futures': 'managed-futures / trend-following exposure',
-        'Private Credit': 'senior-loan / CLO-style credit exposure',
-        'REITs': 'liquid listed real-estate exposure',
-    }
 
     # ── Compute Allocation Recommendations ─────────────────────────────
     # _opt is the selected recommendation based on the UI toggle.  The
@@ -1459,16 +1497,6 @@ def build_sheet4(ws, c):
     fi_covered_full = fi_tgt > 0 and fi_total_pct >= fi_tgt - 0.0005
     re_covered_full = re_tgt > 0 and re_total_pct >= re_tgt - 0.0005
 
-    def _status_for_bucket(bucket, pct, tgt):
-        if bucket in FIXED_INCOME_BUCKETS and fi_covered_full:
-            return '✓ Covered by fixed-income coverage'
-        if bucket in REAL_ESTATE_BUCKETS and re_covered_full:
-            return '✓ Covered by real-estate coverage'
-        if not tgt:
-            return ''
-        delta = pct - tgt
-        return '✓' if abs(delta) < 0.03 else f'{"Over" if delta>0 else "Under"} {abs(delta):.1%}'
-
     # Liquid holdings by bucket, plus cash, sorted by current value descending.
     mix_rows = []
     for bucket in BUCKET_TARGETS.keys():
@@ -1477,13 +1505,13 @@ def build_sheet4(ws, c):
         act_val = actual_buckets.get(bucket, 0)
         pct = act_val / total_portfolio if total_portfolio > 0 else 0
         tgt = TOTAL_TARGETS.get(bucket, TOTAL_TARGETS.get(bucket.replace('/Value',''), 0))
-        status = _status_for_bucket(bucket, pct, tgt)
+        status = _status_for_bucket(bucket, pct, tgt, fi_covered_full, re_covered_full)
         mix_rows.append((bucket, act_val, pct, 'Liquid', tgt, status, False))
 
     cash_total = sum(h.get('CASH', 0) * 1.0 for h in _invest_positions.values())
     cash_tgt = TOTAL_TARGETS.get('Cash', 0.0)
     cash_pct = cash_total / total_portfolio if total_portfolio > 0 else 0
-    cash_status = _status_for_bucket('Cash', cash_pct, cash_tgt)
+    cash_status = _status_for_bucket('Cash', cash_pct, cash_tgt, fi_covered_full, re_covered_full)
     if cash_total > 0 or cash_tgt > 0:
         mix_rows.append(('Cash', cash_total, cash_pct, 'Liquid', cash_tgt, cash_status, False))
 
@@ -1841,17 +1869,9 @@ def build_sheet4(ws, c):
     r += 2
 
     # Location preference: which symbols should each account type ideally hold?
-    # These lists are generated from the candidate ETF map so unrepresented but
-    # recommended sleeves flow into the actual buy guidance instead of appearing
-    # only as narrative notes.
-    def _candidate_symbols(*buckets):
-        out = []
-        for b in buckets:
-            for sym in ETF_CANDIDATES.get(b, []):
-                if sym not in out:
-                    out.append(sym)
-        return out
-
+    # These lists are generated from the candidate ETF map (via the module-level
+    # _candidate_symbols helper) so unrepresented but recommended sleeves flow
+    # into the actual buy guidance instead of appearing only as narrative notes.
     LOCATION_PREF = {
         'pre_tax': _candidate_symbols('Bonds', 'Short-Term Bonds', 'TIPS', 'REITs', 'Private Credit', 'Commodities', 'Managed Futures', 'Emerging Markets', 'International', 'US Equity', 'US Small/Value'),
         'roth':    _candidate_symbols('US Small/Value', 'Emerging Markets', 'US Equity', 'International', 'Managed Futures', 'Commodities', 'REITs', 'Private Credit'),
@@ -2412,14 +2432,10 @@ def build_sheet4(ws, c):
         all_buckets_ordered.append('Uncategorized')
 
     # Rows with no actual before/after dollars add noise in the Before & After
-    # Rebalancing section, especially when a target exists but non-liquid coverage
-    # already eliminates the need for a liquid sleeve. Treat sub-dollar dust as zero
-    # because the workbook rounds dollar amounts to whole dollars.
-    def _hide_zero_before_after_row(before_value, after_value):
-        try:
-            return abs(float(before_value or 0)) < 0.50 and abs(float(after_value or 0)) < 0.50
-        except Exception:
-            return False
+    # Rebalancing section (module-level _hide_zero_before_after_row, see top of
+    # file), especially when a target exists but non-liquid coverage already
+    # eliminates the need for a liquid sleeve. Sub-dollar dust is treated as
+    # zero because the workbook rounds dollar amounts to whole dollars.
 
     # ── Per-account before/after tables ───────────────────────────────────
     for acct in sorted(_invest_positions.keys()):
@@ -2508,18 +2524,8 @@ def build_sheet4(ws, c):
     # Backfill the top Total Portfolio Mix table with the projected household
     # allocation after executing recommended trades.  Non-liquid coverage rows
     # stay unchanged; liquid rows use the same projected after-trade buckets as
-    # the detailed before/after section below.
-    def _after_status_for_total_mix(label, asset_type, after_pct, tgt):
-        if asset_type == 'Non-liquid':
-            if 'Fixed' in str(label) and fi_covered_full:
-                return '✓ Covered'
-            if ('Real Estate' in str(label) or 'Home Equity' in str(label)) and re_covered_full:
-                return '✓ Covered'
-            if not tgt:
-                return 'Shown for context; no liquid target'
-            _delta = after_pct - tgt
-            return '✓ Covered' if after_pct >= tgt else ('✓ Mostly covered' if after_pct >= tgt * 0.8 else f'Under {abs(_delta):.1%}')
-        return _status_for_bucket(label, after_pct, tgt)
+    # the detailed before/after section below. (module-level
+    # _after_status_for_total_mix, see top of file)
 
     for _label, _row in (_total_mix_rows or {}).items():
         _asset_type = _total_mix_types.get(_label, 'Liquid')
@@ -2529,7 +2535,7 @@ def build_sheet4(ws, c):
         else:
             _after_val = port_after.get(_label, 0.0)
         _after_pct = _after_val / total_portfolio if total_portfolio > 0 else 0.0
-        _after_status = _after_status_for_total_mix(_label, _asset_type, _after_pct, _tgt)
+        _after_status = _after_status_for_total_mix(_label, _asset_type, _after_pct, _tgt, fi_covered_full, re_covered_full)
         _changed = abs(_after_val - _total_mix_current_values.get(_label, 0.0)) > 50
         write_cell(ws, _row, 4, _after_val, fmt=FMT_DOLLAR, align='right', bg='E2EFDA' if _changed else None)
         write_cell(ws, _row, 5, _after_pct, fmt=FMT_PCT, align='right', bg='E2EFDA' if _changed else None)
