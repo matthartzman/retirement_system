@@ -19,7 +19,7 @@ def test_workbook_routes_delegate_plan_data_files_budget_lines_and_liabilities()
     assert "def _plan_data_file_feature_service()" in routes
     assert "PlanDataFileServiceContext" in routes
     assert ".files_payload()" in routes
-    assert ".start_blank_payload()" in routes
+    assert ".start_blank_payload(ytd_blend_enabled=ytd_blend_enabled)" in routes
     assert ".get_file_payload(file_name)" in routes
     assert ".save_file_payload(file_name" in routes
     assert "holdings_service.read_liabilities(" in routes
@@ -106,3 +106,54 @@ def test_plan_data_file_service_blank_backup_and_write_callbacks(tmp_path):
     payload, status = service.save_file_payload("client_data.csv", "new")
     assert status == 200
     assert normal_written["client_data.csv"] == "new"
+
+
+def test_start_blank_payload_stamps_ytd_blend_choice_onto_spending_csv(tmp_path):
+    """Finding A fix: 'Start New Plan' can carry an explicit real-actuals
+    blend choice through to the freshly blanked client_spending.csv, since
+    the normal blank-template blanking pass clears every value column
+    (including this flag) to an implicit-default-True blank."""
+    from src.server_services.plan_data_file_service import PlanDataFileService, PlanDataFileServiceContext
+
+    db = tmp_path / "retirement_system_v10.db"
+    db.write_bytes(b"sqlite placeholder")
+    blank_written = {}
+
+    def write_blank(name, content):
+        blank_written[name] = content
+        return tmp_path / f"blank_{name}"
+
+    blank_spending_csv = (
+        "section,subsection,label,value,units,notes\n"
+        "Cashflow,Spending,annual_spending_base_year,,,\n"
+        "Cashflow,Spending,ytd_blend_enabled,,,\n"
+    )
+
+    service = PlanDataFileService(PlanDataFileServiceContext(
+        plan_data_files=["client_data.csv", "client_spending.csv"],
+        client_data_csv_file_set={"client_data.csv", "client_spending.csv"},
+        sqlite_db=lambda: db,
+        normalize_plan_data_file_name=lambda name: name,
+        read_plan_data_file=lambda name: None,
+        write_plan_data_file=lambda name, content: tmp_path / name,
+        write_blank_plan_data_file=write_blank,
+        make_blank_plan_files=lambda: {"client_data.csv": "section,subsection,label,value\n", "client_spending.csv": blank_spending_csv},
+        protected_client_data_status=lambda: {"husband_retirement_date_present": False},
+        ensure_user_ui_plan_data_rows=lambda: None,
+        sync_config_backends=lambda: {"success": True},
+        audit=lambda event, details=None: None,
+    ))
+
+    payload, status = service.start_blank_payload(ytd_blend_enabled=False)
+    assert status == 200
+    assert "Cashflow,Spending,ytd_blend_enabled,FALSE" in blank_written["client_spending.csv"]
+
+    payload, status = service.start_blank_payload(ytd_blend_enabled=True)
+    assert status == 200
+    assert "Cashflow,Spending,ytd_blend_enabled,TRUE" in blank_written["client_spending.csv"]
+
+    # No choice supplied (no live YTD data, prompt never fired) - leave the
+    # blanked value alone; the data_io.py parser defaults it to True.
+    payload, status = service.start_blank_payload(ytd_blend_enabled=None)
+    assert status == 200
+    assert blank_written["client_spending.csv"] == blank_spending_csv

@@ -156,16 +156,30 @@ class Phase5WorkbookSnapshotTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.mkdtemp(prefix="phase5_workbook_")
-        # Build in-place because the reporting stack uses project-root relative input/output paths.
+        tmp_root = Path(cls.tmp)
+        # The reporting stack resolves its project root from source-file
+        # location, not from the process cwd, so building "in-place" against
+        # ROOT would read/write the real input/, system_config.csv, and
+        # output/ files. Copy the tree into a scratch dir and build there
+        # instead; local_state/ and output/ are deliberately excluded so the
+        # build bootstraps a fresh SQLite mirror rather than touching the
+        # real one.
+        excluded_names = {".git", ".claude", ".pytest_cache", "tests", "documentation", "output", "local_state", "__pycache__"}
+        shutil.copytree(
+            ROOT,
+            tmp_root,
+            ignore=lambda _dir, names: [n for n in names if n in excluded_names or n.endswith(".pyc")],
+            dirs_exist_ok=True,
+        )
         env = os.environ.copy()
         env["RETIREMENT_MC_SIMS"] = "16"
         env["RETIREMENT_MC_SENSITIVITY_SIMS"] = "3"
         env["RETIREMENT_SKIP_REPORT_SIDECARS"] = "1"
-        result = subprocess.run([sys.executable, "tools/build_workbook.py"], cwd=ROOT, text=True, capture_output=True, env=env, timeout=120)
+        result = subprocess.run([sys.executable, "tools/build_workbook.py"], cwd=tmp_root, text=True, capture_output=True, env=env, timeout=120)
         cls.build_stdout = result.stdout + result.stderr
         if result.returncode != 0:
             raise AssertionError(cls.build_stdout)
-        cls.workbook_path = ROOT / "output" / "retirement_plan.xlsx"
+        cls.workbook_path = tmp_root / "output" / "retirement_plan.xlsx"
 
     @classmethod
     def tearDownClass(cls):

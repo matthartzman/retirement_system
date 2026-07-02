@@ -687,6 +687,14 @@ def ytd_account_setup_save():
     return jsonify(_ytd_feature_service().save_account_setup(request.get_json(silent=True) or {}))
 
 
+@app.route("/api/ytd/account-setup/roll-forward", methods=["POST"])
+def ytd_account_setup_roll_forward():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    return jsonify(_ytd_feature_service().roll_forward_account_setup())
+
+
 @app.route("/api/ytd/transactions/bulk", methods=["PUT"])
 def ytd_transactions_bulk_save():
     denied = _require("write_config")
@@ -959,6 +967,7 @@ def plan_load_file():
                     workspace_id=_workspace_id(),
                     client_id=_client_id(),
                     db_path=_sqlite_db(),
+                    file_names=[n for n in PLAN_DATA_CSV_FILES if n != "client_data.csv"] + YTD_PLAN_DATA_FILES,
                     overwrite_existing=True,
                 )
             except Exception as mat_exc:

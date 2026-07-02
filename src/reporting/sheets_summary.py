@@ -970,7 +970,23 @@ def build_sheet2(ws, c, rows):
         _mc = _heard.get('monte_carlo') or {}
         _alloc = _heard.get('allocation') or {}
         _rep = _heard.get('reporting') or {}
+        _cya = _heard.get('current_year_actuals') or {}
+        if _cya:
+            _remaining_pct = _pct(_cya.get('remaining_fraction'))
+            if _cya.get('flows_blended'):
+                _overrides = []
+                if _cya.get('earned_remainder_overridden'):_overrides.append('earned income')
+                if _cya.get('spend_remainder_overridden'):_overrides.append('spending')
+                _override_note = f" Remainder-of-year {' and '.join(_overrides)} used a manual override instead of the linear pro-rated estimate." if _overrides else ''
+                _cya_text = f"{_cya.get('current_year')}: income/spending actual through {_cya.get('ytd_end')}, projected for the remaining {_remaining_pct} of the year; account growth/contributions prorated to that same remainder.{_override_note}"
+            elif _cya.get('flow_blend_skipped_by_user_choice'):
+                _cya_text = f"{_cya.get('current_year')}: modeled as fully hypothetical by user choice (ytd_blend_enabled = FALSE) — real income/spending actuals tracked through {_cya.get('ytd_end')} were excluded; income/spending shown as a full-year projection. Account growth/contributions are still prorated to the remaining {_remaining_pct} of the year, since that proration is date math, not real-data blending."
+            else:
+                _cya_text = f"{_cya.get('current_year')}: account growth/contributions prorated to the remaining {_remaining_pct} of the year; income/spending shown as a full-year projection (add YTD actuals in Settings to blend real results)."
+        else:
+            _cya_text = 'Not available for this build.'
         _heard_items = [
+            ('Current-year actuals blend', _cya_text, 'text', 'Action: keep YTD transactions and each account\'s Prior Year End Balance current every January so the current-year row reflects real results, not just a full-year assumption.'),
             ('Time horizon', _heard.get('plan_years'), 'text', 'Sets the years included in every income, tax, spending, and terminal-net-worth calculation.'),
             ('Social Security income', f"Claim ages H/W: {_ss.get('husband_claim_age')}/{_ss.get('wife_claim_age')}; funding haircut {_pct(_ss.get('funding_discount_pct'))} starting {_ss.get('funding_discount_year')}", 'text', 'Action: set the funding haircut to 0% for one scenario if you want to isolate this drag on terminal net worth.'),
             ('Wellness cash flow', f"Bridge monthly {_money(_hc.get('bridge_premium_monthly_today') or (float(_hc.get('bridge_premium_today') or 0)/12))}; Medicare B/D/G monthly {_money(float(_hc.get('part_b_monthly_today') or 0)+float(_hc.get('part_d_monthly_today') or 0)+float(_hc.get('part_g_monthly_today') or 0))}; OOP {_money(_hc.get('oop_estimate_today'))}; ACA PTC {_onoff(_hc.get('aca_ptc_enabled'))}", 'text', 'Action: if terminal net worth fell, temporarily zero bridge/Medicare/OOP costs to quantify wellness impact, then restore realistic values.'),

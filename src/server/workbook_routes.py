@@ -460,7 +460,11 @@ def start_blank_plan_data():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    payload, status = _plan_data_file_feature_service().start_blank_payload()
+    body = request.get_json(silent=True) or {}
+    ytd_blend_enabled = body.get("ytd_blend_enabled")
+    if ytd_blend_enabled is not None:
+        ytd_blend_enabled = bool(ytd_blend_enabled)
+    payload, status = _plan_data_file_feature_service().start_blank_payload(ytd_blend_enabled=ytd_blend_enabled)
     return jsonify(payload), status
 
 

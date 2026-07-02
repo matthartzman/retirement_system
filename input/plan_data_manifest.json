@@ -22,8 +22,8 @@
       "sha256": "271d344e73e5dcc95ca529e4b46df63efe5d4109426c29dac76dcacf067066d8"
     },
     "client_income.csv": {
-      "bytes": 10669,
-      "sha256": "fc07ae2dbaa4412652972d78f8d0855711a54bf9f8be6adbc41308442d5dac47"
+      "bytes": 10916,
+      "sha256": "41364d48ff4a0c0aa97759317ddce99c4212af56ebec592644e75388e344cfc7"
     },
     "client_insurance_estate.csv": {
       "bytes": 13278,
@@ -38,8 +38,8 @@
       "sha256": "5588c91ea64908e926444cc25f20a80b34dfe75ca5528ad6098434e02041bd3c"
     },
     "client_spending.csv": {
-      "bytes": 8185,
-      "sha256": "e3b1f55cad113b18b1b393f9484c18dae86d0ed7c5ac6adbcab2c8255b66cbb3"
+      "bytes": 8759,
+      "sha256": "fbd98698695fc8bcf2f4dcbe39bc104828625f609f75ad945c2983df2daa9048"
     },
     "target_allocation.csv": {
       "bytes": 249,

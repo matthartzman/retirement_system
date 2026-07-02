@@ -138,6 +138,29 @@ def save_reference_file(base_dir: Path, file_name: str, content: str) -> tuple[d
     return {"success": True, "file": p.name, "path": str(p), "bytes": len(str(content or ""))}, before_rows, after_rows
 
 
+CSV_BACKUP_PLAN_DATA_FILES = ["client_holdings.csv", "ytd_transactions.csv", "target_allocation.csv"]
+
+
+def build_csv_backup_zip(base_dir: Path) -> tuple[bytes, str]:
+    """Bundle holdings, transactions, target allocation, and reference-data CSVs for backup/external review."""
+    import io
+    import zipfile
+    from datetime import datetime, timezone
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name in CSV_BACKUP_PLAN_DATA_FILES:
+            p = base_dir / "input" / name
+            if p.exists():
+                zf.write(p, arcname=name)
+        for name in SYSTEM_REFERENCE_FILES:
+            p = reference_file_path(base_dir, name)
+            if p.exists():
+                zf.write(p, arcname=f"reference_data/{name}")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    return buf.getvalue(), f"plan_data_csv_backup_{stamp}.zip"
+
+
 def diagnostics_payload(output_dir: Path) -> dict[str, Any]:
     files: list[dict[str, Any]] = []
     for name in ["pricing_diagnostics.json", "plan_summary.json", "forecast_package.json"]:

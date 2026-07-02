@@ -104,6 +104,7 @@ def build_model_heard_assumptions(c: Mapping[str, Any], rows: Sequence[Mapping[s
             'real_dollar_rows_available': True,
             'real_dollar_base_year': c.get('plan_start'),
         },
+        'current_year_actuals': c.get('ytd_blend_applied', {}),
     }
 
 
