@@ -56,6 +56,9 @@ ignore = [
 "__init__.py" = ["F401"]  # unused imports in __init__ files
 
 [tool.pytest.ini_options]
+# Put the project root on sys.path so tests can `from src...` under a bare
+# `pytest` invocation (CI), not only under `python -m pytest` (which adds CWD).
+pythonpath = ["."]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "--tb=short -q"
