@@ -9,7 +9,7 @@ from openpyxl import Workbook
 from openpyxl.chart import BarChart, PieChart, Reference
 from openpyxl.chart.series import SeriesLabel
 
-from src.detailed_results import workbook_detailed_results, workbook_detailed_index, workbook_detailed_sheet
+from src.detailed_results import workbook_detailed_results, workbook_detailed_index, workbook_detailed_sheet, _clean_sheet_title
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -46,6 +46,61 @@ def test_detailed_results_parser_groups_workbook_sections(tmp_path):
     assert cash['sections'][0]['title'] == 'CASH FLOW PROJECTION'
     assert cash['sections'][0]['rows'][1]['cells'][0]['display'] == 'Year'
     assert any(c['name'] == 'Reports' for c in out['categories'])
+
+
+def test_clean_sheet_title_strips_hierarchical_ordinal_prefixes():
+    """Sheet tabs use hierarchical prefixes like '1A.'/'1H.'/'2B.', not just
+    plain numbers like '22.' - the ordinal can include trailing letters."""
+    assert _clean_sheet_title('1H. Spending Summary') == 'Spending Summary'
+    assert _clean_sheet_title('1A. Executive Summary') == 'Executive Summary'
+    assert _clean_sheet_title('2B. Asset Allocation') == 'Asset Allocation'
+    assert _clean_sheet_title('22. Glossary') == 'Glossary'
+    assert _clean_sheet_title('No Prefix Sheet') == 'No Prefix Sheet'
+
+
+def test_detailed_results_merges_untitled_trailing_blocks_into_prior_named_section(tmp_path):
+    """Reported UI bug: a sheet whose title row is followed by blank-row-
+    separated blocks with no title of their own (a metrics block, a data
+    table, a total row) previously showed one real heading plus two bare
+    "Spending Summary"-style duplicate headings - matching build_sheet_
+    spending_summary's structure (title row, blank, headers+data, blank,
+    total row). Untitled trailing blocks should merge into the preceding
+    named section instead of showing a redundant generic heading."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = '1H. Spending Summary'
+    ws['A1'] = 'SPENDING SUMMARY — 2026 YTD  (182 days elapsed)'
+    ws['A2'] = 'YTD total spending'
+    ws['B2'] = 178000
+    # blank row 3
+    ws['A5'] = 'Tracking Type / Group / Category'
+    ws['B5'] = 'YTD Actual'
+    ws['C5'] = 'Annualized'
+    ws['D5'] = 'Budget'
+    ws['E5'] = 'vs Budget'
+    ws['F5'] = '% of Total'
+    ws['A6'] = 'Core Expenses'
+    ws['B6'] = 178000
+    ws['C6'] = 357000
+    ws['D6'] = 336000
+    ws['E6'] = 21000
+    ws['F6'] = 1.0
+    # blank row 7
+    ws['A8'] = 'TOTAL SPENDING'
+    ws['B8'] = 178000
+    ws['C8'] = 357000
+    ws['D8'] = 336000
+    ws['E8'] = 21000
+    ws['F8'] = 1.0
+    path = tmp_path / 'retirement_plan.xlsx'
+    wb.save(path)
+
+    sheet = workbook_detailed_sheet(path, '1H. Spending Summary')
+    assert sheet['success'] is True
+    sections = sheet['sheet']['sections']
+    assert len(sections) == 1
+    assert sections[0]['title'] == 'SPENDING SUMMARY — 2026 YTD  (182 days elapsed)'
+    assert sections[0]['row_count'] == 5
 
 
 def test_detailed_results_index_and_sheet_load_on_demand(tmp_path):

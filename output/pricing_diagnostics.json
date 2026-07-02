@@ -33,7 +33,7 @@
   "cache_as_of_local": "06/29/2026 09:35 AM",
   "cache_as_of_utc": "2026-06-29T14:35:05.2758348Z",
   "cache_first_enabled": true,
-  "cache_path": "C:\\RetirementPlanning\\Version 10\\output\\market_price_cache.json",
+  "cache_path": "C:\\RetirementPlanning\\Version 10\\.claude\\worktrees\\nice-driscoll-66df75\\output\\market_price_cache.json",
   "cache_schema_version": "10",
   "cache_ttl_hours": 24.0,
   "cached_symbols": [
@@ -57,7 +57,7 @@
     "section": "Market Pricing",
     "subsection": "Holdings"
   },
-  "diagnostics_path": "C:\\RetirementPlanning\\Version 10\\output\\pricing_diagnostics.json",
+  "diagnostics_path": "C:\\RetirementPlanning\\Version 10\\.claude\\worktrees\\nice-driscoll-66df75\\output\\pricing_diagnostics.json",
   "effective_api_key_sources": {
     "alpha_vantage": "ALPHA_VANTAGE_API_KEY",
     "alpha_vantage_fingerprint": "37e951649172",

@@ -60,7 +60,7 @@ const STEPS=[
 {id:'plan_data_report',group:'Reports',title:'Plan Data Review',desc:'Printable summary of every plan input, grouped by section — not editable here.',intro:'Holdings are summarized by account total, not lot level. All values reflect the last saved state — unsaved changes are not shown.',help:'Use as a preflight check before sharing with a client or advisor, or to audit all inputs before downloading final outputs.',hidden:true},
 {id:'economic_tax_assumptions',group:'Settings',title:'Economic & Tax Assumptions',desc:'Baseline return rates, inflation, medical cost escalation, tax bracket indexing, and COLA — applied system-wide across all projections.',intro:'Changes here affect every projection year simultaneously. Use Scenarios to test alternatives without altering the base assumptions.',help:'Medical inflation is the most sensitive late-life input — a 1% change compounds across 30 years and materially shifts Medicare and care costs. Return assumptions should reflect long-term expected rates, not recent performance.',hidden:true,advanced:true},
 {id:'optional_functions',group:'Settings',title:'Optional Modules',desc:'Enable or disable advanced planning sections: long-term care stress, divorce planning, home equity line, special needs, and others.',intro:'Disabled modules are excluded from the build to keep outputs focused. Some modules also add their own input pages to the navigation when enabled.',help:'Modules that add nav steps must be enabled here before those steps appear. Modules that only add workbook output can be toggled without changing the navigation.',hidden:true,advanced:true},
-{id:'all_assumptions',group:'Settings',title:'Field Finder',desc:'Every editable field in one searchable view — use when a value doesn\'t appear on its guided page.',intro:'Search by label, section, or keyword. Changes here have the same effect as editing on the source page — prefer the source page when nearby related fields need to be consistent.',help:'Holdings, budget lines, transactions, and liabilities are not here — those are managed on their dedicated tabs. This view covers only structured plan rows.',hidden:true,advanced:true},
+{id:'all_assumptions',group:'Settings',title:'Field Finder',desc:'Use when a value doesn\'t appear on its guided page.',intro:'Search by label, section, or keyword. Changes here have the same effect as editing on the source page — prefer the source page when nearby related fields need to be consistent.',help:'Holdings, budget lines, transactions, and liabilities are not here — those are managed on their dedicated tabs. This view covers only structured plan rows.',hidden:true,advanced:true},
 {id:'system_configuration',group:'Settings',title:'Settings',desc:'Everyday settings, backup, pricing, report readiness, and advanced maintenance.',intro:'Use Normal Settings for routine work. Open Advanced Maintenance only for diagnostics, reference data, or recovery tools.',help:'Guided pages are the normal place for plan edits. Settings applies across the plan and should be changed deliberately.'}
 ];
 const ADVANCED_STEP_IDS=new Set(STEPS.filter(s=>s.advanced).map(s=>s.id));
@@ -757,21 +757,41 @@ const note=formatAcronyms(r.schema?.description||r.notes||'');const req=missing?
 function dependencyRank(label){const l=norm(label);if(['enabled','include','active','use','apply','policy_type','type','mode','allocation_selection_mode','allocation_mode','use_allocation_optimizer','mc_engine_mode','core_spending_growth_mode','roth_conversion_policy','hsa_withdrawal_mode','estate_tax_objective_mode','legacy_objective_mode','roth_objective_mode'].includes(l))return '00';if(l.includes('policy')||l.includes('strategy')||l.endsWith('_mode')||l.includes('method'))return '01';if(l.includes('target')||l.includes('bracket')||l.includes('tier')||l.includes('guardrail'))return '02';if(l.includes('amount')||l.includes('pct')||l.includes('percent')||l.includes('rate')||l.includes('headroom'))return '03';if(l.includes('start')||l.includes('end')||l.includes('year')||l.includes('date')||l.includes('window'))return '04';return '50'}
 function sortRowsByDependency(rs){return (rs||[]).slice().sort((a,b)=>{const ka=dependencyRank(a.label)+norm(a.label),kb=dependencyRank(b.label)+norm(b.label);return ka.localeCompare(kb)})}
 function fieldFinderStepOrder(stepId){const i=STEPS.findIndex(s=>s.id===stepId);return i<0?9999:i}
+function fieldFinderCategoryName(group){return group==='Reports'?'Reports & Review':(group||'Uncategorized')}
+function fieldFinderCategoryOrder(){
+  const order=[];
+  STEPS.forEach(s=>{const name=fieldFinderCategoryName(s.group);if(!order.includes(name))order.push(name)});
+  return order;
+}
 function renderFieldFinderGroups(rs){
   if(!rs.length)return '<div class="field-list"><p>No fields match.</p></div>';
   const seen=new Set();
   const deduped=rs.filter(r=>{const key=[r.section||'',r.subsection||'',r.label||''].join('\x1f');if(seen.has(key))return false;seen.add(key);return true});
+  const catOrder=fieldFinderCategoryOrder();
   const groups=new Map();
   deduped.forEach(r=>{
-    const stepId=sourceStepForRow(r)||'all_assumptions';
-    const name=stepId==='all_assumptions'?'Uncategorized':stepTitleById(stepId);
-    if(!groups.has(stepId))groups.set(stepId,{stepId,name,rows:[]});
-    groups.get(stepId).rows.push(r);
+    const stepId=sourceStepForRow(r);
+    const st=STEPS.find(s=>s.id===stepId);
+    const name=st?fieldFinderCategoryName(st.group):'Uncategorized';
+    if(!groups.has(name))groups.set(name,{name,rows:[]});
+    groups.get(name).rows.push(r);
   });
-  const ordered=[...groups.values()].sort((a,b)=>fieldFinderStepOrder(a.stepId)-fieldFinderStepOrder(b.stepId)||a.name.localeCompare(b.name));
+  const ordered=[...groups.values()].sort((a,b)=>{
+    const ai=catOrder.indexOf(a.name),bi=catOrder.indexOf(b.name);
+    return (ai<0?9999:ai)-(bi<0?9999:bi)||a.name.localeCompare(b.name);
+  });
   let html='';
   ordered.forEach(g=>{
-    const body=g.rows.slice().sort((a,b)=>humanLabel(a.label,a).localeCompare(humanLabel(b.label,b))).map(fieldHtml).join('');
+    const body=g.rows.slice().sort((a,b)=>{
+      const la=humanLabel(a.label,a),lb=humanLabel(b.label,b);
+      return la.localeCompare(lb)||friendlyGroup(a).localeCompare(friendlyGroup(b));
+    }).map(r=>{
+      const stepId=sourceStepForRow(r);
+      const pageTitle=stepId?stepTitleById(stepId):'';
+      const qualifier=friendlyGroup(r);
+      const sourceLine=[pageTitle,qualifier&&norm(qualifier)!==norm(pageTitle)?qualifier:''].filter(Boolean).join(' · ');
+      return `<div class="field-finder-row">${sourceLine?`<div class="field-source-page small">${esc(sourceLine)}</div>`:''}${fieldHtml(r)}</div>`;
+    }).join('');
     html+=`<details><summary><b>${esc(g.name)}</b><span class="small"> ${g.rows.length} field${g.rows.length===1?'':'s'}</span></summary><div class="field-list">${body}</div></details>`;
   });
   return html;
@@ -909,7 +929,7 @@ function renderFields(step){
   if(['insurance_ltc','assets_special'].includes(step))html+=`<div class="section-note">Some fields on this page feed reporting and workbook narrative only — they do not directly affect cash-flow or tax calculations. Review the workbook output after a rebuild to confirm what affected each projection year.</div>`;
   if(step==='scenarios')html+=`<div class="section-note">Home sale stress-test rows apply to scenario workbook outputs only. Base-plan sale year, future rent, renters insurance, and rental utilities are managed on the Housing page.</div>`;
   if(step==='roth_conversion')html+=`<div class="section-note">Tax bracket target rows appear here rather than in Economic &amp; Tax Assumptions because they are strategy inputs — they define the conversion ceiling, not a general economic forecast.</div>`;
-  if(step==='all_assumptions')html+=`<div class="section-note">Every editable plan field in one place — a catch-all so no value is accessible only by searching. Grouped by source page in guided-navigation order, alphabetical within each page; the heading is that field's source page. Prefer the source page when nearby related fields need to be consistent.</div>`;
+  if(step==='all_assumptions')html+=`<div class="section-note">Grouped by plan area, matching the left navigation, alphabetical within each area. Each field shows its own source page beneath its label.</div>`;
   if(step==='monte_carlo_options')html+=`<div class="section-note">Advanced mode runs more trials with higher precision and is suitable for final outputs. Quick mode is faster and appropriate for working sessions. Raise trial count for final runs only when the build time budget allows.</div>`;
   if(step==='divorce_options'&&!optionalFunctionEnabled('divorce_qdro'))return '<div class="field-list"><p>Divorce options are hidden until the Divorce/QDRO optional workbook module is enabled.</p></div>';
   if(step==='all_assumptions')return html+renderFieldFinderGroups(rs);

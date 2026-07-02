@@ -2,78 +2,78 @@
   "artifact_count": 7,
   "artifacts": [
     {
-      "bytes": 207202,
+      "bytes": 207447,
       "exists": true,
       "file": "retirement_plan.xlsx",
-      "modified_at": "2026-07-01T16:54:05Z",
-      "path": "C:\\RetirementPlanning\\Version 10\\output\\retirement_plan.xlsx",
+      "modified_at": "2026-07-02T11:48:27Z",
+      "path": "C:\\RetirementPlanning\\Version 10\\.claude\\worktrees\\nice-driscoll-66df75\\output\\retirement_plan.xlsx",
       "required": true,
       "role": "workbook",
       "schema": "xlsx_workbook",
-      "sha256": "abb5df40497cc6fcdf86465ef9bdad672c374a92dda26a917a54df38b0941f80"
+      "sha256": "ee9fd97c0d9b57b338e11d37fb1d53090ebb76595608751d76b176f81a0b5099"
     },
     {
       "exists": false,
       "file": "retirement_plan.pdf",
-      "path": "C:\\RetirementPlanning\\Version 10\\output\\retirement_plan.pdf",
+      "path": "C:\\RetirementPlanning\\Version 10\\.claude\\worktrees\\nice-driscoll-66df75\\output\\retirement_plan.pdf",
       "required": false,
       "role": "pdf",
       "schema": "pdf_report"
     },
     {
-      "bytes": 29244,
+      "bytes": 29205,
       "exists": true,
       "file": "retirement_dashboard.html",
-      "modified_at": "2026-07-01T16:54:06Z",
-      "path": "C:\\RetirementPlanning\\Version 10\\output\\retirement_dashboard.html",
+      "modified_at": "2026-07-02T11:48:28Z",
+      "path": "C:\\RetirementPlanning\\Version 10\\.claude\\worktrees\\nice-driscoll-66df75\\output\\retirement_dashboard.html",
       "required": true,
       "role": "html_dashboard",
       "schema": "offline_dashboard",
-      "sha256": "74f17f5a32e6f13c4327e6b2a3abb5597962918caa3cf7e8a0f4eee8f022489f"
+      "sha256": "ceafb0973cdd6c94058fc10209a0b9f4665132ffeb386ff422537f0460ce4fca"
     },
     {
-      "bytes": 417777,
+      "bytes": 418101,
       "exists": true,
       "file": "results_explorer_model.json",
-      "modified_at": "2026-07-01T16:54:06Z",
-      "path": "C:\\RetirementPlanning\\Version 10\\output\\results_explorer_model.json",
+      "modified_at": "2026-07-02T11:48:28Z",
+      "path": "C:\\RetirementPlanning\\Version 10\\.claude\\worktrees\\nice-driscoll-66df75\\output\\results_explorer_model.json",
       "required": true,
       "role": "results_model",
       "schema": "results_model_v10",
-      "sha256": "cbe580af46ee9a08b71e524a35e76e744a20ccd22a24097d6201ad3372348891"
+      "sha256": "b392f095c10078d85a3d445c11be6d824abfc88eac15f34c265cff27a7d24d99"
     },
     {
-      "bytes": 832,
+      "bytes": 872,
       "exists": true,
       "file": "plan_summary.json",
-      "modified_at": "2026-07-01T16:54:06Z",
-      "path": "C:\\RetirementPlanning\\Version 10\\output\\plan_summary.json",
+      "modified_at": "2026-07-02T11:48:28Z",
+      "path": "C:\\RetirementPlanning\\Version 10\\.claude\\worktrees\\nice-driscoll-66df75\\output\\plan_summary.json",
       "required": true,
       "role": "summary",
       "schema": "plan_summary_v1",
-      "sha256": "39ffccc38b839844b20a95d62d5db9b25a3cccc49626d6a125a8e2a3e70ab772"
+      "sha256": "3f364633c240215a9b8fa245e654fceeb2cfd4f467e699a89a0acd7365fa7db0"
     },
     {
-      "bytes": 4593,
+      "bytes": 5103,
       "exists": true,
       "file": "build_snapshot.json",
-      "modified_at": "2026-07-01T16:54:06Z",
-      "path": "C:\\RetirementPlanning\\Version 10\\output\\build_snapshot.json",
+      "modified_at": "2026-07-02T11:48:28Z",
+      "path": "C:\\RetirementPlanning\\Version 10\\.claude\\worktrees\\nice-driscoll-66df75\\output\\build_snapshot.json",
       "required": true,
       "role": "build_snapshot",
       "schema": "build_snapshot_v1",
-      "sha256": "15aa625798ced0287571e19f43e3784cfbcaa9bab6278961a3c05920a597fddf"
+      "sha256": "0a76225aaa9eca6acb93cdf029d40890b222dc7ea466bde6d9169e9760008cb7"
     },
     {
-      "bytes": 6097,
+      "bytes": 6181,
       "exists": true,
       "file": "pricing_diagnostics.json",
-      "modified_at": "2026-07-01T16:53:52Z",
-      "path": "C:\\RetirementPlanning\\Version 10\\output\\pricing_diagnostics.json",
+      "modified_at": "2026-07-02T11:48:14Z",
+      "path": "C:\\RetirementPlanning\\Version 10\\.claude\\worktrees\\nice-driscoll-66df75\\output\\pricing_diagnostics.json",
       "required": false,
       "role": "pricing_diagnostics",
       "schema": "pricing_diagnostics_v1",
-      "sha256": "1138b8269a03677a8df75d28516cb0c79edc3b449e855a64ba7e639141731488"
+      "sha256": "fd5636b6b8438d371066a45531cdc2ebc48e8143ca7353702cbac8215ad97bed"
     }
   ],
   "build_id": "",
@@ -96,7 +96,7 @@
     "results_model": "results_model_v10",
     "summary": "plan_summary_v1"
   },
-  "generated_at": "2026-07-01T16:54:06Z",
+  "generated_at": "2026-07-02T11:48:28Z",
   "renderer_roles": {
     "html_dashboard": "offline_dashboard_renderer",
     "pdf": "pdf_renderer",
@@ -108,26 +108,30 @@
   "source": "saved_sqlite_snapshot",
   "success": true,
   "summary": {
-    "after_tax_terminal_net_worth": 4584854.059682235,
-    "after_tax_terminal_nw": 4584854.059682235,
+    "after_tax_terminal_net_worth": 3390274.137803574,
+    "after_tax_terminal_nw": 3390274.137803574,
     "build_id": "",
     "h_name": "Matthew",
-    "lifetime_tax": 874291.2085969265,
-    "mc_success": 0.6875,
-    "post_tax_inheritance": 4270480.200000384,
-    "qc_result": "QC: 32 / 32 PASS",
+    "lifetime_tax": 844256.8195382373,
+    "mc_success": 0.428,
+    "post_tax_inheritance": 3390274.137803574,
+    "qc_result": "QC: 31 / 33 PASS",
     "terminal_deferred_pretax_tax": 0.0,
     "terminal_deferred_tax_total": 0.0,
     "terminal_deferred_taxable_cap_gain_tax": 0.0,
-    "terminal_estate_tax": 314373.8596818515,
-    "terminal_nw": 4584854.059682235,
+    "terminal_estate_tax": 0.0,
+    "terminal_nw": 3390274.137803574,
     "terminal_pretax_nw": 0.0,
-    "terminal_roth_nw": 1194579.9218786608,
+    "terminal_roth_nw": 0.0,
     "terminal_taxable_basis_est": 0.0,
     "terminal_taxable_unrealized_gain_est": 0.0,
-    "total_roth_conversions": 1214020.6359534878,
-    "validation_fail_count": 0,
-    "validation_first_fail": null,
+    "total_roth_conversions": 1086999.2246746568,
+    "validation_fail_count": 2,
+    "validation_first_fail": [
+      2055,
+      "UNFUNDED_GAP",
+      "unfunded cash need = $34,702"
+    ],
     "validation_warn_count": 0,
     "w_name": "Patricia"
   },
