@@ -1194,7 +1194,6 @@ def ytd_summary(root: str | Path, *, today: date | None = None) -> dict[str, Any
             "earned_income": round(earned_income, 2),
             "investment_income": round(investment_income, 2),
             "note_receivable_income": round(note_receivable_income, 2),
-            "note_receivable_income": round(note_receivable_income, 2),
             "other_income": round(other_income, 2),
             "taxes": round(taxes, 2),
             "growth": round(actual_growth, 2) if actual_growth is not None else None,
