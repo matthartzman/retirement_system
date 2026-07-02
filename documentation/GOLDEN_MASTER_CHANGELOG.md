@@ -315,7 +315,7 @@ The terminal net-worth decrease versus the previous pin is expected and is mainl
 
 ## 2026-06-26 - Roadmap steps 1-11 execution pass
 
-- Added Phase 3 frontend and server ownership seams: `frontend/js/modules/phase3_module_manifest.js`, `frontend/js/dashboard_roadmap11.js`, and `src/server/route_manifest.py` group existing behavior by plan-state/build, detailed results, navigation, spending, holdings, strategy, settings, and route domains without moving decorators yet.
+- Added Phase 3 frontend and server ownership seams: `frontend/js/modules/phase3_module_manifest.js`, `frontend/js/dashboard_source_truth_banners.js`, and `src/server/route_manifest.py` group existing behavior by plan-state/build, detailed results, navigation, spending, holdings, strategy, settings, and route domains without moving decorators yet.
 - Extended `build_snapshot_v1` with active SQLite database metadata and an immutable `plan_database_snapshot.rpx` copy beside output artifacts.
 - Added snapshot compare/restore helpers and `/api/plan/snapshot/compare` plus `/api/plan/snapshot/restore` routes with hash validation and pre-restore database backup.
 - Added dependency-free typed API contract registry in `src/api_contracts.py` and exposed it at `/api/contracts`.
@@ -330,7 +330,7 @@ The terminal net-worth decrease versus the previous pin is expected and is mainl
 - Added glossary-on-hover titles and keyboard shortcuts for Save, Build, Search, Review, and next/previous step navigation.
 ## 2026-06-26 - Roadmap continuation: batch assumption editing
 
-- Added `dashboard_roadmap12.js` with preview-first batch edit tools for All Assumptions and guarded System Configuration rows.
+- Added `dashboard_batch_assumption_edit.js` with preview-first batch edit tools for All Assumptions and guarded System Configuration rows.
 - Plan assumption batch edits are staged through the existing dirty-row save model and require Save Changes before persistence.
 - System Configuration batch edits require a field filter, before/after preview, explicit confirmation, and then write through `/api/admin/system-config`.
 - Added preview CSV download for batch edits and documented the `batch_assumption_edit_v1` UI contract.

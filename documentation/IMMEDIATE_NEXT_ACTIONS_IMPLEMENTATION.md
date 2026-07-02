@@ -9,7 +9,7 @@ The workspace previously documented several ownership/contract files that were n
 - `src/api_contracts.py`
 - `src/server/route_manifest.py`
 - `src/server/features/*.py`
-- `frontend/js/dashboard_roadmap11.js`
+- `frontend/js/dashboard_source_truth_banners.js`
 - `frontend/js/modules/phase3_module_manifest.js`
 - matching `output/js/...` static assets
 

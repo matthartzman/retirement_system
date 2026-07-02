@@ -134,103 +134,12 @@ def section_title(ws, row, text, span=8, bg=None):
 # ─────────────────────────────────────────────────────────────────────────────
 # 6.  PROJECTION / MONTE CARLO DELEGATION
 # ─────────────────────────────────────────────────────────────────────────────
+# `project`/`monte_carlo` are not called directly in this module, but several
+# sibling modules (e.g. sheets_stress.py) rely on getting them via their own
+# `from .workbook_common import *` wildcard import — do not remove as "unused".
 from ..planning_engines import project  # consolidated from projection_engine
 from ..planning_engines import monte_carlo  # consolidated from monte_carlo_engine
 from ..planning_engines import optimize_roth_conversion_strategy
-
-# Projection and Monte Carlo are imported from extracted engine modules above.
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 8b. SCENARIO COMPARISON ENGINE
-# ─────────────────────────────────────────────────────────────────────────────
-
-def compare_scenarios(c, scenario_overrides):
-    """Run multiple scenarios and return unified comparison data.
-    
-    Args:
-        c: parsed client dict (base case)
-        scenario_overrides: dict of {name: {key: value, ...}}
-    
-    Returns:
-        list of dicts: [{name, terminal_nw, lifetime_tax, delta_nw, rows}, ...]
-    """
-    import copy
-    base_rows = project(c)
-    base_nw   = base_rows[-1]['total_nw']
-    base_tax  = sum(r['total_tax'] for r in base_rows)
-    
-    results = [{
-        'name': 'Base Case',
-        'terminal_nw': base_nw,
-        'lifetime_tax': base_tax,
-        'delta_nw': 0,
-        'rows': base_rows,
-    }]
-    
-    for name, overrides in scenario_overrides.items():
-        c2 = copy.deepcopy(c)
-        for k, v in overrides.items():
-            c2[k] = v
-        rows2 = project(c2)
-        nw2   = rows2[-1]['total_nw']
-        tax2  = sum(r['total_tax'] for r in rows2)
-        results.append({
-            'name': name,
-            'terminal_nw': nw2,
-            'lifetime_tax': tax2,
-            'delta_nw': nw2 - base_nw,
-            'rows': rows2,
-        })
-    
-    return results
-
-
-def sensitivity_grid(c, param_key, values, label=''):
-    """Run project() for each value of param_key and return terminal NW grid."""
-    import copy
-    grid = []
-    for v in values:
-        c2 = copy.deepcopy(c)
-        c2[param_key] = v
-        rows2 = project(c2)
-        grid.append({
-            'param': param_key,
-            'value': v,
-            'label': label or param_key,
-            'terminal_nw': rows2[-1]['total_nw'],
-            'lifetime_tax': sum(r['total_tax'] for r in rows2),
-        })
-    return grid
-
-
-def tornado_data(c):
-    """Generate tornado chart data: +/- 1 std dev for key parameters."""
-    base_rows = project(c)
-    base_nw = base_rows[-1]['total_nw']
-    
-    params = [
-        ('ret',        c['ret'] - 0.02,     c['ret'] + 0.02,     'Portfolio Return ±2%'),
-        ('inf',        c['inf'] - 0.01,     c['inf'] + 0.01,     'Inflation ±1%'),
-        ('spend_base', c['spend_base']*0.9, c['spend_base']*1.1, 'Spending ±10%'),
-    ]
-    
-    import copy
-    bars = []
-    for key, lo, hi, label in params:
-        c_lo = copy.deepcopy(c); c_lo[key] = lo
-        c_hi = copy.deepcopy(c); c_hi[key] = hi
-        nw_lo = project(c_lo)[-1]['total_nw']
-        nw_hi = project(c_hi)[-1]['total_nw']
-        bars.append({
-            'param': label,
-            'nw_low': nw_lo,
-            'nw_high': nw_hi,
-            'base_nw': base_nw,
-            'spread': abs(nw_hi - nw_lo),
-        })
-    bars.sort(key=lambda x: -x['spread'])
-    return bars
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 9.  WORKBOOK BUILDER

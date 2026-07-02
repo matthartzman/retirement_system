@@ -22,7 +22,7 @@ from collections import defaultdict, deque
 from pathlib import Path
 
 try:
-    from ..http_runtime.flask_compat import (
+    from ..http_runtime.wsgi_facade import (
         Flask,
         HTTPException,
         ProxyFix,
@@ -38,7 +38,7 @@ try:
     )
 except Exception:  # direct file loading fallback
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-    from src.http_runtime.flask_compat import (
+    from src.http_runtime.wsgi_facade import (
         Flask,
         HTTPException,
         ProxyFix,
@@ -843,27 +843,24 @@ RETIRED_SCENARIO_HOME_ROW_KEYS = {
 }
 
 
-def _is_retired_scenario_home_row(row: list[str]) -> bool:
-    cols = list(row) + [""] * 3
-    key = (str(cols[0]).strip(), str(cols[1]).strip(), str(cols[2]).strip())
-    return key in RETIRED_SCENARIO_HOME_ROW_KEYS
-
-
-def _strip_retired_scenario_home_rows(rows: list[list[str]]) -> tuple[list[list[str]], int]:
+# Generic "drop rows matching a predicate" primitives shared by every
+# retired/deprecated Plan Data row migration below. Each migration only
+# needs to supply its own row-matching predicate.
+def _strip_rows_matching(rows: list[list[str]], predicate) -> tuple[list[list[str]], int]:
     kept: list[list[str]] = []
     removed = 0
     for row in rows:
-        if _is_retired_scenario_home_row(row):
+        if predicate(row):
             removed += 1
             continue
         kept.append(row)
     return kept, removed
 
 
-def _strip_retired_scenario_home_csv(content: str) -> tuple[str, int]:
+def _strip_csv_rows_matching(content: str, predicate) -> tuple[str, int]:
     source = io.StringIO(content or "")
     rows = list(csv.reader(source))
-    kept, removed = _strip_retired_scenario_home_rows(rows)
+    kept, removed = _strip_rows_matching(rows, predicate)
     if not removed:
         return content, 0
     out = io.StringIO()
@@ -871,19 +868,36 @@ def _strip_retired_scenario_home_csv(content: str) -> tuple[str, int]:
     return out.getvalue(), removed
 
 
-def _purge_retired_scenario_home_rows_from_plan_data() -> int:
+def _purge_rows_matching_from_plan_data(predicate) -> int:
     removed_total = 0
     for name in CLIENT_DATA_CSV_FILES:
         path = _plan_data_path(name, prefer_existing=True)
         if not path.exists():
             continue
         rows = _csv_read_rows(path)
-        kept, removed = _strip_retired_scenario_home_rows(rows)
+        kept, removed = _strip_rows_matching(rows, predicate)
         if removed:
             _csv_write_rows(path, kept)
             removed_total += removed
     return removed_total
 
+
+def _is_retired_scenario_home_row(row: list[str]) -> bool:
+    cols = list(row) + [""] * 3
+    key = (str(cols[0]).strip(), str(cols[1]).strip(), str(cols[2]).strip())
+    return key in RETIRED_SCENARIO_HOME_ROW_KEYS
+
+
+def _strip_retired_scenario_home_rows(rows: list[list[str]]) -> tuple[list[list[str]], int]:
+    return _strip_rows_matching(rows, _is_retired_scenario_home_row)
+
+
+def _strip_retired_scenario_home_csv(content: str) -> tuple[str, int]:
+    return _strip_csv_rows_matching(content, _is_retired_scenario_home_row)
+
+
+def _purge_retired_scenario_home_rows_from_plan_data() -> int:
+    return _purge_rows_matching_from_plan_data(_is_retired_scenario_home_row)
 
 
 def _is_deprecated_allocation_count_row(row: list[str]) -> bool:
@@ -896,39 +910,15 @@ def _is_deprecated_allocation_count_row(row: list[str]) -> bool:
 
 
 def _strip_deprecated_allocation_count_rows(rows: list[list[str]]) -> tuple[list[list[str]], int]:
-    kept: list[list[str]] = []
-    removed = 0
-    for row in rows:
-        if _is_deprecated_allocation_count_row(row):
-            removed += 1
-            continue
-        kept.append(row)
-    return kept, removed
+    return _strip_rows_matching(rows, _is_deprecated_allocation_count_row)
 
 
 def _strip_deprecated_allocation_count_csv(content: str) -> tuple[str, int]:
-    source = io.StringIO(content or "")
-    rows = list(csv.reader(source))
-    kept, removed = _strip_deprecated_allocation_count_rows(rows)
-    if not removed:
-        return content, 0
-    out = io.StringIO()
-    csv.writer(out, lineterminator="\n").writerows(kept)
-    return out.getvalue(), removed
+    return _strip_csv_rows_matching(content, _is_deprecated_allocation_count_row)
 
 
 def _purge_deprecated_allocation_count_rows_from_plan_data() -> int:
-    removed_total = 0
-    for name in CLIENT_DATA_CSV_FILES:
-        path = _plan_data_path(name, prefer_existing=True)
-        if not path.exists():
-            continue
-        rows = _csv_read_rows(path)
-        kept, removed = _strip_deprecated_allocation_count_rows(rows)
-        if removed:
-            _csv_write_rows(path, kept)
-            removed_total += removed
-    return removed_total
+    return _purge_rows_matching_from_plan_data(_is_deprecated_allocation_count_row)
 
 
 def _csv_read_rows(path: Path) -> list[list[str]]:
