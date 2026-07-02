@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "retirement-planner"
+version = "10.0.0"
+description = "Comprehensive retirement planning analysis and workbook generation"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26,<3",
+    "openpyxl>=3.1,<4",
+    "reportlab>=4.0,<5",
+    "matplotlib>=3.8,<4",
+    "pillow>=10,<12",
+    "cryptography>=42,<46",
+    "pywebview>=4.0,<7",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "W503",  # line break before binary operator
+    "E741",  # ambiguous variable name
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F401"]  # unused imports in test fixtures
+"__init__.py" = ["F401"]  # unused imports in __init__ files
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "--tb=short -q"
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
