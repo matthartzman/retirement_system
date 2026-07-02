@@ -23,3 +23,17 @@ target-version = "py311"
 # should be enabled once that backlog is cleaned up (see Phase 5 of
 # documentation/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md), not as a day-one CI gate.
 select = ["E9", "F821"]
+
+[tool.mypy]
+# `mypy src/` currently reports ~264 pre-existing errors, not a day-one CI
+# gate (same reasoning as the ruff F401 backlog above). Breakdown: 102 are
+# false positives — src/server/{admin,base,workbook}_routes.py and
+# src/reporting/sheets_stress.py use `from .app_core import *` /
+# `from .workbook_common import *`, and mypy does not reliably resolve names
+# through wildcard imports the way the Python runtime does. The remaining
+# ~162 (arg-type, no-redef, union-attr, operator, call-arg, ...) are a real
+# backlog worth working through incrementally, not fixing wholesale as a side
+# effect of adding the tool. Run `mypy src/ --ignore-missing-imports` locally;
+# CI runs it informationally (see .github/workflows/ci.yml) without failing
+# the build until the backlog is addressed.
+ignore_missing_imports = true

@@ -27,6 +27,9 @@ jobs:
       - name: Lint (ruff)
         run: ruff check .
 
+      - name: Type check (mypy, informational — not yet a merge gate)
+        run: mypy src/ --ignore-missing-imports || true
+
       - name: Fast test suite
         env:
           RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS: "1"
