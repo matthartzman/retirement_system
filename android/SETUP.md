@@ -92,14 +92,84 @@ tested against an API 26-28 device. Given this is a single-user household
 app, targeting a modern device (API 29+) first and treating the legacy path
 as a follow-on is a reasonable sequencing call.
 
-## What's deliberately not here yet (Phase 3 per the plan)
+## Performance and Monte Carlo on-device (Phase 3.1)
+
+`python tools/profile_projection.py` times the deterministic projection and a
+Monte Carlo pass on whatever host runs it — use it on-device (Termux or
+`adb shell` into the app's Python) to calibrate a phone. Reference numbers
+from a container-grade x86 CPU: deterministic projection ~20 ms per 31-year
+run (a non-issue on any phone); Monte Carlo ~32 ms/path, i.e. ~32 s per 1000
+paths, which lands in the "minutes" range on mid-range ARM.
+
+Because of that, **mobile hosts cap Monte Carlo path counts**:
+`platform_runtime.mobile_mc_sims_cap()` (default 500, sensitivity sims cap
+at 1/5th of it) is applied in `parse_client` only when
+`platform_runtime.is_mobile()` is true — desktop/server results are
+byte-identical. Raise or lower per device with
+`RETIREMENT_SYSTEM_MOBILE_MC_SIMS_CAP` (the Kotlin side can set it in
+`PythonBridge` before `configure()` if a device proves faster/slower than the
+default assumes). The profiler also confirms the numpy
+`asset_class_covariance` return model (`src/vectorized_fast_core.py`) is the
+default path exercised.
+
+## APK size (Phase 3.2)
+
+Per-ABI APK splits are enabled (no universal APK): sideload the `arm64-v8a`
+APK on real hardware; `x86_64` exists for the emulator. Expect numpy +
+matplotlib to dominate the installed size (the plan's 80-150 MB estimate).
+Further trimming (stripping matplotlib data files unused by the report
+pipeline) is a follow-on once a first measured APK exists to trim against.
+
+## Security posture (Phase 3.4)
+
+- **No `INTERNET` permission** — remote traffic is impossible at the OS
+  layer, which is the strongest form of the local-only promise.
+- WebView: `allowFileAccess=false`, `allowContentAccess=false`, mixed
+  content never, popups/multi-window off, and `shouldOverrideUrlLoading`
+  swallows any navigation that isn't the bundled-asset host — a hostile URL
+  in imported CSV text cannot take the WebView anywhere.
+- Backup: `allowBackup="false"` plus belt-and-suspenders
+  `fullBackupContent`/`dataExtractionRules` XML excluding all domains from
+  cloud backup and device-to-device transfer. Plan data leaves `filesDir`
+  only via explicit in-app export.
+- Still owed a real on-device review pass once the APK builds: confirm the
+  asset loader is the only origin, and that WebView devtools
+  (`setWebContentsDebuggingEnabled`) stays off in release.
+
+## CI (Phase 3.5) and the on-device smoke test (Phase 3.6)
+
+`.github/workflows/android-build.yml` builds the debug APK on
+**`workflow_dispatch` only** for now: it was authored without an Android SDK
+to validate against, so its first manual run *is* its validation (Chaquopy
+pip wheel resolution being the likeliest first failure — plan §7 risk 1).
+The file header documents the one-line change to promote it to
+pull-request-triggered once a dispatch has succeeded.
+
+`app/src/androidTest/.../GoldenPathSmokeTest.kt` is the instrumented smoke
+test scaffold: boots `MainActivity` (embedded CPython and all), waits for the
+SPA to define `setStep`, then round-trips `fetch('/api/runtime')` through the
+bridge to prove JS→Kotlin→Python→route-registry works end-to-end. Run with
+`gradle -p android :app:connectedDebugAndroidTest` against an emulator; CI
+emulator wiring is the follow-on after the plain build workflow is proven.
+
+## Distribution (Phase 3.7)
+
+Sideloaded debug APK is the intended distribution for the household user —
+build `assembleDebug`, transfer the arm64 APK, enable "install unknown apps"
+for the file manager, install. `versionName` is read from `src/version.py`
+at build time so the app version tracks the desktop package automatically;
+bump `versionCode` in `app/build.gradle.kts` on each sideloaded release
+(Android refuses same-`versionCode` upgrades). For a Play internal track
+later: generate a keystore (`keytool -genkeypair`), add a `signingConfigs`
+block referencing it via environment variables (never commit the keystore),
+and switch to `assembleRelease` — at which point the R8/ProGuard validation
+below stops being deferrable.
+
+## What's deliberately not here yet
 
 - App icon / adaptive launcher graphics.
 - ProGuard/R8 rules for a real release build (`isMinifyEnabled = false` for
   now — Chaquopy's reflection-based JS interface calls need care under R8
   that hasn't been validated).
-- CI building the debug APK (plan §3.5) and an instrumented Espresso/
-  UIAutomator smoke test (§3.6).
-- WebView hardening review / `file://` disabling verification, and an
-  Android backup-policy (`dataExtractionRules`) writeup (§3.4) — `allowBackup`
-  is already set to `false` in the manifest as a first pass.
+- CI emulator job running the instrumented smoke test (scaffolded, not wired).
+- matplotlib data-file stripping (needs a measured APK to trim against).

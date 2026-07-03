@@ -36,6 +36,12 @@ WORKSPACE_ROOT_ENV = "RETIREMENT_SYSTEM_WORKSPACE_ROOT"
 PLATFORM_ENV = "RETIREMENT_SYSTEM_PLATFORM"
 BUILD_MODE_ENV = "RETIREMENT_SYSTEM_BUILD_MODE"
 NO_AUTO_OPEN_ENV = "RETIREMENT_SYSTEM_NO_AUTO_OPEN"
+MOBILE_MC_SIMS_CAP_ENV = "RETIREMENT_SYSTEM_MOBILE_MC_SIMS_CAP"
+
+# Ceiling applied to Monte Carlo path counts on mobile hosts (phones run the
+# same exact-scalar engine ~5-20x slower than a desktop CPU). Raisable per
+# device via MOBILE_MC_SIMS_CAP_ENV; never consulted off-mobile.
+DEFAULT_MOBILE_MC_SIMS_CAP = 500
 
 _MOBILE_PLATFORMS = frozenset({"android", "ios", "mobile"})
 
@@ -134,6 +140,26 @@ def build_mode() -> str:
     if override in {"subprocess", "inprocess"}:
         return override
     return "subprocess" if can_subprocess() else "inprocess"
+
+
+def mobile_mc_sims_cap() -> int | None:
+    """Monte Carlo path-count ceiling for the current host, or ``None``.
+
+    Returns ``None`` on non-mobile hosts (no cap — desktop/server behavior is
+    untouched). On mobile hosts, returns ``RETIREMENT_SYSTEM_MOBILE_MC_SIMS_CAP``
+    when set to a positive integer, else :data:`DEFAULT_MOBILE_MC_SIMS_CAP`.
+    """
+    if not is_mobile():
+        return None
+    raw = (os.getenv(MOBILE_MC_SIMS_CAP_ENV) or "").strip()
+    if raw:
+        try:
+            value = int(raw)
+            if value > 0:
+                return value
+        except ValueError:
+            pass
+    return DEFAULT_MOBILE_MC_SIMS_CAP
 
 
 def capabilities() -> dict:

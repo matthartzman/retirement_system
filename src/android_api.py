@@ -65,6 +65,9 @@ def configure(workspace_root: str) -> None:
     """
     os.environ["RETIREMENT_SYSTEM_PLATFORM"] = "android"
     os.environ["RETIREMENT_SYSTEM_WORKSPACE_ROOT"] = workspace_root
+    # No display server on Android: force matplotlib's file-only backend before
+    # anything imports it (the report pipeline renders charts to PNG buffers).
+    os.environ.setdefault("MPLBACKEND", "Agg")
 
 
 def get_api() -> "AndroidApi":

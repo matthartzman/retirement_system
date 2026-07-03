@@ -19,6 +19,7 @@ def _clear_platform_env(monkeypatch):
         platform_runtime.PLATFORM_ENV,
         platform_runtime.BUILD_MODE_ENV,
         platform_runtime.NO_AUTO_OPEN_ENV,
+        platform_runtime.MOBILE_MC_SIMS_CAP_ENV,
     ):
         monkeypatch.delenv(name, raising=False)
     yield
@@ -78,6 +79,41 @@ def test_build_mode_env_override(monkeypatch):
     assert platform_runtime.build_mode() == "inprocess"
     monkeypatch.setenv(platform_runtime.BUILD_MODE_ENV, "subprocess")
     assert platform_runtime.build_mode() == "subprocess"
+
+
+def test_mobile_mc_sims_cap_is_mobile_only(monkeypatch):
+    # Desktop: no cap, ever — Monte Carlo behavior is untouched off-mobile.
+    assert platform_runtime.mobile_mc_sims_cap() is None
+    monkeypatch.setenv(platform_runtime.MOBILE_MC_SIMS_CAP_ENV, "50")
+    assert platform_runtime.mobile_mc_sims_cap() is None
+    # Mobile: default cap, raisable per device via the env var.
+    monkeypatch.setenv(platform_runtime.PLATFORM_ENV, "android")
+    monkeypatch.delenv(platform_runtime.MOBILE_MC_SIMS_CAP_ENV, raising=False)
+    assert platform_runtime.mobile_mc_sims_cap() == platform_runtime.DEFAULT_MOBILE_MC_SIMS_CAP
+    monkeypatch.setenv(platform_runtime.MOBILE_MC_SIMS_CAP_ENV, "2000")
+    assert platform_runtime.mobile_mc_sims_cap() == 2000
+    # Garbage/zero values fall back to the default rather than crashing.
+    monkeypatch.setenv(platform_runtime.MOBILE_MC_SIMS_CAP_ENV, "not-a-number")
+    assert platform_runtime.mobile_mc_sims_cap() == platform_runtime.DEFAULT_MOBILE_MC_SIMS_CAP
+    monkeypatch.setenv(platform_runtime.MOBILE_MC_SIMS_CAP_ENV, "0")
+    assert platform_runtime.mobile_mc_sims_cap() == platform_runtime.DEFAULT_MOBILE_MC_SIMS_CAP
+
+
+def test_mobile_mc_cap_applies_to_parsed_plan_config(monkeypatch):
+    """On a mobile host, parse_client caps mc_sims/mc_sensitivity_sims; the
+    identical plan parsed on desktop keeps its configured counts."""
+    from src.data_io import load_csv, parse_client
+
+    data = load_csv(platform_runtime.package_root() / "input" / "client_data.csv")
+
+    desktop = parse_client(data, "")
+    monkeypatch.setenv(platform_runtime.PLATFORM_ENV, "android")
+    monkeypatch.setenv(platform_runtime.MOBILE_MC_SIMS_CAP_ENV, "250")
+    mobile = parse_client(data, "")
+
+    assert desktop["mc_sims"] >= 1000  # plan default, uncapped on desktop
+    assert mobile["mc_sims"] == min(desktop["mc_sims"], 250)
+    assert mobile["mc_sensitivity_sims"] == min(desktop["mc_sensitivity_sims"], 50)
 
 
 def test_capabilities_snapshot_shape():

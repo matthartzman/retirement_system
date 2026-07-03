@@ -53,8 +53,17 @@ class MainActivity : AppCompatActivity() {
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
-            // input type=file and any relative asset lookups need this.
-            allowFileAccess = false // real file access goes through the OpenDocument picker below
+            // WebView hardening (Phase 3.4): everything the app needs is
+            // served by WebViewAssetLoader or crosses the AndroidBridge —
+            // the WebView itself gets no filesystem, content-provider, or
+            // mixed-content reach. Real file access goes through the
+            // OpenDocument picker below; there is no INTERNET permission,
+            // so remote loads are dead at the OS layer regardless.
+            allowFileAccess = false
+            allowContentAccess = false
+            mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            javaScriptCanOpenWindowsAutomatically = false
+            setSupportMultipleWindows(false)
         }
 
         pythonBridge = PythonBridge(this, webView)
@@ -63,6 +72,17 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                 return assetLoader.shouldInterceptRequest(request.url)
+            }
+
+            // Navigation lockdown (Phase 3.4): the WebView may only ever
+            // display the bundled frontend. Any other target — a remote URL
+            // in imported/plan-entered text, file://, intent:// — is
+            // swallowed rather than navigated to. (With no INTERNET
+            // permission remote loads would fail anyway; this keeps the
+            // failure silent and the app on-page instead of showing a
+            // WebView error page.)
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                return request.url.host != "appassets.androidplatform.net"
             }
         }
 

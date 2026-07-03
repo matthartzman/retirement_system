@@ -24,6 +24,7 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = pyVersion
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
             // arm64 is the primary target (§7 risk: APK size); add x86_64 for
@@ -36,6 +37,19 @@ android {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+
+    // Per-ABI APKs (Phase 3.2): numpy/matplotlib native wheels dominate APK
+    // size, and shipping both ABIs in one APK roughly doubles it. The arm64
+    // APK is the one that gets sideloaded to a real phone; x86_64 exists only
+    // for the emulator. No universal APK — there is no store requiring one.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "x86_64")
+            isUniversalApk = false
         }
     }
 
@@ -106,4 +120,9 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.webkit:webkit:1.11.0")
     implementation("androidx.activity:activity-ktx:1.9.1")
+
+    // On-device smoke test (Phase 3.6) — see androidTest/GoldenPathSmokeTest.kt.
+    androidTestImplementation("androidx.test:core-ktx:1.6.1")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
 }
