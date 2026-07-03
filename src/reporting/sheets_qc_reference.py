@@ -451,7 +451,7 @@ def build_sheet25(ws, c, rows):
     """Account Reconciliation — foots every account from year to year."""
     ws.sheet_view.showGridLines = False
     ws.freeze_panes = 'A5'
-    section_title(ws, 1, 'ACCOUNT RECONCILIATION — Account-Level Roll Forward', 16)
+    section_title(ws, 1, 'Roll Forward by Account and Year', 16)
     write_cell(ws, 2, 1,
                'Formula: Opening + Deposits + Transfers In - Transfers Out + Roth Conversion In - Roth Conversion Out - Withdrawals + Growth = Ending. '
                'This sheet explains movements that do not appear as cash-flow withdrawals, such as Roth conversions and death-year rollovers.',
@@ -474,9 +474,10 @@ def build_sheet25(ws, c, rows):
 
     bad_fill = 'FCE4D6'
     warn_fill = 'FFF2CC'
+    from ..person_labels import display_account
     for rec in recs:
         vals = [
-            rec['year'], rec['account'], rec['owner'], rec['tax'], rec['type'],
+            rec['year'], display_account(rec['account'], c), rec['owner'], rec['tax'], rec['type'],
             rec['opening'], rec['deposits'], rec['transfers_in'], rec['transfers_out'],
             rec['conv_in'], rec['conv_out'], rec['withdrawals'], rec['growth'],
             rec['calc_ending'], rec['ending'], rec['delta'], rec['notes'],

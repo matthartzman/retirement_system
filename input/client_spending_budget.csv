@@ -77,6 +77,10 @@ line,weddings,Rebecca,100000,,,2027,Seeded from large discretionary extras,categ
 line,weddings,Max,50000,,,2028,Seeded from large discretionary extras,category_budget,detail
 line,weddings,Grace,100000,,,2032,Seeded from large discretionary extras,category_budget,detail
 line,home_improvement,Home Improvement,25000,2026,2030,,Seeded from large discretionary extras; CR116: merged from Other Improvement,category_budget,detail
+line,travel_housing,Travel - Housing,2617,,,,Recurring line so Travel breaks out as its own Cash Flow Projection column,category_budget,detail
+line,travel_insurance,Travel - Insurance,159,,,,Recurring line so Travel breaks out as its own Cash Flow Projection column,category_budget,detail
+line,travel_plane_train_bus,Travel - Plane/Train/Bus,2744,,,,Recurring line so Travel breaks out as its own Cash Flow Projection column,category_budget,detail
+line,travel_vacation,Travel & Vacation,8127,,,,Recurring line so Travel breaks out as its own Cash Flow Projection column,category_budget,detail
 line,charitable_donations,Charitable Giving,5000,,,,Seeded from annual charitable giving,category_budget,detail
 line,children_weddings,,,,,,,category_budget,detail
 line,children_weddings,,,,,,,category_budget,detail
