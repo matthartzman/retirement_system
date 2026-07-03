@@ -973,7 +973,7 @@ def build_sheet2(ws, c, rows):
         _rep = _heard.get('reporting') or {}
         _heard_items = [
             ('Time horizon', _heard.get('plan_years'), 'text', 'Sets the years included in every income, tax, spending, and terminal-net-worth calculation.'),
-            ('Social Security income', f"Claim ages H/W: {_ss.get('husband_claim_age')}/{_ss.get('wife_claim_age')}; funding haircut {_pct(_ss.get('funding_discount_pct'))} starting {_ss.get('funding_discount_year')}", 'text', 'Action: set the funding haircut to 0% for one scenario if you want to isolate this drag on terminal net worth.'),
+            ('Social Security income', f"Claim ages {str(c.get('h_nick') or c.get('h_name') or 'Member 1')}/{str(c.get('w_nick') or c.get('w_name') or 'Member 2')}: {_ss.get('husband_claim_age')}/{_ss.get('wife_claim_age')}; funding haircut {_pct(_ss.get('funding_discount_pct'))} starting {_ss.get('funding_discount_year')}", 'text', 'Action: set the funding haircut to 0% for one scenario if you want to isolate this drag on terminal net worth.'),
             ('Wellness cash flow', f"Bridge monthly {_money(_hc.get('bridge_premium_monthly_today') or (float(_hc.get('bridge_premium_today') or 0)/12))}; Medicare B/D/G monthly {_money(float(_hc.get('part_b_monthly_today') or 0)+float(_hc.get('part_d_monthly_today') or 0)+float(_hc.get('part_g_monthly_today') or 0))}; OOP {_money(_hc.get('oop_estimate_today'))}; ACA PTC {_onoff(_hc.get('aca_ptc_enabled'))}", 'text', 'Action: if terminal net worth fell, temporarily zero bridge/Medicare/OOP costs to quantify wellness impact, then restore realistic values.'),
             ('Taxable portfolio income', _taxable.get('portfolio_distributions_mode'), 'text', 'Annual dividends/interest can raise AGI, Social Security taxation, IRMAA, NIIT, and reduce Roth-conversion room. Action: review asset location and distribution yields.'),
             ('Roth / IRMAA guardrails', f"Policy {_roth.get('roth_policy')}; IRMAA mode {_roth.get('irmaa_guardrail_mode')}; target {_roth.get('irmaa_target_tier')}; headroom {_pct(_roth.get('irmaa_headroom_usage_pct'))}", 'text', 'Action: if conversions look unexpectedly low, check the IRMAA guardrail and ACA PTC-loss weight before overriding the Roth policy.'),
@@ -2210,7 +2210,7 @@ def build_sheet4(ws, c):
 
             write_hdr(
                 ws, r, 1,
-                f'{acct} — {TAX_LABELS.get(tax_type, tax_type)} — Sells ${acct_sells:,.0f} | Security Buys ${acct_security_buys:,.0f} | Ending Cash After Trades ${acct_ending_cash:,.0f}',
+                f'{display_account(acct, c)} — {TAX_LABELS.get(tax_type, tax_type)} — Sells ${acct_sells:,.0f} | Security Buys ${acct_security_buys:,.0f} | Ending Cash After Trades ${acct_ending_cash:,.0f}',
                 BLUE, WHITE, span=10,
             )
             r += 1
@@ -2351,7 +2351,7 @@ def build_sheet4(ws, c):
             write_hdr(ws, r, i, h, DGRAY, WHITE)
         r += 1
         for d in deferred_taxable_trades:
-            write_cell(ws, r, 1, d.get('acct'))
+            write_cell(ws, r, 1, display_account(d.get('acct'), c))
             write_cell(ws, r, 2, d.get('sym'), bold=True)
             write_cell(ws, r, 3, d.get('amount', 0), fmt=FMT_DOLLAR, align='right')
             write_cell(ws, r, 4, d.get('bucket'))
@@ -2431,7 +2431,7 @@ def build_sheet4(ws, c):
             continue
 
         r += 1
-        write_hdr(ws, r, 1, f'{acct}  —  Total: ${at:,.0f}', BLUE, WHITE, span=10)
+        write_hdr(ws, r, 1, f'{display_account(acct, c)}  —  Total: ${at:,.0f}', BLUE, WHITE, span=10)
         r += 1
 
         ba_hdrs = ['Bucket', 'Before $', 'Before %', '', 'After $', 'After %', '', 'Target %', 'Delta pp', 'Status']

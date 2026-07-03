@@ -1,4 +1,5 @@
 from .workbook_common import *
+from ..person_labels import display_accounts_in_text as _display_accounts_in_text
 def build_sheet9(ws, c, rows):
     """Retirement Strategy"""
     ws.sheet_view.showGridLines = False
@@ -293,10 +294,12 @@ def build_sheet11(ws, c, rows):
     r += 2
 
     # Main schedule table with primary and secondary constraints.
+    _n1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
+    _n2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
     hdrs = [
         'Year', 'Type', 'Source Account',
         'Pre-Conv AGI', 'Target Bracket Top', 'Brkt Headroom',
-        'H IRA Avail', 'W IRA Avail', 'Non-Roth Surplus',
+        f'{_n1} IRA Avail', f'{_n2} IRA Avail', 'Non-Roth Surplus',
         'Conversion', 'Primary Binding Limit', 'Secondary Binding Limit',
         'Post-Conv AGI', 'IRMAA Thr', 'Status',
     ]
@@ -314,7 +317,7 @@ def build_sheet11(ws, c, rows):
         forced = c.get('forced_roth', {}).get(yr, 0.0)
         tot = float(row.get('roth_conv', 0.0) or 0.0)
         volun = max(0.0, tot - forced)
-        src_lbl = row.get('roth_conv_src', '—')
+        src_lbl = _display_accounts_in_text(row.get('roth_conv_src', '—'), c)
         binding = row.get('conv_binding_limit', '—')
         secondary = row.get('conv_secondary_binding_limit', '—')
         pre_agi = row.get('conv_pre_agi', 0)
