@@ -868,7 +868,7 @@ def plan_roth_conversion(
     """Compute the Roth conversion amount and diagnostics for a projection year."""
     forced_amount = float((c.get("forced_roth", {}) or {}).get(year, 0.0) or 0.0)
     if forced_amount > 0:
-        
+
         forced_rows = (c.get('forced_roth_accounts') or {}).get(year, []) or []
         forced_source = str(forced_rows[0].get('source_account','') if forced_rows else '')
         return ConversionPlan(amount=forced_amount, forced=True, binding_limit='Forced action', secondary_binding_limit='User-entered forced action', source_account=forced_source, forced_sources=forced_rows)

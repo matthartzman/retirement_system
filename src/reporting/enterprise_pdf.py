@@ -156,7 +156,7 @@ def build_enterprise_pdf(c, rows, mc_data, out_path='output/retirement_plan.pdf'
     story.append(Paragraph("Institutional Retirement Plan", styles['Title']))
     story.append(Spacer(1, 0.18 * inch))
 
-    intro = f"""
+    intro = """
     This report summarizes retirement sustainability, tax strategy,
     portfolio structure, lifetime cash flow, estate outcomes, and
     Monte Carlo simulation results across the full planning horizon.
@@ -362,17 +362,4 @@ def build_enterprise_pdf(c, rows, mc_data, out_path='output/retirement_plan.pdf'
     )
 
     print(f"PDF created: {out_path}")
-
-
-if __name__ == '__main__':
-    bw = _sys.modules[__name__]  # consolidated alias for build_workbook
-
-    _root = Path(__file__).resolve().parent.parent
-    data = bw.load_csv(str(_root / 'input' / 'client_data.csv'))
-    c = bw.parse_client(data, '{SYMBOL}')
-    c = bw.optimize_roth_conversion_strategy(c)
-    rows = bw.project(c)
-    mc = bw.monte_carlo(c)
-
-    build_enterprise_pdf(c, rows, mc, out_path=str(_root / 'output' / 'retirement_plan.pdf'))
 

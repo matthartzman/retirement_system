@@ -241,7 +241,7 @@ def _y(v, default=0):
         if '-' in s and len(s) >= 4:
             return int(s[:4])
         return int(s)
-    except:
+    except Exception:
         return default
 
 
@@ -1859,7 +1859,7 @@ def parse_client(data, url_template):
 
 def build_plan_from_json(plan, url_template=''):
     """Build the engine's `c` dict from a wizard JSON plan.
-    
+
     This is the generic-calculator entry point. The wizard collects user input
     as a JSON dict and this function maps it to the same `c` dict that
     parse_client() produces from CSVs. The projection engine doesn't care
@@ -1885,7 +1885,7 @@ def build_plan_from_json(plan, url_template=''):
         return c_sectioned
 
     c = {}
-    
+
     # ── Members ───────────────────────────────────────────────────────────
     members_in = plan.get('members', [{'name': 'You', 'dob_year': 1965,
                                         'retirement_year': datetime.date.today().year + 4, 'mortality_age': 90}])
@@ -1895,7 +1895,7 @@ def build_plan_from_json(plan, url_template=''):
     c['h_ret_yr']   = int(m1.get('retirement_year', datetime.date.today().year + 4))
     c['h_mort_age'] = int(m1.get('mortality_age', 90))
     c['h_death_yr'] = c['h_dob_yr'] + c['h_mort_age']
-    
+
     if len(members_in) > 1:
         m2 = members_in[1]
         c['w_name']     = m2.get('name', 'Member 2')
@@ -1909,7 +1909,7 @@ def build_plan_from_json(plan, url_template=''):
         c['w_ret_yr'] = c['h_ret_yr']
         c['w_mort_age'] = 0
         c['w_death_yr'] = c['h_dob_yr']
-    
+
     c['members'] = [{'name': c['h_name'], 'role': 'member_1',
                      'dob_yr': c['h_dob_yr'], 'retire_yr': c['h_ret_yr'],
                      'mortality_age': c['h_mort_age'], 'death_yr': c['h_death_yr']}]
@@ -1918,18 +1918,18 @@ def build_plan_from_json(plan, url_template=''):
                              'dob_yr': c['w_dob_yr'], 'retire_yr': c['w_ret_yr'],
                              'mortality_age': c['w_mort_age'], 'death_yr': c['w_death_yr']})
     c['household_size'] = len(c['members'])
-    
+
     # ── Filing & State ────────────────────────────────────────────────────
     filing = plan.get('filing_status', 'MFJ' if c['household_size'] > 1 else 'Single')
     c['filing_status']  = filing if filing in _td.FILING_STATUSES else ('MFJ' if c['household_size'] > 1 else 'Single')
     c['survivor_filing'] = plan.get('survivor_filing_status', 'Single')
     c['state']          = plan.get('state', 'Illinois')
     c['trust_type']     = 'revocable living trust'
-    
+
     # ── Timeline ──────────────────────────────────────────────────────────
     c['plan_start'] = plan.get('plan_start', datetime.date.today().year)
     c['plan_end']   = max(c['h_death_yr'], c.get('w_death_yr', c['h_death_yr']))
-    
+
     # ── Economic assumptions ──────────────────────────────────────────────
     a = plan.get('assumptions', {})
     c['ret']             = a.get('return_rate', 0.074)
@@ -1943,7 +1943,7 @@ def build_plan_from_json(plan, url_template=''):
     c['mc_paths']        = int(a.get('mc_paths', 1000))
     c['ss_cola']         = a.get('ss_cola', 0.023)
     c['ss_taxable']      = a.get('ss_taxable_pct', 0.85)
-    
+
     # ── Accounts & Balances ───────────────────────────────────────────────
     accounts_in = plan.get('accounts', [])
     balances = {}
@@ -1956,7 +1956,7 @@ def build_plan_from_json(plan, url_template=''):
     c['balances'] = balances
     c['cash_other'] = sum(v for k, v in balances.items()
                           if 'checking' in k.lower() or 'saving' in k.lower())
-    
+
     # Build account registry
     c['account_registry'] = _ar.build_registry_from_json(accounts_in, c['members'])
     c['all_acct_ids']     = _ar.all_ids(c['account_registry'])
@@ -1966,7 +1966,7 @@ def build_plan_from_json(plan, url_template=''):
     c['hsa_ids']          = _ar.hsa_ids(c['account_registry'])
     c['cash_ids']         = _ar.ids_by_tax(c['account_registry'], 'cash')
     c['invest_ids']       = _ar.all_investment_ids(c['account_registry'])
-    
+
     # ── Income ────────────────────────────────────────────────────────────
     inc = plan.get('income', {})
     c['earned']       = inc.get('earned_income', 0)
@@ -1983,7 +1983,7 @@ def build_plan_from_json(plan, url_template=''):
     c['w_ss_claim_age'] = inc.get('w_ss_claim_age', c['ss_claim_age'])
     c['h_ss_start']   = c['h_dob_yr'] + c['h_ss_claim_age']
     c['w_ss_start']   = c['w_dob_yr'] + c['w_ss_claim_age'] if c['w_name'] else 9999
-    
+
     # Pension & Annuities (defaults: none)
     _empty_stream = lambda: {'first_yr': 9999, 'init_pmt': 0, 'base': 0,
         'div_rate': 0.0575, 'add_pct': 0.50, 'deferral_years': 0,
@@ -2002,7 +2002,7 @@ def build_plan_from_json(plan, url_template=''):
     c['annuity_calib'] = _td.DEFAULT_ANNUITY_CALIB
     c['note_face'] = 0; c['note_rate'] = 0; c['note_last'] = c['plan_start']
     c['note_princ_sched'] = {}
-    
+
     # ── Spending ──────────────────────────────────────────────────────────
     sp = plan.get('spending', {})
     c['spend_base']         = sp.get('annual_base', 80000)
@@ -2019,7 +2019,7 @@ def build_plan_from_json(plan, url_template=''):
     c['hc_base']            = sp.get('wellness_annual', 8000)
     c['hc_inf']             = sp.get('wellness_inflation', 0.05)
     c['freeze_yr']          = sp.get('spending_freeze_year', c['plan_start'] + 15)
-    
+
     # ── Home & Assets ─────────────────────────────────────────────────────
     c['home_val']     = plan.get('home_value', 0)
     c['home_basis']   = plan.get('home_basis', 0)
@@ -2028,7 +2028,7 @@ def build_plan_from_json(plan, url_template=''):
     c['home_sale_yr'] = plan.get('home_sale_year', 0)
     c['autos']        = plan.get('auto_value', 0)
     c['startup_eq']   = plan.get('startup_equity', 0)
-    
+
     # ── Policy ────────────────────────────────────────────────────────────
     c['roth_policy']        = a.get('roth_policy', 'optimize_terminal_tax')
     c['roth_target_rate']   = a.get('roth_target_rate', 0.24)
@@ -2062,7 +2062,7 @@ def build_plan_from_json(plan, url_template=''):
         c['near_term_buffer_end_year'] = _first['end_year'] if _first['end_year'] != 9999 else c['plan_start']
         c['long_term_buffer_years'] = _last['years_of_expenses']
     c['trust_gain_fraction'] = a.get('ltcg_gain_fraction', 0.50)
-    
+
     # ── Tax Constants ─────────────────────────────────────────────────────
     c['rmd_start_age']     = a.get('rmd_start_age', 75)
     c['rollover_yr']       = a.get('rollover_year', c['plan_start'] + 5)
@@ -2075,13 +2075,13 @@ def build_plan_from_json(plan, url_template=''):
     c['tax_constants_registry'] = _td.load_tax_constants()
     c['tax_provenance']    = dict(_td.TAX_YEAR_PROVENANCE)
     c['tax_table_currency_warnings'] = _td.tax_table_currency_warnings(max_lag_years=int(c.get('tax_table_currency_max_lag_years', 1) or 1))
-    
+
     # ── Estate ────────────────────────────────────────────────────────────
     c['fed_exempt']    = plan.get('estate_federal_exemption', 30000000)
     c['state_exempt']  = plan.get('estate_state_exemption', 4000000)
     c['gift_exclusion'] = 19000; c['basis_stepup'] = True
     c['state_estate']  = True; c['gifting_plan'] = {}
-    
+
     # ── Defaults for optional subsystems ──────────────────────────────────
     c['scenarios'] = plan.get('scenarios', {})
     c['daf_enabled'] = False
@@ -2169,7 +2169,7 @@ def build_plan_from_json(plan, url_template=''):
     from .core import LotEngine  # consolidated from events
     c['lot_engine'] = LotEngine({}, PRICE_CACHE,
                                 fallback_gain_fraction=c['trust_gain_fraction'])
-    
+
     _apply_allocation_projection_assumptions(c)
     return ensure_engine_config(c, source='flat_json')
 

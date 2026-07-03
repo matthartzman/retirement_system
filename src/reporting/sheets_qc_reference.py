@@ -453,7 +453,7 @@ def build_sheet25(ws, c, rows):
     ws.freeze_panes = 'A5'
     section_title(ws, 1, 'ACCOUNT RECONCILIATION — Account-Level Roll Forward', 16)
     write_cell(ws, 2, 1,
-               'Formula: Opening + Deposits + Transfers In - Transfers Out + Roth Conversion In - Roth Conversion Out - Withdrawals + Growth = Ending. ' 
+               'Formula: Opening + Deposits + Transfers In - Transfers Out + Roth Conversion In - Roth Conversion Out - Withdrawals + Growth = Ending. '
                'This sheet explains movements that do not appear as cash-flow withdrawals, such as Roth conversions and death-year rollovers.',
                bg=LGRAY)
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=16)
