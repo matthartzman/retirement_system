@@ -8,6 +8,8 @@
 # these. A mobile (Android/Chaquopy) build installs this core set and omits the
 # desktop-only group below.
 numpy>=1.26,<3
+scipy>=1.10,<2
+lxml>=4.9,<7
 openpyxl>=3.1,<4
 reportlab>=4.0,<5
 matplotlib>=3.8,<4

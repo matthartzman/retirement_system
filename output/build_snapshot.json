@@ -2,42 +2,42 @@
   "artifact_count": 5,
   "artifacts": [
     {
-      "bytes": 207756,
+      "bytes": 207556,
       "exists": true,
       "file": "retirement_plan.xlsx",
-      "modified_at": "2026-07-03T02:19:56Z",
+      "modified_at": "2026-07-03T12:42:52Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\retirement_plan.xlsx",
-      "sha256": "28e459ce097e09321894169c4d7acc449a1881c5b258e16e15eabaff2ae9559a"
+      "sha256": "57d0a417cb01f2226e3beeeeb63fb8c9ff8f71996e11d81f8f5abafc9a1e0d5c"
     },
     {
       "bytes": 29245,
       "exists": true,
       "file": "retirement_dashboard.html",
-      "modified_at": "2026-07-03T02:19:57Z",
+      "modified_at": "2026-07-03T12:42:53Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\retirement_dashboard.html",
-      "sha256": "5d908841084bd971be5ab1638ff0f9d03214bf41546cd65f2e01d333400f366b"
+      "sha256": "37380d9caf4f2f3d02d23125e545feed6181914fb6eaf6cdaac0bb15ddce4fdf"
     },
     {
-      "bytes": 418058,
+      "bytes": 418068,
       "exists": true,
       "file": "results_explorer_model.json",
-      "modified_at": "2026-07-03T02:19:57Z",
+      "modified_at": "2026-07-03T12:42:53Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\results_explorer_model.json",
-      "sha256": "747a737b44a463f46a8a08df9d53358316407ec1721a8c8be69e0ea904ccc5e9"
+      "sha256": "7375c628091a38cb73321bdb641b658d5b544d453cf0dd693f455bed62af68ae"
     },
     {
-      "bytes": 828,
+      "bytes": 829,
       "exists": true,
       "file": "plan_summary.json",
-      "modified_at": "2026-07-03T02:19:57Z",
+      "modified_at": "2026-07-03T12:42:53Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\plan_summary.json",
-      "sha256": "eecefe13131c8eeac611bd14374e7f67d60a66771aef9e26be071d27f1fe2f12"
+      "sha256": "9f7a81331623eac36410babfa6eed661d2e542a2a9380fd790755b9e0bda0c2a"
     },
     {
       "bytes": 6042,
       "exists": true,
       "file": "pricing_diagnostics.json",
-      "modified_at": "2026-07-03T02:19:43Z",
+      "modified_at": "2026-07-03T12:42:40Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\pricing_diagnostics.json",
       "sha256": "3f621c8ae1a66d12d2f9f32b16964b512d4df4a256285b1f770a8e66dd0165e6"
     }
@@ -47,7 +47,7 @@
     "build_started_at_ts": "",
     "python": ""
   },
-  "generated_at": "2026-07-03T02:19:57Z",
+  "generated_at": "2026-07-03T12:42:53Z",
   "input_fingerprint": {
     "files": [
       {
@@ -63,27 +63,27 @@
     "bytes": 6042,
     "exists": true,
     "file": "pricing_diagnostics.json",
-    "modified_at": "2026-07-03T02:19:43Z",
+    "modified_at": "2026-07-03T12:42:40Z",
     "path": "C:\\RetirementPlanning\\Version 10\\output\\pricing_diagnostics.json",
     "sha256": "3f621c8ae1a66d12d2f9f32b16964b512d4df4a256285b1f770a8e66dd0165e6"
   },
   "schema": "build_snapshot_v1",
   "source": "sqlite_snapshot",
   "sqlite_database": {
-    "bytes": 55828480,
+    "bytes": 63217664,
     "exists": true,
     "file": "retirement_system_v10.db",
-    "modified_at": "2026-07-03T02:19:09Z",
+    "modified_at": "2026-07-03T12:42:26Z",
     "path": "C:\\RetirementPlanning\\Version 10\\local_state\\retirement_system_v10.db",
-    "sha256": "dfcdca3fe20a2224b24edb8635ea262ebd0175d2848a788626a432c745c75040"
+    "sha256": "fad5136fc39c41c52375c03afeeee2259efd41bd0bb96d4387997d45660b904e"
   },
   "sqlite_database_snapshot": {
-    "bytes": 55828480,
+    "bytes": 63217664,
     "exists": true,
     "file": "plan_database_snapshot.rpx",
-    "modified_at": "2026-07-03T02:19:09Z",
+    "modified_at": "2026-07-03T12:42:26Z",
     "path": "C:\\RetirementPlanning\\Version 10\\output\\plan_database_snapshot.rpx",
-    "sha256": "dfcdca3fe20a2224b24edb8635ea262ebd0175d2848a788626a432c745c75040",
+    "sha256": "fad5136fc39c41c52375c03afeeee2259efd41bd0bb96d4387997d45660b904e",
     "snapshot_role": "sqlite_database_copy",
     "source_path": "C:\\RetirementPlanning\\Version 10\\local_state\\retirement_system_v10.db"
   },
@@ -94,7 +94,7 @@
     "build_id": "",
     "h_name": "Matthew",
     "lifetime_tax": 906966.7243909074,
-    "mc_success": 0.634,
+    "mc_success": 0.6875,
     "post_tax_inheritance": 5607950.479670377,
     "qc_result": "QC: 32 / 32 PASS",
     "terminal_deferred_pretax_tax": 0.0,

@@ -18,7 +18,7 @@ datas_collected    = []
 binaries_collected = []
 hiddenimports_collected = []
 
-for pkg in ("numpy", "matplotlib", "reportlab", "openpyxl",
+for pkg in ("numpy", "scipy", "lxml", "matplotlib", "reportlab", "openpyxl",
             "PIL", "cryptography"):
     _d, _b, _h = collect_all(pkg)
     datas_collected    += _d
@@ -27,7 +27,7 @@ for pkg in ("numpy", "matplotlib", "reportlab", "openpyxl",
 
 # copy_metadata ensures importlib.metadata.version() works inside the frozen
 # exe for packages that query their own version at startup.
-for _meta_pkg in ("numpy", "matplotlib", "reportlab",
+for _meta_pkg in ("numpy", "scipy", "lxml", "matplotlib", "reportlab",
                   "openpyxl", "Pillow", "cryptography", "pywebview"):
     try:
         datas_collected += copy_metadata(_meta_pkg)

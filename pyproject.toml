@@ -9,6 +9,8 @@ description = "Comprehensive retirement planning analysis and workbook generatio
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.26,<3",
+    "scipy>=1.10,<2",
+    "lxml>=4.9,<7",
     "openpyxl>=3.1,<4",
     "reportlab>=4.0,<5",
     "matplotlib>=3.8,<4",
@@ -32,28 +34,36 @@ select = ["E", "F", "W"]
 # ruff rejects it as an unknown selector, which previously failed the lint step
 # before it could run.
 ignore = [
-    "E501",  # line too long (formatter's concern)
+    "E501",  # line too long (handled by formatter)
+    "E741",  # ambiguous variable name
+    # The rules below are incompatible with this codebase's established
+    # "consolidated module" architecture: several src/ modules (core.py,
+    # app_core.py, planning_engines.py, taxes.py, workbook_common.py, ...)
+    # merge what were once separate files and deliberately import/define
+    # names that look locally unused but exist to be re-exported via
+    # `from .module import *`, or to progressively override an earlier
+    # definition later in the same consolidated file. Verified by attempting
+    # an automated F401 cleanup pass and finding it broke cross-module
+    # attribute access (e.g. `_legacy_pe._aa`) and wildcard re-exports
+    # (e.g. `load_active_config`, `fetch_price`) in ways the test suite only
+    # partially caught. Also excludes E401/E402/E701/E702/E731, which flag
+    # this codebase's deliberate dense single-line style rather than bugs.
     "E401",  # multiple imports on one line
-    "E402",  # module import not at top (from-__future__/docstring/try-except house style)
+    "E402",  # module level import not at top of file (future-import-before-docstring convention)
     "E701",  # multiple statements on one line (colon)
     "E702",  # multiple statements on one line (semicolon)
-    "E722",  # bare except (pervasive in defensive import fallbacks)
     "E731",  # lambda assignment
-    "E741",  # ambiguous variable name
-    "F401",  # unused import (re-export / compatibility patterns)
-    "F403",  # star import (deliberate app_core route-registry architecture)
-    "F405",  # name may be from star import (same architecture)
-    "F541",  # f-string without placeholders
-    "F811",  # redefinition (compatibility shims)
+    "F401",  # unused import (re-exported via wildcard imports elsewhere)
+    "F403",  # `from module import *` used
+    "F405",  # name may be undefined from star imports
+    "F811",  # redefinition (progressive override within consolidated modules)
     "F841",  # unused local variable
+    "E722",  # bare except (pervasive in defensive import fallbacks)
+    "F541",  # f-string without placeholders
     "W291",  # trailing whitespace
     "W292",  # no newline at end of file
     "W293",  # whitespace on blank line
 ]
-
-[tool.ruff.lint.per-file-ignores]
-"tests/*" = ["F401"]  # unused imports in test fixtures
-"__init__.py" = ["F401"]  # unused imports in __init__ files
 
 [tool.pytest.ini_options]
 # Put the project root on sys.path so tests can `from src...` under a bare
