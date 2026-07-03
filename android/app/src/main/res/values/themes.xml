@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- NoActionBar: the WebView content (frontend/index.html) already renders
+         its own header; a system action bar would just duplicate it. -->
+    <style name="Theme.RetirementSystem" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
+</resources>
