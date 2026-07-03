@@ -19,6 +19,24 @@ def member_nick(c, role):
     return str(c.get('w_nick') or c.get('w_name') or 'Member 2').strip()
 
 
+import re as _re
+
+_ACCT_TOKEN_RE = _re.compile(r'\bMember_[12]_[A-Za-z0-9]+\b')
+
+
+def display_accounts_in_text(text, c):
+    """Replace embedded Member_1_*/Member_2_* account ids in a free-text string.
+
+    Engine-built notes (Roth conversion sources, rollover notes, scenario
+    proceeds) splice raw account ids into sentences like
+    'Member_1_IRA $108,908→Member_1_Roth'. This rewrites each id token to its
+    nickname display label while leaving the rest of the sentence intact.
+    """
+    if not text:
+        return text
+    return _ACCT_TOKEN_RE.sub(lambda m: display_account(m.group(0), c), str(text))
+
+
 def display_account(acct, c):
     """Human label for an internal account id.
 

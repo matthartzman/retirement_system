@@ -76,7 +76,15 @@ def build_sheet5(ws, c, rows):
     roth_slots = _account_slots(tax='roth', count=2)
     trust_slots = _account_slots(tax='taxable', count=2)
     hsa_slots = _account_slots(tax='hsa', count=1)
+    _n1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
+    _n2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
     header_labels = {
+        'H Age': f'{_n1} Age',
+        'W Age': f'{_n2} Age',
+        'W Single PV': f'{_n2} Single PV',
+        'W Joint PV': f'{_n2} Joint PV',
+        'H Single PV': f'{_n1} Single PV',
+        'H Joint PV': f'{_n1} Joint PV',
         'PreTax_1': pretax_slots[0][1] or 'Pre-Tax 1',
         'PreTax_2': pretax_slots[1][1] or 'Pre-Tax 2',
         'PreTax_3': pretax_slots[2][1] or 'Pre-Tax 3',
@@ -532,7 +540,9 @@ def build_sheet7(ws, c, rows):
     section_title(ws, 1, 'LIFETIME TAX PROJECTION', 10)
 
     r = 2
-    hdrs = ['Year','H Age','W Age','Filing','AGI','Taxable Income',
+    _n1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
+    _n2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
+    hdrs = ['Year',f'{_n1} Age',f'{_n2} Age','Filing','AGI','Taxable Income',
             'Fed Tax','State Tax','NIIT','Payroll Tax','IRMAA',
             'Total Tax','Effective Rate','Marginal Rate']
     for i, h in enumerate(hdrs, 1):

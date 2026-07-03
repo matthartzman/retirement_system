@@ -1,4 +1,5 @@
 from .workbook_common import *
+from ..person_labels import display_accounts_in_text as _display_accounts_in_text
 def build_sheet15(ws, c, rows, mc_data):
     """Market-Luck Stress Test — 7 sections:
     A. Methodology  B. Headline Results  C. Ending NW Distribution
@@ -426,7 +427,7 @@ def build_sheet16(ws, c, rows):
     sell_yr   = c['scen_sell_yr']
     sell_px   = c['scen_sell_px']
     sell_basis= c['scen_sell_basis']
-    sell_acct = c['scen_sell_acct']
+    sell_acct = _display_accounts_in_text(c['scen_sell_acct'], c)
     # Projected home value at sale year
     home_at_sell = c['home_val'] * (1 + c['home_appr']) ** (sell_yr - c['plan_start'])
     gross_sell   = sell_px if sell_px > 0 else home_at_sell
@@ -1022,15 +1023,15 @@ def build_sheet20(ws, c, rows):
         # Notes
         notes_list = []
         if not h_alive and yr > c['h_death_yr']:
-            notes_list.append(f'H died {c["h_death_yr"]}')
+            notes_list.append(f'{_a1} died {c["h_death_yr"]}')
         if not w_alive and yr > c['w_death_yr']:
-            notes_list.append(f'W died {c["w_death_yr"]}')
+            notes_list.append(f'{_a2} died {c["w_death_yr"]}')
         if rollover:
-            notes_list.append(f'Rollover: {rollover}')
+            notes_list.append(f'Rollover: {_display_accounts_in_text(rollover, c)}')
         if h_ira_elec > 0 and rmd_h > 0:
-            notes_list.append(f'H: RMD ${rmd_h:,.0f} + Elec ${h_ira_elec:,.0f}')
+            notes_list.append(f'{_a1}: RMD ${rmd_h:,.0f} + Elec ${h_ira_elec:,.0f}')
         if w_ira_elec > 0 and rmd_w > 0:
-            notes_list.append(f'W: RMD ${rmd_w:,.0f} + Elec ${w_ira_elec:,.0f}')
+            notes_list.append(f'{_a2}: RMD ${rmd_w:,.0f} + Elec ${w_ira_elec:,.0f}')
         if yr == c.get('rollover_401k_yr'):
             notes_list.append('workplace plan rollover')
 
@@ -1058,7 +1059,7 @@ def build_sheet20(ws, c, rows):
             w_ira_rmd_pct if w_ira_cash > 0 else None,
             total_rmd, total_ira_cash, total_ira,
             '✓' if rmd_match else f'✗ CF={cf_rmd_val:,.0f}',
-            rollover,
+            _display_accounts_in_text(rollover, c),
             '; '.join(notes_list),
         ]
 
