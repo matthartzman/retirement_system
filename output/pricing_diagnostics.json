@@ -1,6 +1,6 @@
 {
-  "advisor_ready_pricing_blocked": true,
-  "advisor_ready_pricing_message": "Advisor-ready status is blocked when fallback/stale pricing exceeds configured tolerance.",
+  "advisor_ready_pricing_blocked": false,
+  "advisor_ready_pricing_message": "Pricing fallback share is within configured tolerance.",
   "alpha_vantage_api_key_configured": true,
   "alpha_vantage_api_key_fingerprint": "37e951649172",
   "api_key_csv_settings": {
@@ -13,25 +13,25 @@
   "api_key_source": "UI/system_config.csv, environment variables, or encrypted secret store",
   "best_guess_cause": "Market pricing succeeded for all requested symbols.",
   "cache_as_of_by_symbol": {
-    "AVUV": "2026-06-29T14:35:05.2758348Z",
-    "ITOT": "2026-06-29T14:35:05.2758348Z",
-    "IXUS": "2026-06-29T14:35:05.2758348Z",
-    "PDBC": "2026-06-29T14:35:05.2758348Z",
-    "VBR": "2026-06-29T14:35:05.2758348Z",
-    "VTI": "2026-06-29T14:35:05.2758348Z",
-    "VXUS": "2026-06-29T14:35:05.2758348Z"
+    "AVUV": "2026-07-03T01:54:43.721596+00:00",
+    "ITOT": "2026-07-03T01:54:41.006431+00:00",
+    "IXUS": "2026-07-03T01:54:40.049302+00:00",
+    "PDBC": "2026-07-03T01:54:42.139653+00:00",
+    "VBR": "2026-07-03T01:54:48.618296+00:00",
+    "VTI": "2026-07-03T01:54:46.980975+00:00",
+    "VXUS": "2026-07-03T01:54:45.336927+00:00"
   },
   "cache_as_of_by_symbol_local": {
-    "AVUV": "06/29/2026 09:35 AM",
-    "ITOT": "06/29/2026 09:35 AM",
-    "IXUS": "06/29/2026 09:35 AM",
-    "PDBC": "06/29/2026 09:35 AM",
-    "VBR": "06/29/2026 09:35 AM",
-    "VTI": "06/29/2026 09:35 AM",
-    "VXUS": "06/29/2026 09:35 AM"
+    "AVUV": "07/02/2026 08:54 PM",
+    "ITOT": "07/02/2026 08:54 PM",
+    "IXUS": "07/02/2026 08:54 PM",
+    "PDBC": "07/02/2026 08:54 PM",
+    "VBR": "07/02/2026 08:54 PM",
+    "VTI": "07/02/2026 08:54 PM",
+    "VXUS": "07/02/2026 08:54 PM"
   },
-  "cache_as_of_local": "06/29/2026 09:35 AM",
-  "cache_as_of_utc": "2026-06-29T14:35:05.2758348Z",
+  "cache_as_of_local": "07/02/2026 08:54 PM",
+  "cache_as_of_utc": "2026-07-03T01:54:40.049302+00:00 to 2026-07-03T01:54:48.618296+00:00",
   "cache_first_enabled": true,
   "cache_path": "C:\\RetirementPlanning\\Version 10\\output\\market_price_cache.json",
   "cache_schema_version": "10",
@@ -76,16 +76,8 @@
     "VTI",
     "VXUS"
   ],
-  "fallback_warning_share": 0.875,
-  "fallback_warning_symbols": [
-    "AVUV",
-    "ITOT",
-    "IXUS",
-    "PDBC",
-    "VBR",
-    "VTI",
-    "VXUS"
-  ],
+  "fallback_warning_share": 0.0,
+  "fallback_warning_symbols": [],
   "fmp_api_key_configured": true,
   "fmp_api_key_fingerprint": "a805fe45c35d",
   "frozen_metadata": {},
@@ -104,48 +96,48 @@
     "stooq"
   ],
   "prices": {
-    "AVUV": 124.94,
+    "AVUV": 123.51,
     "CASH": 1.0,
-    "ITOT": 160.83,
-    "IXUS": 94.26,
+    "ITOT": 163.76,
+    "IXUS": 94.72,
     "PDBC": 15.87,
-    "VBR": 242.77,
-    "VTI": 362.22,
-    "VXUS": 84.48
+    "VBR": 243.22,
+    "VTI": 368.76,
+    "VXUS": 84.84
   },
   "pricing_mode": "CACHE",
   "pricing_source_category": "CACHE",
-  "pricing_source_note": "Cached quotes were used as of 06/29/2026 09:35 AM; cache TTL is 24.0 hours. CACHE mode checks the cache before calling live providers; this cache passed its 24.0-hour TTL (expired 06/30/2026 09:35 AM) but was used anyway.",
+  "pricing_source_note": "Cached quotes were used as of 07/02/2026 08:54 PM; cache TTL is 24.0 hours. CACHE mode checks the cache before calling live providers; the cache is still valid until 07/03/2026 08:54 PM.",
   "pricing_source_summary": {
     "cache_as_of_by_symbol": {
-      "AVUV": "2026-06-29T14:35:05.2758348Z",
-      "ITOT": "2026-06-29T14:35:05.2758348Z",
-      "IXUS": "2026-06-29T14:35:05.2758348Z",
-      "PDBC": "2026-06-29T14:35:05.2758348Z",
-      "VBR": "2026-06-29T14:35:05.2758348Z",
-      "VTI": "2026-06-29T14:35:05.2758348Z",
-      "VXUS": "2026-06-29T14:35:05.2758348Z"
+      "AVUV": "2026-07-03T01:54:43.721596+00:00",
+      "ITOT": "2026-07-03T01:54:41.006431+00:00",
+      "IXUS": "2026-07-03T01:54:40.049302+00:00",
+      "PDBC": "2026-07-03T01:54:42.139653+00:00",
+      "VBR": "2026-07-03T01:54:48.618296+00:00",
+      "VTI": "2026-07-03T01:54:46.980975+00:00",
+      "VXUS": "2026-07-03T01:54:45.336927+00:00"
     },
     "cache_as_of_by_symbol_local": {
-      "AVUV": "06/29/2026 09:35 AM",
-      "ITOT": "06/29/2026 09:35 AM",
-      "IXUS": "06/29/2026 09:35 AM",
-      "PDBC": "06/29/2026 09:35 AM",
-      "VBR": "06/29/2026 09:35 AM",
-      "VTI": "06/29/2026 09:35 AM",
-      "VXUS": "06/29/2026 09:35 AM"
+      "AVUV": "07/02/2026 08:54 PM",
+      "ITOT": "07/02/2026 08:54 PM",
+      "IXUS": "07/02/2026 08:54 PM",
+      "PDBC": "07/02/2026 08:54 PM",
+      "VBR": "07/02/2026 08:54 PM",
+      "VTI": "07/02/2026 08:54 PM",
+      "VXUS": "07/02/2026 08:54 PM"
     },
-    "cache_as_of_local": "06/29/2026 09:35 AM",
-    "cache_as_of_utc": "2026-06-29T14:35:05.2758348Z",
-    "cache_valid_until_local": "06/30/2026 09:35 AM",
-    "cache_valid_until_utc": "2026-06-30T14:35:05+00:00",
+    "cache_as_of_local": "07/02/2026 08:54 PM",
+    "cache_as_of_utc": "2026-07-03T01:54:40.049302+00:00 to 2026-07-03T01:54:48.618296+00:00",
+    "cache_valid_until_local": "07/03/2026 08:54 PM",
+    "cache_valid_until_utc": "2026-07-04T01:54:40.049302+00:00 to 2026-07-04T01:54:48.618296+00:00",
     "category": "CACHE",
     "label": "CACHE",
-    "note": "Cached quotes were used as of 06/29/2026 09:35 AM; cache TTL is 24.0 hours. CACHE mode checks the cache before calling live providers; this cache passed its 24.0-hour TTL (expired 06/30/2026 09:35 AM) but was used anyway.",
+    "note": "Cached quotes were used as of 07/02/2026 08:54 PM; cache TTL is 24.0 hours. CACHE mode checks the cache before calling live providers; the cache is still valid until 07/03/2026 08:54 PM.",
     "pricing_mode": "CACHE",
     "source_counts": {
       "cash": 1,
-      "stale_cache_from_fixture_cache": 7
+      "fresh_cache_24h_from_yahoo": 7
     }
   },
   "provider_attempts": {},
@@ -163,17 +155,17 @@
   "requests_available": true,
   "source_counts": {
     "cash": 1,
-    "stale_cache_from_fixture_cache": 7
+    "fresh_cache_24h_from_yahoo": 7
   },
   "sources": {
-    "AVUV": "stale_cache_from_fixture_cache",
+    "AVUV": "fresh_cache_24h_from_yahoo",
     "CASH": "cash",
-    "ITOT": "stale_cache_from_fixture_cache",
-    "IXUS": "stale_cache_from_fixture_cache",
-    "PDBC": "stale_cache_from_fixture_cache",
-    "VBR": "stale_cache_from_fixture_cache",
-    "VTI": "stale_cache_from_fixture_cache",
-    "VXUS": "stale_cache_from_fixture_cache"
+    "ITOT": "fresh_cache_24h_from_yahoo",
+    "IXUS": "fresh_cache_24h_from_yahoo",
+    "PDBC": "fresh_cache_24h_from_yahoo",
+    "VBR": "fresh_cache_24h_from_yahoo",
+    "VTI": "fresh_cache_24h_from_yahoo",
+    "VXUS": "fresh_cache_24h_from_yahoo"
   },
   "stooq_configured": true,
   "stooq_symbol_rule": "append .us only for Stooq calls; other providers receive original symbols",

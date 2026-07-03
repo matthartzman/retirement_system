@@ -713,6 +713,29 @@ def _json_service_result(result):
     return jsonify(payload), status
 
 
+def _spending_budget_csv_path() -> Path:
+    return BASE_DIR / "input" / "client_spending_budget.csv"
+
+
+def _read_csv_rows_safe(path: Path) -> list[list[str]]:
+    if not path.exists():
+        return []
+    with path.open(newline="", encoding="utf-8-sig") as f:
+        return list(csv.reader(f))
+
+
+def _spending_budget_save_result(save_fn):
+    """Run a budget-save call and record the before/after diff to Build Impact."""
+    budget_path = _spending_budget_csv_path()
+    before_rows = _read_csv_rows_safe(budget_path)
+    payload, status = save_fn()
+    after_rows = _read_csv_rows_safe(budget_path)
+    change_event = _record_admin_config_change("spending_budget", budget_path.name, str(budget_path), before_rows, after_rows)
+    if isinstance(payload, dict) and change_event:
+        payload["change_event"] = change_event
+    return jsonify(payload), status
+
+
 @app.route("/api/spending/dashboard", methods=["GET"])
 def spending_dashboard():
     denied = _require("view_dashboard")
@@ -806,7 +829,8 @@ def spending_budget_taxonomy_save():
     denied = _require("write_config")
     if denied:
         return denied
-    return _json_service_result(_spending_feature_service().save_budget_taxonomy_payload(request.get_json(silent=True) or {}))
+    body = request.get_json(silent=True) or {}
+    return _spending_budget_save_result(lambda: _spending_feature_service().save_budget_taxonomy_payload(body))
 
 
 @app.route("/api/spending/budget/recover", methods=["POST"])
@@ -912,7 +936,8 @@ def spending_budget_unified():
     denied = _require("write_config")
     if denied:
         return denied
-    return _json_service_result(_spending_feature_service().save_unified_budget_payload(request.get_json(silent=True) or {}))
+    body = request.get_json(silent=True) or {}
+    return _spending_budget_save_result(lambda: _spending_feature_service().save_unified_budget_payload(body))
 
 # PlanFileService owns SQLite copy semantics including wal_checkpoint(FULL),
 # wal_checkpoint(TRUNCATE), not src.exists(), and before_load backups.
