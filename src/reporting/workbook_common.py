@@ -146,11 +146,11 @@ from ..planning_engines import optimize_roth_conversion_strategy
 
 def compare_scenarios(c, scenario_overrides):
     """Run multiple scenarios and return unified comparison data.
-    
+
     Args:
         c: parsed client dict (base case)
         scenario_overrides: dict of {name: {key: value, ...}}
-    
+
     Returns:
         list of dicts: [{name, terminal_nw, lifetime_tax, delta_nw, rows}, ...]
     """
@@ -158,7 +158,7 @@ def compare_scenarios(c, scenario_overrides):
     base_rows = project(c)
     base_nw   = base_rows[-1]['total_nw']
     base_tax  = sum(r['total_tax'] for r in base_rows)
-    
+
     results = [{
         'name': 'Base Case',
         'terminal_nw': base_nw,
@@ -166,7 +166,7 @@ def compare_scenarios(c, scenario_overrides):
         'delta_nw': 0,
         'rows': base_rows,
     }]
-    
+
     for name, overrides in scenario_overrides.items():
         c2 = copy.deepcopy(c)
         for k, v in overrides.items():
@@ -181,7 +181,7 @@ def compare_scenarios(c, scenario_overrides):
             'delta_nw': nw2 - base_nw,
             'rows': rows2,
         })
-    
+
     return results
 
 
@@ -207,13 +207,13 @@ def tornado_data(c):
     """Generate tornado chart data: +/- 1 std dev for key parameters."""
     base_rows = project(c)
     base_nw = base_rows[-1]['total_nw']
-    
+
     params = [
         ('ret',        c['ret'] - 0.02,     c['ret'] + 0.02,     'Portfolio Return ±2%'),
         ('inf',        c['inf'] - 0.01,     c['inf'] + 0.01,     'Inflation ±1%'),
         ('spend_base', c['spend_base']*0.9, c['spend_base']*1.1, 'Spending ±10%'),
     ]
-    
+
     import copy
     bars = []
     for key, lo, hi, label in params:
