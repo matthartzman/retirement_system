@@ -587,8 +587,7 @@ def save_spending_budget_lines():
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
     body = request.get_json(silent=True) or {}
-    payload, status = _spending_budget_feature_service().save_budget_lines_payload(body)
-    return jsonify(payload), status
+    return _spending_budget_save_result(lambda: _spending_budget_feature_service().save_budget_lines_payload(body))
 
 
 @app.route("/api/spending/budget-lines/defaults", methods=["GET"])

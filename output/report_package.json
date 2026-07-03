@@ -2,15 +2,15 @@
   "artifact_count": 7,
   "artifacts": [
     {
-      "bytes": 207756,
+      "bytes": 207774,
       "exists": true,
       "file": "retirement_plan.xlsx",
-      "modified_at": "2026-07-03T02:19:56Z",
+      "modified_at": "2026-07-03T06:38:48Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\retirement_plan.xlsx",
       "required": true,
       "role": "workbook",
       "schema": "xlsx_workbook",
-      "sha256": "28e459ce097e09321894169c4d7acc449a1881c5b258e16e15eabaff2ae9559a"
+      "sha256": "d0fa7c493426e4a9a34c2378db3689eb63f570c9f9794ff27ca1a835dee142e2"
     },
     {
       "exists": false,
@@ -24,29 +24,29 @@
       "bytes": 29245,
       "exists": true,
       "file": "retirement_dashboard.html",
-      "modified_at": "2026-07-03T02:19:57Z",
+      "modified_at": "2026-07-03T06:38:49Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\retirement_dashboard.html",
       "required": true,
       "role": "html_dashboard",
       "schema": "offline_dashboard",
-      "sha256": "5d908841084bd971be5ab1638ff0f9d03214bf41546cd65f2e01d333400f366b"
+      "sha256": "37380d9caf4f2f3d02d23125e545feed6181914fb6eaf6cdaac0bb15ddce4fdf"
     },
     {
       "bytes": 418058,
       "exists": true,
       "file": "results_explorer_model.json",
-      "modified_at": "2026-07-03T02:19:57Z",
+      "modified_at": "2026-07-03T06:38:49Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\results_explorer_model.json",
       "required": true,
       "role": "results_model",
       "schema": "results_model_v10",
-      "sha256": "747a737b44a463f46a8a08df9d53358316407ec1721a8c8be69e0ea904ccc5e9"
+      "sha256": "24a126e801f9dbd2b4124195b7682c8833b6bd8c9f76f711923380f82738911f"
     },
     {
       "bytes": 828,
       "exists": true,
       "file": "plan_summary.json",
-      "modified_at": "2026-07-03T02:19:57Z",
+      "modified_at": "2026-07-03T06:38:49Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\plan_summary.json",
       "required": true,
       "role": "summary",
@@ -57,18 +57,18 @@
       "bytes": 4589,
       "exists": true,
       "file": "build_snapshot.json",
-      "modified_at": "2026-07-03T02:19:57Z",
+      "modified_at": "2026-07-03T06:38:49Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\build_snapshot.json",
       "required": true,
       "role": "build_snapshot",
       "schema": "build_snapshot_v1",
-      "sha256": "70cedc3ec8d1c85807eac1f57021787aea68d5b2e3180dbeab823b1e1614b269"
+      "sha256": "6f4378d614332ae86fd26c6f784cbac0b1eb4bb9e4282c3d1a37fcb574fa3a60"
     },
     {
       "bytes": 6042,
       "exists": true,
       "file": "pricing_diagnostics.json",
-      "modified_at": "2026-07-03T02:19:43Z",
+      "modified_at": "2026-07-03T06:38:36Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\pricing_diagnostics.json",
       "required": false,
       "role": "pricing_diagnostics",
@@ -96,7 +96,7 @@
     "results_model": "results_model_v10",
     "summary": "plan_summary_v1"
   },
-  "generated_at": "2026-07-03T02:19:57Z",
+  "generated_at": "2026-07-03T06:38:49Z",
   "renderer_roles": {
     "html_dashboard": "offline_dashboard_renderer",
     "pdf": "pdf_renderer",
