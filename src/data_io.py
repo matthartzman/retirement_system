@@ -49,6 +49,7 @@ from . import allocation_policy as _ap
 from .core import ASSET_CLASS_RETURNS, TAX_BASE_YEAR  # consolidated from engine_core
 from .market_data import PRICE_CACHE, fetch_price, set_fallback_prices, set_frozen_prices, configure_holdings_pricing, configure_api_keys  # consolidated from market_data_providers
 from .workspace_context import candidate_input_files, active_workspace_id
+from . import platform_runtime as _platform_runtime
 from .roth_ui_build_guard import normalize_roth_policy, normalize_irmaa_guardrail_mode, percent_to_float, is_explicit_user_roth_policy, strategy_for_roth_policy
 try:
     from .system_config import load_system_config
@@ -1252,6 +1253,14 @@ def parse_client(data, url_template):
                                      'mc_simulations','1000'), 1000))
     c['mc_sensitivity_sims'] = int(os.getenv('RETIREMENT_MC_SENSITIVITY_SIMS') or _n(_v(data,'Model Constants','Monte Carlo',
                                      'mc_sensitivity_simulations','200'), 200))
+    # Phones run the exact-scalar Monte Carlo engine several times slower than
+    # a desktop CPU, so mobile hosts cap the path counts (a plan authored on
+    # desktop with mc_simulations=1000 would otherwise take minutes on-device).
+    # None everywhere else — desktop/server results are untouched.
+    _mc_cap = _platform_runtime.mobile_mc_sims_cap()
+    if _mc_cap is not None:
+        c['mc_sims'] = min(c['mc_sims'], _mc_cap)
+        c['mc_sensitivity_sims'] = min(c['mc_sensitivity_sims'], max(1, _mc_cap // 5))
     _mc_engine_raw = str(_v(data,'Model Constants','Monte Carlo',
                                      'mc_engine_mode','advanced_exact_scalar') or 'advanced_exact_scalar').strip().lower()
     _mc_engine_map = {
