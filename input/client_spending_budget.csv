@@ -1,79 +1,79 @@
-kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
-category,annual_oop_max,Annual Household Medical OOP Cap,,,,,Cap/reference only; not a spending budget row
-category,auto_fuel,Auto Fuel,950,,,,Annualized actual
-category,auto_insurance,Auto Insurance,2442,,,,Annualized actual
-category,auto_maintenance,Auto Maintenance,851,,,,Annualized actual
-category,business_auto_expenses,Business Auto Expenses,131,,,,Annualized actual
-category,business_events,Business Events,633,,,,Annualized actual
-category,business_hardware_and_software,Business Hardware and Software,340,,,,Annualized actual
-category,business_memberships,Business Memberships,2108,,,,Annualized actual
-category,business_services,Business Services,21690,,,,Annualized actual
-category,business_taxi_uber,Business Taxi - Uber,28,,,,Annualized actual
-category,business_travel_meals,Business Travel & Meals,1679,,,,Annualized actual
-category,car_wash,Car Wash,266,,,,Annualized actual
-category,cash_atm,Cash & ATM,2090,,,,Annualized actual
-category,check,Check,2305,,,,Annualized actual
-category,church,Church,1101,,,,Annualized actual
-category,clothing_jewelry,Clothing & Jewelry,9604,,,,Annualized actual
-category,coffee_shops,Coffee Shops,218,,,,Annualized actual
-category,cubs_tickets,Cubs Tickets,10649,,,,Annualized actual
-category,dentist,Dentist,2900,,,,Source: Wellness Budget Detail / transaction/detail input
-category,dermatologist,Dermatologist,1527,,,,Annualized actual
-category,donation,Donation,220,,,,Annualized actual
-category,drugs_rx_and_otc,Drugs - Rx and OTC,5000,,,,Source: Wellness Budget Detail / transaction/detail input
-category,electronics,Electronics,244,,,,Annualized actual
-category,entertainment_recreation,Entertainment & Recreation,3270,,,,Annualized actual
-category,exercise_health_equipment,Exercise & Health Equipment,485,,,,Annualized actual
-category,fast_food,Fast Food / Takeout,1352,,,,Annualized actual
-category,financial_fees,Financial Fees,194,,,,Annualized actual
-category,financial_legal_services,Financial & Legal Services,210,,,,Annualized actual
-category,furniture_home_decor_kitchenware,Furniture/Home Decor/Kitchenware,2115,,,,Annualized actual
-category,garbage,Garbage,486,,,,Annualized actual
-category,gas_electric,Gas & Electric,4957,,,,Annualized actual
-category,gifts_family_12,Gifts - Family 12,64169,,,,Annualized actual
-category,gifts_other,Gifts - Other,770,,,,Annualized actual
-category,groceries,Groceries,10568,,,,
-category,hair_make_up,Hair/Make-up,2442,,,,Annualized actual
-category,health_club,Health Club,2668,,,,Annualized actual
-category,ho_insurance,Homeowners Insurance,2000,,,,Source: Housing Budget Detail / current plan input
-category,home_improvement,Home Improvement,15082,,,,Annualized actual
-category,home_maintenance,Home Maintenance,2100,,,,Source: Housing Budget Detail / current plan input
-category,house_cleaning,House Cleaning,2517,,,,Annualized actual
-category,housing_utilities,Utilities,2100,,,,Source: Housing Budget Detail / current plan input
-category,internet_cable,Internet & Cable,2371,,,,Annualized actual
-category,lawn_service_garden_flowers,Lawn Service/Garden/Flowers,2304,,,,Annualized actual
-category,mani_pedi,Mani-Pedi,996,,,,Annualized actual
-category,medical,Medical,10000,,,,Source: Wellness Budget Detail / transaction/detail input
-category,medicare_part_b,Medicare Part B Premium,5356,,,,Source: Wellness Budget Detail / Medicare monthly input annualized
-category,medicare_part_d,Medicare Part D Premium,2095,,,,Source: Wellness Budget Detail / Medicare monthly input annualized
-category,medigap_premium,Medicare Part G / Medigap Premium,4309,,,,Source: Wellness Budget Detail / Medicare monthly input annualized
-category,miscellaneous,Miscellaneous,2,,,,Annualized actual
-category,mortgage,Mortgage,36000,,,,Annualized actual
-category,movie_theater,Movie Theater,138,,,,Annualized actual
-category,office_supplies_expenses,Office Supplies & Expenses,141,,,,Annualized actual
-category,parking_tolls,Parking / Tolls,535,,,,Annualized actual
-category,personal,Personal,755,,,,Annualized actual
-category,pest_control,Pest Control,558,,,,Annualized actual
-category,phone,Phone,780,,,,Annualized actual
-category,pre65_wellness_premium,Pre-65 Healthcare Premium,12000,,,,Source: Wellness Budget Detail / pre-65 healthcare premium input
-category,public_transit,Public Transit,20,,,,
-category,real_estate_taxes,Real Estate Taxes,18000,,,,Source: Housing Budget Detail / current plan input
-category,restaurants_bars,Restaurants & Bars,13305,,,,Annualized actual
-category,sewer,Sewer,90,,,,Annualized actual
-category,shopping,Shopping,1016,,,,Annualized actual
-category,taxi_ride_shares,Taxi & Ride Shares,972,,,,Annualized actual
-category,travel_housing,Travel - Housing,2617,,,,Annualized actual
-category,travel_insurance,Travel - Insurance,159,,,,Annualized actual
-category,travel_plane_train_bus,Travel - Plane/Train/Bus,2744,,,,Annualized actual
-category,travel_vacation,Travel & Vacation,8127,,,,Annualized actual
-category,uncategorized,Uncategorized,3857,,,,Annualized actual
-category,vision,Vision,2100,,,,Source: Wellness Budget Detail / transaction/detail input
-category,vitamins_supplements,Vitamins & Supplements,1924,,,,Annualized actual
-category,water,Water,234,,,,Annualized actual
-category,wellness_premium,Healthcare Premium,,,,,Legacy transaction alias; budget controlled by Pre-65 Healthcare Premium and Medicare premium rows.
-line,weddings,Rebecca,100000,,,2027,Seeded from large discretionary extras
-line,weddings,Max,50000,,,2028,Seeded from large discretionary extras
-line,weddings,Grace,100000,,,2032,Seeded from large discretionary extras
-line,home_improvement,Home Improvement,25000,2026,2030,,Seeded from large discretionary extras; CR116: merged from Other Improvement
-line,recurring_travel,Recurring Travel Projection,25000,2026,2045,,Seeded from large discretionary extras; CR116: renamed as recurring travel projection
-line,charitable_donations,Charitable Giving,5000,,,,Seeded from annual charitable giving
+kind,key,label,annual_budget,start_year,end_year,one_time_year,notes,line_section,line_mode
+category,annual_oop_max,Annual Household Medical OOP Cap,,,,,Cap/reference only; not a spending budget row,,
+category,auto_fuel,Auto Fuel,1200,,,,Annualized actual,,
+category,auto_insurance,Auto Insurance,2400,,,,Annualized actual,,
+category,auto_maintenance,Auto Maintenance,800,,,,Annualized actual,,
+category,business_auto_expenses,Business Auto Expenses,200,,,,Annualized actual,,
+category,business_events,Business Events,200,,,,Annualized actual,,
+category,business_hardware_and_software,Business Hardware and Software,500,,,,Annualized actual,,
+category,business_memberships,Business Memberships,2000,,,,Annualized actual,,
+category,business_services,Business Services,21690,,,,Annualized actual,,
+category,business_taxi_uber,Business Taxi - Uber,100,,,,Annualized actual,,
+category,business_travel_meals,Business Travel & Meals,1700,,,,Annualized actual,,
+category,car_wash,Car Wash,300,,,,Annualized actual,,
+category,cash_atm,Cash & ATM,1500,,,,Annualized actual,,
+category,check,Check,2305,,,,Annualized actual,,
+category,church,Church,1300,,,,Annualized actual,,
+category,clothing_jewelry,Clothing & Jewelry,10000,,,,Annualized actual,,
+category,coffee_shops,Coffee Shops,400,,,,Annualized actual,,
+category,cubs_tickets,Cubs Tickets,8000,,,,Annualized actual,,
+category,dentist,Dentist,2900,,,,Source: Wellness Budget Detail / transaction/detail input,,
+category,dermatologist,Dermatologist,1527,,,,Annualized actual,,
+category,drugs_rx_and_otc,Drugs - Rx and OTC,5000,,,,Source: Wellness Budget Detail / transaction/detail input,,
+category,electronics,Electronics,1000,,,,Annualized actual,,
+category,entertainment_recreation,Entertainment & Recreation,3270,,,,Annualized actual,,
+category,exercise_health_equipment,Exercise & Health Equipment,485,,,,Annualized actual,,
+category,fast_food,Fast Food / Takeout,1800,,,,Annualized actual,,
+category,financial_fees,Financial Fees,200,,,,Annualized actual,,
+category,financial_legal_services,Financial & Legal Services,210,,,,Annualized actual,,
+category,furniture_home_decor_kitchenware,Furniture/Home Decor/Kitchenware,2115,,,,Annualized actual,,
+category,garbage,Garbage,475,,,,Annualized actual,,
+category,gas_electric,Gas & Electric,5500,,,,Annualized actual,,
+category,gifts_family_12,Gifts - Family 12,42000,,,,Annualized actual,,
+category,gifts_other,Gifts - Other,1500,,,,Annualized actual,,
+category,groceries,Groceries,15000,,,,,,
+category,hair_make_up,Hair/Make-up,3500,,,,Annualized actual,,
+category,health_club,Health Club,2668,,,,Annualized actual,,
+category,ho_insurance,Homeowners Insurance,2000,,,,Source: Housing Budget Detail / current plan input,,
+category,home_improvement,Home Improvement,25000,,,,Annualized actual,,
+category,home_maintenance,Home Maintenance,2100,,,,Source: Housing Budget Detail / current plan input,,
+category,house_cleaning,House Cleaning,4800,,,,Annualized actual,,
+category,housing_utilities,Utilities,,,,,Source: Housing Budget Detail / current plan input,,
+category,internet_cable,Internet & Cable,4510,,,,Annualized actual,,
+category,lawn_service_garden_flowers,Lawn Service/Garden/Flowers,2400,,,,Annualized actual,,
+category,mani_pedi,Mani-Pedi,1000,,,,Annualized actual,,
+category,medical,Medical,10000,,,,Source: Wellness Budget Detail / transaction/detail input,,
+category,medicare_part_b,Medicare Part B Premium,5356,,,,Source: Wellness Budget Detail / Medicare monthly input annualized,,
+category,medicare_part_d,Medicare Part D Premium,2095,,,,Source: Wellness Budget Detail / Medicare monthly input annualized,,
+category,medigap_premium,Medicare Part G / Medigap Premium,4309,,,,Source: Wellness Budget Detail / Medicare monthly input annualized,,
+category,miscellaneous,Miscellaneous,2,,,,Annualized actual,,
+category,mortgage,Mortgage,36000,,,,Annualized actual,,
+category,movie_theater,Movie Theater,300,,,,Annualized actual,,
+category,office_supplies_expenses,Office Supplies & Expenses,1500,,,,Annualized actual,,
+category,parking_tolls,Parking / Tolls,600,,,,Annualized actual,,
+category,personal,Personal,500,,,,Annualized actual,,
+category,pest_control,Pest Control,650,,,,Annualized actual,,
+category,phone,Phone,1350,,,,Annualized actual,,
+category,pre65_wellness_premium,Pre-65 Healthcare Premium,12000,,,,Source: Wellness Budget Detail / pre-65 healthcare premium input,,
+category,public_transit,Public Transit,15,,,,,,
+category,real_estate_taxes,Real Estate Taxes,18000,,,,Source: Housing Budget Detail / current plan input,,
+category,restaurants_bars,Restaurants & Bars,15000,,,,Annualized actual,,
+category,sewer,Sewer,200,,,,Annualized actual,,
+category,shopping,Shopping,,,,,Annualized actual,,
+category,taxi_ride_shares,Taxi & Ride Shares,1000,,,,Annualized actual,,
+category,travel_housing,Travel - Housing,2617,,,,Annualized actual,,
+category,travel_insurance,Travel - Insurance,159,,,,Annualized actual,,
+category,travel_plane_train_bus,Travel - Plane/Train/Bus,2744,,,,Annualized actual,,
+category,travel_vacation,Travel & Vacation,8127,,,,Annualized actual,,
+category,uncategorized,Uncategorized,3857,,,,Annualized actual,,
+category,vision,Vision,2100,,,,Source: Wellness Budget Detail / transaction/detail input,,
+category,vitamins_supplements,Vitamins & Supplements,1924,,,,Annualized actual,,
+category,water,Water,500,,,,Annualized actual,,
+category,wellness_premium,Healthcare Premium,,,,,Legacy transaction alias; budget controlled by Pre-65 Healthcare Premium and Medicare premium rows.,,
+category,charitable_donations,Charitable Donations,,,,,,,
+line,weddings,Rebecca,100000,,,2027,Seeded from large discretionary extras,category_budget,detail
+line,weddings,Max,50000,,,2028,Seeded from large discretionary extras,category_budget,detail
+line,weddings,Grace,100000,,,2032,Seeded from large discretionary extras,category_budget,detail
+line,home_improvement,Home Improvement,25000,2026,2030,,Seeded from large discretionary extras; CR116: merged from Other Improvement,category_budget,detail
+line,recurring_travel,Recurring Travel Projection,25000,2026,2045,,Seeded from large discretionary extras; CR116: renamed as recurring travel projection,category_budget,detail
+line,charitable_donations,Charitable Giving,5000,,,,Seeded from annual charitable giving,category_budget,detail

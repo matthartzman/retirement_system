@@ -2,44 +2,44 @@
   "artifact_count": 5,
   "artifacts": [
     {
-      "bytes": 208854,
+      "bytes": 207556,
       "exists": true,
       "file": "retirement_plan.xlsx",
-      "modified_at": "2026-07-01T17:20:04Z",
+      "modified_at": "2026-07-03T12:42:52Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\retirement_plan.xlsx",
-      "sha256": "88e42d103cb63f7ef3cdc6a423618ccbc5c1f88b9f2fdcb9c4e212efc2a9d022"
+      "sha256": "57d0a417cb01f2226e3beeeeb63fb8c9ff8f71996e11d81f8f5abafc9a1e0d5c"
     },
     {
-      "bytes": 29327,
+      "bytes": 29245,
       "exists": true,
       "file": "retirement_dashboard.html",
-      "modified_at": "2026-07-01T17:20:04Z",
+      "modified_at": "2026-07-03T12:42:53Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\retirement_dashboard.html",
-      "sha256": "b6227e09c0b9d6c1d3a41b5d09b7aed168a5e616ba31c845f3287741395631b0"
+      "sha256": "37380d9caf4f2f3d02d23125e545feed6181914fb6eaf6cdaac0bb15ddce4fdf"
     },
     {
-      "bytes": 417535,
+      "bytes": 418068,
       "exists": true,
       "file": "results_explorer_model.json",
-      "modified_at": "2026-07-01T17:20:04Z",
+      "modified_at": "2026-07-03T12:42:53Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\results_explorer_model.json",
-      "sha256": "835937304ee3a848ead8391b59def9861d35be2f1b0ca970d3910818c21d8277"
+      "sha256": "7375c628091a38cb73321bdb641b658d5b544d453cf0dd693f455bed62af68ae"
     },
     {
-      "bytes": 827,
+      "bytes": 829,
       "exists": true,
       "file": "plan_summary.json",
-      "modified_at": "2026-07-01T17:20:04Z",
+      "modified_at": "2026-07-03T12:42:53Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\plan_summary.json",
-      "sha256": "8153f6770841f67567e245ccdb31adba63db8ff3f3346cf50cd418610c676680"
+      "sha256": "9f7a81331623eac36410babfa6eed661d2e542a2a9380fd790755b9e0bda0c2a"
     },
     {
-      "bytes": 6097,
+      "bytes": 6042,
       "exists": true,
       "file": "pricing_diagnostics.json",
-      "modified_at": "2026-07-01T17:19:55Z",
+      "modified_at": "2026-07-03T12:42:40Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\pricing_diagnostics.json",
-      "sha256": "1138b8269a03677a8df75d28516cb0c79edc3b449e855a64ba7e639141731488"
+      "sha256": "3f621c8ae1a66d12d2f9f32b16964b512d4df4a256285b1f770a8e66dd0165e6"
     }
   ],
   "build_id": "",
@@ -47,7 +47,7 @@
     "build_started_at_ts": "",
     "python": ""
   },
-  "generated_at": "2026-07-01T17:20:05Z",
+  "generated_at": "2026-07-03T12:42:53Z",
   "input_fingerprint": {
     "files": [
       {
@@ -60,53 +60,53 @@
     "sha256": "8ca5e8ca8e9126c0310c405af17879f6933f34da8b2c02857f00b6618f4c05ed"
   },
   "pricing_diagnostics": {
-    "bytes": 6097,
+    "bytes": 6042,
     "exists": true,
     "file": "pricing_diagnostics.json",
-    "modified_at": "2026-07-01T17:19:55Z",
+    "modified_at": "2026-07-03T12:42:40Z",
     "path": "C:\\RetirementPlanning\\Version 10\\output\\pricing_diagnostics.json",
-    "sha256": "1138b8269a03677a8df75d28516cb0c79edc3b449e855a64ba7e639141731488"
+    "sha256": "3f621c8ae1a66d12d2f9f32b16964b512d4df4a256285b1f770a8e66dd0165e6"
   },
   "schema": "build_snapshot_v1",
   "source": "sqlite_snapshot",
   "sqlite_database": {
-    "bytes": 53669888,
+    "bytes": 63217664,
     "exists": true,
     "file": "retirement_system_v10.db",
-    "modified_at": "2026-07-01T17:19:47Z",
+    "modified_at": "2026-07-03T12:42:26Z",
     "path": "C:\\RetirementPlanning\\Version 10\\local_state\\retirement_system_v10.db",
-    "sha256": "ffc89f4ed7be721ca69b5ff80e8e072890eb43c46faed66d6d29a48d32fc9000"
+    "sha256": "fad5136fc39c41c52375c03afeeee2259efd41bd0bb96d4387997d45660b904e"
   },
   "sqlite_database_snapshot": {
-    "bytes": 53669888,
+    "bytes": 63217664,
     "exists": true,
     "file": "plan_database_snapshot.rpx",
-    "modified_at": "2026-07-01T17:19:47Z",
+    "modified_at": "2026-07-03T12:42:26Z",
     "path": "C:\\RetirementPlanning\\Version 10\\output\\plan_database_snapshot.rpx",
-    "sha256": "ffc89f4ed7be721ca69b5ff80e8e072890eb43c46faed66d6d29a48d32fc9000",
+    "sha256": "fad5136fc39c41c52375c03afeeee2259efd41bd0bb96d4387997d45660b904e",
     "snapshot_role": "sqlite_database_copy",
     "source_path": "C:\\RetirementPlanning\\Version 10\\local_state\\retirement_system_v10.db"
   },
   "success": true,
   "summary": {
-    "after_tax_terminal_net_worth": 4805659.30177631,
-    "after_tax_terminal_nw": 4805659.30177631,
+    "after_tax_terminal_net_worth": 6076504.514613232,
+    "after_tax_terminal_nw": 6076504.514613232,
     "build_id": "",
     "h_name": "Matthew",
-    "lifetime_tax": 768150.4215334217,
+    "lifetime_tax": 906966.7243909074,
     "mc_success": 0.6875,
-    "post_tax_inheritance": 4469046.060276479,
+    "post_tax_inheritance": 5607950.479670377,
     "qc_result": "QC: 32 / 32 PASS",
     "terminal_deferred_pretax_tax": 0.0,
     "terminal_deferred_tax_total": 0.0,
     "terminal_deferred_taxable_cap_gain_tax": 0.0,
-    "terminal_estate_tax": 336613.2414998308,
-    "terminal_nw": 4805659.30177631,
+    "terminal_estate_tax": 468554.0349428543,
+    "terminal_nw": 6076504.514613232,
     "terminal_pretax_nw": 0.0,
-    "terminal_roth_nw": 1415385.163972736,
+    "terminal_roth_nw": 2686230.376809658,
     "terminal_taxable_basis_est": 0.0,
     "terminal_taxable_unrealized_gain_est": 0.0,
-    "total_roth_conversions": 767288.7784371469,
+    "total_roth_conversions": 1338100.19938275,
     "validation_fail_count": 0,
     "validation_first_fail": null,
     "validation_warn_count": 0,

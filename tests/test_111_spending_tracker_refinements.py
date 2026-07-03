@@ -52,6 +52,7 @@ def test_business_is_in_main_hierarchy_without_separate_dashboard_section():
         "Business Events",
         "Business Hardware and Software",
         "Business Memberships",
+        "Business Services",
         "Business Taxi - Uber",
         "Business Travel & Meals",
         "Office Supplies & Expenses",

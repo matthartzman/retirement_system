@@ -157,7 +157,7 @@ def build_enterprise_pdf(c, rows, mc_data, out_path='output/retirement_plan.pdf'
     story.append(Paragraph("Institutional Retirement Plan", styles['Title']))
     story.append(Spacer(1, 0.18 * inch))
 
-    intro = f"""
+    intro = """
     This report summarizes retirement sustainability, tax strategy,
     portfolio structure, lifetime cash flow, estate outcomes, and
     Monte Carlo simulation results across the full planning horizon.

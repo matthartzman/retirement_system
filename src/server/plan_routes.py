@@ -33,6 +33,7 @@ try:
         _request_system_config_csv,
         _require,
         _runtime_config,
+        _spending_budget_save_result,
         _sqlite_db,
         _sync_config_backends,
         _workspace_id,
@@ -84,6 +85,7 @@ except Exception:
         _request_system_config_csv,
         _require,
         _runtime_config,
+        _spending_budget_save_result,
         _sqlite_db,
         _sync_config_backends,
         _workspace_id,
@@ -856,7 +858,8 @@ def spending_budget_taxonomy_save():
     denied = _require("write_config")
     if denied:
         return denied
-    return _json_service_result(_spending_feature_service().save_budget_taxonomy_payload(request.get_json(silent=True) or {}))
+    body = request.get_json(silent=True) or {}
+    return _spending_budget_save_result(lambda: _spending_feature_service().save_budget_taxonomy_payload(body))
 
 
 @app.route("/api/spending/budget/recover", methods=["POST"])
@@ -962,7 +965,8 @@ def spending_budget_unified():
     denied = _require("write_config")
     if denied:
         return denied
-    return _json_service_result(_spending_feature_service().save_unified_budget_payload(request.get_json(silent=True) or {}))
+    body = request.get_json(silent=True) or {}
+    return _spending_budget_save_result(lambda: _spending_feature_service().save_unified_budget_payload(body))
 
 # PlanFileService owns SQLite copy semantics including wal_checkpoint(FULL),
 # wal_checkpoint(TRUNCATE), not src.exists(), and before_load backups.
