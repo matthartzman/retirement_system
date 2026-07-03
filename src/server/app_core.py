@@ -1039,6 +1039,11 @@ HEALTHCARE_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Wellness", "Medicare", "part_g_base_premium_monthly", "$0", "dollars", "Current monthly Medicare Supplement Plan G / Medigap-style premium per Medicare-enrolled person. Enter $0 if no supplement is modeled."],
 ]
 
+HOUSEHOLD_NICKNAME_UI_PLAN_DATA_ROWS: list[list[str]] = [
+    ["Household", "", "member_1_nickname", "", "", "Short name used in all reports and charts. Leave blank to use the first name."],
+    ["Household", "", "member_2_nickname", "", "", "Short name used in all reports and charts. Leave blank to use the first name."],
+]
+
 HELOC_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["HELOC", "Setup", "heloc_enabled", "No", "yes/no", "Enable the HELOC strategy. When Yes, the projection draws from the HELOC during the draw period to fund large discretionary spending instead of liquidating portfolio assets."],
     ["HELOC", "Setup", "heloc_credit_limit", "$0", "dollars", "Maximum HELOC credit line available. The projection will not borrow beyond this amount."],
@@ -1137,6 +1142,7 @@ def _ensure_user_ui_plan_data_rows() -> None:
     _ensure_roth_ui_plan_data_rows()
     _ensure_hsa_withdrawal_ui_plan_data_rows()
     _ensure_social_security_funding_ui_plan_data_rows()
+    _ensure_household_nickname_ui_plan_data_rows()
     _ensure_wellness_ui_plan_data_rows()
     _ensure_heloc_ui_plan_data_rows()
     _ensure_core_spending_ui_plan_data_rows()
@@ -1175,6 +1181,29 @@ def _ensure_social_security_funding_ui_plan_data_rows() -> None:
             break
     rows[insert_at:insert_at] = additions
     _csv_write_rows(income_path, rows)
+
+
+def _ensure_household_nickname_ui_plan_data_rows() -> None:
+    """Backfill per-person nickname rows next to each member's name row."""
+    household_path = _plan_data_path("client_household.csv", prefer_existing=False)
+    rows = _ensure_header(_csv_read_rows(household_path))
+    seen = {_row_key(r) for r in rows[1:]}
+    changed = False
+    for canonical in HOUSEHOLD_NICKNAME_UI_PLAN_DATA_ROWS:
+        if _row_key(canonical) in seen:
+            continue
+        name_label = str(canonical[2]).replace("_nickname", "_name")
+        insert_at = len(rows)
+        for i, row in enumerate(rows[1:], start=1):
+            sec = str(row[0] if row else "").strip()
+            lbl = str(row[2] if len(row) > 2 else "").strip()
+            if sec == "Household" and lbl == name_label:
+                insert_at = i + 1
+                break
+        rows[insert_at:insert_at] = [list(canonical)]
+        changed = True
+    if changed:
+        _csv_write_rows(household_path, rows)
 
 
 def _ensure_wellness_ui_plan_data_rows() -> None:

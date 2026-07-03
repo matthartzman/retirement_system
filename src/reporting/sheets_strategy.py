@@ -164,10 +164,12 @@ def build_sheet10(ws, c, rows):
 
     r = 3
     write_hdr(ws, r, 1, 'Recommended spouse-pair claim ages from full projection sweep', NAVY, WHITE, span=10); r += 1
+    _s1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
+    _s2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
     summary = [
-        ('Recommended Husband Claim Age', best['h_age'], 'Highest score from the 62–70 × 62–70 projection sweep.'),
-        ('Recommended Wife Claim Age', best['w_age'], 'Projection uses the same tax, IRMAA, withdrawal, ACA, survivor, and estate machinery as the base plan.'),
-        ('Current Configured Claim Ages', f"H {h_current} / W {w_current}", 'Current row shown below for comparison.'),
+        (f'Recommended {_s1} Claim Age', best['h_age'], 'Highest score from the 62–70 × 62–70 projection sweep.'),
+        (f'Recommended {_s2} Claim Age', best['w_age'], 'Projection uses the same tax, IRMAA, withdrawal, ACA, survivor, and estate machinery as the base plan.'),
+        ('Current Configured Claim Ages', f"{_s1} {h_current} / {_s2} {w_current}", 'Current row shown below for comparison.'),
         ('Best vs Current Terminal NW', (best['terminal_nw'] - (current or best)['terminal_nw']) if current else 0.0, 'Positive means the sweep’s selected pair improves terminal net worth versus current config.'),
         ('Best vs Current Lifetime Tax', (best['lifetime_tax'] - (current or best)['lifetime_tax']) if current else 0.0, 'Negative means lower lifetime tax versus current config.'),
     ]
@@ -400,7 +402,7 @@ def build_sheet12(ws, c, rows):
          'Full deduction in contribution year; invest tax-free; distribute over time',
          'Reduced by tax savings', 'Full gift (potentially grown)', '★ PRIMARY — High-income years'),
         ('QCD (from IRA)',
-         'After RMD start age (2037 for Husband); up to $108K/person/yr',
+         f"After RMD start age ({c['h_dob_yr'] + int(c.get('rmd_start_age', 75))} for {str(c.get('h_nick') or c.get('h_name') or 'Member 1')}); up to $108K/person/yr",
          'Excluded from AGI entirely — bypasses SALT calculus; counts toward RMD',
          'Reduced by avoided tax', 'Full gift direct to charity', '★ PRIMARY — 2037+'),
     ]

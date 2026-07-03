@@ -4,8 +4,8 @@
     "provider": "yahoo",
     "source": "yahoo",
     "symbol": "AVUV",
-    "timestamp_epoch": 1783043683.7215965,
-    "timestamp_iso": "2026-07-03T01:54:43.721596+00:00",
+    "timestamp_epoch": 1783096350.3387263,
+    "timestamp_iso": "2026-07-03T16:32:30.338726+00:00",
     "ttl_hours": 24.0
   },
   "ITOT": {
@@ -13,8 +13,8 @@
     "provider": "yahoo",
     "source": "yahoo",
     "symbol": "ITOT",
-    "timestamp_epoch": 1783043681.0064309,
-    "timestamp_iso": "2026-07-03T01:54:41.006431+00:00",
+    "timestamp_epoch": 1783096348.392756,
+    "timestamp_iso": "2026-07-03T16:32:28.392756+00:00",
     "ttl_hours": 24.0
   },
   "IXUS": {
@@ -22,8 +22,8 @@
     "provider": "yahoo",
     "source": "yahoo",
     "symbol": "IXUS",
-    "timestamp_epoch": 1783043680.049302,
-    "timestamp_iso": "2026-07-03T01:54:40.049302+00:00",
+    "timestamp_epoch": 1783096346.977226,
+    "timestamp_iso": "2026-07-03T16:32:26.977226+00:00",
     "ttl_hours": 24.0
   },
   "PDBC": {
@@ -31,8 +31,8 @@
     "provider": "yahoo",
     "source": "yahoo",
     "symbol": "PDBC",
-    "timestamp_epoch": 1783043682.1396532,
-    "timestamp_iso": "2026-07-03T01:54:42.139653+00:00",
+    "timestamp_epoch": 1783096349.3557272,
+    "timestamp_iso": "2026-07-03T16:32:29.355727+00:00",
     "ttl_hours": 24.0
   },
   "VB": {
@@ -49,8 +49,8 @@
     "provider": "yahoo",
     "source": "yahoo",
     "symbol": "VBR",
-    "timestamp_epoch": 1783043688.6182964,
-    "timestamp_iso": "2026-07-03T01:54:48.618296+00:00",
+    "timestamp_epoch": 1783096353.5873694,
+    "timestamp_iso": "2026-07-03T16:32:33.587369+00:00",
     "ttl_hours": 24.0
   },
   "VEA": {
@@ -85,8 +85,8 @@
     "provider": "yahoo",
     "source": "yahoo",
     "symbol": "VTI",
-    "timestamp_epoch": 1783043686.980975,
-    "timestamp_iso": "2026-07-03T01:54:46.980975+00:00",
+    "timestamp_epoch": 1783096352.3927531,
+    "timestamp_iso": "2026-07-03T16:32:32.392753+00:00",
     "ttl_hours": 24.0
   },
   "VWO": {
@@ -103,8 +103,8 @@
     "provider": "yahoo",
     "source": "yahoo",
     "symbol": "VXUS",
-    "timestamp_epoch": 1783043685.3369267,
-    "timestamp_iso": "2026-07-03T01:54:45.336927+00:00",
+    "timestamp_epoch": 1783096351.3882916,
+    "timestamp_iso": "2026-07-03T16:32:31.388292+00:00",
     "ttl_hours": 24.0
   }
 }

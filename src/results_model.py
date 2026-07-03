@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .version import VERSION
+from .person_labels import member_nick
 
 RESULTS_MODEL_FILENAME = "results_explorer_model.json"
 RESULTS_MODEL_SCHEMA = "results_model_v10"
@@ -236,13 +237,13 @@ def _chart_page(c: dict[str, Any], rows: list[dict[str, Any]], mc_data: dict[str
 
     add_xy("Cash Flow — Income & Portfolio Draws", "stacked_bar", [
         {"label": "Earned Income", "values": [round(_n(r.get("earned"))) for r in rows]},
-        {"label": f"{c.get('h_name','Member 1')} SS", "values": [round(_n(r.get("h_ss"))) for r in rows]},
-        {"label": f"{c.get('w_name','Member 2')} SS", "values": [round(_n(r.get("w_ss"))) for r in rows]},
+        {"label": f"{member_nick(c, 'member_1')} SS", "values": [round(_n(r.get("h_ss"))) for r in rows]},
+        {"label": f"{member_nick(c, 'member_2')} SS", "values": [round(_n(r.get("w_ss"))) for r in rows]},
         {"label": "Pension", "values": [round(_n(r.get("pension"))) for r in rows]},
-        {"label": "Member 2 Single Ann", "values": [round(_n(r.get("wife_single_ann"))) for r in rows]},
-        {"label": "Member 2 Joint Ann", "values": [round(_n(r.get("wife_joint_ann"))) for r in rows]},
-        {"label": "Member 1 Single Ann", "values": [round(_n(r.get("h_single_ann"))) for r in rows]},
-        {"label": "Member 1 Joint Ann", "values": [round(_n(r.get("h_joint_ann"))) for r in rows]},
+        {"label": f"{member_nick(c, 'member_2')} Single Ann", "values": [round(_n(r.get("wife_single_ann"))) for r in rows]},
+        {"label": f"{member_nick(c, 'member_2')} Joint Ann", "values": [round(_n(r.get("wife_joint_ann"))) for r in rows]},
+        {"label": f"{member_nick(c, 'member_1')} Single Ann", "values": [round(_n(r.get("h_single_ann"))) for r in rows]},
+        {"label": f"{member_nick(c, 'member_1')} Joint Ann", "values": [round(_n(r.get("h_joint_ann"))) for r in rows]},
         {"label": "Note P+I", "values": [round(_n(r.get("note_princ")) + _n(r.get("note_int"))) for r in rows]},
         {"label": "RMD", "values": [round(_n(r.get("rmd_total"))) for r in rows]},
         {"label": "Trust Draw", "values": [round(max(0, _n(r.get("trust_wd")))) for r in rows]},
@@ -302,17 +303,19 @@ def _cashflow_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, A
     group_row = []
     for label, span in group:
         group_row.extend([(label, "text")] + [("", "text")] * (span - 1))
+    n1 = member_nick(c, 'member_1')
+    n2 = member_nick(c, 'member_2')
     headers = [
-        ("Year", "text"), ("M1 Age", "text"), ("M2 Age", "text"),
-        ("Earned", "text"), (f"{c.get('h_name','Member 1')} SS", "text"), (f"{c.get('w_name','Member 2')} SS", "text"), ("Pension", "text"),
-        ("M2 Single Ann", "text"), ("M2 Joint Ann", "text"), ("M1 Single Ann", "text"), ("M1 Joint Ann", "text"),
+        ("Year", "text"), (f"{n1} Age", "text"), (f"{n2} Age", "text"),
+        ("Earned", "text"), (f"{n1} SS", "text"), (f"{n2} SS", "text"), ("Pension", "text"),
+        (f"{n2} Single Ann", "text"), (f"{n2} Joint Ann", "text"), (f"{n1} Single Ann", "text"), (f"{n1} Joint Ann", "text"),
         ("Note P+I", "text"), ("RMD Dist", "text"), ("Σ Income", "text"),
         ("Roth Conv", "text"), ("AGI", "text"), ("Taxable Inc", "text"), ("Fed Tax", "text"), ("State Tax", "text"), ("NIIT", "text"),
         ("Spend Base", "text"), ("Rec Extra", "text"), ("Lump", "text"), ("Mortgage + RE Tax", "text"), ("Rent", "text"), ("HELOC P&I", "text"), ("Σ Spend", "text"),
-        ("M1 Trust WD", "text"), ("M2 Trust WD", "text"), ("Σ Trust", "text"), ("HSA WD", "text"),
-        ("M1 Roth WD", "text"), ("M2 Roth WD", "text"), ("Σ Roth", "text"),
-        ("M1 IRA RMD", "text"), ("M1 IRA Elec", "text"), ("M1 IRA Conv", "text"), ("M1 IRA Outflow", "text"),
-        ("M2 IRA RMD", "text"), ("M2 IRA Elec", "text"), ("M2 IRA Conv", "text"), ("M2 IRA Outflow", "text"),
+        (f"{n1} Trust WD", "text"), (f"{n2} Trust WD", "text"), ("Σ Trust", "text"), ("HSA WD", "text"),
+        (f"{n1} Roth WD", "text"), (f"{n2} Roth WD", "text"), ("Σ Roth", "text"),
+        (f"{n1} IRA RMD", "text"), (f"{n1} IRA Elec", "text"), (f"{n1} IRA Conv", "text"), (f"{n1} IRA Outflow", "text"),
+        (f"{n2} IRA RMD", "text"), (f"{n2} IRA Elec", "text"), (f"{n2} IRA Conv", "text"), (f"{n2} IRA Outflow", "text"),
         ("HELOC Draw", "text"), ("Σ Cash Draws", "text"), ("Surplus", "text"), ("NW Check", "text"),
     ]
     data_rows = [row(group_row), row(headers)]
@@ -348,7 +351,7 @@ def _cashflow_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, A
     return _page("1C. Cash Flow", "Reports", [_section("Cash Flow Projection", data_rows, column_groups=column_groups)])
 
 
-def _net_worth_page(rows: list[dict[str, Any]]) -> dict[str, Any]:
+def _net_worth_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, Any]:
     # Columns: Year | H Age | W Age | Σ Ann | Σ PreTax | Σ Roth | Σ Trust | HSA | Home Value | Mortgage | HELOC | Home Equity | Σ Other | TOTAL NW
     # Home Value is a gross asset; Mortgage and HELOC are negative liabilities; Home Equity = Home Value - Mortgage - HELOC.
     # TOTAL NW is already computed net (unchanged).
@@ -359,7 +362,7 @@ def _net_worth_page(rows: list[dict[str, Any]]) -> dict[str, Any]:
         ("", "text"), ("", "text"),
     ])
     headers = row([
-        ("Year", "text"), ("M1 Age", "text"), ("M2 Age", "text"),
+        ("Year", "text"), (f"{member_nick(c, 'member_1')} Age", "text"), (f"{member_nick(c, 'member_2')} Age", "text"),
         ("Σ Ann", "text"), ("Σ PreTax", "text"), ("Σ Roth", "text"), ("Σ Trust", "text"), ("HSA", "text"),
         ("Home Value", "text"), ("Mortgage", "text"), ("HELOC", "text"), ("Home Equity", "text"),
         ("Σ Other", "text"), ("TOTAL NW", "text"),
@@ -437,7 +440,7 @@ def build_result_explorer_model(c: dict[str, Any], rows: list[dict[str, Any]], m
     pages: list[dict[str, Any]] = []
     pages.append(_executive_summary_page(c, rows, mc_data))
     pages.append(_asset_allocation_page(c))
-    pages.append(_net_worth_page(rows))
+    pages.append(_net_worth_page(c, rows))
     pages.append(_cashflow_page(c, rows))
     pages.append(_lifetime_tax_page(c, rows))
     chart_page, _ = _chart_page(c, rows, mc_data)

@@ -70,7 +70,7 @@ def build_registry_from_balances(balances, members):
         acct_type = _infer_type(acct_name)
         owner_idx = _infer_owner(acct_name, members)
         type_info = ACCOUNT_TYPES.get(acct_type, ACCOUNT_TYPES['taxable'])
-        owner_name = members[owner_idx]['name'] if owner_idx < len(members) else 'Unknown'
+        owner_name = (members[owner_idx].get('nickname') or members[owner_idx]['name']) if owner_idx < len(members) else 'Unknown'
 
         registry.append({
             'id':         acct_name,                # key into bal[] dict
@@ -101,7 +101,7 @@ def build_registry_from_json(accounts_json, members):
         acct_type = acct.get('acct_type', 'taxable')
         type_info = ACCOUNT_TYPES.get(acct_type, ACCOUNT_TYPES['taxable'])
         owner_idx = acct.get('owner_idx', 0)
-        owner_name = members[owner_idx]['name'] if owner_idx < len(members) else 'Unknown'
+        owner_name = (members[owner_idx].get('nickname') or members[owner_idx]['name']) if owner_idx < len(members) else 'Unknown'
 
         acct_id = acct.get('id', f'acct_{i+1}')
         registry.append({

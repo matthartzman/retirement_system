@@ -675,3 +675,4 @@ body.chart-modal-open{overflow:hidden}
 .suggested-next{display:flex;align-items:center;gap:6px;margin:20px 20px 8px;padding:11px 16px 11px 18px;background:#f4f8ff;border:1px solid #c9d9f5;border-left:4px solid var(--accent);border-radius:8px;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
 .suggested-next .link-button{font-size:13px;font-weight:700;color:var(--accent);background:none;border:none;cursor:pointer;padding:0;letter-spacing:0;text-transform:none;transition:color .12s}
 .suggested-next .link-button:hover{color:#1a3f75;text-decoration:underline}
+.people-table{min-width:640px}.people-table td:first-child{white-space:nowrap}

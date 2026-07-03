@@ -314,7 +314,7 @@ def build_sheet15(ws, c, rows, mc_data):
          'fully offset spending, can permanently impair the portfolio. The configured liquidity '
          'buffer (Trust accounts) is the primary mitigation.'),
         ('Annuity Income as a Floor',
-         'Wife pension + joint annuities provide deterministic income starting in the configured income year. '
+         f'{str(c.get("w_nick") or c.get("w_name") or "Member 2")} pension + joint annuities provide deterministic income starting in the configured income year. '
          'This income floor reduces spending pressure, but it does not by itself guarantee liquid funding success. '
          f'In Q1 (worst first-5-year return paths), funded-plan success is {qnts[0]["success"]:.0%}, '
          'so early-market losses remain an important risk-control trigger.'),
@@ -698,35 +698,37 @@ def build_sheet18(ws, c, rows):
     # Each overrides one or both death years to significantly earlier ages.
     h_dob = c['h_dob_yr']
     w_dob = c['w_dob_yr']
+    n1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
+    n2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
     early_scenarios = [
-        ('H dies at 65 (before SS & annuities)',
+        (f'{n1} dies at 65 (before SS & annuities)',
          h_dob + 65, c['w_death_yr'],
-         'Husband dies 2027. No SS claimed yet. Joint annuity income continues to wife at 100%. '
-         'H single annuity stops. Wife files Single.'),
+         f'{n1} dies {h_dob + 65}. No SS claimed yet. Joint annuity income continues to {n2} at 100%. '
+         f'{n1} single annuity stops. {n2} files Single.'),
 
-        ('H dies at 72 (early retirement)',
+        (f'{n1} dies at 72 (early retirement)',
          h_dob + 72, c['w_death_yr'],
-         'Husband dies 2034. SS claimed but only 8 years of benefits. Joint annuities continue. '
-         'Wife survives 22 more years as Single filer.'),
+         f'{n1} dies {h_dob + 72}. SS claimed but only a few years of benefits. Joint annuities continue. '
+         f'{n2} survives as Single filer.'),
 
-        ('W dies at 65 (pension & annuities lost early)',
+        (f'{n2} dies at 65 (pension & annuities lost early)',
          c['h_death_yr'], w_dob + 65,
-         'Member death scenario: pension/single-life income stops immediately. '
-         'Joint annuities continue to husband. H files Single.'),
+         f'{n2} dies {w_dob + 65}: pension/single-life income stops immediately. '
+         f'Joint annuities continue to {n1}. {n1} files Single.'),
 
-        ('W dies at 72 (early retirement)',
+        (f'{n2} dies at 72 (early retirement)',
          c['h_death_yr'], w_dob + 72,
-         'Wife dies 2033. Pension stops. W single annuity stops after ~4 years. '
-         'Joint annuities continue. Husband survives as Single filer.'),
+         f'{n2} dies {w_dob + 72}. Pension stops. {n2} single annuity stops. '
+         f'Joint annuities continue. {n1} survives as Single filer.'),
 
         ('Both die at 75 (shortened plan)',
          h_dob + 75, w_dob + 75,
-         'Both die by 2037. Plan horizon collapses to 11 years. '
+         f'Both die by {max(h_dob, w_dob) + 75}. Plan horizon is sharply shortened. '
          'Minimal RMDs, no late-retirement spending. Tests estate value.'),
     ]
 
     write_hdr(ws, r, 1, 'Early-Death Scenarios (full projection re-runs)', NAVY, WHITE, span=9); r += 1
-    hdrs = ['Scenario', 'H Death', 'W Death', 'Plan End', 'Terminal NW',
+    hdrs = ['Scenario', f'{n1} Death', f'{n2} Death', 'Plan End', 'Terminal NW',
             'Δ vs Base', 'Lifetime Tax', 'Δ Tax', 'Description']
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
@@ -741,8 +743,8 @@ def build_sheet18(ws, c, rows):
     write_cell(ws, r, 6, 'Baseline', bg=LGRAY)
     write_cell(ws, r, 7, base_tax, fmt=FMT_DOLLAR, bg=LGRAY)
     write_cell(ws, r, 8, 'Baseline', bg=LGRAY)
-    write_cell(ws, r, 9, f'H dies {c["h_death_yr"]} (age {c["h_death_yr"]-h_dob}), '
-                          f'W dies {c["w_death_yr"]} (age {c["w_death_yr"]-w_dob})', bg=LGRAY)
+    write_cell(ws, r, 9, f'{n1} dies {c["h_death_yr"]} (age {c["h_death_yr"]-h_dob}), '
+                          f'{n2} dies {c["w_death_yr"]} (age {c["w_death_yr"]-w_dob})', bg=LGRAY)
     r += 1
 
     for label, h_death, w_death, desc in early_scenarios:
@@ -778,8 +780,8 @@ def build_sheet18(ws, c, rows):
     survivor_items = [
         ('SS Income (Survivor)',
          f"100% of higher benefit = ${c['h_ss70']*12:,.0f}/yr (at age 70 claim)"),
-        ('Pension (Wife)',
-         f"${c['wife_pension']['init_pmt']*12:,.0f}/yr — STOPS at Wife's death"),
+        (f'Pension ({n2})',
+         f"${c['wife_pension']['init_pmt']*12:,.0f}/yr — STOPS at {n2}'s death"),
         ('Joint Annuities',
          'Continue at 100% J&S to survivor per CSV; single-life annuities stop at annuitant death'),
         ('Tax Filing',
@@ -880,6 +882,12 @@ def build_sheet19(ws, c):
     opt_prem    = c.get('ltc_annual_prem', 0)
     opt_start   = c.get('ltc_start_year', 2027)
     opt_insured = c.get('ltc_insured', 'Husband')
+    _nick1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
+    _nick2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
+    # ltc_insured stores role words in CSV; display the person's nickname.
+    _insured_display = {'husband': _nick1, 'member 1': _nick1, 'member_1': _nick1,
+                        'wife': _nick2, 'member 2': _nick2, 'member_2': _nick2}.get(
+                            str(opt_insured).strip().lower(), str(opt_insured))
 
     for face, prem_est, daily, yrs, desc in options:
         # Break-even: yrs until premium cost exceeds facility cost avoided
@@ -899,7 +907,7 @@ def build_sheet19(ws, c):
     r += 1
     # Current CSV settings
     status_line = (f'CSV settings: enabled={opt_enabled}, face=${opt_face:,.0f}, '
-                   f'premium=${opt_prem:,.0f}/yr, start={opt_start}, insured={opt_insured}. '
+                   f'premium=${opt_prem:,.0f}/yr, start={opt_start}, insured={_insured_display}. '
                    f'Update the DAF/Hybrid LTC sections of client_assets.csv to activate.')
     write_cell(ws, r, 1, status_line, bg='F4F5F7', align='left')
     ws.merge_cells(start_row=r,start_column=1,end_row=r,end_column=6); r += 2
@@ -907,8 +915,8 @@ def build_sheet19(ws, c):
     # Section D: standard options comparison
     write_hdr(ws, r, 1, 'Section D — All Coverage Options', NAVY, WHITE, span=6); r+=1
     options2 = [
-        ('20-Year Term',     'Husband or Wife', '$500K-$1M', 'N/A',                 'None',         'Low cost; expires before mortality age — limited utility'),
-        ('Hybrid Life/LTC',  opt_insured,       f'${opt_face:,.0f}',  'Yes, accelerated DB', 'Grows modestly', '★ RECOMMENDED — $500K face, start 2027, ~$18,500/yr'),
+        ('20-Year Term',     f'{_nick1} or {_nick2}', '$500K-$1M', 'N/A',                 'None',         'Low cost; expires before mortality age — limited utility'),
+        ('Hybrid Life/LTC',  _insured_display,  f'${opt_face:,.0f}',  'Yes, accelerated DB', 'Grows modestly', '★ RECOMMENDED — $500K face, start 2027, ~$18,500/yr'),
         ('Second-to-Die GUL','Joint',            '$1M+',              'At second death',     'None/minimal',   'Consider if IL estate tax > $320K materializes'),
     ]
     hdrs = ['Product','Insured','Death Benefit','LTC Accel','Cash Value','Verdict']
@@ -944,14 +952,16 @@ def build_sheet20(ws, c, rows):
 
     # Headers
     r = 2
+    _a1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
+    _a2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
     hdrs = [
-        'Year', 'H Age', 'W Age', 'Filing', 'H Alive', 'W Alive',
-        # Husband IRA
-        'H IRA Bal (BOY)', 'H 401k Bal', 'H RMD Required', 'H RMD Satisfied?',
-        'H IRA Elective', 'H IRA Conversion', 'H IRA Total Outflow', 'H IRA RMD%',
-        # Wife IRA
-        'W IRA Bal (BOY)', 'W RMD Required', 'W RMD Satisfied?',
-        'W IRA Elective', 'W IRA Conversion', 'W IRA Total Outflow', 'W IRA RMD%',
+        'Year', f'{_a1} Age', f'{_a2} Age', 'Filing', f'{_a1} Alive', f'{_a2} Alive',
+        # Member 1 IRA
+        f'{_a1} IRA Bal (BOY)', f'{_a1} 401k Bal', f'{_a1} RMD Required', f'{_a1} RMD Satisfied?',
+        f'{_a1} IRA Elective', f'{_a1} IRA Conversion', f'{_a1} IRA Total Outflow', f'{_a1} IRA RMD%',
+        # Member 2 IRA
+        f'{_a2} IRA Bal (BOY)', f'{_a2} RMD Required', f'{_a2} RMD Satisfied?',
+        f'{_a2} IRA Elective', f'{_a2} IRA Conversion', f'{_a2} IRA Total Outflow', f'{_a2} IRA RMD%',
         # Totals
         'Total RMD Req', 'Total IRA Cash Drawn', 'Total IRA Outflow', 'RMD Match CF?',
         # Events

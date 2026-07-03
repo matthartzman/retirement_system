@@ -7,6 +7,13 @@
       "runtimeArgs": ["main.py", "--mode", "server"],
       "port": 5050,
       "autoPort": false
+    },
+    {
+      "name": "retirement-planner-alt",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set RETIREMENT_SYSTEM_DASHBOARD_PORT=5151&& python main.py --mode server"],
+      "port": 5151,
+      "autoPort": false
     }
   ]
 }

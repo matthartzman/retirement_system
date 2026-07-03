@@ -1,1 +1,158 @@
-[]
+[
+  {
+    "change_count": 13,
+    "changed_by": "local",
+    "changes": [
+      {
+        "after": "",
+        "before": "1200",
+        "label": "category / auto_fuel / Auto Fuel",
+        "row_index": 2
+      },
+      {
+        "after": "",
+        "before": "1500",
+        "label": "category / cash_atm / Cash & ATM",
+        "row_index": 13
+      },
+      {
+        "after": "",
+        "before": "400",
+        "label": "category / coffee_shops / Coffee Shops",
+        "row_index": 17
+      },
+      {
+        "after": "100",
+        "before": "",
+        "label": "category / shopping / Shopping",
+        "row_index": 61
+      },
+      {
+        "after": "5000",
+        "before": "",
+        "label": "category / charitable_donations / Charitable Donations",
+        "row_index": 72
+      },
+      {
+        "after": "category, children_weddings, Children Weddings, , , ",
+        "before": "line, weddings, Rebecca, 100000, , ",
+        "label": "category / children_weddings / Children Weddings",
+        "row_index": 73
+      },
+      {
+        "after": "category, recurring_travel, Recurring Travel Projection, , , ",
+        "before": "line, weddings, Max, 50000, , ",
+        "label": "category / recurring_travel / Recurring Travel Projection",
+        "row_index": 74
+      },
+      {
+        "after": "line, weddings, Rebecca, 100000, , ",
+        "before": "line, weddings, Grace, 100000, , ",
+        "label": "line / weddings / Rebecca",
+        "row_index": 75
+      },
+      {
+        "after": "line, weddings, Max, 50000, , ",
+        "before": "line, home_improvement, Home Improvement, 25000, 2026, 2030",
+        "label": "line / weddings / Max",
+        "row_index": 76
+      },
+      {
+        "after": "line, weddings, Grace, 100000, , ",
+        "before": "line, recurring_travel, Recurring Travel Projection, 25000, 2026, 2045",
+        "label": "line / weddings / Grace",
+        "row_index": 77
+      },
+      {
+        "after": "line, home_improvement, Home Improvement, 25000, 2026, 2030",
+        "before": "line, charitable_donations, Charitable Giving, 5000, , ",
+        "label": "line / home_improvement / Home Improvement",
+        "row_index": 78
+      },
+      {
+        "after": "line, recurring_travel, Recurring Travel Projection, 25000, 2026, 2045",
+        "before": "row added",
+        "label": "line / recurring_travel / Recurring Travel Projection",
+        "row_index": 79
+      },
+      {
+        "after": "line, charitable_donations, Charitable Giving, 5000, , ",
+        "before": "row added",
+        "label": "line / charitable_donations / Charitable Giving",
+        "row_index": 80
+      }
+    ],
+    "file": "client_spending_budget.csv",
+    "kind": "spending_budget",
+    "path": "C:\\RetirementPlanning\\Version 10\\input\\client_spending_budget.csv",
+    "timestamp": 1783093629.6095104
+  },
+  {
+    "change_count": 5,
+    "changed_by": "local",
+    "changes": [
+      {
+        "after": "line, charitable_donations, Charitable Giving, 5000, , ",
+        "before": "line, recurring_travel, Recurring Travel Projection, 25000, 2026, 2045",
+        "label": "line / charitable_donations / Charitable Giving",
+        "row_index": 79
+      },
+      {
+        "after": "line, children_weddings, , , , ",
+        "before": "line, charitable_donations, Charitable Giving, 5000, , ",
+        "label": "row 81",
+        "row_index": 80
+      },
+      {
+        "after": "line, children_weddings, , , , ",
+        "before": "row added",
+        "label": "row 82",
+        "row_index": 81
+      },
+      {
+        "after": "line, children_weddings, , , , ",
+        "before": "row added",
+        "label": "row 83",
+        "row_index": 82
+      },
+      {
+        "after": "line, children_weddings, , , , ",
+        "before": "row added",
+        "label": "row 84",
+        "row_index": 83
+      }
+    ],
+    "file": "client_spending_budget.csv",
+    "kind": "spending_budget",
+    "path": "C:\\RetirementPlanning\\Version 10\\input\\client_spending_budget.csv",
+    "timestamp": 1783093629.6316445
+  },
+  {
+    "change_count": 3,
+    "changed_by": "local",
+    "changes": [
+      {
+        "after": "1200",
+        "before": "",
+        "label": "category / auto_fuel / Auto Fuel",
+        "row_index": 2
+      },
+      {
+        "after": "1500",
+        "before": "",
+        "label": "category / cash_atm / Cash & ATM",
+        "row_index": 13
+      },
+      {
+        "after": "400",
+        "before": "",
+        "label": "category / coffee_shops / Coffee Shops",
+        "row_index": 17
+      }
+    ],
+    "file": "client_spending_budget.csv",
+    "kind": "spending_budget",
+    "path": "C:\\RetirementPlanning\\Version 10\\input\\client_spending_budget.csv",
+    "timestamp": 1783095879.4254627
+  }
+]

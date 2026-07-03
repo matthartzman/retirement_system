@@ -1910,11 +1910,11 @@ def build_plan_from_json(plan, url_template=''):
         c['w_mort_age'] = 0
         c['w_death_yr'] = c['h_dob_yr']
 
-    c['members'] = [{'name': c['h_name'], 'role': 'member_1',
+    c['members'] = [{'name': c['h_name'], 'nickname': c['h_nick'], 'role': 'member_1',
                      'dob_yr': c['h_dob_yr'], 'retire_yr': c['h_ret_yr'],
                      'mortality_age': c['h_mort_age'], 'death_yr': c['h_death_yr']}]
     if c['w_name']:
-        c['members'].append({'name': c['w_name'], 'role': 'member_2',
+        c['members'].append({'name': c['w_name'], 'nickname': c['w_nick'], 'role': 'member_2',
                              'dob_yr': c['w_dob_yr'], 'retire_yr': c['w_ret_yr'],
                              'mortality_age': c['w_mort_age'], 'death_yr': c['w_death_yr']})
     c['household_size'] = len(c['members'])

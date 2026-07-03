@@ -1173,6 +1173,8 @@ def main():
         'qc_result': qc_result,
         'h_name': str(c.get('h_name') or 'Member 1'),
         'w_name': str(c.get('w_name') or 'Member 2'),
+        'h_nick': str(c.get('h_nick') or c.get('h_name') or 'Member 1'),
+        'w_nick': str(c.get('w_nick') or c.get('w_name') or 'Member 2'),
         'terminal_nw': 0.0,
         'terminal_pretax_nw': 0.0,
         'terminal_roth_nw': 0.0,

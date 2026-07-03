@@ -1144,12 +1144,14 @@ def build_sheet3(ws, c, rows):
     r = 3
 
     # Annuities / Income streams (PV)
+    _n1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
+    _n2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
     ann_assets = [
-        ('Wife Pension (PV of future income)', yr0['pension_pv'], 'PV through mortality'),
-        ('Wife Single Annuity (PV)',            yr0['w_single_pv'], ''),
-        ('Wife Joint Annuity (PV)',             yr0['w_joint_pv'], ''),
-        ('Husband Single Annuity (PV)',         yr0['h_single_pv'], ''),
-        ('Husband Joint Annuity (PV)',          yr0['h_joint_pv'], ''),
+        (f'{_n2} Pension (PV of future income)', yr0['pension_pv'], 'PV through mortality'),
+        (f'{_n2} Single Annuity (PV)',            yr0['w_single_pv'], ''),
+        (f'{_n2} Joint Annuity (PV)',             yr0['w_joint_pv'], ''),
+        (f'{_n1} Single Annuity (PV)',            yr0['h_single_pv'], ''),
+        (f'{_n1} Joint Annuity (PV)',             yr0['h_joint_pv'], ''),
     ]
     ann_total = write_group('Annuities & Pension (PV)', ann_assets)
 
