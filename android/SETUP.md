@@ -15,7 +15,11 @@ and no emulator/device available, so `./gradlew assembleDebug` has not been
 run against it. Before relying on it:
 
 1. Open `android/` in Android Studio (Giraffe+) — it will offer to generate
-   the Gradle wrapper if missing.
+   the Gradle wrapper scripts if missing. `gradle/wrapper/gradle-wrapper.properties`
+   is committed and pins **Gradle 8.7**: keep that pin. Chaquopy 16 and AGP 8.5
+   break on Gradle 9 with `Unable to load class 'org.gradle.util.VersionNumber'`
+   (that class was removed in Gradle 9), which is exactly what you'll see if a
+   newer Studio regenerates the wrapper at its default version.
 2. Let it sync. The Chaquopy plugin needs a license-free Maven repo entry
    (already declared in `settings.gradle.kts`) and will download the Python
    pip dependencies (`numpy`, `openpyxl`, `reportlab`, `matplotlib`,
