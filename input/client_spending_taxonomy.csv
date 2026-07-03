@@ -67,7 +67,7 @@ Core Expenses,Food & Dining,restaurants_bars,Restaurants & Bars,transaction,acti
 Core Expenses,Gifts Charity,charitable_donations,Charitable Donations,template,active,Cash donations and tithing
 Core Expenses,Gifts Charity,charity,Charity,transaction,active,Promoted from legacy spending_category_map.csv during unified spending migration
 Core Expenses,Gifts Charity,church,Church,transaction,active,Auto-added from transactions
-Core Expenses,Gifts Charity,donation,Donation,transaction,active,Auto-added from transactions
+Core Expenses,Gifts Charity,donation,Donation,transaction,deleted,Merged into Charitable Donations (CR124)
 Core Expenses,Gifts Charity,gifts_family_12,Gifts - Family 12,transaction,active,Auto-added from transactions
 Core Expenses,Gifts Charity,gifts_other,Gifts - Other,transaction,active,Auto-added from transactions
 Core Expenses,Gifts Charity,gifts_given,Gifts Given,template,deleted,Birthday / holiday / occasion gifts
@@ -225,7 +225,7 @@ Business,Business,business_insurance,Business Insurance,template,deleted,General
 Business,Business,business_memberships,Business Memberships,transaction,active,Auto-added from transactions
 Business,Business,business_reimbursement,Business Reimbursement,transaction,deleted,Promoted from legacy spending_category_map.csv during unified spending migration
 Business,Business,business_revenue,Business Revenue,template,deleted,Business receipts and gross revenue
-Business,Business,business_services,Business Services,transaction,deleted,Auto-added from transactions
+Business,Business,business_services,Business Services,transaction,active,Auto-added from transactions; restored to Business group (CR127)
 Business,Business,business_supplies,Business Supplies,template,deleted,Office and operating supplies
 Business,Business,business_taxi_uber,Business Taxi - Uber,transaction,active,Auto-added from transactions
 Business,Business,business_travel_meals,Business Travel & Meals,transaction,active,Auto-added from transactions

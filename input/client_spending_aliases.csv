@@ -40,7 +40,7 @@ Dentist,category,1,50,dentist,seed
 Dermatologist,category,1,50,dermatologist,seed
 Disability Insurance,category,1,50,disability_insurance,seed
 Dividends & Capital Gains,category,1,50,dividends_capital_gains,seed
-Donation,category,1,50,donation,seed
+Donation,category,1,50,charitable_donations,seed
 Drugs - Rx and OTC,category,1,50,drugs_rx_and_otc,seed
 Dry Cleaners,category,1,50,dry_cleaners,seed
 Education,category,1,50,education,seed
@@ -111,4 +111,4 @@ Vision,category,1,50,vision,seed
 Vitamins & Supplements,category,1,50,vitamins_supplements,seed
 Water,category,1,50,water,seed
 Healthcare Premium,category,1,50,pre65_wellness_premium,seed
-Business Services,category,1,45,office_supplies_expenses,user
+Business Services,category,1,45,business_services,user
