@@ -35,8 +35,8 @@ def test_phase1_plan_data_summary_print_preview_is_active():
     js = read("frontend/js/dashboard.js")
     css = read("frontend/css/dashboard.css")
 
-    assert "dashboard.css?v=12" in html
-    assert "dashboard.js?v=28" in html
+    assert "dashboard.css?v=13" in html
+    assert "dashboard.js?v=29" in html
     assert "Plan Data Summary preview" in js
     assert "window.print()" in js
     assert ".plan-data-preview-tools" in css

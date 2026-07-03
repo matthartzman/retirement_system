@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- API 26-30 auto-backup policy (android:fullBackupContent). Plan data is
+     the household's complete financial picture; it must never leave
+     app-private storage through Google's cloud backup, only through the
+     user's explicit in-app exports. allowBackup="false" already opts out
+     entirely — these rules are defense-in-depth if that attribute is ever
+     flipped (e.g. by a manifest-merger surprise from a future dependency). -->
+<full-backup-content>
+    <exclude domain="file" path="." />
+    <exclude domain="database" path="." />
+    <exclude domain="sharedpref" path="." />
+    <exclude domain="external" path="." />
+    <exclude domain="root" path="." />
+</full-backup-content>

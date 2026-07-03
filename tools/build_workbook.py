@@ -24,29 +24,13 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.local_plan_data_sync import PLAN_DATA_FILES, sync_plan_data_from_env
-from src.config_backend import materialize_workspace_files
-from src.reporting.workbook_builder import main
 
-
-def _materialize_server_working_copy():
-    """Restore saved Plan Data files from the local SQLite mirror when needed.
-
-    UI builds save the current on-screen/server working copy before launching
-    this script. In database-backed mode some files may live in SQLite
-    client_files rather than input/ after a package update or process restart.
-    Materializing without overwriting preserves freshly saved CSVs while making
-    split-file/holdings data available to the projection engine.
-    """
-    try:
-        materialize_workspace_files(file_names=PLAN_DATA_FILES, overwrite_existing=False)
-    except Exception as exc:
-        print(f"WARN: Could not materialize saved Plan Data files from local store: {exc}")
-
-
+# Thin CLI wrapper: the build steps live in src.build_entry.run_build so the same
+# logic can run either here as a subprocess (desktop default) or in-process on a
+# mobile worker thread. Retained at this path because the PyInstaller script
+# runner, workbook/plan routes, and package docs invoke it directly.
 if __name__ == "__main__":
-    synced = sync_plan_data_from_env(ROOT)
-    if synced:
-        print(f"Loaded local Plan Data from {synced['source_dir']} before build")
-    _materialize_server_working_copy()
-    main()
+    from src.build_entry import run_build
+
+    result = run_build()
+    raise SystemExit(result.returncode)

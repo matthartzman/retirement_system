@@ -15,9 +15,12 @@ from pathlib import Path
 from typing import Any
 
 from .domain_models import PlanInput, SectionedData, plan_input_from_sectioned_data
+from . import platform_runtime
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_DB = PROJECT_ROOT / "local_state" / "retirement_system_v10.db"
+# PROJECT_ROOT is the code root; the SQLite store is writable data and hangs off
+# the workspace root (== package root on desktop, app-private storage on mobile).
+PROJECT_ROOT = platform_runtime.package_root()
+DEFAULT_DB = platform_runtime.workspace_root() / "local_state" / "retirement_system_v10.db"
 
 
 def now_utc() -> str:
@@ -26,7 +29,7 @@ def now_utc() -> str:
 
 def _resolve(db_path: str | Path | None = None) -> Path:
     p = Path(db_path or DEFAULT_DB)
-    return p if p.is_absolute() else PROJECT_ROOT / p
+    return p if p.is_absolute() else platform_runtime.workspace_root() / p
 
 
 def init_local_store(db_path: str | Path | None = None) -> Path:
