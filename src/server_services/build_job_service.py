@@ -9,6 +9,11 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
+try:
+    from . import build_runner
+except Exception:  # direct execution fallback
+    from src.server_services import build_runner
+
 CURRENT_BUILD_OUTPUT_FILES = [
     "plan_summary.json",
     "retirement_plan.xlsx",
@@ -295,40 +300,57 @@ def run_build_progress_job(
     start = time.time()
     registry.update(job_id, status="running", progress=progress, phase="Starting build", detail="Launching the workbook build.")
     try:
-        build_env = dict(env)
-        build_env["PYTHONUNBUFFERED"] = "1"
-        build_cmd = [sys.executable, str(build_script)] if getattr(sys, "frozen", False) else [sys.executable, "-u", str(build_script)]
-        proc = subprocess.Popen(
-            build_cmd,
-            cwd=str(base_dir),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            env=build_env,
-            bufsize=1,
-        )
-        assert proc.stdout is not None
-        while True:
-            if time.time() - start > timeout_seconds:
-                proc.kill()
-                raise subprocess.TimeoutExpired(str(build_script), timeout_seconds)
-            line = proc.stdout.readline()
-            if line:
+        if build_runner.should_run_in_process():
+            # Mobile hosts cannot spawn a second interpreter; run the same build
+            # logic in-process, streaming stdout lines to the progress registry
+            # exactly as the subprocess readline loop does.
+            progress_state = {"value": progress}
+
+            def _on_line(line: str) -> None:
                 stdout_lines.append(line)
-                progress, title, detail = build_progress_from_line(line, progress)
-                registry.update(job_id, status="running", progress=progress, phase=title, detail=detail, stdout_tail="".join(stdout_lines)[-4000:])
-            elif proc.poll() is not None:
-                break
-            else:
-                time.sleep(0.15)
-        remaining_out, stderr_text = proc.communicate(timeout=2)
-        if remaining_out:
-            for line in remaining_out.splitlines(True):
-                stdout_lines.append(line)
-                progress, title, detail = build_progress_from_line(line, progress)
-                registry.update(job_id, status="running", progress=progress, phase=title, detail=detail, stdout_tail="".join(stdout_lines)[-4000:])
+                p, title, detail = build_progress_from_line(line, progress_state["value"])
+                progress_state["value"] = p
+                registry.update(job_id, status="running", progress=p, phase=title, detail=detail, stdout_tail="".join(stdout_lines)[-4000:])
+
+            outcome = build_runner.run_inprocess_build(env=env, on_line=_on_line, timeout=timeout_seconds)
+            returncode = outcome.returncode
+            stderr_text = outcome.stderr
+        else:
+            build_env = dict(env)
+            build_env["PYTHONUNBUFFERED"] = "1"
+            build_cmd = [sys.executable, str(build_script)] if getattr(sys, "frozen", False) else [sys.executable, "-u", str(build_script)]
+            proc = subprocess.Popen(
+                build_cmd,
+                cwd=str(base_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                env=build_env,
+                bufsize=1,
+            )
+            assert proc.stdout is not None
+            while True:
+                if time.time() - start > timeout_seconds:
+                    proc.kill()
+                    raise subprocess.TimeoutExpired(str(build_script), timeout_seconds)
+                line = proc.stdout.readline()
+                if line:
+                    stdout_lines.append(line)
+                    progress, title, detail = build_progress_from_line(line, progress)
+                    registry.update(job_id, status="running", progress=progress, phase=title, detail=detail, stdout_tail="".join(stdout_lines)[-4000:])
+                elif proc.poll() is not None:
+                    break
+                else:
+                    time.sleep(0.15)
+            remaining_out, stderr_text = proc.communicate(timeout=2)
+            if remaining_out:
+                for line in remaining_out.splitlines(True):
+                    stdout_lines.append(line)
+                    progress, title, detail = build_progress_from_line(line, progress)
+                    registry.update(job_id, status="running", progress=progress, phase=title, detail=detail, stdout_tail="".join(stdout_lines)[-4000:])
+            returncode = proc.returncode
         elapsed = round(time.time() - start, 1)
         stdout = "".join(stdout_lines)
         summary_path = output_dir / "plan_summary.json"
@@ -341,12 +363,12 @@ def run_build_progress_job(
         build_id = str(env.get("RETIREMENT_SYSTEM_BUILD_ID", "") or "")
         stale_summary = bool(summary) and not summary_matches_build(summary, build_id)
         qc_match = re.search(r"QC:\s*(\d+)\s*/\s*(\d+)\s+PASS", stdout)
-        success = proc.returncode == 0 and (bool(qc_match) or summary.get("qc_result")) and bool(summary) and not stale_summary
+        success = returncode == 0 and (bool(qc_match) or summary.get("qc_result")) and bool(summary) and not stale_summary
         finished_ts = time.time()
         admin_changes = admin_changes_between(workspace_id, previous_build_ts, build_start_ts)
         result_payload = {
             "success": bool(success),
-            "returncode": proc.returncode,
+            "returncode": returncode,
             "elapsed_seconds": elapsed,
             "qc_result": summary.get("qc_result") or (qc_match.group(0) if qc_match else "Unknown"),
             "kpi": summary,
