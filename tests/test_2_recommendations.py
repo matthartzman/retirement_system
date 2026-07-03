@@ -28,14 +28,18 @@ class RecommendationCompletionTests(unittest.TestCase):
         self.assertTrue(c['all_acct_ids'])
 
     def test_sample_projection_golden_master_and_release_gate(self):
+        # Golden-master constants are tied to input/client_data.csv (and its
+        # transaction/budget-derived spend base) as of this commit. Regenerate
+        # them deliberately after intentional plan-data changes; a mismatch
+        # otherwise usually means a real projection-engine regression.
         c = sample_config()
         rows = project(c)
         summary = summarize_validation(rows, c)
         self.assertEqual(summary['fail_count'], 0)
         self.assertEqual(summary['warn_count'], 0)
         self.assertEqual((rows[0]['year'], rows[-1]['year'], len(rows)), (2026, 2056, 31))
-        self.assertAlmostEqual(rows[-1]['total_nw'], 4_904_925.09, delta=2.0)
-        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 828_337.99, delta=2.0)
+        self.assertAlmostEqual(rows[-1]['total_nw'], 6_303_127.69, delta=2.0)
+        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 935_301.16, delta=2.0)
 
     def test_fixed_point_taxable_withdrawal_solver_runs_before_roth(self):
         c = sample_config()

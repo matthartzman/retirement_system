@@ -289,6 +289,29 @@ except Exception:
     from src.server.security_audit import *  # noqa: F401,F403
 
 
+def _spending_budget_csv_path() -> Path:
+    return BASE_DIR / "input" / "client_spending_budget.csv"
+
+
+def _read_csv_rows_safe(path: Path) -> list[list[str]]:
+    if not path.exists():
+        return []
+    with path.open(newline="", encoding="utf-8-sig") as f:
+        return list(csv.reader(f))
+
+
+def _spending_budget_save_result(save_fn):
+    """Run a budget-save call and record the before/after diff to Build Impact."""
+    budget_path = _spending_budget_csv_path()
+    before_rows = _read_csv_rows_safe(budget_path)
+    payload, status = save_fn()
+    after_rows = _read_csv_rows_safe(budget_path)
+    change_event = _record_admin_config_change("spending_budget", budget_path.name, str(budget_path), before_rows, after_rows)
+    if isinstance(payload, dict) and change_event:
+        payload["change_event"] = change_event
+    return jsonify(payload), status
+
+
 
 
 def _make_request_system_config_csv_for(workspace: str, client: str, out_dir: Path) -> Path:
@@ -1336,121 +1359,6 @@ SPENDING_BUDGET_SECTIONS = [
     "large_discretionary", "home_improvement", "travel", "gifts_charity",
 ]
 
-
-def _spending_budget_lines_default_csv() -> str:
-    """Seed defaults from the existing extra_N rows + a Gifts/Charity summary line.
-
-    Used by "Reload defaults" and when no on-disk/mirror file exists yet.
-    """
-    out = [",".join(SPENDING_BUDGET_LINE_COLUMNS)]
-    events = _large_discretionary_expenses_from_plan_data()
-    counters = {s: 0 for s in SPENDING_BUDGET_SECTIONS}
-    prefix = {
-        "large_discretionary": "ld", "home_improvement": "hi",
-        "travel": "tr", "gifts_charity": "gc",
-    }
-    def _emit(section, label, category_id, start, end, one_time, amount, mode, notes):
-        counters[section] = counters.get(section, 0) + 1
-        line_id = f"{prefix.get(section, 'bl')}_{counters[section]}"
-        cells = [section, line_id, label, category_id,
-                 str(start or ""), str(end or ""), str(one_time or ""),
-                 str(amount or ""), mode, notes]
-        out.append(",".join('"%s"' % c if ("," in c or '"' in c) else c for c in cells))
-    for ev in events:
-        typ = _normalize_large_discretionary_type(ev.get("type") or "Other")
-        low = typ.strip().lower()
-        amount = str(ev.get("amount") or "").replace("$", "").replace(",", "").strip()
-        one_time = str(ev.get("year") or "").strip()
-        start = str(ev.get("start_year") or "").strip()
-        end = str(ev.get("end_year") or "").strip()
-        comment = str(ev.get("comment") or "").strip()
-        if low in {"home improvement", "home improvements", "home projects", "home project"}:
-            section = "home_improvement"
-            category_id = "home_improvement"
-        elif low in {"travel", "vacation", "vacations"}:
-            section = "travel"
-            category_id = "recurring_travel"
-        else:
-            section = "large_discretionary"
-            category_id = "weddings" if low in {"wedding", "weddings"} else ""
-        _emit(section, comment or typ, category_id, start, end, one_time, amount, "detail", "Seeded from large discretionary extras")
-    # Gifts/Charity: seed a summary line from annual charitable giving (#94c)
-    giving = ""
-    try:
-        content = _read_plan_data_file("client_spending.csv")
-        if content:
-            for r in csv.DictReader(io.StringIO(content)):
-                if (str(r.get("section", "")).strip() == "Cashflow"
-                        and str(r.get("subsection", "")).strip().lower() == "spending"
-                        and str(r.get("label", "")).strip() == "annual_charitable_giving_high"):
-                    giving = str(r.get("value", "") or "").replace("$", "").replace(",", "").strip()
-                    break
-    except Exception:
-        giving = ""
-    _emit("gifts_charity", "Charitable Giving", "charitable_donations", "", "", "", giving or "", "summary", "Seeded from annual charitable giving")
-    return "\n".join(out) + "\n"
-
-
-def _read_spending_budget_lines_csv() -> str:
-    """Return the budget-lines CSV content (on-disk first, then SQLite mirror, then seed)."""
-    content = _read_plan_data_file(SPENDING_BUDGET_LINES_FILE)
-    if content is not None and content.strip():
-        return content
-    return _spending_budget_lines_default_csv()
-
-
-def _parse_spending_budget_lines(content: str) -> list[dict]:
-    rows = []
-    if not content:
-        return rows
-    for r in csv.DictReader(io.StringIO(content)):
-        section = str(r.get("section", "") or "").strip()
-        if not section:
-            continue
-        rows.append({
-            "section": section,
-            "line_id": str(r.get("line_id", "") or "").strip(),
-            "label": str(r.get("label", "") or "").strip(),
-            "category_id": str(r.get("category_id", "") or "").strip(),
-            "start_year": str(r.get("start_year", "") or "").strip(),
-            "end_year": str(r.get("end_year", "") or "").strip(),
-            "one_time_year": str(r.get("one_time_year", "") or "").strip(),
-            "amount_per_year": str(r.get("amount_per_year", "") or "").strip(),
-            "mode": (str(r.get("mode", "") or "").strip().lower() or "detail"),
-            "notes": str(r.get("notes", "") or "").strip(),
-        })
-    return rows
-
-
-def _serialize_spending_budget_lines(lines: list[dict]) -> str:
-    out = io.StringIO()
-    w = csv.writer(out, lineterminator="\n")
-    w.writerow(SPENDING_BUDGET_LINE_COLUMNS)
-    for i, ln in enumerate(lines, 1):
-        if not isinstance(ln, dict):
-            continue
-        section = str(ln.get("section", "") or "").strip()
-        if not section:
-            continue
-        amount = str(ln.get("amount_per_year", "") or "").replace("$", "").replace(",", "").strip()
-        line_id = str(ln.get("line_id", "") or "").strip() or f"bl_{i}"
-        mode = (str(ln.get("mode", "") or "").strip().lower() or "detail")
-        w.writerow([
-            section, line_id,
-            str(ln.get("label", "") or "").strip(),
-            str(ln.get("category_id", "") or "").strip(),
-            str(ln.get("start_year", "") or "").strip(),
-            str(ln.get("end_year", "") or "").strip(),
-            str(ln.get("one_time_year", "") or "").strip(),
-            amount, mode,
-            str(ln.get("notes", "") or "").strip(),
-        ])
-    return out.getvalue()
-
-
-def _write_spending_budget_lines(content: str) -> Path:
-    """Persist budget lines to disk + SQLite client_files mirror (like holdings)."""
-    return _write_plan_data_file(SPENDING_BUDGET_LINES_FILE, content)
 
 
 

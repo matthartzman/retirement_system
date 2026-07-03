@@ -1,38 +1,38 @@
 {
   "AVUV": {
-    "price": 124.94,
-    "provider": "fixture",
-    "source": "fixture_cache",
+    "price": 123.51,
+    "provider": "yahoo",
+    "source": "yahoo",
     "symbol": "AVUV",
-    "timestamp_epoch": 1782743705,
-    "timestamp_iso": "2026-06-29T14:35:05.2758348Z",
+    "timestamp_epoch": 1783043683.7215965,
+    "timestamp_iso": "2026-07-03T01:54:43.721596+00:00",
     "ttl_hours": 24.0
   },
   "ITOT": {
-    "price": 160.83,
-    "provider": "fixture",
-    "source": "fixture_cache",
+    "price": 163.76,
+    "provider": "yahoo",
+    "source": "yahoo",
     "symbol": "ITOT",
-    "timestamp_epoch": 1782743705,
-    "timestamp_iso": "2026-06-29T14:35:05.2758348Z",
+    "timestamp_epoch": 1783043681.0064309,
+    "timestamp_iso": "2026-07-03T01:54:41.006431+00:00",
     "ttl_hours": 24.0
   },
   "IXUS": {
-    "price": 94.26,
-    "provider": "fixture",
-    "source": "fixture_cache",
+    "price": 94.72,
+    "provider": "yahoo",
+    "source": "yahoo",
     "symbol": "IXUS",
-    "timestamp_epoch": 1782743705,
-    "timestamp_iso": "2026-06-29T14:35:05.2758348Z",
+    "timestamp_epoch": 1783043680.049302,
+    "timestamp_iso": "2026-07-03T01:54:40.049302+00:00",
     "ttl_hours": 24.0
   },
   "PDBC": {
     "price": 15.87,
-    "provider": "fixture",
-    "source": "fixture_cache",
+    "provider": "yahoo",
+    "source": "yahoo",
     "symbol": "PDBC",
-    "timestamp_epoch": 1782743705,
-    "timestamp_iso": "2026-06-29T14:35:05.2758348Z",
+    "timestamp_epoch": 1783043682.1396532,
+    "timestamp_iso": "2026-07-03T01:54:42.139653+00:00",
     "ttl_hours": 24.0
   },
   "VB": {
@@ -45,12 +45,12 @@
     "ttl_hours": 24.0
   },
   "VBR": {
-    "price": 242.77,
-    "provider": "fixture",
-    "source": "fixture_cache",
+    "price": 243.22,
+    "provider": "yahoo",
+    "source": "yahoo",
     "symbol": "VBR",
-    "timestamp_epoch": 1782743705,
-    "timestamp_iso": "2026-06-29T14:35:05.2758348Z",
+    "timestamp_epoch": 1783043688.6182964,
+    "timestamp_iso": "2026-07-03T01:54:48.618296+00:00",
     "ttl_hours": 24.0
   },
   "VEA": {
@@ -81,12 +81,12 @@
     "ttl_hours": 24.0
   },
   "VTI": {
-    "price": 362.22,
-    "provider": "fixture",
-    "source": "fixture_cache",
+    "price": 368.76,
+    "provider": "yahoo",
+    "source": "yahoo",
     "symbol": "VTI",
-    "timestamp_epoch": 1782743705,
-    "timestamp_iso": "2026-06-29T14:35:05.2758348Z",
+    "timestamp_epoch": 1783043686.980975,
+    "timestamp_iso": "2026-07-03T01:54:46.980975+00:00",
     "ttl_hours": 24.0
   },
   "VWO": {
@@ -99,12 +99,12 @@
     "ttl_hours": 24.0
   },
   "VXUS": {
-    "price": 84.48,
-    "provider": "fixture",
-    "source": "fixture_cache",
+    "price": 84.84,
+    "provider": "yahoo",
+    "source": "yahoo",
     "symbol": "VXUS",
-    "timestamp_epoch": 1782743705,
-    "timestamp_iso": "2026-06-29T14:35:05.2758348Z",
+    "timestamp_epoch": 1783043685.3369267,
+    "timestamp_iso": "2026-07-03T01:54:45.336927+00:00",
     "ttl_hours": 24.0
   }
 }

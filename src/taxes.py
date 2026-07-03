@@ -200,25 +200,25 @@ def _parse_float(s, default=0.0):
 
 def load_state_tax(search_dirs=None):
     """Load state tax rules. Overlays state_tax.csv onto STATE_TAX_DEFAULTS.
-    
+
     CSV columns: state,rate,type,exempt_retirement,exempt_ss,prop_rate,
                  sales_rate,estate,estate_exempt,retirement_exempt_over_65,source
-    
+
     Returns: dict {state_name: {rule_dict}}
     """
     rules = {k: dict(v) for k, v in STATE_TAX_DEFAULTS.items()}  # deep copy defaults
-    
+
     if search_dirs is None:
         _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         search_dirs = [_project_root, os.getcwd(), '/mnt/user-data/outputs']
-    
+
     csv_path = None
     for d in search_dirs:
         p = os.path.join(d, 'reference_data/state_tax.csv')
         if os.path.exists(p):
             csv_path = p
             break
-    
+
     if csv_path:
         with open(csv_path, newline='', encoding='utf-8-sig') as f:
             reader = csv.DictReader(f)
@@ -238,16 +238,16 @@ def load_state_tax(search_dirs=None):
                     'retirement_exempt_over_65': _parse_float(row.get('retirement_exempt_over_65', '0')),
                     'source':                    (row.get('source', '') or '').strip(),
                 }
-    
+
     return rules
 
 
 def load_tax_constants(search_dirs=None):
     """Load tax constant overrides from tax_constants.csv.
-    
+
     CSV columns: key, tax_year, value, source
     Returns: dict {key: {'value': float, 'tax_year': int, 'source': str}}
-    
+
     Supported keys (overlaid onto module-level defaults):
         std_ded_mfj, std_ded_single, std_ded_hoh, std_ded_mfs,
         over65_add_mfj, over65_add_single, over65_add_hoh, over65_add_mfs,
@@ -291,14 +291,14 @@ def load_tax_constants(search_dirs=None):
     if search_dirs is None:
         _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         search_dirs = [_project_root, os.getcwd(), '/mnt/user-data/outputs']
-    
+
     csv_path = None
     for d in search_dirs:
         p = os.path.join(d, 'reference_data/tax_constants.csv')
         if os.path.exists(p):
             csv_path = p
             break
-    
+
     if csv_path:
         with open(csv_path, newline='', encoding='utf-8-sig') as f:
             reader = csv.DictReader(f)
@@ -311,7 +311,7 @@ def load_tax_constants(search_dirs=None):
                     'tax_year': int(_parse_float(row.get('tax_year', str(TAX_REFERENCE_YEAR)))),
                     'source':   (row.get('source', '') or '').strip(),
                 }
-    
+
     # Apply overrides to module-level defaults
     for filing in FILING_STATUSES:
         fk = filing.lower()
@@ -324,7 +324,7 @@ def load_tax_constants(search_dirs=None):
         niit_key = f'niit_threshold_{fk}'
         if niit_key in registry:
             NIIT_THRESHOLD[filing] = registry[niit_key]['value']
-    
+
     return registry
 
 
@@ -373,14 +373,14 @@ def annuity_reserve_from_calib(reserve_start, yr_offset, calib=None):
     Falls back to DEFAULT_ANNUITY_CALIB if calib is None."""
     if calib is None:
         calib = DEFAULT_ANNUITY_CALIB
-    
+
     decay_rate    = calib.get('reserve_decay_rate', 0.975)
     decay_period  = calib.get('reserve_decay_period', 6)
     mc_boost      = calib.get('mortality_credit_boost', 1.29)
     post_decay    = calib.get('post_credit_decay_rate', 0.96)
     post_period   = calib.get('post_credit_decay_period', 16)
     late_growth   = calib.get('late_life_growth_rate', 1.07)
-    
+
     if yr_offset <= decay_period:
         return reserve_start * (decay_rate ** yr_offset)
     r_dp = reserve_start * (decay_rate ** decay_period)
@@ -418,13 +418,13 @@ def validate_cascade_order(order):
                 cleaned.append(item)
         else:
             warnings.append(f'Unknown cascade account "{item}" — ignored')
-    
+
     # Ensure all required accounts are present (append missing at end)
     for acct in DEFAULT_CASCADE_ORDER:
         if acct not in cleaned:
             cleaned.append(acct)
             warnings.append(f'Added missing cascade account "{acct}" at end')
-    
+
     # Enforce Trust before Roth
     ti = cleaned.index('Trust')
     ri = cleaned.index('Roth')
@@ -432,7 +432,7 @@ def validate_cascade_order(order):
         cleaned.remove('Trust')
         cleaned.insert(ri, 'Trust')
         warnings.append('Moved Trust before Roth (LTCG tax coupling requires this order)')
-    
+
     return cleaned, warnings
 
 # ===== END tax_data.py =====

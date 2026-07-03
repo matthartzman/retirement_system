@@ -459,18 +459,18 @@ def build_covariance_matrix(classes):
 
 def auto_risk_score(age, withdrawal_rate, funded_ratio):
     """Auto-derive risk tolerance (1-10) from age, withdrawal rate, and funded ratio.
-    
+
     Args:
         age: current age of primary member
         withdrawal_rate: annual spending / liquid portfolio (0.04 = 4%)
         funded_ratio: PV of guaranteed income / PV of spending needs (0-1+)
-    
+
     Returns:
         float 1.0-10.0
     """
     # Base: younger = more aggressive
     base = max(1, min(10, 10 - (age - 25) / 7))
-    
+
     # Adjust for withdrawal rate: high rate → more conservative
     if withdrawal_rate > 0.05:
         base -= 1.5
@@ -478,7 +478,7 @@ def auto_risk_score(age, withdrawal_rate, funded_ratio):
         base -= 0.5
     elif withdrawal_rate < 0.02:
         base += 1.0
-    
+
     # Adjust for funded ratio: high guaranteed income → more aggressive
     if funded_ratio > 0.8:
         base += 1.5
@@ -486,13 +486,13 @@ def auto_risk_score(age, withdrawal_rate, funded_ratio):
         base += 0.5
     elif funded_ratio < 0.2:
         base -= 0.5
-    
+
     return max(1.0, min(10.0, base))
 
 
 def risk_to_equity_pct(risk_score):
     """Map risk score (1-10) to target equity percentage.
-    
+
     1 = 20% equity (very conservative)
     5 = 60% equity (moderate)
     10 = 95% equity (very aggressive)
@@ -506,7 +506,7 @@ def risk_to_equity_pct(risk_score):
 
 def compute_human_capital(salary, years_to_retirement, stability_factor=0.8, discount_rate=0.03):
     """PV of remaining earned income — acts like a bond in the total portfolio.
-    
+
     Args:
         salary: current annual earned income
         years_to_retirement: years until retirement
@@ -526,18 +526,18 @@ def compute_human_capital(salary, years_to_retirement, stability_factor=0.8, dis
 
 def apply_glide_path(equity_pct, years_to_retirement, mode='target_date'):
     """Adjust equity percentage based on glide path.
-    
+
     Args:
         equity_pct: base target equity % (from risk tolerance)
         years_to_retirement: can be negative (already retired)
         mode: 'target_date' or 'static'
-    
+
     Returns:
         adjusted equity percentage
     """
     if mode == 'static':
         return equity_pct
-    
+
     # Target-date style: reduce equity by ~1.5% per year past age 50
     # Pre-retirement: full equity allocation
     # Post-retirement: reduce by 1.5% per year retired

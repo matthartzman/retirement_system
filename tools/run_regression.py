@@ -92,6 +92,12 @@ for py_file in [
 heading("Boot sequence")
 dash = file_text("frontend/js/dashboard.js")
 nav = file_text("frontend/js/navigation.js")
+reports_ui = file_text("frontend/js/reports_ui.js")
+# Detail-table/chart rendering (detailCurrencyK, niceTickRange,
+# renderDetailTableForCols, detailChartColor, etc.) was extracted out of
+# dashboard.js into reports_ui.js; checks below search both so a further
+# move between the two doesn't reintroduce a stale-location false failure.
+dash_reports = dash + reports_ui
 
 check("Boot: wireStepNavigation() called", "wireStepNavigation();" in dash)
 check("Boot: setAppControls(false) called", "setAppControls(false);" in dash)
@@ -162,8 +168,8 @@ check("Spending: /api/spending/dashboard endpoint used",
 # ---------------------------------------------------------------------------
 heading("Retirement Plan Workbook (Detailed Results)")
 check("WorkbookPage: title renamed in STEPS",
-      "title:'Retirement Plan Workbook'" in dash)
-check("WorkbookPage: resultDisplayName defined", "function resultDisplayName(" in dash)
+      "title:'Results'" in dash)
+check("WorkbookPage: resultDisplayName defined", "function resultDisplayName(" in dash_reports)
 check("WorkbookPage: loadDetailedResults defined", "function loadDetailedResults(" in dash or "loadDetailedResults" in dash)
 check("WorkbookPage: setDetailedResultSheet defined", "function setDetailedResultSheet(" in dash)
 check("WorkbookPage: all visible sheets returned (no 1A-1F filter)",
@@ -197,10 +203,10 @@ check("DR: _visible_worksheets defined", "def _visible_worksheets(" in dr_text)
 check("DR: all visible sheets returned (no prefix filter)", "_REDUNDANT_PREFIXES" not in dr_text)
 
 # ---------------------------------------------------------------------------
-# 10b. Column group <details> UI
+# 10b. Column group collapse/expand UI
 # ---------------------------------------------------------------------------
-check("ColGroups: renderDetailTableForCols defined", "function renderDetailTableForCols(" in dash)
-check("ColGroups: renderDetailedResultTable uses <details>", "detail-col-group-section" in dash)
+check("ColGroups: renderDetailTableForCols defined", "function renderDetailTableForCols(" in dash_reports)
+check("ColGroups: renderDetailedResultTable marks collapsible column-group headers", "detail-col-group-th" in dash_reports)
 check("ColGroups: setDetailColGroupOpen defined", "setDetailColGroupOpen" in dash)
 
 # ---------------------------------------------------------------------------
@@ -254,71 +260,72 @@ heading("Section 5: Retirement Plan Workbook -- WP-A/B/C/D")
 # WP-A: detailCurrencyK sub-$1K values return plain dollar amount, not $0K
 check(
     "WP-A: detailCurrencyK returns plain dollar for sub-$500 values (not $0K)",
-    "Math.round(abs/1000)===0)return (neg?'-':'')+'$'+Math.round(abs)" in dash,
+    "Math.round(abs/1000)===0)return (neg?'-':'')+'$'+Math.round(abs)" in dash_reports,
 )
 
 # WP-B: niceTickRange function exists
 check(
     "WP-B: niceTickRange function defined",
-    "function niceTickRange(" in dash,
+    "function niceTickRange(" in dash_reports,
 )
 
 # WP-B: niceTickRange returns an array
 check(
     "WP-B: niceTickRange returns array via Array.from",
-    "function niceTickRange(" in dash and "Array.from" in dash,
+    "function niceTickRange(" in dash_reports and "Array.from" in dash_reports,
 )
 
 # WP-B: Bar/line chart y-axis ticks use niceTickRange (not hardcoded list)
 check(
     "WP-B: stacked bar chart uses niceTickRange for y-axis ticks",
-    "niceVals=niceTickRange(max)" in dash,
+    "niceVals=niceTickRange(max)" in dash_reports,
 )
 
 # WP-C: y-axis label reads chart.y_label with fallback (not hardcoded string)
 check(
     "WP-C: y-axis label uses chart.y_label with inferred fallback",
-    "chart.y_label||detailInferYLabel(max)" in dash,
+    "chart.y_label||detailInferYLabel(max)" in dash_reports,
 )
 
 # WP-C: Y-axis formatter branches on % / plain number / currency thresholds
 check(
     "WP-C: y-axis formatter percent branch for max <= 1.5",
-    "max<=1.5?(rawVal*100).toFixed(0)+'%'" in dash,
+    "max<=1.5?(rawVal*100).toFixed(0)+'%'" in dash_reports,
 )
 check(
     "WP-C: y-axis formatter plain number branch for max <= 150",
-    "max<=150?String(Math.round(rawVal))" in dash,
+    "max<=150?String(Math.round(rawVal))" in dash_reports,
 )
 
 # WP-D: Unknown chart types render .chart-type-note div (not a crash)
 check(
     "WP-D: unknown chart type renders chart-type-note div",
-    "chart-type-note" in dash and "Chart type not yet supported" in dash,
+    "chart-type-note" in dash_reports and "Chart type not yet supported" in dash_reports,
 )
 
-# WP-D: Column group first-group fix -- isOpen uses !== false (not gi===0)
+# WP-D: Column group first-group fix -- every group (including the first)
+# renders with the same initial "collapsed" class; none is special-cased open.
 check(
-    "WP-D: column group isOpen guard uses !== false",
-    "detailedColumnGroupsOpen[key]!==false" in dash,
+    "WP-D: column group headers all start collapsed, no first-group special case",
+    'class="detail-col-group-th collapsed" data-group="${gi}"' in dash_reports,
 )
 
 # WP-D: setDetailColGroupOpen calls setTimeout(renderMain, 0) after state update
 check(
     "WP-D: setDetailColGroupOpen defers renderMain via setTimeout",
-    "setDetailColGroupOpen" in dash and "setTimeout(renderMain,0)" in dash,
+    "setDetailColGroupOpen" in dash_reports and "setTimeout(renderMain,0)" in dash_reports,
 )
 
 # WP-D: renderDetailTableForCols adds title attribute to <td> elements
 check(
     "WP-D: renderDetailTableForCols writes title= tooltip on each td",
-    'title="${esc(String(' in dash,
+    'title="${esc(String(' in dash_reports,
 )
 
 # WP-D: CVD-safe palette -- detailChartColor starts with #000000 (Wong palette)
 check(
     "WP-D: detailChartColor uses Wong 8-color palette starting with #000000",
-    "'#000000','#E69F00','#56B4E9','#009E73'" in dash,
+    "'#000000','#E69F00','#56B4E9','#009E73'" in dash_reports,
 )
 
 # ---------------------------------------------------------------------------
@@ -336,7 +343,7 @@ check("P2-D19: bottom action row has Save Changes + Download Workbook", "Save Ch
 check("P2-B6: workbookNavOpened localStorage guard", "workbookNavOpened" in dash)
 check("P3-B7: saveWorkbookViewState defined", "saveWorkbookViewState" in dash)
 check("P3-B7: restoreWorkbookViewState defined", "restoreWorkbookViewState" in dash)
-check("P3-B8: data-group-key attribute on detail-col-group-section", "data-group-key" in dash)
+check("P3-B8: data-group attribute on detail-col-group-th headers", 'data-group="${gi}"' in dash_reports)
 
 # ---------------------------------------------------------------------------
 # Summary

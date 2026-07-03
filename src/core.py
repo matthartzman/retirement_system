@@ -56,11 +56,11 @@ def _infer_owner(account_name, members):
 
 def build_registry_from_balances(balances, members):
     """Build an account registry from balance keys.
-    
+
     Args:
         balances: dict {account_name: balance}
         members: list of member dicts from parse_client
-    
+
     Returns:
         list of account dicts, each with:
             id, owner_idx, owner_name, acct_type, tax, rmd, label, balance
@@ -71,7 +71,7 @@ def build_registry_from_balances(balances, members):
         owner_idx = _infer_owner(acct_name, members)
         type_info = ACCOUNT_TYPES.get(acct_type, ACCOUNT_TYPES['taxable'])
         owner_name = members[owner_idx]['name'] if owner_idx < len(members) else 'Unknown'
-        
+
         registry.append({
             'id':         acct_name,                # key into bal[] dict
             'owner_idx':  owner_idx,                 # 0 = member_1, 1 = member_2
@@ -82,17 +82,17 @@ def build_registry_from_balances(balances, members):
             'label':      f"{owner_name}'s {type_info['label']}",
             'balance':    balance,
         })
-    
+
     return sorted(registry, key=lambda a: (a['owner_idx'], a['tax'], a['id']))
 
 
 def build_registry_from_json(accounts_json, members):
     """Build an account registry from a wizard JSON plan.
-    
+
     Args:
         accounts_json: list of {id, owner_idx, acct_type, balance, label?}
         members: list of member dicts
-    
+
     Returns:
         list of account dicts (same shape as build_registry_from_balances)
     """
@@ -102,7 +102,7 @@ def build_registry_from_json(accounts_json, members):
         type_info = ACCOUNT_TYPES.get(acct_type, ACCOUNT_TYPES['taxable'])
         owner_idx = acct.get('owner_idx', 0)
         owner_name = members[owner_idx]['name'] if owner_idx < len(members) else 'Unknown'
-        
+
         acct_id = acct.get('id', f'acct_{i+1}')
         registry.append({
             'id':         acct_id,
@@ -114,7 +114,7 @@ def build_registry_from_json(accounts_json, members):
             'label':      acct.get('label', f"{owner_name}'s {type_info['label']}"),
             'balance':    acct.get('balance', 0),
         })
-    
+
     return sorted(registry, key=lambda a: (a['owner_idx'], a['tax'], a['id']))
 
 
@@ -333,59 +333,59 @@ Warning      = namedtuple('Warning',       ['year','code','message'])
 
 class EventLog:
     """Append-only event log with query helpers."""
-    
+
     def __init__(self):
         self._events = []
-    
+
     def emit(self, event):
         self._events.append(event)
         return event
-    
+
     def all(self):
         return list(self._events)
-    
+
     def by_year(self, year):
         return [e for e in self._events if hasattr(e, 'year') and e.year == year]
-    
+
     def by_type(self, event_type):
         return [e for e in self._events if isinstance(e, event_type)]
-    
+
     def by_year_type(self, year, event_type):
-        return [e for e in self._events 
+        return [e for e in self._events
                 if isinstance(e, event_type) and hasattr(e, 'year') and e.year == year]
-    
+
     def incomes(self, year=None):
         return self.by_year_type(year, Income) if year else self.by_type(Income)
-    
+
     def withdrawals(self, year=None):
         return self.by_year_type(year, Withdrawal) if year else self.by_type(Withdrawal)
-    
+
     def taxes(self, year=None):
         return self.by_year_type(year, Tax) if year else self.by_type(Tax)
-    
+
     def warnings(self):
         return self.by_type(Warning)
-    
+
     def total_income(self, year):
         return sum(e.gross for e in self.incomes(year))
-    
+
     def total_tax(self, year):
         return sum(e.amount for e in self.taxes(year))
-    
+
     def total_withdrawals(self, year):
         return sum(e.amount for e in self.withdrawals(year))
-    
+
     def dollar_lineage(self, year, account):
         """Trace every dollar that flowed into or out of an account in a given year."""
-        inflows  = [e for e in self.by_year(year) 
+        inflows  = [e for e in self.by_year(year)
                     if hasattr(e, 'account') and e.account == account and hasattr(e, 'amount')]
         outflows = [e for e in self.by_year(year)
                     if hasattr(e, 'source_acct') and e.source_acct == account]
         return {'inflows': inflows, 'outflows': outflows}
-    
+
     def __len__(self):
         return len(self._events)
-    
+
     def summary(self):
         """Quick stats for logging."""
         types = {}
@@ -400,20 +400,20 @@ class EventLog:
 class TaxLot:
     """A single tax lot with purchase price and quantity."""
     __slots__ = ('symbol', 'qty', 'cost_basis', 'purchase_date')
-    
+
     def __init__(self, symbol, qty, cost_basis, purchase_date=''):
         self.symbol = symbol
         self.qty = qty
         self.cost_basis = cost_basis  # total cost, not per-share
         self.purchase_date = purchase_date
-    
+
     @property
     def cost_per_share(self):
         return self.cost_basis / self.qty if self.qty > 0 else 0
-    
+
     def unrealized_gain(self, current_price):
         return max(0, current_price * self.qty - self.cost_basis)
-    
+
     def gain_fraction(self, current_price):
         mv = current_price * self.qty
         return max(0, mv - self.cost_basis) / mv if mv > 0 else 0
@@ -421,11 +421,11 @@ class TaxLot:
 
 class LotEngine:
     """HIFO/LIFO/FIFO lot selection for capital gains on withdrawals.
-    
+
     Falls back to flat trust_gain_fraction when < 10% of positions have lot data,
     printing a warning.
     """
-    
+
     def __init__(self, lots_by_account, prices, fallback_gain_fraction=0.50, method='HIFO'):
         """
         lots_by_account: {account: {symbol: [TaxLot, ...]}}
@@ -437,7 +437,7 @@ class LotEngine:
         self.method = method
         self.fallback = fallback_gain_fraction
         self.warnings = []
-        
+
         # Check coverage: what fraction of market value has lot data?
         total_mv = 0
         lotted_mv = 0
@@ -448,17 +448,17 @@ class LotEngine:
                 total_mv += mv
                 if any(l.cost_basis > 0 for l in lot_list):
                     lotted_mv += mv
-        
+
         self.coverage = lotted_mv / total_mv if total_mv > 0 else 0
         self.use_lots = self.coverage >= 0.10
-        
+
         if not self.use_lots and total_mv > 0:
             self.warnings.append(
                 f"Lot data covers only {self.coverage:.0%} of portfolio market value "
                 f"(< 10% threshold). Falling back to flat gain fraction of "
                 f"{self.fallback:.0%} for all trust draws."
             )
-    
+
     def _lot_acquisition_year(self, lot):
         try:
             s = str(lot.purchase_date or '')
@@ -490,18 +490,18 @@ class LotEngine:
         """
         if not self.use_lots:
             return amount * self.fallback, []
-        
+
         acct_lots = self.lots.get(account, {})
         if not acct_lots:
             return amount * self.fallback, []
-        
+
         # Flatten all lots for this account, sorted by method
         all_lots = []
         for sym, lot_list in acct_lots.items():
             price = self.prices.get(sym, 0)
             for lot in lot_list:
                 all_lots.append((lot, price))
-        
+
         if self.method == 'HIFO':
             # Prefer long-term lots, then highest basis to minimize tax drag.
             all_lots.sort(key=lambda x: (not self.is_long_term(x[0], current_year), -x[0].cost_per_share))
@@ -509,11 +509,11 @@ class LotEngine:
             all_lots.sort(key=lambda x: (not self.is_long_term(x[0], current_year), x[0].purchase_date), reverse=True)
         else:  # FIFO
             all_lots.sort(key=lambda x: (not self.is_long_term(x[0], current_year), x[0].purchase_date))
-        
+
         remaining = amount
         total_gain = 0
         consumed = []
-        
+
         for lot, price in all_lots:
             if remaining <= 0:
                 break
@@ -523,14 +523,14 @@ class LotEngine:
             sell_basis = lot.cost_basis * sell_fraction
             gain = max(0, sell_mv - sell_basis)
             total_gain += gain
-            
+
             # Reduce lot only for actual sales. Preview calls are side-effect free.
             if mutate:
                 lot.qty *= (1 - sell_fraction)
                 lot.cost_basis *= (1 - sell_fraction)
             remaining -= sell_mv
             consumed.append((lot.symbol, sell_mv, gain))
-        
+
         return total_gain, consumed
 
 
@@ -539,13 +539,13 @@ class LotEngine:
 class Invariant:
     """A declarative check that can be evaluated against projection data."""
     __slots__ = ('name', 'check_fn', 'severity', 'description')
-    
+
     def __init__(self, name, check_fn, severity='FAIL', description=''):
         self.name = name
         self.check_fn = check_fn  # fn(row, c) -> bool (True = pass)
         self.severity = severity  # 'FAIL' | 'WARN'
         self.description = description
-    
+
     def evaluate(self, row, c):
         try:
             passed = self.check_fn(row, c)

@@ -579,13 +579,13 @@ def build_sheet16(ws, c, rows):
          f'Annuity income at age 80: ${ann_lo_div:,.0f} vs ${ann_base:,.0f} base',
          nw_pdia_lo, tax_pdia_lo, True, nw_pdia_lo - base_nw),
 
-        (f'PDIA 50/50 Split',
+        ('PDIA 50/50 Split',
          f'50% cash / 50% reinvest (vs 80/20). '
          f'Less cash now, more income growth later. '
          f'Annuity income at age 80: ${ann_5050:,.0f} vs ${ann_base:,.0f} base',
          nw_pdia_5050, tax_pdia_5050, True, nw_pdia_5050 - base_nw),
 
-        (f'COMBINED Stress Test',
+        ('COMBINED Stress Test',
          combo_desc,
          nw_combo, tax_combo, nw_combo > 0, nw_combo - base_nw),
     ]
@@ -620,7 +620,7 @@ def build_sheet16(ws, c, rows):
         r += 1
 
     auto_fit_columns(ws)
-    
+
     # ── Spend Reduction Recommendation (#13) ──────────────────────────────────
     r += 2
     write_hdr(ws, r, 1, 'Spending Reduction Analysis', GREEN, WHITE, span=6); r += 1

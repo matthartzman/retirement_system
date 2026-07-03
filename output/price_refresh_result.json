@@ -2,7 +2,7 @@
   "version": "9",
   "workspace_id": "local",
   "config_backend": "SQLITE",
-  "configured_pricing_mode": "LIVE",
+  "configured_pricing_mode": "CACHE",
   "refresh_pricing_mode": "LIVE",
   "provider_selection_order": [
     "financial_modeling_prep",
@@ -15,63 +15,47 @@
   ],
   "symbols_requested": 8,
   "prices_resolved": 8,
-  "live_prices_resolved": 0,
+  "live_prices_resolved": 7,
   "cache_prices_resolved": 0,
-  "fallback_prices_resolved": 7,
-  "live_pricing_working": false,
+  "fallback_prices_resolved": 0,
+  "live_pricing_working": true,
   "snapshots_written": 8,
   "snapshot_error": "",
   "prices": {
-    "IXUS": 85.62641285533796,
-    "ITOT": 151.93314639463446,
-    "PDBC": 17.538974773917182,
-    "AVUV": 113.28463365284058,
+    "IXUS": 94.72,
+    "ITOT": 163.76,
+    "PDBC": 15.87,
+    "AVUV": 123.51,
     "CASH": 1.0,
-    "VXUS": 76.27739914368493,
-    "VTI": 337.78858647756346,
-    "VBR": 221.81012481635585
+    "VXUS": 84.84,
+    "VTI": 368.76,
+    "VBR": 243.22
   },
   "sources": {
-    "IXUS": "holdings_cost_basis_fallback",
-    "ITOT": "holdings_cost_basis_fallback",
-    "PDBC": "holdings_cost_basis_fallback",
-    "AVUV": "holdings_cost_basis_fallback",
+    "IXUS": "yahoo_live",
+    "ITOT": "yahoo_live",
+    "PDBC": "yahoo_live",
+    "AVUV": "yahoo_live",
     "CASH": "cash",
-    "VXUS": "holdings_cost_basis_fallback",
-    "VTI": "holdings_cost_basis_fallback",
-    "VBR": "holdings_cost_basis_fallback"
+    "VXUS": "yahoo_live",
+    "VTI": "yahoo_live",
+    "VBR": "yahoo_live"
   },
   "warnings": [],
-  "cache_path": "/mnt/data/retire_fix_work/output/market_price_cache.json",
-  "pricing_best_guess_cause": "Skipped after earlier global failure: DNS lookup failed for Stooq; check internet access, VPN/proxy, DNS, or corporate filtering.",
+  "cache_path": "C:\\RetirementPlanning\\Version 10\\output\\market_price_cache.json",
+  "pricing_best_guess_cause": "Unknown Financial Modeling Prep pricing failure.",
   "provider_failure_summary": {
-    "financial_modeling_prep": "FMP_API_KEY is not set; skipping Financial Modeling Prep.",
-    "Yahoo Finance chart-query1": "DNS lookup failed for Yahoo Finance chart-query1; check internet access, VPN/proxy, DNS, or corporate filtering.",
-    "Yahoo Finance chart-query1 urllib-fallback": "DNS lookup failed for Yahoo Finance chart-query1 urllib-fallback; check internet access, VPN/proxy, DNS, or corporate filtering.",
-    "Yahoo Finance chart-query2": "DNS lookup failed for Yahoo Finance chart-query2; check internet access, VPN/proxy, DNS, or corporate filtering.",
-    "Yahoo Finance chart-query2 urllib-fallback": "DNS lookup failed for Yahoo Finance chart-query2 urllib-fallback; check internet access, VPN/proxy, DNS, or corporate filtering.",
-    "Yahoo Finance quote": "DNS lookup failed for Yahoo Finance quote; check internet access, VPN/proxy, DNS, or corporate filtering.",
-    "Yahoo Finance quote urllib-fallback": "DNS lookup failed for Yahoo Finance quote urllib-fallback; check internet access, VPN/proxy, DNS, or corporate filtering.",
-    "Nasdaq etf": "DNS lookup failed for Nasdaq etf; check internet access, VPN/proxy, DNS, or corporate filtering.",
-    "Nasdaq etf urllib-fallback": "DNS lookup failed for Nasdaq etf urllib-fallback; check internet access, VPN/proxy, DNS, or corporate filtering.",
-    "Nasdaq stocks": "DNS lookup failed for Nasdaq stocks; check internet access, VPN/proxy, DNS, or corporate filtering.",
-    "Nasdaq stocks urllib-fallback": "DNS lookup failed for Nasdaq stocks urllib-fallback; check internet access, VPN/proxy, DNS, or corporate filtering.",
-    "alpha_vantage": "ALPHA_VANTAGE_API_KEY is not set; skipping Alpha Vantage.",
-    "stooq": "DNS lookup failed for Stooq; check internet access, VPN/proxy, DNS, or corporate filtering.",
-    "yahoo-skipped": "Skipped after earlier global failure: DNS lookup failed for Yahoo Finance quote urllib-fallback; check internet access, VPN/proxy, DNS, or corporate filtering.",
-    "nasdaq-skipped": "Skipped after earlier global failure: DNS lookup failed for Nasdaq stocks urllib-fallback; check internet access, VPN/proxy, DNS, or corporate filtering.",
-    "stooq-skipped": "Skipped after earlier global failure: DNS lookup failed for Stooq; check internet access, VPN/proxy, DNS, or corporate filtering."
+    "Financial Modeling Prep quote-short": "Financial Modeling Prep quote-short rejected the request; likely invalid/missing API key, plan limit, or blocked network.",
+    "financial_modeling_prep:quote-short": "Unknown Financial Modeling Prep pricing failure.",
+    "Financial Modeling Prep quote": "Financial Modeling Prep quote rejected the request; likely invalid/missing API key, plan limit, or blocked network.",
+    "financial_modeling_prep:quote": "Unknown Financial Modeling Prep pricing failure."
   },
   "effective_api_key_sources": {
-    "fmp": "not configured",
-    "alpha_vantage": "not configured",
-    "fmp_fingerprint": null,
-    "alpha_vantage_fingerprint": null
+    "fmp": "FMP_API_KEY",
+    "alpha_vantage": "ALPHA_VANTAGE_API_KEY",
+    "fmp_fingerprint": "a805fe45c35d",
+    "alpha_vantage_fingerprint": "37e951649172"
   },
-  "proxy_environment_present": true,
-  "proxy_environment_keys": [
-    "NO_PROXY",
-    "REQUESTS_CA_BUNDLE",
-    "SSL_CERT_FILE"
-  ]
+  "proxy_environment_present": false,
+  "proxy_environment_keys": []
 }

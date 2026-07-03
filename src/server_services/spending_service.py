@@ -217,9 +217,17 @@ class SpendingService:
     def model_payload(self, year: int | None = None) -> tuple[dict[str, Any], int]:
         return st.spending_model(self.base_dir, year), 200
 
-    def _budget_line_defaults(self) -> list[dict[str, Any]]:
-        giving = ""
+    _BUDGET_LINE_SECTION_DEFAULT = "category_budget"
+    _BUDGET_LINE_MODE_DEFAULT = "detail"
+
+    def _seed_charitable_giving_line(self) -> dict[str, Any] | None:
+        """Bootstrap a starting Charitable Giving line for brand-new plans.
+
+        Only used when no line rows exist yet in the unified budget; once a
+        real charitable_donations line is saved, this seed is not consulted.
+        """
         content = self._read_plan_data_file("client_spending.csv") or ""
+        giving = ""
         try:
             for row in csv.DictReader(io.StringIO(content)):
                 if str(row.get("label") or "").strip() == "annual_charitable_giving_high":
@@ -227,44 +235,95 @@ class SpendingService:
                     break
         except Exception:
             giving = ""
-        return [
-            {
-                "section": "gifts_charity",
-                "line_id": "charitable_giving",
-                "label": "Charitable Giving",
-                "category_id": "charitable_donations",
-                "start_year": "",
-                "end_year": "",
-                "one_time_year": "",
-                "amount_per_year": giving,
-                "mode": "summary",
-                "notes": "Seeded from annual charitable giving",
-            }
-        ]
+        if not giving:
+            return None
+        return {
+            "section": "gifts_charity",
+            "line_id": "charitable_giving_seed",
+            "label": "Charitable Giving",
+            "category_id": "charitable_donations",
+            "start_year": "",
+            "end_year": "",
+            "one_time_year": "",
+            "amount_per_year": giving,
+            "mode": "summary",
+            "notes": "Seeded from annual charitable giving",
+        }
 
-    @staticmethod
-    def _serialize_budget_lines(lines: list[dict[str, Any]]) -> str:
-        header = ["section", "line_id", "label", "category_id", "start_year", "end_year", "one_time_year", "amount_per_year", "mode", "notes"]
-        out = io.StringIO()
-        writer = csv.DictWriter(out, fieldnames=header, lineterminator="\n")
-        writer.writeheader()
-        for line in lines:
-            writer.writerow({key: str((line or {}).get(key) or "") for key in header})
-        return out.getvalue()
+    def _budget_lines_from_unified(self) -> list[dict[str, Any]]:
+        """Read persisted line-kind rows from the unified budget store.
+
+        client_spending_budget.csv (kind=line rows) is the single source of
+        truth for both reporting (spending_tracker._category_budget_for_year)
+        and this editable "detail lines" UI. line_id is regenerated on every
+        read; it only needs to be unique within one loaded session so the UI
+        can target the right row for edits/deletes before the next save.
+        """
+        rows = st.load_unified_budget(self.base_dir)
+        seen_counts: dict[str, int] = {}
+        lines: list[dict[str, Any]] = []
+        for row in rows:
+            if row.get("kind") != "line":
+                continue
+            cid = str(row.get("key") or "").strip()
+            if not cid:
+                continue
+            n = seen_counts.get(cid, 0)
+            seen_counts[cid] = n + 1
+            amount = row.get("annual_budget", 0)
+            lines.append({
+                "section": row.get("line_section") or self._BUDGET_LINE_SECTION_DEFAULT,
+                "line_id": f"{cid}_{n}",
+                "label": row.get("label") or "",
+                "category_id": cid,
+                "start_year": row.get("start_year") or "",
+                "end_year": row.get("end_year") or "",
+                "one_time_year": row.get("one_time_year") or "",
+                "amount_per_year": (("%g" % amount) if amount else ""),
+                "mode": row.get("line_mode") or self._BUDGET_LINE_MODE_DEFAULT,
+                "notes": row.get("notes") or "",
+            })
+        if not lines:
+            seed = self._seed_charitable_giving_line()
+            if seed:
+                lines.append(seed)
+        return lines
 
     def budget_lines_payload(self) -> tuple[dict[str, Any], int]:
-        return {"success": True, "lines": self._budget_line_defaults()}, 200
+        return {"success": True, "lines": self._budget_lines_from_unified()}, 200
 
     def budget_lines_defaults_payload(self) -> tuple[dict[str, Any], int]:
-        return self.budget_lines_payload()
+        seed = self._seed_charitable_giving_line()
+        return {"success": True, "lines": [seed] if seed else []}, 200
 
     def save_budget_lines_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
         lines = body.get("lines")
         if not isinstance(lines, list):
             return {"success": False, "error": "lines must be a list"}, 400
-        path = self._write_plan_data_file("client_spending_budget_lines.csv", self._serialize_budget_lines(lines))
-        self._audit("spending_budget_lines_saved", {"count": len(lines), "path": str(path)})
-        return {"success": True, "count": len(lines), "path": str(path)}, 200
+        existing = st.load_unified_budget(self.base_dir)
+        non_line_rows = [r for r in existing if r.get("kind") != "line"]
+        new_line_rows: list[dict[str, Any]] = []
+        for line in lines:
+            if not isinstance(line, dict):
+                continue
+            cid = str(line.get("category_id") or "").strip()
+            if not cid:
+                continue
+            new_line_rows.append({
+                "kind": "line",
+                "key": cid,
+                "label": str(line.get("label") or "").strip(),
+                "annual_budget": line.get("amount_per_year"),
+                "start_year": line.get("start_year") or "",
+                "end_year": line.get("end_year") or "",
+                "one_time_year": line.get("one_time_year") or "",
+                "notes": line.get("notes") or "",
+                "line_section": line.get("section") or "",
+                "line_mode": line.get("mode") or "",
+            })
+        st.save_unified_budget(self.base_dir, non_line_rows + new_line_rows)
+        self._audit("spending_budget_lines_saved", {"count": len(new_line_rows)})
+        return {"success": True, "count": len(new_line_rows)}, 200
 
     def category_create_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
         label = (body.get("label") or body.get("category") or body.get("match_value") or "").strip()

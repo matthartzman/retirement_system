@@ -2496,7 +2496,7 @@ def build_sheet4(ws, c):
             write_cell(ws, r, 6, after_pct, fmt=FMT_PCT, align='right',
                        bg='E2EFDA' if abs(after_val - before_val) > 50 else None)
             write_cell(ws, r, 7, '')
-            write_cell(ws, r, 8, tgt_pct if bucket not in ('Cash', 'Uncategorized') else '', 
+            write_cell(ws, r, 8, tgt_pct if bucket not in ('Cash', 'Uncategorized') else '',
                        fmt=FMT_PCT if bucket not in ('Cash', 'Uncategorized') else None, align='right')
             write_cell(ws, r, 9, delta_pp if bucket not in ('Cash', 'Uncategorized') else '',
                        fmt='+0.0%;-0.0%' if bucket not in ('Cash', 'Uncategorized') else None, align='right',
@@ -2579,7 +2579,7 @@ def build_sheet4(ws, c):
         write_cell(ws, r, 6, ap, fmt=FMT_PCT, align='right',
                    bg='E2EFDA' if abs(av - bv) > 50 else None)
         write_cell(ws, r, 7, '')
-        write_cell(ws, r, 8, tp if bucket not in ('Cash', 'Uncategorized') else '', 
+        write_cell(ws, r, 8, tp if bucket not in ('Cash', 'Uncategorized') else '',
                    fmt=FMT_PCT if bucket not in ('Cash', 'Uncategorized') else None, align='right')
         write_cell(ws, r, 9, dp if bucket not in ('Cash', 'Uncategorized') else '',
                    fmt='+0.0%;-0.0%' if bucket not in ('Cash', 'Uncategorized') else None, align='right',

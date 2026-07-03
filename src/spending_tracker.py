@@ -882,7 +882,7 @@ import re as _unified_re
 
 _TAXONOMY_HEADER = ["tracking_type", "group", "category_id", "label", "origin", "status", "notes"]
 _ALIAS_HEADER = ["match_value", "match_field", "exact", "priority", "category_id", "source"]
-_BUDGET_HEADER = ["kind", "key", "label", "annual_budget", "start_year", "end_year", "one_time_year", "notes"]
+_BUDGET_HEADER = ["kind", "key", "label", "annual_budget", "start_year", "end_year", "one_time_year", "notes", "line_section", "line_mode"]
 _EXCLUDED_TRACKING_TYPES_FOR_SPEND_BASE = {"Income", "Transfer", "Business", "Housing", "Wellness"}
 _TRANSFER_NAMES = {"Transfer", "Transfers"}
 
@@ -1465,6 +1465,8 @@ def _legacy_budget_to_unified(root=None) -> list[dict]:
                 "end_year": (row.get("end_year") or "").strip(),
                 "one_time_year": (row.get("one_time_year") or "").strip(),
                 "notes": (row.get("notes") or "").strip(),
+                "line_section": (row.get("line_section") or "").strip(),
+                "line_mode": (row.get("line_mode") or "").strip(),
             })
     else:
         for row in rows:
@@ -1496,6 +1498,8 @@ def _legacy_budget_to_unified(root=None) -> list[dict]:
                 "end_year": (line.get("end_year") or "").strip(),
                 "one_time_year": (line.get("one_time_year") or "").strip(),
                 "notes": (line.get("notes") or "").strip(),
+                "line_section": (line.get("section") or "").strip(),
+                "line_mode": (line.get("mode") or "").strip(),
             })
     return out
 
@@ -1630,6 +1634,8 @@ def save_unified_budget(root, rows: list[dict]) -> None:
             "end_year": (str(row.get("end_year") or "").strip()),
             "one_time_year": (str(row.get("one_time_year") or "").strip()),
             "notes": (row.get("notes") or "").strip(),
+            "line_section": (str(row.get("line_section") or "").strip()) if kind == "line" else "",
+            "line_mode": (str(row.get("line_mode") or "").strip()) if kind == "line" else "",
         })
     _write_csv_dicts(_root(root) / "input" / "client_spending_budget.csv", _BUDGET_HEADER, out)
 
