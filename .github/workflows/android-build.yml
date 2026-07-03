@@ -1,0 +1,56 @@
+# Android debug-APK build (Android plan, Phase 3.5).
+#
+# Deliberately manual-trigger only for now: this workflow was authored in an
+# environment with no Android SDK, so its first run doubles as its validation
+# (Chaquopy pip resolution is the most likely first failure — plan §7 risk 1).
+# Once one dispatch has succeeded, promote it to run on pull requests by
+# replacing `workflow_dispatch:` with:
+#
+#   pull_request:
+#     branches: [ main ]
+#     paths: [ 'android/**', 'src/**', 'frontend/**' ]
+#   workflow_dispatch:
+#
+name: Android Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-debug-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # Chaquopy runs a host Python ("buildPython") to compile the bundled
+    # src/ tree and resolve pip wheels; match the embedded 3.11.
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    # No Gradle wrapper is committed (the android/ project is opened via
+    # Android Studio locally), so provision Gradle directly. AGP 8.5 needs
+    # Gradle 8.7+. The Android SDK itself is preinstalled on ubuntu-latest.
+    - name: Set up Gradle
+      uses: gradle/actions/setup-gradle@v4
+      with:
+        gradle-version: '8.7'
+
+    - name: Build debug APK
+      run: gradle -p android :app:assembleDebug --no-daemon --stacktrace
+
+    - name: Upload debug APKs
+      uses: actions/upload-artifact@v4
+      with:
+        name: retirement-system-debug-apk
+        path: android/app/build/outputs/apk/debug/*.apk
+        retention-days: 14
