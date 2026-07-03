@@ -438,6 +438,13 @@
       "trust_type": "revocable living trust"
     }
   },
+  "Forced Actions": {
+    "Roth Conversion 1": {
+      "amount": "$125,000",
+      "source_account": "Member_2_IRA",
+      "year": "2026"
+    }
+  },
   "HELOC": {
     "Setup": {
       "heloc_credit_limit": "$200,000",
@@ -479,10 +486,12 @@
       "member_1_dob": "8/3/1962",
       "member_1_mortality_age": "92",
       "member_1_name": "Matthew",
+      "member_1_nickname": "Matt",
       "member_1_retirement_date": "2027-01-01",
       "member_2_dob": "5/30/1961",
       "member_2_mortality_age": "95",
       "member_2_name": "Patricia",
+      "member_2_nickname": "Pat",
       "member_2_retirement_date": "2/28/2024",
       "residence_state": "Illinois",
       "survivor_filing_status": "Single",
