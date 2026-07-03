@@ -1,5 +1,6 @@
 from .workbook_common import *
 from .. import allocation_policy as _ap
+from ..person_labels import display_account
 
 def _workbook_pricing_source_label():
     """Return a concise workbook-level label for the actual price source used."""
@@ -1809,7 +1810,7 @@ def build_sheet4(ws, c):
                 r += 1
             acct_total = acct_totals[h['acct']]
             sources = ', '.join(sorted(acct_sources[h['acct']]))
-            write_cell(ws, r, 1, h['acct'], bold=True, bg='E2EFDA')
+            write_cell(ws, r, 1, display_account(h['acct'], c), bold=True, bg='E2EFDA')
             ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=4)
             write_cell(ws, r, 5, acct_total, fmt=FMT_DOLLAR, align='right', bold=True, bg='E2EFDA')
             write_cell(ws, r, 6, 'Account Total', bold=True, bg='E2EFDA')
@@ -2221,7 +2222,7 @@ def build_sheet4(ws, c):
                 is_sell = t['action'] == 'SELL'
                 is_cash_move = str(t.get('action', '')).upper() in ('USE CASH', 'RAISE CASH')
                 bg = 'FCE4D6' if is_sell else ('FFF2CC' if is_cash_move else 'E2EFDA')
-                write_cell(ws, r, 1, t['acct'])
+                write_cell(ws, r, 1, display_account(t['acct'], c))
                 write_cell(ws, r, 2, TAX_LABELS.get(tax_type, tax_type))
                 write_cell(ws, r, 3, t['sym'], bold=True)
                 write_cell(ws, r, 4, t['action'], bold=True, bg=bg)
@@ -2240,7 +2241,7 @@ def build_sheet4(ws, c):
 
             grand_start_cash += acct_start_cash
             grand_ending_cash += acct_ending_cash
-            write_cell(ws, r, 1, f'{acct} Subtotal', bold=True, bg=LGRAY)
+            write_cell(ws, r, 1, f'{display_account(acct, c)} Subtotal', bold=True, bg=LGRAY)
             write_cell(ws, r, 4, 'SELL', bold=True, bg=LGRAY)
             write_cell(ws, r, 5, acct_sells, fmt=FMT_DOLLAR, align='right', bold=True, bg=LGRAY)
             write_cell(ws, r, 6, 'SECURITY BUY', bold=True, bg=LGRAY)

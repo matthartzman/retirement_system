@@ -676,3 +676,92 @@ body.chart-modal-open{overflow:hidden}
 .suggested-next .link-button{font-size:13px;font-weight:700;color:var(--accent);background:none;border:none;cursor:pointer;padding:0;letter-spacing:0;text-transform:none;transition:color .12s}
 .suggested-next .link-button:hover{color:#1a3f75;text-decoration:underline}
 .people-table{min-width:640px}.people-table td:first-child{white-space:nowrap}
+
+/* ===================================================================
+   Phase 1 — Mobile responsive shell (Android/phone support)
+   Additive rules only; the existing 1180px breakpoint above already
+   stacks the 3-column grid to 1 column. These rules extend that down
+   to phone widths with a slide-in nav drawer, a collapsible help
+   panel, a fixed bottom Prev/Next bar, touch-friendly tap targets,
+   and a card layout for the densest data-entry tables.
+   =================================================================== */
+
+/* Hamburger / drawer-close controls: hidden on desktop, shown on phones/tablets. */
+.nav-toggle,.nav-close{display:none}
+.nav-backdrop{display:none;position:fixed;inset:0;background:rgba(20,20,20,.45);z-index:59}
+.mobile-progress{display:none}
+/* .help-toggle wraps the "Context Help" h2 so it can act as a collapse toggle
+   on phones; on desktop it must look and behave exactly like the plain h2 it
+   replaces, so reset all button chrome here (outside the media query) and
+   only show the expand/collapse icon at phone widths below. */
+.help-toggle{display:block;width:100%;padding:0;margin:0;background:none;border:none;text-align:left;cursor:default;font:inherit;color:inherit}
+.help-toggle-icon{display:none}
+
+@media(max-width:768px){
+  /* --- 1.1 Off-canvas nav drawer ---
+     The header's existing <=1180px rule stacks .head into a column
+     (flex-direction:column;align-items:flex-start) so the brand row and
+     head-actions row wrap on narrower desktops/tablets. Rather than fight
+     that flex context, the hamburger and the mobile progress strip are
+     taken out of flow entirely and positioned against <header>, which is
+     already `position:sticky` (a valid containing block for absolute
+     descendants) from the base rule above. */
+  header .head{padding-left:52px}
+  .nav-toggle{display:flex;align-items:center;justify-content:center;position:absolute;top:12px;left:12px;width:40px;height:40px;padding:0;font-size:19px;line-height:1;border-radius:9px;z-index:2}
+  .brand h1{font-size:16px}
+  .mobile-progress{display:block;position:absolute;left:0;right:0;bottom:0;z-index:2}
+  .mobile-progress .bar{height:4px;margin:0;border-radius:0;border:none;background:rgba(255,255,255,.22)}
+  aside.card.side{position:fixed;top:0;left:0;bottom:0;width:min(320px,86vw);max-width:86vw;z-index:60;transform:translateX(-100%);transition:transform .22s ease;overflow-y:auto;max-height:100vh;border-radius:0;box-shadow:0 0 40px rgba(0,0,0,.25)}
+  .nav-close{display:flex;align-items:center;justify-content:center;width:40px;height:40px;position:sticky;top:0;margin-left:auto;font-size:16px;border-radius:999px;background:#fff;z-index:2}
+  body.nav-open aside.card.side{transform:translateX(0)}
+  body.nav-open .nav-backdrop{display:block}
+  body.nav-open{overflow:hidden}
+
+  /* --- 1.1 Collapsible help panel (defaults collapsed on phones/tablets) --- */
+  aside.card.help{position:static;max-height:none;padding:0}
+  .help-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;padding:14px 16px;background:none;border:none;cursor:pointer;text-align:left}
+  .help-toggle h2{margin:0}
+  .help-toggle-icon{display:inline-block;transition:transform .18s ease;color:var(--muted)}
+  aside.card.help #helpPanel{display:none;padding:0 16px 16px}
+  body.help-open aside.card.help #helpPanel{display:block}
+  body.help-open .help-toggle-icon{transform:rotate(180deg)}
+
+  /* --- 1.4 Fixed bottom Prev / Next bar --- */
+  .nav-actions{position:fixed;left:0;right:0;bottom:0;z-index:50;background:#fbfaf7;box-shadow:0 -4px 16px rgba(0,0,0,.12);border-radius:0}
+  #mainPane{padding-bottom:78px}
+  main{padding-bottom:14px}
+}
+
+/* --- 1.2 Touch ergonomics (tap targets, no accidental hover-stick) --- */
+@media(max-width:768px){
+  .btn,.stepbtn,.helpbtn,button{min-height:44px}
+  .btn{padding:10px 14px}
+  .stepbtn{padding:12px 10px}
+  .danger-link{min-height:44px;display:inline-flex;align-items:center}
+  .helpbtn{width:40px;height:40px}
+}
+@media(hover:none){
+  .btn:hover{filter:none}
+}
+@media(max-width:480px){
+  .field input,.field select,.search,.holdings textarea,.lot-table input,.lot-table select,.matrix-table input{font-size:16px}
+}
+
+/* --- 1.3 Table strategy: card layout for the densest lot-style tables --- */
+@media(max-width:480px){
+  .lot-table-wrap{overflow:visible;border:none;background:none}
+  .lot-table{min-width:0}
+  .lot-table thead{display:none}
+  .lot-table,.lot-table tbody,.lot-table tr,.lot-table td{display:block;width:100%}
+  .lot-table tr{border:1px solid var(--line);border-radius:12px;margin-bottom:12px;padding:6px 10px;background:#fff;box-shadow:var(--shadow)}
+  .lot-table td{border:none;border-bottom:1px solid #f1eee6;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 2px}
+  .lot-table tr td:last-child{border-bottom:none}
+  .lot-table td::before{content:attr(data-label);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);flex:0 0 auto;margin-right:8px}
+  .lot-table td input,.lot-table td select{width:auto;flex:1 1 auto;min-width:0;text-align:right}
+  .lot-table td select{text-align:left}
+}
+/* Horizontal-scroll baseline (matrix-table, change-table, and lot-table above 480px):
+   a subtle edge fade hints there is more content to scroll to on touch devices. */
+@media(max-width:768px){
+  .lot-table-wrap,.matrix-wrap{background-image:linear-gradient(to right,#fff 0,rgba(255,255,255,0) 18px),linear-gradient(to left,#fff 0,rgba(255,255,255,0) 18px);background-repeat:no-repeat;background-attachment:local,local;background-position:left center,right center;background-size:18px 100%,18px 100%}
+}
