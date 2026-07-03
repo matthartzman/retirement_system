@@ -1,0 +1,8 @@
+# tools/check_plan_data_sync.py hashes the Plan Data CSVs byte-for-byte
+# (hashlib.sha256(path.read_bytes())) against input/plan_data_manifest.json.
+# Without an explicit policy, Git's core.autocrlf converts LF -> CRLF on
+# checkout on Windows, changing every byte count and SHA256 versus the
+# manifest recorded on a Linux/Mac checkout. Force LF everywhere so the
+# checked-out bytes are identical across platforms and CI runners.
+*.csv text eol=lf
+input/plan_data_manifest.json text eol=lf

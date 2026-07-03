@@ -6,6 +6,7 @@ try:
         PLAN_DATA_CSV_FILES,
         Path,
         TRAVEL_EXTRA_TYPES,
+        WORKSPACE_ROOT,
         _audit,
         _client_csv_rows,
         _client_id,
@@ -58,6 +59,7 @@ except Exception:
         PLAN_DATA_CSV_FILES,
         Path,
         TRAVEL_EXTRA_TYPES,
+        WORKSPACE_ROOT,
         _audit,
         _client_csv_rows,
         _client_id,
@@ -314,7 +316,7 @@ def local_backups_status():
     denied = _require("view_dashboard")
     if denied:
         return denied
-    payload = local_backup_scheduler.scheduler_status(BASE_DIR, _sqlite_db())
+    payload = local_backup_scheduler.scheduler_status(WORKSPACE_ROOT, _sqlite_db())
     return jsonify(payload)
 
 
@@ -323,8 +325,8 @@ def local_backup_config():
     denied = _require("write_config")
     if denied:
         return denied
-    payload = local_backup_scheduler.save_policy(BASE_DIR, request.get_json(silent=True) or {})
-    status = local_backup_scheduler.scheduler_status(BASE_DIR, _sqlite_db())
+    payload = local_backup_scheduler.save_policy(WORKSPACE_ROOT, request.get_json(silent=True) or {})
+    status = local_backup_scheduler.scheduler_status(WORKSPACE_ROOT, _sqlite_db())
     status.update(payload)
     _audit("local_backup_policy_saved", {"policy": status.get("policy")})
     return jsonify(status)
@@ -337,7 +339,7 @@ def local_backup_run():
         return denied
     body = request.get_json(silent=True) or {}
     payload = local_backup_scheduler.run_backup(
-        BASE_DIR,
+        WORKSPACE_ROOT,
         _sqlite_db(),
         trigger=str(body.get("trigger") or "manual"),
         force=bool(body.get("force")),

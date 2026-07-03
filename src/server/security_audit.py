@@ -137,7 +137,7 @@ def _client_id() -> str:
 
 
 def _workspace_output() -> Path:
-    out = workspace_output_dir(_workspace_id(), _app_core.BASE_DIR)
+    out = workspace_output_dir(_workspace_id(), _app_core.WORKSPACE_ROOT)
     out.mkdir(parents=True, exist_ok=True)
     return out
 
@@ -167,14 +167,14 @@ def _audit(event: str, details: dict | None = None) -> None:
 def _admin_change_log_path_for(workspace_id: str | None = None) -> Path:
     """Local admin/config change log used by Build Impact."""
     tid = sanitize_id(workspace_id or _workspace_id())
-    out = workspace_output_dir(tid, _app_core.BASE_DIR)
+    out = workspace_output_dir(tid, _app_core.WORKSPACE_ROOT)
     out.mkdir(parents=True, exist_ok=True)
     return out / "admin_config_change_log.json"
 
 
 def _last_build_metadata_path_for(workspace_id: str | None = None) -> Path:
     tid = sanitize_id(workspace_id or _workspace_id())
-    out = workspace_output_dir(tid, _app_core.BASE_DIR)
+    out = workspace_output_dir(tid, _app_core.WORKSPACE_ROOT)
     out.mkdir(parents=True, exist_ok=True)
     return out / "last_build_metadata.json"
 

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+        No INTERNET permission: the app is local-only by design (see
+        documentation/ANDROID_MOBILE_ENHANCEMENT_PLAN.md, Acceptance Criteria §8.5).
+        WebViewAssetLoader serves frontend/ from app assets over a virtual
+        https://appassets.androidplatform.net/ host with no real network call.
+    -->
+    <!--
+        Only needed on API 26-28 (scoped storage on 29+ uses MediaStore
+        instead, no permission required); see PythonBridge.saveFile()'s legacy
+        branch. maxSdkVersion means this permission is dropped entirely on 29+.
+    -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
+    <application
+        android:name=".RetirementApplication"
+        android:allowBackup="false"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.RetirementSystem"
+        android:hardwareAccelerated="true">
+        <!--
+            allowBackup="false": plan data is sensitive and must not leave
+            app-private storage via Android's auto-backup either (Phase 3.4).
+            No android:icon yet — a real launcher icon (adaptive, from
+            frontend/assets/retirement_planner.png) is Phase 3 packaging work;
+            omitting it here avoids shipping a placeholder mipmap set.
+        -->
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

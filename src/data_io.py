@@ -49,6 +49,7 @@ from . import allocation_policy as _ap
 from .core import ASSET_CLASS_RETURNS, TAX_BASE_YEAR  # consolidated from engine_core
 from .market_data import PRICE_CACHE, fetch_price, set_fallback_prices, set_frozen_prices, configure_holdings_pricing, configure_api_keys  # consolidated from market_data_providers
 from .workspace_context import candidate_input_files, active_workspace_id
+from . import platform_runtime as _platform_runtime
 from .roth_ui_build_guard import normalize_roth_policy, normalize_irmaa_guardrail_mode, percent_to_float, is_explicit_user_roth_policy, strategy_for_roth_policy
 try:
     from .system_config import load_system_config
@@ -336,6 +337,15 @@ def parse_client(data, url_template):
     # Household
     c['h_name']    = _v(data,'Household','','member_1_name','Matthew')
     c['w_name']    = _v(data,'Household','','member_2_name','Patricia')
+    # Nicknames: short names used in every user-facing report/chart label.
+    # Fall back to the first word of the full name when not provided.
+    def _nick(raw, full_name):
+        raw = str(raw or '').strip()
+        if raw:
+            return raw
+        return str(full_name or '').strip().split(' ')[0] if str(full_name or '').strip() else ''
+    c['h_nick'] = _nick(_v(data,'Household','','member_1_nickname',''), c['h_name'])
+    c['w_nick'] = _nick(_v(data,'Household','','member_2_nickname',''), c['w_name'])
     c['h_dob_yr']  = _y(_v(data,'Household','','member_1_dob','8/3/1962').split('/')[-1], 1962)
     c['w_dob_yr']  = _y(_v(data,'Household','','member_2_dob','5/30/1961').split('/')[-1], 1961)
     _h_ret_raw = _v(data,'Household','','member_1_retirement_date','1/1/2027')
@@ -392,6 +402,7 @@ def parse_client(data, url_template):
     # The members list is the generalized interface used by the model.
     _m1 = {
         'name':          c['h_name'],
+        'nickname':      c['h_nick'],
         'role':          'member_1',
         'dob_yr':        c['h_dob_yr'],
         'retire_yr':     c['h_ret_yr'],
@@ -402,6 +413,7 @@ def parse_client(data, url_template):
     if _has_member_2:
         _m2 = {
             'name':          c['w_name'],
+            'nickname':      c['w_nick'],
             'role':          'member_2',
             'dob_yr':        c['w_dob_yr'],
             'retire_yr':     c['w_ret_yr'],
@@ -1252,6 +1264,14 @@ def parse_client(data, url_template):
                                      'mc_simulations','1000'), 1000))
     c['mc_sensitivity_sims'] = int(os.getenv('RETIREMENT_MC_SENSITIVITY_SIMS') or _n(_v(data,'Model Constants','Monte Carlo',
                                      'mc_sensitivity_simulations','200'), 200))
+    # Phones run the exact-scalar Monte Carlo engine several times slower than
+    # a desktop CPU, so mobile hosts cap the path counts (a plan authored on
+    # desktop with mc_simulations=1000 would otherwise take minutes on-device).
+    # None everywhere else — desktop/server results are untouched.
+    _mc_cap = _platform_runtime.mobile_mc_sims_cap()
+    if _mc_cap is not None:
+        c['mc_sims'] = min(c['mc_sims'], _mc_cap)
+        c['mc_sensitivity_sims'] = min(c['mc_sensitivity_sims'], max(1, _mc_cap // 5))
     _mc_engine_raw = str(_v(data,'Model Constants','Monte Carlo',
                                      'mc_engine_mode','advanced_exact_scalar') or 'advanced_exact_scalar').strip().lower()
     _mc_engine_map = {
@@ -1891,6 +1911,7 @@ def build_plan_from_json(plan, url_template=''):
                                         'retirement_year': datetime.date.today().year + 4, 'mortality_age': 90}])
     m1 = members_in[0]
     c['h_name']     = m1.get('name', 'Member 1')
+    c['h_nick']     = str(m1.get('nickname') or '').strip() or str(c['h_name']).strip().split(' ')[0]
     c['h_dob_yr']   = int(m1.get('dob_year', 1965))
     c['h_ret_yr']   = int(m1.get('retirement_year', datetime.date.today().year + 4))
     c['h_mort_age'] = int(m1.get('mortality_age', 90))
@@ -1899,12 +1920,14 @@ def build_plan_from_json(plan, url_template=''):
     if len(members_in) > 1:
         m2 = members_in[1]
         c['w_name']     = m2.get('name', 'Member 2')
+        c['w_nick']     = str(m2.get('nickname') or '').strip() or str(c['w_name']).strip().split(' ')[0]
         c['w_dob_yr']   = int(m2.get('dob_year', 1965))
         c['w_ret_yr']   = int(m2.get('retirement_year', datetime.date.today().year + 4))
         c['w_mort_age'] = int(m2.get('mortality_age', 92))
         c['w_death_yr'] = c['w_dob_yr'] + c['w_mort_age']
     else:
         c['w_name'] = ''
+        c['w_nick'] = ''
         c['w_dob_yr'] = c['h_dob_yr']
         c['w_ret_yr'] = c['h_ret_yr']
         c['w_mort_age'] = 0
