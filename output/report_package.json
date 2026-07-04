@@ -2,15 +2,15 @@
   "artifact_count": 7,
   "artifacts": [
     {
-      "bytes": 208139,
+      "bytes": 207833,
       "exists": true,
       "file": "retirement_plan.xlsx",
-      "modified_at": "2026-07-03T23:10:13Z",
+      "modified_at": "2026-07-04T03:12:16Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\retirement_plan.xlsx",
       "required": true,
       "role": "workbook",
       "schema": "xlsx_workbook",
-      "sha256": "59a3c4bed2c04114a5fdab8b88ae33933a9d2d930db714f19bbb3906b0ffbdab"
+      "sha256": "1924a84c42ecebc85e0d4a75572e2cb7d6dd8c558c2af105dd292efa0a15daf2"
     },
     {
       "exists": false,
@@ -21,54 +21,54 @@
       "schema": "pdf_report"
     },
     {
-      "bytes": 29774,
+      "bytes": 29740,
       "exists": true,
       "file": "retirement_dashboard.html",
-      "modified_at": "2026-07-03T23:10:14Z",
+      "modified_at": "2026-07-04T03:12:16Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\retirement_dashboard.html",
       "required": true,
       "role": "html_dashboard",
       "schema": "offline_dashboard",
-      "sha256": "4a781b2ba1e151e211becd567109601b27582b7bd9fe5d00a149fca542adab0d"
+      "sha256": "9eb741ffffebe7ba85f76baf5fef6e1409161bc112549b98bba20f1739859ea6"
     },
     {
-      "bytes": 418772,
+      "bytes": 418488,
       "exists": true,
       "file": "results_explorer_model.json",
-      "modified_at": "2026-07-03T23:10:14Z",
+      "modified_at": "2026-07-04T03:12:16Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\results_explorer_model.json",
       "required": true,
       "role": "results_model",
       "schema": "results_model_v10",
-      "sha256": "8ae0a17316cdc6564a4b7f8472a337c7340a6b1e38cea3d885045fe1d4a48db6"
+      "sha256": "80ddc0be1d5cf6248fc8149b8b136cd50be00b05eb494e16854a27c8a2555267"
     },
     {
-      "bytes": 880,
+      "bytes": 876,
       "exists": true,
       "file": "plan_summary.json",
-      "modified_at": "2026-07-03T23:10:14Z",
+      "modified_at": "2026-07-04T03:12:16Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\plan_summary.json",
       "required": true,
       "role": "summary",
       "schema": "plan_summary_v1",
-      "sha256": "ed3c329647242aa0c5537f9e32675be69e8fc8726a8affb7a6fddbe94aba8fe7"
+      "sha256": "30eb87a8dd045c482dbd9a41f1dbe440fa46d8500ccfb73bf859e5afa548d2ad"
     },
     {
-      "bytes": 4645,
+      "bytes": 4641,
       "exists": true,
       "file": "build_snapshot.json",
-      "modified_at": "2026-07-03T23:10:15Z",
+      "modified_at": "2026-07-04T03:12:17Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\build_snapshot.json",
       "required": true,
       "role": "build_snapshot",
       "schema": "build_snapshot_v1",
-      "sha256": "44cbdd0d84f50bae26469cb9b24017e62411cadc8b21469ee617674a85448578"
+      "sha256": "e6ade307950b843c01b2d7782c87a917ff87e1b111632c6ecb82347b457e3c58"
     },
     {
       "bytes": 6042,
       "exists": true,
       "file": "pricing_diagnostics.json",
-      "modified_at": "2026-07-03T23:10:00Z",
+      "modified_at": "2026-07-04T03:12:09Z",
       "path": "C:\\RetirementPlanning\\Version 10\\output\\pricing_diagnostics.json",
       "required": false,
       "role": "pricing_diagnostics",
@@ -96,7 +96,7 @@
     "results_model": "results_model_v10",
     "summary": "plan_summary_v1"
   },
-  "generated_at": "2026-07-03T23:10:15Z",
+  "generated_at": "2026-07-04T03:12:17Z",
   "renderer_roles": {
     "html_dashboard": "offline_dashboard_renderer",
     "pdf": "pdf_renderer",
@@ -108,25 +108,25 @@
   "source": "saved_sqlite_snapshot",
   "success": true,
   "summary": {
-    "after_tax_terminal_net_worth": 7705446.938734698,
-    "after_tax_terminal_nw": 7705446.938734698,
+    "after_tax_terminal_net_worth": 6103848.09961433,
+    "after_tax_terminal_nw": 6103848.09961433,
     "build_id": "",
     "h_name": "Matthew",
     "h_nick": "Matthew",
-    "lifetime_tax": 943662.8853451287,
-    "mc_success": 0.6875,
-    "post_tax_inheritance": 7055254.429874467,
+    "lifetime_tax": 904151.7922334222,
+    "mc_success": 0.67,
+    "post_tax_inheritance": 5632364.395054281,
     "qc_result": "QC: 32 / 32 PASS",
     "terminal_deferred_pretax_tax": 0.0,
     "terminal_deferred_tax_total": 0.0,
     "terminal_deferred_taxable_cap_gain_tax": 0.0,
-    "terminal_estate_tax": 650192.5088602317,
-    "terminal_nw": 7705446.938734698,
+    "terminal_estate_tax": 471483.7045600485,
+    "terminal_nw": 6103848.09961433,
     "terminal_pretax_nw": 0.0,
-    "terminal_roth_nw": 4315172.800931123,
+    "terminal_roth_nw": 2713573.9618107555,
     "terminal_taxable_basis_est": 0.0,
     "terminal_taxable_unrealized_gain_est": 0.0,
-    "total_roth_conversions": 1462511.2963511674,
+    "total_roth_conversions": 1304134.0454671558,
     "validation_fail_count": 0,
     "validation_first_fail": null,
     "validation_warn_count": 0,

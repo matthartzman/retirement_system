@@ -38,7 +38,11 @@ def test_plan_load_file_route_materializes_full_csv_file_set():
 
 
 def test_materialize_workspace_files_overwrites_stale_household_csv_from_loaded_db(tmp_path, monkeypatch):
+    # materialize_workspace_files resolves its output dir from
+    # platform_runtime.workspace_root() (the frozen-exe-safe writable root),
+    # not the read-only PROJECT_ROOT, so patch that to redirect writes here.
     monkeypatch.setattr(config_backend, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(config_backend.platform_runtime, "workspace_root", lambda: tmp_path)
     input_dir = tmp_path / "input"
     input_dir.mkdir(parents=True)
 

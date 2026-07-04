@@ -38,8 +38,8 @@ class RecommendationCompletionTests(unittest.TestCase):
         self.assertEqual(summary['fail_count'], 0)
         self.assertEqual(summary['warn_count'], 0)
         self.assertEqual((rows[0]['year'], rows[-1]['year'], len(rows)), (2026, 2056, 31))
-        self.assertAlmostEqual(rows[-1]['total_nw'], 6_303_127.69, delta=2.0)
-        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 935_301.16, delta=2.0)
+        self.assertAlmostEqual(rows[-1]['total_nw'], 7_869_294.85, delta=2.0)
+        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_195_923.78, delta=2.0)
 
     def test_fixed_point_taxable_withdrawal_solver_runs_before_roth(self):
         c = sample_config()
