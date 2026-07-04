@@ -567,6 +567,7 @@ def run_deterministic_projection_stage(c):
                 earned_base = c['earned'] * (1 + c['earn_inc']) ** (year - c['earn_start'])
         else:
             earned_base = 0.0
+        earned_base = c.get('ytd_blend_earned_override', {}).get(year, earned_base)
         row['earned'] = earned_base
         if earned_base > 0:
             emit(EvIncome(year, 'earned', earned_base, c['entity']))
@@ -626,11 +627,17 @@ def run_deterministic_projection_stage(c):
         row['sehi_deduction_source'] = _sehi_deduction_source_amount(year, h_age, w_age, h_alive, w_alive) if earned_base > 0 else 0.0
         row['payroll_tax'] = payroll_tax
 
+        # Remaining-year proration for the current calendar year (see
+        # ytd_projection_blend.py) — today's live balance already reflects
+        # whatever contributions have actually happened so far this year, so
+        # only the remaining fraction of the year's contribution is added.
+        _contrib_proration = c.get('ytd_blend_contrib_proration', {}).get(year, 1.0)
+
         # 401k contribution
         k401_contrib = 0.0
         if c['earn_start'] <= year <= c['earn_end']:
             k401_limit_yr = c['k401_lim'] * ((1 + c.get('brk_inf', c.get('inf', 0.025))) ** max(0, year - c['plan_start'])) if c.get('k401_limit_indexed', True) else c['k401_lim']
-            k401_contrib = min(c['k401_mo']*12, k401_limit_yr)
+            k401_contrib = min(c['k401_mo']*12, k401_limit_yr) * _contrib_proration
             row['k401_limit_used'] = k401_limit_yr
             _k401_acct = _aa.first_account(c, owner_idx=0, acct_type='401k') or _aa.first_pretax(c, 0)
             _aa.deposit(bal, _k401_acct, k401_contrib)
@@ -657,7 +664,7 @@ def run_deterministic_projection_stage(c):
         if year <= c['hsa_last_contrib'] and (not c.get('hsa_requires_hdhp', True) or hsa_people_eligible > 0):
             hsa_limit_yr = c['hsa_contrib_base'] * ((1 + c.get('brk_inf', c.get('inf', 0.025))) ** max(0, year - c['plan_start'])) if c.get('hsa_limit_indexed', True) else c['hsa_contrib_base']
             catchups = ((1 if h_alive and 55 <= h_age < 65 else 0) + (1 if w_alive and 55 <= w_age < 65 else 0)) * c.get('hsa_catchup', 0.0)
-            hsa_contrib = min(hsa_limit_yr + catchups, hsa_limit_yr + catchups)
+            hsa_contrib = min(hsa_limit_yr + catchups, hsa_limit_yr + catchups) * _contrib_proration
             row['hsa_limit_used'] = hsa_limit_yr
             row['hsa_catchups_used'] = catchups
             _hsa_acct = _aa.first_hsa(c, 0)
@@ -760,6 +767,7 @@ def run_deterministic_projection_stage(c):
             spend = c['spend_base'] * _spending_factor(year)
         else:
             spend = c['spend_base'] * _spending_factor(c['spending_freeze_yr'])
+        spend = c.get('ytd_blend_spend_override', {}).get(year, spend)
         row['spend_base_yr'] = spend
 
         # Recurring extras — Home Improvement items route to housing costs; all others to rec_extra
