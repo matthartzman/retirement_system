@@ -12,6 +12,7 @@ import io
 import json
 import os
 import re
+import secrets
 import subprocess
 import sys
 import time
@@ -271,6 +272,20 @@ def _candidate_token() -> str:
         return header_token
     cfg = _runtime_config()
     return str(request.cookies.get(cfg.session_cookie_name, "") or "").strip()
+
+
+_CSRF_PROCESS_SECRET = secrets.token_bytes(32)
+
+
+def _csrf_token_for_current_request() -> str:
+    """Derive a CSRF token bound to the current session/auth token.
+
+    Uses a per-process random secret so the token is stable for repeated
+    requests within the same run (double-submit pattern) without persisting
+    any new server-side state.
+    """
+    basis = _candidate_token() or f"local:{_current_user().user_id}"
+    return hmac.new(_CSRF_PROCESS_SECRET, basis.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 def _html_request() -> bool:
