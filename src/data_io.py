@@ -18,6 +18,13 @@ import copy as _copy
 from pathlib import Path
 
 
+# Fallback Social Security wage base used only when a plan's own
+# ss_wage_base_base_year field is blank. The household field is expected to be
+# populated per-plan (see reference_data/tax_update_dashboard.csv's
+# ss_wage_base row for the current authoritative annual figure); this constant
+# exists once so it can't drift across the CSV- and JSON-parsing code paths.
+DEFAULT_SS_WAGE_BASE = 184500
+
 CLIENT_DATA_PART_FILES = [
     "client_household.csv",
     "client_income.csv",
@@ -484,6 +491,7 @@ def parse_client(data, url_template):
     c['earn_end']   = c.get('h_earned_last_year', c['h_ret_yr'])
     c['earn_inc']   = _n(_v(data,'Cashflow','Earned Income','earned_income_annual_increase','0.03'), 0.03)
     c['entity']     = _v(data,'Cashflow','Earned Income','entity_type','sole_prop')
+    c['ytd_remainder_earned_income_override'] = _n(_v(data,'Cashflow','Earned Income','ytd_remainder_earned_income_override',''), None)
     c['biz_exp']    = _n(_v(data,'Cashflow','Self-Employment','business_expenses_annual','15000'), 15000)
     c['home_off']   = _n(_v(data,'Cashflow','Self-Employment','home_office_expenses_annual','4000'), 4000)
     # SEHI has no standalone input. It is derived per projection year from
@@ -512,6 +520,8 @@ def parse_client(data, url_template):
                                      'spending_freeze_year','2040'), 2040)
     c['char_low']  = _n(_v(data,'Cashflow','Spending','annual_charitable_giving_low','3000'), 3000)
     c['char_high'] = _n(_v(data,'Cashflow','Spending','annual_charitable_giving_high','5000'), 5000)
+    c['ytd_remainder_spending_override'] = _n(_v(data,'Cashflow','Spending','ytd_remainder_spending_override',''), None)
+    c['ytd_blend_enabled'] = _b(_v(data,'Cashflow','Spending','ytd_blend_enabled','TRUE') or 'TRUE')
 
     c['mort_pmt']  = _n(_v(data,'Cashflow','Mortgage','monthly_payment','3000'), 3000)*12
     c['real_estate_tax_base'] = _n(_v(data,'Cashflow','Mortgage','annual_real_estate_taxes','0'), 0)
@@ -1078,7 +1088,7 @@ def parse_client(data, url_template):
                     c['forced_roth_accounts'].setdefault(yr, []).append({'source_account': '', 'amount': amt})
 
     # Payroll tax
-    c['ss_wage_base'] = _n(_v(data,'Payroll Tax','Social Security','ss_wage_base_base_year','184500'), 184500)
+    c['ss_wage_base'] = _n(_v(data,'Payroll Tax','Social Security','ss_wage_base_base_year',str(DEFAULT_SS_WAGE_BASE)), DEFAULT_SS_WAGE_BASE)
     c['ss_ee_rate']   = _n(_v(data,'Payroll Tax','Social Security','ss_employee_rate','0.062'), 0.062)
     c['ss_se_rate']   = _n(_v(data,'Payroll Tax','Social Security','ss_self_employment_rate','0.124'), 0.124)
     c['med_ee_rate']  = _n(_v(data,'Payroll Tax','Medicare','medicare_employee_rate','0.0145'), 0.0145)
@@ -2076,7 +2086,7 @@ def build_plan_from_json(plan, url_template=''):
     c['rmd_start_age']     = a.get('rmd_start_age', 75)
     c['rollover_yr']       = a.get('rollover_year', c['plan_start'] + 5)
     c['salt_cap']          = a.get('salt_cap', 10000)
-    c['payroll_wage_base'] = a.get('ss_wage_base', 184500)
+    c['payroll_wage_base'] = a.get('ss_wage_base', DEFAULT_SS_WAGE_BASE)
     c['payroll_ee_rate']   = 0.0765
     c['ltcg_0_top']        = _td.LTCG_BRACKETS_BASE_YEAR.get(c['filing_status'], {}).get('zero_top', 96700)
     c['ltcg_15_top']       = _td.LTCG_BRACKETS_BASE_YEAR.get(c['filing_status'], {}).get('fifteen_top', 600050)
@@ -2113,7 +2123,7 @@ def build_plan_from_json(plan, url_template=''):
     c['ss_ee_rate'] = 0.062; c['ss_se_rate'] = 0.124
     c['med_ee_rate'] = 0.0145; c['med_se_rate'] = 0.029
     c['add_med_rate'] = 0.009; c['add_med_thr'] = 200000
-    c['ss_wage_base'] = a.get('ss_wage_base', 184500)
+    c['ss_wage_base'] = a.get('ss_wage_base', DEFAULT_SS_WAGE_BASE)
     c['se_factor'] = 0.9235; c['se_half_ded'] = True
     c['scorp_salary'] = 0; c['biz_exp'] = 0; c['entity'] = 'none'
     c['qbi_elig'] = False; c['k401_mo'] = 0; c['k401_lim'] = 23500

@@ -8,6 +8,8 @@ blank-plan creation, file read/write normalization, and protected-data/SQLite
 backup seams.
 """
 
+import csv
+import io
 import shutil
 import sqlite3
 import time
@@ -17,6 +19,26 @@ from typing import Any, Callable
 
 JsonDict = dict[str, Any]
 AuditFn = Callable[[str, dict[str, Any] | None], None]
+
+
+def _set_csv_row_value(content: str, section: str, subsection: str, label: str, value: str) -> str:
+    """Set the value column of a single section/subsection/label CSV row in place.
+
+    Used to stamp an explicit choice (e.g. ytd_blend_enabled) onto a freshly
+    blanked Plan Data file, since the blank template otherwise leaves the
+    value column empty for every row.
+    """
+    rows = list(csv.reader(io.StringIO(content or "")))
+    changed = False
+    for row in rows:
+        if len(row) >= 4 and str(row[0]).strip() == section and str(row[1]).strip() == subsection and str(row[2]).strip() == label:
+            row[3] = value
+            changed = True
+    if not changed:
+        return content
+    out = io.StringIO()
+    csv.writer(out, lineterminator="\n").writerows(rows)
+    return out.getvalue()
 
 
 @dataclass(frozen=True)
@@ -67,7 +89,7 @@ class PlanDataFileService:
         shutil.copy2(str(dest), str(snap))
         return str(snap)
 
-    def start_blank_payload(self) -> tuple[JsonDict, int]:
+    def start_blank_payload(self, *, ytd_blend_enabled: bool | None = None) -> tuple[JsonDict, int]:
         try:
             backup = self._backup_current_database()
             if backup:
@@ -75,6 +97,12 @@ class PlanDataFileService:
         except Exception as exc:
             self._audit("blank_plan_backup_warning", {"error": str(exc)})
         files = self.context.make_blank_plan_files()
+        if ytd_blend_enabled is not None and "client_spending.csv" in files:
+            files["client_spending.csv"] = _set_csv_row_value(
+                files["client_spending.csv"], "Cashflow", "Spending", "ytd_blend_enabled",
+                "TRUE" if ytd_blend_enabled else "FALSE",
+            )
+            self._audit("blank_plan_ytd_blend_choice", {"ytd_blend_enabled": bool(ytd_blend_enabled)})
         written = []
         for name, content in files.items():
             writer = self.context.write_blank_plan_data_file or self.context.write_plan_data_file

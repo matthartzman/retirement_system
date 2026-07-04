@@ -228,7 +228,8 @@
       "earned_income_annual_increase": "3.00%",
       "earned_income_last_year": "2027",
       "earned_income_start_year": "2026",
-      "entity_type": "s_corp"
+      "entity_type": "s_corp",
+      "ytd_remainder_earned_income_override": ""
     },
     "Large Discretionary Expenses": {
       "extra_1_amount": "$100,000",
@@ -297,7 +298,9 @@
       "annual_spending_base_year": "$154,158",
       "core_spending_growth_mode": "cpi",
       "core_spending_manual_growth_rate": "0.00%",
-      "daf_annual_contribution": "$0"
+      "daf_annual_contribution": "$0",
+      "ytd_blend_enabled": "TRUE",
+      "ytd_remainder_spending_override": ""
     }
   },
   "DAF": {

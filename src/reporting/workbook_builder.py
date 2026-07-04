@@ -1012,6 +1012,13 @@ def main():
 
     print('Parsing client data and normalizing engine contract...')
     c = prepare_config_from_sectioned_data(data, url_template, optimize_roth=True)
+    try:
+        from ..ytd_projection_blend import compute_current_year_overrides
+        c.update(compute_current_year_overrides(c, workspace_input_dir(workspace_id), today=datetime.date.today()))
+        if c.get('ytd_blend_applied', {}).get('flows_blended'):
+            print(f"  Current year ({c['ytd_blend_applied']['current_year']}) blends YTD actuals through {c['ytd_blend_applied'].get('ytd_end')} with projected remainder.")
+    except Exception as exc:
+        print(f'Warning: YTD actuals blend for the current year failed (falling back to full-year projection): {exc}')
     _ropt = c.get('roth_optimization', {}) or {}
     if _ropt:
         print(f"  Selected Roth strategy: {_ropt.get('selected_label', c.get('roth_policy'))}")
