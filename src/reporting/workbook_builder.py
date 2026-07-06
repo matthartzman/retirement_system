@@ -296,15 +296,29 @@ def build_sheet_spending_summary(ws, c):
 
 
 def build_sheet_core_spending(ws, c):
-    """Core Spending Breakdown — YTD spending by group with collapsible category detail.
+    """Core Spending Breakdown — Core-Expenses budget & YTD by group.
 
-    Shows all spending groups whose tracking type is 'core' (i.e. NOT already
-    tracked separately by the projection model as housing / wellness / travel /
-    large discretionary).  A second section lists model-managed categories for
-    reference so nothing is double-counted.
+    RECONCILIATION (item 141): this sheet used to read the legacy
+    spending_category_map.csv / spending_budget.csv (percentage-based) via
+    group_actuals()/budget_by_group().  Those files are a separate, stale data
+    source from the unified spending model that drives the UI Spending Model
+    page, the Cash Flow projection (spend_base), and the Spending Summary sheet.
+    That mismatch is exactly the "budget numbers differ per screen" bug reported.
+
+    It now sources the SAME unified taxonomy model (spending_summary_taxonomy)
+    that the UI and the Spending Summary sheet use, scoped to the Core Expenses
+    tracking type.  The Budget column here is the unified per-group annual budget
+    / projection seed, so it reconciles exactly with the UI and with the Core
+    Expenses portion of the Cash Flow spend_base.  YTD Actual / Annualized are the
+    transaction-derived actuals for the same categories — a different but
+    intentional lens (what was actually spent vs. what is budgeted).
+
+    Housing / Wellness / Travel / Large Discretionary are shown in a reference
+    section: they are tracked as their own Cash Flow columns and are intentionally
+    excluded from Core Spending to prevent double-counting.
     """
     import datetime
-    from ..spending_tracker import group_actuals, budget_by_group
+    from ..spending_tracker import spending_summary_taxonomy
 
     ws.sheet_view.showGridLines = False
     ws.sheet_properties.outlinePr.summaryBelow = False   # group header above detail
@@ -314,22 +328,60 @@ def build_sheet_core_spending(ws, c):
     core_assumption = float(c.get('spend_base', 0) or 0)
 
     try:
-        data = group_actuals(year=current_year)
-        budget_data = budget_by_group(core_spending=core_assumption)
+        summary = spending_summary_taxonomy(year=current_year)
     except Exception:
-        data = {
-            'groups': [], 'total_core_actual': 0, 'total_core_annualized': 0,
-            'days_elapsed': 0, 'annualization_factor': 1.0, 'model_managed': {},
-        }
-        budget_data = {'groups': {}}
+        summary = {'tracking_types': [], 'days_elapsed': 0, 'annualization_factor': 1.0}
 
-    groups         = data.get('groups', [])
-    total_actual   = data.get('total_core_actual', 0)
-    total_ann      = data.get('total_core_annualized', 0)
-    days_elapsed   = data.get('days_elapsed', 0)
-    ann_factor     = data.get('annualization_factor', 1.0)
-    model_managed  = data.get('model_managed', {})
-    budget_groups  = budget_data.get('groups', {})
+    days_elapsed = summary.get('days_elapsed', 0)
+    ann_factor   = summary.get('annualization_factor', 1.0)
+    tracking_types = summary.get('tracking_types', [])
+
+    # Core Expenses is "core spending" in the unified model.
+    core_tt = next((t for t in tracking_types if t.get('tracking_type') == 'Core Expenses'), None)
+
+    # Reshape unified Core Expenses groups into the row shape this sheet renders.
+    groups = []
+    total_actual = 0.0
+    total_ann = 0.0
+    for g in (core_tt.get('groups', []) if core_tt else []):
+        groups.append({
+            'group': g.get('group', ''),
+            'actual': g.get('ytd_actual', g.get('actual', 0)) or 0,
+            'annualized': g.get('annualized_actual', g.get('annualized', 0)) or 0,
+            'budget': g.get('annual_budget', g.get('budget', 0)) or 0,
+            'categories': [
+                {'category': cat.get('label') or cat.get('id', ''),
+                 'actual': cat.get('ytd_actual', cat.get('actual', 0)) or 0,
+                 'budget': cat.get('annual_budget', cat.get('budget', 0)) or 0}
+                for cat in g.get('categories', [])
+            ],
+        })
+        total_actual += g.get('ytd_actual', g.get('actual', 0)) or 0
+        total_ann += g.get('annualized_actual', g.get('annualized', 0)) or 0
+
+    # Per-group budget from the unified model (reconciles with UI + Cash Flow).
+    budget_groups = {g['group']: {'budget_amount': g['budget']} for g in groups}
+
+    # Reference section: tracking types tracked separately in the Cash Flow model.
+    EXCLUDED_TTS = ['Housing', 'Wellness', 'Travel', 'Large Discretionary']
+    model_managed = {}
+    for t in tracking_types:
+        tt = t.get('tracking_type')
+        if tt not in EXCLUDED_TTS:
+            continue
+        cats = {}
+        for g in t.get('groups', []):
+            for cat in g.get('categories', []):
+                amt = cat.get('ytd_actual', cat.get('actual', 0)) or 0
+                if amt:
+                    cats[cat.get('label') or cat.get('id', '')] = amt
+        # Even with no YTD actuals, surface the budgeted total so the reference is meaningful.
+        if not cats:
+            budget_total = t.get('annual_budget', t.get('budget', 0)) or 0
+            if budget_total:
+                cats[f'{tt} (annual budget)'] = budget_total
+        if cats:
+            model_managed[tt.lower().replace(' ', '_')] = cats
 
     # ── Title ──────────────────────────────────────────────────────────────────
     section_title(ws, 1, f'CORE SPENDING BREAKDOWN — {current_year} YTD  ({days_elapsed} days elapsed)', 5, bg=RED)
@@ -396,11 +448,13 @@ def build_sheet_core_spending(ws, c):
             cat_ann    = round(cat_actual * ann_factor, 2)
             cat_pct    = (cat_actual / total_actual) if total_actual > 0 else 0
 
+            cat_budget = cat.get('budget', 0) or 0
             write_cell(ws, r, 1, f'    {cat_name}', bg=CAT_BG)
             write_cell(ws, r, 2, cat_actual, fmt=FMT_DOLLAR, align='right', bg=CAT_BG)
             write_cell(ws, r, 3, cat_ann,    fmt=FMT_DOLLAR, align='right', bg=CAT_BG)
             write_cell(ws, r, 4, cat_pct,    fmt=FMT_PCT,    align='right', bg=CAT_BG)
-            write_cell(ws, r, 5, '',         bg=CAT_BG)
+            write_cell(ws, r, 5, cat_budget if cat_budget else '',
+                       fmt=FMT_DOLLAR if cat_budget else None, align='right', bg=CAT_BG)
             ws.row_dimensions[r].outlineLevel = 1
             ws.row_dimensions[r].hidden = True
             r += 1
@@ -425,7 +479,7 @@ def build_sheet_core_spending(ws, c):
         'housing':    'Housing (mortgage, property tax, home improvement, rent)',
         'wellness': 'Wellness (premiums, Medicare, out-of-pocket)',
         'travel':     'Travel & Vacations',
-        'large_disc': 'Large Discretionary Expenses (weddings, home projects, etc.)',
+        'large_discretionary': 'Large Discretionary Expenses (weddings, home projects, etc.)',
     }
     if model_managed:
         section_title(ws, r,
