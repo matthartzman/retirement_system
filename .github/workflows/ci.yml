@@ -54,9 +54,12 @@ jobs:
 
     - uses: actions/setup-node@v6
       with:
-        node-version: "20"
+        node-version: "22"
 
     - name: Frontend JS unit tests
+      # node 22 (LTS) is required: `node --test` only gained glob-pattern
+      # expansion in node 21, so on node 20 the pattern below is treated as a
+      # literal path ("Could not find ...") and the job errors.
       run: node --test "tests/frontend/**/*.test.mjs"
 
   regression-checks:
