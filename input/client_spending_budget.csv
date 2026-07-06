@@ -7,7 +7,7 @@ category,business_auto_expenses,Business Auto Expenses,200,,,,Annualized actual,
 category,business_events,Business Events,200,,,,Annualized actual,,
 category,business_hardware_and_software,Business Hardware and Software,500,,,,Annualized actual,,
 category,business_memberships,Business Memberships,2000,,,,Annualized actual,,
-category,business_services,Business Services,21690,,,,Annualized actual,,
+category,business_services,Business Services,500,,,,Annualized actual,,
 category,business_taxi_uber,Business Taxi - Uber,100,,,,Annualized actual,,
 category,business_travel_meals,Business Travel & Meals,1700,,,,Annualized actual,,
 category,car_wash,Car Wash,300,,,,Annualized actual,,
@@ -59,7 +59,7 @@ category,public_transit,Public Transit,15,,,,,,
 category,real_estate_taxes,Real Estate Taxes,18000,,,,Source: Housing Budget Detail / current plan input,,
 category,restaurants_bars,Restaurants & Bars,15000,,,,Annualized actual,,
 category,sewer,Sewer,200,,,,Annualized actual,,
-category,shopping,Shopping,,,,,Annualized actual,,
+category,shopping,Shopping,100,,,,Annualized actual,,
 category,taxi_ride_shares,Taxi & Ride Shares,1000,,,,Annualized actual,,
 category,travel_housing,Travel - Housing,2617,,,,Annualized actual,,
 category,travel_insurance,Travel - Insurance,159,,,,Annualized actual,,
@@ -70,10 +70,15 @@ category,vision,Vision,2100,,,,Source: Wellness Budget Detail / transaction/deta
 category,vitamins_supplements,Vitamins & Supplements,1924,,,,Annualized actual,,
 category,water,Water,500,,,,Annualized actual,,
 category,wellness_premium,Healthcare Premium,,,,,Legacy transaction alias; budget controlled by Pre-65 Healthcare Premium and Medicare premium rows.,,
-category,charitable_donations,Charitable Donations,,,,,,,
+category,charitable_donations,Charitable Donations,5000,,,,,,
+category,children_weddings,Children Weddings,,,,,,,
+category,recurring_travel,Recurring Travel Projection,,,,,,,
 line,weddings,Rebecca,100000,,,2027,Seeded from large discretionary extras,category_budget,detail
 line,weddings,Max,50000,,,2028,Seeded from large discretionary extras,category_budget,detail
 line,weddings,Grace,100000,,,2032,Seeded from large discretionary extras,category_budget,detail
 line,home_improvement,Home Improvement,25000,2026,2030,,Seeded from large discretionary extras; CR116: merged from Other Improvement,category_budget,detail
-line,recurring_travel,Recurring Travel Projection,25000,2026,2045,,Seeded from large discretionary extras; CR116: renamed as recurring travel projection,category_budget,detail
+line,travel_housing,Travel - Housing,2617,,,,Recurring line so Travel breaks out as its own Cash Flow Projection column,category_budget,detail
+line,travel_insurance,Travel - Insurance,159,,,,Recurring line so Travel breaks out as its own Cash Flow Projection column,category_budget,detail
+line,travel_plane_train_bus,Travel - Plane/Train/Bus,2744,,,,Recurring line so Travel breaks out as its own Cash Flow Projection column,category_budget,detail
+line,travel_vacation,Travel & Vacation,8127,,,,Recurring line so Travel breaks out as its own Cash Flow Projection column,category_budget,detail
 line,charitable_donations,Charitable Giving,5000,,,,Seeded from annual charitable giving,category_budget,detail

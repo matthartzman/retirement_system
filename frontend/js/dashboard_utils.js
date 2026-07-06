@@ -20,10 +20,11 @@
     return n.toLocaleString(undefined,opts);
   }
 
-  function currencyDisplay(value){
+  function currencyDisplay(value,maxDecimals=2){
     const n=numberFromDisplay(value);
     if(n===null)return String(value??'');
-    const opts={minimumFractionDigits:Number.isInteger(n)?0:2,maximumFractionDigits:2};
+    const max=Math.max(2,Math.min(6,Number(maxDecimals)||2));
+    const opts={minimumFractionDigits:Number.isInteger(n)?0:2,maximumFractionDigits:max};
     return (n<0?'-':'')+'$'+Math.abs(n).toLocaleString(undefined,opts);
   }
 

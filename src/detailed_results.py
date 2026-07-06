@@ -26,9 +26,14 @@ CHART_MAX_SLICES = 12
 
 
 def _clean_sheet_title(sheet_name: str) -> str:
-    """Return a UI-facing page name without spreadsheet ordering prefixes."""
+    """Return a UI-facing page name without spreadsheet ordering prefixes.
+
+    Sheet tabs use hierarchical ordinal prefixes (e.g. "1A. Executive
+    Summary", "1H. Spending Summary"), not just plain numbers ("22.
+    Glossary") - the prefix can include trailing letters.
+    """
     text = str(sheet_name or "").strip()
-    text = re.sub(r"^\s*\d+\.\s*", "", text)
+    text = re.sub(r"^\s*\d+[A-Za-z]*\.\s*", "", text)
     return text or str(sheet_name or "Results")
 
 
@@ -215,12 +220,31 @@ def _sheet_to_sections(ws: Any, *, max_rows: int | None = None, max_cols: int | 
     sections: list[dict[str, Any]] = []
     current: list[dict[str, Any]] = []
     current_start = 1
+    fallback_title = _clean_sheet_title(ws.title)
 
     def flush() -> None:
         nonlocal current, current_start
         if not current:
             return
         title = _section_title(ws.title, current_start, current, len(sections) + 1)
+        # A section with no natural title of its own (blank-row spacing before
+        # a table or total row, not a real subsection break) falls back to the
+        # generic sheet name. If the previous section already carries that same
+        # sheet name in its own (real) title, merge into it instead of stacking
+        # a redundant "Sheet Name" heading with no distinguishing content -
+        # e.g. Spending Summary's blank-row-separated metrics/table/total blocks
+        # showed as three headings, two of them bare duplicates of the sheet name.
+        if (
+            title == fallback_title
+            and sections
+            and fallback_title.lower() in sections[-1]["title"].lower()
+        ):
+            prev = sections[-1]
+            prev["rows"].extend(current)
+            prev["row_count"] = len(prev["rows"])
+            prev["end_row"] = current[-1]["number"]
+            current = []
+            return
         sections.append({
             "title": title,
             "start_row": current_start,

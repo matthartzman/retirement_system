@@ -11,17 +11,17 @@
     spending_dashboard:'Results'
   };
   const STEP_REDIRECTS={
-    spending_mortgage_events:'lifestyle_spending',
     spending_travel:'lifestyle_spending',
     spending_travel_extras:'lifestyle_spending',
-    ss_timing:'timing_tax',
-    state_residency:'timing_tax',
+    ss_timing:'income_retirement',
+    timing_tax:'state_residency',
     heloc_strategy:'special_strategies',
     entity_charitable:'special_strategies',
     roth_conversion:'distribution_strategy',
     withdrawal_strategy:'distribution_strategy',
-    allocation_assets:'investment_strategy',
-    allocation_policy:'investment_strategy'
+    allocation_assets:'distribution_strategy',
+    allocation_policy:'distribution_strategy',
+    investment_strategy:'distribution_strategy'
   };
 
   function noop(){}
@@ -55,7 +55,13 @@
         safeCall(()=>ctx.showMessage('Plan inputs changed since last build — results may be stale.','warn',{persistent:true,action:{label:'Rebuild now',fn:'runBuild(false)'}}));
       }
     }
+    if(id==='all_assumptions'){
+      safeCall(()=>setBuildOverlay(true,'Loading all assumptions','Aggregating all plan fields across sections. This takes a moment.','waiting'));
+    }
     safeCall(ctx.renderMain);
+    if(id==='all_assumptions'){
+      setTimeout(()=>safeCall(hideBuildOverlay),50);
+    }
     setTimeout(()=>{
       try{window.scrollTo({top:0,behavior:'smooth'});}catch(_e){}
       const entries=safeCall(ctx.focusableEntries)||[];

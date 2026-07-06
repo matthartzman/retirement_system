@@ -26,18 +26,20 @@ def test_ira_conversion_outflows_are_reported_separately_from_cash_withdrawals()
 
 
 def test_cashflow_workbook_shows_ira_conversions_but_keeps_cash_draw_total_separate():
+    # Column labels are nickname-parameterized ({_n1}/{_n2} f-strings), so
+    # assert the label suffixes for both members' conversion/outflow columns.
     sheet = read("src/reporting/sheets_projection.py")
-    assert "H IRA Conv" in sheet
-    assert "W IRA Conv" in sheet
-    assert "H IRA Outflow" in sheet
-    assert "W IRA Outflow" in sheet
+    assert "{_n1} IRA Conv'" in sheet
+    assert "{_n2} IRA Conv'" in sheet
+    assert "{_n1} IRA Outflow'" in sheet
+    assert "{_n2} IRA Outflow'" in sheet
     assert "Σ Cash Draws" in sheet
     assert "Roth conversions are account outflows/taxable" in sheet
 
 
 def test_rmd_audit_includes_conversion_outflow_columns():
     stress = read("src/reporting/sheets_stress.py")
-    assert "H IRA Conversion" in stress
-    assert "W IRA Conversion" in stress
+    assert "{_a1} IRA Conversion'" in stress
+    assert "{_a2} IRA Conversion'" in stress
     assert "Total IRA Cash Drawn" in stress
     assert "Total IRA Outflow" in stress

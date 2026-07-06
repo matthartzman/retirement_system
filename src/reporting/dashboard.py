@@ -43,7 +43,7 @@ def _chart_dashboard_html(*, years, nw_labels, inc_labels, exp_labels, nw_ser, i
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Matthew & Patricia — Retirement Plan Dashboard</title>
+<title>__COUPLE__ — Retirement Plan Dashboard</title>
 <style>
 :root{--navy:#1F3864;--blue:#2E75B6;--gold:#C9A84C;--green:#2D6A4F;--teal:#1B7A9E;
       --coral:#C55A11;--red:#9B2335;--smoke:#F4F5F7;--rule:#DDE1E9;--ink:#1A1E2C;
@@ -118,27 +118,27 @@ body{font-family:"DM Sans","Aptos","Segoe UI",Arial,sans-serif;background:var(--
 </head>
 <body>
 <div class="masthead"><div class="masthead-inner">
-  <h1>Matthew &amp; Patricia — Retirement Plan Dashboard</h1>
-  <p class="masthead-sub">Institutional Retirement, Tax &amp; Estate Plan · Illinois · __PLAN_START__–__PLAN_END__</p>
+  <h1>__COUPLE__ — Retirement Plan Dashboard</h1>
+  <p class="masthead-sub">Institutional Retirement, Tax &amp; Estate Plan · __STATE__ · __PLAN_START__–__PLAN_END__</p>
   <div class="masthead-meta">
     <div class="meta-chip"><span class="label">Plan Horizon</span><span class="val">__PLAN_START__–__PLAN_END__</span></div>
-    <div class="meta-chip"><span class="label">Starting Net Worth</span><span class="val">$6.89M</span></div>
-    <div class="meta-chip"><span class="label">Terminal Net Worth</span><span class="val">$8.74M</span></div>
-    <div class="meta-chip"><span class="label">Lifetime Tax</span><span class="val">~$3.1M</span></div>
-    <div class="meta-chip"><span class="label">SS Claim Age</span><span class="val">Age 70</span></div>
+    <div class="meta-chip"><span class="label">Net Worth · End __PLAN_START__</span><span class="val">__NW_START__</span></div>
+    <div class="meta-chip"><span class="label">Terminal Net Worth</span><span class="val">__NW_END__</span></div>
+    <div class="meta-chip"><span class="label">Lifetime Tax</span><span class="val">__LIFETIME_TAX__</span></div>
+    <div class="meta-chip"><span class="label">SS Claim Age</span><span class="val">__SS_CLAIM__</span></div>
     <div class="meta-chip"><span class="label">Built</span><span class="val">__TODAY__</span></div>
   </div>
 </div></div>
 
 <div class="page">
-<p class="section-label">Snapshot</p>
+<p class="section-label">Snapshot · End of __PLAN_START__ (projected)</p>
 <div class="summary-bar">
-  <div class="sum-cell"><div class="lbl">Pre-Tax (IRA/401k)</div><div class="val">$1.81M</div><div class="sub">Y0 balance</div></div>
-  <div class="sum-cell"><div class="lbl">Roth Accounts</div><div class="val">$489K</div><div class="sub">Tax-free</div></div>
-  <div class="sum-cell"><div class="lbl">Trust Accounts</div><div class="val">$522K</div><div class="sub">Taxable</div></div>
-  <div class="sum-cell"><div class="lbl">Annuities &amp; Pension</div><div class="val">$2.32M</div><div class="sub">PV of future income</div></div>
-  <div class="sum-cell"><div class="lbl">Other Assets</div><div class="val">$1.66M</div><div class="sub">Home, note, cash</div></div>
-  <div class="sum-cell"><div class="lbl">HSA</div><div class="val">$84K</div><div class="sub">Triple tax-adv</div></div>
+  <div class="sum-cell"><div class="lbl">Pre-Tax (IRA/401k)</div><div class="val">__SNAP_PRETAX__</div><div class="sub">End of __PLAN_START__</div></div>
+  <div class="sum-cell"><div class="lbl">Roth Accounts</div><div class="val">__SNAP_ROTH__</div><div class="sub">Tax-free</div></div>
+  <div class="sum-cell"><div class="lbl">Trust Accounts</div><div class="val">__SNAP_TRUST__</div><div class="sub">Taxable</div></div>
+  <div class="sum-cell"><div class="lbl">Annuities &amp; Pension</div><div class="val">__SNAP_ANN__</div><div class="sub">PV of future income</div></div>
+  <div class="sum-cell"><div class="lbl">Other Assets</div><div class="val">__SNAP_OTHER__</div><div class="sub">Home, other, cash</div></div>
+  <div class="sum-cell"><div class="lbl">HSA</div><div class="val">__SNAP_HSA__</div><div class="sub">Triple tax-adv</div></div>
 </div>
 
 <p class="section-label">Net Worth Trajectory · __PLAN_START__–__PLAN_END__</p>
@@ -270,11 +270,69 @@ function renderHoldings(){
 renderAllCharts(); renderHoldings();
 </script>
 </body></html>"""
+    def _fmt_compact(v):
+        try:
+            v = float(v or 0)
+        except Exception:
+            return 'n/a'
+        if abs(v) >= 1_000_000:
+            return f'${v / 1_000_000:,.2f}M'
+        return f'${v / 1_000:,.0f}K'
+
+    def _series_year_value(labels_wanted, index):
+        total = 0.0
+        for label in labels_wanted:
+            series = nw_ser.get(label) or []
+            if index < len(series):
+                total += float(series[index] or 0)
+        return total
+
+    def _esc(s):
+        return str(s).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+    n1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
+    n2 = str(c.get('w_nick') or c.get('w_name') or '')
+    couple = f'{_esc(n1)} &amp; {_esc(n2)}' if n2 else _esc(n1)
+
+    if years:
+        nw_start = sum(float((nw_ser.get(l) or [0])[0] or 0) for l in nw_labels)
+        nw_end = sum(float((nw_ser.get(l) or [0])[-1] or 0) for l in nw_labels)
+        tax_labels = [l for l in exp_labels if 'Tax' in l or l == 'NIIT']
+        lifetime_tax = sum(sum(float(v or 0) for v in (exp_ser.get(l) or [])) for l in tax_labels)
+    else:
+        nw_start = nw_end = lifetime_tax = 0.0
+
+    h_claim = c.get('h_ss_claim_age')
+    w_claim = c.get('w_ss_claim_age')
+    if h_claim and w_claim and int(h_claim) == int(w_claim):
+        ss_claim = f'Age {int(h_claim)}'
+    elif h_claim and w_claim:
+        ss_claim = f'{n1} {int(h_claim)} / {n2} {int(w_claim)}'
+    else:
+        ss_claim = f'Age {int(h_claim or w_claim or 70)}'
+
+    y0 = 0  # snapshot cells show end of the first projection year
+    snap = {
+        '__SNAP_PRETAX__': _fmt_compact(_series_year_value(['Pre-Tax IRA/401k'], y0)),
+        '__SNAP_ROTH__': _fmt_compact(_series_year_value(['Roth'], y0)),
+        '__SNAP_TRUST__': _fmt_compact(_series_year_value(['Trust'], y0)),
+        '__SNAP_ANN__': _fmt_compact(_series_year_value(['Annuities & Pension'], y0)),
+        '__SNAP_OTHER__': _fmt_compact(_series_year_value(['Home Equity', 'Other Assets'], y0)),
+        '__SNAP_HSA__': _fmt_compact(_series_year_value(['HSA'], y0)),
+    }
+
     replacements = {
         "__PLAN_START__": str(c["plan_start"]),
         "__PLAN_END__": str(c["plan_end"]),
         "__TODAY__": str(today),
         "__PRICES__": str(prices_str),
+        "__COUPLE__": couple,
+        "__STATE__": str(c.get('state', '')),
+        "__NW_START__": _fmt_compact(nw_start) if years else 'n/a',
+        "__NW_END__": _fmt_compact(nw_end) if years else 'n/a',
+        "__LIFETIME_TAX__": f'~{_fmt_compact(lifetime_tax)}' if years else 'n/a',
+        "__SS_CLAIM__": ss_claim,
+        **snap,
         "__DATA_SCRIPT__": data_script,
     }
     for key, value in replacements.items():
@@ -314,13 +372,19 @@ def build_html_dashboard(xlsx_path, html_path, rows, c):
                 'PDBC':'Commodities','AVUV':'Avantis US Small Cap Value',
                 'VXUS':'Vanguard Total Intl Stock','VTI':'Vanguard Total Stock Market',
                 'VBR':'Vanguard Small-Cap Value','CASH':'Cash (USD)'}
+    from ..person_labels import display_account
+    from ..core import ACCOUNT_TYPES, _infer_type
+    _tax_type_word = {'pre_tax': 'Pre-Tax', 'roth': 'Tax-Free', 'taxable': 'Taxable',
+                      'hsa': 'Tax-Adv', 'tax_free': 'Tax-Free', 'cash': 'Cash'}
     for acct, acct_holdings in c.get('positions', {}).items():
+        tax = ACCOUNT_TYPES.get(_infer_type(acct), {}).get('tax', 'taxable')
+        acct_display = f"{display_account(acct, c)} · {_tax_type_word.get(tax, 'Taxable')}"
         acct_total = sum(fetch_price(sym, '') * shares for sym, shares in acct_holdings.items())
         for sym, shares in acct_holdings.items():
             price = fetch_price(sym, '')
             value = price * shares
             holdings.append({
-                'account': acct,
+                'account': acct_display,
                 'symbol': sym, 'desc': desc_map.get(sym, ''),
                 'shares': round(float(shares), 3),
                 'price':  round(float(price or 1), 2),
@@ -372,9 +436,11 @@ def build_html_dashboard(xlsx_path, html_path, rows, c):
     exp_years, exp_labels, exp_ser = _extract_chart_block(chart_data_ws, year_col=29, first_series_col=30, total_col=39)
 
     def _series_from_projection_rows():
+        _n1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
+        _n2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
         nw_labels_fallback = ['Annuities & Pension','Pre-Tax IRA/401k','Roth','Trust','HSA','Home Equity','Other Assets']
-        inc_labels_fallback = ['Earned Income','Matthew SS','Patricia SS','Pension',
-                               'Wife Single Ann','Wife Joint Ann','Husband Single Ann','Husband Joint Ann',
+        inc_labels_fallback = ['Earned Income',f'{_n1} SS',f'{_n2} SS','Pension',
+                               f'{_n2} Single Ann',f'{_n2} Joint Ann',f'{_n1} Single Ann',f'{_n1} Joint Ann',
                                'Note P+I','RMD','Trust Draw','HSA Draw','Roth Draw','IRA Draw','HELOC Draw']
         exp_labels_fallback = ['Base Spending','Rec Extras','Lump Events','Mortgage + RE Tax','Rent',
                                'HELOC P&I','Federal Tax',f'State Tax ({c["state"][:2]})','NIIT','Payroll Tax']

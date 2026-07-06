@@ -32,14 +32,26 @@ class RecommendationCompletionTests(unittest.TestCase):
         # transaction/budget-derived spend base) as of this commit. Regenerate
         # them deliberately after intentional plan-data changes; a mismatch
         # otherwise usually means a real projection-engine regression.
+        #
+        # Item 141 (2026-07): the projection spend_base dropped from 129,059 to
+        # 124,059 after fixing a double-count in spending_budget_resolver — a
+        # Core Expenses category (charitable giving) that carried BOTH a category
+        # budget row and a detail line was counted twice. The 5,000/yr lower spend
+        # reinvests as surplus, so terminal net worth and later-year taxes rise.
+        #
+        # These constants are now fully reproducible: tests/conftest.py pins
+        # holdings pricing to OFFLINE, so starting balances come from the
+        # committed cache snapshot rather than live market data. The tight
+        # tolerance below only absorbs float rounding — regenerate deliberately
+        # after an intentional engine/plan-data change.
         c = sample_config()
         rows = project(c)
         summary = summarize_validation(rows, c)
         self.assertEqual(summary['fail_count'], 0)
         self.assertEqual(summary['warn_count'], 0)
         self.assertEqual((rows[0]['year'], rows[-1]['year'], len(rows)), (2026, 2056, 31))
-        self.assertAlmostEqual(rows[-1]['total_nw'], 6_303_127.69, delta=2.0)
-        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 935_301.16, delta=2.0)
+        self.assertAlmostEqual(rows[-1]['total_nw'], 8_344_338.07, delta=2.0)
+        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_162_908.25, delta=2.0)
 
     def test_fixed_point_taxable_withdrawal_solver_runs_before_roth(self):
         c = sample_config()

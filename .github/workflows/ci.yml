@@ -16,10 +16,10 @@ jobs:
         python-version: ['3.11', '3.12']
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
@@ -37,13 +37,11 @@ jobs:
       run: mypy src/ --ignore-missing-imports || true
 
     - name: Run tests
-      env:
-        RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS: "1"
       run: |
         pytest tests/ --tb=short -q --cov=src --cov-report=xml
 
     - name: Upload coverage
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v7
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
       with:
         files: ./coverage.xml
@@ -52,9 +50,9 @@ jobs:
   frontend-tests:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v6
       with:
         node-version: "20"
 
@@ -64,10 +62,10 @@ jobs:
   regression-checks:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.11'
         cache: 'pip'
@@ -85,10 +83,10 @@ jobs:
     runs-on: windows-latest
     needs: [test]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.11'
         cache: 'pip'
@@ -104,7 +102,7 @@ jobs:
         python build.py --no-backup
 
     - name: Upload build artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: retirement-planner-exe
         path: dist/retirement_planner/

@@ -6,40 +6,40 @@
       "sha256": "8a94edde6121b066885996c41d04d9ecc471aca62f7e07887a031b8dfbf2533f"
     },
     "client_assets.csv": {
-      "bytes": 6847,
-      "sha256": "19cc2308a65e29f2107e562e4b4b91def1f357ee9cbc7a10917b4fd27c746273"
+      "bytes": 7601,
+      "sha256": "ed3e6379b210e0d983e6a3335d8a203ae06aac9c83e2d7b3941a7b4a8f310f92"
     },
     "client_data.csv": {
       "bytes": 1125,
       "sha256": "f953ac0ed2b26d4edac921fdc8c7fdeccd535394994d3eb67e6305341acfaaa4"
     },
     "client_holdings.csv": {
-      "bytes": 3021,
-      "sha256": "24a2c52cb65f466adfce88f8a8a8508345dbb28e5b1408ecc2ba46f59faaf72e"
+      "bytes": 3975,
+      "sha256": "17d3fc659c4d3fec2e87e5d0ddbd0105512648e08f88cba20e4dc1a88becf585"
     },
     "client_household.csv": {
-      "bytes": 6067,
-      "sha256": "ad19054121fb466ad5d878ee9872aa7f9c429aa9650148a55a92c5718af0848e"
+      "bytes": 6312,
+      "sha256": "500bb2c3a4118c942d1a4d862f84c1800669957cd13ae4393d26bab78a8b6920"
     },
     "client_income.csv": {
-      "bytes": 10582,
-      "sha256": "f677e494f91c48d0ee826135a436689cc34eac57424d845ef01081ecda852d9f"
+      "bytes": 10828,
+      "sha256": "3f68910e4ae0d38be08e227f114a4a8c80dcd085c06362bc7790bfc7e8aedd67"
     },
     "client_insurance_estate.csv": {
-      "bytes": 13085,
-      "sha256": "fab43d9cef12175f1045bbb52dac43acebad0930587fbc0b479bb3a2fdd76aa5"
+      "bytes": 12979,
+      "sha256": "12dbacee5a95ca553a3a5113f1eb7af0ab56243265343999a563bbe384de7855"
     },
     "client_optional_functions.csv": {
       "bytes": 2431,
       "sha256": "2de208108b9a8cfa90a7d6afbbd7a35e38aade66dd5f7f040dfb5591a38379c9"
     },
     "client_policy.csv": {
-      "bytes": 20604,
-      "sha256": "e17c528c0f0b9e1f378dd1e9a15450555fd6f08521486f93dfbaf19f984c00de"
+      "bytes": 21005,
+      "sha256": "e21e7bb7fd3752e3b59ecd56223c3a728546a6a823de270066325bc73be27d65"
     },
     "client_spending.csv": {
-      "bytes": 8096,
-      "sha256": "7543f3d9c71612c8f77613cb0da1d93c8dcabe4a6eddb9867e31976a93e3f7a8"
+      "bytes": 8668,
+      "sha256": "bc41c67c27bdf2b11861a04b3e5944b8b74f9f379f976209c5f74553e3d58282"
     },
     "target_allocation.csv": {
       "bytes": 234,

@@ -7,6 +7,8 @@
 
 .field-label-note{font-size:.88em;color:var(--muted);font-weight:600;margin-left:6px;font-style:italic}
 
+.field-source-page{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:9px 0 -4px 2px}
+
 /* Reports & Review sub-tab nav in left sidebar */
 .nav-reports-subtabs{display:flex;flex-direction:column;gap:1px;padding:2px 0 6px 12px;border-left:2px solid var(--line);margin:2px 0 4px 12px}
 .nav-reports-subtab{display:block;width:100%;text-align:left;border:none;background:transparent;padding:5px 8px;border-radius:7px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;transition:background .1s,color .1s}
@@ -52,6 +54,9 @@
 .impact-headline-label{font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-top:2px}
 
 /* YTD spending and growth tracking */
+.ytd-actuals-period-toggle.segmented-toggle{display:inline-flex;gap:2px;background:#f1eee6;border:1px solid var(--line);border-radius:10px;padding:3px;margin:0 0 10px}
+.ytd-actuals-period-toggle .seg-btn{border:0;background:transparent;padding:6px 14px;font-size:12px;font-weight:700;border-radius:7px;cursor:pointer;color:var(--muted)}
+.ytd-actuals-period-toggle .seg-btn.active{background:#fff;color:var(--accent);box-shadow:0 1px 2px rgba(0,0,0,.08)}
 .ytd-upload-panel{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start;background:#fbfaf7;border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0 14px}
 .ytd-upload-panel h3{margin:0 0 4px;font-size:15px}.ytd-upload-panel code{font-size:11px;background:#f1eee6;border:1px solid var(--line);border-radius:5px;padding:1px 4px}.ytd-status-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin:10px 0 14px}.ytd-metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:12px;margin:12px 0}.ytd-metric{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px}.ytd-metric h3{margin:0 0 8px;font-size:14px}.ytd-metric-values{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.ytd-metric-values b{display:block;font-size:19px}.ytd-metric-values small{display:block;color:var(--muted);font-size:11px}.ytd-chart{width:100%;height:150px;margin-top:8px}.ytd-chart line{stroke:var(--line2);stroke-width:1}.ytd-chart polyline{fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.ytd-chart polyline.actual{stroke:#1f4f8f}.ytd-chart polyline.forecast{stroke:#a16207;stroke-dasharray:5 5}.ytd-chart text{font-size:10px;fill:var(--muted)}.ytd-disabled{margin-top:12px}.ytd-disabled-table{margin:0 20px 18px;padding:14px;border:1px dashed var(--line2);border-radius:12px;background:#fbfaf7}.ytd-section .group-title,.ytd-tracking .group-title{margin-top:0}.ytd-table-wrap{max-height:540px}.ytd-tx-table{min-width:1420px}.ytd-tx-table thead th{position:sticky;top:0;z-index:2;background:#fbfaf7;box-shadow:0 1px 0 var(--line)}
 /* Duplicate review panel */
@@ -637,7 +642,7 @@ body.chart-modal-open{overflow:hidden}
 .recent-changes-log{overflow-x:auto;margin-top:6px}
 .recent-changes-log .change-table{font-size:12px;width:100%}
 
-/* Workspace tabs — Distribution Strategy, Investment Strategy, Reports & Review */
+/* Workspace tabs — Distribution Strategy, Reports & Review */
 .tabbed-workspace{display:flex;flex-direction:column;min-width:0}
 .workspace-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);padding:0 20px;background:var(--surface);overflow-x:auto;-webkit-overflow-scrolling:touch;flex-shrink:0}
 .workspace-tab{background:none;border:none;border-bottom:3px solid transparent;margin-bottom:-2px;padding:11px 18px;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap;border-radius:0;transition:color .14s,border-color .14s;letter-spacing:.01em}
@@ -675,6 +680,10 @@ body.chart-modal-open{overflow:hidden}
 .suggested-next{display:flex;align-items:center;gap:6px;margin:20px 20px 8px;padding:11px 16px 11px 18px;background:#f4f8ff;border:1px solid #c9d9f5;border-left:4px solid var(--accent);border-radius:8px;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
 .suggested-next .link-button{font-size:13px;font-weight:700;color:var(--accent);background:none;border:none;cursor:pointer;padding:0;letter-spacing:0;text-transform:none;transition:color .12s}
 .suggested-next .link-button:hover{color:#1a3f75;text-decoration:underline}
+.people-table{min-width:880px}.people-table td:first-child{white-space:nowrap}
+.holdings-account-group>summary,.holdings-ticker-group>summary{cursor:pointer}
+.holdings-account-group>summary{font-weight:700}
+.holdings-group-total{margin-left:8px;font-variant-numeric:tabular-nums;color:var(--muted)}
 
 /* ===================================================================
    Phase 1 — Mobile responsive shell (Android/phone support)

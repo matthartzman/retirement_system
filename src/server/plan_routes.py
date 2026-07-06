@@ -4,6 +4,7 @@ try:
         CLIENT_DATA_CSV_FILE_SET,
         CSV_PATH,
         PLAN_DATA_CSV_FILES,
+        YTD_PLAN_DATA_FILES,
         Path,
         TRAVEL_EXTRA_TYPES,
         WORKSPACE_ROOT,
@@ -57,6 +58,7 @@ except Exception:
         CLIENT_DATA_CSV_FILE_SET,
         CSV_PATH,
         PLAN_DATA_CSV_FILES,
+        YTD_PLAN_DATA_FILES,
         Path,
         TRAVEL_EXTRA_TYPES,
         WORKSPACE_ROOT,
@@ -518,6 +520,26 @@ def delete_other_asset_item():
     body = request.get_json(silent=True) or {}
     return _service_json(_strategy_asset_feature_service().delete_other_asset_payload(body))
 
+@app.route("/api/note-receivable/add", methods=["POST"])
+def add_note_receivable():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    if not _runtime_config().allow_csv_write:
+        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
+    body = request.get_json(silent=True) or {}
+    return _service_json(_strategy_asset_feature_service().add_note_receivable_payload(body))
+
+@app.route("/api/note-receivable/delete", methods=["POST"])
+def delete_note_receivable():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    if not _runtime_config().allow_csv_write:
+        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
+    body = request.get_json(silent=True) or {}
+    return _service_json(_strategy_asset_feature_service().delete_note_receivable_payload(body))
+
 @app.route("/api/education-529/add", methods=["POST"])
 def add_education_529_section():
     denied = _require("write_config")
@@ -661,7 +683,8 @@ def ytd_status():
     denied = _require("view_dashboard")
     if denied:
         return denied
-    return jsonify(_ytd_feature_service().status_payload())
+    period = request.args.get("period")
+    return jsonify(_ytd_feature_service().status_payload(period=period))
 
 
 @app.route("/api/ytd/account-setup/recover", methods=["POST"])
@@ -739,6 +762,14 @@ def ytd_account_setup_save():
     if denied:
         return denied
     return jsonify(_ytd_feature_service().save_account_setup(request.get_json(silent=True) or {}))
+
+
+@app.route("/api/ytd/account-setup/roll-forward", methods=["POST"])
+def ytd_account_setup_roll_forward():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    return jsonify(_ytd_feature_service().roll_forward_account_setup())
 
 
 @app.route("/api/ytd/transactions/bulk", methods=["PUT"])
@@ -1015,6 +1046,7 @@ def plan_load_file():
                     workspace_id=_workspace_id(),
                     client_id=_client_id(),
                     db_path=_sqlite_db(),
+                    file_names=[n for n in PLAN_DATA_CSV_FILES if n != "client_data.csv"] + YTD_PLAN_DATA_FILES,
                     overwrite_existing=True,
                 )
             except Exception as mat_exc:

@@ -253,23 +253,27 @@ def apply_death_transition(c: dict, balance: Dict[str, float], year: int,
                       'simultaneous death taxable consolidation', result, basis_free)
         return result
 
-    # Husband/member_1 death this year.
+    # member_1 death this year.
+    _nick1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
+    _nick2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
     if year == h_death:
         deceased, survivor = 0, 1
         first_death = w_alive and h_death < w_death
         second_death = h_death > w_death
-        label = 'H'
+        label = _nick1
+        survivor_label = _nick2
     else:
         deceased, survivor = 1, 0
         first_death = h_alive and w_death < h_death
         second_death = w_death > h_death
-        label = 'W'
+        label = _nick2
+        survivor_label = _nick1
 
     result.deceased_owner_idx = deceased
     result.survivor_owner_idx = survivor if first_death else None
 
     if first_death:
-        result.description = f'{label}→{"W" if survivor == 1 else "H"} (spousal rollover)'
+        result.description = f'{label} → {survivor_label} (spousal rollover)'
         if basis_free is not None and c.get('basis_step_up_at_death', True) and str(c.get('basis_step_up_property_regime','COMMON_LAW')).upper() in {'COMMUNITY_PROPERTY','FULL_STEP_UP'}:
             for _acct in _accounts_by_owner(registry, survivor):
                 if _acct.get('tax') == 'taxable':

@@ -31,9 +31,11 @@ def test_ytd_transactions_preview_is_side_effect_free_and_reports_import_risks(t
     assert preview["schema"] == "import_preview_v1"
     assert preview["will_write"] is False
     assert preview["received"] == 3
-    assert preview["valid_current_year_rows"] == 2
+    # All rows with a valid date are importable regardless of calendar year —
+    # the app retains full transaction history for the Last Year/YTD toggle.
+    assert preview["valid_current_year_rows"] == 3
     assert preview["rows_replaced"] == 1
-    assert preview["skipped_not_current_year"] == 1
+    assert preview["skipped_not_current_year"] == 0
     assert preview["duplicate_candidates"]["matching_existing_rows"] == 1
     assert preview["unmapped_categories"] == ["New Category"]
     assert preview["account_summary"]["new_accounts"] == ["New Card"]

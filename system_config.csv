@@ -20,7 +20,7 @@ System Configuration,Price Refresh,snapshot_retention_days,365,days,Historical p
 System Configuration,Portfolio Drift,target_allocation_file,target_allocation.csv,path,Optional target allocation file. Local input folder is searched first.
 System Configuration,Portfolio Drift,security_master_file,security_master.csv,path,Ticker-to-asset-class map. Local input folder is searched first.
 System Configuration,Portfolio Drift,rebalance_threshold_pct,5.00%,pct,Report assets outside target allocation by this absolute threshold.
-Market Pricing,Holdings,pricing_mode,CACHE,choice,CACHE = use any cache first, even stale; LIVE = prefer live providers before cache/fallback; OFFLINE = no live calls. Cost basis is used only when no cache exists.
+Market Pricing,Holdings,pricing_mode,LIVE,choice,CACHE = use any cache first, even stale; LIVE = prefer live providers before cache/fallback; OFFLINE = no live calls. Cost basis is used only when no cache exists.
 Market Pricing,Holdings,cache_hours,24,hours,Fresh cache window for holdings prices.
 Market Pricing,API,fmp_api_key,,secret,Secret value intentionally blank in secure release package; configure via secret store or environment.
 Market Pricing,API,alpha_vantage_api_key,,secret,Secret value intentionally blank in secure release package; configure via secret store or environment.

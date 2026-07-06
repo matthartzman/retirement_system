@@ -41,9 +41,9 @@ def build_sheet5(ws, c, rows):
         def _owner_label(acct):
             owner = acct.get('owner_idx', 0)
             if owner == 0:
-                return str(c.get('h_name') or 'Member 1')
+                return str(c.get('h_nick') or c.get('h_name') or 'Member 1')
             if owner == 1:
-                return str(c.get('w_name') or 'Member 2')
+                return str(c.get('w_nick') or c.get('w_name') or 'Member 2')
             return str(acct.get('owner_name') or f'Owner {owner + 1}')
 
         def _kind_label(acct):
@@ -76,7 +76,15 @@ def build_sheet5(ws, c, rows):
     roth_slots = _account_slots(tax='roth', count=2)
     trust_slots = _account_slots(tax='taxable', count=2)
     hsa_slots = _account_slots(tax='hsa', count=1)
+    _n1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
+    _n2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
     header_labels = {
+        'H Age': f'{_n1} Age',
+        'W Age': f'{_n2} Age',
+        'W Single PV': f'{_n2} Single PV',
+        'W Joint PV': f'{_n2} Joint PV',
+        'H Single PV': f'{_n1} Single PV',
+        'H Joint PV': f'{_n1} Joint PV',
         'PreTax_1': pretax_slots[0][1] or 'Pre-Tax 1',
         'PreTax_2': pretax_slots[1][1] or 'Pre-Tax 2',
         'PreTax_3': pretax_slots[2][1] or 'Pre-Tax 3',
@@ -292,13 +300,15 @@ def build_sheet6(ws, c, rows):
                      COL['Σ_Roth'], COL['H_IRA_Tot'], COL['W_IRA_Tot'],
                      COL['Σ_WD'], COL['AGI'], COL['HELOC_Bal'], COL['HELOC_PAI'],
                      COL['Total_Cash_Need'], COL['Req_Portfolio_Draws'], COL['Cash_Bridge_Gap']}
+    _n1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
+    _n2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
     hdr2 = [
-        (COL['Year'],       'Year'),         (COL['H_Age'],      'H Age'),
-        (COL['W_Age'],      'W Age'),        (COL['Earned'],     'Earned'),
-        (COL['H_SS'],       f'{c.get("h_name","H")} SS'),  (COL['W_SS'],       f'{c.get("w_name","W")} SS'),
-        (COL['Pension'],    'Pension'),      (COL['W_Sgl'],      'W Single Ann'),
-        (COL['W_Jnt'],      'W Joint Ann'),  (COL['H_Sgl'],      'H Single Ann'),
-        (COL['H_Jnt'],      'H Joint Ann'),  (COL['Note'],       'Note P+I'),
+        (COL['Year'],       'Year'),         (COL['H_Age'],      f'{_n1} Age'),
+        (COL['W_Age'],      f'{_n2} Age'),   (COL['Earned'],     'Earned'),
+        (COL['H_SS'],       f'{_n1} SS'),    (COL['W_SS'],       f'{_n2} SS'),
+        (COL['Pension'],    'Pension'),      (COL['W_Sgl'],      f'{_n2} Single Ann'),
+        (COL['W_Jnt'],      f'{_n2} Joint Ann'),  (COL['H_Sgl'],  f'{_n1} Single Ann'),
+        (COL['H_Jnt'],      f'{_n1} Joint Ann'),  (COL['Note'],   'Note P+I'),
         (COL['RMD'],        'RMD Dist'),     (COL['Σ_Inc'],      'Σ Income'),
         (COL['Roth_Conv'],  'Roth Conv'),    (COL['AGI'],        'AGI'),
         (COL['Taxable'],    'Taxable Inc'),  (COL['Fed'],        'Fed Tax'),
@@ -322,14 +332,14 @@ def build_sheet6(ws, c, rows):
         (COL['Portfolio_Income'], 'Portfolio Income'), (COL['Other_Funding'], 'Other Funding'),
         (COL['Req_Portfolio_Draws'], 'Required Portfolio Cash Draws'),
         (COL['Cash_Bridge_Gap'], 'Cash Bridge Gap / (Surplus)'),
-        (COL['H_Trust_WD'], 'H Trust WD'),   (COL['W_Trust_WD'], 'W Trust WD'),
+        (COL['H_Trust_WD'], f'{_n1} Trust WD'),   (COL['W_Trust_WD'], f'{_n2} Trust WD'),
         (COL['Σ_Trust'],    'Σ Trust'),      (COL['HSA_WD'],     'HSA WD'),
-        (COL['H_Roth_WD'],  'H Roth WD'),    (COL['W_Roth_WD'],  'W Roth WD'),
+        (COL['H_Roth_WD'],  f'{_n1} Roth WD'),    (COL['W_Roth_WD'],  f'{_n2} Roth WD'),
         (COL['Σ_Roth'],     'Σ Roth'),
-        (COL['H_IRA_RMD'],  'H IRA RMD'),    (COL['H_IRA_Elec'], 'H IRA Elec'),
-        (COL['H_IRA_Conv'], 'H IRA Conv'),   (COL['H_IRA_Tot'],  'H IRA Outflow'),
-        (COL['W_IRA_RMD'],  'W IRA RMD'),    (COL['W_IRA_Elec'], 'W IRA Elec'),
-        (COL['W_IRA_Conv'], 'W IRA Conv'),   (COL['W_IRA_Tot'],  'W IRA Outflow'),
+        (COL['H_IRA_RMD'],  f'{_n1} IRA RMD'),    (COL['H_IRA_Elec'], f'{_n1} IRA Elec'),
+        (COL['H_IRA_Conv'], f'{_n1} IRA Conv'),   (COL['H_IRA_Tot'],  f'{_n1} IRA Outflow'),
+        (COL['W_IRA_RMD'],  f'{_n2} IRA RMD'),    (COL['W_IRA_Elec'], f'{_n2} IRA Elec'),
+        (COL['W_IRA_Conv'], f'{_n2} IRA Conv'),   (COL['W_IRA_Tot'],  f'{_n2} IRA Outflow'),
         (COL['HELOC_Draw'], 'HELOC Draw'),
         (COL['HELOC_Bal'],  'HELOC Bal'),    (COL['Σ_WD'],       'Σ Cash Draws'),
         (COL['Surplus'],    'Surplus'),      (COL['NW_Check'],   'NW Check'),
@@ -530,7 +540,9 @@ def build_sheet7(ws, c, rows):
     section_title(ws, 1, 'LIFETIME TAX PROJECTION', 10)
 
     r = 2
-    hdrs = ['Year','H Age','W Age','Filing','AGI','Taxable Income',
+    _n1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
+    _n2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
+    hdrs = ['Year',f'{_n1} Age',f'{_n2} Age','Filing','AGI','Taxable Income',
             'Fed Tax','State Tax','NIIT','Payroll Tax','IRMAA',
             'Total Tax','Effective Rate','Marginal Rate']
     for i, h in enumerate(hdrs, 1):
@@ -602,7 +614,7 @@ def build_sheet8(ws, c, rows, mc_data=None):
     data_ws.sheet_state = 'hidden'
     data_ws.sheet_view.showGridLines = False
 
-    title = f'CHARTS DASHBOARD — {c["h_name"]} & {c.get("w_name","")}  ·  {c["plan_start"]}–{c["plan_end"]}'
+    title = f'CHARTS DASHBOARD — {c.get("h_nick") or c["h_name"]} & {c.get("w_nick") or c.get("w_name","")}  ·  {c["plan_start"]}–{c["plan_end"]}'
     chart_ws.cell(row=1, column=1, value=title)
     chart_ws['A1'].fill = fill(NAVY)
     chart_ws['A1'].font = Font(name='Arial', bold=True, color=WHITE, size=14)
@@ -727,7 +739,7 @@ def build_sheet8(ws, c, rows, mc_data=None):
     DATA_FIRST = TABLE_ROW + 1
     DATA_LAST  = TABLE_ROW + n
 
-    sec(1, f'CHARTS DASHBOARD — {c["h_name"]} & {c.get("w_name","")}  ·  {c["plan_start"]}–{c["plan_end"]}', span=50)
+    sec(1, f'CHARTS DASHBOARD — {c.get("h_nick") or c["h_name"]} & {c.get("w_nick") or c.get("w_name","")}  ·  {c["plan_start"]}–{c["plan_end"]}', span=50)
 
     # ── NW Table ──────────────────────────────────────────────────────────────
     NW_YEAR = 1
@@ -767,13 +779,13 @@ def build_sheet8(ws, c, rows, mc_data=None):
     INC_YEAR = 11
     INC_SER  = [
         (12, 'earned',   'Earned Income',         '1F3864'),
-        (13, 'h_ss',     f'{c.get("h_name","M1")} SS',       '2E75B6'),
-        (14, 'w_ss',     f'{c.get("w_name","M2")} SS',       '3D9AB8'),
+        (13, 'h_ss',     f'{c.get("h_nick") or c.get("h_name","M1")} SS',       '2E75B6'),
+        (14, 'w_ss',     f'{c.get("w_nick") or c.get("w_name","M2")} SS',       '3D9AB8'),
         (15, 'pension',  'Pension',               'C9A84C'),
-        (16, 'w_sgl',    f'{c.get("w_name","M2")} Single Ann', '2D6A4F'),
-        (17, 'w_jnt',    f'{c.get("w_name","M2")} Joint Ann',  '40916C'),
-        (18, 'h_sgl',    f'{c.get("h_name","M1")} Single Ann', 'C55A11'),
-        (19, 'h_jnt',    f'{c.get("h_name","M1")} Joint Ann',  'E07540'),
+        (16, 'w_sgl',    f'{c.get("w_nick") or c.get("w_name","M2")} Single Ann', '2D6A4F'),
+        (17, 'w_jnt',    f'{c.get("w_nick") or c.get("w_name","M2")} Joint Ann',  '40916C'),
+        (18, 'h_sgl',    f'{c.get("h_nick") or c.get("h_name","M1")} Single Ann', 'C55A11'),
+        (19, 'h_jnt',    f'{c.get("h_nick") or c.get("h_name","M1")} Joint Ann',  'E07540'),
         (20, 'note',     'Note P+I',              '5A3E85'),
         (21, 'rmd',      'RMD',                   '9B2335'),
         (22, 'trust_wd', 'Trust Draw',            '7B3F9E'),

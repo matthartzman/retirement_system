@@ -15,4 +15,4 @@ niit_threshold_single,2025,200000,IRC §1411 (not inflation-indexed)
 niit_threshold_hoh,2025,200000,IRC §1411 (not inflation-indexed)
 niit_threshold_mfs,2025,125000,IRC §1411 (not inflation-indexed)
 # SS wage base
-ss_wage_base,2025,176100,SSA 2025 Social Security wage base
+ss_wage_base,2026,184500,SSA 2026 Social Security wage base

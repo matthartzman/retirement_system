@@ -175,6 +175,62 @@ STATE_TAX_DEFAULTS = {
 }
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# GEOGRAPHIC COST-OF-LIVING FACTORS (illustrative approximations)
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Relative cost factors for four household spending categories that vary
+# meaningfully by geography: auto insurance, homeowners insurance, utilities,
+# and home maintenance.  Each factor is expressed RELATIVE to the current
+# (baseline) state so the State Residency Analysis can estimate a *delta* on
+# top of the household's actual budgeted amounts rather than substituting an
+# absolute figure.
+#
+# These are order-of-magnitude approximations drawn from public regional
+# cost-of-living and insurance-premium indices (e.g. NAIC/Insure.com auto and
+# homeowners premium surveys, EIA utility-price data, and BLS regional price
+# parities).  They are intentionally coarse and are meant to give the user a
+# directionally reasonable estimate they can override with real quotes.  The
+# factors are normalized so the current state divides out: delta =
+# baseline_amount * (target_factor / current_factor - 1).
+#
+# States absent from this table fall back to 1.0 (no estimated geographic
+# difference) so the analysis degrades gracefully.  Override or extend via
+# reference_data/state_tax.csv columns col_auto, col_home_ins, col_utilities,
+# col_maintenance.
+STATE_COL_FACTORS = {
+    #                 auto   home_ins  utilities  maintenance
+    'Illinois':       {'auto': 1.00, 'home_ins': 1.00, 'utilities': 1.00, 'maintenance': 1.00},
+    'Indiana':        {'auto': 0.82, 'home_ins': 0.90, 'utilities': 0.95, 'maintenance': 0.92},
+    'Florida':        {'auto': 1.35, 'home_ins': 2.10, 'utilities': 1.05, 'maintenance': 1.08},
+    'Texas':          {'auto': 1.15, 'home_ins': 1.55, 'utilities': 1.10, 'maintenance': 1.00},
+    'Tennessee':      {'auto': 0.90, 'home_ins': 1.15, 'utilities': 0.95, 'maintenance': 0.90},
+    'North Carolina': {'auto': 0.78, 'home_ins': 1.00, 'utilities': 0.92, 'maintenance': 0.93},
+    'Arizona':        {'auto': 1.05, 'home_ins': 0.85, 'utilities': 1.08, 'maintenance': 1.00},
+    'Colorado':       {'auto': 0.98, 'home_ins': 1.30, 'utilities': 0.95, 'maintenance': 1.10},
+    'Nevada':         {'auto': 1.20, 'home_ins': 0.95, 'utilities': 1.02, 'maintenance': 1.05},
+    'California':     {'auto': 1.10, 'home_ins': 1.25, 'utilities': 1.45, 'maintenance': 1.35},
+    'New York':       {'auto': 1.05, 'home_ins': 1.10, 'utilities': 1.30, 'maintenance': 1.28},
+}
+
+
+def col_factors(state_name, rules=None):
+    """Return the geographic cost factors for a state.
+
+    Prefers per-state overrides carried on the loaded ``rules`` dict (from
+    state_tax.csv) and falls back to STATE_COL_FACTORS, then to 1.0 for any
+    missing category so the analysis never breaks on an unknown state.
+    """
+    base = {'auto': 1.0, 'home_ins': 1.0, 'utilities': 1.0, 'maintenance': 1.0}
+    base.update(STATE_COL_FACTORS.get(state_name, {}))
+    if rules:
+        for key, csv_key in (('auto', 'col_auto'), ('home_ins', 'col_home_ins'),
+                             ('utilities', 'col_utilities'), ('maintenance', 'col_maintenance')):
+            if rules.get(csv_key) is not None:
+                base[key] = rules[csv_key]
+    return base
+
+
 def _parse_bool(s):
     """Parse a boolean-ish string."""
     if isinstance(s, bool):
@@ -238,6 +294,13 @@ def load_state_tax(search_dirs=None):
                     'retirement_exempt_over_65': _parse_float(row.get('retirement_exempt_over_65', '0')),
                     'source':                    (row.get('source', '') or '').strip(),
                 }
+                # Optional geographic cost-of-living override columns.  Only
+                # carried when the CSV actually supplies a value so col_factors()
+                # can distinguish "not provided" from an explicit 0/1.0.
+                for _csv_key in ('col_auto', 'col_home_ins', 'col_utilities', 'col_maintenance'):
+                    _raw = (row.get(_csv_key, '') or '').strip()
+                    if _raw != '':
+                        rules[state][_csv_key] = _parse_float(_raw, 1.0)
 
     return rules
 
