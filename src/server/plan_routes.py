@@ -1,7 +1,111 @@
-from .app_core import *
-import csv
-import io
-import hashlib
+try:
+    from .app_core import (
+        BASE_DIR,
+        CLIENT_DATA_CSV_FILE_SET,
+        CSV_PATH,
+        PLAN_DATA_CSV_FILES,
+        YTD_PLAN_DATA_FILES,
+        Path,
+        TRAVEL_EXTRA_TYPES,
+        WORKSPACE_ROOT,
+        _audit,
+        _client_csv_rows,
+        _client_id,
+        _client_section_path,
+        _csv_read_rows,
+        _csv_rows_payload,
+        _csv_write_rows,
+        _current_user,
+        _ensure_header,
+        _ensure_user_ui_plan_data_rows,
+        _forced_roth_conversions_from_csv_rows,
+        _large_discretionary_expenses_from_plan_data,
+        _liquidity_buffers_from_csv_rows,
+        _normalize_date_for_csv,
+        _normalize_large_discretionary_type,
+        _plan_data_path,
+        _pre_tax_account_options_from_holdings,
+        _read_client_section_rows,
+        _read_plan_data_file,
+        _read_schema_map,
+        _reference_file_path,
+        _replace_forced_roth_conversions,
+        _replace_large_discretionary_expenses,
+        _replace_liquidity_buffers,
+        _request_system_config_csv,
+        _require,
+        _runtime_config,
+        _spending_budget_save_result,
+        _sqlite_db,
+        _sync_config_backends,
+        _workspace_id,
+        _workspace_output,
+        _write_client_rows,
+        app,
+        encryption_status,
+        get_client_file,
+        jsonify,
+        load_active_config,
+        make_response,
+        materialize_workspace_files,
+        re,
+        request,
+        set_client_file,
+    )
+except Exception:
+    from src.server.app_core import (
+        BASE_DIR,
+        CLIENT_DATA_CSV_FILE_SET,
+        CSV_PATH,
+        PLAN_DATA_CSV_FILES,
+        YTD_PLAN_DATA_FILES,
+        Path,
+        TRAVEL_EXTRA_TYPES,
+        WORKSPACE_ROOT,
+        _audit,
+        _client_csv_rows,
+        _client_id,
+        _client_section_path,
+        _csv_read_rows,
+        _csv_rows_payload,
+        _csv_write_rows,
+        _current_user,
+        _ensure_header,
+        _ensure_user_ui_plan_data_rows,
+        _forced_roth_conversions_from_csv_rows,
+        _large_discretionary_expenses_from_plan_data,
+        _liquidity_buffers_from_csv_rows,
+        _normalize_date_for_csv,
+        _normalize_large_discretionary_type,
+        _plan_data_path,
+        _pre_tax_account_options_from_holdings,
+        _read_client_section_rows,
+        _read_plan_data_file,
+        _read_schema_map,
+        _reference_file_path,
+        _replace_forced_roth_conversions,
+        _replace_large_discretionary_expenses,
+        _replace_liquidity_buffers,
+        _request_system_config_csv,
+        _require,
+        _runtime_config,
+        _spending_budget_save_result,
+        _sqlite_db,
+        _sync_config_backends,
+        _workspace_id,
+        _workspace_output,
+        _write_client_rows,
+        app,
+        encryption_status,
+        get_client_file,
+        jsonify,
+        load_active_config,
+        make_response,
+        materialize_workspace_files,
+        re,
+        request,
+        set_client_file,
+    )
 try:
     from ..version import VERSION
 except Exception:
@@ -106,54 +210,6 @@ def _server_path_requires_allowlist():
 
 
 
-
-def _validate_rows_for_csv_file(name: str, rows: list[list[str]]) -> list[str]:
-    """Run the shared schema/cross-field validator on one CSV payload before saving."""
-    if name not in PLAN_DATA_CSV_FILE_SET:
-        return []
-    if not rows:
-        return []
-    try:
-        from ..schema_registry import validate_rows as _schema_validate_rows_full
-    except Exception:  # pragma: no cover - direct execution fallback
-        from src.schema_registry import validate_rows as _schema_validate_rows_full
-    header = list(rows[0])
-    dict_rows = []
-    for raw in rows[1:]:
-        padded = list(raw) + [""] * max(0, len(header) - len(raw))
-        dict_rows.append({header[i]: padded[i] if i < len(padded) else "" for i in range(len(header))})
-    return _schema_validate_rows_full(dict_rows)
-
-def _validate_all_workspace_plan_rows(file_rows: dict[str, list[list[str]]]) -> list[str]:
-    """Validate the effective full Plan Data set after pending edits.
-
-    Cross-field rules can span rows that were not in the current POST. Load the
-    existing workspace files, overlay edited files, and validate all editable Plan
-    Data rows as one set before any write reaches disk.
-    """
-    try:
-        from ..schema_registry import validate_rows as _schema_validate_rows_full
-    except Exception:  # pragma: no cover
-        from src.schema_registry import validate_rows as _schema_validate_rows_full
-    combined=[]
-    names = [n for n in PLAN_DATA_CSV_FILES if n != 'client_holdings.csv']
-    for name in names:
-        rows = file_rows.get(name)
-        if rows is None:
-            p = _plan_data_path(name)
-            if not p.exists():
-                continue
-            with p.open(newline='', encoding='utf-8-sig') as f:
-                rows = list(csv.reader(f))
-        if not rows:
-            continue
-        header = list(rows[0])
-        if not {'section','subsection','label','value'}.issubset(set(header)):
-            continue
-        for raw in rows[1:]:
-            padded = list(raw) + [''] * max(0, len(header) - len(raw))
-            combined.append({header[i]: padded[i] if i < len(padded) else '' for i in range(len(header))})
-    return _schema_validate_rows_full(combined)
 
 def _server_path_allowed(folder: Path):
     cfg = _runtime_config()

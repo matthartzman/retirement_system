@@ -165,13 +165,17 @@ class DesktopApi:
         else:
             suffix = Path(filename).suffix if filename else ".bin"
 
-        tmp = Path(tempfile.mktemp(suffix=suffix))
-        tmp.write_bytes(raw)
-        try:
-            os.startfile(str(tmp))
-        except Exception:  # noqa: BLE001
-            import subprocess  # noqa: PLC0415
-            subprocess.Popen(["explorer", str(tmp)])
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tf:
+            tf.write(raw)
+            tmp = Path(tf.name)
+        import subprocess  # noqa: PLC0415
+        import sys  # noqa: PLC0415
+        if sys.platform == "win32":
+            os.startfile(str(tmp))  # Windows-only os attribute
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", str(tmp)])
+        else:
+            subprocess.Popen(["xdg-open", str(tmp)])
 
         return {"success": True, "opened": True}
 

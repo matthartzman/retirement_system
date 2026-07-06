@@ -20,10 +20,9 @@ def _source_constant(name: str):
     raise AssertionError(f"Missing {name} constant")
 
 
-def test_output_workbook_uses_numbered_top_level_area_tabs():
-    xlsx_path = Path("output/retirement_plan.xlsx")
-    assert xlsx_path.exists(), "Expected generated workbook in output/retirement_plan.xlsx"
-    names = _sheet_names(xlsx_path)
+def test_output_workbook_uses_numbered_top_level_area_tabs(built_workbook_path):
+    assert built_workbook_path.exists(), f"Expected generated workbook at {built_workbook_path}"
+    names = _sheet_names(built_workbook_path)
 
     expected_sections = [
         "1. Reports",

@@ -84,7 +84,7 @@ The packaged app now runs without Flask/Werkzeug/Jinja.  The local JSON API uses
 
 Implemented pieces:
 
-- `src/http_runtime/flask_compat.py`: narrow local HTTP facade for the existing decorators, request-local object, JSON/file responses, route matching, app hooks, and in-process test client.
+- `src/http_runtime/wsgi_facade.py`: narrow local HTTP facade for the existing decorators, request-local object, JSON/file responses, route matching, app hooks, and in-process test client.
 - `src/http_runtime/server.py`: `ThreadingHTTPServer` adapter for browser/server mode.
 - Desktop mode routes pywebview bridge calls through the same local route registry without opening a socket.
 - `requirements.txt` and `retirement_planner.spec` no longer include Flask, Werkzeug, Jinja, Click, ItsDangerous, MarkupSafe, or Waitress.
@@ -569,7 +569,7 @@ Current validation layers include:
 ### P1 - Strong Improvements
 
 6. Add source-of-truth labels to data-heavy pages. Completed.
-   - Key plan/report/spending/holdings/settings pages now show source-of-truth labels through `dashboard_roadmap11.js`.
+   - Key plan/report/spending/holdings/settings pages now show source-of-truth labels through `dashboard_source_truth_banners.js`.
    - Example: "Authoritative source: SQLite local plan. CSV export is a backup/adapter."
 
 7. Improve "what changed" explanations after build.
@@ -803,7 +803,7 @@ Risk controls:
 
 ### Phase 3 - Modularization
 
-- Split `dashboard.js`. Initial Phase 3 ownership seams completed with `dashboard_roadmap11.js` and `frontend/js/modules/phase3_module_manifest.js`; full physical extraction remains incremental.
+- Split `dashboard.js`. Initial Phase 3 ownership seams completed with `dashboard_source_truth_banners.js` and `frontend/js/modules/phase3_module_manifest.js`; full physical extraction remains incremental.
 - Split route modules. Initial `src/server/route_manifest.py` ownership registry and feature seams added while preserving existing route registrations. Flask/Werkzeug dependency removal is implemented through `src/http_runtime`; physical service extraction has started with `src/server_services/base_service.py`, `admin_service.py`, `build_service.py`, and `plan_forms_service.py`.
 - Consolidate spending routes. Retired spending wrappers have been removed; taxonomy, alias, spending-model, and budget-line endpoints are the active route family.
 - Move build orchestration out of workbook rendering where practical. Build snapshot database capture was extracted into `src/build_snapshot.py`; the runtime transport is now stdlib-only; broader orchestration extraction remains future work.
@@ -898,7 +898,7 @@ The dashboard is moving from one large script toward feature-owned browser modul
 
 Continued the modularization roadmap by moving build-snapshot compare/restore behavior into `src/server_services/plan_file_service.py`. `PlanFileService` now owns save-as, load-file, exit-snapshot, snapshot comparison, and snapshot restore semantics, including hash validation and pre-restore audit/backup handling. `src/server/plan_routes.py` keeps the public `/api/plan/snapshot/compare` and `/api/plan/snapshot/restore` decorators but now delegates request-independent behavior to service methods.
 
-The frontend/output bundle was also resynchronized for the Phase 1/3 shell assets: `output/index.html`, `output/css/dashboard.css`, `output/js/dashboard.js`, `output/js/dashboard_roadmap11.js`, and `output/js/modules/phase3_module_manifest.js` now match the active `frontend/` sources and cache-busted script/style references.
+The frontend/output bundle was also resynchronized for the Phase 1/3 shell assets: `output/index.html`, `output/css/dashboard.css`, `output/js/dashboard.js`, `output/js/dashboard_source_truth_banners.js`, and `output/js/modules/phase3_module_manifest.js` now match the active `frontend/` sources and cache-busted script/style references.
 
 ## 22. Definition of Done for Future Changes
 

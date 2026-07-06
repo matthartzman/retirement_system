@@ -73,18 +73,18 @@ allocation-override-table
 <div id="planStateBanner" class="plan-state-banner" aria-live="polite"></div>
 <div id="navBackdrop" class="nav-backdrop" onclick="closeNavDrawer()"></div>
 <main>
-<aside class="card side" id="sideNav"><button id="navCloseBtn" class="btn nav-close" type="button" aria-label="Close navigation" onclick="closeNavDrawer()">&#10005;</button><div class="progress-wrap"><div class="bar"><span id="progressBar"></span></div><div class="progress-text"><span id="progressLabel">Start a plan</span><span id="requiredLabel"></span></div></div><div class="runtime-grid"><div class="pill"><b>Database</b><span id="planSource">Not loaded</span></div><div class="pill"><b>Version</b><span>10</span></div></div><div class="search-scope"><button type="button" class="btn primary" data-search-scope="nav" onclick="setSearchScope('nav')">Navigation</button><button type="button" class="btn" data-search-scope="page" onclick="setSearchScope('page')">Page</button></div><input id="combinedSearch" class="search" placeholder="Search navigation..." oninput="setCombinedSearch(this.value)"><h2>Guided steps</h2><div class="steps" id="steps"></div></aside>
+<aside class="card side" id="sideNav" aria-label="Guided steps navigation"><button id="navCloseBtn" class="btn nav-close" type="button" aria-label="Close navigation" onclick="closeNavDrawer()">&#10005;</button><div class="progress-wrap"><div class="bar"><span id="progressBar"></span></div><div class="progress-text"><span id="progressLabel">Start a plan</span><span id="requiredLabel"></span></div></div><div class="runtime-grid"><div class="pill"><b>Database</b><span id="planSource">Not loaded</span></div><div class="pill"><b>Version</b><span>10</span></div></div><div class="search-scope"><button type="button" class="btn primary" data-search-scope="nav" onclick="setSearchScope('nav')">Navigation</button><button type="button" class="btn" data-search-scope="page" onclick="setSearchScope('page')">Page</button></div><input id="combinedSearch" class="search" placeholder="Search navigation..." aria-label="Search navigation" oninput="setCombinedSearch(this.value)"><h2>Guided steps</h2><div class="steps" id="steps"></div></aside>
 <section class="card content" id="mainPane"></section>
-<aside class="card help" id="helpPane"><button class="help-toggle" type="button" aria-expanded="false" aria-controls="helpPanel" onclick="toggleHelpSheet()"><h2>Context Help</h2><span class="help-toggle-icon" aria-hidden="true">&#9650;</span></button><div id="helpPanel"></div></aside>
+<aside class="card help" id="helpPane" aria-label="Context help"><button class="help-toggle" type="button" aria-expanded="false" aria-controls="helpPanel" onclick="toggleHelpSheet()"><h2>Context Help</h2><span class="help-toggle-icon" aria-hidden="true">&#9650;</span></button><div id="helpPanel"></div></aside>
 </main>
 <div id="buildOverlay" class="build-overlay" aria-hidden="true" role="status" aria-live="polite"><div class="build-progress-card"><div class="build-spinner" aria-hidden="true"></div><div id="buildOverlayTitle" class="build-progress-title">Building workbook</div><div id="buildOverlayDetail" class="build-progress-detail">Saving Plan Data and generating outputs...</div><div class="build-overlay-bar"><span id="buildOverlayBar"></span></div><div id="buildOverlayPct" class="build-progress-pct">0%</div><div class="build-cancel-row"><button class="btn" type="button" onclick="cancelBuild()">Cancel</button></div></div></div>
-<div id="exitModal" class="modal-backdrop"><div class="modal"><h2>Exit Retirement Planner?</h2><p>You have unsaved changes. Save Changes before exiting?</p><div class="modal-actions"><button class="btn" onclick="closeExitModal()">Keep Editing</button><button class="btn danger" onclick="discardAndExit()">Discard & Exit</button><button class="btn primary" onclick="saveAndExit()">Save & Exit</button></div></div></div>
-<div id="pathModal" class="modal-backdrop"><div class="modal"><h2 id="pathModalTitle">CSV Import/Export Folder</h2><p id="pathModalHelp">Enter or browse to a CSV import/export folder.</p><input id="pathModalInput" style="width:100%;padding:10px;border:1px solid var(--line2);border-radius:9px;margin:8px 0 12px" autocomplete="off"><div class="modal-actions"><button class="btn" id="pathModalBrowseBtn" type="button">Browse...</button><button class="btn" id="pathModalCancelBtn" type="button">Cancel</button><button class="btn primary" id="pathModalPrimaryBtn" type="button">Continue</button></div><p class="small" id="pathModalNote"></p></div></div>
-<div id="chartModal" class="chart-modal-overlay" style="display:none" onclick="if(event.target===this)closeChartModal()">
+<div id="exitModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="exitModalTitle"><div class="modal"><h2 id="exitModalTitle">Exit Retirement Planner?</h2><p>You have unsaved changes. Save Changes before exiting?</p><div class="modal-actions"><button class="btn" onclick="closeExitModal()">Keep Editing</button><button class="btn danger" onclick="discardAndExit()">Discard & Exit</button><button class="btn primary" onclick="saveAndExit()">Save & Exit</button></div></div></div>
+<div id="pathModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="pathModalTitle"><div class="modal"><h2 id="pathModalTitle">CSV Import/Export Folder</h2><p id="pathModalHelp">Enter or browse to a CSV import/export folder.</p><input id="pathModalInput" style="width:100%;padding:10px;border:1px solid var(--line2);border-radius:9px;margin:8px 0 12px" autocomplete="off" aria-label="CSV import/export folder path" aria-describedby="pathModalHelp"><div class="modal-actions"><button class="btn" id="pathModalBrowseBtn" type="button">Browse...</button><button class="btn" id="pathModalCancelBtn" type="button">Cancel</button><button class="btn primary" id="pathModalPrimaryBtn" type="button">Continue</button></div><p class="small" id="pathModalNote"></p></div></div>
+<div id="chartModal" class="chart-modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="chartModalTitle" onclick="if(event.target===this)closeChartModal()">
   <div class="chart-modal-inner">
     <div class="chart-modal-header">
       <h3 id="chartModalTitle" class="chart-modal-title"></h3>
-      <button class="chart-modal-close btn" type="button" onclick="closeChartModal()">&#x2715; Close</button>
+      <button class="chart-modal-close btn" type="button" aria-label="Close" onclick="closeChartModal()">&#x2715; Close</button>
     </div>
     <div id="chartModalBody" class="chart-modal-body"></div>
   </div>
@@ -100,8 +100,8 @@ allocation-override-table
 <script src="js/planning_workbench_ui.js?v=2"></script>
 <script src="js/dashboard.js?v=29"></script>
 <script src="js/modules/phase3_module_manifest.js?v=1"></script>
-<script src="js/dashboard_roadmap11.js?v=1"></script>
-<script src="js/dashboard_roadmap12.js?v=1"></script>
+<script src="js/dashboard_source_truth_banners.js?v=1"></script>
+<script src="js/dashboard_batch_assumption_edit.js?v=1"></script>
 <script src="js/spending_dashboard.js?v=11"></script>
 </body>
 </html>

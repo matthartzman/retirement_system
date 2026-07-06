@@ -1,6 +1,25 @@
 from __future__ import annotations
 import sys as _sys
 
+# This module is a deliberate consolidation of 8 previously-separate engine
+# files (growth_engine.py, inheritance_engine.py, mortality_engine.py,
+# withdrawal_engine.py, conversion_engine.py, projection_engine.py,
+# monte_carlo_engine.py, v8.3_vectorized_monte_carlo_engine.py) — the
+# "# ===== BEGIN/END <file>.py =====" markers below preserve that boundary.
+# Do not re-split this file without first tracing cross-section calls (e.g.
+# the Monte Carlo section calls sample_household_death_years, defined in the
+# mortality_engine section, and project(), defined in the projection_engine
+# section) — splitting naively reintroduces a circular import between
+# whichever files end up on each side of the cut. See
+# documentation/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md Phase 2c for the analysis
+# that led to keeping this as one file.
+#
+# _ar/_aa/_we/_ce/_ie/_ge below are NOT dead code despite looking unused
+# within this file: src/projection_stages/deterministic_engine.py does
+# `from ..planning_engines import *` (which skips underscore-prefixed names)
+# and then explicitly rebinds these six as `_legacy_pe._ar` etc. to recover
+# them. Removing any of them breaks that module's import at load time.
+
 
 # ===== BEGIN growth_engine.py =====
 
@@ -112,7 +131,7 @@ movement is based on owner/tax traits instead of owner-specific account names.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional
 
 
 @dataclass
@@ -348,7 +367,7 @@ stabilize before a full projection-engine extraction.
 """
 
 
-from typing import Callable, Dict, Iterable, List, Mapping, MutableMapping, Sequence
+from typing import Callable, MutableMapping, Sequence
 from .plan_config import ensure_engine_config
 
 from . import core as _ar  # consolidated from account_registry
@@ -711,9 +730,8 @@ projection loop.  It is intentionally side-effect free except for
 
 
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Iterable, List, Mapping, MutableMapping, Optional
+from typing import MutableMapping
 
-from . import core as _ar  # consolidated from account_registry
 
 
 @dataclass(frozen=True)
@@ -1112,8 +1130,7 @@ only a workbook/report orchestration layer and delegates projection work here.
 
 
 from .core import *  # noqa: F401,F403  # consolidated from engine_core
-from . import core as _ar  # consolidated from account_registry
-from . import core as _aa  # consolidated from account_access
+from . import core as _aa  # noqa: F401  # consolidated from account_access; consumed by projection_stages.deterministic_engine
 _we = _sys.modules[__name__]  # consolidated alias for withdrawal_engine
 _ce = _sys.modules[__name__]  # consolidated alias for conversion_engine
 _ie = _sys.modules[__name__]  # consolidated alias for inheritance_engine
@@ -1158,12 +1175,10 @@ Version 7.5 MC correction:
 """
 
 import copy
-import math
-import random
 from collections import defaultdict
 
-pass  # consolidated: from projection_engine import project
-pass  # consolidated: from mortality_engine import sample_household_death_years
+# consolidated: project() below is from projection_engine; sample_household_death_years()
+# it calls is from mortality_engine (both now defined in this same module).
 
 
 def _roth_strategy_candidate_specs(c: Mapping) -> List[Dict]:
@@ -2044,7 +2059,6 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42):
 
     pct_by_year = {yr: _percentiles(all_total_by_year[yr], 0.0) for yr in base_years}
     liquid_pct_by_year = {yr: _percentiles(all_liquid_by_year[yr], success_threshold) for yr in base_years}
-    end_yr = base_years[-1]
 
     # Quintiles are sorted by first-5-year returns, but success is now funded-plan
     # success and terminal values are terminal liquid assets. Total terminal net
@@ -2527,7 +2541,6 @@ def monte_carlo(c, n_sims=1000, seed=42):
         return monte_carlo_exact_scalar(c, n_sims=n_sims, seed=seed)
 
     import numpy as _np
-    from .observability import observe
     c = ensure_engine_config(c, source='monte_carlo')
     base_rows = project(c)
     base_years = [int(r['year']) for r in base_rows]
