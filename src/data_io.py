@@ -1044,9 +1044,6 @@ def parse_client(data, url_template):
         c['basis_step_up_property_regime'] = 'COMMON_LAW'
     c['federal_portability_enabled'] = _b(_v(data,'Estate Planning','Federal','portability_enabled','TRUE'))
     c['qss_dependent'] = _b(_v(data,'Household','','survivor_has_dependent','FALSE'))
-    # Credit Shelter Trust: if enabled, each spouse uses their own exemption → doubles effective exemption
-    c['credit_shelter_trust'] = str(_v(data,'Estate Planning','Trust Structure',
-                                       'credit_shelter_trust','FALSE')).strip().upper() in ('TRUE','YES','ON','1')
     # Do not double the IL exemption as a shortcut.  The projection now tracks
     # actual first-death credit-shelter funding and subtracts that funded amount
     # from the survivor's taxable estate.

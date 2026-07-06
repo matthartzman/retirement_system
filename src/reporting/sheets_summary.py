@@ -1106,7 +1106,7 @@ def build_sheet2(ws, c, rows):
         ('§121 Exclusion (MFJ)',         500000,   'USD', 'Home sale gain exclusion'),
         ('QCD Annual Limit (per person)', 108000,   'USD', '2025, indexed'),
         ('Federal Estate Exemption (MFJ)',30000000, 'USD', 'Indexed from the tax reference year'),
-        ('IL State Estate Exemption',     c['il_exempt'],  'USD', f'{"With CST doubling" if c.get("credit_shelter_trust") else "No portability"}, cliff structure'),
+        ('IL State Estate Exemption',     c['il_exempt'],  'USD', f'{"With CST doubling" if c.get("cs_enabled") else "No portability"}, cliff structure'),
         ('Annual Gift-Tax Exclusion',     19000,    'USD', 'tax reference year, per donee'),
         ('RMD Start Age',                 75,       'years','SECURE 2.0 §107 — born 1960+'),
         ('NIIT Rate',                     0.038,    'decimal','3.8% on NII above MAGI threshold'),
