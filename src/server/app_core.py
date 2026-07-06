@@ -12,18 +12,16 @@ import io
 import json
 import os
 import re
-import secrets
 import subprocess
 import sys
 import time
 import traceback
 import urllib.error
 import urllib.request
-from collections import defaultdict, deque
 from pathlib import Path
 
 try:
-    from ..http_runtime.flask_compat import (
+    from ..http_runtime.wsgi_facade import (
         Flask,
         HTTPException,
         ProxyFix,
@@ -39,7 +37,7 @@ try:
     )
 except Exception:  # direct file loading fallback
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-    from src.http_runtime.flask_compat import (
+    from src.http_runtime.wsgi_facade import (
         Flask,
         HTTPException,
         ProxyFix,
@@ -159,9 +157,6 @@ SCHEMA_PATH = BASE_DIR / "reference_data" / "schema.csv"
 BUILD_SCRIPT = BASE_DIR / "tools" / "build_workbook.py"
 app = Flask(__name__, static_folder=str(BASE_DIR))
 RUNTIME_CONFIG = load_runtime_config()
-_LOGIN_ATTEMPTS = defaultdict(deque)
-_LOGIN_WINDOW_SECONDS = 15 * 60
-_LOGIN_MAX_FAILURES = 10
 if getattr(RUNTIME_CONFIG, "reverse_proxy_enabled", False):
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
 
@@ -227,10 +222,36 @@ def _sqlite_db() -> Path:
     return p if p.is_absolute() else WORKSPACE_ROOT / p
 
 
+
+# Cache key -> (source mtime_ns, source size) for the last-written target,
+# so a request doesn't re-parse/rewrite system_config.active.csv when the
+# source system_config.csv hasn't changed since the previous request.
+_REQUEST_SYSTEM_CONFIG_CSV_CACHE: dict[str, tuple[int, int]] = {}
+
+
 def _request_system_config_csv() -> Path:
-    """Create a per-request system_config.csv copy for subprocess builds/tools."""
+    """Create a per-request system_config.csv copy for subprocess builds/tools.
+
+    The transform below is deterministic given the source file's content (it
+    always sets the same runtime path values), so a request can safely reuse
+    the target written by a previous request as long as the source hasn't
+    changed and the target still exists.
+    """
     source = _system_config_path()
     target = _workspace_output() / "system_config.active.csv"
+
+    source_fingerprint = None
+    if source.exists():
+        stat = source.stat()
+        source_fingerprint = (stat.st_mtime_ns, stat.st_size)
+        cache_key = str(target)
+        if (
+            source_fingerprint is not None
+            and _REQUEST_SYSTEM_CONFIG_CSV_CACHE.get(cache_key) == source_fingerprint
+            and target.exists()
+        ):
+            return target
+
     rows = []
     if source.exists():
         with source.open(newline="", encoding="utf-8-sig") as f:
@@ -255,254 +276,27 @@ def _request_system_config_csv() -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     with target.open("w", newline="", encoding="utf-8") as f:
         csv.writer(f, lineterminator="\n").writerows(rows)
+    if source_fingerprint is not None:
+        _REQUEST_SYSTEM_CONFIG_CSV_CACHE[str(target)] = source_fingerprint
+    else:
+        _REQUEST_SYSTEM_CONFIG_CSV_CACHE.pop(str(target), None)
     return target
 
 
-def _bootstrap_workspace() -> str:
-    return "local"
-
-
-def _bootstrap_client() -> str:
-    return "local"
-
-
-def _candidate_token() -> str:
-    header_token = extract_bearer_or_header(request.headers)
-    if header_token:
-        return header_token
-    cfg = _runtime_config()
-    return str(request.cookies.get(cfg.session_cookie_name, "") or "").strip()
-
-
-_CSRF_PROCESS_SECRET = secrets.token_bytes(32)
-
-
-def _csrf_token_for_current_request() -> str:
-    """Derive a CSRF token bound to the current session/auth token.
-
-    Uses a per-process random secret so the token is stable for repeated
-    requests within the same run (double-submit pattern) without persisting
-    any new server-side state.
-    """
-    basis = _candidate_token() or f"local:{_current_user().user_id}"
-    return hmac.new(_CSRF_PROCESS_SECRET, basis.encode("utf-8"), hashlib.sha256).hexdigest()
-
-
-def _html_request() -> bool:
-    accept = str(request.headers.get("Accept", ""))
-    return "text/html" in accept or request.path in {"/", "/admin", "/login"}
-
-
-def _public_path() -> bool:
-    path = request.path or ""
-    if path == "/api/ping":
-        return True
-    if path in {"/login", "/api/auth/login", "/api/auth/logout", "/api/auth/session"}:
-        return True
-    if path.startswith("/frontend/assets/"):
-        return True
-    return False
-
-
-
-
-
-
-
-
-def _has_bearer_or_api_header() -> bool:
-    return bool(str(request.headers.get("Authorization", "")).strip() or str(request.headers.get("X-API-Token", "")).strip())
-
-
-
-
-def _cookie_secure_for_request(cfg) -> bool:
-    return bool(cfg.session_cookie_secure or request.is_secure or str(request.headers.get("X-Forwarded-Proto", "")).lower() == "https")
-
-
-def _set_auth_cookie(response, token: str):
-    cfg = _runtime_config()
-    response.set_cookie(
-        cfg.session_cookie_name,
-        token,
-        max_age=int(cfg.session_max_age_hours * 3600),
-        httponly=True,
-        secure=_cookie_secure_for_request(cfg),
-        samesite=cfg.session_cookie_samesite,
-    )
-    return response
-
-
-def _clear_auth_cookie(response):
-    cfg = _runtime_config()
-    response.delete_cookie(cfg.session_cookie_name)
-    return response
-
-
-def _identity_from_token(token: str) -> tuple[bool, UserContext | None]:
-    if not token:
-        return False, None
-    cfg = _runtime_config()
-    token_row = lookup_api_token(token, _sqlite_db())
-    if token_row:
-        return True, UserContext(
-            user_id=str(token_row.get("user_id") or "api-user"),
-            email=str(token_row.get("email") or token_row.get("user_id") or "api-user"),
-            role=str(token_row.get("role") or cfg.default_role),
-            workspace_id=sanitize_id(token_row.get("workspace_id") or cfg.workspace_id),
-        )
-    expected = get_server_token()
-    if constant_time_token_ok(token, expected):
-        return True, UserContext(user_id="server-token", email="server-token", role=cfg.default_role, workspace_id=sanitize_id(cfg.workspace_id))
-    return False, None
-
-
-def _authorized_and_identity() -> tuple[bool, UserContext | None]:
-    return True, None
-
-
-def _current_user() -> UserContext:
-    return UserContext(user_id="local", email="local", role="advisor", workspace_id="local")
-
-
-def _workspace_id() -> str:
-    return "local"
-
-
-def _client_id() -> str:
-    return "local"
-
-
-def _workspace_output() -> Path:
-    out = workspace_output_dir(_workspace_id(), WORKSPACE_ROOT)
-    out.mkdir(parents=True, exist_ok=True)
-    return out
-
-
-def _audit(event: str, details: dict | None = None) -> None:
-    cfg = _runtime_config()
-    details = details or {}
-    user = _current_user() if request else UserContext()
-    if cfg.audit_log_enabled:
-        try:
-            audit_path = _workspace_output() / "audit_log.jsonl"
-            payload = {"event": event, "details": details, "workspace_id": user.workspace_id, "user_id": user.user_id, "timestamp": time.time()}
-            line = json.dumps(payload, sort_keys=True, default=str)
-            if cfg.redact_secrets_in_logs:
-                line = redact_text(line)
-            audit_path.parent.mkdir(parents=True, exist_ok=True)
-            with audit_path.open("a", encoding="utf-8") as f:
-                f.write(line + "\n")
-        except Exception:
-            pass
-        try:
-            append_audit_event_sqlite(event, details, workspace_id=user.workspace_id, user_id=user.user_id, db_path=_sqlite_db())
-        except Exception:
-            pass
-
-
-
-
-
-def _admin_change_log_path_for(workspace_id: str | None = None) -> Path:
-    """Local admin/config change log used by Build Impact."""
-    tid = sanitize_id(workspace_id or _workspace_id())
-    out = workspace_output_dir(tid, WORKSPACE_ROOT)
-    out.mkdir(parents=True, exist_ok=True)
-    return out / "admin_config_change_log.json"
-
-
-def _last_build_metadata_path_for(workspace_id: str | None = None) -> Path:
-    tid = sanitize_id(workspace_id or _workspace_id())
-    out = workspace_output_dir(tid, WORKSPACE_ROOT)
-    out.mkdir(parents=True, exist_ok=True)
-    return out / "last_build_metadata.json"
-
-
-def _row_key_for_change(row: list[str], index: int) -> str:
-    vals = [str(x) for x in row]
-    if len(vals) >= 4 and vals[0].strip().lower() == "system configuration":
-        return " / ".join([vals[0].strip(), vals[1].strip(), vals[2].strip()])
-    if len(vals) >= 4 and vals[0].strip() and vals[2].strip():
-        return " / ".join([vals[0].strip(), vals[1].strip(), vals[2].strip()])
-    return f"row {index + 1}"
-
-
-def _summarize_csv_row_changes(before_rows: list[list[str]], after_rows: list[list[str]], limit: int = 40) -> tuple[list[dict], int]:
-    """Return compact row/value changes between two CSV row lists."""
-    changes: list[dict] = []
-    max_len = max(len(before_rows), len(after_rows))
-    for i in range(max_len):
-        before = before_rows[i] if i < len(before_rows) else []
-        after = after_rows[i] if i < len(after_rows) else []
-        if before == after:
-            continue
-        # Prefer value-column differences for section/subsection/label/value settings.
-        if len(before) >= 4 and len(after) >= 4 and before[:3] == after[:3]:
-            before_value = before[3] if len(before) > 3 else ""
-            after_value = after[3] if len(after) > 3 else ""
-            if before_value != after_value:
-                changes.append({
-                    "label": _row_key_for_change(after, i),
-                    "before": before_value,
-                    "after": after_value,
-                    "row_index": i,
-                })
-                continue
-        changes.append({
-            "label": _row_key_for_change(after or before, i),
-            "before": ", ".join(str(x) for x in before[:6]) if before else "row added",
-            "after": ", ".join(str(x) for x in after[:6]) if after else "row removed",
-            "row_index": i,
-        })
-    return changes[:limit], len(changes)
-
-
-def _record_admin_config_change(kind: str, file_name: str, path: str, before_rows: list[list[str]], after_rows: list[list[str]], workspace_id: str | None = None) -> dict | None:
-    """Append a local admin change event if a CSV actually changed."""
-    changes, count = _summarize_csv_row_changes(before_rows or [], after_rows or [])
-    if count <= 0:
-        return None
-    user = _current_user() if request else UserContext()
-    event = {
-        "timestamp": time.time(),
-        "kind": str(kind or "").lower(),
-        "file": Path(str(file_name or "")).name,
-        "path": str(path or ""),
-        "changed_by": getattr(user, "email", "") or getattr(user, "user_id", "") or "admin",
-        "change_count": count,
-        "changes": changes,
-    }
-    p = _admin_change_log_path_for(workspace_id or getattr(user, "workspace_id", None))
-    try:
-        data = json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
-    except Exception:
-        data = []
-    data.append(event)
-    data = data[-250:]
-    p.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
-    return event
-
-
-def _admin_changes_between(workspace_id: str | None = None, after_ts: float | None = None, before_ts: float | None = None) -> list[dict]:
-    """Admin/config changes after `after_ts` and up to `before_ts` for Build Impact."""
-    p = _admin_change_log_path_for(workspace_id)
-    try:
-        data = json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
-    except Exception:
-        return []
-    out = []
-    for ev in data:
-        try:
-            ts = float(ev.get("timestamp", 0))
-        except Exception:
-            ts = 0.0
-        if after_ts is not None and ts <= float(after_ts):
-            continue
-        if before_ts is not None and ts > float(before_ts):
-            continue
-        out.append(ev)
-    return out
+# Local auth-identity helpers (_bootstrap_workspace, _bootstrap_client,
+# _candidate_token, _html_request, _public_path, _has_bearer_or_api_header,
+# _cookie_secure_for_request, _set_auth_cookie, _clear_auth_cookie,
+# _identity_from_token, _authorized_and_identity, _current_user,
+# _workspace_id, _client_id, _workspace_output) and audit-log helpers
+# (_audit, _admin_change_log_path_for, _last_build_metadata_path_for,
+# _row_key_for_change, _summarize_csv_row_changes, _record_admin_config_change,
+# _admin_changes_between, _read_last_build_timestamp,
+# _write_last_build_metadata) now live in security_audit.py, combined into
+# one file due to bidirectional call coupling between the two clusters.
+try:
+    from .security_audit import *  # noqa: F401,F403
+except Exception:
+    from src.server.security_audit import *  # noqa: F401,F403
 
 
 def _spending_budget_csv_path() -> Path:
@@ -528,17 +322,6 @@ def _spending_budget_save_result(save_fn):
     return jsonify(payload), status
 
 
-def _read_last_build_timestamp(workspace_id: str | None = None) -> float:
-    p = _last_build_metadata_path_for(workspace_id)
-    try:
-        return float((json.loads(p.read_text(encoding="utf-8")) or {}).get("finished_at_ts") or 0)
-    except Exception:
-        return 0.0
-
-
-def _write_last_build_metadata(workspace_id: str | None, payload: dict) -> None:
-    p = _last_build_metadata_path_for(workspace_id)
-    p.write_text(json.dumps(payload, indent=2, sort_keys=True, default=str), encoding="utf-8")
 
 
 def _make_request_system_config_csv_for(workspace: str, client: str, out_dir: Path) -> Path:
@@ -868,115 +651,14 @@ def _write_plan_data_file(file_name: str, content: str, *, preserve_protected: b
 
 
 
-DEPRECATED_ALLOCATION_COUNT_LABELS = {
-    "_".join(parts)
-    for parts in [
-        ("count", "social", "security", "toward", "fixed", "income", "target"),
-        ("count", "pension", "toward", "fixed", "income", "target"),
-        ("count", "annuity", "toward", "fixed", "income", "target"),
-        ("count", "note", "receivable", "toward", "fixed", "income", "target"),
-        ("count", "home", "equity", "toward", "reit", "target"),
-    ]
-}
-
-RETIRED_SCENARIO_HOME_ROW_KEYS = {
-    ("Scenarios", "Sell Home", "home_sale_price"),
-    ("Scenarios", "Sell Home", "home_basis"),
-    ("Scenarios", "Sell Home", "home_value"),
-    ("Scenarios", "Sell Home", "house_value"),
-    ("Scenarios", "Sell Home", "value_as_of_plan_start"),
-    ("Scenarios", "Sell Home", "current_home_value"),
-    ("Scenarios", "Sell Home", "current_value"),
-    ("Scenarios", "Sell Home", "market_value"),
-}
-
-
-def _is_retired_scenario_home_row(row: list[str]) -> bool:
-    cols = list(row) + [""] * 3
-    key = (str(cols[0]).strip(), str(cols[1]).strip(), str(cols[2]).strip())
-    return key in RETIRED_SCENARIO_HOME_ROW_KEYS
-
-
-def _strip_retired_scenario_home_rows(rows: list[list[str]]) -> tuple[list[list[str]], int]:
-    kept: list[list[str]] = []
-    removed = 0
-    for row in rows:
-        if _is_retired_scenario_home_row(row):
-            removed += 1
-            continue
-        kept.append(row)
-    return kept, removed
-
-
-def _strip_retired_scenario_home_csv(content: str) -> tuple[str, int]:
-    source = io.StringIO(content or "")
-    rows = list(csv.reader(source))
-    kept, removed = _strip_retired_scenario_home_rows(rows)
-    if not removed:
-        return content, 0
-    out = io.StringIO()
-    csv.writer(out, lineterminator="\n").writerows(kept)
-    return out.getvalue(), removed
-
-
-def _purge_retired_scenario_home_rows_from_plan_data() -> int:
-    removed_total = 0
-    for name in CLIENT_DATA_CSV_FILES:
-        path = _plan_data_path(name, prefer_existing=True)
-        if not path.exists():
-            continue
-        rows = _csv_read_rows(path)
-        kept, removed = _strip_retired_scenario_home_rows(rows)
-        if removed:
-            _csv_write_rows(path, kept)
-            removed_total += removed
-    return removed_total
-
-
-
-def _is_deprecated_allocation_count_row(row: list[str]) -> bool:
-    cols = list(row) + [""] * 3
-    return (
-        str(cols[0]).strip() == "Model Constants"
-        and str(cols[1]).strip() == "Allocation"
-        and str(cols[2]).strip() in DEPRECATED_ALLOCATION_COUNT_LABELS
-    )
-
-
-def _strip_deprecated_allocation_count_rows(rows: list[list[str]]) -> tuple[list[list[str]], int]:
-    kept: list[list[str]] = []
-    removed = 0
-    for row in rows:
-        if _is_deprecated_allocation_count_row(row):
-            removed += 1
-            continue
-        kept.append(row)
-    return kept, removed
-
-
-def _strip_deprecated_allocation_count_csv(content: str) -> tuple[str, int]:
-    source = io.StringIO(content or "")
-    rows = list(csv.reader(source))
-    kept, removed = _strip_deprecated_allocation_count_rows(rows)
-    if not removed:
-        return content, 0
-    out = io.StringIO()
-    csv.writer(out, lineterminator="\n").writerows(kept)
-    return out.getvalue(), removed
-
-
-def _purge_deprecated_allocation_count_rows_from_plan_data() -> int:
-    removed_total = 0
-    for name in CLIENT_DATA_CSV_FILES:
-        path = _plan_data_path(name, prefer_existing=True)
-        if not path.exists():
-            continue
-        rows = _csv_read_rows(path)
-        kept, removed = _strip_deprecated_allocation_count_rows(rows)
-        if removed:
-            _csv_write_rows(path, kept)
-            removed_total += removed
-    return removed_total
+# Plan Data CSV row migration/purge helpers (DEPRECATED_ALLOCATION_COUNT_LABELS,
+# RETIRED_SCENARIO_HOME_ROW_KEYS, _strip_rows_matching, _strip_csv_rows_matching,
+# _purge_rows_matching_from_plan_data, and the retired-scenario-home /
+# deprecated-allocation-count migrations) now live in csv_migration.py.
+try:
+    from .csv_migration import *  # noqa: F401,F403
+except Exception:
+    from src.server.csv_migration import *  # noqa: F401,F403
 
 
 def _csv_read_rows(path: Path) -> list[list[str]]:
@@ -1062,11 +744,6 @@ SOCIAL_SECURITY_FUNDING_UI_PLAN_DATA_ROWS: list[list[str]] = [
 
 HEALTHCARE_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Wellness", "Medicare", "part_g_base_premium_monthly", "$0", "dollars", "Current monthly Medicare Supplement Plan G / Medigap-style premium per Medicare-enrolled person. Enter $0 if no supplement is modeled."],
-]
-
-HOUSEHOLD_NICKNAME_UI_PLAN_DATA_ROWS: list[list[str]] = [
-    ["Household", "", "member_1_nickname", "", "", "Short name used in all reports and charts. Leave blank to use the first name."],
-    ["Household", "", "member_2_nickname", "", "", "Short name used in all reports and charts. Leave blank to use the first name."],
 ]
 
 HELOC_UI_PLAN_DATA_ROWS: list[list[str]] = [
@@ -1167,7 +844,6 @@ def _ensure_user_ui_plan_data_rows() -> None:
     _ensure_roth_ui_plan_data_rows()
     _ensure_hsa_withdrawal_ui_plan_data_rows()
     _ensure_social_security_funding_ui_plan_data_rows()
-    _ensure_household_nickname_ui_plan_data_rows()
     _ensure_wellness_ui_plan_data_rows()
     _ensure_heloc_ui_plan_data_rows()
     _ensure_core_spending_ui_plan_data_rows()
@@ -1206,29 +882,6 @@ def _ensure_social_security_funding_ui_plan_data_rows() -> None:
             break
     rows[insert_at:insert_at] = additions
     _csv_write_rows(income_path, rows)
-
-
-def _ensure_household_nickname_ui_plan_data_rows() -> None:
-    """Backfill per-person nickname rows next to each member's name row."""
-    household_path = _plan_data_path("client_household.csv", prefer_existing=False)
-    rows = _ensure_header(_csv_read_rows(household_path))
-    seen = {_row_key(r) for r in rows[1:]}
-    changed = False
-    for canonical in HOUSEHOLD_NICKNAME_UI_PLAN_DATA_ROWS:
-        if _row_key(canonical) in seen:
-            continue
-        name_label = str(canonical[2]).replace("_nickname", "_name")
-        insert_at = len(rows)
-        for i, row in enumerate(rows[1:], start=1):
-            sec = str(row[0] if row else "").strip()
-            lbl = str(row[2] if len(row) > 2 else "").strip()
-            if sec == "Household" and lbl == name_label:
-                insert_at = i + 1
-                break
-        rows[insert_at:insert_at] = [list(canonical)]
-        changed = True
-    if changed:
-        _csv_write_rows(household_path, rows)
 
 
 def _ensure_wellness_ui_plan_data_rows() -> None:
@@ -1896,28 +1549,6 @@ def _require(permission: str):
         if _html_request() and not str(request.path or "").startswith("/api/"):
             return _permission_denied_html(str(exc), permission)
         return jsonify({"success": False, "error": str(exc)}), 403
-
-
-def _remote_addr_key() -> str:
-    forwarded = str(request.headers.get("X-Forwarded-For", "") or "").split(",", 1)[0].strip()
-    return forwarded or str(request.remote_addr or "unknown")
-
-
-def _login_rate_limited(key: str) -> bool:
-    now = time.time()
-    attempts = _LOGIN_ATTEMPTS[key]
-    while attempts and now - attempts[0] > _LOGIN_WINDOW_SECONDS:
-        attempts.popleft()
-    return len(attempts) >= _LOGIN_MAX_FAILURES
-
-
-def _record_login_failure(key: str) -> None:
-    attempts = _LOGIN_ATTEMPTS[key]
-    attempts.append(time.time())
-
-
-def _clear_login_failures(key: str) -> None:
-    _LOGIN_ATTEMPTS.pop(key, None)
 
 
 @app.before_request

@@ -6,7 +6,6 @@ from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 
 ROOT = Path(__file__).resolve().parents[1]
-WORKBOOK = ROOT / 'output' / 'retirement_plan.xlsx'
 
 
 def _zero_money(value) -> bool:
@@ -16,8 +15,8 @@ def _zero_money(value) -> bool:
         return False
 
 
-def test_before_after_rebalancing_omits_zero_before_and_after_rows():
-    wb = load_workbook(WORKBOOK, data_only=False, read_only=True)
+def test_before_after_rebalancing_omits_zero_before_and_after_rows(built_workbook_path):
+    wb = load_workbook(built_workbook_path, data_only=False, read_only=True)
     ws = wb['2B. Asset Allocation']
     start = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == 'BEFORE & AFTER REBALANCING')
     zero_rows = []
@@ -45,8 +44,8 @@ def test_before_after_rebalancing_omits_zero_before_and_after_rows():
     assert zero_rows == []
 
 
-def test_asset_allocation_columns_are_compact_and_wrapped():
-    wb = load_workbook(WORKBOOK, data_only=False)
+def test_asset_allocation_columns_are_compact_and_wrapped(built_workbook_path):
+    wb = load_workbook(built_workbook_path, data_only=False)
     ws = wb['2B. Asset Allocation']
     width_total = sum(ws.column_dimensions[get_column_letter(i)].width or 8.43 for i in range(1, 11))
     assert width_total <= 125

@@ -27,15 +27,14 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        # scipy (portfolio and tax-location optimizers) and lxml (workbook XML
-        # chart-value caches) are optional runtime features with graceful
-        # fallbacks; the test suite exercises them directly, so install them here.
-        pip install pytest pytest-cov ruff scipy lxml
+        pip install -r requirements.txt -r requirements-dev.txt
 
     - name: Lint with ruff
       run: |
         ruff check src/ tests/
+
+    - name: Type check (mypy, informational — not yet a merge gate)
+      run: mypy src/ --ignore-missing-imports || true
 
     - name: Run tests
       run: |
@@ -47,6 +46,21 @@ jobs:
       with:
         files: ./coverage.xml
         fail_ci_if_error: false
+
+  frontend-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+
+    - uses: actions/setup-node@v6
+      with:
+        node-version: "22"
+
+    - name: Frontend JS unit tests
+      # node 22 (LTS) is required: `node --test` only gained glob-pattern
+      # expansion in node 21, so on node 20 the pattern below is treated as a
+      # literal path ("Could not find ...") and the job errors.
+      run: node --test "tests/frontend/**/*.test.mjs"
 
   regression-checks:
     runs-on: ubuntu-latest

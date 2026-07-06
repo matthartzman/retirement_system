@@ -5,6 +5,14 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
+# output/js, output/css, output/index.html are a byte-for-byte copy of
+# frontend/ written by src/dashboard_ui/builder.py:write_dashboard_ui for
+# offline workbook bundles. They drifted from frontend/ while committed
+# (nothing regenerated them automatically) — keep them generated-only.
+output/js/
+output/css/
+output/index.html
+
 # Local runtime state and recovery/backup copies
 local_state/
 _recovery_local_state_*/

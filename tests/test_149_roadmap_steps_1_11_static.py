@@ -8,7 +8,7 @@ def read(path):
 
 
 def test_frontend_phase3_and_ux_surfaces_present():
-    js = read("frontend/js/dashboard_roadmap11.js")
+    js = read("frontend/js/dashboard_source_truth_banners.js")
     assert "dashboard_phase3_module_manifest_v1" in js
     assert "source-of-truth" in js
     assert "Recommended spending flow" in js
@@ -24,7 +24,7 @@ def test_frontend_phase3_and_ux_surfaces_present():
 def test_index_loads_modular_overlay_and_manifest():
     html = read("frontend/index.html")
     assert "js/modules/phase3_module_manifest.js" in html
-    assert "js/dashboard_roadmap11.js" in html
+    assert "js/dashboard_source_truth_banners.js" in html
 
 
 def test_css_and_docs_record_roadmap_steps_1_11():
@@ -39,7 +39,7 @@ def test_css_and_docs_record_roadmap_steps_1_11():
 
 
 def test_static_journey_guards_for_remaining_roadmap_items():
-    js = read("frontend/js/dashboard_roadmap11.js")
+    js = read("frontend/js/dashboard_source_truth_banners.js")
     assert "Review and Build" in js
     assert "Categories → Transactions → Spending Analysis" in js
     assert "Open source input" in js

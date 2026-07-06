@@ -1,15 +1,13 @@
-from pathlib import Path
 from openpyxl import load_workbook
 
 
-def _visible_wb():
-    path = Path('output/retirement_plan.xlsx')
-    assert path.exists(), 'Generated workbook is missing'
-    return load_workbook(path, read_only=False, data_only=False)
+def _visible_wb(workbook_path):
+    assert workbook_path.exists(), 'Generated workbook is missing'
+    return load_workbook(workbook_path, read_only=False, data_only=False)
 
 
-def test_system_section_uses_clean_sheet_sequence_without_feature_toggle():
-    wb = _visible_wb()
+def test_system_section_uses_clean_sheet_sequence_without_feature_toggle(built_workbook_path):
+    wb = _visible_wb(built_workbook_path)
     visible = [ws.title for ws in wb.worksheets if ws.sheet_state == 'visible']
     expected = [
         '1. Reports','1A. Executive Summary','1B. Net Worth','1C. Cash Flow','1D. Balance Sheet','1E. Charts','1F. Lifetime Taxes',
@@ -23,8 +21,8 @@ def test_system_section_uses_clean_sheet_sequence_without_feature_toggle():
     assert '4A. Plan Scope' not in visible
 
 
-def test_visible_workbook_has_no_stale_feature_or_plan_scope_labels():
-    wb = _visible_wb()
+def test_visible_workbook_has_no_stale_feature_or_plan_scope_labels(built_workbook_path):
+    wb = _visible_wb(built_workbook_path)
     banned = ['Feature Toggle', 'Feature Toggles', 'FEATURE TOGGLES', 'Feature / Toggle', 'Plan Scope', 'Charts Dashboard', 'System Configuration']
     hits = []
     for ws in wb.worksheets:
@@ -39,8 +37,8 @@ def test_visible_workbook_has_no_stale_feature_or_plan_scope_labels():
     assert not hits
 
 
-def test_column_width_caps_are_applied_without_header_driven_expansion():
-    wb = _visible_wb()
+def test_column_width_caps_are_applied_without_header_driven_expansion(built_workbook_path):
+    wb = _visible_wb(built_workbook_path)
     # The generated layout pass uses Excel character widths approximating the requested pixel caps.
     max_text_width = round((200 - 5) / 7, 1) + 0.1
     max_dollar_width = round((71 - 5) / 7, 1) + 0.1

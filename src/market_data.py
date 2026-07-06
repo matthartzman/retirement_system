@@ -1539,18 +1539,6 @@ PRICE_SOURCE_CACHE: Dict[str, str] = {}
 
 
 def configure_holdings_pricing(mode: str = "CACHE", cache_hours: object = 24) -> None:
-    # Test/CI determinism hook. When RETIREMENT_SYSTEM_FORCE_PRICING_MODE is set
-    # (tests/conftest.py pins it to OFFLINE), the default provider ignores the
-    # config-requested pricing_mode and prices holdings only from the committed
-    # cache snapshot / holdings cost basis — never live market data. This makes
-    # golden-master projections reproducible in CI without any manual env-var
-    # juggling. It affects ONLY _DEFAULT_PROVIDER (the provider parse_client
-    # drives); tests that construct their own MarketDataProvider and call the
-    # instance method directly (live-provider retries, frozen-snapshot) are
-    # untouched, so their behavior is still exercised.
-    forced = str(os.getenv("RETIREMENT_SYSTEM_FORCE_PRICING_MODE", "") or "").strip()
-    if forced:
-        mode = forced
     _DEFAULT_PROVIDER.configure_holdings_pricing(mode=mode, cache_hours=cache_hours)
 
 def configure_api_keys(fmp_api_key: object = "", alpha_vantage_api_key: object = "") -> None:

@@ -183,4 +183,4 @@ The Excel workbook build is triggered via `/api/build/start` and runs `tools/bui
 - `retirement_system_v10.db.overlaid_<timestamp>` — created after a plan overlay (e.g. "Start New Plan" on top of existing data)
 - `retirement_system_v10.db.before_csv_import_<timestamp>` / `.overwritten_<timestamp>` — created before bulk CSV import / overwrite
 
-Full-project zip backups are written to OneDrive `Retirement Planning/Backups` by `tools/backup_to_onedrive.py` on each `build.py` rebuild. This working folder currently has no `.git/` metadata; generated/heavy dirs (`dist/`, `build/`, `output/`, `local_state/`) remain listed in `.gitignore` for source-control hygiene when the tree is placed under git.
+Full-project zip backups are written to OneDrive `Retirement Planning/Backups` by `tools/backup_to_onedrive.py` on each `build.py` rebuild. The repo is under git; generated/heavy dirs (`dist/`, `build/`, `output/`, `local_state/`) are listed in `.gitignore` for source-control hygiene.

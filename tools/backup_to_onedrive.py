@@ -10,8 +10,9 @@ rebuild"), and can also be run by hand:
 
 Backup destination is resolved in this order:
   1. env var  RP_BACKUP_DIR                      (explicit override)
-  2. <OneDriveCommercial>/5-Personal/Hartzman Vault/Retirement Planning/Backups
-  3. a hard-coded fallback to the known OneDrive folder
+  2. <OneDriveCommercial or OneDrive>/5-Personal/Hartzman Vault/Retirement Planning/Backups
+  3. a local fallback under the current user's home directory, so this script
+     never fails or requires machine-specific configuration
 
 The zip contains EVERYTHING including the built exe (dist/), per the chosen
 backup policy.  Only throwaway caches are skipped (see EXCLUDE_DIRS).
@@ -58,11 +59,9 @@ def resolve_backup_dir() -> Path:
         if candidate.parent.parent.exists():
             return candidate
 
-    # Last-resort hard-coded fallback (known absolute path).
-    return Path(
-        r"C:\Users\MattHartzman\OneDrive - Hartzman Partners LLC"
-        r"\5-Personal\Hartzman Vault\Retirement Planning\Backups"
-    )
+    # Last-resort fallback: a local, portable location under the current
+    # user's home directory. Works on any machine/OS with no configuration.
+    return Path.home() / "RetirementPlannerBackups"
 
 
 def iter_files(root: Path):

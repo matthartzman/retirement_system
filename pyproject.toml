@@ -1,3 +1,19 @@
+[tool.pytest.ini_options]
+# Lets `pytest` run from the repo root with no manual PYTHONPATH=. — the test
+# suite imports `src.*` as an absolute package relative to the project root.
+pythonpath = ["."]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "--tb=short -q"
+markers = [
+    "slow: exercises the full build pipeline via subprocess; skip locally with -m 'not slow'",
+]
+# Safety net, not a performance target: a test that leaks global state and
+# triggers a real (hanging) network call should fail loudly instead of
+# hanging CI indefinitely. 150s comfortably exceeds the slowest legitimate
+# test (the build-pipeline smoke test's own internal 120s subprocess timeout).
+timeout = 150
+
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
@@ -65,13 +81,19 @@ ignore = [
     "W293",  # whitespace on blank line
 ]
 
-[tool.pytest.ini_options]
-# Put the project root on sys.path so tests can `from src...` under a bare
-# `pytest` invocation (CI), not only under `python -m pytest` (which adds CWD).
-pythonpath = ["."]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-addopts = "--tb=short -q"
+[tool.mypy]
+# `mypy src/` currently reports ~264 pre-existing errors, not a day-one CI
+# gate (same reasoning as the ruff F401 backlog above). Breakdown: 102 are
+# false positives — src/server/{admin,base,workbook}_routes.py and
+# src/reporting/sheets_stress.py use `from .app_core import *` /
+# `from .workbook_common import *`, and mypy does not reliably resolve names
+# through wildcard imports the way the Python runtime does. The remaining
+# ~162 (arg-type, no-redef, union-attr, operator, call-arg, ...) are a real
+# backlog worth working through incrementally, not fixing wholesale as a side
+# effect of adding the tool. Run `mypy src/ --ignore-missing-imports` locally;
+# CI runs it informationally (see .github/workflows/ci.yml) without failing
+# the build until the backlog is addressed.
+ignore_missing_imports = true
 
 [tool.coverage.run]
 branch = true

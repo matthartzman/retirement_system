@@ -11,8 +11,8 @@ def read(path: str) -> str:
 
 def test_batch_assumption_overlay_is_loaded_and_preview_first():
     html = read("frontend/index.html")
-    js = read("frontend/js/dashboard_roadmap12.js")
-    assert "dashboard_roadmap12.js" in html
+    js = read("frontend/js/dashboard_batch_assumption_edit.js")
+    assert "dashboard_batch_assumption_edit.js" in html
     assert "batch_assumption_edit_v1" in js
     assert "Preview batch" in js
     assert "Apply preview to staged edits" in js
@@ -21,7 +21,7 @@ def test_batch_assumption_overlay_is_loaded_and_preview_first():
 
 
 def test_batch_tools_cover_all_assumptions_and_system_configuration():
-    js = read("frontend/js/dashboard_roadmap12.js")
+    js = read("frontend/js/dashboard_batch_assumption_edit.js")
     assert "batch-assumption-edit" in js
     assert "system-config-batch-edit" in js
     assert "rowsForStep('all_assumptions')" in js
@@ -32,7 +32,7 @@ def test_batch_tools_cover_all_assumptions_and_system_configuration():
 
 def test_batch_tools_have_styles_and_output_asset_copy():
     css = read("frontend/css/dashboard.css")
-    out_js = read("output/js/dashboard_roadmap12.js")
+    out_js = read("output/js/dashboard_batch_assumption_edit.js")
     assert "batch-edit-panel" in css
     assert "batch-preview-table" in css
     assert "batch_assumption_edit_v1" in out_js

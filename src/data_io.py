@@ -344,6 +344,15 @@ def parse_client(data, url_template):
     # Household
     c['h_name']    = _v(data,'Household','','member_1_name','Matthew')
     c['w_name']    = _v(data,'Household','','member_2_name','Patricia')
+    # Nicknames: short names used in every user-facing report/chart label.
+    # Fall back to the first word of the full name when not provided.
+    def _nick(raw, full_name):
+        raw = str(raw or '').strip()
+        if raw:
+            return raw
+        return str(full_name or '').strip().split(' ')[0] if str(full_name or '').strip() else ''
+    c['h_nick'] = _nick(_v(data,'Household','','member_1_nickname',''), c['h_name'])
+    c['w_nick'] = _nick(_v(data,'Household','','member_2_nickname',''), c['w_name'])
     c['h_dob_yr']  = _y(_v(data,'Household','','member_1_dob','8/3/1962').split('/')[-1], 1962)
     c['w_dob_yr']  = _y(_v(data,'Household','','member_2_dob','5/30/1961').split('/')[-1], 1961)
     _h_ret_raw = _v(data,'Household','','member_1_retirement_date','1/1/2027')
@@ -363,8 +372,15 @@ def parse_client(data, url_template):
         fmp_api_key=_sv('Market Pricing', 'API', 'fmp_api_key', ''),
         alpha_vantage_api_key=_sv('Market Pricing', 'API', 'alpha_vantage_api_key', ''),
     )
+    # Test/CI determinism hook: when RETIREMENT_SYSTEM_FORCE_PRICING_MODE is set
+    # (tests/conftest.py pins it to OFFLINE), holdings are priced only from the
+    # committed cache snapshot / cost basis — never live market data — so
+    # golden-master projections are reproducible in CI. Scoped to parse_client
+    # so the generic market_data.configure_holdings_pricing() stays pure for the
+    # unit tests that assert its mode-handling behavior directly.
+    _forced_pricing_mode = os.getenv('RETIREMENT_SYSTEM_FORCE_PRICING_MODE', '').strip()
     configure_holdings_pricing(
-        mode=_sv('Market Pricing', 'Holdings', 'pricing_mode', 'CACHE'),
+        mode=_forced_pricing_mode or _sv('Market Pricing', 'Holdings', 'pricing_mode', 'CACHE'),
         cache_hours=_sv('Market Pricing', 'Holdings', 'cache_hours', '24'),
     )
     # A user-controlled pricing freeze overrides live/cache mode for builds so
@@ -400,6 +416,7 @@ def parse_client(data, url_template):
     # The members list is the generalized interface used by the model.
     _m1 = {
         'name':          c['h_name'],
+        'nickname':      c['h_nick'],
         'role':          'member_1',
         'dob_yr':        c['h_dob_yr'],
         'retire_yr':     c['h_ret_yr'],
@@ -410,6 +427,7 @@ def parse_client(data, url_template):
     if _has_member_2:
         _m2 = {
             'name':          c['w_name'],
+            'nickname':      c['w_nick'],
             'role':          'member_2',
             'dob_yr':        c['w_dob_yr'],
             'retire_yr':     c['w_ret_yr'],
@@ -1958,6 +1976,7 @@ def build_plan_from_json(plan, url_template=''):
                                         'retirement_year': datetime.date.today().year + 4, 'mortality_age': 90}])
     m1 = members_in[0]
     c['h_name']     = m1.get('name', 'Member 1')
+    c['h_nick']     = str(m1.get('nickname') or '').strip() or str(c['h_name']).strip().split(' ')[0]
     c['h_dob_yr']   = int(m1.get('dob_year', 1965))
     c['h_ret_yr']   = int(m1.get('retirement_year', datetime.date.today().year + 4))
     c['h_mort_age'] = int(m1.get('mortality_age', 90))
@@ -1966,12 +1985,14 @@ def build_plan_from_json(plan, url_template=''):
     if len(members_in) > 1:
         m2 = members_in[1]
         c['w_name']     = m2.get('name', 'Member 2')
+        c['w_nick']     = str(m2.get('nickname') or '').strip() or str(c['w_name']).strip().split(' ')[0]
         c['w_dob_yr']   = int(m2.get('dob_year', 1965))
         c['w_ret_yr']   = int(m2.get('retirement_year', datetime.date.today().year + 4))
         c['w_mort_age'] = int(m2.get('mortality_age', 92))
         c['w_death_yr'] = c['w_dob_yr'] + c['w_mort_age']
     else:
         c['w_name'] = ''
+        c['w_nick'] = ''
         c['w_dob_yr'] = c['h_dob_yr']
         c['w_ret_yr'] = c['h_ret_yr']
         c['w_mort_age'] = 0

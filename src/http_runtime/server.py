@@ -5,7 +5,7 @@ from __future__ import annotations
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
-from .flask_compat import Response
+from .wsgi_facade import Response
 
 
 class _Handler(BaseHTTPRequestHandler):

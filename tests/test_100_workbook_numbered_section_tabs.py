@@ -1,11 +1,9 @@
-from pathlib import Path
 from openpyxl import load_workbook
 
 
-def test_workbook_uses_numbered_sections_and_lettered_children():
-    path = Path('output/retirement_plan.xlsx')
-    assert path.exists(), 'Generated workbook is missing'
-    wb = load_workbook(path, read_only=False, data_only=False)
+def test_workbook_uses_numbered_sections_and_lettered_children(built_workbook_path):
+    assert built_workbook_path.exists(), 'Generated workbook is missing'
+    wb = load_workbook(built_workbook_path, read_only=False, data_only=False)
     visible = [ws.title for ws in wb.worksheets if ws.sheet_state == 'visible']
     expected = [
         '1. Reports',
@@ -47,8 +45,8 @@ def test_workbook_uses_numbered_sections_and_lettered_children():
     assert 'System Configuration' not in visible
 
 
-def test_summary_tabs_reference_child_tabs():
-    wb = load_workbook('output/retirement_plan.xlsx', read_only=False, data_only=False)
+def test_summary_tabs_reference_child_tabs(built_workbook_path):
+    wb = load_workbook(built_workbook_path, read_only=False, data_only=False)
     summary_expected = {
         '1. Reports': ['1A. Executive Summary', '1B. Net Worth', '1C. Cash Flow', '1D. Balance Sheet', '1E. Charts'],
         '2. Optimizers': ['2A. Roth Conversion', '2B. Asset Allocation', '2C. State Residency', '2D. Social Security', '2E. S-Corp vs LLC', '2G. Estate & Legacy Planning'],
@@ -62,8 +60,8 @@ def test_summary_tabs_reference_child_tabs():
             assert child in values
 
 
-def test_strategy_scorp_ltc_and_asset_location_merges_are_present():
-    wb = load_workbook('output/retirement_plan.xlsx', read_only=False, data_only=False)
+def test_strategy_scorp_ltc_and_asset_location_merges_are_present(built_workbook_path):
+    wb = load_workbook(built_workbook_path, read_only=False, data_only=False)
     exec_text = ' '.join(str(c.value or '') for row in wb['1A. Executive Summary'].iter_rows() for c in row)
     scorp_text = ' '.join(str(c.value or '') for row in wb['2E. S-Corp vs LLC'].iter_rows() for c in row)
     allocation_text = ' '.join(str(c.value or '') for row in wb['2B. Asset Allocation'].iter_rows() for c in row)

@@ -42,7 +42,12 @@ def main() -> int:
         print(f"\nBUILD FAILED (PyInstaller exit code {rc}). Skipping backup.", file=sys.stderr)
         return rc
 
-    exe = ROOT / "dist" / "retirement_planner" / "retirement_planner.exe"
+    # PyInstaller appends ".exe" on Windows; on Linux/Mac the binary has no
+    # suffix. Check for whichever this platform actually produced instead of
+    # assuming Windows, so a successful build on Linux/Mac doesn't get
+    # reported as failed.
+    exe_name = "retirement_planner.exe" if sys.platform == "win32" else "retirement_planner"
+    exe = ROOT / "dist" / "retirement_planner" / exe_name
     if not exe.exists():
         print(f"\nBuild reported success but exe is missing: {exe}", file=sys.stderr)
         return 1
