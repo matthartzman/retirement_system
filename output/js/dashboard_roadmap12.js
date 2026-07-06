@@ -93,9 +93,9 @@
     const apply=byId('batchPlanApply');if(apply)apply.disabled=!planPreview.length;
     const dl=byId('batchPlanDownload');if(dl)dl.disabled=!planPreview.length;
   }
-  function applyPlanBatchEdit(){
+  async function applyPlanBatchEdit(){
     if(!planPreview.length){show('Preview a batch edit before applying it.','error');return;}
-    if(planPreview.length>MAX_PREVIEW&&!confirm('This will stage '+planPreview.length+' plan assumption edits. Continue?'))return;
+    if(planPreview.length>MAX_PREVIEW&&!await showInAppConfirm('This stages '+planPreview.length+' plan assumption edits in bulk. Save Changes to persist.',{title:'Batch Edit',confirmLabel:'Apply All'}))return;
     planPreview.forEach(function(p){try{editValue(p.row.row_index,p.after,null);}catch(_e){}});
     const count=planPreview.length;
     planPreview=[];
@@ -134,7 +134,7 @@
   }
   async function applySystemBatchEdit(){
     if(!systemPreview.length){show('Preview System Configuration edits before applying them.','error');return;}
-    if(!confirm('Apply '+systemPreview.length+' System Configuration edit'+(systemPreview.length===1?'':'s')+' now? These write to system_config.csv immediately.'))return;
+    if(!await showInAppConfirm(systemPreview.length+' System Configuration edit'+(systemPreview.length===1?'':'s')+' will be written to system_config.csv immediately.',{title:'Apply System Config',confirmLabel:'Apply Now',variant:'warn'}))return;
     const keyFor=function(r){return [r.section||'',r.subsection||'',r.label||''].join('\u001f');};
     const updates={};systemPreview.forEach(function(p){updates[keyFor(p.row)]=p.after;});
     const next=systemRows.map(function(r){const cp=Object.assign({},r);const k=keyFor(cp);if(Object.prototype.hasOwnProperty.call(updates,k))cp.value=updates[k];return cp;});
@@ -144,7 +144,6 @@
       const box=byId('batchSystemPreview');if(box)box.innerHTML='<div class="batch-preview-empty">System Configuration batch edit applied. Rebuild outputs before relying on reports.</div>';
       const apply=byId('batchSystemApply');if(apply)apply.disabled=true;
       const dl=byId('batchSystemDownload');if(dl)dl.disabled=true;
-      try{refreshSystemConfigurationFrame();}catch(_e){}
       show('System Configuration batch edit saved. Change count: '+((out.change_event&&out.change_event.change_count)||'unknown')+'.','success');
     }catch(e){show('System Configuration batch edit failed: '+(e&&e.message?e.message:e),'error');}
   }

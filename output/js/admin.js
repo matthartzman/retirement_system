@@ -58,7 +58,20 @@ const COLUMN_HELPERS={
 function modeCard(key,m,current){return `<div class="mode-card active"><h3>${esc(m.title)}</h3><p>${esc(m.description)}</p><p><b>Host:</b> <span class="code">${esc(m.host)}</span></p><p><b>Start:</b> <span class="code">${esc(m.command)}</span></p></div>`}
 async function showAppSettings(){setAdminStep('app_settings');const s=await api('/api/admin/server');document.getElementById('main').innerHTML=`<h2>App settings</h2><div class="row"><span class="pill">Mode: Local desktop</span><span class="pill">URL: ${esc('http://'+s.host+':'+s.port)}</span></div><div class="mode-grid">${Object.entries(s.modes||{}).map(([k,v])=>modeCard(k,v,s.app_mode)).join('')}</div><p class="muted">This build is local-only. Client registry, public-hosting, reverse-proxy, and browser-login controls have been removed from this local-only UI.</p><button class="primary" onclick="showSystemConfig('build_timeout')">Edit build timeout / max_build_seconds</button><h3>Start commands</h3><table><tr><th>Command</th><th>Purpose</th></tr>${Object.entries(s.commands||{}).map(([k,v])=>`<tr><td>${esc(k)}</td><td><code>${esc(v)}</code></td></tr>`).join('')}</table><button class="danger" onclick="shutdown()">Shut down app</button>`;msg('App settings loaded')}
 async function applyMode(mode){msg('This package is local-only. Operating mode changes are no longer available.')}
-async function logout(){location.href='/'}
+function navigateToClientUi(){
+  if(window.__is_desktop_app__){
+    // Call the pywebview bridge directly instead of relying on
+    // location.href interception: WebView2/EdgeChromium does not always
+    // allow pywebview_bridge.js to override Location.prototype.href (see
+    // the try/catch there), so that path can silently fall through to a
+    // real file:// navigation to a URL that doesn't exist on disk.
+    if(window.pywebview&&window.pywebview.api){window.pywebview.api.navigate('/')}
+    else{window.addEventListener('pywebviewready',function(){window.pywebview.api.navigate('/')},{once:true})}
+    return;
+  }
+  location.href='/';
+}
+async function logout(){navigateToClientUi()}
 async function shutdown(){await api('/api/admin/server/shutdown',{method:'POST',body:'{}'});msg('Shutdown requested. Close this tab after the app closes.')}
 
 function rowCell(row,i){return String((row||[])[i]??'')}

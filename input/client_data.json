@@ -437,7 +437,6 @@
       "property_regime": "COMMON_LAW"
     },
     "Trust Structure": {
-      "credit_shelter_trust": "TRUE",
       "trust_type": "revocable living trust"
     }
   },
@@ -794,7 +793,16 @@
     }
   },
   "Note Receivable": {
-    "Interest by Year": {
+    "Note 1": {
+      "annual_principal_base_period": "$59,281.62",
+      "face_value": "$474,252.96",
+      "final_principal_2033": "$59,327.50",
+      "first_payment": "1/2/2026",
+      "last_payment": "1/2/2033",
+      "name": "RedMane Note",
+      "total_cash_flow": "$613,394.61"
+    },
+    "Note 1 Interest": {
       "2026": "$41,265.01",
       "2027": "$32,164",
       "2028": "$27,450",
@@ -803,14 +811,6 @@
       "2031": "$13,306",
       "2032": "$4,448",
       "2033": "$2,224.77"
-    },
-    "Summary": {
-      "annual_principal_base_period": "$59,281.62",
-      "face_value": "$474,252.96",
-      "final_principal_2033": "$59,327.50",
-      "first_payment": "1/2/2026",
-      "last_payment": "1/2/2033",
-      "total_cash_flow": "$613,394.61"
     }
   },
   "Optional Functions": {

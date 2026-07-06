@@ -13,8 +13,8 @@
   const STEP_REDIRECTS={
     spending_travel:'lifestyle_spending',
     spending_travel_extras:'lifestyle_spending',
-    ss_timing:'timing_tax',
-    state_residency:'timing_tax',
+    ss_timing:'income_retirement',
+    timing_tax:'state_residency',
     heloc_strategy:'special_strategies',
     entity_charitable:'special_strategies',
     roth_conversion:'distribution_strategy',
