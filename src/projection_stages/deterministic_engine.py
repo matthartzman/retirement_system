@@ -174,6 +174,12 @@ def run_deterministic_projection_stage(c):
     autos_val = year_state.autos_value
     startup = year_state.startup_value
     note_bal = year_state.note_balance
+    # Per-note remaining balances (Note Receivable is repeatable — one or more
+    # named notes, e.g. "RedMane Note"). Each note amortizes on its own
+    # first/last payment schedule; note_bal above is only the aggregate
+    # remaining balance shown on the balance sheet.
+    _note_items = c.get('note_items') or []
+    _note_bals = {id(n): float(n.get('face_value', 0.0) or 0.0) for n in _note_items}
 
     filing = year_state.filing_status
     first_death_done = year_state.first_death_done
@@ -544,14 +550,20 @@ def run_deterministic_projection_stage(c):
             row['home_sale_costs'] = 0
             row['home_sale_acct']  = ''
 
-        # Note Receivable
-        if c['note_first'] <= year <= c['note_last']:
-            note_princ_yr = c['note_princ'] if year < c['note_last'] else c['note_princ_final']
-            note_int_yr   = c['note_interest'].get(year, 0)
-            note_bal = max(0, note_bal - note_princ_yr)
-        else:
-            note_princ_yr = 0
-            note_int_yr   = 0
+        # Note Receivable — sum principal/interest across every note, since
+        # each note (e.g. "RedMane Note") can have its own face value,
+        # payment schedule, and interest-by-year detail.
+        note_princ_yr = 0.0
+        note_int_yr = 0.0
+        for _nitem in _note_items:
+            _nfirst = _nitem.get('first_payment_year', c['plan_start'])
+            _nlast = _nitem.get('last_payment_year', c['plan_start'])
+            if _nfirst <= year <= _nlast:
+                _nprinc_yr = _nitem.get('annual_principal', 0.0) if year < _nlast else _nitem.get('final_principal', 0.0)
+                note_princ_yr += _nprinc_yr
+                note_int_yr += _nitem.get('interest_by_year', {}).get(year, 0)
+                _note_bals[id(_nitem)] = max(0.0, _note_bals[id(_nitem)] - _nprinc_yr)
+        note_bal = sum(_note_bals.values()) if _note_items else max(0, note_bal - note_princ_yr)
 
         # ── Income ──────────────────────────────────────────────────────────
         # Earned income — with optional scenario overrides for extension years

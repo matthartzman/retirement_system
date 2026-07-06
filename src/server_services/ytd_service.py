@@ -277,10 +277,10 @@ class YtdService:
         self.ctx.audit("ytd_account_setup_recovered", result)
         return result
 
-    def status_payload(self) -> dict[str, Any]:
+    def status_payload(self, *, period: str | None = None) -> dict[str, Any]:
         recovery = self.rehydrate_files_from_sqlite()
         auto = self.recover_account_setup(force=False)
-        payload = self.ytd.status_payload(self.input_root())
+        payload = self.ytd.status_payload(self.input_root(), period=period)
         if recovery.get("files_rehydrated_from_sqlite") or auto.get("recovered"):
             payload["recovery"] = {"sqlite": recovery, "account_setup": auto}
         return payload

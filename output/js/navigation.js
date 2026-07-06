@@ -55,7 +55,13 @@
         safeCall(()=>ctx.showMessage('Plan inputs changed since last build — results may be stale.','warn',{persistent:true,action:{label:'Rebuild now',fn:'runBuild(false)'}}));
       }
     }
+    if(id==='all_assumptions'){
+      safeCall(()=>setBuildOverlay(true,'Loading all assumptions','Aggregating all plan fields across sections. This takes a moment.','waiting'));
+    }
     safeCall(ctx.renderMain);
+    if(id==='all_assumptions'){
+      setTimeout(()=>safeCall(hideBuildOverlay),50);
+    }
     setTimeout(()=>{
       try{window.scrollTo({top:0,behavior:'smooth'});}catch(_e){}
       const entries=safeCall(ctx.focusableEntries)||[];

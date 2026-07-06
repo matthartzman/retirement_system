@@ -173,14 +173,23 @@ def _is_current_year_transaction(row: dict[str, Any], *, today: date | None = No
     return bool(d and d.year == _current_year(today))
 
 
-def read_transactions(root: str | Path, *, current_year_only: bool = True, today: date | None = None) -> list[dict[str, str]]:
+def read_transactions(root: str | Path, *, current_year_only: bool = False, today: date | None = None) -> list[dict[str, str]]:
+    """Return all imported transactions.
+
+    Historically this defaulted to filtering out any transaction not dated in
+    the current calendar year, which meant only current-year rows were ever
+    persisted. All historical transactions are now imported and retained so
+    the "Last Year / YTD" actuals toggle has real prior-year data to show.
+    Pass ``current_year_only=True`` explicitly for call sites that still need
+    the old current-year-only view.
+    """
     rows = _read_csv_dicts(transactions_path(root), TRANSACTION_COLUMNS)
     if current_year_only:
         rows = [r for r in rows if _is_current_year_transaction(r, today=today)]
     return rows
 
 
-def write_transactions(root: str | Path, rows: list[dict[str, Any]], *, current_year_only: bool = True, today: date | None = None) -> None:
+def write_transactions(root: str | Path, rows: list[dict[str, Any]], *, current_year_only: bool = False, today: date | None = None) -> None:
     cleaned = [normalize_transaction(r) for r in rows]
     if current_year_only:
         cleaned = [r for r in cleaned if _is_current_year_transaction(r, today=today)]
@@ -387,6 +396,13 @@ def transaction_hash(row: dict[str, Any]) -> str:
 
 
 def import_transactions(root: str | Path, text: str, mode: str = "replace", *, today: date | None = None) -> dict[str, Any]:
+    """Import transactions from CSV text.
+
+    All rows with a valid date are imported regardless of calendar year — the
+    app retains full transaction history so actuals can be viewed for either
+    the current year-to-date or the prior calendar year. Rows are only
+    skipped when their Date is missing/unparseable.
+    """
     incoming_all, errors = load_transactions_from_csv_text(text)
     if errors:
         return {"success": False, "errors": errors[:50], "received": len(incoming_all)}
@@ -395,7 +411,7 @@ def import_transactions(root: str | Path, text: str, mode: str = "replace", *, t
     skipped_not_current_year = 0
     for row in incoming_all:
         d = parse_date(row.get("Date"))
-        if not d or d.year != current_year:
+        if not d:
             skipped_not_current_year += 1
             continue
         incoming.append(row)
@@ -434,7 +450,7 @@ def import_transactions(root: str | Path, text: str, mode: str = "replace", *, t
         "Rows Skipped": skipped,
         "Earliest Transaction Date": format_date(min(all_dates) if all_dates else None),
         "Latest Transaction Date": format_date(max(all_dates) if all_dates else None),
-        "Notes": f"Transactions imported from UI upload. Current-year filter: kept {len(incoming)} {current_year} rows; skipped {skipped_not_current_year} non-{current_year} rows.",
+        "Notes": f"Transactions imported from UI upload. Kept {len(incoming)} row(s) with valid dates (all years); skipped {skipped_not_current_year} row(s) with missing/invalid dates.",
     })
     return {
         "success": True,
@@ -950,24 +966,45 @@ def _account_setup_map(root: str | Path) -> dict[str, dict[str, str]]:
     return {str(r.get("Account", "") or "").strip().lower(): r for r in read_account_setup(root)}
 
 
-def ytd_summary(root: str | Path, *, today: date | None = None) -> dict[str, Any]:
+def normalize_actuals_period(period: str | None) -> str:
+    p = str(period or "ytd").strip().lower()
+    return "last_year" if p in {"last_year", "prior_year", "last-year"} else "ytd"
+
+
+def ytd_summary(root: str | Path, *, today: date | None = None, period: str | None = None) -> dict[str, Any]:
+    """Return the actuals summary for either the current year-to-date or the
+    prior calendar year, selected via ``period`` ("ytd" default, or
+    "last_year"). All imported transactions (not just current-year rows) are
+    read so a full prior-year window is available."""
     today = today or date.today()
+    period = normalize_actuals_period(period)
+    is_last_year = period == "last_year"
+    report_year = (today.year - 1) if is_last_year else today.year
     transactions = read_transactions(root, today=today)
     setup = ensure_account_setup_for_transactions(root, today=today) if transactions else read_account_setup(root)
     setup_map = _account_setup_map(root)
     parsed = []
     for idx, row in enumerate(transactions):
         d = parse_date(row.get("Date"))
-        if d and d.year == today.year:
+        if d and d.year == report_year:
             parsed.append((idx, d, row))
     dates = [d for _, d, _ in parsed]
-    current_year = today.year
+    current_year = report_year
     ytd_start = date(current_year, 1, 1)
     current_year_dates = [d for d in dates if d.year == current_year]
-    ytd_end = max(current_year_dates) if current_year_dates else None
+    if is_last_year:
+        # A completed prior calendar year always reports through Dec 31,
+        # regardless of whether transactions were recorded on that exact date.
+        ytd_end = date(current_year, 12, 31)
+    else:
+        ytd_end = max(current_year_dates) if current_year_dates else None
     ytd_rows = [(i, d, r) for i, d, r in parsed if d >= ytd_start and (not ytd_end or d <= ytd_end)]
     ytd_days = max(1, ((ytd_end or today) - ytd_start).days + 1)
     year_days = 366 if current_year % 4 == 0 and (current_year % 100 != 0 or current_year % 400 == 0) else 365
+    if is_last_year:
+        # The prior year is complete, so "annualized" figures equal the actuals
+        # themselves rather than an extrapolation from a partial-year window.
+        ytd_days = year_days
 
     spending = 0.0
     earned_income = 0.0
@@ -1134,7 +1171,7 @@ def ytd_summary(root: str | Path, *, today: date | None = None) -> dict[str, Any
                 "growth": 0.0,
             },
             {
-                "label": "Today",
+                "label": "Today" if not is_last_year else today.strftime("%m/%d"),
                 "date": today.isoformat(),
                 "balance": round(current_bal, 2),
                 "growth": round(actual_growth, 2),
@@ -1179,6 +1216,8 @@ def ytd_summary(root: str | Path, *, today: date | None = None) -> dict[str, Any
         })
     return {
         "enabled": len(transactions) > 0,
+        "period": period,
+        "is_last_year": is_last_year,
         "transaction_count": len(transactions),
         "earliest_transaction_date": format_date(min(dates) if dates else None),
         "latest_transaction_date": format_date(max(dates) if dates else None),
@@ -1248,13 +1287,13 @@ def ytd_summary(root: str | Path, *, today: date | None = None) -> dict[str, Any
     }
 
 
-def status_payload(root: str | Path) -> dict[str, Any]:
+def status_payload(root: str | Path, *, period: str | None = None) -> dict[str, Any]:
     return {
         "success": True,
         "transactions": [{"index": i, **r} for i, r in enumerate(read_transactions(root))],
         "account_setup": read_account_setup(root),
         "import_history": read_import_history(root),
-        "summary": ytd_summary(root),
+        "summary": ytd_summary(root, period=period),
         "expected_transaction_columns": TRANSACTION_COLUMNS,
         "transaction_template_csv": csv_template(),
         "transaction_accounts": transaction_accounts(root),

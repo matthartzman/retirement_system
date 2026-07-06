@@ -83,15 +83,49 @@ def test_ytd_ui_contains_step_upload_table_and_account_mapping():
 
 
 
-def test_ytd_import_skips_non_current_year_rows(tmp_path):
+def test_ytd_import_keeps_all_historical_rows(tmp_path):
+    # Import is no longer limited to the current calendar year: all rows with
+    # a valid date are imported and retained so the Last Year/YTD actuals
+    # toggle has real prior-year data to show.
     csv_text = 'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n2025-12-31,Old,Groceries,Checking,Bank,,-10,,Household\n2026-01-02,New,Groceries,Checking,Bank,,-20,,Household\n'
     out = ytd.import_transactions(tmp_path, csv_text, mode='replace', today=date(2026, 6, 12))
     assert out['success'] is True
-    assert out['added'] == 1
-    assert out['skipped_not_current_year'] == 1
+    assert out['added'] == 2
+    assert out['skipped_not_current_year'] == 0
     rows = ytd.read_transactions(tmp_path, today=date(2026, 6, 12))
-    assert len(rows) == 1
-    assert rows[0]['Merchant'] == 'New'
+    assert len(rows) == 2
+    assert {r['Merchant'] for r in rows} == {'Old', 'New'}
+
+
+def test_ytd_import_rejects_rows_with_invalid_dates(tmp_path):
+    # Row-level date validation happens during CSV parsing (load_transactions_from_csv_text),
+    # so an unparseable date surfaces as an import error rather than a silent skip.
+    csv_text = 'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\nnot-a-date,Bad,Groceries,Checking,Bank,,-10,,Household\n2026-01-02,Good,Groceries,Checking,Bank,,-20,,Household\n'
+    out = ytd.import_transactions(tmp_path, csv_text, mode='replace', today=date(2026, 6, 12))
+    assert out['success'] is False
+    assert any('Date is invalid or missing' in e for e in out['errors'])
+
+
+def test_ytd_summary_last_year_period_reports_prior_calendar_year(tmp_path):
+    csv_text = (
+        'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n'
+        '2025-03-15,Old Store,Groceries,Checking,Bank,,-50,,Household\n'
+        '2026-01-31,New Store,Groceries,Checking,Bank,,-100.43,,Household\n'
+    )
+    ytd.import_transactions(tmp_path, csv_text, mode='replace', today=date(2026, 6, 12))
+    s_ytd = ytd.ytd_summary(tmp_path, today=date(2026, 6, 12), period='ytd')
+    assert s_ytd['period'] == 'ytd'
+    assert s_ytd['is_last_year'] is False
+    assert s_ytd['current_year'] == 2026
+    assert s_ytd['actual']['spending'] == 100.43
+
+    s_last = ytd.ytd_summary(tmp_path, today=date(2026, 6, 12), period='last_year')
+    assert s_last['period'] == 'last_year'
+    assert s_last['is_last_year'] is True
+    assert s_last['current_year'] == 2025
+    assert s_last['actual']['spending'] == 50.0
+    assert s_last['ytd_start'] == '2025-01-01'
+    assert s_last['ytd_end'] == '2025-12-31'
 
 
 def test_ytd_growth_is_point_to_point_and_reports_external_flows_diagnostics(tmp_path):
