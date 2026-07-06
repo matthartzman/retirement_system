@@ -90,7 +90,7 @@ Estate Planning,SN_ABLE,annual_contribution_limit,"$19,000",USD/yr,base-year fed
 Estate Planning,SN_GovBenefits,ssi_monthly,943,USD/mo,,
 Estate Planning,SN_GovBenefits,ssdi_monthly,0,USD/mo,,
 Estate Planning,SN_GovBenefits,medicaid_enrolled,TRUE,boolean,,
-Estate Planning,QTIP Trust,enabled,FALSE,,,
+Estate Planning,QTIP Trust,enabled,YES,,,
 Estate Planning,QTIP Trust,funding_amount,0,,,
 Estate Planning,QTIP Trust,manages_annuity_after_first_death,TRUE,,,
 Estate Planning,QTIP Trust,note,Provides income to surviving spouse,,,

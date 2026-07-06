@@ -7,6 +7,8 @@
 
 .field-label-note{font-size:.88em;color:var(--muted);font-weight:600;margin-left:6px;font-style:italic}
 
+.field-source-page{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:9px 0 -4px 2px}
+
 /* Reports & Review sub-tab nav in left sidebar */
 .nav-reports-subtabs{display:flex;flex-direction:column;gap:1px;padding:2px 0 6px 12px;border-left:2px solid var(--line);margin:2px 0 4px 12px}
 .nav-reports-subtab{display:block;width:100%;text-align:left;border:none;background:transparent;padding:5px 8px;border-radius:7px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;transition:background .1s,color .1s}
@@ -675,7 +677,10 @@ body.chart-modal-open{overflow:hidden}
 .suggested-next{display:flex;align-items:center;gap:6px;margin:20px 20px 8px;padding:11px 16px 11px 18px;background:#f4f8ff;border:1px solid #c9d9f5;border-left:4px solid var(--accent);border-radius:8px;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
 .suggested-next .link-button{font-size:13px;font-weight:700;color:var(--accent);background:none;border:none;cursor:pointer;padding:0;letter-spacing:0;text-transform:none;transition:color .12s}
 .suggested-next .link-button:hover{color:#1a3f75;text-decoration:underline}
-.people-table{min-width:640px}.people-table td:first-child{white-space:nowrap}
+.people-table{min-width:880px}.people-table td:first-child{white-space:nowrap}
+.holdings-account-group>summary,.holdings-ticker-group>summary{cursor:pointer}
+.holdings-account-group>summary{font-weight:700}
+.holdings-group-total{margin-left:8px;font-variant-numeric:tabular-nums;color:var(--muted)}
 
 /* ===================================================================
    Phase 1 — Mobile responsive shell (Android/phone support)

@@ -3,7 +3,7 @@
   "schema": "results_model_v10",
   "version": "10",
   "source": "semantic_results_model",
-  "generated_at": "2026-07-04T03:12:16Z",
+  "generated_at": "2026-07-05T01:11:42Z",
   "workbook": "retirement_plan.xlsx",
   "sheet_count": 6,
   "sheets": [
@@ -71,8 +71,8 @@
                   "kind": "text"
                 },
                 {
-                  "value": 5681276.7724548085,
-                  "display": "$5,681K",
+                  "value": 5683207.712495771,
+                  "display": "$5,683K",
                   "kind": "currency"
                 }
               ]
@@ -85,8 +85,8 @@
                   "kind": "text"
                 },
                 {
-                  "value": 6103848.09961433,
-                  "display": "$6,104K",
+                  "value": 6310328.452920796,
+                  "display": "$6,310K",
                   "kind": "currency"
                 }
               ]
@@ -99,8 +99,8 @@
                   "kind": "text"
                 },
                 {
-                  "value": 0.67,
-                  "display": "67%",
+                  "value": 0.676,
+                  "display": "68%",
                   "kind": "percent"
                 }
               ]
@@ -113,8 +113,8 @@
                   "kind": "text"
                 },
                 {
-                  "value": 904151.7922334222,
-                  "display": "$904K",
+                  "value": 807033.5558429617,
+                  "display": "$807K",
                   "kind": "currency"
                 }
               ]
@@ -127,8 +127,8 @@
                   "kind": "text"
                 },
                 {
-                  "value": 1304134.0454671558,
-                  "display": "$1,304K",
+                  "value": 901934.205537729,
+                  "display": "$902K",
                   "kind": "currency"
                 }
               ]
@@ -327,22 +327,22 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 1744793.075797302,
-                  "display": "$1,745K",
+                  "value": 1744446.848714148,
+                  "display": "$1,744K",
                   "kind": "currency"
                 },
                 {
-                  "value": 483305.56805231515,
+                  "value": 483228.4160965786,
                   "display": "$483K",
                   "kind": "currency"
                 },
                 {
-                  "value": 405183.5536691962,
-                  "display": "$405K",
+                  "value": 405843.6083499099,
+                  "display": "$406K",
                   "kind": "currency"
                 },
                 {
-                  "value": 78082.4731899976,
+                  "value": 78048.64108120068,
                   "display": "$78K",
                   "kind": "currency"
                 },
@@ -367,13 +367,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 1609246.2857142857,
-                  "display": "$1,609K",
+                  "value": 1610974.3822222222,
+                  "display": "$1,611K",
                   "kind": "currency"
                 },
                 {
-                  "value": 5681276.7724548085,
-                  "display": "$5,681K",
+                  "value": 5683207.712495771,
+                  "display": "$5,683K",
                   "kind": "currency"
                 }
               ]
@@ -401,22 +401,22 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 1606830.2200615727,
-                  "display": "$1,607K",
+                  "value": 1606476.6468654347,
+                  "display": "$1,606K",
                   "kind": "currency"
                 },
                 {
-                  "value": 754954.3157243947,
-                  "display": "$755K",
+                  "value": 693051.2412300726,
+                  "display": "$693K",
                   "kind": "currency"
                 },
                 {
-                  "value": 91536.94340788055,
-                  "display": "$92K",
+                  "value": 158261.04018168108,
+                  "display": "$158K",
                   "kind": "currency"
                 },
                 {
-                  "value": 82767.42158139746,
+                  "value": 82731.55954607272,
                   "display": "$83K",
                   "kind": "currency"
                 },
@@ -441,13 +441,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 1612974.3415625712,
-                  "display": "$1,613K",
+                  "value": 1616430.3545784443,
+                  "display": "$1,616K",
                   "kind": "currency"
                 },
                 {
-                  "value": 5586586.287331431,
-                  "display": "$5,587K",
+                  "value": 5594473.8873953195,
+                  "display": "$5,594K",
                   "kind": "currency"
                 }
               ]
@@ -475,13 +475,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 1233528.0069429518,
-                  "display": "$1,234K",
+                  "value": 1415635.194877765,
+                  "display": "$1,416K",
                   "kind": "currency"
                 },
                 {
-                  "value": 1030800.5007633416,
-                  "display": "$1,031K",
+                  "value": 900783.3560363585,
+                  "display": "$901K",
                   "kind": "currency"
                 },
                 {
@@ -490,7 +490,7 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 87733.46687628131,
+                  "value": 87695.45311883709,
                   "display": "$88K",
                   "kind": "currency"
                 },
@@ -515,13 +515,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 1618520.8008445238,
-                  "display": "$1,619K",
+                  "value": 1623704.7303683334,
+                  "display": "$1,624K",
                   "kind": "currency"
                 },
                 {
-                  "value": 5489574.483120331,
-                  "display": "$5,490K",
+                  "value": 5546810.442094525,
+                  "display": "$5,547K",
                   "kind": "currency"
                 }
               ]
@@ -549,13 +549,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 968288.261222472,
-                  "display": "$968K",
+                  "value": 1251155.3214326468,
+                  "display": "$1,251K",
                   "kind": "currency"
                 },
                 {
-                  "value": 1247048.8463060008,
-                  "display": "$1,247K",
+                  "value": 1044925.7553757186,
+                  "display": "$1,045K",
                   "kind": "currency"
                 },
                 {
@@ -564,7 +564,7 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 92997.47488885818,
+                  "value": 92957.18030596731,
                   "display": "$93K",
                   "kind": "currency"
                 },
@@ -589,13 +589,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 1625934.1430135728,
-                  "display": "$1,626K",
+                  "value": 1632845.9890453187,
+                  "display": "$1,633K",
                   "kind": "currency"
                 },
                 {
-                  "value": 5510349.081513587,
-                  "display": "$5,510K",
+                  "value": 5597964.602242336,
+                  "display": "$5,598K",
                   "kind": "currency"
                 }
               ]
@@ -623,13 +623,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 749921.4817017267,
-                  "display": "$750K",
+                  "value": 1141778.7701583263,
+                  "display": "$1,142K",
                   "kind": "currency"
                 },
                 {
-                  "value": 1486487.1094714021,
-                  "display": "$1,486K",
+                  "value": 1206645.6172152294,
+                  "display": "$1,207K",
                   "kind": "currency"
                 },
                 {
@@ -638,7 +638,7 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 98577.32338218967,
+                  "value": 98534.61112432535,
                   "display": "$99K",
                   "kind": "currency"
                 },
@@ -663,13 +663,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 1569264.1810610245,
-                  "display": "$1,569K",
+                  "value": 1577903.943600707,
+                  "display": "$1,578K",
                   "kind": "currency"
                 },
                 {
-                  "value": 5451926.719920847,
-                  "display": "$5,452K",
+                  "value": 5572539.566403091,
+                  "display": "$5,573K",
                   "kind": "currency"
                 }
               ]
@@ -697,13 +697,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 562257.0724691423,
-                  "display": "$562K",
+                  "value": 1069519.5052968608,
+                  "display": "$1,070K",
                   "kind": "currency"
                 },
                 {
-                  "value": 1708459.5761347832,
-                  "display": "$1,708K",
+                  "value": 1344924.758155765,
+                  "display": "$1,345K",
                   "kind": "currency"
                 },
                 {
@@ -712,7 +712,7 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 94042.76650660895,
+                  "value": 94002.0190126064,
                   "display": "$94K",
                   "kind": "currency"
                 },
@@ -737,13 +737,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 1580562.0991173675,
-                  "display": "$1,581K",
+                  "value": 1590929.7781649865,
+                  "display": "$1,591K",
                   "kind": "currency"
                 },
                 {
-                  "value": 5463571.6431199275,
-                  "display": "$5,464K",
+                  "value": 5617626.189522244,
+                  "display": "$5,618K",
                   "kind": "currency"
                 }
               ]
@@ -771,13 +771,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 270531.9245150437,
-                  "display": "$271K",
+                  "value": 904677.321055962,
+                  "display": "$905K",
                   "kind": "currency"
                 },
                 {
-                  "value": 1926410.1501627387,
-                  "display": "$1,926K",
+                  "value": 1472822.350193755,
+                  "display": "$1,473K",
                   "kind": "currency"
                 },
                 {
@@ -786,7 +786,7 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 88609.18444178267,
+                  "value": 88570.79124743358,
                   "display": "$89K",
                   "kind": "currency"
                 },
@@ -811,13 +811,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 1593880.4911337635,
-                  "display": "$1,594K",
+                  "value": 1605976.086689319,
+                  "display": "$1,606K",
                   "kind": "currency"
                 },
                 {
-                  "value": 5367146.500400918,
-                  "display": "$5,367K",
+                  "value": 5559761.299334059,
+                  "display": "$5,560K",
                   "kind": "currency"
                 }
               ]
@@ -845,13 +845,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 81362.27163218954,
-                  "display": "$81K",
+                  "value": 848490.2855192957,
+                  "display": "$848K",
                   "kind": "currency"
                 },
                 {
-                  "value": 2165191.612314278,
-                  "display": "$2,165K",
+                  "value": 1614782.833577706,
+                  "display": "$1,615K",
                   "kind": "currency"
                 },
                 {
@@ -860,7 +860,7 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 82185.01856975342,
+                  "value": 82149.40888199465,
                   "display": "$82K",
                   "kind": "currency"
                 },
@@ -885,13 +885,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 1617049.114960884,
-                  "display": "$1,617K",
+                  "value": 1623096.9127386617,
+                  "display": "$1,623K",
                   "kind": "currency"
                 },
                 {
-                  "value": 5401749.642361701,
-                  "display": "$5,402K",
+                  "value": 5624481.065602254,
+                  "display": "$5,624K",
                   "kind": "currency"
                 }
               ]
@@ -919,22 +919,22 @@
                   "kind": "currency"
                 },
                 {
+                  "value": 690656.7227964402,
+                  "display": "$691K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 1771681.810489078,
+                  "display": "$1,772K",
+                  "kind": "currency"
+                },
+                {
                   "value": 0.0,
                   "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 2257274.0781733543,
-                  "display": "$2,257K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 74670.95972909025,
+                  "value": 74638.60578421228,
                   "display": "$75K",
                   "kind": "currency"
                 },
@@ -964,8 +964,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5456451.512524451,
-                  "display": "$5,456K",
+                  "value": 5661483.613691737,
+                  "display": "$5,661K",
                   "kind": "currency"
                 }
               ]
@@ -993,22 +993,22 @@
                   "kind": "currency"
                 },
                 {
+                  "value": 567234.2484618628,
+                  "display": "$567K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 1938749.4422687874,
+                  "display": "$1,939K",
+                  "kind": "currency"
+                },
+                {
                   "value": 0.0,
                   "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 2322593.4652698715,
-                  "display": "$2,323K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 65959.34776069639,
+                  "value": 65930.76844272086,
                   "display": "$66K",
                   "kind": "currency"
                 },
@@ -1038,8 +1038,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5561457.22415875,
-                  "display": "$5,561K",
+                  "value": 5744818.870301553,
+                  "display": "$5,745K",
                   "kind": "currency"
                 }
               ]
@@ -1067,22 +1067,22 @@
                   "kind": "currency"
                 },
                 {
+                  "value": 515506.75195693085,
+                  "display": "$516K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 2055074.4088049144,
+                  "display": "$2,055K",
+                  "kind": "currency"
+                },
+                {
                   "value": 0.0,
                   "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 2392763.8898996124,
-                  "display": "$2,393K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 55933.52690107053,
+                  "value": 55909.29163942728,
                   "display": "$56K",
                   "kind": "currency"
                 },
@@ -1112,8 +1112,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5635088.069874674,
-                  "display": "$5,635K",
+                  "value": 5812881.105475264,
+                  "display": "$5,813K",
                   "kind": "currency"
                 }
               ]
@@ -1141,22 +1141,22 @@
                   "kind": "currency"
                 },
                 {
+                  "value": 451834.8868948271,
+                  "display": "$452K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 2178378.873333209,
+                  "display": "$2,178K",
+                  "kind": "currency"
+                },
+                {
                   "value": 0.0,
                   "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 2462546.374897899,
-                  "display": "$2,463K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 1.511455543027415e-11,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 44467.15388635107,
+                  "value": 44447.886853344695,
                   "display": "$44K",
                   "kind": "currency"
                 },
@@ -1186,8 +1186,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5697761.940144598,
-                  "display": "$5,698K",
+                  "value": 5865410.058441727,
+                  "display": "$5,865K",
                   "kind": "currency"
                 }
               ]
@@ -1215,22 +1215,22 @@
                   "kind": "currency"
                 },
                 {
+                  "value": 375325.1745696238,
+                  "display": "$375K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 2309081.605733202,
+                  "display": "$2,309K",
+                  "kind": "currency"
+                },
+                {
                   "value": 0.0,
                   "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 2529482.516756432,
-                  "display": "$2,529K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 31423.455413021424,
+                  "value": 31409.840043030254,
                   "display": "$31K",
                   "kind": "currency"
                 },
@@ -1260,8 +1260,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5756044.753470621,
-                  "display": "$5,756K",
+                  "value": 5910955.401647024,
+                  "display": "$5,911K",
                   "kind": "currency"
                 }
               ]
@@ -1289,22 +1289,22 @@
                   "kind": "currency"
                 },
                 {
+                  "value": 285042.5633159903,
+                  "display": "$285K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 2447626.502077194,
+                  "display": "$2,448K",
+                  "kind": "currency"
+                },
+                {
                   "value": 0.0,
                   "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 2593273.028960221,
-                  "display": "$2,593K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 16654.431368901354,
+                  "value": 16647.215222806033,
                   "display": "$17K",
                   "kind": "currency"
                 },
@@ -1334,8 +1334,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5809346.148996397,
-                  "display": "$5,809K",
+                  "value": 5948734.969283265,
+                  "display": "$5,949K",
                   "kind": "currency"
                 }
               ]
@@ -1363,13 +1363,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
-                  "display": "$0K",
+                  "value": 179976.98496916794,
+                  "display": "$180K",
                   "kind": "currency"
                 },
                 {
-                  "value": 2653585.9167389856,
-                  "display": "$2,654K",
+                  "value": 2594484.0922018257,
+                  "display": "$2,594K",
                   "kind": "currency"
                 },
                 {
@@ -1408,8 +1408,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5856997.897116918,
-                  "display": "$5,857K",
+                  "value": 5977873.057548925,
+                  "display": "$5,978K",
                   "kind": "currency"
                 }
               ]
@@ -1437,13 +1437,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
-                  "display": "$0K",
+                  "value": 41253.685196931765,
+                  "display": "$41K",
                   "kind": "currency"
                 },
                 {
-                  "value": 2696173.9750244236,
-                  "display": "$2,696K",
+                  "value": 2750153.1377339354,
+                  "display": "$2,750K",
                   "kind": "currency"
                 },
                 {
@@ -1482,8 +1482,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5903111.813807681,
-                  "display": "$5,903K",
+                  "value": 5998344.6617141245,
+                  "display": "$5,998K",
                   "kind": "currency"
                 }
               ]
@@ -1516,8 +1516,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 2737511.633858912,
-                  "display": "$2,738K",
+                  "value": 2828838.093251818,
+                  "display": "$2,829K",
                   "kind": "currency"
                 },
                 {
@@ -1556,8 +1556,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5947321.6868514735,
-                  "display": "$5,947K",
+                  "value": 6038648.146244379,
+                  "display": "$6,039K",
                   "kind": "currency"
                 }
               ]
@@ -1590,8 +1590,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 2777392.20209642,
-                  "display": "$2,777K",
+                  "value": 2874198.2490529,
+                  "display": "$2,874K",
                   "kind": "currency"
                 },
                 {
@@ -1630,8 +1630,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5989228.467605149,
-                  "display": "$5,989K",
+                  "value": 6086034.514561629,
+                  "display": "$6,086K",
                   "kind": "currency"
                 }
               ]
@@ -1664,8 +1664,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 2815580.359277616,
-                  "display": "$2,816K",
+                  "value": 2918194.7690514848,
+                  "display": "$2,918K",
                   "kind": "currency"
                 },
                 {
@@ -1704,8 +1704,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 6028397.550937718,
-                  "display": "$6,028K",
+                  "value": 6131011.960711586,
+                  "display": "$6,131K",
                   "kind": "currency"
                 }
               ]
@@ -1738,12 +1738,12 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 2851810.0527072023,
-                  "display": "$2,852K",
+                  "value": 2960581.3270675037,
+                  "display": "$2,961K",
                   "kind": "currency"
                 },
                 {
-                  "value": 1.511455543027415e-11,
+                  "value": 0.0,
                   "display": "$0K",
                   "kind": "currency"
                 },
@@ -1778,8 +1778,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 6064355.861922963,
-                  "display": "$6,064K",
+                  "value": 6173127.136283264,
+                  "display": "$6,173K",
                   "kind": "currency"
                 }
               ]
@@ -1812,8 +1812,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 2885782.2201346345,
-                  "display": "$2,886K",
+                  "value": 3001079.7709565545,
+                  "display": "$3,001K",
                   "kind": "currency"
                 },
                 {
@@ -1852,8 +1852,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 6096588.7355908435,
-                  "display": "$6,097K",
+                  "value": 6211886.2864127625,
+                  "display": "$6,212K",
                   "kind": "currency"
                 }
               ]
@@ -1886,8 +1886,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 2908874.866828462,
-                  "display": "$2,909K",
+                  "value": 3031090.2706996966,
+                  "display": "$3,031K",
                   "kind": "currency"
                 },
                 {
@@ -1926,8 +1926,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 6116249.11567698,
-                  "display": "$6,116K",
+                  "value": 6238464.519548215,
+                  "display": "$6,238K",
                   "kind": "currency"
                 }
               ]
@@ -1960,8 +1960,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 2908527.3707594234,
-                  "display": "$2,909K",
+                  "value": 3038075.6988629317,
+                  "display": "$3,038K",
                   "kind": "currency"
                 },
                 {
@@ -2000,8 +2000,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 6121139.533291341,
-                  "display": "$6,121K",
+                  "value": 6250687.861394849,
+                  "display": "$6,251K",
                   "kind": "currency"
                 }
               ]
@@ -2034,8 +2034,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 2904107.764544744,
-                  "display": "$2,904K",
+                  "value": 3041428.992334463,
+                  "display": "$3,041K",
                   "kind": "currency"
                 },
                 {
@@ -2074,8 +2074,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 6145206.76008905,
-                  "display": "$6,145K",
+                  "value": 6282527.987878769,
+                  "display": "$6,283K",
                   "kind": "currency"
                 }
               ]
@@ -2108,8 +2108,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 2895083.15226889,
-                  "display": "$2,895K",
+                  "value": 3040643.653725992,
+                  "display": "$3,041K",
                   "kind": "currency"
                 },
                 {
@@ -2148,8 +2148,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 6162957.587753868,
-                  "display": "$6,163K",
+                  "value": 6308518.089210969,
+                  "display": "$6,309K",
                   "kind": "currency"
                 }
               ]
@@ -2182,8 +2182,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 2880869.3837945694,
-                  "display": "$2,881K",
+                  "value": 3035163.515339098,
+                  "display": "$3,035K",
                   "kind": "currency"
                 },
                 {
@@ -2222,8 +2222,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 6173619.294899239,
-                  "display": "$6,174K",
+                  "value": 6327913.426443768,
+                  "display": "$6,328K",
                   "kind": "currency"
                 }
               ]
@@ -2256,8 +2256,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 2860854.360791892,
-                  "display": "$2,861K",
+                  "value": 3024406.140229092,
+                  "display": "$3,024K",
                   "kind": "currency"
                 },
                 {
@@ -2296,8 +2296,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 6176380.813931953,
-                  "display": "$6,176K",
+                  "value": 6339932.593369152,
+                  "display": "$6,340K",
                   "kind": "currency"
                 }
               ]
@@ -2330,12 +2330,12 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 2834445.807531544,
-                  "display": "$2,834K",
+                  "value": 3007810.6937349765,
+                  "display": "$3,008K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
+                  "value": 3.02291108605483e-11,
                   "display": "$0K",
                   "kind": "currency"
                 },
@@ -2370,8 +2370,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 6170404.707950293,
-                  "display": "$6,170K",
+                  "value": 6343769.594153726,
+                  "display": "$6,344K",
                   "kind": "currency"
                 }
               ]
@@ -2404,8 +2404,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 2801007.048983314,
-                  "display": "$2,801K",
+                  "value": 2984773.8283589524,
+                  "display": "$2,985K",
                   "kind": "currency"
                 },
                 {
@@ -2444,8 +2444,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 6155895.459031032,
-                  "display": "$6,156K",
+                  "value": 6339662.238406671,
+                  "display": "$6,340K",
                   "kind": "currency"
                 }
               ]
@@ -2478,12 +2478,12 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 2760778.4297907264,
-                  "display": "$2,761K",
+                  "value": 2955571.215928903,
+                  "display": "$2,956K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
+                  "value": 3.02291108605483e-11,
                   "display": "$0K",
                   "kind": "currency"
                 },
@@ -2518,8 +2518,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 6131568.595599456,
-                  "display": "$6,132K",
+                  "value": 6326361.381737633,
+                  "display": "$6,326K",
                   "kind": "currency"
                 }
               ]
@@ -2552,12 +2552,12 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 2713573.9618107555,
-                  "display": "$2,714K",
+                  "value": 2920054.3151172223,
+                  "display": "$2,920K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
+                  "value": 3.02291108605483e-11,
                   "display": "$0K",
                   "kind": "currency"
                 },
@@ -2592,8 +2592,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 6103848.09961433,
-                  "display": "$6,104K",
+                  "value": 6310328.452920796,
+                  "display": "$6,310K",
                   "kind": "currency"
                 }
               ]
@@ -3204,12 +3204,12 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 2399.8977972397847,
+                  "value": 2397.6341475237678,
                   "display": "$2K",
                   "kind": "currency"
                 },
                 {
-                  "value": 314340.5867123288,
+                  "value": 313633.304520548,
                   "display": "$314K",
                   "kind": "currency"
                 },
@@ -3239,28 +3239,23 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 406987.5867123288,
-                  "display": "$407K",
+                  "value": 406280.304520548,
+                  "display": "$406K",
                   "kind": "currency"
                 },
                 {
-                  "value": 53527.10849962672,
-                  "display": "$54K",
+                  "value": 53250.661168689156,
+                  "display": "$53K",
                   "kind": "currency"
                 },
                 {
-                  "value": 85588.8098314291,
-                  "display": "$86K",
+                  "value": 85146.77590321524,
+                  "display": "$85K",
                   "kind": "currency"
                 },
                 {
-                  "value": 139115.91833105581,
-                  "display": "$139K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
+                  "value": 138397.4370719044,
+                  "display": "$138K",
                   "kind": "currency"
                 },
                 {
@@ -3284,7 +3279,12 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 0.01624343593437293,
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 0.016199234299110018,
                   "display": "$0K",
                   "kind": "currency"
                 },
@@ -3294,7 +3294,7 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 0.01624343593437293,
+                  "value": 0.016199234299110018,
                   "display": "$0K",
                   "kind": "currency"
                 },
@@ -3304,7 +3304,7 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 0.00401568331114502,
+                  "value": 0.004004949676152183,
                   "display": "$0K",
                   "kind": "currency"
                 },
@@ -3314,7 +3314,7 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 125000.00401568331,
+                  "value": 125000.00400494967,
                   "display": "$125K",
                   "kind": "currency"
                 },
@@ -3324,8 +3324,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 139115.93859017506,
-                  "display": "$139K",
+                  "value": 138397.45727608836,
+                  "display": "$138K",
                   "kind": "currency"
                 },
                 {
@@ -3334,8 +3334,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5681276.7724548085,
-                  "display": "$5,681K",
+                  "value": 5683207.712495771,
+                  "display": "$5,683K",
                   "kind": "currency"
                 }
               ]
@@ -3413,33 +3413,33 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 228915.4845178686,
-                  "display": "$229K",
+                  "value": 170593.50959216908,
+                  "display": "$171K",
                   "kind": "currency"
                 },
                 {
-                  "value": 273360.0,
-                  "display": "$273K",
+                  "value": 215050.68,
+                  "display": "$215K",
                   "kind": "currency"
                 },
                 {
-                  "value": 234220.32,
-                  "display": "$234K",
+                  "value": 172412.44079999998,
+                  "display": "$172K",
                   "kind": "currency"
                 },
                 {
-                  "value": 41328.9144,
-                  "display": "$41K",
+                  "value": 27347.788175999995,
+                  "display": "$27K",
                   "kind": "currency"
                 },
                 {
-                  "value": 1976.6595163655034,
+                  "value": 1977.2859351876307,
                   "display": "$2K",
                   "kind": "currency"
                 },
                 {
-                  "value": 887.68,
-                  "display": "$1K",
+                  "value": 0.0,
+                  "display": "$0K",
                   "kind": "currency"
                 },
                 {
@@ -3478,23 +3478,18 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 121801.28030468029,
-                  "display": "$122K",
+                  "value": 97441.2587409272,
+                  "display": "$97K",
                   "kind": "currency"
                 },
                 {
-                  "value": 195435.9302390163,
-                  "display": "$195K",
+                  "value": 156349.20889053127,
+                  "display": "$156K",
                   "kind": "currency"
                 },
                 {
-                  "value": 317237.2105436966,
-                  "display": "$317K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
+                  "value": 253790.46763145848,
+                  "display": "$254K",
                   "kind": "currency"
                 },
                 {
@@ -3518,8 +3513,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 0.023241016675226656,
+                  "value": 0.0,
                   "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 51818.48662208088,
+                  "display": "$52K",
                   "kind": "currency"
                 },
                 {
@@ -3528,8 +3528,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 0.023241016675226656,
-                  "display": "$0K",
+                  "value": 51818.48662208088,
+                  "display": "$52K",
                   "kind": "currency"
                 },
                 {
@@ -3538,18 +3538,18 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0019425934342409406,
-                  "display": "$0K",
+                  "value": 6490.846023073023,
+                  "display": "$6K",
                   "kind": "currency"
                 },
                 {
-                  "value": 228915.4845178686,
-                  "display": "$229K",
+                  "value": 170593.50959216908,
+                  "display": "$171K",
                   "kind": "currency"
                 },
                 {
-                  "value": 228915.48646046204,
-                  "display": "$229K",
+                  "value": 177084.3556152421,
+                  "display": "$177K",
                   "kind": "currency"
                 },
                 {
@@ -3558,8 +3558,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 317237.2357273067,
-                  "display": "$317K",
+                  "value": 312099.8002766124,
+                  "display": "$312K",
                   "kind": "currency"
                 },
                 {
@@ -3568,8 +3568,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5586586.287331431,
-                  "display": "$5,587K",
+                  "value": 5594473.8873953195,
+                  "display": "$5,594K",
                   "kind": "currency"
                 }
               ]
@@ -3647,33 +3647,33 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 217498.98688253132,
-                  "display": "$217K",
+                  "value": 156744.37767215245,
+                  "display": "$157K",
                   "kind": "currency"
                 },
                 {
-                  "value": 278827.2,
-                  "display": "$279K",
+                  "value": 219351.69360000003,
+                  "display": "$219K",
                   "kind": "currency"
                 },
                 {
-                  "value": 239324.7264,
-                  "display": "$239K",
+                  "value": 176280.68961600002,
+                  "display": "$176K",
                   "kind": "currency"
                 },
                 {
-                  "value": 42256.292688,
-                  "display": "$42K",
+                  "value": 27987.14393952,
+                  "display": "$28K",
                   "kind": "currency"
                 },
                 {
-                  "value": 1445.6359110401652,
-                  "display": "$1K",
+                  "value": 1508.9515001539216,
+                  "display": "$2K",
                   "kind": "currency"
                 },
                 {
-                  "value": 1095.4336000000005,
-                  "display": "$1K",
+                  "value": 0.0,
+                  "display": "$0K",
                   "kind": "currency"
                 },
                 {
@@ -3712,23 +3712,18 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 35072.01662363516,
-                  "display": "$35K",
+                  "value": 60637.06836608285,
+                  "display": "$61K",
                   "kind": "currency"
                 },
                 {
-                  "value": 56464.9267842454,
-                  "display": "$56K",
+                  "value": 97623.97181559823,
+                  "display": "$98K",
                   "kind": "currency"
                 },
                 {
-                  "value": 91536.94340788055,
-                  "display": "$92K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
+                  "value": 158261.04018168108,
+                  "display": "$158K",
                   "kind": "currency"
                 },
                 {
@@ -3752,18 +3747,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 225625.5662517284,
-                  "display": "$226K",
+                  "value": 0.0,
+                  "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 93552.58595496682,
-                  "display": "$94K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 319178.15220669523,
-                  "display": "$319K",
+                  "value": 112487.28542155736,
+                  "display": "$112K",
                   "kind": "currency"
                 },
                 {
@@ -3772,18 +3762,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 123946.4009275645,
-                  "display": "$124K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 123946.4009275645,
-                  "display": "$124K",
+                  "value": 112487.28542155736,
+                  "display": "$112K",
                   "kind": "currency"
                 },
                 {
@@ -3792,8 +3772,28 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 317162.50965960894,
-                  "display": "$317K",
+                  "value": 1740.082943644698,
+                  "display": "$2K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 156744.37767215245,
+                  "display": "$157K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 158484.46061579714,
+                  "display": "$158K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 272488.40854688315,
+                  "display": "$272K",
                   "kind": "currency"
                 },
                 {
@@ -3802,8 +3802,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5489574.483120331,
-                  "display": "$5,490K",
+                  "value": 5546810.442094525,
+                  "display": "$5,547K",
                   "kind": "currency"
                 }
               ]
@@ -3881,23 +3881,23 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 145660.67499703646,
-                  "display": "$146K",
+                  "value": 84995.6584690364,
+                  "display": "$85K",
                   "kind": "currency"
                 },
                 {
-                  "value": 281484.7492599302,
-                  "display": "$281K",
+                  "value": 220819.7327319301,
+                  "display": "$221K",
                   "kind": "currency"
                 },
                 {
-                  "value": 242628.22697512928,
-                  "display": "$243K",
+                  "value": 184662.80368262518,
+                  "display": "$185K",
                   "kind": "currency"
                 },
                 {
-                  "value": 42745.49999307103,
-                  "display": "$43K",
+                  "value": 29615.31687865754,
+                  "display": "$30K",
                   "kind": "currency"
                 },
                 {
@@ -3986,23 +3986,18 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 174387.84022660204,
-                  "display": "$174K",
+                  "value": 150304.32751000515,
+                  "display": "$150K",
                   "kind": "currency"
                 },
                 {
-                  "value": 145660.67499703646,
-                  "display": "$146K",
+                  "value": 63430.57566721324,
+                  "display": "$63K",
                   "kind": "currency"
                 },
                 {
-                  "value": 320048.5152236385,
-                  "display": "$320K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
+                  "value": 213734.9031772184,
+                  "display": "$214K",
                   "kind": "currency"
                 },
                 {
@@ -4016,8 +4011,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
-                  "display": "$0K",
+                  "value": 21565.082801823155,
+                  "display": "$22K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 21565.082801823155,
+                  "display": "$22K",
                   "kind": "currency"
                 },
                 {
@@ -4026,8 +4026,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 174387.84022660204,
-                  "display": "$174K",
+                  "value": 150304.32751000515,
+                  "display": "$150K",
                   "kind": "currency"
                 },
                 {
@@ -4036,8 +4036,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5510349.081513587,
-                  "display": "$5,510K",
+                  "value": 5597964.602242336,
+                  "display": "$5,598K",
                   "kind": "currency"
                 }
               ]
@@ -4115,23 +4115,23 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 155297.48338400127,
-                  "display": "$155K",
+                  "value": 93419.16652544131,
+                  "display": "$93K",
                   "kind": "currency"
                 },
                 {
-                  "value": 287184.5138177453,
-                  "display": "$287K",
+                  "value": 225306.19695918538,
+                  "display": "$225K",
                   "kind": "currency"
                 },
                 {
-                  "value": 250529.0311515053,
-                  "display": "$251K",
+                  "value": 188650.7142929454,
+                  "display": "$189K",
                   "kind": "currency"
                 },
                 {
-                  "value": 44331.987505782075,
-                  "display": "$44K",
+                  "value": 30272.44721429759,
+                  "display": "$30K",
                   "kind": "currency"
                 },
                 {
@@ -4140,8 +4140,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 1109.3279911348882,
-                  "display": "$1K",
+                  "value": 0.0,
+                  "display": "$0K",
                   "kind": "currency"
                 },
                 {
@@ -4220,23 +4220,18 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 105517.68189344543,
-                  "display": "$106K",
+                  "value": 80586.37173897329,
+                  "display": "$81K",
                   "kind": "currency"
                 },
                 {
-                  "value": 155297.48338400127,
-                  "display": "$155K",
+                  "value": 93419.16652544131,
+                  "display": "$93K",
                   "kind": "currency"
                 },
                 {
-                  "value": 260815.1652774467,
-                  "display": "$261K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
+                  "value": 174005.5382644146,
+                  "display": "$174K",
                   "kind": "currency"
                 },
                 {
@@ -4260,8 +4255,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 171517.68189344543,
-                  "display": "$172K",
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 146586.3717389733,
+                  "display": "$147K",
                   "kind": "currency"
                 },
                 {
@@ -4270,8 +4270,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5451926.719920847,
-                  "display": "$5,452K",
+                  "value": 5572539.566403091,
+                  "display": "$5,573K",
                   "kind": "currency"
                 }
               ]
@@ -4349,23 +4349,23 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 125267.2076368838,
-                  "display": "$125K",
+                  "value": 62151.324441152596,
+                  "display": "$62K",
                   "kind": "currency"
                 },
                 {
-                  "value": 292997.57479514496,
-                  "display": "$293K",
+                  "value": 229881.6915994137,
+                  "display": "$230K",
                   "kind": "currency"
                 },
                 {
-                  "value": 255608.98247558015,
-                  "display": "$256K",
+                  "value": 192493.0992798489,
+                  "display": "$192K",
                   "kind": "currency"
                 },
                 {
-                  "value": 45235.27622414845,
-                  "display": "$45K",
+                  "value": 30893.157712813343,
+                  "display": "$31K",
                   "kind": "currency"
                 },
                 {
@@ -4429,7 +4429,7 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 9857.732338218968,
+                  "value": 9853.461112432535,
                   "display": "$10K",
                   "kind": "currency"
                 },
@@ -4454,23 +4454,18 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 94223.07362225579,
-                  "display": "$94K",
+                  "value": 70646.78034277656,
+                  "display": "$71K",
                   "kind": "currency"
                 },
                 {
-                  "value": 125267.2076368838,
-                  "display": "$125K",
+                  "value": 62151.324441152596,
+                  "display": "$62K",
                   "kind": "currency"
                 },
                 {
-                  "value": 219490.2812591396,
-                  "display": "$219K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
+                  "value": 132798.10478392916,
+                  "display": "$133K",
                   "kind": "currency"
                 },
                 {
@@ -4494,8 +4489,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 104080.80596047475,
-                  "display": "$104K",
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 80500.24145520909,
+                  "display": "$81K",
                   "kind": "currency"
                 },
                 {
@@ -4504,8 +4504,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5463571.6431199275,
-                  "display": "$5,464K",
+                  "value": 5617626.189522244,
+                  "display": "$5,618K",
                   "kind": "currency"
                 }
               ]
@@ -4583,23 +4583,23 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 108908.49005647993,
-                  "display": "$109K",
+                  "value": 44530.289196834114,
+                  "display": "$45K",
                   "kind": "currency"
                 },
                 {
-                  "value": 298925.9473851025,
-                  "display": "$299K",
+                  "value": 234547.74652545672,
+                  "display": "$235K",
                   "kind": "currency"
                 },
                 {
-                  "value": 260789.5832191464,
-                  "display": "$261K",
+                  "value": 196411.38235950063,
+                  "display": "$196K",
                   "kind": "currency"
                 },
                 {
-                  "value": 46156.40281120454,
-                  "display": "$46K",
+                  "value": 31526.07350776166,
+                  "display": "$32K",
                   "kind": "currency"
                 },
                 {
@@ -4663,7 +4663,7 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 10449.196278512107,
+                  "value": 10444.668779178488,
                   "display": "$10K",
                   "kind": "currency"
                 },
@@ -4688,23 +4688,18 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 198129.785700357,
-                  "display": "$198K",
+                  "value": 171520.04529251548,
+                  "display": "$172K",
                   "kind": "currency"
                 },
                 {
-                  "value": 108908.49005647993,
-                  "display": "$109K",
+                  "value": 44530.289196834114,
+                  "display": "$45K",
                   "kind": "currency"
                 },
                 {
-                  "value": 307038.2757568369,
-                  "display": "$307K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
+                  "value": 216050.3344893496,
+                  "display": "$216K",
                   "kind": "currency"
                 },
                 {
@@ -4728,8 +4723,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 208578.9819788691,
-                  "display": "$209K",
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 181964.71407169398,
+                  "display": "$182K",
                   "kind": "currency"
                 },
                 {
@@ -4738,8 +4738,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5367146.500400918,
-                  "display": "$5,367K",
+                  "value": 5559761.299334059,
+                  "display": "$5,560K",
                   "kind": "currency"
                 }
               ]
@@ -4817,23 +4817,23 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 116223.4463601649,
-                  "display": "$116K",
+                  "value": 50557.68148332619,
+                  "display": "$51K",
                   "kind": "currency"
                 },
                 {
-                  "value": 304971.9815625441,
-                  "display": "$305K",
+                  "value": 239306.2166857054,
+                  "display": "$239K",
                   "kind": "currency"
                 },
                 {
-                  "value": 266072.8901132689,
-                  "display": "$266K",
+                  "value": 200407.1252364302,
+                  "display": "$200K",
                   "kind": "currency"
                 },
                 {
-                  "value": 47095.73452256613,
-                  "display": "$47K",
+                  "value": 32171.4483284596,
+                  "display": "$32K",
                   "kind": "currency"
                 },
                 {
@@ -4897,7 +4897,7 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 11076.148055222833,
+                  "value": 11071.348905929197,
                   "display": "$11K",
                   "kind": "currency"
                 },
@@ -4922,23 +4922,18 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 77551.61812451128,
-                  "display": "$78K",
+                  "value": 53657.106063866195,
+                  "display": "$54K",
                   "kind": "currency"
                 },
                 {
-                  "value": 116223.4463601649,
-                  "display": "$116K",
+                  "value": 50557.68148332619,
+                  "display": "$51K",
                   "kind": "currency"
                 },
                 {
-                  "value": 193775.06448467617,
-                  "display": "$194K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
+                  "value": 104214.78754719239,
+                  "display": "$104K",
                   "kind": "currency"
                 },
                 {
@@ -4962,8 +4957,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 88627.76617973411,
-                  "display": "$89K",
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 64728.45496979539,
+                  "display": "$65K",
                   "kind": "currency"
                 },
                 {
@@ -4972,8 +4972,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5401749.642361701,
-                  "display": "$5,402K",
+                  "value": 5624481.065602254,
+                  "display": "$5,624K",
                   "kind": "currency"
                 }
               ]
@@ -5051,23 +5051,23 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 81362.27163218954,
-                  "display": "$81K",
+                  "value": 56615.1008459524,
+                  "display": "$57K",
                   "kind": "currency"
                 },
                 {
-                  "value": 268906.1633201263,
-                  "display": "$269K",
+                  "value": 244158.9925338892,
+                  "display": "$244K",
                   "kind": "currency"
                 },
                 {
-                  "value": 229229.09004186557,
-                  "display": "$229K",
+                  "value": 204481.91925562845,
+                  "display": "$204K",
                   "kind": "currency"
                 },
                 {
-                  "value": 38273.91820118428,
-                  "display": "$38K",
+                  "value": 32829.54062821211,
+                  "display": "$33K",
                   "kind": "currency"
                 },
                 {
@@ -5131,46 +5131,11 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 11740.716938536203,
+                  "value": 11735.62984028495,
                   "display": "$12K",
                   "kind": "currency"
                 },
                 {
-                  "value": 63251.03636473881,
-                  "display": "$63K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 53799.00024837542,
-                  "display": "$54K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 117050.03661311424,
-                  "display": "$117K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 81362.27163218954,
-                  "display": "$81K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 81362.27163218954,
-                  "display": "$81K",
-                  "kind": "currency"
-                },
-                {
                   "value": 0.0,
                   "display": "$0K",
                   "kind": "currency"
@@ -5191,13 +5156,48 @@
                   "kind": "currency"
                 },
                 {
+                  "value": 140312.23863896582,
+                  "display": "$140K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 56615.1008459524,
+                  "display": "$57K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 196927.33948491822,
+                  "display": "$197K",
+                  "kind": "currency"
+                },
+                {
                   "value": 0.0,
                   "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 128790.75355165044,
-                  "display": "$129K",
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 152047.86847925076,
+                  "display": "$152K",
                   "kind": "currency"
                 },
                 {
@@ -5206,8 +5206,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5456451.512524451,
-                  "display": "$5,456K",
+                  "value": 5661483.613691737,
+                  "display": "$5,661K",
                   "kind": "currency"
                 }
               ]
@@ -5285,23 +5285,23 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
-                  "display": "$0K",
+                  "value": 57327.09731166446,
+                  "display": "$57K",
                   "kind": "currency"
                 },
                 {
-                  "value": 191780.9034798605,
-                  "display": "$192K",
+                  "value": 249108.00079152494,
+                  "display": "$249K",
                   "kind": "currency"
                 },
                 {
-                  "value": 151310.28873603456,
-                  "display": "$151K",
+                  "value": 208637.386047699,
+                  "display": "$209K",
                   "kind": "currency"
                 },
                 {
-                  "value": 20888.65228174093,
-                  "display": "$21K",
+                  "value": 33500.61369030711,
+                  "display": "$34K",
                   "kind": "currency"
                 },
                 {
@@ -5365,23 +5365,43 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 12445.159954848374,
+                  "value": 12439.767630702047,
                   "display": "$12K",
                   "kind": "currency"
                 },
                 {
-                  "value": 35744.88544972553,
-                  "display": "$36K",
+                  "value": 0.0,
+                  "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 30403.2820916748,
-                  "display": "$30K",
+                  "value": 0.0,
+                  "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 66148.16754140033,
-                  "display": "$66K",
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 98202.97599245231,
+                  "display": "$98K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 57327.09731166446,
+                  "display": "$57K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 155530.07330411678,
+                  "display": "$156K",
                   "kind": "currency"
                 },
                 {
@@ -5410,28 +5430,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 78593.3274962487,
-                  "display": "$79K",
+                  "value": 110642.74362315435,
+                  "display": "$111K",
                   "kind": "currency"
                 },
                 {
@@ -5440,8 +5440,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5561457.22415875,
-                  "display": "$5,561K",
+                  "value": 5744818.870301553,
+                  "display": "$5,745K",
                   "kind": "currency"
                 }
               ]
@@ -5599,23 +5599,43 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 13191.869552139276,
+                  "value": 13186.153688544171,
                   "display": "$13K",
                   "kind": "currency"
                 },
                 {
-                  "value": 35269.82643390564,
-                  "display": "$35K",
+                  "value": 0.0,
+                  "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 29999.214402369158,
-                  "display": "$30K",
+                  "value": 0.0,
+                  "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 65269.0408362748,
-                  "display": "$65K",
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 80907.12397419217,
+                  "display": "$81K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 80907.12397419217,
+                  "display": "$81K",
                   "kind": "currency"
                 },
                 {
@@ -5644,28 +5664,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 78460.91038841408,
-                  "display": "$78K",
+                  "value": 94093.27766273635,
+                  "display": "$94K",
                   "kind": "currency"
                 },
                 {
@@ -5674,8 +5674,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5635088.069874674,
-                  "display": "$5,635K",
+                  "value": 5812881.105475264,
+                  "display": "$5,813K",
                   "kind": "currency"
                 }
               ]
@@ -5743,33 +5743,33 @@
                   "kind": "currency"
                 },
                 {
+                  "value": 20955.559022639463,
+                  "display": "$21K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 239803.56461601355,
+                  "display": "$240K",
+                  "kind": "currency"
+                },
+                {
                   "value": 0.0,
                   "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 218848.00559337408,
-                  "display": "$219K",
+                  "value": 222291.57423154457,
+                  "display": "$222K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
-                  "display": "$0K",
+                  "value": 180185.94665206806,
+                  "display": "$180K",
                   "kind": "currency"
                 },
                 {
-                  "value": 201336.0152089051,
-                  "display": "$201K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 159230.3876294286,
-                  "display": "$159K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 22130.129744184076,
-                  "display": "$22K",
+                  "value": 26740.35272916476,
+                  "display": "$27K",
                   "kind": "currency"
                 },
                 {
@@ -5833,23 +5833,43 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 13983.381725267633,
+                  "value": 13977.32290985682,
                   "display": "$14K",
                   "kind": "currency"
                 },
                 {
-                  "value": 37613.91916609966,
-                  "display": "$38K",
+                  "value": 0.0,
+                  "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 31993.013282664262,
-                  "display": "$32K",
+                  "value": 0.0,
+                  "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 69606.93244876392,
-                  "display": "$70K",
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 20955.559022639463,
+                  "display": "$21K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 68291.8656750205,
+                  "display": "$68K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 89247.42469765997,
+                  "display": "$89K",
                   "kind": "currency"
                 },
                 {
@@ -5878,38 +5898,18 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
+                  "value": 103224.7476075168,
+                  "display": "$103K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 0,
                   "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 83590.31417403156,
-                  "display": "$84K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 1.4551915228366852e-11,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 5697761.940144598,
-                  "display": "$5,698K",
+                  "value": 5865410.058441727,
+                  "display": "$5,865K",
                   "kind": "currency"
                 }
               ]
@@ -5977,33 +5977,33 @@
                   "kind": "currency"
                 },
                 {
+                  "value": 19064.763160119288,
+                  "display": "$19K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 238605.9428870763,
+                  "display": "$239K",
+                  "kind": "currency"
+                },
+                {
                   "value": 0.0,
                   "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 219541.179726957,
-                  "display": "$220K",
+                  "value": 220826.9364201535,
+                  "display": "$221K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
-                  "display": "$0K",
+                  "value": 177879.19628908747,
+                  "display": "$178K",
                   "kind": "currency"
                 },
                 {
-                  "value": 201762.17326003424,
-                  "display": "$202K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 158814.4331289682,
-                  "display": "$159K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 21780.608643396983,
-                  "display": "$22K",
+                  "value": 25974.856538623222,
+                  "display": "$26K",
                   "kind": "currency"
                 },
                 {
@@ -6052,7 +6052,7 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 1.511455543027415e-11,
+                  "value": 0.0,
                   "display": "$0K",
                   "kind": "currency"
                 },
@@ -6062,28 +6062,48 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 1.511455543027415e-11,
+                  "value": 0.0,
                   "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 14822.384628783691,
+                  "value": 14815.962284448231,
                   "display": "$15K",
                   "kind": "currency"
                 },
                 {
-                  "value": 41199.412255340496,
-                  "display": "$41K",
+                  "value": 0.0,
+                  "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 35042.7015515849,
-                  "display": "$35K",
+                  "value": 0.0,
+                  "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 76242.1138069254,
-                  "display": "$76K",
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 19064.763160119288,
+                  "display": "$19K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 78689.77036713822,
+                  "display": "$79K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 97754.5335272575,
+                  "display": "$98K",
                   "kind": "currency"
                 },
                 {
@@ -6112,28 +6132,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 91064.4984357091,
-                  "display": "$91K",
+                  "value": 112570.49581170574,
+                  "display": "$113K",
                   "kind": "currency"
                 },
                 {
@@ -6142,8 +6142,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5756044.753470621,
-                  "display": "$5,756K",
+                  "value": 5910955.401647024,
+                  "display": "$5,911K",
                   "kind": "currency"
                 }
               ]
@@ -6211,33 +6211,33 @@
                   "kind": "currency"
                 },
                 {
+                  "value": 16389.74561439405,
+                  "display": "$16K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 236774.94353725642,
+                  "display": "$237K",
+                  "kind": "currency"
+                },
+                {
                   "value": 0.0,
                   "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 220385.19792286237,
-                  "display": "$220K",
+                  "value": 218721.08633854048,
+                  "display": "$219K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
-                  "display": "$0K",
+                  "value": 174914.39140485312,
+                  "display": "$175K",
                   "kind": "currency"
                 },
                 {
-                  "value": 202331.34072414646,
-                  "display": "$202K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 158524.6457904591,
-                  "display": "$159K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 21453.684096025463,
-                  "display": "$21K",
+                  "value": 25059.428131192148,
+                  "display": "$25K",
                   "kind": "currency"
                 },
                 {
@@ -6301,23 +6301,43 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 15711.727706510712,
+                  "value": 15704.920021515127,
                   "display": "$16K",
                   "kind": "currency"
                 },
                 {
-                  "value": 44850.416217166916,
-                  "display": "$45K",
+                  "value": 0.0,
+                  "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 38148.110954151125,
-                  "display": "$38K",
+                  "value": 0.0,
+                  "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 82998.52717131804,
-                  "display": "$83K",
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 16389.74561439405,
+                  "display": "$16K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 90027.35035523881,
+                  "display": "$90K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 106417.09596963286,
+                  "display": "$106K",
                   "kind": "currency"
                 },
                 {
@@ -6346,28 +6366,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 98710.25487782876,
-                  "display": "$99K",
+                  "value": 122122.01599114799,
+                  "display": "$122K",
                   "kind": "currency"
                 },
                 {
@@ -6376,8 +6376,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5809346.148996397,
-                  "display": "$5,809K",
+                  "value": 5948734.969283265,
+                  "display": "$5,949K",
                   "kind": "currency"
                 }
               ]
@@ -6445,33 +6445,33 @@
                   "kind": "currency"
                 },
                 {
+                  "value": 12956.480150726833,
+                  "display": "$13K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 234330.31139352082,
+                  "display": "$234K",
+                  "kind": "currency"
+                },
+                {
                   "value": 0.0,
                   "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 221373.831242794,
-                  "display": "$221K",
+                  "value": 215993.78066155588,
+                  "display": "$216K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
-                  "display": "$0K",
+                  "value": 171310.95182919476,
+                  "display": "$171K",
                   "kind": "currency"
                 },
                 {
-                  "value": 203037.30051082905,
-                  "display": "$203K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 158354.47167846793,
-                  "display": "$158K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 21147.811031829897,
-                  "display": "$21K",
+                  "value": 23998.236664989796,
+                  "display": "$24K",
                   "kind": "currency"
                 },
                 {
@@ -6535,23 +6535,43 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 16654.431368901354,
+                  "value": 16647.215222806033,
                   "display": "$17K",
                   "kind": "currency"
                 },
                 {
-                  "value": 48574.45097789907,
-                  "display": "$49K",
+                  "value": 0.0,
+                  "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 41315.637662524234,
-                  "display": "$41K",
+                  "value": 0.0,
+                  "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 89890.0886404233,
-                  "display": "$90K",
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 12956.480150726833,
+                  "display": "$13K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 102296.47470378426,
+                  "display": "$102K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 115252.95485451109,
+                  "display": "$115K",
                   "kind": "currency"
                 },
                 {
@@ -6580,28 +6600,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 106544.52000932465,
-                  "display": "$107K",
+                  "value": 131900.17007731713,
+                  "display": "$132K",
                   "kind": "currency"
                 },
                 {
@@ -6610,8 +6610,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5856997.897116918,
-                  "display": "$5,857K",
+                  "value": 5977873.057548925,
+                  "display": "$5,978K",
                   "kind": "currency"
                 }
               ]
@@ -6679,33 +6679,33 @@
                   "kind": "currency"
                 },
                 {
+                  "value": 8529.714927448716,
+                  "display": "$9K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 231030.96159377435,
+                  "display": "$231K",
+                  "kind": "currency"
+                },
+                {
                   "value": 0.0,
                   "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 222501.24666632563,
-                  "display": "$223K",
+                  "value": 212403.93711960054,
+                  "display": "$212K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
-                  "display": "$0K",
+                  "value": 166827.4517105922,
+                  "display": "$167K",
                   "kind": "currency"
                 },
                 {
-                  "value": 203874.22219215182,
-                  "display": "$204K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 158297.73678314348,
-                  "display": "$158K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 20861.525900109857,
-                  "display": "$21K",
+                  "value": 22738.063184148574,
+                  "display": "$23K",
                   "kind": "currency"
                 },
                 {
@@ -6774,18 +6774,38 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 59455.179033565044,
-                  "display": "$59K",
+                  "value": 0.0,
+                  "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 50570.38390879464,
-                  "display": "$51K",
+                  "value": 0.0,
+                  "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 110025.56294235968,
-                  "display": "$110K",
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 8529.714927448716,
+                  "display": "$9K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 132528.69910121756,
+                  "display": "$133K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 141058.41402866627,
+                  "display": "$141K",
                   "kind": "currency"
                 },
                 {
@@ -6814,28 +6834,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 110025.56294235968,
-                  "display": "$110K",
+                  "value": 141058.41402866627,
+                  "display": "$141K",
                   "kind": "currency"
                 },
                 {
@@ -6844,8 +6844,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5903111.813807681,
-                  "display": "$5,903K",
+                  "value": 5998344.6617141245,
+                  "display": "$5,998K",
                   "kind": "currency"
                 }
               ]
@@ -6913,32 +6913,32 @@
                   "kind": "currency"
                 },
                 {
+                  "value": 2042.2616434124636,
+                  "display": "$2K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 225804.2498062515,
+                  "display": "$226K",
+                  "kind": "currency"
+                },
+                {
                   "value": 0.0,
                   "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 223761.98816283903,
-                  "display": "$224K",
+                  "value": 206878.9050226317,
+                  "display": "$207K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
-                  "display": "$0K",
+                  "value": 160390.88990544318,
+                  "display": "$160K",
                   "kind": "currency"
                 },
                 {
-                  "value": 204836.64337921923,
-                  "display": "$205K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 158348.62826203072,
-                  "display": "$158K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 20593.44250162141,
+                  "value": 21042.740063172154,
                   "display": "$21K",
                   "kind": "currency"
                 },
@@ -7008,18 +7008,38 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 61395.2732945768,
-                  "display": "$61K",
+                  "value": 33288.384561307466,
+                  "display": "$33K",
                   "kind": "currency"
                 },
                 {
-                  "value": 52220.55657992941,
-                  "display": "$52K",
+                  "value": 48149.570859591964,
+                  "display": "$48K",
                   "kind": "currency"
                 },
                 {
-                  "value": 113615.82987450622,
-                  "display": "$114K",
+                  "value": 81437.95542089944,
+                  "display": "$81K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 2042.2616434124636,
+                  "display": "$2K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 39211.4235535193,
+                  "display": "$39K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 41253.685196931765,
+                  "display": "$41K",
                   "kind": "currency"
                 },
                 {
@@ -7048,28 +7068,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 113615.82987450622,
-                  "display": "$114K",
+                  "value": 122691.6406178312,
+                  "display": "$123K",
                   "kind": "currency"
                 },
                 {
@@ -7078,8 +7078,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5947321.6868514735,
-                  "display": "$5,947K",
+                  "value": 6038648.146244379,
+                  "display": "$6,039K",
                   "kind": "currency"
                 }
               ]
@@ -7242,13 +7242,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 63402.48999899186,
-                  "display": "$63K",
+                  "value": 47959.65833484659,
+                  "display": "$48K",
                   "kind": "currency"
                 },
                 {
-                  "value": 53927.82112744867,
-                  "display": "$54K",
+                  "value": 69370.65279159394,
+                  "display": "$69K",
                   "kind": "currency"
                 },
                 {
@@ -7312,8 +7312,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 5989228.467605149,
-                  "display": "$5,989K",
+                  "value": 6086034.514561629,
+                  "display": "$6,086K",
                   "kind": "currency"
                 }
               ]
@@ -7476,13 +7476,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 65485.10191899963,
-                  "display": "$65K",
+                  "value": 49535.01217551182,
+                  "display": "$50K",
                   "kind": "currency"
                 },
                 {
-                  "value": 55699.21406646189,
-                  "display": "$56K",
+                  "value": 71649.3038099497,
+                  "display": "$72K",
                   "kind": "currency"
                 },
                 {
@@ -7546,8 +7546,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 6028397.550937718,
-                  "display": "$6,028K",
+                  "value": 6131011.960711586,
+                  "display": "$6,131K",
                   "kind": "currency"
                 }
               ]
@@ -7710,17 +7710,17 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 67651.57817898809,
-                  "display": "$68K",
+                  "value": 51173.80366810549,
+                  "display": "$51K",
                   "kind": "currency"
                 },
                 {
-                  "value": 57541.938922021654,
-                  "display": "$58K",
+                  "value": 74019.71343290425,
+                  "display": "$74K",
                   "kind": "currency"
                 },
                 {
-                  "value": 125193.51710100974,
+                  "value": 125193.51710100973,
                   "display": "$125K",
                   "kind": "currency"
                 },
@@ -7770,18 +7770,18 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 125193.51710100974,
+                  "value": 125193.51710100973,
                   "display": "$125K",
                   "kind": "currency"
                 },
                 {
-                  "value": 1.4551915228366852e-11,
+                  "value": 0,
                   "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 6064355.861922963,
-                  "display": "$6,064K",
+                  "value": 6173127.136283264,
+                  "display": "$6,173K",
                   "kind": "currency"
                 }
               ]
@@ -7924,7 +7924,7 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 1.511455543027415e-11,
+                  "value": 0.0,
                   "display": "$0K",
                   "kind": "currency"
                 },
@@ -7934,7 +7934,7 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 1.511455543027415e-11,
+                  "value": 0.0,
                   "display": "$0K",
                   "kind": "currency"
                 },
@@ -7944,17 +7944,17 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 69910.60883819453,
-                  "display": "$70K",
+                  "value": 52882.60624960043,
+                  "display": "$53K",
                   "kind": "currency"
                 },
                 {
-                  "value": 59463.38713822016,
-                  "display": "$59K",
+                  "value": 76491.38972681428,
+                  "display": "$76K",
                   "kind": "currency"
                 },
                 {
-                  "value": 129373.99597641469,
+                  "value": 129373.9959764147,
                   "display": "$129K",
                   "kind": "currency"
                 },
@@ -8014,8 +8014,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 6096588.7355908435,
-                  "display": "$6,097K",
+                  "value": 6211886.2864127625,
+                  "display": "$6,212K",
                   "kind": "currency"
                 }
               ]
@@ -8178,13 +8178,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 76495.98352740922,
-                  "display": "$76K",
+                  "value": 57863.99294445585,
+                  "display": "$58K",
                   "kind": "currency"
                 },
                 {
-                  "value": 65064.66412754414,
-                  "display": "$65K",
+                  "value": 83696.65471049749,
+                  "display": "$84K",
                   "kind": "currency"
                 },
                 {
@@ -8248,8 +8248,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 6116249.11567698,
-                  "display": "$6,116K",
+                  "value": 6238464.519548215,
+                  "display": "$6,238K",
                   "kind": "currency"
                 }
               ]
@@ -8412,13 +8412,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 89151.84629580614,
-                  "display": "$89K",
+                  "value": 67437.28973949772,
+                  "display": "$67K",
                   "kind": "currency"
                 },
                 {
-                  "value": 75829.27453320012,
-                  "display": "$76K",
+                  "value": 97543.83108950855,
+                  "display": "$98K",
                   "kind": "currency"
                 },
                 {
@@ -8482,8 +8482,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 6121139.533291341,
-                  "display": "$6,121K",
+                  "value": 6250687.861394849,
+                  "display": "$6,251K",
                   "kind": "currency"
                 }
               ]
@@ -8646,13 +8646,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 91217.13316369506,
-                  "display": "$91K",
+                  "value": 68999.53836015872,
+                  "display": "$69K",
                   "kind": "currency"
                 },
                 {
-                  "value": 77585.93142144148,
-                  "display": "$78K",
+                  "value": 99803.52622497783,
+                  "display": "$100K",
                   "kind": "currency"
                 },
                 {
@@ -8716,8 +8716,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 6145206.76008905,
-                  "display": "$6,145K",
+                  "value": 6282527.987878769,
+                  "display": "$6,283K",
                   "kind": "currency"
                 }
               ]
@@ -8880,13 +8880,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 93429.52941080905,
-                  "display": "$93K",
+                  "value": 70673.06519032849,
+                  "display": "$71K",
                   "kind": "currency"
                 },
                 {
-                  "value": 79467.71412554817,
-                  "display": "$79K",
+                  "value": 102224.17834602873,
+                  "display": "$102K",
                   "kind": "currency"
                 },
                 {
@@ -8950,8 +8950,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 6162957.587753868,
-                  "display": "$6,163K",
+                  "value": 6308518.089210969,
+                  "display": "$6,309K",
                   "kind": "currency"
                 }
               ]
@@ -9114,13 +9114,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 95798.86400176439,
-                  "display": "$96K",
+                  "value": 72465.3051712024,
+                  "display": "$72K",
                   "kind": "currency"
                 },
                 {
-                  "value": 81482.98280055048,
-                  "display": "$81K",
+                  "value": 104816.54163111247,
+                  "display": "$105K",
                   "kind": "currency"
                 },
                 {
@@ -9184,8 +9184,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 6173619.294899239,
-                  "display": "$6,174K",
+                  "value": 6327913.426443768,
+                  "display": "$6,328K",
                   "kind": "currency"
                 }
               ]
@@ -9348,13 +9348,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 98321.51702080436,
-                  "display": "$98K",
+                  "value": 74373.52008346295,
+                  "display": "$74K",
                   "kind": "currency"
                 },
                 {
-                  "value": 83628.65847952726,
-                  "display": "$84K",
+                  "value": 107576.65541686869,
+                  "display": "$108K",
                   "kind": "currency"
                 },
                 {
@@ -9418,8 +9418,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 6176380.813931953,
-                  "display": "$6,176K",
+                  "value": 6339932.593369152,
+                  "display": "$6,340K",
                   "kind": "currency"
                 }
               ]
@@ -9582,17 +9582,17 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 100968.66067997749,
-                  "display": "$101K",
+                  "value": 76375.90367217087,
+                  "display": "$76K",
                   "kind": "currency"
                 },
                 {
-                  "value": 85880.22130857102,
-                  "display": "$86K",
+                  "value": 110472.97831637766,
+                  "display": "$110K",
                   "kind": "currency"
                 },
                 {
-                  "value": 186848.8819885485,
+                  "value": 186848.88198854853,
                   "display": "$187K",
                   "kind": "currency"
                 },
@@ -9642,18 +9642,18 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 186848.8819885485,
+                  "value": 186848.88198854853,
                   "display": "$187K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0,
+                  "value": 2.9103830456733704e-11,
                   "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 6170404.707950293,
-                  "display": "$6,170K",
+                  "value": 6343769.594153726,
+                  "display": "$6,344K",
                   "kind": "currency"
                 }
               ]
@@ -9821,12 +9821,12 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 191986.32735860618,
+                  "value": 191986.32735860616,
                   "display": "$192K",
                   "kind": "currency"
                 },
                 {
-                  "value": 191986.32735860618,
+                  "value": 191986.32735860616,
                   "display": "$192K",
                   "kind": "currency"
                 },
@@ -9876,7 +9876,7 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 191986.32735860618,
+                  "value": 191986.32735860616,
                   "display": "$192K",
                   "kind": "currency"
                 },
@@ -9886,8 +9886,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 6155895.459031032,
-                  "display": "$6,156K",
+                  "value": 6339662.238406671,
+                  "display": "$6,340K",
                   "kind": "currency"
                 }
               ]
@@ -10055,12 +10055,12 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 196499.0963505532,
+                  "value": 196499.09635055324,
                   "display": "$196K",
                   "kind": "currency"
                 },
                 {
-                  "value": 196499.0963505532,
+                  "value": 196499.09635055324,
                   "display": "$196K",
                   "kind": "currency"
                 },
@@ -10110,18 +10110,18 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 196499.0963505532,
+                  "value": 196499.09635055324,
                   "display": "$196K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0,
+                  "value": 2.9103830456733704e-11,
                   "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 6131568.595599456,
-                  "display": "$6,132K",
+                  "value": 6326361.381737633,
+                  "display": "$6,326K",
                   "kind": "currency"
                 }
               ]
@@ -10264,7 +10264,17 @@
                   "kind": "currency"
                 },
                 {
+                  "value": 3.02291108605483e-11,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
                   "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 3.02291108605483e-11,
                   "display": "$0K",
                   "kind": "currency"
                 },
@@ -10279,22 +10289,12 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.0,
-                  "display": "$0K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 200802.99412020252,
+                  "value": 200802.99412020255,
                   "display": "$201K",
                   "kind": "currency"
                 },
                 {
-                  "value": 200802.99412020252,
+                  "value": 200802.99412020255,
                   "display": "$201K",
                   "kind": "currency"
                 },
@@ -10344,18 +10344,18 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 200802.99412020252,
+                  "value": 200802.99412020258,
                   "display": "$201K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0,
+                  "value": 2.9103830456733704e-11,
                   "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 6103848.09961433,
-                  "display": "$6,104K",
+                  "value": 6310328.452920796,
+                  "display": "$6,310K",
                   "kind": "currency"
                 }
               ]
@@ -10489,22 +10489,22 @@
             {
               "label": "Pre-Tax IRA/401k",
               "values": [
-                1744793,
-                1606830,
-                1233528,
-                968288,
-                749921,
-                562257,
-                270532,
-                81362,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
+                1744447,
+                1606477,
+                1415635,
+                1251155,
+                1141779,
+                1069520,
+                904677,
+                848490,
+                690657,
+                567234,
+                515507,
+                451835,
+                375325,
+                285043,
+                179977,
+                41254,
                 0,
                 0,
                 0,
@@ -10525,44 +10525,44 @@
             {
               "label": "Roth",
               "values": [
-                483306,
-                754954,
-                1030801,
-                1247049,
-                1486487,
-                1708460,
-                1926410,
-                2165192,
-                2257274,
-                2322593,
-                2392764,
-                2462546,
-                2529483,
-                2593273,
-                2653586,
-                2696174,
-                2737512,
-                2777392,
-                2815580,
-                2851810,
-                2885782,
-                2908875,
-                2908527,
-                2904108,
-                2895083,
-                2880869,
-                2860854,
-                2834446,
-                2801007,
-                2760778,
-                2713574
+                483228,
+                693051,
+                900783,
+                1044926,
+                1206646,
+                1344925,
+                1472822,
+                1614783,
+                1771682,
+                1938749,
+                2055074,
+                2178379,
+                2309082,
+                2447627,
+                2594484,
+                2750153,
+                2828838,
+                2874198,
+                2918195,
+                2960581,
+                3001080,
+                3031090,
+                3038076,
+                3041429,
+                3040644,
+                3035164,
+                3024406,
+                3007811,
+                2984774,
+                2955571,
+                2920054
               ]
             },
             {
               "label": "Trust",
               "values": [
-                405184,
-                91537,
+                405844,
+                158261,
                 0,
                 0,
                 0,
@@ -10597,20 +10597,20 @@
             {
               "label": "HSA",
               "values": [
-                78082,
-                82767,
-                87733,
-                92997,
-                98577,
-                94043,
-                88609,
-                82185,
-                74671,
-                65959,
-                55934,
-                44467,
-                31423,
-                16654,
+                78049,
+                82732,
+                87695,
+                92957,
+                98535,
+                94002,
+                88571,
+                82149,
+                74639,
+                65931,
+                55909,
+                44448,
+                31410,
+                16647,
                 0,
                 0,
                 0,
@@ -10669,14 +10669,14 @@
             {
               "label": "Other Assets",
               "values": [
-                547626,
-                480568,
-                413511,
-                346454,
-                213396,
-                146339,
-                79282,
-                20000,
+                549354,
+                484024,
+                418695,
+                353365,
+                222036,
+                156707,
+                91377,
+                26048,
                 20000,
                 20000,
                 20000,
@@ -11103,13 +11103,8 @@
               ]
             },
             {
-              "label": "Trust Draw",
+              "label": "RMD",
               "values": [
-                139116,
-                317237,
-                91537,
-                0,
-                66000,
                 0,
                 0,
                 0,
@@ -11121,7 +11116,12 @@
                 0,
                 0,
                 0,
-                0,
+                20956,
+                19065,
+                16390,
+                12956,
+                8530,
+                2042,
                 0,
                 0,
                 0,
@@ -11181,7 +11181,7 @@
             {
               "label": "Base Spending",
               "values": [
-                314341,
+                313633,
                 132285,
                 135593,
                 138982,
@@ -11326,22 +11326,22 @@
               "label": "Federal Tax",
               "values": [
                 72804,
-                41329,
-                42256,
-                42745,
-                44332,
-                45235,
-                46156,
-                47096,
-                38274,
-                20889,
+                27348,
+                27987,
+                29615,
+                30272,
+                30893,
+                31526,
+                32171,
+                32830,
+                33501,
                 22498,
-                22130,
-                21781,
-                21454,
-                21148,
-                20862,
-                20593,
+                26740,
+                25975,
+                25059,
+                23998,
+                22738,
+                21043,
                 20342,
                 20107,
                 19886,
@@ -11363,7 +11363,7 @@
               "values": [
                 15734,
                 1977,
-                1446,
+                1509,
                 1611,
                 1445,
                 1140,
@@ -11397,11 +11397,11 @@
             {
               "label": "NIIT",
               "values": [
-                2400,
-                888,
-                1095,
+                2398,
                 0,
-                1109,
+                0,
+                0,
+                0,
                 0,
                 0,
                 0,
@@ -11473,181 +11473,181 @@
             {
               "label": "P10",
               "values": [
-                5393468.595027415,
-                5134426.931010533,
-                4876866.061067593,
-                4787750.88401636,
-                4558640.308714996,
-                4449285.638347247,
-                4230481.66413134,
-                4170250.5815205346,
-                4095278.8529163455,
-                4123479.8727107914,
-                4081204.6336293756,
-                4024747.7002115753,
-                3908227.37587299,
-                3830415.5452050236,
-                3727500.109795863,
-                3629512.5072321105,
-                3539056.383259014,
-                3452778.481815435,
-                3296312.8209883175,
+                5395761.230136966,
+                5134623.984903632,
+                4945425.167974935,
+                4895720.341984515,
+                4702061.652095346,
+                4617538.00549991,
+                4442409.095444914,
+                4403711.567582819,
+                4296794.500855353,
+                4283005.9374482725,
+                4224956.590683557,
+                4136919.764426534,
+                4000184.0902426946,
+                3862122.290285141,
+                3735896.466484011,
+                3592964.2825602507,
+                3467189.1726440634,
+                3361181.329874754,
+                3231703.2838639366,
                 3212545.80921576,
                 3210806.515456208,
                 3207374.2488485184,
                 3212612.162531917,
                 3241098.995544306,
                 3267874.4354849774,
-                3292749.9111046703,
-                3315526.4531400604,
+                3292749.91110467,
+                3315526.4531400613,
                 3335958.900418749,
                 3354888.4100477183,
-                3370790.16580873,
-                3390274.1378035736
+                3370790.1658087294,
+                3390274.137803574
               ]
             },
             {
               "label": "P25",
               "values": [
-                5598731.895940082,
-                5427530.468766244,
-                5223095.048959605,
-                5176299.403257917,
-                5014957.131285966,
-                4946774.952711737,
-                4718474.837659603,
-                4671145.182494745,
-                4658726.359902568,
-                4701915.926532065,
-                4724929.09356145,
-                4702389.141859608,
-                4692173.126485125,
-                4641453.920849137,
-                4574085.317483976,
-                4515221.033837212,
-                4485989.53562109,
-                4366945.594415486,
-                4296686.509656517,
-                4212991.1288372725,
-                4104104.915064061,
-                4022762.596862659,
-                3869482.219436089,
-                3750709.338141223,
-                3608744.950107078,
-                3444648.357878408,
-                3315526.4531400604,
+                5601072.748564983,
+                5427941.105601374,
+                5302089.814555326,
+                5290654.935440136,
+                5157330.959415852,
+                5134110.219240082,
+                4968783.720707175,
+                4945278.572423811,
+                4892052.565786681,
+                4900541.22280132,
+                4912142.836956862,
+                4864109.605088448,
+                4813737.095091446,
+                4733403.930271865,
+                4638594.722768225,
+                4550078.591731923,
+                4471362.641552328,
+                4366430.299504876,
+                4278554.513282903,
+                4186979.922965285,
+                4108079.1430640267,
+                3951047.921295183,
+                3814345.2866183603,
+                3712515.883743276,
+                3532168.7633361574,
+                3374494.471005452,
+                3315526.4531400613,
                 3335958.900418749,
-                3354888.4100477183,
-                3370790.1658087303,
-                3390274.1378035736
+                3354888.410047719,
+                3370790.1658087294,
+                3390274.137803574
               ]
             },
             {
               "label": "P50 Median",
               "values": [
-                5821519.868470038,
-                5741356.7761662565,
-                5622747.35339959,
-                5615091.634995502,
-                5543426.257935669,
-                5527776.8655289225,
-                5391942.2747223405,
-                5419871.371651636,
-                5425580.831231764,
-                5533833.930778778,
-                5579085.072947441,
-                5616702.469132341,
-                5591148.824798234,
-                5606410.750630565,
-                5653332.30331395,
-                5682228.700785721,
-                5734229.903261857,
-                5773154.941410162,
-                5706243.358585005,
-                5686791.2088026535,
-                5743301.126954641,
-                5733177.768661609,
-                5626912.472822793,
-                5601185.919772261,
-                5551952.168324893,
-                5509160.167583879,
-                5490191.751426443,
-                5475518.412568513,
-                5420378.088594787,
-                5459708.7885034755,
-                5500076.791061295
+                5823913.055255203,
+                5741154.343602509,
+                5701458.110792729,
+                5731099.259954117,
+                5712673.8653138075,
+                5726553.733688445,
+                5629988.314610343,
+                5711566.05176718,
+                5702915.105264436,
+                5740346.933828084,
+                5793175.214487714,
+                5801124.215060512,
+                5790759.917881977,
+                5757376.18659861,
+                5747444.231629726,
+                5748002.602288878,
+                5786595.880534923,
+                5817005.724106055,
+                5756893.449184386,
+                5790413.802597944,
+                5839634.334402264,
+                5806602.579560725,
+                5728028.91710891,
+                5757821.3320315685,
+                5691423.347378472,
+                5623772.003663242,
+                5579006.79901897,
+                5598274.4669916015,
+                5557249.255153423,
+                5573200.372389614,
+                5602513.407665413
               ]
             },
             {
               "label": "P75",
               "values": [
-                6030006.920163324,
-                6078588.909226959,
-                6046998.646688746,
-                6142256.73301531,
-                6142880.927680278,
-                6194629.311315843,
-                6167459.469927487,
-                6280970.653024144,
-                6401869.5816502515,
-                6511276.822872482,
-                6657047.593195971,
-                6888782.707095354,
-                7078489.730321897,
-                7255731.735753307,
-                7377249.450139545,
-                7465930.920022153,
-                7563181.367135906,
-                7637810.381816683,
-                7842805.5581326205,
-                7936435.609214366,
-                8291228.43812952,
-                8381180.069684958,
-                8562009.353523964,
-                8909462.438127983,
-                9071619.843250996,
-                9301061.12990215,
-                9711402.924655074,
-                9801512.280942867,
-                10007893.825482314,
-                10369720.426381338,
-                10578051.0299707
+                6032449.08174121,
+                6078492.832623027,
+                6121823.930147617,
+                6259277.123654996,
+                6313877.0494371345,
+                6413333.827161051,
+                6444720.045006614,
+                6597650.393852556,
+                6724926.451667815,
+                6795444.043358371,
+                6925728.761595845,
+                7165755.228410551,
+                7344718.164952743,
+                7476226.623478377,
+                7591196.942011727,
+                7640932.650498772,
+                7712279.353245549,
+                7767923.185321641,
+                8028482.253060335,
+                8120387.0180592,
+                8429848.25534553,
+                8693662.67119904,
+                8765713.480078483,
+                9137957.253276017,
+                9261415.957466712,
+                9510730.306809679,
+                9885866.6127929,
+                10088434.24213238,
+                10289294.942122584,
+                10627635.211252235,
+                10920663.589128986
               ]
             },
             {
               "label": "P90",
               "values": [
-                6249843.200240021,
-                6453774.96616769,
-                6522390.887785587,
-                6630056.137857603,
-                6737318.861030078,
-                6941382.176447091,
-                6993286.827204264,
-                7156800.877467837,
-                7348669.646020876,
-                7644931.561754034,
-                8027398.047628022,
-                8321796.1608338095,
-                8667709.12803512,
-                8827555.325641964,
-                9325462.21500537,
-                9536245.423361454,
-                10175171.01439997,
-                10491223.433888102,
-                10701076.98825039,
-                11424807.710530829,
-                11595565.658197312,
-                12152297.386155091,
-                12592322.089121304,
-                13295318.705010558,
-                14029933.50567571,
-                14664523.634418234,
-                15149644.138968078,
-                16091069.56513429,
-                16421123.98557625,
-                17339894.72830968,
-                18230124.757713255
+                6252354.776124163,
+                6453874.055665728,
+                6602928.73619558,
+                6749151.732992535,
+                6911284.104954997,
+                7177578.9768015705,
+                7287060.953462291,
+                7540351.134768556,
+                7657066.693614911,
+                7977859.681406879,
+                8344146.294828386,
+                8596639.363026848,
+                9004783.997375147,
+                9117427.045755906,
+                9605041.020437561,
+                9731077.947136877,
+                10525926.216651727,
+                10818181.405512255,
+                11064408.895530611,
+                11747944.133367078,
+                12073231.091795886,
+                12516331.988435412,
+                12962949.83204366,
+                13726577.914255882,
+                14482427.843925448,
+                15093385.3331628,
+                15720557.65281459,
+                16694469.02046671,
+                16976262.87219877,
+                18176408.632150855,
+                18890508.82762554
               ]
             }
           ]
@@ -11851,17 +11851,17 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 2399.8977972397847,
+                  "value": 2397.6341475237678,
                   "display": "$2K",
                   "kind": "currency"
                 },
                 {
-                  "value": 107182.86463993764,
+                  "value": 107171.6655308163,
                   "display": "$107K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.2395828294675859,
+                  "value": 0.23955779641533617,
                   "display": "24%",
                   "kind": "percent"
                 }
@@ -11880,43 +11880,43 @@
                   "kind": "text"
                 },
                 {
-                  "value": 273360.0,
-                  "display": "$273K",
+                  "value": 215050.68,
+                  "display": "$215K",
                   "kind": "currency"
                 },
                 {
-                  "value": 234220.32,
-                  "display": "$234K",
+                  "value": 172412.44079999998,
+                  "display": "$172K",
                   "kind": "currency"
                 },
                 {
-                  "value": 228915.4845178686,
-                  "display": "$229K",
+                  "value": 170593.50959216908,
+                  "display": "$171K",
                   "kind": "currency"
                 },
                 {
-                  "value": 41328.9144,
-                  "display": "$41K",
+                  "value": 27347.788175999995,
+                  "display": "$27K",
                   "kind": "currency"
                 },
                 {
-                  "value": 1976.6595163655034,
+                  "value": 1977.2859351876307,
                   "display": "$2K",
                   "kind": "currency"
                 },
                 {
-                  "value": 887.68,
-                  "display": "$1K",
+                  "value": 0.0,
+                  "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 50613.964165371704,
-                  "display": "$51K",
+                  "value": 32661.136502509507,
+                  "display": "$33K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.1851549757293375,
-                  "display": "19%",
+                  "value": 0.15187646234138627,
+                  "display": "15%",
                   "kind": "percent"
                 }
               ]
@@ -11934,43 +11934,43 @@
                   "kind": "text"
                 },
                 {
-                  "value": 278827.2,
-                  "display": "$279K",
+                  "value": 219351.69360000003,
+                  "display": "$219K",
                   "kind": "currency"
                 },
                 {
-                  "value": 239324.7264,
-                  "display": "$239K",
+                  "value": 176280.68961600002,
+                  "display": "$176K",
                   "kind": "currency"
                 },
                 {
-                  "value": 217498.98688253132,
-                  "display": "$217K",
+                  "value": 156744.37767215245,
+                  "display": "$157K",
                   "kind": "currency"
                 },
                 {
-                  "value": 42256.292688,
+                  "value": 27987.14393952,
+                  "display": "$28K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 1508.9515001539216,
+                  "display": "$2K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 0.0,
+                  "display": "$0K",
+                  "kind": "currency"
+                },
+                {
+                  "value": 42163.94335688627,
                   "display": "$42K",
                   "kind": "currency"
                 },
                 {
-                  "value": 1445.6359110401652,
-                  "display": "$1K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 1095.4336000000005,
-                  "display": "$1K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 56538.82679916287,
-                  "display": "$57K",
-                  "kind": "currency"
-                },
-                {
-                  "value": 0.2027737136088691,
-                  "display": "20%",
+                  "value": 0.1922207331290296,
+                  "display": "19%",
                   "kind": "percent"
                 }
               ]
@@ -11988,23 +11988,23 @@
                   "kind": "text"
                 },
                 {
-                  "value": 281484.7492599302,
-                  "display": "$281K",
+                  "value": 220819.7327319301,
+                  "display": "$221K",
                   "kind": "currency"
                 },
                 {
-                  "value": 242628.22697512928,
-                  "display": "$243K",
+                  "value": 184662.80368262518,
+                  "display": "$185K",
                   "kind": "currency"
                 },
                 {
-                  "value": 145660.67499703646,
-                  "display": "$146K",
+                  "value": 84995.6584690364,
+                  "display": "$85K",
                   "kind": "currency"
                 },
                 {
-                  "value": 42745.49999307103,
-                  "display": "$43K",
+                  "value": 29615.31687865754,
+                  "display": "$30K",
                   "kind": "currency"
                 },
                 {
@@ -12018,13 +12018,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 46523.34641438743,
-                  "display": "$47K",
+                  "value": 31225.963299973937,
+                  "display": "$31K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.16527839087803148,
-                  "display": "17%",
+                  "value": 0.1414092975915405,
+                  "display": "14%",
                   "kind": "percent"
                 }
               ]
@@ -12042,23 +12042,23 @@
                   "kind": "text"
                 },
                 {
-                  "value": 287184.5138177453,
-                  "display": "$287K",
+                  "value": 225306.19695918538,
+                  "display": "$225K",
                   "kind": "currency"
                 },
                 {
-                  "value": 250529.0311515053,
-                  "display": "$251K",
+                  "value": 188650.7142929454,
+                  "display": "$189K",
                   "kind": "currency"
                 },
                 {
-                  "value": 155297.48338400127,
-                  "display": "$155K",
+                  "value": 93419.16652544131,
+                  "display": "$93K",
                   "kind": "currency"
                 },
                 {
-                  "value": 44331.987505782075,
-                  "display": "$44K",
+                  "value": 30272.44721429759,
+                  "display": "$30K",
                   "kind": "currency"
                 },
                 {
@@ -12067,18 +12067,18 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 1109.3279911348882,
-                  "display": "$1K",
+                  "value": 0.0,
+                  "display": "$0K",
                   "kind": "currency"
                 },
                 {
-                  "value": 49053.56116957951,
-                  "display": "$49K",
+                  "value": 31717.492886960143,
+                  "display": "$32K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.17080851790187462,
-                  "display": "17%",
+                  "value": 0.1407750577437771,
+                  "display": "14%",
                   "kind": "percent"
                 }
               ]
@@ -12096,23 +12096,23 @@
                   "kind": "text"
                 },
                 {
-                  "value": 292997.57479514496,
-                  "display": "$293K",
+                  "value": 229881.6915994137,
+                  "display": "$230K",
                   "kind": "currency"
                 },
                 {
-                  "value": 255608.98247558015,
-                  "display": "$256K",
+                  "value": 192493.0992798489,
+                  "display": "$192K",
                   "kind": "currency"
                 },
                 {
-                  "value": 125267.2076368838,
-                  "display": "$125K",
+                  "value": 62151.324441152596,
+                  "display": "$62K",
                   "kind": "currency"
                 },
                 {
-                  "value": 45235.27622414845,
-                  "display": "$45K",
+                  "value": 30893.157712813343,
+                  "display": "$31K",
                   "kind": "currency"
                 },
                 {
@@ -12126,13 +12126,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 48542.537579936004,
-                  "display": "$49K",
+                  "value": 32033.2190686009,
+                  "display": "$32K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.1656755610140305,
-                  "display": "17%",
+                  "value": 0.13934654319675538,
+                  "display": "14%",
                   "kind": "percent"
                 }
               ]
@@ -12150,23 +12150,23 @@
                   "kind": "text"
                 },
                 {
-                  "value": 298925.9473851025,
-                  "display": "$299K",
+                  "value": 234547.74652545672,
+                  "display": "$235K",
                   "kind": "currency"
                 },
                 {
-                  "value": 260789.5832191464,
-                  "display": "$261K",
+                  "value": 196411.38235950063,
+                  "display": "$196K",
                   "kind": "currency"
                 },
                 {
-                  "value": 108908.49005647993,
-                  "display": "$109K",
+                  "value": 44530.289196834114,
+                  "display": "$45K",
                   "kind": "currency"
                 },
                 {
-                  "value": 46156.40281120454,
-                  "display": "$46K",
+                  "value": 31526.07350776166,
+                  "display": "$32K",
                   "kind": "currency"
                 },
                 {
@@ -12180,13 +12180,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 49023.42673617806,
-                  "display": "$49K",
+                  "value": 32225.897432735183,
+                  "display": "$32K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.16399856608306337,
-                  "display": "16%",
+                  "value": 0.13739589448256556,
+                  "display": "14%",
                   "kind": "percent"
                 }
               ]
@@ -12204,23 +12204,23 @@
                   "kind": "text"
                 },
                 {
-                  "value": 304971.9815625441,
-                  "display": "$305K",
+                  "value": 239306.2166857054,
+                  "display": "$239K",
                   "kind": "currency"
                 },
                 {
-                  "value": 266072.8901132689,
-                  "display": "$266K",
+                  "value": 200407.1252364302,
+                  "display": "$200K",
                   "kind": "currency"
                 },
                 {
-                  "value": 116223.4463601649,
-                  "display": "$116K",
+                  "value": 50557.68148332619,
+                  "display": "$51K",
                   "kind": "currency"
                 },
                 {
-                  "value": 47095.73452256613,
-                  "display": "$47K",
+                  "value": 32171.4483284596,
+                  "display": "$32K",
                   "kind": "currency"
                 },
                 {
@@ -12234,13 +12234,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 49851.05900828451,
-                  "display": "$50K",
+                  "value": 32759.57281417798,
+                  "display": "$33K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.16346111125641546,
-                  "display": "16%",
+                  "value": 0.13689394813007724,
+                  "display": "14%",
                   "kind": "percent"
                 }
               ]
@@ -12258,23 +12258,23 @@
                   "kind": "text"
                 },
                 {
-                  "value": 268906.1633201263,
-                  "display": "$269K",
+                  "value": 244158.9925338892,
+                  "display": "$244K",
                   "kind": "currency"
                 },
                 {
-                  "value": 229229.09004186557,
-                  "display": "$229K",
+                  "value": 204481.91925562845,
+                  "display": "$204K",
                   "kind": "currency"
                 },
                 {
-                  "value": 81362.27163218954,
-                  "display": "$81K",
+                  "value": 56615.1008459524,
+                  "display": "$57K",
                   "kind": "currency"
                 },
                 {
-                  "value": 38273.91820118428,
-                  "display": "$38K",
+                  "value": 32829.54062821211,
+                  "display": "$33K",
                   "kind": "currency"
                 },
                 {
@@ -12288,13 +12288,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 40917.57915439773,
-                  "display": "$41K",
+                  "value": 33306.00158142557,
+                  "display": "$33K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.15216303951236082,
-                  "display": "15%",
+                  "value": 0.13641111980261267,
+                  "display": "14%",
                   "kind": "percent"
                 }
               ]
@@ -12312,23 +12312,23 @@
                   "kind": "text"
                 },
                 {
-                  "value": 191780.9034798605,
-                  "display": "$192K",
+                  "value": 249108.00079152494,
+                  "display": "$249K",
                   "kind": "currency"
                 },
                 {
-                  "value": 151310.28873603456,
-                  "display": "$151K",
+                  "value": 208637.386047699,
+                  "display": "$209K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.0,
-                  "display": "$0K",
+                  "value": 57327.09731166446,
+                  "display": "$57K",
                   "kind": "currency"
                 },
                 {
-                  "value": 20888.65228174093,
-                  "display": "$21K",
+                  "value": 33500.61369030711,
+                  "display": "$34K",
                   "kind": "currency"
                 },
                 {
@@ -12342,13 +12342,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 23530.88337833357,
-                  "display": "$24K",
+                  "value": 33975.64478689974,
+                  "display": "$34K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.12269669686275421,
-                  "display": "12%",
+                  "value": 0.13638921543645438,
+                  "display": "14%",
                   "kind": "percent"
                 }
               ]
@@ -12396,13 +12396,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 25173.983030354255,
-                  "display": "$25K",
+                  "value": 23006.783030354254,
+                  "display": "$23K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.1252244877726547,
-                  "display": "13%",
+                  "value": 0.11444405189273593,
+                  "display": "11%",
                   "kind": "percent"
                 }
               ]
@@ -12420,13 +12420,13 @@
                   "kind": "text"
                 },
                 {
-                  "value": 201336.0152089051,
-                  "display": "$201K",
+                  "value": 222291.57423154457,
+                  "display": "$222K",
                   "kind": "currency"
                 },
                 {
-                  "value": 159230.3876294286,
-                  "display": "$159K",
+                  "value": 180185.94665206806,
+                  "display": "$180K",
                   "kind": "currency"
                 },
                 {
@@ -12435,8 +12435,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 22130.129744184076,
-                  "display": "$22K",
+                  "value": 26740.35272916476,
+                  "display": "$27K",
                   "kind": "currency"
                 },
                 {
@@ -12450,13 +12450,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 22635.275549667505,
-                  "display": "$23K",
+                  "value": 27245.498534648188,
+                  "display": "$27K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.11242536774248399,
-                  "display": "11%",
+                  "value": 0.12256649235957356,
+                  "display": "12%",
                   "kind": "percent"
                 }
               ]
@@ -12474,13 +12474,13 @@
                   "kind": "text"
                 },
                 {
-                  "value": 201762.17326003424,
-                  "display": "$202K",
+                  "value": 220826.9364201535,
+                  "display": "$221K",
                   "kind": "currency"
                 },
                 {
-                  "value": 158814.4331289682,
-                  "display": "$159K",
+                  "value": 177879.19628908747,
+                  "display": "$178K",
                   "kind": "currency"
                 },
                 {
@@ -12489,8 +12489,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 21780.608643396983,
-                  "display": "$22K",
+                  "value": 25974.856538623222,
+                  "display": "$26K",
                   "kind": "currency"
                 },
                 {
@@ -12504,13 +12504,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 22281.97149835437,
-                  "display": "$22K",
+                  "value": 26476.21939358061,
+                  "display": "$26K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.110436813493464,
-                  "display": "11%",
+                  "value": 0.11989578727481857,
+                  "display": "12%",
                   "kind": "percent"
                 }
               ]
@@ -12528,13 +12528,13 @@
                   "kind": "text"
                 },
                 {
-                  "value": 202331.34072414646,
-                  "display": "$202K",
+                  "value": 218721.08633854048,
+                  "display": "$219K",
                   "kind": "currency"
                 },
                 {
-                  "value": 158524.6457904591,
-                  "display": "$159K",
+                  "value": 174914.39140485312,
+                  "display": "$175K",
                   "kind": "currency"
                 },
                 {
@@ -12543,8 +12543,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 21453.684096025463,
-                  "display": "$21K",
+                  "value": 25059.428131192148,
+                  "display": "$25K",
                   "kind": "currency"
                 },
                 {
@@ -12558,13 +12558,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 21951.607621444113,
-                  "display": "$22K",
+                  "value": 25557.351656610797,
+                  "display": "$26K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.10849336312841613,
-                  "display": "11%",
+                  "value": 0.11684905229966105,
+                  "display": "12%",
                   "kind": "percent"
                 }
               ]
@@ -12582,13 +12582,13 @@
                   "kind": "text"
                 },
                 {
-                  "value": 203037.30051082905,
-                  "display": "$203K",
+                  "value": 215993.78066155588,
+                  "display": "$216K",
                   "kind": "currency"
                 },
                 {
-                  "value": 158354.47167846793,
-                  "display": "$158K",
+                  "value": 171310.95182919476,
+                  "display": "$171K",
                   "kind": "currency"
                 },
                 {
@@ -12597,8 +12597,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 21147.811031829897,
-                  "display": "$21K",
+                  "value": 23998.236664989796,
+                  "display": "$24K",
                   "kind": "currency"
                 },
                 {
@@ -12612,12 +12612,12 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 21642.617411738967,
-                  "display": "$22K",
+                  "value": 24493.043044898866,
+                  "display": "$24K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.10659429256243806,
+                  "value": 0.11339698286626784,
                   "display": "11%",
                   "kind": "percent"
                 }
@@ -12636,13 +12636,13 @@
                   "kind": "text"
                 },
                 {
-                  "value": 203874.22219215182,
-                  "display": "$204K",
+                  "value": 212403.93711960054,
+                  "display": "$212K",
                   "kind": "currency"
                 },
                 {
-                  "value": 158297.73678314348,
-                  "display": "$158K",
+                  "value": 166827.4517105922,
+                  "display": "$167K",
                   "kind": "currency"
                 },
                 {
@@ -12651,8 +12651,8 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 20861.525900109857,
-                  "display": "$21K",
+                  "value": 22738.063184148574,
+                  "display": "$23K",
                   "kind": "currency"
                 },
                 {
@@ -12666,13 +12666,13 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 21353.517046743436,
-                  "display": "$21K",
+                  "value": 23230.054330782154,
+                  "display": "$23K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.1047386806293623,
-                  "display": "10%",
+                  "value": 0.10936734340146323,
+                  "display": "11%",
                   "kind": "percent"
                 }
               ]
@@ -12690,13 +12690,13 @@
                   "kind": "text"
                 },
                 {
-                  "value": 204836.64337921923,
-                  "display": "$205K",
+                  "value": 206878.9050226317,
+                  "display": "$207K",
                   "kind": "currency"
                 },
                 {
-                  "value": 158348.62826203072,
-                  "display": "$158K",
+                  "value": 160390.88990544318,
+                  "display": "$160K",
                   "kind": "currency"
                 },
                 {
@@ -12705,7 +12705,7 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 20593.44250162141,
+                  "value": 21042.740063172154,
                   "display": "$21K",
                   "kind": "currency"
                 },
@@ -12720,12 +12720,12 @@
                   "kind": "currency"
                 },
                 {
-                  "value": 21082.901161667676,
-                  "display": "$21K",
+                  "value": 21532.19872321842,
+                  "display": "$22K",
                   "kind": "currency"
                 },
                 {
-                  "value": 0.10292543762610078,
+                  "value": 0.10408117116079518,
                   "display": "10%",
                   "kind": "percent"
                 }
@@ -13530,8 +13530,8 @@
                   "kind": "text"
                 },
                 {
-                  "value": 904151.7922334222,
-                  "display": "$904K",
+                  "value": 807033.5558429617,
+                  "display": "$807K",
                   "kind": "currency"
                 },
                 {

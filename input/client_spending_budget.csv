@@ -7,7 +7,7 @@ category,business_auto_expenses,Business Auto Expenses,200,,,,Annualized actual,
 category,business_events,Business Events,200,,,,Annualized actual,,
 category,business_hardware_and_software,Business Hardware and Software,500,,,,Annualized actual,,
 category,business_memberships,Business Memberships,2000,,,,Annualized actual,,
-category,business_services,Business Services,21690,,,,Annualized actual,,
+category,business_services,Business Services,500,,,,Annualized actual,,
 category,business_taxi_uber,Business Taxi - Uber,100,,,,Annualized actual,,
 category,business_travel_meals,Business Travel & Meals,1700,,,,Annualized actual,,
 category,car_wash,Car Wash,300,,,,Annualized actual,,
@@ -82,7 +82,3 @@ line,travel_insurance,Travel - Insurance,159,,,,Recurring line so Travel breaks 
 line,travel_plane_train_bus,Travel - Plane/Train/Bus,2744,,,,Recurring line so Travel breaks out as its own Cash Flow Projection column,category_budget,detail
 line,travel_vacation,Travel & Vacation,8127,,,,Recurring line so Travel breaks out as its own Cash Flow Projection column,category_budget,detail
 line,charitable_donations,Charitable Giving,5000,,,,Seeded from annual charitable giving,category_budget,detail
-line,children_weddings,,,,,,,category_budget,detail
-line,children_weddings,,,,,,,category_budget,detail
-line,children_weddings,,,,,,,category_budget,detail
-line,children_weddings,,,,,,,category_budget,detail
