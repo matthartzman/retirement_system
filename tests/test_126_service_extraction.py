@@ -82,6 +82,25 @@ def test_stdlib_route_smoke_after_service_extraction():
     assert server.get_json()["app_mode"] == "LOCAL"
 
 
+def test_auth_session_and_login_return_csrf_token():
+    from src.server import create_app
+
+    client = create_app().test_client()
+
+    session = client.get("/api/auth/session")
+    assert session.status_code == 200
+    session_payload = session.get_json()
+    assert session_payload["success"] is True
+    assert session_payload["authenticated"] is True
+    assert session_payload["csrf_token"]
+
+    login = client.post("/api/auth/login")
+    assert login.status_code == 200
+    login_payload = login.get_json()
+    assert login_payload["success"] is True
+    assert login_payload["csrf_token"]
+
+
 def test_admin_csv_backup_zip_is_exhaustive_over_input_and_reference_dirs(tmp_path):
     import io
     import zipfile

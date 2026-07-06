@@ -26,10 +26,13 @@ def test_home_improvement_is_single_category_and_line_target():
     assert not any(r['category_id'] == 'other_improvement' for r in rows('input/client_spending_budget_lines.csv'))
 
 
-def test_wellness_budget_detail_is_flat_and_contains_premium_categories():
+def test_wellness_budget_detail_uses_group_level_add_row_and_contains_premium_categories():
     js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
-    assert "if(domain==='wellness')" in js
-    assert 'wellness-flat-budget' in js
+    # Wellness shares the same Tracking Type -> Group -> Category renderer as
+    # Spending Model/Lifestyle Spending, so "+ Add row" appears once per group
+    # instead of once per category (bug 132).
+    assert 'wellness-flat-budget' not in js
+    assert "addGroupDetailRow('${esc(tt)}','${gj}')" in js
     assert 'The Healthcare Premium group contains Pre-65 Healthcare Premium plus Medicare Part B, Part D, and Part G premiums' in js
     tax = rows('input/client_spending_taxonomy.csv')
     active_wellness = {r['category_id']: r for r in tax if r['tracking_type'] == 'Wellness' and r['status'] == 'active'}

@@ -72,7 +72,12 @@ def _load_known_categories(input_root: str | Path) -> set[str]:
 
 
 def preview_ytd_transactions_import(input_root: str | Path, text: str, mode: str = "replace", *, today: date | None = None) -> dict[str, Any]:
-    """Return a side-effect-free preview of a YTD transaction CSV import."""
+    """Return a side-effect-free preview of a YTD transaction CSV import.
+
+    All rows with a valid Date are counted as importable regardless of
+    calendar year — full transaction history is retained so actuals can be
+    viewed for either the current year-to-date or the prior calendar year.
+    """
     incoming_all, errors = ytd.load_transactions_from_csv_text(text or "")
     current_year = today.year if today else date.today().year
     mode = str(mode or "replace").strip().lower()
@@ -104,9 +109,6 @@ def preview_ytd_transactions_import(input_root: str | Path, text: str, mode: str
         d = ytd.parse_date(row.get("Date"))
         if not d:
             invalid_date_rows += 1
-            continue
-        if d.year != current_year:
-            non_current_year += 1
             continue
         h = ytd.transaction_hash(row)
         if h in existing_hashes:

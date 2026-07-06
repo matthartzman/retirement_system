@@ -277,10 +277,10 @@ class YtdService:
         self.ctx.audit("ytd_account_setup_recovered", result)
         return result
 
-    def status_payload(self) -> dict[str, Any]:
+    def status_payload(self, *, period: str | None = None) -> dict[str, Any]:
         recovery = self.rehydrate_files_from_sqlite()
         auto = self.recover_account_setup(force=False)
-        payload = self.ytd.status_payload(self.input_root())
+        payload = self.ytd.status_payload(self.input_root(), period=period)
         if recovery.get("files_rehydrated_from_sqlite") or auto.get("recovered"):
             payload["recovery"] = {"sqlite": recovery, "account_setup": auto}
         return payload
@@ -366,6 +366,40 @@ class YtdService:
         self.mirror_file_to_sqlite("ytd_account_setup.csv")
         self.ctx.audit("ytd_account_setup_saved", {"accounts": len(accounts)})
         return {"success": True, "accounts": self.ytd.read_account_setup(self.input_root()), "summary": self.ytd.ytd_summary(self.input_root())}
+
+    def roll_forward_account_setup(self) -> dict[str, Any]:
+        """Start a new tracking year: copy each growth-tracked account's current
+        value into 'Prior Year End Balance' and set 'Prior Year End Date' to
+        12/31 of last year, so YTD growth tracking (and the current-year
+        projection blend) starts fresh for the new calendar year."""
+        from datetime import date
+        today = date.today()
+        prior_year_end = date(today.year - 1, 12, 31)
+        summary = self.ytd.ytd_summary(self.input_root(), today=today)
+        growth_rows = (summary.get("investment_balance") or {}).get("account_growth_rows") or []
+        current_values = {str(row.get("account") or ""): row.get("current_value") for row in growth_rows}
+        rows = self.ytd.read_account_setup(self.input_root())
+        updated = 0
+        for row in rows:
+            acct = str(row.get("Account") or "").strip()
+            role = str(row.get("Role") or "").strip()
+            if not acct or role not in self.ytd.GROWTH_ROLES:
+                continue
+            current = current_values.get(acct)
+            if current is None:
+                continue
+            row["Prior Year End Balance"] = f"{float(current):.2f}"
+            row["Prior Year End Date"] = prior_year_end.isoformat()
+            updated += 1
+        self.ytd.write_account_setup(self.input_root(), rows)
+        self.mirror_file_to_sqlite("ytd_account_setup.csv")
+        self.ctx.audit("ytd_account_setup_rolled_forward", {"accounts_updated": updated, "prior_year_end": prior_year_end.isoformat()})
+        return {
+            "success": True,
+            "accounts_updated": updated,
+            "accounts": self.ytd.read_account_setup(self.input_root()),
+            "summary": self.ytd.ytd_summary(self.input_root()),
+        }
 
     def bulk_save_transactions(self, body: dict[str, Any]) -> dict[str, Any]:
         rows = body.get("transactions") if isinstance(body.get("transactions"), list) else []

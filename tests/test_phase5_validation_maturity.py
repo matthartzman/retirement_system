@@ -10,8 +10,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import pytest
-
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
 
@@ -64,7 +62,13 @@ class Phase5GoldenMasterEngineTests(unittest.TestCase):
                 actual = _project_metrics(c)
                 for key, expected_value in expected_metrics.items():
                     if isinstance(expected_value, (int, float)) and not isinstance(expected_value, bool):
-                        self.assertAlmostEqual(actual[key], expected_value, delta=1.00, msg=f"{case_name}.{key}")
+                        # Pricing is pinned to OFFLINE for the test run (see
+                        # tests/conftest.py), so starting balances come from the
+                        # committed cache snapshot and these dollar aggregates are
+                        # fully reproducible. A $1 tolerance only absorbs float
+                        # rounding; regenerate the fixture deliberately after an
+                        # intentional engine/plan-data change.
+                        self.assertAlmostEqual(actual[key], expected_value, delta=1.0, msg=f"{case_name}.{key}")
                     else:
                         self.assertEqual(actual[key], expected_value, f"{case_name}.{key}")
 
@@ -154,24 +158,34 @@ class Phase5CrossToolReconciliationTests(unittest.TestCase):
                     self.assertAlmostEqual(engine, independent, delta=tol)
 
 
-@pytest.mark.slow
 class Phase5WorkbookSnapshotTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.mkdtemp(prefix="phase5_workbook_")
-        # Build into an isolated output dir (via RETIREMENT_SYSTEM_OUTPUT_DIR) so
-        # this test never overwrites the git-tracked output/retirement_plan.xlsx.
+        tmp_root = Path(cls.tmp)
+        # The reporting stack resolves its project root from source-file
+        # location, not from the process cwd, so building "in-place" against
+        # ROOT would read/write the real input/, system_config.csv, and
+        # output/ files. Copy the tree into a scratch dir and build there
+        # instead; local_state/ and output/ are deliberately excluded so the
+        # build bootstraps a fresh SQLite mirror rather than touching the
+        # real one.
+        excluded_names = {".git", ".claude", ".pytest_cache", "tests", "documentation", "output", "local_state", "__pycache__"}
+        shutil.copytree(
+            ROOT,
+            tmp_root,
+            ignore=lambda _dir, names: [n for n in names if n in excluded_names or n.endswith(".pyc")],
+            dirs_exist_ok=True,
+        )
         env = os.environ.copy()
-        env["RETIREMENT_SYSTEM_OUTPUT_DIR"] = cls.tmp
-        env["RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS"] = "1"
         env["RETIREMENT_MC_SIMS"] = "16"
         env["RETIREMENT_MC_SENSITIVITY_SIMS"] = "3"
         env["RETIREMENT_SKIP_REPORT_SIDECARS"] = "1"
-        result = subprocess.run([sys.executable, "tools/build_workbook.py"], cwd=ROOT, text=True, capture_output=True, env=env, timeout=120)
+        result = subprocess.run([sys.executable, "tools/build_workbook.py"], cwd=tmp_root, text=True, capture_output=True, env=env, timeout=120)
         cls.build_stdout = result.stdout + result.stderr
         if result.returncode != 0:
             raise AssertionError(cls.build_stdout)
-        cls.workbook_path = Path(cls.tmp) / "retirement_plan.xlsx"
+        cls.workbook_path = tmp_root / "output" / "retirement_plan.xlsx"
 
     @classmethod
     def tearDownClass(cls):

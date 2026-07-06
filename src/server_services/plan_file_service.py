@@ -87,14 +87,7 @@ class PlanFileService:
         snapshot_name = f"retirement_system_v10.db.version_{ts}"
         snapshot_path = src.parent / snapshot_name
         shutil.copy2(str(src), str(snapshot_path))
-        versions = sorted(src.parent.glob("retirement_system_v10.db.version_*"), key=lambda p: p.name)
-        pruned = 0
-        for old in versions[:-max(1, int(self.ctx.retention_count or 10))]:
-            try:
-                old.unlink()
-                pruned += 1
-            except Exception:
-                pass
+        pruned = self._prune_backups(src.parent, "retirement_system_v10.db.version_*")
         self.ctx.audit("exit_snapshot_created", {"snapshot": snapshot_name, "pruned": pruned})
         return {"success": True, "snapshot": snapshot_name}
 
@@ -127,15 +120,32 @@ class PlanFileService:
         backup = dest.parent / backup_name
         if dest.exists():
             shutil.copy2(str(dest), str(backup))
+        pruned = self._prune_backups(dest.parent, "retirement_system_v10.db.before_load_*")
         sidecars_removed = _remove_sidecars(dest)
         shutil.copy2(str(src), str(dest))
         _remove_sidecars(dest)
         _checkpoint_sqlite(dest, truncate=True)
         self.ctx.audit(
             "plan_loaded_file",
-            {"source": str(src), "backup": backup_name if backup.exists() else None, "sidecars_removed": sidecars_removed},
+            {"source": str(src), "backup": backup_name if backup.exists() else None, "sidecars_removed": sidecars_removed, "pruned": pruned},
         )
         return {"success": True, "backup": backup_name if backup.exists() else None}
+
+    def _prune_backups(self, directory: Path, pattern: str) -> int:
+        """Keep only the most recent retention_count snapshots matching pattern.
+
+        Recovery backups like before_load_* accumulate one per Load Saved Plan
+        action; without pruning they grow unbounded over years of normal use.
+        """
+        snapshots = sorted(directory.glob(pattern), key=lambda p: p.name)
+        pruned = 0
+        for old in snapshots[:-max(1, int(self.ctx.retention_count or 10))]:
+            try:
+                old.unlink()
+                pruned += 1
+            except Exception:
+                pass
+        return pruned
 
     def snapshot_compare_payload(self, body: dict[str, Any] | None = None) -> tuple[dict[str, Any], int]:
         snapshot_path = self._requested_build_snapshot_path(body)

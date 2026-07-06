@@ -21,7 +21,7 @@ def test_plan_routes_delegate_ytd_and_plan_file_logic_to_services():
     routes = Path("src/server/plan_routes.py").read_text(encoding="utf-8")
     assert "def _ytd_feature_service()" in routes
     assert "YtdServiceContext" in routes
-    assert ".status_payload()" in routes
+    assert ".status_payload(period=period)" in routes
     assert ".upload_transactions(" in routes
     assert ".bulk_save_transactions(" in routes
     assert "def _plan_file_feature_service()" in routes

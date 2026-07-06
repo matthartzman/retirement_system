@@ -1,5 +1,6 @@
 from .workbook_common import *
 from .. import allocation_policy as _ap
+from ..person_labels import display_account
 
 # ── Asset Allocation (Sheet 4) shared constants and helpers ──────────────────
 # Hoisted out of build_sheet4 (previously ~1,400 lines in one function): pure
@@ -1059,9 +1060,25 @@ def build_sheet2(ws, c, rows):
         _mc = _heard.get('monte_carlo') or {}
         _alloc = _heard.get('allocation') or {}
         _rep = _heard.get('reporting') or {}
+        _cya = _heard.get('current_year_actuals') or {}
+        if _cya:
+            _remaining_pct = _pct(_cya.get('remaining_fraction'))
+            if _cya.get('flows_blended'):
+                _overrides = []
+                if _cya.get('earned_remainder_overridden'):_overrides.append('earned income')
+                if _cya.get('spend_remainder_overridden'):_overrides.append('spending')
+                _override_note = f" Remainder-of-year {' and '.join(_overrides)} used a manual override instead of the linear pro-rated estimate." if _overrides else ''
+                _cya_text = f"{_cya.get('current_year')}: income/spending actual through {_cya.get('ytd_end')}, projected for the remaining {_remaining_pct} of the year; account growth/contributions prorated to that same remainder.{_override_note}"
+            elif _cya.get('flow_blend_skipped_by_user_choice'):
+                _cya_text = f"{_cya.get('current_year')}: modeled as fully hypothetical by user choice (ytd_blend_enabled = FALSE) — real income/spending actuals tracked through {_cya.get('ytd_end')} were excluded; income/spending shown as a full-year projection. Account growth/contributions are still prorated to the remaining {_remaining_pct} of the year, since that proration is date math, not real-data blending."
+            else:
+                _cya_text = f"{_cya.get('current_year')}: account growth/contributions prorated to the remaining {_remaining_pct} of the year; income/spending shown as a full-year projection (add YTD actuals in Settings to blend real results)."
+        else:
+            _cya_text = 'Not available for this build.'
         _heard_items = [
+            ('Current-year actuals blend', _cya_text, 'text', 'Action: keep YTD transactions and each account\'s Prior Year End Balance current every January so the current-year row reflects real results, not just a full-year assumption.'),
             ('Time horizon', _heard.get('plan_years'), 'text', 'Sets the years included in every income, tax, spending, and terminal-net-worth calculation.'),
-            ('Social Security income', f"Claim ages H/W: {_ss.get('husband_claim_age')}/{_ss.get('wife_claim_age')}; funding haircut {_pct(_ss.get('funding_discount_pct'))} starting {_ss.get('funding_discount_year')}", 'text', 'Action: set the funding haircut to 0% for one scenario if you want to isolate this drag on terminal net worth.'),
+            ('Social Security income', f"Claim ages {str(c.get('h_nick') or c.get('h_name') or 'Member 1')}/{str(c.get('w_nick') or c.get('w_name') or 'Member 2')}: {_ss.get('husband_claim_age')}/{_ss.get('wife_claim_age')}; funding haircut {_pct(_ss.get('funding_discount_pct'))} starting {_ss.get('funding_discount_year')}", 'text', 'Action: set the funding haircut to 0% for one scenario if you want to isolate this drag on terminal net worth.'),
             ('Wellness cash flow', f"Bridge monthly {_money(_hc.get('bridge_premium_monthly_today') or (float(_hc.get('bridge_premium_today') or 0)/12))}; Medicare B/D/G monthly {_money(float(_hc.get('part_b_monthly_today') or 0)+float(_hc.get('part_d_monthly_today') or 0)+float(_hc.get('part_g_monthly_today') or 0))}; OOP {_money(_hc.get('oop_estimate_today'))}; ACA PTC {_onoff(_hc.get('aca_ptc_enabled'))}", 'text', 'Action: if terminal net worth fell, temporarily zero bridge/Medicare/OOP costs to quantify wellness impact, then restore realistic values.'),
             ('Taxable portfolio income', _taxable.get('portfolio_distributions_mode'), 'text', 'Annual dividends/interest can raise AGI, Social Security taxation, IRMAA, NIIT, and reduce Roth-conversion room. Action: review asset location and distribution yields.'),
             ('Roth / IRMAA guardrails', f"Policy {_roth.get('roth_policy')}; IRMAA mode {_roth.get('irmaa_guardrail_mode')}; target {_roth.get('irmaa_target_tier')}; headroom {_pct(_roth.get('irmaa_headroom_usage_pct'))}", 'text', 'Action: if conversions look unexpectedly low, check the IRMAA guardrail and ACA PTC-loss weight before overriding the Roth policy.'),
@@ -1178,7 +1195,7 @@ def build_sheet2(ws, c, rows):
         ('§121 Exclusion (MFJ)',         500000,   'USD', 'Home sale gain exclusion'),
         ('QCD Annual Limit (per person)', 108000,   'USD', '2025, indexed'),
         ('Federal Estate Exemption (MFJ)',30000000, 'USD', 'Indexed from the tax reference year'),
-        ('IL State Estate Exemption',     c['il_exempt'],  'USD', f'{"With CST doubling" if c.get("credit_shelter_trust") else "No portability"}, cliff structure'),
+        ('IL State Estate Exemption',     c['il_exempt'],  'USD', f'{"With CST doubling" if c.get("cs_enabled") else "No portability"}, cliff structure'),
         ('Annual Gift-Tax Exclusion',     19000,    'USD', 'tax reference year, per donee'),
         ('RMD Start Age',                 75,       'years','SECURE 2.0 §107 — born 1960+'),
         ('NIIT Rate',                     0.038,    'decimal','3.8% on NII above MAGI threshold'),
@@ -1233,12 +1250,14 @@ def build_sheet3(ws, c, rows):
     r = 3
 
     # Annuities / Income streams (PV)
+    _n1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
+    _n2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
     ann_assets = [
-        ('Wife Pension (PV of future income)', yr0['pension_pv'], 'PV through mortality'),
-        ('Wife Single Annuity (PV)',            yr0['w_single_pv'], ''),
-        ('Wife Joint Annuity (PV)',             yr0['w_joint_pv'], ''),
-        ('Husband Single Annuity (PV)',         yr0['h_single_pv'], ''),
-        ('Husband Joint Annuity (PV)',          yr0['h_joint_pv'], ''),
+        (f'{_n2} Pension (PV of future income)', yr0['pension_pv'], 'PV through mortality'),
+        (f'{_n2} Single Annuity (PV)',            yr0['w_single_pv'], ''),
+        (f'{_n2} Joint Annuity (PV)',             yr0['w_joint_pv'], ''),
+        (f'{_n1} Single Annuity (PV)',            yr0['h_single_pv'], ''),
+        (f'{_n1} Joint Annuity (PV)',             yr0['h_joint_pv'], ''),
     ]
     ann_total = write_group('Annuities & Pension (PV)', ann_assets)
 
@@ -1835,7 +1854,7 @@ def build_sheet4(ws, c):
                 r += 1
             acct_total = acct_totals[h['acct']]
             sources = ', '.join(sorted(acct_sources[h['acct']]))
-            write_cell(ws, r, 1, h['acct'], bold=True, bg='E2EFDA')
+            write_cell(ws, r, 1, display_account(h['acct'], c), bold=True, bg='E2EFDA')
             ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=4)
             write_cell(ws, r, 5, acct_total, fmt=FMT_DOLLAR, align='right', bold=True, bg='E2EFDA')
             write_cell(ws, r, 6, 'Account Total', bold=True, bg='E2EFDA')
@@ -2227,7 +2246,7 @@ def build_sheet4(ws, c):
 
             write_hdr(
                 ws, r, 1,
-                f'{acct} — {TAX_LABELS.get(tax_type, tax_type)} — Sells ${acct_sells:,.0f} | Security Buys ${acct_security_buys:,.0f} | Ending Cash After Trades ${acct_ending_cash:,.0f}',
+                f'{display_account(acct, c)} — {TAX_LABELS.get(tax_type, tax_type)} — Sells ${acct_sells:,.0f} | Security Buys ${acct_security_buys:,.0f} | Ending Cash After Trades ${acct_ending_cash:,.0f}',
                 BLUE, WHITE, span=10,
             )
             r += 1
@@ -2239,7 +2258,7 @@ def build_sheet4(ws, c):
                 is_sell = t['action'] == 'SELL'
                 is_cash_move = str(t.get('action', '')).upper() in ('USE CASH', 'RAISE CASH')
                 bg = 'FCE4D6' if is_sell else ('FFF2CC' if is_cash_move else 'E2EFDA')
-                write_cell(ws, r, 1, t['acct'])
+                write_cell(ws, r, 1, display_account(t['acct'], c))
                 write_cell(ws, r, 2, TAX_LABELS.get(tax_type, tax_type))
                 write_cell(ws, r, 3, t['sym'], bold=True)
                 write_cell(ws, r, 4, t['action'], bold=True, bg=bg)
@@ -2258,7 +2277,7 @@ def build_sheet4(ws, c):
 
             grand_start_cash += acct_start_cash
             grand_ending_cash += acct_ending_cash
-            write_cell(ws, r, 1, f'{acct} Subtotal', bold=True, bg=LGRAY)
+            write_cell(ws, r, 1, f'{display_account(acct, c)} Subtotal', bold=True, bg=LGRAY)
             write_cell(ws, r, 4, 'SELL', bold=True, bg=LGRAY)
             write_cell(ws, r, 5, acct_sells, fmt=FMT_DOLLAR, align='right', bold=True, bg=LGRAY)
             write_cell(ws, r, 6, 'SECURITY BUY', bold=True, bg=LGRAY)
@@ -2368,7 +2387,7 @@ def build_sheet4(ws, c):
             write_hdr(ws, r, i, h, DGRAY, WHITE)
         r += 1
         for d in deferred_taxable_trades:
-            write_cell(ws, r, 1, d.get('acct'))
+            write_cell(ws, r, 1, display_account(d.get('acct'), c))
             write_cell(ws, r, 2, d.get('sym'), bold=True)
             write_cell(ws, r, 3, d.get('amount', 0), fmt=FMT_DOLLAR, align='right')
             write_cell(ws, r, 4, d.get('bucket'))
@@ -2444,7 +2463,7 @@ def build_sheet4(ws, c):
             continue
 
         r += 1
-        write_hdr(ws, r, 1, f'{acct}  —  Total: ${at:,.0f}', BLUE, WHITE, span=10)
+        write_hdr(ws, r, 1, f'{display_account(acct, c)}  —  Total: ${at:,.0f}', BLUE, WHITE, span=10)
         r += 1
 
         ba_hdrs = ['Bucket', 'Before $', 'Before %', '', 'After $', 'After %', '', 'Target %', 'Delta pp', 'Status']

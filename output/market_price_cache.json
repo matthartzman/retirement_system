@@ -4,8 +4,8 @@
     "provider": "yahoo",
     "source": "yahoo",
     "symbol": "AVUV",
-    "timestamp_epoch": 1783043683.7215965,
-    "timestamp_iso": "2026-07-03T01:54:43.721596+00:00",
+    "timestamp_epoch": 1783340085.9275928,
+    "timestamp_iso": "2026-07-06T12:14:45.927593+00:00",
     "ttl_hours": 24.0
   },
   "ITOT": {
@@ -13,8 +13,8 @@
     "provider": "yahoo",
     "source": "yahoo",
     "symbol": "ITOT",
-    "timestamp_epoch": 1783043681.0064309,
-    "timestamp_iso": "2026-07-03T01:54:41.006431+00:00",
+    "timestamp_epoch": 1783340083.8707495,
+    "timestamp_iso": "2026-07-06T12:14:43.870749+00:00",
     "ttl_hours": 24.0
   },
   "IXUS": {
@@ -22,8 +22,8 @@
     "provider": "yahoo",
     "source": "yahoo",
     "symbol": "IXUS",
-    "timestamp_epoch": 1783043680.049302,
-    "timestamp_iso": "2026-07-03T01:54:40.049302+00:00",
+    "timestamp_epoch": 1783340082.9533253,
+    "timestamp_iso": "2026-07-06T12:14:42.953325+00:00",
     "ttl_hours": 24.0
   },
   "PDBC": {
@@ -31,8 +31,8 @@
     "provider": "yahoo",
     "source": "yahoo",
     "symbol": "PDBC",
-    "timestamp_epoch": 1783043682.1396532,
-    "timestamp_iso": "2026-07-03T01:54:42.139653+00:00",
+    "timestamp_epoch": 1783340084.87464,
+    "timestamp_iso": "2026-07-06T12:14:44.874640+00:00",
     "ttl_hours": 24.0
   },
   "VB": {
@@ -49,8 +49,8 @@
     "provider": "yahoo",
     "source": "yahoo",
     "symbol": "VBR",
-    "timestamp_epoch": 1783043688.6182964,
-    "timestamp_iso": "2026-07-03T01:54:48.618296+00:00",
+    "timestamp_epoch": 1783340088.7815824,
+    "timestamp_iso": "2026-07-06T12:14:48.781582+00:00",
     "ttl_hours": 24.0
   },
   "VEA": {
@@ -63,12 +63,12 @@
     "ttl_hours": 24.0
   },
   "VO": {
-    "price": 79.99,
-    "provider": "fixture",
-    "source": "fixture_cache",
+    "price": 80.51,
+    "provider": "yahoo",
+    "source": "yahoo",
     "symbol": "VO",
-    "timestamp_epoch": 1782743705,
-    "timestamp_iso": "2026-06-29T14:35:05.2758348Z",
+    "timestamp_epoch": 1783213894.7123635,
+    "timestamp_iso": "2026-07-05T01:11:34.712363+00:00",
     "ttl_hours": 24.0
   },
   "VOO": {
@@ -85,17 +85,17 @@
     "provider": "yahoo",
     "source": "yahoo",
     "symbol": "VTI",
-    "timestamp_epoch": 1783043686.980975,
-    "timestamp_iso": "2026-07-03T01:54:46.980975+00:00",
+    "timestamp_epoch": 1783340087.8230631,
+    "timestamp_iso": "2026-07-06T12:14:47.823063+00:00",
     "ttl_hours": 24.0
   },
   "VWO": {
-    "price": 58.58,
-    "provider": "fixture",
-    "source": "fixture_cache",
+    "price": 59.04,
+    "provider": "yahoo",
+    "source": "yahoo",
     "symbol": "VWO",
-    "timestamp_epoch": 1782743705,
-    "timestamp_iso": "2026-06-29T14:35:05.2758348Z",
+    "timestamp_epoch": 1783213893.659985,
+    "timestamp_iso": "2026-07-05T01:11:33.659985+00:00",
     "ttl_hours": 24.0
   },
   "VXUS": {
@@ -103,8 +103,8 @@
     "provider": "yahoo",
     "source": "yahoo",
     "symbol": "VXUS",
-    "timestamp_epoch": 1783043685.3369267,
-    "timestamp_iso": "2026-07-03T01:54:45.336927+00:00",
+    "timestamp_epoch": 1783340086.9025428,
+    "timestamp_iso": "2026-07-06T12:14:46.902543+00:00",
     "ttl_hours": 24.0
   }
 }

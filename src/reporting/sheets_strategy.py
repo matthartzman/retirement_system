@@ -1,4 +1,5 @@
 from .workbook_common import *
+from ..person_labels import display_accounts_in_text as _display_accounts_in_text
 def build_sheet9(ws, c, rows):
     """Retirement Strategy"""
     ws.sheet_view.showGridLines = False
@@ -164,10 +165,12 @@ def build_sheet10(ws, c, rows):
 
     r = 3
     write_hdr(ws, r, 1, 'Recommended spouse-pair claim ages from full projection sweep', NAVY, WHITE, span=10); r += 1
+    _s1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
+    _s2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
     summary = [
-        ('Recommended Husband Claim Age', best['h_age'], 'Highest score from the 62–70 × 62–70 projection sweep.'),
-        ('Recommended Wife Claim Age', best['w_age'], 'Projection uses the same tax, IRMAA, withdrawal, ACA, survivor, and estate machinery as the base plan.'),
-        ('Current Configured Claim Ages', f"H {h_current} / W {w_current}", 'Current row shown below for comparison.'),
+        (f'Recommended {_s1} Claim Age', best['h_age'], 'Highest score from the 62–70 × 62–70 projection sweep.'),
+        (f'Recommended {_s2} Claim Age', best['w_age'], 'Projection uses the same tax, IRMAA, withdrawal, ACA, survivor, and estate machinery as the base plan.'),
+        ('Current Configured Claim Ages', f"{_s1} {h_current} / {_s2} {w_current}", 'Current row shown below for comparison.'),
         ('Best vs Current Terminal NW', (best['terminal_nw'] - (current or best)['terminal_nw']) if current else 0.0, 'Positive means the sweep’s selected pair improves terminal net worth versus current config.'),
         ('Best vs Current Lifetime Tax', (best['lifetime_tax'] - (current or best)['lifetime_tax']) if current else 0.0, 'Negative means lower lifetime tax versus current config.'),
     ]
@@ -291,10 +294,12 @@ def build_sheet11(ws, c, rows):
     r += 2
 
     # Main schedule table with primary and secondary constraints.
+    _n1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
+    _n2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
     hdrs = [
         'Year', 'Type', 'Source Account',
         'Pre-Conv AGI', 'Target Bracket Top', 'Brkt Headroom',
-        'H IRA Avail', 'W IRA Avail', 'Non-Roth Surplus',
+        f'{_n1} IRA Avail', f'{_n2} IRA Avail', 'Non-Roth Surplus',
         'Conversion', 'Primary Binding Limit', 'Secondary Binding Limit',
         'Post-Conv AGI', 'IRMAA Thr', 'Status',
     ]
@@ -312,7 +317,7 @@ def build_sheet11(ws, c, rows):
         forced = c.get('forced_roth', {}).get(yr, 0.0)
         tot = float(row.get('roth_conv', 0.0) or 0.0)
         volun = max(0.0, tot - forced)
-        src_lbl = row.get('roth_conv_src', '—')
+        src_lbl = _display_accounts_in_text(row.get('roth_conv_src', '—'), c)
         binding = row.get('conv_binding_limit', '—')
         secondary = row.get('conv_secondary_binding_limit', '—')
         pre_agi = row.get('conv_pre_agi', 0)
@@ -400,7 +405,7 @@ def build_sheet12(ws, c, rows):
          'Full deduction in contribution year; invest tax-free; distribute over time',
          'Reduced by tax savings', 'Full gift (potentially grown)', '★ PRIMARY — High-income years'),
         ('QCD (from IRA)',
-         'After RMD start age (2037 for Husband); up to $108K/person/yr',
+         f"After RMD start age ({c['h_dob_yr'] + int(c.get('rmd_start_age', 75))} for {str(c.get('h_nick') or c.get('h_name') or 'Member 1')}); up to $108K/person/yr",
          'Excluded from AGI entirely — bypasses SALT calculus; counts toward RMD',
          'Reduced by avoided tax', 'Full gift direct to charity', '★ PRIMARY — 2037+'),
     ]
@@ -518,7 +523,7 @@ def build_sheet12(ws, c, rows):
 def build_sheet13(ws, c, rows):
     """State Residency Analysis — retirement-income-aware comparison."""
     ws.sheet_view.showGridLines = False
-    section_title(ws, 1, 'STATE RESIDENCY TAX ANALYSIS', 10)
+    section_title(ws, 1, 'STATE RESIDENCY ANALYSIS', 10)
 
     r = 3
     # ── Aggregate income components over plan horizon ────────────────────────
@@ -646,6 +651,83 @@ def build_sheet13(ws, c, rows):
         'distributions, and Roth conversions. Non-qualified (Personal market) annuity income '
         'is taxable even in Illinois.', fg='888888')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
+    r += 3
+
+    # ── Section C: Geographic cost-of-living delta ───────────────────────────
+    # The household's actual budgeted amounts in the *current* state are the
+    # baseline.  We then estimate the annual delta for four geographically
+    # sensitive categories (auto insurance, homeowners insurance, utilities,
+    # home maintenance) if the household relocated to the target state, using
+    # relative cost-of-living factors.  This is an approximation the user can
+    # override with real quotes.
+    current_state = c.get('state', 'Illinois')
+    target_state = (c.get('residency_target_state') or '').strip()
+    # Map an abbreviation or partial name to a known state key.
+    _abbr = {
+        'IL': 'Illinois', 'IN': 'Indiana', 'FL': 'Florida', 'TX': 'Texas',
+        'TN': 'Tennessee', 'NC': 'North Carolina', 'AZ': 'Arizona',
+        'CO': 'Colorado', 'NV': 'Nevada', 'CA': 'California', 'NY': 'New York',
+    }
+    def _resolve_state(name):
+        if not name:
+            return None
+        for key in STATE_TAX_RULES:
+            if name.lower() == key.lower() or key.lower() in name.lower():
+                return key
+        return _abbr.get(name.strip().upper())
+    cur_key = _resolve_state(current_state) or 'Illinois'
+    tgt_key = _resolve_state(target_state)
+
+    write_hdr(ws, r, 1, 'Geographic Cost-of-Living Delta (Estimated)', NAVY, WHITE, span=6); r += 1
+    write_cell(ws, r, 1,
+        f'Baseline = current budgeted amounts in {cur_key}. Delta = estimated annual change '
+        f'if relocating to {tgt_key or "the target state"}, from relative cost-of-living '
+        f'factors. ESTIMATE ONLY — replace with real quotes when available.', fg='888888')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6); r += 1
+
+    cost_hdrs = ['Category', f'Baseline ({cur_key})',
+                 f'Estimated ({tgt_key or "target"})', 'Annual Delta', 'Lifetime Delta', 'Basis']
+    for i, h in enumerate(cost_hdrs, 1):
+        write_hdr(ws, r, i, h, DGRAY, WHITE)
+    r += 1
+
+    cur_col = col_factors(cur_key, STATE_TAX_RULES.get(cur_key))
+    tgt_col = col_factors(tgt_key, STATE_TAX_RULES.get(tgt_key)) if tgt_key else cur_col
+    cost_cats = [
+        ('Auto Insurance', c.get('current_auto_insurance_annual', 0), 'auto'),
+        ('Homeowners Insurance', c.get('current_homeowners_insurance_annual', 0), 'home_ins'),
+        ('Utilities', c.get('current_home_utilities_annual', 0), 'utilities'),
+        ('Home Maintenance', c.get('current_home_maintenance_annual', 0), 'maintenance'),
+    ]
+    total_annual_delta = 0.0
+    for lbl, baseline, key in cost_cats:
+        factor = (tgt_col[key] / cur_col[key]) if cur_col[key] else 1.0
+        est = baseline * factor
+        annual_delta = est - baseline
+        lifetime_delta = annual_delta * yrs
+        total_annual_delta += annual_delta
+        bg = 'FCE4D6' if annual_delta > 0 else ('E2EFDA' if annual_delta < 0 else None)
+        write_cell(ws, r, 1, lbl)
+        write_cell(ws, r, 2, baseline, fmt=FMT_DOLLAR)
+        write_cell(ws, r, 3, est, fmt=FMT_DOLLAR)
+        write_cell(ws, r, 4, annual_delta, fmt=FMT_DOLLAR, bg=bg,
+                   fg='C00000' if annual_delta > 0 else '000000')
+        write_cell(ws, r, 5, lifetime_delta, fmt=FMT_DOLLAR, bg=bg)
+        write_cell(ws, r, 6, f'x{tgt_col[key]:.2f} vs x{cur_col[key]:.2f}', fg='888888')
+        r += 1
+    write_cell(ws, r, 1, 'Total (4 categories)', bold=True)
+    write_cell(ws, r, 4, total_annual_delta, fmt=FMT_DOLLAR, bold=True,
+               fg='C00000' if total_annual_delta > 0 else '000000')
+    write_cell(ws, r, 5, total_annual_delta * yrs, fmt=FMT_DOLLAR, bold=True)
+    r += 2
+    write_cell(ws, r, 1,
+        'Cost-of-living factors are illustrative approximations from public regional '
+        'cost and insurance-premium indices. Homeowners insurance, utilities, and '
+        'maintenance baselines come from the Housing current-home budget; the auto '
+        'insurance baseline comes from the State Residency inputs. Override factors '
+        'via reference_data/state_tax.csv (col_auto, col_home_ins, col_utilities, '
+        'col_maintenance).', fg='888888')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6)
 
     auto_fit_columns(ws)
     qc('13. State Residency', f'{len(STATE_TAX_RULES)} states compared with retirement-income treatment', True,

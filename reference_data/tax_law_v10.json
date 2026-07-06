@@ -916,8 +916,18 @@
       "jurisdiction": "US",
       "filing_status": "MFJ",
       "name": "ss_wage_base",
-      "value": 184500,
+      "value": 176100,
       "effective_year": 2025,
+      "expires_year": 2025,
+      "source": "SSA 2025 Social Security wage base",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "ss_wage_base",
+      "value": 184500,
+      "effective_year": 2026,
       "expires_year": null,
       "source": "v10 local dated tax-law dataset",
       "status": "assumption"

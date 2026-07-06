@@ -18,6 +18,13 @@ import copy as _copy
 from pathlib import Path
 
 
+# Fallback Social Security wage base used only when a plan's own
+# ss_wage_base_base_year field is blank. The household field is expected to be
+# populated per-plan (see reference_data/tax_update_dashboard.csv's
+# ss_wage_base row for the current authoritative annual figure); this constant
+# exists once so it can't drift across the CSV- and JSON-parsing code paths.
+DEFAULT_SS_WAGE_BASE = 184500
+
 CLIENT_DATA_PART_FILES = [
     "client_household.csv",
     "client_income.csv",
@@ -365,8 +372,15 @@ def parse_client(data, url_template):
         fmp_api_key=_sv('Market Pricing', 'API', 'fmp_api_key', ''),
         alpha_vantage_api_key=_sv('Market Pricing', 'API', 'alpha_vantage_api_key', ''),
     )
+    # Test/CI determinism hook: when RETIREMENT_SYSTEM_FORCE_PRICING_MODE is set
+    # (tests/conftest.py pins it to OFFLINE), holdings are priced only from the
+    # committed cache snapshot / cost basis — never live market data — so
+    # golden-master projections are reproducible in CI. Scoped to parse_client
+    # so the generic market_data.configure_holdings_pricing() stays pure for the
+    # unit tests that assert its mode-handling behavior directly.
+    _forced_pricing_mode = os.getenv('RETIREMENT_SYSTEM_FORCE_PRICING_MODE', '').strip()
     configure_holdings_pricing(
-        mode=_sv('Market Pricing', 'Holdings', 'pricing_mode', 'CACHE'),
+        mode=_forced_pricing_mode or _sv('Market Pricing', 'Holdings', 'pricing_mode', 'CACHE'),
         cache_hours=_sv('Market Pricing', 'Holdings', 'cache_hours', '24'),
     )
     # A user-controlled pricing freeze overrides live/cache mode for builds so
@@ -495,6 +509,7 @@ def parse_client(data, url_template):
     c['earn_end']   = c.get('h_earned_last_year', c['h_ret_yr'])
     c['earn_inc']   = _n(_v(data,'Cashflow','Earned Income','earned_income_annual_increase','0.03'), 0.03)
     c['entity']     = _v(data,'Cashflow','Earned Income','entity_type','sole_prop')
+    c['ytd_remainder_earned_income_override'] = _n(_v(data,'Cashflow','Earned Income','ytd_remainder_earned_income_override',''), None)
     c['biz_exp']    = _n(_v(data,'Cashflow','Self-Employment','business_expenses_annual','15000'), 15000)
     c['home_off']   = _n(_v(data,'Cashflow','Self-Employment','home_office_expenses_annual','4000'), 4000)
     # SEHI has no standalone input. It is derived per projection year from
@@ -523,6 +538,8 @@ def parse_client(data, url_template):
                                      'spending_freeze_year','2040'), 2040)
     c['char_low']  = _n(_v(data,'Cashflow','Spending','annual_charitable_giving_low','3000'), 3000)
     c['char_high'] = _n(_v(data,'Cashflow','Spending','annual_charitable_giving_high','5000'), 5000)
+    c['ytd_remainder_spending_override'] = _n(_v(data,'Cashflow','Spending','ytd_remainder_spending_override',''), None)
+    c['ytd_blend_enabled'] = _b(_v(data,'Cashflow','Spending','ytd_blend_enabled','TRUE') or 'TRUE')
 
     c['mort_pmt']  = _n(_v(data,'Cashflow','Mortgage','monthly_payment','3000'), 3000)*12
     c['real_estate_tax_base'] = _n(_v(data,'Cashflow','Mortgage','annual_real_estate_taxes','0'), 0)
@@ -702,6 +719,13 @@ def parse_client(data, url_template):
     c['current_home_utilities_annual'] = _n(_v(data,'Housing','current_home','utilities_annual','0'), 0)
     c['current_home_maintenance_annual'] = _n(_v(data,'Housing','current_home','home_maintenance_annual','0'), 0)
 
+    # State Residency Analysis: target relocation state and the current-state
+    # (baseline) auto-insurance budget.  Homeowners insurance, utilities, and
+    # maintenance baselines come from the Housing current-home amounts above;
+    # auto insurance is a separate transportation budget captured here.
+    c['residency_target_state'] = str(_v(data,'State Comparison','','target_state','') or '').strip()
+    c['current_auto_insurance_annual'] = _n(_v(data,'State Comparison','auto_insurance','illinois_baseline_annual','0'), 0)
+
     # Future housing steps (rent/buy) are entered on the Housing page and feed
     # both annual cash flow and net worth.  A blank start year disables a step.
     c['next_housing_steps'] = []
@@ -809,16 +833,60 @@ def parse_client(data, url_template):
         c['startup_sale_price'] = c['startup_eq'] * ((1.0 + c['startup_gr']) ** _years_to_sale if (1.0 + c['startup_gr']) > 0 else 1.0)
     # Straight-line depreciation: value / depreciation_years per year → $0 at end of life.
 
-    # Note Receivable
-    c['note_face']   = _n(_v(data,'Note Receivable','Summary','face_value','474252.96'), 474252.96)
-    c['note_first']  = _y(_v(data,'Note Receivable','Summary','first_payment', f"1/2/{c['plan_start']}"), c['plan_start'])
-    c['note_last']   = _y(_v(data,'Note Receivable','Summary','last_payment','1/2/2033'), 2033)
-    c['note_princ']  = _n(_v(data,'Note Receivable','Summary',f'annual_principal_{TAX_BASE_YEAR}_{TAX_BASE_YEAR + 6}','59281.62'), 59281.62)
-    c['note_princ_final'] = _n(_v(data,'Note Receivable','Summary','final_principal_2033','59327.50'), 59327.50)
+    # Note Receivable — repeatable like other typed "Other Assets" (one or more
+    # named notes).  Each note is entered as its own "Note N" subsection with a
+    # descriptive name plus the same fields the single legacy note used to have
+    # (face value, first/last payment year, annual principal, final-year
+    # principal, and an interest-by-year schedule).  The projection engine
+    # consumes per-note detail via c['note_items'] and also needs simple
+    # scalar aggregates for legacy call sites (deterministic engine, balance
+    # sheet, optimization) — those are summed/derived across all notes below.
+    c['note_items'] = []
+    _note_subs = [s for s in (data.get('Note Receivable') or {}).keys()
+                  if re.match(r'^Note\s+\d+$', str(s or '').strip(), re.I)]
+    if not _note_subs and (data.get('Note Receivable') or {}).get('Summary'):
+        # Legacy single-note layout (Note Receivable > Summary > ...). Treat it
+        # as one note named "RedMane Note" so old plan files keep working.
+        _legacy = data['Note Receivable']['Summary']
+        _note_subs = ['__legacy_summary__']
+        data = dict(data)
+        data['Note Receivable'] = dict(data['Note Receivable'])
+        data['Note Receivable']['__legacy_summary__'] = dict(_legacy)
+        data['Note Receivable']['__legacy_summary__'].setdefault('name', 'RedMane Note')
+    _note_subs = sorted(_note_subs, key=lambda s: (0, int(re.search(r'(\d+)', s).group(1))) if re.search(r'(\d+)', s) else (1, s))
+    for _nsub in _note_subs:
+        _nvals = data['Note Receivable'][_nsub]
+        _nname = str(_nvals.get('name') or _nsub).strip() or _nsub
+        _nface  = _n(_nvals.get('face_value', '0'), 0.0)
+        _nfirst = _y(_nvals.get('first_payment', f"1/2/{c['plan_start']}"), c['plan_start'])
+        _nlast  = _y(_nvals.get('last_payment', '1/2/2033'), 2033)
+        _nprinc = _n(_nvals.get(f'annual_principal_{TAX_BASE_YEAR}_{TAX_BASE_YEAR + 6}',
+                                 _nvals.get('annual_principal_base_period', '0')), 0.0)
+        _nprinc_final = _n(_nvals.get('final_principal_2033', _nvals.get('final_principal', '0')), 0.0)
+        _ninterest = {}
+        _nint_sub = f'{_nsub} Interest' if _nsub != '__legacy_summary__' else 'Interest by Year'
+        for yr in range(c['plan_start'], c['plan_start'] + 8):
+            iv = _v(data, 'Note Receivable', _nint_sub, str(yr), '0')
+            _ninterest[yr] = _n(iv, 0)
+        c['note_items'].append({
+            'section': _nsub, 'name': _nname, 'face_value': _nface,
+            'first_payment_year': _nfirst, 'last_payment_year': _nlast,
+            'annual_principal': _nprinc, 'final_principal': _nprinc_final,
+            'interest_by_year': _ninterest,
+        })
+
+    # Legacy scalar aggregates used by the deterministic engine, balance
+    # sheet, and optimization scoring.  face_value/annual_principal sum
+    # across notes; first/last payment years span the earliest start and
+    # latest end of any note; interest-by-year sums across notes.
+    c['note_face']   = sum(n['face_value'] for n in c['note_items']) if c['note_items'] else 0.0
+    c['note_first']  = min((n['first_payment_year'] for n in c['note_items']), default=c['plan_start'])
+    c['note_last']   = max((n['last_payment_year'] for n in c['note_items']), default=c['plan_start'])
+    c['note_princ']  = sum(n['annual_principal'] for n in c['note_items']) if c['note_items'] else 0.0
+    c['note_princ_final'] = sum(n['final_principal'] for n in c['note_items']) if c['note_items'] else 0.0
     c['note_interest'] = {}
     for yr in range(c['plan_start'], c['plan_start'] + 8):
-        iv = _v(data,'Note Receivable','Interest by Year',str(yr),'0')
-        c['note_interest'][yr] = _n(iv, 0)
+        c['note_interest'][yr] = sum(n['interest_by_year'].get(yr, 0) for n in c['note_items'])
 
     # HSA withdrawal policy. Default is spend_as_needed: do not schedule HSA draws;
     # use HSA only when needed for a funding gap before touching Roth. Optional
@@ -1045,9 +1113,6 @@ def parse_client(data, url_template):
         c['basis_step_up_property_regime'] = 'COMMON_LAW'
     c['federal_portability_enabled'] = _b(_v(data,'Estate Planning','Federal','portability_enabled','TRUE'))
     c['qss_dependent'] = _b(_v(data,'Household','','survivor_has_dependent','FALSE'))
-    # Credit Shelter Trust: if enabled, each spouse uses their own exemption → doubles effective exemption
-    c['credit_shelter_trust'] = str(_v(data,'Estate Planning','Trust Structure',
-                                       'credit_shelter_trust','FALSE')).strip().upper() in ('TRUE','YES','ON','1')
     # Do not double the IL exemption as a shortcut.  The projection now tracks
     # actual first-death credit-shelter funding and subtracts that funded amount
     # from the survivor's taxable estate.
@@ -1089,7 +1154,7 @@ def parse_client(data, url_template):
                     c['forced_roth_accounts'].setdefault(yr, []).append({'source_account': '', 'amount': amt})
 
     # Payroll tax
-    c['ss_wage_base'] = _n(_v(data,'Payroll Tax','Social Security','ss_wage_base_base_year','184500'), 184500)
+    c['ss_wage_base'] = _n(_v(data,'Payroll Tax','Social Security','ss_wage_base_base_year',str(DEFAULT_SS_WAGE_BASE)), DEFAULT_SS_WAGE_BASE)
     c['ss_ee_rate']   = _n(_v(data,'Payroll Tax','Social Security','ss_employee_rate','0.062'), 0.062)
     c['ss_se_rate']   = _n(_v(data,'Payroll Tax','Social Security','ss_self_employment_rate','0.124'), 0.124)
     c['med_ee_rate']  = _n(_v(data,'Payroll Tax','Medicare','medicare_employee_rate','0.0145'), 0.0145)
@@ -1933,11 +1998,11 @@ def build_plan_from_json(plan, url_template=''):
         c['w_mort_age'] = 0
         c['w_death_yr'] = c['h_dob_yr']
 
-    c['members'] = [{'name': c['h_name'], 'role': 'member_1',
+    c['members'] = [{'name': c['h_name'], 'nickname': c['h_nick'], 'role': 'member_1',
                      'dob_yr': c['h_dob_yr'], 'retire_yr': c['h_ret_yr'],
                      'mortality_age': c['h_mort_age'], 'death_yr': c['h_death_yr']}]
     if c['w_name']:
-        c['members'].append({'name': c['w_name'], 'role': 'member_2',
+        c['members'].append({'name': c['w_name'], 'nickname': c['w_nick'], 'role': 'member_2',
                              'dob_yr': c['w_dob_yr'], 'retire_yr': c['w_ret_yr'],
                              'mortality_age': c['w_mort_age'], 'death_yr': c['w_death_yr']})
     c['household_size'] = len(c['members'])
@@ -2090,7 +2155,7 @@ def build_plan_from_json(plan, url_template=''):
     c['rmd_start_age']     = a.get('rmd_start_age', 75)
     c['rollover_yr']       = a.get('rollover_year', c['plan_start'] + 5)
     c['salt_cap']          = a.get('salt_cap', 10000)
-    c['payroll_wage_base'] = a.get('ss_wage_base', 184500)
+    c['payroll_wage_base'] = a.get('ss_wage_base', DEFAULT_SS_WAGE_BASE)
     c['payroll_ee_rate']   = 0.0765
     c['ltcg_0_top']        = _td.LTCG_BRACKETS_BASE_YEAR.get(c['filing_status'], {}).get('zero_top', 96700)
     c['ltcg_15_top']       = _td.LTCG_BRACKETS_BASE_YEAR.get(c['filing_status'], {}).get('fifteen_top', 600050)
@@ -2127,7 +2192,7 @@ def build_plan_from_json(plan, url_template=''):
     c['ss_ee_rate'] = 0.062; c['ss_se_rate'] = 0.124
     c['med_ee_rate'] = 0.0145; c['med_se_rate'] = 0.029
     c['add_med_rate'] = 0.009; c['add_med_thr'] = 200000
-    c['ss_wage_base'] = a.get('ss_wage_base', 184500)
+    c['ss_wage_base'] = a.get('ss_wage_base', DEFAULT_SS_WAGE_BASE)
     c['se_factor'] = 0.9235; c['se_half_ded'] = True
     c['scorp_salary'] = 0; c['biz_exp'] = 0; c['entity'] = 'none'
     c['qbi_elig'] = False; c['k401_mo'] = 0; c['k401_lim'] = 23500

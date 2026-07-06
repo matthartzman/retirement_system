@@ -11,28 +11,28 @@
     "subsection": "API"
   },
   "api_key_source": "UI/system_config.csv, environment variables, or encrypted secret store",
-  "best_guess_cause": "Market pricing succeeded for all requested symbols.",
+  "best_guess_cause": "Live provider calls skipped by RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS for local/offline validation.",
   "cache_as_of_by_symbol": {
-    "AVUV": "2026-07-03T01:54:43.721596+00:00",
-    "ITOT": "2026-07-03T01:54:41.006431+00:00",
-    "IXUS": "2026-07-03T01:54:40.049302+00:00",
-    "PDBC": "2026-07-03T01:54:42.139653+00:00",
-    "VBR": "2026-07-03T01:54:48.618296+00:00",
-    "VTI": "2026-07-03T01:54:46.980975+00:00",
-    "VXUS": "2026-07-03T01:54:45.336927+00:00"
+    "AVUV": "2026-07-06T19:50:16.915725+00:00",
+    "ITOT": "2026-07-06T19:50:15.032782+00:00",
+    "IXUS": "2026-07-06T19:50:14.051871+00:00",
+    "PDBC": "2026-07-06T19:50:15.970435+00:00",
+    "VBR": "2026-07-06T19:50:19.836415+00:00",
+    "VTI": "2026-07-06T19:50:18.884064+00:00",
+    "VXUS": "2026-07-06T19:50:17.882210+00:00"
   },
   "cache_as_of_by_symbol_local": {
-    "AVUV": "07/02/2026 08:54 PM",
-    "ITOT": "07/02/2026 08:54 PM",
-    "IXUS": "07/02/2026 08:54 PM",
-    "PDBC": "07/02/2026 08:54 PM",
-    "VBR": "07/02/2026 08:54 PM",
-    "VTI": "07/02/2026 08:54 PM",
-    "VXUS": "07/02/2026 08:54 PM"
+    "AVUV": "07/06/2026 02:50 PM",
+    "ITOT": "07/06/2026 02:50 PM",
+    "IXUS": "07/06/2026 02:50 PM",
+    "PDBC": "07/06/2026 02:50 PM",
+    "VBR": "07/06/2026 02:50 PM",
+    "VTI": "07/06/2026 02:50 PM",
+    "VXUS": "07/06/2026 02:50 PM"
   },
-  "cache_as_of_local": "07/02/2026 08:54 PM",
-  "cache_as_of_utc": "2026-07-03T01:54:40.049302+00:00 to 2026-07-03T01:54:48.618296+00:00",
-  "cache_first_enabled": true,
+  "cache_as_of_local": "07/06/2026 02:50 PM",
+  "cache_as_of_utc": "2026-07-06T19:50:14.051871+00:00 to 2026-07-06T19:50:19.836415+00:00",
+  "cache_first_enabled": false,
   "cache_path": "C:\\RetirementPlanning\\Version 10\\output\\market_price_cache.json",
   "cache_schema_version": "10",
   "cache_ttl_hours": 24.0,
@@ -64,9 +64,81 @@
     "fmp": "FMP_API_KEY",
     "fmp_fingerprint": "a805fe45c35d"
   },
-  "failure_count": 0,
-  "failure_symbols": [],
-  "failures": [],
+  "failure_count": 7,
+  "failure_symbols": [
+    "AVUV",
+    "ITOT",
+    "IXUS",
+    "PDBC",
+    "VBR",
+    "VTI",
+    "VXUS"
+  ],
+  "failures": [
+    {
+      "cause": "Live provider calls skipped by RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS for local/offline validation.",
+      "detail": "",
+      "provider": "live_providers_skipped",
+      "status_code": null,
+      "symbol": "IXUS",
+      "timestamp": 1783376170.310007,
+      "url": ""
+    },
+    {
+      "cause": "Live provider calls skipped by RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS for local/offline validation.",
+      "detail": "",
+      "provider": "live_providers_skipped",
+      "status_code": null,
+      "symbol": "ITOT",
+      "timestamp": 1783376170.3100228,
+      "url": ""
+    },
+    {
+      "cause": "Live provider calls skipped by RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS for local/offline validation.",
+      "detail": "",
+      "provider": "live_providers_skipped",
+      "status_code": null,
+      "symbol": "PDBC",
+      "timestamp": 1783376170.310032,
+      "url": ""
+    },
+    {
+      "cause": "Live provider calls skipped by RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS for local/offline validation.",
+      "detail": "",
+      "provider": "live_providers_skipped",
+      "status_code": null,
+      "symbol": "AVUV",
+      "timestamp": 1783376170.3100424,
+      "url": ""
+    },
+    {
+      "cause": "Live provider calls skipped by RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS for local/offline validation.",
+      "detail": "",
+      "provider": "live_providers_skipped",
+      "status_code": null,
+      "symbol": "VXUS",
+      "timestamp": 1783376170.3100567,
+      "url": ""
+    },
+    {
+      "cause": "Live provider calls skipped by RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS for local/offline validation.",
+      "detail": "",
+      "provider": "live_providers_skipped",
+      "status_code": null,
+      "symbol": "VTI",
+      "timestamp": 1783376170.3100626,
+      "url": ""
+    },
+    {
+      "cause": "Live provider calls skipped by RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS for local/offline validation.",
+      "detail": "",
+      "provider": "live_providers_skipped",
+      "status_code": null,
+      "symbol": "VBR",
+      "timestamp": 1783376170.3100677,
+      "url": ""
+    }
+  ],
   "fallback_symbols": [
     "AVUV",
     "ITOT",
@@ -96,45 +168,45 @@
     "stooq"
   ],
   "prices": {
-    "AVUV": 123.51,
+    "AVUV": 123.87,
     "CASH": 1.0,
-    "ITOT": 163.76,
-    "IXUS": 94.72,
-    "PDBC": 15.87,
-    "VBR": 243.22,
-    "VTI": 368.76,
-    "VXUS": 84.84
+    "ITOT": 165.15,
+    "IXUS": 96.195,
+    "PDBC": 16.12,
+    "VBR": 243.59,
+    "VTI": 371.86,
+    "VXUS": 86.18
   },
-  "pricing_mode": "CACHE",
+  "pricing_mode": "LIVE",
   "pricing_source_category": "CACHE",
-  "pricing_source_note": "Cached quotes were used as of 07/02/2026 08:54 PM; cache TTL is 24.0 hours. CACHE mode checks the cache before calling live providers; the cache is still valid until 07/03/2026 08:54 PM.",
+  "pricing_source_note": "Cached quotes were used as of 07/06/2026 02:50 PM; cache TTL is 24.0 hours. Live pricing was not available for these symbols, so the cached quote was used as a fallback.",
   "pricing_source_summary": {
     "cache_as_of_by_symbol": {
-      "AVUV": "2026-07-03T01:54:43.721596+00:00",
-      "ITOT": "2026-07-03T01:54:41.006431+00:00",
-      "IXUS": "2026-07-03T01:54:40.049302+00:00",
-      "PDBC": "2026-07-03T01:54:42.139653+00:00",
-      "VBR": "2026-07-03T01:54:48.618296+00:00",
-      "VTI": "2026-07-03T01:54:46.980975+00:00",
-      "VXUS": "2026-07-03T01:54:45.336927+00:00"
+      "AVUV": "2026-07-06T19:50:16.915725+00:00",
+      "ITOT": "2026-07-06T19:50:15.032782+00:00",
+      "IXUS": "2026-07-06T19:50:14.051871+00:00",
+      "PDBC": "2026-07-06T19:50:15.970435+00:00",
+      "VBR": "2026-07-06T19:50:19.836415+00:00",
+      "VTI": "2026-07-06T19:50:18.884064+00:00",
+      "VXUS": "2026-07-06T19:50:17.882210+00:00"
     },
     "cache_as_of_by_symbol_local": {
-      "AVUV": "07/02/2026 08:54 PM",
-      "ITOT": "07/02/2026 08:54 PM",
-      "IXUS": "07/02/2026 08:54 PM",
-      "PDBC": "07/02/2026 08:54 PM",
-      "VBR": "07/02/2026 08:54 PM",
-      "VTI": "07/02/2026 08:54 PM",
-      "VXUS": "07/02/2026 08:54 PM"
+      "AVUV": "07/06/2026 02:50 PM",
+      "ITOT": "07/06/2026 02:50 PM",
+      "IXUS": "07/06/2026 02:50 PM",
+      "PDBC": "07/06/2026 02:50 PM",
+      "VBR": "07/06/2026 02:50 PM",
+      "VTI": "07/06/2026 02:50 PM",
+      "VXUS": "07/06/2026 02:50 PM"
     },
-    "cache_as_of_local": "07/02/2026 08:54 PM",
-    "cache_as_of_utc": "2026-07-03T01:54:40.049302+00:00 to 2026-07-03T01:54:48.618296+00:00",
-    "cache_valid_until_local": "07/03/2026 08:54 PM",
-    "cache_valid_until_utc": "2026-07-04T01:54:40.049302+00:00 to 2026-07-04T01:54:48.618296+00:00",
+    "cache_as_of_local": "07/06/2026 02:50 PM",
+    "cache_as_of_utc": "2026-07-06T19:50:14.051871+00:00 to 2026-07-06T19:50:19.836415+00:00",
+    "cache_valid_until_local": "07/07/2026 02:50 PM",
+    "cache_valid_until_utc": "2026-07-07T19:50:14.051871+00:00 to 2026-07-07T19:50:19.836415+00:00",
     "category": "CACHE",
     "label": "CACHE",
-    "note": "Cached quotes were used as of 07/02/2026 08:54 PM; cache TTL is 24.0 hours. CACHE mode checks the cache before calling live providers; the cache is still valid until 07/03/2026 08:54 PM.",
-    "pricing_mode": "CACHE",
+    "note": "Cached quotes were used as of 07/06/2026 02:50 PM; cache TTL is 24.0 hours. Live pricing was not available for these symbols, so the cached quote was used as a fallback.",
+    "pricing_mode": "LIVE",
     "source_counts": {
       "cash": 1,
       "fresh_cache_24h_from_yahoo": 7
@@ -142,12 +214,12 @@
   },
   "provider_attempts": {},
   "provider_order": [
-    "cache_any_age",
     "financial_modeling_prep",
     "yahoo",
     "nasdaq",
     "alpha_vantage",
     "stooq",
+    "cache_any_age",
     "holdings_cost_basis_if_no_cache"
   ],
   "proxy_environment_keys": [],

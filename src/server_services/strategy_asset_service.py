@@ -393,6 +393,57 @@ class StrategyAssetService:
         self._audit("other_asset_item_deleted", {"section": sub, "rows_removed": removed})
         return {"success": True, "section": sub, "rows_removed": removed, "message": f"Deleted {sub}."}, 200
 
+    def add_note_receivable_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
+        name = str(body.get("name") or "").strip() or "New Note"
+        path = self.context.client_section_path("Note Receivable", "client_assets.csv")
+        rows = self.context.ensure_header(self.context.csv_read_rows(path))
+        nums: list[int] = []
+        for r in rows[1:]:
+            if len(r) >= 2 and str(r[0]).strip() == "Note Receivable":
+                m = re.match(r"Note\s+(\d+)$", str(r[1]).strip(), re.I)
+                if m:
+                    nums.append(int(m.group(1)))
+        n = max(nums) + 1 if nums else 1
+        sub = f"Note {n}"
+        additions = [
+            ["Note Receivable", sub, "name", name, "text", "User-described note name."],
+            ["Note Receivable", sub, "face_value", "$0", "USD", "Original face value of the note."],
+            ["Note Receivable", sub, "first_payment", "", "date", "First scheduled payment date."],
+            ["Note Receivable", sub, "last_payment", "", "date", "Final scheduled payment date; balance reaches 0 after this date."],
+            ["Note Receivable", sub, "annual_principal_base_period", "$0", "USD", "Fixed annual principal for the base repayment period."],
+            ["Note Receivable", sub, "final_principal_2033", "$0", "USD", "Final-year principal payment."],
+        ]
+        insert_at = len(rows)
+        for i, r in enumerate(rows[1:], start=1):
+            if len(r) >= 1 and str(r[0]).strip() in {"HSA Policy", "DAF", "Hybrid LTC"}:
+                insert_at = i
+                break
+        rows[insert_at:insert_at] = additions
+        self.context.csv_write_rows(path, rows)
+        self._audit("note_receivable_added", {"section": sub, "name": name})
+        return {"success": True, "section": sub, "message": f"Added note {name}."}, 200
+
+    def delete_note_receivable_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
+        sub = str(body.get("subsection") or "").strip()
+        if not re.match(r"^Note\s+\d+$", sub, re.I):
+            return {"success": False, "error": "subsection must be a Note N section"}, 400
+        path = self.context.client_section_path("Note Receivable", "client_assets.csv")
+        rows = self.context.ensure_header(self.context.csv_read_rows(path))
+        interest_sub = f"{sub} Interest"
+        kept = [rows[0]]
+        removed = 0
+        for r in rows[1:]:
+            cols = list(r) + [""] * 6
+            if str(cols[0]).strip() == "Note Receivable" and str(cols[1]).strip() in {sub, interest_sub}:
+                removed += 1
+                continue
+            kept.append(r)
+        if removed == 0:
+            return {"success": False, "error": f"No note section named {sub!r} was found."}, 404
+        self.context.csv_write_rows(path, kept)
+        self._audit("note_receivable_deleted", {"section": sub, "rows_removed": removed})
+        return {"success": True, "section": sub, "rows_removed": removed, "message": f"Deleted {sub}."}, 200
+
     def add_education_529_payload(self) -> tuple[dict[str, Any], int]:
         path = self.context.client_section_path("Education Funding", "client_assets.csv")
         rows = self.context.ensure_header(self.context.csv_read_rows(path))

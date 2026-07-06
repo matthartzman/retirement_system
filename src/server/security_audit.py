@@ -23,7 +23,10 @@ import time, and moving them would add import-order risk to the single most
 security-critical code path in the server for no maintainability benefit.
 """
 
+import hashlib
+import hmac
 import json
+import secrets
 import time
 from pathlib import Path
 
@@ -276,6 +279,25 @@ def _read_last_build_timestamp(workspace_id: str | None = None) -> float:
 def _write_last_build_metadata(workspace_id: str | None, payload: dict) -> None:
     p = _last_build_metadata_path_for(workspace_id)
     p.write_text(json.dumps(payload, indent=2, sort_keys=True, default=str), encoding="utf-8")
+
+
+# Per-process CSRF secret + token derivation. Ported from main's app_core.py
+# (commit 3314a1e "Fix broken auth routes") into this extracted module so the
+# security_audit extraction keeps the double-submit CSRF fix that base_routes.py
+# depends on via the `from .app_core import *` -> `from .security_audit import *`
+# chain.
+_CSRF_PROCESS_SECRET = secrets.token_bytes(32)
+
+
+def _csrf_token_for_current_request() -> str:
+    """Derive a CSRF token bound to the current session/auth token.
+
+    Uses a per-process random secret so the token is stable for repeated
+    requests within the same run (double-submit pattern) without persisting
+    any new server-side state.
+    """
+    basis = _candidate_token() or f"local:{_current_user().user_id}"
+    return hmac.new(_CSRF_PROCESS_SECRET, basis.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 # Python's default `from X import *` skips underscore-prefixed names; every

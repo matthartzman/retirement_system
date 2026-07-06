@@ -21,7 +21,7 @@ ROUTE_MODULES = {
     "strategy_assets": [
         "/api/holdings", "/api/holdings/preview", "/api/withdrawal-order",
         "/api/large-discretionary-expenses", "/api/forced-roth-conversions", "/api/liquidity-buffers",
-        "/api/other-asset/add", "/api/other-asset/delete", "/api/education-529/add",
+        "/api/other-asset/add", "/api/other-asset/delete", "/api/note-receivable/add", "/api/note-receivable/delete", "/api/education-529/add",
         "/api/estate-state-options", "/api/estate-state/add", "/api/trust-account/add",
         "/api/insurance-policy/add", "/api/insurance-policy/delete", "/api/capital-market/assumptions",
         "/api/capital-market/correlations", "/api/housing/seed", "/api/housing/state-estimate", "/api/wellness/seed", "/api/config/sync",

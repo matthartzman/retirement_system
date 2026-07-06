@@ -228,6 +228,37 @@ class DesktopApi:
         except Exception as exc:  # noqa: BLE001
             return {"cancelled": True, "error": str(exc)}
 
+    def export_csv_backup(self) -> dict:
+        """Build the CSV backup zip and let the user choose where to save it via a native dialog.
+
+        A plain ``<input type=file>``/download fallback can't select a save
+        folder, and generic binary downloads fall back to opening the file in
+        Explorer with no save affordance — so this uses the same native
+        Save As dialog as ``show_save_dialog`` instead.
+        """
+        try:
+            import webview  # noqa: PLC0415
+            if not webview.windows:
+                return {"cancelled": True, "error": "No window"}
+            from src.server_services import admin_service  # noqa: PLC0415
+            from src.server.app_core import BASE_DIR  # noqa: PLC0415
+            data, default_name = admin_service.build_csv_backup_zip(BASE_DIR)
+            result = webview.windows[0].create_file_dialog(
+                webview.SAVE_DIALOG,
+                directory=str(Path.home() / "Documents"),
+                save_filename=default_name,
+                file_types=("Zip archive (*.zip)", "All files (*.*)")
+            )
+            if not result:
+                return {"cancelled": True}
+            path = result[0] if isinstance(result, (list, tuple)) else result
+            if path and not str(path).lower().endswith(".zip"):
+                path = str(path) + ".zip"
+            Path(path).write_bytes(data)
+            return {"cancelled": False, "path": str(path)}
+        except Exception as exc:  # noqa: BLE001
+            return {"cancelled": True, "error": str(exc)}
+
     def show_open_dialog(self) -> dict:
         """Open a native Open File dialog filtered to .rpx files."""
         try:
