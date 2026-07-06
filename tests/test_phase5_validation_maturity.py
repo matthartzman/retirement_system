@@ -62,14 +62,13 @@ class Phase5GoldenMasterEngineTests(unittest.TestCase):
                 actual = _project_metrics(c)
                 for key, expected_value in expected_metrics.items():
                     if isinstance(expected_value, (int, float)) and not isinstance(expected_value, bool):
-                        # Dollar metrics carry a small run-to-run drift because starting
-                        # balances are priced from live/cached market data at config time
-                        # (see market_data pricing modes). Use a relative tolerance for the
-                        # large dollar aggregates so this pre-existing pricing noise does not
-                        # make the golden library flaky; keep tight absolute tolerance for
-                        # structural integers (years, counts).
-                        tol = max(1.0, abs(expected_value) * 0.01) if abs(expected_value) > 10_000 else 1.0
-                        self.assertAlmostEqual(actual[key], expected_value, delta=tol, msg=f"{case_name}.{key}")
+                        # Pricing is pinned to OFFLINE for the test run (see
+                        # tests/conftest.py), so starting balances come from the
+                        # committed cache snapshot and these dollar aggregates are
+                        # fully reproducible. A $1 tolerance only absorbs float
+                        # rounding; regenerate the fixture deliberately after an
+                        # intentional engine/plan-data change.
+                        self.assertAlmostEqual(actual[key], expected_value, delta=1.0, msg=f"{case_name}.{key}")
                     else:
                         self.assertEqual(actual[key], expected_value, f"{case_name}.{key}")
 
