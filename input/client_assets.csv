@@ -25,12 +25,19 @@ Other Assets,Other Asset 1,annual_appreciation_pct,0.00%,percent,Annual apprecia
 Other Assets,Other Asset 1,basis,"$15,000",dollars,Purchase price or tax basis for appreciating assets.
 Other Assets,Other Asset 1,sell_date,2030-12-31,date,Optional planned sale date.
 Other Assets,Other Asset 2,type,Auto,choice,Auto | Boat | Start-up Equity | Art | Collectible | Other; choose the broad asset type.
-Other Assets,Other Asset 2,name,Autos,text,User-described asset name.
-Other Assets,Other Asset 2,value,"$54,430",dollars,Estimated value as of the as-of date.
+Other Assets,Other Asset 2,name,2023 BMW X5 xDrive45e,text,User-described asset name.
+Other Assets,Other Asset 2,value,"$43,876.06",dollars,Estimated value as of the as-of date.
 Other Assets,Other Asset 2,as_of_date,2026-06-30,date,Date the value estimate was prepared.
 Other Assets,Other Asset 2,annual_appreciation_pct,-15.00%,percent,Annual appreciation (+) or depreciation (-).
 Other Assets,Other Asset 2,basis,,dollars,Purchase price or tax basis for appreciating assets.
 Other Assets,Other Asset 2,sell_date,,date,Optional planned sale date.
+Other Assets,Other Asset 3,type,Auto,choice,Auto | Boat | Start-up Equity | Art | Collectible | Other; choose the broad asset type.
+Other Assets,Other Asset 3,name,2016 Kia Optima EX,text,User-described asset name.
+Other Assets,Other Asset 3,value,"$10,554.12",dollars,Estimated value as of the as-of date.
+Other Assets,Other Asset 3,as_of_date,2026-06-30,date,Date the value estimate was prepared.
+Other Assets,Other Asset 3,annual_appreciation_pct,-5.00%,percent,Annual appreciation (+) or depreciation (-).
+Other Assets,Other Asset 3,basis,,dollars,Purchase price or tax basis for appreciating assets.
+Other Assets,Other Asset 3,sell_date,,date,Optional planned sale date.
 Liquidity Buffer,buffer_1,years_of_expenses,0,years,,
 Liquidity Buffer,buffer_1,reserve_account,Taxable/Trust,choice,Taxable/Trust | Roth | IRA | HSA | Cash; account bucket intended to preserve the reserve for this rule.,
 Liquidity Buffer,buffer_1,start_year,,year,,

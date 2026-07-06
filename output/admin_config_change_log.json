@@ -290,5 +290,71 @@
     "kind": "spending_budget",
     "path": "C:\\RetirementPlanning\\Version 10\\input\\client_spending_budget.csv",
     "timestamp": 1783110339.320069
+  },
+  {
+    "change_count": 1,
+    "changed_by": "local",
+    "changes": [
+      {
+        "after": "LIVE",
+        "before": "CACHE",
+        "label": "Market Pricing / Holdings / pricing_mode",
+        "row_index": 22
+      }
+    ],
+    "file": "system_config.csv",
+    "kind": "system",
+    "path": "C:\\RetirementPlanning\\Version 10\\system_config.csv",
+    "timestamp": 1783192694.9124608
+  },
+  {
+    "change_count": 1,
+    "changed_by": "local",
+    "changes": [
+      {
+        "after": "500",
+        "before": "21690",
+        "label": "category / business_services / Business Services",
+        "row_index": 9
+      }
+    ],
+    "file": "client_spending_budget.csv",
+    "kind": "spending_budget",
+    "path": "C:\\RetirementPlanning\\Version 10\\input\\client_spending_budget.csv",
+    "timestamp": 1783263898.1977103
+  },
+  {
+    "change_count": 4,
+    "changed_by": "local",
+    "changes": [
+      {
+        "after": "row removed",
+        "before": "line, children_weddings, , , , ",
+        "label": "row 85",
+        "row_index": 84
+      },
+      {
+        "after": "row removed",
+        "before": "line, children_weddings, , , , ",
+        "label": "row 86",
+        "row_index": 85
+      },
+      {
+        "after": "row removed",
+        "before": "line, children_weddings, , , , ",
+        "label": "row 87",
+        "row_index": 86
+      },
+      {
+        "after": "row removed",
+        "before": "line, children_weddings, , , , ",
+        "label": "row 88",
+        "row_index": 87
+      }
+    ],
+    "file": "client_spending_budget.csv",
+    "kind": "spending_budget",
+    "path": "C:\\RetirementPlanning\\Version 10\\input\\client_spending_budget.csv",
+    "timestamp": 1783263898.217424
   }
 ]

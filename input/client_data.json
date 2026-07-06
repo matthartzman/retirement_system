@@ -404,7 +404,7 @@
       "state_estate_rate_note": "graduated 0.8%-16%"
     },
     "QTIP Trust": {
-      "enabled": "FALSE",
+      "enabled": "YES",
       "funding_amount": "0",
       "manages_annuity_after_first_death": "TRUE",
       "note": "Provides income to surviving spouse"
@@ -741,7 +741,7 @@
       "include_home_equity_in_allocation_view": "YES",
       "inflation_sensitive_spending_pct": "10%",
       "liquid_reit_target_pct_when_home_not_counted": "5%",
-      "risk_tolerance": "8"
+      "risk_tolerance": "0"
     },
     "Asset Allocation": {
       "cash_pct": "5.00%",
@@ -872,10 +872,19 @@
       "annual_appreciation_pct": "-15.00%",
       "as_of_date": "2026-06-30",
       "basis": "",
-      "name": "Autos",
+      "name": "2023 BMW X5 xDrive45e",
       "sell_date": "",
       "type": "Auto",
-      "value": "$54,430"
+      "value": "$43,876.06"
+    },
+    "Other Asset 3": {
+      "annual_appreciation_pct": "-5.00%",
+      "as_of_date": "2026-06-30",
+      "basis": "",
+      "name": "2016 Kia Optima EX",
+      "sell_date": "",
+      "type": "Auto",
+      "value": "$10,554.12"
     },
     "Startup Equity": {
       "basis": "$0",
@@ -1033,15 +1042,15 @@
   },
   "State Comparison": {
     "": {
-      "target_state": ""
+      "target_state": "CO"
     },
     "auto_insurance": {
-      "illinois_baseline_annual": "",
+      "illinois_baseline_annual": "$2,400",
       "notes": "",
       "target_state_annual": ""
     },
     "homeowners_insurance": {
-      "illinois_baseline_annual": "",
+      "illinois_baseline_annual": "$2,200",
       "notes": "",
       "target_state_annual": ""
     }
@@ -1106,8 +1115,8 @@
       "max_conversion_years": "10",
       "pre_tax_bequest_penalty_pct": "15.00%",
       "roth_bequest_preference_bonus_pct": "5.00%",
-      "roth_bracket_strategy": "OPTIMIZER_CHOOSES",
-      "roth_conversion_policy": "fill_to_irmaa",
+      "roth_bracket_strategy": "FILL_TARGET_BRACKET",
+      "roth_conversion_policy": "fill_to_bracket",
       "roth_conversion_target_bracket_base_year": "22.00%",
       "roth_fixed_annual_amount": "$0",
       "roth_headroom_usage_pct": "100.00%",

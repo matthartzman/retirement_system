@@ -1,7 +1,7 @@
 {
   "client_id": "local",
-  "elapsed_seconds": 10.0,
-  "finished_at_ts": 1783110935.7526011,
-  "job_id": "bafc77465e2540a48e00ad1376a1c314",
+  "elapsed_seconds": 19.8,
+  "finished_at_ts": 1783213902.9169366,
+  "job_id": "d18dac06efe042d98888f08b422a65c2",
   "qc_result": "QC: 32 / 32 PASS"
 }

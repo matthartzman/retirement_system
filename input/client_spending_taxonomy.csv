@@ -92,15 +92,19 @@ Core Expenses,Shopping,clothing_jewelry,Clothing & Jewelry,transaction,active,Au
 Core Expenses,Shopping,furniture_housewares,Furniture & Housewares,transaction,active,Promoted from legacy spending_category_map.csv during unified spending migration
 Core Expenses,Shopping,shopping,Shopping,transaction,active,Auto-added from transactions
 Wellness,Healthcare Premium,aca_marketplace_premium,ACA Marketplace Premium,template,deleted,ACA / individual market plan premiums
-Wellness,Medical Cap Reference,annual_oop_max,Annual Household Medical OOP Cap,custom,active,Cap/reference for non-premium medical spending; not a standalone expense budget.
-Wellness,Healthcare Premium,pre65_wellness_premium,Pre-65 Healthcare Premium,custom,active,Authoritative pre-65 healthcare premium category; same concept previously shown under the generic healthcare premium category.
 Wellness,Healthcare Premium,cobra_premium,COBRA Premium,template,deleted,COBRA continuation coverage
+Wellness,Healthcare Premium,employer_health_premium,Employer Health Premium,template,deleted,Employee-share of employer-sponsored plan
+Wellness,Healthcare Premium,wellness_premium,Healthcare Premium,transaction,deleted,"Legacy alias row retained for backwards compatibility; use Pre-65 Healthcare Premium plus Medicare Part B, Part D, and Part G premium rows."
+Wellness,Healthcare Premium,medicare_part_b,Medicare Part B Premium,template,active,Monthly Part B standard + IRMAA
+Wellness,Healthcare Premium,medicare_part_d,Medicare Part D Premium,template,active,Monthly Part D drug plan + IRMAA
+Wellness,Healthcare Premium,medigap_premium,Medicare Part G / Medigap Premium,template,active,Medicare supplement plan G or N premiums
+Wellness,Healthcare Premium,pre65_wellness_premium,Pre-65 Healthcare Premium,custom,active,Authoritative pre-65 healthcare premium category; same concept previously shown under the generic healthcare premium category.
+Wellness,Medical Cap Reference,annual_oop_max,Annual Household Medical OOP Cap,custom,active,Cap/reference for non-premium medical spending; not a standalone expense budget.
 Wellness,Wellness Budget Detail,dental_cleanings,Dental Cleanings / Exams,template,deleted,Routine dental checkups and cleanings
 Wellness,Wellness Budget Detail,dental_procedures,Dental Procedures,template,deleted,Fillings
 Wellness,Wellness Budget Detail,dentist,Dentist,transaction,active,Promoted from legacy spending_category_map.csv during unified spending migration
 Wellness,Wellness Budget Detail,dermatologist,Dermatologist,transaction,active,Auto-added from transactions; CR104: moved wellness category out of Core Expenses.
 Wellness,Wellness Budget Detail,drugs_rx_and_otc,Drugs - Rx and OTC,transaction,active,Auto-added from transactions
-Wellness,Healthcare Premium,employer_health_premium,Employer Health Premium,template,deleted,Employee-share of employer-sponsored plan
 Wellness,Wellness Budget Detail,exercise_health_equipment,Exercise & Health Equipment,transaction,active,Auto-added from transactions; CR104: moved wellness category out of Core Expenses.
 Wellness,Wellness Budget Detail,eye_exams,Eye Exams,template,deleted,Optometrist and ophthalmologist exams
 Wellness,Wellness Budget Detail,fitness,Fitness,transaction,active,Promoted from legacy spending_category_map.csv during unified spending migration; CR104: moved Wellness group category out of Core Expenses.
@@ -112,9 +116,6 @@ Wellness,Wellness Budget Detail,lab_imaging,Lab / Imaging,template,deleted,Blood
 Wellness,Wellness Budget Detail,lasik_surgery,Lasik / Eye Surgery,template,deleted,Elective eye surgery
 Wellness,Wellness Budget Detail,massage_bodywork,Massage / Bodywork,template,deleted,Therapeutic massage and chiropractic; CR112: moved to Wellness tracking type.
 Wellness,Wellness Budget Detail,medical,Medical,transaction,active,Auto-added from transactions
-Wellness,Healthcare Premium,medicare_part_b,Medicare Part B Premium,template,active,Monthly Part B standard + IRMAA
-Wellness,Healthcare Premium,medicare_part_d,Medicare Part D Premium,template,active,Monthly Part D drug plan + IRMAA
-Wellness,Healthcare Premium,medigap_premium,Medicare Part G / Medigap Premium,template,active,Medicare supplement plan G or N premiums
 Wellness,Wellness Budget Detail,office_visits,Office Visits / Copays,template,deleted,Primary care and specialist copays
 Wellness,Wellness Budget Detail,orthodontia,Orthodontia,template,deleted,Braces
 Wellness,Wellness Budget Detail,otc_medications,OTC Medications,template,deleted,Over-the-counter pain relievers and medications
@@ -123,7 +124,6 @@ Wellness,Wellness Budget Detail,urgent_care_er,Urgent Care / ER,template,deleted
 Wellness,Wellness Budget Detail,vision,Vision,transaction,active,Promoted from legacy spending_category_map.csv during unified spending migration
 Wellness,Wellness Budget Detail,supplements,Vitamins & Supplements,template,deleted,Over-the-counter supplements and vitamins (non-Rx); CR112: moved to Wellness tracking type.
 Wellness,Wellness Budget Detail,vitamins_supplements,Vitamins & Supplements,transaction,active,Auto-added from transactions; CR104: moved Wellness group category out of Core Expenses.
-Wellness,Healthcare Premium,wellness_premium,Healthcare Premium,transaction,deleted,"Legacy alias row retained for backwards compatibility; use Pre-65 Healthcare Premium plus Medicare Part B, Part D, and Part G premium rows."
 Housing,Home Improvement,additions_structural,Additions / Structural,template,deleted,Room additions and structural upgrades
 Housing,Home Improvement,flooring_windows,Flooring / Windows,template,deleted,Hardwood
 Housing,Home Improvement,home_improvement,Home Improvement,transaction,active,Auto-added from transactions
@@ -131,7 +131,6 @@ Housing,Home Improvement,kitchen_bath_remodel,Kitchen / Bath Remodel,template,de
 Housing,Home Improvement,other_improvement,Other Improvement,template,deleted,Home improvement not elsewhere classified; CR116: merged into Home Improvement
 Housing,Home Improvement,roof_siding,Roof / Siding,template,deleted,Roof replacement or exterior siding
 Housing,Homeowners Insurance,flood_earthquake,Flood / Earthquake Insurance,template,deleted,Separate flood or earthquake policy premiums
-Housing,Homeowners Insurance,ho_insurance,Homeowners Insurance,template,active,HO-3 / HO-6 home/condo policy premiums
 Housing,Homeowners Insurance,umbrella_insurance,Umbrella Liability,template,deleted,Personal umbrella liability premium
 Housing,Maintenance,appliance_repair,Appliance Repair,template,deleted,Washer
 Housing,Maintenance,home_maintenance,Home Maintenance,transaction,active,Auto-added from transactions
@@ -143,6 +142,7 @@ Housing,Mortgage,mortgage_pi,Mortgage P&I,template,deleted,Principal and interes
 Housing,Mortgage,pmi,PMI,template,deleted,Private mortgage insurance
 Housing,Mortgage,rent,Rent,transaction,active,Promoted from legacy spending_category_map.csv during unified spending migration
 Housing,Other,furniture_home_decor_kitchenware,Furniture/Home Decor/Kitchenware,transaction,active,Auto-added from transactions
+Housing,Other,ho_insurance,Homeowners Insurance,template,active,HO-3 / HO-6 home/condo policy premiums
 Housing,Other,house_cleaning,House Cleaning,transaction,active,Auto-added from transactions
 Housing,Other,cleaning_service,House Cleaning Service,template,deleted,Regular or one-time professional cleaning
 Housing,Other,irrigation,Irrigation System,template,deleted,Sprinkler service and water management
@@ -173,15 +173,15 @@ Travel,International Travel,foreign_currency,Foreign Currency / Fees,template,de
 Travel,International Travel,international_flights,International Flights,template,deleted,Flights outside the US
 Travel,International Travel,international_hotels,International Hotels,template,deleted,Hotels and lodging abroad
 Travel,International Travel,visas_travel_insurance,Visas / Travel Insurance,template,deleted,Travel insurance and entry visa fees
+Travel,Travel,domestic_car_rental,Car Rental,template,deleted,Car rental in the US; CR116: domestic label removed
+Travel,Travel,domestic_cruise,Cruises,template,deleted,US-based cruise ships; CR116: domestic label removed
 Travel,Travel,entertainment_recreation,Entertainment & Recreation,transaction,active,Auto-added from transactions; CR104: moved Entertainment/Recreation to Travel.
+Travel,Travel,domestic_hotels,Hotels / Lodging,template,deleted,US hotels and Airbnb; CR116: domestic label removed
+Travel,Travel,recurring_travel,Recurring Travel Projection,template,active,CR116: renamed as recurring travel projection
 Travel,Travel,travel_vacation,Travel & Vacation,transaction,active,Auto-added from transactions
 Travel,Travel,travel_housing,Travel - Housing,transaction,active,Auto-added from transactions
 Travel,Travel,travel_insurance,Travel - Insurance,transaction,active,Auto-added from transactions
 Travel,Travel,travel_plane_train_bus,Travel - Plane/Train/Bus,transaction,active,Auto-added from transactions
-Travel,Travel,domestic_car_rental,Car Rental,template,deleted,Car rental in the US; CR116: domestic label removed
-Travel,Travel,domestic_cruise,Cruises,template,deleted,US-based cruise ships; CR116: domestic label removed
-Travel,Travel,domestic_hotels,Hotels / Lodging,template,deleted,US hotels and Airbnb; CR116: domestic label removed
-Travel,Travel,recurring_travel,Recurring Travel Projection,template,active,CR116: renamed as recurring travel projection
 Travel,Travel Experiences,dining_at_destination,Dining at Destination,template,deleted,Restaurant spending while traveling
 Travel,Travel Experiences,theme_parks,Theme Parks / Attractions,template,deleted,Disney
 Travel,Travel Experiences,tours_excursions,Tours / Excursions,template,deleted,Guided tours and day-trip activities
@@ -212,7 +212,7 @@ Large Discretionary,Recreation / Hobbies,golf_club,Golf Club Membership,template
 Large Discretionary,Recreation / Hobbies,hobby_studio,Hobby Studio / Equipment,template,deleted,Music
 Large Discretionary,Recreation / Hobbies,ski_passes,Ski Passes,template,deleted,Season ski passes and resort fees
 Large Discretionary,Recreation / Hobbies,sporting_equipment,Sporting Equipment,template,deleted,Bikes
-Large Discretionary,Wedding,children_weddings,Children Weddings,transaction,active,Promoted from legacy spending_category_map.csv during unified spending migration
+Large Discretionary,Wedding,children_weddings,Children Weddings,transaction,deleted,Promoted from legacy spending_category_map.csv during unified spending migration
 Large Discretionary,Wedding,weddings,Weddings,template,active,Wedding and rehearsal dinner costs
 Business,Business,advertising_promotion,Advertising & Promotion,transaction,deleted,Promoted from legacy spending_category_map.csv during unified spending migration
 Business,Business,advertising,Advertising / Marketing,template,deleted,Paid ads

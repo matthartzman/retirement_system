@@ -11,28 +11,12 @@
     "subsection": "API"
   },
   "api_key_source": "UI/system_config.csv, environment variables, or encrypted secret store",
-  "best_guess_cause": "Market pricing succeeded for all requested symbols.",
-  "cache_as_of_by_symbol": {
-    "AVUV": "2026-07-03T16:32:30.338726+00:00",
-    "ITOT": "2026-07-03T16:32:28.392756+00:00",
-    "IXUS": "2026-07-03T16:32:26.977226+00:00",
-    "PDBC": "2026-07-03T16:32:29.355727+00:00",
-    "VBR": "2026-07-03T16:32:33.587369+00:00",
-    "VTI": "2026-07-03T16:32:32.392753+00:00",
-    "VXUS": "2026-07-03T16:32:31.388292+00:00"
-  },
-  "cache_as_of_by_symbol_local": {
-    "AVUV": "07/03/2026 11:32 AM",
-    "ITOT": "07/03/2026 11:32 AM",
-    "IXUS": "07/03/2026 11:32 AM",
-    "PDBC": "07/03/2026 11:32 AM",
-    "VBR": "07/03/2026 11:32 AM",
-    "VTI": "07/03/2026 11:32 AM",
-    "VXUS": "07/03/2026 11:32 AM"
-  },
-  "cache_as_of_local": "07/03/2026 11:32 AM",
-  "cache_as_of_utc": "2026-07-03T16:32:26.977226+00:00 to 2026-07-03T16:32:33.587369+00:00",
-  "cache_first_enabled": true,
+  "best_guess_cause": "Unknown Financial Modeling Prep pricing failure.",
+  "cache_as_of_by_symbol": {},
+  "cache_as_of_by_symbol_local": {},
+  "cache_as_of_local": "",
+  "cache_as_of_utc": "",
+  "cache_first_enabled": false,
   "cache_path": "C:\\RetirementPlanning\\Version 10\\output\\market_price_cache.json",
   "cache_schema_version": "10",
   "cache_ttl_hours": 24.0,
@@ -64,9 +48,270 @@
     "fmp": "FMP_API_KEY",
     "fmp_fingerprint": "a805fe45c35d"
   },
-  "failure_count": 0,
-  "failure_symbols": [],
-  "failures": [],
+  "failure_count": 28,
+  "failure_symbols": [
+    "AVUV",
+    "ITOT",
+    "IXUS",
+    "PDBC",
+    "VBR",
+    "VTI",
+    "VXUS"
+  ],
+  "failures": [
+    {
+      "cause": "Financial Modeling Prep quote-short rejected the request; likely invalid/missing API key, plan limit, or blocked network.",
+      "detail": "{\n  \"Error Message\": \"Legacy Endpoint : Due to Legacy endpoints being no longer supported - This endpoint is only available for legacy users who have valid subscriptions prior August 31, 2025. Please visit our documentation page https://site.financialmodelingprep.com/developer/docs for our current A",
+      "provider": "Financial Modeling Prep quote-short",
+      "status_code": 403,
+      "symbol": "IXUS",
+      "timestamp": 1783213884.7236922,
+      "url": "https://financialmodelingprep.com/api/v3/quote-short/IXUS?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Unknown Financial Modeling Prep pricing failure.",
+      "detail": "",
+      "provider": "financial_modeling_prep:quote-short",
+      "status_code": null,
+      "symbol": "IXUS",
+      "timestamp": 1783213884.724502,
+      "url": "https://financialmodelingprep.com/api/v3/quote-short/IXUS?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Financial Modeling Prep quote rejected the request; likely invalid/missing API key, plan limit, or blocked network.",
+      "detail": "{\n  \"Error Message\": \"Legacy Endpoint : Due to Legacy endpoints being no longer supported - This endpoint is only available for legacy users who have valid subscriptions prior August 31, 2025. Please visit our documentation page https://site.financialmodelingprep.com/developer/docs for our current A",
+      "provider": "Financial Modeling Prep quote",
+      "status_code": 403,
+      "symbol": "IXUS",
+      "timestamp": 1783213885.3378744,
+      "url": "https://financialmodelingprep.com/api/v3/quote/IXUS?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Unknown Financial Modeling Prep pricing failure.",
+      "detail": "",
+      "provider": "financial_modeling_prep:quote",
+      "status_code": null,
+      "symbol": "IXUS",
+      "timestamp": 1783213885.3389075,
+      "url": "https://financialmodelingprep.com/api/v3/quote/IXUS?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Financial Modeling Prep quote-short rejected the request; likely invalid/missing API key, plan limit, or blocked network.",
+      "detail": "{\n  \"Error Message\": \"Legacy Endpoint : Due to Legacy endpoints being no longer supported - This endpoint is only available for legacy users who have valid subscriptions prior August 31, 2025. Please visit our documentation page https://site.financialmodelingprep.com/developer/docs for our current A",
+      "provider": "Financial Modeling Prep quote-short",
+      "status_code": 403,
+      "symbol": "ITOT",
+      "timestamp": 1783213886.1947188,
+      "url": "https://financialmodelingprep.com/api/v3/quote-short/ITOT?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Unknown Financial Modeling Prep pricing failure.",
+      "detail": "",
+      "provider": "financial_modeling_prep:quote-short",
+      "status_code": null,
+      "symbol": "ITOT",
+      "timestamp": 1783213886.1953676,
+      "url": "https://financialmodelingprep.com/api/v3/quote-short/ITOT?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Financial Modeling Prep quote rejected the request; likely invalid/missing API key, plan limit, or blocked network.",
+      "detail": "{\n  \"Error Message\": \"Legacy Endpoint : Due to Legacy endpoints being no longer supported - This endpoint is only available for legacy users who have valid subscriptions prior August 31, 2025. Please visit our documentation page https://site.financialmodelingprep.com/developer/docs for our current A",
+      "provider": "Financial Modeling Prep quote",
+      "status_code": 403,
+      "symbol": "ITOT",
+      "timestamp": 1783213886.667459,
+      "url": "https://financialmodelingprep.com/api/v3/quote/ITOT?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Unknown Financial Modeling Prep pricing failure.",
+      "detail": "",
+      "provider": "financial_modeling_prep:quote",
+      "status_code": null,
+      "symbol": "ITOT",
+      "timestamp": 1783213886.6685178,
+      "url": "https://financialmodelingprep.com/api/v3/quote/ITOT?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Financial Modeling Prep quote-short rejected the request; likely invalid/missing API key, plan limit, or blocked network.",
+      "detail": "{\n  \"Error Message\": \"Legacy Endpoint : Due to Legacy endpoints being no longer supported - This endpoint is only available for legacy users who have valid subscriptions prior August 31, 2025. Please visit our documentation page https://site.financialmodelingprep.com/developer/docs for our current A",
+      "provider": "Financial Modeling Prep quote-short",
+      "status_code": 403,
+      "symbol": "PDBC",
+      "timestamp": 1783213887.4261792,
+      "url": "https://financialmodelingprep.com/api/v3/quote-short/PDBC?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Unknown Financial Modeling Prep pricing failure.",
+      "detail": "",
+      "provider": "financial_modeling_prep:quote-short",
+      "status_code": null,
+      "symbol": "PDBC",
+      "timestamp": 1783213887.4272413,
+      "url": "https://financialmodelingprep.com/api/v3/quote-short/PDBC?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Financial Modeling Prep quote rejected the request; likely invalid/missing API key, plan limit, or blocked network.",
+      "detail": "{\n  \"Error Message\": \"Legacy Endpoint : Due to Legacy endpoints being no longer supported - This endpoint is only available for legacy users who have valid subscriptions prior August 31, 2025. Please visit our documentation page https://site.financialmodelingprep.com/developer/docs for our current A",
+      "provider": "Financial Modeling Prep quote",
+      "status_code": 403,
+      "symbol": "PDBC",
+      "timestamp": 1783213887.747586,
+      "url": "https://financialmodelingprep.com/api/v3/quote/PDBC?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Unknown Financial Modeling Prep pricing failure.",
+      "detail": "",
+      "provider": "financial_modeling_prep:quote",
+      "status_code": null,
+      "symbol": "PDBC",
+      "timestamp": 1783213887.7486296,
+      "url": "https://financialmodelingprep.com/api/v3/quote/PDBC?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Financial Modeling Prep quote-short rejected the request; likely invalid/missing API key, plan limit, or blocked network.",
+      "detail": "{\n  \"Error Message\": \"Legacy Endpoint : Due to Legacy endpoints being no longer supported - This endpoint is only available for legacy users who have valid subscriptions prior August 31, 2025. Please visit our documentation page https://site.financialmodelingprep.com/developer/docs for our current A",
+      "provider": "Financial Modeling Prep quote-short",
+      "status_code": 403,
+      "symbol": "AVUV",
+      "timestamp": 1783213888.3811677,
+      "url": "https://financialmodelingprep.com/api/v3/quote-short/AVUV?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Unknown Financial Modeling Prep pricing failure.",
+      "detail": "",
+      "provider": "financial_modeling_prep:quote-short",
+      "status_code": null,
+      "symbol": "AVUV",
+      "timestamp": 1783213888.3822465,
+      "url": "https://financialmodelingprep.com/api/v3/quote-short/AVUV?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Financial Modeling Prep quote rejected the request; likely invalid/missing API key, plan limit, or blocked network.",
+      "detail": "{\n  \"Error Message\": \"Legacy Endpoint : Due to Legacy endpoints being no longer supported - This endpoint is only available for legacy users who have valid subscriptions prior August 31, 2025. Please visit our documentation page https://site.financialmodelingprep.com/developer/docs for our current A",
+      "provider": "Financial Modeling Prep quote",
+      "status_code": 403,
+      "symbol": "AVUV",
+      "timestamp": 1783213888.6932049,
+      "url": "https://financialmodelingprep.com/api/v3/quote/AVUV?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Unknown Financial Modeling Prep pricing failure.",
+      "detail": "",
+      "provider": "financial_modeling_prep:quote",
+      "status_code": null,
+      "symbol": "AVUV",
+      "timestamp": 1783213888.6940093,
+      "url": "https://financialmodelingprep.com/api/v3/quote/AVUV?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Financial Modeling Prep quote-short rejected the request; likely invalid/missing API key, plan limit, or blocked network.",
+      "detail": "{\n  \"Error Message\": \"Legacy Endpoint : Due to Legacy endpoints being no longer supported - This endpoint is only available for legacy users who have valid subscriptions prior August 31, 2025. Please visit our documentation page https://site.financialmodelingprep.com/developer/docs for our current A",
+      "provider": "Financial Modeling Prep quote-short",
+      "status_code": 403,
+      "symbol": "VXUS",
+      "timestamp": 1783213889.3379972,
+      "url": "https://financialmodelingprep.com/api/v3/quote-short/VXUS?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Unknown Financial Modeling Prep pricing failure.",
+      "detail": "",
+      "provider": "financial_modeling_prep:quote-short",
+      "status_code": null,
+      "symbol": "VXUS",
+      "timestamp": 1783213889.3392868,
+      "url": "https://financialmodelingprep.com/api/v3/quote-short/VXUS?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Financial Modeling Prep quote rejected the request; likely invalid/missing API key, plan limit, or blocked network.",
+      "detail": "{\n  \"Error Message\": \"Legacy Endpoint : Due to Legacy endpoints being no longer supported - This endpoint is only available for legacy users who have valid subscriptions prior August 31, 2025. Please visit our documentation page https://site.financialmodelingprep.com/developer/docs for our current A",
+      "provider": "Financial Modeling Prep quote",
+      "status_code": 403,
+      "symbol": "VXUS",
+      "timestamp": 1783213889.6545613,
+      "url": "https://financialmodelingprep.com/api/v3/quote/VXUS?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Unknown Financial Modeling Prep pricing failure.",
+      "detail": "",
+      "provider": "financial_modeling_prep:quote",
+      "status_code": null,
+      "symbol": "VXUS",
+      "timestamp": 1783213889.6556559,
+      "url": "https://financialmodelingprep.com/api/v3/quote/VXUS?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Financial Modeling Prep quote-short rejected the request; likely invalid/missing API key, plan limit, or blocked network.",
+      "detail": "{\n  \"Error Message\": \"Legacy Endpoint : Due to Legacy endpoints being no longer supported - This endpoint is only available for legacy users who have valid subscriptions prior August 31, 2025. Please visit our documentation page https://site.financialmodelingprep.com/developer/docs for our current A",
+      "provider": "Financial Modeling Prep quote-short",
+      "status_code": 403,
+      "symbol": "VTI",
+      "timestamp": 1783213890.2544472,
+      "url": "https://financialmodelingprep.com/api/v3/quote-short/VTI?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Unknown Financial Modeling Prep pricing failure.",
+      "detail": "",
+      "provider": "financial_modeling_prep:quote-short",
+      "status_code": null,
+      "symbol": "VTI",
+      "timestamp": 1783213890.2556875,
+      "url": "https://financialmodelingprep.com/api/v3/quote-short/VTI?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Financial Modeling Prep quote rejected the request; likely invalid/missing API key, plan limit, or blocked network.",
+      "detail": "{\n  \"Error Message\": \"Legacy Endpoint : Due to Legacy endpoints being no longer supported - This endpoint is only available for legacy users who have valid subscriptions prior August 31, 2025. Please visit our documentation page https://site.financialmodelingprep.com/developer/docs for our current A",
+      "provider": "Financial Modeling Prep quote",
+      "status_code": 403,
+      "symbol": "VTI",
+      "timestamp": 1783213890.5635645,
+      "url": "https://financialmodelingprep.com/api/v3/quote/VTI?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Unknown Financial Modeling Prep pricing failure.",
+      "detail": "",
+      "provider": "financial_modeling_prep:quote",
+      "status_code": null,
+      "symbol": "VTI",
+      "timestamp": 1783213890.5646312,
+      "url": "https://financialmodelingprep.com/api/v3/quote/VTI?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Financial Modeling Prep quote-short rejected the request; likely invalid/missing API key, plan limit, or blocked network.",
+      "detail": "{\n  \"Error Message\": \"Legacy Endpoint : Due to Legacy endpoints being no longer supported - This endpoint is only available for legacy users who have valid subscriptions prior August 31, 2025. Please visit our documentation page https://site.financialmodelingprep.com/developer/docs for our current A",
+      "provider": "Financial Modeling Prep quote-short",
+      "status_code": 403,
+      "symbol": "VBR",
+      "timestamp": 1783213891.2199025,
+      "url": "https://financialmodelingprep.com/api/v3/quote-short/VBR?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Unknown Financial Modeling Prep pricing failure.",
+      "detail": "",
+      "provider": "financial_modeling_prep:quote-short",
+      "status_code": null,
+      "symbol": "VBR",
+      "timestamp": 1783213891.2205086,
+      "url": "https://financialmodelingprep.com/api/v3/quote-short/VBR?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Financial Modeling Prep quote rejected the request; likely invalid/missing API key, plan limit, or blocked network.",
+      "detail": "{\n  \"Error Message\": \"Legacy Endpoint : Due to Legacy endpoints being no longer supported - This endpoint is only available for legacy users who have valid subscriptions prior August 31, 2025. Please visit our documentation page https://site.financialmodelingprep.com/developer/docs for our current A",
+      "provider": "Financial Modeling Prep quote",
+      "status_code": 403,
+      "symbol": "VBR",
+      "timestamp": 1783213891.5433328,
+      "url": "https://financialmodelingprep.com/api/v3/quote/VBR?apikey=%2A%2A%2A"
+    },
+    {
+      "cause": "Unknown Financial Modeling Prep pricing failure.",
+      "detail": "",
+      "provider": "financial_modeling_prep:quote",
+      "status_code": null,
+      "symbol": "VBR",
+      "timestamp": 1783213891.5441701,
+      "url": "https://financialmodelingprep.com/api/v3/quote/VBR?apikey=%2A%2A%2A"
+    }
+  ],
   "fallback_symbols": [
     "AVUV",
     "ITOT",
@@ -105,49 +350,62 @@
     "VTI": 368.76,
     "VXUS": 84.84
   },
-  "pricing_mode": "CACHE",
-  "pricing_source_category": "CACHE",
-  "pricing_source_note": "Cached quotes were used as of 07/03/2026 11:32 AM; cache TTL is 24.0 hours. CACHE mode checks the cache before calling live providers; the cache is still valid until 07/04/2026 11:32 AM.",
+  "pricing_mode": "LIVE",
+  "pricing_source_category": "LIVE",
+  "pricing_source_note": "Live provider quotes were used during this workbook build (yahoo).",
   "pricing_source_summary": {
-    "cache_as_of_by_symbol": {
-      "AVUV": "2026-07-03T16:32:30.338726+00:00",
-      "ITOT": "2026-07-03T16:32:28.392756+00:00",
-      "IXUS": "2026-07-03T16:32:26.977226+00:00",
-      "PDBC": "2026-07-03T16:32:29.355727+00:00",
-      "VBR": "2026-07-03T16:32:33.587369+00:00",
-      "VTI": "2026-07-03T16:32:32.392753+00:00",
-      "VXUS": "2026-07-03T16:32:31.388292+00:00"
-    },
-    "cache_as_of_by_symbol_local": {
-      "AVUV": "07/03/2026 11:32 AM",
-      "ITOT": "07/03/2026 11:32 AM",
-      "IXUS": "07/03/2026 11:32 AM",
-      "PDBC": "07/03/2026 11:32 AM",
-      "VBR": "07/03/2026 11:32 AM",
-      "VTI": "07/03/2026 11:32 AM",
-      "VXUS": "07/03/2026 11:32 AM"
-    },
-    "cache_as_of_local": "07/03/2026 11:32 AM",
-    "cache_as_of_utc": "2026-07-03T16:32:26.977226+00:00 to 2026-07-03T16:32:33.587369+00:00",
-    "cache_valid_until_local": "07/04/2026 11:32 AM",
-    "cache_valid_until_utc": "2026-07-04T16:32:26.977226+00:00 to 2026-07-04T16:32:33.587369+00:00",
-    "category": "CACHE",
-    "label": "CACHE",
-    "note": "Cached quotes were used as of 07/03/2026 11:32 AM; cache TTL is 24.0 hours. CACHE mode checks the cache before calling live providers; the cache is still valid until 07/04/2026 11:32 AM.",
-    "pricing_mode": "CACHE",
+    "cache_as_of_by_symbol": {},
+    "cache_as_of_by_symbol_local": {},
+    "cache_as_of_local": "",
+    "cache_as_of_utc": "",
+    "cache_valid_until_local": "",
+    "cache_valid_until_utc": "",
+    "category": "LIVE",
+    "label": "LIVE",
+    "note": "Live provider quotes were used during this workbook build (yahoo).",
+    "pricing_mode": "LIVE",
     "source_counts": {
       "cash": 1,
-      "fresh_cache_24h_from_yahoo": 7
+      "yahoo_live": 7
     }
   },
-  "provider_attempts": {},
+  "provider_attempts": {
+    "AVUV": [
+      "financial_modeling_prep",
+      "yahoo"
+    ],
+    "ITOT": [
+      "financial_modeling_prep",
+      "yahoo"
+    ],
+    "IXUS": [
+      "financial_modeling_prep",
+      "yahoo"
+    ],
+    "PDBC": [
+      "financial_modeling_prep",
+      "yahoo"
+    ],
+    "VBR": [
+      "financial_modeling_prep",
+      "yahoo"
+    ],
+    "VTI": [
+      "financial_modeling_prep",
+      "yahoo"
+    ],
+    "VXUS": [
+      "financial_modeling_prep",
+      "yahoo"
+    ]
+  },
   "provider_order": [
-    "cache_any_age",
     "financial_modeling_prep",
     "yahoo",
     "nasdaq",
     "alpha_vantage",
     "stooq",
+    "cache_any_age",
     "holdings_cost_basis_if_no_cache"
   ],
   "proxy_environment_keys": [],
@@ -155,17 +413,17 @@
   "requests_available": true,
   "source_counts": {
     "cash": 1,
-    "fresh_cache_24h_from_yahoo": 7
+    "yahoo_live": 7
   },
   "sources": {
-    "AVUV": "fresh_cache_24h_from_yahoo",
+    "AVUV": "yahoo_live",
     "CASH": "cash",
-    "ITOT": "fresh_cache_24h_from_yahoo",
-    "IXUS": "fresh_cache_24h_from_yahoo",
-    "PDBC": "fresh_cache_24h_from_yahoo",
-    "VBR": "fresh_cache_24h_from_yahoo",
-    "VTI": "fresh_cache_24h_from_yahoo",
-    "VXUS": "fresh_cache_24h_from_yahoo"
+    "ITOT": "yahoo_live",
+    "IXUS": "yahoo_live",
+    "PDBC": "yahoo_live",
+    "VBR": "yahoo_live",
+    "VTI": "yahoo_live",
+    "VXUS": "yahoo_live"
   },
   "stooq_configured": true,
   "stooq_symbol_rule": "append .us only for Stooq calls; other providers receive original symbols",
