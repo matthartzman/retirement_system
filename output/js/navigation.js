@@ -11,7 +11,6 @@
     spending_dashboard:'Results'
   };
   const STEP_REDIRECTS={
-    spending_mortgage_events:'lifestyle_spending',
     spending_travel:'lifestyle_spending',
     spending_travel_extras:'lifestyle_spending',
     ss_timing:'timing_tax',
@@ -20,8 +19,9 @@
     entity_charitable:'special_strategies',
     roth_conversion:'distribution_strategy',
     withdrawal_strategy:'distribution_strategy',
-    allocation_assets:'investment_strategy',
-    allocation_policy:'investment_strategy'
+    allocation_assets:'distribution_strategy',
+    allocation_policy:'distribution_strategy',
+    investment_strategy:'distribution_strategy'
   };
 
   function noop(){}

@@ -639,7 +639,7 @@ body.chart-modal-open{overflow:hidden}
 .recent-changes-log{overflow-x:auto;margin-top:6px}
 .recent-changes-log .change-table{font-size:12px;width:100%}
 
-/* Workspace tabs — Distribution Strategy, Investment Strategy, Reports & Review */
+/* Workspace tabs — Distribution Strategy, Reports & Review */
 .tabbed-workspace{display:flex;flex-direction:column;min-width:0}
 .workspace-tabs{display:flex;gap:0;border-bottom:2px solid var(--line);padding:0 20px;background:var(--surface);overflow-x:auto;-webkit-overflow-scrolling:touch;flex-shrink:0}
 .workspace-tab{background:none;border:none;border-bottom:3px solid transparent;margin-bottom:-2px;padding:11px 18px;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap;border-radius:0;transition:color .14s,border-color .14s;letter-spacing:.01em}
