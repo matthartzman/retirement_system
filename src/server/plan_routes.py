@@ -464,6 +464,26 @@ def delete_other_asset_item():
     body = request.get_json(silent=True) or {}
     return _service_json(_strategy_asset_feature_service().delete_other_asset_payload(body))
 
+@app.route("/api/note-receivable/add", methods=["POST"])
+def add_note_receivable():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    if not _runtime_config().allow_csv_write:
+        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
+    body = request.get_json(silent=True) or {}
+    return _service_json(_strategy_asset_feature_service().add_note_receivable_payload(body))
+
+@app.route("/api/note-receivable/delete", methods=["POST"])
+def delete_note_receivable():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    if not _runtime_config().allow_csv_write:
+        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
+    body = request.get_json(silent=True) or {}
+    return _service_json(_strategy_asset_feature_service().delete_note_receivable_payload(body))
+
 @app.route("/api/education-529/add", methods=["POST"])
 def add_education_529_section():
     denied = _require("write_config")
@@ -607,7 +627,8 @@ def ytd_status():
     denied = _require("view_dashboard")
     if denied:
         return denied
-    return jsonify(_ytd_feature_service().status_payload())
+    period = request.args.get("period")
+    return jsonify(_ytd_feature_service().status_payload(period=period))
 
 
 @app.route("/api/ytd/account-setup/recover", methods=["POST"])

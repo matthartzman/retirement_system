@@ -808,16 +808,60 @@ def parse_client(data, url_template):
         c['startup_sale_price'] = c['startup_eq'] * ((1.0 + c['startup_gr']) ** _years_to_sale if (1.0 + c['startup_gr']) > 0 else 1.0)
     # Straight-line depreciation: value / depreciation_years per year → $0 at end of life.
 
-    # Note Receivable
-    c['note_face']   = _n(_v(data,'Note Receivable','Summary','face_value','474252.96'), 474252.96)
-    c['note_first']  = _y(_v(data,'Note Receivable','Summary','first_payment', f"1/2/{c['plan_start']}"), c['plan_start'])
-    c['note_last']   = _y(_v(data,'Note Receivable','Summary','last_payment','1/2/2033'), 2033)
-    c['note_princ']  = _n(_v(data,'Note Receivable','Summary',f'annual_principal_{TAX_BASE_YEAR}_{TAX_BASE_YEAR + 6}','59281.62'), 59281.62)
-    c['note_princ_final'] = _n(_v(data,'Note Receivable','Summary','final_principal_2033','59327.50'), 59327.50)
+    # Note Receivable — repeatable like other typed "Other Assets" (one or more
+    # named notes).  Each note is entered as its own "Note N" subsection with a
+    # descriptive name plus the same fields the single legacy note used to have
+    # (face value, first/last payment year, annual principal, final-year
+    # principal, and an interest-by-year schedule).  The projection engine
+    # consumes per-note detail via c['note_items'] and also needs simple
+    # scalar aggregates for legacy call sites (deterministic engine, balance
+    # sheet, optimization) — those are summed/derived across all notes below.
+    c['note_items'] = []
+    _note_subs = [s for s in (data.get('Note Receivable') or {}).keys()
+                  if re.match(r'^Note\s+\d+$', str(s or '').strip(), re.I)]
+    if not _note_subs and (data.get('Note Receivable') or {}).get('Summary'):
+        # Legacy single-note layout (Note Receivable > Summary > ...). Treat it
+        # as one note named "RedMane Note" so old plan files keep working.
+        _legacy = data['Note Receivable']['Summary']
+        _note_subs = ['__legacy_summary__']
+        data = dict(data)
+        data['Note Receivable'] = dict(data['Note Receivable'])
+        data['Note Receivable']['__legacy_summary__'] = dict(_legacy)
+        data['Note Receivable']['__legacy_summary__'].setdefault('name', 'RedMane Note')
+    _note_subs = sorted(_note_subs, key=lambda s: (0, int(re.search(r'(\d+)', s).group(1))) if re.search(r'(\d+)', s) else (1, s))
+    for _nsub in _note_subs:
+        _nvals = data['Note Receivable'][_nsub]
+        _nname = str(_nvals.get('name') or _nsub).strip() or _nsub
+        _nface  = _n(_nvals.get('face_value', '0'), 0.0)
+        _nfirst = _y(_nvals.get('first_payment', f"1/2/{c['plan_start']}"), c['plan_start'])
+        _nlast  = _y(_nvals.get('last_payment', '1/2/2033'), 2033)
+        _nprinc = _n(_nvals.get(f'annual_principal_{TAX_BASE_YEAR}_{TAX_BASE_YEAR + 6}',
+                                 _nvals.get('annual_principal_base_period', '0')), 0.0)
+        _nprinc_final = _n(_nvals.get('final_principal_2033', _nvals.get('final_principal', '0')), 0.0)
+        _ninterest = {}
+        _nint_sub = f'{_nsub} Interest' if _nsub != '__legacy_summary__' else 'Interest by Year'
+        for yr in range(c['plan_start'], c['plan_start'] + 8):
+            iv = _v(data, 'Note Receivable', _nint_sub, str(yr), '0')
+            _ninterest[yr] = _n(iv, 0)
+        c['note_items'].append({
+            'section': _nsub, 'name': _nname, 'face_value': _nface,
+            'first_payment_year': _nfirst, 'last_payment_year': _nlast,
+            'annual_principal': _nprinc, 'final_principal': _nprinc_final,
+            'interest_by_year': _ninterest,
+        })
+
+    # Legacy scalar aggregates used by the deterministic engine, balance
+    # sheet, and optimization scoring.  face_value/annual_principal sum
+    # across notes; first/last payment years span the earliest start and
+    # latest end of any note; interest-by-year sums across notes.
+    c['note_face']   = sum(n['face_value'] for n in c['note_items']) if c['note_items'] else 0.0
+    c['note_first']  = min((n['first_payment_year'] for n in c['note_items']), default=c['plan_start'])
+    c['note_last']   = max((n['last_payment_year'] for n in c['note_items']), default=c['plan_start'])
+    c['note_princ']  = sum(n['annual_principal'] for n in c['note_items']) if c['note_items'] else 0.0
+    c['note_princ_final'] = sum(n['final_principal'] for n in c['note_items']) if c['note_items'] else 0.0
     c['note_interest'] = {}
     for yr in range(c['plan_start'], c['plan_start'] + 8):
-        iv = _v(data,'Note Receivable','Interest by Year',str(yr),'0')
-        c['note_interest'][yr] = _n(iv, 0)
+        c['note_interest'][yr] = sum(n['interest_by_year'].get(yr, 0) for n in c['note_items'])
 
     # HSA withdrawal policy. Default is spend_as_needed: do not schedule HSA draws;
     # use HSA only when needed for a funding gap before touching Roth. Optional
