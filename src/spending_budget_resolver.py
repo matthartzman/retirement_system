@@ -117,10 +117,15 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
             tt_map[grp] = tt_map.get(grp, 0.0) + amount
 
     # Category budgets are recurring unless their group is in group mode.
-    # For domain-owned, time-bounded categories such as Housing > Home Improvement,
-    # explicit line rows are the projection authority.  Do not also carry the
-    # annualized transaction/category budget forever, or a 2026-2030 project
-    # will incorrectly continue after its end year.
+    # When a category also has explicit line (detail) rows, those line rows are
+    # the sole budget authority for that category — the same rule the UI applies
+    # in spending_tracker._category_budget_for_year (lines win, category row is
+    # ignored). This holds for EVERY tracking type, not just the domain-owned
+    # time-bounded ones (Housing > Home Improvement, Travel, Large Discretionary):
+    # a Core Expenses category such as charitable_donations that carries both a
+    # $5,000 category row and a $5,000 detail line must count once, not twice.
+    # Skipping only Housing/Travel/Large-Disc here previously double-counted such
+    # Core-Expenses/Wellness categories into spend_base (item 141 reconciliation).
     categories_with_projection_lines = {cid for cid, rows in line_budgets.items() if rows}
     for cid, row in cat_budgets.items():
         if cid in group_mode_categories:
@@ -129,7 +134,7 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
         if not info:
             continue
         tt = info.get("tracking_type") or "Core Expenses"
-        if cid in categories_with_projection_lines and tt in {"Housing", "Travel", "Large Discretionary"}:
+        if cid in categories_with_projection_lines:
             continue
         amount = _num(row.get("annual_budget"))
         if tt == "Business":
