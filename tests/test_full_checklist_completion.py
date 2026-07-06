@@ -25,6 +25,14 @@ def test_scalar_projection_uses_per_year_tax_index_paths():
     data = load_csv(Path('input') / 'client_data.csv')
     c = parse_client(data, '')
     c['plan_end'] = c['plan_start'] + 2
+    # Pin roth_policy so this isolates the bracket-index plumbing being tested,
+    # not the default 'fill_to_bracket' Roth optimizer. That optimizer reacts
+    # endogenously to bracket width -- with real (large) IRA balances, a much
+    # wider bracket lets it convert far more each year, which can raise total
+    # federal tax over a short window even though each fixed dollar of income
+    # faces a lower marginal rate. That's expected optimizer behavior, but it
+    # isn't what this test means to check.
+    c['roth_policy'] = 'none'
     c['bracket_index_by_year'] = {c['plan_start']: 1.0, c['plan_start']+1: 10.0, c['plan_start']+2: 10.0}
     high = project(dict(c))
     c2 = dict(c); c2.pop('bracket_index_by_year', None); c2['brk_inf'] = 0.0
