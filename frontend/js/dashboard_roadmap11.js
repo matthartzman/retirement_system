@@ -76,7 +76,7 @@
       {steps:['income_work','income_retirement'],next:'income_work'},
       {steps:['spending_core','retirement_wellness','spending_mortgage_events','spending_travel','spending_travel_extras','ytd_transactions','spending_dashboard'],next:'spending_core'},
       {steps:['holdings','assets_home_cash','insurance_ltc','annuity_death_benefits','assets_special','estate'],next:'holdings'},
-      {steps:['planning_levers','roth_conversion','allocation_assets','allocation_policy','withdrawal_strategy','ss_timing','state_residency','heloc_strategy','entity_charitable'],next:'distribution_strategy'},
+      {steps:['planning_levers','roth_conversion','allocation_assets','allocation_policy','withdrawal_strategy','state_residency','heloc_strategy','entity_charitable'],next:'distribution_strategy'},
       {steps:['monte_carlo_options','scenarios','survivor_stress','ltc_stress','divorce_options'],next:'monte_carlo_options'},
     ];
     let firstIncompleteStep='reports_and_review';

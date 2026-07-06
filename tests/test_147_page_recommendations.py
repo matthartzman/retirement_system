@@ -31,7 +31,9 @@ def test_recommendations_cover_initial_roadmap_domains_without_auto_applying_val
     ]:
         assert fn in js
 
-    for step in ["roth_conversion", "allocation_assets", "allocation_policy", "spending_core", "ss_timing"]:
+    # Social Security recommendations were merged into the Income & Social Security
+    # page (income_retirement); the standalone ss_timing step no longer exists.
+    for step in ["roth_conversion", "allocation_assets", "allocation_policy", "spending_core", "income_retirement"]:
         assert step in js
 
     recommendations_section = js[js.index("const RECOMMENDATION_ENGINE_VERSION") : js.index("function stepStats")]

@@ -701,6 +701,13 @@ def parse_client(data, url_template):
     c['current_home_utilities_annual'] = _n(_v(data,'Housing','current_home','utilities_annual','0'), 0)
     c['current_home_maintenance_annual'] = _n(_v(data,'Housing','current_home','home_maintenance_annual','0'), 0)
 
+    # State Residency Analysis: target relocation state and the current-state
+    # (baseline) auto-insurance budget.  Homeowners insurance, utilities, and
+    # maintenance baselines come from the Housing current-home amounts above;
+    # auto insurance is a separate transportation budget captured here.
+    c['residency_target_state'] = str(_v(data,'State Comparison','','target_state','') or '').strip()
+    c['current_auto_insurance_annual'] = _n(_v(data,'State Comparison','auto_insurance','illinois_baseline_annual','0'), 0)
+
     # Future housing steps (rent/buy) are entered on the Housing page and feed
     # both annual cash flow and net worth.  A blank start year disables a step.
     c['next_housing_steps'] = []
