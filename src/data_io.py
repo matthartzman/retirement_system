@@ -874,15 +874,6 @@ def parse_client(data, url_template):
     c['note_items'] = []
     _note_subs = [s for s in (data.get('Note Receivable') or {}).keys()
                   if re.match(r'^Note\s+\d+$', str(s or '').strip(), re.I)]
-    if not _note_subs and (data.get('Note Receivable') or {}).get('Summary'):
-        # Legacy single-note layout (Note Receivable > Summary > ...). Treat it
-        # as one note named "RedMane Note" so old plan files keep working.
-        _legacy = data['Note Receivable']['Summary']
-        _note_subs = ['__legacy_summary__']
-        data = dict(data)
-        data['Note Receivable'] = dict(data['Note Receivable'])
-        data['Note Receivable']['__legacy_summary__'] = dict(_legacy)
-        data['Note Receivable']['__legacy_summary__'].setdefault('name', 'RedMane Note')
     _note_subs = sorted(_note_subs, key=lambda s: (0, int(re.search(r'(\d+)', s).group(1))) if re.search(r'(\d+)', s) else (1, s))
     for _nsub in _note_subs:
         _nvals = data['Note Receivable'][_nsub]
@@ -894,7 +885,7 @@ def parse_client(data, url_template):
                                  _nvals.get('annual_principal_base_period', '0')), 0.0)
         _nprinc_final = _n(_nvals.get('final_principal_2033', _nvals.get('final_principal', '0')), 0.0)
         _ninterest = {}
-        _nint_sub = f'{_nsub} Interest' if _nsub != '__legacy_summary__' else 'Interest by Year'
+        _nint_sub = f'{_nsub} Interest'
         for yr in range(c['plan_start'], c['plan_start'] + 8):
             iv = _v(data, 'Note Receivable', _nint_sub, str(yr), '0')
             _ninterest[yr] = _n(iv, 0)
