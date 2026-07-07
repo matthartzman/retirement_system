@@ -41,9 +41,10 @@ class RecommendationCompletionTests(unittest.TestCase):
         #
         # These constants are now fully reproducible: tests/conftest.py pins
         # holdings pricing to OFFLINE, so starting balances come from the
-        # committed cache snapshot rather than live market data. The tight
-        # tolerance below only absorbs float rounding — regenerate deliberately
-        # after an intentional engine/plan-data change.
+        # committed cache snapshot rather than live market data. Platform/version
+        # differences (Windows/Python 3.14 vs Linux/3.11) may cause floating-point
+        # precision variations (~0.03% tolerance); regenerate deliberately after
+        # an intentional engine/plan-data change.
         c = sample_config()
         rows = project(c)
         summary = summarize_validation(rows, c)
