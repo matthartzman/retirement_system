@@ -48,10 +48,10 @@ import math
 
 PAGE_W, PAGE_H = landscape(letter)
 
-LEFT = 0.32 * inch
-RIGHT = 0.32 * inch
-TOP = 0.42 * inch
-BOTTOM = 0.38 * inch
+LEFT = 0.2 * inch
+RIGHT = 0.2 * inch
+TOP = 0.25 * inch
+BOTTOM = 0.2 * inch
 
 CONTENT_W = PAGE_W - LEFT - RIGHT
 

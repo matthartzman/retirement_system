@@ -1211,6 +1211,18 @@ def main():
     wb.save(out_path)
     print(f'Workbook saved: {out_path}')
 
+    # Build the printable PDF report (landscape, minimal margins) alongside the
+    # workbook so the "Download PDF" button has an artifact to serve. Wrapped in
+    # try/except: the .xlsx is the canonical deliverable, so a PDF failure must
+    # not fail the whole build. Without this call retirement_plan.pdf is never
+    # written and /api/pdf 404s ("run build first").
+    pdf_path = _os.path.join(str(output_path_dir), 'retirement_plan.pdf')
+    try:
+        build_enterprise_pdf(c, rows, mc_data, out_path=pdf_path)
+        print(f'PDF report saved: {pdf_path}')
+    except Exception as _pdf_err:  # noqa: BLE001 - PDF is best-effort, never fatal
+        print(f'WARNING: PDF report generation failed ({_pdf_err}); workbook build continues.')
+
     # Build offline HTML dashboard from the workbook and projection rows.
     build_html_dashboard(out_path, html_path, rows, c)
     print(f'HTML dashboard saved: {html_path}')
