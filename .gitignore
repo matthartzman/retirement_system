@@ -44,4 +44,7 @@ dist-info/
 # IDE
 .idea/
 *.swp
-*.swooutput/
+*.swo
+
+# Generated artifacts
+output/
