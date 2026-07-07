@@ -63,6 +63,14 @@ try:
 except Exception:  # direct execution fallback
     load_system_config = None
 
+__all__ = [
+    'load_csv',
+    'parse_client',
+    'build_plan_from_json',
+    'validate_projection',
+    'summarize_validation',
+]
+
 
 def _check_and_migrate_schema_if_needed(csv_path: Path) -> bool:
     """
