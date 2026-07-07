@@ -33,7 +33,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.data_io import load_csv, parse_client, summarize_validation
 from src.plan_config import ensure_engine_config
-from src.schema_registry import SchemaRegistry
 
 
 class PlanDataMigrator:
