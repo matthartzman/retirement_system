@@ -174,6 +174,7 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
                     "is_home_improvement": _is_home_improvement(info, row),
                     "source": "unified_budget",
                     "category_id": cid,
+                    "tracking_type": tt,
                 })
         elif tt not in EXCLUDED_FROM_SPEND_BASE:
             spend_base += amount
@@ -230,6 +231,7 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
                     "is_home_improvement": is_home,
                     "source": "unified_budget",
                     "category_id": cid,
+                    "tracking_type": tt,
                 })
             for y in active_years:
                 tt_map = by_year.setdefault(y, {}).setdefault(tt, {})
@@ -253,6 +255,7 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
                 "is_home_improvement": False,
                 "source": "unified_budget",
                 "category_id": f"{tt.lower()}::{grp.lower()}",
+                "tracking_type": tt,
             })
             for y in years:
                 tt_map = by_year.setdefault(y, {}).setdefault(tt, {})

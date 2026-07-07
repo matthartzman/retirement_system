@@ -59,10 +59,16 @@ from typing import Any
 
 try:
     from .ytd_tracking import ytd_summary, annual_spending_forecast
-    from .spending_tracker import ytd_core_spending_actual
+    from .spending_tracker import ytd_core_spending_actual, ytd_actual_annualized_by_tracking_type
 except Exception:  # pragma: no cover - direct execution fallback
     from src.ytd_tracking import ytd_summary, annual_spending_forecast
-    from src.spending_tracker import ytd_core_spending_actual
+    from src.spending_tracker import ytd_core_spending_actual, ytd_actual_annualized_by_tracking_type
+
+# Time-bounded discretionary tracking types whose current-year recurring extra
+# (the cash flow "Travel" column) gets floored at the client's annualized run
+# rate. Housing and Wellness are intentionally excluded: they project from
+# dedicated schedules (mortgage, premiums), not a simple budget.
+_DISCRETIONARY_FLOOR_TRACKING_TYPES = ("Travel", "Large Discretionary")
 
 
 def _year_days(year: int) -> int:
@@ -215,7 +221,47 @@ def compute_current_year_overrides(c: dict[str, Any], root: str | Path, *, today
                 spend_remaining = float(spend_annual_plan) * remaining_fraction
             blend_meta['spend_core_annual_plan'] = round(float(spend_annual_plan or 0.0), 2)
             blend_meta['spend_remaining'] = round(spend_remaining, 2)
-            overrides['ytd_blend_spend_override'] = {current_year: spend_actual + spend_remaining}
+            blended_core = spend_actual + spend_remaining
+            # Higher-of floor: current-year core spending never projects below the
+            # client's annualized run rate. When the elapsed run rate exceeds the
+            # blended (spent + budgeted-remainder) figure, the run rate wins so an
+            # over-budget group is not understated by its own budget. An explicit
+            # manual remainder override is a deliberate projection and is left
+            # untouched.
+            if spend_remaining_override is None:
+                elapsed_fraction = max(1e-9, 1.0 - remaining_fraction)
+                core_annualized = spend_actual / elapsed_fraction
+                if core_annualized > blended_core:
+                    blend_meta['spend_floor_applied'] = True
+                    blend_meta['spend_core_annualized_actual'] = round(core_annualized, 2)
+                    blended_core = core_annualized
+            overrides['ytd_blend_spend_override'] = {current_year: round(blended_core, 2)}
+
+        # Discretionary floor: Travel and Large Discretionary recurring extras (the
+        # cash flow "Travel" column) are floored at the annualized actual for their
+        # tracking type. Emitted as a single current-year top-up the engine adds to
+        # rec_extra, so a group spending above budget shows its real run rate.
+        tt_annualized = None
+        if plan_root is not None:
+            try:
+                tt_annualized = ytd_actual_annualized_by_tracking_type(plan_root, current_year)
+            except Exception:
+                tt_annualized = None
+        if tt_annualized:
+            extras = c.get('recurring_extras') or []
+            topup_by_tt: dict[str, float] = {}
+            for tt in _DISCRETIONARY_FLOOR_TRACKING_TYPES:
+                budget_cur = sum(
+                    float(e.get('amount') or 0.0) for e in extras
+                    if e.get('tracking_type') == tt and not e.get('is_home_improvement')
+                    and int(e.get('start_year') or current_year) <= current_year <= int(e.get('end_year') or current_year)
+                )
+                actual_cur = float(tt_annualized.get(tt, 0.0))
+                if actual_cur > budget_cur:
+                    topup_by_tt[tt] = round(actual_cur - budget_cur, 2)
+            if topup_by_tt:
+                overrides['ytd_blend_extra_topup'] = {current_year: round(sum(topup_by_tt.values()), 2)}
+                blend_meta['extra_floor_topup_by_tracking_type'] = topup_by_tt
 
         blend_meta['flows_blended'] = 'ytd_blend_spend_override' in overrides
         blend_meta['ytd_end'] = summary.get('ytd_end')
