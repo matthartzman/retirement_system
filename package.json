@@ -1,0 +1,17 @@
+{
+  "name": "retirement-system",
+  "version": "10.0.0",
+  "description": "Comprehensive retirement planning system with Python backend and JavaScript frontend",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/frontend/**/*.test.mjs"
+  },
+  "keywords": [
+    "retirement",
+    "planning",
+    "financial"
+  ],
+  "author": "Matt Hartzman",
+  "license": "MIT",
+  "devDependencies": {}
+}
