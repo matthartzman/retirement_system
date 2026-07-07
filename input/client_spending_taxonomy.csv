@@ -82,12 +82,12 @@ Core Expenses,Lifestyle,personal,Personal,transaction,active,Auto-added from tra
 Core Expenses,Lifestyle,personal_care,Personal Care,template,deleted,Hair salon
 Core Expenses,Lifestyle,subscriptions,Subscriptions,transaction,active,Promoted from legacy spending_category_map.csv during unified spending migration
 Core Expenses,Other,check,Check,transaction,active,Auto-added from transactions
-Core Expenses,Other,miscellaneous,Miscellaneous,transaction,active,Auto-added from transactions
+Core Expenses,Other,miscellaneous,Miscellaneous,transaction,deleted,Auto-added from transactions
 Core Expenses,Other,miscellaneous_expense,Miscellaneous Expense,template,deleted,Catch-all for uncategorized spending
 Core Expenses,Other,other_personal,Other Personal,template,deleted,Personal expenses not in another group
 Core Expenses,Other,pets,Pets,template,active,Pet food
 Core Expenses,Other,subscriptions_memberships,Subscriptions / Memberships,template,deleted,Magazines
-Core Expenses,Other,uncategorized,Uncategorized,transaction,active,Auto-added from transactions
+Core Expenses,Other,uncategorized,Uncategorized,transaction,deleted,Auto-added from transactions
 Core Expenses,Shopping,clothing_jewelry,Clothing & Jewelry,transaction,active,Auto-added from transactions
 Core Expenses,Shopping,furniture_housewares,Furniture & Housewares,transaction,active,Promoted from legacy spending_category_map.csv during unified spending migration
 Core Expenses,Shopping,shopping,Shopping,transaction,active,Auto-added from transactions
