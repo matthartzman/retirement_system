@@ -1,0 +1,6 @@
+{
+  "schema_version": "1.0",
+  "migration_timestamp": "2026-07-07T15:00:00Z",
+  "format_description": "Unified budget lines, healthcare terminology, multi-note layout, canonical withdrawal window, purges applied",
+  "migrated_from": "0.9"
+}
