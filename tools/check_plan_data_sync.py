@@ -8,12 +8,22 @@ def fingerprint(p:Path):
     # Read with universal newlines (Python normalizes all \r\n, \r, \n to \n)
     # then explicitly normalize again to handle any edge cases, and ensure
     # consistent hashes across all environments regardless of git checkout settings.
+    on_disk_size = p.stat().st_size
     with open(p, 'r', encoding='utf-8-sig', errors='replace', newline=None) as f:
         text = f.read()
     # Replace any remaining carriage returns or mixed line endings
     text = text.replace('\r\n', '\n').replace('\r', '\n')
     normalized = text.encode('utf-8')
-    return hashlib.sha256(normalized).hexdigest(), len(normalized)
+    digest = hashlib.sha256(normalized).hexdigest()
+    normalized_size = len(normalized)
+
+    # Debug: if size differs significantly, print info (for CI debugging)
+    if on_disk_size != normalized_size:
+        # Only print for client_spending.csv to avoid spam
+        if 'client_spending' in str(p):
+            print(f'[DEBUG] {p.name}: on_disk={on_disk_size}, normalized={normalized_size}, diff={on_disk_size-normalized_size}', file=sys.stderr)
+
+    return digest, normalized_size
 def build_manifest(input_dir: Path):
     files={}
     for name in PLAN_FILES:
