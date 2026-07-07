@@ -28,7 +28,8 @@ def test_ira_conversion_outflows_are_reported_separately_from_cash_withdrawals()
 def test_cashflow_workbook_shows_ira_conversions_but_keeps_cash_draw_total_separate():
     # Column labels are nickname-parameterized ({_n1}/{_n2} f-strings), so
     # assert the label suffixes for both members' conversion/outflow columns.
-    sheet = read("src/reporting/sheets_projection.py")
+    # (Note: sheets_projection_cashflow.py contains build_sheet6 cashflow projection)
+    sheet = read("src/reporting/sheets_projection_cashflow.py")
     assert "{_n1} IRA Conv'" in sheet
     assert "{_n2} IRA Conv'" in sheet
     assert "{_n1} IRA Outflow'" in sheet
