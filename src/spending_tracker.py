@@ -1448,57 +1448,23 @@ def _legacy_budget_to_unified(root=None) -> list[dict]:
     out: list[dict] = []
     if not rows:
         return out
-    if {"kind", "key"}.issubset(set(header)):
-        for row in rows:
-            kind = (row.get("kind") or "category").strip().lower()
-            key = (row.get("key") or "").strip()
-            if not (kind and key):
-                continue
-            out.append({
-                "kind": kind,
-                "key": key,
-                "label": (row.get("label") or "").strip(),
-                "annual_budget": _safe_float(row.get("annual_budget", "")),
-                "start_year": (row.get("start_year") or "").strip(),
-                "end_year": (row.get("end_year") or "").strip(),
-                "one_time_year": (row.get("one_time_year") or "").strip(),
-                "notes": (row.get("notes") or "").strip(),
-                "line_section": (row.get("line_section") or "").strip(),
-                "line_mode": (row.get("line_mode") or "").strip(),
-            })
-    else:
-        for row in rows:
-            cid = (row.get("category_id") or "").strip()
-            if not cid:
-                continue
-            if cid.startswith("grp::"):
-                parts = cid.split("::", 2)
-                key = f"{parts[1]}::{parts[2]}" if len(parts) == 3 else cid.replace("grp::", "", 1)
-                kind = "group"
-            else:
-                key = cid
-                kind = "category"
-            out.append({"kind": kind, "key": key, "label": "", "annual_budget": _safe_float(row.get("annual_budget", "")), "start_year": "", "end_year": "", "one_time_year": "", "notes": (row.get("notes") or "").strip()})
-    # Fold legacy detail lines if they are still present and not already unified.
-    if not {"kind", "key"}.issubset(set(header)):
-        line_path = _root(root) / "input" / "client_spending_budget_lines.csv"
-        _, line_rows = _read_csv_dicts(line_path)
-        for line in line_rows:
-            cid = (line.get("category_id") or "").strip()
-            if not cid:
-                continue
-            out.append({
-                "kind": "line",
-                "key": cid,
-                "label": (line.get("label") or line.get("line_id") or cid).strip(),
-                "annual_budget": _safe_float(line.get("amount_per_year", "")),
-                "start_year": (line.get("start_year") or "").strip(),
-                "end_year": (line.get("end_year") or "").strip(),
-                "one_time_year": (line.get("one_time_year") or "").strip(),
-                "notes": (line.get("notes") or "").strip(),
-                "line_section": (line.get("section") or "").strip(),
-                "line_mode": (line.get("mode") or "").strip(),
-            })
+    for row in rows:
+        kind = (row.get("kind") or "category").strip().lower()
+        key = (row.get("key") or "").strip()
+        if not (kind and key):
+            continue
+        out.append({
+            "kind": kind,
+            "key": key,
+            "label": (row.get("label") or "").strip(),
+            "annual_budget": _safe_float(row.get("annual_budget", "")),
+            "start_year": (row.get("start_year") or "").strip(),
+            "end_year": (row.get("end_year") or "").strip(),
+            "one_time_year": (row.get("one_time_year") or "").strip(),
+            "notes": (row.get("notes") or "").strip(),
+            "line_section": (row.get("line_section") or "").strip(),
+            "line_mode": (row.get("line_mode") or "").strip(),
+        })
     return out
 
 
