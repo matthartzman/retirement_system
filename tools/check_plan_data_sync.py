@@ -28,7 +28,9 @@ def main():
         return 0
     current=build_manifest(input_dir)
     if not manifest_path.exists() or '--write' in sys.argv:
-        manifest_path.write_text(json.dumps(current,indent=2,sort_keys=True), encoding='utf-8')
+        # Write with explicit LF line endings to ensure consistency across platforms
+        content = json.dumps(current,indent=2,sort_keys=True)
+        manifest_path.write_text(content, encoding='utf-8', newline='\n')
         print(f'Wrote {manifest_path}')
         return 0
     saved=json.loads(manifest_path.read_text(encoding='utf-8'))
