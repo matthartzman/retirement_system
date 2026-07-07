@@ -64,6 +64,64 @@ except Exception:  # direct execution fallback
     load_system_config = None
 
 
+def _check_and_migrate_schema_if_needed(csv_path: Path) -> bool:
+    """
+    Check if plan data needs schema migration. If old format detected, run migrator.
+
+    Args:
+        csv_path: Path to client_data.csv
+
+    Returns:
+        True if migration was run, False if already current version
+    """
+    import json
+    import subprocess
+
+    csv_path = Path(csv_path)
+    metadata_path = csv_path.parent / "plan_metadata.json"
+
+    # No metadata = pre-v10.0 format
+    if not metadata_path.exists():
+        try:
+            # Invoke migrator via subprocess
+            result = subprocess.run(
+                [_sys.executable, str(Path(__file__).parent.parent / "tools" / "migrate_plan_data.py"), str(csv_path)],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if result.returncode != 0:
+                print(f"⚠ Schema migration warning: {result.stderr}")
+                return False
+            return True
+        except Exception as e:
+            print(f"⚠ Schema migration skipped: {str(e)}")
+            return False
+
+    # Metadata exists; check version
+    try:
+        metadata = json.loads(metadata_path.read_text())
+        version = metadata.get("schema_version", "0.0")
+        if version < "1.0":
+            # Old version; run migrator
+            try:
+                result = subprocess.run(
+                    [_sys.executable, str(Path(__file__).parent.parent / "tools" / "migrate_plan_data.py"), str(csv_path)],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                if result.returncode != 0:
+                    print(f"⚠ Schema migration warning: {result.stderr}")
+                    return False
+                return True
+            except Exception as e:
+                print(f"⚠ Schema migration skipped: {str(e)}")
+                return False
+    except Exception:
+        pass
+
+    return False
 
 
 def _load_capital_market_income_assumptions() -> dict:
@@ -205,6 +263,9 @@ def _normalize_label(label):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def load_csv(path):
+    # Check and migrate schema if needed (Phase C: legacy removal)
+    _check_and_migrate_schema_if_needed(Path(path))
+
     data = {}   # {section: {subsection: {label: value}}}
     for csv_path in _client_data_csv_paths(path):
         if not Path(csv_path).exists():
