@@ -653,49 +653,6 @@ def parse_client(data, url_template):
     c['lump'] = {}
     c['home_improvement_lump'] = {}
     c['recurring_extras'] = []
-    # When the new per-line Spending Budget file (#95) exists it is the source of
-    # truth for these sections; suppress the legacy extra_N rows to avoid
-    # double-counting. Plans without the budget-lines file keep legacy behavior.
-    _budget_lines_present = False
-    try:
-        for _bl_probe in candidate_input_files(
-            'client_spending_budget_lines.csv', active_workspace_id(),
-            root=Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))):
-            if os.path.exists(str(_bl_probe)):
-                _budget_lines_present = True
-                break
-    except Exception:
-        _budget_lines_present = False
-    _cashflow = data.get('Cashflow', {})
-    _extra_subsection = 'Large Discretionary Expenses'
-    _travel = _cashflow.get(_extra_subsection, {})
-    _idxs = sorted({m.group(1) for lbl in _travel for m in [re.match(r'^extra_(\d+)_', lbl)] if m}, key=lambda x: int(x))
-    if _idxs and not _budget_lines_present:
-        for _idx in _idxs:
-            _typ = _v(data, 'Cashflow', _extra_subsection, f'extra_{_idx}_type', 'Other') or 'Other'
-            _amt = _n(_v(data, 'Cashflow', _extra_subsection, f'extra_{_idx}_amount', '0'), 0)
-            _yr = _y(_v(data, 'Cashflow', _extra_subsection, f'extra_{_idx}_year', '0'), 0)
-            _start = _y(_v(data, 'Cashflow', _extra_subsection, f'extra_{_idx}_start_year', '0'), 0)
-            _end = _y(_v(data, 'Cashflow', _extra_subsection, f'extra_{_idx}_end_year', '0'), 0)
-            _comment = _v(data, 'Cashflow', _extra_subsection, f'extra_{_idx}_comment', '')
-            if _amt <= 0:
-                continue
-            _is_home_improvement = _typ.strip().lower() in {'home improvement', 'home improvements', 'home projects', 'home project'}
-            if _end and not _yr:
-                if not _start:
-                    _start = c['plan_start']
-                if _end < _start:
-                    _end = _start
-                c['recurring_extras'].append({'type': _typ, 'amount': _amt, 'start_year': _start, 'end_year': _end, 'comment': _comment, 'is_home_improvement': _is_home_improvement})
-            elif _start and _end:
-                if _end < _start:
-                    _end = _start
-                c['recurring_extras'].append({'type': _typ, 'amount': _amt, 'start_year': _start, 'end_year': _end, 'comment': _comment, 'is_home_improvement': _is_home_improvement})
-            elif _yr:
-                if _is_home_improvement:
-                    c['home_improvement_lump'][_yr] = c['home_improvement_lump'].get(_yr, 0) + _amt
-                else:
-                    c['lump'][_yr] = c['lump'].get(_yr, 0) + _amt
     c.setdefault('home_proj', 0.0)
     c.setdefault('home_proj_end', c['plan_start'] - 1)
     c.setdefault('vac', 0.0)
