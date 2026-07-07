@@ -48,3 +48,4 @@ dist-info/
 
 # Generated artifacts
 output/
+coverage.xml
