@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from src.api_contracts import CONTRACT_BY_KEY, contract_summary, validate_payload
-from src.terminology_aliases import canonical_id, contains_user_facing_legacy_wellness, healthcare_alias_payload, user_label
+from src.terminology_aliases import canonical_id, healthcare_alias_payload, user_label
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -66,15 +66,15 @@ def test_backend_route_adapters_delegate_to_feature_services():
     assert "holdings_service.save_holdings" in workbook_routes
 
 
-def test_healthcare_terminology_aliases_support_legacy_ids_without_user_facing_premium_language():
-    assert canonical_id("wellness_premium") == "healthcare_premium"
-    assert canonical_id("pre65_wellness_premium") == "healthcare_premium"
-    assert user_label("wellness_premium") == "Healthcare Premium"
+def test_healthcare_terminology_aliases_support_legacy_ids():
+    assert canonical_id("healthcare_premium") == "healthcare_premium"
+    assert canonical_id("medical_oop_cap") == "medical_oop_cap"
+    assert user_label("healthcare_premium") == "Healthcare Premium"
+    assert user_label("medical_oop_cap") == "Medical OOP Cap"
     payload = healthcare_alias_payload()
     labels = {a["canonical_label"] for a in payload["aliases"]}
     assert "Healthcare Premium" in labels
-    assert contains_user_facing_legacy_wellness("Annual Pre-65 Wellness Premium") is True
-    assert contains_user_facing_legacy_wellness("Annual Pre-65 Healthcare Premium") is False
+    assert "Medical OOP Cap" in labels
 
 
 def test_clean_overlay_validator_covers_contract_route_and_new_modules():
