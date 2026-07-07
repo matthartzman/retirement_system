@@ -24,9 +24,6 @@ HEALTHCARE_PREMIUM = TerminologyAlias(
     canonical_id="healthcare_premium",
     canonical_label="Healthcare Premium",
     legacy_ids=(
-        "wellness_premium",
-        "pre65_wellness_premium",
-        "annual_pre65_wellness_premium",
         "pre65_healthcare_premium",
         "medicare_part_b",
         "medicare_part_d",
@@ -39,7 +36,7 @@ HEALTHCARE_PREMIUM = TerminologyAlias(
 OOP_MEDICAL_CAP = TerminologyAlias(
     canonical_id="medical_oop_cap",
     canonical_label="Medical OOP Cap",
-    legacy_ids=("annual_oop_max", "oop_max", "wellness_oop_max"),
+    legacy_ids=("annual_oop_max", "oop_max"),
     notes="Reference cap for non-premium medical spending; not a standalone expense row.",
 )
 
@@ -77,14 +74,3 @@ def healthcare_alias_payload() -> dict:
             for alias in TERMINOLOGY_ALIASES
         ],
     }
-
-
-def contains_user_facing_legacy_wellness(text: str) -> bool:
-    """Return True for legacy premium terminology that should not appear in UI/report copy."""
-    raw = str(text or "").lower()
-    blocked = (
-        "wellness premium",
-        "annual pre-65 wellness premium",
-        "pre-65 wellness premium",
-    )
-    return any(term in raw for term in blocked)
