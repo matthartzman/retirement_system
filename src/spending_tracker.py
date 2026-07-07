@@ -1637,7 +1637,10 @@ def load_budget_by_category(root=None):
             key = "grp::" + row.get("key", "")
         else:
             continue
-        result[key] = {"annual_budget": _safe_float(str(row.get("annual_budget", ""))), "notes": row.get("notes", "")}
+        entry = {"annual_budget": _safe_float(str(row.get("annual_budget", ""))), "notes": row.get("notes", "")}
+        if row.get("_mode"):
+            entry["_mode"] = row.get("_mode")
+        result[key] = entry
     return result
 
 
@@ -1661,7 +1664,10 @@ def save_budget_by_category(root, budget):
             kind = "category"
             out_key = str(key)
             label = flat.get(out_key, {}).get("label", out_key)
-        rows.append({"kind": kind, "key": out_key, "label": label, "annual_budget": _safe_float(str((b or {}).get("annual_budget", ""))), "start_year": "", "end_year": "", "one_time_year": "", "notes": (b or {}).get("notes", "")})
+        row_dict = {"kind": kind, "key": out_key, "label": label, "annual_budget": _safe_float(str((b or {}).get("annual_budget", ""))), "start_year": "", "end_year": "", "one_time_year": "", "notes": (b or {}).get("notes", "")}
+        if (b or {}).get("_mode"):
+            row_dict["_mode"] = (b or {}).get("_mode")
+        rows.append(row_dict)
     rows.extend(existing_lines)
 
     # Guard against the regression where the browser submitted an all-zero
