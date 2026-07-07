@@ -653,49 +653,6 @@ def parse_client(data, url_template):
     c['lump'] = {}
     c['home_improvement_lump'] = {}
     c['recurring_extras'] = []
-    # When the new per-line Spending Budget file (#95) exists it is the source of
-    # truth for these sections; suppress the legacy extra_N rows to avoid
-    # double-counting. Plans without the budget-lines file keep legacy behavior.
-    _budget_lines_present = False
-    try:
-        for _bl_probe in candidate_input_files(
-            'client_spending_budget_lines.csv', active_workspace_id(),
-            root=Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))):
-            if os.path.exists(str(_bl_probe)):
-                _budget_lines_present = True
-                break
-    except Exception:
-        _budget_lines_present = False
-    _cashflow = data.get('Cashflow', {})
-    _extra_subsection = 'Large Discretionary Expenses'
-    _travel = _cashflow.get(_extra_subsection, {})
-    _idxs = sorted({m.group(1) for lbl in _travel for m in [re.match(r'^extra_(\d+)_', lbl)] if m}, key=lambda x: int(x))
-    if _idxs and not _budget_lines_present:
-        for _idx in _idxs:
-            _typ = _v(data, 'Cashflow', _extra_subsection, f'extra_{_idx}_type', 'Other') or 'Other'
-            _amt = _n(_v(data, 'Cashflow', _extra_subsection, f'extra_{_idx}_amount', '0'), 0)
-            _yr = _y(_v(data, 'Cashflow', _extra_subsection, f'extra_{_idx}_year', '0'), 0)
-            _start = _y(_v(data, 'Cashflow', _extra_subsection, f'extra_{_idx}_start_year', '0'), 0)
-            _end = _y(_v(data, 'Cashflow', _extra_subsection, f'extra_{_idx}_end_year', '0'), 0)
-            _comment = _v(data, 'Cashflow', _extra_subsection, f'extra_{_idx}_comment', '')
-            if _amt <= 0:
-                continue
-            _is_home_improvement = _typ.strip().lower() in {'home improvement', 'home improvements', 'home projects', 'home project'}
-            if _end and not _yr:
-                if not _start:
-                    _start = c['plan_start']
-                if _end < _start:
-                    _end = _start
-                c['recurring_extras'].append({'type': _typ, 'amount': _amt, 'start_year': _start, 'end_year': _end, 'comment': _comment, 'is_home_improvement': _is_home_improvement})
-            elif _start and _end:
-                if _end < _start:
-                    _end = _start
-                c['recurring_extras'].append({'type': _typ, 'amount': _amt, 'start_year': _start, 'end_year': _end, 'comment': _comment, 'is_home_improvement': _is_home_improvement})
-            elif _yr:
-                if _is_home_improvement:
-                    c['home_improvement_lump'][_yr] = c['home_improvement_lump'].get(_yr, 0) + _amt
-                else:
-                    c['lump'][_yr] = c['lump'].get(_yr, 0) + _amt
     c.setdefault('home_proj', 0.0)
     c.setdefault('home_proj_end', c['plan_start'] - 1)
     c.setdefault('vac', 0.0)
@@ -917,15 +874,6 @@ def parse_client(data, url_template):
     c['note_items'] = []
     _note_subs = [s for s in (data.get('Note Receivable') or {}).keys()
                   if re.match(r'^Note\s+\d+$', str(s or '').strip(), re.I)]
-    if not _note_subs and (data.get('Note Receivable') or {}).get('Summary'):
-        # Legacy single-note layout (Note Receivable > Summary > ...). Treat it
-        # as one note named "RedMane Note" so old plan files keep working.
-        _legacy = data['Note Receivable']['Summary']
-        _note_subs = ['__legacy_summary__']
-        data = dict(data)
-        data['Note Receivable'] = dict(data['Note Receivable'])
-        data['Note Receivable']['__legacy_summary__'] = dict(_legacy)
-        data['Note Receivable']['__legacy_summary__'].setdefault('name', 'RedMane Note')
     _note_subs = sorted(_note_subs, key=lambda s: (0, int(re.search(r'(\d+)', s).group(1))) if re.search(r'(\d+)', s) else (1, s))
     for _nsub in _note_subs:
         _nvals = data['Note Receivable'][_nsub]
@@ -937,7 +885,7 @@ def parse_client(data, url_template):
                                  _nvals.get('annual_principal_base_period', '0')), 0.0)
         _nprinc_final = _n(_nvals.get('final_principal_2033', _nvals.get('final_principal', '0')), 0.0)
         _ninterest = {}
-        _nint_sub = f'{_nsub} Interest' if _nsub != '__legacy_summary__' else 'Interest by Year'
+        _nint_sub = f'{_nsub} Interest'
         for yr in range(c['plan_start'], c['plan_start'] + 8):
             iv = _v(data, 'Note Receivable', _nint_sub, str(yr), '0')
             _ninterest[yr] = _n(iv, 0)
@@ -973,20 +921,11 @@ def parse_client(data, url_template):
     c['hsa_win_end']   = 0
     hsa_start_raw = str(_v(data,'HSA Policy','Withdrawals','hsa_withdrawal_start_year','') or '').strip()
     hsa_end_raw = str(_v(data,'HSA Policy','Withdrawals','hsa_withdrawal_end_year','') or '').strip()
-    hsa_win_raw = str(_v(data,'HSA Policy','Window','withdrawal_window','') or '').strip()
-    if hsa_start_raw or hsa_end_raw:
-        try:
-            c['hsa_win_start'] = int(float(hsa_start_raw)) if hsa_start_raw else c['plan_start']
-            c['hsa_win_end'] = int(float(hsa_end_raw)) if hsa_end_raw else 9999
-        except Exception:
-            c['hsa_win_start'], c['hsa_win_end'] = 9999, 0
-    elif '-' in hsa_win_raw and c['hsa_withdrawal_mode'] != 'spend_as_needed':
-        try:
-            parts = hsa_win_raw.split('-')
-            c['hsa_win_start'] = int(parts[0].strip())
-            c['hsa_win_end']   = int(parts[1].strip())
-        except Exception:
-            pass
+    try:
+        c['hsa_win_start'] = int(float(hsa_start_raw)) if hsa_start_raw else c['plan_start']
+        c['hsa_win_end'] = int(float(hsa_end_raw)) if hsa_end_raw else 9999
+    except Exception:
+        c['hsa_win_start'], c['hsa_win_end'] = 9999, 0
     # Be forgiving with legacy UI/data entry: older files sometimes stored the
     # HSA window as 2040/2031 instead of 2031/2040.  The Other Assets page now
     # exposes the start/end controls directly, and the projection normalizes the
@@ -1033,13 +972,9 @@ def parse_client(data, url_template):
             )
 
     if not c['liquidity_buffer_schedule'] and _lb:
-        near_yrs_raw = _v(data, 'Liquidity Buffer', 'Near Term', 'years_of_expenses_in_trust', '')
-        if str(near_yrs_raw).strip() == '':
-            near_yrs_raw = _v(data, 'Liquidity Buffer', 'Through 2028', 'years_of_expenses_in_trust', '')
-        long_yrs_raw = _v(data, 'Liquidity Buffer', 'Long Term', 'years_of_expenses_in_trust', '')
-        if str(long_yrs_raw).strip() == '':
-            long_yrs_raw = _v(data, 'Liquidity Buffer', '2029_onwards', 'years_of_expenses_in_trust', '')
-        near_end_raw = _v(data, 'Liquidity Buffer', 'Near Term', 'end_year', '')
+        near_yrs_raw = _v(data, 'Liquidity Buffer', 'Through 2028', 'years_of_expenses_in_trust', '')
+        long_yrs_raw = _v(data, 'Liquidity Buffer', '2029_onwards', 'years_of_expenses_in_trust', '')
+        near_end_raw = _v(data, 'Liquidity Buffer', 'Through 2028', 'end_year', '')
         if str(near_yrs_raw).strip():
             _near_end = _y(near_end_raw, 2028) if str(near_end_raw).strip() else 2028
             _add_liquidity_rule(c['plan_start'], _near_end, near_yrs_raw)
