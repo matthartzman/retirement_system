@@ -61,6 +61,63 @@ category,biz_services,Business Services,3000,,,,business not spend base
     assert any(e["type"] == "Home Project" and e["is_home_improvement"] for e in resolved["recurring_extras"])
 
 
+def test_group_budget_mode_round_trips_through_csv_and_drives_projection(tmp_path):
+    """Save a summary group budget, reload it (as an app restart would), and
+    confirm both the persisted mode and the projected dollars survive.
+
+    Regression guard for the defect where a group-level Travel budget reverted
+    to Detail on restart and dropped out of / distorted cash flow. The mode was
+    written to the CSV but the read path (_legacy_budget_to_unified) discarded
+    the _mode column, and the resolver ignored _mode entirely — so this must be
+    exercised through the real save/load/resolve cycle, not a static file.
+    """
+    root = tmp_path
+    write(root / "input/client_spending_taxonomy.csv", """tracking_type,group,category_id,label,origin,status,notes
+Travel,Travel,travel_vacation,Travel & Vacation,transaction,active,
+Travel,Travel,travel_housing,Travel - Housing,transaction,active,
+""")
+    write(root / "input/client_spending_aliases.csv", "match_value,match_field,exact,priority,category_id,source\n")
+    # Mirror the real Travel data shape: each category carries both a category
+    # budget row and a matching detail line (as travel_vacation/travel_housing do
+    # in input/client_spending_budget.csv). In detail mode the lines are the
+    # authority; a summary group budget must suppress this whole breakdown.
+    write(root / "input/client_spending_budget.csv", """kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
+category,travel_vacation,Travel & Vacation,8000,,,,
+category,travel_housing,Travel - Housing,2000,,,,
+line,travel_vacation,Travel & Vacation,8000,,,,
+line,travel_housing,Travel - Housing,2000,,,,
+""")
+    year_range = range(2026, 2031)
+
+    def travel_total(res):
+        return sum(e["amount"] for e in res["recurring_extras"]
+                   if "travel" in str(e.get("category_id", "")).lower()
+                   or "travel" in str(e.get("type", "")).lower())
+
+    # Baseline: detail lines total $10,000.
+    assert travel_total(resolve_spending_inputs(root, year_range=year_range)) == 10000
+
+    # Frontend sets the Travel group to Summary $25,000 and saves. The taxBudget
+    # object carries the group entry keyed grp::<tt>::<group> with _mode.
+    budget = st.load_budget_by_category(root)
+    budget["grp::Travel::Travel"] = {"annual_budget": 25000, "notes": "", "_mode": "summary"}
+    st.save_budget_by_category(root, budget)
+
+    # App restart: the mode must survive the CSV round-trip.
+    reloaded = st.load_budget_by_category(root)
+    assert reloaded["grp::Travel::Travel"].get("_mode") == "summary"
+
+    # Summary mode suppresses the line detail and projects the single group amount.
+    assert travel_total(resolve_spending_inputs(root, year_range=year_range)) == 25000
+
+    # Toggle back to Detail: the group row is inert and the per-line detail returns.
+    budget = st.load_budget_by_category(root)
+    budget["grp::Travel::Travel"]["_mode"] = "detail"
+    st.save_budget_by_category(root, budget)
+    assert st.load_budget_by_category(root)["grp::Travel::Travel"].get("_mode") == "detail"
+    assert travel_total(resolve_spending_inputs(root, year_range=year_range)) == 10000
+
+
 def test_unused_template_categories_start_hidden_and_restore_by_group(tmp_path):
     root = tmp_path
     write(root / "input/client_spending_taxonomy.csv", """tracking_type,group,category_id,label,origin,status,notes

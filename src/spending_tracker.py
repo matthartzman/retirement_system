@@ -1479,6 +1479,7 @@ def _legacy_budget_to_unified(root=None) -> list[dict]:
             "end_year": (row.get("end_year") or "").strip(),
             "one_time_year": (row.get("one_time_year") or "").strip(),
             "notes": (row.get("notes") or "").strip(),
+            "_mode": (row.get("_mode") or "").strip(),
             "line_section": (row.get("line_section") or "").strip(),
             "line_mode": (row.get("line_mode") or "").strip(),
         })
