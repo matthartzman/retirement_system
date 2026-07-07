@@ -5,10 +5,13 @@ ROOT=Path(__file__).resolve().parents[1]
 PLAN_FILES=['client_data.csv','client_household.csv','client_income.csv','client_spending.csv','client_assets.csv','client_policy.csv','client_insurance_estate.csv','client_optional_functions.csv','asset_class_optimizer_controls.csv','client_holdings.csv','target_allocation.csv']
 def fingerprint(p:Path):
     # Fingerprint normalized-newline text, not raw bytes/on-disk size.
-    # Even with .gitattributes forcing LF, we normalize line endings here
-    # to handle any platform-specific variations and ensure consistent hashes
-    # across all environments.
-    text = p.read_text(encoding='utf-8-sig', errors='replace').replace('\r\n', '\n')
+    # Read with universal newlines (Python normalizes all \r\n, \r, \n to \n)
+    # then explicitly normalize again to handle any edge cases, and ensure
+    # consistent hashes across all environments regardless of git checkout settings.
+    with open(p, 'r', encoding='utf-8-sig', errors='replace', newline=None) as f:
+        text = f.read()
+    # Replace any remaining carriage returns or mixed line endings
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
     normalized = text.encode('utf-8')
     return hashlib.sha256(normalized).hexdigest(), len(normalized)
 def build_manifest(input_dir: Path):
