@@ -973,20 +973,11 @@ def parse_client(data, url_template):
     c['hsa_win_end']   = 0
     hsa_start_raw = str(_v(data,'HSA Policy','Withdrawals','hsa_withdrawal_start_year','') or '').strip()
     hsa_end_raw = str(_v(data,'HSA Policy','Withdrawals','hsa_withdrawal_end_year','') or '').strip()
-    hsa_win_raw = str(_v(data,'HSA Policy','Window','withdrawal_window','') or '').strip()
-    if hsa_start_raw or hsa_end_raw:
-        try:
-            c['hsa_win_start'] = int(float(hsa_start_raw)) if hsa_start_raw else c['plan_start']
-            c['hsa_win_end'] = int(float(hsa_end_raw)) if hsa_end_raw else 9999
-        except Exception:
-            c['hsa_win_start'], c['hsa_win_end'] = 9999, 0
-    elif '-' in hsa_win_raw and c['hsa_withdrawal_mode'] != 'spend_as_needed':
-        try:
-            parts = hsa_win_raw.split('-')
-            c['hsa_win_start'] = int(parts[0].strip())
-            c['hsa_win_end']   = int(parts[1].strip())
-        except Exception:
-            pass
+    try:
+        c['hsa_win_start'] = int(float(hsa_start_raw)) if hsa_start_raw else c['plan_start']
+        c['hsa_win_end'] = int(float(hsa_end_raw)) if hsa_end_raw else 9999
+    except Exception:
+        c['hsa_win_start'], c['hsa_win_end'] = 9999, 0
     # Be forgiving with legacy UI/data entry: older files sometimes stored the
     # HSA window as 2040/2031 instead of 2031/2040.  The Other Assets page now
     # exposes the start/end controls directly, and the projection normalizes the
@@ -1033,13 +1024,9 @@ def parse_client(data, url_template):
             )
 
     if not c['liquidity_buffer_schedule'] and _lb:
-        near_yrs_raw = _v(data, 'Liquidity Buffer', 'Near Term', 'years_of_expenses_in_trust', '')
-        if str(near_yrs_raw).strip() == '':
-            near_yrs_raw = _v(data, 'Liquidity Buffer', 'Through 2028', 'years_of_expenses_in_trust', '')
-        long_yrs_raw = _v(data, 'Liquidity Buffer', 'Long Term', 'years_of_expenses_in_trust', '')
-        if str(long_yrs_raw).strip() == '':
-            long_yrs_raw = _v(data, 'Liquidity Buffer', '2029_onwards', 'years_of_expenses_in_trust', '')
-        near_end_raw = _v(data, 'Liquidity Buffer', 'Near Term', 'end_year', '')
+        near_yrs_raw = _v(data, 'Liquidity Buffer', 'Through 2028', 'years_of_expenses_in_trust', '')
+        long_yrs_raw = _v(data, 'Liquidity Buffer', '2029_onwards', 'years_of_expenses_in_trust', '')
+        near_end_raw = _v(data, 'Liquidity Buffer', 'Through 2028', 'end_year', '')
         if str(near_yrs_raw).strip():
             _near_end = _y(near_end_raw, 2028) if str(near_end_raw).strip() else 2028
             _add_liquidity_rule(c['plan_start'], _near_end, near_yrs_raw)
