@@ -20,27 +20,6 @@ import io
 
 from . import app_core as _app_core
 
-DEPRECATED_ALLOCATION_COUNT_LABELS = {
-    "_".join(parts)
-    for parts in [
-        ("count", "social", "security", "toward", "fixed", "income", "target"),
-        ("count", "pension", "toward", "fixed", "income", "target"),
-        ("count", "annuity", "toward", "fixed", "income", "target"),
-        ("count", "note", "receivable", "toward", "fixed", "income", "target"),
-        ("count", "home", "equity", "toward", "reit", "target"),
-    ]
-}
-
-RETIRED_SCENARIO_HOME_ROW_KEYS = {
-    ("Scenarios", "Sell Home", "home_sale_price"),
-    ("Scenarios", "Sell Home", "home_basis"),
-    ("Scenarios", "Sell Home", "home_value"),
-    ("Scenarios", "Sell Home", "house_value"),
-    ("Scenarios", "Sell Home", "value_as_of_plan_start"),
-    ("Scenarios", "Sell Home", "current_home_value"),
-    ("Scenarios", "Sell Home", "current_value"),
-    ("Scenarios", "Sell Home", "market_value"),
-}
 
 
 # Generic "drop rows matching a predicate" primitives shared by every
@@ -80,45 +59,6 @@ def _purge_rows_matching_from_plan_data(predicate) -> int:
             _app_core._csv_write_rows(path, kept)
             removed_total += removed
     return removed_total
-
-
-def _is_retired_scenario_home_row(row: list[str]) -> bool:
-    cols = list(row) + [""] * 3
-    key = (str(cols[0]).strip(), str(cols[1]).strip(), str(cols[2]).strip())
-    return key in RETIRED_SCENARIO_HOME_ROW_KEYS
-
-
-def _strip_retired_scenario_home_rows(rows: list[list[str]]) -> tuple[list[list[str]], int]:
-    return _strip_rows_matching(rows, _is_retired_scenario_home_row)
-
-
-def _strip_retired_scenario_home_csv(content: str) -> tuple[str, int]:
-    return _strip_csv_rows_matching(content, _is_retired_scenario_home_row)
-
-
-def _purge_retired_scenario_home_rows_from_plan_data() -> int:
-    return _purge_rows_matching_from_plan_data(_is_retired_scenario_home_row)
-
-
-def _is_deprecated_allocation_count_row(row: list[str]) -> bool:
-    cols = list(row) + [""] * 3
-    return (
-        str(cols[0]).strip() == "Model Constants"
-        and str(cols[1]).strip() == "Allocation"
-        and str(cols[2]).strip() in DEPRECATED_ALLOCATION_COUNT_LABELS
-    )
-
-
-def _strip_deprecated_allocation_count_rows(rows: list[list[str]]) -> tuple[list[list[str]], int]:
-    return _strip_rows_matching(rows, _is_deprecated_allocation_count_row)
-
-
-def _strip_deprecated_allocation_count_csv(content: str) -> tuple[str, int]:
-    return _strip_csv_rows_matching(content, _is_deprecated_allocation_count_row)
-
-
-def _purge_deprecated_allocation_count_rows_from_plan_data() -> int:
-    return _purge_rows_matching_from_plan_data(_is_deprecated_allocation_count_row)
 
 
 # Python's default `from X import *` skips underscore-prefixed names; every
