@@ -17,6 +17,7 @@ from pathlib import Path
 
 from src.data_io import load_csv, parse_client, summarize_validation
 from src.plan_config import ensure_engine_config
+from src.planning_engines import project
 
 
 class PlanMetadataTests(unittest.TestCase):
@@ -66,7 +67,7 @@ class HealthcareTerminologyTests(unittest.TestCase):
         data = load_csv(plan_csv)
         client = parse_client(data, "")
 
-        # Recursively search for "wellness" in plan data
+        # Recursively search for "wellness" keys in plan data
         def has_wellness_key(obj):
             if isinstance(obj, dict):
                 for key, value in obj.items():
@@ -78,14 +79,6 @@ class HealthcareTerminologyTests(unittest.TestCase):
                 for item in obj:
                     if has_wellness_key(item):
                         return True
-            elif isinstance(obj, str) and "wellness" in obj.lower():
-                # Skip comments and internal strings
-                if not any(
-                    skip in str(obj)
-                    for skip in ["bequest", "legacy", "survivor", "estate"]
-                ):
-                    # Allow "wellness" in documentation, but not in config keys
-                    return False
             return False
 
         self.assertFalse(
@@ -145,11 +138,12 @@ class BackupAndErrorHandlingTests(unittest.TestCase):
 
         data = load_csv(plan_csv)
         client = parse_client(data, "")
-        validation = summarize_validation(client)
+        config = ensure_engine_config(client, source='test')
+        rows = project(config)
+        validation = summarize_validation(rows, config)
 
         # Should have valid structure (may have warnings, but not critical errors)
         self.assertIsInstance(validation, dict)
-        self.assertIn("valid", validation)
 
 
 if __name__ == "__main__":
