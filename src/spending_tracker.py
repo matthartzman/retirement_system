@@ -896,7 +896,7 @@ import re as _unified_re
 
 _TAXONOMY_HEADER = ["tracking_type", "group", "category_id", "label", "origin", "status", "notes"]
 _ALIAS_HEADER = ["match_value", "match_field", "exact", "priority", "category_id", "source"]
-_BUDGET_HEADER = ["kind", "key", "label", "annual_budget", "start_year", "end_year", "one_time_year", "notes", "line_section", "line_mode"]
+_BUDGET_HEADER = ["kind", "key", "label", "annual_budget", "start_year", "end_year", "one_time_year", "notes", "_mode", "line_section", "line_mode"]
 _EXCLUDED_TRACKING_TYPES_FOR_SPEND_BASE = {"Income", "Transfer", "Business", "Housing", "Wellness"}
 _TIME_BOUNDED_TRACKING_TYPES = {"Travel", "Large Discretionary"}
 _TRANSFER_NAMES = {"Transfer", "Transfers"}
@@ -1606,7 +1606,7 @@ def save_unified_budget(root, rows: list[dict]) -> None:
             continue
         if kind not in {"category", "group", "line"}:
             continue
-        out.append({
+        out_row = {
             "kind": kind,
             "key": key,
             "label": (row.get("label") or "").strip(),
@@ -1615,9 +1615,11 @@ def save_unified_budget(root, rows: list[dict]) -> None:
             "end_year": (str(row.get("end_year") or "").strip()),
             "one_time_year": (str(row.get("one_time_year") or "").strip()),
             "notes": (row.get("notes") or "").strip(),
+            "_mode": (str(row.get("_mode") or "").strip()) if kind == "group" else "",
             "line_section": (str(row.get("line_section") or "").strip()) if kind == "line" else "",
             "line_mode": (str(row.get("line_mode") or "").strip()) if kind == "line" else "",
-        })
+        }
+        out.append(out_row)
     _write_csv_dicts(_root(root) / "input" / "client_spending_budget.csv", _BUDGET_HEADER, out)
 
 
