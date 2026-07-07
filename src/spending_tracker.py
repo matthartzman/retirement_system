@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 _TRACKING_CORE = "core"
-_TRACKING_MODEL_TYPES = {"housing", "wellness", "travel", "large_disc", "model_managed"}
+_TRACKING_MODEL_TYPES = {"housing", "wellness", "travel", "large_disc"}
 _TRACKING_INCOME = "income"
 _TRACKING_TRANSFER = "transfer"
 _TRACKING_BUSINESS = "business"
@@ -223,8 +223,6 @@ def group_actuals(root: Path | None = None, year: int | None = None) -> dict:
             continue
         if tracking in _TRACKING_MODEL_TYPES:
             t = tracking
-            if t == "model_managed":
-                t = "housing"  # legacy: treat old model_managed as housing
             if t not in model_managed:
                 model_managed[t] = {}
             cat = mapping.get("category", "")
@@ -2249,10 +2247,3 @@ def save_category_map(root: Path | None, rows: list[dict]) -> None:
             label_index.update({k.lower(): k for k in flat})
         aliases.append({"match_value": raw, "match_field": "category", "exact": True, "priority": 50, "category_id": cid, "source": "user"})
     save_aliases(r, aliases)
-    # Keep a legacy mirror file for users who export it manually.
-    path = r / "input" / "spending_category_map.csv"
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["super_group", "group", "category", "tracking"])
-        for row in rows or []:
-            w.writerow([row.get("super_group", "Expenses"), row.get("group", "Other"), row.get("category", ""), row.get("tracking", "core")])
