@@ -847,9 +847,6 @@ def _ensure_user_ui_plan_data_rows() -> None:
     _ensure_wellness_ui_plan_data_rows()
     _ensure_heloc_ui_plan_data_rows()
     _ensure_core_spending_ui_plan_data_rows()
-    removed = _purge_retired_scenario_home_rows_from_plan_data()
-    if removed:
-        _audit("retired_scenario_home_rows_purged", {"removed": removed})
 
 
 def _ensure_hsa_withdrawal_ui_plan_data_rows() -> None:
