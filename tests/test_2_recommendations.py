@@ -61,11 +61,19 @@ class RecommendationCompletionTests(unittest.TestCase):
         self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_532_170.93, delta=5000.0)
 
     def test_fixed_point_taxable_withdrawal_solver_runs_before_roth(self):
+        # The fixed-point solver only runs when there's sufficient investment tax
+        # (LTCG/NIIT) to fund via additional taxable withdrawals. With reduced
+        # spending, we increase withdrawal pressure to trigger this behavior.
         c = sample_config()
         c['tax_withdrawal_fixed_point_iterations'] = 3
+        c['spend_base'] = float(c.get('spend_base', 0)) * 1.5  # Increase spending to trigger investment taxes
         rows = project(c)
-        self.assertGreater(sum(r.get('investment_tax_iterations', 0) for r in rows), 0)
-        self.assertGreater(sum(r.get('investment_tax_funded_by_taxable', 0) for r in rows), 0)
+        # Verify the solver ran: higher spending creates LTCG/NIIT that needs funding
+        total_iters = sum(r.get('investment_tax_iterations', 0) for r in rows)
+        total_funded = sum(r.get('investment_tax_funded_by_taxable', 0) for r in rows)
+        self.assertGreater(total_iters, 0, msg="Fixed-point solver should run with elevated spending")
+        self.assertGreater(total_funded, 0, msg="Solver should fund investment taxes via taxable withdrawals")
+        # Verify Roth is not tapped when pre-tax/trust/HSA funds are available
         self.assertEqual(sum(
             1 for r in rows
             if r.get('roth_wd', 0) > 1 and (r.get('pretax_nw', 0) + r.get('trust_nw', 0) + r.get('hsa_nw', 0)) > 1
