@@ -223,3 +223,26 @@ category,medical,Medical,10000,,,,
     per_type = sum(t["annual_budget"] for t in model["tracking_types"])
     assert model["totals"]["annual_budget"] == pytest.approx(per_type, abs=0.01)
     assert model["totals"]["projection_seed"] == model["totals"]["annual_budget"]
+
+
+# ---------------------------------------------------------------------------
+# Regression guard (bug: "Uncategorized" showed ~$21 of actuals even though every
+# transaction was categorized). Root cause was a spurious user alias routing a
+# real category name ("Postage & Shipping") into the catch-all "uncategorized"
+# category via a substring match, so its spend landed under Uncategorized instead
+# of surfacing under its own name. Guard the committed alias data against that
+# class of footgun: nothing may alias INTO "uncategorized" except a transaction
+# literally categorized "Uncategorized".
+# ---------------------------------------------------------------------------
+def test_no_alias_routes_a_real_category_into_the_uncategorized_catch_all():
+    project_root = Path(__file__).resolve().parents[1]
+    offenders = [
+        alias
+        for alias in st.load_aliases(project_root)
+        if (alias.get("category_id") or "").strip() == "uncategorized"
+        and str(alias.get("match_value") or "").strip().lower() != "uncategorized"
+    ]
+    assert not offenders, (
+        "Aliases route a real category into the uncategorized catch-all, which "
+        "hides real spend under Uncategorized: " + repr(offenders)
+    )
