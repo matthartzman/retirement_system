@@ -29,6 +29,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt -r requirements-dev.txt
 
+    - name: Remove pytest-timeout plugin
+      run: |
+        pip uninstall -y pytest-timeout || true
+
     - name: Lint with ruff
       run: |
         ruff check src/ tests/
