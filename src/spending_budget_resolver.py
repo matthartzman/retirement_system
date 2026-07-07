@@ -105,6 +105,15 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
     time_bounded_group_budgets: list[tuple[str, str, float]] = []
 
     for gkey, grow in group_budgets.items():
+        # Honor the persisted group mode. A group row only acts as a summary
+        # override (suppressing its category/line detail and projecting the single
+        # group amount) when it is in summary mode. In detail mode the group row is
+        # inert and the per-category/line detail drives the projection. Rows with no
+        # explicit mode default to summary for backward compatibility with budgets
+        # saved before the _mode field existed (a group row implied summary then).
+        if str(grow.get("_mode") or "").strip().lower() == "detail":
+            continue
+
         amount = _num(grow.get("annual_budget"))
         tt = gkey.split("::", 1)[0] if "::" in gkey else "Core Expenses"
         grp = gkey.split("::", 1)[1] if "::" in gkey else gkey
