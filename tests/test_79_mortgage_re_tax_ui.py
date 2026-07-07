@@ -16,7 +16,7 @@ def test_mortgage_re_tax_ui_and_reporting_labels_are_present():
     index = (ROOT / 'frontend/index.html').read_text(encoding='utf-8')
     assert '?v=' in index
 
-    projection = (ROOT / 'src/reporting/sheets_projection.py').read_text(encoding='utf-8')
+    projection = (ROOT / 'src/reporting/sheets_projection_cashflow.py').read_text(encoding='utf-8')
     assert 'real_estate_tax' in projection
 
 
