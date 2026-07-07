@@ -101,21 +101,28 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
     for cid, info in flat.items():
         groups_by_key[f"{info.get('tracking_type')}::{info.get('group')}"].append(cid)
 
+    # Track group-level time-bounded budgets to convert to recurring_extras
+    time_bounded_group_budgets: list[tuple[str, str, float]] = []
+
     for gkey, grow in group_budgets.items():
         amount = _num(grow.get("annual_budget"))
         tt = gkey.split("::", 1)[0] if "::" in gkey else "Core Expenses"
+        grp = gkey.split("::", 1)[1] if "::" in gkey else gkey
+
         if tt == "Business":
             business_reference += amount
-        # Time-bounded group budgets (Travel, Large Discretionary) are reference
-        # amounts for UI display; their projection flows through recurring_extras
-        # via explicit line items, so do not add them to spend_base.
-        if tt not in EXCLUDED_FROM_SPEND_BASE and tt not in TIME_BOUNDED_LINE_TRACKING_TYPES:
+        # Time-bounded group budgets (Travel, Large Discretionary) that are set in
+        # group mode (summary) should project as recurring_extras, not disappear.
+        # Record them for later conversion to recurring_extras.
+        if tt in TIME_BOUNDED_LINE_TRACKING_TYPES and amount > 0:
+            time_bounded_group_budgets.append((tt, grp, amount))
+        elif tt not in EXCLUDED_FROM_SPEND_BASE and tt not in TIME_BOUNDED_LINE_TRACKING_TYPES:
             spend_base += amount
+
         for cid in groups_by_key.get(gkey, []):
             group_mode_categories.add(cid)
         for y in years:
             tt_map = by_year.setdefault(y, {}).setdefault(tt, {})
-            grp = gkey.split("::", 1)[1] if "::" in gkey else gkey
             tt_map[grp] = tt_map.get(grp, 0.0) + amount
 
     # Category budgets are recurring unless their group is in group mode.
@@ -219,6 +226,28 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
                 tt_map = by_year.setdefault(y, {}).setdefault(tt, {})
                 tt_map[grp] = tt_map.get(grp, 0.0) + amount
                 by_category_year.setdefault(y, {})[cid] = by_category_year.setdefault(y, {}).get(cid, 0.0) + amount
+
+    # Convert group-level time-bounded budgets to recurring_extras so they project.
+    # These are Travel or Large Discretionary groups in summary mode that suppressed
+    # all their category detail. Without this conversion, the budget amounts would be
+    # lost and the projection would see zero spending (item 151 reconciliation).
+    for tt, grp, amount in time_bounded_group_budgets:
+        if amount > 0:
+            start = min(years) if years else _int((config or {}).get("plan_start"), 0)
+            end = max(years) if years else _int((config or {}).get("plan_end"), start) or start
+            recurring_extras.append({
+                "type": grp,
+                "amount": amount,
+                "start_year": start,
+                "end_year": max(start, end),
+                "comment": "",
+                "is_home_improvement": False,
+                "source": "unified_budget",
+                "category_id": f"{tt.lower()}::{grp.lower()}",
+            })
+            for y in years:
+                tt_map = by_year.setdefault(y, {}).setdefault(tt, {})
+                tt_map[grp] = tt_map.get(grp, 0.0) + amount
 
     return {
         "spend_base": round(spend_base, 2),

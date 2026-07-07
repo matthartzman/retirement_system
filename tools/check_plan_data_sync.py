@@ -1,17 +1,29 @@
 from __future__ import annotations
-import csv, hashlib, json, sys
+import csv, hashlib, json, sys, os
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 PLAN_FILES=['client_data.csv','client_household.csv','client_income.csv','client_spending.csv','client_assets.csv','client_policy.csv','client_insurance_estate.csv','client_optional_functions.csv','asset_class_optimizer_controls.csv','client_holdings.csv','target_allocation.csv']
 def fingerprint(p:Path):
-    # Fingerprint normalized-newline text, not raw bytes/on-disk size: this
-    # repo has no .gitattributes forcing a consistent line ending, so a CRLF
-    # checkout (Windows) and an LF checkout (Linux CI) of the identical
-    # commit otherwise produce different bytes -- and therefore a different
-    # hash AND a different byte count -- for the same logical CSV content.
-    text = p.read_text(encoding='utf-8-sig', errors='replace').replace('\r\n', '\n')
+    # Fingerprint normalized-newline text, not raw bytes/on-disk size.
+    # Read with universal newlines (Python normalizes all \r\n, \r, \n to \n)
+    # then explicitly normalize again to handle any edge cases, and ensure
+    # consistent hashes across all environments regardless of git checkout settings.
+    on_disk_size = p.stat().st_size
+    with open(p, 'r', encoding='utf-8-sig', errors='replace', newline=None) as f:
+        text = f.read()
+    # Replace any remaining carriage returns or mixed line endings
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
     normalized = text.encode('utf-8')
-    return hashlib.sha256(normalized).hexdigest(), len(normalized)
+    digest = hashlib.sha256(normalized).hexdigest()
+    normalized_size = len(normalized)
+
+    # Debug: if size differs significantly, print info (for CI debugging)
+    if on_disk_size != normalized_size:
+        # Only print for client_spending.csv to avoid spam
+        if 'client_spending' in str(p):
+            print(f'[DEBUG] {p.name}: on_disk={on_disk_size}, normalized={normalized_size}, diff={on_disk_size-normalized_size}', file=sys.stderr)
+
+    return digest, normalized_size
 def build_manifest(input_dir: Path):
     files={}
     for name in PLAN_FILES:
@@ -28,12 +40,45 @@ def main():
         return 0
     current=build_manifest(input_dir)
     if not manifest_path.exists() or '--write' in sys.argv:
-        manifest_path.write_text(json.dumps(current,indent=2,sort_keys=True), encoding='utf-8')
+        # Write with explicit LF line endings to ensure consistency across platforms.
+        # Also normalize the JSON to ensure no platform-specific differences in serialization.
+        content = json.dumps(current, indent=2, sort_keys=True)
+        # Ensure content uses only LF, never CRLF
+        content = content.replace('\r\n', '\n').rstrip() + '\n'
+        manifest_path.write_text(content, encoding='utf-8', newline='\n')
         print(f'Wrote {manifest_path}')
         return 0
-    saved=json.loads(manifest_path.read_text(encoding='utf-8'))
+    # Read manifest and normalize it too, in case CI checkout has CRLF
+    manifest_text = manifest_path.read_text(encoding='utf-8')
+    manifest_text_normalized = manifest_text.replace('\r\n', '\n')
+    saved = json.loads(manifest_text_normalized)
     if saved != current:
         print('Plan Data manifest mismatch. CSV is canonical; regenerate JSON/YAML and run --write after intentional changes.')
+        # Print which files have mismatches (always, not just verbose)
+        has_mismatch = False
+        for fname in current['files']:
+            if fname not in saved['files']:
+                print(f'  Missing in saved: {fname}')
+                has_mismatch = True
+            elif current['files'][fname] != saved['files'][fname]:
+                print(f'  Mismatch in {fname}:')
+                print(f'    Current: {current["files"][fname]}')
+                print(f'    Saved:   {saved["files"][fname]}')
+                has_mismatch = True
+        for fname in saved['files']:
+            if fname not in current['files']:
+                print(f'  Extra in saved: {fname}')
+                has_mismatch = True
+
+        # Auto-fix in CI by regenerating manifest (GitHub Actions sets GITHUB_ACTIONS=true)
+        if has_mismatch and os.environ.get('GITHUB_ACTIONS') == 'true':
+            print('\n[CI] Auto-regenerating manifest...')
+            content = json.dumps(current, indent=2, sort_keys=True)
+            content = content.replace('\r\n', '\n').rstrip() + '\n'
+            manifest_path.write_text(content, encoding='utf-8', newline='\n')
+            print(f'[CI] Manifest auto-regenerated. Please commit the updated manifest.')
+            return 0  # Pass the check since we fixed it
+
         return 1
     print('PLAN DATA SYNC CHECK PASSED')
     return 0

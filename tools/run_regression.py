@@ -189,7 +189,7 @@ check("YTD: ytd_summary returns annuity_pension_accounts",
 # 9. Cash Flow sheet headings
 # ---------------------------------------------------------------------------
 heading("Cash Flow sheet")
-sheets_text = file_text("src/reporting/sheets_projection.py")
+sheets_text = file_text("src/reporting/sheets_projection_cashflow.py")
 check("CashFlow: 'Housing' column header", "'Housing'" in sheets_text or '"Housing"' in sheets_text)
 check("CashFlow: 'Wellness' column header", "'Wellness'" in sheets_text or '"Wellness"' in sheets_text)
 check("CashFlow: 'Travel' column header (renamed from Vacations)", "'Travel'" in sheets_text or '"Travel"' in sheets_text)
