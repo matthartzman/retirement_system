@@ -167,6 +167,73 @@ def test_ytd_blend_enabled_defaults_to_true_when_absent(tmp_path):
     assert 'ytd_blend_earned_override' in overrides
 
 
+def test_spend_blend_is_core_scoped_when_taxonomy_exists(tmp_path):
+    """Core spending must never include housing/wellness/travel/large-disc —
+    in the blended current year too. With a taxonomy present, the blend's
+    actual side counts only spend-base tracking types, and the remainder side
+    prorates the engine's own core spend_base, not the all-in household plan."""
+    from src.ytd_projection_blend import _remaining_fraction
+
+    input_dir = tmp_path / 'input'
+    input_dir.mkdir()
+    (input_dir / 'client_spending_taxonomy.csv').write_text(
+        'tracking_type,group,category_id,label,origin,status,notes\n'
+        'Core Expenses,Food,groceries,Groceries,template,active,\n'
+        'Housing,Home,mortgage_cat,Mortgage,template,active,\n'
+        'Travel,Trips,vacation,Vacation,template,active,\n',
+        encoding='utf-8',
+    )
+    (input_dir / 'client_spending_aliases.csv').write_text(
+        'match_value,match_field,exact,priority,category_id,source\n'
+        'Groceries,category,1,80,groceries,seed\n'
+        'Mortgage,category,1,80,mortgage_cat,seed\n'
+        'Vacation,category,1,80,vacation,seed\n',
+        encoding='utf-8',
+    )
+    tx = (
+        'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n'
+        '2026-02-01,Grocery,Groceries,Checking,Bank,,-40000,,Household\n'
+        '2026-02-01,Lender,Mortgage,Checking,Bank,,-18000,,Household\n'
+        '2026-03-01,Airline,Vacation,Checking,Bank,,-9000,,Household\n'
+    )
+    ytd.import_transactions(input_dir, tx, mode='replace', today=date(2026, 7, 2))
+
+    c = _minimal_config(spend_base=50000.0, inf=0.025, core_spending_growth_mode='cpi')
+    overrides = compute_current_year_overrides(c, input_dir, today=date(2026, 7, 2))
+
+    meta = overrides['ytd_blend_applied']
+    assert meta['spend_scope'] == 'core_taxonomy'
+    # Actual side: groceries only — mortgage (Housing) and vacation (Travel)
+    # must not leak into the core spend base.
+    assert meta['spend_actual_core'] == 40000.0
+    # Remainder side: the engine's core spend_base prorated for the rest of the
+    # year (current year == plan_start, so no growth factor applies).
+    expected_remaining = 50000.0 * _remaining_fraction(date(2026, 7, 2))
+    assert abs(meta['spend_remaining'] - expected_remaining) < 1.0
+    assert abs(overrides['ytd_blend_spend_override'][2026] - (40000.0 + expected_remaining)) < 1.0
+
+
+def test_spend_blend_without_taxonomy_falls_back_to_unscoped_legacy_behavior(tmp_path):
+    """Plans with no spending taxonomy have nothing to scope with: the blend
+    keeps the legacy behavior (all tracked spending + legacy core plan field)
+    and says so in the meta."""
+    (tmp_path / 'client_spending.csv').write_text(
+        'section,subsection,label,value,units,notes\n'
+        'Cashflow,Spending,annual_spending_base_year,"$120,000",,\n',
+        encoding='utf-8',
+    )
+    tx = (
+        'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n'
+        '2026-02-01,Grocery,Groceries,Checking,Bank,,-40000,,Household\n'
+    )
+    ytd.import_transactions(tmp_path, tx, mode='replace', today=date(2026, 7, 2))
+
+    c = _minimal_config()
+    overrides = compute_current_year_overrides(c, tmp_path, today=date(2026, 7, 2))
+    assert overrides['ytd_blend_applied']['spend_scope'] == 'all_spending_no_taxonomy'
+    assert 40000.0 <= overrides['ytd_blend_spend_override'][2026] < 120000.0
+
+
 def test_growth_proration_avoids_double_counting_elapsed_return():
     """Directly exercises the existing return_by_year hook that
     compute_current_year_overrides relies on (planning_engines.py:19-28),
