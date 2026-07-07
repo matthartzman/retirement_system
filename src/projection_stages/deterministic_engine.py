@@ -799,6 +799,10 @@ def run_deterministic_projection_stage(c):
                     home_improvement_extra += _ev_amt
                 else:
                     rec_extra += _ev_amt
+        # Higher-of floor for Travel / Large Discretionary: a current-year top-up
+        # (annualized actual minus budget, when positive) computed by the YTD blend
+        # so the discretionary spend never projects below the client's run rate.
+        rec_extra += c.get('ytd_blend_extra_topup', {}).get(year, 0.0)
         row['rec_extra'] = rec_extra
         row['home_improvement_extra'] = home_improvement_extra
 
