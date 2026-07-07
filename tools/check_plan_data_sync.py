@@ -27,14 +27,26 @@ def main():
         return 0
     current=build_manifest(input_dir)
     if not manifest_path.exists() or '--write' in sys.argv:
-        # Write with explicit LF line endings to ensure consistency across platforms
-        content = json.dumps(current,indent=2,sort_keys=True)
+        # Write with explicit LF line endings to ensure consistency across platforms.
+        # Also normalize the JSON to ensure no platform-specific differences in serialization.
+        content = json.dumps(current, indent=2, sort_keys=True)
+        # Ensure content uses only LF, never CRLF
+        content = content.replace('\r\n', '\n').rstrip() + '\n'
         manifest_path.write_text(content, encoding='utf-8', newline='\n')
         print(f'Wrote {manifest_path}')
         return 0
-    saved=json.loads(manifest_path.read_text(encoding='utf-8'))
+    # Read manifest and normalize it too, in case CI checkout has CRLF
+    manifest_text = manifest_path.read_text(encoding='utf-8')
+    manifest_text_normalized = manifest_text.replace('\r\n', '\n')
+    saved = json.loads(manifest_text_normalized)
     if saved != current:
         print('Plan Data manifest mismatch. CSV is canonical; regenerate JSON/YAML and run --write after intentional changes.')
+        if '--verbose' in sys.argv:
+            import pprint
+            print('\nCurrent manifest:')
+            pprint.pprint(current)
+            print('\nSaved manifest:')
+            pprint.pprint(saved)
         return 1
     print('PLAN DATA SYNC CHECK PASSED')
     return 0
