@@ -210,7 +210,11 @@ def test_spend_blend_is_core_scoped_when_taxonomy_exists(tmp_path):
     # year (current year == plan_start, so no growth factor applies).
     expected_remaining = 50000.0 * _remaining_fraction(date(2026, 7, 2))
     assert abs(meta['spend_remaining'] - expected_remaining) < 1.0
-    assert abs(overrides['ytd_blend_spend_override'][2026] - (40000.0 + expected_remaining)) < 1.0
+    # $40k groceries at mid-year annualizes to ~$80k, which exceeds the blended
+    # spent-plus-remainder ($40k + ~$25k), so the higher-of floor governs the
+    # final override (see test_core_spend_floored_at_annualized_actual_when_over_budget).
+    assert meta['spend_floor_applied'] is True
+    assert overrides['ytd_blend_spend_override'][2026] > (40000.0 + expected_remaining)
 
 
 def test_spend_blend_without_taxonomy_falls_back_to_unscoped_legacy_behavior(tmp_path):
@@ -232,6 +236,85 @@ def test_spend_blend_without_taxonomy_falls_back_to_unscoped_legacy_behavior(tmp
     overrides = compute_current_year_overrides(c, tmp_path, today=date(2026, 7, 2))
     assert overrides['ytd_blend_applied']['spend_scope'] == 'all_spending_no_taxonomy'
     assert 40000.0 <= overrides['ytd_blend_spend_override'][2026] < 120000.0
+
+
+def _travel_plan(tmp_path, travel_actual: int):
+    """Build an input dir with a Travel taxonomy and a YTD travel transaction."""
+    input_dir = tmp_path / 'input'
+    input_dir.mkdir()
+    (input_dir / 'client_spending_taxonomy.csv').write_text(
+        'tracking_type,group,category_id,label,origin,status,notes\n'
+        'Core Expenses,Food,groceries,Groceries,template,active,\n'
+        'Travel,Travel,vacation,Vacation,template,active,\n',
+        encoding='utf-8',
+    )
+    (input_dir / 'client_spending_aliases.csv').write_text(
+        'match_value,match_field,exact,priority,category_id,source\n'
+        'Groceries,category,1,80,groceries,seed\n'
+        'Vacation,category,1,80,vacation,seed\n',
+        encoding='utf-8',
+    )
+    tx = (
+        'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n'
+        f'2026-02-01,Airline,Vacation,Checking,Bank,,-{travel_actual},,Household\n'
+    )
+    ytd.import_transactions(input_dir, tx, mode='replace', today=date(2026, 7, 2))
+    return input_dir
+
+
+def test_travel_floor_tops_up_when_run_rate_exceeds_budget(tmp_path):
+    """A Travel recurring extra below the client's annualized run rate gets a
+    current-year top-up so the cash flow 'Travel' column reflects actuals."""
+    input_dir = _travel_plan(tmp_path, travel_actual=9000)  # ~mid-year -> ~$18k annualized
+    c = _minimal_config(
+        spend_base=50000.0,
+        recurring_extras=[{
+            'type': 'Vacation', 'amount': 10000.0, 'start_year': 2026, 'end_year': 2030,
+            'tracking_type': 'Travel', 'is_home_improvement': False,
+        }],
+    )
+    overrides = compute_current_year_overrides(c, input_dir, today=date(2026, 7, 2))
+
+    topup = overrides['ytd_blend_extra_topup'][2026]
+    # 9000 YTD at ~half a year annualizes to ~18000; budget 10000 -> ~8000 top-up.
+    assert 6500.0 < topup < 9500.0
+    assert overrides['ytd_blend_applied']['extra_floor_topup_by_tracking_type']['Travel'] == topup
+
+
+def test_travel_floor_no_topup_when_budget_exceeds_run_rate(tmp_path):
+    """When budget already covers the annualized actual, no top-up is emitted
+    and the projection keeps the budgeted Travel amount."""
+    input_dir = _travel_plan(tmp_path, travel_actual=9000)  # ~$18k annualized
+    c = _minimal_config(
+        spend_base=50000.0,
+        recurring_extras=[{
+            'type': 'Vacation', 'amount': 30000.0, 'start_year': 2026, 'end_year': 2030,
+            'tracking_type': 'Travel', 'is_home_improvement': False,
+        }],
+    )
+    overrides = compute_current_year_overrides(c, input_dir, today=date(2026, 7, 2))
+    assert 'ytd_blend_extra_topup' not in overrides
+
+
+def test_core_spend_floored_at_annualized_actual_when_over_budget(tmp_path):
+    """Core spending over budget projects at the annualized run rate, not the
+    lower spent-plus-remaining blend."""
+    input_dir = _travel_plan(tmp_path, travel_actual=0)
+    # Overwrite the travel tx with a large grocery (core) spend instead.
+    tx = (
+        'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n'
+        '2026-02-01,Grocery,Groceries,Checking,Bank,,-40000,,Household\n'
+    )
+    ytd.import_transactions(input_dir, tx, mode='replace', today=date(2026, 7, 2))
+
+    c = _minimal_config(spend_base=20000.0, inf=0.025, core_spending_growth_mode='cpi')
+    overrides = compute_current_year_overrides(c, input_dir, today=date(2026, 7, 2))
+
+    meta = overrides['ytd_blend_applied']
+    assert meta['spend_floor_applied'] is True
+    # 40000 YTD at ~half a year annualizes to ~80000; the blend (40000 + 20000*0.5
+    # = 50000) is below that, so the run rate wins.
+    assert overrides['ytd_blend_spend_override'][2026] > 70000.0
 
 
 def test_growth_proration_avoids_double_counting_elapsed_return():

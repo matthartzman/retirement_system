@@ -1832,6 +1832,33 @@ def ytd_core_spending_actual(root=None, year=None):
     }
 
 
+def ytd_actual_annualized_by_tracking_type(root=None, year=None):
+    """Annualized YTD actual spending grouped by tracking type.
+
+    Each tracking type's year-to-date actual (taxonomy-mapped transactions from
+    ytd_transactions.csv) is scaled to a full-year run rate by 365 / days
+    elapsed. Callers use this to floor the current-year projection so a
+    budget-driven group never projects below what the client is actually
+    spending. Returns None when the plan has no active spending taxonomy so the
+    caller can skip the higher-of floor.
+    """
+    r = _root(root)
+    if year is None:
+        year = date.today().year
+    flat = taxonomy_flat(r)
+    if not flat:
+        return None
+    actuals, _hits, _unmatched, _days, factor = _actuals_by_taxonomy(r, year)
+    out: dict[str, float] = {}
+    for cid, rec in actuals.items():
+        info = flat.get(cid) or {}
+        tt = info.get("tracking_type")
+        if not tt:
+            continue
+        out[tt] = out.get(tt, 0.0) + float(rec.get("actual", 0.0)) * factor
+    return {k: round(v, 2) for k, v in out.items()}
+
+
 def _source_page_for_tracking_type(tracking_type: str | None) -> str:
     tt = (tracking_type or '').strip()
     if tt == 'Housing':
