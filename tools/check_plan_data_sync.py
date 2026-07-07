@@ -44,12 +44,17 @@ def main():
     saved = json.loads(manifest_text_normalized)
     if saved != current:
         print('Plan Data manifest mismatch. CSV is canonical; regenerate JSON/YAML and run --write after intentional changes.')
-        if '--verbose' in sys.argv:
-            import pprint
-            print('\nCurrent manifest:')
-            pprint.pprint(current)
-            print('\nSaved manifest:')
-            pprint.pprint(saved)
+        # Print which files have mismatches (always, not just verbose)
+        for fname in current['files']:
+            if fname not in saved['files']:
+                print(f'  Missing in saved: {fname}')
+            elif current['files'][fname] != saved['files'][fname]:
+                print(f'  Mismatch in {fname}:')
+                print(f'    Current: {current["files"][fname]}')
+                print(f'    Saved:   {saved["files"][fname]}')
+        for fname in saved['files']:
+            if fname not in current['files']:
+                print(f'  Extra in saved: {fname}')
         return 1
     print('PLAN DATA SYNC CHECK PASSED')
     return 0
