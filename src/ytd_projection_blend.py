@@ -23,8 +23,17 @@ year only:
   + a prorated remainder of the assumed annual plan. This only applies when
   YTD tracking has current-year transactions; otherwise it's a no-op and the
   old full-year behavior is unchanged.
+- The spending blend is CORE-SCOPED: it replaces the engine's spend_base_yr,
+  which by definition never includes Housing, Wellness, Business, Travel, or
+  Large Discretionary (those project through their own columns/flows). So the
+  actual side counts only transactions whose taxonomy tracking type feeds
+  spend_base, and the remainder side prorates the same core spend_base the
+  engine would have modeled for the year — not the all-in household plan.
+  Plans without a spending taxonomy fall back to the legacy unscoped blend
+  (all tracked spending + the legacy core plan field), since they have no
+  category data to scope with.
 - The remainder (projected, not-yet-elapsed) portion of earned income and
-  spending can each be manually overridden by the user - see
+  core spending can each be manually overridden by the user - see
   ytd_remainder_earned_income_override / ytd_remainder_spending_override in
   client_income.csv / client_spending.csv - for known lumpy events (a
   year-end bonus, a planned large purchase) that a linear pro-ration would
@@ -49,9 +58,11 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from .ytd_tracking import ytd_summary
+    from .ytd_tracking import ytd_summary, annual_spending_forecast
+    from .spending_tracker import ytd_core_spending_actual
 except Exception:  # pragma: no cover - direct execution fallback
-    from src.ytd_tracking import ytd_summary
+    from src.ytd_tracking import ytd_summary, annual_spending_forecast
+    from src.spending_tracker import ytd_core_spending_actual
 
 
 def _year_days(year: int) -> int:
@@ -63,6 +74,43 @@ def _remaining_fraction(today: date) -> float:
     elapsed_days = (today - date(today.year, 1, 1)).days + 1
     fraction = 1.0 - (elapsed_days / year_days)
     return max(0.0, min(1.0, fraction))
+
+
+def _taxonomy_plan_root(data_dir: Path) -> Path | None:
+    """Map the blend's plan-data dir to the project root spending_tracker expects.
+
+    The blend is called with the plan-data (input) directory; spending_tracker
+    resolves its files as <root>/input/<file>. When the data dir isn't a
+    conventional 'input' folder (unit-test fixtures), taxonomy scoping is
+    unavailable and callers fall back to the legacy unscoped blend.
+    """
+    data_dir = Path(data_dir)
+    if data_dir.name.lower() == "input":
+        return data_dir.parent
+    return None
+
+
+def _modeled_current_year_core_spend(c: dict[str, Any], current_year: int) -> float | None:
+    """Replicate the engine's core spend_base_yr for the current year.
+
+    Mirrors projection_stages/deterministic_engine.py: spend_base grown by the
+    core-spending growth mode (manual rate or CPI) until the freeze year. Uses
+    the flat compound rate; a custom inflation_index_by_year path is not
+    consulted (the blend only runs for the standard current-year build, where
+    the divergence is zero or negligible).
+    """
+    base = c.get('spend_base')
+    if base is None:
+        return None
+    base = float(base or 0.0)
+    plan_start = int(c.get('plan_start') or current_year)
+    freeze_yr = c.get('spending_freeze_yr')
+    growth_year = min(current_year, int(freeze_yr)) if freeze_yr else current_year
+    if c.get('core_spending_growth_mode') == 'manual_override':
+        rate = float(c.get('core_spending_manual_growth_rate', c.get('spend_inf', 0.0)) or 0.0)
+    else:
+        rate = float(c.get('inf', 0.0) or 0.0)
+    return base * (1.0 + rate) ** max(0, growth_year - plan_start)
 
 
 def compute_current_year_overrides(c: dict[str, Any], root: str | Path, *, today: date | None = None) -> dict[str, Any]:
@@ -118,10 +166,42 @@ def compute_current_year_overrides(c: dict[str, Any], root: str | Path, *, today
             earned_remaining = float(forecast.get('earned_income_remaining') or 0.0)
         overrides['ytd_blend_earned_override'] = {current_year: earned_actual + earned_remaining}
 
-        spend_annual_plan = forecast.get('spending_annual_plan')
+        # ── Spending: core-scoped blend ──────────────────────────────────
+        # spend_base_yr never includes Housing/Wellness/Business/Travel/Large
+        # Discretionary, so both sides of the blend must be core-scoped too.
+        plan_root = _taxonomy_plan_root(Path(root))
+        core_scope = None
+        if plan_root is not None:
+            try:
+                core_scope = ytd_core_spending_actual(plan_root, current_year)
+            except Exception:
+                core_scope = None
+
+        if core_scope is not None:
+            # Unmatched (unmapped-category) spend is counted as core rather than
+            # silently dropped from the plan; the amount is surfaced in the meta
+            # so a nonzero value is auditable.
+            spend_actual = (float(core_scope.get('core_actual') or 0.0)
+                            + float(core_scope.get('unmatched_spending_actual') or 0.0))
+            blend_meta['spend_scope'] = 'core_taxonomy'
+            blend_meta['spend_actual_core'] = round(float(core_scope.get('core_actual') or 0.0), 2)
+            blend_meta['spend_actual_unmatched_included'] = round(float(core_scope.get('unmatched_spending_actual') or 0.0), 2)
+        else:
+            spend_actual = float(actual.get('spending') or 0.0)
+            blend_meta['spend_scope'] = 'all_spending_no_taxonomy'
+
+        # Annual core plan for the remainder: the same spend_base the engine
+        # projects (budget-derived when the unified budget drives the plan),
+        # falling back to the legacy core-spending field for plans without one.
+        spend_annual_plan = _modeled_current_year_core_spend(c, current_year)
+        if spend_annual_plan is None:
+            try:
+                spend_annual_plan = annual_spending_forecast(root)
+            except Exception:
+                spend_annual_plan = None
+
         spend_remaining_override = c.get('ytd_remainder_spending_override')
         if spend_annual_plan is not None or spend_remaining_override is not None:
-            spend_actual = float(actual.get('spending') or 0.0)
             if spend_remaining_override is not None:
                 spend_remaining = float(spend_remaining_override)
                 blend_meta['spend_remainder_overridden'] = True
@@ -133,6 +213,8 @@ def compute_current_year_overrides(c: dict[str, Any], root: str | Path, *, today
                 # the year has actually elapsed and overstates what's
                 # "remaining".
                 spend_remaining = float(spend_annual_plan) * remaining_fraction
+            blend_meta['spend_core_annual_plan'] = round(float(spend_annual_plan or 0.0), 2)
+            blend_meta['spend_remaining'] = round(spend_remaining, 2)
             overrides['ytd_blend_spend_override'] = {current_year: spend_actual + spend_remaining}
 
         blend_meta['flows_blended'] = 'ytd_blend_spend_override' in overrides

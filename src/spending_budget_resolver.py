@@ -73,8 +73,10 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
 
     Decisions implemented from the design-review answers:
     1. spend_base includes Core Expenses and recurring non-excluded tracking types;
-       excludes Income, Transfer, Business, Housing, Wellness, and time-bounded
-       Travel/Large Discretionary line rows.
+       excludes Income, Transfer, Business, Housing, Wellness, Travel, and Large
+       Discretionary at EVERY level (group, category, and line rows). Travel and
+       Large Discretionary dollars only ever reach the projection as extras/lumps
+       (the Travel/Other columns), never as core spending.
     2. Business remains in the model, but not in spend_base.
     3. Income is left out of this spending-side resolver, but nothing in the
        file format prevents future income-side use.
@@ -139,7 +141,25 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
         amount = _num(row.get("annual_budget"))
         if tt == "Business":
             business_reference += amount
-        if tt not in EXCLUDED_FROM_SPEND_BASE:
+        if tt in TIME_BOUNDED_LINE_TRACKING_TYPES:
+            # Core spending must never absorb Travel/Large-Discretionary dollars.
+            # A category-level budget with no detail lines still projects — as a
+            # recurring extra spanning the plan window (the Travel/Other columns) —
+            # instead of leaking into spend_base.
+            if amount > 0:
+                start = min(years) if years else _int((config or {}).get("plan_start"), 0)
+                end = max(years) if years else _int((config or {}).get("plan_end"), start) or start
+                recurring_extras.append({
+                    "type": info.get("label") or cid,
+                    "amount": amount,
+                    "start_year": start,
+                    "end_year": max(start, end),
+                    "comment": row.get("notes", ""),
+                    "is_home_improvement": _is_home_improvement(info, row),
+                    "source": "unified_budget",
+                    "category_id": cid,
+                })
+        elif tt not in EXCLUDED_FROM_SPEND_BASE:
             spend_base += amount
         for y in years:
             tt_map = by_year.setdefault(y, {}).setdefault(tt, {})

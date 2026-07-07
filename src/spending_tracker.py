@@ -882,6 +882,7 @@ _TAXONOMY_HEADER = ["tracking_type", "group", "category_id", "label", "origin", 
 _ALIAS_HEADER = ["match_value", "match_field", "exact", "priority", "category_id", "source"]
 _BUDGET_HEADER = ["kind", "key", "label", "annual_budget", "start_year", "end_year", "one_time_year", "notes", "line_section", "line_mode"]
 _EXCLUDED_TRACKING_TYPES_FOR_SPEND_BASE = {"Income", "Transfer", "Business", "Housing", "Wellness"}
+_TIME_BOUNDED_TRACKING_TYPES = {"Travel", "Large Discretionary"}
 _TRANSFER_NAMES = {"Transfer", "Transfers"}
 
 
@@ -1768,6 +1769,43 @@ def _actuals_by_taxonomy(root, year: int):
     return actuals, alias_hits, list(unmatched.values()), days_elapsed, annual_factor
 
 
+def ytd_core_spending_actual(root=None, year=None):
+    """Return YTD actual spending scoped to the projection's core spend base.
+
+    Core scope means the tracking types that feed spend_base: everything except
+    Income, Transfer(s), Business, Housing, Wellness, Travel, and Large
+    Discretionary. Tax payments and medical cap-reference rows are excluded the
+    same way the Spending Analysis excludes them. Unmatched transaction
+    categories (spend with no taxonomy mapping) are reported separately so the
+    caller can decide whether to count them.
+
+    Returns None when the plan has no active spending taxonomy — callers should
+    fall back to their legacy (unscoped) behavior in that case.
+    """
+    r = _root(root)
+    if year is None:
+        year = date.today().year
+    flat = taxonomy_flat(r)
+    if not flat:
+        return None
+    actuals, _hits, unmatched, _days, _factor = _actuals_by_taxonomy(r, year)
+    core = 0.0
+    for cid, rec in actuals.items():
+        info = flat.get(cid) or {}
+        tt = info.get("tracking_type")
+        if (tt == "Income" or tt in _TRANSFER_NAMES
+                or tt in _EXCLUDED_TRACKING_TYPES_FOR_SPEND_BASE
+                or tt in _TIME_BOUNDED_TRACKING_TYPES):
+            continue
+        if _is_medical_cap_reference(cid, info):
+            continue
+        core += float(rec.get("actual", 0.0))
+    unmatched_total = sum(float(u.get("actual", 0.0)) for u in unmatched)
+    return {
+        "core_actual": round(core, 2),
+        "unmatched_spending_actual": round(unmatched_total, 2),
+    }
+
 
 def _source_page_for_tracking_type(tracking_type: str | None) -> str:
     tt = (tracking_type or '').strip()
@@ -1920,20 +1958,12 @@ def spending_summary_taxonomy(root=None, year=None):
         if tt != "Income" and tt not in _TRANSFER_NAMES:
             grand_actual += type_actual
             grand_budget += type_budget
-        if tt not in _EXCLUDED_TRACKING_TYPES_FOR_SPEND_BASE:
-            # The implementation decision excludes time-bounded Large-Disc/Travel line rows from spend_base;
-            # those rows feed extras through the resolver instead.
+        if tt not in _EXCLUDED_TRACKING_TYPES_FOR_SPEND_BASE and tt not in _TIME_BOUNDED_TRACKING_TYPES:
+            # Core spend base never includes Travel/Large Discretionary at any
+            # level (mirrors spending_budget_resolver): those dollars project as
+            # extras/lumps, not core spending.
             for grp_out in out_groups:
-                if tt in {"Travel", "Large Discretionary"}:
-                    gkey = f"{tt}::{grp_out['group']}"
-                    if group_budgets.get(gkey):
-                        core_budget_base += grp_out.get("budget", 0.0)
-                    else:
-                        for cat in grp_out.get("categories", []):
-                            if not line_budgets.get(cat.get("id")):
-                                core_budget_base += cat.get("budget", 0.0)
-                else:
-                    core_budget_base += grp_out.get("budget", 0.0)
+                core_budget_base += grp_out.get("budget", 0.0)
 
     deleted_tray = []
     for cid, info in all_flat.items():
@@ -1990,7 +2020,7 @@ def spending_model(root=None, year=None):
             "expense_annualized": summary.get("expense_annualized", 0.0),
         },
         "decisions": {
-            "spend_base_includes": "Projection spend base excludes Income, Transfer, Business, Housing, Wellness, and time-bounded Large-Disc/Travel line rows; Monthly Trajectory separately includes all non-tax spending actuals.",
+            "spend_base_includes": "Projection spend base excludes Income, Transfer, Business, Housing, Wellness, Travel, and Large Discretionary at every level; Monthly Trajectory separately includes all non-tax spending actuals.",
             "business": "included_in_model_not_spend_base",
             "income": "out_of_spending_model_for_now",
             "group_mode": "group_budget_disables_category_and_line_detail",
