@@ -191,6 +191,17 @@ class Phase5WorkbookSnapshotTests(unittest.TestCase):
     def tearDownClass(cls):
         shutil.rmtree(cls.tmp, ignore_errors=True)
 
+    def test_build_also_produces_downloadable_pdf(self):
+        # Regression guard: the build must write retirement_plan.pdf next to the
+        # workbook, or the "Download PDF" button 404s ("run build first"). This
+        # broke twice because build_enterprise_pdf was imported but never called
+        # in the build pipeline; assert the artifact exists and is a real PDF.
+        pdf_path = self.workbook_path.parent / "retirement_plan.pdf"
+        self.assertTrue(pdf_path.exists(), f"build did not produce {pdf_path}\n{self.build_stdout}")
+        with pdf_path.open("rb") as fh:
+            self.assertEqual(fh.read(5), b"%PDF-", "retirement_plan.pdf is not a valid PDF")
+        self.assertGreater(pdf_path.stat().st_size, 1024, "retirement_plan.pdf is suspiciously small")
+
     def test_workbook_snapshot_sheets_and_key_phrases(self):
         import openpyxl
         snap = json.loads((FIXTURES / "workbook_snapshot_expectations.json").read_text(encoding="utf-8"))
