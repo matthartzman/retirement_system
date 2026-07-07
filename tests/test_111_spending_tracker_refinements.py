@@ -56,6 +56,7 @@ def test_business_is_in_main_hierarchy_without_separate_dashboard_section():
         "Business Taxi - Uber",
         "Business Travel & Meals",
         "Office Supplies & Expenses",
+        "Postage & Shipping",
     }
     assert labels == expected
 

@@ -240,7 +240,7 @@ Business,Business,hardware,Hardware / Equipment,template,deleted,Computers
 Business,Business,office_rent,Office Rent,template,deleted,Commercial space lease payments
 Business,Business,office_supplies_expenses,Office Supplies & Expenses,transaction,active,Auto-added from transactions
 Business,Business,payroll_taxes,Payroll Taxes,template,deleted,Employer share of FICA and FUTA
-Business,Business,postage_shipping,Postage & Shipping,transaction,deleted,Promoted from legacy spending_category_map.csv during unified spending migration
+Business,Business,postage_shipping,Postage & Shipping,transaction,active,Reactivated to categorize Postage & Shipping as a business expense
 Business,Business,professional_dues,Professional Dues,template,deleted,Industry association memberships
 Business,Business,software_saas,Software / SaaS,template,deleted,Business software subscriptions
 Business,Business,wages_paid,Wages Paid,template,deleted,Employee wages and salaries paid
