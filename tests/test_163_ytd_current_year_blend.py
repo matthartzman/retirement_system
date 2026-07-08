@@ -262,10 +262,12 @@ def _travel_plan(tmp_path, travel_actual: int):
     return input_dir
 
 
-def test_travel_floor_tops_up_when_run_rate_exceeds_budget(tmp_path):
-    """A Travel recurring extra below the client's annualized run rate gets a
-    current-year top-up so the cash flow 'Travel' column reflects actuals."""
-    input_dir = _travel_plan(tmp_path, travel_actual=9000)  # ~mid-year -> ~$18k annualized
+def test_travel_floor_tops_up_with_spent_plus_budgeted_remainder(tmp_path):
+    """Travel over its elapsed-to-date budget share gets a current-year top-up
+    equal to (spent-so-far + budget * remaining fraction) - budget, i.e. the real
+    cost of trips already taken. It is NOT annualized — a lumpy trip must not be
+    scaled to a full-year run rate."""
+    input_dir = _travel_plan(tmp_path, travel_actual=9000)
     c = _minimal_config(
         spend_base=50000.0,
         recurring_extras=[{
@@ -276,15 +278,17 @@ def test_travel_floor_tops_up_when_run_rate_exceeds_budget(tmp_path):
     overrides = compute_current_year_overrides(c, input_dir, today=date(2026, 7, 2))
 
     topup = overrides['ytd_blend_extra_topup'][2026]
-    # 9000 YTD at ~half a year annualizes to ~18000; budget 10000 -> ~8000 top-up.
-    assert 6500.0 < topup < 9500.0
+    # $9,000 spent vs a $10,000 budget at ~mid-year: blended = 9000 + 10000*~0.5
+    # = ~14,000, so top-up = ~4,000 (well below the ~8,000 an annualized rule
+    # would have produced).
+    assert 3400.0 < topup < 4600.0
     assert overrides['ytd_blend_applied']['extra_floor_topup_by_tracking_type']['Travel'] == topup
 
 
-def test_travel_floor_no_topup_when_budget_exceeds_run_rate(tmp_path):
-    """When budget already covers the annualized actual, no top-up is emitted
-    and the projection keeps the budgeted Travel amount."""
-    input_dir = _travel_plan(tmp_path, travel_actual=9000)  # ~$18k annualized
+def test_travel_floor_no_topup_when_budget_covers_spent_plus_remainder(tmp_path):
+    """When spent-so-far + budgeted remainder stays within budget, no top-up is
+    emitted and the projection keeps the budgeted Travel amount."""
+    input_dir = _travel_plan(tmp_path, travel_actual=9000)
     c = _minimal_config(
         spend_base=50000.0,
         recurring_extras=[{
@@ -292,6 +296,7 @@ def test_travel_floor_no_topup_when_budget_exceeds_run_rate(tmp_path):
             'tracking_type': 'Travel', 'is_home_improvement': False,
         }],
     )
+    # 9000 spent + 30000*~0.5 remainder = ~24,000 < 30,000 budget -> no top-up.
     overrides = compute_current_year_overrides(c, input_dir, today=date(2026, 7, 2))
     assert 'ytd_blend_extra_topup' not in overrides
 

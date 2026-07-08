@@ -59,15 +59,15 @@ from typing import Any
 
 try:
     from .ytd_tracking import ytd_summary, annual_spending_forecast
-    from .spending_tracker import ytd_core_spending_actual, ytd_actual_annualized_by_tracking_type
+    from .spending_tracker import ytd_core_spending_actual, ytd_actual_by_tracking_type
 except Exception:  # pragma: no cover - direct execution fallback
     from src.ytd_tracking import ytd_summary, annual_spending_forecast
-    from src.spending_tracker import ytd_core_spending_actual, ytd_actual_annualized_by_tracking_type
+    from src.spending_tracker import ytd_core_spending_actual, ytd_actual_by_tracking_type
 
 # Time-bounded discretionary tracking types whose current-year recurring extra
-# (the cash flow "Travel" column) gets floored at the client's annualized run
-# rate. Housing and Wellness are intentionally excluded: they project from
-# dedicated schedules (mortgage, premiums), not a simple budget.
+# (the cash flow "Travel" column) is floored at spent-so-far + the budgeted
+# remainder of the year. Housing and Wellness are intentionally excluded: they
+# project from dedicated schedules (mortgage, premiums), not a simple budget.
 _DISCRETIONARY_FLOOR_TRACKING_TYPES = ("Travel", "Large Discretionary")
 
 
@@ -238,16 +238,19 @@ def compute_current_year_overrides(c: dict[str, Any], root: str | Path, *, today
             overrides['ytd_blend_spend_override'] = {current_year: round(blended_core, 2)}
 
         # Discretionary floor: Travel and Large Discretionary recurring extras (the
-        # cash flow "Travel" column) are floored at the annualized actual for their
-        # tracking type. Emitted as a single current-year top-up the engine adds to
-        # rec_extra, so a group spending above budget shows its real run rate.
-        tt_annualized = None
+        # cash flow "Travel" column) are floored at spent-so-far plus the budgeted
+        # remainder of the year — max(budget, actual_to_date + budget * remaining
+        # fraction). This counts trips already taken at their real cost while
+        # budgeting the rest of the year, instead of annualizing a one-off trip to
+        # a full-year run rate (which massively overstated lumpy Travel). Emitted as
+        # a single current-year top-up the engine adds to rec_extra.
+        tt_actual = None
         if plan_root is not None:
             try:
-                tt_annualized = ytd_actual_annualized_by_tracking_type(plan_root, current_year)
+                tt_actual = ytd_actual_by_tracking_type(plan_root, current_year)
             except Exception:
-                tt_annualized = None
-        if tt_annualized:
+                tt_actual = None
+        if tt_actual:
             extras = c.get('recurring_extras') or []
             topup_by_tt: dict[str, float] = {}
             for tt in _DISCRETIONARY_FLOOR_TRACKING_TYPES:
@@ -256,9 +259,9 @@ def compute_current_year_overrides(c: dict[str, Any], root: str | Path, *, today
                     if e.get('tracking_type') == tt and not e.get('is_home_improvement')
                     and int(e.get('start_year') or current_year) <= current_year <= int(e.get('end_year') or current_year)
                 )
-                actual_cur = float(tt_annualized.get(tt, 0.0))
-                if actual_cur > budget_cur:
-                    topup_by_tt[tt] = round(actual_cur - budget_cur, 2)
+                blended = float(tt_actual.get(tt, 0.0)) + budget_cur * remaining_fraction
+                if blended > budget_cur:
+                    topup_by_tt[tt] = round(blended - budget_cur, 2)
             if topup_by_tt:
                 overrides['ytd_blend_extra_topup'] = {current_year: round(sum(topup_by_tt.values()), 2)}
                 blend_meta['extra_floor_topup_by_tracking_type'] = topup_by_tt
