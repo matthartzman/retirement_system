@@ -48,10 +48,11 @@ class RecommendationCompletionTests(unittest.TestCase):
         # client_spending_budget.csv (several category budgets adjusted, e.g.
         # entertainment/furniture/lawn lowered). This projection path does not apply
         # the current-year YTD blend, so the gift's effect here is just the $40k 2026
-        # lump; net of the re-synced budgets, terminal net worth settles to ~12.33M
-        # and lifetime tax to ~1.56M. Regenerate in a clean tree — the local
-        # output/pricing_diagnostics.json cache inflates balances and must be absent,
-        # as it is on CI.
+        # lump; net of the re-synced budgets, terminal net worth settles to ~11.32M
+        # and lifetime tax to ~1.46M. Regenerate from a clean `git worktree` checkout
+        # (no untracked local state) — a plain working-tree run can pick up gitignored
+        # local caches (e.g. output/pricing_diagnostics.json, live holdings snapshots)
+        # that inflate balances by $1M+ versus CI's committed-only checkout.
         #
         # These constants are now fully reproducible: tests/conftest.py pins
         # holdings pricing to OFFLINE, so starting balances come from the
@@ -67,8 +68,8 @@ class RecommendationCompletionTests(unittest.TestCase):
         self.assertEqual((rows[0]['year'], rows[-1]['year'], len(rows)), (2026, 2056, 31))
         # Platform/version differences (Windows/Python 3.14 vs Linux/3.11):
         # floating point precision variations ~0.03% tolerance
-        self.assertAlmostEqual(rows[-1]['total_nw'], 12_327_818.02, delta=5000.0)
-        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_559_857.30, delta=5000.0)
+        self.assertAlmostEqual(rows[-1]['total_nw'], 11_322_944.15, delta=5000.0)
+        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_457_473.34, delta=5000.0)
 
     def test_fixed_point_taxable_withdrawal_solver_runs_before_roth(self):
         # The fixed-point solver only runs when there's sufficient investment tax
