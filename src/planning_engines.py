@@ -1468,15 +1468,21 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
 
 
 def optimize_roth_conversion_strategy(c: dict) -> dict:
-    """Select the Roth conversion policy that best balances terminal wealth and lifetime tax.
+    """Score every Roth conversion candidate so the workbook can disclose alternatives.
 
     The objective is configurable but defaults to a balanced, after-tax terminal
     net-worth score less a lifetime-tax penalty. Each candidate still obeys the
     withdrawal engine's Roth-last rule.
+
+    When ``roth_policy`` requests optimization ('optimize', 'optimize_terminal_tax',
+    'terminal_tax_optimize', 'balanced_optimize'), the top-scoring candidate is
+    applied to ``c``. Otherwise the user's explicit policy is left untouched, but
+    the same candidate comparison is still computed and attached to
+    ``c['roth_optimization']`` so Sheet 11's score-component/rejection-reason
+    table is populated instead of showing headers with no rows.
     """
     requested_policy = str(c.get('roth_policy', '') or '').lower()
-    if requested_policy not in ('optimize', 'optimize_terminal_tax', 'terminal_tax_optimize', 'balanced_optimize'):
-        return c
+    auto_optimize = requested_policy in ('optimize', 'optimize_terminal_tax', 'terminal_tax_optimize', 'balanced_optimize')
 
     base = copy.deepcopy(c)
     base['roth_policy'] = 'none'
@@ -1498,19 +1504,53 @@ def optimize_roth_conversion_strategy(c: dict) -> dict:
     candidates.sort(key=lambda x: (x['score'], x['after_tax_terminal_nw'], -x['lifetime_tax']), reverse=True)
     best = candidates[0] if candidates else {'policy': 'none', 'label': 'No voluntary conversions'}
 
-    c['roth_policy_requested'] = requested_policy
-    c['roth_policy'] = best.get('policy', 'none')
-    c['roth_optimized_policy'] = c['roth_policy']
-    if best.get('target_rate') is not None:
-        c['roth_target_rate'] = float(best['target_rate'])
-        c['roth_brk'] = float(best['target_rate'])
-    if best.get('fixed_amount') is not None:
-        c['roth_fixed_amount'] = float(best['fixed_amount'])
+    if auto_optimize:
+        selected = best
+        c['roth_policy_requested'] = requested_policy
+        c['roth_policy'] = selected.get('policy', 'none')
+        c['roth_optimized_policy'] = c['roth_policy']
+        if selected.get('target_rate') is not None:
+            c['roth_target_rate'] = float(selected['target_rate'])
+            c['roth_brk'] = float(selected['target_rate'])
+        if selected.get('fixed_amount') is not None:
+            c['roth_fixed_amount'] = float(selected['fixed_amount'])
+    else:
+        # Explicit user-selected policy: keep it as configured. Identify the
+        # matching candidate (by policy/target_rate/fixed_amount) so the sheet
+        # can mark it "selected" and explain why the others were not used.
+        current_target = None if c.get('roth_target_rate') is None else float(c.get('roth_target_rate'))
+        current_fixed = None if c.get('roth_fixed_amount') is None else float(c.get('roth_fixed_amount'))
+        selected = next(
+            (cand for cand in candidates
+             if cand.get('policy') == requested_policy
+             and (cand.get('target_rate') is None or current_target is None or abs(cand['target_rate'] - current_target) < 1e-9)
+             and (cand.get('fixed_amount') is None or current_fixed is None or abs(cand['fixed_amount'] - current_fixed) < 1e-6)),
+            None,
+        )
+        if selected is None:
+            # Score the exact configured policy directly so it always has a row.
+            c2 = copy.deepcopy(base)
+            c2['roth_policy'] = requested_policy
+            rows = project(c2)
+            metrics = _roth_strategy_metrics(c2, rows)
+            selected = {
+                'label': f'Configured strategy ({requested_policy})',
+                'policy': requested_policy,
+                'strategy_code': requested_policy.upper(),
+                'target_rate': current_target,
+                'fixed_amount': current_fixed,
+                **metrics,
+            }
+            candidates.append(selected)
+            candidates.sort(key=lambda x: (x['score'], x['after_tax_terminal_nw'], -x['lifetime_tax']), reverse=True)
+        c['roth_policy_requested'] = requested_policy
+
     c['roth_optimization'] = {
         'requested_policy': requested_policy,
-        'selected_label': best.get('label', ''),
+        'auto_optimized': auto_optimize,
+        'selected_label': selected.get('label', ''),
         'selected_policy': c['roth_policy'],
-        'selected_strategy_code': best.get('strategy_code', c['roth_policy']),
+        'selected_strategy_code': selected.get('strategy_code', c['roth_policy']),
         'roth_bracket_strategy': str(c.get('roth_bracket_strategy', 'OPTIMIZER_CHOOSES') or 'OPTIMIZER_CHOOSES').upper(),
         'objective_mode': str(c.get('roth_objective_mode', 'BALANCED_RETIREMENT') or 'BALANCED_RETIREMENT').upper(),
         'estate_tax_objective_mode': str(c.get('estate_tax_objective_mode', 'BALANCED') or 'BALANCED').upper(),

@@ -111,7 +111,10 @@ def build_model_heard_assumptions(c: Mapping[str, Any], rows: Sequence[Mapping[s
 def prepare_config_from_sectioned_data(data: Mapping[str, Any], url_template: str = '', optimize_roth: bool = True) -> Dict[str, Any]:
     c = parse_client(data, url_template)
     c = ensure_engine_config(c, source='sectioned')
-    if optimize_roth and str(c.get('roth_policy', '')).lower() in ('optimize', 'optimize_terminal_tax', 'terminal_tax_optimize', 'balanced_optimize'):
+    if optimize_roth:
+        # Always score the Roth candidate set (even for an explicit user-selected
+        # policy) so the workbook's candidate comparison table is populated; the
+        # function only overrides roth_policy when it was actually requested.
         c = optimize_roth_conversion_strategy(c)
         c = ensure_engine_config(c, source='sectioned.optimized')
     return c
@@ -120,7 +123,7 @@ def prepare_config_from_sectioned_data(data: Mapping[str, Any], url_template: st
 def prepare_config_from_json(plan: Mapping[str, Any], url_template: str = '', optimize_roth: bool = True) -> Dict[str, Any]:
     c = build_plan_from_json(plan, url_template)
     c = ensure_engine_config(c, source='json')
-    if optimize_roth and str(c.get('roth_policy', '')).lower() in ('optimize', 'optimize_terminal_tax', 'terminal_tax_optimize', 'balanced_optimize'):
+    if optimize_roth:
         c = optimize_roth_conversion_strategy(c)
         c = ensure_engine_config(c, source='json.optimized')
     return c
