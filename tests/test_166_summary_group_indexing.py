@@ -3,8 +3,8 @@
 A group budgeted at the Summary level (e.g. Travel = $25,000/yr) must:
   * drive every future year at that amount indexed for inflation
     ($25,000 -> $25,625 in the next year at 2.5%), and
-  * in the present year show the higher of the budget and the client's
-    annualized run rate (the current-year top-up computed by the YTD blend).
+  * in the present year show the higher of the budget and spent-so-far plus the
+    budgeted remainder of the year (the current-year top-up from the YTD blend).
 
 These are exercised through the real projection engine (parse_client + project,
 the same pattern as test_119) so a regression in the resolver span, the engine's
@@ -82,15 +82,15 @@ def test_summary_group_amount_indexes_for_inflation_in_future_years():
 def test_present_year_uses_higher_of_budget_and_run_rate_topup():
     cfg, ps = _config_with_travel_summary()
     inf = float(cfg.get("inf") or 0.0)
-    # The YTD blend emits this current-year-only top-up when the annualized
-    # actual exceeds the budget (annualized $31,328 run rate vs $25,000 budget).
+    # The YTD blend emits this current-year-only top-up when spent-so-far plus
+    # the budgeted remainder of the year exceeds the budget.
     topup = 6328.70
     cfg["ytd_blend_extra_topup"] = {ps: topup}
     rows = project(cfg)
     by_year = {int(r["year"]): float(r["rec_extra"]) for r in rows}
 
-    # Present year = max(budget, run rate) = budget + top-up.
+    # Present year = budget + top-up (the higher-of result).
     assert abs(by_year[ps] - (TRAVEL_SUMMARY + topup)) < 0.01
     # The top-up is current-year only: the next year is still the indexed budget,
-    # not carrying the run-rate bump forward.
+    # not carrying the current-year bump forward.
     assert abs(by_year[ps + 1] - TRAVEL_SUMMARY * (1.0 + inf)) < 0.01
