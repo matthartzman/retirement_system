@@ -43,6 +43,13 @@ class RecommendationCompletionTests(unittest.TestCase):
         # (dentist, medical, gifts, health club, vitamins) and miscellaneous/uncategorized
         # cleared out after taxonomy changes. Terminal net worth increased to ~12.4M.
         #
+        # Item 143 (2026-07-08): one-time $40k family gift moved out of Core Spending.
+        # The 8 gift transactions were recategorized from Gifts - Family 12 (Core) to
+        # Large Gifts (Large Discretionary) and modeled as a significant_gifts one-time
+        # line for 2026, so the current-year blend no longer inflates 2026 core spending
+        # by annualizing the January lump. Less current-year spend reinvests as surplus,
+        # so terminal net worth rises to ~13.28M and lifetime tax to ~1.63M.
+        #
         # These constants are now fully reproducible: tests/conftest.py pins
         # holdings pricing to OFFLINE, so starting balances come from the
         # committed cache snapshot rather than live market data. Platform/version
@@ -57,8 +64,8 @@ class RecommendationCompletionTests(unittest.TestCase):
         self.assertEqual((rows[0]['year'], rows[-1]['year'], len(rows)), (2026, 2056, 31))
         # Platform/version differences (Windows/Python 3.14 vs Linux/3.11):
         # floating point precision variations ~0.03% tolerance
-        self.assertAlmostEqual(rows[-1]['total_nw'], 12_442_573.16, delta=5000.0)
-        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_532_170.93, delta=5000.0)
+        self.assertAlmostEqual(rows[-1]['total_nw'], 13_279_890.49, delta=5000.0)
+        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_628_819.02, delta=5000.0)
 
     def test_fixed_point_taxable_withdrawal_solver_runs_before_roth(self):
         # The fixed-point solver only runs when there's sufficient investment tax
