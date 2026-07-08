@@ -170,10 +170,23 @@ def build_roth_strategy_result(c: Mapping[str, Any], rows: Sequence[Mapping[str,
                 'post_conversion_agi': _f(r.get('agi')),
             })
     objective = str(ropt.get('objective_mode','BALANCED_RETIREMENT'))
-    why = (
-        f"The selected strategy is {selected_label}. It ranks first under {objective} after combining tax efficiency, "
-        "after-tax terminal wealth, Roth legacy value, estate-tax exposure, survivor tax risk, liquidity, and configured Medicare/tax guardrails."
-    )
+    auto_optimized = bool(ropt.get('auto_optimized', True))
+    is_top_ranked = bool(candidate_dicts) and str(sorted_candidates[0].get('label')) == selected_label
+    if auto_optimized:
+        why = (
+            f"The selected strategy is {selected_label}. It ranks first under {objective} after combining tax efficiency, "
+            "after-tax terminal wealth, Roth legacy value, estate-tax exposure, survivor tax risk, liquidity, and configured Medicare/tax guardrails."
+        )
+    elif is_top_ranked:
+        why = (
+            f"The selected strategy is {selected_label}, explicitly chosen by the user rather than the optimizer. "
+            f"It also happens to rank first under {objective} among the scored alternatives below."
+        )
+    else:
+        why = (
+            f"The selected strategy is {selected_label}, explicitly chosen by the user rather than the optimizer. "
+            f"The candidate table below shows how it compares to the optimizer-scored alternatives under {objective}."
+        )
     if selected_label.lower().startswith('no voluntary'):
         why += ' The optimizer preserved the forced conversion schedule but found no voluntary conversion candidate with a better total objective score.'
     explanation = (

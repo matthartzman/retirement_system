@@ -229,6 +229,7 @@ def build_sheet11(ws, c, rows):
     selected_label = contract.get('selected_strategy_name') or ropt.get('selected_label', c.get('roth_policy',''))
     target_rate = float(contract.get('target_bracket', ropt.get('target_bracket', c.get('roth_target_rate', 0.22))) or 0.22)
 
+    auto_optimized = bool(contract.get('auto_optimized', ropt.get('auto_optimized', True)))
     write_hdr(ws, r, 1, 'AUTO-OPTIMIZED ROTH CONVERSION STRATEGY — WHY THIS STRATEGY WAS SELECTED', NAVY, WHITE, span=14); r += 1
     write_cell(ws, r, 1, 'Selected Strategy', bold=True, bg=LGRAY)
     write_cell(ws, r, 2, selected_label, bold=True)
@@ -238,7 +239,9 @@ def build_sheet11(ws, c, rows):
     write_cell(ws, r, 8, target_rate, fmt=FMT_PCT)
     r += 1
     write_cell(ws, r, 1, 'Explanation', bold=True, bg=LGRAY)
-    why = contract.get('why_selected') or 'The optimizer selected the top total objective score from the candidate strategy table below.'
+    default_why = ('The optimizer selected the top total objective score from the candidate strategy table below.' if auto_optimized
+                   else 'This strategy was explicitly selected by the user rather than chosen by the optimizer. The table below shows how it compares to the optimizer-scored alternatives.')
+    why = contract.get('why_selected') or default_why
     write_cell(ws, r, 2, why, align='left')
     ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=14)
     ws.row_dimensions[r].height = 42
