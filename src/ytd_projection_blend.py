@@ -64,11 +64,15 @@ except Exception:  # pragma: no cover - direct execution fallback
     from src.ytd_tracking import ytd_summary, annual_spending_forecast
     from src.spending_tracker import ytd_core_spending_actual, ytd_actual_by_tracking_type
 
-# Time-bounded discretionary tracking types whose current-year recurring extra
-# (the cash flow "Travel" column) is floored at spent-so-far + the budgeted
-# remainder of the year. Housing and Wellness are intentionally excluded: they
-# project from dedicated schedules (mortgage, premiums), not a simple budget.
-_DISCRETIONARY_FLOOR_TRACKING_TYPES = ("Travel", "Large Discretionary")
+# Tracking types whose current-year recurring extra (the cash flow "Travel"
+# column) is floored at spent-so-far + the budgeted remainder of the year. Only
+# Travel qualifies: it is genuinely recurring, so blending real spend with the
+# budgeted remainder is meaningful. Large Discretionary is intentionally excluded
+# — it is inherently lumpy (weddings, large gifts, major purchases) and projects
+# exactly at its budgeted lump/line amounts; a run-rate floor for it is never
+# correct. Housing and Wellness are likewise excluded: they project from
+# dedicated schedules (mortgage, premiums), not a simple budget.
+_DISCRETIONARY_FLOOR_TRACKING_TYPES = ("Travel",)
 
 
 def _year_days(year: int) -> int:
@@ -237,13 +241,16 @@ def compute_current_year_overrides(c: dict[str, Any], root: str | Path, *, today
                     blended_core = core_annualized
             overrides['ytd_blend_spend_override'] = {current_year: round(blended_core, 2)}
 
-        # Discretionary floor: Travel and Large Discretionary recurring extras (the
-        # cash flow "Travel" column) are floored at spent-so-far plus the budgeted
-        # remainder of the year — max(budget, actual_to_date + budget * remaining
-        # fraction). This counts trips already taken at their real cost while
-        # budgeting the rest of the year, instead of annualizing a one-off trip to
-        # a full-year run rate (which massively overstated lumpy Travel). Emitted as
-        # a single current-year top-up the engine adds to rec_extra.
+        # Discretionary floor: Travel recurring extras (the cash flow "Travel"
+        # column) are floored at spent-so-far plus the budgeted remainder of the
+        # year — max(budget, actual_to_date + budget * remaining fraction). This
+        # counts trips already taken at their real cost while budgeting the rest of
+        # the year, instead of annualizing a one-off trip to a full-year run rate
+        # (which massively overstated lumpy Travel). Emitted as a single current-
+        # year top-up the engine adds to rec_extra. Large Discretionary is
+        # deliberately NOT floored here (see _DISCRETIONARY_FLOOR_TRACKING_TYPES):
+        # it is lumpy by nature and projects exactly at its budgeted lump/line
+        # amounts.
         tt_actual = None
         if plan_root is not None:
             try:
@@ -252,19 +259,37 @@ def compute_current_year_overrides(c: dict[str, Any], root: str | Path, *, today
                 tt_actual = None
         if tt_actual:
             extras = c.get('recurring_extras') or []
+            # One-time lumps modeled for the current year (by tracking type) are
+            # already projected as lump events; they must not also be blended into
+            # the run-rate floor. Large Discretionary is excluded from the floor
+            # entirely, so this now guards one-time Travel lines (a $30k January
+            # trip would otherwise be added on top of its own lump line).
+            lump_by_tt_cfg = c.get('lump_by_tracking_type') or {}
+            lump_cur_by_tt = (lump_by_tt_cfg.get(current_year)
+                              or lump_by_tt_cfg.get(str(current_year)) or {})
             topup_by_tt: dict[str, float] = {}
+            lump_excluded_by_tt: dict[str, float] = {}
             for tt in _DISCRETIONARY_FLOOR_TRACKING_TYPES:
                 budget_cur = sum(
                     float(e.get('amount') or 0.0) for e in extras
                     if e.get('tracking_type') == tt and not e.get('is_home_improvement')
                     and int(e.get('start_year') or current_year) <= current_year <= int(e.get('end_year') or current_year)
                 )
-                blended = float(tt_actual.get(tt, 0.0)) + budget_cur * remaining_fraction
+                actual_to_date = float(tt_actual.get(tt, 0.0))
+                lump_cur_tt = float(lump_cur_by_tt.get(tt, 0.0) or 0.0)
+                if lump_cur_tt > 0.0:
+                    # Remove the already-modeled one-time lump so only recurring
+                    # spend feeds the spent-so-far + budgeted-remainder floor.
+                    actual_to_date = max(0.0, actual_to_date - lump_cur_tt)
+                    lump_excluded_by_tt[tt] = round(lump_cur_tt, 2)
+                blended = actual_to_date + budget_cur * remaining_fraction
                 if blended > budget_cur:
                     topup_by_tt[tt] = round(blended - budget_cur, 2)
             if topup_by_tt:
                 overrides['ytd_blend_extra_topup'] = {current_year: round(sum(topup_by_tt.values()), 2)}
                 blend_meta['extra_floor_topup_by_tracking_type'] = topup_by_tt
+            if lump_excluded_by_tt:
+                blend_meta['extra_floor_lump_excluded_by_tracking_type'] = lump_excluded_by_tt
 
         blend_meta['flows_blended'] = 'ytd_blend_spend_override' in overrides
         blend_meta['ytd_end'] = summary.get('ytd_end')

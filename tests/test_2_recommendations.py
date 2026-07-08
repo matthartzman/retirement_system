@@ -43,6 +43,17 @@ class RecommendationCompletionTests(unittest.TestCase):
         # (dentist, medical, gifts, health club, vitamins) and miscellaneous/uncategorized
         # cleared out after taxonomy changes. Terminal net worth increased to ~12.4M.
         #
+        # Item 143 (2026-07-08): one-time $40k family gift modeled as a
+        # significant_gifts Large Discretionary line for 2026, plus an app re-sync of
+        # client_spending_budget.csv (several category budgets adjusted, e.g.
+        # entertainment/furniture/lawn lowered). This projection path does not apply
+        # the current-year YTD blend, so the gift's effect here is just the $40k 2026
+        # lump; net of the re-synced budgets, terminal net worth settles to ~11.32M
+        # and lifetime tax to ~1.46M. Regenerate from a clean `git worktree` checkout
+        # (no untracked local state) — a plain working-tree run can pick up gitignored
+        # local caches (e.g. output/pricing_diagnostics.json, live holdings snapshots)
+        # that inflate balances by $1M+ versus CI's committed-only checkout.
+        #
         # These constants are now fully reproducible: tests/conftest.py pins
         # holdings pricing to OFFLINE, so starting balances come from the
         # committed cache snapshot rather than live market data. Platform/version
@@ -57,8 +68,8 @@ class RecommendationCompletionTests(unittest.TestCase):
         self.assertEqual((rows[0]['year'], rows[-1]['year'], len(rows)), (2026, 2056, 31))
         # Platform/version differences (Windows/Python 3.14 vs Linux/3.11):
         # floating point precision variations ~0.03% tolerance
-        self.assertAlmostEqual(rows[-1]['total_nw'], 12_442_573.16, delta=5000.0)
-        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_532_170.93, delta=5000.0)
+        self.assertAlmostEqual(rows[-1]['total_nw'], 11_322_944.15, delta=5000.0)
+        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_457_473.34, delta=5000.0)
 
     def test_fixed_point_taxable_withdrawal_solver_runs_before_roth(self):
         # The fixed-point solver only runs when there's sufficient investment tax

@@ -57,6 +57,7 @@ Garbage,category,1,50,garbage,seed
 Gas & Electric,category,1,50,gas_electric,seed
 Gifts - Family 12,category,1,50,gifts_family_12,seed
 Gifts - Other,category,1,50,gifts_other,seed
+Large Gifts,category,1,60,significant_gifts,user
 Groceries,category,1,50,groceries,seed
 Hair/Make-up,category,1,50,hair_make_up,seed
 Health Club,category,1,50,health_club,seed
