@@ -32,7 +32,7 @@ def build_sheet6(ws, c, rows):
     #   44: H IRA RMD   45: H IRA Elec  46: H IRA Conv  47: H IRA Outflow
     #   48: W IRA RMD   49: W IRA Elec  50: W IRA Conv  51: W IRA Outflow
     #   52: HELOC Draw  53: HELOC Bal   54: Σ Cash Draws
-    # 53: SURPLUS   54: Total NW (balance check)
+    # 54: Total NW (balance check) — signed surplus/shortfall is Cash Bridge Gap, above
 
     def _pos(v):
         try:
@@ -74,7 +74,7 @@ def build_sheet6(ws, c, rows):
         'H_Trust_WD', 'W_Trust_WD', 'Σ_Trust', 'HSA_WD', 'H_Roth_WD', 'W_Roth_WD', 'Σ_Roth',
         'H_IRA_RMD', 'H_IRA_Elec', 'H_IRA_Conv', 'H_IRA_Tot',
         'W_IRA_RMD', 'W_IRA_Elec', 'W_IRA_Conv', 'W_IRA_Tot',
-        'HELOC_Draw', 'HELOC_Bal', 'Σ_WD', 'Surplus', 'NW_Check'
+        'HELOC_Draw', 'HELOC_Bal', 'Σ_WD', 'NW_Check'
     ]:
         COL[key] = col; col += 1
     spending_span = COL['Σ_Spend'] - COL['Spend_Base'] + 1
@@ -90,7 +90,7 @@ def build_sheet6(ws, c, rows):
     write_hdr(ws, 1, COL['H_Trust_WD'],'ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS', GREEN, WHITE, span=withdrawal_span)
     # Roth conversions are account outflows/taxable, but are intentionally not
     # included in the cash-draw subtotal used by the cash bridge.
-    write_hdr(ws, 1, COL['Surplus'],  'SURPLUS',      NAVY,  WHITE, span=2)
+    write_hdr(ws, 1, COL['NW_Check'], 'NET WORTH',    NAVY,  WHITE, span=1)
 
     # ── Column headers row 2 ─────────────────────────────────────────────────
     SUBTOTAL_COLS = {COL['Σ_Inc'], COL['Σ_Spend'], COL['Σ_Trust'],
@@ -139,7 +139,7 @@ def build_sheet6(ws, c, rows):
         (COL['W_IRA_Conv'], f'{_n2} IRA Conv'),   (COL['W_IRA_Tot'],  f'{_n2} IRA Outflow'),
         (COL['HELOC_Draw'], 'HELOC Draw'),
         (COL['HELOC_Bal'],  'HELOC Bal'),    (COL['Σ_WD'],       'Σ Cash Draws'),
-        (COL['Surplus'],    'Surplus'),      (COL['NW_Check'],   'NW Check'),
+        (COL['NW_Check'],   'NW Check'),
     ]
     for col, hdr in hdr2:
         is_sub = col in SUBTOTAL_COLS
@@ -290,7 +290,6 @@ def build_sheet6(ws, c, rows):
             COL['HELOC_Draw']:row.get('heloc_draw', 0),
             COL['HELOC_Bal']: row.get('heloc_balance', 0),
             COL['Σ_WD']:      wd_total,
-            COL['Surplus']:   row['surplus'],
             COL['NW_Check']:  row['total_nw'],
         }
         for col_idx, val in vals.items():
