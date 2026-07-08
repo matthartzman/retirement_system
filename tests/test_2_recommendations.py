@@ -43,12 +43,15 @@ class RecommendationCompletionTests(unittest.TestCase):
         # (dentist, medical, gifts, health club, vitamins) and miscellaneous/uncategorized
         # cleared out after taxonomy changes. Terminal net worth increased to ~12.4M.
         #
-        # Item 143 (2026-07-08): one-time $40k family gift moved out of Core Spending.
-        # The 8 gift transactions were recategorized from Gifts - Family 12 (Core) to
-        # Large Gifts (Large Discretionary) and modeled as a significant_gifts one-time
-        # line for 2026, so the current-year blend no longer inflates 2026 core spending
-        # by annualizing the January lump. Less current-year spend reinvests as surplus,
-        # so terminal net worth rises to ~13.28M and lifetime tax to ~1.63M.
+        # Item 143 (2026-07-08): one-time $40k family gift modeled as a
+        # significant_gifts Large Discretionary line for 2026, plus an app re-sync of
+        # client_spending_budget.csv (several category budgets adjusted, e.g.
+        # entertainment/furniture/lawn lowered). This projection path does not apply
+        # the current-year YTD blend, so the gift's effect here is just the $40k 2026
+        # lump; net of the re-synced budgets, terminal net worth settles to ~12.33M
+        # and lifetime tax to ~1.56M. Regenerate in a clean tree — the local
+        # output/pricing_diagnostics.json cache inflates balances and must be absent,
+        # as it is on CI.
         #
         # These constants are now fully reproducible: tests/conftest.py pins
         # holdings pricing to OFFLINE, so starting balances come from the
@@ -64,8 +67,8 @@ class RecommendationCompletionTests(unittest.TestCase):
         self.assertEqual((rows[0]['year'], rows[-1]['year'], len(rows)), (2026, 2056, 31))
         # Platform/version differences (Windows/Python 3.14 vs Linux/3.11):
         # floating point precision variations ~0.03% tolerance
-        self.assertAlmostEqual(rows[-1]['total_nw'], 13_279_890.49, delta=5000.0)
-        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_628_819.02, delta=5000.0)
+        self.assertAlmostEqual(rows[-1]['total_nw'], 12_327_818.02, delta=5000.0)
+        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_559_857.30, delta=5000.0)
 
     def test_fixed_point_taxable_withdrawal_solver_runs_before_roth(self):
         # The fixed-point solver only runs when there's sufficient investment tax
