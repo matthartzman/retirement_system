@@ -192,7 +192,18 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
     for cid, rows in line_budgets.items():
         if cid in group_mode_categories and cid in cat_budgets:
             continue
-        info = flat.get(cid, {})
+        info = flat.get(cid)
+        if not info:
+            # A line whose key is not an active taxonomy category — a summary
+            # rollup row (travel_total / healthcare_total / housing_total, which
+            # merely restate domain budgets already projected via their own
+            # columns) or an orphaned line whose category was deleted — must not
+            # be projected. Without this guard it falls through to the
+            # "Large Discretionary" default below and invents phantom spend
+            # (e.g. $57,600/yr of Large Discretionary from three summary rows).
+            # Mirrors the category-budget loop above, which already skips
+            # unmapped keys.
+            continue
         tt = info.get("tracking_type") or "Large Discretionary"
         grp = info.get("group") or "Other"
         for row in rows:
