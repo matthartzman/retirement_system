@@ -54,6 +54,12 @@ class RecommendationCompletionTests(unittest.TestCase):
         # local caches (e.g. output/pricing_diagnostics.json, live holdings snapshots)
         # that inflate balances by $1M+ versus CI's committed-only checkout.
         #
+        # Item 165 (2026-07-08): DAF (Donor Advised Fund) feature activated
+        # (input/client_assets.csv `enabled` flipped FALSE->TRUE). DAF contributions
+        # reduce taxable income/AGI which lowers lifetime tax and, combined with the
+        # tax savings compounding as reinvested surplus, raises terminal net worth to
+        # ~12.24M and lifetime tax to ~1.55M.
+        #
         # These constants are now fully reproducible: tests/conftest.py pins
         # holdings pricing to OFFLINE, so starting balances come from the
         # committed cache snapshot rather than live market data. Platform/version
@@ -68,8 +74,8 @@ class RecommendationCompletionTests(unittest.TestCase):
         self.assertEqual((rows[0]['year'], rows[-1]['year'], len(rows)), (2026, 2056, 31))
         # Platform/version differences (Windows/Python 3.14 vs Linux/3.11):
         # floating point precision variations ~0.03% tolerance
-        self.assertAlmostEqual(rows[-1]['total_nw'], 11_322_944.15, delta=5000.0)
-        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_457_473.34, delta=5000.0)
+        self.assertAlmostEqual(rows[-1]['total_nw'], 12_240_766.96, delta=5000.0)
+        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_553_887.13, delta=5000.0)
 
     def test_fixed_point_taxable_withdrawal_solver_runs_before_roth(self):
         # The fixed-point solver only runs when there's sufficient investment tax

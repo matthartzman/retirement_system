@@ -48,6 +48,16 @@ def run_deterministic_projection_stage(c):
         if acct and abs(amount) > 1e-9:
             target[acct] = target.get(acct, 0.0) + amount
 
+    def _tag_deposit_source(row, acct, source, amount):
+        """Record a human-readable source label for a deposit, alongside the
+        existing flat `_account_deposits` total (which remains unchanged and
+        is still the authoritative per-account aggregate for reconciliation).
+        """
+        amount = float(amount or 0.0)
+        if acct and abs(amount) > 1e-9:
+            sources = row.setdefault('_account_deposit_sources', {})
+            sources.setdefault(acct, []).append({'source': source, 'amount': amount})
+
     def _mortgage_payment_and_balance(principal, annual_rate, year_index, term_years=30):
         """Return annual P&I payment and end-of-year balance for a fixed mortgage."""
         principal = max(0.0, float(principal or 0.0))
@@ -374,6 +384,7 @@ def run_deterministic_projection_stage(c):
         row = {'year': year, 'h_age': h_age, 'w_age': w_age, 'filing': filing}
         row['_account_opening'] = {acct_id: float(bal.get(acct_id, 0.0) or 0.0) for acct_id in c['all_acct_ids']}
         row['_account_deposits'] = {}
+        row['_account_deposit_sources'] = {}
         row['_account_transfers_in'] = {}
         row['_account_transfers_out'] = {}
         row['_account_conversions_in'] = {}
@@ -463,6 +474,7 @@ def run_deterministic_projection_stage(c):
             _startup_acct = _aa.first_taxable(c)
             _aa.deposit(bal, _startup_acct, proceeds)
             _add_account_flow(row['_account_deposits'], _startup_acct, proceeds)
+            _tag_deposit_source(row, _startup_acct, 'Startup Equity Sale', proceeds)
             startup = 0.0
             row['startup_sale_proceeds'] = proceeds
         elif startup > 0 and (not sale_yr or year < sale_yr):
@@ -518,6 +530,7 @@ def run_deterministic_projection_stage(c):
                 acct = _aa.first_taxable(c)
             _aa.deposit(bal, acct, net_proceeds)
             _add_account_flow(row['_account_deposits'], acct, net_proceeds)
+            _tag_deposit_source(row, acct, 'Home Sale Proceeds', net_proceeds)
             # These dollars already had their gain taxed → stepped-up basis.
             # Track as basis-free so future trust draws don't tax them again.
             if acct in bal_basis_free:
@@ -654,6 +667,7 @@ def run_deterministic_projection_stage(c):
             _k401_acct = _aa.first_account(c, owner_idx=0, acct_type='401k') or _aa.first_pretax(c, 0)
             _aa.deposit(bal, _k401_acct, k401_contrib)
             _add_account_flow(row['_account_deposits'], _k401_acct, k401_contrib)
+            _tag_deposit_source(row, _k401_acct, '401(k) Contribution', k401_contrib)
         row['k401_contrib'] = k401_contrib
 
         # workplace plan rollover after contributions end
@@ -682,6 +696,7 @@ def run_deterministic_projection_stage(c):
             _hsa_acct = _aa.first_hsa(c, 0)
             _aa.deposit(bal, _hsa_acct, hsa_contrib)
             _add_account_flow(row['_account_deposits'], _hsa_acct, hsa_contrib)
+            _tag_deposit_source(row, _hsa_acct, 'HSA Contribution', hsa_contrib)
         row['hsa_contrib'] = hsa_contrib
 
         # Social Security.  Benefits are entered as age-70 amounts; honor
@@ -1582,6 +1597,7 @@ def run_deterministic_projection_stage(c):
             _surplus_target = _aa.first_taxable(c) or (_aa.first_account(c) if c.get('all_acct_ids') else None)
             bal[_surplus_target] = bal.get(_surplus_target, 0) + surplus
             _add_account_flow(row['_account_deposits'], _surplus_target, surplus)
+            _tag_deposit_source(row, _surplus_target, 'Year-End Surplus Sweep', surplus)
         row['surplus'] = surplus
 
         # total_tax already includes current-year LTCG and NIIT from the fixed-point pass above.

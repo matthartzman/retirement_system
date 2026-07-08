@@ -67,6 +67,5 @@ def build_sheet7(ws, c, rows):
     for col in range(1, 15):
         ws.column_dimensions[get_column_letter(col)].width = 14
 
-    auto_fit_columns(ws)
     qc('7. Lifetime Tax', 'Lifetime totals present', True,
        f"Total: ${lifetime_total:,.0f}")

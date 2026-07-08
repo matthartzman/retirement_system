@@ -232,6 +232,28 @@
 
 # Golden Master Changelog
 
+## 2026-07-08 — DAF activation baseline
+
+Item 165: the Donor Advised Fund feature was activated (`input/client_assets.csv`
+`enabled` flipped FALSE -> TRUE). DAF contributions reduce taxable income/AGI,
+which lowers lifetime tax and lets more of the tax savings compound as
+reinvested surplus, raising terminal net worth. Re-pinned golden-master anchors
+to the new DAF-on baseline (`RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS=1`):
+
+- `tests/test_2_recommendations.py` sample projection: terminal NW
+  11,322,944.15 -> 12,240,766.96; lifetime tax 1,457,473.34 -> 1,553,887.13.
+- `tests/fixtures/golden_master_engine_cases.json` (all fields regenerated via
+  `_load_engine_config()`/`_project_metrics()` for each stress case):
+  - baseline_balanced_couple terminal NW: 11,302,319.79 -> 12,271,511.44
+  - no_voluntary_roth_policy terminal NW: 11,322,944.15 -> 12,240,766.96
+  - high_spending_pressure terminal NW: 9,650,443.84 -> 10,507,510.24
+  - lower_return_environment terminal NW: 6,834,296.87 -> 7,301,149.28
+  - early_survivor_compression terminal NW: 9,660,911.67 -> 10,541,882.92
+- Regenerated `input/plan_data_manifest.json` via
+  `python tools/check_plan_data_sync.py --write` to resync `client_assets.csv`
+  (DAF flag) and `client_spending.csv` (pre-existing drift unrelated to DAF,
+  cleaned up in the same pass).
+
 ## 2026-06-10 — v8.3 expert-assessment remediation
 
 The sample-plan golden masters were recertified after implementing the independent expert-assessment recommendations that materially change plan arithmetic:

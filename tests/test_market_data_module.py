@@ -77,11 +77,28 @@ def _hard_reset_default_provider():
     provider.alpha_vantage_api_key = None
 
 
+_AMBIENT_API_KEY_ENV_VARS = (
+    "RETIREMENT_SYSTEM_FMP_API_KEY",
+    "FMP_API_KEY",
+    "FINANCIAL_MODELING_PREP_API_KEY",
+    "RETIREMENT_SYSTEM_ALPHA_VANTAGE_API_KEY",
+    "ALPHA_VANTAGE_API_KEY",
+)
+
+
 @pytest.fixture(autouse=True)
 def _isolated_market_data_state(monkeypatch):
     # Never allow this test file to hit the network even if a test forgets to
     # set the env var itself.
     monkeypatch.setenv("RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS", "1")
+    # refresh_api_keys() falls back to these env vars whenever the provider's
+    # explicit key is empty. If the host machine/shell happens to have a real
+    # (non-placeholder) FMP/Alpha Vantage key set ambiently, it silently leaks
+    # into "unconfigured key" tests and makes them order- and
+    # environment-dependent. Clear them for the duration of this test file so
+    # tests only see keys they explicitly set via monkeypatch.setenv/configure_api_keys.
+    for _name in _AMBIENT_API_KEY_ENV_VARS:
+        monkeypatch.delenv(_name, raising=False)
     _hard_reset_default_provider()
     yield
     _hard_reset_default_provider()

@@ -2,7 +2,8 @@
 
 Displays year-by-year cash flow analysis including:
 - Income streams (earned, Social Security, pension, annuities, RMDs, note P+I)
-- Tax & RMD columns (Roth conversions, AGI, taxable income, federal/state taxes, NIIT, IRMAA)
+- Tax & RMD columns (Roth conversions, AGI, taxable income, federal/state taxes, NIIT, IRMAA,
+  payroll tax, LTCG tax)
 - Spending breakdown (base, housing detail, wellness detail, travel, other, HELOC P&I)
 - Account-level withdrawals (trust, HSA, Roth, IRA by type with collapsible detail)
 - Cash bridge (income vs. expense gap analysis)
@@ -23,8 +24,8 @@ def build_sheet6(ws, c, rows):
     # Column layout:
     # 1-3: Identifiers (Year, H Age, W Age)
     # 4-14: INCOME (Earned, H SS, W SS, Pension, W Sgl, W Jnt, H Sgl, H Jnt, Note, RMD, Σ)
-    # 15-21: TAX (Roth Conv, AGI, Taxable, Fed, State, NIIT, IRMAA)
-    # 22-36: SPENDING (Base, Housing detail, Wellness detail, Travel, Other, HELOC P&I, Σ)
+    # 15-23: TAX (Roth Conv, AGI, Taxable, Fed, State, NIIT, IRMAA, Payroll, LTCG)
+    # 24-38: SPENDING (Base, Housing detail, Wellness detail, Travel, Other, HELOC P&I, Σ)
     # 37-52: WITHDRAWALS — account level
     #   37: H Trust WD   38: W Trust WD   39: Σ Trust
     #   40: HSA WD
@@ -49,8 +50,9 @@ def build_sheet6(ws, c, rows):
         'Earned': 4, 'H_SS': 5, 'W_SS': 6, 'Pension': 7,
         'W_Sgl': 8, 'W_Jnt': 9, 'H_Sgl': 10, 'H_Jnt': 11, 'Note': 12, 'RMD': 13, 'Σ_Inc': 14,
         'Roth_Conv': 15, 'AGI': 16, 'Taxable': 17, 'Fed': 18, 'State': 19, 'NIIT': 20, 'IRMAA': 21,
+        'Payroll': 22, 'LTCG': 23,
     }
-    col = 22
+    col = 24
     for key in [
         'Spend_Base', 'Housing', 'Mort_PI', 'Prop_Tax', 'Housing_Utilities',
         'Home_Imp', 'Housing_Maintenance', 'Housing_Other'
@@ -84,7 +86,7 @@ def build_sheet6(ws, c, rows):
     # ── Group header row 1 ────────────────────────────────────────────────────
     write_hdr(ws, 1, COL['Year'],     'Identifiers', DGRAY, WHITE, span=3)
     write_hdr(ws, 1, COL['Earned'],   'INCOME',       BLUE,  WHITE, span=11)
-    write_hdr(ws, 1, COL['Roth_Conv'],'TAX & RMD',   ORANGE,WHITE, span=7)
+    write_hdr(ws, 1, COL['Roth_Conv'],'TAX & RMD',   ORANGE,WHITE, span=9)
     write_hdr(ws, 1, COL['Spend_Base'],'SPENDING',   RED,   WHITE, span=spending_span)
     write_hdr(ws, 1, COL['Total_Tax'], 'CASH BRIDGE', NAVY, WHITE, span=cash_bridge_span)
     write_hdr(ws, 1, COL['H_Trust_WD'],'ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS', GREEN, WHITE, span=withdrawal_span)
@@ -111,6 +113,7 @@ def build_sheet6(ws, c, rows):
         (COL['Taxable'],    'Taxable Inc'),  (COL['Fed'],        'Fed Tax'),
         (COL['State'],      'State Tax'),    (COL['NIIT'],       'NIIT'),
         (COL['IRMAA'],      'IRMAA'),
+        (COL['Payroll'],    'Payroll Tax'), (COL['LTCG'],       'LTCG Tax'),
         (COL['Spend_Base'], 'Spend Base'),   (COL['Housing'],    'Housing'),
         (COL['Mort_PI'],    'Mortgage P&I'), (COL['Prop_Tax'],   'Property Tax'),
         (COL['Housing_Utilities'], 'Utilities'), (COL['Home_Imp'], 'Home Impr'),
@@ -124,7 +127,7 @@ def build_sheet6(ws, c, rows):
         (COL['Travel'],     'Travel'),
         (COL['Other'],      'Other'),        (COL['HELOC_PAI'],  'HELOC P&I'),
         (COL['Σ_Spend'],    'Σ Spend'),
-        (COL['Total_Tax'], 'Taxes'),
+        (COL['Total_Tax'], 'Total Taxes'),
         (COL['Total_Cash_Need'], 'Total Cash Need'), (COL['Income_Funding'], 'Income Funding'),
         (COL['Portfolio_Income'], 'Portfolio Income'), (COL['Other_Funding'], 'Other Funding'),
         (COL['Req_Portfolio_Draws'], 'Required Portfolio Cash Draws'),
@@ -146,6 +149,13 @@ def build_sheet6(ws, c, rows):
         bg = LGRAY if is_sub else DGRAY
         fg = '000000' if is_sub else WHITE
         write_hdr(ws, 2, col, hdr, bg, fg, size=9)
+
+    # Add comment to Total Taxes header explaining its composition
+    total_tax_cell = ws.cell(row=2, column=COL['Total_Tax'])
+    total_tax_cell.comment = Comment(
+        "Equals the sum of Fed Tax, State Tax, NIIT, IRMAA, Payroll Tax, and LTCG Tax shown in the Tax & RMD section.",
+        "Report Generator"
+    )
 
     # ── Collapsible column groups ─────────────────────────────────────────────
     # summaryRight=False: summary col appears LEFT of its detail cols
@@ -215,7 +225,7 @@ def build_sheet6(ws, c, rows):
         required_portfolio_draws = (trust_total + row.get('hsa_wd', 0) + roth_total +
                                     row.get('h_ira_elective', 0) + row.get('w_ira_elective', 0))
         wd_total        = required_portfolio_draws + row.get('rmd_h', 0) + row.get('rmd_w', 0)
-        total_tax       = row.get('total_tax', row.get('fed_tax', 0) + row.get('state_tax', 0) + row.get('niit', 0) + row.get('irmaa', 0))
+        total_tax       = row.get('total_tax', row.get('fed_tax', 0) + row.get('state_tax', 0) + row.get('niit', 0) + row.get('irmaa', 0) + row.get('payroll_tax', 0) + row.get('ltcg_tax', 0))
         total_cash_need = row.get('total_cash_need', spend_total + total_tax)
         income_funding  = inc_total
         portfolio_income = row.get('portfolio_income_total', 0)
@@ -244,6 +254,8 @@ def build_sheet6(ws, c, rows):
             COL['State']:     row['state_tax'],
             COL['NIIT']:      row['niit'],
             COL['IRMAA']:     row.get('irmaa', 0),
+            COL['Payroll']:   row.get('payroll_tax', 0),
+            COL['LTCG']:      row.get('ltcg_tax', 0),
             COL['Spend_Base']:  row['spend_base_yr'],
             COL['Housing']:     row.get('housing_total_yr', row.get('mortgage', 0) + row.get('rent_yr', 0)),
             COL['Mort_PI']:     row.get('mortgage_payment_yr', 0),
@@ -300,7 +312,6 @@ def build_sheet6(ws, c, rows):
             write_cell(ws, r, col_idx, val, fmt=fmt, bold=is_sub, bg=bg,
                        align='right' if col_idx > 3 else 'center')
 
-    auto_fit_columns(ws, min_width=9, max_width=18)
 
     # ── Home Sale Event Callout ───────────────────────────────────────────────
     if c.get('home_sale_yr') and c['home_sale_yr'] > 0:

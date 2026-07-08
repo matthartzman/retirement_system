@@ -1001,7 +1001,6 @@ def build_sheet1(ws, c, rows, mc_data):
         ws.merge_cells(start_row=r,start_column=1,end_row=r,end_column=6)
         r+=1
 
-    auto_fit_columns(ws)
     qc('1. Executive Summary','Headline numbers present', True, f"NW: ${terminal_nw:,.0f}")
 
 
@@ -1216,7 +1215,6 @@ def build_sheet2(ws, c, rows):
         write_cell(ws, r, 2, top, fmt=FMT_DOLLAR)
         r += 1
 
-    auto_fit_columns(ws)
     qc('2. Assumptions', 'All major parameters in editable cells', True, '')
 
 
@@ -1320,7 +1318,6 @@ def build_sheet3(ws, c, rows):
         for sym, shares in holdings.items()
     )
 
-    auto_fit_columns(ws)
     _projection_y0_nw = rows[0].get('total_nw', 0) if rows else 0
     _nw_reconciled = abs(net_worth - _projection_y0_nw) < 1.0
     qc('3. Balance Sheet', 'Total assets - liabilities = net worth and reconciles to projection Y0', _nw_reconciled,
@@ -2678,7 +2675,6 @@ def build_sheet4(ws, c):
         r += 1
         r += 1  # blank row
 
-    auto_fit_columns(ws)
 
 
 

@@ -84,8 +84,11 @@ def build_preflight_payload(
             if meta.get("exists") and float(meta.get("mtime") or 0) < db_mtime:
                 stale_outputs.append(name)
         if stale_outputs:
-            warnings.append("Saved plan data is newer than one or more report outputs.")
-            recommendations.append("Rebuild reports from the saved local database snapshot.")
+            # Not a real anomaly: the DB is touched by nearly every user edit,
+            # so it is almost always newer than the last build's outputs until
+            # the next manual rebuild. Surface this as a recommendation (the
+            # "Next" informational channel), not a scary warning.
+            recommendations.append("Saved plan data is newer than one or more report outputs. Rebuild reports from the saved local database snapshot.")
 
     if artifacts["summary"].get("exists"):
         try:
@@ -137,7 +140,7 @@ def build_preflight_payload(
         try:
             diag = json.loads(pricing_diag_path.read_text(encoding="utf-8"))
             pricing_mode = str(diag.get("pricing_mode") or "unknown")
-            failed = diag.get("failed_symbols") or diag.get("failures") or []
+            failed = diag.get("failure_symbols") or diag.get("failures") or []
             # fallback_warning_symbols reflects symbols that actually resolved to a
             # degraded source (cache/stale/cost-basis); fallback_symbols is just the
             # configured cost-basis pool available for fallback, which is not the
@@ -147,8 +150,13 @@ def build_preflight_payload(
             if failed:
                 warnings.append(f"Market pricing diagnostics contain {len(failed)} failed symbol(s).")
             if fallback:
-                pricing_note = str(diag.get("pricing_source_note") or "").strip()
-                warnings.append(pricing_note or f"Market pricing used fallback values for {len(fallback)} symbol(s).")
+                # pricing_source_note describes the OVERALL/primary pricing mode
+                # (e.g. "Live provider quotes were used...") and is often fine
+                # even when a handful of unrelated symbols fell back to cache or
+                # cost basis. Using that overall note here as a "warning" is
+                # misleading, so report the specific fallback symbol count as an
+                # informational recommendation instead of a warning.
+                recommendations.append(f"Market pricing used fallback values for {len(fallback)} symbol(s): {', '.join(fallback[:10])}{'...' if len(fallback) > 10 else ''}.")
         except Exception:
             warnings.append("Pricing diagnostics could not be parsed.")
     else:

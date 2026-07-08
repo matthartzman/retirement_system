@@ -50,7 +50,6 @@ def build_sheet9(ws, c, rows):
     ws.column_dimensions['A'].width = 32
     ws.column_dimensions['B'].width = 80
 
-    auto_fit_columns(ws)
 
     # S-Corp vs LLC comparison section
     r += 1
@@ -215,7 +214,6 @@ def build_sheet10(ws, c, rows):
 
     for col in range(1, 11):
         ws.column_dimensions[get_column_letter(col)].width = 16
-    auto_fit_columns(ws)
     qc('10. Social Security', 'Claim ages 62-70 swept by spouse against full projection', True, '')
 
 def build_sheet11(ws, c, rows):
@@ -375,7 +373,6 @@ def build_sheet11(ws, c, rows):
         ws.row_dimensions[r].height = 32
         r += 1
 
-    auto_fit_columns(ws, min_width=9, max_width=24)
     ws.column_dimensions['B'].width = 14
     ws.column_dimensions['C'].width = 28
     ws.column_dimensions['K'].width = 20
@@ -441,8 +438,6 @@ def build_sheet12(ws, c, rows):
         write_cell(ws, r, 2, detail)
         ws.merge_cells(start_row=r,start_column=2,end_row=r,end_column=6)
         r += 1
-
-    auto_fit_columns(ws)
 
     # ── DAF Optimization ─────────────────────────────────────────────────────
     r += 2
@@ -732,7 +727,6 @@ def build_sheet13(ws, c, rows):
         'col_maintenance).', fg='888888')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6)
 
-    auto_fit_columns(ws)
     qc('13. State Residency', f'{len(STATE_TAX_RULES)} states compared with retirement-income treatment', True,
        f'retirement={ret_pct:.0f}% of AGI')
 
@@ -855,7 +849,6 @@ def build_sheet14(ws, c, rows):
         ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=4)
         r += 1
 
-    auto_fit_columns(ws)
     qc('14. Estate Plan', 'Federal/IL tax, QTIP, Credit Shelter documented', True,
        f"IL est. tax: ${il_tax if c['model_state_est'] else 0:,.0f}, CS saves ~${cs_tax_saved:,.0f}")
 

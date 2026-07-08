@@ -132,23 +132,52 @@ def build_sheet5(ws, c, rows):
     # Data rows
     for i, row in enumerate(rows):
         r = i + 3
+        # Current-plan-year reconciliation with the Asset Allocation sheet.
+        # `row[aid]` is the engine's *year-end* projected balance (after a full
+        # year of growth/contributions/withdrawals). For the current plan year
+        # that diverges from "Holdings Detail by Account" on sheet 4, which values
+        # actual current share counts at live prices. The engine already captures
+        # the plan-start balance in `row['_account_opening']`, seeded from the very
+        # same positions x live-price basis (data_io c['balances']). So for the
+        # current year only we display those opening balances for the individual
+        # investment accounts, making both sheets agree on "today's" value.
+        # Projected years (2027+) are untouched and keep their year-end balances.
+        _opening = row.get('_account_opening') if row.get('year') == c.get('plan_start') else None
+
+        def _acct_bal(aid, _row=row, _opening=_opening):
+            if _opening is not None and aid in _opening:
+                return _opening.get(aid, 0)
+            return _row.get(aid, 0)
+
         ann_total  = (row['pension_pv']+row['w_single_pv']+row['w_joint_pv']+
                       row['h_single_pv']+row['h_joint_pv'])
         pretax_accounts = [aid for aid, _label in pretax_slots if aid]
         roth_accounts = [aid for aid, _label in roth_slots if aid]
         trust_accounts = [aid for aid, _label in trust_slots if aid]
         hsa_accounts = [aid for aid, _label in hsa_slots if aid]
-        pretax_vals = [row.get(a, 0) for a in pretax_accounts] + [0, 0, 0]
-        roth_vals = [row.get(a, 0) for a in roth_accounts] + [0, 0]
-        trust_vals = [row.get(a, 0) for a in trust_accounts] + [0, 0]
-        hsa_val = row.get(hsa_accounts[0], 0) if hsa_accounts else 0
-        pretax_tot = sum(row.get(a, 0) for a in c.get('pre_tax_ids', []))
-        roth_tot = sum(row.get(a, 0) for a in c.get('roth_ids', []))
-        trust_tot = sum(row.get(a, 0) for a in c.get('taxable_ids', []))
+        pretax_vals = [_acct_bal(a) for a in pretax_accounts] + [0, 0, 0]
+        roth_vals = [_acct_bal(a) for a in roth_accounts] + [0, 0]
+        trust_vals = [_acct_bal(a) for a in trust_accounts] + [0, 0]
+        hsa_val = _acct_bal(hsa_accounts[0]) if hsa_accounts else 0
+        pretax_tot = sum(_acct_bal(a) for a in c.get('pre_tax_ids', []))
+        roth_tot = sum(_acct_bal(a) for a in c.get('roth_ids', []))
+        trust_tot = sum(_acct_bal(a) for a in c.get('taxable_ids', []))
         cash_val = row.get('cash_other', c.get('cash_other', 0))
         other_tot  = (row.get('home_equity',0)+row.get('next_housing_equity',0)+
                       row.get('startup_val',0)+row.get('autos_val',0)+
                       row.get('note_bal',0)+cash_val)
+
+        # Keep the TOTAL NW column footing to the values shown. When the current
+        # year uses opening (current-holdings) balances for investment accounts,
+        # swap the engine's year-end investment aggregates out of total_nw and the
+        # opening aggregates in. Annuity PV, cash, and other assets are unchanged.
+        total_nw = row['total_nw']
+        if _opening is not None:
+            _ye_invest = (row.get('pretax_nw', 0) + row.get('roth_nw', 0) +
+                          row.get('trust_nw', 0) + row.get('hsa_nw', 0))
+            _open_invest = (pretax_tot + roth_tot + trust_tot +
+                            sum(_acct_bal(a) for a in c.get('hsa_ids', [])))
+            total_nw = total_nw - _ye_invest + _open_invest
 
         vals = [row['year'], row['h_age'], row['w_age'],
                 row['pension_pv'], row['w_single_pv'], row['w_joint_pv'],
@@ -159,7 +188,7 @@ def build_sheet5(ws, c, rows):
                 hsa_val,
                 row.get('home_equity',0), row.get('next_housing_equity',0), row.get('startup_val',0),
                 row.get('autos_val',0), row.get('note_bal',0), cash_val, other_tot,
-                row['total_nw']]
+                total_nw]
 
         for col_idx, val in enumerate(vals, 1):
             if col_idx in (1,2,3):
@@ -194,7 +223,6 @@ def build_sheet5(ws, c, rows):
     for col in range(21, 27): # Other detail under col 27
         ws.column_dimensions[get_column_letter(col)].outlineLevel = 1
 
-    auto_fit_columns(ws, min_width=8, max_width=16)
 
     # Summary block
     r_data_end = len(rows) + 2

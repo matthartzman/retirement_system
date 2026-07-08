@@ -57,7 +57,15 @@ def test_runtime_state_reset_clears_stale_provider_failures_and_memoized_quotes(
     assert provider._global_provider_failures == {}
 
 
-def test_live_mode_retries_live_provider_even_when_cache_exists_after_reset(tmp_path):
+def test_live_mode_retries_live_provider_even_when_cache_exists_after_reset(tmp_path, monkeypatch):
+    # This test exercises the LIVE-mode retry path with every provider fetch
+    # method fully mocked below (no real network call is ever made), so it's
+    # safe to lift the project-wide RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS
+    # convention for just this test. Without this, running the suite with that
+    # env var set (as CLAUDE.md/CI mandates for frozen-pricing golden masters)
+    # makes quote() short-circuit to the stale cache before ever reaching the
+    # mocked _fetch_* methods, so the test needs live retries enabled here.
+    monkeypatch.delenv("RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS", raising=False)
     provider = MarketDataProvider(cache_path=tmp_path / "cache.json", diagnostics_path=tmp_path / "diag.json")
     provider.cache["VTI"] = {
         "symbol": "VTI",
