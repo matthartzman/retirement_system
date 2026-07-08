@@ -90,6 +90,7 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
     spend_base = 0.0
     recurring_extras: list[dict] = []
     lump: dict[int, float] = defaultdict(float)
+    lump_by_tt: dict[int, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     home_improvement_lump: dict[int, float] = defaultdict(float)
     by_year: dict[int, dict[str, dict[str, float]]] = {y: {} for y in years}
     by_category_year: dict[int, dict[str, float]] = {y: {} for y in years}
@@ -216,6 +217,10 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
                     home_improvement_lump[one_year] += amount
                 else:
                     lump[one_year] += amount
+                    # Track the one-time lump by tracking type so the current-year
+                    # YTD blend can exclude it from the discretionary run-rate floor
+                    # (a lump already modeled here must not also be annualized).
+                    lump_by_tt[one_year][tt] += amount
             else:
                 if active_years:
                     start, end = min(active_years), max(active_years)
@@ -265,6 +270,7 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
         "spend_base": round(spend_base, 2),
         "recurring_extras": recurring_extras,
         "lump": dict(lump),
+        "lump_by_tracking_type": {y: dict(m) for y, m in lump_by_tt.items()},
         "home_improvement_lump": dict(home_improvement_lump),
         "business_reference_budget": round(business_reference, 2),
         "spending_rollup_by_year": by_year,
@@ -290,6 +296,7 @@ def apply_budget_to_engine_config(config: dict, root: str | Path | None = None) 
     config["spend_base"] = _num(resolved.get("spend_base"))
     config["recurring_extras"] = list(resolved.get("recurring_extras") or [])
     config["lump"] = dict(resolved.get("lump") or {})
+    config["lump_by_tracking_type"] = dict(resolved.get("lump_by_tracking_type") or {})
     config["home_improvement_lump"] = dict(resolved.get("home_improvement_lump") or {})
     config["home_proj"] = 0.0
     config["home_proj_end"] = _int(config.get("plan_start"), 0) - 1
