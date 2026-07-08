@@ -6,8 +6,8 @@
       "sha256": "8a94edde6121b066885996c41d04d9ecc471aca62f7e07887a031b8dfbf2533f"
     },
     "client_assets.csv": {
-      "bytes": 7601,
-      "sha256": "ed3e6379b210e0d983e6a3335d8a203ae06aac9c83e2d7b3941a7b4a8f310f92"
+      "bytes": 7600,
+      "sha256": "69d3e4c8f17a93daa371c0ca13bafcba093919746caa533586d5d4ab8ca2051a"
     },
     "client_data.csv": {
       "bytes": 1125,
@@ -38,8 +38,8 @@
       "sha256": "e21e7bb7fd3752e3b59ecd56223c3a728546a6a823de270066325bc73be27d65"
     },
     "client_spending.csv": {
-      "bytes": 8668,
-      "sha256": "bc41c67c27bdf2b11861a04b3e5944b8b74f9f379f976209c5f74553e3d58282"
+      "bytes": 8732,
+      "sha256": "bccbafab410dcf4e6a1171688fc4f9efd850d7490c9b183deaa0242a7ee88a24"
     },
     "target_allocation.csv": {
       "bytes": 234,

@@ -359,7 +359,6 @@ def build_sheet15(ws, c, rows, mc_data):
     ws.column_dimensions['I'].width = 16
     ws.column_dimensions['J'].width = 16
 
-    auto_fit_columns(ws)
     qc('15. Market-Luck Stress Test',
        f'7-section MC report: {N} sims, {len(qnts)} quintiles, {len(mus)*len(sigs)}-cell sensitivity',
        True, f'Funding success={suc:.1%}, P50 liquid end=${pct[end_yr][50]:,.0f}')
@@ -620,8 +619,6 @@ def build_sheet16(ws, c, rows):
             write_cell(ws, r, 2, val, fmt=fmt, bold=(lbl.startswith('Net')))
         r += 1
 
-    auto_fit_columns(ws)
-
     # ── Spend Reduction Recommendation (#13) ──────────────────────────────────
     r += 2
     write_hdr(ws, r, 1, 'Spending Reduction Analysis', GREEN, WHITE, span=6); r += 1
@@ -681,7 +678,6 @@ def build_sheet17(ws, c, rows):
                'No LTC policy is currently in force (see Sheet 19 — Life Insurance).', bold=True)
     ws.merge_cells(start_row=r,start_column=1,end_row=r,end_column=6)
 
-    auto_fit_columns(ws)
     qc('17. LTC Stress Test', 'Four scenarios modeled with plan-survives flag', True, '')
 
 
@@ -796,7 +792,6 @@ def build_sheet18(ws, c, rows):
         ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=9)
         r += 1
 
-    auto_fit_columns(ws)
     qc('18. Survivor Stress Test', '5 early-death scenarios with full projection re-runs', True,
        f'worst case: {min(s[0] for s in early_scenarios)} at ${min(delta_nw, 0):+,.0f}')
 
@@ -938,7 +933,6 @@ def build_sheet19(ws, c):
                'the hybrid policy fills the gap as annuity DB expires.')
     ws.merge_cells(start_row=r,start_column=1,end_row=r,end_column=6)
 
-    auto_fit_columns(ws)
     qc('19. Life Insurance', 'Annuity DB table; gap analysis; options documented', True, '')
 
 
@@ -1102,7 +1096,6 @@ def build_sheet20(ws, c, rows):
         ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=8)
         r += 1
 
-    auto_fit_columns(ws, min_width=9, max_width=30)
     qc('20. RMD Audit', 'Matches CF; RMD vs elective flagged; death years correct', True,
        f'RMD start age {rmd_start_age}; H dies {c["h_death_yr"]}; W dies {c["w_death_yr"]}')
 

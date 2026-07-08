@@ -77,7 +77,7 @@ HSA Policy,Contributions,coverage_base_year_family_months,6,months,months of fam
 HSA Policy,Contributions,coverage_base_year_self_only_months,6,months,months of self-only/individual HDHP coverage in 2026,
 HSA Policy,Contributions,catchup_eligible,TRUE,boolean,TRUE if an HSA owner is age 55+ and eligible for the catch-up contribution,
 HSA Policy,Contributions,contribution_last_year,2026,year,last year HSA contributions are made (eligibility ends at Medicare enrollment),
-DAF,Settings,enabled,FALSE,,,
+DAF,Settings,enabled,TRUE,,,
 DAF,Settings,contribution_amount,"$20,000",,,
 DAF,Settings,contribution_year,2026,,,
 DAF,Settings,annual_grant_amount,"$4,000",,,

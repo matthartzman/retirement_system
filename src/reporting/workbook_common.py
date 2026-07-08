@@ -21,6 +21,7 @@ from openpyxl import Workbook
 from openpyxl.styles import (PatternFill, Font, Alignment, Border, Side,
                               numbers as xl_numbers)
 from openpyxl.utils import get_column_letter
+from openpyxl.comments import Comment
 from openpyxl.chart import BarChart, LineChart, PieChart, Reference
 from openpyxl.chart.series import SeriesLabel
 from openpyxl.chart.shapes import GraphicalProperties
@@ -461,6 +462,21 @@ def optimize_workbook_layout(wb, target_total_width=118):
                     for line in text.splitlines() or ['']:
                         lines += max(1, _math.ceil(len(line) / max(effective_width, 1)))
                     max_lines = max(max_lines, min(lines, 6))
+                else:
+                    # Numeric column kinds: dollars/percents/generic numbers are
+                    # right-aligned, integers/years/ages centered; all vertically
+                    # centered. Only fill alignment that is currently unset so any
+                    # deliberate per-cell alignment from sheet builders is preserved.
+                    old = cell.alignment or _Alignment()
+                    if old.horizontal is None:
+                        cell.alignment = _Alignment(
+                            horizontal='center' if kind == 'integer' else 'right',
+                            vertical='center',
+                            text_rotation=old.text_rotation,
+                            wrap_text=False,
+                            shrink_to_fit=old.shrink_to_fit,
+                            indent=old.indent,
+                        )
             if any_wrap:
                 ws.row_dimensions[row_idx].height = min(90, max(15, max_lines * (18 if row_idx <= 2 else 15)))
 

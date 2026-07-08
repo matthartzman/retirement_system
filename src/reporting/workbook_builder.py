@@ -627,8 +627,17 @@ def build_sheet27_planning_levers(ws, c, rows, mc_data):
         write_cell(ws, i, 5, unit)
         write_cell(ws, i, 6, tnw_formula.format(r=i), fmt=FMT_DOLLAR)
         write_cell(ws, i, 7, success_formula.format(r=i), fmt=FMT_PCT)
-        write_cell(ws, i, 8, f'=RANK.EQ(F{i},$F${first}:$F${last},0)', fmt=FMT_INT)
-        write_cell(ws, i, 9, f'=RANK.EQ(G{i},$G${first}:$G${last},0)', fmt=FMT_INT)
+        # RANK.EQ was introduced in Excel 2010, so the OOXML file format requires the
+        # raw formula token to carry the "_xlfn." future-function prefix (Excel displays
+        # it without the prefix, but the stored <f> element must have it). openpyxl
+        # writes formula strings verbatim, so omitting the prefix means the token Excel
+        # parses on open is an *unrecognized* function name. Excel's repair/compat path
+        # then silently rewrites the unknown call by inserting a leading "@" (implicit
+        # intersection) around the range argument, which breaks the rank calculation.
+        # Prefixing with _xlfn. keeps Excel's dynamic-array/implicit-intersection engine
+        # from touching the formula at all.
+        write_cell(ws, i, 8, f'=_xlfn.RANK.EQ(F{i},$F${first}:$F${last},0)', fmt=FMT_INT)   # TNW Rank
+        write_cell(ws, i, 9, f'=_xlfn.RANK.EQ(G{i},$G${first}:$G${last},0)', fmt=FMT_INT)   # Success Rank
         note = write_cell(ws, i, 10, guidance)
         note.alignment = Alignment(wrap_text=True, vertical='top')
         ws.row_dimensions[i].height = 34

@@ -136,7 +136,6 @@ def build_sheet22(ws):
     ws.column_dimensions['A'].width = 28
     ws.column_dimensions['B'].width = 80
 
-    auto_fit_columns(ws)
     qc('22. Glossary', 'All key terms defined', True, f'{len(terms)} terms')
 
 
@@ -203,7 +202,6 @@ def build_sheet23(ws, c):
         r += 1
 
     ws.column_dimensions['A'].width = 100
-    auto_fit_columns(ws)
 
     # ── Advisor Governance and Model Risk ─────────────────────────────────────
     r += 1
@@ -393,6 +391,7 @@ def account_reconciliation_rows(c, rows):
     for row in rows:
         opening_map = row.get('_account_opening', {}) or {}
         deposits_map = row.get('_account_deposits', {}) or {}
+        deposit_sources_map = row.get('_account_deposit_sources', {}) or {}
         transfers_in_map = row.get('_account_transfers_in', {}) or {}
         transfers_out_map = row.get('_account_transfers_out', {}) or {}
         conv_in_map = row.get('_account_conversions_in', {}) or {}
@@ -411,6 +410,11 @@ def account_reconciliation_rows(c, rows):
             withdrawals = float(withdrawals_map.get(acct, 0.0) or 0.0)
             growth = float(growth_map.get(acct, 0.0) or 0.0)
             ending = float(row.get(acct, 0.0) or 0.0)
+            deposit_source_entries = deposit_sources_map.get(acct, []) or []
+            deposit_sources_text = '; '.join(
+                f"{entry.get('source', 'unknown')}: ${float(entry.get('amount', 0.0) or 0.0):,.0f}"
+                for entry in deposit_source_entries
+            )
             calc = opening + deposits + transfers_in - transfers_out + conv_in - conv_out - withdrawals + growth
             delta = ending - calc
             max_abs_delta = max(max_abs_delta, abs(delta))
@@ -443,6 +447,7 @@ def account_reconciliation_rows(c, rows):
                 'calc_ending': calc,
                 'delta': delta,
                 'notes': '; '.join(notes),
+                'deposit_sources': deposit_sources_text,
             })
     return recs, max_abs_delta
 
@@ -465,6 +470,7 @@ def build_sheet25(ws, c, rows):
         'Opening', 'Deposits', 'Transfers In', 'Transfers Out',
         'Roth Conv In', 'Roth Conv Out', 'Withdrawals', 'Growth',
         'Calculated Ending', 'Reported Ending', 'Foot Delta', 'Notes',
+        'Deposit Sources',
     ]
     r = 4
     for i, h in enumerate(hdrs, 1):
@@ -481,6 +487,7 @@ def build_sheet25(ws, c, rows):
             rec['opening'], rec['deposits'], rec['transfers_in'], rec['transfers_out'],
             rec['conv_in'], rec['conv_out'], rec['withdrawals'], rec['growth'],
             rec['calc_ending'], rec['ending'], rec['delta'], rec['notes'],
+            rec['deposit_sources'],
         ]
         delta = abs(rec['delta'])
         row_bg = bad_fill if delta > 10 else (warn_fill if delta > 1 else None)
@@ -490,11 +497,12 @@ def build_sheet25(ws, c, rows):
             write_cell(ws, r, i, val, fmt=fmt, bg=row_bg, align=align)
         r += 1
 
-    ws.auto_filter.ref = f'A4:Q{max(4, r-1)}'
+    ws.auto_filter.ref = f'A4:R{max(4, r-1)}'
     widths = {
         'A': 8, 'B': 20, 'C': 14, 'D': 12, 'E': 16,
         'F': 14, 'G': 14, 'H': 14, 'I': 14, 'J': 14, 'K': 14,
         'L': 14, 'M': 14, 'N': 15, 'O': 15, 'P': 12, 'Q': 28,
+        'R': 40,
     }
     for col, width in widths.items():
         ws.column_dimensions[col].width = width
