@@ -1504,6 +1504,12 @@ def run_deterministic_projection_stage(c):
         total_tax = total_tax_pre_niit + ltcg_tax + niit
         row['total_tax'] = total_tax
         row['net_income'] = row.get('gross_income', agi) - total_tax
+        # Refresh total_cash_need now that ltcg_tax/niit reflect the fixed-point
+        # investment-tax passes above; the earlier value (used to seed `gap`)
+        # predates those passes and would otherwise understate cash need,
+        # causing the cashflow sheet's recomputed Cash Bridge Gap to disagree
+        # with the true engine gap (Surplus/unfunded_gap).
+        row['total_cash_need'] = total_spend_need + total_tax + other_cash_need_yr
 
         # ── Priority 4b: Final pre-tax draw before any Roth withdrawal ───────
         # The tax-sensitive IRA pass above can stop at a bracket/IRMAA cap even
