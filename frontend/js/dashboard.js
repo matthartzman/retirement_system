@@ -555,7 +555,7 @@ case 'allocation_policy':return (sec==='Model Constants'&&sub==='allocation')||(
 case 'allocation_assets':return (sec==='Asset Allocation Policy'&&sub==='global'&&['allocation_selection_mode','allocation_mode','use_allocation_optimizer'].includes(lbl))||(sec==='Asset Allocation Policy'&&sub!=='global'&&lbl==='target_pct')||(sec==='Asset Class Optimizer Controls'&&['selection_action','alternate_asset_class','optimizer_override_pct'].includes(lbl));
 case 'capital_market':return false;
 case 'market_pricing':return false;
-case 'economic_tax_assumptions':return !rowIsHomeSaleAssumption(r)&&(sec==='Economic Assumptions'||sec==='Payroll Tax'||(sec==='healthcare'&&!rowIsRetirementWellness(r))||(sec==='Model Constants'&&['retirement','capital_gains'].includes(sub)&&lbl!=='spending_freeze_year'));
+case 'economic_tax_assumptions':return !rowIsHomeSaleAssumption(r)&&(sec==='Economic Assumptions'||sec==='Account Policy'||sec==='Payroll Tax'||(sec==='healthcare'&&!rowIsRetirementWellness(r))||(sec==='Model Constants'&&['retirement','capital_gains'].includes(sub)&&lbl!=='spending_freeze_year'));
 case 'scenarios':return ((sec==='Scenarios'&&!rowIsDivorceScenario(r))||(sec==='Model Constants'&&sub==='home_sale')||(sec==='Other Assets'&&sub==='home'&&(lbl.startsWith('home_sale_')||lbl==='home_basis'||homeValueLabelIsCanonical(r.label))));
 case 'monte_carlo_options':return rowIsMonteCarlo(r)||hasAny(r.label,['monte_carlo','simulation']);
 case 'divorce_options':return rowIsDivorceScenario(r);
