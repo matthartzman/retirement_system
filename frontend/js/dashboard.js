@@ -620,7 +620,7 @@ function rowBuildUsageState(row,stepId=''){
   if(s==='Account Policy'&&l==='reinvest_dividends'){
     const globalRow=rows.find(x=>isEditable(x)&&x.section==='Economic Assumptions'&&norm(x.label)==='reinvest_dividends_default');
     const globalOn=String(globalRow?valOf(globalRow):'NO').toUpperCase()==='YES'||String(globalRow?valOf(globalRow):'').toUpperCase()==='TRUE';
-    if(globalOn)return {active:false,reason:'Reinvest Dividends Default (global) is turned on, so every taxable account reinvests dividends regardless of this per-account setting.',activation:'Turn off Reinvest Dividends Default above to set per-account overrides.',effect:'This account would only reinvest dividends independently once the global default is off.',listAlways:true};
+    if(globalOn)return {active:false,reason:'Reinvest Dividends Default (global) is turned on, so every investment account reinvests dividends regardless of this per-account setting.',activation:'Turn off Reinvest Dividends Default above to set per-account overrides.',effect:'This account would only reinvest dividends independently once the global default is off.',listAlways:true};
   }
   if(s==='HSA Policy'&&sub==='withdrawals'){
     const modeRow=rows.find(x=>isEditable(x)&&x.section==='HSA Policy'&&norm(x.subsection)==='withdrawals'&&norm(x.label)==='hsa_withdrawal_mode');

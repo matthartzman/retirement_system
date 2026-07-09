@@ -1,3 +1,20 @@
+Account Policy:
+  Member_1_401k:
+    reinvest_dividends: ''
+  Member_1_HSA:
+    reinvest_dividends: ''
+  Member_1_IRA:
+    reinvest_dividends: ''
+  Member_1_Roth:
+    reinvest_dividends: ''
+  Member_1_Trust:
+    reinvest_dividends: ''
+  Member_2_IRA:
+    reinvest_dividends: ''
+  Member_2_Roth:
+    reinvest_dividends: ''
+  Member_2_Trust:
+    reinvest_dividends: ''
 Annuity Death Benefits:
   '2026':
     H_Joint: $860,000
@@ -258,11 +275,13 @@ Economic Assumptions:
   : annuity_default_additional_income_pct: 20.00%
     annuity_default_dividend_rate: 5.75%
     annuity_default_pay_in_cash_pct: 80.00%
+    cash_yield_rate: 2.00%
     fed_tax_bracket_inflator: 2.00%
     inflation_general: 2.50%
     medicare_part_b_inflation: 5.50%
     medicare_part_d_inflation: 1.25%
     portfolio_nominal_return: 6.00%
+    reinvest_dividends_default: 'YES'
     social_security_cola: 2.00%
     social_security_taxable_fraction: 85.00%
 Education Funding:

@@ -18,8 +18,8 @@
       "sha256": "17d3fc659c4d3fec2e87e5d0ddbd0105512648e08f88cba20e4dc1a88becf585"
     },
     "client_household.csv": {
-      "bytes": 6312,
-      "sha256": "500bb2c3a4118c942d1a4d862f84c1800669957cd13ae4393d26bab78a8b6920"
+      "bytes": 6911,
+      "sha256": "6e91e5ff2e6ae5374c0a3ae2c1a688c75f0c94d9597923cfa3742cb2c1c3e92e"
     },
     "client_income.csv": {
       "bytes": 10828,
@@ -34,8 +34,8 @@
       "sha256": "2de208108b9a8cfa90a7d6afbbd7a35e38aade66dd5f7f040dfb5591a38379c9"
     },
     "client_policy.csv": {
-      "bytes": 21005,
-      "sha256": "e21e7bb7fd3752e3b59ecd56223c3a728546a6a823de270066325bc73be27d65"
+      "bytes": 22708,
+      "sha256": "ab6fbd4c0fe5e693a128b0b905b990c4a0cff623f2eba070dc40c8ea87e7484f"
     },
     "client_spending.csv": {
       "bytes": 8732,

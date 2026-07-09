@@ -363,22 +363,23 @@ def run_deterministic_projection_stage(c):
 
     def _taxable_portfolio_income_for_year():
         # Dividends/interest are taxable in the year earned whether or not they
-        # are reinvested, so ordinary/qualified/tax_exempt (used for AGI/MAGI/
-        # NIIT/IRMAA) always reflect the full amount. `reinvested` tracks the
-        # slice that compounds back into the account rather than being paid out
-        # as cash, so callers funding spending can exclude it from available cash.
-        ordinary = qualified = tax_exempt = reinvested = 0.0
+        # are reinvested (an account holds every investment type, but only
+        # taxable/Trust accounts generate a current tax event; IRA/401k/Roth/
+        # HSA dividends aren't taxed until a separate withdrawal occurs).
+        # Whether the yield compounds into the holding or converts to
+        # account-internal cash is a growth-engine concern (see
+        # planning_engines.apply_end_of_year_growth) — either way the money
+        # never leaves the account, so this no longer funds spending directly.
+        ordinary = qualified = tax_exempt = 0.0
+        taxable_ids_set = set(c.get('taxable_ids', []))
         for _acct, _info in (c.get('account_taxable_income_assumptions') or {}).items():
+            if _acct not in taxable_ids_set:
+                continue
             _bal = max(0.0, float(bal.get(_acct, 0.0) or 0.0))
-            _acct_ordinary = _bal * float(_info.get('ordinary_yield', 0.0) or 0.0)
-            _acct_qualified = _bal * float(_info.get('qualified_yield', 0.0) or 0.0)
-            _acct_tax_exempt = _bal * float(_info.get('tax_exempt_yield', 0.0) or 0.0)
-            ordinary += _acct_ordinary
-            qualified += _acct_qualified
-            tax_exempt += _acct_tax_exempt
-            if _info.get('reinvest_dividends', False):
-                reinvested += _acct_ordinary + _acct_qualified + _acct_tax_exempt
-        return ordinary, qualified, tax_exempt, reinvested
+            ordinary += _bal * float(_info.get('ordinary_yield', 0.0) or 0.0)
+            qualified += _bal * float(_info.get('qualified_yield', 0.0) or 0.0)
+            tax_exempt += _bal * float(_info.get('tax_exempt_yield', 0.0) or 0.0)
+        return ordinary, qualified, tax_exempt
 
     def _ss_funding_factor(year):
         try:
@@ -930,15 +931,15 @@ def run_deterministic_projection_stage(c):
         # conversion headroom all depend on these income lines.
         rmd_result = _we.compute_rmds(c, bal, year, h_age, w_age, h_alive, w_alive, rmd_divisor)
         rmd_h = rmd_result['h']; rmd_w = rmd_result['w']; rmd_total = rmd_result['total']
-        portfolio_ordinary, portfolio_qualified, portfolio_tax_exempt, portfolio_income_reinvested = _taxable_portfolio_income_for_year()
+        portfolio_ordinary, portfolio_qualified, portfolio_tax_exempt = _taxable_portfolio_income_for_year()
+        # Informational only — taxable dividend/interest income for the year,
+        # for AGI/MAGI/NIIT/IRMAA. It no longer funds spending: the money
+        # never leaves the account (see apply_end_of_year_growth).
         portfolio_income_total = portfolio_ordinary + portfolio_qualified + portfolio_tax_exempt
-        portfolio_income_cash = portfolio_income_total - portfolio_income_reinvested
         row['portfolio_ordinary_income'] = portfolio_ordinary
         row['portfolio_qualified_dividends'] = portfolio_qualified
         row['portfolio_tax_exempt_interest'] = portfolio_tax_exempt
         row['portfolio_income_total'] = portfolio_income_total
-        row['portfolio_income_reinvested'] = portfolio_income_reinvested
-        row['portfolio_income_cash'] = portfolio_income_cash
 
         # Deterministic wellness spending that earlier builds collected but
         # did not spend: pre-65 bridge, Medicare B/D/G base premiums, and OOP.
@@ -1290,7 +1291,7 @@ def run_deterministic_projection_stage(c):
         # ── Spending gap and withdrawal cascade ───────────────────────────────
         income_from_streams = (h_ss + w_ss + pension + wife_single_ann +
                                wife_joint_ann + h_single_ann + h_joint_ann +
-                               note_princ_yr + note_int_yr + rmd_total + earned_base + portfolio_income_cash)
+                               note_princ_yr + note_int_yr + rmd_total + earned_base)
         other_cash_need_yr = float(row.get('other_cash_need_yr', 0.0) or 0.0)
         row['income_funding'] = income_from_streams
         row['other_cash_need_yr'] = other_cash_need_yr

@@ -93,29 +93,51 @@ def apply_end_of_year_growth(c, balances, default_return=None, emit=None, event_
     total_growth = 0.0
     by_account = {}
     warnings = []
+    cash_rate = float(c.get('cash_yield_rate', 0.0) or 0.0)
+    if not isfinite(cash_rate):
+        cash_rate = 0.0
+    # Dividends/interest not reinvested never leave the account — they convert
+    # to cash sitting inside it, which then only earns cash_rate going forward
+    # instead of the account's full return. That cash persists indefinitely
+    # (it doesn't get swept back into the holding even if the toggle later
+    # switches back to reinvest); a private sub-balance tracked on `balances`
+    # is the only place this is recorded — the account's total balance stays
+    # the single source of truth everywhere else.
+    cash_subbal = balances.setdefault('_dividend_cash_subbalance', {})
 
     for acct in investable_account_ids(c):
         before = float(balances.get(acct, 0.0) or 0.0)
         rate = _account_return(c, acct, default_return, year=year)
-        # Taxable portfolio income is modeled as distributed cash income earlier
-        # in the projection.  Reduce price appreciation by the same distribution
-        # yield so total return is conserved rather than double-counted. Accounts
-        # flagged for dividend reinvestment skip this reduction: their yield is
-        # never pulled out as cash, so it stays in total return and compounds
-        # into the account balance instead.
+        yinfo = (c.get('account_taxable_income_assumptions') or {}).get(acct, {})
+        distribution_yield = 0.0
+        reinvest = True
         if c.get('portfolio_income_reduces_growth', True):
             try:
-                yinfo = (c.get('account_taxable_income_assumptions') or {}).get(acct, {})
-                if not yinfo.get('reinvest_dividends', False):
-                    rate -= float(yinfo.get('total_distribution_yield', 0.0) or 0.0)
+                distribution_yield = float(yinfo.get('total_distribution_yield', 0.0) or 0.0)
+                reinvest = bool(yinfo.get('reinvest_dividends', False))
             except Exception:
-                pass
-        growth = before * rate
+                distribution_yield = 0.0
+                reinvest = True
+        # A mid-year withdrawal can shrink the account below its carried cash
+        # sub-balance; cash is drawn down first (it's the liquid part).
+        acct_cash = min(float(cash_subbal.get(acct, 0.0) or 0.0), before)
+        invested_before = max(0.0, before - acct_cash)
+        if distribution_yield > 0.0 and not reinvest:
+            price_rate = rate - distribution_yield
+            new_cash = invested_before * distribution_yield
+            invested_growth = invested_before * price_rate
+        else:
+            new_cash = 0.0
+            invested_growth = invested_before * rate
+        cash_growth = acct_cash * cash_rate
+        acct_cash = acct_cash + cash_growth + new_cash
+        growth = invested_growth + cash_growth + new_cash
         after = before + growth
         if not isfinite(after):
             warnings.append(f"Non-finite growth result for {acct}; balance left unchanged")
             continue
         balances[acct] = after
+        cash_subbal[acct] = acct_cash
         by_account[acct] = growth
         total_growth += growth
         if emit and event_factory and before > min_event_balance:
