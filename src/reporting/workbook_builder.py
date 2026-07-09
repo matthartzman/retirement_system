@@ -1228,7 +1228,7 @@ def main():
     # written and /api/pdf 404s ("run build first").
     pdf_path = _os.path.join(str(output_path_dir), 'retirement_plan.pdf')
     try:
-        build_enterprise_pdf(c, rows, mc_data, out_path=pdf_path)
+        build_enterprise_pdf(wb, c, rows, mc_data, out_path=pdf_path)
         print(f'PDF report saved: {pdf_path}')
     except Exception as _pdf_err:  # noqa: BLE001 - PDF is best-effort, never fatal
         print(f'WARNING: PDF report generation failed ({_pdf_err}); workbook build continues.')
