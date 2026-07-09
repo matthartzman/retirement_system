@@ -329,15 +329,29 @@ def optimize_workbook_layout(wb, target_total_width=118):
 
     Caps are intentionally expressed in Excel character units approximating the
     requested pixels: dollars <= 71px (~9.4 chars), integer columns <= 40px
-    (~5 chars), and text columns <= 200px (~27.9 chars). Headings are wrapped
-    within those caps and do not widen columns.
+    (~5 chars), label-style text columns <= ~36 chars, and narrative/notes
+    columns (a column whose longest cell exceeds narrative_threshold) <= ~46
+    chars. Headings are wrapped within those caps and do not widen columns.
+
+    Text-cap calibration: derived from a reference workbook
+    (groups_accounts.xlsx) whose author hand-set column widths. Short/coded
+    columns there were sized to ~1.0x their longest value (e.g. a 34-char
+    category column got a 33.1-char width) rather than the ~28-char cap this
+    algorithm used previously — so text_cap is raised to 36 to stop clipping
+    ordinary label columns. Free-text notes columns in that same file held up
+    to 141 characters but were still only given ~27-46 char widths (~0.33x
+    ratio, not a full fit) — so genuinely long narrative columns get their own
+    higher-but-still-capped narrative_cap (46) instead of sharing text_cap,
+    trading a bit of width for far fewer wrapped lines per row.
     """
     import math as _math
     from copy import copy as _copy
     from openpyxl.styles import Alignment as _Alignment
 
     dollar_cap = (71 - 5) / 7
-    text_cap = (200 - 5) / 7
+    text_cap = 36.0
+    narrative_cap = 46.0
+    narrative_threshold = 60  # column max content length beyond which it's treated as free-text notes, not a label
     int_cap = (40 - 5) / 7
     pct_cap = 7.5
     num_cap = 12.0
@@ -409,7 +423,12 @@ def optimize_workbook_layout(wb, target_total_width=118):
             elif kind == 'percent':
                 width = max(5.5, min(pct_cap, p85 + 1)); wrap = False
             elif kind == 'text':
-                width = max(min_text, min(text_cap, (p85 + 2) if p85 else 14)); wrap = True
+                # Genuinely long free-text (notes/descriptions) gets a wider
+                # cap than short labels/category names, since squeezing 100+
+                # character narrative into a label-width column just produces
+                # excessively tall wrapped rows.
+                cap = narrative_cap if max_len > narrative_threshold else text_cap
+                width = max(min_text, min(cap, (p85 + 2) if p85 else 14)); wrap = True
             else:
                 width = max(min_num, min(num_cap, p85 + 1)); wrap = False
             ws.column_dimensions[get_column_letter(col)].width = round(width, 1)
@@ -442,10 +461,15 @@ def optimize_workbook_layout(wb, target_total_width=118):
                 if cell.value in (None, ''):
                     continue
                 if kind == 'text' or _is_heading_row(ws, row_idx):
+                    # Standard vertical alignment across every sheet: 'center'.
+                    # Wrapped multi-line text cells still center vertically
+                    # rather than pinning to the top, so a wrapped notes cell
+                    # lines up visually with its single-line neighbors in the
+                    # same row instead of looking anchored high.
                     old = cell.alignment or _Alignment()
                     cell.alignment = _Alignment(
                         horizontal=old.horizontal,
-                        vertical='top',
+                        vertical='center',
                         text_rotation=old.text_rotation,
                         wrap_text=True,
                         shrink_to_fit=old.shrink_to_fit,

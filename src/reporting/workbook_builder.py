@@ -639,7 +639,7 @@ def build_sheet27_planning_levers(ws, c, rows, mc_data):
         write_cell(ws, i, 8, f'=_xlfn.RANK.EQ(F{i},$F${first}:$F${last},0)', fmt=FMT_INT)   # TNW Rank
         write_cell(ws, i, 9, f'=_xlfn.RANK.EQ(G{i},$G${first}:$G${last},0)', fmt=FMT_INT)   # Success Rank
         note = write_cell(ws, i, 10, guidance)
-        note.alignment = Alignment(wrap_text=True, vertical='top')
+        note.alignment = Alignment(wrap_text=True, vertical='center')
         ws.row_dimensions[i].height = 34
 
     r = last + 3

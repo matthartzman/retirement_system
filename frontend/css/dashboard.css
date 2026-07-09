@@ -773,3 +773,20 @@ body.chart-modal-open{overflow:hidden}
 @media(max-width:768px){
   .lot-table-wrap,.matrix-wrap{background-image:linear-gradient(to right,#fff 0,rgba(255,255,255,0) 18px),linear-gradient(to left,#fff 0,rgba(255,255,255,0) 18px);background-repeat:no-repeat;background-attachment:local,local;background-position:left center,right center;background-size:18px 100%,18px 100%}
 }
+
+/* Graphical YES/NO toggle switch, replacing plain <select> dropdowns for
+   every boolean field. Two text spans (toggle-text-yes/-no) are shown/hidden
+   purely via the :checked sibling selector so the visible label updates
+   instantly on click, even for fields whose onchange handler doesn't force
+   a full re-render. */
+.toggle-switch{position:relative;display:inline-flex;align-items:center;gap:10px;cursor:pointer;user-select:none;width:auto!important;padding:0!important;border:none!important;background:none!important}
+.toggle-switch input{position:absolute;inset:0;opacity:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:1}
+.toggle-track{position:relative;flex:0 0 auto;width:44px;height:24px;border-radius:999px;background:var(--line2);border:1px solid var(--line2);transition:background .15s ease,border-color .15s ease}
+.toggle-track::after{content:'';position:absolute;top:1px;left:1px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s ease}
+.toggle-switch input:checked+.toggle-track{background:var(--ok);border-color:var(--ok)}
+.toggle-switch input:checked+.toggle-track::after{transform:translateX(20px)}
+.toggle-switch input:focus-visible+.toggle-track{outline:2px solid #bfdbfe;outline-offset:2px}
+.toggle-text{font-size:12px;font-weight:800;color:var(--muted);min-width:26px}
+.toggle-text-yes{display:none}
+.toggle-switch input:checked~.toggle-text-yes{display:inline;color:var(--ok)}
+.toggle-switch input:checked~.toggle-text-no{display:none}
