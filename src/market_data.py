@@ -1441,6 +1441,24 @@ class MarketDataProvider:
         fallback_warning_symbols = sorted([sym for sym, src in self.sources.items() if any(tok in str(src).lower() for tok in ('fallback', 'stale', 'cost_basis', 'unknown'))])
         fallback_warning_share = (len(fallback_warning_symbols) / max(1, len(self.sources))) if self.sources else 0.0
         advisor_ready_pricing_blocked = fallback_warning_share > 0.10
+        # If every provider we actually tried hit a network-level failure (DNS,
+        # timeout, connection refused, etc. — see _is_global_failure), every
+        # symbol will fail regardless of how many are requested. That's a
+        # connectivity problem, not N individually-broken tickers, so callers
+        # should report one general "live pricing unavailable" message instead
+        # of an ever-growing per-symbol failure count.
+        # Providers that require an API key never touch the network at all when
+        # that key is unset (they short-circuit with "key not set"), so they
+        # can't tell us anything about connectivity. Only require the no-key
+        # providers (always attempted) plus any keyed provider that IS
+        # configured to have all gone globally-failed before calling this a
+        # connectivity outage rather than N individually-broken tickers.
+        required_providers = {"yahoo", "nasdaq", "stooq"}
+        if self.fmp_api_key:
+            required_providers.add("financial_modeling_prep")
+        if self.alpha_vantage_api_key:
+            required_providers.add("alpha_vantage")
+        connectivity_unavailable = bool(failure_symbols) and required_providers.issubset(set(self._global_provider_failures.keys()))
         return {
             "provider_order": self.provider_order,
             "pricing_mode": self.pricing_mode,
@@ -1501,6 +1519,8 @@ class MarketDataProvider:
             "failure_count": len(self.failures),
             "failures": self.failures[-75:],
             "best_guess_cause": best_guess,
+            "connectivity_unavailable": connectivity_unavailable,
+            "connectivity_failure_causes": dict(self._global_provider_failures),
             "fallback_warning_symbols": fallback_warning_symbols,
             "fallback_warning_share": fallback_warning_share,
             "advisor_ready_pricing_blocked": advisor_ready_pricing_blocked,

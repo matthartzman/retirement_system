@@ -147,7 +147,14 @@ def build_preflight_payload(
             # same thing and overstates how many symbols actually needed it.
             fallback = diag.get("fallback_warning_symbols") or diag.get("fallback_symbols") or []
             pricing_status = "fallback" if fallback else ("warning" if failed else "ok")
-            if failed:
+            if failed and diag.get("connectivity_unavailable"):
+                # Every configured pricing provider hit a network-level failure
+                # (DNS/timeout/connection refused/etc.) — every symbol will show
+                # up as "failed" whenever this build runs without internet
+                # access, so a per-symbol count is noise, not a signal. Report
+                # one general, non-alarming notice instead.
+                recommendations.append("Live pricing providers could not be reached (no network connectivity detected); cached or fallback prices were used for all symbols.")
+            elif failed:
                 warnings.append(f"Market pricing diagnostics contain {len(failed)} failed symbol(s).")
             if fallback:
                 # pricing_source_note describes the OVERALL/primary pricing mode
