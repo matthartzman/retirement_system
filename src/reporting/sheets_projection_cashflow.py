@@ -232,7 +232,7 @@ def build_sheet6(ws, c, rows):
         total_tax       = row.get('total_tax', row.get('fed_tax', 0) + row.get('state_tax', 0) + row.get('niit', 0) + row.get('irmaa', 0) + row.get('payroll_tax', 0) + row.get('ltcg_tax', 0))
         total_cash_need = row.get('total_cash_need', spend_total + total_tax)
         income_funding  = inc_total
-        portfolio_income = row.get('portfolio_income_total', 0)
+        portfolio_income = row.get('portfolio_income_cash', row.get('portfolio_income_total', 0))
         other_funding   = row.get('heloc_draw', 0)
         cash_bridge_gap = total_cash_need - income_funding - portfolio_income - other_funding - required_portfolio_draws
 

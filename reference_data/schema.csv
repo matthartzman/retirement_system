@@ -17,6 +17,7 @@ Plan Settings,Estate,model_state_estate_tax,boolean,TRUE,TRUE,,,Model state esta
 Economic Assumptions,,inflation_general,percent,TRUE,2.50%,0,10,CPI for spending and home
 Economic Assumptions,,social_security_cola,percent,TRUE,2.00%,0,8,SS benefit COLA
 Economic Assumptions,,portfolio_nominal_return,percent,TRUE,6.00%,0,15,Gross annual portfolio return
+Economic Assumptions,,reinvest_dividends_default,boolean,FALSE,NO,,,Global default: reinvest taxable-account dividends/interest instead of treating them as spendable portfolio income
 Economic Assumptions,,fed_tax_bracket_inflator,percent,TRUE,2.00%,0,5,Annual bracket expansion
 Economic Assumptions,,social_security_taxable_fraction,percent,TRUE,85.00%,0,100,SS fraction in AGI
 Model Constants,Retirement,rollover_401k_year,year,TRUE,2030,2026,2060,401k->IRA rollover year
