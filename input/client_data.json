@@ -308,7 +308,7 @@
       "annual_grant_amount": "$4,000",
       "contribution_amount": "$20,000",
       "contribution_year": "2026",
-      "enabled": "FALSE",
+      "enabled": "TRUE",
       "grant_end_year": "2031",
       "grant_start_year": "2027"
     }
