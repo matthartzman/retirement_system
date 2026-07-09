@@ -196,6 +196,10 @@ def build_sheet6(ws, c, rows):
     # Income detail (summary=Σ_Inc)
     for col in range(COL['Earned'], COL['Σ_Inc']):
         ws.column_dimensions[get_column_letter(col)].outlineLevel = 1
+    # Tax detail (summary=Total Taxes, in the Cash Bridge section) — Fed, State,
+    # NIIT, IRMAA, Payroll, and LTCG are the components that sum to Total Taxes.
+    for col in [COL['Fed'], COL['State'], COL['NIIT'], COL['IRMAA'], COL['Payroll'], COL['LTCG']]:
+        ws.column_dimensions[get_column_letter(col)].outlineLevel = 1
     # HELOC Draw collapses under HELOC Bal
     ws.column_dimensions[get_column_letter(COL['HELOC_Draw'])].outlineLevel = 1
 
