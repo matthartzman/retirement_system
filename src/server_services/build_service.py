@@ -140,7 +140,17 @@ def build_preflight_payload(
         try:
             diag = json.loads(pricing_diag_path.read_text(encoding="utf-8"))
             pricing_mode = str(diag.get("pricing_mode") or "unknown")
-            failed = diag.get("failure_symbols") or diag.get("failures") or []
+            # failure_symbols/failures count individual provider ATTEMPTS, which
+            # is noisy: a symbol commonly fails on one provider (e.g. a
+            # placeholder/expired FMP key) and still resolves a good price from
+            # the next provider or from cache — normal graceful degradation, not
+            # a problem. unpriced_symbols is the terminal "no live quote, no
+            # cache, no cost-basis fallback" state — the only case where the
+            # symbol genuinely has no number to show, which is what should drive
+            # an actionable warning.
+            failed = diag.get("unpriced_symbols")
+            if failed is None:
+                failed = diag.get("failure_symbols") or diag.get("failures") or []
             # fallback_warning_symbols reflects symbols that actually resolved to a
             # degraded source (cache/stale/cost-basis); fallback_symbols is just the
             # configured cost-basis pool available for fallback, which is not the
@@ -150,12 +160,12 @@ def build_preflight_payload(
             if failed and diag.get("connectivity_unavailable"):
                 # Every configured pricing provider hit a network-level failure
                 # (DNS/timeout/connection refused/etc.) — every symbol will show
-                # up as "failed" whenever this build runs without internet
+                # up as unpriced whenever this build runs without internet
                 # access, so a per-symbol count is noise, not a signal. Report
                 # one general, non-alarming notice instead.
                 recommendations.append("Live pricing providers could not be reached (no network connectivity detected); cached or fallback prices were used for all symbols.")
             elif failed:
-                warnings.append(f"Market pricing diagnostics contain {len(failed)} failed symbol(s).")
+                warnings.append(f"Market pricing diagnostics: {len(failed)} symbol(s) have no usable price (no live quote, cache, or fallback available).")
             if fallback:
                 # pricing_source_note describes the OVERALL/primary pricing mode
                 # (e.g. "Live provider quotes were used...") and is often fine
