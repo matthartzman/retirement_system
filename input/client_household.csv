@@ -24,7 +24,7 @@ Economic Assumptions,,social_security_taxable_fraction,85.00%,pct,Fraction of SS
 Economic Assumptions,,annuity_default_dividend_rate,5.75%,pct,Default; override per-stream below,
 Economic Assumptions,,annuity_default_additional_income_pct,20.00%,pct,Reinvested into base,
 Economic Assumptions,,annuity_default_pay_in_cash_pct,80.00%,pct,Distributed as cash income,
-Economic Assumptions,,reinvest_dividends_default,NO,yes/no,"Global default: reinvest taxable-account dividends/interest into the account instead of counting them as spendable portfolio income. Override per account in client_policy.csv Account Policy section.",
+Economic Assumptions,,reinvest_dividends_default,NO,yes/no,"Global switch: reinvest taxable-account dividends/interest into the account instead of counting them as spendable portfolio income. When YES, this applies to every taxable account and the per-account overrides below are ignored.",
 Payroll Tax,Social Security,ss_wage_base_base_year,"$184,500",,,
 Payroll Tax,Social Security,ss_employee_rate,6.20%,,,
 Payroll Tax,Social Security,ss_self_employment_rate,12.40%,,,

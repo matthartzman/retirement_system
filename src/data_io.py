@@ -1951,7 +1951,9 @@ def parse_client(data, url_template):
                 'qualified_yield': _qual / _total_value,
                 'tax_exempt_yield': _tax_exempt / _total_value,
                 'total_distribution_yield': (_ord + _qual + _tax_exempt) / _total_value,
-                'reinvest_dividends': _reinvest_overrides.get(_acct, c['reinvest_dividends_default']),
+                # Global default ON forces reinvestment everywhere; per-account
+                # overrides only take effect while the global switch is OFF.
+                'reinvest_dividends': True if c['reinvest_dividends_default'] else _reinvest_overrides.get(_acct, False),
             }
     c['account_taxable_income_assumptions'] = account_income
     c['portfolio_income_reduces_growth'] = True
