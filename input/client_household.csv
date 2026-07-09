@@ -25,7 +25,7 @@ Economic Assumptions,,annuity_default_dividend_rate,5.75%,pct,Default; override 
 Economic Assumptions,,annuity_default_additional_income_pct,20.00%,pct,Reinvested into base,
 Economic Assumptions,,annuity_default_pay_in_cash_pct,80.00%,pct,Distributed as cash income,
 Economic Assumptions,,reinvest_dividends_default,YES,yes/no,"Global switch: reinvest every investment account's dividends/interest into the same holding instead of letting them convert to cash inside the account. When YES, this applies to every investment account and the per-account overrides below are ignored.",
-Economic Assumptions,,cash_yield_rate,2.00%,pct,"Growth rate applied to dividends/interest that convert to cash inside an account (Reinvest Dividends = NO) instead of compounding with the rest of the holding. That cash stays in the account and keeps earning this rate indefinitely.",
+Economic Assumptions,,cash_yield_rate,2.00%,pct,Growth rate applied to dividends/interest that convert to cash inside an account (Reinvest Dividends = NO) instead of compounding with the rest of the holding. That cash stays in the account and keeps earning this rate indefinitely.,
 Payroll Tax,Social Security,ss_wage_base_base_year,"$184,500",,,
 Payroll Tax,Social Security,ss_employee_rate,6.20%,,,
 Payroll Tax,Social Security,ss_self_employment_rate,12.40%,,,
