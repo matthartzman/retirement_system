@@ -1441,6 +1441,16 @@ class MarketDataProvider:
         fallback_warning_symbols = sorted([sym for sym, src in self.sources.items() if any(tok in str(src).lower() for tok in ('fallback', 'stale', 'cost_basis', 'unknown'))])
         fallback_warning_share = (len(fallback_warning_symbols) / max(1, len(self.sources))) if self.sources else 0.0
         advisor_ready_pricing_blocked = fallback_warning_share > 0.10
+        # A provider-attempt failure (failure_symbols/self.failures) is noisy: a
+        # symbol commonly fails on one provider (e.g. a placeholder/expired FMP
+        # key) and still resolves a perfectly good price from the next provider
+        # in the chain, or from cache. That's normal graceful degradation, not
+        # something worth warning about. "missing" is the one terminal source
+        # state quote() assigns when NO live provider, cache, or holdings
+        # cost-basis fallback produced a usable price at all — i.e. the symbol
+        # genuinely has no number to show. That is the only failure state
+        # that should drive an actionable preflight warning.
+        unpriced_symbols = sorted([sym for sym, src in self.sources.items() if str(src) == "missing"])
         # If every provider we actually tried hit a network-level failure (DNS,
         # timeout, connection refused, etc. — see _is_global_failure), every
         # symbol will fail regardless of how many are requested. That's a
@@ -1458,7 +1468,7 @@ class MarketDataProvider:
             required_providers.add("financial_modeling_prep")
         if self.alpha_vantage_api_key:
             required_providers.add("alpha_vantage")
-        connectivity_unavailable = bool(failure_symbols) and required_providers.issubset(set(self._global_provider_failures.keys()))
+        connectivity_unavailable = bool(unpriced_symbols) and required_providers.issubset(set(self._global_provider_failures.keys()))
         return {
             "provider_order": self.provider_order,
             "pricing_mode": self.pricing_mode,
@@ -1519,6 +1529,7 @@ class MarketDataProvider:
             "failure_count": len(self.failures),
             "failures": self.failures[-75:],
             "best_guess_cause": best_guess,
+            "unpriced_symbols": unpriced_symbols,
             "connectivity_unavailable": connectivity_unavailable,
             "connectivity_failure_causes": dict(self._global_provider_failures),
             "fallback_warning_symbols": fallback_warning_symbols,
