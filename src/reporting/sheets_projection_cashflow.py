@@ -69,7 +69,7 @@ def build_sheet6(ws, c, rows):
         COL['HC_LTC'] = col; col += 1
     for key in ['Travel', 'Other', 'HELOC_PAI', 'Σ_Spend']:
         COL[key] = col; col += 1
-    for key in ['Total_Tax', 'Total_Cash_Need', 'Income_Funding', 'Portfolio_Income',
+    for key in ['Total_Tax', 'Total_Cash_Need', 'Income_Funding',
                 'Other_Funding', 'Req_Portfolio_Draws', 'Cash_Bridge_Gap']:
         COL[key] = col; col += 1
     for key in [
@@ -129,7 +129,7 @@ def build_sheet6(ws, c, rows):
         (COL['Σ_Spend'],    'Σ Spend'),
         (COL['Total_Tax'], 'Total Taxes'),
         (COL['Total_Cash_Need'], 'Total Cash Need'), (COL['Income_Funding'], 'Income Funding'),
-        (COL['Portfolio_Income'], 'Portfolio Income'), (COL['Other_Funding'], 'Other Funding'),
+        (COL['Other_Funding'], 'Other Funding'),
         (COL['Req_Portfolio_Draws'], 'Required Portfolio Cash Draws'),
         (COL['Cash_Bridge_Gap'], 'Cash Bridge Gap / (Surplus)'),
         (COL['H_Trust_WD'], f'{_n1} Trust WD'),   (COL['W_Trust_WD'], f'{_n2} Trust WD'),
@@ -223,18 +223,20 @@ def build_sheet6(ws, c, rows):
         h_ira_tot   = row.get('h_ira_total_outflow', h_ira_cash + row.get('h_ira_conversion', 0))
         w_ira_tot   = row.get('w_ira_total_outflow', w_ira_cash + row.get('w_ira_conversion', 0))
         # Cash bridge: RMDs are counted as income (inc_total includes rmd_total) so
-        # only elective IRA draws appear in required_portfolio_draws.  Portfolio income
-        # (dividends/interest) is a separate funding column.  Other cash needs (e.g.
-        # home-purchase down payments) are folded into Σ Spend.
+        # only elective IRA draws appear in required_portfolio_draws.  Dividends/
+        # interest never fund spending directly — they either compound into the
+        # holding or convert to cash inside the account (Reinvest Dividends
+        # toggle) — so portfolio income is not a cash-bridge funding source.
+        # Other cash needs (e.g. home-purchase down payments) are folded into
+        # Σ Spend.
         required_portfolio_draws = (trust_total + row.get('hsa_wd', 0) + roth_total +
                                     row.get('h_ira_elective', 0) + row.get('w_ira_elective', 0))
         wd_total        = required_portfolio_draws + row.get('rmd_h', 0) + row.get('rmd_w', 0)
         total_tax       = row.get('total_tax', row.get('fed_tax', 0) + row.get('state_tax', 0) + row.get('niit', 0) + row.get('irmaa', 0) + row.get('payroll_tax', 0) + row.get('ltcg_tax', 0))
         total_cash_need = row.get('total_cash_need', spend_total + total_tax)
         income_funding  = inc_total
-        portfolio_income = row.get('portfolio_income_cash', row.get('portfolio_income_total', 0))
         other_funding   = row.get('heloc_draw', 0)
-        cash_bridge_gap = total_cash_need - income_funding - portfolio_income - other_funding - required_portfolio_draws
+        cash_bridge_gap = total_cash_need - income_funding - other_funding - required_portfolio_draws
 
         vals = {
             COL['Year']:      row['year'],
@@ -284,7 +286,6 @@ def build_sheet6(ws, c, rows):
             COL['Total_Tax']: total_tax,
             COL['Total_Cash_Need']: total_cash_need,
             COL['Income_Funding']: income_funding,
-            COL['Portfolio_Income']: portfolio_income,
             COL['Other_Funding']: other_funding,
             COL['Req_Portfolio_Draws']: required_portfolio_draws,
             COL['Cash_Bridge_Gap']: cash_bridge_gap,

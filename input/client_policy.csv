@@ -1,6 +1,12 @@
 section,subsection,label,value,units,notes,
 "# -- client_policy.csv: Model constants, allocation policy, withdrawal policy, forced actions, scenarios, and Monte Carlo settings.",,,,,,
+Account Policy,Member_1_HSA,reinvest_dividends,,yes/no,"Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES."
+Account Policy,Member_1_401k,reinvest_dividends,,yes/no,"Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES."
+Account Policy,Member_1_IRA,reinvest_dividends,,yes/no,"Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES."
+Account Policy,Member_1_Roth,reinvest_dividends,,yes/no,"Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES."
 Account Policy,Member_1_Trust,reinvest_dividends,,yes/no,"Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES."
+Account Policy,Member_2_IRA,reinvest_dividends,,yes/no,"Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES."
+Account Policy,Member_2_Roth,reinvest_dividends,,yes/no,"Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES."
 Account Policy,Member_2_Trust,reinvest_dividends,,yes/no,"Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES."
 HELOC,Setup,heloc_enabled,NO,yes/no,"Enable the HELOC strategy. When Yes, the projection draws from the HELOC during the draw period to fund large discretionary spending instead of liquidating portfolio assets."
 HELOC,Setup,heloc_credit_limit,"$200,000",dollars,Maximum HELOC credit line available. The projection will not borrow beyond this amount.

@@ -1385,13 +1385,14 @@ def _pre_tax_account_options_from_holdings() -> list[str]:
     return sorted(accounts)
 
 
-def _taxable_account_ids_from_holdings() -> list[str]:
-    """Return taxable/brokerage account ids that carry dividend/interest yield
-    assumptions (mirrors the account-type inference in src/core.py _infer_type:
-    everything except 401k/403b/Roth/IRA/HSA/checking/529 accounts)."""
+def _investment_account_ids_from_holdings() -> list[str]:
+    """Return every investment account id that carries dividend/interest yield
+    assumptions: taxable/Trust, IRA, 401k, Roth, and HSA (mirrors invest_ids
+    in src/core.py — everything except checking/cash and 529 accounts, which
+    aren't retirement/brokerage holdings)."""
     path = _plan_data_path("client_holdings.csv", prefer_existing=False)
     accounts = set()
-    excluded_tokens = ("_401k", "_403b", "_roth", "_ira", "_hsa", "_checking", "_529")
+    excluded_tokens = ("_checking", "_529")
     if path.exists():
         with path.open(newline="", encoding="utf-8-sig") as f:
             for r in csv.DictReader(f):
@@ -1406,20 +1407,27 @@ def _taxable_account_ids_from_holdings() -> list[str]:
 
 
 def _ensure_dividend_reinvestment_ui_plan_data_rows() -> None:
-    """Backfill a reinvest_dividends override row for every current taxable
-    account so the Dividend Reinvestment UI group always lists every account,
-    not just ones an earlier plan import happened to include."""
+    """Backfill a reinvest_dividends override row for every current investment
+    account (Trust, IRA, 401k, Roth, HSA) so the Dividend Reinvestment UI
+    group always lists every account, not just ones an earlier plan import
+    happened to include."""
     _ensure_row_in_csv(
         "client_household.csv",
         ["Economic Assumptions", "", "reinvest_dividends_default", "NO", "yes/no",
-         "Global switch: reinvest taxable-account dividends/interest into the account instead of counting them as spendable portfolio income. When YES, this applies to every taxable account and the per-account overrides below are ignored."],
+         "Global switch: reinvest every investment account's dividends/interest into the same holding instead of letting them convert to cash inside the account. When YES, this applies to every investment account and the per-account overrides below are ignored."],
+        insert_after=("Economic Assumptions", ""),
+    )
+    _ensure_row_in_csv(
+        "client_household.csv",
+        ["Economic Assumptions", "", "cash_yield_rate", "2.00%", "pct",
+         "Growth rate applied to dividends/interest that convert to cash inside an account (Reinvest Dividends = NO) instead of compounding with the rest of the holding."],
         insert_after=("Economic Assumptions", ""),
     )
     policy_path = _plan_data_path("client_policy.csv", prefer_existing=False)
     rows = _ensure_header(_csv_read_rows(policy_path))
     seen = {_row_key(r) for r in rows[1:]}
     additions = []
-    for acct in _taxable_account_ids_from_holdings():
+    for acct in _investment_account_ids_from_holdings():
         row = ["Account Policy", acct, "reinvest_dividends", "", "yes/no",
                "Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES."]
         if _row_key(row) not in seen:

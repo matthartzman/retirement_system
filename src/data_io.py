@@ -1914,17 +1914,21 @@ def parse_client(data, url_template):
     }
     # Dividend reinvestment: global default plus per-account override
     # (client_policy.csv, Account Policy section). Blank override inherits
-    # the global default.
+    # the global default. Applies to every investment account (taxable/Trust,
+    # IRA, 401k, Roth, HSA) — not just taxable ones, since a dividend that
+    # isn't reinvested still stays inside the account as cash rather than
+    # being paid out to the household (see cash_yield_rate below).
     c['reinvest_dividends_default'] = _b(_v(data, 'Economic Assumptions', '', 'reinvest_dividends_default', 'NO'))
+    c['cash_yield_rate'] = _n(_v(data, 'Economic Assumptions', '', 'cash_yield_rate', '2.00%'), 0.02)
     _reinvest_overrides = {}
     for _sub, _vals in data.get('Account Policy', {}).items():
         _raw = str((_vals or {}).get('reinvest_dividends', '')).strip()
         if _raw:
             _reinvest_overrides[_sub] = _b(_raw)
     account_income = {}
-    taxable_ids_set = set(c.get('taxable_ids', []))
+    invest_ids_set = set(c.get('invest_ids', []))
     for _acct, _holdings in c.get('positions', {}).items():
-        if _acct not in taxable_ids_set:
+        if _acct not in invest_ids_set:
             continue
         _total_value = 0.0; _ord = 0.0; _qual = 0.0; _tax_exempt = 0.0
         for _sym, _shares in (_holdings or {}).items():
