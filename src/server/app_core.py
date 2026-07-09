@@ -847,6 +847,7 @@ def _ensure_user_ui_plan_data_rows() -> None:
     _ensure_wellness_ui_plan_data_rows()
     _ensure_heloc_ui_plan_data_rows()
     _ensure_core_spending_ui_plan_data_rows()
+    _ensure_dividend_reinvestment_ui_plan_data_rows()
 
 
 def _ensure_hsa_withdrawal_ui_plan_data_rows() -> None:
@@ -1382,6 +1383,56 @@ def _pre_tax_account_options_from_holdings() -> list[str]:
                 if acct and ("_ira" in low or "_401k" in low or "_403b" in low or "_sep" in low) and "roth" not in low:
                     accounts.add(acct)
     return sorted(accounts)
+
+
+def _taxable_account_ids_from_holdings() -> list[str]:
+    """Return taxable/brokerage account ids that carry dividend/interest yield
+    assumptions (mirrors the account-type inference in src/core.py _infer_type:
+    everything except 401k/403b/Roth/IRA/HSA/checking/529 accounts)."""
+    path = _plan_data_path("client_holdings.csv", prefer_existing=False)
+    accounts = set()
+    excluded_tokens = ("_401k", "_403b", "_roth", "_ira", "_hsa", "_checking", "_529")
+    if path.exists():
+        with path.open(newline="", encoding="utf-8-sig") as f:
+            for r in csv.DictReader(f):
+                acct = str(r.get("account") or "").strip()
+                if not acct:
+                    continue
+                low = acct.lower()
+                if any(tok in low for tok in excluded_tokens):
+                    continue
+                accounts.add(acct)
+    return sorted(accounts)
+
+
+def _ensure_dividend_reinvestment_ui_plan_data_rows() -> None:
+    """Backfill a reinvest_dividends override row for every current taxable
+    account so the Dividend Reinvestment UI group always lists every account,
+    not just ones an earlier plan import happened to include."""
+    _ensure_row_in_csv(
+        "client_household.csv",
+        ["Economic Assumptions", "", "reinvest_dividends_default", "NO", "yes/no",
+         "Global switch: reinvest taxable-account dividends/interest into the account instead of counting them as spendable portfolio income. When YES, this applies to every taxable account and the per-account overrides below are ignored."],
+        insert_after=("Economic Assumptions", ""),
+    )
+    policy_path = _plan_data_path("client_policy.csv", prefer_existing=False)
+    rows = _ensure_header(_csv_read_rows(policy_path))
+    seen = {_row_key(r) for r in rows[1:]}
+    additions = []
+    for acct in _taxable_account_ids_from_holdings():
+        row = ["Account Policy", acct, "reinvest_dividends", "", "yes/no",
+               "Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES."]
+        if _row_key(row) not in seen:
+            additions.append(row)
+    if not additions:
+        return
+    insert_at = len(rows)
+    for i, row in enumerate(rows[1:], start=1):
+        if str(row[0] if row else "").strip() == "HELOC":
+            insert_at = i
+            break
+    rows[insert_at:insert_at] = additions
+    _csv_write_rows(policy_path, rows)
 
 
 def _forced_roth_conversions_from_csv_rows(rows: list[list[str]]) -> list[dict]:
