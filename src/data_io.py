@@ -1912,6 +1912,15 @@ def parse_client(data, url_template):
         'PDBC': (0.030, 0.00, 0.0), 'BND': (0.040, 0.00, 0.0), 'AGG': (0.040, 0.00, 0.0),
         'CASH': (0.020, 0.00, 0.0), 'SGOV': (0.040, 0.00, 0.0), 'BIL': (0.040, 0.00, 0.0),
     }
+    # Dividend reinvestment: global default plus per-account override
+    # (client_policy.csv, Account Policy section). Blank override inherits
+    # the global default.
+    c['reinvest_dividends_default'] = _b(_v(data, 'Economic Assumptions', '', 'reinvest_dividends_default', 'NO'))
+    _reinvest_overrides = {}
+    for _sub, _vals in data.get('Account Policy', {}).items():
+        _raw = str((_vals or {}).get('reinvest_dividends', '')).strip()
+        if _raw:
+            _reinvest_overrides[_sub] = _b(_raw)
     account_income = {}
     taxable_ids_set = set(c.get('taxable_ids', []))
     for _acct, _holdings in c.get('positions', {}).items():
@@ -1942,6 +1951,7 @@ def parse_client(data, url_template):
                 'qualified_yield': _qual / _total_value,
                 'tax_exempt_yield': _tax_exempt / _total_value,
                 'total_distribution_yield': (_ord + _qual + _tax_exempt) / _total_value,
+                'reinvest_dividends': _reinvest_overrides.get(_acct, c['reinvest_dividends_default']),
             }
     c['account_taxable_income_assumptions'] = account_income
     c['portfolio_income_reduces_growth'] = True

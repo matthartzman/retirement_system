@@ -99,11 +99,15 @@ def apply_end_of_year_growth(c, balances, default_return=None, emit=None, event_
         rate = _account_return(c, acct, default_return, year=year)
         # Taxable portfolio income is modeled as distributed cash income earlier
         # in the projection.  Reduce price appreciation by the same distribution
-        # yield so total return is conserved rather than double-counted.
+        # yield so total return is conserved rather than double-counted. Accounts
+        # flagged for dividend reinvestment skip this reduction: their yield is
+        # never pulled out as cash, so it stays in total return and compounds
+        # into the account balance instead.
         if c.get('portfolio_income_reduces_growth', True):
             try:
                 yinfo = (c.get('account_taxable_income_assumptions') or {}).get(acct, {})
-                rate -= float(yinfo.get('total_distribution_yield', 0.0) or 0.0)
+                if not yinfo.get('reinvest_dividends', False):
+                    rate -= float(yinfo.get('total_distribution_yield', 0.0) or 0.0)
             except Exception:
                 pass
         growth = before * rate
