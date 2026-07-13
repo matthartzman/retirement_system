@@ -12,7 +12,7 @@ def test_dashboard_has_shared_active_input_usage_layer_and_page_summary():
     assert "function rowBuildUsageState" in js
     assert "function inactiveValuesPanel" in js
     assert "function inactiveRowsForStep" in js
-    assert "content+=inactiveValuesPanel(activeStep)" in js
+    assert 'content += inactiveValuesPanel(activeStep)' in js
     assert "Inactive values" in js
     assert "Why inactive" in js
     assert "What would activate it" in js

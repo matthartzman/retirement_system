@@ -11,8 +11,8 @@ def rows(name):
 
 def test_home_current_section_excludes_budget_detail_fields():
     js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
-    assert "_CURRENT_MORTGAGE_EXCL=['annual_real_estate_taxes']" in js
-    assert "'homeowners_insurance_annual','home_maintenance_annual','utilities_annual'" in js
+    assert '_CURRENT_MORTGAGE_EXCL = ["annual_real_estate_taxes"]' in js
+    assert '"homeowners_insurance_annual",\n    "home_maintenance_annual",\n    "utilities_annual"' in js
     assert 'Real-estate taxes, homeowners insurance, maintenance, and utilities are entered in Housing Budget Detail below.' in js
 
 

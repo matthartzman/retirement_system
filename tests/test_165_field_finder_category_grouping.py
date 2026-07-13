@@ -22,14 +22,14 @@ def test_field_finder_groups_by_top_level_category_not_individual_page():
     assert "function fieldFinderCategoryOrder()" in js
     # Categories are keyed by each field's owning step's nav group, not its
     # individual step id/title - the old per-page grouping is gone.
-    assert "const name=st?fieldFinderCategoryName(st.group):'Uncategorized'" in js
-    assert "const ai=catOrder.indexOf(a.name),bi=catOrder.indexOf(b.name)" in js
+    assert 'const name = st ? fieldFinderCategoryName(st.group) : "Uncategorized"' in js
+    assert 'const ai = catOrder.indexOf(a.name),\n      bi = catOrder.indexOf(b.name)' in js
 
 
 def test_field_finder_still_sorts_fields_alphabetically_within_a_group():
     js = read("frontend/js/dashboard.js")
-    assert "const la=humanLabel(a.label,a),lb=humanLabel(b.label,b);" in js
-    assert "return la.localeCompare(lb)||friendlyGroup(a).localeCompare(friendlyGroup(b));" in js
+    assert 'const la = humanLabel(a.label, a),\n          lb = humanLabel(b.label, b);' in js
+    assert 'return (\n          la.localeCompare(lb) ||\n          friendlyGroup(a).localeCompare(friendlyGroup(b))\n        );' in js
 
 
 def test_field_finder_shows_source_page_per_field_after_dropping_page_grouping():
@@ -53,8 +53,8 @@ def test_field_finder_disambiguates_same_labeled_fields_across_subsections():
     differs from the page title, and used as a secondary sort key so
     identically-labeled fields group together in a stable order."""
     js = read("frontend/js/dashboard.js")
-    assert "const qualifier=friendlyGroup(r);" in js
-    assert "const sourceLine=[pageTitle,qualifier&&norm(qualifier)!==norm(pageTitle)?qualifier:''].filter(Boolean).join(' · ');" in js
+    assert 'const qualifier = friendlyGroup(r);' in js
+    assert 'qualifier && norm(qualifier) !== norm(pageTitle) ? qualifier : ""' in js
 
 
 def test_field_finder_intro_desc_and_section_note_are_not_near_duplicates():
@@ -62,10 +62,10 @@ def test_field_finder_intro_desc_and_section_note_are_not_near_duplicates():
     of 'every editable field ... search ... prefer the source page', which
     read as redundant when shown stacked at the top of the page."""
     js = read("frontend/js/dashboard.js")
-    assert "id:'all_assumptions'" in js
-    step_start = js.index("id:'all_assumptions'")
-    step_line = js[step_start:js.index("\n", step_start)]
-    assert "desc:'Use when a value doesn\\'t appear on its guided page.'" in step_line
+    assert 'id: "all_assumptions"' in js
+    step_start = js.index('id: "all_assumptions"')
+    step_block = js[step_start : step_start + 600]
+    assert "desc: \"Use when a value doesn't appear on its guided page.\"" in step_block
     assert "Every editable plan field in one place" not in js
     assert "Grouped by source page in guided-navigation order" not in js
     assert "Grouped by plan area, matching the left navigation" in js

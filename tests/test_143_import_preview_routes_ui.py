@@ -28,4 +28,4 @@ def test_import_preview_ui_confirms_transactions_and_stages_holdings():
     assert "/api/holdings/preview" in js
     assert "holdingsImportPreviewMessage" in js
     assert "use Save Changes to write them to disk" in js
-    assert "holdingsText=text" in js
+    assert 'holdingsText = text' in js

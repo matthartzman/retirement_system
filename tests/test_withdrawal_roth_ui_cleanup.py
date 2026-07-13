@@ -5,10 +5,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_withdrawal_page_excludes_roth_and_uses_custom_table():
     js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
-    assert "case 'withdrawal_strategy':return (sec==='Withdrawal Policy'&&sub!=='roth_conversion')" in js
+    assert 'case "withdrawal_strategy":\n        return sec === "Withdrawal Policy" && sub !== "roth_conversion";' in js
     assert "renderWithdrawalOrderTable" in js
     assert "Withdrawal order" in js
-    assert "WITHDRAWAL_TYPES=['RMD','HSA','IRA_elective','Trust','Roth','Home_equity_tap']" in js
+    assert (
+        'const WITHDRAWAL_TYPES = [\n  "RMD",\n  "HSA",\n  "IRA_elective",\n  "Trust",\n  "Roth",\n  "Home_equity_tap",\n];'
+        in js
+    )
     assert "WITHDRAWAL_OPTIONS" in js
 
 

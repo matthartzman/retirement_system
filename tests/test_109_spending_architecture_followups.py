@@ -23,13 +23,13 @@ def test_taxonomy_realignment_for_104():
 
 def test_spending_nav_and_save_copy():
     js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
-    spending_core = js.index("id:'spending_core'")
-    travel = js.index("id:'spending_travel'")
-    large = js.index("id:'spending_travel_extras'")
-    ytd = js.index("id:'ytd_transactions'")
-    holdings = js.index("id:'holdings'")
+    spending_core = js.index('id: "spending_core"')
+    travel = js.index('id: "spending_travel"')
+    large = js.index('id: "spending_travel_extras"')
+    ytd = js.index('id: "ytd_transactions"')
+    holdings = js.index('id: "holdings"')
     assert spending_core < travel < large < ytd < holdings
-    assert "title:'Spending Model'" in js
+    assert 'title: "Spending Model"' in js
     assert 'Save Budget' not in js
     assert 'saveAll(true)' in js
 

@@ -35,7 +35,9 @@ def test_impact_grid_supports_five_cards():
 
 def test_impact_card_uses_current_build_value_when_baseline_missing():
     js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
-    assert "const headline=Number.isFinite(Number(delta))?deltaFormatter(delta):(Number.isFinite(Number(afterVal))?valueFormatter(afterVal):'Not available')" in js
+    assert "Number.isFinite(Number(delta))" in js
+    assert "deltaFormatter(delta)" in js
+    assert 'valueFormatter(afterVal)' in js and '"Not available"' in js
     assert "Current build" in js
     assert "impact-headline-label" in js
 

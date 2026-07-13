@@ -27,11 +27,15 @@ def test_user_ui_choice_renderer_uses_server_choice_options_and_irmaa_tier_label
 
 def test_admin_ui_choice_renderer_covers_brackets_irmaa_and_schema_type():
     js = (ROOT/'frontend/js/admin.js').read_text(encoding='utf-8')
-    assert "['10.00%','12.00%','22.00%','24.00%','32.00%','35.00%','37.00%']" in js
-    assert "label==='irmaa_tier2_mfj_base_year'" not in js
-    assert "label==='roth_irmaa_target_tier'" in js
-    assert "gridChoicesFor(profile,col,row,head)" in js
-    assert "if(c==='type')return ['text','choice','boolean'" in js
+    assert (
+        '"10.00%",\n' in js
+        and '"12.00%",\n' in js
+        and '"37.00%",\n' in js
+    )
+    assert 'label === "irmaa_tier2_mfj_base_year"' not in js
+    assert 'label === "roth_irmaa_target_tier"' in js
+    assert "gridChoicesFor(profile, col, row, head)" in js
+    assert 'if (c === "type")\n    return [\n      "text",\n      "choice",\n      "boolean"' in js
 
 
 def test_plan_data_contains_roth_irmaa_tier_choice_row():

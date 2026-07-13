@@ -21,5 +21,5 @@ def test_runtime_config_defaults_and_env_override(monkeypatch):
 
 def test_dashboard_polling_outlasts_default_server_timeout():
     js = (ROOT / 'frontend' / 'js' / 'dashboard.js').read_text(encoding='utf-8')
-    assert 'for(let i=0;i<1600;i++)' in js
+    assert 'for (let i = 0; i < 1600; i++)' in js
     assert 'Build progress polling timed out after about 40 minutes' in js

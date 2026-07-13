@@ -30,7 +30,7 @@ def test_admin_left_nav_has_non_clickable_intuitive_groups():
         'Reference data',
     ]:
         assert group in html
-    assert re.search(r'group:\'System configuration\'', html)
+    assert re.search(r'group: "System configuration"', html)
 
 
 def test_admin_click_handlers_still_have_backing_functions_after_refinement():

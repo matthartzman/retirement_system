@@ -62,7 +62,7 @@ def test_planning_levers_ui_and_workbook_source_present():
     js = Path('frontend/js/dashboard.js').read_text(encoding='utf-8')
     wb = Path('src/reporting/workbook_builder.py').read_text(encoding='utf-8')
     common = Path('src/reporting/workbook_common.py').read_text(encoding='utf-8')
-    assert "id:'planning_levers'" in js
+    assert 'id: "planning_levers"' in js
     assert 'renderPlanningLevers' in js
     assert '2H. Planning Levers' in common
     assert 'build_sheet27_planning_levers' in wb

@@ -25,8 +25,8 @@ def test_normal_settings_exposes_backup_controls() -> None:
     assert "Local backups" in js
     assert "Enable automatic backups" in js
     assert "Every build" in js
-    assert "maybeRunLocalBackup('save')" in js
-    assert "maybeRunLocalBackup('build')" in js
+    assert 'maybeRunLocalBackup("save")' in js
+    assert 'maybeRunLocalBackup("build")' in js
 
 
 def test_backup_contract_is_documented_and_roadmap_completed() -> None:

@@ -11,7 +11,7 @@ def test_scenario_ui_shows_canonical_home_basis_and_removes_retired_duplicates()
 
     assert "function rowIsRetiredScenarioHomeDuplicate" in js
     assert "rowIsCanonicalHomeBasis" in js
-    assert "lbl.startsWith('home_sale_')||lbl==='home_basis'" in js
+    assert '(lbl.startsWith("home_sale_") || lbl === "home_basis")' in js
     assert "rowIsRetiredScenarioHomeDuplicate(r)" in js
     assert "function homeSaleScenarioYearRow" in js
     assert "shared canonical Home asset facts" in js

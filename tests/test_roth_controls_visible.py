@@ -7,10 +7,10 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_roth_conversion_controls_moved_to_user_ui_not_admin_editor():
     admin = (ROOT / 'frontend/js/admin.js').read_text(encoding='utf-8')
     user = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
-    assert "id:'roth_conversion'" in user
+    assert 'id: "roth_conversion"' in user
     assert "Roth conversion strategy" in user
-    assert "sec==='Withdrawal Policy'&&sub==='roth_conversion'" in user
-    assert "sec==='Model Constants'&&sub==='irmaa'" in user
+    assert '(sec === "Withdrawal Policy" &&' in user
+    assert 'sec === "Model Constants" &&\n            sub === "irmaa"' in user
     assert "title:'Roth conversion controls'" not in admin
 
 
@@ -37,16 +37,22 @@ def test_roth_user_page_uses_visible_purpose_built_layout():
     assert 'function renderRothConversion()' in user
     assert 'details class="roth-section"' in user or "details class='roth-section'" in user
     assert "ROTH_PRIMARY_LABELS" in user
-    assert "ROTH_IRMAA_LABELS=['irmaa_guardrail_mode','roth_irmaa_target_tier','roth_irmaa_headroom_usage_pct','irmaa_annual_inflator']" in user
+    assert (
+        'const ROTH_IRMAA_LABELS = [\n  "irmaa_guardrail_mode",\n  "roth_irmaa_target_tier",\n  "roth_irmaa_headroom_usage_pct",\n  "irmaa_annual_inflator",\n];'
+        in user
+    )
     assert "ROTH_LEGACY_IRMAA_LABELS" not in user
-    assert "ROTH_LEGACY_LABELS=['roth_objective_mode','estate_tax_objective_mode','legacy_objective_mode'" in user
-    assert "roth_conversion')content+=" in user and "renderRothConversion" in user
+    assert (
+        'const ROTH_LEGACY_LABELS = [\n  "roth_objective_mode",\n  "estate_tax_objective_mode",\n  "legacy_objective_mode",'
+        in user
+    )
+    assert 'roth_conversion")\n    content +=' in user and "renderRothConversion" in user
 
 
 def test_choice_schema_fields_render_as_select_controls():
     user = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
     assert 'function choiceOptions' in user
-    assert "type==='choice'||norm(units)==='choice'" in user
+    assert 'type === "choice" || norm(units) === "choice"' in user
     assert '<select data-row=' in user
 
 

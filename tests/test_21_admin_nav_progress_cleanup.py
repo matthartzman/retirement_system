@@ -37,9 +37,9 @@ def test_focused_pages_use_left_step_navigation_not_nested_card_nav():
 def test_build_progress_starts_at_beginning():
     html = INDEX_HTML.read_text(encoding="utf-8") + "\n" + DASHBOARD_JS.read_text(encoding="utf-8")
     template = TEMPLATE.read_text(encoding="utf-8")
-    assert "Capturing the current workbook baseline...',0" in html
-    assert "Math.max(0,Math.min(100,Number(pct)))" in html
-    assert "b.style.width='0%'" in html
+    assert 'Capturing the current workbook baseline...",\n      0' in html
+    assert 'Math.max(0, Math.min(100, Number(pct)))' in html
+    assert 'b.style.width = "0%"' in html
     assert "startBuildProgressTicker(20)" not in html
     assert "Elapsed ${elapsed}" in html
     assert "buildOverlayExpectedLabel" in html

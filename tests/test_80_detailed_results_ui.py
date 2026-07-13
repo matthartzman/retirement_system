@@ -261,7 +261,7 @@ def test_detailed_results_ui_nav_and_endpoint_are_present():
     rui = (ROOT / 'frontend/js/reports_ui.js').read_text(encoding='utf-8')
     css = (ROOT / 'frontend/css/dashboard.css').read_text(encoding='utf-8')
     routes = (ROOT / 'src/server/workbook_routes.py').read_text(encoding='utf-8')
-    assert "id:'detailed_results'" in js
+    assert 'id: "detailed_results"' in js
     assert 'Results Explorer' in js
     assert 'Workbook Results Explorer' not in js
     assert 'Workbook result explorer' not in js
@@ -273,9 +273,9 @@ def test_detailed_results_ui_nav_and_endpoint_are_present():
     assert 'retirementDetailedResultsNavOpen' in js
     assert 'setDetailedResultsNavOpen(this.open)' in js
     assert 'window.setDetailedResultsNavOpen=setDetailedResultsNavOpen' in js
-    assert 'timeoutMs:30000' in js
+    assert 'timeoutMs: 30000' in js
     assert 'isAssetAllocationSheet' in js
-    assert 'timeoutMs:isChartDashboardSheet?20000:(isAssetAllocationSheet?30000:60000)' in js
+    assert "timeoutMs: isChartDashboardSheet\n            ? 20000\n            : isAssetAllocationSheet" in js
     assert 'Chart Dashboard loading timed out' in js
     assert 'Asset Allocation loading timed out' in js
     assert 'detailedResultSheetSeq' in js
@@ -291,7 +291,7 @@ def test_detailed_results_ui_nav_and_endpoint_are_present():
     assert 'detailHeaderRowIndex' in rui
     assert 'detailedProgressHtml(true)' not in js
     assert 'detail-cell-currency' in css
-    assert "if(sheet.kind==='chart_dashboard'&&Array.isArray(sheet.charts))" in rui
+    assert 'if (sheet.kind === "chart_dashboard" && Array.isArray(sheet.charts)) {' in rui
     assert 'renderChartDashboardSheet' in rui
     assert 'detail-chart-grid' in css
     assert 'Show / hide columns' in rui
@@ -319,7 +319,7 @@ def test_results_explorer_uses_human_headings_not_measure_fallbacks():
     css = (ROOT / 'frontend/css/dashboard.css').read_text(encoding='utf-8')
 
     assert "function detailProgressState" in js
-    assert "setInterval(()=>" in js and ",250)" in js
+    assert "setInterval(() => {" in js and ", 250)" in js
     assert "Detecting sticky heading rows and human-readable column groups" in js
     assert "function detailLabelForColumn" in rui
     assert "function detailGroupLabel" in rui

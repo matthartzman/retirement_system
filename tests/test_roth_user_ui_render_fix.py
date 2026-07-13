@@ -24,12 +24,12 @@ def _norm(s: str) -> str:
 
 def test_user_ui_roth_step_matches_normalized_subsection_names():
     js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
-    assert "case 'roth_conversion'" in js
+    assert 'case "roth_conversion"' in js
     # rowsForStep() normalizes subsection names before comparison. Comparing to
     # title-case values made only forced-conversion rows visible.
-    assert "sec==='Withdrawal Policy'&&sub==='roth_conversion'" in js
-    assert "sec==='Model Constants'&&sub==='roth_conversion'" in js
-    assert "sec==='Model Constants'&&sub==='irmaa'" in js
+    assert '(sec === "Withdrawal Policy" &&' in js
+    assert 'sec === "Model Constants" && sub === "roth_conversion"' in js
+    assert 'sec === "Model Constants" &&\n            sub === "irmaa"' in js
     assert "sub==='Roth Conversion'" not in js
 
 

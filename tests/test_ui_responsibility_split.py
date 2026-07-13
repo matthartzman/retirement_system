@@ -42,7 +42,7 @@ def test_admin_no_longer_exposes_client_plan_data_editors():
 
 def test_user_ui_has_client_specific_advanced_pages_and_output_focused_help():
     user_js = (ROOT/'frontend/js/dashboard.js').read_text(encoding='utf-8')
-    for token in ["id:'economic_tax_assumptions'", "id:'withdrawal_strategy'", "id:'roth_conversion'", "id:'allocation_assets'", "id:'optional_functions'"]:
+    for token in ['id: "economic_tax_assumptions"', 'id: "withdrawal_strategy"', 'id: "roth_conversion"', 'id: "allocation_assets"', 'id: "optional_functions"']:
         assert token in user_js
     for phrase in ['Monte Carlo', 'Executive Summary']:
         assert phrase in user_js

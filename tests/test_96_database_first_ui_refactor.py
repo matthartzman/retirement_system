@@ -5,9 +5,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_dashboard_top_level_groups():
     js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
-    steps_block = re.search(r"const STEPS=\[(.*?)\n\];", js, re.S).group(1)
+    steps_block = re.search(r"const STEPS = \[(.*?)\n\];", js, re.S).group(1)
     groups = []
-    for name in re.findall(r"group:'([^']+)'", steps_block):
+    for name in re.findall(r'group: "([^"]+)"', steps_block):
         if name not in groups:
             groups.append(name)
     # Item 178: the "Accounts" group was dissolved — Investment Holdings and
@@ -44,7 +44,7 @@ def test_sqlite_remains_configured_source_of_truth():
 
 def test_build_and_load_no_longer_use_remembered_csv_folder_as_authority():
     js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
-    load_fn = re.search(r"async function loadAll\(opts=\{\}\).*?async function startNewPlan", js, re.S).group(0)
+    load_fn = re.search(r"async function loadAll\(opts = \{\}\).*?async function startNewPlan", js, re.S).group(0)
     build_fn = re.search(r"async function runBuild\(.*?\).*?function downloadFile", js, re.S).group(0)
     assert "refreshServerFromPlanFolder" not in load_fn
     assert "Local folder:" not in load_fn
