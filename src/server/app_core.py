@@ -1454,7 +1454,7 @@ TLH_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Withdrawal Policy", "Tax-Loss Harvesting", "tlh_annual_ceiling", "$0", "USD",
      "Maximum harvested loss per year (0 = unlimited)."],
     ["Withdrawal Policy", "Tax-Loss Harvesting", "tlh_transaction_cost_bps", "2", "number",
-     "Round-trip transaction cost in basis points charged on harvested market value (2 = 0.02%)."],
+     "Round-trip trading cost, in basis points (hundredths of a percent) of harvested market value — not a dollar amount. 2 bps = 0.02%; 100 bps = 1%. A typical low-cost brokerage trade is 0-5 bps."],
     ["Withdrawal Policy", "Tax-Loss Harvesting", "tlh_fraction_sold_before_death", "50.00%", "percent",
      "Fraction of the lower-basis replacement expected to be sold (and its larger gain taxed) before basis step-up at death. Lower values make harvesting more permanently valuable."],
 ]
