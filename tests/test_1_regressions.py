@@ -189,6 +189,34 @@ class RegressionV781Tests(unittest.TestCase):
         self.assertGreater(wd_with, wd_without + r_with['niit'] * 0.95)
         self.assertAlmostEqual(r_with['net_income'], r_with['gross_income'] - r_with['total_tax'], places=6)
 
+    def test_travel_end_year_zeros_travel_after_end_year(self):
+        c = sample_config()
+        year_start = c['plan_start']
+        year_travel_end = year_start + 2
+        year_after_end = year_travel_end + 1
+        c.update({
+            'plan_end': year_after_end,
+            'travel_end_year': year_travel_end,
+            'recurring_extras': [
+                {
+                    'type': 'travel',
+                    'amount': 10_000.0,
+                    'start_year': year_start,
+                    'end_year': year_after_end,
+                    'is_home_improvement': False,
+                }
+            ],
+        })
+        rows = project(c)
+
+        # Travel should be included in rec_extra for years at/before travel_end_year
+        self.assertGreater(rows[year_travel_end - year_start]['rec_extra'], 0,
+                          msg=f'Travel should exist at year {year_travel_end}')
+
+        # Travel should be zero in the year after travel_end_year
+        self.assertEqual(rows[year_after_end - year_start]['rec_extra'], 0.0,
+                        msg=f'Travel should be zero at year {year_after_end}')
+
     def test_percentiles_are_interpolated(self):
         p = _percentiles([0, 100])
         self.assertEqual(p[50], 50.0)

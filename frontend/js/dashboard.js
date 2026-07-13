@@ -1313,8 +1313,7 @@ function renderRetirementIncome(){return renderSsCompactTable()+renderSsPolicySe
 async function seedWellnessOop(){try{const out=await api('/api/healthcare/seed',{method:'POST'});if(out&&out.seeded>0){await loadAll({source:planSource,preferLocal:false,silent:true});activeStep='retirement_wellness';renderMain();showMessage('Out-of-pocket detail fields added ('+out.seeded+' rows). Save Changes to persist.')}else{showMessage('Out-of-pocket detail fields already present.');}}catch(e){showMessage('Error seeding OOP fields: '+e.message,'error');}}
 function renderRetirementWellness(){
   if(searchText.trim())return renderFields('retirement_wellness');
-  let html='<div class="section-note"><b>Wellness Budget Detail is the only editable Wellness budget view.</b> The Healthcare Premium group contains Pre-65 Healthcare Premium plus Medicare Part B, Part D, and Part G premiums. Medical, dental, vision, Rx/OTC, vitamins/supplements, and the medical OOP cap are managed below without duplicating premium inputs.</div>';
-  html+='<div class="section-note">Medicare Premiums (Including Part B, Part D, Part G) are represented as separate premium categories in the detail table so projection references and spending categories use the same source.</div>';
+  let html='<div class="section-note"><b>Wellness Budget Detail is the authoritative view for healthcare spending.</b> Enter Pre-65 premiums, Medicare Part B/D/G premiums, and non-premium medical, dental, vision, Rx/OTC, and out-of-pocket estimates. The projection uses these values as-entered for cash flow and income impact; Medicare premium categories are split to match spending taxonomy.</div>';
   html+=renderDomainBudgetPage('healthcare');
   return html;
 }
