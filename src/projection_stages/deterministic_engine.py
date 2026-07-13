@@ -13,6 +13,7 @@ from .budget_rollups import category_budget_rollup, housing_budget_rollup
 from .year_state import MutableYearState, create_initial_year_state
 from ..planning_engines import *  # noqa: F401,F403 - import legacy helper functions/classes
 from .. import planning_engines as _legacy_pe
+from .. import tlh as _tlh
 
 # Star import intentionally skips private module aliases used by the retained
 # deterministic calculation body.  Rebind those aliases explicitly.
@@ -195,6 +196,7 @@ def run_deterministic_projection_stage(c):
     first_death_done = year_state.first_death_done
     cst_funded_total = year_state.cst_funded_total
     cst_balance = year_state.cst_balance
+    cap_loss_carryforward = year_state.cap_loss_carryforward
 
     def _path_factor(path_key, annual_rate, year):
         path = c.get(path_key)
@@ -1452,6 +1454,39 @@ def run_deterministic_projection_stage(c):
         investment_tax_iterations = 0
         investment_tax_funded_by_taxable = 0.0
 
+        # ── Tax-loss harvesting (apply mode) ───────────────────────────────
+        # Harvest qualifying loss lots in taxable accounts: realize the loss now
+        # and reset each lot's basis to market with a current-year acquisition
+        # date. That single mutation models buying an equivalent replacement —
+        # a lower basis (so a larger future gain), a fresh holding-period clock,
+        # and no re-harvesting of the same lot next year. A transaction cost is
+        # charged against the account balance. The realized loss offsets this
+        # year's gains first, then up to $3k of ordinary income, with the
+        # remainder rolling into cap_loss_carryforward for future years.
+        harvested_loss = 0.0
+        tlh_txn_cost = 0.0
+        if str(c.get('tlh_policy', 'off')).lower() == 'apply':
+            _tlh_bps = float(c.get('tlh_transaction_cost_bps', 0.0) or 0.0) / 10000.0
+            for _cand in _tlh.select_harvest_lots(
+                c, year,
+                min_loss_dollars=float(c.get('tlh_min_loss_dollars', 500.0) or 0.0),
+                min_loss_pct=float(c.get('tlh_min_loss_pct', 0.05) or 0.0),
+                annual_ceiling=float(c.get('tlh_annual_ceiling', 0.0) or 0.0),
+            ):
+                _lot = _cand['lot']
+                harvested_loss += _cand['loss']
+                _cost = _cand['market_value'] * _tlh_bps
+                tlh_txn_cost += _cost
+                _lot.cost_basis = _cand['market_value']
+                _lot.purchase_date = f'{year}-01-01'
+                _acct = _cand['account']
+                bal[_acct] = max(0.0, float(bal.get(_acct, 0.0) or 0.0) - _cost)
+        row['tlh_harvested_loss'] = harvested_loss
+        row['tlh_transaction_cost'] = tlh_txn_cost
+        # Loss pool available to offset gains this year: prior-year carryforward
+        # plus anything harvested this year.
+        available_losses = cap_loss_carryforward + harvested_loss
+
         def _realize_taxable_gain(draws_by_account):
             gain = 0.0
             taxable_draw = 0.0
@@ -1475,19 +1510,22 @@ def run_deterministic_projection_stage(c):
 
         def _refresh_investment_taxes():
             nonlocal ltcg_tax, niit, total_tax
-            new_ltcg_tax = _ltcg_tax_on_gain_path(ltcg_gain, max(0, taxable_inc), year) if ltcg_gain > 0 else 0.0
+            # Capital losses (carryforward + harvested) offset realized gains
+            # before any LTCG/NIIT is due.
+            net_gain = max(0.0, ltcg_gain - available_losses)
+            new_ltcg_tax = _ltcg_tax_on_gain_path(net_gain, max(0, taxable_inc), year) if net_gain > 0 else 0.0
             delta_ltcg = max(0.0, new_ltcg_tax - ltcg_tax)
             ltcg_tax = new_ltcg_tax
             delta_niit = 0.0
             if c['model_niit']:
                 # Keep the engine's existing MAGI convention but recompute on
                 # cumulative NII as additional taxable withdrawals are made.
-                new_niit = niit_tax(base_nii_without_ltcg + ltcg_gain, agi, filing)
+                new_niit = niit_tax(base_nii_without_ltcg + net_gain, agi, filing)
                 delta_niit = max(0.0, new_niit - niit)
                 niit = new_niit
             return delta_ltcg + delta_niit
 
-        if ltcg_gain > 0:
+        if ltcg_gain > 0 or available_losses > 0:
             inv_tax_delta = _refresh_investment_taxes()
             gap += inv_tax_delta
         if trust_wd > 0:
@@ -1520,6 +1558,31 @@ def run_deterministic_projection_stage(c):
             inv_tax_delta = _refresh_investment_taxes()
             gap += inv_tax_delta
 
+        # ── Capital-loss waterfall settle-up ───────────────────────────────
+        # The gain-offset portion is already reflected in ltcg_tax/niit above.
+        # Whatever loss remains offsets up to $3,000 of ordinary income (valued
+        # at the federal marginal rate) and the rest rolls forward.
+        _used_vs_gain = min(available_losses, max(0.0, ltcg_gain))
+        _rem_loss = max(0.0, available_losses - _used_vs_gain)
+        _ordinary_offset = min(3000.0, _rem_loss)
+        cap_loss_carryforward = _rem_loss - _ordinary_offset
+        tlh_ordinary_credit = 0.0
+        if _ordinary_offset > 0 and taxable_inc > 0:
+            _mtr = (_compute_fed_tax_path(taxable_inc, year, filing)
+                    - _compute_fed_tax_path(max(0.0, taxable_inc - _ordinary_offset), year, filing)) / _ordinary_offset
+            tlh_ordinary_credit = _ordinary_offset * max(0.0, _mtr)
+        row['cap_loss_used'] = _used_vs_gain + _ordinary_offset
+        row['cap_loss_carryforward'] = cap_loss_carryforward
+        row['tlh_ordinary_credit'] = tlh_ordinary_credit
+        # Tax value the gain-offset portion avoided (LTCG that would have been
+        # due on the offset gain slice, stacked above ordinary income). Combined
+        # with the ordinary-offset credit this is the realized-this-year tax
+        # value of harvesting, which the Tax-Loss Harvesting sheet sums to a
+        # net-of-transaction-cost lifetime figure.
+        tlh_gain_offset_value = _ltcg_tax_on_gain_path(_used_vs_gain, max(0.0, taxable_inc), year) if _used_vs_gain > 0 else 0.0
+        row['tlh_gain_offset_value'] = tlh_gain_offset_value
+        row['tlh_tax_value'] = tlh_gain_offset_value + tlh_ordinary_credit
+
         row['trust_wd'] = trust_wd
         row['h_trust_wd'] = ht_wd
         row['w_trust_wd'] = wt_wd
@@ -1530,7 +1593,7 @@ def run_deterministic_projection_stage(c):
         row['investment_tax_funded_by_taxable'] = investment_tax_funded_by_taxable
         if niit > 0:
             emit(EvTax(year, 'niit', niit, 0))
-        total_tax = total_tax_pre_niit + ltcg_tax + niit
+        total_tax = total_tax_pre_niit + ltcg_tax + niit - tlh_ordinary_credit
         row['total_tax'] = total_tax
         row['net_income'] = row.get('gross_income', agi) - total_tax
         # Refresh total_cash_need now that ltcg_tax/niit reflect the fixed-point

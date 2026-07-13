@@ -43,9 +43,9 @@ category,internet_cable,Internet & Cable,4510,,,,Annualized actual,,,
 category,lawn_service_garden_flowers,Lawn Service/Garden/Flowers,2400,,,,Annualized actual,,,
 category,mani_pedi,Mani-Pedi,1000,,,,Annualized actual,,,
 category,medical,Medical,5000,,,,Source: Wellness Budget Detail / transaction/detail input,,,
-category,medicare_part_b,Medicare Part B Premium,5356,,,,Source: Wellness Budget Detail / Medicare monthly input annualized,,,
-category,medicare_part_d,Medicare Part D Premium,2095,,,,Source: Wellness Budget Detail / Medicare monthly input annualized,,,
-category,medigap_premium,Medicare Part G / Medigap Premium,4309,,,,Source: Wellness Budget Detail / Medicare monthly input annualized,,,
+category,medicare_part_b,Medicare Part B Premium,6330,,,,Source: Wellness Budget Detail / Medicare monthly input annualized,,,
+category,medicare_part_d,Medicare Part D Premium,1436,,,,Source: Wellness Budget Detail / Medicare monthly input annualized,,,
+category,medigap_premium,Medicare Part G / Medigap Premium,2095,,,,Source: Wellness Budget Detail / Medicare monthly input annualized,,,
 category,miscellaneous,Miscellaneous,,,,,Annualized actual,,,
 category,mortgage,Mortgage,36000,,,,Annualized actual,,,
 category,movie_theater,Movie Theater,300,,,,Annualized actual,,,
@@ -54,7 +54,7 @@ category,parking_tolls,Parking / Tolls,600,,,,Annualized actual,,,
 category,personal,Personal,500,,,,Annualized actual,,,
 category,pest_control,Pest Control,650,,,,Annualized actual,,,
 category,phone,Phone,1350,,,,Annualized actual,,,
-category,pre65_wellness_premium,Pre-65 Healthcare Premium,12000,,,,Source: Wellness Budget Detail / pre-65 healthcare premium input,,,
+category,pre65_wellness_premium,Pre-65 Healthcare Premium,11704,,,,Source: Wellness Budget Detail / pre-65 healthcare premium input,,,
 category,public_transit,Public Transit,15,,,,,,,
 category,real_estate_taxes,Real Estate Taxes,18000,,,,Source: Housing Budget Detail / current plan input,,,
 category,restaurants_bars,Restaurants & Bars,15000,,,,Annualized actual,,,
@@ -82,7 +82,6 @@ line,travel_housing,Travel - Housing,2617,,,,Recurring line so Travel breaks out
 line,travel_insurance,Travel - Insurance,159,,,,Recurring line so Travel breaks out as its own Cash Flow Projection column,,category_budget,detail
 line,travel_plane_train_bus,Travel - Plane/Train/Bus,2744,,,,Recurring line so Travel breaks out as its own Cash Flow Projection column,,category_budget,detail
 line,travel_vacation,Travel & Vacation,8127,,,,Recurring line so Travel breaks out as its own Cash Flow Projection column,,category_budget,detail
-line,charitable_donations,Charitable Giving,5000,,,,Seeded from annual charitable giving,,category_budget,detail
 line,significant_gifts,10k for each 2026,40000,,,2026,,,large_discretionary,detail
 line,travel_total,Travel Budget Total,10744,,,,Auto-synced from taxonomy budget,,travel,summary
 line,healthcare_total,Healthcare Budget Total,7100,,,,Auto-synced from taxonomy budget,,healthcare,summary

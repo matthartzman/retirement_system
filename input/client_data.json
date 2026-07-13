@@ -250,7 +250,7 @@
   },
   "Cashflow": {
     "Earned Income": {
-      "annual_earned_income": "$290,000",
+      "annual_earned_income": "$309,620",
       "earned_income_annual_increase": "3.00%",
       "earned_income_last_year": "2027",
       "earned_income_start_year": "2026",
@@ -342,14 +342,14 @@
   "Economic Assumptions": {
     "": {
       "annuity_default_additional_income_pct": "20.00%",
-      "annuity_default_dividend_rate": "5.75%",
+      "annuity_default_dividend_rate": "5.00%",
       "annuity_default_pay_in_cash_pct": "80.00%",
-      "cash_yield_rate": "2.00%",
+      "cash_yield_rate": "1.00%",
       "fed_tax_bracket_inflator": "2.00%",
       "inflation_general": "2.50%",
       "medicare_part_b_inflation": "5.50%",
       "medicare_part_d_inflation": "1.25%",
-      "portfolio_nominal_return": "6.00%",
+      "portfolio_nominal_return": "5.00%",
       "reinvest_dividends_default": "YES",
       "social_security_cola": "2.00%",
       "social_security_taxable_fraction": "85.00%"
@@ -751,10 +751,10 @@
   },
   "Liquidity Buffer": {
     "buffer_1": {
-      "end_year": "",
+      "end_year": "2029",
       "reserve_account": "Taxable/Trust",
-      "start_year": "",
-      "years_of_expenses": "0"
+      "start_year": "2027",
+      "years_of_expenses": "1"
     }
   },
   "Model Constants": {
@@ -857,7 +857,7 @@
       "lifetime_tax_projection": "YES",
       "long_term_care_stress": "TRUE",
       "market_luck_stress_test": "TRUE",
-      "methodology_rerun": "TRUE",
+      "methodology_rerun": "YES",
       "property_casualty_umbrella": "FALSE",
       "retirement_strategy": "TRUE",
       "rmd_audit": "TRUE",
@@ -1161,6 +1161,14 @@
     },
     "Spousal Rollover": {
       "decedent_balances_pass_to_survivor": "TRUE"
+    },
+    "Tax-Loss Harvesting": {
+      "tlh_annual_ceiling": "$0",
+      "tlh_fraction_sold_before_death": "50.00%",
+      "tlh_min_loss_dollars": "$500",
+      "tlh_min_loss_pct": "5.00%",
+      "tlh_policy": "off",
+      "tlh_transaction_cost_bps": "2"
     }
   }
 }

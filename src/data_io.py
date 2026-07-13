@@ -1962,6 +1962,20 @@ def parse_client(data, url_template):
     c['account_taxable_income_assumptions'] = account_income
     c['portfolio_income_reduces_growth'] = True
 
+    # Tax-loss harvesting policy (taxable/Trust accounts only). off = ignore;
+    # analyze_only = surface opportunities in reporting but don't change the
+    # projection; apply = harvest each year inside the projection so terminal
+    # net worth and lifetime tax reflect the strategy.
+    _tlh_policy = str(_v(data, 'Withdrawal Policy', 'Tax-Loss Harvesting', 'tlh_policy', 'off') or 'off').strip().lower()
+    if _tlh_policy not in ('off', 'analyze_only', 'apply'):
+        _tlh_policy = 'off'
+    c['tlh_policy'] = _tlh_policy
+    c['tlh_min_loss_dollars'] = _n(_v(data, 'Withdrawal Policy', 'Tax-Loss Harvesting', 'tlh_min_loss_dollars', '500'), 500.0)
+    c['tlh_min_loss_pct'] = _n(_v(data, 'Withdrawal Policy', 'Tax-Loss Harvesting', 'tlh_min_loss_pct', '5%'), 0.05)
+    c['tlh_annual_ceiling'] = _n(_v(data, 'Withdrawal Policy', 'Tax-Loss Harvesting', 'tlh_annual_ceiling', '0'), 0.0)
+    c['tlh_transaction_cost_bps'] = _n(_v(data, 'Withdrawal Policy', 'Tax-Loss Harvesting', 'tlh_transaction_cost_bps', '2'), 2.0)
+    c['tlh_fraction_sold_before_death'] = _n(_v(data, 'Withdrawal Policy', 'Tax-Loss Harvesting', 'tlh_fraction_sold_before_death', '50%'), 0.5)
+
     # Instantiate LotEngine with current prices
     lot_method = _v(data, 'Withdrawal Policy', '', 'lot_method', 'HIFO') or 'HIFO'
     c['lot_engine'] = LotEngine(

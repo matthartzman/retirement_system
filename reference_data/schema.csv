@@ -77,6 +77,12 @@ Scenarios,Sell Home,home_sale_proceeds_account,text,TRUE,Wife_Trust,,,Destinatio
 Scenarios,Higher Spending,spend_multiplier,number,TRUE,1.20,1,3,Spending multiplier
 Scenarios,High Inflation,inflation_override,percent,TRUE,4.50%,0,15,Scenario inflation rate
 Scenarios,Low Return,portfolio_return_override,percent,TRUE,4.00%,0,15,Scenario return rate
+Withdrawal Policy,Tax-Loss Harvesting,tlh_policy,choice,FALSE,off,,,off | analyze_only | apply
+Withdrawal Policy,Tax-Loss Harvesting,tlh_min_loss_dollars,currency,FALSE,$500,0,,Minimum dollar loss on a lot before harvesting
+Withdrawal Policy,Tax-Loss Harvesting,tlh_min_loss_pct,percent,FALSE,5.00%,0,100,Minimum loss as a percentage of cost basis before harvesting
+Withdrawal Policy,Tax-Loss Harvesting,tlh_annual_ceiling,currency,FALSE,$0,0,,Maximum harvested loss per year (0 = unlimited)
+Withdrawal Policy,Tax-Loss Harvesting,tlh_transaction_cost_bps,number,FALSE,2,0,100,Round-trip transaction cost in basis points on harvested market value
+Withdrawal Policy,Tax-Loss Harvesting,tlh_fraction_sold_before_death,percent,FALSE,50.00%,0,100,Fraction of the replacement expected to be sold before basis step-up at death
 Withdrawal Policy,Roth Conversion,roth_conversion_policy,choice,FALSE,optimize_terminal_tax,,,optimize_terminal_tax | fill_to_bracket | fill_to_irmaa | fixed_dollar | none
 Withdrawal Policy,Roth Conversion,max_conversion_years,number,FALSE,10,0,50,"Maximum number of years in the voluntary Roth conversion window, also bounded by the RMD-age window."
 Withdrawal Policy,Roth Conversion,max_annual_conversion_pct_of_traditional_ira,percent,FALSE,20.00%,0,100,Maximum voluntary conversion in a year as a percentage of starting traditional IRA/pre-tax balances.
