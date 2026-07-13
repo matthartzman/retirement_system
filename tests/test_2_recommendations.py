@@ -90,8 +90,12 @@ class RecommendationCompletionTests(unittest.TestCase):
         self.assertEqual(summary['fail_count'], 0)
         self.assertEqual(summary['warn_count'], 0)
         self.assertEqual((rows[0]['year'], rows[-1]['year'], len(rows)), (2026, 2056, 31))
-        self.assertAlmostEqual(rows[-1]['total_nw'], 9_402_089.59, delta=5000.0)
-        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_306_441.58, delta=5000.0)
+        # Baselines updated for item 182 (pre-65 bridge premium now applies to
+        # any pre-65 person regardless of retirement year): Matt is billed a
+        # marketplace bridge premium in 2026-27, ~$19k of added early spending
+        # that compounds out of terminal net worth over the horizon.
+        self.assertAlmostEqual(rows[-1]['total_nw'], 9_337_747.69, delta=5000.0)
+        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_300_550.69, delta=5000.0)
 
     def test_fixed_point_taxable_withdrawal_solver_runs_before_roth(self):
         # The fixed-point solver only runs when there's sufficient investment tax

@@ -20,7 +20,8 @@ def test_core_spending_renderer_is_flat_ordered_and_excludes_daf():
 
 def test_core_spending_route_excludes_daf_annual_contribution():
     js = _js()
-    route = "case 'spending_core':return (sec==='Cashflow'&&sub==='spending'&&lbl!=='daf_annual_contribution')"
+    # Item 174 also excludes the legacy single Core-Spending base input.
+    route = "case 'spending_core':return (sec==='Cashflow'&&sub==='spending'&&lbl!=='daf_annual_contribution'&&lbl!=='annual_spending_base_year')"
     assert route in js
 
 

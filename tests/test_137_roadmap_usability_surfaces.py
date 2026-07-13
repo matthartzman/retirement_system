@@ -60,15 +60,24 @@ def test_build_history_surfaces_output_fingerprints_and_pricing_mode():
     assert ".build-history-provenance" in css
 
 
-def test_system_configuration_splits_normal_settings_and_advanced_maintenance():
+def test_system_configuration_is_single_consolidated_section():
+    # Item 180: the Settings page was consolidated into a single section.
+    # The Normal Settings / Advanced Maintenance split (and its <details>
+    # wrapper) was removed; Save Plan and Report Readiness were dropped; CSV
+    # Backup and the renamed "All Assumptions Editor" moved into the one
+    # section, and a button opens the System Configuration Console.
     js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
     css = (ROOT / "frontend/css/dashboard.css").read_text(encoding="utf-8")
 
-    assert "Normal Settings" in js
-    assert "Advanced Maintenance" in js
-    assert "Open advanced maintenance tools" in js
-    assert "system-maintenance-details" in js
-    assert "system-config-section normal-settings" in js
-    assert "system-config-section advanced-maintenance" in js
+    # Consolidated: the split headings and the advanced <details> are gone.
+    assert "system-config-section normal-settings" not in js
+    assert "system-config-section advanced-maintenance" not in js
+    assert "system-maintenance-details" not in js
+    # Removed cards.
+    assert "showConfigCardHelp('save_plan')" not in js
+    assert "showConfigCardHelp('report_readiness')" not in js
+    # Retained/renamed surfaces in the single section.
+    assert "All Assumptions Editor" in js
+    assert "Export CSV backup" in js
+    assert "Open System Configuration Console" in js
     assert ".system-config-section" in css
-    assert ".system-maintenance-details" in css
