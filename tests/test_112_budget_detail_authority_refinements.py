@@ -33,7 +33,9 @@ def test_wellness_budget_detail_uses_group_level_add_row_and_contains_premium_ca
     # instead of once per category (bug 132).
     assert 'wellness-flat-budget' not in js
     assert "addGroupDetailRow('${esc(tt)}','${gj}')" in js
-    assert 'The Healthcare Premium group contains Pre-65 Healthcare Premium plus Medicare Part B, Part D, and Part G premiums' in js
+    # Item 181 consolidated the wellness copy; the same essential grouping
+    # information is retained in the healthcare domain help text.
+    assert 'Healthcare Premium group (Pre-65 Healthcare Premium plus Medicare Part B, Part D, and Part G)' in js
     tax = rows('input/client_spending_taxonomy.csv')
     active_wellness = {r['category_id']: r for r in tax if r['tracking_type'] == 'Wellness' and r['status'] == 'active'}
     for cid in ['pre65_wellness_premium', 'medicare_part_b', 'medicare_part_d', 'medigap_premium', 'annual_oop_max']:
