@@ -2720,7 +2720,92 @@ def build_sheet4(ws, c):
         r += 1
         r += 1  # blank row
 
+    # ══════════════════════════════════════════════════════════════════════
+    # SECTION F: Efficient Frontier & Sharpe Ratio
+    # ══════════════════════════════════════════════════════════════════════
+    # Additive-only: surfaces the portfolio-analytics helpers in
+    # src/optimization.py (efficient_frontier, risk_free_rate, sharpe_ratio,
+    # and the 'sharpe' key on allocation_portfolio_stats) without touching any
+    # existing allocation rows/formatting above. A full Excel scatter chart is
+    # heavier to wire through the shared chart builder, so this ships as a
+    # clearly-labeled data table (volatility, return, Sharpe per frontier
+    # point) with the recommended portfolio's closest point highlighted.
+    r += 1
+    section_title(ws, r, 'EFFICIENT FRONTIER & SHARPE RATIO', 10); r += 1
+    write_cell(ws, r, 1,
+               "Long-only mean-variance efficient frontier traced over this household's eligible "
+               "asset classes (same eligibility/inclusion logic as the recommended allocation above). "
+               "The Sharpe ratio is risk-adjusted return: (expected return − risk-free rate) ÷ "
+               "volatility. Higher Sharpe means more return per unit of risk.")
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
+    r += 2
 
+    try:
+        _ef_rf = _ao.risk_free_rate(c)
+        _ef_recommended = _ao.allocation_portfolio_stats(c)
+        _ef_points = _ao.efficient_frontier(c, n_points=15)
+    except Exception as _ef_ex:
+        _ef_rf = 0.0
+        _ef_recommended = None
+        _ef_points = []
+
+    write_hdr(ws, r, 1, 'Recommended Portfolio — Risk/Return Summary', BLUE, WHITE, span=10)
+    r += 1
+    if _ef_recommended:
+        _ef_stat_rows = [
+            ('Expected Return', _ef_recommended.get('expected_return', 0.0), FMT_PCT),
+            ('Volatility (Std Dev)', _ef_recommended.get('volatility', 0.0), FMT_PCT),
+            ('Geometric (Compounded) Return', _ef_recommended.get('geometric_return', 0.0), FMT_PCT),
+            ('Risk-Free Rate', _ef_rf, FMT_PCT),
+            ('Sharpe Ratio', _ef_recommended.get('sharpe', 0.0), '0.00'),
+        ]
+        for _label, _val, _fmt in _ef_stat_rows:
+            _is_sharpe = _label == 'Sharpe Ratio'
+            write_cell(ws, r, 1, _label, bold=True)
+            write_cell(ws, r, 2, _val, fmt=_fmt, align='right', bg='E2EFDA' if _is_sharpe else None,
+                       bold=_is_sharpe)
+            r += 1
+    else:
+        write_cell(ws, r, 1, 'Recommended-portfolio risk/return statistics unavailable for this household.')
+        r += 1
+
+    r += 1
+    write_hdr(ws, r, 1, 'Efficient Frontier — Volatility vs. Return vs. Sharpe', BLUE, WHITE, span=10)
+    r += 1
+    if _ef_points:
+        _ef_hdrs = ['Point #', 'Volatility', 'Expected Return', 'Sharpe Ratio', '']
+        for i, h in enumerate(_ef_hdrs, 1):
+            write_hdr(ws, r, i, h, DGRAY, WHITE)
+        r += 1
+        _ef_rec_vol = _ef_recommended.get('volatility', 0.0) if _ef_recommended else None
+        _ef_nearest_idx = None
+        if _ef_rec_vol is not None and _ef_points:
+            _ef_nearest_idx = min(range(len(_ef_points)), key=lambda i: abs(_ef_points[i]['volatility'] - _ef_rec_vol))
+        for _idx, _p in enumerate(_ef_points):
+            _is_nearest = _idx == _ef_nearest_idx
+            _row_bg = 'FFF2CC' if _is_nearest else None
+            write_cell(ws, r, 1, _idx + 1, align='center', bg=_row_bg)
+            write_cell(ws, r, 2, _p['volatility'], fmt=FMT_PCT, align='right', bg=_row_bg)
+            write_cell(ws, r, 3, _p['return'], fmt=FMT_PCT, align='right', bg=_row_bg)
+            write_cell(ws, r, 4, _p['sharpe'], fmt='0.00', align='right', bg=_row_bg)
+            write_cell(ws, r, 5, '← Closest volatility to recommended portfolio' if _is_nearest else '', bg=_row_bg)
+            r += 1
+        r += 1
+        write_cell(ws, r, 1,
+                   'Each row minimizes portfolio variance for a target expected return (long-only, '
+                   'weights sum to 100%). The highlighted row has the volatility closest to the '
+                   'recommended portfolio above, shown for reference only — it is not itself a trade '
+                   'recommendation.')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
+        r += 1
+    else:
+        write_cell(ws, r, 1, 'Efficient frontier unavailable for this household (fewer than two eligible asset classes).')
+        r += 1
+
+    qc('4. Asset Allocation', 'Efficient frontier and Sharpe ratio computed for recommended allocation',
+       bool(_ef_points) and _ef_recommended is not None,
+       (f"{len(_ef_points)} frontier points; Sharpe={_ef_recommended.get('sharpe', 0.0):.2f}"
+        if _ef_recommended else 'unavailable'))
 
 
 __all__ = ['build_sheet1', 'build_sheet2', 'build_sheet3', 'build_sheet4']

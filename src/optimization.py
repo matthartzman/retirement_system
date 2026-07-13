@@ -1400,6 +1400,54 @@ def compute_optimal_allocation(c, force_mode=None):
 
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# SHARPE RATIO / RISK-FREE RATE
+# ─────────────────────────────────────────────────────────────────────────────
+
+def risk_free_rate(c):
+    """Resolve the risk-free rate assumption used for Sharpe-ratio calculations.
+
+    Precedence:
+      1. capital_market_config['risk_free_rate'] if present and a valid
+         non-negative number (lets an expert/advanced user override it).
+      2. The Cash asset class expected return in ASSET_CLASSES (~0.020),
+         which already reflects the selected horizon/preset assumptions.
+      3. A hardcoded 0.02 fallback if Cash is somehow missing.
+    """
+    cfg = c.get('capital_market_config', {}) or {}
+    raw_rf = cfg.get('risk_free_rate', None)
+    if raw_rf is not None:
+        try:
+            rf = float(raw_rf)
+            if rf >= 0:
+                return rf
+        except (TypeError, ValueError):
+            pass
+    cash = ASSET_CLASSES.get('Cash', {})
+    try:
+        return float(cash.get('ret', 0.020))
+    except (TypeError, ValueError):
+        return 0.020
+
+
+def sharpe_ratio(expected_return, volatility, rf):
+    """Return the Sharpe ratio (expected_return - rf) / volatility.
+
+    Guards against non-positive volatility (undefined/degenerate Sharpe) by
+    returning 0.0 instead of raising or producing inf/NaN.
+    """
+    try:
+        vol = float(volatility)
+    except (TypeError, ValueError):
+        return 0.0
+    if vol <= 0:
+        return 0.0
+    try:
+        return float((float(expected_return) - float(rf)) / vol)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def allocation_portfolio_stats(c, force_mode=None):
     """Return allocation-implied planning statistics for a user/optimizer mode.
 
@@ -1414,14 +1462,18 @@ def allocation_portfolio_stats(c, force_mode=None):
     selected = compute_optimal_allocation(c, force_mode=force_mode)
     targets = selected.get('liquid_targets') or {}
     classes = [cls for cls, wt in targets.items() if cls in ASSET_CLASSES and float(wt or 0) > 0]
+    rf = risk_free_rate(c)
     if not classes:
+        _fallback_ret = float(c.get('ret', 0.0) or 0.0)
+        _fallback_vol = float(c.get('mc_sigma', 0.0) or 0.0)
         return {
             'mode': _ap.normalize_allocation_mode(force_mode or c.get('allocation_selection_mode', 'user_target')),
             'label': _ap.allocation_mode_label(force_mode or c.get('allocation_selection_mode', 'user_target')),
             'targets': {},
-            'expected_return': float(c.get('ret', 0.0) or 0.0),
-            'volatility': float(c.get('mc_sigma', 0.0) or 0.0),
-            'geometric_return': float(c.get('ret', 0.0) or 0.0),
+            'expected_return': _fallback_ret,
+            'volatility': _fallback_vol,
+            'geometric_return': _fallback_ret,
+            'sharpe': sharpe_ratio(_fallback_ret, _fallback_vol, rf),
             'diagnostics': selected.get('diagnostics', {}),
         }
     weights = np.array([float(targets.get(cls, 0.0) or 0.0) for cls in classes], dtype=float)
@@ -1443,8 +1495,174 @@ def allocation_portfolio_stats(c, force_mode=None):
         'expected_return': exp_ret,
         'volatility': vol,
         'geometric_return': geo,
+        'sharpe': sharpe_ratio(exp_ret, vol, rf),
         'diagnostics': selected.get('diagnostics', {}),
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# EFFICIENT FRONTIER
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _min_variance_portfolio(cov, n, bounds):
+    """Solve the long-only global-minimum-variance portfolio via SLSQP.
+
+    Falls back to equal weighting if scipy is unavailable or the solve fails.
+    Used only as the starting ("left") anchor point of the efficient frontier.
+    """
+    x0 = np.ones(n) / n
+    try:
+        from scipy.optimize import minimize
+    except Exception:
+        return x0
+
+    def variance(w):
+        return float(w @ cov @ w)
+
+    constraints = [{'type': 'eq', 'fun': lambda w: float(np.sum(w) - 1.0)}]
+    try:
+        res = minimize(variance, x0, method='SLSQP', bounds=bounds, constraints=constraints,
+                       options={'maxiter': 500, 'ftol': 1e-12})
+        if res.success:
+            w = np.maximum(np.array(res.x, dtype=float), 0.0)
+            total = w.sum()
+            if total > 0:
+                return w / total
+    except Exception:
+        pass
+    return x0
+
+
+def efficient_frontier(c, n_points=20, force_mode=None):
+    """Trace the long-only mean-variance efficient frontier for this household.
+
+    Reuses the same eligible/enabled asset-class set that the recommended
+    allocation resolves to (compute_optimal_allocation's liquid_targets, the
+    same classes allocation_portfolio_stats uses) and the same expected-return
+    assumptions used elsewhere (ASSET_CLASSES[...]['ret']).
+
+    Each point minimizes portfolio variance for a target expected return,
+    subject to sum(weights) == 1 and weights >= 0 (long-only), solved with
+    scipy SLSQP in the same style as optimize_equity_sleeve. Target returns
+    are swept from the global-minimum-variance portfolio's return up to the
+    highest single-asset expected return, which is the "efficient" (dominant)
+    branch of the classic Markowitz parabola: volatility and return are both
+    non-decreasing along it.
+
+    Returns a list of dicts sorted by ascending volatility:
+        {'target_return', 'volatility', 'return', 'sharpe', 'weights': {cls: wt}}
+
+    Degenerate cases (fewer than 2 eligible classes, or scipy failures) fall
+    back gracefully rather than raising.
+    """
+    apply_capital_market_config(c)
+    try:
+        selected = compute_optimal_allocation(c, force_mode=force_mode)
+        targets = selected.get('liquid_targets') or {}
+    except Exception:
+        targets = {}
+    classes = [cls for cls, wt in targets.items() if cls in ASSET_CLASSES and float(wt or 0) > 0]
+    if len(classes) < 2:
+        # Fall back to all enabled asset classes if the recommended solution
+        # collapsed to a single class (e.g. all liquid assets swept to cash).
+        classes = [cls for cls in ASSET_CLASSES if allocation_class_enabled(c, cls)]
+    if len(classes) < 2:
+        classes = list(ASSET_CLASSES.keys())
+
+    n = len(classes)
+    rf = risk_free_rate(c)
+    if n == 0:
+        return []
+
+    mu = np.array([float(ASSET_CLASSES[cls].get('ret', 0.0) or 0.0) for cls in classes], dtype=float)
+
+    if n == 1:
+        vol = float(ASSET_CLASSES[classes[0]].get('vol', 0.0) or 0.0)
+        ret = float(mu[0])
+        return [{
+            'target_return': ret,
+            'volatility': vol,
+            'return': ret,
+            'sharpe': sharpe_ratio(ret, vol, rf),
+            'weights': {classes[0]: 1.0},
+        }]
+
+    try:
+        cov = build_covariance_matrix(classes) + np.eye(n) * 1e-6
+    except Exception:
+        return []
+
+    bounds = [(0.0, 1.0) for _ in range(n)]
+    points = []
+
+    try:
+        from scipy.optimize import minimize
+
+        w_min = _min_variance_portfolio(cov, n, bounds)
+        r0 = float(w_min @ mu)
+        ret_hi = float(np.max(mu))
+
+        n_points = max(2, int(n_points))
+        if ret_hi <= r0 + 1e-12:
+            targets_grid = [r0]
+        else:
+            targets_grid = list(np.linspace(r0, ret_hi, n_points))
+
+        def variance(w):
+            return float(w @ cov @ w)
+
+        x0 = w_min.copy()
+        for target in targets_grid:
+            constraints = [
+                {'type': 'eq', 'fun': lambda w: float(np.sum(w) - 1.0)},
+                {'type': 'eq', 'fun': lambda w, t=target: float(w @ mu - t)},
+            ]
+            try:
+                res = minimize(variance, x0, method='SLSQP', bounds=bounds, constraints=constraints,
+                               options={'maxiter': 500, 'ftol': 1e-12})
+            except Exception:
+                continue
+            if not res.success:
+                continue
+            w = np.maximum(np.array(res.x, dtype=float), 0.0)
+            total = w.sum()
+            if total <= 0:
+                continue
+            w = w / total
+            port_ret = float(w @ mu)
+            port_var = max(0.0, float(w @ cov @ w))
+            vol = float(np.sqrt(port_var))
+            points.append({
+                'target_return': float(target),
+                'volatility': vol,
+                'return': port_ret,
+                'sharpe': sharpe_ratio(port_ret, vol, rf),
+                'weights': {classes[i]: float(w[i]) for i in range(n)},
+            })
+            x0 = w  # warm-start the next solve from the previous solution
+    except Exception:
+        points = []
+
+    if not points:
+        # Full fallback: surface at least the min-variance corner portfolio so
+        # callers still get a usable (if degenerate) frontier instead of an
+        # empty list or a raised exception.
+        try:
+            w_min = _min_variance_portfolio(cov, n, bounds)
+            port_ret = float(w_min @ mu)
+            vol = float(np.sqrt(max(0.0, float(w_min @ cov @ w_min))))
+            points = [{
+                'target_return': port_ret,
+                'volatility': vol,
+                'return': port_ret,
+                'sharpe': sharpe_ratio(port_ret, vol, rf),
+                'weights': {classes[i]: float(w_min[i]) for i in range(n)},
+            }]
+        except Exception:
+            return []
+
+    points.sort(key=lambda p: (p['volatility'], p['return']))
+    return points
 
 
 # ===== END allocation_optimizer.py =====
