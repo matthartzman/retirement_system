@@ -621,6 +621,7 @@ def parse_client(data, url_template):
     c['char_high'] = _n(_v(data,'Cashflow','Spending','annual_charitable_giving_high','5000'), 5000)
     c['ytd_remainder_spending_override'] = _n(_v(data,'Cashflow','Spending','ytd_remainder_spending_override',''), None)
     c['ytd_blend_enabled'] = _b(_v(data,'Cashflow','Spending','ytd_blend_enabled','TRUE') or 'TRUE')
+    c['travel_end_year'] = _y(_v(data,'Cashflow','Spending','travel_end_year',''), 0)
 
     c['mort_pmt']  = _n(_v(data,'Cashflow','Mortgage','monthly_payment','3000'), 3000)*12
     c['real_estate_tax_base'] = _n(_v(data,'Cashflow','Mortgage','annual_real_estate_taxes','0'), 0)
