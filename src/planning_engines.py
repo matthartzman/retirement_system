@@ -440,7 +440,20 @@ def compute_rmds(
     w_alive: bool,
     divisor_fn: Callable[[int | float], float] | None = None,
 ) -> Dict:
-    """Compute household RMD obligations from registry-defined RMD accounts."""
+    """Compute household RMD obligations from registry-defined RMD accounts.
+
+    Item 175: This RMD base is built ONLY from liquid IRA/401k/403b/SEP
+    registry account balances (`_ar.rmd_ids_by_owner`). Qualified/annuitized
+    income streams (pension, joint/single-life annuities funded from an IRA,
+    etc.) are modeled separately as their own contracts and are intentionally
+    NOT aggregated into this aggregate IRA RMD base. A separately annuitized
+    qualified contract self-satisfies its own RMD through its periodic
+    payments under Treas. Reg. 1.401(a)(9)-6 (annuitized contracts are carved
+    out of the account-balance aggregation rule in Treas. Reg.
+    1.408-8, A-9 / 1.401(a)(9)-8), so folding the annuity's value into this
+    aggregate base would double-count that RMD requirement. Keep this
+    separation when modifying account-registry inclusion logic.
+    """
     divisor_fn = divisor_fn or rmd_divisor
     registry = c.get("account_registry", [])
     start_age_default = int(c.get("rmd_start_age", 75))

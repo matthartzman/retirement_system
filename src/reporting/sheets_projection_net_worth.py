@@ -88,6 +88,40 @@ def build_sheet5(ws, c, rows):
             slots.append((None, ''))
         return slots
 
+    def _opening_adjusted_group_values(row, _opening):
+        """Return (pretax, roth, trust, hsa, total) net-worth group values for a row.
+
+        For the plan-start row, when `_opening` current-holdings balances are
+        available, this swaps the engine's year-end investment aggregates
+        (pretax_nw/roth_nw/trust_nw/hsa_nw) out of total_nw and substitutes
+        the opening current-holdings balances instead, so this row's figures
+        reconcile with "today's" values shown on the Asset Allocation sheet.
+        Used by both the main table's plan-start row and the summary block's
+        "Plan Start" column so the two never disagree. Annuity PV, cash, and
+        other assets are unaffected (no swap applies to them). Non-plan-start
+        rows (including Plan End) pass `_opening=None` and get the engine's
+        raw year-end values unchanged.
+        """
+        pretax = row.get('pretax_nw', 0)
+        roth = row.get('roth_nw', 0)
+        trust = row.get('trust_nw', 0)
+        hsa = row.get('hsa_nw', 0)
+        total = row.get('total_nw', 0)
+        if _opening is not None:
+            def _acct_bal(aid):
+                if aid in _opening:
+                    return _opening.get(aid, 0)
+                return row.get(aid, 0)
+            pretax_open = sum(_acct_bal(a) for a in c.get('pre_tax_ids', []))
+            roth_open = sum(_acct_bal(a) for a in c.get('roth_ids', []))
+            trust_open = sum(_acct_bal(a) for a in c.get('taxable_ids', []))
+            hsa_open = sum(_acct_bal(a) for a in c.get('hsa_ids', []))
+            _ye_invest = pretax + roth + trust + hsa
+            _open_invest = pretax_open + roth_open + trust_open + hsa_open
+            total = total - _ye_invest + _open_invest
+            pretax, roth, trust, hsa = pretax_open, roth_open, trust_open, hsa_open
+        return pretax, roth, trust, hsa, total
+
     pretax_slots = _account_slots(tax='pre_tax', count=3)
     roth_slots = _account_slots(tax='roth', count=2)
     trust_slots = _account_slots(tax='taxable', count=2)
@@ -130,6 +164,10 @@ def build_sheet5(ws, c, rows):
         write_hdr(ws, r, col, label, bg, fg, size=9)
 
     # Data rows
+    # Captured during the loop below for the plan-start row so the summary
+    # block (Item 176) can reuse the exact same opening-adjusted values
+    # instead of re-reading raw engine aggregates that skip the swap.
+    plan_start_group_values = None
     for i, row in enumerate(rows):
         r = i + 3
         # Current-plan-year reconciliation with the Asset Allocation sheet.
@@ -171,13 +209,11 @@ def build_sheet5(ws, c, rows):
         # year uses opening (current-holdings) balances for investment accounts,
         # swap the engine's year-end investment aggregates out of total_nw and the
         # opening aggregates in. Annuity PV, cash, and other assets are unchanged.
-        total_nw = row['total_nw']
-        if _opening is not None:
-            _ye_invest = (row.get('pretax_nw', 0) + row.get('roth_nw', 0) +
-                          row.get('trust_nw', 0) + row.get('hsa_nw', 0))
-            _open_invest = (pretax_tot + roth_tot + trust_tot +
-                            sum(_acct_bal(a) for a in c.get('hsa_ids', [])))
-            total_nw = total_nw - _ye_invest + _open_invest
+        # Shared with the summary block below via _opening_adjusted_group_values so
+        # the "Plan Start" figures never disagree with this row.
+        _adj_pretax, _adj_roth, _adj_trust, _adj_hsa, total_nw = _opening_adjusted_group_values(row, _opening)
+        if row.get('year') == c.get('plan_start'):
+            plan_start_group_values = (_adj_pretax, _adj_roth, _adj_trust, _adj_hsa, total_nw)
 
         vals = [row['year'], row['h_age'], row['w_age'],
                 row['pension_pv'], row['w_single_pv'], row['w_joint_pv'],
@@ -234,14 +270,26 @@ def build_sheet5(ws, c, rows):
     write_hdr(ws, r, 4, 'Change', DGRAY, WHITE)
     write_hdr(ws, r, 5, '% Change', DGRAY, WHITE)
     r += 1
+    # Item 176: use the same opening-adjusted plan-start values shown in the
+    # main table's plan-start row (not raw rows[0]['pretax_nw']/etc.), so the
+    # summary's "Plan Start" column always reconciles with the top table for
+    # Pre-Tax, Roth, Trust, HSA, and TOTAL. Falls back to raw engine values if
+    # rows[0] somehow wasn't the plan-start row (e.g. `_opening` unavailable).
+    if plan_start_group_values is not None:
+        _start_pretax, _start_roth, _start_trust, _start_hsa, _start_total = plan_start_group_values
+    else:
+        _start_pretax, _start_roth, _start_trust, _start_hsa, _start_total = (
+            rows[0]['pretax_nw'], rows[0]['roth_nw'], rows[0]['trust_nw'],
+            rows[0]['hsa_nw'], rows[0]['total_nw'],
+        )
     groups = [
         ('Annuities & Pension', rows[0]['ann_nw'],  rows[-1]['ann_nw']),
-        ('Pre-Tax',             rows[0]['pretax_nw'],rows[-1]['pretax_nw']),
-        ('Roth',                rows[0]['roth_nw'], rows[-1]['roth_nw']),
-        ('Trusts',              rows[0]['trust_nw'],rows[-1]['trust_nw']),
-        ('HSA',                 rows[0]['hsa_nw'],  rows[-1]['hsa_nw']),
+        ('Pre-Tax',             _start_pretax,      rows[-1]['pretax_nw']),
+        ('Roth',                _start_roth,        rows[-1]['roth_nw']),
+        ('Trusts',              _start_trust,       rows[-1]['trust_nw']),
+        ('HSA',                 _start_hsa,         rows[-1]['hsa_nw']),
         ('Other Assets',        rows[0]['other_nw'],rows[-1]['other_nw']),
-        ('TOTAL',               rows[0]['total_nw'],rows[-1]['total_nw']),
+        ('TOTAL',               _start_total,       rows[-1]['total_nw']),
     ]
     for grp, start, end in groups:
         chg = end - start
