@@ -90,12 +90,17 @@ class RecommendationCompletionTests(unittest.TestCase):
         self.assertEqual(summary['fail_count'], 0)
         self.assertEqual(summary['warn_count'], 0)
         self.assertEqual((rows[0]['year'], rows[-1]['year'], len(rows)), (2026, 2056, 31))
-        # Baselines updated for item 182 (pre-65 bridge premium now applies to
-        # any pre-65 person regardless of retirement year): Matt is billed a
-        # marketplace bridge premium in 2026-27, ~$19k of added early spending
-        # that compounds out of terminal net worth over the horizon.
-        self.assertAlmostEqual(rows[-1]['total_nw'], 9_337_747.69, delta=5000.0)
-        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_300_550.69, delta=5000.0)
+        # Baselines reflect two intentional engine changes:
+        #  - item 182: pre-65 bridge premium applies to any pre-65 person
+        #    regardless of retirement year (Matt billed a marketplace bridge
+        #    premium in 2026-27).
+        #  - item 184: real-estate tax is now funded as a cash need (it was
+        #    previously only used for the SALT deduction, so ~$20k+/yr of
+        #    property tax was never drawn from the portfolio). Funding it lowers
+        #    terminal net worth by ~$1.8M and lifetime tax by ~$216k over the
+        #    horizon (property tax plus lost compounding).
+        self.assertAlmostEqual(rows[-1]['total_nw'], 7_523_867.86, delta=5000.0)
+        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_084_122.05, delta=5000.0)
 
     def test_fixed_point_taxable_withdrawal_solver_runs_before_roth(self):
         # The fixed-point solver only runs when there's sufficient investment tax
@@ -103,7 +108,13 @@ class RecommendationCompletionTests(unittest.TestCase):
         # spending, we increase withdrawal pressure to trigger this behavior.
         c = sample_config()
         c['tax_withdrawal_fixed_point_iterations'] = 3
-        c['spend_base'] = float(c.get('spend_base', 0)) * 1.5  # Increase spending to trigger investment taxes
+        # Elevate spending enough to create LTCG/NIIT that the fixed-point solver
+        # must fund via taxable withdrawals. Calibrated to 1.3x: item 184 (funding
+        # property tax) added ~$20k+/yr of real cash need, so the previous 1.5x
+        # now over-stresses the plan into drawing Roth once the trust hits its
+        # protected reserve floor. 1.3x still triggers the solver without forcing
+        # Roth ahead of drawable funds.
+        c['spend_base'] = float(c.get('spend_base', 0)) * 1.3
         rows = project(c)
         # Verify the solver ran: higher spending creates LTCG/NIIT that needs funding
         total_iters = sum(r.get('investment_tax_iterations', 0) for r in rows)

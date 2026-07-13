@@ -27,6 +27,14 @@ saved_plans/
 build_log.txt
 build_exit.txt
 
+# Transient output from an external "phase3" beautify/auto-fix codemod that
+# runs outside the repo (not produced by the committed test suite). Ignore so
+# it does not dirty `git status` between runs.
+phase3_failures.json
+phase3_failures.txt
+phase3_fixes.json
+scratch_p3.xml
+
 node_modules/
 .env
 dist/

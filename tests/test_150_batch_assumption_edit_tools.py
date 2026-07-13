@@ -21,14 +21,15 @@ def test_batch_assumption_overlay_is_loaded_and_preview_first():
     assert "downloadPreviewCsv" in js
 
 
-def test_batch_tools_cover_all_assumptions_and_system_configuration():
+def test_plan_assumption_batch_tool_present_and_system_config_batch_removed():
+    # Item 180: the plan-assumption batch editor stays, but the "Batch edit
+    # System Configuration" panel was removed from the Settings page (raw
+    # system_config.csv edits belong in the System Configuration Console).
     js = read("frontend/js/dashboard_batch_assumption_edit.js")
     assert "batch-assumption-edit" in js
-    assert "system-config-batch-edit" in js
-    assert "rowsForStep('all_assumptions')" in js
-    assert "/api/admin/system-config" in js
+    assert "Batch edit assumptions" in js
+    assert "system-config-batch-edit" not in js
     assert "Enter a field filter before previewing a broad batch edit" in js
-    assert "system_config.csv immediately" in js
 
 
 @pytest.mark.skip(reason="Phase A removed committed output/ artifacts; Phase B will update tests to generate fixtures instead")
