@@ -15,7 +15,7 @@ Optional Functions,,survivor_stress_test,TRUE,boolean,Sheet 18 - Survivor / Earl
 Optional Functions,,life_insurance_need,TRUE,boolean,Sheet 19 - Life Insurance Need Analysis
 Optional Functions,,rmd_audit,TRUE,boolean,Sheet 20 - RMD Audit
 Optional Functions,,glossary,TRUE,boolean,Sheet 22 - Glossary of Terms
-Optional Functions,,methodology_rerun,TRUE,boolean,Sheet 23 - Methodology & Re-Run Instructions
+Optional Functions,,methodology_rerun,YES,boolean,Sheet 23 - Methodology & Re-Run Instructions
 Optional Functions,,education_funding_529,FALSE,boolean,Sheet 24 - Education Funding (529 plans + goals)
 Optional Functions,,existing_life_insurance,FALSE,boolean,Sheet 25 - Existing Life Insurance Policies
 Optional Functions,,disability_income_insurance,FALSE,boolean,Sheet 26 - Disability Income Insurance

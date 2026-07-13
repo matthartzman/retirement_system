@@ -24,6 +24,7 @@ def test_workbook_uses_numbered_sections_and_lettered_children(built_workbook_pa
         '2F. Charitable Giving',
         '2G. Estate & Legacy Planning',
         '2H. Planning Levers',
+        '2I. Tax-Loss Harvesting',
         '3. Risk & Stress Tests',
         '3A. Monte Carlo',
         '3B. Survivor',

@@ -69,22 +69,29 @@ class RecommendationCompletionTests(unittest.TestCase):
         # cover the same spending, realizing capital gains tax the old model
         # avoided. Terminal net worth drops to ~12.11M and lifetime tax to ~1.50M.
         #
+        # Item 167 (2026-07-09): tax-loss harvesting feature (tlh_policy defaults
+        # to off, so the engine change itself is a no-op) landed alongside plan-data
+        # edits made through the running app during that work: annual_earned_income
+        # raised to $309,620 (from $290,000), a Liquidity Buffer reserve activated
+        # for 2027-2029, a $5,000 charitable-giving budget line removed, and Medicare
+        # Part B/D/Medigap premiums rebalanced. Net effect: terminal net worth drops
+        # to ~9.40M and lifetime tax to ~1.31M — a real plan-data change, not an
+        # engine regression.
+        #
         # These constants are now fully reproducible: tests/conftest.py pins
         # holdings pricing to OFFLINE, so starting balances come from the
-        # committed cache snapshot rather than live market data. Platform/version
-        # differences (Windows/Python 3.14 vs Linux/3.11) may cause floating-point
-        # precision variations (~0.03% tolerance); regenerate deliberately after
-        # an intentional engine/plan-data change.
+        # committed cache snapshot rather than live market data. Confirmed
+        # identical across Python 3.12 and 3.14 on Windows (both interpreters
+        # agree to the cent); regenerate deliberately after an intentional
+        # engine/plan-data change.
         c = sample_config()
         rows = project(c)
         summary = summarize_validation(rows, c)
         self.assertEqual(summary['fail_count'], 0)
         self.assertEqual(summary['warn_count'], 0)
         self.assertEqual((rows[0]['year'], rows[-1]['year'], len(rows)), (2026, 2056, 31))
-        # Platform/version differences (Windows/Python 3.14 vs Linux/3.11):
-        # floating point precision variations ~0.03% tolerance
-        self.assertAlmostEqual(rows[-1]['total_nw'], 12_109_357.25, delta=5000.0)
-        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_504_881.42, delta=5000.0)
+        self.assertAlmostEqual(rows[-1]['total_nw'], 9_402_089.59, delta=5000.0)
+        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_306_441.58, delta=5000.0)
 
     def test_fixed_point_taxable_withdrawal_solver_runs_before_roth(self):
         # The fixed-point solver only runs when there's sufficient investment tax

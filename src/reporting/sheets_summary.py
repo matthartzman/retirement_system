@@ -887,6 +887,48 @@ def _build_global_tax_aware_rebalance_trades(c, invest_positions, bucket_map, et
         diagnostics.append(('Global optimizer result', 'No trades above minimum', 'The linear optimum did not produce trades that exceeded the configured minimum-trade threshold.'))
     return raw_trades, deferred, diagnostics
 
+def _tlh_recommendation_row(c, rows, rec_no):
+    """Executive Summary recommendation row for tax-loss harvesting.
+
+    When tlh_policy is 'apply', the value is the actual lifetime tax value
+    realized in the projection net of transaction cost. Otherwise it's the
+    net value of opportunities available today (analyze_only/off), so the
+    line still appears when there's something worth acting on.
+    """
+    from .. import tlh as _tlh
+    policy = str(c.get('tlh_policy', 'off') or 'off')
+    if policy == 'apply':
+        lifetime_value = sum(float(r.get('tlh_tax_value', 0) or 0) - float(r.get('tlh_transaction_cost', 0) or 0)
+                              for r in rows)
+        if lifetime_value <= 0:
+            return None
+        return (rec_no, 'Tax-Loss Harvesting (Active)',
+                'Qualifying loss lots in taxable accounts are harvested annually against gains, then up to $3,000/yr of ordinary income, with carryforward tracked.',
+                f"~{c.get('tlh_transaction_cost_bps', 2):.0f} bps transaction cost",
+                f"~${lifetime_value:,.0f} lifetime tax value (net of cost)", 'Sheet 2I')
+    plan_start = int(c.get('plan_start', rows[0]['year'] if rows else 2026))
+    first_row = rows[0] if rows else {}
+    scan = _tlh.scan_harvest_opportunities(
+        c, plan_start,
+        ordinary_income=float(first_row.get('taxable_inc', 0) or 0),
+        existing_lt_gain=float(first_row.get('ltcg_gain', 0) or 0),
+        annual_return=float(c.get('ret', 0.06) or 0.06),
+        years_to_step_up=max(1, int(c.get('h_death_yr', plan_start + 20)) - plan_start),
+        fraction_sold_before_death=float(c.get('tlh_fraction_sold_before_death', 0.5) or 0.5),
+        transaction_cost_bps=float(c.get('tlh_transaction_cost_bps', 2.0) or 0.0),
+        min_loss_dollars=float(c.get('tlh_min_loss_dollars', 500.0) or 0.0),
+        min_loss_pct=float(c.get('tlh_min_loss_pct', 0.05) or 0.0),
+        annual_ceiling=float(c.get('tlh_annual_ceiling', 0.0) or 0.0),
+    )
+    net = scan['totals']['net_value']
+    if net <= 0:
+        return None
+    return (rec_no, 'Tax-Loss Harvesting Opportunity Available',
+            f"{len(scan['opportunities'])} loss lot(s) in taxable accounts meet the harvesting threshold this year.",
+            f"~${scan['totals']['transaction_cost']:,.0f} transaction cost",
+            f"~${net:,.0f} net lifetime value; set tlh_policy=apply to automate", 'Sheet 2I')
+
+
 def build_sheet1(ws, c, rows, mc_data):
     """Executive Summary"""
     ws.sheet_view.showGridLines = False
@@ -977,6 +1019,9 @@ def build_sheet1(ws, c, rows, mc_data):
            'Moving to FL/TX saves $0 income tax (IL exempts retirement income) but saves IL estate tax',
            'Relocation costs','~$320K IL estate tax if estate > $4M; no income tax savings','Sheet 13'),
     ]
+    _tlh_rec = _tlh_recommendation_row(c, rows, len(recs) + 1)
+    if _tlh_rec:
+        recs.append(_tlh_rec)
     for rec in recs:
         for i, val in enumerate(rec, 1):
             write_cell(ws, r, i, val, bold=(i==1), align='left' if i>1 else 'center')

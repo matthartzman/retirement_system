@@ -848,6 +848,7 @@ def _ensure_user_ui_plan_data_rows() -> None:
     _ensure_heloc_ui_plan_data_rows()
     _ensure_core_spending_ui_plan_data_rows()
     _ensure_dividend_reinvestment_ui_plan_data_rows()
+    _ensure_tlh_ui_plan_data_rows()
 
 
 def _ensure_hsa_withdrawal_ui_plan_data_rows() -> None:
@@ -1441,6 +1442,29 @@ def _ensure_dividend_reinvestment_ui_plan_data_rows() -> None:
             break
     rows[insert_at:insert_at] = additions
     _csv_write_rows(policy_path, rows)
+
+
+TLH_UI_PLAN_DATA_ROWS: list[list[str]] = [
+    ["Withdrawal Policy", "Tax-Loss Harvesting", "tlh_policy", "off", "choice",
+     "off | analyze_only | apply. off ignores tax-loss harvesting. analyze_only surfaces opportunities on the Tax-Loss Harvesting sheet without changing the projection. apply harvests qualifying loss lots each year inside the projection so terminal net worth and lifetime tax reflect the strategy."],
+    ["Withdrawal Policy", "Tax-Loss Harvesting", "tlh_min_loss_dollars", "$500", "USD",
+     "Minimum dollar loss on a lot before it is worth harvesting (avoids trivial trades)."],
+    ["Withdrawal Policy", "Tax-Loss Harvesting", "tlh_min_loss_pct", "5.00%", "percent",
+     "Minimum loss as a percentage of the lot's cost basis before harvesting (avoids near-breakeven lots)."],
+    ["Withdrawal Policy", "Tax-Loss Harvesting", "tlh_annual_ceiling", "$0", "USD",
+     "Maximum harvested loss per year (0 = unlimited)."],
+    ["Withdrawal Policy", "Tax-Loss Harvesting", "tlh_transaction_cost_bps", "2", "number",
+     "Round-trip transaction cost in basis points charged on harvested market value (2 = 0.02%)."],
+    ["Withdrawal Policy", "Tax-Loss Harvesting", "tlh_fraction_sold_before_death", "50.00%", "percent",
+     "Fraction of the lower-basis replacement expected to be sold (and its larger gain taxed) before basis step-up at death. Lower values make harvesting more permanently valuable."],
+]
+
+
+def _ensure_tlh_ui_plan_data_rows() -> None:
+    """Backfill tax-loss-harvesting policy rows so the guided UI step and the
+    projection see them even when an imported plan predates the feature."""
+    for row in TLH_UI_PLAN_DATA_ROWS:
+        _ensure_row_in_csv("client_policy.csv", list(row), insert_after=("Withdrawal Policy", "Identity"))
 
 
 def _forced_roth_conversions_from_csv_rows(rows: list[list[str]]) -> list[dict]:

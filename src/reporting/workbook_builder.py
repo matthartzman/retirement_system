@@ -4,7 +4,7 @@ from .enterprise_pdf import build_enterprise_pdf
 from .sheets_summary_builder import build_sheet1, build_sheet2
 from .sheets_summary import build_sheet3, build_sheet4
 from .sheets_projection_facade import build_sheet5, build_sheet6, build_sheet7, build_sheet8
-from .sheets_strategy import build_sheet9, build_sheet10, build_sheet11, build_sheet12, build_sheet13, build_sheet14
+from .sheets_strategy import build_sheet9, build_sheet10, build_sheet11, build_sheet12, build_sheet_tlh, build_sheet13, build_sheet14
 from .sheets_stress import build_sheet15, build_sheet16, build_sheet17, build_sheet18, build_sheet19, build_sheet20
 from .sheets_qc_reference import validate_all, build_sheet21, build_sheet22, build_sheet23, build_sheet24, account_reconciliation_rows, build_sheet25
 from .dashboard import post_save_patch, build_html_dashboard
@@ -711,6 +711,7 @@ FINAL_SHEET_RENAMES = {
     '13. State Residency': '2C. State Residency',
     '10. Social Security': '2D. Social Security',
     '12. Charitable Giving': '2F. Charitable Giving',
+    '12B. Tax-Loss Harvesting': '2I. Tax-Loss Harvesting',
     '14. Estate Plan': '2G. Estate & Legacy Planning',
     '27. Planning Levers': '2H. Planning Levers',
     '15. Market-Luck Stress Test': '3A. Monte Carlo',
@@ -1140,6 +1141,8 @@ def main():
     build_sheet11(sheets['11. Roth Conversion'], c, rows)
     print('  Sheet 12 — Charitable Giving')
     build_sheet12(sheets['12. Charitable Giving'], c, rows)
+    print('  Sheet 12B — Tax-Loss Harvesting')
+    build_sheet_tlh(sheets['12B. Tax-Loss Harvesting'], c, rows)
     print('  Sheet 13 — State Residency')
     build_sheet13(sheets['13. State Residency'], c, rows)
     print('  Sheet 14 — Estate Plan')

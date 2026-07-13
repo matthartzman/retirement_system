@@ -518,6 +518,141 @@ def build_sheet12(ws, c, rows):
     qc('12. Charitable Giving', 'Three vehicles documented; SALT phases shown', True, '')
 
 
+def build_sheet_tlh(ws, c, rows):
+    """Tax-Loss Harvesting — current opportunities and lifetime value/cost."""
+    from .. import tlh as _tlh
+    ws.sheet_view.showGridLines = False
+    section_title(ws, 1, 'TAX-LOSS HARVESTING', 8)
+
+    policy = str(c.get('tlh_policy', 'off') or 'off')
+    r = 3
+    write_hdr(ws, r, 1, 'POLICY', NAVY, WHITE, span=6); r += 1
+    policy_rows = [
+        ('Policy', policy.replace('_', ' ').title()),
+        ('Minimum Loss ($)', f"${c.get('tlh_min_loss_dollars', 500):,.0f}"),
+        ('Minimum Loss (% of basis)', f"{c.get('tlh_min_loss_pct', 0.05):.1%}"),
+        ('Annual Ceiling', 'Unlimited' if not c.get('tlh_annual_ceiling') else f"${c.get('tlh_annual_ceiling', 0):,.0f}"),
+        ('Transaction Cost', f"{c.get('tlh_transaction_cost_bps', 2):.0f} bps"),
+        ('Fraction Sold Before Step-Up', f"{c.get('tlh_fraction_sold_before_death', 0.5):.0%}"),
+    ]
+    for label, val in policy_rows:
+        write_cell(ws, r, 1, label, bold=True, bg=LGRAY)
+        write_cell(ws, r, 2, val)
+        ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=6)
+        r += 1
+    if policy == 'off':
+        r += 1
+        write_cell(ws, r, 1,
+                   'Harvesting is OFF — the opportunities below are for reference only and do not change '
+                   'the projection. Set Withdrawal Policy / Tax-Loss Harvesting / tlh_policy to analyze_only '
+                   'or apply to activate.', bg='FFEB9C')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6)
+        r += 1
+
+    plan_start = int(c.get('plan_start', rows[0]['year'] if rows else 2026))
+    first_row = rows[0] if rows else {}
+    scan = _tlh.scan_harvest_opportunities(
+        c, plan_start,
+        ordinary_income=float(first_row.get('taxable_inc', 0) or 0),
+        existing_lt_gain=float(first_row.get('ltcg_gain', 0) or 0),
+        carryforward_in=0.0,
+        annual_return=float(c.get('ret', 0.06) or 0.06),
+        years_to_step_up=max(1, int(c.get('h_death_yr', plan_start + 20)) - plan_start),
+        fraction_sold_before_death=float(c.get('tlh_fraction_sold_before_death', 0.5) or 0.5),
+        ordinary_offset_rate=0.24,
+        transaction_cost_bps=float(c.get('tlh_transaction_cost_bps', 2.0) or 0.0),
+        min_loss_dollars=float(c.get('tlh_min_loss_dollars', 500.0) or 0.0),
+        min_loss_pct=float(c.get('tlh_min_loss_pct', 0.05) or 0.0),
+        annual_ceiling=float(c.get('tlh_annual_ceiling', 0.0) or 0.0),
+    )
+
+    r += 1
+    write_hdr(ws, r, 1, f'CURRENT OPPORTUNITIES ({plan_start})', BLUE, WHITE, span=9); r += 1
+    hdrs = ['Account', 'Symbol', 'Term', 'Basis', 'Market Value', 'Loss',
+            'Gross Benefit', 'Future Give-Back', 'Net Value', 'Suggested Replacement']
+    for i, h in enumerate(hdrs, 1):
+        write_hdr(ws, r, i, h, DGRAY, WHITE)
+    r += 1
+    opps = scan['opportunities']
+    if not opps:
+        write_cell(ws, r, 1, 'No loss lots currently meet the minimum-loss threshold.', bg=None)
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
+        r += 1
+    else:
+        for o in opps:
+            write_cell(ws, r, 1, _display_accounts_in_text(o['account'], c))
+            write_cell(ws, r, 2, o['symbol'], bold=True)
+            write_cell(ws, r, 3, 'LT' if o['long_term'] else 'ST', align='center')
+            write_cell(ws, r, 4, o['basis'], fmt=FMT_DOLLAR, align='right')
+            write_cell(ws, r, 5, o['market_value'], fmt=FMT_DOLLAR, align='right')
+            write_cell(ws, r, 6, o['loss'], fmt=FMT_DOLLAR, align='right', fg=RED)
+            write_cell(ws, r, 7, o['gross_benefit'], fmt=FMT_DOLLAR, align='right', fg=GREEN)
+            write_cell(ws, r, 8, o['future_give_back'], fmt=FMT_DOLLAR, align='right')
+            write_cell(ws, r, 9, o['net_value'], fmt=FMT_DOLLAR, align='right', bold=True)
+            write_cell(ws, r, 10, o['replacement'] or '—')
+            r += 1
+        write_cell(ws, r, 1, 'TOTAL', bold=True, bg=LGRAY)
+        for col, key in ((6, 'loss'), (7, 'gross_benefit'), (8, 'future_give_back'), (9, 'net_value')):
+            write_cell(ws, r, col, scan['totals'][key], fmt=FMT_DOLLAR, align='right', bold=True, bg=LGRAY)
+        r += 1
+
+    r += 1
+    write_cell(ws, r, 1,
+               f"Marginal LTCG+NIIT rate applied: {scan['marginal_ltcg_rate']:.1%}. "
+               f"Values are lifetime-net-of-cost: Gross Benefit is this year's tax saved (offsetting gains, "
+               f"then up to $3,000 of ordinary income, then carryforward); Future Give-Back is the "
+               f"present-value tax cost of the replacement's lower basis, reduced for the share of the "
+               f"position expected to receive a basis step-up at death instead of being sold.")
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
+    r += 2
+
+    # ── Lifetime value realized (apply mode only — driven by actual harvests) ──
+    write_hdr(ws, r, 1, 'LIFETIME VALUE REALIZED (Apply Mode)', BLUE, WHITE, span=6); r += 1
+    hdrs2 = ['Year', 'Harvested Loss', 'Loss Used', 'Carryforward', 'Tax Value', 'Transaction Cost']
+    for i, h in enumerate(hdrs2, 1):
+        write_hdr(ws, r, i, h, DGRAY, WHITE)
+    r += 1
+    total_tax_value = total_txn_cost = total_harvested = 0.0
+    shown_years = 0
+    for row in rows:
+        harvested = float(row.get('tlh_harvested_loss', 0) or 0)
+        if harvested <= 0 and float(row.get('cap_loss_carryforward', 0) or 0) <= 0:
+            continue
+        write_cell(ws, r, 1, row['year'], align='center')
+        write_cell(ws, r, 2, harvested, fmt=FMT_DOLLAR, align='right')
+        write_cell(ws, r, 3, row.get('cap_loss_used', 0), fmt=FMT_DOLLAR, align='right')
+        write_cell(ws, r, 4, row.get('cap_loss_carryforward', 0), fmt=FMT_DOLLAR, align='right')
+        write_cell(ws, r, 5, row.get('tlh_tax_value', 0), fmt=FMT_DOLLAR, align='right', fg=GREEN)
+        write_cell(ws, r, 6, row.get('tlh_transaction_cost', 0), fmt=FMT_DOLLAR, align='right')
+        total_tax_value += float(row.get('tlh_tax_value', 0) or 0)
+        total_txn_cost += float(row.get('tlh_transaction_cost', 0) or 0)
+        total_harvested += harvested
+        shown_years += 1
+        r += 1
+    if not shown_years:
+        write_cell(ws, r, 1, 'No harvesting activity in the projection (policy is off or no qualifying losses arose).')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6)
+        r += 1
+    else:
+        write_cell(ws, r, 1, 'LIFETIME TOTAL', bold=True, bg=LGRAY)
+        write_cell(ws, r, 2, total_harvested, fmt=FMT_DOLLAR, align='right', bold=True, bg=LGRAY)
+        write_cell(ws, r, 3, '', bg=LGRAY)
+        write_cell(ws, r, 4, '', bg=LGRAY)
+        write_cell(ws, r, 5, total_tax_value, fmt=FMT_DOLLAR, align='right', bold=True, bg=LGRAY)
+        write_cell(ws, r, 6, total_txn_cost, fmt=FMT_DOLLAR, align='right', bold=True, bg=LGRAY)
+        r += 1
+        write_cell(ws, r, 1, f'Net lifetime value: ${total_tax_value - total_txn_cost:,.0f} (Tax Value less Transaction Cost)', bold=True)
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6)
+        r += 1
+
+    ws.column_dimensions['A'].width = 22
+    for col in range(2, 11):
+        ws.column_dimensions[get_column_letter(col)].width = 16
+
+    qc('2I. Tax-Loss Harvesting', 'Opportunities scanned and lifetime ledger rendered', True,
+       f'policy={policy}; opportunities={len(opps)}; years_with_activity={shown_years}')
+
+
 def build_sheet13(ws, c, rows):
     """State Residency Analysis — retirement-income-aware comparison."""
     ws.sheet_view.showGridLines = False

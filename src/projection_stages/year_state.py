@@ -23,6 +23,10 @@ class MutableYearState:
     first_death_done: bool = False
     cst_funded_total: float = 0.0
     cst_balance: float = 0.0
+    # Net capital-loss carryforward (magnitude, >= 0) rolled between years:
+    # harvested/realized losses beyond current-year gains + the $3k ordinary
+    # offset accumulate here and offset future gains first.
+    cap_loss_carryforward: float = 0.0
 
 
 def create_initial_year_state(config: Mapping[str, Any]) -> MutableYearState:

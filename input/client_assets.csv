@@ -16,7 +16,17 @@ Other Assets,Autos,value,"$57,384.27",,,
 Other Assets,Autos,depreciation_per_year,10,,,
 Other Assets,Autos,depreciation_years,7,,,
 ,,,,,,,
+,,,,,,,
+,,,,,,,
+,,,,,,,
 # -- Liquidity Buffer: year-ranged reserve rules --,,,,,,,
+Liquidity Buffer,buffer_1,start_year,2027,year,First year this reserve rule applies; blank means plan start,,
+Liquidity Buffer,buffer_1,end_year,2029,year,Last year this reserve rule applies; blank means open-ended,,
+Liquidity Buffer,buffer_1,years_of_expenses,1,years,Years of expenses to retain as a reserve; default is 0,,
+Liquidity Buffer,buffer_1,reserve_account,Taxable/Trust,choice,Taxable/Trust | Roth | IRA | HSA | Cash; account bucket intended to preserve the reserve for this row,,
+,,,,,,,
+,,,,,,,
+,,,,,,,
 Other Assets,Other Asset 1,type,Start-up Equity,choice,Auto | Boat | Start-up Equity | Art | Collectible | Other; choose the broad asset type.
 Other Assets,Other Asset 1,name,Start-up Equity,text,User-described asset name.
 Other Assets,Other Asset 1,value,"$66,000",dollars,Estimated value as of the as-of date.
@@ -38,10 +48,6 @@ Other Assets,Other Asset 3,as_of_date,2026-06-30,date,Date the value estimate wa
 Other Assets,Other Asset 3,annual_appreciation_pct,-5.00%,percent,Annual appreciation (+) or depreciation (-).
 Other Assets,Other Asset 3,basis,,dollars,Purchase price or tax basis for appreciating assets.
 Other Assets,Other Asset 3,sell_date,,date,Optional planned sale date.
-Liquidity Buffer,buffer_1,years_of_expenses,0,years,,
-Liquidity Buffer,buffer_1,reserve_account,Taxable/Trust,choice,Taxable/Trust | Roth | IRA | HSA | Cash; account bucket intended to preserve the reserve for this rule.,
-Liquidity Buffer,buffer_1,start_year,,year,,
-Liquidity Buffer,buffer_1,end_year,,year,,
 ,,,,,,,
 HSA Policy,Withdrawals,hsa_withdrawal_mode,smooth_window,choice,spend_as_needed | annual_pct | smooth_window; default spend_as_needed uses HSA only when needed before Roth. annual_pct draws the configured percentage each active year. smooth_window spreads balance across start/end years.
 HSA Policy,Withdrawals,hsa_annual_spend_pct,10.00%,percent,Annual HSA draw percentage used only when hsa_withdrawal_mode is annual_pct.
