@@ -55,6 +55,7 @@ Cashflow,S-Corp,reasonable_salary_annual,dollars,FALSE,60000,0,,W-2 salary for F
 Cashflow,Spending,annual_spending_base_year,dollars,TRUE,,,Base annual spending,
 Cashflow,Spending,core_spending_growth_mode,choice,TRUE,cpi,,,cpi | manual_override; Choose whether core spending increases with general CPI or a manual spending-specific rate.
 Cashflow,Spending,core_spending_manual_growth_rate,percent,FALSE,0.00%,0,20,Annual core-spending increase used only when core_spending_growth_mode is manual_override.
+Cashflow,Spending,travel_end_year,year,FALSE,,2026,2100,Optional end year for Travel group spending; blank = travel continues through plan end.
 Cashflow,Mortgage,monthly_payment,dollars,FALSE,,,Fixed monthly mortgage,
 Cashflow,Mortgage,balance_as_of_plan_start,dollars,FALSE,,,Outstanding balance,
 Cashflow,Mortgage,interest_rate,percent,FALSE,,,Mortgage rate,
