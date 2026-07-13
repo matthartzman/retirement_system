@@ -987,9 +987,12 @@ def run_deterministic_projection_stage(c):
 
         # Deterministic wellness spending that earlier builds collected but
         # did not spend: pre-65 bridge, Medicare B/D/G base premiums, and OOP.
-        h_bridge = (1 if h_alive and h_age < 65 and year >= c.get('h_ret_yr', 9999) else 0)
-        w_bridge = (1 if w_alive and w_age < 65 and year >= c.get('w_ret_yr', 9999) else 0)
-        bridge_people = h_bridge + w_bridge  # integer gate: ACA PTC eligibility/benchmark scaling — unchanged (see item 182 scope)
+        # Item 182: the pre-65 bridge premium is the cost of health coverage
+        # (marketplace/COBRA/retiree) owed by anyone who is pre-65, whether or
+        # not they have retired yet — so it is NOT gated on the retirement year.
+        h_bridge = (1 if h_alive and h_age < 65 else 0)
+        w_bridge = (1 if w_alive and w_age < 65 else 0)
+        bridge_people = h_bridge + w_bridge  # integer count for ACA PTC eligibility/benchmark scaling
         # Month-level proration of the actual premium dollars billed. In the
         # calendar year someone turns 65, Medicare Part B/D eligibility begins
         # the 1st of their birth month (standard CMS rule), so the pre-65
@@ -999,8 +1002,8 @@ def run_deterministic_projection_stage(c):
         # binary 1.0/0.0 behavior exactly.
         h_medicare_frac = _medicare_month_fraction(c['h_dob_yr'], c.get('h_dob_month'), year) if h_alive else 0.0
         w_medicare_frac = _medicare_month_fraction(c['w_dob_yr'], c.get('w_dob_month'), year) if w_alive else 0.0
-        h_pre65_frac = (1.0 - h_medicare_frac) if (h_alive and year >= c.get('h_ret_yr', 9999)) else 0.0
-        w_pre65_frac = (1.0 - w_medicare_frac) if (w_alive and year >= c.get('w_ret_yr', 9999)) else 0.0
+        h_pre65_frac = (1.0 - h_medicare_frac) if h_alive else 0.0
+        w_pre65_frac = (1.0 - w_medicare_frac) if w_alive else 0.0
         bridge_fraction_people = h_pre65_frac + w_pre65_frac
         medicare_fraction_people = h_medicare_frac + w_medicare_frac
         bridge_premium_gross = bridge_fraction_people * float(c.get('bridge_premium', 0.0) or 0.0) * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year)
