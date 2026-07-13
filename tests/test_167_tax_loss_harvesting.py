@@ -79,10 +79,11 @@ class EngineIntegrationTests(unittest.TestCase):
         master unchanged. If this fails, the off-path picked up a side effect."""
         c = sample_config('off')
         rows = project(c)
-        # Golden master shifted by item 182 (pre-65 bridge always applies);
-        # the TLH-off no-op property still holds against the updated baseline.
-        self.assertAlmostEqual(rows[-1]['total_nw'], 9_337_747.69, delta=5000.0)
-        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_300_550.69, delta=5000.0)
+        # Golden master shifted by items 182 (pre-65 bridge always applies) and
+        # 184 (real-estate tax now funded as a cash need); the TLH-off no-op
+        # property still holds against the updated baseline.
+        self.assertAlmostEqual(rows[-1]['total_nw'], 7_523_867.86, delta=5000.0)
+        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_084_122.05, delta=5000.0)
         self.assertTrue(all(r.get('tlh_harvested_loss', 0) == 0 for r in rows))
         self.assertTrue(all(r.get('cap_loss_carryforward', 0) == 0 for r in rows))
 

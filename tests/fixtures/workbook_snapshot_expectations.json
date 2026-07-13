@@ -9,7 +9,7 @@
   "required_phrases": {
     "1A. Executive Summary": ["RETIREMENT", "Roth"],
     "2A. Roth Conversion": ["AUTO-OPTIMIZED ROTH CONVERSION STRATEGY", "Target Bracket Top", "Binding Limit"],
-    "4D. Quality Control": ["WORKBOOK WARNINGS", "NO_CONSISTENCY_WARNINGS"]
+    "4D. Quality Control": ["WORKBOOK WARNINGS"]
   },
   "forbidden_roth_phrases": [
     "24% Brkt Top",

@@ -869,8 +869,11 @@ def run_deterministic_projection_stage(c):
         # Respect travel_end_year for the higher-of floor as well.
         _topup = c.get('ytd_blend_extra_topup', {}).get(year, 0.0)
         if _travel_end_year > 0 and year > _travel_end_year:
-            # The topup may include travel; conservatively zero it out after travel ends.
-            # This prevents the floor from resurrecting travel spending after end_year.
+            # ytd_blend_extra_topup is a Travel-only floor by construction
+            # (ytd_projection_blend._DISCRETIONARY_FLOOR_TRACKING_TYPES == ("Travel",);
+            # Large Discretionary is deliberately excluded), so zeroing the whole
+            # top-up after travel ends drops exactly the travel run-rate floor and
+            # nothing else.
             _topup = 0.0
         rec_extra += _topup
         row['rec_extra'] = rec_extra
@@ -1106,8 +1109,13 @@ def run_deterministic_projection_stage(c):
         # premium, post-sale rent, stochastic MC wellness/LTC shocks, and
         # HELOC P&I). home_improvement items included via home_improvement_extra
         # and home_improvement_lump_yr.
+        # Item 184: real-estate tax is a real annual cash outflow (it is the sole
+        # representation of property tax — not in mort_yr or housing_operating_yr),
+        # so it must be funded from the portfolio. Previously it was used only for
+        # the SALT deduction and was missing here, understating cash need and
+        # overstating net worth by the property-tax amount each year.
         total_spend_need = (spend + rec_extra + lump_yr + mort_yr + row['home_improvement_yr']
-                            + rent_yr + housing_operating_yr + ltc_prem_yr
+                            + rent_yr + housing_operating_yr + re_tax_yr + ltc_prem_yr
                             + wellness_base_yr + wellness_shock_yr
                             + heloc_interest_yr + heloc_repayment_principal_yr)
         row['total_spend'] = total_spend_need
@@ -1255,7 +1263,7 @@ def run_deterministic_projection_stage(c):
                 wellness_premium_yr = wellness_transaction_premium_yr
             wellness_base_yr = wellness_premium_yr + wellness_detail_budget_yr
             total_spend_need = (spend + rec_extra + lump_yr + mort_yr + row.get('home_improvement_yr', 0.0)
-                                + rent_yr + housing_operating_yr + ltc_prem_yr
+                                + rent_yr + housing_operating_yr + re_tax_yr + ltc_prem_yr
                                 + wellness_base_yr + wellness_shock_yr
                                 + heloc_interest_yr + heloc_repayment_principal_yr)
             row['aca_premium_tax_credit'] = aca_ptc_yr

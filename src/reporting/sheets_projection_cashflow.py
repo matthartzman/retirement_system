@@ -231,12 +231,11 @@ def build_sheet6(ws, c, rows):
         # interest never fund spending directly — they either compound into the
         # holding or convert to cash inside the account (Reinvest Dividends
         # toggle) — so portfolio income is not a cash-bridge funding source.
-        # Reconciliation: Total Cash Need (engine-authoritative) ≈ Σ Spend +
-        # Σ Tax + Other Cash Need. The displayed Total Cash Need is always the
-        # engine's row['total_cash_need']; the sheet's Σ Spend can differ from
-        # the engine's total_spend_need by real-estate tax (in housing_total_yr
-        # here but not in total_spend_need) and by any wellness_shock (in the
-        # engine but not in Σ Spend). Full column-level alignment is a follow-up.
+        # Reconciliation: Σ Spend + Σ Tax + Other Cash Need = Total Cash Need,
+        # exactly. The sheet's Σ Spend (which includes real-estate tax via
+        # housing_total_yr) now matches the engine's total_spend_need, because
+        # item 184 added re_tax_yr to total_spend_need. wellness_shock is 0 on
+        # the deterministic cash-flow sheet, so it does not open a gap here.
         required_portfolio_draws = (trust_total + row.get('hsa_wd', 0) + roth_total +
                                     row.get('h_ira_elective', 0) + row.get('w_ira_elective', 0))
         wd_total        = required_portfolio_draws + row.get('rmd_h', 0) + row.get('rmd_w', 0)

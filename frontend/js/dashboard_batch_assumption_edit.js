@@ -164,8 +164,10 @@
     return '<div class="batch-edit-panel" data-roadmap12="batch-assumption-edit"><div class="batch-edit-head"><div><span class="eyebrow">Power user</span><h3>Batch edit assumptions</h3><p class="small">Preview first, then stage many plan-row edits at once. Applying a preview only marks fields edited; click Save Changes to persist.</p></div><span class="pill">'+SCHEMA+'</span></div><div class="batch-grid"><label>Rows to scan <select id="batchPlanScope"><option value="filtered">Current All Assumptions results</option><option value="all">All editable plan rows</option></select></label><label>Field filter <input id="batchPlanFilter" placeholder="Example: inflation, Roth, State Comparison"></label></div>'+operationInputs('batchPlan')+'<div class="table-actions"><button class="btn" type="button" onclick="window.RPDashboardRoadmap12.previewPlanBatchEdit()">Preview batch</button><button class="btn primary" type="button" id="batchPlanApply" onclick="window.RPDashboardRoadmap12.applyPlanBatchEdit()" disabled>Apply preview to staged edits</button><button class="btn" type="button" id="batchPlanDownload" onclick="window.RPDashboardRoadmap12.downloadPreviewCsv(\'plan\')" disabled>Download preview CSV</button></div><div id="batchPlanPreview" class="batch-preview-empty">No preview yet.</div></div>';
   }
   function systemBatchPanelHtml(){
-    if(currentStep()!=='system_configuration')return '';
-    return '<div class="batch-edit-panel" data-roadmap12="system-config-batch-edit"><div class="batch-edit-head"><div><span class="eyebrow">Advanced maintenance</span><h3>Batch edit System Configuration</h3><p class="small">Preview changes to <code>system_config.csv</code> before writing. A field filter is required because these settings can affect pricing, tax references, and build behavior.</p></div><span class="pill">'+SCHEMA+'</span></div><div class="batch-grid"><label>Field filter <input id="batchSystemFilter" placeholder="Required: pricing, timeout, dashboard, tax"></label><label>Status <span id="batchSystemStatus" class="batch-status">Not loaded</span></label></div>'+operationInputs('batchSystem')+'<div class="table-actions"><button class="btn" type="button" onclick="window.RPDashboardRoadmap12.loadSystemConfigRows(false)">Load config rows</button><button class="btn" type="button" onclick="window.RPDashboardRoadmap12.previewSystemBatchEdit()">Preview config batch</button><button class="btn primary" type="button" id="batchSystemApply" onclick="window.RPDashboardRoadmap12.applySystemBatchEdit()" disabled>Write preview to system_config.csv</button><button class="btn" type="button" id="batchSystemDownload" onclick="window.RPDashboardRoadmap12.downloadPreviewCsv(\'system\')" disabled>Download preview CSV</button><button class="btn" type="button" data-step-id="all_assumptions">Open plan assumption batch editor</button></div><div id="batchSystemPreview" class="batch-preview-empty">No preview yet.</div></div>';
+    // Item 180: the system-config batch editor was removed from the Settings
+    // page. Raw system_config.csv edits belong in the System Configuration
+    // Console, not a batch tool on the everyday Settings page.
+    return '';
   }
   function insertPanels(){
     const pane=mainPane();if(!pane)return;
@@ -173,11 +175,7 @@
       const q=pane.querySelector('.question');
       if(q)q.insertAdjacentHTML('afterend',planBatchPanelHtml());
     }
-    if(currentStep()==='system_configuration'&&!pane.querySelector('[data-roadmap12="system-config-batch-edit"]')){
-      const advanced=pane.querySelector('.advanced-maintenance')||pane.querySelector('.system-config-section');
-      if(advanced)advanced.insertAdjacentHTML('beforebegin',systemBatchPanelHtml());
-      else pane.insertAdjacentHTML('beforeend',systemBatchPanelHtml());
-    }
+    // Item 180: no system-config batch editor is injected on the Settings page.
   }
   try{
     const oldRenderMain=renderMain;
