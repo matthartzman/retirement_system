@@ -114,7 +114,8 @@ def test_cash_flow_has_explicit_cash_bridge_columns():
     headers = [ws.cell(2, col).value for col in range(1, ws.max_column + 1)]
     for header in [
         'Total Taxes', 'Total Cash Need', 'Income Funding',
-        'Other Funding', 'Required Portfolio Cash Draws', 'Cash Bridge Gap / (Surplus)'
+        'Other Funding', 'Elective Portfolio Withdrawals (excl. RMDs)', 'Reinvested Surplus (forced income > need)',
+        'Other Cash Need'
     ]:
         assert header in headers
 
