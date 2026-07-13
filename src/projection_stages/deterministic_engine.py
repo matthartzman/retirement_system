@@ -847,9 +847,15 @@ def run_deterministic_projection_stage(c):
             rec_extra += c.get('home_proj', 0.0) * _infl_factor(year)
         if year <= c.get('vac_end', c['plan_start'] - 1):
             rec_extra += c.get('vac', 0.0) * _infl_factor(year)
+        _travel_end_year = int(c.get('travel_end_year', 0) or 0)
         for ev in c.get('recurring_extras', []):
             start_yr = int(ev.get('start_year') or c['plan_start'])
             end_yr = int(ev.get('end_year') or start_yr)
+            # Skip Travel group items after travel_end_year if configured
+            if _travel_end_year > 0 and year > _travel_end_year:
+                _ev_type = str(ev.get('type') or '').lower()
+                if _ev_type == 'travel':
+                    continue
             if start_yr <= year <= end_yr:
                 base_yr = max(c['plan_start'], start_yr)
                 _ev_amt = float(ev.get('amount') or 0.0) * _infl_ratio(year, base_yr)
@@ -860,7 +866,13 @@ def run_deterministic_projection_stage(c):
         # Higher-of floor for Travel / Large Discretionary: a current-year top-up
         # (annualized actual minus budget, when positive) computed by the YTD blend
         # so the discretionary spend never projects below the client's run rate.
-        rec_extra += c.get('ytd_blend_extra_topup', {}).get(year, 0.0)
+        # Respect travel_end_year for the higher-of floor as well.
+        _topup = c.get('ytd_blend_extra_topup', {}).get(year, 0.0)
+        if _travel_end_year > 0 and year > _travel_end_year:
+            # The topup may include travel; conservatively zero it out after travel ends.
+            # This prevents the floor from resurrecting travel spending after end_year.
+            _topup = 0.0
+        rec_extra += _topup
         row['rec_extra'] = rec_extra
         row['home_improvement_extra'] = home_improvement_extra
 
