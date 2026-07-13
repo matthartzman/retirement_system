@@ -213,7 +213,9 @@ def build_sheet6(ws, c, rows):
                      row['note_princ'] + row['note_int'] + row['rmd_total'])
         heloc_pai       = row.get('heloc_interest', 0) + row.get('heloc_repayment_principal', 0)
         other_cash_need = row.get('other_cash_need_yr', 0)
-        # Σ Spend now excludes other_cash_need and heloc_pai; they are surfaced separately for reconciliation visibility.
+        # Σ Spend excludes other_cash_need (surfaced in its own Other Cash Need
+        # column) but still INCLUDES heloc_pai, because the engine's
+        # total_spend_need includes HELOC interest + repayment principal.
         spend_total = (row['spend_base_yr']
                        + row.get('housing_total_yr', row.get('mortgage', 0) + row.get('rent_yr', 0))
                        + row.get('wellness_base_yr', 0) + row.get('ltc_prem_yr', 0)
@@ -229,7 +231,12 @@ def build_sheet6(ws, c, rows):
         # interest never fund spending directly — they either compound into the
         # holding or convert to cash inside the account (Reinvest Dividends
         # toggle) — so portfolio income is not a cash-bridge funding source.
-        # Reconciliation: Σ Spend + Σ Tax + Other Cash Need = Total Cash Need
+        # Reconciliation: Total Cash Need (engine-authoritative) ≈ Σ Spend +
+        # Σ Tax + Other Cash Need. The displayed Total Cash Need is always the
+        # engine's row['total_cash_need']; the sheet's Σ Spend can differ from
+        # the engine's total_spend_need by real-estate tax (in housing_total_yr
+        # here but not in total_spend_need) and by any wellness_shock (in the
+        # engine but not in Σ Spend). Full column-level alignment is a follow-up.
         required_portfolio_draws = (trust_total + row.get('hsa_wd', 0) + roth_total +
                                     row.get('h_ira_elective', 0) + row.get('w_ira_elective', 0))
         wd_total        = required_portfolio_draws + row.get('rmd_h', 0) + row.get('rmd_w', 0)
