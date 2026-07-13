@@ -19,7 +19,7 @@ def test_build_impact_has_natural_language_summary_and_source_links():
 def test_captured_changes_store_source_step_metadata():
     js = DASHBOARD_JS.read_text(encoding="utf-8")
     assert "sourceStepForRow(row)" in js
-    assert "sourceTitle:stepTitleById(sourceStep)" in js
+    assert 'sourceTitle: stepTitleById(sourceStep)' in js
     assert "sourceStepForSpecialLabel(label)" in js
     assert "<th>Source page</th>" in js
 

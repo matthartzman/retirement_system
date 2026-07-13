@@ -16,7 +16,7 @@ def test_current_year_earned_income_label_is_removed_from_ui_copy():
 
 def test_work_income_page_hides_internal_earned_income_end_year_driver():
     text = DASHBOARD.read_text(encoding="utf-8")
-    assert "case 'income_work'" in text
+    assert 'case "income_work"' in text
     assert "lbl!=='earned_income_last_year'" in text
 
 

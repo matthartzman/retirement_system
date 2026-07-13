@@ -8,8 +8,8 @@ def test_planning_levers_ui_has_source_column_and_compact_inputs():
     css = (ROOT / 'frontend/css/dashboard.css').read_text(encoding='utf-8')
     assert '<th>Source</th><th>Test amount</th>' in js
     assert 'source-jump' in js
-    assert "'Spending Categories','spending_core'" in js
-    assert "'Retirement Timing','household_people'" in js
+    assert '"Spending Categories",\n    "spending_core",' in js
+    assert '"Retirement Timing",\n    "household_people"' in js
     assert 'lever-test-input' in css
     assert 'width:76px' in css
     assert 'white-space:nowrap' in css

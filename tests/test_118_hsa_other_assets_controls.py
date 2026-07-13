@@ -12,8 +12,8 @@ def test_hsa_withdrawal_timing_lives_on_other_assets_page():
     assert "function renderHsaPolicyOnOtherAssets" in js
     assert "HSA Withdrawal Timing" in js
     assert "choose how the HSA is used in Cash Flow" in js
-    assert "case 'assets_special':return ((sec==='Other Assets'&&sub.startsWith('other_asset'))||(sec==='HSA Policy'&&sub!=='window')" in js
-    assert "case 'withdrawal_strategy':return (sec==='Withdrawal Policy'&&sub!=='roth_conversion');" in js
+    assert 'case "assets_special":\n        return (\n          (sec === "Other Assets" && sub.startsWith("other_asset")) ||\n          (sec === "HSA Policy" && sub !== "window")' in js
+    assert 'case "withdrawal_strategy":\n        return sec === "Withdrawal Policy" && sub !== "roth_conversion";' in js
     assert "HSA withdrawal timing is controlled on Other → Other assets" in js
 
 

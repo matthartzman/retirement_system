@@ -21,7 +21,7 @@ def test_retired_scenario_home_basis_cannot_reappear_as_editable_scenario_input(
     js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
 
     assert "function rowIsRetiredScenarioHomeDuplicate" in js
-    assert "function isEditable(r){return r&&!r.is_header&&!r.is_comment&&r.label&&!rowIsRetiredScenarioHomeDuplicate(r)}" in js
+    assert "function isEditable(r) {\n  return (\n    r &&\n    !r.is_header &&\n    !r.is_comment &&\n    r.label &&\n    !rowIsRetiredScenarioHomeDuplicate(r)\n  );\n}" in js
     assert "The Home Value and Home Basis shown here are shared canonical Home asset facts" in js
 
 

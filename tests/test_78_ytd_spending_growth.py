@@ -62,7 +62,7 @@ def test_ytd_growth_uses_current_holdings_minus_prior_year_balance(tmp_path):
 
 def test_ytd_ui_contains_step_upload_table_and_account_mapping():
     text = open('frontend/js/dashboard.js', encoding='utf-8').read()
-    assert "id:'ytd_transactions'" in text
+    assert 'id: "ytd_transactions"' in text
     assert 'YTD spending and growth' in text
     assert 'Income &amp; Expense Transactions' in text
     assert 'Replace all' in text
@@ -231,7 +231,7 @@ def test_ytd_status_exposes_account_dropdown_sources(tmp_path):
 
 def test_ytd_role_change_rerenders_mapping_dropdown_enabled_state():
     text = open('frontend/js/dashboard.js', encoding='utf-8').read()
-    assert "if(field==='Role')renderMain()" in text
+    assert 'if (field === "Role") renderMain()' in text
     assert 'Mapped Investment Account' in text
     assert 'ytdInvestmentOptions' in text
 
@@ -337,8 +337,8 @@ def test_ytd_save_buttons_enable_immediately_after_inline_edits():
     assert 'function setYtdDirtyButtonStates()' in text
     assert "id=\"ytdSaveAccountSetupBtn\"" in text
     assert "id=\"ytdSaveTransactionsBtn\"" in text
-    assert 'markYtdAccountsDirty(){ytdAccountsChanged=true' in text
-    assert 'markYtdTransactionsDirty(){ytdTransactionsChanged=true' in text
+    assert 'markYtdAccountsDirty() {\n  ytdAccountsChanged = true' in text
+    assert 'markYtdTransactionsDirty() {\n  ytdTransactionsChanged = true' in text
     assert 'setYtdDirtyButtonStates()' in text
     assert 'Add account/source' in text
 
@@ -376,7 +376,7 @@ def test_ytd_account_mapping_ui_has_manual_add_and_grouped_broader_account_types
     assert 'Liabilities' in text
     for role in ['Annuity', 'Pension', 'Social Security', 'Offline asset', 'Real estate', 'Note receivable', 'Income source', 'Credit card', 'Mortgage', 'HELOC', 'Loan', 'Other liability']:
         assert role in text
-    assert "'Liability'" in text[text.index('function ytdAccountRoleOptions'):text.index('function ytdInvestmentOptions')]  # legacy CSV value maps forward
+    assert '"Liability"' in text[text.index('function ytdAccountRoleOptions'):text.index('function ytdInvestmentOptions')]  # legacy CSV value maps forward
     assert "'Liability'," not in text[text.index('function ytdAccountRoleOptions'):text.index('function ytdInvestmentOptions')]
     assert 'Account / Source' in text
     assert 'Account Type' in text
@@ -411,9 +411,9 @@ def test_ytd_account_mapping_ui_uses_inline_source_add_current_value_no_notes_or
 
 def test_ytd_transaction_table_uses_pagination_controls_instead_of_first_500_only():
     text = open('frontend/js/dashboard.js', encoding='utf-8').read()
-    assert 'const YTD_TX_PAGE_SIZE=500' in text
+    assert 'const YTD_TX_PAGE_SIZE = 500' in text
     assert 'function ytdTxnPager' in text
     assert 'setYtdTxnPage(0' in text
     assert 'Previous' in text and 'Next' in text and 'Last' in text
     assert 'tx.slice(0,500)' not in text
-    assert 'pageRows=tx.slice(start,start+YTD_TX_PAGE_SIZE)' in text
+    assert 'pageRows = tx.slice(start, start + YTD_TX_PAGE_SIZE)' in text

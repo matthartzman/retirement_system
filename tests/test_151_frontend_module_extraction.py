@@ -30,9 +30,9 @@ def test_navigation_behavior_is_feature_owned_with_dashboard_wrappers():
     dashboard = read("frontend/js/dashboard.js")
     assert "window.RetirementNavigation" in nav
     assert "AUTOSAVE_STEPS" in nav
-    assert "function setStep(id){return window.RetirementNavigation.setStep" in dashboard
-    assert "function wireStepNavigation(){return window.RetirementNavigation.wireStepNavigation" in dashboard
-    assert "function renderNav(){return window.RetirementNavigation.renderNav" in dashboard
+    assert 'function setStep(id) {\n  return window.RetirementNavigation.setStep' in dashboard
+    assert 'function wireStepNavigation() {\n  return window.RetirementNavigation.wireStepNavigation' in dashboard
+    assert 'function renderNav() {\n  return window.RetirementNavigation.renderNav' in dashboard
 
 
 def test_planning_workbench_case_store_moved_out_of_dashboard():
@@ -41,16 +41,16 @@ def test_planning_workbench_case_store_moved_out_of_dashboard():
     assert "window.RetirementPlanningWorkbench" in workbench
     assert "retirement.planning_case_v1" in workbench
     assert "planning_case_v1" in workbench
-    assert "function renderPlanningWorkbench(){return window.RetirementPlanningWorkbench.renderWorkbench" in dashboard
-    assert "function planningWorkbenchBuildImpactHtml(){return window.RetirementPlanningWorkbench.renderBuildImpactContext" in dashboard
+    assert 'function renderPlanningWorkbench() {\n  return window.RetirementPlanningWorkbench.renderWorkbench' in dashboard
+    assert 'function planningWorkbenchBuildImpactHtml() {\n  return window.RetirementPlanningWorkbench.renderBuildImpactContext' in dashboard
 
 
 def test_reports_shell_rendering_moved_out_of_dashboard():
     reports = read("frontend/js/reports_ui.js")
     dashboard = read("frontend/js/dashboard.js")
     assert "window.RetirementReportsUI" in reports
-    assert "function renderDetailedResults(){return window.RetirementReportsUI.renderDetailedResults" in dashboard
-    assert "function renderDetailedResultsNav(){return window.RetirementReportsUI.renderDetailedResultsNav" in dashboard
+    assert 'function renderDetailedResults() {\n  return window.RetirementReportsUI.renderDetailedResults' in dashboard
+    assert 'function renderDetailedResultsNav() {\n  return window.RetirementReportsUI.renderDetailedResultsNav' in dashboard
     assert "Loading results index" not in dashboard
     assert "Retirement Plan Workbook" in reports
 

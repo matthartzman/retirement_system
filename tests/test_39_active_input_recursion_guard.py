@@ -12,9 +12,9 @@ def read_js():
 
 def test_active_input_mode_helpers_do_not_call_filtered_rows_for_step():
     js = read_js()
-    assert "function coreSpendingGrowthMode(){const r=findEditableRow('Cashflow','Spending','core_spending_growth_mode')" in js
-    assert "function mcEngineModeValue(){const r=rows.find(x=>isEditable(x)&&rowIsMonteCarlo(x)&&norm(x.label)==='mc_engine_mode')" in js
-    assert "function rowByNormLabel(label){const key=norm(label);return rawRowsForStep('roth_conversion')" in js
+    assert 'function coreSpendingGrowthMode() {\n  const r =\n    findEditableRow("Cashflow", "Spending", "core_spending_growth_mode")' in js
+    assert "function mcEngineModeValue() {\n  const r =\n    rows.find(\n      (x) =>\n        isEditable(x) &&" in js
+    assert 'function rowByNormLabel(label) {\n  const key = norm(label);\n  return (\n    rawRowsForStep("roth_conversion")' in js
     assert "function coreSpendingGrowthMode(){const r=rowsForStep('spending_core')" not in js
     assert "function mcEngineModeValue(){const r=rowsForStep('monte_carlo_options')" not in js
     assert "function rowByNormLabel(label){const key=norm(label);return rowsForStep('roth_conversion')" not in js

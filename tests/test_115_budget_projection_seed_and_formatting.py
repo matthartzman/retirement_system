@@ -31,7 +31,7 @@ category,ho_insurance,Homeowners Insurance,2000,,,,
 
 def test_heloc_repayment_years_is_integer_not_currency_in_ui_source():
     js = Path('frontend/js/dashboard.js').read_text(encoding='utf-8')
-    assert "if(r&&l==='heloc_repayment_years')return 'number'" in js
+    assert 'if (r && l === "heloc_repayment_years") return "number"' in js
 
 
 def test_home_improvement_line_controls_projection_window_over_category_actual(tmp_path):
@@ -54,9 +54,11 @@ line,home_improvement,Home Improvement,25000,2026,2030,,projection window
 def test_housing_ui_has_rent_buy_toggle_and_area_type_dropdown():
     js = Path('frontend/js/dashboard.js').read_text(encoding='utf-8')
     assert 'Rent or Buy' in js
-    assert "<button type=\"button\" class=\"btn-toggle'+(!isPurchase?' active':'')+'\" onclick=\"editValue('+typeRow.row_index+',\\'rent\\',null);renderMain()\">Rent</button>" in js
+    assert 'class="btn-toggle' in js
+    assert '(!isPurchase ? " active" : "")' in js
+    assert ',\'rent\',null);renderMain()\\">Rent</button>"' in js
     assert "function housingAreaTypeSelect(row)" in js
-    assert "city_type:['urban','suburban','rural']" in js
+    assert 'city_type: ["urban", "suburban", "rural"]' in js
 
 
 def test_mortgage_budget_fallback_does_not_resurrect_configured_mortgage_after_payoff():

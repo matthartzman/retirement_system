@@ -35,12 +35,12 @@ def test_transactions_to_spending_sync_journey_invalidates_spending_model():
     js = _dashboard_js()
     routes = _plan_routes()
 
-    assert "id:'ytd_transactions'" in js
-    assert "id:'spending_dashboard'" in js
+    assert 'id: "ytd_transactions"' in js
+    assert 'id: "spending_dashboard"' in js
     assert "Sync Actual Rate" in js
     assert "async function saveYtdTransactions" in js
     assert "/api/ytd/transactions/bulk" in js
-    assert "spendingData=null" in js
+    assert "spendingData = null" in js
     assert "function renderSpendingDashboardOrLoad" in js
     assert "/api/spending/model" in js
     assert '@app.route("/api/ytd/transactions/bulk", methods=["PUT"])' in routes
@@ -51,8 +51,8 @@ def test_holdings_to_allocation_journey_refreshes_preview_contract():
     js = _dashboard_js()
     routes = _plan_routes() + "\n" + _workbook_routes()
 
-    assert "id:'holdings'" in js
-    assert "id:'allocation_assets'" in js
+    assert 'id: "holdings"' in js
+    assert 'id: "allocation_assets"' in js
     assert "holdingsChanged" in js
     assert "allocationPreviewFingerprint" in js
     assert "holdingsLen" in js

@@ -22,7 +22,7 @@ def test_save_plan_data_does_not_reload_selected_folder_over_unsaved_ui_state():
 def test_build_never_silently_reloads_selected_folder_over_loaded_plan():
     js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
     run_build = _run_build_function(js)
-    assert "const hadUnsaved=hasUnsavedPlanChanges()" in run_build
+    assert 'const hadUnsaved = hasUnsavedPlanChanges()' in run_build
     assert "loadLocalPlanDataFirst" not in run_build
     assert "selectedFolderDiffersFromLoadedPlan" in js
 

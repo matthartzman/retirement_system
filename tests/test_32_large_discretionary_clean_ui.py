@@ -74,7 +74,7 @@ def test_user_ui_uses_visible_category_select_not_vacation_only_button():
     js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
     assert "Home Improvement" in js
     assert "Choose category" in js
-    assert "travelExtras.push({type:''" in js
+    assert 'travelExtras.push({\n    type: ""' in js
     assert "<select onchange=\"updateTravelExtra" in js
     assert "Current planned spending in this table" in js
 
@@ -82,5 +82,5 @@ def test_user_ui_uses_visible_category_select_not_vacation_only_button():
 def test_user_ui_routes_home_sale_out_of_economic_tax_assumptions():
     js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
     assert '!rowIsHomeSaleAssumption(r)' in js
-    assert "case 'scenarios':return ((sec==='Scenarios'" in js
-    assert "sec==='Model Constants'&&sub==='home_sale'" in js
+    assert 'case "scenarios":\n        return (\n          (sec === "Scenarios"' in js
+    assert 'sec === "Model Constants" && sub === "home_sale"' in js

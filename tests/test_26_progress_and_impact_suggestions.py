@@ -13,8 +13,8 @@ def test_build_overlay_has_static_percent_not_looping_bar():
     assert "api/build/progress" in text
     assert "buildPulse" not in text
     assert "build-overlay.active .build-overlay-bar span{animation" not in text
-    assert "pct==='waiting'||pct==='indeterminate'||pct===null" in text
-    assert "p.textContent=value===null?'Working…':Math.round(value)+'%'" in text
+    assert 'pct === "waiting" || pct === "indeterminate" || pct === null' in text
+    assert 'p.textContent = value === null ? "Working…" : Math.round(value) + "%"' in text
 
 
 def test_build_impact_adds_actionable_suggestions_under_three_metrics():
@@ -23,7 +23,7 @@ def test_build_impact_adds_actionable_suggestions_under_three_metrics():
     assert "Suggestions to improve the plan without lowering risk" in text
     assert "What the model used in this build" in text
     assert "Plain-English checks for assumptions" in text
-    assert "suggestions.slice(0,6)" in text
+    assert 'suggestions.slice(0, 6)' in text
     assert "dynamic-suggestions-panel" in text
     assert "collapsible-impact-section" in text
     assert "collapse-caret" in text
