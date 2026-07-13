@@ -68,27 +68,24 @@ class MedicareProrationTests(unittest.TestCase):
         #   Part B+D+G (8/12): 8 * (446.30 + 174.61 + 359.10) = $7,840.08
         #   Pre-65 bridge (4/12): 12000 * 4/12               = $4,000.00
         self.assertAlmostEqual(row['medicare_base_premium'], 7840.08, delta=0.05)
-        self.assertAlmostEqual(row['wellness_bridge_premium'], 4000.00, delta=0.05)
+        # The pre-65 bridge is no longer gated on the retirement year: it is the
+        # cost of pre-Medicare coverage owed by ANY pre-65 person. So 2026 bills
+        # BOTH Pat (4/12 * 12000 = 4,000) and Matt (12/12 * 12000 = 12,000, on
+        # the marketplace while still working) = $16,000 gross.
+        self.assertAlmostEqual(row['wellness_bridge_premium_gross'], 16000.00, delta=0.05)
 
-        # Expected 2026 total under the CURRENT modeling decision (retirement
-        # gate retained): only Pat is billed, because Matt (member_1) is still
-        # employed until his 2027-01-01 retirement date, so his pre-65 bridge
-        # premium is $0 in 2026 (employer coverage assumed while working).
-        self.assertAlmostEqual(total, 11840.08, delta=0.05)
+        # Expected 2026 total: Pat Medicare 7,840.08 + bridge 16,000 = 23,840.08.
+        # The ACA Premium Tax Credit is $0 because 2026 household MAGI (~$467k,
+        # driven by Matt's ~$309.6k wages while still working) is far above ACA
+        # subsidy eligibility (>> 400% FPL).
+        self.assertAlmostEqual(row['aca_premium_tax_credit'], 0.0, delta=0.05)
+        self.assertAlmostEqual(total, 23840.08, delta=0.05)
 
-        # NOTE — client target reconciliation (item 182): the client's stated
-        # 2026 target of $22,173.30 assumes (a) Matt is charged a full 12-month
-        # pre-65 bridge premium in 2026 despite still working ($12,000), and
-        # (b) an ACA Premium Tax Credit of $1,666.78:
-        #   7,840.08 (Pat Medicare) + 4,000.00 (Pat bridge)
-        #     + 12,000.00 (Matt bridge) - 1,666.78 (ACA PTC) = 22,173.30
-        # The engine keeps the retirement gate on the pre-65 bridge, so Matt's
-        # premium is $0 until he retires; and the ACA PTC generally will not
-        # apply while Matt has 2026 employment income. Enabling Matt's bridge
-        # is a one-line change (drop the `year >= *_ret_yr` gate) PENDING the
-        # user's confirmation that Matt is on marketplace/COBRA coverage in
-        # 2026 rather than employer coverage. If that is confirmed, update the
-        # expected total above accordingly.
+        # NOTE — client target reconciliation (item 182): the stated 2026 target
+        # of $22,173.30 = 23,840.08 - 1,666.78 assumed an ACA Premium Tax Credit
+        # of $1,666.78. That credit does not apply at this income level, so the
+        # correct 2026 total with Matt's marketplace bridge always applied is
+        # $23,840.08.
 
 
 if __name__ == '__main__':
