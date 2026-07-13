@@ -541,12 +541,14 @@ def build_sheet16(ws, c, rows):
 
         ('Allocation — User Defined',
          f"Use user-specified target_pct allocation; implied return {stats_alloc_user['expected_return']*100:.2f}%, "
-         f"volatility {stats_alloc_user['volatility']*100:.2f}%, geometric approx {stats_alloc_user['geometric_return']*100:.2f}%",
+         f"volatility {stats_alloc_user['volatility']*100:.2f}%, geometric approx {stats_alloc_user['geometric_return']*100:.2f}%, "
+         f"Sharpe {stats_alloc_user.get('sharpe', 0.0):.2f}",
          nw_alloc_user, tax_alloc_user, nw_alloc_user > 0, nw_alloc_user - base_nw),
 
         ('Allocation — Optimizer Defined',
          f"Use optimizer allocation recommendation; implied return {stats_alloc_opt['expected_return']*100:.2f}%, "
-         f"volatility {stats_alloc_opt['volatility']*100:.2f}%, geometric approx {stats_alloc_opt['geometric_return']*100:.2f}%",
+         f"volatility {stats_alloc_opt['volatility']*100:.2f}%, geometric approx {stats_alloc_opt['geometric_return']*100:.2f}%, "
+         f"Sharpe {stats_alloc_opt.get('sharpe', 0.0):.2f}",
          nw_alloc_opt, tax_alloc_opt, nw_alloc_opt > 0, nw_alloc_opt - base_nw),
 
         (f'Retire Later ({retire_later_yr})',
