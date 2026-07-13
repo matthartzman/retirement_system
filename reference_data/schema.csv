@@ -21,6 +21,7 @@ Economic Assumptions,,reinvest_dividends_default,boolean,FALSE,NO,,,Global defau
 Economic Assumptions,,cash_yield_rate,percent,FALSE,2.00%,0,10,Growth rate applied to dividends/interest that convert to cash inside an account instead of compounding
 Economic Assumptions,,fed_tax_bracket_inflator,percent,TRUE,2.00%,0,5,Annual bracket expansion
 Economic Assumptions,,social_security_taxable_fraction,percent,TRUE,85.00%,0,100,SS fraction in AGI
+Economic Assumptions,,annuity_default_dividend_rate,percent,FALSE,5.00%,0,20,Default dividend rate for annuities WITHOUT an explicit dividend rate of their own; has no effect on any annuity stream that already carries its own override rate
 Model Constants,Retirement,rollover_401k_year,year,TRUE,2030,2026,2060,401k->IRA rollover year
 Model Constants,Retirement,spending_freeze_year,year,TRUE,2040,2026,2060,Year spending stops inflating
 Model Constants,Retirement,ss_claim_age,integer,TRUE,70,62,70,SS claim age (both spouses)

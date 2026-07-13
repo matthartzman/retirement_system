@@ -228,31 +228,61 @@ def run_deterministic_projection_stage(c):
             return (1 + float(c.get('spend_inf', c.get('inf', 0.0)) or 0.0)) ** max(0, year - c['plan_start'])
         return _infl_factor(year)
 
-    def _wellness_premium_for_age(age, year):
+    def _medicare_month_fraction(dob_yr, dob_month, year):
+        """Fraction of `year` (0.0-1.0) a person is Medicare Part B/D enrolled.
+
+        Convention: Medicare eligibility begins the first of the calendar
+        month in which a person turns 65 (standard CMS enrollment rule). Age
+        follows the engine's existing integer convention (year - dob_yr), so
+        this only ever prorates the single transition year where that age
+        first equals 65 — 0.0 in all earlier years, 1.0 in all later years,
+        and (12 - (birth_month - 1)) / 12 in the turn-65 year itself.
+        """
+        try:
+            age = int(year) - int(dob_yr)
+        except Exception:
+            return 0.0
+        if age < 65:
+            return 0.0
+        if age > 65:
+            return 1.0
+        try:
+            m = int(dob_month) if dob_month else 1
+        except Exception:
+            m = 1
+        m = min(max(m, 1), 12)
+        return (12 - (m - 1)) / 12.0
+
+    def _wellness_premium_for_age(age, year, dob_month=1):
         """Return the annual per-person premium used for SEHI in this year.
 
         There is intentionally no standalone "health insurance premiums"
         input.  Before age 65, use Pre-65 Healthcare Premium; at 65+ use
-        Medicare Part B + Part D + Part G costs.
+        Medicare Part B + Part D + Part G costs. In the calendar year a
+        person turns 65, both are prorated by month via
+        `_medicare_month_fraction` (Medicare starts the 1st of the birth
+        month) instead of switching on a hard binary age gate.
         """
         try:
             age = float(age)
         except Exception:
             age = 0.0
-        if age < 65:
-            return float(c.get('bridge_premium', 0.0) or 0.0) * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year)
-        part_b = float(c.get('partb', 0.0) or 0.0) * 12 * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year)
-        part_d = float(c.get('partd', 0.0) or 0.0) * 12 * _path_factor('partd_index_by_year', c.get('partd_inf', c.get('med_inf', c['inf'])), year)
-        part_g = float(c.get('partg', 0.0) or 0.0) * 12 * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year)
-        return part_b + part_d + part_g
+        dob_yr = year - age
+        medicare_frac = _medicare_month_fraction(dob_yr, dob_month, year)
+        pre65_frac = 1.0 - medicare_frac
+        bridge = float(c.get('bridge_premium', 0.0) or 0.0) * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year) * pre65_frac
+        part_b = float(c.get('partb', 0.0) or 0.0) * 12 * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year) * medicare_frac
+        part_d = float(c.get('partd', 0.0) or 0.0) * 12 * _path_factor('partd_index_by_year', c.get('partd_inf', c.get('med_inf', c['inf'])), year) * medicare_frac
+        part_g = float(c.get('partg', 0.0) or 0.0) * 12 * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year) * medicare_frac
+        return bridge + part_b + part_d + part_g
 
     def _sehi_deduction_source_amount(year, h_age, w_age, h_alive=True, w_alive=True):
         if c.get('sehi_derived_from_wellness', True):
             total = 0.0
             if h_alive:
-                total += _wellness_premium_for_age(h_age, year)
+                total += _wellness_premium_for_age(h_age, year, c.get('h_dob_month'))
             if w_alive:
-                total += _wellness_premium_for_age(w_age, year)
+                total += _wellness_premium_for_age(w_age, year, c.get('w_dob_month'))
             return max(0.0, total)
         return max(0.0, float(c.get('sehi', 0.0) or 0.0))
 
@@ -947,8 +977,21 @@ def run_deterministic_projection_stage(c):
         # did not spend: pre-65 bridge, Medicare B/D/G base premiums, and OOP.
         h_bridge = (1 if h_alive and h_age < 65 and year >= c.get('h_ret_yr', 9999) else 0)
         w_bridge = (1 if w_alive and w_age < 65 and year >= c.get('w_ret_yr', 9999) else 0)
-        bridge_people = h_bridge + w_bridge
-        bridge_premium_gross = bridge_people * float(c.get('bridge_premium', 0.0) or 0.0) * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year)
+        bridge_people = h_bridge + w_bridge  # integer gate: ACA PTC eligibility/benchmark scaling — unchanged (see item 182 scope)
+        # Month-level proration of the actual premium dollars billed. In the
+        # calendar year someone turns 65, Medicare Part B/D eligibility begins
+        # the 1st of their birth month (standard CMS rule), so the pre-65
+        # bridge premium is only owed for the fraction of the year before that
+        # date, and Medicare Part B/D/G premiums only for the fraction after.
+        # Outside the transition year the fractions collapse to the prior
+        # binary 1.0/0.0 behavior exactly.
+        h_medicare_frac = _medicare_month_fraction(c['h_dob_yr'], c.get('h_dob_month'), year) if h_alive else 0.0
+        w_medicare_frac = _medicare_month_fraction(c['w_dob_yr'], c.get('w_dob_month'), year) if w_alive else 0.0
+        h_pre65_frac = (1.0 - h_medicare_frac) if (h_alive and year >= c.get('h_ret_yr', 9999)) else 0.0
+        w_pre65_frac = (1.0 - w_medicare_frac) if (w_alive and year >= c.get('w_ret_yr', 9999)) else 0.0
+        bridge_fraction_people = h_pre65_frac + w_pre65_frac
+        medicare_fraction_people = h_medicare_frac + w_medicare_frac
+        bridge_premium_gross = bridge_fraction_people * float(c.get('bridge_premium', 0.0) or 0.0) * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year)
         # Preliminary ACA PTC estimate before Roth conversions; the conversion
         # planner receives bridge_people to constrain avoidable MAGI spikes.
         # The final PTC is recomputed after the actual Roth conversion and
@@ -959,9 +1002,9 @@ def run_deterministic_projection_stage(c):
         aca_ptc_pre_conversion = aca_premium_tax_credit(c, year=year, magi=_aca_pre_non_ss + _aca_pre_ss_tax + portfolio_tax_exempt, bridge_people=bridge_people)
         aca_ptc_yr = aca_ptc_pre_conversion
         bridge_premium_yr = max(0.0, bridge_premium_gross - aca_ptc_yr)
-        partb_yr = ((1 if h_alive and h_age >= 65 else 0) + (1 if w_alive and w_age >= 65 else 0)) * float(c.get('partb', 0.0) or 0.0) * 12 * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year)
-        partd_yr = ((1 if h_alive and h_age >= 65 else 0) + (1 if w_alive and w_age >= 65 else 0)) * float(c.get('partd', 0.0) or 0.0) * 12 * _path_factor('partd_index_by_year', c.get('partd_inf', c.get('med_inf', c['inf'])), year)
-        partg_yr = ((1 if h_alive and h_age >= 65 else 0) + (1 if w_alive and w_age >= 65 else 0)) * float(c.get('partg', 0.0) or 0.0) * 12 * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year)
+        partb_yr = medicare_fraction_people * float(c.get('partb', 0.0) or 0.0) * 12 * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year)
+        partd_yr = medicare_fraction_people * float(c.get('partd', 0.0) or 0.0) * 12 * _path_factor('partd_index_by_year', c.get('partd_inf', c.get('med_inf', c['inf'])), year)
+        partg_yr = medicare_fraction_people * float(c.get('partg', 0.0) or 0.0) * 12 * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year)
         alive_count = (1 if h_alive else 0) + (1 if w_alive else 0)
         oop_yr = (float(c.get('oop', 0.0) or 0.0) * float(c.get('oop_utilization_pct', 1.0) or 1.0)
                   * (1.0 if alive_count >= 2 else (0.5 if alive_count == 1 else 0.0))
@@ -1255,7 +1298,10 @@ def run_deterministic_projection_stage(c):
         row['_niit_hs_taxable'] = hs_taxable
 
         # IRMAA uses the statutory two-year MAGI lookback when prior rows exist.
-        n_medicare = (1 if h_age >= 65 and h_alive else 0) + (1 if w_age >= 65 and w_alive else 0)
+        # The surcharge is billed monthly alongside Medicare enrollment, so it
+        # is prorated in the transition year with the same fraction used for
+        # Part B/D/G premiums above (medicare_fraction_people).
+        n_medicare = medicare_fraction_people
         irmaa_magi = irmaa_lookback_magi(rows, irmaa_magi_current, c.get('irmaa_lookback_years', 2))
         row['irmaa_magi_used'] = irmaa_magi
         irmaa_yr = _irmaa_surcharge_path(irmaa_magi, year, n_medicare, filing) if n_medicare > 0 else 0.0

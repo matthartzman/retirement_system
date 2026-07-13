@@ -70,6 +70,11 @@ def build_sheet21(ws, checks, rows=None, c=None):
         ('RMD Timing',
          'RMDs computed at year-start balance; satisfied before year-end; '
          'SECURE 2.0 age-75 for those born 1960+.'),
+        ('RMD Base Excludes Annuities',
+         'The aggregate IRA RMD base is liquid registry account balances only. Qualified/'
+         'annuitized income streams are modeled as separate contracts that self-satisfy '
+         'their own RMD via their periodic payments (Treas. Reg. 1.401(a)(9)-6) and are '
+         'intentionally NOT aggregated into this base.'),
         ('Roth Conversion Forced Actions',
          'Forced Roth conversion amounts are read from CSV Forced Actions.'),
         ('NIIT / State Estate Tax',
