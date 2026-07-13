@@ -544,7 +544,7 @@ case 'household_people':return sec==='Household'&&hasAny(r.label,['name','dob','
 case 'retirement_wellness':return rowIsRetirementWellness(r);
 case 'income_work':return ((sec==='Cashflow'&&((sub==='earned_income'&&['annual_earned_income','earned_income_start_year','earned_income_annual_increase','entity_type','ytd_remainder_earned_income_override'].includes(lbl))||sub==='self_employment'||sub==='retirement_contributions'))||sec==='Payroll Tax');
 case 'income_retirement':return sec==='Income Streams'||sec==='Social Security';
-case 'spending_core':return (sec==='Cashflow'&&sub==='spending'&&lbl!=='daf_annual_contribution')||(sec==='Economic Assumptions'&&sub===''&&lbl==='inflation_general')||(sec==='Model Constants'&&sub==='retirement'&&lbl==='spending_freeze_year');
+case 'spending_core':return (sec==='Cashflow'&&sub==='spending'&&lbl!=='daf_annual_contribution'&&lbl!=='annual_spending_base_year')||(sec==='Economic Assumptions'&&sub===''&&lbl==='inflation_general')||(sec==='Model Constants'&&sub==='retirement'&&lbl==='spending_freeze_year');
 case 'spending_travel_extras':return false;
 case 'spending_mortgage_events':return (sec==='Cashflow'&&sub==='mortgage')||(sec==='Other Assets'&&sub==='home')||(sec==='Model Constants'&&sub==='home_sale')||(sec==='Housing'&&['current_home','next_step_1','next_step_2','home_improvements'].includes(sub));
 case 'assets_home_cash':return sec==='Other Assets'&&sub==='cash';
