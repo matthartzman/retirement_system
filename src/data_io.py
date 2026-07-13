@@ -436,6 +436,14 @@ def parse_client(data, url_template):
     c['w_nick'] = _nick(_v(data,'Household','','member_2_nickname',''), c['w_name'])
     c['h_dob_yr']  = _y(_v(data,'Household','','member_1_dob','8/3/1962').split('/')[-1], 1962)
     c['w_dob_yr']  = _y(_v(data,'Household','','member_2_dob','5/30/1961').split('/')[-1], 1961)
+    # Birth month, extracted from the same full member_*_dob (M/D/YYYY) value
+    # already collected above. Used only to prorate the Medicare/pre-65 bridge
+    # premium switch in the calendar year someone turns 65 (Medicare begins
+    # the 1st of the birth month) — see deterministic_engine._medicare_month_fraction.
+    _h_dob_parts = _date_parts(_v(data,'Household','','member_1_dob','8/3/1962'))
+    _w_dob_parts = _date_parts(_v(data,'Household','','member_2_dob','5/30/1961'))
+    c['h_dob_month'] = _h_dob_parts[1] if _h_dob_parts else 1
+    c['w_dob_month'] = _w_dob_parts[1] if _w_dob_parts else 1
     _h_ret_raw = _v(data,'Household','','member_1_retirement_date','1/1/2027')
     _w_ret_raw = _v(data,'Household','','member_2_retirement_date','2/28/2023')
     c['h_ret_yr']  = _y(_h_ret_raw, 2027)
@@ -500,6 +508,7 @@ def parse_client(data, url_template):
         'nickname':      c['h_nick'],
         'role':          'member_1',
         'dob_yr':        c['h_dob_yr'],
+        'dob_month':     c['h_dob_month'],
         'retire_yr':     c['h_ret_yr'],
         'mortality_age': c['h_mort_age'],
         'death_yr':      c['h_death_yr'],
@@ -511,6 +520,7 @@ def parse_client(data, url_template):
             'nickname':      c['w_nick'],
             'role':          'member_2',
             'dob_yr':        c['w_dob_yr'],
+            'dob_month':     c['w_dob_month'],
             'retire_yr':     c['w_ret_yr'],
             'mortality_age': c['w_mort_age'],
             'death_yr':      c['w_death_yr'],
@@ -520,6 +530,7 @@ def parse_client(data, url_template):
         # Single-member household
         c['members'] = [_m1]
         c['w_dob_yr']   = c['h_dob_yr']   # zero-impact defaults
+        c['w_dob_month']= c['h_dob_month']
         c['w_ret_yr']   = c['h_ret_yr']
         c['w_mort_age'] = 0
         c['w_death_yr'] = c['h_dob_yr']   # already dead → engine sees no spouse
@@ -2024,6 +2035,9 @@ def build_plan_from_json(plan, url_template=''):
     c['h_name']     = m1.get('name', 'Member 1')
     c['h_nick']     = str(m1.get('nickname') or '').strip() or str(c['h_name']).strip().split(' ')[0]
     c['h_dob_yr']   = int(m1.get('dob_year', 1965))
+    # dob_month is optional in the wizard JSON; default 1 preserves the prior
+    # binary Medicare/pre-65 switch behavior (see _medicare_month_fraction).
+    c['h_dob_month']= int(m1.get('dob_month', 1) or 1)
     c['h_ret_yr']   = int(m1.get('retirement_year', datetime.date.today().year + 4))
     c['h_mort_age'] = int(m1.get('mortality_age', 90))
     c['h_death_yr'] = c['h_dob_yr'] + c['h_mort_age']
@@ -2033,6 +2047,7 @@ def build_plan_from_json(plan, url_template=''):
         c['w_name']     = m2.get('name', 'Member 2')
         c['w_nick']     = str(m2.get('nickname') or '').strip() or str(c['w_name']).strip().split(' ')[0]
         c['w_dob_yr']   = int(m2.get('dob_year', 1965))
+        c['w_dob_month']= int(m2.get('dob_month', 1) or 1)
         c['w_ret_yr']   = int(m2.get('retirement_year', datetime.date.today().year + 4))
         c['w_mort_age'] = int(m2.get('mortality_age', 92))
         c['w_death_yr'] = c['w_dob_yr'] + c['w_mort_age']
@@ -2040,16 +2055,17 @@ def build_plan_from_json(plan, url_template=''):
         c['w_name'] = ''
         c['w_nick'] = ''
         c['w_dob_yr'] = c['h_dob_yr']
+        c['w_dob_month'] = c['h_dob_month']
         c['w_ret_yr'] = c['h_ret_yr']
         c['w_mort_age'] = 0
         c['w_death_yr'] = c['h_dob_yr']
 
     c['members'] = [{'name': c['h_name'], 'nickname': c['h_nick'], 'role': 'member_1',
-                     'dob_yr': c['h_dob_yr'], 'retire_yr': c['h_ret_yr'],
+                     'dob_yr': c['h_dob_yr'], 'dob_month': c['h_dob_month'], 'retire_yr': c['h_ret_yr'],
                      'mortality_age': c['h_mort_age'], 'death_yr': c['h_death_yr']}]
     if c['w_name']:
         c['members'].append({'name': c['w_name'], 'nickname': c['w_nick'], 'role': 'member_2',
-                             'dob_yr': c['w_dob_yr'], 'retire_yr': c['w_ret_yr'],
+                             'dob_yr': c['w_dob_yr'], 'dob_month': c['w_dob_month'], 'retire_yr': c['w_ret_yr'],
                              'mortality_age': c['w_mort_age'], 'death_yr': c['w_death_yr']})
     c['household_size'] = len(c['members'])
 
