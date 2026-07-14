@@ -843,7 +843,17 @@ def _ensure_user_ui_plan_data_rows() -> None:
     newer UI control rows. The UI should never hide a new control merely because
     the imported folder predates that control. This function writes canonical
     current-schema rows only; it does not read previous-name aliases.
+
+    Skip entirely under pytest/unittest: this backfill writes real files under
+    _plan_data_path()'s workspace, which for the default "local" workspace
+    resolves to the real, live input/ directory - not an isolated test copy.
+    Mirrors the same test-awareness guard data_io.py's
+    _check_and_migrate_schema_if_needed already uses for the same reason. No
+    test currently exercises this function's write side effects directly (they
+    all mock around it), so skipping is a pure no-op for the suite.
     """
+    if 'pytest' in sys.modules or 'unittest' in sys.modules:
+        return
     _ensure_allocation_ui_plan_data_rows()
     _ensure_monte_carlo_ui_plan_data_rows()
     _ensure_roth_ui_plan_data_rows()
