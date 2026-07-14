@@ -14,7 +14,7 @@ def schema_key(row: dict) -> tuple[str,str,str]:
 def infer_type(units: str, value: str, label: str='', notes: str='') -> str:
     u=(units or '').lower().strip(); v=str(value or '').strip(); l=(label or '').lower(); n=(notes or '').lower()
     choice_labels = {
-        'filing_status','survivor_filing_status','net_worth_method','roth_conversion_policy',
+        'filing_status','survivor_filing_status','roth_conversion_policy',
         'roth_objective_mode','estate_tax_objective_mode','irmaa_guardrail_mode',
         'roth_irmaa_target_tier','legacy_objective_mode','allocation_selection_mode',
         'selection_action','alternate_asset_class'
@@ -157,13 +157,6 @@ def validate_rows(rows: list[dict]) -> list[str]:
     # Note: earned income may legitimately extend past the formal retirement date
     # (part-year work, business transition, consulting, etc.) — no cross-field
     # constraint enforced here.
-    # Annuity dividend split must sum to 100% when both are present.
-    ann_subs = {k[1] for k in index if k[0] == 'Income Streams'}
-    for sub in ann_subs:
-        a = _num(('Income Streams', sub, 'additional_income_pct'), None)
-        b = _num(('Income Streams', sub, 'pay_in_cash_pct'), None)
-        if a is not None and b is not None and abs((a + b) - 100.0) > 0.01:
-            errors.append(f"('Income Streams','{sub}','additional_income_pct/pay_in_cash_pct'): percentages must sum to 100%; got {a+b:.2f}%")
     # Recurring extra ranges must be chronological.
     extra_subs = {k[1] for k in index if k[0] == 'Large Discretionary Expenses'}
     for sub in extra_subs:

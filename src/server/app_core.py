@@ -1118,7 +1118,6 @@ def _choice_options_for_config_row(section: str, subsection: str, label: str, un
     fixed = {
         "filing_status": ["MFJ", "Single", "HOH", "MFS"],
         "survivor_filing_status": ["Single", "HOH", "MFS"],
-        "net_worth_method": ["pv_through_mortality_age", "cumulative_at_death"],
         "allocation_selection_mode": ["user_target", "optimizer_recommendation"],
         "selection_action": ["include", "exclude", "consider_alternate_first"],
         "roth_conversion_policy": ["optimize_terminal_tax", "fill_to_bracket", "fill_to_irmaa", "fixed_dollar", "none"],

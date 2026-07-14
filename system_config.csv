@@ -24,7 +24,6 @@ Market Pricing,Holdings,pricing_mode,LIVE,choice,CACHE = use any cache first, ev
 Market Pricing,Holdings,cache_hours,24,hours,Fresh cache window for holdings prices.
 Market Pricing,API,fmp_api_key,,secret,Secret value intentionally blank in secure release package; configure via secret store or environment.
 Market Pricing,API,alpha_vantage_api_key,,secret,Secret value intentionally blank in secure release package; configure via secret store or environment.
-Plan Settings,Annuity Valuation,net_worth_method,pv_through_mortality_age,choice,pv_through_mortality_age OR cumulative_at_death
 Plan Settings,Tax Detail,model_niit,TRUE,boolean,Apply 3.8% Net Investment Income Tax above MAGI threshold
 Plan Settings,Estate,model_state_estate_tax,TRUE,boolean,Model residence-state estate tax in addition to federal
 ,,,,,

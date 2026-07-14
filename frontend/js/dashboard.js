@@ -1599,12 +1599,6 @@ function humanLabel(label, row) {
     return "Monthly at FRA";
   if (row && /^ss_benefit_age_(\d+)$/.test(String(row.label || "")))
     return `Benefit at ${String(row.label).match(/(\d+)$/)[1]}`;
-  if (
-    row &&
-    (norm(row.subsection) === "pv_horizon" ||
-      norm(row.label) === "age_to_value_through")
-  )
-    return "Present Value Horizon";
   if (row && norm(row.label) === "roth_target_bracket_rate")
     return "Roth Tax-Bracket Ceiling";
   if (row && norm(row.label) === "roth_irmaa_target_tier")
@@ -6214,7 +6208,6 @@ function choiceOptions(r) {
   const fixed = {
     filing_status: ["MFJ", "Single", "HOH", "MFS"],
     survivor_filing_status: ["Single", "HOH", "MFS"],
-    net_worth_method: ["pv_through_mortality_age", "cumulative_at_death"],
     roth_conversion_policy: [
       "optimize_terminal_tax",
       "fill_to_bracket",
@@ -8827,7 +8820,6 @@ function incomeStreamSubsections() {
             r.section === "Income Streams" &&
             ![
               "joint_and_survivor_percentage",
-              "present_value_horizon",
               "recovery_age",
             ].includes(norm(r.subsection)),
         )
@@ -8842,12 +8834,9 @@ function renderIncomeStreamsSection() {
     "Joint-and-Survivor Percentage",
     ["js_pct"],
   ).concat(
-    findRows("Income Streams", "Present Value Horizon", [
-      "age_to_value_through",
-    ]),
     findRows("Income Streams", "Recovery Age", ["principal_recovery_age"]),
   );
-  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Pensions and annuities</h3><div class="section-note">Each card starts with Type, then the payment and valuation fields for that income stream. Present Value Horizon is the age through which the workbook estimates the current value of future income payments.</div>`;
+  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Pensions and annuities</h3><div class="section-note">Each card starts with Type, then the payment and valuation fields for that income stream. Recovery Age is the age at which each stream's cash dividend payout stops (the guaranteed payment continues for life).</div>`;
   incomeStreamSubsections().forEach((sub) => {
     let rs = rows
       .filter(isEditable)
@@ -15954,21 +15943,61 @@ const FIELD_GUIDANCE_OVERRIDES = {
     consider:
       "Ask: will the household carry Medigap Plan G or similar supplement coverage? Enter the expected monthly premium when yes; enter $0 when no supplement is expected.",
   },
-  age_to_value_through: {
-    purpose:
-      "The age through which the workbook estimates the present value of future pension or annuity payments.",
-    impact:
-      "This affects present value reporting for retirement income streams and can change how much guaranteed income is shown as economic value.",
-    consider:
-      "Ask: how far into the future should this payment be valued? Use a whole-number age that matches the income illustration or the planning horizon you want to compare.",
-  },
   principal_recovery_age: {
     purpose:
-      "The age by which the plan expects the original principal or contract value to have been economically recovered through payments.",
+      "The age (of the relevant annuitant) at which the annuity's original principal is treated as fully recovered through payments already made.",
     impact:
-      "This affects annuity and pension interpretation in the workbook, especially recovery and legacy narratives.",
+      "Before this age, each annuity/pension stream pays its compounding guaranteed payment PLUS a cash dividend (the un-reinvested share of that year's dividend, set by 1 minus Additional Income %). From this age onward the cash dividend stops and only the guaranteed payment continues. This directly changes annual cash flow, taxable income, and the annuity's present value in the Net Worth sheet every year until the switch takes effect.",
     consider:
-      "Ask: at what age has the original principal effectively been paid back? Use the contract or illustration when available; otherwise use a reasonable whole-number estimate.",
+      "Ask: at what age does the contract or illustration show principal fully paid back? Use the carrier illustration when available; the default (86) applies to every annuity/pension stream unless overridden per-stream.",
+  },
+  dividend_rate: {
+    purpose:
+      "The annual rate credited on this annuity's actuarial reserve (derived from its account-value base) each year.",
+    impact:
+      "Each year's dividend splits in two: the Additional Income % share compounds the guaranteed lifetime payment permanently higher, and the remaining share pays out as cash income on top of the guaranteed payment until Recovery Age. A higher rate raises both pieces every year of the plan.",
+    consider:
+      "Ask: what dividend/crediting rate does the current carrier illustration show? Leave blank to use the household default (Economic Assumptions > annuity_default_dividend_rate).",
+  },
+  additional_income_pct: {
+    purpose:
+      "The share of each year's annuity dividend that is reinvested to permanently raise the guaranteed payment, rather than paid out as cash.",
+    impact:
+      "This share compounds the guaranteed payment every future year. The remaining share (1 minus this) pays out as cash income each year until Recovery Age, then stops. Applies from the first-distribution year (first_payment); before that year the full dividend is reinvested regardless of this setting.",
+    consider:
+      "Ask: what reinvestment/additional-income split does the illustration show? Leave blank to use the household default (Economic Assumptions > annuity_default_additional_income_pct).",
+  },
+  deferral_years: {
+    purpose:
+      "Contract years before first_payment where the dividend is 100% reinvested and no income is paid yet.",
+    impact:
+      "During this window the guaranteed payment grows by dividend_rate x Deferral Dampening each year instead of being paid out. A longer deferral produces a higher starting guaranteed payment once income begins.",
+    consider:
+      "Use the number of years between contract purchase and the first_payment date shown on the illustration.",
+  },
+  deferral_dampening: {
+    purpose:
+      "Dampens how fast the guaranteed payment grows during the deferral period (growth rate = dividend_rate x this value, per deferral year).",
+    impact:
+      "Lower values slow guaranteed-payment growth before income starts; higher values approach full dividend_rate growth during deferral. Only matters when Deferral Years is greater than zero.",
+    consider:
+      "Use the value calibrated to the carrier illustration; the model default is 0.55 if left blank.",
+  },
+  reserve_factor: {
+    purpose:
+      "The fraction of the account-value base used to anchor the annuity's starting actuarial reserve (reserve_start = base x reserve_factor).",
+    impact:
+      "The reserve then follows a fixed decay/mortality-credit/growth curve over the payout years, and that reserve is what dividend_rate is credited against each year — so this scales both the compounding guaranteed payment and the cash dividend for the life of the contract.",
+    consider:
+      "Calibrate to match the carrier illustration's reserve or cash value in the first few contract years; leave blank to use the model default (0.853).",
+  },
+  exclusion_ratio: {
+    purpose:
+      "For non-qualified annuities only: the taxable fraction of each payment. The remaining fraction is treated as tax-free return of basis/principal.",
+    impact:
+      "Lowers reportable taxable income for this stream's payments each year it applies. Has no effect when Qualified is TRUE (qualified/IRA-sourced annuities are always fully taxable).",
+    consider:
+      "Use the exclusion ratio shown on the annuity's tax illustration (often stated as taxable amount / total payment at a given age).",
   },
   js_pct: {
     purpose:
