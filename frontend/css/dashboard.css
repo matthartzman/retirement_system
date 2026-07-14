@@ -22,6 +22,8 @@
 .advanced-nav-body{display:flex;flex-direction:column;gap:8px;padding:8px}
 .compact-table{min-width:680px}
 .compact-table input,.compact-table select{min-width:110px}
+.ss-compact-table th:nth-child(2),.ss-compact-table td:nth-child(2),.ss-compact-table th:nth-child(5),.ss-compact-table td:nth-child(5){width:90px}
+.ss-compact-table td:nth-child(2) input,.ss-compact-table td:nth-child(5) input{width:64px;min-width:64px;max-width:70px}
 .two-col-inline{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .two-col-inline .field{grid-template-columns:minmax(180px,1fr) minmax(140px,.8fr);margin:0}
 .retirement-income-section{padding-top:12px;padding-bottom:12px}

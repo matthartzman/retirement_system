@@ -237,6 +237,8 @@ Social Security,Husband,monthly_pia_at_fra_today_dollars,dollars,FALSE,0,0,,Ente
 Social Security,Wife,monthly_pia_at_fra_today_dollars,dollars,FALSE,0,0,,Enter the monthly Social Security payment from the SSA statement at Full Retirement Age. PIA means Primary Insurance Amount: the base monthly benefit before early-claiming reductions or delayed-retirement credits.
 Social Security,Husband,claim_age,integer,FALSE,70,62,70,Social Security claim age for husband.
 Social Security,Wife,claim_age,integer,FALSE,70,62,70,Social Security claim age for wife.
+Social Security,Member 1,fra_age,number,FALSE,0,0,70,"Full Retirement Age (SSA), in years, e.g. 66.67 for 66 years 8 months. 0 auto-derives from date of birth (67 for birth year 1960 or later); otherwise enter 60-70."
+Social Security,Member 2,fra_age,number,FALSE,0,0,70,"Full Retirement Age (SSA), in years, e.g. 66.67 for 66 years 8 months. 0 auto-derives from date of birth (67 for birth year 1960 or later); otherwise enter 60-70."
 Social Security,Policy,spousal_benefits_enabled,boolean,FALSE,TRUE,,,Approximate spousal benefit top-up.
 Social Security,Policy,survivor_benefit_uses_deceased_claim_age,boolean,FALSE,TRUE,,,Survivor benefit uses deceased claim-age factor.
 Wellness,ACA Premium Tax Credit,enabled,boolean,FALSE,TRUE,,,Enable ACA premium tax credit model.

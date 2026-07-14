@@ -8760,14 +8760,23 @@ function ssPersonRows(person) {
   return findRows("Social Security", person, [
     "claim_age",
     "monthly_pia_at_fra_today_dollars",
+    "fra_age",
   ]);
 }
 function ssActiveCell(row) {
   if (!row) return '<span class="small">Missing</span>';
-  const st = rowBuildUsageState(row, "income_retirement");
-  if (st.active || inactiveEditReveals.has(row.row_index))
-    return fieldControlOnly(row);
-  return `<span class="small inactive-cell">Inactive — listed above</span>`;
+  return fieldControlOnly(row);
+}
+// Mirrors src/projection_stages/deterministic_engine.py _fra_for_birth_year /
+// _ss_claim_factor closely enough for this preview cell. The workbook build
+// always uses the authoritative Python engine; this is a display estimate.
+function ssClaimFactor(claimAge, fra) {
+  const months = Math.round((Number(claimAge || fra) - fra) * 12);
+  if (months >= 0) return 1.0 + months * (0.08 / 12.0);
+  const early = Math.abs(months);
+  const first36 = Math.min(36, early) * (5.0 / 900.0);
+  const extra = Math.max(0, early - 36) * (5.0 / 1200.0);
+  return Math.max(0.0, 1.0 - first36 - extra);
 }
 function ssMonthlyAtClaimAgeCell(person, claimAgeRow) {
   if (!claimAgeRow) return '<span class="small">Missing</span>';
@@ -8781,21 +8790,38 @@ function ssMonthlyAtClaimAgeCell(person, claimAgeRow) {
     `ss_benefit_age_${age}`,
   );
   const amount = benefitRow ? fieldNumericValue(benefitRow) : 0;
-  if (!benefitRow || !amount)
-    return `<span class="small">Enter age ${age} in the benefit table below</span>`;
-  return `<span class="computed-value">${esc(fmtMoney(amount))}</span>`;
+  if (benefitRow && amount)
+    return `<span class="computed-value">${esc(fmtMoney(amount))}</span>`;
+  // No SSA-quoted figure for this exact age — derive it from FRA/PIA using
+  // the SSA reduction/delayed-credit factor instead of just asking the user
+  // to fill in the table, so a claim-age change always shows a value.
+  const fraRow = findEditableRow("Social Security", person, "fra_age");
+  const fra = (fraRow ? fieldNumericValue(fraRow) : 0) || 67;
+  const piaRow = findEditableRow(
+    "Social Security",
+    person,
+    "monthly_pia_at_fra_today_dollars",
+  );
+  const age67Row = findEditableRow("Social Security", person, "ss_benefit_age_67");
+  const pia =
+    (piaRow ? fieldNumericValue(piaRow) : 0) ||
+    (age67Row ? fieldNumericValue(age67Row) : 0);
+  if (!pia)
+    return `<span class="small">Enter age ${age} or Monthly at FRA below</span>`;
+  const derived = pia * ssClaimFactor(age, fra);
+  return `<span class="computed-value">~${esc(fmtMoney(derived))} <span class="small">(derived from FRA)</span></span>`;
 }
 function renderSsCompactTable() {
   const people = [
     { key: "Member 1", n: 1 },
     { key: "Member 2", n: 2 },
   ];
-  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Social Security</h3><div class="section-note">Enter each person’s claiming age. Monthly at Claim Age is looked up from the benefit table below and updates automatically when the claim age changes — no calculation, just the government figure for that age. Monthly at FRA is an optional override; leave it at $0 to use the table’s age-67 entry as PIA.</div><div class="lot-table-wrap"><table class="lot-table compact-table"><thead><tr><th>Person</th><th>Claim Age</th><th>Monthly at Claim Age</th><th>Monthly at FRA</th></tr></thead><tbody>`;
+  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Social Security</h3><div class="section-note">Enter each person’s claiming age. Monthly at Claim Age is looked up from the benefit table below and updates automatically when the claim age changes; if that exact age isn’t in the table, it’s derived from Monthly at FRA and FRA Age instead. FRA Age defaults to 67 (SSA birth-year rule) if left blank.</div><div class="lot-table-wrap"><table class="lot-table compact-table ss-compact-table"><thead><tr><th>Person</th><th>Claim Age</th><th>Monthly at Claim Age</th><th>Monthly at FRA</th><th>FRA Age</th></tr></thead><tbody>`;
   people.forEach((p) => {
     const r = ssPersonRows(p.key);
     const by = {};
     r.forEach((x) => (by[norm(x.label)] = x));
-    html += `<tr><td><b>${esc(personDisplayName(p.n))}</b></td><td>${ssActiveCell(by.claim_age)}</td><td>${ssMonthlyAtClaimAgeCell(p.key, by.claim_age)}</td><td>${ssActiveCell(by.monthly_pia_at_fra_today_dollars)}</td></tr>`;
+    html += `<tr><td><b>${esc(personDisplayName(p.n))}</b></td><td>${ssActiveCell(by.claim_age)}</td><td>${ssMonthlyAtClaimAgeCell(p.key, by.claim_age)}</td><td>${ssActiveCell(by.monthly_pia_at_fra_today_dollars)}</td><td>${ssActiveCell(by.fra_age)}</td></tr>`;
   });
   return html + "</tbody></table></div></div>";
 }
