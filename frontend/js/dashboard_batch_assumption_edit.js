@@ -21,6 +21,13 @@
   function byId(id) {
     return document.getElementById(id);
   }
+  function translatePerson(text) {
+    try {
+      if (typeof translatePersonPlaceholders === "function")
+        return translatePersonPlaceholders(text);
+    } catch (_e) {}
+    return String(text == null ? "" : text);
+  }
   function currentStep() {
     try {
       return activeStep || "start";
@@ -211,13 +218,13 @@
           "<tr><td>" +
           esc(p.section) +
           "</td><td>" +
-          esc(p.subsection) +
+          esc(translatePerson(p.subsection)) +
           "</td><td>" +
           esc(p.label) +
           "</td><td>" +
-          esc(p.before) +
+          esc(translatePerson(p.before)) +
           "</td><td>" +
-          esc(p.after) +
+          esc(translatePerson(p.after)) +
           "</td></tr>"
         );
       })

@@ -152,7 +152,7 @@ def build_sheet23(ws, c):
     r = 3
     sections = [
         ('Projection Engine Logic', [
-            'Year-by-year from plan_start to plan_end (later of husband/wife death year).',
+            'Year-by-year from plan_start to plan_end (later of the two spouses’ death years).',
             'Asset balances grow at portfolio_nominal_return; withdrawals reduce balances before growth.',
             'Income sources: earned income, Social Security (age 70), annuities, pension, Note Receivable, RMDs.',
             'Withdrawal cascade: RMDs → HSA window → tax-sensitive pre-tax → taxable/trust → final pre-tax/HSA → Roth last → Home Equity.',

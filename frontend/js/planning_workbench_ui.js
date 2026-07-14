@@ -3,6 +3,13 @@
   "use strict";
   const STORE_KEY = "retirement.planning_case_v1";
   const ACTIVE_KEY = "retirement.planning_case_active_v1";
+  function translatePerson(v) {
+    try {
+      if (typeof translatePersonPlaceholders === "function")
+        return translatePersonPlaceholders(v);
+    } catch (_e) {}
+    return String(v == null ? "" : v);
+  }
   function esc(ctx, v) {
     return ctx && ctx.esc
       ? ctx.esc(v)
@@ -324,7 +331,7 @@
       const src = x.sourceStep
         ? `<button class="btn tiny" type="button" data-step-id="${esc(ctx, x.sourceStep)}">${esc(ctx, x.sourceTitle || call(() => ctx.stepTitleById(x.sourceStep)) || x.sourceStep)}</button>`
         : esc(ctx, x.source || "manual");
-      html += `<tr><td>${src}</td><td><b>${esc(ctx, x.label || x.field || "Assumption")}</b><div class="small">${esc(ctx, [x.section, x.subsection].filter(Boolean).join(" · "))}</div></td><td>${esc(ctx, String(x.before ?? ""))}</td><td>${esc(ctx, String(x.after ?? ""))}</td><td class="small">${esc(ctx, x.rationale || "")}</td></tr>`;
+      html += `<tr><td>${src}</td><td><b>${esc(ctx, x.label || x.field || "Assumption")}</b><div class="small">${esc(ctx, translatePerson([x.section, x.subsection].filter(Boolean).join(" · ")))}</div></td><td>${esc(ctx, translatePerson(String(x.before ?? "")))}</td><td>${esc(ctx, translatePerson(String(x.after ?? "")))}</td><td class="small">${esc(ctx, x.rationale || "")}</td></tr>`;
     });
     html += "</tbody></table></div>";
     if (items.length > 40)

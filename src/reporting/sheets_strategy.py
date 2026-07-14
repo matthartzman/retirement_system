@@ -238,7 +238,7 @@ def build_sheet10(ws, c, rows):
         r += 1
 
     r += 1
-    note = ('This sheet runs every husband/wife claiming-age pair from 62 through 70 through the projection engine. '
+    note = (f'This sheet runs every {_s1}/{_s2} claiming-age pair from 62 through 70 through the projection engine. '
             'It does not use a static break-even table or a hard-coded age-70 answer. Results remain sensitive to the selected Roth policy, mortality assumptions, ACA/IRMAA interactions, and survivor-benefit settings. '
             f'MC Success % and MC P10 Terminal NW are informational Monte Carlo metrics ({SWEEP_MC_SIMS} paths per pair, one fixed seed reused across all pairs for apples-to-apples comparison, minimal sensitivity grid) — '
             'they do not affect the score or recommendation above; a full-precision Monte Carlo run for the recommended pair is on Sheet 15.')

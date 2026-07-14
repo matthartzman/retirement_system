@@ -804,9 +804,11 @@ def build_sheet19(ws, c):
     section_title(ws, 1, 'LIFE INSURANCE NEED ANALYSIS', 8)
 
     r = 3
+    _n1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
+    _n2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
     # Section A — Existing Coverage (Annuity Death Benefits)
     write_hdr(ws, r, 1, 'Section A — Existing Coverage (Annuity Death Benefits)', NAVY, WHITE, span=6); r+=1
-    hdrs = ['Year','W_Single DB','W_Joint DB','H_Single DB','H_Joint DB','Total DB']
+    hdrs = ['Year', f'{_n2} Single DB', f'{_n2} Joint DB', f'{_n1} Single DB', f'{_n1} Joint DB', 'Total DB']
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
     r += 1
