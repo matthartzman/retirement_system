@@ -78,6 +78,28 @@ class RecommendationCompletionTests(unittest.TestCase):
         # to ~9.40M and lifetime tax to ~1.31M — a real plan-data change, not an
         # engine regression.
         #
+        # Item 185 (2026-07-14): the elective pre-tax IRA/401(k) withdrawal used
+        # to size itself off a flat federal-marginal-rate gross-up
+        # (withdraw_pretax_elective's `gross_up`), which ignores state tax and
+        # bracket integration, and its ordinary income was never added to
+        # agi/taxable_inc. Added a bounded fixed-point true-up (mirroring the
+        # existing LTCG/NIIT loop) that re-solves against the real progressive
+        # fed+state tax and folds the withdrawal into agi/taxable_inc/irmaa_magi.
+        # This is why some rows previously showed both an elective withdrawal and
+        # a "reinvested surplus" in the cash-bridge sheet at the same time.
+        # Also fixed a second, related bug the true-up exposed: `new_gap` was
+        # reduced by a flat-rate-estimated `net_cash`, while required_portfolio_
+        # draws (the cash-bridge sheet and this true-up) count the full gross
+        # withdrawal — the two conventions double-booked/mis-booked the tax and
+        # left the cash-bridge reconciliation off by the mismatch (confirmed via
+        # `git stash` against the pre-Item-185 code — this reconciliation gap,
+        # smaller but present, pre-dates this fix). `new_gap` now reduces by the
+        # full gross amount, matching withdraw_taxable_trust's convention, so
+        # the true-up's real tax delta is the only tax accounting in play.
+        # Elective withdrawals end up smaller (correctly sized, not over-drawn),
+        # letting more compound tax-deferred: terminal net worth rises to
+        # ~7.32M and lifetime tax rises to ~1.62M.
+        #
         # These constants are now fully reproducible: tests/conftest.py pins
         # holdings pricing to OFFLINE, so starting balances come from the
         # committed cache snapshot rather than live market data. Confirmed
@@ -131,8 +153,8 @@ class RecommendationCompletionTests(unittest.TestCase):
         # test-suite runs. This cross-test pricing-cache leak is a separate,
         # pre-existing test-isolation issue worth fixing on its own; it is not
         # addressed here.
-        self.assertAlmostEqual(rows[-1]['total_nw'], 6_773_055.26, delta=5000.0)
-        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 972_538.69, delta=5000.0)
+        self.assertAlmostEqual(rows[-1]['total_nw'], 7_315_404.39, delta=5000.0)
+        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_620_993.02, delta=5000.0)
 
     def test_fixed_point_taxable_withdrawal_solver_runs_before_roth(self):
         # The fixed-point solver only runs when there's sufficient investment tax
@@ -142,15 +164,25 @@ class RecommendationCompletionTests(unittest.TestCase):
         c['tax_withdrawal_fixed_point_iterations'] = 3
         # Elevate spending enough to create LTCG/NIIT that the fixed-point solver
         # must fund via taxable withdrawals, but not so much the plan draws Roth
-        # once the trust reaches its protected reserve floor. Calibrated to 1.2x
-        # against the committed sample net worth (1.15x-1.25x all trigger the
+        # once the trust reaches its protected reserve floor. Calibrated to 1.25x
+        # against the committed sample net worth (1.20x-1.32x all trigger the
         # solver with zero Roth-ordering violations, verified under full-suite
         # execution order per the note on test_sample_projection_golden_master_and_release_gate);
         # outside that band the solver either doesn't trigger or depletes into
         # the reserve floor and forces Roth withdrawals. Item 169 (2026-07-14):
         # recalibrated after the household's Social Security claim age moved
-        # 70->69, which shifted the safe-multiplier band.
-        c['spend_base'] = float(c.get('spend_base', 0)) * 1.2
+        # 70->69, which shifted the safe-multiplier band to 1.15x-1.25x. Item 185
+        # (2026-07-14): recalibrated again after the elective-IRA-withdrawal
+        # ordinary-tax true-up fix (see deterministic_engine.py's
+        # _ira_elective_ordinary_tax_delta) — withdraw_pretax_elective's
+        # `new_gap` also changed from a flat-rate-net_cash haircut to the full
+        # gross amount (matching withdraw_taxable_trust's convention), since
+        # the true-up's real tax delta and the old net_cash haircut were
+        # double-booking the tax and leaving the cash-bridge reconciliation off
+        # by the mismatch. Elective IRA withdrawals are now smaller (correctly
+        # sized against real tax instead of over-drawing), which shifted the
+        # safe band to 1.20x-1.32x.
+        c['spend_base'] = float(c.get('spend_base', 0)) * 1.25
         rows = project(c)
         # Verify the solver ran: higher spending creates LTCG/NIIT that needs funding
         total_iters = sum(r.get('investment_tax_iterations', 0) for r in rows)
@@ -162,6 +194,52 @@ class RecommendationCompletionTests(unittest.TestCase):
             1 for r in rows
             if r.get('roth_wd', 0) > 1 and (r.get('pretax_nw', 0) + r.get('trust_nw', 0) + r.get('hsa_nw', 0)) > 1
         ), 0)
+
+    def test_ira_elective_withdrawal_tax_true_up(self):
+        # Item 185: withdraw_pretax_elective sizes its gross-up off a flat
+        # federal-marginal-rate estimate that ignores state tax and bracket
+        # integration. Without a true-up, that mismatch shows up downstream as
+        # a "reinvested surplus" in the cash-bridge sheet even in years with a
+        # large elective withdrawal (see sheets_projection_cashflow.py's
+        # Req_Portfolio_Draws/Cash_Bridge_Gap columns). The committed sample
+        # plan runs a multi-decade pre-RMD bracket-fill elective IRA drawdown,
+        # so roth_policy='none' (no competing Roth conversion strategy) is
+        # enough to exercise this without any spend-multiplier tuning.
+        c = sample_config()
+        rows = project(c)
+
+        total_true_up_iters = sum(r.get('ira_tax_true_up_iterations', 0) for r in rows)
+        self.assertGreater(total_true_up_iters, 0,
+                            msg="True-up loop should run at least once across the plan")
+
+        elective_rows = [r for r in rows if r.get('ira_wd', 0) > 1]
+        self.assertTrue(elective_rows, msg="Sample plan should have elective IRA withdrawal years")
+
+        for r in elective_rows:
+            with self.subTest(year=r['year']):
+                required_portfolio_draws = (
+                    r.get('h_trust_wd', 0) + r.get('w_trust_wd', 0) + r.get('hsa_wd', 0) +
+                    r.get('h_roth_wd', 0) + r.get('w_roth_wd', 0) +
+                    r.get('h_ira_elective', 0) + r.get('w_ira_elective', 0)
+                )
+                cash_bridge_gap = (
+                    r['total_cash_need'] - r['income_funding'] - r.get('heloc_draw', 0) -
+                    required_portfolio_draws
+                )
+                # Cash-bridge reconciliation identity (matches
+                # sheets_projection_cashflow.py): Income Funding + Other Funding +
+                # Required Portfolio Draws + Cash Bridge Gap == Total Cash Need.
+                self.assertAlmostEqual(
+                    r['income_funding'] + r.get('heloc_draw', 0) + required_portfolio_draws + cash_bridge_gap,
+                    r['total_cash_need'], places=2,
+                )
+                # The true-up should leave at most a small residual "surplus" in a
+                # year that also drew a real elective withdrawal — previously this
+                # could be large (thousands to tens of thousands of dollars)
+                # because the gross-up's flat-rate tax estimate went untrued.
+                reinvested_surplus = max(0.0, -cash_bridge_gap)
+                self.assertLess(reinvested_surplus, 25.0,
+                                 msg=f"Reinvested surplus should be near zero alongside an elective withdrawal in {r['year']}")
 
     def test_tax_table_currency_warnings_surface_to_config(self):
         c = sample_config()

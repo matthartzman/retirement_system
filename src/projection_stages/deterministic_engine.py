@@ -316,6 +316,27 @@ def run_deterministic_projection_stage(c):
             tax += (min(taxable, hi) - lo) * rate
         return max(0.0, tax)
 
+    def _ira_elective_ordinary_tax_delta(fed_tax_base, state_tax_base, taxable_inc_base,
+                                          retirement_dist_base, ira_wd_cumulative, year, filing,
+                                          ss_taxable, earned_net, investment_inc, nonqual_ann,
+                                          roth_conv, h_over_65):
+        """Real incremental fed+state tax caused by `ira_wd_cumulative` of elective
+        IRA/401(k) income, vs. the flat marginal-rate estimate baked into
+        withdraw_pretax_elective's gross-up. `fed_tax_base`/`state_tax_base`/
+        `taxable_inc_base` should be the values as of the last time this income
+        was accounted for, so the return is the tax on just the newest increment.
+        """
+        if ira_wd_cumulative <= 1e-6:
+            return 0.0, fed_tax_base, state_tax_base
+        new_taxable_inc = taxable_inc_base + ira_wd_cumulative
+        new_fed_tax = _compute_fed_tax_path(new_taxable_inc, year, filing, c['brk_inf'])
+        new_state_tax = state_income_tax(
+            c['state'], earned_net, retirement_dist_base + ira_wd_cumulative, ss_taxable,
+            investment_inc, nonqual_ann, roth_conv, year, h_over_65, filing=filing,
+        )
+        delta = (new_fed_tax - fed_tax_base) + (new_state_tax - state_tax_base)
+        return delta, new_fed_tax, new_state_tax
+
     def _standard_deduction_path(year, filing, brk_inf_unused=None, n_over_65=2):
         td = getattr(_ar, '_td', None)
         base = getattr(td, 'STANDARD_DEDUCTION_BASE_YEAR', {}).get(filing, 15750) if td else 15750
@@ -1484,6 +1505,15 @@ def run_deterministic_projection_stage(c):
 
         # ── Priority 3: Pre-tax elective withdrawal ─────────────────────────
         h_ira_elective = 0.0; w_ira_elective = 0.0; ira_wd = 0.0; pretax_by_account = {}
+        ira_tax_true_up_iterations = 0
+        # Pristine pre-cascade baselines for the ordinary-tax true-up helper.
+        # The helper's contract is new_tax = tax_fn(baseline + cumulative
+        # ira_wd); agi/taxable_inc get mutated in place below (Priority 3's
+        # settle-up) so LTCG/NIIT bracket lookups see the elective withdrawal,
+        # but the true-up helper itself must always work off these untouched
+        # originals + the FULL cumulative ira_wd to avoid double-counting.
+        _ira_taxable_inc_orig = taxable_inc
+        _ira_retirement_dist_orig = retirement_dist
         if gap > 0:
             brk_yr = _inflate_brackets_path(FEDERAL_BRACKETS_MFJ, c['brk_inf'], year - c['plan_start'])
             top_24_yr = next((hi for lo, hi, rate in brk_yr if rate == 0.24), 400_000)
@@ -1497,6 +1527,62 @@ def run_deterministic_projection_stage(c):
             w_ira_elective = pretax_res['w_amount']
             pretax_by_account = dict(pretax_res.get('by_account', {}) or {})
             gap = pretax_res['new_gap']
+
+            # ── True up ordinary-income tax on the elective withdrawal ──────
+            # withdraw_pretax_elective sizes itself off a flat federal-marginal-
+            # rate gross-up that ignores state tax and bracket integration. Re-
+            # solve against the real progressive fed+state tax (same
+            # fixed-point pattern as the LTCG/NIIT loop below) so any shortfall
+            # pulls a little more pre-tax cash instead of silently turning into
+            # a "reinvested surplus" later in the cash bridge.
+            max_ira_tax_iters = max(0, int(c.get('tax_withdrawal_fixed_point_iterations', 3) or 0))
+            for _ira_iter in range(max_ira_tax_iters):
+                delta_tax, new_fed_tax, new_state_tax = _ira_elective_ordinary_tax_delta(
+                    fed_tax, state_tax, _ira_taxable_inc_orig, _ira_retirement_dist_orig, ira_wd, year, filing,
+                    ss_taxable, earned_net, note_int_yr + portfolio_ordinary + portfolio_qualified,
+                    nonqual_ann, roth_conv, h_over_65,
+                )
+                if delta_tax <= 1e-6:
+                    break
+                ira_tax_true_up_iterations += 1
+                fed_tax, state_tax = new_fed_tax, new_state_tax
+                gap += delta_tax
+                add_res = _we.withdraw_pretax_elective(
+                    c, bal, gap, agi + ira_wd, taxable_inc + ira_wd, year, filing,
+                    top_24_yr, irmaa_thr_yr, marg,
+                )
+                add_wd = float(add_res.get('amount', 0.0) or 0.0)
+                gap = add_res['new_gap']
+                if add_wd <= 1e-6:
+                    break
+                ira_wd += add_wd
+                h_ira_elective += float(add_res.get('h_amount', 0.0) or 0.0)
+                w_ira_elective += float(add_res.get('w_amount', 0.0) or 0.0)
+                for _aid, _amt in dict(add_res.get('by_account', {}) or {}).items():
+                    pretax_by_account[_aid] = pretax_by_account.get(_aid, 0.0) + _amt
+            # ── Final settle-up (unconditional, no further withdrawal) ──────
+            # The bounded loop above caps how many extra withdrawal rounds it
+            # will attempt; if it exhausts that cap right after drawing one
+            # more top-off increment, that increment's own tax would never get
+            # trued up, leaving fed_tax/state_tax (and total_cash_need) short
+            # of the true cost of cash actually withdrawn. Settle the books
+            # against the final ira_wd every time, with no withdrawal attempt
+            # attached — any residual tax just flows through `gap` to Priority
+            # 4 (trust)/Roth like any other cost, instead of quietly reading
+            # as a "reinvested surplus" later in the cash bridge.
+            settle_delta, settle_fed_tax, settle_state_tax = _ira_elective_ordinary_tax_delta(
+                fed_tax, state_tax, _ira_taxable_inc_orig, _ira_retirement_dist_orig, ira_wd, year, filing,
+                ss_taxable, earned_net, note_int_yr + portfolio_ordinary + portfolio_qualified,
+                nonqual_ann, roth_conv, h_over_65,
+            )
+            if settle_delta > 1e-6:
+                fed_tax, state_tax = settle_fed_tax, settle_state_tax
+                gap += settle_delta
+            if ira_wd > 0:
+                agi += ira_wd
+                taxable_inc += ira_wd
+                irmaa_magi_current += ira_wd
+                total_tax_pre_niit = fed_tax + state_tax + payroll_tax + irmaa_yr
         row['_pretax_elective_by_account'] = pretax_by_account
         for _aid, _amt in pretax_by_account.items():
             _add_account_flow(row['_account_withdrawals'], _aid, _amt)
@@ -1509,6 +1595,13 @@ def run_deterministic_projection_stage(c):
         row['w_ira_total_outflow'] = row.get('w_ira_conversion', 0.0) + row['w_ira_total_wd']
         row['h_ira_rmd_pct'] = rmd_h / (rmd_h + h_ira_elective) if (rmd_h + h_ira_elective) > 0 else 0
         row['w_ira_rmd_pct'] = rmd_w / (rmd_w + w_ira_elective) if (rmd_w + w_ira_elective) > 0 else 0
+        row['ira_tax_true_up_iterations'] = ira_tax_true_up_iterations
+        row['agi'] = agi
+        row['taxable_inc'] = taxable_inc
+        row['fed_tax'] = fed_tax
+        row['state_tax'] = state_tax
+        row['irmaa_magi_current'] = irmaa_magi_current
+        row['state_retirement'] = retirement_dist + ira_wd
 
         # ── Priority 4: Taxable/trust withdrawal ─────────────────────────────
         trust_res = _we.withdraw_taxable_trust(c, bal, year, gap, spend)
@@ -1696,6 +1789,7 @@ def run_deterministic_projection_stage(c):
                 c, bal, gap, agi, taxable_inc, year, filing, top_24_yr, irmaa_thr_yr, marg,
                 respect_tax_caps=False,
             )
+            ira_wd_before_p4b = ira_wd
             ira_wd += pretax_res2['amount']
             h_ira_elective += pretax_res2['h_amount']
             w_ira_elective += pretax_res2['w_amount']
@@ -1703,6 +1797,59 @@ def run_deterministic_projection_stage(c):
                 pretax_by_account[_aid] = pretax_by_account.get(_aid, 0.0) + _amt
                 _add_account_flow(row['_account_withdrawals'], _aid, _amt)
             gap = pretax_res2['new_gap']
+
+            # ── True up ordinary-income tax on this final pre-tax pass ──────
+            # Same fixed-point correction as Priority 3, applied against the
+            # full cumulative `ira_wd` (agi/taxable_inc/fed_tax/state_tax
+            # already reflect Priority 3's elective withdrawal at this point,
+            # so the delta here is just the incremental tax of this pass).
+            for _ira_iter2 in range(max(0, int(c.get('tax_withdrawal_fixed_point_iterations', 3) or 0))):
+                delta_tax2, new_fed_tax2, new_state_tax2 = _ira_elective_ordinary_tax_delta(
+                    fed_tax, state_tax, _ira_taxable_inc_orig, _ira_retirement_dist_orig, ira_wd, year, filing,
+                    ss_taxable, earned_net, note_int_yr + portfolio_ordinary + portfolio_qualified,
+                    nonqual_ann, roth_conv, h_over_65,
+                )
+                if delta_tax2 <= 1e-6:
+                    break
+                ira_tax_true_up_iterations += 1
+                fed_tax, state_tax = new_fed_tax2, new_state_tax2
+                gap += delta_tax2
+                add_res2 = _we.withdraw_pretax_elective(
+                    c, bal, gap, agi + ira_wd, taxable_inc + ira_wd, year, filing,
+                    top_24_yr, irmaa_thr_yr, marg, respect_tax_caps=False,
+                )
+                add_wd2 = float(add_res2.get('amount', 0.0) or 0.0)
+                gap = add_res2['new_gap']
+                if add_wd2 <= 1e-6:
+                    break
+                ira_wd += add_wd2
+                h_ira_elective += float(add_res2.get('h_amount', 0.0) or 0.0)
+                w_ira_elective += float(add_res2.get('w_amount', 0.0) or 0.0)
+                for _aid, _amt in dict(add_res2.get('by_account', {}) or {}).items():
+                    pretax_by_account[_aid] = pretax_by_account.get(_aid, 0.0) + _amt
+                    _add_account_flow(row['_account_withdrawals'], _aid, _amt)
+
+            # ── Final settle-up (unconditional, no further withdrawal) ──────
+            # Same rationale as Priority 3's settle-up: guarantee fed_tax/
+            # state_tax/total_cash_need reflect the true cost of the final
+            # cumulative ira_wd even if the bounded loop above hit its
+            # iteration cap right after a top-off round.
+            settle_delta2, settle_fed_tax2, settle_state_tax2 = _ira_elective_ordinary_tax_delta(
+                fed_tax, state_tax, _ira_taxable_inc_orig, _ira_retirement_dist_orig, ira_wd, year, filing,
+                ss_taxable, earned_net, note_int_yr + portfolio_ordinary + portfolio_qualified,
+                nonqual_ann, roth_conv, h_over_65,
+            )
+            if settle_delta2 > 1e-6:
+                fed_tax, state_tax = settle_fed_tax2, settle_state_tax2
+                gap += settle_delta2
+
+            if ira_wd > ira_wd_before_p4b:
+                p4b_wd = ira_wd - ira_wd_before_p4b
+                agi += p4b_wd
+                taxable_inc += p4b_wd
+                irmaa_magi_current += p4b_wd
+                total_tax_pre_niit = fed_tax + state_tax + payroll_tax + irmaa_yr
+
             row['_pretax_elective_by_account'] = dict(pretax_by_account)
             row['ira_wd'] = ira_wd
             row['h_ira_elective'] = h_ira_elective
@@ -1713,6 +1860,22 @@ def run_deterministic_projection_stage(c):
             row['w_ira_total_outflow'] = row.get('w_ira_conversion', 0.0) + row['w_ira_total_wd']
             row['h_ira_rmd_pct'] = rmd_h / (rmd_h + h_ira_elective) if (rmd_h + h_ira_elective) > 0 else 0
             row['w_ira_rmd_pct'] = rmd_w / (rmd_w + w_ira_elective) if (rmd_w + w_ira_elective) > 0 else 0
+            row['ira_tax_true_up_iterations'] = ira_tax_true_up_iterations
+            row['agi'] = agi
+            row['taxable_inc'] = taxable_inc
+            row['fed_tax'] = fed_tax
+            row['state_tax'] = state_tax
+            row['irmaa_magi_current'] = irmaa_magi_current
+            row['state_retirement'] = retirement_dist + ira_wd
+            # Re-recombine total_tax/total_cash_need: the recombination right
+            # after the LTCG/NIIT block (above, before this Priority 4b block
+            # runs) can't see total_tax_pre_niit's update from this pass, and
+            # would otherwise leave total_cash_need understating the true cost
+            # of cash actually withdrawn here.
+            total_tax = total_tax_pre_niit + ltcg_tax + niit - tlh_ordinary_credit
+            row['total_tax'] = total_tax
+            row['net_income'] = row.get('gross_income', agi) - total_tax
+            row['total_cash_need'] = total_spend_need + total_tax + other_cash_need_yr
 
         # ── Priority 4c: Final non-Roth HSA draw before any Roth withdrawal ──
         # Roth remains the last liquid source. If the planned HSA window left a

@@ -661,6 +661,16 @@ def withdraw_pretax_elective(
     IRA/401(k) balances are still available.  This tax bucket is drawn
     pro-rata across husband/wife pre-tax accounts instead of exhausting one
     spouse/member first.
+
+    ``new_gap`` is reduced by the full gross ``amount`` (matching
+    ``withdraw_taxable_trust``'s convention), not by an assumed-flat-rate
+    ``net_cash``. The caller is responsible for separately adding this
+    withdrawal's real incremental tax back onto `gap` (see
+    deterministic_engine.py's IRA elective tax true-up, which mirrors the
+    LTCG/NIIT fixed-point pattern) — that keeps a single, real-tax-based
+    accounting of the gap instead of mixing a flat-rate-haircut gap alongside
+    a separately-tracked real-tax figure, which would double-book/mis-book
+    the tax and leave the cash-bridge reconciliation off by the mismatch.
     """
     if gap <= 0:
         return {"amount": 0.0, "net_cash": 0.0, "new_gap": gap, "by_account": {}, "h_amount": 0.0, "w_amount": 0.0}
@@ -680,7 +690,7 @@ def withdraw_pretax_elective(
     return {
         "amount": amount,
         "net_cash": net_cash,
-        "new_gap": gap - net_cash,
+        "new_gap": gap - amount,
         "by_account": by_account,
         "h_amount": h_amount,
         "w_amount": w_amount,
