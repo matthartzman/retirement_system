@@ -1597,8 +1597,8 @@ function humanLabel(label, row) {
   if (row && norm(row.label) === "mc_engine_mode") return "Monte Carlo Engine";
   if (row && norm(row.label) === "monthly_pia_at_fra_today_dollars")
     return "Monthly at FRA";
-  if (row && norm(row.label) === "monthly_at_claim_age_today_dollars")
-    return "Monthly at Claim Age";
+  if (row && /^ss_benefit_age_(\d+)$/.test(String(row.label || "")))
+    return `Benefit at ${String(row.label).match(/(\d+)$/)[1]}`;
   if (
     row &&
     (norm(row.subsection) === "pv_horizon" ||
@@ -4687,32 +4687,13 @@ function rowBuildUsageState(row, stepId = "") {
     return {
       active: false,
       reason:
-        "Monthly at FRA/PIA is blank or zero, so the build infers PIA from Monthly at Claim Age instead.",
+        "Monthly at FRA/PIA is blank or zero, so the build uses the age-67 (Full Retirement Age) entry from this person's benefit table instead.",
       activation:
-        "Reveal this inactive value and enter a nonzero monthly FRA/PIA amount. Once nonzero, the build uses it and ignores the claim-age fallback amount.",
+        "Reveal this inactive value and enter a nonzero monthly FRA/PIA amount to override the benefit-table entry.",
       effect:
         "Can materially change projected Social Security income, Roth conversion room, Medicare IRMAA exposure, lifetime taxes, portfolio withdrawals, survivor income, and terminal net worth.",
       listAlways: true,
     };
-  if (s === "Social Security" && l === "monthly_at_claim_age_today_dollars") {
-    const pia = rows.find(
-      (x) =>
-        isEditable(x) &&
-        x.section === "Social Security" &&
-        norm(x.subsection) === norm(row.subsection) &&
-        norm(x.label) === "monthly_pia_at_fra_today_dollars",
-    );
-    if (pia && fieldNumericValue(pia) > 0)
-      return {
-        active: false,
-        reason:
-          "Monthly at FRA/PIA is present, so the build uses PIA and claim age rather than this fallback payment.",
-        activation:
-          "Set Monthly at FRA back to 0/blank to use Monthly at Claim Age as the fallback source.",
-        effect:
-          "Switching sources can materially change annual Social Security income and downstream cash-flow, tax, Roth, IRMAA, and terminal-net-worth impacts.",
-      };
-  }
   if (
     s === "Cashflow" &&
     sub === "spending" &&
@@ -5465,12 +5446,6 @@ function socialSecurityPageRecommendations() {
   const claims = recStepRows("income_retirement").filter(
     (r) => norm(r.label) === "claim_age",
   );
-  const pias = recStepRows("income_retirement").filter(
-    (r) => norm(r.label) === "monthly_pia_at_fra_today_dollars",
-  );
-  const age70 = recStepRows("income_retirement").filter(
-    (r) => norm(r.label) === "monthly_at_age_70_today_dollars",
-  );
   const survivor =
     recFindBy(
       "Social Security",
@@ -5516,19 +5491,6 @@ function socialSecurityPageRecommendations() {
       "income_retirement",
       "Delaying benefits can improve inflation-linked income and survivor protection.",
       "Review claim age",
-    );
-  }
-  const blankPia = pias.find((r) => fieldNumericValue(r) <= 0);
-  if (blankPia && age70.some((r) => fieldNumericValue(r) > 0)) {
-    recAdd(
-      recs,
-      "info",
-      "Enter FRA PIA when the SSA statement is available",
-      "The model can infer from age-70 benefits, but a real monthly FRA/PIA amount makes claim-age comparisons more transparent.",
-      blankPia,
-      "income_retirement",
-      "Improves auditability of Social Security claiming, survivor income, and Roth headroom.",
-      "Review FRA PIA",
     );
   }
   if (
@@ -8804,7 +8766,6 @@ function findRows(sectionName, subsectionName, labels) {
 function ssPersonRows(person) {
   return findRows("Social Security", person, [
     "claim_age",
-    "monthly_at_claim_age_today_dollars",
     "monthly_pia_at_fra_today_dollars",
   ]);
 }
@@ -8815,17 +8776,33 @@ function ssActiveCell(row) {
     return fieldControlOnly(row);
   return `<span class="small inactive-cell">Inactive — listed above</span>`;
 }
+function ssMonthlyAtClaimAgeCell(person, claimAgeRow) {
+  if (!claimAgeRow) return '<span class="small">Missing</span>';
+  const age = Math.max(
+    62,
+    Math.min(70, Math.round(fieldNumericValue(claimAgeRow) || 70)),
+  );
+  const benefitRow = findEditableRow(
+    "Social Security",
+    person,
+    `ss_benefit_age_${age}`,
+  );
+  const amount = benefitRow ? fieldNumericValue(benefitRow) : 0;
+  if (!benefitRow || !amount)
+    return `<span class="small">Enter age ${age} in the benefit table below</span>`;
+  return `<span class="computed-value">${esc(fmtMoney(amount))}</span>`;
+}
 function renderSsCompactTable() {
   const people = [
     { key: "Member 1", n: 1 },
     { key: "Member 2", n: 2 },
   ];
-  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Social Security</h3><div class="section-note">Enter each person’s claiming age, then use one benefit source. If Monthly at FRA/PIA is nonzero, the build uses it with the claim age. If Monthly at FRA is zero, the build hides it and infers PIA from Monthly at Claim Age.</div><div class="lot-table-wrap"><table class="lot-table compact-table"><thead><tr><th>Person</th><th>Claim Age</th><th>Monthly at Claim Age</th><th>Monthly at FRA</th></tr></thead><tbody>`;
+  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Social Security</h3><div class="section-note">Enter each person’s claiming age. Monthly at Claim Age is looked up from the benefit table below and updates automatically when the claim age changes — no calculation, just the government figure for that age. Monthly at FRA is an optional override; leave it at $0 to use the table’s age-67 entry as PIA.</div><div class="lot-table-wrap"><table class="lot-table compact-table"><thead><tr><th>Person</th><th>Claim Age</th><th>Monthly at Claim Age</th><th>Monthly at FRA</th></tr></thead><tbody>`;
   people.forEach((p) => {
     const r = ssPersonRows(p.key);
     const by = {};
     r.forEach((x) => (by[norm(x.label)] = x));
-    html += `<tr><td><b>${esc(personDisplayName(p.n))}</b></td><td>${ssActiveCell(by.claim_age)}</td><td>${ssActiveCell(by.monthly_at_claim_age_today_dollars)}</td><td>${ssActiveCell(by.monthly_pia_at_fra_today_dollars)}</td></tr>`;
+    html += `<tr><td><b>${esc(personDisplayName(p.n))}</b></td><td>${ssActiveCell(by.claim_age)}</td><td>${ssMonthlyAtClaimAgeCell(p.key, by.claim_age)}</td><td>${ssActiveCell(by.monthly_pia_at_fra_today_dollars)}</td></tr>`;
   });
   return html + "</tbody></table></div></div>";
 }
@@ -8839,13 +8816,6 @@ function fieldControlOnly(r) {
   wrap.innerHTML = html;
   const ctrl = wrap.querySelector("input,select,textarea");
   return ctrl ? ctrl.outerHTML : html;
-}
-function renderFundingDiscountSection() {
-  const rs = findRows("Social Security", "Funding Discount", [
-    "ss_funding_discount_year",
-    "ss_funding_discount_pct",
-  ]);
-  return `<div class="holdings retirement-income-section"><h3 class="group-title">Funding Discount</h3><div class="section-note">Use this to stress-test a future Social Security funding shortfall. Year is the first year the haircut starts; Amount is the percentage reduction to gross Social Security payments.</div><div class="field-list two-col-inline">${rs.map(fieldHtml).join("")}</div></div>`;
 }
 function incomeStreamSubsections() {
   return [
@@ -8892,18 +8862,11 @@ function renderIncomeStreamsSection() {
   return html + "</div>";
 }
 function renderSsPolicySection() {
-  const compactLabels = new Set([
-    "claim_age",
-    "monthly_at_claim_age_today_dollars",
-    "monthly_pia_at_fra_today_dollars",
-  ]);
+  const compactLabels = new Set(["claim_age", "monthly_pia_at_fra_today_dollars"]);
   const rs = rows
     .filter(isEditable)
     .filter(
-      (r) =>
-        r.section === "Social Security" &&
-        norm(r.subsection || "") !== "funding_discount" &&
-        !compactLabels.has(norm(r.label)),
+      (r) => r.section === "Social Security" && !compactLabels.has(norm(r.label)),
     );
   if (!rs.length) return "";
   const bySub = {};
@@ -8911,7 +8874,7 @@ function renderSsPolicySection() {
     const k = String(r.subsection || "");
     (bySub[k] = bySub[k] || []).push(r);
   });
-  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Social Security policy &amp; benefit details</h3><div class="section-note">Household-wide spousal and survivor policy, plus any additional per-person benefit inputs. These were formerly on the separate Social Security Timing page and now live here alongside the claiming ages above.</div>`;
+  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Social Security policy &amp; benefit details</h3><div class="section-note">Household-wide spousal and survivor policy, plus each person’s benefit table (the actual monthly SSA-quoted amount for every claim age 62-70 — enter these directly from the statement/estimator). Monthly at Claim Age above is looked up from this table, not calculated.</div>`;
   Object.keys(bySub).forEach((sub) => {
     if (sub && sub.toLowerCase() !== "policy")
       html += `<div class="subsection-label">${esc(friendlyGroup({ section: "Social Security", subsection: sub }) || sub)}</div>`;
@@ -8921,10 +8884,7 @@ function renderSsPolicySection() {
 }
 function renderRetirementIncome() {
   return (
-    renderSsCompactTable() +
-    renderSsPolicySection() +
-    renderFundingDiscountSection() +
-    renderIncomeStreamsSection()
+    renderSsCompactTable() + renderSsPolicySection() + renderIncomeStreamsSection()
   );
 }
 async function seedWellnessOop() {
@@ -15958,9 +15918,9 @@ const FIELD_GUIDANCE_OVERRIDES = {
     purpose:
       "Enter the monthly Social Security payment shown on this person’s SSA statement for claiming at Full Retirement Age, in today’s dollars. This is also called the PIA, or Primary Insurance Amount: Social Security’s base monthly benefit before early-claiming reductions or delayed-retirement credits.",
     impact:
-      "This is the baseline the model uses to estimate Social Security income if the person claims earlier than FRA, at FRA, or later up to age 70. It can affect annual cash flow, Roth conversion room, Medicare IRMAA exposure, lifetime taxes, survivor income, and terminal net worth.",
+      "This overrides the age-67 (FRA) entry from this person's benefit table as the PIA used for spousal benefit calculations. It can affect annual cash flow, Roth conversion room, Medicare IRMAA exposure, lifetime taxes, survivor income, and terminal net worth.",
     consider:
-      "Ask: does the SSA statement show a Full Retirement Age amount? Enter that amount when available; leave it at $0 only when you intentionally want the model to estimate PIA from Monthly at Claim Age.",
+      "Ask: does the SSA statement show a Full Retirement Age amount that differs from the benefit table's age-67 entry? Enter it here to override; leave it at $0 to use the benefit table's age-67 figure as PIA.",
   },
   annual_premium_base_year: {
     purpose:

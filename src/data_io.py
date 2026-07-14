@@ -560,16 +560,30 @@ def parse_client(data, url_template):
     c['ann_add']   = _n(_v(data,'Economic Assumptions','','annuity_default_additional_income_pct','0.2'), 0.2)
     c['ann_cash']  = _n(_v(data,'Economic Assumptions','','annuity_default_pay_in_cash_pct','0.8'), 0.8)
 
-    # Social Security.  Users enter a per-spouse claim age, the expected monthly
-    # payment at that claim age, and optionally the monthly PIA at FRA.
-    c['w_ss_claim_monthly'] = _n(_v(data,'Social Security','Member 2','monthly_at_claim_age_today_dollars', _v(data,'Social Security','Member 2','monthly_at_age_70_today_dollars','4174')), 4174)
-    c['h_ss_claim_monthly'] = _n(_v(data,'Social Security','Member 1','monthly_at_claim_age_today_dollars', _v(data,'Social Security','Member 1','monthly_at_age_70_today_dollars','5080')), 5080)
-    c['w_ss70']    = _n(_v(data,'Social Security','Member 2','monthly_at_age_70_today_dollars', str(c['w_ss_claim_monthly'])), c['w_ss_claim_monthly'])
-    c['h_ss70']    = _n(_v(data,'Social Security','Member 1','monthly_at_age_70_today_dollars', str(c['h_ss_claim_monthly'])), c['h_ss_claim_monthly'])
-    c['w_ss_pia']  = _n(_v(data,'Social Security','Member 2','monthly_pia_at_fra_today_dollars','0'), 0)
-    c['h_ss_pia']  = _n(_v(data,'Social Security','Member 1','monthly_pia_at_fra_today_dollars','0'), 0)
+    # Social Security.  Users enter a per-spouse claim age plus the actual
+    # SSA-quoted monthly benefit for each claim age 62-70 (facts from the SSA
+    # statement/estimator, not estimated) - see ss_benefit_age_62..70 below.
+    # "Monthly at Claim Age" is derived by looking up the table entry for the
+    # current claim age, so it always reflects the real government figure for
+    # whatever age is selected instead of being back-solved from a single
+    # reference amount.
+    def _ss_benefit_table(person):
+        table = {}
+        for age in range(62, 71):
+            v = _v(data, 'Social Security', person, f'ss_benefit_age_{age}', None)
+            if v not in (None, ''):
+                table[age] = _n(v, 0.0)
+        return table
+    c['w_ss_benefit_table'] = _ss_benefit_table('Member 2')
+    c['h_ss_benefit_table'] = _ss_benefit_table('Member 1')
     c['w_ss_claim_age'] = int(_n(_v(data,'Social Security','Member 2','claim_age', _v(data,'Model Constants','Retirement','ss_claim_age','70')), 70))
     c['h_ss_claim_age'] = int(_n(_v(data,'Social Security','Member 1','claim_age', _v(data,'Model Constants','Retirement','ss_claim_age','70')), 70))
+    c['w_ss_claim_monthly'] = c['w_ss_benefit_table'].get(max(62, min(70, c['w_ss_claim_age'])), 0.0)
+    c['h_ss_claim_monthly'] = c['h_ss_benefit_table'].get(max(62, min(70, c['h_ss_claim_age'])), 0.0)
+    c['w_ss70']    = c['w_ss_benefit_table'].get(70, c['w_ss_claim_monthly'])
+    c['h_ss70']    = c['h_ss_benefit_table'].get(70, c['h_ss_claim_monthly'])
+    c['w_ss_pia']  = _n(_v(data,'Social Security','Member 2','monthly_pia_at_fra_today_dollars','0'), 0) or c['w_ss_benefit_table'].get(67, c['w_ss_claim_monthly'])
+    c['h_ss_pia']  = _n(_v(data,'Social Security','Member 1','monthly_pia_at_fra_today_dollars','0'), 0) or c['h_ss_benefit_table'].get(67, c['h_ss_claim_monthly'])
     c['ss_surv']   = _n(_v(data,'Social Security','Policy','survivor_pct_of_higher_benefit','100'), 100)/100
     c['survivor_benefit_uses_deceased_claim_age'] = _b(_v(data,'Social Security','Policy','survivor_benefit_uses_deceased_claim_age','TRUE'))
     c['spousal_benefits_enabled'] = _b(_v(data,'Social Security','Policy','spousal_benefits_enabled','TRUE'))

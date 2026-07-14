@@ -742,16 +742,21 @@ def run_deterministic_projection_stage(c):
             _tag_deposit_source(row, _hsa_acct, 'HSA Contribution', hsa_contrib)
         row['hsa_contrib'] = hsa_contrib
 
-        # Social Security.  Benefits are entered as age-70 amounts; honor
-        # configured claim ages by back-solving PIA with SSA early/delayed factors.
+        # Social Security.  Each spouse's benefit table (ss_benefit_age_62..70)
+        # holds the actual SSA-quoted monthly amount for every claim age - real
+        # government figures, not back-solved estimates. The claimed amount is
+        # a direct table lookup at the configured claim age, so it always moves
+        # the correct direction (lower before FRA, higher after) by construction.
         h_claim_age = max(62, min(70, int(c.get('h_ss_claim_age', c.get('ss_claim_age', 70)) or 70)))
         w_claim_age = max(62, min(70, int(c.get('w_ss_claim_age', c.get('ss_claim_age', 70)) or 70)))
         h_ss_yr = c['h_dob_yr'] + h_claim_age
         w_ss_yr = c['w_dob_yr'] + w_claim_age
-        h_pia = float(c.get('h_ss_pia', 0.0) or 0.0) or (float(c.get('h_ss_claim_monthly', 0.0) or 0.0) / (_ss_claim_factor(h_claim_age, c['h_dob_yr']) or 1.0)) or (float(c.get('h_ss70', 0.0) or 0.0) / (_ss_claim_factor(70, c['h_dob_yr']) or 1.0))
-        w_pia = float(c.get('w_ss_pia', 0.0) or 0.0) or (float(c.get('w_ss_claim_monthly', 0.0) or 0.0) / (_ss_claim_factor(w_claim_age, c['w_dob_yr']) or 1.0)) or (float(c.get('w_ss70', 0.0) or 0.0) / (_ss_claim_factor(70, c['w_dob_yr']) or 1.0))
-        h_monthly_claim = h_pia * _ss_claim_factor(h_claim_age, c['h_dob_yr'])
-        w_monthly_claim = w_pia * _ss_claim_factor(w_claim_age, c['w_dob_yr'])
+        h_benefit_table = c.get('h_ss_benefit_table', {}) or {}
+        w_benefit_table = c.get('w_ss_benefit_table', {}) or {}
+        h_pia = float(c.get('h_ss_pia', 0.0) or 0.0) or h_benefit_table.get(67, 0.0)
+        w_pia = float(c.get('w_ss_pia', 0.0) or 0.0) or w_benefit_table.get(67, 0.0)
+        h_monthly_claim = h_benefit_table.get(h_claim_age, h_pia)
+        w_monthly_claim = w_benefit_table.get(w_claim_age, w_pia)
         if c.get('spousal_benefits_enabled', True):
             # Deemed filing/spousal top-up approximation: once both spouses have
             # claimed, each can receive up to 50% of the other's PIA, reduced for
@@ -781,7 +786,7 @@ def run_deterministic_projection_stage(c):
             if c.get('survivor_benefit_uses_deceased_claim_age', True):
                 h_record = h_monthly_claim
             else:
-                h_record = h_pia * _ss_claim_factor(70, c['h_dob_yr'])
+                h_record = h_benefit_table.get(70, h_pia)
             h_ss_at_death = h_record * 12 * _ss_ratio(c['h_death_yr'], h_ss_yr) if c['h_death_yr'] >= h_ss_yr else 0
             w_ss_at_death = w_monthly_claim * 12 * _ss_ratio(c['h_death_yr'], w_ss_yr) if c['h_death_yr'] >= w_ss_yr else 0
             w_ss = max(w_ss, h_ss_at_death * c['ss_surv'], w_ss_at_death)
@@ -790,7 +795,7 @@ def run_deterministic_projection_stage(c):
             if c.get('survivor_benefit_uses_deceased_claim_age', True):
                 w_record = w_monthly_claim
             else:
-                w_record = w_pia * _ss_claim_factor(70, c['w_dob_yr'])
+                w_record = w_benefit_table.get(70, w_pia)
             w_ss_at_death = w_record * 12 * _ss_ratio(c['w_death_yr'], w_ss_yr) if c['w_death_yr'] >= w_ss_yr else 0
             h_ss_at_death = h_monthly_claim * 12 * _ss_ratio(c['w_death_yr'], h_ss_yr) if c['w_death_yr'] >= h_ss_yr else 0
             h_ss = max(h_ss, w_ss_at_death * c['ss_surv'], h_ss_at_death)

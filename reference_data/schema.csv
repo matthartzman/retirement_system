@@ -62,8 +62,24 @@ Cashflow,Mortgage,interest_rate,percent,FALSE,,,Mortgage rate,
 Cashflow,Mortgage,last_payment_year,year,FALSE,,,Year mortgage paid off,
 Cashflow,Mortgage,annual_real_estate_taxes,dollars,FALSE,0,0,,Annual real-estate/property tax cash-flow amount; shown with Mortgage and RE Tax instead of core spending.
 Cashflow,Mortgage,real_estate_tax_annual_adjustment_pct,percent,FALSE,2.50%,0,20,Annual percentage adjustment applied to real-estate/property taxes in the cash-flow forecast.
-Social Security,Wife,monthly_at_claim_age_today_dollars,dollars,TRUE,,,"Enter the monthly Social Security payment expected at the selected Claim Age, in today dollars. If Monthly at FRA is blank or 0, the model estimates PIA from this payment and claim age.",
-Social Security,Husband,monthly_at_claim_age_today_dollars,dollars,TRUE,,,"Enter the monthly Social Security payment expected at the selected Claim Age, in today dollars. If Monthly at FRA is blank or 0, the model estimates PIA from this payment and claim age.",
+Social Security,Member 1,ss_benefit_age_62,dollars,FALSE,0,0,,Monthly Social Security benefit if claimed at age 62, from the SSA statement/estimator, in today dollars.
+Social Security,Member 1,ss_benefit_age_63,dollars,FALSE,0,0,,Monthly Social Security benefit if claimed at age 63, from the SSA statement/estimator, in today dollars.
+Social Security,Member 1,ss_benefit_age_64,dollars,FALSE,0,0,,Monthly Social Security benefit if claimed at age 64, from the SSA statement/estimator, in today dollars.
+Social Security,Member 1,ss_benefit_age_65,dollars,FALSE,0,0,,Monthly Social Security benefit if claimed at age 65, from the SSA statement/estimator, in today dollars.
+Social Security,Member 1,ss_benefit_age_66,dollars,FALSE,0,0,,Monthly Social Security benefit if claimed at age 66, from the SSA statement/estimator, in today dollars.
+Social Security,Member 1,ss_benefit_age_67,dollars,FALSE,0,0,,Monthly Social Security benefit if claimed at age 67 (Full Retirement Age for most current retirees), from the SSA statement/estimator, in today dollars.
+Social Security,Member 1,ss_benefit_age_68,dollars,FALSE,0,0,,Monthly Social Security benefit if claimed at age 68, from the SSA statement/estimator, in today dollars.
+Social Security,Member 1,ss_benefit_age_69,dollars,FALSE,0,0,,Monthly Social Security benefit if claimed at age 69, from the SSA statement/estimator, in today dollars.
+Social Security,Member 1,ss_benefit_age_70,dollars,FALSE,0,0,,Monthly Social Security benefit if claimed at age 70, from the SSA statement/estimator, in today dollars.
+Social Security,Member 2,ss_benefit_age_62,dollars,FALSE,0,0,,Monthly Social Security benefit if claimed at age 62, from the SSA statement/estimator, in today dollars.
+Social Security,Member 2,ss_benefit_age_63,dollars,FALSE,0,0,,Monthly Social Security benefit if claimed at age 63, from the SSA statement/estimator, in today dollars.
+Social Security,Member 2,ss_benefit_age_64,dollars,FALSE,0,0,,Monthly Social Security benefit if claimed at age 64, from the SSA statement/estimator, in today dollars.
+Social Security,Member 2,ss_benefit_age_65,dollars,FALSE,0,0,,Monthly Social Security benefit if claimed at age 65, from the SSA statement/estimator, in today dollars.
+Social Security,Member 2,ss_benefit_age_66,dollars,FALSE,0,0,,Monthly Social Security benefit if claimed at age 66, from the SSA statement/estimator, in today dollars.
+Social Security,Member 2,ss_benefit_age_67,dollars,FALSE,0,0,,Monthly Social Security benefit if claimed at age 67 (Full Retirement Age for most current retirees), from the SSA statement/estimator, in today dollars.
+Social Security,Member 2,ss_benefit_age_68,dollars,FALSE,0,0,,Monthly Social Security benefit if claimed at age 68, from the SSA statement/estimator, in today dollars.
+Social Security,Member 2,ss_benefit_age_69,dollars,FALSE,0,0,,Monthly Social Security benefit if claimed at age 69, from the SSA statement/estimator, in today dollars.
+Social Security,Member 2,ss_benefit_age_70,dollars,FALSE,0,0,,Monthly Social Security benefit if claimed at age 70, from the SSA statement/estimator, in today dollars.
 Other Assets,Home,value_as_of_plan_start,dollars,TRUE,,,FMV as of plan start,
 Other Assets,Home,appreciation_rate,percent,TRUE,3.00%,0,10,Annual appreciation
 Other Assets,Home,home_sale_year,year,TRUE,0,0,,0=no sale; >0=sale year

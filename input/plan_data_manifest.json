@@ -18,8 +18,8 @@
       "sha256": "17d3fc659c4d3fec2e87e5d0ddbd0105512648e08f88cba20e4dc1a88becf585"
     },
     "client_household.csv": {
-      "bytes": 7112,
-      "sha256": "377859cb22bf15cfcacb70d0769aac18c40e2433eff13b47e89479aee6c0ea47"
+      "bytes": 8569,
+      "sha256": "a18c1b5bef0590fe378ed445989b76a1961de788c278f9d5949811199aac85ae"
     },
     "client_income.csv": {
       "bytes": 10818,
