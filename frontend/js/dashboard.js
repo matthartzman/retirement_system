@@ -1494,6 +1494,9 @@ function stripUiLabelPrefix(text) {
     .trim();
 }
 function humanLabel(label, row) {
+  const _annuityDb = /^([hw])_(single|joint)$/i.exec(String(label || "").trim());
+  if (_annuityDb)
+    return `${personDisplayName(/^h$/i.test(_annuityDb[1]) ? 1 : 2)} ${titleWord(_annuityDb[2])}`;
   if (
     row &&
     row.section === "Account Policy" &&
@@ -1759,6 +1762,26 @@ function fieldLabelNoteHtml(row) {
     return ' <span class="field-label-note" title="This stream has its own dividend rate, so editing the plan-wide Default Annuity Dividend Rate will not change it."><em>(override — ignores plan-wide default)</em></span>';
   return "";
 }
+// Display-only: rewrite "Member 1"/"Member 2"/"Husband"/"Wife" placeholder
+// wording anywhere it appears inside a longer string (subsection labels,
+// change-log context, help notes) into the household's configured nicknames.
+// Also rewrites underscore-joined account-key tokens like "Husband_IRA" /
+// "Member_1_IRA" into "Matt's IRA" form (choice-option lists in field notes
+// use this compound form, e.g. "Husband_IRA | Husband_401k | Wife_IRA").
+function translatePersonPlaceholders(text) {
+  const withCompounds = String(text ?? "").replace(
+    /\b(Member[ _]([12])|Husband|Wife)_([A-Za-z0-9]+)\b/g,
+    (_m, whole, num, rest) =>
+      personDisplayName(num ? Number(num) : /^husband/i.test(whole) ? 1 : 2) +
+      "'s " +
+      rest.replace(/_/g, " "),
+  );
+  return withCompounds
+    .replace(/\bMember 1\b/g, personDisplayName(1))
+    .replace(/\bMember 2\b/g, personDisplayName(2))
+    .replace(/\bHusband\b/g, personDisplayName(1))
+    .replace(/\bWife\b/g, personDisplayName(2));
+}
 function friendlyGroup(r) {
   if (
     r.section === "Account Policy" ||
@@ -1783,10 +1806,10 @@ function friendlyGroup(r) {
       r.section === "Asset Allocation Policy") &&
     r.subsection
   )
-    return formatAcronyms(stripUiLabelPrefix(r.subsection));
+    return translatePersonPlaceholders(formatAcronyms(stripUiLabelPrefix(r.subsection)));
   if (r.section === "Asset Correlations") return "Pairwise Correlations";
   let s = r.subsection || r.section || "General";
-  return formatAcronyms(stripUiLabelPrefix(s));
+  return translatePersonPlaceholders(formatAcronyms(stripUiLabelPrefix(s)));
 }
 function fmtMoney(v) {
   if (v === undefined || v === null || v === "") return "Not available";
@@ -6302,8 +6325,29 @@ function storageValueForInput(row, value) {
     );
   return String(value ?? "");
 }
+// Display-only: translate a stored field VALUE that is entirely a person
+// placeholder token — "Member 1", "Husband", "Wife_Trust", "Member_2_Trust"
+// — into nickname form ("Matt" / "Pat's Trust"). Anchored to the whole
+// (trimmed) value so it never touches unrelated free text; the raw value is
+// still what gets edited/saved (see beginEdit/finishEdit).
+const PERSON_VALUE_TOKEN_RE = /^(member[ _]([12])|husband|wife)([ _](.+))?$/i;
+function translatePersonValueLabel(value) {
+  const s = String(value ?? "").trim();
+  if (!s) return s;
+  const m = PERSON_VALUE_TOKEN_RE.exec(s);
+  if (!m) return translatePersonPlaceholders(s);
+  const n = m[2] ? Number(m[2]) : /^husband/i.test(m[1]) ? 1 : 2;
+  const rest = m[4] ? m[4].replace(/_/g, " ").trim() : "";
+  return rest ? personDisplayName(n) + "'s " + rest : personDisplayName(n);
+}
 function displayValueForInput(row, value) {
   if (row && isDateField(row)) return toIsoDateValue(value);
+  // Some account-reference fields (e.g. home_sale_proceeds_account) are
+  // schema-typed as currency/number even though their stored value is a
+  // person/account token like "Member_2_Trust" — translate those before
+  // falling into numeric formatting, which would otherwise blank them out.
+  if (PERSON_VALUE_TOKEN_RE.test(String(value ?? "").trim()))
+    return translatePersonValueLabel(value);
   const kind = valueKind(row);
   if (kind === "currency") return currencyDisplay(value);
   if (kind === "percent")
@@ -6314,7 +6358,7 @@ function displayValueForInput(row, value) {
       numberDisplayDecimals(row, value),
       numberDisplayDecimals(row, value),
     );
-  return String(value ?? "");
+  return translatePersonValueLabel(value);
 }
 function saveValueForRow(row, value) {
   if (row && isDateField(row)) return toIsoDateValue(value);
@@ -6432,7 +6476,7 @@ function fieldHtml(r) {
         .map((o) => {
           const ov = choiceValue(o),
             ol = choiceLabel(o);
-          return `<option value="${esc(ov)}" ${norm(ov) === norm(cur) ? "selected" : ""}>${esc(formatAcronyms(ol.replace(/_/g, " ")))}</option>`;
+          return `<option value="${esc(ov)}" ${norm(ov) === norm(cur) ? "selected" : ""}>${esc(translatePersonPlaceholders(formatAcronyms(ol.replace(/_/g, " "))))}</option>`;
         })
         .join("")}</select>`;
     } else {
@@ -8870,7 +8914,7 @@ function renderIncomeStreamsSection() {
     const typeRow = rs.find((r) => norm(r.label) === "type");
     rs = rs.filter((r) => norm(r.label) !== "type");
     const ordered = [...(typeRow ? [typeRow] : []), ...rs];
-    html += `<details><summary>${esc(sub)}</summary><div class="field-list">${ordered.map(fieldHtml).join("")}</div></details>`;
+    html += `<details><summary>${esc(translatePersonPlaceholders(sub))}</summary><div class="field-list">${ordered.map(fieldHtml).join("")}</div></details>`;
   });
   if (globalRows.length)
     html += `<details open><summary>Plan-wide income stream settings</summary><div class="field-list">${globalRows.map(fieldHtml).join("")}</div></details>`;
@@ -9832,7 +9876,7 @@ function renderTrustAccountsTable() {
     const rs = bySub[sub];
     const name = rs.find((r) => norm(r.label) === "account_name");
     const typ = rs.find((r) => norm(r.label) === "trust_type");
-    html += `<details><summary>${esc(name ? valOf(name) : sub)} · ${typ ? `<select onclick="event.stopPropagation()" onchange="editValue(${typ.row_index},this.value,this)">${["Revocable", "Irrevocable", "Credit Shelter", "QTIP", "Special Needs", "Other"].map((x) => `<option value="${esc(x)}" ${norm(valOf(typ)) === norm(x) ? "selected" : ""}>${esc(x)}</option>`).join("")}</select>` : esc(sub)}</summary><div class="field-list">${rs.map(fieldHtml).join("")}</div></details>`;
+    html += `<details><summary>${esc(translatePersonPlaceholders(name ? valOf(name) : sub))} · ${typ ? `<select onclick="event.stopPropagation()" onchange="editValue(${typ.row_index},this.value,this)">${["Revocable", "Irrevocable", "Credit Shelter", "QTIP", "Special Needs", "Other"].map((x) => `<option value="${esc(x)}" ${norm(valOf(typ)) === norm(x) ? "selected" : ""}>${esc(x)}</option>`).join("")}</select>` : esc(translatePersonPlaceholders(sub))}</summary><div class="field-list">${rs.map(fieldHtml).join("")}</div></details>`;
   });
   html += `</div></details>`;
   return html;
@@ -16601,7 +16645,9 @@ function showFieldHelp(idx) {
   const row = rows.find((r) => r.row_index === idx);
   if (!row) return;
   const label = humanLabel(row.label, row);
-  const note = formatAcronyms(row.schema?.description || row.notes || "");
+  const note = translatePersonPlaceholders(
+    formatAcronyms(row.schema?.description || row.notes || ""),
+  );
   const g = fieldGuidance(row);
   const meaning = formatAcronyms(
     g.purpose || note || `${label} is an input used by the planner.`,
