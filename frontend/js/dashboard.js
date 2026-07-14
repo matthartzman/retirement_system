@@ -8877,11 +8877,19 @@ function renderIncomeStreamsSection() {
   return html + "</div>";
 }
 function renderSsPolicySection() {
-  const compactLabels = new Set(["claim_age", "monthly_pia_at_fra_today_dollars"]);
+  const compactLabels = new Set([
+    "claim_age",
+    "monthly_pia_at_fra_today_dollars",
+    "fra_age",
+  ]);
+  const excludedSubs = new Set(["funding discount"]);
   const rs = rows
     .filter(isEditable)
     .filter(
-      (r) => r.section === "Social Security" && !compactLabels.has(norm(r.label)),
+      (r) =>
+        r.section === "Social Security" &&
+        !compactLabels.has(norm(r.label)) &&
+        !excludedSubs.has(String(r.subsection || "").toLowerCase()),
     );
   if (!rs.length) return "";
   const bySub = {};
@@ -8897,10 +8905,30 @@ function renderSsPolicySection() {
   });
   return html + "</div>";
 }
-function renderRetirementIncome() {
-  return (
-    renderSsCompactTable() + renderSsPolicySection() + renderIncomeStreamsSection()
+function renderSsFundingDiscountRow() {
+  const yearRow = findEditableRow(
+    "Social Security",
+    "Funding Discount",
+    "ss_funding_discount_year",
   );
+  const pctRow = findEditableRow(
+    "Social Security",
+    "Funding Discount",
+    "ss_funding_discount_pct",
+  );
+  if (!yearRow && !pctRow) return "";
+  return `<div class="holdings retirement-income-section"><h3 class="group-title">Social Security funding discount</h3><div class="section-note">Models a possible future cut to gross Social Security benefits if the trust fund isn’t shored up before this year.</div><div class="lot-table-wrap"><table class="lot-table compact-table"><thead><tr><th>Discount Starts</th><th>Benefit Reduction</th></tr></thead><tbody><tr><td>${yearRow ? fieldControlOnly(yearRow) : '<span class="small">Missing</span>'}</td><td>${pctRow ? fieldControlOnly(pctRow) : '<span class="small">Missing</span>'}</td></tr></tbody></table></div></div>`;
+}
+function renderRetirementIncome() {
+  const ssInner =
+    renderSsCompactTable() + renderSsPolicySection() + renderSsFundingDiscountRow();
+  const ssSummary =
+    "Claim ages, FRA, per-age benefit tables, spousal/survivor policy, and funding discount";
+  const ssSection =
+    `<details class="allocation-policy-collapsed"><summary><b>Social Security</b><span class="small" style="margin-left:8px;font-weight:normal;color:var(--muted)">${esc(ssSummary)}</span></summary>` +
+    ssInner +
+    "</details>";
+  return ssSection + renderIncomeStreamsSection();
 }
 async function seedWellnessOop() {
   try {
