@@ -12711,8 +12711,33 @@ function ytdTxnPager(total, start, end, pages, firstDate, lastDate) {
     : `Showing ${start + 1}–${end} of ${total} matching transactions`;
   return `<div class="ytd-tx-pager"><span>${rangeLabel} · Page ${ytdTxPage + 1} of ${pages}${ytdTxSort.field === "Date" ? " · pages break on day boundaries" : ""}</span><div class="ytd-tx-pager-buttons"><button class="btn" type="button" ${ytdTxPage <= 0 ? "disabled" : ""} onclick="setYtdTxnPage(0,${total})">First</button><button class="btn" type="button" ${ytdTxPage <= 0 ? "disabled" : ""} onclick="setYtdTxnPage(${ytdTxPage - 1},${total})">Previous</button><button class="btn" type="button" ${ytdTxPage >= pages - 1 ? "disabled" : ""} onclick="setYtdTxnPage(${ytdTxPage + 1},${total})">Next</button><button class="btn" type="button" ${ytdTxPage >= pages - 1 ? "disabled" : ""} onclick="setYtdTxnPage(${pages - 1},${total})">Last</button></div></div>`;
 }
+// Extracts the 4-digit calendar year from a transaction Date value. Stored
+// rows are normalized to ISO "YYYY-MM-DD" on save, but in-progress edits or
+// freshly-imported rows may still be in another supported format, so fall
+// back to the first 4-digit run in the string.
+function ytdTxYear(dateStr) {
+  const s = String(dateStr || "");
+  const iso = /^(\d{4})-\d{2}-\d{2}/.exec(s);
+  if (iso) return Number(iso[1]);
+  const m = /\d{4}/.exec(s);
+  return m ? Number(m[0]) : null;
+}
+// The calendar year the currently selected actuals period reports on
+// (this year for Year-to-date, last calendar year for Last Year).
+function ytdPeriodTargetYear() {
+  return Number(ytdData?.summary?.current_year) || new Date().getFullYear();
+}
+// Rows matching the currently selected actuals period, independent of the
+// search/category/account filters -- used to tell "no transactions for this
+// period" apart from "the current filters matched nothing".
+function ytdTxnsForPeriod() {
+  const targetYear = ytdPeriodTargetYear();
+  return (ytdData?.transactions || [])
+    .map((r, i) => ({ r, i }))
+    .filter((x) => ytdTxYear(x.r.Date) === targetYear);
+}
 function ytdFilteredTxns() {
-  let rows = (ytdData?.transactions || []).map((r, i) => ({ r, i }));
+  let rows = ytdTxnsForPeriod();
   const q = String(ytdTxSearch || "")
     .toLowerCase()
     .trim();
@@ -12868,6 +12893,12 @@ function renderYtdTransactions() {
     return `<div class="ytd-disabled-table"><h3>Transactions</h3><p class="small">Upload a transaction CSV to enable the compact table.</p></div>`;
   const tx = ytdFilteredTxns();
   const total = tx.length;
+  const periodHasAnyTx = ytdTxnsForPeriod().length > 0;
+  const emptyMessage = periodHasAnyTx
+    ? "No transactions match the current filters."
+    : ytdActualsPeriod === "last_year"
+      ? `No transactions from last year (${ytdPeriodTargetYear()}) — please import.`
+      : `No transactions from this year (${ytdPeriodTargetYear()}) yet — please import.`;
   const boundaries = ytdTxPageBoundaries(tx);
   const pages = boundaries
     ? boundaries.length
@@ -12888,7 +12919,7 @@ function renderYtdTransactions() {
   const firstDate = pageRows.length ? pageRows[0].r.Date : "";
   const lastDate = pageRows.length ? pageRows[pageRows.length - 1].r.Date : "";
   const pagerHtml = ytdTxnPager(total, start, end, pages, firstDate, lastDate);
-  return `<div class="holdings ytd-section"><h3 class="group-title">Transactions</h3><div class="table-actions"><input class="search" style="max-width:260px" placeholder="Search transactions..." value="${esc(ytdTxSearch)}" oninput="ytdTxSearch=this.value;resetYtdTxnPage();renderMain()"><select onchange="ytdCategoryFilter=this.value;resetYtdTxnPage();renderMain()"><option value="">All categories</option>${ytdFilterOptions("Category").replace(`value=\"${esc(ytdCategoryFilter)}\"`, `value=\"${esc(ytdCategoryFilter)}\" selected`)}</select><select onchange="ytdAccountFilter=this.value;resetYtdTxnPage();renderMain()"><option value="">All accounts</option>${ytdFilterOptions("Account").replace(`value=\"${esc(ytdAccountFilter)}\"`, `value=\"${esc(ytdAccountFilter)}\" selected`)}</select><button class="btn" type="button" onclick="addYtdTxn()">Add transaction</button><button class="btn primary" id="ytdSaveTransactionsBtn" type="button" ${ytdTransactionsChanged ? "" : "disabled"} onclick="saveYtdTransactions()">Save transaction edits</button></div>${pagerHtml}<div class="lot-table-wrap ytd-table-wrap ytd-tx-table-wrap"><table class="lot-table ytd-tx-table"><thead><tr>${ytdHeader("Date", "Date")}${ytdHeader("Merchant", "Merchant")}${ytdHeader("Category", "Category")}${ytdHeader("Account", "Account")}${ytdHeader("Amount", "Amount")}<th>Statement</th><th>Notes</th><th>Tags</th><th>Owner</th><th></th></tr></thead><tbody>${pageRows.map(({ r, i }) => `<tr><td class="ytd-date-cell"><input class="ytd-date-input" value="${esc(r.Date || "")}" oninput="updateYtdTxn(${i},'Date',this.value)"></td><td>${ytdSelectFieldHtml(i, "Merchant", r.Merchant)}</td><td>${ytdSelectFieldHtml(i, "Category", r.Category)}</td><td>${ytdSelectFieldHtml(i, "Account", r.Account)}</td><td class="ytd-amount-cell"><input class="ytd-amount-input${ytdAmountIsNegative(r.Amount) ? " ytd-negative-amount" : ""}" value="${esc(ytdTxnMoneyDisplay(r.Amount))}" onfocus="focusYtdTxnAmount(this)" oninput="updateYtdTxnAmount(${i},this)" onblur="blurYtdTxnAmount(${i},this)"></td><td><input value="${esc(r["Original Statement"] || "")}" oninput="updateYtdTxn(${i},'Original Statement',this.value)"></td><td><input value="${esc(r.Notes || "")}" oninput="updateYtdTxn(${i},'Notes',this.value)"></td><td><input value="${esc(r.Tags || "")}" oninput="updateYtdTxn(${i},'Tags',this.value)"></td><td><input value="${esc(r.Owner || "")}" oninput="updateYtdTxn(${i},'Owner',this.value)"></td><td><button class="danger-link" type="button" onclick="deleteYtdTxn(${i})">Delete</button></td></tr>`).join("") || `<tr><td colspan="10"><span class="small">No transactions match the current filters.</span></td></tr>`}</tbody></table></div>${pagerHtml}</div>`;
+  return `<div class="holdings ytd-section"><h3 class="group-title">Transactions</h3><div class="table-actions"><input class="search" style="max-width:260px" placeholder="Search transactions..." value="${esc(ytdTxSearch)}" oninput="ytdTxSearch=this.value;resetYtdTxnPage();renderMain()"><select onchange="ytdCategoryFilter=this.value;resetYtdTxnPage();renderMain()"><option value="">All categories</option>${ytdFilterOptions("Category").replace(`value=\"${esc(ytdCategoryFilter)}\"`, `value=\"${esc(ytdCategoryFilter)}\" selected`)}</select><select onchange="ytdAccountFilter=this.value;resetYtdTxnPage();renderMain()"><option value="">All accounts</option>${ytdFilterOptions("Account").replace(`value=\"${esc(ytdAccountFilter)}\"`, `value=\"${esc(ytdAccountFilter)}\" selected`)}</select><button class="btn" type="button" onclick="addYtdTxn()">Add transaction</button><button class="btn primary" id="ytdSaveTransactionsBtn" type="button" ${ytdTransactionsChanged ? "" : "disabled"} onclick="saveYtdTransactions()">Save transaction edits</button></div>${pagerHtml}<div class="lot-table-wrap ytd-table-wrap ytd-tx-table-wrap"><table class="lot-table ytd-tx-table"><thead><tr>${ytdHeader("Date", "Date")}${ytdHeader("Merchant", "Merchant")}${ytdHeader("Category", "Category")}${ytdHeader("Account", "Account")}${ytdHeader("Amount", "Amount")}<th>Statement</th><th>Notes</th><th>Tags</th><th>Owner</th><th></th></tr></thead><tbody>${pageRows.map(({ r, i }) => `<tr><td class="ytd-date-cell"><input class="ytd-date-input" value="${esc(r.Date || "")}" oninput="updateYtdTxn(${i},'Date',this.value)"></td><td>${ytdSelectFieldHtml(i, "Merchant", r.Merchant)}</td><td>${ytdSelectFieldHtml(i, "Category", r.Category)}</td><td>${ytdSelectFieldHtml(i, "Account", r.Account)}</td><td class="ytd-amount-cell"><input class="ytd-amount-input${ytdAmountIsNegative(r.Amount) ? " ytd-negative-amount" : ""}" value="${esc(ytdTxnMoneyDisplay(r.Amount))}" onfocus="focusYtdTxnAmount(this)" oninput="updateYtdTxnAmount(${i},this)" onblur="blurYtdTxnAmount(${i},this)"></td><td><input value="${esc(r["Original Statement"] || "")}" oninput="updateYtdTxn(${i},'Original Statement',this.value)"></td><td><input value="${esc(r.Notes || "")}" oninput="updateYtdTxn(${i},'Notes',this.value)"></td><td><input value="${esc(r.Tags || "")}" oninput="updateYtdTxn(${i},'Tags',this.value)"></td><td><input value="${esc(r.Owner || "")}" oninput="updateYtdTxn(${i},'Owner',this.value)"></td><td><button class="danger-link" type="button" onclick="deleteYtdTxn(${i})">Delete</button></td></tr>`).join("") || `<tr><td colspan="10"><span class="small">${esc(emptyMessage)}</span></td></tr>`}</tbody></table></div>${pagerHtml}</div>`;
 }
 function renderYtdAccounts() {
   const enabled = !!ytdData?.summary?.enabled;
