@@ -1500,6 +1500,37 @@ def allocation_portfolio_stats(c, force_mode=None):
     }
 
 
+def portfolio_stats_from_weights(c, weights_by_class):
+    """Return expected-return/volatility/Sharpe for an arbitrary asset-class
+    weighting (e.g. the household's actual current holdings), using the same
+    expected-return and covariance assumptions as allocation_portfolio_stats.
+
+    weights_by_class values may be raw dollar amounts or fractional weights;
+    they are normalized internally. Keys not found in ASSET_CLASSES are
+    ignored. Returns None if no positive weight lands on a known class.
+    """
+    apply_capital_market_config(c)
+    classes = [cls for cls in ASSET_CLASSES if float(weights_by_class.get(cls, 0.0) or 0.0) > 0]
+    if not classes:
+        return None
+    weights = np.array([float(weights_by_class.get(cls, 0.0) or 0.0) for cls in classes], dtype=float)
+    total = float(weights.sum())
+    weights = weights / total if total > 0 else np.ones(len(classes)) / len(classes)
+    mu = np.array([float(ASSET_CLASSES[cls].get('ret', 0.0) or 0.0) for cls in classes], dtype=float)
+    exp_ret = float(np.dot(weights, mu))
+    cov = build_covariance_matrix(classes)
+    variance = max(0.0, float(weights.T @ cov @ weights))
+    vol = float(np.sqrt(variance))
+    rf = risk_free_rate(c)
+    return {
+        'targets': {cls: float(weights[i]) for i, cls in enumerate(classes)},
+        'expected_return': exp_ret,
+        'volatility': vol,
+        'geometric_return': float(exp_ret - 0.5 * variance),
+        'sharpe': sharpe_ratio(exp_ret, vol, rf),
+    }
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # EFFICIENT FRONTIER
 # ─────────────────────────────────────────────────────────────────────────────
