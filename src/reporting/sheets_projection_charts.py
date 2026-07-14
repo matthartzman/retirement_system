@@ -487,5 +487,73 @@ def build_sheet8(ws, c, rows, mc_data=None):
         _make_alloc_pie('Current Portfolio Allocation', before_rows, 1, 'A156')
         _make_alloc_pie('Target Portfolio Allocation', after_rows, 4, 'L156')
 
-    qc('8. Charts Dashboard', '6 charts: NW, CF Income, CF Expense, MC Bands, Alloc Before, Alloc After', True,
-       f'NW, Income (15 ser, ymax=${CF_YMAX:,}), Expense (8 ser, ymax=${CF_YMAX:,}), MC bands, 2 pie charts')
+    # ── Efficient Frontier Scatter Chart ──────────────────────────────────
+    # Native Excel scatter of the long-only mean-variance efficient frontier
+    # (volatility vs expected return) with the recommended portfolio marked.
+    # Source data is written to the hidden helper sheet (ws); the chart renders
+    # on the visible Charts page (chart_ws), matching the other charts here.
+    _ef_chart_added = False
+    try:
+        _ef_points = _ao.efficient_frontier(c, n_points=15)
+        _ef_stats = _ao.allocation_portfolio_stats(c)
+    except Exception:
+        _ef_points, _ef_stats = [], None
+    if _ef_points and len(_ef_points) >= 2:
+        from openpyxl.chart import ScatterChart, Series
+        from openpyxl.chart.marker import Marker
+        from openpyxl.drawing.line import LineProperties
+
+        ef_src = DATA_LAST + 230
+        write_cell(ws, ef_src, 1, 'Volatility', bold=True)
+        write_cell(ws, ef_src, 2, 'Expected Return', bold=True)
+        for _i, _p in enumerate(_ef_points):
+            write_cell(ws, ef_src + 1 + _i, 1, float(_p.get('volatility', 0.0) or 0.0), fmt=FMT_PCT)
+            write_cell(ws, ef_src + 1 + _i, 2, float(_p.get('return', 0.0) or 0.0), fmt=FMT_PCT)
+        _ef_src_last = ef_src + len(_ef_points)
+
+        _rec_vol = float(_ef_stats.get('volatility', 0.0) or 0.0) if _ef_stats else None
+        _rec_ret = float(_ef_stats.get('expected_return', 0.0) or 0.0) if _ef_stats else None
+        if _rec_vol is not None:
+            write_cell(ws, ef_src, 4, 'Rec Volatility', bold=True)
+            write_cell(ws, ef_src, 5, 'Rec Return', bold=True)
+            write_cell(ws, ef_src + 1, 4, _rec_vol, fmt=FMT_PCT)
+            write_cell(ws, ef_src + 1, 5, _rec_ret, fmt=FMT_PCT)
+
+        _sc = ScatterChart()
+        _sc.title = 'Efficient Frontier — Risk vs. Return'
+        _sc.scatterStyle = 'lineMarker'
+        _sc.style = 13
+        _sc.width = 24
+        _sc.height = 14
+        _sc.x_axis.title = 'Volatility (Standard Deviation)'
+        _sc.y_axis.title = 'Expected Return'
+        _sc.x_axis.numFmt = '0.0%'
+        _sc.y_axis.numFmt = '0.0%'
+        _sc.x_axis.delete = False
+        _sc.y_axis.delete = False
+
+        _xref = Reference(ws, min_col=1, min_row=ef_src + 1, max_row=_ef_src_last)
+        _yref = Reference(ws, min_col=2, min_row=ef_src + 1, max_row=_ef_src_last)
+        _fs = Series(_yref, _xref, title='Efficient Frontier')
+        _fs.marker = Marker(symbol='circle', size=6)
+        _fs.graphicalProperties = GraphicalProperties(ln=LineProperties(solidFill='2D6A4F', w=20000))
+        _sc.series.append(_fs)
+
+        if _rec_vol is not None:
+            _rxref = Reference(ws, min_col=4, min_row=ef_src + 1, max_row=ef_src + 1)
+            _ryref = Reference(ws, min_col=5, min_row=ef_src + 1, max_row=ef_src + 1)
+            _rs = Series(_ryref, _rxref, title='Recommended Portfolio')
+            _rs.marker = Marker(symbol='diamond', size=11)
+            _rs.graphicalProperties = GraphicalProperties(ln=LineProperties(noFill=True))
+            _sc.series.append(_rs)
+
+        chart_ws.add_chart(_sc, 'A216')
+        _ef_chart_added = True
+
+    _chart_count = 7 if _ef_chart_added else 6
+    qc('8. Charts Dashboard',
+       f'{_chart_count} charts: NW, CF Income, CF Expense, MC Bands, Alloc Before, Alloc After'
+       + (', Efficient Frontier' if _ef_chart_added else ''),
+       True,
+       f'NW, Income (15 ser, ymax=${CF_YMAX:,}), Expense (8 ser, ymax=${CF_YMAX:,}), MC bands, 2 pie charts'
+       + (', efficient frontier scatter' if _ef_chart_added else ''))
