@@ -1054,13 +1054,29 @@
     },
     "Member 1": {
       "claim_age": "70",
-      "monthly_at_age_70_today_dollars": "$5,080",
-      "monthly_pia_at_fra_today_dollars": "0"
+      "monthly_pia_at_fra_today_dollars": "0",
+      "ss_benefit_age_62": "$2,835",
+      "ss_benefit_age_63": "$3,038",
+      "ss_benefit_age_64": "$3,240",
+      "ss_benefit_age_65": "$3,510",
+      "ss_benefit_age_66": "$3,780",
+      "ss_benefit_age_67": "$4,050",
+      "ss_benefit_age_68": "$4,374",
+      "ss_benefit_age_69": "$4,698",
+      "ss_benefit_age_70": "$5,022"
     },
     "Member 2": {
       "claim_age": "70",
-      "monthly_at_age_70_today_dollars": "$4,174",
-      "monthly_pia_at_fra_today_dollars": "0"
+      "monthly_pia_at_fra_today_dollars": "0",
+      "ss_benefit_age_62": "$2,351",
+      "ss_benefit_age_63": "$2,519",
+      "ss_benefit_age_64": "$2,687",
+      "ss_benefit_age_65": "$2,911",
+      "ss_benefit_age_66": "$3,135",
+      "ss_benefit_age_67": "$3,359",
+      "ss_benefit_age_68": "$3,628",
+      "ss_benefit_age_69": "$3,896",
+      "ss_benefit_age_70": "$4,165"
     },
     "Policy": {
       "spousal_benefits_enabled": "TRUE",
@@ -1111,7 +1127,7 @@
   },
   "Withdrawal Policy": {
     "Identity": {
-      "annual_funding_tolerance": "$10"
+      "annual_funding_tolerance": "$100"
     },
     "Priority 1": {
       "RMD": "mandatory"
@@ -1166,8 +1182,8 @@
       "tlh_annual_ceiling": "$0",
       "tlh_fraction_sold_before_death": "50.00%",
       "tlh_min_loss_dollars": "$500",
-      "tlh_min_loss_pct": "5.00%",
-      "tlh_policy": "off",
+      "tlh_min_loss_pct": "3.00%",
+      "tlh_policy": "analyze_only",
       "tlh_transaction_cost_bps": "2"
     }
   }

@@ -441,7 +441,6 @@ function titleCaseLabel(s) {
     part_d_base_premium_monthly: "Monthly Medicare Part D (prior to IRMAA)",
     annual_oop_estimate_today: "Annual Household Medical OOP Cap",
     mc_engine_mode: "Monte Carlo Engine",
-    monthly_at_claim_age_today_dollars: "Monthly at Claim Age",
     monthly_pia_at_fra_today_dollars: "Monthly at FRA",
     roth_target_bracket_rate: "Roth Tax-Bracket Ceiling",
     roth_irmaa_target_tier: "Medicare IRMAA Tier Ceiling",

@@ -22,8 +22,10 @@ def test_dashboard_has_shared_active_input_usage_layer_and_page_summary():
 def test_social_security_pia_and_claim_age_inputs_are_mutually_explained():
     js = read("frontend/js/dashboard.js")
     assert "Monthly at FRA/PIA is blank or zero" in js
-    assert "the build infers PIA from Monthly at Claim Age" in js
-    assert "Monthly at FRA/PIA is present" in js
+    assert (
+        "the build uses the age-67 (Full Retirement Age) entry from this person's benefit table instead"
+        in js
+    )
     assert "ssActiveCell" in js
     assert "Inactive — listed above" in js
 
