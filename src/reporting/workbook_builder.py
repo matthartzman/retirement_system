@@ -1117,8 +1117,13 @@ def main():
         ws = wb.create_sheet(name)
         sheets[name] = ws
 
+    # Sheet 10's SS claim-age sweep is computed first so Sheet 1's headline
+    # "Recommended SS Claim Age" reflects the same optimizer result instead
+    # of a separately-maintained figure that can drift out of sync.
+    print('  Sheet 10 — Social Security')
+    ss_sweep = build_sheet10(sheets['10. Social Security'], c, rows)
     print('  Sheet 1 — Executive Summary')
-    build_sheet1(sheets['1. Executive Summary'], c, rows, mc_data)
+    build_sheet1(sheets['1. Executive Summary'], c, rows, mc_data, ss_sweep=ss_sweep)
     print('  Sheet 2 — Assumptions')
     build_sheet2(sheets['2. Assumptions'], c, rows)
     print('  Sheet 3 — Balance Sheet')
@@ -1135,8 +1140,6 @@ def main():
     build_sheet8(sheets['8. Charts Dashboard'], c, rows, mc_data)
     print('  Sheet 9 — Retirement Strategy')
     build_sheet9(sheets['9. Retirement Strategy'], c, rows)
-    print('  Sheet 10 — Social Security')
-    build_sheet10(sheets['10. Social Security'], c, rows)
     print('  Sheet 11 — Roth Conversion')
     build_sheet11(sheets['11. Roth Conversion'], c, rows)
     print('  Sheet 12 — Charitable Giving')

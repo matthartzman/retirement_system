@@ -216,6 +216,8 @@ def build_sheet10(ws, c, rows):
         ws.column_dimensions[get_column_letter(col)].width = 16
     qc('10. Social Security', 'Claim ages 62-70 swept by spouse against full projection', True, '')
 
+    return {'best': best, 'current': current, 'scenarios': scenarios}
+
 def build_sheet11(ws, c, rows):
     """Roth Conversion Plan — canonical strategy contract and diagnostics."""
     ws.sheet_view.showGridLines = False

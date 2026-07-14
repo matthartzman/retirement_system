@@ -929,7 +929,7 @@ def _tlh_recommendation_row(c, rows, rec_no):
             f"~${net:,.0f} net lifetime value; set tlh_policy=apply to automate", 'Sheet 2I')
 
 
-def build_sheet1(ws, c, rows, mc_data):
+def build_sheet1(ws, c, rows, mc_data, ss_sweep=None):
     """Executive Summary"""
     ws.sheet_view.showGridLines = False
     ws.column_dimensions['A'].width = 32
@@ -964,6 +964,13 @@ def build_sheet1(ws, c, rows, mc_data):
     terminal_nw  = yrn['total_nw']
     roth_benefit = sum(row.get('roth_conv',0)*0.22 for row in rows)   # approx
 
+    _h_nick = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
+    _w_nick = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
+    _ss_best = (ss_sweep or {}).get('best') or {}
+    _h_ss_age = _ss_best.get('h_age', c.get('h_ss_claim_age', c.get('ss_claim_age', 70)))
+    _w_ss_age = _ss_best.get('w_age', c.get('w_ss_claim_age', c.get('ss_claim_age', 70)))
+    _ss_age_label = f"{_h_nick} {_h_ss_age} / {_w_nick} {_w_ss_age}"
+
     headlines = [
         ('Starting Net Worth (Y0)',        yr0['total_nw'],  FMT_DOLLAR),
         ('Terminal Net Worth (Yn)',         terminal_nw,       FMT_DOLLAR),
@@ -974,7 +981,7 @@ def build_sheet1(ws, c, rows, mc_data):
         ('MC Success 95% CI Low',       mc_data.get('success_rate_ci_low', success), FMT_PCT),
         ('MC Success 95% CI High',      mc_data.get('success_rate_ci_high', success), FMT_PCT),
         ('Estimated Tax Saved — Roth Strategy', roth_benefit,  FMT_DOLLAR),
-        ('Recommended SS Claim Age',        70,                None),
+        ('Recommended SS Claim Age',        _ss_age_label,     None),
     ]
     for label, value, fmt in headlines:
         c1 = write_cell(ws, r, 1, label, bold=True, bg=LGRAY)
@@ -991,9 +998,10 @@ def build_sheet1(ws, c, rows, mc_data):
     r+=1
     recs = [
         # (No, Recommendation, Rationale, Cost/yr, Value/yr, Sheet)
-        (1,'Claim Social Security at Age 70',
-           'Maximizes benefit by 32% vs age 67; break-even ~12 yrs; survivor gets 100% of higher benefit',
-           '$0','~$9,700/yr incremental vs age 67','Sheet 10'),
+        (1,f'Claim Social Security — {_ss_age_label}',
+           'Highest-scoring pair from the full 62-70 x 62-70 projection sweep on Sheet 10; weighs lifetime SS income against lifetime tax and IRMAA drag, not terminal net worth alone.',
+           '$0', (f"~${_ss_best.get('delta_ss', 0.0):,.0f} more lifetime SS vs current configured claim age"
+                   if _ss_best else 'See Sheet 10'), 'Sheet 10'),
         (2,'Roth conversions through the configured conversion window',
            'Use the selected Roth strategy from Sheet 11; forced conversions are separated from voluntary optimizer choices.',
            'Tax cost depends on selected strategy','Compare candidate scores, lifetime tax, terminal value, and legacy/estate components on Sheet 11','Sheet 11'),
