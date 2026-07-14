@@ -6013,6 +6013,7 @@ function numberDisplayDecimals(row, value) {
   const l = norm(row?.label),
     units = String(row?.units || "");
   const schema = row?.schema || {};
+  if (l === "fra_age") return 0;
   if (
     l.includes("weight") ||
     l.includes("factor") ||
@@ -8851,7 +8852,7 @@ function ssMonthlyAtClaimAgeCell(person, claimAgeRow) {
     (piaRow ? fieldNumericValue(piaRow) : 0) ||
     (age67Row ? fieldNumericValue(age67Row) : 0);
   if (!pia)
-    return `<span class="small">Enter age ${age} or Monthly at FRA below</span>`;
+    return `<span class="small">Enter Monthly at FRA</span>`;
   const derived = pia * ssClaimFactor(age, fra);
   return `<span class="computed-value">~${esc(fmtMoney(derived))} <span class="small">(derived from FRA)</span></span>`;
 }
@@ -8860,12 +8861,12 @@ function renderSsCompactTable() {
     { key: "Member 1", n: 1 },
     { key: "Member 2", n: 2 },
   ];
-  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Social Security</h3><div class="section-note">Enter each person’s FRA Age and claiming age. Monthly at Claim Age is calculated: it’s looked up from the benefit table below when that exact age is entered there, otherwise it’s derived from FRA Age and Monthly at FRA (in the benefit table section below) using the SSA reduction/delayed-credit factor. FRA Age defaults to 67 (SSA birth-year rule) if left blank.</div><div class="lot-table-wrap"><table class="lot-table compact-table ss-compact-table"><thead><tr><th>Person</th><th>FRA Age</th><th>Claim Age</th><th>Monthly at Claim Age</th></tr></thead><tbody>`;
+  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Social Security</h3><div class="section-note">Enter each person’s FRA Age, Monthly at FRA, and claiming age. Monthly at Claim Age is calculated: it’s looked up from a saved SSA benefit-table entry for that exact age when available, otherwise it’s derived from FRA Age and Monthly at FRA using the SSA reduction/delayed-credit factor. FRA Age defaults to 67 (SSA birth-year rule) if left blank.</div><div class="lot-table-wrap"><table class="lot-table compact-table ss-compact-table"><thead><tr><th>Person</th><th>FRA Age</th><th>Monthly at FRA</th><th>Claim Age</th><th>Monthly at Claim Age</th></tr></thead><tbody>`;
   people.forEach((p) => {
     const r = ssPersonRows(p.key);
     const by = {};
     r.forEach((x) => (by[norm(x.label)] = x));
-    html += `<tr><td><b>${esc(personDisplayName(p.n))}</b></td><td>${ssActiveCell(by.fra_age)}</td><td>${ssActiveCell(by.claim_age)}</td><td>${ssMonthlyAtClaimAgeCell(p.key, by.claim_age)}</td></tr>`;
+    html += `<tr><td><b>${esc(personDisplayName(p.n))}</b></td><td>${ssActiveCell(by.fra_age)}</td><td>${ssActiveCell(by.monthly_pia_at_fra_today_dollars)}</td><td>${ssActiveCell(by.claim_age)}</td><td>${ssMonthlyAtClaimAgeCell(p.key, by.claim_age)}</td></tr>`;
   });
   return html + "</tbody></table></div></div>";
 }
@@ -8926,6 +8927,12 @@ function renderSsPolicySection() {
     "monthly_pia_at_fra_today_dollars",
     "fra_age",
   ]);
+  // Per-age SSA benefit-table entries (62-70) still drive the Monthly at
+  // Claim Age lookup in the compact table above and the engine's benefit
+  // calculation, but are not shown as an editable table on this page.
+  const hiddenLabels = new Set(
+    Array.from({ length: 9 }, (_, i) => `ss_benefit_age_${62 + i}`),
+  );
   const excludedSubs = new Set(["funding discount"]);
   const rs = rows
     .filter(isEditable)
@@ -8933,6 +8940,7 @@ function renderSsPolicySection() {
       (r) =>
         r.section === "Social Security" &&
         !compactLabels.has(norm(r.label)) &&
+        !hiddenLabels.has(norm(r.label)) &&
         !excludedSubs.has(String(r.subsection || "").toLowerCase()),
     );
   if (!rs.length) return "";
@@ -8941,7 +8949,7 @@ function renderSsPolicySection() {
     const k = String(r.subsection || "");
     (bySub[k] = bySub[k] || []).push(r);
   });
-  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Social Security policy &amp; benefit details</h3><div class="section-note">Household-wide spousal and survivor policy, plus each person’s benefit table (the actual monthly SSA-quoted amount for every claim age 62-70 — enter these directly from the statement/estimator). Monthly at Claim Age above is looked up from this table, not calculated.</div>`;
+  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Social Security policy &amp; benefit details</h3><div class="section-note">Household-wide spousal and survivor policy settings.</div>`;
   Object.keys(bySub).forEach((sub) => {
     if (sub && sub.toLowerCase() !== "policy")
       html += `<div class="subsection-label">${esc(friendlyGroup({ section: "Social Security", subsection: sub }) || sub)}</div>`;
