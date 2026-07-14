@@ -90,6 +90,32 @@ Rebalancing,Tax-aware Trades,force_taxable_sell_drift_pct,8.00%,pct,Allows taxab
 Rebalancing,Tax-aware Trades,taxable_review_drift_pct,5.00%,pct,Review threshold for moderate taxable drift.
 Rebalancing,Objective Weights,drift_penalty_per_dollar,1.0,decimal,Higher values prioritize target allocation completeness over tax/turnover/location penalties.
 Rebalancing,Objective Weights,turnover_penalty_per_dollar,0.02,decimal,Higher values suppress trades unless drift/location/tax-loss benefits justify turnover.
+Annuity Calibration,Purchase Rate,seg1_age_start,0,years,Segment 1 start age of the carrier-agnostic annuity purchase-rate curve.
+Annuity Calibration,Purchase Rate,seg1_age_end,68,years,Segment 1 end age.
+Annuity Calibration,Purchase Rate,seg1_base_rate,5.00%,pct,Segment 1 base purchase rate.
+Annuity Calibration,Purchase Rate,seg1_slope,0.00%,pct,Segment 1 rate slope per year of age.
+Annuity Calibration,Purchase Rate,seg2_age_start,68,years,Segment 2 start age.
+Annuity Calibration,Purchase Rate,seg2_age_end,75,years,Segment 2 end age.
+Annuity Calibration,Purchase Rate,seg2_base_rate,5.00%,pct,Segment 2 base purchase rate.
+Annuity Calibration,Purchase Rate,seg2_slope,0.20%,pct,Segment 2 rate slope per year of age.
+Annuity Calibration,Purchase Rate,seg3_age_start,75,years,Segment 3 start age.
+Annuity Calibration,Purchase Rate,seg3_age_end,85,years,Segment 3 end age.
+Annuity Calibration,Purchase Rate,seg3_base_rate,6.40%,pct,Segment 3 base purchase rate.
+Annuity Calibration,Purchase Rate,seg3_slope,0.50%,pct,Segment 3 rate slope per year of age.
+Annuity Calibration,Purchase Rate,seg4_age_start,85,years,Segment 4 start age.
+Annuity Calibration,Purchase Rate,seg4_age_end,95,years,Segment 4 end age.
+Annuity Calibration,Purchase Rate,seg4_base_rate,11.40%,pct,Segment 4 base purchase rate.
+Annuity Calibration,Purchase Rate,seg4_slope,0.70%,pct,Segment 4 rate slope per year of age.
+Annuity Calibration,Purchase Rate,seg5_age_start,95,years,Segment 5 start age.
+Annuity Calibration,Purchase Rate,seg5_age_end,999,years,Segment 5 end age (999 = no upper bound; covers remaining lifetime).
+Annuity Calibration,Purchase Rate,seg5_base_rate,18.40%,pct,Segment 5 base purchase rate.
+Annuity Calibration,Purchase Rate,seg5_slope,1.50%,pct,Segment 5 rate slope per year of age.
+Annuity Calibration,Reserve Decay,reserve_decay_rate,0.975,decimal,Annual reserve decay factor applied for the first reserve_decay_period years.
+Annuity Calibration,Reserve Decay,reserve_decay_period,6,years,Number of years the initial reserve decay factor applies.
+Annuity Calibration,Reserve Decay,mortality_credit_boost,1.29,decimal,Multiplier applied to the reserve at mortality-credit onset.
+Annuity Calibration,Reserve Decay,post_credit_decay_rate,0.96,decimal,Annual reserve decay factor applied after the mortality-credit boost.
+Annuity Calibration,Reserve Decay,post_credit_decay_period,16,years,Years the post-credit decay factor applies before the late-life growth phase.
+Annuity Calibration,Reserve Decay,late_life_growth_rate,1.07,decimal,Annual reserve growth factor applied in the late-life transition phase.
 System Configuration,Plan Chat,enabled,NO,yes/no,NO keeps the Plan Chat UI/API feature disabled until AI chat implementation is intentionally re-enabled.
 System Configuration,Plan Chat,provider,OPENAI,choice,OPENAI uses ChatGPT/OpenAI API only when the named encrypted secret is configured; local fallback remains available.
 System Configuration,Plan Chat,openai_api_key,,secret,Deprecated; plaintext Plan Chat keys in CSV are ignored. Store the key in the encrypted secrets store and reference it with openai_api_key_secret_name.

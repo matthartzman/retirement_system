@@ -98,10 +98,27 @@ Annuity Calibration,Purchase Rate,seg1_age_start,integer,FALSE,0,0,120,Segment 1
 Annuity Calibration,Purchase Rate,seg1_age_end,integer,FALSE,68,0,120,Segment 1 end age
 Annuity Calibration,Purchase Rate,seg1_base_rate,percent,FALSE,5.00%,0,50,Segment 1 base rate
 Annuity Calibration,Purchase Rate,seg1_slope,percent,FALSE,0.00%,0,10,Segment 1 slope per year
+Annuity Calibration,Purchase Rate,seg2_age_start,integer,FALSE,68,0,120,Segment 2 start age
+Annuity Calibration,Purchase Rate,seg2_age_end,integer,FALSE,75,0,120,Segment 2 end age
+Annuity Calibration,Purchase Rate,seg2_base_rate,percent,FALSE,5.00%,0,50,Segment 2 base rate
+Annuity Calibration,Purchase Rate,seg2_slope,percent,FALSE,0.20%,0,10,Segment 2 slope per year
+Annuity Calibration,Purchase Rate,seg3_age_start,integer,FALSE,75,0,120,Segment 3 start age
+Annuity Calibration,Purchase Rate,seg3_age_end,integer,FALSE,85,0,120,Segment 3 end age
+Annuity Calibration,Purchase Rate,seg3_base_rate,percent,FALSE,6.40%,0,50,Segment 3 base rate
+Annuity Calibration,Purchase Rate,seg3_slope,percent,FALSE,0.50%,0,10,Segment 3 slope per year
+Annuity Calibration,Purchase Rate,seg4_age_start,integer,FALSE,85,0,120,Segment 4 start age
+Annuity Calibration,Purchase Rate,seg4_age_end,integer,FALSE,95,0,120,Segment 4 end age
+Annuity Calibration,Purchase Rate,seg4_base_rate,percent,FALSE,11.40%,0,50,Segment 4 base rate
+Annuity Calibration,Purchase Rate,seg4_slope,percent,FALSE,0.70%,0,10,Segment 4 slope per year
+Annuity Calibration,Purchase Rate,seg5_age_start,integer,FALSE,95,0,120,Segment 5 start age
+Annuity Calibration,Purchase Rate,seg5_age_end,integer,FALSE,999,0,999,Segment 5 end age (999 = no upper bound)
+Annuity Calibration,Purchase Rate,seg5_base_rate,percent,FALSE,18.40%,0,50,Segment 5 base rate
+Annuity Calibration,Purchase Rate,seg5_slope,percent,FALSE,1.50%,0,10,Segment 5 slope per year
 Annuity Calibration,Reserve Decay,reserve_decay_rate,number,FALSE,0.975,0,2,Annual decay factor (years 0-6)
 Annuity Calibration,Reserve Decay,reserve_decay_period,integer,FALSE,6,0,30,Years of initial decay
 Annuity Calibration,Reserve Decay,mortality_credit_boost,number,FALSE,1.29,0,5,Multiplier at mortality credit onset
 Annuity Calibration,Reserve Decay,post_credit_decay_rate,number,FALSE,0.96,0,2,Annual decay after mortality credit
+Annuity Calibration,Reserve Decay,post_credit_decay_period,integer,FALSE,16,0,40,Years of post-credit decay before the late-life growth phase
 Annuity Calibration,Reserve Decay,late_life_growth_rate,number,FALSE,1.07,0,2,Annual growth factor after transition
 Model Constants,Allocation,risk_tolerance,number,FALSE,0,0,10,Risk score 1-10 (0=auto-derive from age/withdrawal rate)
 Model Constants,Allocation,human_capital_stability,number,FALSE,0.80,0,1,Stability factor: 0.8=stable W-2; 0.5=variable/SE

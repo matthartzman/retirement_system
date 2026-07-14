@@ -1467,6 +1467,12 @@ const SYSTEM_CONFIG_PAGES = [
     desc: "Household-level tax-aware optimizer mode, risk limits, tax-aware trade controls, and objective weights.",
     filterSections: ["Rebalancing"],
   },
+  {
+    id: "annuity_calibration",
+    title: "Annuity calibration",
+    desc: "Carrier-agnostic annuity purchase-rate curve and reserve-decay factors used to value annuity income. Edit to match a specific carrier's rates.",
+    filterSections: ["Annuity Calibration"],
+  },
 ];
 function systemConfigPage(id) {
   return SYSTEM_CONFIG_PAGES.find((p) => p.id === id) || SYSTEM_CONFIG_PAGES[0];
