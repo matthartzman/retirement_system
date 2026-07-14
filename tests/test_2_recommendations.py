@@ -96,8 +96,25 @@ class RecommendationCompletionTests(unittest.TestCase):
         # funded as a cash need, not only used for the SALT deduction). Values
         # were regenerated against clean committed inputs — a fresh checkout / CI
         # reproduces them (holdings are pinned OFFLINE via tests/conftest.py).
-        self.assertAlmostEqual(rows[-1]['total_nw'], 6_745_962.88, delta=5000.0)
-        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 971_088.96, delta=5000.0)
+        #
+        # Item 168 (2026-07-14): `load_csv` merges every sibling client_*.csv
+        # file, so this sample config picks up client_household.csv's real
+        # per-age SS benefit tables even though client_data.csv itself has no
+        # SS fields. Fixing the SS benefit self-cancellation bug (13b089a)
+        # moved the claimed amount from a flat back-solved number to a real
+        # per-age table lookup (a small change: ~$5,080/mo flat -> the real
+        # age-70 figure), and separately fixed Social Security's present value
+        # being silently excluded from the fixed-income coverage calculation
+        # (ss_pv was always 0 before the fix). Together these ripple through
+        # the withdrawal/tax cascade to shift terminal net worth by ~$33k.
+        # Verified via `git worktree` bisection: the prior pin
+        # (6,745,962.88 / 971,088.96) reproduces exactly at commit dcfe794, and
+        # the new value reproduces exactly at 13b089a (the SS-benefit-fix
+        # commit) and every commit since, in a clean checkout free of
+        # gitignored local cache files (which can inflate a plain working-tree
+        # run by $800k+ - see item 143).
+        self.assertAlmostEqual(rows[-1]['total_nw'], 6_712_722.02, delta=5000.0)
+        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 965_325.67, delta=5000.0)
 
     def test_fixed_point_taxable_withdrawal_solver_runs_before_roth(self):
         # The fixed-point solver only runs when there's sufficient investment tax
