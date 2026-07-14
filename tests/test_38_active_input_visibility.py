@@ -21,13 +21,20 @@ def test_dashboard_has_shared_active_input_usage_layer_and_page_summary():
 
 def test_social_security_pia_and_claim_age_inputs_are_mutually_explained():
     js = read("frontend/js/dashboard.js")
+    # The general "Inactive values" summary (elsewhere on the page) still
+    # explains why a saved-but-unused FRA/PIA value isn't driving the build.
     assert "Monthly at FRA/PIA is blank or zero" in js
     assert (
         "the build uses the age-67 (Full Retirement Age) entry from this person's benefit table instead"
         in js
     )
-    assert "ssActiveCell" in js
-    assert "Inactive — listed above" in js
+    assert "function ssActiveCell" in js
+    # But the Social Security compact table itself always renders Claim Age,
+    # Monthly at FRA, and FRA Age as live editable inputs rather than
+    # blocking them behind an inactive placeholder, so a user can enter FRA
+    # values directly to derive the benefit at any claim age.
+    assert "Inactive — listed above" not in js
+    assert "fra_age" in js
 
 
 def test_allocation_optimizer_hides_unused_user_targets_and_lists_them_inactive():

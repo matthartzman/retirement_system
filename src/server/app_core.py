@@ -742,6 +742,11 @@ SOCIAL_SECURITY_FUNDING_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Social Security", "Funding Discount", "ss_funding_discount_pct", "22.00%", "percent", "Percentage reduction to gross Social Security benefits from the funding-discount year onward. Default 22%."],
 ]
 
+SS_FRA_AGE_UI_PLAN_DATA_ROWS: list[list[str]] = [
+    ["Social Security", "Member 1", "fra_age", "0", "number", "Full Retirement Age (SSA), in years, e.g. 66.67 for 66 years 8 months. 0 auto-derives from date of birth (67 for birth year 1960 or later); otherwise enter 60-70."],
+    ["Social Security", "Member 2", "fra_age", "0", "number", "Full Retirement Age (SSA), in years, e.g. 66.67 for 66 years 8 months. 0 auto-derives from date of birth (67 for birth year 1960 or later); otherwise enter 60-70."],
+]
+
 HEALTHCARE_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Wellness", "Medicare", "part_g_base_premium_monthly", "$0", "dollars", "Current monthly Medicare Supplement Plan G / Medigap-style premium per Medicare-enrolled person. Enter $0 if no supplement is modeled."],
 ]
@@ -844,6 +849,7 @@ def _ensure_user_ui_plan_data_rows() -> None:
     _ensure_roth_ui_plan_data_rows()
     _ensure_hsa_withdrawal_ui_plan_data_rows()
     _ensure_social_security_funding_ui_plan_data_rows()
+    _ensure_ss_fra_age_ui_plan_data_rows()
     _ensure_wellness_ui_plan_data_rows()
     _ensure_heloc_ui_plan_data_rows()
     _ensure_core_spending_ui_plan_data_rows()
@@ -881,6 +887,25 @@ def _ensure_social_security_funding_ui_plan_data_rows() -> None:
             break
     rows[insert_at:insert_at] = additions
     _csv_write_rows(income_path, rows)
+
+
+def _ensure_ss_fra_age_ui_plan_data_rows() -> None:
+    """Backfill FRA Age override rows into client_household.csv for existing plans."""
+    household_path = _plan_data_path("client_household.csv", prefer_existing=False)
+    rows = _ensure_header(_csv_read_rows(household_path))
+    seen = {_row_key(r) for r in rows[1:]}
+    additions = [list(row) for row in SS_FRA_AGE_UI_PLAN_DATA_ROWS if _row_key(row) not in seen]
+    if not additions:
+        return
+    insert_at = len(rows)
+    for i, row in enumerate(rows[1:], start=1):
+        sec = str(row[0] if row else "").strip()
+        lbl = str(row[2] if len(row) > 2 else "").strip()
+        if sec == "Social Security" and lbl == "spousal_benefits_enabled":
+            insert_at = i
+            break
+    rows[insert_at:insert_at] = additions
+    _csv_write_rows(household_path, rows)
 
 
 def _ensure_wellness_ui_plan_data_rows() -> None:

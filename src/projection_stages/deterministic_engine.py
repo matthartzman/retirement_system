@@ -358,7 +358,9 @@ def run_deterministic_projection_stage(c):
         tax += max(0.0, remaining) * 0.20
         return max(0.0, tax)
 
-    def _fra_for_birth_year(dob_year):
+    def _fra_for_birth_year(dob_year, fra_override=None):
+        if fra_override and float(fra_override) > 0:
+            return float(fra_override)
         dob_year = int(dob_year or 1960)
         if dob_year >= 1960:
             return 67.0
@@ -370,9 +372,9 @@ def run_deterministic_projection_stage(c):
             return 66.0
         return 66.0 + (dob_year - 1954) * (2.0 / 12.0)
 
-    def _ss_claim_factor(claim_age, dob_year):
+    def _ss_claim_factor(claim_age, dob_year, fra_override=None):
         # SSA reduction/credit factors relative to PIA at FRA.
-        fra = _fra_for_birth_year(dob_year)
+        fra = _fra_for_birth_year(dob_year, fra_override)
         months = int(round((float(claim_age or fra) - fra) * 12))
         if months >= 0:
             return 1.0 + months * (0.08 / 12.0)
@@ -381,9 +383,9 @@ def run_deterministic_projection_stage(c):
         extra = max(0, early - 36) * (5.0 / 1200.0)
         return max(0.0, 1.0 - first36 - extra)
 
-    def _ss_benefit_from_age70(monthly_at_70, claim_age, dob_year):
-        f70 = _ss_claim_factor(70, dob_year) or 1.0
-        return float(monthly_at_70 or 0.0) * (_ss_claim_factor(claim_age, dob_year) / f70)
+    def _ss_benefit_from_age70(monthly_at_70, claim_age, dob_year, fra_override=None):
+        f70 = _ss_claim_factor(70, dob_year, fra_override) or 1.0
+        return float(monthly_at_70 or 0.0) * (_ss_claim_factor(claim_age, dob_year, fra_override) / f70)
 
     def _basis_stepup_fraction(decedent_owned=True):
         regime = str(c.get('basis_step_up_property_regime', 'COMMON_LAW') or 'COMMON_LAW').upper()
@@ -755,18 +757,24 @@ def run_deterministic_projection_stage(c):
         w_benefit_table = c.get('w_ss_benefit_table', {}) or {}
         h_pia = float(c.get('h_ss_pia', 0.0) or 0.0) or h_benefit_table.get(67, 0.0)
         w_pia = float(c.get('w_ss_pia', 0.0) or 0.0) or w_benefit_table.get(67, 0.0)
-        h_monthly_claim = h_benefit_table.get(h_claim_age, h_pia)
-        w_monthly_claim = w_benefit_table.get(w_claim_age, w_pia)
+        h_fra_override = c.get('h_fra_age')
+        w_fra_override = c.get('w_fra_age')
+        # Prefer the real SSA-quoted table entry for the chosen claim age. If
+        # that specific age wasn't entered, derive it from the FRA/PIA amount
+        # via the SSA reduction/delayed-credit factor instead of defaulting
+        # flatly to the FRA amount (which is only correct when claiming at FRA).
+        h_monthly_claim = h_benefit_table.get(h_claim_age) or (h_pia * _ss_claim_factor(h_claim_age, c['h_dob_yr'], h_fra_override))
+        w_monthly_claim = w_benefit_table.get(w_claim_age) or (w_pia * _ss_claim_factor(w_claim_age, c['w_dob_yr'], w_fra_override))
         if c.get('spousal_benefits_enabled', True):
             # Deemed filing/spousal top-up approximation: once both spouses have
             # claimed, each can receive up to 50% of the other's PIA, reduced for
             # claiming before FRA.
-            if h_claim_age < _fra_for_birth_year(c['h_dob_yr']):
-                h_spousal_factor = _ss_claim_factor(h_claim_age, c['h_dob_yr'])
+            if h_claim_age < _fra_for_birth_year(c['h_dob_yr'], h_fra_override):
+                h_spousal_factor = _ss_claim_factor(h_claim_age, c['h_dob_yr'], h_fra_override)
             else:
                 h_spousal_factor = 1.0
-            if w_claim_age < _fra_for_birth_year(c['w_dob_yr']):
-                w_spousal_factor = _ss_claim_factor(w_claim_age, c['w_dob_yr'])
+            if w_claim_age < _fra_for_birth_year(c['w_dob_yr'], w_fra_override):
+                w_spousal_factor = _ss_claim_factor(w_claim_age, c['w_dob_yr'], w_fra_override)
             else:
                 w_spousal_factor = 1.0
             h_monthly_claim = max(h_monthly_claim, 0.5 * w_pia * h_spousal_factor)
