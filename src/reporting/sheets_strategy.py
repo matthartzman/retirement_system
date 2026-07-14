@@ -114,8 +114,19 @@ def build_sheet10(ws, c, rows):
     ws.sheet_view.showGridLines = False
     section_title(ws, 1, 'SOCIAL SECURITY CLAIMING STRATEGY', 10)
 
-    from ..planning_engines import project
+    from ..planning_engines import project, monte_carlo
     import copy as _copy
+    import contextlib as _contextlib
+    import io as _io
+
+    # Reduced-cost Monte Carlo settings for the sweep only: fewer paths and a
+    # single-sim sensitivity grid (the grid always runs, so this is the
+    # cheapest way to neutralize its cost) keep 81 MC runs fast. A single
+    # fixed seed is reused for every pair so all pairs see the same simulated
+    # market/mortality paths - differences in success rate/percentile are
+    # then attributable to the claim-age choice, not random noise.
+    SWEEP_MC_SIMS = 200
+    SWEEP_MC_SEED = 4242
 
     base_rows = list(rows or [])
     base_terminal = float(base_rows[-1].get('total_nw', 0.0) or 0.0) if base_rows else 0.0
@@ -145,6 +156,22 @@ def build_sheet10(ws, c, rows):
         # IRMAA drag. The sheet reports the components so the recommendation is
         # transparent rather than hard-coded to age 70.
         score = terminal + lifetime_ss - lifetime_tax - irmaa
+        # Informational-only probabilistic metrics: do NOT feed the score or
+        # the recommendation above. Delaying SS is fundamentally a longevity/
+        # market-risk hedge that a single deterministic mortality assumption
+        # can't show; these columns surface that without replacing the
+        # deterministic ranking this sheet has always used.
+        mc_success_rate = None
+        mc_p10_terminal_nw = None
+        try:
+            c2['mc_sims'] = SWEEP_MC_SIMS
+            c2['mc_sensitivity_sims'] = 1
+            with _contextlib.redirect_stdout(_io.StringIO()):
+                mc_result = monte_carlo(c2, n_sims=SWEEP_MC_SIMS, seed=SWEEP_MC_SEED)
+            mc_success_rate = float(mc_result.get('success_rate', 0.0) or 0.0)
+            mc_p10_terminal_nw = float((mc_result.get('terminal_total_nw') or {}).get(10, 0.0) or 0.0)
+        except Exception:
+            pass
         return {
             'h_age': int(h_age), 'w_age': int(w_age), 'terminal_nw': terminal,
             'lifetime_tax': lifetime_tax, 'lifetime_ss': lifetime_ss,
@@ -152,6 +179,8 @@ def build_sheet10(ws, c, rows):
             'delta_terminal': terminal - base_terminal,
             'delta_tax': lifetime_tax - base_tax,
             'delta_ss': lifetime_ss - base_ss,
+            'mc_success_rate': mc_success_rate,
+            'mc_p10_terminal_nw': mc_p10_terminal_nw,
         }
 
     scenarios = []
@@ -163,7 +192,7 @@ def build_sheet10(ws, c, rows):
     current = next((x for x in scenarios if x['h_age'] == h_current and x['w_age'] == w_current), None)
 
     r = 3
-    write_hdr(ws, r, 1, 'Recommended spouse-pair claim ages from full projection sweep', NAVY, WHITE, span=10); r += 1
+    write_hdr(ws, r, 1, 'Recommended spouse-pair claim ages from full projection sweep', NAVY, WHITE, span=12); r += 1
     _s1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
     _s2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
     summary = [
@@ -177,42 +206,46 @@ def build_sheet10(ws, c, rows):
         write_cell(ws, r, 1, label, bold=True, bg=LGRAY)
         write_cell(ws, r, 2, value, fmt=FMT_DOLLAR if isinstance(value, (int, float)) and 'Age' not in label else None)
         write_cell(ws, r, 3, note)
-        ws.merge_cells(start_row=r, start_column=3, end_row=r, end_column=10)
+        ws.merge_cells(start_row=r, start_column=3, end_row=r, end_column=12)
         r += 1
 
     r += 1
-    write_hdr(ws, r, 1, 'Top 10 claiming pairs — full projection ranking', NAVY, WHITE, span=10); r += 1
-    hdrs = ['Rank', 'H Claim', 'W Claim', 'Score', 'Terminal NW', 'Δ Terminal NW', 'Lifetime SS', 'Δ Lifetime SS', 'Lifetime Tax', 'IRMAA']
+    write_hdr(ws, r, 1, 'Top 10 claiming pairs — full projection ranking', NAVY, WHITE, span=12); r += 1
+    hdrs = ['Rank', 'H Claim', 'W Claim', 'Score', 'Terminal NW', 'Δ Terminal NW', 'Lifetime SS', 'Δ Lifetime SS', 'Lifetime Tax', 'IRMAA', 'MC Success %', 'MC P10 Terminal NW']
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
     r += 1
     for rank, sc in enumerate(scenarios[:10], 1):
-        vals = [rank, sc['h_age'], sc['w_age'], sc['score'], sc['terminal_nw'], sc['delta_terminal'], sc['lifetime_ss'], sc['delta_ss'], sc['lifetime_tax'], sc['irmaa']]
+        vals = [rank, sc['h_age'], sc['w_age'], sc['score'], sc['terminal_nw'], sc['delta_terminal'], sc['lifetime_ss'], sc['delta_ss'], sc['lifetime_tax'], sc['irmaa'], sc.get('mc_success_rate'), sc.get('mc_p10_terminal_nw')]
         bg = 'E2EFDA' if rank == 1 else ('F4F5F7' if sc is current else None)
         for i, val in enumerate(vals, 1):
-            write_cell(ws, r, i, val, fmt=FMT_DOLLAR if i >= 4 else None, bg=bg)
+            fmt = FMT_PCT if i == 11 else (FMT_DOLLAR if i >= 4 else None)
+            write_cell(ws, r, i, val, fmt=fmt, bg=bg)
         r += 1
 
     r += 2
-    write_hdr(ws, r, 1, 'Complete 62–70 × 62–70 spouse-pair sweep', NAVY, WHITE, span=10); r += 1
-    hdrs = ['H Claim', 'W Claim', 'Score', 'Terminal NW', 'Δ Terminal NW', 'Lifetime SS', 'Δ Lifetime SS', 'Lifetime Tax', 'IRMAA', 'Survivor Years']
+    write_hdr(ws, r, 1, 'Complete 62–70 × 62–70 spouse-pair sweep', NAVY, WHITE, span=12); r += 1
+    hdrs = ['H Claim', 'W Claim', 'Score', 'Terminal NW', 'Δ Terminal NW', 'Lifetime SS', 'Δ Lifetime SS', 'Lifetime Tax', 'IRMAA', 'Survivor Years', 'MC Success %', 'MC P10 Terminal NW']
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
     r += 1
     for sc in sorted(scenarios, key=lambda d: (d['h_age'], d['w_age'])):
-        vals = [sc['h_age'], sc['w_age'], sc['score'], sc['terminal_nw'], sc['delta_terminal'], sc['lifetime_ss'], sc['delta_ss'], sc['lifetime_tax'], sc['irmaa'], sc['survivor_years']]
+        vals = [sc['h_age'], sc['w_age'], sc['score'], sc['terminal_nw'], sc['delta_terminal'], sc['lifetime_ss'], sc['delta_ss'], sc['lifetime_tax'], sc['irmaa'], sc['survivor_years'], sc.get('mc_success_rate'), sc.get('mc_p10_terminal_nw')]
         bg = 'E2EFDA' if sc is best else ('F4F5F7' if sc is current else None)
         for i, val in enumerate(vals, 1):
-            write_cell(ws, r, i, val, fmt=FMT_DOLLAR if i in (3,4,5,6,7,8,9) else None, bg=bg)
+            fmt = FMT_PCT if i == 11 else (FMT_DOLLAR if i in (3,4,5,6,7,8,9,12) else None)
+            write_cell(ws, r, i, val, fmt=fmt, bg=bg)
         r += 1
 
     r += 1
     note = ('This sheet runs every husband/wife claiming-age pair from 62 through 70 through the projection engine. '
-            'It does not use a static break-even table or a hard-coded age-70 answer. Results remain sensitive to the selected Roth policy, mortality assumptions, ACA/IRMAA interactions, and survivor-benefit settings.')
+            'It does not use a static break-even table or a hard-coded age-70 answer. Results remain sensitive to the selected Roth policy, mortality assumptions, ACA/IRMAA interactions, and survivor-benefit settings. '
+            f'MC Success % and MC P10 Terminal NW are informational Monte Carlo metrics ({SWEEP_MC_SIMS} paths per pair, one fixed seed reused across all pairs for apples-to-apples comparison, minimal sensitivity grid) — '
+            'they do not affect the score or recommendation above; a full-precision Monte Carlo run for the recommended pair is on Sheet 15.')
     write_cell(ws, r, 1, note, bg='F4F5F7', align='left')
-    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=12)
 
-    for col in range(1, 11):
+    for col in range(1, 13):
         ws.column_dimensions[get_column_letter(col)].width = 16
     qc('10. Social Security', 'Claim ages 62-70 swept by spouse against full projection', True, '')
 
