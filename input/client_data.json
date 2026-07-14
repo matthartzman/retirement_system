@@ -959,13 +959,13 @@
       "description": "as-modeled plan"
     },
     "Combined Stress Test": {
-      "include_high_inflation": "FALSE",
+      "include_high_inflation": "TRUE",
       "include_low_return": "TRUE",
-      "include_pdia_5050": "FALSE",
+      "include_pdia_5050": "YES",
       "include_pdia_low_div": "TRUE",
-      "include_retire_later": "FALSE",
+      "include_retire_later": "TRUE",
       "include_sell_home": "TRUE",
-      "include_spend_more": "FALSE"
+      "include_spend_more": "TRUE"
     },
     "Demo_Divorce_Settlement": {
       "divorce_year": "2030"
@@ -1032,7 +1032,7 @@
       "ss_funding_discount_year": "2032"
     },
     "Member 1": {
-      "claim_age": "69",
+      "claim_age": "68",
       "fra_age": "67.00",
       "monthly_pia_at_fra_today_dollars": "0",
       "ss_benefit_age_62": "$2,835",
