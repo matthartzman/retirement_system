@@ -48,10 +48,16 @@ class AllocationUIModePanelsTests(unittest.TestCase):
         self.assertAlmostEqual(sum(out['liquid_targets'].values()), 1.0, places=8)
         # Override targets are retained as total-target context, but covered
         # fixed-income sleeves are removed from the active liquid target before
-        # the remaining liquid allocation is normalized.
+        # the remaining liquid allocation is normalized. Item 168 (2026-07-14):
+        # the Social Security benefit self-cancellation fix also fixed SS's
+        # present value being silently excluded from fixed-income coverage
+        # (ss_pv was always 0 before). With this household's SS PV correctly
+        # counted (~$1.37M), the fixed-income sleeve is now fully covered by
+        # guaranteed income, so "Bonds" is fully absorbed (removed from the
+        # dict entirely, not just reduced) rather than merely shrunk.
         self.assertAlmostEqual(out['total_targets']['US Large Cap'], 0.60, places=8)
         self.assertAlmostEqual(out['total_targets']['Bonds/Fixed Income'], 0.35, places=8)
-        self.assertLess(out['liquid_targets']['Bonds'], 0.35)
+        self.assertLess(out['liquid_targets'].get('Bonds', 0.0), 0.35)
         self.assertGreater(out['liquid_targets']['US Large Cap'], 0.60)
         self.assertGreater(out['liquid_targets']['Cash'], 0.05)
 

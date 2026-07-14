@@ -18,12 +18,12 @@
       "sha256": "17d3fc659c4d3fec2e87e5d0ddbd0105512648e08f88cba20e4dc1a88becf585"
     },
     "client_household.csv": {
-      "bytes": 8569,
-      "sha256": "a18c1b5bef0590fe378ed445989b76a1961de788c278f9d5949811199aac85ae"
+      "bytes": 9119,
+      "sha256": "0af0e439eb83e7d65bb1a2ea73706258f238984e3b8ee61c689d1d18979cc200"
     },
     "client_income.csv": {
-      "bytes": 10818,
-      "sha256": "ea39681f86c15fc4848e387ed6779f9f7d32c443bedb27e1d768b6aea2bd6d57"
+      "bytes": 14300,
+      "sha256": "7b1812aa1cf22de6e7ae612262613a20358726d8b2a78bc060657e638c596da6"
     },
     "client_insurance_estate.csv": {
       "bytes": 12979,
