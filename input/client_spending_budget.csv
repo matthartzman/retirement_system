@@ -82,7 +82,7 @@ line,travel_housing,Travel - Housing,2617,,,,Recurring line so Travel breaks out
 line,travel_insurance,Travel - Insurance,159,,,,Recurring line so Travel breaks out as its own Cash Flow Projection column,,category_budget,detail
 line,travel_plane_train_bus,Travel - Plane/Train/Bus,2744,,,,Recurring line so Travel breaks out as its own Cash Flow Projection column,,category_budget,detail
 line,travel_vacation,Travel & Vacation,8127,,,,Recurring line so Travel breaks out as its own Cash Flow Projection column,,category_budget,detail
-line,significant_gifts,10k for each 2026,40000,,,2026,,,large_discretionary,detail
+line,significant_gifts,10k for each child in  2026,40000,,,2026,,,large_discretionary,detail
 line,travel_total,Travel Budget Total,10744,,,,Auto-synced from taxonomy budget,,travel,summary
 line,healthcare_total,Healthcare Budget Total,7100,,,,Auto-synced from taxonomy budget,,healthcare,summary
 line,housing_total,Housing Budget Total,36000,,,,Auto-synced from taxonomy budget,,housing,summary
