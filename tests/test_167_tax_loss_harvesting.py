@@ -80,12 +80,13 @@ class EngineIntegrationTests(unittest.TestCase):
         c = sample_config('off')
         rows = project(c)
         # Golden master reflects items 182 (pre-65 bridge always applies), 184
-        # (real-estate tax funded as a cash need), and 168 (SS benefit
-        # self-cancellation fix, see test_2_recommendations.py for detail) —
-        # regenerated against clean committed inputs; the TLH-off no-op
-        # property holds against it.
-        self.assertAlmostEqual(rows[-1]['total_nw'], 6_712_722.02, delta=5000.0)
-        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 965_325.67, delta=5000.0)
+        # (real-estate tax funded as a cash need), 168 (SS benefit
+        # self-cancellation fix), and 169 (household claim age 70->69, see
+        # test_2_recommendations.py for detail, including a note on this
+        # value's test-order dependency) — regenerated against clean
+        # committed inputs; the TLH-off no-op property holds against it.
+        self.assertAlmostEqual(rows[-1]['total_nw'], 6_773_055.26, delta=5000.0)
+        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 972_538.69, delta=5000.0)
         self.assertTrue(all(r.get('tlh_harvested_loss', 0) == 0 for r in rows))
         self.assertTrue(all(r.get('cap_loss_carryforward', 0) == 0 for r in rows))
 
