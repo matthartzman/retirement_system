@@ -498,6 +498,11 @@ def build_sheet8(ws, c, rows, mc_data=None):
         _ef_stats = _ao.allocation_portfolio_stats(c)
     except Exception:
         _ef_points, _ef_stats = [], None
+    try:
+        _cur_weights = {bkt: val for bkt, val in zip(_pie_buckets, _pie_before) if bkt in _ao.ASSET_CLASSES}
+        _cur_stats = _ao.portfolio_stats_from_weights(c, _cur_weights) if _cur_weights else None
+    except Exception:
+        _cur_stats = None
     if _ef_points and len(_ef_points) >= 2:
         from openpyxl.chart import ScatterChart, Series
         from openpyxl.chart.marker import Marker
@@ -518,6 +523,14 @@ def build_sheet8(ws, c, rows, mc_data=None):
             write_cell(ws, ef_src, 5, 'Rec Return', bold=True)
             write_cell(ws, ef_src + 1, 4, _rec_vol, fmt=FMT_PCT)
             write_cell(ws, ef_src + 1, 5, _rec_ret, fmt=FMT_PCT)
+
+        _cur_vol = float(_cur_stats.get('volatility', 0.0) or 0.0) if _cur_stats else None
+        _cur_ret = float(_cur_stats.get('expected_return', 0.0) or 0.0) if _cur_stats else None
+        if _cur_vol is not None:
+            write_cell(ws, ef_src, 7, 'Cur Volatility', bold=True)
+            write_cell(ws, ef_src, 8, 'Cur Return', bold=True)
+            write_cell(ws, ef_src + 1, 7, _cur_vol, fmt=FMT_PCT)
+            write_cell(ws, ef_src + 1, 8, _cur_ret, fmt=FMT_PCT)
 
         _sc = ScatterChart()
         _sc.title = 'Efficient Frontier — Risk vs. Return'
@@ -546,6 +559,14 @@ def build_sheet8(ws, c, rows, mc_data=None):
             _rs.marker = Marker(symbol='diamond', size=11)
             _rs.graphicalProperties = GraphicalProperties(ln=LineProperties(noFill=True))
             _sc.series.append(_rs)
+
+        if _cur_vol is not None:
+            _cxref = Reference(ws, min_col=7, min_row=ef_src + 1, max_row=ef_src + 1)
+            _cyref = Reference(ws, min_col=8, min_row=ef_src + 1, max_row=ef_src + 1)
+            _cs = Series(_cyref, _cxref, title='Current Portfolio')
+            _cs.marker = Marker(symbol='square', size=11)
+            _cs.graphicalProperties = GraphicalProperties(ln=LineProperties(noFill=True))
+            _sc.series.append(_cs)
 
         chart_ws.add_chart(_sc, 'A216')
         _ef_chart_added = True
