@@ -343,7 +343,6 @@
     "": {
       "annuity_default_additional_income_pct": "20.00%",
       "annuity_default_dividend_rate": "5.00%",
-      "annuity_default_pay_in_cash_pct": "80.00%",
       "cash_yield_rate": "1.00%",
       "fed_tax_bracket_inflator": "2.00%",
       "inflation_general": "2.50%",
@@ -1034,6 +1033,7 @@
     },
     "Member 1": {
       "claim_age": "70",
+      "fra_age": "0",
       "monthly_pia_at_fra_today_dollars": "0",
       "ss_benefit_age_62": "$2,835",
       "ss_benefit_age_63": "$3,038",
@@ -1047,6 +1047,7 @@
     },
     "Member 2": {
       "claim_age": "70",
+      "fra_age": "0",
       "monthly_pia_at_fra_today_dollars": "0",
       "ss_benefit_age_62": "$2,351",
       "ss_benefit_age_63": "$2,519",
