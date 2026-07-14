@@ -558,7 +558,6 @@ def parse_client(data, url_template):
     c['roth_brk']  = _n(_v(data,'Economic Assumptions','',f'roth_conversion_target_bracket_{TAX_BASE_YEAR}','0.22'), 0.22)
     c['ann_div']   = _n(_v(data,'Economic Assumptions','','annuity_default_dividend_rate','0.0575'), 0.0575)
     c['ann_add']   = _n(_v(data,'Economic Assumptions','','annuity_default_additional_income_pct','0.2'), 0.2)
-    c['ann_cash']  = _n(_v(data,'Economic Assumptions','','annuity_default_pay_in_cash_pct','0.8'), 0.8)
 
     # Social Security.  Users enter a per-spouse claim age plus the actual
     # SSA-quoted monthly benefit for each claim age 62-70 (facts from the SSA
@@ -1223,11 +1222,9 @@ def parse_client(data, url_template):
         s['first_yr'] = _y(_v(data,'Income Streams',name,'first_payment', str(c['plan_start'] + 3)).split('/')[-1], c['plan_start'] + 3)
         s['base']     = _n(_v(data,'Income Streams',name,'base','0'), 0)
         s['div_rate'] = _n(_v(data,'Income Streams',name,'dividend_rate',str(c['ann_div'])), c['ann_div'])
-        # add_pct = reinvested fraction (20% default); cash payout = 80%
+        # add_pct = reinvested fraction (20% default); cash payout = 1 - add_pct
         s['add_pct']  = _n(_v(data,'Income Streams',name,'additional_income_pct',str(c['ann_add'])), c['ann_add'])
-        s['cash_pct'] = 1.0 - s['add_pct']   # 80% cash out
         s['init_pmt'] = _n(_v(data,'Income Streams',name,'initial_guaranteed_income_payment','0'), 0)
-        s['cum_at_death']     = _n(_v(data,'Income Streams',name,'cumulative_at_death','0'), 0)
         # Deferral years: contract years before income starts where dividends are 100% reinvested
         s['deferral_years']   = int(_n(_v(data,'Income Streams',name,'deferral_years','0'), 0))
         # Reserve model calibration (deferred income annuity): reserve_factor anchors the dividend base,
@@ -1235,10 +1232,6 @@ def parse_client(data, url_template):
         s['reserve_factor']   = _n(_v(data,'Income Streams',name,'reserve_factor','0.853'), 0.853)
         # Market type: qualified (IRA/401k) vs non-qualified (Personal) — affects state taxation
         s['qualified']        = _b(_v(data,'Income Streams',name,'qualified','TRUE'))
-        # Purchase year: when the premium transfers from IRA to annuity.
-        # 0 = already purchased (no deduction). >0 = deduct base from source IRA that year.
-        s['purchase_year']    = _y(_v(data,'Income Streams',name,'purchase_year','0'), 0)
-        s['source_account']   = (_v(data,'Income Streams',name,'source_account','') or '').strip()
         # Exclusion ratio for non-qualified annuities: taxable fraction of each payment.
         # Qualified (IRA) annuities are 100% taxable (no basis). Default 1.0.
         s['exclusion_ratio']  = _n(_v(data,'Income Streams',name,'exclusion_ratio','1.0'), 1.0)
@@ -1263,7 +1256,6 @@ def parse_client(data, url_template):
     # If it was a plain integer like "100", _n returns 100.0 → divide by 100.
     if '%' not in str(_js_raw):
         c['js_pct'] /= 100.0
-    c['pv_age']         = _n((_v(data,'Income Streams','Present Value Horizon','age_to_value_through',None) or _v(data,'Income Streams','PV Horizon','age_to_value_through','85')), 85)
 
     # Plan settings are system/model controls, sourced from system_config.csv.
     c['model_niit']       = _b(_sv('Plan Settings','Tax Detail','model_niit','TRUE'))

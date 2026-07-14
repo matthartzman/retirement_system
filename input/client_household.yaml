@@ -2,7 +2,6 @@ Economic Assumptions:
   ? ''
   : annuity_default_additional_income_pct: 20.00%
     annuity_default_dividend_rate: 5.75%
-    annuity_default_pay_in_cash_pct: 80.00%
     fed_tax_bracket_inflator: 2.00%
     inflation_general: 2.50%
     medicare_part_b_inflation: 5.50%

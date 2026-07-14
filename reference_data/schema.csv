@@ -11,7 +11,6 @@ Household,,residence_state,text,TRUE,Illinois,,,"State for tax, estate analysis"
 Household,,filing_status,choice,TRUE,MFJ,,,MFJ | Single | HOH | MFS
 Household,,survivor_filing_status,choice,FALSE,Single,,,Filing status after first death: Single | HOH
 Household,,survivor_has_dependent,boolean,FALSE,FALSE,,,Enables QSS brackets.
-Plan Settings,Annuity Valuation,net_worth_method,choice,TRUE,pv_through_mortality_age,,,pv_through_mortality_age | cumulative_at_death
 Plan Settings,Tax Detail,model_niit,boolean,TRUE,TRUE,,,Model 3.8% NIIT
 Plan Settings,Estate,model_state_estate_tax,boolean,TRUE,TRUE,,,Model state estate tax
 Economic Assumptions,,inflation_general,percent,TRUE,2.50%,0,10,CPI for spending and home

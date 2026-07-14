@@ -565,7 +565,6 @@ function choicesFor(row) {
     config_backend: ["SQLITE", "CSV", "YAML", "JSON"],
     filing_status: ["MFJ", "Single", "HOH", "MFS"],
     survivor_filing_status: ["Single", "HOH", "MFS"],
-    net_worth_method: ["pv_through_mortality_age", "cumulative_at_death"],
     allocation_selection_mode: ["user_target", "optimizer_recommendation"],
     selection_action: ["include", "exclude", "consider_alternate_first"],
     roth_conversion_policy: [
