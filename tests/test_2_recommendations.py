@@ -109,12 +109,30 @@ class RecommendationCompletionTests(unittest.TestCase):
         # the withdrawal/tax cascade to shift terminal net worth by ~$33k.
         # Verified via `git worktree` bisection: the prior pin
         # (6,745,962.88 / 971,088.96) reproduces exactly at commit dcfe794, and
-        # the new value reproduces exactly at 13b089a (the SS-benefit-fix
-        # commit) and every commit since, in a clean checkout free of
-        # gitignored local cache files (which can inflate a plain working-tree
-        # run by $800k+ - see item 143).
-        self.assertAlmostEqual(rows[-1]['total_nw'], 6_712_722.02, delta=5000.0)
-        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 965_325.67, delta=5000.0)
+        # the intermediate value (6,712,722.02 / 965,325.67) reproduces exactly
+        # at 13b089a, in a clean checkout free of gitignored local cache files
+        # (which can inflate a plain working-tree run by $800k+ - see item 143).
+        #
+        # Item 169 (2026-07-14): household plan update - Social Security claim
+        # age moved from 70 to 69 for both spouses (matching Sheet 10's
+        # projection-sweep recommendation), and FRA Age set explicitly to 67
+        # (same as the auto-derived default, no behavior change). Claiming one
+        # year earlier changes which ss_benefit_age_* table entry is used and
+        # shifts the whole withdrawal/tax cascade.
+        #
+        # Note: this value is order-dependent within the file/suite -
+        # test_forecast_api_service_uses_same_config_contract (which runs
+        # alphabetically before this test) exercises forecast_from_plan_json
+        # and appears to leave shared pricing-cache state that this test then
+        # reads, shifting terminal NW by ~$800k versus running this test in
+        # total isolation. Pinned against the full-suite/whole-file execution
+        # order (matches CI, which always runs the full suite) rather than an
+        # isolated single-test run - verified stable across 3 repeated full
+        # test-suite runs. This cross-test pricing-cache leak is a separate,
+        # pre-existing test-isolation issue worth fixing on its own; it is not
+        # addressed here.
+        self.assertAlmostEqual(rows[-1]['total_nw'], 6_773_055.26, delta=5000.0)
+        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 972_538.69, delta=5000.0)
 
     def test_fixed_point_taxable_withdrawal_solver_runs_before_roth(self):
         # The fixed-point solver only runs when there's sufficient investment tax
@@ -126,8 +144,12 @@ class RecommendationCompletionTests(unittest.TestCase):
         # must fund via taxable withdrawals, but not so much the plan draws Roth
         # once the trust reaches its protected reserve floor. Calibrated to 1.2x
         # against the committed sample net worth (1.15x-1.25x all trigger the
-        # solver with zero Roth-ordering violations); higher multipliers deplete
-        # into the reserve floor and force Roth withdrawals.
+        # solver with zero Roth-ordering violations, verified under full-suite
+        # execution order per the note on test_sample_projection_golden_master_and_release_gate);
+        # outside that band the solver either doesn't trigger or depletes into
+        # the reserve floor and forces Roth withdrawals. Item 169 (2026-07-14):
+        # recalibrated after the household's Social Security claim age moved
+        # 70->69, which shifted the safe-multiplier band.
         c['spend_base'] = float(c.get('spend_base', 0)) * 1.2
         rows = project(c)
         # Verify the solver ran: higher spending creates LTCG/NIIT that needs funding

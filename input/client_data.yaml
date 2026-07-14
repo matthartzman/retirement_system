@@ -841,8 +841,8 @@ Social Security:
     ss_funding_discount_pct: 22.00%
     ss_funding_discount_year: '2032'
   Member 1:
-    claim_age: '70'
-    fra_age: '0'
+    claim_age: '69'
+    fra_age: '67.00'
     monthly_pia_at_fra_today_dollars: '0'
     ss_benefit_age_62: $2,835
     ss_benefit_age_63: $3,038
@@ -854,8 +854,8 @@ Social Security:
     ss_benefit_age_69: $4,698
     ss_benefit_age_70: $5,022
   Member 2:
-    claim_age: '70'
-    fra_age: '0'
+    claim_age: '69'
+    fra_age: '67.00'
     monthly_pia_at_fra_today_dollars: '0'
     ss_benefit_age_62: $2,351
     ss_benefit_age_63: $2,519
