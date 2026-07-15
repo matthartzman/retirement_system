@@ -13,6 +13,7 @@ is optimized for reviewing charts instead of helper tables.
 
 import math
 from .workbook_common import *
+from .. import allocation_policy as _ap
 
 
 def build_sheet8(ws, c, rows, mc_data=None):
@@ -503,6 +504,14 @@ def build_sheet8(ws, c, rows, mc_data=None):
         _cur_stats = _ao.portfolio_stats_from_weights(c, _cur_weights) if _cur_weights else None
     except Exception:
         _cur_stats = None
+    try:
+        _max_sharpe_stats = _ao.allocation_portfolio_stats(c, force_mode=_ap.ALLOCATION_MODE_MAX_SHARPE)
+    except Exception:
+        _max_sharpe_stats = None
+    try:
+        _tangency_stats = _ao.allocation_portfolio_stats(c, force_mode=_ap.ALLOCATION_MODE_TANGENCY)
+    except Exception:
+        _tangency_stats = None
     if _ef_points and len(_ef_points) >= 2:
         from openpyxl.chart import ScatterChart, Series
         from openpyxl.chart.marker import Marker
@@ -531,6 +540,22 @@ def build_sheet8(ws, c, rows, mc_data=None):
             write_cell(ws, ef_src, 8, 'Cur Return', bold=True)
             write_cell(ws, ef_src + 1, 7, _cur_vol, fmt=FMT_PCT)
             write_cell(ws, ef_src + 1, 8, _cur_ret, fmt=FMT_PCT)
+
+        _ms_vol = float(_max_sharpe_stats.get('volatility', 0.0) or 0.0) if _max_sharpe_stats else None
+        _ms_ret = float(_max_sharpe_stats.get('expected_return', 0.0) or 0.0) if _max_sharpe_stats else None
+        if _ms_vol is not None:
+            write_cell(ws, ef_src, 10, 'MaxSharpe Volatility', bold=True)
+            write_cell(ws, ef_src, 11, 'MaxSharpe Return', bold=True)
+            write_cell(ws, ef_src + 1, 10, _ms_vol, fmt=FMT_PCT)
+            write_cell(ws, ef_src + 1, 11, _ms_ret, fmt=FMT_PCT)
+
+        _tan_vol = float(_tangency_stats.get('volatility', 0.0) or 0.0) if _tangency_stats else None
+        _tan_ret = float(_tangency_stats.get('expected_return', 0.0) or 0.0) if _tangency_stats else None
+        if _tan_vol is not None:
+            write_cell(ws, ef_src, 13, 'Tangency Volatility', bold=True)
+            write_cell(ws, ef_src, 14, 'Tangency Return', bold=True)
+            write_cell(ws, ef_src + 1, 13, _tan_vol, fmt=FMT_PCT)
+            write_cell(ws, ef_src + 1, 14, _tan_ret, fmt=FMT_PCT)
 
         _sc = ScatterChart()
         _sc.title = 'Efficient Frontier — Risk vs. Return'
@@ -567,6 +592,22 @@ def build_sheet8(ws, c, rows, mc_data=None):
             _cs.marker = Marker(symbol='square', size=11)
             _cs.graphicalProperties = GraphicalProperties(ln=LineProperties(noFill=True))
             _sc.series.append(_cs)
+
+        if _ms_vol is not None:
+            _msxref = Reference(ws, min_col=10, min_row=ef_src + 1, max_row=ef_src + 1)
+            _msyref = Reference(ws, min_col=11, min_row=ef_src + 1, max_row=ef_src + 1)
+            _mss = Series(_msyref, _msxref, title='Max Sharpe (Risk-Budgeted)')
+            _mss.marker = Marker(symbol='triangle', size=11)
+            _mss.graphicalProperties = GraphicalProperties(ln=LineProperties(noFill=True))
+            _sc.series.append(_mss)
+
+        if _tan_vol is not None:
+            _tanxref = Reference(ws, min_col=13, min_row=ef_src + 1, max_row=ef_src + 1)
+            _tanyref = Reference(ws, min_col=14, min_row=ef_src + 1, max_row=ef_src + 1)
+            _tans = Series(_tanyref, _tanxref, title='Pure Tangency')
+            _tans.marker = Marker(symbol='star', size=12)
+            _tans.graphicalProperties = GraphicalProperties(ln=LineProperties(noFill=True))
+            _sc.series.append(_tans)
 
         chart_ws.add_chart(_sc, 'A216')
         _ef_chart_added = True
