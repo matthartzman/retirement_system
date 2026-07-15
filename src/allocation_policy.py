@@ -5,10 +5,19 @@ from collections import OrderedDict
 
 ALLOCATION_MODE_USER = "user_target"
 ALLOCATION_MODE_OPTIMIZER = "optimizer_recommendation"
-ALLOCATION_MODE_CHOICES = (ALLOCATION_MODE_USER, ALLOCATION_MODE_OPTIMIZER)
+ALLOCATION_MODE_MAX_SHARPE = "max_sharpe"
+ALLOCATION_MODE_TANGENCY = "tangency"
+ALLOCATION_MODE_CHOICES = (
+    ALLOCATION_MODE_USER,
+    ALLOCATION_MODE_OPTIMIZER,
+    ALLOCATION_MODE_MAX_SHARPE,
+    ALLOCATION_MODE_TANGENCY,
+)
 ALLOCATION_MODE_LABELS = {
     ALLOCATION_MODE_USER: "Use user-specified allocation",
     ALLOCATION_MODE_OPTIMIZER: "Use allocation optimizer recommendation",
+    ALLOCATION_MODE_MAX_SHARPE: "Use max-Sharpe allocation (risk-budgeted)",
+    ALLOCATION_MODE_TANGENCY: "Use max-Sharpe allocation (pure tangency, no risk budget)",
 }
 OPTIMIZER_RECOMMENDATION_COMMENT = (
     "Optimizer recommendation is based on risk tolerance or auto risk score, age, withdrawal rate, "
@@ -17,6 +26,23 @@ OPTIMIZER_RECOMMENDATION_COMMENT = (
     "pairwise correlations, glide path, and inflation-sensitive spending. Consider it as a "
     "second-opinion allocation because it can account for household-specific risk capacity and "
     "diversification relationships that a static target mix cannot see."
+)
+MAX_SHARPE_RECOMMENDATION_COMMENT = (
+    "Risk-budgeted max-Sharpe keeps the same equity-vs-bonds/cash risk level as the optimizer "
+    "recommendation (same risk tolerance/auto risk score, glide path, and guaranteed-income/home-equity "
+    "coverage), but chooses the equity sleeve's sub-class weights to maximize the sleeve's own Sharpe "
+    "ratio (expected return in excess of the risk-free rate, per unit of volatility) instead of a fixed "
+    "risk-aversion utility. It does not itself re-optimize the equity/bond/cash split or the fixed-income "
+    "sub-class ladder."
+)
+TANGENCY_RECOMMENDATION_COMMENT = (
+    "Pure tangency solves for the single long-only portfolio, across all enabled liquid asset classes, "
+    "with the highest Sharpe ratio -- with no risk-tolerance ceiling, glide path, or guaranteed-income/"
+    "home-equity coverage overlay applied. This is the textbook mean-variance tangency portfolio, not a "
+    "risk-appropriate recommendation: because it freely trades off risk for Sharpe, it can concentrate "
+    "in a single asset class or reach very high equity exposure if the configured capital-market "
+    "assumptions favor it. Treat it as an analytical reference point and review it against your risk "
+    "capacity before using it to drive the plan."
 )
 
 SELECTION_INCLUDE = "include"
@@ -103,6 +129,17 @@ def normalize_allocation_mode(value: str | None) -> str:
         "user_specified": ALLOCATION_MODE_USER,
         "target_pct": ALLOCATION_MODE_USER,
         "static": ALLOCATION_MODE_USER,
+        "max_sharpe": ALLOCATION_MODE_MAX_SHARPE,
+        "sharpe": ALLOCATION_MODE_MAX_SHARPE,
+        "sharpe_optimal": ALLOCATION_MODE_MAX_SHARPE,
+        "max_sharpe_ratio": ALLOCATION_MODE_MAX_SHARPE,
+        "risk_budgeted_max_sharpe": ALLOCATION_MODE_MAX_SHARPE,
+        "sharpe_max": ALLOCATION_MODE_MAX_SHARPE,
+        "tangency": ALLOCATION_MODE_TANGENCY,
+        "tangency_portfolio": ALLOCATION_MODE_TANGENCY,
+        "pure_tangency": ALLOCATION_MODE_TANGENCY,
+        "unconstrained_sharpe": ALLOCATION_MODE_TANGENCY,
+        "max_sharpe_unconstrained": ALLOCATION_MODE_TANGENCY,
     }
     return aliases.get(text, ALLOCATION_MODE_USER)
 

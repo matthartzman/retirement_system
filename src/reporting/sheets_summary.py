@@ -2756,6 +2756,19 @@ def build_sheet4(ws, c):
         _ef_rf = 0.0
         _ef_recommended = None
         _ef_points = []
+    try:
+        _ef_optimizer = _ao.allocation_portfolio_stats(c, force_mode=_ap.ALLOCATION_MODE_OPTIMIZER)
+    except Exception:
+        _ef_optimizer = None
+    try:
+        _ef_max_sharpe = _ao.allocation_portfolio_stats(c, force_mode=_ap.ALLOCATION_MODE_MAX_SHARPE)
+    except Exception:
+        _ef_max_sharpe = None
+    try:
+        _ef_tangency = _ao.allocation_portfolio_stats(c, force_mode=_ap.ALLOCATION_MODE_TANGENCY)
+    except Exception:
+        _ef_tangency = None
+    _ef_selected_label = _ap.allocation_mode_label(c.get('allocation_selection_mode', 'user_target'))
 
     write_hdr(ws, r, 1, 'Recommended Portfolio — Risk/Return Summary', BLUE, WHITE, span=10)
     r += 1
@@ -2778,6 +2791,37 @@ def build_sheet4(ws, c):
         r += 1
 
     r += 1
+    write_hdr(ws, r, 1, 'Sharpe Ratio Across Allocation Modes', BLUE, WHITE, span=10)
+    r += 1
+    write_cell(ws, r, 1,
+               'Max Sharpe (risk-budgeted) keeps the same risk level (equity/bond/cash split) as the '
+               'optimizer recommendation but picks the equity sleeve with the best risk-adjusted return. '
+               'Pure Tangency has no risk budget at all — it is the single portfolio with the highest '
+               'possible Sharpe ratio across every enabled asset class, shown for reference; it can '
+               'recommend a very different risk level than this household\'s risk tolerance calls for.')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
+    r += 1
+    _mode_hdrs = ['Mode', 'Expected Return', 'Volatility', 'Sharpe Ratio']
+    for i, h in enumerate(_mode_hdrs, 1):
+        write_hdr(ws, r, i, h, DGRAY, WHITE)
+    r += 1
+    for _mode_label, _stats in (
+        (f'Currently Selected ({_ef_selected_label})', _ef_recommended),
+        ('Optimizer Recommendation', _ef_optimizer),
+        ('Max Sharpe (Risk-Budgeted)', _ef_max_sharpe),
+        ('Pure Tangency', _ef_tangency),
+    ):
+        if not _stats:
+            continue
+        _is_tan = _mode_label == 'Pure Tangency'
+        _row_bg = 'E2EFDA' if _is_tan else None
+        write_cell(ws, r, 1, _mode_label, bold=True, bg=_row_bg)
+        write_cell(ws, r, 2, _stats.get('expected_return', 0.0), fmt=FMT_PCT, align='right', bg=_row_bg)
+        write_cell(ws, r, 3, _stats.get('volatility', 0.0), fmt=FMT_PCT, align='right', bg=_row_bg)
+        write_cell(ws, r, 4, _stats.get('sharpe', 0.0), fmt='0.00', align='right', bg=_row_bg, bold=True)
+        r += 1
+    r += 1
+
     write_hdr(ws, r, 1, 'Efficient Frontier — Volatility vs. Return vs. Sharpe', BLUE, WHITE, span=10)
     r += 1
     if _ef_points:
@@ -2785,25 +2829,40 @@ def build_sheet4(ws, c):
         for i, h in enumerate(_ef_hdrs, 1):
             write_hdr(ws, r, i, h, DGRAY, WHITE)
         r += 1
-        _ef_rec_vol = _ef_recommended.get('volatility', 0.0) if _ef_recommended else None
-        _ef_nearest_idx = None
-        if _ef_rec_vol is not None and _ef_points:
-            _ef_nearest_idx = min(range(len(_ef_points)), key=lambda i: abs(_ef_points[i]['volatility'] - _ef_rec_vol))
+
+        def _nearest_idx(_stats):
+            if not _stats or not _ef_points:
+                return None
+            _vol = _stats.get('volatility')
+            if _vol is None:
+                return None
+            return min(range(len(_ef_points)), key=lambda i: abs(_ef_points[i]['volatility'] - _vol))
+
+        _markers = {
+            _nearest_idx(_ef_recommended): 'Recommended',
+            _nearest_idx(_ef_max_sharpe): 'Max Sharpe',
+            _nearest_idx(_ef_tangency): 'Tangency',
+        }
+        _markers.pop(None, None)
+        _markers_by_idx = {}
+        for _idx, _tag in _markers.items():
+            _markers_by_idx.setdefault(_idx, []).append(_tag)
         for _idx, _p in enumerate(_ef_points):
-            _is_nearest = _idx == _ef_nearest_idx
-            _row_bg = 'FFF2CC' if _is_nearest else None
+            _tags = _markers_by_idx.get(_idx)
+            _row_bg = 'FFF2CC' if _tags else None
             write_cell(ws, r, 1, _idx + 1, align='center', bg=_row_bg)
             write_cell(ws, r, 2, _p['volatility'], fmt=FMT_PCT, align='right', bg=_row_bg)
             write_cell(ws, r, 3, _p['return'], fmt=FMT_PCT, align='right', bg=_row_bg)
             write_cell(ws, r, 4, _p['sharpe'], fmt='0.00', align='right', bg=_row_bg)
-            write_cell(ws, r, 5, '← Closest volatility to recommended portfolio' if _is_nearest else '', bg=_row_bg)
+            write_cell(ws, r, 5, ('← Closest volatility to: ' + ', '.join(_tags)) if _tags else '', bg=_row_bg)
             r += 1
         r += 1
         write_cell(ws, r, 1,
                    'Each row minimizes portfolio variance for a target expected return (long-only, '
-                   'weights sum to 100%). The highlighted row has the volatility closest to the '
-                   'recommended portfolio above, shown for reference only — it is not itself a trade '
-                   'recommendation.')
+                   'weights sum to 100%). Highlighted rows have the volatility closest to a portfolio '
+                   'above, shown for reference only — the frontier itself is not a trade recommendation. '
+                   'Pure Tangency and Max Sharpe are computed directly (not sampled from this grid), so '
+                   'their exact Sharpe ratio may exceed the closest grid row\'s.')
         ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
         r += 1
     else:

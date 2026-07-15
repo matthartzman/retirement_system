@@ -565,7 +565,7 @@ function choicesFor(row) {
     config_backend: ["SQLITE", "CSV", "YAML", "JSON"],
     filing_status: ["MFJ", "Single", "HOH", "MFS"],
     survivor_filing_status: ["Single", "HOH", "MFS"],
-    allocation_selection_mode: ["user_target", "optimizer_recommendation"],
+    allocation_selection_mode: ["user_target", "optimizer_recommendation", "max_sharpe", "tangency"],
     selection_action: ["include", "exclude", "consider_alternate_first"],
     roth_conversion_policy: [
       "optimize_terminal_tax",

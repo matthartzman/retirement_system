@@ -81,10 +81,10 @@ const STEPS = [
   {
     id: "lifestyle_spending",
     group: "Spending",
-    title: "Travel & Large Discretionary Expenses",
-    desc: "Travel and large planned expenses in one place.",
+    title: "Other Spending",
+    desc: "Travel, large planned expenses, and donor-advised fund giving in one place.",
     intro:
-      "Use this page for expenses that are scheduled, flexible, or easier to review together: travel and large one-time items.",
+      "Use this page for expenses that are scheduled, flexible, or easier to review together: travel, large one-time items, and DAF contribution/grant settings.",
     help: "The sections below keep their existing source inputs, but the combined page makes the spending flow simpler.",
   },
   {
@@ -150,7 +150,7 @@ const STEPS = [
     desc: "Non-portfolio assets: notes receivable, HSA, 529 plans, equity compensation, collectibles, and personal property.",
     intro:
       "Asset type controls where the value appears — estate, education, Wellness, or charitable planning. Planned sale dates connect illiquid assets to future cash flow.",
-    help: "HSA balances grow tax-free and should reflect intended use. Donor-advised fund strategy is set on Charitable Giving.",
+    help: "HSA balances grow tax-free and should reflect intended use. Donor-advised fund configuration is set on Other Spending.",
   },
   {
     id: "estate",
@@ -4811,14 +4811,14 @@ function rowBuildUsageState(row, stepId = "") {
   if (s === "Asset Allocation Policy" && l === "target_pct") {
     const mode = allocationSelectionMode(),
       action = assetActionForSubsection(row.subsection);
-    if (mode === "optimizer_recommendation")
+    if (allocationModeIsComputed(mode))
       return {
         active: false,
         reason:
-          "Allocation optimizer recommendation mode is selected, so saved user target percentages are reference-only.",
+          "A computed allocation mode is selected, so saved user target percentages are reference-only.",
         activation: "Choose Use user-specified allocation.",
         effect:
-          "Would replace the optimizer recommendation with the user target mix, changing expected return/risk, drift analysis, ETF ideas, Monte Carlo results, and terminal net worth.",
+          "Would replace the computed allocation with the user target mix, changing expected return/risk, drift analysis, ETF ideas, Monte Carlo results, and terminal net worth.",
         listAlways: true,
       };
     if (action === "exclude")
@@ -6285,7 +6285,12 @@ function choiceOptions(r) {
     hsa_withdrawal_mode: ["spend_as_needed", "annual_pct", "smooth_window"],
     city_type: ["urban", "suburban", "rural"],
     type: ["purchase", "rent"],
-    allocation_selection_mode: ["user_target", "optimizer_recommendation"],
+    allocation_selection_mode: [
+      { value: "user_target", label: "Use user-specified allocation" },
+      { value: "optimizer_recommendation", label: "Use allocation optimizer recommendation" },
+      { value: "max_sharpe", label: "Use max-Sharpe allocation (risk-budgeted)" },
+      { value: "tangency", label: "Use max-Sharpe allocation (pure tangency, no risk budget)" },
+    ],
     selection_action: ["include", "exclude", "consider_alternate_first"],
   };
   if (Array.isArray(r?.choice_options) && r.choice_options.length)
@@ -6458,7 +6463,7 @@ function fieldHtml(r) {
     lblNorm === "allocation_mode"
   ) {
     const mode = allocationSelectionMode();
-    control = `<select data-row="${r.row_index}" onchange="editValue(${r.row_index},this.value,this);renderMain()" onfocus="showFieldHelp(${r.row_index})"><option value="user_target" ${mode === "user_target" ? "selected" : ""}>Use user-specified allocation</option><option value="optimizer_recommendation" ${mode === "optimizer_recommendation" ? "selected" : ""}>Use allocation optimizer recommendation</option></select>`;
+    control = `<select data-row="${r.row_index}" onchange="editValue(${r.row_index},this.value,this);renderMain()" onfocus="showFieldHelp(${r.row_index})"><option value="user_target" ${mode === "user_target" ? "selected" : ""}>Use user-specified allocation</option><option value="optimizer_recommendation" ${mode === "optimizer_recommendation" ? "selected" : ""}>Use allocation optimizer recommendation</option><option value="max_sharpe" ${mode === "max_sharpe" ? "selected" : ""}>Use max-Sharpe allocation (risk-budgeted)</option><option value="tangency" ${mode === "tangency" ? "selected" : ""}>Use max-Sharpe allocation (pure tangency, no risk budget)</option></select>`;
   } else if (boolish) {
     const yes =
       String(value).toUpperCase() === "YES" ||
@@ -6705,9 +6710,18 @@ function allocationSelectionMode() {
   const v = String(r ? valOf(r) : "user_target")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_");
-  return v.includes("optimizer") || v === "yes" || v === "true" || v === "auto"
-    ? "optimizer_recommendation"
-    : "user_target";
+  if (v.includes("tangency") || v === "pure_tangency" || v === "unconstrained_sharpe")
+    return "tangency";
+  if (v.includes("max_sharpe") || v === "sharpe" || v === "sharpe_optimal")
+    return "max_sharpe";
+  if (v.includes("optimizer") || v === "yes" || v === "true" || v === "auto")
+    return "optimizer_recommendation";
+  return "user_target";
+}
+// True for any mode where the plan is driven by a computed recommendation
+// rather than the user's manually-entered target_pct rows.
+function allocationModeIsComputed(mode) {
+  return (mode || allocationSelectionMode()) !== "user_target";
 }
 function setAllocationSelectionMode(mode) {
   const r = allocationModeRow();
@@ -6723,11 +6737,23 @@ function setAllocationSelectionMode(mode) {
 }
 function allocationModeHtml() {
   const mode = allocationSelectionMode();
-  const userActive = mode !== "optimizer_recommendation";
-  const optActive = mode === "optimizer_recommendation";
+  const modeButtons = [
+    ["user_target", "Use user-specified allocation"],
+    ["optimizer_recommendation", "Use allocation optimizer recommendation"],
+    ["max_sharpe", "Use max-Sharpe allocation (risk-budgeted)"],
+    ["tangency", "Use max-Sharpe allocation (pure tangency)"],
+  ];
+  const activeLabel =
+    modeButtons.find(([v]) => v === mode)?.[1] || "Using user-specified allocation";
   const r = allocationModeRow();
   const disabled = r ? "" : " disabled";
-  return `<div class="section-note allocation-mode-panel" id="allocationModeNote"><b>Selected allocation mode:</b> ${optActive ? "Using allocation optimizer recommendation" : "Using user-specified allocation"}. Choose the source below; the page then shows only controls for that source.<div class="table-actions"><button class="btn ${userActive ? "primary" : ""}" type="button" onclick="setAllocationSelectionMode('user_target')"${disabled}>Use user-specified allocation</button><button class="btn ${optActive ? "primary" : ""}" type="button" onclick="setAllocationSelectionMode('optimizer_recommendation')"${disabled}>Use allocation optimizer recommendation</button></div>${r ? "" : '<p class="small">The CSV row for allocation_selection_mode was not found. Reload the current plan so required allocation rows are present.</p>'}</div>`;
+  const buttonsHtml = modeButtons
+    .map(
+      ([v, label]) =>
+        `<button class="btn ${mode === v ? "primary" : ""}" type="button" onclick="setAllocationSelectionMode('${v}')"${disabled}>${esc(label)}</button>`,
+    )
+    .join("");
+  return `<div class="section-note allocation-mode-panel" id="allocationModeNote"><b>Selected allocation mode:</b> ${esc(activeLabel)}. Choose the source below; the page then shows only controls for that source.<div class="table-actions">${buttonsHtml}</div>${r ? "" : '<p class="small">The CSV row for allocation_selection_mode was not found. Reload the current plan so required allocation rows are present.</p>'}</div>`;
 }
 function allocationOptimizerRecommendationHtml() {
   const risk = findEditableRow(
@@ -7127,14 +7153,21 @@ function renderAssetClassSelectionTable() {
   if (!names.length)
     return `<div class="holdings"><div class="section-note">Asset-class selection rows were not found. Reload the current plan so asset_class_optimizer_controls.csv can be backfilled with the compact selection policy rows.</div></div>`;
   const mode = allocationSelectionMode();
-  const optMode = mode === "optimizer_recommendation";
+  const optMode = allocationModeIsComputed(mode);
   if (optMode) setTimeout(requestAllocationPreview, 0);
   let header = optMode
     ? `<tr><th>Subcategory</th><th>Asset class</th><th>Selection</th><th>Computed Optimizer Target %</th><th>Active Target Used %</th><th>Status</th><th>Existing asset/source credited to this class</th></tr>`
     : `<tr><th>Subcategory</th><th>Asset class</th><th>Selection</th><th>User Target %</th><th>Existing asset/source credited to this class</th></tr>`;
-  let note = optMode
-    ? `<div class="section-note"><b>Optimizer mode is active.</b> User target percentages are hidden because the next build will not use them; they are listed in Inactive values above when saved. The workbook uses the computed optimizer target, unless you enter a full optional optimizer override. Excluded rows and covered rows are removed from the active liquid target before the remaining recommendation is normalized.</div>${renderOptimizerPreviewNote()}`
-    : `<div class="section-note"><b>User-defined mode is active.</b> This table edits the active user target %. Rows are grouped by Equity, Fixed income, and Other. Choose exactly one action per row. <b>Include</b> and <b>Consider alternate first</b> activate the user target %. <b>Exclude</b> ignores that row's target.</div>`;
+  let note;
+  if (mode === "optimizer_recommendation") {
+    note = `<div class="section-note"><b>Optimizer mode is active.</b> User target percentages are hidden because the next build will not use them; they are listed in Inactive values above when saved. The workbook uses the computed optimizer target, unless you enter a full optional optimizer override. Excluded rows and covered rows are removed from the active liquid target before the remaining recommendation is normalized.</div>${renderOptimizerPreviewNote()}`;
+  } else if (mode === "max_sharpe") {
+    note = `<div class="section-note"><b>Max-Sharpe (risk-budgeted) mode is active.</b> User target percentages are hidden because the next build will not use them. This mode keeps the same risk level as the optimizer recommendation (risk tolerance, glide path, guaranteed-income/home-equity coverage) but chooses the equity sleeve with the best risk-adjusted (Sharpe) return; it does not support a manual override.</div>${renderOptimizerPreviewNote()}`;
+  } else if (mode === "tangency") {
+    note = `<div class="section-note"><b>Pure tangency mode is active.</b> User target percentages are hidden because the next build will not use them. This mode ignores risk tolerance, glide path, and guaranteed-income/home-equity coverage entirely and solves for the single portfolio with the highest Sharpe ratio across all enabled asset classes; it does not support a manual override. Review the recommended risk level carefully before using it to drive the plan.</div>${renderOptimizerPreviewNote()}`;
+  } else {
+    note = `<div class="section-note"><b>User-defined mode is active.</b> This table edits the active user target %. Rows are grouped by Equity, Fixed income, and Other. Choose exactly one action per row. <b>Include</b> and <b>Consider alternate first</b> activate the user target %. <b>Exclude</b> ignores that row's target.</div>`;
+  }
   let html = `<div class="holdings"><h3 class="group-title">Asset-class allocation policy</h3>${note}<div class="lot-table-wrap"><table class="lot-table allocation-selection-table"><thead>${header}</thead><tbody>`;
   let cat = "";
   names.forEach((asset) => {
@@ -7483,6 +7516,12 @@ function renderOptimizerAllocationPanel() {
   html += renderOptimizerOverrideTable();
   return html;
 }
+function renderMaxSharpeAllocationPanel() {
+  return `<div class="holdings"><h3 class="group-title">Max-Sharpe (risk-budgeted) recommendation active</h3><div class="section-note">Keeps the same risk level as the allocation optimizer recommendation (risk tolerance/auto risk score, glide path, guaranteed-income/home-equity coverage), but chooses the equity sleeve's sub-class weights to maximize the sleeve's own Sharpe ratio (return in excess of the risk-free rate, per unit of volatility) instead of a fixed risk-aversion utility. It does not itself re-optimize the equity/bond/cash split, and does not support a manual override.</div>${allocationOptimizerRecommendationHtml()}</div>`;
+}
+function renderTangencyAllocationPanel() {
+  return `<div class="holdings"><h3 class="group-title">Pure tangency recommendation active</h3><div class="section-note warn"><b>No risk budget:</b> this solves for the single long-only portfolio, across all enabled asset classes, with the highest possible Sharpe ratio. Risk tolerance, glide path, and guaranteed-income/home-equity coverage are not applied, and it does not support a manual override. Depending on the configured capital-market assumptions this can recommend a very different risk level than this household's risk capacity calls for &mdash; review it as an analytical reference before using it to drive the plan.</div></div>`;
+}
 function renderAllocationRecommendation() {
   let html =
     '<details class="allocation-policy-collapsed"><summary><b>Allocation Assumptions</b><span class="small" style="margin-left:8px;font-weight:normal;color:var(--muted)">Risk tolerance, glide path, and capital-market inputs</span></summary>' +
@@ -7493,8 +7532,9 @@ function renderAllocationRecommendation() {
     renderAssetClassSelectionTable() +
     allocationCoverageCalloutHtml();
   const mode = allocationSelectionMode();
-  if (mode === "optimizer_recommendation")
-    html += renderOptimizerAllocationPanel();
+  if (mode === "optimizer_recommendation") html += renderOptimizerAllocationPanel();
+  else if (mode === "max_sharpe") html += renderMaxSharpeAllocationPanel();
+  else if (mode === "tangency") html += renderTangencyAllocationPanel();
   else html += renderUserAllocationPanel();
   html += renderTotalWealthAllocationHtml();
   return html;
@@ -9684,7 +9724,6 @@ function renderAssetsSpecial() {
     "Other Asset Items",
     "Note Receivable",
     "HSA",
-    "DAF",
     "529 Plans",
     "Equity Compensation",
     "LTC/Life Policy",
@@ -9710,7 +9749,6 @@ function renderAssetsSpecial() {
       }
       return;
     }
-    if (g === "DAF" && !optionalFunctionEnabled("charitable_giving")) return;
     if (g === "LTC/Life Policy" && !ltcLifePolicyModuleEnabled()) return;
     if (
       g === "Equity Compensation" &&
@@ -15664,8 +15702,18 @@ function renderSpecialStrategies() {
   html += "</div>";
   return html;
 }
+function renderDafConfig() {
+  if (!optionalFunctionEnabled("charitable_giving"))
+    return `<div class="section-note">Donor-advised fund inputs are hidden until Charitable Giving is enabled under <a href="#" onclick="setStep('optional_functions');return false">Optional Modules</a>.</div>`;
+  const rs = rows.filter(
+    (r) => isEditable(r) && friendlyGroup(r) === "DAF",
+  );
+  if (!rs.length)
+    return `<div class="section-note">No DAF rows found in Plan Data. Reload Plan Data, or add a [DAF][Settings] section.</div>`;
+  return `<div class="section-note">Contribution amount/year fund the DAF in a lump sum (tax-deductible up to 60% of AGI in the contribution year); annual grant amount/start/end schedule ongoing charitable distributions out of the DAF balance. See Charitable Giving in the workbook report for a sizing recommendation.</div><div class="field-list">${rs.map(fieldHtml).join("")}</div>`;
+}
 function renderLifestyleSpending() {
-  return `<div class="lifestyle-workspace"><details open><summary>Travel</summary>${renderTravelBudgetPage()}</details><details open><summary>Large Items</summary>${renderLargeDiscretionaryBudgetPage()}</details></div>`;
+  return `<div class="lifestyle-workspace"><details open><summary>Travel</summary>${renderTravelBudgetPage()}</details><details open><summary>Large Items</summary>${renderLargeDiscretionaryBudgetPage()}</details><details ${optionalFunctionEnabled("charitable_giving") ? "open" : ""}><summary>Donor-Advised Fund (DAF)</summary>${renderDafConfig()}</details></div>`;
 }
 const SPENDING_WORKFLOW_STEPS = [
   { label: "Spending Model", stepId: "spending_core" },

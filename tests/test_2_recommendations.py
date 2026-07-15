@@ -142,19 +142,22 @@ class RecommendationCompletionTests(unittest.TestCase):
         # year earlier changes which ss_benefit_age_* table entry is used and
         # shifts the whole withdrawal/tax cascade.
         #
-        # Note: this value is order-dependent within the file/suite -
-        # test_forecast_api_service_uses_same_config_contract (which runs
-        # alphabetically before this test) exercises forecast_from_plan_json
-        # and appears to leave shared pricing-cache state that this test then
-        # reads, shifting terminal NW by ~$800k versus running this test in
-        # total isolation. Pinned against the full-suite/whole-file execution
-        # order (matches CI, which always runs the full suite) rather than an
-        # isolated single-test run - verified stable across 3 repeated full
-        # test-suite runs. This cross-test pricing-cache leak is a separate,
-        # pre-existing test-isolation issue worth fixing on its own; it is not
-        # addressed here.
-        self.assertAlmostEqual(rows[-1]['total_nw'], 7_315_404.39, delta=5000.0)
-        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_620_993.02, delta=5000.0)
+        # Item 185 (2026-07-14): elective pre-tax IRA/401(k) withdrawal
+        # ordinary-tax true-up + gap/net_cash convention fix (see
+        # deterministic_engine.py's _ira_elective_ordinary_tax_delta) —
+        # terminal net worth rises to ~7.32M, lifetime tax to ~1.62M.
+        #
+        # Item 186 (2026-07-14): household plan update - Member 1 Social
+        # Security claim age moved from 69 to 68 (Member 2 unchanged at 69).
+        # Terminal net worth rises to ~7.36M, lifetime tax to ~1.63M.
+        #
+        # The previously-noted order-dependency (this value shifting ~$800k
+        # depending on whether test_forecast_api_service_uses_same_config_
+        # contract ran first) was the same pricing-cache leak fixed by the
+        # tests/conftest.py _reset_market_data_price_cache autouse fixture;
+        # this value is now stable both in full-suite and isolated runs.
+        self.assertAlmostEqual(rows[-1]['total_nw'], 7_357_655.92, delta=5000.0)
+        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_630_920.02, delta=5000.0)
 
     def test_fixed_point_taxable_withdrawal_solver_runs_before_roth(self):
         # The fixed-point solver only runs when there's sufficient investment tax

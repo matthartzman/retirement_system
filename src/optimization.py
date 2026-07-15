@@ -920,43 +920,48 @@ def _normalized_split(classes, base_weights):
 # MEAN-VARIANCE OPTIMIZER
 # ─────────────────────────────────────────────────────────────────────────────
 
-def optimize_equity_sleeve(equity_budget, available_classes, inflation_sensitive_pct=0.0,
-                           concentration=None, class_constraints=None):
-    """Solve a constrained mean-variance/CVaR-aware equity-sleeve allocation.
+EQUITY_SLEEVE_CLASS_CAPS = {
+    'US Large Cap': 0.65,
+    'US Mid Cap': 0.35,
+    'US Small Cap': 0.35,
+    'International': 0.45,
+    'Emerging Markets': 0.20,
+    'Commodities': 0.12,
+    'Managed Futures': 0.12,
+    'Private Credit': 0.10,
+    'REITs': 0.15,
+}
 
-    This is the production optimizer. It uses scipy's SLSQP optimizer when
-    available and falls back to deterministic equal weighting only if scipy is
-    unavailable. Constraints: fully invested, no shorting, class max weights,
-    inflation/commodity floor, and concentration penalties.
+# Concentration caps for the full-universe tangency solve. Deliberately
+# lighter than EQUITY_SLEEVE_CLASS_CAPS: a genuine tangency portfolio should
+# be free to lean heavily on core, liquid classes (US Large Cap, Bonds, Cash,
+# International, ...) if the math says so -- only the niche/illiquid/
+# higher-tail-risk classes get a practical ceiling by default. Per-class
+# user overrides (asset_class_overrides min_target/max_target) still apply
+# on top of these via _asset_class_bounds.
+TANGENCY_CLASS_CAPS = {
+    'Emerging Markets': 0.20,
+    'Commodities': 0.12,
+    'Managed Futures': 0.12,
+    'Private Credit': 0.10,
+}
+
+
+def _asset_class_bounds(classes, class_constraints, default_caps, default_cap=0.45):
+    """Return (min_weight, max_weight) numpy arrays for ``classes``, applying
+    ``default_caps`` (falling back to ``default_cap`` for classes not listed)
+    and then honoring any user-entered per-class min_target/max_target
+    overrides from ``class_constraints`` (asset_class_overrides).
+
+    Shared by optimize_equity_sleeve and the full-universe tangency solver so
+    both respect the same user-configured floors/ceilings consistently.
     """
-    if not available_classes:
-        return {}
-    classes = [c for c in available_classes if c in ASSET_CLASSES]
     n = len(classes)
-    if n == 0:
-        return {}
-    if n == 1:
-        return {classes[0]: 1.0}
-
-    mu = np.array([ASSET_CLASSES[c]['ret'] for c in classes], dtype=float)
-    cov = build_covariance_matrix(classes) + np.eye(n) * 1e-6
-    concentration = concentration or {}
     class_constraints = class_constraints or {}
-    class_caps = {
-        'US Large Cap': 0.65,
-        'US Mid Cap': 0.35,
-        'US Small Cap': 0.35,
-        'International': 0.45,
-        'Emerging Markets': 0.20,
-        'Commodities': 0.12,
-        'Managed Futures': 0.12,
-        'Private Credit': 0.10,
-        'REITs': 0.15,
-    }
-    max_weight = np.array([class_caps.get(c, 0.45) for c in classes], dtype=float)
+    max_weight = np.array([default_caps.get(cls, default_cap) for cls in classes], dtype=float)
     min_weight = np.zeros(n)
-    for i, c_name in enumerate(classes):
-        cons = class_constraints.get(c_name, {}) if isinstance(class_constraints, dict) else {}
+    for i, cls in enumerate(classes):
+        cons = class_constraints.get(cls, {}) if isinstance(class_constraints, dict) else {}
         user_min = cons.get('min_target', -1)
         user_max = cons.get('max_target', -1)
         try:
@@ -982,11 +987,101 @@ def optimize_equity_sleeve(equity_budget, available_classes, inflation_sensitive
         # If user caps are too tight, proportionally relax them so a 100% sleeve
         # can still be constructed.
         max_weight = max_weight / max_weight.sum()
+    return min_weight, max_weight
+
+
+def _feasible_start(min_weight, max_weight):
+    """A starting point that satisfies lower/upper bounds where possible,
+    used to warm-start SLSQP for both the mean-variance and max-Sharpe
+    objectives.
+    """
+    n = len(min_weight)
+    remaining = max(0.0, 1.0 - float(min_weight.sum()))
+    x0 = min_weight + remaining / n
+    x0 = np.minimum(x0, max_weight)
+    if x0.sum() <= 0:
+        x0 = np.ones(n) / n
+    else:
+        x0 = x0 / x0.sum()
+    return x0
+
+
+def _max_sharpe_weights(mu, cov, rf, bounds, x0=None, penalty_fn=None):
+    """Solve the constrained max-Sharpe (tangency) portfolio via SLSQP:
+    minimize -(w.mu - rf) / sqrt(w.cov.w), subject to sum(w)=1 and the given
+    per-class (min, max) bounds. Falls back to the starting point if scipy is
+    unavailable or the solve fails, mirroring _min_variance_portfolio's style.
+    """
+    n = len(mu)
+    min_weight = np.array([b[0] for b in bounds], dtype=float)
+    max_weight = np.array([b[1] for b in bounds], dtype=float)
+    if x0 is None:
+        x0 = _feasible_start(min_weight, max_weight)
+
+    def objective(w):
+        port_ret = float(w @ mu)
+        port_var = float(w @ cov @ w)
+        vol = float(np.sqrt(max(port_var, 1e-12)))
+        penalty = penalty_fn(w) if penalty_fn else 0.0
+        return -((port_ret - rf) / vol) + penalty
+
+    constraints = [{'type': 'eq', 'fun': lambda w: float(np.sum(w) - 1.0)}]
+    try:
+        from scipy.optimize import minimize
+        res = minimize(objective, x0, method='SLSQP', bounds=bounds, constraints=constraints,
+                       options={'maxiter': 500, 'ftol': 1e-12})
+        if not res.success:
+            raise RuntimeError(res.message)
+        weights = np.maximum(np.array(res.x, dtype=float), 0.0)
+    except Exception:
+        weights = x0
+    total = weights.sum()
+    if total <= 0:
+        weights = np.ones(n) / n
+    else:
+        weights = weights / total
+    return weights
+
+
+def optimize_equity_sleeve(equity_budget, available_classes, inflation_sensitive_pct=0.0,
+                           concentration=None, class_constraints=None, objective_mode='mean_variance', rf=0.0):
+    """Solve a constrained equity-sleeve allocation.
+
+    This is the production optimizer. It uses scipy's SLSQP optimizer when
+    available and falls back to deterministic equal weighting only if scipy is
+    unavailable. Constraints: fully invested, no shorting, class max weights,
+    inflation/commodity floor, and concentration penalties.
+
+    objective_mode='mean_variance' (default): the original CVaR-aware
+    mean-variance utility with a fixed risk-aversion coefficient.
+    objective_mode='max_sharpe': maximize the sleeve's own Sharpe ratio
+    ((return - rf) / volatility) instead, still subject to the same bounds
+    and concentration penalty. Used by the risk-budgeted max-Sharpe
+    allocation mode, which keeps the same equity/bond/cash split as the
+    optimizer recommendation but picks a Sharpe-optimal sleeve within it.
+    """
+    if not available_classes:
+        return {}
+    classes = [c for c in available_classes if c in ASSET_CLASSES]
+    n = len(classes)
+    if n == 0:
+        return {}
+    if n == 1:
+        return {classes[0]: 1.0}
+
+    mu = np.array([ASSET_CLASSES[c]['ret'] for c in classes], dtype=float)
+    cov = build_covariance_matrix(classes) + np.eye(n) * 1e-6
+    concentration = concentration or {}
+    class_constraints = class_constraints or {}
+    min_weight, max_weight = _asset_class_bounds(classes, class_constraints, EQUITY_SLEEVE_CLASS_CAPS)
     for i, c_name in enumerate(classes):
         if c_name == 'Commodities':
             min_weight[i] = min(0.10, max(0.0, inflation_sensitive_pct * 0.08))
         elif c_name == 'Managed Futures' and inflation_sensitive_pct > 0.20:
             min_weight[i] = 0.02
+
+    def conc_penalty(w):
+        return 2.0 * sum((max(0.0, concentration.get(classes[i], 0.0) - 0.10) * w[i]) ** 2 for i in range(n))
 
     risk_aversion = 3.0
     downside_penalty = 1.2
@@ -996,19 +1091,18 @@ def optimize_equity_sleeve(equity_budget, available_classes, inflation_sensitive
         port_var = float(w @ cov @ w)
         # Normal-approximate CVaR proxy: mean minus 2.06 sigma at 95%.
         downside = max(0.0, 0.0 - (port_ret - 2.06 * (port_var ** 0.5)))
-        conc_penalty = sum((max(0.0, concentration.get(classes[i], 0.0) - 0.10) * w[i]) ** 2 for i in range(n))
-        return -(port_ret) + risk_aversion * port_var + downside_penalty * downside + 2.0 * conc_penalty
+        return -(port_ret) + risk_aversion * port_var + downside_penalty * downside + conc_penalty(w)
 
     bounds = [(float(min_weight[i]), float(max_weight[i])) for i in range(n)]
+    x0 = _feasible_start(min_weight, max_weight)
+
+    if objective_mode == 'max_sharpe':
+        weights = _max_sharpe_weights(mu, cov, rf, bounds, x0=x0, penalty_fn=conc_penalty)
+        total = weights.sum()
+        return {classes[i]: float(weights[i] / total) for i in range(n)} if total > 0 else \
+            {classes[i]: float(1.0 / n) for i in range(n)}
+
     constraints = [{'type': 'eq', 'fun': lambda w: float(np.sum(w) - 1.0)}]
-    # Make an initial point that satisfies lower/upper bounds where possible.
-    remaining = max(0.0, 1.0 - float(min_weight.sum()))
-    x0 = min_weight + remaining / n
-    x0 = np.minimum(x0, max_weight)
-    if x0.sum() <= 0:
-        x0 = np.ones(n) / n
-    else:
-        x0 = x0 / x0.sum()
 
     try:
         from scipy.optimize import minimize
@@ -1198,7 +1292,8 @@ def compute_optimal_allocation(c, force_mode=None):
         if _ap.normalize_selection_action(_action) == getattr(_ap, 'SELECTION_EXCLUDE', 'exclude'):
             raw_targets[_ap.canonical_asset_class(_cls)] = 0.0
     raw_target_sum = _ap.target_total(raw_targets)
-    if selected_mode != _ap.ALLOCATION_MODE_OPTIMIZER and raw_targets and raw_target_sum > 0:
+    _optimizer_family_modes = (_ap.ALLOCATION_MODE_OPTIMIZER, _ap.ALLOCATION_MODE_MAX_SHARPE, _ap.ALLOCATION_MODE_TANGENCY)
+    if selected_mode not in _optimizer_family_modes and raw_targets and raw_target_sum > 0:
         explicit_targets = _ap.normalize_targets(raw_targets)
         explicit_targets, alternate_map = _apply_alternate_first_targets(c, explicit_targets)
         original_explicit_targets = dict(explicit_targets)
@@ -1261,6 +1356,60 @@ def compute_optimal_allocation(c, force_mode=None):
             },
         }
 
+    if selected_mode == _ap.ALLOCATION_MODE_TANGENCY:
+        # Pure tangency portfolio: the single long-only, max-Sharpe portfolio
+        # across all enabled liquid asset classes, with no risk-tolerance
+        # ceiling, glide path, or guaranteed-income/home-equity coverage
+        # overlay -- unlike every other mode above, this is a textbook
+        # mean-variance solve, not a household-risk-aware recommendation.
+        tangency_classes = [cls for cls in ASSET_CLASSES if allocation_class_enabled(c, cls)]
+        disabled_classes = [cls for cls in ASSET_CLASSES if not allocation_class_enabled(c, cls)]
+        if not tangency_classes:
+            tangency_classes = list(ASSET_CLASSES.keys())
+        rf = risk_free_rate(c)
+        n_tan = len(tangency_classes)
+        if n_tan == 1:
+            liquid_targets = {tangency_classes[0]: 1.0}
+        else:
+            mu_tan = np.array([float(ASSET_CLASSES[cls].get('ret', 0.0) or 0.0) for cls in tangency_classes], dtype=float)
+            cov_tan = build_covariance_matrix(tangency_classes) + np.eye(n_tan) * 1e-6
+            min_w_tan, max_w_tan = _asset_class_bounds(
+                tangency_classes, c.get('asset_class_overrides', {}), TANGENCY_CLASS_CAPS, default_cap=1.0
+            )
+            bounds_tan = [(float(min_w_tan[i]), float(max_w_tan[i])) for i in range(n_tan)]
+            w_tan = _max_sharpe_weights(mu_tan, cov_tan, rf, bounds_tan)
+            liquid_targets = {tangency_classes[i]: float(w_tan[i]) for i in range(n_tan)}
+        total_targets = dict(liquid_targets)
+        total_targets['Bonds/Fixed Income'] = sum(liquid_targets.get(cls, 0.0) for cls in _ap.FIXED_INCOME_CLASSES)
+        total_targets['REITs/Real Estate'] = sum(liquid_targets.get(cls, 0.0) for cls in _ap.REAL_ESTATE_CLASSES)
+        equity_pct_tan = sum(liquid_targets.get(cls, 0.0) for cls in _ap.GROWTH_CLASSES)
+        return {
+            'total_targets': total_targets,
+            'liquid_targets': liquid_targets,
+            'equity_pct': equity_pct_tan,
+            'risk_score': risk_score,
+            'human_capital': human_capital,
+            'bond_pv': fixed_income_coverage_pv,
+            'funded_ratio': funded_ratio,
+            'home_equity': coverage['home_equity_allocation_value'],
+            'allocation_coverage': coverage,
+            'disabled_asset_classes': disabled_classes,
+            'diagnostics': {
+                'age': age,
+                'withdrawal_rate': withdrawal_rate,
+                'risk_free_rate': rf,
+                'inflation_sensitive_pct': c.get('inflation_sensitive_spending_pct', 0),
+                'disabled_asset_classes': disabled_classes,
+                'asset_class_selection_action': c.get('asset_class_selection_action', {}),
+                'asset_class_constraints': c.get('asset_class_overrides', {}),
+                'capital_market_assumptions': capital_market_diagnostics,
+                'allocation_policy_mode': 'tangency_portfolio',
+                'allocation_selection_mode': selected_mode,
+                'allocation_selection_label': _ap.allocation_mode_label(selected_mode),
+                'optimizer_recommendation_comment': getattr(_ap, 'TANGENCY_RECOMMENDATION_COMMENT', ''),
+            },
+        }
+
     inflation_pct = c.get('inflation_sensitive_spending_pct', 0)
     candidate_growth_classes = [
         'US Large Cap', 'US Mid Cap', 'US Small Cap', 'International', 'Emerging Markets',
@@ -1276,12 +1425,19 @@ def compute_optimal_allocation(c, force_mode=None):
     if not equity_classes:
         equity_classes = ['US Large Cap']
 
+    # Risk-budgeted max-Sharpe keeps every other assumption above (equity_pct
+    # from risk score/glide path, bond ladder, cash/REIT policy, coverage
+    # adjustments) identical to the optimizer recommendation; the only
+    # difference is the equity sleeve's own objective.
+    _is_max_sharpe = selected_mode == _ap.ALLOCATION_MODE_MAX_SHARPE
     equity_weights = optimize_equity_sleeve(
         equity_pct * liquid_nw,
         equity_classes,
         inflation_pct,
         concentration,
-        c.get('asset_class_overrides', {})
+        c.get('asset_class_overrides', {}),
+        objective_mode='max_sharpe' if _is_max_sharpe else 'mean_variance',
+        rf=risk_free_rate(c) if _is_max_sharpe else 0.0,
     )
 
     home_equity_for_allocation = coverage['home_equity_allocation_value']
@@ -1391,10 +1547,13 @@ def compute_optimal_allocation(c, force_mode=None):
             'asset_class_selection_action': c.get('asset_class_selection_action', {}),
             'asset_class_constraints': c.get('asset_class_overrides', {}),
             'capital_market_assumptions': capital_market_diagnostics,
-            'allocation_policy_mode': 'optimizer_recommendation',
+            'allocation_policy_mode': 'max_sharpe_recommendation' if _is_max_sharpe else 'optimizer_recommendation',
             'allocation_selection_mode': selected_mode,
             'allocation_selection_label': _ap.allocation_mode_label(selected_mode),
-            'optimizer_recommendation_comment': getattr(_ap, 'OPTIMIZER_RECOMMENDATION_COMMENT', ''),
+            'optimizer_recommendation_comment': (
+                getattr(_ap, 'MAX_SHARPE_RECOMMENDATION_COMMENT', '') if _is_max_sharpe
+                else getattr(_ap, 'OPTIMIZER_RECOMMENDATION_COMMENT', '')
+            ),
         },
     }
 
