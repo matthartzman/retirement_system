@@ -624,10 +624,136 @@ def build_sheet8(ws, c, rows, mc_data=None):
         chart_ws.add_chart(_sc, 'A216')
         _ef_chart_added = True
 
+    # ── Holding-Period Real-Loss-Probability Chart ─────────────────────────
+    # Reproduces the "Probability of a Real Loss by Holding Period" reference
+    # chart (Cash/T-bills, short-intermediate real bonds, a 60/40 blend, and
+    # 100% equities) and overlays this household's own withdrawal-derived
+    # holding period (src/holding_period.py, src/real_loss_curves.py) so the
+    # client sees where their own money actually sits on these curves, not
+    # just the general principle. Purely educational: renders from the
+    # already-computed projection regardless of whether
+    # holding_period_allocation_enabled lets it influence the recommendation.
+    _hp_chart_added = False
+    try:
+        from .. import holding_period as _hp
+        from .. import real_loss_curves as _rlc
+        _hp_profile = _hp.holding_period_profile(rows, c)
+        _hp_curves = _rlc.load_real_loss_curves(c)
+        _hp_horizon = _hp_profile.get('weighted_horizon_years')
+    except Exception:
+        _hp_profile, _hp_curves, _hp_horizon = None, None, None
+
+    if _hp_curves and _hp_profile and _hp_profile.get('buckets'):
+        from openpyxl.chart import ScatterChart, Series
+        from openpyxl.chart.marker import Marker
+        from openpyxl.drawing.line import LineProperties
+
+        # Own isolated hidden sheet, deliberately NOT the shared
+        # `ws` (_Chart Dashboard Data) sheet: src/reporting/dashboard.py's
+        # HTML-dashboard clone (_extract_chart_block) scans that sheet's
+        # column 1 end-to-end for integer values to reconstruct the NW/
+        # income/expense series' shared year axis. Any unrelated integer in
+        # that column elsewhere on the sheet -- including these curves' own
+        # holding-year node values (0, 3, 5, ...) -- gets misread as extra
+        # plan years and desyncs series length (IndexError downstream). A
+        # dedicated sheet avoids that coupling entirely.
+        hp_title = '_Holding Period Chart Data'
+        if hp_title in wb.sheetnames:
+            del wb[hp_title]
+        hp_ws = wb.create_sheet(hp_title)
+        hp_ws.sheet_state = 'hidden'
+        # The workbook's last tab is expected to be '_Chart Dashboard Data'
+        # (see tests/test_97_workbook_five_area_tabs.py); reinsert this new
+        # hidden sheet just before it instead of leaving it appended last.
+        _data_idx = wb._sheets.index(data_ws)
+        wb._sheets.remove(hp_ws)
+        wb._sheets.insert(_data_idx, hp_ws)
+
+        _curve_specs = [
+            ('Cash / T-Bills', _rlc.CASH_CURVE, 'C9A227'),
+            ('Bonds (Short-Intermediate)', _rlc.BONDS_CURVE, '6B7A99'),
+            ('Blend (60/40)', _rlc.BLEND_CURVE, '2D6A4F'),
+            ('100% Equities', _rlc.EQUITY_CURVE, 'B03A2E'),
+        ]
+        _rl_src = 1
+        write_cell(hp_ws, _rl_src, 1, 'Holding Years', bold=True)
+        _node_years = sorted({y for _label, _cname, _clr in _curve_specs for y, _p in (_hp_curves.get(_cname) or [])})
+        for _i, _y in enumerate(_node_years):
+            write_cell(hp_ws, _rl_src + 1 + _i, 1, _y)
+        _rl_src_last = _rl_src + len(_node_years)
+
+        for _ci, (_label, _cname, _clr) in enumerate(_curve_specs):
+            _col = 2 + _ci
+            write_cell(hp_ws, _rl_src, _col, _label, bold=True)
+            for _i, _y in enumerate(_node_years):
+                _p = _rlc.real_loss_prob(_cname, _y, curves=_hp_curves)
+                write_cell(hp_ws, _rl_src + 1 + _i, _col, _p, fmt=FMT_PCT)
+
+        # Household marker row: a single point on each curve at this
+        # household's own dollar-weighted holding period, so the four
+        # general curves and "where does my money sit" appear on one chart.
+        _marker_row = _rl_src_last + 2
+        if _hp_horizon is not None:
+            write_cell(hp_ws, _marker_row, 1, 'Your Weighted Holding Period', bold=True)
+            write_cell(hp_ws, _marker_row + 1, 1, _hp_horizon)
+            for _ci, (_label, _cname, _clr) in enumerate(_curve_specs):
+                _col = 2 + _ci
+                _p = _rlc.real_loss_prob(_cname, _hp_horizon, curves=_hp_curves)
+                write_cell(hp_ws, _marker_row + 1, _col, _p, fmt=FMT_PCT)
+
+        _sc2 = ScatterChart()
+        _sc2.title = 'Probability of a Real Loss by Holding Period'
+        _sc2.scatterStyle = 'lineMarker'
+        _sc2.style = 13
+        _sc2.width = 24
+        _sc2.height = 14
+        _sc2.x_axis.title = 'Holding Period (Years)'
+        _sc2.y_axis.title = 'Probability of Real Loss'
+        _sc2.y_axis.numFmt = '0%'
+        _sc2.x_axis.delete = False
+        _sc2.y_axis.delete = False
+
+        _xref2 = Reference(hp_ws, min_col=1, min_row=_rl_src + 1, max_row=_rl_src_last)
+        for _ci, (_label, _cname, _clr) in enumerate(_curve_specs):
+            _col = 2 + _ci
+            _yref2 = Reference(hp_ws, min_col=_col, min_row=_rl_src + 1, max_row=_rl_src_last)
+            _s2 = Series(_yref2, _xref2, title=_label)
+            _s2.marker = Marker(symbol='circle', size=5)
+            _s2.graphicalProperties = GraphicalProperties(ln=LineProperties(solidFill=_clr, w=20000))
+            _sc2.series.append(_s2)
+
+        if _hp_horizon is not None:
+            _mxref = Reference(hp_ws, min_col=1, min_row=_marker_row + 1, max_row=_marker_row + 1)
+            for _ci, (_label, _cname, _clr) in enumerate(_curve_specs):
+                _col = 2 + _ci
+                _myref = Reference(hp_ws, min_col=_col, min_row=_marker_row + 1, max_row=_marker_row + 1)
+                _ms = Series(_myref, _mxref, title=f'Your Money — {_label}')
+                _ms.marker = Marker(symbol='star', size=11)
+                _ms.graphicalProperties = GraphicalProperties(ln=LineProperties(noFill=True))
+                _sc2.series.append(_ms)
+
+        chart_ws.add_chart(_sc2, 'A260')
+        _hp_chart_added = True
+
+        # Companion table: this household's own holding-period bucket shares
+        # (real dollars leaving the liquid portfolio, bucketed by how long
+        # they stay invested first) -- the "why" behind the chart overlay.
+        _bucket_row = _marker_row + 4
+        write_cell(hp_ws, _bucket_row, 1, 'Holding-Period Bucket', bold=True)
+        write_cell(hp_ws, _bucket_row, 2, 'Liquid $', bold=True)
+        write_cell(hp_ws, _bucket_row, 3, 'Share of Liquid Balance', bold=True)
+        for _bi, (_blabel, _binfo) in enumerate(_hp_profile.get('buckets', {}).items()):
+            write_cell(hp_ws, _bucket_row + 1 + _bi, 1, _blabel)
+            write_cell(hp_ws, _bucket_row + 1 + _bi, 2, float(_binfo.get('dollars', 0.0) or 0.0), fmt=FMT_DOLLAR)
+            write_cell(hp_ws, _bucket_row + 1 + _bi, 3, float(_binfo.get('share', 0.0) or 0.0), fmt=FMT_PCT)
+
     _chart_count = 7 if _ef_chart_added else 6
+    _chart_count += 1 if _hp_chart_added else 0
     qc('8. Charts Dashboard',
        f'{_chart_count} charts: NW, CF Income, CF Expense, MC Bands, Alloc Before, Alloc After'
-       + (', Efficient Frontier' if _ef_chart_added else ''),
+       + (', Efficient Frontier' if _ef_chart_added else '')
+       + (', Holding-Period Real-Loss' if _hp_chart_added else ''),
        True,
        f'NW, Income (15 ser, ymax=${CF_YMAX:,}), Expense (8 ser, ymax=${CF_YMAX:,}), MC bands, 2 pie charts'
-       + (', efficient frontier scatter' if _ef_chart_added else ''))
+       + (', efficient frontier scatter' if _ef_chart_added else '')
+       + (', holding-period real-loss scatter' if _hp_chart_added else ''))

@@ -1122,7 +1122,31 @@ def optimize_equity_sleeve(equity_budget, available_classes, inflation_sensitive
     return {classes[i]: float(weights[i]) for i in range(n)}
 
 
-def compute_optimal_allocation(c, force_mode=None):
+def _holding_period_diagnostics(c, projection_rows):
+    """Observational-only holding-period diagnostics (Phase 1: no allocation
+    behavior depends on this yet). ``projection_rows`` is optional because
+    compute_optimal_allocation is often called before a projection exists
+    (e.g. to derive the portfolio return that feeds the projection) — in
+    that case this degrades to a 'not_computed' marker instead of raising.
+    """
+    if not projection_rows:
+        return {'holding_period_source': 'not_computed'}
+    try:
+        from . import holding_period as _hp
+    except ImportError:  # pragma: no cover - direct script-style imports
+        import holding_period as _hp
+    try:
+        profile = _hp.holding_period_profile(projection_rows, c)
+        return {
+            'holding_period_profile': profile.get('buckets', {}),
+            'withdrawal_weighted_horizon_years': profile.get('weighted_horizon_years'),
+            'holding_period_source': profile.get('source', 'unknown'),
+        }
+    except Exception as _ex:
+        return {'holding_period_source': 'error', 'holding_period_error': str(_ex)}
+
+
+def compute_optimal_allocation(c, force_mode=None, projection_rows=None):
     """Compute target allocation using either user targets or optimizer recommendation.
 
     force_mode may be "user_target" or "optimizer_recommendation" and is used by
@@ -1137,6 +1161,13 @@ def compute_optimal_allocation(c, force_mode=None):
     Non-liquid coverage can be controlled via Model Constants / Allocation rows,
     for example whether home equity satisfies REIT exposure or annuities satisfy
     fixed-income exposure.
+
+    ``projection_rows`` is an optional already-computed projection (from
+    planning_engines.project(c)). When supplied, diagnostics include the
+    household's own withdrawal-derived holding-period profile
+    (holding_period_profile / withdrawal_weighted_horizon_years) alongside
+    the existing manual-horizon capital-market assumptions. Phase 1: this is
+    purely observational and does not change the computed allocation.
     """
     import datetime
     now_yr = datetime.date.today().year
@@ -1278,6 +1309,7 @@ def compute_optimal_allocation(c, force_mode=None):
                 'optimizer_override_sum': optimizer_override_sum,
                 'optimizer_override_normalized': abs(optimizer_override_sum - 1.0) > 0.0001,
                 'optimizer_recommendation_comment': getattr(_ap, 'OPTIMIZER_RECOMMENDATION_COMMENT', ''),
+                **_holding_period_diagnostics(c, projection_rows),
             },
         }
 
@@ -1313,7 +1345,9 @@ def compute_optimal_allocation(c, force_mode=None):
         optimizer_peer = None
         if force_mode is None:
             try:
-                optimizer_peer = compute_optimal_allocation(c, force_mode=_ap.ALLOCATION_MODE_OPTIMIZER)
+                optimizer_peer = compute_optimal_allocation(
+                    c, force_mode=_ap.ALLOCATION_MODE_OPTIMIZER, projection_rows=projection_rows
+                )
             except Exception as _ex:
                 optimizer_peer = {'error': str(_ex)}
         return {
@@ -1353,6 +1387,7 @@ def compute_optimal_allocation(c, force_mode=None):
                 'allocation_target_normalized': abs(raw_target_sum - 1.0) > 0.0001,
                 'optimizer_recommendation': optimizer_peer,
                 'optimizer_recommendation_comment': getattr(_ap, 'OPTIMIZER_RECOMMENDATION_COMMENT', ''),
+                **_holding_period_diagnostics(c, projection_rows),
             },
         }
 
@@ -1422,6 +1457,7 @@ def compute_optimal_allocation(c, force_mode=None):
                 'allocation_selection_mode': selected_mode,
                 'allocation_selection_label': _ap.allocation_mode_label(selected_mode),
                 'optimizer_recommendation_comment': getattr(_ap, 'TANGENCY_RECOMMENDATION_COMMENT', ''),
+                **_holding_period_diagnostics(c, projection_rows),
             },
         }
 
@@ -1450,6 +1486,27 @@ def compute_optimal_allocation(c, force_mode=None):
     if not equity_classes:
         equity_classes = ['US Large Cap']
 
+    # Time-segmented real-loss-probability floors (opt-in via
+    # c['holding_period_allocation_enabled']; see src/holding_period.py and
+    # src/real_loss_curves.py). c['_holding_period_buckets'] is populated by
+    # data_io._resolve_holding_period_floors_and_reapply's two-pass discovery
+    # projection -- it is never present unless that flag was on, so this is a
+    # true no-op (identical equity_pct/cash_pct/fi_base_split) for every plan
+    # that has not opted in.
+    _hp_buckets = c.get('_holding_period_buckets') if c.get('holding_period_allocation_enabled') else None
+    _hp_strength = max(0.0, min(1.0, float(c.get('holding_period_floor_strength', 1.0) or 0.0)))
+    _hp_near_term_share = 0.0
+    _hp_long_term_share = 0.0
+    if _hp_buckets:
+        _hp_near_term_share = float((_hp_buckets.get('0-2 yr') or {}).get('share', 0.0) or 0.0) * _hp_strength
+        _hp_long_term_share = float((_hp_buckets.get('16+ yr') or {}).get('share', 0.0) or 0.0) * _hp_strength
+        # Chart lesson 2: at long holding periods equities have a lower
+        # real-loss probability than cash, so durable (16+ yr) balance is
+        # safer in growth classes than sitting in cash. Floor, don't force:
+        # never lowers a risk-tolerance-driven equity_pct that is already
+        # higher, and stays under the 0.95 ceiling enforced above.
+        equity_pct = max(equity_pct, min(0.95, _hp_long_term_share))
+
     # Risk-budgeted max-Sharpe keeps every other assumption above (equity_pct
     # from risk score/glide path, bond ladder, cash/REIT policy, coverage
     # adjustments) identical to the optimizer recommendation; the only
@@ -1469,6 +1526,12 @@ def compute_optimal_allocation(c, force_mode=None):
     home_equity_for_reit = coverage['home_equity_reit_coverage_value']
     total_portfolio = liquid_nw + fixed_income_coverage_pv + home_equity_for_allocation
     cash_pct = c.get('cash_target_pct', 0.05) if allocation_class_enabled(c, 'Cash') else 0.0
+    if _hp_buckets and allocation_class_enabled(c, 'Cash'):
+        # Chart lesson 1: at short holding periods cash has a lower real-loss
+        # probability than any invested sleeve, so near-term (0-2 yr) balance
+        # is safer parked in cash. Floor, don't force: never lowers an
+        # already-larger configured cash_target_pct.
+        cash_pct = max(cash_pct, _hp_near_term_share)
 
     if home_equity_for_reit > 0:
         re_pct = min(0.10, home_equity_for_reit / total_portfolio if total_portfolio > 0 else 0.05)
@@ -1484,7 +1547,14 @@ def compute_optimal_allocation(c, force_mode=None):
         total_targets[cls] = equity_pct * wt
 
     total_targets['Bonds/Fixed Income'] = fi_pct
-    fi_base_split = {'Bonds': 0.45, 'Short-Term Bonds': 0.20, 'TIPS': 0.20, 'Municipal Bonds': 0.15}
+    if _hp_buckets:
+        # Chart lesson 3: long-duration real bonds barely improve safety over
+        # short-intermediate bonds (the chart's bond curve is nearly flat) --
+        # don't reach for duration to buy safety, shift the default ladder
+        # toward Short-Term Bonds instead.
+        fi_base_split = {'Bonds': 0.30, 'Short-Term Bonds': 0.35, 'TIPS': 0.20, 'Municipal Bonds': 0.15}
+    else:
+        fi_base_split = {'Bonds': 0.45, 'Short-Term Bonds': 0.20, 'TIPS': 0.20, 'Municipal Bonds': 0.15}
     fi_split = _normalized_split(
         [cls for cls in fi_base_split if allocation_class_enabled(c, cls)],
         fi_base_split
@@ -1579,6 +1649,13 @@ def compute_optimal_allocation(c, force_mode=None):
                 getattr(_ap, 'MAX_SHARPE_RECOMMENDATION_COMMENT', '') if _is_max_sharpe
                 else getattr(_ap, 'OPTIMIZER_RECOMMENDATION_COMMENT', '')
             ),
+            'holding_period_floors_applied': {
+                'enabled': bool(_hp_buckets),
+                'strength': _hp_strength,
+                'near_term_share': _hp_near_term_share,
+                'long_term_share': _hp_long_term_share,
+            } if c.get('holding_period_allocation_enabled') else None,
+            **_holding_period_diagnostics(c, projection_rows),
         },
     }
 
@@ -1632,7 +1709,7 @@ def sharpe_ratio(expected_return, volatility, rf):
         return 0.0
 
 
-def allocation_portfolio_stats(c, force_mode=None):
+def allocation_portfolio_stats(c, force_mode=None, projection_rows=None):
     """Return allocation-implied planning statistics for a user/optimizer mode.
 
     The main cash-flow projection has a configured portfolio return.  Scenario
@@ -1642,8 +1719,13 @@ def allocation_portfolio_stats(c, force_mode=None):
     the selected allocation's weighted expected return and covariance-based
     volatility.  This keeps the base plan stable while making allocation
     scenarios produce real terminal-net-worth differences.
+
+    ``projection_rows``, when supplied, is forwarded to
+    compute_optimal_allocation so its diagnostics include the household's
+    withdrawal-derived holding-period profile (see
+    _holding_period_diagnostics).
     """
-    selected = compute_optimal_allocation(c, force_mode=force_mode)
+    selected = compute_optimal_allocation(c, force_mode=force_mode, projection_rows=projection_rows)
     targets = selected.get('liquid_targets') or {}
     classes = [cls for cls, wt in targets.items() if cls in ASSET_CLASSES and float(wt or 0) > 0]
     rf = risk_free_rate(c)

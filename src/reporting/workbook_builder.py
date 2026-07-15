@@ -1129,7 +1129,7 @@ def main():
     print('  Sheet 3 — Balance Sheet')
     build_sheet3(sheets['3. Balance Sheet'], c, rows)
     print('  Sheet 4 — Asset Allocation')
-    build_sheet4(sheets['4. Asset Allocation'], c)
+    build_sheet4(sheets['4. Asset Allocation'], c, rows)
     print('  Sheet 5 — Net Worth Projection')
     build_sheet5(sheets['5. Net Worth Projection'], c, rows)
     print('  Sheet 6 — Cash Flow Projection')

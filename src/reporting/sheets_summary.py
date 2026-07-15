@@ -1198,7 +1198,7 @@ def build_sheet2(ws, c, rows):
             _asset_items.append((f'{_cls} Example Vehicles', _examples, 'text',
                                  'Three examples used when the class is recommended but not currently represented. These are examples, not personalized trade instructions.'))
     try:
-        _optimizer_view = _ao.compute_optimal_allocation(c, force_mode=_ap.ALLOCATION_MODE_OPTIMIZER)
+        _optimizer_view = _ao.compute_optimal_allocation(c, force_mode=_ap.ALLOCATION_MODE_OPTIMIZER, projection_rows=rows)
         for _cls, _pct in (_optimizer_view.get('liquid_targets') or {}).items():
             _asset_items.append((f'Optimizer Target — {_cls}', _pct, 'decimal',
                                  'Computed recommendation using risk tolerance, withdrawal rate, guaranteed-income/home-equity coverage, capital-market assumptions, correlations, glide path, and inflation-sensitive spending.'))
@@ -1400,7 +1400,7 @@ def build_sheet3(ws, c, rows):
        f"Grand total invested: ${grand_total:,.0f}")
 
 
-def build_sheet4(ws, c):
+def build_sheet4(ws, c, rows=None):
     """Asset Allocation"""
     ws.sheet_view.showGridLines = False
     section_title(ws, 1, 'ASSET ALLOCATION & LOCATION', 8)
@@ -1472,9 +1472,9 @@ def build_sheet4(ws, c):
     # optimizer recommendation is always computed too so it remains visible as
     # a second-opinion recommendation even when the user-specified target mix
     # is selected.
-    _opt = _ao.compute_optimal_allocation(c)
-    _optimizer_view = _ao.compute_optimal_allocation(c, force_mode=_ap.ALLOCATION_MODE_OPTIMIZER)
-    _user_view = _ao.compute_optimal_allocation(c, force_mode=_ap.ALLOCATION_MODE_USER)
+    _opt = _ao.compute_optimal_allocation(c, projection_rows=rows)
+    _optimizer_view = _ao.compute_optimal_allocation(c, force_mode=_ap.ALLOCATION_MODE_OPTIMIZER, projection_rows=rows)
+    _user_view = _ao.compute_optimal_allocation(c, force_mode=_ap.ALLOCATION_MODE_USER, projection_rows=rows)
     _opt_equity_pct = _opt['equity_pct']
     _opt_risk_score = _opt['risk_score']
     _opt_human_capital = _opt['human_capital']
