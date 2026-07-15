@@ -1223,6 +1223,14 @@ def main():
     optimize_workbook_layout(wb)
     apply_numeric_centering(wb)
     apply_template_layout(wb)
+    # User-managed per-column width overrides (Settings → Workbook Formatting)
+    # are applied last so they win over both the heuristic pass and the
+    # reference template.
+    try:
+        from .workbook_format_config import apply_overrides as _apply_format_overrides
+        _apply_format_overrides(wb)
+    except Exception as _fmt_exc:  # never let optional formatting block a build
+        print(f'Warning: workbook format overrides not applied: {_fmt_exc}')
 
     # Save workbook
     print(f'Saving workbook to {out_path}')
