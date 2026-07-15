@@ -1,5 +1,11 @@
 
 
+## 2026-07-15 — Remove advisor/household language mode and the Advanced Workflow Steps toggle
+- Removed the browser-local advisor/household display language mode entirely (state, Settings card, page-header banner, and text-substitution engine). Page copy now renders as authored, with no display-mode preference. No calculations, saved values, build snapshots, or exports were ever affected by it.
+- Removed the "Advanced Workflow Steps" preference toggle and its Settings "Workflow view" card. Its only real effect was surfacing the Special Strategies page, whose content is already gated by Optional Modules.
+- Special Strategies navigation visibility now follows capability: the page appears once the HELOC or Charitable Giving optional module is enabled, so Optional Modules is the single source of truth. The other advanced-flagged pages were already `hidden` and reachable only via Settings/links; that is unchanged.
+
+
 ## 2026-06-27 - Strategy/Asset Service Modularization
 - Added `src/server_services/strategy_asset_service.py` as the feature-owned service for strategy, asset, estate, insurance, reference-import, seed-row, and config-sync helper behavior.
 - Refactored `src/server/plan_routes.py` strategy/assets/estate/insurance routes into thin adapters for permissions, CSV-write checks, request extraction, and JSON serialization.

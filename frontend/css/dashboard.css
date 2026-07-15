@@ -14,8 +14,6 @@
 .nav-reports-subtab{display:block;width:100%;text-align:left;border:none;background:transparent;padding:5px 8px;border-radius:7px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;transition:background .1s,color .1s}
 .nav-reports-subtab:hover{background:var(--accent2);color:var(--accent)}
 .nav-reports-subtab.active{background:var(--accent2);color:var(--accent);font-weight:800}
-/* Workflow view card in Settings */
-.workflow-view-card{border-color:var(--accent);background:var(--accent2)}
 
 .advanced-nav{border:1px solid var(--line);border-radius:12px;margin:12px 0;background:#fff}
 .advanced-nav>summary{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:900;padding:10px 12px;background:#f3f1ea;border-radius:12px}
@@ -511,13 +509,6 @@ body.chart-modal-open{overflow:hidden}
 .scenario-management,
 .page-recommendations,
 .batch-edit-panel,
-.language-mode-card{
-  border:1px solid var(--line);
-  border-radius:8px;
-  padding:14px;
-  background:#fff;
-  margin:12px 0;
-}
 .impact-narrative,
 .build-impact-source-list,
 .scenario-management-head,
@@ -554,21 +545,6 @@ body.chart-modal-open{overflow:hidden}
   padding:7px 8px;
   text-align:left;
   vertical-align:top;
-}
-.language-mode-banner{
-  display:flex;
-  gap:8px;
-  align-items:center;
-  border:1px solid var(--line);
-  border-radius:8px;
-  padding:8px 10px;
-  background:#f8fbff;
-  margin:8px 0;
-}
-.language-mode-toggle{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
 }
 .recommendation-source-jump{
   white-space:nowrap;

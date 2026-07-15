@@ -2,7 +2,7 @@
 // Dashboard extraction markers for no-build dashboard tests:
 // Extracted reports_ui.js retains branch marker: if(sheet.kind==='chart_dashboard'&&Array.isArray(sheet.charts)).
 // Extracted navigation/reports marker: data-detail-sheet.
-// Extraction markers retained after modularization: planning_case_v1 browser-local store; window.setDetailedResultsNavOpen=setDetailedResultsNavOpen; window.setLanguageMode=setLanguageMode; Search this page...
+// Extraction markers retained after modularization: planning_case_v1 browser-local store; window.setDetailedResultsNavOpen=setDetailedResultsNavOpen; Search this page...
 // Frontend module ownership markers: planning_workbench_ui.js owns retirement.planning_case_v1; reports_ui.js renders setDetailedResultsNavOpen(this.open); Planning cases never mutate the saved plan automatically.
 // reports_ui.js owns (Phase 3 extraction): DETAIL_MONEY_TERMS; detailCurrencyK; detailHeaderRowIndex; renderChartDashboardSheet; Column groups; function detailLabelForColumn; function detailGroupLabel; Years ${first}–${last}; detailIdentifierRowIndex; detail-super-head; has-super-head; detailCleanSectionTitle
 // Earned Income End Year; lbl!=='earned_income_last_year'
@@ -195,9 +195,7 @@ const STEPS = [
     desc: "Home equity and charitable strategies for advanced planning cases.",
     intro:
       "Use only when the plan intentionally includes home-equity borrowing, entity planning, or charitable giving strategies.",
-    help: "These strategies can improve outcomes, but they add assumptions and should be isolated in comparisons.",
-    advanced: true,
-  },
+    help: "These strategies can improve outcomes, but they add assumptions and should be isolated in comparisons.",  },
   {
     id: "planning_levers",
     group: "Strategy",
@@ -236,9 +234,7 @@ const STEPS = [
     intro:
       "Supporting inputs for the optimizer — configure before running an optimizer recommendation. Capital-market assumptions here also connect to probability analysis when enabled.",
     help: "Higher return assumptions increase expected terminal net worth but can overstate success if volatility is understated. Glide path controls whether the target allocation de-risks as retirement approaches.",
-    hidden: true,
-    advanced: true,
-  },
+    hidden: true,  },
   {
     id: "withdrawal_strategy",
     group: "Strategy",
@@ -257,9 +253,7 @@ const STEPS = [
     intro:
       "Set credit limit, last draw year, and initial rate with drift. The projection draws from the line when large discretionary spending creates a cash gap, then repays the balance from home sale proceeds.",
     help: "The strategy improves projected net worth when compound growth on the preserved liquid assets exceeds total borrowing costs. It worsens outcomes when interest drag or reduced home equity at sale outweigh the investment benefit.",
-    hidden: true,
-    advanced: true,
-  },
+    hidden: true,  },
   {
     id: "entity_charitable",
     group: "Strategy",
@@ -268,9 +262,7 @@ const STEPS = [
     intro:
       "S-Corp election can reduce self-employment tax on business income above a reasonable salary. Qualified charitable distributions are available at age 70½ and satisfy required distributions tax-free. Annual giving amounts are set on Core spending.",
     help: "Donor-advised funds are most effective when contributed in a high-income year and granted over time. Qualified charitable distributions also reduce adjusted gross income, which can lower income-related Medicare surcharge tiers — model in combination with Roth Conversion.",
-    hidden: true,
-    advanced: true,
-  },
+    hidden: true,  },
   {
     id: "monte_carlo_options",
     group: "Stress Tests",
@@ -319,9 +311,7 @@ const STEPS = [
     intro:
       "All inputs here apply only to the divorce scenario — filing status shifts to Single and account balances reflect the transfer amount. The base plan is not affected.",
     help: "Enter the projected transfer value, not the current account balance. Alimony is taxable to recipient and deductible to payor only under pre-2019 agreements — flag the agreement date when modeling.",
-    hidden: true,
-    advanced: true,
-  },
+    hidden: true,  },
   {
     id: "reports_and_review",
     group: "Reports & Review",
@@ -390,9 +380,7 @@ const STEPS = [
     intro:
       "Changes here affect every projection year simultaneously. Use Scenarios to test alternatives without altering the base assumptions.",
     help: "Medical inflation is the most sensitive late-life input — a 1% change compounds across 30 years and materially shifts Medicare and care costs. Return assumptions should reflect long-term expected rates, not recent performance.",
-    hidden: true,
-    advanced: true,
-  },
+    hidden: true,  },
   {
     id: "optional_functions",
     group: "Settings",
@@ -401,9 +389,7 @@ const STEPS = [
     intro:
       "Disabled modules are excluded from the build to keep outputs focused. Some modules also add their own input pages to the navigation when enabled.",
     help: "Modules that add nav steps must be enabled here before those steps appear. Modules that only add workbook output can be toggled without changing the navigation.",
-    hidden: true,
-    advanced: true,
-  },
+    hidden: true,  },
   {
     id: "all_assumptions",
     group: "Settings",
@@ -412,9 +398,7 @@ const STEPS = [
     intro:
       "Search by label, section, or keyword. Changes here have the same effect as editing on the source page — prefer the source page when nearby related fields need to be consistent.",
     help: "Holdings, budget lines, transactions, and liabilities are not here — those are managed on their dedicated tabs. This view covers only structured plan rows.",
-    hidden: true,
-    advanced: true,
-  },
+    hidden: true,  },
   {
     id: "system_configuration",
     group: "Settings",
@@ -425,14 +409,6 @@ const STEPS = [
     help: "Guided pages are the normal place for plan edits. Settings applies across the plan and should be changed deliberately.",
   },
 ];
-const ADVANCED_STEP_IDS = new Set(
-  STEPS.filter((s) => s.advanced).map((s) => s.id),
-);
-let showAdvanced = false;
-try {
-  const saved = localStorage.getItem("retirementShowAdvancedV2");
-  showAdvanced = saved === null ? false : saved === "1";
-} catch (_e) {}
 let navSearchText = "";
 let searchScope = "nav";
 function stepSearchText(s) {
@@ -457,6 +433,12 @@ function stepGatedByOptionalModule(stepId) {
   if (stepId === "heloc_strategy") return !helocModuleEnabled();
   if (stepId === "entity_charitable")
     return !optionalFunctionEnabled("charitable_giving");
+  // Special Strategies bundles the HELOC and Charitable Giving input pages, so
+  // it only appears in navigation once at least one of those optional modules
+  // is enabled. Visibility follows capability — there is no separate
+  // "advanced workflow" preference.
+  if (stepId === "special_strategies")
+    return !helocModuleEnabled() && !optionalFunctionEnabled("charitable_giving");
   return false;
 }
 function visibleSteps() {
@@ -467,9 +449,6 @@ function visibleSteps() {
     if (stepGatedByOptionalModule(s.id) && s.id !== activeStep) return false;
     if (s.group === null && s.id !== activeStep) return false;
     if (s.hidden && s.id !== activeStep) return false;
-    const isAdv = ADVANCED_STEP_IDS.has(s.id) || s.advanced;
-    const base = !isAdv || showAdvanced || s.id === activeStep;
-    if (!base) return false;
     if (!q) return true;
     return stepSearchText(s).includes(q) || s.id === activeStep;
   });
@@ -596,103 +575,6 @@ function addParentheticals(text) {
     out = out.replace(re, term + " " + note);
   });
   return out;
-}
-
-const LANGUAGE_MODE_LS_KEY = "retirement.language_mode.v1";
-const LANGUAGE_MODE_COPY = {
-  household: {
-    label: "Household mode",
-    short: "Household",
-    eyebrow: "Plain-English display",
-    summary:
-      "Uses plain-English framing for routine planning, review, and family decisions.",
-    help: "Household mode keeps the same inputs and calculations, but softens advisor/workpaper terminology where possible.",
-  },
-  advisor: {
-    label: "Advisor mode",
-    short: "Advisor",
-    eyebrow: "Advisor display",
-    summary:
-      "Uses professional planning terminology for advisor review, workpapers, and client discussions.",
-    help: "Advisor mode keeps implementation details visible in copy, while still preserving the same projection logic and saved plan data.",
-  },
-};
-function normalizeLanguageMode(v) {
-  v = String(v || "").toLowerCase();
-  return v === "advisor" ? "advisor" : "household";
-}
-function readLanguageMode() {
-  try {
-    return normalizeLanguageMode(
-      localStorage.getItem(LANGUAGE_MODE_LS_KEY) || "household",
-    );
-  } catch (_e) {
-    return "household";
-  }
-}
-let languageMode = readLanguageMode();
-function languageModeMeta() {
-  return (
-    LANGUAGE_MODE_COPY[normalizeLanguageMode(languageMode)] ||
-    LANGUAGE_MODE_COPY.household
-  );
-}
-function isAdvisorLanguage() {
-  return normalizeLanguageMode(languageMode) === "advisor";
-}
-function applyLanguageModeBodyClass() {
-  try {
-    document.body.dataset.languageMode = normalizeLanguageMode(languageMode);
-  } catch (_e) {}
-}
-function languageModeText(text) {
-  let out = String(text || "");
-  if (isAdvisorLanguage()) {
-    out = out
-      .replace(/review-ready/g, "advisor-ready")
-      .replace(/family review/g, "client review");
-    return out;
-  }
-  return out
-    .replace(/advisor-ready/gi, "review-ready")
-    .replace(/advisor review/gi, "final review")
-    .replace(/client-facing/gi, "plan-facing")
-    .replace(/client facts/gi, "household facts")
-    .replace(/client review/gi, "family review")
-    .replace(
-      /sharing with a client or advisor/gi,
-      "sharing or reviewing with an advisor",
-    )
-    .replace(/advisor workpapers/gi, "review notes");
-}
-function languageModeHtml(html) {
-  return languageModeText(html);
-}
-function languageModeBannerHtml() {
-  const m = languageModeMeta();
-  return `<div class="language-mode-banner ${esc(normalizeLanguageMode(languageMode))}"><span class="language-mode-pill">${esc(m.label)}</span><span>${esc(m.summary)}</span></div>`;
-}
-function languageModeControlsHtml() {
-  const mode = normalizeLanguageMode(languageMode);
-  const m = languageModeMeta();
-  const helpAttr =
-    activeStep === "system_configuration"
-      ? ` tabindex="0" onclick="showConfigCardHelp('language_mode')" onfocus="showConfigCardHelp('language_mode')"`
-      : "";
-  const stop =
-    activeStep === "system_configuration" ? "event.stopPropagation();" : "";
-  return `<div class="feature-card language-mode-card"${helpAttr}><h3>Language mode</h3><p class="small"><b>${esc(m.label)}:</b> ${esc(m.help)}</p><div class="language-mode-toggle" role="group" aria-label="Language mode"><button class="btn ${mode === "household" ? "primary" : ""}" type="button" onclick="${stop}setLanguageMode('household')">Household mode</button><button class="btn ${mode === "advisor" ? "primary" : ""}" type="button" onclick="${stop}setLanguageMode('advisor')">Advisor mode</button></div><p class="small">Display preference only — calculations, saved values, build snapshots, and exports are unchanged.</p></div>`;
-}
-function setLanguageMode(mode) {
-  languageMode = normalizeLanguageMode(mode);
-  try {
-    localStorage.setItem(LANGUAGE_MODE_LS_KEY, languageMode);
-  } catch (_e) {}
-  applyLanguageModeBodyClass();
-  showMessage(languageModeMeta().label + " enabled.");
-  renderSteps();
-  renderMain();
-  showStepHelp(activeStep);
 }
 
 let localBackupStatus = null;
@@ -1318,13 +1200,6 @@ const SYSTEM_CONFIG_FIELD_HELP = {
     "Widen a column when its numbers or labels look cramped or clipped; narrow one to fit more columns on a printed page. Rebuild the workbook to see the change.",
     "No planning impact — this changes only the appearance of the Excel output, never any calculated value.",
   ),
-  workflow_view: pageHelp(
-    "Workflow view",
-    "Shows or hides advanced planning steps — Monte Carlo configuration, divorce/QDRO options, and stress test controls — in the left navigation.",
-    "This only changes what is visible in navigation. It does not enable or disable any optional module; those are turned on from Optional Modules.",
-    "Leave routine workflow on for everyday client work. Switch to advanced workflow when you need direct access to stress-test or Monte Carlo configuration steps without opening Optional Modules first.",
-    "No planning impact by itself — it only changes navigation visibility, not build results.",
-  ),
   save_plan: pageHelp(
     "Save plan",
     "Stores all current edits — fields, tables, category budgets, transaction edits, holdings, liabilities, and strategy-table edits — to the local database.",
@@ -1345,13 +1220,6 @@ const SYSTEM_CONFIG_FIELD_HELP = {
     "Refresh Preflight recomputes the same checks shown on Download Reports, so you can confirm readiness without leaving Settings.",
     "Run Refresh Preflight after making a batch of edits elsewhere in the plan, right before you intend to build.",
     "No planning impact — this is a diagnostic check, not an input.",
-  ),
-  language_mode: pageHelp(
-    "Language mode",
-    "Chooses whether wording in the app uses household-friendly phrasing or advisor/technical phrasing.",
-    "This is a display preference only; it changes wording shown on screen, not any saved value, calculation, or export.",
-    "Use Household mode when the client will view the app directly. Use Advisor mode for planner-facing review sessions.",
-    "No planning impact — calculations, saved values, build snapshots, and exports are unchanged.",
   ),
   pricing_mode: pageHelp(
     "Pricing mode",
@@ -1397,9 +1265,8 @@ const SYSTEM_CONFIG_FIELD_HELP = {
   ),
 };
 function showConfigCardHelp(key) {
-  document.getElementById("helpPanel").innerHTML = languageModeHtml(
-    SYSTEM_CONFIG_FIELD_HELP[key] || STEP_HELP.system_configuration,
-  );
+  document.getElementById("helpPanel").innerHTML =
+    SYSTEM_CONFIG_FIELD_HELP[key] || STEP_HELP.system_configuration;
 }
 function esc(s) {
   return String(s ?? "").replace(
@@ -5909,21 +5776,6 @@ function renderSteps() {
   box.innerHTML = html;
   updateUnsaved();
 }
-function toggleAdvanced(event) {
-  if (event && event.preventDefault) event.preventDefault();
-  showAdvanced = !showAdvanced;
-  try {
-    localStorage.setItem("retirementShowAdvancedV2", showAdvanced ? "1" : "0");
-  } catch (_e) {}
-  if (!showAdvanced && ADVANCED_STEP_IDS.has(activeStep)) {
-    activeStep = "review";
-  }
-  renderSteps();
-  renderMain();
-  renderSteps();
-  setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 0);
-  return false;
-}
 
 function openNavDrawer() {
   document.body.classList.add("nav-open");
@@ -8242,7 +8094,7 @@ function renderWelcome() {
   return `<div class="pane-head"><div class="eyebrow">Welcome</div><h2>Retirement planning workspace</h2><p>Enter source facts first, then model strategy and stress tests, run preflight, build reports, and review the workbook results.</p><div class="pane-actions"><button class="btn primary" data-requires-app="1" onclick="startNewPlan()">Start New Plan</button><button class="btn" data-requires-app="1" onclick="loadAll({source:'Local database',preferLocal:false})">Open Current Plan</button><button class="btn" onclick="savePlanAs()">Save Plan As</button><button class="btn" onclick="loadSavedPlan()">Load Saved Plan</button></div><div style="margin:8px 0 4px;font-size:13px"><label style="cursor:pointer;user-select:none"><input type="checkbox" id="autoLoadCheck"${_autoLoad ? " checked" : ""} onchange="setAutoLoad(this.checked)"> Auto-load plan on next start</label></div></div>${nbaPanelHtml()}${taxFreshnessBannerHtml()}${planKpiMetricsHtml()}${firstRunChecklistHtml(false)}<div class="feature-grid"><div class="feature-card"><h3>Your plan</h3><ul><li><b>The saved plan</b> is the active source for all projections.</li><li><b>Plan Data files</b> can be exported for backup, sharing, or recovery.</li><li><b>Reports</b> are generated snapshots — edit the plan, then rebuild to update them.</li></ul></div><div class="feature-card"><h3>Save and build</h3><ul><li><b>Save Changes</b> stores ordinary fields, tables, category budgets, transaction edits, holdings, liabilities, and strategy-table edits.</li><li><b>Build Reports</b>, <b>Download Workbook</b>, and <b>Download PDF</b> save first, run preflight, then rebuild reports.</li><li>Use page-level reload buttons only when discarding unsaved page edits.</li></ul></div><div class="feature-card"><h3>Spending flow</h3><ul><li>Spending Categories defines the Tracking Type, Group, and Category model.</li><li>Housing, Wellness, and Travel are authoritative detail pages.</li><li>Income &amp; Expense Transactions feeds Spending Analysis and actual-vs-model review.</li></ul></div><div class="feature-card"><h3>Final review</h3><ol class="small"><li>Open Reports &amp; Review.</li><li>Check the Preflight tab for missing fields.</li><li>Resolve blockers, then build.</li><li>Review Impact and Results, then download the workbook.</li></ol></div></div>${closeoutChecklistHtml()}`;
 }
 function renderSystemConfiguration() {
-  return `<div class="system-config-panel"><div class="section-note">Everyday planning controls. Raw system tables, reference data, pricing providers, and diagnostics live in the System Configuration Console.</div><section class="system-config-section"><div class="system-config-grid"><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('planning_assumptions')" onfocus="showConfigCardHelp('planning_assumptions')"><h3>Planning assumptions</h3><p class="small">Change client-facing assumptions on guided pages rather than in raw system tables.</p><button class="btn" type="button" data-step-id="economic_tax_assumptions" onfocus="event.stopPropagation();showConfigCardHelp('planning_assumptions')">Economic &amp; Tax Assumptions</button> <button class="btn" type="button" data-step-id="optional_functions" onfocus="event.stopPropagation();showConfigCardHelp('planning_assumptions')">Optional Modules</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('pricing_mode')" onfocus="showConfigCardHelp('pricing_mode')"><h3>Pricing mode</h3><p class="small">Check live/cache/fallback pricing status, refresh live quotes when the cache looks stale, then freeze a saved price snapshot when reports need reproducible advisor values.</p><button class="btn" type="button" data-step-id="build_impact" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Open Build History</button> <button class="btn primary" type="button" onclick="event.stopPropagation();refreshLivePrices()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Refresh Prices</button> <button class="btn" type="button" onclick="event.stopPropagation();freezePricingSnapshot()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Freeze latest prices</button> <button class="btn" type="button" onclick="event.stopPropagation();unfreezePricingSnapshot()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Unfreeze prices</button></div>${localBackupControlsHtml()}<div class="feature-card workflow-view-card" tabindex="0" onclick="showConfigCardHelp('workflow_view')" onfocus="showConfigCardHelp('workflow_view')"><h3>Workflow view</h3><p class="small">${showAdvanced ? "Advanced planning steps are visible in the left navigation — Probability Analysis configuration, scenario and stress-test controls, Roth and allocation policy detail, and divorce/QDRO options. Switching to routine hides these steps from the navigation but keeps their saved values." : "Showing routine planning steps only. Advanced steps — Probability Analysis configuration, scenario and stress-test controls, and Roth/allocation policy detail — are hidden from the left navigation. Their saved values are unchanged; showing advanced steps re-adds those steps to the navigation."}</p><button class="btn${showAdvanced ? " warn" : " primary"}" type="button" onclick="event.stopPropagation();toggleAdvanced(event)" onfocus="event.stopPropagation();showConfigCardHelp('workflow_view')">${showAdvanced ? "Switch to routine workflow" : "Show advanced workflow steps"}</button></div>${languageModeControlsHtml()}<div class="feature-card" tabindex="0" onclick="showConfigCardHelp('session_changes')" onfocus="showConfigCardHelp('session_changes')"><h3>Session changes</h3>${recentChangesLogHtml()}</div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('system_config_console')" onfocus="showConfigCardHelp('system_config_console')"><h3>System configuration console</h3><p class="small">Maintain pricing providers, build timeout, tax constants, reference files, diagnostics, and raw system configuration rows. Opens as its own page.</p><button class="btn primary" type="button" onclick="event.stopPropagation();openSystemConfigurationConsole()" onfocus="event.stopPropagation();showConfigCardHelp('system_config_console')">Open System Configuration Console</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('csv_backup')" onfocus="showConfigCardHelp('csv_backup')"><h3>CSV backup</h3><p class="small">Export a CSV backup of holdings, transactions, target allocations, and reference data for recovery or external review.</p><button class="btn" type="button" onclick="event.stopPropagation();exportCsvBackup()" onfocus="event.stopPropagation();showConfigCardHelp('csv_backup')">Export CSV backup</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('all_assumptions_link')" onfocus="showConfigCardHelp('all_assumptions_link')"><h3>All Assumptions Editor</h3><p class="small">Inspect the full assumption table only when you need to audit or find fields outside guided pages.</p><button class="btn" type="button" data-step-id="all_assumptions" onfocus="event.stopPropagation();showConfigCardHelp('all_assumptions_link')">All Assumptions Editor</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('workbook_formatting')" onfocus="showConfigCardHelp('workbook_formatting')"><h3>Workbook formatting</h3><p class="small">Fine-tune Excel column widths per sheet, table, and column. Changes apply on the next build.</p><button class="btn" type="button" data-step-id="workbook_formatting" onfocus="event.stopPropagation();showConfigCardHelp('workbook_formatting')">Manage Workbook Formatting</button></div></div></section></div>`;
+  return `<div class="system-config-panel"><div class="section-note">Everyday planning controls. Raw system tables, reference data, pricing providers, and diagnostics live in the System Configuration Console.</div><section class="system-config-section"><div class="system-config-grid"><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('planning_assumptions')" onfocus="showConfigCardHelp('planning_assumptions')"><h3>Planning assumptions</h3><p class="small">Change client-facing assumptions on guided pages rather than in raw system tables.</p><button class="btn" type="button" data-step-id="economic_tax_assumptions" onfocus="event.stopPropagation();showConfigCardHelp('planning_assumptions')">Economic &amp; Tax Assumptions</button> <button class="btn" type="button" data-step-id="optional_functions" onfocus="event.stopPropagation();showConfigCardHelp('planning_assumptions')">Optional Modules</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('pricing_mode')" onfocus="showConfigCardHelp('pricing_mode')"><h3>Pricing mode</h3><p class="small">Check live/cache/fallback pricing status, refresh live quotes when the cache looks stale, then freeze a saved price snapshot when reports need reproducible advisor values.</p><button class="btn" type="button" data-step-id="build_impact" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Open Build History</button> <button class="btn primary" type="button" onclick="event.stopPropagation();refreshLivePrices()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Refresh Prices</button> <button class="btn" type="button" onclick="event.stopPropagation();freezePricingSnapshot()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Freeze latest prices</button> <button class="btn" type="button" onclick="event.stopPropagation();unfreezePricingSnapshot()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Unfreeze prices</button></div>${localBackupControlsHtml()}<div class="feature-card" tabindex="0" onclick="showConfigCardHelp('session_changes')" onfocus="showConfigCardHelp('session_changes')"><h3>Session changes</h3>${recentChangesLogHtml()}</div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('system_config_console')" onfocus="showConfigCardHelp('system_config_console')"><h3>System configuration console</h3><p class="small">Maintain pricing providers, build timeout, tax constants, reference files, diagnostics, and raw system configuration rows. Opens as its own page.</p><button class="btn primary" type="button" onclick="event.stopPropagation();openSystemConfigurationConsole()" onfocus="event.stopPropagation();showConfigCardHelp('system_config_console')">Open System Configuration Console</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('csv_backup')" onfocus="showConfigCardHelp('csv_backup')"><h3>CSV backup</h3><p class="small">Export a CSV backup of holdings, transactions, target allocations, and reference data for recovery or external review.</p><button class="btn" type="button" onclick="event.stopPropagation();exportCsvBackup()" onfocus="event.stopPropagation();showConfigCardHelp('csv_backup')">Export CSV backup</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('all_assumptions_link')" onfocus="showConfigCardHelp('all_assumptions_link')"><h3>All Assumptions Editor</h3><p class="small">Inspect the full assumption table only when you need to audit or find fields outside guided pages.</p><button class="btn" type="button" data-step-id="all_assumptions" onfocus="event.stopPropagation();showConfigCardHelp('all_assumptions_link')">All Assumptions Editor</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('workbook_formatting')" onfocus="showConfigCardHelp('workbook_formatting')"><h3>Workbook formatting</h3><p class="small">Fine-tune Excel column widths per sheet, table, and column. Changes apply on the next build.</p><button class="btn" type="button" data-step-id="workbook_formatting" onfocus="event.stopPropagation();showConfigCardHelp('workbook_formatting')">Manage Workbook Formatting</button></div></div></section></div>`;
 }
 
 // ── Workbook formatting (Settings → Manage Workbook Formatting) ─────────────
@@ -16002,10 +15854,10 @@ function renderMain() {
     : st.group === null
       ? "Compare & Decide"
       : `Step ${_stIdx} of ${visibleSteps().length}`;
-  let content = `<div class="pane-head"><div class="eyebrow">${_eyebrow}</div><div class="page-title-row"><h2>${esc(languageModeText(st.title))}</h2>${pageStatusHtml(st.id)}</div><p>${esc(languageModeText(addParentheticals(st.intro)))}</p>${languageModeBannerHtml()}${pageSaveModeHtml(st.id)}<div class="pane-actions"><button class="btn" type="button" data-step-id="planning_workbench">Compare & Decide</button>${primaryActionForStep(st.id)}`;
+  let content = `<div class="pane-head"><div class="eyebrow">${_eyebrow}</div><div class="page-title-row"><h2>${esc(st.title)}</h2>${pageStatusHtml(st.id)}</div><p>${esc(addParentheticals(st.intro))}</p>${pageSaveModeHtml(st.id)}<div class="pane-actions"><button class="btn" type="button" data-step-id="planning_workbench">Compare & Decide</button>${primaryActionForStep(st.id)}`;
   if (st.id === "review")
     content += `<button class="btn good" data-requires-app="1" onclick="downloadWithBuild('/api/xlsx','Workbook')">Download Workbook</button><button class="btn good" data-requires-app="1" onclick="downloadWithBuild('/api/pdf','PDF')">Download PDF</button>`;
-  content += `</div></div><div class="question"><b>${esc(languageModeText(st.desc))}</b>${esc(languageModeText(st.help))}</div>`;
+  content += `</div></div><div class="question"><b>${esc(st.desc)}</b>${esc(st.help)}</div>`;
   content += inactiveValuesPanel(activeStep);
   content += pageRecommendationsHtml(activeStep);
   if (SPENDING_WORKFLOW_INDEX[activeStep] !== undefined) {
@@ -16152,8 +16004,6 @@ function navigationContext() {
     confirm: function (msg, opts) {
       return showInAppConfirm(msg, opts);
     },
-    toggleAdvanced: toggleAdvanced,
-    setLanguageMode: setLanguageMode,
     jumpRecommendationSource: jumpRecommendationSource,
     planningCaseCreate: planningCaseCreate,
     planningCaseDelete: planningCaseDelete,
@@ -16276,9 +16126,8 @@ function editValue(idx, val, el) {
   scheduleStatusUpdate();
 }
 function showStepHelp(id) {
-  document.getElementById("helpPanel").innerHTML = languageModeHtml(
-    STEP_HELP[id] || STEP_HELP.start,
-  );
+  document.getElementById("helpPanel").innerHTML =
+    STEP_HELP[id] || STEP_HELP.start;
 }
 const FIELD_GUIDANCE_OVERRIDES = {
   monthly_pia_at_fra_today_dollars: {
@@ -18130,7 +17979,6 @@ window.addEventListener("beforeunload", function (e) {
 });
 
 wireStepNavigation();
-applyLanguageModeBodyClass();
 restoreWorkbookViewState();
 // Restore lastBuildOk if build artifacts are current
 checkAppStatus(true).then(function (ok) {

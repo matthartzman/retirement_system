@@ -820,7 +820,7 @@ Risk controls:
 - Natural-language build impact summary. Natural-language Build Impact summary with source-page links completed for the latest session build; it summarizes PTI/TNW/tax/risk/Roth deltas and links captured edits back to their source workflow pages.
 - Scenario templates and saved scenario sets. Completed as local Scenarios-page templates, browser-local named scenario sets, and side-by-side diff previews before applying overrides.
 - Recommendation engine for Roth/allocation/spending/SS. Initial explainable `page_recommendations_v1` UI implemented for Roth conversion, allocation, core spending, and Social Security pages, then expanded to state residency and withdrawal sequencing; suggestions are non-automatic and link back to source inputs.
-- Advisor vs household language mode. Completed as a browser-local display-only preference with visible workflow mode banners and Normal Settings controls.
+- Advisor vs household language mode. Implemented as a browser-local display-only preference, then **removed on 2026-07-15** — it only swapped a handful of words and carried an inert body attribute, so the feature was retired and page copy now renders as authored.
 - Automated local backup retention. Completed as opt-in opportunistic `.rpx` SQLite backups with daily/per-build cadence, manual run control, JSON manifests, and capped retention under `saved_plans/auto_backups`.
 - Canonical advisor report package. Completed with `report_package_v1`, written beside every successful build as `output/report_package.json`, exposed through `/api/report-package`, and surfaced in build preflight artifact metadata. The package treats Excel, PDF, and HTML as renderers while preserving `results_model_v10` as the semantic report model and `build_snapshot_v1` as the reproducibility snapshot.
 
@@ -828,7 +828,7 @@ Risk controls:
 
 - Treat recommendations as explainable suggestions, not automatic plan changes.
 - Add source links from every recommendation back to editable fields.
-- Keep advisor/household language as display-mode only, not logic branching.
+- Advisor/household language mode was display-only (never logic branching) and has since been removed entirely.
 - Backup retention remains opt-in; snapshot restore now uses build-snapshot database copies with hash validation and pre-restore backups.
 - Batch edit tools remain preview-first and do not automatically build; plan edits are staged until Save Changes, while System Configuration edits require a field filter and explicit write confirmation.
 
@@ -858,7 +858,7 @@ P2:
 - Add pricing snapshot freeze/unfreeze. Initial contract, API, preflight status, and Normal Settings controls completed.
 - Add natural-language Build Impact summary with source-page links. Completed for the latest Build History entry with source-page buttons for captured user edits, special-table changes, and explicit user/admin change accordions.
 - Add scenario templates and saved scenario sets. Completed with common deterministic templates, locally saved named scenario sets, current-override review, and saved/template diff tables on the Scenarios page.
-- Add household/advisor language mode. Completed with browser-local `retirement.language_mode.v1`, Normal Settings controls, page-header banners, and safe text framing substitutions.
+- Add household/advisor language mode. Completed with browser-local `retirement.language_mode.v1`, Normal Settings controls, page-header banners, and safe text framing substitutions — then removed on 2026-07-15 (display-only, low value).
 - Add local backup scheduler with retention policy. Completed with `local_backup_scheduler_v1`, Normal Settings controls, manual backup, daily/per-build cadence, and retention-limited `.rpx` copies.
 
 P3:
