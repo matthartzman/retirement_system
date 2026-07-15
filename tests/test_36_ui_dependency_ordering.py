@@ -10,11 +10,18 @@ def text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def test_advanced_options_start_collapsed_and_static_copy_is_synced():
+def test_special_strategies_visibility_follows_optional_module_capability():
+    # The former "Advanced Workflow Steps" preference toggle was removed; the
+    # Special Strategies page now appears in navigation only when its underlying
+    # optional modules (HELOC or Charitable Giving) are enabled.
     dash = text(DASH)
-    assert 'let showAdvanced = false' in dash
-    assert "retirementShowAdvancedV2" in dash
-    assert 'showAdvanced = saved === null ? false : saved === "1"' in dash
+    assert "showAdvanced" not in dash
+    assert "toggleAdvanced" not in dash
+    assert 'if (stepId === "special_strategies")' in dash
+    assert (
+        'return !helocModuleEnabled() && !optionalFunctionEnabled("charitable_giving");'
+        in dash
+    )
 
 
 def test_roth_policy_controls_relevance_and_bracket_strategy_visibility():

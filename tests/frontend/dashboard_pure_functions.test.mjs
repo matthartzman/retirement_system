@@ -121,15 +121,3 @@ describe("finiteOrNull / firstFinite", () => {
     assert.equal(sandbox.firstFinite(undefined, null, NaN, 5, 7), 0);
   });
 });
-
-describe("normalizeLanguageMode", () => {
-  test("only the literal string 'advisor' maps to advisor mode", () => {
-    assert.equal(sandbox.normalizeLanguageMode("advisor"), "advisor");
-    assert.equal(sandbox.normalizeLanguageMode("Advisor"), "advisor");
-  });
-  test("anything else (including unset) defaults to household mode", () => {
-    assert.equal(sandbox.normalizeLanguageMode("household"), "household");
-    assert.equal(sandbox.normalizeLanguageMode(undefined), "household");
-    assert.equal(sandbox.normalizeLanguageMode("client"), "household");
-  });
-});

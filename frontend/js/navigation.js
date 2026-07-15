@@ -82,9 +82,7 @@
 
   function exposeGlobals(ctx){
     window.setStep=function(id){return ctx.setStep(id)};
-    window.toggleAdvanced=ctx.toggleAdvanced||noop;
     window.showStepHelp=ctx.showStepHelp||noop;
-    window.setLanguageMode=ctx.setLanguageMode||noop;
     window.jumpRecommendationSource=ctx.jumpRecommendationSource||noop;
     window.planningCaseCreate=ctx.planningCaseCreate||noop;
     window.planningCaseDelete=ctx.planningCaseDelete||noop;
