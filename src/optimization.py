@@ -932,18 +932,33 @@ EQUITY_SLEEVE_CLASS_CAPS = {
     'REITs': 0.15,
 }
 
+# Class universe for the two Sharpe-driven allocation modes (max_sharpe and
+# tangency). Scoped to equity + commodities only, not the full asset-class
+# roster: this app already has a dedicated coverage-adjustment system that
+# treats guaranteed income (annuities/pensions/SS) as bond-like exposure and
+# home equity as REIT-like exposure (see compute_allocation_coverage /
+# _adjust_liquid_targets_for_existing_coverage), so for a household where
+# those sources already fill the fixed-income/real-estate role, re-optimizing
+# Sharpe across bonds/REITs/cash would just re-litigate a decision that
+# system already makes deliberately. Sharpe optimization instead answers a
+# narrower, better-posed question: given that budget, what's the best mix of
+# the liquid GROWTH dollars? Users who want equity-only (no commodities) can
+# already exclude Commodities via the existing per-class selection_action
+# (Include/Exclude) control -- no separate toggle needed.
+SHARPE_EQUITY_CLASSES = [
+    'US Large Cap', 'US Mid Cap', 'US Small Cap', 'International', 'Emerging Markets', 'Commodities',
+]
+
 # Concentration caps for the full-universe tangency solve. Deliberately
 # lighter than EQUITY_SLEEVE_CLASS_CAPS: a genuine tangency portfolio should
-# be free to lean heavily on core, liquid classes (US Large Cap, Bonds, Cash,
-# International, ...) if the math says so -- only the niche/illiquid/
-# higher-tail-risk classes get a practical ceiling by default. Per-class
-# user overrides (asset_class_overrides min_target/max_target) still apply
-# on top of these via _asset_class_bounds.
+# be free to lean heavily on core, liquid classes (US Large Cap,
+# International, ...) if the math says so -- only the niche/higher-tail-risk
+# classes get a practical ceiling by default. Per-class user overrides
+# (asset_class_overrides min_target/max_target) still apply on top of these
+# via _asset_class_bounds.
 TANGENCY_CLASS_CAPS = {
     'Emerging Markets': 0.20,
     'Commodities': 0.12,
-    'Managed Futures': 0.12,
-    'Private Credit': 0.10,
 }
 
 
@@ -1358,14 +1373,19 @@ def compute_optimal_allocation(c, force_mode=None):
 
     if selected_mode == _ap.ALLOCATION_MODE_TANGENCY:
         # Pure tangency portfolio: the single long-only, max-Sharpe portfolio
-        # across all enabled liquid asset classes, with no risk-tolerance
-        # ceiling, glide path, or guaranteed-income/home-equity coverage
-        # overlay -- unlike every other mode above, this is a textbook
-        # mean-variance solve, not a household-risk-aware recommendation.
-        tangency_classes = [cls for cls in ASSET_CLASSES if allocation_class_enabled(c, cls)]
+        # across the enabled equity/commodities classes (see
+        # SHARPE_EQUITY_CLASSES), with no risk-tolerance ceiling, glide path,
+        # or guaranteed-income/home-equity coverage overlay -- unlike every
+        # other mode above, this is a textbook mean-variance solve, not a
+        # household-risk-aware recommendation. Bonds/REITs/cash are excluded
+        # by design, not just left uncovered: this app's guaranteed-income
+        # and home-equity coverage system already fills that role, so
+        # Sharpe optimization is scoped to the liquid growth dollars it
+        # doesn't otherwise decide.
+        tangency_classes = [cls for cls in SHARPE_EQUITY_CLASSES if allocation_class_enabled(c, cls)]
         disabled_classes = [cls for cls in ASSET_CLASSES if not allocation_class_enabled(c, cls)]
         if not tangency_classes:
-            tangency_classes = list(ASSET_CLASSES.keys())
+            tangency_classes = list(SHARPE_EQUITY_CLASSES)
         rf = risk_free_rate(c)
         n_tan = len(tangency_classes)
         if n_tan == 1:
@@ -1411,7 +1431,18 @@ def compute_optimal_allocation(c, force_mode=None):
         }
 
     inflation_pct = c.get('inflation_sensitive_spending_pct', 0)
-    candidate_growth_classes = [
+    # Risk-budgeted max-Sharpe keeps every other assumption above (equity_pct
+    # from risk score/glide path, bond ladder, cash/REIT policy, coverage
+    # adjustments) identical to the optimizer recommendation; the only
+    # difference is the equity sleeve's own objective and, here, a narrower
+    # class universe -- see SHARPE_EQUITY_CLASSES: guaranteed income and home
+    # equity already cover the fixed-income/real-estate role elsewhere in
+    # this function, so Sharpe optimization is scoped to growth assets it
+    # doesn't otherwise decide (REITs/Managed Futures/Private Credit are
+    # excluded here even though the optimizer-recommendation sleeve considers
+    # them).
+    _is_max_sharpe = selected_mode == _ap.ALLOCATION_MODE_MAX_SHARPE
+    candidate_growth_classes = list(SHARPE_EQUITY_CLASSES) if _is_max_sharpe else [
         'US Large Cap', 'US Mid Cap', 'US Small Cap', 'International', 'Emerging Markets',
         'Commodities', 'Managed Futures', 'Private Credit', 'REITs'
     ]
@@ -1425,11 +1456,6 @@ def compute_optimal_allocation(c, force_mode=None):
     if not equity_classes:
         equity_classes = ['US Large Cap']
 
-    # Risk-budgeted max-Sharpe keeps every other assumption above (equity_pct
-    # from risk score/glide path, bond ladder, cash/REIT policy, coverage
-    # adjustments) identical to the optimizer recommendation; the only
-    # difference is the equity sleeve's own objective.
-    _is_max_sharpe = selected_mode == _ap.ALLOCATION_MODE_MAX_SHARPE
     equity_weights = optimize_equity_sleeve(
         equity_pct * liquid_nw,
         equity_classes,
