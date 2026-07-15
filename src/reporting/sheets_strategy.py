@@ -481,23 +481,49 @@ def build_sheet12(ws, c, rows):
     # Compute optimal DAF in the selected contribution year (highest income year before earn_end)
     # Strategy: contribute enough to DAF to fully itemize past standard deduction
     # in the high-income year. DAF deduction is limited to 60% of AGI.
-    opt_year     = TAX_BASE_YEAR   # highest income year
-    est_agi_base = c.get('earned', 290000) * 0.9   # rough net of SE deductions
-    std_ded_base = 31500  # MFJ tax-reference-year standard deduction (approx)
-    salt_base    = 40400  # SALT cap for the tax reference year
-    marg_base    = 0.24   # likely marginal rate
+    opt_year = TAX_BASE_YEAR   # highest income year
+    opt_row  = next((row for row in rows if row.get('year') == opt_year), None)
+    brk_inf  = c.get('brk_inf', 0.02)
 
-    # To itemize: need itemized > standard_deduction
-    # Itemized = salt + char_base + daf = salt_base + char_low + daf_contrib
-    # Solve: daf_contrib = std_ded_base - salt_base - char_low + 1 (to exceed std)
-    base_itemized = salt_base + c.get('char_low', 3000)
-    min_daf_to_itemize = max(0, std_ded_base - base_itemized + 1)
+    # Pull the client's real itemization picture for that year from the projection
+    # (real SALT after the cap, real mortgage interest, real filing/ages) instead
+    # of guessing constants. Fall back to rough estimates only if the year isn't
+    # in the projected range yet.
+    if opt_row:
+        est_agi_base     = opt_row.get('agi', 0.0) or (c.get('earned', 290000) * 0.9)
+        filing_base      = opt_row.get('filing', 'MFJ')
+        n65_base         = (1 if opt_row.get('h_age', 0) >= 65 else 0) + (1 if opt_row.get('w_age', 0) >= 65 else 0)
+        salt_gross_base  = opt_row.get('salt_gross', 0.0)
+        mort_int_base    = opt_row.get('mortgage_interest_deduction', 0.0)
+        senior_bonus_base = opt_row.get('senior_bonus_deduction', 0.0)
+    else:
+        est_agi_base     = c.get('earned', 290000) * 0.9   # rough net of SE deductions
+        filing_base      = 'MFJ'
+        n65_base         = 0
+        _state_rules     = STATE_TAX_RULES.get(c.get('state'), STATE_TAX_RULES.get('Illinois', {}))
+        salt_gross_base  = est_agi_base * _state_rules.get('rate', 0.0495)
+        mort_int_base    = 0.0
+        senior_bonus_base = 0.0
+
+    salt_base    = min(salt_gross_base, salt_cap(opt_year, est_agi_base))
+    std_ded_base = standard_deduction(opt_year, filing_base, brk_inf, n65_base) + senior_bonus_base
     # DAF deduction limit = 60% of AGI
     max_daf_deductible = est_agi_base * 0.60
-    # Optimal: itemize meaningfully but stay within 60% AGI limit
-    # Recommend 3-5 years of charitable giving bundled into DAF in the selected year
-    avg_annual_giving  = (c.get('char_low', 3000) + c.get('char_high', 5000)) / 2
-    rec_daf_years      = 5   # bundle 5 years of giving
+    marg_base    = marginal_rate(max(0.0, est_agi_base - std_ded_base), opt_year, filing_base, brk_inf)
+
+    # To itemize: need itemized > standard_deduction
+    # Itemized = salt + mortgage interest + char_base + daf = salt_base + mort_int_base + char_low + daf_contrib
+    # Solve: daf_contrib = std_ded_base - salt_base - mort_int_base - char_low + 1 (to exceed std)
+    base_itemized = salt_base + mort_int_base + c.get('char_low', 3000)
+    min_daf_to_itemize = max(0, std_ded_base - base_itemized + 1)
+    # Bundling several years of giving into one contribution is worthwhile even when
+    # SALT/mortgage alone already clear the standard deduction — it locks in today's
+    # marginal rate and pre-funds years where that may not hold (SALT-cap reversion,
+    # mortgage payoff). Default to bundling 5 years of the client's actual intended
+    # giving, capped at the 60%-of-AGI deduction limit, and only go higher than that
+    # if clearing the real itemization threshold actually requires it.
+    avg_annual_giving = (c.get('char_low', 3000) + c.get('char_high', 5000)) / 2
+    rec_daf_years      = 5
     rec_daf_amount     = min(avg_annual_giving * rec_daf_years, max_daf_deductible)
     rec_daf_amount     = max(rec_daf_amount, min_daf_to_itemize)
     rec_daf_tax_saving = min(rec_daf_amount, max_daf_deductible) * marg_base
@@ -524,8 +550,8 @@ def build_sheet12(ws, c, rows):
          f'At {marg_base:.0%} marginal rate; actual depends on final AGI'),
         ('Annual Grant Amount', f'${avg_annual_giving:,.0f}/yr', f'${daf_use:,.0f}/yr',
          'Replace ongoing charitable cash spending from DAF'),
-        ('Grant Start Year',   '2027',                str(daf_start), 'Begin distributing year after contribution'),
-        ('Grant End Year',     str(int(daf_start + rec_daf_years - 1)), str(daf_end),
+        ('Grant Start Year',   str(opt_year + 1),     str(daf_start), 'Begin distributing year after contribution'),
+        ('Grant End Year',     str(opt_year + rec_daf_years), str(daf_end),
          f'Spread over {rec_daf_years} years'),
     ]
 
@@ -544,7 +570,7 @@ def build_sheet12(ws, c, rows):
         write_cell(ws, r, 1,
                    f'ACTION: To activate DAF, add these rows to client_assets.csv under section=DAF, subsection=Settings: '
                    f'enabled=TRUE, contribution_amount={rec_daf_amount:,.0f}, contribution_year=<selected_year>, '
-                   f'annual_grant_amount={avg_annual_giving:,.0f}, grant_start_year=2027, grant_end_year={int(daf_start+rec_daf_years-1)}',
+                   f'annual_grant_amount={avg_annual_giving:,.0f}, grant_start_year={opt_year+1}, grant_end_year={opt_year+rec_daf_years}',
                    bg='FFEB9C', align='left')
         ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6)
         r += 1
