@@ -76,8 +76,13 @@ def test_system_configuration_is_single_consolidated_section():
     # Removed cards.
     assert "showConfigCardHelp('save_plan')" not in js
     assert "showConfigCardHelp('report_readiness')" not in js
-    # Retained/renamed surfaces in the single section.
-    assert "All Assumptions Editor" in js
+    # Item 192 (Option 4 Phase 2): the navigable Settings destinations —
+    # Economic & Tax Assumptions, Optional Modules, Field Finder, and Workbook
+    # Formatting — moved out of the card hub into first-class left-nav pages, so
+    # the hub is now just operational maintenance tools.
+    assert "showConfigCardHelp('planning_assumptions')" not in js
+    assert "showConfigCardHelp('all_assumptions_link')" not in js
+    # Retained operational surfaces in the single maintenance section.
     assert "Export CSV backup" in js
     assert "Open System Configuration Console" in js
     assert ".system-config-section" in css
