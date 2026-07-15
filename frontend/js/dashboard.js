@@ -5761,12 +5761,24 @@ function renderSteps() {
     html += `<details class="nav-group" ${open}><summary class="nav-group-summary">${esc(g.name)}${badge}</summary><div class="nav-group-steps">`;
     g.steps.forEach((s) => {
       html += stepButton(s);
+      // Workspace parents expose their tabs as indented nav children, so the
+      // left nav is a complete map of every reachable destination and clicking
+      // a child opens the workspace on that tab.
       if (s.id === "reports_and_review") {
-        html += `<div class="nav-reports-subtabs">`;
+        html += `<div class="nav-subtabs">`;
         REPORTS_TABS.forEach(function (tab) {
           const isActiveTab =
             activeStep === "reports_and_review" && reportsActiveTab === tab;
-          html += `<button class="nav-reports-subtab${isActiveTab ? " active" : ""}" type="button" onclick="goToReportsTab('${tab}')">${esc(tab)}</button>`;
+          html += `<button class="nav-subtab${isActiveTab ? " active" : ""}" type="button" onclick="goToReportsTab('${escJs(tab)}')">${esc(tab)}</button>`;
+        });
+        html += `</div>`;
+      } else if (s.id === "distribution_strategy") {
+        const activeTab = getStrategyTab("distribution_strategy");
+        html += `<div class="nav-subtabs">`;
+        STRATEGY_TABS.distribution_strategy.forEach(function (tab) {
+          const isActiveTab =
+            activeStep === "distribution_strategy" && activeTab === tab;
+          html += `<button class="nav-subtab${isActiveTab ? " active" : ""}" type="button"${!planLoaded ? " disabled" : ""} onclick="goToStrategyTab('distribution_strategy','${escJs(tab)}')">${esc(tab)}</button>`;
         });
         html += `</div>`;
       }
@@ -15720,6 +15732,18 @@ function setStrategyTab(step, tab) {
     localStorage.setItem(strategyTabKey(step), next);
   } catch (_e) {}
   renderMain();
+}
+// Jump to a strategy workspace tab from the left nav. Persists the tab first,
+// then routes through setStep so the plan-loaded navigation guard applies (the
+// strategy workspace requires a loaded plan, unlike the plan-independent
+// Reports workspace).
+function goToStrategyTab(step, tab) {
+  const tabs = STRATEGY_TABS[step] || [];
+  const next = tabs.includes(tab) ? tab : tabs[0] || "";
+  try {
+    localStorage.setItem(strategyTabKey(step), next);
+  } catch (_e) {}
+  setStep(step);
 }
 function renderDistributionStrategy() {
   const tab = getStrategyTab("distribution_strategy");

@@ -10,10 +10,12 @@
 .field-source-page{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:9px 0 -4px 2px}
 
 /* Reports & Review sub-tab nav in left sidebar */
-.nav-reports-subtabs{display:flex;flex-direction:column;gap:1px;padding:2px 0 6px 12px;border-left:2px solid var(--line);margin:2px 0 4px 12px}
-.nav-reports-subtab{display:block;width:100%;text-align:left;border:none;background:transparent;padding:5px 8px;border-radius:7px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;transition:background .1s,color .1s}
-.nav-reports-subtab:hover{background:var(--accent2);color:var(--accent)}
-.nav-reports-subtab.active{background:var(--accent2);color:var(--accent);font-weight:800}
+.nav-subtabs{display:flex;flex-direction:column;gap:1px;padding:2px 0 6px 12px;border-left:2px solid var(--line);margin:2px 0 4px 12px}
+.nav-subtab{display:block;width:100%;text-align:left;border:none;background:transparent;padding:5px 8px;border-radius:7px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;transition:background .1s,color .1s}
+.nav-subtab:hover{background:var(--accent2);color:var(--accent)}
+.nav-subtab.active{background:var(--accent2);color:var(--accent);font-weight:800}
+.nav-subtab:disabled{opacity:.45;cursor:not-allowed}
+.nav-subtab:disabled:hover{background:transparent;color:var(--muted)}
 
 .advanced-nav{border:1px solid var(--line);border-radius:12px;margin:12px 0;background:#fff}
 .advanced-nav>summary{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:900;padding:10px 12px;background:#f3f1ea;border-radius:12px}
