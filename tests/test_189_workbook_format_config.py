@@ -138,7 +138,10 @@ def test_routes_and_ui_wired():
     assert '"/api/workbook-format", methods=["POST"]' in routes
     js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
     assert "function renderWorkbookFormatting" in js
-    assert "data-step-id=\"workbook_formatting\"" in js
+    # Item 192 (Option 4 Phase 2): Workbook Formatting is a first-class Settings
+    # nav page rather than a card button in the Settings hub.
+    assert 'id: "workbook_formatting"' in js
+    assert 'activeStep === "workbook_formatting"' in js
     assert "/api/workbook-format" in js
     nav = (ROOT / "frontend" / "js" / "navigation.js").read_text(encoding="utf-8")
     assert "workbook_formatting" in nav
