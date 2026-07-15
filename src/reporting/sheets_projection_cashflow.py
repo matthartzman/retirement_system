@@ -319,7 +319,7 @@ def build_sheet6(ws, c, rows):
         }
         for col_idx, val in vals.items():
             fmt = FMT_YEAR if col_idx == COL['Year'] else (
-                  '0' if col_idx in (COL['H_Age'], COL['W_Age']) else FMT_DOLLAR)
+                  '0' if col_idx in (COL['H_Age'], COL['W_Age']) else FMT_DOLLAR_ZERO_BAND)
             is_sub = col_idx in SUBTOTAL_COLS
             bg = LGRAY if is_sub else None
             write_cell(ws, r, col_idx, val, fmt=fmt, bold=is_sub, bg=bg,
@@ -359,14 +359,14 @@ def build_sheet6(ws, c, rows):
             write_hdr(ws, below, 1, f"Home Sale — {c['home_sale_yr']}", BLUE, WHITE, span=6)
             below += 1
             for lbl, val, fmt in [
-                ('Gross Sale Price',                  sale_row['home_sale_gross'],           FMT_DOLLAR),
-                (f"Less: Selling Costs ({c['home_sell_cost_pct']*100:.0f}%)", sale_row.get('home_sale_costs',0), FMT_DOLLAR),
-                ('Less: Mortgage Payoff',             sale_row['home_sale_mort_off'],        FMT_DOLLAR),
-                ('Capital Gain (net of costs)',       sale_row['home_sale_gain'],            FMT_DOLLAR),
-                ('Less: §121 Exclusion (MFJ)',        c['sec121'],                           FMT_DOLLAR),
-                ('Taxable Gain',                      sale_row['home_sale_taxable'],         FMT_DOLLAR),
-                ('LTCG Tax (bracketed 0/15/20%+NIIT)',sale_row['home_sale_tax'],             FMT_DOLLAR),
-                ('Net Proceeds (basis-free in trust)',sale_row['home_sale_net'],             FMT_DOLLAR),
+                ('Gross Sale Price',                  sale_row['home_sale_gross'],           FMT_DOLLAR_ZERO_BAND),
+                (f"Less: Selling Costs ({c['home_sell_cost_pct']*100:.0f}%)", sale_row.get('home_sale_costs',0), FMT_DOLLAR_ZERO_BAND),
+                ('Less: Mortgage Payoff',             sale_row['home_sale_mort_off'],        FMT_DOLLAR_ZERO_BAND),
+                ('Capital Gain (net of costs)',       sale_row['home_sale_gain'],            FMT_DOLLAR_ZERO_BAND),
+                ('Less: §121 Exclusion (MFJ)',        c['sec121'],                           FMT_DOLLAR_ZERO_BAND),
+                ('Taxable Gain',                      sale_row['home_sale_taxable'],         FMT_DOLLAR_ZERO_BAND),
+                ('LTCG Tax (bracketed 0/15/20%+NIIT)',sale_row['home_sale_tax'],             FMT_DOLLAR_ZERO_BAND),
+                ('Net Proceeds (basis-free in trust)',sale_row['home_sale_net'],             FMT_DOLLAR_ZERO_BAND),
                 (f"Deposited to: {c['home_sale_acct']}", '', None),
             ]:
                 write_cell(ws, below, 1, lbl)

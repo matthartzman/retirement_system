@@ -231,7 +231,7 @@ def build_sheet5(ws, c, rows):
                 fmt = FMT_YEAR if col_idx==1 else '0'
                 align = 'center'
             else:
-                fmt = FMT_DOLLAR
+                fmt = FMT_DOLLAR_ZERO_BAND
                 align = 'right'
             is_subtotal = col_idx in (9,13,16,19,27,28)
             bg = LGRAY if is_subtotal else (GRAY if col_idx==28 else None)
@@ -297,9 +297,9 @@ def build_sheet5(ws, c, rows):
         bold = (grp=='TOTAL')
         bg   = LGRAY if bold else None
         write_cell(ws, r, 1, grp, bold=bold, bg=bg)
-        write_cell(ws, r, 2, start, fmt=FMT_DOLLAR, bold=bold, bg=bg, align='right')
-        write_cell(ws, r, 3, end,   fmt=FMT_DOLLAR, bold=bold, bg=bg, align='right')
-        write_cell(ws, r, 4, chg,   fmt=FMT_DOLLAR, bold=bold, bg=bg, align='right')
+        write_cell(ws, r, 2, start, fmt=FMT_DOLLAR_ZERO_BAND, bold=bold, bg=bg, align='right')
+        write_cell(ws, r, 3, end,   fmt=FMT_DOLLAR_ZERO_BAND, bold=bold, bg=bg, align='right')
+        write_cell(ws, r, 4, chg,   fmt=FMT_DOLLAR_ZERO_BAND, bold=bold, bg=bg, align='right')
         write_cell(ws, r, 5, pct,   fmt=FMT_PCT, bold=bold, bg=bg, align='right')
         r += 1
 

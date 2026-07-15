@@ -1,5 +1,5 @@
 from .workbook_common import *
-from .workbook_common import optimize_workbook_layout
+from .workbook_common import optimize_workbook_layout, apply_template_layout, apply_numeric_centering
 from .enterprise_pdf import build_enterprise_pdf
 from .sheets_summary_builder import build_sheet1, build_sheet2
 from .sheets_summary import build_sheet3, build_sheet4
@@ -1221,11 +1221,23 @@ def main():
             wb[sheet_name].sheet_properties.tabColor = color
 
     optimize_workbook_layout(wb)
+    apply_numeric_centering(wb)
+    apply_template_layout(wb)
 
     # Save workbook
     print(f'Saving workbook to {out_path}')
     wb.save(out_path)
     print(f'Workbook saved: {out_path}')
+
+    # Post-save XML patch: enlarges chart titles (openpyxl doesn't expose title
+    # run-property font size directly) and refreshes chart caches. Best-effort:
+    # the .xlsx itself is already valid and saved, so a patch failure must not
+    # fail the whole build.
+    try:
+        _patch_result = post_save_patch(out_path)
+        print(f'Workbook XML patch: {_patch_result}')
+    except Exception as _patch_err:  # noqa: BLE001 - non-fatal, xlsx already saved
+        print(f'WARNING: chart title XML patch failed ({_patch_err}); workbook build continues.')
 
     # Build the printable PDF report (landscape, minimal margins) alongside the
     # workbook so the "Download PDF" button has an artifact to serve. Wrapped in

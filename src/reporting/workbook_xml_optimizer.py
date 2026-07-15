@@ -134,11 +134,13 @@ def optimize_workbook_xml(out_path: str) -> Dict[str, object]:
                     try:
                         root = etree.fromstring(data)
                         for title_el in root.iter(f"{{{ns_chart}}}title"):
+                            # Chart titles at 3x the previous 22pt size, per
+                            # user request ("titles 3x present font size").
                             for rpr in title_el.iter(f"{{{ns_a}}}defRPr"):
-                                rpr.set("sz", "2200")
+                                rpr.set("sz", "6600")
                                 rpr.set("b", "1")
                             for rpr in title_el.iter(f"{{{ns_a}}}rPr"):
-                                rpr.set("sz", "2200")
+                                rpr.set("sz", "6600")
                                 rpr.set("b", "1")
                         for leg_pos in root.iter(f"{{{ns_chart}}}legendPos"):
                             leg_pos.set("val", "r")
