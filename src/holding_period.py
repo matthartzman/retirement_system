@@ -23,6 +23,18 @@ import datetime
 DEFAULT_BUCKET_EDGES = (0, 3, 6, 11, 16)
 DEFAULT_BUCKET_LABELS = ('0-2 yr', '3-5 yr', '6-10 yr', '11-15 yr', '16+ yr')
 
+# Representative single holding-year value per bucket, used wherever a bucket
+# needs to be looked up against a holding-year-keyed curve (see
+# src/real_loss_curves.py's real_loss_prob) instead of the bucket's full
+# range. Kept here as the single source of truth so callers (e.g.
+# optimization.py's real-loss-aware allocation mode) don't duplicate these
+# numbers. 20, not 16, represents the "16+ yr" bucket: it stays within the
+# real-loss curves' sampled range (up to 21 years) rather than sitting right
+# at the bucket's lower edge.
+DEFAULT_BUCKET_MIDPOINTS = {
+    '0-2 yr': 1, '3-5 yr': 4, '6-10 yr': 8, '11-15 yr': 13, '16+ yr': 20,
+}
+
 
 def _year_offsets_and_withdrawals(rows, plan_start):
     """[(year_offset, nominal_withdrawal_total), ...] sorted ascending.

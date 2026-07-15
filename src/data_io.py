@@ -318,15 +318,19 @@ def _resolve_auto_horizon_and_reapply(c):
 
 
 def _resolve_holding_period_floors_and_reapply(c):
-    """Optional two-pass holding-period real-loss floor discovery (opt-in via
-    c['holding_period_allocation_enabled']).
+    """Optional two-pass holding-period real-loss floor discovery. Triggered
+    by either c['holding_period_allocation_enabled'] (the opt-in floor nudge
+    on optimizer/max-Sharpe modes) or allocation_selection_mode ==
+    real_loss_aware (that mode's own bucket-blended solve requires this
+    profile to be meaningful; selecting it is itself the opt-in).
 
     Mirrors _resolve_auto_horizon_and_reapply's two-pass shape but for a
     different signal: instead of one scalar (the effective horizon), this
     discovers the full holding-period *bucket* profile (0-2yr, 3-5yr, ...,
     16+yr shares of today's liquid balance) and stores it at
     c['_holding_period_buckets'] so compute_optimal_allocation's
-    optimizer/max-Sharpe branch can nudge equity_pct/cash_pct toward it (see
+    optimizer/max-Sharpe branch can nudge equity_pct/cash_pct toward it, and
+    its real_loss_aware branch can solve/blend per bucket (see
     optimization.py: cash is safer than equities at short holding periods,
     equities are safer than cash at long ones — the same chart-derived logic
     _resolve_auto_horizon_and_reapply already uses for the scalar horizon).
@@ -339,7 +343,8 @@ def _resolve_holding_period_floors_and_reapply(c):
     when both are enabled -- an acceptable tradeoff since both remain
     strictly opt-in and off by default.
     """
-    if not c.get('holding_period_allocation_enabled'):
+    _mode = _ap.normalize_allocation_mode(c.get('allocation_selection_mode', 'user_target'))
+    if not c.get('holding_period_allocation_enabled') and _mode != _ap.ALLOCATION_MODE_REAL_LOSS_AWARE:
         return
     try:
         from . import planning_engines as _pe
@@ -1617,6 +1622,15 @@ def parse_client(data, url_template):
     # holding-period profile rather than a flat risk-tolerance split alone.
     c['holding_period_allocation_enabled'] = _b(_aap_global.get('holding_period_allocation_enabled', 'NO'))
     c['holding_period_floor_strength'] = _n(_aap_global.get('holding_period_floor_strength', '1.0'), 1.0)
+    # Tuning knobs for allocation_selection_mode=real_loss_aware's per-bucket
+    # solver (_real_loss_aware_weights): risk_aversion is the same
+    # mean-variance risk-aversion coefficient optimize_equity_sleeve already
+    # uses; real_loss_aware_weight scales the added real-loss-probability
+    # penalty term relative to variance. Defaults match the values already
+    # baked into optimize_equity_sleeve's objective (risk_aversion=3.0) and a
+    # neutral 1:1 weighting of the two penalty terms.
+    c['real_loss_aware_risk_aversion'] = _n(_aap_global.get('real_loss_aware_risk_aversion', '3.0'), 3.0)
+    c['real_loss_aware_weight'] = _n(_aap_global.get('real_loss_aware_weight', '1.0'), 1.0)
     _global = _aco.get('Global', {}) if isinstance(_aco, dict) else {}
     if isinstance(_global, dict):
         c['capital_market_config'] = {
@@ -2442,6 +2456,8 @@ def build_plan_from_json(plan, url_template=''):
     c['allocation_optimizer_comment'] = getattr(_ap, 'OPTIMIZER_RECOMMENDATION_COMMENT', '')
     c['holding_period_allocation_enabled'] = bool(a.get('holding_period_allocation_enabled', False))
     c['holding_period_floor_strength'] = float(a.get('holding_period_floor_strength', 1.0) or 1.0)
+    c['real_loss_aware_risk_aversion'] = float(a.get('real_loss_aware_risk_aversion', 3.0) or 3.0)
+    c['real_loss_aware_weight'] = float(a.get('real_loss_aware_weight', 1.0) or 1.0)
     c['capital_market_config'] = a.get('capital_market_config', {})
     c['asset_correlation_overrides'] = a.get('asset_correlation_overrides', {})
     c['human_capital_stability'] = a.get('human_capital_stability', 0.8)

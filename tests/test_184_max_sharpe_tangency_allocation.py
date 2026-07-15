@@ -55,12 +55,13 @@ def test_normalize_allocation_mode_recognizes_tangency_aliases(raw):
     assert ap.normalize_allocation_mode(raw) == ap.ALLOCATION_MODE_TANGENCY
 
 
-def test_allocation_mode_choices_include_all_four_modes():
+def test_allocation_mode_choices_include_all_five_modes():
     assert set(ap.ALLOCATION_MODE_CHOICES) == {
         ap.ALLOCATION_MODE_USER,
         ap.ALLOCATION_MODE_OPTIMIZER,
         ap.ALLOCATION_MODE_MAX_SHARPE,
         ap.ALLOCATION_MODE_TANGENCY,
+        ap.ALLOCATION_MODE_REAL_LOSS_AWARE,
     }
 
 

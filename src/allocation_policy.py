@@ -7,17 +7,20 @@ ALLOCATION_MODE_USER = "user_target"
 ALLOCATION_MODE_OPTIMIZER = "optimizer_recommendation"
 ALLOCATION_MODE_MAX_SHARPE = "max_sharpe"
 ALLOCATION_MODE_TANGENCY = "tangency"
+ALLOCATION_MODE_REAL_LOSS_AWARE = "real_loss_aware"
 ALLOCATION_MODE_CHOICES = (
     ALLOCATION_MODE_USER,
     ALLOCATION_MODE_OPTIMIZER,
     ALLOCATION_MODE_MAX_SHARPE,
     ALLOCATION_MODE_TANGENCY,
+    ALLOCATION_MODE_REAL_LOSS_AWARE,
 )
 ALLOCATION_MODE_LABELS = {
     ALLOCATION_MODE_USER: "Use user-specified allocation",
     ALLOCATION_MODE_OPTIMIZER: "Use allocation optimizer recommendation",
     ALLOCATION_MODE_MAX_SHARPE: "Use max-Sharpe allocation (risk-budgeted)",
     ALLOCATION_MODE_TANGENCY: "Use max-Sharpe allocation (pure tangency, no risk budget)",
+    ALLOCATION_MODE_REAL_LOSS_AWARE: "Use holding-period real-loss-aware allocation",
 }
 OPTIMIZER_RECOMMENDATION_COMMENT = (
     "Optimizer recommendation is based on risk tolerance or auto risk score, age, withdrawal rate, "
@@ -53,6 +56,22 @@ TANGENCY_RECOMMENDATION_COMMENT = (
     "trades off risk for Sharpe within its candidate classes, it can concentrate heavily in one class. "
     "Treat it as an analytical reference point and review it against your risk capacity before using it "
     "to drive the plan."
+)
+REAL_LOSS_AWARE_RECOMMENDATION_COMMENT = (
+    "Holding-period real-loss-aware allocation replaces the manual risk-tolerance ceiling with this "
+    "household's own withdrawal-derived holding-period profile (src/holding_period.py): today's liquid "
+    "balance is split into buckets by how soon each dollar is projected to be spent, and each bucket is "
+    "given its own mean-variance solve across the enabled/uncovered asset classes with an added penalty "
+    "for that bucket's own probability of a real (inflation-adjusted) loss at that holding period "
+    "(src/real_loss_curves.py, digitized from the 'Probability of a Real Loss by Holding Period' "
+    "reference chart) -- near-term buckets are penalized for holding equities, long-horizon buckets are "
+    "penalized for sitting in cash. The final recommendation blends each bucket's solution by its dollar "
+    "share of today's balance, so a household with both near-term and long-horizon money gets a genuine "
+    "blend rather than a single risk-tolerance-driven split. It still respects each class's "
+    "Include/Exclude/Consider-alternate-first choice on the Asset-Class Allocation Policy page, the same "
+    "way the optimizer/max-Sharpe/tangency modes do. Requires a computed holding-period profile "
+    "(enabled automatically by selecting this mode); without one it falls back to a single bucket using "
+    "the plan's remaining horizon."
 )
 
 SELECTION_INCLUDE = "include"
@@ -150,6 +169,13 @@ def normalize_allocation_mode(value: str | None) -> str:
         "pure_tangency": ALLOCATION_MODE_TANGENCY,
         "unconstrained_sharpe": ALLOCATION_MODE_TANGENCY,
         "max_sharpe_unconstrained": ALLOCATION_MODE_TANGENCY,
+        "real_loss_aware": ALLOCATION_MODE_REAL_LOSS_AWARE,
+        "holding_period_real_loss_aware": ALLOCATION_MODE_REAL_LOSS_AWARE,
+        "holding_period_aware": ALLOCATION_MODE_REAL_LOSS_AWARE,
+        "real_loss": ALLOCATION_MODE_REAL_LOSS_AWARE,
+        "loss_aware": ALLOCATION_MODE_REAL_LOSS_AWARE,
+        "real_loss_probability": ALLOCATION_MODE_REAL_LOSS_AWARE,
+        "real_loss_probability_aware": ALLOCATION_MODE_REAL_LOSS_AWARE,
     }
     return aliases.get(text, ALLOCATION_MODE_USER)
 

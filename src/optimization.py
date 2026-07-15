@@ -1043,6 +1043,59 @@ def _max_sharpe_weights(mu, cov, rf, bounds, x0=None, penalty_fn=None):
     return weights
 
 
+def _real_loss_aware_weights(mu, cov, real_loss_probs, bounds, risk_aversion=3.0,
+                              real_loss_weight=1.0, x0=None, penalty_fn=None):
+    """Solve a bounded portfolio via SLSQP that trades off return, variance,
+    and a holding-period real-loss-probability penalty:
+
+        minimize -return + risk_aversion*variance + real_loss_weight*real_loss_score
+
+    subject to sum(w)=1 and the given per-class (min, max) bounds.
+    ``real_loss_probs`` is a per-class array of real_loss_prob(class,
+    holding_years) for ONE specific holding period (see
+    src/real_loss_curves.py) -- callers solve this once per holding-period
+    bucket and blend the results by bucket dollar share (see
+    compute_optimal_allocation's ALLOCATION_MODE_REAL_LOSS_AWARE branch).
+
+    Kept as a mean-variance objective with an added linear real-loss term,
+    not a pure real-loss-score minimization: a pure linear objective in w
+    always collapses to 100% in whichever single class has the lowest
+    real_loss_prob at that holding period, which discards diversification
+    entirely. Blending the real-loss term into the same variance-penalized
+    shape optimize_equity_sleeve already uses elsewhere keeps this a genuine
+    risk-return tradeoff instead of a corner solution.
+    """
+    n = len(mu)
+    min_weight = np.array([b[0] for b in bounds], dtype=float)
+    max_weight = np.array([b[1] for b in bounds], dtype=float)
+    if x0 is None:
+        x0 = _feasible_start(min_weight, max_weight)
+
+    def objective(w):
+        port_ret = float(w @ mu)
+        port_var = float(w @ cov @ w)
+        real_loss_score = float(w @ real_loss_probs)
+        penalty = penalty_fn(w) if penalty_fn else 0.0
+        return -port_ret + risk_aversion * port_var + real_loss_weight * real_loss_score + penalty
+
+    constraints = [{'type': 'eq', 'fun': lambda w: float(np.sum(w) - 1.0)}]
+    try:
+        from scipy.optimize import minimize
+        res = minimize(objective, x0, method='SLSQP', bounds=bounds, constraints=constraints,
+                       options={'maxiter': 500, 'ftol': 1e-12})
+        if not res.success:
+            raise RuntimeError(res.message)
+        weights = np.maximum(np.array(res.x, dtype=float), 0.0)
+    except Exception:
+        weights = x0
+    total = weights.sum()
+    if total <= 0:
+        weights = np.ones(n) / n
+    else:
+        weights = weights / total
+    return weights
+
+
 def optimize_equity_sleeve(equity_budget, available_classes, inflation_sensitive_pct=0.0,
                            concentration=None, class_constraints=None, objective_mode='mean_variance', rf=0.0):
     """Solve a constrained equity-sleeve allocation.
@@ -1324,7 +1377,10 @@ def compute_optimal_allocation(c, force_mode=None, projection_rows=None):
         if _ap.normalize_selection_action(_action) == getattr(_ap, 'SELECTION_EXCLUDE', 'exclude'):
             raw_targets[_ap.canonical_asset_class(_cls)] = 0.0
     raw_target_sum = _ap.target_total(raw_targets)
-    _optimizer_family_modes = (_ap.ALLOCATION_MODE_OPTIMIZER, _ap.ALLOCATION_MODE_MAX_SHARPE, _ap.ALLOCATION_MODE_TANGENCY)
+    _optimizer_family_modes = (
+        _ap.ALLOCATION_MODE_OPTIMIZER, _ap.ALLOCATION_MODE_MAX_SHARPE,
+        _ap.ALLOCATION_MODE_TANGENCY, _ap.ALLOCATION_MODE_REAL_LOSS_AWARE,
+    )
     if selected_mode not in _optimizer_family_modes and raw_targets and raw_target_sum > 0:
         explicit_targets = _ap.normalize_targets(raw_targets)
         explicit_targets, alternate_map = _apply_alternate_first_targets(c, explicit_targets)
@@ -1457,6 +1513,126 @@ def compute_optimal_allocation(c, force_mode=None, projection_rows=None):
                 'allocation_selection_mode': selected_mode,
                 'allocation_selection_label': _ap.allocation_mode_label(selected_mode),
                 'optimizer_recommendation_comment': getattr(_ap, 'TANGENCY_RECOMMENDATION_COMMENT', ''),
+                **_holding_period_diagnostics(c, projection_rows),
+            },
+        }
+
+    if selected_mode == _ap.ALLOCATION_MODE_REAL_LOSS_AWARE:
+        # Holding-period real-loss-aware portfolio: like tangency, this is a
+        # full-universe solve across the enabled/uncovered asset classes with
+        # no risk-tolerance ceiling or glide path -- but instead of a single
+        # Sharpe-maximizing solve, it splits today's liquid balance into
+        # holding-period buckets (src/holding_period.py) and solves each
+        # bucket's own mean-variance-plus-real-loss-penalty portfolio
+        # (_real_loss_aware_weights, src/real_loss_curves.py) at that
+        # bucket's representative holding period, then blends the bucket
+        # solutions by dollar share. Same Include/Exclude/Consider-alternate-
+        # first eligibility as tangency, via the same
+        # _covered_existing_asset_classes() helper.
+        try:
+            from . import holding_period as _hp
+            from . import real_loss_curves as _rlc
+        except ImportError:  # pragma: no cover - direct script-style imports
+            import holding_period as _hp
+            import real_loss_curves as _rlc
+
+        _rl_covered_classes = _covered_existing_asset_classes(
+            c, coverage, c.get('allocation_target_pct') or {}, total_portfolio_for_coverage
+        )
+        rl_classes = [
+            cls for cls in ASSET_CLASSES
+            if allocation_class_enabled(c, cls) and cls not in _rl_covered_classes
+        ]
+        disabled_classes = [cls for cls in ASSET_CLASSES if not allocation_class_enabled(c, cls)]
+        if not rl_classes:
+            rl_classes = ['US Large Cap']
+        rf = risk_free_rate(c)
+        risk_aversion = float(c.get('real_loss_aware_risk_aversion', 3.0) or 3.0)
+        real_loss_weight = float(c.get('real_loss_aware_weight', 1.0) or 1.0)
+
+        _rl_buckets = c.get('_holding_period_buckets') or {}
+        _rl_curves = _rlc.load_real_loss_curves(c)
+        if _rl_buckets:
+            bucket_shares = {label: float(info.get('share', 0.0) or 0.0) for label, info in _rl_buckets.items()}
+        else:
+            # No computed holding-period profile (this mode wasn't reached
+            # through the two-pass discovery path -- e.g. a peer/preview
+            # call). Fall back to a single bucket at the plan's remaining
+            # horizon so the mode still returns a sensible portfolio.
+            _fallback_years = _hp.withdrawal_weighted_horizon([], c)
+            bucket_shares = {'plan_horizon': 1.0}
+            _rl_bucket_years = {'plan_horizon': _fallback_years}
+        if _rl_buckets:
+            _rl_bucket_years = {
+                label: _hp.DEFAULT_BUCKET_MIDPOINTS.get(label, 10) for label in bucket_shares
+            }
+
+        n_rl = len(rl_classes)
+        mu_rl = np.array([float(ASSET_CLASSES[cls].get('ret', 0.0) or 0.0) for cls in rl_classes], dtype=float)
+        min_w_rl, max_w_rl = _asset_class_bounds(
+            rl_classes, c.get('asset_class_overrides', {}), TANGENCY_CLASS_CAPS, default_cap=1.0
+        )
+        bounds_rl = [(float(min_w_rl[i]), float(max_w_rl[i])) for i in range(n_rl)]
+        cov_rl = build_covariance_matrix(rl_classes) + np.eye(n_rl) * 1e-6 if n_rl > 1 else None
+
+        blended = np.zeros(n_rl)
+        bucket_solutions = {}
+        _bshare_sum = sum(max(0.0, s) for s in bucket_shares.values())
+        for label, share in bucket_shares.items():
+            if share <= 0:
+                continue
+            years = _rl_bucket_years.get(label, 10)
+            real_loss_vec = np.array(
+                [_rlc.real_loss_prob(cls, years, curves=_rl_curves) for cls in rl_classes], dtype=float
+            )
+            if n_rl == 1:
+                w_bucket = np.array([1.0])
+            else:
+                w_bucket = _real_loss_aware_weights(
+                    mu_rl, cov_rl, real_loss_vec, bounds_rl,
+                    risk_aversion=risk_aversion, real_loss_weight=real_loss_weight,
+                )
+            bucket_solutions[label] = {rl_classes[i]: float(w_bucket[i]) for i in range(n_rl)}
+            blended += share * w_bucket
+        if _bshare_sum > 0:
+            blended = blended / _bshare_sum
+        else:
+            blended = np.ones(n_rl) / n_rl
+
+        liquid_targets = {rl_classes[i]: float(blended[i]) for i in range(n_rl)}
+        total_targets = dict(liquid_targets)
+        total_targets['Bonds/Fixed Income'] = sum(liquid_targets.get(cls, 0.0) for cls in _ap.FIXED_INCOME_CLASSES)
+        total_targets['REITs/Real Estate'] = sum(liquid_targets.get(cls, 0.0) for cls in _ap.REAL_ESTATE_CLASSES)
+        equity_pct_rl = sum(liquid_targets.get(cls, 0.0) for cls in _ap.GROWTH_CLASSES)
+        return {
+            'total_targets': total_targets,
+            'liquid_targets': liquid_targets,
+            'equity_pct': equity_pct_rl,
+            'risk_score': risk_score,
+            'human_capital': human_capital,
+            'bond_pv': fixed_income_coverage_pv,
+            'funded_ratio': funded_ratio,
+            'home_equity': coverage['home_equity_allocation_value'],
+            'allocation_coverage': coverage,
+            'disabled_asset_classes': disabled_classes,
+            'diagnostics': {
+                'age': age,
+                'withdrawal_rate': withdrawal_rate,
+                'risk_free_rate': rf,
+                'inflation_sensitive_pct': c.get('inflation_sensitive_spending_pct', 0),
+                'disabled_asset_classes': disabled_classes,
+                'asset_class_selection_action': c.get('asset_class_selection_action', {}),
+                'asset_class_constraints': c.get('asset_class_overrides', {}),
+                'capital_market_assumptions': capital_market_diagnostics,
+                'allocation_policy_mode': 'real_loss_aware_portfolio',
+                'allocation_selection_mode': selected_mode,
+                'allocation_selection_label': _ap.allocation_mode_label(selected_mode),
+                'real_loss_aware_bucket_shares': bucket_shares,
+                'real_loss_aware_bucket_solutions': bucket_solutions,
+                'real_loss_aware_bucket_years': _rl_bucket_years,
+                'real_loss_aware_risk_aversion': risk_aversion,
+                'real_loss_aware_weight': real_loss_weight,
+                'optimizer_recommendation_comment': getattr(_ap, 'REAL_LOSS_AWARE_RECOMMENDATION_COMMENT', ''),
                 **_holding_period_diagnostics(c, projection_rows),
             },
         }
