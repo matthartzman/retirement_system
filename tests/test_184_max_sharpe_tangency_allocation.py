@@ -6,9 +6,16 @@ src/optimization.py and src/allocation_policy.py:
       chosen to maximize the sleeve's own Sharpe ratio instead of the fixed
       risk-aversion utility.
     - "tangency": pure tangency -- the single long-only, max-Sharpe portfolio
-      across all enabled liquid asset classes, with no risk-tolerance
-      ceiling, glide path, or guaranteed-income/home-equity coverage
-      overlay.
+      across the enabled/uncovered liquid asset classes, with no
+      risk-tolerance ceiling or glide path applied.
+
+Both modes reuse the same input-driven candidate-class mechanism as
+"optimizer_recommendation": allocation_class_enabled() (Include/Exclude) and
+_covered_existing_asset_classes() (Consider alternate first, mapped to a
+covered non-liquid source such as guaranteed income or home equity). Neither
+mode hardcodes an asset-class list -- a household whose annuities/home
+equity replace the bond/real-estate sleeves on the Asset-Class Allocation
+Policy page gets that reflected automatically.
 
 Uses the repo's sample client_data.csv fixture the same way
 tests/test_183_efficient_frontier_sharpe.py does, so eligibility/inclusion
@@ -159,16 +166,43 @@ def test_tangency_liquid_targets_sum_to_one_and_are_long_only():
         assert w >= -1e-9
 
 
-def test_tangency_uses_only_equity_and_commodities_classes():
-    # Bonds/REITs/cash/alternatives are excluded by design: guaranteed
-    # income and home equity already fill that role elsewhere in this
-    # household's allocation, so Sharpe optimization is scoped to the
-    # liquid growth dollars (see SHARPE_EQUITY_CLASSES).
+def test_tangency_excludes_classes_covered_by_annuities_and_home_equity_for_sample_household():
+    # For the sample household, large annuities/notes fully cover the
+    # fixed-income sleeve target and home equity fully covers the REIT
+    # target on the Asset-Class Allocation Policy page (Consider alternate
+    # first -> Guaranteed income + note receivable / Home Equity), and
+    # Managed Futures/Private Credit are set to Exclude. Confirm tangency's
+    # candidate set reflects exactly that input-driven outcome.
     c = sample_config()
     res = opt.compute_optimal_allocation(c, force_mode=ap.ALLOCATION_MODE_TANGENCY)
-    for cls, wt in res["liquid_targets"].items():
-        if wt > 1e-6:
-            assert cls in opt.SHARPE_EQUITY_CLASSES, f"{cls} should not receive weight in tangency mode"
+    candidates = set(res["liquid_targets"].keys())
+    for cls in ("Bonds", "Short-Term Bonds", "TIPS", "Municipal Bonds", "REITs", "Managed Futures", "Private Credit"):
+        assert cls not in candidates, f"{cls} should be excluded for the sample household's coverage config"
+    for cls in ("US Large Cap", "US Mid Cap", "US Small Cap", "International", "Emerging Markets", "Commodities"):
+        assert cls in candidates
+
+
+def test_tangency_class_universe_is_driven_by_actual_coverage_not_hardcoded():
+    # Exercise _covered_existing_asset_classes directly with zero coverage to
+    # prove the "annuities/home equity replace bonds/REITs" exclusion is
+    # conditional on real coverage value -- not a fixed equity-only class
+    # list -- for this same household's Consider-alternate-first
+    # configuration: with no guaranteed-income/home-equity coverage,
+    # Bonds/REITs become eligible candidates again.
+    c = sample_config()
+    zero_coverage = {
+        "fixed_income_coverage_pv": 0.0,
+        "home_equity_reit_coverage_value": 0.0,
+        "ss_pv": 0.0,
+        "pension_pv": 0.0,
+        "annuity_pv": 0.0,
+        "note_pv": 0.0,
+    }
+    covered = opt._covered_existing_asset_classes(
+        c, zero_coverage, c.get("allocation_target_pct") or {}, 1_000_000.0,
+    )
+    assert "Bonds" not in covered
+    assert "REITs" not in covered
 
 
 def test_tangency_sharpe_at_least_as_good_as_any_single_class_in_its_universe():
@@ -178,9 +212,8 @@ def test_tangency_sharpe_at_least_as_good_as_any_single_class_in_its_universe():
     # same optimization.
     c = sample_config()
     tangency_stats = opt.allocation_portfolio_stats(c, force_mode=ap.ALLOCATION_MODE_TANGENCY)
-    for cls in opt.SHARPE_EQUITY_CLASSES:
-        if not opt.allocation_class_enabled(c, cls):
-            continue
+    res = opt.compute_optimal_allocation(c, force_mode=ap.ALLOCATION_MODE_TANGENCY)
+    for cls in res["liquid_targets"]:
         single_stats = opt.portfolio_stats_from_weights(c, {cls: 1.0})
         assert tangency_stats["sharpe"] >= single_stats["sharpe"] - 1e-4
 

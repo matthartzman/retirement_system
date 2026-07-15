@@ -2797,11 +2797,14 @@ def build_sheet4(ws, c):
                'Max Sharpe (risk-budgeted) keeps the same risk level (equity/bond/cash split) as the '
                'optimizer recommendation but picks the equity sleeve with the best risk-adjusted return. '
                'Pure Tangency has no risk budget at all — it is the single portfolio with the highest '
-               'possible Sharpe ratio, shown for reference. Both are scoped to core equity classes plus '
-               'commodities (REITs, Managed Futures, and Private Credit are excluded), since guaranteed '
-               'income and home equity already fill the fixed-income/real-estate role elsewhere in this '
-               'household\'s allocation. Pure Tangency can still recommend a very different risk level '
-               'than this household\'s risk tolerance calls for within that universe.')
+               'possible Sharpe ratio, shown for reference. Both use the same Selection-driven candidate '
+               'classes as the optimizer recommendation (2B. Asset Allocation): a class set to Exclude is '
+               'never a candidate, and a class set to Consider alternate first and mapped to a covered '
+               'source (guaranteed income, home equity, ...) is left out once that source meets the '
+               'target — so large annuities/home equity already covering the bond/real-estate sleeves '
+               'keeps both scoped to the classes they don\'t already decide. Pure Tangency can still '
+               'recommend a very different risk level than this household\'s risk tolerance calls for '
+               'within its candidate classes.')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
     r += 1
     _mode_hdrs = ['Mode', 'Expected Return', 'Volatility', 'Sharpe Ratio']
