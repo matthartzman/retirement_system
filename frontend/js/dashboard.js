@@ -174,7 +174,7 @@ const STEPS = [
     id: "distribution_strategy",
     group: "Strategy",
     title: "Distribution Strategy",
-    desc: "Planning levers, Roth conversions, withdrawal order, allocation & location, and policy settings in one decision workspace.",
+    desc: "Planning levers, Roth conversions, withdrawal order, and allocation & location in one decision workspace.",
     intro:
       "Use this page to decide when money comes out, from which buckets, how the portfolio is allocated and located, and whether Roth conversions improve the plan.",
     help: "Tabs preserve the existing source pages while making distribution and investment decisions easier to review together.",
@@ -6753,7 +6753,7 @@ function allocationModeHtml() {
         `<button class="btn ${mode === v ? "primary" : ""}" type="button" onclick="setAllocationSelectionMode('${v}')"${disabled}>${esc(label)}</button>`,
     )
     .join("");
-  return `<div class="section-note allocation-mode-panel" id="allocationModeNote"><b>Selected allocation mode:</b> ${esc(activeLabel)}. Choose the source below; the page then shows only controls for that source.<div class="table-actions">${buttonsHtml}</div>${r ? "" : '<p class="small">The CSV row for allocation_selection_mode was not found. Reload the current plan so required allocation rows are present.</p>'}</div>`;
+  return `<div class="holdings"><h3 class="group-title">Allocation Mode</h3><div class="section-note allocation-mode-panel" id="allocationModeNote">Active: ${esc(activeLabel)}. Choose the source below; the page then shows only controls for that source.<div class="table-actions">${buttonsHtml}</div>${r ? "" : '<p class="small">The CSV row for allocation_selection_mode was not found. Reload the current plan so required allocation rows are present.</p>'}</div></div>`;
 }
 function allocationOptimizerRecommendationHtml() {
   const risk = findEditableRow(
@@ -7183,7 +7183,7 @@ function renderAssetClassSelectionTable() {
     }
     cat = c;
   });
-  html += `</tbody></table></div>${optMode ? "" : allocationTotalHtml()}<p class="small">${optMode ? "Computed optimizer target is the raw model recommendation. Active target used is after optional optimizer overrides, exclusions, covered-sleeve adjustments, and liquid-portfolio normalization." : "Target total sums only rows not set to Exclude. Cash is included as its own target row. Use Consider alternate first when an existing plan asset or source should satisfy a class target before new liquid exposure is recommended."}</p></div>`;
+  html += `</tbody></table></div>${optMode ? "" : allocationTotalHtml()}</div>`;
   return html;
 }
 function optimizerInputRows() {
@@ -7330,16 +7330,9 @@ function allocationRowsOrNote(rs, msg) {
 }
 function renderAllocationPolicy() {
   const rs = allocationPolicyRows();
-  let html = `<div class="holdings"><h3 class="group-title">Allocation policy settings</h3><div class="section-note"><b>Supporting assumptions only.</b> Use this page for risk, glide path, concentration, and capital-market inputs. Asset-class selection and source choice are managed from Allocation Recommendation.</div></div>`;
   if (!rs.length)
-    return (
-      html +
-      '<div class="field-list"><p>No optimizer input rows were found. Reload the current plan so optimizer inputs can be backfilled.</p></div>'
-    );
-  return (
-    html +
-    `<details open><summary>Optimizer inputs</summary><div class="field-list">${rs.map(fieldHtml).join("")}</div></details>`
-  );
+    return '<div class="holdings"><div class="field-list"><p>No optimizer input rows were found. Reload the current plan so optimizer inputs can be backfilled.</p></div></div>';
+  return `<div class="holdings"><details open><summary>Optimizer inputs</summary><div class="field-list">${rs.map(fieldHtml).join("")}</div></details></div>`;
 }
 function renderCurrentAllocationModeNote() {
   return allocationModeHtml();
@@ -7508,9 +7501,6 @@ function renderTotalWealthAllocationHtml() {
   html += `</tbody><tfoot><tr><td><b>Total</b></td><td><b>${fmt(total)}</b></td><td><b>100.0%</b></td><td></td><td></td></tr></tfoot></table></div></div>`;
   return html;
 }
-function renderUserAllocationPanel() {
-  return `<div class="holdings"><h3 class="group-title">User-defined allocation active</h3><div class="section-note">The table above is the allocation editor. Enter target percentages that sum to 100% before saving or building.</div></div>`;
-}
 function renderOptimizerAllocationPanel() {
   let html = `<div class="holdings"><h3 class="group-title">Optimizer recommendation active</h3>${allocationOptimizerRecommendationHtml()}<div class="section-note">The table above controls which asset classes the optimizer may use and whether existing holdings satisfy a sleeve before new trades are recommended. Override percentages below lock a specific target, bypassing the optimizer.</div></div>`;
   html += renderOptimizerOverrideTable();
@@ -7523,19 +7513,13 @@ function renderTangencyAllocationPanel() {
   return `<div class="holdings"><h3 class="group-title">Pure tangency recommendation active</h3><div class="section-note warn"><b>No risk budget:</b> this solves for the single long-only portfolio, across the enabled/uncovered asset classes, with the highest possible Sharpe ratio. It still respects the Selection column below: Excluded classes are never candidates, and a class set to Consider alternate first and mapped to a covered source (guaranteed income, home equity, ...) is left out once that source meets the target &mdash; so if this household's annuities/home equity already cover the bond/real-estate sleeves, tangency is automatically scoped to the remaining liquid classes, driven by that configuration rather than a fixed list. Risk tolerance and glide path are not applied, and it does not support a manual override. It can concentrate heavily in a single class depending on the configured capital-market assumptions &mdash; review it as an analytical reference before using it to drive the plan.</div></div>`;
 }
 function renderAllocationRecommendation() {
-  let html =
-    '<details class="allocation-policy-collapsed"><summary><b>Allocation Assumptions</b><span class="small" style="margin-left:8px;font-weight:normal;color:var(--muted)">Risk tolerance, glide path, and capital-market inputs</span></summary>' +
-    renderAllocationPolicy() +
-    "</details>";
-  html +=
-    renderCurrentAllocationModeNote() +
-    renderAssetClassSelectionTable() +
-    allocationCoverageCalloutHtml();
   const mode = allocationSelectionMode();
+  let html = renderCurrentAllocationModeNote();
+  if (mode === "optimizer_recommendation") html += renderAllocationPolicy();
+  html += renderAssetClassSelectionTable() + allocationCoverageCalloutHtml();
   if (mode === "optimizer_recommendation") html += renderOptimizerAllocationPanel();
   else if (mode === "max_sharpe") html += renderMaxSharpeAllocationPanel();
   else if (mode === "tangency") html += renderTangencyAllocationPanel();
-  else html += renderUserAllocationPanel();
   html += renderTotalWealthAllocationHtml();
   return html;
 }
@@ -15655,7 +15639,6 @@ const STRATEGY_TABS = {
     "Roth Conversion",
     "Withdrawal Order",
     "Allocation & Location",
-    "Policy Settings",
   ],
 };
 function strategyTabKey(step) {
@@ -15686,7 +15669,6 @@ function renderDistributionStrategy() {
     body = analysisFrame(renderWithdrawalStrategy(), "strategy");
   else if (tab === "Allocation & Location")
     body = analysisFrame(renderAllocationRecommendation(), "strategy");
-  else if (tab === "Policy Settings") body = renderAllocationPolicy();
   else body = renderPlanningLevers();
   return `<div class="tabbed-workspace strategy-workspace">${renderStrategyTabs("distribution_strategy", STRATEGY_TABS.distribution_strategy, tab)}<div class="workspace-tab-body">${body}</div></div>`;
 }

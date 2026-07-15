@@ -152,15 +152,6 @@
 /* Planning levers sensitivity dashboard */
 .planning-levers .compact-input{padding:6px 8px;border:1px solid var(--line2);border-radius:8px;font:inherit;text-align:right}
 .planning-levers .lot-table-wrap{margin-bottom:20px}
-/* Allocation policy collapsed section embedded in optimizer */
-.allocation-policy-collapsed{border:1px solid var(--line);border-radius:8px;margin-bottom:14px;overflow:hidden}
-.allocation-policy-collapsed>summary{display:flex;align-items:center;padding:10px 14px;cursor:pointer;background:var(--well);font-size:14px;list-style:none;user-select:none;border:none;gap:8px}
-.allocation-policy-collapsed>summary::-webkit-details-marker{display:none}
-.allocation-policy-collapsed>summary::before{content:'▶';font-size:10px;color:var(--muted);transition:transform .18s ease;margin-right:4px}
-.allocation-policy-collapsed[open]>summary::before{transform:rotate(90deg)}
-.allocation-policy-collapsed[open]>summary{border-bottom:1px solid var(--line)}
-.allocation-policy-collapsed .holdings h3.group-title{display:none}
-.allocation-policy-collapsed .holdings .section-note{margin-top:0}
 
 .ytd-account-table .ytd-money-input{min-width:118px;width:118px;text-align:right;font-variant-numeric:tabular-nums}
 
