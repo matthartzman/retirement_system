@@ -1,5 +1,7 @@
 from openpyxl import load_workbook
 
+from src.reporting.workbook_common import TEMPLATE_LAYOUT
+
 
 def _visible_wb(workbook_path):
     assert workbook_path.exists(), 'Generated workbook is missing'
@@ -37,12 +39,21 @@ def test_visible_workbook_has_no_stale_feature_or_plan_scope_labels(built_workbo
     assert not hits
 
 
+def _expected_width(sheet, col, heuristic_cap):
+    """A column's expected width: the reference formatting workbook's exact
+    value if it pins this column, else the heuristic cap."""
+    pinned = TEMPLATE_LAYOUT.get(sheet, {}).get('cols', {}).get(col)
+    return pinned if pinned is not None else heuristic_cap
+
+
 def test_column_width_caps_are_applied_without_header_driven_expansion(built_workbook_path):
     wb = _visible_wb(built_workbook_path)
-    # The generated layout pass uses Excel character widths approximating the requested pixel caps.
+    # The generated layout pass uses Excel character widths approximating the requested pixel caps,
+    # except where the reference formatting workbook (template for column widths and height.xlsx)
+    # pins an exact width for that column — those exact values win at generation time.
     max_text_width = round((200 - 5) / 7, 1) + 0.1
     max_dollar_width = round((71 - 5) / 7, 1) + 0.1
     max_int_width = round((40 - 5) / 7, 1) + 0.1
-    assert wb['4F. Methodology'].column_dimensions['A'].width <= max_text_width
-    assert wb['4E. RMD Audit'].column_dimensions['G'].width <= max_dollar_width
-    assert wb['4E. RMD Audit'].column_dimensions['C'].width <= max_int_width
+    assert wb['4F. Methodology'].column_dimensions['A'].width <= _expected_width('4F. Methodology', 'A', max_text_width)
+    assert wb['4E. RMD Audit'].column_dimensions['G'].width <= _expected_width('4E. RMD Audit', 'G', max_dollar_width)
+    assert wb['4E. RMD Audit'].column_dimensions['C'].width <= _expected_width('4E. RMD Audit', 'C', max_int_width)

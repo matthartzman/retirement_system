@@ -38,6 +38,8 @@ def build_sheet7(ws, c, rows):
         for col_idx, val in enumerate(vals, 1):
             if col_idx == 1:
                 fmt = FMT_YEAR
+            elif col_idx in (2, 3):  # ages
+                fmt = FMT_INT
             elif col_idx in (4,): # filing
                 fmt = None
             elif col_idx in (13, 14):

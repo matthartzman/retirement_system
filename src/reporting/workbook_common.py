@@ -81,6 +81,11 @@ def input_style(ws, cell):
 
 FMT_DOLLAR   = '$#,##0;($#,##0);"-"'
 FMT_DOLLAR_K = '$#,##0;($#,##0);"-"'
+# Cash Flow / Net Worth sheets: amounts strictly between -$1 and $1 are
+# rounding noise, not real dollars, so they display as "-" like an exact zero
+# instead of "$0"/"($0)". Excel custom formats allow two bracketed
+# conditions, so this bands the outer sections to |value| >= 1.
+FMT_DOLLAR_ZERO_BAND = '[>=1]$#,##0;[<=-1]($#,##0);"-"'
 FMT_PCT      = '0.0%'
 FMT_YEAR     = '0'
 FMT_INT      = '#,##0'
@@ -520,6 +525,92 @@ def optimize_workbook_layout(wb, target_total_width=118):
             ws.row_dimensions[211].height = max(ws.row_dimensions[211].height or 0, 30)
 
     return wb
+
+
+def apply_numeric_centering(wb):
+    """Percentages and 2-4 digit plain numbers (ages, years, counts, ranks...)
+    are always centered horizontally, overriding whatever alignment the
+    individual sheet builder set. Dollar-formatted cells are left untouched
+    (they stay right-aligned) since the rule only covers %/plain numbers.
+    """
+    from openpyxl.styles import Alignment as _Alignment
+    for ws in wb.worksheets:
+        if getattr(ws, 'sheet_state', 'visible') != 'visible':
+            continue
+        for row in ws.iter_rows():
+            for cell in row:
+                val = cell.value
+                if val is None:
+                    continue
+                nf = (cell.number_format or '').strip()
+                if not nf or nf.lower() == 'general':
+                    continue
+                is_percent = '%' in nf
+                is_plain_int = (not is_percent and '$' not in nf
+                                 and 'accounting' not in nf.lower()
+                                 and set(nf) <= set('0#,;()- '))
+                center = False
+                if is_percent:
+                    center = True
+                elif is_plain_int and isinstance(val, (int, float)):
+                    digits = len(str(int(abs(val))))
+                    if 2 <= digits <= 4:
+                        center = True
+                if not center:
+                    continue
+                old = cell.alignment or _Alignment()
+                cell.alignment = _Alignment(
+                    horizontal='center',
+                    vertical=old.vertical or 'center',
+                    text_rotation=old.text_rotation,
+                    wrap_text=old.wrap_text,
+                    shrink_to_fit=old.shrink_to_fit,
+                    indent=old.indent,
+                )
+    return wb
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Exact column widths / row heights from the reference formatting workbook
+# ─────────────────────────────────────────────────────────────────────────────
+# Captured once from "template for column widths and height.xlsx" (hand-tuned
+# by the user) into a JSON sidecar keyed by final user-facing sheet title, so
+# the build doesn't depend on that external file's path at run time.
+import json as _json
+from pathlib import Path as _Path
+
+_TEMPLATE_LAYOUT_PATH = _Path(__file__).with_name('_template_layout_data.json')
+
+
+def _load_template_layout():
+    try:
+        with open(_TEMPLATE_LAYOUT_PATH, 'r', encoding='utf-8') as f:
+            return _json.load(f)
+    except FileNotFoundError:
+        return {}
+
+
+TEMPLATE_LAYOUT = _load_template_layout()
+
+
+def apply_template_layout(wb):
+    """Pin exact column widths and row heights captured from the reference
+    formatting workbook, keyed by final sheet title.
+
+    Runs after optimize_workbook_layout so its heuristic sizing is the
+    fallback for any column/row the template doesn't specify (e.g. columns
+    added by data that wasn't present when the template was captured).
+    """
+    for ws in wb.worksheets:
+        spec = TEMPLATE_LAYOUT.get(ws.title)
+        if not spec:
+            continue
+        for letter, width in spec.get('cols', {}).items():
+            ws.column_dimensions[letter].width = width
+        for row_str, height in spec.get('rows', {}).items():
+            ws.row_dimensions[int(row_str)].height = height
+    return wb
+
 
 # Refresh exports after workbook-wide helpers are defined.
 __all__ = [name for name in globals() if not name.startswith("__")]

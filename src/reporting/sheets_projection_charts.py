@@ -407,8 +407,16 @@ def build_sheet8(ws, c, rows, mc_data=None):
         # filtered source range.  The filtering is intentional: Excel pie
         # charts include zero-value rows in labels/legends unless those rows are
         # excluded from the source data entirely.
-        PIE_COLORS = ['2D6A4F', '40916C', '74C69D', 'B7E4C7',
-                      'BC6C25', 'DDA15E', '023E8A', '0077B6', '90E0EF', '6C757D']
+        # Distinct hues (not shades of the same color), assigned by position in
+        # the full bucket list before value-filtering. 20 colors (tab10 + its
+        # lighter tints) rather than 10 — the household's full bucket list
+        # (asset classes + Cash + non-liquid coverage rows) commonly runs to
+        # 13-16 entries, and a 10-color palette wrapped around and reused the
+        # same color twice within one pie.
+        PIE_COLORS = ['1F77B4', 'D62728', '2CA02C', 'FF7F0E', '9467BD',
+                      '8C564B', 'E377C2', '7F7F7F', 'BCBD22', '17BECF',
+                      'AEC7E8', 'FFBB78', '98DF8A', 'FF9896', 'C5B0D5',
+                      'C49C94', 'F7B6D2', 'C7C7C7', 'DBDB8D', '9EDAE5']
         color_by_bucket = {str(bkt): PIE_COLORS[idx % len(PIE_COLORS)]
                            for idx, bkt in enumerate(_pie_buckets)}
 
@@ -443,7 +451,7 @@ def build_sheet8(ws, c, rows, mc_data=None):
             pie_end = _write_pie_source(pie_start, start_col, title, rows)
             p = PieChart()
             p.title = title
-            p.style = 10; p.width = 22; p.height = 28  # 46 rows ~ 28cm height
+            p.style = 10; p.width = 18; p.height = 28  # 46 rows ~ 28cm height
             p.add_data(Reference(ws, min_col=start_col + 1, min_row=pie_start+1, max_row=pie_end), titles_from_data=False)
             p.set_categories(Reference(ws, min_col=start_col, min_row=pie_start+1, max_row=pie_end))
             if p.series:
@@ -482,11 +490,15 @@ def build_sheet8(ws, c, rows, mc_data=None):
         before_rows = _positive_pie_rows(_pie_before)
         after_rows = _positive_pie_rows(_pie_after)
 
-        # Side by side: Before at column A, After at column L (offset ~11 cols).
+        # Side by side: Before at column A, After at column P (offset ~15 cols).
+        # Pie width was also trimmed from 22cm to 18cm. Slice data labels use
+        # leader lines and can overhang a pie chart's own frame, so the previous
+        # 22cm-wide charts 11 columns apart visually overlapped; the wider gap
+        # plus narrower charts leaves clear separation even with long labels.
         # Source tables are separated as well, so categories with a 0% allocation
         # in one pie do not appear in that pie at all.
         _make_alloc_pie('Current Portfolio Allocation', before_rows, 1, 'A156')
-        _make_alloc_pie('Target Portfolio Allocation', after_rows, 4, 'L156')
+        _make_alloc_pie('Target Portfolio Allocation', after_rows, 4, 'P156')
 
     # ── Efficient Frontier Scatter Chart ──────────────────────────────────
     # Native Excel scatter of the long-only mean-variance efficient frontier

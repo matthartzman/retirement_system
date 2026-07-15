@@ -5,6 +5,8 @@ from pathlib import Path
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 
+from src.reporting.workbook_common import TEMPLATE_LAYOUT
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -47,8 +49,18 @@ def test_before_after_rebalancing_omits_zero_before_and_after_rows(built_workboo
 def test_asset_allocation_columns_are_compact_and_wrapped(built_workbook_path):
     wb = load_workbook(built_workbook_path, data_only=False)
     ws = wb['2B. Asset Allocation']
-    width_total = sum(ws.column_dimensions[get_column_letter(i)].width or 8.43 for i in range(1, 11))
-    assert width_total <= 125
+    pinned = TEMPLATE_LAYOUT.get('2B. Asset Allocation', {}).get('cols', {})
+    if pinned:
+        # The reference formatting workbook (template for column widths and
+        # height.xlsx) pins exact widths for this sheet at generation time,
+        # overriding the heuristic <=125 compactness cap below.
+        for i in range(1, 11):
+            letter = get_column_letter(i)
+            if letter in pinned:
+                assert ws.column_dimensions[letter].width == pinned[letter]
+    else:
+        width_total = sum(ws.column_dimensions[get_column_letter(i)].width or 8.43 for i in range(1, 11))
+        assert width_total <= 125
     assert ws['A211'].alignment.wrap_text is True
     assert (ws.row_dimensions[211].height or 0) >= 30
     assert ws['A285'].alignment.wrap_text is True
