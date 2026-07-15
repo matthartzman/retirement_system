@@ -761,7 +761,14 @@ HELOC_UI_PLAN_DATA_ROWS: list[list[str]] = [
 
 
 ALLOCATION_UI_PLAN_DATA_ROWS: list[list[str]] = [
-    ["Asset Allocation Policy", "Global", "allocation_selection_mode", "user_target", "choice", "user_target | optimizer_recommendation; Choose whether the plan uses user-specified target_pct allocation rows or the allocation optimizer recommendation."],
+    ["Asset Allocation Policy", "Global", "allocation_selection_mode", "user_target", "choice", "user_target | optimizer_recommendation | max_sharpe | tangency | real_loss_aware; Choose whether the plan uses user-specified target_pct allocation rows, the risk-tolerance-driven optimizer/max-Sharpe recommendation, the unconstrained tangency portfolio, or the holding-period real-loss-aware blend."],
+    ["Asset Allocation Policy", "Global", "holding_period_allocation_enabled", "NO", "yes/no", "Off by default. When YES, the optimizer/max-Sharpe recommendation modes nudge near-term (0-2yr) withdrawal-derived balance toward Cash and durable (16+yr) balance toward growth classes, using this household's own projected withdrawal schedule. Has no effect on user_target or tangency modes; selecting allocation_selection_mode=real_loss_aware enables the same discovery automatically."],
+    ["Asset Allocation Policy", "Global", "holding_period_floor_strength", "100%", "percent", "Only used when holding_period_allocation_enabled is YES. Scales how strongly the near-term/long-horizon floors are applied; 100% applies the full floor, 0% disables it without turning the feature off."],
+    ["Asset Allocation Policy", "Global", "real_loss_aware_risk_aversion", "3.0", "decimal", "Only used when allocation_selection_mode is real_loss_aware. Mean-variance risk-aversion coefficient for each holding-period bucket's solve."],
+    ["Asset Allocation Policy", "Global", "real_loss_aware_weight", "1.0", "decimal", "Only used when allocation_selection_mode is real_loss_aware. Scales the added real-loss-probability penalty relative to variance in each holding-period bucket's solve; higher values weight the real-loss curves more heavily versus expected return/variance."],
+    ["Asset Class Assumptions", "Global", "capital_market_assumption_horizon_years", "30", "choice", "Supported values: 1|3|5|10|20|25|30. Planning horizon for allocation optimizer assumptions. Ignored when capital_market_assumption_horizon_source is auto_from_withdrawals."],
+    ["Asset Class Assumptions", "Global", "capital_market_assumption_horizon_source", "manual", "choice", "manual (default) uses the horizon above. auto_from_withdrawals derives the effective horizon from this household's own projected withdrawal schedule instead."],
+    ["Asset Class Assumptions", "Global", "capital_market_assumption_preset", "BASELINE", "choice", "CONSERVATIVE, BASELINE, or AGGRESSIVE. Shifts return/volatility assumptions before per-asset overrides."],
 ]
 
 def _ensure_allocation_ui_plan_data_rows() -> None:
