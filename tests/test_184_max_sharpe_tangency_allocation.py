@@ -133,6 +133,18 @@ def test_max_sharpe_diagnostics_labeled_distinctly_from_optimizer():
     assert res["diagnostics"]["allocation_selection_mode"] == ap.ALLOCATION_MODE_MAX_SHARPE
 
 
+def test_max_sharpe_sleeve_excludes_reits_and_alternatives():
+    # Same rationale as tangency: guaranteed income/home equity already
+    # cover the fixed-income/real-estate role, so the equity sleeve's own
+    # Sharpe objective is scoped to growth + commodities only, unlike the
+    # optimizer-recommendation sleeve which also considers REITs/Managed
+    # Futures/Private Credit.
+    c = sample_config()
+    res = opt.compute_optimal_allocation(c, force_mode=ap.ALLOCATION_MODE_MAX_SHARPE)
+    for cls in ("REITs", "Managed Futures", "Private Credit"):
+        assert res["liquid_targets"].get(cls, 0.0) < 1e-6
+
+
 # ---------------------------------------------------------------------------
 # compute_optimal_allocation -- tangency (pure)
 # ---------------------------------------------------------------------------
@@ -147,14 +159,30 @@ def test_tangency_liquid_targets_sum_to_one_and_are_long_only():
         assert w >= -1e-9
 
 
-def test_tangency_sharpe_at_least_as_good_as_coarse_frontier_grid():
+def test_tangency_uses_only_equity_and_commodities_classes():
+    # Bonds/REITs/cash/alternatives are excluded by design: guaranteed
+    # income and home equity already fill that role elsewhere in this
+    # household's allocation, so Sharpe optimization is scoped to the
+    # liquid growth dollars (see SHARPE_EQUITY_CLASSES).
     c = sample_config()
-    frontier = opt.efficient_frontier(c, n_points=15)
-    best_grid_sharpe = max((p["sharpe"] for p in frontier), default=0.0)
+    res = opt.compute_optimal_allocation(c, force_mode=ap.ALLOCATION_MODE_TANGENCY)
+    for cls, wt in res["liquid_targets"].items():
+        if wt > 1e-6:
+            assert cls in opt.SHARPE_EQUITY_CLASSES, f"{cls} should not receive weight in tangency mode"
+
+
+def test_tangency_sharpe_at_least_as_good_as_any_single_class_in_its_universe():
+    # A well-formed max-Sharpe/tangency solve should never be beaten by
+    # holding just one asset from its own candidate universe, since a
+    # single-asset allocation is itself a feasible (corner) point of the
+    # same optimization.
+    c = sample_config()
     tangency_stats = opt.allocation_portfolio_stats(c, force_mode=ap.ALLOCATION_MODE_TANGENCY)
-    # The direct optimizer should find a Sharpe at least as good as any point
-    # the coarse (15-point) grid sweep happened to sample.
-    assert tangency_stats["sharpe"] >= best_grid_sharpe - 1e-4
+    for cls in opt.SHARPE_EQUITY_CLASSES:
+        if not opt.allocation_class_enabled(c, cls):
+            continue
+        single_stats = opt.portfolio_stats_from_weights(c, {cls: 1.0})
+        assert tangency_stats["sharpe"] >= single_stats["sharpe"] - 1e-4
 
 
 def test_tangency_ignores_risk_tolerance_and_glide_path():
@@ -182,10 +210,10 @@ def test_tangency_respects_user_class_overrides():
 def test_tangency_degenerate_single_class_falls_back_gracefully():
     c = sample_config()
     enabled = {cls: False for cls in opt.ASSET_CLASSES}
-    enabled["Bonds"] = True
+    enabled["US Large Cap"] = True
     c["asset_class_enabled"] = enabled
     res = opt.compute_optimal_allocation(c, force_mode=ap.ALLOCATION_MODE_TANGENCY)
-    assert res["liquid_targets"] == {"Bonds": 1.0}
+    assert res["liquid_targets"] == {"US Large Cap": 1.0}
 
 
 def test_tangency_diagnostics_labeled_and_carries_risk_free_rate():
