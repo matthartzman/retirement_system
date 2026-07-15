@@ -4398,6 +4398,10 @@ function rawRowsForStep(id) {
               "allocation_selection_mode",
               "allocation_mode",
               "use_allocation_optimizer",
+              "holding_period_allocation_enabled",
+              "holding_period_floor_strength",
+              "real_loss_aware_risk_aversion",
+              "real_loss_aware_weight",
             ].includes(lbl)) ||
           (sec === "Asset Allocation Policy" &&
             sub !== "global" &&
@@ -4718,6 +4722,43 @@ function rowBuildUsageState(row, stepId = "") {
       activation: "Choose Use allocation optimizer recommendation.",
       effect:
         "If a full 100% override is entered in optimizer mode, it replaces the computed optimizer target and can change allocation, risk, and projected outcomes.",
+    };
+  if (s === "Asset Allocation Policy" && l === "holding_period_floor_strength") {
+    const globalRow = rows.find(
+      (x) =>
+        isEditable(x) &&
+        x.section === "Asset Allocation Policy" &&
+        norm(x.subsection) === "global" &&
+        norm(x.label) === "holding_period_allocation_enabled",
+    );
+    const globalOn =
+      String(globalRow ? valOf(globalRow) : "NO").toUpperCase() === "YES" ||
+      String(globalRow ? valOf(globalRow) : "").toUpperCase() === "TRUE";
+    if (!globalOn)
+      return {
+        active: false,
+        reason:
+          "Holding-Period Allocation Enabled (above) is off, so near-term/long-horizon floors are not applied.",
+        activation: "Turn on Holding-Period Allocation Enabled above.",
+        effect:
+          "Scales how strongly near-term liquid balance is floored toward Cash and durable balance toward growth classes on the optimizer/max-Sharpe recommendation modes.",
+        listAlways: true,
+      };
+  }
+  if (
+    s === "Asset Allocation Policy" &&
+    (l === "real_loss_aware_risk_aversion" || l === "real_loss_aware_weight") &&
+    allocationSelectionMode() !== "real_loss_aware"
+  )
+    return {
+      active: false,
+      reason:
+        "Holding-period real-loss-aware allocation is not the selected allocation mode, so this tuning value is unused.",
+      activation:
+        "Choose Use holding-period real-loss-aware allocation as the allocation mode.",
+      effect:
+        "Tunes the per-holding-period-bucket solve that mode uses (mean-variance risk aversion, and the weight of the added real-loss-probability penalty).",
+      listAlways: true,
     };
   if (s === "Account Policy" && l === "reinvest_dividends") {
     const globalRow = rows.find(
@@ -6149,6 +6190,11 @@ function choiceOptions(r) {
       { value: "optimizer_recommendation", label: "Use allocation optimizer recommendation" },
       { value: "max_sharpe", label: "Use max-Sharpe allocation (risk-budgeted)" },
       { value: "tangency", label: "Use max-Sharpe allocation (pure tangency, no risk budget)" },
+      { value: "real_loss_aware", label: "Use holding-period real-loss-aware allocation" },
+    ],
+    capital_market_assumption_horizon_source: [
+      { value: "manual", label: "Manual (use the horizon selected above)" },
+      { value: "auto_from_withdrawals", label: "Auto-derive from projected withdrawals" },
     ],
     selection_action: ["include", "exclude", "consider_alternate_first"],
   };
@@ -6322,7 +6368,7 @@ function fieldHtml(r) {
     lblNorm === "allocation_mode"
   ) {
     const mode = allocationSelectionMode();
-    control = `<select data-row="${r.row_index}" onchange="editValue(${r.row_index},this.value,this);renderMain()" onfocus="showFieldHelp(${r.row_index})"><option value="user_target" ${mode === "user_target" ? "selected" : ""}>Use user-specified allocation</option><option value="optimizer_recommendation" ${mode === "optimizer_recommendation" ? "selected" : ""}>Use allocation optimizer recommendation</option><option value="max_sharpe" ${mode === "max_sharpe" ? "selected" : ""}>Use max-Sharpe allocation (risk-budgeted)</option><option value="tangency" ${mode === "tangency" ? "selected" : ""}>Use max-Sharpe allocation (pure tangency, no risk budget)</option></select>`;
+    control = `<select data-row="${r.row_index}" onchange="editValue(${r.row_index},this.value,this);renderMain()" onfocus="showFieldHelp(${r.row_index})"><option value="user_target" ${mode === "user_target" ? "selected" : ""}>Use user-specified allocation</option><option value="optimizer_recommendation" ${mode === "optimizer_recommendation" ? "selected" : ""}>Use allocation optimizer recommendation</option><option value="max_sharpe" ${mode === "max_sharpe" ? "selected" : ""}>Use max-Sharpe allocation (risk-budgeted)</option><option value="tangency" ${mode === "tangency" ? "selected" : ""}>Use max-Sharpe allocation (pure tangency, no risk budget)</option><option value="real_loss_aware" ${mode === "real_loss_aware" ? "selected" : ""}>Use holding-period real-loss-aware allocation</option></select>`;
   } else if (boolish) {
     const yes =
       String(value).toUpperCase() === "YES" ||
@@ -6571,6 +6617,8 @@ function allocationSelectionMode() {
     .replace(/[^a-z0-9]+/g, "_");
   if (v.includes("tangency") || v === "pure_tangency" || v === "unconstrained_sharpe")
     return "tangency";
+  if (v.includes("real_loss") || v.includes("loss_aware") || v === "holding_period_aware")
+    return "real_loss_aware";
   if (v.includes("max_sharpe") || v === "sharpe" || v === "sharpe_optimal")
     return "max_sharpe";
   if (v.includes("optimizer") || v === "yes" || v === "true" || v === "auto")
@@ -6601,6 +6649,7 @@ function allocationModeHtml() {
     ["optimizer_recommendation", "Use allocation optimizer recommendation"],
     ["max_sharpe", "Use max-Sharpe allocation (risk-budgeted)"],
     ["tangency", "Use max-Sharpe allocation (pure tangency)"],
+    ["real_loss_aware", "Use holding-period real-loss-aware allocation"],
   ];
   const activeLabel =
     modeButtons.find(([v]) => v === mode)?.[1] || "Using user-specified allocation";
@@ -6897,7 +6946,15 @@ function allocationPreviewFingerprint() {
   });
 }
 function requestAllocationPreview() {
-  if (!planLoaded || activeStep !== "allocation_assets") return;
+  // "allocation_assets" is the legacy standalone step id; the current
+  // guided-steps UI hosts the Allocation & Location tab inside the combined
+  // "distribution_strategy" step. Accept both so the preview actually loads
+  // on the current UI instead of silently never firing.
+  if (
+    !planLoaded ||
+    (activeStep !== "allocation_assets" && activeStep !== "distribution_strategy")
+  )
+    return;
   const key = allocationPreviewFingerprint();
   if (allocationPreviewLoading && allocationPreviewKey === key) return;
   if (
@@ -6936,7 +6993,10 @@ function requestAllocationPreview() {
       allocationPreviewError = e.message || String(e);
     })
     .finally(() => {
-      if (seq === allocationPreviewSeq && activeStep === "allocation_assets")
+      if (
+        seq === allocationPreviewSeq &&
+        (activeStep === "allocation_assets" || activeStep === "distribution_strategy")
+      )
         renderMain();
     });
 }
@@ -7024,6 +7084,8 @@ function renderAssetClassSelectionTable() {
     note = `<div class="section-note"><b>Max-Sharpe (risk-budgeted) mode is active.</b> User target percentages are hidden because the next build will not use them. This mode keeps the same risk level as the optimizer recommendation (risk tolerance, glide path, guaranteed-income/home-equity coverage) but chooses the equity sleeve with the best risk-adjusted (Sharpe) return, using the same Selection-driven candidate classes as the optimizer recommendation (Excluded classes, and classes already covered by a mapped guaranteed-income/home-equity source, are left out); it does not support a manual override.</div>${renderOptimizerPreviewNote()}`;
   } else if (mode === "tangency") {
     note = `<div class="section-note"><b>Pure tangency mode is active.</b> User target percentages are hidden because the next build will not use them. This mode ignores risk tolerance and glide path entirely and solves for the single portfolio with the highest Sharpe ratio across the enabled/uncovered classes below (Excluded classes, and classes already covered by a mapped guaranteed-income/home-equity source, are left out); it does not support a manual override. Review the recommended risk level carefully before using it to drive the plan.</div>${renderOptimizerPreviewNote()}`;
+  } else if (mode === "real_loss_aware") {
+    note = `<div class="section-note"><b>Holding-period real-loss-aware mode is active.</b> User target percentages are hidden because the next build will not use them. This mode splits today's liquid balance into holding-period buckets from this household's own projected withdrawal schedule and solves each bucket separately across the enabled/uncovered classes below with an added real-loss-probability penalty (Excluded classes, and classes already covered by a mapped guaranteed-income/home-equity source, are left out); it does not support a manual override.</div>${renderOptimizerPreviewNote()}`;
   } else {
     note = `<div class="section-note"><b>User-defined mode is active.</b> This table edits the active user target %. Rows are grouped by Equity, Fixed income, and Other. Choose exactly one action per row. <b>Include</b> and <b>Consider alternate first</b> activate the user target %. <b>Exclude</b> ignores that row's target.</div>`;
   }
@@ -7195,6 +7257,44 @@ function renderAllocationPolicy() {
 }
 function renderCurrentAllocationModeNote() {
   return allocationModeHtml();
+}
+function renderHoldingPeriodSettingsHtml() {
+  // allocationPolicyRows()/renderAllocationPolicy() only render for
+  // optimizer_recommendation mode, so these Asset Allocation Policy > Global
+  // rows (relevant to optimizer_recommendation, max_sharpe, and
+  // real_loss_aware alike) need their own explicit lookup here to be
+  // reachable at all on the current Allocation & Location tab.
+  const enabledRow = findEditableRow(
+    "Asset Allocation Policy",
+    "Global",
+    "holding_period_allocation_enabled",
+  );
+  const strengthRow = findEditableRow(
+    "Asset Allocation Policy",
+    "Global",
+    "holding_period_floor_strength",
+  );
+  if (!enabledRow && !strengthRow) return "";
+  const fields = [enabledRow, strengthRow]
+    .filter(Boolean)
+    .map(fieldHtml)
+    .join("");
+  return `<div class="holdings"><details><summary>Holding-period allocation settings</summary><div class="section-note">Optional: use this household's own projected withdrawal schedule to nudge the optimizer/max-Sharpe recommendation toward Cash for near-term money and growth for long-horizon money. Has no effect on user_target or tangency modes; selecting the holding-period real-loss-aware mode above enables the underlying discovery automatically regardless of this toggle.</div><div class="field-list">${fields}</div></details></div>`;
+}
+function renderRealLossAwareTuningHtml() {
+  const riskRow = findEditableRow(
+    "Asset Allocation Policy",
+    "Global",
+    "real_loss_aware_risk_aversion",
+  );
+  const weightRow = findEditableRow(
+    "Asset Allocation Policy",
+    "Global",
+    "real_loss_aware_weight",
+  );
+  if (!riskRow && !weightRow) return "";
+  const fields = [riskRow, weightRow].filter(Boolean).map(fieldHtml).join("");
+  return `<div class="holdings"><details><summary>Real-loss-aware tuning</summary><div class="field-list">${fields}</div></details></div>`;
 }
 function renderOptimizerOverrideTable() {
   const names = assetClassNamesForAllocation();
@@ -7371,14 +7471,30 @@ function renderMaxSharpeAllocationPanel() {
 function renderTangencyAllocationPanel() {
   return `<div class="holdings"><h3 class="group-title">Pure tangency recommendation active</h3><div class="section-note warn"><b>No risk budget:</b> this solves for the single long-only portfolio, across the enabled/uncovered asset classes, with the highest possible Sharpe ratio. It still respects the Selection column below: Excluded classes are never candidates, and a class set to Consider alternate first and mapped to a covered source (guaranteed income, home equity, ...) is left out once that source meets the target &mdash; so if this household's annuities/home equity already cover the bond/real-estate sleeves, tangency is automatically scoped to the remaining liquid classes, driven by that configuration rather than a fixed list. Risk tolerance and glide path are not applied, and it does not support a manual override. It can concentrate heavily in a single class depending on the configured capital-market assumptions &mdash; review it as an analytical reference before using it to drive the plan.</div></div>`;
 }
+function renderRealLossAwarePanel() {
+  const diag = (allocationPreview || {}).selected_diagnostics || {};
+  const shares = diag.real_loss_aware_bucket_shares || {};
+  const bucketRows = Object.entries(shares)
+    .filter(([, share]) => Number(share) > 0)
+    .map(
+      ([label, share]) =>
+        `<tr><td>${esc(label)}</td><td>${(Number(share) * 100).toFixed(1)}%</td></tr>`,
+    )
+    .join("");
+  const bucketTable = bucketRows
+    ? `<div class="section-note">Holding-period buckets used for this blend (derived from this household's own projected withdrawal schedule):</div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Holding-period bucket</th><th>Share of liquid balance</th></tr></thead><tbody>${bucketRows}</tbody></table></div>`
+    : "";
+  return `<div class="holdings"><h3 class="group-title">Holding-period real-loss-aware recommendation active</h3><div class="section-note warn"><b>No risk budget:</b> today's liquid balance is split into holding-period buckets based on this household's own projected withdrawal schedule, and each bucket is solved separately across the enabled/uncovered asset classes with an added penalty for that bucket's probability of a real (inflation-adjusted) loss at that holding period &mdash; near-term buckets are penalized for holding equities, long-horizon buckets are penalized for sitting in cash. The final recommendation blends each bucket's solution by its dollar share of today's balance. It still respects the Selection column below: Excluded classes are never candidates, and a class set to Consider alternate first and mapped to a covered source (guaranteed income, home equity, ...) is left out once that source meets the target. Risk tolerance and glide path are not applied, and it does not support a manual override.</div>${bucketTable}</div>${renderRealLossAwareTuningHtml()}`;
+}
 function renderAllocationRecommendation() {
   const mode = allocationSelectionMode();
-  let html = renderCurrentAllocationModeNote();
+  let html = renderCurrentAllocationModeNote() + renderHoldingPeriodSettingsHtml();
   if (mode === "optimizer_recommendation") html += renderAllocationPolicy();
   html += renderAssetClassSelectionTable() + allocationCoverageCalloutHtml();
   if (mode === "optimizer_recommendation") html += renderOptimizerAllocationPanel();
   else if (mode === "max_sharpe") html += renderMaxSharpeAllocationPanel();
   else if (mode === "tangency") html += renderTangencyAllocationPanel();
+  else if (mode === "real_loss_aware") html += renderRealLossAwarePanel();
   html += renderTotalWealthAllocationHtml();
   return html;
 }
@@ -16111,6 +16227,11 @@ function editValue(idx, val, el) {
         "alternate_asset_class",
         "target_pct",
         "optimizer_override_pct",
+        "holding_period_allocation_enabled",
+        "holding_period_floor_strength",
+        "real_loss_aware_risk_aversion",
+        "real_loss_aware_weight",
+        "capital_market_assumption_horizon_source",
       ].includes(l)
     )
       resetAllocationPreview();
@@ -16520,9 +16641,41 @@ function fieldGuidance(row) {
   ) {
     purpose = "Chooses which allocation target the workbook uses.";
     impact =
-      "Use optimizer selects the model-generated recommendation; use user-specified applies the editable target_pct rows.";
+      "user_target applies the editable target_pct rows; optimizer_recommendation and max_sharpe are risk-tolerance-driven model recommendations; tangency is an unconstrained max-Sharpe reference; real_loss_aware blends a per-holding-period-bucket solve based on this household's own projected withdrawal schedule.";
     consider =
-      "Review the optimizer rationale and compare it with the user target mix. Keep user target_pct rows totaling 100% even when the optimizer is selected.";
+      "Review the recommendation rationale (shown below once selected) and compare it with the user target mix. Keep user target_pct rows totaling 100% even when a computed mode is selected.";
+  } else if (l === "holding_period_allocation_enabled") {
+    purpose =
+      "Opt-in: lets the optimizer/max-Sharpe recommendation modes use this household's own projected withdrawal schedule.";
+    impact =
+      "When on, near-term (0-2yr) withdrawal-derived liquid balance is floored toward Cash and durable (16+yr) balance is floored toward growth classes, instead of a flat risk-tolerance split alone. Has no effect on user_target or tangency modes.";
+    consider =
+      "Selecting allocation_selection_mode=real_loss_aware enables the same withdrawal-schedule discovery automatically, so this toggle is mainly for nudging the existing optimizer/max-Sharpe modes rather than switching to the dedicated real-loss-aware mode.";
+  } else if (l === "holding_period_floor_strength") {
+    purpose =
+      "Dials how strongly the holding-period floors (above) are applied.";
+    impact =
+      "100% applies the full near-term-Cash / long-horizon-growth floor; 0% disables the floor's effect without turning holding_period_allocation_enabled off.";
+    consider = "Only has an effect while holding_period_allocation_enabled is on.";
+  } else if (
+    l === "real_loss_aware_risk_aversion" ||
+    l === "real_loss_aware_weight"
+  ) {
+    purpose =
+      "Tunes the per-holding-period-bucket solve used by the real_loss_aware allocation mode.";
+    impact =
+      l === "real_loss_aware_risk_aversion"
+        ? "Higher values penalize variance more heavily within each bucket's solve (same scale as the optimizer's own internal risk aversion)."
+        : "Higher values weight each bucket's real-loss-probability penalty more heavily relative to variance and expected return.";
+    consider =
+      "Only has an effect while allocation_selection_mode is real_loss_aware.";
+  } else if (l === "capital_market_assumption_horizon_source") {
+    purpose =
+      "Chooses how the capital-market planning horizon (above) is determined.";
+    impact =
+      "manual uses the horizon selected above as-is; auto_from_withdrawals derives the effective horizon from this household's own projected withdrawal schedule instead.";
+    consider =
+      "Affects every allocation mode's expected-return/volatility assumptions, not just real_loss_aware.";
   } else if (l === "optimizer_override_pct") {
     purpose =
       "Optional manual override for the optimizer recommendation for this asset class.";
