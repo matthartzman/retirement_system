@@ -1513,6 +1513,15 @@ def compute_optimal_allocation(c, force_mode=None, projection_rows=None):
                 'allocation_selection_mode': selected_mode,
                 'allocation_selection_label': _ap.allocation_mode_label(selected_mode),
                 'optimizer_recommendation_comment': getattr(_ap, 'TANGENCY_RECOMMENDATION_COMMENT', ''),
+                # Not used by tangency's own solve (no risk-tolerance ceiling
+                # or glide path is applied here), but human_capital above is
+                # still computed from these inputs, so surface them for
+                # report consistency with the other modes rather than
+                # omitting them (see sheets_summary.py's Allocation Policy
+                # Inputs section, which reads these from every mode).
+                'years_to_retirement': years_to_ret,
+                'stability_factor': stability,
+                'glide_path_mode': glide_mode,
                 **_holding_period_diagnostics(c, projection_rows),
             },
         }
@@ -1633,6 +1642,16 @@ def compute_optimal_allocation(c, force_mode=None, projection_rows=None):
                 'real_loss_aware_risk_aversion': risk_aversion,
                 'real_loss_aware_weight': real_loss_weight,
                 'optimizer_recommendation_comment': getattr(_ap, 'REAL_LOSS_AWARE_RECOMMENDATION_COMMENT', ''),
+                # Not used by this mode's own per-bucket solve (no risk-
+                # tolerance ceiling or glide path is applied here), but
+                # human_capital above is still computed from these inputs,
+                # so surface them for report consistency with the other
+                # modes rather than omitting them (see sheets_summary.py's
+                # Allocation Policy Inputs section, which reads these from
+                # every mode).
+                'years_to_retirement': years_to_ret,
+                'stability_factor': stability,
+                'glide_path_mode': glide_mode,
                 **_holding_period_diagnostics(c, projection_rows),
             },
         }
