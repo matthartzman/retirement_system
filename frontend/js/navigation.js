@@ -2,7 +2,7 @@
 (function(){
   'use strict';
   const AUTOSAVE_STEPS=['ytd_transactions','spending_core','spending_setup','spending_travel','spending_travel_extras','spending_mortgage_events','retirement_wellness'];
-  const PLAN_INDEPENDENT_STEPS=['start','system_configuration','detailed_results','planning_workbench','reports_and_review'];
+  const PLAN_INDEPENDENT_STEPS=['start','system_configuration','workbook_formatting','detailed_results','planning_workbench','reports_and_review'];
   const REPORTS_REDIRECTS={
     detailed_results:'Results',
     build_impact:'Impact',

@@ -3,7 +3,7 @@ from __future__ import annotations
 """Route ownership manifest for the local desktop API."""
 
 ROUTE_MODULES = {
-    "build_results": ["/api/build/preflight", "/api/build/start", "/api/build/status/<job_id>", "/api/detailed-results", "/api/report-package", "/api/history", "/api/xlsx", "/api/pdf", "/files/<path:filename>"],
+    "build_results": ["/api/build/preflight", "/api/build/start", "/api/build/status/<job_id>", "/api/detailed-results", "/api/report-package", "/api/history", "/api/xlsx", "/api/pdf", "/api/workbook-format", "/files/<path:filename>"],
     "plan_data": ["/api/plan/forms", "/api/plan/save-as", "/api/plan/load-file", "/api/plan/snapshot/compare", "/api/plan/snapshot/restore"],
     "plan_config": ["/api/config/backends", "/api/config/rows", "/api/allocation-preview"],
     "pricing": ["/api/prices/refresh", "/api/prices/snapshots", "/api/prices/freeze", "/api/prices/unfreeze", "/api/prices/test-symbol", "/api/prices/test-symbol/start", "/api/prices/test-symbol/status/<job_id>"],

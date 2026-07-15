@@ -1311,6 +1311,13 @@ function pageHelp(title, meaning, connections, options, impact) {
   return `<div class="help-title">${esc(title)}</div><div class="help-body"><h3>What this page is for</h3><p>${esc(meaning)}</p><h3>How the values work together</h3><p>${esc(connections)}</p><h3>How to choose values</h3><p>${esc(options)}</p><h3>Likely planning impact</h3><p>${esc(impact)}</p>${acronyms}</div>`;
 }
 const SYSTEM_CONFIG_FIELD_HELP = {
+  workbook_formatting: pageHelp(
+    "Workbook formatting",
+    "Adjusts the Excel column widths in the generated workbook, organized by sheet, then by table (for multi-table sheets like Net Worth and Cash Flow), then by column.",
+    "Widths are read from the most recently built workbook. Each edit is saved as a per-column override and layered on top of the standard layout; a column you never touch keeps its automatic width.",
+    "Widen a column when its numbers or labels look cramped or clipped; narrow one to fit more columns on a printed page. Rebuild the workbook to see the change.",
+    "No planning impact — this changes only the appearance of the Excel output, never any calculated value.",
+  ),
   workflow_view: pageHelp(
     "Workflow view",
     "Shows or hides advanced planning steps — Monte Carlo configuration, divorce/QDRO options, and stress test controls — in the left navigation.",
@@ -8235,7 +8242,209 @@ function renderWelcome() {
   return `<div class="pane-head"><div class="eyebrow">Welcome</div><h2>Retirement planning workspace</h2><p>Enter source facts first, then model strategy and stress tests, run preflight, build reports, and review the workbook results.</p><div class="pane-actions"><button class="btn primary" data-requires-app="1" onclick="startNewPlan()">Start New Plan</button><button class="btn" data-requires-app="1" onclick="loadAll({source:'Local database',preferLocal:false})">Open Current Plan</button><button class="btn" onclick="savePlanAs()">Save Plan As</button><button class="btn" onclick="loadSavedPlan()">Load Saved Plan</button></div><div style="margin:8px 0 4px;font-size:13px"><label style="cursor:pointer;user-select:none"><input type="checkbox" id="autoLoadCheck"${_autoLoad ? " checked" : ""} onchange="setAutoLoad(this.checked)"> Auto-load plan on next start</label></div></div>${nbaPanelHtml()}${taxFreshnessBannerHtml()}${planKpiMetricsHtml()}${firstRunChecklistHtml(false)}<div class="feature-grid"><div class="feature-card"><h3>Your plan</h3><ul><li><b>The saved plan</b> is the active source for all projections.</li><li><b>Plan Data files</b> can be exported for backup, sharing, or recovery.</li><li><b>Reports</b> are generated snapshots — edit the plan, then rebuild to update them.</li></ul></div><div class="feature-card"><h3>Save and build</h3><ul><li><b>Save Changes</b> stores ordinary fields, tables, category budgets, transaction edits, holdings, liabilities, and strategy-table edits.</li><li><b>Build Reports</b>, <b>Download Workbook</b>, and <b>Download PDF</b> save first, run preflight, then rebuild reports.</li><li>Use page-level reload buttons only when discarding unsaved page edits.</li></ul></div><div class="feature-card"><h3>Spending flow</h3><ul><li>Spending Categories defines the Tracking Type, Group, and Category model.</li><li>Housing, Wellness, and Travel are authoritative detail pages.</li><li>Income &amp; Expense Transactions feeds Spending Analysis and actual-vs-model review.</li></ul></div><div class="feature-card"><h3>Final review</h3><ol class="small"><li>Open Reports &amp; Review.</li><li>Check the Preflight tab for missing fields.</li><li>Resolve blockers, then build.</li><li>Review Impact and Results, then download the workbook.</li></ol></div></div>${closeoutChecklistHtml()}`;
 }
 function renderSystemConfiguration() {
-  return `<div class="system-config-panel"><div class="section-note">Everyday planning controls. Raw system tables, reference data, pricing providers, and diagnostics live in the System Configuration Console.</div><section class="system-config-section"><div class="system-config-grid"><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('planning_assumptions')" onfocus="showConfigCardHelp('planning_assumptions')"><h3>Planning assumptions</h3><p class="small">Change client-facing assumptions on guided pages rather than in raw system tables.</p><button class="btn" type="button" data-step-id="economic_tax_assumptions" onfocus="event.stopPropagation();showConfigCardHelp('planning_assumptions')">Economic &amp; Tax Assumptions</button> <button class="btn" type="button" data-step-id="optional_functions" onfocus="event.stopPropagation();showConfigCardHelp('planning_assumptions')">Optional Modules</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('pricing_mode')" onfocus="showConfigCardHelp('pricing_mode')"><h3>Pricing mode</h3><p class="small">Check live/cache/fallback pricing status, refresh live quotes when the cache looks stale, then freeze a saved price snapshot when reports need reproducible advisor values.</p><button class="btn" type="button" data-step-id="build_impact" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Open Build History</button> <button class="btn primary" type="button" onclick="event.stopPropagation();refreshLivePrices()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Refresh Prices</button> <button class="btn" type="button" onclick="event.stopPropagation();freezePricingSnapshot()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Freeze latest prices</button> <button class="btn" type="button" onclick="event.stopPropagation();unfreezePricingSnapshot()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Unfreeze prices</button></div>${localBackupControlsHtml()}<div class="feature-card workflow-view-card" tabindex="0" onclick="showConfigCardHelp('workflow_view')" onfocus="showConfigCardHelp('workflow_view')"><h3>Workflow view</h3><p class="small">${showAdvanced ? "Advanced planning steps are visible in the left navigation — Probability Analysis configuration, scenario and stress-test controls, Roth and allocation policy detail, and divorce/QDRO options. Switching to routine hides these steps from the navigation but keeps their saved values." : "Showing routine planning steps only. Advanced steps — Probability Analysis configuration, scenario and stress-test controls, and Roth/allocation policy detail — are hidden from the left navigation. Their saved values are unchanged; showing advanced steps re-adds those steps to the navigation."}</p><button class="btn${showAdvanced ? " warn" : " primary"}" type="button" onclick="event.stopPropagation();toggleAdvanced(event)" onfocus="event.stopPropagation();showConfigCardHelp('workflow_view')">${showAdvanced ? "Switch to routine workflow" : "Show advanced workflow steps"}</button></div>${languageModeControlsHtml()}<div class="feature-card" tabindex="0" onclick="showConfigCardHelp('session_changes')" onfocus="showConfigCardHelp('session_changes')"><h3>Session changes</h3>${recentChangesLogHtml()}</div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('system_config_console')" onfocus="showConfigCardHelp('system_config_console')"><h3>System configuration console</h3><p class="small">Maintain pricing providers, build timeout, tax constants, reference files, diagnostics, and raw system configuration rows. Opens as its own page.</p><button class="btn primary" type="button" onclick="event.stopPropagation();openSystemConfigurationConsole()" onfocus="event.stopPropagation();showConfigCardHelp('system_config_console')">Open System Configuration Console</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('csv_backup')" onfocus="showConfigCardHelp('csv_backup')"><h3>CSV backup</h3><p class="small">Export a CSV backup of holdings, transactions, target allocations, and reference data for recovery or external review.</p><button class="btn" type="button" onclick="event.stopPropagation();exportCsvBackup()" onfocus="event.stopPropagation();showConfigCardHelp('csv_backup')">Export CSV backup</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('all_assumptions_link')" onfocus="showConfigCardHelp('all_assumptions_link')"><h3>All Assumptions Editor</h3><p class="small">Inspect the full assumption table only when you need to audit or find fields outside guided pages.</p><button class="btn" type="button" data-step-id="all_assumptions" onfocus="event.stopPropagation();showConfigCardHelp('all_assumptions_link')">All Assumptions Editor</button></div></div></section></div>`;
+  return `<div class="system-config-panel"><div class="section-note">Everyday planning controls. Raw system tables, reference data, pricing providers, and diagnostics live in the System Configuration Console.</div><section class="system-config-section"><div class="system-config-grid"><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('planning_assumptions')" onfocus="showConfigCardHelp('planning_assumptions')"><h3>Planning assumptions</h3><p class="small">Change client-facing assumptions on guided pages rather than in raw system tables.</p><button class="btn" type="button" data-step-id="economic_tax_assumptions" onfocus="event.stopPropagation();showConfigCardHelp('planning_assumptions')">Economic &amp; Tax Assumptions</button> <button class="btn" type="button" data-step-id="optional_functions" onfocus="event.stopPropagation();showConfigCardHelp('planning_assumptions')">Optional Modules</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('pricing_mode')" onfocus="showConfigCardHelp('pricing_mode')"><h3>Pricing mode</h3><p class="small">Check live/cache/fallback pricing status, refresh live quotes when the cache looks stale, then freeze a saved price snapshot when reports need reproducible advisor values.</p><button class="btn" type="button" data-step-id="build_impact" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Open Build History</button> <button class="btn primary" type="button" onclick="event.stopPropagation();refreshLivePrices()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Refresh Prices</button> <button class="btn" type="button" onclick="event.stopPropagation();freezePricingSnapshot()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Freeze latest prices</button> <button class="btn" type="button" onclick="event.stopPropagation();unfreezePricingSnapshot()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Unfreeze prices</button></div>${localBackupControlsHtml()}<div class="feature-card workflow-view-card" tabindex="0" onclick="showConfigCardHelp('workflow_view')" onfocus="showConfigCardHelp('workflow_view')"><h3>Workflow view</h3><p class="small">${showAdvanced ? "Advanced planning steps are visible in the left navigation — Probability Analysis configuration, scenario and stress-test controls, Roth and allocation policy detail, and divorce/QDRO options. Switching to routine hides these steps from the navigation but keeps their saved values." : "Showing routine planning steps only. Advanced steps — Probability Analysis configuration, scenario and stress-test controls, and Roth/allocation policy detail — are hidden from the left navigation. Their saved values are unchanged; showing advanced steps re-adds those steps to the navigation."}</p><button class="btn${showAdvanced ? " warn" : " primary"}" type="button" onclick="event.stopPropagation();toggleAdvanced(event)" onfocus="event.stopPropagation();showConfigCardHelp('workflow_view')">${showAdvanced ? "Switch to routine workflow" : "Show advanced workflow steps"}</button></div>${languageModeControlsHtml()}<div class="feature-card" tabindex="0" onclick="showConfigCardHelp('session_changes')" onfocus="showConfigCardHelp('session_changes')"><h3>Session changes</h3>${recentChangesLogHtml()}</div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('system_config_console')" onfocus="showConfigCardHelp('system_config_console')"><h3>System configuration console</h3><p class="small">Maintain pricing providers, build timeout, tax constants, reference files, diagnostics, and raw system configuration rows. Opens as its own page.</p><button class="btn primary" type="button" onclick="event.stopPropagation();openSystemConfigurationConsole()" onfocus="event.stopPropagation();showConfigCardHelp('system_config_console')">Open System Configuration Console</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('csv_backup')" onfocus="showConfigCardHelp('csv_backup')"><h3>CSV backup</h3><p class="small">Export a CSV backup of holdings, transactions, target allocations, and reference data for recovery or external review.</p><button class="btn" type="button" onclick="event.stopPropagation();exportCsvBackup()" onfocus="event.stopPropagation();showConfigCardHelp('csv_backup')">Export CSV backup</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('all_assumptions_link')" onfocus="showConfigCardHelp('all_assumptions_link')"><h3>All Assumptions Editor</h3><p class="small">Inspect the full assumption table only when you need to audit or find fields outside guided pages.</p><button class="btn" type="button" data-step-id="all_assumptions" onfocus="event.stopPropagation();showConfigCardHelp('all_assumptions_link')">All Assumptions Editor</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('workbook_formatting')" onfocus="showConfigCardHelp('workbook_formatting')"><h3>Workbook formatting</h3><p class="small">Fine-tune Excel column widths per sheet, table, and column. Changes apply on the next build.</p><button class="btn" type="button" data-step-id="workbook_formatting" onfocus="event.stopPropagation();showConfigCardHelp('workbook_formatting')">Manage Workbook Formatting</button></div></div></section></div>`;
+}
+
+// ── Workbook formatting (Settings → Manage Workbook Formatting) ─────────────
+// Per-column Excel width editor. State: the tree from the last-built workbook,
+// the saved overrides map, and an in-progress draft the user edits before
+// saving. Draft is keyed draft[sheet][columnLetter] = width.
+let workbookFormatData = null;
+let workbookFormatLoading = false;
+let workbookFormatError = "";
+let workbookFormatDraft = {};
+// Persist which <details> are expanded so a re-render (save/reset) does not
+// collapse the tree the user is working in.
+let wfOpen = new Set();
+
+function wfToggle(key, open) {
+  if (open) wfOpen.add(key);
+  else wfOpen.delete(key);
+}
+
+function _wfCloneOverrides(src) {
+  const out = {};
+  Object.keys(src || {}).forEach((sheet) => {
+    out[sheet] = Object.assign({}, src[sheet]);
+  });
+  return out;
+}
+
+async function loadWorkbookFormat(force = false) {
+  if (workbookFormatLoading) return;
+  if (workbookFormatData && !force) return;
+  workbookFormatLoading = true;
+  workbookFormatError = "";
+  try {
+    const out = await api("/api/workbook-format", { timeoutMs: 30000 });
+    workbookFormatData = out || { available: false, sheets: [] };
+    workbookFormatDraft = _wfCloneOverrides(out && out.overrides);
+  } catch (e) {
+    workbookFormatData = { available: false, sheets: [] };
+    workbookFormatError = e && e.message ? e.message : String(e);
+  } finally {
+    workbookFormatLoading = false;
+    if (activeStep === "workbook_formatting") renderMain();
+  }
+}
+
+function refreshWorkbookFormat() {
+  workbookFormatData = null;
+  loadWorkbookFormat(true);
+  renderMain();
+}
+
+// Effective width for a column = draft override if present, else the width read
+// from the last-built workbook.
+function _wfEffectiveWidth(sheet, col, builtWidth) {
+  const s = workbookFormatDraft[sheet];
+  if (s && Object.prototype.hasOwnProperty.call(s, col)) return s[col];
+  return builtWidth;
+}
+
+function _wfIsOverridden(sheet, col) {
+  const s = workbookFormatDraft[sheet];
+  return !!(s && Object.prototype.hasOwnProperty.call(s, col));
+}
+
+function setWorkbookColWidth(sheet, col, value) {
+  const w = parseFloat(value);
+  if (!workbookFormatDraft[sheet]) workbookFormatDraft[sheet] = {};
+  if (!Number.isFinite(w) || w <= 0) {
+    delete workbookFormatDraft[sheet][col];
+  } else {
+    workbookFormatDraft[sheet][col] = Math.round(Math.max(1, Math.min(255, w)) * 100) / 100;
+  }
+  updateWorkbookFormatDirty();
+}
+
+function resetWorkbookCol(sheet, col) {
+  if (workbookFormatDraft[sheet]) {
+    delete workbookFormatDraft[sheet][col];
+    if (!Object.keys(workbookFormatDraft[sheet]).length)
+      delete workbookFormatDraft[sheet];
+  }
+  renderMain();
+}
+
+function workbookFormatDirtyCount() {
+  const saved = (workbookFormatData && workbookFormatData.overrides) || {};
+  const keys = new Set();
+  const collect = (m) =>
+    Object.keys(m || {}).forEach((sh) =>
+      Object.keys(m[sh] || {}).forEach((c) => keys.add(sh + "||" + c)),
+    );
+  collect(saved);
+  collect(workbookFormatDraft);
+  let n = 0;
+  keys.forEach((k) => {
+    const [sh, c] = k.split("||");
+    const a = saved[sh] && saved[sh][c];
+    const b = workbookFormatDraft[sh] && workbookFormatDraft[sh][c];
+    if ((a === undefined ? null : a) !== (b === undefined ? null : b)) n++;
+  });
+  return n;
+}
+
+function updateWorkbookFormatDirty() {
+  const el = document.getElementById("wfDirtyCount");
+  if (el) {
+    const n = workbookFormatDirtyCount();
+    el.textContent = n
+      ? `${n} unsaved change${n === 1 ? "" : "s"}`
+      : "No unsaved changes";
+  }
+}
+
+async function saveWorkbookFormat() {
+  try {
+    const out = await api("/api/workbook-format", {
+      method: "POST",
+      body: JSON.stringify({ overrides: workbookFormatDraft }),
+    });
+    if (out && out.success) {
+      workbookFormatDraft = _wfCloneOverrides(out.overrides);
+      if (workbookFormatData) workbookFormatData.overrides = _wfCloneOverrides(out.overrides);
+      showMessage(
+        "Workbook formatting saved. Rebuild the workbook to apply the new column widths.",
+        "success",
+      );
+      renderMain();
+    } else {
+      showMessage(
+        "Could not save workbook formatting: " + ((out && out.error) || "unknown error"),
+        "error",
+      );
+    }
+  } catch (e) {
+    showMessage(
+      "Could not save workbook formatting: " + (e && e.message ? e.message : e),
+      "error",
+    );
+  }
+}
+
+function _wfDetails(key, cls, summary, body) {
+  const open = wfOpen.has(key) ? " open" : "";
+  return `<details class="${cls}"${open} data-wfkey="${esc(key)}" ontoggle="wfToggle('${escJs(key)}',this.open)"><summary>${summary}</summary>${body}</details>`;
+}
+
+function _wfColumnHtml(sheet, colNode) {
+  const col = colNode.col;
+  const eff = _wfEffectiveWidth(sheet, col, colNode.width);
+  const overridden = _wfIsOverridden(sheet, col);
+  const title = esc(colNode.title || col);
+  const key = "col::" + sheet + "::" + col;
+  const resetBtn = overridden
+    ? ` <button class="btn tiny" type="button" onclick="resetWorkbookCol('${escJs(sheet)}','${escJs(col)}')">Reset</button>`
+    : "";
+  const summary = `<span class="wf-col-title">${title}</span><span class="wf-col-meta">col ${esc(col)} · ${esc(String(eff))}${overridden ? " ✎" : ""}</span>`;
+  const body = `<div class="wf-col-body"><label>Width <input type="number" min="1" max="255" step="0.5" value="${esc(String(eff))}" onchange="setWorkbookColWidth('${escJs(sheet)}','${escJs(col)}',this.value)" /></label>${resetBtn}<span class="small wf-col-default">Automatic: ${esc(String(colNode.width))}</span></div>`;
+  return _wfDetails(key, "wf-col" + (overridden ? " wf-col-overridden" : ""), summary, body);
+}
+
+function _wfTableHtml(sheet, tableNode, showTableLayer) {
+  const cols = (tableNode.columns || []).map((c) => _wfColumnHtml(sheet, c)).join("");
+  if (!showTableLayer) return cols;
+  const name = esc(tableNode.name || "Table");
+  const n = (tableNode.columns || []).length;
+  const key = "table::" + sheet + "::" + (tableNode.name || "");
+  const summary = `<span class="wf-table-title">${name}</span><span class="wf-col-meta">${n} column${n === 1 ? "" : "s"}</span>`;
+  return _wfDetails(key, "wf-table", summary, `<div class="wf-table-body">${cols}</div>`);
+}
+
+function _wfSheetHtml(sheetNode) {
+  const sheet = sheetNode.sheet;
+  const showTableLayer = !sheetNode.single_table;
+  const body = (sheetNode.tables || [])
+    .map((t) => _wfTableHtml(sheet, t, showTableLayer))
+    .join("");
+  const totalCols = (sheetNode.tables || []).reduce(
+    (s, t) => s + (t.columns || []).length,
+    0,
+  );
+  const key = "sheet::" + sheet;
+  const summary = `<span class="wf-sheet-title">${esc(sheet)}</span><span class="wf-col-meta">${totalCols} column${totalCols === 1 ? "" : "s"}${showTableLayer ? " · " + (sheetNode.tables || []).length + " tables" : ""}</span>`;
+  return _wfDetails(key, "wf-sheet", summary, `<div class="wf-sheet-body">${body}</div>`);
+}
+
+function renderWorkbookFormatting() {
+  if (!workbookFormatData && !workbookFormatLoading) loadWorkbookFormat(false);
+  const back = `<button class="btn" type="button" data-step-id="system_configuration">← Back to Settings</button>`;
+  const header = `<div class="section-note"><b>Workbook formatting.</b> Adjust Excel column widths per sheet, table, and column. Widths come from the most recently built workbook; each edit is saved as an override and applied on the next build. Columns you don't touch keep their automatic width.</div>`;
+  if (workbookFormatLoading && !workbookFormatData) {
+    return `<div class="workbook-format-panel">${back}${header}<div class="section-note">Loading workbook layout…</div></div>`;
+  }
+  if (workbookFormatError) {
+    return `<div class="workbook-format-panel">${back}${header}<div class="section-note warn">Could not load workbook layout: ${esc(workbookFormatError)} <button class="btn tiny" type="button" onclick="refreshWorkbookFormat()">Retry</button></div></div>`;
+  }
+  if (!workbookFormatData || !workbookFormatData.available) {
+    return `<div class="workbook-format-panel">${back}${header}<div class="section-note warn">No built workbook found yet. Build the workbook once (Reports &amp; Review → Build), then return here to fine-tune column widths.</div></div>`;
+  }
+  const sheets = (workbookFormatData.sheets || []).map(_wfSheetHtml).join("");
+  const n = workbookFormatDirtyCount();
+  const toolbar = `<div class="wf-toolbar"><button class="btn primary" type="button" onclick="saveWorkbookFormat()">Save formatting</button> <button class="btn" type="button" onclick="refreshWorkbookFormat()">Reload from last build</button> <span class="small" id="wfDirtyCount">${n ? `${n} unsaved change${n === 1 ? "" : "s"}` : "No unsaved changes"}</span></div>`;
+  return `<div class="workbook-format-panel">${back}${header}${toolbar}<div class="wf-sheets">${sheets}</div></div>`;
 }
 
 async function refreshLivePrices() {
@@ -15856,6 +16065,8 @@ function renderMain() {
     content += analysisFrame(renderRothConversion(), "strategy");
   else if (activeStep === "system_configuration")
     content += renderSystemConfiguration();
+  else if (activeStep === "workbook_formatting")
+    content += renderWorkbookFormatting();
   else if (activeStep === "optional_functions")
     content += renderOptionalFunctions();
   else if (activeStep === "review") content += renderReview();

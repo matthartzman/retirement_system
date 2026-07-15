@@ -47,7 +47,7 @@ def test_planning_workbench_route_is_available_before_plan_load():
         '[\n        "detailed_results",\n        "system_configuration",\n        "planning_workbench",\n        "reports_and_review",\n      ].includes(activeStep)'
         in dashboard
     )
-    assert "PLAN_INDEPENDENT_STEPS=['start','system_configuration','detailed_results','planning_workbench','reports_and_review']" in navigation
+    assert "PLAN_INDEPENDENT_STEPS=['start','system_configuration','workbook_formatting','detailed_results','planning_workbench','reports_and_review']" in navigation
     assert "!PLAN_INDEPENDENT_STEPS.includes(id)" in navigation
 
 

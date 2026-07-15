@@ -422,6 +422,42 @@ def get_pdf():
     return _download_file("retirement_plan.pdf")
 
 
+@app.route("/api/workbook-format", methods=["GET"])
+def get_workbook_format():
+    """Sheet -> table -> column tree for the last-built workbook, with any
+    saved per-column width overrides merged in."""
+    denied = _require("read_config")
+    if denied:
+        return denied
+    try:
+        from ..reporting import workbook_format_config as _wf
+    except Exception:
+        from src.reporting import workbook_format_config as _wf
+    overrides = _wf.load_overrides()
+    workbook_path = _workspace_output() / "retirement_plan.xlsx"
+    tree = _wf.build_format_tree(workbook_path, overrides)
+    return jsonify({"success": True, "schema": "workbook_format_v1", "overrides": overrides, **tree})
+
+
+@app.route("/api/workbook-format", methods=["POST"])
+def save_workbook_format():
+    """Persist per-column width overrides. Body: {"overrides": {sheet: {col: width}}}."""
+    denied = _require("write_config")
+    if denied:
+        return denied
+    try:
+        from ..reporting import workbook_format_config as _wf
+    except Exception:
+        from src.reporting import workbook_format_config as _wf
+    body = request.get_json(silent=True) or {}
+    overrides = body.get("overrides", body)
+    if not isinstance(overrides, dict):
+        return jsonify({"success": False, "error": "overrides must be an object"}), 400
+    clean = _wf.save_overrides(overrides)
+    _audit("workbook_format_saved", {"sheets": len(clean)})
+    return jsonify({"success": True, "overrides": clean})
+
+
 @app.route("/api/schema", methods=["GET"])
 def get_schema():
     denied = _require("read_config")
