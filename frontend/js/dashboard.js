@@ -958,6 +958,20 @@ const STEP_HELP = {
     "Search by label, section, or keyword. Review field help before changing unfamiliar inputs. Prefer the source page when nearby related values need to be consistent.",
     "Because this page combines fields from every section, a change can affect almost any output. Holdings, budget lines, transactions, and liabilities are on their dedicated tabs — not here.",
   ),
+  optional_functions: pageHelp(
+    "Optional modules",
+    "Enables or disables entire planning sections — long-term care stress, divorce planning, home equity line, charitable giving, special needs, equity compensation, 529 education funding, and others — that are excluded from the build when off.",
+    "Some modules add their own nav pages (Special Strategies, Long-Term Care, Divorce Planning) that only appear once the module is enabled here; other modules only change workbook output without adding a page.",
+    "Enable a module before entering its detail elsewhere in the plan — its input page won't appear in navigation until it's turned on. Turn a module off to exclude it from the build without deleting its saved data.",
+    "Turning a module off removes its section from the workbook build entirely, not just from navigation. Turning one on can add new required fields to complete before the plan is build-ready.",
+  ),
+  workbook_formatting: pageHelp(
+    "Workbook formatting",
+    "Adjusts the Excel column widths in the generated workbook, organized by sheet, then by table (for multi-table sheets like Net Worth and Cash Flow), then by column.",
+    "Widths are read from the most recently built workbook. Each edit is saved as a per-column override and layered on top of the standard layout; a column you never touch keeps its automatic width.",
+    "Widen a column when its numbers or labels look cramped or clipped; narrow one to fit more columns on a printed page. Rebuild the workbook to see the change.",
+    "No planning impact — this changes only the appearance of the Excel output, never any calculated value.",
+  ),
 };
 let apiBase = "",
   appReady = false,
@@ -1202,20 +1216,6 @@ function pageHelp(title, meaning, connections, options, impact) {
   return `<div class="help-title">${esc(title)}</div><div class="help-body"><h3>What this page is for</h3><p>${esc(meaning)}</p><h3>How the values work together</h3><p>${esc(connections)}</p><h3>How to choose values</h3><p>${esc(options)}</p><h3>Likely planning impact</h3><p>${esc(impact)}</p>${acronyms}</div>`;
 }
 const SYSTEM_CONFIG_FIELD_HELP = {
-  workbook_formatting: pageHelp(
-    "Workbook formatting",
-    "Adjusts the Excel column widths in the generated workbook, organized by sheet, then by table (for multi-table sheets like Net Worth and Cash Flow), then by column.",
-    "Widths are read from the most recently built workbook. Each edit is saved as a per-column override and layered on top of the standard layout; a column you never touch keeps its automatic width.",
-    "Widen a column when its numbers or labels look cramped or clipped; narrow one to fit more columns on a printed page. Rebuild the workbook to see the change.",
-    "No planning impact — this changes only the appearance of the Excel output, never any calculated value.",
-  ),
-  save_plan: pageHelp(
-    "Save plan",
-    "Stores all current edits — fields, tables, category budgets, transaction edits, holdings, liabilities, and strategy-table edits — to the local database.",
-    "Workbook and PDF downloads already save automatically before building, so this button is for saving without triggering a rebuild.",
-    "Use Save Changes any time you want a checkpoint, especially before closing the app or switching plans.",
-    "No planning impact — this preserves your edits but does not change any calculated result until a rebuild runs.",
-  ),
   local_backups: pageHelp(
     "Local backups",
     "Opt-in .rpx database backups with automatic retention, run opportunistically after Save Changes or a successful build.",
@@ -1223,26 +1223,12 @@ const SYSTEM_CONFIG_FIELD_HELP = {
     "Enable automatic backups for ordinary households working over multiple sessions. Use Back up now before a risky bulk edit or import.",
     "No planning impact — backups protect saved data but do not change projections.",
   ),
-  report_readiness: pageHelp(
-    "Report readiness",
-    "Reviews saved-plan freshness, required values, and pricing diagnostics before you build the workbook or PDF.",
-    "Refresh Preflight recomputes the same checks shown on Download Reports, so you can confirm readiness without leaving Settings.",
-    "Run Refresh Preflight after making a batch of edits elsewhere in the plan, right before you intend to build.",
-    "No planning impact — this is a diagnostic check, not an input.",
-  ),
   pricing_mode: pageHelp(
     "Pricing mode",
     "Checks live/cache/fallback pricing status, refreshes live quotes, and can freeze a saved price snapshot for reproducible advisor values.",
     "Refresh Prices pulls new quotes from live providers. Freeze latest prices locks the current snapshot so it stops changing between sessions; Unfreeze resumes normal pricing.",
     "Refresh Prices when the cache looks stale before a final build. Freeze prices only when you need the exact same holdings values to reproduce across multiple report runs.",
     "Different pricing modes change current market values used for account totals, allocation drift, and trade guidance — they do not change your saved cost basis or plan assumptions.",
-  ),
-  planning_assumptions: pageHelp(
-    "Planning assumptions",
-    "Links to the guided pages — Economic & Tax Assumptions and Optional Modules — where client-facing assumptions should actually be changed.",
-    "These buttons are shortcuts, not separate settings; editing happens on the linked guided page.",
-    "Use these links instead of editing raw system tables so assumption changes stay linked to the fields the workbook expects.",
-    "No planning impact from this card itself — impact depends on what is changed on the linked page.",
   ),
   session_changes: pageHelp(
     "Session changes",
@@ -1264,13 +1250,6 @@ const SYSTEM_CONFIG_FIELD_HELP = {
     "This console edits application-level configuration (system_config.csv), which is distinct from household plan fields edited on guided pages.",
     "Open this only for diagnostics, reference-table maintenance, or recovery. Use guided pages for ordinary plan edits.",
     "Changes made in the console can affect pricing, tax calculations, IRMAA thresholds, and build behavior for every plan — change one setting at a time and rebuild to confirm the effect.",
-  ),
-  all_assumptions_link: pageHelp(
-    "All assumptions",
-    "Opens a full searchable list of every editable plan field, useful for finding a value that is hard to locate on its guided page.",
-    "This is a navigation shortcut into the same All Assumptions step available from the main navigation.",
-    "Use this only when you need to audit or locate a field outside its guided page context.",
-    "No planning impact from this card itself — impact depends on which field you change on the All Assumptions page.",
   ),
 };
 function showConfigCardHelp(key) {
