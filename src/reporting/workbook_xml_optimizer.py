@@ -133,14 +133,29 @@ def optimize_workbook_xml(out_path: str) -> Dict[str, object]:
                 if item.filename.startswith("xl/charts/chart") and item.filename.endswith(".xml"):
                     try:
                         root = etree.fromstring(data)
-                        for title_el in root.iter(f"{{{ns_chart}}}title"):
-                            # Chart titles at 3x the previous 22pt size, per
-                            # user request ("titles 3x present font size").
-                            for rpr in title_el.iter(f"{{{ns_a}}}defRPr"):
-                                rpr.set("sz", "6600")
+                        # Only the chart's own title (a direct child of
+                        # c:chart) gets enlarged. c:title also appears nested
+                        # inside c:catAx/c:valAx for axis titles -- root.iter()
+                        # would match those too and inflate axis text along
+                        # with the chart title, which is the bug behind the
+                        # Efficient Frontier chart's oversized axis labels.
+                        # Axis titles/labels are left completely alone here so
+                        # they keep Excel's standard sizing.
+                        chart_el = root.find(f"{{{ns_chart}}}chart")
+                        main_title = (
+                            chart_el.find(f"{{{ns_chart}}}title")
+                            if chart_el is not None
+                            else None
+                        )
+                        if main_title is not None:
+                            # Readable and clearly larger than the (untouched,
+                            # standard-sized) axis labels, without the
+                            # previous 3x/66pt exaggeration.
+                            for rpr in main_title.iter(f"{{{ns_a}}}defRPr"):
+                                rpr.set("sz", "2200")
                                 rpr.set("b", "1")
-                            for rpr in title_el.iter(f"{{{ns_a}}}rPr"):
-                                rpr.set("sz", "6600")
+                            for rpr in main_title.iter(f"{{{ns_a}}}rPr"):
+                                rpr.set("sz", "2200")
                                 rpr.set("b", "1")
                         for leg_pos in root.iter(f"{{{ns_chart}}}legendPos"):
                             leg_pos.set("val", "r")
