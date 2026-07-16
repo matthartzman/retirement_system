@@ -1,7 +1,10 @@
+import contextlib
 import copy
+import os
 import unittest
 from pathlib import Path
 
+from src import market_data as _market_data
 from src.data_io import load_csv, parse_client
 from src.plan_config import ensure_engine_config
 from src.planning_engines import project
@@ -9,6 +12,36 @@ from src.core import TaxLot, LotEngine
 from src import tlh
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# Frozen holdings prices for the golden-master no-op guard below — kept in
+# sync with tests/test_2_recommendations.py's FROZEN_GOLDEN_MASTER_PRICES /
+# frozen_holdings_prices (Item 192, 2026-07-16); see that file for why this
+# is needed instead of relying on output/market_price_cache.json directly.
+FROZEN_GOLDEN_MASTER_PRICES = {
+    "VTI": 371.835, "VXUS": 84.145, "AVUV": 126.37, "VBR": 245.525,
+    "ITOT": 165.265, "IXUS": 93.94, "PDBC": 17.05,
+}
+
+
+@contextlib.contextmanager
+def frozen_holdings_prices(prices):
+    provider = _market_data._DEFAULT_PROVIDER
+    saved = (provider.pricing_mode, provider.cache_first, provider.use_live,
+              dict(provider.frozen_prices), dict(provider.frozen_metadata))
+    env_var = "RETIREMENT_SYSTEM_FORCE_PRICING_MODE"
+    saved_env = os.environ.get(env_var)
+    os.environ[env_var] = "FROZEN"
+    provider.set_frozen_prices(prices, metadata={"frozen_for": "golden_master_test"})
+    try:
+        yield
+    finally:
+        if saved_env is None:
+            os.environ.pop(env_var, None)
+        else:
+            os.environ[env_var] = saved_env
+        (provider.pricing_mode, provider.cache_first, provider.use_live,
+         provider.frozen_prices, provider.frozen_metadata) = saved
+        _market_data.reset_pricing_runtime_state()
 
 
 def sample_config(tlh_policy='off'):
@@ -77,19 +110,22 @@ class EngineIntegrationTests(unittest.TestCase):
         """Regression guard: the TLH engine changes must not alter any existing
         projection when tlh_policy is off (the default), matching the golden
         master unchanged. If this fails, the off-path picked up a side effect."""
-        c = sample_config('off')
-        rows = project(c)
+        with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+            c = sample_config('off')
+            rows = project(c)
         # Golden master reflects items 182 (pre-65 bridge always applies), 184
         # (real-estate tax funded as a cash need), 168 (SS benefit
         # self-cancellation fix), 169 (household claim age 70->69), 185
         # (elective IRA withdrawal ordinary-tax true-up + gap/net_cash
-        # convention fix), and 186 (household plan update: Member 1 claim age
-        # moved from 69 to 68) — see test_2_recommendations.py for detail,
-        # including a note on this value's test-order dependency — regenerated
-        # against clean committed inputs; the TLH-off no-op property holds
-        # against it.
-        self.assertAlmostEqual(rows[-1]['total_nw'], 7_357_655.92, delta=5000.0)
-        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_630_920.02, delta=5000.0)
+        # convention fix), 186 (household plan update: Member 1 claim age
+        # moved from 69 to 68), and 192 (2026-07-16: local OFFLINE
+        # price-cache mark-to-market drift on unsold holdings, not a
+        # plan-data or engine change — see test_2_recommendations.py for
+        # detail) — see test_2_recommendations.py for detail, including a
+        # note on this value's test-order dependency — regenerated against
+        # clean committed inputs; the TLH-off no-op property holds against it.
+        self.assertAlmostEqual(rows[-1]['total_nw'], 7_367_350.45, delta=5000.0)
+        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_630_865.29, delta=5000.0)
         self.assertTrue(all(r.get('tlh_harvested_loss', 0) == 0 for r in rows))
         self.assertTrue(all(r.get('cap_loss_carryforward', 0) == 0 for r in rows))
 

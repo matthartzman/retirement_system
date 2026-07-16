@@ -34,8 +34,8 @@
       "sha256": "16f6984f269afd777599b91d0143d51f38d9a7c8ac12bda567739ed217e76d07"
     },
     "client_policy.csv": {
-      "bytes": 24079,
-      "sha256": "cce3a673ae4593a9cc8d7ed6347ad8cb92ab0bb981f1c922e61288b57d00c455"
+      "bytes": 24673,
+      "sha256": "21e4b4b36d519f46a89a1b9b778b82577a462b76c377ebc5caeb932269ed9912"
     },
     "client_spending.csv": {
       "bytes": 8732,

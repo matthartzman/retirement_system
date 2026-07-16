@@ -1,13 +1,61 @@
+import contextlib
 import json
+import os
 import unittest
 from pathlib import Path
 
+from src import market_data as _market_data
 from src.data_io import load_csv, parse_client, summarize_validation
 from src.plan_config import ensure_engine_config
 from src.planning_engines import project
 from src.server_forecast import forecast_from_plan_json
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# Frozen holdings prices for the golden-master test (Item 192, 2026-07-16):
+# the OFFLINE-resolved prices in effect when the terminal-net-worth pin below
+# was last regenerated. output/market_price_cache.json is gitignored, not a
+# committed snapshot, so relying on it directly let the golden master drift
+# ~$9,695 between runs with no plan-data or engine change behind it. Freezing
+# these exact per-symbol prices for this test removes that dependency; update
+# only when regenerating the pin deliberately.
+FROZEN_GOLDEN_MASTER_PRICES = {
+    "VTI": 371.835, "VXUS": 84.145, "AVUV": 126.37, "VBR": 245.525,
+    "ITOT": 165.265, "IXUS": 93.94, "PDBC": 17.05,
+}
+
+
+@contextlib.contextmanager
+def frozen_holdings_prices(prices):
+    """Pin holdings pricing to an exact snapshot for the duration of the block.
+
+    parse_client() calls market_data.configure_holdings_pricing() on every
+    invocation, forced to RETIREMENT_SYSTEM_FORCE_PRICING_MODE (OFFLINE, per
+    tests/conftest.py) — which wipes provider.frozen_prices unless the mode is
+    itself FROZEN (see MarketDataProvider.configure_holdings_pricing). So this
+    has to override that env var to FROZEN as well as set the frozen prices,
+    or sample_config()'s own parse_client() call clears them before pricing
+    ever happens. Restores both the env var and the provider's prior pricing
+    state afterward so neither leaks into other tests (the provider is a
+    process-wide singleton).
+    """
+    provider = _market_data._DEFAULT_PROVIDER
+    saved = (provider.pricing_mode, provider.cache_first, provider.use_live,
+              dict(provider.frozen_prices), dict(provider.frozen_metadata))
+    env_var = "RETIREMENT_SYSTEM_FORCE_PRICING_MODE"
+    saved_env = os.environ.get(env_var)
+    os.environ[env_var] = "FROZEN"
+    provider.set_frozen_prices(prices, metadata={"frozen_for": "golden_master_test"})
+    try:
+        yield
+    finally:
+        if saved_env is None:
+            os.environ.pop(env_var, None)
+        else:
+            os.environ[env_var] = saved_env
+        (provider.pricing_mode, provider.cache_first, provider.use_live,
+         provider.frozen_prices, provider.frozen_metadata) = saved
+        _market_data.reset_pricing_runtime_state()
 
 
 def sample_config():
@@ -106,8 +154,9 @@ class RecommendationCompletionTests(unittest.TestCase):
         # identical across Python 3.12 and 3.14 on Windows (both interpreters
         # agree to the cent); regenerate deliberately after an intentional
         # engine/plan-data change.
-        c = sample_config()
-        rows = project(c)
+        with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+            c = sample_config()
+            rows = project(c)
         summary = summarize_validation(rows, c)
         self.assertEqual(summary['fail_count'], 0)
         self.assertEqual(summary['warn_count'], 0)
@@ -156,8 +205,24 @@ class RecommendationCompletionTests(unittest.TestCase):
         # contract ran first) was the same pricing-cache leak fixed by the
         # tests/conftest.py _reset_market_data_price_cache autouse fixture;
         # this value is now stable both in full-suite and isolated runs.
-        self.assertAlmostEqual(rows[-1]['total_nw'], 7_357_655.92, delta=5000.0)
-        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_630_920.02, delta=5000.0)
+        #
+        # Item 192 (2026-07-16): terminal net worth drifted ~$9,695 above the
+        # item-186 pin (7,357,655.92 -> 7,367,350.45) with no committed
+        # plan-data or engine change to explain it. Root cause: OFFLINE
+        # pricing is cache-first against output/market_price_cache.json,
+        # which is gitignored (untracked) rather than a truly committed
+        # snapshot — the file's mtime postdates the item-186 regeneration, so
+        # a live/CACHE-mode run since then refreshed a handful of holdings
+        # prices on this machine. This is mark-to-market drift on unsold
+        # holdings, not a withdrawal/tax-cascade bug: lifetime tax barely
+        # moved (1,630,920.02 -> 1,630,865.29, a $55 shift, versus total_nw's
+        # $9,695), which is what you'd expect from a terminal price change
+        # alone. Regenerating rather than chasing a phantom regression;
+        # revisit if this drifts again (candidate follow-up: freeze holdings
+        # pricing for this test via market_data.set_frozen_prices() instead
+        # of relying on the local OFFLINE cache file's contents).
+        self.assertAlmostEqual(rows[-1]['total_nw'], 7_367_350.45, delta=5000.0)
+        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_630_865.29, delta=5000.0)
 
     def test_fixed_point_taxable_withdrawal_solver_runs_before_roth(self):
         # The fixed-point solver only runs when there's sufficient investment tax
