@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 from src.schema_registry import PLAN_FILES, validate_rows
+from src.workspace_context import workspace_input_dir
 try:
     from src.server import workbook_routes  # noqa: F401 - registers routes
     from src.server.app_core import app
@@ -13,7 +14,12 @@ else:
     SERVER_IMPORT_ERROR = None
 
 ROOT = Path(__file__).resolve().parents[1]
-INPUT = ROOT / "input"
+# Resolve via the same workspace-root lookup the /api routes use (rather than
+# a hardcoded ROOT/"input"), so this test reads/writes the same file the
+# routes under test actually touch even when RETIREMENT_SYSTEM_WORKSPACE_ROOT
+# redirects writable data elsewhere (as tests/conftest.py does, to keep the
+# test suite from mutating the real client input files).
+INPUT = workspace_input_dir()
 
 
 class InsuranceDeleteAndSaveValidationTests(unittest.TestCase):

@@ -178,6 +178,13 @@ class Phase5WorkbookSnapshotTests(unittest.TestCase):
             dirs_exist_ok=True,
         )
         env = os.environ.copy()
+        # Force the subprocess to treat tmp_root (its own copied tree) as the
+        # workspace root, overriding any RETIREMENT_SYSTEM_WORKSPACE_ROOT the
+        # parent test process has set (tests/conftest.py sets one so the
+        # suite never mutates the real input/ files). Without this override,
+        # the subprocess would inherit the parent's redirect and read/write
+        # someone else's temp workspace instead of this test's own copy.
+        env["RETIREMENT_SYSTEM_WORKSPACE_ROOT"] = str(tmp_root)
         env["RETIREMENT_MC_SIMS"] = "16"
         env["RETIREMENT_MC_SENSITIVITY_SIMS"] = "3"
         env["RETIREMENT_SKIP_REPORT_SIDECARS"] = "1"

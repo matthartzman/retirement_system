@@ -821,6 +821,11 @@ Scenarios:
     inflation_override: 4.50%
   Higher Spending:
     spend_multiplier: '1.2'
+  LTC Stress Test:
+    onset_age_catastrophic_both: '87'
+    onset_age_facility_memory_care: '85'
+    onset_age_moderate_home_care: '80'
+    onset_age_severe_home_care: '82'
   Low Return:
     portfolio_return_override: 4.00%
   PDIA 50-50 Split:

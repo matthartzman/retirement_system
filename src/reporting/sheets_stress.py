@@ -645,32 +645,67 @@ qc('16. Scenario Analysis', 'All CSV scenarios have result rows', True, '')
 
 
 def build_sheet17(ws, c, rows):
-    """LTC Stress Test"""
+    """LTC Stress Test — 4 actual projection re-runs with the LTC cost stream
+    added to spending (same wellness_shock_by_year hook the MC engine uses).
+    """
+    import copy as _copy2
+    from ..planning_engines import _funding_success
     ws.sheet_view.showGridLines = False
     section_title(ws, 1, 'LONG-TERM-CARE STRESS TEST', 8)
 
+    base_nw = rows[-1]['total_nw']
+    threshold = float(c.get('mc_success_liquid_floor', 0.0) or 0.0)
+    ltc_inf = c['med_inf']
+    # Onset age is measured against whichever spouse is older (lower DOB year),
+    # since that spouse carries the nearer-term LTC risk in a household model.
+    older_dob_yr = min(c['h_dob_yr'], c['w_dob_yr'])
+
     r = 3
-    hdrs = ['Scenario','Annual Cost Today','Duration (yrs)',
-            'Total Cost (inflated)','Funding Source','Plan Survives?']
-    write_hdr(ws, r, 1, 'LTC Scenarios', NAVY, WHITE, span=6); r+=1
+    hdrs = ['Scenario','Onset Age','Annual Cost Today','Duration (yrs)',
+            'Total Cost (inflated)','Funding Source','Terminal NW','Δ vs Base','Plan Survives?']
+    write_hdr(ws, r, 1, 'LTC Scenarios (full projection re-runs)', NAVY, WHITE, span=9); r+=1
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
     r += 1
 
-    ltc_inf = c['med_inf']
-    scenarios = [
-        ('Moderate Home Care',    35000, 3, 'Trust / Roth', True),
-        ('Severe Home Care',      75000, 5, 'Trust / IRA drawdown', True),
-        ('Facility (Memory Care)',120000, 5, 'IRA + Trust', False),
-        ('Catastrophic (Both)',   200000, 7, 'Full portfolio drawdown', False),
+    # onset_age is configured per scenario via input/client_policy.csv
+    # (Scenarios / LTC Stress Test section) — editable through the same
+    # settings UI that edits that CSV, defaulting here only if a row is missing.
+    scenario_defs = [
+        ('Moderate Home Care',    35000, 3, 'Trust / Roth',
+         c.get('ltc_onset_age_moderate_home_care', 80)),
+        ('Severe Home Care',      75000, 5, 'Trust / IRA drawdown',
+         c.get('ltc_onset_age_severe_home_care', 82)),
+        ('Facility (Memory Care)',120000, 5, 'IRA + Trust',
+         c.get('ltc_onset_age_facility_memory_care', 85)),
+        ('Catastrophic (Both)',   200000, 7, 'Full portfolio drawdown',
+         c.get('ltc_onset_age_catastrophic_both', 87)),
     ]
-    for scen_name, annual_today, years, source, survives in scenarios:
-        total_cost = annual_today * ((1+ltc_inf)**years - 1)/ltc_inf  # FV annuity
+    for scen_name, annual_today, years, source, onset_age in scenario_defs:
+        ltc_start_yr = older_dob_yr + onset_age
+        cost_by_year = {ltc_start_yr + k: annual_today * (1 + ltc_inf) ** k
+                         for k in range(years)}
+        total_cost = sum(cost_by_year.values())
+
+        c2 = _copy2.deepcopy(c)
+        shocks = dict(c2.get('wellness_shock_by_year') or {})
+        for yr, cost in cost_by_year.items():
+            shocks[yr] = shocks.get(yr, 0.0) + cost
+        c2['wellness_shock_by_year'] = shocks
+
+        rows2 = project(c2)
+        if not rows2:
+            continue
+        scen_nw = rows2[-1]['total_nw']
+        delta_nw = scen_nw - base_nw
+        survives = _funding_success(rows2, threshold)
+
         bg = 'E2EFDA' if survives else 'FCE4D6'
-        for i, val in enumerate([scen_name, annual_today, years, total_cost, source,
-                                   'YES' if survives else 'NO'], 1):
-            fmt = FMT_DOLLAR if i in (2,4) else None
-            write_cell(ws, r, i, val, fmt=fmt, bg=bg if i==6 else None)
+        vals = [scen_name, onset_age, annual_today, years, total_cost, source, scen_nw, delta_nw,
+                'YES' if survives else 'NO']
+        for i, val in enumerate(vals, 1):
+            fmt = FMT_DOLLAR if i in (3, 5, 7, 8) else None
+            write_cell(ws, r, i, val, fmt=fmt, bg=bg if i == 9 else None)
         r += 1
 
     r += 2
@@ -678,9 +713,10 @@ def build_sheet17(ws, c, rows):
                '⚠ Recommendation: Facility-care and catastrophic scenarios stress the plan. '
                'Consider a Hybrid Life/LTC policy to cap open-ended risk.  '
                'No LTC policy is currently in force (see Sheet 19 — Life Insurance).', bold=True)
-    ws.merge_cells(start_row=r,start_column=1,end_row=r,end_column=6)
+    ws.merge_cells(start_row=r,start_column=1,end_row=r,end_column=9)
 
-    qc('17. LTC Stress Test', 'Four scenarios modeled with plan-survives flag', True, '')
+    qc('17. LTC Stress Test', 'Four scenarios re-run through project() with real LTC cost stream; '
+       'Plan Survives = liquid assets stay above floor with no unfunded gap, every year', True, '')
 
 
 def build_sheet18(ws, c, rows):

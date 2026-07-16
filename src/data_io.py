@@ -1462,6 +1462,12 @@ def parse_client(data, url_template):
     c['combo_retire_later']   = _b(_v(data,'Scenarios','Combined Stress Test','include_retire_later','FALSE'))
     c['combo_pdia_low_div']   = _b(_v(data,'Scenarios','Combined Stress Test','include_pdia_low_div','TRUE'))
     c['combo_pdia_5050']      = _b(_v(data,'Scenarios','Combined Stress Test','include_pdia_5050','FALSE'))
+    # LTC Stress Test onset ages (Sheet 17) — age of the older spouse at which
+    # each scenario's care-cost stream starts.
+    c['ltc_onset_age_moderate_home_care']    = int(_n(_v(data,'Scenarios','LTC Stress Test','onset_age_moderate_home_care','80'), 80))
+    c['ltc_onset_age_severe_home_care']      = int(_n(_v(data,'Scenarios','LTC Stress Test','onset_age_severe_home_care','82'), 82))
+    c['ltc_onset_age_facility_memory_care']  = int(_n(_v(data,'Scenarios','LTC Stress Test','onset_age_facility_memory_care','85'), 85))
+    c['ltc_onset_age_catastrophic_both']     = int(_n(_v(data,'Scenarios','LTC Stress Test','onset_age_catastrophic_both','87'), 87))
     c['rollover_401k_yr']  = _y(_v(data,'Model Constants','Retirement',
                                      'rollover_401k_year', str(c['plan_start'] + 4)), c['plan_start'] + 4)
     c['ss_claim_age']      = int(_n(_v(data,'Model Constants','Retirement',
