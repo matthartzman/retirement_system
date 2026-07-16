@@ -729,6 +729,7 @@ def build_sheet8(ws, c, rows, mc_data=None):
                 _myref = Reference(hp_ws, min_col=_col, min_row=_marker_row + 1, max_row=_marker_row + 1)
                 _ms = Series(_myref, _mxref, title=f'Your Money — {_label}')
                 _ms.marker = Marker(symbol='star', size=11)
+                _ms.marker.graphicalProperties = GraphicalProperties(solidFill=_clr, ln=LineProperties(solidFill=_clr))
                 _ms.graphicalProperties = GraphicalProperties(ln=LineProperties(noFill=True))
                 _sc2.series.append(_ms)
 
