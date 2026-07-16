@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 from openpyxl import load_workbook
@@ -8,6 +9,24 @@ from openpyxl.utils import get_column_letter
 from src.reporting.workbook_common import TEMPLATE_LAYOUT
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _min_wrapped_height(ws, row: int, col: int) -> float:
+    """Same formula as minimize_row_heights(): the shortest height that still
+    fits a wrapped string cell's text at its merged range's combined width."""
+    cell = ws.cell(row, col)
+    merge = next(
+        (mr for mr in ws.merged_cells.ranges if mr.min_row == row and mr.min_col == col),
+        None,
+    )
+    col_span = range(merge.min_col, merge.max_col + 1) if merge else range(col, col + 1)
+    eff_width = max(
+        sum((ws.column_dimensions[get_column_letter(c)].width or 8.43) for c in col_span),
+        1.0,
+    )
+    lines = sum(max(1, math.ceil(len(line) / eff_width)) for line in str(cell.value).splitlines() or [''])
+    font_size = float(cell.font.size) if (cell.font and cell.font.size) else 10.0
+    return max(1, lines) * (font_size + 4.0)
 
 
 def _zero_money(value) -> bool:
@@ -62,7 +81,13 @@ def test_asset_allocation_columns_are_compact_and_wrapped(built_workbook_path):
         width_total = sum(ws.column_dimensions[get_column_letter(i)].width or 8.43 for i in range(1, 11))
         assert width_total <= 125
     assert ws['A211'].alignment.wrap_text is True
-    assert (ws.row_dimensions[211].height or 0) >= 30
+    # Row heights are minimized to whatever the actual wrapped text needs at
+    # the sheet's final (post-override) column widths -- not a fixed floor --
+    # so assert against that computed minimum rather than a magic number.
+    expected = _min_wrapped_height(ws, 211, 1)
+    actual = ws.row_dimensions[211].height or 0
+    assert actual >= expected - 0.5, f'row 211 height {actual} clips its text (needs >= {expected})'
+    assert actual <= expected + 0.5, f'row 211 height {actual} is not minimized (needs ~{expected})'
     assert ws['A285'].alignment.wrap_text is True
     wb.close()
 
