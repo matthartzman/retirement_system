@@ -112,6 +112,10 @@ Asset Allocation Policy:
     target_pct: 5%
   Global:
     allocation_selection_mode: user_target
+    holding_period_allocation_enabled: 'NO'
+    holding_period_floor_strength: 100%
+    real_loss_aware_risk_aversion: '3.0'
+    real_loss_aware_weight: '1.0'
   International:
     target_pct: 20%
   Managed Futures:
@@ -132,6 +136,11 @@ Asset Allocation Policy:
     target_pct: 5%
   US Small Cap:
     target_pct: 5%
+Asset Class Assumptions:
+  Global:
+    capital_market_assumption_horizon_source: manual
+    capital_market_assumption_horizon_years: '30'
+    capital_market_assumption_preset: BASELINE
 Asset Class Optimizer Controls:
   Bonds:
     alternate_asset_class: Guaranteed income + note receivable
@@ -478,7 +487,7 @@ Income Streams:
     additional_income_pct: 20.00%
     base: $860,000
     deferral_years: '4'
-    dividend_rate: 5.75%
+    dividend_rate: 5.00%
     first_payment: 8/3/2029
     initial_guaranteed_income_payment: 2,765.82
     payout_type: fixed
@@ -487,7 +496,7 @@ Income Streams:
     additional_income_pct: 20.00%
     base: $70,132.07
     deferral_years: '4'
-    dividend_rate: 5.75%
+    dividend_rate: 5.00%
     exclusion_ratio: '0.789'
     first_payment: 8/3/2029
     initial_guaranteed_income_payment: $395.15
@@ -497,7 +506,7 @@ Income Streams:
     additional_income_pct: 20.00%
     base: $355,000
     deferral_years: '2'
-    dividend_rate: 5.75%
+    dividend_rate: 5.00%
     first_payment: 5/30/2028
     initial_guaranteed_income_payment: $1,071.33
     payout_type: fixed
@@ -515,7 +524,7 @@ Income Streams:
     base: $41,559.86
     deferral_dampening: '0.513'
     deferral_years: '5'
-    dividend_rate: 5.50%
+    dividend_rate: 5.00%
     exclusion_ratio: '0.738'
     first_payment: 5/30/2029
     initial_guaranteed_income_payment: $235.41
@@ -601,7 +610,7 @@ Liquidity Buffer:
     end_year: '2029'
     reserve_account: Taxable/Trust
     start_year: '2027'
-    years_of_expenses: '1'
+    years_of_expenses: '2'
 Model Constants:
   Allocation:
     cash_target_pct: '0.05'
@@ -652,7 +661,7 @@ Model Constants:
     member_2_rmd_start_age: '75'
     rmd_start_age: '75'
     rollover_401k_year: '2030'
-    spending_freeze_year: '2040'
+    spending_freeze_year: '2050'
     ss_claim_age: '70'
   Roth Conversion:
     roth_conv_window_end_offset: '-1'
@@ -846,9 +855,9 @@ Social Security:
     ss_funding_discount_pct: 22.00%
     ss_funding_discount_year: '2032'
   Member 1:
-    claim_age: '68'
+    claim_age: '69'
     fra_age: '67.00'
-    monthly_pia_at_fra_today_dollars: '0'
+    monthly_pia_at_fra_today_dollars: '4050'
     ss_benefit_age_62: $2,835
     ss_benefit_age_63: $3,038
     ss_benefit_age_64: $3,240
@@ -861,7 +870,7 @@ Social Security:
   Member 2:
     claim_age: '69'
     fra_age: '67.00'
-    monthly_pia_at_fra_today_dollars: '0'
+    monthly_pia_at_fra_today_dollars: '3359'
     ss_benefit_age_62: $2,351
     ss_benefit_age_63: $2,519
     ss_benefit_age_64: $2,687

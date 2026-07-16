@@ -1227,8 +1227,9 @@ def main():
     # are applied last so they win over both the heuristic pass and the
     # reference template.
     try:
-        from .workbook_format_config import apply_overrides as _apply_format_overrides
+        from .workbook_format_config import apply_overrides as _apply_format_overrides, apply_alignments as _apply_format_alignments
         _apply_format_overrides(wb)
+        _apply_format_alignments(wb)
     except Exception as _fmt_exc:  # never let optional formatting block a build
         print(f'Warning: workbook format overrides not applied: {_fmt_exc}')
     # Row heights are recomputed last, against the final column widths above,

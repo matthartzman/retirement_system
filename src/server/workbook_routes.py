@@ -425,7 +425,7 @@ def get_pdf():
 @app.route("/api/workbook-format", methods=["GET"])
 def get_workbook_format():
     """Sheet -> table -> column tree for the last-built workbook, with any
-    saved per-column width overrides merged in."""
+    saved per-column width and alignment overrides merged in."""
     denied = _require("read_config")
     if denied:
         return denied
@@ -434,14 +434,16 @@ def get_workbook_format():
     except Exception:
         from src.reporting import workbook_format_config as _wf
     overrides = _wf.load_overrides()
+    alignments = _wf.load_alignments()
     workbook_path = _workspace_output() / "retirement_plan.xlsx"
-    tree = _wf.build_format_tree(workbook_path, overrides)
-    return jsonify({"success": True, "schema": "workbook_format_v1", "overrides": overrides, **tree})
+    tree = _wf.build_format_tree(workbook_path, overrides, alignments)
+    return jsonify({"success": True, "schema": "workbook_format_v1", "overrides": overrides, "alignments": alignments, **tree})
 
 
 @app.route("/api/workbook-format", methods=["POST"])
 def save_workbook_format():
-    """Persist per-column width overrides. Body: {"overrides": {sheet: {col: width}}}."""
+    """Persist per-column width and alignment overrides. Body:
+    {"overrides": {sheet: {col: width}}, "alignments": {sheet: {col: "left"|"center"|"right"}}}."""
     denied = _require("write_config")
     if denied:
         return denied
@@ -454,8 +456,14 @@ def save_workbook_format():
     if not isinstance(overrides, dict):
         return jsonify({"success": False, "error": "overrides must be an object"}), 400
     clean = _wf.save_overrides(overrides)
-    _audit("workbook_format_saved", {"sheets": len(clean)})
-    return jsonify({"success": True, "overrides": clean})
+    clean_aligns = _wf.load_alignments()
+    alignments = body.get("alignments")
+    if alignments is not None:
+        if not isinstance(alignments, dict):
+            return jsonify({"success": False, "error": "alignments must be an object"}), 400
+        clean_aligns = _wf.save_alignments(alignments)
+    _audit("workbook_format_saved", {"sheets": len(clean), "aligned_sheets": len(clean_aligns)})
+    return jsonify({"success": True, "overrides": clean, "alignments": clean_aligns})
 
 
 @app.route("/api/schema", methods=["GET"])

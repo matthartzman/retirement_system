@@ -27,6 +27,8 @@
 .two-col-inline{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .two-col-inline .field{grid-template-columns:minmax(180px,1fr) minmax(140px,.8fr);margin:0}
 .retirement-income-section{padding-top:12px;padding-bottom:12px}
+.field-list.inline-row{display:flex;flex-wrap:wrap;gap:10px}
+.field-list.inline-row .field{flex:1 1 105px;grid-template-columns:1fr;margin:0;padding:10px}
 @media(max-width:1180px){.two-col-inline{grid-template-columns:1fr}}
 
 .mc-engine-card{background:#eaf2ff;border-color:#9bc4f5}.mc-engine-card p{margin:6px 0 10px}.mc-engine-card .field{margin:8px 0 0;background:#fff}.mc-engine-card .field-label{font-size:15px}
@@ -174,6 +176,14 @@
 .wf-col-width input[type=number]{width:90px;padding:5px 8px;border:1px solid var(--line2);border-radius:6px;font:inherit;text-align:right}
 .wf-col-default{color:var(--muted)}
 .wf-col-row .wf-col-title{flex:1 1 auto;min-width:120px}
+.wf-col-align{display:flex;align-items:center;gap:6px}
+.wf-col-align-label{white-space:nowrap}
+.wf-align-group{display:inline-flex;border:1px solid var(--line2);border-radius:6px;overflow:hidden}
+.wf-align-btn{border:none;border-right:1px solid var(--line2);background:#fff;padding:5px 9px;font:inherit;font-size:12px;line-height:1;cursor:pointer;color:var(--muted)}
+.wf-align-btn:last-child{border-right:none}
+.wf-align-btn:hover{background:var(--well)}
+.wf-align-btn.active{background:var(--accent);color:#fff}
+.wf-col-align.wf-align-overridden .wf-align-group{border-color:var(--accent)}
 /* Planning levers sensitivity dashboard */
 .planning-levers .compact-input{padding:6px 8px;border:1px solid var(--line2);border-radius:8px;font:inherit;text-align:right}
 .planning-levers .lot-table-wrap{margin-bottom:20px}
