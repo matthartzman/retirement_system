@@ -152,25 +152,28 @@
 /* Workbook formatting (column-width editor) */
 .workbook-format-panel{max-width:900px}
 .workbook-format-panel .wf-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0}
-.workbook-format-panel .wf-sheets{display:flex;flex-direction:column;gap:8px}
-.wf-sheet,.wf-table,.wf-col{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
-.wf-sheet>summary,.wf-table>summary,.wf-col>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 14px;cursor:pointer;list-style:none;user-select:none;background:var(--well)}
-.wf-sheet>summary::-webkit-details-marker,.wf-table>summary::-webkit-details-marker,.wf-col>summary::-webkit-details-marker{display:none}
-.wf-sheet>summary::before,.wf-table>summary::before,.wf-col>summary::before{content:'▶';font-size:9px;color:var(--muted);transition:transform .15s ease;margin-right:2px}
-.wf-sheet[open]>summary::before,.wf-table[open]>summary::before,.wf-col[open]>summary::before{transform:rotate(90deg)}
-.wf-sheet[open]>summary,.wf-table[open]>summary,.wf-col[open]>summary{border-bottom:1px solid var(--line)}
-.wf-sheet-title{font-weight:600}
+.workbook-format-panel .wf-sheets{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.wf-sheet,.wf-table{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff;max-width:100%}
+.wf-sheet>summary,.wf-table>summary{display:flex;align-items:center;gap:12px;padding:9px 14px;cursor:pointer;list-style:none;user-select:none;background:var(--well)}
+.wf-sheet>summary{justify-content:flex-start}
+.wf-table>summary{justify-content:space-between}
+.wf-sheet>summary::-webkit-details-marker,.wf-table>summary::-webkit-details-marker{display:none}
+.wf-sheet>summary::before,.wf-table>summary::before{content:'▶';font-size:9px;color:var(--muted);transition:transform .15s ease;margin-right:2px}
+.wf-sheet[open]>summary::before,.wf-table[open]>summary::before{transform:rotate(90deg)}
+.wf-sheet[open]>summary,.wf-table[open]>summary{border-bottom:1px solid var(--line)}
+.wf-sheet-title{display:inline-block;text-align:left;font-weight:600}
 .wf-table-title{font-weight:600;color:#4b473f}
 .wf-col-title{font-weight:500}
 .wf-col-meta{color:var(--muted);font-size:12px;white-space:nowrap}
 .wf-sheet-body{padding:10px 14px;display:flex;flex-direction:column;gap:6px}
 .wf-table-body{padding:8px 12px;display:flex;flex-direction:column;gap:6px}
-.wf-table,.wf-col{background:#fdfdfb}
-.wf-col-overridden>summary{background:#eef7ff}
-.wf-col-body{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px}
-.wf-col-body input[type=number]{width:90px;padding:5px 8px;border:1px solid var(--line2);border-radius:6px;font:inherit;text-align:right}
-.wf-col-body label{display:flex;align-items:center;gap:6px}
+.wf-table{background:#fdfdfb}
+.wf-col-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:7px 12px;border:1px solid var(--line);border-radius:7px;background:#fdfdfb}
+.wf-col-row.wf-col-overridden{background:#eef7ff;border-color:var(--accent)}
+.wf-col-width{display:flex;align-items:center;gap:6px}
+.wf-col-width input[type=number]{width:90px;padding:5px 8px;border:1px solid var(--line2);border-radius:6px;font:inherit;text-align:right}
 .wf-col-default{color:var(--muted)}
+.wf-col-row .wf-col-title{flex:1 1 auto;min-width:120px}
 /* Planning levers sensitivity dashboard */
 .planning-levers .compact-input{padding:6px 8px;border:1px solid var(--line2);border-radius:8px;font:inherit;text-align:right}
 .planning-levers .lot-table-wrap{margin-bottom:20px}

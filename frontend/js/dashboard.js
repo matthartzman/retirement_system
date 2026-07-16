@@ -8362,13 +8362,10 @@ function _wfColumnHtml(sheet, colNode) {
   const eff = _wfEffectiveWidth(sheet, col, colNode.width);
   const overridden = _wfIsOverridden(sheet, col);
   const title = esc(colNode.title || col);
-  const key = "col::" + sheet + "::" + col;
   const resetBtn = overridden
-    ? ` <button class="btn tiny" type="button" onclick="resetWorkbookCol('${escJs(sheet)}','${escJs(col)}')">Reset</button>`
+    ? `<button class="btn tiny" type="button" onclick="resetWorkbookCol('${escJs(sheet)}','${escJs(col)}')">Reset</button>`
     : "";
-  const summary = `<span class="wf-col-title">${title}</span><span class="wf-col-meta">col ${esc(col)} · ${esc(String(eff))}${overridden ? " ✎" : ""}</span>`;
-  const body = `<div class="wf-col-body"><label>Width <input type="number" min="1" max="255" step="0.5" value="${esc(String(eff))}" onchange="setWorkbookColWidth('${escJs(sheet)}','${escJs(col)}',this.value)" /></label>${resetBtn}<span class="small wf-col-default">Automatic: ${esc(String(colNode.width))}</span></div>`;
-  return _wfDetails(key, "wf-col" + (overridden ? " wf-col-overridden" : ""), summary, body);
+  return `<div class="wf-col-row${overridden ? " wf-col-overridden" : ""}"><span class="wf-col-title">${title}</span><span class="wf-col-meta">col ${esc(col)}</span><label class="wf-col-width">Width <input type="number" min="1" max="255" step="0.5" value="${esc(String(eff))}" onchange="setWorkbookColWidth('${escJs(sheet)}','${escJs(col)}',this.value)" /></label><span class="small wf-col-default">Automatic: ${esc(String(colNode.width))}</span>${resetBtn}</div>`;
 }
 
 function _wfTableHtml(sheet, tableNode, showTableLayer) {
@@ -8381,7 +8378,7 @@ function _wfTableHtml(sheet, tableNode, showTableLayer) {
   return _wfDetails(key, "wf-table", summary, `<div class="wf-table-body">${cols}</div>`);
 }
 
-function _wfSheetHtml(sheetNode) {
+function _wfSheetHtml(sheetNode, maxNameLen) {
   const sheet = sheetNode.sheet;
   const showTableLayer = !sheetNode.single_table;
   const body = (sheetNode.tables || [])
@@ -8392,7 +8389,8 @@ function _wfSheetHtml(sheetNode) {
     0,
   );
   const key = "sheet::" + sheet;
-  const summary = `<span class="wf-sheet-title">${esc(sheet)}</span><span class="wf-col-meta">${totalCols} column${totalCols === 1 ? "" : "s"}${showTableLayer ? " · " + (sheetNode.tables || []).length + " tables" : ""}</span>`;
+  const titleStyle = maxNameLen ? ` style="min-width:${maxNameLen}ch"` : "";
+  const summary = `<span class="wf-sheet-title"${titleStyle}>${esc(sheet)}</span><span class="wf-col-meta">${totalCols} column${totalCols === 1 ? "" : "s"}${showTableLayer ? " · " + (sheetNode.tables || []).length + " tables" : ""}</span>`;
   return _wfDetails(key, "wf-sheet", summary, `<div class="wf-sheet-body">${body}</div>`);
 }
 
@@ -8409,7 +8407,14 @@ function renderWorkbookFormatting() {
   if (!workbookFormatData || !workbookFormatData.available) {
     return `<div class="workbook-format-panel">${back}${header}<div class="section-note warn">No built workbook found yet. Build the workbook once (Reports &amp; Review → Build), then return here to fine-tune column widths.</div></div>`;
   }
-  const sheets = (workbookFormatData.sheets || []).map(_wfSheetHtml).join("");
+  const sheetNodes = workbookFormatData.sheets || [];
+  const maxSheetNameLen = sheetNodes.reduce(
+    (m, s) => Math.max(m, (s.sheet || "").length),
+    0,
+  );
+  const sheets = sheetNodes
+    .map((s) => _wfSheetHtml(s, maxSheetNameLen))
+    .join("");
   const n = workbookFormatDirtyCount();
   const toolbar = `<div class="wf-toolbar"><button class="btn primary" type="button" onclick="saveWorkbookFormat()">Save formatting</button> <button class="btn" type="button" onclick="refreshWorkbookFormat()">Reload from last build</button> <span class="small" id="wfDirtyCount">${n ? `${n} unsaved change${n === 1 ? "" : "s"}` : "No unsaved changes"}</span></div>`;
   return `<div class="workbook-format-panel">${back}${header}${toolbar}<div class="wf-sheets">${sheets}</div></div>`;

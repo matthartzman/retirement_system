@@ -522,7 +522,9 @@ def optimize_workbook_layout(wb, target_total_width=118):
                     shrink_to_fit=old.shrink_to_fit,
                     indent=old.indent,
                 )
-            ws.row_dimensions[211].height = max(ws.row_dimensions[211].height or 0, 30)
+            # Height is no longer forced here: minimize_row_heights() sizes
+            # every wrapped row (including these) from actual content once
+            # final column widths are known.
 
     return wb
 
@@ -599,7 +601,11 @@ def apply_template_layout(wb):
 
     Runs after optimize_workbook_layout so its heuristic sizing is the
     fallback for any column/row the template doesn't specify (e.g. columns
-    added by data that wasn't present when the template was captured).
+    added by data that wasn't present when the template was captured). The
+    row heights pinned here are themselves a starting point, not final: they
+    get recomputed by minimize_row_heights() once every column-width pass
+    (including user overrides from Settings -> Workbook Formatting) has run,
+    since a pinned height only matches the template's own column widths.
     """
     for ws in wb.worksheets:
         spec = TEMPLATE_LAYOUT.get(ws.title)
@@ -609,6 +615,77 @@ def apply_template_layout(wb):
             ws.column_dimensions[letter].width = width
         for row_str, height in spec.get('rows', {}).items():
             ws.row_dimensions[int(row_str)].height = height
+    return wb
+
+
+def minimize_row_heights(wb):
+    """Shrink (or grow) every content row to the minimum height that fully
+    displays its text at the sheet's FINAL column widths.
+
+    Must run last, after every column-width pass (heuristic, template,
+    user overrides), since how many lines a wrapped cell needs depends on
+    the width it will actually render at. Handles text merged across
+    multiple columns (the wrap width is the merged range's combined column
+    width) and, for robustness, text merged across multiple rows (the
+    needed height is spread across the spanned rows). Rows with no cell
+    content are left untouched so chart-anchor spacer rows aren't disturbed.
+    """
+    import math as _math
+    from collections import defaultdict
+
+    EXCEL_MAX_ROW_HEIGHT = 409.0  # points; Excel's own hard ceiling
+    LINE_PAD = 4.0  # points of padding per line, above the raw font size
+    DEFAULT_WIDTH = 8.43  # Excel's default column width when none is set
+
+    for ws in wb.worksheets:
+        if getattr(ws, 'sheet_state', 'visible') != 'visible':
+            continue
+        max_row = ws.max_row or 0
+        max_col = ws.max_column or 0
+        if not max_row or not max_col:
+            continue
+
+        col_width = {}
+        sheet_default = getattr(ws.sheet_format, 'defaultColWidth', None) or DEFAULT_WIDTH
+        for c in range(1, max_col + 1):
+            dim = ws.column_dimensions.get(get_column_letter(c))
+            col_width[c] = float(dim.width) if (dim and dim.width) else float(sheet_default)
+
+        merge_span = {(mr.min_row, mr.min_col): mr for mr in ws.merged_cells.ranges}
+
+        row_needed = defaultdict(float)
+        for row_idx in range(1, max_row + 1):
+            for c in range(1, max_col + 1):
+                cell = ws.cell(row_idx, c)
+                if cell.value in (None, ''):
+                    continue
+                font_size = float(cell.font.size) if (cell.font and cell.font.size) else 10.0
+                line_pt = font_size + LINE_PAD
+                mr = merge_span.get((row_idx, c))
+                col_span = range(mr.min_col, mr.max_col + 1) if mr else range(c, c + 1)
+                row_span = range(mr.min_row, mr.max_row + 1) if mr else range(row_idx, row_idx + 1)
+                wrap = bool(cell.alignment and cell.alignment.wrap_text)
+                # Numbers/dates render as one unbroken token (no spaces to
+                # wrap at), so Excel never splits them across lines even with
+                # wrap_text on -- only word-wrappable strings actually grow a
+                # row. Measuring a raw float's repr would otherwise wildly
+                # overstate the height a numeric cell needs.
+                if wrap and isinstance(cell.value, str):
+                    eff_width = max(sum(col_width.get(cc, DEFAULT_WIDTH) for cc in col_span), 1.0)
+                    lines = 0
+                    for line in (cell.value.splitlines() or ['']):
+                        lines += max(1, _math.ceil(len(line) / eff_width))
+                    lines = max(1, lines)
+                else:
+                    lines = 1
+                per_row_pts = (lines * line_pt) / max(1, len(row_span))
+                for r in row_span:
+                    if per_row_pts > row_needed[r]:
+                        row_needed[r] = per_row_pts
+
+        for row_idx, pts in row_needed.items():
+            ws.row_dimensions[row_idx].height = round(min(EXCEL_MAX_ROW_HEIGHT, pts), 1)
+
     return wb
 
 

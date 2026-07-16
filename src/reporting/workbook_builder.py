@@ -1231,6 +1231,10 @@ def main():
         _apply_format_overrides(wb)
     except Exception as _fmt_exc:  # never let optional formatting block a build
         print(f'Warning: workbook format overrides not applied: {_fmt_exc}')
+    # Row heights are recomputed last, against the final column widths above,
+    # so every row is as short as possible while still showing all of its
+    # text (including text wrapped across merged cells).
+    minimize_row_heights(wb)
 
     # Save workbook
     print(f'Saving workbook to {out_path}')
