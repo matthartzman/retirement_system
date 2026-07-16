@@ -669,8 +669,14 @@ def minimize_row_heights(wb):
                 # wrap at), so Excel never splits them across lines even with
                 # wrap_text on -- only word-wrappable strings actually grow a
                 # row. Measuring a raw float's repr would otherwise wildly
-                # overstate the height a numeric cell needs.
-                if wrap and isinstance(cell.value, str):
+                # overstate the height a numeric cell needs. Formula cells are
+                # also strings in openpyxl (e.g. '=MIN(0.30,MAX(-0.30,...))')
+                # but Excel wraps the DISPLAYED result, not the formula
+                # source -- measuring the source text the same way inflated
+                # rows full of short-result formulas (Planning Levers'
+                # rank/impact columns) to several times their needed height.
+                is_formula = isinstance(cell.value, str) and cell.value.startswith('=')
+                if wrap and isinstance(cell.value, str) and not is_formula:
                     eff_width = max(sum(col_width.get(cc, DEFAULT_WIDTH) for cc in col_span), 1.0)
                     lines = 0
                     for line in (cell.value.splitlines() or ['']):
