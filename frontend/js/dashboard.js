@@ -8230,6 +8230,31 @@ function wfToggle(key, open) {
   else wfOpen.delete(key);
 }
 
+// Tab/Shift+Tab on a column-width field jumps straight to the next/previous
+// width field in sheet -> table -> column order, expanding any collapsed
+// Sheet/Table <details> along the way so the target is actually reachable --
+// matching a spreadsheet-style "keep tabbing through every field" flow
+// instead of the browser's default behavior of skipping hidden/collapsed
+// content.
+function wfWidthInputKeydown(event) {
+  if (event.key !== "Tab") return;
+  const inputs = Array.from(
+    document.querySelectorAll(".workbook-format-panel .wf-col-width input[type=number]"),
+  );
+  const idx = inputs.indexOf(event.target);
+  if (idx === -1) return;
+  const nextIdx = idx + (event.shiftKey ? -1 : 1);
+  const target = inputs[nextIdx];
+  if (!target) return; // at the boundary: let focus leave the field list normally
+  event.preventDefault();
+  const table = target.closest("details.wf-table");
+  if (table && !table.open) table.open = true;
+  const sheet = target.closest("details.wf-sheet");
+  if (sheet && !sheet.open) sheet.open = true;
+  target.focus();
+  target.select();
+}
+
 function _wfCloneOverrides(src) {
   const out = {};
   Object.keys(src || {}).forEach((sheet) => {
@@ -8365,7 +8390,7 @@ function _wfColumnHtml(sheet, colNode) {
   const resetBtn = overridden
     ? `<button class="btn tiny" type="button" onclick="resetWorkbookCol('${escJs(sheet)}','${escJs(col)}')">Reset</button>`
     : "";
-  return `<div class="wf-col-row${overridden ? " wf-col-overridden" : ""}"><span class="wf-col-title">${title}</span><span class="wf-col-meta">col ${esc(col)}</span><label class="wf-col-width">Width <input type="number" min="1" max="255" step="0.5" value="${esc(String(eff))}" onchange="setWorkbookColWidth('${escJs(sheet)}','${escJs(col)}',this.value)" /></label><span class="small wf-col-default">Automatic: ${esc(String(colNode.width))}</span>${resetBtn}</div>`;
+  return `<div class="wf-col-row${overridden ? " wf-col-overridden" : ""}"><span class="wf-col-title">${title}</span><span class="wf-col-meta">col ${esc(col)}</span><label class="wf-col-width">Width <input type="number" min="1" max="255" step="0.5" value="${esc(String(eff))}" onchange="setWorkbookColWidth('${escJs(sheet)}','${escJs(col)}',this.value)" onkeydown="wfWidthInputKeydown(event)" /></label><span class="small wf-col-default">Automatic: ${esc(String(colNode.width))}</span>${resetBtn}</div>`;
 }
 
 function _wfTableHtml(sheet, tableNode, showTableLayer) {
@@ -18120,6 +18145,12 @@ function moveToNextEntry(e) {
   const el = e.target;
   if (!el.matches("input,select,button,textarea")) return;
   if (el.classList.contains("helpbtn")) return;
+  // Workbook Formatting's width fields have their own dedicated Tab handler
+  // (wfWidthInputKeydown) that jumps specifically between width inputs,
+  // opening only the Sheet/Table sections in that path. Leaving this generic
+  // handler active too would race it via this function's deferred setTimeout
+  // focus-move, sometimes stealing focus to an unrelated element.
+  if (el.closest(".wf-col-width")) return;
   if (e.key === "Enter" && el.tagName.toLowerCase() === "textarea") return;
   if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) {
     e.preventDefault();
