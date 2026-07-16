@@ -1464,6 +1464,10 @@ function humanLabel(label, row) {
     return "Monthly at FRA";
   if (row && /^ss_benefit_age_(\d+)$/.test(String(row.label || "")))
     return `Benefit at ${String(row.label).match(/(\d+)$/)[1]}`;
+  if (row && norm(row.label) === "ss_funding_discount_year")
+    return "Discount Starts";
+  if (row && norm(row.label) === "ss_funding_discount_pct")
+    return "Benefit Reduction";
   if (row && norm(row.label) === "roth_target_bracket_rate")
     return "Roth Tax-Bracket Ceiling";
   if (row && norm(row.label) === "roth_irmaa_target_tier")
@@ -5913,7 +5917,10 @@ function numberDisplayDecimals(row, value) {
   const l = norm(row?.label),
     units = String(row?.units || "");
   const schema = row?.schema || {};
-  if (l === "fra_age") return 0;
+  if (l === "fra_age") {
+    const n = numberFromDisplay(value);
+    return n !== null && Number.isInteger(n) ? 0 : decimalsFromText(value);
+  }
   if (
     l.includes("weight") ||
     l.includes("factor") ||
@@ -6274,7 +6281,7 @@ function displayValueForInput(row, value) {
 function saveValueForRow(row, value) {
   if (row && isDateField(row)) return toIsoDateValue(value);
   const kind = valueKind(row);
-  if (kind === "currency") return currencyDisplay(value);
+  if (kind === "currency") return currencyRaw(value);
   if (kind === "percent")
     return percentDisplay(value, percentDisplayDecimals(row, value));
   if (kind === "number")
@@ -8221,6 +8228,8 @@ let workbookFormatData = null;
 let workbookFormatLoading = false;
 let workbookFormatError = "";
 let workbookFormatDraft = {};
+// Horizontal-alignment draft, keyed the same way: draft[sheet][col] = "left"|"center"|"right".
+let workbookFormatAlignDraft = {};
 // Persist which <details> are expanded so a re-render (save/reset) does not
 // collapse the tree the user is working in.
 let wfOpen = new Set();
@@ -8272,6 +8281,7 @@ async function loadWorkbookFormat(force = false) {
     const out = await api("/api/workbook-format", { timeoutMs: 30000 });
     workbookFormatData = out || { available: false, sheets: [] };
     workbookFormatDraft = _wfCloneOverrides(out && out.overrides);
+    workbookFormatAlignDraft = _wfCloneOverrides(out && out.alignments);
   } catch (e) {
     workbookFormatData = { available: false, sheets: [] };
     workbookFormatError = e && e.message ? e.message : String(e);
@@ -8320,23 +8330,60 @@ function resetWorkbookCol(sheet, col) {
   renderMain();
 }
 
-function workbookFormatDirtyCount() {
-  const saved = (workbookFormatData && workbookFormatData.overrides) || {};
+// Effective horizontal alignment for a column = draft override if present,
+// else the alignment read from the last-built workbook's data rows.
+function _wfEffectiveAlign(sheet, col, builtAlign) {
+  const s = workbookFormatAlignDraft[sheet];
+  if (s && Object.prototype.hasOwnProperty.call(s, col)) return s[col];
+  return builtAlign;
+}
+
+function _wfIsAlignOverridden(sheet, col) {
+  const s = workbookFormatAlignDraft[sheet];
+  return !!(s && Object.prototype.hasOwnProperty.call(s, col));
+}
+
+function setWorkbookColAlign(sheet, col, align) {
+  if (!workbookFormatAlignDraft[sheet]) workbookFormatAlignDraft[sheet] = {};
+  workbookFormatAlignDraft[sheet][col] = align;
+  updateWorkbookFormatDirty();
+  renderMain();
+}
+
+function resetWorkbookColAlign(sheet, col) {
+  if (workbookFormatAlignDraft[sheet]) {
+    delete workbookFormatAlignDraft[sheet][col];
+    if (!Object.keys(workbookFormatAlignDraft[sheet]).length)
+      delete workbookFormatAlignDraft[sheet];
+  }
+  renderMain();
+}
+
+function _wfCountDiffs(saved, draft) {
   const keys = new Set();
   const collect = (m) =>
     Object.keys(m || {}).forEach((sh) =>
       Object.keys(m[sh] || {}).forEach((c) => keys.add(sh + "||" + c)),
     );
   collect(saved);
-  collect(workbookFormatDraft);
+  collect(draft);
   let n = 0;
   keys.forEach((k) => {
     const [sh, c] = k.split("||");
     const a = saved[sh] && saved[sh][c];
-    const b = workbookFormatDraft[sh] && workbookFormatDraft[sh][c];
+    const b = draft[sh] && draft[sh][c];
     if ((a === undefined ? null : a) !== (b === undefined ? null : b)) n++;
   });
   return n;
+}
+
+function workbookFormatDirtyCount() {
+  const savedW = (workbookFormatData && workbookFormatData.overrides) || {};
+  const savedA = (workbookFormatData && workbookFormatData.alignments) || {};
+  return (
+    _wfCountDiffs(savedW, workbookFormatDraft) +
+    _wfCountDiffs(savedA, workbookFormatAlignDraft)
+  );
 }
 
 function updateWorkbookFormatDirty() {
@@ -8353,11 +8400,15 @@ async function saveWorkbookFormat() {
   try {
     const out = await api("/api/workbook-format", {
       method: "POST",
-      body: JSON.stringify({ overrides: workbookFormatDraft }),
+      body: JSON.stringify({ overrides: workbookFormatDraft, alignments: workbookFormatAlignDraft }),
     });
     if (out && out.success) {
       workbookFormatDraft = _wfCloneOverrides(out.overrides);
-      if (workbookFormatData) workbookFormatData.overrides = _wfCloneOverrides(out.overrides);
+      workbookFormatAlignDraft = _wfCloneOverrides(out.alignments);
+      if (workbookFormatData) {
+        workbookFormatData.overrides = _wfCloneOverrides(out.overrides);
+        workbookFormatData.alignments = _wfCloneOverrides(out.alignments);
+      }
       showMessage(
         "Workbook formatting saved. Rebuild the workbook to apply the new column widths.",
         "success",
@@ -8382,6 +8433,25 @@ function _wfDetails(key, cls, summary, body) {
   return `<details class="${cls}"${open} data-wfkey="${esc(key)}" ontoggle="wfToggle('${escJs(key)}',this.open)"><summary>${summary}</summary>${body}</details>`;
 }
 
+const _WF_ALIGN_OPTIONS = [
+  ["left", "L", "Align left"],
+  ["center", "C", "Align center"],
+  ["right", "R", "Align right"],
+];
+
+function _wfAlignHtml(sheet, col, colNode) {
+  const eff = _wfEffectiveAlign(sheet, col, colNode.align || "left");
+  const overridden = _wfIsAlignOverridden(sheet, col);
+  const btns = _WF_ALIGN_OPTIONS.map(
+    ([val, label, hint]) =>
+      `<button type="button" class="wf-align-btn${val === eff ? " active" : ""}" title="${hint}" onclick="setWorkbookColAlign('${escJs(sheet)}','${escJs(col)}','${val}')">${label}</button>`,
+  ).join("");
+  const resetBtn = overridden
+    ? `<button class="btn tiny" type="button" onclick="resetWorkbookColAlign('${escJs(sheet)}','${escJs(col)}')">Reset</button>`
+    : "";
+  return `<span class="wf-col-align${overridden ? " wf-align-overridden" : ""}"><span class="small wf-col-align-label">Align</span><span class="wf-align-group">${btns}</span>${resetBtn}</span>`;
+}
+
 function _wfColumnHtml(sheet, colNode) {
   const col = colNode.col;
   const eff = _wfEffectiveWidth(sheet, col, colNode.width);
@@ -8390,7 +8460,7 @@ function _wfColumnHtml(sheet, colNode) {
   const resetBtn = overridden
     ? `<button class="btn tiny" type="button" onclick="resetWorkbookCol('${escJs(sheet)}','${escJs(col)}')">Reset</button>`
     : "";
-  return `<div class="wf-col-row${overridden ? " wf-col-overridden" : ""}"><span class="wf-col-title">${title}</span><span class="wf-col-meta">col ${esc(col)}</span><label class="wf-col-width">Width <input type="number" min="1" max="255" step="0.5" value="${esc(String(eff))}" onchange="setWorkbookColWidth('${escJs(sheet)}','${escJs(col)}',this.value)" onkeydown="wfWidthInputKeydown(event)" /></label><span class="small wf-col-default">Automatic: ${esc(String(colNode.width))}</span>${resetBtn}</div>`;
+  return `<div class="wf-col-row${overridden ? " wf-col-overridden" : ""}"><span class="wf-col-title">${title}</span><span class="wf-col-meta">col ${esc(col)}</span><label class="wf-col-width">Width <input type="number" min="1" max="255" step="0.5" value="${esc(String(eff))}" onchange="setWorkbookColWidth('${escJs(sheet)}','${escJs(col)}',this.value)" onkeydown="wfWidthInputKeydown(event)" /></label><span class="small wf-col-default">Automatic: ${esc(String(colNode.width))}</span>${resetBtn}${_wfAlignHtml(sheet, col, colNode)}</div>`;
 }
 
 function _wfTableHtml(sheet, tableNode, showTableLayer) {
@@ -9174,37 +9244,31 @@ function renderSsPolicySection() {
         !hiddenLabels.has(norm(r.label)) &&
         !excludedSubs.has(String(r.subsection || "").toLowerCase()),
     );
-  if (!rs.length) return "";
+  const fundingRows = [
+    findEditableRow("Social Security", "Funding Discount", "ss_funding_discount_year"),
+    findEditableRow("Social Security", "Funding Discount", "ss_funding_discount_pct"),
+  ].filter(Boolean);
+  if (!rs.length && !fundingRows.length) return "";
   const bySub = {};
   rs.forEach((r) => {
     const k = String(r.subsection || "");
     (bySub[k] = bySub[k] || []).push(r);
   });
-  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Social Security policy &amp; benefit details</h3><div class="section-note">Household-wide spousal and survivor policy settings.</div>`;
+  if (fundingRows.length) {
+    const policyKey =
+      Object.keys(bySub).find((k) => k.toLowerCase() === "policy") || "Policy";
+    bySub[policyKey] = (bySub[policyKey] || []).concat(fundingRows);
+  }
+  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Social Security policy &amp; benefit details</h3><div class="section-note">Household-wide spousal, survivor, and funding-discount policy settings.</div>`;
   Object.keys(bySub).forEach((sub) => {
     if (sub && sub.toLowerCase() !== "policy")
       html += `<div class="subsection-label">${esc(friendlyGroup({ section: "Social Security", subsection: sub }) || sub)}</div>`;
-    html += `<div class="field-list">${bySub[sub].map(fieldHtml).join("")}</div>`;
+    html += `<div class="field-list inline-row">${bySub[sub].map(fieldHtml).join("")}</div>`;
   });
   return html + "</div>";
 }
-function renderSsFundingDiscountRow() {
-  const yearRow = findEditableRow(
-    "Social Security",
-    "Funding Discount",
-    "ss_funding_discount_year",
-  );
-  const pctRow = findEditableRow(
-    "Social Security",
-    "Funding Discount",
-    "ss_funding_discount_pct",
-  );
-  if (!yearRow && !pctRow) return "";
-  return `<div class="holdings retirement-income-section"><h3 class="group-title">Social Security funding discount</h3><div class="section-note">Models a possible future cut to gross Social Security benefits if the trust fund isn’t shored up before this year.</div><div class="lot-table-wrap"><table class="lot-table compact-table"><thead><tr><th>Discount Starts</th><th>Benefit Reduction</th></tr></thead><tbody><tr><td>${yearRow ? fieldControlOnly(yearRow) : '<span class="small">Missing</span>'}</td><td>${pctRow ? fieldControlOnly(pctRow) : '<span class="small">Missing</span>'}</td></tr></tbody></table></div></div>`;
-}
 function renderRetirementIncome() {
-  const ssInner =
-    renderSsCompactTable() + renderSsPolicySection() + renderSsFundingDiscountRow();
+  const ssInner = renderSsCompactTable() + renderSsPolicySection();
   const ssSummary =
     "Claim ages, FRA, per-age benefit tables, spousal/survivor policy, and funding discount";
   const ssSection =

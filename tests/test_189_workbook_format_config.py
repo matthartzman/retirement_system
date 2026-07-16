@@ -132,6 +132,40 @@ def test_generation_applies_overrides_hook_present():
     assert "_apply_format_overrides(wb)" in src
 
 
+def test_alignments_round_trip_and_sanitize(tmp_path):
+    saved = wf.save_alignments(
+        {
+            "Multi": {"a": "L", "B": "Center", "C": "right", "bad!": "left", "D": "diagonal"},
+            "": {"A": "left"},  # empty sheet name dropped
+        },
+        input_dir=tmp_path,
+    )
+    assert saved == {"Multi": {"A": "left", "B": "center", "C": "right"}}
+    assert wf.load_alignments(input_dir=tmp_path) == {"Multi": {"A": "left", "B": "center", "C": "right"}}
+
+
+def test_apply_alignments_sets_horizontal_on_data_rows_only(tmp_path):
+    path = _make_workbook(tmp_path)
+    wf.save_alignments({"Multi": {"A": "right"}}, input_dir=tmp_path)
+    wb = openpyxl.load_workbook(path)
+    ws = wb["Multi"]
+    ws["A3"] = 5  # a data row below the header band
+    header_align_before = ws["A2"].alignment.horizontal
+    wf.apply_alignments(wb, input_dir=tmp_path)
+    assert ws["A3"].alignment.horizontal == "right"
+    # Header band is left untouched.
+    assert ws["A2"].alignment.horizontal == header_align_before
+
+
+def test_align_node_reflects_saved_override(tmp_path):
+    path = _make_workbook(tmp_path)
+    tree = wf.build_format_tree(path, alignments={"Multi": {"B": "center"}})
+    multi = next(s for s in tree["sheets"] if s["sheet"] == "Multi")
+    flags = {c["col"]: (c["align"], c["align_overridden"]) for t in multi["tables"] for c in t["columns"]}
+    assert flags["B"] == ("center", True)
+    assert flags["A"][1] is False
+
+
 def test_routes_and_ui_wired():
     routes = (ROOT / "src" / "server" / "workbook_routes.py").read_text(encoding="utf-8")
     assert '"/api/workbook-format", methods=["GET"]' in routes
@@ -143,5 +177,7 @@ def test_routes_and_ui_wired():
     assert 'id: "workbook_formatting"' in js
     assert 'activeStep === "workbook_formatting"' in js
     assert "/api/workbook-format" in js
+    assert "alignments" in routes
+    assert "function setWorkbookColAlign" in js
     nav = (ROOT / "frontend" / "js" / "navigation.js").read_text(encoding="utf-8")
     assert "workbook_formatting" in nav

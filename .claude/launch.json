@@ -21,6 +21,13 @@
       "runtimeArgs": ["/c", "set RETIREMENT_SYSTEM_DASHBOARD_PORT=5251&& py -3.14 main.py --mode server"],
       "port": 5251,
       "autoPort": false
+    },
+    {
+      "name": "retirement-planner-localpy",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set RETIREMENT_SYSTEM_DASHBOARD_PORT=5352&& C:\\Users\\MattHartzman\\AppData\\Local\\Python\\bin\\python.exe main.py --mode server"],
+      "port": 5352,
+      "autoPort": false
     }
   ]
 }

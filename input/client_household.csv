@@ -42,9 +42,9 @@ Wellness,Out-of-Pocket,annual_oop_estimate_today,"$10,000",dollars,"Annual house
 Social Security,Policy,survivor_pct_of_higher_benefit,100,pct,100 = full higher benefit continues to survivor,
 Social Security,Policy,survivor_benefit_uses_deceased_claim_age,TRUE,yes/no,Survivor benefit uses the deceased worker claim-age factor.,
 Wellness,Out-of-Pocket,oop_utilization_pct,100.00%,pct,Share of the annual household medical OOP cap to model as non-premium medical spending when detailed medical expense rows are not provided.,
-Social Security,Member 1,monthly_pia_at_fra_today_dollars,0,USD,"Optional override. If blank, the engine uses the age-67 (Full Retirement Age) entry from the benefit table below.",
-Social Security,Member 2,monthly_pia_at_fra_today_dollars,0,USD,"Optional override. If blank, the engine uses the age-67 (Full Retirement Age) entry from the benefit table below.",
-Social Security,Member 1,claim_age,68,years,Modeled per spouse using early/delayed retirement factors.,
+Social Security,Member 1,monthly_pia_at_fra_today_dollars,4050,USD,"Optional override. If blank, the engine uses the age-67 (Full Retirement Age) entry from the benefit table below.",
+Social Security,Member 2,monthly_pia_at_fra_today_dollars,3359,USD,"Optional override. If blank, the engine uses the age-67 (Full Retirement Age) entry from the benefit table below.",
+Social Security,Member 1,claim_age,69,years,Modeled per spouse using early/delayed retirement factors.,
 Social Security,Member 2,claim_age,69,years,Modeled per spouse using early/delayed retirement factors.,
 Social Security,Member 1,fra_age,67.00,number,"Full Retirement Age (SSA), in years, e.g. 66.67 for 66 years 8 months. 0 auto-derives from date of birth (67 for birth year 1960 or later); otherwise enter 60-70."
 Social Security,Member 2,fra_age,67.00,number,"Full Retirement Age (SSA), in years, e.g. 66.67 for 66 years 8 months. 0 auto-derives from date of birth (67 for birth year 1960 or later); otherwise enter 60-70."
