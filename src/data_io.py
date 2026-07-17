@@ -49,6 +49,7 @@ from .market_data import PRICE_CACHE, fetch_price, set_fallback_prices, set_froz
 from .workspace_context import candidate_input_files, active_workspace_id
 from . import platform_runtime as _platform_runtime
 from .roth_ui_build_guard import normalize_roth_policy, normalize_irmaa_guardrail_mode, percent_to_float, is_explicit_user_roth_policy, strategy_for_roth_policy
+from .plan_data_migration import migrate_sectioned_data
 try:
     from .system_config import load_system_config
 except Exception:  # direct execution fallback
@@ -61,78 +62,6 @@ __all__ = [
     'validate_projection',
     'summarize_validation',
 ]
-
-
-def _check_and_migrate_schema_if_needed(csv_path: Path) -> bool:
-    """
-    Check if plan data needs schema migration. If old format detected, run migrator.
-
-    Args:
-        csv_path: Path to client_data.csv
-
-    Returns:
-        True if migration was run, False if already current version
-    """
-    import json
-    import subprocess
-
-    csv_path = Path(csv_path)
-    metadata_path = csv_path.parent / "plan_metadata.json"
-
-    # Skip migration during test runs (detect pytest or direct test invocation)
-    if 'pytest' in _sys.modules or 'unittest' in _sys.modules:
-        # In test context: skip expensive migration for test data
-        # Tests use mock/sample data that doesn't need migration
-        return False
-
-    # No metadata = pre-v10.0 format
-    if not metadata_path.exists():
-        try:
-            # Invoke migrator via subprocess with longer timeout (plan parsing can be slow)
-            result = subprocess.run(
-                [_sys.executable, str(Path(__file__).parent.parent / "tools" / "migrate_plan_data.py"), str(csv_path)],
-                capture_output=True,
-                text=True,
-                timeout=120,  # Increased from 30s: plan parsing with all shims is slow
-            )
-            if result.returncode != 0:
-                print(f"⚠ Schema migration warning: {result.stderr}")
-                return False
-            return True
-        except subprocess.TimeoutExpired:
-            print(f"⚠ Schema migration timeout: migrator took too long (plan data may be complex)")
-            return False
-        except Exception as e:
-            print(f"⚠ Schema migration skipped: {str(e)}")
-            return False
-
-    # Metadata exists; check version
-    try:
-        metadata = json.loads(metadata_path.read_text())
-        version = metadata.get("schema_version", "0.0")
-        if version < "1.0":
-            # Old version; run migrator
-            try:
-                result = subprocess.run(
-                    [_sys.executable, str(Path(__file__).parent.parent / "tools" / "migrate_plan_data.py"), str(csv_path)],
-                    capture_output=True,
-                    text=True,
-                    timeout=120,  # Increased from 30s: plan parsing with all shims is slow
-                )
-                if result.returncode != 0:
-                    print(f"⚠ Schema migration warning: {result.stderr}")
-                    return False
-                return True
-            except subprocess.TimeoutExpired:
-                print(f"⚠ Schema migration timeout: migrator took too long (plan data may be complex)")
-                return False
-            except Exception as e:
-                print(f"⚠ Schema migration skipped: {str(e)}")
-                return False
-    except Exception:
-        pass
-
-    return False
 
 
 def _load_capital_market_income_assumptions() -> dict:
@@ -391,9 +320,8 @@ def _normalize_label(label):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def load_csv(path):
-    # Check and migrate schema if needed (Phase C: legacy removal)
-    _check_and_migrate_schema_if_needed(Path(path))
-
+    # Plan Data is v1.0 canonical (pre-v1.0 auto-migration was dropped); readers
+    # assume the current schema.
     data = {}   # {section: {subsection: {label: value}}}
     for csv_path in _client_data_csv_paths(path):
         if not Path(csv_path).exists():
@@ -704,31 +632,12 @@ def parse_client(data, url_template):
     def _sv(section, subsection, label, default=''):
         return _v(system_data, section, subsection, label, _v(data, section, subsection, label, default))
 
-    # Backward compat: alias old husband/wife keys → member_1/member_2 for saved plans
-    _hh = data.setdefault('Household', {}).setdefault('', {})
-    for _old, _new in [
-        ('husband_name','member_1_name'),('husband_dob','member_1_dob'),
-        ('husband_retirement_date','member_1_retirement_date'),('husband_mortality_age','member_1_mortality_age'),
-        ('wife_name','member_2_name'),('wife_dob','member_2_dob'),
-        ('wife_retirement_date','member_2_retirement_date'),('wife_mortality_age','member_2_mortality_age'),
-    ]:
-        if _old in _hh and _new not in _hh: _hh[_new] = _hh[_old]
-    for _sec, _old, _new in [
-        ('Social Security','Wife','Member 2'),('Social Security','Husband','Member 1'),
-        ('Income Streams','Wife Pension','Member 2 Pension'),
-        ('Income Streams','Wife Single Annuity','Member 2 Single Annuity'),
-        ('Income Streams','Wife Joint Annuity','Member 2 Joint Annuity'),
-        ('Income Streams','Husband Single Annuity','Member 1 Single Annuity'),
-        ('Income Streams','Husband Joint Annuity','Member 1 Joint Annuity'),
-    ]:
-        if _sec in data and _old in data[_sec] and _new not in data[_sec]:
-            data[_sec][_new] = data[_sec][_old]
-    _mc = data.setdefault('Model Constants', {}).setdefault('Retirement', {})
-    for _old, _new in [('husband_rmd_start_age','member_1_rmd_start_age'),('wife_rmd_start_age','member_2_rmd_start_age')]:
-        if _old in _mc and _new not in _mc: _mc[_new] = _mc[_old]
-    _scen_rl = data.setdefault('Scenarios', {}).setdefault('Retire Later', {})
-    if 'husband_retire_year' in _scen_rl and 'member_1_retire_year' not in _scen_rl:
-        _scen_rl['member_1_retire_year'] = _scen_rl['husband_retire_year']
+    # Upgrade any legacy husband/wife plan shapes to the member_1/member_2
+    # schema before reading. The centralized, tested at-rest migration (see
+    # src/plan_data_migration.py) replaces the former inline key aliasing so the
+    # backward-compat logic lives in one place instead of scattered here and in
+    # domain_models.py.
+    migrate_sectioned_data(data)
 
     # Household
     c['h_name']    = _v(data,'Household','','member_1_name','Matthew')
