@@ -25,17 +25,7 @@ from pathlib import Path
 # exists once so it can't drift across the CSV- and JSON-parsing code paths.
 DEFAULT_SS_WAGE_BASE = 184500
 
-CLIENT_DATA_PART_FILES = [
-    "client_household.csv",
-    "client_income.csv",
-    "client_spending.csv",
-    "client_assets.csv",
-    "client_policy.csv",
-    "client_insurance_estate.csv",
-    "client_business.csv",
-    "client_optional_functions.csv",
-    "asset_class_optimizer_controls.csv",
-]
+from .plan_data_registry import CLIENT_DATA_PART_FILES
 
 
 def _client_data_csv_paths(path):

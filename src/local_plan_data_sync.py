@@ -13,21 +13,14 @@ from pathlib import Path
 try:
     from .runtime_config import load_runtime_config
     from .workspace_context import active_workspace_id, workspace_input_dir
+    from .plan_data_registry import client_data_csv_files, client_data_derived_files
 except Exception:  # pragma: no cover
     from src.runtime_config import load_runtime_config
     from src.workspace_context import active_workspace_id, workspace_input_dir
+    from src.plan_data_registry import client_data_csv_files, client_data_derived_files
 
 PLAN_DATA_CSV_FILES = [
-    "client_data.csv",
-    "client_household.csv",
-    "client_income.csv",
-    "client_spending.csv",
-    "client_assets.csv",
-    "client_policy.csv",
-    "client_insurance_estate.csv",
-    "client_business.csv",
-    "client_optional_functions.csv",
-    "asset_class_optimizer_controls.csv",
+    *client_data_csv_files(),
     "client_holdings.csv",
     "client_liabilities.csv",
     "target_allocation.csv",
@@ -41,28 +34,7 @@ YTD_PLAN_DATA_FILES = [
     "ytd_account_setup.csv",
     "ytd_import_history.csv",
 ]
-PLAN_DATA_DERIVED_FILES = [
-    "client_data.json",
-    "client_data.yaml",
-    "client_household.json",
-    "client_income.json",
-    "client_spending.json",
-    "client_assets.json",
-    "client_policy.json",
-    "client_insurance_estate.json",
-    "client_business.json",
-    "client_optional_functions.json",
-    "asset_class_optimizer_controls.json",
-    "client_household.yaml",
-    "client_income.yaml",
-    "client_spending.yaml",
-    "client_assets.yaml",
-    "client_policy.yaml",
-    "client_insurance_estate.yaml",
-    "client_business.yaml",
-    "client_optional_functions.yaml",
-    "asset_class_optimizer_controls.yaml",
-]
+PLAN_DATA_DERIVED_FILES = client_data_derived_files()
 PLAN_DATA_FILES = [*PLAN_DATA_CSV_FILES, *YTD_PLAN_DATA_FILES, *PLAN_DATA_DERIVED_FILES]
 REQUIRED_PLAN_DATA_CSV_FILES = {"client_data.csv", "client_holdings.csv"}
 
