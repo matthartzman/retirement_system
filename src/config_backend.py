@@ -36,8 +36,8 @@ SettingMap = Dict[str, Dict[str, Dict[str, str]]]
 
 CLIENT_DATA_PART_FILES = [
     "client_household.csv", "client_income.csv", "client_spending.csv", "client_assets.csv",
-    "client_policy.csv", "client_insurance_estate.csv", "client_optional_functions.csv",
-    "asset_class_optimizer_controls.csv",
+    "client_policy.csv", "client_insurance_estate.csv", "client_business.csv",
+    "client_optional_functions.csv", "asset_class_optimizer_controls.csv",
 ]
 CLIENT_DATA_PART_STEMS = [Path(name).stem for name in CLIENT_DATA_PART_FILES]
 CLIENT_DATA_JSON_FILES = ["client_data.json", *[f"{stem}.json" for stem in CLIENT_DATA_PART_STEMS]]

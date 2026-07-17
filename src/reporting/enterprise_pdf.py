@@ -406,13 +406,22 @@ def build_enterprise_pdf(wb, c, rows, mc_data, out_path='output/retirement_plan.
     ci_low = mc_data.get('success_rate_ci_low', success) if mc_data else 0
     ci_high = mc_data.get('success_rate_ci_high', success) if mc_data else 0
 
+    # The Monte Carlo KPI is shown only when that module ran; with it off
+    # mc_data is {} and this would read a misleading 0%.
+    _mc_on = (
+        os.environ.get('RETIREMENT_SYSTEM_FORCE_ALL_MODULES') == '1'
+        or (bool((c.get('opt') or {}).get('market_luck_stress_test', True)) if c else True)
+    )
     kpi_data = [
         ['Metric', 'Value'],
         ['Terminal Net Worth', _money(final_nw)],
         ['Lifetime Taxes', _money(lifetime_tax)],
-        ['Monte Carlo Success', f"{success * 100:.1f}% (95% CI {ci_low * 100:.1f}%–{ci_high * 100:.1f}%)"],
-        ['Plan Horizon', f"{len(rows)} years" if rows else 'N/A'],
     ]
+    if _mc_on:
+        kpi_data.append(
+            ['Monte Carlo Success', f"{success * 100:.1f}% (95% CI {ci_low * 100:.1f}%–{ci_high * 100:.1f}%)"]
+        )
+    kpi_data.append(['Plan Horizon', f"{len(rows)} years" if rows else 'N/A'])
     kpi_table = Table(kpi_data, colWidths=[2.6 * inch, 3.2 * inch])
     kpi_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), DEFAULT_HEADER_BG),

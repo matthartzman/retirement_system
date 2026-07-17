@@ -971,18 +971,29 @@ def build_sheet1(ws, c, rows, mc_data, ss_sweep=None):
     _w_ss_age = _ss_best.get('w_age', c.get('w_ss_claim_age', c.get('ss_claim_age', 70)))
     _ss_age_label = f"{_h_nick} {_h_ss_age} / {_w_nick} {_w_ss_age}"
 
+    # Monte Carlo headline rows are shown only when the market-luck module is
+    # enabled — otherwise mc_data is {} and these would read a misleading 0%.
+    _mc_on = module_enabled(c, 'market_luck_stress_test')
+    _ss_on = module_enabled(c, 'social_security_timing')
     headlines = [
         ('Starting Net Worth (Y0)',        yr0['total_nw'],  FMT_DOLLAR),
         ('Terminal Net Worth (Yn)',         terminal_nw,       FMT_DOLLAR),
         ('Lifetime Federal Tax (estimated)',lifetime_tax,       FMT_DOLLAR),
-        ('Plan Success Rate (Monte Carlo)', success,           FMT_PCT),
-        ('Model Risk Rating', (mc_data.get('model_risk') or {}).get('rating', mc_data.get('model_risk_rating','')), None),
-        ('Advisor-ready status', (c.get('advisor_readiness') or {}).get('status','ILLUSTRATION_ONLY'), None),
-        ('MC Success 95% CI Low',       mc_data.get('success_rate_ci_low', success), FMT_PCT),
-        ('MC Success 95% CI High',      mc_data.get('success_rate_ci_high', success), FMT_PCT),
-        ('Estimated Tax Saved — Roth Strategy', roth_benefit,  FMT_DOLLAR),
-        ('Recommended SS Claim Age',        _ss_age_label,     None),
     ]
+    if _mc_on:
+        headlines += [
+            ('Plan Success Rate (Monte Carlo)', success,           FMT_PCT),
+            ('Model Risk Rating', (mc_data.get('model_risk') or {}).get('rating', mc_data.get('model_risk_rating','')), None),
+        ]
+    headlines.append(('Advisor-ready status', (c.get('advisor_readiness') or {}).get('status','ILLUSTRATION_ONLY'), None))
+    if _mc_on:
+        headlines += [
+            ('MC Success 95% CI Low',       mc_data.get('success_rate_ci_low', success), FMT_PCT),
+            ('MC Success 95% CI High',      mc_data.get('success_rate_ci_high', success), FMT_PCT),
+        ]
+    headlines.append(('Estimated Tax Saved — Roth Strategy', roth_benefit,  FMT_DOLLAR))
+    if _ss_on:
+        headlines.append(('Recommended SS Claim Age',        _ss_age_label,     None))
     for label, value, fmt in headlines:
         c1 = write_cell(ws, r, 1, label, bold=True, bg=LGRAY)
         c2 = write_cell(ws, r, 2, value, fmt=fmt, bold=True, bg=GRAY)

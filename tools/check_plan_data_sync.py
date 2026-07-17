@@ -2,7 +2,7 @@ from __future__ import annotations
 import csv, hashlib, json, sys, os
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-PLAN_FILES=['client_data.csv','client_household.csv','client_income.csv','client_spending.csv','client_assets.csv','client_policy.csv','client_insurance_estate.csv','client_optional_functions.csv','asset_class_optimizer_controls.csv','client_holdings.csv','target_allocation.csv']
+PLAN_FILES=['client_data.csv','client_household.csv','client_income.csv','client_spending.csv','client_assets.csv','client_policy.csv','client_insurance_estate.csv','client_business.csv','client_optional_functions.csv','asset_class_optimizer_controls.csv','client_holdings.csv','target_allocation.csv']
 def fingerprint(p:Path):
     # Fingerprint normalized-newline text, not raw bytes/on-disk size.
     # Read with universal newlines (Python normalizes all \r\n, \r, \n to \n)
