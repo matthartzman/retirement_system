@@ -863,9 +863,7 @@ def _ensure_user_ui_plan_data_rows() -> None:
 
     Skip entirely under pytest/unittest: this backfill writes real files under
     _plan_data_path()'s workspace, which for the default "local" workspace
-    resolves to the real, live input/ directory - not an isolated test copy.
-    Mirrors the same test-awareness guard data_io.py's
-    _check_and_migrate_schema_if_needed already uses for the same reason. No
+    resolves to the real, live input/ directory - not an isolated test copy. No
     test currently exercises this function's write side effects directly (they
     all mock around it), so skipping is a pure no-op for the suite.
     """
