@@ -13,6 +13,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
 
+from tests.golden_pricing import frozen_holdings_prices
+
 
 def _load_engine_config():
     from src.data_io import load_csv
@@ -57,18 +59,19 @@ class Phase5GoldenMasterEngineTests(unittest.TestCase):
         }
         for case_name, expected_metrics in expected.items():
             with self.subTest(case=case_name):
-                c = _load_engine_config()
-                mutators[case_name](c)
-                actual = _project_metrics(c)
+                # Holdings prices are frozen to the committed golden snapshot
+                # (tests/golden_pricing.py) so terminal balances are deterministic
+                # and portable rather than depending on the untracked local
+                # OFFLINE price cache — the same pin test_2/test_167 use.
+                with frozen_holdings_prices():
+                    c = _load_engine_config()
+                    mutators[case_name](c)
+                    actual = _project_metrics(c)
                 for key, expected_value in expected_metrics.items():
                     if isinstance(expected_value, (int, float)) and not isinstance(expected_value, bool):
-                        # Pricing is pinned to OFFLINE for the test run (see
-                        # tests/conftest.py), so starting balances come from the
-                        # committed cache snapshot. During Phase C/E refactoring,
-                        # projection outputs shift systematically; use $300k tolerance
-                        # to catch major regressions while allowing architectural changes.
-                        # Pending fixtures regeneration after Phase work stabilizes.
-                        self.assertAlmostEqual(actual[key], expected_value, delta=300000.0, msg=f"{case_name}.{key}")
+                        # Prices are frozen, so a $50k tolerance is plenty to absorb
+                        # benign rounding while still catching real regressions.
+                        self.assertAlmostEqual(actual[key], expected_value, delta=50000.0, msg=f"{case_name}.{key}")
                     else:
                         self.assertEqual(actual[key], expected_value, f"{case_name}.{key}")
 
