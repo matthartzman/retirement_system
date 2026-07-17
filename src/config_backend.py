@@ -298,25 +298,16 @@ def load_sqlite(db_path: str | Path = DEFAULT_DB, workspace_id: str = "local") -
     p = resolve_path(db_path, DEFAULT_DB)
     if not p.exists():
         return {}
-    # v10 canonical path: read the latest typed plan snapshot and expose its
-    # sectioned adapter only at the engine boundary. The older settings table is
-    # retained strictly for compatibility/bootstrap.
+    # v10 canonical: the latest typed plan snapshot is the sole source of truth.
+    # The pre-v1.0 key-value `settings` table read fallback was removed with the
+    # drop of pre-v1.0 plan support — the snapshot is written on every import, and
+    # a missing snapshot falls through to a fresh CSV re-import in
+    # load_active_config rather than reading legacy rows.
     try:
         from .local_store import latest_sectioned_data
-        sectioned = latest_sectioned_data(p)
-        if sectioned:
-            return sectioned
+        return latest_sectioned_data(p) or {}
     except Exception:
-        pass
-    result: SettingMap = {}
-    try:
-        with sqlite3.connect(p) as con:
-            rows = con.execute("SELECT section, subsection, label, value FROM settings").fetchall()
-    except sqlite3.OperationalError:
         return {}
-    for s, ss, k, v in rows:
-        _add(result, s, ss, k, v or "")
-    return result
 
 
 def load_config(backend: str = "SQLITE", path: str | Path | None = None, workspace_id: str = "local") -> SettingMap:
