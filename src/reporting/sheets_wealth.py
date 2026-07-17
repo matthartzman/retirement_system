@@ -222,9 +222,10 @@ def build_equity_comp(ws, c, rows):
         r += 1
     r += 1
     write_cell(ws, r, 1,
-               'Note: projected proceeds are pre-tax estimates at planned-sale FMV. ISO AMT-preference '
-               'and the ordinary-income impact of vesting/exercise are not yet reflected in the '
-               'Lifetime Tax sheet — that engine integration is a planned follow-up.',
+               'Note: projected proceeds are pre-tax estimates at planned-sale FMV. When the Equity '
+               'Compensation module is enabled, RSU/NSO ordinary income, the ISO AMT preference (with '
+               'minimum-tax credit carryforward), and sale-year capital gains flow through the projection '
+               'into the Lifetime Tax and Net Worth results.',
                bg='FFF2CC', align='left')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
 

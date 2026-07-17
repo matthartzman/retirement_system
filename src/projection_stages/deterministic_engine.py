@@ -14,6 +14,8 @@ from .year_state import MutableYearState, create_initial_year_state
 from ..planning_engines import *  # noqa: F401,F403 - import legacy helper functions/classes
 from .. import planning_engines as _legacy_pe
 from .. import tlh as _tlh
+from ..equity_comp import equity_comp_year_events as _equity_comp_year_events
+from ..core import amt_tax as _amt_tax
 
 # Star import intentionally skips private module aliases used by the retained
 # deterministic calculation body.  Rebind those aliases explicitly.
@@ -444,6 +446,15 @@ def run_deterministic_projection_stage(c):
             cut_year, pct = 2032, 0.22
         return 1.0 - pct if int(year) >= cut_year and pct > 0 else 1.0
 
+    # Advanced planning modules (Phase 3 engine integration). Gated purely on the
+    # saved optional-function toggles in c['opt'] — NOT on module_enabled()/the
+    # FORCE_* env flags — so a default plan (all three off) projects identically
+    # and golden masters never move, even under RETIREMENT_SYSTEM_FORCE_ALL_MODULES.
+    _opt = c.get('opt') or {}
+    _equity_on = bool(_opt.get('equity_compensation')) and bool(c.get('equity_comp'))
+    _disability_on = bool(_opt.get('disability_income_insurance'))
+    amt_credit_carry = 0.0  # ISO minimum-tax credit carried across years
+
     for year in range(c['plan_start'], c['plan_end']+1):
         h_age = year - c['h_dob_yr']
         w_age = year - c['w_dob_yr']
@@ -659,9 +670,40 @@ def run_deterministic_projection_stage(c):
         else:
             earned_base = 0.0
         earned_base = c.get('ytd_blend_earned_override', {}).get(year, earned_base)
+
+        # ── Advanced modules: per-year tax events (all zero unless enabled) ───
+        _equity_events = {'ordinary_income': 0.0, 'amt_preference': 0.0, 'ltcg_gain': 0.0, 'cash_proceeds': 0.0}
+        if _equity_on:
+            _equity_events = _equity_comp_year_events(c.get('equity_comp', []), year, c['plan_start'])
+        _di_taxable = 0.0
+        _di_cash = 0.0
+        if _disability_on:
+            _di = c.get('disability', {}) or {}
+            _sim = int(_di.get('simulate_year', 0) or 0)
+            _pols = _di.get('policies', []) or []
+            if _sim and _pols:
+                _bp = max((int(p.get('benefit_period_years', 0) or 0) for p in _pols), default=0)
+                if _sim <= year < _sim + max(1, _bp):
+                    # Disability halts earned income; the DI benefit replaces it.
+                    earned_base = 0.0
+                    _annual = sum(float(p.get('monthly_benefit', 0.0) or 0.0) for p in _pols) * 12.0
+                    if year == _sim:
+                        _elim = max((int(p.get('elimination_days', 0) or 0) for p in _pols), default=0)
+                        _annual *= max(0.0, 365.0 - _elim) / 365.0
+                    _di_cash = _annual
+                    # Benefit is taxable ordinary income when funded with pre-tax premium.
+                    if any(p.get('premium_pre_tax') for p in _pols):
+                        _di_taxable = _annual
+                    row['disability_benefit'] = _annual
+                    row['disability_benefit_taxable'] = _di_taxable
+
         row['earned'] = earned_base
         if earned_base > 0:
             emit(EvIncome(year, 'earned', earned_base, c['entity']))
+        if _equity_events['ordinary_income'] > 0:
+            row['equity_comp_ordinary_income'] = _equity_events['ordinary_income']
+        if _equity_events['amt_preference'] > 0:
+            row['equity_comp_amt_preference'] = _equity_events['amt_preference']
 
         # Payroll / self-employment tax
         se_tax = 0.0; half_se_ded = 0.0; sehi_ded = 0.0; qbi_ded = 0.0
@@ -1243,7 +1285,8 @@ def run_deterministic_projection_stage(c):
         non_ss_income = (earned_base - half_se_ded - sehi_ded + rmd_total + roth_conv +
                          pension + ws_taxable + wife_joint_ann +
                          hs_taxable + h_joint_ann + note_int_yr +
-                         portfolio_ordinary + portfolio_qualified)
+                         portfolio_ordinary + portfolio_qualified +
+                         _equity_events['ordinary_income'] + _di_taxable)
         provisional_other_income = non_ss_income + portfolio_tax_exempt
         ss_taxable = social_security_taxable_amount(ss_total, provisional_other_income, filing)
         row['ss_taxable'] = ss_taxable
@@ -1396,7 +1439,8 @@ def run_deterministic_projection_stage(c):
         # ── Spending gap and withdrawal cascade ───────────────────────────────
         income_from_streams = (h_ss + w_ss + pension + wife_single_ann +
                                wife_joint_ann + h_single_ann + h_joint_ann +
-                               note_princ_yr + note_int_yr + rmd_total + earned_base)
+                               note_princ_yr + note_int_yr + rmd_total + earned_base +
+                               _equity_events['cash_proceeds'] + _di_cash)
         other_cash_need_yr = float(row.get('other_cash_need_yr', 0.0) or 0.0)
         row['income_funding'] = income_from_streams
         row['other_cash_need_yr'] = other_cash_need_yr
@@ -1921,6 +1965,35 @@ def run_deterministic_projection_stage(c):
             _add_account_flow(row['_account_deposits'], _surplus_target, surplus)
             _tag_deposit_source(row, _surplus_target, 'Year-End Surplus Sweep', surplus)
         row['surplus'] = surplus
+
+        # ── Advanced modules: equity-comp long-term-gain and AMT post-pass ───
+        # Runs only when the equity-compensation module is enabled. Equity
+        # ordinary income and DI benefits already flowed through the tax
+        # fixed-point above (via non_ss_income); here we add the two effects the
+        # fixed-point does not model: LTCG on an ISO/RSU sale, and AMT from the
+        # ISO bargain-element preference (with minimum-tax credit carryforward).
+        if _equity_on:
+            _extra_tax = 0.0
+            if _equity_events['ltcg_gain'] > 0:
+                _eq_ltcg_tax = _ltcg_tax_on_gain_path(_equity_events['ltcg_gain'], max(0.0, taxable_inc), year)
+                _extra_tax += _eq_ltcg_tax
+                row['equity_comp_ltcg_gain'] = _equity_events['ltcg_gain']
+                row['equity_comp_ltcg_tax'] = _eq_ltcg_tax
+            _amt_adj, amt_credit_carry = _amt_tax(
+                taxable_inc, fed_tax, _equity_events['amt_preference'], filing,
+                year, c.get('brk_inf', c.get('inf', 0.0)), amt_credit_carry)
+            if abs(_amt_adj) > 1e-9 or _equity_events['amt_preference'] > 0:
+                _extra_tax += _amt_adj
+                row['amt_tax'] = max(0.0, _amt_adj)
+                row['amt_credit_used'] = max(0.0, -_amt_adj)
+                row['amt_credit_carryforward'] = amt_credit_carry
+            if abs(_extra_tax) > 1e-9:
+                total_tax += _extra_tax
+                # Fund the extra tax (or refund the credit) through a taxable
+                # account so net worth reflects the cash paid/received.
+                _eq_tax_acct = _aa.first_taxable(c)
+                if _eq_tax_acct:
+                    bal[_eq_tax_acct] = bal.get(_eq_tax_acct, 0.0) - _extra_tax
 
         # total_tax already includes current-year LTCG and NIIT from the fixed-point pass above.
         row['total_tax'] = total_tax

@@ -196,8 +196,9 @@ def build_disability(ws, c, rows):
         r += 1
     write_cell(ws, r, 1,
                'Note: benefits begin only after the elimination period (an income gap the emergency fund '
-               'must bridge) and end at the benefit-period limit or retirement. A simulated disability-event '
-               'projection is a planned follow-up (currently report-only).',
+               'must bridge) and end at the benefit-period limit or retirement. Set a disability year in the '
+               'DI_Scenario row to re-project the plan: earned income stops and the (elimination-prorated) '
+               'benefit replaces it, taxable when the premium was paid pre-tax.',
                bg='FFF2CC', align='left')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
 
