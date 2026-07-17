@@ -597,16 +597,25 @@ def _apply_plan_data_payload(plan_data_files: dict) -> dict:
 
 def _read_plan_data_file(file_name: str) -> str | None:
     name = _normalize_plan_data_file_name(file_name)
-    # The on-disk Plan Data CSV is the local working copy. Prefer it over the
-    # optional SQLite mirror so a locked/stale database cannot make the UI load
-    # an older copy after a folder import.
-    path = _plan_data_path(name, prefer_existing=True)
-    if path.exists():
-        return path.read_text(encoding="utf-8-sig")
+    # The SQLite plan store is the canonical source of truth for Plan Data. Read
+    # it first. The on-disk input/*.csv are import/export mirrors, used only to
+    # bootstrap the DB on a fresh checkout / first run / folder import — when we
+    # read a CSV for that reason we lazily seed the DB so subsequent reads are
+    # DB-canonical. client_data.csv is the sectioned anchor and is not stored in
+    # the DB (it is always materialized on disk).
     if name != "client_data.csv":
         content = get_client_file(name, _workspace_id(), _client_id(), _sqlite_db())
         if content is not None:
             return content
+    path = _plan_data_path(name, prefer_existing=True)
+    if path.exists():
+        csv_content = path.read_text(encoding="utf-8-sig")
+        if name != "client_data.csv":
+            try:
+                set_client_file(name, csv_content, _workspace_id(), _client_id(), _current_user().user_id, _sqlite_db())
+            except Exception as exc:
+                _audit("plan_data_db_bootstrap_warning", {"file": name, "error": str(exc)})
+        return csv_content
     return None
 
 
@@ -633,18 +642,19 @@ def _write_plan_data_file(file_name: str, content: str, *, preserve_protected: b
         content, removed_home = _strip_retired_scenario_home_csv(content)
         if removed_home:
             _audit("retired_scenario_home_rows_stripped_after_merge", {"file": name, "removed": removed_home})
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(content, encoding="utf-8")
-    tmp.replace(path)
+    # The SQLite plan store is canonical: write it first, authoritatively. The
+    # on-disk CSV is then written as an import/export mirror (folder
+    # download/portability; the build materializes plan data from the DB).
+    # client_data.csv is the sectioned anchor and is not stored in the DB.
     if name != "client_data.csv":
         try:
             set_client_file(name, content, _workspace_id(), _client_id(), _current_user().user_id, _sqlite_db())
         except Exception as exc:
-            # SQLite is only a mirror for these Plan Data files in local mode.
-            # Folder loading should not fail just because the mirror database is
-            # locked, read-only, or from an older package.
-            _audit("plan_data_sqlite_mirror_warning", {"file": name, "error": str(exc)})
+            _audit("plan_data_db_write_warning", {"file": name, "error": str(exc)})
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(content, encoding="utf-8")
+    tmp.replace(path)
     return path
 
 
@@ -853,9 +863,7 @@ def _ensure_user_ui_plan_data_rows() -> None:
 
     Skip entirely under pytest/unittest: this backfill writes real files under
     _plan_data_path()'s workspace, which for the default "local" workspace
-    resolves to the real, live input/ directory - not an isolated test copy.
-    Mirrors the same test-awareness guard data_io.py's
-    _check_and_migrate_schema_if_needed already uses for the same reason. No
+    resolves to the real, live input/ directory - not an isolated test copy. No
     test currently exercises this function's write side effects directly (they
     all mock around it), so skipping is a pure no-op for the suite.
     """
