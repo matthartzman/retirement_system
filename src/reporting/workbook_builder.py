@@ -7,7 +7,7 @@ from .sheets_projection_facade import build_sheet5, build_sheet6, build_sheet7, 
 from .sheets_strategy import build_sheet9, build_sheet10, build_sheet11, build_sheet12, build_sheet_tlh, build_sheet13, build_sheet14
 from .sheets_stress import build_sheet15, build_sheet16, build_sheet17, build_sheet18, build_sheet19, build_sheet20
 from .sheets_protection import build_existing_life, build_disability, build_pc_umbrella
-from .sheets_wealth import build_education_funding, build_equity_comp, build_special_needs
+from .sheets_wealth import build_education_funding, build_equity_comp, build_special_needs, build_business_succession
 from .sheets_qc_reference import validate_all, build_sheet21, build_sheet22, build_sheet23, build_sheet24, account_reconciliation_rows, build_sheet25
 from .dashboard import post_save_patch, build_html_dashboard
 from ..governance import advisor_readiness, source_citations, tax_law_dashboard, stress_narratives, workbook_consistency_warnings
@@ -26,14 +26,14 @@ def _build_plan_input_fingerprint(base_dir, config_meta):
     plan_names = [
         "client_data.csv", "client_household.csv", "client_income.csv", "client_spending.csv",
         "client_assets.csv", "client_policy.csv", "client_insurance_estate.csv",
-        "client_optional_functions.csv", "asset_class_optimizer_controls.csv",
+        "client_business.csv", "client_optional_functions.csv", "asset_class_optimizer_controls.csv",
         "client_holdings.csv", "target_allocation.csv",
         "client_data.json", "client_data.yaml", "client_household.json", "client_income.json",
         "client_spending.json", "client_assets.json", "client_policy.json",
-        "client_insurance_estate.json", "client_optional_functions.json",
+        "client_insurance_estate.json", "client_business.json", "client_optional_functions.json",
         "asset_class_optimizer_controls.json", "client_household.yaml", "client_income.yaml",
         "client_spending.yaml", "client_assets.yaml", "client_policy.yaml",
-        "client_insurance_estate.yaml", "client_optional_functions.yaml",
+        "client_insurance_estate.yaml", "client_business.yaml", "client_optional_functions.yaml",
         "asset_class_optimizer_controls.yaml",
     ]
     root = _Path(base_dir)
@@ -738,6 +738,7 @@ FINAL_SHEET_RENAMES = {
     '30. Education Funding': '2J. Education Funding',
     '35. Equity Compensation': '2K. Equity Compensation',
     '36. Special-Needs Planning': '2L. Special-Needs Planning',
+    '34. Business Succession': '2M. Business Succession',
     '31. Existing Life Insurance': '3D. Existing Life Insurance',
     '32. Disability Income': '3E. Disability Income',
     '33. P&C Umbrella': '3F. P&C Umbrella',
@@ -1284,6 +1285,9 @@ def main():
     if '36. Special-Needs Planning' in sheets:
         print('  Sheet 36 — Special-Needs Planning')
         build_special_needs(sheets['36. Special-Needs Planning'], c, rows)
+    if '34. Business Succession' in sheets:
+        print('  Sheet 34 — Business Succession')
+        build_business_succession(sheets['34. Business Succession'], c, rows)
 
     # QC last
     print('  Sheet 21 — Quality Control')

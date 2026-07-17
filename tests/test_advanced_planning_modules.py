@@ -16,7 +16,8 @@ from src.planning_engines import project
 from src.reporting.workbook_common import OPTIONAL_MODULE_SHEETS
 from src.reporting.workbook_builder import FINAL_SHEET_RENAMES
 from src.reporting.sheets_protection import build_existing_life, build_disability, build_pc_umbrella
-from src.reporting.sheets_wealth import build_education_funding, build_equity_comp, build_special_needs
+from src.reporting.sheets_wealth import (build_education_funding, build_equity_comp,
+                                         build_special_needs, build_business_succession)
 
 os.environ.setdefault("RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS", "1")
 
@@ -28,6 +29,7 @@ MODULES = [
     ("existing_life_insurance",     "31. Existing Life Insurance", "3D. Existing Life Insurance", build_existing_life),
     ("disability_income_insurance", "32. Disability Income",       "3E. Disability Income",       build_disability),
     ("property_casualty_umbrella",  "33. P&C Umbrella",            "3F. P&C Umbrella",            build_pc_umbrella),
+    ("business_succession",         "34. Business Succession",     "2M. Business Succession",     build_business_succession),
 ]
 
 
@@ -93,7 +95,8 @@ def test_empty_sections_render_placeholder():
     # A builder given an empty module must still produce a graceful placeholder
     # sheet rather than raising.
     c = {"plan_start": 2026, "edu_funding": {}, "equity_comp": [], "special_needs": {},
-         "life_policies": [], "disability": {}, "pc_umbrella": {}, "earned": 0, "mort_bal": 0}
+         "life_policies": [], "disability": {}, "pc_umbrella": {}, "business_succession": [],
+         "earned": 0, "mort_bal": 0}
     for _, _, _, builder in MODULES:
         ws = Workbook().create_sheet("e")
         builder(ws, c, [])

@@ -184,8 +184,8 @@ WORKBOOK_SECTION_LAYOUT = [
             '2D. Social Security', '2E. S-Corp vs LLC', '2F. Charitable Giving',
             '2G. Estate & Legacy Planning', '2H. Planning Levers', '2I. Tax-Loss Harvesting',
             # Optional advanced planning modules (toggle-gated; present only when enabled).
-            # Business Succession (2M) is deferred to Phase 2 (needs client_business.csv).
             '2J. Education Funding', '2K. Equity Compensation', '2L. Special-Needs Planning',
+            '2M. Business Succession',
         ],
     },
     {
@@ -248,6 +248,7 @@ V5_LAYOUT = [
     ('31. Existing Life Insurance', '3'),
     ('32. Disability Income', '3'),
     ('33. P&C Umbrella', '3'),
+    ('34. Business Succession', '2'),
     ('35. Equity Compensation', '2'),
     ('36. Special-Needs Planning', '2'),
 ]
@@ -280,12 +281,12 @@ OPTIONAL_MODULE_SHEETS = {
     'rmd_audit':                ['20. RMD Audit'],
     'glossary':                 ['22. Glossary'],
     'methodology_rerun':        ['23. Methodology'],
-    # Advanced planning modules (Phase 1, report-only). Business succession
-    # (Sheet 34) is deferred to Phase 2 pending its dedicated input file.
+    # Advanced planning modules (report-only).
     'education_funding_529':        ['30. Education Funding'],
     'existing_life_insurance':      ['31. Existing Life Insurance'],
     'disability_income_insurance':  ['32. Disability Income'],
     'property_casualty_umbrella':   ['33. P&C Umbrella'],
+    'business_succession':          ['34. Business Succession'],
     'equity_compensation':          ['35. Equity Compensation'],
     'special_needs_planning':       ['36. Special-Needs Planning'],
 }

@@ -329,4 +329,105 @@ def build_special_needs(ws, c, rows):
     qc('36. Special-Needs Planning', 'Lifetime need, SNT funding gap, and ABLE guardrails computed', True, '')
 
 
-__all__ = ['build_education_funding', 'build_equity_comp', 'build_special_needs']
+# ─────────────────────────────────────────────────────────────────────────────
+# Business Succession
+# ─────────────────────────────────────────────────────────────────────────────
+
+def build_business_succession(ws, c, rows):
+    """Business Succession — entity valuation, buy-sell funding gap, estate liquidity."""
+    ws.sheet_view.showGridLines = False
+    section_title(ws, 1, 'BUSINESS SUCCESSION PLANNING', 8)
+    base_year = int(c.get('plan_start', 2026))
+    entities = c.get('business_succession', []) or []
+
+    r = 3
+    if not entities:
+        write_cell(ws, r, 1,
+                   'No business interests on file. Add them under Business Succession in '
+                   'client_business.csv to activate this analysis.',
+                   bg='F4F5F7', align='left')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
+        qc('34. Business Succession', 'Module enabled; no business interests on file', True, '')
+        return
+
+    # ── Section A — Entity Inventory & Projected Valuation ───────────────────
+    write_hdr(ws, r, 1, 'Section A — Business Interests & Projected Valuation', NAVY, WHITE, span=8); r += 1
+    hdrs = ['Entity', 'Owner', 'Ownership %', 'Valuation Today', 'Growth',
+            'Transfer Year', 'Proj. Valuation', "Owner's Share"]
+    for i, h in enumerate(hdrs, 1):
+        write_hdr(ws, r, i, h, DGRAY, WHITE)
+    r += 1
+    per_entity = []
+    for e in entities:
+        transfer_year = e['transfer_year'] or base_year
+        proj_val = e['valuation_today'] * ((1 + e['valuation_growth_rate']) ** max(0, transfer_year - base_year))
+        owner_share = proj_val * e['ownership_pct']
+        per_entity.append((e, transfer_year, proj_val, owner_share))
+        vals = [e['entity_name'], e['owner'], e['ownership_pct'], e['valuation_today'],
+                e['valuation_growth_rate'], transfer_year, proj_val, owner_share]
+        for i, v in enumerate(vals, 1):
+            fmt = (FMT_DOLLAR if i in (4, 7, 8) else (FMT_PCT if i in (3, 5) else
+                   (FMT_YEAR if i == 6 else None)))
+            write_cell(ws, r, i, v, fmt=fmt)
+        r += 1
+    total_owner_share = sum(x[3] for x in per_entity)
+    write_cell(ws, r, 7, 'Total owner share', bold=True)
+    write_cell(ws, r, 8, total_owner_share, fmt=FMT_DOLLAR, bold=True, bg='E2EFDA')
+    r += 3
+
+    # ── Section B — Buy-Sell Funding Adequacy ────────────────────────────────
+    write_hdr(ws, r, 1, 'Section B — Buy-Sell Funding Adequacy (at transfer)', ORANGE, WHITE, span=8); r += 1
+    hdrs = ['Entity', 'Buy-Sell Type', 'Funding Vehicle', "Owner's Share",
+            'Funding + Key-Person', 'Gap', 'Verdict']
+    for i, h in enumerate(hdrs, 1):
+        write_hdr(ws, r, i, h, DGRAY, WHITE)
+    r += 1
+    for e, transfer_year, proj_val, owner_share in per_entity:
+        funded = e['funding_amount'] + e['key_person_coverage']
+        gap = max(0.0, owner_share - funded)
+        verdict = 'Fully funded' if gap == 0 else 'Underfunded buy-sell'
+        bg = 'E2EFDA' if gap == 0 else 'FCE4D6'
+        vals = [e['entity_name'], e['buy_sell_type'], e['funding_vehicle'],
+                owner_share, funded, gap, verdict]
+        for i, v in enumerate(vals, 1):
+            fmt = FMT_DOLLAR if i in (4, 5, 6) else None
+            write_cell(ws, r, i, v, fmt=fmt, bg=bg if i == 7 else None)
+        r += 1
+    r += 2
+
+    # ── Section C — Estate-Liquidity Interaction ─────────────────────────────
+    write_hdr(ws, r, 1, 'Section C — Estate-Liquidity Interaction (see 2G. Estate & Legacy Planning)', NAVY, WHITE, span=8); r += 1
+    for i, h in enumerate(["Owner's Business Value", 'Federal Exemption (MFJ)',
+                           'IL Estate Exemption', 'Over IL Exemption?', 'Illiquid Estate Flag'], 1):
+        write_hdr(ws, r, i, h, DGRAY, WHITE)
+    r += 1
+    fed_exempt = float(c.get('fed_exempt', 30000000))
+    il_exempt = float(c.get('il_exempt', 4000000))
+    over_il = total_owner_share > il_exempt
+    # Illiquid concentration: business share is a large fraction of terminal net worth.
+    terminal_nw = float(rows[-1].get('total_nw', 0)) if rows else 0.0
+    concentration = (total_owner_share / terminal_nw) if terminal_nw else 0.0
+    illiquid_flag = 'Concentrated (>25% of estate)' if concentration > 0.25 else 'Manageable'
+    flag_bg = 'FCE4D6' if concentration > 0.25 else 'E2EFDA'
+    vals = [total_owner_share, fed_exempt, il_exempt,
+            'Yes' if over_il else 'No', illiquid_flag]
+    for i, v in enumerate(vals, 1):
+        fmt = FMT_DOLLAR if i in (1, 2, 3) else None
+        write_cell(ws, r, i, v, fmt=fmt, bg=(('FCE4D6' if over_il else 'E2EFDA') if i == 4 else (flag_bg if i == 5 else None)))
+    r += 3
+
+    write_cell(ws, r, 1,
+               'Note: a funded buy-sell agreement (cross-purchase or entity-redemption) converts an '
+               'illiquid business interest into cash for heirs and sets the estate valuation. Key-person '
+               'coverage protects operating value during a transition. Where the owner\'s share is a large '
+               'share of the estate, life insurance in an ILIT can supply estate liquidity without '
+               'inflating the taxable estate. Estate-tax modeling lives on 2G. Estate & Legacy Planning.',
+               bg='F4F5F7', align='left')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
+
+    qc('34. Business Succession', 'Valuation projection, buy-sell funding gap, and estate liquidity computed', True,
+       f'{len(entities)} entities; ${total_owner_share:,.0f} owner share')
+
+
+__all__ = ['build_education_funding', 'build_equity_comp', 'build_special_needs',
+           'build_business_succession']

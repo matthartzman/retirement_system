@@ -32,6 +32,7 @@ CLIENT_DATA_PART_FILES = [
     "client_assets.csv",
     "client_policy.csv",
     "client_insurance_estate.csv",
+    "client_business.csv",
     "client_optional_functions.csv",
     "asset_class_optimizer_controls.csv",
 ]
