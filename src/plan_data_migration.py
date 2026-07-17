@@ -114,3 +114,42 @@ def migrate_csv_content(content: str) -> tuple[str, int]:
     out = io.StringIO()
     csv.writer(out, lineterminator="\n").writerows(migrated)
     return out.getvalue(), changed
+
+
+def migrate_sectioned_data(data: dict) -> tuple[dict, int]:
+    """Upgrade a parsed sectioned dict ({section:{subsection:{label:value}}}) in place.
+
+    Applies the same subsection/label renames as migrate_rows so every load path
+    (CSV, DB snapshot, JSON plan) can funnel through one call and the read code
+    can assume the current schema. "Current key wins": when both the legacy and
+    current key are present the legacy one is dropped without overwriting.
+    """
+    changed = 0
+    for sec, sub_map in _SUBSECTION_RENAMES.items():
+        sec_data = data.get(sec)
+        if not isinstance(sec_data, dict):
+            continue
+        for old_sub, new_sub in sub_map.items():
+            if old_sub in sec_data:
+                if new_sub not in sec_data:
+                    sec_data[new_sub] = sec_data.pop(old_sub)
+                else:
+                    sec_data.pop(old_sub)
+                changed += 1
+    for (sec, sub), lbl_map in _LABEL_RENAMES.items():
+        sec_data = data.get(sec)
+        if not isinstance(sec_data, dict):
+            continue
+        sub_keys = [sub] if sub is not None else list(sec_data.keys())
+        for sk in sub_keys:
+            labels = sec_data.get(sk)
+            if not isinstance(labels, dict):
+                continue
+            for old_lbl, new_lbl in lbl_map.items():
+                if old_lbl in labels:
+                    if new_lbl not in labels:
+                        labels[new_lbl] = labels.pop(old_lbl)
+                    else:
+                        labels.pop(old_lbl)
+                    changed += 1
+    return data, changed
