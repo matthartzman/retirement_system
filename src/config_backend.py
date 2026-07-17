@@ -18,9 +18,19 @@ from typing import Dict, Iterable, Tuple, Optional as _Optional, List as _List
 try:
     from .system_config import discover_system_config_csv, load_system_config, system_setting
     from . import platform_runtime
+    from .plan_data_registry import (
+        CLIENT_DATA_PART_FILES,
+        client_data_part_stems,
+        client_data_suffixed_files,
+    )
 except Exception:
     from src.system_config import discover_system_config_csv, load_system_config, system_setting
     from src import platform_runtime
+    from src.plan_data_registry import (
+        CLIENT_DATA_PART_FILES,
+        client_data_part_stems,
+        client_data_suffixed_files,
+    )
 
 # PROJECT_ROOT stays the code/package root (read-only assets). Writable data
 # (input/, local_state/) hangs off the workspace root, which equals the package
@@ -34,14 +44,9 @@ DEFAULT_DB = _WORKSPACE_ROOT / "local_state" / "retirement_system_v10.db"
 DEFAULT_CLIENTS_CSV = _WORKSPACE_ROOT / "local_state" / "local_plan_registry.csv"
 SettingMap = Dict[str, Dict[str, Dict[str, str]]]
 
-CLIENT_DATA_PART_FILES = [
-    "client_household.csv", "client_income.csv", "client_spending.csv", "client_assets.csv",
-    "client_policy.csv", "client_insurance_estate.csv", "client_business.csv",
-    "client_optional_functions.csv", "asset_class_optimizer_controls.csv",
-]
-CLIENT_DATA_PART_STEMS = [Path(name).stem for name in CLIENT_DATA_PART_FILES]
-CLIENT_DATA_JSON_FILES = ["client_data.json", *[f"{stem}.json" for stem in CLIENT_DATA_PART_STEMS]]
-CLIENT_DATA_YAML_FILES = ["client_data.yaml", *[f"{stem}.yaml" for stem in CLIENT_DATA_PART_STEMS]]
+CLIENT_DATA_PART_STEMS = client_data_part_stems()
+CLIENT_DATA_JSON_FILES = client_data_suffixed_files(".json")
+CLIENT_DATA_YAML_FILES = client_data_suffixed_files(".yaml")
 
 _YEAR_LABEL_PATTERNS = [
     (re.compile(r"^annual_401k_limit_\d{4}$"), "annual_401k_limit_base_year"),

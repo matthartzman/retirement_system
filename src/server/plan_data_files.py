@@ -1,27 +1,22 @@
 from __future__ import annotations
 
-from pathlib import Path
+try:
+    from ..plan_data_registry import (
+        CLIENT_DATA_PART_FILES,
+        client_data_csv_files,
+        client_data_derived_files,
+    )
+except Exception:  # pragma: no cover - direct execution fallback
+    from src.plan_data_registry import (
+        CLIENT_DATA_PART_FILES,
+        client_data_csv_files,
+        client_data_derived_files,
+    )
 
 UI_NAMES = ["index.html", "retirement_dashboard.html"]
-CLIENT_DATA_PART_FILES = [
-    "client_household.csv",
-    "client_income.csv",
-    "client_spending.csv",
-    "client_assets.csv",
-    "client_policy.csv",
-    "client_insurance_estate.csv",
-    "client_business.csv",
-    "client_optional_functions.csv",
-    "asset_class_optimizer_controls.csv",
-]
-CLIENT_DATA_CSV_FILES = ["client_data.csv", *CLIENT_DATA_PART_FILES]
+CLIENT_DATA_CSV_FILES = client_data_csv_files()
 CLIENT_DATA_CSV_FILE_SET = set(CLIENT_DATA_CSV_FILES)
-CLIENT_DATA_DERIVED_FILES = [
-    "client_data.json",
-    "client_data.yaml",
-    *[f"{Path(name).stem}.json" for name in CLIENT_DATA_PART_FILES],
-    *[f"{Path(name).stem}.yaml" for name in CLIENT_DATA_PART_FILES],
-]
+CLIENT_DATA_DERIVED_FILES = client_data_derived_files()
 CLIENT_DATA_DERIVED_FILE_SET = set(CLIENT_DATA_DERIVED_FILES)
 PLAN_DATA_CSV_FILES = [
     *CLIENT_DATA_CSV_FILES,

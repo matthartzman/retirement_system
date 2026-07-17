@@ -7,13 +7,13 @@ from typing import Any, Iterable
 
 try:
     from ..server.plan_data_files import SYSTEM_REFERENCE_FILES
+    from ..plan_data_registry import client_data_csv_files
 except Exception:  # pragma: no cover - direct execution fallback
     from src.server.plan_data_files import SYSTEM_REFERENCE_FILES
+    from src.plan_data_registry import client_data_csv_files
 
-ADMIN_PLAN_DATA_FILES = {
-    "client_household.csv", "client_income.csv", "client_spending.csv", "client_assets.csv",
-    "client_policy.csv", "client_insurance_estate.csv", "client_business.csv", "client_optional_functions.csv",
-    "asset_class_optimizer_controls.csv", "client_holdings.csv", "client_liabilities.csv", "target_allocation.csv", "client_data.csv",
+ADMIN_PLAN_DATA_FILES = set(client_data_csv_files()) | {
+    "client_holdings.csv", "client_liabilities.csv", "target_allocation.csv",
 }
 
 

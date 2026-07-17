@@ -3,10 +3,14 @@ from __future__ import annotations
 import csv, re
 from pathlib import Path
 from typing import Dict, Tuple
+try:
+    from .plan_data_registry import client_data_csv_files
+except Exception:  # pragma: no cover - direct execution fallback
+    from src.plan_data_registry import client_data_csv_files
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA_PATH = ROOT / 'reference_data' / 'schema.csv'
 GENERATED_SCHEMA_PATH = ROOT / 'reference_data' / 'generated_schema_coverage.csv'
-PLAN_FILES = ['client_data.csv','client_household.csv','client_income.csv','client_spending.csv','client_assets.csv','client_policy.csv','client_insurance_estate.csv','client_business.csv','client_optional_functions.csv','asset_class_optimizer_controls.csv','target_allocation.csv']
+PLAN_FILES = [*client_data_csv_files(), 'target_allocation.csv']
 
 def schema_key(row: dict) -> tuple[str,str,str]:
     return ((row.get('section') or '').strip(), (row.get('subsection') or '').strip(), (row.get('label') or '').strip())
