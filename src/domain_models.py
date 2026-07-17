@@ -15,6 +15,8 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from .plan_data_migration import migrate_sectioned_data
+
 SectionedData = dict[str, dict[str, dict[str, str]]]
 
 
@@ -201,12 +203,11 @@ def _normalize_account_type(value: str) -> str:
 
 def plan_input_from_sectioned_data(data: SectionedData) -> PlanInput:
     """Build a typed local PlanInput from the existing sectioned Plan Data shape."""
+    migrate_sectioned_data(data)  # upgrade any legacy husband/wife shapes first
     h_name = _lookup(data, "Household", "Client", "member_1_name",
-                     _lookup(data, "Household", "Client", "husband_name",
-                             _lookup(data, "Household", "Client", "h_name", "Member 1")))
+                     _lookup(data, "Household", "Client", "h_name", "Member 1"))
     w_name = _lookup(data, "Household", "Client", "member_2_name",
-                     _lookup(data, "Household", "Client", "wife_name",
-                             _lookup(data, "Household", "Client", "w_name", "Member 2")))
+                     _lookup(data, "Household", "Client", "w_name", "Member 2"))
     members = (
         Member(id="member_1", display_name=h_name or "Member 1"),
         Member(id="member_2", display_name=w_name or "Member 2"),

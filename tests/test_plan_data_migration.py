@@ -69,3 +69,19 @@ def test_current_format_is_unchanged():
     migrated, changed = migrate_csv_content(current)
     assert changed == 0
     assert migrated == current
+
+
+def test_parse_client_reads_legacy_household_via_migration():
+    # End-to-end: a legacy husband/wife sectioned dict parses into the current
+    # member_1/member_2 config with no inline shim in parse_client.
+    from src.plan_data_migration import migrate_sectioned_data
+    from src.data_io import parse_client
+    data = {
+        "Household": {"": {"husband_name": "Robert", "wife_name": "Susan"}},
+        "Social Security": {"Husband": {"claim_age": "70"}, "Wife": {"claim_age": "67"}},
+    }
+    migrated, _ = migrate_sectioned_data({k: {s: dict(v) for s, v in sd.items()} for k, sd in data.items()})
+    assert migrated["Household"][""]["member_1_name"] == "Robert"
+    c = parse_client({k: {s: dict(v) for s, v in sd.items()} for k, sd in data.items()}, "")
+    assert c["h_name"] == "Robert"
+    assert c["w_name"] == "Susan"
