@@ -183,13 +183,20 @@ WORKBOOK_SECTION_LAYOUT = [
             '2A. Roth Conversion', '2B. Asset Allocation', '2C. State Residency',
             '2D. Social Security', '2E. S-Corp vs LLC', '2F. Charitable Giving',
             '2G. Estate & Legacy Planning', '2H. Planning Levers', '2I. Tax-Loss Harvesting',
+            # Optional advanced planning modules (toggle-gated; present only when enabled).
+            '2J. Education Funding', '2K. Equity Compensation', '2L. Special-Needs Planning',
+            '2M. Business Succession',
         ],
     },
     {
         'section': '3. Risk & Stress Tests',
         'code': '3',
         'description': 'Monte Carlo, survivor, and protection stress tests.',
-        'sheets': ['3A. Monte Carlo', '3B. Survivor', '3C. LTC + Life Insurance'],
+        'sheets': [
+            '3A. Monte Carlo', '3B. Survivor', '3C. LTC + Life Insurance',
+            # Optional protection modules (toggle-gated; present only when enabled).
+            '3D. Existing Life Insurance', '3E. Disability Income', '3F. P&C Umbrella',
+        ],
     },
     {
         'section': '4. System',
@@ -236,8 +243,91 @@ V5_LAYOUT = [
     ('27. Planning Levers', '2'),
     ('28. Core Spending', '1'),
     ('29. Spending Summary', '1'),
+    # Optional advanced planning modules (report-only; pruned when their toggle is off).
+    ('30. Education Funding', '2'),
+    ('31. Existing Life Insurance', '3'),
+    ('32. Disability Income', '3'),
+    ('33. P&C Umbrella', '3'),
+    ('34. Business Succession', '2'),
+    ('35. Equity Compensation', '2'),
+    ('36. Special-Needs Planning', '2'),
 ]
 
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Optional-module gating
+# ─────────────────────────────────────────────────────────────────────────────
+# Maps each client_optional_functions.csv toggle key to the legacy build-time
+# sheet name(s) it owns.  workbook_builder skips both the computation and the
+# build_sheetN() call when a module is disabled, and prunes the final workbook
+# layout so section dividers never link to a removed sheet.  Keys NOT listed
+# here are always-on core sheets (Executive Summary, Balance Sheet, Cash Flow,
+# Asset Allocation, Planning Levers, QC, Plan Data, …) and are never dropped.
+OPTIONAL_MODULE_SHEETS = {
+    'lifetime_tax_projection':  ['7. Lifetime Tax'],
+    'charts_dashboard':         ['8. Charts Dashboard'],
+    'retirement_strategy':      ['9. Retirement Strategy'],
+    'social_security_timing':   ['10. Social Security'],
+    'roth_conversion_plan':     ['11. Roth Conversion'],
+    'charitable_giving':        ['12. Charitable Giving'],
+    'state_residency':          ['13. State Residency'],
+    'estate_legacy_plan':       ['14. Estate Plan'],
+    'market_luck_stress_test':  ['15. Market-Luck Stress Test'],
+    'what_if_analysis':         ['16. Scenario Analysis'],
+    'long_term_care_stress':    ['17. LTC Stress Test'],
+    'survivor_stress_test':     ['18. Survivor Stress Test'],
+    'life_insurance_need':      ['19. Life Insurance'],
+    'rmd_audit':                ['20. RMD Audit'],
+    'glossary':                 ['22. Glossary'],
+    'methodology_rerun':        ['23. Methodology'],
+    # Advanced planning modules (report-only).
+    'education_funding_529':        ['30. Education Funding'],
+    'existing_life_insurance':      ['31. Existing Life Insurance'],
+    'disability_income_insurance':  ['32. Disability Income'],
+    'property_casualty_umbrella':   ['33. P&C Umbrella'],
+    'business_succession':          ['34. Business Succession'],
+    'equity_compensation':          ['35. Equity Compensation'],
+    'special_needs_planning':       ['36. Special-Needs Planning'],
+}
+
+
+def module_enabled(c, key):
+    """True unless the optional-module toggle ``key`` is explicitly disabled.
+
+    Reads the ``_b``-normalized booleans loaded into ``c['opt']`` from
+    client_optional_functions.csv.  Absent keys default to enabled so always-on
+    core sheets are never dropped.
+
+    Env overrides make module gating deterministic for tests (a module named in
+    FORCE_DISABLE always wins, so an explicit "off" beats any force-on):
+      * RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES="a,b,c" forces the listed module
+        keys off regardless of the saved toggles (used by the gating test).
+      * RETIREMENT_SYSTEM_FORCE_ENABLE_MODULES="a,b,c" forces the listed module
+        keys on. The canonical structural-test fixture lists the classic
+        sheet-owning modules here so its "all sheets present" assertions stay
+        stable regardless of saved toggles, without force-enabling newer
+        default-off modules whose sheets those tests don't expect.
+      * RETIREMENT_SYSTEM_FORCE_ALL_MODULES=1 forces every module on.
+    """
+    k = str(key).strip().lower()
+    forced_off = os.environ.get('RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES', '')
+    if forced_off:
+        if k in {m.strip().lower() for m in forced_off.split(',') if m.strip()}:
+            return False
+    forced_on = os.environ.get('RETIREMENT_SYSTEM_FORCE_ENABLE_MODULES', '')
+    if forced_on:
+        if k in {m.strip().lower() for m in forced_on.split(',') if m.strip()}:
+            return True
+    if os.environ.get('RETIREMENT_SYSTEM_FORCE_ALL_MODULES') == '1':
+        return True
+    opt = (c or {}).get('opt') or {}
+    if key in opt:
+        return bool(opt[key])
+    for kk, vv in opt.items():
+        if str(kk).strip().lower() == k:
+            return bool(vv)
+    return True
 
 
 QC_CHECKS = []   # [(sheet_name, check, status, detail)]

@@ -439,6 +439,20 @@ function stepGatedByOptionalModule(stepId) {
     return !optionalFunctionEnabled("divorce_qdro");
   if (stepId === "ltc_stress")
     return !optionalFunctionEnabled("long_term_care_stress");
+  // Probability analysis (Monte Carlo), scenario change sets, and the survivor
+  // stress test each map 1:1 to an optional workbook module. When the module is
+  // off no computation runs and no sheet is built, so the input page is hidden.
+  if (stepId === "monte_carlo_options")
+    return !optionalFunctionEnabled("market_luck_stress_test");
+  if (stepId === "scenarios")
+    return !optionalFunctionEnabled("what_if_analysis");
+  if (stepId === "survivor_stress")
+    return !optionalFunctionEnabled("survivor_stress_test");
+  // Single-module optimizer input pages.
+  if (stepId === "state_residency")
+    return !optionalFunctionEnabled("state_residency");
+  if (stepId === "roth_conversion")
+    return !optionalFunctionEnabled("roth_conversion_plan");
   if (stepId === "heloc_strategy") return !helocModuleEnabled();
   if (stepId === "entity_charitable")
     return !optionalFunctionEnabled("charitable_giving");

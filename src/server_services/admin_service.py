@@ -12,7 +12,7 @@ except Exception:  # pragma: no cover - direct execution fallback
 
 ADMIN_PLAN_DATA_FILES = {
     "client_household.csv", "client_income.csv", "client_spending.csv", "client_assets.csv",
-    "client_policy.csv", "client_insurance_estate.csv", "client_optional_functions.csv",
+    "client_policy.csv", "client_insurance_estate.csv", "client_business.csv", "client_optional_functions.csv",
     "asset_class_optimizer_controls.csv", "client_holdings.csv", "client_liabilities.csv", "target_allocation.csv", "client_data.csv",
 }
 

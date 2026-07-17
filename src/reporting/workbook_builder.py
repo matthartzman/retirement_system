@@ -6,6 +6,8 @@ from .sheets_summary import build_sheet3, build_sheet4
 from .sheets_projection_facade import build_sheet5, build_sheet6, build_sheet7, build_sheet8
 from .sheets_strategy import build_sheet9, build_sheet10, build_sheet11, build_sheet12, build_sheet_tlh, build_sheet13, build_sheet14
 from .sheets_stress import build_sheet15, build_sheet16, build_sheet17, build_sheet18, build_sheet19, build_sheet20
+from .sheets_protection import build_existing_life, build_disability, build_pc_umbrella
+from .sheets_wealth import build_education_funding, build_equity_comp, build_special_needs, build_business_succession
 from .sheets_qc_reference import validate_all, build_sheet21, build_sheet22, build_sheet23, build_sheet24, account_reconciliation_rows, build_sheet25
 from .dashboard import post_save_patch, build_html_dashboard
 from ..governance import advisor_readiness, source_citations, tax_law_dashboard, stress_narratives, workbook_consistency_warnings
@@ -24,14 +26,14 @@ def _build_plan_input_fingerprint(base_dir, config_meta):
     plan_names = [
         "client_data.csv", "client_household.csv", "client_income.csv", "client_spending.csv",
         "client_assets.csv", "client_policy.csv", "client_insurance_estate.csv",
-        "client_optional_functions.csv", "asset_class_optimizer_controls.csv",
+        "client_business.csv", "client_optional_functions.csv", "asset_class_optimizer_controls.csv",
         "client_holdings.csv", "target_allocation.csv",
         "client_data.json", "client_data.yaml", "client_household.json", "client_income.json",
         "client_spending.json", "client_assets.json", "client_policy.json",
-        "client_insurance_estate.json", "client_optional_functions.json",
+        "client_insurance_estate.json", "client_business.json", "client_optional_functions.json",
         "asset_class_optimizer_controls.json", "client_household.yaml", "client_income.yaml",
         "client_spending.yaml", "client_assets.yaml", "client_policy.yaml",
-        "client_insurance_estate.yaml", "client_optional_functions.yaml",
+        "client_insurance_estate.yaml", "client_business.yaml", "client_optional_functions.yaml",
         "asset_class_optimizer_controls.yaml",
     ]
     root = _Path(base_dir)
@@ -586,10 +588,17 @@ def build_sheet27_planning_levers(ws, c, rows, mc_data):
     earned = float(c.get('earned', c.get('annual_earned_income', 0.0)) or 0.0)
     years = max(1, int(float(c.get('plan_end', 2056) or 2056)) - int(float(c.get('plan_start', 2026) or 2026)) + 1)
 
+    # The Monte Carlo success anchor is only meaningful when the market-luck
+    # module ran; with it off mc_data is {} and a numeric 0% would mislead.  The
+    # row is kept (the lever formulas below reference fixed anchor cells B6/B8/
+    # B9/B10, so its position must not shift) but shows "Not run" instead.  The
+    # heuristic "Estimated Δ Success" columns are lever estimators, not MC
+    # output, so they remain.
+    _mc_on = module_enabled(c, 'market_luck_stress_test')
     write_hdr(ws, 5, 1, 'Current model anchor', DGRAY, WHITE, span=2)
     anchors = [
         ('Terminal net worth', terminal, FMT_DOLLAR),
-        ('Monte Carlo success', mc_success, FMT_PCT),
+        ('Monte Carlo success', mc_success if _mc_on else 'Not run (module off)', FMT_PCT if _mc_on else None),
         ('Core annual spending', spend, FMT_DOLLAR),
         ('Earned income assumption', earned, FMT_DOLLAR),
         ('Remaining plan years', years, FMT_INT),
@@ -725,7 +734,36 @@ FINAL_SHEET_RENAMES = {
     '20. RMD Audit': '4E. RMD Audit',
     '23. Methodology': '4F. Methodology',
     '22. Glossary': '4G. Glossary',
+    # Advanced planning modules (Phase 1).
+    '30. Education Funding': '2J. Education Funding',
+    '35. Equity Compensation': '2K. Equity Compensation',
+    '36. Special-Needs Planning': '2L. Special-Needs Planning',
+    '34. Business Succession': '2M. Business Succession',
+    '31. Existing Life Insurance': '3D. Existing Life Insurance',
+    '32. Disability Income': '3E. Disability Income',
+    '33. P&C Umbrella': '3F. P&C Umbrella',
 }
+
+def _disabled_final_sheets(c):
+    """Final (renamed) sheet names that will be absent because their module is off.
+
+    Used by pre-rename passes (e.g. the Plan Data scope table) that list final
+    sheet names before the sheets themselves have been renamed, so an existence
+    check against wb.sheetnames is not yet possible.
+    """
+    disabled = set()
+    for key, legacy_names in OPTIONAL_MODULE_SHEETS.items():
+        if module_enabled(c, key):
+            continue
+        for ln in legacy_names:
+            disabled.add(FINAL_SHEET_RENAMES.get(ln, ln))
+    # "3C. LTC + Life Insurance" survives if EITHER the LTC or the Life
+    # Insurance module is on (see the promotion in apply_final_workbook_structure).
+    combined = FINAL_SHEET_RENAMES.get('19. Life Insurance')
+    if module_enabled(c, 'long_term_care_stress') or module_enabled(c, 'life_insurance_need'):
+        disabled.discard(combined)
+    return disabled
+
 
 SHEET_NUM_LABEL_REPLACEMENTS = {
     'Sheet 13 & 14': '2C. State Residency & 2G. Estate & Legacy Planning',
@@ -924,8 +962,11 @@ def _build_plan_data_sheet(wb, c):
         '4F. Methodology': 'model methodology and rerun notes',
         '4G. Glossary': 'terms and definitions',
     }
+    disabled_final = _disabled_final_sheets(c)
     for area in WORKBOOK_SECTION_LAYOUT:
         for sheet_name in area.get('sheets', []):
+            if sheet_name in disabled_final:
+                continue
             write_cell(ws, r, 1, area.get('section'))
             write_cell(ws, r, 2, sheet_name)
             write_cell(ws, r, 3, purposes.get(sheet_name, ''))
@@ -1003,6 +1044,12 @@ def apply_final_workbook_structure(wb, c):
     _merge_strategy_into_executive_summary(wb)
     _merge_asset_location_into_allocation(wb)
     _merge_ltc_into_life_insurance(wb)
+    # The combined "3C. LTC + Life Insurance" tab is normally the renamed Life
+    # Insurance sheet with LTC merged in.  When life insurance is disabled but
+    # LTC is on, promote the LTC sheet into that slot so it still lands under
+    # Risk & Stress Tests instead of becoming an orphaned legacy tab.
+    if '19. Life Insurance' not in wb.sheetnames and '17. LTC Stress Test' in wb.sheetnames:
+        wb['17. LTC Stress Test'].title = '19. Life Insurance'
     _delete_sheet_if_present(wb, '4D. System Setting')
     _rename_final_sheets(wb)
     _replace_text_refs(wb)
@@ -1092,14 +1139,22 @@ def main():
     print(f'  ETF prices: {PRICE_CACHE}')
     write_pricing_diagnostics(_os.path.join(str(output_path_dir), 'pricing_diagnostics.json'), print_report=True)
 
-    print('Running projection, validation, and Monte Carlo...')
+    # Monte Carlo only runs when its optional module is enabled — this is the
+    # "no logic executed" half of module gating.  With it off, mc_data is {} and
+    # the always-on sheets that reference it (Exec Summary, Planning Levers)
+    # suppress their MC-derived blocks instead of showing empty/zero results.
+    run_mc = module_enabled(c, 'market_luck_stress_test')
+    if run_mc:
+        print('Running projection, validation, and Monte Carlo...')
+    else:
+        print('Running projection and validation (Monte Carlo disabled — market_luck_stress_test off)...')
     # User-facing builds must always produce artifacts, even when the plan has
     # unfunded cash gaps.  The validation summary is preserved in the workbook
     # and plan_summary.json so the user can review/fix the issue instead of
     # being blocked by a hard release gate.  Keep hard-gate behavior available
     # through run_projection_artifacts(..., enforce_release_gate=True) for tests
     # or CI-style release checks.
-    artifacts = run_projection_artifacts(c, run_mc=True, enforce_release_gate=False)
+    artifacts = run_projection_artifacts(c, run_mc=run_mc, enforce_release_gate=False)
     c = artifacts.config
     rows = artifacts.rows
     mc_data = artifacts.mc_data
@@ -1112,16 +1167,29 @@ def main():
 
     # ── Create all named sheets ───────────────────────────────────────────────
     # Sheet 3b (Holdings Detail) removed — holdings are in Sheet 3 Balance Sheet inline
+    # Sheets owned by a disabled optional module are neither created nor built,
+    # so no logic runs for them and they never reach the final layout.  The
+    # `<sheet> in sheets` guards below key every optional build off this set.
+    disabled_sheets = set()
+    for _mkey, _mnames in OPTIONAL_MODULE_SHEETS.items():
+        if not module_enabled(c, _mkey):
+            disabled_sheets.update(_mnames)
     sheets = {}
     for name, _ in V5_LAYOUT:
+        if name in disabled_sheets:
+            continue
         ws = wb.create_sheet(name)
         sheets[name] = ws
 
     # Sheet 10's SS claim-age sweep is computed first so Sheet 1's headline
     # "Recommended SS Claim Age" reflects the same optimizer result instead
-    # of a separately-maintained figure that can drift out of sync.
-    print('  Sheet 10 — Social Security')
-    ss_sweep = build_sheet10(sheets['10. Social Security'], c, rows)
+    # of a separately-maintained figure that can drift out of sync.  When the
+    # Social Security optimizer module is off, ss_sweep stays None and Sheet 1
+    # suppresses that headline.
+    ss_sweep = None
+    if '10. Social Security' in sheets:
+        print('  Sheet 10 — Social Security')
+        ss_sweep = build_sheet10(sheets['10. Social Security'], c, rows)
     print('  Sheet 1 — Executive Summary')
     build_sheet1(sheets['1. Executive Summary'], c, rows, mc_data, ss_sweep=ss_sweep)
     print('  Sheet 2 — Assumptions')
@@ -1134,40 +1202,55 @@ def main():
     build_sheet5(sheets['5. Net Worth Projection'], c, rows)
     print('  Sheet 6 — Cash Flow Projection')
     build_sheet6(sheets['6. Cash Flow Projection'], c, rows)
-    print('  Sheet 7 — Lifetime Tax')
-    build_sheet7(sheets['7. Lifetime Tax'], c, rows)
-    print('  Sheet 8 — Charts Dashboard')
-    build_sheet8(sheets['8. Charts Dashboard'], c, rows, mc_data)
-    print('  Sheet 9 — Retirement Strategy')
-    build_sheet9(sheets['9. Retirement Strategy'], c, rows)
-    print('  Sheet 11 — Roth Conversion')
-    build_sheet11(sheets['11. Roth Conversion'], c, rows)
-    print('  Sheet 12 — Charitable Giving')
-    build_sheet12(sheets['12. Charitable Giving'], c, rows)
+    if '7. Lifetime Tax' in sheets:
+        print('  Sheet 7 — Lifetime Tax')
+        build_sheet7(sheets['7. Lifetime Tax'], c, rows)
+    if '8. Charts Dashboard' in sheets:
+        print('  Sheet 8 — Charts Dashboard')
+        build_sheet8(sheets['8. Charts Dashboard'], c, rows, mc_data)
+    if '9. Retirement Strategy' in sheets:
+        print('  Sheet 9 — Retirement Strategy')
+        build_sheet9(sheets['9. Retirement Strategy'], c, rows)
+    if '11. Roth Conversion' in sheets:
+        print('  Sheet 11 — Roth Conversion')
+        build_sheet11(sheets['11. Roth Conversion'], c, rows)
+    if '12. Charitable Giving' in sheets:
+        print('  Sheet 12 — Charitable Giving')
+        build_sheet12(sheets['12. Charitable Giving'], c, rows)
     print('  Sheet 12B — Tax-Loss Harvesting')
     build_sheet_tlh(sheets['12B. Tax-Loss Harvesting'], c, rows)
-    print('  Sheet 13 — State Residency')
-    build_sheet13(sheets['13. State Residency'], c, rows)
-    print('  Sheet 14 — Estate Plan')
-    build_sheet14(sheets['14. Estate Plan'], c, rows)
+    if '13. State Residency' in sheets:
+        print('  Sheet 13 — State Residency')
+        build_sheet13(sheets['13. State Residency'], c, rows)
+    if '14. Estate Plan' in sheets:
+        print('  Sheet 14 — Estate Plan')
+        build_sheet14(sheets['14. Estate Plan'], c, rows)
     print('  Sheet 27 — Planning Levers')
     build_sheet27_planning_levers(sheets['27. Planning Levers'], c, rows, mc_data)
-    print('  Sheet 15 — Monte Carlo')
-    build_sheet15(sheets['15. Market-Luck Stress Test'], c, rows, mc_data)
-    print('  Sheet 16 — Scenario Analysis')
-    build_sheet16(sheets['16. Scenario Analysis'], c, rows)
-    print('  Sheet 17 — LTC Stress Test')
-    build_sheet17(sheets['17. LTC Stress Test'], c, rows)
-    print('  Sheet 18 — Survivor Stress Test')
-    build_sheet18(sheets['18. Survivor Stress Test'], c, rows)
-    print('  Sheet 19 — Life Insurance')
-    build_sheet19(sheets['19. Life Insurance'], c)
-    print('  Sheet 20 — RMD Audit')
-    build_sheet20(sheets['20. RMD Audit'], c, rows)
-    print('  Sheet 22 — Glossary')
-    build_sheet22(sheets['22. Glossary'])
-    print('  Sheet 23 — Methodology')
-    build_sheet23(sheets['23. Methodology'], c)
+    if '15. Market-Luck Stress Test' in sheets:
+        print('  Sheet 15 — Monte Carlo')
+        build_sheet15(sheets['15. Market-Luck Stress Test'], c, rows, mc_data)
+    if '16. Scenario Analysis' in sheets:
+        print('  Sheet 16 — Scenario Analysis')
+        build_sheet16(sheets['16. Scenario Analysis'], c, rows)
+    if '17. LTC Stress Test' in sheets:
+        print('  Sheet 17 — LTC Stress Test')
+        build_sheet17(sheets['17. LTC Stress Test'], c, rows)
+    if '18. Survivor Stress Test' in sheets:
+        print('  Sheet 18 — Survivor Stress Test')
+        build_sheet18(sheets['18. Survivor Stress Test'], c, rows)
+    if '19. Life Insurance' in sheets:
+        print('  Sheet 19 — Life Insurance')
+        build_sheet19(sheets['19. Life Insurance'], c)
+    if '20. RMD Audit' in sheets:
+        print('  Sheet 20 — RMD Audit')
+        build_sheet20(sheets['20. RMD Audit'], c, rows)
+    if '22. Glossary' in sheets:
+        print('  Sheet 22 — Glossary')
+        build_sheet22(sheets['22. Glossary'])
+    if '23. Methodology' in sheets:
+        print('  Sheet 23 — Methodology')
+        build_sheet23(sheets['23. Methodology'], c)
     build_sheet24(sheets['24. Asset Location'], c, rows)
     print('  Sheet 25 — Account Reconciliation')
     build_sheet25(sheets['25. Account Reconciliation'], c, rows)
@@ -1178,6 +1261,33 @@ def main():
     if '26. Workbook Warnings' in sheets:
         print('  Sheet 26 — Workbook Warnings')
         build_sheet26_workbook_warnings(sheets['26. Workbook Warnings'], c, rows)
+
+    # ── Optional advanced planning modules ────────────────────────────────────
+    # Built under legacy names like every other sheet. The OPTIONAL_MODULE_SHEETS
+    # pruning above skips creation when the module's toggle is off (so these
+    # `in sheets` guards no-op), and the FINAL_SHEET_RENAMES pass relabels the
+    # survivors into their 2x / 3x section tabs.
+    if '30. Education Funding' in sheets:
+        print('  Sheet 30 — Education Funding')
+        build_education_funding(sheets['30. Education Funding'], c, rows)
+    if '31. Existing Life Insurance' in sheets:
+        print('  Sheet 31 — Existing Life Insurance')
+        build_existing_life(sheets['31. Existing Life Insurance'], c, rows)
+    if '32. Disability Income' in sheets:
+        print('  Sheet 32 — Disability Income')
+        build_disability(sheets['32. Disability Income'], c, rows)
+    if '33. P&C Umbrella' in sheets:
+        print('  Sheet 33 — P&C Umbrella')
+        build_pc_umbrella(sheets['33. P&C Umbrella'], c, rows)
+    if '35. Equity Compensation' in sheets:
+        print('  Sheet 35 — Equity Compensation')
+        build_equity_comp(sheets['35. Equity Compensation'], c, rows)
+    if '36. Special-Needs Planning' in sheets:
+        print('  Sheet 36 — Special-Needs Planning')
+        build_special_needs(sheets['36. Special-Needs Planning'], c, rows)
+    if '34. Business Succession' in sheets:
+        print('  Sheet 34 — Business Succession')
+        build_business_succession(sheets['34. Business Succession'], c, rows)
 
     # QC last
     print('  Sheet 21 — Quality Control')
@@ -1194,14 +1304,25 @@ def main():
     # Excel has a flat sheet-tab model, so the workbook mirrors the app's top
     # areas with visible divider tabs and lettered sheets ordered immediately
     # after each divider.  Excel/PDF remain output-only surfaces.
+    # Prune each area to the sheets that actually survived module gating so a
+    # divider never links to a removed sheet, and drop a section entirely when
+    # none of its sheets remain.
+    pruned_layout = []
     for area in WORKBOOK_SECTION_LAYOUT:
+        present = [s for s in area['sheets'] if s in wb.sheetnames]
+        if present:
+            pruned_layout.append({**area, 'sheets': present})
+        else:
+            _delete_sheet_if_present(wb, area['section'])
+
+    for area in pruned_layout:
         section_name = area['section']
         if section_name not in wb.sheetnames:
             wb.create_sheet(section_name)
         build_workbook_section_divider(wb[section_name], area)
 
     FULL_LAYOUT = []
-    for area in WORKBOOK_SECTION_LAYOUT:
+    for area in pruned_layout:
         FULL_LAYOUT.append((area['section'], area['code']))
         FULL_LAYOUT.extend((sheet_name, area['code']) for sheet_name in area['sheets']        )
 

@@ -809,6 +809,73 @@ def niit_tax(nii, magi, filing='MFJ'):
     threshold = _td.NIIT_THRESHOLD.get(filing, 250000)
     return max(0, min(nii, magi - threshold)) * 0.038
 
+
+# ── Alternative Minimum Tax (AMT) ─────────────────────────────────────────────
+# IRS 2025 figures (Rev. Proc. 2024-40), indexed forward by the plan's bracket
+# inflation. The engine calls this only for households that enable the equity-
+# compensation module and hold ISOs, so it is a timing/preference-item AMT: the
+# ISO bargain element is an AMT preference that generates a minimum-tax credit
+# usable in later years when the regular tax exceeds the tentative minimum tax.
+AMT_BASE_YEAR = 2025
+AMT_EXEMPTION_BASE = {'MFJ': 137000.0, 'Single': 88100.0, 'MFS': 68500.0}
+AMT_PHASEOUT_START_BASE = {'MFJ': 1252700.0, 'Single': 626350.0, 'MFS': 626350.0}
+AMT_RATE_BREAK_BASE = 232600.0   # 26% at/below, 28% above (halved for MFS)
+AMT_RATE_LOW = 0.26
+AMT_RATE_HIGH = 0.28
+
+
+def _amt_filing_key(filing):
+    f = str(filing or 'MFJ').strip().upper()
+    if f.startswith('MFS') or 'SEPARATE' in f:
+        return 'MFS'
+    if f.startswith('MFJ') or f.startswith('MARRIED') or f.startswith('Q') or f.startswith('WIDOW'):
+        return 'MFJ'
+    return 'Single'
+
+
+def _amt_indexed(base, year, inf):
+    return base * ((1.0 + float(inf or 0.0)) ** max(0, int(year) - AMT_BASE_YEAR))
+
+
+def tentative_minimum_tax(regular_taxable_income, amt_preferences, filing='MFJ',
+                          year=AMT_BASE_YEAR, inf=0.0):
+    """Tentative minimum tax on the ordinary AMT base.
+
+    AMTI = regular (ordinary) taxable income + AMT preference items (e.g. the ISO
+    bargain element). The exemption phases out 25% above the filing threshold.
+    Long-term capital gains keep their preferential rate outside this base and are
+    taxed by the engine's separate LTCG path, so they are intentionally excluded
+    here.
+    """
+    key = _amt_filing_key(filing)
+    amti = max(0.0, float(regular_taxable_income or 0.0) + float(amt_preferences or 0.0))
+    exemption = _amt_indexed(AMT_EXEMPTION_BASE[key], year, inf)
+    phase_start = _amt_indexed(AMT_PHASEOUT_START_BASE[key], year, inf)
+    exemption = max(0.0, exemption - 0.25 * max(0.0, amti - phase_start))
+    rate_break = _amt_indexed(AMT_RATE_BREAK_BASE * (0.5 if key == 'MFS' else 1.0), year, inf)
+    base = max(0.0, amti - exemption)
+    return AMT_RATE_LOW * min(base, rate_break) + AMT_RATE_HIGH * max(0.0, base - rate_break)
+
+
+def amt_tax(regular_taxable_income, regular_tax, amt_preferences, filing='MFJ',
+            year=AMT_BASE_YEAR, inf=0.0, amt_credit_carryin=0.0):
+    """Return ``(amt_adjustment, amt_credit_carryout)``.
+
+    ``amt_adjustment`` is added to the year's total tax: a positive value is AMT
+    owed (TMT above the regular tax); a negative value is prior-year minimum-tax
+    credit applied to reduce the regular tax when the regular tax exceeds TMT
+    (limited to that excess). AMT owed accrues to the credit carryforward because
+    ISO/preference AMT is a timing difference.
+    """
+    tmt = tentative_minimum_tax(regular_taxable_income, amt_preferences, filing, year, inf)
+    reg = max(0.0, float(regular_tax or 0.0))
+    carry = max(0.0, float(amt_credit_carryin or 0.0))
+    owed = tmt - reg
+    if owed > 0:
+        return owed, carry + owed
+    credit_used = min(carry, reg - tmt)
+    return -credit_used, carry - credit_used
+
 def salt_cap(year, magi):
     schedule = {
         TAX_BASE_YEAR - 1: 40000,

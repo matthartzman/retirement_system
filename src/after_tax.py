@@ -159,19 +159,48 @@ def estimate_terminal_taxable_deferred_cap_gain_tax(c: Mapping[str, Any], termin
     }
 
 
+def business_taxable_estate_value(c: Mapping[str, Any]) -> float:
+    """Owner's projected business-interest value added to the taxable estate.
+
+    Returns 0.0 unless the business-succession module is enabled. An illiquid
+    business interest (or the cash from its buy-sell) remains in the gross estate,
+    so the owner's share — projected to plan-end at the entity growth rate — is
+    added to the estate-tax base. Gated purely on the saved toggle so default
+    plans are unaffected.
+    """
+    if not (c.get("opt") or {}).get("business_succession"):
+        return 0.0
+    base_year = int(_f(c.get("plan_start"), 0.0))
+    plan_end = int(_f(c.get("plan_end"), base_year))
+    total = 0.0
+    for e in c.get("business_succession", []) or []:
+        val_today = _f(e.get("valuation_today"), 0.0)
+        growth = _f(e.get("valuation_growth_rate"), 0.0)
+        own = _f(e.get("ownership_pct"), 0.0)
+        # A buy-sell crystallizes the interest at the transfer year; the estate
+        # then holds the (conservatively flat) proceeds, so growth stops there.
+        transfer = int(_f(e.get("transfer_year"), 0.0))
+        val_year = min(plan_end, transfer) if 0 < transfer < plan_end else plan_end
+        total += val_today * ((1.0 + growth) ** max(0, val_year - base_year)) * own
+    return max(0.0, total)
+
+
 def estimate_terminal_estate_tax(c: Mapping[str, Any], terminal: Mapping[str, Any]) -> float:
     """Estimate federal + state estate tax on the terminal estate.
 
     Federal: 40% on the taxable estate above the federal exemption.  State:
     Illinois graduated estate tax above the state exemption (only when state
     estate tax is modeled).  Mirrors the optimizer's per-row estate-tax model.
+    When the business-succession module is on, the owner's business interest is
+    added to the taxable estate.
     """
     row_total = max(0.0, _f(terminal.get("total_nw"), 0.0))
     row_cst = max(0.0, _f(terminal.get("cst_excluded_from_survivor_estate"), 0.0))
+    biz = business_taxable_estate_value(c)
     fed_exempt = max(0.0, _f(c.get("fed_exempt"), 0.0))
     state_exempt = max(0.0, _f(c.get("il_exempt"), 0.0))
-    federal_taxable = max(0.0, row_total - (row_cst if c.get("federal_portability_enabled", True) else 0.0))
-    state_taxable = max(0.0, row_total - row_cst)
+    federal_taxable = max(0.0, row_total + biz - (row_cst if c.get("federal_portability_enabled", True) else 0.0))
+    state_taxable = max(0.0, row_total + biz - row_cst)
     federal_tax = max(0.0, federal_taxable - fed_exempt) * 0.40 if fed_exempt else 0.0
     state_tax = illinois_estate_tax(state_taxable, state_exempt) if c.get("model_state_est", True) and state_exempt else 0.0
     return max(0.0, federal_tax + state_tax)

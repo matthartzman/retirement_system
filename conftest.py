@@ -48,6 +48,20 @@ def built_workbook_dir(tmp_path_factory):
     env["RETIREMENT_SYSTEM_APP_MODE"] = "LOCAL"
     env["RETIREMENT_SYSTEM_WORKSPACE_ID"] = "local"
     env["RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS"] = "1"
+    # Optional modules are now gated: a module toggled off in the active plan
+    # skips its computation and drops its workbook sheet.  This canonical build
+    # force-enables the classic sheet-owning modules so the structural "all
+    # sheets present" assertions (test_97/100/101/127, etc.) stay stable
+    # regardless of saved toggles.  Newer default-off modules are intentionally
+    # NOT force-enabled here so their sheets don't perturb those layouts.
+    # Off-state behavior is covered by test_optional_module_gating.py.
+    env["RETIREMENT_SYSTEM_FORCE_ENABLE_MODULES"] = ",".join([
+        "lifetime_tax_projection", "charts_dashboard", "retirement_strategy",
+        "social_security_timing", "roth_conversion_plan", "charitable_giving",
+        "state_residency", "estate_legacy_plan", "market_luck_stress_test",
+        "what_if_analysis", "long_term_care_stress", "survivor_stress_test",
+        "life_insurance_need", "rmd_audit", "glossary", "methodology_rerun",
+    ])
     env.setdefault("RETIREMENT_MC_SIMS", "16")
     env.setdefault("RETIREMENT_MC_SENSITIVITY_SIMS", "3")
     result = subprocess.run(

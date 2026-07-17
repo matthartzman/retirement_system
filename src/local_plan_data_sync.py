@@ -25,6 +25,7 @@ PLAN_DATA_CSV_FILES = [
     "client_assets.csv",
     "client_policy.csv",
     "client_insurance_estate.csv",
+    "client_business.csv",
     "client_optional_functions.csv",
     "asset_class_optimizer_controls.csv",
     "client_holdings.csv",
@@ -49,6 +50,7 @@ PLAN_DATA_DERIVED_FILES = [
     "client_assets.json",
     "client_policy.json",
     "client_insurance_estate.json",
+    "client_business.json",
     "client_optional_functions.json",
     "asset_class_optimizer_controls.json",
     "client_household.yaml",
@@ -57,6 +59,7 @@ PLAN_DATA_DERIVED_FILES = [
     "client_assets.yaml",
     "client_policy.yaml",
     "client_insurance_estate.yaml",
+    "client_business.yaml",
     "client_optional_functions.yaml",
     "asset_class_optimizer_controls.yaml",
 ]

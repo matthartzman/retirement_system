@@ -388,7 +388,12 @@ def build_sheet8(ws, c, rows, mc_data=None):
     chart_mc.set_categories(cats_mc)
     chart_mc.visible_cells_only = False
 
-    chart_ws.add_chart(chart_mc, 'A118')
+    # Embed the Monte Carlo percentile-band chart only when the market-luck
+    # module ran; with it off mc_data is {} and this would render a flat-zero
+    # chart.  (The backing data columns sit in hidden helper columns and are not
+    # shown anywhere when the chart is not embedded.)
+    if module_enabled(c, 'market_luck_stress_test'):
+        chart_ws.add_chart(chart_mc, 'A118')
 
     # ── Allocation Pie Charts (Before & After) ────────────────────────────
     chart_data = c.get('_alloc_chart_data', {})
