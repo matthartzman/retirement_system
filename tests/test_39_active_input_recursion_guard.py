@@ -4,6 +4,23 @@ import textwrap
 
 ROOT = Path(__file__).resolve().parents[1]
 JS = ROOT / "frontend" / "js" / "dashboard.js"
+JS_DIR = ROOT / "frontend" / "js"
+
+
+def _dashboard_smoke_sources():
+    """dashboard.js plus every extracted dashboard_decomp_*.js module.
+
+    The decomposition moved cohesive blocks (e.g. the estate/insurance UI) out
+    of dashboard.js into sibling classic scripts loaded before dashboard.js in
+    index.html. The node smoke harness must load them together so boot code and
+    any exercised function still resolve, mirroring the browser load order.
+    """
+    mods = sorted(JS_DIR.glob("dashboard_decomp_*.js"))
+    return [str(m) for m in mods] + [str(JS)]
+
+
+def _smoke_sources_js_array():
+    return "[" + ", ".join(repr(s) for s in _dashboard_smoke_sources()) + "]"
 
 
 def read_js():
@@ -24,7 +41,7 @@ def test_active_input_usage_state_smoke_does_not_recurse(tmp_path):
     script = tmp_path / "dashboard_recursion_smoke.js"
     script.write_text(textwrap.dedent(f"""
         const fs = require('fs');
-        const code = fs.readFileSync({str(JS)!r}, 'utf8');
+        const code = {_smoke_sources_js_array()}.map(f => fs.readFileSync(f, 'utf8')).join('\\n');
         const el = () => ({{
           style: {{}}, innerHTML: '', textContent: '', value: '', disabled: false,
           classList: {{ toggle(){{}}, remove(){{}}, add(){{}}, contains(){{return false;}} }},

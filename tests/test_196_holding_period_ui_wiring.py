@@ -26,6 +26,19 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 JS = ROOT / "frontend" / "js" / "dashboard.js"
+JS_DIR = ROOT / "frontend" / "js"
+
+
+def _dashboard_smoke_sources():
+    """dashboard.js plus every extracted dashboard_decomp_*.js module, in the
+    same load order as index.html (extracted modules before dashboard.js) so the
+    node smoke harness exercises the real, fully-assembled behavior."""
+    mods = sorted(JS_DIR.glob("dashboard_decomp_*.js"))
+    return [str(m) for m in mods] + [str(JS)]
+
+
+def _smoke_sources_js_array():
+    return "[" + ", ".join(repr(s) for s in _dashboard_smoke_sources()) + "]"
 
 
 def _node_available() -> bool:
@@ -119,11 +132,10 @@ class DashboardJsRuntimeBehaviorTests(unittest.TestCase):
     test_39_active_input_recursion_guard.py's convention."""
 
     def _run_smoke(self, tmp_path: Path, script_body: str) -> str:
-        code = JS.read_text(encoding="utf-8")
         script = tmp_path / "dashboard_real_loss_aware_smoke.js"
         harness = textwrap.dedent(f"""
             const fs = require('fs');
-            const code = fs.readFileSync({str(JS)!r}, 'utf8');
+            const code = {_smoke_sources_js_array()}.map(f => fs.readFileSync(f, 'utf8')).join('\\n');
             const el = () => ({{
               style: {{}}, innerHTML: '', textContent: '', value: '', disabled: false,
               classList: {{ toggle(){{}}, remove(){{}}, add(){{}}, contains(){{return false;}} }},
