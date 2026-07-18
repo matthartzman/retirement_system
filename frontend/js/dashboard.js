@@ -167,7 +167,7 @@ const STEPS = [
     title: "Planning Workbench",
     desc: "Unified place to review the baseline, assemble change sets, compare scenarios, run stress suites, and decide what to adopt.",
     intro:
-      "The workbench turns Strategy, Scenarios, Stress Tests, and Build Impact into one flow: Baseline → Change Set → Run Type → Impact → Decision.",
+      "The workbench turns Strategy (with Scenario comparison), Stress Tests, and Build Impact into one flow: Baseline → Change Set → Run Type → Impact → Decision.",
     help: "Planning cases are browser-local change sets. They do not alter the saved plan until you explicitly jump to source pages, edit inputs, save, and rebuild.",
   },
   {
@@ -275,7 +275,7 @@ const STEPS = [
   },
   {
     id: "scenarios",
-    group: "Stress Tests",
+    group: "Strategy",
     title: "Scenario Change Sets",
     desc: "Named deterministic planning cases with specific assumption overrides — returns, inflation, home sale timing, spending adjustments, or custom changes.",
     intro:
@@ -883,10 +883,10 @@ const STEP_HELP = {
   ),
   scenarios: pageHelp(
     "Scenario analysis",
-    "This page defines named deterministic what-if cases that compare a specific assumption set against the base plan. It is different from Monte Carlo randomness.",
+    "This page defines named deterministic what-if cases that compare a specific bundle of lever/assumption changes against the base plan. It is a comparison mode, not a random-draw stress test like Monte Carlo.",
     "Scenario rows can change returns, inflation, home sale assumptions, spending, tax, or timing for workbook scenario sheets and risk narratives. Economy and home-sale stress cases belong here.",
     "Use one scenario per clear question: retire later, sell home, inflation stress, low returns, spending cut, or tax change. Keep scenario labels descriptive so workbook comparisons are readable.",
-    "Stress scenarios often reduce TNW and success indicators, but they improve decision quality by showing which levers protect the plan under adverse conditions.",
+    "Scenarios that lean adverse often reduce TNW and success indicators, but comparing bundles side by side shows which lever combinations protect the plan best.",
   ),
   divorce_options: pageHelp(
     "Divorce / QDRO stress",
@@ -955,7 +955,7 @@ const STEP_HELP = {
     "Economic and tax assumptions",
     "This System page holds default inflation, COLA, tax-indexing, payroll, Wellness, and return assumptions used across the model.",
     "Inflation connects spending, Social Security COLA, tax brackets, IRMAA thresholds, Wellness costs, and capital-market projections. Tax constants and indexing assumptions connect to Roth and lifetime-tax analysis.",
-    "Use current-law/default assumptions for base plans; use scenarios for stress cases. Keep tax data source years current before relying on tax-sensitive recommendations.",
+    "Use current-law/default assumptions for base plans; use scenarios to compare alternative assumption sets. Keep tax data source years current before relying on tax-sensitive recommendations.",
     "Higher inflation usually lowers real purchasing power and can reduce success unless income/assets adjust. Higher Wellness inflation raises late-life spending. Changing tax assumptions can materially change lifetime taxes and Roth recommendations.",
   ),
   system_configuration: pageHelp(
@@ -990,6 +990,7 @@ const STEP_HELP = {
 let apiBase = "",
   appReady = false,
   rows = [],
+  moduleStatus = {},
   holdingsText = "",
   liabilitiesText = "",
   liabilitiesChanged = false,
@@ -4277,15 +4278,8 @@ function homeSaleActivationYearRow(stepId = "") {
 
 function visibleAssetSpecialRow(r) {
   if (
-    r.section === "Equity Compensation" &&
-    !optionalFunctionEnabled("equity_compensation")
-  )
-    return false;
-  if (r.section === "DAF" && !optionalFunctionEnabled("charitable_giving"))
-    return false;
-  if (
-    r.section === "Education Funding" &&
-    !optionalFunctionEnabled("education_funding_529")
+    ["Equity Compensation", "DAF", "Education Funding"].includes(r.section) &&
+    !optionalFunctionEnabled(ROW_MODULE_GATES[r.section].key)
   )
     return false;
   if (r.section === "Hybrid LTC" && !ltcLifePolicyModuleEnabled()) return false;
@@ -4519,23 +4513,23 @@ function assetActionForSubsection(subsection) {
   );
   return rowActionValue(a);
 }
+const ROW_MODULE_GATES = {
+  "Education Funding": {
+    key: "education_funding_529",
+    label: "Education Funding optional workbook module",
+  },
+  "Equity Compensation": {
+    key: "equity_compensation",
+    label: "Equity Compensation optional workbook module",
+  },
+  "Insurance In Force": {
+    key: "existing_life_insurance",
+    label: "Existing Life Insurance optional workbook module",
+  },
+  DAF: { key: "charitable_giving", label: "Charitable Giving optional workbook module" },
+};
 function optionalModuleState(row) {
   const sec = String(row.section || "");
-  const map = {
-    "Education Funding": [
-      "education_funding_529",
-      "Education Funding optional workbook module",
-    ],
-    "Equity Compensation": [
-      "equity_compensation",
-      "Equity Compensation optional workbook module",
-    ],
-    "Insurance In Force": [
-      "existing_life_insurance",
-      "Existing Life Insurance optional workbook module",
-    ],
-    DAF: ["charitable_giving", "Charitable Giving optional workbook module"],
-  };
   if (sec === "Hybrid LTC" && !ltcLifePolicyModuleEnabled())
     return {
       active: false,
@@ -4548,8 +4542,8 @@ function optionalModuleState(row) {
       listAlways: false,
       optionalModuleOff: true,
     };
-  if (map[sec]) {
-    const [flag, label] = map[sec];
+  if (ROW_MODULE_GATES[sec]) {
+    const { key: flag, label } = ROW_MODULE_GATES[sec];
     if (!optionalFunctionEnabled(flag))
       return {
         active: false,
@@ -8736,10 +8730,9 @@ function firstRunChecklistHtml(compact = false) {
     },
     {
       title: "Stress tests",
-      desc: "Monte Carlo, scenarios, survivor, long-term care, and optional divorce/QDRO stress.",
+      desc: "Monte Carlo, survivor, long-term care, and optional divorce/QDRO stress.",
       steps: [
         "monte_carlo_options",
-        "scenarios",
         "survivor_stress",
         "ltc_stress",
         "divorce_options",
@@ -10013,7 +10006,7 @@ function renderAssetsSpecial() {
       return;
     }
     if (g === "529 Plans") {
-      if (optionalFunctionEnabled("education_funding_529")) {
+      if (optionalFunctionEnabled(ROW_MODULE_GATES["Education Funding"].key)) {
         html += `<details ${gr.length ? "" : "open"}><summary>529 Plans</summary><div class="field-list"><div class="section-note"><b>Purpose:</b> 529 plans are education savings accounts. Enter one section per beneficiary or goal, then add another 529 when a different beneficiary or goal should be tracked separately.</div>${gr.map(fieldHtml).join("")}<div class="table-actions"><button class="btn" type="button" data-requires-app="1" onclick="addEducation529Section()">Add 529 section</button></div></div></details>`;
       }
       return;
@@ -10021,7 +10014,7 @@ function renderAssetsSpecial() {
     if (g === "LTC/Life Policy" && !ltcLifePolicyModuleEnabled()) return;
     if (
       g === "Equity Compensation" &&
-      !optionalFunctionEnabled("equity_compensation")
+      !optionalFunctionEnabled(ROW_MODULE_GATES["Equity Compensation"].key)
     )
       return;
     if (gr.length)
@@ -15551,12 +15544,19 @@ function renderOptionalFunctions() {
     const on = boolishValue(r);
     const lbl = humanLabel(r.label, r);
     const desc = formatAcronyms(r.schema?.description || r.notes || "");
+    const status = moduleStatus[r.label];
     html += '<div class="opt-module-row">';
     html +=
       '<div class="opt-module-info"><span class="opt-module-name">' +
       esc(lbl) +
       "</span>";
     if (desc) html += '<span class="opt-module-desc">' + esc(desc) + "</span>";
+    if (status && status.auto_enabled) {
+      html +=
+        '<span class="badge auto">Auto-enabled — required by ' +
+        esc(status.required_by.join(", ")) +
+        "</span>";
+    }
     html += "</div>";
     html +=
       '<button class="opt-module-toggle ' +
@@ -16125,7 +16125,7 @@ function renderMain() {
   else if (activeStep === "reports_and_review")
     content += renderReportsAndReview();
   else if (activeStep === "scenarios")
-    content += analysisFrame(renderScenarios(), "stress");
+    content += analysisFrame(renderScenarios(), "strategy");
   else if (activeStep === "monte_carlo_options")
     content += analysisFrame(renderMonteCarloOptions(), "stress");
   else if (activeStep === "divorce_options")
@@ -17240,6 +17240,7 @@ async function loadAll(opts = {}) {
     runtime = await api("/api/runtime");
     const cfg = await api("/api/config/rows");
     rows = cfg.rows || [];
+    moduleStatus = cfg.module_status || {};
     if (window.RetirementAppStore)
       window.RetirementAppStore.set({
         rows: rows,
