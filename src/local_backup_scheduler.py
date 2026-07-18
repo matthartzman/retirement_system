@@ -218,19 +218,49 @@ def _backup_filename(db_path: Path, stamp: str) -> str:
     return f"{stem}.auto_{stamp}.rpx"
 
 
+def orphaned_backups(base_dir: str | Path, policy: dict[str, Any] | None = None) -> list[Path]:
+    """Return ``.rpx`` files in the backup dir that no manifest accounts for.
+
+    Retention walks manifests, so a backup whose manifest is missing is invisible
+    to it and would survive forever.  That happens when a prune deletes the
+    manifest but fails to unlink the (locked) database copy.
+    """
+    policy = policy or load_policy(base_dir)["policy"]
+    bdir = resolve_backup_dir(base_dir, policy)
+    if not bdir.exists():
+        return []
+    known = {str(b.get("filename") or "") for b in list_backups(base_dir, policy)}
+    return sorted(p for p in bdir.glob("*.rpx") if p.name not in known)
+
+
 def prune_backups(base_dir: str | Path, policy: dict[str, Any]) -> list[str]:
     retention = normalize_policy(policy).retention_count
     backups = list_backups(base_dir, policy)
     pruned: list[str] = []
     for item in backups[:-retention]:
-        for key in ("path", "manifest_path"):
-            p = Path(str(item.get(key) or ""))
-            if p.exists():
-                try:
-                    p.unlink()
-                    pruned.append(str(p))
-                except Exception:
-                    pass
+        # Unlink the copy before its manifest: if the copy is locked we keep the
+        # manifest, so the pair stays visible to the next prune instead of
+        # becoming an untracked orphan.
+        db_path = Path(str(item.get("path") or ""))
+        manifest_path = Path(str(item.get("manifest_path") or ""))
+        if db_path.exists():
+            try:
+                db_path.unlink()
+                pruned.append(str(db_path))
+            except Exception:
+                continue
+        if manifest_path.exists():
+            try:
+                manifest_path.unlink()
+                pruned.append(str(manifest_path))
+            except Exception:
+                pass
+    for orphan in orphaned_backups(base_dir, policy):
+        try:
+            orphan.unlink()
+            pruned.append(str(orphan))
+        except Exception:
+            pass
     return pruned
 
 
