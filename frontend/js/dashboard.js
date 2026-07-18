@@ -209,7 +209,7 @@ const STEPS = [
   {
     id: "roth_conversion",
     group: "Strategy",
-    title: "Roth conversion",
+    title: "Roth Conversion",
     desc: "Conversion policy, ceiling (bracket or fixed dollar), Medicare income surcharge guardrails, and objective weights for tax, legacy, survivor, and estate.",
     intro:
       "Choose the policy first — the page shows only controls relevant to that policy. Forced conversion rows run before the optimizer and reduce the space available for voluntary conversions.",
@@ -300,7 +300,7 @@ const STEPS = [
     desc: "Annual care cost, duration, and coverage benefit — showing the net out-of-pocket gap the portfolio must fund.",
     intro:
       "Set care cost and duration, then rebuild. The workbook LTC section shows the net gap after coverage and its effect on portfolio balance during the care years.",
-    help: "Enable this under Settings → Optional modules to include LTC results in workbook outputs. Policy details (benefit amount, elimination period) are entered on Insurance &amp; LTC Policies.",
+    help: "Enable this under Settings → Optional modules to include LTC results in workbook outputs. Policy details (benefit amount, elimination period) are entered on Insurance & LTC Policies.",
     hidden: true,
   },
   {
@@ -662,7 +662,7 @@ const STEP_HELP = {
   spending_dashboard: pageHelp(
     "Spending Analysis",
     "Combines the current-year performance summary (spending, income, portfolio growth) with the budget vs actuals tracker and the link to the 30-year retirement model.",
-    "Transactions from Income &amp; Expense Transactions feed both the summary and the tracker. Spending Categories controls how transactions are assigned to the canonical Tracking Type → Group → Category hierarchy.",
+    "Transactions from Income & Expense Transactions feed both the summary and the tracker. Spending Categories controls how transactions are assigned to the canonical Tracking Type → Group → Category hierarchy.",
     "The summary shows actual vs projected spending, income, and growth. The tracker compares annualized actuals to category budgets and to the retirement model core spending assumption. Use Sync Actual Rate to update the 30-year model.",
     "Spending rate above the model assumption reduces projected net worth. Identifying over-budget groups early — before the annual rebuild — gives time to recalibrate Core spending or adjust plans.",
   ),
