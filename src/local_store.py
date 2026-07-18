@@ -22,6 +22,11 @@ from . import platform_runtime
 PROJECT_ROOT = platform_runtime.package_root()
 DEFAULT_DB = platform_runtime.workspace_root() / "local_state" / "retirement_system_v10.db"
 
+# Result snapshots are append-only debug/audit payloads (~400 KB each) that no
+# read path consumes.  Without a cap they dominate the database file, and every
+# auto-backup copies the whole file, so the cost is paid again per build.
+DEFAULT_RESULT_SNAPSHOT_RETENTION = 10
+
 
 def now_utc() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -199,7 +204,34 @@ def save_result_snapshot(result: dict[str, Any], event_log: list[dict[str, Any]]
                        ON CONFLICT(result_id) DO UPDATE SET result_json=excluded.result_json,
                          event_log_json=excluded.event_log_json, result_sha256=excluded.result_sha256""",
                     (result_id, now_utc(), plan_snapshot_id, json.dumps(result, sort_keys=True, default=str), json.dumps(event_log or [], sort_keys=True, default=str), result_sha))
+        _prune_result_snapshots(con)
     return result_id
+
+
+def _prune_result_snapshots(con: sqlite3.Connection, keep: int = DEFAULT_RESULT_SNAPSHOT_RETENTION) -> int:
+    """Delete all but the newest ``keep`` result snapshots. Returns rows removed.
+
+    ``created_at`` has second precision, so ``result_id`` breaks ties to keep the
+    ordering total and the retained set deterministic.
+    """
+    keep = max(1, int(keep))
+    cur = con.execute(
+        """DELETE FROM result_snapshots WHERE result_id NOT IN (
+               SELECT result_id FROM result_snapshots
+               ORDER BY created_at DESC, result_id DESC LIMIT ?
+           )""",
+        (keep,),
+    )
+    return cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+
+
+def prune_result_snapshots(keep: int = DEFAULT_RESULT_SNAPSHOT_RETENTION, db_path: str | Path | None = None) -> int:
+    """Public entrypoint to trim accumulated result snapshots."""
+    p = _resolve(db_path)
+    if not p.exists():
+        return 0
+    with sqlite3.connect(p) as con:
+        return _prune_result_snapshots(con, keep)
 
 
 def append_build_event(stage: str, event_type: str, detail: dict[str, Any] | None = None, build_id: str | None = None, db_path: str | Path | None = None) -> None:
