@@ -292,25 +292,38 @@ def build_sheet11(ws, c, rows):
 
     # Candidate table with transparent score components.
     candidates = contract.get('candidates') or ropt.get('candidates') or []
-    write_hdr(ws, r, 1, 'Candidate Strategy Comparison — Score Components and Rejection Reasons', NAVY, WHITE, span=14); r += 1
+    top_candidates = candidates[:10]
+    raw_scores = [float(cand.get('total_objective_score', cand.get('score', 0.0)) or 0.0) for cand in top_candidates]
+    score_lo = min(raw_scores) if raw_scores else 0.0
+    score_hi = max(raw_scores) if raw_scores else 0.0
+    score_span = score_hi - score_lo
+
+    write_hdr(ws, r, 1, 'Candidate Strategy Comparison — Score Components and Rejection Reasons', NAVY, WHITE, span=15); r += 1
+    write_cell(ws, r, 1, 'Score (0-100) ranks these candidates relative to each other (100 = best in this set). Objective Value is the underlying dollar-weighted objective the ranking is computed from; it is a scoring unit, not a projected dollar outcome.', align='left')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=15)
+    r += 1
     cand_hdrs = [
-        'Rank', 'Candidate', 'Policy', 'Total Score', 'Terminal Wealth Score', 'Tax Efficiency Score',
+        'Rank', 'Candidate', 'Policy', 'Score (0-100)', 'Objective Value',
+        'Terminal Wealth Score', 'Tax Efficiency Score',
         'Roth Legacy Score', 'Estate-Tax Score', 'Survivor-Risk Score', 'Liquidity Score',
         'Conversions', 'Lifetime Tax', 'After-Tax Terminal NW', 'Why selected / rejected'
     ]
     for i, h in enumerate(cand_hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE, size=8)
     r += 1
-    for idx, cand in enumerate(candidates[:10], 1):
+    for idx, cand in enumerate(top_candidates, 1):
         # Candidate may be a dataclass-asdict contract row or the older raw optimizer row.
         rank = cand.get('rank', idx)
         label = cand.get('label') or cand.get('selected_strategy_name') or cand.get('Candidate')
         why_text = cand.get('why_selected_or_rejected') or ('Selected candidate.' if idx == 1 else 'Not selected: lower total objective score.')
+        raw_score = raw_scores[idx - 1]
+        normalized_score = 100.0 * (raw_score - score_lo) / score_span if score_span > 0 else 100.0
         vals = [
             rank,
             label,
             cand.get('policy',''),
-            cand.get('total_objective_score', cand.get('score')),
+            normalized_score,
+            raw_score,
             cand.get('terminal_wealth_score', cand.get('terminal_component', 0.0)),
             cand.get('tax_efficiency_score', cand.get('tax_component', 0.0)),
             cand.get('roth_legacy_score', cand.get('legacy_adjustment', 0.0)),
@@ -322,9 +335,9 @@ def build_sheet11(ws, c, rows):
             cand.get('after_tax_terminal_net_worth', cand.get('after_tax_terminal_nw')),
             why_text,
         ]
-        fmts = [None, None, None, FMT_DOLLAR, FMT_DOLLAR, FMT_DOLLAR, FMT_DOLLAR, FMT_DOLLAR, FMT_DOLLAR, FMT_DOLLAR, FMT_DOLLAR, FMT_DOLLAR, FMT_DOLLAR, None]
+        fmts = [None, None, None, FMT_SCORE, FMT_DOLLAR, FMT_DOLLAR, FMT_DOLLAR, FMT_DOLLAR, FMT_DOLLAR, FMT_DOLLAR, FMT_DOLLAR, FMT_DOLLAR, FMT_DOLLAR, FMT_DOLLAR, None]
         for i, (val, fmt) in enumerate(zip(vals, fmts), 1):
-            write_cell(ws, r, i, val, fmt=fmt, bg='E2EFDA' if idx == 1 else None, bold=(idx == 1), align='left' if i in (2,14) else 'right' if fmt else 'center')
+            write_cell(ws, r, i, val, fmt=fmt, bg='E2EFDA' if idx == 1 else None, bold=(idx == 1), align='left' if i in (2,15) else 'right' if fmt else 'center')
         ws.row_dimensions[r].height = 45 if len(str(why_text)) > 70 else 24
         r += 1
     r += 2
