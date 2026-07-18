@@ -182,10 +182,12 @@ WORKBOOK_SECTION_LAYOUT = [
         'sheets': [
             '2A. Roth Conversion', '2B. Asset Allocation', '2C. State Residency',
             '2D. Social Security', '2E. S-Corp vs LLC', '2F. Charitable Giving',
-            '2G. Estate & Legacy Planning', '2H. Planning Levers', '2I. Tax-Loss Harvesting',
+            '2G. Estate & Legacy Planning', '2I. Tax-Loss Harvesting',
             # Optional advanced planning modules (toggle-gated; present only when enabled).
             '2J. Education Funding', '2K. Equity Compensation', '2L. Special-Needs Planning',
             '2M. Business Succession',
+            # Protection coverage-adequacy decisions (toggle-gated; present only when enabled).
+            '3D. Existing Life Insurance', '3E. Disability Income', '3F. P&C Umbrella',
         ],
     },
     {
@@ -194,8 +196,6 @@ WORKBOOK_SECTION_LAYOUT = [
         'description': 'Monte Carlo, survivor, and protection stress tests.',
         'sheets': [
             '3A. Monte Carlo', '3B. Survivor', '3C. LTC + Life Insurance',
-            # Optional protection modules (toggle-gated; present only when enabled).
-            '3D. Existing Life Insurance', '3E. Disability Income', '3F. P&C Umbrella',
         ],
     },
     {
@@ -203,7 +203,7 @@ WORKBOOK_SECTION_LAYOUT = [
         'code': '4',
         'description': 'Plan data snapshot, assumptions, reconciliation, quality control, RMD audit, methodology, and glossary.',
         'sheets': [
-            '4A. Plan Data', '4B. Assumptions', '4C. Account Reconciliation',
+            '4A. Plan Data', '4B. Assumptions', '2H. Planning Levers', '4C. Account Reconciliation',
             '4D. Quality Control', '4E. RMD Audit', '4F. Methodology', '4G. Glossary',
         ],
     },
@@ -240,14 +240,14 @@ V5_LAYOUT = [
     ('24. Asset Location', '2'),
     ('25. Account Reconciliation', '4'),
     ('26. Workbook Warnings', 'H'),
-    ('27. Planning Levers', '2'),
+    ('27. Planning Levers', '4'),
     ('28. Core Spending', '1'),
     ('29. Spending Summary', '1'),
     # Optional advanced planning modules (report-only; pruned when their toggle is off).
     ('30. Education Funding', '2'),
-    ('31. Existing Life Insurance', '3'),
-    ('32. Disability Income', '3'),
-    ('33. P&C Umbrella', '3'),
+    ('31. Existing Life Insurance', '2'),
+    ('32. Disability Income', '2'),
+    ('33. P&C Umbrella', '2'),
     ('34. Business Succession', '2'),
     ('35. Equity Compensation', '2'),
     ('36. Special-Needs Planning', '2'),
@@ -361,6 +361,57 @@ def effective_enabled_modules(c):
             if dep in OPTIONAL_MODULE_SHEETS and not _force_disabled(dep):
                 auto.add(dep)
     return enabled | auto
+
+
+def module_status(c):
+    """Per-module gating status for the Optional Modules settings UI.
+
+    Returns ``{key: {"enabled": bool, "auto_enabled": bool, "required_by": [str, ...]}}``
+    for every key in :data:`OPTIONAL_MODULE_SHEETS`. This is UI-facing: a settings
+    page can show a toggle that reads OFF in ``client_optional_functions.csv`` but
+    is still building because Phase-2 prerequisite auto-selection (see
+    :func:`effective_enabled_modules`) pulled it in as a dependency of some other
+    directly-enabled module — this function is how the UI explains "why is this on
+    when I turned it off?" instead of leaving that invisible.
+
+      * ``enabled`` — the final build-time state (delegates to :func:`module_enabled`,
+        so precedence/env-override logic lives in exactly one place).
+      * ``auto_enabled`` — True only when the module is on *solely* because it's a
+        prerequisite of something else, i.e. its own toggle is not directly on.
+      * ``required_by`` — the directly-enabled optional module key(s) whose
+        prerequisite chain (per ``module_catalog.prerequisite_outputs``) includes
+        this key. Empty when the catalog is unavailable or nothing depends on it.
+    """
+    eff = effective_enabled_modules(c)
+    try:
+        from ..module_catalog import prerequisite_outputs
+    except Exception:
+        prerequisite_outputs = None
+
+    direct = {k for k in OPTIONAL_MODULE_SHEETS if _base_enabled(c, k)}
+
+    # Reverse lookup: for each directly-enabled module, find which of its
+    # prerequisite outputs is `key`.
+    required_by_map: dict = {k: [] for k in OPTIONAL_MODULE_SHEETS}
+    if prerequisite_outputs is not None:
+        for enabled_key in direct:
+            try:
+                deps = prerequisite_outputs(enabled_key)
+            except Exception:
+                continue
+            for dep in deps:
+                if dep in required_by_map:
+                    required_by_map[dep].append(enabled_key)
+
+    status = {}
+    for key in OPTIONAL_MODULE_SHEETS:
+        auto = (key in eff) and (key not in direct)
+        status[key] = {
+            "enabled": module_enabled(c, key),
+            "auto_enabled": bool(auto),
+            "required_by": required_by_map.get(key, []),
+        }
+    return status
 
 
 def module_enabled(c, key):
