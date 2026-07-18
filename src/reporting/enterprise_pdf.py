@@ -12,7 +12,9 @@ the way a hand-maintained subset inevitably would.
 
 Layout strategy
 ----------------
-- Landscape letter pages, minimal (~0.22") margins on every side.
+- Landscape letter pages, 0.32" margins on every side (outside the ~0.17"-0.25"
+  non-printable border enforced by common printers), with a reserved footer
+  strip below the content frame.
 - Sheets with more columns than comfortably fit on one page are split into
   repeating "column bands": each band repeats the sheet's first couple of
   identifier columns (e.g. Year) plus a readable slice of the remaining
@@ -57,9 +59,17 @@ from reportlab.platypus.flowables import HRFlowable
 
 
 PAGE_W, PAGE_H = landscape(letter)
-MARGIN = 0.22 * inch
+# Consumer and office printers enforce a non-printable border of roughly
+# 0.17"-0.25" on each edge. Anything laid out inside that band displays fine on
+# screen and clips when physically printed, so keep every drawn element outside
+# it. The footer gets its own reserved strip below the content frame: its
+# baseline sits at MARGIN (safely printable) and the content frame stops
+# FOOTER_STRIP above the page edge so body content cannot collide with it.
+MARGIN = 0.32 * inch
+FOOTER_STRIP = 0.16 * inch
+BOTTOM_MARGIN = MARGIN + FOOTER_STRIP
 CONTENT_W = PAGE_W - 2 * MARGIN
-CONTENT_H = PAGE_H - 2 * MARGIN
+CONTENT_H = PAGE_H - MARGIN - BOTTOM_MARGIN
 
 # How many columns a single page can hold at a readable font size, and how
 # many of a sheet's leading columns (typically Year, and sometimes an age or
@@ -360,8 +370,8 @@ class _NumberedCanvas(Canvas):
         self.saveState()
         self.setFont('Helvetica', 7)
         self.setFillColor(colors.HexColor('#595959'))
-        self.drawString(MARGIN, 0.14 * inch, 'Retirement Plan — Confidential')
-        self.drawRightString(PAGE_W - MARGIN, 0.14 * inch, f"Page {self._pageNumber} of {total}")
+        self.drawString(MARGIN, MARGIN, 'Retirement Plan — Confidential')
+        self.drawRightString(PAGE_W - MARGIN, MARGIN, f"Page {self._pageNumber} of {total}")
         self.restoreState()
 
 
@@ -381,7 +391,7 @@ def build_enterprise_pdf(wb, c, rows, mc_data, out_path='output/retirement_plan.
     doc = _PlanDocTemplate(
         out_path,
         pagesize=landscape(letter),
-        leftMargin=MARGIN, rightMargin=MARGIN, topMargin=MARGIN, bottomMargin=MARGIN,
+        leftMargin=MARGIN, rightMargin=MARGIN, topMargin=MARGIN, bottomMargin=BOTTOM_MARGIN,
         title='Retirement Plan', author='Retirement Plan System',
     )
     frame = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id='F1')
