@@ -8,6 +8,11 @@ recorded inline and in the Appendix.
 Every claim below cites a file and, where the reviewer read it, a line number. Line numbers reflect the
 tree at review time (branch `main`, tip `2cb59c6`); re-verify before editing.
 
+**Planner sign-off pass: complete.** The panel's financial-planning expert has reviewed the assembled
+document and signed off. Ten corrections were applied — three of them resequencing items between waves —
+and are recorded in Section 8, with one noted disagreement carried into Section 7.3. The wave tables and
+the Wave summary reflect the post-sign-off state.
+
 **How to read it:** Section 2 preserves every option each expert considered, including the ones I did not
 recommend. If you disagree with a recommendation, the alternative and its tradeoff are sitting next to it.
 Section 4 is the single plan I am proposing; Section 6 is how to execute it.
@@ -843,6 +848,12 @@ confusion; Option 3 leaves a wrong default reachable.
 contradict advice already given to the live client. Requires golden-master regeneration and a
 `GOLDEN_MASTER_CHANGELOG.md` entry.
 
+**Roth conversions cannot be undone.** Recharacterization of a conversion was eliminated by TCJA and that
+repeal is permanent. Any conversion already executed for the current tax year is fixed; the only remaining
+lever is reducing or halting the balance of the year's planned conversions. Determine what has already been
+executed before 2.1 lands, so the corrected schedule is applied to the remainder of the year rather than
+presented as a retroactive error.
+
 *Depends on:* P9 (estate-tax penalty scoping) — do them together so the terminal metric is coherent.
 
 #### P2. RMD start age is a static 75, never derived from DOB — **critical / S**
@@ -1249,6 +1260,10 @@ Two smaller unlocks worth naming:
   event log that reports `completed` for stages that never ran.
 - **A8 Option 1 (explicit imports) gates A8 Option 2 (splitting the hub) and A9 (moving `module_status`).**
   With F403 suppressed across twelve modules, no tool can currently tell you what depends on what.
+- **P12 is a prerequisite for P6 producing correct guidance in the first two plan years.** The IRMAA
+  guardrail (P6 / item 2.3) operates on plan years 1-2 using a retirement AGI that understates the MAGI the
+  surcharge is actually assessed on. Seeding the historical MAGI lookback (P12's first half, item 2.6) has
+  therefore been pulled forward into Wave 2 to run alongside 2.3 rather than trailing it in Wave 4.
 
 ---
 
@@ -1263,10 +1278,26 @@ subtractive, purely additive, or a one-line copy fix. Nothing depends on anythin
 concurrently. This wave also lands the golden-master restructure (Q6) and the `person_labels` unit tests
 (Q5) that Wave 2 depends on.
 
+Two honesty items were pulled into this wave from Wave 4 on the planner's sign-off, because both refuse to
+produce a wrong number rather than changing a right one. **1.11** makes the silent Illinois fallback a
+preflight error: a New Jersey or Minnesota client today is silently priced at Illinois' 4.95% flat rate with
+a retirement-income exemption those states do not grant, across all 25 sheets, with no warning anywhere.
+Waiting three waves to stop that is the wrong sequencing. The State Residency optimizer sheet must be
+suppressed or caveated for unmodeled states as part of the same item — it invites precisely the cross-state
+comparison the data cannot support. **1.12** labels the workbook blocks that recommend and quantify
+strategies the projection does not model.
+
 **Wave 2 — Financial correctness.** P1+P9 together (coherent terminal metric), P2 (RMD age from DOB), P6
-(IRMAA by filing status), P7 (spousal SS gating). These are the defects that produce numbers an advisor
-could not defend. They run in parallel once Wave 1's gate exists; each lands with a regenerated synthetic
-baseline and a changelog entry.
+(IRMAA by filing status), P7 (spousal SS gating), and P12's historical-MAGI seed (2.6), which was moved
+forward from Wave 4 because P6's guardrail cannot give correct guidance in plan years 1-2 without it. These
+are the defects that produce numbers an advisor could not defend. They run in parallel once Wave 1's gate
+exists; each lands with a regenerated synthetic baseline and a changelog entry.
+
+**One bound on the claim.** Post-2.1 conversion recommendations remain bounded by the flat heir-rate
+assumption until 4.3. 2.1 fixes only the taxable leg of the terminal metric; the pre-tax leg keeps a flat
+24% heir rate in two independent fields. Until 4.3 lands, the Roth sheet must print both
+`roth_heir_ordinary_tax_rate_assumption` and `roth_optimize_terminal_tax_rate` with their values, and label
+conversion output as sensitive to them.
 
 **Wave 3 — Structural debt and user-facing improvements.** Restore the Detailed Results navigator (U1), the
 multi-column form grid (U2), the help-pane collapse (U3), the spending accordion (U4), the
@@ -1275,9 +1306,10 @@ A8's explicit imports and A9's module move; A7's backfill extraction; A13's help
 exception narrowing; the Q1/Q2/Q3 test restructuring.
 
 **Wave 4 — New planning capability.** P3 (QCD), P4 (DAF deduction), P5 (heir 10-year rate, then module),
-P8 (beneficiary/titling capture and audit sheet), P10 (state fallback), P11 (gifting), P12 (IRMAA
-lookback + SSA-44), P13 (MC required-cut reporting). These are genuine feature builds and should be
-prioritized by the practice's actual client mix.
+P8 (beneficiary/titling capture and audit sheet), P10's table work (CA/NY bracket inflation and expansion —
+the fail-loudly guard moved to 1.11), P11 (gifting), P12's SSA-44 flag (the historical-MAGI seed moved to
+2.6), P13 (MC required-cut reporting). These are genuine feature builds and should be prioritized by the
+practice's actual client mix.
 
 ### What I am deliberately not doing, and why
 
@@ -1331,10 +1363,16 @@ text in ways that defeat extraction; the structural check catches the failure mo
 ### 5.2 Screen layouts
 
 **Guided steps (U2).** `.field-list` becomes
-`display:grid; grid-template-columns:repeat(auto-fit,minmax(360px,1fr)); gap:...`, with a max column width
-so inputs are not stretched on ultrawide monitors. `.field`'s internal label/input grid is unchanged. Two
-columns at the 700px minimum content width, three when the help pane is collapsed on a wide monitor.
-Expected effect: a 29-field Social Security step drops from ~29 rows to ~10-15.
+`display:grid; grid-template-columns:repeat(auto-fit,minmax(360px,1fr)); gap:...`, with an explicit
+`max-width` so inputs are not stretched on ultrawide monitors. `.field`'s internal label/input grid is
+unchanged. Expected effect: a 29-field Social Security step drops from ~29 rows to ~15-17.
+
+**Cap the grid at two columns, and exclude the high-risk fields.** Whitespace in a data-entry form is not
+pure waste. For a non-expert entering PIA figures, cost basis and claim ages, multi-column entry raises both
+mis-entry risk and the risk of mispairing a label with the value beside it. So: no more than two tracks
+(`auto-fit` is bounded, never three columns however wide the viewport), and currency inputs, date inputs and
+any field with a dependency relationship to another field are excluded from multi-column flow and render
+full-width in visual order.
 
 **Help pane (U3).** Add `body.help-collapsed main{grid-template-columns:310px 1fr}` and make `.help-toggle`
 active on desktop, mirroring the existing mobile `help-open` pattern. Persist the choice in localStorage so
@@ -1382,16 +1420,31 @@ Also: rename `test_161_phase2_live_workflow_journeys.py` to reflect that it test
 
 ### 5.5 New planning capabilities and what they must compute
 
-**P1+P9 — coherent terminal metric.** `estimate_terminal_taxable_deferred_cap_gain_tax` zeros the deferred
-gain when `basis_step_up_at_death` is true and the terminal year is a death year, scaled by
-`_basis_step_fraction_for_death` so community-property vs. common-law still matters. `estate_tax_penalty`
+**P1+P9 — coherent terminal metric.** "The terminal year is a death year" is not general enough to
+implement against: plans commonly run to a fixed horizon (95 or 100) that may precede assumed death, or end
+with one spouse still living. `estimate_terminal_taxable_deferred_cap_gain_tax` must therefore branch on all
+three cases:
+
+- **(a) The terminal year is the second death.** Full step-up — zero the deferred gain when
+  `basis_step_up_at_death` is true, scaled by `_basis_step_fraction_for_death` so community-property vs.
+  common-law still matters.
+- **(b) The terminal year precedes death, or one member survives it.** Step up the decedent's share only;
+  retain the deferred gain on the survivor's share.
+- **(c) The horizon ends with both members alive.** Retain the deferred gain in full and label it as
+  retained.
+
+The applicable case and the resulting assumed basis must be printed on the terminal/inheritance sheet, so a
+reader can see which of the three the number rests on. `estate_tax_penalty`
 is evaluated at the death rows via `estimate_terminal_estate_tax` and present-valued with
 `roth_tax_discount_rate` to match the already-discounted `lifetime_tax` term; the old max-across-rows figure
 survives as a reported `peak_estate_tax_exposure` metric only.
 
-**P2 — statutory RMD age.** `statutory_rmd_start_age(dob_year)` → 72 / 73 (1951-1959) / 75 (1960+), used as
-the default in `data_io.py:852-853`. The explicit field remains an override; a preflight warning fires when
-it disagrees with the member's birth year. `conversion_window_end_year` (`planning_engines.py:850`) follows
+**P2 — statutory RMD age.** `statutory_rmd_start_age(dob_year)` → 72 (born ≤1950) / 73 (1951-1959) /
+75 (1960+), adopting the IRS position treating the 1959 cohort as age 73; record this as a documented
+assumption with a citable comment, since the statutory text is ambiguous for that year — SECURE 2.0 §107
+contains a drafting conflict that can be read to assign the 1959 cohort both 73 and 75. Used as the default
+in `data_io.py:852-853`. The explicit field remains an override; a preflight warning fires when it disagrees
+with the member's birth year. `conversion_window_end_year` (`planning_engines.py:850`) follows
 automatically.
 
 **P6 — IRMAA guardrail by filing status.** Resolve the target threshold from
@@ -1450,10 +1503,12 @@ Effort: S ≤ half day · M ≈ 1-3 days · L ≈ 1-2 weeks · XL > 2 weeks.
 | 1.4 | Fix `CLAUDE.md:156` line count; fix D1 `&amp;` literals; fix D6 nav capitalization | — | S | None | Rendered help panels show `&`; nav reads "Roth Conversion" | Yes | **haiku** | Three one-line text edits |
 | 1.5 | Rewrite Executive Summary / Glossary copy (D2) | — | S | None | Sheet 1 Release Notes and Sheet 22 SALT entry contain no source filenames or vendor names | Yes | **sonnet** | Requires writing client-facing prose |
 | 1.6 | PDF margin 0.22" → 0.32" (D5) | — | S | Low | Build a PDF; confirm band boundaries still sane; print one page | Yes | **haiku** | One constant |
-| 1.7 | **Golden-master restructure (Q6)** — promote the 5-scenario synthetic fixture to the mandatory gate; demote `test_2` pins to structural + warn-only diff | — | M | **Medium** | Synthetic gate fails on a deliberately injected engine change; a plan-data-only edit no longer fails CI | Yes | **opus** | Changes the release gate; needs judgement on what still blocks |
+| 1.7 | **Golden-master restructure (Q6)** — promote the 5-scenario synthetic fixture to the mandatory gate; freeze a copy of the current sample plan as `tests/fixtures/sample_plan_frozen/` and keep `test_2`'s dollar-exact assertions **mandatory against the frozen copy**; warn-only applies to the live `input/` plan. Frozen-fixture refreshes follow the same `GOLDEN_MASTER_CHANGELOG.md` discipline as the synthetic scenarios | — | M | **Medium** | Synthetic gate fails on a deliberately injected engine change; a live-`input/` plan-data edit no longer fails CI; a mutation of the frozen fixture still fails dollar-exact | Yes | **opus** | Changes the release gate; needs judgement on what still blocks |
 | 1.8 | Add `tests/test_person_labels.py` (Q5) | — | S | None | New tests pass against nicknamed / default / single-filer configs | Yes | **sonnet** | Needs real edge cases chosen, not boilerplate |
 | 1.9 | Narrow `except Exception` → `except ImportError` in 57 dual-import blocks (A11 Opt 2) | — | M | Low | Suite green; a deliberately broken import now raises instead of returning `{}` | Yes | **haiku** | Mechanical sweep, single pattern |
 | 1.10 | Rename `test_161_phase2_live_workflow_journeys.py` to reflect route-plumbing scope (Q2 Opt 3) | — | S | None | File name and docstring match what it asserts | Yes | **haiku** | Rename + docstring |
+| 1.11 | **P10 first half — preflight error on unrecognized states** (moved from 4.6): replace the silent Illinois fallback at `core.py:746` with a preflight error naming the supported set; suppress or caveat the State Residency optimizer sheet for unmodeled states | — | S | Low | An unrecognized state raises a preflight error naming the eleven supported states; the residency sheet refuses to compare unmodeled states; saved plans and fixtures inventoried for unrecognized state strings first | Yes | **sonnet** | Changes no number, only refuses to produce a wrong one — but the saved-plan inventory needs judgement |
+| 1.12 | Label the workbook's unmodeled strategy blocks as illustrative — `sheets_strategy.py:17` (QCDs), `:457,549-550` (DAF-bunching tax saving computed outside the projection) — as explicitly not reflected in the projection, net worth or Monte Carlo results; same treatment for any other figure computed outside the engine | — | S | None | Each affected block carries the caveat; a reader cannot mistake an out-of-engine figure for projection output | Yes | **haiku** | Additive caveat text on identified blocks |
 
 **Do not run the test suite to verify Wave 1.** Project memory: some tests overwrite `input/client_data.*`.
 Check `git status` on `input/` after any run, and prefer import-graph inspection for 1.1-1.3.
@@ -1462,18 +1517,19 @@ Check `git status` on `input/` after any run, and prefer import-graph inspection
 
 | # | Item | Prereq | Effort | Risk | Verification | Parallel | Model | Why that model |
 |---|---|---|---|---|---|---|---|---|
-| 2.1 | **P1 + P9 together** — step-up in terminal metric; estate penalty at death rows, present-valued; retain `peak_estate_tax_exposure` | 1.7 | M | **High** | Synthetic baselines regenerated with `RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS=1`; recommended conversion amounts fall; `GOLDEN_MASTER_CHANGELOG.md` entry | Yes | **opus** | Cross-cutting objective change with tax-law judgement |
-| 2.2 | P2 — `statutory_rmd_start_age(dob_year)` as default + disagreement warning | 1.7 | S | **High** | RMD ramp starts at 73 for a 1955-born test member; conversion window end moves with it; preflight warns on override | Yes | **sonnet** | Scoped, statute is unambiguous |
+| 2.1 | **P1 + P9 together** — step-up in terminal metric across all three terminal cases (§5.5); estate penalty at death rows, present-valued; retain `peak_estate_tax_exposure`. **Named deliverable:** a before/after conversion-schedule comparison for the live plan under both terminal metrics, produced before merging. **Sub-task (S):** print `roth_heir_ordinary_tax_rate_assumption` and `roth_optimize_terminal_tax_rate` with their values on the Roth sheet and label conversion output as sensitive to them, until 4.3 lands | 1.7 | M | **High** | Synthetic baselines regenerated with `RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS=1`; conversion amounts move in the expected direction for the reference case — any synthetic scenario where they do not is investigated and the reason documented in `GOLDEN_MASTER_CHANGELOG.md` (directional movement is a diagnostic, not a pass condition, since conversions may legitimately be flat or up where the ACA/IRMAA guardrails bind or pre-tax dominates); before/after live-plan comparison attached; `GOLDEN_MASTER_CHANGELOG.md` entry | Yes | **opus** | Cross-cutting objective change with tax-law judgement |
+| 2.2 | P2 — `statutory_rmd_start_age(dob_year)` as default + disagreement warning | 1.7 | S | **High** | RMD ramp starts at 73 for a 1955-born test member; conversion window end moves with it; preflight warns on override; the 1959-cohort position is recorded as a citable in-code comment | Yes | **sonnet** | Scoped, but requires recording a stated position on the 1959 cohort |
 | 2.3 | P6 — IRMAA guardrail resolves threshold by filing status | 1.7 | S | Medium | Survivor-year conversions no longer cross the Single-filer tier; MFJ years unchanged | Yes | **sonnet** | One-line lookup with a clear reference implementation at `deterministic_engine.py:354-360` |
 | 2.4 | P7 — gate spousal top-up on the worker spouse's claim year | 1.7 | M | **High** | A 62/70 split-claiming fixture shows the lower earner's own reduced benefit until year of the worker's filing, then the step-up | Yes | **opus** | Requires restructuring a hot year loop; SS rules are subtle |
 | 2.5 | D3 — update QC note + Glossary RMD wording | **2.2** | S | None | Both sheets consistent with the engine's now-cohort-aware behaviour | No (blocked) | **haiku** | Two sentences, after the fact is established |
+| 2.6 | **P12 first half — historical-MAGI seed** (moved from 4.5): capture two historical MAGI inputs to seed the `irmaa_lookback_magi` window at `core.py:738-742`, so plan years 1-2 are assessed on actual prior-year MAGI rather than retirement AGI. Prerequisite for 2.3 giving correct guidance in those years | 1.7 | S | Medium | First two plan years show the surcharge implied by actual prior MAGI, not retirement AGI; 2.3's guardrail evaluated against the seeded values; sensible default + preflight prompt for saved plans lacking the inputs | Yes (parallel with 2.3) | **sonnet** | Two inputs feeding an existing lookback |
 
 ### Wave 3 — Structural debt and UX
 
 | # | Item | Prereq | Effort | Risk | Verification | Parallel | Model | Why that model |
 |---|---|---|---|---|---|---|---|---|
 | 3.1 | U1 — reinstate `renderDetailedResultsNav()` call site | — | S | Low | Tree renders in Results Explorer; localStorage open/closed persists across reloads | Yes | **haiku** | Restore one call; feature already built |
-| 3.2 | U2 — `.field-list` auto-fit grid | — | M | Low | Social Security step renders 2-3 columns at 1440px; no input squeezed below usable width at 1180px | Yes | **sonnet** | CSS with responsive judgement calls |
+| 3.2 | U2 — `.field-list` auto-fit grid, capped at two tracks; currency/date inputs and dependency-linked fields excluded from multi-column flow | — | M | Low | Social Security step renders at most 2 columns at any width; no input squeezed below usable width at 1180px; tab order follows visual order; no numeric input renders detached from its label at any breakpoint between 1180px and 2560px | Yes | **sonnet** | CSS with responsive judgement calls and a data-entry-risk constraint |
 | 3.3 | U3 — desktop help-pane collapse + grid widen + persistence | — | S | Low | Toggle collapses and widens `main`; preference survives step navigation | Yes | **sonnet** | Small JS + CSS + storage |
 | 3.4 | U4 — spending accordion Sets + collapse-all | — | S | Low | Two Types stay open simultaneously; no group silently vanishes | Yes | **haiku** | Scalars → Set, mechanical |
 | 3.5 | U5 — "Expand all columns" toolbar control | — | S | None | One click reveals all years on a 30-year sheet | Yes | **haiku** | One button, existing toggle function |
@@ -1498,8 +1554,8 @@ Check `git status` on `input/` after any run, and prefer import-graph inspection
 | 4.2 | P4 — DAF into the itemized stack with AGI limits + carryforward | — | M | **High** | A bunching-year fixture flips to itemized; carryforward consumes in later years; grant years add no new charity | Yes | **opus** | Tax-limitation logic with multi-year state |
 | 4.3 | P5 phase 1 — effective 10-year heir rate replacing both flat 24% fields | 2.1 | M | Medium | Heir rate varies with terminal pre-tax balance and assumed bracket; objective shifts accordingly | Yes | **opus** | Requires designing the derivation |
 | 4.4 | P13 phase 1 — required-cut distribution on failing MC paths | — | M | Low | Report shows median and worst-decile required cut; success rate unchanged | Yes | **sonnet** | Additive post-processing, no policy change |
-| 4.5 | P12 — historical MAGI inputs + SSA-44 flag | — | S | Medium | First two plan years show the surcharge from actual prior MAGI; SSA-44 flag suppresses it from the stated year | Yes | **sonnet** | Two inputs and a branch |
-| 4.6 | P10 Opt 2 — fail loudly on unlisted states; inflate CA/NY brackets with `brk_inf` | — | M | Medium | An unrecognized state raises a preflight error naming the supported set; 30-year CA state tax no longer drifts upward | Yes | **sonnet** | Scoped, but inventory saved plans and fixtures first |
+| 4.5 | P12 second half — per-member "work stoppage — SSA-44 filed" flag suppressing the surcharge from a stated year (the historical-MAGI seed moved to 2.6) | 2.6 | S | Medium | SSA-44 flag suppresses the surcharge from the stated year; output caveats the appeal as an outcome that is *granted*, not guaranteed | Yes | **sonnet** | One input and a branch |
+| 4.6 | P10 second half — inflate CA/NY brackets with `brk_inf`; expand the state table via `reference_data/state_tax.csv` as the client mix justifies (the fail-loudly preflight moved to 1.11) | 1.11 | M | Medium | 30-year CA state tax no longer drifts upward relative to federal; any newly added state exits 1.11's unmodeled set | Yes | **sonnet** | Table work with an annual-maintenance tail |
 | 4.7 | P8 — beneficiary/titling capture + audit sheet; titling drives per-account step-up | — | L | Medium | Audit sheet flags each seeded failure case; per-account step-up fraction replaces the household regime | Yes | **opus** | Schema, UI, reporting and engine together |
 | 4.8 | P11 — gifting schedule with lifetime-exemption tracking and carryover basis | 2.1 | L | **High** | Gifted dollars leave the funding account and the estate base; exemption use accumulates; gifted appreciated assets carry over basis rather than stepping up | Yes | **opus** | New balance-mutating path outside the withdrawal cascade |
 | 4.9 | P5 phase 2 — per-beneficiary 10-year drawdown module | 4.3, 4.7 | L | Medium | Per-beneficiary after-tax inheritance reported; intra-10-year RMDs applied where the decedent reached RBD | No | **opus** | Full new module |
@@ -1507,10 +1563,15 @@ Check `git status` on `input/` after any run, and prefer import-graph inspection
 
 ### Wave summary
 
-- **Wave 1** — 10 items, all parallel. Mostly haiku/sonnet; **1.7 is opus** and is the gate for Wave 2.
-- **Wave 2** — 4 parallel items (2.1-2.4) + 1 blocked (2.5). Two opus, two sonnet, one haiku.
-- **Wave 3** — 15 parallel items + 2 blocked (3.11 after 3.10, 3.8 after 3.7, 3.15 after 3.14). Mixed.
-- **Wave 4** — 8 parallel + 2 blocked. Mostly opus; these are design-heavy domain builds.
+- **Wave 1** — 12 items, all parallel. Mostly haiku/sonnet; **1.7 is opus** and is the gate for Wave 2.
+  1.11 and 1.12 arrived from Wave 4 on the planner's sign-off: both are honesty items that refuse to emit a
+  wrong number rather than changing a right one, so neither needs the gate.
+- **Wave 2** — 5 parallel items (2.1-2.4, 2.6) + 1 blocked (2.5). Two opus, three sonnet, one haiku.
+  2.6 arrived from Wave 4 because 2.3 cannot give correct plan-year-1-2 guidance without it.
+- **Wave 3** — 14 parallel items + 3 blocked (3.8 after 3.7, 3.11 after 3.10, 3.15 after 3.14). Mixed.
+- **Wave 4** — 10 items: 8 parallel + 2 blocked (4.9 after 4.3/4.7, 4.10 after 4.4). Item count is
+  unchanged despite the two moves out, because 4.5 and 4.6 each split rather than departing whole. Mostly
+  opus; these are design-heavy domain builds.
 
 ---
 
@@ -1560,9 +1621,11 @@ a display label. It is a candidate for either wiring up or deleting, but it is n
 
 ### 7.3 Open questions for you to decide
 
-1. **P1 changes advice already given.** Applying step-up in the terminal metric will reduce recommended Roth
-   conversions for the live client. Has conversion advice already been acted on for the current tax year,
-   and does the corrected recommendation need to be communicated?
+1. **~~P1 changes advice already given.~~ Closed on planner sign-off — promoted to a Wave 2 deliverable.**
+   This was posed here as a question; it is a plan. It is now a named deliverable of item 2.1 (a before/after
+   conversion-schedule comparison for the live plan under both terminal metrics, produced before merging),
+   with the irreversibility constraint stated in §2.5 P1: conversions already executed for the current tax
+   year cannot be recharacterized, so the only live lever is the remainder of the year's planned conversions.
 2. **P2 changes the live plan's RMD age from 75 to 73** if either member was born 1951-1959. Confirm the
    members' birth years before running; if both are 1960+, this is a correctness fix with no effect on the
    current client.
@@ -1584,3 +1647,77 @@ a display label. It is a candidate for either wiring up or deleting, but it is n
    reasonably trust (`CLAUDE.md:156`, the Executive Summary's `tax_data.py` reference, the QC sheet's RMD
    cohort caveat). Is there a checkpoint where docs are re-verified against code after a consolidation, or
    should one be added to the maintenance runbook?
+9. **Noted disagreement (planner sign-off): is 1.11 "purely additive"?** *Planner's position:* the
+   fail-loudly guard on unrecognized states belongs in Wave 1 with no prerequisite, because it changes no
+   number — it only refuses to produce a wrong one — and shipping a silent Illinois rate to a New Jersey
+   client for three more waves is indefensible. *My position:* the sequencing is right and I have moved the
+   item, but "purely additive" understates it. Turning a fallback into a hard preflight error is a behaviour
+   change for any saved plan or fixture carrying an unrecognized state string — those plans stop running
+   rather than running wrong, which is better but is not nothing, and it is why §2.5 P10 already flags
+   "inventory those first." I have therefore kept 1.11 at **sonnet** rather than haiku and written the
+   saved-plan/fixture inventory into its verification column. If the inventory turns up live plans in
+   unmodeled states, 1.11 needs a migration path (a caveated soft-fail for existing plans, hard error for new
+   ones) before it can ship as a same-day item. **Decide:** should 1.11 hard-fail existing saved plans, or
+   warn on load and hard-fail only on new plan creation?
+
+---
+
+## 8. Planner sign-off
+
+The panel's financial-planning expert has reviewed the assembled document and signed off. The verdict: the
+review is **fundamentally sound** — the findings hold up against the tax law, the severity ordering is
+right, and the four-wave shape is the right shape. The corrections below are at the margins, with three
+exceptions that are genuine sequencing errors: two honesty items and one correctness prerequisite were
+scheduled three waves later than the risk they address justifies.
+
+What changed as a result:
+
+1. **P1 live-client handling promoted from question to deliverable.** §7.3 item 1 closed; 2.1 now carries a
+   named before/after conversion-schedule comparison for the live plan, and §2.5 P1 states that Roth
+   conversions are irreversible — TCJA eliminated recharacterization permanently, so only the unexecuted
+   remainder of the current year's conversions is still a lever.
+2. **P10's fail-loudly guard resequenced into Wave 1 as item 1.11.** *(Sequencing error.)* A New Jersey or
+   Minnesota client today gets Illinois' 4.95% flat rate plus a retirement-income exemption those states do
+   not grant, on all 25 sheets, silently. 4.6 retains CA/NY bracket inflation and table expansion; the State
+   Residency optimizer sheet must be suppressed or caveated for unmodeled states as part of 1.11.
+3. **P12's historical-MAGI seed resequenced into Wave 2 as item 2.6.** *(Sequencing error.)* P12 is a
+   wrong-number defect of the same class as P6, and it corrupts Wave 2's own work: the IRMAA guardrail (2.3)
+   operates on plan years 1-2 using a retirement AGI that understates actual MAGI. Recorded in §3.3; the
+   SSA-44 flag stays in Wave 4 as 4.5.
+4. **New Wave 1 item 1.12 — label unmodeled strategy blocks.** *(Sequencing error.)* `sheets_strategy.py:17`
+   (QCDs) and `:457,549-550` (DAF-bunching tax saving computed outside the projection) recommend and
+   quantify strategies the projection does not model, on a client-facing sheet indistinguishable from
+   projection output. Now labelled illustrative and explicitly not reflected in the projection, net worth or
+   Monte Carlo, along with any other out-of-engine figure.
+5. **1959 RMD cohort recorded as a stated position, not a settled fact.** SECURE 2.0 §107 can be read to
+   assign the 1959 cohort both 73 and 75. §5.5 now adopts the IRS position (73) as a documented assumption
+   with a citable comment; 2.2's rationale changed from "statute is unambiguous" to "requires recording a
+   stated position on the 1959 cohort."
+6. **1.7 no longer removes the only detector of live-plan data corruption.** Dollar-exact assertions stay
+   **mandatory** against a new frozen copy of the sample plan (`tests/fixtures/sample_plan_frozen/`);
+   warn-only applies solely to the live `input/` plan. Frozen-fixture refreshes join the synthetic scenarios
+   under the same changelog discipline. This matters in a codebase whose project memory records that some
+   tests overwrite `input/client_data.*`.
+7. **The terminal step-up is specified for all three cases.** "Terminal year is a death year" was
+   underspecified: plans commonly run to a fixed horizon that precedes assumed death, or end with one spouse
+   living. §5.5 now branches on second death (full step-up), terminal-before-death or one survivor
+   (decedent's share only), and both-alive horizon (retain and label the deferred gain) — with the
+   applicable case and resulting assumed basis printed on the terminal/inheritance sheet.
+8. **2.1's verification no longer uses a directional outcome as a pass criterion.** Where the ACA/IRMAA
+   guardrails bind or pre-tax dominates, conversions may legitimately be flat or up, so "conversions fall"
+   would mark a correct result as broken. Restated: movement in the expected direction for the reference
+   case is a diagnostic; any scenario that departs from it is investigated and documented, not failed.
+9. **Wave 2's "defensible numbers" claim bounded until 4.3.** 2.1 fixes only the taxable leg; the pre-tax leg
+   keeps a flat 24% heir rate in two independent fields. §4 now states the bound, and 2.1 gains an S
+   sub-task to print `roth_heir_ordinary_tax_rate_assumption` and `roth_optimize_terminal_tax_rate` with
+   their values and label conversion output as sensitive to them.
+10. **U2's multi-column grid capped at two tracks.** Whitespace in a data-entry form is not pure waste: for a
+    non-expert entering PIA figures, basis and claim ages, multi-column entry raises mis-entry and
+    label/value mispairing risk. Currency inputs, date inputs and dependency-linked fields are excluded from
+    multi-column flow; 3.2's verification now requires tab order to follow visual order and no numeric input
+    to render detached from its label between 1180px and 2560px.
+
+One point was applied with a **noted disagreement**, recorded as §7.3 item 9: the planner characterizes 1.11
+as purely additive, and I hold that turning a silent fallback into a hard preflight error is a behaviour
+change for saved plans carrying an unrecognized state string. The item moved to Wave 1 either way; the open
+decision is whether it hard-fails existing plans or only new ones.
