@@ -16,7 +16,7 @@ from typing import Any
 
 try:  # package import
     from . import ytd_tracking as ytd
-except Exception:  # pragma: no cover - direct execution fallback
+except ImportError:  # pragma: no cover - direct execution fallback
     import ytd_tracking as ytd  # type: ignore
 
 HOLDINGS_COLUMNS = ["account", "symbol", "purchase_date", "shares", "purchase_price", "lot_type", "note"]

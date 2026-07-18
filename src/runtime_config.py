@@ -8,7 +8,7 @@ from typing import Dict
 
 try:
     from .system_config import DEFAULT_SYSTEM_CONFIG_CSV, load_system_config, system_setting
-except Exception:
+except ImportError:
     from src.system_config import DEFAULT_SYSTEM_CONFIG_CSV, load_system_config, system_setting
 
 LOCAL = "LOCAL"

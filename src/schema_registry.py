@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Dict, Tuple
 try:
     from .plan_data_registry import client_data_csv_files
-except Exception:  # pragma: no cover - direct execution fallback
+except ImportError:  # pragma: no cover - direct execution fallback
     from src.plan_data_registry import client_data_csv_files
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA_PATH = ROOT / 'reference_data' / 'schema.csv'

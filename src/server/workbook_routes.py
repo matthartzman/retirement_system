@@ -15,17 +15,17 @@ from .app_core import *
 from ..http_runtime.wsgi_facade import Response
 try:
     from ..schema_registry import load_schema as _load_schema_registry, validate_value as _schema_validate_value, validate_rows as _schema_validate_rows
-except Exception:
+except ImportError:
     from src.schema_registry import load_schema as _load_schema_registry, validate_value as _schema_validate_value, validate_rows as _schema_validate_rows
 
 try:
     from ..build_snapshot import SNAPSHOT_FILENAME, read_build_snapshot
-except Exception:
+except ImportError:
     from src.build_snapshot import SNAPSHOT_FILENAME, read_build_snapshot
 
 try:
     from ..server_services import build_job_service, build_runner, build_service, holdings_service, plan_data_file_service, plan_forms_service, report_service, spending_service
-except Exception:
+except ImportError:
     from src.server_services import build_job_service, build_runner, build_service, holdings_service, plan_data_file_service, plan_forms_service, report_service, spending_service
 
 
@@ -431,7 +431,7 @@ def get_workbook_format():
         return denied
     try:
         from ..reporting import workbook_format_config as _wf
-    except Exception:
+    except ImportError:
         from src.reporting import workbook_format_config as _wf
     overrides = _wf.load_overrides()
     alignments = _wf.load_alignments()
@@ -449,7 +449,7 @@ def save_workbook_format():
         return denied
     try:
         from ..reporting import workbook_format_config as _wf
-    except Exception:
+    except ImportError:
         from src.reporting import workbook_format_config as _wf
     body = request.get_json(silent=True) or {}
     overrides = body.get("overrides", body)
@@ -579,7 +579,7 @@ def preview_holdings_import():
         return denied
     try:
         from ..import_preview import preview_holdings_import as _preview_holdings_import
-    except Exception:
+    except ImportError:
         from src.import_preview import preview_holdings_import as _preview_holdings_import
     body = request.get_json(silent=True) or {}
     incoming = body.get("csv_text") or body.get("csv") or body.get("content") or ""
@@ -663,7 +663,7 @@ def run_plan_from_json():
     try:
         try:
             from ..server_forecast import forecast_from_plan_json
-        except Exception:
+        except ImportError:
             from src.server_forecast import forecast_from_plan_json
         result = forecast_from_plan_json(plan, run_mc=True)
         return jsonify(**result)

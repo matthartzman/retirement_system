@@ -6,7 +6,7 @@ try:
         client_data_csv_files,
         client_data_derived_files,
     )
-except Exception:  # pragma: no cover - direct execution fallback
+except ImportError:  # pragma: no cover - direct execution fallback
     from src.plan_data_registry import (
         CLIENT_DATA_PART_FILES,
         client_data_csv_files,

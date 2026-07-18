@@ -60,7 +60,7 @@ from typing import Any
 try:
     from .ytd_tracking import ytd_summary, annual_spending_forecast
     from .spending_tracker import ytd_core_spending_actual, ytd_actual_by_tracking_type
-except Exception:  # pragma: no cover - direct execution fallback
+except ImportError:  # pragma: no cover - direct execution fallback
     from src.ytd_tracking import ytd_summary, annual_spending_forecast
     from src.spending_tracker import ytd_core_spending_actual, ytd_actual_by_tracking_type
 

@@ -27,7 +27,7 @@ from typing import Callable, Optional
 try:
     from .. import platform_runtime
     from ..build_entry import run_build as _run_build
-except Exception:  # direct execution fallback
+except ImportError:  # direct execution fallback
     from src import platform_runtime
     from src.build_entry import run_build as _run_build
 

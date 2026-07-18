@@ -24,7 +24,7 @@ def _formula_values(workbook_path: Path, formula: str) -> list[Any]:
     try:
         from openpyxl import load_workbook
         from openpyxl.utils.cell import range_to_tuple
-    except Exception:
+    except ImportError:
         return []
     try:
         sheet_name, bounds = range_to_tuple(str(formula))
@@ -110,7 +110,7 @@ def _replace_chart_cache(etree: Any, root: Any, workbook_path: Path) -> int:
 def optimize_workbook_xml(out_path: str) -> Dict[str, object]:
     try:
         from lxml import etree  # type: ignore
-    except Exception:
+    except ImportError:
         return {"status": "skipped", "reason": "lxml_not_installed"}
 
     import os

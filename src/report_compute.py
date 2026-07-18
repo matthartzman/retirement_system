@@ -17,7 +17,7 @@ from .governance import advisor_readiness, stress_narratives, source_citations
 from .result_contract import attach_plan_result
 try:
     from .market_data import pricing_diagnostics
-except Exception:
+except ImportError:
     pricing_diagnostics = lambda: {}
 
 

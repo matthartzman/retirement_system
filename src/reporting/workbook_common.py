@@ -347,7 +347,7 @@ def effective_enabled_modules(c):
     enabled = {k for k in OPTIONAL_MODULE_SHEETS if _base_enabled(c, k)}
     try:
         from ..module_catalog import CATALOG, prerequisite_outputs
-    except Exception:
+    except ImportError:
         # Catalog unavailable → fall back to raw toggles (no auto-selection).
         return enabled
     auto = set()
@@ -385,7 +385,7 @@ def module_status(c):
     eff = effective_enabled_modules(c)
     try:
         from ..module_catalog import prerequisite_outputs
-    except Exception:
+    except ImportError:
         prerequisite_outputs = None
 
     direct = {k for k in OPTIONAL_MODULE_SHEETS if _base_enabled(c, k)}

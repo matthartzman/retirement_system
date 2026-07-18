@@ -52,7 +52,7 @@ from .roth_ui_build_guard import normalize_roth_policy, normalize_irmaa_guardrai
 from .plan_data_migration import migrate_sectioned_data
 try:
     from .system_config import load_system_config
-except Exception:  # direct execution fallback
+except ImportError:  # direct execution fallback
     load_system_config = None
 
 __all__ = [

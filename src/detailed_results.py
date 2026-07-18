@@ -7,7 +7,7 @@ from typing import Any
 
 try:
     from .results_model import RESULTS_MODEL_FILENAME, read_result_explorer_model, model_index, model_sheet
-except Exception:  # pragma: no cover - import fallback for direct execution
+except ImportError:  # pragma: no cover - import fallback for direct execution
     from src.results_model import RESULTS_MODEL_FILENAME, read_result_explorer_model, model_index, model_sheet
 
 from openpyxl import load_workbook

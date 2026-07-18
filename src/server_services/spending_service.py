@@ -17,7 +17,7 @@ from typing import Any, Callable
 
 try:
     from .. import spending_tracker as st
-except Exception:  # pragma: no cover - direct execution fallback
+except ImportError:  # pragma: no cover - direct execution fallback
     from src import spending_tracker as st
 
 AuditFn = Callable[[str, dict[str, Any] | None], None]

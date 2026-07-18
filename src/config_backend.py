@@ -23,7 +23,7 @@ try:
         client_data_part_stems,
         client_data_suffixed_files,
     )
-except Exception:
+except ImportError:
     from src.system_config import discover_system_config_csv, load_system_config, system_setting
     from src import platform_runtime
     from src.plan_data_registry import (
