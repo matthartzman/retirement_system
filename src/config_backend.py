@@ -13,7 +13,7 @@ import json
 import re
 import sqlite3
 from pathlib import Path
-from typing import Dict, Iterable, Tuple, Optional as _Optional, List as _List
+from typing import Dict, Tuple, Optional as _Optional, List as _List
 
 try:
     from .system_config import discover_system_config_csv, load_system_config, system_setting
@@ -201,13 +201,6 @@ def load_yaml(path: str | Path = DEFAULT_YAML) -> SettingMap:
     return out
 
 
-def _flatten(data: SettingMap) -> Iterable[Tuple[str, str, str, str]]:
-    for s, subs in data.items():
-        for ss, labels in subs.items():
-            for k, v in labels.items():
-                yield s, ss, k, v
-
-
 def _merge_system_config_sections(data: SettingMap, system_data: SettingMap) -> SettingMap:
     merged: SettingMap = {sec: {sub: dict(vals) for sub, vals in subs.items()} for sec, subs in data.items()}
     for sec in SYSTEM_CONFIG_SECTIONS:
@@ -231,14 +224,6 @@ def init_sqlite(db_path: str | Path = DEFAULT_DB) -> Path:
     with sqlite3.connect(p) as con:
         con.execute("PRAGMA journal_mode=WAL")
         con.execute("PRAGMA synchronous=NORMAL")
-        con.execute("""CREATE TABLE IF NOT EXISTS settings(
-            section TEXT NOT NULL,
-            subsection TEXT NOT NULL,
-            label TEXT NOT NULL,
-            value TEXT,
-            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY(section, subsection, label)
-        )""")
         con.execute("""CREATE TABLE IF NOT EXISTS client_files(
             file_name TEXT PRIMARY KEY,
             content TEXT NOT NULL,
@@ -282,10 +267,9 @@ def import_csv_to_sqlite(csv_path: str | Path = DEFAULT_CSV, db_path: str | Path
     if not data:
         raise FileNotFoundError(f"No Plan Data CSV rows found at {csv_path} or split Plan Data files beside it.")
     p = init_sqlite(db_path)
-    with sqlite3.connect(p) as con:
-        con.execute("DELETE FROM settings")
-        for s, ss, k, v in _flatten(data):
-            con.execute("INSERT OR REPLACE INTO settings(section, subsection, label, value) VALUES(?,?,?,?)", (s, ss, k, v))
+    # v10 canonical: the typed sectioned snapshot (local_store) is the sole
+    # source of truth. The flat key-value `settings` table was a pre-v1.0 store
+    # that nothing reads anymore, so we no longer write it here.
     try:
         from .local_store import import_sectioned_plan
         import_sectioned_plan(data, source="csv_import", db_path=p)
