@@ -27,6 +27,7 @@ from src.reporting.workbook_common import (
     OPTIONAL_MODULE_SHEETS,
     effective_enabled_modules,
     module_enabled,
+    module_status,
 )
 
 
@@ -165,3 +166,38 @@ def test_default_toggles_match_baseline():
     for key in OPTIONAL_MODULE_SHEETS:
         assert module_enabled(None, key) is True
         assert module_enabled({}, key) is True
+
+
+# ── module_status: UI-facing gating explanation ───────────────────────────────
+
+def test_module_status_reports_auto_enabled_with_required_by():
+    # Dependent ON, prerequisite explicitly OFF, every other dependent of PREREQ
+    # off too (existing_life_insurance is default-on and also requires PREREQ,
+    # same caveat as PREREQ_DEPENDENTS above) → status must explain that the
+    # prereq is only on because DEPENDENT needs it.
+    toggles = {k: False for k in PREREQ_DEPENDENTS if k != DEPENDENT}
+    toggles[DEPENDENT] = True
+    toggles[PREREQ] = False
+    c = _cfg(**toggles)
+    status = module_status(c)
+    assert set(status.keys()) == set(OPTIONAL_MODULE_SHEETS)
+
+    assert status[PREREQ]["enabled"] is True
+    assert status[PREREQ]["auto_enabled"] is True
+    assert status[PREREQ]["required_by"] == [DEPENDENT]
+
+    # The dependent itself is directly enabled, not auto-enabled.
+    assert status[DEPENDENT]["enabled"] is True
+    assert status[DEPENDENT]["auto_enabled"] is False
+    assert status[DEPENDENT]["required_by"] == []
+
+
+def test_module_status_all_off_is_fully_off():
+    c = _cfg(**{k: False for k in OPTIONAL_MODULE_SHEETS})
+    status = module_status(c)
+    for key in OPTIONAL_MODULE_SHEETS:
+        assert status[key] == {
+            "enabled": False,
+            "auto_enabled": False,
+            "required_by": [],
+        }, f"{key} should be fully off"

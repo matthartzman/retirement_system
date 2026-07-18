@@ -79,8 +79,32 @@ class ConfigService:
             "version": self.context.version,
             "active_backend": meta.get("backend", "CSV"),
             "csv_path": str(self.context.csv_path),
+            "module_status": self._module_status(_data),
             **payload,
         }, 200
+
+    @staticmethod
+    def _module_status(sectioned_data: dict[str, Any]) -> JsonDict:
+        """Best-effort optional-module gating status for the UI (see
+        ``workbook_common.module_status``). Lazily imports the reporting package
+        (openpyxl-backed and otherwise unused by config_service) so this stays a
+        no-cost import for every other config_service code path, and degrades to
+        ``{}`` rather than failing the whole config payload if anything's amiss.
+        """
+        try:
+            from ..reporting import workbook_common
+            from ..report_compute import prepare_config_from_sectioned_data
+        except Exception:  # pragma: no cover - direct execution fallback
+            try:
+                from src.reporting import workbook_common
+                from src.report_compute import prepare_config_from_sectioned_data
+            except Exception:
+                return {}
+        try:
+            cfg = prepare_config_from_sectioned_data(sectioned_data, "", optimize_roth=False)
+            return workbook_common.module_status(cfg)
+        except Exception:
+            return {}
 
     @staticmethod
     def _sectioned_data_from_ui_rows(ui_rows: list[Any]) -> dict[str, dict[str, dict[str, str]]]:
