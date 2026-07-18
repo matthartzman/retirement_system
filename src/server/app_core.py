@@ -624,24 +624,11 @@ def _write_plan_data_file(file_name: str, content: str, *, preserve_protected: b
     path = _plan_data_path(name, prefer_existing=False)
     if name in CLIENT_DATA_CSV_FILE_SET:
         content = canonicalize_roth_csv_content(content)
-        content, removed = _strip_deprecated_allocation_count_csv(content)
-        if removed:
-            _audit("deprecated_allocation_count_rows_stripped", {"file": name, "removed": removed})
-        content, removed_home = _strip_retired_scenario_home_csv(content)
-        if removed_home:
-            _audit("retired_scenario_home_rows_stripped", {"file": name, "removed": removed_home})
     if preserve_protected and name in CLIENT_DATA_CSV_FILE_SET and path.exists():
         try:
             content = _merge_protected_client_data_values(content, path.read_text(encoding="utf-8-sig"))
         except Exception as exc:
             _audit("protected_client_data_merge_warning", {"file": name, "error": str(exc)})
-    if name in CLIENT_DATA_CSV_FILE_SET:
-        content, removed = _strip_deprecated_allocation_count_csv(content)
-        if removed:
-            _audit("deprecated_allocation_count_rows_stripped_after_merge", {"file": name, "removed": removed})
-        content, removed_home = _strip_retired_scenario_home_csv(content)
-        if removed_home:
-            _audit("retired_scenario_home_rows_stripped_after_merge", {"file": name, "removed": removed_home})
     # The SQLite plan store is canonical: write it first, authoritatively. The
     # on-disk CSV is then written as an import/export mirror (folder
     # download/portability; the build materializes plan data from the DB).
@@ -659,16 +646,6 @@ def _write_plan_data_file(file_name: str, content: str, *, preserve_protected: b
 
 
 
-
-
-# Plan Data CSV row migration/purge helpers (DEPRECATED_ALLOCATION_COUNT_LABELS,
-# RETIRED_SCENARIO_HOME_ROW_KEYS, _strip_rows_matching, _strip_csv_rows_matching,
-# _purge_rows_matching_from_plan_data, and the retired-scenario-home /
-# deprecated-allocation-count migrations) now live in csv_migration.py.
-try:
-    from .csv_migration import *  # noqa: F401,F403
-except Exception:
-    from src.server.csv_migration import *  # noqa: F401,F403
 
 
 def _csv_read_rows(path: Path) -> list[list[str]]:
