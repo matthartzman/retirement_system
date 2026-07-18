@@ -1,3 +1,17 @@
+"""Route plumbing for the Phase 2 workflow endpoints — NOT an end-to-end test.
+
+These tests assert that the plan, build and results routes wire together, hand
+off the right payloads, and honour role headers. They deliberately do not run a
+real build: `_run_build_progress_job` is replaced with a fake progress job and
+`report_service.detailed_results_payload` with a hand-written dict.
+
+Nothing here proves the real trigger path works. No test currently POSTs
+/api/build/start and polls it to real completion against real sheet content —
+that gap is tracked as Q2 in documentation/reports/SYSTEM_REVIEW_2026-07-18.md
+(Wave 3 item 3.14). The file was previously named `..._live_workflow_journeys`,
+which claimed coverage it does not provide.
+"""
+
 import sqlite3
 import time
 from pathlib import Path
