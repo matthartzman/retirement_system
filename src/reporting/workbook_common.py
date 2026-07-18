@@ -89,6 +89,9 @@ FMT_DOLLAR_ZERO_BAND = '[>=1]$#,##0;[<=-1]($#,##0);"-"'
 FMT_PCT      = '0.0%'
 FMT_YEAR     = '0'
 FMT_INT      = '#,##0'
+# Normalized 0-100 candidate-ranking score (not a dollar amount — see FMT_DOLLAR
+# for the underlying weighted-dollar objective value it is derived from).
+FMT_SCORE    = '0.0"/100"'
 
 def set_col_width(ws, col, width):
     ws.column_dimensions[get_column_letter(col)].width = width
