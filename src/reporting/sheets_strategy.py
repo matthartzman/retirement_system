@@ -14,7 +14,8 @@ def build_sheet9(ws, c, rows):
              'Social Security begins. Reduce taxable draws. Continue Roth conversions through the configured window.'),
             ('Phase 3: RMD Era (2037+)',
              'RMDs from IRAs drive income. Supplement with SS, annuities, Trust. '
-             'Use QCDs for charitable giving to reduce AGI.'),
+             'Consider QCDs for charitable giving to reduce AGI — illustrative only; '
+             'QCDs are not reflected in the projection, net worth or Monte Carlo results.'),
         ]),
         ('INVESTMENT POLICY STATEMENT', [
             ('Return Objective', f'{c["ret"]:.1%} nominal; ~{c["ret"]-c["inf"]:.1%} real'),
@@ -450,8 +451,18 @@ def build_sheet12(ws, c, rows):
             write_cell(ws, r, i, val, bg=bg)
         r += 1
 
+    r += 1
+    note = ('Illustrative planning guidance only. Neither DAF contributions nor QCDs are modeled by the '
+            'projection engine: the charitable vehicles compared above, and the SALT-cap phases and DAF '
+            'figures below, are computed outside the projection. They are NOT reflected in your projected '
+            'net worth, lifetime taxes, Monte Carlo success probability, or any other result in this '
+            'workbook. Treat them as a starting point for discussion with your tax advisor, not as an '
+            'outcome this plan has modeled.')
+    write_cell(ws, r, 1, note, bg='FFF4E5', align='left')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6)
+
     r += 2
-    write_hdr(ws, r, 1, 'SALT-Cap Strategy by Phase', BLUE, WHITE, span=6); r+=1
+    write_hdr(ws, r, 1, 'SALT-Cap Strategy by Phase (illustrative — not modeled)', BLUE, WHITE, span=6); r+=1
     phases = [
         ('Highest-income year',
          'Bundle 3 years of charitable giving into a DAF contribution. SALT cap is $40,400; '
@@ -476,7 +487,15 @@ def build_sheet12(ws, c, rows):
 
     # ── DAF Optimization ─────────────────────────────────────────────────────
     r += 2
-    write_hdr(ws, r, 1, 'DAF OPTIMIZATION — Recommended Contribution Amount & Year', NAVY, WHITE, span=6); r+=1
+    write_hdr(ws, r, 1, 'DAF OPTIMIZATION — Recommended Contribution Amount & Year (illustrative — not modeled)', NAVY, WHITE, span=6); r+=1
+
+    note = ('The "Est. Tax Savings" and contribution figures below are computed on this sheet from a '
+            'single high-income year, not by the projection. A DAF contribution is currently treated by '
+            'the engine as cash leaving the plan with no deduction, so acting on this table would change '
+            'your taxes in ways the projected results do not show.')
+    write_cell(ws, r, 1, note, bg='FFF4E5', align='left')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6)
+    r += 2
 
     # Compute optimal DAF in the selected contribution year (highest income year before earn_end)
     # Strategy: contribute enough to DAF to fully itemize past standard deduction
