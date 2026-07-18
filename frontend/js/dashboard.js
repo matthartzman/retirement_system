@@ -601,7 +601,7 @@ function addParentheticals(text) {
 }
 
 // Local backups (status/policy state, controls HTML, save/run/refresh) moved
-// to dashboard_local_backups.js (first modularization increment).
+// to dashboard_decomp_local_backups.js (first modularization increment).
 const STEP_HELP = {
   start: pageHelp(
     "Getting started",
@@ -7663,7 +7663,7 @@ function renderEstateWithAnnuityLink() {
   return renderEstateInformation();
 }
 
-// Plan KPI metrics panel (home screen) moved to dashboard_home_panels.js
+// Plan KPI metrics panel (home screen) moved to dashboard_decomp_home_panels.js
 // (first modularization increment).
 
 /* ── 4.2 + 4.3 Spending step completion notes and auto-advance ── */
@@ -7705,8 +7705,8 @@ function spendingFlowFooterHtml(stepId) {
   return html;
 }
 
-// Closeout checklist moved to dashboard_home_panels.js (first modularization
-// increment).
+// Closeout checklist moved to dashboard_decomp_home_panels.js (first
+// modularization increment).
 
 /* ── 5.6 Session changes log and field undo ── */
 function recentChangesLogHtml() {
@@ -8002,7 +8002,7 @@ function renderSystemConfiguration() {
 }
 
 // Workbook formatting (Settings → Manage Workbook Formatting) moved to
-// dashboard_workbook_formatting.js (first modularization increment).
+// dashboard_decomp_workbook_formatting.js (first modularization increment).
 
 async function refreshLivePrices() {
   try {
