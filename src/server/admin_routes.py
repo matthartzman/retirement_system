@@ -34,26 +34,6 @@ def _admin_csv_path(kind: str, file_name: str) -> Path:
     return admin_service.admin_csv_path(kind, file_name, base_dir=BASE_DIR, system_config_path=_system_config_path())
 
 
-@app.route("/api/admin/csv-backup", methods=["GET"])
-def admin_csv_backup():
-    denied = _require("manage_clients")
-    if denied:
-        return denied
-    import tempfile  # noqa: PLC0415
-    data, filename = admin_service.build_csv_backup_zip(BASE_DIR)
-    tmp_dir = Path(tempfile.mkdtemp(prefix="csv_backup_"))
-    tmp_path = tmp_dir / filename
-    tmp_path.write_bytes(data)
-    try:
-        return send_file(tmp_path, mimetype="application/zip", as_attachment=True, download_name=filename)
-    finally:
-        try:
-            tmp_path.unlink()
-            tmp_dir.rmdir()
-        except Exception:
-            pass
-
-
 @app.route("/api/admin/csv-file/<kind>/<path:file_name>", methods=["GET"])
 def admin_get_csv_file(kind, file_name):
     denied = _require("manage_clients")

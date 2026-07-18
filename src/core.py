@@ -174,11 +174,6 @@ def hsa_ids(registry):
     return [a['id'] for a in registry if a['tax'] == 'hsa']
 
 
-def sum_bal(bal, ids):
-    """Sum balances across a list of account IDs."""
-    return sum(bal.get(aid, 0) for aid in ids)
-
-
 # ===== END account_registry.py =====
 
 
