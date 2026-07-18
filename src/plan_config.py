@@ -9,6 +9,7 @@ indexes from the account registry.
 """
 from __future__ import annotations
 
+from collections.abc import Mapping as _ABCMapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, TypedDict
@@ -58,7 +59,7 @@ class EngineConfigDict(TypedDict, total=False):
 
 
 def _freeze_value(value: Any) -> Any:
-    if isinstance(value, Mapping):
+    if type(value) is dict or isinstance(value, _ABCMapping):
         return MappingProxyType({k: _freeze_value(v) for k, v in value.items()})
     if isinstance(value, list):
         return tuple(_freeze_value(v) for v in value)
@@ -70,7 +71,7 @@ def _freeze_value(value: Any) -> Any:
 
 
 def _thaw_value(value: Any) -> Any:
-    if isinstance(value, Mapping):
+    if type(value) is MappingProxyType or isinstance(value, _ABCMapping):
         return {k: _thaw_value(v) for k, v in value.items()}
     if isinstance(value, tuple):
         return [_thaw_value(v) for v in value]
