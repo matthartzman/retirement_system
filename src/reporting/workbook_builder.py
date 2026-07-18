@@ -707,115 +707,15 @@ def build_workbook_section_divider(ws, area):
 # ─────────────────────────────────────────────────────────────────────────────
 # User-facing workbook tab refactor helpers
 # ─────────────────────────────────────────────────────────────────────────────
-
-FINAL_SHEET_RENAMES = {
-    '1. Executive Summary': '1A. Executive Summary',
-    '5. Net Worth Projection': '1B. Net Worth',
-    '6. Cash Flow Projection': '1C. Cash Flow',
-    '3. Balance Sheet': '1D. Balance Sheet',
-    '8. Charts Dashboard': '1E. Charts',
-    '7. Lifetime Tax': '1F. Lifetime Taxes',
-    '11. Roth Conversion': '2A. Roth Conversion',
-    '4. Asset Allocation': '2B. Asset Allocation',
-    '13. State Residency': '2C. State Residency',
-    '10. Social Security': '2D. Social Security',
-    '12. Charitable Giving': '2F. Charitable Giving',
-    '12B. Tax-Loss Harvesting': '2I. Tax-Loss Harvesting',
-    '14. Estate Plan': '2G. Estate & Legacy Planning',
-    '27. Planning Levers': '2H. Planning Levers',
-    '15. Market-Luck Stress Test': '3A. Monte Carlo',
-    '18. Survivor Stress Test': '3B. Survivor',
-    '19. Life Insurance': '3C. LTC + Life Insurance',
-    '28. Core Spending': '1G. Core Spending',
-    '29. Spending Summary': '1H. Spending Summary',
-    '2. Assumptions': '4B. Assumptions',
-    '25. Account Reconciliation': '4C. Account Reconciliation',
-    '21. Quality Control': '4D. Quality Control',
-    '20. RMD Audit': '4E. RMD Audit',
-    '23. Methodology': '4F. Methodology',
-    '22. Glossary': '4G. Glossary',
-    # Advanced planning modules (Phase 1).
-    '30. Education Funding': '2J. Education Funding',
-    '35. Equity Compensation': '2K. Equity Compensation',
-    '36. Special-Needs Planning': '2L. Special-Needs Planning',
-    '34. Business Succession': '2M. Business Succession',
-    '31. Existing Life Insurance': '3D. Existing Life Insurance',
-    '32. Disability Income': '3E. Disability Income',
-    '33. P&C Umbrella': '3F. P&C Umbrella',
-}
-
-def _disabled_final_sheets(c):
-    """Final (renamed) sheet names that will be absent because their module is off.
-
-    Used by pre-rename passes (e.g. the Plan Data scope table) that list final
-    sheet names before the sheets themselves have been renamed, so an existence
-    check against wb.sheetnames is not yet possible.
-    """
-    disabled = set()
-    for key, legacy_names in OPTIONAL_MODULE_SHEETS.items():
-        if module_enabled(c, key):
-            continue
-        for ln in legacy_names:
-            disabled.add(FINAL_SHEET_RENAMES.get(ln, ln))
-    # "3C. LTC + Life Insurance" survives if EITHER the LTC or the Life
-    # Insurance module is on (see the promotion in apply_final_workbook_structure).
-    combined = FINAL_SHEET_RENAMES.get('19. Life Insurance')
-    if module_enabled(c, 'long_term_care_stress') or module_enabled(c, 'life_insurance_need'):
-        disabled.discard(combined)
-    return disabled
-
-
-SHEET_NUM_LABEL_REPLACEMENTS = {
-    'Sheet 13 & 14': '2C. State Residency & 2G. Estate & Legacy Planning',
-    'Sheet 17) shows': '3C. LTC + Life Insurance shows',
-    'Sheet 3': '1D. Balance Sheet',
-    'Sheet 4': '2B. Asset Allocation',
-    'Sheet 5': '1B. Net Worth',
-    'Sheet 6': '1C. Cash Flow',
-    'Sheet 7': '1F. Lifetime Taxes',
-    'Sheet 8': '1E. Charts',
-    'Sheet 9': '2E. S-Corp vs LLC',
-    'Sheet 10': '2D. Social Security',
-    'Sheet 11': '2A. Roth Conversion',
-    'Sheet 12': '2F. Charitable Giving',
-    'Sheet 13': '2C. State Residency',
-    'Sheet 14': '2G. Estate & Legacy Planning',
-    'Sheet 15': '3A. Monte Carlo',
-    'Sheet 16': 'Scenario Analysis',
-    'Sheet 17': '3C. LTC + Life Insurance',
-    'Sheet 18': '3B. Survivor',
-    'Sheet 19': '3C. LTC + Life Insurance',
-    'Sheet 20': '4E. RMD Audit',
-    'Sheet 21': '4D. Quality Control',
-    'Sheet 22': '4G. Glossary',
-    'Sheet 23': '4F. Methodology',
-    'Sheet 24': '2B. Asset Allocation',
-    'Sheet 25': '4C. Account Reconciliation',
-    'Sheet 26': 'Workbook Warnings',
-}
-
-CSV_LABEL_REPLACEMENTS = {
-    'Plan Data CSV': 'database-backed Plan Data',
-    'stored in database-backed Plan Data': 'stored in database-backed Plan Data',
-    'CSV Current': 'Current database setting',
-    'CSV:': 'App setting:',
-    'set in CSV': 'configured in the app',
-    'set in client data CSV': 'configured in the app',
-    'client_assets.csv': 'Plan Data import/export',
-    'client_holdings.csv': 'holdings data',
-    'All CSV scenarios': 'All configured scenarios',
-    'CSV scenarios': 'configured scenarios',
-    'CSV policy rows': 'configured policy rows',
-    'CSV Forced Actions': 'configured Forced Actions',
-    'reasonable salary $60K on $290K income': 'reasonable salary $60K on $290K income',
-    'Required ($60,000 set in CSV)': 'Required ($60,000 configured in the app)',
-    'Set enabled:TRUE in [DAF][Settings] of CSV': 'Enable DAF in Plan Data / System',
-    'add enabled:TRUE to CSV': 'enable in Plan Data / System',
-    'per CSV': 'per configured',
-    'CSV settings:': 'Configured settings:',
-    'expert CSV assumptions': 'expert import assumptions',
-}
-
+# The rename tables (FINAL_SHEET_RENAMES, SHEET_NUM_LABEL_REPLACEMENTS,
+# CSV_LABEL_REPLACEMENTS) and the pure functions that apply them
+# (_disabled_final_sheets, _rename_final_sheets, _replace_text_refs) are the
+# single source of truth for turning legacy build-time sheet names into the
+# final numbered/lettered names users see. They live in workbook_common.py
+# (imported here via the `from .workbook_common import *` above) so every
+# consumer — this module's apply_final_workbook_structure() below, and
+# dashboard.py's post-build sheet lookups — shares one definition instead of
+# each re-deriving or re-guessing the same rename.
 
 def _used_row(ws):
     for row in range(ws.max_row, 0, -1):
@@ -878,21 +778,8 @@ def _hide_sheet_if_present(wb, name):
         wb[name].sheet_properties.tabColor = SECTION_COLOR.get('H')
 
 
-def _replace_text_refs(wb):
-    text_replacements = dict(FINAL_SHEET_RENAMES)
-    text_replacements.update(SHEET_NUM_LABEL_REPLACEMENTS)
-    text_replacements.update(CSV_LABEL_REPLACEMENTS)
-    for ws in wb.worksheets:
-        for row in ws.iter_rows():
-            for cell in row:
-                val = cell.value
-                if not isinstance(val, str):
-                    continue
-                new_val = val
-                for old, new in text_replacements.items():
-                    new_val = new_val.replace(old, new)
-                if new_val != val:
-                    cell.value = new_val
+# _replace_text_refs is defined once, in workbook_common.py, and imported here
+# via the `from .workbook_common import *` at the top of this module.
 
 
 def _build_plan_data_sheet(wb, c):
@@ -1030,11 +917,8 @@ def _merge_ltc_into_life_insurance(wb):
     _copy_rows(src, dst, 1, _used_row(src), dst_start, max_col=src.max_column)
 
 
-def _rename_final_sheets(wb):
-    for old, new in FINAL_SHEET_RENAMES.items():
-        if old in wb.sheetnames:
-            _delete_sheet_if_present(wb, new)
-            wb[old].title = new
+# _rename_final_sheets is defined once, in workbook_common.py, and imported
+# here via the `from .workbook_common import *` at the top of this module.
 
 
 def apply_final_workbook_structure(wb, c):

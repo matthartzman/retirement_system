@@ -344,11 +344,14 @@ def _find_workbook_charts_sheet(wb):
     """Return the visible workbook charts sheet across legacy and refactored names.
 
     The workbook refactor renamed the old `8. Charts Dashboard` tab to
-    `1E. Charts`.  The HTML sidecar is generated after the workbook is saved,
-    so it must read the final user-facing tab name rather than the legacy build
-    name.  Keep the legacy fallback for older workbooks and tests.
+    `1E. Charts` — looked up from FINAL_SHEET_RENAMES (workbook_common.py) so
+    this fallback can never drift out of sync with the actual rename table.
+    The HTML sidecar is generated after the workbook is saved, so it must read
+    the final user-facing tab name rather than the legacy build name.  Keep
+    the legacy fallback for older workbooks and tests.
     """
-    for name in ('1E. Charts', '8. Charts Dashboard', 'Charts'):
+    final_charts_name = FINAL_SHEET_RENAMES.get('8. Charts Dashboard', '1E. Charts')
+    for name in (final_charts_name, '8. Charts Dashboard', 'Charts'):
         if name in wb.sheetnames:
             return wb[name]
     for ws in wb.worksheets:
