@@ -43,6 +43,9 @@ build/
 *.log
 .vscode/
 
+# Claude Code agent worktrees (transient, harness-managed; auto-cleaned)
+.claude/worktrees/
+
 # Python tooling
 .ruff_cache/
 .coverage
