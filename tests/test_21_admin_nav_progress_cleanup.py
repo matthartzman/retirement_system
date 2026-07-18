@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from _decomp_dashboard import dashboard_js_text
+
 ROOT = Path(__file__).resolve().parents[1]
 ADMIN_HTML = ROOT / "frontend" / "admin.html"
 ADMIN_CSS = ROOT / "frontend" / "css" / "admin.css"
@@ -35,7 +37,7 @@ def test_focused_pages_use_left_step_navigation_not_nested_card_nav():
 
 
 def test_build_progress_starts_at_beginning():
-    html = INDEX_HTML.read_text(encoding="utf-8") + "\n" + DASHBOARD_JS.read_text(encoding="utf-8")
+    html = INDEX_HTML.read_text(encoding="utf-8") + "\n" + dashboard_js_text()
     template = TEMPLATE.read_text(encoding="utf-8")
     assert 'Capturing the current workbook baseline...",\n      0' in html
     assert 'Math.max(0, Math.min(100, Number(pct)))' in html

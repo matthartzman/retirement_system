@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from _decomp_dashboard import dashboard_js_text
+
 ROOT = Path(__file__).resolve().parents[1]
 INDEX_HTML = ROOT / "frontend" / "index.html"
 DASHBOARD_JS = ROOT / "frontend" / "js" / "dashboard.js"
@@ -7,7 +9,7 @@ TEMPLATE = ROOT / "src" / "dashboard_ui" / "template.py"
 
 
 def test_build_overlay_has_static_percent_not_looping_bar():
-    text = INDEX_HTML.read_text(encoding="utf-8") + "\n" + DASHBOARD_JS.read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "css" / "dashboard.css").read_text(encoding="utf-8")
+    text = INDEX_HTML.read_text(encoding="utf-8") + "\n" + dashboard_js_text() + "\n" + (ROOT / "frontend" / "css" / "dashboard.css").read_text(encoding="utf-8")
     assert "buildOverlayPct" in text
     assert "api/build/start" in text
     assert "api/build/progress" in text
@@ -18,7 +20,7 @@ def test_build_overlay_has_static_percent_not_looping_bar():
 
 
 def test_build_impact_adds_actionable_suggestions_under_three_metrics():
-    text = INDEX_HTML.read_text(encoding="utf-8") + "\n" + DASHBOARD_JS.read_text(encoding="utf-8")
+    text = INDEX_HTML.read_text(encoding="utf-8") + "\n" + dashboard_js_text()
     assert "buildImpactSuggestionsHtml" in text
     assert "Suggestions to improve the plan without lowering risk" in text
     assert "What the model used in this build" in text
@@ -32,7 +34,7 @@ def test_build_impact_adds_actionable_suggestions_under_three_metrics():
 
 
 def test_build_impact_panels_are_collapsible_default_closed_with_left_caret():
-    js = DASHBOARD_JS.read_text(encoding="utf-8")
+    js = dashboard_js_text()
     css = (ROOT / "frontend" / "css" / "dashboard.css").read_text(encoding="utf-8")
     assert '<details class="impact-suggestions model-used-panel collapsible-impact-section"' in js
     assert '<details class="impact-suggestions collapsible-impact-section dynamic-suggestions-panel"' in js

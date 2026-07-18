@@ -170,7 +170,12 @@ def test_routes_and_ui_wired():
     routes = (ROOT / "src" / "server" / "workbook_routes.py").read_text(encoding="utf-8")
     assert '"/api/workbook-format", methods=["GET"]' in routes
     assert '"/api/workbook-format", methods=["POST"]' in routes
+    # renderWorkbookFormatting/setWorkbookColAlign live in
+    # dashboard_decomp_workbook_formatting.js, a sibling module loaded alongside
+    # dashboard.js (see frontend/index.html); the STEPS nav entry and dispatch
+    # stayed in dashboard.js itself.
     js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    js += (ROOT / "frontend" / "js" / "dashboard_decomp_workbook_formatting.js").read_text(encoding="utf-8")
     assert "function renderWorkbookFormatting" in js
     # Item 192 (Option 4 Phase 2): Workbook Formatting is a first-class Settings
     # nav page rather than a card button in the Settings hub.

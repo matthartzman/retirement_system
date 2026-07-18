@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from _decomp_dashboard import dashboard_js_text
+
 ROOT = Path(__file__).resolve().parents[1]
 WORKBOOK_ROUTES = ROOT / "src" / "server" / "workbook_routes.py"
 BUILD_JOB_SERVICE = ROOT / "src" / "server_services" / "build_job_service.py"
@@ -65,7 +67,7 @@ def test_server_build_progress_uses_unbuffered_subprocess_and_zero_pct_start():
 
 
 def test_client_build_progress_starts_at_zero_and_polls_smoothly():
-    text = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    text = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8") + "\n" + dashboard_js_text()
     assert 'let lastProgress = Math.max(0, Number(started.progress) || 0)' in text
     assert 'sleep(i < 40 ? 750 : 1500)' in text
     assert '${buildOverlayExpectedLabel' in text
