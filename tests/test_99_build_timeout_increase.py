@@ -2,6 +2,8 @@ from pathlib import Path
 import importlib
 import os
 
+from _decomp_dashboard import dashboard_js_text
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -20,6 +22,6 @@ def test_runtime_config_defaults_and_env_override(monkeypatch):
 
 
 def test_dashboard_polling_outlasts_default_server_timeout():
-    js = (ROOT / 'frontend' / 'js' / 'dashboard.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     assert 'for (let i = 0; i < 1600; i++)' in js
     assert 'Build progress polling timed out after about 40 minutes' in js

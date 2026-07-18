@@ -10,11 +10,23 @@ def text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def dashboard_all() -> str:
+    """dashboard.js plus every extracted dashboard_decomp_*.js sibling module.
+
+    The decomposition moved cohesive UI blocks (e.g. estate/insurance rendering)
+    into classic scripts loaded before dashboard.js. Dependency-ordering
+    assertions target the assembled behavior, so read them together."""
+    js_dir = ROOT / "frontend" / "js"
+    parts = [text(DASH)]
+    parts += [text(p) for p in sorted(js_dir.glob("dashboard_decomp_*.js"))]
+    return "\n".join(parts)
+
+
 def test_special_strategies_visibility_follows_optional_module_capability():
     # The former "Advanced Workflow Steps" preference toggle was removed; the
     # Special Strategies page now appears in navigation only when its underlying
     # optional modules (HELOC or Charitable Giving) are enabled.
-    dash = text(DASH)
+    dash = dashboard_all()
     assert "showAdvanced" not in dash
     assert "toggleAdvanced" not in dash
     assert 'if (stepId === "special_strategies")' in dash
@@ -25,7 +37,7 @@ def test_special_strategies_visibility_follows_optional_module_capability():
 
 
 def test_roth_policy_controls_relevance_and_bracket_strategy_visibility():
-    dash = text(DASH)
+    dash = dashboard_all()
     assert 'if (policyIsFixed) {\n    strategy = orderedRowsByLabel([\n      "roth_fixed_annual_amount"' in dash
     assert 'else if (policyIsBracket) {\n    strategy = orderedRowsByLabel([\n      "roth_bracket_strategy",\n      "roth_target_bracket_rate"' in dash
     assert 'else if (policyIsOptimizer) {\n    strategy = orderedRowsByLabel([\n      "roth_objective_mode",\n      "roth_bracket_strategy"' in dash
@@ -33,7 +45,7 @@ def test_roth_policy_controls_relevance_and_bracket_strategy_visibility():
 
 
 def test_monte_carlo_hsa_home_sale_and_estate_dependencies_are_dynamic():
-    dash = text(DASH)
+    dash = dashboard_all()
     assert "Start here: choose the Monte Carlo engine" in dash
     assert 'mode === "quick_vectorized"' in dash
     assert "Start here:</b> choose HSA withdrawal mode" in dash

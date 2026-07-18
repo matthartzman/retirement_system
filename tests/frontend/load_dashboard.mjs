@@ -29,7 +29,25 @@ import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DASHBOARD_JS_PATH = path.join(__dirname, "..", "..", "frontend", "js", "dashboard.js");
+const JS_DIR = path.join(__dirname, "..", "..", "frontend", "js");
+const DASHBOARD_JS_PATH = path.join(JS_DIR, "dashboard.js");
+
+// dashboard.js's top-level checkAppStatus(true).then(...) chain calls
+// refreshLocalBackupStatus() and other functions that now live in sibling
+// dashboard_decomp_*.js modules (see frontend/index.html, which loads them
+// as plain <script> tags alongside dashboard.js). In a real page load this
+// is safe because fetch() is genuinely async, so every sibling script has
+// already run by the time it resolves. The fetch stub below resolves as a
+// microtask right after this file finishes evaluating, so every sibling
+// module must be loaded into the same context first too, matching the
+// convention already used by tests/_decomp_dashboard.py on the Python side.
+function decompModulePaths() {
+  return fs
+    .readdirSync(JS_DIR)
+    .filter((f) => f.startsWith("dashboard_decomp_") && f.endsWith(".js"))
+    .sort()
+    .map((f) => path.join(JS_DIR, f));
+}
 
 function noop() {}
 
@@ -47,7 +65,9 @@ function stubElement() {
 }
 
 export function loadDashboardSandbox() {
-  const src = fs.readFileSync(DASHBOARD_JS_PATH, "utf8");
+  const src = [DASHBOARD_JS_PATH, ...decompModulePaths()]
+    .map((p) => fs.readFileSync(p, "utf8"))
+    .join("\n");
   const sandbox = {
     window: {
       addEventListener: noop,

@@ -1,6 +1,8 @@
 from pathlib import Path
 import importlib.util
 
+from _decomp_dashboard import dashboard_js_text
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -71,7 +73,7 @@ def test_engine_reads_only_canonical_large_discretionary_section():
 
 
 def test_user_ui_uses_visible_category_select_not_vacation_only_button():
-    js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     assert "Home Improvement" in js
     assert "Choose category" in js
     assert 'travelExtras.push({\n    type: ""' in js
