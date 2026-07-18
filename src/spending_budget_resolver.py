@@ -13,7 +13,7 @@ from typing import Any, Iterable
 
 try:  # package import
     from . import spending_tracker as st
-except Exception:  # direct script/test import
+except ImportError:  # direct script/test import
     import spending_tracker as st  # type: ignore
 
 EXCLUDED_FROM_SPEND_BASE = {"Income", "Transfer", "Transfers", "Business", "Housing", "Wellness"}

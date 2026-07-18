@@ -1801,7 +1801,7 @@ def _clone_for_mc(c: dict) -> dict:
 def _portfolio_asset_class_inputs(c: dict):
     try:
         from . import optimization as _opt
-    except Exception:
+    except ImportError:
         import src.optimization as _opt  # type: ignore
     _opt.apply_capital_market_config(c)
     targets = c.get('allocation_target_pct') or {}
@@ -1834,7 +1834,7 @@ def _portfolio_asset_class_inputs(c: dict):
     weights = [w / total for _cls, w in pairs]
     try:
         from .vectorized_fast_core import portfolio_moments
-    except Exception:  # pragma: no cover
+    except ImportError:  # pragma: no cover
         from src.vectorized_fast_core import portfolio_moments
     moments = portfolio_moments(classes, weights, _opt.ASSET_CLASSES, _opt._CORR)
     means = [_opt.ASSET_CLASSES[cls]['ret'] for cls in classes]

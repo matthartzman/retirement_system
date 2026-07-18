@@ -47,7 +47,7 @@ def get_server_token() -> Optional[str]:
     """Read the configured SaaS API token from multi_user/system_config.csv."""
     try:
         from .runtime_config import load_runtime_config
-    except Exception:
+    except ImportError:
         from src.runtime_config import load_runtime_config
     token = (load_runtime_config().server_api_token or "").strip()
     return token or None

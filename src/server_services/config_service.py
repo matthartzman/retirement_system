@@ -17,7 +17,7 @@ try:
     from ..roth_ui_build_guard import normalize_roth_csv_value
     from .. import allocation_policy as allocation_policy_mod
     from ..schema_registry import validate_rows as _schema_validate_rows_full
-except Exception:  # pragma: no cover - direct execution fallback
+except ImportError:  # pragma: no cover - direct execution fallback
     from src.roth_ui_build_guard import normalize_roth_csv_value
     from src import allocation_policy as allocation_policy_mod
     from src.schema_registry import validate_rows as _schema_validate_rows_full
@@ -94,11 +94,11 @@ class ConfigService:
         try:
             from ..reporting import workbook_common
             from ..report_compute import prepare_config_from_sectioned_data
-        except Exception:  # pragma: no cover - direct execution fallback
+        except ImportError:  # pragma: no cover - direct execution fallback
             try:
                 from src.reporting import workbook_common
                 from src.report_compute import prepare_config_from_sectioned_data
-            except Exception:
+            except ImportError:
                 return {}
         try:
             cfg = prepare_config_from_sectioned_data(sectioned_data, "", optimize_roth=False)
@@ -146,7 +146,7 @@ class ConfigService:
                 from ..report_compute import prepare_config_from_sectioned_data
                 from ..optimization import compute_optimal_allocation
                 from .. import allocation_policy as _ap
-            except Exception:  # pragma: no cover - direct execution fallback
+            except ImportError:  # pragma: no cover - direct execution fallback
                 from src.report_compute import prepare_config_from_sectioned_data
                 from src.optimization import compute_optimal_allocation
                 from src import allocation_policy as _ap

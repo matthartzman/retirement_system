@@ -11,7 +11,7 @@ from typing import Any, Callable
 
 try:
     from . import build_runner
-except Exception:  # direct execution fallback
+except ImportError:  # direct execution fallback
     from src.server_services import build_runner
 
 CURRENT_BUILD_OUTPUT_FILES = [

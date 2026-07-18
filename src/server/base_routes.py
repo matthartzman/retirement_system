@@ -1,11 +1,11 @@
 from .app_core import *
 try:
     from ..version import VERSION
-except Exception:
+except ImportError:
     from src.version import VERSION
 try:
     from ..server_services import base_service
-except Exception:
+except ImportError:
     from src.server_services import base_service
 # RELEASE_GATE_EXPECTED_VERSION_LITERAL: "version": "9"
 
@@ -122,7 +122,7 @@ def api_contracts():
     try:
         from ..api_contracts import contract_summary
         from .route_manifest import route_manifest
-    except Exception:
+    except ImportError:
         from src.api_contracts import contract_summary
         from src.server.route_manifest import route_manifest
     return jsonify({

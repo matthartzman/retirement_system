@@ -52,7 +52,7 @@ try:
         request,
         set_client_file,
     )
-except Exception:
+except ImportError:
     from src.server.app_core import (
         BASE_DIR,
         CLIENT_DATA_CSV_FILE_SET,
@@ -108,23 +108,23 @@ except Exception:
     )
 try:
     from ..version import VERSION
-except Exception:
+except ImportError:
     from src.version import VERSION
 try:
     from ..server_services import base_service, config_service, pricing_service, ytd_service, plan_file_service, portfolio_service, secret_service, spending_service, strategy_asset_service
-except Exception:
+except ImportError:
     from src.server_services import base_service, config_service, pricing_service, ytd_service, plan_file_service, portfolio_service, secret_service, spending_service, strategy_asset_service
 try:
     from ..portfolio_analytics import freeze_latest_pricing_snapshot, unfreeze_pricing_snapshot
-except Exception:
+except ImportError:
     from src.portfolio_analytics import freeze_latest_pricing_snapshot, unfreeze_pricing_snapshot
 try:
     from .. import local_backup_scheduler
-except Exception:
+except ImportError:
     from src import local_backup_scheduler
 try:
     from ..secrets_store import set_secret as _set_secret_value
-except Exception:
+except ImportError:
     from src.secrets_store import set_secret as _set_secret_value
 
 

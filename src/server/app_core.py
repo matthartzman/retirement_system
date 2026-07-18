@@ -35,7 +35,7 @@ try:
         send_from_directory,
         url_for,
     )
-except Exception:  # direct file loading fallback
+except ImportError:  # direct file loading fallback
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from src.http_runtime.wsgi_facade import (
         Flask,
@@ -92,7 +92,7 @@ try:
         sync_clients_csv_to_sqlite,
         upsert_client,
     )
-except Exception:  # direct execution fallback
+except ImportError:  # direct execution fallback
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from src.schema_registry import load_schema as _load_schema_registry, validate_value as _schema_validate_value
     from src.runtime_config import load_runtime_config
@@ -138,12 +138,12 @@ except Exception:  # direct execution fallback
 
 try:
     from .. import allocation_policy as allocation_policy_mod
-except Exception:
+except ImportError:
     from src import allocation_policy as allocation_policy_mod
 
 try:
     from .. import platform_runtime
-except Exception:  # direct execution fallback
+except ImportError:  # direct execution fallback
     from src import platform_runtime
 
 # BASE_DIR is the code/package root: reference_data/, frontend static assets,
@@ -295,7 +295,7 @@ def _request_system_config_csv() -> Path:
 # one file due to bidirectional call coupling between the two clusters.
 try:
     from .security_audit import *  # noqa: F401,F403
-except Exception:
+except ImportError:
     from src.server.security_audit import *  # noqa: F401,F403
 
 
@@ -1078,7 +1078,7 @@ def _classify_config_row(section: str, subsection: str, label: str) -> str:
 def _import_tax_tables_for_choices():
     try:
         from .. import taxes as _taxes
-    except Exception:  # pragma: no cover - direct execution fallback
+    except ImportError:  # pragma: no cover - direct execution fallback
         from src import taxes as _taxes
     return _taxes
 

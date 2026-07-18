@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterable, List
 try:
     from .version import VERSION, RELEASE_LABEL
     from . import taxes
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     from src.version import VERSION, RELEASE_LABEL
     from src import taxes
 

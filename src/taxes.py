@@ -51,7 +51,7 @@ def _load_federal_tax_law_tables(reference_year=None):
     try:
         try:
             from .tax_law import load_tax_law_dataset
-        except Exception:
+        except ImportError:
             from src.tax_law import load_tax_law_dataset
         ds = load_tax_law_dataset()
         year = int(reference_year or TAX_REFERENCE_YEAR)
@@ -324,7 +324,7 @@ def load_tax_constants(search_dirs=None):
     try:
         try:
             from .tax_law import load_tax_law_dataset
-        except Exception:
+        except ImportError:
             from src.tax_law import load_tax_law_dataset
         ds = load_tax_law_dataset()
         engine = ds.as_engine_tables(TAX_REFERENCE_YEAR)

@@ -448,7 +448,7 @@ def build_covariance_matrix(classes):
     """Build covariance matrix using the shared vectorized fast core."""
     try:
         from .vectorized_fast_core import covariance_matrix
-    except Exception:  # pragma: no cover
+    except ImportError:  # pragma: no cover
         from src.vectorized_fast_core import covariance_matrix
     return covariance_matrix(classes, ASSET_CLASSES, _CORR)
 
@@ -2005,7 +2005,7 @@ def _min_variance_portfolio(cov, n, bounds):
     x0 = np.ones(n) / n
     try:
         from scipy.optimize import minimize
-    except Exception:
+    except ImportError:
         return x0
 
     def variance(w):

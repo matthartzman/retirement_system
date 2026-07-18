@@ -596,7 +596,7 @@ def _build_global_tax_aware_rebalance_trades(c, invest_positions, bucket_map, et
     try:
         import numpy as _np
         from scipy.optimize import linprog as _linprog
-    except Exception as exc:
+    except ImportError as exc:
         return None, None, [('Global optimizer', 'Solver unavailable', f'{exc}; fallback requested.')]
 
     # Price and market value tables.

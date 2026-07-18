@@ -21,7 +21,7 @@ try:
         read_build_snapshot,
         restore_sqlite_database_from_snapshot,
     )
-except Exception:  # pragma: no cover - direct execution fallback
+except ImportError:  # pragma: no cover - direct execution fallback
     from src.build_snapshot import (
         SNAPSHOT_FILENAME,
         compare_snapshot_to_current,

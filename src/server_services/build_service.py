@@ -7,12 +7,12 @@ from typing import Any, Callable
 
 try:
     from ..schema_registry import validate_rows as _schema_validate_rows
-except Exception:  # pragma: no cover - direct execution fallback
+except ImportError:  # pragma: no cover - direct execution fallback
     from src.schema_registry import validate_rows as _schema_validate_rows
 
 try:
     from ..report_package import REPORT_PACKAGE_FILENAME
-except Exception:  # pragma: no cover - direct execution fallback
+except ImportError:  # pragma: no cover - direct execution fallback
     from src.report_package import REPORT_PACKAGE_FILENAME
 
 

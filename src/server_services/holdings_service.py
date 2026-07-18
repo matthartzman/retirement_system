@@ -13,7 +13,7 @@ def read_holdings(*, base_dir: Path, workspace_id: str, client_id: str, db_path:
     try:
         from ..workspace_context import workspace_file
         from ..config_backend import get_client_file
-    except Exception:
+    except ImportError:
         from src.workspace_context import workspace_file
         from src.config_backend import get_client_file
     p = workspace_file("client_holdings.csv", workspace_id, base_dir)
@@ -29,7 +29,7 @@ def save_holdings(*, content: str, base_dir: Path, workspace_id: str, client_id:
     try:
         from ..workspace_context import workspace_file
         from ..config_backend import set_client_file
-    except Exception:
+    except ImportError:
         from src.workspace_context import workspace_file
         from src.config_backend import set_client_file
     if not content:
@@ -45,7 +45,7 @@ def read_liabilities(*, base_dir: Path, workspace_id: str, client_id: str, db_pa
     try:
         from ..workspace_context import workspace_file
         from ..config_backend import get_client_file
-    except Exception:
+    except ImportError:
         from src.workspace_context import workspace_file
         from src.config_backend import get_client_file
     p = workspace_file("client_liabilities.csv", workspace_id, base_dir)
@@ -61,7 +61,7 @@ def save_liabilities(*, content: str, base_dir: Path, workspace_id: str, client_
     try:
         from ..workspace_context import workspace_file
         from ..config_backend import set_client_file
-    except Exception:
+    except ImportError:
         from src.workspace_context import workspace_file
         from src.config_backend import set_client_file
     if not content:

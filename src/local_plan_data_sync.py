@@ -14,7 +14,7 @@ try:
     from .runtime_config import load_runtime_config
     from .workspace_context import active_workspace_id, workspace_input_dir
     from .plan_data_registry import client_data_csv_files, client_data_derived_files
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     from src.runtime_config import load_runtime_config
     from src.workspace_context import active_workspace_id, workspace_input_dir
     from src.plan_data_registry import client_data_csv_files, client_data_derived_files

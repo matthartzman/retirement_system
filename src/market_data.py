@@ -32,13 +32,13 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 try:
     from .version import USER_AGENT, CACHE_SCHEMA_VERSION
-except Exception:
+except ImportError:
     USER_AGENT = "RetirementPlanSystem/8.4 (+local-advisor-tool)"
     CACHE_SCHEMA_VERSION = "8.4"
 
 try:
     import requests  # type: ignore
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     requests = None  # type: ignore
 
 FMP_QUOTE_SHORT_URL = "https://financialmodelingprep.com/api/v3/quote-short/{symbol}?apikey={api_key}"
@@ -249,10 +249,10 @@ class MarketDataProvider:
         if not self.fmp_api_key or not self.alpha_vantage_api_key:
             try:
                 from .secrets_store import get_secret
-            except Exception:
+            except ImportError:
                 try:
                     from src.secrets_store import get_secret
-                except Exception:
+                except ImportError:
                     get_secret = None  # type: ignore
             if get_secret is not None:
                 if not self.fmp_api_key:
