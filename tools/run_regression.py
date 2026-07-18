@@ -60,6 +60,29 @@ def contains(text: str, *patterns: str) -> bool:
     return all(p in text for p in patterns)
 
 
+def _norm_code(s: str) -> str:
+    """Collapse whitespace, unify quote style, and drop trailing commas.
+
+    Many guards below assert that a snippet of source code *exists*, pinning its
+    exact character shape. Running the frontend through a prettier-style
+    formatter (single->double quotes, spaces around operators, multi-line
+    arrays/objects with trailing commas) rewrites that shape without changing
+    behavior, which used to break these guards en masse. Normalizing both the
+    haystack and the needle keeps the guards meaningful (the code must still be
+    present) without going stale on every reformat.
+    """
+    s = re.sub(r"\s+", "", s).replace('"', "'")
+    return s.replace(",]", "]").replace(",}", "}")
+
+
+def has_code(text: str, *snippets: str) -> bool:
+    """Like ``contains`` but tolerant of formatting differences -- use for
+    'this exact code shape exists' guards; use ``in``/``contains`` for guards on
+    identifiers or string literals where formatting can't vary."""
+    norm = _norm_code(text)
+    return all(_norm_code(p) in norm for p in snippets)
+
+
 # ---------------------------------------------------------------------------
 # 1. Syntax checks
 # ---------------------------------------------------------------------------
@@ -133,17 +156,17 @@ check("Download: buildWithDesktopProgress defined", "async function buildWithDes
 heading("Housing screen")
 check("Housing: renderNextHousingStepSection defined", "function renderNextHousingStepSection(" in dash)
 check("Housing: PURCHASE_FIRST has state/city_type/population_size",
-      "PURCHASE_FIRST=['state','city_type','population_size']" in dash)
+      has_code(dash, "PURCHASE_FIRST=['state','city_type','population_size']"))
 check("Housing: RENT_FIRST has only state",
-      "RENT_FIRST=['state']" in dash)
+      has_code(dash, "RENT_FIRST=['state']"))
 check("Housing: RENT_REST has no city_type/population_size/hoa",
-      "RENT_REST=['start_year','end_year','monthly_rent','insurance_annual','utilities_annual']" in dash)
+      has_code(dash, "RENT_REST=['start_year','end_year','monthly_rent','insurance_annual','utilities_annual']"))
 check("Housing: Estimate button references 3BR/2BA/40x40",
       "40\u00d740 ft backyard" in dash or "40x40 ft backyard" in dash)
 check("Housing: city_type/population_size excluded from current home",
       "_CURRENT_HOME_EXCL" in dash and "city_type" in dash and "population_size" in dash)
 check("Housing: estimateHousingFromState sends city_type+population",
-      "city_type:cityTypeVal" in dash and "population_size:parseInt" in dash)
+      has_code(dash, "city_type:cityTypeVal", "population_size:parseInt"))
 check("Housing: renderSpendingHousing defined", "function renderSpendingHousing()" in dash)
 
 # ---------------------------------------------------------------------------
@@ -168,7 +191,7 @@ check("Spending: /api/spending/dashboard endpoint used",
 # ---------------------------------------------------------------------------
 heading("Retirement Plan Workbook (Detailed Results)")
 check("WorkbookPage: title renamed in STEPS",
-      "title:'Results'" in dash)
+      has_code(dash, "title:'Results'"))
 check("WorkbookPage: resultDisplayName defined", "function resultDisplayName(" in dash_reports)
 check("WorkbookPage: loadDetailedResults defined", "function loadDetailedResults(" in dash or "loadDetailedResults" in dash)
 check("WorkbookPage: setDetailedResultSheet defined", "function setDetailedResultSheet(" in dash)
@@ -223,15 +246,15 @@ check("DesktopAPI: binary download handler", "os.startfile" in api_text or "subp
 # ---------------------------------------------------------------------------
 heading("Field type logic")
 check("valueKind: _year suffix returns number before currency check",
-      "l.endsWith('_year'))return 'number'" in dash)
+      has_code(dash, "l.endsWith('_year'))return 'number'"))
 
 # ---------------------------------------------------------------------------
 # 13. humanLabel overrides
 # ---------------------------------------------------------------------------
 heading("humanLabel overrides")
-check("humanLabel: HOA Annual Fee", "'HOA Annual Fee'" in dash)
-check("humanLabel: Area Type", "'Area Type'" in dash)
-check("humanLabel: Commission % for selling_cost_pct", "'Commission %'" in dash)
+check("humanLabel: HOA Annual Fee", has_code(dash, "'HOA Annual Fee'"))
+check("humanLabel: Area Type", has_code(dash, "'Area Type'"))
+check("humanLabel: Commission % for selling_cost_pct", has_code(dash, "'Commission %'"))
 
 # ---------------------------------------------------------------------------
 # 14. Plan file save / load routes
@@ -260,7 +283,7 @@ heading("Section 5: Retirement Plan Workbook -- WP-A/B/C/D")
 # WP-A: detailCurrencyK sub-$1K values return plain dollar amount, not $0K
 check(
     "WP-A: detailCurrencyK returns plain dollar for sub-$500 values (not $0K)",
-    "Math.round(abs/1000)===0)return (neg?'-':'')+'$'+Math.round(abs)" in dash_reports,
+    has_code(dash_reports, "Math.round(abs/1000)===0)return (neg?'-':'')+'$'+Math.round(abs)"),
 )
 
 # WP-B: niceTickRange function exists
@@ -278,23 +301,23 @@ check(
 # WP-B: Bar/line chart y-axis ticks use niceTickRange (not hardcoded list)
 check(
     "WP-B: stacked bar chart uses niceTickRange for y-axis ticks",
-    "niceVals=niceTickRange(max)" in dash_reports,
+    has_code(dash_reports, "niceVals=niceTickRange(max)"),
 )
 
 # WP-C: y-axis label reads chart.y_label with fallback (not hardcoded string)
 check(
     "WP-C: y-axis label uses chart.y_label with inferred fallback",
-    "chart.y_label||detailInferYLabel(max)" in dash_reports,
+    has_code(dash_reports, "chart.y_label||detailInferYLabel(max)"),
 )
 
 # WP-C: Y-axis formatter branches on % / plain number / currency thresholds
 check(
     "WP-C: y-axis formatter percent branch for max <= 1.5",
-    "max<=1.5?(rawVal*100).toFixed(0)+'%'" in dash_reports,
+    has_code(dash_reports, "max<=1.5?(rawVal*100).toFixed(0)+'%'"),
 )
 check(
     "WP-C: y-axis formatter plain number branch for max <= 150",
-    "max<=150?String(Math.round(rawVal))" in dash_reports,
+    has_code(dash_reports, "max<=150?String(Math.round(rawVal))"),
 )
 
 # WP-D: Unknown chart types render .chart-type-note div (not a crash)
@@ -313,7 +336,7 @@ check(
 # WP-D: setDetailColGroupOpen calls setTimeout(renderMain, 0) after state update
 check(
     "WP-D: setDetailColGroupOpen defers renderMain via setTimeout",
-    "setDetailColGroupOpen" in dash_reports and "setTimeout(renderMain,0)" in dash_reports,
+    "setDetailColGroupOpen" in dash_reports and has_code(dash_reports, "setTimeout(renderMain,0)"),
 )
 
 # WP-D: renderDetailTableForCols adds title attribute to <td> elements
@@ -325,20 +348,20 @@ check(
 # WP-D: CVD-safe palette -- detailChartColor starts with #000000 (Wong palette)
 check(
     "WP-D: detailChartColor uses Wong 8-color palette starting with #000000",
-    "'#000000','#E69F00','#56B4E9','#009E73'" in dash_reports,
+    has_code(dash_reports, "'#000000','#E69F00','#56B4E9','#009E73'"),
 )
 
 # ---------------------------------------------------------------------------
 # Section 17 - Outstanding items sprint (P1/P2/P3)
 # ---------------------------------------------------------------------------
-check("P1-A8: spendingData=null after saveYtdTransactions success", "spendingData=null" in dash)
+check("P1-A8: spendingData=null after saveYtdTransactions success", has_code(dash, "spendingData=null"))
 check("P1-A9: applySpendingForecast stale-data block present", "ytdTransactionsChanged||ytdAccountsChanged" in dash or "ytdTransactionsChanged || ytdAccountsChanged" in dash)
 check("P1-B1: guarded setStep defined in navigation module", "function setStep(ctx,id)" in nav and "wireStepNavigation" in nav)
 check("P1-B1: autosave steps list includes ytd_transactions", "'ytd_transactions'" in nav and "AUTOSAVE_STEPS" in nav)
-check("P2-C1: down_payment valueKind override returns percent", "norm(r.label)==='down_payment'" in dash or "norm(r?.label)==='down_payment'" in dash)
+check("P2-C1: down_payment valueKind override returns percent", has_code(dash, "norm(r.label)==='down_payment'") or has_code(dash, "norm(r?.label)==='down_payment'"))
 check("P2-C1: humanLabel down_payment no trailing percent sign", "Down Payment '" not in dash)
 check("P2-B2: /api/build/status endpoint defined", "/api/build/status" in file_text("src/server/workbook_routes.py") or "/api/build/status" in file_text("src/server/base_routes.py"))
-check("P2-B2: startup lastBuildOk restore calls /api/build/status", "api('/api/build/status')" in dash)
+check("P2-B2: startup lastBuildOk restore calls /api/build/status", has_code(dash, "api('/api/build/status')"))
 check("P2-D19: bottom action row has Save Changes + Download Workbook", "Save Changes" in dash and "Download Workbook" in dash)
 check("P2-B6: workbookNavOpened localStorage guard", "workbookNavOpened" in dash)
 check("P3-B7: saveWorkbookViewState defined", "saveWorkbookViewState" in dash)
