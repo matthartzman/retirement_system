@@ -292,8 +292,79 @@ OPTIONAL_MODULE_SHEETS = {
 }
 
 
+def _force_disabled(key):
+    """True iff ``key`` is explicitly named in RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES."""
+    forced_off = os.environ.get('RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES', '')
+    if not forced_off:
+        return False
+    k = str(key).strip().lower()
+    return k in {m.strip().lower() for m in forced_off.split(',') if m.strip()}
+
+
+def _base_enabled(c, key):
+    """Raw toggle state for ``key`` from env overrides + saved ``c['opt']``.
+
+    This is the pre-Phase-2 gating logic, WITHOUT prerequisite auto-selection.
+    Absent keys default to enabled so always-on core sheets are never dropped.
+    """
+    k = str(key).strip().lower()
+    if _force_disabled(key):
+        return False
+    forced_on = os.environ.get('RETIREMENT_SYSTEM_FORCE_ENABLE_MODULES', '')
+    if forced_on:
+        if k in {m.strip().lower() for m in forced_on.split(',') if m.strip()}:
+            return True
+    if os.environ.get('RETIREMENT_SYSTEM_FORCE_ALL_MODULES') == '1':
+        return True
+    opt = (c or {}).get('opt') or {}
+    if key in opt:
+        return bool(opt[key])
+    for kk, vv in opt.items():
+        if str(kk).strip().lower() == k:
+            return bool(vv)
+    return True
+
+
+def effective_enabled_modules(c):
+    """Optional module keys that should be treated as ON, after Phase-2
+    prerequisite auto-selection.
+
+    The set is: every *directly* enabled optional module (per :func:`_base_enabled`)
+    PLUS the transitive prerequisite *outputs* each one needs, per the
+    ``module_catalog`` (the codified Inputs/Outputs reframing) — restricted to
+    keys the build-time gate actually knows (:data:`OPTIONAL_MODULE_SHEETS`).
+
+    Rationale: a user who enables a dependent output (e.g. ``life_insurance_need``)
+    but forgets its prerequisite (``survivor_stress_test``) would otherwise get a
+    broken/empty sheet. Auto-selecting the prerequisite closes that gap.
+
+    Only optional prerequisites need action here — core prerequisites
+    (``net_worth``, ``cash_flow``, ``asset_allocation``, …) carry no toggle and
+    are always on. A prerequisite that is itself optional gets force-enabled,
+    UNLESS it is explicitly named in RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES,
+    which always wins (see :func:`module_enabled` precedence).
+    """
+    enabled = {k for k in OPTIONAL_MODULE_SHEETS if _base_enabled(c, k)}
+    try:
+        from ..module_catalog import CATALOG, prerequisite_outputs
+    except Exception:
+        # Catalog unavailable → fall back to raw toggles (no auto-selection).
+        return enabled
+    auto = set()
+    for key in enabled:
+        if key not in CATALOG:
+            continue
+        for dep in prerequisite_outputs(key):
+            # Only auto-enable keys the gate knows and that aren't explicitly
+            # force-disabled. Core prerequisites aren't in OPTIONAL_MODULE_SHEETS
+            # and need no action (they're always on).
+            if dep in OPTIONAL_MODULE_SHEETS and not _force_disabled(dep):
+                auto.add(dep)
+    return enabled | auto
+
+
 def module_enabled(c, key):
-    """True unless the optional-module toggle ``key`` is explicitly disabled.
+    """True unless the optional-module toggle ``key`` is disabled AND unneeded.
 
     Reads the ``_b``-normalized booleans loaded into ``c['opt']`` from
     client_optional_functions.csv.  Absent keys default to enabled so always-on
@@ -309,25 +380,36 @@ def module_enabled(c, key):
         stable regardless of saved toggles, without force-enabling newer
         default-off modules whose sheets those tests don't expect.
       * RETIREMENT_SYSTEM_FORCE_ALL_MODULES=1 forces every module on.
+
+    Phase-2 prerequisite auto-selection: a disabled optional module that is a
+    prerequisite output of an *enabled* optional module (per ``module_catalog``)
+    is treated as enabled anyway, so its dependent module isn't left with a
+    broken/empty sheet (e.g. enabling ``life_insurance_need`` pulls in
+    ``survivor_stress_test``).
+
+    Precedence (highest first):
+      1. FORCE_DISABLE on the directly-named ``key`` — always off, even if some
+         enabled module lists it as a prerequisite.
+      2. Directly enabled (FORCE_ENABLE / FORCE_ALL / saved toggle / default-on).
+      3. Auto-selected as a prerequisite of an enabled optional module.
+      4. Otherwise off.
     """
-    k = str(key).strip().lower()
-    forced_off = os.environ.get('RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES', '')
-    if forced_off:
-        if k in {m.strip().lower() for m in forced_off.split(',') if m.strip()}:
-            return False
-    forced_on = os.environ.get('RETIREMENT_SYSTEM_FORCE_ENABLE_MODULES', '')
-    if forced_on:
-        if k in {m.strip().lower() for m in forced_on.split(',') if m.strip()}:
-            return True
-    if os.environ.get('RETIREMENT_SYSTEM_FORCE_ALL_MODULES') == '1':
+    # (1) A directly-named FORCE_DISABLE always wins, even over auto-selection.
+    if _force_disabled(key):
+        return False
+    # (2) Direct enablement (env force-on, saved toggle, or default-on).
+    if _base_enabled(c, key):
         return True
-    opt = (c or {}).get('opt') or {}
-    if key in opt:
-        return bool(opt[key])
-    for kk, vv in opt.items():
-        if str(kk).strip().lower() == k:
-            return bool(vv)
-    return True
+    # (3) Prerequisite auto-selection: force-enable a disabled optional module
+    # that an enabled optional module depends on.
+    eff = effective_enabled_modules(c)
+    if key in eff:
+        return True
+    k = str(key).strip().lower()
+    if any(str(e).strip().lower() == k for e in eff):
+        return True
+    # (4) Explicitly disabled and needed by nothing enabled.
+    return False
 
 
 QC_CHECKS = []   # [(sheet_name, check, status, detail)]
