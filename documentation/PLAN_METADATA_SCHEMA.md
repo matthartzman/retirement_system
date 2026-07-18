@@ -80,12 +80,12 @@ def load_plan(plan_csv_path):
 | **v9.x** | None (implicit v0.9) | Loader uses shims 1–9 transparently. No metadata. |
 | **v10.0** | Migrator writes `plan_metadata.json` with v1.0 | Loader detects missing metadata, runs migrator, writes metadata. |
 | **v10.1** | Metadata exists with v1.0 | Loader reads metadata, skips migration. Deprecation warning added. |
-| **v10.2+** | Migrator code deprecated (kept for reference) | Loader gates on v1.0+; v0.9 files require manual re-migration. |
+| **v10.2+** | Migrator code retired (removed from tree; in git history) | Loader gates on v1.0+; v0.9 files require manual re-migration. |
 
 ## Purge Window
 
 - **v10.0–v10.1:** Migrator actively invoked on first load of old files. Backups kept (last 5 in `local_state/`).
-- **v10.2:** Migrator code removed from normal load path. Users can still manually run `tools/migrate_plan_data.py` if needed.
+- **v10.2:** Migrator code retired. `tools/migrate_plan_data.py` was removed from the tree (recoverable from git history); pre-v10.0 files are no longer migrated automatically.
 - **v10.3+:** Only version-N-1 → N support maintained. Pre-v10.0 files unsupported.
 
 ## Example Metadata Files
@@ -153,7 +153,7 @@ input/
 ---
 
 **See also:**
-- `tools/migrate_plan_data.py` — migrator implementation
+- `tools/migrate_plan_data.py` — migrator implementation (retired in v10.2; recoverable from git history)
 - `src/data_io.py` — loader that gates on metadata
 - `documentation/PHASE_C_ARCHITECTURAL_DECISIONS.md` — design rationale
 
