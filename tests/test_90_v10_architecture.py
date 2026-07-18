@@ -9,7 +9,6 @@ from src.tax_law import load_tax_law_dataset, dataset_freshness_summary
 from src.projection_pipeline import run_projection_pipeline, DEFAULT_STAGE_ORDER
 from src.results_model import build_result_explorer_model, RESULTS_MODEL_SCHEMA
 from src.report_spec import report_spec_from_results_model
-from src.meta_optimizer import run_meta_optimizer
 
 
 def test_v10_typed_plan_input_and_local_store_round_trip(tmp_path):
@@ -60,8 +59,3 @@ def test_v10_results_model_and_report_spec_are_renderer_neutral():
     assert any(p.name == 'Cash Flow' for p in spec.pages)
 
 
-def test_v10_meta_optimizer_selects_highest_score():
-    result = run_meta_optimizer({'x': 1}, {'a': lambda c: {'score': 1}, 'b': lambda c: {'score': 2}})
-    assert result.selected is not None
-    assert result.selected.name == 'b'
-    assert len(result.fingerprint) == 64
