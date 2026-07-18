@@ -1198,8 +1198,6 @@ def parse_client(data, url_template):
     # Liquidity reserve requirement
     # Reserve rules are defined only by start_year, end_year, and
     # years_of_expenses to retain.  The default reserve requirement is zero.
-    # Legacy Near Term / Long Term and Through YYYY rows are accepted only when
-    # explicitly populated, then normalized into the same schedule structure.
     c['liquidity_buffer_schedule'] = []
     _lb = data.get('Liquidity Buffer', {})
 
@@ -1224,17 +1222,6 @@ def parse_client(data, url_template):
                 vals.get('years_of_expenses', vals.get('years_of_expenses_in_trust', '0')),
                 vals.get('reserve_account', vals.get('preserve_account', 'Taxable/Trust')),
             )
-
-    if not c['liquidity_buffer_schedule'] and _lb:
-        near_yrs_raw = _v(data, 'Liquidity Buffer', 'Through 2028', 'years_of_expenses_in_trust', '')
-        long_yrs_raw = _v(data, 'Liquidity Buffer', '2029_onwards', 'years_of_expenses_in_trust', '')
-        near_end_raw = _v(data, 'Liquidity Buffer', 'Through 2028', 'end_year', '')
-        if str(near_yrs_raw).strip():
-            _near_end = _y(near_end_raw, 2028) if str(near_end_raw).strip() else 2028
-            _add_liquidity_rule(c['plan_start'], _near_end, near_yrs_raw)
-        if str(long_yrs_raw).strip():
-            _long_start = (_y(near_end_raw, 2028) + 1) if str(near_end_raw).strip() else 2029
-            _add_liquidity_rule(_long_start, '', long_yrs_raw)
 
     c['near_term_buffer_years'] = 0.0
     c['long_term_buffer_years'] = 0.0
