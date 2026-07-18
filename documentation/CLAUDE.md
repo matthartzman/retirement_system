@@ -153,7 +153,7 @@ Plan data (client facts, income, spending, assets, etc.) has one canonical store
 - `frontend/js/pywebview_bridge.js` — intercepts `fetch()` in desktop mode and routes through `window.pywebview.api.request()`
 - `frontend/js/spending_dashboard.js` — spending detail sub-view
 
-`dashboard.js` is the largest file (~1670 lines, heavily minified — roughly one statement per line). Key patterns:
+`dashboard.js` is the largest file (~16,700 lines, heavily minified — roughly one statement per line). Key patterns:
 - `STEPS` array (top of file) defines the left nav; each step has an `id`, `group`, `title`, and optional custom render function. The nav renders a group header whenever `group` changes, so all steps sharing a group must be contiguous in the array.
 - `rows` array holds all plan data fields fetched from `/api/config/rows`
 - `renderMain()` dispatches to per-step render functions (`renderIncomeWork`, `renderFieldGroups`, etc.)
