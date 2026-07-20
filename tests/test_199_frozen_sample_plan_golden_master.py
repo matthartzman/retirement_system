@@ -52,9 +52,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FROZEN_DIR = ROOT / "tests" / "fixtures" / "sample_plan_frozen"
 
-# Regenerated 2026-07-20 against commit fa6652b; see this file's docstring.
-PINNED_TERMINAL_NW = 6462380.37
-PINNED_LIFETIME_TAX = 1514542.40
+# Regenerated 2026-07-20 against commit fa6652b, after fixing a hermeticity
+# bug in this file (see test_frozen_plan_dollar_figures_are_exact's comment):
+# parse_client() was being called OUTSIDE the frozen_holdings_prices block, so
+# c['balances'] depended on ambient pricing-cache state rather than being
+# truly pinned. The two values below are correct; they happen to equal
+# test_2_recommendations.py's pre-401(k)-fix pins, which makes sense once
+# verified: this frozen household holds both a 401(k) AND a traditional IRA,
+# so it never exercises the destination==source path the rollover bug required
+# -- the fix legitimately has zero effect on this specific plan's numbers.
+PINNED_TERMINAL_NW = 6536759.61
+PINNED_LIFETIME_TAX = 1527729.93
 
 
 def _frozen_config():
@@ -95,8 +103,21 @@ class FrozenSamplePlanGoldenMasterTests(unittest.TestCase):
         from src.planning_engines import project
         from tests.golden_pricing import FROZEN_GOLDEN_MASTER_PRICES, frozen_holdings_prices
 
-        c = _frozen_config()
+        # _frozen_config() calls parse_client(), which itself calls
+        # market_data.configure_holdings_pricing() and computes c['balances']
+        # from priced holdings -- so it must be INSIDE the frozen-prices block,
+        # matching test_2_recommendations.py's sample_config()+project() pattern.
+        # Calling it outside (as an earlier version of this file did) makes
+        # c['balances'] depend on whatever pricing-cache state happens to be
+        # ambient (e.g. output/market_price_cache.json), which differs between
+        # a warm main checkout and a fresh git worktree with no such file --
+        # producing a large, environment-dependent, and entirely spurious
+        # "regression" with no relation to any actual code change. Confirmed
+        # empirically: reverting an unrelated Wave-2 change to bit-identical
+        # parent-commit code in its own worktree still showed the same delta,
+        # which only a pricing-cache difference between directories explains.
         with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+            c = _frozen_config()
             rows = project(c)
         summary = summarize_validation(rows, c)
 
@@ -172,8 +193,8 @@ if __name__ == "__main__":
     from src.planning_engines import project
     from tests.golden_pricing import FROZEN_GOLDEN_MASTER_PRICES, frozen_holdings_prices
 
-    c = _frozen_config()
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+        c = _frozen_config()
         rows = project(c)
     print(f"PINNED_TERMINAL_NW = {round(rows[-1]['total_nw'], 2)!r}")
     print(f"PINNED_LIFETIME_TAX = {round(sum(r['total_tax'] for r in rows), 2)!r}")
