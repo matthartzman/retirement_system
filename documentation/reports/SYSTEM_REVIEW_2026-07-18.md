@@ -1724,7 +1724,7 @@ decision is whether it hard-fails existing plans or only new ones.
 
 ---
 
-## 8. Addendum A — Module reframing and defects 191-197
+## 9. Addendum A — Module reframing and defects 191-197
 
 Added after the panel review, at the user's direction. This section was **not** produced by the expert
 panel and has **not** been through the cross-check or planner sign-off that Sections 1-7 received.
@@ -1737,7 +1737,7 @@ Two bodies of work are incorporated here:
   with outputs classified into five kinds and declaring their own input and output prerequisites.
 - Defects and improvements **191-197**, supplied directly.
 
-### 8.1 Why the reframing changes the shape of the plan
+### 9.1 Why the reframing changes the shape of the plan
 
 The reframing is not another finding — it is a **substrate change that several existing findings are
 downstream of**. Its core move is to turn `OPTIONAL_MODULE_SHEETS` from a flat toggle list into a
@@ -1760,7 +1760,7 @@ of Wave 3 (specifically 3.11, 3.2, 3.3) and before the Wave 4 domain builds, sev
 (P8 beneficiary capture, P11 gifting) add new modules that should be born into the new registry shape
 rather than retrofitted into it.
 
-### 8.2 Defects 191-197 — triage
+### 9.2 Defects 191-197 — triage
 
 Five of these seven are **information-architecture edits to the input steps** (194, 195, 196, 197, and
 partly 191). They all modify the same step/nav definitions. **They must be executed as one batched item,
@@ -1778,7 +1778,7 @@ impossible to do once.
 | 196 | `Se` → `SE` in the Self-Employment section; move it to Work Income | IA + typo | 3.5 | S | Part of the IA batch. The typo fix alone is trivial and could ride along in Wave 1 if you want it sooner. |
 | 197 | Rename nav: Profile → **People and Income**; Income and Social Security → **SS, Pensions, & Annuities** | IA | 3.5 | S | Part of the IA batch. Extends completed item 1.4, which already fixed nav capitalization — no conflict, but 1.4's convention (title case, ampersand rendered literally) should be followed. Check for hardcoded nav labels in tests and in PDF/workbook section titles before renaming. |
 
-### 8.3 ⚠ Conflict: item 195 versus Wave 2 item 2.2
+### 9.3 ⚠ Conflict: item 195 versus Wave 2 item 2.2
 
 **195 says delete the RMD Start Age input as redundant. Wave 2 item 2.2 (finding P2) makes that same
 input statutory-aware** — defaulting it from date of birth via `statutory_rmd_start_age(dob_year)` and
@@ -1800,12 +1800,12 @@ The same question applies in miniature to 194's "delete the redundant SS section
 section is a true duplicate of the surviving one and not a second field with different semantics that
 merely looks redundant.
 
-### 8.4 Revised wave summary
+### 9.4 Revised wave summary
 
 | Wave | Contents | Change from §6 |
 |---|---|---|
 | **1** | 12 items + **192** | **12 of 12 complete** (1.1-1.12, with 1.7 split into 1.7a/1.7b). **192 outstanding** |
-| **2** | 2.1-2.5 unchanged | unchanged; **2.2 now also gates 195** |
+| **2** | 2.1-2.6 (2.6 = P12 historical-MAGI seed, added by the §8 sign-off) | 2.2 now also gates 195; see §10 for planner-recommended intra-wave ordering |
 | **3** | 3.1-3.17 unchanged | unchanged; 3.11, 3.2, 3.3 now gate Wave 3.5 |
 | **3.5** *(new)* | Module reframing §7.1-7.5 + the IA batch (191, 194, 195, 196, 197) + 193 | new wave |
 | **4** | 4.1-4.10 unchanged | new modules should be authored against the reframed registry, not retrofitted |
@@ -1815,16 +1815,146 @@ merely looks redundant.
 prerequisite auto-selection (§7.5), with 192 re-run as the gate at each step. 193 runs in parallel
 throughout, after 192.
 
-### 8.5 Open questions added by this addendum
+### 9.5 Open questions added by this addendum
 
-9. **195 — which reading?** Delete a duplicated field, or remove the input entirely and derive it?
-   This determines whether 195 is a Wave 3.5 cleanup or a change to Wave 2's scope.
-10. **191 — what is "the attached"?** Attached change sets on a Scenario: confirm whether this means the
+(Numbered from 10 to avoid colliding with §7.3 item 9, the noted disagreement on 1.11.)
+
+10. **195 — which reading?** Delete a duplicated field, or remove the input entirely and derive it?
+    This determines whether 195 is a Wave 3.5 cleanup or a change to Wave 2's scope.
+11. **191 — what is "the attached"?** Attached change sets on a Scenario: confirm whether this means the
     UI attachment affordance, the persisted schema field, or both, and whether any saved plan currently
     carries one.
-11. **192 — "expand scope of analysis"** is ambiguous. Does this mean broaden the all-modules-off test to
-    more configurations (each module off individually, pairwise), or broaden what the test asserts about
-    the resulting workbook? The first is a combinatorial matrix; the second is depth on one case.
-12. **Reframing scope.** §7.3 asks whether free-form scenario authoring is worth retaining at all. That is
+12. **192 — "expand scope of analysis"** — *resolved during execution.* Read as linear coverage
+    (all-off, all-on, each module individually off), not a pairwise matrix, which explodes
+    combinatorially for little added signal. A dangerous pair, if found, is reported rather than
+    matrixed.
+13. **Reframing scope.** §7.3 asks whether free-form scenario authoring is worth retaining at all. That is
     a product decision, not an engineering one, and it should be settled before 191 is executed — deleting
     the attachment is a step down a path that ends in removing scenario authoring.
+
+---
+
+## 10. Planner final sign-off (post-Wave-1)
+
+A second CFP-level review was run after Wave 1 shipped and Addendum A was written — the stage the
+original run recorded in §8 predates both. **Verdict: Sections 1–7 sound and signed off as written;
+Addendum A needs the revisions below before it is executed from.** The planner verified the load-bearing
+claims against the code. Findings are recorded here in the planner's priority order; where a finding
+changes a plan item, the change is stated. Nothing in Waves 2–4 has been executed, so these are revisions
+to the plan, not to shipped code — except where noted as a follow-up on an already-shipped Wave 1 item.
+
+### 10.1 Must resolve before Wave 2 starts
+
+- **[DECISION REQUIRED — reopens a user choice] No mandatory detector of sample-plan dollar corruption
+  now exists.** §8 sign-off item 6 set, as the condition for loosening the gate, that dollar-exact
+  assertions stay *mandatory* against a frozen copy of the sample plan at `tests/fixtures/sample_plan_frozen/`,
+  with warn-only applying *only* to the live `input/` plan. That fixture was never built: when the gate
+  options were put to the user during execution, the user chose synthetic-scenarios-only (option 2) over
+  the frozen-fixture option (option 1). So today the mandatory gate is the synthetic library (which reads
+  no client data) plus structural checks; the sample plan's dollar figures are warn-only with no frozen
+  counterpart. The planner and the original §8 sign-off both want the frozen fixture *in addition to* the
+  synthetic library — they are not mutually exclusive. **This is a genuine residual gap, but closing it
+  reverses a decision the user made deliberately. It is therefore recorded as open question 14, not
+  actioned.** If adopted, the frozen fixture MUST be created *after* the 401(k)-rollover fix lands —
+  freezing now would enshrine a plan whose pre-tax balance is destroyed (zero RMDs, zero conversions) as
+  the mandatory baseline.
+
+- **195 — deleting "SS Claim Age" is not an S-effort cleanup.** §9.3 scrutinised the RMD-age half of 195
+  and left the SS-claim-age half unexamined. Claim age is per-member, drives the 81-pair claiming sweep,
+  sets `h_ss_yr`/`w_ss_yr` which gate every Social Security dollar, and is the field a planner changes most
+  often in a meeting. 194 (moves SS fields out), 195 (deletes SS fields from Retirement) and 197 (renames
+  the SS page) move Social Security inputs across three screens at once — a high-probability field-loss
+  change shipped as one "S / IA cleanup" ticket. **Revision:** 195 must name, per field and before any
+  edit, which screen holds the authoritative copy and which is the echo, with evidence both write the same
+  schema key. 192's assertions gain: after the IA batch, per-member RMD start age and per-member SS claim
+  age are each reachable, settable, and round-trip to the same schema key as before.
+
+- **`cascade_order_list` is a live client-facing defect, not an appendix note.** Verified: set at
+  `data_io.py:1253,1255,2442`, read only at `sheets_qc_reference.py:264` to print a label; it never reaches
+  the withdrawal engine. A planner sets a Withdrawal Policy order, the QC sheet prints it back as the
+  operative policy, and the engine ignores it — the same prose-ahead-of-code class as 1.11 and 1.12, which
+  were promoted to Wave 1. **Revision:** promote to a scheduled Wave 2 honesty item (S). Either delete the
+  input and have Sheet 21 state the fixed cascade, or wire it. While there, audit the 22-field Withdrawal
+  Policy section for other inert inputs.
+
+### 10.2 Wave 2–4 re-orderings the planner recommends
+
+- **2.2 before 2.1** — 2.1's deliverable is a before/after conversion comparison for the live plan;
+  produced on a projection where RMDs start at 75 instead of 73 it is void and must be redone. 2.2 is
+  half a day. No code conflict; pure analytic dependency.
+- **2.6 before 2.3** — §3.3 already says P12 gates P6; §6's table contradicts it by marking them parallel.
+  The prose is right.
+- **Pull 4.3 (effective 10-year heir rate) into Wave 2, adjacent to 2.1** — *the planner's most
+  consequential recommendation.* 2.1 fixes only the taxable leg (step-up) while the pre-tax leg keeps a
+  flat 24% heir rate. Between 2.1 and 4.3 the tool under-recommends conversions for exactly the
+  high-pre-tax-balance households where conversion matters most — and an unused low-bracket year cannot be
+  recovered later. Printing both rate fields (2.1's sub-task) discloses the gap but does not stop the tool
+  emitting the recommendation. 4.3 is M, prereq 2.1.
+- **Split Wave 3.5** into **3.5a** (3.11 + registry extension §7.1 + reclassification §7.2), before Wave 4,
+  and **3.5b** (IA batch + §7.4 visibility + 193), after 4.1/4.2/4.3. Only the registry half needs to
+  precede the domain builds; the nav/field IA work does not, and putting it first makes the QCD/DAF
+  "illustrative, not modelled" caveat live one wave longer. Fold 1.11's residency-sheet suppression into
+  §7.1's registry as a `requires_inputs` rule rather than a hardcoded guard.
+- **193 after 3.7** — 3.7 makes the 14-stage progress stream honest; 193 simplifies its display. Simplify
+  the honest stream, not the fictional one, or 193 may hardcode away the seam 3.7 needs.
+
+### 10.3 Cuts the planner recommends
+
+- **Cut 4.10 (guardrail spending policy in Monte Carlo).** 4.4 already delivers the client-facing value
+  ("in the worst outcomes you'd trim ~12% of discretionary from your mid-70s"). 4.10 redefines the headline
+  success metric, makes every prior success rate non-comparable, and mainly produces a higher number; its
+  own mitigation (report realized-spending "with equal prominence") concedes the headline becomes
+  misleading alone. Keep 4.4, drop 4.10.
+- **Cut or defer 3.17 (member-indexed accessors)** — held loosely, not a planning item. An additive layer
+  over 115 gendered keys that nothing must adopt, in a codebase already carrying three competing frontend
+  conventions (A13); it risks becoming a fourth. Either commit to the rename when the engine is quiet or
+  leave the keys alone.
+
+### 10.4 Correctness findings on future-wave code (record, act on in-wave)
+
+- **2.4 spousal benefit — the fix corrects timing and leaves the amount wrong.** At
+  `deterministic_engine.py:854-855` the benefit is `max(own, 0.5 × other_pia × factor)`. `max()` is the
+  wrong operator (a spousal benefit is own reduced benefit *plus* the excess spousal amount, not the greater
+  of the two), and `_ss_claim_factor` is the wrong reduction schedule (the excess spousal amount reduces on
+  a different schedule and does not grow past FRA). The central 62/70 case is exactly the one affected.
+  **2.4's scope and verification expand accordingly:** a claimant whose own PIA exceeds half the worker's
+  PIA receives no top-up at any age.
+- **4.7 (P8) prereq is 2.1, not "—"** — titling drives per-account step-up, which is 2.1's machinery.
+- **`roth_irmaa_target_tier` schema description asserts behaviour the code lacks** (`schema.csv:227`) — add
+  to 2.3's scope so the UI help text becomes true when the lookup lands.
+
+### 10.5 Follow-ups on already-shipped Wave 1 items
+
+- **1.5 removed a data-quality disclosure the reader needs.** Deleting the whole pricing line took out the
+  `→ cache → cost basis` tail, which encodes that unpriceable holdings are carried at purchase price. A
+  net-worth reader is entitled to know that. **Follow-up:** Sheet 1 retains a plain-language line —
+  "Security prices as of {date}. {n} holdings could not be priced and are shown at original cost." Vendor
+  names stay on Sheet 21.
+- **1.12 — a caveated precise dollar figure is worse than no figure.** A labelled-illustrative dollar
+  amount still anchors a non-expert. **Follow-up:** for out-of-engine figures, remove the dollar amount and
+  state the mechanism qualitatively; restore a number only when 4.2 makes the projection produce it.
+- **1.7b wants an `input/` integrity check beside the warn-only diff** — a session-scoped assertion that
+  `input/` is byte-unchanged at teardown, closing the hole the warn-only demotion opened. Cheap.
+- **194 — the SS benefit-reduction assumption should keep a read-only echo on the SS page.** Moving the
+  trust-fund-haircut input to Economic Assumptions is defensible taxonomy but poor practice management;
+  clients ask about it by name while looking at the SS page.
+
+### 10.6 What changed as a result of this sign-off
+
+- Section-numbering defects fixed: Addendum A renumbered §8 → §9; §9.5 open questions renumbered 10–13 to
+  clear the §7.3-item-9 collision; §9.4's Wave 2 row restored to 2.1–2.6 (it had silently dropped 2.6, the
+  P12 seed the original §8 sign-off added).
+- Open question 12 (192 scope) resolved to linear coverage during execution.
+- New **open question 14**: adopt the frozen sample-plan fixture (mandatory dollar gate, per §8 item 6 and
+  this sign-off) in addition to the synthetic library, or stand by the synthetic-only choice made during
+  execution? If adopted, it is gated on the 401(k)-rollover fix landing first.
+- All Wave 2–4 re-orderings and cuts above are recorded as planner recommendations against the plan; none
+  are executed, as those waves have not started.
+
+### 10.7 Noted disagreement
+
+The planner reads 1.11 (unmodeled-state hard fail) as purely additive. The executing engineer holds that
+turning a silent fallback into a hard preflight error is a behaviour change for any saved plan carrying an
+unrecognized state string — which is why 1.11 shipped with blank/missing state preserved and only truthy
+unrecognized states failing. Both positions stand; the item shipped either way. This restates §7.3 item 9
+against the as-built code.
