@@ -7,9 +7,11 @@ documentation/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md Phase 5.
 """
 from __future__ import annotations
 
+import hashlib
 import os
 import subprocess
 import sys
+import warnings
 from pathlib import Path
 
 import pytest
@@ -79,3 +81,50 @@ def built_workbook_dir(tmp_path_factory):
 @pytest.fixture(scope="session")
 def built_workbook_path(built_workbook_dir) -> Path:
     return built_workbook_dir / "retirement_plan.xlsx"
+
+
+def _hash_input_dir() -> dict[str, str]:
+    """Content hash of every file under input/, keyed by relative path.
+
+    Deliberately does not assert input/ is CLEAN at session start (it may
+    already carry the user's own uncommitted edits, which is not this
+    fixture's business) -- only that it does not change FURTHER while the
+    test session runs. See memory: pytest_mutates_input_files.
+    """
+    input_dir = ROOT / "input"
+    if not input_dir.exists():
+        return {}
+    out = {}
+    for f in sorted(input_dir.rglob("*")):
+        if f.is_file():
+            out[str(f.relative_to(input_dir))] = hashlib.sha256(f.read_bytes()).hexdigest()
+    return out
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _warn_if_input_dir_mutated_during_session():
+    """Session-wide guardrail, not a per-test fixture: most tests should be
+    fully isolated from input/ via tests/conftest.py's workspace redirect,
+    but that redirect only takes effect for code paths that resolve files
+    through workspace_context.candidate_input_files(). Code that reads
+    input/ via a hardcoded ROOT-relative path (as at least one path in
+    src/data_io.py's parse_client does for client_holdings.csv -- see
+    tests/test_199_frozen_sample_plan_golden_master.py's docstring) bypasses
+    that redirect entirely. This is a warn-only tripwire for exactly that
+    gap: it cannot tell WHICH test mutated input/, but it will say the
+    session as a whole did, which the previous behaviour (silence) did not.
+    """
+    before = _hash_input_dir()
+    yield
+    after = _hash_input_dir()
+    if before != after:
+        changed = sorted(set(before) ^ set(after)) or sorted(
+            k for k in before if before[k] != after.get(k)
+        )
+        warnings.warn(
+            f"input/ changed during this test session: {changed}. "
+            "Some test read input/ through a path that bypasses the "
+            "workspace-root redirect in tests/conftest.py. See memory: "
+            "pytest_mutates_input_files.",
+            UserWarning,
+        )
