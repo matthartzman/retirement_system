@@ -1804,7 +1804,7 @@ merely looks redundant.
 
 | Wave | Contents | Change from §6 |
 |---|---|---|
-| **1** | 10 original items + **192** | 1.1-1.6, 1.8-1.10, 1.12 complete; **1.5, 1.7, 1.11 outstanding**; 192 added |
+| **1** | 12 items + **192** | **12 of 12 complete** (1.1-1.12, with 1.7 split into 1.7a/1.7b). **192 outstanding** |
 | **2** | 2.1-2.5 unchanged | unchanged; **2.2 now also gates 195** |
 | **3** | 3.1-3.17 unchanged | unchanged; 3.11, 3.2, 3.3 now gate Wave 3.5 |
 | **3.5** *(new)* | Module reframing §7.1-7.5 + the IA batch (191, 194, 195, 196, 197) + 193 | new wave |
