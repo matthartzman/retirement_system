@@ -62,6 +62,56 @@ frozen plan sets `roth_policy = "none"`, so it never reaches the changed code
 at all. No fixture edits were needed; both pins are re-confirmed identical
 (`PINNED_TERMINAL_NW = 6536759.61`, `PINNED_LIFETIME_TAX = 1527729.93`).
 
+## 2026-07-20 — Item 2.4 (P7): excess-spousal Social Security — timing gate + SSA amount
+
+`deterministic_engine.py`'s spousal Social Security top-up was wrong in two ways.
+(1) It was paid regardless of whether the *worker* (whose PIA the spousal amount
+derives from) had actually filed — real SSA law bars a spousal benefit until the
+worker files. (2) The amount used `max(own_benefit, 0.5*worker_PIA*factor)`, which
+both discards the claimant's permanent early-claim reduction on their own record
+and applies the *own-benefit* reduction schedule to the spousal amount.
+
+Replaced with the SSA "excess spousal" method, computed per year inside the
+projection loop:
+
+    own_reduced_benefit + max(0, 0.5*worker_PIA - own_PIA) * excess_factor
+
+paid only from the worker's claim year onward and only while both spouses are
+alive. `excess_factor` is a new helper (`_ss_spousal_excess_factor`) implementing
+the spousal reduction schedule — 25/36 of 1%/month for the first 36 months before
+FRA, then 5/12 of 1%/month, and **no** delayed-retirement credits past FRA
+(capped at 1.0) — keyed to the claimant's age when the spousal benefit first
+becomes payable (the later of their own filing and the worker's filing). The
+own-benefit records (`h_monthly_claim`/`w_monthly_claim`) are now kept free of any
+spousal amount, which also makes the downstream survivor benefit derive purely
+from the deceased's own retirement record (a correctness improvement, not a
+separate change).
+
+Judgment call, flagged: the plan's one-line "correct formula" wrote the reduction
+factor against `0.5*worker_PIA` and subtracted own PIA afterward. That conflicts
+with its own prose ("only THEN has its own reduction schedule applied to the
+excess"). Per SSA's published dual-entitlement methodology the age reduction
+applies to the *excess* (0.5*worker_PIA − own_PIA), so the reduction is applied
+after the own-PIA offset, as coded above.
+
+Golden-master impact:
+- **Synthetic gate** (`tests/fixtures/synthetic_golden_master_cases.json`): all 9
+  pre-existing scenarios are UNCHANGED to the cent. Each has a dominant
+  higher-earner PIA and symmetric (both-age-70) claiming, so half the worker's PIA
+  never exceeds the claimant's own PIA — the old `max()` and the new excess method
+  both resolve to own-benefit-only. Added one new scenario,
+  `split_claiming_spousal` (higher earner delays to 70, lower earner claims at 62),
+  the only scenario in which the excess-spousal path is live, so the mandatory gate
+  now exercises the fix (terminal NW 12,238,486.87; lifetime tax 710,025.22).
+- **Frozen sample plan** (`tests/test_199_frozen_sample_plan_golden_master.py`):
+  pins UNCHANGED (6,536,759.61 / 1,527,729.93) — that household has no live
+  excess-spousal situation. No regeneration was required.
+
+New coverage: `tests/test_200_spousal_ss_excess_benefit.py` pins the 62/70 timing
+gate and step-up, a reduced-excess case (spousal begins at age 63 → 0.70 excess
+factor, distinct from the 0.75 own-benefit factor at the same 48 months), and the
+no-top-up case where both spouses' own PIAs dominate.
+
 
 ## 2026-07-18 — Sample-plan golden-master baselines demoted to warn-only
 
