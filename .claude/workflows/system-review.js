@@ -19,10 +19,23 @@ export const meta = {
 //   standard (default): architect + planner on opus, the other three on sonnet
 //   deep:               all five experts on opus
 // ---------------------------------------------------------------------------
-const scope = (args && args.scope) || 'the entire system'
-const date = (args && args.date) || 'undated'
-const outPath = (args && args.outPath) || `documentation/reports/SYSTEM_REVIEW_${date}.md`
-const depth = (args && args.depth) === 'deep' ? 'deep' : 'standard'
+// args may arrive as an object or, depending on how the caller passed it, as a
+// JSON string. A string silently fell through to every default on the first
+// real run -- a `deep` request executed at `standard` and the report was named
+// SYSTEM_REVIEW_undated.md. Normalise before reading any field.
+let A = args
+if (typeof A === 'string') {
+  try { A = JSON.parse(A) } catch (e) { A = {} }
+}
+if (!A || typeof A !== 'object') A = {}
+
+const scope = A.scope || 'the entire system'
+const date = A.date || 'undated'
+const outPath = A.outPath || `documentation/reports/SYSTEM_REVIEW_${date}.md`
+const depth = A.depth === 'deep' ? 'deep' : 'standard'
+if (date === 'undated') {
+  log('WARNING: no date arg received -- report will be written to SYSTEM_REVIEW_undated.md.')
+}
 // Model for an expert whose charter is judgement-dense enough to want opus at standard depth.
 const CORE = 'opus'
 // Model for the remaining experts -- opus only when the caller asked for depth: 'deep'.
