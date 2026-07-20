@@ -93,7 +93,7 @@
     "first_rmd_total": 34821.13,
     "first_conversion_year": 2031,
     "first_conversion_amount": 221138.88,
-    "selected_roth_strategy": "Fill current/configured 22% bracket"
+    "selected_roth_strategy": "RMD-reduction conversion"
   },
   "single_filer": {
     "plan_start": 2026,
