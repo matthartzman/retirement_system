@@ -410,6 +410,25 @@ def run_deterministic_projection_stage(c):
         f70 = _ss_claim_factor(70, dob_year, fra_override) or 1.0
         return float(monthly_at_70 or 0.0) * (_ss_claim_factor(claim_age, dob_year, fra_override) / f70)
 
+    def _ss_spousal_excess_factor(start_age, dob_year, fra_override=None):
+        # Reduction schedule for the EXCESS SPOUSAL benefit, which differs from a
+        # worker's own retirement reduction (_ss_claim_factor).  Per SSA the
+        # excess spousal amount is reduced 25/36 of 1% per month for the first 36
+        # months claimed before FRA, then 5/12 of 1% per month for any months
+        # beyond 36.  Delayed retirement credits do NOT apply to the spousal
+        # excess: claiming after FRA never grows it past the FRA-level amount, so
+        # the factor is capped at 1.0.  `start_age` is the claimant's age when the
+        # spousal benefit first becomes payable (the later of their own filing and
+        # the worker's filing), relative to the claimant's own FRA.
+        fra = _fra_for_birth_year(dob_year, fra_override)
+        months = int(round((float(start_age or fra) - fra) * 12))
+        if months >= 0:
+            return 1.0
+        early = abs(months)
+        first36 = min(36, early) * (25.0 / 3600.0)
+        extra = max(0, early - 36) * (5.0 / 1200.0)
+        return max(0.0, 1.0 - first36 - extra)
+
     def _basis_stepup_fraction(decedent_owned=True):
         regime = str(c.get('basis_step_up_property_regime', 'COMMON_LAW') or 'COMMON_LAW').upper()
         if regime in ('COMMUNITY_PROPERTY', 'FULL_STEP_UP'):
@@ -837,29 +856,48 @@ def run_deterministic_projection_stage(c):
         # that specific age wasn't entered, derive it from the FRA/PIA amount
         # via the SSA reduction/delayed-credit factor instead of defaulting
         # flatly to the FRA amount (which is only correct when claiming at FRA).
+        # h_monthly_claim / w_monthly_claim are each spouse's OWN reduced (or
+        # delayed-credited) retirement benefit — the record used both for the
+        # living benefit below and, unchanged, for the survivor benefit further
+        # down.  The spousal excess is added only to the living benefit; it is
+        # deliberately NOT baked into these records (a survivor benefit derives
+        # from the deceased's own retirement record, never their spousal top-up).
         h_monthly_claim = h_benefit_table.get(h_claim_age) or (h_pia * _ss_claim_factor(h_claim_age, c['h_dob_yr'], h_fra_override))
         w_monthly_claim = w_benefit_table.get(w_claim_age) or (w_pia * _ss_claim_factor(w_claim_age, c['w_dob_yr'], w_fra_override))
-        if c.get('spousal_benefits_enabled', True):
-            # Deemed filing/spousal top-up approximation: once both spouses have
-            # claimed, each can receive up to 50% of the other's PIA, reduced for
-            # claiming before FRA.
-            if h_claim_age < _fra_for_birth_year(c['h_dob_yr'], h_fra_override):
-                h_spousal_factor = _ss_claim_factor(h_claim_age, c['h_dob_yr'], h_fra_override)
-            else:
-                h_spousal_factor = 1.0
-            if w_claim_age < _fra_for_birth_year(c['w_dob_yr'], w_fra_override):
-                w_spousal_factor = _ss_claim_factor(w_claim_age, c['w_dob_yr'], w_fra_override)
-            else:
-                w_spousal_factor = 1.0
-            h_monthly_claim = max(h_monthly_claim, 0.5 * w_pia * h_spousal_factor)
-            w_monthly_claim = max(w_monthly_claim, 0.5 * h_pia * w_spousal_factor)
+        spousal_on = bool(c.get('spousal_benefits_enabled', True))
 
+        # Excess-spousal benefit (SSA dual-entitlement method).  A claimant who is
+        # also entitled to their own retirement benefit receives their own reduced
+        # benefit PLUS the excess spousal amount:
+        #     own_reduced + max(0, 0.5*worker_PIA - own_PIA) * excess_factor
+        # This is NOT max(own, 0.5*worker_PIA): the greater-of form would discard
+        # the claimant's permanent early-claim reduction on their own record and
+        # overstate the benefit for life.  The excess is computed off PIAs (full,
+        # unreduced benefits), floored at zero when the claimant's own PIA already
+        # meets/exceeds half the worker's PIA, and only THEN reduced on the
+        # spousal schedule (_ss_spousal_excess_factor, no delayed credits).  Two
+        # gates apply: (1) the WORKER must have actually filed — the spousal
+        # amount cannot be paid until the year the worker claims — and (2) both
+        # spouses must be alive (once a spouse dies the survivor logic below
+        # governs).  The reduction factor is set by the claimant's age when the
+        # spousal benefit first becomes payable, i.e. the later of their own
+        # filing year and the worker's filing year.
         h_ss = 0.0
         if h_alive and year >= h_ss_yr:
-            h_ss = h_monthly_claim * 12 * _ss_ratio(year, h_ss_yr)
+            h_monthly = h_monthly_claim
+            if spousal_on and w_alive and year >= w_ss_yr:
+                _h_sp_start_age = max(h_ss_yr, w_ss_yr) - c['h_dob_yr']
+                _h_sp_factor = _ss_spousal_excess_factor(_h_sp_start_age, c['h_dob_yr'], h_fra_override)
+                h_monthly += max(0.0, 0.5 * w_pia - h_pia) * _h_sp_factor
+            h_ss = h_monthly * 12 * _ss_ratio(year, h_ss_yr)
         w_ss = 0.0
         if w_alive and year >= w_ss_yr:
-            w_ss = w_monthly_claim * 12 * _ss_ratio(year, w_ss_yr)
+            w_monthly = w_monthly_claim
+            if spousal_on and h_alive and year >= h_ss_yr:
+                _w_sp_start_age = max(w_ss_yr, h_ss_yr) - c['w_dob_yr']
+                _w_sp_factor = _ss_spousal_excess_factor(_w_sp_start_age, c['w_dob_yr'], w_fra_override)
+                w_monthly += max(0.0, 0.5 * h_pia - w_pia) * _w_sp_factor
+            w_ss = w_monthly * 12 * _ss_ratio(year, w_ss_yr)
 
         # SS survivor benefit is symmetrical: survivor receives the larger
         # claimed benefit record (subject to survivor percentage), regardless of
