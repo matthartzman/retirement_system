@@ -736,8 +736,46 @@ def irmaa_lookback_magi(rows, current_agi, lookback_years=2):
         return current_agi
     return rows[-lookback_years].get('agi', current_agi)
 
+def supported_states():
+    """States with modeled state-tax rules, derived from STATE_TAX_RULES.
+
+    This is the single source of truth for "which states does this build
+    model" — STATE_TAX_RULES itself is taxes.py's STATE_TAX_DEFAULTS
+    overlaid with any reference_data/state_tax.csv rows, so adding a state
+    to that CSV extends this set automatically. Do not hardcode a second
+    list of state names anywhere else; call this instead.
+    """
+    return tuple(sorted(STATE_TAX_RULES.keys()))
+
+
+def _require_supported_state(state):
+    """Fail loudly on a residence_state with no modeled tax rules (item 1.11).
+
+    Previously an unrecognized state silently borrowed Illinois' flat 4.95%
+    rate AND its exempt_retirement=True treatment — an exemption many states
+    do not grant — with nothing on any report saying so. A truthy state that
+    isn't in STATE_TAX_RULES now raises instead of silently mapping to
+    Illinois.
+
+    A blank/missing state is intentionally NOT raised here: residence_state
+    is a required Plan Data field (reference_data/schema.csv) already
+    enforced by the separate "missing required field" preflight check, so an
+    empty string reaching this function is that upstream validation's
+    problem, not a "wrong state name" problem. Raising here too would risk
+    hard-failing on incomplete/in-progress plan snapshots (e.g. autosave
+    backups captured mid-edit) instead of on genuinely wrong data.
+    """
+    if state and state not in STATE_TAX_RULES:
+        raise ValueError(
+            f"Unsupported residence_state {state!r}. State tax is modeled for: "
+            f"{', '.join(supported_states())}. Change the state or add a rule "
+            f"to reference_data/state_tax.csv."
+        )
+
+
 def state_income_tax(state, earned, retirement_dist, ss_taxable, investment_inc,
                      nonqual_annuity, roth_conv, year, age_over_65=True, filing='MFJ'):
+    _require_supported_state(state)
     rules = STATE_TAX_RULES.get(state, STATE_TAX_RULES.get('Illinois', _td.STATE_TAX_DEFAULTS.get('Illinois')))
     if rules['type'] == 'none':
         return 0.0
