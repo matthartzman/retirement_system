@@ -68,8 +68,8 @@ def build_sheet21(ws, checks, rows=None, c=None):
         ('Mortgage Normalization',
          'Mortgage balance computed from configured starting balance; $0 after last_payment_year.'),
         ('RMD Timing',
-         'RMDs computed at year-start balance; satisfied before year-end; '
-         'SECURE 2.0 age-75 for those born 1960+.'),
+         'RMDs computed at year-start balance; satisfied before year-end. '
+         'SECURE 2.0 §107: age 72 (born ≤1950), age 73 (born 1951–1959), age 75 (born 1960+).'),
         ('RMD Base Excludes Annuities',
          'The aggregate IRA RMD base is liquid registry account balances only. Qualified/'
          'annuitized income streams are modeled as separate contracts that self-satisfy '
@@ -132,7 +132,7 @@ def build_sheet22(ws):
         ('Percentile Band', 'The value at or below which a given percentage of simulation results fall'),
         ('QCD', 'Qualified Charitable Distribution — IRA distribution sent directly to charity, excluded from AGI'),
         ('QTIP', 'Qualified Terminable Interest Property trust — provides income to surviving spouse'),
-        ('RMD', 'Required Minimum Distribution — mandatory annual withdrawals from tax-deferred accounts starting at age 75'),
+        ('RMD', 'Required Minimum Distribution — mandatory annual withdrawals from tax-deferred accounts starting at age 72, 73, or 75 depending on birth year per SECURE 2.0'),
         ('Roth Conversion', 'Transfer from a pre-tax IRA to a Roth IRA, triggering tax in the conversion year'),
         ('SALT Cap', _salt_defn),
         ('§121 Exclusion', 'Up to $500,000 (MFJ) of home sale gain excluded from federal income tax'),
