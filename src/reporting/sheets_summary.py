@@ -1055,10 +1055,8 @@ def build_sheet1(ws, c, rows, mc_data, ss_sweep=None):
     notes = [
         f"Built: {datetime.date.today()}",
         f"Workbook pricing source: {_pricing_label}. {_pricing_note}",
-        "Law assumptions are data-driven in tax_data.py / tax_constants.csv; see Methodology for tax-year provenance.",
         "Annuity Model: Age-86 principal recovery; 20% dividends reinvested, 80% cash; flat guaranteed payment continues post-recovery",
         "Auto Depreciation: Straight-line over 7 years (CSV: Other Assets > Autos > depreciation_years)",
-        "Live ETF prices use FMP → Yahoo → Alpha Vantage → Stooq → cache → cost basis; ticker-level pricing source is shown on holdings reports.",
     ]
     for note in notes:
         write_cell(ws, r, 1, note, bg=GRAY)
