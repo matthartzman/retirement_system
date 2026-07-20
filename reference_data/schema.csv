@@ -26,6 +26,8 @@ Model Constants,Retirement,spending_freeze_year,year,TRUE,2040,2026,2060,Year sp
 Model Constants,Retirement,ss_claim_age,integer,TRUE,70,62,70,SS claim age (both spouses)
 Model Constants,Retirement,rmd_start_age,integer,TRUE,75,72,75,SECURE 2.0 RMD start
 Model Constants,IRMAA,irmaa_annual_inflator,percent,TRUE,2.00%,0,5,IRMAA inflation rate
+Model Constants,IRMAA,irmaa_actual_magi_2yr_prior,dollars,FALSE,,0,,Actual household MAGI from the tax year two years before plan start (from filed tax returns). Seeds the statutory IRMAA two-year lookback for plan year 1. Leave blank to fall back to retirement-year AGI (see Build preflight for a reminder).
+Model Constants,IRMAA,irmaa_actual_magi_1yr_prior,dollars,FALSE,,0,,Actual household MAGI from the tax year one year before plan start (from filed tax returns). Seeds the statutory IRMAA two-year lookback for plan year 2. Leave blank to fall back to retirement-year AGI (see Build preflight for a reminder).
 Model Constants,Monte Carlo,mc_portfolio_sigma,percent,TRUE,12.00%,0,40,Portfolio return std dev
 Model Constants,Monte Carlo,mc_simulations,integer,TRUE,300,100,10000,Number of exact scalar MC paths; raise for final advisor runs if runtime allows
 Model Constants,Monte Carlo,mc_sensitivity_simulations,integer,TRUE,25,5,500,Exact scalar sims per MC sensitivity-grid cell

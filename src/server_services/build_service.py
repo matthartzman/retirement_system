@@ -123,6 +123,28 @@ def build_preflight_payload(
                     "label": str(row.get("label") or ""),
                 })
         schema_errors = (validate_rows_func or _schema_validate_rows)(editable)
+
+        # item 2.6: IRMAA plan years 1-2 have no projected AGI row yet to
+        # look back at, so they fall back to retirement-year AGI unless the
+        # household's actual historical MAGI is entered. That fallback is a
+        # known approximation (peak working-year MAGI is often very
+        # different from retirement-year AGI), so nudge -- but never block
+        # a build, since older saved plans predate these optional inputs
+        # and must still build with the old behavior.
+        irmaa_hist = {
+            r.get("label"): str(r.get("value") or "").strip()
+            for r in editable
+            if r.get("section") == "Model Constants" and r.get("subsection") == "IRMAA"
+            and r.get("label") in ("irmaa_actual_magi_2yr_prior", "irmaa_actual_magi_1yr_prior")
+        }
+        if not irmaa_hist.get("irmaa_actual_magi_2yr_prior") or not irmaa_hist.get("irmaa_actual_magi_1yr_prior"):
+            recommendations.append(
+                "IRMAA guidance for plan years 1-2 is using retirement-year AGI as a stand-in "
+                "because actual historical MAGI is blank (Model Constants > IRMAA > "
+                "irmaa_actual_magi_2yr_prior / irmaa_actual_magi_1yr_prior). Enter the "
+                "household's actual MAGI from the two tax years before plan start for more "
+                "accurate early-year IRMAA guidance."
+            )
     except Exception as exc:
         warnings.append(f"Plan validation preflight could not read all config rows: {exc}")
 

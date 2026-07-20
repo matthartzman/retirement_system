@@ -759,11 +759,43 @@ def social_security_taxable_amount(ss_total, other_income, filing='MFJ'):
     taxable = 0.85 * (provisional - base2) + min(0.50 * ss_total, 0.50 * max(0.0, base2 - base1))
     return min(0.85 * ss_total, taxable)
 
-def irmaa_lookback_magi(rows, current_agi, lookback_years=2):
-    """Return MAGI used for IRMAA, applying statutory two-year lookback when data exists."""
-    if lookback_years <= 0 or len(rows) < lookback_years:
+def irmaa_lookback_magi(rows, current_agi, lookback_years=2, historical_magi=None):
+    """Return MAGI used for IRMAA, applying statutory two-year lookback.
+
+    Once ``lookback_years`` prior projected plan-year rows exist, the
+    lookback MAGI is that prior row's actual AGI -- the normal statutory
+    case.
+
+    For the first ``lookback_years`` plan years, the lookback target falls
+    before plan start, so no projected row exists yet to look back at
+    (``rows`` only accumulates as the projection runs). ``historical_magi``,
+    if supplied, is a mapping of {years_before_plan_start: actual MAGI} --
+    e.g. {2: <MAGI two tax years before plan start>, 1: <MAGI one tax year
+    before plan start>} -- sourced from the household's actual tax returns
+    (item 2.6). When the entry for the needed year is present, it seeds the
+    lookback with that real historical value instead of a stand-in.
+
+    Absent a usable ``historical_magi`` entry (including saved plans made
+    before these inputs existed), this falls back to ``current_agi`` -- the
+    current plan year's own AGI is used as a stand-in, exactly as before
+    these inputs existed. That fallback is a known approximation: it is
+    often materially different from actual final-working-year MAGI, so
+    callers should surface a preflight nudge to fill in the actual values
+    when they are missing.
+    """
+    if lookback_years <= 0:
         return current_agi
-    return rows[-lookback_years].get('agi', current_agi)
+    if len(rows) >= lookback_years:
+        return rows[-lookback_years].get('agi', current_agi)
+    years_before_start = lookback_years - len(rows)
+    hist = historical_magi or {}
+    value = hist.get(years_before_start)
+    if value not in (None, ''):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            pass
+    return current_agi
 
 def supported_states():
     """States with modeled state-tax rules, derived from STATE_TAX_RULES.
