@@ -44,7 +44,7 @@ from .plan_config import ensure_engine_config
 from . import core as _ar  # consolidated from account_registry
 from . import optimization as _ao  # consolidated from allocation_optimizer
 from . import allocation_policy as _ap
-from .core import ASSET_CLASS_RETURNS, TAX_BASE_YEAR  # consolidated from engine_core
+from .core import ASSET_CLASS_RETURNS, TAX_BASE_YEAR, statutory_rmd_start_age  # consolidated from engine_core
 from .market_data import PRICE_CACHE, fetch_price, set_fallback_prices, set_frozen_prices, configure_holdings_pricing, configure_api_keys  # consolidated from market_data_providers
 from .workspace_context import candidate_input_files, active_workspace_id
 from . import platform_runtime as _platform_runtime
@@ -849,8 +849,39 @@ def parse_client(data, url_template):
     c['k401_lim']  = _n(_v(data,'Cashflow','Retirement Contributions','annual_401k_limit_base_year','32500'), 32500)
     c['k401_limit_indexed'] = _b(_v(data,'Cashflow','Retirement Contributions','index_401k_limit','TRUE'))
 
-    c['h_rmd_start_age'] = int(_n(_v(data,'Model Constants','Retirement','member_1_rmd_start_age', _v(data,'Model Constants','Retirement','rmd_start_age','75')), 75))
-    c['w_rmd_start_age'] = int(_n(_v(data,'Model Constants','Retirement','member_2_rmd_start_age', _v(data,'Model Constants','Retirement','rmd_start_age','75')), 75))
+    # Default RMD start age is derived from each member's date of birth per the
+    # SECURE 2.0 age ramp (see statutory_rmd_start_age). The CSV fields remain a
+    # user override: an explicitly-set value (member-specific, or the shared
+    # 'rmd_start_age' fallback) is honored as-is, but if it disagrees with the
+    # statutory default for that member's birth year, a non-blocking advisory
+    # warning is recorded (see 'rmd_start_age_warnings' / Sheet 26).
+    _h_rmd_statutory = statutory_rmd_start_age(c['h_dob_yr'])
+    _w_rmd_statutory = statutory_rmd_start_age(c['w_dob_yr'])
+    _h_rmd_raw = _v(data,'Model Constants','Retirement','member_1_rmd_start_age',
+                     _v(data,'Model Constants','Retirement','rmd_start_age',''))
+    _w_rmd_raw = _v(data,'Model Constants','Retirement','member_2_rmd_start_age',
+                     _v(data,'Model Constants','Retirement','rmd_start_age',''))
+    c['h_rmd_start_age'] = int(_n(_h_rmd_raw, _h_rmd_statutory)) if str(_h_rmd_raw or '').strip() else _h_rmd_statutory
+    c['w_rmd_start_age'] = int(_n(_w_rmd_raw, _w_rmd_statutory)) if str(_w_rmd_raw or '').strip() else _w_rmd_statutory
+    c['rmd_start_age_warnings'] = c.get('rmd_start_age_warnings') or []
+    if c['h_rmd_start_age'] != _h_rmd_statutory:
+        c['rmd_start_age_warnings'].append({
+            'code': 'RMD_START_AGE_OVERRIDE_DISAGREES_WITH_STATUTORY',
+            'severity': 'WARN',
+            'message': (f"{c.get('h_nick') or c.get('h_name') or 'Member 1'}'s RMD start age "
+                        f"is set to {c['h_rmd_start_age']}, but the statutory default for a "
+                        f"{c['h_dob_yr']} birth year is {_h_rmd_statutory} (SECURE 2.0)."),
+            'action': 'Confirm the override is intentional; otherwise clear it to use the statutory default.',
+        })
+    if c['w_rmd_start_age'] != _w_rmd_statutory:
+        c['rmd_start_age_warnings'].append({
+            'code': 'RMD_START_AGE_OVERRIDE_DISAGREES_WITH_STATUTORY',
+            'severity': 'WARN',
+            'message': (f"{c.get('w_nick') or c.get('w_name') or 'Member 2'}'s RMD start age "
+                        f"is set to {c['w_rmd_start_age']}, but the statutory default for a "
+                        f"{c['w_dob_yr']} birth year is {_w_rmd_statutory} (SECURE 2.0)."),
+            'action': 'Confirm the override is intentional; otherwise clear it to use the statutory default.',
+        })
     c['real_dollar_reporting_enabled'] = _b(_v(data,'Reporting','Output','real_dollar_reporting_enabled','TRUE'))
 
     c['spend_base']= _n(_v(data,'Cashflow','Spending','annual_spending_base_year','225000'), 225000)
@@ -1567,8 +1598,16 @@ def parse_client(data, url_template):
                                      str(c['ss_claim_age'])), c['ss_claim_age']))
     c['w_ss_claim_age']    = int(_n(_v(data,'Social Security','Member 2','claim_age',
                                      str(c['ss_claim_age'])), c['ss_claim_age']))
-    c['rmd_start_age']     = int(_n(_v(data,'Model Constants','Retirement',
-                                     'rmd_start_age','75'), 75))
+    # Generic/household RMD start age, anchored to the primary member's (h)
+    # birth year for conversion_window_end_year and any legacy caller that
+    # doesn't distinguish members. Statutory default via statutory_rmd_start_age;
+    # an explicit CSV value remains an honored override (warning handled above,
+    # since this reads the same 'rmd_start_age' cell that h/w_rmd_start_age fall
+    # back to).
+    _rmd_start_age_raw = _v(data,'Model Constants','Retirement','rmd_start_age','')
+    c['rmd_start_age']     = (int(_n(_rmd_start_age_raw, statutory_rmd_start_age(c['h_dob_yr'])))
+                               if str(_rmd_start_age_raw or '').strip()
+                               else statutory_rmd_start_age(c['h_dob_yr']))
     c['conv_window_offset']= int(_n(_v(data,'Model Constants','Roth Conversion',
                                      'roth_conv_window_end_offset','-1'), -1))
     c['irmaa_base']   = _n(_v(data,'Model Constants','IRMAA',
@@ -2464,7 +2503,45 @@ def build_plan_from_json(plan, url_template=''):
     c['trust_gain_fraction'] = a.get('ltcg_gain_fraction', 0.50)
 
     # ── Tax Constants ─────────────────────────────────────────────────────
-    c['rmd_start_age']     = a.get('rmd_start_age', 75)
+    # RMD start age: the flat-wizard JSON schema exposes one shared
+    # 'rmd_start_age' assumption (no per-member field). When unset, each member
+    # gets their OWN statutory default from date of birth (SECURE 2.0 ramp via
+    # statutory_rmd_start_age) rather than forcing both members onto one value.
+    # When the wizard field IS set, it is honored as an explicit override for
+    # both members (matching its historical single-value semantics), and a
+    # non-blocking advisory warning is recorded if it disagrees with either
+    # member's statutory default.
+    _h_rmd_statutory = statutory_rmd_start_age(c['h_dob_yr'])
+    _w_rmd_statutory = statutory_rmd_start_age(c['w_dob_yr'])
+    _rmd_raw = a.get('rmd_start_age')
+    if _rmd_raw is None or str(_rmd_raw).strip() == '':
+        c['rmd_start_age']   = _h_rmd_statutory  # primary-member anchor; matches conversion_window_end_year
+        c['h_rmd_start_age'] = _h_rmd_statutory
+        c['w_rmd_start_age'] = _w_rmd_statutory
+    else:
+        _rmd_explicit = int(_rmd_raw)
+        c['rmd_start_age']   = _rmd_explicit
+        c['h_rmd_start_age'] = _rmd_explicit
+        c['w_rmd_start_age'] = _rmd_explicit
+        c['rmd_start_age_warnings'] = c.get('rmd_start_age_warnings') or []
+        if _rmd_explicit != _h_rmd_statutory:
+            c['rmd_start_age_warnings'].append({
+                'code': 'RMD_START_AGE_OVERRIDE_DISAGREES_WITH_STATUTORY',
+                'severity': 'WARN',
+                'message': (f"{c.get('h_nick') or c.get('h_name') or 'Member 1'}'s RMD start age "
+                            f"is set to {_rmd_explicit}, but the statutory default for a "
+                            f"{c['h_dob_yr']} birth year is {_h_rmd_statutory} (SECURE 2.0)."),
+                'action': 'Confirm the override is intentional; otherwise clear it to use the statutory default.',
+            })
+        if c.get('w_name') and _rmd_explicit != _w_rmd_statutory:
+            c['rmd_start_age_warnings'].append({
+                'code': 'RMD_START_AGE_OVERRIDE_DISAGREES_WITH_STATUTORY',
+                'severity': 'WARN',
+                'message': (f"{c.get('w_nick') or c.get('w_name') or 'Member 2'}'s RMD start age "
+                            f"is set to {_rmd_explicit}, but the statutory default for a "
+                            f"{c['w_dob_yr']} birth year is {_w_rmd_statutory} (SECURE 2.0)."),
+                'action': 'Confirm the override is intentional; otherwise clear it to use the statutory default.',
+            })
     c['rollover_yr']       = a.get('rollover_year', c['plan_start'] + 5)
     c['salt_cap']          = a.get('salt_cap', 10000)
     c['payroll_wage_base'] = a.get('ss_wage_base', DEFAULT_SS_WAGE_BASE)

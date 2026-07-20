@@ -653,6 +653,35 @@ def rmd_divisor(age):
     # Conservative post-table continuation, never pretending old ages have long divisors.
     return max(2.0, RMD_DIVISORS[115] - (age - 115) * 0.1)
 
+
+def statutory_rmd_start_age(dob_year):
+    """Return the statutory first-RMD age for a person born in ``dob_year``.
+
+    Implements the SECURE Act / SECURE 2.0 Act Section 107 age ramp:
+      * born 1950 or earlier -> age 72
+      * born 1951-1959       -> age 73
+      * born 1960 or later   -> age 75
+
+    Stated position on the 1959 birth cohort (do not "fix" this to 75 without
+    reading this note): SECURE 2.0 Section 107 has a genuine drafting
+    conflict for people born in 1959 — depending on which cross-referenced
+    clause is read literally, that cohort can be placed in either the "age
+    73" bracket or the "age 75" bracket. This is not a bug in this function;
+    it is a known ambiguity in the statute itself. This codebase deliberately
+    adopts the IRS's administrative position — treating the 1959 cohort as
+    subject to age 73, consistent with IRS guidance (Notice 2023-54 and the
+    final RMD regulations) and how custodians/providers have implemented the
+    rule in practice — rather than the alternative age-75 reading. If the IRS
+    or subsequent legislation ever resolves the conflict the other way, this
+    is the single place to change.
+    """
+    year = int(dob_year)
+    if year <= 1950:
+        return 72
+    if year <= 1959:
+        return 73
+    return 75
+
 ASSET_CLASS_RETURNS = {
     'equity':    0.08,
     'commodity': 0.05,
