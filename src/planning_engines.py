@@ -1316,6 +1316,7 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
             'future_tax_stress_penalty': 0.0, 'survivor_tax_risk_penalty': 0.0,
             'pre_tax_inheritance_burden': 0.0, 'roth_legacy_preference_value': 0.0,
             'legacy_adjustment': 0.0, 'estate_tax_penalty': 0.0,
+            'peak_estate_tax_exposure': 0.0,
             'aca_ptc_loss': 0.0, 'aca_ptc_score': 0.0, 'score': 0.0,
         }
     terminal = rows[-1]
@@ -1444,7 +1445,28 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
         state_tax = illinois_estate_tax(state_taxable, state_exempt) if c.get('model_state_est', True) and state_exempt else 0.0
         return federal_tax + state_tax
 
-    estate_tax_penalty = estate_mult * max((_estate_tax_for_row(r) for r in rows), default=0.0)
+    # P9 fix: the objective must penalize the estate actually transferred at the
+    # second death, not the PEAK net worth in any single (typically early/mid)
+    # year. Evaluate the estate tax at the second-death row with the same
+    # terminal-estate model the reported PTI uses (estimate_terminal_estate_tax,
+    # which also folds in business interests and the CST exclusion), then
+    # present-value it to plan start so it is commensurate with the already-
+    # discounted lifetime_tax term above.
+    from .after_tax import estimate_terminal_estate_tax as _estimate_terminal_estate_tax
+    _second_death_row = next(
+        (r for r in rows if int(r.get('year', 0) or 0) == second_death),
+        rows[-1] if rows else None,
+    )
+    if _second_death_row is not None:
+        _death_year = int(_second_death_row.get('year', plan_start) or plan_start)
+        _estate_tax_at_death = _estimate_terminal_estate_tax(c, _second_death_row)
+        estate_tax_penalty = estate_mult * _estate_tax_at_death / ((1.0 + discount) ** max(0, _death_year - plan_start))
+    else:
+        estate_tax_penalty = 0.0
+    # Retained as a reported risk indicator only (NOT optimized against): the
+    # Illinois estate-tax cliff with no portability makes the worst single-year
+    # exposure worth surfacing even though it should not drive conversions.
+    peak_estate_tax_exposure = max((_estate_tax_for_row(r) for r in rows), default=0.0)
 
     objective_mode = str(c.get('roth_objective_mode', 'BALANCED_RETIREMENT') or 'BALANCED_RETIREMENT').upper()
     # Start with balanced professional planning defaults, then allow modes to
@@ -1487,8 +1509,8 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
     return {
         'terminal_nw': terminal_nw,
         'after_tax_terminal_nw': after_tax_terminal_nw,
-        'terminal_estate_tax': (_estate_tax_for_row(rows[-1]) if rows else 0.0),
-        'post_tax_inheritance': after_tax_terminal_nw - (_estate_tax_for_row(rows[-1]) if rows else 0.0),
+        'terminal_estate_tax': (_estimate_terminal_estate_tax(c, rows[-1]) if rows else 0.0),
+        'post_tax_inheritance': after_tax_terminal_nw - (_estimate_terminal_estate_tax(c, rows[-1]) if rows else 0.0),
         'lifetime_tax': lifetime_tax,
         'total_conversion': total_conversion,
         'total_roth_withdrawal': total_roth_withdrawal,
@@ -1501,6 +1523,7 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
         'roth_legacy_preference_value': roth_legacy_preference_value,
         'legacy_adjustment': legacy_adjustment,
         'estate_tax_penalty': estate_tax_penalty,
+        'peak_estate_tax_exposure': peak_estate_tax_exposure,
         'lifetime_tax_nominal': lifetime_tax_nominal,
         'terminal_wealth_score': terminal_component,
         'tax_efficiency_score': tax_component,

@@ -68,6 +68,81 @@ def _lot_mv_basis_for_account(c: Mapping[str, Any], account_id: str) -> Tuple[fl
     return mv, basis
 
 
+def _step_up_regime(c: Mapping[str, Any]) -> str:
+    return str(c.get("basis_step_up_property_regime", "COMMON_LAW") or "COMMON_LAW").strip().upper()
+
+
+def _second_death_step_fraction(c: Mapping[str, Any]) -> float:
+    """Fraction of household taxable gain stepped up when the *last* member dies.
+
+    At the second death the entire estate belongs to the decedent, so §1014
+    steps up the full basis under both common-law and community-property
+    regimes.  A HALF_STEP_UP configuration only steps up half.  Mirrors
+    planning_engines._basis_step_fraction_for_death(first_death=False).
+    """
+    return 0.5 if _step_up_regime(c) == "HALF_STEP_UP" else 1.0
+
+
+def _first_death_step_fraction(c: Mapping[str, Any]) -> float:
+    """Household-level taxable-gain fraction stepped up at the *first* death.
+
+    Only the decedent's share steps up in common law (~50% of jointly-held
+    assets), while community-property (and explicit FULL_STEP_UP) regimes step
+    up both spouses' halves — the classic double step-up the projection already
+    models at first death (see planning_engines.apply_death_transition, which
+    steps up the survivor's taxable accounts in full under those regimes).
+    """
+    regime = _step_up_regime(c)
+    if regime in {"COMMUNITY_PROPERTY", "FULL_STEP_UP"}:
+        return 1.0
+    if regime == "HALF_STEP_UP":
+        return 0.25  # half of the decedent's ~50% share
+    return 0.5  # common law: decedent's ~50% share only
+
+
+def _terminal_step_up_case(c: Mapping[str, Any], terminal: Mapping[str, Any]):
+    """Classify the terminal year against the household death timeline.
+
+    Returns (case, stepped_fraction, note):
+      - 'second_death' — both members are dead by the terminal year: the full
+        estate receives a §1014 step-up (scaled by regime).
+      - 'first_death'  — the terminal year is at/after the first death but a
+        survivor is still alive (or the horizon ends before the second death):
+        only the decedent's share steps up; the survivor's share retains its
+        deferred gain.
+      - 'both_alive'   — the horizon ends before any death: no step-up occurs,
+        the deferred gain is retained in full.
+    ``stepped_fraction`` is 0.0 whenever basis_step_up_at_death is disabled.
+    """
+    if not bool(c.get("basis_step_up_at_death", True)):
+        return "both_alive", 0.0, "basis step-up at death disabled — deferred gain retained in full"
+
+    h_death = int(_f(c.get("h_death_yr"), 0.0))
+    w_death = int(_f(c.get("w_death_yr"), 0.0))
+    members = c.get("members", []) or []
+    hh_size = int(_f(c.get("household_size", len(members)), 0.0))
+    term_year = int(_f(terminal.get("year", c.get("plan_end", c.get("plan_start", 0))), 0.0))
+
+    deaths = [d for d in (h_death, w_death) if d > 0]
+    second_death = max(deaths) if deaths else 0
+    first_death = min(deaths) if deaths else 0
+    # A single-member household carries a synthetic spouse whose "death year" is
+    # in the past; that is not a real first death, so the member's own death is
+    # both the first and the (terminal) second death.
+    if hh_size <= 1:
+        first_death = second_death
+
+    if second_death and term_year >= second_death:
+        return ("second_death", _second_death_step_fraction(c),
+                "terminal year is the second death — full §1014 step-up on the whole estate")
+    if first_death and term_year >= first_death:
+        return ("first_death", _first_death_step_fraction(c),
+                "one member survives the terminal year — only the decedent's share steps up; "
+                "the survivor's share retains its deferred gain")
+    return ("both_alive", 0.0,
+            "horizon ends with both members alive — deferred gain retained (no step-up)")
+
+
 def estimate_terminal_taxable_deferred_cap_gain_tax(c: Mapping[str, Any], terminal: Mapping[str, Any]) -> Dict[str, float]:
     """Estimate deferred tax on unrealized gains in taxable brokerage accounts.
 
@@ -75,6 +150,15 @@ def estimate_terminal_taxable_deferred_cap_gain_tax(c: Mapping[str, Any], termin
     back to the model's trust_gain_fraction, matching the projection's taxable
     withdrawal fallback.  The deferred tax estimate includes federal LTCG tax,
     NIIT when enabled, and incremental state tax on taxable investment gains.
+
+    §1014 step-up in basis at death is applied to the *gross* embedded gain
+    before any tax is computed, branching on whether the terminal year lands at
+    the second death (full step-up), after the first death with a survivor still
+    alive (decedent's share only), or before any death (no step-up).  Taxing the
+    full gain as if there were no step-up — while the same codebase grants the
+    step-up during life — over-states the terminal tax drag and, because this
+    metric dominates the Roth-conversion objective, systematically inflates the
+    recommended conversions.
     """
     taxable_ids = list(c.get("taxable_ids") or [])
     terminal_taxable = sum(_terminal_account_balance(terminal, aid) for aid in taxable_ids)
@@ -114,21 +198,33 @@ def estimate_terminal_taxable_deferred_cap_gain_tax(c: Mapping[str, Any], termin
         unrealized_gain = terminal_taxable * fallback_gain_fraction
         taxable_basis = max(0.0, terminal_taxable - unrealized_gain)
 
+    # §1014 step-up: the gain accumulated above is the *gross* embedded gain.
+    # Eliminate the stepped-up portion before computing any tax, so the terminal
+    # metric is coherent with the step-up the projection grants during life.
+    gross_unrealized_gain = unrealized_gain
+    step_case, step_fraction, step_note = _terminal_step_up_case(c, terminal)
+    step_fraction = max(0.0, min(1.0, step_fraction))
+    stepped_up_gain = gross_unrealized_gain * step_fraction
+    retained_gain = max(0.0, gross_unrealized_gain - stepped_up_gain)
+    # Assumed basis a reader can audit: original cost basis plus the portion of
+    # the embedded gain that the step-up lifts into basis.
+    assumed_basis = taxable_basis + stepped_up_gain
+
     filing = str(c.get("filing_status", "MFJ") or "MFJ")
     year = int(_f(terminal.get("year", c.get("plan_end", c.get("plan_start", 0))), 0))
     ordinary_income_base = max(0.0, _f(terminal.get("taxable_inc"), 0.0))
-    federal_ltcg_tax = ltcg_tax_on_gain(c, unrealized_gain, ordinary_income_base, year) if unrealized_gain > 0 else 0.0
+    federal_ltcg_tax = ltcg_tax_on_gain(c, retained_gain, ordinary_income_base, year) if retained_gain > 0 else 0.0
 
     niit = 0.0
-    if bool(c.get("model_niit", True)) and unrealized_gain > 0:
+    if bool(c.get("model_niit", True)) and retained_gain > 0:
         terminal_agi = max(0.0, _f(terminal.get("agi", ordinary_income_base), ordinary_income_base))
         # Liquidating the terminal taxable portfolio would add the gain to both
         # NII and MAGI.  Existing terminal NII is not always stored, so this is a
         # conservative standalone liquidation estimate.
-        niit = niit_tax(unrealized_gain, terminal_agi + unrealized_gain, filing)
+        niit = niit_tax(retained_gain, terminal_agi + retained_gain, filing)
 
     state_tax = 0.0
-    if unrealized_gain > 0:
+    if retained_gain > 0:
         state = str(c.get("state", "Illinois") or "Illinois")
         age_over_65 = True
         state_tax = state_income_tax(
@@ -136,7 +232,7 @@ def estimate_terminal_taxable_deferred_cap_gain_tax(c: Mapping[str, Any], termin
             earned=0.0,
             retirement_dist=0.0,
             ss_taxable=0.0,
-            investment_inc=unrealized_gain,
+            investment_inc=retained_gain,
             nonqual_annuity=0.0,
             roth_conv=0.0,
             year=year,
@@ -147,8 +243,13 @@ def estimate_terminal_taxable_deferred_cap_gain_tax(c: Mapping[str, Any], termin
     total_tax = max(0.0, federal_ltcg_tax + niit + state_tax)
     return {
         "terminal_taxable_nw": terminal_taxable,
-        "terminal_taxable_basis_est": taxable_basis,
-        "terminal_taxable_unrealized_gain_est": unrealized_gain,
+        "terminal_taxable_basis_est": assumed_basis,
+        "terminal_taxable_unrealized_gain_est": retained_gain,
+        "terminal_taxable_gross_unrealized_gain_est": gross_unrealized_gain,
+        "terminal_taxable_stepped_up_gain_est": stepped_up_gain,
+        "terminal_step_up_case": step_case,
+        "terminal_step_up_fraction": step_fraction,
+        "terminal_step_up_note": step_note,
         "terminal_taxable_lot_covered_balance": lot_covered_balance,
         "terminal_taxable_fallback_gain_balance": fallback_balance,
         "terminal_taxable_fallback_gain_fraction": fallback_gain_fraction,
