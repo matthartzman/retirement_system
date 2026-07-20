@@ -1,5 +1,68 @@
 
 
+## 2026-07-20 — Item 2.3 / P6: Roth conversion IRMAA guardrail keyed by filing status
+
+`plan_roth_conversion`'s `fill_to_irmaa` policy and the IRMAA cap inside
+`fill_to_bracket` (`planning_engines.py:1024-1028` / `:1050-1054` before this
+fix) both read `roth_irmaa_target_threshold_mfj` unconditionally, with no
+filing-status branch, even though `filing` is already a parameter of
+`plan_roth_conversion` and is already used for brackets and SS taxability in
+the same function. The tax-assessment side already did this correctly
+(`deterministic_engine.py`'s `_irmaa_surcharge_path`/`_irmaa_tier_path` key
+`IRMAA_TIERS_BASE_YEAR` by `filing`), so a surviving spouse whose filing
+status switches to Single mid-plan (the `survivor_filing` transition) could
+have a Roth conversion recommended that the guardrail believed was still
+inside the MFJ IRMAA tier, when it had actually crossed the (much lower)
+Single-filer tier the assessment side would have flagged.
+
+Fix: added `_roth_irmaa_target_threshold_base(c, filing)` in
+`planning_engines.py`, used at both former call sites. For MFJ filers it
+returns `c['roth_irmaa_target_threshold_mfj']` unchanged (an explicit
+override, seeded in `data_io.py` from `IRMAA_TIERS_BASE_YEAR['MFJ']` at the
+configured `roth_irmaa_target_tier` — bit-identical to the old code path, so
+MFJ years are provably unaffected). For every other filing status it looks up
+`IRMAA_TIERS_BASE_YEAR[filing]` at the same tier index, mirroring the
+assessment-side lookup.
+
+Numeric proof (direct call to `plan_roth_conversion`, `fill_to_irmaa` policy,
+`TIER_2`, `pre_agi = $150,000` from RMDs alone, `roth_irmaa_target_threshold_mfj`
+explicitly set to $268,000 as `data_io.py` would seed it):
+- `filing='MFJ'` → threshold resolves to $268,000 (unchanged) → conversion
+  cap = `(268,000 - 150,000) * 0.95` = **$112,100**.
+- `filing='Single'` → threshold now resolves to the Single Tier 2 table value,
+  **$133,000** (`IRMAA_TIERS_BASE_YEAR['Single'][1][0]`), which is below the
+  $150,000 pre-conversion AGI → conversion cap clips to **$0**, correctly
+  refusing to convert instead of allowing the old code's $112,100.
+
+`reference_data/schema.csv`'s `roth_irmaa_target_tier` help text ("Dollar
+thresholds come from the annual IRMAA tax table") was true of the assessment
+side but not the conversion guardrail before this fix; updated to say the
+lookup follows the household's current filing status.
+
+Golden masters: regenerated both mandatory gates
+(`tests/fixtures/synthetic_golden_master_cases.json` and
+`tests/test_199_frozen_sample_plan_golden_master.py`'s pin) — both are
+byte-identical/unchanged. Investigated why, per this item's own
+verification instructions, since `early_survivor_compression` (built
+specifically to exercise the MFJ→Single survivor transition) was expected to
+move: instrumenting `_roth_irmaa_target_threshold_base` confirms it is
+invoked with `filing='Single'` and correctly resolves $133,000 (vs. $268,000
+under `filing='MFJ'`) throughout that scenario's post-death years, so the fix
+is live — but the scenario's account registry gives the surviving owner
+(`owner_idx=1`) no Roth IRA to convert into at all (`Member_1_Roth` stays
+titled to the deceased `owner_idx=0`; `roth_target_for_owner(registry, 1)`
+returns `None`), so `apply_roth_conversion` executes $0 regardless of any
+IRMAA threshold — a separate, pre-existing gap in survivor account titling
+unrelated to this fix. `single_filer` (Single filing from year 1, no survivor
+transition) also didn't move: its binding cap is always the 22% bracket room
+or the annual IRA percentage cap, with the IRMAA tier never the tightest
+constraint at that scenario's income level, so a different (correct) IRMAA
+number changes nothing observable. `tests/test_199_frozen_sample_plan_golden_master.py`'s
+frozen plan sets `roth_policy = "none"`, so it never reaches the changed code
+at all. No fixture edits were needed; both pins are re-confirmed identical
+(`PINNED_TERMINAL_NW = 6536759.61`, `PINNED_LIFETIME_TAX = 1527729.93`).
+
+
 ## 2026-07-18 — Sample-plan golden-master baselines demoted to warn-only
 
 `tests/test_2_recommendations.py` pinned two dollar figures from the live sample
