@@ -9621,39 +9621,6 @@ function renderSpecialIncomeAnnuitiesInsurance() {
   return renderDeathBenefitsTable() + renderLifeInsurancePolicies();
 }
 
-const WITHDRAWAL_TYPES = [
-  "RMD",
-  "HSA",
-  "IRA_elective",
-  "Trust",
-  "Roth",
-  "Home_equity_tap",
-];
-const WITHDRAWAL_OPTIONS = {
-  RMD: ["mandatory"],
-  HSA: ["spend_as_needed", "annual_pct", "smooth_window"],
-  IRA_elective: ["gross_up_tax", "net_amount", "skip_until_needed"],
-  Trust: ["with_buffer", "spend_first", "preserve"],
-  Roth: ["tax_free", "last_resort", "preserve_for_legacy"],
-  Home_equity_tap: ["heloc_or_downsize", "heloc", "downsize", "never"],
-};
-function withdrawalPriorityRows() {
-  return rows
-    .filter(isEditable)
-    .filter(
-      (r) =>
-        r.section === "Withdrawal Policy" &&
-        /^Priority\s+\d+$/i.test(String(r.subsection || "")),
-    )
-    .sort(
-      (a, b) =>
-        (parseInt(String(a.subsection).replace(/\D+/g, "")) || 0) -
-        (parseInt(String(b.subsection).replace(/\D+/g, "")) || 0),
-    );
-}
-function withdrawalPriorityNumber(row) {
-  return parseInt(String(row.subsection || "").replace(/\D+/g, "")) || 1;
-}
 function withdrawalOtherRows() {
   return rowsForStep("withdrawal_strategy").filter(
     (r) =>
@@ -9663,76 +9630,21 @@ function withdrawalOtherRows() {
       ),
   );
 }
-function withdrawalOptionSelect(row, type) {
-  const opts = WITHDRAWAL_OPTIONS[type] || [""];
-  const cur = String(valOf(row) || opts[0] || "");
-  return `<select aria-label="Withdrawal option for ${esc(type)}" onchange="setWithdrawalOrderField(${row.row_index},'option',this.value)">${opts.map((o) => `<option value="${esc(o)}" ${norm(o) === norm(cur) ? "selected" : ""}>${esc(humanLabel(o))}</option>`).join("")}</select>`;
-}
-function withdrawalTypeSelect(row) {
-  const cur = String(row.label || "");
-  return `<select aria-label="Withdrawal type for priority ${withdrawalPriorityNumber(row)}" onchange="setWithdrawalOrderField(${row.row_index},'type',this.value)">${WITHDRAWAL_TYPES.map((t) => `<option value="${esc(t)}" ${norm(t) === norm(cur) ? "selected" : ""}>${esc(formatAcronyms(humanLabel(t)))}</option>`).join("")}</select>`;
-}
-function withdrawalPrioritySelect(row) {
-  const cur = withdrawalPriorityNumber(row);
-  const max = Math.max(6, withdrawalPriorityRows().length);
-  let html = `<select aria-label="Withdrawal priority" onchange="setWithdrawalOrderField(${row.row_index},'priority',this.value)">`;
-  for (let i = 1; i <= max; i++)
-    html += `<option value="${i}" ${i === cur ? "selected" : ""}>${i}</option>`;
-  return html + "</select>";
-}
-async function setWithdrawalOrderField(rowIndex, field, value) {
-  const priorityRows = withdrawalPriorityRows();
-  const item = priorityRows.find((r) => r.row_index === rowIndex);
-  if (!item) return;
-  let order = priorityRows.map((r) => ({
-    row_index: r.row_index,
-    priority: withdrawalPriorityNumber(r),
-    type: String(r.label || ""),
-    option: String(valOf(r) || ""),
-  }));
-  const rec = order.find((x) => x.row_index === rowIndex);
-  if (!rec) return;
-  if (field === "priority") {
-    const newPri = parseInt(value) || rec.priority;
-    const other = order.find(
-      (x) => x.priority === newPri && x.row_index !== rowIndex,
-    );
-    if (other) other.priority = rec.priority;
-    rec.priority = newPri;
-  } else if (field === "type") {
-    rec.type = value;
-    rec.option = (WITHDRAWAL_OPTIONS[value] || [""])[0] || "";
-  } else if (field === "option") rec.option = value;
-  order = order
-    .sort((a, b) => a.priority - b.priority)
-    .map((x, i) => Object.assign({}, x, { priority: i + 1 }));
-  try {
-    await api("/api/withdrawal-order", {
-      method: "POST",
-      body: JSON.stringify({ rows: order }),
-    });
-    dirty.clear();
-    lastBuildOk = false;
-    await loadAll({ source: planSource, preferLocal: false, silent: true });
-    activeStep = "withdrawal_strategy";
-    renderMain();
-    showMessage("Withdrawal order updated. Save Changes when ready.");
-  } catch (e) {
-    showMessage("Could not update withdrawal order: " + e.message, "error");
-  }
-}
+// The withdrawal cascade order used to be an editable "compressed
+// withdrawal-order table" here (Priority 1-6, saved via POST
+// /api/withdrawal-order). It was removed: the projection engine
+// (src/projection_stages/deterministic_engine.py) has always run a fixed,
+// hardcoded cascade and never read that table's output, so editing it and
+// clicking Save silently changed nothing in the workbook. See
+// documentation/reports/SYSTEM_REVIEW_2026-07-18.md §10.1. This block now
+// just states the fixed order as read-only text. Keep this string in sync
+// with FIXED_WITHDRAWAL_CASCADE_DESCRIPTION in src/taxes.py (both describe
+// the same hardcoded engine sequence) — test_withdrawal_roth_ui_cleanup.py
+// checks the two stay identical.
+const FIXED_WITHDRAWAL_CASCADE_DESCRIPTION =
+  "RMDs → HSA window → tax-sensitive pre-tax → taxable/trust → final pre-tax/HSA → Roth last → Home Equity";
 function renderWithdrawalOrderTable() {
-  const prs = withdrawalPriorityRows();
-  let html = `<details><summary>Withdrawal order</summary><div class="field-list"><div class="section-note"><b>Purpose:</b> Set the withdrawal cascade in a compact table. This directly affects the workbook cash-flow schedule, taxable income, RMD pressure, Roth preservation, trust withdrawals, HSA drawdown, and final liquidity timing.</div><div class="lot-table-wrap"><table class="lot-table withdrawal-order-table"><thead><tr><th>Priority</th><th>Withdrawal type</th><th>Option</th></tr></thead><tbody>`;
-  if (!prs.length)
-    html +=
-      '<tr><td colspan="3"><span class="small">No withdrawal priority rows found. Reload the current plan to initialize withdrawal order rows.</span></td></tr>';
-  prs.forEach((r) => {
-    html += `<tr><td>${withdrawalPrioritySelect(r)}</td><td>${withdrawalTypeSelect(r)}</td><td>${withdrawalOptionSelect(r, String(r.label || ""))}</td></tr>`;
-  });
-  html +=
-    '</tbody></table></div><p class="small">RMDs are mandatory income. Roth is normally preserved until non-Roth liquid sources are exhausted unless you intentionally change the cascade.</p></div></details>';
-  return html;
+  return `<details><summary>Withdrawal order</summary><div class="field-list"><div class="section-note"><b>Fixed by the engine — not user-configurable.</b> Every plan draws down accounts in this order every year: ${esc(FIXED_WITHDRAWAL_CASCADE_DESCRIPTION)}. RMDs are mandatory income; Roth and home equity are preserved until other liquid sources are exhausted.</div></div></details>`;
 }
 function renderWithdrawalStrategy() {
   if (searchText.trim()) return renderFields("withdrawal_strategy");

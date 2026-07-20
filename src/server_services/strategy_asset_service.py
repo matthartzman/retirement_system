@@ -21,15 +21,6 @@ WriteRowsFn = Callable[[Path, list[list[str]]], None]
 EnsureHeaderFn = Callable[[list[list[str]]], list[list[str]]]
 SyncFn = Callable[[], dict[str, Any]]
 
-WITHDRAWAL_ORDER_TYPES: dict[str, list[str]] = {
-    "RMD": ["mandatory"],
-    "HSA": ["spend_as_needed", "annual_pct", "smooth_window"],
-    "IRA_elective": ["gross_up_tax", "net_amount", "skip_until_needed"],
-    "Trust": ["with_buffer", "spend_first", "preserve"],
-    "Roth": ["tax_free", "last_resort", "preserve_for_legacy"],
-    "Home_equity_tap": ["heloc_or_downsize", "heloc", "downsize", "never"],
-}
-
 HOUSING_SEED_ROWS: list[list[str]] = [
     ["Cashflow","Mortgage","monthly_payment","","money","Current monthly mortgage payment; stops after last_payment_year"],
     ["Cashflow","Mortgage","balance_as_of_plan_start","","money","Current outstanding mortgage balance"],
@@ -195,66 +186,16 @@ class StrategyAssetService:
             self._audit(audit_event, {"added": added})
         return {"success": True, "seeded": added, "already_present": len(seed_rows) - added}, 200
 
-    def withdrawal_order_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
-        items = body.get("rows") or []
-        if not isinstance(items, list) or not items:
-            return {"success": False, "error": "rows must be a non-empty list"}, 400
-        cleaned: list[dict[str, Any]] = []
-        seen_priorities: set[int] = set()
-        for raw in items:
-            if not isinstance(raw, dict):
-                continue
-            try:
-                pri = int(raw.get("priority"))
-            except Exception:
-                continue
-            typ = str(raw.get("type") or "").strip()
-            if typ not in WITHDRAWAL_ORDER_TYPES:
-                return {"success": False, "error": f"Invalid withdrawal type: {typ}"}, 400
-            opts = WITHDRAWAL_ORDER_TYPES[typ]
-            opt = str(raw.get("option") or opts[0]).strip()
-            if opt not in opts:
-                opt = opts[0]
-            if pri in seen_priorities:
-                continue
-            seen_priorities.add(pri)
-            cleaned.append({"priority": pri, "type": typ, "option": opt})
-        if not cleaned:
-            return {"success": False, "error": "No valid withdrawal rows supplied"}, 400
-        cleaned = sorted(cleaned, key=lambda x: x["priority"])
-        for i, item in enumerate(cleaned, start=1):
-            item["priority"] = i
-        path = self.context.plan_data_path("client_policy.csv")
-        file_rows = self.context.csv_read_rows(path)
-        priority_indices: list[int] = []
-        for idx, row in enumerate(file_rows):
-            cols = list(row) + [""] * 6
-            if str(cols[0]).strip() == "Withdrawal Policy" and re.match(r"^Priority\s+\d+$", str(cols[1]).strip(), re.I):
-                priority_indices.append(idx)
-        if not priority_indices:
-            insert_at = len(file_rows)
-            for idx, row in enumerate(file_rows):
-                if row and str(row[0]).strip() == "Withdrawal Policy":
-                    insert_at = idx
-                    break
-            priority_indices = list(range(insert_at, insert_at + len(cleaned)))
-            file_rows[insert_at:insert_at] = [["", "", "", "", "", ""] for _ in cleaned]
-        while len(priority_indices) < len(cleaned):
-            insert_at = priority_indices[-1] + 1 if priority_indices else len(file_rows)
-            file_rows.insert(insert_at, ["", "", "", "", "", ""])
-            priority_indices.append(insert_at)
-        for item, idx in zip(cleaned, priority_indices):
-            while len(file_rows[idx]) < 6:
-                file_rows[idx].append("")
-            file_rows[idx][0] = "Withdrawal Policy"
-            file_rows[idx][1] = f"Priority {item['priority']}"
-            file_rows[idx][2] = item["type"]
-            file_rows[idx][3] = item["option"]
-            file_rows[idx][4] = "choice"
-            file_rows[idx][5] = "Withdrawal cascade row edited from the User UI compressed withdrawal-order table."
-        self.context.write_client_rows(path, file_rows)
-        self._audit("withdrawal_order_saved", {"updated": len(cleaned)})
-        return {"success": True, "updated": len(cleaned), "sync": self.context.sync_config_backends()}, 200
+    # NOTE: this class used to expose withdrawal_order_payload(), backing a
+    # POST /api/withdrawal-order endpoint and an editable "Withdrawal order"
+    # table in the UI (Priority 1-6, saved into client_policy.csv's
+    # "Withdrawal Policy > Priority N" rows). It was removed: the projection
+    # engine's withdrawal cascade is fixed and hardcoded
+    # (src/projection_stages/deterministic_engine.py), and never read that
+    # CSV data, so the control let a planner "save" a change that silently
+    # had zero effect on the workbook. See
+    # documentation/reports/SYSTEM_REVIEW_2026-07-18.md §10.1 and
+    # src/taxes.py's FIXED_WITHDRAWAL_CASCADE_DESCRIPTION.
 
     def large_discretionary_payload(self) -> tuple[dict[str, Any], int]:
         return {"success": True, "types": self.context.travel_extra_types or [], "events": self.context.large_discretionary_expenses_from_plan_data()}, 200

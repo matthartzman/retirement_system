@@ -491,7 +491,6 @@ Ownership:
 The strategy/assets routes remain URL-compatible, but route handlers now delegate request-independent validation and Plan Data row manipulation to `src/server_services/strategy_asset_service.py`.
 
 Service-owned route families:
-- `/api/withdrawal-order`
 - `/api/large-discretionary-expenses`
 - `/api/forced-roth-conversions`
 - `/api/liquidity-buffers`
@@ -509,5 +508,5 @@ Ownership:
 - HTTP permissions, CSV-write gating, request extraction, and JSON serialization remain in `plan_routes.py`.
 - Row normalization, validation, seed row definitions, reference CSV writing, and audit payload composition live in `strategy_asset_service.py`.
 
-Representative typed contracts are also exposed by `/api/contracts` using the `withdrawal_order_update_v1`, `large_discretionary_expenses_v1`, `forced_roth_conversions_v1`, `liquidity_buffers_v1`, `insurance_policy_add_v1`, `insurance_policy_delete_v1`, and `config_sync_v1` schemas.
+Representative typed contracts are also exposed by `/api/contracts` using the `large_discretionary_expenses_v1`, `forced_roth_conversions_v1`, `liquidity_buffers_v1`, `insurance_policy_add_v1`, `insurance_policy_delete_v1`, and `config_sync_v1` schemas.
 

@@ -1,18 +1,43 @@
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_withdrawal_page_excludes_roth_and_uses_custom_table():
+def test_withdrawal_page_excludes_roth_and_shows_fixed_cascade():
     js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
     assert 'case "withdrawal_strategy":\n        return sec === "Withdrawal Policy" && sub !== "roth_conversion";' in js
     assert "renderWithdrawalOrderTable" in js
     assert "Withdrawal order" in js
-    assert (
-        'const WITHDRAWAL_TYPES = [\n  "RMD",\n  "HSA",\n  "IRA_elective",\n  "Trust",\n  "Roth",\n  "Home_equity_tap",\n];'
-        in js
+    # The withdrawal cascade is fixed by the engine and is not a user-editable
+    # priority table (see documentation/reports/SYSTEM_REVIEW_2026-07-18.md
+    # §10.1 — the old editable table wrote CSV rows the engine never read).
+    assert "not user-configurable" in js
+    assert 'api("/api/withdrawal-order"' not in js
+    assert "setWithdrawalOrderField" not in js
+
+
+def test_withdrawal_cascade_description_matches_engine_constant():
+    """The JS-side static cascade description and the Python-side
+    FIXED_WITHDRAWAL_CASCADE_DESCRIPTION constant (src/taxes.py) describe the
+    same hardcoded engine sequence and must be kept textually identical so
+    they cannot silently drift apart."""
+    js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
+    taxes_src = (ROOT / 'src/taxes.py').read_text(encoding='utf-8')
+
+    js_match = re.search(
+        r'const FIXED_WITHDRAWAL_CASCADE_DESCRIPTION =\s*\n?\s*"([^"]+)"',
+        js,
     )
-    assert "WITHDRAWAL_OPTIONS" in js
+    assert js_match, "FIXED_WITHDRAWAL_CASCADE_DESCRIPTION not found in dashboard.js"
+
+    py_match = re.search(
+        r"FIXED_WITHDRAWAL_CASCADE_DESCRIPTION = \(\s*'([^']+)'\s*'([^']+)'\s*\)",
+        taxes_src,
+    )
+    assert py_match, "FIXED_WITHDRAWAL_CASCADE_DESCRIPTION not found in src/taxes.py"
+
+    assert js_match.group(1) == py_match.group(1) + py_match.group(2)
 
 
 def test_roth_page_uses_collapsible_sections_and_does_not_show_legacy_irmaa_base():

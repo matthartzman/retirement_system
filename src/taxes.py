@@ -461,41 +461,25 @@ def annuity_reserve_from_calib(reserve_start, yr_offset, calib=None):
 ROTH_POLICIES = ['optimize_terminal_tax', 'optimize', 'balanced_optimize', 'terminal_tax_optimize', 'fill_to_bracket', 'fill_to_irmaa', 'fixed_dollar', 'none']
 
 # ─────────────────────────────────────────────────────────────────────────────
-# CASCADE ACCOUNTS (discretionary, gap-driven)
-# Constraint: 'Trust' must precede 'Roth' (LTCG tax on trust draws is
-# funded by Roth; reversing this produces incorrect tax results).
+# WITHDRAWAL CASCADE (fixed, engine-enforced — not user-configurable)
+#
+# The withdrawal engine (src/projection_stages/deterministic_engine.py, see
+# its "Withdrawal Cascade" block) runs a hardcoded priority sequence every
+# year: RMDs (already applied to income before that block runs), then HSA
+# window, tax-sensitive pre-tax, taxable/trust, a final uncapped pre-tax/HSA
+# pass, Roth as a true last resort, then home equity via HELOC. There is no
+# input anywhere that changes this order — see
+# documentation/reports/SYSTEM_REVIEW_2026-07-18.md §10.1. This description
+# is the single source of truth for reporting that sequence; both the QC
+# sheet (sheets_qc_reference.py) and the Methodology sheet reference this
+# constant instead of hardcoding their own copy, so they cannot drift apart.
+# If the engine's actual order ever changes, update this string in the same
+# commit as deterministic_engine.py's cascade comments.
 # ─────────────────────────────────────────────────────────────────────────────
 
-DEFAULT_CASCADE_ORDER = ['IRA', 'Trust', 'Roth', 'Home']
-VALID_CASCADE_ACCOUNTS = {'IRA', 'Trust', 'Roth', 'Home'}
-
-def validate_cascade_order(order):
-    """Validate a cascade order list. Returns (cleaned_list, warnings).
-    Enforces: Trust before Roth (LTCG coupling)."""
-    warnings = []
-    cleaned = []
-    for item in order:
-        item = item.strip()
-        if item in VALID_CASCADE_ACCOUNTS:
-            if item not in cleaned:
-                cleaned.append(item)
-        else:
-            warnings.append(f'Unknown cascade account "{item}" — ignored')
-
-    # Ensure all required accounts are present (append missing at end)
-    for acct in DEFAULT_CASCADE_ORDER:
-        if acct not in cleaned:
-            cleaned.append(acct)
-            warnings.append(f'Added missing cascade account "{acct}" at end')
-
-    # Enforce Trust before Roth
-    ti = cleaned.index('Trust')
-    ri = cleaned.index('Roth')
-    if ti > ri:
-        cleaned.remove('Trust')
-        cleaned.insert(ri, 'Trust')
-        warnings.append('Moved Trust before Roth (LTCG tax coupling requires this order)')
-
-    return cleaned, warnings
+FIXED_WITHDRAWAL_CASCADE_DESCRIPTION = (
+    'RMDs → HSA window → tax-sensitive pre-tax → taxable/trust → '
+    'final pre-tax/HSA → Roth last → Home Equity'
+)
 
 # ===== END tax_data.py =====
