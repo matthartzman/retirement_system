@@ -81,7 +81,10 @@ def build_sheet21(ws, checks, rows=None, c=None):
          'Modeled per Plan Settings toggles (both TRUE). IL estate tax: ~$4M exemption, '
          'graduated 0.8%–16% rates, no portability.'),
         ('Live Pricing',
-         'ETF prices fetched at build time via FMP / Alpha Vantage / Stooq. CASH = $1.00/share.'),
+         'ETF prices are fetched at build time via a ranked provider waterfall (FMP → Yahoo → '
+         'Alpha Vantage → Stooq), falling back to the last cached quote and then to cost basis '
+         'if no live quote is available. CASH = $1.00/share. The pricing source actually used '
+         'for each ticker is shown on the holdings reports.'),
         ('SS Survivor Benefit',
          '100% of higher benefit (at deceased\'s claim age per CSV policy rows).'),
         ('Spousal Rollover',
@@ -103,6 +106,17 @@ def build_sheet22(ws):
     ws.sheet_view.showGridLines = False
     section_title(ws, 1, 'GLOSSARY OF TERMS', 4)
 
+    from .. import taxes as _tax_law
+    _salt_year = TAX_BASE_YEAR
+    _salt_cap_now = int(salt_cap(_salt_year, 0))
+    _salt_revert_year = getattr(_tax_law, 'SALT_REVERSION_YEAR', _salt_year + 4)
+    _salt_defn = (
+        f'A federal limit on how much state and local tax (income and property tax combined) a '
+        f'household can deduct on its federal return. For {_salt_year}, the cap is '
+        f'${_salt_cap_now:,} — it shrinks for very high incomes and is currently scheduled to '
+        f'drop back to $10,000 starting in {_salt_revert_year}. This figure changes by tax year.'
+    )
+
     terms = [
         ('AGI', 'Adjusted Gross Income — gross income minus above-the-line deductions'),
         ('Basis', 'The original cost of an asset used to determine capital gain or loss'),
@@ -120,7 +134,7 @@ def build_sheet22(ws):
         ('QTIP', 'Qualified Terminable Interest Property trust — provides income to surviving spouse'),
         ('RMD', 'Required Minimum Distribution — mandatory annual withdrawals from tax-deferred accounts starting at age 75'),
         ('Roth Conversion', 'Transfer from a pre-tax IRA to a Roth IRA, triggering tax in the conversion year'),
-        ('SALT Cap', 'State and Local Tax deduction cap — schedule sourced from tax_data.py'),
+        ('SALT Cap', _salt_defn),
         ('§121 Exclusion', 'Up to $500,000 (MFJ) of home sale gain excluded from federal income tax'),
         ('Sequence-of-Returns Risk', 'Risk that poor investment returns early in retirement permanently impair the portfolio'),
         ('Spousal Rollover', 'Surviving spouse inherits deceased spouse\'s IRA as their own, deferring RMDs to their own age'),
