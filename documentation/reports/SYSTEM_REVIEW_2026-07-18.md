@@ -13,6 +13,11 @@ document and signed off. Ten corrections were applied — three of them resequen
 and are recorded in Section 8, with one noted disagreement carried into Section 7.3. The wave tables and
 the Wave summary reflect the post-sign-off state.
 
+**Wave 1: 12 of 12 complete, including 1.7c.** Item 192 (build-tested against all 24 registered optional
+modules, individually and in combination — see `tests/test_192_all_modules_off_build.py`) and open question
+14 (the frozen sample-plan gate — see `tests/test_199_frozen_sample_plan_golden_master.py`) are both closed.
+See §9.4 and §10.6 for what changed.
+
 **How to read it:** Section 2 preserves every option each expert considered, including the ones I did not
 recommend. If you disagree with a recommendation, the alternative and its tradeoff are sitting next to it.
 Section 4 is the single plan I am proposing; Section 6 is how to execute it.
@@ -1804,7 +1809,7 @@ merely looks redundant.
 
 | Wave | Contents | Change from §6 |
 |---|---|---|
-| **1** | 12 items + **192** | **12 of 12 complete** (1.1-1.12, with 1.7 split into 1.7a/1.7b). **192 outstanding** |
+| **1** | 12 items + **192** + **1.7c** | **All complete** (1.1-1.12, with 1.7 split into 1.7a/1.7b/1.7c; 192 done). See §10.6. |
 | **2** | 2.1-2.6 (2.6 = P12 historical-MAGI seed, added by the §8 sign-off) | 2.2 now also gates 195; see §10 for planner-recommended intra-wave ordering |
 | **3** | 3.1-3.17 unchanged | unchanged; 3.11, 3.2, 3.3 now gate Wave 3.5 |
 | **3.5** *(new)* | Module reframing §7.1-7.5 + the IA batch (191, 194, 195, 196, 197) + 193 | new wave |
@@ -1845,19 +1850,19 @@ to the plan, not to shipped code — except where noted as a follow-up on an alr
 
 ### 10.1 Must resolve before Wave 2 starts
 
-- **[DECISION REQUIRED — reopens a user choice] No mandatory detector of sample-plan dollar corruption
-  now exists.** §8 sign-off item 6 set, as the condition for loosening the gate, that dollar-exact
-  assertions stay *mandatory* against a frozen copy of the sample plan at `tests/fixtures/sample_plan_frozen/`,
-  with warn-only applying *only* to the live `input/` plan. That fixture was never built: when the gate
-  options were put to the user during execution, the user chose synthetic-scenarios-only (option 2) over
-  the frozen-fixture option (option 1). So today the mandatory gate is the synthetic library (which reads
-  no client data) plus structural checks; the sample plan's dollar figures are warn-only with no frozen
-  counterpart. The planner and the original §8 sign-off both want the frozen fixture *in addition to* the
-  synthetic library — they are not mutually exclusive. **This is a genuine residual gap, but closing it
-  reverses a decision the user made deliberately. It is therefore recorded as open question 14, not
-  actioned.** If adopted, the frozen fixture MUST be created *after* the 401(k)-rollover fix lands —
-  freezing now would enshrine a plan whose pre-tax balance is destroyed (zero RMDs, zero conversions) as
-  the mandatory baseline.
+- **[RESOLVED — see §10.6] Frozen sample-plan gate built (1.7c).** §8 sign-off item 6 set, as the
+  condition for loosening the gate, that dollar-exact assertions stay *mandatory* against a frozen copy of
+  the sample plan at `tests/fixtures/sample_plan_frozen/`, with warn-only applying *only* to the live
+  `input/` plan. That fixture was not built during Wave 1 — the user chose synthetic-scenarios-only at the
+  time, and the 401(k)-rollover fix (a precondition, since freezing earlier would have enshrined a plan
+  with a destroyed pre-tax balance as the baseline) had not yet landed. Both preconditions are now
+  satisfied: `tests/test_199_frozen_sample_plan_golden_master.py` pins terminal net worth and lifetime tax
+  to two decimal places against the frozen copy, mandatory, *in addition to* the synthetic library — the
+  two were never mutually exclusive. A real redirect landmine in `src/data_io.py`'s `parse_client` (an
+  explicit `root=` kwarg on the holdings loader bypasses `RETIREMENT_SYSTEM_WORKSPACE_ROOT`) was found and
+  verified empirically before being trusted, then worked around locally via a test-scoped monkeypatch
+  rather than a production-code change; see that file's docstring. The gate was proven to actually gate by
+  injecting a regression and watching it fail, then reverting.
 
 - **195 — deleting "SS Claim Age" is not an S-effort cleanup.** §9.3 scrutinised the RMD-age half of 195
   and left the SS-claim-age half unexamined. Claim age is per-member, drives the 81-pair claiming sweep,
@@ -1944,10 +1949,15 @@ to the plan, not to shipped code — except where noted as a follow-up on an alr
 - Section-numbering defects fixed: Addendum A renumbered §8 → §9; §9.5 open questions renumbered 10–13 to
   clear the §7.3-item-9 collision; §9.4's Wave 2 row restored to 2.1–2.6 (it had silently dropped 2.6, the
   P12 seed the original §8 sign-off added).
-- Open question 12 (192 scope) resolved to linear coverage during execution.
-- New **open question 14**: adopt the frozen sample-plan fixture (mandatory dollar gate, per §8 item 6 and
-  this sign-off) in addition to the synthetic library, or stand by the synthetic-only choice made during
-  execution? If adopted, it is gated on the 401(k)-rollover fix landing first.
+- Open question 12 (192 scope) resolved to linear coverage during execution; item 192 shipped as
+  `tests/test_192_all_modules_off_build.py` — 27 build configurations (all-off, all-on, each of 24 modules
+  individually off), enumerated from `module_catalog.optional_keys()` rather than a hand-maintained list.
+  It also caught and fixed a real crash: `build_html_dashboard` assumed a chart-data helper sheet always
+  exists, which is false when `charts_dashboard` is off.
+- **Open question 14 resolved: frozen sample-plan fixture adopted.** Both preconditions this section named
+  (the 401(k)-rollover fix, and a user decision) are satisfied — the fix merged, and this was executed as
+  the direct answer to "what do you recommend for question 14?" / "continue as recommended." Shipped as
+  item 1.7c; see §10.1's revised entry.
 - All Wave 2–4 re-orderings and cuts above are recorded as planner recommendations against the plan; none
   are executed, as those waves have not started.
 
