@@ -79,6 +79,22 @@
     "first_conversion_amount": 0,
     "selected_roth_strategy": "Fill current/configured 22% bracket"
   },
+  "split_claiming_spousal": {
+    "plan_start": 2026,
+    "plan_end": 2058,
+    "row_count": 33,
+    "terminal_year": 2058,
+    "terminal_total_nw": 12238486.87,
+    "terminal_liquid_nw": 12118486.87,
+    "lifetime_tax": 710025.22,
+    "total_roth_conversion": 1754653.96,
+    "first_year_total_tax": 31402.56,
+    "first_rmd_year": 2041,
+    "first_rmd_total": 34821.13,
+    "first_conversion_year": 2031,
+    "first_conversion_amount": 221138.88,
+    "selected_roth_strategy": "Fill current/configured 22% bracket"
+  },
   "single_filer": {
     "plan_start": 2026,
     "plan_end": 2054,

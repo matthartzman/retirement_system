@@ -138,6 +138,26 @@ def base_plan() -> Dict[str, Any]:
     }
 
 
+def _split_claiming_plan() -> Dict[str, Any]:
+    """Asymmetric split-claiming couple that produces a real excess-spousal top-up.
+
+    The higher earner (Alex, PIA 3,400) delays to 70; the lower earner (Blair,
+    PIA 1,200) claims at 62. Because half of Alex's PIA (1,700) exceeds Blair's
+    own PIA (1,200), Blair is owed a positive excess-spousal amount — but only
+    once Alex actually files at 70. Before that Blair receives their own reduced
+    (age-62) benefit alone. This exercises both halves of the excess-spousal fix:
+    the worker-has-filed timing gate and the own-reduced + reduced-excess amount.
+    """
+    plan = base_plan()
+    inc = dict(plan["income"])
+    inc["w_ss_pia"] = 1_200.0
+    inc["h_ss_claim_age"] = 70
+    inc["w_ss_claim_age"] = 62
+    inc.pop("ss_claim_age", None)
+    plan["income"] = inc
+    return plan
+
+
 def _single_filer_plan() -> Dict[str, Any]:
     """Same engine, one member — exercises the Single bracket/deduction path."""
     plan = base_plan()
@@ -324,6 +344,14 @@ SCENARIOS: Dict[str, Scenario] = {s.name: s for s in [
         "brackets and standard deduction, survivor Social Security, and the "
         "inherited-account/RMD consequences of a compressed two-life horizon.",
         override=_early_survivor,
+    ),
+    Scenario(
+        "split_claiming_spousal",
+        "Asymmetric claiming: higher earner delays to 70, lower earner claims at "
+        "62 and is owed an excess-spousal top-up once the higher earner files. "
+        "Pins the worker-filed timing gate and the own-reduced + reduced-excess "
+        "spousal amount — the only scenario where the excess-spousal path is live.",
+        plan=_split_claiming_plan,
     ),
     Scenario(
         "single_filer",
