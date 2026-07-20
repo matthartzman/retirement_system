@@ -1,0 +1,114 @@
+match_value,match_field,exact,priority,category_id,source
+Anthropic,merchant,0,95,business_hardware_and_software,user
+Google One,merchant,0,95,business_hardware_and_software,user
+Hensley and Associates,merchant,0,95,office_supplies_expenses,user
+Google,merchant,0,90,business_hardware_and_software,user
+Gusto,merchant,0,90,office_supplies_expenses,user
+401k Contribution,category,1,50,401k_contribution,seed
+401K Match,category,1,50,401k_match,seed
+Advertising & Promotion,category,1,50,advertising_promotion,seed
+Auto Fuel,category,1,50,auto_fuel,seed
+Auto Insurance,category,1,50,auto_insurance,seed
+Auto Licenses & Fees,category,1,50,auto_licenses_fees,seed
+Auto Maintenance,category,1,50,auto_maintenance,seed
+Auto Payment,category,1,50,auto_payment,seed
+Books,category,1,50,books,seed
+Business Auto Expenses,category,1,50,business_auto_expenses,seed
+Business Events,category,1,50,business_events,seed
+Business Hardware and Software,category,1,50,business_hardware_and_software,seed
+Business Insurance,category,1,50,business_insurance,seed
+Business Memberships,category,1,50,business_memberships,seed
+Business Reimbursement,category,1,50,business_reimbursement,seed
+Business Taxi - Uber,category,1,50,business_taxi_uber,seed
+Business Travel & Meals,category,1,50,business_travel_meals,seed
+Business Utilities & Communication,category,1,50,business_utilities_communication,seed
+Buy,category,1,50,buy,seed
+Car Wash,category,1,50,car_wash,seed
+Cash & ATM,category,1,50,cash_atm,seed
+Charity,category,1,50,charity,seed
+Check,category,1,50,check,seed
+Child Activities,category,1,50,child_activities,seed
+Child Care,category,1,50,child_care,seed
+Children Weddings,category,1,50,children_weddings,seed
+Church,category,1,50,church,seed
+Clothing & Jewelry,category,1,50,clothing_jewelry,seed
+Coffee Shops,category,1,50,coffee_shops,seed
+Cr Card Payment,category,1,50,cr_card_payment,seed
+Credit Card Payment,category,1,50,credit_card_payment,seed
+Cubs Tickets,category,1,50,cubs_tickets,seed
+Dentist,category,1,50,dentist,seed
+Dermatologist,category,1,50,dermatologist,seed
+Disability Insurance,category,1,50,disability_insurance,seed
+Dividends & Capital Gains,category,1,50,dividends_capital_gains,seed
+Donation,category,1,50,charitable_donations,seed
+Drugs - Rx and OTC,category,1,50,drugs_rx_and_otc,seed
+Dry Cleaners,category,1,50,dry_cleaners,seed
+Education,category,1,50,education,seed
+Electronics,category,1,50,electronics,seed
+Entertainment & Recreation,category,1,50,entertainment_recreation,seed
+Exercise & Health Equipment,category,1,50,exercise_health_equipment,seed
+Fast Food,category,1,50,fast_food,seed
+Financial & Legal Services,category,1,50,financial_legal_services,seed
+Financial Fees,category,1,50,financial_fees,seed
+Fitness,category,1,50,fitness,seed
+Furniture & Housewares,category,1,50,furniture_housewares,seed
+Furniture/Home Decor/Kitchenware,category,1,50,furniture_home_decor_kitchenware,seed
+Garbage,category,1,50,garbage,seed
+Gas & Electric,category,1,50,gas_electric,seed
+Gifts - Family 12,category,1,50,gifts_family_12,seed
+Gifts - Other,category,1,50,gifts_other,seed
+Large Gifts,category,1,60,significant_gifts,user
+Groceries,category,1,50,groceries,seed
+Hair/Make-up,category,1,50,hair_make_up,seed
+Health Club,category,1,50,health_club,seed
+Healthcare Premium,category,0,50,pre65_wellness_premium,user
+Home Improvement,category,1,50,home_improvement,seed
+Home Maintenance,category,1,50,home_maintenance,seed
+Homeowners Insurance,category,1,50,ho_insurance,seed
+House Cleaning,category,1,50,house_cleaning,seed
+HSA Contribution,category,1,50,hsa_contribution,seed
+Income Taxes,category,1,50,income_taxes,seed
+Insurance,category,1,50,insurance,seed
+Interest,category,1,50,interest,seed
+Internet & Cable,category,1,50,internet_cable,seed
+Lawn Service/Garden/Flowers,category,1,50,lawn_service_garden_flowers,seed
+Licenses,category,1,50,licenses,seed
+Loan Repayment,category,1,50,loan_repayment,seed
+Mani-Pedi,category,1,50,mani_pedi,seed
+Medical,category,1,50,medical,seed
+Miscellaneous,category,1,50,miscellaneous,seed
+Mortgage,category,1,50,mortgage,seed
+Movie Theater,category,1,50,movie_theater,seed
+Office Rent,category,1,50,office_rent,seed
+Office Supplies & Expenses,category,1,50,office_supplies_expenses,seed
+Other Income,category,1,50,other_income,seed
+Parking & Tolls,category,1,50,parking_tolls,seed
+Paychecks,category,1,50,paychecks,seed
+Personal,category,1,50,personal,seed
+Pest Control,category,1,50,pest_control,seed
+Pets,category,1,50,pets,seed
+Phone,category,1,50,phone,seed
+Postage & Shipping,category,1,50,postage_shipping,seed
+Public Transit,category,1,50,public_transit,seed
+Real Estate Taxes,category,1,50,real_estate_taxes,seed
+RedMane Annual Note P&I,category,1,50,redmane_annual_note_p_i,seed
+Rent,category,1,50,rent,seed
+Restaurants & Bars,category,1,50,restaurants_bars,seed
+Sell,category,1,50,sell,seed
+Sewer,category,1,50,sewer,seed
+Shopping,category,1,50,shopping,seed
+Sprinkler Maintenance,category,1,50,sprinkler_maintenance,seed
+Student Loans,category,1,50,student_loans,seed
+Subscriptions,category,1,50,subscriptions,seed
+Taxi & Ride Shares,category,1,50,taxi_ride_shares,seed
+Transfer,category,1,50,transfer,seed
+Travel & Vacation,category,1,50,travel_vacation,seed
+Travel - Housing,category,1,50,travel_housing,seed
+Travel - Insurance,category,1,50,travel_insurance,seed
+Travel - Plane/Train/Bus,category,1,50,travel_plane_train_bus,seed
+Uncategorized,category,1,50,uncategorized,seed
+Vision,category,1,50,vision,seed
+Vitamins & Supplements,category,1,50,vitamins_supplements,seed
+Water,category,1,50,water,seed
+Healthcare Premium,category,1,50,pre65_wellness_premium,seed
+Business Services,category,1,45,business_services,user
