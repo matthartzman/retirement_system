@@ -739,6 +739,25 @@ def build_sheet13(ws, c, rows):
     section_title(ws, 1, 'STATE RESIDENCY ANALYSIS', 10)
 
     r = 3
+    # ── Unmodeled-state caveat ────────────────────────────────────────────────
+    # A normal build now fails preflight (core.state_income_tax) rather than
+    # reach this sheet with an unmodeled residence_state. This guard is
+    # defense-in-depth for any caller that builds this sheet directly (e.g.
+    # a test, or a future softer fallback path) — it stops the comparison
+    # below from silently presenting Illinois numbers as if they were the
+    # client's own state, which is the defect item 1.11 exists to close.
+    current_state = c.get('state')
+    if current_state and current_state not in STATE_TAX_RULES:
+        note = (f"'{current_state}' has no modeled state-tax rules — state tax is only "
+                f"modeled for: {', '.join(supported_states())}. The comparison and cost-of-"
+                f"living estimate below use Illinois as a stand-in baseline; they do NOT "
+                f"reflect {current_state}'s actual rates, retirement-income exemptions, or "
+                f"estate tax. Add a rule to reference_data/state_tax.csv to model "
+                f"{current_state} directly before relying on this sheet.")
+        write_cell(ws, r, 1, note, bg='FFF4E5', align='left')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
+        r += 2
+
     # ── Aggregate income components over plan horizon ────────────────────────
     total_earned = sum(row.get('state_earned_net', 0) for row in rows)
     total_retirement = sum(row.get('state_retirement', 0) for row in rows)
