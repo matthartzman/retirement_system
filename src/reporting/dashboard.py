@@ -349,6 +349,12 @@ def _find_workbook_charts_sheet(wb):
     The HTML sidecar is generated after the workbook is saved, so it must read
     the final user-facing tab name rather than the legacy build name.  Keep
     the legacy fallback for older workbooks and tests.
+
+    Returns ``None`` when no charts sheet exists.  That is a legitimate state,
+    not an error: ``charts_dashboard`` is an optional module, and when its
+    toggle is off neither the visible tab nor the hidden ``_Chart Dashboard
+    Data`` helper is built.  The caller falls back to deriving the series
+    straight from the projection rows, so the HTML dashboard still renders.
     """
     final_charts_name = FINAL_SHEET_RENAMES.get('8. Charts Dashboard', '1E. Charts')
     for name in (final_charts_name, '8. Charts Dashboard', 'Charts'):
@@ -359,7 +365,7 @@ def _find_workbook_charts_sheet(wb):
         low = title.lower()
         if 'chart' in low and str(getattr(ws, 'sheet_state', 'visible') or 'visible') == 'visible':
             return ws
-    raise KeyError('Workbook charts sheet not found; expected 1E. Charts or 8. Charts Dashboard.')
+    return None
 
 
 def build_html_dashboard(xlsx_path, html_path, rows, c):
@@ -434,9 +440,16 @@ def build_html_dashboard(xlsx_path, html_path, rows, c):
         return yrs, labels, series
 
     # Hidden helper layout from build_sheet8: NW A:I, income K:AA, expenses AC:AM.
-    years, nw_labels, nw_ser = _extract_chart_block(chart_data_ws, year_col=1, first_series_col=2, total_col=9)
-    inc_years, inc_labels, inc_ser = _extract_chart_block(chart_data_ws, year_col=11, first_series_col=12, total_col=27)
-    exp_years, exp_labels, exp_ser = _extract_chart_block(chart_data_ws, year_col=29, first_series_col=30, total_col=39)
+    if chart_data_ws is None:
+        # charts_dashboard module is off — no helper sheet exists. Leave the
+        # series empty so the projection-rows fallback below supplies them.
+        years, nw_labels, nw_ser = [], [], {}
+        inc_years, inc_labels, inc_ser = [], [], {}
+        exp_years, exp_labels, exp_ser = [], [], {}
+    else:
+        years, nw_labels, nw_ser = _extract_chart_block(chart_data_ws, year_col=1, first_series_col=2, total_col=9)
+        inc_years, inc_labels, inc_ser = _extract_chart_block(chart_data_ws, year_col=11, first_series_col=12, total_col=27)
+        exp_years, exp_labels, exp_ser = _extract_chart_block(chart_data_ws, year_col=29, first_series_col=30, total_col=39)
 
     def _series_from_projection_rows():
         _n1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
