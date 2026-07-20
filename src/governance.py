@@ -166,6 +166,14 @@ def workbook_consistency_warnings(c: dict[str, Any], rows: Iterable[dict[str, An
     """
     row_list = list(rows or [])
     warnings: list[dict[str, str]] = []
+    # Advisory-only: an explicit h_rmd_start_age/w_rmd_start_age (or shared
+    # rmd_start_age) override that disagrees with the SECURE 2.0 statutory
+    # default computed from that member's date of birth (statutory_rmd_start_age
+    # in core.py). Recorded at parse time in data_io.py; surfaced here rather
+    # than blocking, per item 2.2's "advisory, not a blocker" requirement.
+    for _w in (c.get('rmd_start_age_warnings') or []):
+        if isinstance(_w, dict):
+            warnings.append(dict(_w))
     ropt = c.get('roth_optimization') or {}
     selected_policy = str(ropt.get('selected_policy') or c.get('roth_policy') or '').lower()
     if ropt and selected_policy != str(c.get('roth_policy','')).lower():
