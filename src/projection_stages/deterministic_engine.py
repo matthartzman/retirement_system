@@ -780,8 +780,19 @@ def run_deterministic_projection_stage(c):
 
         # workplace plan rollover after contributions end
         ROLLOVER_401K_YEAR = c['rollover_401k_yr']
-        _k401_id = _aa.first_account(c, owner_idx=0, acct_type='401k')
-        _ira_dest = _aa.first_account(c, owner_idx=0, acct_type='traditional_ira') or _aa.first_pretax(c, 0)
+        # Both sides are resolved with accounts() rather than first_account():
+        # first_account() falls back to all_acct_ids[0] when nothing matches, so
+        # a household with no owner-0 401(k) — or no owner-0 traditional IRA —
+        # would silently resolve to an arbitrary account of any tax type, and
+        # this block would move a whole balance into (or out of) e.g. checking.
+        # The destination also excludes the source: with a 401(k) and no IRA the
+        # pre-tax fallback used to resolve back to the source account, and
+        # crediting then zeroing the same account destroyed the balance outright.
+        _k401_ids = _aa.accounts(c, owner_idx=0, acct_type='401k')
+        _k401_id = _k401_ids[0] if _k401_ids else None
+        _dest_ids = list(_aa.accounts(c, owner_idx=0, acct_type='traditional_ira')) or [
+            _a for _a in _aa.accounts(c, owner_idx=0, tax='pre_tax') if _a != _k401_id]
+        _ira_dest = _dest_ids[0] if _dest_ids else None
         _rolled = False
         if year == ROLLOVER_401K_YEAR and _k401_id and _ira_dest and bal.get(_k401_id, 0) > 0:
             amt = bal.get(_k401_id, 0)
