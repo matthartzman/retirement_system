@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import warnings
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -48,7 +49,28 @@ def _project_metrics(c):
 
 
 class Phase5GoldenMasterEngineTests(unittest.TestCase):
-    def test_golden_master_library_covers_multiple_plan_stresses(self):
+    """Plan-coupled engine diagnostic — WARN-ONLY, deliberately not a gate.
+
+    This library's five "scenarios" are mutators applied to the *live client
+    plan*: it loads ``input/client_data.csv``, and ``load_csv`` merges every
+    sibling ``input/client_*.csv`` (household, policy, optional functions), so
+    the pinned dollar totals move whenever the advisor edits real plan data.
+    That made a CI failure here ambiguous between "the engine regressed" and
+    "the client changed their retirement date", and its ``delta=50000.0``
+    tolerance existed mostly to absorb that coupling.
+
+    The gating baseline is now ``tests/test_synthetic_golden_master.py``, whose
+    plans are built in code and read nothing from ``input/``. It covers these
+    same five stresses plus a single filer, DAF, dividend-reinvestment and TLH,
+    and pins to the cent.
+
+    Kept rather than deleted because one thing it checks is *not* covered by the
+    synthetic gate and is not obtainable from synthetic data: that the advisor's
+    actual plan still loads and projects end-to-end. Dollar drift is reported as
+    a warning; only a hard failure to project fails the test.
+    """
+
+    def test_live_client_plan_still_projects_end_to_end(self):
         expected = json.loads((FIXTURES / "golden_master_engine_cases.json").read_text(encoding="utf-8"))
         mutators = {
             "baseline_balanced_couple": lambda c: None,
@@ -57,6 +79,7 @@ class Phase5GoldenMasterEngineTests(unittest.TestCase):
             "lower_return_environment": lambda c: c.update({"ret": 0.04, "ret_stock": 0.055, "ret_bond": 0.03}),
             "early_survivor_compression": lambda c: c.update({"h_death_yr": int(c["plan_start"]) + 5}),
         }
+        drift = []
         for case_name, expected_metrics in expected.items():
             with self.subTest(case=case_name):
                 # Holdings prices are frozen to the committed golden snapshot
@@ -66,14 +89,33 @@ class Phase5GoldenMasterEngineTests(unittest.TestCase):
                 with frozen_holdings_prices():
                     c = _load_engine_config()
                     mutators[case_name](c)
+                    # The assertion: the real plan projects to a full, non-empty
+                    # horizon. This is what stays meaningful when plan data
+                    # changes, and it is what the synthetic gate cannot check.
                     actual = _project_metrics(c)
+                self.assertGreater(actual["row_count"], 0, f"{case_name} produced no projection rows")
+                self.assertEqual(
+                    actual["row_count"], actual["plan_end"] - actual["plan_start"] + 1,
+                    f"{case_name} projected a horizon inconsistent with plan_start/plan_end",
+                )
+                self.assertGreater(actual["terminal_total_nw"], 0.0, f"{case_name} terminal net worth is not positive")
+
                 for key, expected_value in expected_metrics.items():
                     if isinstance(expected_value, (int, float)) and not isinstance(expected_value, bool):
-                        # Prices are frozen, so a $50k tolerance is plenty to absorb
-                        # benign rounding while still catching real regressions.
-                        self.assertAlmostEqual(actual[key], expected_value, delta=50000.0, msg=f"{case_name}.{key}")
-                    else:
-                        self.assertEqual(actual[key], expected_value, f"{case_name}.{key}")
+                        if actual[key] is None or abs(actual[key] - expected_value) > 50000.0:
+                            drift.append(f"{case_name}.{key}: pinned {expected_value} -> actual {actual[key]}")
+                    elif actual[key] != expected_value:
+                        drift.append(f"{case_name}.{key}: pinned {expected_value!r} -> actual {actual[key]!r}")
+
+        if drift:
+            warnings.warn(
+                "Live-client golden-master pins have drifted from "
+                "tests/fixtures/golden_master_engine_cases.json. This is EXPECTED after a "
+                "plan-data edit and is not a regression signal — the gating engine baseline "
+                "is tests/test_synthetic_golden_master.py. Regenerate these pins when the "
+                "current plan data is the intended new reference.\n  " + "\n  ".join(drift),
+                stacklevel=2,
+            )
 
 
 class Phase5ClosedFormTaxTests(unittest.TestCase):
