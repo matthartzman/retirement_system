@@ -1413,7 +1413,18 @@ def run_deterministic_projection_stage(c):
         # is prorated in the transition year with the same fraction used for
         # Part B/D/G premiums above (medicare_fraction_people).
         n_medicare = medicare_fraction_people
-        irmaa_magi = irmaa_lookback_magi(rows, irmaa_magi_current, c.get('irmaa_lookback_years', 2))
+        # Seed plan years 1-2 (no projected AGI row exists yet for their
+        # lookback target year) with the household's actual historical MAGI
+        # when provided (item 2.6), instead of always falling back to this
+        # year's own AGI. Blank/absent inputs (e.g. a saved plan predating
+        # these fields) leave the entry out of the dict, so
+        # irmaa_lookback_magi() falls back to current-year AGI unchanged.
+        _irmaa_historical_magi = {
+            2: c.get('irmaa_actual_magi_2yr_prior'),
+            1: c.get('irmaa_actual_magi_1yr_prior'),
+        }
+        irmaa_magi = irmaa_lookback_magi(rows, irmaa_magi_current, c.get('irmaa_lookback_years', 2),
+                                          historical_magi=_irmaa_historical_magi)
         row['irmaa_magi_used'] = irmaa_magi
         irmaa_yr = _irmaa_surcharge_path(irmaa_magi, year, n_medicare, filing) if n_medicare > 0 else 0.0
         row['irmaa_tier'] = _irmaa_tier_path(irmaa_magi, year, filing)
