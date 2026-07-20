@@ -1268,24 +1268,12 @@ def parse_client(data, url_template):
     # Trust draws trigger LTCG tax on this fraction at 0/15/20% rates.
     # Default 0.50 — configurable via CSV as trust basis changes.
     c['trust_gain_fraction'] = _n(_v(data,'Liquidity Buffer','Trust Tax','ltcg_gain_fraction','0.50'), 0.50)
-    # Withdrawal cascade order — parsed from CSV Withdrawal Policy priorities
-    # Validated: Trust must precede Roth (LTCG tax coupling).
-    _raw_cascade = {}
-    for sub, vals in data.get('Withdrawal Policy', {}).items():
-        if sub.startswith('Priority'):
-            try:
-                pri = int(sub.replace('Priority','').strip())
-                lbl = list(vals.keys())[0] if vals else ''
-                _raw_cascade[pri] = lbl
-            except (ValueError, IndexError):
-                pass
-    if _raw_cascade:
-        _order_list = [_raw_cascade[k] for k in sorted(_raw_cascade.keys())]
-        c['cascade_order_list'], c['cascade_warnings'] = _td.validate_cascade_order(_order_list)
-    else:
-        c['cascade_order_list'] = list(_td.DEFAULT_CASCADE_ORDER)
-        c['cascade_warnings'] = []
-    c['cascade_order'] = _raw_cascade
+    # NOTE: this CSV section used to also carry a "Withdrawal Policy > Priority N"
+    # sub-table that a planner could reorder. It never reached the withdrawal
+    # engine (the engine's cascade is fixed — see taxes.FIXED_WITHDRAWAL_CASCADE_
+    # DESCRIPTION and documentation/reports/SYSTEM_REVIEW_2026-07-18.md §10.1) so
+    # the dead input, its CSV rows, and the UI table that edited it were removed
+    # rather than wired up.
 
     # ── Roth Conversion Policy (9.5) ──────────────────────────────────────────
     # optimize_terminal_tax: evaluate multiple conversion policies and choose the
@@ -1614,6 +1602,17 @@ def parse_client(data, url_template):
                                      'irmaa_tier2_mfj_base_year', str(_td.IRMAA_TIERS_BASE_YEAR.get('MFJ', [(0,), (268000,)])[1][0])), 268_000)
     c['irmaa_inflator']    = _n(_v(data,'Model Constants','IRMAA',
                                      'irmaa_annual_inflator','0.02'), 0.02)
+    # Actual household MAGI for the two tax years immediately before plan
+    # start (item 2.6). Seeds the statutory IRMAA 2-year lookback for plan
+    # years 1-2, where no projected AGI row exists yet to look back at.
+    # Optional: a blank/absent value (including saved plans that predate
+    # these two inputs) parses to None here, and irmaa_lookback_magi()
+    # falls back to retirement/current-year AGI -- the same behavior the
+    # engine used before these inputs existed.
+    c['irmaa_actual_magi_2yr_prior'] = _n(_v(data,'Model Constants','IRMAA',
+                                     'irmaa_actual_magi_2yr_prior',''), None)
+    c['irmaa_actual_magi_1yr_prior'] = _n(_v(data,'Model Constants','IRMAA',
+                                     'irmaa_actual_magi_1yr_prior',''), None)
     c['mc_sigma']          = _n(_v(data,'Model Constants','Monte Carlo',
                                      'mc_portfolio_sigma','0.12'), 0.12)
     c['mc_sims']           = int(os.getenv('RETIREMENT_MC_SIMS') or _n(_v(data,'Model Constants','Monte Carlo',
@@ -2478,8 +2477,6 @@ def build_plan_from_json(plan, url_template=''):
     c['roth_optimize_terminal_tax_rate'] = a.get('roth_optimize_terminal_pretax_tax_rate', 0.24)
     c['roth_brk']           = c['roth_target_rate']
     c['conv_window_offset'] = a.get('conv_window_offset', 0)
-    c['cascade_order_list'] = a.get('cascade_order', ['IRA', 'Trust', 'Roth', 'Home'])
-    c['cascade_warnings']   = []; c['cascade_order'] = {}
     c['forced_roth']        = {}
     c['liquidity_buffer_schedule'] = []
     for rec in a.get('liquidity_buffer_schedule', a.get('reserve_schedule', [])) or []:

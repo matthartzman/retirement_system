@@ -430,25 +430,6 @@ def update_config_rows():
 
 
 
-WITHDRAWAL_ORDER_TYPES = {
-    "RMD": ["mandatory"],
-    "HSA": ["spend_as_needed", "annual_pct", "smooth_window"],
-    "IRA_elective": ["gross_up_tax", "net_amount", "skip_until_needed"],
-    "Trust": ["with_buffer", "spend_first", "preserve"],
-    "Roth": ["tax_free", "last_resort", "preserve_for_legacy"],
-    "Home_equity_tap": ["heloc_or_downsize", "heloc", "downsize", "never"],
-}
-
-@app.route("/api/withdrawal-order", methods=["POST"])
-def update_withdrawal_order():
-    denied = _require("write_config")
-    if denied:
-        return denied
-    if not _runtime_config().allow_csv_write:
-        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
-    return _service_json(_strategy_asset_feature_service().withdrawal_order_payload(body))
-
 @app.route("/api/large-discretionary-expenses", methods=["GET"])
 def get_large_discretionary_expenses():
     denied = _require("read_config")

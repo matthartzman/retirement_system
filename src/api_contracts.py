@@ -185,12 +185,6 @@ CONTRACTS: tuple[EndpointContract, ...] = (
     ),
 
     EndpointContract(
-        "/api/withdrawal-order", "POST", "withdrawal_order_update_v1",
-        request_fields=(_f("rows", "list", True),),
-        response_fields=(_f("success", "bool", True), _f("updated", "int"), _f("sync", "dict")),
-        notes="Compressed withdrawal-order table save; route adapter delegates normalization/write behavior to StrategyAssetService.",
-    ),
-    EndpointContract(
         "/api/large-discretionary-expenses", "GET", "large_discretionary_expenses_v1",
         response_fields=(_f("success", "bool", True), _f("types", "list", True), _f("events", "list", True)),
         notes="Large discretionary expense events used by Travel/Large Discretionary workflow pages.",

@@ -1,13 +1,13 @@
 section,subsection,label,value,units,notes,
 "# -- client_policy.csv: Model constants, allocation policy, withdrawal policy, forced actions, scenarios, and Monte Carlo settings.",,,,,,
-Account Policy,Member_1_HSA,reinvest_dividends,,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
-Account Policy,Member_1_401k,reinvest_dividends,,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
-Account Policy,Member_1_IRA,reinvest_dividends,,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
-Account Policy,Member_1_Roth,reinvest_dividends,,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
-Account Policy,Member_1_Trust,reinvest_dividends,,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
-Account Policy,Member_2_IRA,reinvest_dividends,,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
-Account Policy,Member_2_Roth,reinvest_dividends,,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
-Account Policy,Member_2_Trust,reinvest_dividends,,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
+Account Policy,Member_1_HSA,reinvest_dividends,NO,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
+Account Policy,Member_1_401k,reinvest_dividends,NO,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
+Account Policy,Member_1_IRA,reinvest_dividends,NO,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
+Account Policy,Member_1_Roth,reinvest_dividends,NO,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
+Account Policy,Member_1_Trust,reinvest_dividends,NO,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
+Account Policy,Member_2_IRA,reinvest_dividends,NO,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
+Account Policy,Member_2_Roth,reinvest_dividends,NO,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
+Account Policy,Member_2_Trust,reinvest_dividends,NO,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
 HELOC,Setup,heloc_enabled,NO,yes/no,"Enable the HELOC strategy. When Yes, the projection draws from the HELOC during the draw period to fund large discretionary spending instead of liquidating portfolio assets."
 HELOC,Setup,heloc_credit_limit,"$200,000",dollars,Maximum HELOC credit line available. The projection will not borrow beyond this amount.
 HELOC,Setup,heloc_draw_end_year,2029,year,Last year the HELOC can be drawn. After this year no new borrowing occurs; the outstanding balance accrues interest until repaid at home sale.
@@ -79,12 +79,6 @@ Asset Allocation Policy,Commodities,target_pct,5%,pct,"Default 0%; optional real
 Asset Allocation Policy,Managed Futures,target_pct,0%,pct,"Default 0%; optional trend-following diversifier. Example vehicles: DBMF, KMLM, CTA. User may override, but all target_pct rows should total 100%.",
 Asset Allocation Policy,Private Credit,target_pct,0%,pct,"Default 0%; optional senior-loan/CLO-style credit. Example vehicles: BKLN, SRLN, JAAA. User may override, but all target_pct rows should total 100%.",
 Asset Allocation Policy,Cash,target_pct,5%,pct,"Default 5%; liquidity reserve/money market. Example vehicles: CASH, SGOV, BIL. User may override, but all target_pct rows should total 100%.",
-Withdrawal Policy,Priority 1,RMD,mandatory,choice,Withdrawal cascade row edited from the User UI compressed withdrawal-order table.,
-Withdrawal Policy,Priority 2,HSA,smooth_window,choice,Withdrawal cascade row edited from the User UI compressed withdrawal-order table.,
-Withdrawal Policy,Priority 3,IRA_elective,gross_up_tax,choice,Withdrawal cascade row edited from the User UI compressed withdrawal-order table.,
-Withdrawal Policy,Priority 4,Trust,with_buffer,choice,Withdrawal cascade row edited from the User UI compressed withdrawal-order table.,
-Withdrawal Policy,Priority 5,Roth,tax_free,choice,Withdrawal cascade row edited from the User UI compressed withdrawal-order table.,
-Withdrawal Policy,Priority 6,Home_equity_tap,heloc_or_downsize,choice,Withdrawal cascade row edited from the User UI compressed withdrawal-order table.,
 Withdrawal Policy,Identity,annual_funding_tolerance,$100,USD,inflows must equal outflows within 10 USD per year (no silent shortfalls),
 Withdrawal Policy,Tax-Loss Harvesting,tlh_policy,analyze_only,choice,off | analyze_only | apply. off ignores tax-loss harvesting. analyze_only surfaces opportunities on the Tax-Loss Harvesting sheet without changing the projection. apply harvests qualifying loss lots each year inside the projection so terminal net worth and lifetime tax reflect the strategy.,
 Withdrawal Policy,Tax-Loss Harvesting,tlh_min_loss_dollars,$500,USD,Minimum dollar loss on a lot before it is worth harvesting (avoids trivial trades).,

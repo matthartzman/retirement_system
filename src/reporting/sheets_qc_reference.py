@@ -169,7 +169,7 @@ def build_sheet23(ws, c):
             'Year-by-year from plan_start to plan_end (later of the two spouses’ death years).',
             'Asset balances grow at portfolio_nominal_return; withdrawals reduce balances before growth.',
             'Income sources: earned income, Social Security (age 70), annuities, pension, Note Receivable, RMDs.',
-            'Withdrawal cascade: RMDs → HSA window → tax-sensitive pre-tax → taxable/trust → final pre-tax/HSA → Roth last → Home Equity.',
+            f'Withdrawal cascade: {_td.FIXED_WITHDRAWAL_CASCADE_DESCRIPTION}.',
             'Surplus reinvested into the first registry taxable account.',
         ]),
         ('Tax Computation Order', [
@@ -261,7 +261,8 @@ def build_sheet23(ws, c):
     write_cell(ws, r, 1, f'Filing status: {c.get("filing_status","MFJ")}  |  '
                f'Survivor filing: {c.get("survivor_filing","Single")}  |  '
                f'Roth policy: {c.get("roth_policy","fill_to_bracket")}  |  '
-               f'Cascade: {" → ".join(c.get("cascade_order_list", []))}')
+               f'Withdrawal order (fixed, not user-configurable): '
+               f'{_td.FIXED_WITHDRAWAL_CASCADE_DESCRIPTION}')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=4)
 
     qc('23. Methodology', 'Re-run steps and methodology documented', True, '')

@@ -258,7 +258,6 @@ Investments/pricing:
 Planning strategy and assets:
 
 - `/api/allocation-preview`
-- `/api/withdrawal-order`
 - `/api/large-discretionary-expenses`
 - `/api/forced-roth-conversions`
 - `/api/liquidity-buffers`

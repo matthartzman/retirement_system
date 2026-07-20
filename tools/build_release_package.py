@@ -116,7 +116,6 @@ def _run_prepackage_checks(stage: Path) -> None:
         ("spending service", "def load_actuals_payload"),
         ("spending service", "def save_unified_budget_payload"),
         ("strategy asset service", "class StrategyAssetService"),
-        ("strategy asset service", "def withdrawal_order_payload"),
         ("strategy asset service", "def add_insurance_policy_payload"),
         ("portfolio service", "def drift_payload"),
         ("secret service", "def set_secret_payload"),
