@@ -902,6 +902,36 @@ def aca_premium_tax_credit(c: Mapping, *, year: int, magi: float, bridge_people:
     required_contribution = max(0.0, float(magi or 0.0) * app_pct)
     return max(0.0, min(benchmark, benchmark - required_contribution))
 
+
+def _roth_irmaa_target_threshold_base(c: Mapping, filing: str) -> float:
+    """Un-inflated IRMAA target threshold for the configured tier, by filing status.
+
+    ``roth_irmaa_target_threshold_mfj`` (seeded in data_io.py from
+    ``IRMAA_TIERS_BASE_YEAR['MFJ']`` at ``roth_irmaa_target_tier``) is an
+    explicit MFJ override and is honored as-is for MFJ filers. For every other
+    filing status — most importantly a surviving spouse whose filing status
+    switches to Single mid-plan (deterministic_engine.py's survivor-filing
+    transition) — the MFJ dollar figure is the wrong table. Mirror the
+    assessment-side lookup (deterministic_engine.py's ``_irmaa_surcharge_path``/
+    ``_irmaa_tier_path``, which key ``IRMAA_TIERS_BASE_YEAR`` by ``filing``) so
+    the conversion guardrail and the tax assessment agree on which IRMAA tier
+    is being targeted.
+    """
+    filing = str(filing or "MFJ")
+    if filing == "MFJ":
+        return float(c.get("roth_irmaa_target_threshold_mfj", c.get("irmaa_base", 268000)) or 268000)
+    tiers = IRMAA_TIERS_BASE_YEAR.get(filing) or IRMAA_TIERS_BASE_YEAR.get("MFJ", [])
+    if not tiers:
+        return float(c.get("roth_irmaa_target_threshold_mfj", c.get("irmaa_base", 268000)) or 268000)
+    tier_name = str(c.get("roth_irmaa_target_tier", "TIER_2") or "TIER_2").strip().upper()
+    try:
+        idx = int(tier_name.rsplit("_", 1)[-1]) - 1
+    except (ValueError, IndexError):
+        idx = 1
+    idx = min(max(0, idx), len(tiers) - 1)
+    return float(tiers[idx][0])
+
+
 def plan_roth_conversion(
     c: Mapping,
     bal: Mapping[str, float],
@@ -1022,7 +1052,7 @@ def plan_roth_conversion(
             ])
             amount = cap
     elif policy == "fill_to_irmaa":
-        irmaa_thr = float(c.get("roth_irmaa_target_threshold_mfj", c.get("irmaa_base", 268000)) or 268000) * (
+        irmaa_thr = _roth_irmaa_target_threshold_base(c, filing) * (
             (1 + float(c.get("irmaa_inflator", 0.02))) ** (year - int(c.get("plan_start", year)))
         )
         cap_irmaa = max(0.0, irmaa_thr - pre_agi) * float(c.get('roth_irmaa_headroom_usage_pct', 0.95) or 0.95)
@@ -1047,7 +1077,7 @@ def plan_roth_conversion(
                 caps.append(("ACA PTC MAGI guardrail", max(0.0, max_fpl * fpl - pre_agi)))
             guard_mode = str(c.get("irmaa_guardrail_mode", "AVOID_NEXT_TIER") or "AVOID_NEXT_TIER").upper()
             if c.get("roth_irmaa_cap", True) and guard_mode not in ("IGNORE", "WARN_ONLY"):
-                irmaa_thr = float(c.get("roth_irmaa_target_threshold_mfj", c.get("irmaa_base", 268000)) or 268000) * (
+                irmaa_thr = _roth_irmaa_target_threshold_base(c, filing) * (
                     (1 + float(c.get("irmaa_inflator", 0.02))) ** (year - int(c.get("plan_start", year)))
                 )
                 cap_irmaa = max(0.0, irmaa_thr - pre_agi) * float(c.get('roth_irmaa_headroom_usage_pct', 0.95) or 0.95)
