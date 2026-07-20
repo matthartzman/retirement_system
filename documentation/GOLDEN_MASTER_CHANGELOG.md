@@ -1,5 +1,85 @@
 
 
+## 2026-07-20 — Item 2.1: §1014 step-up in the terminal metric + estate-tax penalty scoped to the second death (findings P1 + P9)
+
+Two coupled corrections to the Roth-conversion optimizer's terminal metric, which
+is the dominant term of its objective.
+
+**P1 — terminal deferred cap-gain tax now honors the §1014 basis step-up.**
+`src/after_tax.py`'s `estimate_terminal_taxable_deferred_cap_gain_tax` used to tax
+the FULL unrealized gain in terminal taxable accounts, as if heirs inherited the
+decedent's cost basis — even though the same codebase already grants a step-up
+during life (`planning_engines.apply_death_transition` zeroes basis at first/second
+death, and `client_insurance_estate.csv` carries `basis_step_up_at_death,TRUE`).
+The estimate now branches on three cases and prints which one it used, plus the
+resulting assumed basis, on the Estate & Legacy sheet (Sheet 14):
+- (a) terminal year IS the second death → full step-up (gain zeroed, scaled by the
+  property regime so community-property vs common-law still matters);
+- (b) terminal year is at/after the first death with a survivor still alive (or the
+  horizon ends before the second death) → only the decedent's share steps up, the
+  survivor's share retains its deferred gain;
+- (c) horizon ends with both members alive → no step-up, gain retained in full.
+
+**P9 — estate-tax penalty now scores the estate actually transferred at the second
+death, not peak net worth.** `planning_engines._roth_strategy_metrics` used
+`max(estate_tax over every row)`, penalizing the PEAK single-year net worth
+(typically early/mid-plan). It now evaluates `estimate_terminal_estate_tax` at the
+second-death row and present-values it with `roth_tax_discount_rate`, so the
+objective and the reported Post-Tax Inheritance agree. The old max-across-rows
+figure is retained as a separately-reported `peak_estate_tax_exposure` (risk
+indicator only — the Illinois estate-tax cliff with no portability makes worst-year
+exposure worth surfacing, but it should not drive conversions).
+
+Sheet 11 now also discloses `roth_heir_ordinary_tax_rate_assumption` (24%) and
+`roth_optimize_terminal_tax_rate` (their current flat values) and labels the
+conversion recommendation as sensitive to both.
+
+### Live sample-plan before/after (optimizer engaged via `optimize_terminal_tax`, MAXIMIZE_TERMINAL_NET_WORTH)
+
+|                              | Before (buggy)                | After (fixed)                 |
+|------------------------------|-------------------------------|-------------------------------|
+| Selected strategy            | Fill to 12% bracket           | Fill to 12% bracket (same)    |
+| Conversion schedule          | 2026 $125,000 / 2027 $53,100 / 2028 $36,017 | identical    |
+| Total conversions            | $214,117                      | $214,117 (unchanged)          |
+| Terminal step-up case        | (not classified)              | second_death (full step-up)   |
+| Terminal deferred cap-gain tax | $2,142                      | $0                            |
+| Assumed terminal basis       | $43,268                       | $86,536 (cost + stepped gain) |
+| Objective estate-tax penalty (top cand.) | $573,484 (peak)   | $191,419 (PV @ 2nd death)     |
+| Top-candidate objective score | 1,022,404                    | 1,407,145                     |
+
+The selected conversion schedule for this plan does NOT change: even under the
+buggy metric the low-conversion 12%-fill already dominated, because the higher
+brackets are killed by the Roth-last leakage guard (10× penalty), not by the
+terminal-tax term. What the fix corrects is the accuracy of the numbers behind the
+recommendation — it removes $2,142 of phantom cap-gain tax the second-death full
+step-up eliminates, and cuts the objective's estate-tax drag from a peak-year
+$573k to the PV-at-death $191k, widening (not narrowing) the correct choice's lead.
+This is the "conversions legitimately stay flat" case the plan anticipated: here
+the terminal metric is not the binding term.
+
+### Golden-master movement
+
+- **Synthetic gate** (`tests/fixtures/synthetic_golden_master_cases.json`): no dollar
+  metric moved on any of the 9 scenarios. Every synthetic scenario runs a FIXED
+  `fill_to_bracket` (or `none`) policy — none auto-optimize — so `project()` output
+  is byte-identical and the terminal-metric/objective change is invisible to the
+  projected numbers. Two scenarios (`donor_advised_fund`, `single_filer`) changed
+  only their `selected_roth_strategy` LABEL, from "Fill current/configured 22%
+  bracket" to "RMD-reduction conversion". Both labels are the SAME policy
+  (`fill_to_bracket`) at the same 22% target; the optimizer's non-auto path shows
+  the top score-sorted candidate matching the configured policy, and the corrected
+  objective simply re-ranked two equivalent-policy candidates. No conversion,
+  balance, or tax figure changed. Fixture regenerated to absorb the two labels.
+- **Frozen sample plan** (`tests/test_199_frozen_sample_plan_golden_master.py`): pins
+  UNCHANGED (`PINNED_TERMINAL_NW = 6536759.61`, `PINNED_LIFETIME_TAX = 1527729.93`).
+  That test projects with `roth_policy="none"`, so the optimizer objective is never
+  invoked and `project()` is unaffected. No edit needed.
+
+Gate run (`RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS=1`): `test_90`,
+`test_synthetic_golden_master`, `test_199` — 12 passed, 35 subtests passed.
+`git status --short input/` confirmed clean before and after every run.
+
+
 ## 2026-07-18 — Sample-plan golden-master baselines demoted to warn-only
 
 `tests/test_2_recommendations.py` pinned two dollar figures from the live sample
