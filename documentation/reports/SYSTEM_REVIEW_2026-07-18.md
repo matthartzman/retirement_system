@@ -1721,3 +1721,110 @@ One point was applied with a **noted disagreement**, recorded as §7.3 item 9: t
 as purely additive, and I hold that turning a silent fallback into a hard preflight error is a behaviour
 change for saved plans carrying an unrecognized state string. The item moved to Wave 1 either way; the open
 decision is whether it hard-fails existing plans or only new ones.
+
+---
+
+## 8. Addendum A — Module reframing and defects 191-197
+
+Added after the panel review, at the user's direction. This section was **not** produced by the expert
+panel and has **not** been through the cross-check or planner sign-off that Sections 1-7 received.
+Treat the confidence level as correspondingly lower.
+
+Two bodies of work are incorporated here:
+
+- `documentation/MODULE_REFRAMING_INPUTS_OUTPUTS.md` — an existing design proposal that reframes the
+  system as **Inputs** (always present, conditionally required) and **Outputs** (the optional modules),
+  with outputs classified into five kinds and declaring their own input and output prerequisites.
+- Defects and improvements **191-197**, supplied directly.
+
+### 8.1 Why the reframing changes the shape of the plan
+
+The reframing is not another finding — it is a **substrate change that several existing findings are
+downstream of**. Its core move is to turn `OPTIONAL_MODULE_SHEETS` from a flat toggle list into a
+registry where each entry declares `kind` (projection / optimization / stress / diagnostics /
+reference), `requires_inputs`, `requires_outputs`, and `demand`, and then to drive UI page visibility
+from `requires_inputs` rather than from hand-written per-module guards in `dashboard.js`.
+
+That collides productively with work already in the plan:
+
+| Reframing step | Interacts with | Effect on the plan |
+|---|---|---|
+| §7.1 registry gains `kind`/`requires_*`/`demand` | A9 (3.11, move `module_status` to `module_catalog`) | **Do 3.11 first.** 3.11 puts module status in the catalog; the reframing then extends that same catalog rather than a second registry. Doing them in the other order means building the dependency graph twice. |
+| §7.4 drive input-page visibility from `requires_inputs` | U2/U3 (3.2, 3.3 — field-list grid, help-pane collapse) | **Sequence reframing after 3.2/3.3.** Both edit the same input-step rendering path. Running them concurrently guarantees conflicts. |
+| §7.2 reclassify protection modules and the Levers echo | 191, 194-197 (below) | Same UI grouping code. **Batch them.** |
+| §7.3 What-If as a comparison mode | 191 | 191 is the first concrete step of §7.3. |
+| §7.5 auto-select prerequisite outputs | 192 | 192 is the test that proves the dependency graph is correct. **192 becomes the verification for the whole reframing**, not a standalone QA item. |
+
+**Consequence for the wave structure:** the reframing is a **new Wave 3.5** — after the structural debt
+of Wave 3 (specifically 3.11, 3.2, 3.3) and before the Wave 4 domain builds, several of which
+(P8 beneficiary capture, P11 gifting) add new modules that should be born into the new registry shape
+rather than retrofitted into it.
+
+### 8.2 Defects 191-197 — triage
+
+Five of these seven are **information-architecture edits to the input steps** (194, 195, 196, 197, and
+partly 191). They all modify the same step/nav definitions. **They must be executed as one batched item,
+serially, not as seven parallel tickets** — parallelizing them would produce guaranteed merge conflicts in
+the nav config and the step-render path, and would make the "is anything now unreachable?" check
+impossible to do once.
+
+| # | Item | Kind | Wave | Effort | Notes and dependencies |
+|---|---|---|---|---|---|
+| 191 | Delete the attached change sets on Scenario change sets (redundant) | Data/UI cleanup | 3.5 | S | First concrete step of reframing §7.3. **Verify before deleting** that nothing reads the attachment — the review found a config field (`cascade_order_list`) that reached only a display label, so this codebase does carry orphaned config. Inventory saved plans for attached sets before removing the schema. |
+| 192 | Test: disable **all** optional modules, then build a workbook; resolve fallout; expand scope of analysis | Quality | **1** | M | **Promote to Wave 1.** This is cheap, purely additive, and it is the safety net for everything else in this section. Project memory records existing env knobs (`FORCE_ENABLE`/`FORCE_DISABLE`/`ALL_MODULES`) — build on those rather than a new mechanism. Later becomes the verification harness for the reframing dependency graph (§7.5). |
+| 193 | Simplify build progress: Major Task + elapsed time + progress bar; no sub-headings; correct under any module mix | Usability | 3.5 | M | Depends on 192 — "works regardless of Optional Module mix" is exactly what 192 makes testable. Sequence 192 → 193. Touches the build-job/runner status path, not the input steps, so it can run parallel to the IA batch. |
+| 194 | Move SS Discount Starts + Benefits Reduction into Economic and Tax Assumptions; delete the now-redundant SS section there | IA | 3.5 | S | Part of the IA batch. |
+| 195 | Delete RMD Start Age and SS Claim Age from the Retirement section (redundant) | IA | 3.5 | S | **⚠ Conflicts with Wave 2 item 2.2 — see 8.3.** Part of the IA batch, but gated. |
+| 196 | `Se` → `SE` in the Self-Employment section; move it to Work Income | IA + typo | 3.5 | S | Part of the IA batch. The typo fix alone is trivial and could ride along in Wave 1 if you want it sooner. |
+| 197 | Rename nav: Profile → **People and Income**; Income and Social Security → **SS, Pensions, & Annuities** | IA | 3.5 | S | Part of the IA batch. Extends completed item 1.4, which already fixed nav capitalization — no conflict, but 1.4's convention (title case, ampersand rendered literally) should be followed. Check for hardcoded nav labels in tests and in PDF/workbook section titles before renaming. |
+
+### 8.3 ⚠ Conflict: item 195 versus Wave 2 item 2.2
+
+**195 says delete the RMD Start Age input as redundant. Wave 2 item 2.2 (finding P2) makes that same
+input statutory-aware** — defaulting it from date of birth via `statutory_rmd_start_age(dob_year)` and
+warning when an override disagrees with the statute.
+
+These are not automatically incompatible, but the order matters and one of them has to give:
+
+- **If 195 means "this input is duplicated on two screens, delete one copy"** — no conflict. Do 2.2
+  first so the surviving copy is the statutory-aware one, then delete the duplicate. This is the likely
+  reading and the recommended path.
+- **If 195 means "remove the RMD Start Age input entirely, it should be derived"** — then 195 *subsumes*
+  2.2's default and only 2.2's disagreement-warning is moot. But note the review's own caveat: P2 changes
+  the live plan's RMD age from 75 to 73 for anyone born 1951-1959, so the derived value must be correct
+  before the manual override disappears. **Do 2.2's derivation first regardless**, then delete the input.
+
+**Recommended sequence either way: 2.2 → 195.** Do not schedule 195 in a wave before Wave 2.
+
+The same question applies in miniature to 194's "delete the redundant SS section": confirm the deleted
+section is a true duplicate of the surviving one and not a second field with different semantics that
+merely looks redundant.
+
+### 8.4 Revised wave summary
+
+| Wave | Contents | Change from §6 |
+|---|---|---|
+| **1** | 10 original items + **192** | 1.1-1.6, 1.8-1.10, 1.12 complete; **1.5, 1.7, 1.11 outstanding**; 192 added |
+| **2** | 2.1-2.5 unchanged | unchanged; **2.2 now also gates 195** |
+| **3** | 3.1-3.17 unchanged | unchanged; 3.11, 3.2, 3.3 now gate Wave 3.5 |
+| **3.5** *(new)* | Module reframing §7.1-7.5 + the IA batch (191, 194, 195, 196, 197) + 193 | new wave |
+| **4** | 4.1-4.10 unchanged | new modules should be authored against the reframed registry, not retrofitted |
+
+**Wave 3.5 internal ordering:** 3.11 → registry extension (§7.1) → reclassification (§7.2) → IA batch
+(191/194/196/197, then 195 once Wave 2.2 has landed) → visibility from `requires_inputs` (§7.4) →
+prerequisite auto-selection (§7.5), with 192 re-run as the gate at each step. 193 runs in parallel
+throughout, after 192.
+
+### 8.5 Open questions added by this addendum
+
+9. **195 — which reading?** Delete a duplicated field, or remove the input entirely and derive it?
+   This determines whether 195 is a Wave 3.5 cleanup or a change to Wave 2's scope.
+10. **191 — what is "the attached"?** Attached change sets on a Scenario: confirm whether this means the
+    UI attachment affordance, the persisted schema field, or both, and whether any saved plan currently
+    carries one.
+11. **192 — "expand scope of analysis"** is ambiguous. Does this mean broaden the all-modules-off test to
+    more configurations (each module off individually, pairwise), or broaden what the test asserts about
+    the resulting workbook? The first is a combinatorial matrix; the second is depth on one case.
+12. **Reframing scope.** §7.3 asks whether free-form scenario authoring is worth retaining at all. That is
+    a product decision, not an engineering one, and it should be settled before 191 is executed — deleting
+    the attachment is a step down a path that ends in removing scenario authoring.
