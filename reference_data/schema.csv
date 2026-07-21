@@ -435,3 +435,4 @@ DAF,Settings,annual_grant_amount,dollars,FALSE,$0,0,,Annual amount granted out o
 DAF,Settings,grant_start_year,year,FALSE,,2026,2100,First year of DAF grants.
 DAF,Settings,grant_end_year,year,FALSE,,2026,2100,Last year of DAF grants.
 DAF,Settings,contribution_is_appreciated,boolean,FALSE,FALSE,,,TRUE if the DAF contribution is appreciated securities rather than cash: limits the deductible amount to 30% of AGI instead of 60%, with a 5-year carryforward for any excess.
+Estate Planning,Step-Up,former_spouse_name,text,FALSE,,,,Optional name used only by the Beneficiary & Titling Audit (Sheet 14) to flag a former spouse still named as a beneficiary on any account.

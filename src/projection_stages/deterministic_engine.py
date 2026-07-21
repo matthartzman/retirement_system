@@ -211,6 +211,12 @@ def run_deterministic_projection_stage(c):
     # carryforward expires last among equals but nothing is used out of the
     # order it was generated.
     daf_deduction_carryforward: list = []
+    # Item 4.8 (P11): cumulative federal lifetime-exemption dollars consumed
+    # by taxable gifts (amounts above the per-donee annual exclusion) made
+    # during the plan so far. Reduces the exemption still available at
+    # death (see sheets_strategy.py's build_sheet14 federal estate tax calc)
+    # -- using exemption during life is the "unified credit" being unified.
+    lifetime_exemption_used = 0.0
 
     def _path_factor(path_key, annual_rate, year):
         path = c.get(path_key)
@@ -1164,6 +1170,45 @@ def run_deterministic_projection_stage(c):
         row['h_qcd_yr'] = qcd_h_yr
         row['w_qcd_yr'] = qcd_w_yr
         row['qcd_total_yr'] = qcd_total_yr
+
+        # Item 4.8 (P11): gifting schedule. A genuinely new balance-mutating
+        # path outside the withdrawal cascade: gifted dollars leave the
+        # funding account directly (reducing the estate base as a natural
+        # consequence of touching `bal`) and never fund household spending,
+        # so they are not routed through income_from_streams/the withdrawal
+        # cascade at all -- unlike QCD/DAF, which only change tax treatment
+        # of money that still ends up funding the household.
+        gift_total_yr = 0.0
+        gift_excess_over_exclusion_yr = 0.0
+        for _gift in (c.get('gifting_schedule') or []):
+            _start = int(_gift.get('start_year', 0) or 0)
+            if not _start or year < _start:
+                continue
+            _end = int(_gift.get('end_year', 0) or 0)
+            if _end and year > _end:
+                continue
+            _per_donee = float(_gift.get('annual_amount_per_donee', 0.0) or 0.0)
+            _donees = max(1, int(_gift.get('donee_count', 1) or 1))
+            _requested = _per_donee * _donees
+            if _requested <= 0:
+                continue
+            _acct_id = _gift.get('funding_account')
+            _available = max(0.0, float(bal.get(_acct_id, 0.0) or 0.0))
+            _drawn = min(_requested, _available)
+            if _drawn <= 0:
+                continue
+            bal[_acct_id] = _available - _drawn
+            gift_total_yr += _drawn
+            # If the funding account couldn't cover the full requested gift,
+            # scale the exclusion-exceeding portion down by the same ratio
+            # actually delivered, rather than crediting exemption use for
+            # dollars that were never actually gifted.
+            _excess_requested = max(0.0, _per_donee - float(c.get('gift_excl', 19000.0) or 19000.0)) * _donees
+            gift_excess_over_exclusion_yr += _excess_requested * (_drawn / _requested)
+        lifetime_exemption_used += gift_excess_over_exclusion_yr
+        row['gift_total_yr'] = gift_total_yr
+        row['gift_excess_over_exclusion_yr'] = gift_excess_over_exclusion_yr
+        row['lifetime_exemption_used_cumulative'] = lifetime_exemption_used
 
         portfolio_ordinary, portfolio_qualified, portfolio_tax_exempt = _taxable_portfolio_income_for_year()
         # Informational only — taxable dividend/interest income for the year,

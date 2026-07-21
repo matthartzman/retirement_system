@@ -609,6 +609,48 @@ def parse_advanced_modules(data):
             'transfer_year': _y(vals.get('transfer_year', '0'), 0),
         })
 
+    # ── Item 4.7 (P8): per-account beneficiary and titling ───────────────────
+    # Subsection = account_registry id (e.g. "Member_1_IRA"), modeled on the
+    # Insurance In Force section above (subsection = policy name). Titling
+    # drives _account_basis_step_fraction/_survivor_bonus_step_fraction in
+    # planning_engines.py instead of one household-wide property_regime; an
+    # account with no row here falls back to that household default
+    # unchanged. beneficiary_titling_audit() (also planning_engines.py) reads
+    # this dict to flag review prompts on the Estate & Legacy sheet.
+    account_titling = {}
+    for sub, vals in data.get('Account Titling', {}).items():
+        if not sub:
+            continue
+        account_titling[sub] = {
+            'primary_beneficiary': vals.get('primary_beneficiary', ''),
+            'contingent_beneficiary': vals.get('contingent_beneficiary', ''),
+            'titling': str(vals.get('titling', '') or '').strip().upper(),
+            'trust_see_through': _b(vals.get('trust_see_through', 'FALSE')),
+        }
+
+    # ── Item 4.8 (P11): gifting schedule with lifetime-exemption tracking ────
+    # Subsection = gift entry name (e.g. "Gift 1"). Each entry gifts
+    # annual_amount_per_donee * donee_count per active year, drawn directly
+    # from funding_account (a new balance-mutating path outside the normal
+    # withdrawal cascade -- see run_deterministic_projection_stage). Only the
+    # amount per donee ABOVE gift_excl (the annual exclusion) consumes
+    # lifetime federal exemption; is_appreciated_asset is disclosure-only
+    # (this engine never models the donee's own finances/basis).
+    gifting_schedule = []
+    for sub, vals in data.get('Gifting Schedule', {}).items():
+        if not sub:
+            continue
+        gifting_schedule.append({
+            'name': sub,
+            'donor': str(vals.get('donor', 'joint') or 'joint').strip().lower(),
+            'funding_account': vals.get('funding_account', ''),
+            'annual_amount_per_donee': _n(vals.get('annual_amount_per_donee', '0'), 0),
+            'donee_count': int(_n(vals.get('donee_count', '1'), 1) or 1),
+            'start_year': _y(vals.get('start_year', '0'), 0),
+            'end_year': _y(vals.get('end_year', '0'), 0),
+            'is_appreciated_asset': _b(vals.get('is_appreciated_asset', 'FALSE')),
+        })
+
     return {
         'edu_funding': {'accounts': edu_accounts, 'goals': edu_goals, 'policy': edu_policy},
         'life_policies': life_policies,
@@ -617,6 +659,8 @@ def parse_advanced_modules(data):
         'equity_comp': equity_comp,
         'special_needs': special_needs,
         'business_succession': business_succession,
+        'account_titling': account_titling,
+        'gifting_schedule': gifting_schedule,
     }
 
 
@@ -1397,6 +1441,9 @@ def parse_client(data, url_template):
     if c['basis_step_up_property_regime'] not in ('COMMON_LAW','COMMUNITY_PROPERTY','HALF_STEP_UP','FULL_STEP_UP'):
         c['basis_step_up_property_regime'] = 'COMMON_LAW'
     c['federal_portability_enabled'] = _b(_v(data,'Estate Planning','Federal','portability_enabled','TRUE'))
+    # Item 4.7 (P8): optional, used only by beneficiary_titling_audit() to flag
+    # a former spouse still named as a beneficiary somewhere. Blank by default.
+    c['former_spouse_name'] = _v(data,'Estate Planning','Step-Up','former_spouse_name','')
     c['qss_dependent'] = _b(_v(data,'Household','','survivor_has_dependent','FALSE'))
     # Do not double the IL exemption as a shortcut.  The projection now tracks
     # actual first-death credit-shelter funding and subtracts that funded amount
