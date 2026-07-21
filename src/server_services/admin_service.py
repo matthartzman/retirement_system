@@ -6,11 +6,9 @@ from pathlib import Path
 from typing import Any, Iterable
 
 try:
-    from ..server.plan_data_files import SYSTEM_REFERENCE_FILES
-    from ..plan_data_registry import client_data_csv_files
+    from ..plan_data_registry import SYSTEM_REFERENCE_FILES, client_data_csv_files
 except ImportError:  # pragma: no cover - direct execution fallback
-    from src.server.plan_data_files import SYSTEM_REFERENCE_FILES
-    from src.plan_data_registry import client_data_csv_files
+    from src.plan_data_registry import SYSTEM_REFERENCE_FILES, client_data_csv_files
 
 ADMIN_PLAN_DATA_FILES = set(client_data_csv_files()) | {
     "client_holdings.csv", "client_liabilities.csv", "target_allocation.csv",
