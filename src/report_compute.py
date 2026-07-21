@@ -142,7 +142,7 @@ def run_projection_artifacts(c: Mapping[str, Any], run_mc: bool = True, enforce_
     if should_gate and validation.get('fail_count', 0):
         details = '; '.join(f'{y}:{code}:{msg}' for y, sev, code, msg in validation.get('failures', []) if sev == 'FAIL')
         raise ValueError(f'Projection release gate failed: {details}')
-    mc_data = monte_carlo(cfg) if run_mc else {}
+    mc_data = monte_carlo(cfg, base_rows=rows) if run_mc else {}
     try:
         readiness = advisor_readiness(cfg, mc_data, pricing_diagnostics())
         cfg['advisor_readiness'] = readiness

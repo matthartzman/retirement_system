@@ -185,6 +185,25 @@ def normalize_engine_config(config: Mapping[str, Any] | PlanConfig, source: str 
     return PlanConfig(c, source=source, warnings=tuple(warnings))
 
 
-def ensure_engine_config(config: Mapping[str, Any] | PlanConfig, source: str = 'runtime') -> Dict[str, Any]:
-    """Validate and return an engine-ready dict."""
+def ensure_engine_config(config: Mapping[str, Any] | PlanConfig, source: str = 'runtime', *, force: bool = False) -> Dict[str, Any]:
+    """Validate and return an engine-ready dict.
+
+    A4: when ``config`` is already a plain dict carrying this module's
+    immutable-boundary marker (and a matching contract version), skip the
+    full re-validate + recursive freeze/thaw round-trip — it was already paid
+    for by whichever call produced this dict, and every call site in the
+    build path re-enters this function on the same config as it's threaded
+    through report_compute/monte_carlo/the deterministic engine. Still updates
+    ``config_contract_source`` so provenance stays accurate. Pass
+    ``force=True`` to always take the full path (e.g. a caller that wants a
+    genuinely independent copy back).
+    """
+    if (
+        not force
+        and type(config) is dict
+        and config.get('config_immutable_boundary') is True
+        and config.get('config_contract_version') == 'v1'
+    ):
+        config['config_contract_source'] = source
+        return config
     return normalize_engine_config(config, source=source).as_engine_dict()
