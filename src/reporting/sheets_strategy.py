@@ -1262,9 +1262,50 @@ def build_sheet14(ws, c, rows):
             r += 1
     r += 1
 
+    # ── Per-Beneficiary 10-Year Drawdown (item 4.9 / P5 phase 2) ─────────────
+    from ..after_tax import per_beneficiary_ten_year_drawdown as _pb_drawdown
+    drawdown = _pb_drawdown(c, rows)
+    write_hdr(ws, r, 1, 'Per-Beneficiary 10-Year Drawdown (SCENARIO SENSITIVITY — NOT A PREDICTION)', ORANGE, WHITE, span=4); r += 1
+    write_cell(ws, r, 1,
+               'Projects how each named beneficiary\'s inherited account would be drawn down over the SECURE '
+               f'Act 10-year window, assuming the {drawdown.get("heir_filing_status", "Single")} filing status '
+               'configured for heir scoring above and a simplified no-growth (or, where the decedent had '
+               'already reached their Required Beginning Date, an approximated declining-divisor RMD) '
+               'schedule — not the real IRS Single Life Expectancy Table. This is a sensitivity illustration '
+               'for discussion, not a forecast of what any beneficiary will actually owe.', bg='FFF4E5', align='left')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=4)
+    ws.row_dimensions[r].height = 44
+    r += 2
+    if not drawdown.get('available'):
+        write_cell(ws, r, 1,
+                   f"Not available — {drawdown.get('reason', 'insufficient data on file')}. Requires both a "
+                   "configured second death (Household ages/mortality) and account_titling primary-beneficiary "
+                   "data (item 4.7, Account Titling section).", align='left')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=4)
+        r += 1
+    else:
+        write_cell(ws, r, 1, 'Second Death Year', bold=True, bg=LGRAY)
+        write_cell(ws, r, 2, drawdown['second_death_year']); r += 1
+        write_cell(ws, r, 1, 'Decedent Had Reached RMD Age', bold=True, bg=LGRAY)
+        write_cell(ws, r, 2, 'Yes' if drawdown['decedent_reached_rbd'] else 'No'); r += 1
+        r += 1
+        write_hdr(ws, r, 1, 'Beneficiary', DGRAY, WHITE)
+        write_hdr(ws, r, 2, 'Inherited Accounts', DGRAY, WHITE)
+        write_hdr(ws, r, 3, 'Gross Terminal Balance', DGRAY, WHITE)
+        write_hdr(ws, r, 4, 'Est. After-Tax Total', DGRAY, WHITE)
+        r += 1
+        for entry in drawdown['beneficiaries']:
+            write_cell(ws, r, 1, entry['beneficiary'], bold=True, bg=LGRAY)
+            write_cell(ws, r, 2, ', '.join(a['label'] for a in entry['accounts']))
+            write_cell(ws, r, 3, entry['gross_total'], fmt=FMT_DOLLAR)
+            write_cell(ws, r, 4, entry['after_tax_total'], fmt=FMT_DOLLAR, bold=True)
+            r += 1
+    r += 1
+
     qc('14. Estate Plan', 'Federal/IL tax, QTIP, Credit Shelter documented', True,
        f"IL est. tax: ${il_tax if c['model_state_est'] else 0:,.0f}, CS saves ~${cs_tax_saved:,.0f}, "
-       f"{len(findings)} beneficiary/titling review prompt(s)")
+       f"{len(findings)} beneficiary/titling review prompt(s), "
+       f"per-beneficiary drawdown {'available' if drawdown.get('available') else 'not available'}")
 
 
 
