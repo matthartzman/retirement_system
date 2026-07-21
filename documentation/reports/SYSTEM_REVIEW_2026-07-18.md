@@ -25,18 +25,24 @@ unit tests alone where the item touched the build pipeline. See individual commi
 verification detail; several items (3.1, 3.3, 3.9/3.10, 3.12) needed real fixes beyond what the finding's
 evidence anticipated, discovered only by exercising the actual running app/build rather than reading code.
 
-**Wave 4: 5 of 10 complete (4.10 cut per §10.3, four in progress).** 4.3 (P5 phase 1) shipped earlier out of
-sequence (see its own Wave 4 changelog entry, above the item-4.2 entry, in `GOLDEN_MASTER_CHANGELOG.md`).
-This pass added 4.4 (P13 phase 1 required-cut distribution — additive, no policy change), 4.5 (P12 second
+**Wave 4: 9 of 10 complete (4.10 cut per §10.3).** 4.3 (P5 phase 1) shipped earlier out of sequence (see its
+own Wave 4 changelog entry, above the item-4.2 entry, in `GOLDEN_MASTER_CHANGELOG.md`). This pass added the
+remaining eight: 4.4 (P13 phase 1 required-cut distribution — additive, no policy change), 4.5 (P12 second
 half SSA-44 relief), 4.6 (P10 second half CA/NY bracket inflation only — the 50-state expansion half stays
-unscheduled per §11's decision), 4.1 (P3 QCD as an AGI exclusion), and 4.2 (P4 DAF into the itemized stack).
-Remaining: 4.7 (P8 beneficiary/titling), 4.8 (P11 gifting), 4.9 (P5 phase 2, blocked on 4.7). Each item
-verified with unit tests plus a clean-worktree before/after diff against the live plan's projection rows
-(zero-drift confirmed for every opt-in default); 4.1/4.2 additionally required regenerating both mandatory
-golden-master gates (frozen sample plan and synthetic scenarios) — see `GOLDEN_MASTER_CHANGELOG.md` for the
-dollar deltas and why. Two follow-ups spawned as separate background tasks rather than fixed inline: the
-first-pass-AGI timing gap affecting DAF's carryforward for withdrawal-funded retirees, and an order-dependent
-test flake in `test_synthetic_golden_master.py` surfaced by the full-suite run.
+unscheduled per §11's decision), 4.1 (P3 QCD as an AGI exclusion), 4.2 (P4 DAF into the itemized stack), 4.7
+(P8 account-level beneficiary/titling driving basis step-up per account, plus a review-prompt audit section),
+4.8 (P11 gifting schedule with lifetime-exemption tracking, a genuinely new balance-mutating path outside the
+withdrawal cascade), and 4.9 (P5 phase 2, blocked on 4.3+4.7, per-beneficiary 10-year drawdown, explicitly
+labeled scenario sensitivity not prediction). Each item verified with unit tests plus a clean-worktree
+before/after diff against the live plan's projection rows (zero-drift confirmed for every opt-in default);
+4.1/4.2 additionally required regenerating both mandatory golden-master gates (frozen sample plan and
+synthetic scenarios, since DAF was already enabled in both) — see `GOLDEN_MASTER_CHANGELOG.md` for the
+dollar deltas and why. 4.7/4.8's new per-account/per-gift-entry CSV sections are edit-only for now (no
+generic dashboard UI can render a dynamic per-instance row set the way the existing backfill mechanism
+handles fixed fields) — flagged as a follow-up task, not built in this pass. Three other follow-ups spawned
+as separate background tasks rather than fixed inline: the first-pass-AGI timing gap affecting DAF's
+carryforward for withdrawal-funded retirees, an order-dependent test flake in `test_synthetic_golden_master.py`
+surfaced by the full-suite run, and a dedicated UI editor for per-account beneficiary/titling data.
 
 **How to read it:** Section 2 preserves every option each expert considered, including the ones I did not
 recommend. If you disagree with a recommendation, the alternative and its tradeoff are sitting next to it.
