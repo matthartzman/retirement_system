@@ -111,11 +111,14 @@ def test_real_build_journey_start_to_real_detailed_results_and_download(monkeypa
     assert len(xlsx_bytes) > 10_000, f"downloaded workbook suspiciously small ({len(xlsx_bytes)} bytes)"
 
 
+@pytest.mark.slow
 def test_detailed_results_read_routes_against_the_canonical_built_workbook(monkeypatch, built_workbook_dir):
     """Read-side coverage against `built_workbook_dir` (root conftest.py) - a
     real workbook other tests in this session already pay to build once, not
-    a mocked payload. Not slow-marked: this reuses that session-scoped build
-    rather than running a second one.
+    a mocked payload. Marked slow (like every other `built_workbook_dir`/
+    `built_workbook_path` consumer) so `-m "not slow"` never triggers a build
+    by being the first test in a run to request the fixture; when the full
+    suite runs, this still just reuses whatever build happened first.
     """
     monkeypatch.setenv("RETIREMENT_SYSTEM_OUTPUT_DIR", str(built_workbook_dir))
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
+import pytest
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 
@@ -51,6 +52,7 @@ def _row_is_sole_column_a(ws, row: int) -> bool:
     return True
 
 
+@pytest.mark.slow
 def test_before_after_rebalancing_omits_zero_before_and_after_rows(built_workbook_path):
     wb = load_workbook(built_workbook_path, data_only=False, read_only=True)
     ws = wb['2B. Asset Allocation']
@@ -80,6 +82,7 @@ def test_before_after_rebalancing_omits_zero_before_and_after_rows(built_workboo
     assert zero_rows == []
 
 
+@pytest.mark.slow
 def test_asset_allocation_columns_are_compact_and_wrapped(built_workbook_path):
     wb = load_workbook(built_workbook_path, data_only=False)
     ws = wb['2B. Asset Allocation']

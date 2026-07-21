@@ -74,6 +74,7 @@ def _assert_core_artifacts(out_dir: Path, result, label: str):
     assert len(html) > 1000, f"{label}: HTML dashboard suspiciously small ({len(html)} chars)"
 
 
+@pytest.mark.slow
 def test_build_succeeds_with_every_optional_module_off(tmp_path_factory):
     """The explicit ask: turn off all optional modules, build, and confirm the
     result is a real, non-empty workbook/PDF/HTML set rather than a crash.
@@ -94,6 +95,7 @@ def test_build_succeeds_with_every_optional_module_off(tmp_path_factory):
     _assert_core_artifacts(out_dir, result, "all-off")
 
 
+@pytest.mark.slow
 def test_build_succeeds_with_every_optional_module_on(tmp_path_factory):
     """The complementary extreme: every registered optional module on at once,
     including the 7 advanced-planning modules and divorce_qdro that
@@ -107,6 +109,7 @@ def test_build_succeeds_with_every_optional_module_on(tmp_path_factory):
     _assert_core_artifacts(out_dir, result, "all-on")
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("module_key", _all_optional_modules())
 def test_build_succeeds_with_single_module_off(tmp_path_factory, module_key):
     """Sweep: each optional module off individually, everything else on.

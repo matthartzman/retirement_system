@@ -4,6 +4,8 @@ import zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 C_NS = "http://schemas.openxmlformats.org/drawingml/2006/chart"
 
@@ -21,6 +23,7 @@ def _pie_labels_and_values(workbook_path: Path, chart_name: str) -> tuple[list[s
     return labels, values, flags
 
 
+@pytest.mark.slow
 def test_allocation_pies_do_not_show_series_name_or_zero_slices(built_workbook_path):
     for chart_name in ("chart5.xml", "chart6.xml"):
         labels, values, flags = _pie_labels_and_values(built_workbook_path, chart_name)

@@ -12,6 +12,8 @@ import unittest
 import warnings
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
 
@@ -229,6 +231,7 @@ class Phase5CrossToolReconciliationTests(unittest.TestCase):
                     self.assertAlmostEqual(engine, independent, delta=tol)
 
 
+@pytest.mark.slow
 class Phase5WorkbookSnapshotTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
