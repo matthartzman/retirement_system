@@ -10,11 +10,16 @@ ROOT = Path(__file__).resolve().parents[1]
 class AllocationUIBackfillTests(unittest.TestCase):
     def test_server_backfills_missing_allocation_rows_for_older_plan_data(self):
         source = (ROOT / 'src' / 'server' / 'app_core.py').read_text(encoding='utf-8')
-        self.assertIn('def _ensure_allocation_ui_plan_data_rows', source)
-        self.assertIn('_ensure_allocation_ui_plan_data_rows()', source)
-        self.assertIn('_ensure_hsa_withdrawal_ui_plan_data_rows()', source)
-        self.assertLess(source.index('_ensure_allocation_ui_plan_data_rows()'), source.index('schema = _read_schema_map()'))
-        self.assertLess(source.index('_ensure_hsa_withdrawal_ui_plan_data_rows()'), source.index('schema = _read_schema_map()'))
+        # A7 (Wave 3 item 3.12): the twelve near-identical
+        # _ensure_*_ui_plan_data_rows functions (including allocation and HSA
+        # withdrawal) were replaced by one declarative
+        # PLAN_DATA_BACKFILL_ENTRIES table applied via
+        # _ensure_user_ui_plan_data_rows() -> plan_data_backfill.apply_backfill().
+        self.assertIn('_ensure_user_ui_plan_data_rows()', source)
+        self.assertLess(source.index('_ensure_user_ui_plan_data_rows()'), source.index('schema = _read_schema_map()'))
+        import src.server.app_core as ac
+        assert any(entry.rows is ac.ALLOCATION_UI_PLAN_DATA_ROWS for entry in ac.PLAN_DATA_BACKFILL_ENTRIES)
+        assert any(entry.rows is ac.HSA_WITHDRAWAL_UI_PLAN_DATA_ROWS for entry in ac.PLAN_DATA_BACKFILL_ENTRIES)
         self.assertIn('allocation_selection_mode', source)
         self.assertIn('optimizer_override_pct', source)
         self.assertIn('DEFAULT_ALLOCATION_TARGETS', source)

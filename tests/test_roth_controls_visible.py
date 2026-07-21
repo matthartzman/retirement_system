@@ -59,7 +59,15 @@ def test_choice_schema_fields_render_as_select_controls():
 def test_runtime_backfills_missing_roth_controls_for_older_plan_data():
     app_core = (ROOT / 'src/server/app_core.py').read_text(encoding='utf-8')
     assert 'ROTH_UI_PLAN_DATA_ROWS' in app_core
-    assert 'def _ensure_roth_ui_plan_data_rows()' in app_core
-    assert '_ensure_roth_ui_plan_data_rows()' in app_core
     for label in ['roth_objective_mode', 'estate_tax_objective_mode', 'roth_headroom_usage_pct', 'irmaa_guardrail_mode', 'roth_irmaa_headroom_usage_pct', 'roth_irmaa_target_tier']:
         assert label in app_core
+
+    # A7 (Wave 3 item 3.12): backfilling itself is now the declarative
+    # PLAN_DATA_BACKFILL_ENTRIES table over src/plan_data_backfill.py's
+    # batched engine, not a dedicated _ensure_roth_ui_plan_data_rows()
+    # function - assert this row set is actually wired into that table.
+    import src.server.app_core as ac
+    assert any(
+        entry.rows is ac.ROTH_UI_PLAN_DATA_ROWS
+        for entry in ac.PLAN_DATA_BACKFILL_ENTRIES
+    )
