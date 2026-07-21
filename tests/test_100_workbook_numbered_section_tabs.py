@@ -1,4 +1,7 @@
+import pytest
 from openpyxl import load_workbook
+
+pytestmark = pytest.mark.slow
 
 
 def test_workbook_uses_numbered_sections_and_lettered_children(built_workbook_path):

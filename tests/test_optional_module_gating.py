@@ -59,6 +59,7 @@ def gated_build(tmp_path_factory):
     return out_dir, result.stdout + result.stderr
 
 
+@pytest.mark.slow
 def test_build_succeeds_with_modules_off(gated_build):
     out_dir, _ = gated_build
     assert (out_dir / "retirement_plan.xlsx").exists()
@@ -67,6 +68,7 @@ def test_build_succeeds_with_modules_off(gated_build):
     assert (out_dir / "retirement_dashboard.html").exists()
 
 
+@pytest.mark.slow
 def test_disabled_module_sheets_are_absent(gated_build):
     out_dir, _ = gated_build
     names = _sheet_names(out_dir / "retirement_plan.xlsx")
@@ -79,6 +81,7 @@ def test_disabled_module_sheets_are_absent(gated_build):
         assert present in names, f"{present} is core and must always be present"
 
 
+@pytest.mark.slow
 def test_empty_section_divider_is_dropped(gated_build):
     out_dir, _ = gated_build
     names = _sheet_names(out_dir / "retirement_plan.xlsx")
@@ -90,17 +93,27 @@ def test_empty_section_divider_is_dropped(gated_build):
     assert "4. System" in names
 
 
+@pytest.mark.slow
 def test_monte_carlo_is_not_run(gated_build):
     _, log = gated_build
     assert "Monte Carlo disabled" in log
 
 
 def test_nav_gating_source_covers_monte_carlo():
+    # The reported bug: Monte Carlo had no nav gate. §7.4 moved nav-step
+    # gating out of dashboard.js's hand-listed optionalFunctionEnabled(...)
+    # calls into module_catalog.step_gate_map(), server-declared and consumed
+    # via moduleGates.step_gates (see dashboard.js's gateModule lookup at the
+    # STEPS array). Confirm the mapping still exists at its new source.
+    from src.module_catalog import step_gate_map
+
+    gates = step_gate_map()
+    assert gates.get("monte_carlo_options") == "market_luck_stress_test"
+    assert gates.get("survivor_stress") == "survivor_stress_test"
+    assert gates.get("scenarios") == "what_if_analysis"
+
     js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
-    # The reported bug: Monte Carlo had no nav gate. Confirm the mapping exists.
-    assert 'optionalFunctionEnabled("market_luck_stress_test")' in js
-    assert 'optionalFunctionEnabled("survivor_stress_test")' in js
-    assert 'optionalFunctionEnabled("what_if_analysis")' in js
+    assert "moduleGates.step_gates" in js, "dashboard.js must still consume the server-declared step gates"
 
 
 def test_registry_covers_every_optional_sheet_module():

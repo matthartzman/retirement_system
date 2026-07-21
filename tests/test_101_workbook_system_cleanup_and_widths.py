@@ -1,6 +1,9 @@
+import pytest
 from openpyxl import load_workbook
 
 from src.reporting.workbook_common import TEMPLATE_LAYOUT
+
+pytestmark = pytest.mark.slow
 
 
 def _visible_wb(workbook_path):

@@ -48,11 +48,24 @@ pip install -r requirements.txt
 
 ## Testing Discipline — MANDATORY
 
-**Run the full test suite after every non-trivial change.** Do not mark any task complete without running `pytest tests/ --tb=short -q` and resolving every new failure. This is not optional. The cost of a broken suite compounds quickly; catching failures immediately is cheap.
+**Run the fast test tier after every non-trivial change.** Do not mark any task complete without running the command below and resolving every new failure. This is not optional. The cost of a broken suite compounds quickly; catching failures immediately is cheap.
+
+```
+pytest tests/ -m "not slow" --tb=short -q
+```
+
+This excludes tests marked `@pytest.mark.slow` — tests that spawn a subprocess to run a full workbook build (`tools/build_workbook.py`) or that request the `built_workbook_dir`/`built_workbook_path` fixtures in `conftest.py`, which trigger one on first use. It's ~1,300 of the suite's ~1,350 tests and normally finishes in well under a minute; a single workbook build alone costs ~90 seconds, so one unmarked build test can silently dominate the whole run.
+
+**Run the full suite (including `slow`) before considering a task done, not after every edit, when any of the following are true:**
+- You touched the build/report pipeline, `workbook_builder.py`, `projection_pipeline.py`, or anything under `src/reporting/`
+- You touched a golden-master fixture or `input/client_data.csv`
+- You're about to push / open a PR — CI reruns the full suite on every push regardless, but catching a break locally first is cheaper than a red CI run
 
 ```
 pytest tests/ --tb=short -q
 ```
+
+**New tests that spawn a subprocess to build a workbook must be marked `@pytest.mark.slow`.** Prefer the shared `built_workbook_dir`/`built_workbook_path` fixtures over a bespoke `subprocess.run` when your test can use the same module/env configuration those fixtures already build with — that amortizes to one build per session instead of one per test. When your test genuinely needs a different module configuration (e.g. all-modules-off, a custom `RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES` set), a fixture-shared build isn't safe to force — scope your own build to a `module`-or-narrower fixture so it's still paid for once per file, not once per test, and mark it `slow` regardless.
 
 ### When you change any of these, search tests/ first
 
