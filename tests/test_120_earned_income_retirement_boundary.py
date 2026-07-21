@@ -30,7 +30,7 @@ def test_ytd_earned_income_forecast_uses_same_january_first_boundary(tmp_path):
     with (tmp_path / "client_household.csv").open("w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=["section", "subsection", "label", "value", "type", "notes"])
         w.writeheader()
-        w.writerow({"section":"Household","subsection":"","label":"husband_retirement_date","value":"1/1/2027"})
+        w.writerow({"section":"Household","subsection":"","label":"member_1_retirement_date","value":"1/1/2027"})
 
     assert annual_earned_income_forecast(tmp_path, 2026) == 100000
     assert annual_earned_income_forecast(tmp_path, 2027) == 0.0

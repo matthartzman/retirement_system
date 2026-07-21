@@ -718,7 +718,7 @@ def _last_earned_income_year_from_retirement_timing(root: str | Path, default: i
                 for row in csv.DictReader(f):
                     if str(row.get("section", "")).strip() != "Household":
                         continue
-                    if _norm_label(row.get("label")) not in {"husband_retirement_date", "retirement_date"}:
+                    if _norm_label(row.get("label")) != "member_1_retirement_date":
                         continue
                     raw = row.get("value")
                     d = parse_date(raw)

@@ -37,6 +37,15 @@ def _nick2(c):
     return str(c.get('w_nick') or c.get('w_name') or 'Member 2')
 
 
+def _role_display(c, value):
+    """Translate a role value (husband/wife/member_1/member_2) to the
+    household's actual nickname; pass through anything else (e.g. a
+    grandchild's name) unchanged."""
+    key = str(value or '').strip().lower().replace(' ', '_')
+    return {'husband': _nick1(c), 'member_1': _nick1(c),
+            'wife': _nick2(c), 'member_2': _nick2(c)}.get(key, value)
+
+
 def _birth_year(date_str):
     """Best-effort birth year from a m/d/yyyy or yyyy-mm-dd string."""
     s = str(date_str or '').strip()
@@ -105,7 +114,7 @@ def build_education_funding(ws, c, rows):
     for a in accounts:
         proj = _project_529_balance(a, default_use_year, base_year)
         total_proj += proj
-        vals = [a['name'], a['owner'], a['beneficiary'], a['balance_today'],
+        vals = [a['name'], _role_display(c, a['owner']), a['beneficiary'], a['balance_today'],
                 a['annual_contribution'], a['contribution_end_year'] or '—',
                 a['growth_rate'], proj]
         for i, v in enumerate(vals, 1):
@@ -212,7 +221,7 @@ def build_equity_comp(ws, c, rows):
         strike = g['strike'] if g['grant_type'] in ('ISO', 'NSO', 'NQSO', 'ESPP') else 0.0
         proceeds = max(0.0, (fmv_at_sale - strike)) * g['shares']
         total_proceeds += proceeds
-        vals = [g['name'], g['recipient'], g['grant_type'], g['shares'], g['fmv_today'],
+        vals = [g['name'], _role_display(c, g['recipient']), g['grant_type'], g['shares'], g['fmv_today'],
                 (strike if strike else '—'), sale_year, proceeds]
         for i, v in enumerate(vals, 1):
             fmt = (FMT_DOLLAR if i in (5, 6, 8) and isinstance(v, (int, float)) else
@@ -377,7 +386,7 @@ def build_business_succession(ws, c, rows):
         proj_val = e['valuation_today'] * ((1 + e['valuation_growth_rate']) ** max(0, transfer_year - base_year))
         owner_share = proj_val * e['ownership_pct']
         per_entity.append((e, transfer_year, proj_val, owner_share))
-        vals = [e['entity_name'], e['owner'], e['ownership_pct'], e['valuation_today'],
+        vals = [e['entity_name'], _role_display(c, e['owner']), e['ownership_pct'], e['valuation_today'],
                 e['valuation_growth_rate'], transfer_year, proj_val, owner_share]
         for i, v in enumerate(vals, 1):
             fmt = (FMT_DOLLAR if i in (4, 7, 8) else (FMT_PCT if i in (3, 5) else

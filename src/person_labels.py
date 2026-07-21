@@ -8,6 +8,25 @@ which stay stable as data keys (client_holdings.csv, YTD imports).
 """
 
 
+def infer_member_role(identifier):
+    """Classify an account/income-stream identifier by household member.
+
+    Recognizes both the current Member_1_/Member_2_ naming convention and
+    legacy husband_/wife_/spouse_/h_/w_-prefixed identifiers, so callers
+    parsing older Plan Data shapes and callers parsing current data get the
+    same answer. Returns 'member_1', 'member_2', or 'household' (joint,
+    family, or business-titled accounts have no individual owner).
+    """
+    low = str(identifier or '').lower()
+    if (low.startswith('h_') or low.startswith('husband') or '_h_' in low or
+            low.startswith('member_1') or '_member_1' in low):
+        return 'member_1'
+    if (low.startswith('w_') or low.startswith('wife') or low.startswith('spouse_') or
+            '_w_' in low or low.startswith('member_2') or '_member_2' in low):
+        return 'member_2'
+    return 'household'
+
+
 def member_nick(c, role):
     """Return the display nickname for 'member_1' / 'member_2'.
 

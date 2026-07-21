@@ -1,14 +1,87 @@
 Economic Assumptions:
   ? ''
   : annuity_default_additional_income_pct: 20.00%
-    annuity_default_dividend_rate: 5.75%
+    annuity_default_dividend_rate: 5.00%
+    cash_yield_rate: 1.00%
     fed_tax_bracket_inflator: 2.00%
     inflation_general: 2.50%
     medicare_part_b_inflation: 5.50%
     medicare_part_d_inflation: 1.25%
-    portfolio_nominal_return: 6.00%
+    portfolio_nominal_return: 5.00%
+    reinvest_dividends_default: 'YES'
     social_security_cola: 2.00%
     social_security_taxable_fraction: 85.00%
+Household:
+  ? ''
+  : filing_status: MFJ
+    member_1_dob: 8/3/1962
+    member_1_mortality_age: '92'
+    member_1_name: Matthew
+    member_1_nickname: Matt
+    member_1_retirement_date: '2027-01-01'
+    member_2_dob: 5/30/1961
+    member_2_mortality_age: '95'
+    member_2_name: Patricia
+    member_2_nickname: Pat
+    member_2_retirement_date: 2/28/2024
+    residence_state: Illinois
+    survivor_filing_status: Single
+    survivor_has_dependent: 'FALSE'
+Payroll Tax:
+  Medicare:
+    additional_medicare_rate: 0.90%
+    additional_medicare_threshold_mfj: $250,000
+    medicare_employee_rate: 1.45%
+    medicare_self_employment_rate: 2.90%
+  Self-Employment:
+    se_half_deductible: 'TRUE'
+    se_net_earnings_factor: 92.35%
+  Social Security:
+    ss_employee_rate: 6.20%
+    ss_self_employment_rate: 12.40%
+    ss_wage_base_base_year: $184,500
+Social Security:
+  Member 1:
+    claim_age: '69'
+    fra_age: '67.00'
+    monthly_pia_at_fra_today_dollars: '4050'
+    ss_benefit_age_62: $2,835
+    ss_benefit_age_63: $3,038
+    ss_benefit_age_64: $3,240
+    ss_benefit_age_65: $3,510
+    ss_benefit_age_66: $3,780
+    ss_benefit_age_67: $4,050
+    ss_benefit_age_68: $4,374
+    ss_benefit_age_69: $4,698
+    ss_benefit_age_70: $5,022
+  Member 2:
+    claim_age: '69'
+    fra_age: '67.00'
+    monthly_pia_at_fra_today_dollars: '3359'
+    ss_benefit_age_62: $2,351
+    ss_benefit_age_63: $2,519
+    ss_benefit_age_64: $2,687
+    ss_benefit_age_65: $2,911
+    ss_benefit_age_66: $3,135
+    ss_benefit_age_67: $3,359
+    ss_benefit_age_68: $3,628
+    ss_benefit_age_69: $3,896
+    ss_benefit_age_70: $4,165
+  Policy:
+    spousal_benefits_enabled: 'TRUE'
+    survivor_benefit_uses_deceased_claim_age: 'TRUE'
+    survivor_pct_of_higher_benefit: '100'
+State Comparison:
+  ? ''
+  : target_state: CO
+  auto_insurance:
+    illinois_baseline_annual: $2,400
+    notes: ''
+    target_state_annual: ''
+  homeowners_insurance:
+    illinois_baseline_annual: $2,200
+    notes: ''
+    target_state_annual: ''
 Wellness:
   ACA Premium Tax Credit:
     applicable_pct_cap: 8.50%
@@ -26,43 +99,3 @@ Wellness:
     oop_utilization_pct: 100.00%
   Pre-65 Bridge:
     annual_premium_base_year: $12,000
-Household:
-  ? ''
-  : filing_status: MFJ
-    husband_dob: 8/3/1962
-    husband_mortality_age: '92'
-    husband_name: Matthew
-    husband_retirement_date: 1/1/2027
-    residence_state: Illinois
-    survivor_filing_status: Single
-    survivor_has_dependent: 'FALSE'
-    wife_dob: 5/30/1961
-    wife_mortality_age: '95'
-    wife_name: Patricia
-    wife_retirement_date: 2/28/2024
-Payroll Tax:
-  Medicare:
-    additional_medicare_rate: 0.90%
-    additional_medicare_threshold_mfj: $250,000
-    medicare_employee_rate: 1.45%
-    medicare_self_employment_rate: 2.90%
-  Self-Employment:
-    se_half_deductible: 'TRUE'
-    se_net_earnings_factor: 92.35%
-  Social Security:
-    ss_employee_rate: 6.20%
-    ss_self_employment_rate: 12.40%
-    ss_wage_base_base_year: $184,500
-Social Security:
-  Husband:
-    claim_age: '70'
-    monthly_at_age_70_today_dollars: $5,080
-    monthly_pia_at_fra_today_dollars: '0'
-  Policy:
-    spousal_benefits_enabled: 'TRUE'
-    survivor_benefit_uses_deceased_claim_age: 'TRUE'
-    survivor_pct_of_higher_benefit: '100'
-  Wife:
-    claim_age: '70'
-    monthly_at_age_70_today_dollars: $4,174
-    monthly_pia_at_fra_today_dollars: '0'
