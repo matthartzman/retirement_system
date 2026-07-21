@@ -13,7 +13,18 @@ counterpart to the Life Insurance *need* analysis (Sheet 19); they do not feed
 the projection engine.
 """
 
-from .workbook_common import *
+from .workbook_common import (
+    DGRAY,
+    FMT_DOLLAR,
+    FMT_PCT,
+    NAVY,
+    ORANGE,
+    WHITE,
+    qc,
+    section_title,
+    write_cell,
+    write_hdr,
+)
 
 
 def _nick1(c):

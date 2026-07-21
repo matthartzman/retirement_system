@@ -13,7 +13,20 @@ projection engine — cross-module engine integration (equity-comp AMT into the
 lifetime-tax sheet, etc.) is deferred to a later phase.
 """
 
-from .workbook_common import *
+from .workbook_common import (
+    DGRAY,
+    FMT_DOLLAR,
+    FMT_INT,
+    FMT_PCT,
+    FMT_YEAR,
+    NAVY,
+    ORANGE,
+    WHITE,
+    qc,
+    section_title,
+    write_cell,
+    write_hdr,
+)
 
 
 def _nick1(c):

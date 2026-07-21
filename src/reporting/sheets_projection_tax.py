@@ -7,7 +7,20 @@ Displays year-by-year tax analysis including:
 - Lifetime tax totals and effective/marginal rate analysis
 """
 
-from .workbook_common import *
+from .workbook_common import (
+    FMT_DOLLAR,
+    FMT_INT,
+    FMT_PCT,
+    FMT_YEAR,
+    NAVY,
+    WHITE,
+    get_column_letter,
+    marginal_rate,
+    qc,
+    section_title,
+    write_cell,
+    write_hdr,
+)
 
 
 def build_sheet7(ws, c, rows):
