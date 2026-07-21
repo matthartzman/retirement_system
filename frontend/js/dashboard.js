@@ -3816,6 +3816,7 @@ function rawRowsForStep(id) {
       case "estate":
         return (
           sec === "Estate Planning" ||
+          sec === "Account Titling" ||
           (sec === "Insurance In Force" && !rowIsLifeInsurancePolicy(r))
         );
       case "annuity_death_benefits":

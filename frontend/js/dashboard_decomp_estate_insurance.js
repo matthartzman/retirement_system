@@ -48,6 +48,7 @@ function renderEstateStatesTable() {
   const existingSubs = [
     ...new Set(
       rowsForStep("estate")
+        .filter((r) => r.section !== "Account Titling")
         .map((r) => String(r.subsection || ""))
         .filter(stateLikeEstateSubsection),
     ),
@@ -131,6 +132,25 @@ function renderTrustAccountsTable() {
   html += `</div></details>`;
   return html;
 }
+function renderAccountTitlingTable() {
+  const estate = rowsForStep("estate");
+  const titlingRows = estate.filter((r) => r.section === "Account Titling");
+  const bySub = {};
+  titlingRows.forEach((r) => {
+    (bySub[r.subsection] || (bySub[r.subsection] = [])).push(r);
+  });
+  let html = `<details><summary>Beneficiary &amp; Titling</summary><div class="field-list"><div class="section-note">Per-account primary/contingent beneficiaries and titling, one panel per account from Holdings. Drives the Beneficiary &amp; Titling Audit and each account's own basis step-up on Sheet 14 -- leave Titling blank to use the household-wide default instead.</div>`;
+  const subs = Object.keys(bySub).sort();
+  if (!subs.length) {
+    html += `<p class="small">No accounts found in Holdings yet.</p>`;
+  }
+  subs.forEach((sub) => {
+    const rs = bySub[sub];
+    html += `<details><summary>${esc(accountDisplayLabel(sub))} <span class="small">(${esc(sub)})</span></summary><div class="field-list">${sortRowsByDependency(rs).map(fieldHtml).join("")}</div></details>`;
+  });
+  html += `</div></details>`;
+  return html;
+}
 function renderToggleRows(title, description, rs, open = false) {
   if (!rs.length) return "";
   const enabled = rs.find((r) => norm(r.label) === "enabled");
@@ -151,6 +171,7 @@ function renderEstateInformation() {
   const stateSubs = [
     ...new Set(
       estate
+        .filter((r) => r.section !== "Account Titling")
         .map((r) => String(r.subsection || ""))
         .filter(stateLikeEstateSubsection),
     ),
@@ -195,6 +216,7 @@ function renderEstateInformation() {
     sortRowsByDependency(estate.filter((r) => r.subsection === "Step-Up")),
     false,
   );
+  html += renderAccountTitlingTable();
   html += renderEstateSection(
     "Beneficiary support and special-needs planning",
     "Enable Special Needs Planning in Optional workbook modules to edit ABLE/trust/government-benefit rows.",
@@ -208,6 +230,7 @@ function renderEstateInformation() {
   const other = estate.filter(
     (r) =>
       r.section !== "Insurance In Force" &&
+      r.section !== "Account Titling" &&
       !federal.includes(r) &&
       !stateLikeEstateSubsection(r.subsection) &&
       !["QTIP Trust", "Credit Shelter Trust", "Gifting", "Step-Up"].includes(
