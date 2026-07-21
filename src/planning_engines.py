@@ -243,6 +243,150 @@ def _basis_step_fraction_for_death(c: Mapping, first_death: bool = True) -> floa
     return 1.0 if first_death else 1.0
 
 
+def _account_titling(c: Mapping, account_id: str) -> dict:
+    return (c.get('account_titling') or {}).get(account_id) or {}
+
+
+def _account_basis_step_fraction(c: Mapping, account_id: str, first_death: bool = True) -> float:
+    """Item 4.7 (P8): per-account titling overrides the household-wide
+    property_regime default (_basis_step_fraction_for_death) for the fraction
+    of a DECEASED owner's own account that receives a fresh §1014 basis.
+
+    - COMMUNITY_PROPERTY: both halves are already the decedent's for basis
+      purposes (the "double step-up") -> 1.0, regardless of the household
+      default (an account can be titled community property even in a
+      common-law-state household, or vice versa).
+    - JTWROS / TENANTS_IN_COMMON: only the decedent's own share (typically
+      half) was really theirs; the survivor's pre-existing share keeps its
+      old basis -> 0.5. The household-level model previously stepped up the
+      WHOLE account for any jointly-titled asset, overstating the step-up.
+    - SEPARATE_PROPERTY: an explicit "this is solely the decedent's own
+      asset" designation -> full step-up on their own basis (1.0) regardless
+      of what the household's community-property default would otherwise
+      apply — this is the mechanism behind the audit flag for a
+      community-property asset titled to defeat the double step-up.
+    - Blank / INDIVIDUAL / TRUST_TITLED / TOD_POD / anything else: no
+      per-account override on file -> fall back to the existing
+      household-level default, unchanged from pre-4.7 behavior.
+    """
+    titling = str(_account_titling(c, account_id).get('titling') or '').strip().upper()
+    if titling == 'COMMUNITY_PROPERTY':
+        return 1.0
+    if titling in {'JTWROS', 'TENANTS_IN_COMMON'}:
+        return 0.5
+    if titling == 'SEPARATE_PROPERTY':
+        return 1.0
+    return _basis_step_fraction_for_death(c, first_death=first_death)
+
+
+def _survivor_bonus_step_fraction(c: Mapping, account_id: str) -> float:
+    """Item 4.7 (P8): per-account version of the "does the surviving spouse's
+    OWN taxable account also get a step-up at the first death" community-
+    property bonus (previously gated only on the household-wide regime).
+
+    An account explicitly titled COMMUNITY_PROPERTY gets the bonus even if
+    the household default is COMMON_LAW; one titled SEPARATE_PROPERTY does
+    NOT get it even if the household default is COMMUNITY_PROPERTY. No
+    per-account titling on file falls back to the household default,
+    unchanged from pre-4.7 behavior.
+    """
+    titling = str(_account_titling(c, account_id).get('titling') or '').strip().upper()
+    if titling == 'COMMUNITY_PROPERTY':
+        return 1.0
+    if titling == 'SEPARATE_PROPERTY':
+        return 0.0
+    regime = str(c.get('basis_step_up_property_regime', 'COMMON_LAW') or 'COMMON_LAW').strip().upper()
+    return 1.0 if regime in {'COMMUNITY_PROPERTY', 'FULL_STEP_UP'} else 0.0
+
+
+# Item 4.7 (P8): the nine community-property states among the eleven this
+# build models state tax for (item 4.6's decision record keeps the modeled
+# set at eleven; this list is only used to phrase an audit prompt, never to
+# gate a calculation).
+_COMMUNITY_PROPERTY_STATES = {'California', 'Arizona', 'Nevada', 'Texas'}
+
+
+def beneficiary_titling_audit(c: Mapping) -> list:
+    """Item 4.7 (P8): review prompts, not verdicts, on account beneficiary/
+    titling data (c['account_titling'], keyed by account_registry id).
+
+    Each finding is {'account_id', 'label', 'flag', 'prompt'} — a question
+    for the advisor to raise with the client, not an assertion that anything
+    is wrong. An account absent from account_titling entirely produces no
+    findings (nothing on file to review yet, not "passed").
+    """
+    registry = c.get('account_registry', []) or []
+    titling_map = c.get('account_titling') or {}
+    former_spouse = str(c.get('former_spouse_name') or '').strip().lower()
+    estate_objective = str(c.get('estate_tax_objective_mode', 'BALANCED') or 'BALANCED').strip().upper()
+    state = str(c.get('state', '') or '')
+    household_regime = str(c.get('basis_step_up_property_regime', 'COMMON_LAW') or 'COMMON_LAW').strip().upper()
+
+    findings = []
+    for acct in registry:
+        aid = acct.get('id')
+        entry = titling_map.get(aid)
+        if not entry:
+            continue
+        label = acct.get('label') or aid
+        tax = acct.get('tax')
+        primary = str(entry.get('primary_beneficiary') or '').strip()
+        contingent = str(entry.get('contingent_beneficiary') or '').strip()
+        titling = str(entry.get('titling') or '').strip().upper()
+        primary_low = primary.lower()
+        contingent_low = contingent.lower()
+
+        if tax in {'pre_tax', 'roth'} and not primary:
+            findings.append((aid, label, 'estate_named_by_default',
+                              'No primary beneficiary on file for this retirement account. Most custodial '
+                              'agreements name "the estate" by default when none is designated — confirm '
+                              'that is really the intended recipient (it forces probate and loses the '
+                              'non-spouse beneficiary\'s stretch/10-year flexibility).'))
+        elif primary and not contingent:
+            findings.append((aid, label, 'no_contingent',
+                              'Primary beneficiary is on file with no contingent beneficiary. Confirm what '
+                              'happens if the primary predeceases the client or disclaims.'))
+
+        if former_spouse and (former_spouse in primary_low or former_spouse in contingent_low):
+            findings.append((aid, label, 'ex_spouse_named',
+                              f'A name matching the configured former spouse ({c.get("former_spouse_name")}) '
+                              'still appears as a beneficiary. Beneficiary designations are not automatically '
+                              'revoked by divorce in every state — confirm this is intentional.'))
+
+        if '(minor)' in primary_low or '(minor)' in contingent_low:
+            has_wrapper = ('utma' in primary_low or 'ugma' in primary_low or 'trust' in primary_low
+                           or 'utma' in contingent_low or 'ugma' in contingent_low or 'trust' in contingent_low)
+            if not has_wrapper:
+                findings.append((aid, label, 'minor_named_outright',
+                                  'A beneficiary flagged (minor) appears to be named outright, with no UTMA/UGMA '
+                                  'custodianship or trust wrapper on file. A minor cannot directly receive '
+                                  'account assets — confirm a guardianship/custodial mechanism is in place.'))
+
+        if tax in {'pre_tax', 'roth'} and 'trust' in (primary_low + ' ' + contingent_low) and not entry.get('trust_see_through'):
+            findings.append((aid, label, 'trust_no_see_through',
+                              'A trust appears to be named as beneficiary of this retirement account, but '
+                              'trust_see_through is not marked TRUE. Confirm the trust qualifies as a '
+                              '"see-through" trust (IRS Treas. Reg. 1.401(a)(9)-4) — otherwise the account may '
+                              'be forced onto the fastest available distribution schedule.'))
+
+        if titling == 'JTWROS' and estate_objective not in {'OFF', 'MONITOR_ONLY'}:
+            findings.append((aid, label, 'jtwros_defeats_credit_shelter',
+                              'This account is titled JTWROS, which passes directly to the survivor by '
+                              'operation of law outside probate — bypassing any credit-shelter/bypass trust '
+                              'the estate plan (estate_tax_objective_mode is not OFF) may be relying on. '
+                              'Confirm this titling is intentional.'))
+
+        if titling == 'SEPARATE_PROPERTY' and (household_regime in {'COMMUNITY_PROPERTY', 'FULL_STEP_UP'}
+                                                or state in _COMMUNITY_PROPERTY_STATES):
+            findings.append((aid, label, 'community_property_defeated',
+                              f'This account is titled separate property in a household whose state ({state}) '
+                              'or configured regime treats assets as community property elsewhere. Separate-'
+                              'property titling forgoes the community-property "double step-up" on this '
+                              'specific account at the first death — confirm that trade-off is intentional.'))
+
+    return findings
+
+
 def apply_death_transition(c: dict, balance: Dict[str, float], year: int,
                            h_alive: bool, w_alive: bool,
                            basis_free: Optional[Dict[str, float]] = None) -> InheritanceResult:
@@ -300,10 +444,16 @@ def apply_death_transition(c: dict, balance: Dict[str, float], year: int,
 
     if first_death:
         result.description = f'{label} → {survivor_label} (spousal rollover)'
-        if basis_free is not None and c.get('basis_step_up_at_death', True) and str(c.get('basis_step_up_property_regime','COMMON_LAW')).upper() in {'COMMUNITY_PROPERTY','FULL_STEP_UP'}:
+        if basis_free is not None and c.get('basis_step_up_at_death', True):
             for _acct in _accounts_by_owner(registry, survivor):
                 if _acct.get('tax') == 'taxable':
-                    basis_free[_acct['id']] = max(float(basis_free.get(_acct['id'], 0.0) or 0.0), float(balance.get(_acct['id'], 0.0) or 0.0))
+                    # Item 4.7 (P8): per-account titling (community property vs
+                    # separate property) drives whether the SURVIVOR's own
+                    # account also gets the community-property "double
+                    # step-up" bonus, instead of one household-wide regime.
+                    _bonus_frac = _survivor_bonus_step_fraction(c, _acct['id'])
+                    if _bonus_frac > 0:
+                        basis_free[_acct['id']] = max(float(basis_free.get(_acct['id'], 0.0) or 0.0), float(balance.get(_acct['id'], 0.0) or 0.0) * _bonus_frac)
         for acct in _accounts_by_owner(registry, deceased):
             if acct.get('tax') == 'cash':
                 # Treat standalone cash/checking as household liquidity; roll to taxable/trust if no cash acct.
@@ -317,8 +467,9 @@ def apply_death_transition(c: dict, balance: Dict[str, float], year: int,
             if basis_free is not None and c.get('basis_step_up_at_death', True) and acct.get('tax') == 'taxable':
                 # Treat non-retirement assets owned by the decedent as receiving
                 # a basis step-up at first death; these dollars are drawn before
-                # gain-bearing lots in later survivor years.
-                _step_frac = _basis_step_fraction_for_death(c, first_death=True)
+                # gain-bearing lots in later survivor years. Item 4.7: titling
+                # drives this per account instead of one household regime.
+                _step_frac = _account_basis_step_fraction(c, acct['id'], first_death=True)
                 basis_free[acct['id']] = max(float(basis_free.get(acct['id'], 0.0) or 0.0),
                                              float(balance.get(acct['id'], 0.0) or 0.0) * _step_frac)
             _move(balance, acct['id'], dst, 'spousal rollover', result, basis_free)

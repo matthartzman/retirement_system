@@ -747,6 +747,10 @@ HEALTHCARE_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Wellness", "Medicare", "part_g_base_premium_monthly", "$0", "dollars", "Current monthly Medicare Supplement Plan G / Medigap-style premium per Medicare-enrolled person. Enter $0 if no supplement is modeled."],
 ]
 
+FORMER_SPOUSE_UI_PLAN_DATA_ROWS: list[list[str]] = [
+    ["Estate Planning", "Step-Up", "former_spouse_name", "", "text", "Optional name used only by the Beneficiary & Titling Audit (Sheet 14) to flag a former spouse still named as a beneficiary on any account."],
+]
+
 HELOC_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["HELOC", "Setup", "heloc_enabled", "No", "yes/no", "Enable the HELOC strategy. When Yes, the projection draws from the HELOC during the draw period to fund large discretionary spending instead of liquidating portfolio assets."],
     ["HELOC", "Setup", "heloc_credit_limit", "$0", "dollars", "Maximum HELOC credit line available. The projection will not borrow beyond this amount."],
@@ -875,6 +879,10 @@ PLAN_DATA_BACKFILL_ENTRIES: list[plan_data_backfill.BackfillEntry] = [
     plan_data_backfill.BackfillEntry(
         "client_assets.csv", DAF_APPRECIATED_UI_PLAN_DATA_ROWS,
         plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("DAF", "Settings")),
+    ),
+    plan_data_backfill.BackfillEntry(
+        "client_insurance_estate.csv", FORMER_SPOUSE_UI_PLAN_DATA_ROWS,
+        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Estate Planning", "Step-Up")),
     ),
     plan_data_backfill.BackfillEntry(
         "client_household.csv",

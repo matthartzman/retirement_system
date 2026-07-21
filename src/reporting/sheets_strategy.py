@@ -1088,11 +1088,23 @@ def build_sheet14(ws, c, rows):
     # Federal estate tax
     r += 1
     write_hdr(ws, r, 1, 'Federal Estate Tax', BLUE, WHITE, span=4); r+=1
-    fed_exempt = c['fed_exempt']
+    # Item 4.8 (P11): using lifetime exemption via taxable gifts (amounts
+    # above the per-donee annual exclusion) reduces what's left at death —
+    # the "unified credit" being unified. lifetime_exemption_used_cumulative
+    # is 0 for any plan without a gifting_schedule, so fed_exempt is
+    # unchanged from pre-4.8 behavior by default.
+    lifetime_exemption_used = float(yr_second.get('lifetime_exemption_used_cumulative', 0.0) or 0.0)
+    fed_exempt_gross = c['fed_exempt']
+    fed_exempt = max(0.0, fed_exempt_gross - lifetime_exemption_used)
     est2 = yr_second['total_nw']
     fed_estate_tax = max(0, est2 - fed_exempt) * 0.40
     write_cell(ws, r, 1, 'Federal Exemption (MFJ, OBBBA)')
-    write_cell(ws, r, 2, fed_exempt, fmt=FMT_DOLLAR); r+=1
+    write_cell(ws, r, 2, fed_exempt_gross, fmt=FMT_DOLLAR); r+=1
+    if lifetime_exemption_used > 0:
+        write_cell(ws, r, 1, 'Less: Lifetime Exemption Used by Gifting')
+        write_cell(ws, r, 2, -lifetime_exemption_used, fmt=FMT_DOLLAR); r+=1
+        write_cell(ws, r, 1, 'Federal Exemption Remaining at Second Death', bold=True)
+        write_cell(ws, r, 2, fed_exempt, fmt=FMT_DOLLAR, bold=True); r+=1
     write_cell(ws, r, 1, 'Projected Estate at Second Death')
     write_cell(ws, r, 2, est2, fmt=FMT_DOLLAR); r+=1
     write_cell(ws, r, 1, 'Est. Federal Estate Tax', bold=True)
@@ -1130,6 +1142,41 @@ def build_sheet14(ws, c, rows):
     for label, detail in gift_items:
         write_cell(ws, r, 1, label, bold=True, bg=LGRAY)
         write_cell(ws, r, 2, detail); ws.merge_cells(start_row=r,start_column=2,end_row=r,end_column=4)
+        r += 1
+
+    # ── Item 4.8 (P11): real gifting schedule, if one is configured ──────────
+    gifting_schedule = c.get('gifting_schedule') or []
+    if gifting_schedule:
+        r += 1
+        write_hdr(ws, r, 1, 'Configured Gifting Schedule (Modeled — Reduces Funding Account + Estate Base)', GREEN, WHITE, span=4); r += 1
+        write_hdr(ws, r, 1, 'Gift', DGRAY, WHITE)
+        write_hdr(ws, r, 2, 'Funding Account', DGRAY, WHITE)
+        write_hdr(ws, r, 3, 'Annual $/Donee × Donees', DGRAY, WHITE)
+        write_hdr(ws, r, 4, 'Active Years', DGRAY, WHITE)
+        r += 1
+        for g in gifting_schedule:
+            write_cell(ws, r, 1, g.get('name', ''), bold=True, bg=LGRAY)
+            write_cell(ws, r, 2, g.get('funding_account', ''))
+            write_cell(ws, r, 3, f"${g.get('annual_amount_per_donee', 0):,.0f} × {g.get('donee_count', 1)}"
+                                 + (' (appreciated asset — carries over basis, no step-up)' if g.get('is_appreciated_asset') else ''))
+            _end = g.get('end_year', 0)
+            write_cell(ws, r, 4, f"{g.get('start_year', 0)}–{_end if _end else 'plan end'}")
+            r += 1
+        lifetime_total_gifted = sum(float(row.get('gift_total_yr', 0.0) or 0.0) for row in rows)
+        write_cell(ws, r, 1, 'Lifetime Total Gifted (Modeled)', bold=True, bg=LGRAY)
+        write_cell(ws, r, 2, lifetime_total_gifted, fmt=FMT_DOLLAR, bold=True)
+        ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=2); r += 1
+        write_cell(ws, r, 1, 'Lifetime Exemption Used (Modeled)', bold=True, bg=LGRAY)
+        write_cell(ws, r, 2, lifetime_exemption_used, fmt=FMT_DOLLAR, bold=True); r += 1
+        write_cell(ws, r, 1,
+                   'Gifted dollars leave the funding account directly (reducing the projected estate base) as '
+                   'soon as they are gifted — they are not routed through spending. Amounts above the annual '
+                   'exclusion per donee consume federal lifetime exemption, reducing what remains available at '
+                   'the second death (reflected in the Federal Estate Tax section above). Gifted appreciated-'
+                   'asset amounts carry over the donor\'s original cost basis rather than stepping up — this '
+                   'workbook does not model the recipient\'s own eventual capital-gain tax.', align='left')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=4)
+        ws.row_dimensions[r].height = 44
         r += 1
 
     # ── QTIP Trust ────────────────────────────────────────────────────────────
@@ -1184,8 +1231,40 @@ def build_sheet14(ws, c, rows):
         ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=4)
         r += 1
 
+    # ── Beneficiary & Titling Audit (item 4.7 / P8) ──────────────────────────
+    r += 1
+    from ..planning_engines import beneficiary_titling_audit as _bt_audit
+    findings = _bt_audit(c)
+    write_hdr(ws, r, 1, 'Beneficiary & Titling Audit', ORANGE, WHITE, span=4); r += 1
+    write_cell(ws, r, 1,
+               'Review prompts drawn from account_titling data on file (Account Titling section, '
+               'client_assets.csv) — questions to raise with the client, not verdicts. An account with '
+               'no titling/beneficiary data on file produces no prompt here; it simply has not been '
+               'reviewed yet.', bg='F4F5F7', align='left')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=4)
+    ws.row_dimensions[r].height = 30
+    r += 2
+    if not findings:
+        write_cell(ws, r, 1, 'No account_titling data on file, or no review prompts triggered for the data on file.', align='left')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=4)
+        r += 1
+    else:
+        write_hdr(ws, r, 1, 'Account', DGRAY, WHITE)
+        write_hdr(ws, r, 2, 'Flag', DGRAY, WHITE)
+        write_hdr(ws, r, 3, 'Review Prompt', DGRAY, WHITE, span=2)
+        r += 1
+        for _aid, _label, _flag, _prompt in findings:
+            write_cell(ws, r, 1, _label, bold=True, bg=LGRAY)
+            write_cell(ws, r, 2, _flag.replace('_', ' ').title())
+            write_cell(ws, r, 3, _prompt, align='left')
+            ws.merge_cells(start_row=r, start_column=3, end_row=r, end_column=4)
+            ws.row_dimensions[r].height = 30
+            r += 1
+    r += 1
+
     qc('14. Estate Plan', 'Federal/IL tax, QTIP, Credit Shelter documented', True,
-       f"IL est. tax: ${il_tax if c['model_state_est'] else 0:,.0f}, CS saves ~${cs_tax_saved:,.0f}")
+       f"IL est. tax: ${il_tax if c['model_state_est'] else 0:,.0f}, CS saves ~${cs_tax_saved:,.0f}, "
+       f"{len(findings)} beneficiary/titling review prompt(s)")
 
 
 
