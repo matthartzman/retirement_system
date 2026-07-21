@@ -1637,11 +1637,16 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
 
     # P9 fix: the objective must penalize the estate actually transferred at the
     # second death, not the PEAK net worth in any single (typically early/mid)
-    # year. Evaluate the estate tax at the second-death row with the same
-    # terminal-estate model the reported PTI uses (estimate_terminal_estate_tax,
-    # which also folds in business interests and the CST exclusion), then
-    # present-value it to plan start so it is commensurate with the already-
-    # discounted lifetime_tax term above.
+    # year. Evaluate the estate tax with the same terminal-estate model the
+    # reported PTI uses (estimate_terminal_estate_tax, which also folds in
+    # business interests and the CST exclusion), then present-value it to plan
+    # start so it is commensurate with the already-discounted lifetime_tax term
+    # above. The taxable base itself uses the same avg/peak blend as
+    # pretax_legacy_exposure/roth_legacy_exposure above (not the raw
+    # second-death-row balance alone): a plan that fully spends down or
+    # converts every account by the exact death year would otherwise report a
+    # $0 taxable estate even though the household carried a genuinely taxable
+    # estate for most of the horizon, silently zeroing out this component.
     from .after_tax import estimate_terminal_estate_tax as _estimate_terminal_estate_tax
     _second_death_row = next(
         (r for r in rows if int(r.get('year', 0) or 0) == second_death),
@@ -1649,7 +1654,10 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
     )
     if _second_death_row is not None:
         _death_year = int(_second_death_row.get('year', plan_start) or plan_start)
-        _estate_tax_at_death = _estimate_terminal_estate_tax(c, _second_death_row)
+        _estate_exposure_nw = 0.65 * _pv_avg('total_nw') + 0.35 * _peak('total_nw')
+        _estate_base_row = dict(_second_death_row)
+        _estate_base_row['total_nw'] = _estate_exposure_nw
+        _estate_tax_at_death = _estimate_terminal_estate_tax(c, _estate_base_row)
         estate_tax_penalty = estate_mult * _estate_tax_at_death / ((1.0 + discount) ** max(0, _death_year - plan_start))
     else:
         estate_tax_penalty = 0.0
