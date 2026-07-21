@@ -407,7 +407,23 @@ def build_sheet11(ws, c, rows):
     write_cell(ws, r, 11, 'Voluntary', bold=True, bg=LGRAY); write_cell(ws, r, 12, total_volun, fmt=FMT_DOLLAR, bold=True, bg=LGRAY)
     write_cell(ws, r, 13, 'Grand Total', bold=True, bg=LGRAY); write_cell(ws, r, 14, total_conv, fmt=FMT_DOLLAR, bold=True, bg=LGRAY)
 
+    # ── Terminal-tax-rate assumptions the recommendation is sensitive to ──────
     r += 2
+    _heir_rate = float(c.get('roth_heir_ordinary_tax_rate_assumption', 0.24) or 0.24)
+    _term_rate = float(c.get('roth_optimize_terminal_tax_rate', c.get('roth_target_rate', 0.24)) or 0.24)
+    write_hdr(ws, r, 1, 'Terminal Tax-Rate Assumptions — Conversion Recommendation Is SENSITIVE To These', ORANGE, WHITE, span=len(hdrs)); r += 1
+    write_cell(ws, r, 1, "Heir Ordinary-Income Tax Rate (roth_heir_ordinary_tax_rate_assumption)", bold=True, bg=LGRAY)
+    write_cell(ws, r, 2, _heir_rate, fmt=FMT_PCT, bold=True)
+    write_cell(ws, r, 4, "Terminal Pre-Tax Haircut Rate (roth_optimize_terminal_tax_rate)", bold=True, bg=LGRAY)
+    write_cell(ws, r, 5, _term_rate, fmt=FMT_PCT, bold=True); r += 1
+    write_cell(ws, r, 1, ('These two rates are held flat (currently '
+                          f'{_heir_rate:.0%} heir / {_term_rate:.0%} terminal) pending a future refinement item. '
+                          'The selected conversion amount is sensitive to both: a higher assumed heir or terminal '
+                          'ordinary rate raises the modeled benefit of converting pre-tax balances now, and a lower '
+                          'rate reduces it. Read the recommendation as conditional on these assumptions.'), align='left')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=len(hdrs))
+    ws.row_dimensions[r].height = 44; r += 2
+
     write_hdr(ws, r, 1, 'Conversion Strategy — Key Rules', BLUE, WHITE, span=len(hdrs)); r += 1
     _heir_filing = str(c.get('roth_heir_filing_status', 'Single') or 'Single')
     _heir_eff_rate = c.get('roth_heir_ordinary_tax_rate_effective') or c.get('roth_heir_ordinary_tax_rate_assumption', 0.0)
@@ -999,6 +1015,40 @@ def build_sheet14(ws, c, rows):
         write_cell(ws, r, 1, label, bold=True, bg=LGRAY)
         write_cell(ws, r, 2, val, fmt=FMT_DOLLAR, bold=True)
         r += 1
+
+    # ── Terminal embedded tax & §1014 basis step-up ───────────────────────────
+    # Discloses which of the three step-up cases the terminal cap-gain estimate
+    # rests on, and the resulting assumed basis, so the after-tax legacy figure
+    # and the Roth optimizer's terminal metric are auditable rather than opaque.
+    r += 1
+    from ..after_tax import estimate_after_tax_terminal_net_worth as _est_after_tax
+    _atk = _est_after_tax(c, yr_second)
+    _case_labels = {
+        'second_death': 'Terminal year IS the second death — full §1014 step-up on the whole estate',
+        'first_death': "One member survives the terminal year — decedent's share steps up; survivor's share retains its deferred gain",
+        'both_alive': 'Horizon ends with both members alive — no step-up; deferred gain retained in full',
+    }
+    _case = str(_atk.get('terminal_step_up_case', '') or '')
+    write_hdr(ws, r, 1, 'Terminal Embedded Tax & §1014 Basis Step-Up', BLUE, WHITE, span=4); r += 1
+    write_cell(ws, r, 1, 'Applicable Step-Up Case', bold=True, bg=LGRAY)
+    write_cell(ws, r, 2, _case_labels.get(_case, _case or 'n/a'))
+    ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=4); r += 1
+    _stepup_rows = [
+        ('Gross Embedded Taxable Gain', _atk.get('terminal_taxable_gross_unrealized_gain_est', 0.0), FMT_DOLLAR),
+        ('Gain Stepped Up at Death (§1014)', _atk.get('terminal_taxable_stepped_up_gain_est', 0.0), FMT_DOLLAR),
+        ('Retained Taxable Gain (after step-up)', _atk.get('terminal_taxable_unrealized_gain_est', 0.0), FMT_DOLLAR),
+        ('Assumed Basis at Death (cost + stepped-up gain)', _atk.get('terminal_taxable_basis_est', 0.0), FMT_DOLLAR),
+        ('Est. Deferred Cap-Gain Tax on Retained Gain', _atk.get('terminal_deferred_taxable_cap_gain_tax', 0.0), FMT_DOLLAR),
+        ('After-Tax Terminal Net Worth', _atk.get('after_tax_terminal_nw', 0.0), FMT_DOLLAR),
+        ('Post-Tax Inheritance (after estate tax)', _atk.get('post_tax_inheritance', 0.0), FMT_DOLLAR),
+    ]
+    for label, val, fmt in _stepup_rows:
+        write_cell(ws, r, 1, label)
+        write_cell(ws, r, 2, val, fmt=fmt, bold=('After-Tax' in label or 'Post-Tax' in label))
+        r += 1
+    write_cell(ws, r, 1, 'Note')
+    write_cell(ws, r, 2, str(_atk.get('terminal_step_up_note', '') or ''))
+    ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=4); r += 2
 
     # Federal estate tax
     r += 1

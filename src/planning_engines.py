@@ -902,6 +902,36 @@ def aca_premium_tax_credit(c: Mapping, *, year: int, magi: float, bridge_people:
     required_contribution = max(0.0, float(magi or 0.0) * app_pct)
     return max(0.0, min(benchmark, benchmark - required_contribution))
 
+
+def _roth_irmaa_target_threshold_base(c: Mapping, filing: str) -> float:
+    """Un-inflated IRMAA target threshold for the configured tier, by filing status.
+
+    ``roth_irmaa_target_threshold_mfj`` (seeded in data_io.py from
+    ``IRMAA_TIERS_BASE_YEAR['MFJ']`` at ``roth_irmaa_target_tier``) is an
+    explicit MFJ override and is honored as-is for MFJ filers. For every other
+    filing status — most importantly a surviving spouse whose filing status
+    switches to Single mid-plan (deterministic_engine.py's survivor-filing
+    transition) — the MFJ dollar figure is the wrong table. Mirror the
+    assessment-side lookup (deterministic_engine.py's ``_irmaa_surcharge_path``/
+    ``_irmaa_tier_path``, which key ``IRMAA_TIERS_BASE_YEAR`` by ``filing``) so
+    the conversion guardrail and the tax assessment agree on which IRMAA tier
+    is being targeted.
+    """
+    filing = str(filing or "MFJ")
+    if filing == "MFJ":
+        return float(c.get("roth_irmaa_target_threshold_mfj", c.get("irmaa_base", 268000)) or 268000)
+    tiers = IRMAA_TIERS_BASE_YEAR.get(filing) or IRMAA_TIERS_BASE_YEAR.get("MFJ", [])
+    if not tiers:
+        return float(c.get("roth_irmaa_target_threshold_mfj", c.get("irmaa_base", 268000)) or 268000)
+    tier_name = str(c.get("roth_irmaa_target_tier", "TIER_2") or "TIER_2").strip().upper()
+    try:
+        idx = int(tier_name.rsplit("_", 1)[-1]) - 1
+    except (ValueError, IndexError):
+        idx = 1
+    idx = min(max(0, idx), len(tiers) - 1)
+    return float(tiers[idx][0])
+
+
 def plan_roth_conversion(
     c: Mapping,
     bal: Mapping[str, float],
@@ -1022,7 +1052,7 @@ def plan_roth_conversion(
             ])
             amount = cap
     elif policy == "fill_to_irmaa":
-        irmaa_thr = float(c.get("roth_irmaa_target_threshold_mfj", c.get("irmaa_base", 268000)) or 268000) * (
+        irmaa_thr = _roth_irmaa_target_threshold_base(c, filing) * (
             (1 + float(c.get("irmaa_inflator", 0.02))) ** (year - int(c.get("plan_start", year)))
         )
         cap_irmaa = max(0.0, irmaa_thr - pre_agi) * float(c.get('roth_irmaa_headroom_usage_pct', 0.95) or 0.95)
@@ -1047,7 +1077,7 @@ def plan_roth_conversion(
                 caps.append(("ACA PTC MAGI guardrail", max(0.0, max_fpl * fpl - pre_agi)))
             guard_mode = str(c.get("irmaa_guardrail_mode", "AVOID_NEXT_TIER") or "AVOID_NEXT_TIER").upper()
             if c.get("roth_irmaa_cap", True) and guard_mode not in ("IGNORE", "WARN_ONLY"):
-                irmaa_thr = float(c.get("roth_irmaa_target_threshold_mfj", c.get("irmaa_base", 268000)) or 268000) * (
+                irmaa_thr = _roth_irmaa_target_threshold_base(c, filing) * (
                     (1 + float(c.get("irmaa_inflator", 0.02))) ** (year - int(c.get("plan_start", year)))
                 )
                 cap_irmaa = max(0.0, irmaa_thr - pre_agi) * float(c.get('roth_irmaa_headroom_usage_pct', 0.95) or 0.95)
@@ -1316,6 +1346,7 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
             'future_tax_stress_penalty': 0.0, 'survivor_tax_risk_penalty': 0.0,
             'pre_tax_inheritance_burden': 0.0, 'roth_legacy_preference_value': 0.0,
             'legacy_adjustment': 0.0, 'estate_tax_penalty': 0.0,
+            'peak_estate_tax_exposure': 0.0,
             'aca_ptc_loss': 0.0, 'aca_ptc_score': 0.0, 'score': 0.0,
         }
     terminal = rows[-1]
@@ -1458,7 +1489,28 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
         state_tax = illinois_estate_tax(state_taxable, state_exempt) if c.get('model_state_est', True) and state_exempt else 0.0
         return federal_tax + state_tax
 
-    estate_tax_penalty = estate_mult * max((_estate_tax_for_row(r) for r in rows), default=0.0)
+    # P9 fix: the objective must penalize the estate actually transferred at the
+    # second death, not the PEAK net worth in any single (typically early/mid)
+    # year. Evaluate the estate tax at the second-death row with the same
+    # terminal-estate model the reported PTI uses (estimate_terminal_estate_tax,
+    # which also folds in business interests and the CST exclusion), then
+    # present-value it to plan start so it is commensurate with the already-
+    # discounted lifetime_tax term above.
+    from .after_tax import estimate_terminal_estate_tax as _estimate_terminal_estate_tax
+    _second_death_row = next(
+        (r for r in rows if int(r.get('year', 0) or 0) == second_death),
+        rows[-1] if rows else None,
+    )
+    if _second_death_row is not None:
+        _death_year = int(_second_death_row.get('year', plan_start) or plan_start)
+        _estate_tax_at_death = _estimate_terminal_estate_tax(c, _second_death_row)
+        estate_tax_penalty = estate_mult * _estate_tax_at_death / ((1.0 + discount) ** max(0, _death_year - plan_start))
+    else:
+        estate_tax_penalty = 0.0
+    # Retained as a reported risk indicator only (NOT optimized against): the
+    # Illinois estate-tax cliff with no portability makes the worst single-year
+    # exposure worth surfacing even though it should not drive conversions.
+    peak_estate_tax_exposure = max((_estate_tax_for_row(r) for r in rows), default=0.0)
 
     objective_mode = str(c.get('roth_objective_mode', 'BALANCED_RETIREMENT') or 'BALANCED_RETIREMENT').upper()
     # Start with balanced professional planning defaults, then allow modes to
@@ -1501,8 +1553,8 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
     return {
         'terminal_nw': terminal_nw,
         'after_tax_terminal_nw': after_tax_terminal_nw,
-        'terminal_estate_tax': (_estate_tax_for_row(rows[-1]) if rows else 0.0),
-        'post_tax_inheritance': after_tax_terminal_nw - (_estate_tax_for_row(rows[-1]) if rows else 0.0),
+        'terminal_estate_tax': (_estimate_terminal_estate_tax(c, rows[-1]) if rows else 0.0),
+        'post_tax_inheritance': after_tax_terminal_nw - (_estimate_terminal_estate_tax(c, rows[-1]) if rows else 0.0),
         'lifetime_tax': lifetime_tax,
         'total_conversion': total_conversion,
         'total_roth_withdrawal': total_roth_withdrawal,
@@ -1517,6 +1569,7 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
         'roth_legacy_preference_value': roth_legacy_preference_value,
         'legacy_adjustment': legacy_adjustment,
         'estate_tax_penalty': estate_tax_penalty,
+        'peak_estate_tax_exposure': peak_estate_tax_exposure,
         'lifetime_tax_nominal': lifetime_tax_nominal,
         'terminal_wealth_score': terminal_component,
         'tax_efficiency_score': tax_component,
