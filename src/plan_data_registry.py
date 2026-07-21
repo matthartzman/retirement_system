@@ -62,3 +62,20 @@ def client_data_derived_files() -> list[str]:
         *[f"{stem}.json" for stem in stems],
         *[f"{stem}.yaml" for stem in stems],
     ]
+
+
+# System/reference CSVs (not per-client plan data). Defined here -- rather than
+# in server/plan_data_files.py -- so that server_services/admin_service can
+# import it without pulling in the src.server package (importing a submodule
+# of a package always runs that package's __init__.py first, which registers
+# admin_routes, which reads admin_service.ADMIN_PLAN_DATA_FILES back -- a
+# circular import if admin_service ever depended on src.server.*).
+SYSTEM_REFERENCE_FILES: list[str] = [
+    "security_master.csv",
+    "capital_market_assumptions.csv",
+    "asset_correlations.csv",
+    "schema.csv",
+    "state_tax.csv",
+    "tax_constants.csv",
+    "tax_update_dashboard.csv",
+]
