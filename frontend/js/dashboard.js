@@ -434,33 +434,22 @@ function stepSearchText(s) {
   return text.toLowerCase();
 }
 function stepGatedByOptionalModule(stepId) {
-  if (stepId === "divorce_options")
-    return !optionalFunctionEnabled("divorce_qdro");
-  if (stepId === "ltc_stress")
-    return !optionalFunctionEnabled("long_term_care_stress");
-  // Probability analysis (Monte Carlo), scenario change sets, and the survivor
-  // stress test each map 1:1 to an optional workbook module. When the module is
-  // off no computation runs and no sheet is built, so the input page is hidden.
-  if (stepId === "monte_carlo_options")
-    return !optionalFunctionEnabled("market_luck_stress_test");
-  if (stepId === "scenarios")
-    return !optionalFunctionEnabled("what_if_analysis");
-  if (stepId === "survivor_stress")
-    return !optionalFunctionEnabled("survivor_stress_test");
-  // Single-module optimizer input pages.
-  if (stepId === "state_residency")
-    return !optionalFunctionEnabled("state_residency");
-  if (stepId === "roth_conversion")
-    return !optionalFunctionEnabled("roth_conversion_plan");
+  // HELOC isn't a client_optional_functions.csv toggle (module_catalog has no
+  // entry for it) — it's a plan-data feature flag (HELOC/Setup/heloc_enabled),
+  // so it and the bundle step that depends on it stay special-cased here.
   if (stepId === "heloc_strategy") return !helocModuleEnabled();
-  if (stepId === "entity_charitable")
-    return !optionalFunctionEnabled("charitable_giving");
   // Special Strategies bundles the HELOC and Charitable Giving input pages, so
   // it only appears in navigation once at least one of those optional modules
   // is enabled. Visibility follows capability — there is no separate
   // "advanced workflow" preference.
   if (stepId === "special_strategies")
     return !helocModuleEnabled() && !optionalFunctionEnabled("charitable_giving");
+  // §7.4: every other module-gated step is server-declared (module_catalog's
+  // dashboard_step, via moduleGates.step_gates) rather than hand-listed here —
+  // when the module is off, no computation runs and no sheet is built, so the
+  // input page is hidden.
+  const gateModule = (moduleGates.step_gates || {})[stepId];
+  if (gateModule) return !optionalFunctionEnabled(gateModule);
   return false;
 }
 function visibleSteps() {
@@ -887,6 +876,9 @@ let apiBase = "",
   appReady = false,
   rows = [],
   moduleStatus = {},
+  // §7.4: server-computed {step_gates, section_gates} from module_catalog,
+  // replacing the hand-maintained stepGatedByOptionalModule/ROW_MODULE_GATES.
+  moduleGates = { step_gates: {}, section_gates: {} },
   holdingsText = "",
   liabilitiesText = "",
   liabilitiesChanged = false,
@@ -2558,9 +2550,13 @@ function modelHeardHtml(summary) {
   rows.push(
     mhRow(
       "Social Security income",
-      "The build used husband claim age " +
+      "The build used " +
+        personDisplayName(1) +
+        " claim age " +
         mhText(ss.husband_claim_age) +
-        " and wife claim age " +
+        " and " +
+        personDisplayName(2) +
+        " claim age " +
         mhText(ss.wife_claim_age) +
         ". Benefits are reduced by " +
         mhPct(ss.funding_discount_pct) +
@@ -3703,9 +3699,11 @@ function homeSaleActivationYearRow(stepId = "") {
 }
 
 function visibleAssetSpecialRow(r) {
+  const gate = rowModuleGate(r.section);
   if (
     ["Equity Compensation", "DAF", "Education Funding"].includes(r.section) &&
-    !optionalFunctionEnabled(ROW_MODULE_GATES[r.section].key)
+    gate &&
+    !optionalFunctionEnabled(gate.key)
   )
     return false;
   if (r.section === "Hybrid LTC" && !ltcLifePolicyModuleEnabled()) return false;
@@ -3940,21 +3938,11 @@ function assetActionForSubsection(subsection) {
   );
   return rowActionValue(a);
 }
-const ROW_MODULE_GATES = {
-  "Education Funding": {
-    key: "education_funding_529",
-    label: "Education Funding optional workbook module",
-  },
-  "Equity Compensation": {
-    key: "equity_compensation",
-    label: "Equity Compensation optional workbook module",
-  },
-  "Insurance In Force": {
-    key: "existing_life_insurance",
-    label: "Existing Life Insurance optional workbook module",
-  },
-  DAF: { key: "charitable_giving", label: "Charitable Giving optional workbook module" },
-};
+// §7.4: {section: {key, label}} is now server-declared (module_catalog's
+// csv_sections, via moduleGates.section_gates) rather than hand-listed here.
+function rowModuleGate(section) {
+  return (moduleGates.section_gates || {})[section] || null;
+}
 function optionalModuleState(row) {
   const sec = String(row.section || "");
   if (sec === "Hybrid LTC" && !ltcLifePolicyModuleEnabled())
@@ -3969,8 +3957,9 @@ function optionalModuleState(row) {
       listAlways: false,
       optionalModuleOff: true,
     };
-  if (ROW_MODULE_GATES[sec]) {
-    const { key: flag, label } = ROW_MODULE_GATES[sec];
+  const gate = rowModuleGate(sec);
+  if (gate) {
+    const { key: flag, label } = gate;
     if (!optionalFunctionEnabled(flag))
       return {
         active: false,
@@ -8734,7 +8723,7 @@ function renderAssetsSpecial() {
       return;
     }
     if (g === "529 Plans") {
-      if (optionalFunctionEnabled(ROW_MODULE_GATES["Education Funding"].key)) {
+      if (optionalFunctionEnabled(rowModuleGate("Education Funding").key)) {
         html += `<details ${gr.length ? "" : "open"}><summary>529 Plans</summary><div class="field-list"><div class="section-note"><b>Purpose:</b> 529 plans are education savings accounts. Enter one section per beneficiary or goal, then add another 529 when a different beneficiary or goal should be tracked separately.</div>${gr.map(fieldHtml).join("")}<div class="table-actions"><button class="btn" type="button" data-requires-app="1" onclick="addEducation529Section()">Add 529 section</button></div></div></details>`;
       }
       return;
@@ -8742,7 +8731,7 @@ function renderAssetsSpecial() {
     if (g === "LTC/Life Policy" && !ltcLifePolicyModuleEnabled()) return;
     if (
       g === "Equity Compensation" &&
-      !optionalFunctionEnabled(ROW_MODULE_GATES["Equity Compensation"].key)
+      !optionalFunctionEnabled(rowModuleGate("Equity Compensation").key)
     )
       return;
     if (gr.length)
@@ -15516,6 +15505,7 @@ async function loadAll(opts = {}) {
     const cfg = await api("/api/config/rows");
     rows = cfg.rows || [];
     moduleStatus = cfg.module_status || {};
+    moduleGates = cfg.module_gates || { step_gates: {}, section_gates: {} };
     if (window.RetirementAppStore)
       window.RetirementAppStore.set({
         rows: rows,

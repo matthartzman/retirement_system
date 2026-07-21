@@ -80,8 +80,34 @@ class ConfigService:
             "active_backend": meta.get("backend", "CSV"),
             "csv_path": str(self.context.csv_path),
             "module_status": self._module_status(_data),
+            "module_gates": self._module_gates(),
             **payload,
         }, 200
+
+    @staticmethod
+    def _module_gates() -> JsonDict:
+        """§7.4: {step_gates, section_gates} the frontend uses to hide a nav
+        step or an input-CSV section while its owning optional module is
+        off — the single source of truth replacing dashboard.js's
+        hand-maintained ``stepGatedByOptionalModule``/``ROW_MODULE_GATES``.
+        Static (module_catalog has zero heavy deps), so unlike
+        ``_module_status`` this needs no sectioned-data input or fallback.
+
+        ``section_gates`` carries both ``key`` (the toggle) and ``label``
+        (the module's display name + " optional workbook module", matching
+        the wording dashboard.js's old ``ROW_MODULE_GATES`` hardcoded) so the
+        frontend needs no separate module-name lookup for its reason/
+        activation text.
+        """
+        try:
+            from ..module_catalog import CATALOG, section_gate_map, step_gate_map
+        except ImportError:  # pragma: no cover - direct execution fallback
+            from src.module_catalog import CATALOG, section_gate_map, step_gate_map
+        section_gates = {
+            section: {"key": key, "label": f"{CATALOG[key].name} optional workbook module"}
+            for section, key in section_gate_map().items()
+        }
+        return {"step_gates": step_gate_map(), "section_gates": section_gates}
 
     @staticmethod
     def _module_status(sectioned_data: dict[str, Any]) -> JsonDict:
