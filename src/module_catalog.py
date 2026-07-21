@@ -239,8 +239,14 @@ _OUTPUTS: List[OutputModule] = [
         "charitable_giving", "Charitable Giving", OPTIMIZATION, MEDIUM,
         "Bunching / QCD / DAF strategy and tax effect.",
         optional=True, sheet="12. Charitable Giving", tab="2F. Charitable Giving",
-        requires_inputs=(_in("assets", "daf"), _in("income"), _in("household", "age"),
-                         _in("assumptions", "brackets")),
+        # QCD (item 4.1) and DAF-appreciated-securities (item 4.2) fields
+        # landed in Wave 4, after this entry was first authored — added here
+        # as the Wave 3.5a rework the review's own §9.1 called for ("new
+        # modules should be authored against the reframed registry, not
+        # retrofitted into it").
+        requires_inputs=(_in("assets", "daf", "daf_appreciated_securities"),
+                         _in("spending", "qcd"), _in("income"),
+                         _in("household", "age"), _in("assumptions", "brackets")),
     ),
     OutputModule(
         "state_residency", "State Residency", OPTIMIZATION, MEDIUM,
@@ -251,9 +257,17 @@ _OUTPUTS: List[OutputModule] = [
     ),
     OutputModule(
         "estate_legacy_plan", "Estate & Legacy", OPTIMIZATION, MEDIUM,
-        "Estate-tax exposure and legacy/bequest structure.",
+        "Estate-tax exposure, legacy/bequest structure, beneficiary/titling audit, "
+        "gifting schedule, and per-beneficiary 10-year drawdown sensitivity.",
         optional=True, sheet="14. Estate Plan", tab="2G. Estate & Legacy Planning",
-        requires_inputs=(_in("insurance_estate", "estate_inputs"), _in("assets"),
+        # Account titling (4.7), gifting schedule (4.8), and the per-beneficiary
+        # drawdown (4.9) all shipped in Wave 4, after this entry was first
+        # authored, and landed as new sections on this same sheet rather than
+        # new catalog entries of their own (edit-only CSV sections, no
+        # dedicated dashboard step yet) - added here as the Wave 3.5a rework
+        # the review's own §9.1 called for.
+        requires_inputs=(_in("insurance_estate", "estate_inputs", "account_titling", "gifting_schedule"),
+                         _in("assets"), _in("household", "ages"),
                          _in("assumptions", "estate_constants")),
     ),
     OutputModule(
