@@ -25,7 +25,7 @@ const STEPS = [
   },
   {
     id: "household_people",
-    group: "Profile",
+    group: "People and Income",
     title: "Household & People",
     desc: "Names, birth dates, state of residence, tax filing status, retirement dates, planning horizon, and survivor income and filing assumptions.",
     intro:
@@ -34,7 +34,7 @@ const STEPS = [
   },
   {
     id: "income_work",
-    group: "Profile",
+    group: "People and Income",
     title: "Work Income",
     desc: "Salary or self-employment income, payroll assumptions, and retirement plan contributions while still working.",
     intro:
@@ -43,8 +43,8 @@ const STEPS = [
   },
   {
     id: "income_retirement",
-    group: "Profile",
-    title: "Income & Social Security",
+    group: "People and Income",
+    title: "SS, Pensions, & Annuities",
     desc: "Social Security claiming age and benefit for each person, plus pension amounts, annuity income, start ages, survivor percentages, and cost-of-living settings.",
     intro:
       "Enter each person’s Social Security benefit from their statement along with the planned claiming age and the household spousal/survivor policy. Delaying past full retirement age adds about 8% per year up to age 70; the higher earner’s delay has the greatest survivor income impact. Survivor percentages control how much pension or annuity income continues after the first death.",
