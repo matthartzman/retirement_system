@@ -8,6 +8,13 @@ Cashflow,Spending,core_spending_growth_mode,cpi,choice,cpi | manual_override; Ch
 Cashflow,Spending,core_spending_manual_growth_rate,0.00%,percent,Annual core-spending increase used only when core_spending_growth_mode is manual_override.,
 Cashflow,Spending,ytd_remainder_spending_override,,money,Optional: override the projected remainder-of-year CORE spending (after actual YTD core spending; excludes housing/wellness/travel/large discretionary) instead of a linear pro-rated estimate. Leave blank to use the linear estimate.,
 Cashflow,Spending,ytd_blend_enabled,TRUE,,"TRUE blends real YTD actuals (income/spending tracked this year) into the current-year projection (recommended). FALSE models this plan as fully hypothetical, ignoring real-world actuals tracked elsewhere in this workspace. Does not affect the always-on investment growth/contribution date proration.",
+Cashflow,Charitable Giving,qcd_enabled,FALSE,bool,"Enable Qualified Charitable Distributions: each member's own IRA can send money straight to charity, excluded from AGI, once age 70 1/2-eligible."
+Cashflow,Charitable Giving,h_qcd_annual_amount,$0,USD,Member 1's annual QCD amount. Capped at that year's own RMD (phase-1 scope) and at the statutory per-person QCD limit.
+Cashflow,Charitable Giving,w_qcd_annual_amount,$0,USD,Member 2's annual QCD amount. Capped at that year's own RMD (phase-1 scope) and at the statutory per-person QCD limit.
+Cashflow,Charitable Giving,h_qcd_start_year,,year,Optional override for the first year Member 1's QCD applies. Blank = the year they turn age 70 1/2-eligible.
+Cashflow,Charitable Giving,h_qcd_end_year,,year,Optional last year Member 1's QCD applies. Blank = continues through plan end.
+Cashflow,Charitable Giving,w_qcd_start_year,,year,Optional override for the first year Member 2's QCD applies. Blank = the year they turn age 70 1/2-eligible.
+Cashflow,Charitable Giving,w_qcd_end_year,,year,Optional last year Member 2's QCD applies. Blank = continues through plan end.
 Cashflow,Mortgage,monthly_payment,"$3,000",,Fixed payment,
 Cashflow,Mortgage,balance_as_of_plan_start,"$290,769.34",,Outstanding balance 4/1/2026,
 Cashflow,Mortgage,interest_rate,1.99%,,,

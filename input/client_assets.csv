@@ -99,6 +99,7 @@ DAF,Settings,contribution_year,2026,,,
 DAF,Settings,annual_grant_amount,"$4,000",,,
 DAF,Settings,grant_start_year,2027,,,
 DAF,Settings,grant_end_year,2031,,,
+DAF,Settings,contribution_is_appreciated,FALSE,bool,"TRUE if the DAF contribution is appreciated securities rather than cash: limits the year's deductible amount to 30% of AGI instead of 60%, with any excess carried forward up to 5 years."
 Hybrid LTC,Settings,enabled,FALSE,,,
 Hybrid LTC,Settings,face_value,"$500,000",,,
 Hybrid LTC,Settings,annual_premium,"$18,500",,,
