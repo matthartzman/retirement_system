@@ -1,12 +1,14 @@
 section,subsection,label,type,required,default,min,max,description
-Household,,husband_name,text,TRUE,,,Name of husband,
-Household,,husband_dob,date,TRUE,,,Date of birth M/D/YYYY,
-Household,,husband_retirement_date,date,TRUE,,,Retirement date,
-Household,,husband_mortality_age,integer,TRUE,92,70,120,Plan horizon age
-Household,,wife_name,text,TRUE,,,Name of wife,
-Household,,wife_dob,date,TRUE,,,Date of birth M/D/YYYY,
-Household,,wife_retirement_date,date,FALSE,,,Retirement date,
-Household,,wife_mortality_age,integer,TRUE,95,70,120,Plan horizon age
+Household,,member_1_name,text,TRUE,,,Name of first household member,
+Household,,member_1_nickname,text,FALSE,,,Short name used in reports and charts; defaults to first name,
+Household,,member_1_dob,date,TRUE,,,Date of birth M/D/YYYY,
+Household,,member_1_retirement_date,date,TRUE,,,Retirement date,
+Household,,member_1_mortality_age,integer,TRUE,92,70,120,Plan horizon age
+Household,,member_2_name,text,TRUE,,,Name of second household member,
+Household,,member_2_nickname,text,FALSE,,,Short name used in reports and charts; defaults to first name,
+Household,,member_2_dob,date,TRUE,,,Date of birth M/D/YYYY,
+Household,,member_2_retirement_date,date,TRUE,,,Retirement date,
+Household,,member_2_mortality_age,integer,TRUE,95,70,120,Plan horizon age
 Household,,residence_state,text,TRUE,Illinois,,,"State for tax, estate analysis"
 Household,,filing_status,choice,TRUE,MFJ,,,MFJ | Single | HOH | MFS
 Household,,survivor_filing_status,choice,FALSE,Single,,,Filing status after first death: Single | HOH
@@ -86,13 +88,13 @@ Other Assets,Home,appreciation_rate,percent,TRUE,3.00%,0,10,Annual appreciation
 Other Assets,Home,home_sale_year,year,TRUE,0,0,,0=no sale; >0=sale year
 Other Assets,Home,home_sale_price,dollars,FALSE,,,Gross sale price,
 Other Assets,Home,home_basis,dollars,FALSE,,,Cost basis,
-Other Assets,Home,home_sale_proceeds_account,text,FALSE,Wife_Trust,,,Destination account
+Other Assets,Home,home_sale_proceeds_account,text,FALSE,Member_2_Trust,,,Destination account
 Other Assets,Cash,value,dollars,FALSE,$0,0,,Checking-account cash outside the investment holdings table.
-Scenarios,Retire Later,husband_retire_year,year,TRUE,2029,,,Extended retire year
+Scenarios,Retire Later,member_1_retire_year,year,TRUE,2029,,,Extended retire year
 Scenarios,Retire Later,income_growth_rate_override,percent,TRUE,0.00%,0,10,Extension year growth
 Scenarios,Retire Later,salary_override,dollars,TRUE,50000,0,,Extension year salary
 Scenarios,Sell Home,home_sale_year,year,TRUE,2045,,,Scenario sale year
-Scenarios,Sell Home,home_sale_proceeds_account,text,TRUE,Wife_Trust,,,Destination account
+Scenarios,Sell Home,home_sale_proceeds_account,text,TRUE,Member_2_Trust,,,Destination account
 Scenarios,Higher Spending,spend_multiplier,number,TRUE,1.20,1,3,Spending multiplier
 Scenarios,High Inflation,inflation_override,percent,TRUE,4.50%,0,15,Scenario inflation rate
 Scenarios,Low Return,portfolio_return_override,percent,TRUE,4.00%,0,15,Scenario return rate

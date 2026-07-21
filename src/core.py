@@ -11,6 +11,8 @@ Dynamic account registry. Each account has an owner, type, tax treatment, and RM
 The projection engine operates on account *types* instead of account-name assumptions.
 """
 
+from .person_labels import infer_member_role
+
 # ─────────────────────────────────────────────────────────────────────────────
 # ACCOUNT TYPES — defines the tax treatment and behavior of each account type
 # ─────────────────────────────────────────────────────────────────────────────
@@ -46,12 +48,9 @@ def _infer_type(account_name):
 
 def _infer_owner(account_name, members):
     """Infer owner index from an account identifier. Returns 0 or 1."""
-    name = account_name.lower()
-    if name.startswith('wife_') or name.startswith('spouse_') or name.startswith('member_2'):
+    if infer_member_role(account_name) == 'member_2':
         return 1 if len(members) > 1 else 0
-    if name.startswith('family_') or name.startswith('joint_') or name.startswith('business_'):
-        return 0  # default to member_1
-    return 0  # husband / member_1
+    return 0  # member_1, or household/joint/business defaulting to member_1
 
 
 def build_registry_from_balances(balances, members):

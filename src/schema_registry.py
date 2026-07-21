@@ -151,16 +151,6 @@ def validate_rows(rows: list[dict]) -> list[str]:
         spec = schema.get(key, {})
         x = _numeric_value(index.get(key, ''), spec.get('type',''))
         return default if x is None else x
-    # Cross-field rules called out by the expert assessment.
-    h_ret = _num(('Household','','husband_retirement_date'), None)
-    earn_last = _num(('Cashflow','Earned Income','earned_income_last_year'), None)
-    # Dates generally are not numeric; infer year from common date strings.
-    raw_h_ret = index.get(('Household','','husband_retirement_date'), '') or index.get(('Household','','retirement_date'), '')
-    m = re.search(r'(20\d{2}|19\d{2})', raw_h_ret)
-    h_ret_year = int(m.group(1)) if m else None
-    # Note: earned income may legitimately extend past the formal retirement date
-    # (part-year work, business transition, consulting, etc.) — no cross-field
-    # constraint enforced here.
     # Recurring extra ranges must be chronological.
     extra_subs = {k[1] for k in index if k[0] == 'Large Discretionary Expenses'}
     for sub in extra_subs:

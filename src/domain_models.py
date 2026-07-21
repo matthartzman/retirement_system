@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from .person_labels import infer_member_role
 from .plan_data_migration import migrate_sectioned_data
 
 SectionedData = dict[str, dict[str, dict[str, str]]]
@@ -175,17 +176,6 @@ def _lookup(data: Mapping[str, Any], section: str, subsection: str, label: str, 
         return default
 
 
-def _infer_owner(account_id: str) -> str:
-    low = account_id.lower()
-    if (low.startswith("h_") or low.startswith("husband") or "_h_" in low or
-            low.startswith("member_1") or "_member_1" in low):
-        return "husband"
-    if (low.startswith("w_") or low.startswith("wife") or "_w_" in low or
-            low.startswith("member_2") or "_member_2" in low):
-        return "wife"
-    return "household"
-
-
 def _normalize_account_type(value: str) -> str:
     low = value.strip().lower().replace("/", "_").replace(" ", "_")
     mapping = {
@@ -227,7 +217,7 @@ def plan_input_from_sectioned_data(data: SectionedData) -> PlanInput:
                 accounts.append(Account(
                     id=account_id,
                     display_name=account_id.replace("_", " ").title(),
-                    owner_id=_infer_owner(account_id),
+                    owner_id=infer_member_role(account_id),
                     account_type="investment" if any(t in account_id.lower() for t in ("ira", "401", "brokerage", "roth")) else "other_asset",
                     current_value_cents=money_cents(value),
                 ))
@@ -245,7 +235,7 @@ def plan_input_from_sectioned_data(data: SectionedData) -> PlanInput:
             accounts.append(Account(
                 id=account_id,
                 display_name=account_id,
-                owner_id=_infer_owner(account_id),
+                owner_id=infer_member_role(account_id),
                 account_type=typ,
                 current_value_cents=money_cents(labels.get("Current Value")),
                 prior_year_end_value_cents=money_cents(labels.get("Prior Year End Balance")),
@@ -261,7 +251,7 @@ def plan_input_from_sectioned_data(data: SectionedData) -> PlanInput:
                 continue
             if any(word in label.lower() for word in ("salary", "paycheck", "income", "pension", "social security", "annuity")):
                 sid = f"{_s(subsection) or 'income'}:{_s(label)}"
-                income_streams.append(IncomeStream(id=sid, label=_s(label), owner_id=_infer_owner(sid), annual_amount_cents=money_cents(value)))
+                income_streams.append(IncomeStream(id=sid, label=_s(label), owner_id=infer_member_role(sid), annual_amount_cents=money_cents(value)))
 
     spending_policy = SpendingPolicy(
         annual_core_spending_cents=money_cents(_lookup(data, "Spending", "Core", "annual_spending_base_year", "0")),
