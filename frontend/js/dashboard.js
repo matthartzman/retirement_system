@@ -9,7 +9,6 @@
 // YTD Accounts & Sources save to the local database; CSV remains an import/export adapter
 let csrfToken = "";
 window.__retirementCsrfToken = csrfToken;
-const DASHBOARD_UTILS = window.RPDashboardUtils || {};
 const APP_UNAVAILABLE_MESSAGE =
   "Application not ready. Saving, build, download, pricing refresh, Plan Chat, and CSV import/export utilities are unavailable";
 /* Retirement Planner dashboard behavior.
@@ -1168,22 +1167,7 @@ function showConfigCardHelp(key) {
   document.getElementById("helpPanel").innerHTML =
     SYSTEM_CONFIG_FIELD_HELP[key] || STEP_HELP.system_configuration;
 }
-function esc(s) {
-  return String(s ?? "").replace(
-    /[&<>"']/g,
-    (m) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-        m
-      ],
-  );
-}
-function escJs(s) {
-  return String(s ?? "")
-    .replace(/\\/g, "\\\\")
-    .replace(/'/g, "\\'")
-    .replace(/\n/g, "\\n")
-    .replace(/\r/g, "");
-}
+// esc/escJs now live in dashboard_shared_helpers.js (A13), loaded first.
 function apiUrl(p) {
   return (apiBase || "") + p;
 }
@@ -1589,16 +1573,7 @@ function friendlyGroup(r) {
   let s = r.subsection || r.section || "General";
   return translatePersonPlaceholders(formatAcronyms(stripUiLabelPrefix(s)));
 }
-function fmtMoney(v) {
-  if (v === undefined || v === null || v === "") return "Not available";
-  const n = Number(String(v).replace(/[^0-9.-]/g, ""));
-  if (!Number.isFinite(n)) return "Not available";
-  return n.toLocaleString(undefined, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  });
-}
+// fmtMoney lives in dashboard_shared_helpers.js (A13), loaded first.
 function fmtDelta(v) {
   if (v === undefined || v === null || v === "") return "Not available";
   const n = Number(v);
@@ -1613,12 +1588,7 @@ function fmtDelta(v) {
     })
   );
 }
-function fmtPct(v) {
-  if (v === undefined || v === null || v === "") return "Not available";
-  const n = Number(String(v).replace(/[^0-9.-]/g, ""));
-  if (!Number.isFinite(n)) return "Not available";
-  return n.toLocaleString(undefined, { maximumFractionDigits: 1 }) + "%";
-}
+// fmtPct lives in dashboard_shared_helpers.js (A13), loaded first.
 function fmtPctDelta(v) {
   if (v === undefined || v === null || v === "") return "Not available";
   const n = Number(v);
@@ -5269,6 +5239,13 @@ function renderSteps() {
           html += `<button class="nav-subtab${isActiveTab ? " active" : ""}" type="button" onclick="goToReportsTab('${escJs(tab)}')">${esc(tab)}</button>`;
         });
         html += `</div>`;
+        // U1: landing on this tab keeps activeStep "reports_and_review", but
+        // setDetailedResultSheet() (picking a specific sheet) flips activeStep
+        // to "detailed_results" directly, bypassing setStep()'s redirect —
+        // _isViewingDetailedResults() already covers both cases.
+        if (_isViewingDetailedResults()) {
+          html += renderDetailedResultsNav();
+        }
       } else if (s.id === "distribution_strategy") {
         const activeTab = getStrategyTab("distribution_strategy");
         html += `<div class="nav-subtabs">`;
@@ -5301,10 +5278,35 @@ function toggleNavDrawer() {
   else openNavDrawer();
 }
 function toggleHelpSheet() {
-  const open = document.body.classList.toggle("help-open");
+  // Mobile (<=768px) and desktop (>=1181px, U3) toggle different classes with
+  // opposite defaults (help-open opts into showing; help-collapsed opts out).
+  // Each must be read-and-flipped independently — deriving one from the
+  // other's toggle() result breaks on the very first click, since a fresh
+  // page has neither class present regardless of which breakpoint that
+  // absence means "closed" (mobile) vs. "expanded" (desktop) for.
   const btn = document.querySelector("#helpPane .help-toggle");
+  if (window.matchMedia && window.matchMedia("(min-width: 1181px)").matches) {
+    const collapsed = document.body.classList.toggle("help-collapsed");
+    try {
+      if (window.localStorage)
+        window.localStorage.setItem(
+          "retirementHelpCollapsed",
+          collapsed ? "1" : "0",
+        );
+    } catch (_e) {}
+    if (btn) btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    return;
+  }
+  const open = document.body.classList.toggle("help-open");
   if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
 }
+try {
+  if (
+    window.localStorage &&
+    window.localStorage.getItem("retirementHelpCollapsed") === "1"
+  )
+    document.body.classList.add("help-collapsed");
+} catch (_e) {}
 (function wireMobileShellDismiss() {
   const stepsBox = document.getElementById("steps");
   if (stepsBox)
@@ -5344,35 +5346,8 @@ function isDateField(r) {
     !l.includes("end_year")
   );
 }
-function decimalTrim(text) {
-  if (DASHBOARD_UTILS.decimalTrim) return DASHBOARD_UTILS.decimalTrim(text);
-  return String(text)
-    .replace(/\.0+$/, "")
-    .replace(/(\.\d*?)0+$/, "$1");
-}
-function numberFromDisplay(value) {
-  if (DASHBOARD_UTILS.numberFromDisplay)
-    return DASHBOARD_UTILS.numberFromDisplay(value);
-  const raw = String(value ?? "").trim();
-  if (!raw) return null;
-  const neg = /^\(.*\)$/.test(raw) || /^\s*-/.test(raw);
-  const cleaned = raw.replace(/[,$%\s]/g, "").replace(/[()]/g, "");
-  const n = Number(cleaned);
-  if (!Number.isFinite(n)) return null;
-  return neg ? -Math.abs(n) : n;
-}
-function formatNumberValue(value, maxDecimals = 2, minDecimals = 0) {
-  if (DASHBOARD_UTILS.formatNumberValue)
-    return DASHBOARD_UTILS.formatNumberValue(value, maxDecimals, minDecimals);
-  const n = numberFromDisplay(value);
-  if (n === null) return String(value ?? "");
-  const opts = {
-    useGrouping: false,
-    minimumFractionDigits: minDecimals,
-    maximumFractionDigits: maxDecimals,
-  };
-  return n.toLocaleString(undefined, opts);
-}
+// decimalTrim/numberFromDisplay/formatNumberValue/currencyDisplay/percentDisplay
+// live in dashboard_shared_helpers.js (A13), loaded first.
 function decimalsFromText(value) {
   const m = String(value ?? "").match(/\.(\d+)/);
   return m ? Math.min(6, m[1].length) : 0;
@@ -5414,18 +5389,6 @@ function percentRaw(value) {
   const n = numberFromDisplay(value);
   return n === null ? String(value ?? "").trim() : decimalTrim(String(n));
 }
-function currencyDisplay(value, maxDecimals = 2) {
-  if (DASHBOARD_UTILS.currencyDisplay)
-    return DASHBOARD_UTILS.currencyDisplay(value, maxDecimals);
-  const n = numberFromDisplay(value);
-  if (n === null) return String(value ?? "");
-  const max = Math.max(2, Math.min(6, Number(maxDecimals) || 2));
-  const opts = {
-    minimumFractionDigits: Number.isInteger(n) ? 0 : 2,
-    maximumFractionDigits: max,
-  };
-  return (n < 0 ? "-" : "") + "$" + Math.abs(n).toLocaleString(undefined, opts);
-}
 function moneyNegativeClass(value) {
   const n = numberFromDisplay(value);
   return n !== null && n < 0 ? " negative-money" : "";
@@ -5463,19 +5426,6 @@ function updateCategoryDetailMoney(lineId, field, el, catId) {
 }
 function updateLargeDiscLineMoney(lineId, field, el) {
   updateLargeDiscLine(lineId, field, String(budgetMoneyNumber(el && el.value)));
-}
-function percentDisplay(value, decimals = 0) {
-  if (DASHBOARD_UTILS.percentDisplay)
-    return DASHBOARD_UTILS.percentDisplay(value, decimals);
-  const n = numberFromDisplay(value);
-  if (n === null) return String(value ?? "");
-  const d = Math.max(0, Math.min(6, Number(decimals) || 0));
-  return (
-    n.toLocaleString(undefined, {
-      minimumFractionDigits: d,
-      maximumFractionDigits: d,
-    }) + "%"
-  );
 }
 function percentDisplayDecimals(row, value) {
   const schema = row?.schema || {};
@@ -5880,8 +5830,14 @@ function fieldHtml(r) {
   const unit = units
     ? `<div class="unit">${esc(formatAcronyms(units))}</div>`
     : "";
-  const negClass = valueKind(r) === "currency" ? moneyNegativeClass(value) : "";
-  return `<div class="field ${missing ? "missing" : ""} ${dirtyHere ? "dirty" : ""} ${inactiveRevealed ? "inactive-edit" : ""}${negClass}" id="field-${r.row_index}" onclick="showFieldHelp(${r.row_index})"><div><div class="field-label">${esc(humanLabel(r.label, r))}${fieldLabelNoteHtml(r)}${fieldTooltipHtml(lblNorm)}</div><div class="field-meta">${req}${dirtyHere ? '<span class="badge dirty">Edited</span>' : ""}${inactiveBadge}</div></div><div>${control}${unit}${inactiveRevealed ? `<div class="unit">${esc(formatAcronyms(inactiveState.activation || "Change this value or its controlling setting to make it active in the build."))}</div>` : ""}</div></div>`;
+  const kind = valueKind(r);
+  const negClass = kind === "currency" ? moneyNegativeClass(value) : "";
+  // U2: currency, date, and dependency-linked (mode/policy/enabling) fields stay
+  // full-width — pairing them beside an unrelated field raises mis-entry and
+  // mislabeling risk for exactly the fields where getting it wrong matters most.
+  const paired =
+    kind !== "currency" && !isDateField(r) && dependencyRank(r.label) > "01";
+  return `<div class="field ${missing ? "missing" : ""} ${dirtyHere ? "dirty" : ""} ${inactiveRevealed ? "inactive-edit" : ""}${paired ? " paired" : ""}${negClass}" id="field-${r.row_index}" onclick="showFieldHelp(${r.row_index})"><div><div class="field-label">${esc(humanLabel(r.label, r))}${fieldLabelNoteHtml(r)}${fieldTooltipHtml(lblNorm)}</div><div class="field-meta">${req}${dirtyHere ? '<span class="badge dirty">Edited</span>' : ""}${inactiveBadge}</div></div><div>${control}${unit}${inactiveRevealed ? `<div class="unit">${esc(formatAcronyms(inactiveState.activation || "Change this value or its controlling setting to make it active in the build."))}</div>` : ""}</div></div>`;
 }
 function dependencyRank(label) {
   const l = norm(label);
@@ -12169,6 +12125,19 @@ function collapseAllDetailGroups(btn) {
     if (lbl) lbl.textContent = "▶ " + label;
   });
   _updateDetailGroupStatus(btn);
+}
+// Toolbar-level control: expands every column-group table on the current
+// sheet in one click, since a sheet can hold several sectioned tables and
+// each otherwise needs its own "Expand all" click (U5).
+function expandAllDetailColumnsOnPage() {
+  document
+    .querySelectorAll(".detailed-results .detail-single-table-wrap")
+    .forEach(function (wrap) {
+      const expandBtn = wrap.querySelector(
+        '.detail-col-group-bar-btns button[onclick^="expandAllDetailGroups"]',
+      );
+      if (expandBtn) expandAllDetailGroups(expandBtn);
+    });
 }
 function renderDetailedResults() {
   return window.RetirementReportsUI.renderDetailedResults(reportsUiContext());

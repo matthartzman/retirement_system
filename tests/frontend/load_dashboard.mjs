@@ -31,6 +31,9 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const JS_DIR = path.join(__dirname, "..", "..", "frontend", "js");
 const DASHBOARD_JS_PATH = path.join(JS_DIR, "dashboard.js");
+// esc/escJs/fmtMoney/fmtPct and the RPDashboardUtils formatters live here now
+// (A13) — must load before dashboard.js, matching frontend/index.html's order.
+const SHARED_HELPERS_PATH = path.join(JS_DIR, "dashboard_shared_helpers.js");
 
 // dashboard.js's top-level checkAppStatus(true).then(...) chain calls
 // refreshLocalBackupStatus() and other functions that now live in sibling
@@ -65,7 +68,7 @@ function stubElement() {
 }
 
 export function loadDashboardSandbox() {
-  const src = [DASHBOARD_JS_PATH, ...decompModulePaths()]
+  const src = [SHARED_HELPERS_PATH, DASHBOARD_JS_PATH, ...decompModulePaths()]
     .map((p) => fs.readFileSync(p, "utf8"))
     .join("\n");
   const sandbox = {
