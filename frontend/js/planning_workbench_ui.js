@@ -10,25 +10,15 @@
     } catch (_e) {}
     return String(v == null ? "" : v);
   }
+  // esc/escJs algorithms live in dashboard_shared_helpers.js (A13); these keep
+  // the (ctx, v) wrapper signature this module's call sites use throughout,
+  // delegating to window.esc/window.escJs instead of reimplementing (the
+  // local names here shadow the globals, so the window. prefix is required).
   function esc(ctx, v) {
-    return ctx && ctx.esc
-      ? ctx.esc(v)
-      : String(v ?? "").replace(/[&<>"']/g, function (c) {
-          return {
-            "&": "&amp;",
-            "<": "&lt;",
-            ">": "&gt;",
-            '"': "&quot;",
-            "'": "&#39;",
-          }[c];
-        });
+    return ctx && ctx.esc ? ctx.esc(v) : window.esc(v);
   }
   function escJs(ctx, v) {
-    return ctx && ctx.escJs
-      ? ctx.escJs(v)
-      : String(v ?? "")
-          .replace(/\\/g, "\\\\")
-          .replace(/'/g, "\\'");
+    return ctx && ctx.escJs ? ctx.escJs(v) : window.escJs(v);
   }
   function call(fn) {
     try {

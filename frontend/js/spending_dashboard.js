@@ -4,9 +4,10 @@
 var spendingData = null;
 var spendingLoading = false;
 var spendingError = '';
-var spendingExpandedType = null;
-var spendingExpandedGroup = null;
-var spendingExpandedCat = null;
+// One Set of composite keys ('type:', 'group:', 'cat:' prefixed) tracks every
+// expanded row independently, so expanding one Type/Group/Category no longer
+// collapses another that happens to share the same scalar slot.
+var spendingExpandedKeys = new Set();
 var spendingDivergencePct = 0;
 function getSpendingDivergencePct() { return spendingDivergencePct || 0 }
 window.getSpendingDivergencePct = getSpendingDivergencePct;
@@ -58,7 +59,11 @@ function renderModelStatusPanel(d) {
 }
 
 function fmtSpend(n) { var v = Math.round(Number(n) || 0); return (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('en-US') }
-function fmtPct(n) { var v = Number(n) || 0; return (v > 0 ? '+' : '') + v.toFixed(1) + '%' }
+// Signed variance display (e.g. "+3.2%" over budget) — distinct from the
+// global fmtPct (dashboard_shared_helpers.js), which has no +sign and
+// returns "Not available" for invalid input. Renamed (A13) so this file no
+// longer silently shadows the shared fmtPct for the rest of the page.
+function fmtVariancePct(n) { var v = Number(n) || 0; return (v > 0 ? '+' : '') + v.toFixed(1) + '%' }
 function spendYtd(row){return Number(row && (row.ytd_actual !== undefined ? row.ytd_actual : row.actual)) || 0}
 function spendAnnualized(row){return Number(row && (row.annualized_actual !== undefined ? row.annualized_actual : row.annualized)) || 0}
 function spendBudget(row){return Number(row && (row.annual_budget !== undefined ? row.annual_budget : row.budget)) || 0}
@@ -116,20 +121,20 @@ function applySpendingForecast() {
   renderMain();
 }
 
-function toggleSpendingGroup(group) {
-  if (spendingExpandedGroup === group) { spendingExpandedGroup = null; spendingExpandedCat = null; }
-  else { spendingExpandedGroup = group; spendingExpandedCat = null; }
+function toggleSpendingKey(key) {
+  if (spendingExpandedKeys.has(key)) spendingExpandedKeys.delete(key);
+  else spendingExpandedKeys.add(key);
   renderMain();
 }
 
-function toggleSpendingCat(key) {
-  spendingExpandedCat = spendingExpandedCat === key ? null : key;
-  renderMain();
-}
+function toggleSpendingGroup(group) { toggleSpendingKey('group:' + group) }
 
-function toggleSpendingType(tt) {
-  if (spendingExpandedType === tt) { spendingExpandedType = null; spendingExpandedGroup = null; spendingExpandedCat = null; }
-  else { spendingExpandedType = tt; }
+function toggleSpendingCat(key) { toggleSpendingKey('cat:' + key) }
+
+function toggleSpendingType(tt) { toggleSpendingKey('type:' + tt) }
+
+function collapseAllSpending() {
+  spendingExpandedKeys.clear();
   renderMain();
 }
 
@@ -189,7 +194,7 @@ function renderSpendingSummary(d) {
   html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(d.budget_total || d.model_core_spending) + '</span><span class="spend-kpi-label">' + (d.budget_total ? 'Annual Budget' : 'Model Spending Categories') + '</span></div>';
   var vpct = d.variance_pct || 0;
   var cls = vpct > 15 ? 'spend-kpi over' : vpct > 5 ? 'spend-kpi watch' : 'spend-kpi ok';
-  html += '<div class="' + cls + '"><span class="spend-kpi-value">' + fmtPct(vpct) + '</span><span class="spend-kpi-label">Actual vs. Model</span></div>';
+  html += '<div class="' + cls + '"><span class="spend-kpi-value">' + fmtVariancePct(vpct) + '</span><span class="spend-kpi-label">Actual vs. Model</span></div>';
   html += '</div>';
   html += '<p class="small" style="margin:0 0 12px">' + d.days_elapsed + ' days elapsed &middot; annualization factor ' + (d.annualization_factor || 1).toFixed(2) + 'x</p>';
   return html;
@@ -222,17 +227,19 @@ function renderSpendingBars(d) {
     h += '<span class="small">Annualized ' + fmtSpend(ann) + '</span>';
     h += '<span class="small">Budget ' + fmtSpend(bud) + '</span>';
     h += '<span class="small">Projection Seed ' + fmtSpend(seed) + '</span>';
-    if (bud && typeof st.vpct === 'number') h += '<span class="small ' + st.cls + '">' + fmtPct(st.vpct) + '</span>';
+    if (bud && typeof st.vpct === 'number') h += '<span class="small ' + st.cls + '">' + fmtVariancePct(st.vpct) + '</span>';
     return h + '</div>';
   }
 
-  var html = '<h3 class="group-title">Income and Expenses by Tracking Type / Group / Category</h3>';
+  var html = '<h3 class="group-title">Income and Expenses by Tracking Type / Group / Category' +
+    (spendingExpandedKeys.size ? ' <button class="btn tiny" type="button" onclick="collapseAllSpending()">Collapse all</button>' : '') +
+    '</h3>';
   html += '<div class="spend-bars">';
   html += '<div class="spend-bar-header"><span>Tracking type · Group · Category</span><span>Annualized Actual vs. Annual Budget</span><span>YTD Actual | Annualized Actual | Annual Budget | Projection Seed</span></div>';
 
   types.forEach(function (t) {
     var tt = t.tracking_type;
-    var typeExpanded = spendingExpandedType === tt;
+    var typeExpanded = spendingExpandedKeys.has('type:' + tt);
     var tytd = spendYtd(t), tann = spendAnnualized(t), tbud = spendBudget(t), tseed = spendProjectionSeed(t);
     var st = statusFor(tann, tbud);
     html += '<div class="spend-bar-row spend-type-row ' + st.cls + '" onclick="toggleSpendingType(\'' + esc(tt).replace(/'/g, "\\'") + '\')">';
@@ -243,7 +250,7 @@ function renderSpendingBars(d) {
 
     (t.groups || []).forEach(function (g) {
       var gkey = tt + '::' + g.group;
-      var gExpanded = spendingExpandedGroup === gkey;
+      var gExpanded = spendingExpandedKeys.has('group:' + gkey);
       var gytd = spendYtd(g), gann = spendAnnualized(g), gbud = spendBudget(g), gseed = spendProjectionSeed(g);
       var gs = statusFor(gann, gbud);
       html += '<div class="spend-bar-row spend-group-row ' + gs.cls + '" onclick="event.stopPropagation();toggleSpendingGroup(\'' + esc(gkey).replace(/'/g, "\\'") + '\')">';
@@ -256,7 +263,7 @@ function renderSpendingBars(d) {
         var cytd = spendYtd(c), cann = spendAnnualized(c), cbud = spendBudget(c), cseed = spendProjectionSeed(c);
         var cs = statusFor(cann, cbud);
         html += '<div class="spend-cat-row"><span><span class="spend-level-pill">Category</span>' + esc(c.label || c.id) + '</span>' +
-          '<span>YTD ' + fmtSpend(cytd) + ' · Annualized ' + fmtSpend(cann) + ' · Budget ' + fmtSpend(cbud) + ' · Projection Seed ' + fmtSpend(cseed) + (cbud ? ' <span class="small ' + cs.cls + '">' + fmtPct(cs.vpct || 0) + '</span>' : '') + '</span></div>';
+          '<span>YTD ' + fmtSpend(cytd) + ' · Annualized ' + fmtSpend(cann) + ' · Budget ' + fmtSpend(cbud) + ' · Projection Seed ' + fmtSpend(cseed) + (cbud ? ' <span class="small ' + cs.cls + '">' + fmtVariancePct(cs.vpct || 0) + '</span>' : '') + '</span></div>';
       });
       html += '</div>';
     });
@@ -328,7 +335,7 @@ function renderBusinessSection(d) {
     biz.categories.forEach(function (c) {
       var catKey = 'Business::' + c.category;
       var hasMerchants = c.merchants && c.merchants.length > 1;
-      var catExpanded = spendingExpandedCat === catKey;
+      var catExpanded = spendingExpandedKeys.has('cat:' + catKey);
       html += '<div class="spend-cat-row' + (hasMerchants ? ' expandable' : '') + '"' +
         (hasMerchants ? ' onclick="toggleSpendingCat(\'' + esc(catKey).replace(/'/g, "\\'") + '\')"' : '') + '>' +
         '<span>' + (hasMerchants ? '<span class="spend-caret' + (catExpanded ? ' open' : '') + '"></span>' : '') + esc(c.category) +

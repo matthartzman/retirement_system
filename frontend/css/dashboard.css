@@ -30,6 +30,18 @@
 .field-list.inline-row .field{flex:1 1 105px;grid-template-columns:1fr;margin:0;padding:10px}
 @media(max-width:1180px){.two-col-inline{grid-template-columns:1fr}}
 
+/* U2: guided-step forms were one field per full-width row even though the
+   content column is 700-1050px wide. Cap at two tracks via max-width (never
+   three, however wide the viewport) rather than an unbounded 1fr auto-fit.
+   Every .field-list child defaults to spanning both tracks (headings,
+   section notes, and the currency/date/dependency-linked fields that are
+   excluded from side-by-side layout per fieldHtml()'s pairing rule below);
+   only fields marked .paired opt into sharing a row. */
+.field-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:0 16px;align-items:start;max-width:780px}
+.field-list>*{grid-column:1/-1}
+.field-list>.field.paired{grid-column:auto}
+@media(max-width:1180px){.field-list{grid-template-columns:1fr;max-width:none}}
+
 .mc-engine-card{background:#eaf2ff;border-color:#9bc4f5}.mc-engine-card p{margin:6px 0 10px}.mc-engine-card .field{margin:8px 0 0;background:#fff}.mc-engine-card .field-label{font-size:15px}
 
 
@@ -704,11 +716,22 @@ body.chart-modal-open{overflow:hidden}
 .nav-backdrop{display:none;position:fixed;inset:0;background:rgba(20,20,20,.45);z-index:59}
 .mobile-progress{display:none}
 /* .help-toggle wraps the "Context Help" h2 so it can act as a collapse toggle
-   on phones; on desktop it must look and behave exactly like the plain h2 it
-   replaces, so reset all button chrome here (outside the media query) and
-   only show the expand/collapse icon at phone widths below. */
+   on phones; on the 769-1180px single-column range it stays inert like the
+   plain h2 it replaces (that range has no collapse behavior below), and only
+   above 1180px does it become the desktop collapse control (U3, next rule). */
 .help-toggle{display:block;width:100%;padding:0;margin:0;background:none;border:none;text-align:left;cursor:default;font:inherit;color:inherit}
 .help-toggle-icon{display:none}
+
+/* Desktop help-pane collapse (U3): mirrors the mobile help-open pattern but
+   defaults to expanded, since aside.card.help ships always-visible above
+   1180px. Collapsing hides the pane and gives its 370px back to .content. */
+@media(min-width:1181px){
+  .help-toggle{cursor:pointer}
+  .help-toggle-icon{display:inline-block;transition:transform .18s ease;color:var(--muted)}
+  body.help-collapsed main{grid-template-columns:310px 1fr}
+  body.help-collapsed aside.card.help{display:none}
+  body.help-collapsed .help-toggle-icon{transform:rotate(180deg)}
+}
 
 @media(max-width:768px){
   /* --- 1.1 Off-canvas nav drawer ---

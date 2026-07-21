@@ -7,17 +7,7 @@
   let systemPreview = [];
   let systemLoadedAt = "";
 
-  function esc(value) {
-    return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) {
-      return {
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;",
-      }[c];
-    });
-  }
+  // esc lives in dashboard_shared_helpers.js (A13), loaded first.
   function byId(id) {
     return document.getElementById(id);
   }

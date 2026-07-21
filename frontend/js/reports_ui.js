@@ -4,24 +4,10 @@
   "use strict";
 
   // ---- Escape utilities ----
-  function esc(v) {
-    return String(v ?? "").replace(/[&<>"']/g, function (c) {
-      return {
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;",
-      }[c];
-    });
-  }
+  // esc/escJs live in dashboard_shared_helpers.js (A13), loaded first; this
+  // module's bare esc(...) calls resolve to that global.
   function escCtx(ctx, v) {
     return ctx && ctx.esc ? ctx.esc(v) : esc(v);
-  }
-  function escJs(s) {
-    return String(s ?? "")
-      .replace(/\\/g, "\\\\")
-      .replace(/'/g, "\\'");
   }
   function norm(s) {
     return String(s || "")
@@ -1210,7 +1196,7 @@
         (s) =>
           `<option value="${escCtx(ctx, s.name)}" ${sheet && s.name === sheet.name ? "selected" : ""}>${escCtx(ctx, s.name)}</option>`,
       )
-      .join("")}</select></label></div>`;
+      .join("")}</select></label><button class="btn" type="button" onclick="expandAllDetailColumnsOnPage()">Expand all columns</button></div>`;
     if (!sheet) {
       html += `<div class="section-note">No workbook sheets were found.</div></div>`;
       return html;
