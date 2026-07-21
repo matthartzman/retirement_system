@@ -7,9 +7,8 @@ def test_strategy_asset_service_exists_and_is_runtime_independent():
     assert "StrategyAssetServiceContext" in service
     assert "def add_insurance_policy_payload" in service
     assert "def seed_healthcare_oop_payload" in service
-    assert "@app.route" not in service
-    assert "request.get_json" not in service
-    assert "jsonify" not in service
+    # HTTP-runtime-independence itself is asserted once, for every service
+    # module, by the AST-based check in test_126_service_extraction.py.
 
 
 def test_plan_routes_delegate_strategy_assets_logic_to_service():

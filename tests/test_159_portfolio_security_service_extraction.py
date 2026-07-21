@@ -12,8 +12,8 @@ def test_portfolio_service_owns_drift_tool_orchestration():
     assert "tools\" / \"analyze_drift.py" in service
     assert "portfolio_drift.json" in service
     assert "subprocess.run" in service
-    assert "@app.route" not in service
-    assert "request.get_json" not in service
+    # HTTP-runtime-independence itself is asserted once, for every service
+    # module, by the AST-based check in test_126_service_extraction.py.
     assert "def portfolio_drift" in routes
     assert "portfolio_service.drift_payload(" in routes
     assert "tools\" / \"analyze_drift.py" not in routes
@@ -26,8 +26,8 @@ def test_secret_service_owns_secret_payload_validation():
     assert "def set_secret_payload" in service
     assert "name and value are required" in service
     assert "set_secret_fn(name, value" in service
-    assert "@app.route" not in service
-    assert "jsonify" not in service
+    # HTTP-runtime-independence itself is asserted once, for every service
+    # module, by the AST-based check in test_126_service_extraction.py.
     assert "def set_secret_route" in routes
     assert "secret_service.set_secret_payload(" in routes
     assert "name and value are required" not in routes

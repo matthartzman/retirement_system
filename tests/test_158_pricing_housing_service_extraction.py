@@ -8,9 +8,8 @@ def test_pricing_service_owns_single_symbol_job_lifecycle():
     assert "threading.Thread" in service
     assert "uuid.uuid4" in service
     assert "traceback.format_exc" in service
-    assert "@app.route" not in service
-    assert "request.get_json" not in service
-    assert "jsonify" not in service
+    # HTTP-runtime-independence itself is asserted once, for every service
+    # module, by the AST-based check in test_126_service_extraction.py.
 
 
 def test_plan_routes_keep_thin_pricing_tester_adapter():
