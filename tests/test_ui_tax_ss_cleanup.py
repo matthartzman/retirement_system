@@ -59,11 +59,17 @@ def test_other_assets_grouping_and_529_add_route_exist():
     assert 'Education Funding,529 Plan 1' in assets
 
 
-def test_withdrawal_and_reserve_ui_controls_are_dropdown_based():
+def test_withdrawal_order_is_fixed_and_reserve_ui_controls_are_dropdown_based():
+    # The withdrawal priority table used to be editable (WITHDRAWAL_TYPES,
+    # withdrawalPrioritySelect/withdrawalTypeSelect/withdrawalOptionSelect),
+    # but that UI wrote to CSV rows the engine never read (see
+    # documentation/reports/SYSTEM_REVIEW_2026-07-18.md §10.1). It was
+    # deliberately removed and replaced with a fixed, read-only cascade
+    # description; test_withdrawal_roth_ui_cleanup.py covers that in detail.
     user_js = read('frontend/js/dashboard.js')
     assets = read('input/client_assets.csv') if (ROOT/'input/client_assets.csv').exists() else read('../input/input/client_assets.csv')
-    assert 'WITHDRAWAL_TYPES' in user_js
-    assert 'withdrawalPrioritySelect' in user_js and 'withdrawalTypeSelect' in user_js and 'withdrawalOptionSelect' in user_js
+    assert 'FIXED_WITHDRAWAL_CASCADE_DESCRIPTION' in user_js
+    assert 'renderWithdrawalOrderTable' in user_js and 'not user-configurable' in user_js
     assert 'reserve_account' in assets
     assert 'Taxable/Trust | Roth | IRA | HSA | Cash' in assets
 
