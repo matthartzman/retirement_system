@@ -1,5 +1,96 @@
 
 
+## 2026-07-20 — Item 4.3 / P5 (Option 2): inherited-IRA heir rate is a derived effective 10-year-rule rate, not a flat 24%
+
+**What was wrong.** The Roth-conversion objective scored inherited pre-tax
+(IRA/401k) balances at a flat 24% ordinary rate through two independent config
+fields — `roth_heir_ordinary_tax_rate_assumption` (the heir legacy-burden rate,
+`planning_engines.py` `_roth_strategy_metrics`) and
+`roth_optimize_terminal_tax_rate` (the terminal pre-tax deferred-tax haircut,
+read in `after_tax.py`'s `estimate_terminal_pretax_deferred_tax`). A flat 24%
+cannot distinguish a small inherited IRA (whose 10-year-rule distribution slices
+stay in low brackets) from a large one (whose slices push into higher brackets),
+so it systematically under-penalized the largest pre-tax balances — exactly the
+households where a low-bracket conversion year is most valuable and, once missed,
+unrecoverable. Item 2.1 fixed the *taxable* leg's §1014 step-up; this item fixes
+the *pre-tax* leg.
+
+**The fix (Option 2 — the immediate effective-rate model, not the full heir
+module).** Both fields now default to an **effective SECURE Act 10-year-rule
+rate** derived from the terminal pre-tax balance: the balance is spread level
+over 10 years (no growth — an intentional simplification), each annual slice is
+taxed as the heir's *only* ordinary income at an assumed heir filing status via
+`core.compute_fed_tax(slice, year, filing, brk_inf)` (bracket-inflated to each
+distribution year from the terminal year), and the ten years of tax are summed
+and divided by the total balance. Implemented as
+`after_tax.effective_heir_ten_year_rate()` with `resolve_heir_ordinary_rate()` /
+`resolve_terminal_pretax_rate()` wrappers that honor an explicit user override
+(any configured value other than the historical flat 24% is kept as-is; only the
+24% default is replaced by the derived rate).
+
+**New config input.** `heir_filing_status` (config key `roth_heir_filing_status`,
+`Withdrawal Policy › Roth Conversion`, choice, default **Single** — the common
+adult-child-beneficiary case), added to `reference_data/schema.csv` and both
+`data_io.py` ingest paths (`parse_client` and `build_plan_from_json`). Judgment
+calls (spec did not fully pin these): (a) default filing status = Single;
+(b) the derived rate is sourced from the **terminal** pre-tax balance (the same
+`pretax_nw` figure the terminal haircut already used), spread over the terminal
+year `t … t+9`; (c) "user override" is detected as "configured rate ≠ 0.24",
+since documented defaults are materialized into input files so mere presence
+cannot distinguish an override from the default.
+
+**Direction proof (the key check).** Effective rate is monotonically increasing
+in balance, so a small IRA lands well below 24% while a large one is at or above
+it. Single heir, terminal year 2056, 2% bracket inflator:
+
+| terminal pre-tax balance | effective heir rate |
+|---|---|
+| $150,000 | 10.00% |
+| $300,000 | 10.39% |
+| $2,000,000 | 16.87% |
+| $5,000,000 | 22.77% |
+| **$6,000,000** | **24.73%** ← crossover |
+| $10,000,000 | 28.84% |
+
+The crossover to ≥24% sits near $6M for a Single heir at a ~2056 terminal year
+(higher than a naive reading of "large" because 30 years of 2% bracket inflation
+widen the future brackets and the simplified model gives the heir no other
+income — consistent with the spec's own "$2M to a lower-bracket retired child"
+example, which *should* score below 24%). The direction is correct: bigger
+inherited balance → higher effective rate → stronger conversion incentive, and
+the very largest balances now exceed the old flat 24% instead of being capped at
+it. Overrides verified honored (configured 32% → 32%; configured/default 24% →
+derived).
+
+**Golden masters.** `tests/fixtures/synthetic_golden_master_cases.json`
+regenerated: **no dollar metric moved on any scenario.** Three scenarios changed
+only their disclosed `selected_roth_strategy` label —
+`baseline_balanced_couple`, `dividends_not_reinvested`, and
+`tax_loss_harvesting` flipped from "Fill current/configured 22% bracket" to
+"RMD-reduction conversion". Mechanism: these scenarios use an explicit
+`fill_to_bracket` policy (non-auto-optimize), so the projection — and every
+pinned dollar figure — is unchanged; the optimizer only *tags* the highest-
+scoring candidate that shares the configured policy for the comparison table.
+Several candidates share `policy=fill_to_bracket` at the 22% target
+(FILL_CURRENT_BRACKET, RMD_REDUCTION, SURVIVOR_TAX_AWARE, …). RMD-reduction
+leaves a slightly smaller terminal pre-tax balance, so under the new
+balance-sensitive haircut it now edges out plain fill-22 on
+`after_tax_terminal_nw` — the correct direction (favor the strategy that shrinks
+the inherited pre-tax balance). All other scenarios (incl. the item-2.4
+`split_claiming_spousal` and the `no_voluntary_roth_policy` residual-balance
+case) are byte-identical. `tests/test_199_frozen_sample_plan_golden_master.py`
+pins re-confirmed **unchanged** (`PINNED_TERMINAL_NW = 6536759.61`,
+`PINNED_LIFETIME_TAX = 1527729.93`): that fixture sets `roth_policy = "none"` and
+never runs the optimizer, so the objective-only heir/terminal rates cannot reach
+its numbers.
+
+**Disclosure.** `sheets_summary.py`'s assumptions table now shows "Assumed Heir
+Filing Status" and a "Heir Ordinary Tax Rate (effective)" row (preferring the
+derived rate actually used, `roth_heir_ordinary_tax_rate_effective`, over the raw
+config assumption) with 10-year-rule wording. `sheets_strategy.py`'s Roth "Key
+Rules" notes now state the inherited-balance rate is derived (not a flat 24%) and
+name the assumed heir filing status.
+
 ## 2026-07-20 — Item 2.3 / P6: Roth conversion IRMAA guardrail keyed by filing status
 
 `plan_roth_conversion`'s `fill_to_irmaa` policy and the IRMAA cap inside
