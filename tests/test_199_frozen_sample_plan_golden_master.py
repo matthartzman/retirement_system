@@ -61,8 +61,20 @@ FROZEN_DIR = ROOT / "tests" / "fixtures" / "sample_plan_frozen"
 # verified: this frozen household holds both a 401(k) AND a traditional IRA,
 # so it never exercises the destination==source path the rollover bug required
 # -- the fix legitimately has zero effect on this specific plan's numbers.
-PINNED_TERMINAL_NW = 6536759.61
-PINNED_LIFETIME_TAX = 1527729.93
+#
+# Re-pinned 2026-07-21 — Wave 4 item 4.2 (P4): the frozen fixture's
+# client_assets.csv has DAF enabled ($20,000 contribution in 2026), and this
+# item wires a DAF contribution into the itemized deduction stack (60%/30%
+# AGI-limited, 5-year carryforward) for the first time -- previously
+# daf_contrib_yr was pure cash outflow with no tax effect at all (despite
+# GOLDEN_MASTER_CHANGELOG.md's 2026-07-08 "DAF activation baseline" entry
+# describing a tax-reducing effect that, per this codebase, did not actually
+# exist yet; that entry's terminal-NW/lifetime-tax movement at the time came
+# from something else). Terminal NW rises (the $20k contribution's -0.005*agi
+# phaseout on char plus the real DAF deduction beats the cash cost, and the
+# tax savings compound); lifetime tax drops from the real deduction.
+PINNED_TERMINAL_NW = 6555144.64
+PINNED_LIFETIME_TAX = 1524551.07
 
 
 def _frozen_config():

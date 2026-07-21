@@ -835,7 +835,7 @@ def _require_supported_state(state):
 
 
 def state_income_tax(state, earned, retirement_dist, ss_taxable, investment_inc,
-                     nonqual_annuity, roth_conv, year, age_over_65=True, filing='MFJ'):
+                     nonqual_annuity, roth_conv, year, age_over_65=True, filing='MFJ', brk_inf=0.02):
     _require_supported_state(state)
     rules = STATE_TAX_RULES.get(state, STATE_TAX_RULES.get('Illinois', _td.STATE_TAX_DEFAULTS.get('Illinois')))
     if rules['type'] == 'none':
@@ -853,8 +853,16 @@ def state_income_tax(state, earned, retirement_dist, ss_taxable, investment_inc,
     # Flat states use the CSV rate.  CA/NY are bracketed enough that a single
     # rate badly distorts residency comparisons; use a conservative bracket
     # schedule and fall back to the CSV rate for any unlisted graduated state.
+    # Item 4.6 (P10 second half): these thresholds are only accurate as of
+    # _STATE_INCOME_BRACKETS_VALUE_YEAR — inflate them by brk_inf the same way
+    # compute_fed_tax inflates the federal brackets, or a 30-year projection
+    # shows CA/NY state tax drifting steadily upward relative to federal
+    # purely from frozen bracket thresholds, not from any real law change.
     brackets = _STATE_INCOME_BRACKETS.get((state, filing)) or _STATE_INCOME_BRACKETS.get((state, 'Single'))
     if rules.get('type') == 'graduated' and brackets:
+        years = int(year) - _STATE_INCOME_BRACKETS_VALUE_YEAR
+        if years:
+            brackets = inflate_brackets(brackets, brk_inf, years)
         return _bracket_tax(taxable, brackets)
     return max(0, taxable * rules['rate'])
 
@@ -868,10 +876,13 @@ def _bracket_tax(taxable, brackets):
     return max(0.0, tax)
 
 
+_STATE_INCOME_BRACKETS_VALUE_YEAR = TAX_BASE_YEAR
+
 _STATE_INCOME_BRACKETS = {
     # Approximate current-law schedules used only where state_tax.csv marks a
     # state as graduated.  Thresholds should be refreshed in the annual tax-data
-    # governance workflow.
+    # governance workflow. Accurate as of _STATE_INCOME_BRACKETS_VALUE_YEAR;
+    # state_income_tax() inflates them forward by brk_inf for later years.
     ('California','Single'): [(0, 10756, .01), (10756, 25499, .02), (25499, 40245, .04), (40245, 55866, .06), (55866, 70606, .08), (70606, 360659, .093), (360659, 432787, .103), (432787, 721314, .113), (721314, float('inf'), .123)],
     ('California','MFJ'): [(0, 21512, .01), (21512, 50998, .02), (50998, 80490, .04), (80490, 111732, .06), (111732, 141212, .08), (141212, 721318, .093), (721318, 865574, .103), (865574, 1442628, .113), (1442628, float('inf'), .123)],
     ('California','HOH'): [(0, 21527, .01), (21527, 51000, .02), (51000, 65744, .04), (65744, 81364, .06), (81364, 96107, .08), (96107, 490493, .093), (490493, 588593, .103), (588593, 980987, .113), (980987, float('inf'), .123)],
@@ -902,6 +913,37 @@ def irmaa_tier(agi, year, plan_start, inflator=0.02, filing='MFJ'):
 def niit_tax(nii, magi, filing='MFJ'):
     threshold = _td.NIIT_THRESHOLD.get(filing, 250000)
     return max(0, min(nii, magi - threshold)) * 0.038
+
+
+# ── Qualified Charitable Distribution (QCD) ───────────────────────────────────
+# Item 4.1 (P3): IRC §408(d)(8) per-person annual limit, indexed for inflation
+# under SECURE 2.0 §307 since 2023. 2025 figure per IRS Notice 2024-80,
+# inflated forward by the plan's bracket inflation like every other embedded
+# statutory dollar limit in this module.
+QCD_ANNUAL_LIMIT_BASE_YEAR = 2025
+QCD_ANNUAL_LIMIT_BASE = 108_000.0
+
+
+def qcd_annual_limit(year, brk_inf):
+    return QCD_ANNUAL_LIMIT_BASE * (1.0 + float(brk_inf or 0.0)) ** (int(year) - QCD_ANNUAL_LIMIT_BASE_YEAR)
+
+
+def qcd_eligible_from_year(dob_yr, dob_month):
+    """First calendar year a person may make a QCD (age 70½).
+
+    Year-granular, matching this engine's existing age-gate convention (e.g.
+    RMD start age) rather than modeling a mid-year proration: if the date
+    six months after the person's 70th birthday falls in the same calendar
+    year as that birthday (birth month January-June), QCDs are allowed
+    starting that year; a July-December birthday pushes 70½ into the
+    following calendar year.
+    """
+    try:
+        dob_yr = int(dob_yr)
+        m = int(dob_month) if dob_month else 6
+    except (TypeError, ValueError):
+        return None
+    return dob_yr + 70 if m <= 6 else dob_yr + 71
 
 
 # ── Alternative Minimum Tax (AMT) ─────────────────────────────────────────────

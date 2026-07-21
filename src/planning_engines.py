@@ -2558,8 +2558,17 @@ def _mc_apply_withdrawal_bucket(balances, request, bucket: str):
     return amount, request - amount
 
 
-def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation_paths: dict, max_death_years):
-    """Vectorized tax-bucket withdrawal recursion for Monte Carlo paths."""
+def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation_paths: dict, max_death_years, spend_cut_frac=0.0):
+    """Vectorized tax-bucket withdrawal recursion for Monte Carlo paths.
+
+    ``spend_cut_frac``: per-path uniform reduction (0..1) applied to the
+    taxable/pretax/Roth/cash withdrawal requests that fund spending (HSA draws
+    for wellness shocks are excluded — those aren't discretionary spending).
+    Defaults to 0.0, an exact no-op, so existing callers are bit-identical.
+    Used by ``_mc_required_cut_distribution`` (P13 phase 1) to binary-search
+    the smallest cut that rescues a failing path; never touches the primary
+    success/failure computation itself.
+    """
     import numpy as _np
     n_sims, n_years = returns.shape
     starts = _mc_bucket_starting_balances(c)
@@ -2571,6 +2580,7 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
     shocks = inflation_paths['wellness_shock_matrix']
     det_idx = _np.maximum(1e-12, flows['deterministic_inflation_index']).reshape(1, -1)
     spending_scale = inf_idx / det_idx
+    cut_mult = _np.clip(1.0 - _np.broadcast_to(_np.asarray(spend_cut_frac, dtype=float), (n_sims,)), 0.0, 1.0)
 
     balances = {
         'pretax': _np.full(n_sims, starts['pretax'], dtype=float),
@@ -2603,11 +2613,11 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
         # shocks.  Shock costs first draw against HSA when possible, then the
         # normal withdrawal cascade covers any remaining funding need.
         planned = {
-            'taxable': flows['withdrawals']['taxable'][j] * spending_scale[:, j],
-            'pretax': flows['withdrawals']['pretax'][j] * spending_scale[:, j],
-            'roth': flows['withdrawals']['roth'][j] * spending_scale[:, j],
+            'taxable': flows['withdrawals']['taxable'][j] * spending_scale[:, j] * cut_mult,
+            'pretax': flows['withdrawals']['pretax'][j] * spending_scale[:, j] * cut_mult,
+            'roth': flows['withdrawals']['roth'][j] * spending_scale[:, j] * cut_mult,
             'hsa': flows['withdrawals']['hsa'][j] * med_idx[:, j] / det_idx[:, j],
-            'cash': flows['withdrawals']['cash'][j] * spending_scale[:, j],
+            'cash': flows['withdrawals']['cash'][j] * spending_scale[:, j] * cut_mult,
         }
         # Pretax withdrawals carry an approximate marginal tax gross-up so the
         # vectorized path does not understate tax pressure in poor markets.
@@ -2694,6 +2704,52 @@ def _mc_vectorized_sensitivity_success_rate(c: dict, base_rows: list[dict], mu: 
         return float(_np.mean(batch['path_success']))
     except Exception:
         return sum(1 for x in batch['path_success'] if x) / max(1, int(n_sims))
+
+
+def _mc_required_cut_distribution(c: dict, base_rows: list[dict], batch: dict, success_threshold: float, max_iters: int = 16, cut_cap: float = 0.90) -> dict:
+    """P13 phase 1: for each path that failed the existing success test,
+    binary-search the smallest uniform spending cut (see ``spend_cut_frac`` on
+    ``_mc_vectorized_projection``) that would have kept that specific path
+    (same sampled returns/inflation/death year) funded. Purely additive
+    diagnostic reporting — does not touch ``path_success``/``success_rate``,
+    which are already fixed by the time this runs.
+    """
+    import numpy as _np
+    path_success = _np.asarray(batch['path_success'], dtype=bool)
+    fail_idx = _np.where(~path_success)[0]
+    if fail_idx.size == 0:
+        return {'n_failing': 0, 'n_infeasible': 0, 'required_cut_median': None, 'required_cut_p90': None, 'required_cuts': []}
+
+    years = _np.array(batch['years'], dtype=int)
+    returns_f = batch['returns'][fail_idx]
+    max_death_f = batch['max_death_years'][fail_idx]
+    infl_f = {k: v[fail_idx] for k, v in batch['inflation_paths'].items()}
+    n_fail = int(fail_idx.size)
+
+    def _succeeds(cut_vec):
+        proj = _mc_vectorized_projection(c, base_rows, returns_f, infl_f, max_death_f, spend_cut_frac=cut_vec)
+        active = years.reshape(1, -1) <= max_death_f.reshape(-1, 1)
+        failure = ((proj['unfunded'] > 1.0) | (proj['liquid'] <= float(success_threshold))) & active
+        return ~_np.any(failure, axis=1)
+
+    lo = _np.zeros(n_fail, dtype=float)
+    hi = _np.full(n_fail, float(cut_cap), dtype=float)
+    feasible = _succeeds(hi)
+    for _ in range(max_iters):
+        mid = (lo + hi) / 2.0
+        ok = _succeeds(mid)
+        hi = _np.where(ok, mid, hi)
+        lo = _np.where(ok, lo, mid)
+
+    required = _np.where(feasible, hi, _np.nan)
+    feasible_vals = required[~_np.isnan(required)]
+    return {
+        'n_failing': n_fail,
+        'n_infeasible': int(n_fail - feasible_vals.size),
+        'required_cut_median': float(_np.median(feasible_vals)) if feasible_vals.size else None,
+        'required_cut_p90': float(_np.percentile(feasible_vals, 90)) if feasible_vals.size else None,
+        'required_cuts': feasible_vals.tolist(),
+    }
 
 
 def monte_carlo(c, n_sims=1000, seed=42, base_rows=None):
@@ -2807,6 +2863,8 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None):
     for y in failures:
         first_failure_distribution[y] = first_failure_distribution.get(y, 0) + 1
 
+    required_cut_distribution = _mc_required_cut_distribution(c, base_rows, batch, success_threshold)
+
     liquid_successes = int(_np.sum(path_success))
     success_rate = float(liquid_successes / max(1, N))
     success_ci_low, success_ci_high = _success_rate_ci(liquid_successes, N)
@@ -2862,6 +2920,7 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None):
         'success_rate_with_home_equity': he_contingency_success_v,
         'deterministic_projection_label': 'No-volatility deterministic reference path; Monte Carlo median is the probabilistic planning number.',
         'first_failure_distribution': first_failure_distribution,
+        'required_cut_distribution': required_cut_distribution,
         'terminal_total_nw': _percentiles(terminal_total.tolist(), 0.0),
         'terminal_liquid_assets': _percentiles(terminal_liquid.tolist(), success_threshold),
         'nw0': float(proj['pretax'][0, 0] + proj['roth'][0, 0] + proj['taxable'][0, 0] + proj['hsa'][0, 0]),

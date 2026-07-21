@@ -110,6 +110,16 @@ def build_sheet21(ws, checks, rows=None, c=None):
          'Decedent balances roll to survivor in year of death; RMDs recalculated under '
          'survivor\'s age starting the following year.'),
     ]
+    if c and (c.get('h_ssa44_relief_year') or c.get('w_ssa44_relief_year')):
+        adjustments.append((
+            'IRMAA Surcharge — SSA-44 Appeal',
+            'This plan models an approved Form SSA-44 (Medicare Income-Related Monthly Adjustment '
+            'Amount life-changing-event appeal) suppressing the IRMAA surcharge for the flagged '
+            'member from the stated year forward. Base Part B/D/G premiums are still charged in '
+            'full — only the income-related surcharge is relieved. An SSA-44 outcome is granted '
+            'case-by-case by the Social Security Administration and is never guaranteed; this '
+            'input reflects an appeal already on file, not a projected approval.',
+        ))
     for label, detail in adjustments:
         write_cell(ws, r, 1, label, bold=True, bg=LGRAY)
         write_cell(ws, r, 2, detail)

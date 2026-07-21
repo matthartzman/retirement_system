@@ -686,6 +686,10 @@ def _row_key(row: list[str]) -> tuple[str, str, str]:
     return (str(cols[0]).strip(), str(cols[1]).strip(), str(cols[2]).strip())
 
 
+SSA44_UI_PLAN_DATA_ROWS: list[list[str]] = [
+    ["Model Constants", "IRMAA", "h_ssa44_relief_year", "", "year", "First year Member 1's IRMAA surcharge is suppressed following an approved Form SSA-44 life-changing-event appeal. Blank = none filed. Base Part B/D/G premiums are still owed; only the surcharge is relieved. An appeal outcome is granted case-by-case and is never guaranteed — enter this only for an appeal already approved."],
+    ["Model Constants", "IRMAA", "w_ssa44_relief_year", "", "year", "First year Member 2's IRMAA surcharge is suppressed following an approved Form SSA-44 life-changing-event appeal. Blank = none filed. Base Part B/D/G premiums are still owed; only the surcharge is relieved. An appeal outcome is granted case-by-case and is never guaranteed — enter this only for an appeal already approved."],
+]
 ROTH_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Model Constants", "Roth Conversion", "roth_conv_window_end_offset", "-1", "years", "CONV_END_YR = H_RMD_start_yr + this offset; default -1 ends voluntary conversions the year before RMDs."],
     ["Model Constants", "IRMAA", "irmaa_annual_inflator", "2.00%", "pct", "Annual IRMAA threshold inflation rate used when projecting Medicare premium guardrails."],
@@ -773,6 +777,20 @@ MORTGAGE_RE_TAX_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Cashflow", "Mortgage", "real_estate_tax_annual_adjustment_pct", "2.50%", "percent", "Annual percentage adjustment applied to real-estate/property taxes in the cash-flow forecast."],
 ]
 
+QCD_UI_PLAN_DATA_ROWS: list[list[str]] = [
+    ["Cashflow", "Charitable Giving", "qcd_enabled", "FALSE", "bool", "Enable Qualified Charitable Distributions: each member's own IRA can send money straight to charity, excluded from AGI, once age 70 1/2-eligible."],
+    ["Cashflow", "Charitable Giving", "h_qcd_annual_amount", "$0", "USD", "Member 1's annual QCD amount. Capped at that year's own RMD (phase-1 scope) and at the statutory per-person QCD limit."],
+    ["Cashflow", "Charitable Giving", "w_qcd_annual_amount", "$0", "USD", "Member 2's annual QCD amount. Capped at that year's own RMD (phase-1 scope) and at the statutory per-person QCD limit."],
+    ["Cashflow", "Charitable Giving", "h_qcd_start_year", "", "year", "Optional override for the first year Member 1's QCD applies. Blank = the year they turn age 70 1/2-eligible."],
+    ["Cashflow", "Charitable Giving", "h_qcd_end_year", "", "year", "Optional last year Member 1's QCD applies. Blank = continues through plan end."],
+    ["Cashflow", "Charitable Giving", "w_qcd_start_year", "", "year", "Optional override for the first year Member 2's QCD applies. Blank = the year they turn age 70 1/2-eligible."],
+    ["Cashflow", "Charitable Giving", "w_qcd_end_year", "", "year", "Optional last year Member 2's QCD applies. Blank = continues through plan end."],
+]
+
+DAF_APPRECIATED_UI_PLAN_DATA_ROWS: list[list[str]] = [
+    ["DAF", "Settings", "contribution_is_appreciated", "FALSE", "bool", "TRUE if the DAF contribution is appreciated securities rather than cash: limits the year's deductible amount to 30% of AGI instead of 60%, with any excess carried forward up to 5 years."],
+]
+
 TLH_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Withdrawal Policy", "Tax-Loss Harvesting", "tlh_policy", "off", "choice",
      "off | analyze_only | apply. off ignores tax-loss harvesting. analyze_only surfaces opportunities on the Tax-Loss Harvesting sheet without changing the projection. apply harvests qualifying loss lots each year inside the projection so terminal net worth and lifetime tax reflect the strategy."],
@@ -815,6 +833,10 @@ PLAN_DATA_BACKFILL_ENTRIES: list[plan_data_backfill.BackfillEntry] = [
         plan_data_backfill.insert_before(plan_data_backfill.section_is("Forced Actions", "Scenarios")),
     ),
     plan_data_backfill.BackfillEntry(
+        "client_policy.csv", SSA44_UI_PLAN_DATA_ROWS,
+        plan_data_backfill.insert_before(plan_data_backfill.section_is("Forced Actions", "Scenarios")),
+    ),
+    plan_data_backfill.BackfillEntry(
         "client_assets.csv", HSA_WITHDRAWAL_UI_PLAN_DATA_ROWS,
         plan_data_backfill.insert_before(plan_data_backfill.section_is(
             "Education Funding", "Equity Compensation", "Note Receivable", "Hybrid LTC")),
@@ -845,6 +867,14 @@ PLAN_DATA_BACKFILL_ENTRIES: list[plan_data_backfill.BackfillEntry] = [
     plan_data_backfill.BackfillEntry(
         "client_spending.csv", MORTGAGE_RE_TAX_UI_PLAN_DATA_ROWS,
         plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Cashflow", "Mortgage")),
+    ),
+    plan_data_backfill.BackfillEntry(
+        "client_spending.csv", QCD_UI_PLAN_DATA_ROWS,
+        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Cashflow", "Spending")),
+    ),
+    plan_data_backfill.BackfillEntry(
+        "client_assets.csv", DAF_APPRECIATED_UI_PLAN_DATA_ROWS,
+        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("DAF", "Settings")),
     ),
     plan_data_backfill.BackfillEntry(
         "client_household.csv",

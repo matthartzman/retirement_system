@@ -28,6 +28,8 @@ Model Constants,Retirement,rmd_start_age,integer,TRUE,75,72,75,SECURE 2.0 RMD st
 Model Constants,IRMAA,irmaa_annual_inflator,percent,TRUE,2.00%,0,5,IRMAA inflation rate
 Model Constants,IRMAA,irmaa_actual_magi_2yr_prior,dollars,FALSE,,0,,Actual household MAGI from the tax year two years before plan start (from filed tax returns). Seeds the statutory IRMAA two-year lookback for plan year 1. Leave blank to fall back to retirement-year AGI (see Build preflight for a reminder).
 Model Constants,IRMAA,irmaa_actual_magi_1yr_prior,dollars,FALSE,,0,,Actual household MAGI from the tax year one year before plan start (from filed tax returns). Seeds the statutory IRMAA two-year lookback for plan year 2. Leave blank to fall back to retirement-year AGI (see Build preflight for a reminder).
+Model Constants,IRMAA,h_ssa44_relief_year,year,FALSE,,2026,2100,First year Member 1's IRMAA surcharge is suppressed following an approved Form SSA-44 life-changing-event appeal. Leave blank if none filed. An appeal outcome is granted case-by-case, never guaranteed — this input only models an already-approved appeal.
+Model Constants,IRMAA,w_ssa44_relief_year,year,FALSE,,2026,2100,First year Member 2's IRMAA surcharge is suppressed following an approved Form SSA-44 life-changing-event appeal. Leave blank if none filed. An appeal outcome is granted case-by-case, never guaranteed — this input only models an already-approved appeal.
 Model Constants,Monte Carlo,mc_portfolio_sigma,percent,TRUE,12.00%,0,40,Portfolio return std dev
 Model Constants,Monte Carlo,mc_simulations,integer,TRUE,300,100,10000,Number of exact scalar MC paths; raise for final advisor runs if runtime allows
 Model Constants,Monte Carlo,mc_sensitivity_simulations,integer,TRUE,25,5,500,Exact scalar sims per MC sensitivity-grid cell
@@ -419,3 +421,17 @@ Other Assets,Other Asset 20,annual_appreciation_pct,percent,FALSE,0.00%,-100,100
 Other Assets,Other Asset 20,basis,dollars,FALSE,,0,,Purchase price or tax basis for appreciating assets.
 Other Assets,Other Asset 20,sell_date,date,FALSE,,,,Optional planned sale date.
 Optional Functions,,ltc_life_policy,boolean,FALSE,FALSE,,,Show LTC/Life Policy items on the Other Assets page and related workbook output.
+Cashflow,Charitable Giving,qcd_enabled,boolean,FALSE,FALSE,,,Enable Qualified Charitable Distributions from each member's own IRA once age 70 1/2-eligible.
+Cashflow,Charitable Giving,h_qcd_annual_amount,dollars,FALSE,$0,0,,Member 1's annual QCD amount; capped at that year's own RMD and the statutory per-person QCD limit.
+Cashflow,Charitable Giving,w_qcd_annual_amount,dollars,FALSE,$0,0,,Member 2's annual QCD amount; capped at that year's own RMD and the statutory per-person QCD limit.
+Cashflow,Charitable Giving,h_qcd_start_year,year,FALSE,,2026,2100,Optional override for Member 1's first QCD year; blank = their own age 70 1/2-eligible year.
+Cashflow,Charitable Giving,h_qcd_end_year,year,FALSE,,2026,2100,Optional last year of Member 1's QCD; blank = continues through plan end.
+Cashflow,Charitable Giving,w_qcd_start_year,year,FALSE,,2026,2100,Optional override for Member 2's first QCD year; blank = their own age 70 1/2-eligible year.
+Cashflow,Charitable Giving,w_qcd_end_year,year,FALSE,,2026,2100,Optional last year of Member 2's QCD; blank = continues through plan end.
+DAF,Settings,enabled,boolean,FALSE,FALSE,,,Enable a Donor-Advised Fund contribution/grant schedule.
+DAF,Settings,contribution_amount,dollars,FALSE,$0,0,,One-time DAF contribution amount in the contribution year.
+DAF,Settings,contribution_year,year,FALSE,,2026,2100,Year the DAF contribution is made.
+DAF,Settings,annual_grant_amount,dollars,FALSE,$0,0,,Annual amount granted out of the DAF to charity during the grant window.
+DAF,Settings,grant_start_year,year,FALSE,,2026,2100,First year of DAF grants.
+DAF,Settings,grant_end_year,year,FALSE,,2026,2100,Last year of DAF grants.
+DAF,Settings,contribution_is_appreciated,boolean,FALSE,FALSE,,,TRUE if the DAF contribution is appreciated securities rather than cash: limits the deductible amount to 30% of AGI instead of 60%, with a 5-year carryforward for any excess.
