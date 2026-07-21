@@ -181,6 +181,7 @@ Equity Compensation,ISO_2023,planned_sale_year,2027,year,,
 Equity Compensation,ISO_2023,fmv_growth_rate,10.00%,pct,,
 Estate Planning,Federal,portability_enabled,TRUE,yes/no,Federal DSUE/portability enabled in terminal estate approximation.,
 Estate Planning,Step-Up,property_regime,COMMON_LAW,choice,"COMMON_LAW, HALF_STEP_UP, FULL_STEP_UP, or COMMUNITY_PROPERTY.",
+Estate Planning,Step-Up,former_spouse_name,,text,Optional name used only by the Beneficiary & Titling Audit (Sheet 14) to flag a former spouse still named as a beneficiary on any account.
 Insurance In Force,Life_1,policy_type,Life,choice,Life | Disability | Long-Term Care | Umbrella | Other; policy type shown in the section heading.,
 Insurance In Force,Life_1,owner,,text,Policy owner.,
 Insurance In Force,Life_1,insured,,text,Insured person or covered property.,
