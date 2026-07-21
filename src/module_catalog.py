@@ -115,6 +115,17 @@ class OutputModule:
     mode: Optional[str] = None
     requires_inputs: Tuple[RequiredInput, ...] = field(default_factory=tuple)
     requires_outputs: Tuple[str, ...] = field(default_factory=tuple)
+    # §7.4 (system review Wave 3.5b): the single source of truth for the two
+    # ad-hoc gates dashboard.js used to hand-maintain separately —
+    # ``dashboard_step`` names the nav step this module owns outright (the
+    # step is hidden while the module is off); ``csv_sections`` names the
+    # input-CSV ``section`` value(s) this module gates within a step that
+    # stays visible regardless (e.g. DAF rows inside "Other Spending").
+    # Populated only for modules that actually gate dashboard input
+    # visibility today — most Optimization/Stress/Diagnostics modules gate a
+    # workbook *sheet*, not an input page, and have neither.
+    dashboard_step: Optional[str] = None
+    csv_sections: Tuple[str, ...] = field(default_factory=tuple)
 
 
 def _in(module: str, *elements: str) -> RequiredInput:
@@ -191,6 +202,7 @@ _OUTPUTS: List[OutputModule] = [
         requires_inputs=(_in("planning_levers", "roth_policy", "forced_conversions"),
                          _in("income"), _in("assumptions", "brackets", "irmaa")),
         requires_outputs=BASE_PROJECTION,
+        dashboard_step="roth_conversion",
     ),
     OutputModule(
         "asset_allocation", "Asset Allocation", OPTIMIZATION, HIGH,
@@ -228,6 +240,7 @@ _OUTPUTS: List[OutputModule] = [
         mode=MODE_COMPARISON,
         requires_inputs=(_in("planning_levers", "bundled_positions"),),
         requires_outputs=BASE_PROJECTION,
+        dashboard_step="scenarios",
     ),
     OutputModule(
         "tax_loss_harvesting", "Tax-Loss Harvesting", OPTIMIZATION, MEDIUM,
@@ -247,6 +260,7 @@ _OUTPUTS: List[OutputModule] = [
         requires_inputs=(_in("assets", "daf", "daf_appreciated_securities"),
                          _in("spending", "qcd"), _in("income"),
                          _in("household", "age"), _in("assumptions", "brackets")),
+        dashboard_step="entity_charitable", csv_sections=("DAF",),
     ),
     OutputModule(
         "state_residency", "State Residency", OPTIMIZATION, MEDIUM,
@@ -254,6 +268,7 @@ _OUTPUTS: List[OutputModule] = [
         optional=True, sheet="13. State Residency", tab="2C. State Residency",
         requires_inputs=(_in("planning_levers", "residency_choice"), _in("income"),
                          _in("assumptions", "state_tax")),
+        dashboard_step="state_residency",
     ),
     OutputModule(
         "estate_legacy_plan", "Estate & Legacy", OPTIMIZATION, MEDIUM,
@@ -276,12 +291,14 @@ _OUTPUTS: List[OutputModule] = [
         optional=True, sheet="30. Education Funding", tab="2J. Education Funding",
         requires_inputs=(_in("insurance_estate", "529_accounts", "goals"),
                          _in("assumptions", "growth")),
+        csv_sections=("Education Funding",),
     ),
     OutputModule(
         "equity_compensation", "Equity Compensation", OPTIMIZATION, LOW,
         "RSU / ISO / NSO / ESPP tax and timing.",
         optional=True, sheet="35. Equity Compensation", tab="2K. Equity Compensation",
         requires_inputs=(_in("insurance_estate", "grants"), _in("assumptions", "tax")),
+        csv_sections=("Equity Compensation",),
     ),
     OutputModule(
         "scorp_vs_llc", "S-Corp vs LLC", OPTIMIZATION, LOW,
@@ -317,6 +334,12 @@ _OUTPUTS: List[OutputModule] = [
         optional=True, sheet="31. Existing Life Insurance", tab="3D. Existing Life Insurance",
         requires_inputs=(_in("insurance_estate", "life_policies"),),
         requires_outputs=("survivor_stress_test",),
+        # Pre-existing dashboard.js behavior (ROW_MODULE_GATES), preserved as-is:
+        # ALL "Insurance In Force" rows are gated by this module's toggle alone,
+        # even a row whose own policy_type is Disability/LTC/Umbrella. Not
+        # fixed here — out of scope for this refactor, which preserves
+        # existing behavior exactly.
+        csv_sections=("Insurance In Force",),
     ),
     OutputModule(
         "disability_income_insurance", "Disability Income", OPTIMIZATION, LOW,
@@ -341,6 +364,7 @@ _OUTPUTS: List[OutputModule] = [
         requires_inputs=(_in("assumptions", "cma", "correlations"),
                          _in("planning_levers", "mc_settings")),
         requires_outputs=BASE_PROJECTION,
+        dashboard_step="monte_carlo_options",
     ),
     OutputModule(
         "survivor_stress_test", "Survivor / Early Death", STRESS_TEST, MEDIUM,
@@ -349,6 +373,7 @@ _OUTPUTS: List[OutputModule] = [
         requires_inputs=(_in("household", "survivor_state"),
                          _in("income", "survivor_continuation"), _in("insurance_estate")),
         requires_outputs=BASE_PROJECTION,
+        dashboard_step="survivor_stress",
     ),
     OutputModule(
         "long_term_care_stress", "LTC Stress", STRESS_TEST, MEDIUM,
@@ -357,6 +382,7 @@ _OUTPUTS: List[OutputModule] = [
         requires_inputs=(_in("insurance_estate", "ltc_policy"), _in("assets", "liquidity"),
                          _in("assumptions", "ltc_cost")),
         requires_outputs=BASE_PROJECTION,
+        dashboard_step="ltc_stress",
     ),
     OutputModule(
         "divorce_qdro", "Divorce / QDRO", STRESS_TEST, NICHE,
@@ -364,6 +390,7 @@ _OUTPUTS: List[OutputModule] = [
         optional=True, sheet=None, tab=None,
         requires_inputs=(_in("household", "divorce_assumptions"), _in("assets"), _in("holdings")),
         requires_outputs=BASE_PROJECTION,
+        dashboard_step="divorce_options",
     ),
 
     # ── Diagnostics ──────────────────────────────────────────────────────────
@@ -435,6 +462,27 @@ def by_kind(kind: str) -> List[OutputModule]:
         raise ValueError(f"unknown kind: {kind!r}")
     return sorted((m for m in _OUTPUTS if m.kind == kind),
                   key=lambda m: (DEMAND_RANK[m.demand], m.name))
+
+
+def step_gate_map() -> Dict[str, str]:
+    """{dashboard_step_id: optional_module_key} for every module that owns a
+    nav step outright (§7.4). The frontend hides that step whenever the
+    module is off, replacing a hand-maintained if/else chain
+    (``stepGatedByOptionalModule``) with this single source of truth.
+    """
+    return {m.dashboard_step: m.key for m in _OUTPUTS if m.dashboard_step}
+
+
+def section_gate_map() -> Dict[str, str]:
+    """{csv_section: optional_module_key} for every input-CSV section a
+    module gates within a step that stays visible regardless (§7.4).
+    Replaces the hand-maintained ``ROW_MODULE_GATES`` object in dashboard.js.
+    """
+    out: Dict[str, str] = {}
+    for m in _OUTPUTS:
+        for section in m.csv_sections:
+            out[section] = m.key
+    return out
 
 
 def optional_keys() -> List[str]:
@@ -738,6 +786,23 @@ def validate() -> None:
         assert m.sheet not in sheets, (
             f"duplicate legacy sheet {m.sheet!r} on {key} and {sheets[m.sheet]}")
         sheets[m.sheet] = key
+
+    # §7.4: dashboard_step/csv_sections only make sense on a toggleable
+    # module, and each step/section must be owned by exactly one module —
+    # otherwise step_gate_map()/section_gate_map() would silently drop one.
+    steps: Dict[str, str] = {}
+    sections: Dict[str, str] = {}
+    for key, m in CATALOG.items():
+        if m.dashboard_step or m.csv_sections:
+            assert m.optional, f"{key}: dashboard_step/csv_sections require optional=True"
+        if m.dashboard_step:
+            assert m.dashboard_step not in steps, (
+                f"dashboard_step {m.dashboard_step!r} claimed by both {key} and {steps[m.dashboard_step]}")
+            steps[m.dashboard_step] = key
+        for section in m.csv_sections:
+            assert section not in sections, (
+                f"csv_section {section!r} claimed by both {key} and {sections[section]}")
+            sections[section] = key
 
 
 def summary() -> str:
