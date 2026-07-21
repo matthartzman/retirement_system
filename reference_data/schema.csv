@@ -110,7 +110,8 @@ Withdrawal Policy,Roth Conversion,roth_target_bracket_rate,choice,FALSE,22.00%,,
 Withdrawal Policy,Roth Conversion,roth_fixed_annual_amount,dollars,FALSE,50000,0,,Annual amount for fixed_dollar policy
 Withdrawal Policy,Roth Conversion,roth_optimize_terminal_weight,number,FALSE,1.00,0,10,Weight on after-tax terminal net worth in optimizer objective
 Withdrawal Policy,Roth Conversion,roth_optimize_lifetime_tax_weight,number,FALSE,0.25,0,10,Weight on lifetime tax penalty in optimizer objective
-Withdrawal Policy,Roth Conversion,roth_optimize_terminal_pretax_tax_rate,percent,FALSE,24.00%,0,50,After-tax haircut applied to terminal pre-tax balances for objective scoring
+Withdrawal Policy,Roth Conversion,roth_optimize_terminal_pretax_tax_rate,percent,FALSE,24.00%,0,50,"After-tax haircut applied to terminal pre-tax balances for objective scoring. Left at the 24% default, it is derived per-plan as an effective SECURE Act 10-year-rule rate from the terminal balance and heir_filing_status; any other value is honored as an explicit override."
+Withdrawal Policy,Roth Conversion,heir_filing_status,choice,FALSE,Single,,,"Assumed beneficiary filing status used to derive the effective SECURE Act 10-year-rule ordinary tax rate on inherited pre-tax (IRA/401k) balances in Roth optimizer scoring: Single | MFJ | HOH | MFS"
 Annuity Calibration,Purchase Rate,seg1_age_start,integer,FALSE,0,0,120,Segment 1 start age
 Annuity Calibration,Purchase Rate,seg1_age_end,integer,FALSE,68,0,120,Segment 1 end age
 Annuity Calibration,Purchase Rate,seg1_base_rate,percent,FALSE,5.00%,0,50,Segment 1 base rate

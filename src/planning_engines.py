@@ -1354,10 +1354,13 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
     terminal_roth = float(terminal.get('roth_nw', 0.0) or 0.0)
     terminal_tax_rate = float(c.get('roth_optimize_terminal_tax_rate', c.get('roth_target_rate', 0.24)) or 0.24)
     terminal_nw = float(terminal.get('total_nw', 0.0) or 0.0)
+    terminal_pretax_rate_effective = terminal_tax_rate
     try:
         from .after_tax import estimate_after_tax_terminal_net_worth as _estimate_after_tax_terminal_net_worth
         _after_tax_metrics = _estimate_after_tax_terminal_net_worth(c, terminal)
         after_tax_terminal_nw = float(_after_tax_metrics.get('after_tax_terminal_nw', terminal_nw) or terminal_nw)
+        _tp_rate = _after_tax_metrics.get('terminal_pretax_deferred_tax_rate')
+        terminal_pretax_rate_effective = float(_tp_rate) if _tp_rate is not None else terminal_tax_rate
     except Exception:
         after_tax_terminal_nw = terminal_nw - max(0.0, terminal_pretax) * max(0.0, terminal_tax_rate)
     # total_tax already includes federal, state, payroll, IRMAA, NIIT, and LTCG.
@@ -1383,7 +1386,18 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
     future_stress_rate = max(0.0, float(c.get('roth_future_tax_rate_stress_pct', 0.0) or 0.0))
     future_tax_weight = max(0.0, float(c.get('roth_future_tax_risk_weight', 0.0) or 0.0))
     inheritance_weight = max(0.0, float(c.get('roth_inheritance_tax_burden_weight', 0.0) or 0.0))
-    heir_rate = max(0.0, float(c.get('roth_heir_ordinary_tax_rate_assumption', terminal_tax_rate) or terminal_tax_rate))
+    # Item 4.3: the heir ordinary-income rate applied to the inherited pre-tax
+    # legacy score is no longer a flat 24% constant. Unless the user set an
+    # explicit override, derive an effective SECURE Act 10-year-rule rate from
+    # the terminal pre-tax balance and the assumed heir filing status, so a large
+    # inherited IRA (whose distribution slices push into higher brackets) is
+    # scored at a higher rate than a small one.
+    _heir_terminal_year = int(terminal.get('year', c.get('plan_end', c.get('plan_start', 0))) or 0)
+    try:
+        from .after_tax import resolve_heir_ordinary_rate as _resolve_heir_ordinary_rate
+        heir_rate = max(0.0, _resolve_heir_ordinary_rate(c, terminal_pretax, _heir_terminal_year))
+    except Exception:
+        heir_rate = max(0.0, float(c.get('roth_heir_ordinary_tax_rate_assumption', terminal_tax_rate) or terminal_tax_rate))
     pretax_bequest_penalty_rate = max(0.0, float(c.get('roth_pre_tax_bequest_penalty_pct', heir_rate) or heir_rate))
     roth_bonus_rate = max(0.0, float(c.get('roth_bequest_preference_bonus_pct', 0.0) or 0.0))
     survivor_weight = max(0.0, float(c.get('roth_survivor_tax_risk_weight', 0.0) or 0.0))
@@ -1550,6 +1564,8 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
         'future_tax_stress_penalty': future_tax_stress_penalty,
         'survivor_tax_risk_penalty': survivor_tax_risk_penalty,
         'pre_tax_inheritance_burden': pre_tax_inheritance_burden,
+        'heir_ordinary_tax_rate_effective': heir_rate,
+        'terminal_pretax_tax_rate_effective': terminal_pretax_rate_effective,
         'roth_legacy_preference_value': roth_legacy_preference_value,
         'legacy_adjustment': legacy_adjustment,
         'estate_tax_penalty': estate_tax_penalty,
@@ -1647,6 +1663,12 @@ def optimize_roth_conversion_strategy(c: dict) -> dict:
             candidates.sort(key=lambda x: (x['score'], x['after_tax_terminal_nw'], -x['lifetime_tax']), reverse=True)
         c['roth_policy_requested'] = requested_policy
 
+    # Item 4.3: surface the effective (derived-or-overridden) heir/terminal
+    # pre-tax ordinary rates actually used to score the SELECTED strategy, so the
+    # workbook can disclose the real numbers rather than the flat config default.
+    c['roth_heir_ordinary_tax_rate_effective'] = float(selected.get('heir_ordinary_tax_rate_effective', 0.0) or 0.0)
+    c['roth_terminal_pretax_tax_rate_effective'] = float(selected.get('terminal_pretax_tax_rate_effective', 0.0) or 0.0)
+
     c['roth_optimization'] = {
         'requested_policy': requested_policy,
         'auto_optimized': auto_optimize,
@@ -1672,6 +1694,9 @@ def optimize_roth_conversion_strategy(c: dict) -> dict:
         'future_tax_risk_weight': float(c.get('roth_future_tax_risk_weight', 0.0) or 0.0),
         'inheritance_tax_burden_weight': float(c.get('roth_inheritance_tax_burden_weight', 0.0) or 0.0),
         'heir_ordinary_tax_rate_assumption': float(c.get('roth_heir_ordinary_tax_rate_assumption', 0.0) or 0.0),
+        'heir_filing_status': str(c.get('roth_heir_filing_status', 'Single') or 'Single'),
+        'heir_ordinary_tax_rate_effective': float(selected.get('heir_ordinary_tax_rate_effective', 0.0) or 0.0),
+        'terminal_pretax_tax_rate_effective': float(selected.get('terminal_pretax_tax_rate_effective', 0.0) or 0.0),
         'pre_tax_bequest_penalty_pct': float(c.get('roth_pre_tax_bequest_penalty_pct', 0.0) or 0.0),
         'roth_bequest_preference_bonus_pct': float(c.get('roth_bequest_preference_bonus_pct', 0.0) or 0.0),
         'survivor_tax_risk_weight': float(c.get('roth_survivor_tax_risk_weight', 0.0) or 0.0),
