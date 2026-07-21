@@ -1159,7 +1159,11 @@ def build_sheet2(ws, c, rows):
         ('Roth Conversion Target Bracket', c['roth_brk'], 'decimal', 'Configured target bracket used when the selected strategy fills bracket headroom.'),
         ('Roth Legacy Objective Mode', c.get('roth_legacy_objective_mode', 'OFF'), 'text', 'OFF, LOW, BALANCED, or STRONG; weights future tax-rate risk and inheritance tax burden in Roth conversion selection.'),
         ('Roth Future Tax Stress', c.get('roth_future_tax_rate_stress_pct', 0.0), 'decimal', 'Additional ordinary-tax-rate stress used only in the Roth conversion objective.'),
-        ('Heir Ordinary Tax Assumption', c.get('roth_heir_ordinary_tax_rate_assumption', 0.0), 'decimal', 'Estimated heir ordinary rate used to score inherited pre-tax balances.'),
+        ('Assumed Heir Filing Status', c.get('roth_heir_filing_status', 'Single'), 'text', 'Beneficiary filing status assumed when deriving the effective inherited-IRA tax rate below.'),
+        ('Heir Ordinary Tax Rate (effective)',
+         (c.get('roth_heir_ordinary_tax_rate_effective') or c.get('roth_heir_ordinary_tax_rate_assumption', 0.0)),
+         'decimal',
+         'Effective ordinary rate on inherited pre-tax (IRA/401k) balances, used to score the Roth objective. Derived per SECURE Act 10-year rule: the terminal pre-tax balance is spread level over 10 years and each slice taxed at the assumed heir filing status, so a larger balance scores a higher rate than a flat 24% would. An explicit assumption override, if set, is honored instead.'),
     ])
 
     # Version 7.5.2: make optimizer assumptions visible in the workbook. These

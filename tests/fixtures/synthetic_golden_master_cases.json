@@ -13,7 +13,7 @@
     "first_rmd_total": 36703.34,
     "first_conversion_year": 2031,
     "first_conversion_amount": 221138.88,
-    "selected_roth_strategy": "Fill current/configured 22% bracket"
+    "selected_roth_strategy": "RMD-reduction conversion"
   },
   "no_voluntary_roth_policy": {
     "plan_start": 2026,
@@ -141,7 +141,7 @@
     "first_rmd_total": 36703.34,
     "first_conversion_year": 2031,
     "first_conversion_amount": 221138.88,
-    "selected_roth_strategy": "Fill current/configured 22% bracket"
+    "selected_roth_strategy": "RMD-reduction conversion"
   },
   "tax_loss_harvesting": {
     "plan_start": 2026,
@@ -157,6 +157,6 @@
     "first_rmd_total": 36703.59,
     "first_conversion_year": 2031,
     "first_conversion_amount": 221138.88,
-    "selected_roth_strategy": "Fill current/configured 22% bracket"
+    "selected_roth_strategy": "RMD-reduction conversion"
   }
 }
