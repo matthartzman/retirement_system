@@ -62,7 +62,11 @@ def test_items_1_2_result_contract_contains_projection_pages_report_spec_and_eve
     assert report_spec_from_plan_result(pr).schema == 'report_spec_v10'
 
 
-def test_item_7_stage_pipeline_emits_completed_stage_summaries():
+def test_item_7_stage_pipeline_emits_stage_summaries():
+    # Wave 3 item 3.7 (system review A2): stages have no independently
+    # callable implementation yet (STAGE_IMPLEMENTATIONS is empty), so their
+    # metrics come from the one real engine_project() call, not their own
+    # execution — the event honestly reports "inlined", not "completed".
     rows = [{'year': 2026, 'earned': 1000, 'spend_base_yr': 500, 'total_tax': 100, 'total_nw': 9000}]
     result = run_projection_pipeline({'plan_start': 2026}, engine_project=lambda c: rows)
     by_stage = {s.stage: s.metrics for s in result.stage_summaries}
@@ -70,7 +74,8 @@ def test_item_7_stage_pipeline_emits_completed_stage_summaries():
     assert by_stage['Spending']['total_spending'] == 500
     assert by_stage['TaxAssessment']['total_tax'] == 100
     assert by_stage['NetWorth']['terminal_net_worth'] == 9000
-    assert any(e.stage == 'TaxAssessment' and e.event_type == 'completed' for e in result.events)
+    assert any(e.stage == 'ProjectionEngine' and e.event_type == 'completed' for e in result.events)
+    assert any(e.stage == 'TaxAssessment' and e.event_type == 'inlined' for e in result.events)
 
 
 def test_item_8_deterministic_oracle_preserved_while_planresult_is_rich():
