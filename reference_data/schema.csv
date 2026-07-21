@@ -23,8 +23,6 @@ Economic Assumptions,,social_security_taxable_fraction,percent,TRUE,85.00%,0,100
 Economic Assumptions,,annuity_default_dividend_rate,percent,FALSE,5.00%,0,20,Default dividend rate for annuities WITHOUT an explicit dividend rate of their own; has no effect on any annuity stream that already carries its own override rate
 Model Constants,Retirement,rollover_401k_year,year,TRUE,2030,2026,2060,401k->IRA rollover year
 Model Constants,Retirement,spending_freeze_year,year,TRUE,2040,2026,2060,Year spending stops inflating
-Model Constants,Retirement,ss_claim_age,integer,TRUE,70,62,70,SS claim age (both spouses)
-Model Constants,Retirement,rmd_start_age,integer,TRUE,75,72,75,SECURE 2.0 RMD start
 Model Constants,IRMAA,irmaa_annual_inflator,percent,TRUE,2.00%,0,5,IRMAA inflation rate
 Model Constants,IRMAA,irmaa_actual_magi_2yr_prior,dollars,FALSE,,0,,Actual household MAGI from the tax year two years before plan start (from filed tax returns). Seeds the statutory IRMAA two-year lookback for plan year 1. Leave blank to fall back to retirement-year AGI (see Build preflight for a reminder).
 Model Constants,IRMAA,irmaa_actual_magi_1yr_prior,dollars,FALSE,,0,,Actual household MAGI from the tax year one year before plan start (from filed tax returns). Seeds the statutory IRMAA two-year lookback for plan year 2. Leave blank to fall back to retirement-year AGI (see Build preflight for a reminder).
@@ -243,10 +241,10 @@ Education Funding,529 Plan 1,annual_contribution,dollars,FALSE,$0,0,,Annual 529 
 Education Funding,529 Plan 1,contribution_start_year,year,FALSE,,2026,2100,First contribution year.
 Education Funding,529 Plan 1,contribution_end_year,year,FALSE,,2026,2100,Last contribution year.
 Education Funding,529 Plan 1,expected_use_year,year,FALSE,,2026,2100,Expected first use or distribution year.
-Social Security,Husband,monthly_pia_at_fra_today_dollars,dollars,FALSE,0,0,,Enter the monthly Social Security payment from the SSA statement at Full Retirement Age. PIA means Primary Insurance Amount: the base monthly benefit before early-claiming reductions or delayed-retirement credits.
-Social Security,Wife,monthly_pia_at_fra_today_dollars,dollars,FALSE,0,0,,Enter the monthly Social Security payment from the SSA statement at Full Retirement Age. PIA means Primary Insurance Amount: the base monthly benefit before early-claiming reductions or delayed-retirement credits.
-Social Security,Husband,claim_age,integer,FALSE,70,62,70,Social Security claim age for husband.
-Social Security,Wife,claim_age,integer,FALSE,70,62,70,Social Security claim age for wife.
+Social Security,Member 1,monthly_pia_at_fra_today_dollars,dollars,FALSE,0,0,,Enter the monthly Social Security payment from the SSA statement at Full Retirement Age. PIA means Primary Insurance Amount: the base monthly benefit before early-claiming reductions or delayed-retirement credits.
+Social Security,Member 2,monthly_pia_at_fra_today_dollars,dollars,FALSE,0,0,,Enter the monthly Social Security payment from the SSA statement at Full Retirement Age. PIA means Primary Insurance Amount: the base monthly benefit before early-claiming reductions or delayed-retirement credits.
+Social Security,Member 1,claim_age,integer,FALSE,70,62,70,Social Security claim age for member 1.
+Social Security,Member 2,claim_age,integer,FALSE,70,62,70,Social Security claim age for member 2.
 Social Security,Member 1,fra_age,number,FALSE,0,0,70,"Full Retirement Age (SSA), in years, e.g. 66.67 for 66 years 8 months. 0 auto-derives from date of birth (67 for birth year 1960 or later); otherwise enter 60-70."
 Social Security,Member 2,fra_age,number,FALSE,0,0,70,"Full Retirement Age (SSA), in years, e.g. 66.67 for 66 years 8 months. 0 auto-derives from date of birth (67 for birth year 1960 or later); otherwise enter 60-70."
 Social Security,Policy,spousal_benefits_enabled,boolean,FALSE,TRUE,,,Approximate spousal benefit top-up.
@@ -260,8 +258,8 @@ Wellness,ACA Premium Tax Credit,enhanced_subsidies_through_year,year,FALSE,2026,
 Cashflow,Retirement Contributions,index_401k_limit,boolean,FALSE,TRUE,,,Index 401(k) limit.
 HSA Policy,Contributions,index_hsa_limit,boolean,FALSE,TRUE,,,Index HSA limit.
 HSA Policy,Contributions,requires_hdhp,boolean,FALSE,TRUE,,,Require HDHP eligibility for HSA contributions.
-Model Constants,Retirement,husband_rmd_start_age,integer,FALSE,75,72,75,Husband RMD start age.
-Model Constants,Retirement,wife_rmd_start_age,integer,FALSE,75,72,75,Wife RMD start age.
+Model Constants,Retirement,member_1_rmd_start_age,integer,FALSE,75,72,75,Optional per-member RMD start age override for member 1; defaults to the statutory age derived from date of birth (SECURE 2.0) when blank.
+Model Constants,Retirement,member_2_rmd_start_age,integer,FALSE,75,72,75,Optional per-member RMD start age override for member 2; defaults to the statutory age derived from date of birth (SECURE 2.0) when blank.
 Reporting,Output,real_dollar_reporting_enabled,boolean,FALSE,TRUE,,,Show today-dollar outputs.
 Withdrawal Policy,Roth Conversion,roth_tax_discount_rate,percent,FALSE,2.50%,0,20,"Annual discount rate for comparing lifetime taxes in the Roth optimizer, shown as a percent such as 2.50%."
 Estate Planning,Federal,portability_enabled,boolean,FALSE,TRUE,,,Federal portability enabled.

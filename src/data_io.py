@@ -894,17 +894,19 @@ def parse_client(data, url_template):
     c['k401_limit_indexed'] = _b(_v(data,'Cashflow','Retirement Contributions','index_401k_limit','TRUE'))
 
     # Default RMD start age is derived from each member's date of birth per the
-    # SECURE 2.0 age ramp (see statutory_rmd_start_age). The CSV fields remain a
-    # user override: an explicitly-set value (member-specific, or the shared
-    # 'rmd_start_age' fallback) is honored as-is, but if it disagrees with the
-    # statutory default for that member's birth year, a non-blocking advisory
-    # warning is recorded (see 'rmd_start_age_warnings' / Sheet 26).
+    # SECURE 2.0 age ramp (see statutory_rmd_start_age). The per-member CSV
+    # fields remain a user override (an explicitly-set value is honored as-is),
+    # but if it disagrees with the statutory default for that member's birth
+    # year, a non-blocking advisory warning is recorded (see
+    # 'rmd_start_age_warnings' / Sheet 26). Item 195: the household-level
+    # shared 'rmd_start_age' fallback field was removed (redundant with these
+    # per-member fields, and its own value never differed from the statutory
+    # default in practice) - c['rmd_start_age'] below is now purely derived,
+    # anchored to member 1, for legacy callers that don't distinguish members.
     _h_rmd_statutory = statutory_rmd_start_age(c['h_dob_yr'])
     _w_rmd_statutory = statutory_rmd_start_age(c['w_dob_yr'])
-    _h_rmd_raw = _v(data,'Model Constants','Retirement','member_1_rmd_start_age',
-                     _v(data,'Model Constants','Retirement','rmd_start_age',''))
-    _w_rmd_raw = _v(data,'Model Constants','Retirement','member_2_rmd_start_age',
-                     _v(data,'Model Constants','Retirement','rmd_start_age',''))
+    _h_rmd_raw = _v(data,'Model Constants','Retirement','member_1_rmd_start_age','')
+    _w_rmd_raw = _v(data,'Model Constants','Retirement','member_2_rmd_start_age','')
     c['h_rmd_start_age'] = int(_n(_h_rmd_raw, _h_rmd_statutory)) if str(_h_rmd_raw or '').strip() else _h_rmd_statutory
     c['w_rmd_start_age'] = int(_n(_w_rmd_raw, _w_rmd_statutory)) if str(_w_rmd_raw or '').strip() else _w_rmd_statutory
     c['rmd_start_age_warnings'] = c.get('rmd_start_age_warnings') or []
@@ -1644,22 +1646,19 @@ def parse_client(data, url_template):
     c['ltc_onset_age_catastrophic_both']     = int(_n(_v(data,'Scenarios','LTC Stress Test','onset_age_catastrophic_both','87'), 87))
     c['rollover_401k_yr']  = _y(_v(data,'Model Constants','Retirement',
                                      'rollover_401k_year', str(c['plan_start'] + 4)), c['plan_start'] + 4)
-    c['ss_claim_age']      = int(_n(_v(data,'Model Constants','Retirement',
-                                     'ss_claim_age','70'), 70))
-    c['h_ss_claim_age']    = int(_n(_v(data,'Social Security','Member 1','claim_age',
-                                     str(c['ss_claim_age'])), c['ss_claim_age']))
-    c['w_ss_claim_age']    = int(_n(_v(data,'Social Security','Member 2','claim_age',
-                                     str(c['ss_claim_age'])), c['ss_claim_age']))
+    # Item 195: the shared household-level 'ss_claim_age'/'rmd_start_age' CSV
+    # fields were removed as a redundant echo of the per-member fields below -
+    # both fixed constants here (70 / statutory) match the schema.csv defaults
+    # those removed fields carried, so this is a documentation-only fallback,
+    # not a behavior change.
+    c['ss_claim_age']      = 70
+    c['h_ss_claim_age']    = int(_n(_v(data,'Social Security','Member 1','claim_age', '70'), 70))
+    c['w_ss_claim_age']    = int(_n(_v(data,'Social Security','Member 2','claim_age', '70'), 70))
     # Generic/household RMD start age, anchored to the primary member's (h)
-    # birth year for conversion_window_end_year and any legacy caller that
-    # doesn't distinguish members. Statutory default via statutory_rmd_start_age;
-    # an explicit CSV value remains an honored override (warning handled above,
-    # since this reads the same 'rmd_start_age' cell that h/w_rmd_start_age fall
-    # back to).
-    _rmd_start_age_raw = _v(data,'Model Constants','Retirement','rmd_start_age','')
-    c['rmd_start_age']     = (int(_n(_rmd_start_age_raw, statutory_rmd_start_age(c['h_dob_yr'])))
-                               if str(_rmd_start_age_raw or '').strip()
-                               else statutory_rmd_start_age(c['h_dob_yr']))
+    # birth year, for conversion_window_end_year and any legacy caller that
+    # doesn't distinguish members. Purely derived now (no CSV override) - see
+    # the per-member override handling above.
+    c['rmd_start_age'] = statutory_rmd_start_age(c['h_dob_yr'])
     c['conv_window_offset']= int(_n(_v(data,'Model Constants','Roth Conversion',
                                      'roth_conv_window_end_offset','-1'), -1))
     c['irmaa_base']   = _n(_v(data,'Model Constants','IRMAA',
