@@ -8,15 +8,18 @@ JS_DIR = ROOT / "frontend" / "js"
 
 
 def _dashboard_smoke_sources():
-    """dashboard.js plus every extracted dashboard_decomp_*.js module.
+    """dashboard_shared_helpers.js, dashboard.js, and every extracted
+    dashboard_decomp_*.js module.
 
     The decomposition moved cohesive blocks (e.g. the estate/insurance UI) out
     of dashboard.js into sibling classic scripts loaded before dashboard.js in
     index.html. The node smoke harness must load them together so boot code and
     any exercised function still resolve, mirroring the browser load order.
+    esc/escJs/fmtMoney/fmtPct live in dashboard_shared_helpers.js (A13), loaded
+    first in index.html - same requirement here.
     """
     mods = sorted(JS_DIR.glob("dashboard_decomp_*.js"))
-    return [str(m) for m in mods] + [str(JS)]
+    return [str(JS_DIR / "dashboard_shared_helpers.js")] + [str(m) for m in mods] + [str(JS)]
 
 
 def _smoke_sources_js_array():

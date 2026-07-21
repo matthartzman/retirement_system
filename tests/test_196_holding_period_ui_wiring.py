@@ -30,11 +30,13 @@ JS_DIR = ROOT / "frontend" / "js"
 
 
 def _dashboard_smoke_sources():
-    """dashboard.js plus every extracted dashboard_decomp_*.js module, in the
-    same load order as index.html (extracted modules before dashboard.js) so the
-    node smoke harness exercises the real, fully-assembled behavior."""
+    """dashboard_shared_helpers.js, dashboard.js, and every extracted
+    dashboard_decomp_*.js module, in the same load order as index.html
+    (shared helpers and extracted modules before dashboard.js) so the node
+    smoke harness exercises the real, fully-assembled behavior. esc/escJs/
+    fmtMoney/fmtPct live in dashboard_shared_helpers.js (A13)."""
     mods = sorted(JS_DIR.glob("dashboard_decomp_*.js"))
-    return [str(m) for m in mods] + [str(JS)]
+    return [str(JS_DIR / "dashboard_shared_helpers.js")] + [str(m) for m in mods] + [str(JS)]
 
 
 def _smoke_sources_js_array():
