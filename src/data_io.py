@@ -1363,6 +1363,13 @@ def parse_client(data, url_template):
                                    'inheritance_tax_burden_weight','0.25'), 0.25)
     c['roth_heir_ordinary_tax_rate_assumption'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
                                    'heir_ordinary_tax_rate_assumption_pct','24%'), 0.24)
+    # Item 4.3: assumed beneficiary filing status. Drives the derived effective
+    # SECURE Act 10-year-rule ordinary tax rate on inherited pre-tax balances
+    # (used unless heir_ordinary_tax_rate_assumption_pct is set to a non-default
+    # value). Single is the common adult-child-beneficiary case.
+    _heir_filing = str(_v(data,'Withdrawal Policy','Roth Conversion',
+                                   'heir_filing_status','Single') or 'Single').strip()
+    c['roth_heir_filing_status'] = _heir_filing if _heir_filing in ('Single','MFJ','HOH','MFS') else 'Single'
     c['roth_pre_tax_bequest_penalty_pct'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
                                    'pre_tax_bequest_penalty_pct','15%'), 0.15)
     c['roth_bequest_preference_bonus_pct'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
@@ -2475,6 +2482,10 @@ def build_plan_from_json(plan, url_template=''):
     c['roth_optimize_terminal_weight'] = a.get('roth_optimize_terminal_weight', 1.0)
     c['roth_optimize_tax_weight'] = a.get('roth_optimize_lifetime_tax_weight', 0.25)
     c['roth_optimize_terminal_tax_rate'] = a.get('roth_optimize_terminal_pretax_tax_rate', 0.24)
+    # Item 4.3: assumed beneficiary filing status for the derived effective
+    # 10-year-rule heir ordinary tax rate (see parse_client for the CSV path).
+    _heir_filing_json = str(a.get('roth_heir_filing_status', 'Single') or 'Single').strip()
+    c['roth_heir_filing_status'] = _heir_filing_json if _heir_filing_json in ('Single','MFJ','HOH','MFS') else 'Single'
     c['roth_brk']           = c['roth_target_rate']
     c['conv_window_offset'] = a.get('conv_window_offset', 0)
     c['forced_roth']        = {}

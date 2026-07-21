@@ -25,13 +25,95 @@ def _terminal_account_balance(terminal: Mapping[str, Any], account_id: str) -> f
     return max(0.0, _f(terminal.get(account_id), 0.0))
 
 
+# Historical flat ordinary-income assumption for inherited pre-tax balances.
+# Item 4.3 replaces this constant as the *default* with a bracket-derived
+# effective rate; an equal value in config is therefore treated as "use the
+# derived default", while any other value is honored as a deliberate override.
+FLAT_HEIR_ORDINARY_RATE = 0.24
+
+
+def _normalize_rate(value: Any, default: float = 0.24) -> float:
+    r = _f(value, default)
+    if abs(r) > 1:
+        r = r / 100.0
+    return max(0.0, min(1.0, r))
+
+
+def _heir_filing_status(c: Mapping[str, Any]) -> str:
+    filing = str(c.get("roth_heir_filing_status", "Single") or "Single").strip()
+    return filing if filing in ("Single", "MFJ", "HOH", "MFS") else "Single"
+
+
+def _is_flat_default(value: Any) -> bool:
+    """True when a configured rate is absent or equals the historical flat 24%.
+
+    Only in that case is the bracket-derived effective rate substituted; a user
+    who set any other value keeps it (an explicit override is honored).
+    """
+    if value is None or (isinstance(value, str) and value.strip() == ""):
+        return True
+    return abs(_normalize_rate(value) - FLAT_HEIR_ORDINARY_RATE) < 1e-6
+
+
+def effective_heir_ten_year_rate(c: Mapping[str, Any], pretax_balance: Any,
+                                 terminal_year: Any = None) -> float:
+    """Effective ordinary tax rate an heir pays on an inherited pre-tax balance.
+
+    Item 4.3 (SECURE Act 10-year rule, level-distribution simplification): the
+    terminal pre-tax balance is spread evenly over 10 years (no growth), each
+    annual slice is taxed as the heir's only ordinary income at the assumed heir
+    filing status, and the ten years of federal tax are summed and divided by
+    the total balance. Bracket-filling makes this rate rise with the balance: a
+    small IRA's slices stay in low brackets (effective rate below 24%) while a
+    large IRA's slices push into higher brackets (effective rate above 24%) --
+    exactly the sensitivity a flat constant cannot express. Brackets inflate to
+    each distribution year via the plan's bracket inflator, so the rate is
+    consistent with the nominal terminal balance it is applied to.
+    """
+    from .core import compute_fed_tax
+
+    bal = max(0.0, _f(pretax_balance, 0.0))
+    if bal <= 0:
+        return 0.0
+    filing = _heir_filing_status(c)
+    brk_inf = _f(c.get("brk_inf", 0.0), 0.0)
+    if terminal_year is None:
+        terminal_year = c.get("plan_end", c.get("plan_start", 0))
+    year0 = int(_f(terminal_year, 0.0))
+    annual = bal / 10.0
+    total_tax = sum(compute_fed_tax(annual, year0 + i, filing, brk_inf) for i in range(10))
+    return max(0.0, min(1.0, total_tax / bal))
+
+
+def resolve_terminal_pretax_rate(c: Mapping[str, Any], pretax_balance: Any,
+                                 terminal_year: Any = None) -> float:
+    """Rate for the terminal pre-tax deferred-tax haircut: user override else derived."""
+    configured = c.get("roth_optimize_terminal_tax_rate", c.get("roth_target_rate"))
+    if not _is_flat_default(configured):
+        return _normalize_rate(configured)
+    return effective_heir_ten_year_rate(c, pretax_balance, terminal_year)
+
+
+def resolve_heir_ordinary_rate(c: Mapping[str, Any], pretax_balance: Any,
+                               terminal_year: Any = None) -> float:
+    """Heir ordinary-income rate for legacy scoring: user override else derived."""
+    configured = c.get("roth_heir_ordinary_tax_rate_assumption")
+    if not _is_flat_default(configured):
+        return _normalize_rate(configured)
+    return effective_heir_ten_year_rate(c, pretax_balance, terminal_year)
+
+
 def estimate_terminal_pretax_deferred_tax(c: Mapping[str, Any], terminal: Mapping[str, Any]) -> Dict[str, float]:
-    """Estimate deferred ordinary-income tax on remaining pre-tax retirement assets."""
+    """Estimate deferred ordinary-income tax on remaining pre-tax retirement assets.
+
+    The haircut rate is no longer a flat 24% constant: unless the user set an
+    explicit ``roth_optimize_terminal_pretax_tax_rate``, it is derived from the
+    terminal pre-tax balance via the SECURE Act 10-year-rule level distribution
+    (see :func:`effective_heir_ten_year_rate`).
+    """
     terminal_pretax = max(0.0, _f(terminal.get("pretax_nw"), 0.0))
-    rate = _f(c.get("roth_optimize_terminal_tax_rate", c.get("roth_target_rate", 0.24)), 0.24)
-    if abs(rate) > 1:
-        rate = rate / 100.0
-    rate = max(0.0, min(1.0, rate))
+    terminal_year = terminal.get("year", c.get("plan_end", c.get("plan_start", 0)))
+    rate = resolve_terminal_pretax_rate(c, terminal_pretax, terminal_year)
     tax = terminal_pretax * rate
     return {
         "terminal_pretax_nw": terminal_pretax,
