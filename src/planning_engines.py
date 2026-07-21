@@ -2124,10 +2124,13 @@ def _sensitivity_success_rate(c: dict, mu: float, sig: float, n_sims: int, seed:
     return successes / max(1, int(n_sims))
 
 
-def monte_carlo_exact_scalar(c, n_sims=1000, seed=42):
+def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
     c = ensure_engine_config(c, source='monte_carlo')
     rng = random.Random(seed)
-    base_rows = project(c)
+    # A4: the caller (report_compute.run_projection_artifacts) has usually
+    # already run this exact deterministic projection once; accept its rows
+    # instead of re-running the full year-by-year engine a second time.
+    base_rows = project(c) if base_rows is None else base_rows
     base_years = [r['year'] for r in base_rows]
     configured_mu = float(c.get('ret', 0.06))
     configured_sig = float(c.get('mc_sigma', 0.12))
@@ -2698,18 +2701,23 @@ def _mc_vectorized_sensitivity_success_rate(c: dict, base_rows: list[dict], mu: 
         return sum(1 for x in batch['path_success'] if x) / max(1, int(n_sims))
 
 
-def monte_carlo(c, n_sims=1000, seed=42):
+def monte_carlo(c, n_sims=1000, seed=42, base_rows=None):
     """Run Monte Carlo on the shared vectorized fast core by default.
 
     The exact scalar path remains available for validation by setting
     ``mc_engine_mode`` to ``exact_scalar`` or ``scalar``.
+
+    ``base_rows``: the deterministic projection for ``c`` (A4) — pass the
+    caller's already-computed rows (e.g. report_compute.run_projection_artifacts,
+    which runs the same deterministic engine just before this) to skip a second
+    full year-by-year run. Recomputed from ``c`` when omitted.
     """
     if str(c.get('mc_engine_mode', 'vectorized_batched')).lower() in {'exact_scalar', 'scalar', 'advanced_exact_scalar'}:
-        return monte_carlo_exact_scalar(c, n_sims=n_sims, seed=seed)
+        return monte_carlo_exact_scalar(c, n_sims=n_sims, seed=seed, base_rows=base_rows)
 
     import numpy as _np
     c = ensure_engine_config(c, source='monte_carlo')
-    base_rows = project(c)
+    base_rows = project(c) if base_rows is None else base_rows
     base_years = [int(r['year']) for r in base_rows]
     configured_mu = float(c.get('ret', 0.06))
     configured_sig = float(c.get('mc_sigma', 0.12))
