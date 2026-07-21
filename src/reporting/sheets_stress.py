@@ -25,10 +25,11 @@ from .workbook_common import (
 )
 from ..person_labels import display_accounts_in_text as _display_accounts_in_text
 def build_sheet15(ws, c, rows, mc_data):
-    """Market-Luck Stress Test — 7 sections:
-    A. Methodology  B. Headline Results  C. Ending NW Distribution
-    D. Year-by-Year Percentile Bands  E. Sequence-of-Returns Quintiles
-    F. Sensitivity Grid  G. Interpretation & Adjustments
+    """Market-Luck Stress Test — 8 sections:
+    A. Methodology  B. Headline Results  B3. Required Spending Cut on Failing
+    Paths  C. Ending NW Distribution  D. Year-by-Year Percentile Bands
+    E. Sequence-of-Returns Quintiles  F. Sensitivity Grid
+    G. Interpretation & Adjustments
     """
     ws.sheet_view.showGridLines = False
     ws.freeze_panes = 'A4'
@@ -162,6 +163,39 @@ def build_sheet15(ws, c, rows, mc_data):
         if p90 != '': dat(r, 7, p90, fmt=FMT_DOLLAR)
         dat(r, 8, purpose, align='left')
         ws.merge_cells(start_row=r, start_column=8, end_row=r, end_column=10)
+        r += 1
+    r += 1
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # B3. REQUIRED SPENDING CUT ON FAILING PATHS (P13 phase 1 — additive
+    # diagnostic; does not change the success rate reported above)
+    # ══════════════════════════════════════════════════════════════════════════
+    section_title(ws, r, 'B3.  Required Spending Cut to Rescue Failing Paths', bg=GREEN, span=10); r += 1
+    rc = mc_data.get('required_cut_distribution') or {}
+    n_failing = rc.get('n_failing', 0)
+    if n_failing:
+        rc_rows = [
+            ('Failing Paths Analyzed', n_failing, None),
+            ('Median Required Spending Cut', rc.get('required_cut_median'), FMT_PCT),
+            ('Worst-Decile (P90) Required Spending Cut', rc.get('required_cut_p90'), FMT_PCT),
+            ('Failing Paths With No Feasible Uniform Cut', rc.get('n_infeasible', 0), None),
+        ]
+        for label, val, fmt in rc_rows:
+            dat(r, 1, label, bold=True, bg=LGRAY, align='left')
+            ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=5)
+            dat(r, 6, val if val is not None else 'n/a', fmt=fmt, bold=True)
+            ws.merge_cells(start_row=r, start_column=6, end_row=r, end_column=7)
+            r += 1
+        dat(r, 1, 'The uniform, whole-plan spending cut (taxable/pretax/Roth/cash withdrawals — HSA draws for '
+                  'wellness shocks excluded) that would have kept each failing simulation funded, holding that '
+                  'simulation\'s own sampled returns, inflation and death year fixed. Diagnostic only: does not '
+                  'change the success rate above and is not a recommended policy.', align='left')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
+        r += 1
+    else:
+        dat(r, 1, 'No failing paths in this run — every simulation stayed funded, so there is no required-cut '
+                  'distribution to report.', align='left')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
         r += 1
     r += 1
 

@@ -895,6 +895,16 @@ def parse_client(data, url_template):
                                      'spending_freeze_year','2040'), 2040)
     c['char_low']  = _n(_v(data,'Cashflow','Spending','annual_charitable_giving_low','3000'), 3000)
     c['char_high'] = _n(_v(data,'Cashflow','Spending','annual_charitable_giving_high','5000'), 5000)
+    # Item 4.1 (P3): Qualified Charitable Distributions. Each member's own IRA
+    # can fund QCDs once they're age 70 1/2-eligible; blank start/end years
+    # fall back to that member's own eligibility year / plan_end in the engine.
+    c['qcd_enabled'] = _b(_v(data,'Cashflow','Charitable Giving','qcd_enabled','FALSE') or 'FALSE')
+    c['h_qcd_annual_amount'] = _n(_v(data,'Cashflow','Charitable Giving','h_qcd_annual_amount','0'), 0)
+    c['w_qcd_annual_amount'] = _n(_v(data,'Cashflow','Charitable Giving','w_qcd_annual_amount','0'), 0)
+    c['h_qcd_start_year'] = _n(_v(data,'Cashflow','Charitable Giving','h_qcd_start_year',''), None)
+    c['h_qcd_end_year']   = _n(_v(data,'Cashflow','Charitable Giving','h_qcd_end_year',''), None)
+    c['w_qcd_start_year'] = _n(_v(data,'Cashflow','Charitable Giving','w_qcd_start_year',''), None)
+    c['w_qcd_end_year']   = _n(_v(data,'Cashflow','Charitable Giving','w_qcd_end_year',''), None)
     c['ytd_remainder_spending_override'] = _n(_v(data,'Cashflow','Spending','ytd_remainder_spending_override',''), None)
     c['ytd_blend_enabled'] = _b(_v(data,'Cashflow','Spending','ytd_blend_enabled','TRUE') or 'TRUE')
     c['travel_end_year'] = _y(_v(data,'Cashflow','Spending','travel_end_year',''), 0)
@@ -1620,6 +1630,14 @@ def parse_client(data, url_template):
                                      'irmaa_actual_magi_2yr_prior',''), None)
     c['irmaa_actual_magi_1yr_prior'] = _n(_v(data,'Model Constants','IRMAA',
                                      'irmaa_actual_magi_1yr_prior',''), None)
+    # P12 second half (item 4.5): an approved Form SSA-44 life-changing-event
+    # appeal suppresses the IRMAA *surcharge* (not the base Part B/D/G
+    # premium, which is still owed) for that member from the stated year
+    # onward. Blank/absent parses to None, matching pre-4.5 behavior exactly.
+    c['h_ssa44_relief_year'] = _n(_v(data,'Model Constants','IRMAA',
+                                     'h_ssa44_relief_year',''), None)
+    c['w_ssa44_relief_year'] = _n(_v(data,'Model Constants','IRMAA',
+                                     'w_ssa44_relief_year',''), None)
     c['mc_sigma']          = _n(_v(data,'Model Constants','Monte Carlo',
                                      'mc_portfolio_sigma','0.12'), 0.12)
     c['mc_sims']           = int(os.getenv('RETIREMENT_MC_SIMS') or _n(_v(data,'Model Constants','Monte Carlo',
@@ -1961,6 +1979,9 @@ def parse_client(data, url_template):
     c['daf_use_amount']   = _n(_v(data,'DAF','Settings','annual_grant_amount','0'), 0)
     c['daf_use_start']    = _y(_v(data,'DAF','Settings','grant_start_year','2027'), 2027)
     c['daf_use_end']      = _y(_v(data,'DAF','Settings','grant_end_year','2035'), 2035)
+    # Item 4.2 (P4): cash contributions are AGI-limited at 60%; a contribution
+    # of appreciated securities is limited to 30% instead (IRC 170(b)(1)(C)/(G)).
+    c['daf_contribution_is_appreciated'] = _b(_v(data,'DAF','Settings','contribution_is_appreciated','FALSE'))
 
     # Hybrid Life/LTC parameters
     c['ltc_enabled']      = _b(_v(data,'Hybrid LTC','Settings','enabled','FALSE'))

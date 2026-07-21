@@ -41,8 +41,9 @@ def build_sheet9(ws, c, rows):
              'Social Security begins. Reduce taxable draws. Continue Roth conversions through the configured window.'),
             ('Phase 3: RMD Era (2037+)',
              'RMDs from IRAs drive income. Supplement with SS, annuities, Trust. '
-             'Consider QCDs for charitable giving to reduce AGI — illustrative only; '
-             'QCDs are not reflected in the projection, net worth or Monte Carlo results.'),
+             'Consider QCDs for charitable giving to reduce AGI — QCDs are modeled by the '
+             'projection when configured (Cashflow / Charitable Giving), reducing AGI, IRMAA '
+             'tier, SS taxability and NIIT accordingly.'),
         ]),
         ('INVESTMENT POLICY STATEMENT', [
             ('Return Objective', f'{c["ret"]:.1%} nominal; ~{c["ret"]-c["inf"]:.1%} real'),
@@ -511,12 +512,17 @@ def build_sheet12(ws, c, rows):
         r += 1
 
     r += 1
-    note = ('Illustrative planning guidance only. Neither DAF contributions nor QCDs are modeled by the '
-            'projection engine: the charitable vehicles compared above, and the SALT-cap phases and DAF '
-            'figures below, are computed outside the projection. They are NOT reflected in your projected '
-            'net worth, lifetime taxes, Monte Carlo success probability, or any other result in this '
-            'workbook. Treat them as a starting point for discussion with your tax advisor, not as an '
-            'outcome this plan has modeled.')
+    note = ('QCDs and an actually-configured DAF contribution/grant schedule (Cashflow / Charitable '
+            'Giving and DAF / Settings) ARE modeled by the projection engine: they reduce AGI, and a '
+            'DAF contribution enters the itemized deduction subject to the 60%/30% AGI limitation and '
+            '5-year carryforward, exactly as the engine year in the projection below reflects. The '
+            'vehicle-comparison table above, the SALT-cap phase narrative, and the "DAF Optimization" '
+            'recommended-amount calculator further below are still a separate, illustrative what-if '
+            'planning aid — a suggested amount to consider, not a description of your current plan '
+            'data — and are NOT themselves run through the projection. Treat those specifically as a '
+            'starting point for discussion with your tax advisor, not as an outcome this plan has '
+            'modeled; anything you configure under Cashflow / Charitable Giving or DAF / Settings, by '
+            'contrast, is real projection input.')
     write_cell(ws, r, 1, note, bg='FFF4E5', align='left')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6)
 
@@ -548,10 +554,12 @@ def build_sheet12(ws, c, rows):
     r += 2
     write_hdr(ws, r, 1, 'DAF OPTIMIZATION — Recommended Contribution Amount & Year (illustrative — not modeled)', NAVY, WHITE, span=6); r+=1
 
-    note = ('The "Est. Tax Savings" and contribution figures below are computed on this sheet from a '
-            'single high-income year, not by the projection. A DAF contribution is currently treated by '
-            'the engine as cash leaving the plan with no deduction, so acting on this table would change '
-            'your taxes in ways the projected results do not show.')
+    note = ('The "Est. Tax Savings" and contribution figures below are a separate what-if estimate for a '
+            'single high-income year, not the projection itself. If you act on this by setting an actual '
+            'DAF contribution (DAF / Settings), the engine now does apply a real deduction — subject to '
+            'the 60%/30% AGI limitation and 5-year carryforward — so the projected results will move, '
+            'but not necessarily by the exact figures shown here (this estimate does not model the '
+            'carryforward or interaction with other itemized deductions across years).')
     write_cell(ws, r, 1, note, bg='FFF4E5', align='left')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6)
     r += 2
@@ -874,7 +882,7 @@ def build_sheet13(ws, c, rows):
                 row.get('state_investment', 0),
                 row.get('state_nonqual_ann', 0),
                 row.get('state_roth_conv', 0),
-                row['year'], over_65)
+                row['year'], over_65, brk_inf=c.get('brk_inf', 0.02))
             inc_tax += yr_tax
             # Track how much retirement income is taxed in this state
             if not rules.get('exempt_retirement'):

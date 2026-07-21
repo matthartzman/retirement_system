@@ -204,6 +204,13 @@ def run_deterministic_projection_stage(c):
     cst_funded_total = year_state.cst_funded_total
     cst_balance = year_state.cst_balance
     cap_loss_carryforward = year_state.cap_loss_carryforward
+    # Item 4.2 (P4): unused DAF-contribution deduction (the part of a year's
+    # DAF gift that exceeded that year's AGI% limitation) carries forward for
+    # up to 5 succeeding tax years (IRC 170(b)(1)(G)/(d)(1)). Each entry is
+    # [origin_year, amount_remaining]; consumed oldest-first so the earliest
+    # carryforward expires last among equals but nothing is used out of the
+    # order it was generated.
+    daf_deduction_carryforward: list = []
 
     def _path_factor(path_key, annual_rate, year):
         path = c.get(path_key)
@@ -340,6 +347,7 @@ def run_deterministic_projection_stage(c):
         new_state_tax = state_income_tax(
             c['state'], earned_net, retirement_dist_base + ira_wd_cumulative, ss_taxable,
             investment_inc, nonqual_ann, roth_conv, year, h_over_65, filing=filing,
+            brk_inf=c['brk_inf'],
         )
         delta = (new_fed_tax - fed_tax_base) + (new_state_tax - state_tax_base)
         return delta, new_fed_tax, new_state_tax
@@ -1108,6 +1116,55 @@ def run_deterministic_projection_stage(c):
         # conversion headroom all depend on these income lines.
         rmd_result = _we.compute_rmds(c, bal, year, h_age, w_age, h_alive, w_alive, rmd_divisor)
         rmd_h = rmd_result['h']; rmd_w = rmd_result['w']; rmd_total = rmd_result['total']
+
+        # Item 4.1 (P3): Qualified Charitable Distributions. Modeled as
+        # satisfying up to that year's own RMD (apply_rmds below draws the
+        # full rmd_h/rmd_w from the IRA either way — QCD doesn't change how
+        # much must leave the account), but the QCD portion goes straight to
+        # charity rather than becoming household income: it must be excluded
+        # from AGI (never claimed as a second deduction — see the itemized
+        # charitable component below) *and* from the cash the household has
+        # available to fund spending. rmd_taxable_total (not rmd_total) is
+        # therefore what feeds AGI, ACA MAGI, Roth-conversion headroom, and
+        # income_from_streams below; rmd_h/rmd_w/rmd_total keep reporting the
+        # true gross RMD for compliance/satisfaction purposes.
+        #
+        # Scope simplification (phase 1): a QCD larger than the current
+        # year's RMD, or a QCD taken in the age-70 1/2-to-RMD-start gap (no
+        # RMD due yet), is capped at that year's actual RMD rather than
+        # modeled as an independent extra IRA withdrawal — real but less
+        # common uses of QCD that would require their own account-balance
+        # draw outside the RMD mechanic. h_qcd_yr/w_qcd_yr below report the
+        # amount actually modeled, so a configured amount above the RMD is
+        # visibly capped, not silently accepted.
+        def _qcd_amount_for_member(owner_prefix, dob_yr, dob_month, alive, rmd_amount):
+            if not c.get('qcd_enabled', False) or not alive or rmd_amount <= 0:
+                return 0.0
+            annual = float(c.get(f'{owner_prefix}_qcd_annual_amount', 0.0) or 0.0)
+            if annual <= 0:
+                return 0.0
+            eligible_from = _ar.qcd_eligible_from_year(dob_yr, dob_month)
+            if eligible_from is None:
+                return 0.0
+            start_override = c.get(f'{owner_prefix}_qcd_start_year')
+            start_year = int(start_override) if start_override is not None else eligible_from
+            start_year = max(start_year, eligible_from)
+            if year < start_year:
+                return 0.0
+            end_override = c.get(f'{owner_prefix}_qcd_end_year')
+            if end_override is not None and year > int(end_override):
+                return 0.0
+            limit = _ar.qcd_annual_limit(year, c['brk_inf'])
+            return max(0.0, min(annual, limit, rmd_amount))
+
+        qcd_h_yr = _qcd_amount_for_member('h', c['h_dob_yr'], c.get('h_dob_month'), h_alive, rmd_h)
+        qcd_w_yr = _qcd_amount_for_member('w', c['w_dob_yr'], c.get('w_dob_month'), w_alive, rmd_w)
+        qcd_total_yr = qcd_h_yr + qcd_w_yr
+        rmd_taxable_total = max(0.0, rmd_total - qcd_total_yr)
+        row['h_qcd_yr'] = qcd_h_yr
+        row['w_qcd_yr'] = qcd_w_yr
+        row['qcd_total_yr'] = qcd_total_yr
+
         portfolio_ordinary, portfolio_qualified, portfolio_tax_exempt = _taxable_portfolio_income_for_year()
         # Informational only — taxable dividend/interest income for the year,
         # for AGI/MAGI/NIIT/IRMAA. It no longer funds spending: the money
@@ -1145,7 +1202,7 @@ def run_deterministic_projection_stage(c):
         # The final PTC is recomputed after the actual Roth conversion and
         # Social Security taxable amount are known, so conversion-driven MAGI
         # changes reduce the subsidy before the withdrawal cascade runs.
-        _aca_pre_non_ss = (earned_base - half_se_ded - sehi_ded + rmd_total + pension + wife_single_ann + wife_joint_ann + h_single_ann + h_joint_ann + note_int_yr + portfolio_ordinary + portfolio_qualified)
+        _aca_pre_non_ss = (earned_base - half_se_ded - sehi_ded + rmd_taxable_total + pension + wife_single_ann + wife_joint_ann + h_single_ann + h_joint_ann + note_int_yr + portfolio_ordinary + portfolio_qualified)
         _aca_pre_ss_tax = social_security_taxable_amount(h_ss + w_ss, _aca_pre_non_ss + portfolio_tax_exempt, filing)
         aca_ptc_pre_conversion = aca_premium_tax_credit(c, year=year, magi=_aca_pre_non_ss + _aca_pre_ss_tax + portfolio_tax_exempt, bridge_people=bridge_people)
         aca_ptc_yr = aca_ptc_pre_conversion
@@ -1269,7 +1326,7 @@ def run_deterministic_projection_stage(c):
             _ws_taxable_est = wife_single_ann * c['wife_single'].get('exclusion_ratio', 1.0)
             _hs_taxable_est = h_single_ann * c['h_single'].get('exclusion_ratio', 1.0)
             _ss_total_est = h_ss + w_ss
-            _non_ss_est = (earned_base - half_se_ded - sehi_ded + rmd_total + pension
+            _non_ss_est = (earned_base - half_se_ded - sehi_ded + rmd_taxable_total + pension
                            + _ws_taxable_est + wife_joint_ann + _hs_taxable_est
                            + h_joint_ann + note_int_yr + portfolio_ordinary + portfolio_qualified)
             _ss_taxable_est = social_security_taxable_amount(_ss_total_est, _non_ss_est, filing)
@@ -1281,14 +1338,15 @@ def run_deterministic_projection_stage(c):
                                    if not c[k].get('qualified', True))
             return state_income_tax(
                 c['state'], max(0, earned_base - half_se_ded - sehi_ded),
-                rmd_total + _qual_ann_est, _ss_taxable_est, note_int_yr + portfolio_ordinary + portfolio_qualified,
+                rmd_taxable_total + _qual_ann_est, _ss_taxable_est, note_int_yr + portfolio_ordinary + portfolio_qualified,
                 _nonqual_ann_est, 0.0, _tax_year, h_age >= 65 or w_age >= 65, filing=filing,
+                brk_inf=c['brk_inf'],
             )
 
         conv_plan = _ce.plan_roth_conversion(
             c, bal, year=year, filing=filing, earned_base=earned_base,
             half_se_ded=half_se_ded, sehi_ded=sehi_ded, h_ss=h_ss, w_ss=w_ss,
-            rmd_total=rmd_total, pension=pension, wife_single_ann=wife_single_ann,
+            rmd_total=rmd_taxable_total, pension=pension, wife_single_ann=wife_single_ann,
             wife_joint_ann=wife_joint_ann, h_single_ann=h_single_ann,
             h_joint_ann=h_joint_ann, note_int_yr=note_int_yr, note_princ_yr=note_princ_yr,
             total_spend_need=total_spend_need, spend=spend, h_age=h_age, w_age=w_age,
@@ -1336,7 +1394,7 @@ def run_deterministic_projection_stage(c):
         ws_taxable = wife_single_ann * c['wife_single'].get('exclusion_ratio', 1.0)
         hs_taxable = h_single_ann * c['h_single'].get('exclusion_ratio', 1.0)
         ss_total = h_ss + w_ss
-        non_ss_income = (earned_base - half_se_ded - sehi_ded + rmd_total + roth_conv +
+        non_ss_income = (earned_base - half_se_ded - sehi_ded + rmd_taxable_total + roth_conv +
                          pension + ws_taxable + wife_joint_ann +
                          hs_taxable + h_joint_ann + note_int_yr +
                          portfolio_ordinary + portfolio_qualified +
@@ -1415,7 +1473,62 @@ def run_deterministic_projection_stage(c):
         mort_interest_yr = float((c.get('mort_interest_schedule') or {}).get(year, 0.0) or 0.0)
         salt_gross = il_tax_est + prop_tax_yr
         salt = min(salt_gross, salt_cap(year, agi))
-        char = max(0, c['char_low'] - 0.005*agi)
+        # Item 4.1: QCD dollars already left AGI above (never a deduction);
+        # treat char_low as the household's total giving intent and net the
+        # QCD portion out of the itemizable cash-gift component so the same
+        # dollars aren't counted twice.
+        char = max(0, (c['char_low'] - qcd_total_yr) - 0.005*agi)
+
+        # Item 4.2 (P4): DAF contribution deduction, AGI-limited with a
+        # 5-year carryforward (IRC 170(b)(1)(G)/(d)(1)) — replaces treating
+        # daf_contrib_yr as an unlimited, un-tracked deduction. 60% of AGI
+        # for a cash contribution, 30% for an appreciated-asset contribution
+        # (daf_contribution_is_appreciated); recurring cash giving (char
+        # above) is assumed too small relative to AGI to itself bump against
+        # this limit, so the cap applies only to the DAF-specific dollars.
+        # Expired carryforward entries (older than 5 succeeding tax years)
+        # are dropped, not deducted — a lapsed deduction, not a client error.
+        #
+        # Known limitation shared with every deduction computed at this point
+        # in the year (salt/char/mort_interest_yr are all in the same boat):
+        # `agi` here is the *first-pass* estimate, before the elective-IRA-
+        # withdrawal sizing loop further down runs. For a retiree with no
+        # guaranteed income yet (pre-SS, pre-RMD, living entirely off
+        # discretionary portfolio withdrawals), that first-pass AGI can be
+        # near zero even though their real, final-year AGI (after the engine
+        # sizes the withdrawal actually needed to cover spending) is
+        # substantial — understating the 60%/30% limit and potentially
+        # letting real carryforward capacity lapse unused. char/salt/mortgage
+        # interest absorb this as a one-year approximation error with no
+        # lasting consequence; DAF's carryforward is the one place it can
+        # cost a taxpayer a permanent deduction. Flagged as a follow-up, not
+        # fixed here — the correct fix moves this computation after AGI
+        # converges, which touches the same iterative pass A2/A3 already
+        # treat as high-risk.
+        daf_deduction_carryforward = [
+            entry for entry in daf_deduction_carryforward if entry[0] + 5 >= year
+        ]
+        daf_pool = list(daf_deduction_carryforward)
+        if daf_contrib_yr > 1e-6:
+            daf_pool.append([year, daf_contrib_yr])
+        daf_available_this_year = sum(amt for _yr, amt in daf_pool)
+        daf_agi_limit_pct = 0.30 if c.get('daf_contribution_is_appreciated', False) else 0.60
+        daf_agi_limit = max(0.0, agi) * daf_agi_limit_pct
+        daf_deduction_yr = min(daf_available_this_year, daf_agi_limit)
+        # Consume oldest-origin dollars first (they expire soonest); whatever
+        # of each entry the cap doesn't reach keeps its original origin year.
+        remaining_budget = daf_deduction_yr
+        new_carryforward = []
+        for origin_year, amt in daf_pool:
+            used = min(amt, remaining_budget)
+            remaining_budget -= used
+            leftover = amt - used
+            if leftover > 1e-6:
+                new_carryforward.append([origin_year, leftover])
+        daf_deduction_carryforward = new_carryforward
+        row['daf_deduction_yr'] = daf_deduction_yr
+        row['daf_deduction_carryforward'] = sum(amt for _yr, amt in daf_deduction_carryforward)
+        char += daf_deduction_yr
 
         # Standard vs itemized
         n65 = (1 if h_age >= 65 else 0) + (1 if w_age >= 65 else 0)
@@ -1439,12 +1552,12 @@ def run_deterministic_projection_stage(c):
         nonqual_ann = sum(annuity_cash_income(c[k], year) * c[k].get('exclusion_ratio', 1.0)
                           for k in ['wife_single','h_single']
                           if not c[k].get('qualified', True))
-        retirement_dist = rmd_total + qual_ann  # pension already included in qual_ann if qualified
+        retirement_dist = rmd_taxable_total + qual_ann  # pension already included in qual_ann if qualified
         earned_net = max(0, earned_base - half_se_ded - sehi_ded)
         h_over_65 = h_age >= 65 or w_age >= 65
         state_tax = state_income_tax(c['state'], earned_net, retirement_dist,
                                      ss_taxable, note_int_yr + portfolio_ordinary + portfolio_qualified, nonqual_ann,
-                                     roth_conv, year, h_over_65, filing=filing)
+                                     roth_conv, year, h_over_65, filing=filing, brk_inf=c['brk_inf'])
 
         # NIIT placeholder — computed after trust draws where ltcg_gain is available
         niit = 0.0
@@ -1456,6 +1569,18 @@ def run_deterministic_projection_stage(c):
         # is prorated in the transition year with the same fraction used for
         # Part B/D/G premiums above (medicare_fraction_people).
         n_medicare = medicare_fraction_people
+        # P12 second half (item 4.5): an approved Form SSA-44 life-changing-event
+        # appeal suppresses the IRMAA *surcharge* only (the base Part B/D/G
+        # premiums above are still owed) for that member from the stated year
+        # onward. Modeled per-member since one spouse's appeal doesn't excuse
+        # the other's surcharge.
+        h_ssa44_relief_yr = c.get('h_ssa44_relief_year')
+        w_ssa44_relief_yr = c.get('w_ssa44_relief_year')
+        h_ssa44_active = h_ssa44_relief_yr is not None and year >= int(h_ssa44_relief_yr)
+        w_ssa44_active = w_ssa44_relief_yr is not None and year >= int(w_ssa44_relief_yr)
+        if h_ssa44_active or w_ssa44_active:
+            n_medicare = (0.0 if h_ssa44_active else h_medicare_frac) + (0.0 if w_ssa44_active else w_medicare_frac)
+        row['irmaa_ssa44_relief_active'] = h_ssa44_active or w_ssa44_active
         # Seed plan years 1-2 (no projected AGI row exists yet for their
         # lookback target year) with the household's actual historical MAGI
         # when provided (item 2.6), instead of always falling back to this
@@ -1504,7 +1629,7 @@ def run_deterministic_projection_stage(c):
         # ── Spending gap and withdrawal cascade ───────────────────────────────
         income_from_streams = (h_ss + w_ss + pension + wife_single_ann +
                                wife_joint_ann + h_single_ann + h_joint_ann +
-                               note_princ_yr + note_int_yr + rmd_total + earned_base +
+                               note_princ_yr + note_int_yr + rmd_taxable_total + earned_base +
                                _equity_events['cash_proceeds'] + _di_cash)
         other_cash_need_yr = float(row.get('other_cash_need_yr', 0.0) or 0.0)
         row['income_funding'] = income_from_streams

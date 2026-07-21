@@ -320,6 +320,7 @@ def estimate_terminal_taxable_deferred_cap_gain_tax(c: Mapping[str, Any], termin
             year=year,
             age_over_65=age_over_65,
             filing=filing,
+            brk_inf=float(c.get("brk_inf", 0.02) or 0.02),
         )
 
     total_tax = max(0.0, federal_ltcg_tax + niit + state_tax)
