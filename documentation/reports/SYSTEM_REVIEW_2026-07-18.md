@@ -18,6 +18,13 @@ modules, individually and in combination — see `tests/test_192_all_modules_off
 14 (the frozen sample-plan gate — see `tests/test_199_frozen_sample_plan_golden_master.py`) are both closed.
 See §9.4 and §10.6 for what changed.
 
+**Wave 3: 16 of 17 complete.** 3.1-3.16 shipped; 3.17 (member-indexed accessors over gendered row keys) was
+deferred per §10.3's planner recommendation rather than implemented. Every item was verified against a real
+`tools/build_workbook.py` build (cell-for-cell identical output before/after for the refactors) rather than
+unit tests alone where the item touched the build pipeline. See individual commit messages for each item's
+verification detail; several items (3.1, 3.3, 3.9/3.10, 3.12) needed real fixes beyond what the finding's
+evidence anticipated, discovered only by exercising the actual running app/build rather than reading code.
+
 **How to read it:** Section 2 preserves every option each expert considered, including the ones I did not
 recommend. If you disagree with a recommendation, the alternative and its tradeoff are sitting next to it.
 Section 4 is the single plan I am proposing; Section 6 is how to execute it.
@@ -1811,7 +1818,7 @@ merely looks redundant.
 |---|---|---|
 | **1** | 12 items + **192** + **1.7c** | **All complete** (1.1-1.12, with 1.7 split into 1.7a/1.7b/1.7c; 192 done). See §10.6. |
 | **2** | 2.1-2.6 (2.6 = P12 historical-MAGI seed, added by the §8 sign-off) | 2.2 now also gates 195; see §10 for planner-recommended intra-wave ordering |
-| **3** | 3.1-3.17 unchanged | unchanged; 3.11, 3.2, 3.3 now gate Wave 3.5 |
+| **3** | 3.1-3.17 unchanged | **All complete except 3.17** (deferred per §10.3's planner recommendation - additive accessor layer over gendered row keys, not adopted by anything, risks becoming a fourth competing frontend/backend convention per A13). 3.11, 3.2, 3.3 gated Wave 3.5 as planned. |
 | **3.5** *(new)* | Module reframing §7.1-7.5 + the IA batch (191, 194, 195, 196, 197) + 193 | new wave |
 | **4** | 4.1-4.10 unchanged | new modules should be authored against the reframed registry, not retrofitted |
 
