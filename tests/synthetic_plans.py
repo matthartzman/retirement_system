@@ -63,6 +63,15 @@ def _accounts() -> list[dict[str, Any]]:
     ``rollover_401k_yr``; if that member has no IRA the rollover destination
     falls back to the 401(k) itself and the balance is zeroed. Modelling a
     realistic 401(k)+IRA pair keeps the rollover a true transfer.
+
+    Member 2 holds a small Roth IRA of her own (in addition to her traditional
+    IRA) so that a matching survivor destination exists in
+    ``early_survivor_compression``: without it, ``apply_death_transition``
+    strands Member 1's Roth in place (no same-type, same-tax, or taxable
+    account to roll into on owner_idx 1), ``roth_target_for_owner`` returns
+    None for the survivor, and every post-death year is forced to convert $0
+    regardless of bracket room — silently disabling the scenario's ability to
+    exercise post-death voluntary Roth conversions.
     """
     return [
         {"id": "Member_1_401k", "acct_type": "401k", "owner_idx": 0,
@@ -71,6 +80,8 @@ def _accounts() -> list[dict[str, Any]]:
          "balance": 700_000.0, "label": "Alex's Traditional IRA"},
         {"id": "Member_2_IRA", "acct_type": "traditional_ira", "owner_idx": 1,
          "balance": 750_000.0, "label": "Blair's Traditional IRA"},
+        {"id": "Member_2_Roth", "acct_type": "roth_ira", "owner_idx": 1,
+         "balance": 150_000.0, "label": "Blair's Roth IRA"},
         {"id": "Member_1_Roth", "acct_type": "roth_ira", "owner_idx": 0,
          "balance": 210_000.0, "label": "Alex's Roth IRA"},
         {"id": "Joint_Trust", "acct_type": "trust", "owner_idx": 0,
@@ -143,7 +154,7 @@ def _single_filer_plan() -> Dict[str, Any]:
     plan = base_plan()
     plan["members"] = [plan["members"][0]]
     plan["filing_status"] = "Single"
-    plan["accounts"] = [a for a in _accounts() if a["id"] != "Member_2_IRA"]
+    plan["accounts"] = [a for a in _accounts() if a["owner_idx"] != 1]
     plan["income"] = {
         "earned_income": 140_000.0,
         "income_growth": 0.03,
