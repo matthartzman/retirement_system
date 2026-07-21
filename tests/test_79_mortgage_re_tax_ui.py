@@ -21,11 +21,22 @@ def test_mortgage_re_tax_ui_and_reporting_labels_are_present():
 
 
 def test_server_backfills_real_estate_tax_input_row():
-    app_core = (ROOT / 'src/server/app_core.py').read_text(encoding='utf-8')
-    assert 'MORTGAGE_RE_TAX_UI_PLAN_DATA_ROWS' in app_core
-    assert 'annual_real_estate_taxes' in app_core
-    assert 'real_estate_tax_annual_adjustment_pct' in app_core
-    assert 'insert_after=("Cashflow", "Mortgage")' in app_core
+    app_core_src = (ROOT / 'src/server/app_core.py').read_text(encoding='utf-8')
+    assert 'MORTGAGE_RE_TAX_UI_PLAN_DATA_ROWS' in app_core_src
+    assert 'annual_real_estate_taxes' in app_core_src
+    assert 'real_estate_tax_annual_adjustment_pct' in app_core_src
+
+    # A7 (Wave 3 item 3.12): backfilling is now the declarative
+    # PLAN_DATA_BACKFILL_ENTRIES table over src/plan_data_backfill.py's
+    # batched engine, not a per-row _ensure_row_in_csv(insert_after=...) call
+    # - assert this row set is wired in with its original anchor (insert
+    # after the last existing Cashflow/Mortgage row).
+    import src.server.app_core as app_core
+    entry = next(e for e in app_core.PLAN_DATA_BACKFILL_ENTRIES if e.rows is app_core.MORTGAGE_RE_TAX_UI_PLAN_DATA_ROWS)
+    assert entry.file_name == "client_spending.csv"
+    rows = [["section", "subsection", "label", "value", "units", "notes"],
+            ["Cashflow", "Mortgage", "existing", "v", "", ""]]
+    assert entry.anchor(rows) == 2  # after the one existing Cashflow/Mortgage row
 
 
 def test_engine_uses_dedicated_real_estate_tax_adjustment_rate():

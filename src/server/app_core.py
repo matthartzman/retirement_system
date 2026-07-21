@@ -142,6 +142,11 @@ except ImportError:
     from src import allocation_policy as allocation_policy_mod
 
 try:
+    from .. import plan_data_backfill
+except ImportError:
+    from src import plan_data_backfill
+
+try:
     from .. import platform_runtime
 except ImportError:  # direct execution fallback
     from src import platform_runtime
@@ -758,27 +763,6 @@ ALLOCATION_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Asset Class Assumptions", "Global", "capital_market_assumption_preset", "BASELINE", "choice", "CONSERVATIVE, BASELINE, or AGGRESSIVE. Shifts return/volatility assumptions before per-asset overrides."],
 ]
 
-def _ensure_allocation_ui_plan_data_rows() -> None:
-    """Materialize the current-schema allocation mode row used by the User UI.
-
-    Clean-forward package note: this creates only the canonical current row; it
-    does not read or translate retired scenario aliases.
-    """
-    policy_path = _plan_data_path("client_policy.csv", prefer_existing=False)
-    rows = _ensure_header(_csv_read_rows(policy_path))
-    seen = {_row_key(r) for r in rows[1:]}
-    additions = [list(row) for row in ALLOCATION_UI_PLAN_DATA_ROWS if _row_key(row) not in seen]
-    if not additions:
-        return
-    insert_at = len(rows)
-    for i, row in enumerate(rows[1:], start=1):
-        sec = str(row[0] if row else "").strip()
-        if sec in {"Asset Class Optimizer Controls", "Withdrawal Policy", "Model Constants", "Forced Actions", "Scenarios"}:
-            insert_at = i
-            break
-    rows[insert_at:insert_at] = additions
-    _csv_write_rows(policy_path, rows)
-
 CORE_SPENDING_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Cashflow", "Spending", "core_spending_growth_mode", "cpi", "choice", "cpi | manual_override; Choose whether core spending increases with general CPI or a manual spending-specific rate."],
     ["Cashflow", "Spending", "core_spending_manual_growth_rate", "0.00%", "percent", "Annual core-spending increase used only when core_spending_growth_mode is manual_override."],
@@ -789,45 +773,115 @@ MORTGAGE_RE_TAX_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Cashflow", "Mortgage", "real_estate_tax_annual_adjustment_pct", "2.50%", "percent", "Annual percentage adjustment applied to real-estate/property taxes in the cash-flow forecast."],
 ]
 
-def _ensure_row_in_csv(file_name: str, canonical_row: list[str], *, insert_after: tuple[str, str] | None = None) -> bool:
-    """Ensure a canonical Plan Data row exists in the forward schema.
+TLH_UI_PLAN_DATA_ROWS: list[list[str]] = [
+    ["Withdrawal Policy", "Tax-Loss Harvesting", "tlh_policy", "off", "choice",
+     "off | analyze_only | apply. off ignores tax-loss harvesting. analyze_only surfaces opportunities on the Tax-Loss Harvesting sheet without changing the projection. apply harvests qualifying loss lots each year inside the projection so terminal net worth and lifetime tax reflect the strategy."],
+    ["Withdrawal Policy", "Tax-Loss Harvesting", "tlh_min_loss_dollars", "$500", "USD",
+     "Minimum dollar loss on a lot before it is worth harvesting (avoids trivial trades)."],
+    ["Withdrawal Policy", "Tax-Loss Harvesting", "tlh_min_loss_pct", "5.00%", "percent",
+     "Minimum loss as a percentage of the lot's cost basis before harvesting (avoids near-breakeven lots)."],
+    ["Withdrawal Policy", "Tax-Loss Harvesting", "tlh_annual_ceiling", "$0", "USD",
+     "Maximum harvested loss per year (0 = unlimited)."],
+    ["Withdrawal Policy", "Tax-Loss Harvesting", "tlh_transaction_cost_bps", "2", "number",
+     "Round-trip trading cost, in basis points (hundredths of a percent) of harvested market value — not a dollar amount. 2 bps = 0.02%; 100 bps = 1%. A typical low-cost brokerage trade is 0-5 bps."],
+    ["Withdrawal Policy", "Tax-Loss Harvesting", "tlh_fraction_sold_before_death", "50.00%", "percent",
+     "Fraction of the lower-basis replacement expected to be sold (and its larger gain taxed) before basis step-up at death. Lower values make harvesting more permanently valuable."],
+]
 
-    This is not a previous-name alias. It creates the current-schema rows needed by
-    the User UI after a user imports an older-but-valid Plan Data folder.
-    """
-    path = _plan_data_path(file_name, prefer_existing=False)
-    rows = _ensure_header(_csv_read_rows(path))
-    key = _row_key(canonical_row)
-    if key in {_row_key(r) for r in rows[1:]}:
-        return False
-    insert_at = len(rows)
-    if insert_after:
-        want_sec, want_sub = insert_after
-        for i, row in enumerate(rows[1:], start=1):
-            sec = str(row[0] if row else "").strip()
-            sub = str(row[1] if len(row) > 1 else "").strip()
-            if sec == want_sec and sub == want_sub:
-                insert_at = i + 1
-    rows[insert_at:insert_at] = [list(canonical_row)]
-    _csv_write_rows(path, rows)
-    return True
-
-
-def _ensure_core_spending_ui_plan_data_rows() -> None:
-    for row in CORE_SPENDING_UI_PLAN_DATA_ROWS:
-        _ensure_row_in_csv("client_spending.csv", list(row), insert_after=("Cashflow", "Spending"))
-    for row in MORTGAGE_RE_TAX_UI_PLAN_DATA_ROWS:
-        _ensure_row_in_csv("client_spending.csv", list(row), insert_after=("Cashflow", "Mortgage"))
-    _ensure_row_in_csv(
+# A7: PLAN_DATA_BACKFILL_ENTRIES replaces twelve near-identical
+# _ensure_*_ui_plan_data_rows functions (each: read a CSV, compute missing
+# canonical rows, find an insertion point, splice, write back) with one
+# declarative table over plan_data_backfill.apply_backfill's batched engine.
+# Order matches the original _ensure_user_ui_plan_data_rows call sequence,
+# since entries sharing a file are applied in list order against the same
+# growing in-memory rows (see apply_backfill's docstring) - reordering this
+# list can change which anchor a later same-file entry sees.
+PLAN_DATA_BACKFILL_ENTRIES: list[plan_data_backfill.BackfillEntry] = [
+    plan_data_backfill.BackfillEntry(
+        "client_policy.csv", ALLOCATION_UI_PLAN_DATA_ROWS,
+        plan_data_backfill.insert_before(plan_data_backfill.section_is(
+            "Asset Class Optimizer Controls", "Withdrawal Policy", "Model Constants", "Forced Actions", "Scenarios")),
+    ),
+    plan_data_backfill.BackfillEntry(
+        "client_policy.csv", MONTE_CARLO_UI_PLAN_DATA_ROWS,
+        plan_data_backfill.insert_before(lambda row: (
+            (str(row[0] if row else "").strip() == "Model Constants"
+             and str(row[1] if len(row) > 1 else "").strip() in {"Roth Conversion", "IRMAA"})
+            or str(row[0] if row else "").strip() in {"Withdrawal Policy", "Forced Actions", "Scenarios"}
+        )),
+    ),
+    plan_data_backfill.BackfillEntry(
+        "client_policy.csv", ROTH_UI_PLAN_DATA_ROWS,
+        plan_data_backfill.insert_before(plan_data_backfill.section_is("Forced Actions", "Scenarios")),
+    ),
+    plan_data_backfill.BackfillEntry(
+        "client_assets.csv", HSA_WITHDRAWAL_UI_PLAN_DATA_ROWS,
+        plan_data_backfill.insert_before(plan_data_backfill.section_is(
+            "Education Funding", "Equity Compensation", "Note Receivable", "Hybrid LTC")),
+    ),
+    plan_data_backfill.BackfillEntry(
+        "client_income.csv", SOCIAL_SECURITY_FUNDING_UI_PLAN_DATA_ROWS,
+        plan_data_backfill.insert_before(plan_data_backfill.section_is("Income Streams")),
+    ),
+    plan_data_backfill.BackfillEntry(
+        "client_household.csv", SS_FRA_AGE_UI_PLAN_DATA_ROWS,
+        plan_data_backfill.insert_before(lambda row: (
+            str(row[0] if row else "").strip() == "Social Security"
+            and str(row[2] if len(row) > 2 else "").strip() == "spousal_benefits_enabled"
+        )),
+    ),
+    plan_data_backfill.BackfillEntry(
+        "client_household.csv", HEALTHCARE_UI_PLAN_DATA_ROWS,
+        plan_data_backfill.insert_before(plan_data_backfill.section_subsection_is("Wellness", "Out-of-Pocket")),
+    ),
+    plan_data_backfill.BackfillEntry(
+        "client_policy.csv", HELOC_UI_PLAN_DATA_ROWS,
+        plan_data_backfill.insert_before(plan_data_backfill.section_is("Withdrawal Policy", "Model Constants", "Scenarios")),
+    ),
+    plan_data_backfill.BackfillEntry(
+        "client_spending.csv", CORE_SPENDING_UI_PLAN_DATA_ROWS,
+        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Cashflow", "Spending")),
+    ),
+    plan_data_backfill.BackfillEntry(
+        "client_spending.csv", MORTGAGE_RE_TAX_UI_PLAN_DATA_ROWS,
+        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Cashflow", "Mortgage")),
+    ),
+    plan_data_backfill.BackfillEntry(
         "client_household.csv",
-        ["Economic Assumptions", "", "inflation_general", "2.50%", "pct", "General CPI inflation used when core_spending_growth_mode is cpi."],
-        insert_after=("Economic Assumptions", ""),
-    )
-    _ensure_row_in_csv(
+        [["Economic Assumptions", "", "inflation_general", "2.50%", "pct", "General CPI inflation used when core_spending_growth_mode is cpi."]],
+        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Economic Assumptions", "")),
+    ),
+    plan_data_backfill.BackfillEntry(
         "client_policy.csv",
-        ["Model Constants", "Retirement", "spending_freeze_year", "2040", "year", "Year after which core spending stops increasing; grouped with Spending / Core spending in the User UI."],
-        insert_after=("Model Constants", "Retirement"),
-    )
+        [["Model Constants", "Retirement", "spending_freeze_year", "2040", "year", "Year after which core spending stops increasing; grouped with Spending / Core spending in the User UI."]],
+        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Model Constants", "Retirement")),
+    ),
+    plan_data_backfill.BackfillEntry(
+        "client_household.csv",
+        [["Economic Assumptions", "", "reinvest_dividends_default", "NO", "yes/no",
+          "Global switch: reinvest every investment account's dividends/interest into the same holding instead of letting them convert to cash inside the account. When YES, this applies to every investment account and the per-account overrides below are ignored."]],
+        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Economic Assumptions", "")),
+    ),
+    plan_data_backfill.BackfillEntry(
+        "client_household.csv",
+        [["Economic Assumptions", "", "cash_yield_rate", "2.00%", "pct",
+          "Growth rate applied to dividends/interest that convert to cash inside an account (Reinvest Dividends = NO) instead of compounding with the rest of the holding."]],
+        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Economic Assumptions", "")),
+    ),
+    plan_data_backfill.BackfillEntry(
+        "client_policy.csv",
+        lambda target_dir: [
+            ["Account Policy", acct, "reinvest_dividends", "", "yes/no",
+             "Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES."]
+            for acct in _investment_account_ids_from_holdings(target_dir)
+        ],
+        plan_data_backfill.insert_before(plan_data_backfill.section_is("HELOC")),
+    ),
+    plan_data_backfill.BackfillEntry(
+        "client_policy.csv", TLH_UI_PLAN_DATA_ROWS,
+        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Withdrawal Policy", "Identity")),
+    ),
+]
 
 
 def _ensure_user_ui_plan_data_rows() -> None:
@@ -838,164 +892,15 @@ def _ensure_user_ui_plan_data_rows() -> None:
     the imported folder predates that control. This function writes canonical
     current-schema rows only; it does not read previous-name aliases.
 
-    Skip entirely under pytest/unittest: this backfill writes real files under
-    _plan_data_path()'s workspace, which for the default "local" workspace
-    resolves to the real, live input/ directory - not an isolated test copy. No
-    test currently exercises this function's write side effects directly (they
-    all mock around it), so skipping is a pure no-op for the suite.
+    A7: delegates to plan_data_backfill.apply_backfill against this process's
+    real Plan Data directory (CSV_PATH.parent - the same directory every
+    _plan_data_path(name, prefer_existing=False) call below used to resolve
+    to for these files). No pytest guard: the engine only ever touches
+    target_dir/file_name, so a test passing a tmp_path never reaches the live
+    input/ directory - the guard existed only because the old per-function
+    implementation resolved that path itself.
     """
-    if 'pytest' in sys.modules or 'unittest' in sys.modules:
-        return
-    _ensure_allocation_ui_plan_data_rows()
-    _ensure_monte_carlo_ui_plan_data_rows()
-    _ensure_roth_ui_plan_data_rows()
-    _ensure_hsa_withdrawal_ui_plan_data_rows()
-    _ensure_social_security_funding_ui_plan_data_rows()
-    _ensure_ss_fra_age_ui_plan_data_rows()
-    _ensure_wellness_ui_plan_data_rows()
-    _ensure_heloc_ui_plan_data_rows()
-    _ensure_core_spending_ui_plan_data_rows()
-    _ensure_dividend_reinvestment_ui_plan_data_rows()
-    _ensure_tlh_ui_plan_data_rows()
-
-
-def _ensure_hsa_withdrawal_ui_plan_data_rows() -> None:
-    policy_path = _plan_data_path("client_assets.csv", prefer_existing=False)
-    rows = _ensure_header(_csv_read_rows(policy_path))
-    seen = {_row_key(r) for r in rows[1:]}
-    additions = [list(row) for row in HSA_WITHDRAWAL_UI_PLAN_DATA_ROWS if _row_key(row) not in seen]
-    if not additions:
-        return
-    insert_at = len(rows)
-    for i, row in enumerate(rows[1:], start=1):
-        sec = str(row[0] if row else "").strip()
-        if sec in {"Education Funding", "Equity Compensation", "Note Receivable", "Hybrid LTC"}:
-            insert_at = i
-            break
-    rows[insert_at:insert_at] = additions
-    _csv_write_rows(policy_path, rows)
-
-def _ensure_social_security_funding_ui_plan_data_rows() -> None:
-    income_path = _plan_data_path("client_income.csv", prefer_existing=False)
-    rows = _ensure_header(_csv_read_rows(income_path))
-    seen = {_row_key(r) for r in rows[1:]}
-    additions = [list(row) for row in SOCIAL_SECURITY_FUNDING_UI_PLAN_DATA_ROWS if _row_key(row) not in seen]
-    if not additions:
-        return
-    insert_at = len(rows)
-    for i, row in enumerate(rows[1:], start=1):
-        if str(row[0] if row else "").strip() == "Income Streams":
-            insert_at = i
-            break
-    rows[insert_at:insert_at] = additions
-    _csv_write_rows(income_path, rows)
-
-
-def _ensure_ss_fra_age_ui_plan_data_rows() -> None:
-    """Backfill FRA Age override rows into client_household.csv for existing plans."""
-    household_path = _plan_data_path("client_household.csv", prefer_existing=False)
-    rows = _ensure_header(_csv_read_rows(household_path))
-    seen = {_row_key(r) for r in rows[1:]}
-    additions = [list(row) for row in SS_FRA_AGE_UI_PLAN_DATA_ROWS if _row_key(row) not in seen]
-    if not additions:
-        return
-    insert_at = len(rows)
-    for i, row in enumerate(rows[1:], start=1):
-        sec = str(row[0] if row else "").strip()
-        lbl = str(row[2] if len(row) > 2 else "").strip()
-        if sec == "Social Security" and lbl == "spousal_benefits_enabled":
-            insert_at = i
-            break
-    rows[insert_at:insert_at] = additions
-    _csv_write_rows(household_path, rows)
-
-
-def _ensure_wellness_ui_plan_data_rows() -> None:
-    household_path = _plan_data_path("client_household.csv", prefer_existing=False)
-    rows = _ensure_header(_csv_read_rows(household_path))
-    seen = {_row_key(r) for r in rows[1:]}
-    additions = [list(row) for row in HEALTHCARE_UI_PLAN_DATA_ROWS if _row_key(row) not in seen]
-    if not additions:
-        return
-    insert_at = len(rows)
-    for i, row in enumerate(rows[1:], start=1):
-        if str(row[0] if row else "").strip() == "Wellness" and str(row[1] if len(row) > 1 else "").strip() == "Out-of-Pocket":
-            insert_at = i
-            break
-    rows[insert_at:insert_at] = additions
-    _csv_write_rows(household_path, rows)
-
-
-def _ensure_heloc_ui_plan_data_rows() -> None:
-    """Backfill HELOC strategy rows into client_policy.csv for existing plans."""
-    policy_path = _plan_data_path("client_policy.csv", prefer_existing=False)
-    rows = _ensure_header(_csv_read_rows(policy_path))
-    seen = {_row_key(r) for r in rows[1:]}
-    additions = [list(row) for row in HELOC_UI_PLAN_DATA_ROWS if _row_key(row) not in seen]
-    if not additions:
-        return
-    # Insert before Withdrawal Policy or at end
-    insert_at = len(rows)
-    for i, row in enumerate(rows[1:], start=1):
-        sec = str(row[0] if row else "").strip()
-        if sec in {"Withdrawal Policy", "Model Constants", "Scenarios"}:
-            insert_at = i
-            break
-    rows[insert_at:insert_at] = additions
-    _csv_write_rows(policy_path, rows)
-
-
-def _ensure_monte_carlo_ui_plan_data_rows() -> None:
-    """Backfill the User UI Monte Carlo engine toggle into Plan Data.
-
-    Older Plan Data folders often rely on the schema/default value for
-    mc_engine_mode. The engine can run that default, but the User UI has no
-    editable row to render, so the Simple vs Complex toggle appears missing.
-    Add only the missing row and never overwrite an existing user choice.
-    """
-    policy_path = _plan_data_path("client_policy.csv", prefer_existing=False)
-    rows = _ensure_header(_csv_read_rows(policy_path))
-    seen = {_row_key(r) for r in rows[1:]}
-    additions = [list(row) for row in MONTE_CARLO_UI_PLAN_DATA_ROWS if _row_key(row) not in seen]
-    if not additions:
-        return
-    insert_at = len(rows)
-    for i, row in enumerate(rows[1:], start=1):
-        sec = str(row[0] if row else "").strip()
-        sub = str(row[1] if len(row) > 1 else "").strip()
-        if (sec == "Model Constants" and sub in {"Roth Conversion", "IRMAA"}) or sec in {"Withdrawal Policy", "Forced Actions", "Scenarios"}:
-            insert_at = i
-            break
-    rows[insert_at:insert_at] = additions
-    _csv_write_rows(policy_path, rows)
-
-
-def _ensure_roth_ui_plan_data_rows() -> None:
-    """Backfill Roth conversion UI controls into older or blank Plan Data.
-
-    The secure package intentionally excludes the input folder, and many existing
-    older Plan Data folders may predate the latest Roth controls. Without
-    these rows, the User UI can only show the forced conversion row. This routine
-    creates missing CSV-backed controls without overwriting existing values.
-    """
-    policy_path = _plan_data_path("client_policy.csv", prefer_existing=False)
-    rows = _ensure_header(_csv_read_rows(policy_path))
-    seen = {_row_key(r) for r in rows[1:]}
-    additions = [list(row) for row in ROTH_UI_PLAN_DATA_ROWS if _row_key(row) not in seen]
-    if not additions:
-        return
-
-    # Keep Roth controls near the rest of client policy instead of appending them
-    # after scenarios when possible. Insert before the first forced-action or
-    # scenario row; otherwise append at the end.
-    insert_at = len(rows)
-    for i, row in enumerate(rows[1:], start=1):
-        sec = str(row[0] if row else "").strip()
-        if sec in {"Forced Actions", "Scenarios"}:
-            insert_at = i
-            break
-    rows[insert_at:insert_at] = additions
-    _csv_write_rows(policy_path, rows)
+    plan_data_backfill.apply_backfill(CSV_PATH.parent, PLAN_DATA_BACKFILL_ENTRIES)
 
 
 
@@ -1412,12 +1317,19 @@ def _pre_tax_account_options_from_holdings() -> list[str]:
     return sorted(accounts)
 
 
-def _investment_account_ids_from_holdings() -> list[str]:
+def _investment_account_ids_from_holdings(holdings_dir: Path | None = None) -> list[str]:
     """Return every investment account id that carries dividend/interest yield
     assumptions: taxable/Trust, IRA, 401k, Roth, and HSA (mirrors invest_ids
     in src/core.py — everything except checking/cash and 529 accounts, which
-    aren't retirement/brokerage holdings)."""
-    path = _plan_data_path("client_holdings.csv", prefer_existing=False)
+    aren't retirement/brokerage holdings).
+
+    ``holdings_dir``: read client_holdings.csv from this directory instead of
+    resolving it via _plan_data_path (A7 - lets the dividend-reinvestment
+    backfill entry read from the same target_dir it writes into, rather than
+    a second, independently-resolved path). Defaults to the live workspace
+    for any other caller.
+    """
+    path = (holdings_dir / "client_holdings.csv") if holdings_dir is not None else _plan_data_path("client_holdings.csv", prefer_existing=False)
     accounts = set()
     excluded_tokens = ("_checking", "_529")
     if path.exists():
@@ -1432,65 +1344,6 @@ def _investment_account_ids_from_holdings() -> list[str]:
                 accounts.add(acct)
     return sorted(accounts)
 
-
-def _ensure_dividend_reinvestment_ui_plan_data_rows() -> None:
-    """Backfill a reinvest_dividends override row for every current investment
-    account (Trust, IRA, 401k, Roth, HSA) so the Dividend Reinvestment UI
-    group always lists every account, not just ones an earlier plan import
-    happened to include."""
-    _ensure_row_in_csv(
-        "client_household.csv",
-        ["Economic Assumptions", "", "reinvest_dividends_default", "NO", "yes/no",
-         "Global switch: reinvest every investment account's dividends/interest into the same holding instead of letting them convert to cash inside the account. When YES, this applies to every investment account and the per-account overrides below are ignored."],
-        insert_after=("Economic Assumptions", ""),
-    )
-    _ensure_row_in_csv(
-        "client_household.csv",
-        ["Economic Assumptions", "", "cash_yield_rate", "2.00%", "pct",
-         "Growth rate applied to dividends/interest that convert to cash inside an account (Reinvest Dividends = NO) instead of compounding with the rest of the holding."],
-        insert_after=("Economic Assumptions", ""),
-    )
-    policy_path = _plan_data_path("client_policy.csv", prefer_existing=False)
-    rows = _ensure_header(_csv_read_rows(policy_path))
-    seen = {_row_key(r) for r in rows[1:]}
-    additions = []
-    for acct in _investment_account_ids_from_holdings():
-        row = ["Account Policy", acct, "reinvest_dividends", "", "yes/no",
-               "Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES."]
-        if _row_key(row) not in seen:
-            additions.append(row)
-    if not additions:
-        return
-    insert_at = len(rows)
-    for i, row in enumerate(rows[1:], start=1):
-        if str(row[0] if row else "").strip() == "HELOC":
-            insert_at = i
-            break
-    rows[insert_at:insert_at] = additions
-    _csv_write_rows(policy_path, rows)
-
-
-TLH_UI_PLAN_DATA_ROWS: list[list[str]] = [
-    ["Withdrawal Policy", "Tax-Loss Harvesting", "tlh_policy", "off", "choice",
-     "off | analyze_only | apply. off ignores tax-loss harvesting. analyze_only surfaces opportunities on the Tax-Loss Harvesting sheet without changing the projection. apply harvests qualifying loss lots each year inside the projection so terminal net worth and lifetime tax reflect the strategy."],
-    ["Withdrawal Policy", "Tax-Loss Harvesting", "tlh_min_loss_dollars", "$500", "USD",
-     "Minimum dollar loss on a lot before it is worth harvesting (avoids trivial trades)."],
-    ["Withdrawal Policy", "Tax-Loss Harvesting", "tlh_min_loss_pct", "5.00%", "percent",
-     "Minimum loss as a percentage of the lot's cost basis before harvesting (avoids near-breakeven lots)."],
-    ["Withdrawal Policy", "Tax-Loss Harvesting", "tlh_annual_ceiling", "$0", "USD",
-     "Maximum harvested loss per year (0 = unlimited)."],
-    ["Withdrawal Policy", "Tax-Loss Harvesting", "tlh_transaction_cost_bps", "2", "number",
-     "Round-trip trading cost, in basis points (hundredths of a percent) of harvested market value — not a dollar amount. 2 bps = 0.02%; 100 bps = 1%. A typical low-cost brokerage trade is 0-5 bps."],
-    ["Withdrawal Policy", "Tax-Loss Harvesting", "tlh_fraction_sold_before_death", "50.00%", "percent",
-     "Fraction of the lower-basis replacement expected to be sold (and its larger gain taxed) before basis step-up at death. Lower values make harvesting more permanently valuable."],
-]
-
-
-def _ensure_tlh_ui_plan_data_rows() -> None:
-    """Backfill tax-loss-harvesting policy rows so the guided UI step and the
-    projection see them even when an imported plan predates the feature."""
-    for row in TLH_UI_PLAN_DATA_ROWS:
-        _ensure_row_in_csv("client_policy.csv", list(row), insert_after=("Withdrawal Policy", "Identity"))
 
 
 def _forced_roth_conversions_from_csv_rows(rows: list[list[str]]) -> list[dict]:
