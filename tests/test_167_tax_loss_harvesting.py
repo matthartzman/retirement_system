@@ -27,6 +27,19 @@ def sample_config(tlh_policy='off'):
     return c
 
 
+def baseline_config_without_tlh_overrides():
+    """Same live plan setup as sample_config(), but never touches any
+    tlh_* field -- relies purely on parse_client's CSV-default ('off').
+    Used as the no-op reference so the pure-no-op test doesn't need a
+    hardcoded dollar pin (see test_tlh_off_is_a_pure_no_op)."""
+    data = load_csv(ROOT / 'input' / 'client_data.csv')
+    c = parse_client(data, '')
+    c['roth_policy'] = 'none'
+    c['mc_paths'] = 5
+    c['mc_sensitivity_sims'] = 1
+    return ensure_engine_config(c, source='test')
+
+
 def inject_underwater_lot(c, account='Member_1_Trust', symbol='ITOT', shares=1000.0, basis_per_share=220.0):
     price = c['lot_engine'].prices.get(symbol, 0.0)
     lot = TaxLot(symbol, shares, shares * basis_per_share, '2024-06-01')
@@ -76,19 +89,28 @@ class ScannerTests(unittest.TestCase):
 class EngineIntegrationTests(unittest.TestCase):
     def test_tlh_off_is_a_pure_no_op(self):
         """Regression guard: the TLH engine changes must not alter any existing
-        projection when tlh_policy is off (the default), matching the golden
-        master unchanged. If this fails, the off-path picked up a side effect."""
+        projection when tlh_policy is off (the default). Compared against a
+        freshly-computed reference (a config that never touches any tlh_*
+        field, relying on parse_client's CSV-default 'off') rather than a
+        pinned dollar figure -- this test's config reads the live, routinely
+        edited input/client_data.csv, and a hardcoded absolute pin here goes
+        stale every time that plan data changes even though the TLH-off
+        no-op property itself remains correct. See test_2_recommendations.py's
+        _warn_on_baseline_drift for the same live-plan-drift concern applied
+        to that file's own dollar pins."""
         with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
-            c = sample_config('off')
-            rows = project(c)
-        # Regenerated 2026-07-17 against the committed frozen-price snapshot
-        # (tests/golden_pricing.py) after the b246d19 plan-data drift; shares the
-        # exact sample-config path and pin as test_2's golden master. The TLH-off
-        # no-op property holds against it (harvested loss / carryforward stay 0).
-        self.assertAlmostEqual(rows[-1]['total_nw'], 6_536_759.61, delta=5000.0)
-        self.assertAlmostEqual(sum(r['total_tax'] for r in rows), 1_527_729.93, delta=5000.0)
-        self.assertTrue(all(r.get('tlh_harvested_loss', 0) == 0 for r in rows))
-        self.assertTrue(all(r.get('cap_loss_carryforward', 0) == 0 for r in rows))
+            c_off = sample_config('off')
+            rows_off = project(c_off)
+            c_baseline = baseline_config_without_tlh_overrides()
+            rows_baseline = project(c_baseline)
+        self.assertAlmostEqual(rows_off[-1]['total_nw'], rows_baseline[-1]['total_nw'], places=2)
+        self.assertAlmostEqual(
+            sum(r['total_tax'] for r in rows_off),
+            sum(r['total_tax'] for r in rows_baseline),
+            places=2,
+        )
+        self.assertTrue(all(r.get('tlh_harvested_loss', 0) == 0 for r in rows_off))
+        self.assertTrue(all(r.get('cap_loss_carryforward', 0) == 0 for r in rows_off))
 
     def test_apply_mode_harvests_and_carries_forward(self):
         c = sample_config('apply')
