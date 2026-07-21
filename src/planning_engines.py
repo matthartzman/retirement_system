@@ -1,5 +1,4 @@
 from __future__ import annotations
-import sys as _sys
 
 # This module is a deliberate consolidation of 8 previously-separate engine
 # files (growth_engine.py, inheritance_engine.py, mortality_engine.py,
@@ -14,11 +13,12 @@ import sys as _sys
 # documentation/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md Phase 2c for the analysis
 # that led to keeping this as one file.
 #
-# _ar/_aa/_we/_ce/_ie/_ge below are NOT dead code despite looking unused
-# within this file: src/projection_stages/deterministic_engine.py does
-# `from ..planning_engines import *` (which skips underscore-prefixed names)
-# and then explicitly rebinds these six as `_legacy_pe._ar` etc. to recover
-# them. Removing any of them breaks that module's import at load time.
+# `_ar` below (account_registry/account_access, consolidated into core.py) is
+# used directly within this module. src/projection_stages/deterministic_engine.py
+# needs the same `core` module plus this module itself (for the withdrawal/
+# conversion/inheritance/growth-engine sections consolidated here) — it now
+# imports both explicitly rather than reaching into this module's private
+# attributes for them (A3; see that file's own top-of-file comment).
 
 
 # ===== BEGIN growth_engine.py =====
@@ -1209,11 +1209,6 @@ only a workbook/report orchestration layer and delegates projection work here.
 
 
 from .core import *  # noqa: F401,F403  # consolidated from engine_core
-from . import core as _aa  # noqa: F401  # consolidated from account_access; consumed by projection_stages.deterministic_engine
-_we = _sys.modules[__name__]  # consolidated alias for withdrawal_engine
-_ce = _sys.modules[__name__]  # consolidated alias for conversion_engine
-_ie = _sys.modules[__name__]  # consolidated alias for inheritance_engine
-_ge = _sys.modules[__name__]  # consolidated alias for growth_engine
 
 def project(c):
     """Public projection orchestrator.

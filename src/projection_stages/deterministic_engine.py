@@ -13,18 +13,23 @@ from .budget_rollups import category_budget_rollup, housing_budget_rollup
 from .year_state import MutableYearState, create_initial_year_state
 from ..planning_engines import *  # noqa: F401,F403 - import legacy helper functions/classes
 from .. import planning_engines as _legacy_pe
+from .. import core as _ar  # consolidated from account_registry
+from .. import core as _aa  # consolidated from account_access
 from .. import tlh as _tlh
 from ..equity_comp import equity_comp_year_events as _equity_comp_year_events
 from ..core import amt_tax as _amt_tax
 
-# Star import intentionally skips private module aliases used by the retained
-# deterministic calculation body.  Rebind those aliases explicitly.
-_ar = _legacy_pe._ar
-_aa = _legacy_pe._aa
-_we = _legacy_pe._we
-_ce = _legacy_pe._ce
-_ie = _legacy_pe._ie
-_ge = _legacy_pe._ge
+# withdrawal_engine/conversion_engine/inheritance_engine/growth_engine were
+# consolidated into planning_engines.py itself; _legacy_pe (imported above,
+# explicitly and publicly) already is that module, so these are direct
+# aliases to it rather than to planning_engines' own private attributes of
+# the same names (A3 — this file previously did `_we = _legacy_pe._we` etc.,
+# reaching into another module's underscore-prefixed attributes, which no
+# linter or refactoring tool can see as a real dependency).
+_we = _legacy_pe
+_ce = _legacy_pe
+_ie = _legacy_pe
+_ge = _legacy_pe
 
 
 def run_deterministic_projection_stage(c):
