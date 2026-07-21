@@ -1,28 +1,28 @@
 {
   "Account Policy": {
     "Member_1_401k": {
-      "reinvest_dividends": ""
+      "reinvest_dividends": "NO"
     },
     "Member_1_HSA": {
-      "reinvest_dividends": ""
+      "reinvest_dividends": "NO"
     },
     "Member_1_IRA": {
-      "reinvest_dividends": ""
+      "reinvest_dividends": "NO"
     },
     "Member_1_Roth": {
-      "reinvest_dividends": ""
+      "reinvest_dividends": "NO"
     },
     "Member_1_Trust": {
-      "reinvest_dividends": ""
+      "reinvest_dividends": "NO"
     },
     "Member_2_IRA": {
-      "reinvest_dividends": ""
+      "reinvest_dividends": "NO"
     },
     "Member_2_Roth": {
-      "reinvest_dividends": ""
+      "reinvest_dividends": "NO"
     },
     "Member_2_Trust": {
-      "reinvest_dividends": ""
+      "reinvest_dividends": "NO"
     }
   },
   "Annuity Death Benefits": {
@@ -259,7 +259,34 @@
       "selection_action": "include"
     }
   },
+  "Business Succession": {
+    "Acme_Holdings": {
+      "buy_sell_type": "cross-purchase",
+      "entity_name": "Acme Holdings LLC",
+      "funding_amount": "$1,500,000",
+      "funding_vehicle": "life insurance",
+      "key_person_coverage": "$1,000,000",
+      "owner": "Member 1",
+      "ownership_pct": "60%",
+      "successor": "Member 2",
+      "transfer_year": "2035",
+      "valuation_growth_rate": "6.00%",
+      "valuation_today": "$4,000,000"
+    },
+    "Policy": {
+      "valuation_growth_default": "5.00%"
+    }
+  },
   "Cashflow": {
+    "Charitable Giving": {
+      "h_qcd_annual_amount": "$0",
+      "h_qcd_end_year": "",
+      "h_qcd_start_year": "",
+      "qcd_enabled": "FALSE",
+      "w_qcd_annual_amount": "$0",
+      "w_qcd_end_year": "",
+      "w_qcd_start_year": ""
+    },
     "Earned Income": {
       "annual_earned_income": "$309,620",
       "earned_income_annual_increase": "3.00%",
@@ -344,6 +371,7 @@
     "Settings": {
       "annual_grant_amount": "$4,000",
       "contribution_amount": "$20,000",
+      "contribution_is_appreciated": "FALSE",
       "contribution_year": "2026",
       "enabled": "TRUE",
       "grant_end_year": "2031",
@@ -472,6 +500,7 @@
     },
     "Step-Up": {
       "basis_step_up_at_death": "TRUE",
+      "former_spouse_name": "",
       "property_regime": "COMMON_LAW"
     },
     "Trust Structure": {
@@ -774,8 +803,12 @@
       "selling_cost_pct": "6.00%"
     },
     "IRMAA": {
+      "h_ssa44_relief_year": "",
+      "irmaa_actual_magi_1yr_prior": "",
+      "irmaa_actual_magi_2yr_prior": "",
       "irmaa_annual_inflator": "2.00%",
-      "irmaa_tier2_mfj_base_year": "268000"
+      "irmaa_tier2_mfj_base_year": "268000",
+      "w_ssa44_relief_year": ""
     },
     "Monte Carlo": {
       "inflation_sigma": "1.50%",
@@ -1126,24 +1159,6 @@
   "Withdrawal Policy": {
     "Identity": {
       "annual_funding_tolerance": "$100"
-    },
-    "Priority 1": {
-      "RMD": "mandatory"
-    },
-    "Priority 2": {
-      "HSA": "smooth_window"
-    },
-    "Priority 3": {
-      "IRA_elective": "gross_up_tax"
-    },
-    "Priority 4": {
-      "Trust": "with_buffer"
-    },
-    "Priority 5": {
-      "Roth": "tax_free"
-    },
-    "Priority 6": {
-      "Home_equity_tap": "heloc_or_downsize"
     },
     "Roth Conversion": {
       "estate_tax_objective_mode": "BALANCED",
