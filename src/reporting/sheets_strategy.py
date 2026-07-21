@@ -409,9 +409,12 @@ def build_sheet11(ws, c, rows):
 
     r += 2
     write_hdr(ws, r, 1, 'Conversion Strategy — Key Rules', BLUE, WHITE, span=len(hdrs)); r += 1
+    _heir_filing = str(c.get('roth_heir_filing_status', 'Single') or 'Single')
+    _heir_eff_rate = c.get('roth_heir_ordinary_tax_rate_effective') or c.get('roth_heir_ordinary_tax_rate_assumption', 0.0)
     notes = [
         'The workbook renders Roth narrative, strategy labels, candidate ranking, and schedule totals from the canonical RothStrategyResult contract.',
         'The selected strategy can differ from the lowest-tax or highest-terminal-wealth candidate because Balanced Retirement also scores estate-tax exposure, survivor tax risk, Roth legacy value, liquidity, and guardrail compliance.',
+        f'Inherited pre-tax (IRA/401k) balances are scored at a DERIVED effective ordinary rate — currently {float(_heir_eff_rate):.1%} for an assumed {_heir_filing}-filing heir — not a flat 24% constant. The terminal pre-tax balance is spread level over 10 years (SECURE Act 10-year rule) and each slice taxed at the assumed heir filing status, so a larger inherited balance is scored at a higher rate. An explicit heir-rate override, if set, is honored instead of the derived rate.',
         'Primary and secondary constraint columns show the binding cap and next-nearest cap for each year, such as target bracket, IRMAA tier, IRA balance, annual IRA percentage cap, fixed dollar amount, or forced action.',
         f'Current configurable headroom defaults: tax bracket {float(c.get("roth_headroom_usage_pct",0.95)):.0%}, IRMAA {float(c.get("roth_irmaa_headroom_usage_pct",0.95)):.0%}, annual IRA percentage cap {float(c.get("roth_max_annual_conversion_pct_of_traditional_ira",0.20)):.0%}.',
         f'Current explicit conversion-window cap: {int(c.get("roth_max_conversion_years",10))} year(s), also bounded by the RMD-age window.',

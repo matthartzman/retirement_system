@@ -3,7 +3,8 @@
     "allow": [
       "mcp__visualize__read_me",
       "mcp__visualize__show_widget",
-      "Bash(git push*)"
+      "Bash(git push*)",
+      "Bash(sed \"s|C:\\\\\\\\\\\\\\\\RetirementPlanning\\\\\\\\\\\\\\\\Version 10\\\\\\\\\\\\\\\\\\\\.claude\\\\\\\\\\\\\\\\worktrees\\\\\\\\\\\\\\\\agent-a0bb84c8e0717653b|C:\\\\\\\\\\\\\\\\RetirementPlanning\\\\\\\\\\\\\\\\Version 10|\" \"/c/Users/MATTHA~1/AppData/Local/Temp/claude/C--RetirementPlanning-Version-10/25f79c4d-b905-4db0-a303-5257b8f358b0/scratchpad/debug_rmd.py\" > \"/c/Users/MATTHA~1/AppData/Local/Temp/claude/C--RetirementPlanning-Version-10/25f79c4d-b905-4db0-a303-5257b8f358b0/scratchpad/debug_rmd_main.py\" 2>&1; cat \"/c/Users/MATTHA~1/AppData/Local/Temp/claude/C--RetirementPlanning-Version-10/25f79c4d-b905-4db0-a303-5257b8f358b0/scratchpad/debug_rmd_main.py\" 2>&1 | head -5)"
     ],
     "ask": [
       "Bash(git push*--force*)",
