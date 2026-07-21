@@ -1967,4 +1967,22 @@ The planner reads 1.11 (unmodeled-state hard fail) as purely additive. The execu
 turning a silent fallback into a hard preflight error is a behaviour change for any saved plan carrying an
 unrecognized state string — which is why 1.11 shipped with blank/missing state preserved and only truthy
 unrecognized states failing. Both positions stand; the item shipped either way. This restates §7.3 item 9
-against the as-built code.
+against the as-built code. **Resolved 2026-07-20 — see §11.**
+
+---
+
+## 11. Decisions (2026-07-20)
+
+The user resolved every open question that required a decision. Recorded here as the standing answer;
+supersedes the corresponding item in §7.3 / §9.5 / §10.7 wherever it conflicts.
+
+| # | Question | Decision | Consequence |
+|---|---|---|---|
+| §7.3-9 / §10.7 | Should 1.11 hard-fail existing saved plans uniformly, or warn-on-load for existing plans and hard-fail only new ones? | **Keep uniform hard-fail** (already shipped, no further code change) | Closed. The disagreement in §10.7 is resolved in the planner's favor — no migration path needed. |
+| §9.5-10 | Item 195 (delete "RMD Start Age" / "SS Claim Age" as redundant) — which reading? | **Delete a duplicated display only**; keep the authoritative copy | Before 195 executes in Wave 3.5b, an agent must name, per field, which screen is authoritative and which is the echo, with evidence both write the same schema key — per the planner's §10.1 revision. Not yet done. |
+| §9.5-11 | Item 191 — what does "the attached" refer to? | **Investigated 2026-07-20** — two real, distinct, code-verified candidates found; neither is a file-upload UI. **(A)** A legacy "Saved named scenario sets" sub-panel on the Scenario Change Sets page (`dashboard.js:10041,10185-10392`), its own `localStorage` key (`retirement.scenario_sets.v1`), fully superseded in function by the newer Planning Workbench `planning_case_v1` store. **(B)** The Planning Workbench embeds a byte-for-byte duplicate of the entire Scenario Change Sets page inside a collapsible panel (`planning_workbench_ui.js:402-405`, calling the same `renderScenarios()` the standalone page uses) — a documented, deliberate continuity choice at consolidation time (`documentation/PLANNING_WORKBENCH_CONSOLIDATION_PROPOSAL.md:123`), not an oversight. Neither candidate has any persisted-plan-data representation (`schema.csv`, DB, `.rpx`) — both live only in per-browser `localStorage`, so **whether either is actually populated in the user's own browser cannot be determined from the repo** and needs a live check. **User's call 2026-07-20: Candidate B.** The Planning Workbench's embedded duplicate of the entire Scenario Change Sets page (`planning_workbench_ui.js:402-405`) is what "the attached" refers to. | 191 scope: remove the duplicate embed; replace with a link out to the standalone Scenario Change Sets nav step. Candidate A (legacy saved-sets storage) is explicitly NOT in scope. |
+| §9.5-13 | Should free-form Scenario authoring be retained at all? | **Defer** — keep current behavior | 191 stays a narrow cleanup of "the attached" only, not step one of removing scenario authoring. Revisit at Wave 3.5b. |
+| §7.3-4 (P10) | Is the client base confined to the eleven modeled states? | **Yes, confined to the eleven** | 4.6 (50-state expansion) stays unscheduled indefinitely. 1.11's fail-loudly guard is the long-term policy, not an interim one. |
+| §7.3-5 | Which Wave 4 capability builds match the practice's book? | **All four** — QCD (4.1/P3), DAF (4.2/P4), beneficiary/titling audit (4.7/P8), gifting schedule (4.8/P11) | No de-prioritization within Wave 4 on client-mix grounds. Sequencing among them still follows dependency order (4.1/4.2 prereq 2.2/2.6 respectively already satisfied; 4.7 prereq 2.1, not yet landed; 4.8 prereq 2.1, not yet landed). |
+| §7.3-7 | Verify D4/D5 against a rendered artifact before scheduling? | **Yes, verify now** | Build one workbook, print one PDF page, inspect text wrapping and margins directly. See verification note below once run. |
+| §7.3-8 | Add a docs-re-verification checkpoint to the maintenance runbook? | **Yes** | Add a step to `documentation/ANNUAL_MAINTENANCE_RUNBOOK.md`: re-verify user-facing docs against code after any module/file consolidation. Not yet done as of this entry.

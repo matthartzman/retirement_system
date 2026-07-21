@@ -67,6 +67,16 @@ This document is the actual step list for that person.
   `capital_market_assumptions` row in `tax_update_dashboard.csv`'s
   `last_reviewed` date after any refresh so the staleness banner reflects it.
 - **State tax law**: varies by state legislative session (see above).
+- **User-facing documentation, after any module/file consolidation.** When source files
+  are merged or renamed (e.g. `tax_data.py` folded into `taxes.py`), prose that names
+  the old file — in the Executive Summary's Release Notes, the Glossary, QC notes, or
+  this documentation tree — goes stale silently; nothing flags it. A 2026-07 review
+  found three such stale references that had survived past consolidations (a stale
+  `CLAUDE.md` line count, an Executive Summary pointer to the already-merged
+  `tax_data.py`, and a QC-sheet RMD-cohort caveat overtaken by a later engine change).
+  After any consolidation, grep the merged/renamed identifier across `src/reporting/`
+  and `documentation/` and correct or remove what you find, in the same change that
+  did the consolidation — not as a follow-up.
 
 ## How the system tells you something is due
 

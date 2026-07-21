@@ -1,5 +1,197 @@
 
 
+## 2026-07-20 — Item 2.3 / P6: Roth conversion IRMAA guardrail keyed by filing status
+
+`plan_roth_conversion`'s `fill_to_irmaa` policy and the IRMAA cap inside
+`fill_to_bracket` (`planning_engines.py:1024-1028` / `:1050-1054` before this
+fix) both read `roth_irmaa_target_threshold_mfj` unconditionally, with no
+filing-status branch, even though `filing` is already a parameter of
+`plan_roth_conversion` and is already used for brackets and SS taxability in
+the same function. The tax-assessment side already did this correctly
+(`deterministic_engine.py`'s `_irmaa_surcharge_path`/`_irmaa_tier_path` key
+`IRMAA_TIERS_BASE_YEAR` by `filing`), so a surviving spouse whose filing
+status switches to Single mid-plan (the `survivor_filing` transition) could
+have a Roth conversion recommended that the guardrail believed was still
+inside the MFJ IRMAA tier, when it had actually crossed the (much lower)
+Single-filer tier the assessment side would have flagged.
+
+Fix: added `_roth_irmaa_target_threshold_base(c, filing)` in
+`planning_engines.py`, used at both former call sites. For MFJ filers it
+returns `c['roth_irmaa_target_threshold_mfj']` unchanged (an explicit
+override, seeded in `data_io.py` from `IRMAA_TIERS_BASE_YEAR['MFJ']` at the
+configured `roth_irmaa_target_tier` — bit-identical to the old code path, so
+MFJ years are provably unaffected). For every other filing status it looks up
+`IRMAA_TIERS_BASE_YEAR[filing]` at the same tier index, mirroring the
+assessment-side lookup.
+
+Numeric proof (direct call to `plan_roth_conversion`, `fill_to_irmaa` policy,
+`TIER_2`, `pre_agi = $150,000` from RMDs alone, `roth_irmaa_target_threshold_mfj`
+explicitly set to $268,000 as `data_io.py` would seed it):
+- `filing='MFJ'` → threshold resolves to $268,000 (unchanged) → conversion
+  cap = `(268,000 - 150,000) * 0.95` = **$112,100**.
+- `filing='Single'` → threshold now resolves to the Single Tier 2 table value,
+  **$133,000** (`IRMAA_TIERS_BASE_YEAR['Single'][1][0]`), which is below the
+  $150,000 pre-conversion AGI → conversion cap clips to **$0**, correctly
+  refusing to convert instead of allowing the old code's $112,100.
+
+`reference_data/schema.csv`'s `roth_irmaa_target_tier` help text ("Dollar
+thresholds come from the annual IRMAA tax table") was true of the assessment
+side but not the conversion guardrail before this fix; updated to say the
+lookup follows the household's current filing status.
+
+Golden masters: regenerated both mandatory gates
+(`tests/fixtures/synthetic_golden_master_cases.json` and
+`tests/test_199_frozen_sample_plan_golden_master.py`'s pin) — both are
+byte-identical/unchanged. Investigated why, per this item's own
+verification instructions, since `early_survivor_compression` (built
+specifically to exercise the MFJ→Single survivor transition) was expected to
+move: instrumenting `_roth_irmaa_target_threshold_base` confirms it is
+invoked with `filing='Single'` and correctly resolves $133,000 (vs. $268,000
+under `filing='MFJ'`) throughout that scenario's post-death years, so the fix
+is live — but the scenario's account registry gives the surviving owner
+(`owner_idx=1`) no Roth IRA to convert into at all (`Member_1_Roth` stays
+titled to the deceased `owner_idx=0`; `roth_target_for_owner(registry, 1)`
+returns `None`), so `apply_roth_conversion` executes $0 regardless of any
+IRMAA threshold — a separate, pre-existing gap in survivor account titling
+unrelated to this fix. `single_filer` (Single filing from year 1, no survivor
+transition) also didn't move: its binding cap is always the 22% bracket room
+or the annual IRA percentage cap, with the IRMAA tier never the tightest
+constraint at that scenario's income level, so a different (correct) IRMAA
+number changes nothing observable. `tests/test_199_frozen_sample_plan_golden_master.py`'s
+frozen plan sets `roth_policy = "none"`, so it never reaches the changed code
+at all. No fixture edits were needed; both pins are re-confirmed identical
+(`PINNED_TERMINAL_NW = 6536759.61`, `PINNED_LIFETIME_TAX = 1527729.93`).
+
+## 2026-07-20 — Item 2.4 (P7): excess-spousal Social Security — timing gate + SSA amount
+
+`deterministic_engine.py`'s spousal Social Security top-up was wrong in two ways.
+(1) It was paid regardless of whether the *worker* (whose PIA the spousal amount
+derives from) had actually filed — real SSA law bars a spousal benefit until the
+worker files. (2) The amount used `max(own_benefit, 0.5*worker_PIA*factor)`, which
+both discards the claimant's permanent early-claim reduction on their own record
+and applies the *own-benefit* reduction schedule to the spousal amount.
+
+Replaced with the SSA "excess spousal" method, computed per year inside the
+projection loop:
+
+    own_reduced_benefit + max(0, 0.5*worker_PIA - own_PIA) * excess_factor
+
+paid only from the worker's claim year onward and only while both spouses are
+alive. `excess_factor` is a new helper (`_ss_spousal_excess_factor`) implementing
+the spousal reduction schedule — 25/36 of 1%/month for the first 36 months before
+FRA, then 5/12 of 1%/month, and **no** delayed-retirement credits past FRA
+(capped at 1.0) — keyed to the claimant's age when the spousal benefit first
+becomes payable (the later of their own filing and the worker's filing). The
+own-benefit records (`h_monthly_claim`/`w_monthly_claim`) are now kept free of any
+spousal amount, which also makes the downstream survivor benefit derive purely
+from the deceased's own retirement record (a correctness improvement, not a
+separate change).
+
+Judgment call, flagged: the plan's one-line "correct formula" wrote the reduction
+factor against `0.5*worker_PIA` and subtracted own PIA afterward. That conflicts
+with its own prose ("only THEN has its own reduction schedule applied to the
+excess"). Per SSA's published dual-entitlement methodology the age reduction
+applies to the *excess* (0.5*worker_PIA − own_PIA), so the reduction is applied
+after the own-PIA offset, as coded above.
+
+Golden-master impact:
+- **Synthetic gate** (`tests/fixtures/synthetic_golden_master_cases.json`): all 9
+  pre-existing scenarios are UNCHANGED to the cent. Each has a dominant
+  higher-earner PIA and symmetric (both-age-70) claiming, so half the worker's PIA
+  never exceeds the claimant's own PIA — the old `max()` and the new excess method
+  both resolve to own-benefit-only. Added one new scenario,
+  `split_claiming_spousal` (higher earner delays to 70, lower earner claims at 62),
+  the only scenario in which the excess-spousal path is live, so the mandatory gate
+  now exercises the fix (terminal NW 12,238,486.87; lifetime tax 710,025.22).
+- **Frozen sample plan** (`tests/test_199_frozen_sample_plan_golden_master.py`):
+  pins UNCHANGED (6,536,759.61 / 1,527,729.93) — that household has no live
+  excess-spousal situation. No regeneration was required.
+
+New coverage: `tests/test_200_spousal_ss_excess_benefit.py` pins the 62/70 timing
+gate and step-up, a reduced-excess case (spousal begins at age 63 → 0.70 excess
+factor, distinct from the 0.75 own-benefit factor at the same 48 months), and the
+no-top-up case where both spouses' own PIAs dominate.
+
+## 2026-07-20 — Item 2.1: §1014 step-up in the terminal metric + estate-tax penalty scoped to the second death (findings P1 + P9)
+
+Two coupled corrections to the Roth-conversion optimizer's terminal metric, which
+is the dominant term of its objective.
+
+**P1 — terminal deferred cap-gain tax now honors the §1014 basis step-up.**
+`src/after_tax.py`'s `estimate_terminal_taxable_deferred_cap_gain_tax` used to tax
+the FULL unrealized gain in terminal taxable accounts, as if heirs inherited the
+decedent's cost basis — even though the same codebase already grants a step-up
+during life (`planning_engines.apply_death_transition` zeroes basis at first/second
+death, and `client_insurance_estate.csv` carries `basis_step_up_at_death,TRUE`).
+The estimate now branches on three cases and prints which one it used, plus the
+resulting assumed basis, on the Estate & Legacy sheet (Sheet 14):
+- (a) terminal year IS the second death → full step-up (gain zeroed, scaled by the
+  property regime so community-property vs common-law still matters);
+- (b) terminal year is at/after the first death with a survivor still alive (or the
+  horizon ends before the second death) → only the decedent's share steps up, the
+  survivor's share retains its deferred gain;
+- (c) horizon ends with both members alive → no step-up, gain retained in full.
+
+**P9 — estate-tax penalty now scores the estate actually transferred at the second
+death, not peak net worth.** `planning_engines._roth_strategy_metrics` used
+`max(estate_tax over every row)`, penalizing the PEAK single-year net worth
+(typically early/mid-plan). It now evaluates `estimate_terminal_estate_tax` at the
+second-death row and present-values it with `roth_tax_discount_rate`, so the
+objective and the reported Post-Tax Inheritance agree. The old max-across-rows
+figure is retained as a separately-reported `peak_estate_tax_exposure` (risk
+indicator only — the Illinois estate-tax cliff with no portability makes worst-year
+exposure worth surfacing, but it should not drive conversions).
+
+Sheet 11 now also discloses `roth_heir_ordinary_tax_rate_assumption` (24%) and
+`roth_optimize_terminal_tax_rate` (their current flat values) and labels the
+conversion recommendation as sensitive to both.
+
+### Live sample-plan before/after (optimizer engaged via `optimize_terminal_tax`, MAXIMIZE_TERMINAL_NET_WORTH)
+
+|                              | Before (buggy)                | After (fixed)                 |
+|------------------------------|-------------------------------|-------------------------------|
+| Selected strategy            | Fill to 12% bracket           | Fill to 12% bracket (same)    |
+| Conversion schedule          | 2026 $125,000 / 2027 $53,100 / 2028 $36,017 | identical    |
+| Total conversions            | $214,117                      | $214,117 (unchanged)          |
+| Terminal step-up case        | (not classified)              | second_death (full step-up)   |
+| Terminal deferred cap-gain tax | $2,142                      | $0                            |
+| Assumed terminal basis       | $43,268                       | $86,536 (cost + stepped gain) |
+| Objective estate-tax penalty (top cand.) | $573,484 (peak)   | $191,419 (PV @ 2nd death)     |
+| Top-candidate objective score | 1,022,404                    | 1,407,145                     |
+
+The selected conversion schedule for this plan does NOT change: even under the
+buggy metric the low-conversion 12%-fill already dominated, because the higher
+brackets are killed by the Roth-last leakage guard (10× penalty), not by the
+terminal-tax term. What the fix corrects is the accuracy of the numbers behind the
+recommendation — it removes $2,142 of phantom cap-gain tax the second-death full
+step-up eliminates, and cuts the objective's estate-tax drag from a peak-year
+$573k to the PV-at-death $191k, widening (not narrowing) the correct choice's lead.
+This is the "conversions legitimately stay flat" case the plan anticipated: here
+the terminal metric is not the binding term.
+
+### Golden-master movement
+
+- **Synthetic gate** (`tests/fixtures/synthetic_golden_master_cases.json`): no dollar
+  metric moved on any of the 9 scenarios. Every synthetic scenario runs a FIXED
+  `fill_to_bracket` (or `none`) policy — none auto-optimize — so `project()` output
+  is byte-identical and the terminal-metric/objective change is invisible to the
+  projected numbers. Two scenarios (`donor_advised_fund`, `single_filer`) changed
+  only their `selected_roth_strategy` LABEL, from "Fill current/configured 22%
+  bracket" to "RMD-reduction conversion". Both labels are the SAME policy
+  (`fill_to_bracket`) at the same 22% target; the optimizer's non-auto path shows
+  the top score-sorted candidate matching the configured policy, and the corrected
+  objective simply re-ranked two equivalent-policy candidates. No conversion,
+  balance, or tax figure changed. Fixture regenerated to absorb the two labels.
+- **Frozen sample plan** (`tests/test_199_frozen_sample_plan_golden_master.py`): pins
+  UNCHANGED (`PINNED_TERMINAL_NW = 6536759.61`, `PINNED_LIFETIME_TAX = 1527729.93`).
+  That test projects with `roth_policy="none"`, so the optimizer objective is never
+  invoked and `project()` is unaffected. No edit needed.
+
+Gate run (`RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS=1`): `test_90`,
+`test_synthetic_golden_master`, `test_199` — 12 passed, 35 subtests passed.
+`git status --short input/` confirmed clean before and after every run.
+
+
 ## 2026-07-18 — Sample-plan golden-master baselines demoted to warn-only
 
 `tests/test_2_recommendations.py` pinned two dollar figures from the live sample

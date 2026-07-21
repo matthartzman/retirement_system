@@ -394,14 +394,10 @@
     html +=
       '<div class="section-note workbench-model"><b>Planning Workbench model:</b> Baseline → Change Set → Run Type → Impact → Decision. A Planning Case is browser-local and never changes the saved plan by itself.</div>';
     html +=
-      '<div class="feature-grid workbench-overview"><div class="feature-card"><h3>1. Review baseline</h3><p>Use the latest saved and built plan as the comparison anchor.</p><button class="btn" type="button" data-step-id="build_impact">Open Impact & Build History</button></div><div class="feature-card"><h3>2. Try a strategy lever</h3><p>Adjust test amounts in the Strategy Levers panel below to rank ideas, then save the selected set as a case.</p><button class="btn" type="button" data-step-id="distribution_strategy">Open Distribution Strategy &rarr;</button></div><div class="feature-card"><h3>3. Compare scenarios</h3><p>Set deterministic what-if overrides in the Scenario Change Sets panel below, save as a named set, then compare in the matrix.</p></div><div class="feature-card"><h3>4. Run stress suite</h3><p>Set adverse assumptions in the Stress &amp; Probability panel below, rebuild, then compare results in the matrix.</p></div></div>';
+      '<div class="feature-grid workbench-overview"><div class="feature-card"><h3>1. Review baseline</h3><p>Use the latest saved and built plan as the comparison anchor.</p><button class="btn" type="button" data-step-id="build_impact">Open Impact & Build History</button></div><div class="feature-card"><h3>2. Try a strategy lever</h3><p>Adjust test amounts in the Strategy Levers panel below to rank ideas, then save the selected set as a case.</p><button class="btn" type="button" data-step-id="distribution_strategy">Open Distribution Strategy &rarr;</button></div><div class="feature-card"><h3>3. Compare scenarios</h3><p>Set deterministic what-if overrides on the Scenario Change Sets page, save as a named set, then compare in the matrix.</p><button class="btn" type="button" data-step-id="scenarios">Open Scenario Change Sets &rarr;</button></div><div class="feature-card"><h3>4. Run stress suite</h3><p>Set adverse assumptions in the Stress &amp; Probability panel below, rebuild, then compare results in the matrix.</p></div></div>';
     html +=
       '<details><summary><b>Strategy Levers</b><span class="small"> test amounts and directional estimates — edit source pages to change the actual plan</span></summary><div class="scenario-set-body">' +
       call(ctx.renderWorkbenchLeverEditorHtml) +
-      "</div></details>";
-    html +=
-      '<details><summary><b>Scenario Change Sets</b><span class="small"> deterministic what-if overrides — save as a named set, then compare in the matrix</span></summary><div class="scenario-set-body">' +
-      call(ctx.renderScenarios) +
       "</div></details>";
     html +=
       '<details><summary><b>Stress &amp; Probability</b><span class="small"> Monte Carlo settings, survivor, long-term care, and adverse scenarios</span></summary><div class="scenario-set-body">' +
