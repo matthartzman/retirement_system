@@ -253,6 +253,51 @@ def test_dividend_reinvestment_rows_cover_every_holdings_account(app_core, tmp_p
     assert reinvest_accounts == {"Member_1_IRA", "Member_1_Roth"}
 
 
+def test_account_titling_rows_cover_every_holdings_account_including_checking(app_core, tmp_path):
+    """Item 4.7 (P8): unlike reinvest_dividends (checking/529 excluded), the
+    beneficiary/titling audit applies to every account -- checking accounts
+    commonly carry their own TOD/POD designation too."""
+    _seed_minimal_old_schema_plan(tmp_path)
+    (tmp_path / "client_holdings.csv").write_text(
+        "account,symbol,purchase_date,shares,purchase_price,lot_type\n"
+        "Member_1_IRA,VTI,2020-01-01,10,100,long\n"
+        "Family_Checking,CASH,2020-01-01,1000,1,\n",
+        encoding="utf-8",
+    )
+    app_core._ensure_user_ui_plan_data_rows()
+    estate_rows = _read_csv(tmp_path / "client_insurance_estate.csv")
+    titling_rows = [r for r in estate_rows[1:] if r[0] == "Account Titling"]
+    accounts = {r[1] for r in titling_rows}
+    assert accounts == {"Member_1_IRA", "Family_Checking"}
+    labels_by_account = {}
+    for r in titling_rows:
+        labels_by_account.setdefault(r[1], set()).add(r[2])
+    for labels in labels_by_account.values():
+        assert labels == {"primary_beneficiary", "contingent_beneficiary", "titling", "trust_see_through"}
+
+
+def test_account_titling_rows_are_idempotent_and_preserve_edits(app_core, tmp_path):
+    _seed_minimal_old_schema_plan(tmp_path)
+    (tmp_path / "client_holdings.csv").write_text(
+        "account,symbol,purchase_date,shares,purchase_price,lot_type\n"
+        "Member_1_IRA,VTI,2020-01-01,10,100,long\n",
+        encoding="utf-8",
+    )
+    app_core._ensure_user_ui_plan_data_rows()
+    estate_path = tmp_path / "client_insurance_estate.csv"
+    rows = _read_csv(estate_path)
+    for r in rows:
+        if r[0] == "Account Titling" and r[1] == "Member_1_IRA" and r[2] == "titling":
+            r[3] = "JTWROS"
+    import csv
+    with estate_path.open("w", newline="", encoding="utf-8") as f:
+        csv.writer(f).writerows(rows)
+    app_core._ensure_user_ui_plan_data_rows()
+    rows_after = _read_csv(estate_path)
+    by_key = {(r[0], r[1], r[2]): r[3] for r in rows_after[1:]}
+    assert by_key[("Account Titling", "Member_1_IRA", "titling")] == "JTWROS"
+
+
 def test_no_pytest_guard_left_on_the_orchestrator(app_core, tmp_path):
     """A7: the old `if 'pytest' in sys.modules: return` guard is gone - this
     test itself running under pytest and still observing real writes to
