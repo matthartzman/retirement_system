@@ -9,10 +9,8 @@ def test_report_service_exists_and_is_runtime_independent():
     assert "def read_history_payload" in service
     assert "def append_history_payload" in service
     assert "def local_output_file_payload" in service
-    assert "@app.route" not in service
-    assert "request.args" not in service
-    assert "jsonify" not in service
-    assert "send_file" not in service
+    # HTTP-runtime-independence itself is asserted once, for every service
+    # module, by the AST-based check in test_126_service_extraction.py.
 
 
 def test_workbook_routes_delegate_report_and_history_logic_to_service():

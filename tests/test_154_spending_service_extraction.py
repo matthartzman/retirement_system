@@ -9,9 +9,8 @@ def test_spending_service_exists_and_is_runtime_independent():
     assert "def unified_budget_payload" in service
     assert "def category_create_payload" in service
     assert "def alias_add_payload" in service
-    assert "@app.route" not in service
-    assert "request.get_json" not in service
-    assert "jsonify" not in service
+    # HTTP-runtime-independence itself is asserted once, for every service
+    # module, by the AST-based check in test_126_service_extraction.py.
 
 
 def test_plan_routes_delegate_spending_logic_to_service():
