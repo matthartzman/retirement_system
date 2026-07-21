@@ -86,23 +86,23 @@ class ConfigService:
     @staticmethod
     def _module_status(sectioned_data: dict[str, Any]) -> JsonDict:
         """Best-effort optional-module gating status for the UI (see
-        ``workbook_common.module_status``). Lazily imports the reporting package
-        (openpyxl-backed and otherwise unused by config_service) so this stays a
-        no-cost import for every other config_service code path, and degrades to
-        ``{}`` rather than failing the whole config payload if anything's amiss.
+        ``module_catalog.module_status``). module_catalog has zero heavy
+        dependencies (A9), so unlike the reporting package this import is not
+        lazy for cost reasons - it just still degrades to ``{}`` rather than
+        failing the whole config payload if anything's amiss.
         """
         try:
-            from ..reporting import workbook_common
+            from ..module_catalog import module_status
             from ..report_compute import prepare_config_from_sectioned_data
         except ImportError:  # pragma: no cover - direct execution fallback
             try:
-                from src.reporting import workbook_common
+                from src.module_catalog import module_status
                 from src.report_compute import prepare_config_from_sectioned_data
             except ImportError:
                 return {}
         try:
             cfg = prepare_config_from_sectioned_data(sectioned_data, "", optimize_roth=False)
-            return workbook_common.module_status(cfg)
+            return module_status(cfg)
         except Exception:
             return {}
 

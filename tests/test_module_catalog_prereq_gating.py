@@ -3,9 +3,9 @@
 When an optional output module is enabled but one of its prerequisite outputs
 (per ``src.module_catalog``) is disabled, the prerequisite must be treated as
 enabled anyway — otherwise the dependent module produces a broken/empty sheet.
-This is enforced in ``workbook_common.module_enabled`` /
-``effective_enabled_modules`` and covered here as fast unit tests (no workbook
-build required).
+This is enforced in ``module_catalog.module_enabled`` /
+``effective_enabled_modules`` (A9 - moved from ``workbook_common``) and
+covered here as fast unit tests (no workbook build required).
 
 Precedence exercised (highest first):
   1. FORCE_DISABLE on the directly-named key — always off, even for a prereq.
@@ -23,7 +23,7 @@ import os
 import pytest
 
 import src.module_catalog as mc
-from src.reporting.workbook_common import (
+from src.module_catalog import (
     OPTIONAL_MODULE_SHEETS,
     effective_enabled_modules,
     module_enabled,
