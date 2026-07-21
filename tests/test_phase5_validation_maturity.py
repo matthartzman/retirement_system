@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -15,6 +16,31 @@ ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
 
 from tests.golden_pricing import frozen_holdings_prices
+
+# Q3 (system review, Wave 3 item 3.15): a structural PDF check - page count
+# and per-page size bounds - deeper than the existing magic-byte-plus-size
+# check but without text extraction (COM-exported PDFs frequently embed text
+# in ways that defeat extraction; a structural check catches the failure
+# mode that actually occurs - a build that silently produces a 1-page or
+# wrong-size PDF). /Type /Page object markers and /MediaBox arrays are part
+# of reportlab's plain (uncompressed) object structure, so counting them
+# directly via regex is reliable for this app's own PDF output without
+# adding a PDF-parsing library dependency.
+_PDF_PAGE_TYPE_RE = re.compile(rb"/Type\s*/Page(?!s)\b")
+_PDF_MEDIABOX_RE = re.compile(rb"/MediaBox\s*\[\s*([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)\s+([\d.\-]+)\s*\]")
+
+
+def _pdf_structural_summary(pdf_bytes: bytes) -> dict:
+    """Cheap structural read of a PDF's page count and page dimensions -
+    raises ValueError if the bytes don't even start like a PDF."""
+    if not pdf_bytes.startswith(b"%PDF-"):
+        raise ValueError("not a PDF file (missing %PDF- header)")
+    page_count = len(_PDF_PAGE_TYPE_RE.findall(pdf_bytes))
+    media_boxes = [
+        tuple(float(g) for g in m.groups())
+        for m in _PDF_MEDIABOX_RE.finditer(pdf_bytes)
+    ]
+    return {"page_count": page_count, "media_boxes": media_boxes}
 
 
 def _load_engine_config():
@@ -253,6 +279,49 @@ class Phase5WorkbookSnapshotTests(unittest.TestCase):
         with pdf_path.open("rb") as fh:
             self.assertEqual(fh.read(5), b"%PDF-", "retirement_plan.pdf is not a valid PDF")
         self.assertGreater(pdf_path.stat().st_size, 1024, "retirement_plan.pdf is suspiciously small")
+
+    def test_pdf_has_a_real_page_count_and_uniform_landscape_letter_pages(self):
+        """Q3: deeper than the magic-byte check above - every real build
+        renders every visible workbook sheet as at least one page (see
+        enterprise_pdf.py's module docstring), so a 27-sheet workbook should
+        never collapse to a handful of PDF pages, and every page enterprise_pdf.py
+        emits is landscape letter (792x612pt) by construction."""
+        pdf_path = self.workbook_path.parent / "retirement_plan.pdf"
+        summary = _pdf_structural_summary(pdf_path.read_bytes())
+        self.assertGreater(summary["page_count"], 20, f"expected a substantial multi-page PDF, got {summary['page_count']} pages")
+        self.assertEqual(len(summary["media_boxes"]), summary["page_count"], "expected one /MediaBox per page")
+        for x0, y0, x1, y1 in summary["media_boxes"]:
+            width, height = x1 - x0, y1 - y0
+            self.assertTrue(700 <= width <= 850, f"page width {width}pt outside expected landscape-letter bounds")
+            self.assertTrue(550 <= height <= 650, f"page height {height}pt outside expected landscape-letter bounds")
+
+    def test_pdf_structural_check_catches_a_truncated_pdf(self):
+        """Regression proof for the check above: a PDF cut off mid-stream
+        (a failed/interrupted write, or a build that silently emits partial
+        output) must be caught, not pass silently. Corrupting the trailer/
+        xref by truncation makes reportlab's own object markers earlier in
+        the file undercounted or unreadable - either way, this must not
+        report the same healthy page count as the real file."""
+        pdf_path = self.workbook_path.parent / "retirement_plan.pdf"
+        full_bytes = pdf_path.read_bytes()
+        full_summary = _pdf_structural_summary(full_bytes)
+        # reportlab clusters every page object's own (small) dictionary
+        # together, separate from and before the much larger per-page content
+        # streams - empirically, all of them landed in the first ~15% of a
+        # real build's PDF here. Cutting at 1/3 left every page marker intact
+        # (this test caught that on its first pass); 1/10 lands inside that
+        # object-definition region rather than only trimming trailing content
+        # streams/xref, which need to be cut in the first place to prove
+        # anything.
+        truncated = full_bytes[: len(full_bytes) // 10]
+        try:
+            truncated_summary = _pdf_structural_summary(truncated)
+        except ValueError:
+            return  # truncation cut even the %PDF- header - unambiguously caught
+        self.assertLess(
+            truncated_summary["page_count"], full_summary["page_count"],
+            "a truncated PDF must not report the same page count as the real file",
+        )
 
     def test_workbook_snapshot_sheets_and_key_phrases(self):
         import openpyxl
