@@ -207,6 +207,36 @@ class DataIoAndBackfillWiringTests(unittest.TestCase):
         entry = next(e for e in app_core.PLAN_DATA_BACKFILL_ENTRIES if e.rows is app_core.FORMER_SPOUSE_UI_PLAN_DATA_ROWS)
         self.assertEqual(entry.file_name, "client_insurance_estate.csv")
 
+    def test_account_titling_backfill_entry_wired_to_estate_csv(self):
+        import src.server.app_core as app_core
+        entry = next(e for e in app_core.PLAN_DATA_BACKFILL_ENTRIES if e.rows is app_core._account_titling_ui_plan_data_rows)
+        self.assertEqual(entry.file_name, "client_insurance_estate.csv")
+
+    def test_account_titling_rows_generated_per_holdings_account(self):
+        import src.server.app_core as app_core
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as d:
+            target_dir = Path(d)
+            (target_dir / "client_holdings.csv").write_text(
+                "account,symbol,purchase_date,shares,purchase_price,lot_type\n"
+                "Member_1_IRA,VTI,2020-01-01,10,100,long\n"
+                "Family_Checking,CASH,2020-01-01,1000,1,\n",
+                encoding="utf-8",
+            )
+            generated = app_core._account_titling_ui_plan_data_rows(target_dir)
+        by_account = {}
+        for section, sub, label, value, units, notes in generated:
+            self.assertEqual(section, "Account Titling")
+            by_account.setdefault(sub, {})[label] = (value, units)
+        self.assertEqual(set(by_account.keys()), {"Member_1_IRA", "Family_Checking"})
+        for sub, fields in by_account.items():
+            self.assertEqual(set(fields.keys()), {
+                "primary_beneficiary", "contingent_beneficiary", "titling", "trust_see_through",
+            })
+            self.assertEqual(fields["titling"][1], "choice")
+            self.assertEqual(fields["trust_see_through"], ("FALSE", "bool"))
+
 
 if __name__ == "__main__":
     unittest.main()

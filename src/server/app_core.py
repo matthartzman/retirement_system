@@ -751,6 +751,28 @@ FORMER_SPOUSE_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Estate Planning", "Step-Up", "former_spouse_name", "", "text", "Optional name used only by the Beneficiary & Titling Audit (Sheet 14) to flag a former spouse still named as a beneficiary on any account."],
 ]
 
+# Item 4.7 (P8): per-account beneficiary and titling. Subsection = account id
+# from client_holdings.csv (e.g. "Member_1_IRA"), mirroring the "Account
+# Policy"/reinvest_dividends per-account backfill below. Consumed by
+# beneficiary_titling_audit/_account_basis_step_fraction/
+# _survivor_bonus_step_fraction in src/planning_engines.py (see
+# src/data_io.py's parse_advanced_modules for the CSV section shape).
+def _account_titling_ui_plan_data_rows(target_dir: Path) -> list[list[str]]:
+    return [
+        row
+        for acct in _all_account_ids_from_holdings(target_dir)
+        for row in (
+            ["Account Titling", acct, "primary_beneficiary", "", "text",
+             "Name of the primary beneficiary on file for this account. Reviewed by the Beneficiary & Titling Audit (Sheet 14)."],
+            ["Account Titling", acct, "contingent_beneficiary", "", "text",
+             "Name of the contingent (backup) beneficiary on file for this account."],
+            ["Account Titling", acct, "titling", "", "choice",
+             "INDIVIDUAL | JTWROS | TENANTS_IN_COMMON | COMMUNITY_PROPERTY | SEPARATE_PROPERTY | TRUST_TITLED | TOD_POD; How this account is titled. Drives this account's own basis step-up/survivor-bonus fraction instead of the household-wide property regime, and flags JTWROS/community-property review prompts on Sheet 14. Leave blank to use the household default."],
+            ["Account Titling", acct, "trust_see_through", "FALSE", "bool",
+             "TRUE if a trust named as beneficiary qualifies as a see-through trust for RMD purposes (avoids the Sheet 14 trust_no_see_through flag)."],
+        )
+    ]
+
 HELOC_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["HELOC", "Setup", "heloc_enabled", "No", "yes/no", "Enable the HELOC strategy. When Yes, the projection draws from the HELOC during the draw period to fund large discretionary spending instead of liquidating portfolio assets."],
     ["HELOC", "Setup", "heloc_credit_limit", "$0", "dollars", "Maximum HELOC credit line available. The projection will not borrow beyond this amount."],
@@ -883,6 +905,10 @@ PLAN_DATA_BACKFILL_ENTRIES: list[plan_data_backfill.BackfillEntry] = [
     plan_data_backfill.BackfillEntry(
         "client_insurance_estate.csv", FORMER_SPOUSE_UI_PLAN_DATA_ROWS,
         plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Estate Planning", "Step-Up")),
+    ),
+    plan_data_backfill.BackfillEntry(
+        "client_insurance_estate.csv", _account_titling_ui_plan_data_rows,
+        plan_data_backfill.insert_after_last(plan_data_backfill.section_is("Estate Planning")),
     ),
     plan_data_backfill.BackfillEntry(
         "client_household.csv",
@@ -1351,6 +1377,25 @@ def _pre_tax_account_options_from_holdings() -> list[str]:
                 acct = str(r.get("account") or "").strip()
                 low = acct.lower()
                 if acct and ("_ira" in low or "_401k" in low or "_403b" in low or "_sep" in low) and "roth" not in low:
+                    accounts.add(acct)
+    return sorted(accounts)
+
+
+def _all_account_ids_from_holdings(holdings_dir: Path | None = None) -> list[str]:
+    """Return every account id present in client_holdings.csv, with no type
+    exclusions (unlike _investment_account_ids_from_holdings, which drops
+    checking/529 accounts as irrelevant to dividend reinvestment). Item 4.7
+    (P8) beneficiary/titling review applies to every account type -- checking
+    accounts commonly carry their own TOD/POD designation -- so every
+    account needs an Account Titling backfill row.
+    """
+    path = (holdings_dir / "client_holdings.csv") if holdings_dir is not None else _plan_data_path("client_holdings.csv", prefer_existing=False)
+    accounts = set()
+    if path.exists():
+        with path.open(newline="", encoding="utf-8-sig") as f:
+            for r in csv.DictReader(f):
+                acct = str(r.get("account") or "").strip()
+                if acct:
                     accounts.add(acct)
     return sorted(accounts)
 
