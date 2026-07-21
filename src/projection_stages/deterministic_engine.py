@@ -2341,5 +2341,14 @@ def run_deterministic_projection_stage(c):
             'additional_liabilities': additional_liabilities,
             'total_liabilities': total_liabilities,
         })
+        # Item 4.9 (P5 phase 2): a per-account balance snapshot, needed to
+        # inherit each retirement account individually at the second death
+        # (per-beneficiary drawdown reads whichever account the decedent's
+        # accounts actually held, not just the household pretax_nw/roth_nw
+        # aggregate). Captured only at the two possible death years and the
+        # final row -- not every year -- to avoid bloating every row's JSON/
+        # workbook serialization with a full account-balance copy.
+        if year in {int(c.get('h_death_yr', 0) or 0), int(c.get('w_death_yr', 0) or 0), int(c.get('plan_end', 0) or 0)}:
+            row['_account_balances'] = dict(bal)
         rows.append(row)
     return rows

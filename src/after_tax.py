@@ -85,6 +85,151 @@ def effective_heir_ten_year_rate(c: Mapping[str, Any], pretax_balance: Any,
     return max(0.0, min(1.0, total_tax / bal))
 
 
+def _account_ten_year_schedule(balance: float, decedent_reached_rbd: bool, annual_growth_rate: float = 0.0) -> list:
+    """Item 4.9 (P5 phase 2): ten annual distribution amounts for one inherited
+    pre-tax account.
+
+    If the decedent had not yet reached their Required Beginning Date, no
+    annual distribution is required before year 10 -- modeled as phase 1's
+    flat, no-growth 1/10th-per-year schedule (the heir may choose to spread
+    it; full deferral to year 10 is also permitted but would understate
+    typical practice), kept consistent with effective_heir_ten_year_rate.
+
+    If the decedent HAD reached RBD, the SECURE Act 10-year rule also
+    requires annual RMDs in years 1-9 (Notice 2022-53 / final regs) --
+    approximated here with a declining divisor (10, 9, 8, ..., 1) applied to
+    the balance *after* growing it one year, since this codebase does not
+    carry an IRS Single Life Expectancy Table to compute the real
+    per-beneficiary-age divisor. Growth matters here specifically: against a
+    level (no-growth) balance, a declining-divisor schedule is mathematically
+    identical to phase 1's flat schedule (dividing a balance that shrinks by
+    exactly 1/divisor each year by a divisor that also shrinks by 1 each year
+    always yields the same constant slice) -- annual_growth_rate is what
+    makes the RBD-reached schedule genuinely front-load smaller and
+    back-load larger distributions, matching how a real inherited-IRA RMD
+    schedule behaves. Either way the account is fully depleted by year 10
+    (dividing by a final divisor of 1 always empties whatever remains).
+    """
+    remaining = max(0.0, balance)
+    if remaining <= 0:
+        return [0.0] * 10
+    if not decedent_reached_rbd:
+        return [remaining / 10.0] * 10
+    growth = max(-0.99, float(annual_growth_rate or 0.0))
+    schedule = []
+    for divisor in range(10, 0, -1):
+        remaining *= (1.0 + growth)
+        slice_amt = remaining / divisor
+        schedule.append(slice_amt)
+        remaining -= slice_amt
+    return schedule
+
+
+def per_beneficiary_ten_year_drawdown(c: Mapping[str, Any], rows: list) -> Dict[str, Any]:
+    """Item 4.9 (P5 phase 2): per-beneficiary 10-year drawdown of inherited
+    pre-tax/Roth accounts, reporting after-tax inheritance per beneficiary.
+
+    Requires item 4.7's account_titling (primary_beneficiary per account) and
+    a per-account balance snapshot at the second-death year (see
+    deterministic_engine.py's ``row['_account_balances']``, captured only at
+    the two possible death years and the final row). Returns an empty result
+    (not an error) when either input is unavailable -- e.g. no account_titling
+    on file, or the second death falls outside the projected rows -- since
+    this is a scenario-sensitivity report layered on top of the projection,
+    not something the projection depends on.
+
+    Explicitly labeled scenario sensitivity, never prediction: it depends on
+    an assumed heir filing status, a simplified no-growth 10-year schedule,
+    and (for RBD-reached decedents) an approximated declining-divisor RMD in
+    place of the real IRS Single Life Expectancy Table.
+    """
+    from .core import compute_fed_tax
+
+    h_death_yr = int(_f(c.get("h_death_yr"), 0.0))
+    w_death_yr = int(_f(c.get("w_death_yr"), 0.0))
+    second_death_yr = max(h_death_yr, w_death_yr)
+    if second_death_yr <= 0:
+        return {"available": False, "reason": "no second-death year on file", "beneficiaries": []}
+
+    terminal_row = next((r for r in rows if int(r.get("year", -1)) == second_death_yr), None)
+    if terminal_row is None or not terminal_row.get("_account_balances"):
+        return {"available": False, "reason": "no account-balance snapshot at the second-death year", "beneficiaries": []}
+    account_balances = terminal_row["_account_balances"]
+
+    account_titling = c.get("account_titling") or {}
+    registry = c.get("account_registry") or []
+    if not account_titling or not registry:
+        return {"available": False, "reason": "no account_titling on file (item 4.7)", "beneficiaries": []}
+
+    # By the second death, spousal rollover at the first death has already
+    # consolidated every retirement account under the second-to-die's own
+    # owner_idx (apply_death_transition rolls pre_tax/roth accounts to the
+    # survivor at first death; only at second death do they stay in place,
+    # "inherited by beneficiaries"), so one RBD determination covers every
+    # remaining retirement account.
+    second_to_die_is_h = h_death_yr >= w_death_yr
+    dob_yr = _f(c.get("h_dob_yr" if second_to_die_is_h else "w_dob_yr"), 0.0)
+    rmd_start_age = _f(c.get("h_rmd_start_age" if second_to_die_is_h else "w_rmd_start_age",
+                             c.get("rmd_start_age", 75)), 75.0)
+    decedent_reached_rbd = dob_yr > 0 and (second_death_yr - dob_yr) >= rmd_start_age
+
+    filing = _heir_filing_status(c)
+    brk_inf = _f(c.get("brk_inf", 0.0), 0.0)
+    by_beneficiary: Dict[str, Dict[str, Any]] = {}
+    for acct in registry:
+        aid = acct.get("id")
+        if acct.get("tax") not in ("pre_tax", "roth"):
+            continue
+        titling = account_titling.get(aid)
+        if not titling:
+            continue
+        beneficiary = str(titling.get("primary_beneficiary") or "").strip()
+        if not beneficiary:
+            continue
+        balance = max(0.0, _f(account_balances.get(aid), 0.0))
+        if balance <= 0:
+            continue
+        is_roth = acct.get("tax") == "roth"
+        schedule = _account_ten_year_schedule(
+            balance, decedent_reached_rbd and not is_roth, annual_growth_rate=_f(c.get("ret", 0.0), 0.0),
+        )
+        after_tax_total = 0.0
+        pretax_total_tax = 0.0
+        for i, slice_amt in enumerate(schedule):
+            if is_roth or slice_amt <= 0:
+                after_tax_total += slice_amt
+                continue
+            tax = compute_fed_tax(slice_amt, second_death_yr + i, filing, brk_inf)
+            pretax_total_tax += tax
+            after_tax_total += slice_amt - tax
+
+        entry = by_beneficiary.setdefault(beneficiary, {
+            "beneficiary": beneficiary, "accounts": [], "gross_total": 0.0,
+            "after_tax_total": 0.0, "total_tax": 0.0,
+        })
+        entry["accounts"].append({
+            "account_id": aid,
+            "label": acct.get("label") or aid,
+            "tax_type": acct.get("tax"),
+            "terminal_balance": balance,
+            "decedent_reached_rbd": bool(decedent_reached_rbd and not is_roth),
+            "annual_schedule": schedule,
+            "after_tax_total": after_tax_total,
+            "total_tax": pretax_total_tax,
+        })
+        entry["gross_total"] += balance
+        entry["after_tax_total"] += after_tax_total
+        entry["total_tax"] += pretax_total_tax
+
+    return {
+        "available": bool(by_beneficiary),
+        "second_death_year": second_death_yr,
+        "decedent_reached_rbd": decedent_reached_rbd,
+        "heir_filing_status": filing,
+        "beneficiaries": sorted(by_beneficiary.values(), key=lambda e: -e["gross_total"]),
+    }
+
+
 def resolve_terminal_pretax_rate(c: Mapping[str, Any], pretax_balance: Any,
                                  terminal_year: Any = None) -> float:
     """Rate for the terminal pre-tax deferred-tax haircut: user override else derived."""
