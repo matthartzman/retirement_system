@@ -7,8 +7,7 @@
     detailed_results:'Results',
     build_impact:'Impact',
     review:'Downloads',
-    plan_data_report:'Plan Data Review',
-    spending_dashboard:'Results'
+    plan_data_report:'Plan Data Review'
   };
   const STEP_REDIRECTS={
     spending_travel:'lifestyle_spending',
