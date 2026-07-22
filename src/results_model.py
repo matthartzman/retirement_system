@@ -184,7 +184,21 @@ def _compact_series(years: list[Any], series: list[dict[str, Any]], max_points: 
     compacted = False
     series = [s for s in series if any(abs(_n(v)) > 1e-9 for v in (s.get("values") or []))]
     if len(series) > max_series:
-        series = series[:max_series]
+        # Keep the largest series by total magnitude, not by list position --
+        # truncating in definition order silently dropped whichever series
+        # happened to be listed last (e.g. every portfolio-draw series on the
+        # "Income & Portfolio Draws" chart sits after the 10 income streams,
+        # so it vanished from the stacked bar for any household with that many
+        # non-zero income streams). Roll the smallest series into "Other" so
+        # each bar's stacked total still equals the real sum instead of
+        # quietly shedding dollars.
+        by_total = sorted(series, key=lambda s: sum(abs(_n(v)) for v in (s.get("values") or [])), reverse=True)
+        kept = by_total[: max_series - 1]
+        dropped = by_total[max_series - 1 :]
+        if dropped:
+            other_values = [sum(_n(v) for v in vals) for vals in zip(*[s.get("values") or [] for s in dropped])]
+            kept.append({"label": "Other", "values": other_values})
+        series = kept
         compacted = True
     if len(years) > max_points:
         step = max(1, int(round(len(years) / max_points)))
@@ -235,34 +249,54 @@ def _chart_page(c: dict[str, Any], rows: list[dict[str, Any]], mc_data: dict[str
         {"label": "HELOC", "values": [-round(_n(r.get("heloc_liability"))) for r in rows]},
     ])
 
+    inc_series_defs = [
+        ("Earned Income", "earned"), (f"{member_nick(c, 'member_1')} SS", "h_ss"),
+        (f"{member_nick(c, 'member_2')} SS", "w_ss"), ("Pension", "pension"),
+        (f"{member_nick(c, 'member_2')} Single Ann", "wife_single_ann"),
+        (f"{member_nick(c, 'member_2')} Joint Ann", "wife_joint_ann"),
+        (f"{member_nick(c, 'member_1')} Single Ann", "h_single_ann"),
+        (f"{member_nick(c, 'member_1')} Joint Ann", "h_joint_ann"),
+    ]
+    inc_values = {
+        label: [round(_n(r.get(key))) for r in rows] for label, key in inc_series_defs
+    }
+    inc_values["Note P+I"] = [round(_n(r.get("note_princ")) + _n(r.get("note_int"))) for r in rows]
+    inc_values["RMD"] = [round(_n(r.get("rmd_total"))) for r in rows]
+    for label, key in [("Trust Draw", "trust_wd"), ("HSA Draw", "hsa_wd"), ("Roth Draw", "roth_wd"),
+                       ("IRA Draw", "ira_wd"), ("HELOC Draw", "heloc_draw")]:
+        inc_values[label] = [round(max(0, _n(r.get(key)))) for r in rows]
+    inc_totals = [sum(vals[i] for vals in inc_values.values()) for i in range(len(rows))]
+
+    exp_values = {
+        "Base Spending": [round(_n(r.get("spend_base_yr"))) for r in rows],
+        "Rec Extras": [round(_n(r.get("rec_extra"))) for r in rows],
+        "Lump Events": [round(_n(r.get("lump"))) for r in rows],
+        "Mortgage + RE Tax": [round(_n(r.get("mortgage"))) for r in rows],
+        "Rent": [round(_n(r.get("rent_yr"))) for r in rows],
+        "HELOC P&I": [round(_n(r.get("heloc_interest")) + _n(r.get("heloc_repayment_principal"))) for r in rows],
+        "Federal Tax": [round(_n(r.get("fed_tax"))) for r in rows],
+        f"State Tax ({str(c.get('state', ''))[:2]})": [round(_n(r.get("state_tax"))) for r in rows],
+        "NIIT": [round(_n(r.get("niit"))) for r in rows],
+    }
+    exp_totals = [sum(vals[i] for vals in exp_values.values()) for i in range(len(rows))]
+    # Guaranteed income (SS/pension/RMD/etc.) commonly exceeds this chart's
+    # own itemized spend+tax total in a given year (real costs like payroll
+    # tax and IRMAA aren't broken out as their own series here) -- the excess
+    # is real money the household keeps, not an error. Defined as the exact
+    # complement of these two charts' own totals -- not the engine's
+    # row['surplus'], which nets against a fuller set of cash-need components
+    # these charts don't itemize -- so the two bars always reconcile exactly
+    # instead of leaving an unexplained gap between them.
+    exp_values["Surplus (Reinvested)"] = [
+        max(0, inc_totals[i] - exp_totals[i]) for i in range(len(rows))
+    ]
+
     add_xy("Cash Flow — Income & Portfolio Draws", "stacked_bar", [
-        {"label": "Earned Income", "values": [round(_n(r.get("earned"))) for r in rows]},
-        {"label": f"{member_nick(c, 'member_1')} SS", "values": [round(_n(r.get("h_ss"))) for r in rows]},
-        {"label": f"{member_nick(c, 'member_2')} SS", "values": [round(_n(r.get("w_ss"))) for r in rows]},
-        {"label": "Pension", "values": [round(_n(r.get("pension"))) for r in rows]},
-        {"label": f"{member_nick(c, 'member_2')} Single Ann", "values": [round(_n(r.get("wife_single_ann"))) for r in rows]},
-        {"label": f"{member_nick(c, 'member_2')} Joint Ann", "values": [round(_n(r.get("wife_joint_ann"))) for r in rows]},
-        {"label": f"{member_nick(c, 'member_1')} Single Ann", "values": [round(_n(r.get("h_single_ann"))) for r in rows]},
-        {"label": f"{member_nick(c, 'member_1')} Joint Ann", "values": [round(_n(r.get("h_joint_ann"))) for r in rows]},
-        {"label": "Note P+I", "values": [round(_n(r.get("note_princ")) + _n(r.get("note_int"))) for r in rows]},
-        {"label": "RMD", "values": [round(_n(r.get("rmd_total"))) for r in rows]},
-        {"label": "Trust Draw", "values": [round(max(0, _n(r.get("trust_wd")))) for r in rows]},
-        {"label": "HSA Draw", "values": [round(max(0, _n(r.get("hsa_wd")))) for r in rows]},
-        {"label": "Roth Draw", "values": [round(max(0, _n(r.get("roth_wd")))) for r in rows]},
-        {"label": "IRA Draw", "values": [round(max(0, _n(r.get("ira_wd")))) for r in rows]},
-        {"label": "HELOC Draw", "values": [round(max(0, _n(r.get("heloc_draw")))) for r in rows]},
+        {"label": label, "values": vals} for label, vals in inc_values.items()
     ], unit="currency")
 
     add_xy("Cash Flow — Spending & Taxes", "stacked_bar", [
-        {"label": "Base Spending", "values": [round(_n(r.get("spend_base_yr"))) for r in rows]},
-        {"label": "Rec Extras", "values": [round(_n(r.get("rec_extra"))) for r in rows]},
-        {"label": "Lump Events", "values": [round(_n(r.get("lump"))) for r in rows]},
-        {"label": "Mortgage + RE Tax", "values": [round(_n(r.get("mortgage"))) for r in rows]},
-        {"label": "Rent", "values": [round(_n(r.get("rent_yr"))) for r in rows]},
-        {"label": "HELOC P&I", "values": [round(_n(r.get("heloc_interest")) + _n(r.get("heloc_repayment_principal"))) for r in rows]},
-        {"label": "Federal Tax", "values": [round(_n(r.get("fed_tax"))) for r in rows]},
-        {"label": f"State Tax ({str(c.get('state',''))[:2]})", "values": [round(_n(r.get("state_tax"))) for r in rows]},
-        {"label": "NIIT", "values": [round(_n(r.get("niit"))) for r in rows]},
+        {"label": label, "values": vals} for label, vals in exp_values.items()
     ])
 
     pct_by_year = (mc_data or {}).get("pct_by_year", {}) or {}
@@ -288,6 +322,56 @@ def _chart_page(c: dict[str, Any], rows: list[dict[str, Any]], mc_data: dict[str
         compacted = compacted or was
         if slices:
             charts.append({"type": "pie", "title": "Target Portfolio Allocation", "unit": "currency", "slices": slices})
+
+    # Efficient Frontier: mirrors sheets_projection_charts.py's Excel scatter
+    # chart (volatility vs. expected return), which was never ported to the
+    # UI results model -- this chart previously did not exist in the app at
+    # all, not just missing/hidden.
+    try:
+        from . import optimization as _opt
+        from . import allocation_policy as _ap
+        ef_points = _opt.efficient_frontier(c, n_points=15)
+    except Exception:
+        ef_points = []
+    if ef_points and len(ef_points) >= 2:
+        ef_series = [{
+            "label": "Efficient Frontier",
+            "style": "line",
+            "points": [{"x": _n(p.get("volatility")), "y": _n(p.get("return"))} for p in ef_points],
+        }]
+
+        def _add_marker(label: str, stats: dict[str, Any] | None) -> None:
+            if not stats:
+                return
+            vol = _n(stats.get("volatility"))
+            ret = _n(stats.get("expected_return"))
+            ef_series.append({"label": label, "style": "point", "points": [{"x": vol, "y": ret}]})
+
+        try:
+            _add_marker("Recommended Portfolio", _opt.allocation_portfolio_stats(c))
+        except Exception:
+            pass
+        try:
+            _cur_weights = {bkt: _n(before[i] if i < len(before) else 0) for i, bkt in enumerate(buckets) if bkt in _opt.ASSET_CLASSES}
+            _add_marker("Current Portfolio", _opt.portfolio_stats_from_weights(c, _cur_weights) if _cur_weights else None)
+        except Exception:
+            pass
+        try:
+            _add_marker("Max Sharpe (Risk-Budgeted)", _opt.allocation_portfolio_stats(c, force_mode=_ap.ALLOCATION_MODE_MAX_SHARPE))
+        except Exception:
+            pass
+        try:
+            _add_marker("Pure Tangency", _opt.allocation_portfolio_stats(c, force_mode=_ap.ALLOCATION_MODE_TANGENCY))
+        except Exception:
+            pass
+        charts.append({
+            "type": "scatter",
+            "title": "Efficient Frontier — Risk vs. Return",
+            "unit": "percent",
+            "x_label": "Volatility (Standard Deviation)",
+            "y_label": "Expected Return",
+            "series": ef_series,
+        })
 
     note = "Chart Dashboard is rendered from the shared v10 semantic results model. Chart source tables are not displayed."
     if compacted:

@@ -987,6 +987,164 @@
     svg += "</svg>";
     return svg + renderDetailChartLegend(series);
   }
+  function renderDetailScatterChart(chart) {
+    var series = chart.series || [];
+    var allPts = series.flatMap(function (s) {
+      return s.points || [];
+    });
+    var xs = allPts.map(function (p) {
+      return Number(p.x) || 0;
+    });
+    var ys = allPts.map(function (p) {
+      return Number(p.y) || 0;
+    });
+    var xMax = Math.max.apply(null, xs.concat([0])) * 1.1 || 1;
+    var xMin = Math.min.apply(null, xs.concat([0]));
+    var yMax = Math.max.apply(null, ys.concat([0])) * 1.1 || 1;
+    var yMin = Math.min.apply(null, ys.concat([0]));
+    var xRange = xMax - xMin || 1;
+    var yRange = yMax - yMin || 1;
+    var w = 960,
+      h = 340,
+      plotX = 80,
+      plotY = 28,
+      plotW = 820,
+      plotH = 230;
+    var isPct = chart.unit === "percent" || yMax <= 1.5;
+    function fmtAxisVal(v) {
+      return isPct ? (v * 100).toFixed(1) + "%" : detailCurrencyK(v);
+    }
+    function toPx(pt) {
+      return {
+        x: plotX + ((Number(pt.x) - xMin) / xRange) * plotW,
+        y: plotY + plotH - ((Number(pt.y) - yMin) / yRange) * plotH,
+      };
+    }
+    var svg =
+      '<svg viewBox="0 0 ' +
+      w +
+      " " +
+      h +
+      '" role="img" aria-label="' +
+      esc(chart.title || "Chart") +
+      '">';
+    var yTicks = niceTickRange(yMax - yMin, 5).map(function (v) {
+      return v + yMin;
+    });
+    yTicks.forEach(function (v) {
+      var y = plotY + plotH - ((v - yMin) / yRange) * plotH;
+      svg +=
+        '<line x1="' +
+        plotX +
+        '" y1="' +
+        y.toFixed(1) +
+        '" x2="' +
+        (plotX + plotW) +
+        '" y2="' +
+        y.toFixed(1) +
+        '" stroke="#e8e2d5" stroke-width="1"/>';
+      svg +=
+        '<text x="' +
+        (plotX - 6) +
+        '" y="' +
+        (y + 4).toFixed(1) +
+        '" text-anchor="end" class="detail-chart-tick">' +
+        esc(fmtAxisVal(v)) +
+        "</text>";
+    });
+    var xTicks = niceTickRange(xMax - xMin, 5).map(function (v) {
+      return v + xMin;
+    });
+    xTicks.forEach(function (v) {
+      var x = plotX + ((v - xMin) / xRange) * plotW;
+      svg +=
+        '<text x="' +
+        x.toFixed(1) +
+        '" y="' +
+        (plotY + plotH + 16) +
+        '" text-anchor="middle" class="detail-chart-tick">' +
+        esc(fmtAxisVal(v)) +
+        "</text>";
+    });
+    svg +=
+      '<line x1="' +
+      plotX +
+      '" y1="' +
+      (plotY + plotH) +
+      '" x2="' +
+      (plotX + plotW) +
+      '" y2="' +
+      (plotY + plotH) +
+      '" class="detail-axis"/>';
+    svg +=
+      '<line x1="' +
+      plotX +
+      '" y1="' +
+      plotY +
+      '" x2="' +
+      plotX +
+      '" y2="' +
+      (plotY + plotH) +
+      '" class="detail-axis"/>';
+    svg +=
+      '<text x="14" y="' +
+      (plotY + plotH / 2) +
+      '" text-anchor="middle" class="detail-chart-tick" transform="rotate(-90 14 ' +
+      (plotY + plotH / 2) +
+      ')">' +
+      esc(chart.y_label || "") +
+      "</text>";
+    svg +=
+      '<text x="' +
+      (plotX + plotW / 2) +
+      '" y="' +
+      (h - 4) +
+      '" text-anchor="middle" class="detail-chart-tick">' +
+      esc(chart.x_label || "") +
+      "</text>";
+    series.forEach(function (s, si) {
+      var pts = (s.points || []).map(toPx);
+      var color = detailChartColor(si);
+      if (s.style === "line") {
+        var polyPts = pts
+          .map(function (p) {
+            return p.x.toFixed(1) + "," + p.y.toFixed(1);
+          })
+          .join(" ");
+        svg +=
+          '<polyline points="' +
+          polyPts +
+          '" fill="none" stroke="' +
+          color +
+          '" stroke-width="2"/>';
+        pts.forEach(function (p) {
+          svg +=
+            '<circle cx="' +
+            p.x.toFixed(1) +
+            '" cy="' +
+            p.y.toFixed(1) +
+            '" r="3" fill="' +
+            color +
+            '"/>';
+        });
+      } else {
+        pts.forEach(function (p) {
+          svg +=
+            '<circle cx="' +
+            p.x.toFixed(1) +
+            '" cy="' +
+            p.y.toFixed(1) +
+            '" r="7" fill="' +
+            color +
+            '" stroke="#fff" stroke-width="1.5"><title>' +
+            esc(s.label) +
+            "</title></circle>";
+        });
+      }
+    });
+    svg += "</svg>";
+    return svg + renderDetailChartLegend(series);
+  }
   function detailPiePath(cx, cy, r, start, end) {
     const sx = cx + r * Math.cos(start),
       sy = cy + r * Math.sin(start),
@@ -1023,10 +1181,11 @@
   }
   function renderDetailChartCard(ctx, chart) {
     var body = "";
-    var KNOWN_TYPES = ["pie", "line", "bar", "stacked_bar", "stacked-bar"];
+    var KNOWN_TYPES = ["pie", "line", "bar", "stacked_bar", "stacked-bar", "scatter"];
     try {
       if (chart.type === "pie") body = renderDetailPieChart(chart);
       else if (chart.type === "line") body = renderDetailLineChart(chart);
+      else if (chart.type === "scatter") body = renderDetailScatterChart(chart);
       else if (
         chart.type === "bar" ||
         chart.type === "stacked_bar" ||

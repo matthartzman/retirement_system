@@ -333,6 +333,8 @@ body.chart-modal-open{overflow:hidden}
 .plan-report-section{margin:0 20px 20px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px}
 .plan-report-subsection{font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:12px 0 6px;padding-top:8px;border-top:1px solid var(--line)}
 .plan-report-rows{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;margin-top:6px}
+.plan-report-rows-tight{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+.plan-report-rows-tight .plan-report-value{font-size:13px}
 .plan-report-row{display:flex;flex-direction:column;gap:3px;padding:8px 10px;background:#faf9f5;border:1px solid var(--line);border-radius:9px}
 .plan-report-row.plan-report-empty{opacity:.55}
 .plan-report-label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--muted)}
@@ -669,7 +671,9 @@ body.chart-modal-open{overflow:hidden}
 .workspace-tab{background:none;border:none;border-bottom:3px solid transparent;margin-bottom:-2px;padding:11px 18px;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap;border-radius:0;transition:color .14s,border-color .14s;letter-spacing:.01em}
 .workspace-tab:hover{color:var(--ink)}
 .workspace-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
-.workspace-tab-body{padding:0}
+.workspace-tab-body{padding:0 20px 20px}
+.workspace-tab-body>.holdings{padding-left:0;padding-right:0}
+.workspace-tab-body>.build-impact{margin-left:0;margin-right:0}
 
 /* Strategy section accordion headers — Timing & Tax, Special Strategies, Lifestyle Spending */
 .timing-tax-workspace>details,

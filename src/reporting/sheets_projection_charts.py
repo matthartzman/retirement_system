@@ -102,8 +102,9 @@ def build_sheet8(ws, c, rows, mc_data=None):
 
     # ── pre-compute per-year values ───────────────────────────────────────────
     # Income = income streams + positive portfolio draws only
-    # Expense = spending + taxes + payroll-tax residual (≤$35K gap → real cost)
-    # Surplus = visual gap (income bar taller than expense bar); NOT a series
+    # Expense = spending + taxes + Surplus (Reinvested) -- defined as
+    # max(0, inc_total - exp_raw) so this bar's total always reconciles
+    # exactly with the Income & Portfolio Draws bar for the same year.
     nw_rows = rows  # alias — rows already have all NW fields
 
     per_year = []
@@ -137,9 +138,18 @@ def build_sheet8(ws, c, rows, mc_data=None):
         state_tax  = round(row.get('state_tax',0))
         niit       = round(row.get('niit',0))
         exp_raw    = spend_base + housing + wellness + travel + other + heloc_pai_chart + fed_tax + state_tax + niit
-        gap        = inc_total - exp_raw
-        # Payroll-tax residual: only add to expense when gap is a real cost, not surplus
-        payroll_res = round(gap) if 0 < gap <= 35000 else 0
+        # Guaranteed income (SS/pension/RMD/etc.) commonly exceeds this
+        # chart's own itemized spend+tax total in a given year (it excludes
+        # payroll tax, IRMAA, and other cash needs the engine funds but this
+        # chart doesn't break out as separate series) -- the excess is real
+        # money the household keeps, not an error. Defined as the exact
+        # complement of this chart's own inc_total/exp_raw (not the engine's
+        # row['surplus'], which nets against a fuller set of cash-need
+        # components this chart doesn't itemize and so doesn't reconcile
+        # against inc_total here) guarantees the two bars always match,
+        # instead of only when a re-derived residual happened to fall under
+        # an arbitrary cutoff.
+        surplus_reinvested = max(0, round(inc_total - exp_raw))
 
         # Real-dollar equivalent (deflated to plan_start year)
         cpi_deflator = (1 + c['inf']) ** (row['year'] - c['plan_start'])
@@ -155,8 +165,8 @@ def build_sheet8(ws, c, rows, mc_data=None):
             'spend_base': spend_base, 'housing': housing, 'wellness': wellness,
             'travel': travel, 'other': other, 'heloc_pai': heloc_pai_chart,
             'fed_tax': fed_tax, 'state_tax': state_tax,
-            'niit': niit, 'payroll_res': payroll_res,
-            'exp_total': exp_raw + payroll_res,
+            'niit': niit, 'surplus_reinvested': surplus_reinvested,
+            'exp_total': exp_raw + surplus_reinvested,
             # NW components — home equity separated from other
             'ann_nw':    round(row.get('ann_nw',0)),
             'pretax_nw': round(row.get('pretax_nw',0)),
@@ -272,7 +282,7 @@ def build_sheet8(ws, c, rows, mc_data=None):
         (35, 'fed_tax',     'Federal Tax',      '9B2335'),
         (36, 'state_tax',   f'State Tax ({c["state"][:2]})',   'C5384E'),
         (37, 'niit',        'NIIT',             'E07595'),
-        (38, 'payroll_res', 'Payroll Tax',      '595959'),
+        (38, 'surplus_reinvested', 'Surplus (Reinvested)', '595959'),
         (39, 'heloc_pai',   'HELOC P&I',        '2D6A8F'),
     ]
     # Expense section title — span exactly cols 29-40

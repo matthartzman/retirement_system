@@ -33,11 +33,12 @@
       "name": "1E. Charts",
       "kind": "chart_dashboard",
       "category": "Reports",
-      "chart_count": 3,
+      "chart_count": 4,
       "chart_title_prefixes": [
         "Net Wort",
         "Cash Flo",
-        "Cash Flo"
+        "Cash Flo",
+        "Efficien"
       ]
     },
     {
