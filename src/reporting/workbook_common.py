@@ -184,7 +184,7 @@ WORKBOOK_SECTION_LAYOUT = [
         'sheets': [
             '2A. Roth Conversion', '2B. Asset Allocation', '2C. State Residency',
             '2D. Social Security', '2E. S-Corp vs LLC', '2F. Charitable Giving',
-            '2G. Estate & Legacy Planning', '2I. Tax-Loss Harvesting',
+            '2G. Estate & Legacy Planning', '2I. Tax-Loss Harvesting', '2N. Gain Harvesting',
             # Optional advanced planning modules (toggle-gated; present only when enabled).
             '2J. Education Funding', '2K. Equity Compensation', '2L. Special-Needs Planning',
             '2M. Business Succession',
@@ -228,6 +228,7 @@ V5_LAYOUT = [
     ('11. Roth Conversion', '2'),
     ('12. Charitable Giving', '2'),
     ('12B. Tax-Loss Harvesting', '2'),
+    ('12C. Gain Harvesting', '2'),
     ('13. State Residency', '2'),
     ('14. Estate Plan', '2'),
     ('15. Market-Luck Stress Test', '3'),
@@ -297,6 +298,7 @@ FINAL_SHEET_RENAMES = {
     '10. Social Security': '2D. Social Security',
     '12. Charitable Giving': '2F. Charitable Giving',
     '12B. Tax-Loss Harvesting': '2I. Tax-Loss Harvesting',
+    '12C. Gain Harvesting': '2N. Gain Harvesting',
     '14. Estate Plan': '2G. Estate & Legacy Planning',
     '27. Planning Levers': '2H. Planning Levers',
     '15. Market-Luck Stress Test': '3A. Monte Carlo',

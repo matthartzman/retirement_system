@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import re
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
@@ -14,6 +16,60 @@ try:
     from ..report_package import REPORT_PACKAGE_FILENAME
 except ImportError:  # pragma: no cover - direct execution fallback
     from src.report_package import REPORT_PACKAGE_FILENAME
+
+try:
+    from . import build_job_service
+except ImportError:  # pragma: no cover - direct execution fallback
+    from src.server_services import build_job_service
+
+
+_QC_RE = re.compile(r"QC:\s*(\d+)\s*/\s*(\d+)\s+PASS")
+
+
+@dataclass(frozen=True)
+class BuildResultSummary:
+    """The single interpretation of "did this build succeed" -- computed once
+    here instead of independently (and identically) inline in both the sync
+    build route and the async build-progress job."""
+
+    success: bool
+    qc_result: str
+    stale_summary: bool
+    summary: dict[str, Any] = field(default_factory=dict)
+    error_message: str = ""
+
+
+def interpret_build_result(
+    *,
+    returncode: int,
+    stdout: str,
+    output_dir: Path,
+    build_id: str,
+    stderr: str = "",
+) -> BuildResultSummary:
+    """Read plan_summary.json and decide success/staleness/error for a just-
+    finished build. The one place both the sync route and the async job call
+    instead of each re-implementing an identical inline sequence (A2, system
+    review 2026-07-21)."""
+    summary_path = output_dir / "plan_summary.json"
+    summary: dict[str, Any] = {}
+    if summary_path.exists():
+        try:
+            summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        except Exception:
+            summary = {}
+    stale_summary = bool(summary) and not build_job_service.summary_matches_build(summary, build_id)
+    qc_match = _QC_RE.search(stdout or "")
+    success = returncode == 0 and (bool(qc_match) or summary.get("qc_result")) and bool(summary) and not stale_summary
+    qc_result = summary.get("qc_result") or (qc_match.group(0) if qc_match else "Unknown")
+    error_message = build_job_service.build_error_message(returncode, summary, stale_summary, stdout, stderr)
+    return BuildResultSummary(
+        success=bool(success),
+        qc_result=qc_result,
+        stale_summary=stale_summary,
+        summary=summary,
+        error_message=error_message,
+    )
 
 
 def file_meta(path: Path) -> dict[str, Any]:

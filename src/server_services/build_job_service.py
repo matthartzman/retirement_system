@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import re
 import subprocess
 import sys
@@ -293,6 +292,7 @@ def run_build_progress_job(
     admin_changes_between: Callable[[str, float, float], list[dict[str, Any]]],
     write_last_build_metadata: Callable[[str, dict[str, Any]], None],
     redact_text: Callable[[str], str],
+    interpret_build_result: Callable[..., Any],
 ) -> None:
     stdout_lines: list[str] = []
     stderr_text = ""
@@ -353,25 +353,22 @@ def run_build_progress_job(
             returncode = proc.returncode
         elapsed = round(time.time() - start, 1)
         stdout = "".join(stdout_lines)
-        summary_path = output_dir / "plan_summary.json"
-        summary: dict[str, Any] = {}
-        if summary_path.exists():
-            try:
-                summary = json.loads(summary_path.read_text(encoding="utf-8"))
-            except Exception:
-                summary = {}
         build_id = str(env.get("RETIREMENT_SYSTEM_BUILD_ID", "") or "")
-        stale_summary = bool(summary) and not summary_matches_build(summary, build_id)
-        qc_match = re.search(r"QC:\s*(\d+)\s*/\s*(\d+)\s+PASS", stdout)
-        success = returncode == 0 and (bool(qc_match) or summary.get("qc_result")) and bool(summary) and not stale_summary
+        outcome = interpret_build_result(
+            returncode=returncode,
+            stdout=stdout,
+            output_dir=output_dir,
+            build_id=build_id,
+            stderr=stderr_text,
+        )
         finished_ts = time.time()
         admin_changes = admin_changes_between(workspace_id, previous_build_ts, build_start_ts)
         result_payload = {
-            "success": bool(success),
+            "success": outcome.success,
             "returncode": returncode,
             "elapsed_seconds": elapsed,
-            "qc_result": summary.get("qc_result") or (qc_match.group(0) if qc_match else "Unknown"),
-            "kpi": summary,
+            "qc_result": outcome.qc_result,
+            "kpi": outcome.summary,
             "output_dir": str(output_dir),
             "admin_changes": admin_changes,
             "previous_build_ts": previous_build_ts,
@@ -380,12 +377,11 @@ def run_build_progress_job(
             "stdout": redact_text(stdout[-3000:]) if redact_logs else stdout[-3000:],
             "stderr": redact_text((stderr_text or "")[-1000:]) if redact_logs else (stderr_text or "")[-1000:],
         }
-        error_message = build_error_message(proc.returncode, summary, stale_summary, stdout, stderr_text)
-        if error_message:
-            result_payload["error"] = error_message
-        if success:
+        if outcome.error_message:
+            result_payload["error"] = outcome.error_message
+        if outcome.success:
             write_last_build_metadata(workspace_id, {"finished_at_ts": finished_ts, "client_id": client_id, "job_id": job_id, "elapsed_seconds": elapsed, "qc_result": result_payload["qc_result"]})
-        registry.update(job_id, status="done" if success else "failed", progress=100, phase="Build complete" if success else "Build failed", detail=result_payload["qc_result"] if success else (result_payload["stderr"] or "Build process returned an error."), result=result_payload)
+        registry.update(job_id, status="done" if outcome.success else "failed", progress=100, phase="Build complete" if outcome.success else "Build failed", detail=result_payload["qc_result"] if outcome.success else (result_payload["stderr"] or "Build process returned an error."), result=result_payload)
     except subprocess.TimeoutExpired:
         payload = {"success": False, "error": f"Build timed out after {timeout_seconds} seconds"}
         registry.update(job_id, status="failed", progress=100, phase="Build timed out", detail=payload["error"], result=payload)

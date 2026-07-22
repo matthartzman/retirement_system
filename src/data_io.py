@@ -2346,6 +2346,19 @@ def parse_client(data, url_template):
     c['tlh_transaction_cost_bps'] = _n(_v(data, 'Withdrawal Policy', 'Tax-Loss Harvesting', 'tlh_transaction_cost_bps', '2'), 2.0)
     c['tlh_fraction_sold_before_death'] = _n(_v(data, 'Withdrawal Policy', 'Tax-Loss Harvesting', 'tlh_fraction_sold_before_death', '50%'), 0.5)
 
+    # 0%-bracket gain harvesting (system review 2026-07-21, P2): symmetric
+    # counterpart to TLH above -- realizes appreciated long-term lots up to
+    # the remaining 0%-LTCG-bracket headroom instead of harvesting losses.
+    # Same three-state policy convention as tlh_policy; defaults to off so
+    # existing plans are unaffected until explicitly opted in.
+    _gain_harvest_policy = str(_v(data, 'Withdrawal Policy', 'Gain Harvesting', 'gain_harvest_policy', 'off') or 'off').strip().lower()
+    if _gain_harvest_policy not in ('off', 'analyze_only', 'apply'):
+        _gain_harvest_policy = 'off'
+    c['gain_harvest_policy'] = _gain_harvest_policy
+    c['gain_harvest_min_gain_dollars'] = _n(_v(data, 'Withdrawal Policy', 'Gain Harvesting', 'gain_harvest_min_gain_dollars', '500'), 500.0)
+    c['gain_harvest_min_gain_pct'] = _n(_v(data, 'Withdrawal Policy', 'Gain Harvesting', 'gain_harvest_min_gain_pct', '0%'), 0.0)
+    c['gain_harvest_transaction_cost_bps'] = _n(_v(data, 'Withdrawal Policy', 'Gain Harvesting', 'gain_harvest_transaction_cost_bps', '2'), 2.0)
+
     # Instantiate LotEngine with current prices
     lot_method = _v(data, 'Withdrawal Policy', '', 'lot_method', 'HIFO') or 'HIFO'
     c['lot_engine'] = LotEngine(

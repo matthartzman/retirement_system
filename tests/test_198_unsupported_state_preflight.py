@@ -16,7 +16,8 @@ from src.reporting.sheets_strategy import build_sheet13
 
 SUPPORTED = (
     'Arizona', 'California', 'Colorado', 'Florida', 'Illinois', 'Indiana',
-    'Nevada', 'New York', 'North Carolina', 'Tennessee', 'Texas',
+    'Nevada', 'New York', 'North Carolina', 'South Dakota', 'Tennessee',
+    'Texas', 'Wyoming',
 )
 
 
@@ -24,7 +25,7 @@ def test_supported_states_is_derived_from_state_tax_rules():
     # Single source of truth: no second hardcoded list to drift out of sync.
     assert supported_states() == tuple(sorted(STATE_TAX_RULES.keys()))
     assert set(supported_states()) == set(SUPPORTED)
-    assert len(supported_states()) == 11
+    assert len(supported_states()) == 13
 
 
 def test_unsupported_state_raises_readable_preflight_error():

@@ -249,6 +249,12 @@ _OUTPUTS: List[OutputModule] = [
         requires_inputs=(_in("holdings", "lots", "basis"), _in("pricing")),
     ),
     OutputModule(
+        "gain_harvesting", "Gain Harvesting", OPTIMIZATION, MEDIUM,
+        "0%-bracket long-term gains harvestable given current lots.",
+        sheet="12C. Gain Harvesting", tab="2N. Gain Harvesting",
+        requires_inputs=(_in("holdings", "lots", "basis"), _in("pricing")),
+    ),
+    OutputModule(
         "charitable_giving", "Charitable Giving", OPTIMIZATION, MEDIUM,
         "Bunching / QCD / DAF strategy and tax effect.",
         optional=True, sheet="12. Charitable Giving", tab="2F. Charitable Giving",

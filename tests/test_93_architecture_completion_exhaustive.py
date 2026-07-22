@@ -1,3 +1,11 @@
+"""Despite the "exhaustive" name, this file is a MIX (system review
+2026-07-21, Q1 cross-check): some tests genuinely execute code and check
+real computed values (e.g. the tax-law dataset lookup, PlanConfig
+immutability), while others are pure source-text substring checks with no
+execution (e.g. the SSE-route / observability / money-boundary tests below
+just grep for a class or string). Read each test's body before trusting it
+as behavioral proof -- the file name alone doesn't tell you which kind it is.
+"""
 from __future__ import annotations
 
 import inspect

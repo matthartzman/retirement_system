@@ -144,9 +144,21 @@ def build_sheet10(ws, c, rows):
     section_title(ws, 1, 'SOCIAL SECURITY CLAIMING STRATEGY', 10)
 
     from ..planning_engines import project, monte_carlo
+    from ..after_tax import estimate_after_tax_terminal_net_worth as _est_after_tax
     import copy as _copy
     import contextlib as _contextlib
     import io as _io
+
+    # P3 (system review 2026-07-21): $1 of guaranteed income during the fixed
+    # widow(er) period is treated as worth $1 of after-tax terminal wealth by
+    # default -- deliberately not a large multiplier, since terminal wealth
+    # should still dominate the ranking; this only needs to be big enough to
+    # tip close calls toward the spouse-pair that protects the survivor.
+    # Not `c.get(...) or 1.0`: 0.0 is a legitimate, meaningful override (used
+    # by tests to isolate the unweighted score) and `or` would silently
+    # coerce it back to 1.0 since 0.0 is falsy.
+    _ss_survivor_weight_raw = c.get('ss_survivor_weight', 1.0)
+    SS_SURVIVOR_WEIGHT = float(_ss_survivor_weight_raw if _ss_survivor_weight_raw is not None else 1.0)
 
     # Reduced-cost Monte Carlo settings for the sweep only: fewer paths and a
     # single-sim sensitivity grid (the grid always runs, so this is the
@@ -176,15 +188,40 @@ def build_sheet10(ws, c, rows):
         c2.pop('plan_result', None)
         c2.pop('roth_strategy_result', None)
         proj_rows = project(c2)
-        terminal = float(proj_rows[-1].get('total_nw', 0.0) or 0.0) if proj_rows else 0.0
+        terminal_row = proj_rows[-1] if proj_rows else {}
+        terminal = float(terminal_row.get('total_nw', 0.0) or 0.0)
         lifetime_tax = sum(float(r.get('total_tax', 0.0) or 0.0) for r in proj_rows)
         lifetime_ss = sum(float(r.get('h_ss', 0.0) or 0.0) + float(r.get('w_ss', 0.0) or 0.0) for r in proj_rows)
         irmaa = sum(float(r.get('irmaa', 0.0) or 0.0) for r in proj_rows)
-        survivor_years = sum(1 for r in proj_rows if (float(r.get('h_ss', 0.0) or 0.0) == 0.0) != (float(r.get('w_ss', 0.0) or 0.0) == 0.0))
-        # Score on after-tax terminal wealth plus lifetime SS and explicit tax/
-        # IRMAA drag. The sheet reports the components so the recommendation is
-        # transparent rather than hard-coded to age 70.
-        score = terminal + lifetime_ss - lifetime_tax - irmaa
+        # h_alive/w_alive (set from the fixed mortality-age death years) are
+        # the correct signal for "years exactly one spouse survives" -- the
+        # previous (h_ss==0) != (w_ss==0) proxy also went true whenever one
+        # spouse simply hadn't started claiming yet, so it mostly measured
+        # claim-timing mismatch, not survivorship, and varied wildly across
+        # pairs for a couple whose actual death years never move. h_alive/
+        # w_alive are fixed per couple regardless of claim age, as they
+        # should be; what genuinely varies by claim-age pair is the SS
+        # dollars flowing during that fixed survivor window, captured below.
+        survivor_rows = [r for r in proj_rows if bool(r.get('h_alive')) != bool(r.get('w_alive'))]
+        survivor_years = len(survivor_rows)
+        survivor_period_ss_income = sum(
+            float(r.get('h_ss', 0.0) or 0.0) + float(r.get('w_ss', 0.0) or 0.0) for r in survivor_rows
+        )
+        after_tax_terminal_nw = float(
+            _est_after_tax(c2, terminal_row).get('after_tax_terminal_nw', terminal) if proj_rows else terminal
+        )
+        # P3 (system review 2026-07-21): score on after-tax terminal wealth,
+        # NOT gross terminal_nw plus separately-subtracted lifetime_tax/irmaa
+        # -- terminal_nw already reflects every dollar of tax paid along the
+        # way (higher tax means lower ending balances), so adding lifetime_ss
+        # back in and subtracting lifetime_tax/irmaa again double-counted
+        # both in the same direction the old score's bias ran. Mandatorily
+        # weighted by survivor-period SS income (not just a year count, which
+        # can't differentiate pairs since real death years don't move with
+        # claim age) so the score keeps rewarding delaying the higher
+        # earner's claim for the actual reason to delay -- survivor/longevity
+        # protection -- rather than for an accounting artifact.
+        score = after_tax_terminal_nw + SS_SURVIVOR_WEIGHT * survivor_period_ss_income
         # Informational-only probabilistic metrics: do NOT feed the score or
         # the recommendation above. Delaying SS is fundamentally a longevity/
         # market-risk hedge that a single deterministic mortality assumption
@@ -203,8 +240,10 @@ def build_sheet10(ws, c, rows):
             pass
         return {
             'h_age': int(h_age), 'w_age': int(w_age), 'terminal_nw': terminal,
+            'after_tax_terminal_nw': after_tax_terminal_nw,
             'lifetime_tax': lifetime_tax, 'lifetime_ss': lifetime_ss,
-            'irmaa': irmaa, 'survivor_years': survivor_years, 'score': score,
+            'irmaa': irmaa, 'survivor_years': survivor_years,
+            'survivor_period_ss_income': survivor_period_ss_income, 'score': score,
             'delta_terminal': terminal - base_terminal,
             'delta_tax': lifetime_tax - base_tax,
             'delta_ss': lifetime_ss - base_ss,
@@ -225,10 +264,10 @@ def build_sheet10(ws, c, rows):
     _s1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
     _s2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
     summary = [
-        (f'Recommended {_s1} Claim Age', best['h_age'], 'Highest score from the 62–70 × 62–70 projection sweep.'),
+        (f'Recommended {_s1} Claim Age', best['h_age'], 'Highest score (after-tax terminal wealth plus survivor-period SS income) from the 62–70 × 62–70 projection sweep.'),
         (f'Recommended {_s2} Claim Age', best['w_age'], 'Projection uses the same tax, IRMAA, withdrawal, ACA, survivor, and estate machinery as the base plan.'),
         ('Current Configured Claim Ages', f"{_s1} {h_current} / {_s2} {w_current}", 'Current row shown below for comparison.'),
-        ('Best vs Current Terminal NW', (best['terminal_nw'] - (current or best)['terminal_nw']) if current else 0.0, 'Positive means the sweep’s selected pair improves terminal net worth versus current config.'),
+        ('Best vs Current After-Tax Terminal NW', (best['after_tax_terminal_nw'] - (current or best)['after_tax_terminal_nw']) if current else 0.0, 'Positive means the sweep’s selected pair improves after-tax terminal net worth versus current config.'),
         ('Best vs Current Lifetime Tax', (best['lifetime_tax'] - (current or best)['lifetime_tax']) if current else 0.0, 'Negative means lower lifetime tax versus current config.'),
     ]
     for label, value, note in summary:
@@ -239,42 +278,45 @@ def build_sheet10(ws, c, rows):
         r += 1
 
     r += 1
-    write_hdr(ws, r, 1, 'Top 10 claiming pairs — full projection ranking', NAVY, WHITE, span=12); r += 1
-    hdrs = ['Rank', 'H Claim', 'W Claim', 'Score', 'Terminal NW', 'Δ Terminal NW', 'Lifetime SS', 'Δ Lifetime SS', 'Lifetime Tax', 'IRMAA', 'MC Success %', 'MC P10 Terminal NW']
+    write_hdr(ws, r, 1, 'Top 10 claiming pairs — full projection ranking', NAVY, WHITE, span=14); r += 1
+    hdrs = ['Rank', 'H Claim', 'W Claim', 'Score', 'After-Tax Terminal NW', 'Survivor-Period SS Income', 'Terminal NW', 'Δ Terminal NW', 'Lifetime SS', 'Lifetime Tax', 'IRMAA', 'Survivor Years', 'MC Success %', 'MC P10 Terminal NW']
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
     r += 1
     for rank, sc in enumerate(scenarios[:10], 1):
-        vals = [rank, sc['h_age'], sc['w_age'], sc['score'], sc['terminal_nw'], sc['delta_terminal'], sc['lifetime_ss'], sc['delta_ss'], sc['lifetime_tax'], sc['irmaa'], sc.get('mc_success_rate'), sc.get('mc_p10_terminal_nw')]
+        vals = [rank, sc['h_age'], sc['w_age'], sc['score'], sc['after_tax_terminal_nw'], sc['survivor_period_ss_income'], sc['terminal_nw'], sc['delta_terminal'], sc['lifetime_ss'], sc['lifetime_tax'], sc['irmaa'], sc['survivor_years'], sc.get('mc_success_rate'), sc.get('mc_p10_terminal_nw')]
         bg = 'E2EFDA' if rank == 1 else ('F4F5F7' if sc is current else None)
         for i, val in enumerate(vals, 1):
-            fmt = FMT_PCT if i == 11 else (FMT_DOLLAR if i >= 4 else None)
+            fmt = FMT_PCT if i == 13 else (FMT_DOLLAR if i >= 4 and i != 12 else None)
             write_cell(ws, r, i, val, fmt=fmt, bg=bg)
         r += 1
 
     r += 2
-    write_hdr(ws, r, 1, 'Complete 62–70 × 62–70 spouse-pair sweep', NAVY, WHITE, span=12); r += 1
-    hdrs = ['H Claim', 'W Claim', 'Score', 'Terminal NW', 'Δ Terminal NW', 'Lifetime SS', 'Δ Lifetime SS', 'Lifetime Tax', 'IRMAA', 'Survivor Years', 'MC Success %', 'MC P10 Terminal NW']
+    write_hdr(ws, r, 1, 'Complete 62–70 × 62–70 spouse-pair sweep', NAVY, WHITE, span=13); r += 1
+    hdrs = ['H Claim', 'W Claim', 'Score', 'After-Tax Terminal NW', 'Survivor-Period SS Income', 'Terminal NW', 'Δ Terminal NW', 'Lifetime SS', 'Lifetime Tax', 'IRMAA', 'Survivor Years', 'MC Success %', 'MC P10 Terminal NW']
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
     r += 1
     for sc in sorted(scenarios, key=lambda d: (d['h_age'], d['w_age'])):
-        vals = [sc['h_age'], sc['w_age'], sc['score'], sc['terminal_nw'], sc['delta_terminal'], sc['lifetime_ss'], sc['delta_ss'], sc['lifetime_tax'], sc['irmaa'], sc['survivor_years'], sc.get('mc_success_rate'), sc.get('mc_p10_terminal_nw')]
+        vals = [sc['h_age'], sc['w_age'], sc['score'], sc['after_tax_terminal_nw'], sc['survivor_period_ss_income'], sc['terminal_nw'], sc['delta_terminal'], sc['lifetime_ss'], sc['lifetime_tax'], sc['irmaa'], sc['survivor_years'], sc.get('mc_success_rate'), sc.get('mc_p10_terminal_nw')]
         bg = 'E2EFDA' if sc is best else ('F4F5F7' if sc is current else None)
         for i, val in enumerate(vals, 1):
-            fmt = FMT_PCT if i == 11 else (FMT_DOLLAR if i in (3,4,5,6,7,8,9,12) else None)
+            fmt = FMT_PCT if i == 12 else (FMT_DOLLAR if i >= 3 and i != 11 else None)
             write_cell(ws, r, i, val, fmt=fmt, bg=bg)
         r += 1
 
     r += 1
     note = (f'This sheet runs every {_s1}/{_s2} claiming-age pair from 62 through 70 through the projection engine. '
-            'It does not use a static break-even table or a hard-coded age-70 answer. Results remain sensitive to the selected Roth policy, mortality assumptions, ACA/IRMAA interactions, and survivor-benefit settings. '
+            'It does not use a static break-even table or a hard-coded age-70 answer. The score ranks each pair on after-tax terminal net worth '
+            'plus survivor-period SS income (the SS dollars received in the fixed years when only one spouse is alive, weighted 1:1 with wealth by default via ss_survivor_weight) -- '
+            'not gross terminal net worth with lifetime SS added back and lifetime tax/IRMAA subtracted again, which double-counted both in the same direction. '
+            'Results remain sensitive to the selected Roth policy, mortality assumptions, ACA/IRMAA interactions, and survivor-benefit settings. '
             f'MC Success % and MC P10 Terminal NW are informational Monte Carlo metrics ({SWEEP_MC_SIMS} paths per pair, one fixed seed reused across all pairs for apples-to-apples comparison, minimal sensitivity grid) — '
             'they do not affect the score or recommendation above; a full-precision Monte Carlo run for the recommended pair is on Sheet 15.')
     write_cell(ws, r, 1, note, bg='F4F5F7', align='left')
-    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=12)
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
 
-    for col in range(1, 13):
+    for col in range(1, 15):
         ws.column_dimensions[get_column_letter(col)].width = 16
     qc('10. Social Security', 'Claim ages 62-70 swept by spouse against full projection', True, '')
 
@@ -800,6 +842,124 @@ def build_sheet_tlh(ws, c, rows):
        f'policy={policy}; opportunities={len(opps)}; years_with_activity={shown_years}')
 
 
+def build_sheet_gain_harvest(ws, c, rows):
+    """0%-Bracket Gain Harvesting — current opportunities and lifetime value."""
+    from .. import gain_harvest as _gh
+    ws.sheet_view.showGridLines = False
+    section_title(ws, 1, '0%-BRACKET GAIN HARVESTING', 8)
+
+    policy = str(c.get('gain_harvest_policy', 'off') or 'off')
+    r = 3
+    write_hdr(ws, r, 1, 'POLICY', NAVY, WHITE, span=6); r += 1
+    policy_rows = [
+        ('Policy', policy.replace('_', ' ').title()),
+        ('Minimum Gain ($)', f"${c.get('gain_harvest_min_gain_dollars', 500):,.0f}"),
+        ('Minimum Gain (% of basis)', f"{c.get('gain_harvest_min_gain_pct', 0.0):.1%}"),
+        ('Transaction Cost', f"{c.get('gain_harvest_transaction_cost_bps', 2):.0f} bps"),
+    ]
+    for label, val in policy_rows:
+        write_cell(ws, r, 1, label, bold=True, bg=LGRAY)
+        write_cell(ws, r, 2, val)
+        ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=6)
+        r += 1
+    if policy == 'off':
+        r += 1
+        write_cell(ws, r, 1,
+                   'Harvesting is OFF — the opportunities below are for reference only and do not change '
+                   'the projection. Set Withdrawal Policy / Gain Harvesting / gain_harvest_policy to '
+                   'analyze_only or apply to activate.', bg='FFEB9C')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6)
+        r += 1
+
+    plan_start = int(c.get('plan_start', rows[0]['year'] if rows else 2026))
+    first_row = rows[0] if rows else {}
+    scan = _gh.scan_gain_harvest_opportunities(
+        c, plan_start,
+        ordinary_income=float(first_row.get('taxable_inc', 0) or 0),
+        transaction_cost_bps=float(c.get('gain_harvest_transaction_cost_bps', 2.0) or 0.0),
+        min_gain_dollars=float(c.get('gain_harvest_min_gain_dollars', 500.0) or 0.0),
+        min_gain_pct=float(c.get('gain_harvest_min_gain_pct', 0.0) or 0.0),
+    )
+
+    r += 1
+    write_hdr(ws, r, 1, f'CURRENT OPPORTUNITIES ({plan_start})', BLUE, WHITE, span=8); r += 1
+    hdrs = ['Account', 'Symbol', 'Term', 'Basis', 'Market Value', 'Gain', 'Transaction Cost', 'Net Value']
+    for i, h in enumerate(hdrs, 1):
+        write_hdr(ws, r, i, h, DGRAY, WHITE)
+    r += 1
+    opps = scan['opportunities']
+    if not opps:
+        write_cell(ws, r, 1, 'No appreciated lots currently fit within the 0%-LTCG-bracket headroom.', bg=None)
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
+        r += 1
+    else:
+        for o in opps:
+            write_cell(ws, r, 1, _display_accounts_in_text(o['account'], c))
+            write_cell(ws, r, 2, o['symbol'], bold=True)
+            write_cell(ws, r, 3, 'LT' if o['long_term'] else 'ST', align='center')
+            write_cell(ws, r, 4, o['basis'], fmt=FMT_DOLLAR, align='right')
+            write_cell(ws, r, 5, o['market_value'], fmt=FMT_DOLLAR, align='right')
+            write_cell(ws, r, 6, o['gain'], fmt=FMT_DOLLAR, align='right', fg=GREEN)
+            write_cell(ws, r, 7, o['transaction_cost'], fmt=FMT_DOLLAR, align='right')
+            write_cell(ws, r, 8, o['gain'] - o['transaction_cost'], fmt=FMT_DOLLAR, align='right', bold=True)
+            r += 1
+        write_cell(ws, r, 1, 'TOTAL', bold=True, bg=LGRAY)
+        write_cell(ws, r, 6, scan['totals']['gain'], fmt=FMT_DOLLAR, align='right', bold=True, bg=LGRAY)
+        write_cell(ws, r, 7, scan['totals']['transaction_cost'], fmt=FMT_DOLLAR, align='right', bold=True, bg=LGRAY)
+        write_cell(ws, r, 8, scan['totals']['gain'] - scan['totals']['transaction_cost'],
+                   fmt=FMT_DOLLAR, align='right', bold=True, bg=LGRAY)
+        r += 1
+
+    r += 1
+    write_cell(ws, r, 1,
+                f"Headroom this year: ${scan['headroom']:,.0f} (0%-LTCG bracket ceiling of "
+                f"${scan['ltcg_0_top_this_year']:,.0f} less ${scan['ordinary_income']:,.0f} of ordinary income). "
+                f"Selected lots are smallest-gain-first so the limited headroom fits as much basis step-up as "
+                f"possible. Unlike loss harvesting, no replacement security or waiting period is needed — a "
+                f"harvested gain can be repurchased in the same security immediately with no wash-sale concern.")
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
+    r += 2
+
+    # ── Lifetime value realized (apply mode only — driven by actual harvests) ──
+    write_hdr(ws, r, 1, 'LIFETIME VALUE REALIZED (Apply Mode)', BLUE, WHITE, span=4); r += 1
+    hdrs2 = ['Year', 'Gain Realized', 'Transaction Cost', 'Net Basis Step-Up']
+    for i, h in enumerate(hdrs2, 1):
+        write_hdr(ws, r, i, h, DGRAY, WHITE)
+    r += 1
+    total_realized = total_txn_cost = 0.0
+    shown_years = 0
+    for row in rows:
+        realized = float(row.get('gain_harvest_realized', 0) or 0)
+        if realized <= 0:
+            continue
+        cost = float(row.get('gain_harvest_transaction_cost', 0) or 0)
+        write_cell(ws, r, 1, row['year'], align='center')
+        write_cell(ws, r, 2, realized, fmt=FMT_DOLLAR, align='right', fg=GREEN)
+        write_cell(ws, r, 3, cost, fmt=FMT_DOLLAR, align='right')
+        write_cell(ws, r, 4, realized - cost, fmt=FMT_DOLLAR, align='right', bold=True)
+        total_realized += realized
+        total_txn_cost += cost
+        shown_years += 1
+        r += 1
+    if not shown_years:
+        write_cell(ws, r, 1, 'No harvesting activity in the projection (policy is off or no qualifying gains arose).')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=4)
+        r += 1
+    else:
+        write_cell(ws, r, 1, 'LIFETIME TOTAL', bold=True, bg=LGRAY)
+        write_cell(ws, r, 2, total_realized, fmt=FMT_DOLLAR, align='right', bold=True, bg=LGRAY)
+        write_cell(ws, r, 3, total_txn_cost, fmt=FMT_DOLLAR, align='right', bold=True, bg=LGRAY)
+        write_cell(ws, r, 4, total_realized - total_txn_cost, fmt=FMT_DOLLAR, align='right', bold=True, bg=LGRAY)
+        r += 1
+
+    ws.column_dimensions['A'].width = 22
+    for col in range(2, 9):
+        ws.column_dimensions[get_column_letter(col)].width = 16
+
+    qc('2N. Gain Harvesting', 'Opportunities scanned and lifetime ledger rendered', True,
+       f'policy={policy}; opportunities={len(opps)}; years_with_activity={shown_years}')
+
+
 def build_sheet13(ws, c, rows):
     """State Residency Analysis — retirement-income-aware comparison."""
     ws.sheet_view.showGridLines = False
@@ -866,7 +1026,6 @@ def build_sheet13(ws, c, rows):
     home_val_avg = c['home_val'] * (1 + c['home_appr']) ** (yrs // 2)
     taxable_spend = sum(row.get('spend_base_yr', 0) for row in rows) * 0.4
 
-    il_total = None
     over_65 = True  # most of plan horizon is post-65
     state_rows = []  # collect all rows, then sort
     for state_name, rules in STATE_TAX_RULES.items():
@@ -901,16 +1060,19 @@ def build_sheet13(ws, c, rows):
             excess = rows[-1]['total_nw'] - _estate_exempt
             est_tax = excess * 0.08
         total = inc_tax + prop_tax + sales_tax + est_tax
-        if il_total is None:
-            il_total = total
-        delta = total - il_total
 
         state_rows.append({
             'state_name': state_name, 'rules': rules, 'is_current': is_current,
             'inc_tax': inc_tax, 'prop_tax': prop_tax, 'sales_tax': sales_tax,
-            'est_tax': est_tax, 'total': total, 'delta': delta,
+            'est_tax': est_tax, 'total': total,
             'retirement_taxed': retirement_taxed,
         })
+
+    # Anchor the baseline to the client's actual current/base state, not to
+    # whichever state happens to iterate first in STATE_TAX_RULES.
+    base_total = next((r['total'] for r in state_rows if r['is_current']), state_rows[0]['total'])
+    for sr in state_rows:
+        sr['delta'] = sr['total'] - base_total
 
     # Sort by delta descending (biggest savings first, current state at top)
     state_rows.sort(key=lambda x: (0 if x['is_current'] else 1, -x['delta']))
@@ -1108,8 +1270,19 @@ def build_sheet14(ws, c, rows):
     write_cell(ws, r, 1, 'Projected Estate at Second Death')
     write_cell(ws, r, 2, est2, fmt=FMT_DOLLAR); r+=1
     write_cell(ws, r, 1, 'Est. Federal Estate Tax', bold=True)
-    write_cell(ws, r, 2, fed_estate_tax, fmt=FMT_DOLLAR, bold=True); r+=1
-    write_cell(ws, r, 1, 'Note'); write_cell(ws, r, 2, 'Estate well below $30M exemption — no federal tax likely'); r+=2
+    write_cell(ws, r, 2, fed_estate_tax, fmt=FMT_DOLLAR, bold=True,
+               bg='FCE4D6' if fed_estate_tax > 0 else 'E2EFDA'); r+=1
+    if fed_estate_tax > 0:
+        write_cell(ws, r, 1, '⚠ ACTION REQUIRED', bold=True, bg='FCE4D6', fg=RED)
+        write_cell(ws, r, 2,
+                   f'Estate exceeds the ${fed_exempt/1e6:.1f}M federal exemption by '
+                   f'${(est2 - fed_exempt)/1e6:.1f}M, generating est. ${fed_estate_tax/1e6:.2f}M in federal '
+                   'estate tax. Consider: annual gifting, ILIT, charitable bequest, or credit-shelter/QTIP trust.'); r+=1
+        ws.merge_cells(start_row=r-1, start_column=2, end_row=r-1, end_column=4)
+    else:
+        write_cell(ws, r, 1, 'Note')
+        write_cell(ws, r, 2, f'Estate below ${fed_exempt/1e6:.1f}M exemption — no federal tax likely'); r+=1
+    r += 1
 
     # Illinois estate tax
     if c['model_state_est']:

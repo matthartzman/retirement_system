@@ -175,7 +175,14 @@ def latest_plan_input(db_path: str | Path | None = None) -> PlanInput | None:
     if not p.exists():
         return None
     with sqlite3.connect(p) as con:
-        row = con.execute("SELECT input_json FROM plan_snapshots ORDER BY created_at DESC LIMIT 1").fetchone()
+        # created_at has only second precision (now_utc() truncates to seconds),
+        # so two saves landing in the same wall-clock second (routine for a
+        # save-then-sync-then-build sequence) tie there; rowid -- monotonically
+        # assigned per INSERT, unaffected by the ON CONFLICT UPDATE path since
+        # that only fires for a repeat of identical content under the same
+        # snapshot_id -- breaks the tie deterministically in favor of the
+        # truly-latest snapshot instead of an arbitrary same-second one.
+        row = con.execute("SELECT input_json FROM plan_snapshots ORDER BY created_at DESC, rowid DESC LIMIT 1").fetchone()
     if not row:
         return None
     raw = json.loads(row[0])
@@ -190,7 +197,8 @@ def latest_sectioned_data(db_path: str | Path | None = None) -> SectionedData:
     if not p.exists():
         return {}
     with sqlite3.connect(p) as con:
-        row = con.execute("SELECT sectioned_json FROM plan_snapshots ORDER BY created_at DESC LIMIT 1").fetchone()
+        # See latest_plan_input() for why rowid breaks same-second created_at ties.
+        row = con.execute("SELECT sectioned_json FROM plan_snapshots ORDER BY created_at DESC, rowid DESC LIMIT 1").fetchone()
     return json.loads(row[0]) if row else {}
 
 

@@ -30,14 +30,18 @@
 .field-list.inline-row .field{flex:1 1 105px;grid-template-columns:1fr;margin:0;padding:10px}
 @media(max-width:1180px){.two-col-inline{grid-template-columns:1fr}}
 
-/* U2: guided-step forms were one field per full-width row even though the
-   content column is 700-1050px wide. Cap at two tracks via max-width (never
-   three, however wide the viewport) rather than an unbounded 1fr auto-fit.
-   Every .field-list child defaults to spanning both tracks (headings,
-   section notes, and the currency/date/dependency-linked fields that are
-   excluded from side-by-side layout per fieldHtml()'s pairing rule below);
-   only fields marked .paired opt into sharing a row. */
-.field-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:0 16px;align-items:start;max-width:780px}
+/* U2/U3: guided-step forms were one field per full-width row even though the
+   content column is 700-1050px wide. Cap via max-width (rather than an
+   unbounded 1fr auto-fit) so short fields share a row instead of each taking
+   a full-width line. U3 (system review 2026-07-21) raised the ceiling from
+   780px toward the real content-column width so a third auto-fit track (3 x
+   360px + 2 x 16px gap = 1112px) can form on wide screens (>=1760px), instead
+   of permanently capping at two regardless of viewport width. Every
+   .field-list child defaults to spanning all tracks (headings, section
+   notes, and the currency/date/dependency-linked fields that are excluded
+   from side-by-side layout per fieldHtml()'s pairing rule below); only
+   fields marked .paired opt into sharing a row. */
+.field-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:0 16px;align-items:start;max-width:1120px}
 .field-list>*{grid-column:1/-1}
 .field-list>.field.paired{grid-column:auto}
 @media(max-width:1180px){.field-list{grid-template-columns:1fr;max-width:none}}

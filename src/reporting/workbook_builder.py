@@ -50,7 +50,7 @@ from .enterprise_pdf import build_enterprise_pdf
 from .sheets_summary_builder import build_sheet1, build_sheet2
 from .sheets_summary import build_sheet3, build_sheet4
 from .sheets_projection_facade import build_sheet5, build_sheet6, build_sheet7, build_sheet8
-from .sheets_strategy import build_sheet9, build_sheet10, build_sheet11, build_sheet12, build_sheet_tlh, build_sheet13, build_sheet14
+from .sheets_strategy import build_sheet9, build_sheet10, build_sheet11, build_sheet12, build_sheet_tlh, build_sheet_gain_harvest, build_sheet13, build_sheet14
 from .sheets_stress import build_sheet15, build_sheet16, build_sheet17, build_sheet18, build_sheet19, build_sheet20
 from .sheets_protection import build_existing_life, build_disability, build_pc_umbrella
 from .sheets_wealth import build_education_funding, build_equity_comp, build_special_needs, build_business_succession
@@ -1149,6 +1149,8 @@ def main():
         build_sheet12(sheets['12. Charitable Giving'], c, rows)
     print('  Sheet 12B — Tax-Loss Harvesting')
     build_sheet_tlh(sheets['12B. Tax-Loss Harvesting'], c, rows)
+    print('  Sheet 12C — Gain Harvesting')
+    build_sheet_gain_harvest(sheets['12C. Gain Harvesting'], c, rows)
     if '13. State Residency' in sheets:
         print('  Sheet 13 — State Residency')
         build_sheet13(sheets['13. State Residency'], c, rows)

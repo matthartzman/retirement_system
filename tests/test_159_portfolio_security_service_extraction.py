@@ -5,43 +5,10 @@ def read(path: str) -> str:
     return Path(path).read_text(encoding="utf-8")
 
 
-def test_portfolio_service_owns_drift_tool_orchestration():
-    service = read("src/server_services/portfolio_service.py")
-    routes = read("src/server/plan_routes.py")
-    assert "def drift_payload" in service
-    assert "tools\" / \"analyze_drift.py" in service
-    assert "portfolio_drift.json" in service
-    assert "subprocess.run" in service
-    # HTTP-runtime-independence itself is asserted once, for every service
-    # module, by the AST-based check in test_126_service_extraction.py.
-    assert "def portfolio_drift" in routes
-    assert "portfolio_service.drift_payload(" in routes
-    assert "tools\" / \"analyze_drift.py" not in routes
-    assert "portfolio_drift.json" not in routes
-
-
-def test_secret_service_owns_secret_payload_validation():
-    service = read("src/server_services/secret_service.py")
-    routes = read("src/server/plan_routes.py")
-    assert "def set_secret_payload" in service
-    assert "name and value are required" in service
-    assert "set_secret_fn(name, value" in service
-    # HTTP-runtime-independence itself is asserted once, for every service
-    # module, by the AST-based check in test_126_service_extraction.py.
-    assert "def set_secret_route" in routes
-    assert "secret_service.set_secret_payload(" in routes
-    assert "name and value are required" not in routes
-    assert "_audit(\"secret_set\"" in routes
-
-
-def test_base_service_owns_status_payload_shape():
-    base = read("src/server_services/base_service.py")
-    routes = read("src/server/plan_routes.py")
-    assert "def status_payload" in base
-    assert "portfolio_drift_analysis" in base
-    assert "json_yaml_config" in base
-    assert "base_service.status_payload(" in routes
-    assert '"portfolio_drift_analysis": True' not in routes
+# The "service exists" + "routes delegate" checks that used to live here are
+# generalized (system review 2026-07-21, Q6) into SERVICE_ROUTE_PAIRS in
+# test_126_service_extraction.py, alongside every other extracted service's
+# equivalent pair. Only this file's manifest/packaging test remains.
 
 
 def test_manifest_contracts_and_packaging_include_new_services():

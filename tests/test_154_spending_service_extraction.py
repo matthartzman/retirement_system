@@ -1,30 +1,9 @@
 from pathlib import Path
 
-
-def test_spending_service_exists_and_is_runtime_independent():
-    service = Path("src/server_services/spending_service.py").read_text(encoding="utf-8")
-    assert "class SpendingService" in service
-    assert "SpendingServiceContext" in service
-    assert "def load_actuals_payload" in service
-    assert "def unified_budget_payload" in service
-    assert "def category_create_payload" in service
-    assert "def alias_add_payload" in service
-    # HTTP-runtime-independence itself is asserted once, for every service
-    # module, by the AST-based check in test_126_service_extraction.py.
-
-
-def test_plan_routes_delegate_spending_logic_to_service():
-    routes = Path("src/server/plan_routes.py").read_text(encoding="utf-8")
-    assert "def _spending_feature_service()" in routes
-    assert "SpendingServiceContext" in routes
-    assert ".dashboard_payload()" in routes
-    assert ".taxonomy_payload()" in routes
-    assert ".load_actuals_payload()" in routes
-    assert ".save_unified_budget_payload(" in routes
-    assert "spending_tracker as st" not in routes
-    assert "def _core_spending_from_plan" not in routes
-    assert "st.save_taxonomy_category(BASE_DIR" not in routes
-    assert "st.spending_summary_taxonomy(BASE_DIR" not in routes
+# The "service exists" + "routes delegate" checks that used to live here are
+# generalized (system review 2026-07-21, Q6) into SERVICE_ROUTE_PAIRS in
+# test_126_service_extraction.py, alongside every other extracted service's
+# equivalent pair. Only this file's genuine behavior tests remain below.
 
 
 def test_spending_service_core_spending_parser_uses_plan_data_callback():

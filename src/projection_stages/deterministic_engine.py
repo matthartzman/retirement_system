@@ -16,6 +16,7 @@ from .. import planning_engines as _legacy_pe
 from .. import core as _ar  # consolidated from account_registry
 from .. import core as _aa  # consolidated from account_access
 from .. import tlh as _tlh
+from .. import gain_harvest as _gh
 from ..equity_comp import equity_comp_year_events as _equity_comp_year_events
 from ..core import amt_tax as _amt_tax
 
@@ -1946,6 +1947,43 @@ def run_deterministic_projection_stage(c):
         # Loss pool available to offset gains this year: prior-year carryforward
         # plus anything harvested this year.
         available_losses = cap_loss_carryforward + harvested_loss
+
+        # ── 0%-bracket gain harvesting (apply mode) ─────────────────────────
+        # Symmetric counterpart to TLH above (system review 2026-07-21, P2):
+        # realize appreciated long-term lots up to the remaining 0%-LTCG-
+        # bracket headroom, resetting basis to market value tax-free. Same
+        # single-mutation technique as TLH (reset cost_basis + purchase_date),
+        # but with no replacement-security logic -- wash-sale rules disallow
+        # claiming a *loss* on a repurchased "substantially identical"
+        # security; they have no counterpart for gains, so the exact same
+        # security can be repurchased instantly with no tax consequence.
+        # headroom is computed from `taxable_inc` (set above, already
+        # reflecting this year's Roth conversion decision), so this can never
+        # double-book the same ordinary-income bracket space the Roth
+        # conversion guardrail already consumed.
+        gain_harvest_realized = 0.0
+        gain_harvest_txn_cost = 0.0
+        if str(c.get('gain_harvest_policy', 'off')).lower() == 'apply':
+            _gh_bps = float(c.get('gain_harvest_transaction_cost_bps', 0.0) or 0.0) / 10000.0
+            _gh_bracket_factor = _bracket_factor_for_year(year)
+            _gh_headroom = _gh.compute_zero_bracket_headroom(
+                c.get('ltcg_0_top', 0.0), _gh_bracket_factor, taxable_inc,
+            )
+            for _cand in _gh.select_gain_harvest_lots(
+                c, year, headroom=_gh_headroom,
+                min_gain_dollars=float(c.get('gain_harvest_min_gain_dollars', 500.0) or 0.0),
+                min_gain_pct=float(c.get('gain_harvest_min_gain_pct', 0.0) or 0.0),
+            ):
+                _lot = _cand['lot']
+                gain_harvest_realized += _cand['gain']
+                _cost = _cand['market_value'] * _gh_bps
+                gain_harvest_txn_cost += _cost
+                _lot.cost_basis = _cand['market_value']
+                _lot.purchase_date = f'{year}-01-01'
+                _acct = _cand['account']
+                bal[_acct] = max(0.0, float(bal.get(_acct, 0.0) or 0.0) - _cost)
+        row['gain_harvest_realized'] = gain_harvest_realized
+        row['gain_harvest_transaction_cost'] = gain_harvest_txn_cost
 
         def _realize_taxable_gain(draws_by_account):
             gain = 0.0

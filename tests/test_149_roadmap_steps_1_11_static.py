@@ -1,3 +1,6 @@
+"""Pure source-text substring checks, as the filename already says ("static").
+No execution, no DOM, no render -- a trip-wire against a renamed/deleted
+identifier, not behavioral coverage."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]

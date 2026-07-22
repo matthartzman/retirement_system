@@ -39,7 +39,8 @@ const STEPS = [
     desc: "Salary or self-employment income, payroll assumptions, and retirement plan contributions while still working.",
     intro:
       "Contribution amounts here add to account balances annually until the retirement date. Business salary level affects payroll tax and business-income deductions.",
-    help: "High earned income in late working years compresses Roth conversion room below the bracket ceiling — coordinate with the Roth Conversion page when the retirement date is near.",
+    help: "High earned income in late working years compresses Roth conversion room below the bracket ceiling — coordinate with the Roth Conversion tab when the retirement date is near.",
+    helpLink: { id: "distribution_strategy", label: "Open Distribution Strategy → Roth Conversion" },
   },
   {
     id: "income_retirement",
@@ -48,7 +49,8 @@ const STEPS = [
     desc: "Social Security claiming age and benefit for each person, plus pension amounts, annuity income, start ages, survivor percentages, and cost-of-living settings.",
     intro:
       "Enter each person’s Social Security benefit from their statement along with the planned claiming age and the household spousal/survivor policy. Delaying past full retirement age adds about 8% per year up to age 70; the higher earner’s delay has the greatest survivor income impact. Survivor percentages control how much pension or annuity income continues after the first death.",
-    help: "Early claiming opens gap years for Roth conversion if other income is low — model the joint timing strategy with the Roth Conversion page. Pensions and annuities with survivor protection can be treated as fixed-income-equivalent coverage in the allocation analysis — set the coverage option on the Asset Allocation page.",
+    help: "Early claiming opens gap years for Roth conversion if other income is low — model the joint timing strategy with the Roth Conversion tab. Pensions and annuities with survivor protection can be treated as fixed-income-equivalent coverage in the allocation analysis — set the coverage option on the Asset allocation & location tab.",
+    helpLink: { id: "distribution_strategy", label: "Open Distribution Strategy → Roth Conversion / Asset allocation & location" },
   },
   {
     id: "spending_core",
@@ -241,7 +243,8 @@ const STEPS = [
     desc: "Bucket draw order, trust withdrawals, and spousal rollover election. HSA withdrawal timing is set on Other Assets and Liabilities.",
     intro:
       "Earlier priority means a bucket is drawn sooner. Drawing taxable accounts first can manage required distributions but may realize capital gains; preserving Roth typically maximizes tax-free compounding for legacy.",
-    help: "When required distributions exceed annual spending needs, the excess is reinvested in taxable unless converted to Roth — Roth conversion policy is set on the Roth Conversion page. HSA timing controls are under Other Assets and Liabilities.",
+    help: "When required distributions exceed annual spending needs, the excess is reinvested in taxable unless converted to Roth — Roth conversion policy is set on the Roth Conversion tab. HSA timing controls are under Other Assets and Liabilities.",
+    helpLink: { id: "distribution_strategy", label: "Open Distribution Strategy → Roth Conversion" },
     hidden: true,
   },
   {
@@ -563,6 +566,21 @@ const ACRONYM_DEFINITIONS = {
   PIA: "Primary Insurance Amount — Social Security’s base monthly benefit at Full Retirement Age before early-claiming reductions or delayed-retirement credits",
   FRA: "Full Retirement Age — the Social Security age when the unreduced base benefit is available",
   HELOC: "Home equity line of credit",
+  QSS: "Qualifying Surviving Spouse — the filing status available to a surviving spouse with a dependent for up to two years after the year of death, using MFJ tax brackets",
+  CST: "Credit-Shelter Trust — an estate-planning trust that shelters up to the deceased spouse's federal exemption from estate tax at the survivor's later death",
+  Sharpe: "Sharpe ratio — a measure of risk-adjusted return: how much extra return a portfolio earns per unit of volatility risk taken",
+  tangency: "Tangency portfolio — the single asset mix that maximizes the Sharpe ratio, with no additional risk-limit constraint applied",
+  Basis: "The original cost of an asset, used to figure capital gain or loss when it's sold",
+  "Credit-Shelter Trust": "An estate-planning trust that shelters up to the deceased spouse's federal exemption from estate tax at the survivor's later death",
+  ILIT: "Irrevocable Life Insurance Trust — keeps life insurance proceeds out of the taxable estate",
+  "Joint-and-Survivor": "An annuity or pension feature (J&S) that pays a reduced benefit to a surviving spouse after the primary annuitant's death",
+  "Percentile Band": "The value at or below which a given share of Monte Carlo simulation results fall",
+  "SALT Cap": "The federal cap on deducting State And Local Taxes on itemized returns",
+  "Sec. 121 Exclusion": "Up to $500,000 (MFJ) of home-sale gain excluded from federal income tax",
+  "Sequence-of-Returns Risk": "The risk that poor investment returns early in retirement permanently impair a portfolio, even when average returns are fine over the full horizon",
+  "Spousal Rollover": "A surviving spouse's option to inherit a deceased spouse's IRA as their own, deferring RMDs to their own age",
+  "Standard Deduction": "The flat deduction amount (MFJ base plus over-65 add-ons) that reduces taxable income without itemizing",
+  "Step-Up in Basis": "Reset of an asset's cost basis to fair market value at death for non-retirement assets, erasing built-in gain for the heir",
 };
 
 const TERM_NOTES = {
@@ -1107,6 +1125,10 @@ function helpList(items) {
   const clean = (items || []).filter((x) => String(x || "").trim());
   if (!clean.length) return "";
   return `<ul>${clean.map((x) => `<li>${x}</li>`).join("")}</ul>`;
+}
+function stepHelpLinkHtml(st) {
+  if (!st || !st.helpLink) return "";
+  return ` <a href="#" onclick="setStep('${st.helpLink.id}');return false">${esc(st.helpLink.label)}</a>`;
 }
 function pageHelp(title, meaning, connections, options, impact) {
   const acronyms = acronymDefinitionsHtml([
@@ -2619,11 +2641,11 @@ function modelHeardHtml(summary) {
   rows.push(
     mhRow(
       "Estate and survivor treatment",
-      "The build used survivor/QSS, basis step-up, federal portability, and credit-shelter settings when calculating survivor cash flow and terminal estate values. CST funded/excluded amount shown by the last projection year is " +
+      "The build used survivor filing status (Qualifying Surviving Spouse, QSS), basis step-up, federal portability, and credit-shelter trust (CST) settings when calculating survivor cash flow and terminal estate values. Credit-shelter trust funded/excluded amount shown by the last projection year is " +
         mhMoney(estate.cst_funded_total) +
         ".",
-      "If terminal net worth or after-tax estate changed sharply, compare one rebuild with CST disabled or estate objective off, then restore the estate plan settings.",
-      `Basis step-up: ${mhOnOff(estate.basis_step_up_at_death)} (${mhText(estate.basis_step_up_property_regime)}); CST: ${mhOnOff(estate.credit_shelter_trust_enabled)}; federal portability: ${mhOnOff(estate.federal_portability_enabled)}.`,
+      "If terminal net worth or after-tax estate changed sharply, compare one rebuild with the credit-shelter trust disabled or estate objective off, then restore the estate plan settings.",
+      `Basis step-up: ${mhOnOff(estate.basis_step_up_at_death)} (${mhText(estate.basis_step_up_property_regime)}); credit-shelter trust (CST): ${mhOnOff(estate.credit_shelter_trust_enabled)}; federal portability: ${mhOnOff(estate.federal_portability_enabled)}.`,
     ),
   );
   if (mc.engine_mode || mc.simulation_count) {
@@ -2655,7 +2677,8 @@ function modelHeardHtml(summary) {
       "Use real-dollar outputs when judging purchasing power; use nominal terminal net worth only when comparing like-for-like workbook runs.",
     ),
   );
-  return `<details class="impact-suggestions model-used-panel collapsible-impact-section"><summary class="collapsible-summary"><span class="collapse-caret" aria-hidden="true"></span><span class="collapsible-title">What the model used in this build</span><span class="small collapsible-meta">${rows.length} impact checks</span></summary><div class="collapsible-content"><p class="small">Plain-English checks for assumptions that materially change cash flow, taxes, risk, and terminal net worth. These are not extra recommendations; they explain which model switches were actually consumed so you can run targeted what-if tests.</p><ol>${rows.join("")}</ol></div></details>`;
+  const acronyms = acronymDefinitionsHtml(rows);
+  return `<details class="impact-suggestions model-used-panel collapsible-impact-section"><summary class="collapsible-summary"><span class="collapse-caret" aria-hidden="true"></span><span class="collapsible-title">What the model used in this build</span><span class="small collapsible-meta">${rows.length} impact checks</span></summary><div class="collapsible-content"><p class="small">Plain-English checks for assumptions that materially change cash flow, taxes, risk, and terminal net worth. These are not extra recommendations; they explain which model switches were actually consumed so you can run targeted what-if tests.</p><ol>${rows.join("")}</ol>${acronyms}</div></details>`;
 }
 function buildImpactSuggestionsHtml(before, after, summary = {}) {
   const dNw =
@@ -5297,6 +5320,60 @@ try {
   )
     document.body.classList.add("help-collapsed");
 } catch (_e) {}
+function showHelpAutoCollapseNoticeOnce() {
+  try {
+    if (
+      window.localStorage &&
+      window.localStorage.getItem("retirementHelpAutoCollapseNoticeShown") ===
+        "1"
+    )
+      return;
+    if (window.localStorage)
+      window.localStorage.setItem("retirementHelpAutoCollapseNoticeShown", "1");
+  } catch (_e) {}
+  showMessage(
+    "Context Help moved into a toggle to fit this screen width. Click the Context Help heading to bring it back.",
+    "info",
+    { persistent: true },
+  );
+}
+// Tracks whether autoCollapseHelpForNarrowLaptop currently holds the help
+// pane collapsed on its own authority (as opposed to a user's manual click,
+// which is tracked separately via the retirementHelpCollapsed localStorage
+// key). Kept as a private flag rather than read back via
+// document.body.classList.contains(), which some of this codebase's minimal
+// Node smoke-test DOM mocks don't implement.
+let _autoHelpCollapsedActive = false;
+function autoCollapseHelpForNarrowLaptop() {
+  // U1: 1280x800/1366x768/1440x900 render the 3-column grid but can't
+  // satisfy its width floor (see dashboard.css main{} + the 1180px
+  // breakpoint), causing horizontal overflow instead of the clean
+  // single-column fallback. Below 1181px that fallback already applies, so
+  // this only needs to act in the narrow desktop gap above it.
+  let manual = null;
+  try {
+    manual = window.localStorage
+      ? window.localStorage.getItem("retirementHelpCollapsed")
+      : null;
+  } catch (_e) {}
+  if (manual !== null) return; // the user already made an explicit choice
+  const w = window.innerWidth;
+  const btn = document.querySelector("#helpPane .help-toggle");
+  if (w > 1180 && w < 1500) {
+    if (!_autoHelpCollapsedActive) {
+      document.body.classList.add("help-collapsed");
+      _autoHelpCollapsedActive = true;
+      if (btn) btn.setAttribute("aria-expanded", "false");
+      showHelpAutoCollapseNoticeOnce();
+    }
+  } else if (w >= 1500 && _autoHelpCollapsedActive) {
+    document.body.classList.remove("help-collapsed");
+    _autoHelpCollapsedActive = false;
+    if (btn) btn.setAttribute("aria-expanded", "true");
+  }
+}
+window.addEventListener("resize", autoCollapseHelpForNarrowLaptop);
+autoCollapseHelpForNarrowLaptop();
 (function wireMobileShellDismiss() {
   const stepsBox = document.getElementById("steps");
   if (stepsBox)
@@ -5599,8 +5676,8 @@ function choiceOptions(r) {
     allocation_selection_mode: [
       { value: "user_target", label: "Use user-specified allocation" },
       { value: "optimizer_recommendation", label: "Use allocation optimizer recommendation" },
-      { value: "max_sharpe", label: "Use max-Sharpe allocation (risk-budgeted)" },
-      { value: "tangency", label: "Use max-Sharpe allocation (pure tangency, no risk budget)" },
+      { value: "max_sharpe", label: "Best risk-adjusted mix within your risk limits (max-Sharpe, risk-budgeted)" },
+      { value: "tangency", label: "Best risk-adjusted mix with no risk limits applied (max-Sharpe, pure tangency)" },
       { value: "real_loss_aware", label: "Use holding-period real-loss-aware allocation" },
     ],
     capital_market_assumption_horizon_source: [
@@ -6064,8 +6141,8 @@ function allocationModeHtml() {
   const modeButtons = [
     ["user_target", "Use user-specified allocation"],
     ["optimizer_recommendation", "Use allocation optimizer recommendation"],
-    ["max_sharpe", "Use max-Sharpe allocation (risk-budgeted)"],
-    ["tangency", "Use max-Sharpe allocation (pure tangency)"],
+    ["max_sharpe", "Best risk-adjusted mix within your risk limits (max-Sharpe, risk-budgeted)"],
+    ["tangency", "Best risk-adjusted mix with no risk limits applied (max-Sharpe, pure tangency)"],
     ["real_loss_aware", "Use holding-period real-loss-aware allocation"],
   ];
   const activeLabel =
@@ -14357,7 +14434,7 @@ function renderMain() {
   let content = `<div class="pane-head"><div class="eyebrow">${_eyebrow}</div><div class="page-title-row"><h2>${esc(st.title)}</h2>${pageStatusHtml(st.id)}</div><p>${esc(addParentheticals(st.intro))}</p>${pageSaveModeHtml(st.id)}<div class="pane-actions"><button class="btn" type="button" data-step-id="planning_workbench">Compare & Decide</button>${primaryActionForStep(st.id)}`;
   if (st.id === "review")
     content += `<button class="btn good" data-requires-app="1" onclick="downloadWithBuild('/api/xlsx','Workbook')">Download Workbook</button><button class="btn good" data-requires-app="1" onclick="downloadWithBuild('/api/pdf','PDF')">Download PDF</button>`;
-  content += `</div></div><div class="question"><b>${esc(st.desc)}</b>${esc(st.help)}</div>`;
+  content += `</div></div><div class="question"><b>${esc(st.desc)}</b>${esc(st.help)}${stepHelpLinkHtml(st)}</div>`;
   content += inactiveValuesPanel(activeStep);
   content += pageRecommendationsHtml(activeStep);
   if (SPENDING_WORKFLOW_INDEX[activeStep] !== undefined) {
@@ -15350,10 +15427,24 @@ async function fetchWithTimeout(url, opts = {}, timeoutMs = 1200) {
     clearTimeout(timer);
   }
 }
-let appCheckInFlight = false;
-async function checkAppStatus(show = false) {
-  if (appCheckInFlight) return appReady;
-  appCheckInFlight = true;
+let appCheckPromise = null;
+function checkAppStatus(show = false) {
+  // A concurrent caller must await the SAME in-flight check rather than
+  // bailing out with whatever appReady happened to be at that instant --
+  // returning the stale flag here starved every api() call made during the
+  // brief window before the very first ping resolves (e.g. loadCanonicalGlossary's
+  // api("/api/glossary") kicks off the first checkAppStatus(false); the explicit
+  // startup checkAppStatus(true) two lines later, and everything chained off
+  // it -- build/status, refreshLocalBackupStatus, prefs/autoload -- used to
+  // see appCheckInFlight already true and each immediately throw "Application
+  // is not available" instead of waiting the ~tens of ms for the real ping).
+  if (appCheckPromise) return appCheckPromise;
+  appCheckPromise = _checkAppStatusRun(show).finally(function () {
+    appCheckPromise = null;
+  });
+  return appCheckPromise;
+}
+async function _checkAppStatusRun(show) {
   const wasOnline = appReady;
   if (!show && (detailedResultsLoading || detailedResultSheetLoading)) {
     const busy = document.getElementById("appStatus");
@@ -15361,7 +15452,6 @@ async function checkAppStatus(show = false) {
       busy.className = "status ok";
       busy.textContent = "Ready";
     }
-    appCheckInFlight = false;
     return appReady;
   }
   const s = document.getElementById("appStatus");
@@ -15396,7 +15486,6 @@ async function checkAppStatus(show = false) {
           } catch (_e) {}
         }
         if (show) showMessage("Application is ready.");
-        appCheckInFlight = false;
         return true;
       }
     } catch (e) {}
@@ -15415,7 +15504,6 @@ async function checkAppStatus(show = false) {
   }
   if (show)
     showMessage("Application is not available. Try restarting.", "error");
-  appCheckInFlight = false;
   return false;
 }
 function setAppControls(on) {
@@ -16523,8 +16611,23 @@ window.addEventListener("beforeunload", function (e) {
   }
 });
 
+function loadCanonicalGlossary() {
+  // Single source of truth (system review 2026-07-21, D3): src/glossary.py
+  // is also what the workbook's Glossary sheet renders from. ACRONYM_DEFINITIONS
+  // stays as a local fallback for the brief window before this resolves (or if
+  // it fails) -- merging the fetched terms over it, rather than replacing it,
+  // means a fetch failure degrades to the previously-shipped definitions
+  // instead of blanking help panels.
+  return api("/api/glossary")
+    .then(function (r) {
+      if (r && r.success && r.terms) Object.assign(ACRONYM_DEFINITIONS, r.terms);
+    })
+    .catch(function () {});
+}
+
 wireStepNavigation();
 restoreWorkbookViewState();
+loadCanonicalGlossary();
 // Restore lastBuildOk if build artifacts are current
 checkAppStatus(true).then(function (ok) {
   api("/api/build/status")
@@ -16576,6 +16679,9 @@ checkAppStatus(true).then(function (ok) {
         renderMain();
       }
     });
+}).catch(function (e) {
+  console.error("startup chain failed", e);
+  renderMain();
 });
 setInterval(function () {
   checkAppStatus(false);
