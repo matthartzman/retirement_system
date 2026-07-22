@@ -136,20 +136,61 @@ def test_income_and_spending_bars_reconcile_via_surplus_series():
     """The two cash-flow bars for the same year should carry the same total:
     Income & Portfolio Draws vs Spending & Taxes + Surplus (Reinvested).
     Guaranteed income routinely exceeds spending need in a given year -- the
-    engine sweeps the excess into savings rather than discarding it
-    (deterministic_engine.py's `row['surplus']`) -- so the Spending & Taxes
-    bar must include that surplus as its own series for the two bars to
-    match, instead of leaving an unexplained gap between them."""
+    engine sweeps the excess into savings rather than discarding it -- so the
+    Spending & Taxes bar must include that surplus as its own series for the
+    two bars to match, instead of leaving an unexplained gap between them.
+
+    Note: with every real cash-need component now itemized (Wellness, Housing
+    Operating, Payroll Tax, IRMAA, Home Sale Tax, etc.), "Surplus (Reinvested)"
+    is often one of the smallest series and may get folded into "Other" by
+    _compact_series when a chart has more than max_series non-zero series --
+    that's correct, value-preserving behavior (see
+    test_compact_series_preserves_per_year_totals), not a regression, so this
+    test checks the reconciliation invariant itself rather than asserting the
+    label always survives compaction."""
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
         c = sample_config()
         rows = project(c)
     page, _compacted = _chart_page(c, rows, None)
     inc_chart = next(ch for ch in page["charts"] if "Portfolio Draws" in ch["title"])
     exp_chart = next(ch for ch in page["charts"] if "Spending & Taxes" in ch["title"])
-    exp_labels = {s["label"] for s in exp_chart["series"]}
-    assert "Surplus (Reinvested)" in exp_labels
     n_years = min(len(inc_chart["x"]), len(exp_chart["x"]))
     inc_totals = [sum(s["values"][i] for s in inc_chart["series"]) for i in range(n_years)]
     exp_totals = [sum(s["values"][i] for s in exp_chart["series"]) for i in range(n_years)]
     for i, (inc_t, exp_t) in enumerate(zip(inc_totals, exp_totals)):
         assert abs(inc_t - exp_t) <= 10, f"year index {i}: income={inc_t} expense+surplus={exp_t}"
+
+
+def test_surplus_plug_tracks_real_engine_surplus_closely():
+    """The chart-local 'Surplus (Reinvested)' plug (defined as the complement
+    of the chart's own itemized totals, so the two bars always reconcile) is
+    a DIFFERENT computation from the engine's authoritative row['surplus']
+    (which nets against additional mid-year iterative tax/withdrawal solving
+    the charts don't replicate line-by-line) -- but once every real cash-need
+    component is itemized (Wellness, Housing Operating, Payroll Tax, IRMAA,
+    Home Sale Tax), the two should track closely rather than differing by
+    tens of thousands of dollars, which is what prompted this item (the
+    Spending & Taxes chart's surplus visibly disagreed with the Cash Flow
+    worksheet's row['surplus'] in many years before these fields were added)."""
+    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+        c = sample_config()
+        rows = project(c)
+    for r in rows:
+        inc_streams = (r.get('earned', 0) + r.get('h_ss', 0) + r.get('w_ss', 0) + r.get('pension', 0)
+                       + r.get('wife_single_ann', 0) + r.get('wife_joint_ann', 0)
+                       + r.get('h_single_ann', 0) + r.get('h_joint_ann', 0)
+                       + r.get('note_princ', 0) + r.get('note_int', 0) + r.get('rmd_total', 0))
+        draws = (max(0, r.get('trust_wd', 0)) + max(0, r.get('hsa_wd', 0)) + max(0, r.get('roth_wd', 0))
+                 + max(0, r.get('ira_wd', 0)) + max(0, r.get('heloc_draw', 0)))
+        inc_total = inc_streams + draws
+        exp_total = (r.get('spend_base_yr', 0) + r.get('rec_extra', 0) + r.get('lump', 0)
+                     + r.get('mortgage', 0) + r.get('rent_yr', 0) + r.get('housing_operating_yr', 0)
+                     + r.get('wellness_base_yr', 0) + r.get('wellness_shock_yr', 0) + r.get('ltc_prem_yr', 0)
+                     + r.get('heloc_interest', 0) + r.get('heloc_repayment_principal', 0)
+                     + r.get('fed_tax', 0) + r.get('state_tax', 0) + r.get('niit', 0)
+                     + r.get('payroll_tax', 0) + r.get('irmaa', 0) + r.get('home_sale_tax', 0))
+        local_plug = max(0, inc_total - exp_total)
+        real_surplus = r.get('surplus', 0)
+        assert abs(local_plug - real_surplus) <= 5000, (
+            f"year {r['year']}: local plug={local_plug:,.0f} vs real surplus={real_surplus:,.0f}"
+        )

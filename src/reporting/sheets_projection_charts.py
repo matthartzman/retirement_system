@@ -130,25 +130,27 @@ def build_sheet8(ws, c, rows, mc_data=None):
 
         spend_base  = round(row.get('spend_base_yr',0))
         housing     = round(row.get('housing_total_yr', row.get('mortgage',0) + row.get('rent_yr', 0)))
-        wellness    = round(row.get('wellness_base_yr', 0) + row.get('ltc_prem_yr', 0))
+        wellness    = round(row.get('wellness_base_yr', 0) + row.get('wellness_shock_yr', 0) + row.get('ltc_prem_yr', 0))
         travel      = round(row.get('rec_extra',0))
         other       = round(row.get('lump',0))
         heloc_pai_chart = round(row.get('heloc_interest', 0) + row.get('heloc_repayment_principal', 0))
         fed_tax    = round(row.get('fed_tax',0))
         state_tax  = round(row.get('state_tax',0))
         niit       = round(row.get('niit',0))
-        exp_raw    = spend_base + housing + wellness + travel + other + heloc_pai_chart + fed_tax + state_tax + niit
+        payroll_tax = round(row.get('payroll_tax', 0))
+        irmaa       = round(row.get('irmaa', 0))
+        home_sale_tax = round(row.get('home_sale_tax', 0))
+        exp_raw    = (spend_base + housing + wellness + travel + other + heloc_pai_chart
+                      + fed_tax + state_tax + niit + payroll_tax + irmaa + home_sale_tax)
         # Guaranteed income (SS/pension/RMD/etc.) commonly exceeds this
-        # chart's own itemized spend+tax total in a given year (it excludes
-        # payroll tax, IRMAA, and other cash needs the engine funds but this
-        # chart doesn't break out as separate series) -- the excess is real
-        # money the household keeps, not an error. Defined as the exact
+        # chart's own itemized spend+tax total in a given year -- the excess
+        # is real money the household keeps, not an error. This is the exact
         # complement of this chart's own inc_total/exp_raw (not the engine's
-        # row['surplus'], which nets against a fuller set of cash-need
-        # components this chart doesn't itemize and so doesn't reconcile
-        # against inc_total here) guarantees the two bars always match,
-        # instead of only when a re-derived residual happened to fall under
-        # an arbitrary cutoff.
+        # row['surplus'] directly, which nets against additional mid-year
+        # iterative tax/withdrawal solving this chart doesn't replicate
+        # line-by-line) so the two bars always match. With every real
+        # cash-need component above now itemized, this tracks row['surplus']
+        # closely in practice.
         surplus_reinvested = max(0, round(inc_total - exp_raw))
 
         # Real-dollar equivalent (deflated to plan_start year)
@@ -165,7 +167,8 @@ def build_sheet8(ws, c, rows, mc_data=None):
             'spend_base': spend_base, 'housing': housing, 'wellness': wellness,
             'travel': travel, 'other': other, 'heloc_pai': heloc_pai_chart,
             'fed_tax': fed_tax, 'state_tax': state_tax,
-            'niit': niit, 'surplus_reinvested': surplus_reinvested,
+            'niit': niit, 'payroll_tax': payroll_tax, 'irmaa': irmaa,
+            'home_sale_tax': home_sale_tax, 'surplus_reinvested': surplus_reinvested,
             'exp_total': exp_raw + surplus_reinvested,
             # NW components — home equity separated from other
             'ann_nw':    round(row.get('ann_nw',0)),
@@ -282,29 +285,34 @@ def build_sheet8(ws, c, rows, mc_data=None):
         (35, 'fed_tax',     'Federal Tax',      '9B2335'),
         (36, 'state_tax',   f'State Tax ({c["state"][:2]})',   'C5384E'),
         (37, 'niit',        'NIIT',             'E07595'),
-        (38, 'surplus_reinvested', 'Surplus (Reinvested)', '595959'),
-        (39, 'heloc_pai',   'HELOC P&I',        '2D6A8F'),
+        (38, 'payroll_tax', 'Payroll Tax',      '8B5E3C'),
+        (39, 'irmaa',       'IRMAA',            'B85C00'),
+        (40, 'home_sale_tax', 'Home Sale Tax',  '7B3F9E'),
+        (41, 'surplus_reinvested', 'Surplus (Reinvested)', '595959'),
+        (42, 'heloc_pai',   'HELOC P&I',        '2D6A8F'),
     ]
-    # Expense section title — span exactly cols 29-40
+    EXP_TOTAL_COL = 43
+    # Expense section title — span exactly cols 29-43
     cell = ws.cell(row=2, column=EXP_YEAR, value=f'Cash Flow — Spending & Taxes  ·  {c["plan_start"]}–{c["plan_end"]}')
     cell.fill = fill(RED); cell.font = Font(name='Arial',bold=True,color=WHITE,size=11)
     cell.alignment = Alignment(horizontal='left',vertical='center')
-    ws.merge_cells(start_row=2, start_column=EXP_YEAR, end_row=2, end_column=40)
+    ws.merge_cells(start_row=2, start_column=EXP_YEAR, end_row=2, end_column=EXP_TOTAL_COL)
 
     wh(TABLE_ROW, EXP_YEAR, 'Year', bg=DGRAY)
     for col, key, lbl, clr in EXP_SER:
         wh(TABLE_ROW, col, lbl, bg=DGRAY)
-    wh(TABLE_ROW, 40, 'Σ Spend+Tax', bg=RED)
+    wh(TABLE_ROW, EXP_TOTAL_COL, 'Σ Spend+Tax', bg=RED)
 
     for ri, p in enumerate(per_year):
         r = DATA_FIRST + ri; bg = GRAY if ri%2==0 else None
         wd(r, EXP_YEAR, p['yr'], fmt=FMT_YEAR, bg=bg)
         for col, key, _, _ in EXP_SER:
             wd(r, col, p[key], fmt=FMT_DOLLAR, bg=bg)
-        wd(r, 40, p['exp_total'], fmt=FMT_DOLLAR, bg=bg, bold=True)
+        wd(r, EXP_TOTAL_COL, p['exp_total'], fmt=FMT_DOLLAR, bg=bg, bold=True)
 
-    for _col in range(29, 41): ws.column_dimensions[get_column_letter(_col)].width = 14
+    for _col in range(29, EXP_TOTAL_COL + 1): ws.column_dimensions[get_column_letter(_col)].width = 14
     ws.column_dimensions[get_column_letter(29)].width = 7
+    ws.column_dimensions[get_column_letter(EXP_TOTAL_COL + 1)].width = 2  # gap
 
     # ════════════════════════════════════════════════════════════════════════
     # CHARTS
@@ -365,7 +373,7 @@ def build_sheet8(ws, c, rows, mc_data=None):
 
     # ── Chart 4: Net Worth Percentile Bands (Monte Carlo) ────────────────────
     # Write data table for the MC percentile bands (cols AO onward = col 41+)
-    MC_YEAR_COL = 43  # col AQ
+    MC_YEAR_COL = 45  # gap column at 44, first free column after the Expense table's total (col 43)
     MC_PCTS     = [10, 25, 50, 75, 90]
     MC_LABELS   = ['P10','P25','P50 Median','P75','P90']
     MC_COLORS   = ['9B2335','C55A11','2D6A4F','2E75B6','1F3864']
@@ -795,6 +803,6 @@ def build_sheet8(ws, c, rows, mc_data=None):
        + (', Efficient Frontier' if _ef_chart_added else '')
        + (', Holding-Period Real-Loss' if _hp_chart_added else ''),
        True,
-       f'NW, Income (15 ser, ymax=${CF_YMAX:,}), Expense (8 ser, ymax=${CF_YMAX:,}), MC bands, 2 pie charts'
+       f'NW, Income (15 ser, ymax=${CF_YMAX:,}), Expense (13 ser, ymax=${CF_YMAX:,}), MC bands, 2 pie charts'
        + (', efficient frontier scatter' if _ef_chart_added else '')
        + (', holding-period real-loss scatter' if _hp_chart_added else ''))
