@@ -71,7 +71,7 @@ def test_client_build_progress_starts_at_zero_and_polls_smoothly():
     text = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8") + "\n" + dashboard_js_text()
     assert 'let lastProgress = Math.max(0, Number(started.progress) || 0)' in text
     assert 'sleep(i < 40 ? 750 : 1500)' in text
-    assert '${buildOverlayExpectedLabel' in text
+    assert "buildOverlayExpectedLabel" not in text
     assert "Number(started.progress)||2" not in text
     assert "Math.max(30" not in text
 

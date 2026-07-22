@@ -1032,9 +1032,8 @@ function restoreWorkbookViewState() {
 }
 let buildOverlayStartedAt = 0,
   buildOverlayTimer = null,
-  buildOverlayExpectedLabel = "",
+  buildOverlayDepth = 0,
   buildOverlayLastTitle = "",
-  buildOverlayLastDetail = "",
   buildOverlayLastPct = 0;
 let allocationPreview = null,
   allocationPreviewKey = "",
@@ -10657,7 +10656,6 @@ function showYtdLoadOverlay() {
     "Loading transactions",
     "Reading saved transactions and account mappings. Large transaction histories can take a few seconds.",
     "waiting",
-    "",
   );
   const overlay = document.getElementById("buildOverlay");
   if (overlay) overlay.classList.add("no-cancel");
@@ -12524,7 +12522,6 @@ function showSpendingModelLoadOverlay() {
     "Loading Spending Model",
     "Reading transaction history and computing category rollups. This can take a few seconds on large transaction histories.",
     "waiting",
-    "",
   );
   const overlay = document.getElementById("buildOverlay");
   if (overlay) overlay.classList.add("no-cancel");
@@ -15693,6 +15690,7 @@ async function seedHousingRows() {
 }
 
 async function loadAll(opts = {}) {
+  setBuildOverlay(true, "Loading plan", "", "waiting");
   try {
     await checkAppStatus(false);
     runtime = await api("/api/runtime");
@@ -15751,6 +15749,8 @@ async function loadAll(opts = {}) {
   } catch (e) {
     showMessage("Error loading local database: " + e.message, "error");
     renderMain();
+  } finally {
+    hideBuildOverlay();
   }
 }
 async function startNewPlan() {

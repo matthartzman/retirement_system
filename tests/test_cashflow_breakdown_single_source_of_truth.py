@@ -164,7 +164,11 @@ def test_excel_sheets_agree_with_ui_on_income_and_surplus():
         s8_surplus = data8.cell(row=5 + i, column=c8_surplus).value
 
         assert abs(s6_inc - engine_streams) <= 1, f"year {r['year']}: sheet6 Σ Income"
-        assert abs(s8_inc - engine_income_and_draws) <= 2, f"year {r['year']}: sheet8 Σ Income"
+        # build_sheet8's bar total sums 15 independently-rounded display
+        # components (10 income streams + 5 draw types), unlike sheet6's single
+        # raw-sum-then-format cell -- worst-case cumulative rounding drift is
+        # 15 * 0.5 = 7.5, not the ~$1-2 seen on other years' data.
+        assert abs(s8_inc - engine_income_and_draws) <= 8, f"year {r['year']}: sheet8 Σ Income"
         # Surplus agrees: build_sheet8's series and build_sheet6's (negated)
         # cash-bridge gap both equal the engine's authoritative value.
         assert abs(s8_surplus - engine_surplus) <= 1, f"year {r['year']}: sheet8 surplus"

@@ -43,7 +43,7 @@ def test_build_progress_starts_at_beginning():
     assert 'Math.max(0, Math.min(100, Number(pct)))' in html
     assert 'b.style.width = "0%"' in html
     assert "startBuildProgressTicker(20)" not in html
-    assert "Elapsed ${elapsed}" in html
-    assert "buildOverlayExpectedLabel" in html
+    assert "Elapsed ${formatElapsed(" in html
+    assert "buildOverlayExpectedLabel" not in html
     assert "api/build/progress" in html
     assert "dashboard UI asset loader" in template
