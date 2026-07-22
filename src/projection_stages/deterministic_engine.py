@@ -2347,6 +2347,97 @@ def run_deterministic_projection_stage(c):
         row['total_tax'] = total_tax
         row['net_income'] = row.get('gross_income', agi) - total_tax
 
+        # ── Canonical cash-flow breakdown (single source of truth) ───────────
+        # Purely additive, read-only snapshot of the income / portfolio-draw /
+        # spending / tax itemization that every downstream cash-flow consumer
+        # (sheets_projection_cashflow build_sheet6, sheets_projection_charts
+        # build_sheet8, results_model _cashflow_page + _chart_page) reads
+        # verbatim, so they can never re-derive divergent numbers again. Every
+        # value here already exists on `row` (or as the just-finalized `surplus`
+        # / `total_tax` locals) by this point in the cascade — this block
+        # computes nothing new and mutates no existing field.
+        #
+        # Reconciliation guarantees, all verified exact ($0 residual) for the
+        # live household in tests/test_cashflow_breakdown_single_source_of_truth.py:
+        #   sum(income)                          == Σ Income (build_sheet6)
+        #   sum(expense excl. other_cash_need)   == row['total_spend']  (engine spend need)
+        #   sum(tax)                             == row['total_tax']    (exact, by construction)
+        #   sum(income)+sum(draws) - (sum(expense)+sum(tax)) == surplus - unfunded_gap
+        # The tax dict decomposes total_tax into non-overlapping components:
+        # federal+state+niit+irmaa+payroll+home_sale+ltcg+tlh_credit+other,
+        # where ltcg is the portfolio LTCG *beyond* the home-sale portion,
+        # tlh_credit is the (negative) tax-loss-harvest ordinary-income credit,
+        # and `other` is the reconciling remainder (equity-comp LTCG/AMT etc.)
+        # so the itemization sums to row['total_tax'] exactly regardless of
+        # which optional modules ran. Housing is exposed at component grain
+        # (mortgage/rent/housing_operating, whose sum == housing_total_yr) so a
+        # consumer can show one rolled-up "Housing" figure or the 3-way split
+        # without any key double-counting sum(expense.values()).
+        _cfb_home_sale_tax = row.get('home_sale_tax', 0.0)
+        _cfb_ltcg_tax = row.get('ltcg_tax', 0.0)
+        _cfb_tlh_credit = row.get('tlh_ordinary_credit', 0.0)
+        _cfb_tax_named = (row.get('fed_tax', 0.0) + row.get('state_tax', 0.0)
+                          + row.get('niit', 0.0) + row.get('irmaa', 0.0)
+                          + row.get('payroll_tax', 0.0)
+                          + _cfb_ltcg_tax - _cfb_tlh_credit)
+        row['cashflow_breakdown'] = {
+            'income': {
+                'earned': row.get('earned', 0.0),
+                'h_ss': row.get('h_ss', 0.0),
+                'w_ss': row.get('w_ss', 0.0),
+                'pension': row.get('pension', 0.0),
+                'wife_single_ann': row.get('wife_single_ann', 0.0),
+                'wife_joint_ann': row.get('wife_joint_ann', 0.0),
+                'h_single_ann': row.get('h_single_ann', 0.0),
+                'h_joint_ann': row.get('h_joint_ann', 0.0),
+                'note_pi': row.get('note_princ', 0.0) + row.get('note_int', 0.0),
+                'rmd_total': row.get('rmd_total', 0.0),
+            },
+            'draws': {
+                'trust_wd': row.get('h_trust_wd', 0.0) + row.get('w_trust_wd', 0.0),
+                'hsa_wd': row.get('hsa_wd', 0.0),
+                'roth_wd': row.get('h_roth_wd', 0.0) + row.get('w_roth_wd', 0.0),
+                'ira_elective': row.get('h_ira_elective', 0.0) + row.get('w_ira_elective', 0.0),
+                'heloc_draw': row.get('heloc_draw', 0.0),
+            },
+            # Housing is exposed only at component grain (mortgage / rent /
+            # housing_operating); their sum == row['housing_total_yr'], which is
+            # what build_sheet6 and build_sheet8 display as a single "Housing"
+            # figure while _chart_page keeps its 3-way split. No rolled-up
+            # 'housing' key is stored, so sum(expense.values()) never
+            # double-counts. Every key except 'other_cash_need' sums to
+            # row['total_spend']; 'other_cash_need' is the separate purchase-cash
+            # component of total_cash_need (= total_spend + total_tax +
+            # other_cash_need).
+            'expense': {
+                'spend_base': row.get('spend_base_yr', 0.0),
+                'mortgage': row.get('mortgage', 0.0),
+                'rent': row.get('rent_yr', 0.0),
+                'housing_operating': row.get('housing_operating_yr', 0.0),
+                'wellness': (row.get('wellness_base_yr', 0.0)
+                             + row.get('wellness_shock_yr', 0.0)
+                             + row.get('ltc_prem_yr', 0.0)),
+                'travel': row.get('rec_extra', 0.0),
+                'other_lump': row.get('lump', 0.0),
+                'heloc_pai': (row.get('heloc_interest', 0.0)
+                              + row.get('heloc_repayment_principal', 0.0)),
+                'other_cash_need': row.get('other_cash_need_yr', 0.0),
+            },
+            'tax': {
+                'federal': row.get('fed_tax', 0.0),
+                'state': row.get('state_tax', 0.0),
+                'niit': row.get('niit', 0.0),
+                'irmaa': row.get('irmaa', 0.0),
+                'payroll': row.get('payroll_tax', 0.0),
+                'home_sale': _cfb_home_sale_tax,
+                'ltcg': _cfb_ltcg_tax - _cfb_home_sale_tax,
+                'tlh_credit': -_cfb_tlh_credit,
+                'other': total_tax - _cfb_tax_named,
+            },
+            'surplus': surplus,          # authoritative engine value, not re-derived
+            'unfunded_gap': row['unfunded_gap'],
+        }
+
         # ── Portfolio growth (end-of-year) ───────────────────────────────────
         port_ret = c['ret']
         def _growth_event(acct, before, rate, growth):

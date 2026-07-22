@@ -37,6 +37,53 @@ def _int(value: Any) -> int:
         return 0
 
 
+def _row_cashflow_breakdown(r: dict[str, Any]) -> dict[str, Any]:
+    """Return the engine's canonical cash-flow breakdown for a projection row.
+
+    The deterministic engine attaches ``row['cashflow_breakdown']`` (the single
+    source of truth shared by build_sheet6, build_sheet8 and this module's
+    cash-flow page + chart page). This accessor returns it verbatim, and only
+    reconstructs an equivalent dict for the rare row that was not produced by
+    the full engine (e.g. a hand-built synthetic row in a test), so the UI never
+    crashes and still reconciles. See
+    tests/test_cashflow_breakdown_single_source_of_truth.py.
+    """
+    bd = r.get('cashflow_breakdown')
+    if bd:
+        return bd
+    home_sale = _n(r.get('home_sale_tax'))
+    ltcg = _n(r.get('ltcg_tax'))
+    return {
+        'income': {
+            'earned': _n(r.get('earned')), 'h_ss': _n(r.get('h_ss')), 'w_ss': _n(r.get('w_ss')),
+            'pension': _n(r.get('pension')), 'wife_single_ann': _n(r.get('wife_single_ann')),
+            'wife_joint_ann': _n(r.get('wife_joint_ann')), 'h_single_ann': _n(r.get('h_single_ann')),
+            'h_joint_ann': _n(r.get('h_joint_ann')),
+            'note_pi': _n(r.get('note_princ')) + _n(r.get('note_int')), 'rmd_total': _n(r.get('rmd_total')),
+        },
+        'draws': {
+            'trust_wd': _n(r.get('h_trust_wd')) + _n(r.get('w_trust_wd')), 'hsa_wd': _n(r.get('hsa_wd')),
+            'roth_wd': _n(r.get('h_roth_wd')) + _n(r.get('w_roth_wd')),
+            'ira_elective': _n(r.get('h_ira_elective')) + _n(r.get('w_ira_elective')),
+            'heloc_draw': _n(r.get('heloc_draw')),
+        },
+        'expense': {
+            'spend_base': _n(r.get('spend_base_yr')), 'mortgage': _n(r.get('mortgage')),
+            'rent': _n(r.get('rent_yr')), 'housing_operating': _n(r.get('housing_operating_yr')),
+            'wellness': _n(r.get('wellness_base_yr')) + _n(r.get('wellness_shock_yr')) + _n(r.get('ltc_prem_yr')),
+            'travel': _n(r.get('rec_extra')), 'other_lump': _n(r.get('lump')),
+            'heloc_pai': _n(r.get('heloc_interest')) + _n(r.get('heloc_repayment_principal')),
+            'other_cash_need': _n(r.get('other_cash_need_yr')),
+        },
+        'tax': {
+            'federal': _n(r.get('fed_tax')), 'state': _n(r.get('state_tax')), 'niit': _n(r.get('niit')),
+            'irmaa': _n(r.get('irmaa')), 'payroll': _n(r.get('payroll_tax')), 'home_sale': home_sale,
+            'ltcg': max(0.0, ltcg - home_sale), 'tlh_credit': 0.0, 'other': 0.0,
+        },
+        'surplus': _n(r.get('surplus')), 'unfunded_gap': _n(r.get('unfunded_gap')),
+    }
+
+
 def _json_value(value: Any) -> Any:
     if value is None:
         return ""
@@ -249,53 +296,76 @@ def _chart_page(c: dict[str, Any], rows: list[dict[str, Any]], mc_data: dict[str
         {"label": "HELOC", "values": [-round(_n(r.get("heloc_liability"))) for r in rows]},
     ])
 
-    inc_series_defs = [
-        ("Earned Income", "earned"), (f"{member_nick(c, 'member_1')} SS", "h_ss"),
-        (f"{member_nick(c, 'member_2')} SS", "w_ss"), ("Pension", "pension"),
-        (f"{member_nick(c, 'member_2')} Single Ann", "wife_single_ann"),
-        (f"{member_nick(c, 'member_2')} Joint Ann", "wife_joint_ann"),
-        (f"{member_nick(c, 'member_1')} Single Ann", "h_single_ann"),
-        (f"{member_nick(c, 'member_1')} Joint Ann", "h_joint_ann"),
-    ]
+    # Every series below is sourced from the engine's canonical
+    # row['cashflow_breakdown'] (single source of truth shared with the Excel
+    # cash-flow sheet build_sheet6 and charts dashboard build_sheet8), so the
+    # chart can never itemize a year differently from the worksheet again.
+    bds = [_row_cashflow_breakdown(r) for r in rows]
+
+    def _inc_series(sub: str, key: str) -> list[int]:
+        return [round(_n(bd[sub].get(key))) for bd in bds]
+
+    def _draw_series(key: str) -> list[int]:
+        return [round(max(0, _n(bd['draws'].get(key)))) for bd in bds]
+
     inc_values = {
-        label: [round(_n(r.get(key))) for r in rows] for label, key in inc_series_defs
+        "Earned Income": _inc_series('income', 'earned'),
+        f"{member_nick(c, 'member_1')} SS": _inc_series('income', 'h_ss'),
+        f"{member_nick(c, 'member_2')} SS": _inc_series('income', 'w_ss'),
+        "Pension": _inc_series('income', 'pension'),
+        f"{member_nick(c, 'member_2')} Single Ann": _inc_series('income', 'wife_single_ann'),
+        f"{member_nick(c, 'member_2')} Joint Ann": _inc_series('income', 'wife_joint_ann'),
+        f"{member_nick(c, 'member_1')} Single Ann": _inc_series('income', 'h_single_ann'),
+        f"{member_nick(c, 'member_1')} Joint Ann": _inc_series('income', 'h_joint_ann'),
+        "Note P+I": _inc_series('income', 'note_pi'),
+        "RMD": _inc_series('income', 'rmd_total'),
+        "Trust Draw": _draw_series('trust_wd'),
+        "HSA Draw": _draw_series('hsa_wd'),
+        "Roth Draw": _draw_series('roth_wd'),
+        "IRA Draw": _draw_series('ira_elective'),
+        "HELOC Draw": _draw_series('heloc_draw'),
     }
-    inc_values["Note P+I"] = [round(_n(r.get("note_princ")) + _n(r.get("note_int"))) for r in rows]
-    inc_values["RMD"] = [round(_n(r.get("rmd_total"))) for r in rows]
-    for label, key in [("Trust Draw", "trust_wd"), ("HSA Draw", "hsa_wd"), ("Roth Draw", "roth_wd"),
-                       ("IRA Draw", "ira_wd"), ("HELOC Draw", "heloc_draw")]:
-        inc_values[label] = [round(max(0, _n(r.get(key)))) for r in rows]
-    inc_totals = [sum(vals[i] for vals in inc_values.values()) for i in range(len(rows))]
+    # Unfunded shortfall (usually all-zero): the funding the plan could not
+    # raise to meet spending+taxes that year. Placed on the income bar so it
+    # reconciles with the taller spending bar in a failed-funding year -- a
+    # shortfall is materially different from a surplus, so it gets its own
+    # labeled series rather than being silently dropped.
+    inc_values["Unfunded Shortfall"] = [round(max(0, _n(bd['unfunded_gap']))) for bd in bds]
+
+    def _exp_series(key: str) -> list[int]:
+        return [round(_n(bd['expense'].get(key))) for bd in bds]
+
+    def _tax_series(key: str) -> list[int]:
+        return [round(_n(bd['tax'].get(key))) for bd in bds]
 
     exp_values = {
-        "Base Spending": [round(_n(r.get("spend_base_yr"))) for r in rows],
-        "Rec Extras": [round(_n(r.get("rec_extra"))) for r in rows],
-        "Lump Events": [round(_n(r.get("lump"))) for r in rows],
-        "Mortgage + RE Tax": [round(_n(r.get("mortgage"))) for r in rows],
-        "Rent": [round(_n(r.get("rent_yr"))) for r in rows],
-        "Housing Operating": [round(_n(r.get("housing_operating_yr"))) for r in rows],
-        "Wellness": [round(_n(r.get("wellness_base_yr")) + _n(r.get("wellness_shock_yr")) + _n(r.get("ltc_prem_yr"))) for r in rows],
-        "HELOC P&I": [round(_n(r.get("heloc_interest")) + _n(r.get("heloc_repayment_principal"))) for r in rows],
-        "Federal Tax": [round(_n(r.get("fed_tax"))) for r in rows],
-        f"State Tax ({str(c.get('state', ''))[:2]})": [round(_n(r.get("state_tax"))) for r in rows],
-        "NIIT": [round(_n(r.get("niit"))) for r in rows],
-        "Payroll Tax": [round(_n(r.get("payroll_tax"))) for r in rows],
-        "IRMAA": [round(_n(r.get("irmaa"))) for r in rows],
-        "Home Sale Tax": [round(_n(r.get("home_sale_tax"))) for r in rows],
+        "Base Spending": _exp_series('spend_base'),
+        "Rec Extras": _exp_series('travel'),
+        "Lump Events": _exp_series('other_lump'),
+        "Mortgage + RE Tax": _exp_series('mortgage'),
+        "Rent": _exp_series('rent'),
+        "Housing Operating": _exp_series('housing_operating'),
+        "Wellness": _exp_series('wellness'),
+        "HELOC P&I": _exp_series('heloc_pai'),
+        "Other Cash Need": _exp_series('other_cash_need'),
+        "Federal Tax": _tax_series('federal'),
+        f"State Tax ({str(c.get('state', ''))[:2]})": _tax_series('state'),
+        "NIIT": _tax_series('niit'),
+        "Payroll Tax": _tax_series('payroll'),
+        "IRMAA": _tax_series('irmaa'),
+        "Home Sale Tax": _tax_series('home_sale'),
+        # Portfolio LTCG beyond the home-sale portion, plus any tax-loss-harvest
+        # ordinary credit and residual tax adjustments, so the itemized tax
+        # series partition row['total_tax'] exactly (this slice used to be
+        # silently dropped from the chart).
+        "LTCG Tax": [round(_n(bd['tax'].get('ltcg')) + _n(bd['tax'].get('tlh_credit')) + _n(bd['tax'].get('other'))) for bd in bds],
     }
-    exp_totals = [sum(vals[i] for vals in exp_values.values()) for i in range(len(rows))]
-    # Guaranteed income (SS/pension/RMD/etc.) commonly exceeds this chart's
-    # own itemized spend+tax total in a given year -- the excess is real
-    # money the household keeps, not an error. This is the exact complement
-    # of these two charts' own totals (not the engine's row['surplus']
-    # directly, which nets against additional mid-year iterative tax/
-    # withdrawal solving these charts don't replicate line-by-line), so the
-    # two bars always reconcile exactly instead of leaving an unexplained
-    # gap between them. With every real cash-need component above now
-    # itemized, this tracks row['surplus'] closely in practice.
-    exp_values["Surplus (Reinvested)"] = [
-        max(0, inc_totals[i] - exp_totals[i]) for i in range(len(rows))
-    ]
+    # Authoritative engine surplus (year-end reinvested excess), read verbatim
+    # from the breakdown -- NOT a re-derived plug of the chart's own totals.
+    # Because every real cash-need component is now itemized above, the two
+    # bars still reconcile: income+draws+unfunded == spend+taxes+surplus, using
+    # the engine's own surplus/unfunded_gap rather than a chart-local guess.
+    exp_values["Surplus (Reinvested)"] = [round(max(0, _n(bd['surplus']))) for bd in bds]
 
     add_xy("Cash Flow — Income & Portfolio Draws", "stacked_bar", [
         {"label": label, "values": vals} for label, vals in inc_values.items()
@@ -410,9 +480,17 @@ def _cashflow_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, A
     ]
     data_rows = [row(group_row), row(headers)]
     for r in rows:
-        inc_total = _n(r.get('earned')) + _n(r.get('h_ss')) + _n(r.get('w_ss')) + _n(r.get('pension')) + _n(r.get('wife_single_ann')) + _n(r.get('wife_joint_ann')) + _n(r.get('h_single_ann')) + _n(r.get('h_joint_ann')) + _n(r.get('note_princ')) + _n(r.get('note_int')) + _n(r.get('rmd_total'))
-        heloc_pai = _n(r.get('heloc_interest')) + _n(r.get('heloc_repayment_principal'))
-        spend_total = _n(r.get('spend_base_yr')) + _n(r.get('rec_extra')) + _n(r.get('lump')) + _n(r.get('mortgage')) + _n(r.get('rent_yr')) + heloc_pai
+        # Σ Income, HELOC P&I, Σ Spend (this page's narrower spend definition:
+        # only the columns actually displayed here) and the Surplus column all
+        # come from the engine's canonical row['cashflow_breakdown'], so this
+        # page and build_sheet6 can never disagree on income or surplus again.
+        bd = _row_cashflow_breakdown(r)
+        _bi = bd['income']; _be = bd['expense']
+        inc_total = sum(_bi.values())
+        heloc_pai = _be['heloc_pai']
+        spend_total = (_be['spend_base'] + _be['travel'] + _be['other_lump']
+                       + _be['mortgage'] + _be['rent'] + heloc_pai)
+        surplus_val = bd['surplus']
         trust_total = _n(r.get('h_trust_wd')) + _n(r.get('w_trust_wd'))
         roth_total = _n(r.get('h_roth_wd')) + _n(r.get('w_roth_wd'))
         h_ira_cash = _n(r.get('rmd_h')) + _n(r.get('h_ira_elective'))
@@ -431,7 +509,7 @@ def _cashflow_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, A
             (r.get('h_roth_wd'), 'currency'), (r.get('w_roth_wd'), 'currency'), (roth_total, 'currency'),
             (r.get('rmd_h'), 'currency'), (r.get('h_ira_elective'), 'currency'), (r.get('h_ira_conversion'), 'currency'), (h_ira_total, 'currency'),
             (r.get('rmd_w'), 'currency'), (r.get('w_ira_elective'), 'currency'), (r.get('w_ira_conversion'), 'currency'), (w_ira_total, 'currency'),
-            (r.get('heloc_draw'), 'currency'), (wd_total, 'currency'), (r.get('surplus'), 'currency'), (r.get('total_nw'), 'currency'),
+            (r.get('heloc_draw'), 'currency'), (wd_total, 'currency'), (surplus_val, 'currency'), (r.get('total_nw'), 'currency'),
         ]))
     column_groups = []
     pos = 0
