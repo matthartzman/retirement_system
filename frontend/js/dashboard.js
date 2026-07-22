@@ -195,7 +195,7 @@ const STEPS = [
     title: "Special Strategies",
     desc: "Home equity and charitable strategies for advanced planning cases.",
     intro:
-      "Use only when the plan intentionally includes home-equity borrowing, entity planning, or charitable giving strategies.",
+      "Use only when the plan intentionally includes home-equity borrowing or charitable giving strategies.",
     help: "These strategies can improve outcomes, but they add assumptions and should be isolated in comparisons.",  },
   {
     id: "planning_levers",
@@ -260,9 +260,9 @@ const STEPS = [
     id: "entity_charitable",
     group: "Strategy",
     title: "Charitable Giving",
-    desc: "Entity election and charitable vehicle — direct gift, donor-advised fund, or qualified charitable distribution.",
+    desc: "Charitable giving vehicle — direct gift, donor-advised fund, or qualified charitable distribution.",
     intro:
-      "S-Corp election can reduce self-employment tax on business income above a reasonable salary. Qualified charitable distributions are available at age 70½ and satisfy required distributions tax-free. Annual giving amounts are set on Core spending.",
+      "Qualified charitable distributions are available at age 70½ and satisfy required distributions tax-free. Annual giving amounts are set on Core spending.",
     help: "Donor-advised funds are most effective when contributed in a high-income year and granted over time. Qualified charitable distributions also reduce adjusted gross income, which can lower income-related Medicare surcharge tiers — model in combination with Roth Conversion.",
     hidden: true,  },
   {
@@ -813,11 +813,11 @@ const STEP_HELP = {
     "HELOC improves TNW when the compound benefit of undisturbed liquid assets exceeds borrowing costs. It worsens outcomes when interest drag or reduced home equity at sale outweigh the investment benefit.",
   ),
   entity_charitable: pageHelp(
-    "Entity and charitable giving",
-    "This strategy page covers two related decisions: business-entity choice (S-Corp vs LLC) and charitable giving vehicle (cash, DAF, QCD). Annual giving amounts are entered on Core spending.",
-    "Entity choice connects to payroll taxes and QBI; charitable vehicle choice connects to deductions, lifetime taxes, and legacy. Both appear in dedicated workbook sheets.",
-    "Set the entity assumptions if self-employed, and choose how charitable gifts are funded. Use QCDs after RMD age where appropriate.",
-    "Entity optimization can reduce payroll/self-employment tax; charitable vehicle choice can lower taxes and increase legacy, but may reduce near-term liquidity.",
+    "Charitable giving",
+    "This strategy page covers the charitable giving vehicle: cash, donor-advised fund, or qualified charitable distribution. Annual giving amounts are entered on Core spending. Business-entity choice (S-Corp vs LLC) is entered on Work Income.",
+    "Charitable vehicle choice connects to deductions, lifetime taxes, and legacy, and appears in a dedicated workbook sheet.",
+    "Choose how charitable gifts are funded. Use QCDs after RMD age where appropriate.",
+    "Charitable vehicle choice can lower taxes and increase legacy, but may reduce near-term liquidity.",
   ),
   survivor_stress: pageHelp(
     "Survivor / early death",
@@ -1295,25 +1295,25 @@ function humanLabel(label, row) {
     return "Down Payment";
   if (
     row &&
-    row.section === "healthcare" &&
+    row.section === "Wellness" &&
     norm(row.label) === "medical_annual"
   )
     return "Annual Medical Out-of-Pocket";
   if (
     row &&
-    row.section === "healthcare" &&
+    row.section === "Wellness" &&
     norm(row.label) === "dental_annual"
   )
     return "Annual Dental Out-of-Pocket";
   if (
     row &&
-    row.section === "healthcare" &&
+    row.section === "Wellness" &&
     norm(row.label) === "vision_annual"
   )
     return "Annual Vision Out-of-Pocket";
   if (
     row &&
-    row.section === "healthcare" &&
+    row.section === "Wellness" &&
     norm(row.label) === "pharmacy_annual"
   )
     return "Annual Pharmacy Out-of-Pocket";
@@ -1404,35 +1404,35 @@ function humanLabel(label, row) {
     return "Checking Accounts";
   if (
     row &&
-    row.section === "healthcare" &&
+    row.section === "Wellness" &&
     row.subsection === "Pre-65 Bridge" &&
     norm(label) === "annual_premium_base_year"
   )
     return "Pre-65 Healthcare Premium";
   if (
     row &&
-    row.section === "healthcare" &&
+    row.section === "Wellness" &&
     row.subsection === "Medicare" &&
     norm(label) === "part_b_base_premium_monthly"
   )
     return "Monthly Medicare Part B";
   if (
     row &&
-    row.section === "healthcare" &&
+    row.section === "Wellness" &&
     row.subsection === "Medicare" &&
     norm(label) === "part_d_base_premium_monthly"
   )
     return "Monthly Medicare Part D";
   if (
     row &&
-    row.section === "healthcare" &&
+    row.section === "Wellness" &&
     row.subsection === "Medicare" &&
     norm(label) === "part_g_base_premium_monthly"
   )
     return "Monthly Medicare Part G";
   if (
     row &&
-    row.section === "healthcare" &&
+    row.section === "Wellness" &&
     row.subsection === "Out-of-Pocket" &&
     norm(label) === "annual_oop_estimate_today"
   )
@@ -1513,7 +1513,7 @@ function fieldLabelNoteHtml(row) {
   const lbl = norm(row?.label);
   if (
     row &&
-    row.section === "healthcare" &&
+    row.section === "Wellness" &&
     row.subsection === "Medicare" &&
     [
       "part_b_base_premium_monthly",
@@ -1524,7 +1524,7 @@ function fieldLabelNoteHtml(row) {
     return ' <span class="field-label-note"><em>prior to IRMAA</em></span>';
   if (
     row &&
-    row.section === "healthcare" &&
+    row.section === "Wellness" &&
     row.subsection === "Pre-65 Bridge" &&
     lbl === "annual_premium_base_year"
   )
@@ -2178,7 +2178,7 @@ function sourceStepForRow(row) {
   if (sec === "Cashflow" && sub === "spending") return "spending_core";
   if (sec === "Cashflow" && sub === "mortgage")
     return "spending_mortgage_events";
-  if (sec === "healthcare")
+  if (sec === "Wellness")
     return rowIsRetirementWellness(row)
       ? "retirement_wellness"
       : "economic_tax_assumptions";
@@ -2917,8 +2917,8 @@ function planningLeverRows() {
     x.sCorpBenefit * Math.min(5, b.years) * 0.9,
     (x.sCorpBenefit / b.spend) * 3,
     "Use actual entity-analysis benefit if different.",
-    "Entity & Charitable",
-    "entity_charitable",
+    "Work Income",
+    "income_work",
   );
   add(
     "TNW",
@@ -3059,7 +3059,7 @@ function renderStateResidency() {
   return html;
 }
 function renderEntityCharitable() {
-  let html = `<div class="section-note">S-Corp election reduces self-employment tax on income above a reasonable salary. Qualified charitable distributions (age 70½+) satisfy required distributions without the amount appearing as taxable income. Annual giving amounts are set on <a href="#" onclick="setStep('spending_core');return false">Core spending</a>.</div>`;
+  let html = `<div class="section-note">Qualified charitable distributions (age 70½+) satisfy required distributions without the amount appearing as taxable income. Annual giving amounts are set on <a href="#" onclick="setStep('spending_core');return false">Core spending</a>. S-Corp election is a self-employment decision, entered on <a href="#" onclick="setStep('income_work');return false">Work Income</a>.</div>`;
   return html + renderFields("entity_charitable");
 }
 function renderSurvivorStress() {
@@ -3120,7 +3120,7 @@ function renderPlanningLevers() {
   function tr(r) {
     return `<tr><td>${esc(r.focus)}</td><td><b>${esc(r.lever)}</b><div class="small">${esc(r.note)}</div></td><td class="lever-source-cell">${sourceCell(r)}</td><td>${inputCell(r)}</td><td>${fmtMoney(r.tnw)}</td><td>${fmtPct(r.success)}</td></tr>`;
   }
-  return `<div class="holdings planning-levers"><h3 class="group-title">Strategy Levers</h3><p class="small"><button class="btn tiny" type="button" data-step-id="planning_workbench">Back to Planning Workbench</button></p><p class="small">Estimates assume all other inputs stay fixed. Change the test amount to resize any estimate without affecting your plan. Use the Source column beside each lever to jump to the page where the actual plan value is changed, then rebuild to confirm the real effect.</p><div class="feature-grid optimizer-hub" style="margin:10px 0 14px"><div class="feature-card"><h3>Strategy · decide</h3><div class="pane-actions"><button class="btn" type="button" data-step-id="roth_conversion">Roth conversion</button> <button class="btn" type="button" data-step-id="allocation_assets">Asset allocation</button> <button class="btn" type="button" data-step-id="withdrawal_strategy">Withdrawal sequencing</button> <button class="btn" type="button" data-step-id="income_retirement">Social Security</button> <button class="btn" type="button" data-step-id="state_residency">State residency</button> <button class="btn" type="button" data-step-id="entity_charitable">Entity &amp; charitable</button> <button class="btn" type="button" data-step-id="heloc_strategy">HELOC strategy</button></div></div><div class="feature-card"><h3>Stress tests · resilience</h3><div class="pane-actions"><button class="btn" type="button" data-step-id="monte_carlo_options">Monte Carlo</button> <button class="btn" type="button" data-step-id="scenarios">Scenarios</button> <button class="btn" type="button" data-step-id="survivor_stress">Survivor</button> <button class="btn" type="button" data-step-id="ltc_stress">Long-term care</button> <button class="btn" type="button" data-step-id="divorce_options">Divorce / QDRO</button></div></div></div><div class="ytd-status-grid"><div class="pill"><b>Current terminal NW</b><span>${fmtMoney(b.terminal)}</span></div><div class="pill" title="Post-Tax Inheritance: terminal net worth minus the embedded taxes heirs would owe on pre-tax accounts and unrealized gains — what beneficiaries actually keep."><b>Post-Tax Inheritance (PTI)</b><span>${Number.isFinite(b.pti) ? fmtMoney(b.pti) : "—"}</span></div><div class="pill"><b>Lifetime taxes</b><span>${Number.isFinite(b.lifetime_tax) ? fmtMoney(b.lifetime_tax) : "—"}</span></div><div class="pill"><b>Current success rate</b><span>${fmtPct(b.success)}</span></div><div class="pill"><b>Core annual spending</b><span>${fmtMoney(b.spend)}</span></div><div class="pill"><b>Earned income assumption</b><span>${fmtMoney(b.earned)}</span></div></div><div class="section-note small" style="margin:4px 0 10px"><b>TNW</b> = Terminal Net Worth (projected portfolio at end of plan horizon) · <b>PTI</b> = Post-Tax Inheritance (TNW minus embedded taxes heirs would owe) · <b>Success rate</b> = Monte Carlo trials where the plan maintains the reserve floor through the planning horizon</div><div><div><h3>Ranked by estimated TNW lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${tnw.map(tr).join("")}</tbody></table></div></div><div><h3>Ranked by estimated success lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${suc.map(tr).join("")}</tbody></table></div></div></div><p class="section-note">After ranking, use the Source button beside a lever to change the actual input → rebuild → check Build History to see the measured effect on projected net worth and success rate.</p></div>`;
+  return `<div class="holdings planning-levers"><h3 class="group-title">Strategy Levers</h3><p class="small"><button class="btn tiny" type="button" data-step-id="planning_workbench">Back to Planning Workbench</button></p><p class="small">Estimates assume all other inputs stay fixed. Change the test amount to resize any estimate without affecting your plan. Use the Source column beside each lever to jump to the page where the actual plan value is changed, then rebuild to confirm the real effect.</p><div class="feature-grid optimizer-hub" style="margin:10px 0 14px"><div class="feature-card"><h3>Strategy · decide</h3><div class="pane-actions"><button class="btn" type="button" data-step-id="roth_conversion">Roth conversion</button> <button class="btn" type="button" data-step-id="allocation_assets">Asset allocation</button> <button class="btn" type="button" data-step-id="withdrawal_strategy">Withdrawal sequencing</button> <button class="btn" type="button" data-step-id="income_retirement">Social Security</button> <button class="btn" type="button" data-step-id="state_residency">State residency</button> <button class="btn" type="button" data-step-id="entity_charitable">Charitable giving</button> <button class="btn" type="button" data-step-id="heloc_strategy">HELOC strategy</button></div></div><div class="feature-card"><h3>Stress tests · resilience</h3><div class="pane-actions"><button class="btn" type="button" data-step-id="monte_carlo_options">Monte Carlo</button> <button class="btn" type="button" data-step-id="scenarios">Scenarios</button> <button class="btn" type="button" data-step-id="survivor_stress">Survivor</button> <button class="btn" type="button" data-step-id="ltc_stress">Long-term care</button> <button class="btn" type="button" data-step-id="divorce_options">Divorce / QDRO</button></div></div></div><div class="ytd-status-grid"><div class="pill"><b>Current terminal NW</b><span>${fmtMoney(b.terminal)}</span></div><div class="pill" title="Post-Tax Inheritance: terminal net worth minus the embedded taxes heirs would owe on pre-tax accounts and unrealized gains — what beneficiaries actually keep."><b>Post-Tax Inheritance (PTI)</b><span>${Number.isFinite(b.pti) ? fmtMoney(b.pti) : "—"}</span></div><div class="pill"><b>Lifetime taxes</b><span>${Number.isFinite(b.lifetime_tax) ? fmtMoney(b.lifetime_tax) : "—"}</span></div><div class="pill"><b>Current success rate</b><span>${fmtPct(b.success)}</span></div><div class="pill"><b>Core annual spending</b><span>${fmtMoney(b.spend)}</span></div><div class="pill"><b>Earned income assumption</b><span>${fmtMoney(b.earned)}</span></div></div><div class="section-note small" style="margin:4px 0 10px"><b>TNW</b> = Terminal Net Worth (projected portfolio at end of plan horizon) · <b>PTI</b> = Post-Tax Inheritance (TNW minus embedded taxes heirs would owe) · <b>Success rate</b> = Monte Carlo trials where the plan maintains the reserve floor through the planning horizon</div><div><div><h3>Ranked by estimated TNW lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${tnw.map(tr).join("")}</tbody></table></div></div><div><h3>Ranked by estimated success lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${suc.map(tr).join("")}</tbody></table></div></div></div><p class="section-note">After ranking, use the Source button beside a lever to change the actual input → rebuild → check Build History to see the measured effect on projected net worth and success rate.</p></div>`;
 }
 
 function chatMessageHtml(m) {
@@ -3608,7 +3608,7 @@ function rowIsRetirementWellness(r) {
   const lbl = norm(r.label);
   const sub = norm(r.subsection || "");
   return (
-    r.section === "healthcare" &&
+    r.section === "Wellness" &&
     ((sub === "pre_65_bridge" && lbl === "annual_premium_base_year") ||
       (sub === "medicare" &&
         [
@@ -3788,6 +3788,7 @@ function rawRowsForStep(id) {
                 "ytd_remainder_earned_income_override",
               ].includes(lbl)) ||
               sub === "self_employment" ||
+              sub === "s_corp" ||
               sub === "retirement_contributions")) ||
           sec === "Payroll Tax"
         );
@@ -3883,7 +3884,7 @@ function rawRowsForStep(id) {
           (sec === "Economic Assumptions" ||
             sec === "Account Policy" ||
             sec === "Payroll Tax" ||
-            (sec === "healthcare" && !rowIsRetirementWellness(r)) ||
+            (sec === "Wellness" && !rowIsRetirementWellness(r)) ||
             (sec === "Model Constants" &&
               ["retirement", "capital_gains"].includes(sub) &&
               lbl !== "spending_freeze_year"))
@@ -3909,7 +3910,7 @@ function rawRowsForStep(id) {
       case "heloc_strategy":
         return sec === "HELOC";
       case "entity_charitable":
-        return (sec === "Cashflow" && sub === "s_corp") || sec === "DAF";
+        return sec === "DAF";
       case "survivor_stress":
         return (
           sec === "Household" && hasAny(r.label, ["survivor", "mortality"])
@@ -7005,7 +7006,7 @@ function coreSpendingGrowthMode() {
 }
 function renderSpendingCore() {
   if (searchText.trim()) return renderFields("spending_core");
-  /* DAF contributions are intentionally routed to Entity & Charitable Giving, not Core Spending. */ const rs =
+  /* DAF contributions are intentionally routed to Charitable Giving, not Core Spending. */ const rs =
     rowsForStep("spending_core").filter(
       (r) => norm(r.label) !== "daf_annual_contribution",
     );
@@ -13930,12 +13931,15 @@ function renderPlanDataReport() {
     {
       id: "spending",
       label: "Spending",
+      // Wellness and Housing each have their own dedicated tab below, so
+      // they're intentionally not repeated here. Other Spending's DAF
+      // settings are field-based (Travel and Large Discretionary are
+      // matrix/table data not shown on this flat summary page).
       stepIds: [
         "spending_core",
-        "retirement_wellness",
-        "spending_mortgage_events",
         "spending_travel",
         "spending_travel_extras",
+        "entity_charitable",
         "ytd_transactions",
       ],
     },
@@ -14119,6 +14123,121 @@ function renderPlanDataReport() {
     var stepTitle = stepDef ? stepDef.title : stepId;
     body += '<div class="plan-report-section">';
     body += '<h3 class="group-title">' + esc(stepTitle) + "</h3>";
+
+    function renderReportRowGroup(groupRows, tight) {
+      var out = '<div class="plan-report-rows' + (tight ? " plan-report-rows-tight" : "") + '">';
+      groupRows.forEach(function (r) {
+        var val = valOf(r);
+        var display = String(val || "");
+        if (typeof displayValueForInput === "function")
+          try {
+            display = displayValueForInput(r, val) || display;
+          } catch (e) {}
+        var isEmpty =
+          !display || display.trim() === "" || display.trim() === "0";
+        out +=
+          '<div class="plan-report-row' +
+          (isEmpty ? " plan-report-empty" : "") +
+          '">';
+        out +=
+          '<span class="plan-report-label">' +
+          esc(humanLabel(r.label, r)) +
+          "</span>";
+        out +=
+          '<span class="plan-report-value' +
+          (isEmpty ? " muted" : "") +
+          '">' +
+          esc(isEmpty ? "—" : display) +
+          "</span>";
+        out += "</div>";
+      });
+      out += "</div>";
+      return out;
+    }
+
+    if (stepId === "household_people") {
+      // One row per person (Matthew / Patricia), plus a third row for
+      // household-level fields neither person owns (residence state, filing
+      // status, survivor assumptions) -- rather than one flat grid that
+      // interleaves both people's fields depending on how many columns
+      // happen to fit at the viewport's current width.
+      var personGroups = [1, 2]
+        .map(function (n) {
+          var prefix = "member_" + n + "_";
+          var pRows = stepRows.filter(function (r) {
+            return norm(r.label || "").indexOf(prefix) === 0;
+          });
+          return { n: n, rows: pRows };
+        })
+        .filter(function (g) {
+          return g.rows.length;
+        });
+      var personLabels = new Set();
+      personGroups.forEach(function (g) {
+        g.rows.forEach(function (r) {
+          personLabels.add(norm(r.label));
+        });
+      });
+      var otherRows = stepRows.filter(function (r) {
+        return !personLabels.has(norm(r.label));
+      });
+      personGroups.forEach(function (g) {
+        body +=
+          '<div class="plan-report-subsection">' +
+          esc(personDisplayName(g.n)) +
+          "</div>";
+        body += renderReportRowGroup(g.rows, true);
+      });
+      if (otherRows.length) {
+        body += '<div class="plan-report-subsection">Other</div>';
+        body += renderReportRowGroup(otherRows, true);
+      }
+      body += "</div>";
+      return;
+    }
+
+    if (stepId === "spending_mortgage_events") {
+      // Current Home comes first (right under the "Housing" title, no
+      // subsection label of its own -- this page is already about the
+      // current home) and absorbs the current-home value/basis/appreciation
+      // fields that otherwise live under a separate "Home" (Other Assets)
+      // group at the end. Mortgage and any planned-move scenarios keep
+      // their own labeled groups after it, in their existing order.
+      var currentHomeRows = stepRows.filter(function (r) {
+        return (
+          (r.section === "Housing" && norm(r.subsection) === "current_home") ||
+          (r.section === "Other Assets" && norm(r.subsection) === "home")
+        );
+      });
+      var chSet = new Set(currentHomeRows);
+      var housingRestRows = stepRows.filter(function (r) {
+        return !chSet.has(r);
+      });
+      if (currentHomeRows.length) body += renderReportRowGroup(currentHomeRows, false);
+      var byHousingSub = {};
+      var housingSubOrder = [];
+      housingRestRows.forEach(function (r) {
+        var sub = r.subsection || "";
+        if (!byHousingSub[sub]) {
+          byHousingSub[sub] = [];
+          housingSubOrder.push(sub);
+        }
+        byHousingSub[sub].push(r);
+      });
+      housingSubOrder.forEach(function (sub) {
+        var subRows = byHousingSub[sub];
+        if (sub) {
+          var subLabel = humanLabel(sub, null);
+          if (subLabel && subLabel !== sub)
+            body +=
+              '<div class="plan-report-subsection">' + esc(subLabel) + "</div>";
+        }
+        body += renderReportRowGroup(subRows, false);
+      });
+      body += "</div>";
+      return;
+    }
+
     var bySub = {};
     var subOrder = [];
     stepRows.forEach(function (r) {
@@ -14137,33 +14256,7 @@ function renderPlanDataReport() {
           body +=
             '<div class="plan-report-subsection">' + esc(subLabel) + "</div>";
       }
-      body += '<div class="plan-report-rows">';
-      subRows.forEach(function (r) {
-        var val = valOf(r);
-        var display = String(val || "");
-        if (typeof displayValueForInput === "function")
-          try {
-            display = displayValueForInput(r, val) || display;
-          } catch (e) {}
-        var isEmpty =
-          !display || display.trim() === "" || display.trim() === "0";
-        body +=
-          '<div class="plan-report-row' +
-          (isEmpty ? " plan-report-empty" : "") +
-          '">';
-        body +=
-          '<span class="plan-report-label">' +
-          esc(humanLabel(r.label, r)) +
-          "</span>";
-        body +=
-          '<span class="plan-report-value' +
-          (isEmpty ? " muted" : "") +
-          '">' +
-          esc(isEmpty ? "—" : display) +
-          "</span>";
-        body += "</div>";
-      });
-      body += "</div>";
+      body += renderReportRowGroup(subRows, false);
     });
     body += "</div>";
   });
@@ -14312,13 +14405,18 @@ function renderDistributionStrategy() {
 }
 function renderSpecialStrategies() {
   let html = '<div class="special-strategy-workspace">';
-  if (helocModuleEnabled())
+  if (helocModuleEnabled()) {
     html += `<details open><summary>Home Equity Line</summary>${analysisFrame(renderFields("heloc_strategy"), "strategy")}</details>`;
-  if (optionalFunctionEnabled("charitable_giving"))
-    html += `<details open><summary>Charitable Giving</summary>${analysisFrame(renderEntityCharitable(), "strategy")}</details>`;
-  if (!helocModuleEnabled() && !optionalFunctionEnabled("charitable_giving"))
+  } else {
     html +=
-      '<div class="section-note">Both strategies on this page are optional modules that are currently turned off. Enable HELOC (HELOC → Setup → Enable HELOC Strategy) or Charitable Giving (Optional Modules) to use them.</div>';
+      '<div class="section-note">Home Equity Line strategy is off. Enable it on <a href="#" onclick="setStep(\'heloc_strategy\');return false">HELOC → Setup → Enable HELOC Strategy</a> to use it.</div>';
+  }
+  if (optionalFunctionEnabled("charitable_giving")) {
+    html += `<details open><summary>Charitable Giving</summary>${analysisFrame(renderEntityCharitable(), "strategy")}</details>`;
+  } else {
+    html +=
+      '<div class="section-note">Charitable Giving strategies are off. Enable Charitable Giving on <a href="#" onclick="setStep(\'optional_functions\');return false">Optional Modules</a> to use them.</div>';
+  }
   html += "</div>";
   return html;
 }
@@ -15325,7 +15423,7 @@ function fieldConnection(row) {
     return "This connects taxable income, deductions, brackets, estate exposure, Roth scoring, and lifetime-tax reporting.";
   if (
     l.includes("premium") ||
-    s.includes("healthcare") ||
+    s.includes("wellness") ||
     s.includes("insurance") ||
     s.includes("ltc")
   )
