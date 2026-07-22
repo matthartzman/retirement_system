@@ -471,9 +471,7 @@
   function planBatchPanelHtml() {
     if (currentStep() !== "all_assumptions") return "";
     return (
-      '<div class="batch-edit-panel" data-roadmap12="batch-assumption-edit"><div class="batch-edit-head"><div><span class="eyebrow">Power user</span><h3>Batch edit assumptions</h3><p class="small">Preview first, then stage many plan-row edits at once. Applying a preview only marks fields edited; click Save Changes to persist.</p></div><span class="pill">' +
-      SCHEMA +
-      '</span></div><div class="batch-grid"><label>Rows to scan <select id="batchPlanScope"><option value="filtered">Current All Assumptions results</option><option value="all">All editable plan rows</option></select></label><label>Field filter <input id="batchPlanFilter" placeholder="Example: inflation, Roth, State Comparison"></label></div>' +
+      '<div class="batch-edit-panel" data-roadmap12="batch-assumption-edit"><div class="batch-edit-head"><div><span class="eyebrow">Power user</span><h3>Batch edit assumptions</h3><p class="small">Preview first, then stage many plan-row edits at once. Applying a preview only marks fields edited; click Save Changes to persist.</p></div></div><div class="batch-grid"><label>Rows to scan <select id="batchPlanScope"><option value="filtered">Current All Assumptions results</option><option value="all">All editable plan rows</option></select></label><label>Field filter <input id="batchPlanFilter" placeholder="Example: inflation, Roth, State Comparison"></label></div>' +
       operationInputs("batchPlan") +
       '<div class="table-actions"><button class="btn" type="button" onclick="window.RPDashboardRoadmap12.previewPlanBatchEdit()">Preview batch</button><button class="btn primary" type="button" id="batchPlanApply" onclick="window.RPDashboardRoadmap12.applyPlanBatchEdit()" disabled>Apply preview to staged edits</button><button class="btn" type="button" id="batchPlanDownload" onclick="window.RPDashboardRoadmap12.downloadPreviewCsv(\'plan\')" disabled>Download preview CSV</button></div><div id="batchPlanPreview" class="batch-preview-empty">No preview yet.</div></div>'
     );

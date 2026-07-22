@@ -518,6 +518,7 @@ const ACRONYMS = {
   rsu: "RSU",
   sn: "Special Needs",
   heloc: "HELOC",
+  ytd: "YTD",
 };
 const ACRONYM_DEFINITIONS = {
   DOB: "Date of birth",
@@ -1681,7 +1682,15 @@ function currentKpi(summary) {
   summary = summary || {};
   const afterTax = deriveAfterTaxTerminalNw(summary);
   return {
-    terminal_nw: firstFinite(summary.terminal_nw, summary.terminal_net_worth),
+    terminal_nw: firstFinite(
+      summary.terminal_nw,
+      summary.terminal_net_worth,
+      // inheritable_nw is the key name pushBuildHistoryEntry/rememberBuildCompare
+      // actually store terminal net worth under (see dashboard.js ~1852, ~1898) —
+      // metricSummary() in planning_workbench_ui.js already checks this alias;
+      // currentKpi() needs it too so build-history-sourced summaries resolve.
+      summary.inheritable_nw,
+    ),
     lifetime_tax: firstFinite(
       summary.lifetime_tax,
       summary.total_taxes,
@@ -2807,8 +2816,20 @@ function parseDollarLike(v) {
   return Number.isFinite(n) ? n : 0;
 }
 function planningLeverBase() {
+  // lastBuildCompare/lastBuildSummary are in-memory only and reset to null on
+  // every fresh app launch; they only repopulate once a NEW build runs in the
+  // current session. On a reload of an already-built saved plan they're both
+  // empty, which used to fall through silently to the terminal:0/success:40
+  // placeholders below even though real results exist. Fall back to the
+  // persisted build history (same source Reports & Review > Impact and the
+  // Planning Workbench use) before giving up to the hardcoded defaults.
+  loadBuildHistory();
+  const historyKpi =
+    (buildHistory && buildHistory[0] && buildHistory[0].kpi) || {};
   const summary =
-    (lastBuildCompare && lastBuildCompare.after) || lastBuildSummary || {};
+    (lastBuildCompare && lastBuildCompare.after) ||
+    lastBuildSummary ||
+    historyKpi;
   const k = currentKpi(summary);
   const spend = Math.max(
     1,
