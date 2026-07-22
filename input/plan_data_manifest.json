@@ -30,12 +30,12 @@
       "sha256": "512e2ff3b3606e1099e96ab04ffdd80fda7925de6bc0009b8646e45e05b746c2"
     },
     "client_insurance_estate.csv": {
-      "bytes": 13167,
-      "sha256": "1470cf029662cec6c8240025e6d3db53462bbfa2bf81ce3eb2fbdcda46cb0116"
+      "bytes": 22165,
+      "sha256": "bcd0d8dd7b793153fb3b385b5fb17216bb0c3465819d5c99b0d2cdc73a80ff7a"
     },
     "client_optional_functions.csv": {
-      "bytes": 2430,
-      "sha256": "16f6984f269afd777599b91d0143d51f38d9a7c8ac12bda567739ed217e76d07"
+      "bytes": 2428,
+      "sha256": "0f3edaf10a5106eda4b211b6ce51acafcb7dc53a72bd234f96fd253014c30a9d"
     },
     "client_policy.csv": {
       "bytes": 27915,
