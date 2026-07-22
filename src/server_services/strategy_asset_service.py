@@ -507,7 +507,7 @@ class StrategyAssetService:
         n = max(nums) + 1 if nums else 1
         sub = f"{norm_typ}_{n}"
         common = [
-            ["Insurance In Force", sub, "policy_type", typ, "choice", "Life | Disability | Long-Term Care | Umbrella | Other; policy type shown in the section heading."],
+            ["Insurance In Force", sub, "policy_type", typ, "choice", "Life | Disability | Long-Term Care | Umbrella | Auto | Home | Property and Casualty | Other; policy type shown in the section heading."],
             ["Insurance In Force", sub, "owner", "", "text", "Policy owner."],
             ["Insurance In Force", sub, "insured", "", "text", "Insured person or covered property."],
             ["Insurance In Force", sub, "annual_premium", "$0", "USD", "Annual premium amount; premium-end year fields use YYYY."],

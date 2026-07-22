@@ -34,16 +34,20 @@ def test_spending_nav_and_save_copy():
     assert 'saveAll(true)' in js
 
 
-def test_insurance_policy_dropdown_excludes_pc_options_and_heloc_on_other_page():
+def test_insurance_policy_dropdown_includes_all_types_and_heloc_on_other_page():
     js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
     assert "renderHELOCInputsOnOtherPage" in js
     assert "HELOC modeling inputs" in js
     assert "Use HELOC or turn it off" in js
+    # Protection Policies (Disability, Long-Term Care, Umbrella, Auto, Home,
+    # Property and Casualty, Other) were merged into the Special Income,
+    # Annuities & Insurance page's single policy-type dropdown alongside Life,
+    # so the choice notes should now list all 8 types together.
     rows = csv_rows('input/client_insurance_estate.csv')
     policy_rows = [r for r in rows if r.get('section') == 'Insurance In Force' and r.get('label') == 'policy_type' and r.get('units') == 'choice']
     assert policy_rows
     for row in policy_rows:
         notes = row.get('notes', '')
-        assert 'Auto |' not in notes
-        assert 'Home |' not in notes
-        assert 'Property and Casualty' not in notes
+        assert 'Auto |' in notes
+        assert 'Home |' in notes
+        assert 'Property and Casualty' in notes

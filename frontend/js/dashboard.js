@@ -139,9 +139,9 @@ const STEPS = [
     id: "annuity_death_benefits",
     group: "Assets & Protection",
     title: "Special Income, Annuities & Insurance",
-    desc: "Year-by-year carrier illustration values for annuities and special income, plus life insurance policies.",
+    desc: "Year-by-year carrier illustration values for annuities and special income, plus all insurance policies (life, disability, long-term care, umbrella, auto, home, property and casualty, and other).",
     intro:
-      "Enter values from each policy illustration; use 0 for years with no benefit. These totals appear in the Survivor and Estate report sections. Life insurance policy details — owner, insured, beneficiary, face amount, and premiums — are entered here as well.",
+      "Enter values from each policy illustration; use 0 for years with no benefit. These totals appear in the Survivor and Estate report sections. All insurance policy details — owner, insured, beneficiary, face amount, and premiums, across life and protection policy types — are entered here as well.",
     help: "Rider benefits that step down or expire early can leave the survivor without protection — compare benefit schedules against the planning horizon set on Retirement Timing. Policy names must match any cross-references on stress pages.",
   },
   {
@@ -157,9 +157,9 @@ const STEPS = [
     id: "estate",
     group: "Assets & Protection",
     title: "Estate Inputs",
-    desc: "Federal and state exemptions, trust structure, beneficiary needs, lifetime gifting, charitable intent, and non-life protection policies (disability, long-term care, umbrella, and property and casualty).",
+    desc: "Federal and state exemptions, trust structure, beneficiary needs, lifetime gifting, and charitable intent.",
     intro:
-      "Estate tax exposure is estimated from current exemptions and projected asset values at each mortality date. Trust structure choices affect how assets pass to the survivor and to beneficiaries. Disability, long-term-care hybrid, umbrella, and property/casualty policies are also entered here; premiums flow into the cash-flow projection and benefit amounts appear in the Survivor and Long-Term Care Stress report sections.",
+      "Estate tax exposure is estimated from current exemptions and projected asset values at each mortality date. Trust structure choices affect how assets pass to the survivor and to beneficiaries. Insurance policies (life, disability, long-term care, umbrella, and property and casualty) are entered on Special Income, Annuities & Insurance.",
     help: "The federal exemption can change with law updates — confirm the current-law amount in Settings and model the impact of any reduction in Scenarios. Long-term-care hybrid policies with an investment component should also appear on Other assets.",
   },
   {
@@ -717,17 +717,17 @@ const STEP_HELP = {
   ),
   estate: pageHelp(
     "Estate inputs",
-    "This page captures estate-tax, trust, beneficiary, legacy-planning, and non-life protection-policy assumptions (disability, long-term care, umbrella, and property and casualty). It tells the model how assets should be interpreted after death or for survivor planning, and records protection coverage that is not investment return.",
-    "Federal/state exemptions, CST/QTIP settings, beneficiary needs, special-needs planning, gifting, and insurance benefits connect to legacy value, estate-tax exposure, survivor analysis, Roth strategy scoring, and executor-oriented workbook notes. Non-life policy premiums connect to cash flow; benefits connect to survivor and Long-Term Care Stress report sections. Life insurance policies are entered on Special Income, Annuities & Insurance.",
-    "Use monitor/balanced/strong estate objectives depending on whether estate tax is a watch item or a decision driver. Enter trust and beneficiary facts only when they are part of the intended plan. Use policy type, premium end, term end, benefit amount, and owner/insured fields consistently for protection policies.",
-    "More aggressive estate-tax planning may reduce projected estate tax and improve legacy quality, but can reduce flexibility if assets are transferred, restricted, or earmarked too early. More non-life coverage can reduce downside risk and improve survivor/LTC stress results, but premiums may lower terminal net worth if no claim occurs.",
+    "This page captures estate-tax, trust, beneficiary, legacy-planning, and gifting assumptions. It tells the model how assets should be interpreted after death or for survivor planning.",
+    "Federal/state exemptions, CST/QTIP settings, beneficiary needs, special-needs planning, gifting, and charitable intent connect to legacy value, estate-tax exposure, survivor analysis, Roth strategy scoring, and executor-oriented workbook notes. Insurance policies (life, disability, long-term care, umbrella, and property and casualty) are entered on Special Income, Annuities & Insurance.",
+    "Use monitor/balanced/strong estate objectives depending on whether estate tax is a watch item or a decision driver. Enter trust and beneficiary facts only when they are part of the intended plan.",
+    "More aggressive estate-tax planning may reduce projected estate tax and improve legacy quality, but can reduce flexibility if assets are transferred, restricted, or earmarked too early.",
   ),
   annuity_death_benefits: pageHelp(
     "Special Income, Annuities & Insurance",
-    "This page records policy-by-year death benefits for annuities or riders, and life insurance policy details. It combines a year-by-year schedule with individual policy records — not a generic account balance table.",
-    "Each annuity policy row connects to survivor, estate, and legacy reporting. Year columns show how protection changes over time and whether a benefit disappears before the end of the plan. Life insurance premiums connect to cash flow each year; benefit amounts appear in the Survivor report sections.",
-    "Enter the carrier illustration values for each year for annuities. Use 0 when no death benefit is available in that year. For life insurance, use policy type, premium end, term end, benefit amount, and owner/insured fields consistently. Keep policy names consistent with other insurance/annuity entries.",
-    "Higher death benefits improve survivor/legacy protection but may come with lower investment growth, liquidity restrictions, or ongoing rider costs that should be reflected elsewhere. More life insurance coverage can reduce downside risk but premiums may lower terminal net worth if no claim occurs.",
+    "This page records policy-by-year death benefits for annuities or riders, and all insurance policy details (life, disability, long-term care, umbrella, auto, home, property and casualty, and other). It combines a year-by-year schedule with individual policy records — not a generic account balance table.",
+    "Each annuity policy row connects to survivor, estate, and legacy reporting. Year columns show how protection changes over time and whether a benefit disappears before the end of the plan. Policy premiums connect to cash flow each year; benefit amounts appear in the Survivor and Long-Term Care Stress report sections.",
+    "Enter the carrier illustration values for each year for annuities. Use 0 when no death benefit is available in that year. For any insurance policy, use policy type, premium end, term end, benefit amount, and owner/insured fields consistently. Keep policy names consistent with other insurance/annuity entries.",
+    "Higher death benefits improve survivor/legacy protection but may come with lower investment growth, liquidity restrictions, or ongoing rider costs that should be reflected elsewhere. More insurance coverage can reduce downside risk but premiums may lower terminal net worth if no claim occurs.",
   ),
   assumption_signoff: pageHelp(
     "Assumptions review",
@@ -3770,12 +3770,6 @@ function rowIsEconomyScenario(r) {
     ["high_inflation", "low_return"].includes(norm(r.subsection))
   );
 }
-function rowIsLifeInsurancePolicy(r) {
-  return (
-    r.section === "Insurance In Force" &&
-    /^life(_|$)/i.test(String(r.subsection || "").trim())
-  );
-}
 function rawRowsForStep(id) {
   return rows.filter(isEditable).filter((r) => {
     const lbl = norm(r.label),
@@ -3857,16 +3851,9 @@ function rawRowsForStep(id) {
           ].includes(sec)
         );
       case "estate":
-        return (
-          sec === "Estate Planning" ||
-          sec === "Account Titling" ||
-          (sec === "Insurance In Force" && !rowIsLifeInsurancePolicy(r))
-        );
+        return sec === "Estate Planning" || sec === "Account Titling";
       case "annuity_death_benefits":
-        return (
-          sec === "Annuity Death Benefits" ||
-          (sec === "Insurance In Force" && rowIsLifeInsurancePolicy(r))
-        );
+        return sec === "Annuity Death Benefits" || sec === "Insurance In Force";
       case "allocation_policy":
         return (
           (sec === "Model Constants" && sub === "allocation") ||
@@ -9663,7 +9650,7 @@ function renderDeathBenefitsTable() {
 }
 function renderSpecialIncomeAnnuitiesInsurance() {
   if (searchText.trim()) return renderFields("annuity_death_benefits");
-  return renderDeathBenefitsTable() + renderLifeInsurancePolicies();
+  return renderDeathBenefitsTable() + renderInsurancePolicies();
 }
 
 function withdrawalOtherRows() {

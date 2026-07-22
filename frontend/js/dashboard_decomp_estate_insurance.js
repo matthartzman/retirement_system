@@ -245,7 +245,6 @@ function renderEstateInformation() {
     sortRowsByDependency(other),
     false,
   );
-  html += renderNonLifeInsurancePolicies();
   return html;
 }
 
@@ -259,9 +258,6 @@ const INSURANCE_POLICY_TYPES = [
   "Property and Casualty",
   "Other",
 ];
-const NON_LIFE_INSURANCE_POLICY_TYPES = INSURANCE_POLICY_TYPES.filter(
-  (t) => t !== "Life",
-);
 let newInsurancePolicyType = "Life";
 function setNewInsurancePolicyType(v) {
   newInsurancePolicyType = v || "Life";
@@ -291,8 +287,8 @@ function policyTypeSelect(r, current, choices) {
   return `<select onclick="event.stopPropagation()" onchange="editValue(${r.row_index},this.value,this)">${opts.map((t) => `<option value="${esc(t)}" ${norm(current) === norm(t) ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>`;
 }
 function renderInsurancePolicyGroup(opts) {
-  const { stepId, rs, life, title, addLabel } = opts;
-  const types = life ? ["Life"] : NON_LIFE_INSURANCE_POLICY_TYPES;
+  const { stepId, rs, title, addLabel } = opts;
+  const types = INSURANCE_POLICY_TYPES;
   const counts = rs.filter((r) => norm(r.label) === "policy_count");
   const policyRows = rs.filter(
     (r) =>
@@ -340,31 +336,16 @@ function renderInsurancePolicyGroup(opts) {
     );
   return html;
 }
-function renderLifeInsurancePolicies() {
+function renderInsurancePolicies() {
   const rs = rowsForStep("annuity_death_benefits").filter(
     (r) => r.section === "Insurance In Force",
   );
-  newInsurancePolicyType = "Life";
   return renderInsurancePolicyGroup({
     stepId: "annuity_death_benefits",
     rs,
-    life: true,
-    title: "Insurance Policies (Life)",
-    addLabel: "Add life insurance policy",
-  });
-}
-function renderNonLifeInsurancePolicies() {
-  const rs = rowsForStep("estate").filter(
-    (r) => r.section === "Insurance In Force",
-  );
-  if (newInsurancePolicyType === "Life") newInsurancePolicyType = "Disability";
-  return renderInsurancePolicyGroup({
-    stepId: "estate",
-    rs,
-    life: false,
     title:
-      "Protection Policies (Disability, Long-Term Care, Umbrella, Property & Casualty)",
-    addLabel: "Add protection policy",
+      "Insurance Policies (Life, Disability, Long-Term Care, Umbrella, Auto, Home, Property & Casualty, Other)",
+    addLabel: "Add insurance policy",
   });
 }
 async function addInsurancePolicy() {
