@@ -7,67 +7,27 @@
    end-of-file boot runs. No logic changed; function names, module-level state
    (buildCancelled) and behavior are byte-for-byte identical to the original
    inline block. */
-function estimateBuildDurationLabel() {
-  const mode = String(
-    rowConfigValue("mc_engine_mode", "advanced_exact_scalar"),
-  ).toLowerCase();
-  const sims =
-    Number(
-      String(rowConfigValue("mc_simulations", "300")).replace(/[^0-9.]/g, ""),
-    ) || 300;
-  const sens =
-    Number(
-      String(rowConfigValue("mc_sensitivity_simulations", "25")).replace(
-        /[^0-9.]/g,
-        "",
-      ),
-    ) || 25;
-  if (mode.includes("quick") || mode.includes("vector"))
-    return `quick Monte Carlo: ${sims.toLocaleString()} paths`;
-  return `advanced Monte Carlo: ${sims.toLocaleString()} paths + sensitivity ${sens.toLocaleString()}/cell`;
-}
 function formatElapsed(ms) {
   const total = Math.max(0, Math.floor(ms / 1000));
   const m = Math.floor(total / 60),
     sec = String(total % 60).padStart(2, "0");
   return `${m}:${sec}`;
 }
-function friendlyBuildDetail(detail) {
-  let text = String(detail || "Working through the build steps...").trim();
-  if (!text) return "Working through the build steps...";
-  const low = text.toLowerCase();
-  if (/sheet\s+\d+/.test(low)) return "Writing workbook pages.";
-  if (/saving to/.test(low)) return "Saving the finished workbook.";
-  if (/output directory|using config backend/.test(low))
-    return "Preparing the build environment.";
-  if (/\.csv|\.xlsx|\.pdf|[a-z]:\|\/[^\s]+\//i.test(text))
-    return "Working through the next build step.";
-  return text;
-}
-function overlayTimerSuffix() {
-  const elapsed = buildOverlayStartedAt
-    ? formatElapsed(Date.now() - buildOverlayStartedAt)
-    : "0:00";
-  return buildOverlayExpectedLabel
-    ? `Elapsed ${elapsed} • ${buildOverlayExpectedLabel}`
-    : `Elapsed ${elapsed}`;
-}
 function refreshBuildOverlayTimer() {
   const d = document.getElementById("buildOverlayDetail");
   if (!d || !buildOverlayStartedAt) return;
-  d.textContent = `${friendlyBuildDetail(buildOverlayLastDetail)}  (${overlayTimerSuffix()})`;
+  d.textContent = `Elapsed ${formatElapsed(Date.now() - buildOverlayStartedAt)}`;
 }
-function setBuildOverlay(active, title, detail, pct, expectedLabel) {
+function setBuildOverlay(active, title, detail, pct) {
   const overlay = document.getElementById("buildOverlay");
   if (!overlay) return;
   if (active) {
-    buildOverlayStartedAt = Date.now();
-    buildOverlayExpectedLabel =
-      expectedLabel !== undefined
-        ? expectedLabel
-        : estimateBuildDurationLabel();
-    if (buildOverlayTimer) clearInterval(buildOverlayTimer);
-    buildOverlayTimer = setInterval(refreshBuildOverlayTimer, 1000);
+    buildOverlayDepth++;
+    if (buildOverlayDepth === 1) {
+      buildOverlayStartedAt = Date.now();
+      if (buildOverlayTimer) clearInterval(buildOverlayTimer);
+      buildOverlayTimer = setInterval(refreshBuildOverlayTimer, 1000);
+    }
   } else if (buildOverlayTimer) {
     clearInterval(buildOverlayTimer);
     buildOverlayTimer = null;
@@ -88,15 +48,11 @@ function updateBuildOverlay(title, detail, pct, state) {
     overlay.classList.add(state);
   }
   const t = document.getElementById("buildOverlayTitle");
-  const d = document.getElementById("buildOverlayDetail");
   const b = document.getElementById("buildOverlayBar");
   const p = document.getElementById("buildOverlayPct");
   if (t && title) {
     buildOverlayLastTitle = title;
     t.textContent = title;
-  }
-  if (detail) {
-    buildOverlayLastDetail = friendlyBuildDetail(detail);
   }
   let value = null;
   if (pct === "waiting" || pct === "indeterminate" || pct === null) {
@@ -134,6 +90,8 @@ async function cancelBuild() {
   showMessage("Build cancelled.", "warn");
 }
 function hideBuildOverlay() {
+  if (buildOverlayDepth > 0) buildOverlayDepth--;
+  if (buildOverlayDepth > 0) return;
   stopSmoothProgress();
   const overlay = document.getElementById("buildOverlay");
   if (!overlay) return;
@@ -142,9 +100,7 @@ function hideBuildOverlay() {
     buildOverlayTimer = null;
   }
   buildOverlayStartedAt = 0;
-  buildOverlayExpectedLabel = "";
   buildOverlayLastTitle = "";
-  buildOverlayLastDetail = "";
   buildOverlayLastPct = 0;
   overlay.classList.remove("active", "done", "error", "waiting");
   overlay.setAttribute("aria-hidden", "true");
@@ -194,11 +150,7 @@ function startSmoothProgress(fromPct, cap, speed, delayMs) {
             (1 - Math.exp(-elapsed / _smoothSpeed)),
       );
       if (buildOverlayLastPct < target - 0.4)
-        updateBuildOverlay(
-          buildOverlayLastTitle || "Building workbook",
-          buildOverlayLastDetail || "",
-          target,
-        );
+        updateBuildOverlay(buildOverlayLastTitle || "Building workbook", "", target);
     }, 350);
   };
   if (delay > 0) _smoothDelayTimer = setTimeout(go, delay);
