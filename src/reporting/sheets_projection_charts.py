@@ -109,49 +109,93 @@ def build_sheet8(ws, c, rows, mc_data=None):
 
     per_year = []
     for row in rows:
+        # Every cash-flow figure is sourced from the engine's canonical
+        # row['cashflow_breakdown'] (single source of truth shared with
+        # build_sheet6 and the UI's _cashflow_page/_chart_page) so the two
+        # dashboards can never itemize the same year differently. The fallback
+        # mirrors the engine itemization for any row not produced by the full
+        # deterministic engine.
+        bd = row.get('cashflow_breakdown')
+        if bd:
+            _inc = bd['income']; _draws = bd['draws']; _exp = bd['expense']; _tax = bd['tax']
+        else:
+            _inc = {
+                'earned': row.get('earned', 0), 'h_ss': row.get('h_ss', 0), 'w_ss': row.get('w_ss', 0),
+                'pension': row.get('pension', 0), 'wife_single_ann': row.get('wife_single_ann', 0),
+                'wife_joint_ann': row.get('wife_joint_ann', 0), 'h_single_ann': row.get('h_single_ann', 0),
+                'h_joint_ann': row.get('h_joint_ann', 0),
+                'note_pi': row.get('note_princ', 0) + row.get('note_int', 0), 'rmd_total': row.get('rmd_total', 0),
+            }
+            _draws = {
+                'trust_wd': row.get('trust_wd', 0), 'hsa_wd': row.get('hsa_wd', 0),
+                'roth_wd': row.get('roth_wd', 0), 'ira_elective': row.get('ira_wd', 0),
+                'heloc_draw': row.get('heloc_draw', 0),
+            }
+            _exp = {
+                'spend_base': row.get('spend_base_yr', 0), 'mortgage': row.get('mortgage', 0),
+                'rent': row.get('rent_yr', 0), 'housing_operating': row.get('housing_operating_yr', 0),
+                'wellness': row.get('wellness_base_yr', 0) + row.get('wellness_shock_yr', 0) + row.get('ltc_prem_yr', 0),
+                'travel': row.get('rec_extra', 0), 'other_lump': row.get('lump', 0),
+                'heloc_pai': row.get('heloc_interest', 0) + row.get('heloc_repayment_principal', 0),
+                'other_cash_need': row.get('other_cash_need_yr', 0),
+            }
+            _tax = {
+                'federal': row.get('fed_tax', 0), 'state': row.get('state_tax', 0),
+                'niit': row.get('niit', 0), 'irmaa': row.get('irmaa', 0),
+                'payroll': row.get('payroll_tax', 0), 'home_sale': row.get('home_sale_tax', 0),
+                'ltcg': max(0.0, row.get('ltcg_tax', 0) - row.get('home_sale_tax', 0)),
+                'tlh_credit': 0.0, 'other': 0.0,
+            }
+
         streams = {
-            'earned':  round(row.get('earned',0)),
-            'h_ss':    round(row.get('h_ss',0)),
-            'w_ss':    round(row.get('w_ss',0)),
-            'pension': round(row.get('pension',0)),
-            'w_sgl':   round(row.get('wife_single_ann',0)),
-            'w_jnt':   round(row.get('wife_joint_ann',0)),
-            'h_sgl':   round(row.get('h_single_ann',0)),
-            'h_jnt':   round(row.get('h_joint_ann',0)),
-            'note':    round(row.get('note_princ',0) + row.get('note_int',0)),
-            'rmd':     round(row.get('rmd_total',0)),
+            'earned':  round(_inc['earned']),
+            'h_ss':    round(_inc['h_ss']),
+            'w_ss':    round(_inc['w_ss']),
+            'pension': round(_inc['pension']),
+            'w_sgl':   round(_inc['wife_single_ann']),
+            'w_jnt':   round(_inc['wife_joint_ann']),
+            'h_sgl':   round(_inc['h_single_ann']),
+            'h_jnt':   round(_inc['h_joint_ann']),
+            'note':    round(_inc['note_pi']),
+            'rmd':     round(_inc['rmd_total']),
         }
-        trust_wd = max(0, round(row.get('trust_wd',0)))
-        hsa_wd   = max(0, round(row.get('hsa_wd',0)))
-        roth_wd  = max(0, round(row.get('roth_wd',0)))
-        ira_wd   = max(0, round(row.get('ira_wd',0)))
-        heloc_draw_wd = max(0, round(row.get('heloc_draw',0)))
+        trust_wd = max(0, round(_draws['trust_wd']))
+        hsa_wd   = max(0, round(_draws['hsa_wd']))
+        roth_wd  = max(0, round(_draws['roth_wd']))
+        ira_wd   = max(0, round(_draws['ira_elective']))
+        heloc_draw_wd = max(0, round(_draws['heloc_draw']))
         inc_total = sum(streams.values()) + trust_wd + hsa_wd + roth_wd + ira_wd + heloc_draw_wd
 
-        spend_base  = round(row.get('spend_base_yr',0))
-        housing     = round(row.get('housing_total_yr', row.get('mortgage',0) + row.get('rent_yr', 0)))
-        wellness    = round(row.get('wellness_base_yr', 0) + row.get('wellness_shock_yr', 0) + row.get('ltc_prem_yr', 0))
-        travel      = round(row.get('rec_extra',0))
-        other       = round(row.get('lump',0))
-        heloc_pai_chart = round(row.get('heloc_interest', 0) + row.get('heloc_repayment_principal', 0))
-        fed_tax    = round(row.get('fed_tax',0))
-        state_tax  = round(row.get('state_tax',0))
-        niit       = round(row.get('niit',0))
-        payroll_tax = round(row.get('payroll_tax', 0))
-        irmaa       = round(row.get('irmaa', 0))
-        home_sale_tax = round(row.get('home_sale_tax', 0))
+        # This dashboard's fixed column layout (year_col=29/first_series=30 is
+        # hard-referenced by src/reporting/dashboard.py's HTML extractor and by
+        # the workbook tab-structure tests) is kept intact: Housing rolls the
+        # mortgage/rent/operating components into one series (== housing_total_yr),
+        # and the tax series shown are Federal/State/NIIT/Payroll/IRMAA/Home Sale.
+        # The engine's total_tax additionally carries portfolio LTCG beyond the
+        # home-sale portion (and, rarely, a TLH ordinary credit); that slice is
+        # not itemized as its own bar here, so the income and spending bars can
+        # differ by that small amount in years with taxable trust draws. The UI
+        # equivalent (_chart_page) is not column-constrained and does itemize it,
+        # reconciling exactly. Surplus is read authoritatively either way.
+        spend_base  = round(_exp['spend_base'])
+        housing     = round(_exp['mortgage'] + _exp['rent'] + _exp['housing_operating'])
+        wellness    = round(_exp['wellness'])
+        travel      = round(_exp['travel'])
+        other       = round(_exp['other_lump'])
+        heloc_pai_chart = round(_exp['heloc_pai'])
+        fed_tax    = round(_tax['federal'])
+        state_tax  = round(_tax['state'])
+        niit       = round(_tax['niit'])
+        payroll_tax = round(_tax['payroll'])
+        irmaa       = round(_tax['irmaa'])
+        home_sale_tax = round(_tax['home_sale'])
+        # Authoritative engine surplus (year-end reinvested excess), read
+        # verbatim from the breakdown -- not a re-derived plug -- so this
+        # dashboard, the Excel cash-flow sheet, and the UI charts always show
+        # the same surplus figure for a given year.
+        surplus_reinvested = max(0, round(bd['surplus'] if bd else row.get('surplus', 0)))
         exp_raw    = (spend_base + housing + wellness + travel + other + heloc_pai_chart
                       + fed_tax + state_tax + niit + payroll_tax + irmaa + home_sale_tax)
-        # Guaranteed income (SS/pension/RMD/etc.) commonly exceeds this
-        # chart's own itemized spend+tax total in a given year -- the excess
-        # is real money the household keeps, not an error. This is the exact
-        # complement of this chart's own inc_total/exp_raw (not the engine's
-        # row['surplus'] directly, which nets against additional mid-year
-        # iterative tax/withdrawal solving this chart doesn't replicate
-        # line-by-line) so the two bars always match. With every real
-        # cash-need component above now itemized, this tracks row['surplus']
-        # closely in practice.
-        surplus_reinvested = max(0, round(inc_total - exp_raw))
 
         # Real-dollar equivalent (deflated to plan_start year)
         cpi_deflator = (1 + c['inf']) ** (row['year'] - c['plan_start'])

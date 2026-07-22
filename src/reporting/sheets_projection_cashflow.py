@@ -223,42 +223,55 @@ def build_sheet6(ws, c, rows):
     # ── Data rows ─────────────────────────────────────────────────────────────
     for ri, row in enumerate(rows):
         r = ri + 3
-        inc_total = (row['earned'] + row['h_ss'] + row['w_ss'] + row['pension'] +
-                     row['wife_single_ann'] + row['wife_joint_ann'] +
-                     row['h_single_ann'] + row['h_joint_ann'] +
-                     row['note_princ'] + row['note_int'] + row['rmd_total'])
-        heloc_pai       = row.get('heloc_interest', 0) + row.get('heloc_repayment_principal', 0)
-        other_cash_need = row.get('other_cash_need_yr', 0)
-        # Σ Spend excludes other_cash_need (surfaced in its own Other Cash Need
-        # column) but still INCLUDES heloc_pai, because the engine's
-        # total_spend_need includes HELOC interest + repayment principal.
-        spend_total = (row['spend_base_yr']
-                       + row.get('housing_total_yr', row.get('mortgage', 0) + row.get('rent_yr', 0))
-                       + row.get('wellness_base_yr', 0) + row.get('ltc_prem_yr', 0)
-                       + row['rec_extra'] + row['lump'] + heloc_pai)
+        # These IRA-detail subtotals feed display-only columns (Σ Trust/Σ Roth/
+        # IRA Outflow/Σ Cash Draws) and are always derived from row fields.
         trust_total = row.get('h_trust_wd', 0) + row.get('w_trust_wd', 0)
         roth_total  = row.get('h_roth_wd', 0)  + row.get('w_roth_wd', 0)
         h_ira_cash  = row.get('rmd_h', 0)       + row.get('h_ira_elective', 0)
         w_ira_cash  = row.get('rmd_w', 0)       + row.get('w_ira_elective', 0)
         h_ira_tot   = row.get('h_ira_total_outflow', h_ira_cash + row.get('h_ira_conversion', 0))
         w_ira_tot   = row.get('w_ira_total_outflow', w_ira_cash + row.get('w_ira_conversion', 0))
-        # Cash bridge: RMDs are counted as income (inc_total includes rmd_total) so
-        # only elective IRA draws appear in required_portfolio_draws.  Dividends/
-        # interest never fund spending directly — they either compound into the
-        # holding or convert to cash inside the account (Reinvest Dividends
-        # toggle) — so portfolio income is not a cash-bridge funding source.
-        # Reconciliation: Σ Spend + Σ Tax + Other Cash Need = Total Cash Need,
-        # exactly. The sheet's Σ Spend (which includes real-estate tax via
-        # housing_total_yr) now matches the engine's total_spend_need, because
-        # item 184 added re_tax_yr to total_spend_need. wellness_shock is 0 on
-        # the deterministic cash-flow sheet, so it does not open a gap here.
-        required_portfolio_draws = (trust_total + row.get('hsa_wd', 0) + roth_total +
-                                    row.get('h_ira_elective', 0) + row.get('w_ira_elective', 0))
+
+        # Cash-bridge figures come from the engine's canonical
+        # row['cashflow_breakdown'] (single source of truth shared with
+        # build_sheet8 and the UI's _cashflow_page/_chart_page), so this sheet
+        # can never re-derive divergent income/spend/tax/surplus numbers again.
+        # RMDs are counted as income (income sub-dict includes rmd_total) so only
+        # elective IRA draws appear in required_portfolio_draws. Reconciliation:
+        # Σ Spend + Σ Tax + Other Cash Need = Total Cash Need, exactly.
+        bd = row.get('cashflow_breakdown')
+        if bd:
+            _inc = bd['income']; _draws = bd['draws']; _exp = bd['expense']; _tax = bd['tax']
+            inc_total       = sum(_inc.values())
+            heloc_pai       = _exp['heloc_pai']
+            other_cash_need = _exp['other_cash_need']
+            spend_total     = sum(_exp.values()) - other_cash_need
+            required_portfolio_draws = (_draws['trust_wd'] + _draws['hsa_wd']
+                                        + _draws['roth_wd'] + _draws['ira_elective'])
+            other_funding   = _draws['heloc_draw']
+            total_tax       = sum(_tax.values())
+            total_cash_need = spend_total + total_tax + other_cash_need
+        else:
+            # Defensive fallback for any row not produced by the full
+            # deterministic engine (e.g. a hand-built row dict); mirrors the
+            # engine's own itemization.
+            inc_total = (row.get('earned', 0) + row.get('h_ss', 0) + row.get('w_ss', 0) + row.get('pension', 0) +
+                         row.get('wife_single_ann', 0) + row.get('wife_joint_ann', 0) +
+                         row.get('h_single_ann', 0) + row.get('h_joint_ann', 0) +
+                         row.get('note_princ', 0) + row.get('note_int', 0) + row.get('rmd_total', 0))
+            heloc_pai       = row.get('heloc_interest', 0) + row.get('heloc_repayment_principal', 0)
+            other_cash_need = row.get('other_cash_need_yr', 0)
+            spend_total = (row.get('spend_base_yr', 0)
+                           + row.get('housing_total_yr', row.get('mortgage', 0) + row.get('rent_yr', 0))
+                           + row.get('wellness_base_yr', 0) + row.get('wellness_shock_yr', 0) + row.get('ltc_prem_yr', 0)
+                           + row.get('rec_extra', 0) + row.get('lump', 0) + heloc_pai)
+            required_portfolio_draws = (trust_total + row.get('hsa_wd', 0) + roth_total +
+                                        row.get('h_ira_elective', 0) + row.get('w_ira_elective', 0))
+            other_funding   = row.get('heloc_draw', 0)
+            total_tax       = row.get('total_tax', row.get('fed_tax', 0) + row.get('state_tax', 0) + row.get('niit', 0) + row.get('irmaa', 0) + row.get('payroll_tax', 0) + row.get('ltcg_tax', 0))
+            total_cash_need = row.get('total_cash_need', spend_total + total_tax + other_cash_need)
         wd_total        = required_portfolio_draws + row.get('rmd_h', 0) + row.get('rmd_w', 0)
-        total_tax       = row.get('total_tax', row.get('fed_tax', 0) + row.get('state_tax', 0) + row.get('niit', 0) + row.get('irmaa', 0) + row.get('payroll_tax', 0) + row.get('ltcg_tax', 0))
-        total_cash_need = row.get('total_cash_need', spend_total + total_tax + other_cash_need)
         income_funding  = inc_total
-        other_funding   = row.get('heloc_draw', 0)
         cash_bridge_gap = total_cash_need - income_funding - other_funding - required_portfolio_draws
 
         vals = {
