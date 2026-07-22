@@ -234,6 +234,11 @@ CONTRACTS: tuple[EndpointContract, ...] = (
         notes="Framework-neutral contract registry plus route ownership manifest for source-code reconciliation checks.",
     ),
     EndpointContract(
+        "/api/glossary", "GET", "glossary_v1",
+        response_fields=(_f("success", "bool", True), _f("schema", "str", True), _f("terms", "dict", True)),
+        notes="Canonical financial/planning-term glossary (src/glossary.py) -- the single source of truth the front end merges over its local fallback and the workbook's Glossary sheet also renders from.",
+    ),
+    EndpointContract(
         "/api/admin/system-config", "GET", "system_config_rows_v1",
         response_fields=(_f("success", "bool", True), _f("path", "str", True), _f("rows", "list", True), _f("csv_content", "str")),
         notes="Advanced maintenance row contract used by preview-first batch configuration editing.",

@@ -172,6 +172,16 @@ STATE_TAX_DEFAULTS = {
                        'estate': True, 'estate_exempt': 6_940_000,
                        'retirement_exempt_over_65': 20_000,
                        'source': 'NY Tax Law §601; §612(c)(3-a)'},
+    'South Dakota':   {'rate': 0.0,    'type': 'none', 'exempt_retirement': True,
+                       'exempt_ss': True, 'prop_rate': 0.0114, 'sales_rate': 0.0611,
+                       'estate': False, 'estate_exempt': 0,
+                       'retirement_exempt_over_65': 0,
+                       'source': 'No individual income tax imposed (SDCL Title 10)'},
+    'Wyoming':        {'rate': 0.0,    'type': 'none', 'exempt_retirement': True,
+                       'exempt_ss': True, 'prop_rate': 0.0056, 'sales_rate': 0.0539,
+                       'estate': False, 'estate_exempt': 0,
+                       'retirement_exempt_over_65': 0,
+                       'source': 'WY Constitution Art. 15 §18 (income-tax credit provision precludes an income tax)'},
 }
 
 

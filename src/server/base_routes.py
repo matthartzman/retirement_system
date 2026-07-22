@@ -131,3 +131,23 @@ def api_contracts():
         "contracts": contract_summary(),
         "route_manifest": route_manifest(),
     })
+
+
+@app.route("/api/glossary", methods=["GET"])
+def api_glossary():
+    """Return the canonical financial/planning-term glossary (system review
+    2026-07-21, D3) -- the same source the workbook's Glossary sheet renders
+    from, so the app's help panels and the printed plan can no longer drift
+    out of reconciliation with each other."""
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    try:
+        from ..glossary import build_glossary
+    except ImportError:
+        from src.glossary import build_glossary
+    return jsonify({
+        "success": True,
+        "schema": "glossary_v1",
+        "terms": build_glossary(),
+    })

@@ -6,28 +6,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
-def test_config_service_exists_and_is_runtime_independent():
-    service = Path("src/server_services/config_service.py").read_text(encoding="utf-8")
-    assert "class ConfigService" in service
-    assert "ConfigServiceContext" in service
-    assert "def config_rows_payload" in service
-    assert "def update_config_rows_payload" in service
-    assert "def allocation_preview_payload" in service
-    # HTTP-runtime-independence itself is asserted once, for every service
-    # module, by the AST-based check in test_126_service_extraction.py.
-
-
-def test_plan_routes_delegate_config_logic_to_service():
-    routes = Path("src/server/plan_routes.py").read_text(encoding="utf-8")
-    assert "def _config_feature_service()" in routes
-    assert "ConfigServiceContext" in routes
-    assert ".config_backends_payload()" in routes
-    assert ".config_rows_payload()" in routes
-    assert ".allocation_preview_payload(" in routes
-    assert ".update_config_rows_payload(" in routes
-    assert "compute_optimal_allocation" not in routes
-    assert "row_map = {int(e[\"row_index\"])" not in routes
-    assert "Plan Data validation failed" not in routes
+# The "service exists" + "routes delegate" checks that used to live here are
+# generalized (system review 2026-07-21, Q6) into SERVICE_ROUTE_PAIRS in
+# test_126_service_extraction.py, alongside every other extracted service's
+# equivalent pair. Only this file's genuine behavior + manifest tests remain.
 
 
 def test_config_service_updates_plan_data_rows(tmp_path):

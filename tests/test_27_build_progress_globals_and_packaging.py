@@ -5,6 +5,7 @@ from _decomp_dashboard import dashboard_js_text
 ROOT = Path(__file__).resolve().parents[1]
 WORKBOOK_ROUTES = ROOT / "src" / "server" / "workbook_routes.py"
 BUILD_JOB_SERVICE = ROOT / "src" / "server_services" / "build_job_service.py"
+BUILD_SERVICE = ROOT / "src" / "server_services" / "build_service.py"
 PACKAGE_SCRIPT = ROOT / "tools" / "build_release_package.py"
 CHECK_PACKAGE = ROOT / "tools" / "check_package_clean.py"
 
@@ -77,11 +78,15 @@ def test_client_build_progress_starts_at_zero_and_polls_smoothly():
 
 def test_build_result_carries_build_id_and_rejects_stale_summary():
     route_text = WORKBOOK_ROUTES.read_text(encoding="utf-8")
+    service_text = BUILD_SERVICE.read_text(encoding="utf-8")
     builder_text = (ROOT / "src" / "reporting" / "workbook_builder.py").read_text(encoding="utf-8")
     assert "RETIREMENT_SYSTEM_BUILD_ID" in route_text
     assert "_clear_current_build_outputs" in route_text
-    assert "_summary_matches_build" in route_text
-    assert "stale_summary" in route_text
+    # A2 (system review 2026-07-21): stale-summary detection moved out of this
+    # route and into the shared build_service.interpret_build_result(), which
+    # both the sync route and the async build job call.
+    assert "build_service.interpret_build_result" in route_text
+    assert "stale_summary" in service_text
     assert "plan_input_fingerprint" in builder_text
     assert "roth_heard" in builder_text
 

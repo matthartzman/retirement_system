@@ -1,5 +1,29 @@
 
 
+## 2026-07-22 — Track 4 (system review 2026-07-21): golden-master regeneration after P1/P2/P3 engine fixes
+
+**Why regenerated.** Per the system review's Track 4 (engine-correctness items P1
+IRMAA/ACA guardrail age-gating, P2 0%-bracket gain harvesting, P3 Social
+Security timing score de-double-counting), regenerated the live-client-derived
+warn-only pin in `test_sample_projection_golden_master_and_release_gate` per
+the standing instruction to do so once, at the end of the track, rather than
+after each item.
+
+**What moved and why.** Nothing from Track 4 itself: this pinned scenario
+forces `roth_policy='none'`, which bypasses the P1 IRMAA/ACA guardrail fix
+entirely (that fix only changes behavior inside the `fill_to_bracket`/
+`fill_to_irmaa` Roth-conversion policies), and P2 gain harvesting defaults to
+`gain_harvest_policy='off'` (a proven no-op — see
+`tests/test_gain_harvest_zero_bracket.py::test_gain_harvest_off_is_a_pure_no_op`).
+P3 only changes Sheet 10's SS-timing sweep scoring, not `project()`'s row
+values. The `terminal_total_nw` delta (+18,385.03 over the prior pin) was
+already present and flagged as pre-existing/unrelated drift throughout the
+session before Track 4 started — i.e., from routine `input/client_data.csv`
+edits, not an engine regression. Regenerating now folds that drift into a
+fresh baseline: `terminal_total_nw` 6,536,759.61 → 6,555,144.64;
+`lifetime_tax` 1,527,729.93 → 1,524,551.07 (well under the $5,000 warn
+threshold on its own).
+
 ## 2026-07-21 — Item 4.2 / P4: DAF contribution now enters the itemized deduction stack (60%/30% AGI limit, 5-year carryforward)
 
 **What was wrong.** `deterministic_engine.py` has computed `daf_contrib_yr`

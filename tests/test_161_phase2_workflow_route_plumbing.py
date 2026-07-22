@@ -5,11 +5,13 @@ off the right payloads, and honour role headers. They deliberately do not run a
 real build: `_run_build_progress_job` is replaced with a fake progress job and
 `report_service.detailed_results_payload` with a hand-written dict.
 
-Nothing here proves the real trigger path works. No test currently POSTs
-/api/build/start and polls it to real completion against real sheet content —
-that gap is tracked as Q2 in documentation/reports/SYSTEM_REVIEW_2026-07-18.md
-(Wave 3 item 3.14). The file was previously named `..._live_workflow_journeys`,
-which claimed coverage it does not provide.
+Nothing here proves the real trigger path works by itself, but that gap is
+now closed by test_e2e_build_journey.py, which POSTs /api/build/start and
+polls it to real completion against real sheet content -- including a
+scenario that saves a changed input via the real route first, so the whole
+edit-then-rebuild path is exercised, not just the build itself. The file was
+previously named `..._live_workflow_journeys`, which claimed coverage it did
+not provide; test_e2e_build_journey.py is where that real coverage now lives.
 """
 
 import sqlite3

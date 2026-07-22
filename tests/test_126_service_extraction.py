@@ -48,6 +48,92 @@ def test_route_adapters_delegate_migrated_families_to_services():
     assert missing == []
 
 
+# Q6 (system review 2026-07-21): test_153/154/157/158/159 each repeated an
+# identical "service exists + routes delegate" template per service/route
+# pair -- and each said so in its own comment, since HTTP-runtime-independence
+# is already covered once, for every service module, by
+# test_feature_services_are_http_runtime_independent() above. This table
+# generalizes that pattern across every extracted service/route pair in one
+# place; each source file kept only its genuine behavior tests (instantiating
+# the service and asserting real outputs) plus any registry/manifest checks,
+# which are a different concern this table doesn't cover.
+SERVICE_ROUTE_PAIRS = [
+    {
+        "service": "src/server_services/report_service.py",
+        "route": "src/server/workbook_routes.py",
+        "service_defines": ["def detailed_results_payload", "def downloadable_artifact", "def read_history_payload", "def append_history_payload", "def local_output_file_payload"],
+        "route_calls": ["report_service.detailed_results_payload(", "report_service.downloadable_artifact(", "report_service.read_history_payload(", "report_service.append_history_payload(", "report_service.local_output_file_payload("],
+        "route_forbids": ["def _history_path", "workbook_detailed_results", "workbook_detailed_index", "workbook_detailed_sheet"],
+    },
+    {
+        "service": "src/server_services/spending_service.py",
+        "route": "src/server/plan_routes.py",
+        "service_defines": ["class SpendingService", "SpendingServiceContext", "def load_actuals_payload", "def unified_budget_payload", "def category_create_payload", "def alias_add_payload"],
+        "route_calls": ["def _spending_feature_service()", "SpendingServiceContext", ".dashboard_payload()", ".taxonomy_payload()", ".load_actuals_payload()", ".save_unified_budget_payload("],
+        "route_forbids": ["spending_tracker as st", "def _core_spending_from_plan", 'st.save_taxonomy_category(BASE_DIR', 'st.spending_summary_taxonomy(BASE_DIR'],
+    },
+    {
+        "service": "src/server_services/config_service.py",
+        "route": "src/server/plan_routes.py",
+        "service_defines": ["class ConfigService", "ConfigServiceContext", "def config_rows_payload", "def update_config_rows_payload", "def allocation_preview_payload"],
+        "route_calls": ["def _config_feature_service()", "ConfigServiceContext", ".config_backends_payload()", ".config_rows_payload()", ".allocation_preview_payload(", ".update_config_rows_payload("],
+        "route_forbids": ["compute_optimal_allocation", 'row_map = {int(e["row_index"])', "Plan Data validation failed"],
+    },
+    {
+        "service": "src/server_services/pricing_service.py",
+        "route": "src/server/plan_routes.py",
+        "service_defines": ["class PriceSymbolTestRegistry", "def single_symbol_test_payload", "threading.Thread", "uuid.uuid4", "traceback.format_exc"],
+        "route_calls": ["PriceSymbolTestRegistry()", "single_symbol_test_payload(", ".status_payload(job_id)"],
+        "route_forbids": ["threading.Lock", "uuid.uuid4", "traceback.format_exc", "_PRICE_TEST_JOBS"],
+    },
+    {
+        "service": "src/server_services/strategy_asset_service.py",
+        "route": "src/server/plan_routes.py",
+        "service_defines": ["def housing_state_estimate_payload", "STATE_ESTIMATES", "population_size", "city_multipliers"],
+        "route_calls": ["housing_state_estimate_payload("],
+        "route_forbids": ["STATE_ESTIMATES"],
+    },
+    {
+        "service": "src/server_services/portfolio_service.py",
+        "route": "src/server/plan_routes.py",
+        "service_defines": ["def drift_payload", 'tools" / "analyze_drift.py', "portfolio_drift.json", "subprocess.run"],
+        "route_calls": ["def portfolio_drift", "portfolio_service.drift_payload("],
+        "route_forbids": ['tools" / "analyze_drift.py', "portfolio_drift.json"],
+    },
+    {
+        "service": "src/server_services/secret_service.py",
+        "route": "src/server/plan_routes.py",
+        "service_defines": ["def set_secret_payload", "name and value are required", "set_secret_fn(name, value"],
+        "route_calls": ["def set_secret_route", "secret_service.set_secret_payload(", '_audit("secret_set"'],
+        "route_forbids": ["name and value are required"],
+    },
+    {
+        "service": "src/server_services/base_service.py",
+        "route": "src/server/plan_routes.py",
+        "service_defines": ["def status_payload", "portfolio_drift_analysis", "json_yaml_config"],
+        "route_calls": ["base_service.status_payload("],
+        "route_forbids": ['"portfolio_drift_analysis": True'],
+    },
+]
+
+
+def test_extracted_service_route_pairs_delegate_and_stay_runtime_independent():
+    problems = []
+    for pair in SERVICE_ROUTE_PAIRS:
+        service_text = (ROOT / pair["service"]).read_text(encoding="utf-8")
+        route_text = (ROOT / pair["route"]).read_text(encoding="utf-8")
+        for token in pair["service_defines"]:
+            if token not in service_text:
+                problems.append(f"{pair['service']} missing {token!r}")
+        for token in pair["route_calls"]:
+            if token not in route_text:
+                problems.append(f"{pair['route']} missing call {token!r} for {pair['service']}")
+        for token in pair["route_forbids"]:
+            if token in route_text:
+                problems.append(f"{pair['route']} still contains {token!r} that should have moved into {pair['service']}")
+    assert problems == []
+
+
 def test_service_unit_payloads_are_plain_data(tmp_path):
     from src.server_services import admin_service, base_service, build_service
 

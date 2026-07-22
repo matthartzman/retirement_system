@@ -1,3 +1,18 @@
+"""Static wiring checks for four UI-to-route pairings -- NOT executed journeys.
+
+Every assertion below is a substring match against dashboard.js/plan_routes.py/
+workbook_routes.py source text: it proves the named function, string, and
+route decorator all exist in the same commit, not that clicking through the
+flow actually produces the described behavior (no test_client() call, no
+DOM, no build). The name "journey_guards" overstates that (system review
+2026-07-21, Q1) -- treat this as a cheap trip-wire against a renamed/deleted
+symbol breaking the pairing, not as behavioral coverage.
+
+For behavior that IS actually executed end-to-end, see
+test_e2e_build_journey.py (real build via the real HTTP route, including an
+input-edit-then-rebuild scenario) and test_161_phase2_workflow_route_plumbing.py
+(route wiring with fakes standing in for the build subprocess).
+"""
 from pathlib import Path
 
 

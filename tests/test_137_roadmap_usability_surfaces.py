@@ -1,3 +1,10 @@
+"""Static source-text checks that named UI/CSS/JS surfaces exist -- NOT that
+they render or behave correctly. Every assertion is a substring match against
+HTML/JS/CSS files (system review 2026-07-21, Q1); despite the "usability
+surfaces" name, nothing here opens a page, drives a DOM, or checks rendered
+output. Treat as a trip-wire against a renamed/deleted identifier, not
+usability coverage.
+"""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]

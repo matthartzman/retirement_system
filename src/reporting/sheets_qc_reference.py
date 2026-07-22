@@ -13,7 +13,6 @@ from .workbook_common import (
     _aa,
     _td,
     qc,
-    salt_cap,
     section_title,
     write_cell,
     write_hdr,
@@ -135,41 +134,14 @@ def build_sheet22(ws):
     ws.sheet_view.showGridLines = False
     section_title(ws, 1, 'GLOSSARY OF TERMS', 4)
 
-    from .. import taxes as _tax_law
-    _salt_year = TAX_BASE_YEAR
-    _salt_cap_now = int(salt_cap(_salt_year, 0))
-    _salt_revert_year = getattr(_tax_law, 'SALT_REVERSION_YEAR', _salt_year + 4)
-    _salt_defn = (
-        f'A federal limit on how much state and local tax (income and property tax combined) a '
-        f'household can deduct on its federal return. For {_salt_year}, the cap is '
-        f'${_salt_cap_now:,} — it shrinks for very high incomes and is currently scheduled to '
-        f'drop back to $10,000 starting in {_salt_revert_year}. This figure changes by tax year.'
-    )
-
-    terms = [
-        ('AGI', 'Adjusted Gross Income — gross income minus above-the-line deductions'),
-        ('Basis', 'The original cost of an asset used to determine capital gain or loss'),
-        ('Credit-Shelter Trust', 'A trust designed to use a decedent\'s estate tax exemption'),
-        ('DAF', 'Donor Advised Fund — charitable giving vehicle allowing immediate deduction with delayed grant-making'),
-        ('ILIT', 'Irrevocable Life Insurance Trust — removes life insurance proceeds from the taxable estate'),
-        ('IRMAA', 'Income-Related Monthly Adjustment Amount — Medicare premium surcharge for high earners'),
-        ('J&S (Joint-and-Survivor)', 'Annuity feature paying a reduced benefit to a surviving spouse'),
-        ('LTCG', 'Long-Term Capital Gain — gain on assets held more than one year, taxed at preferential rates'),
-        ('MAGI', 'Modified Adjusted Gross Income — AGI with certain deductions added back'),
-        ('Monte Carlo', 'Statistical simulation using random scenarios to model range of outcomes'),
-        ('NIIT', 'Net Investment Income Tax — 3.8% surtax on investment income above MAGI thresholds'),
-        ('Percentile Band', 'The value at or below which a given percentage of simulation results fall'),
-        ('QCD', 'Qualified Charitable Distribution — IRA distribution sent directly to charity, excluded from AGI'),
-        ('QTIP', 'Qualified Terminable Interest Property trust — provides income to surviving spouse'),
-        ('RMD', 'Required Minimum Distribution — mandatory annual withdrawals from tax-deferred accounts starting at age 72, 73, or 75 depending on birth year per SECURE 2.0'),
-        ('Roth Conversion', 'Transfer from a pre-tax IRA to a Roth IRA, triggering tax in the conversion year'),
-        ('SALT Cap', _salt_defn),
-        ('§121 Exclusion', 'Up to $500,000 (MFJ) of home sale gain excluded from federal income tax'),
-        ('Sequence-of-Returns Risk', 'Risk that poor investment returns early in retirement permanently impair the portfolio'),
-        ('Spousal Rollover', 'Surviving spouse inherits deceased spouse\'s IRA as their own, deferring RMDs to their own age'),
-        ('Standard Deduction', 'Tax-reference-year MFJ base plus over-65 add-ons; inflated annually'),
-        ('Step-Up in Basis', 'Reset of asset cost basis to fair market value at death for non-retirement assets'),
-    ]
+    # Single source of truth (system review 2026-07-21, D3): src/glossary.py
+    # is also what GET /api/glossary serves to the front end, so this sheet
+    # and the app's help panels can no longer drift out of reconciliation
+    # with each other the way the two independently-maintained lists here
+    # and in dashboard.js's ACRONYM_DEFINITIONS previously did (divergent
+    # IRMAA wording being the concrete example found).
+    from ..glossary import build_glossary
+    terms = list(build_glossary(TAX_BASE_YEAR).items())
 
     r = 2
     write_hdr(ws, r, 1, 'Term', NAVY, WHITE)

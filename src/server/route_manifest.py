@@ -26,7 +26,7 @@ ROUTE_MODULES = {
         "/api/insurance-policy/add", "/api/insurance-policy/delete", "/api/capital-market/assumptions",
         "/api/capital-market/correlations", "/api/housing/seed", "/api/housing/state-estimate", "/api/wellness/seed", "/api/config/sync",
     ],
-    "admin": ["/api/admin/diagnostics", "/api/admin/system-config", "/api/contracts"],
+    "admin": ["/api/admin/diagnostics", "/api/admin/system-config", "/api/contracts", "/api/glossary"],
 }
 
 def route_manifest() -> dict:

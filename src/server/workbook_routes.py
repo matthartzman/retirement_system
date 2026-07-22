@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import subprocess
 import sys
 import threading
@@ -72,10 +71,6 @@ def _build_preflight_payload() -> dict[str, Any]:
     )
 
 
-def _summary_matches_build(summary: dict, build_id: str) -> bool:
-    return build_job_service.summary_matches_build(summary, build_id)
-
-
 def _friendly_build_detail(low: str, fallback: str = "Working through the build steps...") -> str:
     return build_job_service.friendly_build_detail(low, fallback)
 
@@ -94,10 +89,6 @@ def _update_build_job(job_id: str, **kwargs) -> None:
 
 def _extract_build_failure_message(returncode: int, stdout: str = "", stderr: str = "") -> str:
     return build_job_service.extract_build_failure_message(returncode, stdout, stderr)
-
-
-def _build_error_message(returncode: int, summary: dict, stale_summary: bool, stdout: str = "", stderr: str = "") -> str:
-    return build_job_service.build_error_message(returncode, summary, stale_summary, stdout, stderr)
 
 
 def _plan_data_file_feature_service() -> plan_data_file_service.PlanDataFileService:
@@ -151,6 +142,7 @@ def _run_build_progress_job(job_id: str, workspace_id: str, client_id: str, env:
         admin_changes_between=_admin_changes_for_build_job,
         write_last_build_metadata=_write_last_build_metadata,
         redact_text=redact_text,
+        interpret_build_result=build_service.interpret_build_result,
     )
 
 
@@ -312,27 +304,24 @@ def build():
     elapsed = round(time.time() - start, 1)
     stdout = result.stdout or ""
     finished_ts = time.time()
-    summary_path = _workspace_output() / "plan_summary.json"
-    summary = {}
-    if summary_path.exists():
-        try:
-            summary = json.loads(summary_path.read_text(encoding="utf-8"))
-        except Exception:
-            summary = {}
-    stale_summary = bool(summary) and not _summary_matches_build(summary, build_id)
-    qc_match = re.search(r"QC:\s*(\d+)\s*/\s*(\d+)\s+PASS", stdout)
-    success = result.returncode == 0 and (bool(qc_match) or summary.get("qc_result")) and bool(summary) and not stale_summary
+    outcome = build_service.interpret_build_result(
+        returncode=result.returncode,
+        stdout=stdout,
+        output_dir=_workspace_output(),
+        build_id=build_id,
+        stderr=result.stderr or "",
+    )
     previous_build_ts = _read_last_build_timestamp(_workspace_id())
     admin_changes = _admin_changes_between(_workspace_id(), after_ts=previous_build_ts, before_ts=start)
-    if success:
-        _write_last_build_metadata(_workspace_id(), {"finished_at_ts": finished_ts, "client_id": _client_id(), "elapsed_seconds": elapsed, "qc_result": summary.get("qc_result") or (qc_match.group(0) if qc_match else "Unknown")})
-    _audit("build_completed", {"success": success, "returncode": result.returncode, "elapsed": elapsed})
+    if outcome.success:
+        _write_last_build_metadata(_workspace_id(), {"finished_at_ts": finished_ts, "client_id": _client_id(), "elapsed_seconds": elapsed, "qc_result": outcome.qc_result})
+    _audit("build_completed", {"success": outcome.success, "returncode": result.returncode, "elapsed": elapsed})
     return jsonify({
-        "success": bool(success),
+        "success": outcome.success,
         "returncode": result.returncode,
         "elapsed_seconds": elapsed,
-        "qc_result": summary.get("qc_result") or (qc_match.group(0) if qc_match else "Unknown"),
-        "kpi": summary,
+        "qc_result": outcome.qc_result,
+        "kpi": outcome.summary,
         "output_dir": str(_workspace_output()),
         "admin_changes": admin_changes,
         "previous_build_ts": previous_build_ts,
@@ -340,7 +329,7 @@ def build():
         "build_finished_at_ts": finished_ts,
         "stdout": redact_text(stdout[-3000:]) if cfg.redact_secrets_in_logs else stdout[-3000:],
         "stderr": redact_text((result.stderr or "")[-1000:]) if cfg.redact_secrets_in_logs else (result.stderr or "")[-1000:],
-        "error": _build_error_message(result.returncode, summary, stale_summary, stdout, result.stderr or ""),
+        "error": outcome.error_message,
     })
 
 

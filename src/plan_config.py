@@ -170,8 +170,41 @@ def normalize_engine_config(config: Mapping[str, Any] | PlanConfig, source: str 
         raise ValueError('Engine config has no household members')
     if not c.get('account_registry'):
         raise ValueError('Engine config has no account registry')
-    if sum(_as_float(v) for v in c.get('balances', {}).values()) <= 0:
+    total_balance = sum(_as_float(v) for v in c.get('balances', {}).values())
+    if total_balance <= 0:
         raise ValueError('Engine config has zero starting account balances')
+
+    # Demographic sanity gates (system review 2026-07-21, Q5): a deterministic
+    # projection built on nonsensical ages fails silently rather than loudly,
+    # so these must be caught here rather than left to produce a clean but
+    # meaningless projection. Mirrors the test_198 pattern: readable
+    # ValueError naming the offending value and how to fix it.
+    for m in c.get('members', []) or []:
+        who = m.get('name') or m.get('role') or 'household member'
+        dob_yr = m.get('dob_yr')
+        retire_yr = m.get('retire_yr')
+        if dob_yr is not None and retire_yr is not None and int(retire_yr) < int(dob_yr):
+            raise ValueError(
+                f'{who!r} has a retirement year ({retire_yr}) before their birth year '
+                f'({dob_yr}), an impossible negative retirement age — check the '
+                f'birth date and retirement date inputs for this person.'
+            )
+        mortality_age = m.get('mortality_age')
+        if mortality_age is not None and _as_float(mortality_age, 1.0) <= 0:
+            raise ValueError(
+                f'{who!r} has a mortality/life-expectancy age of {mortality_age} '
+                f'(must be a positive number of years) — check the mortality age input '
+                f'for this person.'
+            )
+
+    spend_base = c.get('spend_base')
+    if spend_base is not None and _as_float(spend_base) > total_balance:
+        raise ValueError(
+            f'Core annual spending (${_as_float(spend_base):,.0f}) exceeds total starting '
+            f'account balances (${total_balance:,.0f}) — the plan would be insolvent in year '
+            f'one before any taxes, growth, or other spending categories are even applied. '
+            f'Check the annual spending and account-balance inputs.'
+        )
 
     # Registry IDs should be a subset of balances. Warn, but do not fail, for
     # extra balances because imported holdings can contain inactive accounts.

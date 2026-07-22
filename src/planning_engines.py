@@ -1054,6 +1054,30 @@ def aca_premium_tax_credit(c: Mapping, *, year: int, magi: float, bridge_people:
     return max(0.0, min(benchmark, benchmark - required_contribution))
 
 
+def _roth_irmaa_guardrail_age_gate_met(c: Mapping, h_age: float, w_age: float) -> bool:
+    """True once this year's MAGI could actually determine a future IRMAA
+    surcharge for either member (system review 2026-07-21, P1).
+
+    IRMAA is a Medicare premium surcharge assessed from age 65 using MAGI
+    from ``irmaa_lookback_years`` (2) years prior -- deterministic_engine.py's
+    assessment side already models this lag correctly
+    (``irmaa_lookback_magi(..., irmaa_lookback_years=2)``), but this
+    conversion-sizing guardrail previously capped every year's conversion
+    against the IRMAA threshold with no age gate at all, throttling gap-year
+    conversions at ages where the resulting MAGI is more than two years away
+    from ever being looked back at -- it can never affect a real surcharge.
+    The gate opens once either spouse is within the lookback window of
+    Medicare age, i.e. age >= 65 - irmaa_lookback_years (63 by default);
+    mixed-age couples are gated on whichever spouse is closer to 65, since a
+    surviving/single member's own age already flows correctly once the
+    other's dob defaults to a zero-impact mirror (data_io.py) or death cuts
+    their own future IRMAA exposure off.
+    """
+    lookback_years = float(c.get("irmaa_lookback_years", 2) or 2)
+    gate_age = 65.0 - lookback_years
+    return float(h_age) >= gate_age or float(w_age) >= gate_age
+
+
 def _roth_irmaa_target_threshold_base(c: Mapping, filing: str) -> float:
     """Un-inflated IRMAA target threshold for the configured tier, by filing status.
 
@@ -1208,11 +1232,22 @@ def plan_roth_conversion(
         )
         cap_irmaa = max(0.0, irmaa_thr - pre_agi) * float(c.get('roth_irmaa_headroom_usage_pct', 0.95) or 0.95)
         if ira_total > 5000 and cap_irmaa > 1000:
-            cap, binding, secondary_binding = _ranked_caps([
+            caps = [
                 (str(c.get("roth_irmaa_target_tier", "TIER_2")).replace("_", " ").title(), cap_irmaa),
                 ("IRA balance", ira_total),
                 ("Annual IRA percentage cap", max_pct_cap),
-            ])
+            ]
+            if aca_bridge_people and c.get('aca_ptc_enabled', True):
+                # P1 (system review 2026-07-21): this policy caps to the IRMAA
+                # threshold alone, which sits far above 400% FPL -- with no
+                # ACA guardrail, an ACA-bridge client on "fill to IRMAA" gets
+                # conversions sized straight into subsidy-destroying MAGI.
+                # Mirrors the fill_to_bracket branch's guardrail above.
+                fpl = max(1.0, float(c.get('aca_fpl_base', 0.0) or 0.0) * ((1.0 + float(c.get('inf', 0.025) or 0.0)) ** max(0, year - int(c.get('plan_start', year)))))
+                enhanced = int(year) <= int(c.get('aca_enhanced_subsidies_through_year', year) or year)
+                max_fpl = 4.0 if not enhanced else max(4.0, float(c.get('aca_ptc_guardrail_fpl_pct', 4.0) or 4.0))
+                caps.append(("ACA PTC MAGI guardrail", max(0.0, max_fpl * fpl - pre_agi)))
+            cap, binding, secondary_binding = _ranked_caps(caps)
             amount = cap
     else:
         if bracket_room > 1000:
@@ -1227,7 +1262,11 @@ def plan_roth_conversion(
                 max_fpl = 4.0 if not enhanced else max(4.0, float(c.get('aca_ptc_guardrail_fpl_pct', 4.0) or 4.0))
                 caps.append(("ACA PTC MAGI guardrail", max(0.0, max_fpl * fpl - pre_agi)))
             guard_mode = str(c.get("irmaa_guardrail_mode", "AVOID_NEXT_TIER") or "AVOID_NEXT_TIER").upper()
-            if c.get("roth_irmaa_cap", True) and guard_mode not in ("IGNORE", "WARN_ONLY"):
+            if (
+                c.get("roth_irmaa_cap", True)
+                and guard_mode not in ("IGNORE", "WARN_ONLY")
+                and _roth_irmaa_guardrail_age_gate_met(c, h_age, w_age)
+            ):
                 irmaa_thr = _roth_irmaa_target_threshold_base(c, filing) * (
                     (1 + float(c.get("irmaa_inflator", 0.02))) ** (year - int(c.get("plan_start", year)))
                 )

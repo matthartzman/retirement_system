@@ -16,10 +16,12 @@ with `-m "not slow"`.
 """
 from __future__ import annotations
 
+import io
 import time
 from urllib.parse import urlencode
 
 import pytest
+from openpyxl import load_workbook
 
 from src.server import app
 
@@ -109,6 +111,100 @@ def test_real_build_journey_start_to_real_detailed_results_and_download(monkeypa
     assert xlsx.status_code == 200
     xlsx_bytes = xlsx.get_data()
     assert len(xlsx_bytes) > 10_000, f"downloaded workbook suspiciously small ({len(xlsx_bytes)} bytes)"
+
+
+@pytest.mark.slow
+def test_real_build_journey_reflects_a_user_edited_input(monkeypatch, tmp_path):
+    """Q4 (system review 2026-07-21): closes the gap this file's own docstring
+    calls out -- the build-journey test above proves the HTTP build/results
+    path works, but only against whatever input already contains; it never
+    proves a user-edited input flows through the real plan-data save route
+    into the built workbook. This posts a changed value to POST
+    /api/config/rows (the same route dashboard.js's Save calls), builds a
+    real workbook, then scans every sheet of the downloaded xlsx for the new
+    value -- not one hardcoded sheet/cell, so this doesn't become brittle
+    against sheet-layout changes unrelated to the input-edit path itself.
+    """
+    monkeypatch.setenv("RETIREMENT_SYSTEM_OUTPUT_DIR", str(tmp_path))
+
+    client = app.test_client()
+
+    rows_resp = client.get("/api/config/rows", headers=HEADERS)
+    assert rows_resp.status_code == 200
+    rows = rows_resp.get_json()["rows"]
+
+    def _row_index(section, subsection, label):
+        return next(
+            r["row_index"] for r in rows
+            if r["section"] == section and r["subsection"] == subsection and r["label"] == label
+        )
+
+    home_value_row = _row_index("Other Assets", "Home", "value_as_of_plan_start")
+    appreciation_row = _row_index("Other Assets", "Home", "appreciation_rate")
+
+    # A distinctive figure vanishingly unlikely to arise from any unrelated
+    # computation. Appreciation is pinned to 0% in the same save so the
+    # value can't drift across projection years regardless of which year a
+    # sheet happens to display home value from.
+    NEW_HOME_VALUE = 1_847_213
+    saved = client.post(
+        "/api/config/rows",
+        json={
+            "updates": [
+                {"row_index": home_value_row, "value": f"${NEW_HOME_VALUE:,}"},
+                {"row_index": appreciation_row, "value": "0.00%"},
+            ],
+            "sync": True,
+        },
+        headers=HEADERS,
+    )
+    assert saved.status_code == 200, saved.get_data(as_text=True)
+    saved_payload = saved.get_json()
+    assert saved_payload["success"] is True, saved_payload
+    assert saved_payload["updated"] == 2, saved_payload
+
+    started = client.post("/api/build/start", headers=HEADERS)
+    assert started.status_code == 200, started.get_data(as_text=True)
+    job_id = started.get_json()["job_id"]
+
+    job = _poll_until_done(client, job_id)
+    assert job.get("status") == "done", f"real build failed: {job}"
+
+    xlsx = client.get("/api/xlsx", headers=HEADERS)
+    assert xlsx.status_code == 200
+    wb = load_workbook(io.BytesIO(xlsx.get_data()), data_only=True)
+
+    found_at = None
+    for ws in wb.worksheets:
+        for row in ws.iter_rows():
+            for cell in row:
+                v = cell.value
+                if isinstance(v, (int, float)) and not isinstance(v, bool) and abs(v - NEW_HOME_VALUE) < 1.0:
+                    found_at = (ws.title, cell.coordinate, v)
+                elif isinstance(v, str) and str(NEW_HOME_VALUE) in v.replace(",", ""):
+                    found_at = (ws.title, cell.coordinate, v)
+                if found_at:
+                    break
+            if found_at:
+                break
+        if found_at:
+            break
+
+    if not found_at:
+        for ws in wb.worksheets:
+            if "BALANCE" in ws.title.upper():
+                print(f"--- {ws.title} ---")
+                for row in ws.iter_rows(max_row=30):
+                    for cell in row:
+                        if cell.value not in (None, ""):
+                            print(cell.coordinate, repr(cell.value))
+        print("job:", job)
+
+    assert found_at, (
+        f"edited home value {NEW_HOME_VALUE} never appeared anywhere in the "
+        f"built workbook ({len(wb.worksheets)} sheets) -- the user-input-edit "
+        f"path from /api/config/rows through the real build appears broken"
+    )
 
 
 @pytest.mark.slow

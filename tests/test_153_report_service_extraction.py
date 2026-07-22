@@ -1,29 +1,10 @@
 from pathlib import Path
 import json
 
-
-def test_report_service_exists_and_is_runtime_independent():
-    service = Path("src/server_services/report_service.py").read_text(encoding="utf-8")
-    assert "def detailed_results_payload" in service
-    assert "def downloadable_artifact" in service
-    assert "def read_history_payload" in service
-    assert "def append_history_payload" in service
-    assert "def local_output_file_payload" in service
-    # HTTP-runtime-independence itself is asserted once, for every service
-    # module, by the AST-based check in test_126_service_extraction.py.
-
-
-def test_workbook_routes_delegate_report_and_history_logic_to_service():
-    routes = Path("src/server/workbook_routes.py").read_text(encoding="utf-8")
-    assert "report_service.detailed_results_payload(" in routes
-    assert "report_service.downloadable_artifact(" in routes
-    assert "report_service.read_history_payload(" in routes
-    assert "report_service.append_history_payload(" in routes
-    assert "report_service.local_output_file_payload(" in routes
-    assert "def _history_path" not in routes
-    assert "workbook_detailed_results" not in routes
-    assert "workbook_detailed_index" not in routes
-    assert "workbook_detailed_sheet" not in routes
+# The "service exists" + "routes delegate" checks that used to live here are
+# generalized (system review 2026-07-21, Q6) into SERVICE_ROUTE_PAIRS in
+# test_126_service_extraction.py, alongside every other extracted service's
+# equivalent pair. Only this file's genuine behavior tests remain below.
 
 
 def test_report_service_history_contract_round_trips(tmp_path):
