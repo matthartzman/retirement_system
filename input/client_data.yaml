@@ -15,6 +15,57 @@ Account Policy:
     reinvest_dividends: 'NO'
   Member_2_Trust:
     reinvest_dividends: 'NO'
+Account Titling:
+  Business_Checking:
+    contingent_beneficiary: ''
+    primary_beneficiary: ''
+    titling: ''
+    trust_see_through: 'FALSE'
+  Family_Checking:
+    contingent_beneficiary: ''
+    primary_beneficiary: ''
+    titling: ''
+    trust_see_through: 'FALSE'
+  Member_1_401k:
+    contingent_beneficiary: ''
+    primary_beneficiary: ''
+    titling: ''
+    trust_see_through: 'FALSE'
+  Member_1_HSA:
+    contingent_beneficiary: ''
+    primary_beneficiary: ''
+    titling: ''
+    trust_see_through: 'FALSE'
+  Member_1_IRA:
+    contingent_beneficiary: ''
+    primary_beneficiary: ''
+    titling: ''
+    trust_see_through: 'FALSE'
+  Member_1_Roth:
+    contingent_beneficiary: ''
+    primary_beneficiary: ''
+    titling: ''
+    trust_see_through: 'FALSE'
+  Member_1_Trust:
+    contingent_beneficiary: ''
+    primary_beneficiary: ''
+    titling: ''
+    trust_see_through: 'FALSE'
+  Member_2_IRA:
+    contingent_beneficiary: ''
+    primary_beneficiary: ''
+    titling: ''
+    trust_see_through: 'FALSE'
+  Member_2_Roth:
+    contingent_beneficiary: ''
+    primary_beneficiary: ''
+    titling: ''
+    trust_see_through: 'FALSE'
+  Member_2_Trust:
+    contingent_beneficiary: ''
+    primary_beneficiary: ''
+    titling: ''
+    trust_see_through: 'FALSE'
 Annuity Death Benefits:
   '2026':
     H_Joint: $860,000
@@ -688,10 +739,8 @@ Model Constants:
   Retirement:
     member_1_rmd_start_age: '75'
     member_2_rmd_start_age: '75'
-    rmd_start_age: '75'
     rollover_401k_year: '2030'
     spending_freeze_year: '2050'
-    ss_claim_age: '70'
   Roth Conversion:
     roth_conv_window_end_offset: '-1'
 Note Receivable:
@@ -729,7 +778,7 @@ Optional Functions:
     long_term_care_stress: 'TRUE'
     market_luck_stress_test: 'TRUE'
     methodology_rerun: 'YES'
-    property_casualty_umbrella: 'FALSE'
+    property_casualty_umbrella: 'YES'
     retirement_strategy: 'TRUE'
     rmd_audit: 'TRUE'
     roth_conversion_plan: 'TRUE'
@@ -946,6 +995,11 @@ Wellness:
   Pre-65 Bridge:
     annual_premium_base_year: $12,000
 Withdrawal Policy:
+  Gain Harvesting:
+    gain_harvest_min_gain_dollars: $500
+    gain_harvest_min_gain_pct: 0.00%
+    gain_harvest_policy: 'off'
+    gain_harvest_transaction_cost_bps: '2'
   Identity:
     annual_funding_tolerance: $100
   Roth Conversion:

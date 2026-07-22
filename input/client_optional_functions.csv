@@ -19,7 +19,7 @@ Optional Functions,,methodology_rerun,YES,boolean,Sheet 23 - Methodology & Re-Ru
 Optional Functions,,education_funding_529,FALSE,boolean,Sheet 24 - Education Funding (529 plans + goals)
 Optional Functions,,existing_life_insurance,FALSE,boolean,Sheet 25 - Existing Life Insurance Policies
 Optional Functions,,disability_income_insurance,FALSE,boolean,Sheet 26 - Disability Income Insurance
-Optional Functions,,property_casualty_umbrella,FALSE,boolean,Sheet 27 - Property & Casualty / Umbrella Liability
+Optional Functions,,property_casualty_umbrella,YES,boolean,Sheet 27 - Property & Casualty / Umbrella Liability
 Optional Functions,,business_succession,FALSE,boolean,Sheet 28 - Business Succession Planning
 Optional Functions,,equity_compensation,FALSE,boolean,Sheet 29 - Equity Compensation (RSU/ISO/NSO/ESPP)
 Optional Functions,,special_needs_planning,FALSE,boolean,Sheet 30 - Special-Needs Planning (SNT/ABLE)
