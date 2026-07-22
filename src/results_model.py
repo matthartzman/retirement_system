@@ -273,20 +273,26 @@ def _chart_page(c: dict[str, Any], rows: list[dict[str, Any]], mc_data: dict[str
         "Lump Events": [round(_n(r.get("lump"))) for r in rows],
         "Mortgage + RE Tax": [round(_n(r.get("mortgage"))) for r in rows],
         "Rent": [round(_n(r.get("rent_yr"))) for r in rows],
+        "Housing Operating": [round(_n(r.get("housing_operating_yr"))) for r in rows],
+        "Wellness": [round(_n(r.get("wellness_base_yr")) + _n(r.get("wellness_shock_yr")) + _n(r.get("ltc_prem_yr"))) for r in rows],
         "HELOC P&I": [round(_n(r.get("heloc_interest")) + _n(r.get("heloc_repayment_principal"))) for r in rows],
         "Federal Tax": [round(_n(r.get("fed_tax"))) for r in rows],
         f"State Tax ({str(c.get('state', ''))[:2]})": [round(_n(r.get("state_tax"))) for r in rows],
         "NIIT": [round(_n(r.get("niit"))) for r in rows],
+        "Payroll Tax": [round(_n(r.get("payroll_tax"))) for r in rows],
+        "IRMAA": [round(_n(r.get("irmaa"))) for r in rows],
+        "Home Sale Tax": [round(_n(r.get("home_sale_tax"))) for r in rows],
     }
     exp_totals = [sum(vals[i] for vals in exp_values.values()) for i in range(len(rows))]
     # Guaranteed income (SS/pension/RMD/etc.) commonly exceeds this chart's
-    # own itemized spend+tax total in a given year (real costs like payroll
-    # tax and IRMAA aren't broken out as their own series here) -- the excess
-    # is real money the household keeps, not an error. Defined as the exact
-    # complement of these two charts' own totals -- not the engine's
-    # row['surplus'], which nets against a fuller set of cash-need components
-    # these charts don't itemize -- so the two bars always reconcile exactly
-    # instead of leaving an unexplained gap between them.
+    # own itemized spend+tax total in a given year -- the excess is real
+    # money the household keeps, not an error. This is the exact complement
+    # of these two charts' own totals (not the engine's row['surplus']
+    # directly, which nets against additional mid-year iterative tax/
+    # withdrawal solving these charts don't replicate line-by-line), so the
+    # two bars always reconcile exactly instead of leaving an unexplained
+    # gap between them. With every real cash-need component above now
+    # itemized, this tracks row['surplus'] closely in practice.
     exp_values["Surplus (Reinvested)"] = [
         max(0, inc_totals[i] - exp_totals[i]) for i in range(len(rows))
     ]
