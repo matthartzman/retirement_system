@@ -1107,6 +1107,35 @@ def _roth_irmaa_target_threshold_base(c: Mapping, filing: str) -> float:
     return float(tiers[idx][0])
 
 
+def _roth_ltcg_thresholds_base(c: Mapping, filing: str) -> tuple[float, float]:
+    """Un-inflated 0%/15% LTCG bracket ceilings for the given filing status.
+
+    Looked up fresh from ``LTCG_BRACKETS_BASE_YEAR`` by the current year's
+    ``filing`` rather than trusting ``c['ltcg_0_top']``/``c['ltcg_15_top']``,
+    which data_io.py seeds once from the client's *original* filing status --
+    the same staleness the IRMAA threshold lookup above was fixed for, most
+    importantly for a surviving spouse whose filing status flips to Single
+    mid-plan.
+    """
+    filing = str(filing or "MFJ")
+    tiers = LTCG_BRACKETS_BASE_YEAR.get(filing) or LTCG_BRACKETS_BASE_YEAR.get("MFJ", {})
+    top0 = float(tiers.get("zero_top", c.get("ltcg_0_top", 96700)) or 96700)
+    top15 = float(tiers.get("fifteen_top", c.get("ltcg_15_top", 600050)) or 600050)
+    return top0, top15
+
+
+def _roth_niit_threshold_base(c: Mapping, filing: str) -> float:
+    """NIIT MAGI threshold for the given filing status.
+
+    The 3.8% NIIT threshold is a fixed statutory dollar amount (not inflation
+    -indexed) but is still filing-status-dependent, so it needs the same
+    current-year ``filing`` lookup as the IRMAA/LTCG thresholds above rather
+    than the value ``c['niit_threshold']`` caches once at parse time.
+    """
+    filing = str(filing or "MFJ")
+    return float(NIIT_THRESHOLD.get(filing, c.get("niit_threshold", 250000)) or 250000)
+
+
 def plan_roth_conversion(
     c: Mapping,
     bal: Mapping[str, float],
@@ -1218,6 +1247,40 @@ def plan_roth_conversion(
         secondary = clean[1] if len(clean) > 1 else ("", 0.0)
         return primary[1], primary[0], secondary[0]
 
+    def _ltcg_niit_caps() -> list[tuple[str, float]]:
+        """NIIT-cliff and LTCG-rate-tier caps, sized off income already known
+        at conversion-sizing time (before this year's realized capital gains
+        are computed later in the projection loop, so this can only protect
+        the qualified-dividend/interest income already visible here -- it
+        cannot see gains TLH/gain-harvesting/portfolio draws realize later
+        this same year).
+        """
+        extra: list[tuple[str, float]] = []
+        plan_start = int(c.get("plan_start", year))
+        bracket_factor = (1 + float(c.get("brk_inf", 0.02) or 0.0)) ** (year - plan_start)
+
+        if c.get("roth_ltcg_cap", True) and portfolio_qualified > 0:
+            ltcg_top0, ltcg_top15 = _roth_ltcg_thresholds_base(c, filing)
+            ltcg_top0 *= bracket_factor
+            ltcg_top15 *= bracket_factor
+            if pre_agi < ltcg_top0:
+                ltcg_ceiling = ltcg_top0
+            elif pre_agi < ltcg_top15:
+                ltcg_ceiling = ltcg_top15
+            else:
+                ltcg_ceiling = None
+            if ltcg_ceiling is not None:
+                cap_ltcg = max(0.0, ltcg_ceiling - pre_agi) * float(c.get('roth_ltcg_headroom_usage_pct', 0.95) or 0.95)
+                extra.append(("LTCG rate tier", cap_ltcg))
+
+        nii_known_est = max(0.0, float(note_int_yr) + float(portfolio_ordinary) + float(portfolio_qualified))
+        if c.get("roth_niit_cap", True) and nii_known_est > 0:
+            niit_thr = _roth_niit_threshold_base(c, filing)
+            cap_niit = max(0.0, niit_thr - pre_agi) * float(c.get('roth_niit_headroom_usage_pct', 0.95) or 0.95)
+            extra.append(("NIIT threshold", cap_niit))
+
+        return extra
+
     if policy == "fixed_dollar":
         fixed_amt = float(c.get("roth_fixed_amount", 50000) or 0.0)
         if ira_total > 5000 and fixed_amt > 1000:
@@ -1247,6 +1310,7 @@ def plan_roth_conversion(
                 enhanced = int(year) <= int(c.get('aca_enhanced_subsidies_through_year', year) or year)
                 max_fpl = 4.0 if not enhanced else max(4.0, float(c.get('aca_ptc_guardrail_fpl_pct', 4.0) or 4.0))
                 caps.append(("ACA PTC MAGI guardrail", max(0.0, max_fpl * fpl - pre_agi)))
+            caps.extend(_ltcg_niit_caps())
             cap, binding, secondary_binding = _ranked_caps(caps)
             amount = cap
     else:
@@ -1272,6 +1336,7 @@ def plan_roth_conversion(
                 )
                 cap_irmaa = max(0.0, irmaa_thr - pre_agi) * float(c.get('roth_irmaa_headroom_usage_pct', 0.95) or 0.95)
                 caps.append((str(c.get("roth_irmaa_target_tier", "TIER_2")).replace("_", " ").title(), cap_irmaa))
+            caps.extend(_ltcg_niit_caps())
             if ira_total > 5000:
                 cap, binding, secondary_binding = _ranked_caps(caps)
                 if cap > 1000:
