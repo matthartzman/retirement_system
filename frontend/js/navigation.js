@@ -1,7 +1,11 @@
 /* navigation.js: feature-owned navigation behavior for the retirement dashboard. */
 (function(){
   'use strict';
-  const AUTOSAVE_STEPS=['ytd_transactions','spending_core','spending_setup','spending_travel','spending_travel_extras','spending_mortgage_events','retirement_wellness'];
+  // #204/#205: autosave-on-navigate is now the default persistence model for every
+  // data-entry step. Steps deliberately excluded (read-only/build-gated reports,
+  // scenario/stress-test previews that don't touch the saved plan, and
+  // plan-independent/admin pages) stay on the explicit-save + 3-way guard below.
+  const AUTOSAVE_STEPS=['household_people','income_work','income_retirement','lifestyle_spending','spending_core','spending_setup','retirement_wellness','spending_mortgage_events','ytd_transactions','holdings','assets_home_cash','annuity_death_benefits','assets_special','estate','distribution_strategy','state_residency','special_strategies','economic_tax_assumptions','optional_functions','all_assumptions'];
   const PLAN_INDEPENDENT_STEPS=['start','system_configuration','workbook_formatting','detailed_results','planning_workbench','reports_and_review'];
   const REPORTS_REDIRECTS={
     detailed_results:'Results',
@@ -77,14 +81,13 @@
     scrollAndFocus();
   }
 
+  // #204: saveWorkingCopy() is the same universal save the header "Save Changes"
+  // button uses (plain field edits, holdings, liabilities, travel/liquidity/forced
+  // conversions, YTD, category rules, tax budget, budget lines). Autosave-on-navigate
+  // reuses it so every data-entry step persists the same way, instead of a bespoke
+  // per-page save function that only some pages could go through.
   function saveCurrentStep(ctx,fromStep){
-    if(fromStep==='ytd_transactions')return ctx.saveYtdPending();
-    return Promise.all([
-      safeCall(ctx.getCatMapChanged)?ctx.saveCategoryMap():Promise.resolve(),
-      safeCall(ctx.getRulesChanged)?ctx.saveMappingRulesData():Promise.resolve(),
-      safeCall(ctx.getTaxBudgetChanged)?ctx.saveTaxonomyBudgetData():Promise.resolve(),
-      safeCall(ctx.getBudgetLinesChanged)?ctx.saveBudgetLines():Promise.resolve()
-    ]);
+    return ctx.saveWorkingCopy?ctx.saveWorkingCopy():Promise.resolve(true);
   }
 
   function exposeGlobals(ctx){
@@ -124,15 +127,29 @@
       const fromStep=safeCall(ctx.getActiveStep)||'';
       const targetStep=target.getAttribute('data-step-id');
       if(AUTOSAVE_STEPS.includes(fromStep)){
-        saveCurrentStep(ctx,fromStep).then(function(){
+        Promise.resolve(saveCurrentStep(ctx,fromStep)).then(function(result){
+          if(result===false){
+            safeCall(()=>ctx.showMessage('Fix the highlighted error before leaving this step.','error'));
+            return;
+          }
           safeCall(()=>ctx.showMessage('Auto-saved.','success'));
           ctx.setStep(targetStep);
         }).catch(function(err){
           safeCall(()=>ctx.showMessage('Auto-save failed — correct the error before leaving this step. ('+((err&&err.message)||String(err))+')','error'));
         });
       }else if(safeCall(ctx.hasUnsavedPlanChanges)){
-        const doConfirm=ctx.confirm||function(m){return Promise.resolve(window.confirm(m))};
-        doConfirm('You have unsaved changes. Leave this step?',{title:'Unsaved Changes',confirmLabel:'Leave Step',cancelLabel:'Stay'}).then(function(ok){if(ok)ctx.setStep(targetStep)});
+        // #205: pages kept on the explicit-save model (e.g. system settings) still
+        // get a real 3-way Save/Discard/Stay choice instead of a binary confirm.
+        const decide=ctx.confirmSaveDiscardStay||function(m){return Promise.resolve(window.confirm(m)?'discard':'stay')};
+        decide('You have unsaved changes on this page. Save them before leaving, discard them, or stay?',{title:'Unsaved Changes'}).then(function(choice){
+          if(choice==='save'){
+            Promise.resolve(safeCall(ctx.saveAll)?ctx.saveAll(true):true).then(function(ok){
+              if(ok!==false)ctx.setStep(targetStep);
+            });
+          }else if(choice==='discard'){
+            ctx.setStep(targetStep);
+          }
+        });
       }else{
         ctx.setStep(targetStep);
       }
