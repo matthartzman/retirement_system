@@ -3116,7 +3116,7 @@ function renderStateResidency() {
   return html;
 }
 function renderEntityCharitable() {
-  let html = `<div class="section-note">Qualified charitable distributions (age 70½+) satisfy required distributions without the amount appearing as taxable income. Annual giving amounts are set on <a href="#" onclick="setStep('spending_core');return false">Core spending</a>. S-Corp election is a self-employment decision, entered on <a href="#" onclick="setStep('income_work');return false">Work Income</a>.</div>`;
+  let html = `<div class="section-note">Qualified charitable distributions (age 70½+) satisfy required distributions without the amount appearing as taxable income. S-Corp election is a self-employment decision, entered on <a href="#" onclick="setStep('income_work');return false">Work Income</a>.</div>`;
   return html + renderFields("entity_charitable");
 }
 function renderSurvivorStress() {
@@ -3975,7 +3975,10 @@ function rawRowsForStep(id) {
       case "heloc_strategy":
         return sec === "HELOC";
       case "entity_charitable":
-        return sec === "DAF";
+        return (
+          sec === "DAF" ||
+          (sec === "Cashflow" && sub === "charitable_giving")
+        );
       case "survivor_stress":
         return (
           sec === "Household" && hasAny(r.label, ["survivor", "mortality"])
