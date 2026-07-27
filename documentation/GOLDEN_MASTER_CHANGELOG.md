@@ -1,5 +1,43 @@
 
 
+## 2026-07-23 — Roth conversion sizing now caps against LTCG rate-tier and NIIT MAGI cliffs
+
+**What was wrong.** `plan_roth_conversion` (`fill_to_bracket`/`fill_to_irmaa`
+policies) already capped voluntary conversions against the target federal
+ordinary bracket, IRMAA tiers, and (in ACA-bridge years) the ACA PTC MAGI
+cliff, but had no equivalent cap for two other real cliffs raising ordinary
+MAGI can trigger: pushing already-known qualified-dividend income across the
+0%/15% LTCG rate-tier boundary, and pushing MAGI over the NIIT (3.8% surtax)
+threshold. Both costs were only visible after the fact, in the lifetime-tax
+comparison between whole candidate strategies (`total_tax` already includes
+NIIT and LTCG) — never as a same-year brake the way IRMAA/ACA guardrails
+already worked.
+
+**What changed.** Added `_roth_ltcg_thresholds_base`/`_roth_niit_threshold_base`
+(filing-status-fresh lookups, mirroring the existing IRMAA threshold helper's
+fix for a surviving spouse's filing status flipping to Single mid-plan) and a
+new `_ltcg_niit_caps()` helper wired into the same `_ranked_caps` list as the
+existing IRMAA/ACA caps, in both the `fill_to_bracket` and `fill_to_irmaa`
+branches. Sized only off income already known at conversion-sizing time
+(qualified dividends, interest, ordinary portfolio income) — it cannot see
+capital gains TLH/gain-harvesting/portfolio draws realize later the same
+projection-loop year, since those are computed after the Roth conversion
+decision. New config toggles `roth_ltcg_cap`/`roth_niit_cap` (default on) and
+`roth_ltcg_headroom_usage_pct`/`roth_niit_headroom_usage_pct` (default 0.95,
+matching the existing IRMAA headroom knob).
+
+**What moved and why.** The live client plan (`input/client_data.csv`) carries
+real qualified-dividend/interest income, so `total_roth_conversion` drops
+materially across every scenario that runs `fill_to_bracket`/`fill_to_irmaa`
+(e.g. `baseline_balanced_couple` 850,476.64 → 565,476.58) — conversions are now
+correctly throttled before they push existing investment income into a higher
+LTCG rate or across the NIIT threshold, which raises `lifetime_tax` in some
+scenarios (less Roth conversion now, more pre-tax income taxed later) even as
+it avoids a cliff the engine previously ignored. `no_voluntary_roth_policy`
+also moved, but only from pre-existing unrelated pin drift already present
+before this change (confirmed by diffing against the unmodified engine) — that
+scenario forces `roth_policy='none'`, which never reaches the new caps at all.
+
 ## 2026-07-22 — Track 4 (system review 2026-07-21): golden-master regeneration after P1/P2/P3 engine fixes
 
 **Why regenerated.** Per the system review's Track 4 (engine-correctness items P1

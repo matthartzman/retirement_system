@@ -694,6 +694,8 @@ STATE_TAX_RULES = _td.load_state_tax([])
 col_factors = _td.col_factors  # geographic cost-of-living factors for State Residency
 IRMAA_TIERS_BASE_YEAR = _td.IRMAA_TIERS_BASE_YEAR
 IRMAA_TIERS_MFJ = IRMAA_TIERS_BASE_YEAR['MFJ']
+NIIT_THRESHOLD = _td.NIIT_THRESHOLD
+LTCG_BRACKETS_BASE_YEAR = _td.LTCG_BRACKETS_BASE_YEAR
 
 def inflate_brackets(brackets, inflator, years):
     factor = (1 + inflator) ** years

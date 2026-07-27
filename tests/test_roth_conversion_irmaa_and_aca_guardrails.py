@@ -20,6 +20,8 @@ def _scenario():
     c["irmaa_guardrail_mode"] = "AVOID_NEXT_TIER"
     c["roth_irmaa_target_tier"] = "TIER_1"  # tightest tier, so it binds whenever the gate is open
     c["aca_ptc_enabled"] = False  # isolate the IRMAA gate from the separate ACA PTC guardrail
+    c["roth_ltcg_cap"] = False  # isolate from the separate LTCG rate-tier guardrail
+    c["roth_niit_cap"] = False  # isolate from the separate NIIT threshold guardrail
     c["forced_roth"] = {}
     c["plan_start"] = 2026
     c["h_dob_yr"] = 2026 - 55  # h_age 55 at plan start
