@@ -154,6 +154,7 @@
 /* Global money-signage: negative dollar values are red everywhere the UI can classify them. */
 .negative-money,.field.negative-money input,.detail-cell-currency.negative-money,.money-value.negative-money{color:var(--danger)!important;font-weight:900}
 .field.negative-money input{border-color:#fecaca;background:#fffafa}
+.positive-money{color:var(--ok)!important;font-weight:900}
 
 .system-config-panel .section-note{margin-bottom:14px}
 .system-config-section{margin:16px 20px 18px;border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden}

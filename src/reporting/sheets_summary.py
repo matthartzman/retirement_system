@@ -1284,11 +1284,15 @@ def build_sheet2(ws, c, rows):
         ('Post-Schedule SALT Cap', 10000, 'USD', 'REVERTS to $10K — model must honor this'),
     ])
 
+    if c.get('cs_enabled'):
+        _il_exempt_note = f'Plus up to ${c.get("il_cst_shelter_cap", 0):,.0f} shelterable via a funded Credit Shelter Trust (separate from this exemption), cliff structure'
+    else:
+        _il_exempt_note = 'No portability, cliff structure'
     r = write_section(r, 'Other Statutory Parameters', [
         ('§121 Exclusion (MFJ)',         500000,   'USD', 'Home sale gain exclusion'),
         ('QCD Annual Limit (per person)', 108000,   'USD', '2025, indexed'),
         ('Federal Estate Exemption (MFJ)',30000000, 'USD', 'Indexed from the tax reference year'),
-        ('IL State Estate Exemption',     c['il_exempt'],  'USD', f'{"With CST doubling" if c.get("cs_enabled") else "No portability"}, cliff structure'),
+        ('IL State Estate Exemption',     c['il_exempt'],  'USD', _il_exempt_note),
         ('Annual Gift-Tax Exclusion',     19000,    'USD', 'tax reference year, per donee'),
         ('RMD Start Age',                 75,       'years','SECURE 2.0 §107 ramp: 72 (born ≤1950), 73 (born 1951–1959), 75 (born 1960+)'),
         ('NIIT Rate',                     0.038,    'decimal','3.8% on NII above MAGI threshold'),

@@ -65,11 +65,18 @@ class Item195RmdSsClaimAgeDedupTests(unittest.TestCase):
 
     def test_per_member_rmd_and_claim_age_are_reachable_on_guided_steps(self):
         js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
-        # economic_tax_assumptions claims every Model Constants/Retirement row
-        # except spending_freeze_year — member_1_/2_rmd_start_age land there.
+        # #239 (ticket list update): member_1_/2_rmd_start_age moved from
+        # Economic & Tax Assumptions to a dedicated "RMD start age" column on
+        # the Household & People table -- explicitly excluded from
+        # economic_tax_assumptions now (still Model Constants/Retirement data,
+        # just displayed on a different guided step).
         idx = js.index('case "economic_tax_assumptions":')
-        block = js[idx: idx + 500]
+        block = js[idx: js.index('case "scenarios":', idx)]
         self.assertIn('"retirement", "capital_gains"', block)
+        self.assertIn('"member_1_rmd_start_age"', block)
+        self.assertIn('"member_2_rmd_start_age"', block)
+        self.assertIn("member_${n}_rmd_start_age", js)
+        self.assertIn("RMD start age", js)
         # income_retirement claims the whole Social Security section, where
         # per-member claim_age lives, via a dedicated compact table.
         self.assertIn('case "income_retirement":', js)

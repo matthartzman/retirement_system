@@ -6,8 +6,8 @@
       "sha256": "8a94edde6121b066885996c41d04d9ecc471aca62f7e07887a031b8dfbf2533f"
     },
     "client_assets.csv": {
-      "bytes": 8151,
-      "sha256": "c1f7ca7856af023bee8fbc472cc3f352fefa750af78866c816cf8826d9676f1d"
+      "bytes": 7676,
+      "sha256": "0f94152e19a07d55e10fab369264cce48459952cde1a8807f458941214d2bdb8"
     },
     "client_business.csv": {
       "bytes": 1410,
@@ -22,28 +22,28 @@
       "sha256": "17d3fc659c4d3fec2e87e5d0ddbd0105512648e08f88cba20e4dc1a88becf585"
     },
     "client_household.csv": {
-      "bytes": 9133,
-      "sha256": "34e10d50eeb9a23b0d5d3ed67b88ce67567d83046db2472ffc249862579726af"
+      "bytes": 9132,
+      "sha256": "ac43f8c1fc7234ad7c1ccdb0c9f42a9f0a685e0087375d9ab811598d6e1c6446"
     },
     "client_income.csv": {
-      "bytes": 14300,
-      "sha256": "512e2ff3b3606e1099e96ab04ffdd80fda7925de6bc0009b8646e45e05b746c2"
+      "bytes": 14256,
+      "sha256": "86990a1709832aed1f731348eb7e4d89ca1620cd97fa1f68ad9e33a38acc4995"
     },
     "client_insurance_estate.csv": {
-      "bytes": 22165,
-      "sha256": "bcd0d8dd7b793153fb3b385b5fb17216bb0c3465819d5c99b0d2cdc73a80ff7a"
+      "bytes": 22449,
+      "sha256": "5c919802a17cc3c420675cbacb0c79adf76deb097d9d414f96aba6b397de314f"
     },
     "client_optional_functions.csv": {
-      "bytes": 2428,
-      "sha256": "0f3edaf10a5106eda4b211b6ce51acafcb7dc53a72bd234f96fd253014c30a9d"
+      "bytes": 2596,
+      "sha256": "f21f85049700c3f73b8c156c8aeb4a663cb2d5b6e8d1177c07559f5321def091"
     },
     "client_policy.csv": {
-      "bytes": 27915,
-      "sha256": "419301ea57a1b8f0a9538ab1b9e9c2338e97ae8209c8cf0072d3f65da3ee2348"
+      "bytes": 27917,
+      "sha256": "0f472f4be1b4ef68169553f12656d9ffc70279c65f9f8f58545b7e3a75e76367"
     },
     "client_spending.csv": {
-      "bytes": 9848,
-      "sha256": "2a5ca4d1c91bcfd0a790f024878e81bbfc471806c0990e66657edd521803ddbf"
+      "bytes": 9891,
+      "sha256": "196ca59ca680fce512d7b02a8661734f0153f711187befac08e3dfb8911865c9"
     },
     "target_allocation.csv": {
       "bytes": 234,

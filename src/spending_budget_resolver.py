@@ -102,8 +102,10 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
     for cid, info in flat.items():
         groups_by_key[f"{info.get('tracking_type')}::{info.get('group')}"].append(cid)
 
-    # Track group-level time-bounded budgets to convert to recurring_extras
-    time_bounded_group_budgets: list[tuple[str, str, float]] = []
+    # Track group-level time-bounded budgets to convert to recurring_extras.
+    # #231: carries the group row's own start/end year (e.g. a Travel budget
+    # that stops after a given year) instead of always spanning the full plan.
+    time_bounded_group_budgets: list[tuple[str, str, float, int, int]] = []
 
     for gkey, grow in group_budgets.items():
         # Honor the persisted group mode. A group row only acts as a summary
@@ -125,7 +127,11 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
         # group mode (summary) should project as recurring_extras, not disappear.
         # Record them for later conversion to recurring_extras.
         if tt in TIME_BOUNDED_LINE_TRACKING_TYPES and amount > 0:
-            time_bounded_group_budgets.append((tt, grp, amount))
+            time_bounded_group_budgets.append((
+                tt, grp, amount,
+                _int(grow.get("start_year"), 0),
+                _int(grow.get("end_year"), 0),
+            ))
         elif tt not in EXCLUDED_FROM_SPEND_BASE and tt not in TIME_BOUNDED_LINE_TRACKING_TYPES:
             spend_base += amount
 
@@ -258,15 +264,21 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
     # These are Travel or Large Discretionary groups in summary mode that suppressed
     # all their category detail. Without this conversion, the budget amounts would be
     # lost and the projection would see zero spending (item 151 reconciliation).
-    for tt, grp, amount in time_bounded_group_budgets:
+    for tt, grp, amount, grow_start, grow_end in time_bounded_group_budgets:
         if amount > 0:
-            start = min(years) if years else _int((config or {}).get("plan_start"), 0)
-            end = max(years) if years else _int((config or {}).get("plan_end"), start) or start
+            plan_start = min(years) if years else _int((config or {}).get("plan_start"), 0)
+            plan_end = max(years) if years else _int((config or {}).get("plan_end"), plan_start) or plan_start
+            # #231: a group row's own start/end year (e.g. Travel budget ends
+            # after a given year) narrows the plan-wide window; 0/blank means
+            # "no bound on this side" and falls back to the full plan horizon.
+            start = grow_start or plan_start
+            end = grow_end or plan_end
+            end = max(start, end)
             recurring_extras.append({
                 "type": grp,
                 "amount": amount,
                 "start_year": start,
-                "end_year": max(start, end),
+                "end_year": end,
                 "comment": "",
                 "is_home_improvement": False,
                 "source": "unified_budget",
@@ -274,6 +286,8 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
                 "tracking_type": tt,
             })
             for y in years:
+                if y < start or y > end:
+                    continue
                 tt_map = by_year.setdefault(y, {}).setdefault(tt, {})
                 tt_map[grp] = tt_map.get(grp, 0.0) + amount
 

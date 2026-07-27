@@ -44,5 +44,9 @@ def test_initial_plan_load_uses_the_overlay():
     text = dashboard_js_text()
     idx = text.index("async function loadAll(opts = {}) {")
     body = text[idx : idx + 4000]
-    assert 'setBuildOverlay(true, "Loading plan", "", "waiting");' in body
+    # #201: loadAll is reused for the initial load AND the post-save refresh
+    # (saveAll calls it too) -- title/detail are caller-overridable so a save
+    # doesn't show the initial-load wording; default text is unchanged.
+    assert 'opts.overlayTitle || "Loading plan"' in body
+    assert 'opts.overlayDetail || ""' in body
     assert "finally {\n    hideBuildOverlay();\n  }" in body

@@ -1147,10 +1147,12 @@ def main():
     if '12. Charitable Giving' in sheets:
         print('  Sheet 12 — Charitable Giving')
         build_sheet12(sheets['12. Charitable Giving'], c, rows)
-    print('  Sheet 12B — Tax-Loss Harvesting')
-    build_sheet_tlh(sheets['12B. Tax-Loss Harvesting'], c, rows)
-    print('  Sheet 12C — Gain Harvesting')
-    build_sheet_gain_harvest(sheets['12C. Gain Harvesting'], c, rows)
+    if '12B. Tax-Loss Harvesting' in sheets:
+        print('  Sheet 12B — Tax-Loss Harvesting')
+        build_sheet_tlh(sheets['12B. Tax-Loss Harvesting'], c, rows)
+    if '12C. Gain Harvesting' in sheets:
+        print('  Sheet 12C — Gain Harvesting')
+        build_sheet_gain_harvest(sheets['12C. Gain Harvesting'], c, rows)
     if '13. State Residency' in sheets:
         print('  Sheet 13 — State Residency')
         build_sheet13(sheets['13. State Residency'], c, rows)

@@ -22,8 +22,14 @@ class FullChecklistRemainingTests(unittest.TestCase):
 
     def test_social_security_sheet_declares_true_62_to_70_pair_projection_sweep(self):
         src = inspect.getsource(sheets_strategy.build_sheet10)
-        self.assertIn("for h_age in range(62, 71)", src)
-        self.assertIn("for w_age in range(62, 71)", src)
+        # #230: the lower bound is clamped to each person's current age (never
+        # sweep a claim age already passed), so the literal range floor is a
+        # variable, not a hardcoded 62 -- but the upper bound and the
+        # per-pair real projection call must still hold.
+        self.assertIn("for h_age in range(h_floor, 71)", src)
+        self.assertIn("for w_age in range(w_floor, 71)", src)
+        self.assertIn("h_floor = max(62, min(70, h_cur_age))", src)
+        self.assertIn("w_floor = max(62, min(70, w_cur_age))", src)
         self.assertIn("project(c2)", src)
         self.assertNotIn("[67, 68, 69, 70]", src)
         self.assertNotIn("claim at age 70 to maximize", src)

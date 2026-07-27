@@ -3,7 +3,7 @@ section,subsection,label,value,units,notes,
 Other Assets,Home,value_as_of_plan_start,"$1,313,000",,,
 Other Assets,Home,appreciation_rate,3.00%,,,
 Other Assets,Home,section_121_exclusion_mfj,"$500,000",,,
-Other Assets,Home,home_sale_year,2037,,,
+Other Assets,Home,home_sale_year,0,,,
 Other Assets,Home,home_sale_price,"$1,750,000",,,
 Other Assets,Home,home_basis,"$800,000",,,
 Other Assets,Home,home_sale_proceeds_account,Member_2_Trust,,,
@@ -24,9 +24,11 @@ Other Assets,Autos,depreciation_years,7,,,
 ,,,,,,,
 ,,,,,,,
 ,,,,,,,
-,,,,,,,
 # -- Liquidity Buffer: year-ranged reserve rules --,,,,,,,
-,,,,,,,
+Liquidity Buffer,buffer_1,start_year,2027,year,First year this reserve rule applies; blank means plan start,,
+Liquidity Buffer,buffer_1,end_year,2029,year,Last year this reserve rule applies; blank means open-ended,,
+Liquidity Buffer,buffer_1,years_of_expenses,2,years,Years of expenses to retain as a reserve; default is 0,,
+Liquidity Buffer,buffer_1,reserve_account,Taxable/Trust,choice,Taxable/Trust | Roth | IRA | HSA | Cash; account bucket intended to preserve the reserve for this row,,
 ,,,,,,,
 ,,,,,,,
 ,,,,,,,
@@ -59,8 +61,8 @@ Other Assets,Other Asset 3,sell_date,,date,Optional planned sale date.
 ,,,,,,,
 HSA Policy,Withdrawals,hsa_withdrawal_mode,smooth_window,choice,spend_as_needed | annual_pct | smooth_window; default spend_as_needed uses HSA only when needed before Roth. annual_pct draws the configured percentage each active year. smooth_window spreads balance across start/end years.
 HSA Policy,Withdrawals,hsa_annual_spend_pct,10.00%,percent,Annual HSA draw percentage used only when hsa_withdrawal_mode is annual_pct.
-HSA Policy,Withdrawals,hsa_withdrawal_start_year,2035,year,Optional first year for annual_pct or smooth_window HSA draw policy. Leave blank to avoid a scheduled draw.
-HSA Policy,Withdrawals,hsa_withdrawal_end_year,2050,year,Optional last year for annual_pct or smooth_window HSA draw policy. Leave blank to avoid a scheduled draw.
+HSA Policy,Withdrawals,hsa_withdrawal_start_year,2031,year,Optional first year for annual_pct or smooth_window HSA draw policy. Leave blank to avoid a scheduled draw.
+HSA Policy,Withdrawals,hsa_withdrawal_end_year,2040,year,Optional last year for annual_pct or smooth_window HSA draw policy. Leave blank to avoid a scheduled draw.
 Education Funding,529 Plan 1,beneficiary,,text,Beneficiary name for this 529 plan.,
 Education Funding,529 Plan 1,current_balance,$0,dollars,Current 529 plan balance.,
 Education Funding,529 Plan 1,annual_contribution,$0,dollars,Annual 529 contribution.,
@@ -91,13 +93,12 @@ HSA Policy,Contributions,coverage_base_year_family_months,6,months,months of fam
 HSA Policy,Contributions,coverage_base_year_self_only_months,6,months,months of self-only/individual HDHP coverage in 2026,
 HSA Policy,Contributions,catchup_eligible,TRUE,boolean,TRUE if an HSA owner is age 55+ and eligible for the catch-up contribution,
 HSA Policy,Contributions,contribution_last_year,2026,year,last year HSA contributions are made (eligibility ends at Medicare enrollment),
-DAF,Settings,enabled,YES,,,
+DAF,Settings,enabled,TRUE,,,
 DAF,Settings,contribution_amount,"$20,000",,,
 DAF,Settings,contribution_year,2026,,,
 DAF,Settings,annual_grant_amount,"$4,000",,,
 DAF,Settings,grant_start_year,2027,,,
 DAF,Settings,grant_end_year,2031,,,
-DAF,Settings,contribution_is_appreciated,FALSE,bool,"TRUE if the DAF contribution is appreciated securities rather than cash: limits the year's deductible amount to 30% of AGI instead of 60%, with any excess carried forward up to 5 years."
 Hybrid LTC,Settings,enabled,FALSE,,,
 Hybrid LTC,Settings,face_value,"$500,000",,,
 Hybrid LTC,Settings,annual_premium,"$18,500",,,

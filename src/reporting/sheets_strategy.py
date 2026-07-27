@@ -243,7 +243,7 @@ def build_sheet10(ws, c, rows):
             'after_tax_terminal_nw': after_tax_terminal_nw,
             'lifetime_tax': lifetime_tax, 'lifetime_ss': lifetime_ss,
             'irmaa': irmaa, 'survivor_years': survivor_years,
-            'survivor_period_ss_income': survivor_period_ss_income, 'score': score,
+            'survivor_period_ss_income': survivor_period_ss_income, 'objective_value': score,
             'delta_terminal': terminal - base_terminal,
             'delta_tax': lifetime_tax - base_tax,
             'delta_ss': lifetime_ss - base_ss,
@@ -251,12 +251,30 @@ def build_sheet10(ws, c, rows):
             'mc_p10_terminal_nw': mc_p10_terminal_nw,
         }
 
+    # #230: never sweep a claim age the person has already passed -- ages
+    # before "today" in the plan can't actually be claimed anymore. Floor is
+    # clamped to 70 too so a person already past 70 still gets the single
+    # valid age-70 row instead of an empty range.
+    plan_start_yr = int(c.get('plan_start', 2026) or 2026)
+    h_cur_age = plan_start_yr - int(c.get('h_dob_yr', plan_start_yr - 62) or plan_start_yr - 62)
+    w_cur_age = plan_start_yr - int(c.get('w_dob_yr', plan_start_yr - 62) or plan_start_yr - 62)
+    h_floor = max(62, min(70, h_cur_age))
+    w_floor = max(62, min(70, w_cur_age))
+
     scenarios = []
-    for h_age in range(62, 71):
-        for w_age in range(62, 71):
+    for h_age in range(h_floor, 71):
+        for w_age in range(w_floor, 71):
             scenarios.append(_safe_project_pair(h_age, w_age))
-    scenarios.sort(key=lambda d: d['score'], reverse=True)
-    best = scenarios[0] if scenarios else {'h_age': h_current, 'w_age': w_current, 'score': 0.0}
+    scenarios.sort(key=lambda d: d['objective_value'], reverse=True)
+    # #200: normalize the raw dollar-scale objective into a 0-100 integer
+    # rank score, matching the "Score (0-100) ranks relative to this set"
+    # convention already used by the Roth-conversion candidate table below.
+    _obj_vals = [d['objective_value'] for d in scenarios]
+    _obj_lo, _obj_hi = (min(_obj_vals), max(_obj_vals)) if _obj_vals else (0.0, 0.0)
+    _obj_span = _obj_hi - _obj_lo
+    for d in scenarios:
+        d['rank_score'] = int(round(100 * (d['objective_value'] - _obj_lo) / _obj_span)) if _obj_span else 100
+    best = scenarios[0] if scenarios else {'h_age': h_current, 'w_age': w_current, 'objective_value': 0.0, 'rank_score': 0}
     current = next((x for x in scenarios if x['h_age'] == h_current and x['w_age'] == w_current), None)
 
     r = 3
@@ -278,30 +296,34 @@ def build_sheet10(ws, c, rows):
         r += 1
 
     r += 1
-    write_hdr(ws, r, 1, 'Top 10 claiming pairs — full projection ranking', NAVY, WHITE, span=14); r += 1
-    hdrs = ['Rank', 'H Claim', 'W Claim', 'Score', 'After-Tax Terminal NW', 'Survivor-Period SS Income', 'Terminal NW', 'Δ Terminal NW', 'Lifetime SS', 'Lifetime Tax', 'IRMAA', 'Survivor Years', 'MC Success %', 'MC P10 Terminal NW']
+    write_hdr(ws, r, 1, 'Top 10 claiming pairs — full projection ranking', NAVY, WHITE, span=15); r += 1
+    write_cell(ws, r, 1, 'Score (0-100) ranks these 81 claim-age pairs relative to each other (100 = best in this set). Objective Value is the underlying after-tax-wealth-plus-survivor-income figure the ranking is computed from -- a scoring unit, not a projected dollar outcome. Lifetime SS is a raw, undiscounted total across the whole plan horizon: it can be HIGHER for an earlier claim age even though delaying grows the monthly check, because delaying trades away entire years of checks for a larger one later (a breakeven-age effect, not a return comparison) -- Score already accounts for this by weighting survivor-period SS income instead of raw lifetime SS.', align='left')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=15)
+    ws.row_dimensions[r].height = 40
+    r += 1
+    hdrs = ['Rank', f'{_s1} Claim', f'{_s2} Claim', 'Score (0-100)', 'Objective Value', 'After-Tax Terminal NW', 'Survivor-Period SS Income', 'Terminal NW', 'Δ Terminal NW', 'Lifetime SS', 'Lifetime Tax', 'IRMAA', 'Survivor Years', 'MC Success %', 'MC P10 Terminal NW']
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
     r += 1
     for rank, sc in enumerate(scenarios[:10], 1):
-        vals = [rank, sc['h_age'], sc['w_age'], sc['score'], sc['after_tax_terminal_nw'], sc['survivor_period_ss_income'], sc['terminal_nw'], sc['delta_terminal'], sc['lifetime_ss'], sc['lifetime_tax'], sc['irmaa'], sc['survivor_years'], sc.get('mc_success_rate'), sc.get('mc_p10_terminal_nw')]
+        vals = [rank, sc['h_age'], sc['w_age'], sc['rank_score'], sc['objective_value'], sc['after_tax_terminal_nw'], sc['survivor_period_ss_income'], sc['terminal_nw'], sc['delta_terminal'], sc['lifetime_ss'], sc['lifetime_tax'], sc['irmaa'], sc['survivor_years'], sc.get('mc_success_rate'), sc.get('mc_p10_terminal_nw')]
         bg = 'E2EFDA' if rank == 1 else ('F4F5F7' if sc is current else None)
         for i, val in enumerate(vals, 1):
-            fmt = FMT_PCT if i == 13 else (FMT_DOLLAR if i >= 4 and i != 12 else None)
+            fmt = FMT_PCT if i == 14 else (FMT_DOLLAR if i >= 5 and i != 13 else None)
             write_cell(ws, r, i, val, fmt=fmt, bg=bg)
         r += 1
 
     r += 2
-    write_hdr(ws, r, 1, 'Complete 62–70 × 62–70 spouse-pair sweep', NAVY, WHITE, span=13); r += 1
-    hdrs = ['H Claim', 'W Claim', 'Score', 'After-Tax Terminal NW', 'Survivor-Period SS Income', 'Terminal NW', 'Δ Terminal NW', 'Lifetime SS', 'Lifetime Tax', 'IRMAA', 'Survivor Years', 'MC Success %', 'MC P10 Terminal NW']
+    write_hdr(ws, r, 1, 'Complete 62–70 × 62–70 spouse-pair sweep', NAVY, WHITE, span=14); r += 1
+    hdrs = [f'{_s1} Claim', f'{_s2} Claim', 'Score (0-100)', 'Objective Value', 'After-Tax Terminal NW', 'Survivor-Period SS Income', 'Terminal NW', 'Δ Terminal NW', 'Lifetime SS', 'Lifetime Tax', 'IRMAA', 'Survivor Years', 'MC Success %', 'MC P10 Terminal NW']
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
     r += 1
     for sc in sorted(scenarios, key=lambda d: (d['h_age'], d['w_age'])):
-        vals = [sc['h_age'], sc['w_age'], sc['score'], sc['after_tax_terminal_nw'], sc['survivor_period_ss_income'], sc['terminal_nw'], sc['delta_terminal'], sc['lifetime_ss'], sc['lifetime_tax'], sc['irmaa'], sc['survivor_years'], sc.get('mc_success_rate'), sc.get('mc_p10_terminal_nw')]
+        vals = [sc['h_age'], sc['w_age'], sc['rank_score'], sc['objective_value'], sc['after_tax_terminal_nw'], sc['survivor_period_ss_income'], sc['terminal_nw'], sc['delta_terminal'], sc['lifetime_ss'], sc['lifetime_tax'], sc['irmaa'], sc['survivor_years'], sc.get('mc_success_rate'), sc.get('mc_p10_terminal_nw')]
         bg = 'E2EFDA' if sc is best else ('F4F5F7' if sc is current else None)
         for i, val in enumerate(vals, 1):
-            fmt = FMT_PCT if i == 12 else (FMT_DOLLAR if i >= 3 and i != 11 else None)
+            fmt = FMT_PCT if i == 13 else (FMT_DOLLAR if i >= 4 and i != 12 else None)
             write_cell(ws, r, i, val, fmt=fmt, bg=bg)
         r += 1
 
@@ -1379,15 +1401,16 @@ def build_sheet14(ws, c, rows):
     r += 1
     cs_on  = c.get('cs_enabled', True)
     cs_bg  = 'E2EFDA' if cs_on else 'F4F5F7'
-    cs_amt = c.get('cs_amount', c.get('il_exempt', 4000000))
     il_exempt = c['il_exempt']
-    cs_tax_saved = min(cs_amt, il_exempt) * 0.08
+    cst_cap = c.get('il_cst_shelter_cap', il_exempt)
+    cs_amt = c.get('cs_amount', cst_cap)
+    cs_tax_saved = min(cs_amt, cst_cap) * 0.08
     write_hdr(ws, r, 1, f'Credit Shelter Trust (Bypass Trust)  [{"ENABLED" if cs_on else "DISABLED"}]',
               bg='375623' if cs_on else DGRAY, span=4); r += 1
     cs_rows = [
         ('Status',                  'ENABLED — Credit Shelter Trust in place' if cs_on else 'DISABLED'),
-        ('Funding Amount',          f'${cs_amt:,.0f} (= IL exemption amount)'),
-        ('Purpose',                 f'Assets bypass survivor estate for IL purposes. Preserves the ${il_exempt:,.0f} IL exemption.'),
+        ('Funding Amount',          f'${cs_amt:,.0f} (up to the ${cst_cap:,.0f} CST shelter cap)'),
+        ('Purpose',                 f'Assets bypass survivor estate for IL purposes, on top of (not instead of) the survivor\'s own separate ${il_exempt:,.0f} IL exemption applied later.'),
         ('Projected IL Tax Saved',  f'~${cs_tax_saved:,.0f} (approx 8% avg rate on ${cs_amt:,.0f} bypass amount)'),
         ('Mechanism',               'First-to-die funds trust up to IL exemption; survivor has limited access (income, HEMS); '
                                     'remainder passes to heirs free of IL estate tax'),

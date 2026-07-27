@@ -1097,7 +1097,11 @@ def save_budget_by_category(root, budget):
             kind = "category"
             out_key = str(key)
             label = flat.get(out_key, {}).get("label", out_key)
-        row_dict = {"kind": kind, "key": out_key, "label": label, "annual_budget": _safe_float(str((b or {}).get("annual_budget", ""))), "start_year": "", "end_year": "", "one_time_year": "", "notes": (b or {}).get("notes", "")}
+        # #231: category/group summary rows can carry a start/end year (e.g. a
+        # Travel group budget that stops after a certain year) -- previously
+        # hardcoded blank here, silently discarding whatever the UI sent on
+        # every save.
+        row_dict = {"kind": kind, "key": out_key, "label": label, "annual_budget": _safe_float(str((b or {}).get("annual_budget", ""))), "start_year": str((b or {}).get("start_year", "") or ""), "end_year": str((b or {}).get("end_year", "") or ""), "one_time_year": "", "notes": (b or {}).get("notes", "")}
         if (b or {}).get("_mode"):
             row_dict["_mode"] = (b or {}).get("_mode")
         rows.append(row_dict)

@@ -1,10 +1,9 @@
 match_value,match_field,exact,priority,category_id,source
 Anthropic,merchant,0,95,business_hardware_and_software,user
 Google One,merchant,0,95,business_hardware_and_software,user
-Hensley and Associates,merchant,0,95,business_services,user
+Hensley and Associates,merchant,0,95,office_supplies_expenses,user
 Google,merchant,0,90,business_hardware_and_software,user
-Gusto,merchant,0,90,business_services,user
-Large Gifts,category,1,60,significant_gifts,user
+Gusto,merchant,0,90,office_supplies_expenses,user
 401k Contribution,category,1,50,401k_contribution,seed
 401K Match,category,1,50,401k_match,seed
 Advertising & Promotion,category,1,50,advertising_promotion,seed
@@ -58,11 +57,11 @@ Garbage,category,1,50,garbage,seed
 Gas & Electric,category,1,50,gas_electric,seed
 Gifts - Family 12,category,1,50,gifts_family_12,seed
 Gifts - Other,category,1,50,gifts_other,seed
+Large Gifts,category,1,60,significant_gifts,user
 Groceries,category,1,50,groceries,seed
 Hair/Make-up,category,1,50,hair_make_up,seed
 Health Club,category,1,50,health_club,seed
 Healthcare Premium,category,0,50,pre65_wellness_premium,user
-Healthcare Premium,category,1,50,pre65_wellness_premium,seed
 Home Improvement,category,1,50,home_improvement,seed
 Home Maintenance,category,1,50,home_maintenance,seed
 Homeowners Insurance,category,1,50,ho_insurance,seed
@@ -111,4 +110,5 @@ Uncategorized,category,1,50,uncategorized,seed
 Vision,category,1,50,vision,seed
 Vitamins & Supplements,category,1,50,vitamins_supplements,seed
 Water,category,1,50,water,seed
+Healthcare Premium,category,1,50,pre65_wellness_premium,seed
 Business Services,category,1,45,business_services,user

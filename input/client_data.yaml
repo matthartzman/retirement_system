@@ -49,7 +49,7 @@ Account Titling:
   Member_1_Trust:
     contingent_beneficiary: ''
     primary_beneficiary: ''
-    titling: ''
+    titling: TRUST_TITLED
     trust_see_through: 'FALSE'
   Member_2_IRA:
     contingent_beneficiary: ''
@@ -64,7 +64,7 @@ Account Titling:
   Member_2_Trust:
     contingent_beneficiary: ''
     primary_beneficiary: ''
-    titling: ''
+    titling: TRUST_TITLED
     trust_see_through: 'FALSE'
 Annuity Death Benefits:
   '2026':
@@ -351,13 +351,13 @@ DAF:
     contribution_amount: $20,000
     contribution_is_appreciated: 'FALSE'
     contribution_year: '2026'
-    enabled: 'TRUE'
+    enabled: 'YES'
     grant_end_year: '2031'
     grant_start_year: '2027'
 Economic Assumptions:
   ? ''
   : annuity_default_additional_income_pct: 20.00%
-    annuity_default_dividend_rate: 5.00%
+    annuity_default_dividend_rate: 5.25%
     cash_yield_rate: 1.00%
     fed_tax_bracket_inflator: 2.00%
     inflation_general: 2.50%
@@ -419,9 +419,11 @@ Equity Compensation:
     vest_schedule: 25%/yr starting 2025
 Estate Planning:
   Credit Shelter Trust:
-    amount: $4,000,000
+    amount: $8,000,000
     enabled: 'TRUE'
-    note: Funds up to IL exemption bypasses survivor estate for IL tax
+    note: Funds up to the CST shelter cap; bypasses survivor estate for IL tax on
+      top of the survivor's own separate IL exemption
+    shelter_cap: $8,000,000
   Federal:
     exemption_mfj: $30,000,000
     portability_enabled: 'TRUE'
@@ -467,7 +469,7 @@ Forced Actions:
     year: '2026'
 HELOC:
   Setup:
-    heloc_credit_limit: $200,000
+    heloc_credit_limit: '199000'
     heloc_draw_end_year: '2029'
     heloc_enabled: 'NO'
     heloc_initial_rate_pct: 8.50%
@@ -490,9 +492,9 @@ HSA Policy:
     withdrawal_window: 2031-2040
   Withdrawals:
     hsa_annual_spend_pct: 10.00%
-    hsa_withdrawal_end_year: '2040'
+    hsa_withdrawal_end_year: '2050'
     hsa_withdrawal_mode: smooth_window
-    hsa_withdrawal_start_year: '2031'
+    hsa_withdrawal_start_year: '2035'
 Household:
   ? ''
   : filing_status: MFJ
@@ -506,7 +508,7 @@ Household:
     member_2_name: Patricia
     member_2_nickname: Pat
     member_2_retirement_date: 2/28/2024
-    residence_state: Illinois
+    residence_state: Florida
     survivor_filing_status: Single
     survivor_has_dependent: 'FALSE'
 Housing:
@@ -519,18 +521,18 @@ Housing:
     utilities_annual: $2,100
   next_step_1:
     city_type: ''
-    down_payment: ''
+    down_payment: 80%
     end_year: ''
     hoa_pct: ''
     insurance_annual: ''
     maintenance_annual: ''
     monthly_rent: ''
-    mortgage_rate_pct: ''
+    mortgage_rate_pct: 7%
     population_size: ''
-    purchase_price: ''
+    purchase_price: '1000000'
     re_tax_pct: ''
-    start_year: ''
-    state: ''
+    start_year: '2038'
+    state: Florida
     type: ''
     utilities_annual: ''
   next_step_2:
@@ -540,14 +542,14 @@ Housing:
     hoa_pct: ''
     insurance_annual: ''
     maintenance_annual: ''
-    monthly_rent: ''
+    monthly_rent: '4000'
     mortgage_rate_pct: ''
     population_size: ''
     purchase_price: ''
     re_tax_pct: ''
-    start_year: ''
-    state: ''
-    type: ''
+    start_year: '2040'
+    state: Illinois
+    type: rent
     utilities_annual: ''
 Hybrid LTC:
   Settings:
@@ -560,32 +562,32 @@ Income Streams:
   Joint-and-Survivor Percentage:
     js_pct: 100%
   Member 1 Joint Annuity:
-    additional_income_pct: 20.00%
+    additional_income_pct: ''
     base: $860,000
     deferral_years: '4'
-    dividend_rate: 5.00%
+    dividend_rate: ''
     first_payment: 8/3/2029
     initial_guaranteed_income_payment: 2,765.82
     payout_type: fixed
     qualified: 'TRUE'
   Member 1 Single Annuity:
-    additional_income_pct: 20.00%
+    additional_income_pct: ''
     base: $70,132.07
     deferral_years: '4'
-    dividend_rate: 5.00%
+    dividend_rate: ''
     exclusion_ratio: '0.789'
     first_payment: 8/3/2029
     initial_guaranteed_income_payment: $395.15
     payout_type: fixed
     qualified: 'FALSE'
   Member 2 Joint Annuity:
-    additional_income_pct: 20.00%
+    additional_income_pct: ''
     base: $355,000
     deferral_years: '2'
-    dividend_rate: 5.00%
+    dividend_rate: ''
     first_payment: 5/30/2028
     initial_guaranteed_income_payment: $1,071.33
-    payout_type: fixed
+    payout_type: Fixed
     qualified: 'TRUE'
   Member 2 Pension:
     additional_income_pct: 20.00%
@@ -596,11 +598,11 @@ Income Streams:
     payout_type: fixed
     qualified: 'TRUE'
   Member 2 Single Annuity:
-    additional_income_pct: 20.00%
+    additional_income_pct: ''
     base: $41,559.86
     deferral_dampening: '0.513'
     deferral_years: '5'
-    dividend_rate: 5.00%
+    dividend_rate: ''
     exclusion_ratio: '0.738'
     first_payment: 5/30/2029
     initial_guaranteed_income_payment: $235.41
@@ -681,12 +683,6 @@ Insurance In Force:
     policy_count: '0'
   Umbrella Liability:
     policy_count: '0'
-Liquidity Buffer:
-  buffer_1:
-    end_year: '2029'
-    reserve_account: Taxable/Trust
-    start_year: '2027'
-    years_of_expenses: '2'
 Model Constants:
   Allocation:
     cash_target_pct: '0.05'
@@ -711,8 +707,8 @@ Model Constants:
     selling_cost_pct: 6.00%
   IRMAA:
     h_ssa44_relief_year: ''
-    irmaa_actual_magi_1yr_prior: ''
-    irmaa_actual_magi_2yr_prior: ''
+    irmaa_actual_magi_1yr_prior: '386657'
+    irmaa_actual_magi_2yr_prior: '365569'
     irmaa_annual_inflator: 2.00%
     irmaa_tier2_mfj_base_year: '268000'
     w_ssa44_relief_year: ''
@@ -772,13 +768,14 @@ Optional Functions:
     equity_compensation: 'FALSE'
     estate_legacy_plan: 'TRUE'
     existing_life_insurance: 'FALSE'
-    glossary: 'TRUE'
+    gain_harvesting: 'TRUE'
+    glossary: 'FALSE'
     life_insurance_need: 'TRUE'
-    lifetime_tax_projection: 'YES'
+    lifetime_tax_projection: 'TRUE'
     long_term_care_stress: 'TRUE'
     market_luck_stress_test: 'TRUE'
-    methodology_rerun: 'YES'
-    property_casualty_umbrella: 'YES'
+    methodology_rerun: 'FALSE'
+    property_casualty_umbrella: 'FALSE'
     retirement_strategy: 'TRUE'
     rmd_audit: 'TRUE'
     roth_conversion_plan: 'TRUE'
@@ -786,6 +783,7 @@ Optional Functions:
     special_needs_planning: 'FALSE'
     state_residency: 'TRUE'
     survivor_stress_test: 'TRUE'
+    tax_loss_harvesting: 'TRUE'
     what_if_analysis: 'TRUE'
 Other Assets:
   Autos:
@@ -799,7 +797,7 @@ Other Assets:
     home_basis: $800,000
     home_sale_price: $1,750,000
     home_sale_proceeds_account: Member_2_Trust
-    home_sale_year: '0'
+    home_sale_year: '2037'
     section_121_exclusion_mfj: $500,000
     value_as_of_plan_start: $1,313,000
   Other Asset 1:
@@ -933,7 +931,7 @@ Social Security:
     ss_funding_discount_pct: 22.00%
     ss_funding_discount_year: '2032'
   Member 1:
-    claim_age: '69'
+    claim_age: '65'
     fra_age: '67.00'
     monthly_pia_at_fra_today_dollars: '4050'
     ss_benefit_age_62: $2,835
@@ -946,7 +944,7 @@ Social Security:
     ss_benefit_age_69: $4,698
     ss_benefit_age_70: $5,022
   Member 2:
-    claim_age: '69'
+    claim_age: '66'
     fra_age: '67.00'
     monthly_pia_at_fra_today_dollars: '3359'
     ss_benefit_age_62: $2,351
@@ -1014,15 +1012,15 @@ Withdrawal Policy:
     max_conversion_years: '10'
     pre_tax_bequest_penalty_pct: 15.00%
     roth_bequest_preference_bonus_pct: 5.00%
-    roth_bracket_strategy: FILL_TARGET_BRACKET
-    roth_conversion_policy: fill_to_bracket
+    roth_bracket_strategy: OPTIMIZER_CHOOSES
+    roth_conversion_policy: optimize_terminal_tax
     roth_conversion_target_bracket_base_year: 22.00%
-    roth_fixed_annual_amount: $0
+    roth_fixed_annual_amount: ''
     roth_headroom_usage_pct: 100.00%
     roth_irmaa_cap: 'TRUE'
     roth_irmaa_headroom_usage_pct: 100.00%
     roth_irmaa_target_tier: TIER_2
-    roth_objective_mode: MAXIMIZE_TERMINAL_NET_WORTH
+    roth_objective_mode: BALANCED_RETIREMENT
     roth_optimize_lifetime_tax_weight: '0.25'
     roth_optimize_terminal_pretax_tax_rate: 22.00%
     roth_optimize_terminal_weight: '1.00'

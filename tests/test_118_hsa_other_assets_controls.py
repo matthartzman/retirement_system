@@ -10,8 +10,13 @@ def read(rel: str) -> str:
 def test_hsa_withdrawal_timing_lives_on_other_assets_page():
     js = read("frontend/js/dashboard.js")
     assert "function renderHsaPolicyOnOtherAssets" in js
-    assert "HSA Withdrawal Timing" in js
+    # #213: consolidated into one collapsible "HSA" section (was up to 4
+    # separate <details>); withdrawal timing is the first sub-block inside it.
+    assert "<details><summary>HSA</summary>" in js
     assert "choose how the HSA is used in Cash Flow" in js
+    # #213: start year must sort before end year (was reversed by the
+    # generic dependency sort's alphabetical tie-break, "end" < "start").
+    assert 'norm(r.label) === "hsa_withdrawal_start_year"\n        ? 0' in js
     assert 'case "assets_special":\n        return (\n          (sec === "Other Assets" && sub.startsWith("other_asset")) ||\n          (sec === "HSA Policy" && sub !== "window")' in js
     assert 'case "withdrawal_strategy":\n        return sec === "Withdrawal Policy" && sub !== "roth_conversion";' in js
     assert "HSA withdrawal timing is controlled on Other → Other assets" in js

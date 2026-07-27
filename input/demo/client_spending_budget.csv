@@ -74,7 +74,6 @@ category,charitable_donations,Charitable Donations,5000,,,,,,,
 category,children_weddings,Children Weddings,,,,,,,,
 category,recurring_travel,Recurring Travel Projection,,,,,,,,
 group,Travel::Travel,Travel,25000,,,,,summary,,
-group,Large Discretionary::Large Gifts,Large Gifts,40000,,,,,detail,,
 line,weddings,Rebecca,100000,,,2027,Seeded from large discretionary extras,,category_budget,detail
 line,weddings,Max,50000,,,2028,Seeded from large discretionary extras,,category_budget,detail
 line,weddings,Grace,100000,,,2032,Seeded from large discretionary extras,,category_budget,detail

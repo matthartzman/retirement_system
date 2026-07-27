@@ -1,0 +1,62 @@
+keyword,category_id,match_field,exact,priority
+Auto Fuel,auto_fuel,category,1,60
+Auto Insurance,auto_insurance_2,category,1,60
+Auto Maintenance,auto_maintenance,category,1,60
+Car Wash,car_wash,category,1,60
+Parking & Tolls,parking_tolls_2,category,1,60
+Taxi & Ride Shares,taxi_ride_shares,category,1,60
+Cash & ATM,cash_atm,category,1,60
+Financial & Legal Services,financial_legal_services,category,1,60
+Financial Fees,financial_fees,category,1,60
+Coffee Shops,coffee_shops_2,category,1,60
+Fast Food,fast_food_2,category,1,60
+Groceries,groceries_2,category,1,60
+Restaurants & Bars,restaurants_bars,category,1,60
+Church,church,category,1,60
+Donation,donation,category,1,60
+Gifts - Family 12,gifts_family_12,category,1,60
+Gifts - Other,gifts_other,category,1,60
+Exercise & Health Equipment,exercise_health_equipment,category,1,60
+Health Club,health_club,category,1,60
+Vitamins & Supplements,vitamins_supplements,category,1,60
+Check,check,category,1,60
+Miscellaneous,miscellaneous,category,1,60
+Uncategorized,uncategorized,category,1,60
+Clothing & Jewelry,clothing_jewelry,category,1,60
+Electronics,electronics_2,category,1,60
+Shopping,shopping,category,1,60
+Cubs Tickets,cubs_tickets,category,1,60
+Dermatologist,dermatologist,category,1,60
+Entertainment & Recreation,entertainment_recreation,category,1,60
+Hair/Make-up,hair_make_up,category,1,60
+Mani-Pedi,mani_pedi,category,1,60
+Movie Theater,movie_theater,category,1,60
+Personal,personal,category,1,60
+Drugs - Rx and OTC,drugs_rx_and_otc,category,1,60
+Healthcare Premium,pre65_wellness_premium,category,1,60
+Medical,medical,category,1,60
+Garbage,garbage,category,1,60
+Gas & Electric,gas_electric,category,1,60
+Internet & Cable,internet_cable,category,1,60
+Phone,phone,category,1,60
+Sewer,sewer,category,1,60
+Water,water,category,1,60
+Furniture/Home Decor/Kitchenware,furniture_home_decor_kitchenware,category,1,60
+Home Improvement,home_improvement,category,1,60
+Home Maintenance,home_maintenance,category,1,60
+House Cleaning,house_cleaning,category,1,60
+Lawn Service/Garden/Flowers,lawn_service_garden_flowers,category,1,60
+Mortgage,mortgage,category,1,60
+Pest Control,pest_control_2,category,1,60
+Travel & Vacation,travel_vacation,category,1,60
+Travel - Housing,travel_housing,category,1,60
+Travel - Insurance,travel_insurance,category,1,60
+Travel - Plane/Train/Bus,travel_plane_train_bus,category,1,60
+Business Auto Expenses,business_auto_expenses,category,1,60
+Business Events,business_events,category,1,60
+Business Hardware and Software,business_hardware_and_software,category,1,60
+Business Memberships,business_memberships,category,1,60
+Business Services,business_services,category,1,60
+Business Taxi - Uber,business_taxi_uber,category,1,60
+Business Travel & Meals,business_travel_meals,category,1,60
+Office Supplies & Expenses,office_supplies_expenses,category,1,60

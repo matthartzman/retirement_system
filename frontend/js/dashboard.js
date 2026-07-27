@@ -138,7 +138,7 @@ const STEPS = [
   {
     id: "annuity_death_benefits",
     group: "Assets & Protection",
-    title: "Special Income, Annuities & Insurance",
+    title: "Insurance",
     desc: "Year-by-year carrier illustration values for annuities and special income, plus all insurance policies (life, disability, long-term care, umbrella, auto, home, property and casualty, and other).",
     intro:
       "Enter values from each policy illustration; use 0 for years with no benefit. These totals appear in the Survivor and Estate report sections. All insurance policy details — owner, insured, beneficiary, face amount, and premiums, across life and protection policy types — are entered here as well.",
@@ -159,7 +159,7 @@ const STEPS = [
     title: "Estate Inputs",
     desc: "Federal and state exemptions, trust structure, beneficiary needs, lifetime gifting, and charitable intent.",
     intro:
-      "Estate tax exposure is estimated from current exemptions and projected asset values at each mortality date. Trust structure choices affect how assets pass to the survivor and to beneficiaries. Insurance policies (life, disability, long-term care, umbrella, and property and casualty) are entered on Special Income, Annuities & Insurance.",
+      "Estate tax exposure is estimated from current exemptions and projected asset values at each mortality date. Trust structure choices affect how assets pass to the survivor and to beneficiaries. Insurance policies (life, disability, long-term care, umbrella, and property and casualty) are entered on Insurance.",
     help: "The federal exemption can change with law updates — confirm the current-law amount in Settings and model the impact of any reduction in Scenarios. Long-term-care hybrid policies with an investment component should also appear on Other assets.",
   },
   {
@@ -485,6 +485,7 @@ const ACRONYMS = {
   qcd: "QCD",
   qbi: "QBI",
   w2: "W-2",
+  se: "SE",
   s_corp: "S-Corp",
   sdi: "SDI",
   ssdi: "SSDI",
@@ -718,12 +719,12 @@ const STEP_HELP = {
   estate: pageHelp(
     "Estate inputs",
     "This page captures estate-tax, trust, beneficiary, legacy-planning, and gifting assumptions. It tells the model how assets should be interpreted after death or for survivor planning.",
-    "Federal/state exemptions, CST/QTIP settings, beneficiary needs, special-needs planning, gifting, and charitable intent connect to legacy value, estate-tax exposure, survivor analysis, Roth strategy scoring, and executor-oriented workbook notes. Insurance policies (life, disability, long-term care, umbrella, and property and casualty) are entered on Special Income, Annuities & Insurance.",
+    "Federal/state exemptions, CST/QTIP settings, beneficiary needs, special-needs planning, gifting, and charitable intent connect to legacy value, estate-tax exposure, survivor analysis, Roth strategy scoring, and executor-oriented workbook notes. Insurance policies (life, disability, long-term care, umbrella, and property and casualty) are entered on Insurance.",
     "Use monitor/balanced/strong estate objectives depending on whether estate tax is a watch item or a decision driver. Enter trust and beneficiary facts only when they are part of the intended plan.",
     "More aggressive estate-tax planning may reduce projected estate tax and improve legacy quality, but can reduce flexibility if assets are transferred, restricted, or earmarked too early.",
   ),
   annuity_death_benefits: pageHelp(
-    "Special Income, Annuities & Insurance",
+    "Insurance",
     "This page records policy-by-year death benefits for annuities or riders, and all insurance policy details (life, disability, long-term care, umbrella, auto, home, property and casualty, and other). It combines a year-by-year schedule with individual policy records — not a generic account balance table.",
     "Each annuity policy row connects to survivor, estate, and legacy reporting. Year columns show how protection changes over time and whether a benefit disappears before the end of the plan. Policy premiums connect to cash flow each year; benefit amounts appear in the Survivor and Long-Term Care Stress report sections.",
     "Enter the carrier illustration values for each year for annuities. Use 0 when no death benefit is available in that year. For any insurance policy, use policy type, premium end, term end, benefit amount, and owner/insured fields consistently. Keep policy names consistent with other insurance/annuity entries.",
@@ -1565,6 +1566,8 @@ function friendlyGroup(r) {
       norm(r.label) === "reinvest_dividends_default")
   )
     return "Dividend Reinvestment";
+  // #239: moved here from Economic & Tax Assumptions' Retirement section.
+  if (norm(r.label) === "rollover_401k_year") return "Retirement Contributions";
   if (
     r.section === "Other Assets" &&
     norm(r.subsection).startsWith("other_asset")
@@ -1702,6 +1705,14 @@ function currentKpi(summary) {
       summary.mc_success,
       summary.monte_carlo_success,
       summary.success_rate,
+    ),
+    // #202: success_rate requires BOTH not running out of money AND keeping
+    // the configured reserve floor -- success_rate_no_ruin drops the reserve
+    // requirement so a change to the reserve setting doesn't get misread as
+    // a change in the plan's actual resilience.
+    mc_success_no_ruin: firstFinite(
+      summary.mc_success_no_ruin,
+      summary.success_rate_no_ruin,
     ),
     total_roth_conversions: deriveTotalRothConversions(summary),
     blended_return_info: firstFinite(summary.blended_return_info),
@@ -2352,6 +2363,7 @@ function impactCardHtml(
   valueFormatter,
   help,
   deltaFormatter = fmtDelta,
+  invert = false,
 ) {
   const headline = Number.isFinite(Number(delta))
     ? deltaFormatter(delta)
@@ -2366,7 +2378,16 @@ function impactCardHtml(
     : Number(afterVal) < 0;
   const bNeg = Number(beforeVal) < 0,
     aNeg = Number(afterVal) < 0;
-  return `<div class="impact-card"><span>${esc(title)}</span><b class="${hNeg ? "negative-money" : ""}">${headline}</b><div class="impact-headline-label">${headlineLabel}</div><div class="impact-row"><span>Before</span><strong class="${bNeg ? "negative-money" : ""}">${valueFormatter(beforeVal)}</strong></div><div class="impact-row"><span>After</span><strong class="${aNeg ? "negative-money" : ""}">${valueFormatter(afterVal)}</strong></div>${help ? `<div class="small">${esc(help)}</div>` : ""}</div>`;
+  // #233: headline goes green when it moved the good direction, red when it
+  // moved the bad direction, and stays neutral (black) at zero/unavailable.
+  // `invert` flips which direction is "good" (e.g. Lifetime Taxes: down is good).
+  const dNum = Number(delta);
+  let headlineColorClass = "";
+  if (Number.isFinite(dNum) && dNum !== 0) {
+    const isGood = invert ? dNum < 0 : dNum > 0;
+    headlineColorClass = isGood ? "positive-money" : "negative-money";
+  }
+  return `<div class="impact-card"><span>${esc(title)}</span><b class="${headlineColorClass}">${headline}</b><div class="impact-headline-label">${headlineLabel}</div><div class="impact-row"><span>Before</span><strong class="${bNeg ? "negative-money" : ""}">${valueFormatter(beforeVal)}</strong></div><div class="impact-row"><span>After</span><strong class="${aNeg ? "negative-money" : ""}">${valueFormatter(afterVal)}</strong></div>${help ? `<div class="small">${esc(help)}</div>` : ""}</div>`;
 }
 function buildImpactCardsHtml(before, after) {
   const dNw =
@@ -2376,11 +2397,6 @@ function buildImpactCardsHtml(before, after) {
   const dTax =
     Number.isFinite(after.lifetime_tax) && Number.isFinite(before.lifetime_tax)
       ? after.lifetime_tax - before.lifetime_tax
-      : null;
-  const dAfterTax =
-    Number.isFinite(after.after_tax_terminal_nw) &&
-    Number.isFinite(before.after_tax_terminal_nw)
-      ? after.after_tax_terminal_nw - before.after_tax_terminal_nw
       : null;
   const mcBefore = Number.isFinite(before.mc_success)
     ? before.mc_success * 100
@@ -2392,6 +2408,20 @@ function buildImpactCardsHtml(before, after) {
     Number.isFinite(mcAfter) && Number.isFinite(mcBefore)
       ? mcAfter - mcBefore
       : null;
+  // #202: success_rate also requires keeping the configured reserve floor, so
+  // a reserve-setting change can move this number even when the plan's real
+  // chance of running out of money didn't change. Show the no-ruin figure
+  // alongside so that distinction isn't lost.
+  const mcNoRuinBefore = Number.isFinite(before.mc_success_no_ruin)
+    ? before.mc_success_no_ruin * 100
+    : before.mc_success_no_ruin;
+  const mcNoRuinAfter = Number.isFinite(after.mc_success_no_ruin)
+    ? after.mc_success_no_ruin * 100
+    : after.mc_success_no_ruin;
+  const noRuinNote =
+    Number.isFinite(mcNoRuinBefore) || Number.isFinite(mcNoRuinAfter)
+      ? `<div class="small">Without the reserve-floor requirement (ran out of money at all): ${Number.isFinite(mcNoRuinBefore) ? fmtPct(mcNoRuinBefore) : "—"} → ${Number.isFinite(mcNoRuinAfter) ? fmtPct(mcNoRuinAfter) : "—"}</div>`
+      : "";
   const riskCard =
     Number.isFinite(mcAfter) || Number.isFinite(mcBefore)
       ? impactCardHtml(
@@ -2400,19 +2430,26 @@ function buildImpactCardsHtml(before, after) {
           mcBefore,
           mcAfter,
           fmtPct,
-          "Higher is generally better. This is the clearest risk-adjusted plan outcome when Monte Carlo results are available.",
+          "Higher is generally better. This is the clearest risk-adjusted plan outcome when Monte Carlo results are available. Requires both not running out of money and keeping the configured reserve floor every year.",
           fmtPctDelta,
-        )
+        ) + noRuinNote
       : `<div class="impact-card"><span>Risk indicator</span><b>Not available</b><div class="impact-row"><span>Before</span><strong>${Number.isFinite(before.blended_return_info) ? fmtPct(before.blended_return_info) : "Not available"}</strong></div><div class="impact-row"><span>After</span><strong>${Number.isFinite(after.blended_return_info) ? fmtPct(after.blended_return_info) : "Not available"}</strong></div><div class="small">Probability of success was not available for this comparison.</div></div>`;
-  const afterTaxCard = impactCardHtml(
-    "Post-Tax Inheritance (PTI)",
-    dAfterTax,
-    before.after_tax_terminal_nw,
-    after.after_tax_terminal_nw,
-    fmtMoney,
-    "Post-Tax Inheritance (PTI): gross terminal net worth minus the embedded taxes heirs would owe — deferred ordinary tax on remaining pre-tax retirement assets and deferred capital-gains tax on taxable brokerage assets. PTI is what beneficiaries actually keep, so it jointly rewards higher terminal net worth and lower taxes.",
-  );
-  return `<div class="impact-grid impact-grid-four">${impactCardHtml("Terminal net worth", dNw, before.terminal_nw, after.terminal_nw, fmtMoney, "Gross projected terminal net worth before embedded tax on remaining pre-tax assets.")} ${impactCardHtml("Lifetime taxes", dTax, before.lifetime_tax, after.lifetime_tax, fmtMoney, "Estimated taxes paid during the projection.")} ${afterTaxCard} ${riskCard}</div>`;
+  // #225: Post-Tax Inheritance was shown as its own headline card here AND
+  // separately on Estate & Legacy Plan, computed at a different point in the
+  // timeline (terminal plan year here vs. second-death year there) -- the two
+  // numbers legitimately differ and showing both as equivalent headline
+  // figures reads as a bug. Keep PTI as the Estate & Legacy Plan's own
+  // number; here, only note the estate-tax bite on the Terminal Net Worth
+  // card, and only when it's actually nonzero.
+  const afterEstateTax = Number.isFinite(after.after_tax_terminal_nw) && Number.isFinite(after.post_tax_inheritance)
+    ? after.after_tax_terminal_nw - after.post_tax_inheritance
+    : null;
+  const estateTaxNote =
+    afterEstateTax !== null && Math.abs(afterEstateTax) > 0.5
+      ? `<div class="small">Post-inheritance (estate) tax reduces this by ${fmtMoney(afterEstateTax)} to ${fmtMoney(after.post_tax_inheritance)} for heirs. See Estate &amp; Legacy Plan for the figure at second death.</div>`
+      : "";
+  const nwCard = impactCardHtml("Terminal net worth", dNw, before.terminal_nw, after.terminal_nw, fmtMoney, "Gross projected terminal net worth before embedded tax on remaining pre-tax assets: deferred ordinary tax on pre-tax retirement accounts plus deferred capital-gains tax on taxable brokerage assets.") + estateTaxNote;
+  return `<div class="impact-grid impact-grid-four">${nwCard} ${impactCardHtml("Lifetime taxes", dTax, before.lifetime_tax, after.lifetime_tax, fmtMoney, "Estimated taxes paid during the projection.", fmtDelta, true)} ${riskCard}</div>`;
 }
 
 function impactDirectionWord(delta, kind) {
@@ -3155,7 +3192,7 @@ function chatMessageHtml(m) {
 function renderWorkbenchStressHtml() {
   let html = '<div class="wb-stress-suite">';
   html +=
-    '<details open><summary><b>Probability Analysis (Monte Carlo)</b><span class="small"> engine mode, trial count, and volatility settings</span></summary>' +
+    '<details><summary><b>Probability Analysis (Monte Carlo)</b><span class="small"> engine mode, trial count, and volatility settings</span></summary>' +
     analysisFrame(renderMonteCarloOptions(), "stress") +
     "</details>";
   html +=
@@ -3804,7 +3841,12 @@ function rawRowsForStep(id) {
               sub === "self_employment" ||
               sub === "s_corp" ||
               sub === "retirement_contributions")) ||
-          sec === "Payroll Tax"
+          sec === "Payroll Tax" ||
+          // #239: moved here from Economic & Tax Assumptions' Retirement
+          // section (its own section is "Model Constants", not "Cashflow" --
+          // grouped under "Retirement Contributions" via friendlyGroup
+          // regardless of its actual "Retirement" subsection).
+          lbl === "rollover_401k_year"
         );
       case "income_retirement":
         return sec === "Income Streams" || sec === "Social Security";
@@ -3888,13 +3930,29 @@ function rawRowsForStep(id) {
       case "economic_tax_assumptions":
         return (
           !rowIsHomeSaleAssumption(r) &&
-          (sec === "Economic Assumptions" ||
+          ((sec === "Economic Assumptions" &&
+            // #235: reinvest_dividends_default/cash_yield_rate moved to
+            // Investment Holdings -- a per-holding-account behavior, not a
+            // system-wide economic assumption.
+            !["reinvest_dividends_default", "cash_yield_rate"].includes(lbl)) ||
             sec === "Account Policy" ||
-            sec === "Payroll Tax" ||
+            // #238/#237: Payroll Tax / Medicare and / Self-Employment (FICA
+            // rates) already live on Work Income (sec === "Payroll Tax" is
+            // unconditional there) -- were also showing here, the same
+            // editable fields in two places.
+            (sec === "Payroll Tax" &&
+              !["medicare", "self_employment"].includes(sub)) ||
             (sec === "Wellness" && !rowIsRetirementWellness(r)) ||
             (sec === "Model Constants" &&
               ["retirement", "capital_gains"].includes(sub) &&
-              lbl !== "spending_freeze_year"))
+              // #239: rollover_401k_year moved to Work Income; RMD start ages
+              // moved to the Household & People table.
+              ![
+                "spending_freeze_year",
+                "rollover_401k_year",
+                "member_1_rmd_start_age",
+                "member_2_rmd_start_age",
+              ].includes(lbl)))
         );
       case "scenarios":
         return (
@@ -4446,7 +4504,7 @@ function inactiveValuesPanel(stepId) {
     items.length > 12
       ? `<p class="small">${items.length - 12} additional inactive value${items.length - 12 === 1 ? "" : "s"} are hidden from this summary. Use page search or All assumptions to review broader configuration.</p>`
       : "";
-  return `<details class="inactive-values-panel" open><summary>${title}: ${items.length} saved value${items.length === 1 ? "" : "s"} not used by the next build</summary><div class="inactive-values-body"><p class="small">Inactive values are saved in Plan Data but are hidden as ordinary inputs because the current build settings will not consume them. Use the action column only when you intentionally want to change the controlling setting or value so the build starts using it.</p><div class="lot-table-wrap"><table class="lot-table inactive-values-table"><thead><tr><th>Inactive value</th><th>Saved value</th><th>Why inactive</th><th>What would activate it</th><th>Likely effect on impacts</th><th></th></tr></thead><tbody>${rowsHtml}</tbody></table></div>${more}</div></details>`;
+  return `<details class="inactive-values-panel"><summary>${title}: ${items.length} saved value${items.length === 1 ? "" : "s"} not used by the next build</summary><div class="inactive-values-body"><p class="small">Inactive values are saved in Plan Data but are hidden as ordinary inputs because the current build settings will not consume them. Use the action column only when you intentionally want to change the controlling setting or value so the build starts using it.</p><div class="lot-table-wrap"><table class="lot-table inactive-values-table"><thead><tr><th>Inactive value</th><th>Saved value</th><th>Why inactive</th><th>What would activate it</th><th>Likely effect on impacts</th><th></th></tr></thead><tbody>${rowsHtml}</tbody></table></div>${more}</div></details>`;
 }
 
 const RECOMMENDATION_ENGINE_VERSION = "page_recommendations_v1";
@@ -5804,6 +5862,10 @@ function finishEdit(idx, el) {
   }
 }
 const FIELD_TOOLTIPS = {
+  holding_period_allocation_enabled:
+    "Nudges the recommended mix toward cash for money you'll need soon, and toward stocks for money you won't touch for years. Click for the full explanation.",
+  portability_enabled:
+    "Lets a surviving spouse use a deceased spouse's unused federal exemption. Federal only — most states don't honor it. Click for the full explanation.",
   portfolio_nominal_return:
     "Historical average: 6–7%. Conservative planners use 5–6%.",
   nominal_return: "Historical average: 6–7%. Conservative planners use 5–6%.",
@@ -5996,8 +6058,23 @@ function fieldFinderCategoryOrder() {
   return order;
 }
 function renderFieldFinderGroups(rs) {
+  // #241: Travel's budget fields (group amount, start/end year, large-item
+  // lines) live in a separate client-side store (taxBudget/budgetLines), not
+  // the Plan Data `rows` this page searches, so a "travel" search here always
+  // came up empty. Point to the real page instead of faking an editable row.
+  const _ffQ = norm(searchText || "");
+  const travelPointer =
+    _ffQ && "travel".includes(_ffQ)
+      ? `<div class="section-note">Travel budget (annual amount, start/end year) and Travel transaction detail are on <a href="#" onclick="setStep('lifestyle_spending');return false">Other Spending</a> — not indexed here yet.</div>`
+      : "";
   if (!rs.length)
-    return '<div class="field-list"><p>No fields match.</p></div>';
+    return (
+      travelPointer ||
+      '<div class="field-list"><p>No fields match.</p></div>'
+    );
+  // (travelPointer, if any, is appended after the matched groups below --
+  // some other field's note text can incidentally contain "travel" too, so
+  // rs isn't necessarily empty even though no real Travel row exists.)
   const seen = new Set();
   const deduped = rs.filter((r) => {
     const key = [r.section || "", r.subsection || "", r.label || ""].join(
@@ -6051,7 +6128,7 @@ function renderFieldFinderGroups(rs) {
       .join("");
     html += `<details><summary><b>${esc(g.name)}</b><span class="small"> ${g.rows.length} field${g.rows.length === 1 ? "" : "s"}</span></summary><div class="field-list">${body}</div></details>`;
   });
-  return html;
+  return travelPointer + html;
 }
 function renderFieldGroups(rs) {
   if (!rs.length)
@@ -6755,7 +6832,7 @@ function renderAllocationPolicy() {
   const rs = allocationPolicyRows();
   if (!rs.length)
     return '<div class="holdings"><div class="field-list"><p>No optimizer input rows were found. Reload the current plan so optimizer inputs can be backfilled.</p></div></div>';
-  return `<div class="holdings"><details open><summary>Optimizer inputs</summary><div class="field-list">${rs.map(fieldHtml).join("")}</div></details></div>`;
+  return `<div class="holdings"><details><summary>Optimizer inputs</summary><div class="field-list">${rs.map(fieldHtml).join("")}</div></details></div>`;
 }
 function renderCurrentAllocationModeNote() {
   return allocationModeHtml();
@@ -7171,6 +7248,12 @@ function renderHouseholdPeople() {
       dob: householdPersonRow(n, "dob"),
       retire: householdPersonRow(n, "retirement_date"),
       mortality: householdPersonRow(n, "mortality_age"),
+      // #239: moved here from Economic & Tax Assumptions' Retirement section
+      // -- its section is "Model Constants", not "Household", so it needs
+      // its own lookup rather than householdPersonRow's Household-only match.
+      rmdAge: rows.find(
+        (r) => isEditable(r) && norm(r.label) === `member_${n}_rmd_start_age`,
+      ) || null,
     }))
     .filter((p) => p.name || p.nickname || p.dob);
   const nickMissing = people.some(
@@ -7180,10 +7263,10 @@ function renderHouseholdPeople() {
       p.nickname &&
       !String(valOf(p.nickname) || "").trim(),
   );
-  let html = `<div class="holdings"><h3 class="group-title">People</h3><div class="section-note">One row per person. <b>Nickname</b> is the short name used everywhere the plan names a person — reports, charts, and workbook labels. ${nickMissing ? "<b>Add a nickname for each person</b> (or leave blank to use their first name)." : ""}</div><div class="lot-table-wrap"><table class="lot-table people-table"><thead><tr><th></th><th>Full name</th><th>Nickname (used in reports)</th><th>Date of birth</th><th title="Year is parsed from this date; base retirement assumption">Retirement date</th><th title="Plan horizon = birth year + this age">Mortality age</th></tr></thead><tbody>`;
+  let html = `<div class="holdings"><h3 class="group-title">People</h3><div class="section-note">One row per person. <b>Nickname</b> is the short name used everywhere the plan names a person — reports, charts, and workbook labels. ${nickMissing ? "<b>Add a nickname for each person</b> (or leave blank to use their first name)." : ""}</div><div class="lot-table-wrap"><table class="lot-table people-table"><thead><tr><th></th><th>Full name</th><th>Nickname (used in reports)</th><th>Date of birth</th><th title="Year is parsed from this date; base retirement assumption">Retirement date</th><th title="Plan horizon = birth year + this age">Mortality age</th><th title="Age Required Minimum Distributions begin (SECURE 2.0)">RMD start age</th></tr></thead><tbody>`;
   people.forEach((p) => {
     const who = String(p.name ? valOf(p.name) : "").trim() || `Person ${p.n}`;
-    html += `<tr><td><b>Person ${p.n}</b></td><td>${personCellInput(p.name, `Full name for ${who}`)}</td><td>${personCellInput(p.nickname, `Nickname for ${who}`, personNickPlaceholder(p.name))}</td><td>${personCellInput(p.dob, `Date of birth for ${who}`)}</td><td>${personCellInput(p.retire, `Retirement date for ${who}`)}</td><td>${personCellInput(p.mortality, `Mortality age for ${who}`)}</td></tr>`;
+    html += `<tr><td><b>Person ${p.n}</b></td><td>${personCellInput(p.name, `Full name for ${who}`)}</td><td>${personCellInput(p.nickname, `Nickname for ${who}`, personNickPlaceholder(p.name))}</td><td>${personCellInput(p.dob, `Date of birth for ${who}`)}</td><td>${personCellInput(p.retire, `Retirement date for ${who}`)}</td><td>${personCellInput(p.mortality, `Mortality age for ${who}`)}</td><td>${personCellInput(p.rmdAge, `RMD start age for ${who}`)}</td></tr>`;
   });
   html += `</tbody></table></div><p class="small">Nicknames replace generic "Member 1 / Member 2" wording in every user-facing report. Leave Person 2 blank for a single-person household.</p></div>`;
   const personLabelSet = new Set(
@@ -8028,7 +8111,7 @@ function renderIncomeStreamsSection() {
     html += `<details><summary>${esc(translatePersonPlaceholders(sub))}</summary><div class="field-list">${ordered.map(fieldHtml).join("")}</div></details>`;
   });
   if (globalRows.length)
-    html += `<details open><summary>Plan-wide income stream settings</summary><div class="field-list">${globalRows.map(fieldHtml).join("")}</div></details>`;
+    html += `<details><summary>Plan-wide income stream settings</summary><div class="field-list">${globalRows.map(fieldHtml).join("")}</div></details>`;
   return html + "</div>";
 }
 function renderSsPolicySection() {
@@ -8383,7 +8466,7 @@ function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
   }
 
   var html =
-    '<details open><summary class="section-header">' +
+    '<details><summary class="section-header">' +
     esc(stepLabel) +
     '</summary><div class="section-body">';
   html +=
@@ -8413,7 +8496,7 @@ function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
 }
 function renderCollapsibleDomainBudgetSection(domain, openByDefault) {
   const title = domainBudgetTitle(domain);
-  return `<details ${openByDefault ? "open" : ""} class="domain-budget-section" data-dkey="domain-budget:${esc(domain)}"><summary class="section-header">${esc(title)}</summary><div class="section-body">${renderDomainBudgetPage(domain, { embedded: true })}</div></details>`;
+  return `<details class="domain-budget-section" data-dkey="domain-budget:${esc(domain)}"><summary class="section-header">${esc(title)}</summary><div class="section-body">${renderDomainBudgetPage(domain, { embedded: true })}</div></details>`;
 }
 function renderSpendingHousing() {
   const rs = rowsForStep("spending_mortgage_events");
@@ -8585,7 +8668,7 @@ function otherAssetInputCell(sub, label, placeholder = "") {
 }
 function renderOtherAssetItemsTable() {
   const subs = otherAssetSubsections();
-  let html = `<details open><summary>Other Asset Items</summary><div class="field-list"><div class="section-note">One row per non-portfolio asset — auto, boat, start-up equity, art, or collectible. Enter today's estimated value and as-of date. Use a positive annual rate for appreciating assets (e.g., collectibles, equity) and a negative rate for depreciating ones (e.g., vehicles).</div>`;
+  let html = `<details><summary>Other Asset Items</summary><div class="field-list"><div class="section-note">One row per non-portfolio asset — auto, boat, start-up equity, art, or collectible. Enter today's estimated value and as-of date. Use a positive annual rate for appreciating assets (e.g., collectibles, equity) and a negative rate for depreciating ones (e.g., vehicles).</div>`;
   html += `<div class="table-actions"><select id="newOtherAssetType">${OTHER_ASSET_TYPES.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("")}</select><button class="btn" type="button" data-requires-app="1" onclick="addOtherAssetItem()">Add asset</button></div>`;
   if (!subs.length) {
     return (
@@ -8754,9 +8837,20 @@ function renderHsaPolicyOnOtherAssets(rs) {
       norm(r.subsection) === "withdrawals" &&
       norm(r.label) === "hsa_withdrawal_mode",
   );
+  // #213: hsa_withdrawal_end_year sorted before hsa_withdrawal_start_year
+  // under the generic dependency sort's alphabetical tie-break ("end" < "start"
+  // lexicographically) -- force chronological order for this one pair.
   const withdrawalRows = sortRowsByDependency(
     gr.filter((r) => norm(r.subsection) === "withdrawals"),
-  );
+  ).sort((a, b) => {
+    const rank = (r) =>
+      norm(r.label) === "hsa_withdrawal_start_year"
+        ? 0
+        : norm(r.label) === "hsa_withdrawal_end_year"
+          ? 1
+          : -1;
+    return rank(a) - rank(b);
+  });
   const contribRows = sortRowsByDependency(
     gr.filter((r) => norm(r.subsection) === "contributions"),
   );
@@ -8771,14 +8865,16 @@ function renderHsaPolicyOnOtherAssets(rs) {
         ),
     ),
   );
-  let html = `<details open><summary>HSA Withdrawal Timing</summary><div class="field-list"><div class="section-note"><b>Projection control:</b> choose how the HSA is used in Cash Flow. <b>Spend as needed</b> uses HSA for qualified Wellness costs/gaps. <b>Annual percentage</b> and <b>Smooth window</b> use the start/end years below to schedule HSA withdrawals across the cash-flow projection.</div>${withdrawalRows.map(fieldHtml).join("")}</div></details>`;
+  // #213: one collapsible HSA section instead of up to 4 -- compact
+  // sub-headings inside, not separate nested <details>.
+  let body = `<div class="section-note"><b>Withdrawal timing:</b> choose how the HSA is used in Cash Flow. <b>Spend as needed</b> uses HSA for qualified Wellness costs/gaps. <b>Annual percentage</b> and <b>Smooth window</b> use the start/end years below to schedule HSA withdrawals across the cash-flow projection.</div>${withdrawalRows.map(fieldHtml).join("")}`;
   if (contribRows.length)
-    html += `<details><summary>HSA Contributions</summary><div class="field-list"><div class="section-note">Contribution limits and eligibility feed annual HSA additions before Medicare eligibility.</div>${contribRows.map(fieldHtml).join("")}</div></details>`;
+    body += `<h4 class="group-title">Contributions</h4><div class="section-note">Contribution limits and eligibility feed annual HSA additions before Medicare eligibility.</div>${contribRows.map(fieldHtml).join("")}`;
   if (rolloverRows.length)
-    html += `<details><summary>HSA Spousal Rollover</summary><div class="field-list">${rolloverRows.map(fieldHtml).join("")}</div></details>`;
+    body += `<h4 class="group-title">Spousal Rollover</h4>${rolloverRows.map(fieldHtml).join("")}`;
   if (otherRows.length)
-    html += `<details><summary>Other HSA controls</summary><div class="field-list">${otherRows.map(fieldHtml).join("")}</div></details>`;
-  return html;
+    body += `<h4 class="group-title">Other HSA controls</h4>${otherRows.map(fieldHtml).join("")}`;
+  return `<details><summary>HSA</summary><div class="field-list">${body}</div></details>`;
 }
 
 function renderAssetsSpecial() {
@@ -8800,7 +8896,7 @@ function renderAssetsSpecial() {
       return;
     }
     if (g === "Note Receivable") {
-      html += `<details open><summary>Note Receivable</summary><div class="field-list">${renderNoteReceivableTable()}</div></details>`;
+      html += `<details><summary>Note Receivable</summary><div class="field-list">${renderNoteReceivableTable()}</div></details>`;
       return;
     }
     if (g === "HSA") {
@@ -8809,7 +8905,7 @@ function renderAssetsSpecial() {
     }
     if (g === "529 Plans") {
       if (optionalFunctionEnabled(rowModuleGate("Education Funding").key)) {
-        html += `<details ${gr.length ? "" : "open"}><summary>529 Plans</summary><div class="field-list"><div class="section-note"><b>Purpose:</b> 529 plans are education savings accounts. Enter one section per beneficiary or goal, then add another 529 when a different beneficiary or goal should be tracked separately.</div>${gr.map(fieldHtml).join("")}<div class="table-actions"><button class="btn" type="button" data-requires-app="1" onclick="addEducation529Section()">Add 529 section</button></div></div></details>`;
+        html += `<details><summary>529 Plans</summary><div class="field-list"><div class="section-note"><b>Purpose:</b> 529 plans are education savings accounts. Enter one section per beneficiary or goal, then add another 529 when a different beneficiary or goal should be tracked separately.</div>${gr.map(fieldHtml).join("")}<div class="table-actions"><button class="btn" type="button" data-requires-app="1" onclick="addEducation529Section()">Add 529 section</button></div></div></details>`;
       }
       return;
     }
@@ -8866,7 +8962,17 @@ function renderHELOCInputsOnOtherPage() {
   rs.forEach((r) => {
     if (!list.includes(r)) list.push(r);
   });
-  return `<details open><summary>HELOC modeling inputs</summary><div class="field-list"><div class="section-note"><b>Current modeling source:</b> These are the same HELOC rows used by the projection. They are shown here with other liabilities so the borrowing assumption is not stranded on the Strategy page.</div>${list.map(fieldHtml).join("")}<div class="table-actions"><button class="btn" type="button" data-step-id="heloc_strategy">Open HELOC strategy page</button></div></div></details>`;
+  // #214: this used to fully duplicate the HELOC Strategy page's editable
+  // fields here too (same rows, so edits never went out of sync, but two
+  // full edit forms for one set of terms reads as redundant). Read-only
+  // summary + a link to the one place to actually change it.
+  const summaryRows = list
+    .map(
+      (r) =>
+        `<div class="impact-row"><span>${esc(humanLabel(r.label, r))}</span><strong>${esc(displayValueForInput(r, valOf(r)) || "—")}</strong></div>`,
+    )
+    .join("");
+  return `<details><summary>HELOC modeling inputs</summary><div class="field-list"><div class="section-note"><b>Read-only summary</b> — shown here with other liabilities so the borrowing assumption is not stranded on the Strategy page; edit on the HELOC Strategy page.</div>${summaryRows}<div class="table-actions"><button class="btn" type="button" data-step-id="heloc_strategy">Open HELOC strategy page</button></div></div></details>`;
 }
 
 let holdingRowsCache = null,
@@ -9370,7 +9476,7 @@ function renderLiabilitiesTable() {
     "payoff_year",
     "notes",
   ];
-  let html = `<details open><summary>Liabilities</summary><div class="field-list"><div class="section-note"><b>Purpose:</b> Track loans the plan must pay down over time. Choose a type, then enter the fields needed to forecast its cash flow. Each liability is amortized into the yearly cash-flow forecast and its outstanding balance reduces net worth. Auto and student loans use standard fixed amortization; HELOC line items amortize over the years to payoff. Leave a field blank to use sensible defaults (no monthly payment = interest-only unless a payoff year is set).</div><div class="table-actions"><button class="btn" type="button" data-requires-app="1" onclick="addLiability()">Add liability</button></div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Type</th>${cols.map((c) => `<th>${esc(LIABILITY_LABELS[c] || humanLabel(c))}</th>`).join("")}<th>Actions</th></tr></thead><tbody>`;
+  let html = `<details><summary>Liabilities</summary><div class="field-list"><div class="section-note"><b>Purpose:</b> Track loans the plan must pay down over time. Choose a type, then enter the fields needed to forecast its cash flow. Each liability is amortized into the yearly cash-flow forecast and its outstanding balance reduces net worth. Auto and student loans use standard fixed amortization; HELOC line items amortize over the years to payoff. Leave a field blank to use sensible defaults (no monthly payment = interest-only unless a payoff year is set).</div><div class="table-actions"><button class="btn" type="button" data-requires-app="1" onclick="addLiability()">Add liability</button></div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Type</th>${cols.map((c) => `<th>${esc(LIABILITY_LABELS[c] || humanLabel(c))}</th>`).join("")}<th>Actions</th></tr></thead><tbody>`;
   if (!h.data.length) {
     html += `<tr><td colspan="${cols.length + 2}"><span class="small">No liabilities yet. Click "Add liability" to add one.</span></td></tr>`;
   }
@@ -9440,10 +9546,10 @@ function renderUserProviderAttempt(a) {
 }
 function renderUserProviderStep(s) {
   const ok = s.outcome === "success";
-  return `<details ${ok ? "open" : ""}><summary><b>${esc(s.provider || "provider")} · ${esc(s.endpoint || "endpoint")}</b> — ${esc(s.outcome || "unknown")}${s.parsed_price ? " · " + fmtUserPriceDiagnostic(s.parsed_price) : ""}</summary><div style="padding:8px"><p class="small">${esc(s.parse_note || s.cause || "")}</p>${(s.attempts || []).map(renderUserProviderAttempt).join("") || `<p class="small">${esc(s.cause || "No command was sent for this provider.")}</p>`}</div></details>`;
+  return `<details><summary><b>${esc(s.provider || "provider")} · ${esc(s.endpoint || "endpoint")}</b> — ${esc(s.outcome || "unknown")}${s.parsed_price ? " · " + fmtUserPriceDiagnostic(s.parsed_price) : ""}</summary><div style="padding:8px"><p class="small">${esc(s.parse_note || s.cause || "")}</p>${(s.attempts || []).map(renderUserProviderAttempt).join("") || `<p class="small">${esc(s.cause || "No command was sent for this provider.")}</p>`}</div></details>`;
 }
 function renderUserPricingTrace(r) {
-  return `<div class="impact-card"><b>${esc(r.symbol || "")}</b> — ${esc(r.summary || "No summary")}<div class="mini-grid"><div><b>Selected provider</b><span>${esc(r.selected_provider || "none")}</span></div><div><b>Selected price</b><span>${r.selected_price ? fmtUserPriceDiagnostic(r.selected_price) : "—"}</span></div><div><b>Order</b><span>${esc((r.provider_order || []).join(" → "))}</span></div></div></div><details open><summary><b>Runtime and key diagnostics</b></summary>${renderUserJsonBlock({ generated_at_utc: r.generated_at_utc, config_backend: r.config_backend, timeout_seconds: r.timeout_seconds, max_retries: r.max_retries, requests_available: r.requests_available, effective_api_key_sources: r.effective_api_key_sources, proxy_environment_keys: r.proxy_environment_keys, cache_record: r.cache_record })}</details><h4>Provider command / response trace</h4>${(r.steps || []).map(renderUserProviderStep).join("")}`;
+  return `<div class="impact-card"><b>${esc(r.symbol || "")}</b> — ${esc(r.summary || "No summary")}<div class="mini-grid"><div><b>Selected provider</b><span>${esc(r.selected_provider || "none")}</span></div><div><b>Selected price</b><span>${r.selected_price ? fmtUserPriceDiagnostic(r.selected_price) : "—"}</span></div><div><b>Order</b><span>${esc((r.provider_order || []).join(" → "))}</span></div></div></div><details><summary><b>Runtime and key diagnostics</b></summary>${renderUserJsonBlock({ generated_at_utc: r.generated_at_utc, config_backend: r.config_backend, timeout_seconds: r.timeout_seconds, max_retries: r.max_retries, requests_available: r.requests_available, effective_api_key_sources: r.effective_api_key_sources, proxy_environment_keys: r.proxy_environment_keys, cache_record: r.cache_record })}</details><h4>Provider command / response trace</h4>${(r.steps || []).map(renderUserProviderStep).join("")}`;
 }
 async function pollUserLivePriceSymbolJob(jobId, status, result) {
   for (let i = 0; i < 240; i++) {
@@ -9574,7 +9680,18 @@ function renderHoldings() {
         .join("") +
       `<td data-label="Actions"><button class="danger-link" onclick="deleteHoldingLot(${i})">Delete</button></td></tr>`;
   });
-  html += `</tbody></table></div></div>`;
+  html += `</tbody></table></div>`;
+  // #235: moved here from Economic & Tax Assumptions -- dividend reinvestment
+  // is a per-holding-account behavior, not a system-wide economic assumption.
+  const divRows = rows.filter(
+    (r) =>
+      isEditable(r) &&
+      r.section === "Economic Assumptions" &&
+      ["reinvest_dividends_default", "cash_yield_rate"].includes(norm(r.label)),
+  );
+  if (divRows.length)
+    html += `<details><summary>Dividend Reinvestment</summary><div class="field-list">${divRows.map(fieldHtml).join("")}</div></details>`;
+  html += `</div>`;
   return html;
 }
 
@@ -9822,7 +9939,7 @@ function boolishValue(r) {
 }
 function renderRothRows(title, description, rs, open = false) {
   if (!rs.length) return "";
-  return `<details class="roth-section" ${open ? "open" : ""}><summary>${esc(title)}</summary><div class="field-list"><div class="section-note">${esc(description)}</div>${sortRowsByDependency(rs).map(fieldHtml).join("")}</div></details>`;
+  return `<details class="roth-section"><summary>${esc(title)}</summary><div class="field-list"><div class="section-note">${esc(description)}</div>${sortRowsByDependency(rs).map(fieldHtml).join("")}</div></details>`;
 }
 function renderRothMissingNotice() {
   const present = new Set(
@@ -10038,7 +10155,7 @@ function renderBaseHomeSaleRows(rs) {
   const introNote = active
     ? '<div class="section-note">Sale year set — enter sale price, commission, and related details. Home value and basis are managed in Current Home above.</div>'
     : '<div class="section-note">Enter a home sale year to reveal sale detail fields.</div>';
-  return `<details ${active ? "open" : ""}><summary class="section-header">Home Sale</summary><div class="field-list">${introNote}${yearFirst.map(fieldHtml).join("")}${restVisible.map(fieldHtml).join("")}</div></details>`;
+  return `<details><summary class="section-header">Home Sale</summary><div class="field-list">${introNote}${yearFirst.map(fieldHtml).join("")}${restVisible.map(fieldHtml).join("")}</div></details>`;
 }
 function renderStressSellHomeRows(rs) {
   const stress = rs.filter(rowIsStressSellHomeInput);
@@ -10059,7 +10176,7 @@ function renderStressSellHomeRows(rs) {
       visible,
       year || stress.find((r) => norm(r.label).includes("home_sale_year")),
     );
-  return `<details ${active ? "open" : ""}><summary>Sell Home stress test — scenario sheet only</summary><div class="field-list"><div class="section-note warning"><b>Scenario-only:</b> these Sell Home stress-test rows are used by the Scenario Analysis workbook sheet, but they do <b>not</b> change the base-plan Build Impact cards. To change headline terminal net worth, set the Base Plan Home Sale Year above. The Home Value and Home Basis shown here are shared canonical Home asset facts. The sale value used by this stress test is projected from canonical Home Value and appreciation.</div>${sortRowsByDependency(visible).map(fieldHtml).join("")}</div></details>`;
+  return `<details><summary>Sell Home stress test — scenario sheet only</summary><div class="field-list"><div class="section-note warning"><b>Scenario-only:</b> these Sell Home stress-test rows are used by the Scenario Analysis workbook sheet, but they do <b>not</b> change the base-plan Build Impact cards. To change headline terminal net worth, set the Base Plan Home Sale Year above. The Home Value and Home Basis shown here are shared canonical Home asset facts. The sale value used by this stress test is projected from canonical Home Value and appreciation.</div>${sortRowsByDependency(visible).map(fieldHtml).join("")}</div></details>`;
 }
 function renderHomeSaleScenarioRows(rs) {
   const has = rs.some(
@@ -10436,7 +10553,7 @@ function renderCurrentScenarioOverridesHtml(rs) {
   return html;
 }
 function renderScenarioManagementPanel(rs) {
-  return `<section class="scenario-management"><div class="scenario-management-head"><div><span class="eyebrow">Planning Workbench</span><h3>Scenario Change Sets</h3><p class="small">Templates stage common deterministic what-if overrides. Saved sets are browser-local change sets; review the diff, apply a set, then Save Changes, rebuild, and compare in the Planning Workbench.</p></div><button class="btn primary" type="button" onclick="saveCurrentScenarioSet()">Save current scenario set</button></div><details open><summary>Scenario templates</summary>${renderScenarioTemplatesHtml()}</details><details><summary>Saved named scenario sets</summary>${renderSavedScenarioSetsHtml()}</details><details><summary>Current scenario overrides</summary>${renderCurrentScenarioOverridesHtml(rs)}</details></section>`;
+  return `<section class="scenario-management"><div class="scenario-management-head"><div><span class="eyebrow">Planning Workbench</span><h3>Scenario Change Sets</h3><p class="small">Templates stage common deterministic what-if overrides. Saved sets are browser-local change sets; review the diff, apply a set, then Save Changes, rebuild, and compare in the Planning Workbench.</p></div><button class="btn primary" type="button" onclick="saveCurrentScenarioSet()">Save current scenario set</button></div><details><summary>Scenario templates</summary>${renderScenarioTemplatesHtml()}</details><details><summary>Saved named scenario sets</summary>${renderSavedScenarioSetsHtml()}</details><details><summary>Current scenario overrides</summary>${renderCurrentScenarioOverridesHtml(rs)}</details></section>`;
 }
 
 function renderScenarios() {
@@ -10456,7 +10573,7 @@ function renderScenarios() {
   let html = `<div class="field-list"><div class="section-note"><b>Scenario Change Sets are deterministic planning cases.</b> Use the Stress Suite & Monte Carlo page for probabilistic or adverse-assumption testing. Economy shocks and scenario enable/year controls are grouped first because they determine which dependent assumptions matter. Home sale is split into a base-plan panel that affects Build Impact and a stress-test panel that affects scenario sheets only.</div></div>`;
   html += renderScenarioManagementPanel(rs);
   html += economy.length
-    ? `<details open><summary>Economy</summary><div class="field-list">${sortRowsByDependency(economy).map(fieldHtml).join("")}</div></details>`
+    ? `<details><summary>Economy</summary><div class="field-list">${sortRowsByDependency(economy).map(fieldHtml).join("")}</div></details>`
     : "";
   html += renderHomeSaleScenarioRows(rs);
   if (stateComp.length) {
@@ -10665,8 +10782,11 @@ function hideYtdLoadOverlay() {
   if (overlay) overlay.classList.remove("no-cancel");
   hideBuildOverlay();
 }
-async function loadYtdStatus() {
-  showYtdLoadOverlay();
+async function loadYtdStatus(silent = false) {
+  // #201: loadAll() calls this as one sub-step among many -- it must not
+  // clobber loadAll's own overlay message (e.g. "Saving changes") with
+  // "Loading transactions" partway through an unrelated operation.
+  if (!silent) showYtdLoadOverlay();
   try {
     const out = await api(
       "/api/ytd/status?period=" + encodeURIComponent(ytdActualsPeriod),
@@ -10683,7 +10803,7 @@ async function loadYtdStatus() {
       summary: { enabled: false },
     };
   } finally {
-    hideYtdLoadOverlay();
+    if (!silent) hideYtdLoadOverlay();
   }
 }
 async function loadTaxFreshnessStatus() {
@@ -13325,7 +13445,7 @@ function renderTaxonomyBudgetTable() {
     (typeData.groups || []).forEach((g) => {
       ttTotal += groupEffectiveBudget(tt, g.group);
     });
-    html += `<details class="taxonomy-type-section" data-dkey="budgtt:${esc(tt)}"${ttTotal > 0 ? " open" : ""}><summary><b>${esc(tt)}</b>${ttActual || ttAnnualized || ttTotal ? ` <span class="small">Actual ${dollars0(ttActual)} · Annualized ${dollars0(ttAnnualized)} · Budget ${dollars0(ttTotal)}/yr</span>` : ""}</summary>`;
+    html += `<details class="taxonomy-type-section" data-dkey="budgtt:${esc(tt)}"><summary><b>${esc(tt)}</b>${ttActual || ttAnnualized || ttTotal ? ` <span class="small">Actual ${dollars0(ttActual)} · Annualized ${dollars0(ttAnnualized)} · Budget ${dollars0(ttTotal)}/yr</span>` : ""}</summary>`;
     (typeData.groups || []).forEach(function (grp) {
       const gname = grp.group;
       const gj = esc(gname).replace(/'/g, "\\'");
@@ -13336,7 +13456,14 @@ function renderTaxonomyBudgetTable() {
       const catCount = (grp.categories || []).length;
       html += `<div class="taxonomy-group"><h4 class="taxonomy-group-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span>${esc(gname)}</span><span class="small" style="font-weight:400">Actual ${dollars0(grp.actual)} · Annualized ${dollars0(grp.annualized)} · Budget ${dollars0(eff)}/yr</span><span style="margin-left:auto"><button class="btn ${gmode === "summary" ? "primary" : ""}" style="padding:0 8px" ${readOnlyRef ? "disabled " : ""}onclick="setGroupBudgetMode('${esc(tt)}','${gj}','summary')">Summary</button> <button class="btn ${gmode === "detail" ? "primary" : ""}" style="padding:0 8px" ${readOnlyRef ? "disabled " : ""}onclick="setGroupBudgetMode('${esc(tt)}','${gj}','detail')">Detail</button></span></h4>`;
       if (gmode === "summary") {
-        html += `<div class="table-actions"><label class="small">Group budget / yr&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue((taxBudget[gk] || {}).annual_budget))}" placeholder="${catSum > 0 ? dollars0(catSum) : "$0"}" onfocus="focusBudgetMoney(this)" oninput="updateTaxBudgetMoney('${esc(gk)}','annual_budget',this)" onblur="blurBudgetMoney(this)" style="width:140px"> <span class="small">categories hidden</span></div>`;
+        // #231: Travel/Large Discretionary group budgets are time-bounded in
+        // the projection (spending_budget_resolver.py TIME_BOUNDED_LINE_TRACKING_TYPES)
+        // -- only these two tracking types honor start/end year on the group
+        // row, so only show the fields where they actually take effect.
+        const gYearFields = ["Travel", "Large Discretionary"].includes(tt)
+          ? `<label class="small">Start year&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="number" value="${esc((taxBudget[gk] || {}).start_year || "")}" placeholder="plan start" oninput="updateTaxBudget('${esc(gk)}','start_year',this.value)" style="width:90px"> <label class="small">End year&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="number" value="${esc((taxBudget[gk] || {}).end_year || "")}" placeholder="plan end" oninput="updateTaxBudget('${esc(gk)}','end_year',this.value)" style="width:90px"> `
+          : "";
+        html += `<div class="table-actions"><label class="small">Group budget / yr&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue((taxBudget[gk] || {}).annual_budget))}" placeholder="${catSum > 0 ? dollars0(catSum) : "$0"}" onfocus="focusBudgetMoney(this)" oninput="updateTaxBudgetMoney('${esc(gk)}','annual_budget',this)" onblur="blurBudgetMoney(this)" style="width:140px"> ${gYearFields}<span class="small">categories hidden</span></div>`;
       } else {
         html += '<div class="budget-cat-detail-list">';
         (grp.categories || []).forEach(function (cat) {
@@ -13610,7 +13737,7 @@ function renderDomainBudgetTable(domain) {
     });
     const readOnlyRef =
       domain === "core" && ["Housing", "Wellness", "Travel"].includes(tt);
-    html += `<details class="taxonomy-type-section" data-dkey="budget:${esc(domain)}:${esc(tt)}"${ttTotal > 0 ? " open" : ""}><summary><b>${esc(tt)}</b> <span class="small">YTD ${dollars0(ttActual)} · Annualized ${dollars0(ttAnnualized)} · Budget ${dollars0(ttTotal)} · Projection Seed ${dollars0(ttProjection || ttTotal)}</span>${tt === "Business" ? ` <span class="small" style="font-weight:400;color:var(--muted)">modeled; excluded from core spend base</span>` : ""}${readOnlyRef ? ` <span class="small" style="font-weight:400;color:var(--muted)">read-only reference</span>` : ""}</summary>`;
+    html += `<details class="taxonomy-type-section" data-dkey="budget:${esc(domain)}:${esc(tt)}"><summary><b>${esc(tt)}</b> <span class="small">YTD ${dollars0(ttActual)} · Annualized ${dollars0(ttAnnualized)} · Budget ${dollars0(ttTotal)} · Projection Seed ${dollars0(ttProjection || ttTotal)}</span>${tt === "Business" ? ` <span class="small" style="font-weight:400;color:var(--muted)">modeled; excluded from core spend base</span>` : ""}${readOnlyRef ? ` <span class="small" style="font-weight:400;color:var(--muted)">read-only reference</span>` : ""}</summary>`;
     if (readOnlyRef)
       html +=
         '<div class="section-note">This Tracking Type is budgeted on its source page. Values appear here as read-only reference so Spending Categories remains comprehensive without creating duplicate inputs.</div>';
@@ -13624,7 +13751,14 @@ function renderDomainBudgetTable(domain) {
       const catCount = (grp.categories || []).length;
       html += `<div class="taxonomy-group"><h4 class="taxonomy-group-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span>${esc(gname)}</span><span class="small" style="font-weight:400">YTD ${dollars0(spendingRowYtd(grp))} · Annualized ${dollars0(spendingRowAnnualized(grp))} · Budget ${dollars0(eff)} · Projection Seed ${dollars0(spendingRowProjectionSeed(grp) || eff)}</span><span style="margin-left:auto"><button class="btn" style="padding:0 8px" ${readOnlyRef ? "disabled " : ""}onclick="loadTemplateGroup('${esc(tt)}','${gj}')">Load template categories for group</button> ${catCount === 0 ? `<button class="danger-link" style="font-size:11px" onclick="deleteTaxonomyGroup('${esc(tt)}','${gj}')">Delete group</button>` : ""} <button class="btn ${gmode === "summary" ? "primary" : ""}" style="padding:0 8px" ${readOnlyRef ? "disabled " : ""}onclick="setGroupBudgetMode('${esc(tt)}','${gj}','summary')">Summary</button> <button class="btn ${gmode === "detail" ? "primary" : ""}" style="padding:0 8px" ${readOnlyRef ? "disabled " : ""}onclick="setGroupBudgetMode('${esc(tt)}','${gj}','detail')">Detail</button></span></h4>`;
       if (gmode === "summary") {
-        html += `<div class="table-actions"><label class="small">Group budget / yr&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue((taxBudget[gk] || {}).annual_budget))}" placeholder="${catSum > 0 ? dollars0(catSum) : "$0"}" onfocus="focusBudgetMoney(this)" oninput="updateTaxBudgetMoney('${esc(gk)}','annual_budget',this)" onblur="blurBudgetMoney(this)" style="width:140px"> <span class="small">category and line detail disabled — group number wins</span></div>`;
+        // #231: Travel/Large Discretionary group budgets are time-bounded in
+        // the projection (spending_budget_resolver.py TIME_BOUNDED_LINE_TRACKING_TYPES)
+        // -- only these two tracking types honor start/end year on the group
+        // row, so only show the fields where they actually take effect.
+        const gYearFields = ["Travel", "Large Discretionary"].includes(tt)
+          ? `<label class="small">Start year&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="number" value="${esc((taxBudget[gk] || {}).start_year || "")}" placeholder="plan start" oninput="updateTaxBudget('${esc(gk)}','start_year',this.value)" style="width:90px"> <label class="small">End year&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="number" value="${esc((taxBudget[gk] || {}).end_year || "")}" placeholder="plan end" oninput="updateTaxBudget('${esc(gk)}','end_year',this.value)" style="width:90px"> `
+          : "";
+        html += `<div class="table-actions"><label class="small">Group budget / yr&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue((taxBudget[gk] || {}).annual_budget))}" placeholder="${catSum > 0 ? dollars0(catSum) : "$0"}" onfocus="focusBudgetMoney(this)" oninput="updateTaxBudgetMoney('${esc(gk)}','annual_budget',this)" onblur="blurBudgetMoney(this)" style="width:140px"> ${gYearFields}<span class="small">category and line detail disabled — group number wins</span></div>`;
       } else {
         html += '<div class="budget-cat-detail-list">';
         (grp.categories || []).forEach(function (cat) {
@@ -13798,9 +13932,16 @@ function renderLargeDiscretionaryBudgetPage() {
       String(l.section || "") === "large_discretionary" ||
       LARGE_DISC_CATEGORY_IDS.includes(String(l.category_id || "")),
   );
-  let total = 0;
+  // #208: Large Discretionary rows are inherently lumpy (weddings, gifts, one-time
+  // purchases) -- summing one-time and recurring rows into a single "$X/yr" figure
+  // implied an ongoing annual commitment that doesn't exist. Split the total so a
+  // one-time lump is shown as a lump, not folded into a misleading per-year rate.
+  let oneTimeTotal = 0;
+  let recurringTotal = 0;
   lines.forEach((l) => {
-    total += Number(String(l.amount_per_year || "").replace(/[$,]/g, "")) || 0;
+    const amt = Number(String(l.amount_per_year || "").replace(/[$,]/g, "")) || 0;
+    if (l.one_time_year) oneTimeTotal += amt;
+    else recurringTotal += amt;
   });
   let html =
     '<div class="holdings"><div class="table-actions"><button class="btn primary" ' +
@@ -13818,9 +13959,15 @@ function renderLargeDiscretionaryBudgetPage() {
     html += `<tr><td><select onchange="updateLargeDiscLine('${lid}','type',this.value)">${LARGE_DISC_TYPES.map((t) => `<option value="${esc(t)}" ${t === typ ? "selected" : ""}>${esc(t)}</option>`).join("")}</select></td><td><input value="${esc(l.label || "")}" placeholder="Description" oninput="updateLargeDiscLine('${lid}','label',this.value)" style="width:160px"></td><td><input type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue(l.amount_per_year))}" onfocus="focusBudgetMoney(this)" oninput="updateLargeDiscLineMoney('${lid}','amount_per_year',this)" onblur="blurBudgetMoney(this)" style="width:110px"></td><td><input type="number" value="${esc(l.one_time_year || "")}" placeholder="one-time" oninput="updateLargeDiscLine('${lid}','one_time_year',this.value)" style="width:90px"></td><td><input type="number" value="${esc(l.start_year || "")}" placeholder="—" oninput="updateLargeDiscLine('${lid}','start_year',this.value)" style="width:90px"></td><td><input type="number" value="${esc(l.end_year || "")}" placeholder="forever" oninput="updateLargeDiscLine('${lid}','end_year',this.value)" style="width:90px"></td><td><input value="${esc(l.notes || "")}" placeholder="Optional" oninput="updateLargeDiscLine('${lid}','notes',this.value)" style="width:180px"></td><td><button class="danger-link" onclick="deleteLargeDiscLine('${lid}')">Delete</button></td></tr>`;
   });
   html +=
-    '</tbody></table></div><div class="section-note"><b>Total Large Discretionary rows: $' +
-    Math.round(total).toLocaleString() +
-    "/yr or scheduled amount</b></div></div>";
+    '</tbody></table></div><div class="section-note"><b>One-time lump total: $' +
+    Math.round(oneTimeTotal).toLocaleString() +
+    "</b> (projects only in each row's own year, never annualized)" +
+    (recurringTotal
+      ? " · <b>Recurring: $" +
+        Math.round(recurringTotal).toLocaleString() +
+        "/yr</b> (rows with a start/end range instead of a one-time year)"
+      : "") +
+    "</div></div>";
   return html;
 }
 
@@ -14053,7 +14200,7 @@ function renderPlanDataReport() {
           return String(a).localeCompare(String(b));
         });
         body +=
-          '<details class="holdings-account-group" open><summary>' +
+          '<details class="holdings-account-group"><summary>' +
           esc(accountDisplayLabel(acct)) +
           ' <span class="small holdings-group-total">' +
           esc(currencyDisplay(acctTotal)) +
@@ -14062,7 +14209,7 @@ function renderPlanDataReport() {
           var lots = acctData.byTicker[tk];
           var tickerTotal = tickerTotals[tk];
           body +=
-            '<details class="holdings-ticker-group" open><summary>' +
+            '<details class="holdings-ticker-group"><summary>' +
             esc(tk) +
             ' <span class="small holdings-group-total">' +
             esc(currencyDisplay(tickerTotal)) +
@@ -14411,13 +14558,13 @@ function renderDistributionStrategy() {
 function renderSpecialStrategies() {
   let html = '<div class="special-strategy-workspace">';
   if (helocModuleEnabled()) {
-    html += `<details open><summary>Home Equity Line</summary>${analysisFrame(renderFields("heloc_strategy"), "strategy")}</details>`;
+    html += `<details><summary>Home Equity Line</summary>${analysisFrame(renderFields("heloc_strategy"), "strategy")}</details>`;
   } else {
     html +=
       '<div class="section-note">Home Equity Line strategy is off. Enable it on <a href="#" onclick="setStep(\'heloc_strategy\');return false">HELOC → Setup → Enable HELOC Strategy</a> to use it.</div>';
   }
   if (optionalFunctionEnabled("charitable_giving")) {
-    html += `<details open><summary>Charitable Giving</summary>${analysisFrame(renderEntityCharitable(), "strategy")}</details>`;
+    html += `<details><summary>Charitable Giving</summary>${analysisFrame(renderEntityCharitable(), "strategy")}</details>`;
   } else {
     html +=
       '<div class="section-note">Charitable Giving strategies are off. Enable Charitable Giving on <a href="#" onclick="setStep(\'optional_functions\');return false">Optional Modules</a> to use them.</div>';
@@ -14436,7 +14583,7 @@ function renderDafConfig() {
   return `<div class="section-note">Contribution amount/year fund the DAF in a lump sum (tax-deductible up to 60% of AGI in the contribution year); annual grant amount/start/end schedule ongoing charitable distributions out of the DAF balance. See Charitable Giving in the workbook report for a sizing recommendation.</div><div class="field-list">${rs.map(fieldHtml).join("")}</div>`;
 }
 function renderLifestyleSpending() {
-  return `<div class="lifestyle-workspace"><details open><summary>Travel</summary>${renderTravelBudgetPage()}</details><details open><summary>Large Items</summary>${renderLargeDiscretionaryBudgetPage()}</details><details ${optionalFunctionEnabled("charitable_giving") ? "open" : ""}><summary>Donor-Advised Fund (DAF)</summary>${renderDafConfig()}</details></div>`;
+  return `<div class="lifestyle-workspace"><details><summary>Travel</summary>${renderTravelBudgetPage()}</details><details><summary>Large Items</summary>${renderLargeDiscretionaryBudgetPage()}</details><details><summary>Donor-Advised Fund (DAF)</summary>${renderDafConfig()}</details></div>`;
 }
 const SPENDING_WORKFLOW_STEPS = [
   { label: "Spending Model", stepId: "spending_core" },
@@ -14815,6 +14962,17 @@ function showStepHelp(id) {
     STEP_HELP[id] || STEP_HELP.start;
 }
 const FIELD_GUIDANCE_OVERRIDES = {
+  // #220: layman-quality example the user provided verbatim (split across
+  // purpose/impact/consider) -- the standard to match for every non-intuitive
+  // field, not just this one.
+  portability_enabled: {
+    purpose:
+      "Federal estate tax exemption portability lets a surviving spouse add a deceased spouse's unused federal estate tax exemption (the DSUE amount) to their own, so the couple can shield a much larger combined amount from federal estate tax. It is not automatic: the executor must file IRS Form 706, due nine months after death, with an automatic six-month extension available.",
+    impact:
+      "Portability applies strictly to FEDERAL taxes. Many states with their own estate or inheritance taxes do not recognize portability at the state level, and state exemption thresholds are often much lower than the federal limit. Relying solely on federal portability can trigger high state estate taxes if proper state-level credit shelter or bypass trusts are ignored.",
+    consider:
+      "Ask: will the executor actually file Form 706 within the deadline? And does this household live in (or plan to retire to) a state with its own estate or inheritance tax? If so, don't rely on this setting alone — a state-level Credit Shelter Trust may still be needed (see that setting for Illinois specifically).",
+  },
   monthly_pia_at_fra_today_dollars: {
     purpose:
       "Enter the monthly Social Security payment shown on this person’s SSA statement for claiming at Full Retirement Age, in today’s dollars. This is also called the PIA, or Primary Insurance Amount: Social Security’s base monthly benefit before early-claiming reductions or delayed-retirement credits.",
@@ -15197,12 +15355,15 @@ function fieldGuidance(row) {
     consider =
       "Review the recommendation rationale (shown below once selected) and compare it with the user target mix. Keep user target_pct rows totaling 100% even when a computed mode is selected.";
   } else if (l === "holding_period_allocation_enabled") {
+    // #219: layman-quality example the user provided verbatim (lightly
+    // split across purpose/impact/consider) -- the standard to match for
+    // every non-intuitive field, not just this one.
     purpose =
-      "Opt-in: lets the optimizer/max-Sharpe recommendation modes use this household's own projected withdrawal schedule.";
+      "It's an opt-in setting (off by default) that changes how the tool's asset-allocation recommendation is built — but only for the \"optimizer recommendation\" and \"max Sharpe\" modes; it does nothing if you're using a manually-set target allocation. The idea it's based on: there's a well-known chart showing that whether cash or stocks are \"safer\" depends on how long you're holding. Cash is safe if you need the money next year, but risky if you sit on it for 20 years (inflation quietly eats it). Stocks are the opposite — risky short-term, but historically the safer bet over long stretches once you account for inflation.";
     impact =
-      "When on, near-term (0-2yr) withdrawal-derived liquid balance is floored toward Cash and durable (16+yr) balance is floored toward growth classes, instead of a flat risk-tolerance split alone. Has no effect on user_target or tangency modes.";
+      "What flipping it on actually does: the tool already knows, from your own retirement projection, roughly when each dollar in your portfolio will actually get spent (it simulates your future withdrawals year by year). With this setting on, it uses that withdrawal timeline to sort your money into \"buckets\" by how soon it's needed — money needed in the next 0–2 years vs. money that won't be touched for 16+ years — and then nudges the recommended allocation: money you'll need soon gets nudged toward more cash (safety for near-term spending); money you won't touch for a long time gets nudged toward more stocks/growth investments (since historically it's the safer place for money over long horizons). It also shifts the bond portion toward shorter-duration bonds instead of long ones, since the underlying data shows long bonds don't buy you much extra safety. Guardrail: it only ever raises these amounts — it won't push you into less cash or less stock than your existing risk-tolerance settings already call for. A separate \"strength\" dial (0–100%) lets you turn the effect up or down without switching it off entirely.";
     consider =
-      "Selecting allocation_selection_mode=real_loss_aware enables the same withdrawal-schedule discovery automatically, so this toggle is mainly for nudging the existing optimizer/max-Sharpe modes rather than switching to the dedicated real-loss-aware mode.";
+      "Bottom line: it makes the recommended allocation a little more personalized to your actual spending schedule, rather than one generic risk-tolerance number applied to your whole portfolio. Selecting allocation_selection_mode=real_loss_aware enables the same withdrawal-schedule discovery automatically, so this toggle is mainly for nudging the existing optimizer/max-Sharpe modes rather than switching to that dedicated mode.";
   } else if (l === "holding_period_floor_strength") {
     purpose =
       "Dials how strongly the holding-period floors (above) are applied.";
@@ -15690,7 +15851,16 @@ async function seedHousingRows() {
 }
 
 async function loadAll(opts = {}) {
-  setBuildOverlay(true, "Loading plan", "", "waiting");
+  // #201: loadAll is reused for the initial load AND the post-save refresh
+  // (saveAll calls it to re-sync from the DB) -- it always said "Loading
+  // plan" even when the user had just clicked Save Changes. Let the caller
+  // say what's actually happening.
+  setBuildOverlay(
+    true,
+    opts.overlayTitle || "Loading plan",
+    opts.overlayDetail || "",
+    "waiting",
+  );
   try {
     await checkAppStatus(false);
     runtime = await api("/api/runtime");
@@ -15711,7 +15881,7 @@ async function loadAll(opts = {}) {
     await loadLiquidityBuffers();
     await loadForcedConversions();
     await loadEstateStateOptions();
-    await loadYtdStatus();
+    await loadYtdStatus(true);
     const h = await fetch(apiUrl("/api/holdings"));
     holdingsText = await h.text();
     holdingRowsCache = null;
@@ -16218,6 +16388,8 @@ async function saveAll(sync = true) {
       source: "Local database",
       preferLocal: false,
       silent: true,
+      overlayTitle: "Saving changes",
+      overlayDetail: "Writing your edits to the local database and refreshing the on-screen plan.",
     });
     maybeRunLocalBackup("save");
     return true;

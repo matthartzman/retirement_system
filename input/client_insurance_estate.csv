@@ -94,8 +94,9 @@ Estate Planning,QTIP Trust,funding_amount,0,,,
 Estate Planning,QTIP Trust,manages_annuity_after_first_death,TRUE,,,
 Estate Planning,QTIP Trust,note,Provides income to surviving spouse,,,
 Estate Planning,Credit Shelter Trust,enabled,TRUE,,,
-Estate Planning,Credit Shelter Trust,amount,"$4,000,000",,,
-Estate Planning,Credit Shelter Trust,note,Funds up to IL exemption bypasses survivor estate for IL tax,,,
+Estate Planning,Credit Shelter Trust,shelter_cap,"$8,000,000",USD,IL CST combined-exemption effect (state has no portability; a funded bypass trust achieves a comparable ~2x effect) - review annually,
+Estate Planning,Credit Shelter Trust,amount,"$8,000,000",,,
+Estate Planning,Credit Shelter Trust,note,Funds up to the CST shelter cap; bypasses survivor estate for IL tax on top of the survivor's own separate IL exemption,,,
 Insurance In Force,Life,policy_count,0,count,traditional life insurance policies in force (annuity death benefits tracked separately),
 Insurance In Force,Long-Term Care,policy_count,0,count,standalone LTC policies in force,
 Insurance In Force,Disability,policy_count,0,count,disability income policies (typically N/A once retired),
@@ -179,7 +180,7 @@ Equity Compensation,ISO_2023,vest_schedule,fully vested,,,
 Equity Compensation,ISO_2023,planned_exercise_year,2026,year,,
 Equity Compensation,ISO_2023,planned_sale_year,2027,year,,
 Equity Compensation,ISO_2023,fmv_growth_rate,10.00%,pct,,
-Estate Planning,Federal,portability_enabled,TRUE,yes/no,Federal DSUE/portability enabled in terminal estate approximation.,
+Estate Planning,Federal,portability_enabled,TRUE,yes/no,"Lets the surviving spouse use the deceased spouse's unused federal exemption. Federal only -- most states, including Illinois, do not honor this at the state level.",
 Estate Planning,Step-Up,property_regime,COMMON_LAW,choice,"COMMON_LAW, HALF_STEP_UP, FULL_STEP_UP, or COMMUNITY_PROPERTY.",
 Estate Planning,Step-Up,former_spouse_name,,text,Optional name used only by the Beneficiary & Titling Audit (Sheet 14) to flag a former spouse still named as a beneficiary on any account.
 Account Titling,Business_Checking,primary_beneficiary,,text,Name of the primary beneficiary on file for this account. Reviewed by the Beneficiary & Titling Audit (Sheet 14).
@@ -208,7 +209,7 @@ Account Titling,Member_1_Roth,titling,,choice,"INDIVIDUAL | JTWROS | TENANTS_IN_
 Account Titling,Member_1_Roth,trust_see_through,FALSE,bool,TRUE if a trust named as beneficiary qualifies as a see-through trust for RMD purposes (avoids the Sheet 14 trust_no_see_through flag).
 Account Titling,Member_1_Trust,primary_beneficiary,,text,Name of the primary beneficiary on file for this account. Reviewed by the Beneficiary & Titling Audit (Sheet 14).
 Account Titling,Member_1_Trust,contingent_beneficiary,,text,Name of the contingent (backup) beneficiary on file for this account.
-Account Titling,Member_1_Trust,titling,,choice,"INDIVIDUAL | JTWROS | TENANTS_IN_COMMON | COMMUNITY_PROPERTY | SEPARATE_PROPERTY | TRUST_TITLED | TOD_POD; How this account is titled. Drives this account's own basis step-up/survivor-bonus fraction instead of the household-wide property regime, and flags JTWROS/community-property review prompts on Sheet 14. Leave blank to use the household default."
+Account Titling,Member_1_Trust,titling,TRUST_TITLED,choice,"INDIVIDUAL | JTWROS | TENANTS_IN_COMMON | COMMUNITY_PROPERTY | SEPARATE_PROPERTY | TRUST_TITLED | TOD_POD; How this account is titled. Drives this account's own basis step-up/survivor-bonus fraction instead of the household-wide property regime, and flags JTWROS/community-property review prompts on Sheet 14. Leave blank to use the household default."
 Account Titling,Member_1_Trust,trust_see_through,FALSE,bool,TRUE if a trust named as beneficiary qualifies as a see-through trust for RMD purposes (avoids the Sheet 14 trust_no_see_through flag).
 Account Titling,Member_2_IRA,primary_beneficiary,,text,Name of the primary beneficiary on file for this account. Reviewed by the Beneficiary & Titling Audit (Sheet 14).
 Account Titling,Member_2_IRA,contingent_beneficiary,,text,Name of the contingent (backup) beneficiary on file for this account.
@@ -220,7 +221,7 @@ Account Titling,Member_2_Roth,titling,,choice,"INDIVIDUAL | JTWROS | TENANTS_IN_
 Account Titling,Member_2_Roth,trust_see_through,FALSE,bool,TRUE if a trust named as beneficiary qualifies as a see-through trust for RMD purposes (avoids the Sheet 14 trust_no_see_through flag).
 Account Titling,Member_2_Trust,primary_beneficiary,,text,Name of the primary beneficiary on file for this account. Reviewed by the Beneficiary & Titling Audit (Sheet 14).
 Account Titling,Member_2_Trust,contingent_beneficiary,,text,Name of the contingent (backup) beneficiary on file for this account.
-Account Titling,Member_2_Trust,titling,,choice,"INDIVIDUAL | JTWROS | TENANTS_IN_COMMON | COMMUNITY_PROPERTY | SEPARATE_PROPERTY | TRUST_TITLED | TOD_POD; How this account is titled. Drives this account's own basis step-up/survivor-bonus fraction instead of the household-wide property regime, and flags JTWROS/community-property review prompts on Sheet 14. Leave blank to use the household default."
+Account Titling,Member_2_Trust,titling,TRUST_TITLED,choice,"INDIVIDUAL | JTWROS | TENANTS_IN_COMMON | COMMUNITY_PROPERTY | SEPARATE_PROPERTY | TRUST_TITLED | TOD_POD; How this account is titled. Drives this account's own basis step-up/survivor-bonus fraction instead of the household-wide property regime, and flags JTWROS/community-property review prompts on Sheet 14. Leave blank to use the household default."
 Account Titling,Member_2_Trust,trust_see_through,FALSE,bool,TRUE if a trust named as beneficiary qualifies as a see-through trust for RMD purposes (avoids the Sheet 14 trust_no_see_through flag).
 Insurance In Force,Life_1,policy_type,Life,choice,Life | Disability | Long-Term Care | Umbrella | Auto | Home | Property and Casualty | Other; policy type shown in the section heading.,
 Insurance In Force,Life_1,owner,,text,Policy owner.,

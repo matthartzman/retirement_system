@@ -54,19 +54,27 @@
         safeCall(()=>ctx.showMessage('Plan inputs changed since last build — results may be stale.','warn',{persistent:true,action:{label:'Rebuild now',fn:'runBuild(false)'}}));
       }
     }
-    if(id==='all_assumptions'){
-      safeCall(()=>setBuildOverlay(true,'Loading all assumptions','Aggregating all plan fields across sections. This takes a moment.','waiting'));
-    }
-    safeCall(ctx.renderMain);
-    if(id==='all_assumptions'){
-      setTimeout(()=>safeCall(hideBuildOverlay),50);
-    }
-    setTimeout(()=>{
+    const scrollAndFocus=()=>setTimeout(()=>{
       try{window.scrollTo({top:0,behavior:'smooth'});}catch(_e){}
       const entries=safeCall(ctx.focusableEntries)||[];
       const first=entries.find(el=>el&&el.closest&&el.closest('#mainPane'));
       if(first&&first.focus)first.focus();
     },0);
+    if(id==='all_assumptions'){
+      // #222: showing the overlay then immediately running the expensive
+      // synchronous renderMain() on the same tick never gave the browser a
+      // chance to paint the overlay first -- the page just froze for several
+      // seconds with no visible progress bar. Yield one tick so it paints.
+      safeCall(()=>setBuildOverlay(true,'Loading all assumptions','Aggregating all plan fields across sections. This takes a moment.','waiting'));
+      setTimeout(()=>{
+        safeCall(ctx.renderMain);
+        setTimeout(()=>safeCall(hideBuildOverlay),50);
+        scrollAndFocus();
+      },20);
+      return;
+    }
+    safeCall(ctx.renderMain);
+    scrollAndFocus();
   }
 
   function saveCurrentStep(ctx,fromStep){
@@ -160,12 +168,21 @@
     updateSearchToggle(ctx);
     if(nextScope==='page')safeCall(ctx.renderMain);else safeCall(ctx.renderSteps);
   }
+  // #223: Page-scope search re-renders the whole main pane (Field Finder's
+  // "all_assumptions" page alone groups/sorts/labels 600+ rows) -- doing that
+  // synchronously on every keystroke is what made typing feel laggy. Debounce
+  // the expensive render; the native input itself never blocked on its own.
+  let _combinedSearchTimer=null;
   function setCombinedSearch(ctx,q){
-    if((safeCall(ctx.getSearchScope)||'page')==='nav'){
-      safeCall(()=>ctx.setNavSearchText(q));safeCall(ctx.renderSteps);
-    }else{
-      safeCall(()=>ctx.setSearchText(q));safeCall(ctx.renderMain);
-    }
+    clearTimeout(_combinedSearchTimer);
+    const scope=(safeCall(ctx.getSearchScope)||'page');
+    _combinedSearchTimer=setTimeout(()=>{
+      if(scope==='nav'){
+        safeCall(()=>ctx.setNavSearchText(q));safeCall(ctx.renderSteps);
+      }else{
+        safeCall(()=>ctx.setSearchText(q));safeCall(ctx.renderMain);
+      }
+    },150);
     updateSearchToggle(ctx);
   }
   function focusableEntries(){

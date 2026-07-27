@@ -2376,6 +2376,12 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
     terminal_success_flags = []
     first_failure_years = []
     liquid_successes = 0
+    # #202: "success" against success_threshold also requires keeping the
+    # configured reserve floor, so a user testing "what if I need less
+    # reserve" sees the success rate jump even though the plan didn't get
+    # more resilient -- the bar for success just moved. Track true-ruin
+    # success (threshold 0.0) separately so both numbers can be reported.
+    no_ruin_successes = 0
     he_contingency_successes = 0
     total_nw_positive = 0
     sampled_returns = []
@@ -2405,6 +2411,7 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         final_total = float(last_row.get('total_nw', 0) or 0)
         final_liquid = _liquid_value(last_row)
         path_success = _funding_success(rows, success_threshold)
+        path_success_no_ruin = path_success if success_threshold <= 0 else _funding_success(rows, 0.0)
         terminal_total.append(final_total)
         terminal_liquid.append(final_liquid)
         terminal_success_flags.append(path_success)
@@ -2414,6 +2421,8 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
             total_nw_positive += 1
         if path_success:
             liquid_successes += 1
+        if path_success_no_ruin:
+            no_ruin_successes += 1
         if he_contingency_enabled:
             if _funding_success_with_home_equity(rows, success_threshold, he_reserve, he_lag):
                 he_contingency_successes += 1
@@ -2470,6 +2479,8 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
     success_rate = liquid_successes / max(1, N)
     success_ci_low, success_ci_high = _success_rate_ci(liquid_successes, N)
     success_se = math.sqrt(max(0.0, success_rate * (1.0 - success_rate) / max(1, N)))
+    success_rate_no_ruin = no_ruin_successes / max(1, N)
+    success_no_ruin_ci_low, success_no_ruin_ci_high = _success_rate_ci(no_ruin_successes, N)
 
     return {
         'pct_by_year': pct_by_year,                         # total net worth distribution
@@ -2504,6 +2515,15 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         'success_rate_ci_low': success_ci_low,
         'success_rate_ci_high': success_ci_high,
         'success_rate_standard_error': success_se,
+        # #202: a second, always-present success rate that only asks "did the
+        # plan run out of money" -- independent of the configured reserve
+        # floor above, so lowering/raising the reserve requirement changes
+        # this number only if it actually changes withdrawal behavior, not
+        # because the definition of success moved.
+        'success_definition_no_ruin': 'No unfunded annual spending gap in any projected year (ignores the reserve-floor buffer required by success_liquid_floor above).',
+        'success_rate_no_ruin': success_rate_no_ruin,
+        'success_rate_no_ruin_ci_low': success_no_ruin_ci_low,
+        'success_rate_no_ruin_ci_high': success_no_ruin_ci_high,
         'liquid_success_rate': success_rate,
         'total_nw_success_rate': total_nw_positive / max(1, N),
         'failure_rate': 1.0 - success_rate,
@@ -3013,6 +3033,13 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None):
     returns = batch['returns']
     infl = batch['inflation_paths']
     path_success = _np.array(batch['path_success'], dtype=bool)
+    # #202: a second, threshold-independent success flag ("did it run out of
+    # money at all") computed from the same already-simulated liquid/unfunded
+    # arrays -- no need to re-run the batch simulation just to change the
+    # reserve-floor threshold to 0.0.
+    _no_ruin_active = _np.array(base_years, dtype=int).reshape(1, -1) <= batch['max_death_years'].reshape(-1, 1)
+    _no_ruin_failure = ((proj['unfunded'] > 1.0) | (proj['liquid'] <= 0.0)) & _no_ruin_active
+    path_success_no_ruin = ~_np.any(_no_ruin_failure, axis=1)
 
     pct_by_year = {yr: _percentiles(proj['total'][:, i].tolist(), 0.0) for i, yr in enumerate(base_years)}
     liquid_pct_by_year = {yr: _percentiles(proj['liquid'][:, i].tolist(), success_threshold) for i, yr in enumerate(base_years)}
@@ -3067,6 +3094,9 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None):
     success_rate = float(liquid_successes / max(1, N))
     success_ci_low, success_ci_high = _success_rate_ci(liquid_successes, N)
     success_se = math.sqrt(max(0.0, success_rate * (1.0 - success_rate) / max(1, N)))
+    no_ruin_successes = int(_np.sum(path_success_no_ruin))
+    success_rate_no_ruin = float(no_ruin_successes / max(1, N))
+    success_no_ruin_ci_low, success_no_ruin_ci_high = _success_rate_ci(no_ruin_successes, N)
     # Vectorized approximation: contingency counts paths where terminal_liquid + reserve > threshold
     if he_contingency_enabled_v and he_reserve_v > 0:
         he_contingency_success_v = float(_np.mean(
@@ -3109,6 +3139,10 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None):
         'success_rate_ci_low': success_ci_low,
         'success_rate_ci_high': success_ci_high,
         'success_rate_standard_error': success_se,
+        'success_definition_no_ruin': 'No unfunded annual spending gap in any active projected year (ignores the reserve-floor buffer required by success_liquid_floor above).',
+        'success_rate_no_ruin': success_rate_no_ruin,
+        'success_rate_no_ruin_ci_low': success_no_ruin_ci_low,
+        'success_rate_no_ruin_ci_high': success_no_ruin_ci_high,
         'liquid_success_rate': success_rate,
         'total_nw_success_rate': float(_np.mean(terminal_total > 0.0)),
         'failure_rate': 1.0 - success_rate,
