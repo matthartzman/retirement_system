@@ -545,7 +545,13 @@ def run_deterministic_projection_stage(c):
         cst_funded_yr = 0.0
         if spousal_rollover and inher.survivor_owner_idx is not None and c.get('cs_enabled', False):
             available_from_decedent = sum(float(tr.amount or 0.0) for tr in inher.transfers)
-            cap = max(0.0, min(float(c.get('cs_amount', c.get('il_exempt', 0.0)) or 0.0), float(c.get('il_exempt', 0.0) or 0.0)))
+            # #227: capped by the CST shelter cap (what a funded bypass trust can
+            # remove from the survivor's estate), NOT il_exempt -- il_exempt is
+            # the survivor's own separate exemption applied later; conflating the
+            # two here would double-count the same dollars as both trust-sheltered
+            # and separately exempt.
+            _cst_cap = float(c.get('il_cst_shelter_cap', c.get('il_exempt', 0.0)) or 0.0)
+            cap = max(0.0, min(float(c.get('cs_amount', _cst_cap) or 0.0), _cst_cap))
             cst_funded_yr = min(cap, max(0.0, available_from_decedent))
             # Actual CST funding: remove the funded amount from survivor-accessible
             # taxable/cash balances and track it as a separate estate-excluded trust

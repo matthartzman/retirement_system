@@ -354,7 +354,7 @@
     let html = '<div class="planning-case-list">';
     cases.forEach(function (c) {
       const selected = active && c.case_id === active.case_id;
-      html += `<details class="scenario-set-card planning-case-card" ${selected ? "open" : ""}><summary><b>${esc(ctx, c.name)}</b><span>${esc(ctx, c.source)} · ${esc(ctx, c.run_type)} · ${(c.overrides || []).length} override${(c.overrides || []).length === 1 ? "" : "s"}${c.archived ? " · archived" : ""}</span></summary><div class="scenario-set-body">${overrideTable(ctx, c.overrides, "This case has no captured override rows.")}<div class="table-actions">${(c.overrides || []).some((x) => x.row_index != null) ? `<button class="btn" type="button" onclick="promotePlanningCase('${escJs(ctx, c.case_id)}')">Promote to Plan</button>` : ""}<button class="btn primary" type="button" onclick="planningCaseAdopt('${escJs(ctx, c.case_id)}')">Adopt via source pages</button><button class="btn" type="button" onclick="setPlanningCaseActive('${escJs(ctx, c.case_id)}')">Use for comparison</button><button class="btn" type="button" onclick="planningCaseArchive('${escJs(ctx, c.case_id)}')">${c.archived ? "Unarchive" : "Archive"}</button><button class="danger-link" type="button" onclick="planningCaseDelete('${escJs(ctx, c.case_id)}')">Delete</button></div></div></details>`;
+      html += `<details class="scenario-set-card planning-case-card"><summary><b>${esc(ctx, c.name)}</b><span>${esc(ctx, c.source)} · ${esc(ctx, c.run_type)} · ${(c.overrides || []).length} override${(c.overrides || []).length === 1 ? "" : "s"}${c.archived ? " · archived" : ""}</span></summary><div class="scenario-set-body">${overrideTable(ctx, c.overrides, "This case has no captured override rows.")}<div class="table-actions">${(c.overrides || []).some((x) => x.row_index != null) ? `<button class="btn" type="button" onclick="promotePlanningCase('${escJs(ctx, c.case_id)}')">Promote to Plan</button>` : ""}<button class="btn primary" type="button" onclick="planningCaseAdopt('${escJs(ctx, c.case_id)}')">Adopt via source pages</button><button class="btn" type="button" onclick="setPlanningCaseActive('${escJs(ctx, c.case_id)}')">Use for comparison</button><button class="btn" type="button" onclick="planningCaseArchive('${escJs(ctx, c.case_id)}')">${c.archived ? "Unarchive" : "Archive"}</button><button class="danger-link" type="button" onclick="planningCaseDelete('${escJs(ctx, c.case_id)}')">Delete</button></div></div></details>`;
     });
     html += "</div>";
     return html;
@@ -394,7 +394,7 @@
       call(ctx.renderWorkbenchStressHtml) +
       "</div></details>";
     html +=
-      '<details open><summary><b>Change Set Builder</b><span class="small"> staged edits, strategy levers, scenarios, and stresses share one override list</span></summary><div class="scenario-set-body">' +
+      '<details><summary><b>Change Set Builder</b><span class="small"> staged edits, strategy levers, scenarios, and stresses share one override list</span></summary><div class="scenario-set-body">' +
       sourceButtons() +
       "<h4>Currently staged manual edits</h4>" +
       overrideTable(
@@ -404,7 +404,7 @@
       ) +
       "</div></details>";
     html +=
-      '<details open><summary><b>Unified Comparison Matrix</b><span class="small"> one vocabulary for every run type</span></summary>' +
+      '<details><summary><b>Unified Comparison Matrix</b><span class="small"> one vocabulary for every run type</span></summary>' +
       matrixHtml(ctx, cases) +
       "</details>";
     html +=

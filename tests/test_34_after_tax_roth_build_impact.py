@@ -3,18 +3,26 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_build_impact_has_after_tax_third_and_risk_fourth_cards():
+def test_build_impact_has_terminal_nw_first_lifetime_tax_second_risk_third_cards():
+    # #225: Post-Tax Inheritance is no longer its own headline card here --
+    # PTI is computed at a different point in time on Estate & Legacy Plan
+    # (second-death year) than a terminal-plan-year Impact comparison would
+    # use, so showing both as equivalent headline figures read as a bug.
+    # Impact now only notes the estate-tax bite on the Terminal Net Worth
+    # card (and only when nonzero), pointing to Estate & Legacy Plan for the
+    # authoritative PTI figure.
     js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
     assert "after_tax_terminal_nw" in js
     assert "total_roth_conversions" in js
-    assert "Post-Tax Inheritance" in js
+    assert "post_tax_inheritance" in js
     start = js.index("function buildImpactCardsHtml")
     fn = js[start: js.index("function mhBool", start)]
     assert "impact-grid-four" in fn
+    assert '"Post-Tax Inheritance (PTI)"' not in fn
+    assert "estateTaxNote" in fn
     return_expr = fn[fn.index("return `<div class=\"impact-grid impact-grid-four\">"):]
-    assert return_expr.index("Terminal net worth") < return_expr.index("Lifetime taxes")
-    assert return_expr.index("Lifetime taxes") < return_expr.index("${afterTaxCard}")
-    assert return_expr.index("${afterTaxCard}") < return_expr.index("${riskCard}")
+    assert return_expr.index("${nwCard}") < return_expr.index("Lifetime taxes")
+    assert return_expr.index("Lifetime taxes") < return_expr.index("${riskCard}")
 
 
 def test_plan_summary_writes_after_tax_and_roth_conversion_kpis():

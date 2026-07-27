@@ -126,8 +126,16 @@ class ConfigService:
                 from src.report_compute import prepare_config_from_sectioned_data
             except ImportError:
                 return {}
+        # #234: this only reads module on/off toggles from cfg -- it never
+        # needs real holding values, so the live price-provider network calls
+        # parse_client() makes for every held symbol (measured: ~12s of the
+        # ~13s /api/config/rows was taking, fetched on every save/navigation)
+        # are wasted work here. skip_live_pricing is threaded through as an
+        # explicit parameter (not an env-var flip) because this server is a
+        # ThreadingHTTPServer -- a global env mutation could race a concurrent
+        # real build/report request that needs genuinely live prices.
         try:
-            cfg = prepare_config_from_sectioned_data(sectioned_data, "", optimize_roth=False)
+            cfg = prepare_config_from_sectioned_data(sectioned_data, "", optimize_roth=False, skip_live_pricing=True)
             return module_status(cfg)
         except Exception:
             return {}

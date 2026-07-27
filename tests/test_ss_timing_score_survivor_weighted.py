@@ -36,12 +36,12 @@ def _run(config_overrides=None):
 def test_score_is_after_tax_terminal_nw_plus_weighted_survivor_period_ss_income():
     result = _run()
     best = result["best"]
-    assert best["score"] == best["after_tax_terminal_nw"] + 1.0 * best["survivor_period_ss_income"]
+    assert best["objective_value"] == best["after_tax_terminal_nw"] + 1.0 * best["survivor_period_ss_income"]
     # The old score's components (gross terminal_nw with lifetime_ss added
     # back and lifetime_tax/irmaa subtracted again) must no longer equal the
     # new score -- otherwise nothing actually changed.
     old_style_score = best["terminal_nw"] + best["lifetime_ss"] - best["lifetime_tax"] - best["irmaa"]
-    assert best["score"] != old_style_score
+    assert best["objective_value"] != old_style_score
 
 
 def test_survivor_years_reflects_fixed_mortality_not_claim_timing_mismatch():
@@ -79,8 +79,8 @@ def test_survivor_weight_is_load_bearing_not_a_no_op():
     # weighting genuinely participates in the ranking instead of being inert.
     unweighted = _run({"ss_survivor_weight": 0.0})
     weighted = _run({"ss_survivor_weight": 1.0})
-    unweighted_scores = {(sc["h_age"], sc["w_age"]): round(sc["score"]) for sc in unweighted["scenarios"]}
-    weighted_scores = {(sc["h_age"], sc["w_age"]): round(sc["score"]) for sc in weighted["scenarios"]}
+    unweighted_scores = {(sc["h_age"], sc["w_age"]): round(sc["objective_value"]) for sc in unweighted["scenarios"]}
+    weighted_scores = {(sc["h_age"], sc["w_age"]): round(sc["objective_value"]) for sc in weighted["scenarios"]}
     assert unweighted_scores != weighted_scores
 
 

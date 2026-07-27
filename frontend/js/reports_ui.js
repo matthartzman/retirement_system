@@ -51,6 +51,24 @@
     var m = String(name || "").match(/^(\d+)/);
     return m ? m[1] : null;
   }
+  // #206: neither the raw sheet array order (workbook build can physically
+  // place a sheet like "2H. Planning Levers" among the "4." system sheets --
+  // a build-time ordering bug, not something the UI can fix) nor a plain
+  // alphabetical string sort (breaks on legacy plain-numbered sheets like
+  // "16. Scenario Analysis" sorting before "2A...") is reliable. Sort by the
+  // parsed leading number, then by any letter suffix, so labeled sheets
+  // (1, 1A, 1B, ... 2, 2A, 2B, ...) land in their intended sequence
+  // regardless of where the workbook actually put them.
+  function workbookSheetSortKey(name) {
+    var m = String(name || "").match(/^(\d+)([A-Za-z]*)/);
+    return m ? [Number(m[1]), m[2]] : [Infinity, String(name || "")];
+  }
+  function compareWorkbookSheetOrder(a, b) {
+    var ka = workbookSheetSortKey(a && a.name);
+    var kb = workbookSheetSortKey(b && b.name);
+    if (ka[0] !== kb[0]) return ka[0] - kb[0];
+    return ka[1] < kb[1] ? -1 : ka[1] > kb[1] ? 1 : 0;
+  }
   function isExcelTabSheet(s) {
     return (
       s.source === "excel_parser_fallback" ||
@@ -1287,6 +1305,14 @@
       groups.sort(function (a, b) {
         return Number(a.snum) - Number(b.snum);
       });
+      // #206: a sheet's array position can disagree with its assigned label
+      // (e.g. "2H. Planning Levers" physically built among the "4." system
+      // sheets) -- sort each group's sheets by parsed label, not insertion
+      // order, so the tree reflects intended sequence regardless of where
+      // the workbook actually placed the sheet.
+      groups.forEach(function (group) {
+        group.sheets.sort(compareWorkbookSheetOrder);
+      });
       groups.forEach(function (group) {
         const catOpen =
           navOpen &&
@@ -1294,7 +1320,7 @@
             group.sheets.some(function (sh) {
               return sh.name === call(ctx.getActiveDetailedSheet);
             }));
-        html += `<details class="detail-nav-category" ${catOpen ? "open" : ""}><summary>${escCtx(ctx, group.label)}</summary><div class="detail-nav-sheets">`;
+        html += `<details class="detail-nav-category"><summary>${escCtx(ctx, group.label)}</summary><div class="detail-nav-sheets">`;
         group.sheets.forEach(function (sheet) {
           const cls =
             sheet.name === call(ctx.getActiveDetailedSheet) ? "active" : "";
@@ -1350,7 +1376,7 @@
       data.sheets || []
     )
       .filter((s) => isExcelTabSheet(s))
-      .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")))
+      .sort(compareWorkbookSheetOrder)
       .map(
         (s) =>
           `<option value="${escCtx(ctx, s.name)}" ${sheet && s.name === sheet.name ? "selected" : ""}>${escCtx(ctx, s.name)}</option>`,
@@ -1396,7 +1422,7 @@
         detailCleanSectionTitle(sec.title) ||
         resultDisplayName(sheet.name) ||
         "Details";
-      const isOpen = q || i === 0 || sections.length === 1;
+      const isOpen = q;
       html += `<details class="detailed-result-section" ${isOpen ? "open" : ""}><summary><span>${escCtx(ctx, sectionTitle)}</span><small>${Number(rows.length)} rows</small></summary>${renderDetailedResultTable(ctx, sec, q)}</details>`;
     });
     html += "</div>";

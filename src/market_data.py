@@ -1211,7 +1211,7 @@ class MarketDataProvider:
             return ["cache_any_age", *self.live_provider_order, "holdings_cost_basis_if_no_cache"]
         return [*self.live_provider_order, "cache_any_age", "holdings_cost_basis_if_no_cache"]
 
-    def quote(self, symbol: str) -> float:
+    def quote(self, symbol: str, skip_live: bool = False) -> float:
         symbol = _clean_symbol(symbol)
         if not symbol:
             return 0.0
@@ -1252,7 +1252,7 @@ class MarketDataProvider:
             self.prices[symbol] = cached_any
             return cached_any
 
-        disable_live_env = str(os.getenv("RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS", "") or "").strip().lower() in {"1", "true", "yes", "on"}
+        disable_live_env = skip_live or str(os.getenv("RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS", "") or "").strip().lower() in {"1", "true", "yes", "on"}
         if self.use_live and not disable_live_env:
             for provider in self.live_provider_order:
                 px = self._try_provider(provider, symbol)
@@ -1594,8 +1594,8 @@ def reset_pricing_runtime_state(clear_failures: bool = True, clear_provider_fail
     PRICE_SOURCE_CACHE.clear()
 
 
-def fetch_price(symbol: str, url_template: str = "") -> float:
-    price = _DEFAULT_PROVIDER.quote(symbol)
+def fetch_price(symbol: str, url_template: str = "", skip_live: bool = False) -> float:
+    price = _DEFAULT_PROVIDER.quote(symbol, skip_live=skip_live)
     sym = _clean_symbol(symbol)
     PRICE_CACHE[sym] = price
     PRICE_SOURCE_CACHE[sym] = _DEFAULT_PROVIDER.sources.get(sym, "unknown")

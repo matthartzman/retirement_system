@@ -270,6 +270,10 @@ def attach_plan_result(c: dict[str, Any], rows: Sequence[Mapping[str, Any]], mc_
             'lifetime_tax': lifetime_tax,
             'total_roth_conversions': total_conversions,
             'monte_carlo_success_rate': _f((mc_data or {}).get('success_rate')) if isinstance(mc_data, Mapping) else 0.0,
+            # #202: success_rate requires keeping the configured reserve floor;
+            # this drops that requirement (true-ruin only) so a reserve-setting
+            # change doesn't get misread as a change in plan resilience.
+            'monte_carlo_success_rate_no_ruin': _f((mc_data or {}).get('success_rate_no_ruin')) if isinstance(mc_data, Mapping) else 0.0,
         },
         result_pages=result_pages,
         report_spec=report_spec,

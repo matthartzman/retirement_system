@@ -245,13 +245,13 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "tax_loss_harvesting", "Tax-Loss Harvesting", OPTIMIZATION, MEDIUM,
         "Harvestable losses given current lots.",
-        sheet="12B. Tax-Loss Harvesting", tab="2I. Tax-Loss Harvesting",
+        optional=True, sheet="12B. Tax-Loss Harvesting", tab="2I. Tax-Loss Harvesting",
         requires_inputs=(_in("holdings", "lots", "basis"), _in("pricing")),
     ),
     OutputModule(
         "gain_harvesting", "Gain Harvesting", OPTIMIZATION, MEDIUM,
         "0%-bracket long-term gains harvestable given current lots.",
-        sheet="12C. Gain Harvesting", tab="2N. Gain Harvesting",
+        optional=True, sheet="12C. Gain Harvesting", tab="2N. Gain Harvesting",
         requires_inputs=(_in("holdings", "lots", "basis"), _in("pricing")),
     ),
     OutputModule(
@@ -543,6 +543,8 @@ OPTIONAL_MODULE_SHEETS = {
     'social_security_timing':   ['10. Social Security'],
     'roth_conversion_plan':     ['11. Roth Conversion'],
     'charitable_giving':        ['12. Charitable Giving'],
+    'tax_loss_harvesting':      ['12B. Tax-Loss Harvesting'],
+    'gain_harvesting':          ['12C. Gain Harvesting'],
     'state_residency':          ['13. State Residency'],
     'estate_legacy_plan':       ['14. Estate Plan'],
     'market_luck_stress_test':  ['15. Market-Luck Stress Test'],

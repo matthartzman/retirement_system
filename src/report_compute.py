@@ -108,8 +108,8 @@ def build_model_heard_assumptions(c: Mapping[str, Any], rows: Sequence[Mapping[s
     }
 
 
-def prepare_config_from_sectioned_data(data: Mapping[str, Any], url_template: str = '', optimize_roth: bool = True) -> Dict[str, Any]:
-    c = parse_client(data, url_template)
+def prepare_config_from_sectioned_data(data: Mapping[str, Any], url_template: str = '', optimize_roth: bool = True, skip_live_pricing: bool = False) -> Dict[str, Any]:
+    c = parse_client(data, url_template, skip_live_pricing=skip_live_pricing)
     c = ensure_engine_config(c, source='sectioned')
     if optimize_roth:
         # Always score the Roth candidate set (even for an explicit user-selected

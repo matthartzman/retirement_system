@@ -664,7 +664,16 @@ def parse_advanced_modules(data):
     }
 
 
-def parse_client(data, url_template):
+def parse_client(data, url_template, *, skip_live_pricing=False):
+    """Parse sectioned client data into an engine-ready config dict.
+
+    ``skip_live_pricing``: use whatever's already in the in-process price
+    cache (or 0.0 if never fetched) instead of making a live network call per
+    held symbol. For callers that only need config/toggle values, not
+    accurate current holdings valuation (#234: this was 12+ of ~13s on every
+    /api/config/rows call, refetched on every save/navigation for a value
+    nothing downstream of that call used).
+    """
     c = {}
     system_data = {}
     if load_system_config is not None:
@@ -1438,6 +1447,13 @@ def parse_client(data, url_template):
     # Estate
     c['fed_exempt']  = _n(_v(data,'Estate Planning','Federal','exemption_mfj','30000000'), 30000000)
     c['il_exempt']   = _n(_v(data,'Estate Planning','Illinois','state_estate_exemption','4000000'), 4000000)
+    # #227: a funded Credit Shelter Trust shelters decedent assets from the
+    # survivor's estate entirely (see cs_enabled/cs_amount below) rather than
+    # doubling il_exempt directly -- il_exempt itself must stay the survivor's
+    # own plain exemption or the trust benefit gets double-counted. This cap
+    # governs how much can be moved into the trust at first death and should
+    # be reviewed alongside il_exempt (see https://creativeplanning.com/insights/taxes/state-estate-inheritance-taxes/).
+    c['il_cst_shelter_cap'] = _n(_v(data,'Estate Planning','Credit Shelter Trust','shelter_cap','8000000'), 8000000)
     c['basis_step_up_at_death'] = _b(_v(data,'Estate Planning','Step-Up','basis_step_up_at_death','TRUE'))
     c['basis_step_up_property_regime'] = str(_v(data,'Estate Planning','Step-Up','property_regime','COMMON_LAW') or 'COMMON_LAW').strip().upper()
     if c['basis_step_up_property_regime'] not in ('COMMON_LAW','COMMUNITY_PROPERTY','HALF_STEP_UP','FULL_STEP_UP'):
@@ -1459,9 +1475,9 @@ def parse_client(data, url_template):
     # Credit Shelter Trust (Bypass Trust) — preserves IL $4M exemption at first death
     c['cs_enabled']        = _b(_v(data,'Estate Planning','Credit Shelter Trust','enabled','TRUE'))
     c['cs_amount']         = _n(_v(data,'Estate Planning','Credit Shelter Trust','amount',
-                                  str(c['il_exempt'])), c['il_exempt'])
+                                  str(c['il_cst_shelter_cap'])), c['il_cst_shelter_cap'])
     c['cs_note']           = _v(data,'Estate Planning','Credit Shelter Trust','note',
-                                 'Funds up to IL exemption ($4M); bypasses survivor estate for IL tax')
+                                 'Funds up to the CST shelter cap; bypasses survivor estate for IL tax, on top of the survivor\'s own separate IL exemption')
     # QTIP manages annuity income after first death (annuity held in QTIP for benefit of survivor)
     c['qtip_manages_annuity'] = _b(_v(data,'Estate Planning','QTIP Trust','manages_annuity_after_first_death','TRUE'))
 
@@ -2203,7 +2219,7 @@ def parse_client(data, url_template):
     for acct, holdings in c['positions'].items():
         total = 0
         for sym, shares in holdings.items():
-            price = fetch_price(sym, url_template)
+            price = fetch_price(sym, url_template, skip_live=skip_live_pricing)
             total += shares * price
         balances[acct] = total
     c['balances'] = balances
@@ -2304,7 +2320,7 @@ def parse_client(data, url_template):
         for _sym, _shares in (_holdings or {}).items():
             _sym_u = str(_sym or '').strip().upper()
             try:
-                _value = float(_shares or 0.0) * float(fetch_price(_sym_u, url_template) or 0.0)
+                _value = float(_shares or 0.0) * float(fetch_price(_sym_u, url_template, skip_live=skip_live_pricing) or 0.0)
             except Exception:
                 _value = 0.0
             if _value <= 0:

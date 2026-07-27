@@ -34,6 +34,10 @@ def forecast_from_plan_json(plan: Mapping[str, Any], run_mc: bool = True) -> Dic
         'terminal_deferred_tax_total': round(after_tax.get('terminal_deferred_tax_total', 0)),
         'lifetime_tax': round(sum(r.get('total_tax', 0) for r in rows)),
         'mc_success': round(mc.get('success_rate', 0) * 100, 1) if mc else None,
+        # #202: success_rate requires keeping the configured reserve floor;
+        # this drops that requirement (true-ruin only) so a reserve-setting
+        # change isn't misread as a change in the plan's actual resilience.
+        'mc_success_no_ruin': round(mc.get('success_rate_no_ruin', 0) * 100, 1) if mc else None,
         'plan_years': len(rows),
         'survival_curve': mc.get('survival_curve', []) if mc else [],
         'validation': artifacts.validation,
