@@ -3934,7 +3934,14 @@ function rawRowsForStep(id) {
             // #235: reinvest_dividends_default/cash_yield_rate moved to
             // Investment Holdings -- a per-holding-account behavior, not a
             // system-wide economic assumption.
-            !["reinvest_dividends_default", "cash_yield_rate"].includes(lbl)) ||
+            // #236: annuity_default_dividend_rate/annuity_default_additional_income_pct
+            // moved to SS, Pensions & Annuities' "Plan-wide income stream settings".
+            ![
+              "reinvest_dividends_default",
+              "cash_yield_rate",
+              "annuity_default_dividend_rate",
+              "annuity_default_additional_income_pct",
+            ].includes(lbl)) ||
             sec === "Account Policy" ||
             // #238/#237: Payroll Tax / Medicare and / Self-Employment (FICA
             // rates) already live on Work Income (sec === "Payroll Tax" is
@@ -8189,9 +8196,19 @@ function renderIncomeStreamsSection() {
     "Income Streams",
     "Joint-and-Survivor Percentage",
     ["js_pct"],
-  ).concat(
-    findRows("Income Streams", "Recovery Age", ["principal_recovery_age"]),
-  );
+  )
+    .concat(
+      findRows("Income Streams", "Recovery Age", ["principal_recovery_age"]),
+    )
+    // #236: moved from Economic and Tax Assumptions -- these are annuity-wide
+    // defaults, not per-stream Income Streams rows, so they're looked up by
+    // their actual Economic Assumptions section/subsection.
+    .concat(
+      findRows("Economic Assumptions", "", [
+        "annuity_default_dividend_rate",
+        "annuity_default_additional_income_pct",
+      ]),
+    );
   let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Pensions and annuities</h3><div class="section-note">Each card starts with Type, then the payment and valuation fields for that income stream. Recovery Age is the age at which each stream's cash dividend payout stops (the guaranteed payment continues for life).</div>`;
   incomeStreamSubsections().forEach((sub) => {
     let rs = rows
@@ -9856,9 +9873,28 @@ function renderDeathBenefitsTable() {
     { frozenLabel: "Policy" },
   );
 }
+// #215: carrier-illustration schedules for Life policies -- the plan's
+// projection years are read from the existing Annuity Death Benefits matrix
+// (already correct for this household) rather than re-derived here.
+function illustrationPlanYears() {
+  return matrixYears(matrixRows("Annuity Death Benefits"));
+}
+function renderLifeIllustrations() {
+  const years = illustrationPlanYears();
+  if (!years.length) return "";
+  const cashValue = matrixRows("Life Illustration Cash Value");
+  const deathBenefit = matrixRows("Life Illustration Death Benefit");
+  const premium = matrixRows("Life Illustration Premium");
+  if (!cashValue.length && !deathBenefit.length && !premium.length) return "";
+  return `<details><summary>Life Insurance Illustrations</summary><div class="section-note">Enter values from each Life policy's carrier illustration for the years shown. Each policy below matches a policy added under Insurance Policies.</div>${renderYearMatrix("Life Illustration Cash Value", "Cash value", "Cash surrender value in each year, per the illustration.", { frozenLabel: "Policy" })}${renderYearMatrix("Life Illustration Death Benefit", "Death benefit", "Death benefit payable to beneficiaries in each year, per the illustration.", { frozenLabel: "Policy" })}${renderYearMatrix("Life Illustration Premium", "Premium", "Premium due in each year, per the illustration.", { frozenLabel: "Policy" })}</details>`;
+}
 function renderSpecialIncomeAnnuitiesInsurance() {
   if (searchText.trim()) return renderFields("annuity_death_benefits");
-  return renderDeathBenefitsTable() + renderInsurancePolicies();
+  return (
+    renderDeathBenefitsTable() +
+    renderLifeIllustrations() +
+    renderInsurancePolicies()
+  );
 }
 
 function withdrawalOtherRows() {
