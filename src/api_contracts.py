@@ -223,6 +223,12 @@ CONTRACTS: tuple[EndpointContract, ...] = (
         response_fields=(_f("success", "bool", True), _f("section", "str"), _f("rows_removed", "int")),
     ),
     EndpointContract(
+        "/api/life-illustration/seed", "POST", "life_illustration_seed_v1",
+        request_fields=(_f("policy_key", "str", True), _f("years", "list", True)),
+        response_fields=(_f("success", "bool", True), _f("seeded", "int"), _f("already_present", "int")),
+        notes="#215: seeds $0 Cash Value/Death Benefit/Premium illustration rows for one Life policy.",
+    ),
+    EndpointContract(
         "/api/config/sync", "POST", "config_sync_v1",
         response_fields=(_f("success", "bool", True),),
         notes="Plan Data adapter synchronization; row bootstrap behavior now lives in StrategyAssetService.",
