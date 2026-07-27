@@ -7465,6 +7465,49 @@ function showInAppConfirm(message, opts) {
     }, 30);
   });
 }
+function showSaveDiscardStayModal(message, opts) {
+  opts = opts || {};
+  return new Promise(function (resolve) {
+    const overlay = document.createElement("div");
+    overlay.className = "inapp-modal-overlay";
+    const title = opts.title || "Unsaved Changes";
+    const bodyHtml = opts.bodyIsHtml ? message : "<p>" + esc(message) + "</p>";
+    overlay.innerHTML =
+      '<div class="inapp-modal modal-warn"><b class="inapp-modal-title">' +
+      esc(title) +
+      '</b><div class="inapp-modal-body">' +
+      bodyHtml +
+      '</div><div class="inapp-modal-actions"><button class="btn sds-stay" type="button">Stay</button> <button class="btn warn sds-discard" type="button">Discard changes</button> <button class="btn primary sds-save" type="button">Save &amp; leave</button></div></div>';
+    document.body.appendChild(overlay);
+    function close(v) {
+      overlay.remove();
+      resolve(v);
+    }
+    overlay.querySelector(".sds-save").onclick = function () {
+      close("save");
+    };
+    overlay.querySelector(".sds-discard").onclick = function () {
+      close("discard");
+    };
+    overlay.querySelector(".sds-stay").onclick = function () {
+      close("stay");
+    };
+    overlay.onclick = function (e) {
+      if (e.target === overlay) close("stay");
+    };
+    function onKey(e) {
+      if (e.key === "Escape") {
+        close("stay");
+        document.removeEventListener("keydown", onKey);
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    setTimeout(function () {
+      const b = overlay.querySelector(".sds-stay");
+      if (b) b.focus();
+    }, 30);
+  });
+}
 function showYtdBlendChoiceModal(summary) {
   return new Promise(function (resolve) {
     const actual = (summary && summary.actual) || {};
@@ -7942,19 +7985,17 @@ async function savePlanAs() {
   }
 }
 async function loadSavedPlan() {
-  if (
-    hasUnsavedPlanChanges() &&
-    !(await showInAppConfirm(
-      "You have unsaved changes. Load a saved plan anyway? All unsaved changes will be lost.",
-      {
-        title: "Load Saved Plan",
-        confirmLabel: "Discard & Load",
-        cancelLabel: "Keep Editing",
-        variant: "warn",
-      },
-    ))
-  )
-    return;
+  if (hasUnsavedPlanChanges()) {
+    const choice = await showSaveDiscardStayModal(
+      "You have unsaved changes. Save them before loading a different plan, discard them, or stay here?",
+      { title: "Load Saved Plan" },
+    );
+    if (choice === "stay") return;
+    if (choice === "save") {
+      const ok = await saveAll(true);
+      if (!ok) return;
+    }
+  }
   if (!window.pywebview) {
     showMessage("File dialogs require the desktop app.", "error");
     return;
@@ -14831,6 +14872,11 @@ function navigationContext() {
     confirm: function (msg, opts) {
       return showInAppConfirm(msg, opts);
     },
+    saveWorkingCopy: saveWorkingCopy,
+    saveAll: saveAll,
+    confirmSaveDiscardStay: function (msg, opts) {
+      return showSaveDiscardStayModal(msg, opts);
+    },
     jumpRecommendationSource: jumpRecommendationSource,
     planningCaseCreate: planningCaseCreate,
     planningCaseDelete: planningCaseDelete,
@@ -15925,18 +15971,15 @@ async function loadAll(opts = {}) {
 }
 async function startNewPlan() {
   if (hasUnsavedPlanChanges()) {
-    if (
-      !(await showInAppConfirm(
-        "You have unsaved changes. Start a new plan anyway? All unsaved changes will be lost.",
-        {
-          title: "Start New Plan",
-          confirmLabel: "Discard & Start New",
-          cancelLabel: "Keep Editing",
-          variant: "warn",
-        },
-      ))
-    )
-      return;
+    const choice = await showSaveDiscardStayModal(
+      "You have unsaved changes. Save them before starting a new plan, discard them, or stay here?",
+      { title: "Start New Plan" },
+    );
+    if (choice === "stay") return;
+    if (choice === "save") {
+      const ok = await saveAll(true);
+      if (!ok) return;
+    }
   }
   let ytdBlendChoice = null;
   try {
