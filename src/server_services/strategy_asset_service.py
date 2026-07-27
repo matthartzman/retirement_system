@@ -21,6 +21,15 @@ WriteRowsFn = Callable[[Path, list[list[str]]], None]
 EnsureHeaderFn = Callable[[list[list[str]]], list[list[str]]]
 SyncFn = Callable[[], dict[str, Any]]
 
+# #215: year-by-year carrier-illustration schedule for Life insurance policies
+# (cash value, death benefit, premium), stored the same way as the existing
+# Annuity Death Benefits matrix -- one row per (section, year, policy_key).
+LIFE_ILLUSTRATION_SECTIONS: list[str] = [
+    "Life Illustration Cash Value",
+    "Life Illustration Death Benefit",
+    "Life Illustration Premium",
+]
+
 HOUSING_SEED_ROWS: list[list[str]] = [
     ["Cashflow","Mortgage","monthly_payment","","money","Current monthly mortgage payment; stops after last_payment_year"],
     ["Cashflow","Mortgage","balance_as_of_plan_start","","money","Current outstanding mortgage balance"],
@@ -533,9 +542,15 @@ class StrategyAssetService:
         rows = self.context.ensure_header(self.context.csv_read_rows(path))
         kept = [rows[0]]
         removed = 0
+        illustration_sections = set(LIFE_ILLUSTRATION_SECTIONS)
         for r in rows[1:]:
             cols = list(r) + [""] * 6
             if str(cols[0]).strip() == "Insurance In Force" and str(cols[1]).strip() == sub:
+                removed += 1
+                continue
+            # Illustration rows use (section, year, policy_key) -- the policy
+            # identifier is the *label* column here, not the subsection.
+            if str(cols[0]).strip() in illustration_sections and str(cols[2]).strip() == sub:
                 removed += 1
                 continue
             kept.append(r)
@@ -544,6 +559,29 @@ class StrategyAssetService:
         self.context.csv_write_rows(path, kept)
         self._audit("insurance_policy_deleted", {"section": sub, "rows_removed": removed})
         return {"success": True, "section": sub, "rows_removed": removed, "message": f"Deleted insurance policy {sub}."}, 200
+
+    def add_life_illustration_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
+        """#215: seed $0 Cash Value/Death Benefit/Premium illustration rows for
+        one Life policy across the given years (the frontend supplies the
+        year list from the already-loaded Annuity Death Benefits matrix, so
+        this never has to re-derive the plan's projection horizon)."""
+        policy_key = str(body.get("policy_key") or "").strip()
+        years = body.get("years") or []
+        if not policy_key:
+            return {"success": False, "error": "policy_key is required"}, 400
+        clean_years = [str(y).strip() for y in years if str(y).strip().isdigit()]
+        if not clean_years:
+            return {"success": False, "error": "years must be a non-empty list of calendar years"}, 400
+        seed_rows = [
+            [section, year, policy_key, "$0", "USD", "Enter this policy's carrier illustration value for this year."]
+            for section in LIFE_ILLUSTRATION_SECTIONS
+            for year in clean_years
+        ]
+        return self._seed_rows(
+            file_name="client_insurance_estate.csv",
+            seed_rows=seed_rows,
+            audit_event="life_illustration_seeded",
+        )
 
     def import_reference_csv_payload(self, *, file_name: str, body: dict[str, Any], audit_event: str) -> tuple[dict[str, Any], int]:
         content = body.get("csv_content", "")
