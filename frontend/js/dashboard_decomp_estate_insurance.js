@@ -314,11 +314,20 @@ function renderInsurancePolicyGroup(opts) {
       const k = norm(typ);
       counters[k] = (counters[k] || 0) + 1;
       const typeRow = policyTypeRow(prs);
+      // #224: Auto/Home policy premiums now override the separately-tracked
+      // spending budget once a policy exists -- flag that here so the number
+      // isn't silently authoritative without explanation.
+      const budgetNote =
+        norm(typ) === "auto"
+          ? `<div class="section-note">This policy's Annual Premium now sets the "Auto Insurance" spending budget amount, replacing the value entered on <a href="#" onclick="setStep('spending_core');return false">Spending Categories</a>.</div>`
+          : norm(typ) === "home"
+            ? `<div class="section-note">This policy's Annual Premium now sets the homeowners-insurance baseline used on <a href="#" onclick="setStep('state_residency');return false">State Residency Analysis</a>, replacing the value entered on <a href="#" onclick="setStep('spending_mortgage_events');return false">Housing</a>.</div>`
+            : "";
       const body = prs
         .filter((r) => r !== typeRow)
         .map(fieldHtml)
         .join("");
-      html += `<details><summary><span>${esc(typ)} ${counters[k]} · ${esc(sub)}</span> ${policyTypeSelect(typeRow, typ, types)} <button class="danger-link" type="button" onclick="deleteInsurancePolicy(event,'${escJs(sub)}')">Delete</button></summary><div class="field-list">${body}</div></details>`;
+      html += `<details><summary><span>${esc(typ)} ${counters[k]} · ${esc(sub)}</span> ${policyTypeSelect(typeRow, typ, types)} <button class="danger-link" type="button" onclick="deleteInsurancePolicy(event,'${escJs(sub)}')">Delete</button></summary><div class="field-list">${budgetNote}${body}</div></details>`;
     });
   if (counts.length)
     html += renderEstateSection(

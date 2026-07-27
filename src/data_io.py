@@ -369,6 +369,24 @@ def _y(v, default=0):
     except Exception:
         return default
 
+def _insurance_policy_premium_sum(data, policy_type):
+    # #224: an Insurance Policy record (Insurance page) of this type becomes
+    # the source of truth for that baseline once one exists with a nonzero
+    # premium, instead of a separately-maintained comparison number that can
+    # drift from it. Gated behind the same "Existing Life Insurance" optional
+    # module every other Insurance In Force row is gated behind (see #226-
+    # style optional-module gating) -- otherwise this would activate policy
+    # rows the rest of the app is still treating as off/inactive.
+    if not _b(_v(data, 'Optional Functions', '', 'existing_life_insurance', 'FALSE')):
+        return 0.0
+    total = 0.0
+    target = policy_type.strip().lower()
+    for fields in (data.get('Insurance In Force') or {}).values():
+        if str(fields.get('policy_type', '')).strip().lower() != target:
+            continue
+        total += _n(fields.get('annual_premium', '0'), 0)
+    return total
+
 
 def _date_parts(v):
     """Return (year, month, day) for common plan-date strings, else None.
@@ -1095,7 +1113,10 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # utilities/homeowners insurance because owned-home costs drop off once the
     # home is sold.  Keep the raw current-home amounts on the engine config so
     # projection and workbook code do not have to re-read CSV rows.
-    c['current_homeowners_insurance_annual'] = _n(_v(data,'Housing','current_home','homeowners_insurance_annual','0'), 0)
+    # #224: a Home/Auto Insurance Policy record (Insurance page) supersedes
+    # these baselines once one exists with a nonzero premium.
+    _home_policy_premium = _insurance_policy_premium_sum(data, 'Home')
+    c['current_homeowners_insurance_annual'] = _home_policy_premium if _home_policy_premium > 0 else _n(_v(data,'Housing','current_home','homeowners_insurance_annual','0'), 0)
     c['current_home_utilities_annual'] = _n(_v(data,'Housing','current_home','utilities_annual','0'), 0)
     c['current_home_maintenance_annual'] = _n(_v(data,'Housing','current_home','home_maintenance_annual','0'), 0)
 
@@ -1104,7 +1125,8 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # maintenance baselines come from the Housing current-home amounts above;
     # auto insurance is a separate transportation budget captured here.
     c['residency_target_state'] = str(_v(data,'State Comparison','','target_state','') or '').strip()
-    c['current_auto_insurance_annual'] = _n(_v(data,'State Comparison','auto_insurance','illinois_baseline_annual','0'), 0)
+    _auto_policy_premium = _insurance_policy_premium_sum(data, 'Auto')
+    c['current_auto_insurance_annual'] = _auto_policy_premium if _auto_policy_premium > 0 else _n(_v(data,'State Comparison','auto_insurance','illinois_baseline_annual','0'), 0)
 
     # Future housing steps (rent/buy) are entered on the Housing page and feed
     # both annual cash flow and net worth.  A blank start year disables a step.

@@ -1118,6 +1118,52 @@ def save_budget_by_category(root, budget):
     save_unified_budget(root, rows)
 
 
+def _existing_life_insurance_module_enabled(root) -> bool:
+    path = _root(root) / "input" / "client_optional_functions.csv"
+    if not path.exists():
+        return False
+    try:
+        with path.open(newline="", encoding="utf-8-sig") as f:
+            for row in csv.reader(f):
+                if len(row) >= 4 and str(row[2]).strip() == "existing_life_insurance":
+                    return str(row[3]).strip().upper() in ("TRUE", "YES", "1")
+    except Exception:
+        return False
+    return False
+
+
+def _insurance_policy_premium_sum(root, policy_type: str) -> float:
+    """#224: sum annual_premium across Insurance In Force policies of the
+    given type (e.g. "Auto"), so an Insurance Policy record added on the
+    Insurance page becomes the source of truth for that spending category
+    once one exists, instead of the two numbers being able to silently
+    drift or double-count. Gated behind the "Existing Life Insurance"
+    optional module, the same gate every other Insurance In Force row is
+    already subject to elsewhere in the app."""
+    if not _existing_life_insurance_module_enabled(root):
+        return 0.0
+    path = _root(root) / "input" / "client_insurance_estate.csv"
+    if not path.exists():
+        return 0.0
+    by_sub: dict[str, dict[str, str]] = {}
+    try:
+        with path.open(newline="", encoding="utf-8-sig") as f:
+            for row in csv.reader(f):
+                if len(row) < 4 or str(row[0]).strip() != "Insurance In Force":
+                    continue
+                sub, label, value = str(row[1]).strip(), str(row[2]).strip().lower(), row[3]
+                by_sub.setdefault(sub, {})[label] = value
+    except Exception:
+        return 0.0
+    target = policy_type.strip().lower()
+    total = 0.0
+    for fields in by_sub.values():
+        if str(fields.get("policy_type", "")).strip().lower() != target:
+            continue
+        total += _safe_float(str(fields.get("annual_premium", "0")))
+    return total
+
+
 def _budget_indexes(root=None):
     categories: dict[str, dict] = {}
     groups: dict[str, dict] = {}
@@ -1129,6 +1175,14 @@ def _budget_indexes(root=None):
             groups[row.get("key", "")] = row
         elif row.get("kind") == "line":
             lines_by_category.setdefault(row.get("key", ""), []).append(row)
+    # #224: Auto Insurance Policy (Insurance page) supersedes the separately
+    # maintained auto_insurance budget amount once at least one Auto policy
+    # with a nonzero premium exists.
+    auto_premium = _insurance_policy_premium_sum(root, "Auto")
+    if auto_premium > 0 and "auto_insurance" in categories:
+        cat = dict(categories["auto_insurance"])
+        cat["annual_budget"] = auto_premium
+        categories["auto_insurance"] = cat
     return categories, groups, lines_by_category
 
 
