@@ -5903,11 +5903,59 @@ const FIELD_TOOLTIPS = {
     "Enter your effective rate, not the top marginal bracket rate.",
   effective_state_tax_rate:
     "Enter your effective rate, not the top marginal bracket rate.",
+  social_security_cola:
+    "The annual raise Social Security applies to keep pace with inflation. Click for the full explanation.",
+  basis_step_up_at_death:
+    "Under current law, an heir's taxable-account cost basis resets to date-of-death value, erasing lifetime gains. Click for the full explanation.",
+  tax_loss_harvesting:
+    "Deliberately selling losers to offset gains and reduce lifetime taxes. Click for the full explanation.",
+  heloc_enabled:
+    "Uses a home-equity credit line to fund large one-time expenses instead of selling investments. Click for the full explanation.",
+  holding_period_floor_strength:
+    "The strength dial for Holding Period Allocation — 100% = full effect, 0% = off. Click for the full explanation.",
+  success_liquid_floor:
+    "The minimum liquid cash a Monte Carlo year must keep to still count as a success. Click for the full explanation.",
+  stochastic_irmaa:
+    "Adds realistic year-to-year noise to IRMAA thresholds in Monte Carlo runs. Click for the full explanation.",
+  return_inflation_correlation:
+    "How much market returns and inflation surprises move together in the simulation. Click for the full explanation.",
+  return_serial_correlation:
+    "How much one simulated year's return predicts the next — captures market \"streakiness.\" Click for the full explanation.",
+  niit_magi_threshold_mfj:
+    "The income level above which the extra 3.8% investment-income tax applies. Click for the full explanation.",
+  glide_path:
+    "Static keeps the allocation strategy fixed; target_date automatically de-risks with age. Click for the full explanation.",
+  roth_irmaa_cap:
+    "Stops Roth conversions from pushing income across a Medicare surcharge tier. Click for the full explanation.",
+  roth_irmaa_target_tier:
+    "Which Medicare surcharge tier the Roth conversion guardrail treats as the line not to cross. Click for the full explanation.",
+  roth_irmaa_headroom_usage_pct:
+    "How much of the room below the IRMAA tier line conversions are allowed to use. Click for the full explanation.",
+  qcd_enabled:
+    "Lets an IRA owner 70½+ send money straight to charity tax-free, satisfying the RMD. Click for the full explanation.",
+  daf_annual_contribution:
+    "Donor-Advised Fund: get the deduction now, decide which charities get the money later. Click for the full explanation.",
+  h_qcd_annual_amount:
+    "This member's annual tax-free charity gift straight from their IRA. Click for the full explanation.",
+  w_qcd_annual_amount:
+    "This member's annual tax-free charity gift straight from their IRA. Click for the full explanation.",
+  h_qcd_start_year:
+    "Optional override for when this member's QCD giving begins. Click for the full explanation.",
+  w_qcd_start_year:
+    "Optional override for when this member's QCD giving begins. Click for the full explanation.",
+  h_qcd_end_year:
+    "Optional override for when this member's QCD giving stops. Click for the full explanation.",
+  w_qcd_end_year:
+    "Optional override for when this member's QCD giving stops. Click for the full explanation.",
 };
 function fieldTooltipHtml(lbl) {
   const tip = FIELD_TOOLTIPS[lbl];
   if (!tip) return "";
-  return `<span class="field-tooltip" tabindex="0" title="${esc(tip)}" aria-label="Hint: ${esc(tip)}">?</span>`;
+  // #219/#220: standard superscript-i info link. Hover/focus shows the short
+  // hint via the native title tooltip; click bubbles to the field row's own
+  // onclick, which opens the full purpose/impact/consider panel via
+  // showFieldHelp -- the badge itself needs no separate click handler.
+  return `<sup class="field-info-i" tabindex="0" title="${esc(tip)}" aria-label="More info: ${esc(tip)}">i</sup>`;
 }
 function fieldHtml(r) {
   const value = valOf(r);
@@ -15197,6 +15245,137 @@ const FIELD_GUIDANCE_OVERRIDES = {
       "A larger reserve can protect liquidity but may force the model to draw from different accounts sooner.",
     consider: "Use 0 if there is no special reserve requirement.",
   },
+  // #219/#220: applying the same layman-quality standard to the app's other
+  // genuinely non-intuitive fields, not just the two fields the user gave as
+  // examples of the target quality bar.
+  social_security_cola: {
+    purpose:
+      "COLA stands for Cost-of-Living Adjustment — the annual raise Social Security applies to everyone's monthly benefit to keep pace with inflation. This setting is the assumed average COLA percentage used for every future year of the projection, not a promise from the government about any specific year.",
+    impact:
+      "A higher assumed COLA means Social Security income keeps growing faster relative to fixed spending, which generally helps terminal net worth and success rate; a lower COLA means Social Security's real purchasing power erodes faster over a multi-decade retirement.",
+    consider:
+      "Historically COLA has averaged a bit under general inflation over long periods. Using the same rate as the general inflation assumption is a reasonable default; only diverge if intentionally testing a scenario where Social Security under- or over-shoots broad inflation.",
+  },
+  basis_step_up_at_death: {
+    purpose:
+      "\"Basis\" is what was originally paid for an investment — the number the IRS uses to calculate taxable gain when it's sold. Normally, selling an investment for more than its basis triggers capital gains tax on the difference. When someone dies owning an investment in a regular (non-retirement) taxable account, current law resets — \"steps up\" — that basis to the investment's value on the date of death, erasing the taxable gain that built up during their lifetime.",
+    impact:
+      "When this is on (the current-law default), the plan assumes the heir who inherits taxable-account holdings owes no capital gains tax on the appreciation that happened before death, only on further growth after they inherit it. Turning it off models a scenario where step-up is unavailable or repealed — heirs would then owe capital gains tax on the full lifetime appreciation when they eventually sell, which raises the effective estate tax burden and lowers what heirs keep.",
+    consider:
+      "Leave this on to model current law. Only turn it off to stress-test a legislative-risk scenario (step-up has periodically been proposed for repeal or limitation) — don't turn it off just because it sounds conservative, since it would misrepresent today's actual tax rules.",
+  },
+  tax_loss_harvesting: {
+    purpose:
+      "Tax-loss harvesting means deliberately selling an investment that's currently worth less than what was paid for it, to realize (\"harvest\") a capital loss on paper — that loss can then offset capital gains elsewhere, and up to $3,000/year of any leftover loss can offset ordinary income. This toggle turns on a dedicated workbook sheet modeling that strategy.",
+    impact:
+      "When enabled, the projection assumes available paper losses are periodically harvested and used to reduce taxable gains/income, which can meaningfully lower lifetime taxes for a household with taxable-account holdings that fluctuate in value. It has no effect on tax-deferred or Roth accounts, since those aren't taxed on individual sales.",
+    consider:
+      "Only enable this if the household (or advisor) actually intends to harvest losses opportunistically — the model isn't assuming a specific market downturn, it's assuming a disciplined ongoing practice. Leave it off if this isn't part of the actual investment approach, since it would otherwise overstate expected tax savings.",
+  },
+  heloc_enabled: {
+    purpose:
+      "HELOC stands for Home Equity Line of Credit — a revolving credit line secured by the home, similar to a credit card but usually at a lower interest rate because the house backs it. This setting turns on a strategy where the plan draws from that credit line to cover large one-time discretionary expenses (vacations, weddings, home projects) instead of selling investments to pay for them.",
+    impact:
+      "When enabled, large discretionary spending is funded by HELOC draws during the draw period (configured below) instead of portfolio withdrawals, keeping invested assets untouched and compounding longer. The line accrues interest and is assumed to be repaid later, typically from home-sale proceeds — so this trades borrowing cost and reduced home equity at sale against the extra investment growth from not selling assets early.",
+    consider:
+      "This tends to help when portfolio growth outpaces the HELOC's interest cost; it tends to hurt when the interest rate is high or the home isn't expected to sell (or sells for less than expected) before the balance needs repaying. Model it both on and off and compare terminal net worth before committing to the strategy.",
+  },
+  holding_period_floor_strength: {
+    purpose:
+      "This is the \"strength dial\" mentioned in the Holding Period Allocation Enabled setting — it only does anything when that setting is turned on. It controls how firmly the near-term-needs-more-cash / long-horizon-needs-more-stocks adjustment is applied to the recommended allocation.",
+    impact:
+      "100% applies the full adjustment the withdrawal-timeline analysis calculates; 0% effectively disables the adjustment (allocation falls back to whatever the base optimizer/max-Sharpe mode would have recommended without it) without having to turn the feature off entirely. Values in between blend proportionally.",
+    consider:
+      "Start at 100% to see the full effect, then dial it down only if the resulting allocation shift feels too aggressive relative to comfort with the recommendation.",
+  },
+  success_liquid_floor: {
+    purpose:
+      "In each simulated year of a Monte Carlo run, this is the minimum dollar amount of liquid (spendable) assets the plan must still have on hand for that simulated path to count as a \"success.\" It's a stricter bar than simply not running out of money entirely — it treats getting dangerously close to zero as a failure too, even if the balance never technically hits $0.",
+    impact:
+      "Raising this floor makes the success rate more conservative (harder to pass) because paths that would have survived on paper but dipped uncomfortably low now count as failures. Setting it to $0 is the loosest standard — a plan only \"fails\" a simulated year if it truly runs out of money.",
+    consider:
+      "A floor of $0 answers \"will I ever go broke?\" A floor set to, say, one year of spending answers the more cautious question \"will I ever be down to my last few months of cushion?\" Pick the floor that matches how much of a buffer actually needs to feel safe.",
+  },
+  stochastic_irmaa: {
+    purpose:
+      "IRMAA is the Medicare income surcharge — higher-income retirees pay more for Medicare Part B/D based on income from two years earlier. The dollar thresholds that trigger each surcharge tier are set annually and, in real life, jump around a bit with inflation rather than growing on a perfectly smooth line. This setting tells the Monte Carlo simulation to add small random year-to-year noise to those thresholds instead of assuming they grow at a perfectly steady rate.",
+    impact:
+      "Turning this on makes IRMAA outcomes across simulated trials more realistic and slightly more variable — some simulated years will cross a surcharge tier a little earlier or later than a smooth-inflation assumption would suggest, which is closer to how thresholds actually move in practice. Turning it off simplifies the model to steady, predictable threshold growth.",
+    consider:
+      "Leave this on for a more realistic Monte Carlo distribution of IRMAA risk. There's little reason to turn it off other than isolating IRMAA's effect while debugging or comparing runs.",
+  },
+  return_inflation_correlation: {
+    purpose:
+      "\"Correlation\" measures how two things tend to move together, from -1 (perfectly opposite) to +1 (perfectly in lockstep). This setting tells the Monte Carlo simulator how market returns and inflation surprises tend to move relative to each other historically — a negative number (like the default) means that when inflation runs unexpectedly hot, market returns have historically tended to run a bit weaker in the same period, and vice versa.",
+    impact:
+      "This shapes how often the simulator generates the worst combination for a retiree — simultaneously bad markets and high inflation — in the same simulated year. A more negative correlation makes that painful combination somewhat less likely to occur together (since the model expects them to offset); a value near zero treats market returns and inflation as unrelated from year to year.",
+    consider:
+      "This is a capital-markets assumption, not a personal input — leave it at the research-informed default unless there's a specific reason (e.g. matching a particular economist's outlook or stress-testing sensitivity to this relationship) to override it.",
+  },
+  return_serial_correlation: {
+    purpose:
+      "\"Serial\" correlation (also called AR(1), or first-order autocorrelation) measures whether one year's market return tends to predict the next year's — for example, whether strong years tend to be followed by more strong years (momentum, positive serial correlation) or by weaker ones (mean-reversion, negative serial correlation). This setting controls how much of that year-to-year dependence the simulator builds into randomly generated returns, instead of treating every year as a completely independent coin flip.",
+    impact:
+      "A higher value makes simulated return sequences more likely to string together multi-year runs of good or bad markets (which is closer to some historical patterns and can produce more extreme best/worst-case outcomes); a value of 0 treats every simulated year's return as unrelated to the year before it.",
+    consider:
+      "This is a capital-markets assumption, not a personal input — leave it at the research-informed default unless intentionally testing sensitivity to how \"streaky\" markets are assumed to be.",
+  },
+  niit_magi_threshold_mfj: {
+    purpose:
+      "NIIT stands for Net Investment Income Tax — an extra 3.8% federal tax on investment income (interest, dividends, capital gains, rental income) for higher earners, on top of regular income tax. This is the Modified Adjusted Gross Income level, for a married-filing-jointly household, above which that extra 3.8% tax kicks in on investment income.",
+    impact:
+      "Income (including Roth conversions, which count as ordinary income) that pushes MAGI over this line causes investment income above the line to be taxed an additional 3.8% — this is one of the \"cliffs\" the Roth conversion optimizer already guards against when its NIIT cap is enabled.",
+    consider:
+      "This threshold is set by federal law and is NOT annually inflation-adjusted (unlike most tax brackets) — it's a fixed dollar figure until Congress changes it. Only edit this if federal law actually changes the threshold; don't inflate it year-to-year the way other tax parameters are.",
+  },
+  glide_path: {
+    purpose:
+      "A \"glide path\" is how a portfolio's stock/bond mix is allowed to change over time. \"Static\" keeps the allocation strategy fixed throughout retirement (same target logic every year). \"Target_date\" instead gradually shifts the mix to be more conservative (more bonds, less stock) as the household gets closer to and further into retirement — the same idea behind a target-date retirement fund.",
+    impact:
+      "Static is simpler and more predictable but doesn't automatically reduce risk with age. Target_date automatically de-risks over time, which can reduce sequence-of-returns risk late in retirement but also means less growth potential is retained in later years even if that growth would have been welcome.",
+    consider:
+      "Target_date is a reasonable default for households who want the model to automatically get more conservative with age without manually adjusting risk tolerance settings over time. Static suits households who prefer to make that call deliberately themselves.",
+  },
+  roth_irmaa_cap: {
+    purpose:
+      "This turns on a guardrail that stops the Roth conversion optimizer from converting so much in one year that it pushes the household's income across an IRMAA tier line (the income levels above which Medicare premiums jump to a higher surcharge bracket).",
+    impact:
+      "When enabled, the optimizer treats the IRMAA tier selected below (Target Tier) as a soft ceiling on voluntary conversions in years where crossing it would trigger a higher Medicare premium surcharge — trading some conversion size/tax-bracket-fill efficiency for lower ongoing Medicare costs. When disabled, conversions are sized purely by the tax-bracket target, ignoring any resulting IRMAA surcharge.",
+    consider:
+      "Leave this on for most households — an unplanned IRMAA surcharge from a large conversion year can be expensive and lasts for a full plan year based on income from two years earlier. Only disable it if intentionally testing an aggressive, IRMAA-indifferent conversion strategy.",
+  },
+  roth_irmaa_target_tier: {
+    purpose:
+      "IRMAA has multiple income tiers (Tier 1 through Tier 5), each with a higher Medicare Part B/D surcharge than the last. This setting picks which tier's income threshold the Roth conversion guardrail (above) treats as the line not to cross.",
+    impact:
+      "A lower tier (e.g. Tier 1) is more conservative — it keeps voluntary conversions smaller so income stays further below any Medicare surcharge threshold. A higher tier (e.g. Tier 4 or 5) allows larger conversions before the guardrail engages, accepting a higher Medicare premium tier as the cost of converting more.",
+    consider:
+      "Tier 2 is a common middle-ground default. Choose a lower tier when minimizing Medicare premiums matters more than maximizing how much gets converted; choose a higher tier when using up low tax brackets or reducing future RMDs matters more than the Medicare cost.",
+  },
+  roth_irmaa_headroom_usage_pct: {
+    purpose:
+      "\"Headroom\" is the gap between the household's current projected income and the IRMAA tier threshold selected above — the dollar amount of room left before crossing into a higher Medicare surcharge tier. This percentage controls how much of that available room the optimizer is willing to actually use for voluntary conversions.",
+    impact:
+      "100% lets the optimizer convert right up to the edge of the threshold. A lower percentage (e.g. 90%) leaves a safety cushion below the threshold, reducing the chance that a small income estimate error accidentally tips the household into the next IRMAA tier.",
+    consider:
+      "100% maximizes conversion room but leaves no margin for estimation error in other income sources. A slightly lower value (90-95%) is a reasonable way to build in a buffer without meaningfully reducing conversion opportunity.",
+  },
+  qcd_enabled: {
+    purpose:
+      "QCD stands for Qualified Charitable Distribution — once a person is age 70½ or older, they can send money directly from their own IRA to a qualifying charity, and that amount is excluded from taxable income entirely (unlike a normal IRA withdrawal, or even a regular charitable deduction which only helps if itemizing). This turns the strategy on for the household.",
+    impact:
+      "When enabled, each eligible member's QCD amount (set per-person below) is excluded from Adjusted Gross Income and can also count toward satisfying that year's Required Minimum Distribution — often lowering taxable income, Medicare IRMAA exposure, and NIIT exposure more than an equivalent charitable deduction would.",
+    consider:
+      "This is one of the most tax-efficient ways to give to charity once RMD-eligible — turn it on if charitable giving is already part of the plan and at least one member is or will be 70½+. It has no benefit for households that don't give to charity from IRA assets.",
+  },
+  daf_annual_contribution: {
+    purpose:
+      "DAF stands for Donor-Advised Fund — money (or appreciated securities) contributed to a DAF gets an immediate charitable tax deduction in the year contributed, even though the actual grants to specific charities can be decided and paid out over many future years. It's a way to \"bunch\" several years of giving into one high-income year for a bigger deduction, while still spreading the actual gifts out over time.",
+    impact:
+      "This annual dollar amount is modeled as a charitable contribution (and tax deduction) in the year it's made, funded from ongoing spending/cash flow rather than from an IRA (that's what QCD is for). It reduces taxable income in the contribution year and grows the household's outside-the-estate giving capacity for future years.",
+    consider:
+      "DAFs are most tax-efficient when contributed in an unusually high-income year (e.g. a big Roth conversion year or a business-sale year) since the deduction is worth more against a higher marginal rate. If giving is steady and modest, a DAF adds complexity without much extra benefit over direct annual gifts.",
+  },
 };
 function fieldDefaultMeaning(row) {
   const label = humanLabel(row.label, row);
@@ -15371,6 +15550,37 @@ function fieldGuidance(row) {
       "Reduces required portfolio withdrawals and may count as fixed-income-like coverage when enabled.";
     consider =
       "Use conservative values and note whether the amount is inflation-adjusted.";
+  } else if (
+    l.startsWith("h_qcd_") ||
+    l.startsWith("w_qcd_") ||
+    l === "h_qcd_annual_amount" ||
+    l === "w_qcd_annual_amount"
+  ) {
+    // #219/#220: per-member QCD (Qualified Charitable Distribution) amount/
+    // start/end fields all share the same underlying concept -- one shared
+    // explanation instead of six near-duplicate FIELD_GUIDANCE_OVERRIDES entries.
+    if (l.includes("start_year")) {
+      purpose =
+        "QCDs (Qualified Charitable Distributions) let an IRA owner age 70½+ send money straight from their IRA to charity, tax-free. This optional override sets the first plan year this member's QCD giving begins.";
+      impact =
+        "Leaving this blank starts QCD giving automatically the year this member turns 70½-eligible. Setting a later year delays when the tax-free giving (and any RMD credit it provides) begins.";
+      consider =
+        "Only fill this in if giving should start later than 70½-eligibility (e.g. charitable giving isn't planned until a later year); otherwise leave it blank.";
+    } else if (l.includes("end_year")) {
+      purpose =
+        "QCDs (Qualified Charitable Distributions) let an IRA owner age 70½+ send money straight from their IRA to charity, tax-free. This optional override sets the last plan year this member's QCD giving applies.";
+      impact =
+        "Leaving this blank continues QCD giving through the end of the plan. Setting an earlier year stops the tax-free giving (and its RMD credit) after that year, reverting to normal taxable withdrawals for any remaining RMD.";
+      consider =
+        "Only fill this in if QCD giving should stop before the plan ends (e.g. a giving plan with a defined end date); otherwise leave it blank.";
+    } else {
+      purpose =
+        "QCDs (Qualified Charitable Distributions) let an IRA owner age 70½+ send money straight from their own IRA to charity, excluded from taxable income entirely. This is the annual dollar amount this member gives this way, capped at that year's own RMD and the statutory per-person QCD limit.";
+      impact =
+        "This amount is excluded from Adjusted Gross Income and can count toward satisfying this member's own Required Minimum Distribution for the year — typically lowering taxable income, Medicare IRMAA exposure, and NIIT exposure more than an equivalent itemized charitable deduction would.";
+      consider =
+        "Set this to the amount this member actually plans to give from IRA assets each year once 70½-eligible; leave at $0 if this member's charitable giving isn't coming from IRA assets.";
+    }
   } else if (l.includes("mortgage") || l.includes("real_estate_taxes")) {
     purpose =
       "Captures home debt, mortgage payments, or real-estate tax cash flow.";

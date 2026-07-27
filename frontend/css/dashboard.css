@@ -612,8 +612,8 @@ body.chart-modal-open{overflow:hidden}
 }
 
 /* Field-level tooltip — inline ? hint on numeric inputs */
-.field-tooltip{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;background:#e0f2fe;border:1px solid #7dd3fc;border-radius:50%;color:#0369a1;font-size:10px;font-weight:900;cursor:help;margin-left:5px;vertical-align:middle;flex-shrink:0;text-decoration:none;line-height:1}
-.field-tooltip:hover,.field-tooltip:focus{background:#bae6fd;outline:2px solid #7dd3fc;outline-offset:1px}
+.field-info-i{cursor:help;color:#0369a1;font-style:italic;font-weight:800;font-size:11px;margin-left:3px;padding:0 2px;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:#7dd3fc}
+.field-info-i:hover,.field-info-i:focus{color:#023a5e;background:#e0f2fe;border-radius:3px;outline:2px solid #7dd3fc;outline-offset:1px}
 
 /* Nav badge — YTD spending divergence alert */
 .nav-badge{font-size:10px;font-weight:900;padding:2px 5px;border-radius:999px;flex-shrink:0}
