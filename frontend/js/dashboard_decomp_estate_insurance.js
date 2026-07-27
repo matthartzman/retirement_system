@@ -350,15 +350,25 @@ function renderInsurancePolicies() {
 }
 async function addInsurancePolicy() {
   try {
+    const isLife = norm(newInsurancePolicyType) === "life";
     const out = await api("/api/insurance-policy/add", {
       method: "POST",
       body: JSON.stringify({ policy_type: newInsurancePolicyType }),
     });
+    // #215: give every new Life policy a $0 illustration schedule right away
+    // so it's obvious where illustration values go, instead of a page that
+    // silently has nowhere to enter them until rows exist.
+    if (isLife && out && out.section) {
+      const years = illustrationPlanYears();
+      if (years.length) {
+        await api("/api/life-illustration/seed", {
+          method: "POST",
+          body: JSON.stringify({ policy_key: out.section, years }),
+        });
+      }
+    }
     await loadAll({ source: planSource, preferLocal: false, silent: true });
-    activeStep =
-      norm(newInsurancePolicyType) === "life"
-        ? "annuity_death_benefits"
-        : "estate";
+    activeStep = isLife ? "annuity_death_benefits" : "estate";
     showMessage(out.message || "Policy added.");
   } catch (e) {
     showMessage("Error adding policy: " + e.message, "error");

@@ -577,6 +577,16 @@ def delete_insurance_policy():
     body = request.get_json(silent=True) or {}
     return _service_json(_strategy_asset_feature_service().delete_insurance_policy_payload(body))
 
+@app.route("/api/life-illustration/seed", methods=["POST"])
+def add_life_illustration():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    if not _runtime_config().allow_csv_write:
+        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
+    body = request.get_json(silent=True) or {}
+    return _service_json(_strategy_asset_feature_service().add_life_illustration_payload(body))
+
 @app.route("/api/capital-market/assumptions", methods=["POST"])
 def import_capital_market_assumptions():
     denied = _require("write_config")
