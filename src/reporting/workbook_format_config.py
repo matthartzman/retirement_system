@@ -241,6 +241,22 @@ def _sanitize_alignments(raw: Any) -> dict[str, dict[str, str]]:
 # ─────────────────────────────────────────────────────────────────────────────
 # Structure detection: sheet -> table(s) -> columns
 # ─────────────────────────────────────────────────────────────────────────────
+def _merged_anchor_cell(ws, row: int, col: int):
+    """#243: resolve (row, col) to the top-left anchor cell of its merged range.
+
+    openpyxl only stores a value/style on a merged range's top-left cell --
+    every other cell in the range reports value=None and is a read-only
+    MergedCell. Callers that check `cell.value` or set `.alignment` on
+    whatever column a user's override happens to name must resolve through
+    this first, or the check/write silently no-ops for every column of a
+    merged row except the one that happens to be the anchor.
+    """
+    for mr in ws.merged_cells.ranges:
+        if mr.min_row <= row <= mr.max_row and mr.min_col <= col <= mr.max_col:
+            return ws.cell(mr.min_row, mr.min_col)
+    return ws.cell(row, col)
+
+
 def _effective_width(ws, letter: str) -> float:
     dim = ws.column_dimensions.get(letter)
     if dim is not None and dim.width is not None:
@@ -254,7 +270,7 @@ def _effective_align(ws, letter: str, band_end: int) -> str:
     col = column_index_from_string(letter)
     max_row = ws.max_row or 1
     for r in range(band_end + 1, max_row + 1):
-        cell = ws.cell(r, col)
+        cell = _merged_anchor_cell(ws, r, col)
         if cell.value in (None, ""):
             continue
         h = cell.alignment.horizontal if cell.alignment else None
@@ -459,6 +475,12 @@ def apply_alignments(wb, input_dir: Optional[Path] = None, sheet_renames: Option
     Header-band rows are left untouched -- their alignment is deliberate
     (e.g. centered, bold titles), so only rows below the header are re-aligned.
 
+    #243: resolves each (row, column) through _merged_anchor_cell first, since
+    a merged row's content and style live only on its top-left anchor cell --
+    every other cell in the range is empty, so applying alignment (or even
+    detecting the row has content) against a non-anchor column previously
+    silently no-op'd for merged rows.
+
     Keyed by stable sheet name; see apply_overrides for what `sheet_renames` is.
     """
     alignments = load_alignments(input_dir)
@@ -475,7 +497,7 @@ def apply_alignments(wb, input_dir: Optional[Path] = None, sheet_renames: Option
         for letter, align in cols.items():
             col_idx = column_index_from_string(letter)
             for r in range(band_end + 1, max_row + 1):
-                cell = ws.cell(r, col_idx)
+                cell = _merged_anchor_cell(ws, r, col_idx)
                 if cell.value in (None, ""):
                     continue
                 old = cell.alignment or Alignment()
