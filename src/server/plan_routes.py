@@ -1052,15 +1052,26 @@ def plan_load_file():
 
 # DemoPlanService owns Open Demo Plan / Open Current Plan swap semantics
 # (#240). It reuses this same PlanFileService instance's load_file() to
-# restore the pre-demo database, and the same materialize_workspace_files
-# resync the /api/plan/load-file route uses after a DB swap.
+# restore the pre-demo database.
+#
+# Unlike /api/plan/load-file (which swaps in a genuinely different plan and
+# must re-materialize every plan-data file, YTD included), Open Demo Plan
+# never swaps YTD data -- there is no input/demo/ytd_transactions.csv, and
+# open_demo_payload() only writes DemoPlanServiceContext.plan_data_csv_files
+# (PLAN_DATA_CSV_FILES). That means ytd_transactions.csv/ytd_account_setup.csv/
+# ytd_import_history.csv stay "live" and editable through the whole demo
+# window. If a YTD edit is saved while a demo happens to be open, re-running
+# materialize_workspace_files() over YTD_PLAN_DATA_FILES here would silently
+# clobber that real, just-saved edit with the pre-demo DB backup's stale
+# content -- restore must only resync the files Open Demo Plan actually
+# swapped, so a change to a file it never swapped is never discarded.
 def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
     def _materialize() -> None:
         materialize_workspace_files(
             workspace_id=_workspace_id(),
             client_id=_client_id(),
             db_path=_sqlite_db(),
-            file_names=[n for n in PLAN_DATA_CSV_FILES if n != "client_data.csv"] + YTD_PLAN_DATA_FILES,
+            file_names=[n for n in PLAN_DATA_CSV_FILES if n != "client_data.csv"],
             overwrite_existing=True,
         )
 
