@@ -22,6 +22,7 @@ import json
 import math
 import os
 import socket
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -224,6 +225,7 @@ class MarketDataProvider:
         self.provider_attempts: Dict[str, List[str]] = {}
         self._global_provider_failures: Dict[str, str] = {}
         self._last_alpha_vantage_call: float = 0.0
+        self._cache_write_lock = threading.Lock()
 
     def refresh_api_keys(self) -> None:
         """Load API keys from environment variables and the local secret store.
@@ -367,11 +369,16 @@ class MarketDataProvider:
         return {}
 
     def _save_cache(self) -> None:
-        try:
-            self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-            self.cache_path.write_text(json.dumps(self.cache, indent=2, sort_keys=True), encoding="utf-8")
-        except Exception:
-            pass
+        # Concurrent quote() calls (see quotes()) can each trigger a save;
+        # serialize the actual file write so parallel fetches can't race on
+        # the same cache file (Windows in particular errors on concurrent
+        # writes to one path).
+        with self._cache_write_lock:
+            try:
+                self.cache_path.parent.mkdir(parents=True, exist_ok=True)
+                self.cache_path.write_text(json.dumps(self.cache, indent=2, sort_keys=True), encoding="utf-8")
+            except Exception:
+                pass
 
     def set_fallback_prices(self, prices: Dict[str, float]) -> None:
         for sym, px in prices.items():
@@ -1257,7 +1264,8 @@ class MarketDataProvider:
             for provider in self.live_provider_order:
                 px = self._try_provider(provider, symbol)
                 if _is_good_price(px):
-                    self.cache[symbol] = self._cache_record(symbol, float(px), provider)
+                    with self._cache_write_lock:
+                        self.cache[symbol] = self._cache_record(symbol, float(px), provider)
                     self._save_cache()
                     self.sources[symbol] = provider + "_live"
                     self.prices[symbol] = float(px)
@@ -1284,7 +1292,27 @@ class MarketDataProvider:
         return 0.0
 
     def quotes(self, symbols: Iterable[str]) -> Dict[str, float]:
-        return {s: self.quote(s) for s in symbols}
+        """Quote every symbol, fetching uncached live prices concurrently.
+
+        Each symbol's own provider fallback chain (FMP -> Yahoo -> Nasdaq ->
+        Alpha Vantage -> Stooq) stays sequential -- that's a real dependency,
+        each provider is only tried after the previous one fails. But
+        distinct symbols are fully independent network fetches, and a plan
+        with several uncached tickers was previously paying that whole
+        fallback chain's latency once per symbol, one after another. quote()
+        already memoizes into self.prices and guards its one shared mutable
+        (the on-disk cache write) with a lock, so this is safe.
+        """
+        symbol_list = [s for s in symbols]
+        if len(symbol_list) <= 1:
+            return {s: self.quote(s) for s in symbol_list}
+        try:
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=min(8, len(symbol_list))) as ex:
+                results = list(ex.map(self.quote, symbol_list))
+            return dict(zip(symbol_list, results))
+        except Exception:
+            return {s: self.quote(s) for s in symbol_list}
 
     def _cache_iso_for_symbol(self, symbol: str) -> str:
         """Return the cached quote timestamp for a symbol, if available."""
@@ -1600,6 +1628,28 @@ def fetch_price(symbol: str, url_template: str = "", skip_live: bool = False) ->
     PRICE_CACHE[sym] = price
     PRICE_SOURCE_CACHE[sym] = _DEFAULT_PROVIDER.sources.get(sym, "unknown")
     return price
+
+
+def prewarm_prices(symbols: Iterable[str], skip_live: bool = False) -> None:
+    """Fetch a batch of symbols concurrently and seed PRICE_CACHE/PRICE_SOURCE_CACHE.
+
+    Report code fetches holdings prices one symbol at a time, scattered
+    across ~20 call sites (each sheet re-fetches whatever it needs), which is
+    fine since quote() memoizes per symbol -- but the FIRST fetch of each
+    uncached symbol still pays its full live-provider fallback chain, and
+    those first fetches used to happen one after another as each sheet hit a
+    new symbol. Calling this once, early, with every symbol the plan holds
+    lets the once-per-symbol cost run concurrently instead.
+    """
+    unique = sorted({_clean_symbol(s) for s in symbols if _clean_symbol(s)})
+    if not unique:
+        return
+    prices = _DEFAULT_PROVIDER.quotes(unique) if not skip_live else {
+        s: _DEFAULT_PROVIDER.quote(s, skip_live=True) for s in unique
+    }
+    for sym, price in prices.items():
+        PRICE_CACHE[sym] = price
+        PRICE_SOURCE_CACHE[sym] = _DEFAULT_PROVIDER.sources.get(sym, "unknown")
 
 
 def price_source(symbol: str) -> str:
