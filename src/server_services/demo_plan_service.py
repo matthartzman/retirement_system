@@ -1,0 +1,198 @@
+from __future__ import annotations
+
+"""Feature-owned Open Demo Plan / Open Current Plan logic (ticket #240).
+
+Route modules adapt permissions and request bodies. This service owns the
+demo-plan swap-in/swap-out semantics: a one-time DB backup, applying the
+input/demo/*.csv fixture through the real plan-data write path, and
+restoring the pre-demo DB from that backup. The backup file's existence is
+the sole source of truth for whether a demo is currently active -- no other
+flag (in-memory or marker file) is ever trusted for that decision, so a
+crash or restart can't cause the real backup to be silently clobbered.
+
+client_data.csv (and its derived .json/.yaml) is the one plan-data file that
+lives only on disk, never in the SQLite DB (see app_core._read_plan_data_file /
+_write_plan_data_file) -- so it is NOT restored by swapping the DB back. It
+gets its own small text backup alongside the DB backup for that reason.
+"""
+
+import json
+import shutil
+import sqlite3
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Callable
+
+JsonDict = dict[str, Any]
+CLIENT_DATA_CSV = "client_data.csv"
+
+
+@dataclass(frozen=True)
+class DemoPlanServiceContext:
+    sqlite_db: Callable[[], Path]
+    demo_dir: Callable[[], Path]
+    plan_data_csv_files: list[str]
+    read_plan_data_file: Callable[[str], str | None]
+    write_plan_data_file: Callable[[str, str], Path]
+    sync_config_backends: Callable[[], Any]
+    ensure_user_ui_plan_data_rows: Callable[[], None]
+    load_saved_db: Callable[[dict[str, Any]], dict[str, Any]]
+    materialize: Callable[[], None]
+    audit: Callable[[str, dict[str, Any]], None] | None = None
+
+
+class DemoPlanService:
+    """Framework-neutral owner for Open Demo Plan / Open Current Plan."""
+
+    def __init__(self, context: DemoPlanServiceContext):
+        self.context = context
+
+    def _audit(self, event: str, details: dict[str, Any] | None = None) -> None:
+        if self.context.audit:
+            self.context.audit(event, details or {})
+
+    def _backup_path(self) -> Path:
+        return Path(str(self.context.sqlite_db()) + ".before_demo")
+
+    def _client_data_backup_path(self) -> Path:
+        return self.context.sqlite_db().parent / "client_data.csv.before_demo"
+
+    def _marker_path(self) -> Path:
+        return self.context.sqlite_db().parent / "demo_mode_marker.json"
+
+    def _read_marker(self) -> dict[str, Any]:
+        try:
+            return json.loads(self._marker_path().read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+
+    def _checkpoint_sqlite(self, db_path: Path) -> None:
+        if not db_path.exists():
+            return
+        try:
+            conn = sqlite3.connect(str(db_path))
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            conn.close()
+        except Exception:
+            pass
+
+    def is_active(self) -> bool:
+        return self._backup_path().exists()
+
+    def status_payload(self) -> JsonDict:
+        active = self.is_active()
+        marker = self._read_marker() if active else {}
+        return {"success": True, "active": active, "opened_at": marker.get("opened_at")}
+
+    def open_demo_payload(self) -> JsonDict:
+        backup = self._backup_path()
+        dest = Path(self.context.sqlite_db())
+        if not backup.exists():
+            # First open this session: snapshot the real DB (and the
+            # disk-only client_data.csv, which the DB backup can't cover)
+            # before touching anything. If a backup is already present, a
+            # demo is already active -- re-applying demo files below must
+            # not overwrite either backup.
+            if dest.exists():
+                self._checkpoint_sqlite(dest)
+                shutil.copy2(str(dest), str(backup))
+            try:
+                real_client_data = self.context.read_plan_data_file(CLIENT_DATA_CSV)
+                if real_client_data is not None:
+                    self._client_data_backup_path().write_text(real_client_data, encoding="utf-8")
+            except Exception as exc:
+                self._audit("demo_plan_client_data_backup_warning", {"error": str(exc)})
+            try:
+                self._marker_path().write_text(
+                    json.dumps({"opened_at": time.strftime("%Y-%m-%dT%H:%M:%S")}),
+                    encoding="utf-8",
+                )
+            except Exception as exc:
+                self._audit("demo_plan_marker_warning", {"error": str(exc)})
+            self._audit("demo_plan_backup_created", {"backup": str(backup)})
+
+        demo_dir = self.context.demo_dir()
+        written: list[dict[str, Any]] = []
+        skipped: list[str] = []
+        for name in self.context.plan_data_csv_files:
+            src = demo_dir / name
+            if not src.exists():
+                skipped.append(name)
+                continue
+            content = src.read_text(encoding="utf-8-sig")
+            path = self.context.write_plan_data_file(name, content)
+            written.append({"name": name, "path": str(path), "bytes": len(content)})
+
+        try:
+            self.context.ensure_user_ui_plan_data_rows()
+        except Exception as exc:
+            self._audit("demo_plan_ui_row_warning", {"error": str(exc)})
+        try:
+            self.context.sync_config_backends()
+        except Exception as exc:
+            self._audit("demo_plan_sync_warning", {"error": str(exc)})
+
+        self._audit("demo_plan_opened", {"files": [w["name"] for w in written], "skipped": skipped})
+        return {"success": True, "files": written, "skipped": skipped}
+
+    def restore_current_payload(self) -> JsonDict:
+        backup = self._backup_path()
+        if not backup.exists():
+            return {"success": True, "restored": False}
+
+        result = self.context.load_saved_db({"path": str(backup)})
+        if not result.get("success"):
+            self._audit("demo_plan_restore_failed", {"error": result.get("error")})
+            return {
+                "success": False,
+                "error": result.get("error") or "Could not restore your plan.",
+                "restored": False,
+            }
+
+        try:
+            self.context.materialize()
+        except Exception as exc:
+            self._audit("demo_plan_materialize_warning", {"error": str(exc)})
+
+        client_data_backup = self._client_data_backup_path()
+        if client_data_backup.exists():
+            try:
+                real_client_data = client_data_backup.read_text(encoding="utf-8")
+                self.context.write_plan_data_file(CLIENT_DATA_CSV, real_client_data)
+                # client_data.json/.yaml are derived from client_data.csv --
+                # regenerate them now that the real CSV is back, or they'd
+                # keep showing demo values until the next unrelated save.
+                sync_result = self.context.sync_config_backends() or {}
+                derived = sync_result.get("derived") or {}
+                # sync_config_backends() only rewrites the derived files on
+                # disk. But _read_plan_data_file seeds a DB-cached copy of a
+                # file the first time anything GETs it while it's missing
+                # from the DB -- so if client_data.json/.yaml was ever read
+                # while demo content was still on disk (e.g. a page open
+                # mid-demo), the DB now holds a stale demo copy a disk-only
+                # rewrite can't reach. Push the regenerated content through
+                # the real write path too so any such cache entry is
+                # overwritten with the restored data.
+                for derived_name in ("client_data.json", "client_data.yaml"):
+                    derived_path = derived.get(derived_name)
+                    if derived_path and Path(derived_path).exists():
+                        self.context.write_plan_data_file(derived_name, Path(derived_path).read_text(encoding="utf-8"))
+            except Exception as exc:
+                self._audit("demo_plan_client_data_restore_warning", {"error": str(exc)})
+            try:
+                client_data_backup.unlink()
+            except Exception:
+                pass
+
+        try:
+            backup.unlink()
+        except Exception:
+            pass
+        try:
+            self._marker_path().unlink()
+        except Exception:
+            pass
+
+        self._audit("demo_plan_restored", {"backup": str(backup)})
+        return {"success": True, "restored": True}
