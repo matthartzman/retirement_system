@@ -87,34 +87,26 @@ class SpendingService:
         return {"success": True, "budget": {k: v for k, v in budget.items()}}, 200
 
     def load_actuals_payload(self) -> tuple[dict[str, Any], int]:
-        """Merge unmapped transaction categories into taxonomy, then return annualized actuals."""
+        """Add taxonomy categories for unmapped transaction categories, then return annualized actuals."""
         summary = st.spending_summary_taxonomy(self.base_dir)
         flat = st.taxonomy_flat(self.base_dir)
         rules = st.load_mapping_rules(self.base_dir)
         existing_kw = {str(r.get("keyword", "")).lower() for r in rules}
         merged: list[dict[str, str]] = []
-        for tt in summary.get("tracking_types", []) or []:
-            ttname = tt.get("tracking_type") or "Core Expenses"
-            if str(ttname).lower() in ("income", "transfer"):
+        for u in summary.get("unmatched_categories", []) or []:
+            raw = str(u.get("category") or "").strip()
+            if not raw or raw.lower() in existing_kw:
                 continue
-            for g in tt.get("groups", []) or []:
-                grp = g.get("group") or "Other"
-                for c in g.get("categories", []) or []:
-                    cid = str(c.get("id") or "").strip()
-                    if not cid or cid in flat:
-                        continue
-                    raw = str(c.get("label") or cid)
-                    slug = re.sub(r"[^a-z0-9]+", "_", cid.lower()).strip("_")[:64] or "uncategorized"
-                    base, n = slug, 2
-                    while slug in flat:
-                        slug = f"{base}_{n}"
-                        n += 1
-                    st.save_taxonomy_category(self.base_dir, ttname, grp, slug, raw, "Auto-added from transactions")
-                    flat = st.taxonomy_flat(self.base_dir)
-                    merged.append({"category": cid, "id": slug})
-                    if cid.lower() not in existing_kw:
-                        rules.append({"keyword": cid, "category_id": slug, "match_field": "category", "exact": True, "priority": 60})
-                        existing_kw.add(cid.lower())
+            slug = re.sub(r"[^a-z0-9]+", "_", raw.lower()).strip("_")[:64] or "uncategorized"
+            base, n = slug, 2
+            while slug in flat:
+                slug = f"{base}_{n}"
+                n += 1
+            st.save_taxonomy_category(self.base_dir, "Core Expenses", "Other", slug, raw, "Auto-added from transactions")
+            flat = st.taxonomy_flat(self.base_dir)
+            merged.append({"category": raw, "id": slug})
+            rules.append({"keyword": raw, "category_id": slug, "match_field": "category", "exact": True, "priority": 60})
+            existing_kw.add(raw.lower())
         if merged:
             st.save_mapping_rules(self.base_dir, rules)
         summary2 = st.spending_summary_taxonomy(self.base_dir)
