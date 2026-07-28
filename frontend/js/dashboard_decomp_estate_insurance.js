@@ -144,12 +144,55 @@ function renderAccountTitlingTable() {
   if (!subs.length) {
     html += `<p class="small">No accounts found in Holdings yet.</p>`;
   }
-  subs.forEach((sub) => {
-    const rs = bySub[sub];
-    html += `<details><summary>${esc(accountDisplayLabel(sub))} <span class="small">(${esc(sub)})</span></summary><div class="field-list">${sortRowsByDependency(rs).map(fieldHtml).join("")}</div></details>`;
-  });
+  if (subs.length) {
+    // Every account carries the same four fields, so this reads as one row per
+    // account (the People table pattern) instead of one stacked panel each --
+    // ~40 stacked fields collapse to a 10-row grid.
+    const COLS = [
+      ["primary_beneficiary", "Primary beneficiary"],
+      ["contingent_beneficiary", "Contingent beneficiary"],
+      ["titling", "Titling"],
+      ["trust_see_through", "See-through trust"],
+    ];
+    html += `<div class="matrix-wrap" role="region" aria-label="Beneficiary and titling by account" tabindex="0"><table class="matrix-table"><thead><tr><th>Account</th>${COLS.map(([, h]) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>`;
+    subs.forEach((sub) => {
+      const rs = bySub[sub];
+      const cells = COLS.map(([lbl]) =>
+        accountTitlingCell(rs.find((r) => norm(r.label) === lbl)),
+      ).join("");
+      // The raw account key used to be echoed in parentheses next to the
+      // display name; storage identifiers are not user-facing copy.
+      html += `<tr><td>${esc(humanizeGroupKey(sub))}</td>${cells}</tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
   html += `</div></details>`;
   return html;
+}
+// One editable cell of the Beneficiary & Titling grid. Mirrors fieldHtml's
+// control choice (toggle / choice list / text) without its label-and-card
+// chrome, which the table header already provides.
+function accountTitlingCell(r) {
+  if (!r) return '<td><span class="small">—</span></td>';
+  const units = String(r.units || "");
+  const type = String(r.schema?.type || "").toLowerCase();
+  const v = valOf(r);
+  if (type === "bool" || type === "boolean" || /^(yes\/no|true\/false)$/i.test(units)) {
+    const yes = /^(YES|TRUE)$/i.test(String(v).trim());
+    return `<td><label class="toggle-switch"><input type="checkbox" ${yes ? "checked" : ""} onchange="editValue(${r.row_index},this.checked?'TRUE':'FALSE',this)"><span class="toggle-track" aria-hidden="true"></span><span class="toggle-text toggle-text-yes">YES</span><span class="toggle-text toggle-text-no">NO</span></label></td>`;
+  }
+  const opts = choiceOptions(r);
+  if (opts.length) {
+    const cur = String(v || "").trim();
+    return `<td><select onchange="editValue(${r.row_index},this.value,this)"><option value="">(household default)</option>${opts
+      .map((o) => {
+        const ov = choiceValue(o);
+        const ol = String(choiceLabel(o)).replace(/_/g, " ");
+        return `<option value="${esc(ov)}" ${norm(ov) === norm(cur) ? "selected" : ""}>${esc(formatAcronyms(ol))}</option>`;
+      })
+      .join("")}</select></td>`;
+  }
+  return `<td><input type="text" value="${esc(displayValueForInput(r, v))}" oninput="editValue(${r.row_index},this.value,this)" onfocus="beginEdit(${r.row_index},this)" onblur="finishEdit(${r.row_index},this)"></td>`;
 }
 function renderToggleRows(title, description, rs, open = false) {
   if (!rs.length) return "";

@@ -1267,6 +1267,70 @@ function stripUiLabelPrefix(text) {
     .replace(/^[^/]{1,80}\s*\/\s*/, "")
     .trim();
 }
+// Subsection keys are storage identifiers (SN_Beneficiary, PC_Homeowner,
+// DI_Group_Matthew, Grandchild_A_529, ISO_2023, buffer_1). They used to be
+// printed verbatim as section headings; nothing internal belongs on screen.
+// Specific families get real copy; anything unrecognized still gets the
+// generic underscores-to-words treatment rather than leaking raw.
+const GROUP_KEY_LABELS = {
+  sn_beneficiary: "Special-Needs Beneficiary",
+  sn_trust: "Special-Needs Trust",
+  sn_able: "ABLE Account",
+  sn_govbenefits: "Government Benefits",
+  pc_homeowner: "Homeowners Policy",
+  pc_auto: "Auto Policy",
+  pc_umbrella: "Umbrella Policy",
+  pc_targets: "Coverage Targets",
+  di_scenario: "Disability Scenario",
+  divorce_settlement: "Settlement",
+  demo_divorce_settlement: "Settlement (Example)",
+  divorce_alimony: "Alimony",
+  divorce_health: "Health Coverage",
+  divorce_property: "Property Division",
+  family_checking: "Family Checking",
+  business_checking: "Business Checking",
+};
+// A trailing person token (Life_Whole_Patricia) is a first name captured when
+// the row was created; show the household's current display name instead.
+function personTokenLabel(token) {
+  const raw = String(token || "").replace(/_/g, " ").trim();
+  for (const n of [1, 2]) {
+    const row = householdPersonRow(n, "name");
+    const first = String(row ? valOf(row) : "").trim().split(/\s+/)[0];
+    if (first && first.toLowerCase() === raw.toLowerCase()) return personDisplayName(n);
+    if (new RegExp(`^member[ _]?${n}$`, "i").test(raw)) return personDisplayName(n);
+  }
+  return raw.split(" ").map(titleWord).join(" ");
+}
+function humanizeGroupKey(raw) {
+  const s = String(raw || "").trim();
+  // No underscore means it is already display copy ("Home", "529 Plan 1").
+  if (!s || !/_/.test(s)) return s;
+  const flat = s.toLowerCase();
+  if (GROUP_KEY_LABELS[flat]) return GROUP_KEY_LABELS[flat];
+  let m;
+  if ((m = /^di_group_(.+)$/i.exec(s))) return `Group Disability — ${personTokenLabel(m[1])}`;
+  if ((m = /^life_term_(.+)$/i.exec(s))) return `Term Life — ${personTokenLabel(m[1])}`;
+  if ((m = /^life_whole_(.+)$/i.exec(s))) return `Whole Life — ${personTokenLabel(m[1])}`;
+  if ((m = /^life_(\d+)$/i.exec(s))) return `Life Policy ${m[1]}`;
+  if ((m = /^(iso|rsu|nso)_(\d{4})$/i.exec(s)))
+    return `${m[1].toUpperCase()} Grant (${m[2]})`;
+  if ((m = /^divorce_qdro_(.+)$/i.exec(s)))
+    return `QDRO — ${accountDisplayLabel(m[1].replace(/member(\d)/i, "Member_$1_"))}`;
+  if ((m = /^grandchild_([a-z])_529$/i.exec(s)))
+    return `Grandchild ${m[1].toUpperCase()} — 529 Plan`;
+  if ((m = /^grandchild_([a-z])_goal$/i.exec(s)))
+    return `Grandchild ${m[1].toUpperCase()} — Education Goal`;
+  if ((m = /^buffer_(\d+)$/i.exec(s))) return `Reserve Rule ${m[1]}`;
+  if ((m = /^next_step_(\d+)$/i.exec(s))) return `Housing Step ${m[1]}`;
+  if (/^member[ _][12][ _]/i.test(s)) return accountDisplayLabel(s);
+  return s
+    .replace(/_/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map(titleWord)
+    .join(" ");
+}
 function humanLabel(label, row) {
   const _annuityDb = /^([hw])_(single|joint)$/i.exec(String(label || "").trim());
   if (_annuityDb)
@@ -1586,10 +1650,14 @@ function friendlyGroup(r) {
       r.section === "Asset Allocation Policy") &&
     r.subsection
   )
-    return translatePersonPlaceholders(formatAcronyms(stripUiLabelPrefix(r.subsection)));
+    return translatePersonPlaceholders(
+      formatAcronyms(humanizeGroupKey(stripUiLabelPrefix(r.subsection))),
+    );
   if (r.section === "Asset Correlations") return "Pairwise Correlations";
   let s = r.subsection || r.section || "General";
-  return translatePersonPlaceholders(formatAcronyms(stripUiLabelPrefix(s)));
+  return translatePersonPlaceholders(
+    formatAcronyms(humanizeGroupKey(stripUiLabelPrefix(s))),
+  );
 }
 // fmtMoney lives in dashboard_shared_helpers.js (A13), loaded first.
 function fmtDelta(v) {
@@ -5968,6 +6036,35 @@ function fieldTooltipHtml(lbl) {
   // showFieldHelp -- the badge itself needs no separate click handler.
   return `<sup class="field-info-i" tabindex="0" title="${esc(tip)}" aria-label="More info: ${esc(tip)}">i</sup>`;
 }
+// Width of the control should match the width of the value people actually
+// type: a 4-digit year does not need the same box as a free-text name. Kept
+// separate from valueKind(), whose return values drive number formatting and
+// must not shift. Returns a class consumed by the .field.w-* CSS rules.
+function fieldSizeClass(r) {
+  const units = String(r?.units || "");
+  const u = norm(units);
+  const l = norm(r?.label);
+  const type = String(r?.schema?.type || "").toLowerCase();
+  if (type === "boolean" || /^(yes\/no|true\/false)$/i.test(units)) return "";
+  if (isDateField(r)) return "w-date";
+  if (type === "choice" || u === "choice") return "";
+  // Trust the rendered value over the label: several currency fields are named
+  // *_base_year (ss_wage_base_base_year = $184,500) and would otherwise be
+  // sized as if they held a 4-digit year, clipping the amount.
+  const shown = String(displayValueForInput(r, valOf(r)) ?? "");
+  if (/^\$/.test(shown) || /\d,\d{3}/.test(shown)) return "w-money";
+  // Prose values (rate notes, trust descriptions) must not be squeezed into a
+  // numeric-width cell just because the label contains "rate" or "note".
+  const words = shown.trim().split(/\s+/).filter(Boolean).length;
+  if (/[A-Za-z]/.test(shown) && (words >= 2 || shown.length > 16)) return "w-long";
+  if (l.endsWith("_year") || l.endsWith("_age") || ["year", "years", "age"].includes(u))
+    return "w-year";
+  const kind = valueKind(r);
+  if (kind === "percent") return "w-pct";
+  if (kind === "currency") return "w-money";
+  if (kind === "number") return "w-num";
+  return "";
+}
 function fieldHtml(r) {
   const value = valOf(r);
   const missing = isMissing(r);
@@ -6033,7 +6130,14 @@ function fieldHtml(r) {
   // mislabeling risk for exactly the fields where getting it wrong matters most.
   const paired =
     kind !== "currency" && !isDateField(r) && dependencyRank(r.label) > "01";
-  return `<div class="field ${missing ? "missing" : ""} ${dirtyHere ? "dirty" : ""} ${inactiveRevealed ? "inactive-edit" : ""}${paired ? " paired" : ""}${negClass}" id="field-${r.row_index}" onclick="showFieldHelp(${r.row_index})"><div><div class="field-label">${esc(humanLabel(r.label, r))}${fieldLabelNoteHtml(r)}${fieldTooltipHtml(lblNorm)}</div><div class="field-meta">${req}${dirtyHere ? '<span class="badge dirty">Edited</span>' : ""}${inactiveBadge}</div></div><div>${control}${unit}${inactiveRevealed ? `<div class="unit">${esc(formatAcronyms(inactiveState.activation || "Change this value or its controlling setting to make it active in the build."))}</div>` : ""}</div></div>`;
+  // Gating fields (mode/policy/enabled) keep the full row so the settings they
+  // control read as subordinate to them. Everything else — including currency
+  // and dates, which U2 previously pinned full-width — now flows into the
+  // column grid, since the control is sized to its value and the label stays
+  // inside the same bordered card.
+  const sizeClass = fieldSizeClass(r);
+  const flow = dependencyRank(r.label) > "01" && sizeClass !== "w-long";
+  return `<div class="field ${missing ? "missing" : ""} ${dirtyHere ? "dirty" : ""} ${inactiveRevealed ? "inactive-edit" : ""}${paired ? " paired" : ""}${flow ? " flow" : ""}${sizeClass ? " " + sizeClass : ""}${negClass}" id="field-${r.row_index}" onclick="showFieldHelp(${r.row_index})"><div><div class="field-label">${esc(humanLabel(r.label, r))}${fieldLabelNoteHtml(r)}${fieldTooltipHtml(lblNorm)}</div><div class="field-meta">${req}${dirtyHere ? '<span class="badge dirty">Edited</span>' : ""}${inactiveBadge}</div></div><div>${control}${unit}${inactiveRevealed ? `<div class="unit">${esc(formatAcronyms(inactiveState.activation || "Change this value or its controlling setting to make it active in the build."))}</div>` : ""}</div></div>`;
 }
 function dependencyRank(label) {
   const l = norm(label);
