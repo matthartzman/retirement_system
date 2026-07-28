@@ -41,6 +41,7 @@ try:
         _workspace_id,
         _workspace_output,
         _write_client_rows,
+        _write_plan_data_file,
         app,
         encryption_status,
         get_client_file,
@@ -95,6 +96,7 @@ except ImportError:
         _workspace_id,
         _workspace_output,
         _write_client_rows,
+        _write_plan_data_file,
         app,
         encryption_status,
         get_client_file,
@@ -111,9 +113,9 @@ try:
 except ImportError:
     from src.version import VERSION
 try:
-    from ..server_services import base_service, config_service, pricing_service, ytd_service, plan_file_service, portfolio_service, secret_service, spending_service, strategy_asset_service
+    from ..server_services import base_service, config_service, demo_plan_service, pricing_service, ytd_service, plan_file_service, portfolio_service, secret_service, spending_service, strategy_asset_service
 except ImportError:
-    from src.server_services import base_service, config_service, pricing_service, ytd_service, plan_file_service, portfolio_service, secret_service, spending_service, strategy_asset_service
+    from src.server_services import base_service, config_service, demo_plan_service, pricing_service, ytd_service, plan_file_service, portfolio_service, secret_service, spending_service, strategy_asset_service
 try:
     from ..portfolio_analytics import freeze_latest_pricing_snapshot, unfreeze_pricing_snapshot
 except ImportError:
@@ -1044,6 +1046,76 @@ def plan_load_file():
                 _audit("plan_load_file_materialize_warning", {"error": str(mat_exc)})
                 result["materialize_warning"] = str(mat_exc)
         return jsonify(result)
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"success": False, "error": str(exc)})
+
+
+# DemoPlanService owns Open Demo Plan / Open Current Plan swap semantics
+# (#240). It reuses this same PlanFileService instance's load_file() to
+# restore the pre-demo database, and the same materialize_workspace_files
+# resync the /api/plan/load-file route uses after a DB swap.
+def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
+    def _materialize() -> None:
+        materialize_workspace_files(
+            workspace_id=_workspace_id(),
+            client_id=_client_id(),
+            db_path=_sqlite_db(),
+            file_names=[n for n in PLAN_DATA_CSV_FILES if n != "client_data.csv"] + YTD_PLAN_DATA_FILES,
+            overwrite_existing=True,
+        )
+
+    return demo_plan_service.DemoPlanService(
+        demo_plan_service.DemoPlanServiceContext(
+            sqlite_db=_sqlite_db,
+            demo_dir=lambda: WORKSPACE_ROOT / "input" / "demo",
+            plan_data_csv_files=PLAN_DATA_CSV_FILES,
+            read_plan_data_file=_read_plan_data_file,
+            write_plan_data_file=lambda name, content: _write_plan_data_file(name, content, preserve_protected=False),
+            sync_config_backends=_sync_config_backends,
+            ensure_user_ui_plan_data_rows=_ensure_user_ui_plan_data_rows,
+            load_saved_db=_plan_file_feature_service().load_file,
+            materialize=_materialize,
+            audit=_audit,
+        )
+    )
+
+
+@app.route("/api/plan/demo-status", methods=["GET"])
+def plan_demo_status():
+    """Whether Open Demo Plan is currently active (a real-plan backup exists)."""
+    denied = _require("read_config")
+    if denied:
+        return denied
+    try:
+        return jsonify(_demo_plan_feature_service().status_payload())
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"success": False, "error": str(exc)})
+
+
+@app.route("/api/plan/open-demo", methods=["POST"])
+def plan_open_demo():
+    """Swap in the fictional input/demo/*.csv household, backing up the real plan first."""
+    denied = _require("write_config")
+    if denied:
+        return denied
+    if not _runtime_config().allow_csv_write:
+        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
+    try:
+        return jsonify(_demo_plan_feature_service().open_demo_payload())
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"success": False, "error": str(exc)})
+
+
+@app.route("/api/plan/restore-current", methods=["POST"])
+def plan_restore_current():
+    """Restore the real plan backed up by Open Demo Plan, if one is active."""
+    denied = _require("write_config")
+    if denied:
+        return denied
+    if not _runtime_config().allow_csv_write:
+        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
+    try:
+        return jsonify(_demo_plan_feature_service().restore_current_payload())
     except Exception as exc:  # noqa: BLE001
         return jsonify({"success": False, "error": str(exc)})
 
