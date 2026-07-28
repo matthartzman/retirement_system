@@ -1035,40 +1035,49 @@ def build_sheet1(ws, c, rows, mc_data, ss_sweep=None):
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
     r+=1
-    recs = [
-        # (No, Recommendation, Rationale, Cost/yr, Value/yr, Sheet)
-        (1,f'Claim Social Security — {_ss_age_label}',
+    # #244: each candidate recommendation is paired with whether the plan is
+    # ALREADY configured exactly as recommended -- those don't get a numbered
+    # row (recommending what's already done isn't a priority action item).
+    # Rows are renumbered sequentially after filtering, so there's no gap
+    # where an excluded item used to sit.
+    entity_label = {'s_corp': 'S-Corp', 'sole_prop': 'Sole Prop', 'w2': 'W2'}.get(
+        str(c.get('entity', '')).strip().lower(), str(c.get('entity', '')).strip() or 'Sole Prop')
+    candidate_recs = [
+        (True, 'Claim Social Security — ' + _ss_age_label,
            'Highest-scoring pair from the full 62-70 x 62-70 projection sweep on Sheet 10; weighs lifetime SS income against lifetime tax and IRMAA drag, not terminal net worth alone.',
            '$0', (f"~${_ss_best.get('delta_ss', 0.0):,.0f} more lifetime SS vs current configured claim age"
                    if _ss_best else 'See Sheet 10'), 'Sheet 10'),
-        (2,'Roth conversions through the configured conversion window',
+        (True, 'Roth conversions through the configured conversion window',
            'Use the selected Roth strategy from Sheet 11; forced conversions are separated from voluntary optimizer choices.',
            'Tax cost depends on selected strategy','Compare candidate scores, lifetime tax, terminal value, and legacy/estate components on Sheet 11','Sheet 11'),
-        (3,'Credit Shelter Trust at First Death',
+        (not c.get('cst_enabled'), 'Credit Shelter Trust at First Death',
            'Preserves IL $4M exemption at first death; assets bypass survivor estate for IL tax purposes',
            '$2,500–$5,000 (legal)','~$320K IL estate tax avoided on $4M (8% avg rate)','Sheet 14'),
-        (4,'DAF contribution in the highest-income planning year',
+        (not (c.get('daf_amount', 0) or 0) > 0, 'DAF contribution in the highest-income planning year',
            'Fund DAF in high-income year; claim deduction while SALT still elevated; grant out over 2027-2035',
            '$0 (charitable intent)','~$9,600 tax deduction at 24% marginal rate','Sheet 12'),
-        (5,'Hybrid Life/LTC Policy — Start 2027',
+        (not c.get('ltc_enabled'), 'Hybrid Life/LTC Policy — Start 2027',
            'Face value $250K–$500K covers facility care risk; avoids $113K–$213K annual deficit in worst case',
            '$8,000–$15,000/yr premiums','Protects $500K–$2M of estate from LTC depletion','Sheet 19'),
-        (6,'S-Corporation vs LLC (Current: S-Corp)',
+        (str(c.get('entity', '')).strip().lower() != 's_corp', f'S-Corporation vs LLC (Current: {entity_label})',
            'S-Corp reasonable salary $80K on $290K income saves ~$30K SE tax minus $2,500 admin cost',
            '$2,500/yr admin cost','~$27,500/yr net SE tax savings','Sheet 9'),
-        (7,'QTIP Trust to Manage Annuity Post-First-Death',
+        (not c.get('qtip_enabled'), 'QTIP Trust to Manage Annuity Post-First-Death',
            'Annuity income flows to QTIP for survivor benefit; controls ultimate disposition to heirs',
            '$3,000–$5,000 (legal)','Qualifies for marital deduction; defers estate tax','Sheet 14'),
-        (8,'Set Reserve Requirement by Year Range',
+        (not any(float(entry.get('years_of_expenses', 0) or 0) > 0
+                 for entry in (c.get('liquidity_buffer_schedule') or [])),
+           'Set Reserve Requirement by Year Range',
            'Use start year, end year, and years of expenses to retain; default is 0 years',
            '$0 (allocation only)','Can reduce sequence-of-returns risk when a reserve is intentionally selected','Sheet 6'),
-        (9,'Illinois Residency Review',
+        (str(c.get('state', '')).strip().lower() == 'illinois', 'Illinois Residency Review',
            'Moving to FL/TX saves $0 income tax (IL exempts retirement income) but saves IL estate tax',
            'Relocation costs','~$320K IL estate tax if estate > $4M; no income tax savings','Sheet 13'),
     ]
-    _tlh_rec = _tlh_recommendation_row(c, rows, len(recs) + 1)
+    _tlh_rec = _tlh_recommendation_row(c, rows, 0)
     if _tlh_rec:
-        recs.append(_tlh_rec)
+        candidate_recs.append((True,) + _tlh_rec[1:])
+    recs = [(i,) + rec[1:] for i, rec in enumerate((r for r in candidate_recs if r[0]), 1)]
     for rec in recs:
         for i, val in enumerate(rec, 1):
             write_cell(ws, r, i, val, bold=(i==1), align='left' if i>1 else 'center')

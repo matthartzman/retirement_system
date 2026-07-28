@@ -1475,6 +1475,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # governs how much can be moved into the trust at first death and should
     # be reviewed alongside il_exempt (see https://creativeplanning.com/insights/taxes/state-estate-inheritance-taxes/).
     c['il_cst_shelter_cap'] = _n(_v(data,'Estate Planning','Credit Shelter Trust','shelter_cap','8000000'), 8000000)
+    c['cst_enabled'] = _b(_v(data,'Estate Planning','Credit Shelter Trust','enabled','FALSE'))
     c['basis_step_up_at_death'] = _b(_v(data,'Estate Planning','Step-Up','basis_step_up_at_death','TRUE'))
     c['basis_step_up_property_regime'] = str(_v(data,'Estate Planning','Step-Up','property_regime','COMMON_LAW') or 'COMMON_LAW').strip().upper()
     if c['basis_step_up_property_regime'] not in ('COMMON_LAW','COMMUNITY_PROPERTY','HALF_STEP_UP','FULL_STEP_UP'):
