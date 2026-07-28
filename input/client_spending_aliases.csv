@@ -3,6 +3,7 @@ Anthropic,merchant,0,95,business_hardware_and_software,user
 Google One,merchant,0,95,business_hardware_and_software,user
 Hensley and Associates,merchant,0,95,business_services,user
 Google,merchant,0,90,business_hardware_and_software,user
+Down Payment,merchant,0,90,down_payment,user
 Gusto,merchant,0,90,business_services,user
 Large Gifts,category,1,60,significant_gifts,user
 401k Contribution,category,1,50,401k_contribution,seed

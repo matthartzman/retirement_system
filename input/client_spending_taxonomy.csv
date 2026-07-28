@@ -141,6 +141,7 @@ Housing,Mortgage,mortgage,Mortgage,transaction,active,Auto-added from transactio
 Housing,Mortgage,mortgage_pi,Mortgage P&I,template,deleted,Principal and interest payment
 Housing,Mortgage,pmi,PMI,template,deleted,Private mortgage insurance
 Housing,Mortgage,rent,Rent,transaction,active,Promoted from legacy spending_category_map.csv during unified spending migration
+Housing,Other,down_payment,Down Payment,template,active,Cash down payment on a new home purchase
 Housing,Other,furniture_home_decor_kitchenware,Furniture/Home Decor/Kitchenware,transaction,active,Auto-added from transactions
 Housing,Other,ho_insurance,Homeowners Insurance,template,active,HO-3 / HO-6 home/condo policy premiums
 Housing,Other,house_cleaning,House Cleaning,transaction,active,Auto-added from transactions
