@@ -67,10 +67,15 @@ def test_withdrawal_order_is_fixed_and_reserve_ui_controls_are_dropdown_based():
     # deliberately removed and replaced with a fixed, read-only cascade
     # description; test_withdrawal_roth_ui_cleanup.py covers that in detail.
     user_js = read('frontend/js/dashboard.js')
-    assets = read('input/client_assets.csv') if (ROOT/'input/client_assets.csv').exists() else read('../input/input/client_assets.csv')
+    # The Liquidity Buffer reserve_account field is checked against the
+    # schema template (the stable contract for "does this field still
+    # exist"), not a live input/client_assets.csv -- a household with no
+    # Liquidity Buffer rows configured legitimately has zero reserve_account
+    # rows in its own CSV, which isn't a regression.
+    schema = read('reference_data/schema.csv')
     assert 'FIXED_WITHDRAWAL_CASCADE_DESCRIPTION' in user_js
     assert 'renderWithdrawalOrderTable' in user_js and 'not user-configurable' in user_js
-    assert 'reserve_account' in assets
-    assert 'Taxable/Trust | Roth | IRA | HSA | Cash' in assets
+    assert 'reserve_account' in schema
+    assert 'Taxable/Trust | Roth | IRA | HSA | Cash' in schema
 
 

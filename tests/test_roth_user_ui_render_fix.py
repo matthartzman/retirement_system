@@ -45,7 +45,8 @@ def test_input_package_contains_all_primary_roth_controls_with_defaults():
     }
     assert ROTH_PRIMARY <= labels
     defaults = {r['label']: r['value'] for r in rows if r['section'] == 'Withdrawal Policy' and r['subsection'] == 'Roth Conversion'}
-    assert defaults['roth_objective_mode'] == 'MAXIMIZE_TERMINAL_NET_WORTH'
+    # Matches reference_data/schema.csv's declared default for this field.
+    assert defaults['roth_objective_mode'] == 'BALANCED_RETIREMENT'
     assert defaults['estate_tax_objective_mode'] == 'BALANCED'
     assert defaults['roth_headroom_usage_pct'] == '100.00%'
     assert defaults['roth_irmaa_headroom_usage_pct'] == '100.00%'
