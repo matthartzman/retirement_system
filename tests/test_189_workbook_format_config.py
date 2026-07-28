@@ -117,19 +117,27 @@ def test_overridden_flag_reflects_saved(tmp_path):
 def test_real_workbook_multi_table_sheets():
     tree = wf.build_format_tree(BUILT_WORKBOOK)
     assert tree["available"] is True
+    # #209/#210/#212/#228: "sheet" is now the stable (build-time) key so it
+    # survives letters shifting; "display" is this build's actual final title.
     by_name = {s["sheet"]: s for s in tree["sheets"]}
     # Net Worth and Cash Flow are the wide matrix sheets with grouped columns.
-    if "1B. Net Worth" in by_name:
-        assert by_name["1B. Net Worth"]["single_table"] is False
+    if "5. Net Worth Projection" in by_name:
+        node = by_name["5. Net Worth Projection"]
+        assert node["single_table"] is False
+        assert node["display"].endswith("Net Worth")
     # Executive Summary is a single-table narrative sheet.
-    if "1A. Executive Summary" in by_name:
-        assert by_name["1A. Executive Summary"]["single_table"] is True
+    if "1. Executive Summary" in by_name:
+        node = by_name["1. Executive Summary"]
+        assert node["single_table"] is True
+        assert node["display"].endswith("Executive Summary")
 
 
 def test_generation_applies_overrides_hook_present():
     src = (ROOT / "src" / "reporting" / "workbook_builder.py").read_text(encoding="utf-8")
     assert "apply_overrides as _apply_format_overrides" in src
-    assert "_apply_format_overrides(wb)" in src
+    # #209/#210/#212/#228: overrides are keyed by stable sheet name, so the
+    # call passes this build's live {stable: final_title} map.
+    assert "_apply_format_overrides(wb, sheet_renames=FINAL_SHEET_RENAMES)" in src
 
 
 def test_alignments_round_trip_and_sanitize(tmp_path):
