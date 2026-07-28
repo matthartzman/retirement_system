@@ -45,7 +45,7 @@ from . import core as _ar  # consolidated from account_registry
 from . import optimization as _ao  # consolidated from allocation_optimizer
 from . import allocation_policy as _ap
 from .core import ASSET_CLASS_RETURNS, TAX_BASE_YEAR, statutory_rmd_start_age  # consolidated from engine_core
-from .market_data import PRICE_CACHE, fetch_price, set_fallback_prices, set_frozen_prices, configure_holdings_pricing, configure_api_keys  # consolidated from market_data_providers
+from .market_data import PRICE_CACHE, fetch_price, prewarm_prices, set_fallback_prices, set_frozen_prices, configure_holdings_pricing, configure_api_keys  # consolidated from market_data_providers
 from .workspace_context import candidate_input_files, active_workspace_id
 from . import platform_runtime as _platform_runtime
 from .roth_ui_build_guard import normalize_roth_policy, normalize_irmaa_guardrail_mode, percent_to_float, is_explicit_user_roth_policy, strategy_for_roth_policy
@@ -368,6 +368,24 @@ def _y(v, default=0):
         return int(s)
     except Exception:
         return default
+
+def _insurance_policy_premium_sum(data, policy_type):
+    # #224: an Insurance Policy record (Insurance page) of this type becomes
+    # the source of truth for that baseline once one exists with a nonzero
+    # premium, instead of a separately-maintained comparison number that can
+    # drift from it. Gated behind the same "Existing Life Insurance" optional
+    # module every other Insurance In Force row is gated behind (see #226-
+    # style optional-module gating) -- otherwise this would activate policy
+    # rows the rest of the app is still treating as off/inactive.
+    if not _b(_v(data, 'Optional Functions', '', 'existing_life_insurance', 'FALSE')):
+        return 0.0
+    total = 0.0
+    target = policy_type.strip().lower()
+    for fields in (data.get('Insurance In Force') or {}).values():
+        if str(fields.get('policy_type', '')).strip().lower() != target:
+            continue
+        total += _n(fields.get('annual_premium', '0'), 0)
+    return total
 
 
 def _date_parts(v):
@@ -1095,7 +1113,10 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # utilities/homeowners insurance because owned-home costs drop off once the
     # home is sold.  Keep the raw current-home amounts on the engine config so
     # projection and workbook code do not have to re-read CSV rows.
-    c['current_homeowners_insurance_annual'] = _n(_v(data,'Housing','current_home','homeowners_insurance_annual','0'), 0)
+    # #224: a Home/Auto Insurance Policy record (Insurance page) supersedes
+    # these baselines once one exists with a nonzero premium.
+    _home_policy_premium = _insurance_policy_premium_sum(data, 'Home')
+    c['current_homeowners_insurance_annual'] = _home_policy_premium if _home_policy_premium > 0 else _n(_v(data,'Housing','current_home','homeowners_insurance_annual','0'), 0)
     c['current_home_utilities_annual'] = _n(_v(data,'Housing','current_home','utilities_annual','0'), 0)
     c['current_home_maintenance_annual'] = _n(_v(data,'Housing','current_home','home_maintenance_annual','0'), 0)
 
@@ -1104,7 +1125,8 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # maintenance baselines come from the Housing current-home amounts above;
     # auto insurance is a separate transportation budget captured here.
     c['residency_target_state'] = str(_v(data,'State Comparison','','target_state','') or '').strip()
-    c['current_auto_insurance_annual'] = _n(_v(data,'State Comparison','auto_insurance','illinois_baseline_annual','0'), 0)
+    _auto_policy_premium = _insurance_policy_premium_sum(data, 'Auto')
+    c['current_auto_insurance_annual'] = _auto_policy_premium if _auto_policy_premium > 0 else _n(_v(data,'State Comparison','auto_insurance','illinois_baseline_annual','0'), 0)
 
     # Future housing steps (rent/buy) are entered on the Housing page and feed
     # both annual cash flow and net worth.  A blank start year disables a step.
@@ -2214,7 +2236,13 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
             positions[acct][sym] = positions[acct].get(sym, 0) + total_shares
         c['positions'] = positions
 
-    # Compute account balances (from whichever source populated positions)
+    # Compute account balances (from whichever source populated positions).
+    # Every distinct symbol in the plan gets fetched here for the first time
+    # (later report code re-fetches the same symbols, but quote() memoizes so
+    # those are instant) -- prewarm them concurrently so the once-per-symbol
+    # live-provider cost overlaps instead of running one ticker at a time.
+    all_symbols = {sym for holdings in c['positions'].values() for sym in holdings}
+    prewarm_prices(all_symbols, skip_live=skip_live_pricing)
     balances = {}
     for acct, holdings in c['positions'].items():
         total = 0

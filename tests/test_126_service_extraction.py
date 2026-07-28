@@ -114,6 +114,13 @@ SERVICE_ROUTE_PAIRS = [
         "route_calls": ["base_service.status_payload("],
         "route_forbids": ['"portfolio_drift_analysis": True'],
     },
+    {
+        "service": "src/server_services/demo_plan_service.py",
+        "route": "src/server/plan_routes.py",
+        "service_defines": ["class DemoPlanService", "DemoPlanServiceContext", "def status_payload", "def open_demo_payload", "def restore_current_payload"],
+        "route_calls": ["def _demo_plan_feature_service()", "DemoPlanServiceContext", ".status_payload()", ".open_demo_payload()", ".restore_current_payload()"],
+        "route_forbids": [],
+    },
 ]
 
 
