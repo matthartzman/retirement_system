@@ -1053,7 +1053,11 @@ def plan_load_file():
 # DemoPlanService owns Open Demo Plan / Open Current Plan swap semantics
 # (#240). It reuses this same PlanFileService instance's load_file() to
 # restore the pre-demo database, and the same materialize_workspace_files
-# resync the /api/plan/load-file route uses after a DB swap.
+# resync the /api/plan/load-file route uses after a DB swap. #248 made Open
+# Demo Plan's file list (below) match this materialize() list -- both now
+# cover YTD_PLAN_DATA_FILES, so ytd_transactions.csv is swapped to the demo
+# fixture on open and swapped back to the real backup on restore, the same
+# as every other plan-data file the demo touches.
 def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
     def _materialize() -> None:
         materialize_workspace_files(
