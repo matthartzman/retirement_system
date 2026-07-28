@@ -1,9 +1,9 @@
 match_value,match_field,exact,priority,category_id,source
-Anthropic,merchant,0,95,business_hardware_and_software,user
-Google One,merchant,0,95,business_hardware_and_software,user
-Hensley and Associates,merchant,0,95,office_supplies_expenses,user
-Google,merchant,0,90,business_hardware_and_software,user
-Gusto,merchant,0,90,office_supplies_expenses,user
+Contoso Software,merchant,0,95,business_hardware_and_software,user
+Fabrikam Cloud,merchant,0,95,business_hardware_and_software,user
+Braxton Advisors,merchant,0,95,office_supplies_expenses,user
+Fabrikam,merchant,0,90,business_hardware_and_software,user
+Northwind Payroll,merchant,0,90,office_supplies_expenses,user
 401k Contribution,category,1,50,401k_contribution,seed
 401K Match,category,1,50,401k_match,seed
 Advertising & Promotion,category,1,50,advertising_promotion,seed
@@ -35,7 +35,7 @@ Clothing & Jewelry,category,1,50,clothing_jewelry,seed
 Coffee Shops,category,1,50,coffee_shops,seed
 Cr Card Payment,category,1,50,cr_card_payment,seed
 Credit Card Payment,category,1,50,credit_card_payment,seed
-Cubs Tickets,category,1,50,cubs_tickets,seed
+Sporting Event Tickets,category,1,50,sporting_event_tickets,seed
 Dentist,category,1,50,dentist,seed
 Dermatologist,category,1,50,dermatologist,seed
 Disability Insurance,category,1,50,disability_insurance,seed
@@ -55,7 +55,7 @@ Furniture & Housewares,category,1,50,furniture_housewares,seed
 Furniture/Home Decor/Kitchenware,category,1,50,furniture_home_decor_kitchenware,seed
 Garbage,category,1,50,garbage,seed
 Gas & Electric,category,1,50,gas_electric,seed
-Gifts - Family 12,category,1,50,gifts_family_12,seed
+Gifts - Family,category,1,50,gifts_family,seed
 Gifts - Other,category,1,50,gifts_other,seed
 Large Gifts,category,1,60,significant_gifts,user
 Groceries,category,1,50,groceries,seed
@@ -91,7 +91,7 @@ Phone,category,1,50,phone,seed
 Postage & Shipping,category,1,50,postage_shipping,seed
 Public Transit,category,1,50,public_transit,seed
 Real Estate Taxes,category,1,50,real_estate_taxes,seed
-RedMane Annual Note P&I,category,1,50,redmane_annual_note_p_i,seed
+Private Note P&I,category,1,50,private_note_p_i,seed
 Rent,category,1,50,rent,seed
 Restaurants & Bars,category,1,50,restaurants_bars,seed
 Sell,category,1,50,sell,seed

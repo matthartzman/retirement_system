@@ -14,7 +14,7 @@ Groceries,groceries_2,category,1,60
 Restaurants & Bars,restaurants_bars,category,1,60
 Church,church,category,1,60
 Donation,donation,category,1,60
-Gifts - Family 12,gifts_family_12,category,1,60
+Gifts - Family,gifts_family,category,1,60
 Gifts - Other,gifts_other,category,1,60
 Exercise & Health Equipment,exercise_health_equipment,category,1,60
 Health Club,health_club,category,1,60
@@ -25,7 +25,7 @@ Uncategorized,uncategorized,category,1,60
 Clothing & Jewelry,clothing_jewelry,category,1,60
 Electronics,electronics_2,category,1,60
 Shopping,shopping,category,1,60
-Cubs Tickets,cubs_tickets,category,1,60
+Sporting Event Tickets,sporting_event_tickets,category,1,60
 Dermatologist,dermatologist,category,1,60
 Entertainment & Recreation,entertainment_recreation,category,1,60
 Hair/Make-up,hair_make_up,category,1,60
