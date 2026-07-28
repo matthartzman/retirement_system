@@ -338,7 +338,7 @@ def build_sheet10(ws, c, rows):
     write_cell(ws, r, 1, note, bg='F4F5F7', align='left')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
 
-    for col in range(1, 15):
+    for col in range(1, 16):
         ws.column_dimensions[get_column_letter(col)].width = 16
     qc('10. Social Security', 'Claim ages 62-70 swept by spouse against full projection', True, '')
 
