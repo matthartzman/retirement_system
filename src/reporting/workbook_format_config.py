@@ -54,7 +54,7 @@ _DISPLAY_TITLE_TO_STABLE = {
     'Balance Sheet': '3. Balance Sheet',
     'Charts': '8. Charts Dashboard',
     'Lifetime Taxes': '7. Lifetime Tax',
-    'Core Spending': '28. Core Spending',
+    # #221: Core Spending removed -- merged into Spending Summary.
     'Spending Summary': '29. Spending Summary',
     'Roth Conversion': '11. Roth Conversion',
     'Asset Allocation': '4. Asset Allocation',

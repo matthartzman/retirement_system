@@ -175,16 +175,14 @@ _OUTPUTS: List[OutputModule] = [
         requires_outputs=BASE_PROJECTION,
     ),
     OutputModule(
-        "core_spending", "Core Spending", PROJECTION, MEDIUM_HIGH,
-        "Recurring-spend detail feeding cash flow.",
-        sheet="28. Core Spending", tab="1G. Core Spending",
-        requires_inputs=(_in("spending", "categories", "housing", "travel", "discretionary"),
-                         _in("ytd")),
-    ),
-    OutputModule(
+        # #221: merged into spending_summary below -- Spending Summary already
+        # contained every Core Expenses number this sheet showed (same
+        # underlying spending_summary_taxonomy() call), so the "Model core
+        # spending assumption" comparison (the one thing unique to this sheet)
+        # moved there instead of duplicating a whole sheet.
         "spending_summary", "Spending Summary", PROJECTION, MEDIUM_HIGH,
-        "Category roll-up of spend.",
-        sheet="29. Spending Summary", tab="1H. Spending Summary",
+        "Category roll-up of spend, including a Core Expenses vs. modeled-assumption reconciliation.",
+        sheet="29. Spending Summary", tab="1G. Spending Summary",
         requires_inputs=(_in("spending"),),
     ),
     OutputModule(

@@ -184,7 +184,10 @@ WORKBOOK_SECTION_LAYOUT = [
         'sheets': [
             '1. Executive Summary', '5. Net Worth Projection', '6. Cash Flow Projection',
             '3. Balance Sheet', '8. Charts Dashboard', '7. Lifetime Tax',
-            '28. Core Spending', '29. Spending Summary',
+            # #221: Core Spending merged into Spending Summary -- the former had
+            # no content Spending Summary's Core Expenses section didn't already
+            # show, except the modeled-assumption comparison, which moved there.
+            '29. Spending Summary',
         ],
     },
     {
@@ -230,7 +233,7 @@ SHEET_LETTER_ORDER = {
     '1': [
         '1. Executive Summary', '5. Net Worth Projection', '6. Cash Flow Projection',
         '3. Balance Sheet', '8. Charts Dashboard', '7. Lifetime Tax',
-        '28. Core Spending', '29. Spending Summary',
+        '29. Spending Summary',
     ],
     '2': [
         '11. Roth Conversion', '4. Asset Allocation', '13. State Residency',
@@ -258,7 +261,6 @@ SHEET_DISPLAY_TITLES = {
     '3. Balance Sheet': 'Balance Sheet',
     '8. Charts Dashboard': 'Charts',
     '7. Lifetime Tax': 'Lifetime Taxes',
-    '28. Core Spending': 'Core Spending',
     '29. Spending Summary': 'Spending Summary',
     '11. Roth Conversion': 'Roth Conversion',
     '4. Asset Allocation': 'Asset Allocation',
@@ -322,7 +324,7 @@ V5_LAYOUT = [
     ('25. Account Reconciliation', '4'),
     ('26. Workbook Warnings', 'H'),
     ('27. Planning Levers', '4'),
-    ('28. Core Spending', '1'),
+    # #221: '28. Core Spending' removed -- merged into Spending Summary.
     ('29. Spending Summary', '1'),
     # Optional advanced planning modules (report-only; pruned when their toggle is off).
     ('30. Education Funding', '2'),
