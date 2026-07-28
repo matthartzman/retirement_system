@@ -13,8 +13,11 @@ from openpyxl import Workbook
 from src.data_io import load_csv, parse_advanced_modules
 from src.report_compute import prepare_config_from_sectioned_data
 from src.planning_engines import project
-from src.reporting.workbook_common import OPTIONAL_MODULE_SHEETS
-from src.reporting.workbook_builder import FINAL_SHEET_RENAMES
+from src.reporting.workbook_common import (
+    OPTIONAL_MODULE_SHEETS,
+    SHEET_LETTER_ORDER,
+    compute_final_sheet_renames,
+)
 from src.reporting.sheets_protection import build_existing_life, build_disability, build_pc_umbrella
 from src.reporting.sheets_wealth import (build_education_funding, build_equity_comp,
                                          build_special_needs, build_business_succession)
@@ -82,13 +85,27 @@ def test_builder_runs_without_error(cfg_rows, toggle, legacy, final, builder):
     assert ws.max_column >= 1
 
 
+@pytest.fixture(scope="module")
+def all_sheets_present_renames():
+    # #209/#210/#212/#228: letters are computed fresh per build from whichever
+    # sheets are actually present (workbook_common.compute_final_sheet_renames),
+    # not a static dict -- build a workbook with every stable sheet name
+    # present (the all-modules-on case) to get the same 1A/2J/3F letters the
+    # old static FINAL_SHEET_RENAMES used to hard-code.
+    wb = Workbook()
+    for ordered in SHEET_LETTER_ORDER.values():
+        for stable in ordered:
+            wb.create_sheet(stable)
+    return compute_final_sheet_renames(wb)
+
+
 @pytest.mark.parametrize("toggle,legacy,final,builder", MODULES,
                          ids=[m[0] for m in MODULES])
-def test_module_is_registered_for_gating_and_rename(toggle, legacy, final, builder):
+def test_module_is_registered_for_gating_and_rename(toggle, legacy, final, builder, all_sheets_present_renames):
     assert OPTIONAL_MODULE_SHEETS.get(toggle) == [legacy], \
         f"{toggle} not registered to {legacy} in OPTIONAL_MODULE_SHEETS"
-    assert FINAL_SHEET_RENAMES.get(legacy) == final, \
-        f"{legacy} not renamed to {final} in FINAL_SHEET_RENAMES"
+    assert all_sheets_present_renames.get(legacy) == final, \
+        f"{legacy} not renamed to {final} when every sheet is present"
 
 
 def test_empty_sections_render_placeholder():

@@ -64,6 +64,8 @@ def test_planning_levers_ui_and_workbook_source_present():
     common = Path('src/reporting/workbook_common.py').read_text(encoding='utf-8')
     assert 'id: "planning_levers"' in js
     assert 'renderPlanningLevers' in js
-    assert '2H. Planning Levers' in common
+    # #209/#210/#212/#228: '2H.' is computed fresh per build, not hard-coded;
+    # the sheet's stable (build-time) identity is what's checked here.
+    assert '27. Planning Levers' in common
     assert 'build_sheet27_planning_levers' in wb
     assert 'RANK.EQ' in wb

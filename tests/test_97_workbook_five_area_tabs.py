@@ -52,6 +52,10 @@ def test_output_workbook_uses_numbered_top_level_area_tabs(built_workbook_path):
 
 
 def test_source_layout_declares_same_numbered_areas():
+    # #209/#210/#212/#228: WORKBOOK_SECTION_LAYOUT now lists each sheet's
+    # STABLE (build-time) name -- letters (1A, 2E, 3C, 4G, ...) are computed
+    # fresh per build from whichever sheets survive module gating, not
+    # hard-coded here.
     layout = _source_constant("WORKBOOK_SECTION_LAYOUT")
     assert [a["section"] for a in layout] == [
         "1. Reports",
@@ -60,7 +64,7 @@ def test_source_layout_declares_same_numbered_areas():
         "4. System",
     ]
     flattened = [sheet for area in layout for sheet in area["sheets"]]
-    assert flattened[:3] == ["1A. Executive Summary", "1B. Net Worth", "1C. Cash Flow"]
-    assert "2E. S-Corp vs LLC" in flattened
-    assert "3C. LTC + Life Insurance" in flattened
-    assert flattened[-1] == "4G. Glossary"
+    assert flattened[:3] == ["1. Executive Summary", "5. Net Worth Projection", "6. Cash Flow Projection"]
+    assert "S-Corp vs LLC" in flattened
+    assert "19. Life Insurance" in flattened
+    assert flattened[-1] == "22. Glossary"
