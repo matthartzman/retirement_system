@@ -1180,6 +1180,7 @@ const SYSTEM_CONFIG_FIELD_HELP = {
   ),
 };
 function showConfigCardHelp(key) {
+  ensureHelpPanelVisible();
   document.getElementById("helpPanel").innerHTML =
     SYSTEM_CONFIG_FIELD_HELP[key] || STEP_HELP.system_configuration;
 }
@@ -6027,14 +6028,51 @@ const FIELD_TOOLTIPS = {
   w_qcd_end_year:
     "Optional override for when this member's QCD giving stops. Click for the full explanation.",
 };
-function fieldTooltipHtml(lbl) {
-  const tip = FIELD_TOOLTIPS[lbl];
+// A hand-tuned FIELD_TOOLTIPS entry, once written, is worth more than the
+// generic fallback -- keep curating it for fields where the generic text
+// reads too dry. But #250: the icon itself must not be gated on that curated
+// list, or "layman's helper text throughout the UI" only ever covers the
+// ~30 fields someone got around to hand-writing. Every field already gets a
+// full purpose/impact/consider explanation when clicked, via showFieldHelp's
+// fieldGuidance()/row.notes -- this just surfaces the SAME source as a short
+// hover preview so the icon (and the promise it makes) appears everywhere
+// that explanation exists, not only where a bespoke one-liner was authored.
+// Some CSV `notes` were written as terse dev-facing reminders ("Gross in
+// earn_start_year", "s_corp | sole_prop | W2") that quote the storage label
+// or enum codes verbatim -- fine as an internal comment, not as user-facing
+// copy. Reuse the same snake_case-looking-token heuristic the group-heading
+// cleanup uses so those notes get skipped in favor of fieldGuidance's
+// already-humanized text instead of leaking the raw identifier to a tooltip.
+const _LOOKS_INTERNAL = /[a-z][a-z0-9]*_[a-z0-9]+/;
+function fieldTooltipPreview(row) {
+  const lbl = norm(row?.label);
+  const curated = FIELD_TOOLTIPS[lbl];
+  if (curated) return curated;
+  const note = String(row?.schema?.description || row?.notes || "").trim();
+  if (note && !_LOOKS_INTERNAL.test(note)) {
+    return note.length > 220 ? note.slice(0, 217) + "..." : note;
+  }
+  try {
+    const purpose = fieldGuidance(row).purpose;
+    if (purpose) return purpose.length > 220 ? purpose.slice(0, 217) + "..." : purpose;
+  } catch (_e) {
+    // fieldGuidance can reference lastBuildSummary/rows state that isn't
+    // ready during early renders -- fall through to no tooltip that pass.
+  }
+  return "";
+}
+function fieldTooltipHtml(lbl, row) {
+  const tip = row ? fieldTooltipPreview(row) : FIELD_TOOLTIPS[lbl];
   if (!tip) return "";
+  const suffix = / Click for the full explanation\.?$/i.test(tip)
+    ? ""
+    : " Click for the full explanation.";
   // #219/#220: standard superscript-i info link. Hover/focus shows the short
   // hint via the native title tooltip; click bubbles to the field row's own
   // onclick, which opens the full purpose/impact/consider panel via
   // showFieldHelp -- the badge itself needs no separate click handler.
-  return `<sup class="field-info-i" tabindex="0" title="${esc(tip)}" aria-label="More info: ${esc(tip)}">i</sup>`;
+  const full = tip + suffix;
+  return `<sup class="field-info-i" tabindex="0" title="${esc(full)}" aria-label="More info: ${esc(full)}">i</sup>`;
 }
 // Width of the control should match the width of the value people actually
 // type: a 4-digit year does not need the same box as a free-text name. Kept
@@ -6137,7 +6175,7 @@ function fieldHtml(r) {
   // inside the same bordered card.
   const sizeClass = fieldSizeClass(r);
   const flow = dependencyRank(r.label) > "01" && sizeClass !== "w-long";
-  return `<div class="field ${missing ? "missing" : ""} ${dirtyHere ? "dirty" : ""} ${inactiveRevealed ? "inactive-edit" : ""}${paired ? " paired" : ""}${flow ? " flow" : ""}${sizeClass ? " " + sizeClass : ""}${negClass}" id="field-${r.row_index}" onclick="showFieldHelp(${r.row_index})"><div><div class="field-label">${esc(humanLabel(r.label, r))}${fieldLabelNoteHtml(r)}${fieldTooltipHtml(lblNorm)}</div><div class="field-meta">${req}${dirtyHere ? '<span class="badge dirty">Edited</span>' : ""}${inactiveBadge}</div></div><div>${control}${unit}${inactiveRevealed ? `<div class="unit">${esc(formatAcronyms(inactiveState.activation || "Change this value or its controlling setting to make it active in the build."))}</div>` : ""}</div></div>`;
+  return `<div class="field ${missing ? "missing" : ""} ${dirtyHere ? "dirty" : ""} ${inactiveRevealed ? "inactive-edit" : ""}${paired ? " paired" : ""}${flow ? " flow" : ""}${sizeClass ? " " + sizeClass : ""}${negClass}" id="field-${r.row_index}" onclick="showFieldHelp(${r.row_index})"><div><div class="field-label">${esc(humanLabel(r.label, r))}${fieldLabelNoteHtml(r)}${fieldTooltipHtml(lblNorm, r)}</div><div class="field-meta">${req}${dirtyHere ? '<span class="badge dirty">Edited</span>' : ""}${inactiveBadge}</div></div><div>${control}${unit}${inactiveRevealed ? `<div class="unit">${esc(formatAcronyms(inactiveState.activation || "Change this value or its controlling setting to make it active in the build."))}</div>` : ""}</div></div>`;
 }
 function dependencyRank(label) {
   const l = norm(label);
@@ -15255,6 +15293,7 @@ function editValue(idx, val, el) {
   scheduleStatusUpdate();
 }
 function showStepHelp(id) {
+  ensureHelpPanelVisible();
   document.getElementById("helpPanel").innerHTML =
     STEP_HELP[id] || STEP_HELP.start;
 }
@@ -15330,31 +15369,31 @@ const FIELD_GUIDANCE_OVERRIDES = {
     purpose:
       "The share of each year's annuity dividend that is reinvested to permanently raise the guaranteed payment, rather than paid out as cash.",
     impact:
-      "This share compounds the guaranteed payment every future year. The remaining share (1 minus this) pays out as cash income each year until Recovery Age, then stops. Applies from the first-distribution year (first_payment); before that year the full dividend is reinvested regardless of this setting.",
+      "This share compounds the guaranteed payment every future year. The remaining share (1 minus this) pays out as cash income each year until Recovery Age, then stops. Applies starting the year of the first payment; before that year the full dividend is reinvested regardless of this setting.",
     consider:
-      "Ask: what reinvestment/additional-income split does the illustration show? Leave blank to use the household default (Economic Assumptions > annuity_default_additional_income_pct).",
+      "Ask: what reinvestment/additional-income split does the illustration show? Leave blank to use the household default (Economic Assumptions > Default Additional Income %).",
   },
   deferral_years: {
     purpose:
-      "Contract years before first_payment where the dividend is 100% reinvested and no income is paid yet.",
+      "Contract years before the first payment where the dividend is 100% reinvested and no income is paid yet.",
     impact:
-      "During this window the guaranteed payment grows by dividend_rate x Deferral Dampening each year instead of being paid out. A longer deferral produces a higher starting guaranteed payment once income begins.",
+      "During this window the guaranteed payment grows by the Dividend Rate times Deferral Dampening each year instead of being paid out. A longer deferral produces a higher starting guaranteed payment once income begins.",
     consider:
-      "Use the number of years between contract purchase and the first_payment date shown on the illustration.",
+      "Use the number of years between contract purchase and the first-payment date shown on the illustration.",
   },
   deferral_dampening: {
     purpose:
-      "Dampens how fast the guaranteed payment grows during the deferral period (growth rate = dividend_rate x this value, per deferral year).",
+      "Dampens how fast the guaranteed payment grows during the deferral period (growth rate = Dividend Rate times this value, per deferral year).",
     impact:
-      "Lower values slow guaranteed-payment growth before income starts; higher values approach full dividend_rate growth during deferral. Only matters when Deferral Years is greater than zero.",
+      "Lower values slow guaranteed-payment growth before income starts; higher values approach full Dividend Rate growth during deferral. Only matters when Deferral Years is greater than zero.",
     consider:
       "Use the value calibrated to the carrier illustration; the model default is 0.55 if left blank.",
   },
   reserve_factor: {
     purpose:
-      "The fraction of the account-value base used to anchor the annuity's starting actuarial reserve (reserve_start = base x reserve_factor).",
+      "The fraction of the account-value base used to anchor the annuity's starting actuarial reserve (starting reserve = base times Reserve Factor).",
     impact:
-      "The reserve then follows a fixed decay/mortality-credit/growth curve over the payout years, and that reserve is what dividend_rate is credited against each year — so this scales both the compounding guaranteed payment and the cash dividend for the life of the contract.",
+      "The reserve then follows a fixed decay/mortality-credit/growth curve over the payout years, and that reserve is what the Dividend Rate is credited against each year — so this scales both the compounding guaranteed payment and the cash dividend for the life of the contract.",
     consider:
       "Calibrate to match the carrier illustration's reserve or cash value in the first few contract years; leave blank to use the model default (0.853).",
   },
@@ -16107,9 +16146,19 @@ function fieldLikelyImpact(row, g) {
       "Changing this value can affect cash flow, terminal net worth, lifetime taxes, interim liquidity, risk metrics, recommendations, or workbook narratives depending on how the field is used.";
   return [base, directional, consider].filter(Boolean).join(" ");
 }
+// #250: autoCollapseHelpForNarrowLaptop() (U1) hides the help pane at typical
+// laptop widths (1181-1499px) to avoid horizontal overflow. showFieldHelp
+// only wrote into #helpPanel's innerHTML, so clicking a field -- or the "i"
+// tooltip icon whose title text literally promises "Click for the full
+// explanation" -- silently updated hidden content: nothing visibly happened.
+// Every writer of #helpPanel must reveal it, not just fill it.
+function ensureHelpPanelVisible() {
+  document.body.classList.remove("help-collapsed");
+}
 function showFieldHelp(idx) {
   const row = rows.find((r) => r.row_index === idx);
   if (!row) return;
+  ensureHelpPanelVisible();
   const label = humanLabel(row.label, row);
   const note = translatePersonPlaceholders(
     formatAcronyms(row.schema?.description || row.notes || ""),
