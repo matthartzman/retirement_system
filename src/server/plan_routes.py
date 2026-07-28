@@ -1068,7 +1068,14 @@ def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
         demo_plan_service.DemoPlanServiceContext(
             sqlite_db=_sqlite_db,
             demo_dir=lambda: WORKSPACE_ROOT / "input" / "demo",
-            plan_data_csv_files=PLAN_DATA_CSV_FILES,
+            # #248: Open Demo Plan wrote every core plan-data file (household,
+            # income/annuities, holdings, ...) but left YTD_PLAN_DATA_FILES
+            # (ytd_transactions.csv and friends -- "Actual Spending (This
+            # Year)") untouched, so that screen kept showing the advisor's
+            # real transactions while the rest of the app showed the demo
+            # household. _materialize() below (used on restore) already
+            # treats YTD files as part of the swap; open must match.
+            plan_data_csv_files=PLAN_DATA_CSV_FILES + YTD_PLAN_DATA_FILES,
             read_plan_data_file=_read_plan_data_file,
             write_plan_data_file=lambda name, content: _write_plan_data_file(name, content, preserve_protected=False),
             sync_config_backends=_sync_config_backends,
