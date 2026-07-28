@@ -265,14 +265,52 @@ def _band_table(ws, band_cols, header_rows, max_row, band_width):
     total_src = sum(src_widths) or 1.0
     col_widths = [(w / total_src) * band_width for w in src_widths]
 
+    # An Excel "spacer" column (e.g. width=2.0, used purely for a visual gap
+    # next to a much wider notes/description column) scales down to a
+    # sub-padding PDF width here, which crashes ReportLab's Table layout with
+    # a "negative availWidth" ValueError. Floor every column at a minimum
+    # usable width and take the difference back out of the other columns
+    # (proportional to their own share) so the row still sums to band_width.
+    MIN_COL_WIDTH = 10.0
+    floored = [w < MIN_COL_WIDTH for w in col_widths]
+    deficit = sum(MIN_COL_WIDTH - w for w, f in zip(col_widths, floored) if f)
+    if deficit > 0:
+        donor_total = sum(w for w, f in zip(col_widths, floored) if not f)
+        if donor_total > 0:
+            col_widths = [
+                MIN_COL_WIDTH if f else w - deficit * (w / donor_total)
+                for w, f in zip(col_widths, floored)
+            ]
+        else:
+            col_widths = [max(w, MIN_COL_WIDTH) for w in col_widths]
+
+    # A long narrative cell (e.g. a review-prompt/note column) wrapped into a
+    # narrow column can word-wrap into hundreds of lines, making that single
+    # row taller than a page -- ReportLab cannot split one row across pages,
+    # so the whole PDF build raises "too large on page" and no PDF is written
+    # at all. Cap each wrapped cell's rendered length to what its own column
+    # width can plausibly show in a bounded number of lines; content beyond
+    # that is still in the .xlsx (the canonical deliverable), just elided
+    # here with an ellipsis.
+    MAX_ROW_HEIGHT = 500.0
+    max_chars_per_col = []
+    for w in col_widths:
+        avg_char_width = fs * 0.55
+        chars_per_line = max(1, int((w - 6) / avg_char_width))
+        max_lines = max(1, int(MAX_ROW_HEIGHT / (fs + 2)))
+        max_chars_per_col.append(chars_per_line * max_lines)
+
     data = []
     row_indices = list(range(1, header_rows + 1)) + list(range(header_rows + 1, max_row + 1))
     for r in row_indices:
         row_vals = []
-        for c in band_cols:
+        for idx, c in enumerate(band_cols):
             cell = ws.cell(r, c)
             text = _fmt_cell(cell)
             if cell.alignment and cell.alignment.wrap_text and text:
+                max_chars = max_chars_per_col[idx]
+                if len(text) > max_chars:
+                    text = text[:max(1, max_chars - 1)].rstrip() + '…'
                 row_vals.append(Paragraph(text.replace('\n', '<br/>'), wrap_style))
             else:
                 row_vals.append(text)
