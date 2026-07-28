@@ -910,6 +910,17 @@ def minimize_row_heights(wb):
     EXCEL_MAX_ROW_HEIGHT = 409.0  # points; Excel's own hard ceiling
     LINE_PAD = 4.0  # points of padding per line, above the raw font size
     DEFAULT_WIDTH = 8.43  # Excel's default column width when none is set
+    # #249: Excel's column-width unit is defined by the MAXIMUM DIGIT width of
+    # the default font ("0"-"9", ~7px wide in Calibri 11) -- but wrapped prose
+    # is mostly lowercase letters and spaces, which average ~5.5px wide, so a
+    # real line fits noticeably more characters than a naive 1-char-per-width-
+    # unit count assumes. Undercounting capacity here was the actual bug behind
+    # "rows aren't minimized": every wrapped narrative cell was estimated at
+    # ~1.3x more lines than Excel will actually wrap it into, inflating every
+    # row that holds one. 1.3 is the digit-width/average-char-width ratio for
+    # Calibri 11; deliberately conservative (under-crediting slightly) so a
+    # cell can only end up a bit taller than needed, never clipped.
+    CHARS_PER_WIDTH_UNIT = 1.3
 
     for ws in wb.worksheets:
         if getattr(ws, 'sheet_state', 'visible') != 'visible':
@@ -952,9 +963,10 @@ def minimize_row_heights(wb):
                 is_formula = isinstance(cell.value, str) and cell.value.startswith('=')
                 if wrap and isinstance(cell.value, str) and not is_formula:
                     eff_width = max(sum(col_width.get(cc, DEFAULT_WIDTH) for cc in col_span), 1.0)
+                    eff_chars_per_line = max(eff_width * CHARS_PER_WIDTH_UNIT, 1.0)
                     lines = 0
                     for line in (cell.value.splitlines() or ['']):
-                        lines += max(1, _math.ceil(len(line) / eff_width))
+                        lines += max(1, _math.ceil(len(line) / eff_chars_per_line))
                     lines = max(1, lines)
                 else:
                     lines = 1
