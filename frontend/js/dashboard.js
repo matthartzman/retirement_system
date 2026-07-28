@@ -5666,6 +5666,8 @@ function valueKind(r) {
   if (/^(yes\/no|true\/false)$/i.test(units)) return "plain";
   if (["percent", "pct", "percentage"].includes(type)) return "percent";
   if (["dollars", "currency", "usd", "money"].includes(type)) return "currency";
+  if (["year", "integer", "int", "number", "numeric"].includes(type))
+    return "number";
   if (
     units.includes("%") ||
     u.includes("pct") ||
@@ -5732,8 +5734,6 @@ function valueKind(r) {
     ])
   )
     return "currency";
-  if (["year", "integer", "int", "number", "numeric"].includes(type))
-    return "number";
   return "plain";
 }
 function filterChoiceOptionsForRow(r, opts) {
@@ -10403,7 +10403,9 @@ function renderRothConversion() {
     ? "Fill-to-IRMAA uses the Medicare premium tier boundary as the conversion ceiling. Separate IRMAA guardrail controls are hidden to avoid duplication."
     : policyIsNone
       ? "No voluntary conversion controls are shown. Forced conversions remain available below — these represent decisions already made or imposed for this scenario."
-      : "";
+      : policyIsOptimizer
+        ? 'To actually change behavior, changing Roth Conversion Policy away from optimize terminal tax is the blunt instrument. To keep auto-optimization but bias its search, use Roth Bracket Strategy. To keep the full search but change which candidate "wins" a close race, use Roth Objective Mode — and note it does nothing unless Roth Conversion Policy is left at optimize terminal tax.'
+        : "";
   html += renderRothRows(policyLabel, policyDesc, strategy, true);
   html += renderRothRows(
     "IRMAA guardrails",
