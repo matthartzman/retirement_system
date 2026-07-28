@@ -14,7 +14,17 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def _min_wrapped_height(ws, row: int, col: int) -> float:
     """Same formula as minimize_row_heights(): the shortest height that still
-    fits a wrapped string cell's text at its merged range's combined width."""
+    fits a wrapped string cell's text at its merged range's combined width.
+
+    #249: mirrors minimize_row_heights()'s CHARS_PER_WIDTH_UNIT correction --
+    Excel's column-width unit is the widest DIGIT of the default font, but
+    wrapped prose (mostly lowercase letters/spaces) fits more characters per
+    line than a 1-char-per-width-unit count assumes, so production credits
+    each width unit with 1.3 characters. Keep this constant identical to the
+    one in workbook_common.py or this test starts asserting the pre-#249
+    (over-tall) heights instead of what the code now actually produces.
+    """
+    CHARS_PER_WIDTH_UNIT = 1.3
     cell = ws.cell(row, col)
     merge = next(
         (mr for mr in ws.merged_cells.ranges if mr.min_row == row and mr.min_col == col),
@@ -25,7 +35,8 @@ def _min_wrapped_height(ws, row: int, col: int) -> float:
         sum((ws.column_dimensions[get_column_letter(c)].width or 8.43) for c in col_span),
         1.0,
     )
-    lines = sum(max(1, math.ceil(len(line) / eff_width)) for line in str(cell.value).splitlines() or [''])
+    eff_chars_per_line = max(eff_width * CHARS_PER_WIDTH_UNIT, 1.0)
+    lines = sum(max(1, math.ceil(len(line) / eff_chars_per_line)) for line in str(cell.value).splitlines() or [''])
     font_size = float(cell.font.size) if (cell.font and cell.font.size) else 10.0
     return max(1, lines) * (font_size + 4.0)
 
