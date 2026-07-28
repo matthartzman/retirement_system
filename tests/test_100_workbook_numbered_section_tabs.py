@@ -16,8 +16,10 @@ def test_workbook_uses_numbered_sections_and_lettered_children(built_workbook_pa
         '1D. Balance Sheet',
         '1E. Charts',
         '1F. Lifetime Taxes',
-        '1G. Core Spending',
-        '1H. Spending Summary',
+        # #221: Core Spending merged into Spending Summary -- no separate
+        # sheet/letter for it anymore, so Spending Summary is densely 1G
+        # (not the old static 1H).
+        '1G. Spending Summary',
         '2. Optimizers',
         '2A. Roth Conversion',
         '2B. Asset Allocation',

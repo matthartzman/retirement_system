@@ -8,8 +8,10 @@ client_spending_taxonomy.csv) is displayed on multiple surfaces:
      budget_derived_core_spend_base / projection_seed).
   2. Projection engine        -> spending_budget_resolver.resolve_spending_inputs
      (spend_base + recurring_extras + lump), which drives the Cash Flow sheet.
-  3. Workbook Core Spending    -> workbook_builder.build_sheet_core_spending
-     (now sourced from the same unified model, scoped to Core Expenses).
+  3. Workbook Spending Summary -> workbook_builder.build_sheet_spending_summary
+     (sourced from the same unified model; #221 merged the former standalone
+     Core Spending sheet in here, since it had nothing this one didn't already
+     show once scoped to Core Expenses).
 
 These tests walk every tracking type / group / category and assert the numbers
 reconcile wherever they represent the same thing, and explicitly document the
@@ -110,8 +112,16 @@ line,vacation,Annual Vacation,8000,2026,2028,,time-bounded travel extra
 
 
 # ---------------------------------------------------------------------------
-# 3. The workbook Core Spending sheet's Core-Expenses budget reconciles with the
-#    UI Spending Model's Core Expenses tracking-type budget.
+# 3. The workbook Spending Summary sheet's Core-Expenses budget reconciles with
+#    the UI Spending Model's Core Expenses tracking-type budget.
+#
+#    #221: the former standalone "Core Spending" sheet was merged into
+#    Spending Summary (it had no content Spending Summary's own Core Expenses
+#    section didn't already show, since both read the exact same
+#    spending_summary_taxonomy() call -- the one thing unique to it, the
+#    modeled-core-spending-assumption comparison, moved there too). This test
+#    now exercises build_sheet_spending_summary instead of the removed
+#    build_sheet_core_spending.
 # ---------------------------------------------------------------------------
 def test_workbook_core_spending_sheet_budget_matches_ui(tmp_path, monkeypatch):
     root = tmp_path
@@ -141,11 +151,12 @@ line,charity,Charitable Giving,5000,,,,
     ui_core_budget = core["annual_budget"]
 
     ws = Workbook().active
-    wb.build_sheet_core_spending(ws, {"spend_base": 11000})
+    wb.build_sheet_spending_summary(ws, {"spend_base": 11000})
 
-    # Recompute the sheet total the same way build_sheet_core_spending does and
-    # assert it equals the UI Core Expenses budget (charity counted once = 5000
-    # via its line, + groceries 6000 = 11000). Housing is excluded.
+    # Recompute the sheet total the same way build_sheet_spending_summary does
+    # (via the same spending_summary_taxonomy() call) and assert it equals the
+    # UI Core Expenses budget (charity counted once = 5000 via its line, +
+    # groceries 6000 = 11000). Housing is excluded from Core Expenses.
     summary = st.spending_summary_taxonomy()
     core_tt = next(t for t in summary["tracking_types"] if t["tracking_type"] == "Core Expenses")
     sheet_total = sum(g["annual_budget"] for g in core_tt["groups"])
