@@ -291,7 +291,11 @@ def _chart_page(c: dict[str, Any], rows: list[dict[str, Any]], mc_data: dict[str
         {"label": "Trust", "values": [round(_n(r.get("trust_nw"))) for r in rows]},
         {"label": "HSA", "values": [round(_n(r.get("hsa_nw"))) for r in rows]},
         {"label": "Home Value", "values": [round(_n(r.get("home_val"))) for r in rows]},
-        {"label": "Other Assets", "values": [round(_n(r.get("other_nw")) - _n(r.get("home_equity"))) for r in rows]},
+        # #247: note_bal (e.g. a note receivable) used to be silently folded
+        # into "Other Assets" -- indistinguishable from autos, startup equity,
+        # and cash. It gets its own bucket so a note actually shows up.
+        {"label": "Note Receivable", "values": [round(_n(r.get("note_bal"))) for r in rows]},
+        {"label": "Other Assets", "values": [round(_n(r.get("other_nw")) - _n(r.get("home_equity")) - _n(r.get("note_bal"))) for r in rows]},
         {"label": "Mortgage", "values": [-round(_n(r.get("mort_bal_yr"))) for r in rows]},
         {"label": "HELOC", "values": [-round(_n(r.get("heloc_liability"))) for r in rows]},
     ])
@@ -520,38 +524,44 @@ def _cashflow_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, A
 
 
 def _net_worth_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, Any]:
-    # Columns: Year | H Age | W Age | Σ Ann | Σ PreTax | Σ Roth | Σ Trust | HSA | Home Value | Mortgage | HELOC | Home Equity | Σ Other | TOTAL NW
+    # Columns: Year | H Age | W Age | Σ Ann | Σ PreTax | Σ Roth | Σ Trust | HSA | Home Value | Mortgage | HELOC | Home Equity | Note Receivable | Σ Other | TOTAL NW
     # Home Value is a gross asset; Mortgage and HELOC are negative liabilities; Home Equity = Home Value - Mortgage - HELOC.
     # TOTAL NW is already computed net (unchanged).
+    # #247: a note receivable balance used to be folded into "Σ Other" with no
+    # way to tell it apart from autos, startup equity, and cash. It gets its
+    # own column, and Σ Other is narrowed to exclude it.
     group_row = row([
         ("Identifiers", "text"), ("", "text"), ("", "text"),
         ("Account balances", "text"), ("", "text"), ("", "text"), ("", "text"), ("", "text"),
         ("Real Estate", "text"), ("", "text"), ("", "text"), ("", "text"),
-        ("", "text"), ("", "text"),
+        ("", "text"), ("", "text"), ("", "text"),
     ])
     headers = row([
         ("Year", "text"), (f"{member_nick(c, 'member_1')} Age", "text"), (f"{member_nick(c, 'member_2')} Age", "text"),
         ("Σ Ann", "text"), ("Σ PreTax", "text"), ("Σ Roth", "text"), ("Σ Trust", "text"), ("HSA", "text"),
         ("Home Value", "text"), ("Mortgage", "text"), ("HELOC", "text"), ("Home Equity", "text"),
-        ("Σ Other", "text"), ("TOTAL NW", "text"),
+        ("Note Receivable", "text"), ("Σ Other", "text"), ("TOTAL NW", "text"),
     ])
     data = [group_row, headers]
     for r in rows:
         mort = _n(r.get('mort_bal_yr'))
         heloc = _n(r.get('heloc_liability'))
+        note_bal = _n(r.get('note_bal'))
         data.append(row([
             (r.get('year'), 'year'), (r.get('h_age'), 'integer'), (r.get('w_age'), 'integer'),
             (r.get('ann_nw'), 'currency'), (r.get('pretax_nw'), 'currency'),
             (r.get('roth_nw'), 'currency'), (r.get('trust_nw'), 'currency'), (r.get('hsa_nw'), 'currency'),
             (r.get('home_val'), 'currency'), (-mort if mort else 0, 'currency'), (-heloc if heloc else 0, 'currency'),
             (r.get('home_equity'), 'currency'),
-            (r.get('other_nw'), 'currency'), (r.get('total_nw'), 'currency'),
+            (note_bal, 'currency'),
+            (_n(r.get('other_nw')) - note_bal, 'currency'), (r.get('total_nw'), 'currency'),
         ]))
     return _page("1B. Net Worth", "Reports", [_section("Net Worth Projection", data, column_groups=[
         {"label": "Identifiers", "start": 0, "end": 2},
         {"label": "Account balances", "start": 3, "end": 7},
         {"label": "Real Estate", "start": 8, "end": 11},
-        {"label": "Totals", "start": 12, "end": 13},
+        {"label": "Other Assets", "start": 12, "end": 12},
+        {"label": "Totals", "start": 13, "end": 14},
     ])])
 
 
