@@ -21,10 +21,9 @@ def _default_root(root: Optional[Path]) -> Path:
 
     When a caller passes ``root`` explicitly (as the server routes do with their
     package BASE_DIR) that value wins. Otherwise the writable tree is resolved
-    from :func:`platform_runtime.workspace_root`, which equals the package root
-    on desktop and app-private storage on mobile. Resolving lazily (rather than
-    baking PROJECT_ROOT into the default arg) lets an Android host or a test
-    redirect the workspace after import.
+    from :func:`platform_runtime.workspace_root`. Resolving lazily (rather than
+    baking PROJECT_ROOT into the default arg) lets a test redirect the
+    workspace after import.
     """
     if root is not None:
         return root

@@ -34,8 +34,8 @@ honors it. Confirmed empirically before this file was written: pointing only
 the workspace root at a temp copy while leaving client_holdings.csv out of it
 produced IDENTICAL results, proving holdings were still being read from the
 real repo input/. Fixing that root= hardcode belongs to a future item (it
-would affect the Android/mobile workspace-redirection story generally, not
-just this test) -- this file works around it locally by monkeypatching
+would affect the general workspace-redirection story, not just this test)
+-- this file works around it locally by monkeypatching
 candidate_input_files for the duration of the frozen build only, verified
 empirically (see the two PASS checks in this file's development history) to
 correctly redirect holdings to the frozen copy and to exactly reproduce a

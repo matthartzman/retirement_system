@@ -3,10 +3,8 @@
 # installed packages. Upper bounds protect the report/build pipeline from
 # unreviewed major-version API breaks.
 
-# --- Core (all platforms: desktop, server, and mobile hosts) ---
-# The projection engine, workbook/report pipeline, and local runtime need only
-# these. A mobile (Android/Chaquopy) build installs this core set and omits the
-# desktop-only group below.
+# --- Core (desktop and server modes) ---
+# The projection engine, workbook/report pipeline, and local runtime need only these.
 numpy>=1.26,<3
 scipy>=1.10,<2
 lxml>=4.9,<7
@@ -18,7 +16,5 @@ cryptography>=42,<46
 
 # --- Desktop-only (PyWebView native window shell) ---
 # pywebview powers the desktop native window (src/desktop_app.py). It is imported
-# lazily and only in desktop mode, so server mode and mobile hosts run without it.
-# On a mobile host the native WebView shell replaces pywebview entirely; install
-# the core set above and skip this line.
+# lazily and only in desktop mode, so server mode runs without it.
 pywebview>=4.0,<7
