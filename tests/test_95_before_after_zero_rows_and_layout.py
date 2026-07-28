@@ -86,7 +86,9 @@ def test_before_after_rebalancing_omits_zero_before_and_after_rows(built_workboo
 def test_asset_allocation_columns_are_compact_and_wrapped(built_workbook_path):
     wb = load_workbook(built_workbook_path, data_only=False)
     ws = wb['2B. Asset Allocation']
-    pinned = TEMPLATE_LAYOUT.get('2B. Asset Allocation', {}).get('cols', {})
+    # #209/#210/#212/#228: TEMPLATE_LAYOUT is keyed by the sheet's stable
+    # (build-time) name, not its final letter.
+    pinned = TEMPLATE_LAYOUT.get('4. Asset Allocation', {}).get('cols', {})
     if pinned:
         # The reference formatting workbook (template for column widths and
         # height.xlsx) pins exact widths for this sheet at generation time,

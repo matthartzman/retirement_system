@@ -1,26 +1,26 @@
 {
- "1A. Executive Summary": {
+ "1. Executive Summary": {
   "C": "left"
  },
- "2D. Social Security": {
+ "10. Social Security": {
   "A": "center",
   "B": "center",
   "C": "center"
  },
- "2H. Planning Levers": {
-  "B": "left",
-  "D": "left"
- },
- "3A. Monte Carlo": {
+ "15. Market-Luck Stress Test": {
   "F": "center",
   "G": "center"
  },
- "3C. LTC + Life Insurance": {
+ "19. Life Insurance": {
   "B": "center",
   "C": "center",
   "D": "center",
   "E": "center",
   "F": "center"
+ },
+ "27. Planning Levers": {
+  "B": "left",
+  "D": "left"
  },
  "4. System": {
   "B": "left"

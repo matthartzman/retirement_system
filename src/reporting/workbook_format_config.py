@@ -25,6 +25,7 @@ column), falling back to the column letter when a column has no header text.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any, Optional
 
@@ -32,6 +33,69 @@ from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter, column_index_from_string
 
 from ..workspace_context import workspace_input_dir
+
+# #209/#210/#212/#228: sheet letters (1A, 2J, 3F, ...) are computed fresh every
+# build from which sheets survive module gating (see workbook_common.
+# SHEET_LETTER_ORDER / compute_final_sheet_renames), so the same feature can
+# land on a different letter build to build. Overrides/alignments/template
+# layout are keyed by each sheet's STABLE name instead, and the build passes
+# its live {stable: final_title} map so those lookups always hit.
+#
+# This UI route, though, only has an already-built .xlsx on disk -- there's no
+# live build-time map to consult. Recover the stable identity from the DISPLAY
+# TITLE portion of the sheet's current final name (the part after "1A. "),
+# which is static and shared with workbook_common.SHEET_DISPLAY_TITLES.
+# Duplicated here (not imported) to keep this lightweight settings route from
+# pulling in workbook_common's heavy engine-module imports.
+_DISPLAY_TITLE_TO_STABLE = {
+    'Executive Summary': '1. Executive Summary',
+    'Net Worth': '5. Net Worth Projection',
+    'Cash Flow': '6. Cash Flow Projection',
+    'Balance Sheet': '3. Balance Sheet',
+    'Charts': '8. Charts Dashboard',
+    'Lifetime Taxes': '7. Lifetime Tax',
+    'Core Spending': '28. Core Spending',
+    'Spending Summary': '29. Spending Summary',
+    'Roth Conversion': '11. Roth Conversion',
+    'Asset Allocation': '4. Asset Allocation',
+    'State Residency': '13. State Residency',
+    'Social Security': '10. Social Security',
+    'S-Corp vs LLC': 'S-Corp vs LLC',
+    'Charitable Giving': '12. Charitable Giving',
+    'Estate & Legacy Planning': '14. Estate Plan',
+    'Planning Levers': '27. Planning Levers',
+    'Tax-Loss Harvesting': '12B. Tax-Loss Harvesting',
+    'Education Funding': '30. Education Funding',
+    'Equity Compensation': '35. Equity Compensation',
+    'Special-Needs Planning': '36. Special-Needs Planning',
+    'Business Succession': '34. Business Succession',
+    'Gain Harvesting': '12C. Gain Harvesting',
+    'Monte Carlo': '15. Market-Luck Stress Test',
+    'Survivor': '18. Survivor Stress Test',
+    'LTC + Life Insurance': '19. Life Insurance',
+    'Existing Life Insurance': '31. Existing Life Insurance',
+    'Disability Income': '32. Disability Income',
+    'P&C Umbrella': '33. P&C Umbrella',
+    'Plan Data': 'Plan Data',
+    'Assumptions': '2. Assumptions',
+    'Account Reconciliation': '25. Account Reconciliation',
+    'Quality Control': '21. Quality Control',
+    'RMD Audit': '20. RMD Audit',
+    'Methodology': '23. Methodology',
+    'Glossary': '22. Glossary',
+}
+
+_FINAL_TITLE_PREFIX_RE = re.compile(r'^[1-4][A-Z]\.\s*')
+
+
+def stable_name_for_sheet_title(title: str) -> str:
+    """Resolve a workbook sheet's current final title back to its stable
+    (build-time) name, for keying overrides/alignments/template-layout data
+    that must survive letters shifting build to build. Falls back to the
+    title itself for anything not in the map (section dividers, unrecognized
+    titles) -- those are already stable/unrenamed."""
+    display = _FINAL_TITLE_PREFIX_RE.sub('', title or '', count=1)
+    return _DISPLAY_TITLE_TO_STABLE.get(display, title)
 
 OVERRIDES_FILENAME = "workbook_format_overrides.json"
 # Horizontal-alignment overrides are stored separately from width overrides so
@@ -328,7 +392,16 @@ def build_sheet_tree(ws, sheet_overrides: dict[str, float], sheet_aligns: Option
     if single_table:
         tables = [{"name": None, "columns": [_col_node(c) for c in content_cols]}]
 
-    return {"sheet": ws.title, "single_table": single_table, "tables": tables}
+    # #209/#210/#212/#228: "sheet" is the STABLE key -- this is what gets sent
+    # back on save, so it must match the key overrides/alignments are stored
+    # under. "display" is the sheet's current final title, for the UI to show
+    # the user; it can differ letter-to-letter across builds.
+    return {
+        "sheet": stable_name_for_sheet_title(ws.title),
+        "display": ws.title,
+        "single_table": single_table,
+        "tables": tables,
+    }
 
 
 def build_format_tree(workbook_path: str | Path, overrides: Optional[dict] = None, alignments: Optional[dict] = None) -> dict:
@@ -350,38 +423,51 @@ def build_format_tree(workbook_path: str | Path, overrides: Optional[dict] = Non
     for ws in wb.worksheets:
         if getattr(ws, "sheet_state", "visible") != "visible":
             continue
-        node = build_sheet_tree(ws, overrides.get(ws.title, {}), alignments.get(ws.title, {}))
+        stable = stable_name_for_sheet_title(ws.title)
+        node = build_sheet_tree(ws, overrides.get(stable, {}), alignments.get(stable, {}))
         if node is not None:
             sheets.append(node)
     return {"available": True, "sheets": sheets}
 
 
-def apply_overrides(wb, input_dir: Optional[Path] = None) -> None:
-    """Apply saved column-width overrides to a workbook in place."""
+def apply_overrides(wb, input_dir: Optional[Path] = None, sheet_renames: Optional[dict] = None) -> None:
+    """Apply saved column-width overrides to a workbook in place.
+
+    #209/#210/#212/#228: overrides are keyed by each sheet's STABLE (build-
+    time) name so a saved override keeps applying to the same sheet even when
+    module gating shifts its letter. `sheet_renames` is this build's live
+    {stable_name: final_title} map (workbook_common.FINAL_SHEET_RENAMES);
+    omitting it falls back to treating the JSON key as the sheet's current
+    title, for any caller still on the old final-name keying.
+    """
     overrides = load_overrides(input_dir)
     if not overrides:
         return
+    sheet_renames = sheet_renames or {}
     by_title = {ws.title: ws for ws in wb.worksheets}
     for sheet, cols in overrides.items():
-        ws = by_title.get(sheet)
+        ws = by_title.get(sheet_renames.get(sheet, sheet))
         if ws is None:
             continue
         for letter, width in cols.items():
             ws.column_dimensions[letter].width = width
 
 
-def apply_alignments(wb, input_dir: Optional[Path] = None) -> None:
+def apply_alignments(wb, input_dir: Optional[Path] = None, sheet_renames: Optional[dict] = None) -> None:
     """Apply saved horizontal-alignment overrides to a workbook's data rows in place.
 
     Header-band rows are left untouched -- their alignment is deliberate
     (e.g. centered, bold titles), so only rows below the header are re-aligned.
+
+    Keyed by stable sheet name; see apply_overrides for what `sheet_renames` is.
     """
     alignments = load_alignments(input_dir)
     if not alignments:
         return
+    sheet_renames = sheet_renames or {}
     by_title = {ws.title: ws for ws in wb.worksheets}
     for sheet, cols in alignments.items():
-        ws = by_title.get(sheet)
+        ws = by_title.get(sheet_renames.get(sheet, sheet))
         if ws is None:
             continue
         band_end = _header_band_end(ws)

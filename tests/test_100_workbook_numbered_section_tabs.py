@@ -27,7 +27,11 @@ def test_workbook_uses_numbered_sections_and_lettered_children(built_workbook_pa
         '2F. Charitable Giving',
         '2G. Estate & Legacy Planning',
         '2I. Tax-Loss Harvesting',
-        '2N. Gain Harvesting',
+        # #209/#210/#212/#228: letters are computed fresh per build from
+        # whichever sheets survive module gating -- this fixture's plan has
+        # the advanced modules (2J-2M in the old static mapping) off, so Gain
+        # Harvesting lands densely at 2J instead of leaving a gap at 2N.
+        '2J. Gain Harvesting',
         '3. Risk & Stress Tests',
         '3A. Monte Carlo',
         '3B. Survivor',
