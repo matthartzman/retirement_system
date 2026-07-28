@@ -491,15 +491,22 @@ def _is_textual(value):
     return isinstance(value, str) and not value.startswith('=')
 
 
-def _is_heading_row(ws, row_idx):
+def _is_heading_row(ws, row_idx, max_col=None):
     """Identify rows that should not determine column width.
 
     Table headers and merged section titles are excluded, but label/value rows
     are kept as data even when bold/fill styling is applied.
+
+    ``max_col``: pass the caller's already-computed ``ws.max_column`` when
+    scanning many rows in a loop -- it's an O(cell count) scan with no
+    internal caching, so recomputing it fresh per row turns a whole-sheet
+    scan quadratic.
     """
     if row_idx <= 2:
         return True
-    cells = [ws.cell(row=row_idx, column=c) for c in range(1, ws.max_column + 1)]
+    if max_col is None:
+        max_col = ws.max_column
+    cells = [ws.cell(row=row_idx, column=c) for c in range(1, max_col + 1)]
     nonblank = [c for c in cells if c.value not in (None, '')]
     if not nonblank:
         return False
@@ -597,7 +604,7 @@ def optimize_workbook_layout(wb, target_total_width=118):
             continue
         max_row = ws.max_row or 1
         max_col = ws.max_column or 1
-        heading_rows = {r for r in range(1, max_row + 1) if _is_heading_row(ws, r)}
+        heading_rows = {r for r in range(1, max_row + 1) if _is_heading_row(ws, r, max_col)}
         specs = {}
         for col in range(1, max_col + 1):
             cells = [ws.cell(r, col) for r in range(1, min(max_row, 400) + 1)
@@ -650,7 +657,7 @@ def optimize_workbook_layout(wb, target_total_width=118):
                 cell = ws.cell(row_idx, col)
                 if cell.value in (None, ''):
                     continue
-                if kind == 'text' or _is_heading_row(ws, row_idx):
+                if kind == 'text' or row_idx in heading_rows:
                     # Standard vertical alignment across every sheet: 'center'.
                     # Wrapped multi-line text cells still center vertically
                     # rather than pinning to the top, so a wrapped notes cell

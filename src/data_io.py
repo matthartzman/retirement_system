@@ -45,7 +45,7 @@ from . import core as _ar  # consolidated from account_registry
 from . import optimization as _ao  # consolidated from allocation_optimizer
 from . import allocation_policy as _ap
 from .core import ASSET_CLASS_RETURNS, TAX_BASE_YEAR, statutory_rmd_start_age  # consolidated from engine_core
-from .market_data import PRICE_CACHE, fetch_price, set_fallback_prices, set_frozen_prices, configure_holdings_pricing, configure_api_keys  # consolidated from market_data_providers
+from .market_data import PRICE_CACHE, fetch_price, prewarm_prices, set_fallback_prices, set_frozen_prices, configure_holdings_pricing, configure_api_keys  # consolidated from market_data_providers
 from .workspace_context import candidate_input_files, active_workspace_id
 from . import platform_runtime as _platform_runtime
 from .roth_ui_build_guard import normalize_roth_policy, normalize_irmaa_guardrail_mode, percent_to_float, is_explicit_user_roth_policy, strategy_for_roth_policy
@@ -2236,7 +2236,13 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
             positions[acct][sym] = positions[acct].get(sym, 0) + total_shares
         c['positions'] = positions
 
-    # Compute account balances (from whichever source populated positions)
+    # Compute account balances (from whichever source populated positions).
+    # Every distinct symbol in the plan gets fetched here for the first time
+    # (later report code re-fetches the same symbols, but quote() memoizes so
+    # those are instant) -- prewarm them concurrently so the once-per-symbol
+    # live-provider cost overlaps instead of running one ticker at a time.
+    all_symbols = {sym for holdings in c['positions'].values() for sym in holdings}
+    prewarm_prices(all_symbols, skip_live=skip_live_pricing)
     balances = {}
     for acct, holdings in c['positions'].items():
         total = 0
