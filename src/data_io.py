@@ -1243,11 +1243,19 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # scalar aggregates for legacy call sites (deterministic engine, balance
     # sheet, optimization) — those are summed/derived across all notes below.
     c['note_items'] = []
-    _note_subs = [s for s in (data.get('Note Receivable') or {}).keys()
+    _note_section = data.get('Note Receivable') or {}
+    _note_subs = [s for s in _note_section.keys()
                   if re.match(r'^Note\s+\d+$', str(s or '').strip(), re.I)]
+    # Backward compat: a pre-multi-note plan snapshot (single Note Receivable,
+    # subsection "Summary") predates the "Note N" repeatable-note convention.
+    # A stale plan_snapshots row using that older shape must still parse as
+    # one note instead of silently producing an empty note_items (zero note
+    # income/balance everywhere, with no error to say why).
+    if not _note_subs and 'Summary' in _note_section:
+        _note_subs = ['Summary']
     _note_subs = sorted(_note_subs, key=lambda s: (0, int(re.search(r'(\d+)', s).group(1))) if re.search(r'(\d+)', s) else (1, s))
     for _nsub in _note_subs:
-        _nvals = data['Note Receivable'][_nsub]
+        _nvals = _note_section[_nsub]
         _nname = str(_nvals.get('name') or _nsub).strip() or _nsub
         _nface  = _n(_nvals.get('face_value', '0'), 0.0)
         _nfirst = _y(_nvals.get('first_payment', f"1/2/{c['plan_start']}"), c['plan_start'])
@@ -1256,7 +1264,10 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
                                  _nvals.get('annual_principal_base_period', '0')), 0.0)
         _nprinc_final = _n(_nvals.get('final_principal_2033', _nvals.get('final_principal', '0')), 0.0)
         _ninterest = {}
-        _nint_sub = f'{_nsub} Interest'
+        # The legacy single-note shape (subsection "Summary") kept its
+        # interest schedule under "Interest by Year" rather than
+        # "{subsection} Interest" -- matches the fallback above.
+        _nint_sub = 'Interest by Year' if _nsub == 'Summary' else f'{_nsub} Interest'
         for yr in range(c['plan_start'], c['plan_start'] + 8):
             iv = _v(data, 'Note Receivable', _nint_sub, str(yr), '0')
             _ninterest[yr] = _n(iv, 0)
