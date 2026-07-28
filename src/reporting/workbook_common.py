@@ -166,15 +166,25 @@ SECTION_COLOR = {
 # section-letter labels (1A, 1B, ...). The source builders still create the
 # legacy numbered sheets first; workbook_builder.apply_final_workbook_structure
 # then merges/relabels/reorders them into this presentation layout.
+#
+# #209/#210/#212/#228: the 'sheets' lists below are STABLE (build-time/legacy)
+# names, in the physical tab order the final workbook should show them in --
+# NOT final letters. Final letters (1A, 2J, 3F, ...) are computed fresh every
+# build from SHEET_LETTER_ORDER + whichever sheets actually survived module
+# gating (compute_final_sheet_renames, below), so a disabled module closes its
+# letter gap instead of leaving one, and every consumer keyed off a sheet name
+# (format overrides/alignments, template layout, cross-reference text) reads
+# through the same live FINAL_SHEET_RENAMES mapping instead of a hand-typed
+# dict that can silently drift out of sync with what the section list says.
 WORKBOOK_SECTION_LAYOUT = [
     {
         'section': '1. Reports',
         'code': '1',
         'description': 'Read-only plan reports and advisor-review outputs.',
         'sheets': [
-            '1A. Executive Summary', '1B. Net Worth', '1C. Cash Flow',
-            '1D. Balance Sheet', '1E. Charts', '1F. Lifetime Taxes',
-            '1G. Core Spending', '1H. Spending Summary',
+            '1. Executive Summary', '5. Net Worth Projection', '6. Cash Flow Projection',
+            '3. Balance Sheet', '8. Charts Dashboard', '7. Lifetime Tax',
+            '28. Core Spending', '29. Spending Summary',
         ],
     },
     {
@@ -182,14 +192,14 @@ WORKBOOK_SECTION_LAYOUT = [
         'code': '2',
         'description': 'Decision-support modules and optimization outputs.',
         'sheets': [
-            '2A. Roth Conversion', '2B. Asset Allocation', '2C. State Residency',
-            '2D. Social Security', '2E. S-Corp vs LLC', '2F. Charitable Giving',
-            '2G. Estate & Legacy Planning', '2I. Tax-Loss Harvesting', '2N. Gain Harvesting',
+            '11. Roth Conversion', '4. Asset Allocation', '13. State Residency',
+            '10. Social Security', 'S-Corp vs LLC', '12. Charitable Giving',
+            '14. Estate Plan', '12B. Tax-Loss Harvesting', '12C. Gain Harvesting',
             # Optional advanced planning modules (toggle-gated; present only when enabled).
-            '2J. Education Funding', '2K. Equity Compensation', '2L. Special-Needs Planning',
-            '2M. Business Succession',
+            '30. Education Funding', '35. Equity Compensation', '36. Special-Needs Planning',
+            '34. Business Succession',
             # Protection coverage-adequacy decisions (toggle-gated; present only when enabled).
-            '3D. Existing Life Insurance', '3E. Disability Income', '3F. P&C Umbrella',
+            '31. Existing Life Insurance', '32. Disability Income', '33. P&C Umbrella',
         ],
     },
     {
@@ -197,7 +207,7 @@ WORKBOOK_SECTION_LAYOUT = [
         'code': '3',
         'description': 'Monte Carlo, survivor, and protection stress tests.',
         'sheets': [
-            '3A. Monte Carlo', '3B. Survivor', '3C. LTC + Life Insurance',
+            '15. Market-Luck Stress Test', '18. Survivor Stress Test', '19. Life Insurance',
         ],
     },
     {
@@ -205,11 +215,79 @@ WORKBOOK_SECTION_LAYOUT = [
         'code': '4',
         'description': 'Plan data snapshot, assumptions, reconciliation, quality control, RMD audit, methodology, and glossary.',
         'sheets': [
-            '4A. Plan Data', '4B. Assumptions', '2H. Planning Levers', '4C. Account Reconciliation',
-            '4D. Quality Control', '4E. RMD Audit', '4F. Methodology', '4G. Glossary',
+            'Plan Data', '2. Assumptions', '27. Planning Levers', '25. Account Reconciliation',
+            '21. Quality Control', '20. RMD Audit', '23. Methodology', '22. Glossary',
         ],
     },
 ]
+
+# Canonical LETTER order per number-prefix, independent of which physical
+# section a sheet's tab sits in (Planning Levers is a "2" letter that
+# physically sits in the "4. System" tab group; the three protection sheets
+# are "3" letters that physically sit in "2. Optimizers" -- both intentional).
+# Same stable names as WORKBOOK_SECTION_LAYOUT above.
+SHEET_LETTER_ORDER = {
+    '1': [
+        '1. Executive Summary', '5. Net Worth Projection', '6. Cash Flow Projection',
+        '3. Balance Sheet', '8. Charts Dashboard', '7. Lifetime Tax',
+        '28. Core Spending', '29. Spending Summary',
+    ],
+    '2': [
+        '11. Roth Conversion', '4. Asset Allocation', '13. State Residency',
+        '10. Social Security', 'S-Corp vs LLC', '12. Charitable Giving',
+        '14. Estate Plan', '27. Planning Levers', '12B. Tax-Loss Harvesting',
+        '30. Education Funding', '35. Equity Compensation', '36. Special-Needs Planning',
+        '34. Business Succession', '12C. Gain Harvesting',
+    ],
+    '3': [
+        '15. Market-Luck Stress Test', '18. Survivor Stress Test', '19. Life Insurance',
+        '31. Existing Life Insurance', '32. Disability Income', '33. P&C Umbrella',
+    ],
+    '4': [
+        'Plan Data', '2. Assumptions', '25. Account Reconciliation',
+        '21. Quality Control', '20. RMD Audit', '23. Methodology', '22. Glossary',
+    ],
+}
+
+# Display title (the text after "1A. ") for each stable name -- combined with
+# a freshly computed prefix+letter to build the final sheet title.
+SHEET_DISPLAY_TITLES = {
+    '1. Executive Summary': 'Executive Summary',
+    '5. Net Worth Projection': 'Net Worth',
+    '6. Cash Flow Projection': 'Cash Flow',
+    '3. Balance Sheet': 'Balance Sheet',
+    '8. Charts Dashboard': 'Charts',
+    '7. Lifetime Tax': 'Lifetime Taxes',
+    '28. Core Spending': 'Core Spending',
+    '29. Spending Summary': 'Spending Summary',
+    '11. Roth Conversion': 'Roth Conversion',
+    '4. Asset Allocation': 'Asset Allocation',
+    '13. State Residency': 'State Residency',
+    '10. Social Security': 'Social Security',
+    'S-Corp vs LLC': 'S-Corp vs LLC',
+    '12. Charitable Giving': 'Charitable Giving',
+    '14. Estate Plan': 'Estate & Legacy Planning',
+    '27. Planning Levers': 'Planning Levers',
+    '12B. Tax-Loss Harvesting': 'Tax-Loss Harvesting',
+    '30. Education Funding': 'Education Funding',
+    '35. Equity Compensation': 'Equity Compensation',
+    '36. Special-Needs Planning': 'Special-Needs Planning',
+    '34. Business Succession': 'Business Succession',
+    '12C. Gain Harvesting': 'Gain Harvesting',
+    '15. Market-Luck Stress Test': 'Monte Carlo',
+    '18. Survivor Stress Test': 'Survivor',
+    '19. Life Insurance': 'LTC + Life Insurance',
+    '31. Existing Life Insurance': 'Existing Life Insurance',
+    '32. Disability Income': 'Disability Income',
+    '33. P&C Umbrella': 'P&C Umbrella',
+    'Plan Data': 'Plan Data',
+    '2. Assumptions': 'Assumptions',
+    '25. Account Reconciliation': 'Account Reconciliation',
+    '21. Quality Control': 'Quality Control',
+    '20. RMD Audit': 'RMD Audit',
+    '23. Methodology': 'Methodology',
+    '22. Glossary': 'Glossary',
+}
 
 # Legacy build-time sheet set used by the existing sheet builders. These names
 # are intentionally kept stable so the computation/build code can remain
@@ -285,92 +363,86 @@ from ..module_catalog import OPTIONAL_MODULE_SHEETS, module_enabled
 # of re-deriving or re-guessing the same rename.
 # ─────────────────────────────────────────────────────────────────────────────
 
-FINAL_SHEET_RENAMES = {
-    '1. Executive Summary': '1A. Executive Summary',
-    '5. Net Worth Projection': '1B. Net Worth',
-    '6. Cash Flow Projection': '1C. Cash Flow',
-    '3. Balance Sheet': '1D. Balance Sheet',
-    '8. Charts Dashboard': '1E. Charts',
-    '7. Lifetime Tax': '1F. Lifetime Taxes',
-    '11. Roth Conversion': '2A. Roth Conversion',
-    '4. Asset Allocation': '2B. Asset Allocation',
-    '13. State Residency': '2C. State Residency',
-    '10. Social Security': '2D. Social Security',
-    '12. Charitable Giving': '2F. Charitable Giving',
-    '12B. Tax-Loss Harvesting': '2I. Tax-Loss Harvesting',
-    '12C. Gain Harvesting': '2N. Gain Harvesting',
-    '14. Estate Plan': '2G. Estate & Legacy Planning',
-    '27. Planning Levers': '2H. Planning Levers',
-    '15. Market-Luck Stress Test': '3A. Monte Carlo',
-    '18. Survivor Stress Test': '3B. Survivor',
-    '19. Life Insurance': '3C. LTC + Life Insurance',
-    '28. Core Spending': '1G. Core Spending',
-    '29. Spending Summary': '1H. Spending Summary',
-    '2. Assumptions': '4B. Assumptions',
-    '25. Account Reconciliation': '4C. Account Reconciliation',
-    '21. Quality Control': '4D. Quality Control',
-    '20. RMD Audit': '4E. RMD Audit',
-    '23. Methodology': '4F. Methodology',
-    '22. Glossary': '4G. Glossary',
-    # Advanced planning modules (Phase 1).
-    '30. Education Funding': '2J. Education Funding',
-    '35. Equity Compensation': '2K. Equity Compensation',
-    '36. Special-Needs Planning': '2L. Special-Needs Planning',
-    '34. Business Succession': '2M. Business Succession',
-    '31. Existing Life Insurance': '3D. Existing Life Insurance',
-    '32. Disability Income': '3E. Disability Income',
-    '33. P&C Umbrella': '3F. P&C Umbrella',
-}
+# Populated fresh every build by refresh_final_sheet_renames(wb) -- starts
+# empty so an accidental read before the first refresh fails loudly (empty
+# lookups) instead of silently returning stale data from a previous build.
+FINAL_SHEET_RENAMES: dict = {}
 
-def _disabled_final_sheets(c):
-    """Final (renamed) sheet names that will be absent because their module is off.
 
-    Used by pre-rename passes (e.g. the Plan Data scope table) that list final
-    sheet names before the sheets themselves have been renamed, so an existence
-    check against wb.sheetnames is not yet possible.
+def compute_final_sheet_renames(wb) -> dict:
+    """#209/#210/#212/#228: compute {stable_name: final_name} fresh from the
+    sheets that actually survived module gating in this build. Letters are
+    assigned densely (A, B, C, ... with no gaps) per SHEET_LETTER_ORDER's
+    canonical order, using only the sheets present in `wb` -- so disabling a
+    module closes its letter gap instead of leaving one, and the same
+    computed mapping is reused everywhere a final sheet name is needed
+    (rename, cross-reference text, format overrides/alignments, template
+    layout) instead of each place re-deriving or hand-typing it.
     """
-    disabled = set()
-    for key, legacy_names in OPTIONAL_MODULE_SHEETS.items():
-        if module_enabled(c, key):
-            continue
-        for ln in legacy_names:
-            disabled.add(FINAL_SHEET_RENAMES.get(ln, ln))
-    # "3C. LTC + Life Insurance" survives if EITHER the LTC or the Life
-    # Insurance module is on (see the promotion in apply_final_workbook_structure).
-    combined = FINAL_SHEET_RENAMES.get('19. Life Insurance')
-    if module_enabled(c, 'long_term_care_stress') or module_enabled(c, 'life_insurance_need'):
-        disabled.discard(combined)
-    return disabled
+    renames = {}
+    present = set(wb.sheetnames)
+    for prefix, ordered in SHEET_LETTER_ORDER.items():
+        idx = 0
+        for stable in ordered:
+            if stable not in present:
+                continue
+            idx += 1
+            letter = get_column_letter(idx)
+            title = SHEET_DISPLAY_TITLES.get(stable, stable)
+            renames[stable] = f'{prefix}{letter}. {title}'
+    return renames
 
 
-SHEET_NUM_LABEL_REPLACEMENTS = {
-    'Sheet 13 & 14': '2C. State Residency & 2G. Estate & Legacy Planning',
-    'Sheet 17) shows': '3C. LTC + Life Insurance shows',
-    'Sheet 3': '1D. Balance Sheet',
-    'Sheet 4': '2B. Asset Allocation',
-    'Sheet 5': '1B. Net Worth',
-    'Sheet 6': '1C. Cash Flow',
-    'Sheet 7': '1F. Lifetime Taxes',
-    'Sheet 8': '1E. Charts',
-    'Sheet 9': '2E. S-Corp vs LLC',
-    'Sheet 10': '2D. Social Security',
-    'Sheet 11': '2A. Roth Conversion',
-    'Sheet 12': '2F. Charitable Giving',
-    'Sheet 13': '2C. State Residency',
-    'Sheet 14': '2G. Estate & Legacy Planning',
-    'Sheet 15': '3A. Monte Carlo',
-    'Sheet 16': 'Scenario Analysis',
-    'Sheet 17': '3C. LTC + Life Insurance',
-    'Sheet 18': '3B. Survivor',
-    'Sheet 19': '3C. LTC + Life Insurance',
-    'Sheet 20': '4E. RMD Audit',
-    'Sheet 21': '4D. Quality Control',
-    'Sheet 22': '4G. Glossary',
-    'Sheet 23': '4F. Methodology',
-    'Sheet 24': '2B. Asset Allocation',
-    'Sheet 25': '4C. Account Reconciliation',
-    'Sheet 26': 'Workbook Warnings',
+def refresh_final_sheet_renames(wb) -> dict:
+    """Recompute and install this build's FINAL_SHEET_RENAMES. Must run once,
+    early in apply_final_workbook_structure, before anything reads final
+    sheet names (rename pass, cross-reference text, format/template lookups)."""
+    FINAL_SHEET_RENAMES.clear()
+    FINAL_SHEET_RENAMES.update(compute_final_sheet_renames(wb))
+    return FINAL_SHEET_RENAMES
+
+
+# #209/#210/#212/#228: "Sheet N" -> the STABLE name whose live final label
+# should replace it. The actual final label is resolved fresh at
+# sheet_num_label_replacements() call time via FINAL_SHEET_RENAMES, not
+# hand-typed here, so it can't go stale when a module toggle shifts letters.
+_SHEET_NUM_TO_STABLE = {
+    3: '3. Balance Sheet',
+    4: '4. Asset Allocation',
+    5: '5. Net Worth Projection',
+    6: '6. Cash Flow Projection',
+    7: '7. Lifetime Tax',
+    8: '8. Charts Dashboard',
+    9: 'S-Corp vs LLC',
+    10: '10. Social Security',
+    11: '11. Roth Conversion',
+    12: '12. Charitable Giving',
+    13: '13. State Residency',
+    14: '14. Estate Plan',
+    15: '15. Market-Luck Stress Test',
+    17: '19. Life Insurance',
+    18: '18. Survivor Stress Test',
+    19: '19. Life Insurance',
+    20: '20. RMD Audit',
+    21: '21. Quality Control',
+    22: '22. Glossary',
+    23: '23. Methodology',
+    24: '4. Asset Allocation',
+    25: '25. Account Reconciliation',
 }
+
+
+def sheet_num_label_replacements() -> dict:
+    """Build the 'Sheet N' -> final-label text-replacement map fresh from this
+    build's live FINAL_SHEET_RENAMES. Call only after refresh_final_sheet_renames."""
+    def final(stable):
+        return FINAL_SHEET_RENAMES.get(stable, stable)
+    out = {f'Sheet {n}': final(stable) for n, stable in _SHEET_NUM_TO_STABLE.items()}
+    out['Sheet 13 & 14'] = f"{final('13. State Residency')} & {final('14. Estate Plan')}"
+    out['Sheet 17) shows'] = f"{final('19. Life Insurance')} shows"
+    out['Sheet 16'] = 'Scenario Analysis'
+    out['Sheet 26'] = 'Workbook Warnings'
+    return out
 
 CSV_LABEL_REPLACEMENTS = {
     'Plan Data CSV': 'database-backed Plan Data',
@@ -409,7 +481,7 @@ def _replace_text_refs(wb):
     the final relabeled sheet names, using the tables above as the single
     source of truth for what each legacy reference now reads."""
     text_replacements = dict(FINAL_SHEET_RENAMES)
-    text_replacements.update(SHEET_NUM_LABEL_REPLACEMENTS)
+    text_replacements.update(sheet_num_label_replacements())
     text_replacements.update(CSV_LABEL_REPLACEMENTS)
     for ws in wb.worksheets:
         for row in ws.iter_rows():
@@ -701,7 +773,7 @@ def optimize_workbook_layout(wb, target_total_width=118):
             if any_wrap:
                 ws.row_dimensions[row_idx].height = min(90, max(15, max_lines * (18 if row_idx <= 2 else 15)))
 
-        if ws.title in {'2B. Asset Allocation', '4. Asset Allocation'}:
+        if ws.title in {FINAL_SHEET_RENAMES.get('4. Asset Allocation', '2B. Asset Allocation'), '4. Asset Allocation'}:
             for row_idx in (211, 285):
                 cell = ws.cell(row=row_idx, column=1)
                 old = cell.alignment or _Alignment()
@@ -788,7 +860,14 @@ TEMPLATE_LAYOUT = _load_template_layout()
 
 def apply_template_layout(wb):
     """Pin exact column widths and row heights captured from the reference
-    formatting workbook, keyed by final sheet title.
+    formatting workbook, keyed by each sheet's STABLE (build-time) name --
+    section-divider sheets ("1. Reports", ...) are never renamed and are
+    looked up by their own (already-stable) title.
+
+    #209/#210/#212/#228: resolves each worksheet's current (final, computed
+    this build) title back to its stable key via FINAL_SHEET_RENAMES, so a
+    template entry keeps applying to the same sheet even when module gating
+    shifts its letter.
 
     Runs after optimize_workbook_layout so its heuristic sizing is the
     fallback for any column/row the template doesn't specify (e.g. columns
@@ -798,8 +877,10 @@ def apply_template_layout(wb):
     (including user overrides from Settings -> Workbook Formatting) has run,
     since a pinned height only matches the template's own column widths.
     """
+    final_to_stable = {final: stable for stable, final in FINAL_SHEET_RENAMES.items()}
     for ws in wb.worksheets:
-        spec = TEMPLATE_LAYOUT.get(ws.title)
+        stable_key = final_to_stable.get(ws.title, ws.title)
+        spec = TEMPLATE_LAYOUT.get(stable_key)
         if not spec:
             continue
         for letter, width in spec.get('cols', {}).items():

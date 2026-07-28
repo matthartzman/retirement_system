@@ -256,7 +256,11 @@ function _wfTableHtml(sheet, tableNode, showTableLayer) {
 }
 
 function _wfSheetHtml(sheetNode, maxNameLen) {
+  // #209/#210/#212/#228: "sheet" is the stable save/lookup key (letters can
+  // shift build to build); "display" is this build's actual tab title,
+  // shown to the user instead.
   const sheet = sheetNode.sheet;
+  const display = sheetNode.display || sheet;
   const showTableLayer = !sheetNode.single_table;
   const body = (sheetNode.tables || [])
     .map((t) => _wfTableHtml(sheet, t, showTableLayer))
@@ -267,7 +271,7 @@ function _wfSheetHtml(sheetNode, maxNameLen) {
   );
   const key = "sheet::" + sheet;
   const titleStyle = maxNameLen ? ` style="min-width:${maxNameLen}ch"` : "";
-  const summary = `<span class="wf-sheet-title"${titleStyle}>${esc(sheet)}</span><span class="wf-col-meta">${totalCols} column${totalCols === 1 ? "" : "s"}${showTableLayer ? " · " + (sheetNode.tables || []).length + " tables" : ""}</span>`;
+  const summary = `<span class="wf-sheet-title"${titleStyle}>${esc(display)}</span><span class="wf-col-meta">${totalCols} column${totalCols === 1 ? "" : "s"}${showTableLayer ? " · " + (sheetNode.tables || []).length + " tables" : ""}</span>`;
   return _wfDetails(key, "wf-sheet", summary, `<div class="wf-sheet-body">${body}</div>`);
 }
 
@@ -286,7 +290,7 @@ function renderWorkbookFormatting() {
   }
   const sheetNodes = workbookFormatData.sheets || [];
   const maxSheetNameLen = sheetNodes.reduce(
-    (m, s) => Math.max(m, (s.sheet || "").length),
+    (m, s) => Math.max(m, (s.display || s.sheet || "").length),
     0,
   );
   const sheets = sheetNodes

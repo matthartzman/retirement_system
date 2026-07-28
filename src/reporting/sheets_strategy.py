@@ -860,7 +860,9 @@ def build_sheet_tlh(ws, c, rows):
     for col in range(2, 11):
         ws.column_dimensions[get_column_letter(col)].width = 16
 
-    qc('2I. Tax-Loss Harvesting', 'Opportunities scanned and lifetime ledger rendered', True,
+    # #209/#210/#212/#228: stable (legacy) name -- _replace_text_refs rewrites
+    # this to the live final label once letters are computed for this build.
+    qc('12B. Tax-Loss Harvesting', 'Opportunities scanned and lifetime ledger rendered', True,
        f'policy={policy}; opportunities={len(opps)}; years_with_activity={shown_years}')
 
 
@@ -978,7 +980,9 @@ def build_sheet_gain_harvest(ws, c, rows):
     for col in range(2, 9):
         ws.column_dimensions[get_column_letter(col)].width = 16
 
-    qc('2N. Gain Harvesting', 'Opportunities scanned and lifetime ledger rendered', True,
+    # #209/#210/#212/#228: stable (legacy) name -- _replace_text_refs rewrites
+    # this to the live final label once letters are computed for this build.
+    qc('12C. Gain Harvesting', 'Opportunities scanned and lifetime ledger rendered', True,
        f'policy={policy}; opportunities={len(opps)}; years_with_activity={shown_years}')
 
 

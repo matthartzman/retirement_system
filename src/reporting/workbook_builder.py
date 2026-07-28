@@ -19,7 +19,6 @@ from .workbook_common import (
     WHITE,
     WORKBOOK_SECTION_LAYOUT,
     Workbook,
-    _disabled_final_sheets,
     _rename_final_sheets,
     _replace_text_refs,
     apply_numeric_centering,
@@ -36,6 +35,7 @@ from .workbook_common import (
     prepare_config_from_sectioned_data,
     pricing_diagnostics,
     qc,
+    refresh_final_sheet_renames,
     run_projection_artifacts,
     sanitize_id,
     section_title,
@@ -624,7 +624,9 @@ def build_sheet27_planning_levers(ws, c, rows, mc_data):
     ws.sheet_view.showGridLines = False
     ws.freeze_panes = 'A11'
     ws.sheet_properties.tabColor = SECTION_COLOR.get('2')
-    section_title(ws, 1, '2H. PLANNING LEVERS / SENSITIVITY DASHBOARD', 9, bg=SECTION_COLOR.get('2'))
+    # #209/#210/#212/#228: no hardcoded "2H." prefix -- the letter is computed
+    # fresh at final-rename time and already shown on the sheet's own tab.
+    section_title(ws, 1, 'PLANNING LEVERS / SENSITIVITY DASHBOARD', 9, bg=SECTION_COLOR.get('2'))
     write_cell(ws, 3, 1, 'Use this worksheet to screen changes before changing actual Plan Data and rebuilding. Yellow cells are editable test assumptions; results are directional estimates only.', fg='666666')
     ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=10)
 
@@ -828,20 +830,68 @@ def _hide_sheet_if_present(wb, name):
 # via the `from .workbook_common import *` at the top of this module.
 
 
+def _ensure_plan_data_shell(wb):
+    """#209/#210/#212/#228: create an empty stable-named 'Plan Data' sheet, if
+    absent, before refresh_final_sheet_renames runs -- so the letter-count
+    pass sees it and assigns it its "4A." slot, the same as every other
+    sheet. _build_plan_data_sheet (below) deletes and rebuilds it with real
+    content once final names are known."""
+    if 'Plan Data' not in wb.sheetnames and '4A. Plan Data' not in wb.sheetnames:
+        wb.create_sheet('Plan Data')
+
+
+# Purpose text for the Plan Data scope table, keyed by STABLE (build-time)
+# sheet name -- same stable names as WORKBOOK_SECTION_LAYOUT/SHEET_LETTER_ORDER,
+# so this survives letters shifting when a module toggle changes what's built.
+_PLAN_DATA_SCOPE_PURPOSES = {
+    '1. Executive Summary': 'plan-level findings, recommendations, and strategy narrative',
+    '5. Net Worth Projection': 'net-worth projection report',
+    '6. Cash Flow Projection': 'annual cash-flow report',
+    '3. Balance Sheet': 'current household balance sheet',
+    '8. Charts Dashboard': 'visual report dashboard',
+    '7. Lifetime Tax': 'tax projection report',
+    '11. Roth Conversion': 'Roth conversion optimizer',
+    '4. Asset Allocation': 'asset allocation and rebalancing optimizer',
+    '13. State Residency': 'state residency optimizer',
+    '10. Social Security': 'Social Security claiming optimizer',
+    'S-Corp vs LLC': 'entity strategy optimizer',
+    '12. Charitable Giving': 'charitable giving optimizer',
+    '14. Estate Plan': 'estate and legacy optimizer',
+    '27. Planning Levers': 'interactive sensitivity dashboard for TNW and probability-of-success levers',
+    '15. Market-Luck Stress Test': 'probability-of-success and market stress testing',
+    '18. Survivor Stress Test': 'survivor stress test',
+    '19. Life Insurance': 'combined protection stress test',
+    'Plan Data': 'database-backed plan snapshot and workbook scope',
+    '2. Assumptions': 'model assumptions and tax-law inputs',
+    '25. Account Reconciliation': 'account-level reconciliation and data checks',
+    '21. Quality Control': 'validation checks and workbook warnings',
+    '20. RMD Audit': 'required minimum distribution audit',
+    '23. Methodology': 'model methodology and rerun notes',
+    '22. Glossary': 'terms and definitions',
+}
+
+
 def _build_plan_data_sheet(wb, c):
     """Create a clean System/Plan Data output sheet.
 
     Plan scope and system settings should not be duplicated inside Executive
     Summary. This sheet provides a read-only snapshot of the saved plan data
     used for the build and the workbook scope.
+
+    Runs AFTER _rename_final_sheets/_replace_text_refs -- sheets (including
+    Executive Summary, this sheet's own shell) are already in their final
+    form by this point, and this function writes already-final text directly
+    (so it must not run before _replace_text_refs, whose substring-replace
+    pass would otherwise double-prefix that text).
     """
-    src_name = '1. Executive Summary' if '1. Executive Summary' in wb.sheetnames else '1A. Executive Summary'
+    final_self = FINAL_SHEET_RENAMES.get('Plan Data', 'Plan Data')
+    src_name = FINAL_SHEET_RENAMES.get('1. Executive Summary', '1A. Executive Summary')
     _delete_sheet_if_present(wb, '4A. Plan Scope')
-    _delete_sheet_if_present(wb, '4A. Plan Data')
-    ws = wb.create_sheet('4A. Plan Data')
+    _delete_sheet_if_present(wb, final_self)
+    ws = wb.create_sheet(final_self)
     ws.sheet_view.showGridLines = False
     ws.sheet_properties.tabColor = SECTION_COLOR.get('4')
-    section_title(ws, 1, '4A. Plan Data — PLAN DATA SNAPSHOT', 6, bg=SECTION_COLOR.get('4'))
+    section_title(ws, 1, f'{final_self} — PLAN DATA SNAPSHOT', 6, bg=SECTION_COLOR.get('4'))
     write_cell(ws, 3, 1, 'The workbook is a generated output. Edit plan data in the database-backed app; CSV remains an import/export utility for large tables only.', fg='666666')
     ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=6)
 
@@ -869,40 +919,17 @@ def _build_plan_data_sheet(wb, c):
     write_hdr(ws, r, 2, 'Sheet', DGRAY, WHITE)
     write_hdr(ws, r, 3, 'Purpose', DGRAY, WHITE, span=4)
     r += 1
-    purposes = {
-        '1A. Executive Summary': 'plan-level findings, recommendations, and strategy narrative',
-        '1B. Net Worth': 'net-worth projection report',
-        '1C. Cash Flow': 'annual cash-flow report',
-        '1D. Balance Sheet': 'current household balance sheet',
-        '1E. Charts': 'visual report dashboard',
-        '1F. Lifetime Taxes': 'tax projection report',
-        '2A. Roth Conversion': 'Roth conversion optimizer',
-        '2B. Asset Allocation': 'asset allocation and rebalancing optimizer',
-        '2C. State Residency': 'state residency optimizer',
-        '2D. Social Security': 'Social Security claiming optimizer',
-        '2E. S-Corp vs LLC': 'entity strategy optimizer',
-        '2F. Charitable Giving': 'charitable giving optimizer',
-        '2G. Estate & Legacy Planning': 'estate and legacy optimizer',
-        '2H. Planning Levers': 'interactive sensitivity dashboard for TNW and probability-of-success levers',
-        '3A. Monte Carlo': 'probability-of-success and market stress testing',
-        '3B. Survivor': 'survivor stress test',
-        '3C. LTC + Life Insurance': 'combined protection stress test',
-        '4A. Plan Data': 'database-backed plan snapshot and workbook scope',
-        '4B. Assumptions': 'model assumptions and tax-law inputs',
-        '4C. Account Reconciliation': 'account-level reconciliation and data checks',
-        '4D. Quality Control': 'validation checks and workbook warnings',
-        '4E. RMD Audit': 'required minimum distribution audit',
-        '4F. Methodology': 'model methodology and rerun notes',
-        '4G. Glossary': 'terms and definitions',
-    }
-    disabled_final = _disabled_final_sheets(c)
     for area in WORKBOOK_SECTION_LAYOUT:
-        for sheet_name in area.get('sheets', []):
-            if sheet_name in disabled_final:
+        for stable_name in area.get('sheets', []):
+            # Sheets are already renamed at this point; FINAL_SHEET_RENAMES'
+            # keys are exactly the stable names that survived this build's
+            # module gating (computed by refresh_final_sheet_renames from
+            # presence, before the rename ran).
+            if stable_name not in FINAL_SHEET_RENAMES:
                 continue
             write_cell(ws, r, 1, area.get('section'))
-            write_cell(ws, r, 2, sheet_name)
-            write_cell(ws, r, 3, purposes.get(sheet_name, ''))
+            write_cell(ws, r, 2, FINAL_SHEET_RENAMES[stable_name])
+            write_cell(ws, r, 3, _PLAN_DATA_SCOPE_PURPOSES.get(stable_name, ''))
             ws.merge_cells(start_row=r, start_column=3, end_row=r, end_column=6)
             r += 1
     for col, width in {'A':18,'B':24,'C':28,'D':10,'E':10,'F':10}.items():
@@ -919,7 +946,8 @@ def _extract_scorp_sheet(wb):
         return
     src = wb['9. Retirement Strategy']
     _delete_sheet_if_present(wb, '2E. S-Corp vs LLC')
-    ws = wb.create_sheet('2E. S-Corp vs LLC')
+    _delete_sheet_if_present(wb, 'S-Corp vs LLC')
+    ws = wb.create_sheet('S-Corp vs LLC')
     ws.sheet_view.showGridLines = False
     ws.sheet_properties.tabColor = SECTION_COLOR.get('2')
     start = _find_row_containing(src, 'S-CORPORATION vs. LLC') or 25
@@ -968,8 +996,17 @@ def _merge_ltc_into_life_insurance(wb):
 
 
 def apply_final_workbook_structure(wb, c):
-    """Merge, relabel, and hide legacy build sheets into the final workbook tab model."""
-    _build_plan_data_sheet(wb, c)
+    """Merge, relabel, and hide legacy build sheets into the final workbook tab model.
+
+    #209/#210/#212/#228: every sheet-creating/merging/promoting step runs
+    FIRST, under stable (build-time) names, so wb.sheetnames reflects exactly
+    which sheets survived this build's module gating. Only then is
+    refresh_final_sheet_renames(wb) called to compute this build's letters --
+    densely, with no gaps for a disabled module -- and everything downstream
+    (the Plan Data scope table, the rename pass, cross-reference text) reads
+    that one fresh mapping instead of a static, hand-typed one.
+    """
+    _ensure_plan_data_shell(wb)
     _extract_scorp_sheet(wb)
     _merge_strategy_into_executive_summary(wb)
     _merge_asset_location_into_allocation(wb)
@@ -981,11 +1018,20 @@ def apply_final_workbook_structure(wb, c):
     if '19. Life Insurance' not in wb.sheetnames and '17. LTC Stress Test' in wb.sheetnames:
         wb['17. LTC Stress Test'].title = '19. Life Insurance'
     _delete_sheet_if_present(wb, '4D. System Setting')
+
+    refresh_final_sheet_renames(wb)
     _rename_final_sheets(wb)
     _replace_text_refs(wb)
+    # _build_plan_data_sheet writes already-final text (sheet names, letters)
+    # directly, so it must run AFTER _replace_text_refs -- otherwise that
+    # substring-replacement pass matches its own output a second time (e.g.
+    # "Plan Data" inside the already-correct "4A. Plan Data" banner) and
+    # double-prefixes it.
+    _build_plan_data_sheet(wb, c)
 
-    if '4D. Quality Control' in wb.sheetnames and '26. Workbook Warnings' in wb.sheetnames:
-        qc_ws = wb['4D. Quality Control']
+    qc_final = FINAL_SHEET_RENAMES.get('21. Quality Control', '4D. Quality Control')
+    if qc_final in wb.sheetnames and '26. Workbook Warnings' in wb.sheetnames:
+        qc_ws = wb[qc_final]
         warn_ws = wb['26. Workbook Warnings']
         dst_start = _used_row(qc_ws) + 3
         _copy_rows(warn_ws, qc_ws, 1, _used_row(warn_ws), dst_start, max_col=warn_ws.max_column)
@@ -1241,9 +1287,14 @@ def main():
     # Prune each area to the sheets that actually survived module gating so a
     # divider never links to a removed sheet, and drop a section entirely when
     # none of its sheets remain.
+    # #209/#210/#212/#228: area['sheets'] are STABLE names; sheets are already
+    # renamed to their live final titles by apply_final_workbook_structure
+    # above, so translate through this build's FINAL_SHEET_RENAMES before
+    # checking presence/building the tab order.
     pruned_layout = []
     for area in WORKBOOK_SECTION_LAYOUT:
-        present = [s for s in area['sheets'] if s in wb.sheetnames]
+        present = [FINAL_SHEET_RENAMES.get(s, s) for s in area['sheets']]
+        present = [s for s in present if s in wb.sheetnames]
         if present:
             pruned_layout.append({**area, 'sheets': present})
         else:
@@ -1283,8 +1334,8 @@ def main():
     # reference template.
     try:
         from .workbook_format_config import apply_overrides as _apply_format_overrides, apply_alignments as _apply_format_alignments
-        _apply_format_overrides(wb)
-        _apply_format_alignments(wb)
+        _apply_format_overrides(wb, sheet_renames=FINAL_SHEET_RENAMES)
+        _apply_format_alignments(wb, sheet_renames=FINAL_SHEET_RENAMES)
     except Exception as _fmt_exc:  # never let optional formatting block a build
         print(f'Warning: workbook format overrides not applied: {_fmt_exc}')
     # Row heights are recomputed last, against the final column widths above,
