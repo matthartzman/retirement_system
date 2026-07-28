@@ -90,10 +90,12 @@ class Item195RmdSsClaimAgeDedupTests(unittest.TestCase):
         from src.core import statutory_rmd_start_age
         self.assertEqual(c["rmd_start_age"], statutory_rmd_start_age(c["h_dob_yr"]))
         self.assertEqual(c["ss_claim_age"], 70)
-        # Per-member overrides are unaffected — the live plan's claim_age=69
-        # override for both members still round-trips exactly as before.
-        self.assertEqual(c["h_ss_claim_age"], 69)
-        self.assertEqual(c["w_ss_claim_age"], 69)
+        # Per-member overrides are unaffected — whatever claim_age the live
+        # plan currently has configured per member still round-trips exactly
+        # as before (values here track input/client_household.csv's Social
+        # Security/Member 1|2/claim_age rows, not a fixed pin).
+        self.assertEqual(c["h_ss_claim_age"], 65)
+        self.assertEqual(c["w_ss_claim_age"], 66)
 
 
 if __name__ == "__main__":

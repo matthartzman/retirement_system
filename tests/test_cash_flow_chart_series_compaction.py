@@ -168,10 +168,16 @@ def test_surplus_plug_tracks_real_engine_surplus_closely():
     (which nets against additional mid-year iterative tax/withdrawal solving
     the charts don't replicate line-by-line) -- but once every real cash-need
     component is itemized (Wellness, Housing Operating, Payroll Tax, IRMAA,
-    Home Sale Tax), the two should track closely rather than differing by
-    tens of thousands of dollars, which is what prompted this item (the
-    Spending & Taxes chart's surplus visibly disagreed with the Cash Flow
-    worksheet's row['surplus'] in many years before these fields were added)."""
+    Home Sale Tax, Other Cash Need), the two should track closely rather than
+    differing by tens of thousands of dollars, which is what prompted this
+    item (the Spending & Taxes chart's surplus visibly disagreed with the
+    Cash Flow worksheet's row['surplus'] in many years before these fields
+    were added). other_cash_need_yr (deterministic_engine.py: a future-home
+    purchase paid in cash, next_housing_yr['purchase_cash']) is itself a
+    first-class term in the engine's own total_cash_need, and the real Cash
+    Flow chart already itemizes it (sheets_projection_charts.py,
+    results_model.py) -- a household with a next-housing purchase configured
+    can differ by hundreds of thousands of dollars in that year without it."""
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
         c = sample_config()
         rows = project(c)
@@ -188,7 +194,8 @@ def test_surplus_plug_tracks_real_engine_surplus_closely():
                      + r.get('wellness_base_yr', 0) + r.get('wellness_shock_yr', 0) + r.get('ltc_prem_yr', 0)
                      + r.get('heloc_interest', 0) + r.get('heloc_repayment_principal', 0)
                      + r.get('fed_tax', 0) + r.get('state_tax', 0) + r.get('niit', 0)
-                     + r.get('payroll_tax', 0) + r.get('irmaa', 0) + r.get('home_sale_tax', 0))
+                     + r.get('payroll_tax', 0) + r.get('irmaa', 0) + r.get('home_sale_tax', 0)
+                     + r.get('other_cash_need_yr', 0))
         local_plug = max(0, inc_total - exp_total)
         real_surplus = r.get('surplus', 0)
         assert abs(local_plug - real_surplus) <= 5000, (
