@@ -739,12 +739,14 @@ body.chart-modal-open{overflow:hidden}
 .holdings-group-total{margin-left:8px;font-variant-numeric:tabular-nums;color:var(--muted)}
 
 /* ===================================================================
-   Phase 1 — Mobile responsive shell (Android/phone support)
+   Small-screen responsive shell
    Additive rules only; the existing 1180px breakpoint above already
    stacks the 3-column grid to 1 column. These rules extend that down
    to phone widths with a slide-in nav drawer, a collapsible help
    panel, a fixed bottom Prev/Next bar, touch-friendly tap targets,
-   and a card layout for the densest data-entry tables.
+   and a card layout for the densest data-entry tables. These are
+   plain browser breakpoints -- they are not tied to the removed
+   Android shell and still apply to a narrow desktop window.
    =================================================================== */
 
 /* Hamburger / drawer-close controls: hidden on desktop, shown on phones/tablets. */
