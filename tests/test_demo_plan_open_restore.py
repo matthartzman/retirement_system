@@ -200,3 +200,35 @@ def test_plan_routes_wire_demo_plan_service_with_protected_fields_bypassed():
     # user's protected values (e.g. retirement dates) -- see app_core.py's
     # PROTECTED_CLIENT_DATA_KEYS / _merge_protected_client_data_values.
     assert "preserve_protected=False" in routes
+
+
+def test_demo_open_swaps_ytd_actual_spending_too():
+    """#248: Open Demo Plan wrote every core plan-data file (household,
+    income/annuities, holdings, ...) but the demo's plan_data_csv_files list
+    stopped at PLAN_DATA_CSV_FILES, omitting YTD_PLAN_DATA_FILES
+    (ytd_transactions.csv, ytd_account_setup.csv, ytd_import_history.csv).
+    Restore already treats YTD files as part of the swap (_materialize()'s
+    file list includes YTD_PLAN_DATA_FILES); open must match, or "Actual
+    Spending (This Year)" keeps showing the advisor's real transactions
+    while every other screen shows the demo household."""
+    routes = Path("src/server/plan_routes.py").read_text(encoding="utf-8")
+    demo_block_start = routes.index("def _demo_plan_feature_service()")
+    demo_block = routes[demo_block_start:demo_block_start + 1200]
+    assert "plan_data_csv_files=PLAN_DATA_CSV_FILES + YTD_PLAN_DATA_FILES" in demo_block, (
+        "Open Demo Plan's file list must include YTD_PLAN_DATA_FILES so "
+        "ytd_transactions.csv is swapped along with the rest of the demo "
+        "household, not left showing the real advisor's transactions."
+    )
+
+
+def test_demo_ytd_fixture_files_exist_and_are_fictional():
+    """The demo files added for #248 must exist, use the demo household's
+    account naming, and not contain the real plan's merchant/account names."""
+    demo_dir = Path("input") / "demo"
+    for name in ("ytd_transactions.csv", "ytd_account_setup.csv", "ytd_import_history.csv"):
+        p = demo_dir / name
+        assert p.exists(), f"input/demo/{name} is missing"
+        text = p.read_text(encoding="utf-8-sig")
+        assert text.strip(), f"input/demo/{name} is empty"
+        for real_marker in ("Max and Benny", "Hartzman", "RedMane"):
+            assert real_marker not in text, f"input/demo/{name} leaks real data: {real_marker!r}"
