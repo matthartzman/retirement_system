@@ -23,8 +23,7 @@ if str(ROOT) not in sys.path:
 # instead of an explicit path, so running certain tests together has silently
 # overwritten the real input/client_data.json/.yaml/client_household.csv (SS
 # claim ages, dropped keys) — see memory: pytest_mutates_input_files. This uses
-# the same RETIREMENT_SYSTEM_WORKSPACE_ROOT override the Android build uses to
-# point writable data at app-private storage, so every load/save path that
+# the RETIREMENT_SYSTEM_WORKSPACE_ROOT override, so every load/save path that
 # resolves lazily via workspace_root() lands in the throwaway copy instead of
 # the real client files, without needing to find/patch the actual culprit.
 # setdefault-style: only redirect if the environment doesn't already override it.

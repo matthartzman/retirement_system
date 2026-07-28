@@ -25,7 +25,6 @@ that is not stays out of the root.
 
 - `.claude/` - local assistant metadata, skills, and workflows.
 - `.github/` - CI workflow definitions.
-- `android/` - Android shell wrapper around the local UI.
 - `data/` - desktop runtime preferences and webview profile data.
 - `documentation/` - project documentation, API contracts, changelog, and design notes. Superseded plans live in `documentation/archive/`.
 - `frontend/` - browser UI assets.
