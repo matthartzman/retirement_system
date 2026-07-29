@@ -50,6 +50,50 @@ if not os.environ.get("RETIREMENT_SYSTEM_WORKSPACE_ROOT"):
     os.environ["RETIREMENT_SYSTEM_WORKSPACE_ROOT"] = str(_TEST_WORKSPACE_ROOT)
     atexit.register(shutil.rmtree, _TEST_WORKSPACE_ROOT, ignore_errors=True)
 
+def _install_real_input_write_guard() -> None:
+    """Turn any write into the REAL (un-redirected) repo input/ directory into
+    an immediate PermissionError with a full traceback at the offending call
+    site, instead of only being caught after the fact by the session-end
+    hash-diff warning below. A permanent sys.addaudithook (cannot be removed,
+    which is fine -- it should be active for the life of every test process).
+    See memory: pytest_mutates_input_files.
+    """
+    real_input_dir = (ROOT / "input").resolve()
+
+    def _hook(event: str, args: tuple) -> None:
+        if event == "open":
+            path, mode = args[0], (args[1] or "")
+            if not any(flag in str(mode) for flag in ("w", "a", "+", "x")):
+                return
+            try:
+                target = Path(os.fsdecode(path)).resolve()
+            except Exception:
+                return
+            if target == real_input_dir or real_input_dir in target.parents:
+                raise PermissionError(
+                    f"Blocked write to the REAL repo input/ during a test run: {target}. "
+                    "Some code path resolved a path outside the redirected "
+                    "RETIREMENT_SYSTEM_WORKSPACE_ROOT. See memory: pytest_mutates_input_files."
+                )
+        elif event in ("os.rename", "os.replace"):
+            for raw in args[:2]:
+                if raw is None:
+                    continue
+                try:
+                    target = Path(os.fsdecode(raw)).resolve()
+                except Exception:
+                    continue
+                if target == real_input_dir or real_input_dir in target.parents:
+                    raise PermissionError(
+                        f"Blocked rename/replace touching the REAL repo input/ during a "
+                        f"test run: {target}. See memory: pytest_mutates_input_files."
+                    )
+
+    sys.addaudithook(_hook)
+
+
+_install_real_input_write_guard()
+
 # Pin holdings pricing to OFFLINE for the whole test run so projections are
 # reproducible in CI. Without this, the active plan config requests LIVE
 # pricing, so every golden-master run re-prices holdings against live market
