@@ -37,7 +37,15 @@ def test_money_like_scenario_labels_get_currency_formatting_even_without_units()
     number_check = 'if (["year", "integer", "int", "number", "numeric"].includes(type))'
     assert currency_check in js
     assert number_check in js
-    assert js.index(currency_check) < js.index(number_check)
+    # This used to also assert js.index(currency_check) < js.index(number_check).
+    # That was a source-order proxy for the real requirement, and it stopped
+    # tracking it: the number-typed branch was deliberately given priority so a
+    # schema-declared number whose label merely contains a currency-ish keyword
+    # (roth_optimize_lifetime_tax_weight -> "$0.25") stops rendering as money.
+    # Both rules hold at once -- an explicit schema type wins, and a money-like
+    # label with no schema type still falls through to currency -- which is a
+    # statement about valueKind()'s behavior, not about byte offsets. It is
+    # pinned for real in tests/frontend/value_kind_currency_vs_number.test.mjs.
 
 
 def test_engine_reads_current_home_value_alias_used_by_ui_schema():
