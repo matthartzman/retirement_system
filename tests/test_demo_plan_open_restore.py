@@ -46,7 +46,11 @@ def _make_service(tmp_path: Path, *, real_client_data: str = "real client_data.c
     demo_dir.mkdir(parents=True, exist_ok=True)
     (demo_dir / "client_household.csv").write_text("demo household content\n", encoding="utf-8")
     (demo_dir / "client_data.csv").write_text("demo client_data.csv content\n", encoding="utf-8")
-    (demo_dir / SEED).write_text("demo recovery seed\n", encoding="utf-8")
+    # Every TEXT_BACKUP_FILES entry gets a fixture, matching the real
+    # input/demo/ -- the service adds them to the applied list itself, so a
+    # missing one here would show up as an unexpected "skipped" entry.
+    for name in TEXT_BACKUP_FILES:
+        (demo_dir / name).write_text(f"demo {name}\n", encoding="utf-8")
     # client_income.csv intentionally has no demo counterpart -- exercises "skipped".
     _make_db(active_db, "real-plan")
 
@@ -57,7 +61,10 @@ def _make_service(tmp_path: Path, *, real_client_data: str = "real client_data.c
     written: dict[str, str] = {}
     # client_data.csv lives only on disk in the real app (never in the DB) --
     # model that here with a plain dict standing in for the on-disk file.
-    disk_files = {"client_data.csv": real_client_data, SEED: "real recovery seed\n"}
+    disk_files = {
+        "client_data.csv": real_client_data,
+        **{name: f"real {name}\n" for name in TEXT_BACKUP_FILES},
+    }
 
     def read_plan_data_file(name: str):
         return disk_files.get(name)
@@ -122,7 +129,7 @@ def test_open_demo_writes_available_files_reports_skipped_and_backs_up_once(tmp_
     assert disk_files["client_data.csv"] == "demo client_data.csv content\n"
     assert result["skipped"] == ["client_income.csv"]
     # The recovery seed is outside plan_data_csv_files; the service adds it.
-    assert disk_files[SEED] == "demo recovery seed\n"
+    assert disk_files[SEED] == f"demo {SEED}\n"
 
     backup = Path(str(active_db) + ".before_demo")
     assert backup.exists()
@@ -209,17 +216,17 @@ def test_demo_swaps_and_restores_the_budget_recovery_seed(tmp_path):
     service, active_db, _demo_dir, _audits, _written, _mat, disk_files, _sync = _make_service(tmp_path)
 
     service.open_demo_payload()
-    assert disk_files[SEED] == "demo recovery seed\n"
+    assert disk_files[SEED] == f"demo {SEED}\n"
     seed_backup = active_db.parent / f"{SEED}.before_demo"
-    assert seed_backup.read_text(encoding="utf-8") == "real recovery seed\n"
+    assert seed_backup.read_text(encoding="utf-8") == f"real {SEED}\n"
 
     # A second open must not overwrite the real seed's backup with demo content.
     service.open_demo_payload()
-    assert seed_backup.read_text(encoding="utf-8") == "real recovery seed\n"
+    assert seed_backup.read_text(encoding="utf-8") == f"real {SEED}\n"
 
     _make_db(active_db, "demo-state")
     service.restore_current_payload()
-    assert disk_files[SEED] == "real recovery seed\n"
+    assert disk_files[SEED] == f"real {SEED}\n"
     assert not seed_backup.exists()
 
 
