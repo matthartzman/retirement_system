@@ -23,7 +23,6 @@ demo-session grid edit.
 import gc
 import shutil
 import sqlite3
-import time
 from pathlib import Path
 
 from src.config_backend import get_client_file, materialize_workspace_files, set_client_file
@@ -48,43 +47,30 @@ def _checkpoint(db_path: Path) -> None:
         conn.close()
 
 
-def _remove_sidecars(db_path: Path) -> None:
-    """Mirrors plan_file_service._remove_sidecars: a stale "-wal"/"-shm" left
-    next to a just-restored ".db" file gets replayed on the next connection,
-    silently reapplying whatever was in the old WAL and undoing the restore
-    -- these must be cleared before (and after) swapping the main file.
-
-    config_backend.set_client_file/get_client_file never close the sqlite3.Connection
-    they open (relying on GC, same as production) -- on Windows that can leave
-    the "-wal"/"-shm" file locked for a moment after the call returns, so force
-    a collection pass and retry briefly rather than failing the test on a
-    transient lock that has nothing to do with the bug under test.
+def _discard_sidecars(db_path: Path) -> None:
+    """Mirrors plan_file_service._remove_sidecars' intent -- a stale "-wal"
+    left next to a just-restored ".db" file gets replayed on the next
+    connection, silently reapplying whatever was in the old WAL and undoing
+    the restore. Rather than racing an OS-level unlink against the file lock
+    Windows can briefly hold after set_client_file/get_client_file's
+    unclosed connections (config_backend relies on GC there, same as
+    production), checkpoint(TRUNCATE) the WAL down to zero bytes instead:
+    an empty WAL has nothing left to replay, so it's neutralized without
+    needing exclusive delete access to the sidecar file at all.
     """
     gc.collect()
-    for suffix in ("-wal", "-shm"):
-        sidecar = db_path.with_name(db_path.name + suffix)
-        for attempt in range(10):
-            if not sidecar.exists():
-                break
-            try:
-                sidecar.unlink()
-                break
-            except PermissionError:
-                if attempt == 9:
-                    raise
-                time.sleep(0.05)
+    _checkpoint(db_path)
 
 
 def _backup_db(db_path: Path, backup_path: Path) -> None:
-    _checkpoint(db_path)
+    _discard_sidecars(db_path)
     shutil.copy2(str(db_path), str(backup_path))
 
 
 def _restore_db(backup_path: Path, db_path: Path) -> None:
-    _remove_sidecars(db_path)
+    _discard_sidecars(db_path)
     shutil.copy2(str(backup_path), str(db_path))
-    _remove_sidecars(db_path)
-    _checkpoint(db_path)
+    _discard_sidecars(db_path)
 
 
 def _write_plan_data_file(name: str, content: str, *, db_path: Path, disk_dir: Path) -> Path:
