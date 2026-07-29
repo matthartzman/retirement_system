@@ -61,5 +61,23 @@ matching `input/*.csv` — after backing up your own plan.
   regenerate with `python tools/check_plan_data_sync.py --write` if you need
   them.
 
+## The persistent demo slot
+
+`input/demo/` is the **seed** -- the fixtures Open Demo Plan copies from the
+first time you open the demo, or after a reset. Once opened, further edits
+live in a separate working copy at `local_state/demo_plan/`, captured
+automatically each time you click **Open Current Plan**. The next **Open
+Demo Plan** reseeds from that working copy, not from this folder, so demo
+edits now persist across sessions instead of being discarded.
+
+`local_state/demo_plan/` is never committed and is not `input/demo/` -- the
+anti-leak tests in `tests/test_demo_plan_data_is_fictional.py` only ever
+read this folder, so a populated slot can never satisfy them even if you've
+customized the demo heavily.
+
+Click **Reset Demo to Defaults** to delete the slot and start the demo over
+from these shipped fixtures. It refuses while a demo is currently open --
+close it with **Open Current Plan** first.
+
 `tests/test_demo_plan_data_is_fictional.py` fails the build if any of this data
 ever starts matching the live plan again.

@@ -1132,6 +1132,20 @@ def plan_restore_current():
         return jsonify({"success": False, "error": str(exc)})
 
 
+@app.route("/api/plan/reset-demo", methods=["POST"])
+def plan_reset_demo():
+    """Delete the persistent demo slot so the next Open Demo Plan re-seeds from input/demo/."""
+    denied = _require("write_config")
+    if denied:
+        return denied
+    if not _runtime_config().allow_csv_write:
+        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
+    try:
+        return jsonify(_demo_plan_feature_service().reset_demo_payload())
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"success": False, "error": str(exc)})
+
+
 @app.route("/api/plan/snapshot/compare", methods=["GET", "POST"])
 def plan_snapshot_compare():
     denied = _require("view_dashboard")

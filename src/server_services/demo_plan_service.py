@@ -42,8 +42,10 @@ fixture, per file (not per directory), so a slot missing one file still
 falls back to the fixture for just that file. restore_current_payload()
 captures the demo's live state into the slot before swapping the real DB
 back, so edits made during a demo session persist into the next Open Demo
-Plan instead of being discarded. The slot has no reset mechanism yet in this
-file -- see the follow-up PR for "Reset Demo to Defaults".
+Plan instead of being discarded. reset_demo_payload() deletes the slot
+outright (refusing while a demo is active, since restore's capture step
+would immediately recreate it), letting the next Open Demo Plan start over
+from these fixtures.
 """
 
 import json
@@ -292,3 +294,23 @@ class DemoPlanService:
 
         self._audit("demo_plan_restored", {"backup": str(backup)})
         return {"success": True, "restored": True}
+
+    def reset_demo_payload(self) -> JsonDict:
+        """Delete the persistent demo slot so the next Open Demo Plan
+        re-seeds from the shipped input/demo/ fixtures. Refuses while a demo
+        is active -- restore's capture step would otherwise immediately
+        recreate the slot from the very content this call is meant to erase."""
+        if self.is_active():
+            return {
+                "success": False,
+                "error": "Close the demo (Open Current Plan) before resetting it.",
+            }
+        slot_dir = self._slot_dir()
+        if slot_dir.exists():
+            try:
+                shutil.rmtree(slot_dir)
+            except Exception as exc:
+                self._audit("demo_plan_reset_warning", {"error": str(exc)})
+                return {"success": False, "error": f"Could not reset the demo: {exc}"}
+        self._audit("demo_plan_reset", {"slot": str(slot_dir)})
+        return {"success": True, "reset": True}

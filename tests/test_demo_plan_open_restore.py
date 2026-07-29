@@ -366,6 +366,37 @@ def test_slot_missing_a_file_falls_back_to_the_fixture_for_that_file_only(tmp_pa
     assert income_entry["source"] == "fixture"
 
 
-def test_plan_routes_wire_the_demo_slot():
+def test_plan_routes_wire_the_demo_slot_and_reset_endpoint():
     routes = Path("src/server/plan_routes.py").read_text(encoding="utf-8")
     assert "demo_slot_dir=" in routes
+    assert "/api/plan/reset-demo" in routes
+    assert ".reset_demo_payload()" in routes
+
+
+def test_reset_demo_deletes_the_slot_so_next_open_reseeds_from_fixtures(tmp_path):
+    service, active_db, demo_dir, audits, written, _mat, disk_files, _sync = _make_service(tmp_path)
+
+    service.open_demo_payload()
+    disk_files["client_household.csv"] = "EDITED household content\n"
+    _make_db(active_db, "demo-state")
+    service.restore_current_payload()
+
+    slot_dir = active_db.parent / "demo_plan"
+    assert slot_dir.exists()
+
+    result = service.reset_demo_payload()
+    assert result == {"success": True, "reset": True}
+    assert not slot_dir.exists()
+
+    disk_files.pop("client_household.csv", None)
+    written.clear()
+    service.open_demo_payload()
+    assert written["client_household.csv"] == "demo household content\n"
+
+
+def test_reset_demo_refuses_while_a_demo_is_active(tmp_path):
+    service, active_db, *_ = _make_service(tmp_path)
+    service.open_demo_payload()
+    result = service.reset_demo_payload()
+    assert result["success"] is False
+    assert "error" in result
