@@ -116,14 +116,56 @@ def test_no_holding_lot_is_shared_with_live_plan():
     assert not shared, f"demo holdings share {len(shared)} real lot(s): {sorted(shared)[:3]}"
 
 
+BANNED_REAL_NAMES = ["redmane", "hensley", "cubs tickets", "gifts - family 12"]
+
+
+def _demo_applied_files() -> list[str]:
+    """Exactly the files Open Demo Plan writes -- see plan_routes._demo_plan_feature_service."""
+    from src.local_plan_data_sync import PLAN_DATA_CSV_FILES, YTD_PLAN_DATA_FILES
+    from src.server_services.demo_plan_service import TEXT_BACKUP_FILES
+
+    return [*PLAN_DATA_CSV_FILES, *YTD_PLAN_DATA_FILES, *TEXT_BACKUP_FILES]
+
+
 def test_demo_carries_no_real_vendor_or_personal_category_names():
     """Auto-added categories and merchant aliases name real counterparties."""
-    banned = ["redmane", "hensley", "cubs tickets", "gifts - family 12"]
     hits = []
     for p in sorted(DEMO.glob("*.csv")):
         text = p.read_text(encoding="utf-8-sig").lower()
-        hits += [f"{p.name}: {b}" for b in banned if b in text]
+        hits += [f"{p.name}: {b}" for b in BANNED_REAL_NAMES if b in text]
     assert not hits, f"demo data still names real counterparties: {hits}"
+
+
+def test_every_demo_fixture_is_actually_applied_by_open_demo_plan():
+    """A fixture in input/demo/ that nothing applies is worse than missing: it
+    reads as covered while the advisor's real file stays live for the whole
+    demo. client_spending_rules.csv sat here fictionalized-but-dead, which is
+    why the real "Cubs Tickets"/"Gifts - Family 12" rules survived a demo."""
+    applied = set(_demo_applied_files())
+    dead = sorted(p.name for p in DEMO.glob("*.csv") if p.name not in applied)
+    assert not dead, (
+        f"input/demo/ ships fixture(s) Open Demo Plan never applies: {dead}. Add them to "
+        "PLAN_DATA_CSV_FILES or demo_plan_service.TEXT_BACKUP_FILES, or delete them -- a "
+        "fixture nobody applies gives false confidence that the demo covers that file."
+    )
+
+
+def test_live_files_the_demo_does_not_replace_carry_no_real_names():
+    """The inverse of the coverage check. Whatever Open Demo Plan does not
+    swap stays on screen during the demo, so any live input/*.csv left in
+    place must be free of the advisor's own counterparty names."""
+    applied = set(_demo_applied_files())
+    hits = []
+    for p in sorted(LIVE.glob("*.csv")):
+        if p.name in applied:
+            continue
+        text = p.read_text(encoding="utf-8-sig").lower()
+        hits += [f"{p.name}: {b}" for b in BANNED_REAL_NAMES if b in text]
+    assert not hits, (
+        f"live file(s) the demo never replaces still name real counterparties: {hits}. "
+        "Either add the file to the demo swap with a fictional input/demo/ counterpart, "
+        "or the demo will keep showing these on the spending screens."
+    )
 
 
 def test_demo_covers_every_file_open_demo_plan_applies():
