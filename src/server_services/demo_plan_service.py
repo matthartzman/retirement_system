@@ -15,15 +15,25 @@ lives only on disk, never in the SQLite DB (see app_core._read_plan_data_file /
 _write_plan_data_file) -- so it is NOT restored by swapping the DB back. It
 gets its own small text backup alongside the DB backup for that reason.
 
-TEXT_BACKUP_FILES are the same story for a different reason: they are not in
-PLAN_DATA_CSV_FILES, so neither the caller's file list nor the restore-side
-materialize() covers them, yet leaving the real file in place during a demo
-leaks real plan data. spending_tracker.load_unified_budget() silently merges
-client_spending_budget.recovery_seed.csv into the budget whenever the
-category rows total zero -- with the real seed still on disk that would pull
-the advisor's own annualized actuals into the demo household's budget. They
-are applied from input/demo/ on open and restored from their own text backup,
-exactly like client_data.csv.
+TEXT_BACKUP_FILES are the same story for a different reason: they are read by
+the app but are not in PLAN_DATA_CSV_FILES, so neither the caller's file list
+nor the restore-side materialize() covers them, yet leaving the real file in
+place during a demo leaks real plan data. Each one is applied from input/demo/
+on open and restored from its own text backup, exactly like client_data.csv:
+
+  * client_spending_budget.recovery_seed.csv --
+    spending_tracker.load_unified_budget() silently merges this into the
+    budget whenever the category rows total zero, which would pull the
+    advisor's own annualized actuals into the demo household's budget.
+  * spending_category_map.csv -- the transaction category vocabulary
+    (spending_tracker/import_preview read it). The real one names the
+    advisor's own categories and note counterparty, so a demo left the real
+    "Gifts - Family 12", "Cubs Tickets" and "RedMane Annual Note P&I" on the
+    spending screens while every other screen showed the demo household.
+  * spending_budget.csv -- group-level budget percentages seeded from the
+    advisor's actual transaction history.
+  * client_spending_rules.csv -- merchant/category mapping rules. input/demo/
+    already shipped a fictionalized copy of this one, but nothing applied it.
 """
 
 import json
@@ -36,7 +46,12 @@ from typing import Any, Callable
 
 JsonDict = dict[str, Any]
 CLIENT_DATA_CSV = "client_data.csv"
-TEXT_BACKUP_FILES = ("client_spending_budget.recovery_seed.csv",)
+TEXT_BACKUP_FILES = (
+    "client_spending_budget.recovery_seed.csv",
+    "client_spending_rules.csv",
+    "spending_category_map.csv",
+    "spending_budget.csv",
+)
 
 
 @dataclass(frozen=True)
