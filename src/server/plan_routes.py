@@ -171,7 +171,7 @@ def _config_feature_service() -> config_service.ConfigService:
             client_csv_rows=_client_csv_rows,
             csv_rows_payload=_csv_rows_payload,
             read_schema_map=_read_schema_map,
-            write_client_rows=_write_client_rows,
+            write_plan_data_file=_write_plan_data_file,
             load_active_config=load_active_config,
             runtime_config=_runtime_config,
             normalize_date_for_csv=_normalize_date_for_csv,
