@@ -83,7 +83,7 @@ def build_sheet6(ws, c, rows):
         COL[key] = col; col += 1
     if include_ltc:
         COL['HC_LTC'] = col; col += 1
-    for key in ['Travel', 'Other', 'HELOC_PAI', 'Σ_Spend', 'Other_Cash_Need']:
+    for key in ['Travel', 'Other', 'Business_Exp', 'HELOC_PAI', 'Σ_Spend', 'Other_Cash_Need']:
         COL[key] = col; col += 1
     for key in ['Total_Tax', 'Total_Cash_Need', 'Income_Funding',
                 'Other_Funding', 'Req_Portfolio_Draws', 'Cash_Bridge_Gap']:
@@ -141,7 +141,8 @@ def build_sheet6(ws, c, rows):
         (COL['Wellness_Other'], 'Other Wellness'),
         *(([(COL['HC_LTC'], 'LTC Prem')] if include_ltc else [])),
         (COL['Travel'],     'Travel'),
-        (COL['Other'],      'Other'),        (COL['HELOC_PAI'],  'HELOC P&I'),
+        (COL['Other'],      'Other'),        (COL['Business_Exp'], 'Business Expenses'),
+        (COL['HELOC_PAI'],  'HELOC P&I'),
         (COL['Σ_Spend'],    'Σ Spend'),
         (COL['Other_Cash_Need'], 'Other Cash Need'),
         (COL['Total_Tax'], 'Total Taxes'),
@@ -264,7 +265,8 @@ def build_sheet6(ws, c, rows):
             spend_total = (row.get('spend_base_yr', 0)
                            + row.get('housing_total_yr', row.get('mortgage', 0) + row.get('rent_yr', 0))
                            + row.get('wellness_base_yr', 0) + row.get('wellness_shock_yr', 0) + row.get('ltc_prem_yr', 0)
-                           + row.get('rec_extra', 0) + row.get('lump', 0) + heloc_pai)
+                           + row.get('rec_extra', 0) + row.get('lump', 0) + row.get('business_expenses_yr', 0)
+                           + heloc_pai)
             required_portfolio_draws = (trust_total + row.get('hsa_wd', 0) + roth_total +
                                         row.get('h_ira_elective', 0) + row.get('w_ira_elective', 0))
             other_funding   = row.get('heloc_draw', 0)
@@ -317,6 +319,7 @@ def build_sheet6(ws, c, rows):
             **({COL['HC_LTC']: row.get('ltc_prem_yr', 0)} if include_ltc else {}),
             COL['Travel']:      row['rec_extra'],
             COL['Other']:       row['lump'],
+            COL['Business_Exp']: row.get('business_expenses_yr', 0.0),
             COL['HELOC_PAI']:   heloc_pai,
             COL['Σ_Spend']:     spend_total,
             COL['Other_Cash_Need']: other_cash_need,
@@ -370,6 +373,7 @@ def build_sheet6(ws, c, rows):
                 sample_row.get('ltc_prem_yr', 0),
                 sample_row.get('rec_extra', 0),
                 sample_row.get('lump', 0),
+                sample_row.get('business_expenses_yr', 0),
                 sample_row.get('heloc_interest', 0) + sample_row.get('heloc_repayment_principal', 0)
             ])
             tax_val = sample_row.get('total_tax', 0)

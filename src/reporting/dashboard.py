@@ -489,7 +489,7 @@ def build_html_dashboard(xlsx_path, html_path, rows, c):
                 max(0,row.get('roth_wd',0)), max(0,row.get('ira_wd',0)), max(0,row.get('heloc_draw',0)),
             ]
             exp_values = [
-                row.get('spend_base_yr',0), row.get('rec_extra',0), row.get('lump',0),
+                row.get('spend_base_yr',0), row.get('rec_extra',0), row.get('lump',0)+row.get('business_expenses_yr',0),
                 row.get('mortgage',0), row.get('rent_yr',0),
                 row.get('heloc_interest',0)+row.get('heloc_repayment_principal',0),
                 row.get('fed_tax',0), row.get('state_tax',0), row.get('niit',0), 0,
