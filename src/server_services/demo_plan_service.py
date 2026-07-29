@@ -14,6 +14,16 @@ client_data.csv (and its derived .json/.yaml) is the one plan-data file that
 lives only on disk, never in the SQLite DB (see app_core._read_plan_data_file /
 _write_plan_data_file) -- so it is NOT restored by swapping the DB back. It
 gets its own small text backup alongside the DB backup for that reason.
+
+TEXT_BACKUP_FILES are the same story for a different reason: they are not in
+PLAN_DATA_CSV_FILES, so neither the caller's file list nor the restore-side
+materialize() covers them, yet leaving the real file in place during a demo
+leaks real plan data. spending_tracker.load_unified_budget() silently merges
+client_spending_budget.recovery_seed.csv into the budget whenever the
+category rows total zero -- with the real seed still on disk that would pull
+the advisor's own annualized actuals into the demo household's budget. They
+are applied from input/demo/ on open and restored from their own text backup,
+exactly like client_data.csv.
 """
 
 import json
@@ -26,6 +36,7 @@ from typing import Any, Callable
 
 JsonDict = dict[str, Any]
 CLIENT_DATA_CSV = "client_data.csv"
+TEXT_BACKUP_FILES = ("client_spending_budget.recovery_seed.csv",)
 
 
 @dataclass(frozen=True)
@@ -55,8 +66,19 @@ class DemoPlanService:
     def _backup_path(self) -> Path:
         return Path(str(self.context.sqlite_db()) + ".before_demo")
 
+    def _file_backup_path(self, name: str) -> Path:
+        return self.context.sqlite_db().parent / f"{name}.before_demo"
+
     def _client_data_backup_path(self) -> Path:
-        return self.context.sqlite_db().parent / "client_data.csv.before_demo"
+        return self._file_backup_path(CLIENT_DATA_CSV)
+
+    def _demo_file_names(self) -> list[str]:
+        """Every file Open Demo Plan applies, in order, without duplicates."""
+        names: list[str] = []
+        for name in [*self.context.plan_data_csv_files, *TEXT_BACKUP_FILES]:
+            if name not in names:
+                names.append(name)
+        return names
 
     def _marker_path(self) -> Path:
         return self.context.sqlite_db().parent / "demo_mode_marker.json"
@@ -97,12 +119,13 @@ class DemoPlanService:
             if dest.exists():
                 self._checkpoint_sqlite(dest)
                 shutil.copy2(str(dest), str(backup))
-            try:
-                real_client_data = self.context.read_plan_data_file(CLIENT_DATA_CSV)
-                if real_client_data is not None:
-                    self._client_data_backup_path().write_text(real_client_data, encoding="utf-8")
-            except Exception as exc:
-                self._audit("demo_plan_client_data_backup_warning", {"error": str(exc)})
+            for name in (CLIENT_DATA_CSV, *TEXT_BACKUP_FILES):
+                try:
+                    real_content = self.context.read_plan_data_file(name)
+                    if real_content is not None:
+                        self._file_backup_path(name).write_text(real_content, encoding="utf-8")
+                except Exception as exc:
+                    self._audit("demo_plan_text_backup_warning", {"file": name, "error": str(exc)})
             try:
                 self._marker_path().write_text(
                     json.dumps({"opened_at": time.strftime("%Y-%m-%dT%H:%M:%S")}),
@@ -115,7 +138,7 @@ class DemoPlanService:
         demo_dir = self.context.demo_dir()
         written: list[dict[str, Any]] = []
         skipped: list[str] = []
-        for name in self.context.plan_data_csv_files:
+        for name in self._demo_file_names():
             src = demo_dir / name
             if not src.exists():
                 skipped.append(name)
@@ -182,6 +205,22 @@ class DemoPlanService:
                 self._audit("demo_plan_client_data_restore_warning", {"error": str(exc)})
             try:
                 client_data_backup.unlink()
+            except Exception:
+                pass
+
+        # Files outside PLAN_DATA_CSV_FILES that materialize() cannot bring
+        # back -- restore them from the text backup taken on open, or the
+        # demo's fixture would stay behind as the advisor's live data.
+        for name in TEXT_BACKUP_FILES:
+            text_backup = self._file_backup_path(name)
+            if not text_backup.exists():
+                continue
+            try:
+                self.context.write_plan_data_file(name, text_backup.read_text(encoding="utf-8"))
+            except Exception as exc:
+                self._audit("demo_plan_text_restore_warning", {"file": name, "error": str(exc)})
+            try:
+                text_backup.unlink()
             except Exception:
                 pass
 
