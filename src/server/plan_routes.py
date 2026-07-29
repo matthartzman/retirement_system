@@ -1059,6 +1059,15 @@ def plan_load_file():
 # fixture on open and swapped back to the real backup on restore, the same
 # as every other plan-data file the demo touches.
 def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
+    def _read_plan_data_disk_file(name: str) -> str | None:
+        # update_config_rows_payload (Save Changes on the Plan Data grid)
+        # writes ordinary fields straight to this on-disk CSV mirror and
+        # never touches the DB row _read_plan_data_file prefers -- capturing
+        # the demo slot from the DB-first reader would silently drop any
+        # field edit made through the grid during a demo session.
+        path = _plan_data_path(name, prefer_existing=True)
+        return path.read_text(encoding="utf-8-sig") if path.exists() else None
+
     def _materialize() -> None:
         materialize_workspace_files(
             workspace_id=_workspace_id(),
@@ -1087,6 +1096,7 @@ def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
             load_saved_db=_plan_file_feature_service().load_file,
             materialize=_materialize,
             audit=_audit,
+            read_plan_data_disk_file=_read_plan_data_disk_file,
         )
     )
 
@@ -1127,6 +1137,22 @@ def plan_restore_current():
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
     try:
         return jsonify(_demo_plan_feature_service().restore_current_payload())
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"success": False, "error": str(exc)})
+
+
+@app.route("/api/plan/reset-demo", methods=["POST"])
+def plan_reset_demo():
+    """Delete the persistent demo slot so the next Open Demo Plan re-seeds
+    from the shipped input/demo/ fixtures. Refused while a demo is open."""
+    denied = _require("write_config")
+    if denied:
+        return denied
+    if not _runtime_config().allow_csv_write:
+        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
+    try:
+        payload = _demo_plan_feature_service().reset_demo_payload()
+        return jsonify(payload), (200 if payload.get("success") else 400)
     except Exception as exc:  # noqa: BLE001
         return jsonify({"success": False, "error": str(exc)})
 
