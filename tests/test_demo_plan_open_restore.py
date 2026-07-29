@@ -9,8 +9,14 @@ row, swapped around by the service under test.
 import sqlite3
 from pathlib import Path
 
-from src.server_services.demo_plan_service import DemoPlanService, DemoPlanServiceContext
+from src.server_services.demo_plan_service import (
+    TEXT_BACKUP_FILES,
+    DemoPlanService,
+    DemoPlanServiceContext,
+)
 from src.server_services.plan_file_service import PlanFileService, PlanFileServiceContext
+
+SEED = "client_spending_budget.recovery_seed.csv"
 
 
 def _make_db(path: Path, marker: str) -> None:
@@ -40,6 +46,7 @@ def _make_service(tmp_path: Path, *, real_client_data: str = "real client_data.c
     demo_dir.mkdir(parents=True, exist_ok=True)
     (demo_dir / "client_household.csv").write_text("demo household content\n", encoding="utf-8")
     (demo_dir / "client_data.csv").write_text("demo client_data.csv content\n", encoding="utf-8")
+    (demo_dir / SEED).write_text("demo recovery seed\n", encoding="utf-8")
     # client_income.csv intentionally has no demo counterpart -- exercises "skipped".
     _make_db(active_db, "real-plan")
 
@@ -50,7 +57,7 @@ def _make_service(tmp_path: Path, *, real_client_data: str = "real client_data.c
     written: dict[str, str] = {}
     # client_data.csv lives only on disk in the real app (never in the DB) --
     # model that here with a plain dict standing in for the on-disk file.
-    disk_files = {"client_data.csv": real_client_data}
+    disk_files = {"client_data.csv": real_client_data, SEED: "real recovery seed\n"}
 
     def read_plan_data_file(name: str):
         return disk_files.get(name)
@@ -114,6 +121,8 @@ def test_open_demo_writes_available_files_reports_skipped_and_backs_up_once(tmp_
     assert written["client_household.csv"] == "demo household content\n"
     assert disk_files["client_data.csv"] == "demo client_data.csv content\n"
     assert result["skipped"] == ["client_income.csv"]
+    # The recovery seed is outside plan_data_csv_files; the service adds it.
+    assert disk_files[SEED] == "demo recovery seed\n"
 
     backup = Path(str(active_db) + ".before_demo")
     assert backup.exists()
@@ -181,11 +190,37 @@ def test_restore_current_swaps_db_and_client_data_csv_back_and_clears_backups(tm
     assert materialized["count"] == 1
     assert not Path(str(active_db) + ".before_demo").exists()
     assert not (active_db.parent / "client_data.csv.before_demo").exists()
+    assert not (active_db.parent / f"{SEED}.before_demo").exists()
     assert not (active_db.parent / "demo_mode_marker.json").exists()
     assert any(event == "demo_plan_restored" for event, _ in audits)
 
     # Idempotent: a second click with nothing left to restore is a no-op.
     assert service.restore_current_payload() == {"success": True, "restored": False}
+
+
+def test_demo_swaps_and_restores_the_budget_recovery_seed(tmp_path):
+    """client_spending_budget.recovery_seed.csv is not in PLAN_DATA_CSV_FILES,
+    so neither the caller's file list nor materialize() covers it -- yet
+    spending_tracker.load_unified_budget() merges it into the budget whenever
+    the category rows total zero. Left alone it would pull the advisor's real
+    annualized actuals (down to named categories) into the demo household's
+    budget, so the service applies the demo copy and restores the real one."""
+    assert SEED in TEXT_BACKUP_FILES
+    service, active_db, _demo_dir, _audits, _written, _mat, disk_files, _sync = _make_service(tmp_path)
+
+    service.open_demo_payload()
+    assert disk_files[SEED] == "demo recovery seed\n"
+    seed_backup = active_db.parent / f"{SEED}.before_demo"
+    assert seed_backup.read_text(encoding="utf-8") == "real recovery seed\n"
+
+    # A second open must not overwrite the real seed's backup with demo content.
+    service.open_demo_payload()
+    assert seed_backup.read_text(encoding="utf-8") == "real recovery seed\n"
+
+    _make_db(active_db, "demo-state")
+    service.restore_current_payload()
+    assert disk_files[SEED] == "real recovery seed\n"
+    assert not seed_backup.exists()
 
 
 def test_plan_routes_wire_demo_plan_service_with_protected_fields_bypassed():
