@@ -16665,11 +16665,6 @@ const FIELD_GUIDANCE_OVERRIDES = {
     impact: "Higher inflation means thresholds rise faster, so you're less likely to cross into higher surcharge tiers. Lower inflation means thresholds stay lower.",
     consider: "Check Medicare.gov or Social Security's latest guidance for the current year's rate; ask your tax advisor if unsure.",
   },
-  irmaa_tier2_mfj_base_year: {
-    purpose: "This is the income threshold for Tier 2 Medicare surcharges for married couples filing jointly in the 2025 Medicare table. The plan adjusts this each year for inflation.",
-    impact: "When your income exceeds this threshold, Medicare Part B, D, and G premiums jump significantly. Knowing the thresholds helps you plan when to take big distributions.",
-    consider: "Medicare IRMAA thresholds change annually; confirm the current year's threshold on Medicare.gov before finalizing your plan.",
-  },
   inflation_sigma: {
     purpose: "This measures how much inflation bounces around year-to-year in the plan's stress-test simulations. Higher values mean the model assumes inflation could swing wider in either direction.",
     impact: "Higher inflation volatility creates a wider range of possible spending-power outcomes in the simulations. Lower volatility means outcomes cluster more tightly.",
