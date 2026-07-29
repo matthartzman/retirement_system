@@ -2457,7 +2457,10 @@ function impactCardHtml(
     const isGood = invert ? dNum < 0 : dNum > 0;
     headlineColorClass = isGood ? "positive-money" : "negative-money";
   }
-  return `<div class="impact-card"><span>${esc(title)}</span><b class="${headlineColorClass}">${headline}</b><div class="impact-headline-label">${headlineLabel}</div><div class="impact-row"><span>Before</span><strong class="${bNeg ? "negative-money" : ""}">${valueFormatter(beforeVal)}</strong></div><div class="impact-row"><span>After</span><strong class="${aNeg ? "negative-money" : ""}">${valueFormatter(afterVal)}</strong></div>${help ? `<div class="small">${esc(help)}</div>` : ""}</div>`;
+  const infoIcon = help
+    ? ` <sup class="field-info-i" tabindex="0" title="${esc(help)}" aria-label="More info: ${esc(help)}">i</sup>`
+    : "";
+  return `<div class="impact-card"><span>${esc(title)}${infoIcon}</span><b class="${headlineColorClass}">${headline}</b><div class="impact-headline-label">${headlineLabel}</div><div class="impact-row"><span>Before</span><strong class="${bNeg ? "negative-money" : ""}">${valueFormatter(beforeVal)}</strong></div><div class="impact-row"><span>After</span><strong class="${aNeg ? "negative-money" : ""}">${valueFormatter(afterVal)}</strong></div></div>`;
 }
 function buildImpactCardsHtml(before, after) {
   const dNw =
@@ -2502,7 +2505,7 @@ function buildImpactCardsHtml(before, after) {
           fmtPct,
           "Higher is generally better. This is the clearest risk-adjusted plan outcome when Monte Carlo results are available. Requires both not running out of money and keeping the configured reserve floor every year.",
           fmtPctDelta,
-        ) + noRuinNote
+        )
       : `<div class="impact-card"><span>Risk indicator</span><b>Not available</b><div class="impact-row"><span>Before</span><strong>${Number.isFinite(before.blended_return_info) ? fmtPct(before.blended_return_info) : "Not available"}</strong></div><div class="impact-row"><span>After</span><strong>${Number.isFinite(after.blended_return_info) ? fmtPct(after.blended_return_info) : "Not available"}</strong></div><div class="small">Probability of success was not available for this comparison.</div></div>`;
   // #225: Post-Tax Inheritance was shown as its own headline card here AND
   // separately on Estate & Legacy Plan, computed at a different point in the
@@ -2518,8 +2521,10 @@ function buildImpactCardsHtml(before, after) {
     afterEstateTax !== null && Math.abs(afterEstateTax) > 0.5
       ? `<div class="small">Post-inheritance (estate) tax reduces this by ${fmtMoney(afterEstateTax)} to ${fmtMoney(after.post_tax_inheritance)} for heirs. See Estate &amp; Legacy Plan for the figure at second death.</div>`
       : "";
-  const nwCard = impactCardHtml("Terminal net worth", dNw, before.terminal_nw, after.terminal_nw, fmtMoney, "Gross projected terminal net worth before embedded tax on remaining pre-tax assets: deferred ordinary tax on pre-tax retirement accounts plus deferred capital-gains tax on taxable brokerage assets.") + estateTaxNote;
-  return `<div class="impact-grid impact-grid-four">${nwCard} ${impactCardHtml("Lifetime taxes", dTax, before.lifetime_tax, after.lifetime_tax, fmtMoney, "Estimated taxes paid during the projection.", fmtDelta, true)} ${riskCard}</div>`;
+  const nwCard = impactCardHtml("Terminal net worth", dNw, before.terminal_nw, after.terminal_nw, fmtMoney, "Gross projected terminal net worth before embedded tax on remaining pre-tax assets: deferred ordinary tax on pre-tax retirement accounts plus deferred capital-gains tax on taxable brokerage assets.");
+  const notes = [estateTaxNote, noRuinNote].filter(Boolean).join("");
+  const notesHtml = notes ? `<div class="impact-notes">${notes}</div>` : "";
+  return `<div class="impact-grid">${nwCard} ${impactCardHtml("Lifetime taxes", dTax, before.lifetime_tax, after.lifetime_tax, fmtMoney, "Estimated taxes paid during the projection.", fmtDelta, true)} ${riskCard}</div>${notesHtml}`;
 }
 
 function impactDirectionWord(delta, kind) {
