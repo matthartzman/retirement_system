@@ -34,6 +34,16 @@ on open and restored from its own text backup, exactly like client_data.csv:
     advisor's actual transaction history.
   * client_spending_rules.csv -- merchant/category mapping rules. input/demo/
     already shipped a fictionalized copy of this one, but nothing applied it.
+
+DEMO_SLOT_DIR (local_state/demo_plan/) is the persistent working copy of the
+demo, distinct from the read-only input/demo/ fixtures shipped in the repo.
+open_demo_payload() prefers a file in the slot over the matching input/demo/
+fixture, per file (not per directory), so a slot missing one file still
+falls back to the fixture for just that file. restore_current_payload()
+captures the demo's live state into the slot before swapping the real DB
+back, so edits made during a demo session persist into the next Open Demo
+Plan instead of being discarded. The slot has no reset mechanism yet in this
+file -- see the follow-up PR for "Reset Demo to Defaults".
 """
 
 import json
@@ -52,6 +62,7 @@ TEXT_BACKUP_FILES = (
     "spending_category_map.csv",
     "spending_budget.csv",
 )
+DEMO_SLOT_DIR = "demo_plan"
 
 
 @dataclass(frozen=True)
@@ -66,6 +77,7 @@ class DemoPlanServiceContext:
     load_saved_db: Callable[[dict[str, Any]], dict[str, Any]]
     materialize: Callable[[], None]
     audit: Callable[[str, dict[str, Any]], None] | None = None
+    demo_slot_dir: Callable[[], Path] | None = None
 
 
 class DemoPlanService:
@@ -86,6 +98,11 @@ class DemoPlanService:
 
     def _client_data_backup_path(self) -> Path:
         return self._file_backup_path(CLIENT_DATA_CSV)
+
+    def _slot_dir(self) -> Path:
+        if self.context.demo_slot_dir is not None:
+            return self.context.demo_slot_dir()
+        return self.context.sqlite_db().parent / DEMO_SLOT_DIR
 
     def _demo_file_names(self) -> list[str]:
         """Every file Open Demo Plan applies, in order, without duplicates."""
@@ -151,16 +168,25 @@ class DemoPlanService:
             self._audit("demo_plan_backup_created", {"backup": str(backup)})
 
         demo_dir = self.context.demo_dir()
+        slot_dir = self._slot_dir()
         written: list[dict[str, Any]] = []
         skipped: list[str] = []
         for name in self._demo_file_names():
-            src = demo_dir / name
+            # Per-file, not per-directory: a fixture added to input/demo/ in a
+            # later release is still picked up for a user who already has a
+            # slot but has never seen that particular file before.
+            slot_src = slot_dir / name
+            from_slot = slot_src.exists()
+            src = slot_src if from_slot else demo_dir / name
             if not src.exists():
                 skipped.append(name)
                 continue
             content = src.read_text(encoding="utf-8-sig")
             path = self.context.write_plan_data_file(name, content)
-            written.append({"name": name, "path": str(path), "bytes": len(content)})
+            written.append({
+                "name": name, "path": str(path), "bytes": len(content),
+                "source": "slot" if from_slot else "fixture",
+            })
 
         try:
             self.context.ensure_user_ui_plan_data_rows()
@@ -178,6 +204,22 @@ class DemoPlanService:
         backup = self._backup_path()
         if not backup.exists():
             return {"success": True, "restored": False}
+
+        # Capture the demo's CURRENT state into its persistent slot before
+        # swapping the DB back, so edits made during this demo session
+        # survive into the next Open Demo Plan instead of being discarded.
+        # Must run strictly after the is_active() check above (a demo is
+        # active here) and must never be fatal -- a capture problem must not
+        # block the user from getting their real plan back.
+        slot_dir = self._slot_dir()
+        for name in self._demo_file_names():
+            try:
+                content = self.context.read_plan_data_file(name)
+                if content is not None:
+                    slot_dir.mkdir(parents=True, exist_ok=True)
+                    (slot_dir / name).write_text(content, encoding="utf-8")
+            except Exception as exc:
+                self._audit("demo_plan_capture_warning", {"file": name, "error": str(exc)})
 
         result = self.context.load_saved_db({"path": str(backup)})
         if not result.get("success"):

@@ -1087,6 +1087,7 @@ def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
             load_saved_db=_plan_file_feature_service().load_file,
             materialize=_materialize,
             audit=_audit,
+            demo_slot_dir=lambda: WORKSPACE_ROOT / "local_state" / "demo_plan",
         )
     )
 

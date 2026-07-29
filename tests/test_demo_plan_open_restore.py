@@ -6,6 +6,7 @@ following the same pattern test_152_backend_service_extraction_continuation.py
 uses for PlanFileService: a tiny throwaway sqlite DB with a single marker
 row, swapped around by the service under test.
 """
+import dataclasses
 import sqlite3
 from pathlib import Path
 
@@ -274,3 +275,97 @@ def test_demo_ytd_fixture_files_exist_and_are_fictional():
         assert text.strip(), f"input/demo/{name} is empty"
         for real_marker in ("Max and Benny", "Hartzman", "RedMane"):
             assert real_marker not in text, f"input/demo/{name} leaks real data: {real_marker!r}"
+
+
+def test_demo_edits_persist_across_a_restore_and_reopen(tmp_path):
+    """Editing the demo (a write during an active demo) and then restoring
+    must capture that edit into the persistent slot, so the next Open Demo
+    Plan reseeds from the edited state, not the shipped fixture."""
+    service, active_db, demo_dir, audits, written, _mat, disk_files, _sync = _make_service(tmp_path)
+
+    service.open_demo_payload()
+    disk_files["client_household.csv"] = "EDITED household content\n"
+
+    _make_db(active_db, "demo-state")
+    service.restore_current_payload()
+
+    slot_dir = active_db.parent / "demo_plan"
+    assert (slot_dir / "client_household.csv").read_text(encoding="utf-8") == "EDITED household content\n"
+
+    # Prove the next open reads from the SLOT, not a leftover harness value.
+    disk_files.pop("client_household.csv", None)
+    written.clear()
+    result = service.open_demo_payload()
+    assert written["client_household.csv"] == "EDITED household content\n"
+    hh_entry = next(w for w in result["files"] if w["name"] == "client_household.csv")
+    assert hh_entry["source"] == "slot"
+
+
+def test_restore_when_inactive_does_not_create_or_touch_the_slot(tmp_path):
+    service, active_db, *_ = _make_service(tmp_path)
+    slot_dir = active_db.parent / "demo_plan"
+    result = service.restore_current_payload()
+    assert result == {"success": True, "restored": False}
+    assert not slot_dir.exists()
+
+
+def test_a_capture_failure_does_not_block_restoring_the_real_plan(tmp_path):
+    service, active_db, demo_dir, audits, written, materialized, disk_files, sync_calls = _make_service(tmp_path)
+
+    service.open_demo_payload()
+    _make_db(active_db, "demo-state")
+    disk_files["client_data.csv"] = "demo client_data.csv content\n"
+
+    real_read = service.context.read_plan_data_file
+
+    def raising_read(name):
+        if name == "client_household.csv":
+            raise RuntimeError("boom")
+        return real_read(name)
+
+    # DemoPlanServiceContext is a frozen dataclass -- rebuild it with the
+    # raising reader rather than mutating a frozen field.
+    service.context = dataclasses.replace(service.context, read_plan_data_file=raising_read)
+
+    result = service.restore_current_payload()
+
+    assert result == {"success": True, "restored": True}
+    assert any(event == "demo_plan_capture_warning" for event, _ in audits)
+    # The real plan still came back despite the capture failure.
+    assert disk_files["client_data.csv"] == "real client_data.csv content\n"
+
+
+def test_slot_missing_a_file_falls_back_to_the_fixture_for_that_file_only(tmp_path):
+    service, active_db, demo_dir, audits, written, _mat, disk_files, _sync = _make_service(tmp_path)
+
+    service.open_demo_payload()
+    disk_files["client_household.csv"] = "EDITED household content\n"
+    _make_db(active_db, "demo-state")
+    service.restore_current_payload()
+
+    slot_dir = active_db.parent / "demo_plan"
+    assert (slot_dir / "client_household.csv").exists()
+    # Simulate a fixture added to input/demo/ after the slot was already
+    # captured -- e.g. a new plan-data file shipped in a later release that
+    # this user's existing slot has never seen.
+    (demo_dir / "client_income.csv").write_text("demo income content\n", encoding="utf-8")
+
+    disk_files.pop("client_household.csv", None)
+    written.clear()
+    result = service.open_demo_payload()
+
+    # client_household.csv comes from the slot (the edit survives)...
+    assert written["client_household.csv"] == "EDITED household content\n"
+    # ...but client_income.csv, absent from the slot, falls back to the
+    # fixture instead of being skipped.
+    assert written["client_income.csv"] == "demo income content\n"
+    assert "client_income.csv" not in result["skipped"]
+    hh_entry = next(w for w in result["files"] if w["name"] == "client_household.csv")
+    income_entry = next(w for w in result["files"] if w["name"] == "client_income.csv")
+    assert hh_entry["source"] == "slot"
+    assert income_entry["source"] == "fixture"
+
+
+def test_plan_routes_wire_the_demo_slot():
+    routes = Path("src/server/plan_routes.py").read_text(encoding="utf-8")
+    assert "demo_slot_dir=" in routes

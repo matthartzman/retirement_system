@@ -305,3 +305,14 @@ def test_demo_disables_ytd_blend():
         f"demo ytd_blend_enabled is {val!r}; must be FALSE so the demo cannot "
         "blend in real year-to-date transactions"
     )
+
+
+def test_demo_slot_directory_is_not_the_shipped_fixtures_directory():
+    """The persistent demo slot (local_state/demo_plan/) is a separate,
+    user-writable working copy -- distinct from input/demo/, which ships in
+    the repo and must stay pristine (every anti-leak test in this file only
+    ever reads input/demo/). A populated slot could otherwise silently
+    satisfy those anti-leak checks even if input/demo/ itself regressed."""
+    from src.server_services.demo_plan_service import DEMO_SLOT_DIR
+    assert DEMO_SLOT_DIR != "demo"
+    assert "input" not in Path(DEMO_SLOT_DIR).parts
