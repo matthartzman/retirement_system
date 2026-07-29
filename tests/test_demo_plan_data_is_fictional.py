@@ -126,6 +126,135 @@ def test_demo_carries_no_real_vendor_or_personal_category_names():
     assert not hits, f"demo data still names real counterparties: {hits}"
 
 
+def test_demo_covers_every_file_open_demo_plan_applies():
+    """A plan-data file with no input/demo/ counterpart is silently skipped by
+    DemoPlanService.open_demo_payload(), leaving the advisor's real file in
+    place for the whole demo -- how target_allocation.csv (real target weights)
+    and asset_class_optimizer_controls.csv (real optimizer choices) stayed
+    visible while every other screen showed the fictional household."""
+    from src.local_plan_data_sync import PLAN_DATA_CSV_FILES, YTD_PLAN_DATA_FILES
+    from src.server_services.demo_plan_service import TEXT_BACKUP_FILES
+
+    missing = [
+        name
+        for name in [*PLAN_DATA_CSV_FILES, *YTD_PLAN_DATA_FILES, *TEXT_BACKUP_FILES]
+        if not (DEMO / name).exists()
+    ]
+    assert not missing, (
+        f"input/demo/ has no fixture for {missing}; Open Demo Plan skips those files, "
+        "so the advisor's real data stays live for the duration of the demo."
+    )
+
+
+def _budget_rows(path: Path) -> list[dict]:
+    if not path.exists():
+        return []
+    with path.open(newline="", encoding="utf-8-sig") as f:
+        return list(csv.DictReader(f))
+
+
+def test_no_budget_line_label_is_shared_with_the_live_plan():
+    """Budget *line* labels are free text the advisor types -- real children's
+    first names and personal notes ("10k for each child in 2026") lived here."""
+    def line_labels(p):
+        # line_mode=summary rows are the app's own auto-synced roll-ups.
+        return {
+            (r.get("label") or "").strip()
+            for r in _budget_rows(p)
+            if (r.get("kind") or "").strip().lower() == "line"
+            and (r.get("line_mode") or "").strip().lower() != "summary"
+            and (r.get("label") or "").strip()
+        }
+
+    demo = line_labels(DEMO / "client_spending_budget.csv")
+    live = line_labels(LIVE / "client_spending_budget.csv")
+    assert demo, "demo budget has no line rows"
+    # A line the app seeded from a category carries that category's own display
+    # name, so those coinciding is shared taxonomy, not leaked data. Anything
+    # else in a line label was typed by hand.
+    taxonomy_names = set()
+    with (LIVE / "client_spending_taxonomy.csv").open(newline="", encoding="utf-8-sig") as f:
+        for row in csv.DictReader(f):
+            name = (row.get("display_name") or row.get("label") or "").strip()
+            if name:
+                taxonomy_names.add(name)
+    shared = (demo & live) - taxonomy_names
+    assert not shared, (
+        f"demo budget lines reuse the live plan's labels: {sorted(shared)}. These are "
+        "hand-typed by the advisor and routinely name real people."
+    )
+
+
+def test_demo_ytd_accounts_share_no_name_with_the_live_plan():
+    """Account names in ytd_account_setup.csv are the advisor's own bank and
+    card names; not one may survive into the demo."""
+    def accounts(p):
+        if not p.exists():
+            return set()
+        with p.open(newline="", encoding="utf-8-sig") as f:
+            return {(r.get("Account") or "").strip() for r in csv.DictReader(f) if (r.get("Account") or "").strip()}
+
+    demo = accounts(DEMO / "ytd_account_setup.csv")
+    live = accounts(LIVE / "ytd_account_setup.csv")
+    assert demo, "demo ytd_account_setup.csv has no accounts"
+    # "Health Savings Account (HSA)" is the app's own generic label for the HSA
+    # role, not a name the advisor chose.
+    shared = (demo & live) - {"Health Savings Account (HSA)"}
+    assert not shared, f"demo YTD accounts copy the live plan's account names: {sorted(shared)}"
+
+
+def _target_allocation(base: Path) -> dict:
+    p = base / "target_allocation.csv"
+    if not p.exists():
+        return {}
+    with p.open(newline="", encoding="utf-8-sig") as f:
+        return {
+            (r.get("asset_class") or "").strip(): (r.get("target_pct") or "").strip()
+            for r in csv.DictReader(f)
+            if (r.get("asset_class") or "").strip()
+        }
+
+
+def test_demo_target_allocation_is_not_the_live_plans():
+    """The target weights are the advisor's own portfolio policy, not a
+    statutory constant -- the demo needs its own."""
+    demo, live = _target_allocation(DEMO), _target_allocation(LIVE)
+    assert demo, "input/demo/target_allocation.csv is missing or empty"
+    assert demo != live, "demo target_allocation.csv is a copy of the live plan's target weights"
+
+
+def test_demo_target_allocation_matches_the_demo_allocation_policy():
+    """target_allocation.csv and client_policy.csv's Asset Allocation Policy
+    are separate inputs read by different code paths; if the demo's two copies
+    disagree, the demo shows contradictory target weights."""
+    policy = {
+        sub: val
+        for (sec, sub, lab), val in _all_sectioned(DEMO).items()
+        if sec == "Asset Allocation Policy" and lab == "target_pct"
+    }
+    targets = _target_allocation(DEMO)
+    assert policy, "demo client_policy.csv has no Asset Allocation Policy target_pct rows"
+    mismatched = {k: (targets.get(k), v) for k, v in policy.items() if targets.get(k) != v}
+    assert not mismatched, f"demo target_allocation.csv disagrees with the demo policy: {mismatched}"
+    assert sum(int(v.rstrip("%")) for v in targets.values()) == 100
+
+
+def test_demo_budget_recovery_seed_is_fictional():
+    """spending_tracker.load_unified_budget() merges this seed into the budget
+    whenever the category rows total zero. If the demo does not ship (and
+    apply) its own, that merge pulls the advisor's real annualized actuals
+    into the demo household's budget."""
+    seed = DEMO / "client_spending_budget.recovery_seed.csv"
+    assert seed.exists(), "input/demo/client_spending_budget.recovery_seed.csv is missing"
+    demo_rows = {(r.get("kind"), r.get("key"), r.get("label"), r.get("annual_budget")) for r in _budget_rows(seed)}
+    live_rows = {
+        (r.get("kind"), r.get("key"), r.get("label"), r.get("annual_budget"))
+        for r in _budget_rows(LIVE / "client_spending_budget.recovery_seed.csv")
+    }
+    shared = {row for row in demo_rows & live_rows if (row[3] or "").strip() not in ("", "0")}
+    assert not shared, f"demo recovery seed carries the live plan's amounts: {sorted(shared)[:3]}"
+
+
 def test_demo_disables_ytd_blend():
     """Real ytd_transactions.csv is NOT swapped by demo mode, so blending it in
     would mix the advisor's actual tracked spending into the demo projection."""

@@ -74,15 +74,14 @@ category,charitable_donations,Charitable Donations,5100,,,,,,,
 category,children_weddings,Children Weddings,,,,,,,,
 category,recurring_travel,Recurring Travel Projection,,,,,,,,
 group,Travel::Travel,Travel,28000,,,,,summary,,
-line,weddings,Rebecca,120000,,,2027,Seeded from large discretionary extras,,category_budget,detail
-line,weddings,Max,58000,,,2028,Seeded from large discretionary extras,,category_budget,detail
-line,weddings,Grace,120000,,,2032,Seeded from large discretionary extras,,category_budget,detail
-line,home_improvement,Home Improvement,20000,2026,2030,,Seeded from large discretionary extras; CR116: merged from Other Improvement,,category_budget,detail
+line,weddings,Wedding - first child,60000,,,2031,Seeded from large discretionary extras,,category_budget,detail
+line,weddings,Wedding - second child,60000,,,2034,Seeded from large discretionary extras,,category_budget,detail
+line,home_improvement,Home Improvement,20000,2027,2031,,Seeded from large discretionary extras; CR116: merged from Other Improvement,,category_budget,detail
 line,travel_housing,Travel - Housing,4200,,,,Recurring line so Travel breaks out as its own Cash Flow Projection column,,category_budget,detail
 line,travel_insurance,Travel - Insurance,180,,,,Recurring line so Travel breaks out as its own Cash Flow Projection column,,category_budget,detail
 line,travel_plane_train_bus,Travel - Plane/Train/Bus,1700,,,,Recurring line so Travel breaks out as its own Cash Flow Projection column,,category_budget,detail
 line,travel_vacation,Travel & Vacation,11000,,,,Recurring line so Travel breaks out as its own Cash Flow Projection column,,category_budget,detail
-line,significant_gifts,10k for each child in  2026,38000,,,2026,,,large_discretionary,detail
+line,significant_gifts,Gifts to grandchildren,38000,,,2026,,,large_discretionary,detail
 line,travel_total,Travel Budget Total,10000,,,,Auto-synced from taxonomy budget,,travel,summary
 line,healthcare_total,Healthcare Budget Total,8300,,,,Auto-synced from taxonomy budget,,healthcare,summary
 line,housing_total,Housing Budget Total,38000,,,,Auto-synced from taxonomy budget,,housing,summary

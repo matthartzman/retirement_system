@@ -5,7 +5,7 @@ Annuity Joint - Morgan,Annuity,Member 2 Joint Annuity,2025-12-31,0,300000,300000
 Annuity Single - Alex,Annuity,Member 1 Single Annuity,2025-12-31,85000,85000,85000,
 Annuity Single - Morgan,Annuity,Member 2 Single Annuity,2025-12-31,50000,50000,50000,
 Everyday Rewards Visa (...4410),Cash / spending,,2025-12-31,0,0,0,Created from transaction upload.
-Family Checking and Bill Pay,Cash / spending,,2025-12-31,0,0,0,Created from transaction upload.
+Family Checking,Cash / spending,,2025-12-31,0,0,0,Created from transaction upload.
 Rivera Consulting Checking,Cash / spending,,2025-12-31,0,0,0,Created from transaction upload.
 Health Savings Account (HSA),Investment,Member_1_HSA,2025-12-31,55000,0,0,
 IRA - Alex,Investment,Member_1_IRA,2025-12-31,1058433,0,0,
@@ -17,4 +17,3 @@ Roth - Alex,Investment,Member_1_Roth,2025-12-31,245416,0,0,Created from transact
 Roth - Morgan,Investment,Member_2_Roth,2025-12-31,191697,0,0,Created from transaction upload.
 Trust - Alex,Investment,Member_1_Trust,2025-12-31,297313,0,0,Created from transaction upload.
 Trust - Morgan,Investment,Member_2_Trust,2025-12-31,399788,0,0,Created from transaction upload.
-Family Checking,Cash / spending,,2025-12-31,0,0,0,Created from transaction upload.
