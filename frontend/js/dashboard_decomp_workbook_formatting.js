@@ -1,7 +1,11 @@
 // ── Workbook formatting (Settings → Manage Workbook Formatting) ─────────────
-// Per-column Excel width editor. State: the tree from the last-built workbook,
-// the saved overrides map, and an in-progress draft the user edits before
-// saving. Draft is keyed draft[sheet][columnLetter] = width.
+// Per-column Excel width/alignment editor. Every edit auto-saves immediately
+// as a small per-column PATCH that the server MERGES into the persisted
+// overrides/alignments files (workbook_format_config.merge_overrides /
+// merge_alignments) -- there is no client-held "draft" and no manual Save
+// step. A sheet/column this page never touches is never sent, so it can
+// never be wiped out by an edit made elsewhere; only this UI ever writes
+// those two files (see workbook_format_config.py's module docstring).
 //
 // Extracted from dashboard.js verbatim (first modularization increment);
 // shares the classic-script global scope with dashboard.js, so these remain
@@ -9,11 +13,8 @@
 let workbookFormatData = null;
 let workbookFormatLoading = false;
 let workbookFormatError = "";
-let workbookFormatDraft = {};
-// Horizontal-alignment draft, keyed the same way: draft[sheet][col] = "left"|"center"|"right".
-let workbookFormatAlignDraft = {};
-// Persist which <details> are expanded so a re-render (save/reset) does not
-// collapse the tree the user is working in.
+// Persist which <details> are expanded so a re-render (after an autosave)
+// does not collapse the tree the user is working in.
 let wfOpen = new Set();
 
 function wfToggle(key, open) {
@@ -46,14 +47,6 @@ function wfWidthInputKeydown(event) {
   target.select();
 }
 
-function _wfCloneOverrides(src) {
-  const out = {};
-  Object.keys(src || {}).forEach((sheet) => {
-    out[sheet] = Object.assign({}, src[sheet]);
-  });
-  return out;
-}
-
 async function loadWorkbookFormat(force = false) {
   if (workbookFormatLoading) return;
   if (workbookFormatData && !force) return;
@@ -62,8 +55,6 @@ async function loadWorkbookFormat(force = false) {
   try {
     const out = await api("/api/workbook-format", { timeoutMs: 30000 });
     workbookFormatData = out || { available: false, sheets: [] };
-    workbookFormatDraft = _wfCloneOverrides(out && out.overrides);
-    workbookFormatAlignDraft = _wfCloneOverrides(out && out.alignments);
   } catch (e) {
     workbookFormatData = { available: false, sheets: [] };
     workbookFormatError = e && e.message ? e.message : String(e);
@@ -79,135 +70,120 @@ function refreshWorkbookFormat() {
   renderMain();
 }
 
-// Effective width for a column = draft override if present, else the width read
-// from the last-built workbook.
+// Effective width/alignment for a column = the currently-saved override if
+// present, else the value read from the last-built workbook. There is no
+// separate in-progress draft -- workbookFormatData.overrides/.alignments IS
+// the current truth, kept in sync with the server after every autosave.
 function _wfEffectiveWidth(sheet, col, builtWidth) {
-  const s = workbookFormatDraft[sheet];
-  if (s && Object.prototype.hasOwnProperty.call(s, col)) return s[col];
-  return builtWidth;
+  const s = workbookFormatData && workbookFormatData.overrides && workbookFormatData.overrides[sheet];
+  return s && Object.prototype.hasOwnProperty.call(s, col) ? s[col] : builtWidth;
 }
 
 function _wfIsOverridden(sheet, col) {
-  const s = workbookFormatDraft[sheet];
+  const s = workbookFormatData && workbookFormatData.overrides && workbookFormatData.overrides[sheet];
   return !!(s && Object.prototype.hasOwnProperty.call(s, col));
 }
 
-function setWorkbookColWidth(sheet, col, value) {
-  const w = parseFloat(value);
-  if (!workbookFormatDraft[sheet]) workbookFormatDraft[sheet] = {};
-  if (!Number.isFinite(w) || w <= 0) {
-    delete workbookFormatDraft[sheet][col];
-  } else {
-    workbookFormatDraft[sheet][col] = Math.round(Math.max(1, Math.min(255, w)) * 100) / 100;
-  }
-  updateWorkbookFormatDirty();
-}
-
-function resetWorkbookCol(sheet, col) {
-  if (workbookFormatDraft[sheet]) {
-    delete workbookFormatDraft[sheet][col];
-    if (!Object.keys(workbookFormatDraft[sheet]).length)
-      delete workbookFormatDraft[sheet];
-  }
-  renderMain();
-}
-
-// Effective horizontal alignment for a column = draft override if present,
-// else the alignment read from the last-built workbook's data rows.
 function _wfEffectiveAlign(sheet, col, builtAlign) {
-  const s = workbookFormatAlignDraft[sheet];
-  if (s && Object.prototype.hasOwnProperty.call(s, col)) return s[col];
-  return builtAlign;
+  const s = workbookFormatData && workbookFormatData.alignments && workbookFormatData.alignments[sheet];
+  return s && Object.prototype.hasOwnProperty.call(s, col) ? s[col] : builtAlign;
 }
 
 function _wfIsAlignOverridden(sheet, col) {
-  const s = workbookFormatAlignDraft[sheet];
+  const s = workbookFormatData && workbookFormatData.alignments && workbookFormatData.alignments[sheet];
   return !!(s && Object.prototype.hasOwnProperty.call(s, col));
 }
 
-function setWorkbookColAlign(sheet, col, align) {
-  if (!workbookFormatAlignDraft[sheet]) workbookFormatAlignDraft[sheet] = {};
-  workbookFormatAlignDraft[sheet][col] = align;
-  updateWorkbookFormatDirty();
-  renderMain();
-}
-
-function resetWorkbookColAlign(sheet, col) {
-  if (workbookFormatAlignDraft[sheet]) {
-    delete workbookFormatAlignDraft[sheet][col];
-    if (!Object.keys(workbookFormatAlignDraft[sheet]).length)
-      delete workbookFormatAlignDraft[sheet];
-  }
-  renderMain();
-}
-
-function _wfCountDiffs(saved, draft) {
-  const keys = new Set();
-  const collect = (m) =>
-    Object.keys(m || {}).forEach((sh) =>
-      Object.keys(m[sh] || {}).forEach((c) => keys.add(sh + "||" + c)),
-    );
-  collect(saved);
-  collect(draft);
-  let n = 0;
-  keys.forEach((k) => {
-    const [sh, c] = k.split("||");
-    const a = saved[sh] && saved[sh][c];
-    const b = draft[sh] && draft[sh][c];
-    if ((a === undefined ? null : a) !== (b === undefined ? null : b)) n++;
-  });
-  return n;
-}
-
-function workbookFormatDirtyCount() {
-  const savedW = (workbookFormatData && workbookFormatData.overrides) || {};
-  const savedA = (workbookFormatData && workbookFormatData.alignments) || {};
-  return (
-    _wfCountDiffs(savedW, workbookFormatDraft) +
-    _wfCountDiffs(savedA, workbookFormatAlignDraft)
-  );
-}
-
-function updateWorkbookFormatDirty() {
-  const el = document.getElementById("wfDirtyCount");
-  if (el) {
-    const n = workbookFormatDirtyCount();
-    el.textContent = n
-      ? `${n} unsaved change${n === 1 ? "" : "s"}`
-      : "No unsaved changes";
+function _wfSetOverrideLocal(sheet, col, width) {
+  if (!workbookFormatData) return;
+  if (!workbookFormatData.overrides) workbookFormatData.overrides = {};
+  if (width > 0) {
+    if (!workbookFormatData.overrides[sheet]) workbookFormatData.overrides[sheet] = {};
+    workbookFormatData.overrides[sheet][col] = width;
+  } else if (workbookFormatData.overrides[sheet]) {
+    delete workbookFormatData.overrides[sheet][col];
+    if (!Object.keys(workbookFormatData.overrides[sheet]).length)
+      delete workbookFormatData.overrides[sheet];
   }
 }
 
-async function saveWorkbookFormat() {
+function _wfSetAlignLocal(sheet, col, align) {
+  if (!workbookFormatData) return;
+  if (!workbookFormatData.alignments) workbookFormatData.alignments = {};
+  if (align) {
+    if (!workbookFormatData.alignments[sheet]) workbookFormatData.alignments[sheet] = {};
+    workbookFormatData.alignments[sheet][col] = align;
+  } else if (workbookFormatData.alignments[sheet]) {
+    delete workbookFormatData.alignments[sheet][col];
+    if (!Object.keys(workbookFormatData.alignments[sheet]).length)
+      delete workbookFormatData.alignments[sheet];
+  }
+}
+
+// Optimistically apply the edit locally (instant feedback), fire the PATCH
+// in the background, then reconcile with the server's authoritative
+// post-merge state -- or roll back and surface an error if the save failed.
+// This is the ONLY path that persists a width edit; there is no "Save"
+// button to remember to click.
+async function setWorkbookColWidth(sheet, col, value) {
+  const w = parseFloat(value);
+  const width =
+    Number.isFinite(w) && w > 0
+      ? Math.round(Math.max(1, Math.min(255, w)) * 100) / 100
+      : 0;
+  const prevSheet = workbookFormatData && workbookFormatData.overrides && workbookFormatData.overrides[sheet];
+  const prevVal = prevSheet ? prevSheet[col] : 0;
+  _wfSetOverrideLocal(sheet, col, width);
+  renderMain();
   try {
     const out = await api("/api/workbook-format", {
       method: "POST",
-      body: JSON.stringify({ overrides: workbookFormatDraft, alignments: workbookFormatAlignDraft }),
+      body: JSON.stringify({ overrides: { [sheet]: { [col]: width } } }),
     });
-    if (out && out.success) {
-      workbookFormatDraft = _wfCloneOverrides(out.overrides);
-      workbookFormatAlignDraft = _wfCloneOverrides(out.alignments);
-      if (workbookFormatData) {
-        workbookFormatData.overrides = _wfCloneOverrides(out.overrides);
-        workbookFormatData.alignments = _wfCloneOverrides(out.alignments);
-      }
-      showMessage(
-        "Workbook formatting saved. Rebuild the workbook to apply the new column widths.",
-        "success",
-      );
-      renderMain();
-    } else {
-      showMessage(
-        "Could not save workbook formatting: " + ((out && out.error) || "unknown error"),
-        "error",
-      );
-    }
+    if (!out || !out.success) throw new Error((out && out.error) || "unknown error");
+    workbookFormatData.overrides = out.overrides;
   } catch (e) {
+    _wfSetOverrideLocal(sheet, col, prevVal);
     showMessage(
-      "Could not save workbook formatting: " + (e && e.message ? e.message : e),
+      "Could not save column width: " + (e && e.message ? e.message : e),
       "error",
     );
+  } finally {
+    renderMain();
   }
+}
+
+function resetWorkbookCol(sheet, col) {
+  setWorkbookColWidth(sheet, col, "0");
+}
+
+// Same optimistic-apply/reconcile-or-rollback pattern as setWorkbookColWidth,
+// for horizontal alignment.
+async function setWorkbookColAlign(sheet, col, align) {
+  const prevSheet = workbookFormatData && workbookFormatData.alignments && workbookFormatData.alignments[sheet];
+  const prevVal = prevSheet ? prevSheet[col] : "";
+  _wfSetAlignLocal(sheet, col, align);
+  renderMain();
+  try {
+    const out = await api("/api/workbook-format", {
+      method: "POST",
+      body: JSON.stringify({ alignments: { [sheet]: { [col]: align } } }),
+    });
+    if (!out || !out.success) throw new Error((out && out.error) || "unknown error");
+    workbookFormatData.alignments = out.alignments;
+  } catch (e) {
+    _wfSetAlignLocal(sheet, col, prevVal);
+    showMessage(
+      "Could not save column alignment: " + (e && e.message ? e.message : e),
+      "error",
+    );
+  } finally {
+    renderMain();
+  }
+}
+
+function resetWorkbookColAlign(sheet, col) {
+  setWorkbookColAlign(sheet, col, "");
 }
 
 function _wfDetails(key, cls, summary, body) {
@@ -278,7 +254,7 @@ function _wfSheetHtml(sheetNode, maxNameLen) {
 function renderWorkbookFormatting() {
   if (!workbookFormatData && !workbookFormatLoading) loadWorkbookFormat(false);
   const back = `<button class="btn" type="button" data-step-id="system_configuration">← Back to Settings</button>`;
-  const header = `<div class="section-note"><b>Workbook formatting.</b> Adjust Excel column widths per sheet, table, and column. Widths come from the most recently built workbook; each edit is saved as an override and applied on the next build. Columns you don't touch keep their automatic width.</div>`;
+  const header = `<div class="section-note"><b>Workbook formatting.</b> Adjust Excel column widths per sheet, table, and column. Widths come from the most recently built workbook. Every edit saves immediately — there is no separate Save step, and no other part of the app ever touches these saved widths except this page. Columns you don't touch keep their automatic width.</div>`;
   if (workbookFormatLoading && !workbookFormatData) {
     return `<div class="workbook-format-panel">${back}${header}<div class="section-note">Loading workbook layout…</div></div>`;
   }
@@ -296,7 +272,6 @@ function renderWorkbookFormatting() {
   const sheets = sheetNodes
     .map((s) => _wfSheetHtml(s, maxSheetNameLen))
     .join("");
-  const n = workbookFormatDirtyCount();
-  const toolbar = `<div class="wf-toolbar"><button class="btn primary" type="button" onclick="saveWorkbookFormat()">Save formatting</button> <button class="btn" type="button" onclick="refreshWorkbookFormat()">Reload from last build</button> <span class="small" id="wfDirtyCount">${n ? `${n} unsaved change${n === 1 ? "" : "s"}` : "No unsaved changes"}</span></div>`;
+  const toolbar = `<div class="wf-toolbar"><button class="btn" type="button" onclick="refreshWorkbookFormat()">Reload from last build</button> <span class="small">Changes save automatically as you edit</span></div>`;
   return `<div class="workbook-format-panel">${back}${header}${toolbar}<div class="wf-sheets">${sheets}</div></div>`;
 }

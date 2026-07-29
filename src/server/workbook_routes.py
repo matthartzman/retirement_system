@@ -426,8 +426,16 @@ def get_workbook_format():
 
 @app.route("/api/workbook-format", methods=["POST"])
 def save_workbook_format():
-    """Persist per-column width and alignment overrides. Body:
-    {"overrides": {sheet: {col: width}}, "alignments": {sheet: {col: "left"|"center"|"right"}}}."""
+    """Persist a per-column width/alignment PATCH. Body:
+    {"overrides": {sheet: {col: width}}, "alignments": {sheet: {col: "left"|"center"|"right"}}}.
+
+    The UI calls this once per column edit (auto-save), so the body is a
+    small partial patch, not a full snapshot of every saved sheet. This
+    merges the patch into the persisted files (see workbook_format_config.
+    merge_overrides/merge_alignments) rather than replacing them outright --
+    a sheet/column not mentioned in the patch is left exactly as it was, so
+    an edit on one sheet can never wipe out another sheet's saved widths.
+    """
     denied = _require("write_config")
     if denied:
         return denied
@@ -436,16 +444,14 @@ def save_workbook_format():
     except ImportError:
         from src.reporting import workbook_format_config as _wf
     body = request.get_json(silent=True) or {}
-    overrides = body.get("overrides", body)
+    overrides = body.get("overrides") or {}
     if not isinstance(overrides, dict):
         return jsonify({"success": False, "error": "overrides must be an object"}), 400
-    clean = _wf.save_overrides(overrides)
-    clean_aligns = _wf.load_alignments()
-    alignments = body.get("alignments")
-    if alignments is not None:
-        if not isinstance(alignments, dict):
-            return jsonify({"success": False, "error": "alignments must be an object"}), 400
-        clean_aligns = _wf.save_alignments(alignments)
+    alignments = body.get("alignments") or {}
+    if not isinstance(alignments, dict):
+        return jsonify({"success": False, "error": "alignments must be an object"}), 400
+    clean = _wf.merge_overrides(overrides)
+    clean_aligns = _wf.merge_alignments(alignments)
     _audit("workbook_format_saved", {"sheets": len(clean), "aligned_sheets": len(clean_aligns)})
     return jsonify({"success": True, "overrides": clean, "alignments": clean_aligns})
 
