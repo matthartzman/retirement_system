@@ -47,6 +47,9 @@ jobs:
       run: |
         pytest tests/ --tb=short -q --cov=src --cov-report=xml
 
+    - name: Fail if the test suite mutated input/
+      run: git diff --exit-code -- input/
+
     - name: Upload coverage
       uses: codecov/codecov-action@v7
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
