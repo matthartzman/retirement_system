@@ -62,19 +62,36 @@ FROZEN_DIR = ROOT / "tests" / "fixtures" / "sample_plan_frozen"
 # so it never exercises the destination==source path the rollover bug required
 # -- the fix legitimately has zero effect on this specific plan's numbers.
 #
-# Re-pinned 2026-07-21 — Wave 4 item 4.2 (P4): the frozen fixture's
-# client_assets.csv has DAF enabled ($20,000 contribution in 2026), and this
-# item wires a DAF contribution into the itemized deduction stack (60%/30%
-# AGI-limited, 5-year carryforward) for the first time -- previously
-# daf_contrib_yr was pure cash outflow with no tax effect at all (despite
-# GOLDEN_MASTER_CHANGELOG.md's 2026-07-08 "DAF activation baseline" entry
-# describing a tax-reducing effect that, per this codebase, did not actually
-# exist yet; that entry's terminal-NW/lifetime-tax movement at the time came
-# from something else). Terminal NW rises (the $20k contribution's -0.005*agi
-# phaseout on char plus the real DAF deduction beats the cash cost, and the
-# tax savings compound); lifetime tax drops from the real deduction.
-PINNED_TERMINAL_NW = 6555144.64
-PINNED_LIFETIME_TAX = 1524551.07
+# Re-pinned 2026-07-29 — business-expense/SEHI AGI+cash-flow fix: Schedule C
+# business expenses and home-office deduction (biz_exp/home_off) previously
+# only reduced the SE-tax and QBI bases -- never AGI/state-tax income, and
+# never appeared as a cash outflow anywhere, so gross earned income was both
+# over-taxed relative to real Schedule C treatment (only a partial 20% QBI
+# credit instead of the full deduction) AND fully available to spend/save
+# even though a real household pays those expenses out of pocket. Introduced
+# net_earned_taxable (net of biz_exp/home_off; S-Corp uses salary+distribution)
+# as the figure that actually drives AGI/state-tax/cash-flow, itemized a new
+# "Business Expenses" cash-flow line (Option A), and gated the S-Corp SEHI
+# deduction on sehi_added_to_w2 (also wired the previously-dead
+# health_insurance_premiums_annual field as an optional override of the
+# Wellness-derived SEHI estimate). Lifetime tax drops slightly (business
+# expenses are now a full deduction, not a 20%-QBI-only partial credit);
+# terminal NW drops more (the plan now correctly funds real business cash
+# costs from spendable income each year instead of treating that money as
+# available to compound, so less of it accumulates for retirement).
+#
+# Also discovered while re-pinning: this "frozen" fixture is not actually
+# hermetic against wall-clock date -- regenerating on 2026-07-28 vs 2026-07-29
+# (both against the identical frozen CSVs, no code change between them)
+# produced different pins (6521581.18 -> 6487999.96), evidently from
+# something in the projection keying off the real current date rather than a
+# value fixed by the frozen inputs (likely the YTD-blend/remaining-year
+# proration path). That is a pre-existing hermeticity gap in this test, not
+# introduced by this change and not fixed here -- flagged for separate
+# follow-up. Values below were regenerated on 2026-07-29 and confirmed
+# stable across repeated runs on that date.
+PINNED_TERMINAL_NW = 6487999.96
+PINNED_LIFETIME_TAX = 1517126.54
 
 
 def _frozen_config():

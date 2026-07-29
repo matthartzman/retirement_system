@@ -135,7 +135,8 @@ def build_sheet8(ws, c, rows, mc_data=None):
                 'spend_base': row.get('spend_base_yr', 0), 'mortgage': row.get('mortgage', 0),
                 'rent': row.get('rent_yr', 0), 'housing_operating': row.get('housing_operating_yr', 0),
                 'wellness': row.get('wellness_base_yr', 0) + row.get('wellness_shock_yr', 0) + row.get('ltc_prem_yr', 0),
-                'travel': row.get('rec_extra', 0), 'other_lump': row.get('lump', 0),
+                'travel': row.get('rec_extra', 0),
+                'other_lump': row.get('lump', 0) + row.get('business_expenses_yr', 0),
                 'heloc_pai': row.get('heloc_interest', 0) + row.get('heloc_repayment_principal', 0),
                 'other_cash_need': row.get('other_cash_need_yr', 0),
             }
@@ -181,7 +182,7 @@ def build_sheet8(ws, c, rows, mc_data=None):
         housing     = round(_exp['mortgage'] + _exp['rent'] + _exp['housing_operating'])
         wellness    = round(_exp['wellness'])
         travel      = round(_exp['travel'])
-        other       = round(_exp['other_lump'])
+        other       = round(_exp['other_lump'] + _exp.get('business_expenses', 0.0))
         heloc_pai_chart = round(_exp['heloc_pai'])
         fed_tax    = round(_tax['federal'])
         state_tax  = round(_tax['state'])
