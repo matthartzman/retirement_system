@@ -92,6 +92,53 @@ def test_overrides_clamped(tmp_path):
     assert saved["S"]["B"] == wf.MIN_WIDTH
 
 
+def test_merge_overrides_does_not_wipe_other_sheets(tmp_path):
+    """The live Settings -> Workbook Formatting UI autosaves one column patch
+    at a time. save_overrides() replaces the whole file with exactly what it's
+    given, so patching one sheet through it would silently delete every other
+    sheet's saved widths -- the "changes keep reverting" bug. merge_overrides()
+    must instead layer the patch on top of whatever was already persisted."""
+    wf.save_overrides({"Sheet A": {"A": 20.0}, "Sheet B": {"C": 30.0}}, input_dir=tmp_path)
+    merged = wf.merge_overrides({"Sheet A": {"B": 15.0}}, input_dir=tmp_path)
+    assert merged == {"Sheet A": {"A": 20.0, "B": 15.0}, "Sheet B": {"C": 30.0}}
+    assert wf.load_overrides(input_dir=tmp_path) == merged
+
+
+def test_merge_overrides_deletes_only_the_named_column(tmp_path):
+    wf.save_overrides({"Sheet A": {"A": 20.0, "B": 15.0}}, input_dir=tmp_path)
+    merged = wf.merge_overrides({"Sheet A": {"B": 0}}, input_dir=tmp_path)
+    assert merged == {"Sheet A": {"A": 20.0}}
+    # Deleting the sheet's last remaining column drops the empty sheet entry.
+    merged = wf.merge_overrides({"Sheet A": {"A": -1}}, input_dir=tmp_path)
+    assert merged == {}
+
+
+def test_merge_alignments_does_not_wipe_other_sheets(tmp_path):
+    wf.save_alignments({"Sheet A": {"A": "left"}, "Sheet B": {"C": "right"}}, input_dir=tmp_path)
+    merged = wf.merge_alignments({"Sheet A": {"B": "center"}}, input_dir=tmp_path)
+    assert merged == {"Sheet A": {"A": "left", "B": "center"}, "Sheet B": {"C": "right"}}
+    assert wf.load_alignments(input_dir=tmp_path) == merged
+
+
+def test_merge_alignments_deletes_only_the_named_column(tmp_path):
+    wf.save_alignments({"Sheet A": {"A": "left", "B": "center"}}, input_dir=tmp_path)
+    merged = wf.merge_alignments({"Sheet A": {"B": ""}}, input_dir=tmp_path)
+    assert merged == {"Sheet A": {"A": "left"}}
+
+
+def test_route_uses_merge_not_replace():
+    """Regression guard: the POST route must call merge_overrides/
+    merge_alignments (non-destructive), never save_overrides/save_alignments
+    (whole-file replace) -- reverting to the replace-based calls silently
+    reintroduces the "editing one sheet deletes every other sheet" bug."""
+    src = (ROOT / "src" / "server" / "workbook_routes.py").read_text(encoding="utf-8")
+    handler = src.split("def save_workbook_format", 1)[1]
+    assert "_wf.merge_overrides(" in handler
+    assert "_wf.merge_alignments(" in handler
+    assert "_wf.save_overrides(" not in handler
+    assert "_wf.save_alignments(" not in handler
+
+
 def test_apply_overrides_sets_widths(tmp_path):
     path = _make_workbook(tmp_path)
     wf.save_overrides({"Multi": {"A": 42.0}}, input_dir=tmp_path)

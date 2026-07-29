@@ -134,13 +134,64 @@ def load_overrides(input_dir: Optional[Path] = None) -> dict[str, dict[str, floa
 
 
 def save_overrides(data: dict, input_dir: Optional[Path] = None) -> dict[str, dict[str, float]]:
-    """Validate, clamp, and persist overrides; returns the cleaned mapping."""
+    """Validate, clamp, and persist overrides, REPLACING the whole file.
+
+    Only safe when `data` is known to be the complete, current set of every
+    sheet's saved overrides (e.g. a full-file import/restore). The live
+    Settings -> Workbook Formatting UI must never call this directly -- use
+    `merge_overrides` instead, or an edit to one sheet silently deletes every
+    other sheet's previously-saved widths. See merge_overrides docstring.
+    """
     clean = _sanitize_overrides(data)
     path = overrides_path(input_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(clean, f, indent=1, sort_keys=True)
     return clean
+
+
+def merge_overrides(patch: dict, input_dir: Optional[Path] = None) -> dict[str, dict[str, float]]:
+    """Merge a partial {sheet: {column_letter: width}} patch into the
+    persisted overrides file, returning the complete resulting mapping.
+
+    This is the only writer the Settings -> Workbook Formatting UI (and its
+    `/api/workbook-format` POST route) should ever call. Column-width edits
+    happen one sheet/column at a time; a naive "replace the whole file with
+    whatever the client just sent" (the old `save_overrides` behavior) would
+    silently wipe out every other sheet's saved widths the moment the
+    client's in-memory copy is even slightly stale (a race, a second tab, a
+    reload mid-edit) -- which is exactly the "changes keep reverting" bug this
+    function exists to prevent.
+
+    A sheet/column absent from `patch` is left exactly as persisted. A
+    column present in `patch` with a non-positive or non-numeric width
+    deletes just that column's override (this is how the UI's per-column
+    "Reset" control signals "go back to automatic width").
+    """
+    current = load_overrides(input_dir)
+    if isinstance(patch, dict):
+        for sheet, cols in patch.items():
+            if not isinstance(sheet, str) or not sheet.strip() or not isinstance(cols, dict):
+                continue
+            for letter, width in cols.items():
+                norm = _normalize_letter(letter)
+                if norm is None:
+                    continue
+                try:
+                    w = float(width)
+                except (TypeError, ValueError):
+                    w = None
+                if w is None or w <= 0:
+                    current.get(sheet, {}).pop(norm, None)
+                    if sheet in current and not current[sheet]:
+                        current.pop(sheet, None)
+                else:
+                    current.setdefault(sheet, {})[norm] = round(max(MIN_WIDTH, min(MAX_WIDTH, w)), 2)
+    path = overrides_path(input_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(current, f, indent=1, sort_keys=True)
+    return current
 
 
 def _sanitize_overrides(raw: Any) -> dict[str, dict[str, float]]:
@@ -197,13 +248,50 @@ def load_alignments(input_dir: Optional[Path] = None) -> dict[str, dict[str, str
 
 
 def save_alignments(data: dict, input_dir: Optional[Path] = None) -> dict[str, dict[str, str]]:
-    """Validate and persist horizontal-alignment overrides; returns the cleaned mapping."""
+    """Validate and persist horizontal-alignment overrides, REPLACING the
+    whole file. See save_overrides's docstring -- the same "must be the
+    complete current state or it silently deletes other sheets" caveat
+    applies here. The live UI must use `merge_alignments` instead.
+    """
     clean = _sanitize_alignments(data)
     path = alignments_path(input_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(clean, f, indent=1, sort_keys=True)
     return clean
+
+
+def merge_alignments(patch: dict, input_dir: Optional[Path] = None) -> dict[str, dict[str, str]]:
+    """Merge a partial {sheet: {column_letter: 'left'|'center'|'right'}} patch
+    into the persisted alignments file, returning the complete resulting
+    mapping. See merge_overrides's docstring for why this (not
+    save_alignments) is the writer the UI must use.
+
+    A sheet/column absent from `patch` is left exactly as persisted. A
+    column present in `patch` with an unrecognized/empty value deletes just
+    that column's alignment override (reset to automatic).
+    """
+    current = load_alignments(input_dir)
+    if isinstance(patch, dict):
+        for sheet, cols in patch.items():
+            if not isinstance(sheet, str) or not sheet.strip() or not isinstance(cols, dict):
+                continue
+            for letter, align in cols.items():
+                norm_letter = _normalize_letter(letter)
+                if norm_letter is None:
+                    continue
+                norm_align = _normalize_align(align)
+                if norm_align is None:
+                    current.get(sheet, {}).pop(norm_letter, None)
+                    if sheet in current and not current[sheet]:
+                        current.pop(sheet, None)
+                else:
+                    current.setdefault(sheet, {})[norm_letter] = norm_align
+    path = alignments_path(input_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(current, f, indent=1, sort_keys=True)
+    return current
 
 
 def _normalize_align(value: Any) -> Optional[str]:
