@@ -17,12 +17,36 @@ def test_build_impact_has_terminal_nw_first_lifetime_tax_second_risk_third_cards
     assert "post_tax_inheritance" in js
     start = js.index("function buildImpactCardsHtml")
     fn = js[start: js.index("function mhBool", start)]
-    assert "impact-grid-four" in fn
+    assert "impact-grid" in fn
     assert '"Post-Tax Inheritance (PTI)"' not in fn
     assert "estateTaxNote" in fn
-    return_expr = fn[fn.index("return `<div class=\"impact-grid impact-grid-four\">"):]
+    return_expr = fn[fn.index("return `<div class=\"impact-grid\">"):]
     assert return_expr.index("${nwCard}") < return_expr.index("Lifetime taxes")
     assert return_expr.index("Lifetime taxes") < return_expr.index("${riskCard}")
+
+
+def test_impact_card_help_shows_as_info_icon_not_inline_text():
+    # #240 follow-up: card help text used to sit inline under the After
+    # value; it now surfaces via an "i" info icon next to the headline
+    # (reusing the field-info-i tooltip pattern) so the card body stays to
+    # headline + Before/After only.
+    js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
+    start = js.index("function impactCardHtml")
+    fn = js[start: js.index("function buildImpactCardsHtml", start)]
+    assert "field-info-i" in fn
+    assert '<div class="small">${esc(help)}</div>' not in fn
+
+
+def test_impact_notes_render_below_the_grid_not_as_a_phantom_card():
+    # estateTaxNote/noRuinNote used to be concatenated onto a card's HTML,
+    # which made each render as its own extra grid box. They now collect
+    # into a single .impact-notes block below the 3-card grid.
+    js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
+    start = js.index("function buildImpactCardsHtml")
+    fn = js[start: js.index("function mhBool", start)]
+    assert "impact-notes" in fn
+    assert ") + noRuinNote" not in fn
+    assert ") + estateTaxNote" not in fn
 
 
 def test_plan_summary_writes_after_tax_and_roth_conversion_kpis():
