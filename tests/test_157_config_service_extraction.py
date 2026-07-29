@@ -23,11 +23,11 @@ def test_config_service_updates_plan_data_rows(tmp_path):
     )
     written = {}
 
-    def write_rows(path, rows):
-        written[str(path)] = rows
-        with Path(path).open("w", encoding="utf-8", newline="") as f:
-            import csv
-            csv.writer(f).writerows(rows)
+    def write_plan_data(name, content):
+        path = tmp_path / name
+        path.write_text(content, encoding="utf-8")
+        written[str(path)] = content
+        return path
 
     service = ConfigService(ConfigServiceContext(
         version="9",
@@ -42,7 +42,7 @@ def test_config_service_updates_plan_data_rows(tmp_path):
         ],
         csv_rows_payload=lambda: {"rows": [], "schema_count": 0},
         read_schema_map=lambda: {},
-        write_client_rows=write_rows,
+        write_plan_data_file=write_plan_data,
         load_active_config=lambda: ({}, {"backend": "CSV"}),
         runtime_config=lambda: type("Cfg", (), {"sqlite_db": str(tmp_path / "retirement_system_v10.db"), "config_backend": "CSV"})(),
         normalize_date_for_csv=lambda value: value,

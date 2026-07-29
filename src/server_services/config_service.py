@@ -9,6 +9,7 @@ Flask-free runtime.
 """
 
 import csv
+import io
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -37,7 +38,7 @@ class ConfigServiceContext:
     client_csv_rows: Callable[[], list[dict[str, Any]]]
     csv_rows_payload: Callable[[], dict[str, Any]]
     read_schema_map: Callable[[], dict[Any, dict[str, Any]]]
-    write_client_rows: Callable[[Path, list[list[str]]], None]
+    write_plan_data_file: Callable[[str, str], Path]
     load_active_config: Callable[[], tuple[dict[str, Any], dict[str, Any]]]
     runtime_config: Callable[[], Any]
     normalize_date_for_csv: Callable[[str], str]
@@ -299,8 +300,18 @@ class ConfigService:
             self._audit("config_rows_validation_failed", {"updated_attempted": updated, "error_count": len(validation_errors)})
             return {"success": False, "error": "Plan Data validation failed", "errors": validation_errors[:50]}, 422
 
+        # Route through write_plan_data_file (not the raw write_client_rows) so the
+        # SQLite client_files row stays in sync with disk -- callers that read this
+        # file DB-first (e.g. demo-mode restore, _read_plan_data_file) would
+        # otherwise keep serving the pre-edit value after a grid save (#240).
         for source_file, rows in file_rows.items():
-            self.context.write_client_rows(self.context.plan_data_path(source_file), rows)
+            buf = io.StringIO(newline="")
+            # write_plan_data_file's disk write goes through Path.write_text(),
+            # which translates "\n" to os.linesep -- an embedded "\r\n" from the
+            # csv module's default dialect would double up into "\r\r\n" on
+            # Windows, so force "\n" line endings (matches _csv_write_rows).
+            csv.writer(buf, lineterminator="\n").writerows(rows)
+            self.context.write_plan_data_file(source_file, buf.getvalue())
 
         self._audit("config_rows_saved", {"updated": updated, "skipped": len(skipped), "files": sorted(file_rows)})
         sync_result = None
