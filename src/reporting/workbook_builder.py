@@ -40,6 +40,7 @@ from .workbook_common import (
     sanitize_id,
     section_title,
     thin_border,
+    widen_overflowing_number_columns,
     workspace_input_dir,
     workspace_output_dir,
     write_cell,
@@ -1120,6 +1121,9 @@ def main():
         _apply_format_alignments(wb, sheet_renames=FINAL_SHEET_RENAMES)
     except Exception as _fmt_exc:  # never let optional formatting block a build
         print(f'Warning: workbook format overrides not applied: {_fmt_exc}')
+    # Widen any numeric column that would otherwise render "#####" at its
+    # current width before row heights are computed from final widths.
+    widen_overflowing_number_columns(wb)
     # Row heights are recomputed last, against the final column widths above,
     # so every row is as short as possible while still showing all of its
     # text (including text wrapped across merged cells).
