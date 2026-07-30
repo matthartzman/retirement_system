@@ -1,7 +1,7 @@
 import pytest
 from openpyxl import load_workbook
 
-from src.reporting.workbook_common import TEMPLATE_LAYOUT
+from src.reporting.workbook_common import TEMPLATE_LAYOUT, _needed_number_width
 
 pytestmark = pytest.mark.slow
 
@@ -66,5 +66,21 @@ def test_column_width_caps_are_applied_without_header_driven_expansion(built_wor
     max_dollar_width = round((71 - 5) / 7, 1) + 0.1
     max_int_width = round((40 - 5) / 7, 1) + 0.1
     assert wb['4F. Methodology'].column_dimensions['A'].width <= _expected_width('23. Methodology', 'A', max_text_width)
-    assert wb['4E. RMD Audit'].column_dimensions['G'].width <= _expected_width('20. RMD Audit', 'G', max_dollar_width)
+
+    # RMD Audit column G holds account balances, which can genuinely need
+    # more than the hand-tuned template's pinned width (e.g. a 7-figure IRA
+    # balance) -- widen_overflowing_number_columns() then grows it past the
+    # cap so Excel shows the real value instead of "#####". Allow the width
+    # up to what the sheet's actual largest value needs; anything beyond that
+    # would signal header-driven (not data-driven) expansion, which this test
+    # still guards against.
+    rmd_ws = wb['4E. RMD Audit']
+    rmd_g_cap = _expected_width('20. RMD Audit', 'G', max_dollar_width)
+    g_cells = [
+        cell for row in rmd_ws.iter_rows(min_col=7, max_col=7)
+        for cell in row if isinstance(cell.value, (int, float)) and not isinstance(cell.value, bool)
+    ]
+    needed_for_data = max((_needed_number_width(c.value, c.number_format) or 0 for c in g_cells), default=0)
+    assert rmd_ws.column_dimensions['G'].width <= max(rmd_g_cap, needed_for_data) + 1.0
+
     assert wb['4E. RMD Audit'].column_dimensions['C'].width <= _expected_width('20. RMD Audit', 'C', max_int_width)
