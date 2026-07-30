@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import string
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,13 @@ from src.reporting.workbook_common import TEMPLATE_LAYOUT
 
 ROOT = Path(__file__).resolve().parents[1]
 
+_WIDE_CHARS = set(string.digits) | set(string.ascii_uppercase) | set('$%#&')
+
+
+def _weighted_text_width(s: str, chars_per_width_unit: float, wide_char_width_units: float) -> float:
+    narrow_width = 1.0 / chars_per_width_unit
+    return sum(wide_char_width_units if ch in _WIDE_CHARS else narrow_width for ch in s)
+
 
 def _min_wrapped_height(ws, row: int, col: int) -> float:
     """Same formula as minimize_row_heights(): the shortest height that still
@@ -20,13 +28,16 @@ def _min_wrapped_height(ws, row: int, col: int) -> float:
     Excel's column-width unit is the widest DIGIT of the default font, but
     wrapped prose (mostly lowercase letters/spaces) fits more characters per
     line than a 1-char-per-width-unit count assumes, so production credits
-    each width unit with 1.3 characters. Also mirrors CELL_VPAD, the fixed
-    top+bottom margin added once per cell on top of per-line leading. Keep
-    both constants identical to the ones in workbook_common.py or this test
-    starts asserting stale heights instead of what the code now actually
-    produces.
+    each narrow-prose width unit with 1.3 characters. Also mirrors the
+    digit/uppercase/financial-symbol weighting (those render measurably
+    wider than average lowercase prose -- financial notes are packed with
+    dollar figures and ALL-CAPS labels) and CELL_VPAD, the fixed top+bottom
+    margin added once per cell on top of per-line leading. Keep every
+    constant identical to workbook_common.py or this test starts asserting
+    stale heights instead of what the code now actually produces.
     """
     CHARS_PER_WIDTH_UNIT = 1.3
+    WIDE_CHAR_WIDTH_UNITS = 1.15
     CELL_VPAD = 3.0
     cell = ws.cell(row, col)
     merge = next(
@@ -38,8 +49,10 @@ def _min_wrapped_height(ws, row: int, col: int) -> float:
         sum((ws.column_dimensions[get_column_letter(c)].width or 8.43) for c in col_span),
         1.0,
     )
-    eff_chars_per_line = max(eff_width * CHARS_PER_WIDTH_UNIT, 1.0)
-    lines = sum(max(1, math.ceil(len(line) / eff_chars_per_line)) for line in str(cell.value).splitlines() or [''])
+    lines = sum(
+        max(1, math.ceil(_weighted_text_width(line, CHARS_PER_WIDTH_UNIT, WIDE_CHAR_WIDTH_UNITS) / eff_width))
+        for line in str(cell.value).splitlines() or ['']
+    )
     font_size = float(cell.font.size) if (cell.font and cell.font.size) else 10.0
     return max(1, lines) * (font_size + 4.0) + CELL_VPAD
 
