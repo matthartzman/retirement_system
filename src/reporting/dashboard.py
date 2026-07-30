@@ -455,7 +455,13 @@ def build_html_dashboard(xlsx_path, html_path, rows, c):
     else:
         years, nw_labels, nw_ser = _extract_chart_block(chart_data_ws, year_col=1, first_series_col=2, total_col=9)
         inc_years, inc_labels, inc_ser = _extract_chart_block(chart_data_ws, year_col=11, first_series_col=12, total_col=27)
-        exp_years, exp_labels, exp_ser = _extract_chart_block(chart_data_ws, year_col=29, first_series_col=30, total_col=39)
+        # total_col must equal sheets_projection_charts.py::build_sheet8's
+        # EXP_TOTAL_COL (the "Σ Spend+Tax" column) -- it was previously left at
+        # 39 while EXP_SER grew to 13 series ending at column 42/EXP_TOTAL_COL
+        # 43, silently dropping IRMAA/Home Sale Tax/Surplus/HELOC P&I (and, once
+        # added, Other Cash Need -- the home-purchase down payment) from this
+        # HTML dashboard's chart even though the Excel chart showed them.
+        exp_years, exp_labels, exp_ser = _extract_chart_block(chart_data_ws, year_col=29, first_series_col=30, total_col=44)
 
     def _series_from_projection_rows():
         _n1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
@@ -513,7 +519,15 @@ def build_html_dashboard(xlsx_path, html_path, rows, c):
     inc_colors = ['#1F3864','#2E75B6','#3D9AB8','#C9A84C','#2D6A4F','#40916C',
                    '#C55A11','#E07540','#5A3E85','#9B2335','#7B3F9E','#1B7A9E',
                    '#156041','#B85C00','#8B5E3C']
-    exp_colors = ['#1F3864','#2E75B6','#C55A11','#C9A84C','#059669','#9B2335','#C5384E','#E07595','#595959']
+    # Matches sheets_projection_charts.py::build_sheet8's EXP_SER colors 1:1 so
+    # the HTML dashboard and the Excel chart agree visually. Previously only 9
+    # colors were listed (matching the same stale 9-series truncation the
+    # total_col fix above addresses) -- series beyond index 8 (Other Cash
+    # Need, IRMAA, Home Sale Tax, Surplus, HELOC P&I) fell back to a generic
+    # gray, indistinguishable from each other, even once their data/height
+    # was correctly present in the bar.
+    exp_colors = ['#1F3864','#2E75B6','#C55A11','#C9A84C','#059669','#6B21A8','#9B2335',
+                  '#C5384E','#E07595','#8B5E3C','#B85C00','#7B3F9E','#595959','#2D6A8F']
 
     today = str(datetime.date.today())
     prices_str = '  ·  '.join(f'{k} ${v:.2f}' for k, v in PRICE_CACHE.items() if k != 'CASH')

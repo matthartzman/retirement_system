@@ -183,6 +183,12 @@ def build_sheet8(ws, c, rows, mc_data=None):
         travel      = round(_exp['travel'])
         other       = round(_exp['other_lump'])
         heloc_pai_chart = round(_exp['heloc_pai'])
+        # Home-purchase down payments (see deterministic_engine._next_housing_for_year)
+        # are exposed as 'other_cash_need' rather than ordinary spending, but they
+        # are still real cash the plan must fund -- omitting them here previously
+        # left this bar (and its Excel chart) short of the Income & Portfolio
+        # Draws bar by the full down-payment amount in a purchase year.
+        other_cash_need_chart = round(_exp['other_cash_need'])
         fed_tax    = round(_tax['federal'])
         state_tax  = round(_tax['state'])
         niit       = round(_tax['niit'])
@@ -194,7 +200,7 @@ def build_sheet8(ws, c, rows, mc_data=None):
         # dashboard, the Excel cash-flow sheet, and the UI charts always show
         # the same surplus figure for a given year.
         surplus_reinvested = max(0, round(bd['surplus'] if bd else row.get('surplus', 0)))
-        exp_raw    = (spend_base + housing + wellness + travel + other + heloc_pai_chart
+        exp_raw    = (spend_base + housing + wellness + travel + other + other_cash_need_chart + heloc_pai_chart
                       + fed_tax + state_tax + niit + payroll_tax + irmaa + home_sale_tax)
 
         # Real-dollar equivalent (deflated to plan_start year)
@@ -209,7 +215,8 @@ def build_sheet8(ws, c, rows, mc_data=None):
             'trust_wd': trust_wd, 'hsa_wd': hsa_wd, 'roth_wd': roth_wd,
             'ira_wd': ira_wd, 'heloc_draw_wd': heloc_draw_wd, 'inc_total': inc_total,
             'spend_base': spend_base, 'housing': housing, 'wellness': wellness,
-            'travel': travel, 'other': other, 'heloc_pai': heloc_pai_chart,
+            'travel': travel, 'other': other, 'other_cash_need': other_cash_need_chart,
+            'heloc_pai': heloc_pai_chart,
             'fed_tax': fed_tax, 'state_tax': state_tax,
             'niit': niit, 'payroll_tax': payroll_tax, 'irmaa': irmaa,
             'home_sale_tax': home_sale_tax, 'surplus_reinvested': surplus_reinvested,
@@ -326,16 +333,17 @@ def build_sheet8(ws, c, rows, mc_data=None):
         (32, 'wellness',    'Wellness',       'C55A11'),
         (33, 'travel',      'Travel',           'C9A84C'),
         (34, 'other',       'Other',            '059669'),
-        (35, 'fed_tax',     'Federal Tax',      '9B2335'),
-        (36, 'state_tax',   f'State Tax ({c["state"][:2]})',   'C5384E'),
-        (37, 'niit',        'NIIT',             'E07595'),
-        (38, 'payroll_tax', 'Payroll Tax',      '8B5E3C'),
-        (39, 'irmaa',       'IRMAA',            'B85C00'),
-        (40, 'home_sale_tax', 'Home Sale Tax',  '7B3F9E'),
-        (41, 'surplus_reinvested', 'Surplus (Reinvested)', '595959'),
-        (42, 'heloc_pai',   'HELOC P&I',        '2D6A8F'),
+        (35, 'other_cash_need', 'Other Cash Need', '6B21A8'),
+        (36, 'fed_tax',     'Federal Tax',      '9B2335'),
+        (37, 'state_tax',   f'State Tax ({c["state"][:2]})',   'C5384E'),
+        (38, 'niit',        'NIIT',             'E07595'),
+        (39, 'payroll_tax', 'Payroll Tax',      '8B5E3C'),
+        (40, 'irmaa',       'IRMAA',            'B85C00'),
+        (41, 'home_sale_tax', 'Home Sale Tax',  '7B3F9E'),
+        (42, 'surplus_reinvested', 'Surplus (Reinvested)', '595959'),
+        (43, 'heloc_pai',   'HELOC P&I',        '2D6A8F'),
     ]
-    EXP_TOTAL_COL = 43
+    EXP_TOTAL_COL = 44
     # Expense section title — span exactly cols 29-43
     cell = ws.cell(row=2, column=EXP_YEAR, value=f'Cash Flow — Spending & Taxes  ·  {c["plan_start"]}–{c["plan_end"]}')
     cell.fill = fill(RED); cell.font = Font(name='Arial',bold=True,color=WHITE,size=11)
