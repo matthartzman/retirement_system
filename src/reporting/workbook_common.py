@@ -1085,6 +1085,26 @@ def minimize_row_heights(wb):
     # Calibri 11; deliberately conservative (under-crediting slightly) so a
     # cell can only end up a bit taller than needed, never clipped.
     CHARS_PER_WIDTH_UNIT = 1.3
+    # CHARS_PER_WIDTH_UNIT above was calibrated against generic lowercase
+    # prose, but this workbook's cells are packed with dollar figures and
+    # short ALL-CAPS/Title-Case labels -- digits, uppercase letters, and
+    # financial symbols ($%#&) render measurably WIDER than the average
+    # lowercase character that ratio assumes (Excel's column-width unit is
+    # itself defined by a digit's width, and uppercase/financial symbols run
+    # close to or wider than a digit). A single flat ratio under-counts
+    # lines for number/caps-heavy text -- e.g. Executive Summary C26 ("Face
+    # value $250K-$500K covers facility care risk; avoids...") measured at
+    # 97 raw characters against a ~105-character flat-ratio capacity and was
+    # predicted (wrongly) to fit on one line, clipping it to a single-line
+    # row. Weight digit/uppercase/financial-symbol characters at 1.15
+    # width-units each instead of folding them into the narrow-prose ratio.
+    import string as _string
+    WIDE_CHARS = set(_string.digits) | set(_string.ascii_uppercase) | set('$%#&')
+    WIDE_CHAR_WIDTH_UNITS = 1.15
+
+    def _weighted_text_width(s):
+        narrow_width = 1.0 / CHARS_PER_WIDTH_UNIT
+        return sum(WIDE_CHAR_WIDTH_UNITS if ch in WIDE_CHARS else narrow_width for ch in s)
 
     for ws in wb.worksheets:
         if getattr(ws, 'sheet_state', 'visible') != 'visible':
@@ -1127,10 +1147,9 @@ def minimize_row_heights(wb):
                 is_formula = isinstance(cell.value, str) and cell.value.startswith('=')
                 if wrap and isinstance(cell.value, str) and not is_formula:
                     eff_width = max(sum(col_width.get(cc, DEFAULT_WIDTH) for cc in col_span), 1.0)
-                    eff_chars_per_line = max(eff_width * CHARS_PER_WIDTH_UNIT, 1.0)
                     lines = 0
                     for line in (cell.value.splitlines() or ['']):
-                        lines += max(1, _math.ceil(len(line) / eff_chars_per_line))
+                        lines += max(1, _math.ceil(_weighted_text_width(line) / eff_width))
                     lines = max(1, lines)
                 else:
                     lines = 1
