@@ -892,6 +892,161 @@ def apply_template_layout(wb):
     return wb
 
 
+def _format_sections(fmt):
+    """Split an Excel number-format string on ';' outside quoted literals,
+    e.g. '$#,##0;($#,##0);"-"' -> ['$#,##0', '($#,##0)', '"-"']."""
+    sections = []
+    current = []
+    in_quotes = False
+    for ch in fmt:
+        if ch == '"':
+            in_quotes = not in_quotes
+            current.append(ch)
+        elif ch == ';' and not in_quotes:
+            sections.append(''.join(current))
+            current = []
+        else:
+            current.append(ch)
+    sections.append(''.join(current))
+    return sections
+
+
+def _pick_format_section(sections, value):
+    """Excel's positional positive/negative/zero section convention. Doesn't
+    evaluate explicit [condition] brackets (e.g. FMT_DOLLAR_ZERO_BAND's
+    '[>=1]...;[<=-1]...' pair) -- those still resolve correctly for genuinely
+    positive/negative/zero values, just not for the narrow banded range
+    in-between, which is an acceptable gap for a column-width estimate."""
+    if len(sections) >= 3:
+        if value > 0:
+            return sections[0]
+        if value < 0:
+            return sections[1]
+        return sections[2]
+    if len(sections) == 2:
+        return sections[0] if value >= 0 else sections[1]
+    return sections[0]
+
+
+def _strip_format_condition(section):
+    if section.startswith('[') and ']' in section:
+        return section[section.index(']') + 1:]
+    return section
+
+
+def _needed_number_width(value, fmt):
+    """Character width Excel needs to display `value` under number-format
+    `fmt` without collapsing to "#####". Handles this workbook's actual
+    format vocabulary (FMT_DOLLAR/FMT_PCT/FMT_INT/FMT_SCORE and similar
+    $/%/#,##0 custom formats, including accounting-style parenthesized
+    negatives and literal zero/banded sections like "-") rather than
+    Excel's full format-string grammar."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    fmt = (fmt or '').strip()
+    if not fmt or fmt.lower() == 'general':
+        return None
+    section = _strip_format_condition(_pick_format_section(_format_sections(fmt), v))
+
+    literal_len = 0
+    unquoted = []
+    in_quotes = False
+    for ch in section:
+        if ch == '"':
+            in_quotes = not in_quotes
+            continue
+        if in_quotes:
+            literal_len += 1
+        else:
+            unquoted.append(ch)
+    unquoted = ''.join(unquoted)
+
+    if not any(ch in '0#' for ch in unquoted):
+        # Purely literal section (e.g. the zero/banded "-" case) -- no
+        # number is rendered at all.
+        return max(literal_len, 1)
+
+    is_percent = '%' in unquoted
+    is_dollar = '$' in unquoted
+    decimals = 0
+    if '.' in unquoted:
+        for ch in unquoted.split('.', 1)[1]:
+            if ch in '0#':
+                decimals += 1
+            else:
+                break
+    grouped = ',' in unquoted.split('.', 1)[0]
+
+    magnitude = abs(v) * 100 if is_percent else abs(v)
+    number_str = f'{magnitude:,.{decimals}f}' if grouped else f'{magnitude:.{decimals}f}'
+    width = len(number_str) + literal_len
+    if is_dollar:
+        width += 1
+    if is_percent:
+        width += 1
+    if v < 0:
+        width += 2 if '(' in unquoted else 1
+    return width
+
+
+def widen_overflowing_number_columns(wb, buffer=0.6):
+    """Widen any column whose formatted numeric content would render as
+    Excel's "#####" overflow indicator at its current width.
+
+    Must run after every width-setting pass (heuristic sizing, the reference
+    template, and user overrides from Settings -> Workbook Formatting) --
+    each of those can shrink a numeric column purely to hit a target total
+    width or to match a pinned template value, without checking whether the
+    result still fits that column's actual formatted values. It must also
+    run before minimize_row_heights(), so any widening here is reflected in
+    that pass's final-column-width-dependent wrap calculations for text
+    merged across the same columns.
+    """
+    DEFAULT_WIDTH = 8.43  # Excel's default column width when none is set
+
+    for ws in wb.worksheets:
+        if getattr(ws, 'sheet_state', 'visible') != 'visible':
+            continue
+        max_row = ws.max_row or 0
+        max_col = ws.max_column or 0
+        if not max_row or not max_col:
+            continue
+
+        merge_span = {(mr.min_row, mr.min_col): mr for mr in ws.merged_cells.ranges}
+        needed_by_first_col = {}
+        for row_idx in range(1, max_row + 1):
+            for c in range(1, max_col + 1):
+                cell = ws.cell(row_idx, c)
+                if isinstance(cell.value, bool) or not isinstance(cell.value, (int, float)):
+                    continue
+                needed = _needed_number_width(cell.value, cell.number_format)
+                if needed is None:
+                    continue
+                needed += buffer
+                mr = merge_span.get((row_idx, c))
+                span = range(mr.min_col, mr.max_col + 1) if mr else range(c, c + 1)
+                current = sum(
+                    float(dim.width) if (dim := ws.column_dimensions.get(get_column_letter(cc))) and dim.width
+                    else DEFAULT_WIDTH
+                    for cc in span
+                )
+                if needed > current:
+                    shortfall = needed - current
+                    first = span[0]
+                    prior = needed_by_first_col.get(first, 0.0)
+                    needed_by_first_col[first] = max(prior, shortfall)
+
+        for col, shortfall in needed_by_first_col.items():
+            letter = get_column_letter(col)
+            dim = ws.column_dimensions.get(letter)
+            current = float(dim.width) if (dim and dim.width) else DEFAULT_WIDTH
+            ws.column_dimensions[letter].width = round(current + shortfall, 1)
+
+    return wb
+
+
 def minimize_row_heights(wb):
     """Shrink (or grow) every content row to the minimum height that fully
     displays its text at the sheet's FINAL column widths.
