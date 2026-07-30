@@ -20,11 +20,14 @@ def _min_wrapped_height(ws, row: int, col: int) -> float:
     Excel's column-width unit is the widest DIGIT of the default font, but
     wrapped prose (mostly lowercase letters/spaces) fits more characters per
     line than a 1-char-per-width-unit count assumes, so production credits
-    each width unit with 1.3 characters. Keep this constant identical to the
-    one in workbook_common.py or this test starts asserting the pre-#249
-    (over-tall) heights instead of what the code now actually produces.
+    each width unit with 1.3 characters. Also mirrors CELL_VPAD, the fixed
+    top+bottom margin added once per cell on top of per-line leading. Keep
+    both constants identical to the ones in workbook_common.py or this test
+    starts asserting stale heights instead of what the code now actually
+    produces.
     """
     CHARS_PER_WIDTH_UNIT = 1.3
+    CELL_VPAD = 3.0
     cell = ws.cell(row, col)
     merge = next(
         (mr for mr in ws.merged_cells.ranges if mr.min_row == row and mr.min_col == col),
@@ -38,7 +41,7 @@ def _min_wrapped_height(ws, row: int, col: int) -> float:
     eff_chars_per_line = max(eff_width * CHARS_PER_WIDTH_UNIT, 1.0)
     lines = sum(max(1, math.ceil(len(line) / eff_chars_per_line)) for line in str(cell.value).splitlines() or [''])
     font_size = float(cell.font.size) if (cell.font and cell.font.size) else 10.0
-    return max(1, lines) * (font_size + 4.0)
+    return max(1, lines) * (font_size + 4.0) + CELL_VPAD
 
 
 def _zero_money(value) -> bool:

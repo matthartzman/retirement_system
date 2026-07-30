@@ -1064,6 +1064,15 @@ def minimize_row_heights(wb):
 
     EXCEL_MAX_ROW_HEIGHT = 409.0  # points; Excel's own hard ceiling
     LINE_PAD = 4.0  # points of padding per line, above the raw font size
+    # Extra top+bottom breathing room per cell (~a few pixels at 96 DPI),
+    # beyond the per-line leading above. LINE_PAD only adds space between/
+    # around individual lines; without a separate margin term a wrapped (or
+    # row-spanning merged) block could compute to exactly the height its text
+    # occupies with zero cushion above the first line or below the last,
+    # which Excel can render as the top/bottom line looking clipped against
+    # the cell border even though every character technically fits. Added
+    # once per cell (not per line) so it doesn't compound with line count.
+    CELL_VPAD = 3.0
     DEFAULT_WIDTH = 8.43  # Excel's default column width when none is set
     # #249: Excel's column-width unit is defined by the MAXIMUM DIGIT width of
     # the default font ("0"-"9", ~7px wide in Calibri 11) -- but wrapped prose
@@ -1125,7 +1134,7 @@ def minimize_row_heights(wb):
                     lines = max(1, lines)
                 else:
                     lines = 1
-                per_row_pts = (lines * line_pt) / max(1, len(row_span))
+                per_row_pts = (lines * line_pt + CELL_VPAD) / max(1, len(row_span))
                 for r in row_span:
                     if per_row_pts > row_needed[r]:
                         row_needed[r] = per_row_pts
