@@ -110,4 +110,84 @@ def test_column_overflow_pass_runs_before_row_height_minimization():
     # computes final row heights, since that pass sums final column widths
     # across a merged range to size wrapped text sharing those columns.
     src = (ROOT / "src/reporting/workbook_builder.py").read_text(encoding="utf-8")
-    assert src.index("widen_overflowing_number_columns(wb)") < src.index("minimize_row_heights(wb)")
+    assert src.index("widen_overflowing_number_columns(wb") < src.index("minimize_row_heights(wb)")
+
+
+def test_column_overflow_pass_runs_after_user_overrides_and_respects_them():
+    # #251: apply_overrides() is documented to run "last so user edits
+    # always win" -- widen_overflowing_number_columns must run after it in
+    # the real build (so its widening reflects the final width) but must
+    # NOT then re-widen a column the user explicitly overrode.
+    src = (ROOT / "src/reporting/workbook_builder.py").read_text(encoding="utf-8")
+    assert src.index("_apply_format_overrides(wb") < src.index("widen_overflowing_number_columns(wb")
+    assert "protected_columns=" in src
+
+
+def test_widen_overflowing_number_columns_leaves_a_protected_column_alone():
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Sheet"
+    ws.cell(2, 1, value=123456789)
+    ws.cell(2, 1).number_format = FMT_DOLLAR
+    ws.column_dimensions["A"].width = 6.0  # user deliberately narrowed this
+
+    widen_overflowing_number_columns(wb, protected_columns={"Sheet": {"A"}})
+
+    assert ws.column_dimensions["A"].width == 6.0
+
+
+def test_widen_overflowing_number_columns_still_widens_unprotected_columns_on_a_protected_sheet():
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Sheet"
+    ws.cell(2, 1, value=123456789)
+    ws.cell(2, 1).number_format = FMT_DOLLAR
+    ws.cell(2, 2, value=123456789)
+    ws.cell(2, 2).number_format = FMT_DOLLAR
+    ws.column_dimensions["A"].width = 6.0
+    ws.column_dimensions["B"].width = 6.0
+
+    widen_overflowing_number_columns(wb, protected_columns={"Sheet": {"A"}})
+
+    assert ws.column_dimensions["A"].width == 6.0
+    assert ws.column_dimensions["B"].width >= _needed_number_width(123456789, FMT_DOLLAR)
+
+
+def test_widen_overflowing_number_columns_only_protects_the_named_sheet():
+    wb = openpyxl.Workbook()
+    ws1 = wb.active
+    ws1.title = "Sheet1"
+    ws1.cell(2, 1, value=123456789)
+    ws1.cell(2, 1).number_format = FMT_DOLLAR
+    ws1.column_dimensions["A"].width = 6.0
+    ws2 = wb.create_sheet("Sheet2")
+    ws2.cell(2, 1, value=123456789)
+    ws2.cell(2, 1).number_format = FMT_DOLLAR
+    ws2.column_dimensions["A"].width = 6.0
+
+    widen_overflowing_number_columns(wb, protected_columns={"Sheet1": {"A"}})
+
+    assert ws1.column_dimensions["A"].width == 6.0
+    assert ws2.column_dimensions["A"].width >= _needed_number_width(123456789, FMT_DOLLAR)
+
+
+def test_overridden_width_columns_resolves_via_sheet_renames(tmp_path):
+    from src.reporting.workbook_format_config import merge_overrides, overridden_width_columns
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "3A. Executive Summary"
+    merge_overrides({"3. Executive Summary": {"C": 20.0}}, input_dir=tmp_path)
+
+    protected = overridden_width_columns(
+        wb, input_dir=tmp_path, sheet_renames={"3. Executive Summary": "3A. Executive Summary"}
+    )
+
+    assert protected == {"3A. Executive Summary": {"C"}}
+
+
+def test_overridden_width_columns_empty_when_no_overrides_saved(tmp_path):
+    from src.reporting.workbook_format_config import overridden_width_columns
+
+    wb = openpyxl.Workbook()
+    assert overridden_width_columns(wb, input_dir=tmp_path) == {}

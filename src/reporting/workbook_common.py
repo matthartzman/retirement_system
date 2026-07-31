@@ -991,7 +991,7 @@ def _needed_number_width(value, fmt):
     return width
 
 
-def widen_overflowing_number_columns(wb, buffer=0.6):
+def widen_overflowing_number_columns(wb, buffer=0.6, protected_columns=None):
     """Widen any column whose formatted numeric content would render as
     Excel's "#####" overflow indicator at its current width.
 
@@ -1003,8 +1003,19 @@ def widen_overflowing_number_columns(wb, buffer=0.6):
     run before minimize_row_heights(), so any widening here is reflected in
     that pass's final-column-width-dependent wrap calculations for text
     merged across the same columns.
+
+    `protected_columns` (#251): {sheet title: {column letters}} the caller
+    has resolved to a saved user width override (see workbook_format_config.
+    overridden_width_columns). apply_overrides() is documented to run "last
+    so user edits always win" -- this pass runs after it, so without this
+    exclusion it would silently re-widen a column the user deliberately
+    narrowed (accepting the "#####" tradeoff, e.g. to keep a sheet printable
+    on one page), defeating the override the moment that build's data
+    happened to overflow it. A merged range is skipped as a whole if its
+    first column is protected, since widening only ever touches that column.
     """
     DEFAULT_WIDTH = 8.43  # Excel's default column width when none is set
+    protected_columns = protected_columns or {}
 
     for ws in wb.worksheets:
         if getattr(ws, 'sheet_state', 'visible') != 'visible':
@@ -1013,6 +1024,7 @@ def widen_overflowing_number_columns(wb, buffer=0.6):
         max_col = ws.max_column or 0
         if not max_row or not max_col:
             continue
+        protected = protected_columns.get(ws.title) or set()
 
         merge_span = {(mr.min_row, mr.min_col): mr for mr in ws.merged_cells.ranges}
         needed_by_first_col = {}
@@ -1027,6 +1039,9 @@ def widen_overflowing_number_columns(wb, buffer=0.6):
                 needed += buffer
                 mr = merge_span.get((row_idx, c))
                 span = range(mr.min_col, mr.max_col + 1) if mr else range(c, c + 1)
+                first = span[0]
+                if get_column_letter(first) in protected:
+                    continue
                 current = sum(
                     float(dim.width) if (dim := ws.column_dimensions.get(get_column_letter(cc))) and dim.width
                     else DEFAULT_WIDTH
@@ -1034,7 +1049,6 @@ def widen_overflowing_number_columns(wb, buffer=0.6):
                 )
                 if needed > current:
                     shortfall = needed - current
-                    first = span[0]
                     prior = needed_by_first_col.get(first, 0.0)
                     needed_by_first_col[first] = max(prior, shortfall)
 
