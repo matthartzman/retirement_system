@@ -298,6 +298,9 @@ def run_deterministic_projection_stage(c):
         return bridge + part_b + part_d + part_g
 
     def _sehi_deduction_source_amount(year, h_age, w_age, h_alive=True, w_alive=True):
+        _sehi_override = c.get('sehi_user_override')
+        if _sehi_override is not None:
+            return max(0.0, float(_sehi_override))
         if c.get('sehi_derived_from_wellness', True):
             total = 0.0
             if h_alive:
@@ -753,6 +756,13 @@ def run_deterministic_projection_stage(c):
         # Payroll / self-employment tax
         se_tax = 0.0; half_se_ded = 0.0; sehi_ded = 0.0; qbi_ded = 0.0
         payroll_tax = 0.0
+        # net_earned_taxable is the earned-income figure that should actually
+        # drive AGI/ordinary-income-tax and cash flow -- gross earned_base net
+        # of the real Schedule C business expenses / home office deduction
+        # (biz_exp/home_off), which previously only reduced the SE-tax and QBI
+        # bases and never reduced AGI or appeared as a cash outflow anywhere.
+        net_earned_taxable = 0.0
+        business_expenses_yr = 0.0
         if earned_base > 0:
             if c['entity'] == 'sole_prop':
                 net_se   = earned_base - c['biz_exp'] - c['home_off']
@@ -768,6 +778,8 @@ def run_deterministic_projection_stage(c):
                     qbi_base = net_se - half_se_ded - sehi_ded
                     qbi_ded  = qbi_base * 0.20
                 payroll_tax = se_tax
+                net_earned_taxable = net_se
+                business_expenses_yr = c['biz_exp'] + c['home_off']
             else:
                 # S-Corp: payroll tax only on W-2 salary, not the full distribution
                 # Extension years may use a scenario salary override
@@ -786,15 +798,20 @@ def run_deterministic_projection_stage(c):
                 employer_fica = ss_er + med_er
                 payroll_tax  = ss_ee + ss_er + med_ee + med_er
                 distribution = max(0, earned_base - c['biz_exp'] - c['home_off'] - salary - employer_fica)
-                # SEHI: deducted via W-2 box 1 treatment
+                # SEHI: deducted via W-2 box 1 treatment. Real law requires the
+                # premium to actually be added to the shareholder-employee's W-2
+                # Box 1 wages for the personal SEHI deduction to be allowed at
+                # all; when sehi_added_to_w2 is off, no deduction is allowed.
                 sehi_source = _sehi_deduction_source_amount(year, h_age, w_age, h_alive, w_alive)
-                sehi_ded = min(sehi_source, salary + distribution)
+                sehi_ded = min(sehi_source, salary + distribution) if c.get('scorp_sehi_on_w2', True) else 0.0
                 # QBI on distribution (salary excluded from QBI base)
                 if c['qbi_elig']:
                     qbi_base = distribution - sehi_ded
                     qbi_ded  = max(0, qbi_base * 0.20)
                 # IL corporate surcharge on distributable income
                 # (already captured in state_tax via AGI; no separate payroll item)
+                net_earned_taxable = salary + distribution
+                business_expenses_yr = c['biz_exp'] + c['home_off']
 
             # Additional Medicare tax applies to Medicare wages / SE earnings,
             # not to S-corp distributions.
@@ -804,6 +821,7 @@ def run_deterministic_projection_stage(c):
 
         row['sehi_deduction_source'] = _sehi_deduction_source_amount(year, h_age, w_age, h_alive, w_alive) if earned_base > 0 else 0.0
         row['payroll_tax'] = payroll_tax
+        row['business_expenses_yr'] = business_expenses_yr
 
         # Remaining-year proration for the current calendar year (see
         # ytd_projection_blend.py) — today's live balance already reflects
@@ -1254,7 +1272,7 @@ def run_deterministic_projection_stage(c):
         # The final PTC is recomputed after the actual Roth conversion and
         # Social Security taxable amount are known, so conversion-driven MAGI
         # changes reduce the subsidy before the withdrawal cascade runs.
-        _aca_pre_non_ss = (earned_base - half_se_ded - sehi_ded + rmd_taxable_total + pension + wife_single_ann + wife_joint_ann + h_single_ann + h_joint_ann + note_int_yr + portfolio_ordinary + portfolio_qualified)
+        _aca_pre_non_ss = (net_earned_taxable - half_se_ded - sehi_ded + rmd_taxable_total + pension + wife_single_ann + wife_joint_ann + h_single_ann + h_joint_ann + note_int_yr + portfolio_ordinary + portfolio_qualified)
         _aca_pre_ss_tax = social_security_taxable_amount(h_ss + w_ss, _aca_pre_non_ss + portfolio_tax_exempt, filing)
         aca_ptc_pre_conversion = aca_premium_tax_credit(c, year=year, magi=_aca_pre_non_ss + _aca_pre_ss_tax + portfolio_tax_exempt, bridge_people=bridge_people)
         aca_ptc_yr = aca_ptc_pre_conversion
@@ -1356,7 +1374,8 @@ def run_deterministic_projection_stage(c):
         total_spend_need = (spend + rec_extra + lump_yr + mort_yr + row['home_improvement_yr']
                             + rent_yr + housing_operating_yr + re_tax_yr + ltc_prem_yr
                             + wellness_base_yr + wellness_shock_yr
-                            + heloc_interest_yr + heloc_repayment_principal_yr)
+                            + heloc_interest_yr + heloc_repayment_principal_yr
+                            + business_expenses_yr)
         row['total_spend'] = total_spend_need
 
         # ── RMDs ─────────────────────────────────────────────────────────────
@@ -1378,7 +1397,7 @@ def run_deterministic_projection_stage(c):
             _ws_taxable_est = wife_single_ann * c['wife_single'].get('exclusion_ratio', 1.0)
             _hs_taxable_est = h_single_ann * c['h_single'].get('exclusion_ratio', 1.0)
             _ss_total_est = h_ss + w_ss
-            _non_ss_est = (earned_base - half_se_ded - sehi_ded + rmd_taxable_total + pension
+            _non_ss_est = (net_earned_taxable - half_se_ded - sehi_ded + rmd_taxable_total + pension
                            + _ws_taxable_est + wife_joint_ann + _hs_taxable_est
                            + h_joint_ann + note_int_yr + portfolio_ordinary + portfolio_qualified)
             _ss_taxable_est = social_security_taxable_amount(_ss_total_est, _non_ss_est, filing)
@@ -1389,7 +1408,7 @@ def run_deterministic_projection_stage(c):
                                    for k in ['wife_single','h_single']
                                    if not c[k].get('qualified', True))
             return state_income_tax(
-                c['state'], max(0, earned_base - half_se_ded - sehi_ded),
+                c['state'], max(0, net_earned_taxable - half_se_ded - sehi_ded),
                 rmd_taxable_total + _qual_ann_est, _ss_taxable_est, note_int_yr + portfolio_ordinary + portfolio_qualified,
                 _nonqual_ann_est, 0.0, _tax_year, h_age >= 65 or w_age >= 65, filing=filing,
                 brk_inf=c['brk_inf'],
@@ -1446,7 +1465,7 @@ def run_deterministic_projection_stage(c):
         ws_taxable = wife_single_ann * c['wife_single'].get('exclusion_ratio', 1.0)
         hs_taxable = h_single_ann * c['h_single'].get('exclusion_ratio', 1.0)
         ss_total = h_ss + w_ss
-        non_ss_income = (earned_base - half_se_ded - sehi_ded + rmd_taxable_total + roth_conv +
+        non_ss_income = (net_earned_taxable - half_se_ded - sehi_ded + rmd_taxable_total + roth_conv +
                          pension + ws_taxable + wife_joint_ann +
                          hs_taxable + h_joint_ann + note_int_yr +
                          portfolio_ordinary + portfolio_qualified +
@@ -1506,7 +1525,8 @@ def run_deterministic_projection_stage(c):
             total_spend_need = (spend + rec_extra + lump_yr + mort_yr + row.get('home_improvement_yr', 0.0)
                                 + rent_yr + housing_operating_yr + re_tax_yr + ltc_prem_yr
                                 + wellness_base_yr + wellness_shock_yr
-                                + heloc_interest_yr + heloc_repayment_principal_yr)
+                                + heloc_interest_yr + heloc_repayment_principal_yr
+                                + business_expenses_yr)
             row['aca_premium_tax_credit'] = aca_ptc_yr
             row['aca_ptc_loss_from_conversion'] = max(0.0, aca_ptc_pre_conversion - aca_ptc_yr)
             row['wellness_bridge_premium'] = bridge_premium_yr
@@ -1611,7 +1631,7 @@ def run_deterministic_projection_stage(c):
                           for k in ['wife_single','h_single']
                           if not c[k].get('qualified', True))
         retirement_dist = rmd_taxable_total + qual_ann  # pension already included in qual_ann if qualified
-        earned_net = max(0, earned_base - half_se_ded - sehi_ded)
+        earned_net = max(0, net_earned_taxable - half_se_ded - sehi_ded)
         h_over_65 = h_age >= 65 or w_age >= 65
         state_tax = state_income_tax(c['state'], earned_net, retirement_dist,
                                      ss_taxable, note_int_yr + portfolio_ordinary + portfolio_qualified, nonqual_ann,
@@ -2425,6 +2445,7 @@ def run_deterministic_projection_stage(c):
                              + row.get('ltc_prem_yr', 0.0)),
                 'travel': row.get('rec_extra', 0.0),
                 'other_lump': row.get('lump', 0.0),
+                'business_expenses': row.get('business_expenses_yr', 0.0),
                 'heloc_pai': (row.get('heloc_interest', 0.0)
                               + row.get('heloc_repayment_principal', 0.0)),
                 'other_cash_need': row.get('other_cash_need_yr', 0.0),

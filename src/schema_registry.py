@@ -7,6 +7,10 @@ try:
     from .plan_data_registry import client_data_csv_files
 except ImportError:  # pragma: no cover - direct execution fallback
     from src.plan_data_registry import client_data_csv_files
+try:
+    from . import platform_runtime
+except ImportError:  # pragma: no cover - direct execution fallback
+    from src import platform_runtime
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA_PATH = ROOT / 'reference_data' / 'schema.csv'
 GENERATED_SCHEMA_PATH = ROOT / 'reference_data' / 'generated_schema_coverage.csv'
@@ -61,7 +65,7 @@ def load_schema() -> dict[tuple[str,str,str], dict]:
     return out
 
 def generate_schema_coverage(input_dir: Path | None = None, output_path: Path | None = None) -> dict:
-    input_dir = input_dir or ROOT / 'input'
+    input_dir = input_dir or platform_runtime.workspace_root() / 'input'
     output_path = output_path or GENERATED_SCHEMA_PATH
     existing=load_schema()
     generated=[]; seen=set()
