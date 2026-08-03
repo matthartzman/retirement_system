@@ -52,7 +52,7 @@ Model Constants,Capital Gains,ltcg_15pct_top_mfj_base_year,dollars,TRUE,600050,0
 Model Constants,Capital Gains,niit_magi_threshold_mfj,dollars,TRUE,250000,0,,NIIT MAGI threshold
 Cashflow,Earned Income,annual_earned_income,dollars,TRUE,,,Gross annual earned income,
 Cashflow,Earned Income,earned_income_start_year,year,TRUE,,,First year of earned income,
-Cashflow,Earned Income,earned_income_annual_increase,percent,TRUE,3.00%,-20,20,Annual growth rate (can be negative for a planned pay cut, sabbatical year, or reduced hours)
+Cashflow,Earned Income,earned_income_annual_increase,percent,TRUE,3.00%,-100,20,Annual growth rate (can be negative for a planned pay cut, sabbatical year, reduced hours, or dropping to part-time -- e.g. -50% means earning half as much the following year); -100% is the mathematical floor (income stops)
 Cashflow,Earned Income,entity_type,choice,TRUE,s_corp,,,s_corp | sole_prop | W2
 Cashflow,S-Corp,reasonable_salary_annual,dollars,FALSE,60000,0,,W-2 salary for FICA
 Cashflow,Spending,annual_spending_base_year,dollars,TRUE,,,Base annual spending,
