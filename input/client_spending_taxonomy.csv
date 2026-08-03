@@ -3,7 +3,7 @@ Income,Income,dividends_capital_gains,Dividends & Capital Gains,transaction,acti
 Income,Income,interest,Interest,transaction,active,Promoted from legacy spending_category_map.csv during unified spending migration
 Income,Income,other_income,Other Income,transaction,active,Promoted from legacy spending_category_map.csv during unified spending migration
 Income,Income,paychecks,Paychecks,transaction,active,Promoted from legacy spending_category_map.csv during unified spending migration
-Income,Income,redmane_annual_note_p_i,RedMane Annual Note P&I,transaction,active,Promoted from legacy spending_category_map.csv during unified spending migration
+Income,Income,private_note_p_i,Private Note P&I,transaction,active,Promoted from legacy spending_category_map.csv during unified spending migration
 Income,Investment Income,capital_gains,Capital Gains,template,deleted,Realized short- and long-term capital gains
 Income,Investment Income,dividends,Dividends,template,deleted,Stock and fund dividend payments
 Income,Investment Income,interest_income,Interest Income,template,deleted,Bank and bond interest
@@ -68,12 +68,12 @@ Core Expenses,Gifts Charity,charitable_donations,Charitable Donations,template,a
 Core Expenses,Gifts Charity,charity,Charity,transaction,active,Promoted from legacy spending_category_map.csv during unified spending migration
 Core Expenses,Gifts Charity,church,Church,transaction,active,Auto-added from transactions
 Core Expenses,Gifts Charity,donation,Donation,transaction,deleted,Merged into Charitable Donations (CR124)
-Core Expenses,Gifts Charity,gifts_family_12,Gifts - Family 12,transaction,active,Auto-added from transactions
+Core Expenses,Gifts Charity,gifts_family,Gifts - Family,transaction,active,Auto-added from transactions
 Core Expenses,Gifts Charity,gifts_other,Gifts - Other,transaction,active,Auto-added from transactions
 Core Expenses,Gifts Charity,gifts_given,Gifts Given,template,deleted,Birthday / holiday / occasion gifts
 Core Expenses,Gifts Charity,political_contributions,Political Contributions,template,deleted,Campaign and PAC contributions
 Core Expenses,Lifestyle,books,Books,transaction,active,Promoted from legacy spending_category_map.csv during unified spending migration
-Core Expenses,Lifestyle,cubs_tickets,Cubs Tickets,transaction,active,Auto-added from transactions
+Core Expenses,Lifestyle,sporting_event_tickets,Sporting Event Tickets,transaction,active,Auto-added from transactions
 Core Expenses,Lifestyle,electronics,Electronics,template,active,Moved from Large Discretionary Major Purchases to Lifestyle on Spending Categories page (CR117)
 Core Expenses,Lifestyle,hair_make_up,Hair/Make-up,transaction,active,Auto-added from transactions
 Core Expenses,Lifestyle,mani_pedi,Mani-Pedi,transaction,active,Auto-added from transactions
@@ -141,7 +141,6 @@ Housing,Mortgage,mortgage,Mortgage,transaction,active,Auto-added from transactio
 Housing,Mortgage,mortgage_pi,Mortgage P&I,template,deleted,Principal and interest payment
 Housing,Mortgage,pmi,PMI,template,deleted,Private mortgage insurance
 Housing,Mortgage,rent,Rent,transaction,active,Promoted from legacy spending_category_map.csv during unified spending migration
-Housing,Other,down_payment,Down Payment,template,active,Cash down payment on a new home purchase
 Housing,Other,furniture_home_decor_kitchenware,Furniture/Home Decor/Kitchenware,transaction,active,Auto-added from transactions
 Housing,Other,ho_insurance,Homeowners Insurance,template,active,HO-3 / HO-6 home/condo policy premiums
 Housing,Other,house_cleaning,House Cleaning,transaction,active,Auto-added from transactions
