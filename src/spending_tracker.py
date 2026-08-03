@@ -832,11 +832,6 @@ def add_alias(root, match_value, category_id, match_field="category", exact=True
 
 
 def _resolve_alias(txn: dict, aliases: list[dict], flat: dict) -> str:
-    confirmed = (txn.get("mapped_category_id") or "").strip()
-    if confirmed.startswith("confirmed:"):
-        cid = confirmed.replace("confirmed:", "", 1)
-        if cid in flat:
-            return cid
     merchant = (txn.get("merchant") or "").lower()
     category = (txn.get("category") or "").lower()
     for alias in aliases:
@@ -874,8 +869,6 @@ def apply_mapping_rules(txns, rules=None, flat=None):
     flat = flat or {}
     for txn in txns:
         existing = txn.get("mapped_category_id", "")
-        if existing and str(existing).startswith("confirmed:"):
-            continue
         cid = _resolve_alias(txn, normalized, flat) if normalized else ""
         txn["mapped_category_id"] = ("auto:" + cid) if cid else (existing or "")
     return txns
