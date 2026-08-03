@@ -1366,8 +1366,20 @@ def build_sheet3(ws, c, rows):
     ]
     ann_total = write_group('Annuities & Pension (PV)', ann_assets)
 
+    # #253: yr0[acct_id] is the engine's END-OF-YEAR Y0 balance (after that
+    # year's growth/withdrawals/CST funding), while the Net Worth sheet's
+    # "Plan Start" column deliberately uses the PRE-activity opening balance
+    # (row['_account_opening'], seeded from live holdings) so it reconciles
+    # with the Asset Allocation sheet's "today's" figures. Balance Sheet was
+    # the odd one out reading the wrong snapshot -- use the same opening map
+    # here so all three sheets agree on "today's" account balances. Falls
+    # back to the year-end value for any account the opening map lacks (e.g.
+    # a synthetic/legacy row not produced by the full engine).
+    _y0_opening = yr0.get('_account_opening') or {}
+
     def _acct_items(tax_type, note):
-        return [(acct.get('label') or acct['id'], yr0.get(acct['id'], 0), note)
+        return [(acct.get('label') or acct['id'],
+                  _y0_opening.get(acct['id'], yr0.get(acct['id'], 0)), note)
                 for acct in c.get('account_registry', []) if acct.get('tax') == tax_type]
 
     pretax_total = write_group('Pre-Tax (Tax-Deferred)', _acct_items('pre_tax', 'Tax-deferred'))
@@ -1425,7 +1437,14 @@ def build_sheet3(ws, c, rows):
         for sym, shares in holdings.items()
     )
 
-    _projection_y0_nw = rows[0].get('total_nw', 0) if rows else 0
+    # #253: Balance Sheet now shows opening (pre-activity) pretax/roth/trust/
+    # hsa balances above, so the QC target must be the same opening-adjusted
+    # total the Net Worth sheet reconciles to -- not the engine's raw
+    # year-end total_nw, which still includes that year's growth/withdrawal/
+    # CST-funding activity on those same account groups.
+    _ye_invest_y0 = sum(yr0.get(k, 0) for k in ('pretax_nw', 'roth_nw', 'trust_nw', 'hsa_nw'))
+    _open_invest_y0 = pretax_total + roth_total + trust_total + hsa_total
+    _projection_y0_nw = (rows[0].get('total_nw', 0) - _ye_invest_y0 + _open_invest_y0) if rows else 0
     _nw_reconciled = abs(net_worth - _projection_y0_nw) < 1.0
     qc('3. Balance Sheet', 'Total assets - liabilities = net worth and reconciles to projection Y0', _nw_reconciled,
        f"NW={net_worth:,.0f} vs projection Y0={_projection_y0_nw:,.0f}")

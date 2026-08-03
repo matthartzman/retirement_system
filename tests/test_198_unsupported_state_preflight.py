@@ -130,6 +130,7 @@ def test_state_residency_sheet_does_not_crash_building_full_comparison_table():
     # string), so it must not raise.
     ws = Workbook().active
     build_sheet13(ws, _sheet13_config('Minnesota'), _sheet13_rows())
-    # 'Lifetime Tax Burden by State' header should appear somewhere below.
+    # #255: the tax-burden table was merged with the cost-of-living-delta
+    # table into a single 'Lifetime Tax and Expenses by State' table.
     values = [ws.cell(row=r, column=1).value for r in range(1, 20)]
-    assert any(v and 'Lifetime Tax Burden by State' in str(v) for v in values)
+    assert any(v and 'Lifetime Tax and Expenses by State' in str(v) for v in values)
