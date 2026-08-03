@@ -1,6 +1,6 @@
 section,subsection,label,value,units,notes,
 # -- client_optional_functions.csv: Client-specific workbook sections and optional planning modules to include or exclude.,,,,,,
-Optional Functions,,lifetime_tax_projection,TRUE,boolean,Sheet 7 - Lifetime Tax Projection
+Optional Functions,,lifetime_tax_projection,YES,boolean,Sheet 7 - Lifetime Tax Projection
 Optional Functions,,charts_dashboard,TRUE,boolean,Sheet 8 - Charts Dashboard (all visual charts consolidated here)
 Optional Functions,,retirement_strategy,TRUE,boolean,Sheet 9 - Retirement Strategy & Sequencing
 Optional Functions,,social_security_timing,TRUE,boolean,Sheet 10 - Social Security Claiming Strategy
@@ -16,8 +16,8 @@ Optional Functions,,long_term_care_stress,TRUE,boolean,Sheet 17 - Long-Term-Care
 Optional Functions,,survivor_stress_test,TRUE,boolean,Sheet 18 - Survivor / Early-Death Stress Test
 Optional Functions,,life_insurance_need,TRUE,boolean,Sheet 19 - Life Insurance Need Analysis
 Optional Functions,,rmd_audit,TRUE,boolean,Sheet 20 - RMD Audit
-Optional Functions,,glossary,FALSE,boolean,Sheet 22 - Glossary of Terms
-Optional Functions,,methodology_rerun,FALSE,boolean,Sheet 23 - Methodology & Re-Run Instructions
+Optional Functions,,glossary,TRUE,boolean,Sheet 22 - Glossary of Terms
+Optional Functions,,methodology_rerun,YES,boolean,Sheet 23 - Methodology & Re-Run Instructions
 Optional Functions,,education_funding_529,FALSE,boolean,Sheet 24 - Education Funding (529 plans + goals)
 Optional Functions,,existing_life_insurance,FALSE,boolean,Sheet 25 - Existing Life Insurance Policies
 Optional Functions,,disability_income_insurance,FALSE,boolean,Sheet 26 - Disability Income Insurance

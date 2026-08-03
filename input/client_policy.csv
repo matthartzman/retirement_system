@@ -1,15 +1,15 @@
 section,subsection,label,value,units,notes,
 "# -- client_policy.csv: Model constants, allocation policy, withdrawal policy, forced actions, scenarios, and Monte Carlo settings.",,,,,,
-Account Policy,Member_1_HSA,reinvest_dividends,NO,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
-Account Policy,Member_1_401k,reinvest_dividends,NO,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
-Account Policy,Member_1_IRA,reinvest_dividends,NO,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
-Account Policy,Member_1_Roth,reinvest_dividends,NO,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
-Account Policy,Member_1_Trust,reinvest_dividends,NO,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
-Account Policy,Member_2_IRA,reinvest_dividends,NO,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
-Account Policy,Member_2_Roth,reinvest_dividends,NO,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
-Account Policy,Member_2_Trust,reinvest_dividends,NO,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
+Account Policy,Member_1_HSA,reinvest_dividends,,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
+Account Policy,Member_1_401k,reinvest_dividends,,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
+Account Policy,Member_1_IRA,reinvest_dividends,,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
+Account Policy,Member_1_Roth,reinvest_dividends,,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
+Account Policy,Member_1_Trust,reinvest_dividends,,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
+Account Policy,Member_2_IRA,reinvest_dividends,,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
+Account Policy,Member_2_Roth,reinvest_dividends,,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
+Account Policy,Member_2_Trust,reinvest_dividends,,yes/no,Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES.
 HELOC,Setup,heloc_enabled,NO,yes/no,"Enable the HELOC strategy. When Yes, the projection draws from the HELOC during the draw period to fund large discretionary spending instead of liquidating portfolio assets."
-HELOC,Setup,heloc_credit_limit,199000,dollars,Maximum HELOC credit line available. The projection will not borrow beyond this amount.
+HELOC,Setup,heloc_credit_limit,"$200,000",dollars,Maximum HELOC credit line available. The projection will not borrow beyond this amount.
 HELOC,Setup,heloc_draw_end_year,2029,year,Last year the HELOC can be drawn. After this year no new borrowing occurs; the outstanding balance accrues interest until repaid at home sale.
 HELOC,Setup,heloc_initial_rate_pct,8.50%,percent,Starting annual interest rate on the HELOC balance (variable rate). Interest is paid from cash flow each year.
 HELOC,Setup,heloc_rate_drift_bps_yr,25,number,Annual rate increase in basis points per year (e.g. 25 = +0.25%/yr). Models a rising-rate environment over the draw period.
@@ -26,8 +26,6 @@ Model Constants,Retirement,spending_freeze_year,2050,year,Year base spending sto
 Model Constants,Roth Conversion,roth_conv_window_end_offset,-1,years,CONV_END_YR = H_RMD_start_yr + this offset (default -1 = year before RMDs),
 Model Constants,IRMAA,irmaa_tier2_mfj_base_year,268000,USD,Tier 2 MFJ threshold in 2025 table; annual tax-update workflow must refresh thresholds and dashboard provenance.,
 Model Constants,IRMAA,irmaa_annual_inflator,2.00%,pct,Annual IRMAA threshold inflation rate,
-Model Constants,IRMAA,irmaa_actual_magi_2yr_prior,365569,USD,Actual household MAGI from the tax year two years before plan start (from filed tax returns). Seeds the IRMAA two-year lookback for plan year 1. Leave blank to fall back to retirement-year AGI.,
-Model Constants,IRMAA,irmaa_actual_magi_1yr_prior,386657,USD,Actual household MAGI from the tax year one year before plan start (from filed tax returns). Seeds the IRMAA two-year lookback for plan year 2. Leave blank to fall back to retirement-year AGI.,
 Model Constants,Monte Carlo,mc_portfolio_sigma,12.00%,pct,"Portfolio return standard deviation for Monte Carlo (1,000 sims)",
 Model Constants,Monte Carlo,mc_simulations,1000,integer,Number of exact scalar Monte Carlo simulation paths for interactive builds; raise for final advisor runs,
 Model Constants,Monte Carlo,mc_sensitivity_simulations,50,integer,Exact scalar re-simulations per μ/σ sensitivity-grid cell; raise for final advisor runs if runtime allows.,
@@ -65,20 +63,26 @@ Model Constants,Allocation,cash_target_pct,0.05,,Cash buffer as % of portfolio (
 Model Constants,Allocation,include_home_equity_in_allocation_view,YES,yes/no,YES includes home equity in the Total Portfolio Mix section for allocation context.,
 Model Constants,Allocation,liquid_reit_target_pct_when_home_not_counted,5%,pct,Default 5%; liquid REIT target if REITs are enabled and home equity is not counted toward the real-estate target.,
 Asset Allocation Policy,Global,allocation_selection_mode,user_target,choice,"Toggle: user_target uses the user-specified target_pct rows; optimizer_recommendation uses the allocation optimizer recommendation. Optimizer is based on risk tolerance/auto risk score, age, withdrawal rate, years to retirement, human-capital stability, guaranteed-income coverage, home-equity/REIT switches, concentration flags, capital-market assumptions, correlations, glide path, and inflation-sensitive spending.",
-Asset Allocation Policy,US Large Cap,target_pct,35%,pct,"Default 40%; U.S. large-cap equity. Example vehicles: VTI, ITOT, VOO. User may override, but all target_pct rows should total 100%.",
-Asset Allocation Policy,US Mid Cap,target_pct,5%,pct,"Default 5%; U.S. mid-cap equity. Example vehicles: VO, IWR, SCHM. User may override, but all target_pct rows should total 100%.",
-Asset Allocation Policy,US Small Cap,target_pct,5%,pct,"Default 5%; U.S. small-cap/value tilt. Example vehicles: AVUV, VBR, IWM. User may override, but all target_pct rows should total 100%.",
-Asset Allocation Policy,International,target_pct,20%,pct,"Default 20%; developed international equity. Example vehicles: VXUS, IXUS, VEA. User may override, but all target_pct rows should total 100%.",
-Asset Allocation Policy,Emerging Markets,target_pct,5%,pct,"Default 5%; emerging markets equity. Example vehicles: VWO, IEMG, EEM. User may override, but all target_pct rows should total 100%.",
-Asset Allocation Policy,Bonds,target_pct,15%,pct,"Default 15%; core investment-grade bonds. Example vehicles: BND, AGG, SCHZ. User may override, but all target_pct rows should total 100%.",
-Asset Allocation Policy,Short-Term Bonds,target_pct,5%,pct,"Default 5%; short-duration reserve/bond sleeve. Example vehicles: SGOV, SHY, USFR. User may override, but all target_pct rows should total 100%.",
-Asset Allocation Policy,TIPS,target_pct,0%,pct,"Default 0%; optional inflation-linked bonds. Example vehicles: TIP, SCHP, VTIP. User may override, but all target_pct rows should total 100%.",
+Asset Allocation Policy,US Large Cap,target_pct,34%,pct,"Default 40%; U.S. large-cap equity. Example vehicles: VTI, ITOT, VOO. User may override, but all target_pct rows should total 100%.",
+Asset Allocation Policy,US Mid Cap,target_pct,6%,pct,"Default 5%; U.S. mid-cap equity. Example vehicles: VO, IWR, SCHM. User may override, but all target_pct rows should total 100%.",
+Asset Allocation Policy,US Small Cap,target_pct,6%,pct,"Default 5%; U.S. small-cap/value tilt. Example vehicles: AVUV, VBR, IWM. User may override, but all target_pct rows should total 100%.",
+Asset Allocation Policy,International,target_pct,18%,pct,"Default 20%; developed international equity. Example vehicles: VXUS, IXUS, VEA. User may override, but all target_pct rows should total 100%.",
+Asset Allocation Policy,Emerging Markets,target_pct,6%,pct,"Default 5%; emerging markets equity. Example vehicles: VWO, IEMG, EEM. User may override, but all target_pct rows should total 100%.",
+Asset Allocation Policy,Bonds,target_pct,16%,pct,"Default 15%; core investment-grade bonds. Example vehicles: BND, AGG, SCHZ. User may override, but all target_pct rows should total 100%.",
+Asset Allocation Policy,Short-Term Bonds,target_pct,4%,pct,"Default 5%; short-duration reserve/bond sleeve. Example vehicles: SGOV, SHY, USFR. User may override, but all target_pct rows should total 100%.",
+Asset Allocation Policy,TIPS,target_pct,2%,pct,"Default 0%; optional inflation-linked bonds. Example vehicles: TIP, SCHP, VTIP. User may override, but all target_pct rows should total 100%.",
 Asset Allocation Policy,Municipal Bonds,target_pct,0%,pct,"Default 0%; optional tax-sensitive bond sleeve. Example vehicles: MUB, VTEB, TFI. User may override, but all target_pct rows should total 100%.",
 Asset Allocation Policy,REITs,target_pct,0%,pct,"Default 0%; optional liquid real estate. Example vehicles: VNQ, SCHH, IYR. User may override, but all target_pct rows should total 100%.",
-Asset Allocation Policy,Commodities,target_pct,5%,pct,"Default 0%; optional real-asset/inflation-shock sleeve. Example vehicles: PDBC, DJP, GSG. User may override, but all target_pct rows should total 100%.",
+Asset Allocation Policy,Commodities,target_pct,4%,pct,"Default 0%; optional real-asset/inflation-shock sleeve. Example vehicles: PDBC, DJP, GSG. User may override, but all target_pct rows should total 100%.",
 Asset Allocation Policy,Managed Futures,target_pct,0%,pct,"Default 0%; optional trend-following diversifier. Example vehicles: DBMF, KMLM, CTA. User may override, but all target_pct rows should total 100%.",
 Asset Allocation Policy,Private Credit,target_pct,0%,pct,"Default 0%; optional senior-loan/CLO-style credit. Example vehicles: BKLN, SRLN, JAAA. User may override, but all target_pct rows should total 100%.",
-Asset Allocation Policy,Cash,target_pct,5%,pct,"Default 5%; liquidity reserve/money market. Example vehicles: CASH, SGOV, BIL. User may override, but all target_pct rows should total 100%.",
+Asset Allocation Policy,Cash,target_pct,4%,pct,"Default 5%; liquidity reserve/money market. Example vehicles: CASH, SGOV, BIL. User may override, but all target_pct rows should total 100%.",
+Withdrawal Policy,Priority 1,RMD,mandatory,choice,Withdrawal cascade row edited from the User UI compressed withdrawal-order table.,
+Withdrawal Policy,Priority 2,HSA,smooth_window,choice,Withdrawal cascade row edited from the User UI compressed withdrawal-order table.,
+Withdrawal Policy,Priority 3,IRA_elective,gross_up_tax,choice,Withdrawal cascade row edited from the User UI compressed withdrawal-order table.,
+Withdrawal Policy,Priority 4,Trust,with_buffer,choice,Withdrawal cascade row edited from the User UI compressed withdrawal-order table.,
+Withdrawal Policy,Priority 5,Roth,tax_free,choice,Withdrawal cascade row edited from the User UI compressed withdrawal-order table.,
+Withdrawal Policy,Priority 6,Home_equity_tap,heloc_or_downsize,choice,Withdrawal cascade row edited from the User UI compressed withdrawal-order table.,
 Withdrawal Policy,Identity,annual_funding_tolerance,$100,USD,inflows must equal outflows within 10 USD per year (no silent shortfalls),
 Withdrawal Policy,Tax-Loss Harvesting,tlh_policy,analyze_only,choice,off | analyze_only | apply. off ignores tax-loss harvesting. analyze_only surfaces opportunities on the Tax-Loss Harvesting sheet without changing the projection. apply harvests qualifying loss lots each year inside the projection so terminal net worth and lifetime tax reflect the strategy.,
 Withdrawal Policy,Tax-Loss Harvesting,tlh_min_loss_dollars,$500,USD,Minimum dollar loss on a lot before it is worth harvesting (avoids trivial trades).,
@@ -86,15 +90,11 @@ Withdrawal Policy,Tax-Loss Harvesting,tlh_min_loss_pct,3.00%,percent,Minimum los
 Withdrawal Policy,Tax-Loss Harvesting,tlh_annual_ceiling,$0,USD,Maximum harvested loss per year (0 = unlimited). Caps how much loss is realized annually.,
 Withdrawal Policy,Tax-Loss Harvesting,tlh_transaction_cost_bps,2,number,"Round-trip trading cost, in basis points (hundredths of a percent) of harvested market value — not a dollar amount. 2 bps = 0.02%; 100 bps = 1%. A typical low-cost brokerage trade is 0-5 bps.",
 Withdrawal Policy,Tax-Loss Harvesting,tlh_fraction_sold_before_death,50.00%,percent,Planning assumption: fraction of the lower-basis replacement expected to be sold (and its larger gain taxed) before basis step-up at death. Lower values make harvesting more permanently valuable.,
-Withdrawal Policy,Gain Harvesting,gain_harvest_policy,off,choice,off | analyze_only | apply. off ignores 0%-bracket gain harvesting. analyze_only surfaces opportunities on the Gain Harvesting sheet without changing the projection. apply realizes qualifying appreciated long-term lots each year (tax-free, up to the remaining 0% capital-gains bracket headroom) inside the projection so terminal net worth reflects the strategy.,
-Withdrawal Policy,Gain Harvesting,gain_harvest_min_gain_dollars,$500,USD,Minimum dollar gain on a lot before it is worth harvesting (avoids trivial trades).,
-Withdrawal Policy,Gain Harvesting,gain_harvest_min_gain_pct,0.00%,percent,Minimum gain as a percentage of the lot's cost basis before harvesting.,
-Withdrawal Policy,Gain Harvesting,gain_harvest_transaction_cost_bps,2,number,"Round-trip trading cost, in basis points (hundredths of a percent) of harvested market value — not a dollar amount. 2 bps = 0.02%; 100 bps = 1%. A typical low-cost brokerage trade is 0-5 bps.",
-Withdrawal Policy,Roth Conversion,roth_conversion_policy,optimize_terminal_tax,choice,optimize_terminal_tax | fill_to_bracket | fill_to_irmaa | fixed_dollar | none,
-Withdrawal Policy,Roth Conversion,roth_bracket_strategy,OPTIMIZER_CHOOSES,choice,NONE | FILL_CURRENT_BRACKET | FILL_TARGET_BRACKET | PARTIAL_TARGET_BRACKET | IRMAA_GUARDED | SURVIVOR_TAX_AWARE | RMD_REDUCTION | LEGACY_TARGETED | OPTIMIZER_CHOOSES | FIXED_DOLLAR; strategy family considered by the Roth optimizer.,
+Withdrawal Policy,Roth Conversion,roth_conversion_policy,fill_to_bracket,choice,optimize_terminal_tax | fill_to_bracket | fill_to_irmaa | fixed_dollar | none,
+Withdrawal Policy,Roth Conversion,roth_bracket_strategy,FILL_TARGET_BRACKET,choice,NONE | FILL_CURRENT_BRACKET | FILL_TARGET_BRACKET | PARTIAL_TARGET_BRACKET | IRMAA_GUARDED | SURVIVOR_TAX_AWARE | RMD_REDUCTION | LEGACY_TARGETED | OPTIMIZER_CHOOSES | FIXED_DOLLAR; strategy family considered by the Roth optimizer.,
 Withdrawal Policy,Roth Conversion,max_annual_conversion_pct_of_traditional_ira,100.00%,percent,Maximum voluntary conversion in a year as a percentage of starting traditional IRA/pre-tax balances.,
 Withdrawal Policy,Roth Conversion,max_conversion_years,10,years,"Maximum number of years in the voluntary conversion window, also bounded by the RMD-age window.",
-Withdrawal Policy,Roth Conversion,roth_objective_mode,BALANCED_RETIREMENT,choice,"BALANCED_RETIREMENT | MINIMIZE_LIFETIME_TAX | MAXIMIZE_TERMINAL_NET_WORTH | LEGACY_OPTIMIZED | ESTATE_TAX_AWARE | CUSTOM_WEIGHTED; default balances tax, terminal wealth, survivor, legacy and estate factors.",
+Withdrawal Policy,Roth Conversion,roth_objective_mode,MAXIMIZE_TERMINAL_NET_WORTH,choice,"BALANCED_RETIREMENT | MINIMIZE_LIFETIME_TAX | MAXIMIZE_TERMINAL_NET_WORTH | LEGACY_OPTIMIZED | ESTATE_TAX_AWARE | CUSTOM_WEIGHTED; default balances tax, terminal wealth, survivor, legacy and estate factors.",
 Withdrawal Policy,Roth Conversion,estate_tax_objective_mode,BALANCED,choice,OFF | MONITOR_ONLY | BALANCED | STRONG; affects Roth scoring when projected federal or state estate tax exposure exists; zero effect when no estate tax is projected.,
 Withdrawal Policy,Roth Conversion,roth_headroom_usage_pct,100.00%,percent,Use this percentage of tax bracket headroom for voluntary conversions; leaves margin below the threshold.,
 Withdrawal Policy,Roth Conversion,roth_target_bracket_rate,22.00%,choice,10.00% | 12.00% | 22.00% | 24.00% | 32.00% | 35.00% | 37.00%; Target marginal bracket ceiling for bracket-fill Roth conversion policies.,
@@ -102,7 +102,7 @@ Withdrawal Policy,Roth Conversion,roth_irmaa_cap,TRUE,boolean,Cap conversions at
 Withdrawal Policy,Roth Conversion,roth_irmaa_target_tier,TIER_2,choice,TIER_1 | TIER_2 | TIER_3 | TIER_4 | TIER_5; IRMAA cap tier used by Roth conversion guardrails; labels show MFJ/single dollar thresholds from annual tax data.,
 Withdrawal Policy,Roth Conversion,irmaa_guardrail_mode,WARN_ONLY,choice,IGNORE | WARN_ONLY | AVOID_NEXT_TIER | AVOID_TIER_2_OR_ABOVE | CUSTOM_MAGI_CAP; controls how Medicare IRMAA cliffs constrain Roth conversions.,
 Withdrawal Policy,Roth Conversion,roth_irmaa_headroom_usage_pct,100.00%,percent,Use this percentage of available IRMAA headroom before stopping voluntary conversions.,
-Withdrawal Policy,Roth Conversion,roth_fixed_annual_amount,,dollars,Annual amount for fixed_dollar policy,
+Withdrawal Policy,Roth Conversion,roth_fixed_annual_amount,$0,dollars,Annual amount for fixed_dollar policy,
 Withdrawal Policy,Roth Conversion,roth_optimize_terminal_weight,1.00,number,Weight on after-tax terminal net worth in optimizer objective,
 Withdrawal Policy,Roth Conversion,roth_optimize_lifetime_tax_weight,0.25,number,Weight on lifetime tax penalty in optimizer objective,
 Withdrawal Policy,Roth Conversion,roth_optimize_terminal_pretax_tax_rate,22.00%,percent,After-tax haircut applied to terminal pre-tax balances for objective scoring,
@@ -121,9 +121,9 @@ Withdrawal Policy,Spousal Rollover,decedent_balances_pass_to_survivor,TRUE,boole
 "# -- Forced Roth Conversions: source account, year, and amount --",,,,,,,
 Model Constants,IRMAA,h_ssa44_relief_year,,year,First year Member 1's IRMAA surcharge is suppressed following an approved Form SSA-44 life-changing-event appeal. Blank = none filed. Base Part B/D/G premiums are still owed; only the surcharge is relieved. An appeal outcome is granted case-by-case and is never guaranteed — enter this only for an appeal already approved.
 Model Constants,IRMAA,w_ssa44_relief_year,,year,First year Member 2's IRMAA surcharge is suppressed following an approved Form SSA-44 life-changing-event appeal. Blank = none filed. Base Part B/D/G premiums are still owed; only the surcharge is relieved. An appeal outcome is granted case-by-case and is never guaranteed — enter this only for an appeal already approved.
-Forced Actions,Roth Conversion 1,source_account,Member_2_IRA,choice,Member_1_401k | Member_1_IRA | Member_2_IRA; pre-tax account to convert from,,
-Forced Actions,Roth Conversion 1,year,2026,year,Calendar year the forced conversion is applied,,
-Forced Actions,Roth Conversion 1,amount,"$125,000",USD,Dollar amount to convert from the selected account to that owner’s Roth account,,
+Forced Actions,Roth Conversion 1,source_account,Member_1_IRA,choice,Member_1_401k | Member_1_IRA | Member_2_IRA; pre-tax account to convert from,,
+Forced Actions,Roth Conversion 1,year,2030,year,Calendar year the forced conversion is applied,,
+Forced Actions,Roth Conversion 1,amount,"$75,000",USD,Dollar amount to convert from the selected account to that owner’s Roth account,,
 ,,,,,,,
 ,,,,,,,
 Scenarios,Base,description,as-modeled plan,,the base case is the plan as built from all inputs above,

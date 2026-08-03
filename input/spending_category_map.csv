@@ -4,8 +4,8 @@ Expenses,Income,Interest,income
 Expenses,Income,Other Income,income
 Expenses,Income,Dividends & Capital Gains,income
 Expenses,Business,Business Reimbursement,business
-Expenses,Income,RedMane Annual Note P&I,income
-Expenses,Gifts Charity,Gifts - Family 12,core
+Expenses,Income,Northwind Systems Note P&I,income
+Expenses,Gifts Charity,Gifts - Family,core
 Expenses,Gifts Charity,Gifts - Other,core
 Expenses,Gifts Charity,Church,core
 Expenses,Gifts Charity,Donation,core
@@ -46,7 +46,7 @@ Expenses,Lifestyle,Travel - Plane/Train/Bus,travel
 Expenses,Lifestyle,Travel - Housing,travel
 Expenses,Lifestyle,Travel - Insurance,travel
 Expenses,Lifestyle,Personal,core
-Expenses,Lifestyle,Cubs Tickets,core
+Expenses,Lifestyle,Sporting Event Tickets,core
 Expenses,Lifestyle,Movie Theater,core
 Expenses,Lifestyle,Hair/Make-up,core
 Expenses,Lifestyle,Mani-Pedi,core

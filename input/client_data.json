@@ -1,28 +1,28 @@
 {
   "Account Policy": {
     "Member_1_401k": {
-      "reinvest_dividends": "NO"
+      "reinvest_dividends": ""
     },
     "Member_1_HSA": {
-      "reinvest_dividends": "NO"
+      "reinvest_dividends": ""
     },
     "Member_1_IRA": {
-      "reinvest_dividends": "NO"
+      "reinvest_dividends": ""
     },
     "Member_1_Roth": {
-      "reinvest_dividends": "NO"
+      "reinvest_dividends": ""
     },
     "Member_1_Trust": {
-      "reinvest_dividends": "NO"
+      "reinvest_dividends": ""
     },
     "Member_2_IRA": {
-      "reinvest_dividends": "NO"
+      "reinvest_dividends": ""
     },
     "Member_2_Roth": {
-      "reinvest_dividends": "NO"
+      "reinvest_dividends": ""
     },
     "Member_2_Trust": {
-      "reinvest_dividends": "NO"
+      "reinvest_dividends": ""
     }
   },
   "Account Titling": {
@@ -65,7 +65,7 @@
     "Member_1_Trust": {
       "contingent_beneficiary": "",
       "primary_beneficiary": "",
-      "titling": "TRUST_TITLED",
+      "titling": "",
       "trust_see_through": "FALSE"
     },
     "Member_2_IRA": {
@@ -83,109 +83,127 @@
     "Member_2_Trust": {
       "contingent_beneficiary": "",
       "primary_beneficiary": "",
-      "titling": "TRUST_TITLED",
+      "titling": "",
       "trust_see_through": "FALSE"
     }
   },
   "Annuity Death Benefits": {
     "2026": {
-      "H_Joint": "$860,000",
-      "H_Single": "$93,041",
-      "W_Joint": "$355,000",
-      "W_Single": "$54,811"
+      "H_Joint": "$600,000",
+      "H_Single": "$85,000",
+      "W_Joint": "$300,000",
+      "W_Single": "$50,000"
     },
     "2027": {
-      "H_Joint": "$860,000",
-      "H_Single": "$98,029",
-      "W_Joint": "$355,000",
-      "W_Single": "$57,527"
+      "H_Joint": "$630,000",
+      "H_Single": "$89,200",
+      "W_Joint": "$315,000",
+      "W_Single": "$52,500"
     },
     "2028": {
-      "H_Joint": "$887,765",
-      "H_Single": "$103,285",
-      "W_Joint": "$353,868",
-      "W_Single": "$60,381"
+      "H_Joint": "$661,500",
+      "H_Single": "$93,700",
+      "W_Joint": "$330,800",
+      "W_Single": "$55,100"
     },
     "2029": {
-      "H_Joint": "$936,024",
-      "H_Single": "$108,826",
-      "W_Joint": "$324,660",
-      "W_Single": "$67,377"
+      "H_Joint": "$694,600",
+      "H_Single": "$98,400",
+      "W_Joint": "$347,300",
+      "W_Single": "$57,900"
     },
     "2030": {
-      "H_Joint": "$869,290",
-      "H_Single": "$0",
-      "W_Joint": "$295,406",
-      "W_Single": "$0"
+      "H_Joint": "$729,300",
+      "H_Single": "$103,300",
+      "W_Joint": "$325,600",
+      "W_Single": "$60,800"
     },
     "2031": {
-      "H_Joint": "$793,070",
-      "H_Single": "$0",
-      "W_Joint": "$267,026",
-      "W_Single": "$0"
+      "H_Joint": "$680,700",
+      "H_Single": "$96,400",
+      "W_Joint": "$303,900",
+      "W_Single": "$63,800"
     },
     "2032": {
-      "H_Joint": "$717,885",
-      "H_Single": "$0",
-      "W_Joint": "$239,467",
-      "W_Single": "$0"
+      "H_Joint": "$632,100",
+      "H_Single": "$89,500",
+      "W_Joint": "$282,200",
+      "W_Single": "$59,300"
     },
     "2033": {
-      "H_Joint": "$644,998",
-      "H_Single": "$0",
-      "W_Joint": "$212,555",
-      "W_Single": "$0"
+      "H_Joint": "$583,400",
+      "H_Single": "$82,700",
+      "W_Joint": "$260,500",
+      "W_Single": "$54,700"
     },
     "2034": {
-      "H_Joint": "$574,089",
-      "H_Single": "$0",
-      "W_Joint": "$186,153",
-      "W_Single": "$0"
+      "H_Joint": "$534,800",
+      "H_Single": "$75,800",
+      "W_Joint": "$238,800",
+      "W_Single": "$50,100"
     },
     "2035": {
-      "H_Joint": "$504,776",
-      "H_Single": "$0",
-      "W_Joint": "$160,180",
-      "W_Single": "$0"
+      "H_Joint": "$486,200",
+      "H_Single": "$68,900",
+      "W_Joint": "$217,100",
+      "W_Single": "$45,600"
     },
     "2036": {
-      "H_Joint": "$436,878",
-      "H_Single": "$0",
-      "W_Joint": "$134,626",
-      "W_Single": "$0"
+      "H_Joint": "$437,600",
+      "H_Single": "$62,000",
+      "W_Joint": "$195,300",
+      "W_Single": "$41,000"
     },
     "2037": {
-      "H_Joint": "$370,076",
-      "H_Single": "$0",
-      "W_Joint": "$109,395",
-      "W_Single": "$0"
+      "H_Joint": "$389,000",
+      "H_Single": "$55,100",
+      "W_Joint": "$173,600",
+      "W_Single": "$36,500"
     },
     "2038": {
-      "H_Joint": "$304,216",
-      "H_Single": "$0",
-      "W_Joint": "$84,451",
-      "W_Single": "$0"
+      "H_Joint": "$340,300",
+      "H_Single": "$48,200",
+      "W_Joint": "$151,900",
+      "W_Single": "$31,900"
     },
     "2039": {
-      "H_Joint": "$239,205",
-      "H_Single": "$0",
-      "W_Joint": "$59,771",
-      "W_Single": "$0"
+      "H_Joint": "$291,700",
+      "H_Single": "$41,300",
+      "W_Joint": "$130,200",
+      "W_Single": "$27,300"
     },
     "2040": {
-      "H_Joint": "$173,663",
-      "H_Single": "$0",
-      "W_Joint": "$35,209",
-      "W_Single": "$0"
+      "H_Joint": "$243,100",
+      "H_Single": "$34,400",
+      "W_Joint": "$108,500",
+      "W_Single": "$22,800"
     },
     "2041": {
-      "H_Joint": "$173,663",
-      "H_Single": "$0",
-      "W_Joint": "$10,736",
-      "W_Single": "$0"
+      "H_Joint": "$194,500",
+      "H_Single": "$27,600",
+      "W_Joint": "$86,800",
+      "W_Single": "$18,200"
     },
     "2042": {
-      "H_Joint": "$43,892",
+      "H_Joint": "$145,900",
+      "H_Single": "$20,700",
+      "W_Joint": "$65,100",
+      "W_Single": "$13,700"
+    },
+    "2043": {
+      "H_Joint": "$97,200",
+      "H_Single": "$13,800",
+      "W_Joint": "$43,400",
+      "W_Single": "$9,100"
+    },
+    "2044": {
+      "H_Joint": "$48,600",
+      "H_Single": "$6,900",
+      "W_Joint": "$21,700",
+      "W_Single": "$4,600"
+    },
+    "2045": {
+      "H_Joint": "$0",
       "H_Single": "$0",
       "W_Joint": "$0",
       "W_Single": "$0"
@@ -193,16 +211,16 @@
   },
   "Asset Allocation Policy": {
     "Bonds": {
-      "target_pct": "15%"
+      "target_pct": "16%"
     },
     "Cash": {
-      "target_pct": "5%"
+      "target_pct": "4%"
     },
     "Commodities": {
-      "target_pct": "5%"
+      "target_pct": "4%"
     },
     "Emerging Markets": {
-      "target_pct": "5%"
+      "target_pct": "6%"
     },
     "Global": {
       "allocation_selection_mode": "user_target",
@@ -212,7 +230,7 @@
       "real_loss_aware_weight": "1.0"
     },
     "International": {
-      "target_pct": "20%"
+      "target_pct": "18%"
     },
     "Managed Futures": {
       "target_pct": "0%"
@@ -227,19 +245,19 @@
       "target_pct": "0%"
     },
     "Short-Term Bonds": {
-      "target_pct": "5%"
+      "target_pct": "4%"
     },
     "TIPS": {
-      "target_pct": "0%"
+      "target_pct": "2%"
     },
     "US Large Cap": {
-      "target_pct": "35%"
+      "target_pct": "34%"
     },
     "US Mid Cap": {
-      "target_pct": "5%"
+      "target_pct": "6%"
     },
     "US Small Cap": {
-      "target_pct": "5%"
+      "target_pct": "6%"
     }
   },
   "Asset Class Assumptions": {
@@ -278,17 +296,17 @@
     "Managed Futures": {
       "alternate_asset_class": "",
       "optimizer_override_pct": "",
-      "selection_action": "exclude"
+      "selection_action": "include"
     },
     "Municipal Bonds": {
-      "alternate_asset_class": "Guaranteed income + note receivable",
+      "alternate_asset_class": "",
       "optimizer_override_pct": "",
-      "selection_action": "consider_alternate_first"
+      "selection_action": "include"
     },
     "Private Credit": {
       "alternate_asset_class": "",
       "optimizer_override_pct": "",
-      "selection_action": "exclude"
+      "selection_action": "include"
     },
     "REITs": {
       "alternate_asset_class": "Home Equity",
@@ -296,14 +314,14 @@
       "selection_action": "consider_alternate_first"
     },
     "Short-Term Bonds": {
-      "alternate_asset_class": "Guaranteed income + note receivable",
+      "alternate_asset_class": "",
       "optimizer_override_pct": "",
-      "selection_action": "consider_alternate_first"
+      "selection_action": "include"
     },
     "TIPS": {
-      "alternate_asset_class": "Guaranteed income + note receivable",
+      "alternate_asset_class": "",
       "optimizer_override_pct": "",
-      "selection_action": "consider_alternate_first"
+      "selection_action": "include"
     },
     "US Large Cap": {
       "alternate_asset_class": "",
@@ -350,100 +368,100 @@
       "w_qcd_start_year": ""
     },
     "Earned Income": {
-      "annual_earned_income": "$309,620",
+      "annual_earned_income": "$265,000",
       "earned_income_annual_increase": "3.00%",
-      "earned_income_last_year": "2027",
+      "earned_income_last_year": "2029",
       "earned_income_start_year": "2026",
       "entity_type": "s_corp",
       "ytd_remainder_earned_income_override": ""
     },
     "Large Discretionary Expenses": {
-      "extra_1_amount": "$100,000",
-      "extra_1_comment": "Child Wedding 1",
+      "extra_1_amount": "$60,000",
+      "extra_1_comment": "Family wedding",
       "extra_1_end_year": "",
       "extra_1_start_year": "",
       "extra_1_type": "Weddings",
-      "extra_1_year": "2027",
-      "extra_2_amount": "$50,000",
-      "extra_2_comment": "Child Wedding 2",
+      "extra_1_year": "2031",
+      "extra_2_amount": "$60,000",
+      "extra_2_comment": "Family wedding",
       "extra_2_end_year": "",
       "extra_2_start_year": "",
       "extra_2_type": "Weddings",
-      "extra_2_year": "2028",
-      "extra_3_amount": "$100,000",
-      "extra_3_comment": "Child Wedding 3",
+      "extra_2_year": "2034",
+      "extra_3_amount": "$45,000",
+      "extra_3_comment": "Kitchen renovation",
       "extra_3_end_year": "",
       "extra_3_start_year": "",
-      "extra_3_type": "Weddings",
-      "extra_3_year": "2030",
-      "extra_4_amount": "$25,000",
+      "extra_3_type": "Home Improvement",
+      "extra_3_year": "2033",
+      "extra_4_amount": "$20,000",
       "extra_4_comment": "last year home-project spend is active (model ignores this line after this year)",
-      "extra_4_end_year": "2030",
-      "extra_4_start_year": "2026",
+      "extra_4_end_year": "2031",
+      "extra_4_start_year": "2027",
       "extra_4_type": "Home Improvement",
       "extra_4_year": "",
-      "extra_5_amount": "$25,000",
+      "extra_5_amount": "$20,000",
       "extra_5_comment": "last year vacation spend is active",
-      "extra_5_end_year": "2045",
+      "extra_5_end_year": "2046",
       "extra_5_start_year": "2026",
       "extra_5_type": "Vacations",
       "extra_5_year": ""
     },
     "Mortgage": {
-      "annual_real_estate_taxes": "$18,000",
-      "balance_as_of_plan_start": "$290,769.34",
-      "interest_rate": "1.99%",
-      "last_payment_date": "10/31/2034",
-      "last_payment_year": "2034",
-      "monthly_payment": "$3,000",
+      "annual_real_estate_taxes": "$14,500",
+      "balance_as_of_plan_start": "$412,500",
+      "interest_rate": "3.25%",
+      "last_payment_date": "6/30/2038",
+      "last_payment_year": "2038",
+      "monthly_payment": "$2,750",
       "real_estate_tax_annual_adjustment_pct": ""
     },
     "Post-House-Sale Rent": {
       "monthly_rent_post_sale": "$0"
     },
     "Retirement Contributions": {
-      "annual_401k_limit_base_year": "$32,500",
+      "annual_401k_limit_base_year": "$31,000",
       "index_401k_limit": "TRUE",
-      "monthly_401k_contribution": "$2,000"
+      "monthly_401k_contribution": "$2,500"
     },
     "S-Corp": {
       "qbi_phaseout_applies": "FALSE",
-      "reasonable_salary_annual": "$60,000",
+      "reasonable_salary_annual": "$85,000",
       "sehi_added_to_w2": "TRUE",
       "state_corporate_surcharge_rate": "1.50%"
     },
     "Self-Employment": {
-      "business_expenses_annual": "$15,000",
-      "health_insurance_premiums_annual": "$10,000",
-      "home_office_expenses_annual": "$4,000",
+      "business_expenses_annual": "$18,000",
+      "health_insurance_premiums_annual": "$12,000",
+      "home_office_expenses_annual": "$3,600",
       "qbi_eligible": "TRUE"
     },
     "Spending": {
-      "annual_charitable_giving_high": "$5,000",
-      "annual_charitable_giving_low": "$3,000",
-      "annual_spending_base_year": "$154,158",
+      "annual_charitable_giving_high": "$4,800",
+      "annual_charitable_giving_low": "$2,400",
+      "annual_spending_base_year": "$132,000",
       "core_spending_growth_mode": "cpi",
       "core_spending_manual_growth_rate": "0.00%",
       "daf_annual_contribution": "$0",
-      "ytd_blend_enabled": "TRUE",
+      "ytd_blend_enabled": "FALSE",
       "ytd_remainder_spending_override": ""
     }
   },
   "DAF": {
     "Settings": {
-      "annual_grant_amount": "$4,000",
-      "contribution_amount": "$20,000",
+      "annual_grant_amount": "$5,000",
+      "contribution_amount": "$25,000",
       "contribution_is_appreciated": "FALSE",
-      "contribution_year": "2026",
-      "enabled": "YES",
-      "grant_end_year": "2031",
-      "grant_start_year": "2027"
+      "contribution_year": "2027",
+      "enabled": "TRUE",
+      "grant_end_year": "2032",
+      "grant_start_year": "2028"
     }
   },
   "Economic Assumptions": {
     "": {
       "annuity_default_additional_income_pct": "20.00%",
-      "annuity_default_dividend_rate": "5.25%",
+      "annuity_default_dividend_rate": "5.00%",
       "cash_yield_rate": "1.00%",
       "fed_tax_bracket_inflator": "2.00%",
       "inflation_general": "2.50%",
@@ -473,7 +491,7 @@
       "contribution_end_year": "2035",
       "growth_rate": "6.00%",
       "monthly_contribution": "$500",
-      "owner": "Husband",
+      "owner": "Member 1",
       "state_deduction_eligible": "FALSE"
     },
     "Grandchild_A_Goal": {
@@ -497,7 +515,7 @@
       "grant_type": "ISO",
       "planned_exercise_year": "2026",
       "planned_sale_year": "2027",
-      "recipient": "Husband",
+      "recipient": "Member 1",
       "shares_outstanding": "500",
       "vest_schedule": "fully vested"
     },
@@ -509,17 +527,16 @@
       "grant_type": "RSU",
       "planned_exercise_year": "0",
       "planned_sale_year": "2026",
-      "recipient": "Husband",
+      "recipient": "Member 1",
       "shares_outstanding": "2000",
       "vest_schedule": "25%/yr starting 2025"
     }
   },
   "Estate Planning": {
     "Credit Shelter Trust": {
-      "amount": "$8,000,000",
+      "amount": "$4,000,000",
       "enabled": "TRUE",
-      "note": "Funds up to the CST shelter cap; bypasses survivor estate for IL tax on top of the survivor's own separate IL exemption",
-      "shelter_cap": "$8,000,000"
+      "note": "Funds up to IL exemption bypasses survivor estate for IL tax"
     },
     "Federal": {
       "exemption_mfj": "$30,000,000",
@@ -572,14 +589,14 @@
   },
   "Forced Actions": {
     "Roth Conversion 1": {
-      "amount": "$125,000",
-      "source_account": "Member_2_IRA",
-      "year": "2026"
+      "amount": "$75,000",
+      "source_account": "Member_1_IRA",
+      "year": "2030"
     }
   },
   "HELOC": {
     "Setup": {
-      "heloc_credit_limit": "199000",
+      "heloc_credit_limit": "$200,000",
       "heloc_draw_end_year": "2029",
       "heloc_enabled": "NO",
       "heloc_initial_rate_pct": "8.50%",
@@ -591,9 +608,9 @@
     "Contributions": {
       "catchup_amount": "$1,000",
       "catchup_eligible": "TRUE",
-      "contribution_last_year": "2026",
-      "coverage_base_year_family_months": "6",
-      "coverage_base_year_self_only_months": "6",
+      "contribution_last_year": "2029",
+      "coverage_base_year_family_months": "12",
+      "coverage_base_year_self_only_months": "0",
       "family_annual_limit_base_year": "$8,750",
       "index_hsa_limit": "TRUE",
       "requires_hdhp": "TRUE",
@@ -603,29 +620,29 @@
       "inherited_by_spouse": "TRUE"
     },
     "Window": {
-      "withdrawal_window": "2031-2040"
+      "withdrawal_window": "2033-2042"
     },
     "Withdrawals": {
       "hsa_annual_spend_pct": "10.00%",
-      "hsa_withdrawal_end_year": "2050",
+      "hsa_withdrawal_end_year": "2042",
       "hsa_withdrawal_mode": "smooth_window",
-      "hsa_withdrawal_start_year": "2035"
+      "hsa_withdrawal_start_year": "2033"
     }
   },
   "Household": {
     "": {
       "filing_status": "MFJ",
-      "member_1_dob": "8/3/1962",
-      "member_1_mortality_age": "92",
-      "member_1_name": "Matthew",
-      "member_1_nickname": "Matt",
-      "member_1_retirement_date": "2027-01-01",
-      "member_2_dob": "5/30/1961",
-      "member_2_mortality_age": "95",
-      "member_2_name": "Patricia",
-      "member_2_nickname": "Pat",
-      "member_2_retirement_date": "2/28/2024",
-      "residence_state": "Florida",
+      "member_1_dob": "4/17/1966",
+      "member_1_mortality_age": "90",
+      "member_1_name": "Alexander",
+      "member_1_nickname": "Alex",
+      "member_1_retirement_date": "2029-07-01",
+      "member_2_dob": "9/22/1967",
+      "member_2_mortality_age": "93",
+      "member_2_name": "Morgan",
+      "member_2_nickname": "Morgan",
+      "member_2_retirement_date": "2030-01-01",
+      "residence_state": "Illinois",
       "survivor_filing_status": "Single",
       "survivor_has_dependent": "FALSE"
     }
@@ -634,25 +651,25 @@
     "current_home": {
       "city_type": "",
       "hoa_annual": "",
-      "home_maintenance_annual": "$2,100",
-      "homeowners_insurance_annual": "$2,000",
+      "home_maintenance_annual": "$4,800",
+      "homeowners_insurance_annual": "$1,900",
       "population_size": "",
-      "utilities_annual": "$2,100"
+      "utilities_annual": "$6,600"
     },
     "next_step_1": {
       "city_type": "",
-      "down_payment": "80%",
+      "down_payment": "",
       "end_year": "",
       "hoa_pct": "",
       "insurance_annual": "",
       "maintenance_annual": "",
       "monthly_rent": "",
-      "mortgage_rate_pct": "7%",
+      "mortgage_rate_pct": "",
       "population_size": "",
-      "purchase_price": "1000000",
+      "purchase_price": "",
       "re_tax_pct": "",
-      "start_year": "2038",
-      "state": "Florida",
+      "start_year": "",
+      "state": "",
       "type": "",
       "utilities_annual": ""
     },
@@ -663,24 +680,24 @@
       "hoa_pct": "",
       "insurance_annual": "",
       "maintenance_annual": "",
-      "monthly_rent": "4000",
+      "monthly_rent": "",
       "mortgage_rate_pct": "",
       "population_size": "",
       "purchase_price": "",
       "re_tax_pct": "",
-      "start_year": "2040",
-      "state": "Illinois",
-      "type": "rent",
+      "start_year": "",
+      "state": "",
+      "type": "",
       "utilities_annual": ""
     }
   },
   "Hybrid LTC": {
     "Settings": {
-      "annual_premium": "$18,500",
+      "annual_premium": "$16,000",
       "enabled": "FALSE",
-      "face_value": "$500,000",
+      "face_value": "$400,000",
       "insured": "Member 1",
-      "start_year": "2027"
+      "start_year": "2030"
     }
   },
   "Income Streams": {
@@ -688,64 +705,84 @@
       "js_pct": "100%"
     },
     "Member 1 Joint Annuity": {
-      "additional_income_pct": "",
-      "base": "$860,000",
-      "deferral_years": "4",
-      "dividend_rate": "",
-      "first_payment": "8/3/2029",
-      "initial_guaranteed_income_payment": "2,765.82",
+      "additional_income_pct": "20.00%",
+      "base": "$600,000",
+      "credit_rating": "A+",
+      "cumulative_at_death": "$1,180,000",
+      "deferral_years": "5",
+      "dividend_rate": "5.25%",
+      "first_payment": "4/17/2031",
+      "initial_guaranteed_income_payment": "$2,050.00",
+      "pay_in_cash_pct": "80.00%",
       "payout_type": "fixed",
-      "qualified": "TRUE"
+      "qualified": "TRUE",
+      "source_account": "Member_1_IRA"
     },
     "Member 1 Single Annuity": {
-      "additional_income_pct": "",
-      "base": "$70,132.07",
-      "deferral_years": "4",
-      "dividend_rate": "",
-      "exclusion_ratio": "0.789",
-      "first_payment": "8/3/2029",
-      "initial_guaranteed_income_payment": "$395.15",
+      "additional_income_pct": "20.00%",
+      "base": "$85,000",
+      "credit_rating": "A+",
+      "cumulative_at_death": "$262,000",
+      "deferral_years": "5",
+      "dividend_rate": "5.25%",
+      "exclusion_ratio": "0.720",
+      "first_payment": "4/17/2031",
+      "initial_guaranteed_income_payment": "$455.00",
+      "pay_in_cash_pct": "80.00%",
       "payout_type": "fixed",
       "qualified": "FALSE"
     },
     "Member 2 Joint Annuity": {
-      "additional_income_pct": "",
-      "base": "$355,000",
-      "deferral_years": "2",
-      "dividend_rate": "",
-      "first_payment": "5/30/2028",
-      "initial_guaranteed_income_payment": "$1,071.33",
-      "payout_type": "Fixed",
-      "qualified": "TRUE"
+      "additional_income_pct": "20.00%",
+      "base": "$300,000",
+      "credit_rating": "A+",
+      "cumulative_at_death": "$598,000",
+      "deferral_years": "3",
+      "dividend_rate": "5.00%",
+      "first_payment": "9/22/2030",
+      "initial_guaranteed_income_payment": "$995.00",
+      "pay_in_cash_pct": "80.00%",
+      "payout_type": "fixed",
+      "qualified": "TRUE",
+      "source_account": "Member_2_IRA"
     },
     "Member 2 Pension": {
       "additional_income_pct": "20.00%",
+      "credit_rating": "A",
+      "cumulative_at_death": "$198,000",
       "deferral_years": "0",
       "dividend_rate": "5.00%",
-      "first_payment": "6/1/2026",
-      "initial_guaranteed_income_payment": "$376",
+      "first_payment": "1/1/2030",
+      "initial_guaranteed_income_payment": "$525",
+      "pay_in_cash_pct": "80.00%",
       "payout_type": "fixed",
       "qualified": "TRUE"
     },
     "Member 2 Single Annuity": {
-      "additional_income_pct": "",
-      "base": "$41,559.86",
-      "deferral_dampening": "0.513",
-      "deferral_years": "5",
-      "dividend_rate": "",
-      "exclusion_ratio": "0.738",
-      "first_payment": "5/30/2029",
-      "initial_guaranteed_income_payment": "$235.41",
+      "additional_income_pct": "20.00%",
+      "base": "$50,000",
+      "credit_rating": "A+",
+      "cumulative_at_death": "$151,000",
+      "deferral_dampening": "0.550",
+      "deferral_years": "6",
+      "dividend_rate": "5.00%",
+      "exclusion_ratio": "0.700",
+      "first_payment": "9/22/2032",
+      "initial_guaranteed_income_payment": "$265.00",
+      "pay_in_cash_pct": "80.00%",
       "payout_type": "fixed",
       "qualified": "FALSE",
-      "reserve_factor": "0.74"
+      "reserve_factor": "0.70"
+    },
+    "Present Value Horizon": {
+      "age_to_value_through": "85"
     },
     "Recovery Age": {
       "principal_recovery_age": "86"
     }
   },
   "Insurance In Force": {
-    "DI_Group_Matthew": {
+    "DI_Group_Alexander": {
       "benefit_period_years": "5",
       "elimination_days": "90",
       "insured": "Member 1",
@@ -774,7 +811,7 @@
       "premium_end_year": "",
       "term_end_year": ""
     },
-    "Life_Term_Matthew": {
+    "Life_Term_Alexander": {
       "annual_premium": "$1,800",
       "beneficiary": "Member 2",
       "cash_value_growth_rate": "0%",
@@ -787,7 +824,7 @@
       "premium_end_year": "2035",
       "term_end_year": "2035"
     },
-    "Life_Whole_Patricia": {
+    "Life_Whole_Morgan": {
       "annual_premium": "$3,500",
       "beneficiary": "Member 1",
       "cash_value_growth_rate": "4.00%",
@@ -804,14 +841,14 @@
       "policy_count": "0"
     },
     "PC_Auto": {
-      "annual_premium": "$2,400",
+      "annual_premium": "$1,750",
       "coverage_limit": "$500,000",
       "deductible": "$1,000",
       "policy_type": "auto"
     },
     "PC_Homeowner": {
-      "annual_premium": "$3,200",
-      "coverage_limit": "$1,500,000",
+      "annual_premium": "$1,900",
+      "coverage_limit": "$1,100,000",
       "deductible": "$5,000",
       "policy_type": "HO"
     },
@@ -829,6 +866,14 @@
     },
     "Umbrella Liability": {
       "policy_count": "0"
+    }
+  },
+  "Liquidity Buffer": {
+    "buffer_1": {
+      "end_year": "2033",
+      "reserve_account": "Taxable/Trust",
+      "start_year": "2030",
+      "years_of_expenses": "2"
     }
   },
   "Model Constants": {
@@ -859,8 +904,6 @@
     },
     "IRMAA": {
       "h_ssa44_relief_year": "",
-      "irmaa_actual_magi_1yr_prior": "386657",
-      "irmaa_actual_magi_2yr_prior": "365569",
       "irmaa_annual_inflator": "2.00%",
       "irmaa_tier2_mfj_base_year": "268000",
       "w_ssa44_relief_year": ""
@@ -898,23 +941,23 @@
   },
   "Note Receivable": {
     "Note 1": {
-      "annual_principal_base_period": "$59,281.62",
-      "face_value": "$474,252.96",
-      "final_principal_2033": "$59,327.50",
-      "first_payment": "1/2/2026",
-      "last_payment": "1/2/2033",
-      "name": "RedMane Note",
-      "total_cash_flow": "$613,394.61"
+      "annual_principal_base_period": "$40,000",
+      "face_value": "$320,000",
+      "final_principal": "$40,000",
+      "first_payment": "1/2/2027",
+      "last_payment": "1/2/2034",
+      "name": "Northwind Systems Note",
+      "total_cash_flow": "$392,000"
     },
     "Note 1 Interest": {
-      "2026": "$41,265.01",
-      "2027": "$32,164",
-      "2028": "$27,450",
-      "2029": "$22,735",
-      "2030": "$18,021",
-      "2031": "$13,306",
-      "2032": "$4,448",
-      "2033": "$2,224.77"
+      "2027": "$16,000",
+      "2028": "$14,000",
+      "2029": "$12,000",
+      "2030": "$10,000",
+      "2031": "$8,000",
+      "2032": "$6,000",
+      "2033": "$4,000",
+      "2034": "$2,000"
     }
   },
   "Optional Functions": {
@@ -929,12 +972,12 @@
       "estate_legacy_plan": "TRUE",
       "existing_life_insurance": "FALSE",
       "gain_harvesting": "TRUE",
-      "glossary": "FALSE",
+      "glossary": "TRUE",
       "life_insurance_need": "TRUE",
-      "lifetime_tax_projection": "TRUE",
+      "lifetime_tax_projection": "YES",
       "long_term_care_stress": "TRUE",
       "market_luck_stress_test": "TRUE",
-      "methodology_rerun": "FALSE",
+      "methodology_rerun": "YES",
       "property_casualty_umbrella": "FALSE",
       "retirement_strategy": "TRUE",
       "rmd_audit": "TRUE",
@@ -951,52 +994,52 @@
     "Autos": {
       "depreciation_per_year": "10",
       "depreciation_years": "7",
-      "value": "$57,384.27"
+      "value": "$48,000"
     },
     "Cash": {
-      "value": "$20,000"
+      "value": "$25,000"
     },
     "Home": {
       "appreciation_rate": "3.00%",
-      "home_basis": "$800,000",
-      "home_sale_price": "$1,750,000",
+      "home_basis": "$525,000",
+      "home_sale_price": "$1,200,000",
       "home_sale_proceeds_account": "Member_2_Trust",
-      "home_sale_year": "2037",
+      "home_sale_year": "0",
       "section_121_exclusion_mfj": "$500,000",
-      "value_as_of_plan_start": "$1,313,000"
+      "value_as_of_plan_start": "$950,000"
     },
     "Other Asset 1": {
       "annual_appreciation_pct": "0.00%",
       "as_of_date": "2025-12-31",
-      "basis": "$15,000",
-      "name": "Start-up Equity",
-      "sell_date": "2030-12-31",
+      "basis": "$20,000",
+      "name": "Private Company Shares",
+      "sell_date": "2032-12-31",
       "type": "Start-up Equity",
-      "value": "$66,000"
+      "value": "$80,000"
     },
     "Other Asset 2": {
       "annual_appreciation_pct": "-15.00%",
       "as_of_date": "2026-06-30",
       "basis": "",
-      "name": "2023 BMW X5 xDrive45e",
+      "name": "2022 Toyota Highlander",
       "sell_date": "",
       "type": "Auto",
-      "value": "$43,876.06"
+      "value": "$36,500"
     },
     "Other Asset 3": {
       "annual_appreciation_pct": "-5.00%",
       "as_of_date": "2026-06-30",
       "basis": "",
-      "name": "2016 Kia Optima EX",
+      "name": "2019 Subaru Outback",
       "sell_date": "",
       "type": "Auto",
-      "value": "$10,554.12"
+      "value": "$11,500"
     },
     "Startup Equity": {
-      "basis": "$0",
-      "sale_price": "$66,000",
-      "sale_year": "2030",
-      "value": "$66,000"
+      "basis": "$20,000",
+      "sale_price": "$80,000",
+      "sale_year": "2032",
+      "value": "$80,000"
     }
   },
   "Payroll Tax": {
@@ -1018,28 +1061,28 @@
   },
   "Positions": {
     "Member_1_401k": {
-      "CASH": "56206.59"
+      "CASH": "57000"
     },
     "Member_1_HSA": {
-      "CASH": "58804.31"
+      "CASH": "59000"
     },
     "Member_1_IRA": {
-      "CASH": "2027682.8"
+      "CASH": "1052000"
     },
     "Member_1_Roth": {
-      "CASH": "121303.07"
+      "CASH": "244000"
     },
     "Member_1_Trust": {
-      "CASH": "113483.87"
+      "CASH": "296000"
     },
     "Member_2_IRA": {
-      "CASH": "903985.34"
+      "CASH": "838000"
     },
     "Member_2_Roth": {
-      "CASH": "58420.94"
+      "CASH": "191000"
     },
     "Member_2_Trust": {
-      "CASH": "351902.92"
+      "CASH": "398000"
     }
   },
   "Reporting": {
@@ -1137,32 +1180,32 @@
       "ss_funding_discount_year": "2032"
     },
     "Member 1": {
-      "claim_age": "65",
+      "claim_age": "67",
       "fra_age": "67.00",
-      "monthly_pia_at_fra_today_dollars": "4050",
-      "ss_benefit_age_62": "$2,835",
-      "ss_benefit_age_63": "$3,038",
-      "ss_benefit_age_64": "$3,240",
-      "ss_benefit_age_65": "$3,510",
-      "ss_benefit_age_66": "$3,780",
-      "ss_benefit_age_67": "$4,050",
-      "ss_benefit_age_68": "$4,374",
-      "ss_benefit_age_69": "$4,698",
-      "ss_benefit_age_70": "$5,022"
+      "monthly_pia_at_fra_today_dollars": "3600",
+      "ss_benefit_age_62": "$2,520",
+      "ss_benefit_age_63": "$2,700",
+      "ss_benefit_age_64": "$2,880",
+      "ss_benefit_age_65": "$3,120",
+      "ss_benefit_age_66": "$3,360",
+      "ss_benefit_age_67": "$3,600",
+      "ss_benefit_age_68": "$3,888",
+      "ss_benefit_age_69": "$4,176",
+      "ss_benefit_age_70": "$4,464"
     },
     "Member 2": {
-      "claim_age": "66",
+      "claim_age": "70",
       "fra_age": "67.00",
-      "monthly_pia_at_fra_today_dollars": "3359",
-      "ss_benefit_age_62": "$2,351",
-      "ss_benefit_age_63": "$2,519",
-      "ss_benefit_age_64": "$2,687",
-      "ss_benefit_age_65": "$2,911",
-      "ss_benefit_age_66": "$3,135",
-      "ss_benefit_age_67": "$3,359",
-      "ss_benefit_age_68": "$3,628",
-      "ss_benefit_age_69": "$3,896",
-      "ss_benefit_age_70": "$4,165"
+      "monthly_pia_at_fra_today_dollars": "2900",
+      "ss_benefit_age_62": "$2,030",
+      "ss_benefit_age_63": "$2,175",
+      "ss_benefit_age_64": "$2,320",
+      "ss_benefit_age_65": "$2,513",
+      "ss_benefit_age_66": "$2,707",
+      "ss_benefit_age_67": "$2,900",
+      "ss_benefit_age_68": "$3,132",
+      "ss_benefit_age_69": "$3,364",
+      "ss_benefit_age_70": "$3,596"
     },
     "Policy": {
       "spousal_benefits_enabled": "TRUE",
@@ -1172,15 +1215,15 @@
   },
   "State Comparison": {
     "": {
-      "target_state": "CO"
+      "target_state": "FL"
     },
     "auto_insurance": {
-      "illinois_baseline_annual": "$2,400",
+      "illinois_baseline_annual": "$1,750",
       "notes": "",
       "target_state_annual": ""
     },
     "homeowners_insurance": {
-      "illinois_baseline_annual": "$2,200",
+      "illinois_baseline_annual": "$1,900",
       "notes": "",
       "target_state_annual": ""
     }
@@ -1188,7 +1231,7 @@
   "Wellness": {
     "ACA Premium Tax Credit": {
       "applicable_pct_cap": "8.50%",
-      "benchmark_silver_premium_annual": "32000",
+      "benchmark_silver_premium_annual": "30000",
       "enabled": "TRUE",
       "enhanced_subsidies_through_year": "2026",
       "federal_poverty_level_base_year": "21150",
@@ -1200,26 +1243,38 @@
       "part_g_base_premium_monthly": "$359.10"
     },
     "Out-of-Pocket": {
-      "annual_oop_estimate_today": "$10,000",
-      "dental_annual": "$2,900",
-      "medical_annual": "$10,000",
+      "annual_oop_estimate_today": "$8,500",
+      "dental_annual": "$2,000",
+      "medical_annual": "$4,000",
       "oop_utilization_pct": "100.00%",
-      "pharmacy_annual": "$5,000",
-      "vision_annual": "$2,100"
+      "pharmacy_annual": "$1,800",
+      "vision_annual": "$700"
     },
     "Pre-65 Bridge": {
-      "annual_premium_base_year": "$12,000"
+      "annual_premium_base_year": "$14,400"
     }
   },
   "Withdrawal Policy": {
-    "Gain Harvesting": {
-      "gain_harvest_min_gain_dollars": "$500",
-      "gain_harvest_min_gain_pct": "0.00%",
-      "gain_harvest_policy": "off",
-      "gain_harvest_transaction_cost_bps": "2"
-    },
     "Identity": {
       "annual_funding_tolerance": "$100"
+    },
+    "Priority 1": {
+      "RMD": "mandatory"
+    },
+    "Priority 2": {
+      "HSA": "smooth_window"
+    },
+    "Priority 3": {
+      "IRA_elective": "gross_up_tax"
+    },
+    "Priority 4": {
+      "Trust": "with_buffer"
+    },
+    "Priority 5": {
+      "Roth": "tax_free"
+    },
+    "Priority 6": {
+      "Home_equity_tap": "heloc_or_downsize"
     },
     "Roth Conversion": {
       "estate_tax_objective_mode": "BALANCED",
@@ -1233,15 +1288,15 @@
       "max_conversion_years": "10",
       "pre_tax_bequest_penalty_pct": "15.00%",
       "roth_bequest_preference_bonus_pct": "5.00%",
-      "roth_bracket_strategy": "OPTIMIZER_CHOOSES",
-      "roth_conversion_policy": "optimize_terminal_tax",
+      "roth_bracket_strategy": "FILL_TARGET_BRACKET",
+      "roth_conversion_policy": "fill_to_bracket",
       "roth_conversion_target_bracket_base_year": "22.00%",
-      "roth_fixed_annual_amount": "",
+      "roth_fixed_annual_amount": "$0",
       "roth_headroom_usage_pct": "100.00%",
       "roth_irmaa_cap": "TRUE",
       "roth_irmaa_headroom_usage_pct": "100.00%",
       "roth_irmaa_target_tier": "TIER_2",
-      "roth_objective_mode": "BALANCED_RETIREMENT",
+      "roth_objective_mode": "MAXIMIZE_TERMINAL_NET_WORTH",
       "roth_optimize_lifetime_tax_weight": "0.25",
       "roth_optimize_terminal_pretax_tax_rate": "22.00%",
       "roth_optimize_terminal_weight": "1.00",
