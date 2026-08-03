@@ -3293,14 +3293,18 @@ function chatMessageHtml(m) {
 
 function renderWorkbenchStressHtml() {
   let html = '<div class="wb-stress-suite">';
-  html +=
-    '<details><summary><b>Probability Analysis (Monte Carlo)</b><span class="small"> engine mode, trial count, and volatility settings</span></summary>' +
-    analysisFrame(renderMonteCarloOptions(), "stress") +
-    "</details>";
-  html +=
-    '<details><summary><b>Survivor / Early Death</b><span class="small"> mortality ages, survivor filing status, and account rollover</span></summary>' +
-    analysisFrame(renderSurvivorStress(), "stress") +
-    "</details>";
+  if (!stepGatedByOptionalModule("monte_carlo_options")) {
+    html +=
+      '<details><summary><b>Probability Analysis (Monte Carlo)</b><span class="small"> engine mode, trial count, and volatility settings</span></summary>' +
+      analysisFrame(renderMonteCarloOptions(), "stress") +
+      "</details>";
+  }
+  if (!stepGatedByOptionalModule("survivor_stress")) {
+    html +=
+      '<details><summary><b>Survivor / Early Death</b><span class="small"> mortality ages, survivor filing status, and account rollover</span></summary>' +
+      analysisFrame(renderSurvivorStress(), "stress") +
+      "</details>";
+  }
   if (optionalFunctionEnabled("long_term_care_stress")) {
     html +=
       '<details><summary><b>Long-Term Care</b><span class="small"> annual care cost, duration, and coverage benefit</span></summary>' +
