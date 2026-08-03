@@ -190,6 +190,7 @@ def test_surplus_plug_tracks_real_engine_surplus_closely():
                  + max(0, r.get('ira_wd', 0)) + max(0, r.get('heloc_draw', 0)))
         inc_total = inc_streams + draws
         exp_total = (r.get('spend_base_yr', 0) + r.get('rec_extra', 0) + r.get('lump', 0)
+                     + r.get('business_expenses_yr', 0)
                      + r.get('mortgage', 0) + r.get('rent_yr', 0) + r.get('housing_operating_yr', 0)
                      + r.get('wellness_base_yr', 0) + r.get('wellness_shock_yr', 0) + r.get('ltc_prem_yr', 0)
                      + r.get('heloc_interest', 0) + r.get('heloc_repayment_principal', 0)

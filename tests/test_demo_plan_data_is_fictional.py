@@ -305,3 +305,16 @@ def test_demo_disables_ytd_blend():
         f"demo ytd_blend_enabled is {val!r}; must be FALSE so the demo cannot "
         "blend in real year-to-date transactions"
     )
+
+
+def test_demo_slot_is_not_the_fixture_directory():
+    """The persistent demo slot (local_state/demo_plan/, see
+    demo_plan_service.DEMO_SLOT_DIR) must never resolve to input/demo/. Every
+    test above reads DEMO directly and assumes it is the pristine, checked-in
+    seed -- if the slot and the fixture directory ever collapsed into one, a
+    captured demo edit could silently start satisfying (or breaking) these
+    checks instead of the shipped fixtures they exist to guard."""
+    from src.server_services.demo_plan_service import DEMO_SLOT_DIR
+
+    assert DEMO_SLOT_DIR != "demo"
+    assert (ROOT / "local_state" / DEMO_SLOT_DIR).resolve() != DEMO.resolve()

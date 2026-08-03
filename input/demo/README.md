@@ -41,6 +41,23 @@ a crash or restart cannot clobber it.
 To apply the files by hand instead, copy every `input/demo/*.csv` over the
 matching `input/*.csv` — after backing up your own plan.
 
+### Edits made during a demo are kept
+
+The files in this folder are the **seed**, not the working copy. Whatever you
+edit while the demo is open is captured into a persistent slot
+(`local_state/demo_plan/`) the moment you click **Open Current Plan**, and
+**Open Demo Plan** loads from that slot the next time, file by file, falling
+back to the seed here for anything the slot doesn't have yet. `input/demo/`
+itself is never written to by the app.
+
+Click **Reset Demo to Defaults** (next to Open Demo Plan, only reachable from
+your real plan — never while the demo is open) to delete the slot and go back
+to exactly what ships in this folder.
+
+On desktop, **Save Plan As** also works on a demo (it snapshots whatever is
+currently loaded) if you want a separate named `.rpx` copy rather than the one
+auto-kept slot.
+
 ## What is here, and why
 
 - **Every file the demo swaps has a counterpart in this folder.** That is

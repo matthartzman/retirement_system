@@ -13,11 +13,12 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Any
 
 from .config_backend import init_sqlite, DEFAULT_DB
+from . import platform_runtime
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_HOLDINGS = PROJECT_ROOT / "input" / "client_holdings.csv"
-DEFAULT_TARGETS = PROJECT_ROOT / "input" / "target_allocation.csv"
-DEFAULT_SECURITY_MASTER = PROJECT_ROOT / "reference_data" / "security_master.csv"
+DEFAULT_HOLDINGS = platform_runtime.workspace_root() / "input" / "client_holdings.csv"
+DEFAULT_TARGETS = platform_runtime.workspace_root() / "input" / "target_allocation.csv"
+DEFAULT_SECURITY_MASTER = platform_runtime.package_root() / "reference_data" / "security_master.csv"
 PRICING_FREEZE_SCHEMA = "pricing_snapshot_freeze_v1"
 
 

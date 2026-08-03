@@ -72,6 +72,7 @@ def _row_cashflow_breakdown(r: dict[str, Any]) -> dict[str, Any]:
             'rent': _n(r.get('rent_yr')), 'housing_operating': _n(r.get('housing_operating_yr')),
             'wellness': _n(r.get('wellness_base_yr')) + _n(r.get('wellness_shock_yr')) + _n(r.get('ltc_prem_yr')),
             'travel': _n(r.get('rec_extra')), 'other_lump': _n(r.get('lump')),
+            'business_expenses': _n(r.get('business_expenses_yr')),
             'heloc_pai': _n(r.get('heloc_interest')) + _n(r.get('heloc_repayment_principal')),
             'other_cash_need': _n(r.get('other_cash_need_yr')),
         },
@@ -346,6 +347,7 @@ def _chart_page(c: dict[str, Any], rows: list[dict[str, Any]], mc_data: dict[str
         "Base Spending": _exp_series('spend_base'),
         "Rec Extras": _exp_series('travel'),
         "Lump Events": _exp_series('other_lump'),
+        "Business Expenses": _exp_series('business_expenses'),
         "Mortgage + RE Tax": _exp_series('mortgage'),
         "Rent": _exp_series('rent'),
         "Housing Operating": _exp_series('housing_operating'),
@@ -461,7 +463,7 @@ def _chart_page(c: dict[str, Any], rows: list[dict[str, Any]], mc_data: dict[str
 
 def _cashflow_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, Any]:
     group = [
-        ("Identifiers", 3), ("Income", 11), ("Tax & RMD", 6), ("Spending", 7),
+        ("Identifiers", 3), ("Income", 11), ("Tax & RMD", 6), ("Spending", 8),
         ("Portfolio Draws", 16), ("Surplus", 2),
     ]
     group_row = []
@@ -475,7 +477,7 @@ def _cashflow_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, A
         (f"{n2} Single Ann", "text"), (f"{n2} Joint Ann", "text"), (f"{n1} Single Ann", "text"), (f"{n1} Joint Ann", "text"),
         ("Note P+I", "text"), ("RMD Dist", "text"), ("Σ Income", "text"),
         ("Roth Conv", "text"), ("AGI", "text"), ("Taxable Inc", "text"), ("Fed Tax", "text"), ("State Tax", "text"), ("NIIT", "text"),
-        ("Spend Base", "text"), ("Rec Extra", "text"), ("Lump", "text"), ("Mortgage + RE Tax", "text"), ("Rent", "text"), ("HELOC P&I", "text"), ("Σ Spend", "text"),
+        ("Spend Base", "text"), ("Rec Extra", "text"), ("Lump", "text"), ("Business Exp", "text"), ("Mortgage + RE Tax", "text"), ("Rent", "text"), ("HELOC P&I", "text"), ("Σ Spend", "text"),
         (f"{n1} Trust WD", "text"), (f"{n2} Trust WD", "text"), ("Σ Trust", "text"), ("HSA WD", "text"),
         (f"{n1} Roth WD", "text"), (f"{n2} Roth WD", "text"), ("Σ Roth", "text"),
         (f"{n1} IRA RMD", "text"), (f"{n1} IRA Elec", "text"), (f"{n1} IRA Conv", "text"), (f"{n1} IRA Outflow", "text"),
@@ -492,7 +494,8 @@ def _cashflow_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, A
         _bi = bd['income']; _be = bd['expense']
         inc_total = sum(_bi.values())
         heloc_pai = _be['heloc_pai']
-        spend_total = (_be['spend_base'] + _be['travel'] + _be['other_lump']
+        business_exp = _be.get('business_expenses', 0.0)
+        spend_total = (_be['spend_base'] + _be['travel'] + _be['other_lump'] + business_exp
                        + _be['mortgage'] + _be['rent'] + heloc_pai)
         surplus_val = bd['surplus']
         trust_total = _n(r.get('h_trust_wd')) + _n(r.get('w_trust_wd'))
@@ -508,7 +511,7 @@ def _cashflow_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, A
             (r.get('wife_single_ann'), 'currency'), (r.get('wife_joint_ann'), 'currency'), (r.get('h_single_ann'), 'currency'), (r.get('h_joint_ann'), 'currency'),
             (_n(r.get('note_princ')) + _n(r.get('note_int')), 'currency'), (r.get('rmd_total'), 'currency'), (inc_total, 'currency'),
             (r.get('roth_conv'), 'currency'), (r.get('agi'), 'currency'), (r.get('taxable_inc'), 'currency'), (r.get('fed_tax'), 'currency'), (r.get('state_tax'), 'currency'), (r.get('niit'), 'currency'),
-            (r.get('spend_base_yr'), 'currency'), (r.get('rec_extra'), 'currency'), (r.get('lump'), 'currency'), (r.get('mortgage'), 'currency'), (r.get('rent_yr'), 'currency'), (heloc_pai, 'currency'), (spend_total, 'currency'),
+            (r.get('spend_base_yr'), 'currency'), (r.get('rec_extra'), 'currency'), (r.get('lump'), 'currency'), (business_exp, 'currency'), (r.get('mortgage'), 'currency'), (r.get('rent_yr'), 'currency'), (heloc_pai, 'currency'), (spend_total, 'currency'),
             (r.get('h_trust_wd'), 'currency'), (r.get('w_trust_wd'), 'currency'), (trust_total, 'currency'), (r.get('hsa_wd'), 'currency'),
             (r.get('h_roth_wd'), 'currency'), (r.get('w_roth_wd'), 'currency'), (roth_total, 'currency'),
             (r.get('rmd_h'), 'currency'), (r.get('h_ira_elective'), 'currency'), (r.get('h_ira_conversion'), 'currency'), (h_ira_total, 'currency'),

@@ -34,6 +34,15 @@ on open and restored from its own text backup, exactly like client_data.csv:
     advisor's actual transaction history.
   * client_spending_rules.csv -- merchant/category mapping rules. input/demo/
     already shipped a fictionalized copy of this one, but nothing applied it.
+
+The demo slot (local_state/demo_plan/, see DEMO_SLOT_DIR): Open Current Plan
+used to simply discard whatever was in the demo when it swapped the real DB
+back. Restore now captures the demo's live state into this slot first, and
+Open Demo Plan prefers a file from the slot over its input/demo/ counterpart,
+so edits made during one demo session are still there the next time the demo
+is opened. input/demo/ itself is never written to -- it stays the pristine
+first-run seed, and "Reset Demo to Defaults" just deletes the slot so the next
+open falls back to it.
 """
 
 import json
@@ -52,6 +61,10 @@ TEXT_BACKUP_FILES = (
     "spending_category_map.csv",
     "spending_budget.csv",
 )
+# Persistent home for demo edits, under the DB's parent (local_state/). Kept
+# separate from input/demo/ (which ships in the repo and must stay pristine
+# for the anti-leak tests) and from the live plan slot.
+DEMO_SLOT_DIR = "demo_plan"
 
 
 @dataclass(frozen=True)
@@ -66,6 +79,19 @@ class DemoPlanServiceContext:
     load_saved_db: Callable[[dict[str, Any]], dict[str, Any]]
     materialize: Callable[[], None]
     audit: Callable[[str, dict[str, Any]], None] | None = None
+    demo_slot_dir: Callable[[], Path] | None = None
+    # read_plan_data_file is DB-first (see app_core._read_plan_data_file) --
+    # correct for the client_data.csv / TEXT_BACKUP_FILES restore paths above,
+    # which is what it was written for. But the Plan Data grid's Save Changes
+    # (config_service.update_config_rows_payload) writes ordinary plan-data
+    # fields (household, income, holdings, ...) straight to the on-disk CSV
+    # mirror and never touches the DB row -- so during a demo, DB-first reads
+    # can miss a field the advisor just edited on screen. Capture needs the
+    # disk mirror, the same thing the grid reads and writes, or an edit made
+    # through the ordinary UI during a demo would silently be dropped from
+    # the slot. Defaulted so existing constructions/tests are unaffected;
+    # falls back to read_plan_data_file when not supplied.
+    read_plan_data_disk_file: Callable[[str], str | None] | None = None
 
 
 class DemoPlanService:
@@ -86,6 +112,11 @@ class DemoPlanService:
 
     def _client_data_backup_path(self) -> Path:
         return self._file_backup_path(CLIENT_DATA_CSV)
+
+    def _slot_dir(self) -> Path:
+        if self.context.demo_slot_dir is not None:
+            return self.context.demo_slot_dir()
+        return self.context.sqlite_db().parent / DEMO_SLOT_DIR
 
     def _demo_file_names(self) -> list[str]:
         """Every file Open Demo Plan applies, in order, without duplicates."""
@@ -151,16 +182,25 @@ class DemoPlanService:
             self._audit("demo_plan_backup_created", {"backup": str(backup)})
 
         demo_dir = self.context.demo_dir()
+        slot_dir = self._slot_dir()
         written: list[dict[str, Any]] = []
         skipped: list[str] = []
         for name in self._demo_file_names():
-            src = demo_dir / name
-            if not src.exists():
+            # Prefer the persistent slot per file, not per directory -- a
+            # fixture added to input/demo/ in a later release must still be
+            # picked up by a user who already has a slot but not that file.
+            slot_src = slot_dir / name
+            demo_src = demo_dir / name
+            if slot_src.exists():
+                src, source = slot_src, "slot"
+            elif demo_src.exists():
+                src, source = demo_src, "demo"
+            else:
                 skipped.append(name)
                 continue
             content = src.read_text(encoding="utf-8-sig")
             path = self.context.write_plan_data_file(name, content)
-            written.append({"name": name, "path": str(path), "bytes": len(content)})
+            written.append({"name": name, "path": str(path), "bytes": len(content), "source": source})
 
         try:
             self.context.ensure_user_ui_plan_data_rows()
@@ -174,10 +214,48 @@ class DemoPlanService:
         self._audit("demo_plan_opened", {"files": [w["name"] for w in written], "skipped": skipped})
         return {"success": True, "files": written, "skipped": skipped}
 
+    def _capture_demo_slot(self) -> None:
+        """Persist the demo's current state into the slot before the DB
+        swap-back below discards it, so the next Open Demo Plan resumes where
+        this session left off instead of re-seeding from input/demo/. Must
+        never block the restore -- a capture failure is audited and that file
+        is skipped, exactly like the existing text-backup failures. Only
+        called while is_active() (restore_current_payload returns early
+        otherwise), so this never runs against a real (non-demo) plan."""
+        slot_dir = self._slot_dir()
+        read_disk = self.context.read_plan_data_disk_file or self.context.read_plan_data_file
+        for name in self._demo_file_names():
+            try:
+                content = read_disk(name)
+                if content is None:
+                    continue
+                slot_dir.mkdir(parents=True, exist_ok=True)
+                (slot_dir / name).write_text(content, encoding="utf-8")
+            except Exception as exc:
+                self._audit("demo_plan_capture_warning", {"file": name, "error": str(exc)})
+
+    def reset_demo_payload(self) -> JsonDict:
+        """Delete the persistent demo slot so the next Open Demo Plan re-seeds
+        from the shipped input/demo/ fixtures. Refused while a demo is open --
+        closing it would immediately re-capture the very state being reset,
+        so this is only ever reachable from the real plan."""
+        if self.is_active():
+            return {
+                "success": False,
+                "error": "Close the demo (Open Current Plan) before resetting it.",
+            }
+        slot_dir = self._slot_dir()
+        if slot_dir.exists():
+            shutil.rmtree(slot_dir)
+        self._audit("demo_plan_slot_reset", {"slot": str(slot_dir)})
+        return {"success": True, "reset": True}
+
     def restore_current_payload(self) -> JsonDict:
         backup = self._backup_path()
         if not backup.exists():
             return {"success": True, "restored": False}
+
+        self._capture_demo_slot()
 
         result = self.context.load_saved_db({"path": str(backup)})
         if not result.get("success"):

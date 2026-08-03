@@ -908,9 +908,12 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['ytd_remainder_earned_income_override'] = _n(_v(data,'Cashflow','Earned Income','ytd_remainder_earned_income_override',''), None)
     c['biz_exp']    = _n(_v(data,'Cashflow','Self-Employment','business_expenses_annual','15000'), 15000)
     c['home_off']   = _n(_v(data,'Cashflow','Self-Employment','home_office_expenses_annual','4000'), 4000)
-    # SEHI has no standalone input. It is derived per projection year from
-    # Healthcare premiums: Pre-65 Healthcare Premium before age 65, then
-    # Medicare Part B/D/G costs once Medicare age is reached.
+    # SEHI defaults to a derived estimate from Healthcare premiums (Pre-65
+    # Healthcare Premium before age 65, then Medicare Part B/D/G once Medicare
+    # age is reached). An explicit health_insurance_premiums_annual entry
+    # overrides that estimate with the household's actual known premium --
+    # previously this field was read from the CSV but never consulted anywhere.
+    c['sehi_user_override'] = _n(_v(data,'Cashflow','Self-Employment','health_insurance_premiums_annual',''), None)
     c['sehi']       = 0.0
     c['sehi_derived_from_wellness'] = True
     c['qbi_elig']   = _b(_v(data,'Cashflow','Self-Employment','qbi_eligible','TRUE'))
