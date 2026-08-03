@@ -217,7 +217,14 @@ def build_sheet5(ws, c, rows):
         pretax_tot = sum(_acct_bal(a) for a in c.get('pre_tax_ids', []))
         roth_tot = sum(_acct_bal(a) for a in c.get('roth_ids', []))
         trust_tot = sum(_acct_bal(a) for a in c.get('taxable_ids', []))
-        cash_val = row.get('cash_other', c.get('cash_other', 0))
+        # #254: the engine writes this year's checking/reserve balance to
+        # row['cash_nw'] (deterministic_engine.py), never 'cash_other' --
+        # reading the nonexistent key silently fell through to the static
+        # plan-start-only c['cash_other'] every year, freezing the displayed
+        # Cash/Sigma Other columns at their Y0 value regardless of later
+        # reserve draws or growth, even though TOTAL NW (sourced separately)
+        # was already correct.
+        cash_val = row.get('cash_nw', 0)
         other_tot  = (row.get('home_equity',0)+row.get('next_housing_equity',0)+
                       row.get('startup_val',0)+row.get('autos_val',0)+
                       row.get('note_bal',0)+cash_val)
