@@ -1008,7 +1008,7 @@ def build_sheet13(ws, c, rows):
                 f"estate tax. Add a rule to reference_data/state_tax.csv to model "
                 f"{current_state} directly before relying on this sheet.")
         write_cell(ws, r, 1, note, bg='FFF4E5', align='left')
-        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
         r += 2
 
     # ── Aggregate income components over plan horizon ────────────────────────
@@ -1040,10 +1040,50 @@ def build_sheet13(ws, c, rows):
         r += 1
     r += 1
 
-    # ── Section B: State comparison ──────────────────────────────────────────
-    write_hdr(ws, r, 1, 'Lifetime Tax Burden by State', NAVY, WHITE, span=10); r += 1
-    hdrs = ['State', 'Income Rate', 'Income Tax',
-            'Property Tax', 'Sales Tax', 'Estate Tax', 'Total Tax', 'Delta vs IL',
+    # ── Section B: State comparison (Tax and Expenses) ───────────────────────
+    # #255: this table used to show only tax figures, with a separate
+    # "Geographic Cost-of-Living Delta" table below it comparing exactly one
+    # target state. Merged here into a single Tax and Expenses table so every
+    # state gets both its tax burden AND its estimated auto/home-insurance/
+    # utilities/maintenance delta in one place. The cost-of-living factors
+    # (STATE_COL_FACTORS / col_factors()) are indexed with Illinois = 1.00 for
+    # every category, so Illinois is the fixed basis those deltas are computed
+    # from regardless of which state the household currently lives in.
+    current_state = c.get('state', 'Illinois')
+    _abbr = {
+        'IL': 'Illinois', 'IN': 'Indiana', 'FL': 'Florida', 'TX': 'Texas',
+        'TN': 'Tennessee', 'NC': 'North Carolina', 'AZ': 'Arizona',
+        'CO': 'Colorado', 'NV': 'Nevada', 'CA': 'California', 'NY': 'New York',
+    }
+    def _resolve_state(name):
+        if not name:
+            return None
+        for key in STATE_TAX_RULES:
+            if name.lower() == key.lower() or key.lower() in name.lower():
+                return key
+        return _abbr.get(name.strip().upper())
+    cur_key = _resolve_state(current_state) or 'Illinois'
+    cur_col = col_factors(cur_key, STATE_TAX_RULES.get(cur_key))
+    expense_baselines = {
+        'auto': c.get('current_auto_insurance_annual', 0),
+        'home_ins': c.get('current_homeowners_insurance_annual', 0),
+        'utilities': c.get('current_home_utilities_annual', 0),
+        'maintenance': c.get('current_home_maintenance_annual', 0),
+    }
+
+    write_hdr(ws, r, 1, 'Lifetime Tax and Expenses by State', NAVY, WHITE, span=14); r += 1
+    write_cell(ws, r, 1,
+        f'Tax columns are lifetime totals over the {yrs}-year plan horizon. Expense delta '
+        f'columns estimate the ANNUAL change in auto/homeowners insurance, utilities, and '
+        f'home maintenance vs. the household\'s current budgeted amounts in {cur_key}, using '
+        f'geographic cost-of-living factors indexed to Illinois = 1.00. ESTIMATE ONLY — '
+        f'replace with real quotes when available. Override factors via reference_data/'
+        f'state_tax.csv (col_auto, col_home_ins, col_utilities, col_maintenance).', fg='888888')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14); r += 1
+
+    hdrs = ['State', 'Income Rate', 'Income Tax', 'Property Tax', 'Sales Tax', 'Estate Tax',
+            'Total Tax', 'Tax Delta vs Current', 'Auto Ins. Delta', 'Home Ins. Delta',
+            'Utilities Delta', 'Maintenance Delta', 'Total Delta (Tax + Expenses)',
             'Retirement Income Taxed']
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
@@ -1087,39 +1127,57 @@ def build_sheet13(ws, c, rows):
             est_tax = excess * 0.08
         total = inc_tax + prop_tax + sales_tax + est_tax
 
+        # Geographic cost-of-living expense delta for this state vs. the
+        # household's current budgeted amounts (Illinois-indexed factors).
+        tgt_col = col_factors(state_name, rules)
+        expense_deltas = {}
+        annual_expense_delta = 0.0
+        for key, baseline in expense_baselines.items():
+            factor = (tgt_col[key] / cur_col[key]) if cur_col[key] else 1.0
+            annual_delta = baseline * factor - baseline
+            expense_deltas[key] = annual_delta * yrs  # lifetime, to match the tax columns' scale
+            annual_expense_delta += annual_delta
+        lifetime_expense_delta = annual_expense_delta * yrs
+
         state_rows.append({
             'state_name': state_name, 'rules': rules, 'is_current': is_current,
             'inc_tax': inc_tax, 'prop_tax': prop_tax, 'sales_tax': sales_tax,
             'est_tax': est_tax, 'total': total,
             'retirement_taxed': retirement_taxed,
+            'expense_deltas': expense_deltas, 'lifetime_expense_delta': lifetime_expense_delta,
         })
 
-    # Anchor the baseline to the client's actual current/base state, not to
-    # whichever state happens to iterate first in STATE_TAX_RULES.
+    # Anchor the tax-only baseline to the client's actual current/base state,
+    # not to whichever state happens to iterate first in STATE_TAX_RULES.
     base_total = next((r['total'] for r in state_rows if r['is_current']), state_rows[0]['total'])
     for sr in state_rows:
-        sr['delta'] = sr['total'] - base_total
+        sr['tax_delta'] = sr['total'] - base_total
+        sr['combined_delta'] = sr['tax_delta'] + sr['lifetime_expense_delta']
 
-    # Sort by delta descending (biggest savings first, current state at top)
-    state_rows.sort(key=lambda x: (0 if x['is_current'] else 1, -x['delta']))
+    # Sort by combined delta descending (biggest overall savings first, current state at top)
+    state_rows.sort(key=lambda x: (0 if x['is_current'] else 1, -x['combined_delta']))
 
     for sr in state_rows:
         rules = sr['rules']
         is_current = sr['is_current']
-        bg = 'E2EFDA' if sr['delta'] < -50000 else ('FCE4D6' if sr['delta'] > 50000 else None)
+        bg = 'E2EFDA' if sr['combined_delta'] < -50000 else ('FCE4D6' if sr['combined_delta'] > 50000 else None)
+        ed = sr['expense_deltas']
 
         vals = [
             (sr['state_name'] + (' (Current)' if is_current else ''), None),
             (f'{rules["rate"]*100:.1f}%' if rules['rate'] > 0 else 'None', None),
             (sr['inc_tax'], FMT_DOLLAR), (sr['prop_tax'], FMT_DOLLAR), (sr['sales_tax'], FMT_DOLLAR),
             (sr['est_tax'], FMT_DOLLAR), (sr['total'], FMT_DOLLAR),
-            (sr['delta'] if not is_current else 'Baseline', FMT_DOLLAR if not is_current else None),
+            (sr['tax_delta'] if not is_current else 'Baseline', FMT_DOLLAR if not is_current else None),
+            (ed['auto'], FMT_DOLLAR), (ed['home_ins'], FMT_DOLLAR),
+            (ed['utilities'], FMT_DOLLAR), (ed['maintenance'], FMT_DOLLAR),
+            (sr['combined_delta'] if not is_current else 'Baseline', FMT_DOLLAR if not is_current else None),
             (sr['retirement_taxed'] if sr['retirement_taxed'] > 0 else 'Exempt', FMT_DOLLAR if sr['retirement_taxed'] else None),
         ]
         for i, (val, fmt) in enumerate(vals, 1):
-            write_cell(ws, r, i, val, fmt=fmt, bg=bg if i >= 7 else None,
+            write_cell(ws, r, i, val, fmt=fmt, bg=bg if i in (7, 8, 13) else None,
                        bold=is_current,
-                       fg='C00000' if i==9 and isinstance(val,(int,float)) and val>0 else '000000')
+                       fg='C00000' if i==14 and isinstance(val,(int,float)) and val>0 else '000000')
         r += 1
 
     r += 2
@@ -1131,92 +1189,15 @@ def build_sheet13(ws, c, rows):
         f'Moving to a state that taxes retirement income (e.g. North Carolina) '
         f'would add ~${total_retirement * 0.045:,.0f} in lifetime state income tax.',
         bold=True)
-    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
     r += 1
     write_cell(ws, r, 1,
         'Qualified retirement income includes IRA/401k RMDs, pension, qualified annuity '
         'distributions, and Roth conversions. Non-qualified (Personal market) annuity income '
         'is taxable even in Illinois.', fg='888888')
-    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
-    r += 3
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
 
-    # ── Section C: Geographic cost-of-living delta ───────────────────────────
-    # The household's actual budgeted amounts in the *current* state are the
-    # baseline.  We then estimate the annual delta for four geographically
-    # sensitive categories (auto insurance, homeowners insurance, utilities,
-    # home maintenance) if the household relocated to the target state, using
-    # relative cost-of-living factors.  This is an approximation the user can
-    # override with real quotes.
-    current_state = c.get('state', 'Illinois')
-    target_state = (c.get('residency_target_state') or '').strip()
-    # Map an abbreviation or partial name to a known state key.
-    _abbr = {
-        'IL': 'Illinois', 'IN': 'Indiana', 'FL': 'Florida', 'TX': 'Texas',
-        'TN': 'Tennessee', 'NC': 'North Carolina', 'AZ': 'Arizona',
-        'CO': 'Colorado', 'NV': 'Nevada', 'CA': 'California', 'NY': 'New York',
-    }
-    def _resolve_state(name):
-        if not name:
-            return None
-        for key in STATE_TAX_RULES:
-            if name.lower() == key.lower() or key.lower() in name.lower():
-                return key
-        return _abbr.get(name.strip().upper())
-    cur_key = _resolve_state(current_state) or 'Illinois'
-    tgt_key = _resolve_state(target_state)
-
-    write_hdr(ws, r, 1, 'Geographic Cost-of-Living Delta (Estimated)', NAVY, WHITE, span=6); r += 1
-    write_cell(ws, r, 1,
-        f'Baseline = current budgeted amounts in {cur_key}. Delta = estimated annual change '
-        f'if relocating to {tgt_key or "the target state"}, from relative cost-of-living '
-        f'factors. ESTIMATE ONLY — replace with real quotes when available.', fg='888888')
-    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6); r += 1
-
-    cost_hdrs = ['Category', f'Baseline ({cur_key})',
-                 f'Estimated ({tgt_key or "target"})', 'Annual Delta', 'Lifetime Delta', 'Basis']
-    for i, h in enumerate(cost_hdrs, 1):
-        write_hdr(ws, r, i, h, DGRAY, WHITE)
-    r += 1
-
-    cur_col = col_factors(cur_key, STATE_TAX_RULES.get(cur_key))
-    tgt_col = col_factors(tgt_key, STATE_TAX_RULES.get(tgt_key)) if tgt_key else cur_col
-    cost_cats = [
-        ('Auto Insurance', c.get('current_auto_insurance_annual', 0), 'auto'),
-        ('Homeowners Insurance', c.get('current_homeowners_insurance_annual', 0), 'home_ins'),
-        ('Utilities', c.get('current_home_utilities_annual', 0), 'utilities'),
-        ('Home Maintenance', c.get('current_home_maintenance_annual', 0), 'maintenance'),
-    ]
-    total_annual_delta = 0.0
-    for lbl, baseline, key in cost_cats:
-        factor = (tgt_col[key] / cur_col[key]) if cur_col[key] else 1.0
-        est = baseline * factor
-        annual_delta = est - baseline
-        lifetime_delta = annual_delta * yrs
-        total_annual_delta += annual_delta
-        bg = 'FCE4D6' if annual_delta > 0 else ('E2EFDA' if annual_delta < 0 else None)
-        write_cell(ws, r, 1, lbl)
-        write_cell(ws, r, 2, baseline, fmt=FMT_DOLLAR)
-        write_cell(ws, r, 3, est, fmt=FMT_DOLLAR)
-        write_cell(ws, r, 4, annual_delta, fmt=FMT_DOLLAR, bg=bg,
-                   fg='C00000' if annual_delta > 0 else '000000')
-        write_cell(ws, r, 5, lifetime_delta, fmt=FMT_DOLLAR, bg=bg)
-        write_cell(ws, r, 6, f'x{tgt_col[key]:.2f} vs x{cur_col[key]:.2f}', fg='888888')
-        r += 1
-    write_cell(ws, r, 1, 'Total (4 categories)', bold=True)
-    write_cell(ws, r, 4, total_annual_delta, fmt=FMT_DOLLAR, bold=True,
-               fg='C00000' if total_annual_delta > 0 else '000000')
-    write_cell(ws, r, 5, total_annual_delta * yrs, fmt=FMT_DOLLAR, bold=True)
-    r += 2
-    write_cell(ws, r, 1,
-        'Cost-of-living factors are illustrative approximations from public regional '
-        'cost and insurance-premium indices. Homeowners insurance, utilities, and '
-        'maintenance baselines come from the Housing current-home budget; the auto '
-        'insurance baseline comes from the State Residency inputs. Override factors '
-        'via reference_data/state_tax.csv (col_auto, col_home_ins, col_utilities, '
-        'col_maintenance).', fg='888888')
-    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6)
-
-    qc('13. State Residency', f'{len(STATE_TAX_RULES)} states compared with retirement-income treatment', True,
+    qc('13. State Residency', f'{len(STATE_TAX_RULES)} states compared with retirement-income and expense treatment', True,
        f'retirement={ret_pct:.0f}% of AGI')
 
 

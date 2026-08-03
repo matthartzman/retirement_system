@@ -557,6 +557,30 @@ def apply_overrides(wb, input_dir: Optional[Path] = None, sheet_renames: Optiona
             ws.column_dimensions[letter].width = width
 
 
+def overridden_width_columns(wb, input_dir: Optional[Path] = None, sheet_renames: Optional[dict] = None) -> dict[str, set[str]]:
+    """{current sheet title: {overridden column letters}} for every sheet with
+    a saved user width override, resolved the same way apply_overrides()
+    resolves sheet keys.
+
+    Lets other width-setting passes that run after apply_overrides() (e.g.
+    the "#####" overflow safety net) skip columns a user has explicitly
+    pinned, instead of silently overwriting that choice -- apply_overrides()
+    is documented to run "last so user edits always win", which only holds
+    if every later pass actually honors it.
+    """
+    overrides = load_overrides(input_dir)
+    if not overrides:
+        return {}
+    sheet_renames = sheet_renames or {}
+    titles = {ws.title for ws in wb.worksheets}
+    result: dict[str, set[str]] = {}
+    for sheet, cols in overrides.items():
+        title = sheet_renames.get(sheet, sheet)
+        if title in titles and cols:
+            result[title] = set(cols)
+    return result
+
+
 def apply_alignments(wb, input_dir: Optional[Path] = None, sheet_renames: Optional[dict] = None) -> None:
     """Apply saved horizontal-alignment overrides to a workbook's data rows in place.
 
