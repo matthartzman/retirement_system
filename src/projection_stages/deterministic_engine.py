@@ -2371,6 +2371,68 @@ def run_deterministic_projection_stage(c):
 
         # total_tax already includes current-year LTCG and NIIT from the fixed-point pass above.
         row['total_tax'] = total_tax
+
+        # ── Effective marginal rate ─────────────────────────────────────────
+        # The reported marginal rate (sheets_projection_tax) is the statutory
+        # bracket alone -- core.marginal_rate() just looks up the bracket
+        # containing taxable income. That understates what another dollar
+        # actually costs, sometimes badly: a household in the 12% bracket with
+        # taxable Social Security faces ~22.2% because each extra dollar also
+        # drags more benefit into taxation ("the Social Security torpedo"), and
+        # a dollar that crosses an IRMAA threshold costs hundreds.
+        #
+        # Perturb ordinary income by +$1,000 and re-run the pieces of the stack
+        # that respond to it: SS inclusion, federal, state, NIIT and IRMAA.
+        # Every function below is the same one the main path used this year, so
+        # the delta reflects this household's real position, not a table lookup.
+        #
+        # Deliberately NOT included: the ACA premium-tax-credit cliff (it is
+        # resolved earlier in the year's flow and is not re-runnable from here)
+        # and LTCG stacking (this probe adds ordinary income, not gain). The
+        # rate is therefore a lower bound in ACA-subsidised bridge years --
+        # documented rather than silently approximated.
+        # Both sides of the delta are recomputed through the SAME calls. Comparing
+        # a recomputed "bumped" stack against the engine's own fed_tax/state_tax
+        # would be wrong: those carry true-up passes, AMT and settle-up
+        # adjustments this probe does not reproduce, so the difference would
+        # measure that mismatch rather than the marginal dollar.
+        _EMR_BUMP = 1000.0
+        # Anchor on the year's FINAL position, not the mid-loop `non_ss_income`
+        # snapshot: elective IRA/trust withdrawals are added to agi/taxable_inc
+        # after that variable is set, so probing from it evaluates a poorer
+        # household than the one the plan actually ends the year as -- which
+        # showed up as effective rates a full bracket BELOW statutory.
+        _emr_non_ss_base = max(0.0, agi - ss_taxable)
+
+        def _emr_stack(extra_ordinary):
+            _non_ss = _emr_non_ss_base + extra_ordinary
+            _ss_tax = social_security_taxable_amount(
+                ss_total, _non_ss + portfolio_tax_exempt, filing)
+            _agi = max(0.0, _non_ss + _ss_tax)
+            # `ded` is this year's actual deduction (max of standard vs itemized,
+            # incl. the senior bonus), so the probe inherits the same
+            # standard/itemized posture the real calculation landed on.
+            _taxable = max(0.0, _agi - ded)
+            _fed = _compute_fed_tax_path(_taxable, year, filing, c['brk_inf'])
+            _state = state_income_tax(
+                c['state'], earned_net, retirement_dist + ira_wd + extra_ordinary, _ss_tax,
+                note_int_yr + portfolio_ordinary + portfolio_qualified, nonqual_ann, roth_conv,
+                year, h_over_65, filing=filing, brk_inf=c['brk_inf'])
+            _niit_v = niit_tax(row.get('nii', 0.0) or 0.0, _agi, filing)
+            _irmaa_v = (_irmaa_surcharge_path(irmaa_magi + extra_ordinary, year, n_medicare, filing)
+                        if n_medicare > 0 else 0.0)
+            return _fed + _state + _niit_v + _irmaa_v, _irmaa_v
+
+        try:
+            _base_stack, _base_irmaa = _emr_stack(0.0)
+            _bumped_stack, _bump_irmaa = _emr_stack(_EMR_BUMP)
+            row['effective_marginal_rate'] = (_bumped_stack - _base_stack) / _EMR_BUMP
+            row['effective_marginal_rate_irmaa_cliff'] = _bump_irmaa > _base_irmaa + 1e-9
+        except Exception:
+            # A diagnostic must never break a projection.
+            row['effective_marginal_rate'] = None
+            row['effective_marginal_rate_irmaa_cliff'] = False
+
         row['net_income'] = row.get('gross_income', agi) - total_tax
 
         # ── Canonical cash-flow breakdown (single source of truth) ───────────
