@@ -17,6 +17,11 @@ import re
 import copy as _copy
 from pathlib import Path
 
+# Wall-clock reads route through platform_runtime.today() so a frozen fixture
+# can pin the date; see that function's docstring for why data alone is not
+# enough to make a projection reproducible.
+from . import platform_runtime as _platform_runtime
+
 
 # Fallback Social Security wage base used only when a plan's own
 # ss_wage_base_base_year field is blank. The household field is expected to be
@@ -825,7 +830,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
             c['filing_status'] = 'Single'  # can't be MFJ with one member
     c['household_size'] = len(c['members'])
 
-    c['plan_start'] = datetime.date.today().year
+    c['plan_start'] = _platform_runtime.today().year
     c['plan_end']   = max(c['h_death_yr'], c['w_death_yr'])
     c['first_death_yr'] = min(c['h_death_yr'], c['w_death_yr'])
 
@@ -2466,7 +2471,7 @@ def build_plan_from_json(plan, url_template=''):
 
     # ── Members ───────────────────────────────────────────────────────────
     members_in = plan.get('members', [{'name': 'You', 'dob_year': 1965,
-                                        'retirement_year': datetime.date.today().year + 4, 'mortality_age': 90}])
+                                        'retirement_year': _platform_runtime.today().year + 4, 'mortality_age': 90}])
     m1 = members_in[0]
     c['h_name']     = m1.get('name', 'Member 1')
     c['h_nick']     = str(m1.get('nickname') or '').strip() or str(c['h_name']).strip().split(' ')[0]
@@ -2474,7 +2479,7 @@ def build_plan_from_json(plan, url_template=''):
     # dob_month is optional in the wizard JSON; default 1 preserves the prior
     # binary Medicare/pre-65 switch behavior (see _medicare_month_fraction).
     c['h_dob_month']= int(m1.get('dob_month', 1) or 1)
-    c['h_ret_yr']   = int(m1.get('retirement_year', datetime.date.today().year + 4))
+    c['h_ret_yr']   = int(m1.get('retirement_year', _platform_runtime.today().year + 4))
     c['h_mort_age'] = int(m1.get('mortality_age', 90))
     c['h_death_yr'] = c['h_dob_yr'] + c['h_mort_age']
 
@@ -2484,7 +2489,7 @@ def build_plan_from_json(plan, url_template=''):
         c['w_nick']     = str(m2.get('nickname') or '').strip() or str(c['w_name']).strip().split(' ')[0]
         c['w_dob_yr']   = int(m2.get('dob_year', 1965))
         c['w_dob_month']= int(m2.get('dob_month', 1) or 1)
-        c['w_ret_yr']   = int(m2.get('retirement_year', datetime.date.today().year + 4))
+        c['w_ret_yr']   = int(m2.get('retirement_year', _platform_runtime.today().year + 4))
         c['w_mort_age'] = int(m2.get('mortality_age', 92))
         c['w_death_yr'] = c['w_dob_yr'] + c['w_mort_age']
     else:
@@ -2513,7 +2518,7 @@ def build_plan_from_json(plan, url_template=''):
     c['trust_type']     = 'revocable living trust'
 
     # ── Timeline ──────────────────────────────────────────────────────────
-    c['plan_start'] = plan.get('plan_start', datetime.date.today().year)
+    c['plan_start'] = plan.get('plan_start', _platform_runtime.today().year)
     c['plan_end']   = max(c['h_death_yr'], c.get('w_death_yr', c['h_death_yr']))
 
     # ── Economic assumptions ──────────────────────────────────────────────

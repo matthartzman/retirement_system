@@ -55,6 +55,8 @@ are completely unaffected.
 
 from datetime import date
 from pathlib import Path
+
+from . import platform_runtime as _platform_runtime
 from typing import Any
 
 try:
@@ -131,7 +133,7 @@ def compute_current_year_overrides(c: dict[str, Any], root: str | Path, *, today
     computed when within range; earned-income/spending overrides are only
     added when YTD tracking has current-year transactions logged.
     """
-    today = today or date.today()
+    today = today or _platform_runtime.today()
     current_year = today.year
     plan_start = c.get('plan_start')
     plan_end = c.get('plan_end')

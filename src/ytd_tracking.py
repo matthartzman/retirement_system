@@ -21,6 +21,8 @@ import re
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
+
+from . import platform_runtime as _platform_runtime
 from typing import Any
 
 TRANSACTION_COLUMNS = [
@@ -165,7 +167,7 @@ def _write_csv_dicts(path: Path, columns: list[str], rows: list[dict[str, Any]])
 
 
 def _current_year(today: date | None = None) -> int:
-    return (today or date.today()).year
+    return (today or _platform_runtime.today()).year
 
 
 def _is_current_year_transaction(row: dict[str, Any], *, today: date | None = None) -> bool:
@@ -976,7 +978,7 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
     prior calendar year, selected via ``period`` ("ytd" default, or
     "last_year"). All imported transactions (not just current-year rows) are
     read so a full prior-year window is available."""
-    today = today or date.today()
+    today = today or _platform_runtime.today()
     period = normalize_actuals_period(period)
     is_last_year = period == "last_year"
     report_year = (today.year - 1) if is_last_year else today.year

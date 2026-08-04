@@ -11,6 +11,7 @@ The module imports nothing from the rest of the application so that any module
 can consult it without risking an import cycle.
 """
 
+import datetime as _datetime
 import os
 import sys
 from pathlib import Path
@@ -19,6 +20,37 @@ WORKSPACE_SUBDIRS = ("input", "output", "local_state", "saved_plans")
 
 WORKSPACE_ROOT_ENV = "RETIREMENT_SYSTEM_WORKSPACE_ROOT"
 NO_AUTO_OPEN_ENV = "RETIREMENT_SYSTEM_NO_AUTO_OPEN"
+FROZEN_TODAY_ENV = "RETIREMENT_SYSTEM_FROZEN_TODAY"
+
+
+def today() -> _datetime.date:
+    """The date the system should treat as "now".
+
+    Honors ``RETIREMENT_SYSTEM_FROZEN_TODAY`` (an ISO ``YYYY-MM-DD`` value),
+    otherwise returns the real calendar date.
+
+    This exists because plan projections are not hermetic against the wall
+    clock: ``plan_start`` is derived from the current year, and the YTD blend
+    prorates the current year by day-of-year. A "frozen" fixture whose CSVs
+    never change therefore still produces different dollar figures on different
+    days -- tests/test_199_frozen_sample_plan_golden_master.py's docstring
+    records regenerating its pins on 2026-07-28 vs 2026-07-29, with no code
+    change, and getting 6521581.18 vs 6487999.96.
+
+    Freezing pricing (``RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS``) and
+    freezing the input data are both necessary for a reproducible projection,
+    but neither is sufficient without also freezing the date.
+
+    An unparseable value is ignored rather than raising: a malformed env var
+    must not take down a real user's app at import time.
+    """
+    raw = (os.getenv(FROZEN_TODAY_ENV) or "").strip()
+    if raw:
+        try:
+            return _datetime.date.fromisoformat(raw)
+        except ValueError:
+            pass
+    return _datetime.date.today()
 
 
 def package_root() -> Path:
