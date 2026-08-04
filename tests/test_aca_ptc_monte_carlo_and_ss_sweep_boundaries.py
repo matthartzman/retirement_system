@@ -10,10 +10,12 @@ from src.reporting import sheets_strategy
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 
 class FullChecklistRemainingTests(unittest.TestCase):
     def _fast_cfg(self):
-        cfg = parse_client(load_csv(ROOT / "input" / "client_data.csv"), "")
+        cfg = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
         cfg["plan_end"] = cfg["plan_start"] + 2
         cfg["roth_policy"] = "none"
         cfg["mc_sims"] = 3

@@ -9,10 +9,12 @@ from src.planning_engines import monte_carlo
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 
 class ReleaseMonteCarloBehaviorTests(unittest.TestCase):
     def test_monte_carlo_defaults_to_exact_scalar_and_vectorized_is_opt_in(self):
-        data = load_csv(ROOT / "input" / "client_data.csv")
+        data = load_csv(TEST_INPUT_DIR / "client_data.csv")
         try:
             cfg = prepare_config_from_sectioned_data(data, "")
         except ValueError as exc:

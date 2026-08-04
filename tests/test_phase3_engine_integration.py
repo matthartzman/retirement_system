@@ -22,7 +22,12 @@ os.environ.setdefault("RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS", "1")
 
 @pytest.fixture(scope="module")
 def base_cfg():
-    return prepare_config_from_sectioned_data(load_csv("input/client_data.csv"))
+    # TEST_INPUT_DIR, not a relative "input/..." path. The relative form loaded
+    # the anchor client_data.csv from the REAL repo input/ while its nine part
+    # files resolved through the redirected workspace -- an incoherent hybrid
+    # config whose values depended on how far the two trees had diverged.
+    from conftest import TEST_INPUT_DIR
+    return prepare_config_from_sectioned_data(load_csv(TEST_INPUT_DIR / "client_data.csv"))
 
 
 # ── AMT engine ────────────────────────────────────────────────────────────────
@@ -98,7 +103,20 @@ def _proj(base_cfg, **opts):
     c = dict(base_cfg)
     c["opt"] = {**base_cfg.get("opt", {}), **opts}
     if "disability_income_insurance" in opts:
-        c["disability"] = {**c.get("disability", {}), "simulate_year": c["plan_start"]}
+        # Supply the policy this test is exercising rather than depending on
+        # whatever the ambient plan happens to carry. The engine only pays a
+        # benefit when disability.policies is non-empty
+        # (deterministic_engine.py:731), and the frozen fixture deliberately
+        # ships policy_count=0 -- a retired household has no DI coverage. An
+        # integration test for the DI code path should not silently become a
+        # no-op because the loaded plan has no policy.
+        c["disability"] = {
+            **c.get("disability", {}),
+            "simulate_year": c["plan_start"],
+            "policies": c.get("disability", {}).get("policies")
+            or [{"monthly_benefit": 5000.0, "benefit_period_years": 5,
+                 "elimination_days": 0, "premium_pre_tax": False}],
+        }
     return project(c)
 
 
@@ -115,7 +133,14 @@ def test_equity_comp_adds_ordinary_income_and_grows_networth(base_cfg):
     rows = _proj(base_cfg, equity_compensation=True)
     assert any(r.get("equity_comp_ordinary_income") for r in rows)
     assert any(r.get("equity_comp_amt_preference") for r in rows)
-    assert rows[-1]["total_nw"] != base[-1]["total_nw"]
+    # Compare in-plan net worth and lifetime tax, NOT terminal net worth. The
+    # frozen fixture's household exhausts its portfolio before plan end, so
+    # terminal NW settles at the same non-portfolio floor either way and is
+    # insensitive to anything that happens earlier -- it would report "no
+    # effect" for a module that in fact shifts net worth by ~$205k in the
+    # grant year and lifetime tax by ~$170k.
+    assert any(abs(r["total_nw"] - b["total_nw"]) > 0.01 for r, b in zip(rows, base))
+    assert sum(r["total_tax"] for r in rows) != sum(r["total_tax"] for r in base)
 
 
 def test_disability_zeros_earned_and_pays_benefit(base_cfg):

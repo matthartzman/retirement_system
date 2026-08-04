@@ -27,9 +27,11 @@ from src.planning_engines import (
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 
 def _base_config():
-    c = parse_client(load_csv(ROOT / "input" / "client_data.csv"), "")
+    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
     c["roth_policy"] = "none"
     c["plan_end"] = min(int(c["plan_end"]), int(c["plan_start"]) + 10)
     c["mc_sims"] = 80

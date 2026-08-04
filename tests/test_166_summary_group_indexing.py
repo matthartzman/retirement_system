@@ -18,6 +18,8 @@ from src.spending_budget_resolver import resolve_spending_inputs
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 TRAVEL_SUMMARY = 25000.0
 
 
@@ -47,7 +49,7 @@ def test_summary_group_budget_resolves_to_full_window_extra(tmp_path):
 
 
 def _config_with_travel_summary():
-    cfg = parse_client(load_csv(ROOT / "input" / "client_data.csv"), "")
+    cfg = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
     ps = int(cfg["plan_start"])
     # A summary Travel group resolves to a single recurring extra spanning the
     # whole plan window (see resolve_spending_inputs). Model that directly and

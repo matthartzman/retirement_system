@@ -20,9 +20,11 @@ from src.data_io import load_csv, parse_client
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 
 def _base_data():
-    return copy.deepcopy(load_csv(ROOT / "input" / "client_data.csv"))
+    return copy.deepcopy(load_csv(TEST_INPUT_DIR / "client_data.csv"))
 
 
 class NoteReceivableLegacySnapshotShapeTests(unittest.TestCase):

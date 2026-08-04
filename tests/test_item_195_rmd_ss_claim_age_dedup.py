@@ -85,17 +85,20 @@ class Item195RmdSsClaimAgeDedupTests(unittest.TestCase):
         self.assertIn('"claim_age"', js)
 
     def test_engine_derives_rmd_start_age_purely_from_statutory_default(self):
+        from conftest import TEST_INPUT_DIR
         from src.data_io import load_csv, parse_client
-        c = parse_client(load_csv(ROOT / "input" / "client_data.csv"), "")
+        c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
         from src.core import statutory_rmd_start_age
         self.assertEqual(c["rmd_start_age"], statutory_rmd_start_age(c["h_dob_yr"]))
         self.assertEqual(c["ss_claim_age"], 70)
-        # Per-member overrides are unaffected — whatever claim_age the live
-        # plan currently has configured per member still round-trips exactly
-        # as before (values here track input/client_household.csv's Social
-        # Security/Member 1|2/claim_age rows, not a fixed pin).
-        self.assertEqual(c["h_ss_claim_age"], 65)
-        self.assertEqual(c["w_ss_claim_age"], 66)
+        # Per-member overrides round-trip unchanged. These now track the frozen
+        # fixture (tests/fixtures/sample_plan_frozen/client_household.csv,
+        # Social Security/Member 1|2/claim_age = 69) rather than the live plan.
+        # The previous version read the real input/ and asserted 65/66, so it
+        # broke whenever the user edited their own claim ages -- an assertion
+        # about the developer's saved plan, not about the engine.
+        self.assertEqual(c["h_ss_claim_age"], 69)
+        self.assertEqual(c["w_ss_claim_age"], 69)
 
 
 if __name__ == "__main__":
