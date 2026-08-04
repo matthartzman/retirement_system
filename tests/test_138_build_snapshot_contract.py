@@ -3,6 +3,10 @@ import json
 
 from src.build_snapshot import SNAPSHOT_FILENAME, SNAPSHOT_SCHEMA, read_build_snapshot, write_build_snapshot
 
+import pytest
+
+pytestmark = pytest.mark.contract
+
 
 def test_build_snapshot_records_artifact_fingerprints_and_summary(tmp_path):
     output = tmp_path / "output"

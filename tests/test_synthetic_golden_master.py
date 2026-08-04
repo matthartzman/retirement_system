@@ -26,6 +26,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import pytest
+
 # Belt-and-braces alongside tests/conftest.py's OFFLINE pin: no test in this
 # module may reach a live price provider, or the pinned dollars stop being
 # reproducible.
@@ -168,6 +170,7 @@ class SyntheticLibraryIsolationTests(unittest.TestCase):
         self.assertGreater(metrics["terminal_total_nw"], 0.0)
 
 
+@pytest.mark.golden_master
 class SyntheticGoldenMasterTests(unittest.TestCase):
     def test_golden_master_library_covers_multiple_plan_stresses(self):
         expected = json.loads(FIXTURE.read_text(encoding="utf-8"))

@@ -2382,20 +2382,43 @@ def run_deterministic_projection_stage(c):
         # a dollar that crosses an IRMAA threshold costs hundreds.
         #
         # Perturb ordinary income by +$1,000 and re-run the pieces of the stack
-        # that respond to it: SS inclusion, federal, state, NIIT and IRMAA.
-        # Every function below is the same one the main path used this year, so
-        # the delta reflects this household's real position, not a table lookup.
+        # that respond to it within THIS year: SS inclusion, federal, state,
+        # and NIIT. Every function below is the same one the main path used
+        # this year, so the delta reflects this household's real position, not
+        # a table lookup.
         #
-        # Deliberately NOT included: the ACA premium-tax-credit cliff (it is
-        # resolved earlier in the year's flow and is not re-runnable from here)
-        # and LTCG stacking (this probe adds ordinary income, not gain). The
-        # rate is therefore a lower bound in ACA-subsidised bridge years --
-        # documented rather than silently approximated.
-        # Both sides of the delta are recomputed through the SAME calls. Comparing
-        # a recomputed "bumped" stack against the engine's own fed_tax/state_tax
-        # would be wrong: those carry true-up passes, AMT and settle-up
-        # adjustments this probe does not reproduce, so the difference would
-        # measure that mismatch rather than the marginal dollar.
+        # IRMAA is deliberately NOT perturbed here. `irmaa_yr` (this year's
+        # actual surcharge) is charged on `irmaa_magi`, the LOOKBACK MAGI from
+        # `c['irmaa_lookback_years']` years ago (line ~1672) -- already fixed
+        # by history, and structurally incapable of responding to a dollar
+        # earned this year. An earlier version bumped that locked value
+        # anyway, which could manufacture huge phantom "cliffs": a $1,000
+        # probe crossing a tier boundary on a value the dollar cannot actually
+        # move produced a measured 350% effective rate in a year with no real
+        # IRMAA event, caught by this file's own test_rate_is_never_absurd.
+        #
+        # What IS real: this year's marginal dollar raises irmaa_magi_current
+        # (this year's MAGI), which becomes the LOOKBACK figure for year+2 --
+        # so it can trigger a real, just deferred, IRMAA cost. That is flagged
+        # via effective_marginal_rate_irmaa_cliff without folding a dollar
+        # amount for it into effective_marginal_rate, since attributing a
+        # future year's cost to this year's rate would need that future
+        # year's household composition and threshold inflation, not available
+        # from a single forward pass. Sheet 7's note explains the flag.
+        #
+        # Also deliberately NOT included: the ACA premium-tax-credit cliff (it
+        # is resolved earlier in the year's flow and is not re-runnable from
+        # here) and LTCG stacking (this probe adds ordinary income, not gain).
+        # The rate is therefore a lower bound in ACA-subsidised bridge years
+        # and near an IRMAA threshold -- documented rather than silently
+        # approximated.
+        #
+        # Both sides of the delta are recomputed through the SAME calls.
+        # Comparing a recomputed "bumped" stack against the engine's own
+        # fed_tax/state_tax would be wrong: those carry true-up passes, AMT
+        # and settle-up adjustments this probe does not reproduce, so the
+        # difference would measure that mismatch rather than the marginal
+        # dollar.
         _EMR_BUMP = 1000.0
         # Anchor on the year's FINAL position, not the mid-loop `non_ss_income`
         # snapshot: elective IRA/trust withdrawals are added to agi/taxable_inc
@@ -2419,15 +2442,21 @@ def run_deterministic_projection_stage(c):
                 note_int_yr + portfolio_ordinary + portfolio_qualified, nonqual_ann, roth_conv,
                 year, h_over_65, filing=filing, brk_inf=c['brk_inf'])
             _niit_v = niit_tax(row.get('nii', 0.0) or 0.0, _agi, filing)
-            _irmaa_v = (_irmaa_surcharge_path(irmaa_magi + extra_ordinary, year, n_medicare, filing)
-                        if n_medicare > 0 else 0.0)
-            return _fed + _state + _niit_v + _irmaa_v, _irmaa_v
+            return _fed + _state + _niit_v
 
         try:
-            _base_stack, _base_irmaa = _emr_stack(0.0)
-            _bumped_stack, _bump_irmaa = _emr_stack(_EMR_BUMP)
+            _base_stack = _emr_stack(0.0)
+            _bumped_stack = _emr_stack(_EMR_BUMP)
             row['effective_marginal_rate'] = (_bumped_stack - _base_stack) / _EMR_BUMP
-            row['effective_marginal_rate_irmaa_cliff'] = _bump_irmaa > _base_irmaa + 1e-9
+            # A future (year+2) IRMAA event: does the marginal dollar push
+            # THIS year's own MAGI (irmaa_magi_current, not the locked
+            # lookback irmaa_magi) across a tier it would otherwise not cross?
+            if n_medicare > 0:
+                _base_tier = _irmaa_tier_path(irmaa_magi_current, year, filing)
+                _bump_tier = _irmaa_tier_path(irmaa_magi_current + _EMR_BUMP, year, filing)
+                row['effective_marginal_rate_irmaa_cliff'] = _bump_tier > _base_tier
+            else:
+                row['effective_marginal_rate_irmaa_cliff'] = False
         except Exception:
             # A diagnostic must never break a projection.
             row['effective_marginal_rate'] = None

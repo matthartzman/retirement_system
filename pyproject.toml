@@ -7,6 +7,21 @@ python_files = ["test_*.py"]
 addopts = "--tb=short -q"
 markers = [
     "slow: exercises the full build pipeline via subprocess; skip locally with -m 'not slow'",
+    # Five-tier taxonomy (system review 2026-08-04, quality finding
+    # `target-test-pyramid-and-consolidation-plan`). Applied so far to the
+    # tests that already have an unambiguous tier -- the mandatory golden
+    # masters, the extracted tax-math unit tests, and the contract tests that
+    # were already well-scoped. NOT retrofitted across all 228 files: the
+    # review's own recommendation was a five-file split plus markers "as the
+    # template for future files," explicitly rejecting a full-tree
+    # reorganization as contradicting this project's own
+    # test_freeze_numbered_test_files.py stance. New test files should carry
+    # the tier that fits; existing untagged files are not a bug.
+    "unit: pure functions or closed-form math; no I/O, no engine projection",
+    "integration: config/data flow through 2+ modules without a full workbook build",
+    "golden_master: pins exact dollar figures against a frozen or synthetic plan; a failure means the ENGINE changed",
+    "contract: asserts the shape of an API/route/snapshot contract other code depends on",
+    "e2e: drives the real build pipeline or HTTP layer end-to-end",
 ]
 # Timeout safety net removed: pytest-timeout configuration was causing
 # silent crashes in CI despite plugin installation attempts. Tests will

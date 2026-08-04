@@ -96,6 +96,7 @@ def _project_metrics(c):
 # a validation-maturity roadmap item. Moved verbatim; fixtures unchanged.
 
 @pytest.mark.slow
+@pytest.mark.e2e
 class Phase5WorkbookSnapshotTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -115,6 +116,31 @@ class Phase5WorkbookSnapshotTests(unittest.TestCase):
             ignore=lambda _dir, names: [n for n in names if n in excluded_names or n.endswith(".pyc")],
             dirs_exist_ok=True,
         )
+        # Overwrite the copied input/ with the frozen fixture, the same
+        # committed/self-contained plan test_199 pins. The copytree above
+        # copies the REAL ROOT/input as it happens to sit on disk right now --
+        # which can be a blank new-plan workspace (zero starting account
+        # balances, the build fails outright) or a live household with real
+        # PII. Building against a deterministic fixture instead of "whatever a
+        # human last saved" is what makes this an e2e/reporting-contract test
+        # rather than a live-plan diagnostic (that diagnostic already exists,
+        # warn-only, in test_2_recommendations.py).
+        FROZEN_DIR = ROOT / "tests" / "fixtures" / "sample_plan_frozen"
+        tmp_input = tmp_root / "input"
+
+        def _clear_readonly(func, path, _exc_info):
+            # Files copied from a git checkout can carry the read-only
+            # attribute on Windows, which turns a plain rmtree into
+            # PermissionError: WinError 5.
+            os.chmod(path, 0o666)
+            func(path)
+
+        if tmp_input.exists():
+            shutil.rmtree(tmp_input, onerror=_clear_readonly)
+        tmp_input.mkdir(parents=True)
+        for f in sorted(FROZEN_DIR.iterdir()):
+            if f.is_file():
+                shutil.copy(f, tmp_input / f.name)
         env = os.environ.copy()
         # Force the subprocess to treat tmp_root (its own copied tree) as the
         # workspace root, overriding any RETIREMENT_SYSTEM_WORKSPACE_ROOT the

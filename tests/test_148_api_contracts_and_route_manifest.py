@@ -3,6 +3,10 @@ from pathlib import Path
 
 from src.api_contracts import CONTRACT_BY_KEY, contract_summary, validate_payload
 
+import pytest
+
+pytestmark = pytest.mark.contract
+
 ROOT = Path(__file__).resolve().parents[1]
 _SPEC = importlib.util.spec_from_file_location("route_manifest_for_test", ROOT / "src/server/route_manifest.py")
 route_manifest_mod = importlib.util.module_from_spec(_SPEC)
