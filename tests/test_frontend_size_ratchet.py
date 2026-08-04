@@ -1,0 +1,88 @@
+"""dashboard.js must not grow.
+
+System review 2026-08-04, architect finding `frontend-single-global-namespace`,
+recommended option 3: "The size ratchet is the highest value-per-hour action
+available here: the six decomp files prove extraction happens, but without a
+constraint the monolith reabsorbs the growth."
+
+This is a ratchet, not a budget. The ceiling only ever moves DOWN, and it moves
+by editing the number below after real extraction work. A change that adds
+lines to dashboard.js must take lines out of it somewhere else, or move the new
+code into its own module -- which is the point.
+
+Why a line ceiling rather than "no new code in this file": a hard freeze would
+block ordinary bug fixes in a 19k-line file that still owns most of the UI. The
+ratchet allows churn while making growth a deliberate, visible decision.
+
+When you legitimately extract code, LOWER the ceiling in the same commit. That
+is the only supported way to change it.
+"""
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+JS_DIR = ROOT / "frontend" / "js"
+
+# Ceiling for the monolith. Ratchet DOWN only; never raise to make a diff pass.
+# 2026-08-04: measured 19,661. Set at the measurement with no headroom, so the
+# very next line added is a deliberate decision rather than silent drift.
+DASHBOARD_JS_MAX_LINES = 19_661
+
+# Total frontend JS is allowed to grow -- extraction moves lines out of
+# dashboard.js into new modules, which should not be penalised. This ceiling
+# only catches wholesale duplication.
+TOTAL_JS_MAX_LINES = 32_000
+
+
+def _line_count(path: Path) -> int:
+    return len(path.read_text(encoding="utf-8").splitlines())
+
+
+def test_dashboard_js_does_not_grow():
+    path = JS_DIR / "dashboard.js"
+    actual = _line_count(path)
+    assert actual <= DASHBOARD_JS_MAX_LINES, (
+        f"frontend/js/dashboard.js is {actual:,} lines, over the "
+        f"{DASHBOARD_JS_MAX_LINES:,}-line ratchet by {actual - DASHBOARD_JS_MAX_LINES:,}.\n"
+        "This file is a single global namespace with load-order contracts; it is "
+        "meant to shrink, not grow. Either extract the new code into its own "
+        "module under frontend/js/, or remove an equivalent number of lines here.\n"
+        "Do NOT raise DASHBOARD_JS_MAX_LINES to make this pass -- that is the "
+        "drift this test exists to prevent."
+    )
+
+
+def test_ratchet_is_not_slack():
+    """The ceiling must stay close to reality, or it stops constraining anything.
+
+    A ceiling far above the real size silently permits the growth it was added
+    to prevent. If genuine extraction drops the file well below the ceiling,
+    lower the ceiling in that same commit.
+    """
+    actual = _line_count(JS_DIR / "dashboard.js")
+    slack = DASHBOARD_JS_MAX_LINES - actual
+    assert slack <= 500, (
+        f"dashboard.js is {actual:,} lines but the ratchet is set at "
+        f"{DASHBOARD_JS_MAX_LINES:,} -- {slack:,} lines of unused headroom. "
+        "Lower DASHBOARD_JS_MAX_LINES to the current size so the ratchet keeps "
+        "constraining growth."
+    )
+
+
+def test_total_frontend_js_has_a_ceiling():
+    total = sum(_line_count(p) for p in JS_DIR.glob("*.js"))
+    assert total <= TOTAL_JS_MAX_LINES, (
+        f"frontend/js totals {total:,} lines, over {TOTAL_JS_MAX_LINES:,}. "
+        "Extraction should MOVE lines out of dashboard.js, not duplicate them."
+    )
+
+
+@pytest.mark.parametrize("name", ["dashboard.js"])
+def test_ratchet_target_exists(name):
+    assert (JS_DIR / name).is_file(), (
+        f"frontend/js/{name} not found -- if it was renamed or split, update "
+        "this ratchet to point at whatever now holds the bulk of the UI."
+    )
