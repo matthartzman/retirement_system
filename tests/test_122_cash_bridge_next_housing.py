@@ -1,6 +1,6 @@
 from openpyxl import Workbook
 
-from src.reporting.sheets_projection import build_sheet5, build_sheet6
+from src.reporting.sheets_projection_facade import build_sheet5, build_sheet6
 
 
 def _config():

@@ -730,7 +730,7 @@ def plan_forms_get():
 
 @app.route("/api/plan/forms", methods=["POST"])
 def plan_forms_post():
-    denied = _require("edit_config")
+    denied = _require("write_config")
     if denied:
         return denied
     body = request.get_json(silent=True) or {}
@@ -743,7 +743,7 @@ def plan_forms_post():
 
 @app.route("/api/plan/forms/<path:section_path>", methods=["PATCH"])
 def plan_forms_patch(section_path):
-    denied = _require("edit_config")
+    denied = _require("write_config")
     if denied:
         return denied
     body = request.get_json(silent=True) or {}

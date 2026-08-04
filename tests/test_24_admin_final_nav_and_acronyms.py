@@ -14,20 +14,14 @@ def test_admin_left_nav_matches_user_ui_step_model_without_top_level_groups():
     assert 'renderAdminNav' in html
 
 
-def test_all_admin_click_handlers_have_declared_functions_or_safe_builtins():
-    html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
-    functions = set(re.findall(r"\b(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(", html))
-    functions.update(re.findall(r"\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>", html))
-    allowed = {"location", "document", "querySelectorAll", "forEach", "Math", "JSON", "encodeURIComponent", "esc"}
-    missing = []
-    for onclick in re.findall(r'onclick="([^"]+)"', html):
-        if onclick == "${it.action}":
-            continue
-        for name in re.findall(r"\b([A-Za-z_$][\w$]*)\s*\(", onclick):
-            if name not in functions and name not in allowed:
-                missing.append((onclick, name))
-    assert not missing
-
+# test_all_admin_click_handlers_have_declared_functions_or_safe_builtins was
+# deleted here (system review 2026-08-04, quality finding
+# `duplicate-admin-click-handler-test`): its regex extraction, allowed-set and
+# assertion were byte-identical to
+# test_25_admin_accordion_nav_refinement.test_admin_click_handlers_still_have_backing_functions_after_refinement,
+# which additionally scans admin.css. The test_25 copy is a strict superset, so
+# no coverage was lost. Removals from the numbered-file baseline are permitted
+# by tests/test_freeze_numbered_test_files.py.
 
 def test_admin_title_case_preserves_common_acronyms():
     html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")

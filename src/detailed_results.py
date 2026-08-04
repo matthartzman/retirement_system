@@ -917,10 +917,37 @@ def _excel_workbook_detailed_results(workbook_path: str | Path) -> dict[str, Any
 
 
 
+# One-entry cache for the result-model sidecar, keyed on identity + mtime + size.
+# Every Results Explorer request (index, sheet, results -- all three dispatched
+# from server_services/report_service.py) re-parsed the whole sidecar; it is
+# ~426 KB on a real plan, so a single sheet click paid a full JSON parse.
+#
+# Keying on st_mtime_ns rather than st_mtime matters: a build can rewrite the
+# artifact within the same coarse-grained mtime tick on Windows, and pairing it
+# with st_size makes a same-nanosecond, same-length rewrite the only way to
+# serve stale data. Builds rewrite the file wholesale, so no explicit
+# invalidation wiring is needed -- and none can be forgotten by a future
+# artifact writer.
+_RESULT_MODEL_CACHE: dict[str, Any] = {"key": None, "value": None}
+
+
 def _result_model_for_workbook(workbook_path: str | Path) -> dict[str, Any] | None:
     """Load the v10 semantic result model sidecar for a workbook, if present."""
     path = Path(workbook_path)
-    return read_result_explorer_model(path.with_name(RESULTS_MODEL_FILENAME))
+    model_path = path.with_name(RESULTS_MODEL_FILENAME)
+    try:
+        stat = model_path.stat()
+        key = (str(model_path), stat.st_mtime_ns, stat.st_size)
+    except OSError:
+        # Missing/unreadable: fall through uncached so a later build is picked
+        # up immediately rather than pinning a None.
+        return read_result_explorer_model(model_path)
+    if _RESULT_MODEL_CACHE["key"] == key:
+        return _RESULT_MODEL_CACHE["value"]
+    value = read_result_explorer_model(model_path)
+    _RESULT_MODEL_CACHE["key"] = key
+    _RESULT_MODEL_CACHE["value"] = value
+    return value
 
 
 def _merge_model_index_with_excel(model_payload: dict[str, Any], workbook_path: str | Path) -> dict[str, Any]:
