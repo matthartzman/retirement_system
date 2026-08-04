@@ -14,8 +14,11 @@ def test_release_notes_are_under_documentation_release_notes():
 def test_readmes_are_under_documentation_readme():
     # .claude/worktrees holds full parallel checkouts for other Claude Code
     # sessions; each has its own documentation/readme/ copy that is out of
-    # scope for this project's own README-location policy.
-    outside = [p.relative_to(ROOT) for p in ROOT.rglob('*README*.md') if '.pytest_cache' not in p.parts and 'input' not in p.parts and 'dist' not in p.parts and 'worktrees' not in p.parts and not p.is_relative_to(ROOT / 'documentation' / 'readme')]
+    # scope for this project's own README-location policy. node_modules/ is
+    # gitignored, vendored, third-party code (added when tests/e2e/'s
+    # Playwright suite landed) -- its own packages' READMEs are not this
+    # project's to relocate.
+    outside = [p.relative_to(ROOT) for p in ROOT.rglob('*README*.md') if '.pytest_cache' not in p.parts and 'input' not in p.parts and 'dist' not in p.parts and 'worktrees' not in p.parts and 'node_modules' not in p.parts and not p.is_relative_to(ROOT / 'documentation' / 'readme')]
     assert outside == []
     assert (ROOT / 'documentation' / 'readme' / 'README.md').exists()
     assert (ROOT / 'documentation' / 'readme' / 'CLEAN_PACKAGE_README.md').exists()
