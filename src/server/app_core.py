@@ -1585,8 +1585,15 @@ def _replace_liquidity_buffers(buffers: list[dict]) -> None:
 
 def _sync_config_backends() -> dict:
     try:
-        derived = export_client_json_yaml(CSV_PATH, CSV_PATH.parent)
-        db_path = import_csv_to_sqlite(CSV_PATH, _sqlite_db(), workspace_id=_workspace_id())
+        # Parse the sectioned CSVs ONCE and hand the result to both consumers.
+        # Each of these used to call load_csv itself, and load_csv on the
+        # client_data.csv anchor opens and parses ten files (itself plus the
+        # nine part files), so this ran twenty file reads per saved field --
+        # on a path invoked for every plan-data CSV write.
+        _plan_data = load_csv(CSV_PATH)
+        derived = export_client_json_yaml(CSV_PATH, CSV_PATH.parent, data=_plan_data)
+        db_path = import_csv_to_sqlite(CSV_PATH, _sqlite_db(), workspace_id=_workspace_id(),
+                                       data=_plan_data)
         return {"success": True, "derived": derived, "json": derived.get("client_data.json"), "yaml": derived.get("client_data.yaml")}
     except Exception as exc:
         return {"success": False, "error": str(exc), "trace": traceback.format_exc()}

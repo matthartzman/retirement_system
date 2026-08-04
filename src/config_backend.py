@@ -262,8 +262,14 @@ def init_sqlite(db_path: str | Path = DEFAULT_DB) -> Path:
     return p
 
 
-def import_csv_to_sqlite(csv_path: str | Path = DEFAULT_CSV, db_path: str | Path = DEFAULT_DB, workspace_id: str = "local") -> Path:
-    data = load_csv(csv_path)
+def import_csv_to_sqlite(csv_path: str | Path = DEFAULT_CSV, db_path: str | Path = DEFAULT_DB,
+                         workspace_id: str = "local", *, data: dict | None = None) -> Path:
+    """Import the sectioned plan data into SQLite.
+
+    ``data``: see export_client_json_yaml. Passing an already-parsed mapping
+    avoids a second ten-file read when both run in the same sync.
+    """
+    data = load_csv(csv_path) if data is None else data
     if not data:
         raise FileNotFoundError(f"No Plan Data CSV rows found at {csv_path} or split Plan Data files beside it.")
     p = init_sqlite(db_path)
@@ -336,11 +342,21 @@ def load_active_config(cli_backend: str | None = None, cli_path: str | Path | No
     return data, {"backend": backend, "path": str(resolve_path(config_ref, DEFAULT_DB)), "bootstrap_csv": str(bootstrap_csv), "sqlite_db": str(resolve_path(sqlite_db, DEFAULT_DB)), "workspace_id": "local", "client_id": "local"}
 
 
-def export_client_json_yaml(csv_anchor: str | Path = DEFAULT_CSV, output_dir: str | Path | None = None) -> dict[str, str]:
+def export_client_json_yaml(csv_anchor: str | Path = DEFAULT_CSV, output_dir: str | Path | None = None,
+                            *, data: dict | None = None) -> dict[str, str]:
+    """Write the JSON/YAML mirrors of the sectioned plan data.
+
+    ``data`` lets a caller that has already parsed the CSVs pass the result in
+    rather than have this function re-read them. One ``load_csv`` on the
+    client_data.csv anchor opens and DictReader-parses TEN files (itself plus
+    the nine part files in plan_data_registry.CLIENT_DATA_PART_FILES), and the
+    plan-data save path calls this alongside import_csv_to_sqlite, so the
+    default behaviour costs twenty file reads per saved field.
+    """
     anchor = Path(csv_anchor)
     out_dir = Path(output_dir) if output_dir is not None else anchor.parent
     out_dir.mkdir(parents=True, exist_ok=True)
-    data = load_csv(anchor)
+    data = load_csv(anchor) if data is None else data
     written = {}
     for path in (save_json(data, out_dir / "client_data.json"), save_yaml(data, out_dir / "client_data.yaml")):
         written[path.name] = str(path)

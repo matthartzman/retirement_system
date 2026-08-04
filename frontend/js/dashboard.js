@@ -4679,6 +4679,35 @@ function recYes(row) {
     .toLowerCase();
   return ["yes", "true", "1", "on", "enabled"].includes(v);
 }
+// Expand every collapsed ancestor of `el`, then scroll/focus/select it.
+//
+// Content inside a closed <details> is not focusable and has no layout, so
+// scrollIntoView/focus against it silently do nothing -- the user clicks a
+// "jump to source field" link and the page appears not to respond. That is
+// what happened for every Travel / Large Discretionary / DAF field, because
+// renderLifestyleSpending() wraps each of those groups in a <details> with no
+// `open` attribute, and STEP_REDIRECTS sends the old spending_travel /
+// spending_travel_extras step ids there.
+//
+// This is a bug CLASS, not one call site: anything that scrolls to a row can
+// hit it whenever the target is nested in a collapsed container. Route every
+// such call through here rather than fixing the one path that was reported.
+function revealAndFocus(el) {
+  if (!el) return false;
+  let node = el.parentElement;
+  while (node) {
+    if (node.tagName === "DETAILS" && !node.open) node.open = true;
+    // Collapsible nav/section groups use a class rather than <details>.
+    if (node.classList && node.classList.contains("collapsed"))
+      node.classList.remove("collapsed");
+    node = node.parentElement;
+  }
+  if (el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  if (el.focus) el.focus({ preventScroll: true });
+  if (el.select) el.select();
+  return true;
+}
+
 function jumpRecommendationSource(stepId, rowIndex) {
   if (rowIndex !== undefined && rowIndex !== null && rowIndex !== "")
     inactiveEditReveals.add(Number(rowIndex));
@@ -4689,12 +4718,7 @@ function jumpRecommendationSource(stepId, rowIndex) {
       el =
         document.querySelector(`[data-row="${rowIndex}"]`) ||
         document.getElementById("field-" + rowIndex);
-    if (el) {
-      if (el.scrollIntoView)
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-      if (el.focus) el.focus({ preventScroll: true });
-      if (el.select) el.select();
-    }
+    revealAndFocus(el);
   }, 80);
 }
 function recommendationSourceButton(item) {

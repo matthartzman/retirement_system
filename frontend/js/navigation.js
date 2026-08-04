@@ -45,6 +45,7 @@
       return;
     }
     safeCall(()=>ctx.setActiveStep(id));
+    updateSaveModeBadge(id,planLoaded);
     safeCall(()=>ctx.setSearchText(''));
     const srch=document.getElementById('combinedSearch');
     if(srch)srch.value='';
@@ -202,6 +203,35 @@
     },150);
     updateSearchToggle(ctx);
   }
+  // Which persistence model the CURRENT step uses, shown before the user acts.
+  //
+  // Autosave-on-navigate covers 20 of ~30 steps and reports itself only AFTER
+  // the fact, via an "Auto-saved." toast once you have already clicked away.
+  // Every other step instead raises a blocking Save/Discard/Stay prompt. The
+  // header renders the same Save button and the same "Unsaved changes" pill in
+  // both cases, so nothing distinguished them until it was too late to matter.
+  // The risk is confusion and misplaced trust rather than data loss -- both
+  // models do persist -- which is why this is a small always-visible label
+  // rather than a change to the save architecture itself.
+  function updateSaveModeBadge(stepId,planLoaded){
+    const el=document.getElementById('saveModeBadge');
+    if(!el)return;
+    if(!planLoaded||PLAN_INDEPENDENT_STEPS.includes(stepId)){
+      el.classList.add('hidden');
+      el.textContent='';
+      el.removeAttribute('title');
+      return;
+    }
+    const auto=AUTOSAVE_STEPS.includes(stepId);
+    el.textContent=auto?'Saves automatically':'Save required';
+    el.title=auto
+      ?'Your edits on this page are saved when you move to another page.'
+      :'Use Save Changes to keep your edits on this page. You will be asked before leaving with unsaved changes.';
+    el.classList.toggle('auto',auto);
+    el.classList.toggle('manual',!auto);
+    el.classList.remove('hidden');
+  }
+
   function focusableEntries(){
     return Array.from(document.querySelectorAll('.field input,.field select,.lot-table input,.lot-table select,.matrix-table input,.pane-actions button:not(:disabled),.nav-actions button:not(:disabled),header button:not(:disabled)')).filter(el=>!el.classList.contains('helpbtn')&&!el.disabled&&el.offsetParent!==null);
   }
@@ -216,6 +246,7 @@
     updateSearchToggle,
     setSearchScope,
     setCombinedSearch,
-    focusableEntries
+    focusableEntries,
+    updateSaveModeBadge
   };
 })();
