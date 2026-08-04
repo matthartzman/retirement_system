@@ -10,6 +10,8 @@ from src.data_io import load_csv, parse_client
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 class TestAssetClassOptimizerControls(unittest.TestCase):
     def test_requested_asset_classes_are_canonical_and_have_assumptions(self):
         expected = [
@@ -28,14 +30,14 @@ class TestAssetClassOptimizerControls(unittest.TestCase):
         self.assertEqual(missing, [])
 
     def test_separate_optimizer_controls_csv_loads(self):
-        data = load_csv(ROOT / 'input' / 'client_data.csv')
+        data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
         self.assertIn('Asset Class Optimizer Controls', data)
         cfg = parse_client(data, '')
         self.assertTrue(cfg['asset_class_enabled']['US Mid Cap'])
         self.assertTrue(cfg['asset_class_enabled']['Municipal Bonds'])
 
     def test_excluding_class_removes_it_from_optimizer_targets(self):
-        data = load_csv(ROOT / 'input' / 'client_data.csv')
+        data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
         data['Asset Class Optimizer Controls']['US Mid Cap']['selection_action'] = 'exclude'
         cfg = parse_client(data, '')
         out = opt.compute_optimal_allocation(cfg, force_mode=ap.ALLOCATION_MODE_OPTIMIZER)

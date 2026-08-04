@@ -23,9 +23,11 @@ from src.plan_config import ensure_engine_config
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 
 def load_sample_data():
-    return load_csv(ROOT / 'input' / 'client_data.csv')
+    return load_csv(TEST_INPUT_DIR / 'client_data.csv')
 
 
 def parse(data):

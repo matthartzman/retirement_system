@@ -15,9 +15,11 @@ from tests.golden_pricing import FROZEN_GOLDEN_MASTER_PRICES, frozen_holdings_pr
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 
 def sample_config(gain_harvest_policy='off'):
-    data = load_csv(ROOT / 'input' / 'client_data.csv')
+    data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
     c = parse_client(data, '')
     c['roth_policy'] = 'none'
     c['mc_paths'] = 5
@@ -37,7 +39,7 @@ def baseline_config_without_gain_harvest_overrides():
     baseline_config_without_tlh_overrides() for the same reason: a hardcoded
     dollar pin against the live, routinely edited client_data.csv would go
     stale independent of whether the off-by-default no-op property holds."""
-    data = load_csv(ROOT / 'input' / 'client_data.csv')
+    data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
     c = parse_client(data, '')
     c['roth_policy'] = 'none'
     c['mc_paths'] = 5

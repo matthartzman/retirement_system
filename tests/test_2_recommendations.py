@@ -11,9 +11,11 @@ from tests.golden_pricing import FROZEN_GOLDEN_MASTER_PRICES, frozen_holdings_pr
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 
 def sample_config():
-    data = load_csv(ROOT / 'input' / 'client_data.csv')
+    data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
     c = parse_client(data, '')
     c['roth_policy'] = 'none'
     c['mc_paths'] = 5
@@ -176,7 +178,7 @@ class RecommendationCompletionTests(unittest.TestCase):
         self.assertEqual(warnings, [])
 
     def test_forecast_api_service_uses_same_config_contract(self):
-        plan = json.loads((ROOT / 'input' / 'client_data.json').read_text())
+        plan = json.loads((TEST_INPUT_DIR / 'client_data.json').read_text())
         result = forecast_from_plan_json(plan, run_mc=False)
         self.assertEqual(result['status'], 'ok')
         self.assertGreater(result['terminal_nw'], 0)

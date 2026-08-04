@@ -11,17 +11,19 @@ from src.planning_engines import project
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 
 class AllocationScenarioTests(unittest.TestCase):
     def _config(self):
-        data = load_csv(ROOT / 'input' / 'client_data.csv')
+        data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
         c = parse_client(data, '')
         c['mc_sims'] = 5
         c['mc_sensitivity_sims'] = 1
         return c
 
     def test_plan_data_includes_two_allocation_scenarios_but_ui_hides_mode_rows(self):
-        text = (ROOT / 'input' / 'client_policy.csv').read_text(encoding='utf-8')
+        text = (TEST_INPUT_DIR / 'client_policy.csv').read_text(encoding='utf-8')
         self.assertIn('Scenarios,Allocation User Defined,allocation_selection_mode,user_target', text)
         self.assertIn('Scenarios,Allocation Optimizer Defined,allocation_selection_mode,optimizer_recommendation', text)
         ui = (ROOT / 'src' / 'dashboard_ui' / 'template.py').read_text(encoding='utf-8')

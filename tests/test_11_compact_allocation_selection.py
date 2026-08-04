@@ -11,10 +11,12 @@ from src.optimization import compute_optimal_allocation
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 
 class CompactAllocationSelectionTests(unittest.TestCase):
     def test_controls_csv_has_selection_action_and_alternate_rows_for_every_class(self):
-        p = ROOT / 'input' / 'asset_class_optimizer_controls.csv'
+        p = TEST_INPUT_DIR / 'asset_class_optimizer_controls.csv'
         actions = set()
         alternates = set()
         valid_actions = {'include', 'exclude', 'consider_alternate_first'}
@@ -40,14 +42,14 @@ class CompactAllocationSelectionTests(unittest.TestCase):
         self.assertIn('targetPctInput', html)
 
     def test_parser_selection_action_controls_asset_enabled_status(self):
-        data = load_csv(ROOT / 'input' / 'client_data.csv')
+        data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
         data['Asset Class Optimizer Controls']['US Mid Cap']['selection_action'] = 'exclude'
         cfg = parse_client(data, '')
         self.assertFalse(cfg['asset_class_enabled']['US Mid Cap'])
         self.assertEqual(cfg['asset_class_selection_action']['US Mid Cap'], ap.SELECTION_EXCLUDE)
 
     def test_alternate_first_redirects_user_defined_target(self):
-        data = load_csv(ROOT / 'input' / 'client_data.csv')
+        data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
         cfg = parse_client(data, '')
         cfg = copy.deepcopy(cfg)
         cfg['allocation_selection_mode'] = ap.ALLOCATION_MODE_USER

@@ -12,6 +12,7 @@ from src import allocation_policy as ap
 ROOT = Path(__file__).resolve().parents[1]
 
 
+
 class AllocationPolicyCleanupTests(unittest.TestCase):
     def test_allocation_policy_page_has_supporting_inputs_not_mode_toggle(self):
         html = (ROOT / 'frontend' / 'index.html').read_text(encoding='utf-8')

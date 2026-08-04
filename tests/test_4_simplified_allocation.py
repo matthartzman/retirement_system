@@ -9,6 +9,8 @@ from src.optimization import compute_optimal_allocation
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 
 class SimplifiedAllocationTests(unittest.TestCase):
     def test_default_target_mix_includes_cash_and_totals_100(self):
@@ -18,7 +20,7 @@ class SimplifiedAllocationTests(unittest.TestCase):
             self.assertGreaterEqual(len(examples), 3, cls)
 
     def test_client_policy_target_pct_drives_recommended_allocation(self):
-        data = load_csv(ROOT / 'input' / 'client_data.csv')
+        data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
         c = parse_client(data, '')
         self.assertAlmostEqual(c['allocation_target_sum'], 1.0, places=8)
         opt = compute_optimal_allocation(c)

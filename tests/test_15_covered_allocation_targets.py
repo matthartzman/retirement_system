@@ -12,10 +12,12 @@ from src.market_data import MarketDataProvider
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 
 class CoveredAllocationTargetsTests(unittest.TestCase):
     def _config(self):
-        return parse_client(load_csv(ROOT / 'input' / 'client_data.csv'), '')
+        return parse_client(load_csv(TEST_INPUT_DIR / 'client_data.csv'), '')
 
     def test_selected_user_targets_exclude_fully_covered_fixed_income_from_active_liquid_recommendation(self):
         cfg = self._config()
