@@ -20,153 +20,153 @@ Account Titling:
     contingent_beneficiary: ''
     primary_beneficiary: ''
     titling: ''
-    trust_see_through: 'FALSE'
+    trust_see_through: ''
   Family_Checking:
     contingent_beneficiary: ''
     primary_beneficiary: ''
     titling: ''
-    trust_see_through: 'FALSE'
+    trust_see_through: ''
   Member_1_401k:
     contingent_beneficiary: ''
     primary_beneficiary: ''
     titling: ''
-    trust_see_through: 'FALSE'
+    trust_see_through: ''
   Member_1_HSA:
     contingent_beneficiary: ''
     primary_beneficiary: ''
     titling: ''
-    trust_see_through: 'FALSE'
+    trust_see_through: ''
   Member_1_IRA:
     contingent_beneficiary: ''
     primary_beneficiary: ''
     titling: ''
-    trust_see_through: 'FALSE'
+    trust_see_through: ''
   Member_1_Roth:
     contingent_beneficiary: ''
     primary_beneficiary: ''
     titling: ''
-    trust_see_through: 'FALSE'
+    trust_see_through: ''
   Member_1_Trust:
     contingent_beneficiary: ''
     primary_beneficiary: ''
     titling: ''
-    trust_see_through: 'FALSE'
+    trust_see_through: ''
   Member_2_IRA:
     contingent_beneficiary: ''
     primary_beneficiary: ''
     titling: ''
-    trust_see_through: 'FALSE'
+    trust_see_through: ''
   Member_2_Roth:
     contingent_beneficiary: ''
     primary_beneficiary: ''
     titling: ''
-    trust_see_through: 'FALSE'
+    trust_see_through: ''
   Member_2_Trust:
     contingent_beneficiary: ''
     primary_beneficiary: ''
     titling: ''
-    trust_see_through: 'FALSE'
+    trust_see_through: ''
 Annuity Death Benefits:
   '2026':
-    H_Joint: $600,000
-    H_Single: $85,000
-    W_Joint: $300,000
-    W_Single: $50,000
+    H_Joint: ''
+    H_Single: ''
+    W_Joint: ''
+    W_Single: ''
   '2027':
-    H_Joint: $630,000
-    H_Single: $89,200
-    W_Joint: $315,000
-    W_Single: $52,500
+    H_Joint: ''
+    H_Single: ''
+    W_Joint: ''
+    W_Single: ''
   '2028':
-    H_Joint: $661,500
-    H_Single: $93,700
-    W_Joint: $330,800
-    W_Single: $55,100
+    H_Joint: ''
+    H_Single: ''
+    W_Joint: ''
+    W_Single: ''
   '2029':
-    H_Joint: $694,600
-    H_Single: $98,400
-    W_Joint: $347,300
-    W_Single: $57,900
+    H_Joint: ''
+    H_Single: ''
+    W_Joint: ''
+    W_Single: ''
   '2030':
-    H_Joint: $729,300
-    H_Single: $103,300
-    W_Joint: $325,600
-    W_Single: $60,800
+    H_Joint: ''
+    H_Single: ''
+    W_Joint: ''
+    W_Single: ''
   '2031':
-    H_Joint: $680,700
-    H_Single: $96,400
-    W_Joint: $303,900
-    W_Single: $63,800
+    H_Joint: ''
+    H_Single: ''
+    W_Joint: ''
+    W_Single: ''
   '2032':
-    H_Joint: $632,100
-    H_Single: $89,500
-    W_Joint: $282,200
-    W_Single: $59,300
+    H_Joint: ''
+    H_Single: ''
+    W_Joint: ''
+    W_Single: ''
   '2033':
-    H_Joint: $583,400
-    H_Single: $82,700
-    W_Joint: $260,500
-    W_Single: $54,700
+    H_Joint: ''
+    H_Single: ''
+    W_Joint: ''
+    W_Single: ''
   '2034':
-    H_Joint: $534,800
-    H_Single: $75,800
-    W_Joint: $238,800
-    W_Single: $50,100
+    H_Joint: ''
+    H_Single: ''
+    W_Joint: ''
+    W_Single: ''
   '2035':
-    H_Joint: $486,200
-    H_Single: $68,900
-    W_Joint: $217,100
-    W_Single: $45,600
+    H_Joint: ''
+    H_Single: ''
+    W_Joint: ''
+    W_Single: ''
   '2036':
-    H_Joint: $437,600
-    H_Single: $62,000
-    W_Joint: $195,300
-    W_Single: $41,000
+    H_Joint: ''
+    H_Single: ''
+    W_Joint: ''
+    W_Single: ''
   '2037':
-    H_Joint: $389,000
-    H_Single: $55,100
-    W_Joint: $173,600
-    W_Single: $36,500
+    H_Joint: ''
+    H_Single: ''
+    W_Joint: ''
+    W_Single: ''
   '2038':
-    H_Joint: $340,300
-    H_Single: $48,200
-    W_Joint: $151,900
-    W_Single: $31,900
+    H_Joint: ''
+    H_Single: ''
+    W_Joint: ''
+    W_Single: ''
   '2039':
-    H_Joint: $291,700
-    H_Single: $41,300
-    W_Joint: $130,200
-    W_Single: $27,300
+    H_Joint: ''
+    H_Single: ''
+    W_Joint: ''
+    W_Single: ''
   '2040':
-    H_Joint: $243,100
-    H_Single: $34,400
-    W_Joint: $108,500
-    W_Single: $22,800
+    H_Joint: ''
+    H_Single: ''
+    W_Joint: ''
+    W_Single: ''
   '2041':
-    H_Joint: $194,500
-    H_Single: $27,600
-    W_Joint: $86,800
-    W_Single: $18,200
+    H_Joint: ''
+    H_Single: ''
+    W_Joint: ''
+    W_Single: ''
   '2042':
-    H_Joint: $145,900
-    H_Single: $20,700
-    W_Joint: $65,100
-    W_Single: $13,700
+    H_Joint: ''
+    H_Single: ''
+    W_Joint: ''
+    W_Single: ''
   '2043':
-    H_Joint: $97,200
-    H_Single: $13,800
-    W_Joint: $43,400
-    W_Single: $9,100
+    H_Joint: ''
+    H_Single: ''
+    W_Joint: ''
+    W_Single: ''
   '2044':
-    H_Joint: $48,600
-    H_Single: $6,900
-    W_Joint: $21,700
-    W_Single: $4,600
+    H_Joint: ''
+    H_Single: ''
+    W_Joint: ''
+    W_Single: ''
   '2045':
-    H_Joint: $0
-    H_Single: $0
-    W_Joint: $0
-    W_Single: $0
+    H_Joint: ''
+    H_Single: ''
+    W_Joint: ''
+    W_Single: ''
 Asset Allocation Policy:
   Bonds:
     target_pct: 16%
@@ -266,215 +266,214 @@ Asset Class Optimizer Controls:
     selection_action: include
 Business Succession:
   Acme_Holdings:
-    buy_sell_type: cross-purchase
-    entity_name: Acme Holdings LLC
-    funding_amount: $1,500,000
-    funding_vehicle: life insurance
-    key_person_coverage: $1,000,000
-    owner: Member 1
-    ownership_pct: 60%
-    successor: Member 2
-    transfer_year: '2035'
-    valuation_growth_rate: 6.00%
-    valuation_today: $4,000,000
+    buy_sell_type: ''
+    entity_name: ''
+    funding_amount: ''
+    funding_vehicle: ''
+    key_person_coverage: ''
+    owner: ''
+    ownership_pct: ''
+    successor: ''
+    transfer_year: ''
+    valuation_growth_rate: ''
+    valuation_today: ''
   Policy:
-    valuation_growth_default: 5.00%
+    valuation_growth_default: ''
 Cashflow:
   Charitable Giving:
-    h_qcd_annual_amount: $0
+    h_qcd_annual_amount: ''
     h_qcd_end_year: ''
     h_qcd_start_year: ''
-    qcd_enabled: 'FALSE'
-    w_qcd_annual_amount: $0
+    qcd_enabled: ''
+    w_qcd_annual_amount: ''
     w_qcd_end_year: ''
     w_qcd_start_year: ''
   Earned Income:
-    annual_earned_income: $265,000
-    earned_income_annual_increase: 3.00%
-    earned_income_last_year: '2029'
-    earned_income_start_year: '2026'
-    entity_type: s_corp
+    annual_earned_income: ''
+    earned_income_annual_increase: ''
+    earned_income_last_year: ''
+    earned_income_start_year: ''
+    entity_type: ''
     ytd_remainder_earned_income_override: ''
   Large Discretionary Expenses:
-    extra_1_amount: $60,000
-    extra_1_comment: Family wedding
+    extra_1_amount: ''
+    extra_1_comment: ''
     extra_1_end_year: ''
     extra_1_start_year: ''
-    extra_1_type: Weddings
-    extra_1_year: '2031'
-    extra_2_amount: $60,000
-    extra_2_comment: Family wedding
+    extra_1_type: ''
+    extra_1_year: ''
+    extra_2_amount: ''
+    extra_2_comment: ''
     extra_2_end_year: ''
     extra_2_start_year: ''
-    extra_2_type: Weddings
-    extra_2_year: '2034'
-    extra_3_amount: $45,000
-    extra_3_comment: Kitchen renovation
+    extra_2_type: ''
+    extra_2_year: ''
+    extra_3_amount: ''
+    extra_3_comment: ''
     extra_3_end_year: ''
     extra_3_start_year: ''
-    extra_3_type: Home Improvement
-    extra_3_year: '2033'
-    extra_4_amount: $20,000
-    extra_4_comment: last year home-project spend is active (model ignores this line
-      after this year)
-    extra_4_end_year: '2031'
-    extra_4_start_year: '2027'
-    extra_4_type: Home Improvement
+    extra_3_type: ''
+    extra_3_year: ''
+    extra_4_amount: ''
+    extra_4_comment: ''
+    extra_4_end_year: ''
+    extra_4_start_year: ''
+    extra_4_type: ''
     extra_4_year: ''
-    extra_5_amount: $20,000
-    extra_5_comment: last year vacation spend is active
-    extra_5_end_year: '2046'
-    extra_5_start_year: '2026'
-    extra_5_type: Vacations
+    extra_5_amount: ''
+    extra_5_comment: ''
+    extra_5_end_year: ''
+    extra_5_start_year: ''
+    extra_5_type: ''
     extra_5_year: ''
   Mortgage:
-    annual_real_estate_taxes: $14,500
-    balance_as_of_plan_start: $412,500
-    interest_rate: 3.25%
-    last_payment_date: 6/30/2038
-    last_payment_year: '2038'
-    monthly_payment: $2,750
+    annual_real_estate_taxes: ''
+    balance_as_of_plan_start: ''
+    interest_rate: ''
+    last_payment_date: ''
+    last_payment_year: ''
+    monthly_payment: ''
     real_estate_tax_annual_adjustment_pct: ''
   Post-House-Sale Rent:
-    monthly_rent_post_sale: $0
+    monthly_rent_post_sale: ''
   Retirement Contributions:
-    annual_401k_limit_base_year: $31,000
-    index_401k_limit: 'TRUE'
-    monthly_401k_contribution: $2,500
+    annual_401k_limit_base_year: ''
+    index_401k_limit: ''
+    monthly_401k_contribution: ''
   S-Corp:
-    qbi_phaseout_applies: 'FALSE'
-    reasonable_salary_annual: $85,000
-    sehi_added_to_w2: 'TRUE'
-    state_corporate_surcharge_rate: 1.50%
+    qbi_phaseout_applies: ''
+    reasonable_salary_annual: ''
+    sehi_added_to_w2: ''
+    state_corporate_surcharge_rate: ''
   Self-Employment:
-    business_expenses_annual: $18,000
-    health_insurance_premiums_annual: $12,000
-    home_office_expenses_annual: $3,600
-    qbi_eligible: 'TRUE'
+    business_expenses_annual: ''
+    health_insurance_premiums_annual: ''
+    home_office_expenses_annual: ''
+    qbi_eligible: ''
   Spending:
-    annual_charitable_giving_high: $4,800
-    annual_charitable_giving_low: $2,400
-    annual_spending_base_year: $132,000
-    core_spending_growth_mode: cpi
-    core_spending_manual_growth_rate: 0.00%
-    daf_annual_contribution: $0
-    ytd_blend_enabled: 'FALSE'
+    annual_charitable_giving_high: ''
+    annual_charitable_giving_low: ''
+    annual_spending_base_year: ''
+    core_spending_growth_mode: ''
+    core_spending_manual_growth_rate: ''
+    daf_annual_contribution: ''
+    ytd_blend_enabled: ''
     ytd_remainder_spending_override: ''
 DAF:
   Settings:
-    annual_grant_amount: $5,000
-    contribution_amount: $25,000
-    contribution_is_appreciated: 'FALSE'
-    contribution_year: '2027'
-    enabled: 'TRUE'
-    grant_end_year: '2032'
-    grant_start_year: '2028'
+    annual_grant_amount: ''
+    contribution_amount: ''
+    contribution_is_appreciated: ''
+    contribution_year: ''
+    enabled: ''
+    grant_end_year: ''
+    grant_start_year: ''
 Economic Assumptions:
   ? ''
-  : annuity_default_additional_income_pct: 20.00%
-    annuity_default_dividend_rate: 5.00%
-    cash_yield_rate: 1.00%
-    fed_tax_bracket_inflator: 2.00%
-    inflation_general: 2.50%
-    medicare_part_b_inflation: 5.50%
-    medicare_part_d_inflation: 1.25%
-    portfolio_nominal_return: 5.00%
-    reinvest_dividends_default: 'YES'
-    social_security_cola: 2.00%
-    social_security_taxable_fraction: 85.00%
+  : annuity_default_additional_income_pct: ''
+    annuity_default_dividend_rate: ''
+    cash_yield_rate: ''
+    fed_tax_bracket_inflator: ''
+    inflation_general: ''
+    medicare_part_b_inflation: ''
+    medicare_part_d_inflation: ''
+    portfolio_nominal_return: ''
+    reinvest_dividends_default: ''
+    social_security_cola: ''
+    social_security_taxable_fraction: ''
 Education Funding:
   529 Accounts:
-    account_count: '0'
+    account_count: ''
   529 Plan 1:
-    annual_contribution: $0
+    annual_contribution: ''
     beneficiary: ''
     contribution_end_year: ''
     contribution_start_year: ''
-    current_balance: $0
+    current_balance: ''
     expected_use_year: ''
   Grandchild_A_529:
-    balance_today: $50,000
-    beneficiary: Grandchild A
-    contribution_end_year: '2035'
-    growth_rate: 6.00%
-    monthly_contribution: $500
-    owner: Member 1
-    state_deduction_eligible: 'FALSE'
+    balance_today: ''
+    beneficiary: ''
+    contribution_end_year: ''
+    growth_rate: ''
+    monthly_contribution: ''
+    owner: ''
+    state_deduction_eligible: ''
   Grandchild_A_Goal:
-    annual_cost_today: $40,000
-    beneficiary: Grandchild A
-    cost_inflation_rate: 5.00%
-    end_year: '2039'
-    start_year: '2036'
+    annual_cost_today: ''
+    beneficiary: ''
+    cost_inflation_rate: ''
+    end_year: ''
+    start_year: ''
   Policy:
-    allow_secure_2_roth_rollover: 'TRUE'
-    state_deduction_limit_annual: $0
+    allow_secure_2_roth_rollover: ''
+    state_deduction_limit_annual: ''
 Equity Compensation:
   ISO_2023:
-    exercise_price: $25
-    fmv_growth_rate: 10.00%
-    fmv_per_share_today: $150
-    grant_date: 6/1/2023
-    grant_type: ISO
-    planned_exercise_year: '2026'
-    planned_sale_year: '2027'
-    recipient: Member 1
-    shares_outstanding: '500'
-    vest_schedule: fully vested
+    exercise_price: ''
+    fmv_growth_rate: ''
+    fmv_per_share_today: ''
+    grant_date: ''
+    grant_type: ''
+    planned_exercise_year: ''
+    planned_sale_year: ''
+    recipient: ''
+    shares_outstanding: ''
+    vest_schedule: ''
   RSU_2024:
-    exercise_price: $0
-    fmv_growth_rate: 10.00%
-    fmv_per_share_today: $150
-    grant_date: 3/1/2024
-    grant_type: RSU
-    planned_exercise_year: '0'
-    planned_sale_year: '2026'
-    recipient: Member 1
-    shares_outstanding: '2000'
-    vest_schedule: 25%/yr starting 2025
+    exercise_price: ''
+    fmv_growth_rate: ''
+    fmv_per_share_today: ''
+    grant_date: ''
+    grant_type: ''
+    planned_exercise_year: ''
+    planned_sale_year: ''
+    recipient: ''
+    shares_outstanding: ''
+    vest_schedule: ''
 Estate Planning:
   Credit Shelter Trust:
-    amount: $4,000,000
-    enabled: 'TRUE'
-    note: Funds up to IL exemption bypasses survivor estate for IL tax
+    amount: ''
+    enabled: ''
+    note: ''
   Federal:
-    exemption_mfj: $30,000,000
-    portability_enabled: 'TRUE'
+    exemption_mfj: ''
+    portability_enabled: ''
   Gifting:
-    annual_exclusion_per_donee: $19,000
+    annual_exclusion_per_donee: ''
   Illinois:
-    state_estate_exemption: $4,000,000
-    state_estate_rate_note: graduated 0.8%-16%
+    state_estate_exemption: ''
+    state_estate_rate_note: ''
   QTIP Trust:
-    enabled: 'YES'
-    funding_amount: '0'
-    manages_annuity_after_first_death: 'TRUE'
-    note: Provides income to surviving spouse
+    enabled: ''
+    funding_amount: ''
+    manages_annuity_after_first_death: ''
+    note: ''
   SN_ABLE:
-    annual_contribution_limit: $19,000
-    balance_today: $15,000
-    monthly_contribution: '500'
+    annual_contribution_limit: ''
+    balance_today: ''
+    monthly_contribution: ''
   SN_Beneficiary:
-    annual_support_today: $30,000
-    dob: 5/1/2000
-    inflation_rate: 2.50%
-    lifetime_to_age: '75'
+    annual_support_today: ''
+    dob: ''
+    inflation_rate: ''
+    lifetime_to_age: ''
     name: ''
   SN_GovBenefits:
-    medicaid_enrolled: 'TRUE'
-    ssdi_monthly: '0'
-    ssi_monthly: '943'
+    medicaid_enrolled: ''
+    ssdi_monthly: ''
+    ssi_monthly: ''
   SN_Trust:
-    balance_today: $100,000
-    funding_schedule: $10,000
-    growth_rate: 5.00%
-    is_third_party: 'TRUE'
+    balance_today: ''
+    funding_schedule: ''
+    growth_rate: ''
+    is_third_party: ''
   Step-Up:
-    basis_step_up_at_death: 'TRUE'
+    basis_step_up_at_death: ''
     former_spouse_name: ''
-    property_regime: COMMON_LAW
+    property_regime: ''
   Trust Structure:
-    trust_type: revocable living trust
+    trust_type: ''
 Forced Actions:
   Roth Conversion 1:
     amount: $75,000
@@ -490,48 +489,48 @@ HELOC:
     heloc_repayment_years: '10'
 HSA Policy:
   Contributions:
-    catchup_amount: $1,000
-    catchup_eligible: 'TRUE'
-    contribution_last_year: '2029'
-    coverage_base_year_family_months: '12'
-    coverage_base_year_self_only_months: '0'
-    family_annual_limit_base_year: $8,750
+    catchup_amount: ''
+    catchup_eligible: ''
+    contribution_last_year: ''
+    coverage_base_year_family_months: ''
+    coverage_base_year_self_only_months: ''
+    family_annual_limit_base_year: ''
     index_hsa_limit: 'TRUE'
     requires_hdhp: 'TRUE'
-    self_only_annual_limit_base_year: $4,400
+    self_only_annual_limit_base_year: ''
   Spousal Rollover:
-    inherited_by_spouse: 'TRUE'
+    inherited_by_spouse: ''
   Window:
-    withdrawal_window: 2033-2042
+    withdrawal_window: ''
   Withdrawals:
-    hsa_annual_spend_pct: 10.00%
-    hsa_withdrawal_end_year: '2042'
-    hsa_withdrawal_mode: smooth_window
-    hsa_withdrawal_start_year: '2033'
+    hsa_annual_spend_pct: ''
+    hsa_withdrawal_end_year: ''
+    hsa_withdrawal_mode: ''
+    hsa_withdrawal_start_year: ''
 Household:
   ? ''
-  : filing_status: MFJ
-    member_1_dob: 4/17/1966
-    member_1_mortality_age: '90'
-    member_1_name: Alexander
-    member_1_nickname: Alex
-    member_1_retirement_date: '2029-07-01'
-    member_2_dob: 9/22/1967
-    member_2_mortality_age: '93'
-    member_2_name: Morgan
-    member_2_nickname: Morgan
-    member_2_retirement_date: '2030-01-01'
-    residence_state: Illinois
-    survivor_filing_status: Single
-    survivor_has_dependent: 'FALSE'
+  : filing_status: ''
+    member_1_dob: ''
+    member_1_mortality_age: ''
+    member_1_name: ''
+    member_1_nickname: ''
+    member_1_retirement_date: ''
+    member_2_dob: ''
+    member_2_mortality_age: ''
+    member_2_name: ''
+    member_2_nickname: ''
+    member_2_retirement_date: ''
+    residence_state: ''
+    survivor_filing_status: ''
+    survivor_has_dependent: ''
 Housing:
   current_home:
     city_type: ''
     hoa_annual: ''
-    home_maintenance_annual: $4,800
-    homeowners_insurance_annual: $1,900
+    home_maintenance_annual: ''
+    homeowners_insurance_annual: ''
     population_size: ''
-    utilities_annual: $6,600
+    utilities_annual: ''
   next_step_1:
     city_type: ''
     down_payment: ''
@@ -566,161 +565,161 @@ Housing:
     utilities_annual: ''
 Hybrid LTC:
   Settings:
-    annual_premium: $16,000
-    enabled: 'FALSE'
-    face_value: $400,000
-    insured: Member 1
-    start_year: '2030'
+    annual_premium: ''
+    enabled: ''
+    face_value: ''
+    insured: ''
+    start_year: ''
 Income Streams:
   Joint-and-Survivor Percentage:
-    js_pct: 100%
+    js_pct: ''
   Member 1 Joint Annuity:
-    additional_income_pct: 20.00%
-    base: $600,000
-    credit_rating: A+
-    cumulative_at_death: $1,180,000
-    deferral_years: '5'
-    dividend_rate: 5.25%
-    first_payment: 4/17/2031
-    initial_guaranteed_income_payment: $2,050.00
-    pay_in_cash_pct: 80.00%
-    payout_type: fixed
-    qualified: 'TRUE'
-    source_account: Member_1_IRA
+    additional_income_pct: ''
+    base: ''
+    credit_rating: ''
+    cumulative_at_death: ''
+    deferral_years: ''
+    dividend_rate: ''
+    first_payment: ''
+    initial_guaranteed_income_payment: ''
+    pay_in_cash_pct: ''
+    payout_type: ''
+    qualified: ''
+    source_account: ''
   Member 1 Single Annuity:
-    additional_income_pct: 20.00%
-    base: $85,000
-    credit_rating: A+
-    cumulative_at_death: $262,000
-    deferral_years: '5'
-    dividend_rate: 5.25%
-    exclusion_ratio: '0.720'
-    first_payment: 4/17/2031
-    initial_guaranteed_income_payment: $455.00
-    pay_in_cash_pct: 80.00%
-    payout_type: fixed
-    qualified: 'FALSE'
+    additional_income_pct: ''
+    base: ''
+    credit_rating: ''
+    cumulative_at_death: ''
+    deferral_years: ''
+    dividend_rate: ''
+    exclusion_ratio: ''
+    first_payment: ''
+    initial_guaranteed_income_payment: ''
+    pay_in_cash_pct: ''
+    payout_type: ''
+    qualified: ''
   Member 2 Joint Annuity:
-    additional_income_pct: 20.00%
-    base: $300,000
-    credit_rating: A+
-    cumulative_at_death: $598,000
-    deferral_years: '3'
-    dividend_rate: 5.00%
-    first_payment: 9/22/2030
-    initial_guaranteed_income_payment: $995.00
-    pay_in_cash_pct: 80.00%
-    payout_type: fixed
-    qualified: 'TRUE'
-    source_account: Member_2_IRA
+    additional_income_pct: ''
+    base: ''
+    credit_rating: ''
+    cumulative_at_death: ''
+    deferral_years: ''
+    dividend_rate: ''
+    first_payment: ''
+    initial_guaranteed_income_payment: ''
+    pay_in_cash_pct: ''
+    payout_type: ''
+    qualified: ''
+    source_account: ''
   Member 2 Pension:
-    additional_income_pct: 20.00%
-    credit_rating: A
-    cumulative_at_death: $198,000
-    deferral_years: '0'
-    dividend_rate: 5.00%
-    first_payment: 1/1/2030
-    initial_guaranteed_income_payment: $525
-    pay_in_cash_pct: 80.00%
-    payout_type: fixed
-    qualified: 'TRUE'
+    additional_income_pct: ''
+    credit_rating: ''
+    cumulative_at_death: ''
+    deferral_years: ''
+    dividend_rate: ''
+    first_payment: ''
+    initial_guaranteed_income_payment: ''
+    pay_in_cash_pct: ''
+    payout_type: ''
+    qualified: ''
   Member 2 Single Annuity:
-    additional_income_pct: 20.00%
-    base: $50,000
-    credit_rating: A+
-    cumulative_at_death: $151,000
-    deferral_dampening: '0.550'
-    deferral_years: '6'
-    dividend_rate: 5.00%
-    exclusion_ratio: '0.700'
-    first_payment: 9/22/2032
-    initial_guaranteed_income_payment: $265.00
-    pay_in_cash_pct: 80.00%
-    payout_type: fixed
-    qualified: 'FALSE'
-    reserve_factor: '0.70'
+    additional_income_pct: ''
+    base: ''
+    credit_rating: ''
+    cumulative_at_death: ''
+    deferral_dampening: ''
+    deferral_years: ''
+    dividend_rate: ''
+    exclusion_ratio: ''
+    first_payment: ''
+    initial_guaranteed_income_payment: ''
+    pay_in_cash_pct: ''
+    payout_type: ''
+    qualified: ''
+    reserve_factor: ''
   Present Value Horizon:
-    age_to_value_through: '85'
+    age_to_value_through: ''
   Recovery Age:
-    principal_recovery_age: '86'
+    principal_recovery_age: ''
 Insurance In Force:
   DI_Group_Alexander:
-    benefit_period_years: '5'
-    elimination_days: '90'
-    insured: Member 1
-    monthly_benefit: $15,000
-    premium_annual: $1,200
-    premium_pre_tax: 'TRUE'
-    type: group
+    benefit_period_years: ''
+    elimination_days: ''
+    insured: ''
+    monthly_benefit: ''
+    premium_annual: ''
+    premium_pre_tax: ''
+    type: ''
   DI_Scenario:
-    simulate_disability_year: '0'
+    simulate_disability_year: ''
   Disability:
-    policy_count: '0'
+    policy_count: ''
   Life:
-    policy_count: '0'
+    policy_count: ''
   Life_1:
-    annual_premium: $0
+    annual_premium: ''
     beneficiary: ''
-    face_amount: $0
+    face_amount: ''
     insured: ''
     notes: ''
     owner: ''
-    policy_type: Life
+    policy_type: ''
     premium_end_year: ''
     term_end_year: ''
   Life_Term_Alexander:
-    annual_premium: $1,800
-    beneficiary: Member 2
-    cash_value_growth_rate: 0%
-    cash_value_today: $0
-    face_amount: $500,000
-    insured: Member 1
-    owned_by_ilit: 'FALSE'
-    owner: Member 1
-    policy_type: term
-    premium_end_year: '2035'
-    term_end_year: '2035'
+    annual_premium: ''
+    beneficiary: ''
+    cash_value_growth_rate: ''
+    cash_value_today: ''
+    face_amount: ''
+    insured: ''
+    owned_by_ilit: ''
+    owner: ''
+    policy_type: ''
+    premium_end_year: ''
+    term_end_year: ''
   Life_Whole_Morgan:
-    annual_premium: $3,500
-    beneficiary: Member 1
-    cash_value_growth_rate: 4.00%
-    cash_value_today: $45,000
-    face_amount: $250,000
-    insured: Member 2
-    owned_by_ilit: 'FALSE'
-    owner: Member 2
-    policy_type: whole
-    premium_end_year: '2040'
-    term_end_year: '0'
+    annual_premium: ''
+    beneficiary: ''
+    cash_value_growth_rate: ''
+    cash_value_today: ''
+    face_amount: ''
+    insured: ''
+    owned_by_ilit: ''
+    owner: ''
+    policy_type: ''
+    premium_end_year: ''
+    term_end_year: ''
   Long-Term Care:
-    policy_count: '0'
+    policy_count: ''
   PC_Auto:
-    annual_premium: $1,750
-    coverage_limit: $500,000
-    deductible: $1,000
-    policy_type: auto
+    annual_premium: ''
+    coverage_limit: ''
+    deductible: ''
+    policy_type: ''
   PC_Homeowner:
-    annual_premium: $1,900
-    coverage_limit: $1,100,000
-    deductible: $5,000
-    policy_type: HO
+    annual_premium: ''
+    coverage_limit: ''
+    deductible: ''
+    policy_type: ''
   PC_Targets:
-    umbrella_target_multiple_of_nw: '1.5'
+    umbrella_target_multiple_of_nw: ''
   PC_Umbrella:
-    annual_premium: '800'
-    coverage_limit: $5,000,000
-    deductible: '0'
-    policy_type: umbrella
+    annual_premium: ''
+    coverage_limit: ''
+    deductible: ''
+    policy_type: ''
   Property and Casualty:
-    policy_count: '0'
+    policy_count: ''
   Umbrella Liability:
-    policy_count: '0'
+    policy_count: ''
 Liquidity Buffer:
   buffer_1:
-    end_year: '2033'
-    reserve_account: Taxable/Trust
-    start_year: '2030'
-    years_of_expenses: '2'
+    end_year: ''
+    reserve_account: ''
+    start_year: ''
+    years_of_expenses: ''
 Model Constants:
   Allocation:
     cash_target_pct: '0.05'
@@ -777,22 +776,22 @@ Model Constants:
     roth_conv_window_end_offset: '-1'
 Note Receivable:
   Note 1:
-    annual_principal_base_period: $40,000
-    face_value: $320,000
-    final_principal: $40,000
-    first_payment: 1/2/2027
-    last_payment: 1/2/2034
-    name: Northwind Systems Note
-    total_cash_flow: $392,000
+    annual_principal_base_period: ''
+    face_value: ''
+    final_principal: ''
+    first_payment: ''
+    last_payment: ''
+    name: ''
+    total_cash_flow: ''
   Note 1 Interest:
-    '2027': $16,000
-    '2028': $14,000
-    '2029': $12,000
-    '2030': $10,000
-    '2031': $8,000
-    '2032': $6,000
-    '2033': $4,000
-    '2034': $2,000
+    '2027': ''
+    '2028': ''
+    '2029': ''
+    '2030': ''
+    '2031': ''
+    '2032': ''
+    '2033': ''
+    '2034': ''
 Optional Functions:
   ? ''
   : business_succession: 'FALSE'
@@ -823,78 +822,78 @@ Optional Functions:
     what_if_analysis: 'TRUE'
 Other Assets:
   Autos:
-    depreciation_per_year: '10'
-    depreciation_years: '7'
-    value: $48,000
+    depreciation_per_year: ''
+    depreciation_years: ''
+    value: ''
   Cash:
-    value: $25,000
+    value: ''
   Home:
-    appreciation_rate: 3.00%
-    home_basis: $525,000
-    home_sale_price: $1,200,000
-    home_sale_proceeds_account: Member_2_Trust
-    home_sale_year: '0'
-    section_121_exclusion_mfj: $500,000
-    value_as_of_plan_start: $950,000
+    appreciation_rate: ''
+    home_basis: ''
+    home_sale_price: ''
+    home_sale_proceeds_account: ''
+    home_sale_year: ''
+    section_121_exclusion_mfj: ''
+    value_as_of_plan_start: ''
   Other Asset 1:
-    annual_appreciation_pct: 0.00%
-    as_of_date: '2025-12-31'
-    basis: $20,000
-    name: Private Company Shares
-    sell_date: '2032-12-31'
-    type: Start-up Equity
-    value: $80,000
+    annual_appreciation_pct: ''
+    as_of_date: ''
+    basis: ''
+    name: ''
+    sell_date: ''
+    type: ''
+    value: ''
   Other Asset 2:
-    annual_appreciation_pct: -15.00%
-    as_of_date: '2026-06-30'
+    annual_appreciation_pct: ''
+    as_of_date: ''
     basis: ''
-    name: 2022 Toyota Highlander
+    name: ''
     sell_date: ''
-    type: Auto
-    value: $36,500
+    type: ''
+    value: ''
   Other Asset 3:
-    annual_appreciation_pct: -5.00%
-    as_of_date: '2026-06-30'
+    annual_appreciation_pct: ''
+    as_of_date: ''
     basis: ''
-    name: 2019 Subaru Outback
+    name: ''
     sell_date: ''
-    type: Auto
-    value: $11,500
+    type: ''
+    value: ''
   Startup Equity:
-    basis: $20,000
-    sale_price: $80,000
-    sale_year: '2032'
-    value: $80,000
+    basis: ''
+    sale_price: ''
+    sale_year: ''
+    value: ''
 Payroll Tax:
   Medicare:
-    additional_medicare_rate: 0.90%
-    additional_medicare_threshold_mfj: $250,000
-    medicare_employee_rate: 1.45%
-    medicare_self_employment_rate: 2.90%
+    additional_medicare_rate: ''
+    additional_medicare_threshold_mfj: ''
+    medicare_employee_rate: ''
+    medicare_self_employment_rate: ''
   Self-Employment:
-    se_half_deductible: 'TRUE'
-    se_net_earnings_factor: 92.35%
+    se_half_deductible: ''
+    se_net_earnings_factor: ''
   Social Security:
-    ss_employee_rate: 6.20%
-    ss_self_employment_rate: 12.40%
-    ss_wage_base_base_year: $184,500
+    ss_employee_rate: ''
+    ss_self_employment_rate: ''
+    ss_wage_base_base_year: ''
 Positions:
   Member_1_401k:
-    CASH: '57000'
+    CASH: ''
   Member_1_HSA:
-    CASH: '59000'
+    CASH: ''
   Member_1_IRA:
-    CASH: '1052000'
+    CASH: ''
   Member_1_Roth:
-    CASH: '244000'
+    CASH: ''
   Member_1_Trust:
-    CASH: '296000'
+    CASH: ''
   Member_2_IRA:
-    CASH: '838000'
+    CASH: ''
   Member_2_Roth:
-    CASH: '191000'
+    CASH: ''
   Member_2_Trust:
-    CASH: '398000'
+    CASH: ''
 Reporting:
   Output:
     real_dollar_reporting_enabled: 'TRUE'
@@ -964,70 +963,70 @@ Scenarios:
     home_sale_year: '2045'
 Social Security:
   Funding Discount:
-    ss_funding_discount_pct: 22.00%
-    ss_funding_discount_year: '2032'
+    ss_funding_discount_pct: ''
+    ss_funding_discount_year: ''
   Member 1:
-    claim_age: '67'
-    fra_age: '67.00'
-    monthly_pia_at_fra_today_dollars: '3600'
-    ss_benefit_age_62: $2,520
-    ss_benefit_age_63: $2,700
-    ss_benefit_age_64: $2,880
-    ss_benefit_age_65: $3,120
-    ss_benefit_age_66: $3,360
-    ss_benefit_age_67: $3,600
-    ss_benefit_age_68: $3,888
-    ss_benefit_age_69: $4,176
-    ss_benefit_age_70: $4,464
+    claim_age: ''
+    fra_age: ''
+    monthly_pia_at_fra_today_dollars: ''
+    ss_benefit_age_62: ''
+    ss_benefit_age_63: ''
+    ss_benefit_age_64: ''
+    ss_benefit_age_65: ''
+    ss_benefit_age_66: ''
+    ss_benefit_age_67: ''
+    ss_benefit_age_68: ''
+    ss_benefit_age_69: ''
+    ss_benefit_age_70: ''
   Member 2:
-    claim_age: '70'
-    fra_age: '67.00'
-    monthly_pia_at_fra_today_dollars: '2900'
-    ss_benefit_age_62: $2,030
-    ss_benefit_age_63: $2,175
-    ss_benefit_age_64: $2,320
-    ss_benefit_age_65: $2,513
-    ss_benefit_age_66: $2,707
-    ss_benefit_age_67: $2,900
-    ss_benefit_age_68: $3,132
-    ss_benefit_age_69: $3,364
-    ss_benefit_age_70: $3,596
+    claim_age: ''
+    fra_age: ''
+    monthly_pia_at_fra_today_dollars: ''
+    ss_benefit_age_62: ''
+    ss_benefit_age_63: ''
+    ss_benefit_age_64: ''
+    ss_benefit_age_65: ''
+    ss_benefit_age_66: ''
+    ss_benefit_age_67: ''
+    ss_benefit_age_68: ''
+    ss_benefit_age_69: ''
+    ss_benefit_age_70: ''
   Policy:
-    spousal_benefits_enabled: 'TRUE'
-    survivor_benefit_uses_deceased_claim_age: 'TRUE'
-    survivor_pct_of_higher_benefit: '100'
+    spousal_benefits_enabled: ''
+    survivor_benefit_uses_deceased_claim_age: ''
+    survivor_pct_of_higher_benefit: ''
 State Comparison:
   ? ''
-  : target_state: FL
+  : target_state: ''
   auto_insurance:
-    illinois_baseline_annual: $1,750
+    illinois_baseline_annual: ''
     notes: ''
     target_state_annual: ''
   homeowners_insurance:
-    illinois_baseline_annual: $1,900
+    illinois_baseline_annual: ''
     notes: ''
     target_state_annual: ''
 Wellness:
   ACA Premium Tax Credit:
-    applicable_pct_cap: 8.50%
-    benchmark_silver_premium_annual: '30000'
-    enabled: 'TRUE'
-    enhanced_subsidies_through_year: '2026'
-    federal_poverty_level_base_year: '21150'
-    household_size: '2'
+    applicable_pct_cap: ''
+    benchmark_silver_premium_annual: ''
+    enabled: ''
+    enhanced_subsidies_through_year: ''
+    federal_poverty_level_base_year: ''
+    household_size: ''
   Medicare:
-    part_b_base_premium_monthly: $446.30
-    part_d_base_premium_monthly: $174.61
-    part_g_base_premium_monthly: $359.10
+    part_b_base_premium_monthly: ''
+    part_d_base_premium_monthly: ''
+    part_g_base_premium_monthly: ''
   Out-of-Pocket:
-    annual_oop_estimate_today: $8,500
-    dental_annual: $2,000
-    medical_annual: $4,000
-    oop_utilization_pct: 100.00%
-    pharmacy_annual: $1,800
-    vision_annual: $700
+    annual_oop_estimate_today: ''
+    dental_annual: ''
+    medical_annual: ''
+    oop_utilization_pct: ''
+    pharmacy_annual: ''
+    vision_annual: ''
   Pre-65 Bridge:
-    annual_premium_base_year: $14,400
+    annual_premium_base_year: ''
 Withdrawal Policy:
   Identity:
     annual_funding_tolerance: $100
