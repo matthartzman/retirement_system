@@ -6,6 +6,8 @@ modules maintains correct functionality and avoids circular imports.
 
 import inspect
 
+import pytest
+
 
 def test_all_sheet_builders_importable_from_facade():
     """Verify all 4 projection sheet builders can be imported from facade."""
@@ -78,15 +80,19 @@ def test_extracted_modules_have_correct_signatures():
     assert 'mc_data' in sig8.parameters  # sheet8 has optional mc_data
 
 
-def test_backwards_compat_import_from_sheets_projection():
-    """Verify sheets_projection.py still provides backwards-compat imports."""
-    from src.reporting.sheets_projection import (
-        build_sheet5, build_sheet6, build_sheet7, build_sheet8
-    )
-    assert callable(build_sheet5)
-    assert callable(build_sheet6)
-    assert callable(build_sheet7)
-    assert callable(build_sheet8)
+def test_sheets_projection_double_shim_is_gone():
+    """src/reporting/sheets_projection.py must stay deleted.
+
+    It was a re-export of sheets_projection_facade, which is itself a re-export
+    of the four real builder modules -- a shim onto a shim with zero production
+    callers, kept alive only by a test asserting the shim existed. That is a
+    test validating scaffolding rather than behavior (system review 2026-08-04,
+    architect finding `reporting-facade-theater`). Import the facade, or the
+    concern-specific module, instead.
+    """
+    import importlib
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("src.reporting.sheets_projection")
 
 
 def test_no_circular_imports():

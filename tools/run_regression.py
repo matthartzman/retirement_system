@@ -101,7 +101,6 @@ for py_file in [
     "src/detailed_results.py",
     "src/ytd_tracking.py",
     "src/data_io.py",
-    "src/reporting/sheets_projection.py",
     "src/projection_stages/deterministic_engine.py",
 ]:
     if (ROOT / py_file).exists():
