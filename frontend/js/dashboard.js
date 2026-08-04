@@ -4388,7 +4388,7 @@ function rowBuildUsageState(row, stepId = "") {
       reason:
         "Holding-period real-loss-aware allocation is not the selected allocation mode, so this tuning value is unused.",
       activation:
-        "Choose Use holding-period real-loss-aware allocation as the allocation mode.",
+        "Choose Match each dollar to when you’ll spend it, minimizing the chance of a loss after inflation as the allocation mode.",
       effect:
         "Tunes the per-holding-period-bucket solve that mode uses (mean-variance risk aversion, and the weight of the added real-loss-probability penalty).",
       listAlways: true,
@@ -5858,9 +5858,9 @@ function choiceOptions(r) {
     allocation_selection_mode: [
       { value: "user_target", label: "Use user-specified allocation" },
       { value: "optimizer_recommendation", label: "Use allocation optimizer recommendation" },
-      { value: "max_sharpe", label: "Best risk-adjusted mix within your risk limits (max-Sharpe, risk-budgeted)" },
-      { value: "tangency", label: "Best risk-adjusted mix with no risk limits applied (max-Sharpe, pure tangency)" },
-      { value: "real_loss_aware", label: "Use holding-period real-loss-aware allocation" },
+      { value: "max_sharpe", label: "Best risk-adjusted mix, staying within the risk limits you set (max-Sharpe)" },
+      { value: "tangency", label: "Best risk-adjusted mix, ignoring your risk limits — may end up more aggressive or more conservative than you specified (tangency)" },
+      { value: "real_loss_aware", label: "Match each dollar to when you’ll spend it, minimizing the chance of a loss after inflation" },
     ],
     capital_market_assumption_horizon_source: [
       { value: "manual", label: "Manual (use the horizon selected above)" },
@@ -6156,7 +6156,7 @@ function fieldHtml(r) {
     lblNorm === "allocation_mode"
   ) {
     const mode = allocationSelectionMode();
-    control = `<select data-row="${r.row_index}" onchange="editValue(${r.row_index},this.value,this);renderMain()" onfocus="showFieldHelp(${r.row_index})"><option value="user_target" ${mode === "user_target" ? "selected" : ""}>Use user-specified allocation</option><option value="optimizer_recommendation" ${mode === "optimizer_recommendation" ? "selected" : ""}>Use allocation optimizer recommendation</option><option value="max_sharpe" ${mode === "max_sharpe" ? "selected" : ""}>Use max-Sharpe allocation (risk-budgeted)</option><option value="tangency" ${mode === "tangency" ? "selected" : ""}>Use max-Sharpe allocation (pure tangency, no risk budget)</option><option value="real_loss_aware" ${mode === "real_loss_aware" ? "selected" : ""}>Use holding-period real-loss-aware allocation</option></select>`;
+    control = `<select data-row="${r.row_index}" onchange="editValue(${r.row_index},this.value,this);renderMain()" onfocus="showFieldHelp(${r.row_index})"><option value="user_target" ${mode === "user_target" ? "selected" : ""}>Use user-specified allocation</option><option value="optimizer_recommendation" ${mode === "optimizer_recommendation" ? "selected" : ""}>Use allocation optimizer recommendation</option><option value="max_sharpe" ${mode === "max_sharpe" ? "selected" : ""}>Best risk-adjusted mix, staying within the risk limits you set (max-Sharpe)</option><option value="tangency" ${mode === "tangency" ? "selected" : ""}>Best risk-adjusted mix, ignoring your risk limits (tangency)</option><option value="real_loss_aware" ${mode === "real_loss_aware" ? "selected" : ""}>Match each dollar to when you’ll spend it, minimizing the chance of a loss after inflation</option></select>`;
   } else if (boolish) {
     const yes =
       String(value).toUpperCase() === "YES" ||
@@ -6463,9 +6463,9 @@ function allocationModeHtml() {
   const modeButtons = [
     ["user_target", "Use user-specified allocation"],
     ["optimizer_recommendation", "Use allocation optimizer recommendation"],
-    ["max_sharpe", "Best risk-adjusted mix within your risk limits (max-Sharpe, risk-budgeted)"],
-    ["tangency", "Best risk-adjusted mix with no risk limits applied (max-Sharpe, pure tangency)"],
-    ["real_loss_aware", "Use holding-period real-loss-aware allocation"],
+    ["max_sharpe", "Best risk-adjusted mix, staying within the risk limits you set (max-Sharpe)"],
+    ["tangency", "Best risk-adjusted mix, ignoring your risk limits — may end up more aggressive or more conservative than you specified (tangency)"],
+    ["real_loss_aware", "Match each dollar to when you’ll spend it, minimizing the chance of a loss after inflation"],
   ];
   const activeLabel =
     modeButtons.find(([v]) => v === mode)?.[1] || "Using user-specified allocation";
@@ -17074,9 +17074,9 @@ const FIELD_GUIDANCE_OVERRIDES = {
     consider: "Most people find today's dollars easier to understand - it's the same as saying 'how much is that worth in today's money?' If you're comparing plan outputs or explaining to an advisor, today's dollars usually make the conversation clearer.",
   },
   allocation_selection_mode: {
-    purpose: "Asset allocation means how you split your investments between stocks, bonds, and other asset types - it's one of the biggest drivers of how much risk and return your portfolio experiences. This setting chooses whether the plan uses the allocation strategy you specify, or whether an optimizer chooses it for you.",
-    impact: "If you choose user-defined mode, the plan uses your specified allocation percentages. If you use optimizer mode, the plan finds an allocation it thinks is best for your goals and constraints.",
-    consider: "Choose user-defined if you have a specific allocation in mind (like 60% stocks, 40% bonds) and want to stick with it. Choose optimizer if you want the plan to suggest an allocation based on your goals, time horizon, and risk tolerance.",
+    purpose: "Asset allocation means how you split your investments between stocks, bonds, and other asset types - it's one of the biggest drivers of how much risk and return your portfolio experiences. This setting chooses WHO decides that split: you, or one of four different automatic methods.",
+    impact: "There are five choices. (1) Use the allocation you specified - the plan uses your percentages exactly as entered. (2) Use the optimizer's recommendation - the plan picks an allocation based on your goals and constraints. (3) Best risk-adjusted mix, staying within your risk limits - finds the mix with the most return per unit of risk, but will not exceed the risk ceilings you set. (4) Best risk-adjusted mix, ignoring your risk limits - the same calculation with the limits removed, so it can come out noticeably more aggressive OR more conservative than you intended. (5) Match each dollar to when you'll spend it - money you need soon is held in safer assets and money you won't touch for decades in growth assets, aiming to reduce the chance of a loss after inflation.",
+    consider: "Pick option 1 if you have an allocation you want to keep (like 60% stocks, 40% bonds). Options 3 and 4 look almost identical but differ in one important way: option 3 respects the risk limits you set and option 4 does not, so only use option 4 if you genuinely want to see the unconstrained answer. Option 5 is the most tailored to your actual spending timeline and is a good default if you're unsure. Whichever you pick, the page below shows only the controls that apply to it.",
   },
   description: {
     purpose: "This is a text field for you to name or describe the scenario - for example, 'Our current plan' or 'If we retire at 62'.",

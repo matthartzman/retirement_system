@@ -30,6 +30,7 @@ from .workbook_common import (
 from .. import allocation_policy as _ap
 from ..person_labels import display_account
 from . import summary_figures
+from ..governance import readiness_label as _readiness_label
 
 # ── Asset Allocation (Sheet 4) shared constants and helpers ──────────────────
 # Hoisted out of build_sheet4 (previously ~1,400 lines in one function): pure
@@ -1017,7 +1018,14 @@ def build_sheet1(ws, c, rows, mc_data, ss_sweep=None):
             ('Plan Success Rate (Monte Carlo)', success,           FMT_PCT),
             ('Model Risk Rating', (mc_data.get('model_risk') or {}).get('rating', mc_data.get('model_risk_rating','')), None),
         ]
-    headlines.append(('Advisor-ready status', (c.get('advisor_readiness') or {}).get('status','ILLUSTRATION_ONLY'), None))
+    # Plain language, not the raw enum. ADVISOR_READY/BLOCKED/REVIEW_REQUIRED
+    # are internal constants and no legend for them exists anywhere in the
+    # workbook or the app.
+    _readiness = c.get('advisor_readiness') or {}
+    headlines.append((
+        'Advisor-ready status',
+        _readiness.get('status_label') or _readiness_label(_readiness.get('status')),
+        None))
     if _mc_on:
         headlines += [
             ('MC Success 95% CI Low',       mc_data.get('success_rate_ci_low', success), FMT_PCT),

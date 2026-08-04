@@ -31,6 +31,13 @@ GLOSSARY: dict[str, str] = {
     "DAF": "Donor Advised Fund — a charitable giving vehicle allowing an immediate deduction with delayed grant-making",
     "LTC": "Long-term care",
     "QCD": "Qualified Charitable Distribution — an IRA distribution sent directly to charity, excluded from AGI",
+    # Folded in from frontend/js/dashboard_source_truth_banners.js's local
+    # GLOSSARY, which this module's docstring says was already consolidated but
+    # which was in fact missed. These four had no canonical entry, so they had
+    # to be added before that third copy could be deleted.
+    "PTI": "Post-tax inheritance — the estimated amount available to heirs after modeled income, capital-gain, and estate taxes",
+    "QDRO": "Qualified Domestic Relations Order — a court order that divides retirement assets in a divorce",
+    "ACA": "Affordable Care Act — marketplace health coverage, often used as a pre-Medicare bridge",
     "QBI": "Qualified business income",
     "W-2": "Wage and Tax Statement",
     "S-Corp": "S corporation",

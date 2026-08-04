@@ -28,23 +28,16 @@
     "spending_dashboard",
     "review",
   ];
-  const GLOSSARY = {
-    PTI: "Post-tax inheritance: estimated amount available to heirs after modeled income, capital-gain, and estate taxes.",
-    IRMAA:
-      "Income-Related Monthly Adjustment Amount: Medicare premium surcharge triggered by higher MAGI.",
-    MAGI: "Modified Adjusted Gross Income: tax income measure used for Medicare IRMAA and other thresholds.",
-    RMD: "Required Minimum Distribution: mandatory tax-deferred account withdrawals after the applicable starting age.",
-    QDRO: "Qualified Domestic Relations Order: court order that divides retirement assets in divorce.",
-    LTC: "Long-term care: late-life support costs such as facility, in-home, or assisted-care expenses.",
-    COLA: "Cost-of-living adjustment: inflation-linked increase such as Social Security COLA.",
-    ACA: "Affordable Care Act marketplace coverage, often used for pre-Medicare bridge health insurance.",
-    HSA: "Health Savings Account: tax-advantaged healthcare savings account.",
-    HELOC:
-      "Home equity line of credit: borrowing capacity secured by home equity.",
-    Roth: "After-tax retirement account type that can reduce future taxable distributions.",
-    Monte:
-      "Monte Carlo simulation: repeated random return paths used to estimate plan resilience.",
-  };
+  // Glossary terms come from the canonical source (src/glossary.py, served by
+  // GET /api/glossary and merged into dashboard.js's ACRONYM_DEFINITIONS at
+  // startup). This file previously carried its OWN third copy, which the
+  // earlier consolidation missed -- its IRMAA wording had already drifted from
+  // canonical, and PTI/QDRO/ACA existed only here so /api/glossary could never
+  // reconcile them. Those four are now in src/glossary.py.
+  function glossaryTerms() {
+    return (typeof ACRONYM_DEFINITIONS !== "undefined" && ACRONYM_DEFINITIONS) || {};
+  }
+
   const MODULE_MANIFEST = {
     schema: "dashboard_phase3_module_manifest_v1",
     extracted_modules: [
@@ -68,7 +61,7 @@
   window.RPDashboardRoadmap11 = Object.assign(
     {},
     window.RPDashboardRoadmap11 || {},
-    { manifest: MODULE_MANIFEST, glossary: GLOSSARY },
+    { manifest: MODULE_MANIFEST, glossary: glossaryTerms() },
   );
 
   function escHtml(value) {
@@ -328,7 +321,8 @@
 
   function decorateGlossary(root) {
     if (!root) return;
-    Object.keys(GLOSSARY).forEach(function (term) {
+    const terms = glossaryTerms();
+    Object.keys(terms).forEach(function (term) {
       const selector = "h1,h2,h3,p,li,span,small,td,th,button,label,summary";
       root.querySelectorAll(selector).forEach(function (el) {
         if (
@@ -338,7 +332,7 @@
           return;
         const text = el.textContent || "";
         if (text.indexOf(term) >= 0 && !el.getAttribute("title"))
-          el.setAttribute("title", GLOSSARY[term]);
+          el.setAttribute("title", terms[term]);
       });
     });
   }

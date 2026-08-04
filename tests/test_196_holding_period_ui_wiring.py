@@ -98,10 +98,15 @@ class DashboardJsStringPresenceTests(unittest.TestCase):
         return JS.read_text(encoding="utf-8")
 
     def test_real_loss_aware_present_in_mode_dropdown_and_buttons(self):
+        # Asserts the mode is WIRED UP, not what its label happens to say. The
+        # previous version pinned the exact user-facing string, so improving
+        # that copy (which the 2026-08-04 system review called for -- the old
+        # labels leaned on undefined jargon) broke the test without anything
+        # actually regressing.
         js = self.read_js()
-        self.assertIn('{ value: "real_loss_aware", label: "Use holding-period real-loss-aware allocation" }', js)
+        self.assertIn('{ value: "real_loss_aware", label: "', js)
         self.assertIn('<option value="real_loss_aware"', js)
-        self.assertIn('["real_loss_aware", "Use holding-period real-loss-aware allocation"]', js)
+        self.assertIn('["real_loss_aware", "', js)
 
     def test_allocation_selection_mode_normalizer_recognizes_real_loss_aware(self):
         js = self.read_js()
@@ -189,8 +194,11 @@ class DashboardJsRuntimeBehaviorTests(unittest.TestCase):
                 {row_index:1,section:'Asset Allocation Policy',subsection:'Global',label:'allocation_selection_mode',value:'real_loss_aware'}
               ];
               const html = allocationModeHtml();
-              if (!html.includes('Use holding-period real-loss-aware allocation')) {
-                throw new Error('missing real_loss_aware button label');
+              // Assert the mode is rendered and selected, not what its label
+              // reads -- pinning the copy made this fail when the label was
+              // rewritten for clarity, with no behavioral regression.
+              if (!html.includes('real_loss_aware')) {
+                throw new Error('real_loss_aware mode not rendered');
               }
               if (!html.includes('primary')) { throw new Error('active button not marked primary'); }
               console.log('OK');
