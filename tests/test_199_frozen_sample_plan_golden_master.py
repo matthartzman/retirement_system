@@ -50,6 +50,8 @@ import unittest
 import warnings
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 FROZEN_DIR = ROOT / "tests" / "fixtures" / "sample_plan_frozen"
 
@@ -185,6 +187,7 @@ def _frozen_config():
     return ensure_engine_config(c, source="test")
 
 
+@pytest.mark.golden_master
 class FrozenSamplePlanGoldenMasterTests(unittest.TestCase):
     """Mandatory: a regression here means the ENGINE changed, since the input
     is a static, committed copy no one edits day to day. Contrast with

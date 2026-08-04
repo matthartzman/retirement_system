@@ -10,6 +10,10 @@ from src.build_snapshot import (
     write_build_snapshot,
 )
 
+import pytest
+
+pytestmark = pytest.mark.contract
+
 
 def _make_db(path: Path, value: str):
     conn = sqlite3.connect(path)

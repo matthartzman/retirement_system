@@ -23,10 +23,13 @@ import json
 import unittest
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = ROOT / "tests" / "fixtures"
 
 
+@pytest.mark.unit
 class Phase5ClosedFormTaxTests(unittest.TestCase):
     def test_federal_tax_closed_form_bracket_edges(self):
         from src.core import compute_fed_tax
@@ -52,6 +55,7 @@ class Phase5ClosedFormTaxTests(unittest.TestCase):
         self.assertGreater(irmaa_surcharge(213000, 2026, 2026, filing="MFJ"), 0)
 
 
+@pytest.mark.unit
 class Phase5IRSExampleReconciliationTests(unittest.TestCase):
     def test_irs_style_social_security_examples(self):
         from src.core import social_security_taxable_amount
@@ -71,6 +75,7 @@ class Phase5IRSExampleReconciliationTests(unittest.TestCase):
                 self.assertAlmostEqual(ex["prior_year_balance"] / div, ex["expected_rmd"], places=2)
 
 
+@pytest.mark.unit
 class Phase5CrossToolReconciliationTests(unittest.TestCase):
     def _manual_fed_tax(self, filing: str, taxable: float) -> float:
         brackets = {

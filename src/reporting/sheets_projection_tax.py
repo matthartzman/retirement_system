@@ -26,27 +26,31 @@ from .workbook_common import (
 def build_sheet7(ws, c, rows):
     """Lifetime Tax Projection"""
     ws.sheet_view.showGridLines = False
-    section_title(ws, 1, 'LIFETIME TAX PROJECTION', 15)
+    section_title(ws, 1, 'LIFETIME TAX PROJECTION', 16)
 
     r = 2
+    # Kept short deliberately: the PDF export lays this sheet out as a 16-column
+    # table (enterprise_pdf.py's _band_table), and a long note merged across
+    # every column wraps into a cell tall enough to blow the page-frame limit
+    # -- ReportLab cannot split one row across pages, so the WHOLE PDF export
+    # silently fails and no PDF is written (caught by
+    # test_workbook_pdf_build_snapshot.py's test_build_also_produces_downloadable_pdf).
+    # A longer version of this note previously did exactly that.
     write_cell(ws, r, 1,
-               '"Marginal Rate (bracket)" is the statutory tax bracket alone. "Effective Marginal '
-               'Rate" is what one more dollar of ordinary income actually costs this household — it '
-               'adds the effect of pulling more Social Security into taxable income, crossing an '
-               'IRMAA threshold, and the Net Investment Income Tax. Where the two differ, the second '
-               'number is the one that matters for deciding how much to withdraw or convert this year. '
-               'It does not include the loss of an ACA premium tax credit, so in pre-Medicare years '
-               'with a marketplace subsidy the true cost can be higher still.',
+               '"Marginal Rate (bracket)" is the statutory bracket alone; "Effective Marginal Rate" '
+               'is what one more $1,000 actually costs this household this year (Social Security '
+               'inclusion + NIIT). It excludes IRMAA, which is set from income two years prior — see '
+               '"Future IRMAA Impact" for that instead — and the ACA premium tax credit cliff.',
                align='left')
-    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=15)
-    ws.row_dimensions[r].height = 46
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=16)
+    ws.row_dimensions[r].height = 30
     r += 2
     _n1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
     _n2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
     hdrs = ['Year',f'{_n1} Age',f'{_n2} Age','Filing','AGI','Taxable Income',
             'Fed Tax','State Tax','NIIT','Payroll Tax','IRMAA',
             'Total Tax','Effective Rate','Marginal Rate (bracket)',
-            'Effective Marginal Rate']
+            'Effective Marginal Rate','Future IRMAA Impact']
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, NAVY, WHITE, size=9)
     r += 1
@@ -56,23 +60,25 @@ def build_sheet7(ws, c, rows):
     for row in rows:
         eff_rate = row['total_tax'] / row['agi'] if row['agi'] > 0 else 0
         marg = marginal_rate(row['taxable_inc'], row['year'], row['filing'], c['brk_inf'])
-        # What another $1,000 of ordinary income actually costs, including the
-        # Social Security torpedo, IRMAA cliffs and NIIT -- not just the
-        # statutory bracket. Computed in the engine where the year's inputs are
-        # in scope; see deterministic_engine's effective-marginal-rate block.
+        # What another $1,000 of ordinary income actually costs THIS year --
+        # the Social Security torpedo and NIIT, on top of statutory tax.
+        # Excludes IRMAA (see the note above this table for why) and the ACA
+        # PTC cliff. Computed in the engine where the year's inputs are in
+        # scope; see deterministic_engine's effective-marginal-rate block.
         emr = row.get('effective_marginal_rate')
+        irmaa_flag = 'Yes — raises a future premium' if row.get('effective_marginal_rate_irmaa_cliff') else ''
         vals = [row['year'], row['h_age'], row['w_age'], row['filing'],
                 row['agi'], row['taxable_inc'],
                 row['fed_tax'], row['state_tax'], row['niit'],
                 row['payroll_tax'], row['irmaa'],
                 row['total_tax'], eff_rate, marg,
-                emr if emr is not None else '']
+                emr if emr is not None else '', irmaa_flag]
         for col_idx, val in enumerate(vals, 1):
             if col_idx == 1:
                 fmt = FMT_YEAR
             elif col_idx in (2, 3):  # ages
                 fmt = FMT_INT
-            elif col_idx in (4,): # filing
+            elif col_idx in (4, 16): # filing, IRMAA-impact flag
                 fmt = None
             elif col_idx in (13, 14, 15):
                 fmt = FMT_PCT

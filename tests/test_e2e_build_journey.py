@@ -28,6 +28,8 @@ from src.server import app
 HEADERS = {"X-User-Role": "admin"}
 BUILD_TIMEOUT_SECONDS = 180
 
+pytestmark = pytest.mark.e2e
+
 
 def _poll_until_done(client, job_id: str) -> dict:
     job: dict = {}
