@@ -128,6 +128,38 @@ def stress_narratives(c: dict[str, Any], rows: Iterable[dict[str, Any]], mc_data
     narratives.append({'stress':'Plan outcome driver', 'narrative': f'At {success:.1%} modeled success and base spending near ${spend:,.0f}, failures usually come from spending/tax pressure exceeding liquid assets, not accounting net worth alone.'})
     return narratives
 
+# Plain-language rendering of the readiness status. Callers should print
+# status_label/status_note, never the raw constant: SCREAMING_SNAKE_CASE is an
+# internal enum, and it was reaching the Executive Summary and the QC sheet
+# untranslated, with no legend anywhere explaining what the values mean.
+# ILLUSTRATION_ONLY is not a value advisor_readiness() can return -- it is the
+# fallback callers use when no readiness assessment ran at all.
+READINESS_LABELS: dict[str, tuple[str, str]] = {
+    'ADVISOR_READY': (
+        'Ready to review with an advisor',
+        'No blocking issues found. Tax tables are current and pricing coverage is sufficient.',
+    ),
+    'REVIEW_REQUIRED': (
+        'Review recommended before sharing',
+        'The plan produced output, but at least one assumption or workflow step needs attention first.',
+    ),
+    'BLOCKED': (
+        'Not ready to share',
+        'A blocking issue was found — stale tax tables or too much fallback pricing. Resolve it before relying on these figures.',
+    ),
+    'ILLUSTRATION_ONLY': (
+        'Illustration only',
+        'No advisor-readiness assessment was run for this build, so treat these figures as illustrative.',
+    ),
+}
+
+
+def readiness_label(status: str | None) -> str:
+    """Plain-language label for a readiness status constant."""
+    return READINESS_LABELS.get(str(status or 'ILLUSTRATION_ONLY'),
+                                READINESS_LABELS['ILLUSTRATION_ONLY'])[0]
+
+
 def advisor_readiness(c: dict[str, Any], mc_data: dict[str, Any] | None = None, pricing_diag: dict[str, Any] | None = None) -> dict[str, Any]:
     blockers=[]; warnings=[]
     tax = tax_freshness_summary(c)
@@ -143,7 +175,9 @@ def advisor_readiness(c: dict[str, Any], mc_data: dict[str, Any] | None = None, 
     if risk['rating'] == 'APPROXIMATE_VECTORIZED_MC':
         warnings.append('Vectorized Monte Carlo is approximate until scalar parity is tolerance-bounded.')
     status='ADVISOR_READY' if not blockers and not warnings else ('BLOCKED' if blockers else 'REVIEW_REQUIRED')
-    return {'status': status, 'is_advisor_ready': status == 'ADVISOR_READY', 'blockers': blockers, 'warnings': warnings,
+    label, note = READINESS_LABELS.get(status, READINESS_LABELS['ILLUSTRATION_ONLY'])
+    return {'status': status, 'status_label': label, 'status_note': note,
+            'is_advisor_ready': status == 'ADVISOR_READY', 'blockers': blockers, 'warnings': warnings,
             'tax_freshness': tax, 'pricing': pr, 'assumption_signoff': signoff, 'model_risk': risk,
             'illustration_notice': ''}
 

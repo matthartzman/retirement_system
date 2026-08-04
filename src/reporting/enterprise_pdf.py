@@ -253,7 +253,15 @@ def _header_row_count(ws):
 # Table construction for one column band of one sheet
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Appended to any narrative cell this renderer had to cut short. A bare '…' is
+# indistinguishable from text that legitimately ends that way, so a reader had
+# no way to know a cell was abbreviated. Reset per build by build_enterprise_pdf.
+TRUNCATION_MARKER = ' […see workbook]'
+_TRUNCATION_STATE = {'any': False}
+
+
 def _band_table(ws, band_cols, header_rows, max_row, band_width):
+    truncated_any = False
     ncols = len(band_cols)
     fs = 8.0 if ncols <= 6 else (7.3 if ncols <= 11 else 6.4)
     wrap_style = ParagraphStyle('cellwrap', fontName='Helvetica', fontSize=fs, leading=fs + 2)
@@ -310,7 +318,13 @@ def _band_table(ws, band_cols, header_rows, max_row, band_width):
             if cell.alignment and cell.alignment.wrap_text and text:
                 max_chars = max_chars_per_col[idx]
                 if len(text) > max_chars:
-                    text = text[:max(1, max_chars - 1)].rstrip() + '…'
+                    # Distinct marker, not a bare ellipsis: text that genuinely
+                    # ends in "..." is indistinguishable from text this code
+                    # cut short, so a reader cannot tell whether they have the
+                    # whole sentence. TRUNCATION_MARKER says so explicitly and
+                    # names where the full text lives.
+                    text = text[:max(1, max_chars - len(TRUNCATION_MARKER))].rstrip() + TRUNCATION_MARKER
+                    truncated_any = True
                 row_vals.append(Paragraph(text.replace('\n', '<br/>'), wrap_style))
             else:
                 row_vals.append(text)
@@ -348,6 +362,8 @@ def _band_table(ws, band_cols, header_rows, max_row, band_width):
                 style.append(('ALIGN', (j, i), (j, i), _cell_align(ws.cell(r, c))))
 
     t.setStyle(TableStyle(style))
+    if truncated_any:
+        _TRUNCATION_STATE['any'] = True
     return t
 
 
@@ -425,6 +441,7 @@ def build_enterprise_pdf(wb, c, rows, mc_data, out_path='output/retirement_plan.
     can never diverge from the spreadsheet.
     """
     styles = _styles()
+    _TRUNCATION_STATE['any'] = False
 
     doc = _PlanDocTemplate(
         out_path,
@@ -446,6 +463,10 @@ def build_enterprise_pdf(wb, c, rows, mc_data, out_path='output/retirement_plan.
         'simulation results — across the full planning horizon, formatted for landscape printing.',
         styles['BodyText'],
     ))
+    # Slot for the truncation notice. Whether any cell had to be abbreviated is
+    # only known after every sheet has been laid out, so the notice is inserted
+    # here once the story is fully assembled (before multiBuild).
+    _truncation_notice_idx = len(story)
     story.append(Spacer(1, 0.2 * inch))
 
     final_nw = rows[-1].get('total_nw', 0) if rows else 0
@@ -519,6 +540,14 @@ def build_enterprise_pdf(wb, c, rows, mc_data, out_path='output/retirement_plan.
     # Drop the trailing page break so we don't emit a blank final page.
     while story and isinstance(story[-1], PageBreak):
         story.pop()
+
+    if _TRUNCATION_STATE['any']:
+        story.insert(_truncation_notice_idx, Paragraph(
+            f'Note: some long text cells are abbreviated in this PDF and end with '
+            f'"{TRUNCATION_MARKER.strip()}". The complete text is in the accompanying '
+            f'workbook (.xlsx), which is the canonical deliverable.',
+            styles['BodyText'],
+        ))
 
     doc.multiBuild(story, canvasmaker=_NumberedCanvas)
 
