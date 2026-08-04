@@ -424,11 +424,26 @@ USER_DATA_BLANK_FILES = {
     "client_spending.csv",
     "client_assets.csv",
     "client_insurance_estate.csv",
+    "client_business.csv",
 }
 
 
-def _blank_user_data_csv(content: str) -> str:
-    """Keep row metadata but blank the value column for user-entered plan facts."""
+PRESERVED_ECONOMIC_ASSUMPTION_KEYS = {
+    ("Economic Assumptions", "", "inflation_general"),
+    ("Economic Assumptions", "", "social_security_cola"),
+    ("Economic Assumptions", "", "portfolio_nominal_return"),
+    ("Economic Assumptions", "", "fed_tax_bracket_inflator"),
+    ("Economic Assumptions", "", "social_security_taxable_fraction"),
+}
+
+
+def _blank_user_data_csv(content: str, preserve_keys: set[tuple[str, str, str]] | None = None) -> str:
+    """Keep row metadata but blank the value column for user-entered plan facts.
+
+    preserve_keys: optional (section, subsection, label) tuples whose value is
+    left intact -- used for system-default assumptions (e.g. inflation, COLA)
+    that a blank plan should still start from rather than leave empty.
+    """
     rows = list(csv.reader(io.StringIO(content or "")))
     out_rows = []
     for i, row in enumerate(rows):
@@ -440,7 +455,9 @@ def _blank_user_data_csv(content: str) -> str:
         is_header = i == 0 and any(str(c).strip().lower() == "value" for c in row)
         is_comment = first.startswith("#")
         if not is_header and not is_comment and len(row) >= 4:
-            row[3] = ""
+            key = (first, str(row[1] or "").strip(), str(row[2] or "").strip())
+            if not preserve_keys or key not in preserve_keys:
+                row[3] = ""
         out_rows.append(row)
     out = io.StringIO()
     csv.writer(out, lineterminator="\n").writerows(out_rows)
@@ -471,7 +488,8 @@ def _make_blank_plan_files() -> dict[str, str]:
         src = source_dir / name
         text = src.read_text(encoding="utf-8-sig") if src.exists() else ""
         if name in USER_DATA_BLANK_FILES:
-            text = _blank_user_data_csv(text)
+            preserve = PRESERVED_ECONOMIC_ASSUMPTION_KEYS if name == "client_household.csv" else None
+            text = _blank_user_data_csv(text, preserve_keys=preserve)
         elif name == "client_holdings.csv":
             text = _blank_holdings_csv(text)
         elif name == "client_liabilities.csv":
