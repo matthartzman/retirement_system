@@ -1036,9 +1036,12 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # exactly as before.
     try:
         _bl_file = None
+        # No explicit root=: passing one overrides workspace_context._default_root
+        # and therefore defeats RETIREMENT_SYSTEM_WORKSPACE_ROOT. Omitting it
+        # resolves to platform_runtime.workspace_root(), which is the same
+        # project root when the env var is unset.
         for _bl_path in candidate_input_files(
-            'client_spending_budget_lines.csv', active_workspace_id(),
-            root=Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))):
+            'client_spending_budget_lines.csv', active_workspace_id()):
             if os.path.exists(str(_bl_path)):
                 _bl_file = str(_bl_path)
                 break
@@ -2122,7 +2125,11 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     lots_file = None
     _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     # Workspace-aware search order: explicit env path/input dir, workspace input, shared input, hosted fallbacks.
-    for _lp_path in candidate_input_files('client_holdings.csv', active_workspace_id(), root=__import__('pathlib').Path(_project_root)):
+    # No explicit root= -- see the note at the budget-lines lookup above. This
+    # call site previously hardcoded the project root, which is why redirecting
+    # RETIREMENT_SYSTEM_WORKSPACE_ROOT at a frozen fixture silently kept reading
+    # holdings from the real input/ (documented in test_199's docstring).
+    for _lp_path in candidate_input_files('client_holdings.csv', active_workspace_id()):
         _lp = str(_lp_path)
         if os.path.exists(_lp):
             lots_file = _lp
@@ -2160,7 +2167,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # an empty list so a liability-free plan behaves exactly as before.
     liabilities = []
     liab_file = None
-    for _li_path in candidate_input_files('client_liabilities.csv', active_workspace_id(), root=__import__('pathlib').Path(_project_root)):
+    for _li_path in candidate_input_files('client_liabilities.csv', active_workspace_id()):
         _li = str(_li_path)
         if os.path.exists(_li):
             liab_file = _li
@@ -2277,6 +2284,10 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # class, with conservative defaults when a symbol is unmapped.
     def _load_security_classes():
         out = {}
+        # Deliberately package-root scoped, unlike the plan-data lookups above:
+        # security_master.csv is read-only REFERENCE data that ships with the
+        # code (platform_runtime.package_root), not per-workspace writable plan
+        # data. A workspace redirect must not make symbol classification vanish.
         _root = __import__('pathlib').Path(_project_root)
         for _sm in candidate_input_files('security_master.csv', active_workspace_id(), root=_root):
             if os.path.exists(_sm):
