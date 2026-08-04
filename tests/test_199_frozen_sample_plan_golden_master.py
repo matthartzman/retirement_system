@@ -43,6 +43,7 @@ direct run against the source commit's real input/.
 """
 from __future__ import annotations
 
+import os
 import shutil
 import tempfile
 import unittest
@@ -51,6 +52,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FROZEN_DIR = ROOT / "tests" / "fixtures" / "sample_plan_frozen"
+
+# Pinned wall-clock date. plan_start derives from the current year and the YTD
+# blend prorates the current year by day-of-year, so the pins below are only
+# reproducible with the date held still. Changing this value re-pins the test.
+FROZEN_TODAY = "2026-08-04"
 
 # Regenerated 2026-07-20 against commit fa6652b, after fixing a hermeticity
 # bug in this file (see test_frozen_plan_dollar_figures_are_exact's comment):
@@ -90,30 +96,87 @@ FROZEN_DIR = ROOT / "tests" / "fixtures" / "sample_plan_frozen"
 # introduced by this change and not fixed here -- flagged for separate
 # follow-up. Values below were regenerated on 2026-07-29 and confirmed
 # stable across repeated runs on that date.
-PINNED_TERMINAL_NW = 6487999.96
-PINNED_LIFETIME_TAX = 1517126.54
+#
+# Re-pinned 2026-08-04 -- fixture made self-contained (system review
+# 2026-08-04). The hermeticity gap noted immediately above is now CLOSED on
+# both axes: the date is pinned via FROZEN_TODAY, and every input is staged
+# from FROZEN_DIR rather than only client_*.csv. See _frozen_config's
+# docstring for the three specific leaks that were removed.
+#
+# Terminal NW moved 6,487,999.96 -> 4,057,824.89 and lifetime tax
+# 1,517,126.54 -> 1,328,438.80. This is NOT an engine change: it is the
+# fixture finally measuring the household it actually describes. Previously
+# client_holdings.csv resolved to the REAL input/ (data_io hardcoded root=,
+# fixed in e24da48), so the plan ran on ~$3.69M of unreconciled stated assets
+# instead of its own ~$2.81M of priced holdings. The older, larger pins
+# described a household that never existed in the fixture.
+#
+# At its true asset level the plan depletes in its final five years, so
+# fail_count is now pinned rather than asserted to be zero. See the assertion
+# for why that is a stricter gate, not a weaker one.
+PINNED_TERMINAL_NW = 4057824.89
+PINNED_LIFETIME_TAX = 1328438.80
+PINNED_FAILURES = [
+    (2052, "UNFUNDED_GAP"),
+    (2053, "UNFUNDED_GAP"),
+    (2054, "UNFUNDED_GAP"),
+    (2055, "UNFUNDED_GAP"),
+    (2056, "UNFUNDED_GAP"),
+]
 
 
 def _frozen_config():
+    """Build the frozen plan's engine config from a fully self-contained copy.
+
+    Every file in FROZEN_DIR is staged -- not just client_*.csv. The earlier
+    version copied only client_*.csv and monkeypatched
+    ``src.data_io.candidate_input_files``, which left three holes that made this
+    "frozen" fixture depend on live workspace state:
+
+    * ``src/optimization.py`` and ``src/real_loss_curves.py`` import
+      ``candidate_input_files`` directly, so patching the name bound inside
+      data_io never reached them.
+    * The fixture's own client_spending.csv sets ``ytd_blend_enabled=TRUE`` but
+      no ytd_transactions.csv was staged, so the YTD blend read whatever the
+      real workspace happened to contain.
+    * Non-client inputs (target_allocation.csv, spending_budget.csv,
+      spending_category_map.csv, asset_class_optimizer_controls.csv) were never
+      staged at all.
+
+    Redirection is now done with RETIREMENT_SYSTEM_WORKSPACE_ROOT, which
+    reaches every module rather than one module's symbol. That env var only
+    became load-bearing once the hardcoded ``root=`` arguments were removed
+    from data_io's plan-data lookups -- before that it silently did nothing for
+    holdings and liabilities.
+
+    The date is pinned too: plan_start derives from the current year and the
+    YTD blend prorates by day-of-year, so identical inputs otherwise produce
+    different dollars on different days.
+    """
     import src.data_io as _data_io
     from src.data_io import load_csv, parse_client
     from src.plan_config import ensure_engine_config
-    from src.workspace_context import candidate_input_files as _real_candidate_input_files
 
     workspace = Path(tempfile.mkdtemp(prefix="frozen_sample_plan_"))
     (workspace / "input").mkdir(parents=True)
-    for f in FROZEN_DIR.glob("client_*.csv"):
-        shutil.copy(f, workspace / "input" / f.name)
+    for f in sorted(FROZEN_DIR.iterdir()):
+        if f.is_file():
+            shutil.copy(f, workspace / "input" / f.name)
 
-    def _redirected(filename, workspace_id=None, root=None):
-        return _real_candidate_input_files(filename, workspace_id, root=workspace)
-
-    _data_io.candidate_input_files = _redirected
+    _prev_root = os.environ.get("RETIREMENT_SYSTEM_WORKSPACE_ROOT")
+    _prev_today = os.environ.get("RETIREMENT_SYSTEM_FROZEN_TODAY")
+    os.environ["RETIREMENT_SYSTEM_WORKSPACE_ROOT"] = str(workspace)
+    os.environ["RETIREMENT_SYSTEM_FROZEN_TODAY"] = FROZEN_TODAY
     try:
         data = load_csv(workspace / "input" / "client_data.csv")
         c = parse_client(data, "")
     finally:
-        _data_io.candidate_input_files = _real_candidate_input_files
+        for _k, _v in (("RETIREMENT_SYSTEM_WORKSPACE_ROOT", _prev_root),
+                       ("RETIREMENT_SYSTEM_FROZEN_TODAY", _prev_today)):
+            if _v is None:
+                os.environ.pop(_k, None)
+            else:
+                os.environ[_k] = _v
         shutil.rmtree(workspace, ignore_errors=True)
 
     c["roth_policy"] = "none"
@@ -150,8 +213,27 @@ class FrozenSamplePlanGoldenMasterTests(unittest.TestCase):
             rows = project(c)
         summary = summarize_validation(rows, c)
 
-        self.assertEqual(summary["fail_count"], 0)
+        # Pinned, not asserted-zero. Making the fixture self-contained dropped
+        # its starting balances from ~$3.69M to ~$2.81M: holdings now actually
+        # load from the fixture and reconcile against client_assets.csv,
+        # where previously client_holdings.csv silently resolved to the real
+        # input/ (see _frozen_config's docstring). At its true asset level this
+        # household outlives its money, so the frozen plan legitimately reports
+        # UNFUNDED_GAP in its final years.
+        #
+        # Pinning the exact failing years keeps this a strict gate -- stricter
+        # than assertEqual(fail_count, 0) was, since a solvency change in
+        # EITHER direction now fails rather than only a change away from zero.
         self.assertEqual(summary["warn_count"], 0)
+        self.assertEqual(
+            [(year, code) for year, level, code, _detail in summary["failures"]],
+            PINNED_FAILURES,
+            msg=(
+                "Frozen-plan solvency profile changed. The fixture is static and "
+                "self-contained, so this is an engine change, not data drift. If "
+                "intentional, regenerate via this file's __main__ block and note why."
+            ),
+        )
 
         terminal_nw = rows[-1]["total_nw"]
         lifetime_tax = sum(r["total_tax"] for r in rows)
