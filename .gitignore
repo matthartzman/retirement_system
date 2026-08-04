@@ -22,6 +22,22 @@ saved_plans/
 *.db-wal
 *.db-shm
 
+# Real plan data: a household's actual name, DOB, retirement date, SSA
+# benefit amounts, insurance premiums, and every other personal/financial
+# fact the app captures. Historically tracked, which put real client PII on
+# a path into git history the moment someone entered it and saved.
+# local_state/*.db is already the canonical store (see config_backend.py's
+# DB-canonical migration); these CSV/JSON/YAML files are a materialized
+# mirror the app writes for tooling/offline use, not the source of truth, so
+# nothing is lost by leaving them untracked. input/demo/ is deliberately
+# fictional demo content and stays tracked, as does ytd_transactions_sample.csv
+# (a generic template with no real transactions) and the two README files.
+/input/*
+!/input/demo/
+!/input/README_INPUT_PACKAGE.md
+!/input/README_YTD_INPUTS.md
+!/input/ytd_transactions_sample.csv
+
 # Logs / scratch
 *.log
 build_log.txt
