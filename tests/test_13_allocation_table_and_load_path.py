@@ -8,6 +8,8 @@ from src.data_io import parse_client
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 
 class AllocationTableAndLoadPathTests(unittest.TestCase):
     def test_ui_first_allocation_table_has_target_and_existing_asset_source_dropdown(self):
@@ -22,7 +24,7 @@ class AllocationTableAndLoadPathTests(unittest.TestCase):
         self.assertIn('assetCategory(asset)', html)
 
     def test_cash_target_and_existing_asset_credits_parse_from_first_table(self):
-        cfg = parse_client(load_csv(ROOT / 'input' / 'client_data.csv'), '')
+        cfg = parse_client(load_csv(TEST_INPUT_DIR / 'client_data.csv'), '')
         self.assertAlmostEqual(cfg['cash_target_pct'], cfg['allocation_target_pct']['Cash'], places=8)
         self.assertIn(cfg['allocation_source_target_class']['Guaranteed income + note receivable'], {'Bonds', 'Short-Term Bonds', 'TIPS', 'Municipal Bonds'})
         self.assertEqual(cfg['allocation_source_target_class']['Home Equity'], 'REITs')

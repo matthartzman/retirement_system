@@ -17,9 +17,11 @@ from tests.golden_pricing import FROZEN_GOLDEN_MASTER_PRICES, frozen_holdings_pr
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 
 def sample_config():
-    data = load_csv(ROOT / 'input' / 'client_data.csv')
+    data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
     c = parse_client(data, '')
     return ensure_engine_config(c, source='test')
 
@@ -103,7 +105,15 @@ def test_income_and_portfolio_draws_bar_totals_are_not_understated():
                        + r.get('note_princ', 0) + r.get('note_int', 0) + r.get('rmd_total', 0))
             draws = (max(0, r.get('trust_wd', 0)) + max(0, r.get('hsa_wd', 0)) + max(0, r.get('roth_wd', 0))
                      + max(0, r.get('ira_wd', 0)) + max(0, r.get('heloc_draw', 0)))
-            real_totals.append(round(streams + draws))
+            # The chart also carries an "Unfunded Shortfall" bar
+            # (results_model.py:338) for years where income plus draws cannot
+            # cover spending. Omitting it here made this recomputation
+            # understate the true total by exactly that amount in any depleting
+            # year -- invisible while the sample plan happened to stay solvent,
+            # and a ~$199k false alarm once the frozen fixture (which exhausts
+            # its portfolio in its final years) became the test plan.
+            unfunded = max(0, r.get('unfunded_gap', 0) or 0)
+            real_totals.append(round(streams + draws + unfunded))
         # Tolerance covers legitimate per-series rounding (each series is
         # individually rounded before summing) accumulating across ~15
         # series -- not a proxy for the multi-thousand-dollar gaps the bug

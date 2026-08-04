@@ -1,6 +1,6 @@
 section,subsection,label,value,units,notes,
 "# -- client_business.csv: Business succession planning — entity valuation, buy-sell funding, and key-person coverage.",,,,,,
-Business Succession,Policy,valuation_growth_default,,pct,default annual growth applied when an entity omits its own rate,
+Business Succession,Policy,valuation_growth_default,5.00%,pct,default annual growth applied when an entity omits its own rate,
 Business Succession,Acme_Holdings,entity_name,,,sample/demo reporting module; not cash-flow-driving unless specifically enabled,
 Business Succession,Acme_Holdings,owner,,,,
 Business Succession,Acme_Holdings,ownership_pct,,pct,departing owner's ownership share,

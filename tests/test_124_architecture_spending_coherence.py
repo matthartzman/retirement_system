@@ -5,6 +5,8 @@ from src.spending_tracker import monthly_series, taxonomy_flat
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 
 def _read_csv(path: Path):
     with path.open(newline='', encoding='utf-8-sig') as f:
@@ -45,7 +47,7 @@ def test_healthcare_premium_group_and_medical_oop_cap_contract():
     assert flat['annual_oop_max']['group'] == 'Medical Cap Reference'
     assert flat['annual_oop_max']['label'] == 'Annual Household Medical OOP Cap'
 
-    budget_rows = _read_csv(ROOT / 'input' / 'client_spending_budget.csv')
+    budget_rows = _read_csv(TEST_INPUT_DIR / 'client_spending_budget.csv')
     by_key = {r['key']: r for r in budget_rows if r.get('kind') == 'category'}
     assert by_key['annual_oop_max']['annual_budget'] == ''
     assert 'not a spending budget row' in by_key['annual_oop_max']['notes']
@@ -54,7 +56,7 @@ def test_healthcare_premium_group_and_medical_oop_cap_contract():
 
 
 def test_travel_detail_is_not_an_active_group():
-    rows = _read_csv(ROOT / 'input' / 'client_spending_taxonomy.csv')
+    rows = _read_csv(TEST_INPUT_DIR / 'client_spending_taxonomy.csv')
     active_travel_rows = [r for r in rows if r.get('status') == 'active' and r.get('tracking_type') == 'Travel']
     assert active_travel_rows
     assert not any(r.get('group') == 'Travel Detail' for r in active_travel_rows)

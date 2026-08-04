@@ -428,13 +428,39 @@ USER_DATA_BLANK_FILES = {
 }
 
 
-PRESERVED_ECONOMIC_ASSUMPTION_KEYS = {
+# Rows a blank plan must still start from, because they are SYSTEM DEFAULTS
+# that the input package curates -- not facts about a household. Blanking them
+# does not give a new plan "no opinion"; it drops the engine onto whatever
+# hardcoded fallback happens to exist in code, which is a different and
+# undocumented number.
+#
+# The test is what the row's own notes claim. "Default 2032" and "default
+# annual growth applied when an entity omits its own rate" are defaults and are
+# preserved. Deliberately NOT preserved, because their notes show the stored
+# value was a client OVERRIDE rather than the default:
+#   Liquidity Buffer/years_of_expenses  -- "default is 0", stored 2
+#   HSA Policy/hsa_withdrawal_mode      -- "default spend_as_needed", stored smooth_window
+PRESERVED_SYSTEM_DEFAULT_KEYS = {
+    # Economic and tax assumptions.
     ("Economic Assumptions", "", "inflation_general"),
     ("Economic Assumptions", "", "social_security_cola"),
     ("Economic Assumptions", "", "portfolio_nominal_return"),
     ("Economic Assumptions", "", "fed_tax_bracket_inflator"),
     ("Economic Assumptions", "", "social_security_taxable_fraction"),
+    # Annuity fallbacks: apply ONLY to streams with no explicit rate of their own.
+    ("Economic Assumptions", "", "annuity_default_dividend_rate"),
+    ("Economic Assumptions", "", "annuity_default_additional_income_pct"),
+    # Global dividend-reinvestment policy switch.
+    ("Economic Assumptions", "", "reinvest_dividends_default"),
+    # Social Security trust-fund underfunding stress (statutory-style defaults).
+    ("Social Security", "Funding Discount", "ss_funding_discount_year"),
+    ("Social Security", "Funding Discount", "ss_funding_discount_pct"),
+    # Business-succession valuation fallback.
+    ("Business Succession", "Policy", "valuation_growth_default"),
 }
+
+# Back-compat alias: the original name only covered the five economic rows.
+PRESERVED_ECONOMIC_ASSUMPTION_KEYS = PRESERVED_SYSTEM_DEFAULT_KEYS
 
 
 def _blank_user_data_csv(content: str, preserve_keys: set[tuple[str, str, str]] | None = None) -> str:
@@ -488,8 +514,11 @@ def _make_blank_plan_files() -> dict[str, str]:
         src = source_dir / name
         text = src.read_text(encoding="utf-8-sig") if src.exists() else ""
         if name in USER_DATA_BLANK_FILES:
-            preserve = PRESERVED_ECONOMIC_ASSUMPTION_KEYS if name == "client_household.csv" else None
-            text = _blank_user_data_csv(text, preserve_keys=preserve)
+            # Applied to every blanked file, not just client_household.csv: the
+            # preserved defaults also live in client_income.csv (Social Security
+            # funding discount) and client_business.csv (valuation growth). Keys
+            # are (section, subsection, label) so they do not collide across files.
+            text = _blank_user_data_csv(text, preserve_keys=PRESERVED_SYSTEM_DEFAULT_KEYS)
         elif name == "client_holdings.csv":
             text = _blank_holdings_csv(text)
         elif name == "client_liabilities.csv":

@@ -2,52 +2,52 @@
   "canonical_format": "CSV",
   "files": {
     "asset_class_optimizer_controls.csv": {
-      "bytes": 6656,
-      "sha256": "8a94edde6121b066885996c41d04d9ecc471aca62f7e07887a031b8dfbf2533f"
+      "bytes": 6500,
+      "sha256": "d90217085fa8ed874762a17ae0009eb51fefd372869e153e309ca2cc3f78a186"
     },
     "client_assets.csv": {
-      "bytes": 7676,
-      "sha256": "0f94152e19a07d55e10fab369264cce48459952cde1a8807f458941214d2bdb8"
+      "bytes": 7892,
+      "sha256": "1847abff5ab77655aca742ee883af494105bf1ef949d93031ad57741451c48b2"
     },
     "client_business.csv": {
-      "bytes": 1410,
-      "sha256": "e6bb921f9df037174a4492e67c9fa023a17ff28a91201870cd0b32c420c2a7fa"
+      "bytes": 1301,
+      "sha256": "ffee0ee01045c3696e35701476467cd27ffe42334d50a6609f0103ac14759b93"
     },
     "client_data.csv": {
       "bytes": 1125,
       "sha256": "f953ac0ed2b26d4edac921fdc8c7fdeccd535394994d3eb67e6305341acfaaa4"
     },
     "client_holdings.csv": {
-      "bytes": 3975,
-      "sha256": "17d3fc659c4d3fec2e87e5d0ddbd0105512648e08f88cba20e4dc1a88becf585"
+      "bytes": 60,
+      "sha256": "e55766901d89c97f5ffb3debbdbe510c44d1718055ac3fea46b84ddb763c29d4"
     },
     "client_household.csv": {
-      "bytes": 9132,
-      "sha256": "ac43f8c1fc7234ad7c1ccdb0c9f42a9f0a685e0087375d9ab811598d6e1c6446"
+      "bytes": 8470,
+      "sha256": "f48eb1e11fc87bd9daeeb4312844d31cc15d05a11aae8bfa455f7064f2d4b484"
     },
     "client_income.csv": {
-      "bytes": 14256,
-      "sha256": "86990a1709832aed1f731348eb7e4d89ca1620cd97fa1f68ad9e33a38acc4995"
+      "bytes": 16229,
+      "sha256": "d13e86afb8b4ad8d7abfe566c36573c68efb3b77d85c546f30d6434359228cdd"
     },
     "client_insurance_estate.csv": {
-      "bytes": 22549,
-      "sha256": "49cc77a9922127af33be76517890e4c1b3dac50474daf81f0282e828238de859"
+      "bytes": 21396,
+      "sha256": "6fdb38cda39de143c9029cf30a4782fe4d2718318e4822bf39435bd990eadbee"
     },
     "client_optional_functions.csv": {
-      "bytes": 2596,
-      "sha256": "f21f85049700c3f73b8c156c8aeb4a663cb2d5b6e8d1177c07559f5321def091"
+      "bytes": 2592,
+      "sha256": "a7f71ea9cdaf6213aa63902e4e8133fded8029516e83d3c5587260a80e70a805"
     },
     "client_policy.csv": {
-      "bytes": 27917,
-      "sha256": "0f472f4be1b4ef68169553f12656d9ffc70279c65f9f8f58545b7e3a75e76367"
+      "bytes": 27230,
+      "sha256": "e38728176e79fdb18658fc30c8ef3eaf93c01b202b50a8d03835f377b0f27421"
     },
     "client_spending.csv": {
-      "bytes": 9891,
-      "sha256": "196ca59ca680fce512d7b02a8661734f0153f711187befac08e3dfb8911865c9"
+      "bytes": 9413,
+      "sha256": "6fde4c43fdc01e0325d8d8069936fa7a81dc0d223533d8390d5c350a13f8fd56"
     },
     "target_allocation.csv": {
       "bytes": 234,
-      "sha256": "70d5c678ea38e48eac7907f38c13a2ab91920cf300465b9809564b8ece1943c7"
+      "sha256": "7072606265fc74a0a598426729e7cbb21a152095b9b5092283246419a0b0af41"
     }
   },
   "version": "8.3"

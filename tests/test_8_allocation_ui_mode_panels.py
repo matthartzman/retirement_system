@@ -10,10 +10,12 @@ from src.optimization import compute_optimal_allocation
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 
 class AllocationUIModePanelsTests(unittest.TestCase):
     def test_optimizer_controls_csv_has_override_rows_for_every_class(self):
-        p = ROOT / 'input' / 'asset_class_optimizer_controls.csv'
+        p = TEST_INPUT_DIR / 'asset_class_optimizer_controls.csv'
         seen_action = set()
         seen_override = set()
         with p.open(newline='', encoding='utf-8-sig') as f:
@@ -27,7 +29,7 @@ class AllocationUIModePanelsTests(unittest.TestCase):
         self.assertEqual(seen_override, expected)
 
     def test_parser_loads_blank_optimizer_overrides_without_activating_them(self):
-        data = load_csv(ROOT / 'input' / 'client_data.csv')
+        data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
         c = parse_client(data, '')
         self.assertEqual(set(c['allocation_optimizer_override_pct']), set(ap.DEFAULT_ALLOCATION_TARGETS))
         self.assertAlmostEqual(c['allocation_optimizer_override_sum'], 0.0)
@@ -35,7 +37,7 @@ class AllocationUIModePanelsTests(unittest.TestCase):
         self.assertEqual(out['diagnostics']['allocation_policy_mode'], 'optimizer_recommendation')
 
     def test_optimizer_override_replaces_computed_optimizer_when_entered(self):
-        data = load_csv(ROOT / 'input' / 'client_data.csv')
+        data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
         c = parse_client(data, '')
         c = copy.deepcopy(c)
         c['allocation_selection_mode'] = ap.ALLOCATION_MODE_OPTIMIZER

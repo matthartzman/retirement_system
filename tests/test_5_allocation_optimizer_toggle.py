@@ -10,10 +10,12 @@ from src.optimization import compute_optimal_allocation
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 
 class AllocationOptimizerToggleTests(unittest.TestCase):
     def _config(self):
-        data = load_csv(ROOT / 'input' / 'client_data.csv')
+        data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
         return parse_client(data, '')
 
     def test_allocation_mode_defaults_to_user_target_and_optimizer_available(self):

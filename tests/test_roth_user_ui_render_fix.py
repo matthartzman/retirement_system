@@ -4,6 +4,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 ROTH_PRIMARY = {
     'roth_conversion_policy',
     'roth_objective_mode',
@@ -34,7 +36,7 @@ def test_user_ui_roth_step_matches_normalized_subsection_names():
 
 
 def test_input_package_contains_all_primary_roth_controls_with_defaults():
-    p = ROOT / 'input' / 'client_policy.csv'
+    p = TEST_INPUT_DIR / 'client_policy.csv'
     if not p.exists():
         pytest.skip('secure complete package excludes input/; run with input overlay for Plan Data assertions')
     with p.open(newline='', encoding='utf-8-sig') as f:
@@ -54,7 +56,7 @@ def test_input_package_contains_all_primary_roth_controls_with_defaults():
 
 
 def test_roth_step_filter_would_return_controls_from_input_rows():
-    p = ROOT / 'input' / 'client_policy.csv'
+    p = TEST_INPUT_DIR / 'client_policy.csv'
     if not p.exists():
         pytest.skip('secure complete package excludes input/; run with input overlay for Plan Data assertions')
     with p.open(newline='', encoding='utf-8-sig') as f:

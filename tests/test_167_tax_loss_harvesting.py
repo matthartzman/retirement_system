@@ -11,9 +11,11 @@ from tests.golden_pricing import FROZEN_GOLDEN_MASTER_PRICES, frozen_holdings_pr
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 
 def sample_config(tlh_policy='off'):
-    data = load_csv(ROOT / 'input' / 'client_data.csv')
+    data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
     c = parse_client(data, '')
     c['roth_policy'] = 'none'
     c['mc_paths'] = 5
@@ -32,7 +34,7 @@ def baseline_config_without_tlh_overrides():
     tlh_* field -- relies purely on parse_client's CSV-default ('off').
     Used as the no-op reference so the pure-no-op test doesn't need a
     hardcoded dollar pin (see test_tlh_off_is_a_pure_no_op)."""
-    data = load_csv(ROOT / 'input' / 'client_data.csv')
+    data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
     c = parse_client(data, '')
     c['roth_policy'] = 'none'
     c['mc_paths'] = 5
