@@ -27,6 +27,7 @@ from .workbook_common import (
     write_hdr,
 )
 from ..person_labels import display_accounts_in_text as _display_accounts_in_text
+from . import summary_figures
 def build_sheet9(ws, c, rows):
     """Retirement Strategy"""
     ws.sheet_view.showGridLines = False
@@ -1386,10 +1387,18 @@ def build_sheet14(ws, c, rows):
     r += 1
     cs_on  = c.get('cs_enabled', True)
     cs_bg  = 'E2EFDA' if cs_on else 'F4F5F7'
+    # Shared with the Executive Summary's recommendation row via summary_figures,
+    # so the flagship page and this sheet cannot report different numbers.
     il_exempt = c['il_exempt']
-    cst_cap = c.get('il_cst_shelter_cap', il_exempt)
-    cs_amt = c.get('cs_amount', cst_cap)
-    cs_tax_saved = min(cs_amt, cst_cap) * 0.08
+    _cst_figures = summary_figures.credit_shelter_trust_savings(c)
+    if _cst_figures:
+        cst_cap = _cst_figures['shelter_cap']
+        cs_amt = _cst_figures['funding_amount']
+        cs_tax_saved = _cst_figures['tax_saved']
+    else:
+        cst_cap = c.get('il_cst_shelter_cap', il_exempt)
+        cs_amt = c.get('cs_amount', cst_cap)
+        cs_tax_saved = min(cs_amt, cst_cap) * 0.08
     write_hdr(ws, r, 1, f'Credit Shelter Trust (Bypass Trust)  [{"ENABLED" if cs_on else "DISABLED"}]',
               bg='375623' if cs_on else DGRAY, span=4); r += 1
     cs_rows = [

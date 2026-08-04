@@ -29,6 +29,7 @@ from .workbook_common import (
 )
 from .. import allocation_policy as _ap
 from ..person_labels import display_account
+from . import summary_figures
 
 # ── Asset Allocation (Sheet 4) shared constants and helpers ──────────────────
 # Hoisted out of build_sheet4 (previously ~1,400 lines in one function): pure
@@ -990,7 +991,10 @@ def build_sheet1(ws, c, rows, mc_data, ss_sweep=None):
     success = mc_data.get('success_rate', 0.0)
     lifetime_tax = sum(row['total_tax'] for row in rows)
     terminal_nw  = yrn['total_nw']
-    roth_benefit = sum(row.get('roth_conv',0)*0.22 for row in rows)   # approx
+    # Selected-vs-next-best from the Sheet 11 candidate contract. Previously a
+    # flat 22% of gross conversions labelled "tax saved", which contradicted
+    # Sheet 11 and overstated the case (conversions cost tax in the year taken).
+    roth_headline = summary_figures.roth_strategy_benefit(c)
 
     _h_nick = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
     _w_nick = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
@@ -1019,7 +1023,16 @@ def build_sheet1(ws, c, rows, mc_data, ss_sweep=None):
             ('MC Success 95% CI Low',       mc_data.get('success_rate_ci_low', success), FMT_PCT),
             ('MC Success 95% CI High',      mc_data.get('success_rate_ci_high', success), FMT_PCT),
         ]
-    headlines.append(('Estimated Tax Saved — Roth Strategy', roth_benefit,  FMT_DOLLAR))
+    # Omitted entirely when fewer than two candidates were scored: a
+    # "versus next best" figure has no meaning without a next best, and an
+    # invented number on the flagship page is the defect being removed here.
+    if roth_headline:
+        headlines.append((
+            f"Lifetime Tax vs. Next-Best Roth Strategy ({roth_headline['runner_up_label']})",
+            roth_headline['lifetime_tax_delta'], FMT_DOLLAR))
+        headlines.append((
+            'After-Tax Terminal NW vs. Next-Best Roth Strategy',
+            roth_headline['terminal_nw_delta'], FMT_DOLLAR))
     if _ss_on:
         headlines.append(('Recommended SS Claim Age',        _ss_age_label,     None))
     for label, value, fmt in headlines:
@@ -1042,6 +1055,10 @@ def build_sheet1(ws, c, rows, mc_data, ss_sweep=None):
     # where an excluded item used to sit.
     entity_label = {'s_corp': 'S-Corp', 'sole_prop': 'Sole Prop', 'w2': 'W2'}.get(
         str(c.get('entity', '')).strip().lower(), str(c.get('entity', '')).strip() or 'Sole Prop')
+    # Same source as Sheet 14's own CST block, so the two can never disagree.
+    # Previously '$4M'/'~$320K' were hardcoded here and only correct when
+    # il_exempt happened to equal its default.
+    _cst = summary_figures.credit_shelter_trust_savings(c)
     candidate_recs = [
         (True, 'Claim Social Security — ' + _ss_age_label,
            'Highest-scoring pair from the full 62-70 x 62-70 projection sweep on Sheet 10; weighs lifetime SS income against lifetime tax and IRMAA drag, not terminal net worth alone.',
@@ -1051,28 +1068,34 @@ def build_sheet1(ws, c, rows, mc_data, ss_sweep=None):
            'Use the selected Roth strategy from Sheet 11; forced conversions are separated from voluntary optimizer choices.',
            'Tax cost depends on selected strategy','Compare candidate scores, lifetime tax, terminal value, and legacy/estate components on Sheet 11','Sheet 11'),
         (not c.get('cst_enabled'), 'Credit Shelter Trust at First Death',
-           'Preserves IL $4M exemption at first death; assets bypass survivor estate for IL tax purposes',
-           '$2,500–$5,000 (legal)','~$320K IL estate tax avoided on $4M (8% avg rate)','Sheet 14'),
+           (f"Preserves the ${_cst['state_exemption']:,.0f} state exemption at first death; assets bypass "
+            f"the survivor estate for state estate-tax purposes" if _cst else
+            'Preserves the state estate-tax exemption at first death; assets bypass the survivor estate'),
+           'Typical legal setup: $2,500–$5,000',
+           (f"~${_cst['tax_saved']:,.0f} state estate tax avoided on the ${_cst['funding_amount']:,.0f} "
+            f"bypass amount ({_cst['avg_rate']:.0%} avg rate)" if _cst else 'See Sheet 14'), 'Sheet 14'),
         (not (c.get('daf_amount', 0) or 0) > 0, 'DAF contribution in the highest-income planning year',
-           'Fund DAF in high-income year; claim deduction while SALT still elevated; grant out over 2027-2035',
-           '$0 (charitable intent)','~$9,600 tax deduction at 24% marginal rate','Sheet 12'),
-        (not c.get('ltc_enabled'), 'Hybrid Life/LTC Policy — Start 2027',
-           'Face value $250K–$500K covers facility care risk; avoids $113K–$213K annual deficit in worst case',
-           '$8,000–$15,000/yr premiums','Protects $500K–$2M of estate from LTC depletion','Sheet 19'),
+           'Fund a DAF in a high-income year to claim the deduction while SALT is still elevated, then grant out over following years',
+           '$0 (charitable intent)','See Sheet 12 for the modeled deduction and carryforward','Sheet 12'),
+        (not c.get('ltc_enabled'), 'Hybrid Life/LTC Policy',
+           'Covers facility-care risk that would otherwise be self-funded from the portfolio',
+           'Varies by age, health, and face value','See Sheet 17 for the modeled cost of self-funding care','Sheet 19'),
         (str(c.get('entity', '')).strip().lower() != 's_corp', f'S-Corporation vs LLC (Current: {entity_label})',
-           'S-Corp reasonable salary $80K on $290K income saves ~$30K SE tax minus $2,500 admin cost',
-           '$2,500/yr admin cost','~$27,500/yr net SE tax savings','Sheet 9'),
+           'An S-Corp election splits earnings into reasonable W-2 salary and distributions, so self-employment tax applies only to the salary portion',
+           'Added payroll/admin cost','See Sheet 9 for this household’s modeled SE tax','Sheet 9'),
         (not c.get('qtip_enabled'), 'QTIP Trust to Manage Annuity Post-First-Death',
            'Annuity income flows to QTIP for survivor benefit; controls ultimate disposition to heirs',
-           '$3,000–$5,000 (legal)','Qualifies for marital deduction; defers estate tax','Sheet 14'),
+           'Typical legal setup: $3,000–$5,000','Qualifies for marital deduction; defers estate tax','Sheet 14'),
         (not any(float(entry.get('years_of_expenses', 0) or 0) > 0
                  for entry in (c.get('liquidity_buffer_schedule') or [])),
            'Set Reserve Requirement by Year Range',
            'Use start year, end year, and years of expenses to retain; default is 0 years',
            '$0 (allocation only)','Can reduce sequence-of-returns risk when a reserve is intentionally selected','Sheet 6'),
         (str(c.get('state', '')).strip().lower() == 'illinois', 'Illinois Residency Review',
-           'Moving to FL/TX saves $0 income tax (IL exempts retirement income) but saves IL estate tax',
-           'Relocation costs','~$320K IL estate tax if estate > $4M; no income tax savings','Sheet 13'),
+           'Moving to a no-estate-tax state saves no income tax (IL already exempts retirement income) but can avoid IL estate tax',
+           'Relocation costs',
+           (f"~${_cst['tax_saved']:,.0f} IL estate tax if the estate exceeds ${_cst['state_exemption']:,.0f}; "
+            f"no income tax savings" if _cst else 'See Sheet 13'), 'Sheet 13'),
     ]
     _tlh_rec = _tlh_recommendation_row(c, rows, 0)
     if _tlh_rec:
