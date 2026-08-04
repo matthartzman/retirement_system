@@ -16,6 +16,16 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+# The committed, static, self-contained plan every test should load instead of
+# the user's live input/. Kept in sync with test_199's FROZEN_TODAY.
+_FROZEN_PLAN_DIR = ROOT / "tests" / "fixtures" / "sample_plan_frozen"
+FROZEN_PLAN_TODAY = "2026-08-04"
+
+# Absolute path to the staged plan-data directory for this test process.
+# Tests that previously hardcoded `ROOT / "input"` should import this instead:
+# it points at the frozen plan, not the live workspace.
+TEST_INPUT_DIR: Path
+
 # Redirect the app's writable workspace (input/, output/, local_state/,
 # saved_plans/) to a throwaway copy for the whole test process. Some code path
 # deeper in the load/save layer falls back to the default workspace root
@@ -43,12 +53,32 @@ if not os.environ.get("RETIREMENT_SYSTEM_WORKSPACE_ROOT"):
         # particular can contain a live, locked webview cache on desktop that
         # copytree can't read; the other subdirs are write-only scratch space
         # for the app, so an empty throwaway directory is sufficient for them.
-        if _name == "input" and _src_dir.exists():
-            shutil.copytree(_src_dir, _TEST_WORKSPACE_ROOT / _name)
+        if _name == "input":
+            # Staged from the FROZEN FIXTURE, not the real input/. The live
+            # workspace is a user's actual plan: it changes under us, it can be
+            # blanked (a new plan starts with zero balances, which trips
+            # plan_config's "zero starting account balances" guard), and any
+            # test asserting dollar figures against it is really asserting
+            # against whatever the user last saved. tests/fixtures/
+            # sample_plan_frozen/ is a committed, static, self-contained plan --
+            # the same one test_199 pins -- so every test that resolves through
+            # workspace_root() now gets a known household instead.
+            (_TEST_WORKSPACE_ROOT / _name).mkdir(parents=True, exist_ok=True)
+            for _f in sorted(_FROZEN_PLAN_DIR.iterdir()):
+                if _f.is_file():
+                    shutil.copy(_f, _TEST_WORKSPACE_ROOT / _name / _f.name)
         else:
             (_TEST_WORKSPACE_ROOT / _name).mkdir(parents=True, exist_ok=True)
     os.environ["RETIREMENT_SYSTEM_WORKSPACE_ROOT"] = str(_TEST_WORKSPACE_ROOT)
+    # Pin the date too: plan_start derives from the current year and the YTD
+    # blend prorates by day-of-year, so static inputs alone do not make a
+    # projection reproducible. Tests needing a specific date override this.
+    os.environ.setdefault("RETIREMENT_SYSTEM_FROZEN_TODAY", FROZEN_PLAN_TODAY)
     atexit.register(shutil.rmtree, _TEST_WORKSPACE_ROOT, ignore_errors=True)
+    TEST_INPUT_DIR = _TEST_WORKSPACE_ROOT / "input"
+else:
+    # An outer harness already chose the workspace; honor it.
+    TEST_INPUT_DIR = Path(os.environ["RETIREMENT_SYSTEM_WORKSPACE_ROOT"]) / "input"
 
 def _install_real_input_write_guard() -> None:
     """Turn any write into the REAL (un-redirected) repo input/ directory into

@@ -8,9 +8,11 @@ from src.secrets_store import require_secure_master_key
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 
 def fast_config():
-    c = parse_client(load_csv(ROOT / "input" / "client_data.csv"), "")
+    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
     c["roth_policy"] = "none"
     c["plan_end"] = min(int(c["plan_end"]), int(c["plan_start"]) + 1)
     c["mc_sims"] = 4

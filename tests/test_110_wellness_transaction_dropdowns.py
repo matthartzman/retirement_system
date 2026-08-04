@@ -2,6 +2,8 @@ from pathlib import Path
 import csv
 
 ROOT = Path(__file__).resolve().parents[1]
+
+from conftest import TEST_INPUT_DIR
 HEALTHCARE_PREMIUM = "Healthcare Premium"
 OLD_STEP = "retirement_" + "health" + "care"
 
@@ -13,7 +15,7 @@ def test_wellness_uses_healthcare_premium_language_without_renaming_step():
     assert OLD_STEP not in js
     assert HEALTHCARE_PREMIUM in js
 
-    with (ROOT / "input" / "client_spending_taxonomy.csv").open(newline="", encoding="utf-8") as f:
+    with (TEST_INPUT_DIR / "client_spending_taxonomy.csv").open(newline="", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     by_id = {r["category_id"]: r for r in rows}
     assert by_id["exercise_health_equipment"]["tracking_type"] == "Wellness"

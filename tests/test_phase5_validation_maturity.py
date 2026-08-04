@@ -15,6 +15,8 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+
+from conftest import TEST_INPUT_DIR
 FIXTURES = ROOT / "tests" / "fixtures"
 
 from tests.golden_pricing import frozen_holdings_prices
@@ -48,7 +50,7 @@ def _pdf_structural_summary(pdf_bytes: bytes) -> dict:
 def _load_engine_config():
     from src.data_io import load_csv
     from src.report_compute import prepare_config_from_sectioned_data
-    return prepare_config_from_sectioned_data(load_csv(ROOT / "input" / "client_data.csv"), "", optimize_roth=True)
+    return prepare_config_from_sectioned_data(load_csv(TEST_INPUT_DIR / "client_data.csv"), "", optimize_roth=True)
 
 
 def _project_metrics(c):

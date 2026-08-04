@@ -14,9 +14,11 @@ from src.planning_engines import project
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 
 def _config():
-    c = parse_client(load_csv(ROOT / "input" / "client_data.csv"), "")
+    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
     c["roth_policy"] = "none"
     return c
 

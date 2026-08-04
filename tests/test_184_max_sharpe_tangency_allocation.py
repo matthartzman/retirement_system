@@ -34,9 +34,11 @@ from src.data_io import load_csv, parse_client
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 
 def sample_config():
-    data = load_csv(ROOT / "input" / "client_data.csv")
+    data = load_csv(TEST_INPUT_DIR / "client_data.csv")
     return parse_client(data, "")
 
 

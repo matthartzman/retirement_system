@@ -29,6 +29,8 @@ from src.engine_config_loader import load_engine_config
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 # A representative cross-section of scalar engine-config fields that should be
 # identical regardless of whether the sectioned data was acquired from the
 # canonical DB snapshot or from a freshly-imported CSV adapter file, since
@@ -54,7 +56,7 @@ def _write_sectioned_csv(data: dict, path: Path) -> None:
 
 @pytest.fixture(scope="module")
 def sample_data():
-    data = load_csv(ROOT / "input" / "client_data.csv")
+    data = load_csv(TEST_INPUT_DIR / "client_data.csv")
     assert data, "expected input/client_data.csv to parse into sectioned data"
     return data
 

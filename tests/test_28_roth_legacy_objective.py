@@ -5,8 +5,10 @@ from src.data_io import load_csv
 from src.planning_engines import _roth_strategy_metrics
 
 ROOT = Path(__file__).resolve().parents[1]
-WORKSPACE_POLICY = ROOT / "input" / "client_policy.csv"
-WORKSPACE_DATA = ROOT / "input" / "client_data.csv"
+
+from conftest import TEST_INPUT_DIR
+WORKSPACE_POLICY = TEST_INPUT_DIR / "client_policy.csv"
+WORKSPACE_DATA = TEST_INPUT_DIR / "client_data.csv"
 
 
 def test_client_policy_includes_legacy_roth_conversion_controls():

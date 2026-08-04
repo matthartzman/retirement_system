@@ -12,9 +12,11 @@ from src.planning_engines import project
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from conftest import TEST_INPUT_DIR
+
 
 def _scenario():
-    c = parse_client(load_csv(ROOT / "input" / "client_data.csv"), "")
+    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
     c["roth_policy"] = "fill_to_bracket"
     c["roth_irmaa_cap"] = True
     c["irmaa_guardrail_mode"] = "AVOID_NEXT_TIER"
@@ -67,7 +69,7 @@ def test_irmaa_guardrail_age_gate_helper_matches_lookback_years_config():
 
 
 def _fill_to_irmaa_aca_scenario():
-    c = parse_client(load_csv(ROOT / "input" / "client_data.csv"), "")
+    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
     c["roth_policy"] = "fill_to_irmaa"
     c["roth_irmaa_target_tier"] = "TIER_5"  # loose IRMAA cap so the ACA guardrail is what binds
     c["aca_ptc_enabled"] = True
