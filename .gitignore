@@ -76,3 +76,8 @@ dist-info/
 # Generated artifacts
 output/
 coverage.xml
+
+# Playwright E2E (tests/e2e/) run artifacts
+/test-results/
+/playwright-report/
+/playwright/.cache/
