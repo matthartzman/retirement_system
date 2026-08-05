@@ -53,23 +53,13 @@ const STEPS = [
     helpLink: { id: "distribution_strategy", label: "Open Distribution Strategy → Roth Conversion / Asset allocation & location" },
   },
   {
-    id: "spending_workspace",
-    group: "Spending",
-    title: "Spending Workspace",
-    desc: "Spending model, actual-spending import/sync, spending analysis, and Travel/Large Items/DAF in one decision workspace.",
-    intro:
-      "Use this page to manage the full spending workflow: build the category model, import and assign current-year transactions, compare actual spending against the plan, and review Travel/Large Items/DAF together.",
-    help: "Tabs preserve the existing source pages while making the spending workflow easier to follow end to end.",
-  },
-  {
     id: "spending_core",
     group: "Spending",
     title: "Spending Model",
-    desc: "Comprehensive income/expense category hierarchy, budget references, and projection spending controls.",
+    desc: "Comprehensive income/expense category hierarchy, budget references, and projection spending controls. Also the entry point for Actual Spending (YTD), Spending Analysis, and Other Spending -- see the tabs above the content.",
     intro:
       "Review the full Tracking Type → Group → Category model here. It should account for all income and all expenses except taxes/transfers; lifestyle detail pages still hold scheduled spending inputs.",
     help: "Spending Model is the category manager. Transaction assignment appears here as Advanced Auto-Mapping Rules only when needed.",
-    hidden: true,
   },
   {
     id: "retirement_wellness",
@@ -97,8 +87,7 @@ const STEPS = [
     intro:
       "Use this page for expenses that are scheduled, flexible, or easier to review together: travel, large one-time items, and DAF contribution/grant settings.",
     help: "The sections below keep their existing source inputs, but the combined page makes the spending flow simpler.",
-    hidden: true,
-  },
+    hidden: true,  },
   {
     id: "spending_travel",
     group: "Spending",
@@ -127,8 +116,7 @@ const STEPS = [
     intro:
       "Import transactions, review assignments, and compare the current year with the spending model before updating the plan.",
     help: "Category assignment happens on Spending Model. Accounts & Sources controls account/source type, prior-year balances, and current values.",
-    hidden: true,
-  },
+    hidden: true,  },
   {
     id: "holdings",
     group: "Assets & Protection",
@@ -5477,24 +5465,8 @@ function renderSteps() {
         if (_isViewingDetailedResults()) {
           html += renderDetailedResultsNav();
         }
-      } else if (s.id === "distribution_strategy") {
-        const activeTab = getStrategyTab("distribution_strategy");
-        html += `<div class="nav-subtabs">`;
-        STRATEGY_TABS.distribution_strategy.forEach(function (tab) {
-          const isActiveTab =
-            activeStep === "distribution_strategy" && activeTab === tab;
-          html += `<button class="nav-subtab${isActiveTab ? " active" : ""}" type="button"${!planLoaded ? " disabled" : ""} onclick="goToStrategyTab('distribution_strategy','${escJs(tab)}')">${esc(tab)}</button>`;
-        });
-        html += `</div>`;
-      } else if (s.id === "spending_workspace") {
-        const activeTab = getStrategyTab("spending_workspace");
-        html += `<div class="nav-subtabs">`;
-        STRATEGY_TABS.spending_workspace.forEach(function (tab) {
-          const isActiveTab =
-            activeStep === "spending_workspace" && activeTab === tab;
-          html += `<button class="nav-subtab${isActiveTab ? " active" : ""}" type="button"${!planLoaded ? " disabled" : ""} onclick="goToStrategyTab('spending_workspace','${escJs(tab)}')">${esc(tab)}</button>`;
-        });
-        html += `</div>`;
+      } else if (STRATEGY_TABS[s.id]) {
+        html += renderWorkspaceSubtabsNav(s.id);
       }
     });
     html += `</div></details>`;
@@ -8178,7 +8150,7 @@ function firstRunChecklistHtml(compact = false) {
         "ytd_transactions",
         "spending_dashboard",
       ],
-      next: "spending_workspace",
+      next: "spending_core",
     },
     {
       title: "Assets and protection",
@@ -14949,21 +14921,16 @@ function renderReportsAndReview() {
 // id, reused by getStrategyTab/setStrategyTab/goToStrategyTab/renderStrategyTabs
 // below regardless of which workspace it's for.
 const STRATEGY_TABS = {
-  distribution_strategy: [
-    "Levers",
-    "Roth Conversion",
-    "Withdrawal Order",
-    "Allocation & Location",
-  ],
-  spending_workspace: [
-    "Spending Model",
-    "Actual Spending (YTD)",
-    "Spending Analysis",
-    "Other Spending",
-  ],
+  distribution_strategy: ["Levers", "Roth Conversion", "Withdrawal Order", "Allocation & Location"],
+  spending_core: ["Spending Model", "Actual Spending (YTD)", "Spending Analysis", "Other Spending"],
 };
 function strategyTabKey(step) {
   return "strategy_tab_" + step;
+}
+// Shared left-nav sub-tab strip for any STRATEGY_TABS-registered workspace step.
+function renderWorkspaceSubtabsNav(stepId) {
+  const activeTab = getStrategyTab(stepId);
+  return `<div class="nav-subtabs">${STRATEGY_TABS[stepId].map((tab) => `<button class="nav-subtab${activeStep === stepId && activeTab === tab ? " active" : ""}" type="button"${!planLoaded ? " disabled" : ""} onclick="goToStrategyTab('${escJs(stepId)}','${escJs(tab)}')">${esc(tab)}</button>`).join("")}</div>`;
 }
 function getStrategyTab(step) {
   const tabs = STRATEGY_TABS[step] || [];
@@ -15004,21 +14971,6 @@ function renderDistributionStrategy() {
     body = analysisFrame(renderAllocationRecommendation(), "strategy");
   else body = renderPlanningLevers(true);
   return `<div class="tabbed-workspace strategy-workspace">${renderStrategyTabs("distribution_strategy", STRATEGY_TABS.distribution_strategy, tab)}<div class="workspace-tab-body">${body}</div></div>`;
-}
-// Wave 6.2 (system review 2026-08-04, finding `ui-spending-domain-fragmentation`):
-// mirrors renderDistributionStrategy() above. Each tab still calls the same
-// render function its old standalone step used, so behavior (including the
-// Wave 1.4 jump-to-field fix inside renderLifestyleSpending()'s accordions)
-// is unchanged -- only the navigation surface merges from 3 separate nav
-// entries plus 1 already-hidden report page into tabs of one workspace.
-function renderSpendingWorkspace() {
-  const tab = getStrategyTab("spending_workspace");
-  let body;
-  if (tab === "Actual Spending (YTD)") body = renderYtdTransactionsStep();
-  else if (tab === "Spending Analysis") body = renderSpendingDashboardOrLoad();
-  else if (tab === "Other Spending") body = renderLifestyleSpending();
-  else body = renderCoreSpendingUnified();
-  return `<div class="tabbed-workspace spending-workspace">${renderStrategyTabs("spending_workspace", STRATEGY_TABS.spending_workspace, tab)}<div class="workspace-tab-body">${body}</div></div>`;
 }
 function renderSpecialStrategies() {
   let html = '<div class="special-strategy-workspace">';
@@ -15085,9 +15037,8 @@ const SUGGESTED_NEXT = {
   income_work: "income_retirement",
   income_retirement: "holdings",
   holdings: "assets_home_cash",
-  assets_home_cash: "spending_workspace",
-  spending_workspace: "reports_and_review",
-  spending_core: "ytd_transactions",
+  assets_home_cash: "spending_core",
+  spending_core: "reports_and_review",
   distribution_strategy: "state_residency",
   state_residency: "reports_and_review",
   lifestyle_spending: "ytd_transactions",
@@ -15157,10 +15108,8 @@ function renderMain() {
     content += renderSpendingWorkflowBanner(activeStep);
   }
   if (activeStep === "start") content += renderWelcome();
-  else if (activeStep === "spending_workspace")
-    content += renderSpendingWorkspace();
   else if (activeStep === "spending_core")
-    content += renderCoreSpendingUnified();
+    content += window.renderSpendingWorkspace(STRATEGY_TABS.spending_core);
   else if (activeStep === "lifestyle_spending")
     content += renderLifestyleSpending();
   else if (activeStep === "spending_travel")

@@ -16,6 +16,27 @@ window.spendingDivergencePct = 0;
 export function getSpendingDivergencePct() { return window.spendingDivergencePct || 0 }
 window.getSpendingDivergencePct = getSpendingDivergencePct;
 
+// Wave 6.2 (system review 2026-08-04, finding `ui-spending-domain-fragmentation`):
+// mirrors dashboard.js's renderDistributionStrategy(). Each tab still calls the
+// same render function its old standalone step used, so behavior (including
+// the Wave 1.4 jump-to-field fix inside renderLifestyleSpending()'s accordions)
+// is unchanged -- only the navigation surface merges Spending Model, Actual
+// Spending (YTD), Spending Analysis, and Other Spending into one workspace.
+// Lives here (not dashboard.js) to keep dashboard.js under its size ratchet --
+// this module runs after dashboard.js's own top-level code, so its globals
+// (getStrategyTab, renderStrategyTabs, renderYtdTransactionsStep, etc.) are
+// already attached to window by the time a user triggers a render.
+export function renderSpendingWorkspace(tabs) {
+  var tab = window.getStrategyTab('spending_core');
+  var body;
+  if (tab === 'Actual Spending (YTD)') body = window.renderYtdTransactionsStep();
+  else if (tab === 'Spending Analysis') body = window.renderSpendingDashboardOrLoad();
+  else if (tab === 'Other Spending') body = window.renderLifestyleSpending();
+  else body = window.renderCoreSpendingUnified();
+  return '<div class="tabbed-workspace spending-workspace">' + window.renderStrategyTabs('spending_core', tabs, tab) + '<div class="workspace-tab-body">' + body + '</div></div>';
+}
+window.renderSpendingWorkspace = renderSpendingWorkspace;
+
 export function renderModelStatusPanel(d) {
   var budget = d.budget_total || 0;
   var annualized = d.annualized_total || 0;

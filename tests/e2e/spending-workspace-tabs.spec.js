@@ -8,7 +8,7 @@ import { openCurrentPlan, navigateToStep } from './helpers.js';
 
 test('the Spending nav step tab-switches between its four merged pages', async ({ page }) => {
   await openCurrentPlan(page);
-  await navigateToStep(page, 'spending_workspace', 'Spending Workspace');
+  await navigateToStep(page, 'spending_core', 'Spending Model');
 
   const tabs = page.locator('.spending-workspace .workspace-tab');
   await expect(tabs).toHaveCount(4);
@@ -33,6 +33,6 @@ test('the Spending nav step tab-switches between its four merged pages', async (
   // The tab choice is also a left-nav sub-tab, and is persisted to
   // localStorage the same way Distribution Strategy's tabs are.
   await expect(page.locator('.nav-subtab', { hasText: 'Other Spending' })).toHaveClass(/active/);
-  const savedTab = await page.evaluate(() => localStorage.getItem('strategy_tab_spending_workspace'));
+  const savedTab = await page.evaluate(() => localStorage.getItem('strategy_tab_spending_core'));
   expect(savedTab).toBe('Other Spending');
 });
