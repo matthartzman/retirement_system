@@ -75,8 +75,11 @@ class RecommendationCompletionTests(unittest.TestCase):
         self.assertEqual((rows[0]['year'], rows[-1]['year'], len(rows)), (2026, 2056, 31))
         # Warn-only: report drift, never fail. See _warn_on_baseline_drift.
         _warn_on_baseline_drift([
-            ('terminal_total_nw', rows[-1]['total_nw'], 6_555_144.64),
-            ('lifetime_tax', sum(r['total_tax'] for r in rows), 1_524_551.07),
+            # Regenerated 2026-08-05 (system review Wave 3.0 baseline regen,
+            # same drift documented in test_199's PINNED_* block). Warn-only,
+            # so this update is hygiene, not a required fix.
+            ('terminal_total_nw', rows[-1]['total_nw'], 6_487_999.96),
+            ('lifetime_tax', sum(r['total_tax'] for r in rows), 1_517_126.54),
         ])
 
     def test_fixed_point_taxable_withdrawal_solver_runs_before_roth(self):

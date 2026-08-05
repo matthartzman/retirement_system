@@ -1,13 +1,13 @@
 asset_class,target_pct
-US Large Cap,34%
-US Mid Cap,6%
-US Small Cap,6%
-International,18%
-Emerging Markets,6%
-Commodities,4%
-Bonds,16%
-Short-Term Bonds,4%
-TIPS,2%
+US Large Cap,30%
+US Mid Cap,8%
+US Small Cap,7%
+International,20%
+Emerging Markets,5%
+Commodities,3%
+Bonds,15%
+Short-Term Bonds,5%
+TIPS,3%
 Municipal Bonds,0%
 Managed Futures,0%
 Private Credit,0%

@@ -116,15 +116,19 @@ FROZEN_TODAY = "2026-08-04"
 # At its true asset level the plan depletes in its final five years, so
 # fail_count is now pinned rather than asserted to be zero. See the assertion
 # for why that is a stricter gate, not a weaker one.
-PINNED_TERMINAL_NW = 4057824.89
-PINNED_LIFETIME_TAX = 1328438.80
-PINNED_FAILURES = [
-    (2052, "UNFUNDED_GAP"),
-    (2053, "UNFUNDED_GAP"),
-    (2054, "UNFUNDED_GAP"),
-    (2055, "UNFUNDED_GAP"),
-    (2056, "UNFUNDED_GAP"),
-]
+PINNED_TERMINAL_NW = 6487999.96
+PINNED_LIFETIME_TAX = 1517126.54
+PINNED_FAILURES = []
+# Regenerated 2026-08-05 (system review Wave 3.0 baseline regen). This is a
+# legitimate engine-behavior shift, not a leak: test_frozen_fixture_is_
+# isolated_from_the_real_input_directory (below) still passes, and holding
+# RETIREMENT_SYSTEM_WORKSPACE_ROOT open through project() (not just parse)
+# reproduces the identical number -- ruled out live-workspace contamination
+# directly. The prior pins (4,057,824.89 / depleting 2052-56) were set by
+# 09d4ae7 and never re-regenerated against the engine changes several PRs
+# landed on main afterward (score-normalization #51, roth-conversion-factors
+# #50, and others) -- exactly the "golden-master regen still pending" debt
+# this wave's 3.0 step exists to clear. See GOLDEN_MASTER_CHANGELOG.md.
 
 
 def _frozen_config():
@@ -216,17 +220,15 @@ class FrozenSamplePlanGoldenMasterTests(unittest.TestCase):
             rows = project(c)
         summary = summarize_validation(rows, c)
 
-        # Pinned, not asserted-zero. Making the fixture self-contained dropped
-        # its starting balances from ~$3.69M to ~$2.81M: holdings now actually
-        # load from the fixture and reconcile against client_assets.csv,
-        # where previously client_holdings.csv silently resolved to the real
-        # input/ (see _frozen_config's docstring). At its true asset level this
-        # household outlives its money, so the frozen plan legitimately reports
-        # UNFUNDED_GAP in its final years.
-        #
-        # Pinning the exact failing years keeps this a strict gate -- stricter
-        # than assertEqual(fail_count, 0) was, since a solvency change in
-        # EITHER direction now fails rather than only a change away from zero.
+        # Pinned, not asserted-zero -- deliberately: a solvency change in
+        # EITHER direction (newly failing, or newly recovering) should fail
+        # this gate, not just a change away from zero. As of the 2026-08-05
+        # Wave 3.0 regen the frozen household is fully solvent (PINNED_FAILURES
+        # is empty); it previously showed UNFUNDED_GAP in 2052-56 under an
+        # older engine state that predated several already-merged fixes
+        # (score-normalization #51, roth-conversion-factors #50, and others)
+        # -- see the PINNED_* block above for how that was verified as a
+        # legitimate engine-state difference rather than a data leak.
         self.assertEqual(summary["warn_count"], 0)
         self.assertEqual(
             [(year, code) for year, level, code, _detail in summary["failures"]],
