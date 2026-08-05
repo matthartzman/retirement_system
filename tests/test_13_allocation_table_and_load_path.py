@@ -41,7 +41,15 @@ class AllocationTableAndLoadPathTests(unittest.TestCase):
         self.assertIn('pathModalInput', html)
         self.assertIn('Browse...', html)
         self.assertIn('plan-data/load-from-path', html)
-        self.assertIn('Server-side path loading is disabled in local-only package', server)
+        # System review 4.5: the previous assertion here checked for
+        # "Server-side path loading is disabled in local-only package" --
+        # dead-branch messaging gated on cfg.app_mode == "SAAS", which could
+        # never be true (VALID_APP_MODES = {LOCAL}) and so could never
+        # actually reach a user. The real, reachable restriction for this
+        # local-only package is the allowlist check below: unrestricted from
+        # loopback, allowlisted-roots-only when the dashboard is exposed
+        # beyond loopback (e.g. on a home LAN).
+        self.assertIn('local_plan_data_roots allowlist', server)
 
 
 if __name__ == '__main__':

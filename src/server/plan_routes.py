@@ -206,17 +206,20 @@ def _path_roots_from_config():
 
 
 def _server_path_requires_allowlist():
+    # System review 4.5: this package only ever ships as LOCAL (see
+    # runtime_config.py), so the `app_mode != "LOCAL"` disjunct here could
+    # never be true -- removed as dead code. The host check remains fully
+    # live: a locally-run server whose dashboard_host is configured to
+    # something other than loopback (e.g. exposed on a home LAN) still
+    # requires the allowlist below.
     cfg = _runtime_config()
     host = str(getattr(cfg, "dashboard_host", "127.0.0.1") or "127.0.0.1").strip().lower()
-    return str(getattr(cfg, "app_mode", "LOCAL") or "LOCAL").upper() != "LOCAL" or host not in {"127.0.0.1", "localhost", "::1"}
-
-
+    return host not in {"127.0.0.1", "localhost", "::1"}
 
 
 def _server_path_allowed(folder: Path):
-    cfg = _runtime_config()
-    if str(getattr(cfg, "app_mode", "LOCAL") or "LOCAL").upper() == "SAAS":
-        return False, "Server-side path loading is disabled in local-only package; saving is also disabled."
+    # System review 4.5: the `app_mode == "SAAS"` early-reject here could
+    # never fire for the same reason -- removed as dead code.
     if not _server_path_requires_allowlist():
         return True, ""
     roots = _path_roots_from_config()
