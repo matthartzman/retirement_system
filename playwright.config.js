@@ -17,9 +17,10 @@ const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({
   testDir: './tests/e2e',
-  // The build journey (J2) runs a real Monte Carlo build even with reduced
-  // sim counts; give it real headroom rather than the 30s Playwright default.
-  timeout: 90_000,
+  // The build journey (J2) alone waits up to 80s for a real Monte Carlo
+  // build to finish (see helpers.js triggerBuildAndWaitForOverlay's own
+  // comment on why); this must clear that plus the rest of the test.
+  timeout: 120_000,
   fullyParallel: false, // shares one server instance; specs run in file order
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
