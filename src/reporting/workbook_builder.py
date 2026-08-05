@@ -49,7 +49,8 @@ from .workbook_common import (
 )
 from .enterprise_pdf import build_enterprise_pdf
 from .sheets_summary_builder import build_sheet1, build_sheet2
-from .sheets_summary import build_sheet3, build_sheet4
+from .sheets_tax_reporter import build_sheet3
+from .sheets_allocation_helpers import build_sheet4
 from .sheets_projection_facade import build_sheet5, build_sheet6, build_sheet7, build_sheet8
 from .sheets_strategy import build_sheet9, build_sheet10, build_sheet11, build_sheet12, build_sheet_tlh, build_sheet_gain_harvest, build_sheet13, build_sheet14
 from .sheets_stress import build_sheet15, build_sheet16, build_sheet17, build_sheet18, build_sheet19, build_sheet20

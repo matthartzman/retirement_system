@@ -16,7 +16,13 @@ class ModularizationTests(unittest.TestCase):
     def test_workbook_entrypoint_is_modular(self):
         mod = importlib.import_module('src.reporting.workbook_builder')
         self.assertTrue(callable(mod.main))
-        self.assertTrue((ROOT / 'src' / 'reporting' / 'sheets_summary.py').exists())
+        # Wave 4.10 (system review 2026-08-04, `reporting-facade-theater`):
+        # sheets_summary.py (the pre-split monolith) was deleted; these three
+        # are now the canonical per-sheet-group modules it split into.
+        self.assertTrue((ROOT / 'src' / 'reporting' / 'sheets_summary_builder.py').exists())
+        self.assertTrue((ROOT / 'src' / 'reporting' / 'sheets_tax_reporter.py').exists())
+        self.assertTrue((ROOT / 'src' / 'reporting' / 'sheets_allocation_helpers.py').exists())
+        self.assertFalse((ROOT / 'src' / 'reporting' / 'sheets_summary.py').exists())
         self.assertTrue((ROOT / 'src' / 'reporting' / 'dashboard.py').exists())
 
     def test_local_server_import_path_still_works_without_flask(self):

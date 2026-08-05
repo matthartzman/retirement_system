@@ -27,7 +27,7 @@ import src.allocation_policy as ap
 import src.optimization as opt
 from src.data_io import load_csv, parse_client
 from src.planning_engines import project
-from src.reporting.sheets_summary import build_sheet4
+from src.reporting.sheets_allocation_helpers import build_sheet4
 
 ROOT = Path(__file__).resolve().parents[1]
 

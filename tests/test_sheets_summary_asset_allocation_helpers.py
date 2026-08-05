@@ -1,11 +1,13 @@
-"""Unit tests for the module-level helpers hoisted out of build_sheet4 in
-src/reporting/sheets_summary.py (see documentation/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md
-Phase 2a). Before this hoist these were nested closures inside a ~1,400-line
-function and could not be tested in isolation.
+"""Unit tests for the module-level helpers hoisted out of build_sheet4, now in
+src/reporting/sheets_allocation_helpers.py (see documentation/SYSTEM_REVIEW_
+AND_REFACTOR_PLAN.md Phase 2a; physically moved there from sheets_summary.py
+in Wave 4.10, system review 2026-08-04). Before the original hoist these were
+nested closures inside a ~1,400-line function and could not be tested in
+isolation.
 """
 from __future__ import annotations
 
-from src.reporting.sheets_summary import (
+from src.reporting.sheets_allocation_helpers import (
     ASSET_ALLOCATION_BUCKET_MAP,
     _after_status_for_total_mix,
     _candidate_symbols,

@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 from src.core import TaxLot
-from src.reporting.sheets_summary import _estimate_taxable_sale, _lot_guidance_summary
+from src.reporting.sheets_allocation_helpers import _estimate_taxable_sale, _lot_guidance_summary
 
 
 def test_taxable_sale_returns_specific_lot_guidance_loss_first():
