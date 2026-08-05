@@ -741,22 +741,26 @@ body.chart-modal-open{overflow:hidden}
 /* ===================================================================
    Small-screen responsive shell
    Additive rules only; the existing 1180px breakpoint above already
-   stacks the 3-column grid to 1 column. These rules extend that down
-   to phone widths with a slide-in nav drawer, a collapsible help
-   panel, a fixed bottom Prev/Next bar, touch-friendly tap targets,
-   and a card layout for the densest data-entry tables. These are
-   plain browser breakpoints -- they are not tied to the removed
-   Android shell and still apply to a narrow desktop window.
+   stacks the 3-column grid to 1 column. The off-canvas nav drawer and
+   collapsible help panel (6.1, system review 2026-08-04) extend all the
+   way up through that same 1180px boundary, since a narrow desktop or
+   tablet window collapses to the identical single-column layout and
+   gets the same win from a drawer instead of the nav stacking above
+   the content and pushing it down a full screen height. Touch-specific
+   rules below (tap targets, card-style tables, the fixed bottom
+   Prev/Next bar) stay at true phone widths, since those exist for
+   touch ergonomics and cramped vertical space a narrow desktop window
+   doesn't share. These are plain browser breakpoints -- they are not
+   tied to the removed Android shell.
    =================================================================== */
 
-/* Hamburger / drawer-close controls: hidden on desktop, shown on phones/tablets. */
+/* Hamburger / drawer-close controls: hidden on desktop, shown at narrow widths. */
 .nav-toggle,.nav-close{display:none}
 .nav-backdrop{display:none;position:fixed;inset:0;background:rgba(20,20,20,.45);z-index:59}
 .mobile-progress{display:none}
 /* .help-toggle wraps the "Context Help" h2 so it can act as a collapse toggle
-   on phones; on the 769-1180px single-column range it stays inert like the
-   plain h2 it replaces (that range has no collapse behavior below), and only
-   above 1180px does it become the desktop collapse control (U3, next rule). */
+   at narrow widths; only above 1180px does it become the desktop collapse
+   control instead (U3, next rule). */
 .help-toggle{display:block;width:100%;padding:0;margin:0;background:none;border:none;text-align:left;cursor:default;font:inherit;color:inherit}
 .help-toggle-icon{display:none}
 
@@ -771,8 +775,8 @@ body.chart-modal-open{overflow:hidden}
   body.help-collapsed .help-toggle-icon{transform:rotate(180deg)}
 }
 
-@media(max-width:768px){
-  /* --- 1.1 Off-canvas nav drawer ---
+@media(max-width:1180px){
+  /* --- 6.1 Off-canvas nav drawer ---
      The header's existing <=1180px rule stacks .head into a column
      (flex-direction:column;align-items:flex-start) so the brand row and
      head-actions row wrap on narrower desktops/tablets. Rather than fight
@@ -791,7 +795,7 @@ body.chart-modal-open{overflow:hidden}
   body.nav-open .nav-backdrop{display:block}
   body.nav-open{overflow:hidden}
 
-  /* --- 1.1 Collapsible help panel (defaults collapsed on phones/tablets) --- */
+  /* --- 6.1 Collapsible help panel (defaults collapsed at narrow widths) --- */
   aside.card.help{position:static;max-height:none;padding:0}
   .help-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;padding:14px 16px;background:none;border:none;cursor:pointer;text-align:left}
   .help-toggle h2{margin:0}
@@ -799,8 +803,11 @@ body.chart-modal-open{overflow:hidden}
   aside.card.help #helpPanel{display:none;padding:0 16px 16px}
   body.help-open aside.card.help #helpPanel{display:block}
   body.help-open .help-toggle-icon{transform:rotate(180deg)}
+}
 
-  /* --- 1.4 Fixed bottom Prev / Next bar --- */
+@media(max-width:768px){
+  /* --- 1.4 Fixed bottom Prev / Next bar (phone-only: a narrow desktop
+     window has the vertical room this doesn't need to claim) --- */
   .nav-actions{position:fixed;left:0;right:0;bottom:0;z-index:50;background:#fbfaf7;box-shadow:0 -4px 16px rgba(0,0,0,.12);border-radius:0}
   #mainPane{padding-bottom:78px}
   main{padding-bottom:14px}

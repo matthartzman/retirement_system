@@ -1,18 +1,22 @@
 /* Spending Dashboard — comprehensive income and expense tracker (excludes taxes/transfers).
    Loaded by index.html, renders when activeStep === 'spending_dashboard'. */
 
-var spendingData = null;
-var spendingLoading = false;
-var spendingError = '';
+// This shared mutable state is written from OUTSIDE this module too
+// (dashboard.js clears window.spendingData directly to invalidate the
+// cache), so it lives on window explicitly rather than as module-local
+// state a module conversion would otherwise hide from that caller.
+window.spendingData = null;
+window.spendingLoading = false;
+window.spendingError = '';
 // One Set of composite keys ('type:', 'group:', 'cat:' prefixed) tracks every
 // expanded row independently, so expanding one Type/Group/Category no longer
 // collapses another that happens to share the same scalar slot.
-var spendingExpandedKeys = new Set();
-var spendingDivergencePct = 0;
-function getSpendingDivergencePct() { return spendingDivergencePct || 0 }
+window.spendingExpandedKeys = new Set();
+window.spendingDivergencePct = 0;
+export function getSpendingDivergencePct() { return window.spendingDivergencePct || 0 }
 window.getSpendingDivergencePct = getSpendingDivergencePct;
 
-function renderModelStatusPanel(d) {
+export function renderModelStatusPanel(d) {
   var budget = d.budget_total || 0;
   var annualized = d.annualized_total || 0;
   var modelCore = d.model_core_spending || 0;
@@ -58,36 +62,36 @@ function renderModelStatusPanel(d) {
   return html;
 }
 
-function fmtSpend(n) { var v = Math.round(Number(n) || 0); return (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('en-US') }
+export function fmtSpend(n) { var v = Math.round(Number(n) || 0); return (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('en-US') }
 // Signed variance display (e.g. "+3.2%" over budget) — distinct from the
 // global fmtPct (dashboard_shared_helpers.js), which has no +sign and
 // returns "Not available" for invalid input. Renamed (A13) so this file no
 // longer silently shadows the shared fmtPct for the rest of the page.
-function fmtVariancePct(n) { var v = Number(n) || 0; return (v > 0 ? '+' : '') + v.toFixed(1) + '%' }
-function spendYtd(row){return Number(row && (row.ytd_actual !== undefined ? row.ytd_actual : row.actual)) || 0}
-function spendAnnualized(row){return Number(row && (row.annualized_actual !== undefined ? row.annualized_actual : row.annualized)) || 0}
-function spendBudget(row){return Number(row && (row.annual_budget !== undefined ? row.annual_budget : row.budget)) || 0}
-function spendProjectionSeed(row){return Number(row && (row.projection_seed !== undefined ? row.projection_seed : (row.annual_budget !== undefined ? row.annual_budget : row.budget))) || 0}
-function spendHasReconcileValue(row){return !!(spendYtd(row)||spendAnnualized(row)||spendBudget(row)||spendProjectionSeed(row))}
+export function fmtVariancePct(n) { var v = Number(n) || 0; return (v > 0 ? '+' : '') + v.toFixed(1) + '%' }
+export function spendYtd(row){return Number(row && (row.ytd_actual !== undefined ? row.ytd_actual : row.actual)) || 0}
+export function spendAnnualized(row){return Number(row && (row.annualized_actual !== undefined ? row.annualized_actual : row.annualized)) || 0}
+export function spendBudget(row){return Number(row && (row.annual_budget !== undefined ? row.annual_budget : row.budget)) || 0}
+export function spendProjectionSeed(row){return Number(row && (row.projection_seed !== undefined ? row.projection_seed : (row.annual_budget !== undefined ? row.annual_budget : row.budget))) || 0}
+export function spendHasReconcileValue(row){return !!(spendYtd(row)||spendAnnualized(row)||spendBudget(row)||spendProjectionSeed(row))}
 
-function loadSpendingDashboard(force) {
-  if (spendingLoading && !force) return;
-  spendingLoading = true;
-  spendingError = '';
+export function loadSpendingDashboard(force) {
+  if (window.spendingLoading && !force) return;
+  window.spendingLoading = true;
+  window.spendingError = '';
   renderMain();
   api('/api/spending/dashboard').then(function (data) {
-    spendingLoading = false;
-    if (data && data.success) { spendingData = data; spendingError = '' }
-    else { spendingError = (data && data.error) || 'Failed to load spending data.' }
+    window.spendingLoading = false;
+    if (data && data.success) { window.spendingData = data; window.spendingError = '' }
+    else { window.spendingError = (data && data.error) || 'Failed to load spending data.' }
     renderMain();
   }).catch(function (err) {
-    spendingLoading = false;
-    spendingError = err.message || 'Network error loading spending dashboard.';
+    window.spendingLoading = false;
+    window.spendingError = err.message || 'Network error loading spending dashboard.';
     renderMain();
   });
 }
 
-function seedSpendingBudget() {
+export function seedSpendingBudget() {
   api('/api/spending/budget/seed', { method: 'POST', body: '{}' }).then(function (res) {
     if (res && res.success) {
       showMessage('Budget seeded from actuals. Reload to see allocations.', 'ok');
@@ -98,13 +102,13 @@ function seedSpendingBudget() {
   }).catch(function (e) { showMessage('Seed error: ' + e.message, 'error') });
 }
 
-function applySpendingForecast() {
-  if (!spendingData) return;
+export function applySpendingForecast() {
+  if (!window.spendingData) return;
   if(ytdTransactionsChanged||ytdAccountsChanged){
     showMessage('Transaction data has changed since the dashboard loaded. Refresh the Spending tab before syncing.','warn');
     return;
   }
-  var forecast = spendingData.forecast_total;
+  var forecast = window.spendingData.forecast_total;
   if (!forecast || forecast <= 0) { showMessage('No forecast to apply.', 'warn'); return }
   var label = 'annual_spending_base_year';
   var row = (typeof rows !== 'undefined' ? rows : []).find(function (r) {
@@ -121,38 +125,38 @@ function applySpendingForecast() {
   renderMain();
 }
 
-function toggleSpendingKey(key) {
-  if (spendingExpandedKeys.has(key)) spendingExpandedKeys.delete(key);
-  else spendingExpandedKeys.add(key);
+export function toggleSpendingKey(key) {
+  if (window.spendingExpandedKeys.has(key)) window.spendingExpandedKeys.delete(key);
+  else window.spendingExpandedKeys.add(key);
   renderMain();
 }
 
-function toggleSpendingGroup(group) { toggleSpendingKey('group:' + group) }
+export function toggleSpendingGroup(group) { toggleSpendingKey('group:' + group) }
 
-function toggleSpendingCat(key) { toggleSpendingKey('cat:' + key) }
+export function toggleSpendingCat(key) { toggleSpendingKey('cat:' + key) }
 
-function toggleSpendingType(tt) { toggleSpendingKey('type:' + tt) }
+export function toggleSpendingType(tt) { toggleSpendingKey('type:' + tt) }
 
-function collapseAllSpending() {
-  spendingExpandedKeys.clear();
+export function collapseAllSpending() {
+  window.spendingExpandedKeys.clear();
   renderMain();
 }
 
-function renderSpendingDashboard() {
-  if (!spendingData && !spendingLoading && !spendingError) {
+export function renderSpendingDashboard() {
+  if (!window.spendingData && !window.spendingLoading && !window.spendingError) {
     setTimeout(function () { loadSpendingDashboard(false) }, 0);
   }
-  if (spendingLoading) {
+  if (window.spendingLoading) {
     return '<div class="holdings spending-dashboard"><div class="detail-loading-card">' +
       '<h3>Loading spending tracker</h3><p class="small">Aggregating transactions and computing budget comparisons...</p></div></div>';
   }
-  if (spendingError && !spendingData) {
+  if (window.spendingError && !window.spendingData) {
     return '<div class="holdings spending-dashboard"><div class="missing-list"><h3>Spending data unavailable</h3>' +
-      '<p>' + esc(spendingError) + '</p></div>' +
+      '<p>' + esc(window.spendingError) + '</p></div>' +
       '<div class="table-actions"><button class="btn" onclick="loadSpendingDashboard(true)">Retry</button></div></div>';
   }
-  var d = spendingData || {};
-  spendingDivergencePct = d.model_core_spending ? ((Number(d.annualized_total || 0) - Number(d.model_core_spending || 0)) / Number(d.model_core_spending || 1)) : (Number(d.variance_pct || 0) / 100);
+  var d = window.spendingData || {};
+  window.spendingDivergencePct = d.model_core_spending ? ((Number(d.annualized_total || 0) - Number(d.model_core_spending || 0)) / Number(d.model_core_spending || 1)) : (Number(d.variance_pct || 0) / 100);
   if (!d.enabled) {
     return '<div class="holdings spending-dashboard"><div class="question"><b>No transaction data loaded.</b> ' +
       'Import transactions on the <a href="#" onclick="setStep(\'ytd_transactions\');return false">Income &amp; Expense Transactions tab</a> first, then return here to track budget vs actuals.</div></div>';
@@ -186,7 +190,7 @@ function renderSpendingDashboard() {
   return html;
 }
 
-function renderSpendingSummary(d) {
+export function renderSpendingSummary(d) {
   var html = '<div class="spend-summary">';
   html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(d.income_total||0) + '</span><span class="spend-kpi-label">This Year Income</span></div>';
   html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(d.actuals_total) + '</span><span class="spend-kpi-label">This Year Expenses excl. taxes</span></div>';
@@ -200,7 +204,7 @@ function renderSpendingSummary(d) {
   return html;
 }
 
-function renderSpendingBars(d) {
+export function renderSpendingBars(d) {
   // Full Tracking Type -> Group -> Category hierarchy from the taxonomy summary
   // (each level carries annualized actual + budget). Income is included; taxes/transfers are filtered in the backend.
   var tax = (d.taxonomy_summary && d.taxonomy_summary.tracking_types) || [];
@@ -232,14 +236,14 @@ function renderSpendingBars(d) {
   }
 
   var html = '<h3 class="group-title">Income and Expenses by Tracking Type / Group / Category' +
-    (spendingExpandedKeys.size ? ' <button class="btn tiny" type="button" onclick="collapseAllSpending()">Collapse all</button>' : '') +
+    (window.spendingExpandedKeys.size ? ' <button class="btn tiny" type="button" onclick="collapseAllSpending()">Collapse all</button>' : '') +
     '</h3>';
   html += '<div class="spend-bars">';
   html += '<div class="spend-bar-header"><span>Tracking type · Group · Category</span><span>Annualized Actual vs. Annual Budget</span><span>YTD Actual | Annualized Actual | Annual Budget | Projection Seed</span></div>';
 
   types.forEach(function (t) {
     var tt = t.tracking_type;
-    var typeExpanded = spendingExpandedKeys.has('type:' + tt);
+    var typeExpanded = window.spendingExpandedKeys.has('type:' + tt);
     var tytd = spendYtd(t), tann = spendAnnualized(t), tbud = spendBudget(t), tseed = spendProjectionSeed(t);
     var st = statusFor(tann, tbud);
     html += '<div class="spend-bar-row spend-type-row ' + st.cls + '" onclick="toggleSpendingType(\'' + esc(tt).replace(/'/g, "\\'") + '\')">';
@@ -250,7 +254,7 @@ function renderSpendingBars(d) {
 
     (t.groups || []).forEach(function (g) {
       var gkey = tt + '::' + g.group;
-      var gExpanded = spendingExpandedKeys.has('group:' + gkey);
+      var gExpanded = window.spendingExpandedKeys.has('group:' + gkey);
       var gytd = spendYtd(g), gann = spendAnnualized(g), gbud = spendBudget(g), gseed = spendProjectionSeed(g);
       var gs = statusFor(gann, gbud);
       html += '<div class="spend-bar-row spend-group-row ' + gs.cls + '" onclick="event.stopPropagation();toggleSpendingGroup(\'' + esc(gkey).replace(/'/g, "\\'") + '\')">';
@@ -272,7 +276,7 @@ function renderSpendingBars(d) {
   return html;
 }
 
-function renderSpendingMonthly(d) {
+export function renderSpendingMonthly(d) {
   var series = d.monthly_series || [];
   if (!series.length) return '';
   var html = '<h3 class="group-title">Monthly Trajectory <span class="small">(all spending except taxes/transfers)</span></h3>';
@@ -296,7 +300,7 @@ function renderSpendingMonthly(d) {
   return html;
 }
 
-function renderModelManaged(d) {
+export function renderModelManaged(d) {
   var MM_LABELS = {housing:'Housing',wellness:'Wellness',travel:'Travel',large_disc:'Large Discretionary Expenses',model_managed:'Other Model-Managed'};
   var mm = d.model_managed || {};
   var typeKeys = Object.keys(mm);
@@ -324,7 +328,7 @@ function renderModelManaged(d) {
   return html;
 }
 
-function renderBusinessSection(d) {
+export function renderBusinessSection(d) {
   var biz = d.business;
   if (!biz || !biz.actual) return '';
   var html = '<h3 class="group-title">Business Expenses</h3>';
@@ -335,7 +339,7 @@ function renderBusinessSection(d) {
     biz.categories.forEach(function (c) {
       var catKey = 'Business::' + c.category;
       var hasMerchants = c.merchants && c.merchants.length > 1;
-      var catExpanded = spendingExpandedKeys.has('cat:' + catKey);
+      var catExpanded = window.spendingExpandedKeys.has('cat:' + catKey);
       html += '<div class="spend-cat-row' + (hasMerchants ? ' expandable' : '') + '"' +
         (hasMerchants ? ' onclick="toggleSpendingCat(\'' + esc(catKey).replace(/'/g, "\\'") + '\')"' : '') + '>' +
         '<span>' + (hasMerchants ? '<span class="spend-caret' + (catExpanded ? ' open' : '') + '"></span>' : '') + esc(c.category) +
@@ -354,10 +358,31 @@ function renderBusinessSection(d) {
   return html;
 }
 
-function renderUnmappedWarning(d) {
+export function renderUnmappedWarning(d) {
   var cats = d.unmapped_categories || [];
   if (!cats.length) return '';
   return '<div class="missing-list"><h3>' + cats.length + ' unmapped categories</h3>' +
     '<p>These transaction categories do not yet have a canonical Spending Category assignment and default to the Other group.</p>' +
     '<ul>' + cats.map(function (c) { return '<li>' + esc(c) + '</li>' }).join('') + '</ul></div>';
 }
+
+// Wave 6.4 (system review 2026-08-04, architect finding
+// frontend-single-global-namespace, §3.2 "leaves inward"): this is the first
+// file converted to a real ES module. dashboard.js and the other
+// still-classic scripts loaded earlier in index.html call these functions as
+// bare globals (and this file's own rendered HTML uses inline
+// onclick="toggleSpendingGroup(...)" handlers, which always look up
+// window.<name>) -- ES module top-level declarations do NOT auto-attach to
+// window the way classic-script declarations do, so every export needed by
+// an existing non-module caller is re-attached here explicitly. New code
+// should prefer `import { fn } from './spending_dashboard.js'` instead of
+// the window.* form; this bridge exists only for callers that can't be
+// converted in the same pass.
+Object.assign(window, {
+  renderModelStatusPanel, fmtSpend, fmtVariancePct, spendYtd, spendAnnualized,
+  spendBudget, spendProjectionSeed, spendHasReconcileValue, loadSpendingDashboard,
+  seedSpendingBudget, applySpendingForecast, toggleSpendingKey, toggleSpendingGroup,
+  toggleSpendingCat, toggleSpendingType, collapseAllSpending, renderSpendingDashboard,
+  renderSpendingSummary, renderSpendingBars, renderSpendingMonthly, renderModelManaged,
+  renderBusinessSection, renderUnmappedWarning,
+});
