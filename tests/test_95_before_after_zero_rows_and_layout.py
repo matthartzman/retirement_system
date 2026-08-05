@@ -161,7 +161,9 @@ def test_asset_allocation_columns_are_compact_and_wrapped(built_workbook_path):
 
 
 def test_source_keeps_zero_filter_and_workbook_layout_pass_for_future_builds():
-    summary_source = (ROOT / 'src' / 'reporting' / 'sheets_summary.py').read_text(encoding='utf-8')
+    # Wave 4.10 (system review 2026-08-04): _hide_zero_before_after_row moved
+    # from sheets_summary.py (deleted) into sheets_allocation_helpers.py.
+    summary_source = (ROOT / 'src' / 'reporting' / 'sheets_allocation_helpers.py').read_text(encoding='utf-8')
     common_source = (ROOT / 'src' / 'reporting' / 'workbook_common.py').read_text(encoding='utf-8')
     builder_source = (ROOT / 'src' / 'reporting' / 'workbook_builder.py').read_text(encoding='utf-8')
     assert '_hide_zero_before_after_row' in summary_source

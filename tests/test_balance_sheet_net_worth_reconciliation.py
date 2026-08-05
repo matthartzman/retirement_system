@@ -22,7 +22,7 @@ from src.data_io import load_csv, parse_client
 from src.plan_config import ensure_engine_config
 from src.planning_engines import project
 from src.reporting.sheets_projection_facade import build_sheet5
-from src.reporting.sheets_summary import build_sheet3
+from src.reporting.sheets_tax_reporter import build_sheet3
 from tests.golden_pricing import FROZEN_GOLDEN_MASTER_PRICES, frozen_holdings_prices
 
 

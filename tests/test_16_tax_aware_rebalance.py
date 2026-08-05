@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 from src.core import TaxLot
-from src.reporting import sheets_summary as ss
+from src.reporting import sheets_allocation_helpers as ss
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -48,7 +48,7 @@ class TaxAwareRebalanceTests(unittest.TestCase):
         self.assertIn('Deferred: estimated tax drag', note)
 
     def test_workbook_trade_section_contains_tax_optimizer_disclosures(self):
-        source = (ROOT / 'src' / 'reporting' / 'sheets_summary.py').read_text(encoding='utf-8')
+        source = (ROOT / 'src' / 'reporting' / 'sheets_allocation_helpers.py').read_text(encoding='utf-8')
         self.assertIn('account-level tax optimization', source)
         self.assertIn('Est. Tax Cost', source)
         self.assertIn('Tax-aware deferred taxable sales', source)
@@ -56,7 +56,7 @@ class TaxAwareRebalanceTests(unittest.TestCase):
         self.assertIn('short-term vs long-term gains', source)
 
     def test_rebalancing_trades_are_grouped_by_account_subsections(self):
-        source = (ROOT / 'src' / 'reporting' / 'sheets_summary.py').read_text(encoding='utf-8')
+        source = (ROOT / 'src' / 'reporting' / 'sheets_allocation_helpers.py').read_text(encoding='utf-8')
         self.assertIn('grouped by account subsections', source)
         self.assertIn('trades_by_acct', source)
         self.assertIn('Account-level subtotal; positive adds to account cash, negative deploys existing account cash.', source)
@@ -75,7 +75,7 @@ class TaxAwareRebalanceTests(unittest.TestCase):
         self.assertIn('Total Portfolio Mix', cash_rows[0]['note'])
 
     def test_total_portfolio_mix_includes_after_trade_columns(self):
-        source = (ROOT / 'src' / 'reporting' / 'sheets_summary.py').read_text(encoding='utf-8')
+        source = (ROOT / 'src' / 'reporting' / 'sheets_allocation_helpers.py').read_text(encoding='utf-8')
         self.assertIn('After Trades Value', source)
         self.assertIn('After Trades %', source)
         self.assertIn('After Trade Status', source)

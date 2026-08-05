@@ -11,7 +11,7 @@ from src.core import deflate_to_present
 from src.data_io import load_csv, parse_client
 from src.plan_config import ensure_engine_config
 from src.planning_engines import project
-from src.reporting.sheets_summary import build_sheet1
+from src.reporting.sheets_summary_builder import build_sheet1
 from src.reporting.sheets_projection_net_worth import build_sheet5
 from src.reporting.sheets_projection_cashflow import build_sheet6
 from src.reporting.sheets_projection_tax import build_sheet7

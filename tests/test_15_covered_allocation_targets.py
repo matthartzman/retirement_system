@@ -89,13 +89,15 @@ class CoveredAllocationTargetsTests(unittest.TestCase):
         self.assertAlmostEqual(sum((out.get('liquid_targets') or {}).values()), 1.0, places=8)
 
     def test_workbook_summary_explains_covered_initial_targets_and_no_under_for_no_target_home_equity(self):
-        source = (ROOT / 'src' / 'reporting' / 'sheets_summary.py').read_text(encoding='utf-8')
+        # Wave 4.10 (system review 2026-08-04): build_sheet4's content moved
+        # from sheets_summary.py (deleted) into sheets_allocation_helpers.py.
+        source = (ROOT / 'src' / 'reporting' / 'sheets_allocation_helpers.py').read_text(encoding='utf-8')
         self.assertIn('Orange italic percentages show the initial target', source)
         self.assertIn('excluded from the 100% liquid target completeness', source)
         self.assertIn('Shown for context; no liquid target', source)
 
     def test_rebalancing_collapses_unrepresented_sleeves_to_one_etf_per_account(self):
-        source = (ROOT / 'src' / 'reporting' / 'sheets_summary.py').read_text(encoding='utf-8')
+        source = (ROOT / 'src' / 'reporting' / 'sheets_allocation_helpers.py').read_text(encoding='utf-8')
         self.assertIn('single ETF per account', source)
         self.assertIn('_single_etf_for_unrepresented_bucket', source)
         self.assertIn('single ETF selected for this account', source)
@@ -103,7 +105,13 @@ class CoveredAllocationTargetsTests(unittest.TestCase):
 
 
     def test_workbook_notes_selected_allocation_recommendation_source(self):
-        source = (ROOT / 'src' / 'reporting' / 'sheets_summary.py').read_text(encoding='utf-8')
+        # Split across sheets_summary_builder.py (Sheet 2's Asset Items table)
+        # and sheets_allocation_helpers.py (Sheet 4's own header/note) since
+        # Wave 4.10 -- both sheets surface the same recommendation source.
+        source = (
+            (ROOT / 'src' / 'reporting' / 'sheets_summary_builder.py').read_text(encoding='utf-8')
+            + (ROOT / 'src' / 'reporting' / 'sheets_allocation_helpers.py').read_text(encoding='utf-8')
+        )
         self.assertIn('Asset Allocation Recommendation Source', source)
         self.assertIn('Recommendation Source', source)
         self.assertIn('User-defined allocation', source)
@@ -132,7 +140,13 @@ class CoveredAllocationTargetsTests(unittest.TestCase):
             self.assertIn('Cached quotes were used as of', summary['note'])
 
     def test_workbook_notes_pricing_source_and_mode(self):
-        source = (ROOT / 'src' / 'reporting' / 'sheets_summary.py').read_text(encoding='utf-8')
+        # Split across sheets_summary_builder.py (Sheets 1/2) and
+        # sheets_allocation_helpers.py (_workbook_pricing_source_label, Sheet
+        # 4) since Wave 4.10.
+        source = (
+            (ROOT / 'src' / 'reporting' / 'sheets_summary_builder.py').read_text(encoding='utf-8')
+            + (ROOT / 'src' / 'reporting' / 'sheets_allocation_helpers.py').read_text(encoding='utf-8')
+        )
         self.assertIn('Workbook Pricing Source', source)
         self.assertIn('Workbook pricing source:', source)
         self.assertIn('CACHE — as of', source)

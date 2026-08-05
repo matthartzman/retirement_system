@@ -1517,7 +1517,7 @@ def compute_optimal_allocation(c, force_mode=None, projection_rows=None):
                 # or glide path is applied here), but human_capital above is
                 # still computed from these inputs, so surface them for
                 # report consistency with the other modes rather than
-                # omitting them (see sheets_summary.py's Allocation Policy
+                # omitting them (see sheets_allocation_helpers.py's Allocation Policy
                 # Inputs section, which reads these from every mode).
                 'years_to_retirement': years_to_ret,
                 'stability_factor': stability,
@@ -1646,7 +1646,7 @@ def compute_optimal_allocation(c, force_mode=None, projection_rows=None):
                 # tolerance ceiling or glide path is applied here), but
                 # human_capital above is still computed from these inputs,
                 # so surface them for report consistency with the other
-                # modes rather than omitting them (see sheets_summary.py's
+                # modes rather than omitting them (see sheets_allocation_helpers.py's
                 # Allocation Policy Inputs section, which reads these from
                 # every mode).
                 'years_to_retirement': years_to_ret,
