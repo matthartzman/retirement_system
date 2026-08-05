@@ -47,3 +47,47 @@ export async function navigateToStep(page, stepId, headingText) {
   }
   throw lastError ?? new Error(`navigateToStep("${stepId}") never showed heading "${headingText}"`);
 }
+
+// Clicks "Build Reports" and waits for the build overlay to reach a TERMINAL
+// title ("Build complete" or "Build failed") -- not merely for it to leave
+// its "active" CSS state, which turned out to be an unreliable signal:
+// runBuild() calls hideBuildOverlay() (removing .active) BEFORE awaiting the
+// "Preflight Warnings" confirmation modal that appears on a first-ever build
+// (no output package exists yet, frontend/js/dashboard.js), so ".active"
+// goes away at that intermediate pause too, not just at real completion. A
+// first version of this helper waited for "not .active" and returned
+// immediately with the overlay still reading "Checking build preflight" --
+// passing the wait without the build ever actually running.
+export async function triggerBuildAndWaitForOverlay(page) {
+  await page.getByRole('button', { name: 'Build Reports' }).first().click();
+
+  // locator.isVisible({timeout}) does NOT poll -- it is a one-shot immediate
+  // check (Playwright resolves the element handle within `timeout`, but
+  // returns false right away if the element simply doesn't exist YET rather
+  // than waiting for it to appear). Using it here always returned false,
+  // since preflight (a real API round-trip computing warnings) hadn't
+  // resolved yet at the moment of the check, and the build then stalled the
+  // full 60s at "Checking build preflight" with the modal never clicked.
+  // waitFor() is the actual polling primitive.
+  const continueBuild = page.locator('.inapp-confirm', { hasText: 'Continue Build' });
+  const modalAppeared = await continueBuild
+    .waitFor({ state: 'visible', timeout: 15_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (modalAppeared) {
+    await continueBuild.click();
+  }
+
+  const title = page.locator('.build-overlay .build-progress-title');
+  // The real build (Monte Carlo + 27 workbook sheets, even with the reduced
+  // sim counts tools/e2e_server.py sets) took ~26s in isolation but ran past
+  // 60s under repeated-run system load while still genuinely progressing
+  // (observed reaching the late-stage "Finalizing workbook" phase, not stuck
+  // at the start) -- 80s leaves headroom under Playwright's own 90s test
+  // timeout without that margin evaporating under load.
+  await expect(title, 'build overlay never reached a terminal state').toHaveText(
+    /^Build (complete|failed)$/,
+    { timeout: 80_000 },
+  );
+  return title.innerText();
+}

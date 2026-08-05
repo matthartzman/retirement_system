@@ -174,7 +174,20 @@ def build_start():
     workspace_id = _workspace_id()
     client_id = _client_id()
     # Local-only package builds from the saved SQLite-backed working copy; input/ files are import/export adapters.
-    output_dir = workspace_output_dir(workspace_id, BASE_DIR)
+    # _workspace_output(), not workspace_output_dir(workspace_id, BASE_DIR):
+    # BASE_DIR (app_core.py) is Path(__file__).resolve().parents[2] -- the
+    # real package directory, computed once at import time and NEVER
+    # redirected by RETIREMENT_SYSTEM_WORKSPACE_ROOT. The build SUBPROCESS
+    # below correctly inherits the redirected root via env=os.environ.copy()
+    # and writes its outputs there, but this route was then checking for
+    # plan_summary.json etc. in the wrong (real, unredirected) directory --
+    # so every build under a redirected workspace reported "Build completed,
+    # but no current plan_summary.json was produced" and showed "Build
+    # failed" to the user, even though the build had genuinely succeeded.
+    # Found via the Playwright E2E build journey (system review 2026-08-04,
+    # Wave 2.1 J2), which runs against an isolated, redirected workspace --
+    # exactly the condition that triggers this.
+    output_dir = _workspace_output()
     output_dir.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
     env["RETIREMENT_SYSTEM_SYSTEM_CONFIG_CSV"] = str(_make_request_system_config_csv_for(workspace_id, client_id, output_dir))
