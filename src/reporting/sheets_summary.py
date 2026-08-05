@@ -15,6 +15,7 @@ from .workbook_common import (
     _ao,
     _td,
     datetime,
+    deflate_to_present,
     defaultdict,
     fetch_price,
     input_style,
@@ -1008,9 +1009,14 @@ def build_sheet1(ws, c, rows, mc_data, ss_sweep=None):
     # enabled — otherwise mc_data is {} and these would read a misleading 0%.
     _mc_on = module_enabled(c, 'market_luck_stress_test')
     _ss_on = module_enabled(c, 'social_security_timing')
+    # C5 / Wave 3.4: a plan-end dollar buys less than a plan-start dollar --
+    # the headline terminal figure needs a purchasing-power-comparable
+    # companion, not just the nominal number, right next to it.
+    terminal_nw_pv = deflate_to_present(terminal_nw, yrn['year'], c)
     headlines = [
         ('Starting Net Worth (Y0)',        yr0['total_nw'],  FMT_DOLLAR),
         ('Terminal Net Worth (Yn)',         terminal_nw,       FMT_DOLLAR),
+        (f"Terminal Net Worth (Yn, Today's $)", terminal_nw_pv, FMT_DOLLAR),
         ('Lifetime Federal Tax (estimated)',lifetime_tax,       FMT_DOLLAR),
     ]
     if _mc_on:

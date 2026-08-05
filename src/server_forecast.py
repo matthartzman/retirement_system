@@ -5,6 +5,7 @@ from typing import Any, Dict, Mapping
 
 from .report_compute import prepare_config_from_json, run_projection_artifacts
 from .after_tax import estimate_after_tax_terminal_net_worth
+from .core import deflate_to_present
 
 
 def forecast_from_plan_json(plan: Mapping[str, Any], run_mc: bool = True) -> Dict[str, Any]:
@@ -25,10 +26,23 @@ def forecast_from_plan_json(plan: Mapping[str, Any], run_mc: bool = True) -> Dic
     after_tax = estimate_after_tax_terminal_net_worth(artifacts.config, terminal_row) if rows else {}
     after_tax_nw = after_tax.get('after_tax_terminal_net_worth')
     post_tax_inheritance = after_tax.get('post_tax_inheritance', after_tax_nw)
+    terminal_nw = rows[-1].get('total_nw', 0) if rows else 0
+    terminal_year = rows[-1].get('year', c.get('plan_start')) if rows else c.get('plan_start')
+    # C5 / Wave 3.4: dashboard tiles showed only the nominal terminal figure;
+    # a plan-end dollar buys less than a plan-start dollar, so surface the
+    # today's-purchasing-power companion alongside it.
+    terminal_nw_today_dollars = deflate_to_present(terminal_nw, terminal_year, c)
+    after_tax_terminal_nw_today_dollars = (
+        deflate_to_present(after_tax_nw, terminal_year, c) if after_tax_nw is not None else None
+    )
     return {
         'status': 'ok',
-        'terminal_nw': round(rows[-1].get('total_nw', 0) if rows else 0),
+        'terminal_nw': round(terminal_nw),
+        'terminal_nw_today_dollars': round(terminal_nw_today_dollars),
         'after_tax_terminal_nw': round(after_tax_nw) if after_tax_nw is not None else None,
+        'after_tax_terminal_nw_today_dollars': (
+            round(after_tax_terminal_nw_today_dollars) if after_tax_terminal_nw_today_dollars is not None else None
+        ),
         'post_tax_inheritance': round(post_tax_inheritance) if post_tax_inheritance is not None else None,
         'terminal_estate_tax': round(after_tax.get('terminal_estate_tax', 0)),
         'terminal_deferred_tax_total': round(after_tax.get('terminal_deferred_tax_total', 0)),

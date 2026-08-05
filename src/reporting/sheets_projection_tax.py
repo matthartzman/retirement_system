@@ -8,12 +8,14 @@ Displays year-by-year tax analysis including:
 """
 
 from .workbook_common import (
+    DGRAY,
     FMT_DOLLAR,
     FMT_INT,
     FMT_PCT,
     FMT_YEAR,
     NAVY,
     WHITE,
+    deflate_to_present,
     get_column_letter,
     marginal_rate,
     qc,
@@ -56,6 +58,10 @@ def build_sheet7(ws, c, rows):
     r += 1
 
     lifetime_fed = 0; lifetime_state = 0; lifetime_niit = 0; lifetime_total = 0
+    # C5: "Lifetime Total Tax" adds a 2026 dollar and a 2058 dollar together
+    # with no inflation adjustment -- deflate_to_present() companions below
+    # give a purchasing-power-comparable total alongside the nominal sum.
+    lifetime_fed_pv = 0; lifetime_state_pv = 0; lifetime_niit_pv = 0; lifetime_total_pv = 0
 
     for row in rows:
         eff_rate = row['total_tax'] / row['agi'] if row['agi'] > 0 else 0
@@ -90,18 +96,26 @@ def build_sheet7(ws, c, rows):
         lifetime_state += row['state_tax']
         lifetime_niit  += row['niit']
         lifetime_total += row['total_tax']
+        lifetime_fed_pv   += deflate_to_present(row['fed_tax'], row['year'], c)
+        lifetime_state_pv += deflate_to_present(row['state_tax'], row['year'], c)
+        lifetime_niit_pv  += deflate_to_present(row['niit'], row['year'], c)
+        lifetime_total_pv += deflate_to_present(row['total_tax'], row['year'], c)
         r += 1
 
     # Totals
     r += 1
-    totals = [('Lifetime Federal Tax', lifetime_fed),
-              (f'Lifetime State Tax ({c["state"][:2]})',   lifetime_state),
-              ('Lifetime NIIT',        lifetime_niit),
-              ('Lifetime Total Tax',   lifetime_total)]
-    for label, val in totals:
+    totals = [('Lifetime Federal Tax', lifetime_fed, lifetime_fed_pv),
+              (f'Lifetime State Tax ({c["state"][:2]})',   lifetime_state, lifetime_state_pv),
+              ('Lifetime NIIT',        lifetime_niit, lifetime_niit_pv),
+              ('Lifetime Total Tax',   lifetime_total, lifetime_total_pv)]
+    for label, val, val_pv in totals:
         write_cell(ws, r, 1, label, bold=True, bg=NAVY, fg=WHITE)
         ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6)
         write_cell(ws, r, 7, val, fmt=FMT_DOLLAR, bold=True, bg=NAVY, fg=WHITE)
+        r += 1
+        write_cell(ws, r, 1, f"{label} (Today's $)", bg=DGRAY, fg=WHITE)
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6)
+        write_cell(ws, r, 7, val_pv, fmt=FMT_DOLLAR, bg=DGRAY, fg=WHITE)
         r += 1
 
     for col in range(1, 15):

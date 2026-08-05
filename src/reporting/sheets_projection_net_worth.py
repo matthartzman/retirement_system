@@ -25,6 +25,7 @@ from .workbook_common import (
     NAVY,
     ORANGE,
     WHITE,
+    deflate_to_present,
     get_column_letter,
     qc,
     write_cell,
@@ -293,6 +294,10 @@ def build_sheet5(ws, c, rows):
     write_hdr(ws, r, 3, f'Plan End ({c["plan_end"]})', DGRAY, WHITE)
     write_hdr(ws, r, 4, 'Change', DGRAY, WHITE)
     write_hdr(ws, r, 5, '% Change', DGRAY, WHITE)
+    # C5: a plan-end dollar buys less than a plan-start dollar -- this column
+    # shows what the nominal "Plan End" figure is actually worth in plan-start
+    # purchasing power, so it is directly comparable to the "Plan Start" column.
+    write_hdr(ws, r, 6, f"Plan End ({c['plan_end']}, Today's $)", DGRAY, WHITE)
     r += 1
     # Item 176: use the same opening-adjusted plan-start values shown in the
     # main table's plan-start row (not raw rows[0]['pretax_nw']/etc.), so the
@@ -325,6 +330,8 @@ def build_sheet5(ws, c, rows):
         write_cell(ws, r, 3, end,   fmt=FMT_DOLLAR_ZERO_BAND, bold=bold, bg=bg, align='right')
         write_cell(ws, r, 4, chg,   fmt=FMT_DOLLAR_ZERO_BAND, bold=bold, bg=bg, align='right')
         write_cell(ws, r, 5, pct,   fmt=FMT_PCT, bold=bold, bg=bg, align='right')
+        end_pv = deflate_to_present(end, c['plan_end'], c)
+        write_cell(ws, r, 6, end_pv, fmt=FMT_DOLLAR_ZERO_BAND, bold=bold, bg=bg, align='right')
         r += 1
 
     qc('5. Net Worth Projection', f'Row count = {len(rows)} ({c["plan_start"]}-{c["plan_end"]})',
