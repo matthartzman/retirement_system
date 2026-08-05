@@ -169,7 +169,7 @@ def test_real_executive_summary_c26_is_no_longer_clipped_to_one_line(built_workb
     ws = wb['1A. Executive Summary']
     row = next(
         r for r in range(1, ws.max_row + 1)
-        if isinstance(ws.cell(r, 3).value, str) and 'Face value' in ws.cell(r, 3).value
+        if isinstance(ws.cell(r, 3).value, str) and 'terminal net worth alone' in ws.cell(r, 3).value
     )
     height = ws.row_dimensions[row].height
     assert height is not None and height > 17.0, (
