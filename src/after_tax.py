@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Dict, Tuple
 
-from .core import ltcg_tax_on_gain, niit_tax, state_income_tax, illinois_estate_tax
+from .core import ltcg_tax_on_gain, niit_tax, state_income_tax, illinois_estate_tax, indexed_federal_estate_exemption
 
 
 def _f(value: Any, default: float = 0.0) -> float:
@@ -517,21 +517,34 @@ def business_taxable_estate_value(c: Mapping[str, Any]) -> float:
 def estimate_terminal_estate_tax(c: Mapping[str, Any], terminal: Mapping[str, Any]) -> float:
     """Estimate federal + state estate tax on the terminal estate.
 
-    Federal: 40% on the taxable estate above the federal exemption.  State:
-    Illinois graduated estate tax above the state exemption (only when state
-    estate tax is modeled).  Mirrors the optimizer's per-row estate-tax model.
-    When the business-succession module is on, the owner's business interest is
-    added to the taxable estate.
+    Federal: 40% on the taxable estate above the federal exemption, indexed
+    for inflation to the terminal year (a fixed plan-start exemption applied
+    decades out understates the real future exemption and overstates federal
+    tax on long-horizon plans -- see indexed_federal_estate_exemption).
+    State: Illinois graduated estate tax above the state exemption, only when
+    state estate tax is modeled AND the household's residence state is
+    Illinois -- the engine only models Illinois estate tax, so a household
+    residing elsewhere must not be charged it. Mirrors the optimizer's
+    per-row estate-tax model. When the business-succession module is on, the
+    owner's business interest is added to the taxable estate.
     """
     row_total = max(0.0, _f(terminal.get("total_nw"), 0.0))
     row_cst = max(0.0, _f(terminal.get("cst_excluded_from_survivor_estate"), 0.0))
     biz = business_taxable_estate_value(c)
-    fed_exempt = max(0.0, _f(c.get("fed_exempt"), 0.0))
+    target_year = int(terminal.get("year", c.get("plan_end", c.get("plan_start", 0))) or 0)
+    fed_exempt = indexed_federal_estate_exemption(
+        c.get("fed_exempt"), c.get("plan_start", target_year), target_year, c.get("brk_inf", 0.02),
+    )
     state_exempt = max(0.0, _f(c.get("il_exempt"), 0.0))
+    is_il_resident = str(c.get("state", "Illinois") or "Illinois") == "Illinois"
     federal_taxable = max(0.0, row_total + biz - (row_cst if c.get("federal_portability_enabled", True) else 0.0))
     state_taxable = max(0.0, row_total + biz - row_cst)
     federal_tax = max(0.0, federal_taxable - fed_exempt) * 0.40 if fed_exempt else 0.0
-    state_tax = illinois_estate_tax(state_taxable, state_exempt) if c.get("model_state_est", True) and state_exempt else 0.0
+    state_tax = (
+        illinois_estate_tax(state_taxable, state_exempt)
+        if c.get("model_state_est", True) and state_exempt and is_il_resident
+        else 0.0
+    )
     return max(0.0, federal_tax + state_tax)
 
 
