@@ -1648,16 +1648,33 @@ def _replace_liquidity_buffers(buffers: list[dict]) -> None:
 def _sync_config_backends() -> dict:
     # Wave 4.11 (system review 2026-08-04, `csv-roundtrip-on-every-save`)
     # tried making this DB->CSV export only, reasoning every real caller
-    # already wrote the DB first via _write_plan_data_file(). Reverted: it
-    # made tests/test_e2e_build_journey.py's user-edited-input test fail
-    # (only reproduces when run alongside other tests in that file, not
-    # standalone) -- a real call path writes the CSV without going through
-    # _write_plan_data_file() first, so the DB went stale and a real build
-    # silently served the old value. Root cause not fully isolated; keeping
-    # the CSV->DB re-import is the safe default for a financial-planning tool
-    # until that path is found. Do not remove this again without first
-    # reproducing test_real_build_journey_reflects_a_user_edited_input
-    # passing when run as part of the full test_e2e_build_journey.py file.
+    # already wrote the DB first via _write_plan_data_file(). Reverted --
+    # root cause isolated: this codebase has TWO separate SQLite stores, not
+    # one.
+    #   - `client_files` (raw CSV blobs): written by _write_plan_data_file()/
+    #     set_client_file(), read by _read_plan_data_file()/get_client_file().
+    #     Backs the Plan Data editor's file-level read/write API.
+    #   - `local_store.plan_snapshots` (typed *sectioned* snapshot): written
+    #     ONLY by import_csv_to_sqlite() -> local_store.import_sectioned_plan(),
+    #     read by load_sqlite() -> local_store.latest_sectioned_data(). This is
+    #     what load_active_config() reads, which is what
+    #     workbook_builder.main() calls to load the config the projection
+    #     engine actually builds from.
+    # _write_plan_data_file() explicitly does NOT write client_data.csv's
+    # content into `client_files` at all ("client_data.csv is the sectioned
+    # anchor and is not stored in the DB") -- so removing the
+    # import_csv_to_sqlite() call here left `local_store` permanently stale
+    # after the one-time bootstrap in load_active_config(), which is exactly
+    # what broke test_real_build_journey_reflects_a_user_edited_input: a
+    # real save updated `client_files` and disk correctly, but the build read
+    # the (now-frozen) old snapshot from `local_store`.
+    # Every real write caller already calls this function after writing (config_service,
+    # demo_plan_service, plan_data_file_service, strategy_asset_service, this
+    # module's own payload handler) -- the gap was never caller discipline,
+    # it was this function's own body. Do not remove the re-import again
+    # without either (a) making load_active_config() refresh `local_store`
+    # itself before reading, or (b) unifying the two stores outright -- both
+    # are real design changes, not a quick follow-up.
     try:
         # Parse the sectioned CSVs ONCE and hand the result to both consumers.
         # Each of these used to call load_csv itself, and load_csv on the
