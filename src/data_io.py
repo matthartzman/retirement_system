@@ -100,6 +100,34 @@ def _load_capital_market_income_assumptions() -> dict:
         return {}
     return out
 
+def _load_capital_market_return_assumptions() -> dict:
+    """Read expected_return by (preset, asset_class) from reference data.
+
+    Same file/shape as _load_capital_market_income_assumptions, just the
+    return column instead of the income columns. Used to derive per-account
+    (sleeve-level) growth rates from each account's actual holdings mix --
+    see the account_returns block below.
+    """
+    path = Path(__file__).resolve().parent.parent / 'reference_data' / 'capital_market_assumptions.csv'
+    out = {}
+    if not path.exists():
+        return out
+    try:
+        with path.open(newline='', encoding='utf-8-sig') as f:
+            for row in csv.DictReader(f):
+                preset = str(row.get('preset') or 'BASELINE').strip().upper()
+                cls = _ap.canonical_asset_class(row.get('asset_class') or '')
+                if not cls:
+                    continue
+                ret = _n(row.get('expected_return', ''), None)
+                if ret is None:
+                    continue
+                out[(preset, cls)] = float(ret)
+    except Exception:
+        return {}
+    return out
+
+
 def _apply_allocation_projection_assumptions(c):
     """Apply allocation-mode choice without replacing economic assumptions.
 
@@ -2397,6 +2425,84 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
             }
     c['account_taxable_income_assumptions'] = account_income
     c['portfolio_income_reduces_growth'] = True
+
+    # C3 / Wave 3.5 (system review 2026-08-04, finding
+    # engine-single-return-all-accounts): _account_return() has always read
+    # c['account_returns'], but nothing populated it, so every account grew
+    # at the identical flat rate regardless of what it actually held --
+    # asset location, bucket strategies, and the cash reserve were
+    # structurally inert. Every prerequisite for a real fix already existed
+    # (per-account holdings, security_master.csv's asset-class mapping,
+    # capital_market_assumptions.csv's per-class expected returns) -- this
+    # is a dollar-weighted join across data already assembled just above for
+    # account_income, not a new draw or a rewrite of the growth math.
+    #
+    # Mirrors _apply_allocation_projection_assumptions' own anchoring
+    # principle: preserve the user's configured c['ret'] as the portfolio-
+    # wide average, and apply only each account's RELATIVE tilt away from
+    # that average based on its actual holdings -- so a bond-heavy IRA grows
+    # slower and an equity-heavy Roth grows faster, without silently
+    # overriding the user's own return assumption for the plan as a whole.
+    _cm_returns = _load_capital_market_return_assumptions()
+    # security_master.csv's asset_class column is a broad category (e.g.
+    # "US EQUITY", not "US Large Cap"/"US Mid Cap"/"US Small Cap" -- it has
+    # no cap-size granularity at all); capital_market_assumptions.csv (and
+    # target_allocation.csv/_opt.ASSET_CLASSES) use the granular class
+    # names. This maps the broad security_master category onto the single
+    # granular class it best represents, mirroring the same kind of
+    # broad-category fallback _class_income_defaults above already uses for
+    # dividend/interest assumptions.
+    _broad_to_cma_class = {
+        'US EQUITY': 'US Large Cap',
+        'INTERNATIONAL EQUITY': 'International',
+        'INTERNATIONAL': 'International',
+        'EMERGING MARKETS': 'Emerging Markets',
+        'COMMODITIES': 'Commodities',
+        'BONDS': 'Bonds',
+        'SHORT-TERM BONDS': 'Short-Term Bonds',
+        'TIPS': 'TIPS',
+        'MUNICIPAL BONDS': 'Municipal Bonds',
+        'MANAGED FUTURES': 'Managed Futures',
+        'PRIVATE CREDIT': 'Private Credit',
+        'REITS': 'REITs',
+        'CASH': 'Cash',
+    }
+    def _account_cma_return(_holdings):
+        _val = 0.0; _weighted = 0.0
+        for _sym, _shares in (_holdings or {}).items():
+            _sym_u = str(_sym or '').strip().upper()
+            try:
+                _price = float(fetch_price(_sym_u, url_template, skip_live=skip_live_pricing) or 0.0)
+            except Exception:
+                _price = 0.0
+            _value = float(_shares or 0.0) * _price
+            if _value <= 0:
+                continue
+            _broad = str(_security_classes.get(_sym_u, '')).strip().upper()
+            _cls = _broad_to_cma_class.get(_broad)
+            _class_ret = _cm_returns.get((_preset, _cls)) if _cls else None
+            if _class_ret is None:
+                continue
+            _val += _value
+            _weighted += _value * _class_ret
+        return (_weighted / _val, _val) if _val > 0 else (None, 0.0)
+
+    _base_ret = float(c.get('ret', 0.0) or 0.0)
+    _all_holdings = {}
+    for _holdings in c.get('positions', {}).values():
+        for _sym, _shares in (_holdings or {}).items():
+            _all_holdings[_sym] = _all_holdings.get(_sym, 0.0) + float(_shares or 0.0)
+    _portfolio_ret, _portfolio_val = _account_cma_return(_all_holdings)
+    account_returns = {}
+    if _portfolio_ret is not None and _portfolio_val > 0:
+        for _acct, _holdings in c.get('positions', {}).items():
+            if _acct not in invest_ids_set:
+                continue
+            _acct_ret, _acct_val = _account_cma_return(_holdings)
+            if _acct_ret is None:
+                continue
+            account_returns[_acct] = _base_ret + (_acct_ret - _portfolio_ret)
+    c['account_returns'] = account_returns
 
     # Tax-loss harvesting policy (taxable/Trust accounts only). off = ignore;
     # analyze_only = surface opportunities in reporting but don't change the
