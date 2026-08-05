@@ -819,17 +819,13 @@ def build_sheet17(ws, c, rows):
        'Plan Survives = liquid assets stay above floor with no unfunded gap, every year', True, '')
 
 
-def build_sheet18(ws, c, rows):
-    """Survivor / Early-Death Stress Test — 5 actual projection re-runs."""
-    ws.sheet_view.showGridLines = False
-    section_title(ws, 1, 'SURVIVOR / EARLY-DEATH STRESS TEST', 9)
-
-    r = 3
+def _survivor_early_death_scenarios(c, rows):
+    """5 early-death full projection re-runs, shared by Sheet 18 (renders them)
+    and Sheet 19 (derives the life-insurance need from this household's own
+    modeled early-death impact instead of generic income-multiple rules of
+    thumb)."""
     base_nw = rows[-1]['total_nw']
     base_tax = sum(row['total_tax'] for row in rows)
-
-    # ── 5 Early-death scenarios with actual projection re-runs ────────────
-    # Each overrides one or both death years to significantly earlier ages.
     h_dob = c['h_dob_yr']
     w_dob = c['w_dob_yr']
     n1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
@@ -860,6 +856,42 @@ def build_sheet18(ws, c, rows):
          f'Both die by {max(h_dob, w_dob) + 75}. Plan horizon is sharply shortened. '
          'Minimal RMDs, no late-retirement spending. Tests estate value.'),
     ]
+    results = []
+    for label, h_death, w_death, desc in early_scenarios:
+        overrides = {
+            'h_death_yr': h_death,
+            'w_death_yr': w_death,
+            'first_death_yr': min(h_death, w_death),
+            'plan_end': max(h_death, w_death),
+        }
+        _c2, rows2 = _run_scenario(c, overrides)
+        if not rows2:
+            continue
+        scen_nw = rows2[-1]['total_nw']
+        scen_tax = sum(row2['total_tax'] for row2 in rows2)
+        results.append({
+            'label': label, 'h_death': h_death, 'w_death': w_death,
+            'plan_end': max(h_death, w_death),
+            'scen_nw': scen_nw, 'delta_nw': scen_nw - base_nw,
+            'scen_tax': scen_tax, 'delta_tax': scen_tax - base_tax,
+            'desc': desc,
+        })
+    return {'base_nw': base_nw, 'base_tax': base_tax, 'n1': n1, 'n2': n2, 'scenarios': results}
+
+
+def build_sheet18(ws, c, rows):
+    """Survivor / Early-Death Stress Test — 5 actual projection re-runs."""
+    ws.sheet_view.showGridLines = False
+    section_title(ws, 1, 'SURVIVOR / EARLY-DEATH STRESS TEST', 9)
+
+    r = 3
+    survivor = _survivor_early_death_scenarios(c, rows)
+    base_nw = survivor['base_nw']
+    base_tax = survivor['base_tax']
+    n1 = survivor['n1']
+    n2 = survivor['n2']
+    h_dob = c['h_dob_yr']
+    w_dob = c['w_dob_yr']
 
     write_hdr(ws, r, 1, 'Early-Death Scenarios (full projection re-runs)', NAVY, WHITE, span=9); r += 1
     hdrs = ['Scenario', f'{n1} Death', f'{n2} Death', 'Plan End', 'Terminal NW',
@@ -881,32 +913,18 @@ def build_sheet18(ws, c, rows):
                           f'{n2} dies {c["w_death_yr"]} (age {c["w_death_yr"]-w_dob})', bg=LGRAY)
     r += 1
 
-    for label, h_death, w_death, desc in early_scenarios:
-        overrides = {
-            'h_death_yr': h_death,
-            'w_death_yr': w_death,
-            'first_death_yr': min(h_death, w_death),
-            'plan_end': max(h_death, w_death),
-        }
-        _c2, rows2 = _run_scenario(c, overrides)
-        if not rows2:
-            continue
-        scen_nw = rows2[-1]['total_nw']
-        scen_tax = sum(row2['total_tax'] for row2 in rows2)
-        delta_nw = scen_nw - base_nw
-        delta_tax = scen_tax - base_tax
-        plan_end = max(h_death, w_death)
-        bg = 'FCE4D6' if delta_nw < -500_000 else ('E2EFDA' if delta_nw > 0 else None)
+    for s in survivor['scenarios']:
+        bg = 'FCE4D6' if s['delta_nw'] < -500_000 else ('E2EFDA' if s['delta_nw'] > 0 else None)
 
-        write_cell(ws, r, 1, label, bold=True)
-        write_cell(ws, r, 2, h_death, fmt=FMT_YEAR)
-        write_cell(ws, r, 3, w_death, fmt=FMT_YEAR)
-        write_cell(ws, r, 4, plan_end, fmt=FMT_YEAR)
-        write_cell(ws, r, 5, scen_nw, fmt=FMT_DOLLAR, bold=True, bg=bg)
-        write_cell(ws, r, 6, delta_nw, fmt=FMT_DOLLAR, bg=bg)
-        write_cell(ws, r, 7, scen_tax, fmt=FMT_DOLLAR)
-        write_cell(ws, r, 8, delta_tax, fmt=FMT_DOLLAR)
-        write_cell(ws, r, 9, desc)
+        write_cell(ws, r, 1, s['label'], bold=True)
+        write_cell(ws, r, 2, s['h_death'], fmt=FMT_YEAR)
+        write_cell(ws, r, 3, s['w_death'], fmt=FMT_YEAR)
+        write_cell(ws, r, 4, s['plan_end'], fmt=FMT_YEAR)
+        write_cell(ws, r, 5, s['scen_nw'], fmt=FMT_DOLLAR, bold=True, bg=bg)
+        write_cell(ws, r, 6, s['delta_nw'], fmt=FMT_DOLLAR, bg=bg)
+        write_cell(ws, r, 7, s['scen_tax'], fmt=FMT_DOLLAR)
+        write_cell(ws, r, 8, s['delta_tax'], fmt=FMT_DOLLAR)
+        write_cell(ws, r, 9, s['desc'])
         r += 1
 
     # ── Survivor income summary ──────────────────────────────────────────
@@ -930,11 +948,14 @@ def build_sheet18(ws, c, rows):
         ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=9)
         r += 1
 
+    worst_scenario = min(survivor['scenarios'], key=lambda s: s['delta_nw'], default=None)
+    worst_label = worst_scenario['label'] if worst_scenario else 'n/a'
+    worst_delta = worst_scenario['delta_nw'] if worst_scenario else 0.0
     qc('18. Survivor Stress Test', '5 early-death scenarios with full projection re-runs', True,
-       f'worst case: {min(s[0] for s in early_scenarios)} at ${min(delta_nw, 0):+,.0f}')
+       f'worst case: {worst_label} at ${min(worst_delta, 0):+,.0f}')
 
 
-def build_sheet19(ws, c):
+def build_sheet19(ws, c, rows):
     """Life Insurance Need Analysis"""
     ws.sheet_view.showGridLines = False
     section_title(ws, 1, 'LIFE INSURANCE NEED ANALYSIS', 8)
@@ -963,6 +984,15 @@ def build_sheet19(ws, c):
     r += 2
     # Section B — Need / Gap Analysis
     write_hdr(ws, r, 1, 'Section B — Need / Gap Analysis', ORANGE, WHITE, span=6); r+=1
+    write_cell(ws, r, 1,
+                "The survivor-shortfall need below comes from this plan's own worst-case "
+                "early-death projection (Sheet 18) -- it already reflects this household's "
+                "actual spending, mortgage, tax-filing change, and lost income, not a generic "
+                "income multiple. Existing death benefits and liquid net worth offset the total "
+                "need once, not separately for each row (a prior version double- and "
+                "triple-counted the same assets against every need line).", align='left')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6)
+    r += 2
     hdrs = ['Purpose','Need','Existing DB (Y0)','Liquid NW','Gap = max(0,Need-DB-NW)','Verdict']
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
@@ -972,19 +1002,39 @@ def build_sheet19(ws, c):
     if liquid_nw == 0:  # registry bootstrap for data without registry totals
         liquid_nw = sum(v for k, v in c['balances'].items()
                         if not k.lower().endswith('_checking'))
+
+    survivor = _survivor_early_death_scenarios(c, rows)
+    # "Both die" is an estate scenario, not a survivor-income scenario -- exclude
+    # it from the survivor-shortfall need so it isn't mixed with the other four.
+    single_death_scenarios = [s for s in survivor['scenarios'] if s['h_death'] != s['w_death']] \
+        or survivor['scenarios']
+    worst_delta = min((s['delta_nw'] for s in single_death_scenarios), default=0.0)
+    survivor_shortfall = max(0.0, -worst_delta)
+
     needs = [
-        ('Income Replacement (10x)',  c['earned']*10,    first_yr_db, liquid_nw),
-        ('Mortgage Payoff',           c['mort_bal'],     0,           liquid_nw),
-        ('Estate Liquidity',          500000,            first_yr_db, liquid_nw),
+        ('Survivor Shortfall (worst early-death scenario, Sheet 18)', survivor_shortfall),
+        ('Estate Liquidity Buffer', 500000.0),
     ]
-    for purpose, need, db, lnw in needs:
-        gap = max(0, need - db - lnw)
-        verdict = 'Gap Covered' if gap == 0 else f'Gap: ${gap:,.0f}'
-        bg = 'E2EFDA' if gap==0 else 'FCE4D6'
-        for i, val in enumerate([purpose, need, db, lnw, gap, verdict], 1):
-            fmt = FMT_DOLLAR if i in (2,3,4,5) else None
-            write_cell(ws, r, i, val, fmt=fmt, bg=bg if i==6 else None)
+    total_need = sum(need for _, need in needs)
+    total_gap = max(0.0, total_need - first_yr_db - liquid_nw)
+    covered_remaining = max(0.0, total_need - total_gap)
+    for purpose, need in needs:
+        applied = min(need, covered_remaining)
+        covered_remaining -= applied
+        gap = need - applied
+        verdict = 'Gap Covered' if gap <= 0.5 else f'Gap: ${gap:,.0f}'
+        bg = 'E2EFDA' if gap <= 0.5 else 'FCE4D6'
+        for i, val in enumerate([purpose, need, None, None, gap, verdict], 1):
+            fmt = FMT_DOLLAR if i in (2, 5) else None
+            write_cell(ws, r, i, val, fmt=fmt, bg=bg if i == 6 else None)
         r += 1
+    write_cell(ws, r, 1, 'TOTAL (shared pool applied once)', bold=True, bg=LGRAY)
+    write_cell(ws, r, 2, total_need, fmt=FMT_DOLLAR, bold=True, bg=LGRAY)
+    write_cell(ws, r, 3, first_yr_db, fmt=FMT_DOLLAR, bg=LGRAY)
+    write_cell(ws, r, 4, liquid_nw, fmt=FMT_DOLLAR, bg=LGRAY)
+    write_cell(ws, r, 5, total_gap, fmt=FMT_DOLLAR, bold=True, bg=LGRAY)
+    write_cell(ws, r, 6, 'Gap Covered' if total_gap <= 0.5 else f'Gap: ${total_gap:,.0f}', bg=LGRAY)
+    r += 1
 
     r += 2
     # ── LTC Optimization ─────────────────────────────────────────────────────

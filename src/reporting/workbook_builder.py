@@ -1007,7 +1007,7 @@ def main():
         build_sheet18(sheets['18. Survivor Stress Test'], c, rows)
     if '19. Life Insurance' in sheets:
         print('  Sheet 19 — Life Insurance')
-        build_sheet19(sheets['19. Life Insurance'], c)
+        build_sheet19(sheets['19. Life Insurance'], c, rows)
     if '20. RMD Audit' in sheets:
         print('  Sheet 20 — RMD Audit')
         build_sheet20(sheets['20. RMD Audit'], c, rows)
