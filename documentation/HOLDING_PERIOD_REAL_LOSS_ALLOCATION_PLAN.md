@@ -47,7 +47,7 @@ which is a blunt proxy for what the projection can compute precisely.
   same way (editable, horizon-keyed), so nothing is hardcoded.
 - **Testing guardrails** — frozen pricing via `RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS=1`
   (see memory `testing_frozen_pricing`) and golden-master tests
-  (`tests/test_183_efficient_frontier_sharpe.py`, `test_184_max_sharpe_tangency_allocation.py`).
+  (`tests/test_efficient_frontier_sharpe_regression.py`, `test_max_sharpe_tangency_allocation_regression.py`).
 
 ## 3. New building block A — Real-loss-probability curves (reference data)
 

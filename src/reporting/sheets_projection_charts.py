@@ -764,7 +764,7 @@ def build_sheet8(ws, c, rows, mc_data=None):
         hp_ws = wb.create_sheet(hp_title)
         hp_ws.sheet_state = 'hidden'
         # The workbook's last tab is expected to be '_Chart Dashboard Data'
-        # (see tests/test_97_workbook_five_area_tabs.py); reinsert this new
+        # (see tests/test_workbook_five_area_tabs_regression.py); reinsert this new
         # hidden sheet just before it instead of leaving it appended last.
         _data_idx = wb._sheets.index(data_ws)
         wb._sheets.remove(hp_ws)

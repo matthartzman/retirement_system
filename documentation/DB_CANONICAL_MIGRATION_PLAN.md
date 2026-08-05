@@ -178,8 +178,8 @@ path.**
 
 - **Golden-master / fixture drift.** `tests/fixtures/golden_master_engine_cases.json`
   and every test that calls `data_io.load_csv(ROOT / 'input' / 'client_data.csv')`
-  directly (e.g. `tests/test_167_tax_loss_harvesting.py:15`,
-  `tests/test_1_regressions.py`) assume the on-disk CSV is the input. Phase 2/3
+  directly (e.g. `tests/test_tax_loss_harvesting_regression.py:15`,
+  `tests/test_regressions_regression.py`) assume the on-disk CSV is the input. Phase 2/3
   must **not** delete those CSV files (per this task's explicit constraint,
   and because tests still legitimately read them as *fixtures*, which is a
   valid adapter use, not a "normal build path" round-trip). Instead, Phase 2/3

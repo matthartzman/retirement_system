@@ -10,7 +10,7 @@ symbol breaking the pairing, not as behavioral coverage.
 
 For behavior that IS actually executed end-to-end, see
 test_e2e_build_journey.py (real build via the real HTTP route, including an
-input-edit-then-rebuild scenario) and test_161_phase2_workflow_route_plumbing.py
+input-edit-then-rebuild scenario) and test_workflow_route_plumbing_contract.py
 (route wiring with fakes standing in for the build subprocess).
 """
 from pathlib import Path

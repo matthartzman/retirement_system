@@ -33,7 +33,7 @@ def today() -> _datetime.date:
     clock: ``plan_start`` is derived from the current year, and the YTD blend
     prorates the current year by day-of-year. A "frozen" fixture whose CSVs
     never change therefore still produces different dollar figures on different
-    days -- tests/test_199_frozen_sample_plan_golden_master.py's docstring
+    days -- tests/test_frozen_sample_plan_golden_master_regression.py's docstring
     records regenerating its pins on 2026-07-28 vs 2026-07-29, with no code
     change, and getting 6521581.18 vs 6487999.96.
 

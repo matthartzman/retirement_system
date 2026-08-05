@@ -202,7 +202,7 @@
 .wf-col-width{display:flex;align-items:center;gap:6px}
 .wf-col-width input[type=number]{width:90px;padding:5px 8px;border:1px solid var(--line2);border-radius:6px;font:inherit;text-align:right}
 .wf-col-default{color:var(--muted)}
-.wf-col-row .wf-col-title{flex:1 1 auto;min-width:120px}
+.wf-col-row .wf-col-title{flex:1 1 auto;min-width:120px;max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wf-col-align{display:flex;align-items:center;gap:6px}
 .wf-col-align-label{white-space:nowrap}
 .wf-align-group{display:inline-flex;border:1px solid var(--line2);border-radius:6px;overflow:hidden}

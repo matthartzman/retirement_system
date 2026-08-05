@@ -2,7 +2,7 @@
 
 Exercises DemoPlanService in full isolation (tmp_path DBs/dirs, no real
 input/ or local_state/ touched -- these must never be mutated by a test run)
-following the same pattern test_152_backend_service_extraction_continuation.py
+following the same pattern test_backend_service_extraction_continuation_regression.py
 uses for PlanFileService: a tiny throwaway sqlite DB with a single marker
 row, swapped around by the service under test.
 """

@@ -21,7 +21,7 @@ This session hit both halves of that within an hour: improving two allocation
 dropdown labels (a change the same review asked for) broke two tests with no
 behavioural regression at all.
 
-The mechanism mirrors tests/test_freeze_numbered_test_files.py, the pattern
+The mechanism mirrors tests/test_no_tracking_id_test_names_regression.py, the pattern
 this project already chose for this class of problem. Existing files are
 grandfathered; a NEW file joining the pattern fails.
 

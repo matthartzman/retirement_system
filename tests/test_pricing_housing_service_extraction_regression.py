@@ -2,7 +2,7 @@ from pathlib import Path
 
 # The "service exists" + "routes delegate" checks that used to live here are
 # generalized (system review 2026-07-21, Q6) into SERVICE_ROUTE_PAIRS in
-# test_126_service_extraction.py, alongside every other extracted service's
+# test_service_extraction_regression.py, alongside every other extracted service's
 # equivalent pair. Only this file's genuine behavior + manifest tests remain.
 
 

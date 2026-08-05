@@ -5824,8 +5824,8 @@ function choiceOptions(r) {
   const type = String(r?.schema?.type || "").toLowerCase();
   const units = String(r?.units || "");
   const fixed = {
-    filing_status: ["MFJ", "Single", "HOH", "MFS"],
-    survivor_filing_status: ["Single", "HOH", "MFS"],
+    filing_status: ["MFJ", "Single", "HOH", "MFS"], survivor_filing_status: ["Single", "HOH", "MFS"],
+    state: _stateNameChoiceOptions(), residence_state: _stateNameChoiceOptions(), target_state: _stateAbbrChoiceOptions(),
     roth_conversion_policy: [
       "optimize_terminal_tax",
       "fill_to_bracket",
@@ -6186,7 +6186,7 @@ function fieldHtml(r) {
       String(value).toUpperCase() === "YES" ||
       String(value).toUpperCase() === "TRUE";
     control = `<label class="toggle-switch" data-row="${r.row_index}"><input type="checkbox" ${yes ? "checked" : ""} onchange="editValue(${r.row_index},this.checked?'YES':'NO',this)" onfocus="showFieldHelp(${r.row_index})"><span class="toggle-track" aria-hidden="true"></span><span class="toggle-text toggle-text-yes">YES</span><span class="toggle-text toggle-text-no">NO</span></label>`;
-  } else if (type === "choice" || norm(units) === "choice") {
+  } else if (type === "choice" || norm(units) === "choice" || STATE_INPUT_LABELS.has(lblNorm)) {
     const opts = choiceOptions(r);
     if (opts.length) {
       const cur = String(value || "").trim();

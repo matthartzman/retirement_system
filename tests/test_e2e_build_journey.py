@@ -1,6 +1,6 @@
 """Real end-to-end build journey (system review Q2, Wave 3 item 3.14).
 
-tests/test_161_phase2_workflow_route_plumbing.py (previously named
+tests/test_workflow_route_plumbing_contract.py (previously named
 ..._live_workflow_journeys, which claimed coverage it didn't provide) proves
 the routes wire together, but replaces `_run_build_progress_job` with a fake
 that never runs the workbook builder, and `report_service.detailed_results_payload`

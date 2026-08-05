@@ -97,7 +97,7 @@ class EngineIntegrationTests(unittest.TestCase):
         pinned dollar figure -- this test's config reads the live, routinely
         edited input/client_data.csv, and a hardcoded absolute pin here goes
         stale every time that plan data changes even though the TLH-off
-        no-op property itself remains correct. See test_2_recommendations.py's
+        no-op property itself remains correct. See test_recommendations_regression.py's
         _warn_on_baseline_drift for the same live-plan-drift concern applied
         to that file's own dollar pins."""
         with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):

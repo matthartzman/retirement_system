@@ -109,7 +109,7 @@ def _warn_if_input_dir_mutated_during_session():
     through workspace_context.candidate_input_files(). Code that reads
     input/ via a hardcoded ROOT-relative path (as at least one path in
     src/data_io.py's parse_client does for client_holdings.csv -- see
-    tests/test_199_frozen_sample_plan_golden_master.py's docstring) bypasses
+    tests/test_frozen_sample_plan_golden_master_regression.py's docstring) bypasses
     that redirect entirely. This is a warn-only tripwire for exactly that
     gap: it cannot tell WHICH test mutated input/, but it will say the
     session as a whole did, which the previous behaviour (silence) did not.

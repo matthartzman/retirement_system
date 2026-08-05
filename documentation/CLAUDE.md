@@ -17,8 +17,8 @@ python main.py --mode server
 **Run tests (pytest):**
 ```
 pytest tests/
-pytest tests/test_90_v10_architecture.py          # single test file
-pytest tests/test_90_v10_architecture.py::test_name  # single test
+pytest tests/test_v10_architecture_regression.py          # single test file
+pytest tests/test_v10_architecture_regression.py::test_name  # single test
 ```
 
 **Run regression checks (static analysis, not pytest):**
@@ -48,24 +48,46 @@ pip install -r requirements.txt
 
 ## Testing Discipline — MANDATORY
 
-**Run the fast test tier after every non-trivial change.** Do not mark any task complete without running the command below and resolving every new failure. This is not optional. The cost of a broken suite compounds quickly; catching failures immediately is cheap.
+Match the test tier to the size of the change. Do not mark any task complete without running at least the fast tier and resolving every new failure — this is not optional, the cost of a broken suite compounds quickly and catching failures immediately is cheap. Use the table to decide whether the fast tier is enough or you need to go further.
+
+### What level of change needs what level of testing
+
+| Change | Minimum tier before moving on | Also run before calling the task done |
+|---|---|---|
+| Iterating on one function/file, not yet finished | Targeted: `pytest tests/test_the_one_file.py -q` | Fast tier |
+| Any other non-trivial change (the default case) | Fast tier | — |
+| Touched `workbook_builder.py`, `projection_pipeline.py`, anything under `src/reporting/`, or the build/report pipeline | Fast tier | Full suite |
+| Touched a golden-master fixture or `input/client_data.csv` | Fast tier | Full suite (regenerate expected values first — see Golden master maintenance below) |
+| Changed `client_optional_functions.csv` module gating, `module_catalog.py`, or anything the module on/off sweep exercises | Fast tier | Full suite (this is what `test_all_modules_off_build_functional.py` exists to catch) |
+| About to push / open a PR | — | Full suite (CI reruns it on every push regardless, but a red CI run is more expensive to debug than a local one) |
+
+**Targeted tier** — while actively iterating on a single function or file, run just that file (or `::test_name` for one test). Seconds, not minutes. Do this as often as you like; it does not replace the fast tier before moving on.
+
+**Fast tier** — the default for "did I break anything nearby":
 
 ```
 pytest tests/ -m "not slow" --tb=short -q
 ```
 
-This excludes tests marked `@pytest.mark.slow` — tests that spawn a subprocess to run a full workbook build (`tools/build_workbook.py`) or that request the `built_workbook_dir`/`built_workbook_path` fixtures in `conftest.py`, which trigger one on first use. It's ~1,300 of the suite's ~1,350 tests and normally finishes in well under a minute; a single workbook build alone costs ~90 seconds, so one unmarked build test can silently dominate the whole run.
+This excludes tests marked `@pytest.mark.slow` — tests that spawn a subprocess to run a full workbook build (`tools/build_workbook.py`) or that request the `built_workbook_dir`/`built_workbook_path` fixtures in `conftest.py`, which trigger one on first use. It's the large majority of the suite and normally finishes in well under a minute; a single workbook build alone costs ~90 seconds, so one unmarked build test can silently dominate the whole run.
 
-**Run the full suite (including `slow`) before considering a task done, not after every edit, when any of the following are true:**
-- You touched the build/report pipeline, `workbook_builder.py`, `projection_pipeline.py`, or anything under `src/reporting/`
-- You touched a golden-master fixture or `input/client_data.csv`
-- You're about to push / open a PR — CI reruns the full suite on every push regardless, but catching a break locally first is cheaper than a red CI run
+**Full suite** — before considering a task done (not after every edit) per the table above, or before pushing. Run it with `pytest-xdist` (`pip install -r requirements-dev.txt` picks it up) so the ~20+ independent build-subprocess tests in `test_all_modules_off_build_functional.py` (one real workbook build per registered optional module, ~90s each) run concurrently instead of serially — that sweep alone was the dominant cost of a full run, previously 30+ minutes end to end:
 
 ```
-pytest tests/ --tb=short -q
+pytest tests/ -n auto --tb=short -q
+```
+
+If a failure under `-n auto` is a `PermissionError`/`WinError 5` touching a `retirement_system_test_workspace_*` temp path, that's a Windows file-lock flake (antivirus scanning a just-written temp file), not a real regression — rerun that one file without `-n` to confirm before treating it as a break:
+
+```
+pytest tests/ --tb=short -q   # no -n: serial fallback if a run looks flaky, or on a machine without pytest-xdist
 ```
 
 **New tests that spawn a subprocess to build a workbook must be marked `@pytest.mark.slow`.** Prefer the shared `built_workbook_dir`/`built_workbook_path` fixtures over a bespoke `subprocess.run` when your test can use the same module/env configuration those fixtures already build with — that amortizes to one build per session instead of one per test. When your test genuinely needs a different module configuration (e.g. all-modules-off, a custom `RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES` set), a fixture-shared build isn't safe to force — scope your own build to a `module`-or-narrower fixture so it's still paid for once per file, not once per test, and mark it `slow` regardless.
+
+### Test file naming
+
+`test_<succinct_scope>_<type>.py` — the name alone should say what it covers, not which roadmap item/wave/issue shipped it (that belongs in the docstring and git history, both of which survive; a "wave 5.6" or "item 172" reference in a filename does not mean anything once the roadmap moves on). `type` is one of `regression`, `functional`, `contract`, `smoke`, `unit`, `integration`. `tests/test_no_tracking_id_test_names_regression.py` enforces the "no wave/issue/phase number in the name" half of this mechanically; the type-suffix half is a convention to follow for new files, not separately enforced.
 
 ### When you change any of these, search tests/ first
 
@@ -82,7 +104,7 @@ Update every matching test **in the same session as the code change** — not la
 
 ### Golden master maintenance
 
-`tests/test_2_recommendations.py` and `tests/fixtures/golden_master_engine_cases.json` store expected projection numbers. Whenever input data or engine constants change, regenerate and update them:
+`tests/test_recommendations_regression.py` and `tests/fixtures/golden_master_engine_cases.json` store expected projection numbers. Whenever input data or engine constants change, regenerate and update them:
 
 ```python
 # Get current values:
