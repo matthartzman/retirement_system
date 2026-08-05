@@ -67,6 +67,14 @@ if not os.environ.get("RETIREMENT_SYSTEM_WORKSPACE_ROOT"):
             for _f in sorted(_FROZEN_PLAN_DIR.iterdir()):
                 if _f.is_file():
                     shutil.copy(_f, _TEST_WORKSPACE_ROOT / _name / _f.name)
+            # client_data.json/.yaml are DERIVED outputs (architecture: "CSV is
+            # canonical"), not hand-maintained fixture inputs, so the frozen
+            # fixture directory deliberately does not commit them -- generate
+            # them here instead of staging a second, driftable copy. Any test
+            # asserting against TEST_INPUT_DIR/client_data.json (e.g. a
+            # forecast-API config-contract check) needs this present.
+            from src.config_backend import export_client_json_yaml as _export_json_yaml
+            _export_json_yaml(_TEST_WORKSPACE_ROOT / _name / "client_data.csv", _TEST_WORKSPACE_ROOT / _name)
         else:
             (_TEST_WORKSPACE_ROOT / _name).mkdir(parents=True, exist_ok=True)
     os.environ["RETIREMENT_SYSTEM_WORKSPACE_ROOT"] = str(_TEST_WORKSPACE_ROOT)
