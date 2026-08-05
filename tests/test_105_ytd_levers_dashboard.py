@@ -61,11 +61,15 @@ def test_ytd_re_tax_income_and_growth_rules(tmp_path):
 def test_planning_levers_ui_and_workbook_source_present():
     js = Path('frontend/js/dashboard.js').read_text(encoding='utf-8')
     wb = Path('src/reporting/workbook_builder.py').read_text(encoding='utf-8')
-    common = Path('src/reporting/workbook_common.py').read_text(encoding='utf-8')
     assert 'id: "planning_levers"' in js
     assert 'renderPlanningLevers' in js
     # #209/#210/#212/#228: '2H.' is computed fresh per build, not hard-coded;
     # the sheet's stable (build-time) identity is what's checked here.
-    assert '27. Planning Levers' in common
+    # System review 2026-08-04 (`sheet-identity-scattered-across-five-tables`,
+    # Wave 4.3): the sheet's identity now lives in module_catalog.SHEET_REGISTRY,
+    # not as a source-text literal in workbook_common.py, so check the live
+    # derived table instead of grepping source.
+    from src.reporting.workbook_common import V5_LAYOUT
+    assert any(name == '27. Planning Levers' for name, _code in V5_LAYOUT)
     assert 'build_sheet27_planning_levers' in wb
     assert 'RANK.EQ' in wb

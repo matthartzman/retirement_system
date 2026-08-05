@@ -176,165 +176,65 @@ SECTION_COLOR = {
 # (format overrides/alignments, template layout, cross-reference text) reads
 # through the same live FINAL_SHEET_RENAMES mapping instead of a hand-typed
 # dict that can silently drift out of sync with what the section list says.
-WORKBOOK_SECTION_LAYOUT = [
-    {
-        'section': '1. Reports',
-        'code': '1',
-        'description': 'Read-only plan reports and advisor-review outputs.',
-        'sheets': [
-            '1. Executive Summary', '5. Net Worth Projection', '6. Cash Flow Projection',
-            '3. Balance Sheet', '8. Charts Dashboard', '7. Lifetime Tax',
-            # #221: Core Spending merged into Spending Summary -- the former had
-            # no content Spending Summary's Core Expenses section didn't already
-            # show, except the modeled-assumption comparison, which moved there.
-            '29. Spending Summary',
-        ],
-    },
-    {
-        'section': '2. Optimizers',
-        'code': '2',
-        'description': 'Decision-support modules and optimization outputs.',
-        'sheets': [
-            '11. Roth Conversion', '4. Asset Allocation', '13. State Residency',
-            '10. Social Security', 'S-Corp vs LLC', '12. Charitable Giving',
-            '14. Estate Plan', '12B. Tax-Loss Harvesting', '12C. Gain Harvesting',
-            # Optional advanced planning modules (toggle-gated; present only when enabled).
-            '30. Education Funding', '35. Equity Compensation', '36. Special-Needs Planning',
-            '34. Business Succession',
-            # Protection coverage-adequacy decisions (toggle-gated; present only when enabled).
-            '31. Existing Life Insurance', '32. Disability Income', '33. P&C Umbrella',
-        ],
-    },
-    {
-        'section': '3. Risk & Stress Tests',
-        'code': '3',
-        'description': 'Monte Carlo, survivor, and protection stress tests.',
-        'sheets': [
-            '15. Market-Luck Stress Test', '18. Survivor Stress Test', '19. Life Insurance',
-        ],
-    },
-    {
-        'section': '4. System',
-        'code': '4',
-        'description': 'Plan data snapshot, assumptions, reconciliation, quality control, RMD audit, methodology, and glossary.',
-        'sheets': [
-            'Plan Data', '2. Assumptions', '27. Planning Levers', '25. Account Reconciliation',
-            '21. Quality Control', '20. RMD Audit', '23. Methodology', '22. Glossary',
-        ],
-    },
-]
+# WORKBOOK_SECTION_LAYOUT, SHEET_LETTER_ORDER, SHEET_DISPLAY_TITLES, and
+# V5_LAYOUT are all derived from module_catalog.SHEET_REGISTRY -- the single
+# source of truth for sheet identity (system review 2026-08-04, architect
+# finding `sheet-identity-scattered-across-five-tables`). See the field
+# documentation on SHEET_REGISTRY/SheetSpec in module_catalog.py.
+#
+# 'H' is not a section code: it marks hidden/helper sheets ('16. Scenario
+# Analysis', '26. Workbook Warnings') that are created and dispatched but
+# deliberately absent from the visible nav (no `section`/`letter_prefix`).
+from ..module_catalog import SHEET_REGISTRY as _SHEET_REGISTRY
 
-# Canonical LETTER order per number-prefix, independent of which physical
-# section a sheet's tab sits in (Planning Levers is a "2" letter that
-# physically sits in the "4. System" tab group; the three protection sheets
-# are "3" letters that physically sit in "2. Optimizers" -- both intentional).
-# Same stable names as WORKBOOK_SECTION_LAYOUT above.
-SHEET_LETTER_ORDER = {
-    '1': [
-        '1. Executive Summary', '5. Net Worth Projection', '6. Cash Flow Projection',
-        '3. Balance Sheet', '8. Charts Dashboard', '7. Lifetime Tax',
-        '29. Spending Summary',
-    ],
-    '2': [
-        '11. Roth Conversion', '4. Asset Allocation', '13. State Residency',
-        '10. Social Security', 'S-Corp vs LLC', '12. Charitable Giving',
-        '14. Estate Plan', '27. Planning Levers', '12B. Tax-Loss Harvesting',
-        '30. Education Funding', '35. Equity Compensation', '36. Special-Needs Planning',
-        '34. Business Succession', '12C. Gain Harvesting',
-    ],
-    '3': [
-        '15. Market-Luck Stress Test', '18. Survivor Stress Test', '19. Life Insurance',
-        '31. Existing Life Insurance', '32. Disability Income', '33. P&C Umbrella',
-    ],
-    '4': [
-        'Plan Data', '2. Assumptions', '25. Account Reconciliation',
-        '21. Quality Control', '20. RMD Audit', '23. Methodology', '22. Glossary',
-    ],
+_SECTION_META = {
+    '1': ('1. Reports', 'Read-only plan reports and advisor-review outputs.'),
+    '2': ('2. Optimizers', 'Decision-support modules and optimization outputs.'),
+    '3': ('3. Risk & Stress Tests', 'Monte Carlo, survivor, and protection stress tests.'),
+    '4': ('4. System', 'Plan data snapshot, assumptions, reconciliation, quality control, RMD audit, methodology, and glossary.'),
 }
 
-# Display title (the text after "1A. ") for each stable name -- combined with
-# a freshly computed prefix+letter to build the final sheet title.
-SHEET_DISPLAY_TITLES = {
-    '1. Executive Summary': 'Executive Summary',
-    '5. Net Worth Projection': 'Net Worth',
-    '6. Cash Flow Projection': 'Cash Flow',
-    '3. Balance Sheet': 'Balance Sheet',
-    '8. Charts Dashboard': 'Charts',
-    '7. Lifetime Tax': 'Lifetime Taxes',
-    '29. Spending Summary': 'Spending Summary',
-    '11. Roth Conversion': 'Roth Conversion',
-    '4. Asset Allocation': 'Asset Allocation',
-    '13. State Residency': 'State Residency',
-    '10. Social Security': 'Social Security',
-    'S-Corp vs LLC': 'S-Corp vs LLC',
-    '12. Charitable Giving': 'Charitable Giving',
-    '14. Estate Plan': 'Estate & Legacy Planning',
-    '27. Planning Levers': 'Planning Levers',
-    '12B. Tax-Loss Harvesting': 'Tax-Loss Harvesting',
-    '30. Education Funding': 'Education Funding',
-    '35. Equity Compensation': 'Equity Compensation',
-    '36. Special-Needs Planning': 'Special-Needs Planning',
-    '34. Business Succession': 'Business Succession',
-    '12C. Gain Harvesting': 'Gain Harvesting',
-    '15. Market-Luck Stress Test': 'Monte Carlo',
-    '18. Survivor Stress Test': 'Survivor',
-    '19. Life Insurance': 'LTC + Life Insurance',
-    '31. Existing Life Insurance': 'Existing Life Insurance',
-    '32. Disability Income': 'Disability Income',
-    '33. P&C Umbrella': 'P&C Umbrella',
-    'Plan Data': 'Plan Data',
-    '2. Assumptions': 'Assumptions',
-    '25. Account Reconciliation': 'Account Reconciliation',
-    '21. Quality Control': 'Quality Control',
-    '20. RMD Audit': 'RMD Audit',
-    '23. Methodology': 'Methodology',
-    '22. Glossary': 'Glossary',
-}
 
-# Legacy build-time sheet set used by the existing sheet builders. These names
-# are intentionally kept stable so the computation/build code can remain
-# low-risk while the user-facing workbook is reorganized at the end.
-V5_LAYOUT = [
-    ('1. Executive Summary', '1'),
-    ('2. Assumptions', '4'),
-    ('3. Balance Sheet', '1'),
-    ('4. Asset Allocation', '2'),
-    ('5. Net Worth Projection', '1'),
-    ('6. Cash Flow Projection', '1'),
-    ('7. Lifetime Tax', '1'),
-    ('8. Charts Dashboard', '1'),
-    ('9. Retirement Strategy', '1'),
-    ('10. Social Security', '2'),
-    ('11. Roth Conversion', '2'),
-    ('12. Charitable Giving', '2'),
-    ('12B. Tax-Loss Harvesting', '2'),
-    ('12C. Gain Harvesting', '2'),
-    ('13. State Residency', '2'),
-    ('14. Estate Plan', '2'),
-    ('15. Market-Luck Stress Test', '3'),
-    ('16. Scenario Analysis', 'H'),
-    ('17. LTC Stress Test', '3'),
-    ('18. Survivor Stress Test', '3'),
-    ('19. Life Insurance', '3'),
-    ('20. RMD Audit', '4'),
-    ('21. Quality Control', '4'),
-    ('22. Glossary', '4'),
-    ('23. Methodology', '4'),
-    ('24. Asset Location', '2'),
-    ('25. Account Reconciliation', '4'),
-    ('26. Workbook Warnings', 'H'),
-    ('27. Planning Levers', '4'),
-    # #221: '28. Core Spending' removed -- merged into Spending Summary.
-    ('29. Spending Summary', '1'),
-    # Optional advanced planning modules (report-only; pruned when their toggle is off).
-    ('30. Education Funding', '2'),
-    ('31. Existing Life Insurance', '2'),
-    ('32. Disability Income', '2'),
-    ('33. P&C Umbrella', '2'),
-    ('34. Business Succession', '2'),
-    ('35. Equity Compensation', '2'),
-    ('36. Special-Needs Planning', '2'),
-]
+def _derive_sheet_tables(registry):
+    """Derive (V5_LAYOUT, WORKBOOK_SECTION_LAYOUT, SHEET_LETTER_ORDER,
+    SHEET_DISPLAY_TITLES) from SHEET_REGISTRY.
+    tests/test_sheet_table_consistency.py pins the resulting shape against the
+    pre-registry hand-typed tables -- if this derivation goes wrong, that test
+    (not just a build failure) is what should catch it.
+    """
+    v5_layout = [(name, spec.v5_code) for name, spec in registry.items()
+                 if spec.v5_code is not None]
+
+    by_section = defaultdict(list)
+    by_letter = defaultdict(list)
+    display_titles = {}
+    for name, spec in registry.items():
+        if spec.section is not None:
+            by_section[spec.section].append((spec.section_rank, name))
+        if spec.letter_prefix is not None:
+            by_letter[spec.letter_prefix].append((spec.letter_rank, name))
+        if spec.display is not None:
+            display_titles[name] = spec.display
+
+    section_layout = [
+        {
+            'section': _SECTION_META[code][0],
+            'code': code,
+            'description': _SECTION_META[code][1],
+            'sheets': [name for _rank, name in sorted(by_section[code])],
+        }
+        for code in sorted(_SECTION_META)
+    ]
+    letter_order = {
+        prefix: [name for _rank, name in sorted(entries)]
+        for prefix, entries in by_letter.items()
+    }
+    return v5_layout, section_layout, letter_order, display_titles
+
+
+V5_LAYOUT, WORKBOOK_SECTION_LAYOUT, SHEET_LETTER_ORDER, SHEET_DISPLAY_TITLES = (
+    _derive_sheet_tables(_SHEET_REGISTRY)
+)
 
 
 
@@ -350,7 +250,9 @@ V5_LAYOUT = [
 # Only OPTIONAL_MODULE_SHEETS/module_enabled are re-imported here - the sheet
 # builders (via the explicit imports each converted to in A8) are the only
 # things in this package that still need them; effective_enabled_modules and
-# module_status have no caller left in src/reporting.
+# module_status have no caller left in src/reporting. (SHEET_REGISTRY itself
+# was imported earlier, above WORKBOOK_SECTION_LAYOUT, since the four derived
+# sheet-identity tables need it before this point in the module.)
 from ..module_catalog import OPTIONAL_MODULE_SHEETS, module_enabled
 
 
