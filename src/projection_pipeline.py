@@ -126,10 +126,18 @@ def run_projection_pipeline(config: Mapping[str, Any], engine_project: Callable[
     if engine_project is None:
         from .planning_engines import project as engine_project
     from .observability import observe, summarize_performance_events
-    events: list[StageEvent] = []
-    for stage in DEFAULT_STAGE_ORDER:
-        events.append(StageEvent(stage=stage.name, event_type="scheduled", detail={"description": stage.description}))
-    events.append(StageEvent(stage="ProjectionEngine", event_type="started", detail={"compatibility_bridge": False, "stage_module": "projection_stages.deterministic_engine"}))
+    # System review 4.6 (projection-pipeline-is-decorative): this used to
+    # emit a "scheduled" event for all 14 DEFAULT_STAGE_ORDER stages before
+    # the single real engine call even ran -- announcing a per-stage
+    # schedule that doesn't exist (no test ever asserted on these events;
+    # they were pure decoration). The "inlined"/"completed" summary events
+    # below stay: those DO have deliberate test coverage
+    # (test_item_7_stage_pipeline_emits_stage_summaries) and are honest about
+    # what's real -- each stage's metrics come from the one engine_project()
+    # call, not independent execution, and the event says so.
+    events: list[StageEvent] = [
+        StageEvent(stage="ProjectionEngine", event_type="started", detail={"compatibility_bridge": False, "stage_module": "projection_stages.deterministic_engine"}),
+    ]
     with observe("projection_pipeline.engine_project", component="projection_pipeline", config=None):
         rows = [dict(r) for r in engine_project(config)]
     perf_summary = summarize_performance_events(list(config.get("performance_events") or [])) if isinstance(config, dict) else {}
