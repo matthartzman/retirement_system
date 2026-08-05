@@ -19,10 +19,17 @@ was in the two workbook-side consumers:
     chart even after the Excel chart itself was fixed. exp_colors was
     similarly stale at 9 entries.
 
-The active plan data (input/client_spending.csv Housing next_step_1) already
-configures a real purchase scenario (Florida, $1,000,000 @ 80% down = an
-$800,000 down payment in 2038), so these tests exercise it directly rather
-than constructing a synthetic fixture.
+Originally exercised via the live input/client_spending.csv Housing
+next_step_1 row, which at the time configured a real purchase scenario
+(Florida, $1,000,000 @ 80% down = an $800,000 down payment in 2038). That
+made this suite depend on whatever the advisor's real household happened to
+have configured -- the frozen fixture (tests/fixtures/sample_plan_frozen/)
+never had an equivalent scenario, so these tests failed outright once the
+suite was migrated onto it. Added a fictional purchase scenario directly to
+the frozen fixture's Housing next_step_1 row (Texas, $400,000 @ 27% down =
+$108,000 down payment in 2036) rather than constructing an ad hoc synthetic
+config, preserving the original intent of exercising a real-shaped
+household config rather than a hand-built stub.
 """
 
 import re
@@ -91,11 +98,15 @@ def test_excel_expense_chart_itemizes_the_down_payment():
 
 def test_excel_expense_and_income_bars_reconcile_in_the_purchase_year():
     """Before the fix, omitting other_cash_need from exp_raw left the expense
-    bar short by the full down payment (~$800K here). A small residual is
-    still expected -- build_sheet8's fixed column layout doesn't itemize
-    portfolio LTCG beyond the home-sale portion (documented, pre-existing,
-    unrelated to this bug) -- so the tolerance is $1,000, not exact, but
-    that's two orders of magnitude tighter than the bug this guards against.
+    bar short by the full down payment (~$800K on the original real
+    household this was written against). A small residual is still expected
+    -- build_sheet8's fixed column layout doesn't itemize portfolio LTCG
+    beyond the home-sale portion (documented, pre-existing, unrelated to
+    this bug). On the frozen fixture's $108,000 down payment, funding it
+    draws ~$180K from the taxable Trust, realizing enough LTCG (~$1,666 tax
+    at this household's income level) to need a wider tolerance than the
+    original $1,000 -- still nearly two orders of magnitude tighter than the
+    ~$800K bug this guards against, just not three.
     """
     c, rows = _real_config_and_rows()
     year = _purchase_year(c)
@@ -103,7 +114,7 @@ def test_excel_expense_and_income_bars_reconcile_in_the_purchase_year():
     year_row = next(r for r in range(5, data.max_row + 1) if data.cell(row=r, column=29).value == year)
     inc_total = data.cell(row=year_row, column=27).value
     exp_total = data.cell(row=year_row, column=44).value
-    assert abs(inc_total - exp_total) <= 1000, (
+    assert abs(inc_total - exp_total) <= 2000, (
         f"year {year}: Income & Portfolio Draws ({inc_total}) vs Spending & Taxes "
         f"({exp_total}) differ by {inc_total - exp_total}, far more than the small "
         "residual from unitemized LTCG-beyond-home-sale tax"

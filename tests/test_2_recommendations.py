@@ -75,12 +75,13 @@ class RecommendationCompletionTests(unittest.TestCase):
         self.assertEqual((rows[0]['year'], rows[-1]['year'], len(rows)), (2026, 2056, 31))
         # Warn-only: report drift, never fail. See _warn_on_baseline_drift.
         _warn_on_baseline_drift([
-            # Regenerated 2026-08-05 (system review Wave 3.7 final regen,
-            # same figures documented in test_199's PINNED_* block and
-            # GOLDEN_MASTER_CHANGELOG.md). Warn-only, so this update is
-            # hygiene, not a required fix.
-            ('terminal_total_nw', rows[-1]['total_nw'], 6_995_542.24),
-            ('lifetime_tax', sum(r['total_tax'] for r in rows), 1_362_412.33),
+            # Regenerated 2026-08-05 (fixture data change: added a home-
+            # purchase scenario to the frozen fixture's Housing next_step_1
+            # -- see test_199's PINNED_* block and GOLDEN_MASTER_CHANGELOG.md
+            # for the full history). Warn-only, so this update is hygiene,
+            # not a required fix.
+            ('terminal_total_nw', rows[-1]['total_nw'], 5_824_239.30),
+            ('lifetime_tax', sum(r['total_tax'] for r in rows), 1_290_848.91),
         ])
 
     def test_fixed_point_taxable_withdrawal_solver_runs_before_roth(self):
