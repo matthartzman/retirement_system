@@ -34,6 +34,7 @@ separates the two that used to blur together:
 from __future__ import annotations
 
 import os
+from collections import namedtuple
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
@@ -520,48 +521,106 @@ def prerequisite_outputs(key: str, transitive: bool = True) -> List[str]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Optional-module gating (A9 — moved from src/reporting/workbook_common.py)
+# Sheet registry (system review 2026-08-04, architect finding
+# `sheet-identity-scattered-across-five-tables`)
 # ─────────────────────────────────────────────────────────────────────────────
-# OPTIONAL_MODULE_SHEETS maps each client_optional_functions.csv toggle key to
-# the legacy build-time sheet name(s) it owns. workbook_builder skips both the
-# computation and the build_sheetN() call when a module is disabled, and
-# prunes the final workbook layout so section dividers never link to a
-# removed sheet. Keys NOT listed here are always-on core sheets (Executive
-# Summary, Balance Sheet, Cash Flow, Asset Allocation, Planning Levers, QC,
-# Plan Data, …) and are never dropped.
+# Sheet identity used to be hand-typed across five places: this module's
+# OPTIONAL_MODULE_SHEETS, plus workbook_common.py's V5_LAYOUT,
+# WORKBOOK_SECTION_LAYOUT, SHEET_LETTER_ORDER, and SHEET_DISPLAY_TITLES. Adding
+# a sheet meant editing all five and hoping none drifted. SHEET_REGISTRY is now
+# the one place a sheet's identity is declared; every one of those five tables
+# is derived from it (OPTIONAL_MODULE_SHEETS immediately below; the other four
+# in workbook_common.py). tests/test_sheet_table_consistency.py is the safety
+# net that pins the derived shape against the pre-registry hand-typed one.
 #
-# This lives here (not workbook_common.py) so config_service and other API
-# callers that need per-module gating status (module_status, below) can get
-# it without importing the openpyxl-backed reporting package — workbook_common
-# imports these back from here instead of owning them.
-OPTIONAL_MODULE_SHEETS = {
-    'lifetime_tax_projection':  ['7. Lifetime Tax'],
-    'charts_dashboard':         ['8. Charts Dashboard'],
-    'retirement_strategy':      ['9. Retirement Strategy'],
-    'social_security_timing':   ['10. Social Security'],
-    'roth_conversion_plan':     ['11. Roth Conversion'],
-    'charitable_giving':        ['12. Charitable Giving'],
-    'tax_loss_harvesting':      ['12B. Tax-Loss Harvesting'],
-    'gain_harvesting':          ['12C. Gain Harvesting'],
-    'state_residency':          ['13. State Residency'],
-    'estate_legacy_plan':       ['14. Estate Plan'],
-    'market_luck_stress_test':  ['15. Market-Luck Stress Test'],
-    'what_if_analysis':         ['16. Scenario Analysis'],
-    'long_term_care_stress':    ['17. LTC Stress Test'],
-    'survivor_stress_test':     ['18. Survivor Stress Test'],
-    'life_insurance_need':      ['19. Life Insurance'],
-    'rmd_audit':                ['20. RMD Audit'],
-    'glossary':                 ['22. Glossary'],
-    'methodology_rerun':        ['23. Methodology'],
-    # Advanced planning modules (report-only).
-    'education_funding_529':        ['30. Education Funding'],
-    'existing_life_insurance':      ['31. Existing Life Insurance'],
-    'disability_income_insurance':  ['32. Disability Income'],
-    'property_casualty_umbrella':   ['33. P&C Umbrella'],
-    'business_succession':          ['34. Business Succession'],
-    'equity_compensation':          ['35. Equity Compensation'],
-    'special_needs_planning':       ['36. Special-Needs Planning'],
+# Lives here (not workbook_common.py) for the same reason OPTIONAL_MODULE_SHEETS
+# always has: config_service and other API callers need per-module gating
+# status (module_status, below) without importing the openpyxl-backed
+# reporting package — workbook_common imports these back from here.
+#
+# Fields:
+#   v5_code       -- section code used by the legacy build-time V5_LAYOUT list,
+#                    or None for sheets created by a dedicated code path
+#                    instead of the main creation loop ('Plan Data', 'S-Corp
+#                    vs LLC').
+#   section       -- physical tab-group code in WORKBOOK_SECTION_LAYOUT, or
+#                    None for sheets absent from the visible nav (hidden
+#                    helpers, plus a few reports intentionally excluded).
+#   section_rank  -- display order within `section`, independent of
+#                    letter_rank -- e.g. '27. Planning Levers' physically sits
+#                    in section '4' but is lettered as if it were in '2'.
+#   letter_prefix -- number-prefix group in SHEET_LETTER_ORDER, or None.
+#   letter_rank   -- display order within `letter_prefix`.
+#   display       -- title after "1A. " in the final sheet name, or None if
+#                    the sheet never appears in the final numbered/lettered
+#                    nav.
+#   module_key    -- OPTIONAL_MODULE_SHEETS gating key, or None if always-on.
+SheetSpec = namedtuple(
+    'SheetSpec',
+    'v5_code section section_rank letter_prefix letter_rank display module_key',
+)
+
+
+def _spec(v5_code=None, section=None, section_rank=None, letter_prefix=None,
+          letter_rank=None, display=None, module_key=None):
+    return SheetSpec(v5_code, section, section_rank, letter_prefix, letter_rank,
+                      display, module_key)
+
+
+SHEET_REGISTRY = {
+    '1. Executive Summary':        _spec('1', '1', 0, '1', 0, 'Executive Summary'),
+    'Plan Data':                   _spec(None, '4', 0, '4', 0, 'Plan Data'),
+    '2. Assumptions':              _spec('4', '4', 1, '4', 1, 'Assumptions'),
+    '3. Balance Sheet':            _spec('1', '1', 3, '1', 3, 'Balance Sheet'),
+    '4. Asset Allocation':         _spec('2', '2', 1, '2', 1, 'Asset Allocation'),
+    '5. Net Worth Projection':     _spec('1', '1', 1, '1', 1, 'Net Worth'),
+    '6. Cash Flow Projection':     _spec('1', '1', 2, '1', 2, 'Cash Flow'),
+    '7. Lifetime Tax':             _spec('1', '1', 5, '1', 5, 'Lifetime Taxes', 'lifetime_tax_projection'),
+    '8. Charts Dashboard':         _spec('1', '1', 4, '1', 4, 'Charts', 'charts_dashboard'),
+    '9. Retirement Strategy':      _spec('1', module_key='retirement_strategy'),
+    'S-Corp vs LLC':               _spec(None, '2', 4, '2', 4, 'S-Corp vs LLC'),
+    '10. Social Security':         _spec('2', '2', 3, '2', 3, 'Social Security', 'social_security_timing'),
+    '11. Roth Conversion':         _spec('2', '2', 0, '2', 0, 'Roth Conversion', 'roth_conversion_plan'),
+    '12. Charitable Giving':       _spec('2', '2', 5, '2', 5, 'Charitable Giving', 'charitable_giving'),
+    '12B. Tax-Loss Harvesting':    _spec('2', '2', 7, '2', 8, 'Tax-Loss Harvesting', 'tax_loss_harvesting'),
+    '12C. Gain Harvesting':        _spec('2', '2', 8, '2', 13, 'Gain Harvesting', 'gain_harvesting'),
+    '13. State Residency':         _spec('2', '2', 2, '2', 2, 'State Residency', 'state_residency'),
+    '14. Estate Plan':             _spec('2', '2', 6, '2', 6, 'Estate & Legacy Planning', 'estate_legacy_plan'),
+    '15. Market-Luck Stress Test': _spec('3', '3', 0, '3', 0, 'Monte Carlo', 'market_luck_stress_test'),
+    '16. Scenario Analysis':       _spec('H', module_key='what_if_analysis'),
+    '17. LTC Stress Test':         _spec('3', module_key='long_term_care_stress'),
+    '18. Survivor Stress Test':    _spec('3', '3', 1, '3', 1, 'Survivor', 'survivor_stress_test'),
+    '19. Life Insurance':          _spec('3', '3', 2, '3', 2, 'LTC + Life Insurance', 'life_insurance_need'),
+    '20. RMD Audit':               _spec('4', '4', 5, '4', 4, 'RMD Audit', 'rmd_audit'),
+    '21. Quality Control':         _spec('4', '4', 4, '4', 3, 'Quality Control'),
+    '22. Glossary':                _spec('4', '4', 7, '4', 6, 'Glossary', 'glossary'),
+    '23. Methodology':             _spec('4', '4', 6, '4', 5, 'Methodology', 'methodology_rerun'),
+    '24. Asset Location':          _spec('2'),
+    '25. Account Reconciliation':  _spec('4', '4', 3, '4', 2, 'Account Reconciliation'),
+    '26. Workbook Warnings':       _spec('H'),
+    '27. Planning Levers':         _spec('4', '4', 2, '2', 7, 'Planning Levers'),
+    '29. Spending Summary':        _spec('1', '1', 6, '1', 6, 'Spending Summary'),
+    '30. Education Funding':       _spec('2', '2', 9, '2', 9, 'Education Funding', 'education_funding_529'),
+    '31. Existing Life Insurance': _spec('2', '2', 13, '3', 3, 'Existing Life Insurance', 'existing_life_insurance'),
+    '32. Disability Income':       _spec('2', '2', 14, '3', 4, 'Disability Income', 'disability_income_insurance'),
+    '33. P&C Umbrella':            _spec('2', '2', 15, '3', 5, 'P&C Umbrella', 'property_casualty_umbrella'),
+    '34. Business Succession':     _spec('2', '2', 12, '2', 12, 'Business Succession', 'business_succession'),
+    '35. Equity Compensation':     _spec('2', '2', 10, '2', 10, 'Equity Compensation', 'equity_compensation'),
+    '36. Special-Needs Planning':  _spec('2', '2', 11, '2', 11, 'Special-Needs Planning', 'special_needs_planning'),
 }
+
+# OPTIONAL_MODULE_SHEETS maps each client_optional_functions.csv toggle key to
+# the legacy build-time sheet name(s) it owns, derived from SHEET_REGISTRY.
+# workbook_builder skips both the computation and the build_sheetN() call when
+# a module is disabled, and prunes the final workbook layout so section
+# dividers never link to a removed sheet. Keys with module_key=None are
+# always-on core sheets (Executive Summary, Balance Sheet, Cash Flow, Asset
+# Allocation, Planning Levers, QC, Plan Data, …) and are never dropped.
+OPTIONAL_MODULE_SHEETS: Dict[str, List[str]] = {}
+for _sheet_name, _sheet_spec in SHEET_REGISTRY.items():
+    if _sheet_spec.module_key:
+        OPTIONAL_MODULE_SHEETS.setdefault(_sheet_spec.module_key, []).append(_sheet_name)
+del _sheet_name, _sheet_spec
 
 
 def _force_disabled(key):

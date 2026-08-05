@@ -1,4 +1,3 @@
-import ast
 import zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -11,15 +10,6 @@ def _sheet_names(xlsx_path: Path):
     with zipfile.ZipFile(xlsx_path) as zf:
         root = ET.fromstring(zf.read("xl/workbook.xml"))
     return [s.attrib["name"] for s in root.find("a:sheets", ns)]
-
-
-def _source_constant(name: str):
-    tree = ast.parse(Path("src/reporting/workbook_common.py").read_text(encoding="utf-8"))
-    for node in tree.body:
-        if isinstance(node, ast.Assign):
-            if any(isinstance(t, ast.Name) and t.id == name for t in node.targets):
-                return ast.literal_eval(node.value)
-    raise AssertionError(f"Missing {name} constant")
 
 
 @pytest.mark.slow
@@ -55,8 +45,12 @@ def test_source_layout_declares_same_numbered_areas():
     # #209/#210/#212/#228: WORKBOOK_SECTION_LAYOUT now lists each sheet's
     # STABLE (build-time) name -- letters (1A, 2E, 3C, 4G, ...) are computed
     # fresh per build from whichever sheets survive module gating, not
-    # hard-coded here.
-    layout = _source_constant("WORKBOOK_SECTION_LAYOUT")
+    # hard-coded here. System review 2026-08-04 (`sheet-identity-scattered-
+    # across-five-tables`, Wave 4.3): the table is now derived at import time
+    # from module_catalog.SHEET_REGISTRY, so this reads the live runtime
+    # value rather than parsing source text for a literal that no longer
+    # exists as one.
+    from src.reporting.workbook_common import WORKBOOK_SECTION_LAYOUT as layout
     assert [a["section"] for a in layout] == [
         "1. Reports",
         "2. Optimizers",
