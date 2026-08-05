@@ -198,6 +198,26 @@ def build_sheet23(ws, c):
             'Success = no unfunded annual spending gap and liquid retirement assets remain above the configured floor in every projected year.',
             'Sheet 15 reports both arithmetic and geometric sampled returns plus P5/P25/P50/P75/P95 bands.',
         ]),
+        # Moved from Sheet 4 (Asset Allocation), system review 2026-08-04
+        # follow-up: six fully static, client-independent steps that were
+        # re-rendered unchanged on every build belong with the plan's other
+        # evergreen how-to content, not repeated in a client-specific sheet.
+        ('Tax-Efficient Rebalancing Sequence', [
+            '1. New contributions first: direct new 401k/IRA/HSA contributions to underweight buckets. No tax event — just redirect future dollars. Example: if Roth is underweight AVUV, direct new Roth contributions to AVUV instead of current holdings.',
+            '2. Rebalance within tax-advantaged accounts: sell overweight and buy underweight within each IRA, 401k, Roth, and HSA. No capital gains tax on trades inside these accounts. This is the primary rebalancing mechanism — do these trades first.',
+            '3. Use dividends and distributions: reinvest dividends into underweight buckets rather than the same fund. Over time this naturally rebalances without selling. Turn off auto-reinvest in overweight funds; redirect to underweight funds in the same account.',
+            '4. Tax-loss harvest in taxable accounts: if a taxable holding has unrealized losses, sell it and buy a similar (not "substantially identical") fund in the target bucket. Example: sell ITOT (at a loss) and buy VTI — both are US Large but not identical. Harvest the loss.',
+            '5. Sell overweight taxable positions (last resort): if the above steps don\'t close the gap, sell overweight positions in taxable accounts. LTCG tax applies. Prioritize lots held >1 year (LTCG rate 15-20%) over short-term lots (ordinary income rate).',
+            '6. Gradual rebalancing over time: you don\'t need to reach target in one trade. Spread rebalancing over 2-3 years to smooth tax impact. Each year: execute steps 1-4, then reassess. Only do step 5 if significantly out of band (>5% delta).',
+        ]),
+        # Moved from Sheet 4 (Asset Allocation), system review 2026-08-04
+        # follow-up: same reasoning as above -- a static lookup table, not
+        # derived from the household's actual accounts.
+        ('Asset Location Guidance', [
+            'Tax-Deferred (IRA/401k) → Bonds, REITs, High-turnover funds, PDBC (commodities). Rationale: interest/dividends shielded from current tax.',
+            'Roth (Tax-Free) → Highest-growth assets (AVUV, VBR small-cap). Rationale: growth compounds tax-free; no RMD.',
+            'Taxable Trust → Tax-efficient equity (ITOT, VTI, IXUS, VXUS). Rationale: qualified dividends + LTCG rates; step-up at death.',
+        ]),
         ('Re-Run Instructions', [
             '1. Edit the split client_*.csv files (UTF-8 encoding required — no CP1252 special chars).',
             '2. Ensure Python 3.9+, openpyxl, numpy, scipy, requests are installed.',
