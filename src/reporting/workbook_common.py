@@ -149,6 +149,7 @@ from ..planning_engines import project  # consolidated from projection_engine
 from ..planning_engines import monte_carlo  # consolidated from monte_carlo_engine
 from ..planning_engines import optimize_roth_conversion_strategy
 from ..planning_engines import run_scenario  # shared deepcopy+override+project helper (Wave 4.4)
+from ..planning_engines import essential_discretionary_floor_check  # Wave 5.5
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 9.  WORKBOOK BUILDER
