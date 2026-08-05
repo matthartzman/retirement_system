@@ -288,20 +288,53 @@ def _request_system_config_csv() -> Path:
     return target
 
 
-# Local auth-identity helpers (_bootstrap_workspace, _bootstrap_client,
-# _candidate_token, _html_request, _public_path, _has_bearer_or_api_header,
-# _cookie_secure_for_request, _set_auth_cookie, _clear_auth_cookie,
-# _identity_from_token, _authorized_and_identity, _current_user,
-# _workspace_id, _client_id, _workspace_output) and audit-log helpers
-# (_audit, _admin_change_log_path_for, _last_build_metadata_path_for,
-# _row_key_for_change, _summarize_csv_row_changes, _record_admin_config_change,
-# _admin_changes_between, _read_last_build_timestamp,
-# _write_last_build_metadata) now live in security_audit.py, combined into
-# one file due to bidirectional call coupling between the two clusters.
+# Local auth-identity helpers and audit-log helpers live in security_audit.py,
+# combined into one file due to bidirectional call coupling between the two
+# clusters (see that file's own top-of-file comment). Several more names are
+# defined there too (_bootstrap_workspace, _bootstrap_client,
+# _candidate_token, _has_bearer_or_api_header, _cookie_secure_for_request,
+# _set_auth_cookie, _clear_auth_cookie, _identity_from_token,
+# _admin_change_log_path_for, _last_build_metadata_path_for,
+# _row_key_for_change, _summarize_csv_row_changes) but are used only
+# internally within security_audit.py's own functions -- never re-exported
+# here, since nothing outside that file needs them (system review 4.9,
+# verified via AST analysis of every name app_core.py/admin_routes.py/
+# base_routes.py/workbook_routes.py/plan_routes.py actually load that isn't
+# locally defined or otherwise imported).
 try:
-    from .security_audit import *  # noqa: F401,F403
+    from .security_audit import (
+        _admin_changes_between,
+        _audit,
+        _bootstrap_workspace,
+        _authorized_and_identity,
+        _client_id,
+        _csrf_token_for_current_request,
+        _current_user,
+        _html_request,
+        _public_path,
+        _read_last_build_timestamp,
+        _record_admin_config_change,
+        _workspace_id,
+        _workspace_output,
+        _write_last_build_metadata,
+    )
 except ImportError:
-    from src.server.security_audit import *  # noqa: F401,F403
+    from src.server.security_audit import (
+        _admin_changes_between,
+        _audit,
+        _bootstrap_workspace,
+        _authorized_and_identity,
+        _client_id,
+        _csrf_token_for_current_request,
+        _current_user,
+        _html_request,
+        _public_path,
+        _read_last_build_timestamp,
+        _record_admin_config_change,
+        _workspace_id,
+        _workspace_output,
+        _write_last_build_metadata,
+    )
 
 
 def _spending_budget_csv_path() -> Path:
