@@ -607,6 +607,7 @@ SHEET_REGISTRY = {
     '34. Business Succession':     _spec('2', '2', 12, '2', 12, 'Business Succession', 'business_succession'),
     '35. Equity Compensation':     _spec('2', '2', 10, '2', 10, 'Equity Compensation', 'equity_compensation'),
     '36. Special-Needs Planning':  _spec('2', '2', 11, '2', 11, 'Special-Needs Planning', 'special_needs_planning'),
+    '37. Current vs Proposed':     _spec('1', '1', 7, '1', 7, 'Current vs. Proposed'),
 }
 
 # OPTIONAL_MODULE_SHEETS maps each client_optional_functions.csv toggle key to

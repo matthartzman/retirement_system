@@ -57,6 +57,7 @@ from .sheets_stress import build_sheet15, build_sheet16, build_sheet17, build_sh
 from .sheets_protection import build_existing_life, build_disability, build_pc_umbrella
 from .sheets_wealth import build_education_funding, build_equity_comp, build_special_needs, build_business_succession
 from .sheets_qc_reference import validate_all, build_sheet21, build_sheet22, build_sheet23, build_sheet24, account_reconciliation_rows, build_sheet25
+from .sheets_current_vs_proposed import build_sheet_current_vs_proposed
 from .dashboard import post_save_patch, build_html_dashboard
 from ..governance import advisor_readiness, source_citations, tax_law_dashboard, stress_narratives, workbook_consistency_warnings
 from ..after_tax import estimate_after_tax_terminal_net_worth
@@ -1022,6 +1023,8 @@ def main():
     build_sheet25(sheets['25. Account Reconciliation'], c, rows)
     print('  Sheet 29 — Spending Summary (taxonomy)')
     build_sheet_spending_summary(sheets['29. Spending Summary'], c)
+    print('  Sheet 37 — Current vs. Proposed')
+    build_sheet_current_vs_proposed(sheets['37. Current vs Proposed'], c, rows)
     if '26. Workbook Warnings' in sheets:
         print('  Sheet 26 — Workbook Warnings')
         build_sheet26_workbook_warnings(sheets['26. Workbook Warnings'], c, rows)

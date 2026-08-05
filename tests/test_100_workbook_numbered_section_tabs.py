@@ -20,6 +20,7 @@ def test_workbook_uses_numbered_sections_and_lettered_children(built_workbook_pa
         # sheet/letter for it anymore, so Spending Summary is densely 1G
         # (not the old static 1H).
         '1G. Spending Summary',
+        '1H. Current vs. Proposed',
         '2. Optimizers',
         '2A. Roth Conversion',
         '2B. Asset Allocation',

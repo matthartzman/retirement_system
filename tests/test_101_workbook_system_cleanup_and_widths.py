@@ -18,6 +18,7 @@ def test_system_section_uses_clean_sheet_sequence_without_feature_toggle(built_w
         '1. Reports','1A. Executive Summary','1B. Net Worth','1C. Cash Flow','1D. Balance Sheet','1E. Charts','1F. Lifetime Taxes',
         # #221: Core Spending merged into Spending Summary -- densely 1G now.
         '1G. Spending Summary',
+        '1H. Current vs. Proposed',
         # #209/#210/#212/#228: 2J (not the old static 2N) -- this fixture's
         # plan has the advanced modules off, so Gain Harvesting fills the gap
         # densely instead of leaving one.
