@@ -502,9 +502,70 @@ horizon-only Monte Carlo with stochastic death years while retaining the plan's
 configured mortality ages as the median expectation.
 """
 
+import csv as _mortality_csv
 import math
 import random
 from typing import Mapping
+
+_MORTALITY_TABLE_CACHE = None
+
+
+def _mortality_qx_table():
+    """Load reference_data/mortality_table.csv, cached for the process.
+
+    {age: (male_qx, female_qx)}, ages 18-119. See the CSV's own notes column
+    for provenance: SSA Actuarial Study No. 124 anchors at 5-year ages,
+    log-linearly interpolated/extrapolated to single-year granularity.
+    System review C4 (mortality-gaussian-not-life-table).
+    """
+    global _MORTALITY_TABLE_CACHE
+    if _MORTALITY_TABLE_CACHE is not None:
+        return _MORTALITY_TABLE_CACHE
+    from . import platform_runtime as _pr
+    table = {}
+    path = _pr.package_root() / 'reference_data' / 'mortality_table.csv'
+    try:
+        with path.open(newline='', encoding='utf-8-sig') as f:
+            for row in _mortality_csv.DictReader(f):
+                age = int(row['age'])
+                table[age] = (float(row['male_qx']), float(row['female_qx']))
+    except Exception:
+        table = {}
+    _MORTALITY_TABLE_CACHE = table
+    return table
+
+
+def _mortality_qx(age: int, sex_idx: int) -> float:
+    table = _mortality_qx_table()
+    if not table:
+        return 1.0 if age >= 110 else 0.01  # degrades to "eventually dies" if the CSV is missing
+    ages = sorted(table.keys())
+    clamped = max(ages[0], min(ages[-1], int(age)))
+    return table[clamped][sex_idx]
+
+
+def _population_median_age(sex_idx: int) -> float:
+    """Age at which unconditional survival from the table's first age crosses 50%."""
+    table = _mortality_qx_table()
+    if not table:
+        return 80.0
+    ages = sorted(table.keys())
+    survival = 1.0
+    for age in ages:
+        survival *= (1.0 - table[age][sex_idx])
+        if survival <= 0.5:
+            return float(age)
+    return float(ages[-1])
+
+
+def _age_shift_for_member(m: Mapping, sex_idx: int) -> float:
+    """Calibrate the population table to this household member's own assumed
+    median lifespan (c[..._mort_age]), preserving the user's own longevity
+    input while replacing the age-varying SHAPE of the hazard curve -- the
+    actual defect: the old model had near-zero probability of death before
+    80 and exactly zero below 70, regardless of what the user configured."""
+    configured_median = float(m.get('mortality_age', 92) or 92)
+    return configured_median - _population_median_age(sex_idx)
 
 
 def sample_death_year(c: Mapping, owner_idx: int, rng: random.Random) -> int:
@@ -513,13 +574,21 @@ def sample_death_year(c: Mapping, owner_idx: int, rng: random.Random) -> int:
         return int(c.get('plan_start', 0))
     m = members[owner_idx]
     dob = int(m.get('dob_yr', c.get('h_dob_yr', 1960)))
-    median_age = float(m.get('mortality_age', 92))
-    # Approximate adult survival uncertainty with a bounded normal around the
-    # user-provided mortality assumption. This is a placeholder for SSA/SOA
-    # table calibration, but it makes longevity stochastic and path-aware.
-    sampled_age = rng.gauss(median_age, float(c.get('mortality_sigma', 4.5)))
-    sampled_age = max(70.0, min(110.0, sampled_age))
-    return int(round(dob + sampled_age))
+    sex_idx = 0 if owner_idx == 0 else 1  # h=male col, w=female col by registry convention
+    shift = _age_shift_for_member(m, sex_idx)
+    plan_start = int(c.get('plan_start', dob + 60) or dob + 60)
+    current_age = max(18, plan_start - dob)
+    age = current_age
+    # Year-by-year Bernoulli survival trial from the household's current age,
+    # using the shifted table so the shape is age-realistic (rising hazard,
+    # not a symmetric bell curve) while the calibrated median still matches
+    # the user's own mortality_age assumption.
+    while age < 119:
+        qx = _mortality_qx(age - shift, sex_idx)
+        if rng.random() < qx:
+            return dob + age
+        age += 1
+    return dob + 119
 
 
 def sample_household_death_years(c: Mapping, rng: random.Random) -> dict:
@@ -2717,20 +2786,44 @@ def _mc_row_bucket_flows(c: dict, base_rows: list[dict]) -> dict:
     return out
 
 
+def _mc_vectorized_sample_death_ages(c: dict, np_rng, n_sims: int, m: Mapping, sex_idx: int, dob: int, plan_start: int):
+    """Vectorized counterpart of sample_death_year: an age-by-age Bernoulli
+    survival walk across all n_sims at once, using the same shifted SSA/SOA
+    table sample_death_year uses (System review C4 -- this is the SECOND,
+    independently-drawing sampler the original panel review missed; a fix
+    applied only to sample_death_year would leave every number the vectorized
+    MC path actually produces unchanged. See §2.5's re-assessment)."""
+    import numpy as _np
+    shift = _age_shift_for_member(m, sex_idx)
+    current_age = max(18, int(plan_start) - int(dob))
+    death_age = _np.full(n_sims, 119, dtype=int)
+    alive = _np.ones(n_sims, dtype=bool)
+    for age in range(current_age, 119):
+        if not alive.any():
+            break
+        qx = _mortality_qx(age - shift, sex_idx)
+        draws = np_rng.random(n_sims)
+        died_this_year = alive & (draws < qx)
+        death_age[died_this_year] = age
+        alive &= ~died_this_year
+    return death_age
+
+
 def _mc_vectorized_death_years(c: dict, np_rng, n_sims: int):
     import numpy as _np
     members = c.get('members') or []
-    sigma = max(0.0, float(c.get('mortality_sigma', 4.5) or 4.5))
+    plan_start = int(c.get('plan_start', 0) or 0)
     if members:
         h_dob = int(members[0].get('dob_yr', c.get('h_dob_yr', 1960)))
-        h_med = float(members[0].get('mortality_age', c.get('h_death_age', 92)) or 92)
+        h_ages = _mc_vectorized_sample_death_ages(c, np_rng, n_sims, members[0], 0, h_dob, plan_start)
     else:
-        h_dob, h_med = int(c.get('h_dob_yr', 1960)), 92.0
-    h = _np.rint(h_dob + _np.clip(np_rng.normal(h_med, sigma, size=n_sims), 70.0, 110.0)).astype(int)
+        h_dob = int(c.get('h_dob_yr', 1960))
+        h_ages = _mc_vectorized_sample_death_ages(c, np_rng, n_sims, {}, 0, h_dob, plan_start)
+    h = h_dob + h_ages
     if len(members) > 1:
         w_dob = int(members[1].get('dob_yr', c.get('w_dob_yr', 1960)))
-        w_med = float(members[1].get('mortality_age', c.get('w_death_age', 92)) or 92)
-        w = _np.rint(w_dob + _np.clip(np_rng.normal(w_med, sigma, size=n_sims), 70.0, 110.0)).astype(int)
+        w_ages = _mc_vectorized_sample_death_ages(c, np_rng, n_sims, members[1], 1, w_dob, plan_start)
+        w = w_dob + w_ages
     else:
         w = h.copy()
     return h, w, _np.maximum(h, w)
