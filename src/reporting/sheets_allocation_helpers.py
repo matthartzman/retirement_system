@@ -920,6 +920,11 @@ def _build_global_tax_aware_rebalance_trades(c, invest_positions, bucket_map, et
 def build_sheet4(ws, c, rows=None):
     """Asset Allocation"""
     ws.sheet_view.showGridLines = False
+    # Per-account detail (holdings, before/after) is row-grouped and collapsed
+    # by default -- the account/summary row sits above its own detail here,
+    # so the +/- expand control belongs above the group, not below it.
+    ws.sheet_properties.outlinePr.summaryBelow = False
+    ws.sheet_view.showOutlineSymbols = True
     section_title(ws, 1, 'ASSET ALLOCATION & LOCATION', 8)
     _selected_mode = _ap.normalize_allocation_mode(c.get('allocation_selection_mode', 'user_target'))
     _allocation_recommendation_source = (
@@ -1094,6 +1099,8 @@ def build_sheet4(ws, c, rows=None):
     re_covered_full = re_tgt > 0 and re_total_pct >= re_tgt - 0.0005
 
     # Liquid holdings by bucket, plus cash, sorted by current value descending.
+    # Action mirrors the current-vs-target drift check that used to live only
+    # in the separate "Liquid Portfolio: Target vs Actual" table.
     mix_rows = []
     for bucket in BUCKET_TARGETS.keys():
         if bucket == 'Cash':
@@ -1102,34 +1109,47 @@ def build_sheet4(ws, c, rows=None):
         pct = act_val / total_portfolio if total_portfolio > 0 else 0
         tgt = TOTAL_TARGETS.get(bucket, TOTAL_TARGETS.get(bucket.replace('/Value',''), 0))
         status = _status_for_bucket(bucket, pct, tgt, fi_covered_full, re_covered_full)
-        mix_rows.append((bucket, act_val, pct, 'Liquid', tgt, status, False))
+        if bucket in FIXED_INCOME_BUCKETS and fi_covered_full:
+            action = 'Covered'
+        elif bucket in REAL_ESTATE_BUCKETS and re_covered_full:
+            action = 'Covered'
+        else:
+            action = 'Rebalance' if abs(pct - tgt) > 0.02 else 'Hold'
+        mix_rows.append((bucket, act_val, pct, 'Liquid', tgt, status, False, action))
 
     cash_total = sum(h.get('CASH', 0) * 1.0 for h in _invest_positions.values())
     cash_tgt = TOTAL_TARGETS.get('Cash', 0.0)
     cash_pct = cash_total / total_portfolio if total_portfolio > 0 else 0
     cash_status = _status_for_bucket('Cash', cash_pct, cash_tgt, fi_covered_full, re_covered_full)
     if cash_total > 0 or cash_tgt > 0:
-        mix_rows.append(('Cash', cash_total, cash_pct, 'Liquid', cash_tgt, cash_status, False))
+        cash_action = 'Rebalance' if (cash_tgt and abs(cash_pct - cash_tgt) > 0.02) else 'Hold'
+        mix_rows.append(('Cash', cash_total, cash_pct, 'Liquid', cash_tgt, cash_status, False, cash_action))
 
     # Non-liquid assets. Fixed-income and real-estate coverage are evaluated at
     # the overall coverage sleeve level, so liquid sub-sleeves are not marked
     # Under when the non-liquid coverage already exceeds the recommended target.
+    # Non-liquid rows have no trade to place, so Action reads Covered/Monitor/
+    # "—" rather than Rebalance/Hold.
     for label, value, asset_type in nonliquid_assets:
         pct = value / total_portfolio if total_portfolio > 0 else 0
         tgt_key = 'Bonds/Fixed Income' if 'Fixed' in label else 'REITs/Real Estate'
         tgt = TOTAL_TARGETS.get(tgt_key, 0)
         if 'Fixed' in label and fi_covered_full:
             status = '✓ Covered'
+            action = 'Covered'
         elif ('Real Estate' in label or 'Home Equity' in label) and re_covered_full:
             status = '✓ Covered'
+            action = 'Covered'
         elif not tgt:
             status = 'Shown for context; no liquid target'
+            action = '—'
         else:
             delta = pct - tgt
             status = '✓ Covered' if pct >= tgt else ('✓ Mostly covered' if pct >= tgt * 0.8 else f'Under {abs(delta):.1%}')
-        mix_rows.append((label, value, pct, 'Non-liquid', tgt, status, True))
+            action = 'Covered' if pct >= tgt else 'Monitor'
+        mix_rows.append((label, value, pct, 'Non-liquid', tgt, status, True, action))
 
-    for label, value, pct, asset_type, tgt, status, bold_row in sorted(mix_rows, key=lambda x: (-x[1], str(x[0]))):
+    for label, value, pct, asset_type, tgt, status, bold_row, action in sorted(mix_rows, key=lambda x: (-x[1], str(x[0]))):
         _total_mix_rows[label] = r
         _total_mix_types[label] = asset_type
         _total_mix_targets[label] = tgt
@@ -1145,7 +1165,7 @@ def build_sheet4(ws, c, rows=None):
         write_cell(ws, r, 8, status)
         write_cell(ws, r, 9, '')
         write_cell(ws, r, 10, '')
-        write_cell(ws, r, 11, '')
+        write_cell(ws, r, 11, action)
         r += 1
 
     # Total row
@@ -1292,45 +1312,24 @@ def build_sheet4(ws, c, rows=None):
 
     r += 1
 
-    # ── Liquid Portfolio: Target vs Actual (growth/diversifier sleeve optimization) ───
-    write_hdr(ws, r, 1, 'Liquid Portfolio: Target vs Actual', NAVY, WHITE, span=6)
-    r += 1
-    write_cell(ws, r, 1, f'Asset allocation recommendation source: {_allocation_recommendation_source}. The selected target, target-vs-actual table, and rebalance guidance use this source. Cash is included as its own class. The UI requires user-specified target percentages to total 100% before saving or building.')
+    # ── Liquid sleeve detail (feeds ETF Ideas below) ──────────────────────
+    # System review 2026-08-04 follow-up: this used to be its own "Liquid
+    # Portfolio: Target vs Actual" table -- Target %/Actual $/Actual %/Action
+    # are the same data already in Total Portfolio Mix above (Action is now a
+    # column there). Only underrepresented_buckets is still needed here.
+    write_cell(ws, r, 1, f'Asset allocation recommendation source: {_allocation_recommendation_source}. The Total Portfolio Mix table above and rebalance guidance below use this source. Cash is included as its own class. The UI requires user-specified target percentages to total 100% before saving or building.')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6)
-    r += 1
-    hdrs = ['Bucket','Target %','Actual $','Actual %','Delta pp','Action']
-    for i, h in enumerate(hdrs, 1):
-        write_hdr(ws, r, i, h, DGRAY, WHITE)
-    r += 1
+    r += 2
     liquid_display_buckets = sorted(set(BUCKET_TARGETS.keys()), key=lambda b: (-actual_buckets.get(b, 0), str(b)))
     underrepresented_buckets = []
     for bucket in liquid_display_buckets:
         tgt = BUCKET_TARGETS.get(bucket, 0)
         act_val = actual_buckets.get(bucket, 0)
-        act_pct = act_val / total_port if total_port > 0 else 0
-        delta = act_pct - tgt
-        if bucket in FIXED_INCOME_BUCKETS and fi_covered_full:
-            action = 'Covered'
-            delta_to_write = 0
-        elif bucket in REAL_ESTATE_BUCKETS and re_covered_full:
-            action = 'Covered'
-            delta_to_write = 0
-        else:
-            action = 'Rebalance' if abs(delta) > 0.02 else 'Hold'
-            delta_to_write = delta
+        covered = (bucket in FIXED_INCOME_BUCKETS and fi_covered_full) or (bucket in REAL_ESTATE_BUCKETS and re_covered_full)
         if (bucket not in ('Cash', 'Uncategorized', 'Other') and tgt >= 0.005 and
-                act_val < max(100, total_port * 0.0025) and action != 'Covered'):
+                act_val < max(100, total_port * 0.0025) and not covered):
             underrepresented_buckets.append(bucket)
-        write_cell(ws, r, 1, bucket)
-        write_cell(ws, r, 2, tgt, fmt=FMT_PCT, align='right')
-        write_cell(ws, r, 3, act_val, fmt=FMT_DOLLAR, align='right')
-        write_cell(ws, r, 4, act_pct, fmt=FMT_PCT, align='right')
-        write_cell(ws, r, 5, delta_to_write, fmt=FMT_PCT, align='right',
-                   bg='FCE4D6' if abs(delta_to_write)>0.02 else None)
-        write_cell(ws, r, 6, action)
-        r += 1
 
-    r += 2
     if underrepresented_buckets:
         write_hdr(ws, r, 1, 'ETF Ideas for Recommended but Unrepresented Sleeves', BLUE, WHITE, span=6); r += 1
         write_cell(ws, r, 1, 'Sleeve', bold=True, bg=DGRAY, fg=WHITE)
@@ -1355,24 +1354,14 @@ def build_sheet4(ws, c, rows=None):
             r += 1
         r += 1
 
-    write_hdr(ws, r, 1, 'Asset Location Guidance', BLUE, WHITE, span=6); r+=1
-    guidance = [
-        ('Tax-Deferred (IRA/401k)', 'Bonds, REITs, High-turnover funds, PDBC (commodities)',
-         'Interest/dividends shielded from current tax'),
-        ('Roth (Tax-Free)', 'Highest-growth assets (AVUV, VBR small-cap)',
-         'Growth compounds tax-free; no RMD'),
-        ('Taxable Trust', 'Tax-efficient equity (ITOT, VTI, IXUS, VXUS)',
-         'Qualified dividends + LTCG rates; step-up at death'),
-    ]
-    write_hdr(ws, r, 1, 'Account Type', DGRAY, WHITE)
-    write_hdr(ws, r, 2, 'Recommended Asset Class', DGRAY, WHITE, span=2)
-    write_hdr(ws, r, 4, 'Tax Rationale', DGRAY, WHITE, span=3)
-    r += 1
-    for acct_type, assets, rationale in guidance:
-        write_cell(ws, r, 1, acct_type, bold=True)
-        write_cell(ws, r, 2, assets); ws.merge_cells(start_row=r,start_column=2,end_row=r,end_column=3)
-        write_cell(ws, r, 4, rationale); ws.merge_cells(start_row=r,start_column=4,end_row=r,end_column=6)
-        r += 1
+    # Asset Location Guidance was a static, client-independent 3-row table
+    # (which account type should hold which kind of asset, and why) -- moved
+    # to Sheet 23 Methodology's "Asset Location Guidance" section (system
+    # review 2026-08-04 follow-up), alongside the plan's other evergreen
+    # how-to content, rather than re-rendered unchanged on every build.
+    write_cell(ws, r, 1, 'Asset Location Guidance (which account type should hold which asset class, and why): see Sheet 23 Methodology.')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6)
+    r += 2
 
     # Weighted expense ratio
     r += 2
@@ -1392,9 +1381,14 @@ def build_sheet4(ws, c, rows=None):
     write_cell(ws, r, 3, f'Annual fee drag: ${total_val*wtd_exp:,.0f}')
 
     # ══════════════════════════════════════════════════════════════════════
-    # SECTION B: Holdings Detail by Account
+    # PART 2: TRADES — what to actually execute (Sections B + C)
     # ══════════════════════════════════════════════════════════════════════
     r += 3
+    section_title(ws, r, 'PART 2 · TRADES — holdings and recommended trades', 10); r += 2
+
+    # ══════════════════════════════════════════════════════════════════════
+    # SECTION B: Holdings Detail by Account
+    # ══════════════════════════════════════════════════════════════════════
     section_title(ws, r, 'HOLDINGS DETAIL BY ACCOUNT', 10); r += 1
     hdrs_detail = ['Account','Symbol','Shares','Price','Market Value','Weight','Bucket','Pricing Source']
     for i, h in enumerate(hdrs_detail, 1):
@@ -1444,6 +1438,10 @@ def build_sheet4(ws, c, rows=None):
         write_cell(ws, r, 6, wt, fmt=FMT_PCT, align='right')
         write_cell(ws, r, 7, h['bucket'])
         write_cell(ws, r, 8, h.get('source', 'unknown'))
+        # Per-symbol rows collapse under their account's total row (system
+        # review 2026-08-04 follow-up); the account total stays visible.
+        ws.row_dimensions[r].outlineLevel = 1
+        ws.row_dimensions[r].hidden = True
         r += 1
 
     write_cell(ws, r, 1, 'TOTAL', bold=True)
@@ -1825,6 +1823,10 @@ def build_sheet4(ws, c, rows=None):
             r += 1
             for i, th in enumerate(trade_hdrs, 1):
                 write_hdr(ws, r, i, th, DGRAY, WHITE)
+            # Line-item trades collapse under the account header/subtotal bars
+            # (system review 2026-08-04 follow-up).
+            ws.row_dimensions[r].outlineLevel = 1
+            ws.row_dimensions[r].hidden = True
             r += 1
 
             for t in acct_trades:
@@ -1846,6 +1848,8 @@ def build_sheet4(ws, c, rows=None):
                     grand_sells += t['amount']
                 elif t.get('action') == 'BUY' and not _is_cash_position_trade(t):
                     grand_security_buys += t['amount']
+                ws.row_dimensions[r].outlineLevel = 1
+                ws.row_dimensions[r].hidden = True
                 r += 1
 
             grand_start_cash += acct_start_cash
@@ -1882,6 +1886,10 @@ def build_sheet4(ws, c, rows=None):
                 _lot_hdrs = ['Symbol', 'Purchase Date', 'Term', 'Shares to Sell', 'Proceeds', 'Cost Basis', 'Gain / Loss', 'Est. Tax Impact', 'Rate', 'Guidance']
                 for i, h in enumerate(_lot_hdrs, 1):
                     write_hdr(ws, r, i, h, DGRAY, WHITE)
+                # Lot-level detail collapses under the orange banner above
+                # (system review 2026-08-04 follow-up).
+                ws.row_dimensions[r].outlineLevel = 1
+                ws.row_dimensions[r].hidden = True
                 r += 1
                 for _trade, _lot in lot_rows_to_show:
                     _gain_loss = _safe_float(_lot.get('gain_loss'), 0.0)
@@ -1896,9 +1904,13 @@ def build_sheet4(ws, c, rows=None):
                     write_cell(ws, r, 8, _tax_impact, fmt=FMT_DOLLAR, align='right', bg='E2EFDA' if _tax_impact < -1 else ('FCE4D6' if _tax_impact > 1 else None))
                     write_cell(ws, r, 9, _lot.get('tax_rate', 0), fmt=FMT_PCT, align='right')
                     write_cell(ws, r, 10, _lot.get('guidance', ''))
+                    ws.row_dimensions[r].outlineLevel = 1
+                    ws.row_dimensions[r].hidden = True
                     r += 1
                 write_cell(ws, r, 1, 'Advisor review note', bold=True, fg='666666')
                 write_cell(ws, r, 2, 'Specific-lot instructions should be reviewed against broker lot IDs, wash-sale windows, outside accounts, spouse accounts, and any same/substantially-identical replacement trades before execution.', fg='666666')
+                ws.row_dimensions[r].outlineLevel = 1
+                ws.row_dimensions[r].hidden = True
                 ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=10)
                 r += 1
             r += 1
@@ -1976,13 +1988,18 @@ def build_sheet4(ws, c, rows=None):
 
 
     # ══════════════════════════════════════════════════════════════════════
-    # SECTION D: Before & After Allocation (per account + portfolio-wide)
+    # PART 3: DETAIL & VERIFICATION — did it work, how good is it (Sections D + F)
     # ══════════════════════════════════════════════════════════════════════
     # Normalized bucket targets for the before/after comparison
     _nct = {k: v for k, v in BUCKET_TARGETS.items() if k not in ('Cash', 'Uncategorized')}
     _nct_sum = sum(_nct.values()) or 1.0
     NORM_TARGETS = {k: v / _nct_sum for k, v in _nct.items()}
     r += 3
+    section_title(ws, r, 'PART 3 · DETAIL & VERIFICATION — before/after and risk analytics', 10); r += 2
+
+    # ══════════════════════════════════════════════════════════════════════
+    # SECTION D: Before & After Allocation (per account + portfolio-wide)
+    # ══════════════════════════════════════════════════════════════════════
     section_title(ws, r, 'BEFORE & AFTER REBALANCING', 10); r += 1
     write_cell(ws, r, 1, 'Shows current allocation, projected allocation after executing recommended trades, '
                'and remaining gap vs target. Positive delta = still over-allocated; negative = still under-allocated.')
@@ -2030,18 +2047,26 @@ def build_sheet4(ws, c, rows=None):
     # zero because the workbook rounds dollar amounts to whole dollars.
 
     # ── Per-account before/after tables ───────────────────────────────────
+    # Collapsed by default via Excel row outlining (system review 2026-08-04
+    # follow-up): with N accounts this was N copies of a 10-col table stacked
+    # open. The account total row stays visible as the group's summary row;
+    # its detail collapses under a "+" until expanded. The two blank-header
+    # spacer columns from the old 10-col layout are gone -- the "changed"
+    # highlight is carried by the After $/% cell shading alone.
     for acct in sorted(_invest_positions.keys()):
         at = acct_totals.get(acct, 0)
         if at < 500:
             continue
 
         r += 1
-        write_hdr(ws, r, 1, f'{display_account(acct, c)}  —  Total: ${at:,.0f}', BLUE, WHITE, span=10)
+        write_hdr(ws, r, 1, f'{display_account(acct, c)}  —  Total: ${at:,.0f}', BLUE, WHITE, span=8)
         r += 1
 
-        ba_hdrs = ['Bucket', 'Before $', 'Before %', '', 'After $', 'After %', '', 'Target %', 'Delta pp', 'Status']
+        ba_hdrs = ['Bucket', 'Before $', 'Before %', 'After $', 'After %', 'Target %', 'Delta pp', 'Status']
         for i, h in enumerate(ba_hdrs, 1):
             write_hdr(ws, r, i, h, DGRAY, WHITE)
+        ws.row_dimensions[r].outlineLevel = 1
+        ws.row_dimensions[r].hidden = True
         r += 1
 
         for bucket in all_buckets_ordered:
@@ -2074,37 +2099,32 @@ def build_sheet4(ws, c, rows=None):
             else:
                 status = f'Under {delta_pp:.1%}'
 
-            # Arrow showing direction of change
-            arrow = ''
-            if abs(after_val - before_val) > 50:
-                arrow = '→'
+            _changed = abs(after_val - before_val) > 50
 
             write_cell(ws, r, 1, bucket)
             write_cell(ws, r, 2, before_val, fmt=FMT_DOLLAR, align='right')
             write_cell(ws, r, 3, before_pct, fmt=FMT_PCT, align='right')
-            write_cell(ws, r, 4, arrow, align='center')
-            write_cell(ws, r, 5, after_val, fmt=FMT_DOLLAR, align='right',
-                       bg='E2EFDA' if abs(after_val - before_val) > 50 else None)
-            write_cell(ws, r, 6, after_pct, fmt=FMT_PCT, align='right',
-                       bg='E2EFDA' if abs(after_val - before_val) > 50 else None)
-            write_cell(ws, r, 7, '')
-            write_cell(ws, r, 8, tgt_pct if bucket not in ('Cash', 'Uncategorized') else '',
+            write_cell(ws, r, 4, after_val, fmt=FMT_DOLLAR, align='right',
+                       bg='E2EFDA' if _changed else None)
+            write_cell(ws, r, 5, after_pct, fmt=FMT_PCT, align='right',
+                       bg='E2EFDA' if _changed else None)
+            write_cell(ws, r, 6, tgt_pct if bucket not in ('Cash', 'Uncategorized') else '',
                        fmt=FMT_PCT if bucket not in ('Cash', 'Uncategorized') else None, align='right')
-            write_cell(ws, r, 9, delta_pp if bucket not in ('Cash', 'Uncategorized') else '',
+            write_cell(ws, r, 7, delta_pp if bucket not in ('Cash', 'Uncategorized') else '',
                        fmt='+0.0%;-0.0%' if bucket not in ('Cash', 'Uncategorized') else None, align='right',
                        bg='FCE4D6' if abs(delta_pp) > 0.02 and bucket not in ('Cash', 'Uncategorized') else None)
-            write_cell(ws, r, 10, status)
+            write_cell(ws, r, 8, status)
+            ws.row_dimensions[r].outlineLevel = 1
+            ws.row_dimensions[r].hidden = True
             r += 1
 
-    # ── Portfolio-wide before/after summary ───────────────────────────────
-    r += 2
-    write_hdr(ws, r, 1, 'PORTFOLIO TOTAL', NAVY, WHITE, span=10)
-    r += 1
-    ba_hdrs2 = ['Bucket', 'Before $', 'Before %', '', 'After $', 'After %', '', 'Target %', 'Delta pp', 'Status']
-    for i, h in enumerate(ba_hdrs2, 1):
-        write_hdr(ws, r, i, h, DGRAY, WHITE)
-    r += 1
-
+    # ── Portfolio-wide after-trade totals ─────────────────────────────────
+    # System review 2026-08-04 follow-up: this used to also render its own
+    # "PORTFOLIO TOTAL" 10-column table -- liquid-only, same bucket universe
+    # as Total Portfolio Mix's After Trades columns, just missing the
+    # non-liquid coverage rows. That table is gone; the Δ pp (After) column
+    # on Total Portfolio Mix (Part 1, above) now carries the one figure it
+    # added (After Trade Status already existed there).
     port_before = defaultdict(float)
     port_after = defaultdict(float)
     for acct in before_by_acct_bucket:
@@ -2116,7 +2136,7 @@ def build_sheet4(ws, c, rows=None):
     # Backfill the top Total Portfolio Mix table with the projected household
     # allocation after executing recommended trades.  Non-liquid coverage rows
     # stay unchanged; liquid rows use the same projected after-trade buckets as
-    # the detailed before/after section below. (module-level
+    # the detailed before/after section above. (module-level
     # _after_status_for_total_mix, see top of file)
 
     for _label, _row in (_total_mix_rows or {}).items():
@@ -2129,59 +2149,22 @@ def build_sheet4(ws, c, rows=None):
         _after_pct = _after_val / total_portfolio if total_portfolio > 0 else 0.0
         _after_status = _after_status_for_total_mix(_label, _asset_type, _after_pct, _tgt, fi_covered_full, re_covered_full)
         _changed = abs(_after_val - _total_mix_current_values.get(_label, 0.0)) > 50
+        _covered = (_label in FIXED_INCOME_BUCKETS and fi_covered_full) or (_label in REAL_ESTATE_BUCKETS and re_covered_full)
+        _after_delta_pp = (_after_pct - _tgt) if (_asset_type == 'Liquid' and _tgt and not _covered) else ''
         write_cell(ws, _row, 4, _after_val, fmt=FMT_DOLLAR, align='right', bg='E2EFDA' if _changed else None)
         write_cell(ws, _row, 5, _after_pct, fmt=FMT_PCT, align='right', bg='E2EFDA' if _changed else None)
         write_cell(ws, _row, 9, _after_status, bg='E2EFDA' if _changed else None)
+        write_cell(ws, _row, 10, _after_delta_pp, fmt='+0.0%;-0.0%' if _after_delta_pp != '' else None,
+                   align='right', bg='FCE4D6' if isinstance(_after_delta_pp, float) and abs(_after_delta_pp) > 0.02 else None)
 
     if _total_mix_total_row:
         write_cell(ws, _total_mix_total_row, 4, total_portfolio, fmt=FMT_DOLLAR, align='right', bold=True)
         write_cell(ws, _total_mix_total_row, 5, 1.0, fmt=FMT_PCT, align='right', bold=True)
 
-    for bucket in all_buckets_ordered:
-        bv = port_before.get(bucket, 0)
-        av = port_after.get(bucket, 0)
-        if _hide_zero_before_after_row(bv, av):
-            continue
-        bp = bv / total_port if total_port > 0 else 0
-        ap = av / total_port if total_port > 0 else 0
-        tp = NORM_TARGETS.get(bucket, 0) if bucket not in ('Cash', 'Uncategorized') else 0
-        dp = ap - tp if bucket not in ('Cash', 'Uncategorized') else 0
-
-        if bucket in ('Cash', 'Uncategorized'):
-            st = ''
-        elif bucket in FIXED_INCOME_BUCKETS and fi_covered_full:
-            st = '✓ Covered by fixed-income coverage'
-            dp = 0
-        elif bucket in REAL_ESTATE_BUCKETS and re_covered_full:
-            st = '✓ Covered by real-estate coverage'
-            dp = 0
-        elif abs(dp) < 0.02:
-            st = '✓ On target'
-        else:
-            st = f'Over +{dp:.1%}' if dp > 0 else f'Under {dp:.1%}'
-
-        arrow = '→' if abs(av - bv) > 50 else ''
-
-        write_cell(ws, r, 1, bucket, bold=True)
-        write_cell(ws, r, 2, bv, fmt=FMT_DOLLAR, align='right')
-        write_cell(ws, r, 3, bp, fmt=FMT_PCT, align='right')
-        write_cell(ws, r, 4, arrow, align='center')
-        write_cell(ws, r, 5, av, fmt=FMT_DOLLAR, align='right',
-                   bg='E2EFDA' if abs(av - bv) > 50 else None)
-        write_cell(ws, r, 6, ap, fmt=FMT_PCT, align='right',
-                   bg='E2EFDA' if abs(av - bv) > 50 else None)
-        write_cell(ws, r, 7, '')
-        write_cell(ws, r, 8, tp if bucket not in ('Cash', 'Uncategorized') else '',
-                   fmt=FMT_PCT if bucket not in ('Cash', 'Uncategorized') else None, align='right')
-        write_cell(ws, r, 9, dp if bucket not in ('Cash', 'Uncategorized') else '',
-                   fmt='+0.0%;-0.0%' if bucket not in ('Cash', 'Uncategorized') else None, align='right',
-                   bg='FCE4D6' if abs(dp) > 0.02 and bucket not in ('Cash', 'Uncategorized') else None)
-        write_cell(ws, r, 10, st)
-        r += 1
-
     r += 1
-    write_cell(ws, r, 1, 'Note: Remaining deltas represent work for future contributions, new deposits, '
-               'or cross-account rebalancing that requires distributions and contributions (taxable events).')
+    write_cell(ws, r, 1, 'Note: remaining Δ pp (After) values on Total Portfolio Mix above represent work for '
+               'future contributions, new deposits, or cross-account rebalancing that requires distributions '
+               'and contributions (taxable events).')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
 
     # Pie charts are built on a separate sheet (see build_allocation_charts)
@@ -2218,38 +2201,16 @@ def build_sheet4(ws, c, rows=None):
         c['_alloc_chart_data']['before_vals'].append(max(0, bv))
         c['_alloc_chart_data']['after_vals'].append(max(0, av))
 
-    # ══════════════════════════════════════════════════════════════════════
-    # SECTION E: Tax-Efficient Rebalancing Sequence
-    # ══════════════════════════════════════════════════════════════════════
-    section_title(ws, r, 'TAX-EFFICIENT REBALANCING SEQUENCE', 10); r += 1
-    steps = [
-        ('1. New contributions first',
-         'Direct new 401k/IRA/HSA contributions to underweight buckets. No tax event — just redirect future dollars.',
-         'Example: if Roth is underweight AVUV, direct new Roth contributions to AVUV instead of current holdings.'),
-        ('2. Rebalance within tax-advantaged accounts',
-         'Sell overweight and buy underweight within each IRA, 401k, Roth, and HSA. No capital gains tax on trades inside these accounts.',
-         'This is the primary rebalancing mechanism — do these trades first.'),
-        ('3. Use dividends and distributions',
-         'Reinvest dividends into underweight buckets rather than the same fund. Over time this naturally rebalances without selling.',
-         'Turn off auto-reinvest in overweight funds; redirect to underweight funds in the same account.'),
-        ('4. Tax-loss harvest in taxable accounts',
-         'If a taxable holding has unrealized losses, sell it and buy a similar (not "substantially identical") fund in the target bucket.',
-         'Example: sell ITOT (at a loss) and buy VTI — both are US Large but not identical. Harvest the loss.'),
-        ('5. Sell overweight taxable positions (last resort)',
-         'If the above steps don\'t close the gap, sell overweight positions in taxable accounts. LTCG tax applies.',
-         'Prioritize lots held >1 year (LTCG rate 15-20%) over short-term lots (ordinary income rate).'),
-        ('6. Gradual rebalancing over time',
-         'You don\'t need to reach target in one trade. Spread rebalancing over 2-3 years to smooth tax impact.',
-         'Each year: execute steps 1-4, then reassess. Only do step 5 if significantly out of band (>5% delta).'),
-    ]
-    for step_num, title, detail in steps:
-        write_cell(ws, r, 1, title, bold=True)
-        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
-        r += 1
-        write_cell(ws, r, 1, detail)
-        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
-        r += 1
-        r += 1  # blank row
+    # Tax-Efficient Rebalancing Sequence was six fully static, client-
+    # independent steps (same text every build) -- moved to Sheet 23
+    # Methodology's "Tax-Efficient Rebalancing Sequence" section (system
+    # review 2026-08-04 follow-up), alongside Asset Location Guidance and the
+    # rest of the plan's evergreen how-to content.
+    r += 1
+    write_cell(ws, r, 1, 'Tax-Efficient Rebalancing Sequence (contribute → rebalance in tax-advantaged accounts → '
+               'reinvest dividends → tax-loss harvest → sell taxable as last resort → go gradual): see Sheet 23 Methodology.')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
+    r += 2
 
     # ══════════════════════════════════════════════════════════════════════
     # SECTION F: Efficient Frontier & Sharpe Ratio

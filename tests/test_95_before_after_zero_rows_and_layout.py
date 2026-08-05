@@ -89,8 +89,14 @@ def test_before_after_rebalancing_omits_zero_before_and_after_rows(built_workboo
     for row in range(start, ws.max_row + 1):
         a = ws.cell(row, 1).value
         b = ws.cell(row, 2).value
-        e = ws.cell(row, 5).value
-        if a == 'TAX-EFFICIENT REBALANCING SEQUENCE':
+        # Wave 4.10 follow-up (system review 2026-08-04): the static
+        # "TAX-EFFICIENT REBALANCING SEQUENCE" section moved to Sheet 23
+        # Methodology; the next section boundary after Before & After is now
+        # Efficient Frontier & Sharpe Ratio. Also, the table dropped its two
+        # blank spacer columns (10 cols -> 8), so "After $" is now column 4,
+        # not column 5.
+        e = ws.cell(row, 4).value
+        if a == 'EFFICIENT FRONTIER & SHARPE RATIO':
             break
         if a == 'Bucket' and b == 'Before $' and e == 'After $':
             in_table = True
@@ -168,7 +174,10 @@ def test_source_keeps_zero_filter_and_workbook_layout_pass_for_future_builds():
     builder_source = (ROOT / 'src' / 'reporting' / 'workbook_builder.py').read_text(encoding='utf-8')
     assert '_hide_zero_before_after_row' in summary_source
     assert 'if _hide_zero_before_after_row(before_val, after_val):' in summary_source
-    assert 'if _hide_zero_before_after_row(bv, av):' in summary_source
+    # The bv/av-keyed call was the standalone "PORTFOLIO TOTAL" table's own
+    # zero filter; that table was removed in the Wave 4.10 follow-up (system
+    # review 2026-08-04) as a duplicate of Total Portfolio Mix's after-trade
+    # columns, so only the per-account filter call remains.
     assert 'def optimize_workbook_layout' in common_source
     assert 'wrap_text=True' in common_source
     assert 'row_dimensions[row_idx].height' in common_source
