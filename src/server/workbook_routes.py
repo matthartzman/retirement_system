@@ -10,7 +10,58 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from .app_core import *
+# System review 4.9: explicit name list instead of `from .app_core import *`
+# (app_core.py's __all__ is dynamically every module-level name, so the star
+# import re-exported its entire namespace). Determined via AST analysis of
+# every Name this module actually loads that isn't locally defined or
+# otherwise imported. workspace_output_dir is the one exception found by
+# running the suite rather than static analysis alone: no current code path
+# here calls it by that name (build_start() uses _workspace_output() --
+# see that function's own comment on why, from the Wave 2.1 workspace-
+# redirect bug fix), but test_161_phase2_workflow_route_plumbing.py
+# monkeypatches it onto this module by name, which requires the attribute
+# to already exist.
+from .app_core import (
+    BASE_DIR,
+    BUILD_SCRIPT,
+    CLIENT_DATA_CSV_FILE_SET,
+    CSV_PATH,
+    PLAN_DATA_FILES,
+    SCHEMA_PATH,
+    SPENDING_BUDGET_SECTIONS,
+    _admin_changes_between,
+    _audit,
+    _client_id,
+    _csv_rows_payload,
+    _current_user,
+    _ensure_user_ui_plan_data_rows,
+    _make_blank_plan_files,
+    _make_request_system_config_csv_for,
+    _normalize_plan_data_file_name,
+    _protected_client_data_status,
+    _read_last_build_timestamp,
+    _read_plan_data_file,
+    _request_system_config_csv,
+    _require,
+    _runtime_config,
+    _spending_budget_save_result,
+    _sqlite_db,
+    _sync_config_backends,
+    _workspace_id,
+    _workspace_output,
+    _write_last_build_metadata,
+    _write_plan_data_file,
+    app,
+    csv,
+    io,
+    jsonify,
+    redact_text,
+    request,
+    send_file,
+    send_from_directory,
+    traceback,
+    workspace_output_dir,
+)
 from ..http_runtime.wsgi_facade import Response
 try:
     from ..schema_registry import load_schema as _load_schema_registry, validate_value as _schema_validate_value, validate_rows as _schema_validate_rows
@@ -21,6 +72,11 @@ try:
     from ..build_snapshot import SNAPSHOT_FILENAME, read_build_snapshot
 except ImportError:
     from src.build_snapshot import SNAPSHOT_FILENAME, read_build_snapshot
+
+try:
+    from ..results_model import RESULTS_MODEL_FILENAME
+except ImportError:
+    from src.results_model import RESULTS_MODEL_FILENAME
 
 try:
     from ..server_services import build_job_service, build_service, holdings_service, plan_data_file_service, plan_forms_service, report_service, spending_service
@@ -39,7 +95,7 @@ _CURRENT_BUILD_OUTPUT_FILES = [
     "retirement_plan.xlsx",
     "retirement_plan.pdf",
     "retirement_dashboard.html",
-    RESULTS_MODEL_FILENAME if "RESULTS_MODEL_FILENAME" in globals() else "results_explorer_model.json",
+    RESULTS_MODEL_FILENAME,
     SNAPSHOT_FILENAME,
     "report_package.json",
     "forecast_package.json",

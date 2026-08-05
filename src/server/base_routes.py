@@ -1,4 +1,25 @@
-from .app_core import *
+# System review 4.9: explicit name list instead of `from .app_core import *`
+# (app_core.py's __all__ is dynamically every module-level name, so the star
+# import re-exported its entire namespace). Determined via AST analysis of
+# every Name this module actually loads that isn't locally defined or
+# otherwise imported.
+from .app_core import (
+    BASE_DIR,
+    Path,
+    UI_NAMES,
+    _authorized_and_identity,
+    _csrf_token_for_current_request,
+    _current_user,
+    _require,
+    _runtime_config,
+    _workspace_output,
+    app,
+    jsonify,
+    redirect,
+    request,
+    send_file,
+    send_from_directory,
+)
 try:
     from ..version import VERSION
 except ImportError:
