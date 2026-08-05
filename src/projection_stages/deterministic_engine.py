@@ -11,7 +11,42 @@ this same contract without changing callers.
 
 from .budget_rollups import category_budget_rollup, housing_budget_rollup
 from .year_state import MutableYearState, create_initial_year_state
-from ..planning_engines import *  # noqa: F401,F403 - import legacy helper functions/classes
+# System review 4.2: explicit name list instead of `from ..planning_engines
+# import *` -- determined via AST analysis of every Name this module
+# actually loads that isn't locally defined or otherwise imported, cross-
+# checked against planning_engines' real exports (no ambiguous/unresolved
+# names). Prerequisite for any future split of planning_engines.py: a
+# reader (or refactoring tool) can now see the real dependency surface here
+# instead of "everything, maybe."
+from ..planning_engines import (
+    EvConversion,
+    EvDeath,
+    EvGrowth,
+    EvHomeSale,
+    EvIncome,
+    EvRMD,
+    EvTax,
+    EvTransfer,
+    EvWarning,
+    EvWithdraw,
+    FEDERAL_BRACKETS_BASE_YEAR,
+    FEDERAL_BRACKETS_MFJ,
+    IRMAA_TIERS_BASE_YEAR,
+    STATE_TAX_RULES,
+    TAX_BASE_YEAR,
+    aca_premium_tax_credit,
+    annuity_cash_income,
+    ensure_engine_config,
+    irmaa_lookback_magi,
+    liquidity_buffer_years_for_year,
+    marginal_rate,
+    niit_tax,
+    rmd_divisor,
+    salt_cap,
+    senior_bonus_deduction,
+    social_security_taxable_amount,
+    state_income_tax,
+)
 from .. import planning_engines as _legacy_pe
 from .. import core as _ar  # consolidated from account_registry
 from .. import core as _aa  # consolidated from account_access
