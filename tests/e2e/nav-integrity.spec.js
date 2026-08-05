@@ -4,33 +4,7 @@
 // interactively. System review 2026-08-04, finding
 // `no-browser-execution-testing` / `ui-accordion-breaks-jump-to-field`.
 import { test, expect } from '@playwright/test';
-
-// Loading the frozen plan is a two-step real-user action, discovered by
-// driving the actual app rather than assuming an API call is enough:
-// visiting `/` alone leaves the app on the "Start a plan" welcome screen with
-// no plan data loaded into frontend state (data-step-id nav buttons exist,
-// but setStep() no-ops back to 'start' while getPlanLoaded() is false).
-// "Open Current Plan" loads the backend's plan data into that state; only
-// after that does client-side navigation to any other step actually work.
-async function openCurrentPlan(page) {
-  await page.goto('/');
-  await expect(page.locator('#appStatus')).toHaveText('Ready', { timeout: 30_000 });
-  await page.getByRole('button', { name: 'Open Current Plan' }).click();
-  // A stale "unsaved changes" exit-confirmation modal can appear on this
-  // click in a fresh session; dismiss it if present rather than let it block
-  // every subsequent step navigation in this spec.
-  const keepEditing = page.getByRole('button', { name: 'Keep Editing' });
-  if (await keepEditing.isVisible({ timeout: 1000 }).catch(() => false)) {
-    await keepEditing.click();
-  }
-  // Loading the plan fires a batch of async fetches (config rows, holdings,
-  // liabilities, YTD status, ...); window.setStep() silently no-ops back to
-  // 'start' while the app's internal getPlanLoaded() is still false. Calling
-  // setStep() right after the click (a fixed short wait was tried first and
-  // was flaky) raced that load and landed back on the Plan Status step
-  // instead of the one requested. networkidle is the reliable signal.
-  await page.waitForLoadState('networkidle');
-}
+import { openCurrentPlan, navigateToStep } from './helpers.js';
 
 // Steps that fetch build/results-derived data as part of their own render
 // (economic_tax_assumptions previews Results Explorer data) legitimately
@@ -48,14 +22,9 @@ function isExpectedPreBuild404(url) {
 }
 
 // A single continuous session covers both checks, rather than two independent
-// tests. This is not just cheaper -- it is more correct: this app is a
-// stateful desktop-style tool, not a stateless per-request API, and reopening
-// "Open Current Plan" a second time against the SAME already-running backend
-// session (which Playwright's webServer intentionally reuses across every
-// test in the file, matching how the real app is used) was observed to behave
-// differently the second time -- the plan never finished loading and the step
-// never rendered. Chasing that server-session interaction is out of scope
-// here; one continuous session sidesteps it and matches real usage anyway.
+// tests -- more representative of how this stateful, desktop-style app is
+// actually used (one continuous session), and it avoids paying the
+// open-the-plan flow's cost twice.
 test('guided-step navigation has no dead ends, and jump-to-field opens a closed accordion', async ({ page }) => {
   const consoleErrors = [];
   const unexpected404s = [];
@@ -96,8 +65,7 @@ test('guided-step navigation has no dead ends, and jump-to-field opens a closed 
   expect(unexpected404s, `unexpected 404s while visiting: ${unexpected404s.join(' | ')}`).toEqual([]);
 
   // --- Part 2: jump-to-field opens a closed accordion and focuses it -----
-  await page.evaluate(() => window.setStep('lifestyle_spending'));
-  await expect(page.getByRole('heading', { name: 'Other Spending' })).toBeVisible({ timeout: 10_000 });
+  await navigateToStep(page, 'lifestyle_spending', 'Other Spending');
 
   // Real target on the frozen fixture: row 361 is the DAF "Enabled" toggle,
   // rendered inside a closed <details>Donor-Advised Fund (DAF)</details>
