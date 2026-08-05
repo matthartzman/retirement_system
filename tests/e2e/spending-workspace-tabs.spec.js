@@ -1,0 +1,38 @@
+// Wave 6.2 (system review 2026-08-04, finding `ui-spending-domain-fragmentation`):
+// Spending Model, Actual Spending (YTD), Spending Analysis, and Other Spending
+// used to be 3 separate top-level nav steps (plus one already-hidden report
+// page). They now live as tabs of a single "Spending" workspace, mirroring
+// the existing Distribution Strategy tabbed workspace pattern.
+import { test, expect } from '@playwright/test';
+import { openCurrentPlan, navigateToStep } from './helpers.js';
+
+test('the Spending nav step tab-switches between its four merged pages', async ({ page }) => {
+  await openCurrentPlan(page);
+  await navigateToStep(page, 'spending_workspace', 'Spending Workspace');
+
+  const tabs = page.locator('.spending-workspace .workspace-tab');
+  await expect(tabs).toHaveCount(4);
+  await expect(tabs.first()).toHaveClass(/active/);
+  await expect(tabs.first()).toHaveText('Spending Model');
+
+  // Default tab renders the Spending Model field groups.
+  await expect(page.locator('.workspace-tab-body')).not.toBeEmpty();
+
+  await page.getByRole('tab', { name: 'Actual Spending (YTD)' }).click();
+  await expect(page.getByRole('tab', { name: 'Actual Spending (YTD)' })).toHaveClass(/active/);
+  await expect(page.locator('.workspace-tab-body')).not.toBeEmpty();
+
+  await page.getByRole('tab', { name: 'Other Spending' }).click();
+  await expect(page.getByRole('tab', { name: 'Other Spending' })).toHaveClass(/active/);
+  // Other Spending keeps its existing Travel/Large Items/DAF accordions
+  // (the Wave 1.4 jump-to-field fix depends on them staying <details>-based).
+  await expect(page.locator('.lifestyle-workspace > details > summary', { hasText: 'Travel' })).toBeVisible();
+  await expect(page.locator('.lifestyle-workspace > details > summary', { hasText: 'Large Items' })).toBeVisible();
+  await expect(page.locator('.lifestyle-workspace > details > summary', { hasText: 'Donor-Advised Fund' })).toBeVisible();
+
+  // The tab choice is also a left-nav sub-tab, and is persisted to
+  // localStorage the same way Distribution Strategy's tabs are.
+  await expect(page.locator('.nav-subtab', { hasText: 'Other Spending' })).toHaveClass(/active/);
+  const savedTab = await page.evaluate(() => localStorage.getItem('strategy_tab_spending_workspace'));
+  expect(savedTab).toBe('Other Spending');
+});
