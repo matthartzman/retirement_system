@@ -135,7 +135,52 @@ def build_sheet9(ws, c, rows):
             'Annuity PV/reserve figures elsewhere in the workbook are calibration-dependent and should be refreshed against current carrier illustrations before sale/replacement decisions.')
     write_cell(ws, r, 1, note, bg='F4F5F7', align='left')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
-    r += 1
+    r += 2
+
+    # ── Withdrawal-Sequencing Strategy Comparison (system review 5.2) ──────
+    # A deliberately separate, lower-fidelity comparison tool -- see
+    # src/withdrawal_strategy_comparison.py's own module docstring for why
+    # this is not the same precision as the plan's real engine numbers
+    # elsewhere in this workbook.
+    from ..withdrawal_strategy_comparison import compare_withdrawal_strategies
+    write_hdr(ws, r, 1, 'Withdrawal-Sequencing Strategy Comparison (Approximate)', NAVY, WHITE, span=8); r += 1
+    write_cell(ws, r, 1,
+               'Compares this plan\'s actual account-draw order against alternative sequencing philosophies. '
+               'Uses a simplified flat-rate tax model (not this workbook\'s full progressive/IRMAA-aware tax '
+               'engine), so treat differences as directional, not exact -- the point is which order costs more, '
+               'not the precise dollar figures. See Sheet 5/6/7 for the plan\'s exact numbers.',
+               align='left')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
+    r += 2
+    try:
+        comparison = compare_withdrawal_strategies(c, rows)
+    except Exception:
+        comparison = []
+    if comparison:
+        write_hdr(ws, r, 1, 'Strategy', DGRAY, WHITE, span=3)
+        write_hdr(ws, r, 4, 'Approx. Lifetime Tax', DGRAY, WHITE, span=2)
+        write_hdr(ws, r, 6, 'Approx. Terminal Portfolio', DGRAY, WHITE, span=2)
+        write_hdr(ws, r, 8, 'Years Short', DGRAY, WHITE); r += 1
+        best_tax = min(s['lifetime_tax_approx'] for s in comparison)
+        for s in comparison:
+            is_best = abs(s['lifetime_tax_approx'] - best_tax) < 1.0
+            bg = 'E2EFDA' if is_best else None
+            write_cell(ws, r, 1, s['label'], bold=is_best, bg=bg)
+            ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=3)
+            write_cell(ws, r, 4, s['lifetime_tax_approx'], fmt=FMT_DOLLAR, bold=is_best, bg=bg, align='right')
+            ws.merge_cells(start_row=r, start_column=4, end_row=r, end_column=5)
+            write_cell(ws, r, 6, s['terminal_total_nw_approx'], fmt=FMT_DOLLAR, bold=is_best, bg=bg, align='right')
+            ws.merge_cells(start_row=r, start_column=6, end_row=r, end_column=7)
+            write_cell(ws, r, 8, s['years_with_shortfall'], bold=is_best, bg=bg, align='right')
+            r += 1
+            write_cell(ws, r, 1, s['description'], align='left')
+            ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
+            r += 1
+        r += 1
+    else:
+        write_cell(ws, r, 1, 'Withdrawal-sequencing comparison not available for this plan.', align='left')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
+        r += 2
 
     qc('9. Retirement Strategy', 'Withdrawal cascade and key risks documented', True, '')
 
