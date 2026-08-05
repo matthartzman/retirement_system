@@ -116,15 +116,22 @@ FROZEN_TODAY = "2026-08-04"
 # At its true asset level the plan depletes in its final five years, so
 # fail_count is now pinned rather than asserted to be zero. See the assertion
 # for why that is a stricter gate, not a weaker one.
-PINNED_TERMINAL_NW = 6995542.24
-PINNED_LIFETIME_TAX = 1362412.33
+PINNED_TERMINAL_NW = 5824239.30
+PINNED_LIFETIME_TAX = 1290848.91
 PINNED_FAILURES = []
-# Regenerated 2026-08-05 (system review Wave 3.7 final regen, covering the
-# 3.0 baseline clear plus 3.1-3.6's engine changes as one attributable diff).
-# The 3.0-only baseline (6,487,999.96 / 1,517,126.54) is documented in
-# GOLDEN_MASTER_CHANGELOG.md alongside the full 3.1-3.6 breakdown -- estate
-# exemption indexing, the medical expense deduction, the Roth objective
-# discount, sleeve-level account returns, and the SSA/SOA mortality table.
+# Regenerated 2026-08-05 (fixture data change, not an engine change): added a
+# fictional home-purchase scenario to Housing next_step_1 (Texas, $400,000 @
+# 27% down = $108,000 down payment in 2036) so
+# test_cashflow_chart_home_purchase_down_payment.py has a scenario to
+# exercise -- see that file's docstring. Buying a $400K house is a real,
+# deliberate change to the household's cash flow, so this pin move is
+# expected data drift, not a regression to investigate.
+#
+# Prior pins (post Wave 3.0-3.7, no purchase scenario): 6,995,542.24 /
+# 1,362,412.33. Documented alongside the Wave 3 engine-correctness batch in
+# GOLDEN_MASTER_CHANGELOG.md -- estate exemption indexing, the medical
+# expense deduction, the Roth objective discount, sleeve-level account
+# returns, and the SSA/SOA mortality table.
 
 
 def _frozen_config():
