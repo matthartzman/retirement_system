@@ -9,12 +9,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Mapping, Sequence
 
-from .data_io import parse_client, build_plan_from_json, validate_projection, summarize_validation
+from .data_io import (
+    parse_client,
+    build_plan_from_json,
+    validate_projection,
+    summarize_validation,
+    _apply_allocation_projection_assumptions,
+)
 from .plan_config import ensure_engine_config
-from .planning_engines import monte_carlo, optimize_roth_conversion_strategy
+from .planning_engines import monte_carlo, optimize_roth_conversion_strategy, project
 from .projection_pipeline import run_projection_pipeline
 from .governance import advisor_readiness, stress_narratives, source_citations
 from .result_contract import attach_plan_result
+from . import allocation_policy as _ap
 try:
     from .market_data import pricing_diagnostics
 except ImportError:
@@ -106,6 +113,125 @@ def build_model_heard_assumptions(c: Mapping[str, Any], rows: Sequence[Mapping[s
         },
         'current_year_actuals': c.get('ytd_blend_applied', {}),
     }
+
+
+def resolve_auto_horizon_and_reapply(c):
+    """Optional two-pass planning-horizon discovery (opt-in via
+    capital_market_config['horizon_source'] == 'auto_from_withdrawals').
+
+    System review 2026-08-04, architect finding `data-io-calls-the-engine`:
+    this used to live in data_io.py, but it runs a preliminary projection
+    through planning_engines.project() to discover a better horizon, and
+    parsing must not call the engine. It lives here instead; data_io.py's
+    parse_client()/build_plan_from_json() still call it (via a function-scoped
+    import back into this module, avoiding an import cycle) so every existing
+    caller keeps the same synchronous, resolved-by-the-time-parsing-returns
+    behavior.
+
+    The manual capital-market horizon (1/3/5/10/20/25/30 years) is a guess at
+    how long this household's money will stay invested. The projection
+    itself already knows the answer, precisely, once it has run: it produces
+    a year-by-year withdrawal ledger that src/holding_period.py turns into a
+    dollar-weighted holding period. But that ledger does not exist until
+    *after* _apply_allocation_projection_assumptions has already set
+    c['ret']/c['mc_sigma'] from the manual/default horizon — a circular
+    dependency (horizon needs withdrawal rows; rows need a return assumption
+    that itself depends on the horizon).
+
+    This resolves it the same way this codebase already resolves other
+    circular tax/withdrawal dependencies (see the IRA-elective and LTCG/NIIT
+    true-up loops in projection_stages/deterministic_engine.py): a bounded
+    second pass. Pass 1 (the manual/default-horizon projection) already ran
+    via _apply_allocation_projection_assumptions before this function is
+    called. Here, pass 1's rows are used only to discover a better horizon;
+    capital_market_config['horizon_years'] is then overwritten and
+    _apply_allocation_projection_assumptions is re-run so c['ret']/
+    c['mc_sigma'] reflect the corrected horizon before the real build
+    (workbook, Monte Carlo, ...) uses them.
+
+    Runs on a deepcopy of ``c`` (mirrors the existing Roth-strategy-candidate
+    pattern in planning_engines.py: ``base = copy.deepcopy(c)``) so the
+    discovery projection cannot mutate the real config's lot/account state.
+    A no-op (zero cost, zero behavior change) unless horizon_source is
+    explicitly set to 'auto_from_withdrawals'; any failure along the way
+    silently keeps the manual/default horizon rather than breaking the build.
+    """
+    import copy as _copy
+    from . import holding_period as _hp
+
+    cfg = c.get('capital_market_config') or {}
+    source = str(cfg.get('horizon_source', 'manual') or 'manual').strip().lower()
+    if source != 'auto_from_withdrawals':
+        return
+    try:
+        preliminary_rows = project(_copy.deepcopy(c))
+        derived_horizon = _hp.withdrawal_weighted_horizon(preliminary_rows, c)
+    except Exception as ex:
+        cfg['horizon_source_resolved'] = 'auto_from_withdrawals_failed'
+        cfg['horizon_source_error'] = str(ex)
+        c['capital_market_config'] = cfg
+        return
+    if derived_horizon is None or derived_horizon <= 0:
+        cfg['horizon_source_resolved'] = 'auto_from_withdrawals_no_signal'
+        c['capital_market_config'] = cfg
+        return
+    cfg['manual_horizon_years'] = cfg.get('horizon_years')
+    cfg['horizon_years'] = derived_horizon
+    cfg['auto_derived_horizon_years'] = derived_horizon
+    cfg['horizon_source_resolved'] = 'auto_from_withdrawals'
+    c['capital_market_config'] = cfg
+    _apply_allocation_projection_assumptions(c)
+
+
+def resolve_holding_period_floors_and_reapply(c):
+    """Optional two-pass holding-period real-loss floor discovery. Triggered
+    by either c['holding_period_allocation_enabled'] (the opt-in floor nudge
+    on optimizer/max-Sharpe modes) or allocation_selection_mode ==
+    real_loss_aware (that mode's own bucket-blended solve requires this
+    profile to be meaningful; selecting it is itself the opt-in).
+
+    See resolve_auto_horizon_and_reapply's docstring for why this lives here
+    rather than data_io.py (`data-io-calls-the-engine`).
+
+    Mirrors resolve_auto_horizon_and_reapply's two-pass shape but for a
+    different signal: instead of one scalar (the effective horizon), this
+    discovers the full holding-period *bucket* profile (0-2yr, 3-5yr, ...,
+    16+yr shares of today's liquid balance) and stores it at
+    c['_holding_period_buckets'] so compute_optimal_allocation's
+    optimizer/max-Sharpe branch can nudge equity_pct/cash_pct toward it, and
+    its real_loss_aware branch can solve/blend per bucket (see
+    optimization.py: cash is safer than equities at short holding periods,
+    equities are safer than cash at long ones — the same chart-derived logic
+    resolve_auto_horizon_and_reapply already uses for the scalar horizon).
+
+    Independent of horizon_source: a plan can opt into either signal, both,
+    or neither. Runs its own preliminary projection (on a deepcopy, so the
+    real config's lot/balance state is never touched) rather than reusing
+    resolve_auto_horizon_and_reapply's, keeping the two toggles decoupled
+    and separately testable at the cost of a second discovery projection
+    when both are enabled -- an acceptable tradeoff since both remain
+    strictly opt-in and off by default.
+    """
+    import copy as _copy
+    from . import holding_period as _hp
+
+    _mode = _ap.normalize_allocation_mode(c.get('allocation_selection_mode', 'user_target'))
+    if not c.get('holding_period_allocation_enabled') and _mode != _ap.ALLOCATION_MODE_REAL_LOSS_AWARE:
+        return
+    try:
+        preliminary_rows = project(_copy.deepcopy(c))
+        profile = _hp.holding_period_profile(preliminary_rows, c)
+    except Exception as ex:
+        c['_holding_period_buckets'] = {}
+        c['_holding_period_buckets_source'] = 'error'
+        c['_holding_period_buckets_error'] = str(ex)
+        return
+    buckets = profile.get('buckets') or {}
+    c['_holding_period_buckets'] = buckets
+    c['_holding_period_buckets_source'] = profile.get('source', 'unknown')
+    c['_holding_period_weighted_horizon_years'] = profile.get('weighted_horizon_years')
+    if buckets:
+        _apply_allocation_projection_assumptions(c)
 
 
 def prepare_config_from_sectioned_data(data: Mapping[str, Any], url_template: str = '', optimize_roth: bool = True, skip_live_pricing: bool = False) -> Dict[str, Any]:
