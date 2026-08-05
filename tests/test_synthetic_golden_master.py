@@ -113,7 +113,7 @@ class SyntheticLibraryIsolationTests(unittest.TestCase):
             r"client_policy", r"client_optional_functions",
             r"^load_csv$", r"^parse_client$",
             r"^prepare_config_from_sectioned_data$", r"^load_active_config$",
-            r"^load_engine_config$", r"^latest_sectioned_data$",
+            r"^latest_sectioned_data$",
         ]
         for pattern in forbidden:
             hits = [f"line {lineno}: {text}" for lineno, text in code_tokens

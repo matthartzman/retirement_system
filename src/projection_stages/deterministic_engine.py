@@ -21,16 +21,11 @@ from ..equity_comp import equity_comp_year_events as _equity_comp_year_events
 from ..core import amt_tax as _amt_tax
 
 # withdrawal_engine/conversion_engine/inheritance_engine/growth_engine were
-# consolidated into planning_engines.py itself; _legacy_pe (imported above,
-# explicitly and publicly) already is that module, so these are direct
-# aliases to it rather than to planning_engines' own private attributes of
-# the same names (A3 — this file previously did `_we = _legacy_pe._we` etc.,
-# reaching into another module's underscore-prefixed attributes, which no
-# linter or refactoring tool can see as a real dependency).
-_we = _legacy_pe
-_ce = _legacy_pe
-_ie = _legacy_pe
-_ge = _legacy_pe
+# consolidated into planning_engines.py itself; call sites below use
+# _legacy_pe directly (system review 4.1) rather than four separate
+# _we/_ce/_ie/_ge aliases that all pointed at the identical module -- the
+# distinct names implied four separate collaborators that no longer exist
+# and that no linter or refactoring tool could see were the same target.
 
 
 def run_deterministic_projection_stage(c):
@@ -536,7 +531,7 @@ def run_deterministic_projection_stage(c):
         row['filing'] = filing
 
         # ── Spousal rollover & terminal estate consolidation ────────────────
-        inher = _ie.apply_death_transition(c, bal, year, h_alive, w_alive, bal_basis_free)
+        inher = _legacy_pe.apply_death_transition(c, bal, year, h_alive, w_alive, bal_basis_free)
         spousal_rollover = inher.description
         estate_trust = inher.estate_account or _aa.first_taxable(c) or ''
         if spousal_rollover:
@@ -1145,7 +1140,7 @@ def run_deterministic_projection_stage(c):
         # Compute RMDs and taxable portfolio income before wellness and Roth
         # conversion planning, because ACA PTC, SS provisional income, NIIT, and
         # conversion headroom all depend on these income lines.
-        rmd_result = _we.compute_rmds(c, bal, year, h_age, w_age, h_alive, w_alive, rmd_divisor)
+        rmd_result = _legacy_pe.compute_rmds(c, bal, year, h_age, w_age, h_alive, w_alive, rmd_divisor)
         rmd_h = rmd_result['h']; rmd_w = rmd_result['w']; rmd_total = rmd_result['total']
 
         # Item 4.1 (P3): Qualified Charitable Distributions. Modeled as
@@ -1379,7 +1374,7 @@ def run_deterministic_projection_stage(c):
         row['total_spend'] = total_spend_need
 
         # ── RMDs ─────────────────────────────────────────────────────────────
-        _rmd_draws = _we.apply_rmds(bal, rmd_result)
+        _rmd_draws = _legacy_pe.apply_rmds(bal, rmd_result)
         row['_rmd_by_account'] = dict(_rmd_draws)
         for _aid, _amt in _rmd_draws.items():
             emit(EvRMD(year, _aid, 0, 0, _amt))
@@ -1414,7 +1409,7 @@ def run_deterministic_projection_stage(c):
                 brk_inf=c['brk_inf'],
             )
 
-        conv_plan = _ce.plan_roth_conversion(
+        conv_plan = _legacy_pe.plan_roth_conversion(
             c, bal, year=year, filing=filing, earned_base=earned_base,
             half_se_ded=half_se_ded, sehi_ded=sehi_ded, h_ss=h_ss, w_ss=w_ss,
             rmd_total=rmd_taxable_total, pension=pension, wife_single_ann=wife_single_ann,
@@ -1428,7 +1423,7 @@ def run_deterministic_projection_stage(c):
             inflate_brackets_fn=_inflate_brackets_path, standard_deduction_fn=_standard_deduction_path,
             compute_fed_tax_fn=_compute_fed_tax_path, state_tax_estimate_fn=_state_tax_estimate_for_conversion,
         )
-        moved = _ce.apply_roth_conversion(c, bal, conv_plan.amount, forced=conv_plan.forced, source_account=getattr(conv_plan, "source_account", ""), forced_sources=getattr(conv_plan, "forced_sources", []))
+        moved = _legacy_pe.apply_roth_conversion(c, bal, conv_plan.amount, forced=conv_plan.forced, source_account=getattr(conv_plan, "source_account", ""), forced_sources=getattr(conv_plan, "forced_sources", []))
         roth_conv = moved.amount
         row.update(conv_plan.as_row_fields())
         row['roth_conv'] = roth_conv
@@ -1817,7 +1812,7 @@ def run_deterministic_projection_stage(c):
         buf_yrs = liquidity_buffer_years_for_year(c, year)
 
         # ── Priority 2: HSA (scheduled, not gap-driven) ────────────────────────
-        hsa_res = _we.withdraw_hsa_window(c, bal, year, wellness_cost=row.get('wellness_base_yr', 0.0))
+        hsa_res = _legacy_pe.withdraw_hsa_window(c, bal, year, wellness_cost=row.get('wellness_base_yr', 0.0))
         hsa_wd = hsa_res['amount']
         gap -= hsa_wd
         row['hsa_wd'] = hsa_wd
@@ -1841,7 +1836,7 @@ def run_deterministic_projection_stage(c):
             top_24_yr = next((hi for lo, hi, rate in brk_yr if rate == 0.24), 400_000)
             irmaa_thr_yr = c['irmaa_base'] * _irmaa_factor_for_year(year)
             marg = marginal_rate(taxable_inc, year, filing, c['brk_inf'])
-            pretax_res = _we.withdraw_pretax_elective(
+            pretax_res = _legacy_pe.withdraw_pretax_elective(
                 c, bal, gap, agi, taxable_inc, year, filing, top_24_yr, irmaa_thr_yr, marg
             )
             ira_wd = pretax_res['amount']
@@ -1869,7 +1864,7 @@ def run_deterministic_projection_stage(c):
                 ira_tax_true_up_iterations += 1
                 fed_tax, state_tax = new_fed_tax, new_state_tax
                 gap += delta_tax
-                add_res = _we.withdraw_pretax_elective(
+                add_res = _legacy_pe.withdraw_pretax_elective(
                     c, bal, gap, agi + ira_wd, taxable_inc + ira_wd, year, filing,
                     top_24_yr, irmaa_thr_yr, marg,
                 )
@@ -1926,7 +1921,7 @@ def run_deterministic_projection_stage(c):
         row['state_retirement'] = retirement_dist + ira_wd
 
         # ── Priority 4: Taxable/trust withdrawal ─────────────────────────────
-        trust_res = _we.withdraw_taxable_trust(c, bal, year, gap, spend)
+        trust_res = _legacy_pe.withdraw_taxable_trust(c, bal, year, gap, spend)
         trust_wd = trust_res['amount']
         ht_wd = trust_res['h_amount']
         wt_wd = trust_res['w_amount']
@@ -2071,7 +2066,7 @@ def run_deterministic_projection_stage(c):
         for _tax_iter in range(max_tax_iters):
             if gap <= 1e-6:
                 break
-            add_res = _we.withdraw_taxable_trust(c, bal, year, gap, spend)
+            add_res = _legacy_pe.withdraw_taxable_trust(c, bal, year, gap, spend)
             add_wd = float(add_res.get('amount', 0.0) or 0.0)
             if add_wd <= 1e-6:
                 break
@@ -2144,7 +2139,7 @@ def run_deterministic_projection_stage(c):
         # true last resort and is not used until pre-tax accounts have been
         # depleted, with this final pass still drawn pro-rata across owners.
         if gap > 0 and sum(max(0.0, float(bal.get(_aid, 0.0) or 0.0)) for _aid in c.get('pre_tax_ids', [])) > 0:
-            pretax_res2 = _we.withdraw_pretax_elective(
+            pretax_res2 = _legacy_pe.withdraw_pretax_elective(
                 c, bal, gap, agi, taxable_inc, year, filing, top_24_yr, irmaa_thr_yr, marg,
                 respect_tax_caps=False,
             )
@@ -2173,7 +2168,7 @@ def run_deterministic_projection_stage(c):
                 ira_tax_true_up_iterations += 1
                 fed_tax, state_tax = new_fed_tax2, new_state_tax2
                 gap += delta_tax2
-                add_res2 = _we.withdraw_pretax_elective(
+                add_res2 = _legacy_pe.withdraw_pretax_elective(
                     c, bal, gap, agi + ira_wd, taxable_inc + ira_wd, year, filing,
                     top_24_yr, irmaa_thr_yr, marg, respect_tax_caps=False,
                 )
@@ -2310,7 +2305,7 @@ def run_deterministic_projection_stage(c):
         # remaining HSA balance and all pre-tax/taxable sources are exhausted or
         # unavailable for the cash gap, draw HSA before touching Roth.
         if gap > 0 and sum(max(0.0, float(bal.get(_aid, 0.0) or 0.0)) for _aid in c.get('hsa_ids', [])) > 0:
-            hsa_res2 = _we.withdraw_hsa_gap(c, bal, gap, year=year)
+            hsa_res2 = _legacy_pe.withdraw_hsa_gap(c, bal, gap, year=year)
             hsa_wd += hsa_res2['amount']
             gap = hsa_res2['new_gap']
             for _aid, _amt in dict(hsa_res2.get('by_account', {}) or {}).items():
@@ -2319,7 +2314,7 @@ def run_deterministic_projection_stage(c):
             row['hsa_wd'] = hsa_wd
 
         # ── Priority 5: Roth withdrawal ─────────────────────────────────────
-        roth_res = _we.withdraw_roth(c, bal, gap)
+        roth_res = _legacy_pe.withdraw_roth(c, bal, gap)
         roth_wd = roth_res['amount']
         h_roth_wd = roth_res['h_amount']
         w_roth_wd = roth_res['w_amount']
@@ -2570,7 +2565,7 @@ def run_deterministic_projection_stage(c):
         port_ret = c['ret']
         def _growth_event(acct, before, rate, growth):
             return EvGrowth(year, acct, before, rate, growth)
-        growth_res = _ge.apply_end_of_year_growth(c, bal, port_ret, emit, _growth_event, year=year)
+        growth_res = _legacy_pe.apply_end_of_year_growth(c, bal, port_ret, emit, _growth_event, year=year)
         row['_account_growth'] = dict(growth_res.by_account or {})
         for _msg in growth_res.warnings:
             emit(EvWarning(year, 'GROWTH_WARNING', _msg))

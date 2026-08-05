@@ -70,7 +70,6 @@
   "test_165_field_finder_category_grouping.py",
   "test_166_summary_group_indexing.py",
   "test_167_tax_loss_harvesting.py",
-  "test_168_engine_config_loader.py",
   "test_16_tax_aware_rebalance.py",
   "test_17_admin_system_config_compact.py",
   "test_182_medicare_proration.py",

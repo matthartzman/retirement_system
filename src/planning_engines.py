@@ -20,6 +20,12 @@ from __future__ import annotations
 # imports both explicitly rather than reaching into this module's private
 # attributes for them (A3; see that file's own top-of-file comment).
 
+# Hoisted here (system review 4.1): each of the 8 concatenated sections below
+# had its own local `import numpy as _np` inside individual functions --
+# harmless (Python re-import is a no-op) but 12 duplicate statements for one
+# hard runtime dependency used throughout this module.
+import numpy as _np
+
 
 # ===== BEGIN growth_engine.py =====
 
@@ -997,10 +1003,8 @@ projection loop.  It is intentionally side-effect free except for
 ``apply_roth_conversion`` so it can be tested without building workbooks.
 """
 
-
-from dataclasses import dataclass, field
-from typing import MutableMapping
-
+# dataclass/field (line 165) and MutableMapping (line 622) already imported
+# above (system review 4.1: removed this section's own duplicate re-import).
 
 
 @dataclass(frozen=True)
@@ -2283,7 +2287,6 @@ def _generate_return_path(c: dict, rng: random.Random, mu: float, sig: float, ye
     draws = []
     if use_asset_classes and bool(c.get('mc_use_asset_class_covariance', True)):
         try:
-            import numpy as _np
             classes, weights, means, cov, port_mu, port_sig = _portfolio_asset_class_inputs(c)
             np_rng = _np.random.default_rng(rng.randrange(1, 2**32 - 1))
             raw = np_rng.multivariate_normal(_np.array(means, dtype=float), cov, size=len(years), check_valid='warn')
@@ -2772,7 +2775,6 @@ def _mc_row_bucket_flows(c: dict, base_rows: list[dict]) -> dict:
         deterministic_inflation_index.append((1.0 + inf) ** max(0, int(row['year']) - start))
 
     try:
-        import numpy as _np
         for name in out:
             for b in buckets:
                 out[name][b] = _np.array(out[name][b], dtype=float)
@@ -2793,7 +2795,6 @@ def _mc_vectorized_sample_death_ages(c: dict, np_rng, n_sims: int, m: Mapping, s
     independently-drawing sampler the original panel review missed; a fix
     applied only to sample_death_year would leave every number the vectorized
     MC path actually produces unchanged. See §2.5's re-assessment)."""
-    import numpy as _np
     shift = _age_shift_for_member(m, sex_idx)
     current_age = max(18, int(plan_start) - int(dob))
     death_age = _np.full(n_sims, 119, dtype=int)
@@ -2810,7 +2811,6 @@ def _mc_vectorized_sample_death_ages(c: dict, np_rng, n_sims: int, m: Mapping, s
 
 
 def _mc_vectorized_death_years(c: dict, np_rng, n_sims: int):
-    import numpy as _np
     members = c.get('members') or []
     plan_start = int(c.get('plan_start', 0) or 0)
     if members:
@@ -2830,7 +2830,6 @@ def _mc_vectorized_death_years(c: dict, np_rng, n_sims: int):
 
 
 def _mc_vectorized_return_paths(c: dict, np_rng, n_sims: int, years: list[int], mu: float, sig: float, use_asset_classes: bool = True):
-    import numpy as _np
     n_years = len(years)
     diagnostics = {'return_model': 'vectorized_single_blended_mu_sigma', 'portfolio_expected_return': mu, 'portfolio_sigma': sig}
     base_draws = None
@@ -2895,7 +2894,6 @@ def _mc_vectorized_return_paths(c: dict, np_rng, n_sims: int, years: list[int], 
 
 
 def _mc_vectorized_inflation_health_paths(c: dict, np_rng, returns, mu: float, sig: float):
-    import numpy as _np
     n_sims, n_years = returns.shape
     inf_mu = float(c.get('inf', 0.025) or 0.025)
     inf_sig = max(0.0, float(c.get('mc_inflation_sigma', 0.015) or 0.015))
@@ -2945,7 +2943,6 @@ def _mc_vectorized_inflation_health_paths(c: dict, np_rng, returns, mu: float, s
 
 
 def _mc_apply_withdrawal_bucket(balances, request, bucket: str):
-    import numpy as _np
     amount = _np.minimum(balances[bucket], _np.maximum(0.0, request))
     balances[bucket] -= amount
     return amount, request - amount
@@ -2962,7 +2959,6 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
     the smallest cut that rescues a failing path; never touches the primary
     success/failure computation itself.
     """
-    import numpy as _np
     n_sims, n_years = returns.shape
     starts = _mc_bucket_starting_balances(c)
     flows = _mc_row_bucket_flows(c, base_rows)
@@ -3059,7 +3055,6 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
 
 
 def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int, mu: float, sig: float, success_threshold: float, use_asset_classes: bool = True):
-    import numpy as _np
     np_rng = _np.random.default_rng(int(seed))
     years = [int(r['year']) for r in base_rows]
     h_death, w_death, max_death = _mc_vectorized_death_years(c, np_rng, int(n_sims))
@@ -3093,7 +3088,6 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
 def _mc_vectorized_sensitivity_success_rate(c: dict, base_rows: list[dict], mu: float, sig: float, n_sims: int, seed: int, threshold: float) -> float:
     batch = _mc_vectorized_batch(c, base_rows, max(1, int(n_sims)), seed, mu, sig, threshold, use_asset_classes=False)
     try:
-        import numpy as _np
         return float(_np.mean(batch['path_success']))
     except Exception:
         return sum(1 for x in batch['path_success'] if x) / max(1, int(n_sims))
@@ -3107,7 +3101,6 @@ def _mc_required_cut_distribution(c: dict, base_rows: list[dict], batch: dict, s
     diagnostic reporting — does not touch ``path_success``/``success_rate``,
     which are already fixed by the time this runs.
     """
-    import numpy as _np
     path_success = _np.asarray(batch['path_success'], dtype=bool)
     fail_idx = _np.where(~path_success)[0]
     if fail_idx.size == 0:
@@ -3159,7 +3152,6 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None):
     if str(c.get('mc_engine_mode', 'vectorized_batched')).lower() in {'exact_scalar', 'scalar', 'advanced_exact_scalar'}:
         return monte_carlo_exact_scalar(c, n_sims=n_sims, seed=seed, base_rows=base_rows)
 
-    import numpy as _np
     c = ensure_engine_config(c, source='monte_carlo')
     base_rows = project(c) if base_rows is None else base_rows
     base_years = [int(r['year']) for r in base_rows]
