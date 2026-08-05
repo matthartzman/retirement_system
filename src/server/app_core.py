@@ -58,7 +58,7 @@ try:
     from ..system_config import load_system_config, setting as system_config_setting
     from ..security import append_audit_event, constant_time_token_ok, extract_bearer_or_header, get_server_token, redact_text, sha256_fingerprint
     from ..permissions import UserContext, require as require_permission, user_from_headers
-    from ..secrets_store import encryption_status, require_secure_master_key, set_secret
+    from ..secrets_store import encryption_status, set_secret  # require_secure_master_key: system review 4.5, its one call site (SaaS-only) removed
     from ..workspace_context import sanitize_id, workspace_file, workspace_output_dir
     from ..roth_ui_build_guard import canonicalize_roth_csv_content, normalize_roth_csv_value
     from .plan_data_files import (
@@ -99,7 +99,7 @@ except ImportError:  # direct execution fallback
     from src.system_config import load_system_config, setting as system_config_setting
     from src.security import append_audit_event, constant_time_token_ok, extract_bearer_or_header, get_server_token, redact_text, sha256_fingerprint
     from src.permissions import UserContext, require as require_permission, user_from_headers
-    from src.secrets_store import encryption_status, require_secure_master_key, set_secret
+    from src.secrets_store import encryption_status, set_secret
     from src.workspace_context import sanitize_id, workspace_file, workspace_output_dir
     from src.roth_ui_build_guard import canonicalize_roth_csv_content, normalize_roth_csv_value
     from src.server.plan_data_files import (
@@ -1692,17 +1692,15 @@ def _security_gate():
         return jsonify({"success": False, "error": "HTTPS is required"}), 426
     if _public_path():
         return None
-    if cfg.is_saas:
-        try:
-            require_secure_master_key(cfg.app_mode)
-        except Exception as exc:
-            return jsonify({"success": False, "error": str(exc)}), 500
-    ok, identity = _authorized_and_identity()
-    if cfg.is_saas and not ok:
-        _audit("request_denied", {"path": request.path, "reason": "missing_or_invalid_token"})
-        if _html_request() and not request.path.startswith("/api/"):
-            return redirect("/login?next=" + request.path, code=302)
-        return jsonify({"success": False, "error": "Unauthorized", "login_url": "/login"}), 401
+    # System review 4.5: this package only ever ships as LOCAL (VALID_APP_MODES
+    # = {LOCAL} in runtime_config.py; load_runtime_config() hardcodes
+    # app_mode = LOCAL unconditionally), so the token-auth rejection this
+    # gate performed only in SaaS mode could never fire -- removed rather
+    # than left as unreachable dead code. _authorized_and_identity() is
+    # still called: its identity (when present, e.g. from a valid
+    # X-User-* header) still populates g.user_context for _require()'s
+    # role-based permission checks below, which remain fully enforced.
+    _ok, identity = _authorized_and_identity()
     if identity:
         g.user_context = identity
     # Local-only package: no cookie-authenticated public-hosting mode remains.
@@ -1714,19 +1712,16 @@ def _security_gate():
 def _local_cors(response):
     # Allow the local static UI opened via file:// or /frontend to call the local API.
     # Local UI is served from the same origin; avoid broad CORS by default.
+    # System review 4.5: this package only ever ships as LOCAL, so the SaaS-
+    # only branch that used to set strict security headers here (CSP with no
+    # 'unsafe-inline', X-Frame-Options: DENY, ...) could never fire -- removed
+    # as dead code, not merged into the always-on path: frontend/js/dashboard.js
+    # relies extensively on inline onclick="..." handlers, which that CSP's
+    # script-src 'self' (no 'unsafe-inline') would silently break every one of.
     try:
-        cfg = _runtime_config()
-        if not cfg.is_saas:
-            response.headers["Access-Control-Allow-Origin"] = "*"
-            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-API-Token, X-User-Id, X-User-Email, X-User-Role, X-Workspace-Id, X-Client-Id"
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-        else:
-            response.headers.setdefault("X-Frame-Options", "DENY")
-            response.headers.setdefault("X-Content-Type-Options", "nosniff")
-            response.headers.setdefault("Referrer-Policy", "same-origin")
-            response.headers.setdefault("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
-            if request.is_secure or str(request.headers.get("X-Forwarded-Proto", "")).lower() == "https":
-                response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-API-Token, X-User-Id, X-User-Email, X-User-Role, X-Workspace-Id, X-Client-Id"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     except Exception:
         pass
     return response

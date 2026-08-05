@@ -768,10 +768,9 @@ def serve_file(filename):
 
 @app.route("/api/shutdown", methods=["POST"])
 def shutdown():
-    if _runtime_config().is_saas:
-        denied = _require("manage_users")
-        if denied:
-            return denied
+    # System review 4.5: this package only ever ships as LOCAL (see
+    # runtime_config.py), so the manage_users permission check this route
+    # performed only in SaaS mode could never fire -- removed as dead code.
     func = request.environ.get("werkzeug.server.shutdown")
     if func:
         func()

@@ -12,8 +12,6 @@ except ImportError:
     from src.system_config import DEFAULT_SYSTEM_CONFIG_CSV, load_system_config, system_setting
 
 LOCAL = "LOCAL"
-LAN = "LAN"  # deprecated: local-only package
-SAAS = "SAAS"  # deprecated: local-only package
 VALID_APP_MODES = {LOCAL}
 
 
@@ -90,14 +88,13 @@ class RuntimeConfig:
     session_cookie_samesite: str = "Lax"
     session_max_age_hours: int = 12
     system_config_csv: str = str(DEFAULT_SYSTEM_CONFIG_CSV)
-
-    @property
-    def is_saas(self) -> bool:
-        return self.app_mode == SAAS
-
-    @property
-    def is_lan(self) -> bool:
-        return self.app_mode == LAN
+    # System review 4.5: is_saas/is_lan properties (and the LAN/SAAS
+    # constants they compared app_mode against) removed -- VALID_APP_MODES =
+    # {LOCAL} and load_runtime_config() below hardcodes app_mode = LOCAL
+    # unconditionally, so both properties could only ever return False. Every
+    # call site that gated on them (app_core.py's request-auth gate and CORS
+    # headers, workbook_routes.py's shutdown route, plan_routes.py's
+    # server-side path check) had its dead branch removed in the same pass.
 
 
 def load_runtime_config(path: str | Path | None = None) -> RuntimeConfig:
