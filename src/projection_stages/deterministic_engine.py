@@ -1612,11 +1612,21 @@ def run_deterministic_projection_stage(c):
         n65 = (1 if h_age >= 65 else 0) + (1 if w_age >= 65 else 0)
         senior_bonus = senior_bonus_deduction(year, filing, agi, n65)
         std_ded = _standard_deduction_path(year, filing, c['brk_inf'], n65) + senior_bonus
-        item_ded = salt + char + mort_interest_yr
+        # Sec 213 medical expense deduction: Medicare/bridge premiums, wellness
+        # detail spend (medical/dental/vision/Rx), LTC insurance premiums, and
+        # any LTC cost shock are all qualifying medical expenses; only the
+        # amount above 7.5% of AGI is deductible. wellness_shock_yr already
+        # flows into total_spend_need as a cash cost (line ~1376/1527) -- this
+        # is the first place it also counts toward the tax deduction it can
+        # legitimately generate.
+        medical_expense_yr = wellness_premium_yr + wellness_detail_budget_yr + wellness_shock_yr + ltc_prem_yr
+        medical_ded = max(0.0, medical_expense_yr - 0.075 * max(0.0, agi))
+        item_ded = salt + char + mort_interest_yr + medical_ded
         row['property_tax_for_salt'] = prop_tax_yr
         row['salt_gross'] = salt_gross
         row['mortgage_interest_deduction'] = mort_interest_yr
         row['senior_bonus_deduction'] = senior_bonus
+        row['medical_expense_deduction'] = medical_ded
         ded = max(std_ded, item_ded)
         if c['qbi_elig']:
             ded += qbi_ded
