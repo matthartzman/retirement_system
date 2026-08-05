@@ -10,7 +10,7 @@ def test_plan_data_file_service_exists_and_is_runtime_independent():
     assert "def get_file_payload" in service
     assert "def save_file_payload" in service
     # HTTP-runtime-independence itself is asserted once, for every service
-    # module, by the AST-based check in test_126_service_extraction.py.
+    # module, by the AST-based check in test_service_extraction_regression.py.
 
 
 def test_workbook_routes_delegate_plan_data_files_budget_lines_and_liabilities():

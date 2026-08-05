@@ -18,7 +18,7 @@ equity replace the bond/real-estate sleeves on the Asset-Class Allocation
 Policy page gets that reflected automatically.
 
 Uses the repo's sample client_data.csv fixture the same way
-tests/test_183_efficient_frontier_sharpe.py does, so eligibility/inclusion
+tests/test_efficient_frontier_sharpe_regression.py does, so eligibility/inclusion
 logic reflects a realistic household rather than a hand-built stub.
 """
 

@@ -8,7 +8,7 @@ additions to src/optimization.py:
 
 Uses the repo's sample client_data.csv fixture the same way
 tests/test_optimization_module.py and
-tests/test_13_allocation_table_and_load_path.py build their config, so
+tests/test_allocation_table_and_load_path_regression.py build their config, so
 eligibility/inclusion logic (allocation_class_enabled, disabled classes,
 covered-by-existing-asset exclusions, etc.) reflects a realistic household
 rather than a hand-built stub.

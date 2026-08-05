@@ -21,7 +21,7 @@ def test_admin_left_nav_matches_user_ui_step_model_without_top_level_groups():
 # test_25_admin_accordion_nav_refinement.test_admin_click_handlers_still_have_backing_functions_after_refinement,
 # which additionally scans admin.css. The test_25 copy is a strict superset, so
 # no coverage was lost. Removals from the numbered-file baseline are permitted
-# by tests/test_freeze_numbered_test_files.py.
+# by tests/test_no_tracking_id_test_names_regression.py.
 
 def test_admin_title_case_preserves_common_acronyms():
     html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")

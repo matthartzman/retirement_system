@@ -18,7 +18,7 @@ from typing import Any
 # running the suite rather than static analysis alone: no current code path
 # here calls it by that name (build_start() uses _workspace_output() --
 # see that function's own comment on why, from the Wave 2.1 workspace-
-# redirect bug fix), but test_161_phase2_workflow_route_plumbing.py
+# redirect bug fix), but test_workflow_route_plumbing_contract.py
 # monkeypatches it onto this module by name, which requires the attribute
 # to already exist.
 from .app_core import (

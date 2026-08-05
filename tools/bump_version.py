@@ -95,7 +95,7 @@ def bump(new_version: str) -> None:
     print(f'\nDone. Version is now {new_version}.')
     print('Next steps:')
     print('  • If the results model schema changed, regenerate the contract fixture:')
-    print('      python -m pytest tests/test_80_detailed_results_ui.py -k contract -s')
+    print('      python -m pytest tests/test_detailed_results_ui_functional.py -k contract -s')
     print('  • Commit all changed files.')
 
 

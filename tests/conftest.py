@@ -153,7 +153,7 @@ os.environ.setdefault("RETIREMENT_SYSTEM_FORCE_PRICING_MODE", "OFFLINE")
 # reset_runtime_state()/set_frozen_prices() never clear it - so a test that
 # fetches a live/cached price mutates .cache for the rest of the whole pytest
 # process, silently changing later tests' results depending on run order
-# (observed: test_2_recommendations.py's golden-master terminal net worth
+# (observed: test_recommendations_regression.py's golden-master terminal net worth
 # shifted ~$800k depending on whether an earlier test in the same file had
 # called forecast_from_plan_json first). Snapshot the pristine on-disk cache
 # once, then restore it before/after every test - mirrors the same pattern

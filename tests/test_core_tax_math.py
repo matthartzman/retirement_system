@@ -10,7 +10,7 @@ developer debugging a bracket or RMD calculation had no discoverable entry
 point.
 
 This is coverage relocation, not new numbered-test growth, so it is compatible
-with tests/test_freeze_numbered_test_files.py's policy.
+with tests/test_no_tracking_id_test_names_regression.py's policy.
 
 Covers: federal bracket edges, standard deduction, IRMAA/NIIT thresholds, IRS
 Pub 590-B RMD examples, the Social Security taxability worksheet, and

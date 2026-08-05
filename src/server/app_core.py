@@ -61,6 +61,7 @@ try:
     from ..secrets_store import encryption_status, set_secret  # require_secure_master_key: system review 4.5, its one call site (SaaS-only) removed
     from ..workspace_context import sanitize_id, workspace_file, workspace_output_dir
     from ..roth_ui_build_guard import canonicalize_roth_csv_content, normalize_roth_csv_value
+    from ..us_states import state_abbr_choice_options, state_name_choice_options
     from .plan_data_files import (
         CLIENT_DATA_CSV_FILES,
         CLIENT_DATA_CSV_FILE_SET,
@@ -102,6 +103,7 @@ except ImportError:  # direct execution fallback
     from src.secrets_store import encryption_status, set_secret
     from src.workspace_context import sanitize_id, workspace_file, workspace_output_dir
     from src.roth_ui_build_guard import canonicalize_roth_csv_content, normalize_roth_csv_value
+    from src.us_states import state_abbr_choice_options, state_name_choice_options
     from src.server.plan_data_files import (
         CLIENT_DATA_CSV_FILES,
         CLIENT_DATA_CSV_FILE_SET,
@@ -1219,6 +1221,10 @@ def _choice_options_for_config_row(section: str, subsection: str, label: str, un
         return _federal_bracket_choice_options("MFJ")
     if lbl == "roth_irmaa_target_tier":
         return _irmaa_tier_choice_options("tier")
+    if lbl in ("state", "residence_state"):
+        return state_name_choice_options()
+    if lbl == "target_state":
+        return state_abbr_choice_options()
     if lbl in fixed:
         return [{"value": v, "label": v.replace("_", " ")} for v in fixed[lbl]]
     typ = str((spec or {}).get("type") or "").lower()

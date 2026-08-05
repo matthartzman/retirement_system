@@ -12,7 +12,7 @@ def test_ytd_and_plan_file_services_exist_and_are_runtime_independent():
     assert "class PlanFileService" in plan_file
     assert "PlanFileServiceContext" in plan_file
     # HTTP-runtime-independence itself is asserted once, for every service
-    # module, by the AST-based check in test_126_service_extraction.py.
+    # module, by the AST-based check in test_service_extraction_regression.py.
 
 
 def test_plan_routes_delegate_ytd_and_plan_file_logic_to_services():
@@ -97,7 +97,7 @@ def test_build_job_service_owns_async_build_orchestration_contract():
     assert "def build_progress_from_line" in service
     assert "def build_error_message" in service
     # HTTP-runtime-independence itself is asserted once, for every service
-    # module, by the AST-based check in test_126_service_extraction.py.
+    # module, by the AST-based check in test_service_extraction_regression.py.
 
 
 def test_workbook_routes_keep_thin_build_job_adapter():

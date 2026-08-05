@@ -1,7 +1,7 @@
 """T2c (system review 2026-07-21, Q5): near-zero coverage existed for
 malformed/nonsensical input before this file -- a deterministic projection
 built on impossible demographics or day-one insolvency failed silently
-rather than loudly. Follows test_198_unsupported_state_preflight.py's
+rather than loudly. Follows test_unsupported_state_preflight_regression.py's
 pattern: a readable ValueError naming the offending value and how to fix it,
 raised from the one common gate (plan_config.ensure_engine_config) every
 build path passes through.

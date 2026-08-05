@@ -8,7 +8,7 @@
 These modules are purely additive/observational in Phase 1: they read an
 already-computed projection and reference-data curves, and do not change
 compute_optimal_allocation's behavior. Uses the repo's sample client_data.csv
-fixture the same way tests/test_183_efficient_frontier_sharpe.py does, so the
+fixture the same way tests/test_efficient_frontier_sharpe_regression.py does, so the
 withdrawal cascade reflects a realistic household.
 """
 
