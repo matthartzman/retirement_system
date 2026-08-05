@@ -15,6 +15,7 @@ from .workbook_common import (
     _aa,
     annuity_cash_income,
     deflate_to_present,
+    essential_discretionary_floor_check,
     fill,
     ltcg_tax_on_gain,
     project,
@@ -187,22 +188,40 @@ def build_sheet15(ws, c, rows, mc_data):
     rc = mc_data.get('required_cut_distribution') or {}
     n_failing = rc.get('n_failing', 0)
     if n_failing:
+        # Wave 5.5: does the median/P90 required cut fit entirely inside
+        # discretionary (Travel / Large Discretionary) spending, or would it
+        # have to reach into essentials (housing, wellness, core spend_base)?
+        median_floor = essential_discretionary_floor_check(rows, rc.get('required_cut_median'))
+        p90_floor = essential_discretionary_floor_check(rows, rc.get('required_cut_p90'))
+
+        def _floor_label(floor):
+            if floor.get('essential_protected') is None:
+                return 'n/a'
+            if floor.get('essential_protected'):
+                return 'Discretionary-only'
+            return (f"Reaches essentials in {floor.get('worst_year')} "
+                    f"(~${floor.get('worst_year_essential_shortfall', 0.0):,.0f})")
+
         rc_rows = [
-            ('Failing Paths Analyzed', n_failing, None),
-            ('Median Required Spending Cut', rc.get('required_cut_median'), FMT_PCT),
-            ('Worst-Decile (P90) Required Spending Cut', rc.get('required_cut_p90'), FMT_PCT),
-            ('Failing Paths With No Feasible Uniform Cut', rc.get('n_infeasible', 0), None),
+            ('Failing Paths Analyzed', n_failing, None, None),
+            ('Median Required Spending Cut', rc.get('required_cut_median'), FMT_PCT, _floor_label(median_floor)),
+            ('Worst-Decile (P90) Required Spending Cut', rc.get('required_cut_p90'), FMT_PCT, _floor_label(p90_floor)),
+            ('Failing Paths With No Feasible Uniform Cut', rc.get('n_infeasible', 0), None, None),
         ]
-        for label, val, fmt in rc_rows:
+        for label, val, fmt, floor_label in rc_rows:
             dat(r, 1, label, bold=True, bg=LGRAY, align='left')
             ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=5)
             dat(r, 6, val if val is not None else 'n/a', fmt=fmt, bold=True)
             ws.merge_cells(start_row=r, start_column=6, end_row=r, end_column=7)
+            dat(r, 8, floor_label or '', align='left')
+            ws.merge_cells(start_row=r, start_column=8, end_row=r, end_column=10)
             r += 1
         dat(r, 1, 'The uniform, whole-plan spending cut (taxable/pretax/Roth/cash withdrawals — HSA draws for '
                   'wellness shocks excluded) that would have kept each failing simulation funded, holding that '
                   'simulation\'s own sampled returns, inflation and death year fixed. Diagnostic only: does not '
-                  'change the success rate above and is not a recommended policy.', align='left')
+                  'change the success rate above and is not a recommended policy. "Discretionary-only" means the '
+                  'cut fits entirely within Travel/Large Discretionary spending every year without touching '
+                  'housing, wellness, or core spending.', align='left')
         ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
         r += 1
     else:
@@ -229,7 +248,16 @@ def build_sheet15(ws, c, rows, mc_data):
         hdr2(r, 9, 'Note', bg=DGRAY, span=2); r += 1
         for row in sustainable:
             cut = row.get('required_cut', 0.0) or 0.0
-            note = '' if row.get('feasible', True) else 'Even the largest modeled cut cannot reach this target'
+            note = '' if row.get('feasible', True) else 'Even the largest modeled cut cannot reach this target.'
+            # Wave 5.5: does this cut fit entirely inside discretionary
+            # (Travel / Large Discretionary) spending, or would it reach
+            # into essentials (housing, wellness, core spend_base)?
+            if row.get('essential_protected') is True:
+                note = (note + ' ' if note else '') + 'Discretionary-only — essentials untouched.'
+            elif row.get('essential_protected') is False:
+                note = (note + ' ' if note else '') + (
+                    f"Reaches essential spending in {row.get('essential_shortfall_worst_year')} "
+                    f"(~${row.get('essential_shortfall_worst_year_amount', 0.0):,.0f}).")
             dat(r, 1, row.get('target_success_rate'), fmt=FMT_PCT, bold=True); ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=2)
             dat(r, 3, row.get('sustainable_spend_base'), fmt=FMT_DOLLAR, bold=True); ws.merge_cells(start_row=r, start_column=3, end_row=r, end_column=4)
             dat(r, 5, cut, fmt=FMT_PCT); ws.merge_cells(start_row=r, start_column=5, end_row=r, end_column=6)
@@ -239,7 +267,9 @@ def build_sheet15(ws, c, rows, mc_data):
         dat(r, 1, 'Sustainable Annual Spending is this plan\'s current spend_base uniformly scaled by the smallest '
                   'whole-plan cut (taxable/pretax/Roth/cash withdrawals; HSA draws for wellness shocks excluded) '
                   'that reaches each target success rate, holding every other plan input fixed. A 0% cut means the '
-                  'current spending level already clears that target.', align='left')
+                  'current spending level already clears that target. "Discretionary-only" means the cut can come '
+                  'entirely from Travel/Large Discretionary spending every year, protecting housing, wellness, and '
+                  'core spending as a floor.', align='left')
         ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
         r += 1
     else:

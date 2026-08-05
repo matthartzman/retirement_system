@@ -3181,6 +3181,45 @@ def _mc_success_rate_for_uniform_cut(c: dict, base_rows: list[dict], batch: dict
     return float(_np.mean(path_success))
 
 
+def essential_discretionary_floor_check(base_rows: list[dict], cut_frac) -> dict:
+    """Wave 5.5 (system review 2026-08-04, planner finding
+    no-dynamic-spending-policy): "Essential/discretionary split with a
+    floor." A uniform spend_cut_frac (from sustainable_spending_solve /
+    _mc_required_cut_distribution) says HOW MUCH to cut but not WHERE it
+    should come from. This checks whether that dollar cut, applied every
+    year, could be funded entirely out of discretionary spending (Travel /
+    Large Discretionary -- row['cashflow_breakdown']['expense']['travel'],
+    which is deterministic_engine.py's rec_extra) without ever touching
+    essential spending (spend_base, housing, wellness) -- i.e. whether
+    essential spending has a protected floor at this cut level.
+
+    Purely a reporting-layer computation: it re-labels an already-computed
+    uniform dollar cut by spending purpose using the existing per-row
+    cashflow_breakdown, and never changes which accounts fund withdrawals
+    or any dollar total the engine/MC layer already produces.
+    """
+    if cut_frac is None:
+        return {'essential_protected': None, 'worst_year_essential_shortfall': 0.0, 'worst_year': None}
+    cut_frac = max(0.0, float(cut_frac))
+    worst_shortfall = 0.0
+    worst_year = None
+    for row in base_rows:
+        total_spend_yr = float(row.get('total_spend', 0.0) or 0.0)
+        if total_spend_yr <= 0:
+            continue
+        discretionary_yr = float(
+            (row.get('cashflow_breakdown') or {}).get('expense', {}).get('travel', 0.0) or 0.0)
+        shortfall = max(0.0, total_spend_yr * cut_frac - discretionary_yr)
+        if shortfall > worst_shortfall:
+            worst_shortfall = shortfall
+            worst_year = int(row.get('year')) if row.get('year') is not None else None
+    return {
+        'essential_protected': worst_shortfall <= 1.0,
+        'worst_year_essential_shortfall': worst_shortfall,
+        'worst_year': worst_year,
+    }
+
+
 def sustainable_spending_solve(c: dict, base_rows: list[dict], batch: dict, success_threshold: float,
                                 targets=(0.95, 0.85, 0.75), max_iters: int = 20, cut_cap: float = 0.90,
                                 tolerance: float = 0.0025) -> list[dict]:
@@ -3244,6 +3283,11 @@ def sustainable_spending_solve(c: dict, base_rows: list[dict], batch: dict, succ
             'achieved_success_rate': final_rate,
             'feasible': True,
         })
+    for entry in results:
+        floor = essential_discretionary_floor_check(base_rows, entry['required_cut'])
+        entry['essential_protected'] = floor['essential_protected']
+        entry['essential_shortfall_worst_year_amount'] = floor['worst_year_essential_shortfall']
+        entry['essential_shortfall_worst_year'] = floor['worst_year']
     return results
 
 
