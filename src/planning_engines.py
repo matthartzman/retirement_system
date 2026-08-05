@@ -1727,16 +1727,23 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
 
     estate_mode = str(c.get('estate_tax_objective_mode', 'BALANCED') or 'BALANCED').upper()
     estate_mult = {'OFF': 0.0, 'MONITOR_ONLY': 0.0, 'BALANCED': 1.0, 'STRONG': 2.0}.get(estate_mode, 1.0)
-    fed_exempt = max(0.0, float(c.get('fed_exempt', 0.0) or 0.0))
+    fed_exempt_base = c.get('fed_exempt', 0.0)
     state_exempt = max(0.0, float(c.get('il_exempt', 0.0) or 0.0))
+    is_il_resident = str(c.get('state', 'Illinois') or 'Illinois') == 'Illinois'
 
     def _estate_tax_for_row(row: Mapping) -> float:
         row_total = max(0.0, float(row.get('total_nw', 0.0) or 0.0))
         row_cst = max(0.0, float(row.get('cst_excluded_from_survivor_estate', 0.0) or 0.0))
+        row_year = int(row.get('year', c.get('plan_start', 0)) or 0)
+        fed_exempt = indexed_federal_estate_exemption(fed_exempt_base, c.get('plan_start', row_year), row_year, c.get('brk_inf', 0.02))
         federal_taxable = max(0.0, row_total - (row_cst if c.get('federal_portability_enabled', True) else 0.0))
         state_taxable = max(0.0, row_total - row_cst)
         federal_tax = max(0.0, federal_taxable - fed_exempt) * 0.40 if fed_exempt else 0.0
-        state_tax = illinois_estate_tax(state_taxable, state_exempt) if c.get('model_state_est', True) and state_exempt else 0.0
+        state_tax = (
+            illinois_estate_tax(state_taxable, state_exempt)
+            if c.get('model_state_est', True) and state_exempt and is_il_resident
+            else 0.0
+        )
         return federal_tax + state_tax
 
     # P9 fix: the objective must penalize the estate actually transferred at the

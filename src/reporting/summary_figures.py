@@ -79,6 +79,10 @@ def credit_shelter_trust_savings(c):
     """
     if not c.get('cs_enabled', True):
         return None
+    # The engine only models Illinois estate tax (item 3.1) -- a household
+    # residing elsewhere has no state estate tax for a CST to shelter.
+    if str(c.get('state', 'Illinois') or 'Illinois') != 'Illinois':
+        return None
     il_exempt = _f(c.get('il_exempt'))
     if il_exempt is None:
         return None

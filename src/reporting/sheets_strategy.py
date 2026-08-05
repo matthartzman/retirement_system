@@ -16,6 +16,7 @@ from .workbook_common import (
     col_factors,
     get_column_letter,
     illinois_estate_tax,
+    indexed_federal_estate_exemption,
     marginal_rate,
     qc,
     salt_cap,
@@ -1264,7 +1265,10 @@ def build_sheet14(ws, c, rows):
     # is 0 for any plan without a gifting_schedule, so fed_exempt is
     # unchanged from pre-4.8 behavior by default.
     lifetime_exemption_used = float(yr_second.get('lifetime_exemption_used_cumulative', 0.0) or 0.0)
-    fed_exempt_gross = c['fed_exempt']
+    _second_death_year = int(yr_second.get('year', c.get('plan_end', c.get('plan_start', 0))) or 0)
+    fed_exempt_gross = indexed_federal_estate_exemption(
+        c['fed_exempt'], c.get('plan_start', _second_death_year), _second_death_year, c.get('brk_inf', 0.02),
+    )
     fed_exempt = max(0.0, fed_exempt_gross - lifetime_exemption_used)
     est2 = yr_second['total_nw']
     fed_estate_tax = max(0, est2 - fed_exempt) * 0.40
@@ -1292,8 +1296,11 @@ def build_sheet14(ws, c, rows):
         write_cell(ws, r, 2, f'Estate below ${fed_exempt/1e6:.1f}M exemption — no federal tax likely'); r+=1
     r += 1
 
-    # Illinois estate tax
-    if c['model_state_est']:
+    # Illinois estate tax -- the engine only models Illinois estate tax, so
+    # this section must not print for a household residing in any other
+    # state (item 3.1: it previously showed regardless of residence).
+    _is_il_resident = str(c.get('state', 'Illinois') or 'Illinois') == 'Illinois'
+    if c['model_state_est'] and _is_il_resident:
         write_hdr(ws, r, 1, 'Illinois Estate Tax (At Second Death)', ORANGE, WHITE, span=4); r+=1
         il_exempt = c['il_exempt']
         il_excess = max(0, est2 - il_exempt)

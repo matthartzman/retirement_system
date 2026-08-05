@@ -1070,6 +1070,20 @@ def illinois_estate_tax(gross_estate, exemption=4_000_000.0, iterations=30):
     return max(0.0, tax)
 
 
+def indexed_federal_estate_exemption(fed_exempt_base, plan_start, target_year, brk_inf):
+    """Grow the federal estate exemption to the year it is actually applied.
+
+    The exemption is a statutory dollar figure indexed for inflation each
+    year (like the income tax brackets), not a fixed constant for the life of
+    the plan. Applying the plan-start exemption to a terminal estate decades
+    out understates the real future exemption and overstates federal estate
+    tax on long-horizon plans. Uses the same bracket inflator (brk_inf) as
+    the income-tax brackets, since both are indexed the same way in statute.
+    """
+    years = max(0, int(target_year) - int(plan_start))
+    return max(0.0, float(fed_exempt_base or 0.0)) * ((1.0 + float(brk_inf or 0.0)) ** years)
+
+
 def marginal_rate(taxable, year, filing, brk_inf):
     brk = FEDERAL_BRACKETS_BASE_YEAR.get(filing, FEDERAL_BRACKETS_BASE_YEAR['Single'])
     brk = inflate_brackets(brk, brk_inf, year - getattr(_td, 'FEDERAL_BRACKETS_VALUE_YEAR', TAX_BASE_YEAR))
