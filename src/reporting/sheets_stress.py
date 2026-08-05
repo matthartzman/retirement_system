@@ -775,13 +775,83 @@ def build_sheet16(ws, c, rows):
 qc('16. Scenario Analysis', 'All CSV scenarios have result rows', True, '')
 
 
+# Wave 5.6 (system review 2026-08-04, planner finding
+# ltc-scenarios-fixed-and-incomplete): "State-adjusted, surviving-spouse,
+# modeled funding." Illustrative regional cost-of-care index, NOT a
+# survey-precise figure -- coastal/high-cost-of-living states run
+# meaningfully above the national median for home care and facility care,
+# lower-cost-of-living states run below it. Anchored at 1.0 for Illinois
+# since Sheet 19's existing "OPTIMAL" LTC illustration ($103K/yr IL median
+# facility care) was already implicitly IL-anchored; unlisted states default
+# to the national baseline (1.0).
+LTC_STATE_COST_INDEX = {
+    # High cost of living
+    'california': 1.35, 'new york': 1.30, 'massachusetts': 1.30, 'connecticut': 1.30,
+    'new jersey': 1.25, 'alaska': 1.35, 'hawaii': 1.30, 'washington': 1.20,
+    'oregon': 1.15, 'district of columbia': 1.30,
+    # Above national average
+    'illinois': 1.0, 'minnesota': 1.10, 'wisconsin': 1.05, 'maryland': 1.15,
+    'virginia': 1.05, 'colorado': 1.10, 'arizona': 1.05, 'nevada': 1.05,
+    'pennsylvania': 1.05, 'michigan': 1.0,
+    # Below national average
+    'texas': 0.90, 'missouri': 0.85, 'oklahoma': 0.80, 'arkansas': 0.80,
+    'kansas': 0.85, 'mississippi': 0.75, 'alabama': 0.80, 'louisiana': 0.85,
+    'georgia': 0.90, 'tennessee': 0.85, 'north carolina': 0.90, 'south carolina': 0.85,
+    'indiana': 0.90, 'ohio': 0.90, 'iowa': 0.90, 'north dakota': 0.90, 'south dakota': 0.90,
+    'nebraska': 0.90, 'west virginia': 0.80, 'kentucky': 0.85,
+}
+
+
+def _ltc_state_cost_index(c):
+    state = str(c.get('state', '') or '').strip().lower()
+    return LTC_STATE_COST_INDEX.get(state, 1.0)
+
+
+def _ltc_modeled_funding_source(c, rows_base, rows2, shock_years):
+    """Wave 5.6: which accounts ACTUALLY funded this scenario's added LTC
+    cost, from the incremental per-account withdrawal (scenario minus
+    baseline) over the shock years -- not a hand-picked label."""
+    registry = {a.get('id'): str(a.get('tax') or '').lower() for a in c.get('account_registry') or []}
+
+    def _bucket(aid):
+        tax = registry.get(aid, '')
+        if tax == 'pre_tax':
+            return 'Pre-Tax/IRA'
+        if tax == 'roth':
+            return 'Roth'
+        if tax == 'hsa':
+            return 'HSA'
+        if tax == 'cash':
+            return 'Cash'
+        return 'Taxable/Trust'
+
+    base_by_year = {int(r['year']): (r.get('_account_withdrawals') or {}) for r in rows_base}
+    totals = {}
+    for r2 in rows2:
+        yr = int(r2['year'])
+        if yr not in shock_years:
+            continue
+        base_wd = base_by_year.get(yr, {})
+        scen_wd = r2.get('_account_withdrawals') or {}
+        for aid, amount in scen_wd.items():
+            delta = float(amount or 0.0) - float(base_wd.get(aid, 0.0) or 0.0)
+            if delta > 0:
+                b = _bucket(str(aid))
+                totals[b] = totals.get(b, 0.0) + delta
+    total = sum(totals.values())
+    if total <= 1.0:
+        return 'No incremental draw (absorbed by existing cash flow)'
+    parts = sorted(totals.items(), key=lambda kv: -kv[1])
+    return ', '.join(f'{name} ({amount / total:.0%})' for name, amount in parts if amount / total >= 0.03)
+
+
 def build_sheet17(ws, c, rows):
-    """LTC Stress Test — 4 actual projection re-runs with the LTC cost stream
+    """LTC Stress Test — 5 actual projection re-runs with the LTC cost stream
     added to spending (same wellness_shock_by_year hook the MC engine uses).
     """
     from ..planning_engines import _funding_success
     ws.sheet_view.showGridLines = False
-    section_title(ws, 1, 'LONG-TERM-CARE STRESS TEST', 8)
+    section_title(ws, 1, 'LONG-TERM-CARE STRESS TEST', 9)
 
     base_nw = rows[-1]['total_nw']
     threshold = float(c.get('mc_success_liquid_floor', 0.0) or 0.0)
@@ -789,11 +859,15 @@ def build_sheet17(ws, c, rows):
     # Onset age is measured against whichever spouse is older (lower DOB year),
     # since that spouse carries the nearer-term LTC risk in a household model.
     older_dob_yr = min(c['h_dob_yr'], c['w_dob_yr'])
+    n1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
+    n2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
+    state_idx = _ltc_state_cost_index(c)
+    state_label = str(c.get('state', '') or '').strip() or 'National'
 
     r = 3
-    hdrs = ['Scenario','Onset Age','Annual Cost Today','Duration (yrs)',
-            'Total Cost (inflated)','Funding Source','Terminal NW','Δ vs Base','Plan Survives?']
-    write_hdr(ws, r, 1, 'LTC Scenarios (full projection re-runs)', NAVY, WHITE, span=9); r+=1
+    hdrs = ['Scenario', 'Onset Age', 'Annual Cost Today', 'Duration (yrs)',
+            'Total Cost (inflated)', 'Funding Source (modeled)', 'Terminal NW', 'Δ vs Base', 'Plan Survives?']
+    write_hdr(ws, r, 1, 'LTC Scenarios (full projection re-runs)', NAVY, WHITE, span=9); r += 1
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
     r += 1
@@ -801,17 +875,15 @@ def build_sheet17(ws, c, rows):
     # onset_age is configured per scenario via input/client_policy.csv
     # (Scenarios / LTC Stress Test section) — editable through the same
     # settings UI that edits that CSV, defaulting here only if a row is missing.
+    # Annual costs are national-median illustrative figures scaled by
+    # LTC_STATE_COST_INDEX for the client's actual state of residence.
     scenario_defs = [
-        ('Moderate Home Care',    35000, 3, 'Trust / Roth',
-         c.get('ltc_onset_age_moderate_home_care', 80)),
-        ('Severe Home Care',      75000, 5, 'Trust / IRA drawdown',
-         c.get('ltc_onset_age_severe_home_care', 82)),
-        ('Facility (Memory Care)',120000, 5, 'IRA + Trust',
-         c.get('ltc_onset_age_facility_memory_care', 85)),
-        ('Catastrophic (Both)',   200000, 7, 'Full portfolio drawdown',
-         c.get('ltc_onset_age_catastrophic_both', 87)),
+        ('Moderate Home Care', 40000 * state_idx, 3, c.get('ltc_onset_age_moderate_home_care', 80)),
+        ('Severe Home Care', 75000 * state_idx, 5, c.get('ltc_onset_age_severe_home_care', 82)),
+        ('Facility (Memory Care)', 110000 * state_idx, 5, c.get('ltc_onset_age_facility_memory_care', 85)),
+        ('Catastrophic (Both)', 220000 * state_idx, 7, c.get('ltc_onset_age_catastrophic_both', 87)),
     ]
-    for scen_name, annual_today, years, source, onset_age in scenario_defs:
+    for scen_name, annual_today, years, onset_age in scenario_defs:
         ltc_start_yr = older_dob_yr + onset_age
         cost_by_year = {ltc_start_yr + k: annual_today * (1 + ltc_inf) ** k
                          for k in range(years)}
@@ -829,23 +901,82 @@ def build_sheet17(ws, c, rows):
         scen_nw = rows2[-1]['total_nw']
         delta_nw = scen_nw - base_nw
         survives = _funding_success(rows2, threshold)
+        funding = _ltc_modeled_funding_source(c, rows, rows2, set(cost_by_year.keys()))
 
         bg = 'E2EFDA' if survives else 'FCE4D6'
-        vals = [scen_name, onset_age, annual_today, years, total_cost, source, scen_nw, delta_nw,
+        vals = [scen_name, onset_age, annual_today, years, total_cost, funding, scen_nw, delta_nw,
                 'YES' if survives else 'NO']
         for i, val in enumerate(vals, 1):
             fmt = FMT_DOLLAR if i in (3, 5, 7, 8) else None
-            write_cell(ws, r, i, val, fmt=fmt, bg=bg if i == 9 else None)
+            write_cell(ws, r, i, val, fmt=fmt, bg=bg if i == 9 else None, align='left' if i == 6 else None)
         r += 1
 
+    # ── Surviving-spouse LTC scenario ──────────────────────────────────────
+    # None of the four scenarios above model the household's other major LTC
+    # risk pattern: one spouse dies first, and the survivor -- now filing
+    # Single, with reduced Social Security/pension/annuity income -- later
+    # needs facility care alone. Whichever spouse the baseline plan already
+    # projects to outlive the other (later of h_death_yr/w_death_yr) plays
+    # the survivor role here.
+    survivor_is_h = c['h_death_yr'] >= c['w_death_yr']
+    if survivor_is_h:
+        first_death_yr = c['w_dob_yr'] + 78
+        death_overrides = {'w_death_yr': first_death_yr, 'first_death_yr': first_death_yr}
+        survivor_dob = c['h_dob_yr']
+        survivor_label = n1
+    else:
+        first_death_yr = c['h_dob_yr'] + 78
+        death_overrides = {'h_death_yr': first_death_yr, 'first_death_yr': first_death_yr}
+        survivor_dob = c['w_dob_yr']
+        survivor_label = n2
+    survivor_onset_age = c.get('ltc_onset_age_facility_memory_care', 85)
+    survivor_ltc_start_yr = survivor_dob + survivor_onset_age
+    survivor_annual_today = 110000 * state_idx
+    survivor_years = 5
+    survivor_cost_by_year = {survivor_ltc_start_yr + k: survivor_annual_today * (1 + ltc_inf) ** k
+                              for k in range(survivor_years)}
+    survivor_total_cost = sum(survivor_cost_by_year.values())
+
+    def _mutate_survivor(c2, death_overrides=death_overrides, cost_by_year=survivor_cost_by_year):
+        c2.update(death_overrides)
+        shocks = dict(c2.get('wellness_shock_by_year') or {})
+        for yr, cost in cost_by_year.items():
+            shocks[yr] = shocks.get(yr, 0.0) + cost
+        c2['wellness_shock_by_year'] = shocks
+
+    _c2, rows_surv = _run_scenario(c, mutate=_mutate_survivor)
+    if rows_surv:
+        scen_nw = rows_surv[-1]['total_nw']
+        delta_nw = scen_nw - base_nw
+        survives = _funding_success(rows_surv, threshold)
+        funding = _ltc_modeled_funding_source(c, rows, rows_surv, set(survivor_cost_by_year.keys()))
+        bg = 'E2EFDA' if survives else 'FCE4D6'
+        scen_name = f'Surviving-Spouse Facility Care ({survivor_label} alone, filing Single)'
+        vals = [scen_name, survivor_onset_age, survivor_annual_today, survivor_years, survivor_total_cost,
+                funding, scen_nw, delta_nw, 'YES' if survives else 'NO']
+        for i, val in enumerate(vals, 1):
+            fmt = FMT_DOLLAR if i in (3, 5, 7, 8) else None
+            write_cell(ws, r, i, val, fmt=fmt, bg=bg if i == 9 else None, align='left' if i == 6 else None)
+        r += 1
+
+    r += 1
+    write_cell(ws, r, 1,
+               f'Costs are scaled for {state_label} (regional cost index {state_idx:.2f}x national baseline; '
+               'illustrative approximation, not a survey-precise figure). Funding Source is modeled from this '
+               'household\'s own actual incremental account withdrawals during each scenario\'s care years, not '
+               'a hand-picked label. The Surviving-Spouse scenario is this plan\'s own baseline mortality '
+               'assumption (whichever spouse the plan already expects to outlive the other) facing facility '
+               'care alone, filing Single with reduced survivor income.', align='left')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=9)
     r += 2
     write_cell(ws, r, 1,
-               '⚠ Recommendation: Facility-care and catastrophic scenarios stress the plan. '
+               '⚠ Recommendation: Facility-care, catastrophic, and surviving-spouse scenarios stress the plan. '
                'Consider a Hybrid Life/LTC policy to cap open-ended risk.  '
                'No LTC policy is currently in force (see Sheet 19 — Life Insurance).', bold=True)
-    ws.merge_cells(start_row=r,start_column=1,end_row=r,end_column=9)
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=9)
 
-    qc('17. LTC Stress Test', 'Four scenarios re-run through project() with real LTC cost stream; '
+    qc('17. LTC Stress Test', 'Five scenarios (incl. surviving-spouse) re-run through project() with real, '
+       'state-adjusted LTC cost stream and modeled funding source; '
        'Plan Survives = liquid assets stay above floor with no unfunded gap, every year', True, '')
 
 
