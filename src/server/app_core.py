@@ -85,7 +85,6 @@ try:
         load_active_config,
         load_csv,
         export_client_json_yaml,
-        import_csv_to_sqlite,
         lookup_api_token,
         materialize_workspace_files,
         set_client_file,
@@ -126,7 +125,6 @@ except ImportError:  # direct execution fallback
         load_active_config,
         load_csv,
         export_client_json_yaml,
-        import_csv_to_sqlite,
         lookup_api_token,
         materialize_workspace_files,
         set_client_file,
@@ -1646,16 +1644,19 @@ def _replace_liquidity_buffers(buffers: list[dict]) -> None:
     _write_client_rows(path, new_rows)
 
 def _sync_config_backends() -> dict:
+    # DB -> CSV export only (system review 2026-08-04, architect finding
+    # `csv-roundtrip-on-every-save`, Wave 4.11 -- "the actual Phase 2 goal").
+    # This function's one caller, _apply_plan_data_payload(), already wrote
+    # every file through _write_plan_data_file() before calling this, which
+    # writes the SQLite store first (canonically) and the CSV mirror second.
+    # So by the time this runs, the on-disk CSV already IS the DB-canonical
+    # content. Re-importing it back into SQLite via import_csv_to_sqlite (as
+    # this used to do) was therefore a redundant, backwards write against the
+    # DB-canonical model -- CSV should mirror the DB, not the other way
+    # around. This now only produces the derived JSON/YAML export mirrors.
     try:
-        # Parse the sectioned CSVs ONCE and hand the result to both consumers.
-        # Each of these used to call load_csv itself, and load_csv on the
-        # client_data.csv anchor opens and parses ten files (itself plus the
-        # nine part files), so this ran twenty file reads per saved field --
-        # on a path invoked for every plan-data CSV write.
         _plan_data = load_csv(CSV_PATH)
         derived = export_client_json_yaml(CSV_PATH, CSV_PATH.parent, data=_plan_data)
-        db_path = import_csv_to_sqlite(CSV_PATH, _sqlite_db(), workspace_id=_workspace_id(),
-                                       data=_plan_data)
         return {"success": True, "derived": derived, "json": derived.get("client_data.json"), "yaml": derived.get("client_data.yaml")}
     except Exception as exc:
         return {"success": False, "error": str(exc), "trace": traceback.format_exc()}
