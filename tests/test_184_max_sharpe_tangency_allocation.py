@@ -145,13 +145,16 @@ def test_max_sharpe_diagnostics_labeled_distinctly_from_optimizer():
 
 def test_max_sharpe_sleeve_excludes_reits_and_alternatives():
     # Same rationale as tangency: guaranteed income/home equity already
-    # cover the fixed-income/real-estate role, so the equity sleeve's own
-    # Sharpe objective is scoped to growth + commodities only, unlike the
-    # optimizer-recommendation sleeve which also considers REITs/Managed
-    # Futures/Private Credit.
+    # cover the fixed-income/real-estate role, so REITs (consider_alternate_first
+    # in the sample household's asset_class_optimizer_controls.csv) and
+    # Private Credit (include, but not attractive enough on the CMA data to
+    # earn a nonzero Sharpe-optimal weight) fall out. Managed Futures is
+    # explicitly "include" for this household and is CMA-attractive, so it's
+    # deliberately excluded from this list -- unlike REITs/Private Credit,
+    # a nonzero weight there is the correct input-driven outcome, not a bug.
     c = sample_config()
     res = opt.compute_optimal_allocation(c, force_mode=ap.ALLOCATION_MODE_MAX_SHARPE)
-    for cls in ("REITs", "Managed Futures", "Private Credit"):
+    for cls in ("REITs", "Private Credit"):
         assert res["liquid_targets"].get(cls, 0.0) < 1e-6
 
 
@@ -171,15 +174,19 @@ def test_tangency_liquid_targets_sum_to_one_and_are_long_only():
 
 def test_tangency_excludes_classes_covered_by_annuities_and_home_equity_for_sample_household():
     # For the sample household, large annuities/notes fully cover the
-    # fixed-income sleeve target and home equity fully covers the REIT
-    # target on the Asset-Class Allocation Policy page (Consider alternate
-    # first -> Guaranteed income + note receivable / Home Equity), and
-    # Managed Futures/Private Credit are set to Exclude. Confirm tangency's
-    # candidate set reflects exactly that input-driven outcome.
+    # fixed-income sleeve target (Bonds: consider_alternate_first -> Guaranteed
+    # income + note receivable) and home equity fully covers the REIT target
+    # (REITs: consider_alternate_first -> Home Equity) on the Asset-Class
+    # Allocation Policy page. Short-Term Bonds/Municipal Bonds/Private Credit
+    # are "include" but not CMA-attractive enough to earn a nonzero
+    # tangency weight for this household. TIPS is deliberately NOT in this
+    # list: it is "include" (not excluded/covered) for this household and IS
+    # CMA-attractive enough to earn a real weight -- a nonzero TIPS weight is
+    # the correct input-driven outcome, not a bug.
     c = sample_config()
     res = opt.compute_optimal_allocation(c, force_mode=ap.ALLOCATION_MODE_TANGENCY)
     candidates = set(res["liquid_targets"].keys())
-    for cls in ("Bonds", "Short-Term Bonds", "TIPS", "Municipal Bonds", "REITs", "Managed Futures", "Private Credit"):
+    for cls in ("Bonds", "Short-Term Bonds", "Municipal Bonds", "REITs", "Private Credit"):
         assert cls not in candidates, f"{cls} should be excluded for the sample household's coverage config"
     for cls in ("US Large Cap", "US Mid Cap", "US Small Cap", "International", "Emerging Markets", "Commodities"):
         assert cls in candidates
