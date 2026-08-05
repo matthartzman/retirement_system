@@ -195,9 +195,24 @@ def _budget_rows(path: Path) -> list[dict]:
         return list(csv.DictReader(f))
 
 
+def _live_plan_is_populated() -> bool:
+    """False when input/*.csv is the blank "Start New Plan" template rather
+    than an advisor's actual data -- e.g. right after exercising the blanking
+    feature interactively. The three tests below compare free-text/portfolio
+    fields that the blank template also seeds with generic placeholder
+    content (unfilled line labels, default target weights, a recovery seed
+    literally noted "Demo seed value"), so a coincidental match against a
+    blank live plan is not a real-data leak and should not fail the suite --
+    mirrors test_sensitive_field_differs_from_live_plan's per-field skip."""
+    return bool(_all_sectioned(LIVE).get(("Household", "", "member_1_dob")))
+
+
 def test_no_budget_line_label_is_shared_with_the_live_plan():
     """Budget *line* labels are free text the advisor types -- real children's
     first names and personal notes ("10k for each child in 2026") lived here."""
+    if not _live_plan_is_populated():
+        pytest.skip("live plan is currently blank (no member_1_dob) -- nothing to leak")
+
     def line_labels(p):
         # line_mode=summary rows are the app's own auto-synced roll-ups.
         return {
@@ -260,6 +275,8 @@ def _target_allocation(base: Path) -> dict:
 def test_demo_target_allocation_is_not_the_live_plans():
     """The target weights are the advisor's own portfolio policy, not a
     statutory constant -- the demo needs its own."""
+    if not _live_plan_is_populated():
+        pytest.skip("live plan is currently blank (no member_1_dob) -- nothing to leak")
     demo, live = _target_allocation(DEMO), _target_allocation(LIVE)
     assert demo, "input/demo/target_allocation.csv is missing or empty"
     assert demo != live, "demo target_allocation.csv is a copy of the live plan's target weights"
@@ -286,6 +303,8 @@ def test_demo_budget_recovery_seed_is_fictional():
     whenever the category rows total zero. If the demo does not ship (and
     apply) its own, that merge pulls the advisor's real annualized actuals
     into the demo household's budget."""
+    if not _live_plan_is_populated():
+        pytest.skip("live plan is currently blank (no member_1_dob) -- nothing to leak")
     seed = DEMO / "client_spending_budget.recovery_seed.csv"
     assert seed.exists(), "input/demo/client_spending_budget.recovery_seed.csv is missing"
     demo_rows = {(r.get("kind"), r.get("key"), r.get("label"), r.get("annual_budget")) for r in _budget_rows(seed)}

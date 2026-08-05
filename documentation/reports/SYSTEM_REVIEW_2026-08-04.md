@@ -8,7 +8,7 @@
 
 This review was produced by the five-expert panel workflow. **36 of 39 agents completed**; the three
 final opus stages — orchestrator synthesis, financial-planner sign-off, and orchestrator revision —
-**failed on a session token limit** before writing anything.
+**failed twice on a session token limit** before writing anything through the automated workflow path.
 
 What that means for how you read this:
 
@@ -16,20 +16,26 @@ What that means for how you read this:
 |---|---|
 | Recon (engine / UI / tests+docs) | ✅ completed |
 | Five expert reviews | ✅ completed — 45 findings, all with `file:line` evidence |
-| Adversarial cross-check (28 verifiers) | ✅ completed — **0 refuted**, 4 citation corrections |
-| Orchestrator synthesis | ❌ failed (session limit) → **reconstructed by the main orchestrator from the run journal** |
-| Financial-planner sign-off | ❌ failed (session limit) → **deferred to after Wave 3 by decision — see §6** |
-| Orchestrator revision | ❌ failed (session limit) → not applicable (no sign-off to apply) |
+| Adversarial cross-check (28 verifiers, run 1) | ✅ completed — **0 refuted**, 4 citation corrections |
+| Wave 0–2 implementation | ✅ **completed and verified — see §7** |
+| Adversarial re-check (6 verifiers, run 2, against post-fix code) | ✅ completed — **6/6 flipped to refuted**, confirming the corresponding fixes landed correctly — see §7.1 |
+| Orchestrator synthesis | ❌ automated pass failed (session limit) twice → **performed manually by the main orchestrator — see §7** |
+| Financial-planner sign-off | ❌ automated pass failed (session limit) twice → **performed manually by the main orchestrator, acting in the planner role, per explicit user instruction — see §7.3** |
+| Orchestrator revision | ✅ **applied — see §7.4** |
 
-**Revision 2 (2026-08-04):** C3 and C4 were re-assessed at source level per Appendix B's caveat, and
-the five open questions were decided. **The re-assessment changed the answer** — see §2.5. Effort
-estimates are now calibrated to measured throughput (§4.0).
+**Revision 3 (2026-08-05):** Waves 0, 1, and all of Wave 2 were implemented and verified in full
+between revision 2 and this pass (§7). The workflow's own resume attempts, run twice against the
+*current* (post-fix) repo, independently re-verified 6 of the fixed findings as refuted — i.e.
+confirmed fixed, not that the original findings were wrong. Both automated attempts at the final
+three stages then hit the session token limit a second time; per explicit instruction ("continue with
+synthesis, signoff, revision" — automated agents blocked, proceed manually), those three stages were
+performed by the main orchestrator instead of deferred further. See §7 for the full writeup.
 
-Every finding, option, and per-finding recommendation below is the verbatim work of the expert agents.
-The **cross-expert conflict resolution, wave sequencing, and model assignments are the main
-orchestrator's synthesis**, written after the fact from the cached journal — not the workflow's own
-opus synthesis pass. The independent planner sign-off that this skill treats as non-negotiable
-**has not happened**, so the sequencing in §4 should be treated as a strong draft, not a ratified plan.
+Every finding, option, and per-finding recommendation in §1–§6 below is the verbatim work of the
+expert agents from the original run. The **cross-expert conflict resolution, wave sequencing, and
+model assignments in §3–§4 are the main orchestrator's synthesis**, written from the cached journal.
+**§7 is new in this revision**: the manual synthesis update, planner sign-off, and revision that
+replace the workflow's own (twice-failed) automated versions of those same three stages.
 
 ---
 
@@ -618,6 +624,144 @@ All five were decided on 2026-08-04. Recorded here because each changed the plan
    plausibly share machinery; that was not analyzed.
 3. **`XL` items have no decomposition.** 2.1, 4.x, and 6.4 are estimated at 2+ weeks with no
    breakdown. They should each get their own planning pass before entering a wave.
+
+---
+
+## 7. Wave 0–2 verification, synthesis update, and planner sign-off (revision 3, 2026-08-05)
+
+This section is the manual replacement for the workflow's automated synthesis / planner-sign-off /
+revision stages, which failed on the session token limit on **two separate resume attempts**
+(first: all 3 opus stages plus most of the remaining verifiers; second: got to 19/39 completed but
+the three final stages failed again, reset pushed 12pm → 10pm → 3:40am America/Chicago). Rather than
+wait for a third window, the user gave an explicit instruction to proceed manually: *"continue with
+synthesis, signoff, revision."* What follows is that work, done by the main orchestrator, written
+against the actual current repo state rather than reconstructed from agent output.
+
+### 7.1 What the second resume's re-verification actually showed
+
+The second resume's journal contains **duplicate verifier results for 6 findings** — one entry from
+the original run (against the 2026-08-04 pre-fix repo), one fresh entry from the resume (against the
+current, post-Wave-0/1 repo). All 6 flipped from `refuted=false` to `refuted=true` between the two
+passes. Reading each verifier's `reason` field confirms these are **fix confirmations, not
+retractions** — every one names the exact remediation now present in the code:
+
+| Finding | Verifier's reason (paraphrased) |
+|---|---|
+| `ui-accordion-breaks-jump-to-field` | `revealAndFocus()` now exists and is called from `jumpRecommendationSource()` |
+| `plan-forms-api-permanently-403` | Both `_require()` call sites now use `"write_config"`, which is in `LOCAL_PERMISSIONS` |
+| `exec-summary-hardcoded-cst-figures` | `sheets_summary.py` now calls `summary_figures.credit_shelter_trust_savings(c)`, the same function Sheet 14 uses |
+| `csv-roundtrip-on-every-save` | `_sync_config_backends()` now calls `load_csv()` once and passes the result via `data=` to both export functions |
+| `results-explorer-reparses-per-request` | `_RESULT_MODEL_CACHE` now short-circuits re-parsing on an unchanged mtime+size |
+| `raw-status-enum-leak` | `governance.py` now has `READINESS_LABELS` / `readiness_label()`; the workbook sites use it |
+
+This is independent, adversarial confirmation — from agents instructed to *refute*, reading the
+*current* code cold — that 6 of the review's findings are correctly fixed. It is not exhaustive: only
+findings whose verifier call happened to re-run in the resume got a second pass. The rest of this
+section covers every other Wave 0–2 item from this session's own implementation record, cross-checked
+directly against the repo just now rather than waiting for the automated verifier to get to it.
+
+### 7.2 Full Wave 0–2 status (verified against the repo, 2026-08-05)
+
+**Wave 0 — Deliverable truthfulness: 7/7 done.**
+
+| # | Item | Verified as |
+|---|---|---|
+| 0.1 | Exec Summary truthfulness (C1+C2+flat-rate label) | `summary_figures.py` created; `sheets_summary.py` headline now uses `roth_strategy_benefit()` (selected-vs-next-best delta), omitted when <2 candidates |
+| 0.2 | CST shared helper | `summary_figures.credit_shelter_trust_savings(c)`, used by both `sheets_summary.py` and `sheets_strategy.py` — confirmed fixed by 7.1 |
+| 0.3 | `status_label`/`status_note` on readiness | `governance.py:READINESS_LABELS`, `readiness_label()` — confirmed fixed by 7.1 |
+| 0.4 | Glossary consolidation | `dashboard_source_truth_banners.js`'s local `GLOSSARY` object deleted; reads `ACRONYM_DEFINITIONS` via `glossaryTerms()`; `PTI`/`QDRO`/`ACA` added to `src/glossary.py` |
+| 0.5 | Allocation-mode dropdown copy | Reworded in 2 places + `FIELD_HELP` expanded to all 5 modes |
+| 0.6 | PDF truncation marker | `TRUNCATION_MARKER`, `_TRUNCATION_STATE`, cover-page notice in `enterprise_pdf.py` |
+| 0.7 | Sheet 24 disclosure (interim, keep per §6 Q2) | Disclosure notice added in `sheets_qc_reference.py` |
+
+**Wave 1 — Cheap high-value fixes: 10/10 done.**
+
+| # | Item | Verified as |
+|---|---|---|
+| 1.1 | Plan Forms API 403 + AST test | `_require("write_config")` at both sites; `tests/test_permission_vocabulary.py` AST-walks every `_require()` literal |
+| 1.2 | Results Explorer cache | `_RESULT_MODEL_CACHE` in `detailed_results.py` — confirmed fixed by 7.1 |
+| 1.3 | `_sync_config_backends()` memoize | `load_csv()` called once, `data=` passthrough — confirmed fixed by 7.1 |
+| 1.4 | `revealAndFocus()` | Exists in `dashboard.js`, used by `jumpRecommendationSource()` — confirmed fixed by 7.1, and regression-tested live in `tests/e2e/nav-integrity.spec.js` (J3) |
+| 1.5 | Save-mode badge | `updateSaveModeBadge()` in `navigation.js`, `#saveModeBadge` in `index.html`, CSS in `dashboard.css` |
+| 1.6 | Effective marginal rate | `deterministic_engine.py`'s `_emr_stack()` block; Sheet 7 gained 2 columns; `tests/test_effective_marginal_rate.py` (6 tests) including the exact 22.2% torpedo repro from the finding |
+| 1.7 | Extract tax-math unit tests | `tests/test_core_tax_math.py` exists, tagged `@pytest.mark.unit` |
+| 1.8 | Delete duplicate admin click-handler test | `test_24_admin_final_nav_and_acronyms.py:18-19` records the deletion inline |
+| 1.9 | Delete `Phase5GoldenMasterEngineTests` | Class removed; `test_workbook_pdf_build_snapshot.py:81` records the deletion inline |
+| 1.10 | Delete `sheets_projection.py` | File no longer exists; no remaining references in `src/` or `tests/` |
+
+**Wave 2 — Test infrastructure: 5/5 done** (this wave gates Waves 3 and 6, per §4).
+
+| # | Item | Verified as |
+|---|---|---|
+| 2.1 | Playwright, 3 journeys | `tests/e2e/{helpers,field-save-persist,build-and-results,nav-integrity}.spec.js`, `playwright.config.js`, `tools/e2e_server.py`, CI job added. J2 (`build-and-results.spec.js`) found and fixed a genuine, previously-undetected production bug — see below. |
+| 2.2 | Ban new substring assertions | `tests/test_freeze_frontend_source_grep.py` + 89-entry baseline freezes the current set; documented in `pyproject.toml` as the template-for-new-files approach the finding actually recommended, not a full retroactive retag |
+| 2.3 | `dashboard.js` size ratchet | `tests/test_frontend_size_ratchet.py`, `DASHBOARD_JS_MAX_LINES = 19_661` |
+| 2.4 | Five-tier pytest markers | 5 markers registered in `pyproject.toml`; `test_core_tax_math.py` and `test_workbook_pdf_build_snapshot.py` split out as the worked example |
+| 2.5 | Sheet-table consistency test | `tests/test_sheet_table_consistency.py` |
+
+**The single most significant outcome of Wave 2.1**: writing the real-browser build journey (J2)
+surfaced a genuine production bug that no existing test caught — `workbook_routes.py`'s
+`build_start()` checked for `plan_summary.json` in the **wrong, unredirected** directory
+(`workspace_output_dir(workspace_id, BASE_DIR)` instead of the already-correct `_workspace_output()`
+helper), so every build under a custom `RETIREMENT_SYSTEM_WORKSPACE_ROOT` reported "Build failed" on
+builds that had, in fact, fully succeeded. This is exactly the failure mode C6/quality's finding
+predicted (*"a silently broken Save button ships today with a green suite"*) — except it caught a
+worse one, a report-generation false negative, before it shipped. Fixed at the source; the spec now
+regression-guards it with an inline comment explaining what it caught and why.
+
+### 7.3 Planner sign-off
+
+Acting in the financial-planner role this sign-off requires (per the skill: *"the financial planner
+always reviews the finished document... this is non-negotiable"*), reviewing the plan's Wave 3
+sequencing now that Waves 0–2 are real, not projected:
+
+**Verdict: sign off on Wave 3 as sequenced in §4 and re-ordered in §2.5, with one addition and one
+pre-flight condition.**
+
+- **The C3-before-C4 reorder (§2.5) still holds and is now lower-risk to execute than when it was
+  decided.** Wave 2.1's Playwright suite means a Wave-3 regression that breaks the actual build (not
+  just the golden-master numbers) will be caught by J2 before it reaches a changelog entry. That
+  safety net did not exist when §2.5's reorder was decided.
+- **1.6 (effective marginal rate) materially changes what 3.4 (dual-column reporting) should show.**
+  Sheet 7 now has both nominal nominal-dollar figures *and* the effective-marginal-rate columns; 3.4's
+  dual-column work should apply the same nominal/today's-dollars treatment to those two new columns,
+  not just the pre-existing ones. This was not visible to the original panel because 1.6 postdates
+  their review. **Adding as 3.4a** (folded into 3.4, not a new line item — same file, same commit).
+- **Pre-flight condition, not a scope change: clear the pytest baseline before 3.0.** A `pytest tests/
+  -m "not slow"` run just now shows **18 failures**, all in files untouched by Waves 0–2
+  (`test_demo_plan_data_is_fictional.py`, `test_184_max_sharpe_tangency_allocation.py`,
+  `test_1_regressions.py`, `test_cashflow_chart_home_purchase_down_payment.py`, and others) — this
+  matches the previously-tracked residual from the frozen-fixture migration (project memory: "31→19→18
+  'not slow' failures, stable"), not a regression from this review's work. But 3.0's whole purpose is
+  giving Wave 3 a **clean, attributable baseline** (§3.1) — landing 3.0 on top of 18 known-unrelated
+  failures defeats that purpose just as surely as landing it on top of the pending `_mode` regen does.
+  **These 18 should be resolved (or explicitly triaged and marked xfail with a tracking note) before
+  3.0, not folded into it.** This is a pre-existing item, not new information from this sign-off, but
+  it has not previously been called out as a Wave-3 blocker.
+- **Everything else in Wave 3 (3.0–3.8) is approved as sequenced.** No further reordering, no scope
+  changes to 3.1–3.3, 3.5–3.8. The financial-planner reasoning behind each item (estate exemption
+  indexing, medical deduction, Roth objective deflator, sleeve returns, mortality table, both
+  regenerations, this sign-off) all still applies unchanged — none of it was contingent on Wave 0–2.
+
+**Remaining open question from §6, re-assessed:** *"C6 (Playwright) is the one worth re-assessing
+before committing"* — this has now been overtaken by events; Playwright was built (2.1) and it caught
+a real bug on its first substantive spec, which is stronger evidence for the finding than a
+source-level re-read would have produced. No further re-assessment needed.
+
+### 7.4 Revision applied
+
+- §6's Q1 decision text ("rerun sign-off after wave 3") is superseded by the user's explicit
+  instruction this pass to proceed manually before Wave 3, given the automated path was blocked twice
+  on session limits. **3.8 in the Wave 3 table is retained** as the point where the *automated*
+  workflow sign-off should still run once available — this manual sign-off is not a substitute for
+  that, only an unblock so Wave 3 is not stalled indefinitely on a session-limit reset clock.
+- Wave 3's item 3.4 note is amended: dual-column formatting also applies to the two new
+  effective-marginal-rate columns added by 1.6 (§7.3, "3.4a").
+- A new pre-flight condition is attached ahead of 3.0: resolve or formally triage the 18 current
+  `pytest -m "not slow"` failures so 3.0's baseline regeneration is attributable, per §7.3.
+- The provenance table at the top of this document and the header revision note have been updated to
+  reflect that all three previously-missing stages are now complete (§7 in place of the placeholder
+  text).
 
 ---
 
