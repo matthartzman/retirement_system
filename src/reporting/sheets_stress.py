@@ -19,6 +19,7 @@ from .workbook_common import (
     ltcg_tax_on_gain,
     project,
     qc,
+    run_scenario as _run_scenario,
     section_title,
     thin_border,
     write_cell,
@@ -451,14 +452,9 @@ def build_sheet16(ws, c, rows):
     base_tax  = sum(row['total_tax'] for row in rows)
 
     # ── Run actual re-projections for each scenario ───────────────────────────
-    import copy
-
     def run_scenario(overrides):
         """Re-run project() with a modified copy of c and return (term_nw, lifetime_tax)."""
-        c2 = copy.deepcopy(c)
-        for k, v in overrides.items():
-            c2[k] = v
-        rows2 = project(c2)
+        _c2, rows2 = _run_scenario(c, overrides)
         return rows2[-1]['total_nw'], sum(row['total_tax'] for row in rows2)
 
     # Allocation scenarios: compare user-specified target_pct versus optimizer
@@ -528,14 +524,14 @@ def build_sheet16(ws, c, rows):
     # ── PDIA What-If: Lower Dividend (4.50%, same split) ─────────────────
     def run_pdia_scenario(div_override=None, cash_pct_override=None):
         """Re-run with modified annuity parameters across all streams."""
-        c2 = copy.deepcopy(c)
-        for stream_key in ['wife_pension','wife_single','wife_joint','h_single','h_joint']:
-            s = c2[stream_key]
-            if div_override is not None and s['base'] > 0:
-                s['div_rate'] = div_override
-            if cash_pct_override is not None and s['base'] > 0:
-                s['add_pct'] = 1.0 - cash_pct_override
-        rows2 = project(c2)
+        def _mutate(c2):
+            for stream_key in ['wife_pension','wife_single','wife_joint','h_single','h_joint']:
+                s = c2[stream_key]
+                if div_override is not None and s['base'] > 0:
+                    s['div_rate'] = div_override
+                if cash_pct_override is not None and s['base'] > 0:
+                    s['add_pct'] = 1.0 - cash_pct_override
+        _c2, rows2 = _run_scenario(c, mutate=_mutate)
         return rows2[-1]['total_nw'], sum(row['total_tax'] for row in rows2)
 
     nw_pdia_lo, tax_pdia_lo = run_pdia_scenario(div_override=c['scen_pdia_div_lo'])
@@ -545,28 +541,28 @@ def build_sheet16(ws, c, rows):
     def run_combined_scenario(toggles):
         """Apply multiple overrides simultaneously (sell home + low return + 4.5% div etc.).
         toggles is a dict of which overrides to activate."""
-        c2 = copy.deepcopy(c)
-        if toggles.get('sell_home'):
-            c2['home_sale_yr']   = sell_yr
-            c2['home_sale_px']   = gross_sell
-            c2['home_basis']     = sell_basis
-            c2['home_sale_acct'] = sell_acct
-        if toggles.get('low_return'):
-            c2['ret'] = c['scen_ret_override']
-        if toggles.get('high_inflation'):
-            c2['inf'] = c['scen_inf_override']
-        if toggles.get('spend_more'):
-            c2['spend_base'] = c['spend_base'] * c['scen_spend_mult']
-        if toggles.get('retire_later'):
-            c2['earn_end'] = retire_later_yr
-            c2['base_earn_end'] = c['earn_end']
-        for sk in ['wife_pension','wife_single','wife_joint','h_single','h_joint']:
-            s = c2[sk]
-            if toggles.get('pdia_low_div') and s['base'] > 0:
-                s['div_rate'] = c['scen_pdia_div_lo']
-            if toggles.get('pdia_5050') and s['base'] > 0:
-                s['add_pct'] = 1.0 - c['scen_pdia_split_5050']
-        rows2 = project(c2)
+        def _mutate(c2):
+            if toggles.get('sell_home'):
+                c2['home_sale_yr']   = sell_yr
+                c2['home_sale_px']   = gross_sell
+                c2['home_basis']     = sell_basis
+                c2['home_sale_acct'] = sell_acct
+            if toggles.get('low_return'):
+                c2['ret'] = c['scen_ret_override']
+            if toggles.get('high_inflation'):
+                c2['inf'] = c['scen_inf_override']
+            if toggles.get('spend_more'):
+                c2['spend_base'] = c['spend_base'] * c['scen_spend_mult']
+            if toggles.get('retire_later'):
+                c2['earn_end'] = retire_later_yr
+                c2['base_earn_end'] = c['earn_end']
+            for sk in ['wife_pension','wife_single','wife_joint','h_single','h_joint']:
+                s = c2[sk]
+                if toggles.get('pdia_low_div') and s['base'] > 0:
+                    s['div_rate'] = c['scen_pdia_div_lo']
+                if toggles.get('pdia_5050') and s['base'] > 0:
+                    s['add_pct'] = 1.0 - c['scen_pdia_split_5050']
+        _c2, rows2 = _run_scenario(c, mutate=_mutate)
         return rows2[-1]['total_nw'], sum(row['total_tax'] for row in rows2)
 
     # Read which toggles are active from CSV (Scenarios / Combined Stress Test)
@@ -586,6 +582,8 @@ def build_sheet16(ws, c, rows):
     # Also compute annuity income delta for reference
     def annuity_income_at_year(yr, div_override=None, cash_pct_override=None):
         """Total annuity income at a specific year with optional overrides."""
+        # Not a project() scenario -- doesn't need run_scenario, just a copy to mutate.
+        import copy
         c2 = copy.deepcopy(c)
         for sk in ['wife_pension','wife_single','wife_joint','h_single','h_joint']:
             s = c2[sk]
@@ -694,10 +692,7 @@ def build_sheet16(ws, c, rows):
     # ── Spend Reduction Recommendation (#13) ──────────────────────────────────
     r += 2
     write_hdr(ws, r, 1, 'Spending Reduction Analysis', GREEN, WHITE, span=6); r += 1
-    import copy as _copy
-    c_spend_lo = _copy.deepcopy(c)
-    c_spend_lo['spend_base'] = c['spend_base'] * 0.90
-    rows_lo = project(c_spend_lo)
+    _c_spend_lo, rows_lo = _run_scenario(c, {'spend_base': c['spend_base'] * 0.90})
     nw_lo   = rows_lo[-1]['total_nw']
     delta   = nw_lo - base_nw
     write_cell(ws, r, 1, 'Current Base Spending')
@@ -718,7 +713,6 @@ def build_sheet17(ws, c, rows):
     """LTC Stress Test — 4 actual projection re-runs with the LTC cost stream
     added to spending (same wellness_shock_by_year hook the MC engine uses).
     """
-    import copy as _copy2
     from ..planning_engines import _funding_success
     ws.sheet_view.showGridLines = False
     section_title(ws, 1, 'LONG-TERM-CARE STRESS TEST', 8)
@@ -757,13 +751,13 @@ def build_sheet17(ws, c, rows):
                          for k in range(years)}
         total_cost = sum(cost_by_year.values())
 
-        c2 = _copy2.deepcopy(c)
-        shocks = dict(c2.get('wellness_shock_by_year') or {})
-        for yr, cost in cost_by_year.items():
-            shocks[yr] = shocks.get(yr, 0.0) + cost
-        c2['wellness_shock_by_year'] = shocks
+        def _mutate(c2, cost_by_year=cost_by_year):
+            shocks = dict(c2.get('wellness_shock_by_year') or {})
+            for yr, cost in cost_by_year.items():
+                shocks[yr] = shocks.get(yr, 0.0) + cost
+            c2['wellness_shock_by_year'] = shocks
 
-        rows2 = project(c2)
+        _c2, rows2 = _run_scenario(c, mutate=_mutate)
         if not rows2:
             continue
         scen_nw = rows2[-1]['total_nw']
@@ -791,7 +785,6 @@ def build_sheet17(ws, c, rows):
 
 def build_sheet18(ws, c, rows):
     """Survivor / Early-Death Stress Test — 5 actual projection re-runs."""
-    import copy
     ws.sheet_view.showGridLines = False
     section_title(ws, 1, 'SURVIVOR / EARLY-DEATH STRESS TEST', 9)
 
@@ -853,12 +846,13 @@ def build_sheet18(ws, c, rows):
     r += 1
 
     for label, h_death, w_death, desc in early_scenarios:
-        c2 = copy.deepcopy(c)
-        c2['h_death_yr'] = h_death
-        c2['w_death_yr'] = w_death
-        c2['first_death_yr'] = min(h_death, w_death)
-        c2['plan_end'] = max(h_death, w_death)
-        rows2 = project(c2)
+        overrides = {
+            'h_death_yr': h_death,
+            'w_death_yr': w_death,
+            'first_death_yr': min(h_death, w_death),
+            'plan_end': max(h_death, w_death),
+        }
+        _c2, rows2 = _run_scenario(c, overrides)
         if not rows2:
             continue
         scen_nw = rows2[-1]['total_nw']

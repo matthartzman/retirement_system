@@ -145,9 +145,8 @@ def build_sheet10(ws, c, rows):
     ws.sheet_view.showGridLines = False
     section_title(ws, 1, 'SOCIAL SECURITY CLAIMING STRATEGY', 10)
 
-    from ..planning_engines import project, monte_carlo
+    from ..planning_engines import monte_carlo, run_scenario as _run_scenario
     from ..after_tax import estimate_after_tax_terminal_net_worth as _est_after_tax
-    import copy as _copy
     import contextlib as _contextlib
     import io as _io
 
@@ -179,17 +178,18 @@ def build_sheet10(ws, c, rows):
     w_current = int(c.get('w_ss_claim_age', c.get('ss_claim_age', 70)) or 70)
 
     def _safe_project_pair(h_age, w_age):
-        c2 = _copy.deepcopy(c)
-        c2['h_ss_claim_age'] = int(h_age)
-        c2['w_ss_claim_age'] = int(w_age)
-        # Preserve the currently selected Roth policy so the sweep compares SS
-        # timing through the same full projection engine without recursively
-        # re-optimizing Roth conversions 81 times during workbook generation.
-        if str(c2.get('roth_policy', '')).lower() in ('optimize', 'optimize_terminal_tax', 'terminal_tax_optimize', 'balanced_optimize'):
-            c2['roth_policy'] = c2.get('roth_optimized_policy') or 'fill_to_bracket'
-        c2.pop('plan_result', None)
-        c2.pop('roth_strategy_result', None)
-        proj_rows = project(c2)
+        def _mutate(c2):
+            c2['h_ss_claim_age'] = int(h_age)
+            c2['w_ss_claim_age'] = int(w_age)
+            # Preserve the currently selected Roth policy so the sweep compares
+            # SS timing through the same full projection engine without
+            # recursively re-optimizing Roth conversions 81 times during
+            # workbook generation.
+            if str(c2.get('roth_policy', '')).lower() in ('optimize', 'optimize_terminal_tax', 'terminal_tax_optimize', 'balanced_optimize'):
+                c2['roth_policy'] = c2.get('roth_optimized_policy') or 'fill_to_bracket'
+            c2.pop('plan_result', None)
+            c2.pop('roth_strategy_result', None)
+        c2, proj_rows = _run_scenario(c, mutate=_mutate)
         terminal_row = proj_rows[-1] if proj_rows else {}
         terminal = float(terminal_row.get('total_nw', 0.0) or 0.0)
         lifetime_tax = sum(float(r.get('total_tax', 0.0) or 0.0) for r in proj_rows)
