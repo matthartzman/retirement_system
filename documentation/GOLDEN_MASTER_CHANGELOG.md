@@ -1,5 +1,85 @@
 
 
+## 2026-08-05 — Wave 3 engine-correctness batch (system review 2026-08-04, §3.1): six changes, two regenerations
+
+**What was wrong.** Six independent, planner-identified defects, each individually
+capable of invalidating the golden master (§3.1 of the system review's implementation
+plan): the federal estate exemption was a frozen plan-start constant applied unchanged
+to a terminal estate computed decades later; Illinois estate tax applied to every
+household regardless of actual residence state; no §213 medical expense itemized
+deduction existed at all, so LTC cost shocks (already a real cash cost) generated no
+tax benefit; the Roth-conversion objective discounted lifetime tax and estate tax to
+plan-start present value but left the terminal-wealth component undiscounted,
+over-rewarding deferral; every account grew at one identical rate regardless of what
+it actually held, making asset location and bucket strategies structurally inert; and
+mortality was sampled from a truncated normal (μ=92, σ=4.5, floored at 70), making
+death before age 70 impossible and before 80 under 1% likely, regardless of the
+household's actual configured longevity assumption.
+
+**What changed — one engine-correctness wave, sequenced and regenerated once.**
+Per §3.1's own resolution ("treat them as one engine-correctness wave with a single
+golden-master regeneration at the end... run the frozen-fixture gate between them to
+confirm each moves only what it should"), each item landed as its own commit
+(bisectable) with `pytest -m "not slow"` run after every one, but the pinned
+golden-master baseline was deliberately left stale (red by design) until this step:
+
+1. **3.0 — Baseline regen.** Cleared a golden-master regen that had been pending since
+   before this session (engine changes from already-merged PRs #47/#48/#50/#51 had
+   never been re-pinned): 4,057,824.89 → 6,487,999.96 terminal NW, depleting-in-2052-56
+   → fully solvent. Verified as a legitimate engine-state difference, not a live-data
+   leak, via the fixture's own isolation guardrail test plus holding the workspace
+   redirect open through `project()` (not just parse) and reproducing the identical
+   number either way.
+2. **3.1 — Estate exemption indexing + IL residency gate.** Added
+   `core.indexed_federal_estate_exemption()` (grows the federal exemption by the same
+   `brk_inf` bracket inflator as income-tax brackets); gated all four Illinois
+   estate-tax call sites on `c['state'] == 'Illinois'`. No pin movement for the frozen
+   household (already IL resident, terminal estate doesn't cross the exemption either
+   way).
+3. **3.2 — §213 medical expense deduction.** `medical_expense_yr` (Medicare/bridge
+   premiums + wellness detail spend + LTC premiums + LTC cost shock) above 7.5% of AGI
+   now enters `item_ded`. Terminal NW +$302,483 / lifetime tax −$153,026 vs. the 3.0
+   baseline.
+4. **3.3 — Roth objective present-value fix.** Added a separate
+   `after_tax_terminal_nw_pv` used only inside the four `terminal_component`
+   assignments; `after_tax_terminal_nw` itself (PTI, Executive Summary) stays nominal.
+   No further pin movement for this household — its selected strategy didn't flip.
+5. **3.4 — Dual-column nominal + today's-$ reporting.** Sheets 1/5/6/7/15 and the
+   forecast API gained today's-purchasing-power companion figures next to each
+   headline nominal dollar amount. No engine values changed (presentation only).
+6. **3.5 — Sleeve-level account returns (deterministic path).** `c['account_returns']`
+   populated from actual holdings (`client_holdings.csv` → `security_master.csv` →
+   `capital_market_assumptions.csv`), anchored so the dollar-weighted average still
+   equals the user's configured `portfolio_nominal_return`. Terminal NW +$507,542 vs.
+   the 3.0 baseline (another +$205,059 on top of 3.2's drift — the Roth account now
+   compounds faster). Monte Carlo-level differentiation (reshaping the vectorized
+   asset-class draw's weight vector into a weight matrix) is an explicit, separate
+   follow-up, not included here.
+7. **3.6 — SSA/SOA mortality table.** New `reference_data/mortality_table.csv`
+   (single-year male/female qx, ages 18-119, derived from SSA Actuarial Study No. 124
+   anchors at 5-year ages — ssa.gov's own tables return HTTP 403 to automated fetches,
+   so this is a secondary aggregation flagged for a direct-source refresh at the next
+   annual reference-data maintenance pass). Both `sample_death_year()` (scalar) and
+   `_mc_vectorized_death_years()` (vectorized — the one that actually produces the
+   headline Monte Carlo success rate, and the sampler the original panel review missed
+   entirely) now draw from the same age-shifted table, calibrated so each household
+   member's own configured `mortality_age` remains their median lifespan. No
+   deterministic-path pin movement (mortality only feeds Monte Carlo).
+
+**Final regeneration (3.7).** `tests/test_199_frozen_sample_plan_golden_master.py`:
+`PINNED_TERMINAL_NW` 6,487,999.96 → **6,995,542.24**, `PINNED_LIFETIME_TAX`
+1,517,126.54 → **1,362,412.33**, `PINNED_FAILURES` unchanged (`[]`, fully solvent).
+`tests/test_2_recommendations.py`'s warn-only drift-tracking pins updated to match.
+Full `pytest -m "not slow"` suite green except 5 pre-existing, unrelated failures
+(a fixture gap in the home-purchase-chart tests and one ssa44/IRMAA-relief
+interaction, neither touched by this wave) tracked separately. Full workbook + PDF
+build verified end to end after every item in this batch.
+
+**Deferred:** 3.8, the automated workflow's planner sign-off against this document,
+remains blocked on a session token limit; a manual sign-off (documented in
+`documentation/reports/SYSTEM_REVIEW_2026-08-04.md` §7) authorized proceeding with
+this wave without waiting for it.
+
 ## 2026-07-23 — Roth conversion sizing now caps against LTCG rate-tier and NIIT MAGI cliffs
 
 **What was wrong.** `plan_roth_conversion` (`fill_to_bracket`/`fill_to_irmaa`
