@@ -32,7 +32,12 @@ class FullChecklistRemainingTests(unittest.TestCase):
         self.assertIn("for w_age in range(w_floor, 71)", src)
         self.assertIn("h_floor = max(62, min(70, h_cur_age))", src)
         self.assertIn("w_floor = max(62, min(70, w_cur_age))", src)
-        self.assertIn("project(c2)", src)
+        # Wave 4.4 (system review 2026-08-04, `no-shared-scenario-runner`):
+        # the per-pair deepcopy+override+project() call moved into the shared
+        # planning_engines.run_scenario() helper, so the literal "project(c2)"
+        # call no longer appears in this sheet's own source -- check that it
+        # delegates to the shared runner instead.
+        self.assertIn("_run_scenario(c, mutate=_mutate)", src)
         self.assertNotIn("[67, 68, 69, 70]", src)
         self.assertNotIn("claim at age 70 to maximize", src)
 

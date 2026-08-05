@@ -1561,6 +1561,40 @@ def project(c):
         return run_deterministic_projection_stage(c)
 
 
+def run_scenario(base_config, overrides=None, mutate=None):
+    """Deep-copy ``base_config``, apply a what-if change, and run ``project()``
+    on the copy without mutating the caller's config.
+
+    System review 2026-08-04, architect finding `no-shared-scenario-runner`:
+    this exact "deepcopy c, override some keys, call project()" shape used to
+    be reimplemented independently in ~10 places (Roth candidate scoring here,
+    the Social Security claim-age sweep, and every stress-test scenario in
+    sheets_stress.py) — each a local closure a caller could subtly get wrong
+    (e.g. forgetting the deepcopy and mutating the shared base config).
+
+    ``overrides`` is a flat ``{config_key: value}`` dict for simple top-level
+    replacements. ``mutate`` is an optional ``callable(c2)`` for changes too
+    structural for a flat dict (e.g. per-annuity-stream nested overrides, or
+    conditional logic) -- it runs after ``overrides`` is applied and mutates
+    the copy in place. Callers extract whatever metrics they need from the
+    returned rows themselves; this only owns the copy-override-run step.
+
+    No result cache: every call site in this codebase was audited before this
+    was written and none actually re-requests an identical post-override
+    config (the SS sweep's 81 claim-age pairs are all distinct; each stress
+    scenario changes a different assumption), so a cache would add risk
+    (staleness if scoped too broadly across a live-pricing-dependent build)
+    without a verified win. Revisit only if profiling shows real duplicate
+    project() calls.
+    """
+    c2 = copy.deepcopy(base_config)
+    if overrides:
+        c2.update(overrides)
+    if mutate is not None:
+        mutate(c2)
+    return c2, project(c2)
+
+
 # ===== END projection_engine.py =====
 
 
@@ -1954,16 +1988,13 @@ def optimize_roth_conversion_strategy(c: dict) -> dict:
     base['roth_policy'] = 'none'
     candidates = []
     for spec in _roth_strategy_candidate_specs(c):
-        c2 = copy.deepcopy(base)
-        c2['roth_policy'] = spec['policy']
-        for _k, _v in (spec.get('overrides') or {}).items():
-            c2[_k] = _v
+        overrides = {'roth_policy': spec['policy'], **(spec.get('overrides') or {})}
         if spec.get('target_rate') is not None:
-            c2['roth_target_rate'] = float(spec['target_rate'])
-            c2['roth_brk'] = float(spec['target_rate'])
+            overrides['roth_target_rate'] = float(spec['target_rate'])
+            overrides['roth_brk'] = float(spec['target_rate'])
         if spec.get('fixed_amount') is not None:
-            c2['roth_fixed_amount'] = float(spec['fixed_amount'])
-        rows = project(c2)
+            overrides['roth_fixed_amount'] = float(spec['fixed_amount'])
+        c2, rows = run_scenario(base, overrides)
         metrics = _roth_strategy_metrics(c2, rows)
         candidates.append({**spec, **metrics})
 
@@ -1995,9 +2026,7 @@ def optimize_roth_conversion_strategy(c: dict) -> dict:
         )
         if selected is None:
             # Score the exact configured policy directly so it always has a row.
-            c2 = copy.deepcopy(base)
-            c2['roth_policy'] = requested_policy
-            rows = project(c2)
+            c2, rows = run_scenario(base, {'roth_policy': requested_policy})
             metrics = _roth_strategy_metrics(c2, rows)
             selected = {
                 'label': f'Configured strategy ({requested_policy})',
