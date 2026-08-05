@@ -3167,6 +3167,86 @@ def _mc_required_cut_distribution(c: dict, base_rows: list[dict], batch: dict, s
     }
 
 
+def _mc_success_rate_for_uniform_cut(c: dict, base_rows: list[dict], batch: dict, success_threshold: float, cut_frac: float) -> float:
+    """Overall batch success rate at a single uniform spend_cut_frac, reusing
+    the batch's already-simulated returns/inflation/death paths -- cut_frac
+    only rescales withdrawal requests (see _mc_vectorized_projection), so
+    this needs no new market-path simulation and is cheap to call repeatedly
+    during a bisection."""
+    proj = _mc_vectorized_projection(c, base_rows, batch['returns'], batch['inflation_paths'], batch['max_death_years'], spend_cut_frac=cut_frac)
+    years = _np.array(batch['years'], dtype=int)
+    active = years.reshape(1, -1) <= batch['max_death_years'].reshape(-1, 1)
+    failure = ((proj['unfunded'] > 1.0) | (proj['liquid'] <= float(success_threshold))) & active
+    path_success = ~_np.any(failure, axis=1)
+    return float(_np.mean(path_success))
+
+
+def sustainable_spending_solve(c: dict, base_rows: list[dict], batch: dict, success_threshold: float,
+                                targets=(0.95, 0.85, 0.75), max_iters: int = 20, cut_cap: float = 0.90,
+                                tolerance: float = 0.0025) -> list[dict]:
+    """P13 phase 2 / system review 5.1: "What's the most I can sustainably
+    spend?" is the planner's most common client question. Reuses the
+    per-path binary search above (_mc_required_cut_distribution), but
+    bisects a single uniform cut against the OVERALL batch success rate
+    instead of a per-path rescue cut, for each of several target confidence
+    levels -- turning the diagnostic machinery into an answerable question:
+    at a 95%/85%/75% success target, what annual spending level does that
+    imply?
+
+    Reuses the same simulated returns/inflation/death-year paths as the main
+    Monte Carlo batch across every bisection step, so each of the ~20
+    iterations per target is a cheap vectorized re-run, not a new
+    simulation.
+    """
+    base_spend = float(c.get('spend_base', 0.0) or 0.0)
+    results = []
+    for target in targets:
+        target = float(target)
+        rate_at_zero_cut = _mc_success_rate_for_uniform_cut(c, base_rows, batch, success_threshold, 0.0)
+        if rate_at_zero_cut >= target:
+            # Current spending already clears this target -- no cut needed;
+            # the household could spend at least the current base level.
+            results.append({
+                'target_success_rate': target,
+                'required_cut': 0.0,
+                'sustainable_spend_base': base_spend,
+                'achieved_success_rate': rate_at_zero_cut,
+                'feasible': True,
+            })
+            continue
+        rate_at_cap = _mc_success_rate_for_uniform_cut(c, base_rows, batch, success_threshold, cut_cap)
+        if rate_at_cap < target:
+            # Even the maximum modeled cut can't reach this target -- report
+            # the best achievable (at cut_cap) rather than a false answer.
+            results.append({
+                'target_success_rate': target,
+                'required_cut': cut_cap,
+                'sustainable_spend_base': base_spend * (1.0 - cut_cap),
+                'achieved_success_rate': rate_at_cap,
+                'feasible': False,
+            })
+            continue
+        lo, hi = 0.0, cut_cap
+        for _ in range(max_iters):
+            if (hi - lo) < tolerance:
+                break
+            mid = (lo + hi) / 2.0
+            rate = _mc_success_rate_for_uniform_cut(c, base_rows, batch, success_threshold, mid)
+            if rate >= target:
+                hi = mid
+            else:
+                lo = mid
+        final_rate = _mc_success_rate_for_uniform_cut(c, base_rows, batch, success_threshold, hi)
+        results.append({
+            'target_success_rate': target,
+            'required_cut': hi,
+            'sustainable_spend_base': base_spend * (1.0 - hi),
+            'achieved_success_rate': final_rate,
+            'feasible': True,
+        })
+    return results
+
+
 def monte_carlo(c, n_sims=1000, seed=42, base_rows=None):
     """Run Monte Carlo on the shared vectorized fast core by default.
 
@@ -3285,6 +3365,7 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None):
         first_failure_distribution[y] = first_failure_distribution.get(y, 0) + 1
 
     required_cut_distribution = _mc_required_cut_distribution(c, base_rows, batch, success_threshold)
+    sustainable_spending = sustainable_spending_solve(c, base_rows, batch, success_threshold)
 
     liquid_successes = int(_np.sum(path_success))
     success_rate = float(liquid_successes / max(1, N))
@@ -3349,6 +3430,7 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None):
         'deterministic_projection_label': 'No-volatility deterministic reference path; Monte Carlo median is the probabilistic planning number.',
         'first_failure_distribution': first_failure_distribution,
         'required_cut_distribution': required_cut_distribution,
+        'sustainable_spending_solve': sustainable_spending,
         'terminal_total_nw': _percentiles(terminal_total.tolist(), 0.0),
         'terminal_liquid_assets': _percentiles(terminal_liquid.tolist(), success_threshold),
         'nw0': float(proj['pretax'][0, 0] + proj['roth'][0, 0] + proj['taxable'][0, 0] + proj['hsa'][0, 0]),

@@ -213,6 +213,42 @@ def build_sheet15(ws, c, rows, mc_data):
     r += 1
 
     # ══════════════════════════════════════════════════════════════════════════
+    # B4. SUSTAINABLE SPENDING (system review 5.1: "what's the most I can
+    # sustainably spend?" -- the planner's most common client question. Reuses
+    # B3's per-path binary-search machinery, bisecting a uniform whole-plan
+    # cut against the OVERALL success rate for each target confidence level
+    # instead of a per-path rescue cut.)
+    # ══════════════════════════════════════════════════════════════════════════
+    section_title(ws, r, 'B4.  Sustainable Spending — What Can This Plan Support?', bg=GREEN, span=10); r += 1
+    sustainable = mc_data.get('sustainable_spending_solve') or []
+    if sustainable:
+        hdr2(r, 1, 'Target Success Rate', bg=DGRAY, span=2)
+        hdr2(r, 3, 'Sustainable Annual Spending', bg=DGRAY, span=2)
+        hdr2(r, 5, 'Spending Cut vs. Current Plan', bg=DGRAY, span=2)
+        hdr2(r, 7, 'Achieved Success Rate', bg=DGRAY, span=2)
+        hdr2(r, 9, 'Note', bg=DGRAY, span=2); r += 1
+        for row in sustainable:
+            cut = row.get('required_cut', 0.0) or 0.0
+            note = '' if row.get('feasible', True) else 'Even the largest modeled cut cannot reach this target'
+            dat(r, 1, row.get('target_success_rate'), fmt=FMT_PCT, bold=True); ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=2)
+            dat(r, 3, row.get('sustainable_spend_base'), fmt=FMT_DOLLAR, bold=True); ws.merge_cells(start_row=r, start_column=3, end_row=r, end_column=4)
+            dat(r, 5, cut, fmt=FMT_PCT); ws.merge_cells(start_row=r, start_column=5, end_row=r, end_column=6)
+            dat(r, 7, row.get('achieved_success_rate'), fmt=FMT_PCT); ws.merge_cells(start_row=r, start_column=7, end_row=r, end_column=8)
+            dat(r, 9, note, align='left'); ws.merge_cells(start_row=r, start_column=9, end_row=r, end_column=10)
+            r += 1
+        dat(r, 1, 'Sustainable Annual Spending is this plan\'s current spend_base uniformly scaled by the smallest '
+                  'whole-plan cut (taxable/pretax/Roth/cash withdrawals; HSA draws for wellness shocks excluded) '
+                  'that reaches each target success rate, holding every other plan input fixed. A 0% cut means the '
+                  'current spending level already clears that target.', align='left')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
+        r += 1
+    else:
+        dat(r, 1, 'Sustainable spending solve not available for this run.', align='left')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
+        r += 1
+    r += 1
+
+    # ══════════════════════════════════════════════════════════════════════════
     # C. ENDING LIQUID ASSET PERCENTILE DISTRIBUTION
     # ══════════════════════════════════════════════════════════════════════════
     section_title(ws, r, 'C.  Ending Liquid Asset Percentile Distribution', bg=BLUE, span=10); r += 1
