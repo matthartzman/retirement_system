@@ -14,6 +14,7 @@ from .workbook_common import (
     WHITE,
     _aa,
     annuity_cash_income,
+    deflate_to_present,
     fill,
     ltcg_tax_on_gain,
     project,
@@ -145,11 +146,22 @@ def build_sheet15(ws, c, rows, mc_data):
     for (start, end), h in zip(spans, compare_hdrs):
         hdr2(r, start, h, bg=DGRAY, span=(end-start+1))
     r += 1
+    # C5 / Wave 3.4: the terminal-year figures above are nominal, and a
+    # plan-end dollar buys less than a plan-start dollar -- add the same row
+    # in today's purchasing power immediately below so the two are directly
+    # comparable, not just readable side by side.
+    _terminal_pv = lambda v: deflate_to_present(v, c['plan_end'], c)
     comp_rows = [
         ('Terminal Total Net Worth', deterministic_terminal_total, total_end_pct[10], total_end_pct[50], total_end_pct[90],
          'Broad estate/net-worth measure including illiquid assets. Deterministic line is a reference path, not the MC median.'),
+        ("Terminal Total Net Worth (Today's $)", _terminal_pv(deterministic_terminal_total),
+         _terminal_pv(total_end_pct[10]), _terminal_pv(total_end_pct[50]), _terminal_pv(total_end_pct[90]),
+         'Same measure, deflated to plan-start purchasing power.'),
         ('Terminal Liquid Retirement Assets', deterministic_terminal_liquid, end_pct[10], end_pct[50], end_pct[90],
          'Spendable funding measure used for MC success.'),
+        ("Terminal Liquid Retirement Assets (Today's $)", _terminal_pv(deterministic_terminal_liquid),
+         _terminal_pv(end_pct[10]), _terminal_pv(end_pct[50]), _terminal_pv(end_pct[90]),
+         'Same measure, deflated to plan-start purchasing power.'),
         ('Success Liquidity Floor', mc_data.get('success_liquid_floor', 0), '', '', '',
          f"Success requires no unfunded gaps and liquid assets above {mc_data.get('success_liquid_floor_source','configured floor')} every year."),
     ]

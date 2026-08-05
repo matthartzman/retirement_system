@@ -24,6 +24,7 @@ from .workbook_common import (
     ORANGE,
     RED,
     WHITE,
+    deflate_to_present,
     get_column_letter,
     qc,
     write_cell,
@@ -385,10 +386,10 @@ def build_sheet6(ws, c, rows):
             pass
 
     # ── Home Sale Event Callout ───────────────────────────────────────────────
+    below = len(rows) + 5
     if c.get('home_sale_yr') and c['home_sale_yr'] > 0:
         sale_row = next((rw for rw in rows if rw['year'] == c['home_sale_yr']), None)
         if sale_row and sale_row.get('home_sale_gross', 0) > 0:
-            below = len(rows) + 5
             write_hdr(ws, below, 1, f"Home Sale — {c['home_sale_yr']}", BLUE, WHITE, span=6)
             below += 1
             for lbl, val, fmt in [
@@ -407,6 +408,28 @@ def build_sheet6(ws, c, rows):
                     write_cell(ws, below, 2, val, fmt=fmt,
                                bold=(lbl.startswith('Net')))
                 below += 1
+
+    # C5 / Wave 3.4: lifetime cash-need and tax totals sum nominal dollars
+    # across three decades of years -- add the today's-purchasing-power
+    # companion so the totals are comparable to the plan-start figures above.
+    below += 1
+    write_hdr(ws, below, 1, 'Lifetime Totals (Nominal vs. Today\'s $)', NAVY, WHITE, span=3); below += 1
+    lifetime_tax_nom = sum(r.get('total_tax', 0.0) or 0.0 for r in rows)
+    lifetime_tax_pv = sum(deflate_to_present(r.get('total_tax', 0.0) or 0.0, r['year'], c) for r in rows)
+    lifetime_need_nom = sum(r.get('total_cash_need', 0.0) or 0.0 for r in rows)
+    lifetime_need_pv = sum(deflate_to_present(r.get('total_cash_need', 0.0) or 0.0, r['year'], c) for r in rows)
+    write_hdr(ws, below, 1, 'Figure', DGRAY, WHITE)
+    write_hdr(ws, below, 2, 'Nominal', DGRAY, WHITE)
+    write_hdr(ws, below, 3, "Today's $", DGRAY, WHITE)
+    below += 1
+    for label, nom, pv in (
+        ('Lifetime Total Tax', lifetime_tax_nom, lifetime_tax_pv),
+        ('Lifetime Total Cash Need', lifetime_need_nom, lifetime_need_pv),
+    ):
+        write_cell(ws, below, 1, label, bold=True)
+        write_cell(ws, below, 2, nom, fmt=FMT_DOLLAR_ZERO_BAND, bold=True, align='right')
+        write_cell(ws, below, 3, pv, fmt=FMT_DOLLAR_ZERO_BAND, align='right')
+        below += 1
 
     qc('6. Cash Flow Projection', f'{len(rows)} rows, account-level WDs, collapsible groups',
        True, '')

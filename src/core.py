@@ -1084,6 +1084,19 @@ def indexed_federal_estate_exemption(fed_exempt_base, plan_start, target_year, b
     return max(0.0, float(fed_exempt_base or 0.0)) * ((1.0 + float(brk_inf or 0.0)) ** years)
 
 
+def deflate_to_present(nominal, year, c):
+    """Convert a nominal-year dollar figure to plan-start purchasing power.
+
+    System review C5 / Wave 3.4: every headline dollar figure in the
+    workbook/API was nominal-only, so a 2056 dollar reads the same as a 2026
+    dollar even though it buys far less. Uses the same general-CPI inflation
+    rate (c['inf']) as sheets_projection_charts.py's existing 'real_nw'
+    deflation, so the two stay consistent with each other.
+    """
+    cpi_deflator = (1.0 + float(c.get('inf', 0.0) or 0.0)) ** max(0, int(year) - int(c.get('plan_start', year) or year))
+    return nominal / cpi_deflator if cpi_deflator > 0 else nominal
+
+
 def marginal_rate(taxable, year, filing, brk_inf):
     brk = FEDERAL_BRACKETS_BASE_YEAR.get(filing, FEDERAL_BRACKETS_BASE_YEAR['Single'])
     brk = inflate_brackets(brk, brk_inf, year - getattr(_td, 'FEDERAL_BRACKETS_VALUE_YEAR', TAX_BASE_YEAR))
