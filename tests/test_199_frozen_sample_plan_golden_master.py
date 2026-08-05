@@ -116,19 +116,15 @@ FROZEN_TODAY = "2026-08-04"
 # At its true asset level the plan depletes in its final five years, so
 # fail_count is now pinned rather than asserted to be zero. See the assertion
 # for why that is a stricter gate, not a weaker one.
-PINNED_TERMINAL_NW = 6487999.96
-PINNED_LIFETIME_TAX = 1517126.54
+PINNED_TERMINAL_NW = 6995542.24
+PINNED_LIFETIME_TAX = 1362412.33
 PINNED_FAILURES = []
-# Regenerated 2026-08-05 (system review Wave 3.0 baseline regen). This is a
-# legitimate engine-behavior shift, not a leak: test_frozen_fixture_is_
-# isolated_from_the_real_input_directory (below) still passes, and holding
-# RETIREMENT_SYSTEM_WORKSPACE_ROOT open through project() (not just parse)
-# reproduces the identical number -- ruled out live-workspace contamination
-# directly. The prior pins (4,057,824.89 / depleting 2052-56) were set by
-# 09d4ae7 and never re-regenerated against the engine changes several PRs
-# landed on main afterward (score-normalization #51, roth-conversion-factors
-# #50, and others) -- exactly the "golden-master regen still pending" debt
-# this wave's 3.0 step exists to clear. See GOLDEN_MASTER_CHANGELOG.md.
+# Regenerated 2026-08-05 (system review Wave 3.7 final regen, covering the
+# 3.0 baseline clear plus 3.1-3.6's engine changes as one attributable diff).
+# The 3.0-only baseline (6,487,999.96 / 1,517,126.54) is documented in
+# GOLDEN_MASTER_CHANGELOG.md alongside the full 3.1-3.6 breakdown -- estate
+# exemption indexing, the medical expense deduction, the Roth objective
+# discount, sleeve-level account returns, and the SSA/SOA mortality table.
 
 
 def _frozen_config():
