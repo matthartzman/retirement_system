@@ -1620,6 +1620,16 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
     plan_start = int(c.get('plan_start', rows[0].get('year', 0) if rows else 0) or 0)
     lifetime_tax = sum(float(r.get('total_tax', 0.0) or 0.0) / ((1.0 + discount) ** max(0, int(r.get('year', plan_start)) - plan_start)) for r in rows)
     lifetime_tax_nominal = sum(float(r.get('total_tax', 0.0) or 0.0) for r in rows)
+    # C5: lifetime_tax and estate_tax_penalty are both present-valued to
+    # plan_start above/below, but the terminal-wealth objective component was
+    # left undiscounted -- a plan-end dollar was implicitly weighted the same
+    # as a plan-start dollar, systematically over-rewarding deferring wealth
+    # into the far future relative to the taxes paid to get there. Deflate a
+    # SEPARATE variable for the objective score only; after_tax_terminal_nw
+    # itself stays nominal since it is reported to the user (PTI, Executive
+    # Summary) as the actual dollar amount at second death, not an abstraction.
+    _terminal_year = int(terminal.get('year', plan_start) or plan_start)
+    after_tax_terminal_nw_pv = after_tax_terminal_nw / ((1.0 + discount) ** max(0, _terminal_year - plan_start))
     total_conversion = sum(float(r.get('roth_conv', 0.0) or 0.0) for r in rows)
     total_roth_withdrawal = sum(float(r.get('roth_wd', 0.0) or 0.0) for r in rows)
     roth_wd_while_nonroth = sum(
@@ -1780,7 +1790,7 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
     objective_mode = str(c.get('roth_objective_mode', 'BALANCED_RETIREMENT') or 'BALANCED_RETIREMENT').upper()
     # Start with balanced professional planning defaults, then allow modes to
     # emphasize a single dimension while preserving the Roth-last leakage guard.
-    terminal_component = terminal_weight * after_tax_terminal_nw
+    terminal_component = terminal_weight * after_tax_terminal_nw_pv
     tax_component = -tax_weight * lifetime_tax
     legacy_component = legacy_adjustment
     estate_component = -estate_tax_penalty
@@ -1791,11 +1801,11 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
     # plans that preserve a positive non-Roth liquid reserve during the horizon.
     liquidity_component = 0.01 * max(0.0, avg_liquid_nonroth)
     if objective_mode == 'MINIMIZE_LIFETIME_TAX':
-        terminal_component = 0.10 * after_tax_terminal_nw
+        terminal_component = 0.10 * after_tax_terminal_nw_pv
         tax_component = -1.00 * lifetime_tax
         legacy_component = 0.25 * legacy_adjustment
     elif objective_mode == 'MAXIMIZE_TERMINAL_NET_WORTH':
-        terminal_component = 1.25 * after_tax_terminal_nw
+        terminal_component = 1.25 * after_tax_terminal_nw_pv
         tax_component = -0.10 * lifetime_tax
         legacy_component = 0.25 * legacy_adjustment
     elif objective_mode == 'LEGACY_OPTIMIZED':
@@ -1806,7 +1816,7 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
         # Post-Tax Inheritance = after-tax terminal NW minus estate tax. Reward the
         # after-tax estate fully and the estate-tax drag fully; lifetime tax is
         # already reflected in after-tax compounding, so keep it a light factor.
-        terminal_component = 1.0 * after_tax_terminal_nw
+        terminal_component = 1.0 * after_tax_terminal_nw_pv
         tax_component = -0.10 * lifetime_tax
         legacy_component = 0.25 * legacy_adjustment
         estate_component = -1.0 * estate_tax_penalty
