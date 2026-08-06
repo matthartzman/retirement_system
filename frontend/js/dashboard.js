@@ -6175,7 +6175,7 @@ function fieldHtml(r) {
       String(value).toUpperCase() === "YES" ||
       String(value).toUpperCase() === "TRUE";
     control = `<label class="toggle-switch" data-row="${r.row_index}"><input type="checkbox" ${yes ? "checked" : ""} onchange="editValue(${r.row_index},this.checked?'YES':'NO',this)" onfocus="showFieldHelp(${r.row_index})"><span class="toggle-track" aria-hidden="true"></span><span class="toggle-text toggle-text-yes">YES</span><span class="toggle-text toggle-text-no">NO</span></label>`;
-  } else if (type === "choice" || norm(units) === "choice" || STATE_INPUT_LABELS.has(lblNorm)) {
+  } else if (type === "choice" || norm(units) === "choice" || window.STATE_INPUT_LABELS.has(lblNorm)) {
     const opts = choiceOptions(r);
     if (opts.length) {
       const cur = String(value || "").trim();
