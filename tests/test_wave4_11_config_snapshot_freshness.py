@@ -13,15 +13,12 @@ table, which only `import_csv_to_sqlite()` refreshes -- see the long comment
 on `_sync_config_backends()` in src/server/app_core.py for the full root
 cause (two independent SQLite stores).
 
-This checks `local_store.plan_snapshots` directly (via the same
-`_sqlite_db()` path resolution `_sync_config_backends()` itself uses) rather
-than going through `load_active_config()`: that function's own bootstrap-CSV
-discovery (`discover_bootstrap_csv()`) does not honor the
-RETIREMENT_SYSTEM_WORKSPACE_ROOT test-workspace redirect conftest.py sets up
-(a separate, pre-existing test-infrastructure gap, not this regression), so
-calling it directly from a test reads the real repo's DB rather than the
-isolated test one. Checking plan_snapshots directly is also more precise --
-it is the exact table that went stale.
+Checks both `local_store.plan_snapshots` directly (the exact table that went
+stale) and `load_active_config()` itself (what a real build actually calls) --
+the latter only became a reliable check for this test workspace after fixing
+conftest.py's own import-ordering bug (it imported src.config_backend, which
+caches platform_runtime.workspace_root() into module-level constants at
+import time, before setting RETIREMENT_SYSTEM_WORKSPACE_ROOT).
 
 Deliberately fast (no subprocess build, no `@pytest.mark.slow`): the
 original regression was ONLY caught by the slow, full-FILE run of
@@ -31,6 +28,7 @@ revert commit), so the "not slow" tier had no guard against it recurring.
 from __future__ import annotations
 
 import src.server.app_core as app_core
+from src.config_backend import load_active_config
 from src.local_store import latest_sectioned_data
 from src.server import app
 
@@ -63,19 +61,35 @@ def test_sync_config_backends_keeps_plan_snapshots_fresh():
     assert saved.status_code == 200, saved.get_data(as_text=True)
     assert saved.get_json()["success"] is True
 
-    # plan_snapshots is what workbook_builder.main() -> load_active_config()
-    # -> load_sqlite() reads for a real build; it must reflect the value just
-    # saved, not whatever the last import_csv_to_sqlite() call happened to hold.
-    data = latest_sectioned_data(app_core._sqlite_db())
-    home_section = data.get("Other Assets", {}).get("Home", {})
-    saved_value = home_section.get("value_as_of_plan_start")
-    assert saved_value is not None, (
+    def _stripped(v):
+        return str(v).replace(",", "").replace("$", "")
+
+    # plan_snapshots is what load_sqlite() -> local_store.latest_sectioned_data()
+    # reads; it must reflect the value just saved, not whatever the last
+    # import_csv_to_sqlite() call happened to hold.
+    snapshot_data = latest_sectioned_data(app_core._sqlite_db())
+    snapshot_value = snapshot_data.get("Other Assets", {}).get("Home", {}).get("value_as_of_plan_start")
+    assert snapshot_value is not None, (
         "plan_snapshots has no value_as_of_plan_start at all -- "
-        f"Other Assets/Home section was: {home_section}"
+        f"Other Assets/Home section was: {snapshot_data.get('Other Assets', {}).get('Home', {})}"
     )
-    assert str(NEW_HOME_VALUE) in str(saved_value).replace(",", "").replace("$", ""), (
-        f"plan_snapshots returned a STALE value ({saved_value!r}) after a real save "
+    assert str(NEW_HOME_VALUE) in _stripped(snapshot_value), (
+        f"plan_snapshots returned a STALE value ({snapshot_value!r}) after a real save "
         f"wrote {NEW_HOME_VALUE} -- local_store.plan_snapshots was not refreshed. "
         "This is the Wave 4.11 regression: _sync_config_backends() must still call "
         "import_csv_to_sqlite()."
+    )
+
+    # load_active_config() is the actual call site a real build uses
+    # (workbook_builder.main()) -- check it directly too, not just the
+    # underlying table, so this test fails the same way a real build would.
+    active_data, _meta = load_active_config()
+    active_value = active_data.get("Other Assets", {}).get("Home", {}).get("value_as_of_plan_start")
+    assert active_value is not None, (
+        "load_active_config() has no value_as_of_plan_start at all -- "
+        f"Other Assets/Home section was: {active_data.get('Other Assets', {})}"
+    )
+    assert str(NEW_HOME_VALUE) in _stripped(active_value), (
+        f"load_active_config() returned a STALE value ({active_value!r}) after a real "
+        f"save wrote {NEW_HOME_VALUE} -- a real build would have served the old figure."
     )
