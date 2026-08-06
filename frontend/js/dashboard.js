@@ -9,8 +9,6 @@
 // YTD Accounts & Sources save to the local database; CSV remains an import/export adapter
 let csrfToken = "";
 window.__retirementCsrfToken = csrfToken;
-const APP_UNAVAILABLE_MESSAGE =
-  "Application not ready. Saving, build, download, pricing refresh, Plan Chat, and CSV import/export utilities are unavailable";
 /* Retirement Planner dashboard behavior.
    First-class static asset loaded by the dashboard shell. */
 const STEPS = [
@@ -1110,7 +1108,6 @@ let planningLeverInputs = {
   ltcCoverage: 250000,
 };
 // Build compare is session-only; populated after first successful build.
-let planFileHandles = { clientData: null, clientHoldings: null };
 let planFileNames = {
   clientData: "client_data.csv",
   clientHoldings: "client_holdings.csv",
@@ -12858,24 +12855,6 @@ function renderCategoryMappingRules() {
   return html;
 }
 
-const BUDGET_SECTION_DEFS = [
-  [
-    "large_discretionary",
-    "Large Discretionary",
-    "Wedding, Large Gifts, and Other projection rows.",
-  ],
-  [
-    "home_improvement",
-    "Home Improvements",
-    "Remodels and home projects. These flow into housing costs in the projection.",
-  ],
-  ["travel", "Travel", "Vacations and trips."],
-  [
-    "gifts_charity",
-    "Gifts / Charity",
-    "Gifts given and charitable donations (budget tracking target).",
-  ],
-];
 async function loadBudgetLines(force) {
   if (budgetLinesLoaded && !force) return;
   try {

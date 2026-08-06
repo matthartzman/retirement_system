@@ -1,0 +1,6 @@
+{
+  "schema": "dead_function_candidates_v1",
+  "total_top_level_functions": 760,
+  "dead_candidates": [],
+  "zero_app_references_but_referenced_in_tests": []
+}

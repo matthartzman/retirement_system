@@ -30,8 +30,12 @@ JS_DIR = ROOT / "frontend" / "js"
 # 2026-08-05: lowered from 19,661 to 19,188 -- Wave 6.4's "holdings" leaf
 # extraction (dashboard_decomp_holdings.js) moved the Plan Holdings lot
 # table and its CRUD/CSV-import/pricing-tester helpers out of dashboard.js.
-# Set at the post-extraction measurement with no headroom.
-DASHBOARD_JS_MAX_LINES = 19_188
+# 2026-08-06: lowered from 19,188 to 19,167 -- pre-conversion dead-code sweep
+# (docs/superpowers/plans/2026-08-06-dashboard-js-ast-module-conversion.md)
+# removed three top-level bindings with zero references anywhere in the repo:
+# APP_UNAVAILABLE_MESSAGE, BUDGET_SECTION_DEFS, planFileHandles.
+# Set at the post-cleanup measurement with no headroom.
+DASHBOARD_JS_MAX_LINES = 19_167
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling
