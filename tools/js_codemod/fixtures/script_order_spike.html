@@ -1,0 +1,49 @@
+<!--
+  Confirmed 2026-08-06 via tests/e2e/script-order-spike.spec.js: ALL classic
+  scripts run (in document order) before ANY type="module" script runs; module
+  scripts then run in document order among themselves; both finish before
+  DOMContentLoaded fires. This means: once frontend/js/dashboard.js becomes
+  type="module", it moves from "runs synchronously at its document position" to
+  "runs after every remaining classic script (dashboard_shared_helpers.js,
+  pywebview_bridge.js, dashboard_decomp_local_backups.js -- all three stay
+  classic), in module-document-order relative to the other already-converted
+  module leaves." Since dashboard_decomp_local_backups.js is CLASSIC and
+  dashboard.js becomes a MODULE, dashboard_decomp_local_backups.js is now
+  guaranteed to finish its top-level execution strictly BEFORE dashboard.js's
+  module code runs (classic always precedes module) -- a STRONGER guarantee
+  than today's classic-vs-classic document-order guarantee alone.
+  dashboard_decomp_local_backups.js's functions (invoked later, from
+  dashboard.js's own async checkAppStatus().then(...) boot chain) will find
+  window.activeStep/api/showMessage/renderMain/esc already bridged by then
+  regardless, since that boot chain runs even later still (a microtask after
+  all top-level module/classic code has finished). No change needed to
+  dashboard_decomp_local_backups.js or its script-tag position.
+-->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>script order spike</title></head>
+<body>
+<div id="log"></div>
+<script>
+  window.__order = [];
+</script>
+<script>
+  window.__order.push("classic-early");
+</script>
+<script type="module">
+  window.__order.push("module-before-tag");
+</script>
+<script>
+  window.__order.push("classic-late");
+</script>
+<script type="module">
+  window.__order.push("module-after-tag");
+</script>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    window.__order.push("dom-content-loaded");
+    document.getElementById("log").textContent = window.__order.join(",");
+  });
+</script>
+</body>
+</html>
