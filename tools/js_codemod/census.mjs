@@ -16,6 +16,15 @@
 // So this census now explicitly separates "ever externally reassigned" from
 // "only ever called/read" for both functions and variables, since those two
 // groups need different bridge shapes (see convert_dashboard.mjs).
+//
+// v3 (2026-08-06): also reports const_variables. Two of the externally-
+// referenced variables (ACRONYM_DEFINITIONS, DEFAULT_TRAVEL_TYPES) are
+// `const` -- their CONTENTS are mutated externally (e.g. `.push(...)`, a
+// legal "read" of the outer const binding), but the binding itself can never
+// be reassigned. The codemod must not generate a setter for these, or the
+// generated bridge contains a `name = v` inside a const's enclosing scope --
+// syntactically legal, but a guaranteed runtime TypeError if that setter is
+// ever actually invoked.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -33,20 +42,58 @@ function collectTopLevelDeclarations(source) {
   const root = j(source);
   const functions = new Set();
   const variables = new Set();
+  const constVariables = new Set();
+
+  // The codemod wraps each top-level statement in `export ...`
+  // (ExportNamedDeclaration) once conversion has run. Unwrap it so this
+  // census keeps working correctly whether it's run pre-conversion (bare
+  // FunctionDeclaration/VariableDeclaration) or post-conversion (already
+  // export-wrapped) -- Task 6's design intends this tool to stay runnable
+  // going forward, to regenerate the bridge as new functions get added.
+  function unwrap(stmt) {
+    return stmt.type === "ExportNamedDeclaration" && stmt.declaration ? stmt.declaration : stmt;
+  }
 
   root.find(j.Program).forEach((programPath) => {
-    for (const stmt of programPath.node.body) {
+    for (const rawStmt of programPath.node.body) {
+      const stmt = unwrap(rawStmt);
       if (stmt.type === "FunctionDeclaration" && stmt.id) {
         functions.add(stmt.id.name);
       } else if (stmt.type === "VariableDeclaration") {
         for (const decl of stmt.declarations) {
-          if (decl.id.type === "Identifier") variables.add(decl.id.name);
+          if (decl.id.type === "Identifier") {
+            // A `let name = function(){}` produced by a prior codemod run
+            // for a reassigned function is still a function, not a plain
+            // state variable -- classify it by its initializer, not its
+            // declaration keyword, so re-running census after conversion
+            // doesn't misclassify renderMain/showStepHelp as variables.
+            if (
+              decl.init &&
+              (decl.init.type === "FunctionExpression" || decl.init.type === "ArrowFunctionExpression")
+            ) {
+              functions.add(decl.id.name);
+              continue;
+            }
+            variables.add(decl.id.name);
+            // const bindings can never be reassigned (a runtime TypeError,
+            // "Assignment to constant variable", if attempted) -- these get a
+            // get-only accessor below, never a setter, regardless of whether
+            // some other file mutates their CONTENTS (e.g. ACRONYM_DEFINITIONS.x
+            // = ... or DEFAULT_TRAVEL_TYPES.push(...), which is legal for const
+            // and shows up as a "read" reference, not an "assign" one, since
+            // the identifier itself is never the direct assignment target).
+            if (stmt.kind === "const") constVariables.add(decl.id.name);
+          }
         }
       }
     }
   });
 
-  return { functions: [...functions].sort(), variables: [...variables].sort() };
+  return {
+    functions: [...functions].sort(),
+    variables: [...variables].sort(),
+    constVariables: [...constVariables].sort(),
+  };
 }
 
 function findExternalReferences(names, source, fileLabel) {
@@ -95,7 +142,7 @@ function findExternalReferences(names, source, fileLabel) {
 
 function main() {
   const dashboardSource = fs.readFileSync(DASHBOARD_PATH, "utf8");
-  const { functions, variables } = collectTopLevelDeclarations(dashboardSource);
+  const { functions, variables, constVariables } = collectTopLevelDeclarations(dashboardSource);
   const allNames = [...functions, ...variables];
 
   const externalReferences = [];
@@ -127,9 +174,10 @@ function main() {
   )].sort();
 
   const report = {
-    schema: "dashboard_census_v2",
+    schema: "dashboard_census_v3",
     functions,
     variables,
+    const_variables: constVariables,
     external_references: externalReferences,
     // Functions reassigned (not just called) by another file -- a monkey-patch
     // decorator chain. These need `let name = function(){...}` (reassignable)
@@ -137,9 +185,11 @@ function main() {
     // of a one-time Object.assign value copy, so dashboard.js's own internal
     // calls see the same live, externally-wrapped implementation.
     reassigned_functions: reassignedFunctions,
-    // Variables read OR written externally -- all get a get+set accessor
-    // (uniform; no need to distinguish read-only vs read-write, since a
-    // get+set accessor correctly serves both).
+    // Variables read OR written externally. const_variables above is the
+    // exception the codemod must check: a const-declared name in this list
+    // still only gets a get-only accessor (a setter that reassigns a const
+    // binding is a runtime TypeError, "Assignment to constant variable", even
+    // if that setter is never actually invoked) -- everything else gets get+set.
     externally_referenced_variables: externallyReferencedVariables,
   };
 

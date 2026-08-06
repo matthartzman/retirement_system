@@ -12,6 +12,12 @@ both (reassigned functions become reassignable let-bindings with a get+set
 accessor; externally-referenced variables get a get+set accessor) -- this test
 just guards that the census keeps finding them, so a future codemod change
 can't silently regress to the unsafe value-copy/get-only design.
+
+v3: 2 of those 42 externally-referenced variables (ACRONYM_DEFINITIONS,
+DEFAULT_TRAVEL_TYPES) are `const` -- a setter that reassigns a const binding
+is a runtime TypeError if ever invoked, even though it parses fine. The census
+now reports const_variables so the codemod can give const-declared names a
+get-only accessor regardless of external reference.
 """
 from __future__ import annotations
 
@@ -53,6 +59,20 @@ def test_known_externally_referenced_variables_are_still_detected():
     # so this doesn't need updating every time an unrelated one drops out.
     expected_subset = {"activeStep", "buildOverlayTimer", "csrfToken", "liquidityBuffers"}
     assert expected_subset <= set(report["externally_referenced_variables"])
+
+
+def test_known_const_variables_needing_get_only_are_still_detected():
+    report = json.loads(REPORT_PATH.read_text(encoding="utf-8"))
+    const_and_referenced = set(report["const_variables"]) & set(report["externally_referenced_variables"])
+    assert const_and_referenced >= {"ACRONYM_DEFINITIONS", "DEFAULT_TRAVEL_TYPES"}
+
+
+def test_no_reassigned_function_is_ever_a_const_variable():
+    """Sanity invariant, not an expected finding: a `function` declaration and
+    a `const` variable are mutually exclusive top-level declaration kinds, so
+    this should always hold; if it ever doesn't, something is misclassified."""
+    report = json.loads(REPORT_PATH.read_text(encoding="utf-8"))
+    assert set(report["reassigned_functions"]).isdisjoint(report["const_variables"])
 
 
 def test_census_report_committed_copy_matches_a_fresh_run():
