@@ -224,9 +224,21 @@ def _runtime_config():
 
 
 def _sqlite_db() -> Path:
+    # Deliberately calls platform_runtime.workspace_root() fresh on every
+    # call rather than the module-level WORKSPACE_ROOT constant (frozen at
+    # this module's own import time): a caller that redirects the workspace
+    # AFTER app_core has already been imported (e.g. tests/conftest.py's
+    # RETIREMENT_SYSTEM_WORKSPACE_ROOT isolation, set before importing
+    # config_backend but potentially after app_core is already loaded via
+    # some other import chain) would otherwise see this resolve against the
+    # stale, pre-redirect workspace while config_backend.resolve_path() (also
+    # a fresh call) resolves against the current one -- the exact split that
+    # made _sync_config_backends()'s write and load_active_config()'s read
+    # land in two different SQLite files. See
+    # tests/test_sync_config_backends_snapshot_freshness_regression.py.
     cfg = _runtime_config()
     p = Path(cfg.sqlite_db or DEFAULT_DB)
-    return p if p.is_absolute() else WORKSPACE_ROOT / p
+    return p if p.is_absolute() else platform_runtime.workspace_root() / p
 
 
 

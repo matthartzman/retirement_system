@@ -318,7 +318,20 @@ def discover_bootstrap_csv() -> Path:
 def load_active_config(cli_backend: str | None = None, cli_path: str | Path | None = None, workspace_id: str | None = None) -> Tuple[SettingMap, Dict[str, str]]:
     bootstrap_csv = discover_bootstrap_csv()
     bootstrap = load_system_config(bootstrap_csv)
-    sqlite_db = setting(bootstrap, "System Configuration", "Runtime", "sqlite_db", str(DEFAULT_DB)) or str(DEFAULT_DB)
+    # Fall back to a RELATIVE default, not str(DEFAULT_DB): DEFAULT_DB is an
+    # absolute path frozen at this module's own import time
+    # (_WORKSPACE_ROOT = platform_runtime.workspace_root(), evaluated once).
+    # system_config.csv has no "sqlite_db" row today, so this fallback is
+    # what actually fires on every call -- an absolute frozen path here makes
+    # resolve_path()'s `if p.is_absolute(): return p` short-circuit and skip
+    # rejoining against the live (possibly test-isolated, possibly later
+    # redirected) platform_runtime.workspace_root() entirely. A relative
+    # default forces that live rejoin every time, matching
+    # runtime_config.py's own sqlite_db field default
+    # ("local_state/retirement_system_v10.db"). See
+    # tests/test_sync_config_backends_snapshot_freshness_regression.py.
+    _default_sqlite_db_rel = "local_state/retirement_system_v10.db"
+    sqlite_db = setting(bootstrap, "System Configuration", "Runtime", "sqlite_db", _default_sqlite_db_rel) or _default_sqlite_db_rel
     backend = (cli_backend or setting(bootstrap, "System Configuration", "Runtime", "config_backend", "SQLITE") or "SQLITE").upper()
     if cli_path:
         config_ref = str(cli_path)

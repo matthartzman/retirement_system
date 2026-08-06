@@ -19,7 +19,13 @@ def test_user_and_admin_navigation_have_single_scope_toggle_search_and_status_of
     assert 'id="adminCombinedSearch"' in admin_html
     assert 'setAdminSearchScope(\'nav\')' in admin_html and 'setAdminSearchScope(\'page\')' in admin_html
     assert 'Search this page...' in user_js and 'Search this page...' in admin_js
-    assert 'Saving, build, download, pricing refresh, Plan Chat, and' in user_js
+    # The dead-code sweep ahead of the dashboard.js ES-module conversion
+    # (2026-08-06) removed APP_UNAVAILABLE_MESSAGE -- a constant nothing ever
+    # actually read (setAppControls just disables data-requires-app="1"
+    # buttons; it never displayed this text). The real "app unavailable"
+    # status message users can hit is the one api() throws when appReady is
+    # false.
+    assert 'Application is not available. Start with tools/launchers/start_ui.bat' in user_js
 
 
 def test_inline_field_context_help_removed_and_nav_descriptions_break_line():
