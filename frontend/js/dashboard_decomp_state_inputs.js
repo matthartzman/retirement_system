@@ -21,10 +21,10 @@ const US_STATES_AND_DC = [
   ["Wisconsin", "WI"], ["Wyoming", "WY"],
   ["District of Columbia", "DC"],
 ];
-function _stateNameChoiceOptions() {
+export function _stateNameChoiceOptions() {
   return US_STATES_AND_DC.map(([name]) => ({ value: name, label: name }));
 }
-function _stateAbbrChoiceOptions() {
+export function _stateAbbrChoiceOptions() {
   return US_STATES_AND_DC.map(([name, abbr]) => ({
     value: abbr,
     label: `${name} (${abbr})`,
@@ -32,4 +32,14 @@ function _stateAbbrChoiceOptions() {
 }
 // These labels force fieldHtml() into the choice/<select> branch even though
 // schema.csv doesn't tag them type=choice.
-const STATE_INPUT_LABELS = new Set(["state", "residence_state", "target_state"]);
+window.STATE_INPUT_LABELS = new Set(["state", "residence_state", "target_state"]);
+
+// Wave 6.4 ("leaves inward" ES-module migration, 'settings' leaf):
+// STATE_INPUT_LABELS is read directly by dashboard.js's fieldHtml() (a
+// data constant, not a function call), so it's an explicit window property
+// rather than module-private; US_STATES_AND_DC is read only by the two
+// functions below, so it can stay module-private.
+Object.assign(window, {
+  _stateNameChoiceOptions,
+  _stateAbbrChoiceOptions,
+});
