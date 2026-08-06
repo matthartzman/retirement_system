@@ -64,6 +64,28 @@ def _checkpoint_sqlite(path: Path) -> None:
         pass
 
 
+def checkpoint_sqlite_database(sqlite_db_path: str | Path | None) -> None:
+    """Flush the WAL into the main database file, if there is one to flush.
+
+    A WAL checkpoint touches the main .db file's mtime even when the plan's
+    logical content hasn't changed. capture_sqlite_database_snapshot() (below)
+    needs the checkpoint immediately before it copies the DB for the .rpx
+    snapshot, but that copy happens at the very end of the build pipeline --
+    after retirement_plan.xlsx, the PDF, the HTML dashboard, and the other
+    essential artifacts are already written. Bumping the DB's mtime that late
+    made every one of those artifacts look "stale" (older than the DB) the
+    moment a build finished, per src/server_services/build_service.py's
+    mtime-based staleness check -- which in turn kept
+    lastBuildOk/downloadWithBuild() from ever firing the actual file
+    download. Callers should invoke this once, early, before any output
+    artifact is written; the later checkpoint inside
+    capture_sqlite_database_snapshot() then finds nothing new to flush and is
+    a no-op.
+    """
+    if sqlite_db_path:
+        _checkpoint_sqlite(Path(sqlite_db_path))
+
+
 def capture_sqlite_database_snapshot(sqlite_db_path: str | Path | None, output_dir: str | Path, *, filename: str = SNAPSHOT_DB_FILENAME) -> dict[str, Any]:
     """Copy the active SQLite plan database beside the output package.
 
