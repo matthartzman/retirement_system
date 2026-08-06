@@ -1,4 +1,6 @@
 [
+  "test_dashboard_dead_code_sweep_regression.py",
+  "test_dashboard_js_module_bridge_regression.py",
   "test_state_input_dropdown_functional.py",
   "test_workbook_formatting_column_label_truncation_regression.py",
   "test_dashboard_charts_renamed_sheet_build_functional.py",
