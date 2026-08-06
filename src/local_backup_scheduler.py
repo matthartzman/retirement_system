@@ -1,4 +1,4 @@
-"""Opt-in local backup scheduler for the v10 desktop/local planner.
+"""Opt-in local backup scheduler for the v11 desktop/local planner.
 
 The scheduler is intentionally opportunistic: the UI or routes call it after
 save/build events or when the user clicks "Back up now". It does not run a

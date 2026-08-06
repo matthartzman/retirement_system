@@ -39,4 +39,4 @@ def test_backup_contract_is_documented_and_roadmap_completed() -> None:
     assert "/api/plan/backups/run" in api
     assert "Add local backup scheduler with retention policy. Completed" in spec
     assert "Automated local backup retention. Completed" in spec
-    assert "# v10 local backup scheduler" in changelog
+    assert "# v11 local backup scheduler" in changelog

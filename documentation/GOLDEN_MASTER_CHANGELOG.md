@@ -618,7 +618,7 @@ The per-item history that used to live in the test body is preserved below.
 - Refactored `src/server/plan_routes.py` strategy/assets/estate/insurance routes into thin adapters for permissions, CSV-write checks, request extraction, and JSON serialization.
 - Preserved existing route URLs and payload shapes for withdrawal order, large discretionary expenses, forced Roth conversions, liquidity buffers, other assets, 529 plans, estate states, trust accounts, insurance policies, capital-market imports, housing seed, healthcare OOP seed, and config sync.
 - Extended route ownership, API contracts, packaging checks, and clean-overlay validation for the new service seam.
-# v10 Planning Workbench consolidation
+# v11 Planning Workbench consolidation
 - Implemented `PLANNING_WORKBENCH_CONSOLIDATION_PROPOSAL.md` as a dedicated Planning Workbench guided step.
 - Added browser-local `planning_case_v1` cases and shared `src/planning_workbench.py` contract helpers.
 - Unified manual edits, strategy levers, scenario overrides, and stress-suite assumptions into one change-set/override vocabulary.
@@ -634,57 +634,57 @@ The per-item history that used to live in the test body is preserved below.
 - Removed Flask/Werkzeug/Jinja/Click/ItsDangerous/MarkupSafe/Waitress from runtime requirements and PyInstaller packaging hints.
 - Added regression coverage for importing and calling server routes without third-party web framework dependencies.
 
-# v10 page-local recommendation engine
+# v11 page-local recommendation engine
 
 - Added `page_recommendations_v1` as an explainable, non-automatic recommendation layer on Roth conversion, allocation, core spending, and Social Security pages.
 - Each recommendation explains why it matters and links back to the editable source input that controls the suggestion.
 - The change is UI-only: it stages no values automatically and does not alter calculations, saved plan data, build snapshots, projection formulas, tax logic, exports, or workbook sheet definitions.
 
-# v10 local backup scheduler
+# v11 local backup scheduler
 
 - Added opt-in `local_backup_scheduler_v1` for retention-limited local `.rpx` SQLite backups.
 - Added Normal Settings controls for daily/per-build cadence, manual backup, and retention count.
 - Backups are opportunistic after Save Changes or successful builds; no background service is started and projection formulas, tax logic, workbook sheets, and saved plan values are unchanged.
 
-# v10 import preview contracts
+# v11 import preview contracts
 
 - Added side-effect-free `import_preview_v1` previews for YTD transaction CSV uploads and holdings CSV replacement.
 - Transaction previews report row counts, current-year filtering, date range, duplicate candidates, unmapped categories, and new transaction accounts before writing.
 - Holdings previews report row counts, duplicate lot candidates, purchase-date range, account/symbol summaries, security-master gaps, data-quality flags, and estimated cost basis before staging the imported table.
 - The change is additive: existing upload/save routes remain, and holdings imports are staged in the browser until Save Changes persists them.
 
-# v10 household/advisor language mode
+# v11 household/advisor language mode
 
 - Added browser-local household/advisor display language mode in Normal Settings.
 - Page headers and help framing now use the selected display mode where safe, with a visible mode banner on workflow pages.
 - The change is display-only: saved plan data, calculations, build snapshots, exports, projection formulas, tax logic, and workbook sheet definitions are unchanged.
 
-# v10 scenario templates and saved scenario sets
+# v11 scenario templates and saved scenario sets
 
 - Added a Scenarios-page management panel with deterministic templates for conservative markets, spending pressure, retire-later bridge, and home-sale liquidity.
 - Added browser-local `scenario_set_v1` saved named scenario sets, including apply/delete controls and side-by-side diff previews against current scenario assumptions.
 - The change is UI-only: it stages scenario assumption edits through existing fields and does not alter projection formulas, tax logic, workbook sheet definitions, or build contracts.
 
-# v10 Build Impact narrative source links
+# v11 Build Impact narrative source links
 
 - Added a natural-language Build Impact summary for the latest successful build.
 - Captured edited fields now carry source-page metadata, and Build Impact links changes back to the guided workflow page where the value should be reviewed.
 - The change is UI/reporting-only: projection formulas, tax logic, and workbook sheet definitions are unchanged.
 
-# v10 pricing snapshot freeze
+# v11 pricing snapshot freeze
 
 - Added `pricing_snapshot_freeze_v1` as the next Phase 2 roadmap contract for advisor-report reproducibility.
 - Added freeze/unfreeze API routes, Normal Settings controls, build-preflight status, frozen-price build application, and regression coverage.
 - Frozen pricing is additive: projection formulas, tax logic, and workbook sheet definitions are unchanged.
 
-# v10 migration architecture refactor
+# v11 migration architecture refactor
 
-- Implemented local-only v10 architecture layer with typed PlanInput, SQLite snapshots, versioned tax law dataset, projection pipeline contract, report specs, what-if scenarios, and local meta-optimizer.
+- Implemented local-only v11 architecture layer with typed PlanInput, SQLite snapshots, versioned tax law dataset, projection pipeline contract, report specs, what-if scenarios, and local meta-optimizer.
 - Results Explorer continues to use the semantic result model first, with workbook parsing as legacy fallback.
-- Removed hosted/multi-user behavior from v10 runtime/UI surfaces and updated release/cache labels to v10.
+- Removed hosted/multi-user behavior from v11 runtime/UI surfaces and updated release/cache labels to v11.
 - Completed three validation/repair rounds; full collected repository suite passed in chunks: 271 tests plus 16 subtests.
 
-## v10 Results Explorer semantic model refactor
+## v11 Results Explorer semantic model refactor
 - Added a shared semantic Results Explorer model (`results_explorer_model.json`) generated from projection artifacts during workbook builds.
 - Results Explorer now prefers the semantic model and only uses Excel workbook parsing as a backward-compatible fallback.
 - Added semantic Chart Dashboard, Cash Flow, Net Worth, Lifetime Tax, Asset Allocation, and Executive Summary pages.
@@ -938,7 +938,7 @@ The terminal net-worth decrease versus the previous pin is expected and is mainl
 - Made periodic server health checks silent when the server is already online and avoided marking the server stopped while a known Results Explorer request is in flight.
 - Reduced sidebar re-renders from the health poll so the UI no longer flips between “Checking server” and “Server stopped” during active explorer work.
 
-## v10 roadmap items 1–8 completion build
+## v11 roadmap items 1–8 completion build
 
 - Expanded canonical `PlanResult` to include projection rows, summary metrics, semantic result pages, renderer-neutral report spec, event log, validation, and tax-law dataset summary.
 - Completed the local typed plan store by writing relational member/account/income/spending tables in SQLite and making SQLite snapshots the runtime source before legacy settings rows.

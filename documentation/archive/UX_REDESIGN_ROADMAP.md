@@ -847,7 +847,7 @@ After any page title, step ID, route URL, or JS function rename:
 - Run `grep -r "old_string" tests/` before committing.
 - Update test assertions in the same session as the code change.
 - After any `input/client_*.csv` or `input/client_data.json` change: regenerate golden master values (see `documentation/CLAUDE.md`).
-- After any `STEPS` group structure change: re-run `tests/test_90_v10_architecture.py` which checks nav structure.
+- After any `STEPS` group structure change: re-run `tests/test_90_v11_architecture.py` which checks nav structure.
 
 ### Route additions (Phase 2 Build tab, Phase 5 Explain)
 

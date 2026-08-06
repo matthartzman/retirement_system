@@ -67,7 +67,7 @@
   "test_pricing_symbol_tester_regression.py",
   "test_admin_local_permissions_functional.py",
   "test_allocation_ui_mode_panels_functional.py",
-  "test_v10_local_only_release_regression.py",
+  "test_v11_local_only_release_regression.py",
   "test_database_first_ui_refactor_functional.py",
   "test_build_overlay_simplified_progress.py",
   "test_cashflow_chart_home_purchase_down_payment.py",
