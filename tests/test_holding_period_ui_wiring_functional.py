@@ -142,7 +142,7 @@ class DashboardJsRuntimeBehaviorTests(unittest.TestCase):
         script = tmp_path / "dashboard_real_loss_aware_smoke.js"
         harness = textwrap.dedent(f"""
             const fs = require('fs');
-            const code = {_smoke_sources_js_array()}.map(f => fs.readFileSync(f, 'utf8')).join('\\n');
+            const code = {_smoke_sources_js_array()}.map(f => fs.readFileSync(f, 'utf8').replace(/^export (async )?function /gm, '$1function ')).join('\\n');
             const el = () => ({{
               style: {{}}, innerHTML: '', textContent: '', value: '', disabled: false,
               classList: {{ toggle(){{}}, remove(){{}}, add(){{}}, contains(){{return false;}} }},

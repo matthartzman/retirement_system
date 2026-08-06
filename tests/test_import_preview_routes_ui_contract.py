@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from _decomp_dashboard import dashboard_js_text
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -17,7 +19,11 @@ def test_import_preview_routes_are_documented_and_side_effect_named():
 
 
 def test_import_preview_ui_confirms_transactions_and_stages_holdings():
-    js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    # dashboard_decomp_holdings.js (Wave 6.4) now owns the holdings-import
+    # strings; dashboard_js_text() reads dashboard.js plus every extracted
+    # dashboard_decomp_*.js module so this assertion targets the assembled
+    # behavior regardless of which file a given string now lives in.
+    js = dashboard_js_text()
 
     assert "Preview &amp; import CSV" in js
     assert "/api/ytd/transactions/preview" in js
@@ -28,4 +34,4 @@ def test_import_preview_ui_confirms_transactions_and_stages_holdings():
     assert "/api/holdings/preview" in js
     assert "holdingsImportPreviewMessage" in js
     assert "use Save Changes to write them to disk" in js
-    assert 'holdingsText = text' in js
+    assert 'window.holdingsText = text' in js

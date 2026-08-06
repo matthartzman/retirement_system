@@ -27,9 +27,11 @@ ROOT = Path(__file__).resolve().parents[1]
 JS_DIR = ROOT / "frontend" / "js"
 
 # Ceiling for the monolith. Ratchet DOWN only; never raise to make a diff pass.
-# 2026-08-04: measured 19,661. Set at the measurement with no headroom, so the
-# very next line added is a deliberate decision rather than silent drift.
-DASHBOARD_JS_MAX_LINES = 19_661
+# 2026-08-05: lowered from 19,661 to 19,188 -- Wave 6.4's "holdings" leaf
+# extraction (dashboard_decomp_holdings.js) moved the Plan Holdings lot
+# table and its CRUD/CSV-import/pricing-tester helpers out of dashboard.js.
+# Set at the post-extraction measurement with no headroom.
+DASHBOARD_JS_MAX_LINES = 19_188
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling
