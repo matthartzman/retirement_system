@@ -13,7 +13,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: windows-latest
             python-version: '3.11'
           - os: windows-latest
             python-version: '3.14'
@@ -52,13 +52,13 @@ jobs:
 
     - name: Upload coverage
       uses: codecov/codecov-action@v7
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+      if: matrix.python-version == '3.11'
       with:
         files: ./coverage.xml
         fail_ci_if_error: false
 
   frontend-tests:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
     - uses: actions/checkout@v7
 
@@ -80,7 +80,7 @@ jobs:
     # real page loads) than the Node vm-sandbox unit tests above. Keeping it
     # a separate job means a flaky/slow browser run never blocks or muddies
     # the fast, deterministic frontend-tests signal.
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
     - uses: actions/checkout@v7
 
@@ -102,7 +102,7 @@ jobs:
       run: npm ci
 
     - name: Install Playwright Chromium
-      run: npx playwright install --with-deps chromium
+      run: npx playwright install chromium
 
     - name: Run E2E suite
       run: npx playwright test
@@ -116,7 +116,7 @@ jobs:
         retention-days: 7
 
   regression-checks:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
     - uses: actions/checkout@v7
 
