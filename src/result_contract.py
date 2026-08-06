@@ -64,7 +64,7 @@ class RothStrategyResult:
 
 @dataclass(frozen=True)
 class PlanResult:
-    """Canonical v10 result contract consumed by UI, workbook, PDF and governance.
+    """Canonical v11 result contract consumed by UI, workbook, PDF and governance.
 
     This is intentionally broader than a workbook sheet model. It captures the
     projection facts, semantic renderable pages, charts/report spec, tax-law

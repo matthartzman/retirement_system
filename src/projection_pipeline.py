@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Explicit projection pipeline facade for v10.
+"""Explicit projection pipeline facade for v11.
 
 The deterministic engine remains the validation oracle, but callers now invoke a
 named pipeline that emits stage events and can progressively absorb individual

@@ -52,4 +52,4 @@ def test_recommendation_ui_is_styled_and_roadmap_updated():
     assert ".recommendation-source-jump" in css
     assert "Recommendation engine for Roth/allocation/spending/SS. Initial explainable" in spec
     assert "page_recommendations_v1" in spec
-    assert "# v10 page-local recommendation engine" in changelog
+    assert "# v11 page-local recommendation engine" in changelog

@@ -12,7 +12,7 @@ from src.results_model import build_result_explorer_model, RESULTS_MODEL_SCHEMA
 from src.report_spec import report_spec_from_results_model
 
 
-def test_v10_typed_plan_input_and_local_store_round_trip(tmp_path):
+def test_v11_typed_plan_input_and_local_store_round_trip(tmp_path):
     data = {
         'Household': {'Client': {'husband_name': 'Matt', 'wife_name': 'Pat'}},
         'Spending': {'Core': {'annual_spending_base_year': '$200,000', 'core_spending_growth_mode': 'manual', 'manual_core_spending_increase_pct': '3%'}},
@@ -60,7 +60,7 @@ def test_latest_sectioned_data_breaks_same_second_ties_by_recency(tmp_path, monk
     assert latest_sectioned_data(db)['Cashflow']['Mortgage']['annual_mortgage_payment'] == '$40,000'
 
 
-def test_v10_tax_law_dataset_has_no_embedded_fallbacks():
+def test_v11_tax_law_dataset_has_no_embedded_fallbacks():
     ds = load_tax_law_dataset()
     val = ds.lookup('standard_deduction', 2024, filing_status='MFJ')
     assert val.value > 0
@@ -69,7 +69,7 @@ def test_v10_tax_law_dataset_has_no_embedded_fallbacks():
     assert summary['value_count'] >= 5
 
 
-def test_v10_projection_pipeline_contract_uses_named_stages():
+def test_v11_projection_pipeline_contract_uses_named_stages():
     def fake_project(c):
         return [{'year': 2026, 'total_nw': 1000, 'h_age': 60, 'w_age': 58}]
     result = run_projection_pipeline({'plan_start': 2026}, engine_project=fake_project)
@@ -79,7 +79,7 @@ def test_v10_projection_pipeline_contract_uses_named_stages():
     assert any(e.stage == 'ProjectionEngine' and e.event_type == 'completed' for e in result.events)
 
 
-def test_v10_results_model_and_report_spec_are_renderer_neutral():
+def test_v11_results_model_and_report_spec_are_renderer_neutral():
     rows = [{'year': 2026, 'h_age': 60, 'w_age': 58, 'total_nw': 1000000, 'earned': 100000, 'fed_tax': 10000, 'state_tax': 5000, 'spend_base_yr': 90000}]
     model = build_result_explorer_model({'plan_start': 2026, 'plan_end': 2026, 'h_name': 'Matt', 'w_name': 'Pat'}, rows, {'success_rate': 0.95})
     assert model['schema'] == RESULTS_MODEL_SCHEMA == 'results_model_v10'

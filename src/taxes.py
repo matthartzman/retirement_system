@@ -329,7 +329,7 @@ def load_tax_constants(search_dirs=None):
     """
     registry = {}
 
-    # v10 primary path: tax-law values are loaded from the dated local dataset.
+    # v11 primary path: tax-law values are loaded from the dated local dataset.
     # tax_constants.csv remains a compatibility/import adapter below.
     try:
         try:
@@ -356,7 +356,7 @@ def load_tax_constants(search_dirs=None):
         for item in ds.values:
             key = f"{item.name}_{item.filing_status.lower()}"
             registry[key] = {'value': item.value, 'tax_year': item.effective_year, 'source': item.source}
-        registry['_v10_tax_law_dataset'] = {'value': len(ds.values), 'tax_year': max(v.effective_year for v in ds.values), 'source': ds.generated_from}
+        registry['_v11_tax_law_dataset'] = {'value': len(ds.values), 'tax_year': max(v.effective_year for v in ds.values), 'source': ds.generated_from}
         return registry
     except Exception:
         pass

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Versioned tax-law dataset loader for v10.
+"""Versioned tax-law dataset loader for v11.
 
 Tax constants are loaded from reference_data/tax_law_v10.json.  The engine can
 still call older compatibility helpers, but this module is the single typed data

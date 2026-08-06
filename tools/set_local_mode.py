@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reset the v10 local desktop/development runtime settings.
+"""Reset the v11 local desktop/development runtime settings.
 
 The packaged app is local-only. This helper restores the root system_config.csv
 values used by desktop and browser/server launchers.

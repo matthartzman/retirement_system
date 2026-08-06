@@ -409,7 +409,7 @@ def build_html_dashboard(xlsx_path, html_path, rows, c):
             })
 
     # ── Pull chart series data from the workbook chart-source table ──────────
-    # v10 moved the Excel chart helper ranges off the visible "8. Charts
+    # v11 moved the Excel chart helper ranges off the visible "8. Charts
     # Dashboard" page and onto a hidden "_Chart Dashboard Data" sheet.  The
     # standalone HTML dashboard must read that helper sheet; otherwise YEARS=[]
     # and every native SVG chart appears blank.  Keep a row-based fallback so

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Typed local-only plan input domain model for v10.
+"""Typed local-only plan input domain model for v11.
 
 CSV/JSON/YAML remain import/export adapters, but the application layer now has
 one canonical, typed representation for user-owned plan inputs.  The model is
@@ -138,7 +138,7 @@ class PlanInput:
     def to_sectioned_data(self) -> SectionedData:
         """Return the legacy sectioned shape as an import/export rendering.
 
-        v10 treats this shape as an adapter for the deterministic engine and for
+        v11 treats this shape as an adapter for the deterministic engine and for
         round-tripping portable files. The typed PlanInput remains canonical.
         """
         data: SectionedData = {s: {ss: dict(vals) for ss, vals in subs.items()} for s, subs in (self.sectioned_data or {}).items()}

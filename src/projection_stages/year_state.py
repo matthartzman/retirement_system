@@ -3,7 +3,7 @@ from __future__ import annotations
 """Mutable per-run/year state separated from immutable run configuration.
 
 The deterministic legacy math mutates account balances, mortality state, and
-intermediate balances by year.  v10 keeps that mutability in this explicit state
+intermediate balances by year.  v11 keeps that mutability in this explicit state
 container so configuration objects can remain immutable at the run boundary.
 """
 

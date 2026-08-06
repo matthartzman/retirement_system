@@ -1,5 +1,5 @@
 from __future__ import annotations
-"""Version v10 local-only stdlib dashboard and API.
+"""Version v11 local-only stdlib dashboard and API.
 
 The packaged server is for single-machine desktop use: it uses the local SQLite plan store as source of truth, materializes import/export adapters as needed, and writes generated files to output/, and does not expose public-hosting, client-registry, or browser-login modes.
 """
