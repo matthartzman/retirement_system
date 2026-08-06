@@ -1674,13 +1674,37 @@ def _sync_config_backends() -> dict:
     # what broke test_real_build_journey_reflects_a_user_edited_input: a
     # real save updated `client_files` and disk correctly, but the build read
     # the (now-frozen) old snapshot from `local_store`.
-    # Every real write caller already calls this function after writing (config_service,
+    # tests/test_wave4_11_config_snapshot_freshness.py regression-guards this
+    # directly (fast tier -- the original break only reproduced in the slow,
+    # full-FILE run of test_e2e_build_journey.py, never standalone).
+    #
+    # Re-scoped 2026-08-06 rather than retried: measured this function's cost
+    # with the real client_data.csv (1,519 lines across 10 sectioned files).
+    # load_csv (the ten-file parse, unavoidable either way -- export_client_
+    # json_yaml needs it too) costs ~190ms; import_csv_to_sqlite, the specific
+    # call the finding wanted removed, costs ~10-40ms on top of that -- under
+    # 20% of this function's own total, and noise against the ~200ms already
+    # spent per save regardless. plan_snapshots' insert is also already
+    # content-hash deduplicated (snapshot_id = sha256(payload)[:16], ON
+    # CONFLICT DO UPDATE) -- an unchanged re-save doesn't grow the table.
+    # Given the original finding's own recommended sequencing was "memoize
+    # now [Wave 1.3, done -- cut this from 20 file reads to 1], DB->CSV
+    # export as follow-up," and the follow-up's remaining win is this small,
+    # it is not worth the correctness risk that already broke a real build
+    # once. Concluded won't-fix as originally scoped. Every real write caller
+    # already calls this function after writing (config_service,
     # demo_plan_service, plan_data_file_service, strategy_asset_service, this
     # module's own payload handler) -- the gap was never caller discipline,
     # it was this function's own body. Do not remove the re-import again
     # without either (a) making load_active_config() refresh `local_store`
-    # itself before reading, or (b) unifying the two stores outright -- both
-    # are real design changes, not a quick follow-up.
+    # itself before reading (only for the one build call site --
+    # config_service.py's three load_active_config() callers read real
+    # sectioned values too, e.g. allocation_preview_payload's ui_rows
+    # fallback and config_rows_payload's _module_status(), so this can't
+    # default to "only builds need freshness" without re-auditing those), or
+    # (b) unifying the two stores outright -- both are real design changes,
+    # not a quick follow-up, and neither is justified by the ~10-40ms this
+    # measurement found.
     try:
         # Parse the sectioned CSVs ONCE and hand the result to both consumers.
         # Each of these used to call load_csv itself, and load_csv on the
