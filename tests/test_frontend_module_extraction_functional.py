@@ -9,6 +9,19 @@ def read(rel: str) -> str:
 
 
 def test_new_frontend_modules_are_loaded_before_dashboard():
+    # Wave 6.4 ("leaves inward" ES-module migration) converted these five to
+    # type="module" -- a deferred script, which always finishes executing
+    # before any user interaction or promise-driven callback can run,
+    # regardless of its raw document position relative to dashboard.js (a
+    # classic, non-deferred script). That guarantee only holds because NONE
+    # of these five are called from dashboard.js's own synchronous top-level
+    # boot chain (verified: their only callers are wrapper functions invoked
+    # later, from rendering/event handlers) -- dashboard_decomp_local_backups.js
+    # is the one file in this codebase that IS called from that boot chain
+    # (checkAppStatus(true).then(...) calls refreshLocalBackupStatus()) and
+    # deliberately stayed a classic script for exactly that reason; see
+    # test_dashboard_startup_race_and_script_order.py's docstring for the
+    # real 2026-07-22 outage that guard protects against.
     html = read("frontend/index.html")
     order = [
         "js/api_client.js",
@@ -18,11 +31,18 @@ def test_new_frontend_modules_are_loaded_before_dashboard():
         "js/planning_workbench_ui.js",
         "js/dashboard.js",
     ]
-    script_positions = []
-    for item in order:
-        marker = f'<script src="{item}'
-        script_positions.append(html.index(marker))
-    assert script_positions == sorted(script_positions)
+    dashboard_marker = '<script src="js/dashboard.js'
+    dashboard_pos = html.index(dashboard_marker)
+    for item in order[:-1]:
+        module_marker = f'<script type="module" src="{item}'
+        classic_marker = f'<script src="{item}'
+        if module_marker in html:
+            continue  # deferred module: always finishes before dashboard.js's callbacks can call it
+        assert classic_marker in html, f"{item} is neither a classic <script src> tag nor a type=\"module\" one"
+        assert html.index(classic_marker) < dashboard_pos, (
+            f"{item} loads as a classic script but after dashboard.js -- "
+            "either move it earlier or convert it to type=\"module\"."
+        )
 
 
 def test_navigation_behavior_is_feature_owned_with_dashboard_wrappers():

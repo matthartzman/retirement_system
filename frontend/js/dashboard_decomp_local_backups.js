@@ -3,6 +3,17 @@
 // trigger points. Extracted from dashboard.js verbatim (first modularization
 // increment); shares the classic-script global scope with dashboard.js, so
 // these remain plain global functions/vars just as they were inline.
+//
+// Wave 6.4 ("leaves inward" ES-module migration): deliberately NOT converted
+// to type="module". dashboard.js's own synchronous top-level boot chain
+// (checkAppStatus(true).then(...)) calls refreshLocalBackupStatus() --
+// making this a deferred module would execute it AFTER dashboard.js's
+// classic-script code runs instead of before, reversing the load-order
+// guarantee test_dashboard_startup_race_and_script_order.py exists to
+// protect (a real 2026-07-22 outage where this exact function was undefined
+// when the boot chain called it). Every other extracted sibling file is only
+// ever called from later event handlers/rendering, not this boot chain, so
+// they don't share this constraint.
 let localBackupStatus = null;
 function localBackupStatusLine() {
   const s = localBackupStatus || {};
