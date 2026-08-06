@@ -1,5 +1,5 @@
 {
-  "schema": "dashboard_census_v3",
+  "schema": "dashboard_census_v4",
   "functions": [
     "_checkAppStatusRun",
     "activeOptimizerUsedTarget",
@@ -6453,6 +6453,36 @@
       "file": "frontend/index.html (inline)",
       "kind": "call",
       "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxSearch",
+      "file": "frontend/js/dashboard.js",
+      "kind": "assign",
+      "scope": "inline-html-handler"
+    },
+    {
+      "name": "ytdCategoryFilter",
+      "file": "frontend/js/dashboard.js",
+      "kind": "assign",
+      "scope": "inline-html-handler"
+    },
+    {
+      "name": "ytdAccountFilter",
+      "file": "frontend/js/dashboard.js",
+      "kind": "assign",
+      "scope": "inline-html-handler"
+    },
+    {
+      "name": "ytdTxColsCollapsed",
+      "file": "frontend/js/dashboard.js",
+      "kind": "assign",
+      "scope": "inline-html-handler"
+    },
+    {
+      "name": "detailResultsSearchText",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "assign",
+      "scope": "inline-html-handler"
     }
   ],
   "reassigned_functions": [
@@ -6565,9 +6595,13 @@
     "travelExtras",
     "travelExtrasChanged",
     "travelTypes",
+    "ytdAccountFilter",
     "ytdAccountsChanged",
     "ytdActualsPeriod",
+    "ytdCategoryFilter",
     "ytdData",
-    "ytdTransactionsChanged"
+    "ytdTransactionsChanged",
+    "ytdTxColsCollapsed",
+    "ytdTxSearch"
   ]
 }

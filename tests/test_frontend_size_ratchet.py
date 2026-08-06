@@ -51,8 +51,16 @@ JS_DIR = ROOT / "frontend" / "js"
 # moved the 172 fan-in>=3 hub functions (row-model DSL + app-shell) into
 # frontend/js/dashboard_decomp_row_model.js. renderMain/showStepHelp stayed
 # (other leaf modules reassign them as a monkey-patch chain).
+# 2026-08-06: raised from 15,305 to 15,308 -- census.mjs's inline-HTML-
+# event-handler-assignment detection (a real gap: onchange="ytdCategoryFilter=
+# this.value" etc. execute in browser global scope, not dashboard.js's module
+# scope, once type="module" applies -- see census.mjs's v4 header comment)
+# found 3 more variables needing get+set window accessors
+# (ytdCategoryFilter, ytdTxSearch, ytdAccountFilter), fixing 3 real silent-
+# failure bugs (those filter/search inputs updating an accidental implicit
+# global instead of the real state). 3 new generated lines, no slack added.
 # Set at the post-extraction measurement with no headroom.
-DASHBOARD_JS_MAX_LINES = 15_305
+DASHBOARD_JS_MAX_LINES = 15_308
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling
