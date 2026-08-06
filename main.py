@@ -91,7 +91,7 @@ def _run_server() -> int:
 
     print(f"""
 ======================================================
-  RETIREMENT PLAN SYSTEM v10  [server mode]
+  RETIREMENT PLAN SYSTEM v11  [server mode]
 ======================================================
   Dashboard:  {url}
   Runtime:    stdlib local HTTP

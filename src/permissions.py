@@ -1,5 +1,5 @@
 from __future__ import annotations
-"""Local-only permission compatibility shim for v10."""
+"""Local-only permission compatibility shim for v11."""
 from dataclasses import dataclass
 from typing import Set
 

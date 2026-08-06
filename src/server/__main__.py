@@ -13,7 +13,7 @@ def main() -> int:
     url = f"http://{cfg.dashboard_host}:{cfg.dashboard_port}"
     print(f"""
 ======================================================
-  RETIREMENT PLAN SYSTEM v10
+  RETIREMENT PLAN SYSTEM v11
 ======================================================
   Dashboard:  {url}
   Runtime:    stdlib local HTTP

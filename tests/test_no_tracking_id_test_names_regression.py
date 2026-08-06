@@ -7,7 +7,7 @@ see git history for the full rename. New coverage must use the standard
 functional, contract, smoke, unit, integration), so a test's name alone
 says what it covers rather than which roadmap item shipped it.
 
-`test_v10_*` files are exempt: "v10" names the product (Version 10), not a
+`test_v11_*` files are exempt: "v11" names the product (Version 11), not a
 wave/issue tracking id.
 """
 import re

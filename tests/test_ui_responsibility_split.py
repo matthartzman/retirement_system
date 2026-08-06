@@ -48,7 +48,7 @@ def test_user_ui_has_client_specific_advanced_pages_and_output_focused_help():
         assert phrase in user_js
 
 
-def test_release_surfaces_are_v10():
+def test_release_surfaces_are_v11():
     paths = ['frontend/index.html','frontend/admin.html','system_config.csv','src/version.py']
     for rel in paths:
         text = (ROOT/rel).read_text(encoding='utf-8', errors='ignore')

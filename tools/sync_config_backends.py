@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-"""Synchronize v10 local Plan Data configuration backends.
+"""Synchronize v11 local Plan Data configuration backends.
 
 Split client_*.csv files are the portable, human-editable Plan Data adapters
 because they preserve section comments, units, and notes. client_data.csv is a

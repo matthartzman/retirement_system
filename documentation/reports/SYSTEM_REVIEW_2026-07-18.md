@@ -1,4 +1,4 @@
-# System Review — Retirement Planning (Version 10)
+# System Review — Retirement Planning (Version 11)
 
 **Scope:** whole-system review by a five-expert panel (architecture, usability, documentation/content,
 test quality, financial-planning domain). Findings were cross-checked; corrections and refutations are
@@ -472,7 +472,7 @@ Reserve IIFE for modules that genuinely warrant isolated tests.
 #### A14. `meta_optimizer.py` is kept alive solely by one architecture test — **low / S**
 
 *Evidence.* `src/meta_optimizer.py` (31 lines) exposes `run_meta_optimizer` at `:35`. Its only references
-are `tests/test_90_v10_architecture.py:12` (import) and `:63-64` (one test asserting it picks the
+are `tests/test_90_v11_architecture.py:12` (import) and `:63-64` (one test asserting it picks the
 higher-scoring of two lambdas returning fixed scores).
 
 *Options.* (1) Delete module and test case. (2) Keep as a documented extension point. (3) Wire it into the
