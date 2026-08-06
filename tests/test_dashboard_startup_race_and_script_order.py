@@ -30,9 +30,22 @@ DASH = ROOT / "frontend" / "js" / "dashboard.js"
 
 
 def test_local_backups_module_loads_before_dashboard_js():
+    """dashboard.js is now type="module" (docs/superpowers/plans/
+    2026-08-06-dashboard-js-ast-module-conversion.md) while
+    dashboard_decomp_local_backups.js stays classic. Per that plan's
+    script-order spike (tools/js_codemod/fixtures/script_order_spike.html):
+    ALL classic scripts finish executing before ANY module script runs, so
+    this is now a STRONGER guarantee than the original document-order-among-
+    classic-scripts check it replaces -- dashboard_decomp_local_backups.js is
+    guaranteed to finish before dashboard.js's module code (and therefore its
+    later async checkAppStatus().then(refreshLocalBackupStatus) boot chain)
+    runs, regardless of these two scripts' relative tag order in the HTML.
+    Still assert the tag order for documentation/intent, even though it's no
+    longer the thing actually providing the guarantee.
+    """
     html = INDEX_HTML.read_text(encoding="utf-8")
     backups_pos = html.index('<script src="js/dashboard_decomp_local_backups.js')
-    dashboard_pos = html.index('<script src="js/dashboard.js')
+    dashboard_pos = html.index('<script type="module" src="js/dashboard.js')
     assert backups_pos < dashboard_pos, (
         "dashboard_decomp_local_backups.js must load before dashboard.js: "
         "dashboard.js's top-level boot chain calls refreshLocalBackupStatus(), "
