@@ -1,7 +1,7 @@
 (function(){
   'use strict';
   window.RPPhase3Modules={
-    schema:'phase3_frontend_module_manifest_v3',
+    schema:'phase3_frontend_module_manifest_v4',
     // Wave 6.4 (system review 2026-08-04, "leaves inward" ES-module
     // migration) converted every named leaf below to a real type="module"
     // script: spending_dashboard.js, dashboard_decomp_holdings.js (extracted
@@ -57,6 +57,24 @@
     // others, to group them into non-circular modules) using the same
     // census/codemod tooling as a starting point, not a continuation of
     // this pass.
+    // v4 (docs/superpowers/plans/2026-08-06-dashboard-js-domain-module-split-SCOPE.md):
+    // shared-core extraction, the first step that scope doc recommended.
+    // Built an internal call-graph over dashboard.js's ~760 top-level
+    // functions (jscodeshift-based, tools/js_codemod/extract_core.mjs) and
+    // found 96.3% of them formed ONE connected component, glued together by
+    // a shared "row" data model (section/norm/valOf/isEditable/fieldHtml/
+    // rowsForStep/humanLabel/...) and app-shell orchestration (api/
+    // showMessage/setStep/loadAll/saveAll/...) that nearly every domain
+    // render function touches. Extracted the 172 functions with fan-in >= 3
+    // (referenced by 3+ other top-level functions) into
+    // frontend/js/dashboard_decomp_row_model.js -- named dashboard_decomp_*.js,
+    // not dashboard_row_model.js, so existing tests that glob that pattern
+    // for a multi-file "full dashboard source" read/smoke-exec pick it up
+    // automatically. renderMain/showStepHelp stayed (still reassigned as a
+    // monkey-patch chain by other leaf modules). dashboard.js dropped from
+    // ~19,400 to ~15,300 lines. Domain clustering (the REST of the scope
+    // doc's plan -- ~10-15 modules for the remaining ~586 functions) is
+    // still not attempted: that's a separate pass on top of this one.
     loaded_by:'dashboard_source_truth_banners.js',
     compatibility:'dashboard.js remains the public behavior owner; its top-level surface is now bridged to window explicitly and tool-verified (tests/test_dashboard_js_module_bridge_regression.py) instead of implicitly global.'
   };

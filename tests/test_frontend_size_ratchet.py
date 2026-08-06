@@ -52,7 +52,7 @@ JS_DIR = ROOT / "frontend" / "js"
 # frontend/js/dashboard_decomp_row_model.js. renderMain/showStepHelp stayed
 # (other leaf modules reassign them as a monkey-patch chain).
 # Set at the post-extraction measurement with no headroom.
-DASHBOARD_JS_MAX_LINES = 15_411
+DASHBOARD_JS_MAX_LINES = 15_305
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling
