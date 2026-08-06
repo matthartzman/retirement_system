@@ -2072,7 +2072,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
             lots_file = _lp
             break
     if lots_file:
-        with open(lots_file, newline='', encoding='utf-8') as lf:
+        with open(lots_file, newline='', encoding='utf-8-sig') as lf:
             reader = _csv.DictReader(lf)
             for row in reader:
                 acct = (row.get('account','') or '').strip()
