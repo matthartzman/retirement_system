@@ -26,8 +26,13 @@ def test_primary_workflow_is_database_first_not_csv_folder_save_load():
     assert "Save Changes" in html
     assert "Download Workbook" in html
     assert "function renderSystemConfiguration" in js
+    # Export CSV backup is the real, reachable CSV import/export adapter
+    # feature. The generic "CSV import/export" phrase this test used to also
+    # check lived only in APP_UNAVAILABLE_MESSAGE, a constant nothing ever
+    # read -- removed in the 2026-08-06 dead-code sweep ahead of the
+    # dashboard.js ES-module conversion. See test_ui_tax_ss_cleanup.py's
+    # status-offline-message assertion for the real "app unavailable" text.
     assert "Export CSV backup" in js
-    assert "CSV import/export" in js
 
 
 def test_system_configuration_route_replaces_separate_admin_workflow():
