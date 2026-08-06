@@ -45,6 +45,27 @@ if not os.environ.get("RETIREMENT_SYSTEM_WORKSPACE_ROOT"):
     from src import platform_runtime as _platform_runtime
 
     _TEST_WORKSPACE_ROOT = Path(tempfile.mkdtemp(prefix="retirement_system_test_workspace_"))
+    # Set the redirect BEFORE importing any app module (src.config_backend
+    # below, via the "input" branch of the loop that follows) that resolves
+    # platform_runtime.workspace_root() at its own IMPORT time into a
+    # module-level constant (config_backend.py's _WORKSPACE_ROOT/DEFAULT_CSV/
+    # DEFAULT_DB). workspace_root() itself is a pure function -- it re-reads
+    # the env var on every call -- but a module that caches its result once
+    # at import time freezes whatever workspace_root() returned AT THAT
+    # MOMENT for the rest of the process. Importing config_backend here
+    # before setting this env var (the original bug) permanently pinned
+    # config_backend.DEFAULT_CSV/DEFAULT_DB to the REAL repo paths, which
+    # nothing after this block could undo -- a later os.getenv() call reads
+    # the right value, but the already-cached module constant does not
+    # change. This bit load_active_config() specifically: its bootstrap-CSV
+    # discovery (src/system_config.py) is unaffected (it never reads
+    # workspace_root() at all -- system_config.csv is a package-root
+    # reference file by design), but load_active_config()'s SQLITE-backend
+    # fallback path used config_backend.DEFAULT_DB, so a test calling it
+    # directly (not through the HTTP layer's own _sqlite_db(), which
+    # re-resolves workspace_root() fresh on every call and was never
+    # affected) silently read/wrote the real project's database.
+    os.environ["RETIREMENT_SYSTEM_WORKSPACE_ROOT"] = str(_TEST_WORKSPACE_ROOT)
     for _name in _platform_runtime.WORKSPACE_SUBDIRS:
         _src_dir = ROOT / _name
         # Only "input" needs real content copied in — it's the one directory
@@ -77,7 +98,6 @@ if not os.environ.get("RETIREMENT_SYSTEM_WORKSPACE_ROOT"):
             _export_json_yaml(_TEST_WORKSPACE_ROOT / _name / "client_data.csv", _TEST_WORKSPACE_ROOT / _name)
         else:
             (_TEST_WORKSPACE_ROOT / _name).mkdir(parents=True, exist_ok=True)
-    os.environ["RETIREMENT_SYSTEM_WORKSPACE_ROOT"] = str(_TEST_WORKSPACE_ROOT)
     # Pin the date too: plan_start derives from the current year and the YTD
     # blend prorates by day-of-year, so static inputs alone do not make a
     # projection reproducible. Tests needing a specific date override this.
