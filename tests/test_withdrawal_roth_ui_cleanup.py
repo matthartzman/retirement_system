@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_withdrawal_page_excludes_roth_and_shows_fixed_cascade():
     js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
+    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     assert 'case "withdrawal_strategy":\n        return sec === "Withdrawal Policy" && sub !== "roth_conversion";' in js
     assert "renderWithdrawalOrderTable" in js
     assert "Withdrawal order" in js
@@ -23,6 +24,7 @@ def test_withdrawal_cascade_description_matches_engine_constant():
     same hardcoded engine sequence and must be kept textually identical so
     they cannot silently drift apart."""
     js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
+    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     taxes_src = (ROOT / 'src/taxes.py').read_text(encoding='utf-8')
 
     js_match = re.search(
@@ -42,6 +44,7 @@ def test_withdrawal_cascade_description_matches_engine_constant():
 
 def test_roth_page_uses_collapsible_sections_and_does_not_show_legacy_irmaa_base():
     js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
+    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     assert 'details class="roth-section"' in js
     assert 'ROTH_ENGINE_LABELS' in js and 'roth_conv_window_end_offset' in js and 'irmaa_annual_inflator' in js
     assert 'irmaa_tier2_mfj_base_year' not in js

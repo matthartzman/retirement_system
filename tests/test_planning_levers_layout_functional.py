@@ -4,7 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_planning_levers_ui_has_source_column_and_compact_inputs():
-    js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8-sig')
+    js = ((ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8-sig') + (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8-sig'))
     css = (ROOT / 'frontend/css/dashboard.css').read_text(encoding='utf-8')
     assert '<th>Source</th><th>Test amount</th>' in js
     assert 'source-jump' in js
@@ -25,7 +25,7 @@ def test_planning_levers_gates_ltc_quick_nav_button_on_optional_function():
     # same server-declared stepGatedByOptionalModule() the rest of the app's
     # navigation already uses -- see test_planning_levers_module_gating.py
     # for the full cross-module coverage.
-    js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8-sig')
+    js = ((ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8-sig') + (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8-sig'))
     start = js.index('function renderPlanningLevers(')
     fn = js[start: js.index('\nfunction ', start + 1)]
     assert 'leverNavButton("ltc_stress", "Long-term care")' in fn

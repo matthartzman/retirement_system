@@ -7,7 +7,7 @@ SPEC = ROOT / "documentation" / "CURRENT_SYSTEM_DESIGN_SPEC.md"
 
 
 def test_build_impact_has_natural_language_summary_and_source_links():
-    js = DASHBOARD_JS.read_text(encoding="utf-8")
+    js = (DASHBOARD_JS.read_text(encoding="utf-8") + (ROOT / "frontend/js/dashboard_decomp_row_model.js").read_text(encoding="utf-8"))
     assert "function buildImpactNarrativeHtml" in js
     assert "Plain-English Build Impact summary" in js
     assert "Source-page links" in js
@@ -17,7 +17,7 @@ def test_build_impact_has_natural_language_summary_and_source_links():
 
 
 def test_captured_changes_store_source_step_metadata():
-    js = DASHBOARD_JS.read_text(encoding="utf-8")
+    js = (DASHBOARD_JS.read_text(encoding="utf-8") + (ROOT / "frontend/js/dashboard_decomp_row_model.js").read_text(encoding="utf-8"))
     assert "sourceStepForRow(row)" in js
     assert 'sourceTitle: stepTitleById(sourceStep)' in js
     assert "sourceStepForSpecialLabel(label)" in js

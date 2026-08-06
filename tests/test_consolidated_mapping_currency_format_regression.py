@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_spending_category_mapping_language_is_consolidated():
     js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     assert "Category Manager" in js
     assert "Advanced Auto-Mapping Rules" in js
     assert "Target category" in js
@@ -21,6 +22,7 @@ def test_spending_category_mapping_language_is_consolidated():
 
 def test_accounts_sources_live_on_transactions_page_not_category_manager():
     js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     ytd_fn = js[js.index("function renderYtdTransactionsStep") : js.index("function renderYtdTracking", js.index("function renderYtdTransactionsStep")) if "function renderYtdTracking" in js[js.index("function renderYtdTransactionsStep"):] else js.index("function renderSpendingDashboardOrLoad")]
     assert "${renderYtdAccounts()}" in ytd_fn
     tax_fn = js[js.index("function renderTaxonomyManager") : js.index("function showTaxonomyAddForm")]
@@ -29,6 +31,7 @@ def test_accounts_sources_live_on_transactions_page_not_category_manager():
 
 def test_budget_amount_inputs_use_dollar_formatting_helpers():
     js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     assert "function budgetMoneyInputValue" in js
     assert "class=\"budget-money-input\"" in js
     assert "placeholder=\"$0\"" in js

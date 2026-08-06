@@ -5,6 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_dashboard_top_level_groups():
     js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
+    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     steps_block = re.search(r"const STEPS = \[(.*?)\n\];", js, re.S).group(1)
     groups = []
     for name in re.findall(r'group: "([^"]+)"', steps_block):
@@ -20,6 +21,7 @@ def test_dashboard_top_level_groups():
 def test_primary_workflow_is_database_first_not_csv_folder_save_load():
     html = (ROOT / "frontend/index.html").read_text(encoding="utf-8")
     js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
+    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     assert ">Admin<" not in html
     assert "Save Plan Data" not in html
     assert "Build Workbook" not in html
@@ -49,9 +51,18 @@ def test_sqlite_remains_configured_source_of_truth():
 
 
 def test_build_and_load_no_longer_use_remembered_csv_folder_as_authority():
-    js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
+    # loadAll/runBuild moved to dashboard_decomp_row_model.js (domain-module-
+    # split shared-core extraction); startNewPlan/downloadFile stayed in
+    # dashboard.js. The regexes below extract "everything between function A
+    # and function B", so row_model's content must come FIRST or these two
+    # cross-file boundaries land in the wrong order.
+    js = (ROOT / "frontend/js/dashboard_decomp_row_model.js").read_text(encoding="utf-8")
+    js += (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
     load_fn = re.search(r"async function loadAll\(opts = \{\}\).*?async function startNewPlan", js, re.S).group(0)
-    build_fn = re.search(r"async function runBuild\(.*?\).*?function downloadFile", js, re.S).group(0)
+    # downloadWithBuild (not downloadFile, a different, similarly-named
+    # function that stayed in dashboard.js) is the next top-level declaration
+    # after runBuild in dashboard_decomp_row_model.js now.
+    build_fn = re.search(r"async function runBuild\(.*?\).*?async function downloadWithBuild", js, re.S).group(0)
     assert "refreshServerFromPlanFolder" not in load_fn
     assert "Local folder:" not in load_fn
     assert "saveCurrentPlanToSelectedFolderForBuild" not in build_fn

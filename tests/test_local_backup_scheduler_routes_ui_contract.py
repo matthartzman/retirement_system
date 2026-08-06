@@ -22,7 +22,7 @@ def test_backup_api_routes_and_stub_map_are_registered() -> None:
 def test_normal_settings_exposes_backup_controls() -> None:
     # The local-backups card/controls live in dashboard_decomp_local_backups.js,
     # a sibling module loaded alongside dashboard.js (see frontend/index.html).
-    js = read("frontend/js/dashboard.js") + read("frontend/js/dashboard_decomp_local_backups.js")
+    js = read("frontend/js/dashboard.js") + read("frontend/js/dashboard_decomp_local_backups.js") + read("frontend/js/dashboard_decomp_row_model.js")
     assert "local_backup_scheduler_v1" not in js  # contract stays server-side; UI uses API routes
     assert "Local backups" in js
     assert "Enable automatic backups" in js

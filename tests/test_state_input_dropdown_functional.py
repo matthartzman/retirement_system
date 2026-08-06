@@ -58,6 +58,7 @@ def test_target_state_uses_abbreviations():
 
 def test_dashboard_js_renders_state_fields_as_dropdowns_not_free_text():
     main_js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    main_js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     state_js = (
         ROOT / "frontend" / "js" / "dashboard_decomp_state_inputs.js"
     ).read_text(encoding="utf-8")

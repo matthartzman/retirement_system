@@ -46,8 +46,13 @@ JS_DIR = ROOT / "frontend" / "js"
 # tool-generated, verified by test_dashboard_js_module_bridge_regression.py,
 # and is the explicit-interface list the "frontend-single-global-namespace"
 # finding this ratchet exists for was asking for in the first place.
-# Set at the post-conversion measurement with no headroom.
-DASHBOARD_JS_MAX_LINES = 19_403
+# 2026-08-06: lowered from 19,403 to 15,411 -- domain-module-split shared-core
+# extraction (docs/superpowers/plans/2026-08-06-dashboard-js-domain-module-split-SCOPE.md):
+# moved the 172 fan-in>=3 hub functions (row-model DSL + app-shell) into
+# frontend/js/dashboard_decomp_row_model.js. renderMain/showStepHelp stayed
+# (other leaf modules reassign them as a monkey-patch chain).
+# Set at the post-extraction measurement with no headroom.
+DASHBOARD_JS_MAX_LINES = 15_411
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling

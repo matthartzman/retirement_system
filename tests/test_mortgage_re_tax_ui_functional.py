@@ -5,6 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_mortgage_re_tax_ui_and_reporting_labels_are_present():
     js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
+    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     assert 'Mortgage and RE Tax' in js
     assert 'Annual Real Estate Taxes' in js
     assert 'Annual RE Tax Adjustment' in js

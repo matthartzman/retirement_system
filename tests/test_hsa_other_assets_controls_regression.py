@@ -9,6 +9,7 @@ def read(rel: str) -> str:
 
 def test_hsa_withdrawal_timing_lives_on_other_assets_page():
     js = read("frontend/js/dashboard.js")
+    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     assert "function renderHsaPolicyOnOtherAssets" in js
     # #213: consolidated into one collapsible "HSA" section (was up to 4
     # separate <details>); withdrawal timing is the first sub-block inside it.

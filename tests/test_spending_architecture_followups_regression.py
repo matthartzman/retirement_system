@@ -23,6 +23,7 @@ def test_taxonomy_realignment_for_104():
 
 def test_spending_nav_and_save_copy():
     js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
+    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     spending_core = js.index('id: "spending_core"')
     travel = js.index('id: "spending_travel"')
     large = js.index('id: "spending_travel_extras"')
@@ -36,6 +37,7 @@ def test_spending_nav_and_save_copy():
 
 def test_insurance_policy_dropdown_includes_all_types_and_heloc_on_other_page():
     js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
+    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     assert "renderHELOCInputsOnOtherPage" in js
     assert "HELOC modeling inputs" in js
     assert "Use HELOC or turn it off" in js

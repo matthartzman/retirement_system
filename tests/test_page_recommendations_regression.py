@@ -8,7 +8,7 @@ CHANGELOG = ROOT / "documentation" / "GOLDEN_MASTER_CHANGELOG.md"
 
 
 def test_page_recommendations_are_explainable_and_source_linked():
-    js = DASHBOARD_JS.read_text(encoding="utf-8")
+    js = (DASHBOARD_JS.read_text(encoding="utf-8") + (ROOT / "frontend/js/dashboard_decomp_row_model.js").read_text(encoding="utf-8"))
 
     assert "RECOMMENDATION_ENGINE_VERSION" in js
     assert "page_recommendations_v1" in js
@@ -21,7 +21,7 @@ def test_page_recommendations_are_explainable_and_source_linked():
 
 
 def test_recommendations_cover_initial_roadmap_domains_without_auto_applying_values():
-    js = DASHBOARD_JS.read_text(encoding="utf-8")
+    js = (DASHBOARD_JS.read_text(encoding="utf-8") + (ROOT / "frontend/js/dashboard_decomp_row_model.js").read_text(encoding="utf-8"))
 
     for fn in [
         "function rothPageRecommendations",
@@ -36,7 +36,11 @@ def test_recommendations_cover_initial_roadmap_domains_without_auto_applying_val
     for step in ["roth_conversion", "allocation_assets", "allocation_policy", "spending_core", "income_retirement"]:
         assert step in js
 
-    recommendations_section = js[js.index("const RECOMMENDATION_ENGINE_VERSION") : js.index("function stepStats")]
+    # stepStats moved to dashboard_decomp_row_model.js (domain-module-split
+    # shared-core extraction) -- no longer physically adjacent to the
+    # recommendation functions in dashboard.js. pageSaveMode is the next
+    # top-level function after them in the current file.
+    recommendations_section = js[js.index("const RECOMMENDATION_ENGINE_VERSION") : js.index("function pageSaveMode")]
     assert "editValue(" not in recommendations_section
     assert "saveAll(" not in recommendations_section
     assert "runBuild(" not in recommendations_section

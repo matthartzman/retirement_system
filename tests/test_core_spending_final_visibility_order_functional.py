@@ -4,7 +4,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _js():
-    return (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
+    return (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8") + \
+        (ROOT / "frontend/js/dashboard_decomp_row_model.js").read_text(encoding="utf-8")
 
 
 def test_core_spending_renderer_is_flat_ordered_and_excludes_daf():

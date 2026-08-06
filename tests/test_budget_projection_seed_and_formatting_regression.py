@@ -31,6 +31,7 @@ category,ho_insurance,Homeowners Insurance,2000,,,,
 
 def test_heloc_repayment_years_is_integer_not_currency_in_ui_source():
     js = Path('frontend/js/dashboard.js').read_text(encoding='utf-8')
+    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     assert 'if (r && l === "heloc_repayment_years") return "number"' in js
 
 
@@ -53,6 +54,7 @@ line,home_improvement,Home Improvement,25000,2026,2030,,projection window
 
 def test_housing_ui_has_rent_buy_toggle_and_area_type_dropdown():
     js = Path('frontend/js/dashboard.js').read_text(encoding='utf-8')
+    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     assert 'Rent or Buy' in js
     assert 'class="btn-toggle' in js
     assert '(!isPurchase ? " active" : "")' in js

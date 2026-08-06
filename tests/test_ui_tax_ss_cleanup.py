@@ -13,6 +13,7 @@ def test_user_and_admin_navigation_have_single_scope_toggle_search_and_status_of
     user_html = read('frontend/index.html')
     admin_html = read('frontend/admin.html')
     user_js = read('frontend/js/dashboard.js')
+    user_js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     admin_js = read('frontend/js/admin.js')
     assert 'id="combinedSearch"' in user_html
     assert 'setSearchScope(\'nav\')' in user_html and 'setSearchScope(\'page\')' in user_html
@@ -30,6 +31,7 @@ def test_user_and_admin_navigation_have_single_scope_toggle_search_and_status_of
 
 def test_inline_field_context_help_removed_and_nav_descriptions_break_line():
     user_js = read('frontend/js/dashboard.js')
+    user_js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     admin_js = read('frontend/js/admin.js')
     assert 'class="field-note"' not in user_js
     assert '<br><span class="step-desc"' in user_js
@@ -57,6 +59,7 @@ def test_tax_and_irmaa_tables_updated_to_2025_and_workflow_documents_annual_revi
 
 def test_other_assets_grouping_and_529_add_route_exist():
     user_js = read('frontend/js/dashboard.js')
+    user_js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     assets = read('input/client_assets.csv') if (ROOT/'input/client_assets.csv').exists() else read('../input/input/client_assets.csv')
     assert 'Other Assets' in user_js
     assert 'Note Receivable' in user_js or 'Note receivable' in user_js or 'note_receivable' in user_js
@@ -73,6 +76,7 @@ def test_withdrawal_order_is_fixed_and_reserve_ui_controls_are_dropdown_based():
     # deliberately removed and replaced with a fixed, read-only cascade
     # description; test_withdrawal_roth_ui_cleanup.py covers that in detail.
     user_js = read('frontend/js/dashboard.js')
+    user_js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     # The Liquidity Buffer reserve_account field is checked against the
     # schema template (the stable contract for "does this field still
     # exist"), not a live input/client_assets.csv -- a household with no

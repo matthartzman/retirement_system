@@ -12,8 +12,8 @@ import { test, expect } from '@playwright/test';
 import { openCurrentPlan, navigateToStep } from './helpers.js';
 
 // Real target on the frozen fixture: row 28 is "Residence State" on the
-// household_people step, a plain text input wired
-// oninput="editValue(28,this.value,this)" onblur="finishEdit(28,this)".
+// household_people step -- a <select> of the 50 states + DC (#260,
+// dashboard_decomp_state_inputs.js), not the plain text input it used to be.
 // household_people is one of the AUTOSAVE_STEPS (navigation.js), but this
 // test uses the header's "Save Changes" button instead of navigating away --
 // that button calls saveAll(true), the same saveWorkingCopy() both the
@@ -33,7 +33,7 @@ test('editing a field, saving, and reloading persists the change', async ({ page
   const saveButton = page.locator('#saveChangesBtn');
   await expect(saveButton).toBeDisabled(); // nothing dirty yet
 
-  await field.fill(EDITED_VALUE);
+  await field.selectOption(EDITED_VALUE);
   await field.blur();
   await expect(saveButton, 'editing a field did not enable the Save button').toBeEnabled();
   await expect(page.locator('#unsavedStatus')).toBeVisible();

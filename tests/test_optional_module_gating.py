@@ -113,6 +113,7 @@ def test_nav_gating_source_covers_monte_carlo():
     assert gates.get("scenarios") == "what_if_analysis"
 
     js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     assert "moduleGates.step_gates" in js, "dashboard.js must still consume the server-declared step gates"
 
 

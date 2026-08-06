@@ -5,6 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_allocation_recommendation_ui_has_optimizer_preview_columns():
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8") + "\n" + (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    html += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     assert "Computed Optimizer Target %" in html
     assert "Active Target Used %" in html
     assert "inactive in optimizer mode" in html
