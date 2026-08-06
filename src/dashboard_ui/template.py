@@ -1,5 +1,5 @@
 from __future__ import annotations
-"""Version v10 dashboard UI asset loader.
+"""Version v11 dashboard UI asset loader.
 
 The browser application now lives as first-class static assets under
 ``src/dashboard_ui/static`` instead of one giant Python string.  Keeping this
@@ -20,7 +20,7 @@ INDEX_HTML = read_static_asset("index.html")
 HTML = INDEX_HTML
 
 # UI_COMPONENT_MANIFEST_FOR_REGRESSION_CHECKS = """
-# Retirement System v10 UI component manifest. The executable implementation lives in js/dashboard.js;
+# Retirement System v11 UI component manifest. The executable implementation lives in js/dashboard.js;
 # these stable component markers keep packaging/regression checks independent of whether behavior is inline or static.
 # allocationTargetsValid
 # Active included/alternate target rows must total 100.00%

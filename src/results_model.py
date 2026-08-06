@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Semantic Results Explorer model for v10.
+"""Semantic Results Explorer model for v11.
 
 The Results Explorer should not reverse-engineer Excel formatting to decide
 what users see.  This module emits UI-native result pages from the same
@@ -455,7 +455,7 @@ def _chart_page(c: dict[str, Any], rows: list[dict[str, Any]], mc_data: dict[str
             "series": ef_series,
         })
 
-    note = "Chart Dashboard is rendered from the shared v10 semantic results model. Chart source tables are not displayed."
+    note = "Chart Dashboard is rendered from the shared v11 semantic results model. Chart source tables are not displayed."
     if compacted:
         note += " Some long series are sampled/limited for browser responsiveness; download the workbook for full Excel chart detail."
     return _page("1E. Charts", "Reports", [], kind="chart_dashboard", charts=charts, note=note), compacted

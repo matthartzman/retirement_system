@@ -1,7 +1,7 @@
 # Release Notes
 
 Versioned release notes for the Retirement Planning system live in this
-directory, one file per release (for example `v10.0.0.md`). Keeping them here
+directory, one file per release (for example `v11.0.0.md`). Keeping them here
 matches the repository's documentation layout — long-form docs under
 `documentation/`, READMEs under `documentation/readme/`, and release notes under
 `documentation/release_notes/` — and keeps the project root free of

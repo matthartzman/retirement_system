@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Local-only SQLite persistence for v10.
+"""Local-only SQLite persistence for v11.
 
 This store replaces CSV folders as the runtime source of truth while preserving
 CSV/JSON/YAML as import-export adapters.  It intentionally contains no tenant,
@@ -252,7 +252,7 @@ def append_build_event(stage: str, event_type: str, detail: dict[str, Any] | Non
 def export_latest_plan_json(path: str | Path, db_path: str | Path | None = None) -> Path:
     plan = latest_plan_input(db_path)
     if plan is None:
-        raise FileNotFoundError("No local v10 plan snapshot exists")
+        raise FileNotFoundError("No local v11 plan snapshot exists")
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(plan.to_json(), encoding="utf-8")
@@ -291,7 +291,7 @@ def export_latest_plan(path: str | Path, fmt: str = "json", db_path: str | Path 
     """Losslessly export the canonical local plan snapshot to JSON/YAML/CSV adapter files."""
     snap = latest_plan_snapshot(db_path)
     if not snap:
-        raise FileNotFoundError("No local v10 plan snapshot exists")
+        raise FileNotFoundError("No local v11 plan snapshot exists")
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
     fmt = (fmt or out.suffix.lstrip(".") or "json").lower()

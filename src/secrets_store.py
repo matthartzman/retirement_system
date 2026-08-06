@@ -1,5 +1,5 @@
 from __future__ import annotations
-"""Local-only secret store compatibility for v10."""
+"""Local-only secret store compatibility for v11."""
 from pathlib import Path
 import json
 

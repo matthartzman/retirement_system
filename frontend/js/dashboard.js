@@ -1,4 +1,4 @@
-// v10 other asset display ordering: {'Note Receivable':0,'HSA':1,'DAF':2,'529 Plans':3}
+// v11 other asset display ordering: {'Note Receivable':0,'HSA':1,'DAF':2,'529 Plans':3}
 // Dashboard extraction markers for no-build dashboard tests:
 // Extracted reports_ui.js retains branch marker: if(sheet.kind==='chart_dashboard'&&Array.isArray(sheet.charts)).
 // Extracted navigation/reports marker: data-detail-sheet.
@@ -1186,7 +1186,7 @@ function apiUrl(p) {
 }
 async function logoutSaas() {
   return true;
-} // v10 local-only: no login/logout flow
+} // v11 local-only: no login/logout flow
 function showMessage(msg, kind = "info", opts) {
   const el = document.getElementById("actionMessage");
   if (!el) return;
@@ -9948,7 +9948,7 @@ function renderRothMissingNotice() {
     (x) => !present.has(norm(x)),
   );
   if (!missing.length) return "";
-  return `<div class="missing-list"><h3>Roth controls need to be backfilled</h3><p>The page is missing ${missing.length} primary control${missing.length === 1 ? "" : "s"}: ${missing.map(humanLabel).join(", ")}. Reload the current plan or start the app again; v10 now backfills these rows into client_policy.csv without overwriting existing values.</p></div>`;
+  return `<div class="missing-list"><h3>Roth controls need to be backfilled</h3><p>The page is missing ${missing.length} primary control${missing.length === 1 ? "" : "s"}: ${missing.map(humanLabel).join(", ")}. Reload the current plan or start the app again; v11 now backfills these rows into client_policy.csv without overwriting existing values.</p></div>`;
 }
 function renderRothConversion() {
   if (searchText.trim()) return renderFields("roth_conversion");

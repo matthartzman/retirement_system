@@ -1,10 +1,10 @@
-# Retirement Planning v10 Current System Design Spec
+# Retirement Planning v11 Current System Design Spec
 
 Generated: 2026-06-26
 
 ## 1. Purpose
 
-Retirement Planning v10 is a local-only desktop retirement planning system. It combines structured household plan data, investment holdings, spending actuals, market pricing, deterministic projection logic, Monte Carlo and scenario analysis, and advisor-ready reporting into one guided workflow.
+Retirement Planning v11 is a local-only desktop retirement planning system. It combines structured household plan data, investment holdings, spending actuals, market pricing, deterministic projection logic, Monte Carlo and scenario analysis, and advisor-ready reporting into one guided workflow.
 
 The current system is designed for a single local user and a single active local plan. The local SQLite database is the operational source of truth. CSV, JSON, and YAML files remain as import/export adapters and portable Plan Data artifacts.
 

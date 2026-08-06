@@ -1,8 +1,8 @@
-// v10 admin note: Client-specific Plan Data is read-only here
-// v10 local-only system configuration area: Local reports
-// v10 admin UI compatibility marker: class="section-help-btn" onclick="showSectionHelp(event,this)" data-help-note
-// v10 admin UI marker: setting-help-btn
-// v10 nav descriptions use line-broken labels: <br><span class="step-desc"
+// v11 admin note: Client-specific Plan Data is read-only here
+// v11 local-only system configuration area: Local reports
+// v11 admin UI compatibility marker: class="section-help-btn" onclick="showSectionHelp(event,this)" data-help-note
+// v11 admin UI marker: setting-help-btn
+// v11 nav descriptions use line-broken labels: <br><span class="step-desc"
 let csrfToken = "";
 const ADMIN_APP_UNAVAILABLE_MESSAGE =
   "Application unavailable. System Configuration editing, local report downloads, reference-data saves, pricing refresh, and diagnostics are unavailable";

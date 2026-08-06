@@ -5,7 +5,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src.config_backend import create_api_token, create_user, init_sqlite
 
 if __name__ == '__main__':
-    ap = argparse.ArgumentParser(description='Manage local users and API tokens in the v10 SQLite backend')
+    ap = argparse.ArgumentParser(description='Manage local users and API tokens in the v11 SQLite backend')
     sub = ap.add_subparsers(dest='cmd', required=True)
     u = sub.add_parser('user')
     u.add_argument('--user-id', required=True)

@@ -1,5 +1,5 @@
 from __future__ import annotations
-"""Local-only configuration backends for v10.
+"""Local-only configuration backends for v11.
 
 The runtime source of truth is the local SQLite plan store. CSV/JSON/YAML are
 lossless import/export adapters for portability and transition from older
@@ -273,7 +273,7 @@ def import_csv_to_sqlite(csv_path: str | Path = DEFAULT_CSV, db_path: str | Path
     if not data:
         raise FileNotFoundError(f"No Plan Data CSV rows found at {csv_path} or split Plan Data files beside it.")
     p = init_sqlite(db_path)
-    # v10 canonical: the typed sectioned snapshot (local_store) is the sole
+    # v11 canonical: the typed sectioned snapshot (local_store) is the sole
     # source of truth. The flat key-value `settings` table was a pre-v1.0 store
     # that nothing reads anymore, so we no longer write it here.
     try:
@@ -288,7 +288,7 @@ def load_sqlite(db_path: str | Path = DEFAULT_DB, workspace_id: str = "local") -
     p = resolve_path(db_path, DEFAULT_DB)
     if not p.exists():
         return {}
-    # v10 canonical: the latest typed plan snapshot is the sole source of truth.
+    # v11 canonical: the latest typed plan snapshot is the sole source of truth.
     # The pre-v1.0 key-value `settings` table read fallback was removed with the
     # drop of pre-v1.0 plan support — the snapshot is written on every import, and
     # a missing snapshot falls through to a fresh CSV re-import in

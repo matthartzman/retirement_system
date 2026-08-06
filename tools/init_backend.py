@@ -55,7 +55,7 @@ def _resolve(path: str | Path) -> Path:
 def main() -> int:
     cfg = load_runtime_config()
     db = init_sqlite(_resolve(cfg.sqlite_db or DEFAULT_DB))
-    print('Writing v10 JSON/YAML config exports and local SQLite backend...')
+    print('Writing v11 JSON/YAML config exports and local SQLite backend...')
 
     active_csv = _resolve(cfg.config_file or 'input/client_data.csv')
     if active_csv.exists():
