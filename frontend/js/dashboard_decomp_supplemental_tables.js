@@ -10,7 +10,7 @@
    original inline block. The underlying data arrays (travelExtras,
    liquidityBuffers, forcedConversions) and their dirty flags remain declared in
    dashboard.js. */
-function markTravelExtrasDirty() {
+export function markTravelExtrasDirty() {
   noteSpecialSessionChange("Large Discretionary Expenses table");
   travelExtrasChanged = true;
   lastBuildOk = false;
@@ -18,11 +18,11 @@ function markTravelExtrasDirty() {
   setAppControls(appReady);
   scheduleStatusUpdate();
 }
-function updateTravelExtra(i, field, val) {
+export function updateTravelExtra(i, field, val) {
   travelExtras[i][field] = val;
   markTravelExtrasDirty();
 }
-function addTravelExtra() {
+export function addTravelExtra() {
   const newIndex = travelExtras.length;
   travelExtras.push({
     type: "",
@@ -44,7 +44,7 @@ function addTravelExtra() {
     }
   }, 0);
 }
-async function deleteTravelExtra(i) {
+export async function deleteTravelExtra(i) {
   if (
     !(await showInAppConfirm("This cannot be undone.", {
       title: "Delete Expense Row",
@@ -57,7 +57,7 @@ async function deleteTravelExtra(i) {
   markTravelExtrasDirty();
   renderMain();
 }
-function travelExtrasSummaryHtml() {
+export function travelExtrasSummaryHtml() {
   if (!travelExtras.length) return "";
   const totals = {};
   let oneTime = 0,
@@ -79,7 +79,7 @@ function travelExtrasSummaryHtml() {
     .join(" ");
   return `<div class="section-note"><b>Current planned spending in this table:</b> ${travelExtras.length} row${travelExtras.length === 1 ? "" : "s"} loaded from Plan Data. ${chips || "No amounts entered yet."}</div>`;
 }
-function renderTravelExtras() {
+export function renderTravelExtras() {
   const types = travelTypeList();
   let html = `<div class="holdings"><h3 class="group-title">Large Discretionary Expenses</h3><div class="section-note"><b>How to use this table:</b> Add one row per vacation budget, wedding, vehicle purchase, family support item, or other discretionary extra. Use <b>Year</b> for one-time spending; use <b>Repeat Start</b> and <b>Repeat End</b> for annual recurring spending. Leave unused timing fields blank. <b>Home improvement projects</b> are entered on the <b>Housing</b> tab.</div><datalist id="travelExtraTypes">${types.map((t) => `<option value="${esc(t)}"></option>`).join("")}</datalist>${travelExtrasSummaryHtml()}<div class="table-actions"><button class="btn" type="button" onclick="addTravelExtra()">Add Row</button></div><div class="lot-table-wrap"><table class="lot-table travel-table"><thead><tr><th>Type</th><th>Amount</th><th>Year</th><th>Repeat Start</th><th>Repeat End</th><th>Comment</th><th>Actions</th></tr></thead><tbody>`;
   if (!travelExtras.length) {
@@ -91,7 +91,7 @@ function renderTravelExtras() {
   html += `</tbody></table></div><p class="small">Tip: Type is a pick-list, but you can type your own category. If both a one-time year and repeat years are filled, the model treats the repeat start/end as the recurring schedule.</p></div>`;
   return html;
 }
-async function loadTravelExtras() {
+export async function loadTravelExtras() {
   try {
     const out = await api("/api/large-discretionary-expenses");
     travelExtras = out.events || [];
@@ -102,7 +102,7 @@ async function loadTravelExtras() {
     travelTypes = DEFAULT_TRAVEL_TYPES;
   }
 }
-async function saveTravelExtras(sync = false) {
+export async function saveTravelExtras(sync = false) {
   if (!travelExtrasChanged) return { updated: 0 };
   const out = await api("/api/large-discretionary-expenses", {
     method: "POST",
@@ -112,7 +112,7 @@ async function saveTravelExtras(sync = false) {
   return out;
 }
 
-function markLiquidityDirty() {
+export function markLiquidityDirty() {
   noteSpecialSessionChange("Liquidity buffer table");
   liquidityChanged = true;
   lastBuildOk = false;
@@ -120,7 +120,7 @@ function markLiquidityDirty() {
   setAppControls(appReady);
   scheduleStatusUpdate();
 }
-function updateLiquidityBuffer(i, field, val) {
+export function updateLiquidityBuffer(i, field, val) {
   liquidityBuffers[i][field] = val;
   markLiquidityDirty();
 }
@@ -131,10 +131,10 @@ const LIQUIDITY_ACCOUNT_OPTIONS = [
   "HSA",
   "Cash",
 ];
-function liquidityAccountSelect(i, val) {
+export function liquidityAccountSelect(i, val) {
   return `<select onchange="updateLiquidityBuffer(${i},'reserve_account',this.value)">${LIQUIDITY_ACCOUNT_OPTIONS.map((x) => `<option value="${esc(x)}" ${String(val || "Taxable/Trust") === x ? "selected" : ""}>${esc(x)}</option>`).join("")}</select>`;
 }
-function addLiquidityBuffer() {
+export function addLiquidityBuffer() {
   const last = liquidityBuffers[liquidityBuffers.length - 1] || {};
   const start = last.end_year ? String(Number(last.end_year) + 1) : "";
   liquidityBuffers.push({
@@ -152,7 +152,7 @@ function addLiquidityBuffer() {
     if (el) el.focus();
   }, 0);
 }
-async function deleteLiquidityBuffer(i) {
+export async function deleteLiquidityBuffer(i) {
   if (
     !(await showInAppConfirm("This cannot be undone.", {
       title: "Delete Buffer Row",
@@ -165,7 +165,7 @@ async function deleteLiquidityBuffer(i) {
   markLiquidityDirty();
   renderMain();
 }
-function renderLiquidityBuffers() {
+export function renderLiquidityBuffers() {
   let html = `<div class="holdings"><h3 class="group-title">Reserve requirements</h3><div class="section-note"><b>Purpose:</b> A reserve requirement retains a chosen number of years of expenses for the selected year range. The default is 0 years. Add rows only when the reserve policy changes over time.</div><div class="table-actions"><button class="btn" type="button" onclick="addLiquidityBuffer()">Add reserve rule</button></div><div class="lot-table-wrap"><table class="lot-table liquidity-table"><thead><tr><th>Start year</th><th>End year</th><th>Years of expenses to retain</th><th>Reserve account</th><th></th></tr></thead><tbody>`;
   if (!liquidityBuffers.length) {
     html += `<tr><td colspan="5"><span class="small">No reserve rows yet. With no rows, the reserve requirement is 0 years.</span></td></tr>`;
@@ -176,7 +176,7 @@ function renderLiquidityBuffers() {
   html += `</tbody></table></div><p class="small">Tip: leave End year blank for an open-ended rule. If rows overlap, the first matching row is used by the model.</p></div>`;
   return html;
 }
-async function loadLiquidityBuffers() {
+export async function loadLiquidityBuffers() {
   try {
     const out = await api("/api/liquidity-buffers");
     liquidityBuffers = out.buffers || [];
@@ -185,7 +185,7 @@ async function loadLiquidityBuffers() {
     liquidityBuffers = [];
   }
 }
-async function saveLiquidityBuffers(sync = false) {
+export async function saveLiquidityBuffers(sync = false) {
   if (!liquidityChanged) return { updated: 0 };
   const out = await api("/api/liquidity-buffers", {
     method: "POST",
@@ -194,7 +194,7 @@ async function saveLiquidityBuffers(sync = false) {
   liquidityChanged = false;
   return out;
 }
-function forcedAccountOptions() {
+export function forcedAccountOptions() {
   return [
     ...new Set([
       ...(forcedConversionAccounts || []),
@@ -204,7 +204,7 @@ function forcedAccountOptions() {
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b));
 }
-function markForcedConversionsDirty() {
+export function markForcedConversionsDirty() {
   noteSpecialSessionChange("Forced conversions table");
   forcedConversionsChanged = true;
   lastBuildOk = false;
@@ -212,11 +212,11 @@ function markForcedConversionsDirty() {
   setAppControls(appReady);
   scheduleStatusUpdate();
 }
-function updateForcedConversion(i, field, val) {
+export function updateForcedConversion(i, field, val) {
   forcedConversions[i][field] = val;
   markForcedConversionsDirty();
 }
-function addForcedConversion() {
+export function addForcedConversion() {
   const opts = forcedAccountOptions();
   const newIndex = forcedConversions.length;
   forcedConversions.push({
@@ -236,7 +236,7 @@ function addForcedConversion() {
     }
   }, 0);
 }
-async function deleteForcedConversion(i) {
+export async function deleteForcedConversion(i) {
   if (
     !(await showInAppConfirm("This cannot be undone.", {
       title: "Delete Conversion Row",
@@ -249,7 +249,7 @@ async function deleteForcedConversion(i) {
   markForcedConversionsDirty();
   renderMain();
 }
-function renderForcedConversionsTable() {
+export function renderForcedConversionsTable() {
   const accounts = forcedAccountOptions();
   let html = `<details class="roth-section"><summary>Forced conversions</summary><div class="field-list"><div class="section-note">Use this only for conversions that are already done or intentionally required in a scenario. Enter one row per conversion: source account, year, and dollar amount. The optimizer will not remove these rows.</div><div class="table-actions"><button class="btn" type="button" onclick="addForcedConversion()">Add Forced Conversion</button></div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Source Account</th><th>Year</th><th>Amount</th><th>Actions</th></tr></thead><tbody>`;
   if (!forcedConversions.length) {
@@ -261,7 +261,7 @@ function renderForcedConversionsTable() {
   });
   return html + `</tbody></table></div></div></details>`;
 }
-async function loadForcedConversions() {
+export async function loadForcedConversions() {
   try {
     const out = await api("/api/forced-roth-conversions");
     forcedConversions = out.conversions || [];
@@ -272,7 +272,7 @@ async function loadForcedConversions() {
     forcedConversionAccounts = [];
   }
 }
-async function saveForcedConversions(sync = false) {
+export async function saveForcedConversions(sync = false) {
   if (!forcedConversionsChanged) return { updated: 0 };
   const out = await api("/api/forced-roth-conversions", {
     method: "POST",
@@ -281,3 +281,35 @@ async function saveForcedConversions(sync = false) {
   forcedConversionsChanged = false;
   return out;
 }
+
+// Wave 6.4 ("leaves inward" ES-module migration): converted to a real ES
+// module. No cross-file mutable state (verified: nothing outside this file
+// reads or writes this file's module-level consts/let), so only the
+// functions below need the window bridge, for dashboard.js's calls and this
+// file's own inline onclick/oninput HTML attributes.
+Object.assign(window, {
+  markTravelExtrasDirty,
+  updateTravelExtra,
+  addTravelExtra,
+  deleteTravelExtra,
+  travelExtrasSummaryHtml,
+  renderTravelExtras,
+  loadTravelExtras,
+  saveTravelExtras,
+  markLiquidityDirty,
+  updateLiquidityBuffer,
+  liquidityAccountSelect,
+  addLiquidityBuffer,
+  deleteLiquidityBuffer,
+  renderLiquidityBuffers,
+  loadLiquidityBuffers,
+  saveLiquidityBuffers,
+  forcedAccountOptions,
+  markForcedConversionsDirty,
+  updateForcedConversion,
+  addForcedConversion,
+  deleteForcedConversion,
+  renderForcedConversionsTable,
+  loadForcedConversions,
+  saveForcedConversions,
+});

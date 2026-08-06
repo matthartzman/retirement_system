@@ -2,23 +2,31 @@
    ticker, cancel, and post-build snapshot/baseline handling. Extracted verbatim
    from dashboard.js as part of the dashboard decomposition.
 
-   Plain classic script sharing dashboard.js's global scope, loaded BEFORE
-   dashboard.js in index.html so these globals are defined before dashboard.js's
-   end-of-file boot runs. No logic changed; function names, module-level state
-   (buildCancelled) and behavior are byte-for-byte identical to the original
-   inline block. */
-function formatElapsed(ms) {
+   Wave 6.4 ("leaves inward" ES-module migration, 'plan_state_build' leaf):
+   converted to a real ES module. Unlike dashboard_decomp_local_backups.js
+   (which stayed classic), none of this file's functions are called from
+   dashboard.js's own synchronous top-level boot chain -- every call site
+   (buildWithProgress, cancelBuild, setBuildOverlay, etc.) lives inside a
+   user-triggered action (Build Reports / Download / Cancel), which can only
+   fire after the page has finished loading. All the module-level state these
+   functions read/write (buildOverlayStartedAt, buildOverlayDepth,
+   buildProgressTicker, sessionBaselineSummary, ...) is owned by dashboard.js
+   itself (`let` declarations, not this file's), which modules can read and
+   write as bare identifiers the same as any other classic-script global (see
+   dashboard_decomp_holdings.js's header for why). buildCancelled is the one
+   piece of state this file owns; nothing outside reads or writes it. */
+export function formatElapsed(ms) {
   const total = Math.max(0, Math.floor(ms / 1000));
   const m = Math.floor(total / 60),
     sec = String(total % 60).padStart(2, "0");
   return `${m}:${sec}`;
 }
-function refreshBuildOverlayTimer() {
+export function refreshBuildOverlayTimer() {
   const d = document.getElementById("buildOverlayDetail");
   if (!d || !buildOverlayStartedAt) return;
   d.textContent = `Elapsed ${formatElapsed(Date.now() - buildOverlayStartedAt)}`;
 }
-function setBuildOverlay(active, title, detail, pct) {
+export function setBuildOverlay(active, title, detail, pct) {
   const overlay = document.getElementById("buildOverlay");
   if (!overlay) return;
   if (active) {
@@ -39,7 +47,7 @@ function setBuildOverlay(active, title, detail, pct) {
   document.body.classList.toggle("is-busy", !!active);
   updateBuildOverlay(title, detail, pct);
 }
-function updateBuildOverlay(title, detail, pct, state) {
+export function updateBuildOverlay(title, detail, pct, state) {
   const overlay = document.getElementById("buildOverlay");
   if (!overlay) return;
   overlay.classList.remove("waiting");
@@ -74,7 +82,7 @@ function updateBuildOverlay(title, detail, pct, state) {
   refreshBuildOverlayTimer();
 }
 let buildCancelled = false;
-async function cancelBuild() {
+export async function cancelBuild() {
   if (
     !(await showInAppConfirm("The workbook will be left incomplete.", {
       title: "Cancel Build",
@@ -89,7 +97,7 @@ async function cancelBuild() {
   setAppControls(true);
   showMessage("Build cancelled.", "warn");
 }
-function hideBuildOverlay() {
+export function hideBuildOverlay() {
   if (buildOverlayDepth > 0) buildOverlayDepth--;
   if (buildOverlayDepth > 0) return;
   stopSmoothProgress();
@@ -113,7 +121,7 @@ function hideBuildOverlay() {
   const p = document.getElementById("buildOverlayPct");
   if (p) p.textContent = "0%";
 }
-function startBuildProgressTicker(startPct = 0) {
+export function startBuildProgressTicker(startPct = 0) {
   stopBuildProgressTicker();
   updateBuildOverlay(
     "Building workbook",
@@ -122,7 +130,7 @@ function startBuildProgressTicker(startPct = 0) {
   );
   startSmoothProgress(startPct || 0, 82, 22, 5000);
 }
-function stopBuildProgressTicker() {
+export function stopBuildProgressTicker() {
   if (buildProgressTicker) {
     clearInterval(buildProgressTicker);
     buildProgressTicker = null;
@@ -133,7 +141,7 @@ function stopBuildProgressTicker() {
   }
   stopSmoothProgress();
 }
-function startSmoothProgress(fromPct, cap, speed, delayMs) {
+export function startSmoothProgress(fromPct, cap, speed, delayMs) {
   stopSmoothProgress();
   _smoothFromPct = Number(fromPct) || 0;
   _smoothCap = cap != null ? cap : 82;
@@ -156,7 +164,7 @@ function startSmoothProgress(fromPct, cap, speed, delayMs) {
   if (delay > 0) _smoothDelayTimer = setTimeout(go, delay);
   else go();
 }
-function stopSmoothProgress() {
+export function stopSmoothProgress() {
   if (_smoothDelayTimer) {
     clearTimeout(_smoothDelayTimer);
     _smoothDelayTimer = null;
@@ -167,7 +175,7 @@ function stopSmoothProgress() {
   }
   _smoothStart = 0;
 }
-function updateBuildProgress(job) {
+export function updateBuildProgress(job) {
   var pct = Number.isFinite(Number(job.progress))
     ? Number(job.progress)
     : "indeterminate";
@@ -198,7 +206,7 @@ function updateBuildProgress(job) {
       );
   }
 }
-async function buildWithProgress(buildBody) {
+export async function buildWithProgress(buildBody) {
   try {
     const started = await api("/api/build/start", {
       method: "POST",
@@ -276,7 +284,7 @@ async function buildWithProgress(buildBody) {
   }
 }
 
-async function fetchCurrentSummaryKpi() {
+export async function fetchCurrentSummaryKpi() {
   try {
     const out = await api("/api/summary");
     if (out && out.success !== false) {
@@ -286,13 +294,13 @@ async function fetchCurrentSummaryKpi() {
   } catch (_e) {}
   return {};
 }
-async function captureBuildBaseline() {
+export async function captureBuildBaseline() {
   sessionBaselineSummary = await fetchCurrentSummaryKpi();
   sessionBaselineCaptured = true;
   return cloneSummary(sessionBaselineSummary || {});
 }
 
-function snapshotPendingEdits() {
+export function snapshotPendingEdits() {
   const fieldUpdates = [];
   try {
     dirty.forEach((value, idx) => {
@@ -320,7 +328,7 @@ function snapshotPendingEdits() {
     forcedConversions: JSON.parse(JSON.stringify(forcedConversions || [])),
   };
 }
-function hasSnapshotEdits(s) {
+export function hasSnapshotEdits(s) {
   return !!(
     s &&
     (s.fieldUpdates?.length ||
@@ -330,7 +338,7 @@ function hasSnapshotEdits(s) {
       s.liquidityChanged)
   );
 }
-function restorePendingEdits(s) {
+export function restorePendingEdits(s) {
   if (!s) return;
   (s.fieldUpdates || []).forEach((u) => {
     const row = rows.find(
@@ -383,7 +391,7 @@ function restorePendingEdits(s) {
   }
   updateUnsaved();
 }
-function renderBuildImpactAfterBuild(message) {
+export function renderBuildImpactAfterBuild(message) {
   activeStep = "build_impact";
   planLoaded = true;
   renderMain();
@@ -400,3 +408,24 @@ function renderBuildImpactAfterBuild(message) {
   }, 80);
   if (message) showMessage(message);
 }
+
+Object.assign(window, {
+  formatElapsed,
+  refreshBuildOverlayTimer,
+  setBuildOverlay,
+  updateBuildOverlay,
+  cancelBuild,
+  hideBuildOverlay,
+  startBuildProgressTicker,
+  stopBuildProgressTicker,
+  startSmoothProgress,
+  stopSmoothProgress,
+  updateBuildProgress,
+  buildWithProgress,
+  fetchCurrentSummaryKpi,
+  captureBuildBaseline,
+  snapshotPendingEdits,
+  hasSnapshotEdits,
+  restorePendingEdits,
+  renderBuildImpactAfterBuild,
+});

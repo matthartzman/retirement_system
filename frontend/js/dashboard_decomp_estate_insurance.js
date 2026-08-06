@@ -9,7 +9,7 @@
    Owns: the Estate Information page (federal/state exemptions, trusts, gifting,
    step-up, special-needs, other), the insurance-policy group renderer, and the
    life / non-life insurance policy pages plus their add/delete handlers. */
-async function loadEstateStateOptions() {
+export async function loadEstateStateOptions() {
   try {
     const out = await api("/api/estate-state-options");
     estateStateOptions = out.states || [];
@@ -17,7 +17,7 @@ async function loadEstateStateOptions() {
     estateStateOptions = [];
   }
 }
-function stateLikeEstateSubsection(sub) {
+export function stateLikeEstateSubsection(sub) {
   const n = norm(sub);
   return (
     ![
@@ -34,16 +34,16 @@ function stateLikeEstateSubsection(sub) {
     ].includes(n) && !n.startsWith("trust_account")
   );
 }
-function estateRowsBySub(sub) {
+export function estateRowsBySub(sub) {
   return rowsForStep("estate").filter(
     (r) => String(r.subsection || "") === String(sub || ""),
   );
 }
-function renderEstateSection(title, desc, rs, open = false) {
+export function renderEstateSection(title, desc, rs, open = false) {
   if (!rs.length) return "";
   return `<details ${open ? "open" : ""}><summary>${esc(title)}</summary><div class="field-list"><div class="section-note">${esc(desc)}</div>${rs.map(fieldHtml).join("")}</div></details>`;
 }
-function renderEstateStatesTable() {
+export function renderEstateStatesTable() {
   const all = estateStateOptions.length ? estateStateOptions : [];
   const existingSubs = [
     ...new Set(
@@ -65,7 +65,7 @@ function renderEstateStatesTable() {
   html += `</tbody></table></div></div></details>`;
   return html;
 }
-async function addEstateState(state) {
+export async function addEstateState(state) {
   try {
     state =
       state ||
@@ -85,7 +85,7 @@ async function addEstateState(state) {
     showMessage("Error adding estate state: " + e.message, "error");
   }
 }
-async function addTrustAccount() {
+export async function addTrustAccount() {
   try {
     const name = await showInAppPrompt("Trust account name:", "", {
       title: "Add Trust Account",
@@ -109,7 +109,7 @@ async function addTrustAccount() {
     showMessage("Error adding trust account: " + e.message, "error");
   }
 }
-function renderTrustAccountsTable() {
+export function renderTrustAccountsTable() {
   const estate = rowsForStep("estate");
   const trustRows = estate.filter((r) =>
     norm(r.subsection).startsWith("trust_account"),
@@ -132,7 +132,7 @@ function renderTrustAccountsTable() {
   html += `</div></details>`;
   return html;
 }
-function renderAccountTitlingTable() {
+export function renderAccountTitlingTable() {
   const estate = rowsForStep("estate");
   const titlingRows = estate.filter((r) => r.section === "Account Titling");
   const bySub = {};
@@ -172,7 +172,7 @@ function renderAccountTitlingTable() {
 // One editable cell of the Beneficiary & Titling grid. Mirrors fieldHtml's
 // control choice (toggle / choice list / text) without its label-and-card
 // chrome, which the table header already provides.
-function accountTitlingCell(r) {
+export function accountTitlingCell(r) {
   if (!r) return '<td><span class="small">—</span></td>';
   const units = String(r.units || "");
   const type = String(r.schema?.type || "").toLowerCase();
@@ -194,7 +194,7 @@ function accountTitlingCell(r) {
   }
   return `<td><input type="text" value="${esc(displayValueForInput(r, v))}" oninput="editValue(${r.row_index},this.value,this)" onfocus="beginEdit(${r.row_index},this)" onblur="finishEdit(${r.row_index},this)"></td>`;
 }
-function renderToggleRows(title, description, rs, open = false) {
+export function renderToggleRows(title, description, rs, open = false) {
   if (!rs.length) return "";
   const enabled = rs.find((r) => norm(r.label) === "enabled");
   let shown = rs;
@@ -207,7 +207,7 @@ function renderToggleRows(title, description, rs, open = false) {
     open,
   );
 }
-function renderEstateInformation() {
+export function renderEstateInformation() {
   if (searchText.trim()) return renderFields("estate");
   const estate = rowsForStep("estate");
   const federal = estate.filter((r) => r.subsection === "Federal");
@@ -302,10 +302,10 @@ const INSURANCE_POLICY_TYPES = [
   "Other",
 ];
 let newInsurancePolicyType = "Life";
-function setNewInsurancePolicyType(v) {
+export function setNewInsurancePolicyType(v) {
   newInsurancePolicyType = v || "Life";
 }
-function inferPolicyType(sub, rs) {
+export function inferPolicyType(sub, rs) {
   const tr = rs.find((r) => ["policy_type", "type"].includes(norm(r.label)));
   const v = tr ? String(valOf(tr) || "").trim() : "";
   const text = (v || sub || "").toLowerCase();
@@ -321,15 +321,15 @@ function inferPolicyType(sub, rs) {
     return "Life";
   return v || "Other";
 }
-function policyTypeRow(rs) {
+export function policyTypeRow(rs) {
   return rs.find((r) => ["policy_type", "type"].includes(norm(r.label)));
 }
-function policyTypeSelect(r, current, choices) {
+export function policyTypeSelect(r, current, choices) {
   if (!r) return `<span class="small">${esc(current)}</span>`;
   const opts = choices || INSURANCE_POLICY_TYPES;
   return `<select onclick="event.stopPropagation()" onchange="editValue(${r.row_index},this.value,this)">${opts.map((t) => `<option value="${esc(t)}" ${norm(current) === norm(t) ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>`;
 }
-function renderInsurancePolicyGroup(opts) {
+export function renderInsurancePolicyGroup(opts) {
   const { stepId, rs, title, addLabel } = opts;
   const types = INSURANCE_POLICY_TYPES;
   const counts = rs.filter((r) => norm(r.label) === "policy_count");
@@ -388,7 +388,7 @@ function renderInsurancePolicyGroup(opts) {
     );
   return html;
 }
-function renderInsurancePolicies() {
+export function renderInsurancePolicies() {
   const title =
     "Insurance Policies (Life, Disability, Long-Term Care, Umbrella, Auto, Home, Property & Casualty, Other)";
   if (!optionalFunctionEnabled("existing_life_insurance"))
@@ -403,7 +403,7 @@ function renderInsurancePolicies() {
     addLabel: "Add insurance policy",
   });
 }
-async function addInsurancePolicy() {
+export async function addInsurancePolicy() {
   try {
     const isLife = norm(newInsurancePolicyType) === "life";
     const out = await api("/api/insurance-policy/add", {
@@ -429,7 +429,7 @@ async function addInsurancePolicy() {
     showMessage("Error adding policy: " + e.message, "error");
   }
 }
-async function deleteInsurancePolicy(evt, subsection) {
+export async function deleteInsurancePolicy(evt, subsection) {
   if (evt && evt.stopPropagation) evt.stopPropagation();
   if (!subsection) return;
   if (
@@ -455,3 +455,31 @@ async function deleteInsurancePolicy(evt, subsection) {
     showMessage("Error deleting policy: " + e.message, "error");
   }
 }
+
+// Wave 6.4 ("leaves inward" ES-module migration): converted to a real ES
+// module. No cross-file mutable state (verified: nothing outside this file
+// reads or writes this file's module-level consts/let), so only the
+// functions below need the window bridge, for dashboard.js's calls and this
+// file's own inline onclick/oninput HTML attributes.
+Object.assign(window, {
+  loadEstateStateOptions,
+  stateLikeEstateSubsection,
+  estateRowsBySub,
+  renderEstateSection,
+  renderEstateStatesTable,
+  addEstateState,
+  addTrustAccount,
+  renderTrustAccountsTable,
+  renderAccountTitlingTable,
+  accountTitlingCell,
+  renderToggleRows,
+  renderEstateInformation,
+  setNewInsurancePolicyType,
+  inferPolicyType,
+  policyTypeRow,
+  policyTypeSelect,
+  renderInsurancePolicyGroup,
+  renderInsurancePolicies,
+  addInsurancePolicy,
+  deleteInsurancePolicy,
+});
