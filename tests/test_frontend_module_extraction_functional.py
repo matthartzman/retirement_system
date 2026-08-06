@@ -11,17 +11,23 @@ def read(rel: str) -> str:
 def test_new_frontend_modules_are_loaded_before_dashboard():
     # Wave 6.4 ("leaves inward" ES-module migration) converted these five to
     # type="module" -- a deferred script, which always finishes executing
-    # before any user interaction or promise-driven callback can run,
-    # regardless of its raw document position relative to dashboard.js (a
-    # classic, non-deferred script). That guarantee only holds because NONE
-    # of these five are called from dashboard.js's own synchronous top-level
-    # boot chain (verified: their only callers are wrapper functions invoked
-    # later, from rendering/event handlers) -- dashboard_decomp_local_backups.js
-    # is the one file in this codebase that IS called from that boot chain
-    # (checkAppStatus(true).then(...) calls refreshLocalBackupStatus()) and
-    # deliberately stayed a classic script for exactly that reason; see
+    # before any user interaction or promise-driven callback can run. That
+    # guarantee only holds because NONE of these five are called from
+    # dashboard.js's own synchronous top-level boot chain (verified: their
+    # only callers are wrapper functions invoked later, from rendering/event
+    # handlers) -- dashboard_decomp_local_backups.js is the one file in this
+    # codebase that IS called from that boot chain (checkAppStatus(true).then(...)
+    # calls refreshLocalBackupStatus()) and deliberately stayed a classic
+    # script for exactly that reason; see
     # test_dashboard_startup_race_and_script_order.py's docstring for the
     # real 2026-07-22 outage that guard protects against.
+    #
+    # dashboard.js itself became type="module" too (docs/superpowers/plans/
+    # 2026-08-06-dashboard-js-ast-module-conversion.md) -- module scripts run
+    # in document order relative to each other, so dashboard_pos below is no
+    # longer "the classic-script boundary these five must beat"; it's kept
+    # only so this test still fails loudly if dashboard.js's tag is ever
+    # removed or radically changed, rather than silently no-op'ing.
     html = read("frontend/index.html")
     order = [
         "js/api_client.js",
@@ -31,8 +37,14 @@ def test_new_frontend_modules_are_loaded_before_dashboard():
         "js/planning_workbench_ui.js",
         "js/dashboard.js",
     ]
-    dashboard_marker = '<script src="js/dashboard.js'
-    dashboard_pos = html.index(dashboard_marker)
+    dashboard_module_marker = '<script type="module" src="js/dashboard.js'
+    dashboard_classic_marker = '<script src="js/dashboard.js'
+    assert dashboard_module_marker in html or dashboard_classic_marker in html, (
+        "dashboard.js's <script> tag not found in frontend/index.html"
+    )
+    dashboard_pos = html.index(
+        dashboard_module_marker if dashboard_module_marker in html else dashboard_classic_marker
+    )
     for item in order[:-1]:
         module_marker = f'<script type="module" src="{item}'
         classic_marker = f'<script src="{item}'
