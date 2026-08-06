@@ -61,7 +61,7 @@ from .sheets_current_vs_proposed import build_sheet_current_vs_proposed
 from .dashboard import post_save_patch, build_html_dashboard
 from ..governance import advisor_readiness, source_citations, tax_law_dashboard, stress_narratives, workbook_consistency_warnings
 from ..after_tax import estimate_after_tax_terminal_net_worth
-from ..build_snapshot import SNAPSHOT_FILENAME, write_build_snapshot
+from ..build_snapshot import SNAPSHOT_FILENAME, write_build_snapshot, checkpoint_sqlite_database
 from ..report_package import REPORT_PACKAGE_FILENAME, write_report_package
 from ..results_model import RESULTS_MODEL_FILENAME, write_result_explorer_model
 
@@ -871,6 +871,10 @@ def main():
     print('Loading active configuration...')
     data, config_meta = load_active_config()
     _ensure_active_plan_data_loaded(data, config_meta)
+    # Checkpoint the WAL now, before any output artifact is written -- see
+    # checkpoint_sqlite_database()'s docstring for why this must happen here
+    # and not only inside write_build_snapshot() at the end of this function.
+    checkpoint_sqlite_database(config_meta.get('sqlite_db') or config_meta.get('path'))
     workspace_id = sanitize_id(config_meta.get('workspace_id', 'local'))
     client_id = sanitize_id(config_meta.get('client_id', workspace_id))
     output_path_dir = workspace_output_dir(workspace_id)
