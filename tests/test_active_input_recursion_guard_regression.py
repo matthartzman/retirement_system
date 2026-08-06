@@ -44,7 +44,7 @@ def test_active_input_usage_state_smoke_does_not_recurse(tmp_path):
     script = tmp_path / "dashboard_recursion_smoke.js"
     script.write_text(textwrap.dedent(f"""
         const fs = require('fs');
-        const code = {_smoke_sources_js_array()}.map(f => fs.readFileSync(f, 'utf8')).join('\\n');
+        const code = {_smoke_sources_js_array()}.map(f => fs.readFileSync(f, 'utf8').replace(/^export (async )?function /gm, '$1function ')).join('\\n');
         const el = () => ({{
           style: {{}}, innerHTML: '', textContent: '', value: '', disabled: false,
           classList: {{ toggle(){{}}, remove(){{}}, add(){{}}, contains(){{return false;}} }},

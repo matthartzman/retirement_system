@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from _decomp_dashboard import dashboard_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -33,7 +34,10 @@ def test_mobile_shell_toggle_functions_defined_in_dashboard_js():
 
 
 def test_holdings_and_liabilities_tables_carry_data_label_for_card_layout():
-    js = read("frontend/js/dashboard.js")
+    # Holdings rendering moved to dashboard_decomp_holdings.js (Wave 6.4);
+    # liabilities stayed in dashboard.js -- read the assembled text so this
+    # assertion targets both regardless of which file owns which table.
+    js = dashboard_js_text()
     assert 'data-label="${esc(humanLabel(c))}"' in js
     assert 'data-label="Actions"' in js
     assert "data-label=\"${lbl}\"" in js

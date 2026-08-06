@@ -24,7 +24,6 @@
   "test_allocation_table_and_load_path_regression.py",
   "test_workflow_journey_guards_regression.py",
   "test_build_impact_narrative_links_functional.py",
-  "test_import_preview_routes_ui_contract.py",
   "test_scenario_templates_sets_regression.py",
   "test_local_backup_scheduler_routes_ui_contract.py",
   "test_page_recommendations_regression.py",

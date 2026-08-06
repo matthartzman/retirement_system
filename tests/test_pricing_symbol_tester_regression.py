@@ -4,6 +4,8 @@ from pathlib import Path
 
 from src.market_data import MarketDataProvider
 
+from _decomp_dashboard import dashboard_js_text
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -73,7 +75,9 @@ def test_admin_pricing_controls_include_verbose_symbol_tester():
 
 
 def test_user_holdings_page_includes_same_live_pricing_tester():
-    source = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    # Pricing tester + Investment Holdings rendering moved to
+    # dashboard_decomp_holdings.js (Wave 6.4).
+    source = dashboard_js_text()
     assert "renderUserPricingSymbolTester" in source
     assert "runUserLivePriceSymbolTest" in source
     assert "/api/prices/test-symbol" in source
@@ -83,7 +87,7 @@ def test_user_holdings_page_includes_same_live_pricing_tester():
 
 
 def test_user_pricing_tester_uses_dashboard_message_helper_not_admin_msg():
-    source = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    source = dashboard_js_text()
     start = source.index("async function runUserLivePriceSymbolTest")
     end = source.index("function renderHoldings", start)
     block = source[start:end]

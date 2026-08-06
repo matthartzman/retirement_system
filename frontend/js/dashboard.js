@@ -899,11 +899,9 @@ let apiBase = "",
   // §7.4: server-computed {step_gates, section_gates} from module_catalog,
   // replacing the hand-maintained stepGatedByOptionalModule/ROW_MODULE_GATES.
   moduleGates = { step_gates: {}, section_gates: {} },
-  holdingsText = "",
   liabilitiesText = "",
   liabilitiesChanged = false,
   dirty = new Map(),
-  holdingsChanged = false,
   travelExtras = [],
   travelTypes = [],
   travelExtrasChanged = false,
@@ -970,8 +968,6 @@ let taxonomyData = null,
   taxonomyError = "";
 let taxFreshnessData = null,
   taxFreshnessLoading = false;
-let holdingsPriceData = null,
-  holdingsPriceLoading = false;
 let spendingModelData = null,
   spendingModelLoading = false,
   spendingModelError = "";
@@ -5131,7 +5127,7 @@ function stepStats(id) {
   if (id === "spending_travel_extras" && travelExtrasChanged) d.push({});
   if (id === "assets_home_cash" && liquidityChanged) d.push({});
   if (id === "roth_conversion" && forcedConversionsChanged) d.push({});
-  if (id === "holdings" && holdingsChanged) d.push({});
+  if (id === "holdings" && window.holdingsChanged) d.push({});
   if (
     [
       "spending_core",
@@ -5163,7 +5159,7 @@ function overallStats() {
 function unsavedChangeCount() {
   return (
     dirty.size +
-    (holdingsChanged ? 1 : 0) +
+    (window.holdingsChanged ? 1 : 0) +
     (liabilitiesChanged ? 1 : 0) +
     (travelExtrasChanged ? 1 : 0) +
     (liquidityChanged ? 1 : 0) +
@@ -6774,8 +6770,8 @@ function allocationPreviewFingerprint() {
   return JSON.stringify({
     mode: allocationSelectionMode(),
     rows: rel,
-    holdingsChanged: !!holdingsChanged,
-    holdingsLen: String(holdingsText || "").length,
+    holdingsChanged: !!window.holdingsChanged,
+    holdingsLen: String(window.holdingsText || "").length,
   });
 }
 function requestAllocationPreview() {
@@ -9366,8 +9362,6 @@ function renderHELOCInputsOnOtherPage() {
   return `<details><summary>HELOC modeling inputs</summary><div class="field-list"><div class="section-note"><b>Read-only summary</b> — shown here with other liabilities so the borrowing assumption is not stranded on the Strategy page; edit on the HELOC Strategy page.</div>${summaryRows}<div class="table-actions"><button class="btn" type="button" data-step-id="heloc_strategy">Open HELOC strategy page</button></div></div></details>`;
 }
 
-let holdingRowsCache = null,
-  currentHoldingAccount = "ALL";
 let liabilityRowsCache = null;
 function parseCsvLine(line) {
   const out = [];
@@ -9474,90 +9468,10 @@ function mergeProtectedClientData(primary, fallback) {
   });
   return changed ? serializeCsvTable(rows) : primary;
 }
-function isHoldingDateColumn(col) {
-  return /date/i.test(String(col || ""));
-}
-function normalizeHoldingDateValue(v) {
-  const raw = String(v ?? "").trim();
-  if (!raw) return "";
-  let m = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (m) {
-    const y = +m[1],
-      mo = +m[2],
-      d = +m[3];
-    if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31)
-      return `${String(y).padStart(4, "0")}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  }
-  m = raw.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2}|\d{4})$/);
-  if (m) {
-    let mo = +m[1],
-      d = +m[2],
-      y = +m[3];
-    if (y < 100) y += y >= 70 ? 1900 : 2000;
-    if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31)
-      return `${String(y).padStart(4, "0")}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  }
-  return raw;
-}
-function ensureHoldingRows() {
-  if (holdingRowsCache) return holdingRowsCache;
-  const lines = String(holdingsText || "")
-    .split(/\r?\n/)
-    .filter((x) => x.trim());
-  const parsed = lines.map(parseCsvLine);
-  const header = (
-    parsed[0] || [
-      "account",
-      "symbol",
-      "purchase_date",
-      "shares",
-      "purchase_price",
-      "lot_type",
-      "note",
-    ]
-  ).map((x) => String(x || "").trim());
-  const data = (parsed.length > 1 ? parsed.slice(1) : []).map((r) => {
-    const o = {};
-    header.forEach((h, i) => {
-      let v = r[i] ?? "";
-      if (isHoldingDateColumn(h)) v = normalizeHoldingDateValue(v);
-      else v = String(v).trim();
-      o[h] = v;
-    });
-    return o;
-  });
-  holdingRowsCache = { header, data };
-  return holdingRowsCache;
-}
-function serializeHoldings() {
-  const h = ensureHoldingRows();
-  const lines = [h.header.map(csvEscape).join(",")];
-  h.data.forEach((r) =>
-    lines.push(h.header.map((col) => csvEscape(r[col] ?? "")).join(",")),
-  );
-  holdingsText = lines.join("\n") + "\n";
-  return holdingsText;
-}
-function markHoldingsDirty() {
-  serializeHoldings();
-  holdingsChanged = true;
-  lastBuildOk = false;
-  updateUnsaved();
-  setAppControls(appReady);
-  scheduleStatusUpdate();
-}
-function holdingAccounts() {
-  const h = ensureHoldingRows();
-  return [
-    ...new Set(
-      h.data.map((r) => String(r.account || "").trim()).filter(Boolean),
-    ),
-  ].sort();
-}
-// Display-only: turn an internal account key like "Member_1_401k" into the
-// person's nickname form ("Matt's 401k"). The stored account value stays the
-// internal key (it is a data join key for pricing, YTD mapping, etc.); only
-// the label shown to the user changes. Non-member accounts pass through as-is.
+
+// Account-label formatting is used well beyond the holdings feature (QDRO
+// labels, YTD account dropdowns, Plan Data Summary) -- stays a shared
+// dashboard.js utility rather than moving into dashboard_decomp_holdings.js.
 function accountDisplayLabel(account) {
   const s = String(account || "");
   const m = /^member[ _]([12])[ _](.+)$/i.exec(s);
@@ -9565,162 +9479,6 @@ function accountDisplayLabel(account) {
   return (
     personDisplayName(Number(m[1])) + "'s " + m[2].replace(/_/g, " ").trim()
   );
-}
-function updateHolding(i, col, val) {
-  ensureHoldingRows().data[i][col] = val;
-  markHoldingsDirty();
-}
-function addHoldingLot(account = "") {
-  const h = ensureHoldingRows();
-  if (!account || account === "ALL")
-    account =
-      currentHoldingAccount !== "ALL"
-        ? currentHoldingAccount
-        : holdingAccounts()[0] || "New_Account";
-  const row = {};
-  h.header.forEach((c) => (row[c] = ""));
-  row.account = account;
-  row.symbol = "";
-  row.purchase_date = "";
-  row.shares = "";
-  row.purchase_price = "";
-  row.lot_type = "buy";
-  h.data.push(row);
-  currentHoldingAccount = account;
-  markHoldingsDirty();
-  renderMain();
-  setTimeout(() => {
-    const f = document.querySelector('.lot-table input[data-hcol="symbol"]');
-    if (f) f.focus();
-  }, 0);
-}
-async function addHoldingAccount() {
-  const name = await showInAppPrompt("New account name:", "", {
-    title: "Add Account",
-    placeholder: "e.g. Fidelity IRA",
-  });
-  if (!name) return;
-  currentHoldingAccount = name.trim();
-  addHoldingLot(currentHoldingAccount);
-}
-async function deleteHoldingLot(i) {
-  if (
-    !(await showInAppConfirm("This cannot be undone.", {
-      title: "Delete Lot",
-      confirmLabel: "Delete",
-      variant: "danger",
-    }))
-  )
-    return;
-  ensureHoldingRows().data.splice(i, 1);
-  markHoldingsDirty();
-  renderMain();
-}
-async function deleteHoldingAccount() {
-  if (currentHoldingAccount === "ALL") {
-    showMessage("Choose an account first.", "warn");
-    return;
-  }
-  if (
-    !(await showInAppConfirm(
-      "All lots in " +
-        accountDisplayLabel(currentHoldingAccount) +
-        " will be permanently removed.",
-      {
-        title: "Delete Account",
-        confirmLabel: "Delete All Lots",
-        variant: "danger",
-      },
-    ))
-  )
-    return;
-  const h = ensureHoldingRows();
-  h.data = h.data.filter(
-    (r) => String(r.account || "") !== currentHoldingAccount,
-  );
-  currentHoldingAccount = "ALL";
-  markHoldingsDirty();
-  renderMain();
-}
-function setHoldingAccount(v) {
-  currentHoldingAccount = v;
-  renderMain();
-}
-function holdingsImportPreviewMessage(out) {
-  const d = out.date_range || {},
-    dup = out.duplicate_candidates || {},
-    acct = out.account_summary || {},
-    sym = out.symbol_summary || {},
-    dq = out.data_quality || {};
-  const lines = [
-    "Review holdings import preview before the table is replaced:",
-    "",
-    `Rows in file: ${out.received || 0}`,
-    `Current rows: ${out.current_rows || 0}`,
-    `Rows that would be staged: ${out.rows_added || 0}`,
-    `Rows that would be replaced: ${out.rows_replaced || 0}`,
-    `Total rows after staging: ${out.total_after || 0}`,
-    `Purchase date range: ${d.earliest || "—"} through ${d.latest || "—"}`,
-    `Duplicate candidates: ${dup.total || 0}`,
-    `Estimated cost basis in file: ${ytdMoney(out.estimated_cost_basis)}`,
-  ];
-  if ((acct.new_accounts || []).length)
-    lines.push(`New holding accounts: ${importPreviewList(acct.new_accounts)}`);
-  if ((sym.symbols_not_in_security_master || []).length)
-    lines.push(
-      `Symbols not in security master: ${importPreviewList(sym.symbols_not_in_security_master)}`,
-    );
-  if (
-    dq.missing_account_rows ||
-    dq.missing_symbol_rows ||
-    dq.invalid_share_rows ||
-    dq.invalid_price_rows ||
-    dq.unparseable_date_rows
-  )
-    lines.push(
-      `Data quality flags: missing account ${dq.missing_account_rows || 0}, missing symbol ${dq.missing_symbol_rows || 0}, invalid shares ${dq.invalid_share_rows || 0}, invalid price ${dq.invalid_price_rows || 0}, date warnings ${dq.unparseable_date_rows || 0}`,
-    );
-  (out.warnings || []).forEach((w) => lines.push("Warning: " + w));
-  lines.push(
-    "",
-    "Staged lots are held in the browser — use Save Changes to write them to disk.",
-  );
-  return lines.join("\n");
-}
-async function handleHoldingsCsvImport(input) {
-  try {
-    const file = input && input.files && input.files[0];
-    if (!file) return;
-    const text = await file.text();
-    const preview = await api("/api/holdings/preview", {
-      method: "POST",
-      body: JSON.stringify({ mode: "replace", csv_text: text }),
-    });
-    if (
-      !(await showInAppConfirm(holdingsImportPreviewMessage(preview), {
-        title: "Confirm Holdings Import",
-        confirmLabel: "Stage Import",
-        variant: "warn",
-      }))
-    )
-      return;
-    holdingsText = text;
-    holdingRowsCache = null;
-    currentHoldingAccount = "ALL";
-    markHoldingsDirty();
-    noteSpecialSessionChange(
-      "Investment holdings import staged",
-      `CSV import preview accepted: ${preview.received || 0} lots staged.`,
-    );
-    renderMain();
-    showMessage(
-      `Holdings import staged: ${preview.received || 0} lots. Save Changes to persist.`,
-    );
-  } catch (e) {
-    showMessage("Error previewing holdings import: " + e.message, "error");
-  } finally {
-    if (input) input.value = "";
-  }
 }
 
 const LIABILITY_HEADER = [
@@ -9916,175 +9674,6 @@ async function saveLiabilities() {
   return { updated: 1 };
 }
 
-function renderUserPricingSymbolTester() {
-  return `<div id="userPricingSymbolTester" class="section-note"><b>Single-symbol live pricing tester:</b> Type one ticker to see every live pricing command and response trace without relying on the workbook build. <div class="row" style="margin-top:8px"><input id="userPricingTestSymbol" placeholder="Ticker, e.g. VTI" style="max-width:210px;text-transform:uppercase" onkeydown="if(event.key==='Enter')runUserLivePriceSymbolTest()"><button class="btn primary" type="button" onclick="runUserLivePriceSymbolTest()">Test live quote</button><span id="userPricingTestStatus" class="small"></span></div><div id="userPricingTestResult" style="margin-top:10px"></div></div>`;
-}
-function fmtUserPriceDiagnostic(v) {
-  const n = Number(v);
-  return Number.isFinite(n) && n > 0
-    ? "$" +
-        n.toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 4,
-        })
-    : esc(v ?? "");
-}
-function renderUserJsonBlock(obj) {
-  return `<pre class="code" style="display:block;white-space:pre-wrap;max-height:220px;overflow:auto;margin:6px 0">${esc(JSON.stringify(obj, null, 2))}</pre>`;
-}
-function renderUserProviderAttempt(a) {
-  return `<div class="impact-card" style="margin:8px 0"><b>${esc(a.transport || "transport")}</b> · ${a.ok ? "ok" : "failed"} ${a.status_code ? "· HTTP " + esc(a.status_code) : ""} · ${esc(a.elapsed_ms ?? "")} ms<h4>Command sent</h4>${renderUserJsonBlock(a.command || {})}${a.cause ? `<h4>Failure cause</h4><p class="small">${esc(a.cause)}</p>` : ""}${a.exception ? `<h4>Exception</h4><p class="small">${esc(a.exception)}</p>` : ""}${a.response_preview ? `<h4>Response preview</h4><pre class="code" style="display:block;white-space:pre-wrap;max-height:160px;overflow:auto">${esc(a.response_preview)}</pre>` : ""}</div>`;
-}
-function renderUserProviderStep(s) {
-  const ok = s.outcome === "success";
-  return `<details><summary><b>${esc(s.provider || "provider")} · ${esc(s.endpoint || "endpoint")}</b> — ${esc(s.outcome || "unknown")}${s.parsed_price ? " · " + fmtUserPriceDiagnostic(s.parsed_price) : ""}</summary><div style="padding:8px"><p class="small">${esc(s.parse_note || s.cause || "")}</p>${(s.attempts || []).map(renderUserProviderAttempt).join("") || `<p class="small">${esc(s.cause || "No command was sent for this provider.")}</p>`}</div></details>`;
-}
-function renderUserPricingTrace(r) {
-  return `<div class="impact-card"><b>${esc(r.symbol || "")}</b> — ${esc(r.summary || "No summary")}<div class="mini-grid"><div><b>Selected provider</b><span>${esc(r.selected_provider || "none")}</span></div><div><b>Selected price</b><span>${r.selected_price ? fmtUserPriceDiagnostic(r.selected_price) : "—"}</span></div><div><b>Order</b><span>${esc((r.provider_order || []).join(" → "))}</span></div></div></div><details><summary><b>Runtime and key diagnostics</b></summary>${renderUserJsonBlock({ generated_at_utc: r.generated_at_utc, config_backend: r.config_backend, timeout_seconds: r.timeout_seconds, max_retries: r.max_retries, requests_available: r.requests_available, effective_api_key_sources: r.effective_api_key_sources, proxy_environment_keys: r.proxy_environment_keys, cache_record: r.cache_record })}</details><h4>Provider command / response trace</h4>${(r.steps || []).map(renderUserProviderStep).join("")}`;
-}
-async function pollUserLivePriceSymbolJob(jobId, status, result) {
-  for (let i = 0; i < 240; i++) {
-    await new Promise((r) => setTimeout(r, 500));
-    const out = await api(
-      "/api/prices/test-symbol/status/" + encodeURIComponent(jobId),
-      { timeoutMs: 9000 },
-    );
-    const trace = out.result || {
-      symbol: out.symbol,
-      summary: "Calling live providers...",
-      steps: out.steps || [],
-    };
-    if (out.steps && (!trace.steps || !trace.steps.length))
-      trace.steps = out.steps;
-    if (result) result.innerHTML = renderUserPricingTrace(trace);
-    const count = (trace.steps || []).length;
-    if (status)
-      status.textContent =
-        out.status === "running"
-          ? `Calling live providers... ${count} step${count === 1 ? "" : "s"} returned`
-          : out.status === "completed"
-            ? out.live_pricing_working
-              ? "Live quote found"
-              : "No live quote found"
-            : "Diagnostic error";
-    if (out.status === "completed" || out.status === "error") return out;
-  }
-  throw new Error(
-    "Pricing tester timed out waiting for the local diagnostic job. A provider call may still be running; try a shorter timeout in Market Pricing settings.",
-  );
-}
-async function runUserLivePriceSymbolTest() {
-  const input = document.getElementById("userPricingTestSymbol");
-  const status = document.getElementById("userPricingTestStatus");
-  const result = document.getElementById("userPricingTestResult");
-  const symbol = (input?.value || "").trim().toUpperCase();
-  if (!symbol) {
-    showMessage("Enter one ticker symbol first", "error");
-    return;
-  }
-  if (status) status.textContent = "Starting diagnostic...";
-  if (result)
-    result.innerHTML =
-      '<p class="small">Starting local diagnostic job. Provider commands and responses will appear as each service returns.</p>';
-  try {
-    const started = await api("/api/prices/test-symbol/start", {
-      method: "POST",
-      body: JSON.stringify({ symbol }),
-      timeoutMs: 9000,
-    });
-    if (status) status.textContent = "Calling live providers...";
-    const out = await pollUserLivePriceSymbolJob(
-      started.job_id,
-      status,
-      result,
-    );
-    const liveOk = !!(
-      out.live_pricing_working ||
-      (out.result && out.result.success)
-    );
-    showMessage(
-      liveOk
-        ? "Live pricing tester found a quote"
-        : "Live pricing tester completed with failures",
-      liveOk ? "success" : "warn",
-    );
-  } catch (e) {
-    const detail = String((e && e.message) || e || "Unknown error");
-    if (result)
-      result.innerHTML = `<div class="section-note warn"><b>Pricing tester could not reach the local API.</b><br>${esc(detail)}<br><br>Endpoint: <code>/api/prices/test-symbol/start</code>. If the browser says "Failed to fetch", restart the app and confirm the status indicator shows Ready.</div>`;
-    if (status) status.textContent = "Error";
-    showMessage("Pricing tester error: " + detail, "error");
-  }
-}
-function renderHoldings() {
-  const h = ensureHoldingRows();
-  const accounts = holdingAccounts();
-  const visible = h.data
-    .map((r, i) => ({ r, i }))
-    .filter(
-      (x) =>
-        currentHoldingAccount === "ALL" ||
-        String(x.r.account || "") === currentHoldingAccount,
-    );
-  const cols = h.header.length
-    ? h.header
-    : [
-        "account",
-        "symbol",
-        "purchase_date",
-        "shares",
-        "purchase_price",
-        "lot_type",
-        "note",
-      ];
-  let html = `<div class="holdings"><h3 class="group-title">Plan Holdings</h3><div class="section-note">Enter investment holdings by account and lot. A lot is a separate purchase, reinvestment, or cash position. Use CASH with price 1 for cash balances.</div><div class="section-note small"><b>CSV import columns:</b> <code>account, symbol, purchase_date, shares, purchase_price, lot_type, note</code> — date as YYYY-MM-DD, lot_type as <code>standard</code>, <code>reinvestment</code>, or <code>cash</code>. Download a template from your broker CSV export or use Export CSV backup in Settings first.</div>${renderUserPricingSymbolTester()}<input type="file" id="holdingsImportInput" accept=".csv,text/csv" style="display:none" onchange="handleHoldingsCsvImport(this)"><div class="table-actions"><select onchange="setHoldingAccount(this.value)"><option value="ALL" ${currentHoldingAccount === "ALL" ? "selected" : ""}>All accounts</option>${accounts.map((a) => `<option value="${esc(a)}" ${currentHoldingAccount === a ? "selected" : ""}>${esc(accountDisplayLabel(a))}</option>`).join("")}</select><button class="btn" onclick="addHoldingLot()">Add Lot</button><button class="btn" onclick="addHoldingAccount()">Add Account</button><button class="btn" type="button" data-requires-app="1" onclick="document.getElementById('holdingsImportInput').click()">Preview &amp; replace CSV</button><button class="btn danger" ${currentHoldingAccount === "ALL" ? "disabled" : ""} onclick="deleteHoldingAccount()">Delete Account</button></div><div class="lot-table-wrap"><table class="lot-table"><thead><tr>${cols.map((c) => `<th>${esc(humanLabel(c))}</th>`).join("")}<th>Actions</th></tr></thead><tbody>`;
-  visible.forEach(({ r, i }) => {
-    html +=
-      "<tr>" +
-      cols
-        .map((c) => {
-          const isDate = c.includes("date");
-          const isPrice =
-            norm(c).includes("price") ||
-            norm(c).includes("cost") ||
-            norm(c).includes("value");
-          const isAccount = c === "account";
-          const type = isDate ? "date" : "text";
-          const cls = ["shares", "purchase_price"].includes(c) ? "tiny" : "";
-          const display = isPrice
-            ? currencyDisplay(r[c] || "", 4)
-            : isAccount
-              ? accountDisplayLabel(r[c] || "")
-              : r[c] || "";
-          const focus = isPrice
-            ? `onfocus="showStepHelp('holdings');this.value=currencyRaw(this.value);this.select&&this.select()"`
-            : isAccount
-              ? `onfocus="showStepHelp('holdings');this.value=ensureHoldingRows().data[${i}].account||'';this.select&&this.select()"`
-              : `onfocus="showStepHelp('holdings')"`;
-          const input = isPrice
-            ? `oninput="updateHolding(${i},'${esc(c)}',currencyRaw(this.value))" onblur="this.value=currencyDisplay(this.value,4)"`
-            : isAccount
-              ? `oninput="updateHolding(${i},'account',this.value)" onblur="this.value=accountDisplayLabel(this.value)"`
-              : `oninput="updateHolding(${i},'${esc(c)}',this.value)"`;
-          return `<td data-label="${esc(humanLabel(c))}"><input class="${cls}" data-hcol="${esc(c)}" type="${type}" value="${esc(display)}" ${input} ${focus}></td>`;
-        })
-        .join("") +
-      `<td data-label="Actions"><button class="danger-link" onclick="deleteHoldingLot(${i})">Delete</button></td></tr>`;
-  });
-  html += `</tbody></table></div>`;
-  // #235: moved here from Economic & Tax Assumptions -- dividend reinvestment
-  // is a per-holding-account behavior, not a system-wide economic assumption.
-  const divRows = rows.filter(
-    (r) =>
-      isEditable(r) &&
-      r.section === "Economic Assumptions" &&
-      ["reinvest_dividends_default", "cash_yield_rate"].includes(norm(r.label)),
-  );
-  if (divRows.length)
-    html += `<details><summary>Dividend Reinvestment</summary><div class="field-list">${divRows.map(fieldHtml).join("")}</div></details>`;
-  html += `</div>`;
-  return html;
-}
 
 function matrixKey(section) {
   return "matrix:" + section;
@@ -11229,45 +10818,6 @@ async function loadTaxFreshnessStatus() {
   }
   taxFreshnessLoading = false;
   renderMain();
-}
-// Last cached/live price per symbol, from the most recent build's pricing_diagnostics.json.
-// Used to show current market value in Plan Data Review instead of cost basis.
-async function loadHoldingsPriceData() {
-  if (holdingsPriceLoading || holdingsPriceData) return;
-  holdingsPriceLoading = true;
-  try {
-    const out = await api("/api/admin/diagnostics");
-    const f = ((out && out.files) || []).find(function (x) {
-      return x.name === "pricing_diagnostics.json";
-    });
-    holdingsPriceData = (f && f.json && f.json.prices) || {};
-  } catch (e) {
-    holdingsPriceData = {};
-  }
-  holdingsPriceLoading = false;
-  renderMain();
-}
-function holdingsCurrentPrice(symbol) {
-  const sym = String(symbol || "")
-    .trim()
-    .toUpperCase();
-  if (sym === "CASH") return 1;
-  if (
-    holdingsPriceData &&
-    Object.prototype.hasOwnProperty.call(holdingsPriceData, sym)
-  ) {
-    const n = Number(holdingsPriceData[sym]);
-    if (Number.isFinite(n)) return n;
-  }
-  return null;
-}
-// Current value uses the last cached/live price; falls back to cost basis
-// (purchase_price) only when no price is available for the symbol.
-function holdingLotCurrentValue(h) {
-  const shares = Number(h.shares || 0);
-  const live = holdingsCurrentPrice(h.symbol);
-  const price = live !== null ? live : Number(h.purchase_price || 0);
-  return { price: price, value: shares * price, isEstimate: live === null };
 }
 function taxFreshnessBannerHtml() {
   if (!taxFreshnessData) {
@@ -14553,8 +14103,8 @@ function renderPlanDataReport() {
   if (sec.id === "assets") {
     body += '<div class="plan-report-section">';
     body += '<h3 class="group-title">Investment Holdings</h3>';
-    if (holdingsPriceData === null) {
-      if (!holdingsPriceLoading) setTimeout(loadHoldingsPriceData, 0);
+    if (window.holdingsPriceData === null) {
+      if (!window.holdingsPriceLoading) setTimeout(loadHoldingsPriceData, 0);
       body += '<div class="section-note">Loading current prices...</div>';
     }
     var holdingData = (ensureHoldingRows().data || []).slice();
@@ -18579,9 +18129,9 @@ async function loadAll(opts = {}) {
     await loadEstateStateOptions();
     await loadYtdStatus(true);
     const h = await fetch(apiUrl("/api/holdings"));
-    holdingsText = await h.text();
-    holdingRowsCache = null;
-    currentHoldingAccount = "ALL";
+    window.holdingsText = await h.text();
+    window.holdingRowsCache = null;
+    window.currentHoldingAccount = "ALL";
     try {
       const lr = await fetch(apiUrl("/api/liabilities"));
       liabilitiesText = await lr.text();
@@ -18592,7 +18142,7 @@ async function loadAll(opts = {}) {
     liabilitiesChanged = false;
     dirty.clear();
     if (window.RetirementAppStore) window.RetirementAppStore.resetPlanFlags();
-    holdingsChanged = false;
+    window.holdingsChanged = false;
     travelExtrasChanged = false;
     liquidityChanged = false;
     forcedConversionsChanged = false;
@@ -18660,7 +18210,7 @@ async function startNewPlan() {
     sessionChanges.clear();
     sessionSpecialChanges.clear();
     dirty.clear();
-    holdingsChanged = false;
+    window.holdingsChanged = false;
     liabilitiesChanged = false;
     travelExtrasChanged = false;
     liquidityChanged = false;
@@ -18732,19 +18282,6 @@ async function saveChanges(sync = true) {
     return out;
   }
   return { updated: 0 };
-}
-async function saveHoldings() {
-  if (!holdingsChanged) return { updated: 0 };
-  const content = serializeHoldings();
-  const res = await fetch(apiUrl("/api/holdings"), {
-    method: "POST",
-    headers: { "Content-Type": "text/csv" },
-    body: content,
-  });
-  if (!res.ok) throw new Error(await res.text());
-  holdingsText = content;
-  holdingsChanged = false;
-  return { updated: 1 };
 }
 async function syncBackends() {
   return await api("/api/config/sync", {
@@ -18827,7 +18364,7 @@ async function readPlanDataFolderContents(dirHandle, requireRequired = true) {
 function hasUnsavedPlanChanges() {
   return !!(
     dirty.size ||
-    holdingsChanged ||
+    window.holdingsChanged ||
     liabilitiesChanged ||
     travelExtrasChanged ||
     liquidityChanged ||
@@ -19316,14 +18853,6 @@ async function downloadWithBuild(url, label) {
     showMessage("Error building for download: " + e.message, "error");
   }
 }
-function holdingsComplete() {
-  return (
-    (holdingsText || "")
-      .split(/\r?\n/)
-      .filter((x) => x.trim() && !x.toLowerCase().startsWith("account,"))
-      .length > 0
-  );
-}
 function findCsvByName(files, needle) {
   needle = String(needle || "").toLowerCase();
   return Array.from(files || []).find((f) => {
@@ -19469,7 +18998,7 @@ function closeExitModal() {
 async function shutdownAndClose() {
   appExiting = true;
   dirty.clear();
-  holdingsChanged = false;
+  window.holdingsChanged = false;
   travelExtrasChanged = false;
   liquidityChanged = false;
   forcedConversionsChanged = false;
@@ -19510,7 +19039,7 @@ async function saveAndExit() {
 }
 async function discardAndExit() {
   dirty.clear();
-  holdingsChanged = false;
+  window.holdingsChanged = false;
   travelExtrasChanged = false;
   liquidityChanged = false;
   forcedConversionsChanged = false;
