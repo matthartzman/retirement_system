@@ -6,7 +6,7 @@
 // they were inline.
 
 /* ── 5.1 Plan KPI metrics panel (home screen) ── */
-function planKpiMetricsHtml() {
+export function planKpiMetricsHtml() {
   if (!planLoaded || !kpiHasValues(lastBuildSummary)) return "";
   const k = currentKpi(lastBuildSummary);
   const heRate =
@@ -71,14 +71,14 @@ const CLOSEOUT_ITEMS = [
     auto: null,
   },
 ];
-function getCloseoutState() {
+export function getCloseoutState() {
   try {
     return JSON.parse(localStorage.getItem("rpCloseoutChecks") || "{}");
   } catch (_e) {
     return {};
   }
 }
-function closeoutChecklistHtml() {
+export function closeoutChecklistHtml() {
   if (!planLoaded) return "";
   const state = getCloseoutState();
   const finalized = !!state.plan_finalized;
@@ -102,7 +102,7 @@ function closeoutChecklistHtml() {
       : "";
   return `<div class="closeout-checklist"><div class="closeout-head"><h3>Plan closeout checklist</h3><p class="small">Check each item when done. Advisory only — does not lock editing.</p></div>${finalBadge}<div class="closeout-items">${itemsHtml}</div>${finalBtn}</div>`;
 }
-function toggleCloseoutItem(key, checked) {
+export function toggleCloseoutItem(key, checked) {
   try {
     const s = getCloseoutState();
     s[key] = checked;
@@ -110,7 +110,7 @@ function toggleCloseoutItem(key, checked) {
   } catch (_e) {}
   renderMain();
 }
-function markPlanFinal() {
+export function markPlanFinal() {
   try {
     const s = getCloseoutState();
     s.plan_finalized = true;
@@ -118,7 +118,7 @@ function markPlanFinal() {
   } catch (_e) {}
   renderMain();
 }
-async function clearPlanFinal() {
+export async function clearPlanFinal() {
   if (
     !(await showInAppConfirm("The plan can be re-finalized at any time.", {
       title: "Clear Final Marker",
@@ -134,3 +134,17 @@ async function clearPlanFinal() {
   } catch (_e) {}
   renderMain();
 }
+
+// Wave 6.4 ("leaves inward" ES-module migration): converted to a real ES
+// module. No cross-file mutable state (verified: nothing outside this file
+// reads or writes this file's module-level consts/let), so only the
+// functions below need the window bridge, for dashboard.js's calls and this
+// file's own inline onclick/oninput HTML attributes.
+Object.assign(window, {
+  planKpiMetricsHtml,
+  getCloseoutState,
+  closeoutChecklistHtml,
+  toggleCloseoutItem,
+  markPlanFinal,
+  clearPlanFinal,
+});

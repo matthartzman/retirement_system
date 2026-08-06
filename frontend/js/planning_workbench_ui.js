@@ -1,4 +1,11 @@
-/* planning_workbench_ui.js: browser-local Planning Workbench case store and rendering. */
+/* planning_workbench_ui.js: browser-local Planning Workbench case store and rendering.
+   Wave 6.4 (system review 2026-08-04, "leaves inward" ES-module migration) --
+   'strategy' leaf. Loaded as type="module" in index.html; required no
+   internal changes since this file's only external interface was already
+   the single window.RetirementPlanningWorkbench namespace object (every
+   dashboard.js call site reads window.RetirementPlanningWorkbench.<method>,
+   never a bare identifier from this file), so the IIFE's private scope
+   maps directly onto a module's private scope with nothing to bridge. */
 (function () {
   "use strict";
   const STORE_KEY = "retirement.planning_case_v1";
