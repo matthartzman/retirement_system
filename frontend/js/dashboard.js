@@ -15154,11 +15154,14 @@ Object.defineProperty(window, "taxonomyLoading", { get: () => taxonomyLoading, s
 Object.defineProperty(window, "travelExtras", { get: () => travelExtras, set: (v) => { travelExtras = v; }, configurable: true });
 Object.defineProperty(window, "travelExtrasChanged", { get: () => travelExtrasChanged, set: (v) => { travelExtrasChanged = v; }, configurable: true });
 Object.defineProperty(window, "travelTypes", { get: () => travelTypes, set: (v) => { travelTypes = v; }, configurable: true });
+Object.defineProperty(window, "ytdAccountFilter", { get: () => ytdAccountFilter, set: (v) => { ytdAccountFilter = v; }, configurable: true });
 Object.defineProperty(window, "ytdAccountsChanged", { get: () => ytdAccountsChanged, set: (v) => { ytdAccountsChanged = v; }, configurable: true });
 Object.defineProperty(window, "ytdActualsPeriod", { get: () => ytdActualsPeriod, set: (v) => { ytdActualsPeriod = v; }, configurable: true });
+Object.defineProperty(window, "ytdCategoryFilter", { get: () => ytdCategoryFilter, set: (v) => { ytdCategoryFilter = v; }, configurable: true });
 Object.defineProperty(window, "ytdData", { get: () => ytdData, set: (v) => { ytdData = v; }, configurable: true });
 Object.defineProperty(window, "ytdTransactionsChanged", { get: () => ytdTransactionsChanged, set: (v) => { ytdTransactionsChanged = v; }, configurable: true });
 Object.defineProperty(window, "ytdTxColsCollapsed", { get: () => ytdTxColsCollapsed, set: (v) => { ytdTxColsCollapsed = v; }, configurable: true });
+Object.defineProperty(window, "ytdTxSearch", { get: () => ytdTxSearch, set: (v) => { ytdTxSearch = v; }, configurable: true });
 Object.assign(window, {
   _checkAppStatusRun, activeOptimizerUsedTarget, addAltOption, addBudgetLine, addCategoryDetailRow,
   addEducation529Section, addGroupDetailRow, addLargeDiscLine, addLiability, addManualYtdAccount,

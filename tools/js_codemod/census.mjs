@@ -140,6 +140,57 @@ function findExternalReferences(names, source, fileLabel) {
   return refs;
 }
 
+// v4 (2026-08-06): a hand-caught real bug (ytdTxColsCollapsed's startup
+// freeze fix, see docs/superpowers/plans/2026-08-06-dashboard-js-domain-
+// module-split-SCOPE.md's follow-up) showed a whole class this census
+// missed: top-level variables assigned from INLINE HTML EVENT-HANDLER
+// ATTRIBUTES embedded in a rendered template literal
+// (onclick="ytdTxColsCollapsed=!ytdTxColsCollapsed;renderMain()"). These
+// execute in the BROWSER's global scope when the user clicks, not in
+// dashboard.js's own module lexical scope -- functionally an external write,
+// even though the string text lives inside dashboard.js's own source. The
+// AST walk above only sees real JS identifiers in the file's own syntax tree;
+// an inline handler is opaque string content to it. This scans for
+// on<event>="..." attribute text (including in dashboard.js's own source,
+// unlike findExternalReferences which is only run against OTHER files) and
+// re-parses each handler's text as its own tiny JS snippet to find real
+// assignment/update targets.
+const HANDLER_ATTR_RE = /\bon(?:click|change|input|focus|blur|keydown|keyup|submit)\s*=\s*"((?:[^"\\]|\\.)*)"/g;
+
+function findInlineHtmlHandlerAssignments(names, source, fileLabel) {
+  const nameSet = new Set(names);
+  const refs = [];
+  const re = new RegExp(HANDLER_ATTR_RE);
+  let m;
+  while ((m = re.exec(source))) {
+    const handlerText = m[1].replace(/\\"/g, '"');
+    // Skip snippets that still contain template-literal interpolation syntax
+    // (${...}) -- not valid standalone JS once extracted. Verified in this
+    // codebase these are always call arguments (e.g. deleteYtdTxn(${i})),
+    // never assignment targets, so skipping loses nothing real.
+    if (handlerText.includes("${")) continue;
+    let ast;
+    try {
+      ast = j(handlerText);
+    } catch (_e) {
+      continue; // not standalone-parseable as JS; skip rather than guess
+    }
+    ast.find(j.AssignmentExpression).forEach((p) => {
+      const left = p.node.left;
+      if (left.type === "Identifier" && nameSet.has(left.name)) {
+        refs.push({ name: left.name, file: fileLabel, kind: "assign", scope: "inline-html-handler" });
+      }
+    });
+    ast.find(j.UpdateExpression).forEach((p) => {
+      const arg = p.node.argument;
+      if (arg.type === "Identifier" && nameSet.has(arg.name)) {
+        refs.push({ name: arg.name, file: fileLabel, kind: "assign", scope: "inline-html-handler" });
+      }
+    });
+  }
+  return refs;
+}
+
 function main() {
   const dashboardSource = fs.readFileSync(DASHBOARD_PATH, "utf8");
   const { functions, variables, constVariables } = collectTopLevelDeclarations(dashboardSource);
@@ -162,6 +213,20 @@ function main() {
     );
   }
 
+  // Inline HTML event-handler assignments (see findInlineHtmlHandlerAssignments
+  // above): scanned across EVERY .js file INCLUDING dashboard.js itself --
+  // unlike findExternalReferences above, dashboard.js's own rendered HTML can
+  // and does assign to its own top-level variables this way (e.g.
+  // ytdTxColsCollapsed), which is functionally an external (global-scope)
+  // write once type="module" makes dashboard.js's own bindings private.
+  for (const entry of fs.readdirSync(JS_DIR)) {
+    const full = path.join(JS_DIR, entry);
+    if (!entry.endsWith(".js")) continue;
+    const source = fs.readFileSync(full, "utf8");
+    const label = path.relative(ROOT, full).replace(/\\/g, "/");
+    externalReferences.push(...findInlineHtmlHandlerAssignments(allNames, source, label));
+  }
+
   const functionSet = new Set(functions);
   const variableSet = new Set(variables);
 
@@ -174,7 +239,7 @@ function main() {
   )].sort();
 
   const report = {
-    schema: "dashboard_census_v3",
+    schema: "dashboard_census_v4",
     functions,
     variables,
     const_variables: constVariables,

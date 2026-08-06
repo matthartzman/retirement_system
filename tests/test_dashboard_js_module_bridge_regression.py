@@ -84,54 +84,13 @@ def test_generated_block_has_the_do_not_hand_edit_header():
     assert "do not hand-edit" in js.lower() or "regenerate:" in js.lower()
 
 
-KNOWN_MANUAL_EXCEPTIONS = [
-    # ytdTxColsCollapsed's get/set accessor (2026-08-06, "Wave 6.4
-    # domain-module-split (row_model.js), plus fix the startup freeze it
-    # caused") is a hand-added fix for a real live bug: it's assigned via an
-    # inline onclick handler, a pattern census.mjs's cross-FILE reference
-    # scan doesn't see (documented as a known follow-up in that commit).
-    # Regenerating from the tool as-is silently drops this accessor and
-    # reintroduces the startup freeze it fixes.
-    'Object.defineProperty(window, "ytdTxColsCollapsed", '
-    "{ get: () => ytdTxColsCollapsed, set: (v) => { ytdTxColsCollapsed = v; }, configurable: true });",
-]
-
-
 def test_codemod_check_mode_reports_no_drift():
     result = subprocess.run(
         ["node", str(CONVERT_SCRIPT), "--check"],
         cwd=ROOT, text=True, capture_output=True, timeout=60,
     )
-    if result.returncode == 0:
-        return
-    # Confirm the ONLY drift is the known manual exception(s) above, not
-    # blindly trust --check's binary result or blindly regenerate (which
-    # would silently drop those hand-added fixes for real live bugs). Back
-    # up the current (correct, hand-patched) file, let the tool regenerate
-    # for real, diff line-by-line, then always restore the backup.
-    original = DASHBOARD_JS.read_text(encoding="utf-8")
-    try:
-        regen = subprocess.run(
-            ["node", str(CONVERT_SCRIPT)],
-            cwd=ROOT, text=True, capture_output=True, timeout=60,
-        )
-        assert regen.returncode == 0, f"regeneration itself failed:\n{regen.stdout}{regen.stderr}"
-        regenerated = DASHBOARD_JS.read_text(encoding="utf-8")
-    finally:
-        DASHBOARD_JS.write_text(original, encoding="utf-8")
-
-    original_lines = set(original.splitlines())
-    regenerated_lines = set(regenerated.splitlines())
-    only_in_original = original_lines - regenerated_lines
-    only_in_regenerated = regenerated_lines - original_lines
-    assert not only_in_regenerated, (
-        "the codemod's regenerated output has lines not in the committed "
-        f"dashboard.js -- unexpected in either direction:\n{only_in_regenerated}"
-    )
-    unexplained = only_in_original - set(KNOWN_MANUAL_EXCEPTIONS)
-    assert not unexplained, (
-        "dashboard.js has drifted from the codemod's expected output in a way "
-        "OTHER than the known manual exceptions in KNOWN_MANUAL_EXCEPTIONS above "
+    assert result.returncode == 0, (
+        "dashboard.js has drifted from the codemod's expected output "
         f"(hand-edited generated block, or a new top-level function/variable added "
-        f"without regenerating census_report.json?):\n{unexplained}"
+        f"without regenerating census_report.json?):\n{result.stdout}{result.stderr}"
     )
