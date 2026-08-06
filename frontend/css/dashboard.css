@@ -847,6 +847,20 @@ body.chart-modal-open{overflow:hidden}
   .lot-table-wrap,.matrix-wrap{background-image:linear-gradient(to right,#fff 0,rgba(255,255,255,0) 18px),linear-gradient(to left,#fff 0,rgba(255,255,255,0) 18px);background-repeat:no-repeat;background-attachment:local,local;background-position:left center,right center;background-size:18px 100%,18px 100%}
 }
 
+/* 6.3 (system review 2026-08-04, finding `ui-inconsistent-wide-table-pattern`):
+   pinned identifying column + a collapsible "extra" column group, reusable by
+   any .lot-table-wrap wide enough to need it. Opt in per table via the
+   pinned-col/cols-collapsed wrap classes and data-col-group="extra" on the
+   secondary <th>/<td> cells; the phone card layout above already replaces
+   the whole grid, so this only applies where columns are still columns. */
+@media(min-width:481px){
+  .lot-table-wrap.pinned-col .lot-table th:first-child,
+  .lot-table-wrap.pinned-col .lot-table td:first-child{position:sticky;left:0;z-index:2;background:#fffdf8}
+  .lot-table-wrap.pinned-col .lot-table th:first-child{z-index:3;background:#fbfaf7}
+}
+.lot-table-wrap.cols-collapsed .lot-table [data-col-group="extra"]{display:none}
+.col-group-toggle{margin-left:auto}
+
 /* Graphical YES/NO toggle switch, replacing plain <select> dropdowns for
    every boolean field. Two text spans (toggle-text-yes/-no) are shown/hidden
    purely via the :checked sibling selector so the visible label updates
