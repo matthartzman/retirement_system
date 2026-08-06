@@ -1,0 +1,4596 @@
+{
+  "schema": "dashboard_census_v2",
+  "functions": [
+    "_checkAppStatusRun",
+    "_isViewingDetailedResults",
+    "_updateDetailGroupStatus",
+    "accountDisplayLabel",
+    "acronymDefinitionsHtml",
+    "activeOptimizerUsedTarget",
+    "addAltOption",
+    "addBudgetLine",
+    "addCategoryDetailRow",
+    "addEducation529Section",
+    "addGroupDetailRow",
+    "addLargeDiscLine",
+    "addLiability",
+    "addManualYtdAccount",
+    "addMappingRule",
+    "addNoteReceivable",
+    "addOtherAssetItem",
+    "addParentheticals",
+    "addSelectedYtdAccount",
+    "addUniqueRow",
+    "addYtdAccount",
+    "addYtdTxn",
+    "adminBuildChangeSummaryHtml",
+    "allocationCommonRows",
+    "allocationCoverageCalloutHtml",
+    "allocationModeHtml",
+    "allocationModeIsComputed",
+    "allocationModeRow",
+    "allocationOptimizerRecommendationHtml",
+    "allocationPageRecommendations",
+    "allocationPolicyRows",
+    "allocationPreviewFingerprint",
+    "allocationPreviewRowsForPost",
+    "allocationRowsOrNote",
+    "allocationSelectionMode",
+    "allocationTargetRows",
+    "allocationTargetTotalPct",
+    "allocationTargetsValid",
+    "allocationTotalHtml",
+    "alternateAssetRows",
+    "alternateAssetSourceOptions",
+    "alternateSelect",
+    "analysisFrame",
+    "api",
+    "apiUrl",
+    "applySavedScenarioSet",
+    "applyScenarioTemplate",
+    "artifactHashFromPreflight",
+    "assetActionForSubsection",
+    "assetCategory",
+    "assetClassNamesForAllocation",
+    "autoCollapseHelpForNarrowLaptop",
+    "baseHomeSaleYearRow",
+    "beginEdit",
+    "blurBudgetMoney",
+    "blurYtdAccountMoney",
+    "blurYtdTxnAmount",
+    "boolishValue",
+    "budgetAmount",
+    "budgetMoneyInputValue",
+    "budgetMoneyNumber",
+    "budgetSectionIsSummary",
+    "budgetSectionLines",
+    "buildChangeSummaryHtml",
+    "buildHistoryEntryHtml",
+    "buildHistoryProvenance",
+    "buildHistoryProvenanceHtml",
+    "buildImpactCardsHtml",
+    "buildImpactNarrativeHtml",
+    "buildImpactSourceLinksHtml",
+    "buildImpactSuggestionsHtml",
+    "buildKpiDial",
+    "buildSessionSummaryHtml",
+    "buildSourceJumpHtml",
+    "buildWithDesktopProgress",
+    "cacheChart",
+    "capturedSessionChanges",
+    "catDetailLines",
+    "catDetailSum",
+    "catEffectiveBudget",
+    "changeImpactScope",
+    "changeKey",
+    "chatMessageHtml",
+    "checkAppStatus",
+    "checklistItemStatus",
+    "choiceHelpText",
+    "choiceLabel",
+    "choiceOptions",
+    "choiceValue",
+    "chooseDefaultDetailedSheet",
+    "classKey",
+    "clearHousingNextStep",
+    "clearSpendingCaches",
+    "clientDataKey",
+    "cloneSummary",
+    "closeChartModal",
+    "closeExitModal",
+    "closeNavDrawer",
+    "closeoutItem",
+    "collapseAllDetailGroups",
+    "copyOptimizerOverrideToUserTargets",
+    "coreSpendingGrowthMode",
+    "csvEscape",
+    "currencyRaw",
+    "currentKpi",
+    "currentManualOverrideItems",
+    "currentScenarioOverrideItems",
+    "currentSpendingTreeForDomain",
+    "decimalsFromText",
+    "deduplicateYtdTransactions",
+    "defaultPlanDataPath",
+    "deleteAllYtdTransactions",
+    "deleteBudgetLine",
+    "deleteBuildHistoryEntry",
+    "deleteCategoryBudget",
+    "deleteCategoryDetailRow",
+    "deleteLargeDiscLine",
+    "deleteLiability",
+    "deleteMappingRule",
+    "deleteNoteReceivable",
+    "deleteOtherAssetItem",
+    "deleteSavedScenarioSet",
+    "deleteTaxonomyCat",
+    "deleteTaxonomyGroup",
+    "deleteYtdAccount",
+    "deleteYtdTxn",
+    "dependencyRank",
+    "deriveAfterTaxTerminalNw",
+    "deriveTotalRothConversions",
+    "detailColumnGroupKey",
+    "detailProgressState",
+    "detailedProgressHtml",
+    "detailedSheetByName",
+    "discardAndExit",
+    "dismissMessage",
+    "displayValueForInput",
+    "dollars0",
+    "domainBudgetNote",
+    "domainBudgetTitle",
+    "domainLineSections",
+    "downloadBlob",
+    "downloadFile",
+    "downloadWithBuild",
+    "downloadYtdTemplate",
+    "editValue",
+    "ensureHelpPanelVisible",
+    "ensureLiabilityRows",
+    "ensurePlanFolderPermission",
+    "escapeRegExp",
+    "estimateHousingFromState",
+    "exitApp",
+    "expandAllDetailColumnsOnPage",
+    "expandAllDetailGroups",
+    "exportCsvBackup",
+    "fetchPlanDataFiles",
+    "fetchText",
+    "fetchWithTimeout",
+    "fieldAllowedValues",
+    "fieldConnection",
+    "fieldControlOnly",
+    "fieldDefaultMeaning",
+    "fieldFinderCategoryName",
+    "fieldFinderCategoryOrder",
+    "fieldFinderStepOrder",
+    "fieldGuidance",
+    "fieldHtml",
+    "fieldLabelNoteHtml",
+    "fieldLikelyImpact",
+    "fieldNumericValue",
+    "fieldSizeClass",
+    "fieldTooltipHtml",
+    "fieldTooltipPreview",
+    "filterChoiceOptionsForRow",
+    "findAssetRow",
+    "findCsvByName",
+    "findEditableRow",
+    "findMatrixCell",
+    "findRows",
+    "findTargetRow",
+    "finishEdit",
+    "finiteOrNull",
+    "firstFinite",
+    "firstRunChecklistHtml",
+    "fmtDelta",
+    "fmtPctCell",
+    "fmtPctDelta",
+    "focusBudgetMoney",
+    "focusYtdAccountMoney",
+    "focusYtdTxnAmount",
+    "focusableEntries",
+    "formatAcronyms",
+    "freezePricingSnapshot",
+    "friendlyGroup",
+    "getStrategyTab",
+    "goToReportsTab",
+    "goToStrategyTab",
+    "groupCatIds",
+    "groupCatSum",
+    "groupEffectiveBudget",
+    "groupIsSummary",
+    "groupKeyFor",
+    "groupModelData",
+    "handleImportPlanFiles",
+    "handleImportPlanFolder",
+    "handleYtdTransactionUpload",
+    "hasAnnuityDeathBenefits",
+    "hasAny",
+    "hasExplicitBudget",
+    "hasUnsavedPlanChanges",
+    "helocModuleEnabled",
+    "helpList",
+    "hideSpendingModelLoadOverlay",
+    "hideUnusedTemplateCategories",
+    "hideYtdLoadOverlay",
+    "homeSaleActivationYearRow",
+    "homeSaleScenarioYearRow",
+    "homeValueLabelIsCanonical",
+    "householdPersonRow",
+    "housingAreaTypeSelect",
+    "housingRentIsConfigured",
+    "housingRentMonthlyValue",
+    "humanLabel",
+    "humanizeGroupKey",
+    "illustrationPlanYears",
+    "impactCardHtml",
+    "impactDirectionWord",
+    "importPlanDataContents",
+    "importPreviewList",
+    "inactiveRowsForStep",
+    "inactiveValueDisplay",
+    "inactiveValuesPanel",
+    "incomeStreamSubsections",
+    "irmaaModeValue",
+    "isDateField",
+    "isEditable",
+    "isMissing",
+    "isRequired",
+    "jumpRecommendationSource",
+    "kpiHasValues",
+    "largeDiscCategoryFromType",
+    "largeDiscTypeFromLine",
+    "latestBuildImpactHtml",
+    "leverPctPoints",
+    "liabilityFieldsForType",
+    "lineBelongsToDomain",
+    "listFolderFileNames",
+    "loadAll",
+    "loadAnnualizedActuals",
+    "loadBudgetLines",
+    "loadBuildHistory",
+    "loadCanonicalGlossary",
+    "loadDetailedResultSheet",
+    "loadDetailedResults",
+    "loadMappingRules",
+    "loadSavedPlan",
+    "loadSpendingModel",
+    "loadTaxFreshnessStatus",
+    "loadTaxonomy",
+    "loadTaxonomyBudget",
+    "loadTemplateGroup",
+    "loadYtdStatus",
+    "logoutSaas",
+    "ltcLifePolicyModuleEnabled",
+    "makeYtdAccountRow",
+    "markBudgetLinesDirty",
+    "markLiabilitiesDirty",
+    "markMatrixDirty",
+    "markYtdAccountsDirty",
+    "markYtdTransactionsDirty",
+    "matrixKey",
+    "matrixPolicies",
+    "matrixRows",
+    "matrixYears",
+    "mcEngineModeValue",
+    "mcEngineRow",
+    "mcEngineToggleHtml",
+    "mergeDetailedSheetMeta",
+    "mergeProtectedClientData",
+    "mhBool",
+    "mhMoney",
+    "mhOnOff",
+    "mhPct",
+    "mhRow",
+    "mhText",
+    "modelHeardHtml",
+    "moneyHtml",
+    "moneyNegativeClass",
+    "moveToNextEntry",
+    "navigationContext",
+    "nbaPanelHtml",
+    "norm",
+    "normalizePlanDataTextForCompare",
+    "normalizePlanningCaseRunType",
+    "normalizePlanningCaseSource",
+    "normalizeValueForSave",
+    "normalizeYtdActualsPeriod",
+    "normalizedAssetSourceName",
+    "noteReceivableRow",
+    "noteReceivableRows",
+    "noteReceivableSubsections",
+    "noteSessionFieldChange",
+    "noteSpecialSessionChange",
+    "numberDisplayDecimals",
+    "openCachedChart",
+    "openCurrentPlan",
+    "openDemoPlan",
+    "openExitModal",
+    "openNavDrawer",
+    "openNextCollapsedSectionFrom",
+    "openPathPrompt",
+    "openSystemAdmin",
+    "openSystemConfigurationConsole",
+    "optimizerInputRows",
+    "optimizerOverrideHasEntries",
+    "optimizerOverrideRows",
+    "optimizerOverrideTotalHtml",
+    "optimizerOverrideTotalPct",
+    "optimizerOverrideValid",
+    "optimizerPreviewStatusCell",
+    "optimizerPreviewTarget",
+    "optionalFunctionEnabled",
+    "optionalModuleState",
+    "orderedRowsByLabel",
+    "otherAssetInputCell",
+    "otherAssetRow",
+    "otherAssetRows",
+    "otherAssetSubsections",
+    "otherAssetTypeCell",
+    "overallStats",
+    "pageHelp",
+    "pageRecommendationsForStep",
+    "pageRecommendationsHtml",
+    "pageSaveMode",
+    "pageSaveModeHtml",
+    "pageStatusHtml",
+    "parseCsvLine",
+    "parseCsvTable",
+    "parseDollarLike",
+    "parsePercentInput",
+    "percentDisplayDecimals",
+    "percentRaw",
+    "personCellInput",
+    "personDisplayName",
+    "personNickPlaceholder",
+    "personTokenLabel",
+    "planStateArtifactsReady",
+    "planStateFresh",
+    "planningCaseActiveId",
+    "planningCaseAdopt",
+    "planningCaseArchive",
+    "planningCaseBaseSnapshotId",
+    "planningCaseCardsHtml",
+    "planningCaseCreate",
+    "planningCaseDelete",
+    "planningCaseId",
+    "planningCaseMatrixHtml",
+    "planningCaseMetricSummary",
+    "planningCaseNowIso",
+    "planningCaseOverrideFromRow",
+    "planningCaseOverrideTable",
+    "planningCaseOverridesForSource",
+    "planningCaseReadAll",
+    "planningCaseSaveAll",
+    "planningCaseSourceButtons",
+    "planningLeverBase",
+    "planningLeverRows",
+    "planningLeversBaselineReady",
+    "planningLeversPlaceholder",
+    "planningWorkbenchBuildImpactHtml",
+    "planningWorkbenchContext",
+    "planningWorkbenchStressSelectorHtml",
+    "postPlanDataFile",
+    "primaryActionForStep",
+    "promotePlanningCase",
+    "promptSavePlanDataFiles",
+    "pushBuildHistoryEntry",
+    "pushPlanDataContents",
+    "rawRowsForStep",
+    "readFileFromFolder",
+    "readLocalCsvFile",
+    "readPlanDataFolderContents",
+    "readYtdActualsPeriod",
+    "recAdd",
+    "recFindBy",
+    "recFindStepRow",
+    "recRowValue",
+    "recStepRows",
+    "recYes",
+    "recentChangesLogHtml",
+    "recommendationSourceButton",
+    "recoverPriorSpendingBudget",
+    "recoverYtdAccountSetup",
+    "refreshBuildStatus",
+    "refreshFromPlanFolder",
+    "refreshLivePrices",
+    "refreshPreflightForReview",
+    "reloadBudgetLineDefaults",
+    "reloadDomainBudget",
+    "reloadSpendingSetup",
+    "rememberBuildCompare",
+    "renderAllocationPolicy",
+    "renderAllocationRecommendation",
+    "renderAssetClassSelectionTable",
+    "renderAssetsCashReserves",
+    "renderAssetsSpecial",
+    "renderBaseHomeSaleRows",
+    "renderBuildImpactPage",
+    "renderBuildPreflightPanel",
+    "renderCategoryMappingRules",
+    "renderCollapsibleDomainBudgetSection",
+    "renderCoreSpendingUnified",
+    "renderCurrentAllocationModeNote",
+    "renderCurrentScenarioOverridesHtml",
+    "renderDafConfig",
+    "renderDeathBenefitsTable",
+    "renderDetailedResults",
+    "renderDetailedResultsNav",
+    "renderDetailedResultsProgressTick",
+    "renderDistributionStrategy",
+    "renderDivorceOptions",
+    "renderDomainBudgetPage",
+    "renderDomainBudgetTable",
+    "renderEntityCharitable",
+    "renderEstateWithAnnuityLink",
+    "renderFieldFinderGroups",
+    "renderFieldGroups",
+    "renderFields",
+    "renderHELOCInputsOnOtherPage",
+    "renderHoldingPeriodSettingsHtml",
+    "renderHomeSaleScenarioRows",
+    "renderHouseholdPeople",
+    "renderHsaPolicyOnOtherAssets",
+    "renderIncomeStreamsSection",
+    "renderIncomeWork",
+    "renderLargeDiscretionaryBudgetPage",
+    "renderLiabilitiesTable",
+    "renderLifeIllustrations",
+    "renderLifestyleSpending",
+    "renderLtcStress",
+    "renderMain",
+    "renderMaxSharpeAllocationPanel",
+    "renderMeta",
+    "renderMonteCarloOptions",
+    "renderNav",
+    "renderNextHousingStepSection",
+    "renderNoteInterestTable",
+    "renderNoteReceivableTable",
+    "renderOptimizerAllocationPanel",
+    "renderOptimizerOverrideTable",
+    "renderOptimizerPreviewNote",
+    "renderOptionalFunctions",
+    "renderOtherAssetItemsTable",
+    "renderPlanDataReport",
+    "renderPlanningLevers",
+    "renderPlanningWorkbench",
+    "renderRealLossAwarePanel",
+    "renderRealLossAwareTuningHtml",
+    "renderReportsAndReview",
+    "renderReportsBuild",
+    "renderReportsPreflight",
+    "renderRetirementIncome",
+    "renderRetirementWellness",
+    "renderReview",
+    "renderReviewCloseoutChecklist",
+    "renderRothConversion",
+    "renderRothMissingNotice",
+    "renderRothRows",
+    "renderSavedScenarioSetsHtml",
+    "renderScenarioManagementPanel",
+    "renderScenarioTemplatesHtml",
+    "renderScenarios",
+    "renderSpecialIncomeAnnuitiesInsurance",
+    "renderSpecialStrategies",
+    "renderSpendingBudgetInput",
+    "renderSpendingCore",
+    "renderSpendingDashboardOrLoad",
+    "renderSpendingHousing",
+    "renderSpendingSetup",
+    "renderSpendingWorkflowBanner",
+    "renderSsCompactTable",
+    "renderSsPolicySection",
+    "renderStateResidency",
+    "renderSteps",
+    "renderStrategyTabs",
+    "renderStressSellHomeRows",
+    "renderSurvivorStress",
+    "renderSystemConfiguration",
+    "renderTabbedWorkspace",
+    "renderTangencyAllocationPanel",
+    "renderTaxonomyBudgetTable",
+    "renderTaxonomyManager",
+    "renderTotalWealthAllocationHtml",
+    "renderTravelBudgetPage",
+    "renderWelcome",
+    "renderWithdrawalOrderTable",
+    "renderWithdrawalStrategy",
+    "renderWorkbenchLeverEditorHtml",
+    "renderWorkbenchStressHtml",
+    "renderWorkspaceSubtabsNav",
+    "renderYearMatrix",
+    "renderYtdAccounts",
+    "renderYtdCategoriesStep",
+    "renderYtdDuplicateReview",
+    "renderYtdSummary",
+    "renderYtdTopCategories",
+    "renderYtdTopIncomeCategories",
+    "renderYtdTracking",
+    "renderYtdTransactions",
+    "renderYtdTransactionsStep",
+    "renderYtdUploadPanel",
+    "reportFreshnessNotice",
+    "reportsUiContext",
+    "requestAllocationPreview",
+    "resetAllocationPreview",
+    "resetDemoToDefaults",
+    "resetYtdTxnPage",
+    "restoreGroupBudgetModes",
+    "restoreWorkbookViewState",
+    "revealAndFocus",
+    "revealInactiveRow",
+    "revertLastBuildChanges",
+    "revertToBuildHistoryEntry",
+    "rollForwardYtdAccounts",
+    "rothPageRecommendations",
+    "rothPolicyValue",
+    "rowActionValue",
+    "rowBuildUsageState",
+    "rowByNormLabel",
+    "rowConfigValue",
+    "rowIsBaseHomeSaleInput",
+    "rowIsCanonicalHomeBasis",
+    "rowIsCanonicalHomeValue",
+    "rowIsDivorceScenario",
+    "rowIsEconomyScenario",
+    "rowIsHomeSaleAssumption",
+    "rowIsMonteCarlo",
+    "rowIsRentInput",
+    "rowIsRetiredScenarioHomeDuplicate",
+    "rowIsRetirementWellness",
+    "rowIsStressSellHomeInput",
+    "rowModuleGate",
+    "rowSortKeyForIncomeWork",
+    "rowValueIsMeaningful",
+    "rowsByLabel",
+    "rowsForStep",
+    "rowsNotIn",
+    "runBuild",
+    "saveAll",
+    "saveAndExit",
+    "saveBudgetLines",
+    "saveBuildHistory",
+    "saveChanges",
+    "saveCurrentPlanToSelectedFolderForBuild",
+    "saveCurrentScenarioSet",
+    "saveLiabilities",
+    "saveMappingRulesData",
+    "savePlanAs",
+    "savePlanDataToFolder",
+    "savePlanDataToPath",
+    "saveSpendingBudgetAll",
+    "saveSpendingSetupAll",
+    "saveTaxonomyBudgetData",
+    "saveValueForRow",
+    "saveWorkbookViewState",
+    "saveWorkingCopy",
+    "saveYtdAccountSetup",
+    "saveYtdPending",
+    "saveYtdTransactions",
+    "scenarioActiveOverrideItems",
+    "scenarioCurrentItems",
+    "scenarioDiffTableHtml",
+    "scenarioFieldName",
+    "scenarioFindRow",
+    "scenarioRowKey",
+    "scenarioRowKeyFromParts",
+    "scenarioRowsForManagement",
+    "scenarioSetDiffItems",
+    "scenarioStoredSets",
+    "scenarioTemplateById",
+    "scenarioTemplateDiffItems",
+    "scenarioWriteSets",
+    "scheduleStatusUpdate",
+    "section",
+    "sectionFlagEnabled",
+    "seedHousingRows",
+    "seedWellnessOop",
+    "selectPlanDataForImport",
+    "selectedFolderDiffersFromLoadedPlan",
+    "selectionActionRows",
+    "selectionActionSelect",
+    "serializeCsvTable",
+    "serializeLiabilities",
+    "setAllDetailColumnGroups",
+    "setAllocationSelectionMode",
+    "setAppControls",
+    "setAutoLoad",
+    "setBudgetSectionMode",
+    "setCategoryBudgetMode",
+    "setCombinedSearch",
+    "setDetailedResultSheet",
+    "setDetailedResultsNavOpen",
+    "setGroupBudgetMode",
+    "setLiabilityType",
+    "setMcEngineMode",
+    "setNavSearch",
+    "setPlanningCaseActive",
+    "setPlanningLeverInput",
+    "setReportsTab",
+    "setSearch",
+    "setSearchScope",
+    "setSelectionAction",
+    "setStep",
+    "setStrategyTab",
+    "setYtdActualsPeriod",
+    "setYtdDirtyButtonStates",
+    "setYtdSort",
+    "setYtdTxnPage",
+    "shortHash",
+    "showConfigCardHelp",
+    "showFieldHelp",
+    "showHelpAutoCollapseNoticeOnce",
+    "showInAppConfirm",
+    "showInAppPrompt",
+    "showMessage",
+    "showPlanDataFileManifest",
+    "showSaveDiscardStayModal",
+    "showSpendingModelLoadOverlay",
+    "showStepHelp",
+    "showTaxonomyAddForm",
+    "showYtdBlendChoiceModal",
+    "showYtdLoadOverlay",
+    "shutdownAndClose",
+    "sleep",
+    "socialSecurityPageRecommendations",
+    "sortRowsByDependency",
+    "sourceStepForRow",
+    "sourceStepForSpecialLabel",
+    "spendingFlowFooterHtml",
+    "spendingPageRecommendations",
+    "spendingRowAnnualized",
+    "spendingRowBudget",
+    "spendingRowHasValue",
+    "spendingRowProjectionSeed",
+    "spendingRowYtd",
+    "ssActiveCell",
+    "ssClaimFactor",
+    "ssMonthlyAtClaimAgeCell",
+    "ssPersonRows",
+    "startDetailedResultsProgress",
+    "startNewPlan",
+    "stepGatedByOptionalModule",
+    "stepHelpLinkHtml",
+    "stepIdForRow",
+    "stepSearchText",
+    "stepStats",
+    "stepTitleById",
+    "stopDetailedResultsProgress",
+    "storageValueForInput",
+    "strategyLeverOverrideItems",
+    "strategyTabKey",
+    "stressHomeSaleYearRow",
+    "stressOverrideItems",
+    "stripUiLabelPrefix",
+    "submitAddTaxonomy",
+    "suggestedNext",
+    "summaryFromApiPayload",
+    "syncBackends",
+    "syncCategoryTotal",
+    "syncTaxonomyBudgetToBudgetLines",
+    "takeBuildSnapshot",
+    "targetPctInput",
+    "taxFreshnessBannerHtml",
+    "taxonomyCategoryOptionsHtml",
+    "titleWord",
+    "toIsoDateValue",
+    "toggleDetailColGroup",
+    "toggleDetailColumnGroup",
+    "toggleHelpSheet",
+    "toggleNavDrawer",
+    "trackingBudgetTypesForDomain",
+    "translatePersonPlaceholders",
+    "translatePersonValueLabel",
+    "travelTypeList",
+    "undoSessionFieldChange",
+    "unfreezePricingSnapshot",
+    "unsavedChangeCount",
+    "updateBudgetLine",
+    "updateCategoryDetail",
+    "updateCategoryDetailMoney",
+    "updateGroupDetailCategory",
+    "updateLargeDiscLine",
+    "updateLargeDiscLineMoney",
+    "updateLiability",
+    "updateMappingRule",
+    "updatePlanStateBanner",
+    "updateSearchToggle",
+    "updateTaxAddGroups",
+    "updateTaxBudget",
+    "updateTaxBudgetMoney",
+    "updateUnsaved",
+    "updateYtdAccount",
+    "updateYtdAccountMoney",
+    "updateYtdTxn",
+    "updateYtdTxnAmount",
+    "updates",
+    "valOf",
+    "validateAllocationTargetsOrMessage",
+    "valueKind",
+    "versionPrefixSuggestion",
+    "visibleAssetSpecialRow",
+    "visibleBudgetLinesForDomain",
+    "visibleSteps",
+    "wireStepNavigation",
+    "withdrawalOtherRows",
+    "writeFileHandle",
+    "writePlanDataFilesToFolder",
+    "yesNoOptionHelp",
+    "ytdAccountMoneyDisplay",
+    "ytdAccountOptions",
+    "ytdAccountRoleOptions",
+    "ytdActualsPeriodToggleHtml",
+    "ytdAmountIsNegative",
+    "ytdBlendEnabledRow",
+    "ytdBlendToggleHtml",
+    "ytdCancelDedup",
+    "ytdDate",
+    "ytdDateAwarePageBoundaries",
+    "ytdDeleteSelectedDuplicates",
+    "ytdExistingValues",
+    "ytdFilterOptions",
+    "ytdFilteredTxns",
+    "ytdFirstExistingValue",
+    "ytdHeader",
+    "ytdImportPreviewMessage",
+    "ytdInvestmentHoldingAccounts",
+    "ytdInvestmentOptions",
+    "ytdIsGrowthRole",
+    "ytdMappableAccounts",
+    "ytdMetricCard",
+    "ytdMissingAccountOptions",
+    "ytdMoney",
+    "ytdPct",
+    "ytdPeriodTargetYear",
+    "ytdRawMoney",
+    "ytdRolloverBannerHtml",
+    "ytdSelectAllDuplicates",
+    "ytdSelectFieldHtml",
+    "ytdSelectOptions",
+    "ytdShortDate",
+    "ytdSparkline",
+    "ytdStaleGrowthAccounts",
+    "ytdToggleDuplicateGroup",
+    "ytdToggleDuplicateSelect",
+    "ytdTransactionAccounts",
+    "ytdTxPageBoundaries",
+    "ytdTxYear",
+    "ytdTxnMoneyDisplay",
+    "ytdTxnPager",
+    "ytdTxnsForPeriod",
+    "ytdUpdateDedupDeleteBtn"
+  ],
+  "variables": [
+    "ACRONYMS",
+    "ACRONYM_DEFINITIONS",
+    "BUILD_HISTORY_LS_KEY",
+    "BUILD_HISTORY_MAX",
+    "BUILD_IMPACT_SOURCE_STEP_IDS",
+    "DEFAULT_TRAVEL_TYPES",
+    "FIELD_GUIDANCE_OVERRIDES",
+    "FIELD_TOOLTIPS",
+    "FIXED_WITHDRAWAL_CASCADE_DESCRIPTION",
+    "GROUP_KEY_LABELS",
+    "IRMAA_OFF_MODES",
+    "LARGE_DISC_CATEGORY_IDS",
+    "LARGE_DISC_TYPES",
+    "LIABILITY_HEADER",
+    "LIABILITY_LABELS",
+    "LIABILITY_TYPES",
+    "LIABILITY_TYPE_FIELDS",
+    "OTHER_ASSET_TYPES",
+    "PERSON_TABLE_LABELS",
+    "PERSON_VALUE_TOKEN_RE",
+    "PLAN_DATA_FILES",
+    "PROTECTED_CLIENT_DATA_KEYS",
+    "RECOMMENDATION_ENGINE_VERSION",
+    "RECOMMENDATION_STEP_IDS",
+    "REPORTS_TABS",
+    "REQUIRED_PLAN_DATA_FILES",
+    "ROTH_ENGINE_LABELS",
+    "ROTH_IRMAA_LABELS",
+    "ROTH_LEGACY_LABELS",
+    "ROTH_PRIMARY_LABELS",
+    "ROTH_WINDOW_LABELS",
+    "SCENARIO_SET_STORAGE_KEY",
+    "SCENARIO_TEMPLATES",
+    "SPENDING_COMPLETION",
+    "SPENDING_WORKFLOW_INDEX",
+    "SPENDING_WORKFLOW_STEPS",
+    "STEPS",
+    "STEP_HELP",
+    "STRATEGY_TABS",
+    "SUGGESTED_NEXT",
+    "SYSTEM_CONFIG_FIELD_HELP",
+    "TERM_NOTES",
+    "YTD_ACTUALS_PERIOD_LS_KEY",
+    "YTD_TX_PAGE_SIZE",
+    "_LOOKS_INTERNAL",
+    "_autoHelpCollapsedActive",
+    "_autoLoadPref",
+    "_smoothCap",
+    "_smoothDelayTimer",
+    "_smoothFromPct",
+    "_smoothIntervalTimer",
+    "_smoothSpeed",
+    "_smoothStart",
+    "activeDetailedSheet",
+    "activePlanReportSection",
+    "activeStep",
+    "allocationPreview",
+    "allocationPreviewError",
+    "allocationPreviewKey",
+    "allocationPreviewLoading",
+    "allocationPreviewSeq",
+    "apiBase",
+    "appCheckPromise",
+    "appExiting",
+    "appReady",
+    "budgetLines",
+    "budgetLinesChanged",
+    "budgetLinesLoaded",
+    "budgetSectionMode",
+    "buildHistory",
+    "buildOverlayDepth",
+    "buildOverlayLastPct",
+    "buildOverlayLastTitle",
+    "buildOverlayStartedAt",
+    "buildOverlayTimer",
+    "buildPreflight",
+    "buildProgressTicker",
+    "categoryBudgetMode",
+    "chartCache",
+    "chartCacheSeq",
+    "csrfToken",
+    "demoModeActive",
+    "detailResultsSearchText",
+    "detailedColumnGroupsOpen",
+    "detailedResultSheetError",
+    "detailedResultSheetInFlight",
+    "detailedResultSheetLoading",
+    "detailedResultSheetLoadingName",
+    "detailedResultSheetSeq",
+    "detailedResultSheets",
+    "detailedResultsData",
+    "detailedResultsError",
+    "detailedResultsIndexInFlight",
+    "detailedResultsLoading",
+    "detailedResultsNavOpen",
+    "detailedResultsProgress",
+    "detailedResultsProgressTimer",
+    "dirty",
+    "estateStateOptions",
+    "forcedConversionAccounts",
+    "forcedConversions",
+    "forcedConversionsChanged",
+    "groupBudgetMode",
+    "inactiveEditReveals",
+    "lastBuildCompare",
+    "lastBuildOk",
+    "lastBuildSummary",
+    "liabilitiesChanged",
+    "liabilitiesText",
+    "liabilityRowsCache",
+    "liquidityBuffers",
+    "liquidityChanged",
+    "mappingRules",
+    "moduleGates",
+    "moduleStatus",
+    "navSearchText",
+    "planChatMessages",
+    "planFileNames",
+    "planFolderHandle",
+    "planFolderName",
+    "planLoaded",
+    "planSource",
+    "planningLeverInputs",
+    "reportsActiveTab",
+    "rows",
+    "rulesChanged",
+    "runtime",
+    "searchScope",
+    "searchText",
+    "sessionBaselineCaptured",
+    "sessionBaselineSummary",
+    "sessionChanges",
+    "sessionSpecialChanges",
+    "spendingModelData",
+    "spendingModelError",
+    "spendingModelLoading",
+    "statusTimer",
+    "taxBudget",
+    "taxBudgetChanged",
+    "taxBudgetLoaded",
+    "taxFreshnessData",
+    "taxFreshnessLoading",
+    "taxonomyData",
+    "taxonomyError",
+    "taxonomyFlat",
+    "taxonomyLoading",
+    "travelExtras",
+    "travelExtrasChanged",
+    "travelTypes",
+    "ytdAccountFilter",
+    "ytdAccountsChanged",
+    "ytdActualsPeriod",
+    "ytdCategoryFilter",
+    "ytdData",
+    "ytdDuplicateGroups",
+    "ytdDuplicateSelected",
+    "ytdTransactionsChanged",
+    "ytdTxColsCollapsed",
+    "ytdTxPage",
+    "ytdTxSearch",
+    "ytdTxSort"
+  ],
+  "external_references": [
+    {
+      "name": "csrfToken",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "csrfToken",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "csrfToken",
+      "file": "frontend/js/admin.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/admin.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/admin.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "groupKeyFor",
+      "file": "frontend/js/admin.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/admin.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/admin.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/admin.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/admin.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/admin.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/admin.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/admin.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/app_store.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/app_store.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "translatePersonPlaceholders",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "translatePersonPlaceholders",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "isEditable",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "valOf",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rowsForStep",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "searchText",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "searchText",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showInAppConfirm",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "editValue",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "updateUnsaved",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "setAppControls",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "appReady",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "csvEscape",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "csvEscape",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "downloadBlob",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showInAppConfirm",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "updates",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "updates",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "updates",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_batch_assumption_edit.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayStartedAt",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayStartedAt",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayDepth",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayDepth",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayStartedAt",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayTimer",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayTimer",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayTimer",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayTimer",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayTimer",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayTimer",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayLastTitle",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayLastPct",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_smoothIntervalTimer",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_smoothCap",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showInAppConfirm",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "setAppControls",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayDepth",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayDepth",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayDepth",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayTimer",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayTimer",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayTimer",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayStartedAt",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayLastTitle",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayLastPct",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildProgressTicker",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildProgressTicker",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildProgressTicker",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayTimer",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayTimer",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayTimer",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_smoothFromPct",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_smoothCap",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_smoothSpeed",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_smoothStart",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_smoothIntervalTimer",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_smoothStart",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_smoothCap",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_smoothFromPct",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_smoothCap",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_smoothFromPct",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_smoothSpeed",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayLastPct",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayLastTitle",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_smoothDelayTimer",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_smoothDelayTimer",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_smoothDelayTimer",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_smoothDelayTimer",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_smoothIntervalTimer",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_smoothIntervalTimer",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_smoothIntervalTimer",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_smoothStart",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sleep",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "summaryFromApiPayload",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "kpiHasValues",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "cloneSummary",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sessionBaselineSummary",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sessionBaselineCaptured",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "cloneSummary",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sessionBaselineSummary",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liabilitiesChanged",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liabilitiesText",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtrasChanged",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtras",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liquidityChanged",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liquidityBuffers",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "forcedConversionsChanged",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "forcedConversions",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "storageValueForInput",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "noteSessionFieldChange",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "displayValueForInput",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "displayValueForInput",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "noteSpecialSessionChange",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liabilitiesText",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liabilityRowsCache",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liabilitiesChanged",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "noteSpecialSessionChange",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtras",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtrasChanged",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "noteSpecialSessionChange",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liquidityBuffers",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liquidityChanged",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "noteSpecialSessionChange",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "forcedConversions",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "forcedConversionsChanged",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "noteSpecialSessionChange",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "updateUnsaved",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planLoaded",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "setAppControls",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "appReady",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showStepHelp",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "estateStateOptions",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "estateStateOptions",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rowsForStep",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "fieldHtml",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "estateStateOptions",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "estateStateOptions",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rowsForStep",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showInAppPrompt",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "loadAll",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planSource",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showInAppPrompt",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showInAppPrompt",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "loadAll",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planSource",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rowsForStep",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "translatePersonPlaceholders",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "valOf",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "valOf",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "translatePersonPlaceholders",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "fieldHtml",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rowsForStep",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "humanizeGroupKey",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "valOf",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "choiceOptions",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "choiceValue",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "choiceLabel",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "formatAcronyms",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "displayValueForInput",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "boolishValue",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sortRowsByDependency",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "searchText",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderFields",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rowsForStep",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sortRowsByDependency",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sortRowsByDependency",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sortRowsByDependency",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sortRowsByDependency",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sortRowsByDependency",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "optionalFunctionEnabled",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sortRowsByDependency",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "valOf",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "fieldHtml",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "optionalFunctionEnabled",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rowsForStep",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "illustrationPlanYears",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "loadAll",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planSource",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showInAppConfirm",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "loadAll",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planSource",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "parseCsvLine",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "csvEscape",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "csvEscape",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "updateUnsaved",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "setAppControls",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "appReady",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "scheduleStatusUpdate",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showInAppPrompt",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showInAppConfirm",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showInAppConfirm",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "accountDisplayLabel",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdMoney",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "importPreviewList",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "importPreviewList",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showInAppConfirm",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "noteSpecialSessionChange",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "accountDisplayLabel",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "humanLabel",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "accountDisplayLabel",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "humanLabel",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "isEditable",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "fieldHtml",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "apiUrl",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planLoaded",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "kpiHasValues",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "currentKpi",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planLoaded",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "overallStats",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planLoaded",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showInAppConfirm",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_local_backups.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_local_backups.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_local_backups.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_local_backups.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_local_backups.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_local_backups.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_local_backups.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_local_backups.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_local_backups.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_local_backups.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_local_backups.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_local_backups.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_local_backups.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_local_backups.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_local_backups.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_local_backups.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_local_backups.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_local_backups.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_local_backups.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_local_backups.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "noteSpecialSessionChange",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtrasChanged",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "updateUnsaved",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "setAppControls",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "appReady",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "scheduleStatusUpdate",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtras",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtras",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtras",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showInAppConfirm",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtras",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtras",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtras",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "currencyRaw",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtras",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtras",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtras",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelTypeList",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtras",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtras",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtras",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelTypes",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "DEFAULT_TRAVEL_TYPES",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtrasChanged",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtras",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelTypes",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "DEFAULT_TRAVEL_TYPES",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtrasChanged",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtras",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtrasChanged",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "noteSpecialSessionChange",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liquidityChanged",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "updateUnsaved",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "setAppControls",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "appReady",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "scheduleStatusUpdate",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liquidityBuffers",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liquidityBuffers",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liquidityBuffers",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liquidityBuffers",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liquidityBuffers",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showInAppConfirm",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liquidityBuffers",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liquidityBuffers",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liquidityBuffers",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liquidityBuffers",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liquidityChanged",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liquidityBuffers",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liquidityChanged",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liquidityBuffers",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liquidityChanged",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "forcedConversionAccounts",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "forcedConversions",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "noteSpecialSessionChange",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "forcedConversionsChanged",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "updateUnsaved",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "setAppControls",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "appReady",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "scheduleStatusUpdate",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "forcedConversions",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "forcedConversions",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "forcedConversions",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showInAppConfirm",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "forcedConversions",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "forcedConversions",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "forcedConversions",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "accountDisplayLabel",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "accountDisplayLabel",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "forcedConversions",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "forcedConversionAccounts",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "forcedConversionsChanged",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "forcedConversions",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "forcedConversionAccounts",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "forcedConversionsChanged",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "forcedConversions",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "forcedConversionsChanged",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_workbook_formatting.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_workbook_formatting.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_workbook_formatting.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_workbook_formatting.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_workbook_formatting.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_workbook_formatting.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_workbook_formatting.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_workbook_formatting.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_workbook_formatting.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/dashboard_decomp_workbook_formatting.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/dashboard_decomp_workbook_formatting.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_workbook_formatting.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ACRONYM_DEFINITIONS",
+      "file": "frontend/js/dashboard_source_truth_banners.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ACRONYM_DEFINITIONS",
+      "file": "frontend/js/dashboard_source_truth_banners.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_source_truth_banners.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_source_truth_banners.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_source_truth_banners.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "visibleSteps",
+      "file": "frontend/js/dashboard_source_truth_banners.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "setStep",
+      "file": "frontend/js/dashboard_source_truth_banners.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planLoaded",
+      "file": "frontend/js/dashboard_source_truth_banners.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "checklistItemStatus",
+      "file": "frontend/js/dashboard_source_truth_banners.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_source_truth_banners.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "hasUnsavedPlanChanges",
+      "file": "frontend/js/dashboard_source_truth_banners.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "hasUnsavedPlanChanges",
+      "file": "frontend/js/dashboard_source_truth_banners.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_source_truth_banners.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "saveAll",
+      "file": "frontend/js/dashboard_source_truth_banners.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "runBuild",
+      "file": "frontend/js/dashboard_source_truth_banners.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_source_truth_banners.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_source_truth_banners.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showStepHelp",
+      "file": "frontend/js/dashboard_source_truth_banners.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showStepHelp",
+      "file": "frontend/js/dashboard_source_truth_banners.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planLoaded",
+      "file": "frontend/js/navigation.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planLoaded",
+      "file": "frontend/js/navigation.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "updateSearchToggle",
+      "file": "frontend/js/navigation.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "updateSearchToggle",
+      "file": "frontend/js/navigation.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planLoaded",
+      "file": "frontend/js/navigation.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "setStep",
+      "file": "frontend/js/navigation.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "wireStepNavigation",
+      "file": "frontend/js/navigation.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderNav",
+      "file": "frontend/js/navigation.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "setNavSearch",
+      "file": "frontend/js/navigation.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "updateSearchToggle",
+      "file": "frontend/js/navigation.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "setSearchScope",
+      "file": "frontend/js/navigation.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "setCombinedSearch",
+      "file": "frontend/js/navigation.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "focusableEntries",
+      "file": "frontend/js/navigation.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "translatePersonPlaceholders",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "translatePersonPlaceholders",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "currentScenarioOverrideItems",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "strategyLeverOverrideItems",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "stressOverrideItems",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "currentManualOverrideItems",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "saveAll",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "saveAll",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "saveAll",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "currentManualOverrideItems",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "saveAll",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "currentManualOverrideItems",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "currentScenarioOverrideItems",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "strategyLeverOverrideItems",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "stressOverrideItems",
+      "file": "frontend/js/planning_workbench_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "norm",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "section",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "detailedProgressHtml",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "detailedResultsError",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "detailedResultsData",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "detailedResultsError",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "detailedResultsData",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "detailedResultsError",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "detailedProgressHtml",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "setDetailedResultsNavOpen",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderDetailedResultsNav",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderDetailedResults",
+      "file": "frontend/js/reports_ui.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "api",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTransactionsChanged",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdAccountsChanged",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildOk",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "updateUnsaved",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "showMessage",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderYtdSummary",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderYtdSummary",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "closeChartModal",
+      "file": "frontend/index.html (inline)",
+      "kind": "call",
+      "scope": "inside-function"
+    }
+  ],
+  "reassigned_functions": [
+    "renderMain",
+    "showStepHelp"
+  ],
+  "externally_referenced_variables": [
+    "ACRONYM_DEFINITIONS",
+    "DEFAULT_TRAVEL_TYPES",
+    "_smoothCap",
+    "_smoothDelayTimer",
+    "_smoothFromPct",
+    "_smoothIntervalTimer",
+    "_smoothSpeed",
+    "_smoothStart",
+    "activeStep",
+    "appReady",
+    "buildOverlayDepth",
+    "buildOverlayLastPct",
+    "buildOverlayLastTitle",
+    "buildOverlayStartedAt",
+    "buildOverlayTimer",
+    "buildProgressTicker",
+    "csrfToken",
+    "detailedResultsData",
+    "detailedResultsError",
+    "dirty",
+    "estateStateOptions",
+    "forcedConversionAccounts",
+    "forcedConversions",
+    "forcedConversionsChanged",
+    "lastBuildOk",
+    "lastBuildSummary",
+    "liabilitiesChanged",
+    "liabilitiesText",
+    "liabilityRowsCache",
+    "liquidityBuffers",
+    "liquidityChanged",
+    "planLoaded",
+    "planSource",
+    "rows",
+    "searchText",
+    "sessionBaselineCaptured",
+    "sessionBaselineSummary",
+    "travelExtras",
+    "travelExtrasChanged",
+    "travelTypes",
+    "ytdAccountsChanged",
+    "ytdTransactionsChanged"
+  ]
+}
