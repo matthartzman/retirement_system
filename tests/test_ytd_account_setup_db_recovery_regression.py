@@ -12,6 +12,7 @@ def test_ytd_account_setup_save_mirrors_to_sqlite_and_recovery_endpoint_exists()
 
 def test_ytd_ui_exposes_one_time_recovery_and_database_save_language():
     text = Path('frontend/js/dashboard.js').read_text(encoding='utf-8')
+    text += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     assert 'recoverYtdAccountSetup' in text
     assert 'Recover previous setup' in text
     assert 'save to the local database' in text

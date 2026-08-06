@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_roth_conversion_controls_moved_to_user_ui_not_admin_editor():
     admin = (ROOT / 'frontend/js/admin.js').read_text(encoding='utf-8')
     user = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
+    user += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     assert 'id: "roth_conversion"' in user
     assert "Roth conversion strategy" in user
     assert '(sec === "Withdrawal Policy" &&' in user
@@ -34,6 +35,7 @@ def test_engine_parses_and_uses_headroom_and_estate_controls():
 
 def test_roth_user_page_uses_visible_purpose_built_layout():
     user = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
+    user += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     assert 'function renderRothConversion()' in user
     assert 'details class="roth-section"' in user or "details class='roth-section'" in user
     assert "ROTH_PRIMARY_LABELS" in user
@@ -51,6 +53,7 @@ def test_roth_user_page_uses_visible_purpose_built_layout():
 
 def test_choice_schema_fields_render_as_select_controls():
     user = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
+    user += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     assert 'function choiceOptions' in user
     assert 'type === "choice" || norm(units) === "choice"' in user
     assert '<select data-row=' in user

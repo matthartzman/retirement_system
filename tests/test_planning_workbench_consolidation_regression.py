@@ -23,6 +23,7 @@ def test_planning_workbench_contract_helper_validates_shape():
 
 def test_dashboard_adds_planning_workbench_step_and_case_store():
     js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
 
     assert 'id: "planning_workbench"' in js
     assert 'title: "Planning Workbench"' in js
@@ -37,6 +38,7 @@ def test_dashboard_adds_planning_workbench_step_and_case_store():
 
 def test_planning_workbench_route_is_available_before_plan_load():
     dashboard = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    dashboard += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     navigation = (ROOT / "frontend" / "js" / "navigation.js").read_text(encoding="utf-8")
 
     assert (
@@ -53,6 +55,7 @@ def test_planning_workbench_route_is_available_before_plan_load():
 
 def test_legacy_pages_use_workbench_language_and_preserve_routes():
     js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
 
     for step_id in ["planning_levers", "scenarios", "monte_carlo_options", "build_impact"]:
         assert f'id: "{step_id}"' in js

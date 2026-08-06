@@ -65,6 +65,7 @@ class Item195RmdSsClaimAgeDedupTests(unittest.TestCase):
 
     def test_per_member_rmd_and_claim_age_are_reachable_on_guided_steps(self):
         js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+        js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
         # #239 (ticket list update): member_1_/2_rmd_start_age moved from
         # Economic & Tax Assumptions to a dedicated "RMD start age" column on
         # the Household & People table -- explicitly excluded from

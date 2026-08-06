@@ -95,7 +95,7 @@ class AllocationUIBackfillRowsTests(unittest.TestCase):
 
 class DashboardJsStringPresenceTests(unittest.TestCase):
     def read_js(self):
-        return JS.read_text(encoding="utf-8")
+        return JS.read_text(encoding="utf-8") + (JS_DIR / "dashboard_decomp_row_model.js").read_text(encoding="utf-8")
 
     def test_real_loss_aware_present_in_mode_dropdown_and_buttons(self):
         # Asserts the mode is WIRED UP, not what its label happens to say. The
@@ -142,7 +142,7 @@ class DashboardJsRuntimeBehaviorTests(unittest.TestCase):
         script = tmp_path / "dashboard_real_loss_aware_smoke.js"
         harness = textwrap.dedent(f"""
             const fs = require('fs');
-            const code = {_smoke_sources_js_array()}.map(f => fs.readFileSync(f, 'utf8').replace(/^export (async )?function /gm, '$1function ')).join('\\n');
+            const code = {_smoke_sources_js_array()}.map(f => fs.readFileSync(f, 'utf8').replace(/^export (async )?function /gm, '$1function ').replace(/^export (const|let|var) /gm, '$1 ')).join('\\n');
             const el = () => ({{
               style: {{}}, innerHTML: '', textContent: '', value: '', disabled: false,
               classList: {{ toggle(){{}}, remove(){{}}, add(){{}}, contains(){{return false;}} }},

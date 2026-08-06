@@ -4,8 +4,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _run_build_function(js: str) -> str:
+    # saveAll/runBuild both live in dashboard_decomp_row_model.js now (domain-
+    # module-split shared-core extraction); downloadWithBuild is the next
+    # top-level declaration after runBuild in that file. "function
+    # downloadFile" (a different, similarly-named function) stayed in
+    # dashboard.js and is no longer physically adjacent to runBuild.
     start = js.index("async function runBuild")
-    return js[start: js.index("function downloadFile", start)]
+    return js[start: js.index("async function downloadWithBuild", start)]
 
 
 def _save_all_function(js: str) -> str:
@@ -14,14 +19,15 @@ def _save_all_function(js: str) -> str:
 
 
 def test_save_plan_data_does_not_reload_selected_folder_over_unsaved_ui_state():
-    js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
+    js = (ROOT / "frontend/js/dashboard_decomp_row_model.js").read_text(encoding="utf-8")
     save_all = _save_all_function(js)
     assert "loadLocalPlanDataFirst" not in save_all
 
 
 def test_build_never_silently_reloads_selected_folder_over_loaded_plan():
-    js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
-    run_build = _run_build_function(js)
+    row_model_js = (ROOT / "frontend/js/dashboard_decomp_row_model.js").read_text(encoding="utf-8")
+    js = row_model_js + (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
+    run_build = _run_build_function(row_model_js)
     assert 'const hadUnsaved = hasUnsavedPlanChanges()' in run_build
     assert "loadLocalPlanDataFirst" not in run_build
     assert "selectedFolderDiffersFromLoadedPlan" in js

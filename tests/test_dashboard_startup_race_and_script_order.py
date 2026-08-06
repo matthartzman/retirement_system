@@ -89,7 +89,12 @@ def _node_smoke(js_body: str, tmp_path: Path) -> str:
         // Extract just the pieces under test (avoids needing the whole
         // ~16k-line file's other top-level boot side effects for this smoke).
         const startMarker = 'let appCheckPromise = null;';
-        const endMarker = 'function setAppControls(on) {{';
+        // setAppControls moved to dashboard_decomp_row_model.js (domain-module-
+        // split shared-core extraction, 2026-08-06) -- it's no longer text that
+        // follows checkAppStatus/_checkAppStatusRun in dashboard.js, so it can't
+        // be the end-of-region marker anymore. seedHousingRows is the next
+        // top-level declaration after _checkAppStatusRun in the current file.
+        const endMarker = 'async function seedHousingRows() {{';
         const startIdx = code.indexOf(startMarker);
         const endIdx = code.indexOf(endMarker);
         if (startIdx < 0 || endIdx < 0) throw new Error('markers not found');

@@ -26,6 +26,7 @@ def _norm(s: str) -> str:
 
 def test_user_ui_roth_step_matches_normalized_subsection_names():
     js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
+    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
     assert 'case "roth_conversion"' in js
     # rowsForStep() normalizes subsection names before comparison. Comparing to
     # title-case values made only forced-conversion rows visible.

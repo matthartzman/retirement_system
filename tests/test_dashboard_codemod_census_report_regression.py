@@ -43,7 +43,13 @@ def test_census_script_runs_successfully():
 
 def test_census_function_and_variable_counts_are_in_expected_bands():
     report = json.loads(REPORT_PATH.read_text(encoding="utf-8"))
-    assert 700 <= len(report["functions"]) <= 900
+    # 2026-08-06: band lowered from 700-900 to 500-650 -- domain-module-split
+    # shared-core extraction (docs/superpowers/plans/
+    # 2026-08-06-dashboard-js-domain-module-split-SCOPE.md) moved 172
+    # fan-in>=3 hub functions out of dashboard.js into
+    # dashboard_decomp_row_model.js; census.mjs only counts dashboard.js's own
+    # remaining top-level functions.
+    assert 500 <= len(report["functions"]) <= 650
     assert len(report["variables"]) >= 10
     assert set(report["functions"]).isdisjoint(report["variables"])
 
@@ -64,7 +70,11 @@ def test_known_externally_referenced_variables_are_still_detected():
 def test_known_const_variables_needing_get_only_are_still_detected():
     report = json.loads(REPORT_PATH.read_text(encoding="utf-8"))
     const_and_referenced = set(report["const_variables"]) & set(report["externally_referenced_variables"])
-    assert const_and_referenced >= {"ACRONYM_DEFINITIONS", "DEFAULT_TRAVEL_TYPES"}
+    # ACRONYM_DEFINITIONS moved to dashboard_decomp_row_model.js (domain-
+    # module-split shared-core extraction, 2026-08-06) -- census.mjs only
+    # scans dashboard.js itself, so it's no longer a dashboard.js-internal
+    # const/external-reference finding. DEFAULT_TRAVEL_TYPES stayed.
+    assert const_and_referenced >= {"DEFAULT_TRAVEL_TYPES"}
 
 
 def test_no_reassigned_function_is_ever_a_const_variable():
