@@ -776,8 +776,15 @@ export function planningLeverBase() {
   // persisted build history (same source Reports & Review > Impact and the
   // Planning Workbench use) before giving up to the hardcoded defaults.
   loadBuildHistory();
-  const historyKpi =
-    (buildHistory && buildHistory[0] && buildHistory[0].kpi) || {};
+  const histEntry = (buildHistory && buildHistory[0]) || null;
+  // buildHistory[*].kpi is a minimal 3-field cache (inheritable_nw,
+  // lifetime_tax, mc_success) meant for lightweight badges; it has none of
+  // the fields deriveAfterTaxTerminalNw()/PTI need, so a history-fallback
+  // summary built from .kpi alone silently produces PTI: NaN (renders "--")
+  // even though the full raw KPI snapshot was captured right alongside it in
+  // .after. Prefer .after (falling back to .kpi only if a snapshot predates
+  // that field being captured) so PTI/estate-tax figures actually resolve.
+  const historyKpi = (histEntry && (histEntry.after || histEntry.kpi)) || {};
   const summary =
     (lastBuildCompare && lastBuildCompare.after) ||
     lastBuildSummary ||
@@ -804,7 +811,12 @@ export function planningLeverBase() {
         .replace(/[^0-9]/g, ""),
     ) || 2056;
   const years = Math.max(1, end - start + 1);
-  const success = Number.isFinite(k.mc_success) ? k.mc_success : 40;
+  // currentKpi().mc_success is the raw backend fraction (0-1), same as every
+  // other consumer of currentKpi() output -- buildImpactCardsHtml() multiplies
+  // by 100 before display for exactly this reason. This call site skipped that
+  // conversion, so a 99% success rate rendered as "1%" (fmtPct treats its
+  // input as already on a 0-100 scale, it does not itself multiply by 100).
+  const success = Number.isFinite(k.mc_success) ? k.mc_success * 100 : 40;
   return {
     terminal: Number.isFinite(k.terminal_nw) ? k.terminal_nw : 0,
     pti: Number.isFinite(k.post_tax_inheritance)
