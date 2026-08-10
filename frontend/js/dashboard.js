@@ -9775,7 +9775,7 @@ function renderCategoryMappingRules() {
   html +=
     '<button class="btn" onclick="loadMappingRules(true)">Reload</button></div>';
   html +=
-    '<div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Match text</th><th>Match source</th><th>Exact?</th><th>Target category</th><th>Priority</th><th></th></tr></thead><tbody>';
+    '<div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Match text</th><th>Match source</th><th style="width:64px">Exact?</th><th>Target category</th><th>Priority</th><th style="width:64px"></th></tr></thead><tbody>';
   if (!rules.length) {
     html +=
       '<tr><td colspan="6" class="small" style="padding:12px">No auto-mapping rules defined. Add a rule only for merchant/category text that should be classified the same way every time.</td></tr>';
@@ -9795,7 +9795,7 @@ function renderCategoryMappingRules() {
         opts =
           `<option value="${esc(current)}" selected>${esc(current)}</option>` +
           opts;
-      html += `<tr><td><input value="${esc(rule.keyword)}" oninput="updateMappingRule(${i},'keyword',this.value)" style="width:160px"></td><td><select onchange="updateMappingRule(${i},'match_field',this.value)"><option value="category"${rule.match_field === "category" ? " selected" : ""}>Category text</option><option value="merchant"${rule.match_field === "merchant" ? " selected" : ""}>Merchant text</option></select></td><td style="text-align:center"><input type="checkbox" ${rule.exact ? "checked" : ""} onchange="updateMappingRule(${i},'exact',this.checked)"></td><td><select onchange="updateMappingRule(${i},'category_id',this.value)" style="min-width:260px"><option value="" ${current ? "" : "selected"}>Select category…</option>${opts}</select></td><td><input type="number" value="${rule.priority || 50}" oninput="updateMappingRule(${i},'priority',parseInt(this.value)||50)" style="width:70px"></td><td><button class="danger-link" onclick="deleteMappingRule(${i})">Delete</button></td></tr>`;
+      html += `<tr><td><input value="${esc(rule.keyword)}" oninput="updateMappingRule(${i},'keyword',this.value)" style="width:160px"></td><td><select onchange="updateMappingRule(${i},'match_field',this.value)"><option value="category"${rule.match_field === "category" ? " selected" : ""}>Category text</option><option value="merchant"${rule.match_field === "merchant" ? " selected" : ""}>Merchant text</option></select></td><td style="width:64px;text-align:center"><input type="checkbox" ${rule.exact ? "checked" : ""} onchange="updateMappingRule(${i},'exact',this.checked)"></td><td><select onchange="updateMappingRule(${i},'category_id',this.value)" style="min-width:260px"><option value="" ${current ? "" : "selected"}>Select category…</option>${opts}</select></td><td><input type="number" value="${rule.priority || 50}" oninput="updateMappingRule(${i},'priority',parseInt(this.value)||50)" style="width:70px"></td><td style="width:64px;white-space:nowrap"><button class="danger-link" onclick="deleteMappingRule(${i})">Delete</button></td></tr>`;
     });
   }
   html += "</tbody></table></div></div>";
