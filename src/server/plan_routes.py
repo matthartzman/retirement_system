@@ -421,6 +421,15 @@ def allocation_preview():
     return jsonify(payload), status
 
 
+@app.route("/api/daf/recommendation", methods=["POST"])
+def daf_recommendation():
+    denied = _require("read_config")
+    if denied:
+        return denied
+    payload, status = _config_feature_service().daf_recommendation_payload(request.get_json(silent=True) or {})
+    return jsonify(payload), status
+
+
 @app.route("/api/config/rows", methods=["POST"])
 def update_config_rows():
     denied = _require("write_config")
