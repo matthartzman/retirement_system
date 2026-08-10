@@ -490,7 +490,31 @@ def get_workbook_format():
     alignments = _wf.load_alignments()
     workbook_path = _workspace_output() / "retirement_plan.xlsx"
     tree = _wf.build_format_tree(workbook_path, overrides, alignments)
-    return jsonify({"success": True, "schema": "workbook_format_v1", "overrides": overrides, "alignments": alignments, **tree})
+    # The "Automatic" width shown per column is read straight from this
+    # physical .xlsx file -- not recomputed live -- so it silently goes
+    # stale the moment a width/alignment edit is saved without an
+    # intervening rebuild (reported live: user sets an override, the page
+    # later shows it as "Automatic" with no way to tell that's just because
+    # a build happened to run since, not because anything reflects the
+    # *current* saved state). Surface that gap explicitly rather than let
+    # the UI imply "Automatic" is a live default.
+    overrides_stale = False
+    try:
+        workbook_mtime = workbook_path.stat().st_mtime if workbook_path.exists() else 0
+        for p in (_wf.overrides_path(), _wf.alignments_path()):
+            if p.exists() and p.stat().st_mtime > workbook_mtime:
+                overrides_stale = True
+                break
+    except OSError:
+        pass
+    return jsonify({
+        "success": True,
+        "schema": "workbook_format_v1",
+        "overrides": overrides,
+        "alignments": alignments,
+        "overrides_stale": overrides_stale,
+        **tree,
+    })
 
 
 @app.route("/api/workbook-format", methods=["POST"])

@@ -151,6 +151,10 @@ def build_preflight_payload(
             summary = json.loads((output_dir / "plan_summary.json").read_text(encoding="utf-8"))
         except Exception as exc:
             warnings.append(f"Prior build summary could not be read: {exc}")
+        else:
+            format_warning = summary.get("format_override_warning")
+            if format_warning:
+                warnings.append(str(format_warning))
     else:
         recommendations.append("A successful build will create plan_summary.json for KPI status.")
 

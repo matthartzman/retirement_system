@@ -241,3 +241,73 @@ def test_routes_and_ui_wired():
     assert "function setWorkbookColAlign" in js
     nav = (ROOT / "frontend" / "js" / "navigation.js").read_text(encoding="utf-8")
     assert "workbook_formatting" in nav
+
+
+def _seed_built_workbook(output: Path) -> Path:
+    output.mkdir(parents=True, exist_ok=True)
+    wb_path = output / "retirement_plan.xlsx"
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Test Sheet"
+    ws["A1"] = "TITLE"
+    ws["A2"] = "Header"
+    ws.column_dimensions["A"].width = 8.71
+    wb.save(wb_path)
+    return wb_path
+
+
+def test_get_workbook_format_route_flags_overrides_saved_after_last_build(monkeypatch, tmp_path):
+    """Reported live: a saved column-width override can be edited without an
+    intervening rebuild, so the "Automatic"/"Last built" width shown on the
+    page is really just whatever happened to be baked into the last .xlsx --
+    stale relative to the override the user just saved, with nothing on the
+    page saying so. overrides_stale compares the overrides file's mtime
+    against the built workbook's mtime and must flip true the moment an
+    override is saved after that build, and back to false once a fresh build
+    (a newer workbook file) supersedes it."""
+    import time
+
+    from src.server import app
+    import src.server.workbook_routes as workbook_routes
+
+    output = tmp_path / "output"
+    wb_path = _seed_built_workbook(output)
+    monkeypatch.setattr(workbook_routes, "_workspace_output", lambda: output)
+    monkeypatch.setattr(wf, "overrides_path", lambda input_dir=None: tmp_path / "workbook_format_overrides.json")
+    monkeypatch.setattr(wf, "alignments_path", lambda input_dir=None: tmp_path / "workbook_format_alignments.json")
+
+    client = app.test_client()
+    headers = {"X-User-Role": "admin"}
+
+    # No overrides saved yet -- not stale.
+    resp = client.get("/api/workbook-format", headers=headers)
+    assert resp.status_code == 200
+    assert resp.get_json()["overrides_stale"] is False
+
+    # Save an override -- its file's mtime is now newer than the workbook's.
+    # The sleep guards against filesystem mtime resolution ties: back-to-back
+    # writes within the same tick would otherwise compare equal, not >.
+    time.sleep(0.05)
+    resp = client.post(
+        "/api/workbook-format",
+        headers=headers,
+        json={"overrides": {"Test Sheet": {"A": 9.43}}},
+    )
+    assert resp.status_code == 200
+
+    resp = client.get("/api/workbook-format", headers=headers)
+    payload = resp.get_json()
+    assert payload["overrides_stale"] is True
+    col_a = payload["sheets"][0]["tables"][0]["columns"][0]
+    assert col_a["col"] == "A"
+    assert col_a["width"] == 8.71  # still the stale, pre-rebuild width
+    assert col_a["overridden"] is True  # the save itself did land
+
+    # A rebuild (a newer workbook file) supersedes the pending override.
+    time.sleep(0.05)
+    wb2 = openpyxl.load_workbook(wb_path)
+    wb2["Test Sheet"].column_dimensions["A"].width = 9.43
+    wb2.save(wb_path)
+
+    resp = client.get("/api/workbook-format", headers=headers)
+    assert resp.get_json()["overrides_stale"] is False

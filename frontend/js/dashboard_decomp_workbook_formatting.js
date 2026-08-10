@@ -142,6 +142,15 @@ export async function setWorkbookColWidth(sheet, col, value) {
     });
     if (!out || !out.success) throw new Error((out && out.error) || "unknown error");
     workbookFormatData.overrides = out.overrides;
+    if (workbookFormatData) workbookFormatData.overrides_stale = true;
+    // The overridden row stays blue for as long as the override is active --
+    // that's a permanent "this column is pinned" marker, not an unsaved
+    // indicator (reported live as confusing: looked stuck "unsaved" after a
+    // successful save). This is the one distinct "it saved" signal.
+    showMessage(
+      width > 0 ? `Column ${col} width saved.` : `Column ${col} reset to automatic width.`,
+      "success",
+    );
   } catch (e) {
     _wfSetOverrideLocal(sheet, col, prevVal);
     showMessage(
@@ -171,6 +180,11 @@ export async function setWorkbookColAlign(sheet, col, align) {
     });
     if (!out || !out.success) throw new Error((out && out.error) || "unknown error");
     workbookFormatData.alignments = out.alignments;
+    if (workbookFormatData) workbookFormatData.overrides_stale = true;
+    showMessage(
+      align ? `Column ${col} alignment saved.` : `Column ${col} reset to automatic alignment.`,
+      "success",
+    );
   } catch (e) {
     _wfSetAlignLocal(sheet, col, prevVal);
     showMessage(
@@ -218,7 +232,7 @@ export function _wfColumnHtml(sheet, colNode) {
   const resetBtn = overridden
     ? `<button class="btn tiny" type="button" onclick="resetWorkbookCol('${escJs(sheet)}','${escJs(col)}')">Reset</button>`
     : "";
-  return `<div class="wf-col-row${overridden ? " wf-col-overridden" : ""}"><span class="wf-col-title" title="${title}">${title}</span><span class="wf-col-meta">col ${esc(col)}</span><label class="wf-col-width">Width <input type="number" min="1" max="255" step="0.5" value="${esc(String(eff))}" onchange="setWorkbookColWidth('${escJs(sheet)}','${escJs(col)}',this.value)" onkeydown="wfWidthInputKeydown(event)" /></label><span class="small wf-col-default">Automatic: ${esc(String(colNode.width))}</span>${resetBtn}${_wfAlignHtml(sheet, col, colNode)}</div>`;
+  return `<div class="wf-col-row${overridden ? " wf-col-overridden" : ""}"><span class="wf-col-title" title="${title}">${title}</span><span class="wf-col-meta">col ${esc(col)}</span><label class="wf-col-width">Width <input type="number" min="1" max="255" step="0.5" value="${esc(String(eff))}" onchange="setWorkbookColWidth('${escJs(sheet)}','${escJs(col)}',this.value)" onkeydown="wfWidthInputKeydown(event)" /></label><span class="small wf-col-default">Last built: ${esc(String(colNode.width))}</span>${resetBtn}${_wfAlignHtml(sheet, col, colNode)}</div>`;
 }
 
 export function _wfTableHtml(sheet, tableNode, showTableLayer) {
@@ -264,6 +278,9 @@ export function renderWorkbookFormatting() {
   if (!workbookFormatData || !workbookFormatData.available) {
     return `<div class="workbook-format-panel">${back}${header}<div class="section-note warn">No built workbook found yet. Build the workbook once (Reports &amp; Review → Build), then return here to fine-tune column widths.</div></div>`;
   }
+  const staleNotice = workbookFormatData.overrides_stale
+    ? `<div class="section-note warn">One or more saved overrides were edited after the workbook shown below was built. "Last built" widths on this page reflect that older build, not your latest edits — the edits themselves are saved and will apply on your next rebuild. <button class="btn tiny" type="button" data-step-id="reports_and_review">Rebuild now</button></div>`
+    : "";
   const sheetNodes = workbookFormatData.sheets || [];
   const maxSheetNameLen = sheetNodes.reduce(
     (m, s) => Math.max(m, (s.display || s.sheet || "").length),
@@ -273,7 +290,7 @@ export function renderWorkbookFormatting() {
     .map((s) => _wfSheetHtml(s, maxSheetNameLen))
     .join("");
   const toolbar = `<div class="wf-toolbar"><button class="btn" type="button" onclick="refreshWorkbookFormat()">Reload from last build</button> <span class="small">Changes save automatically as you edit</span></div>`;
-  return `<div class="workbook-format-panel">${back}${header}${toolbar}<div class="wf-sheets">${sheets}</div></div>`;
+  return `<div class="workbook-format-panel">${back}${header}${staleNotice}${toolbar}<div class="wf-sheets">${sheets}</div></div>`;
 }
 
 // Wave 6.4 ("leaves inward" ES-module migration, 'settings' leaf): the
