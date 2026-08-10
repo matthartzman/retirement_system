@@ -96,6 +96,20 @@
     // jscodeshift's node.start/.end are only valid byte offsets on a CRLF
     // source -- on an LF checkout (Linux/CI) all 584 of dashboard.js's
     // top-level functions slice wrong. Do not "unify" them back.
+    // v6 (docs/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md):
+    // second domain cluster, same extract_module.mjs tool as v5, no tool
+    // changes needed. Re-ran tools/js_codemod/find_clusters.mjs against the
+    // post-v5 graph (the whole point of re-running it each time -- v5's
+    // extraction changed which functions are still glued together) and took
+    // the next clean, self-contained component: the 24-function build-history
+    // list (view/revert/delete a saved build snapshot) and "what the model
+    // heard" latest-build impact summary, into
+    // frontend/js/dashboard_decomp_build_history.js. No constant tables moved
+    // this time -- BUILD_HISTORY_MAX/BUILD_IMPACT_SOURCE_STEP_IDS looked like
+    // v5's LIABILITY_* candidates at first glance but are also read directly
+    // by dashboard_decomp_row_model.js, so unlike v5's tables these are
+    // genuinely shared and stayed behind the existing accessors. Loaded
+    // BEFORE dashboard.js, same slot as v5. ~12 domain clusters remain.
     loaded_by:'dashboard_source_truth_banners.js',
     compatibility:'dashboard.js remains the public behavior owner; its top-level surface is now bridged to window explicitly and tool-verified (tests/test_dashboard_js_module_bridge_regression.py) instead of implicitly global.'
   };

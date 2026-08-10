@@ -65,7 +65,12 @@ JS_DIR = ROOT / "frontend" / "js"
 # (liabilities, note receivables, 529s, other-asset items) plus the 4 constant
 # tables only it reads into frontend/js/dashboard_decomp_assets_other.js.
 # Set at the post-extraction measurement with no headroom.
-DASHBOARD_JS_MAX_LINES = 14_822
+# 2026-08-10: lowered from 14,822 -- second domain-cluster extraction, same
+# spec/tool as above: tools/js_codemod/extract_module.mjs moved the
+# 24-function build-history / "what the model heard" cluster into
+# frontend/js/dashboard_decomp_build_history.js. Set at the post-extraction
+# measurement with no headroom.
+DASHBOARD_JS_MAX_LINES = 14_067
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling
