@@ -102,3 +102,63 @@ def test_build_preflight_blocks_missing_required_and_schema_errors(monkeypatch, 
     assert payload["schema_error_count"] == 1
     assert any("required Plan Data" in item for item in payload["blockers"])
     assert any("schema validation" in item for item in payload["blockers"])
+
+
+def test_build_preflight_surfaces_format_override_warning(monkeypatch, tmp_path):
+    """A workbook build that fails to apply saved column-width/alignment
+    overrides (workbook_builder.py's apply_overrides() try/except) used to
+    only print to console -- invisible to anyone not watching a terminal.
+    plan_summary.json's format_override_warning field is the one place that
+    failure is now recorded, and this preflight panel is the UI surface a
+    user actually sees, so the wiring between the two must not regress."""
+    output = tmp_path / "output"
+    db = tmp_path / "local_state" / "retirement_system_v10.db"
+    output.mkdir(parents=True)
+    (output / "plan_summary.json").write_text(
+        '{"qc_result": "QC: pass", "format_override_warning": '
+        '"Workbook format overrides (column widths/alignment) were not applied: boom"}',
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(workbook_routes, "_workspace_output", lambda: output)
+    monkeypatch.setattr(workbook_routes, "_sqlite_db", lambda: db)
+    def fake_file_meta(path):
+        p = Path(path)
+        if p == db:
+            return _meta(p, mtime=100)
+        return _meta(p, mtime=120)
+
+    monkeypatch.setattr(workbook_routes, "_file_meta", fake_file_meta)
+    monkeypatch.setattr(workbook_routes, "_csv_rows_payload", lambda: {"rows": []})
+    monkeypatch.setattr(workbook_routes, "_schema_validate_rows", lambda rows: [])
+
+    payload = workbook_routes._build_preflight_payload()
+
+    assert any("were not applied" in item for item in payload["warnings"])
+
+
+def test_build_preflight_omits_format_override_warning_when_absent(monkeypatch, tmp_path):
+    """The common case: no override failure, so the field is null/missing and
+    must not produce a phantom warning."""
+    output = tmp_path / "output"
+    db = tmp_path / "local_state" / "retirement_system_v10.db"
+    output.mkdir(parents=True)
+    (output / "plan_summary.json").write_text(
+        '{"qc_result": "QC: pass", "format_override_warning": null}', encoding="utf-8"
+    )
+
+    monkeypatch.setattr(workbook_routes, "_workspace_output", lambda: output)
+    monkeypatch.setattr(workbook_routes, "_sqlite_db", lambda: db)
+    def fake_file_meta(path):
+        p = Path(path)
+        if p == db:
+            return _meta(p, mtime=100)
+        return _meta(p, mtime=120)
+
+    monkeypatch.setattr(workbook_routes, "_file_meta", fake_file_meta)
+    monkeypatch.setattr(workbook_routes, "_csv_rows_payload", lambda: {"rows": []})
+    monkeypatch.setattr(workbook_routes, "_schema_validate_rows", lambda rows: [])
+
+    payload = workbook_routes._build_preflight_payload()
+
+    assert not any("were not applied" in item for item in payload["warnings"])

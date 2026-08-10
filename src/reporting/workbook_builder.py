@@ -1124,13 +1124,19 @@ def main():
     # are applied last so they win over both the heuristic pass and the
     # reference template.
     protected_width_columns = {}
+    format_override_warning = None
     try:
         from .workbook_format_config import apply_overrides as _apply_format_overrides, apply_alignments as _apply_format_alignments, overridden_width_columns as _overridden_width_columns
         _apply_format_overrides(wb, sheet_renames=FINAL_SHEET_RENAMES)
         _apply_format_alignments(wb, sheet_renames=FINAL_SHEET_RENAMES)
         protected_width_columns = _overridden_width_columns(wb, sheet_renames=FINAL_SHEET_RENAMES)
     except Exception as _fmt_exc:  # never let optional formatting block a build
-        print(f'Warning: workbook format overrides not applied: {_fmt_exc}')
+        # Surfaced in plan_summary.json below (not just printed) so a build
+        # that silently drops every saved column-width/alignment override
+        # shows up in the UI's Build Preflight panel instead of only a
+        # console line nobody watching the app ever sees.
+        format_override_warning = f'Workbook format overrides (column widths/alignment) were not applied: {_fmt_exc}'
+        print(f'Warning: {format_override_warning}')
     # Widen any numeric column that would otherwise render "#####" at its
     # current width before row heights are computed from final widths --
     # except a column the user explicitly overrode above, which must keep
@@ -1211,6 +1217,7 @@ def main():
         'validation_fail_count': int((validation_summary or {}).get('fail_count', 0) or 0),
         'validation_warn_count': int((validation_summary or {}).get('warn_count', 0) or 0),
         'validation_first_fail': (validation_summary or {}).get('first_fail'),
+        'format_override_warning': format_override_warning,
     }
     try:
         after_tax_kpis = estimate_after_tax_terminal_net_worth(c, terminal)
