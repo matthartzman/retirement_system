@@ -371,7 +371,16 @@ def csv_template() -> str:
 
 
 def load_transactions_from_csv_text(text: str) -> tuple[list[dict[str, str]], list[str]]:
-    f = io.StringIO(text or "")
+    text = text or ""
+    # A UTF-8 BOM (common from Excel/broker CSV exports, and preserved by some
+    # browser FileReader/upload paths) attaches to the first header cell
+    # ('Date' becomes '﻿Date'), which fails the exact-header-match check
+    # below and rejects an otherwise well-formed file with "received 0" rows.
+    # Same bug class as client_holdings.csv's BOM issue -- strip it here since
+    # this path receives raw text (not a file we control the open() call for).
+    if text.startswith("﻿"):
+        text = text[1:]
+    f = io.StringIO(text)
     reader = csv.DictReader(f)
     if not reader.fieldnames:
         return [], ["CSV is empty or missing a header row."]
