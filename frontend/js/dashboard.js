@@ -3841,8 +3841,8 @@ function choiceOptions(r) {
     allocation_selection_mode: [
       { value: "user_target", label: "Use user-specified allocation" },
       { value: "optimizer_recommendation", label: "Use allocation optimizer recommendation" },
-      { value: "max_sharpe", label: "Best risk-adjusted mix, staying within the risk limits you set (max-Sharpe)" },
-      { value: "tangency", label: "Best risk-adjusted mix, ignoring your risk limits — may end up more aggressive or more conservative than you specified (tangency)" },
+      { value: "max_sharpe", label: "Best risk-adjusted mix within your risk limits (max-Sharpe, risk-budgeted)" },
+      { value: "tangency", label: "Best risk-adjusted mix with no risk limits applied (max-Sharpe, pure tangency)" },
       { value: "real_loss_aware", label: "Match each dollar to when you’ll spend it, minimizing the chance of a loss after inflation" },
     ],
     capital_market_assumption_horizon_source: [
@@ -4247,8 +4247,8 @@ function allocationModeHtml() {
   const modeButtons = [
     ["user_target", "Use user-specified allocation"],
     ["optimizer_recommendation", "Use allocation optimizer recommendation"],
-    ["max_sharpe", "Best risk-adjusted mix, staying within the risk limits you set (max-Sharpe)"],
-    ["tangency", "Best risk-adjusted mix, ignoring your risk limits — may end up more aggressive or more conservative than you specified (tangency)"],
+    ["max_sharpe", "Best risk-adjusted mix within your risk limits (max-Sharpe, risk-budgeted)"],
+    ["tangency", "Best risk-adjusted mix with no risk limits applied (max-Sharpe, pure tangency)"],
     ["real_loss_aware", "Match each dollar to when you’ll spend it, minimizing the chance of a loss after inflation"],
   ];
   const activeLabel =
