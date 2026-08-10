@@ -192,7 +192,7 @@ function withdrawalAccountOrderEditorHtml() {
   if (!withdrawalAccountOrder) return '<p class="small">Loading accounts…</p>';
   if (!withdrawalAccountOrder.length)
     return '<p class="small">No accounts found yet. Add accounts on Investment Holdings first.</p>';
-  return `<div class="table-actions"><button class="btn primary" type="button" ${withdrawalAccountOrderChanged ? "" : "disabled"} onclick="saveWithdrawalAccountOrder()">Save account order</button><button class="btn" type="button" onclick="resetWithdrawalAccountOrderToDefault()">Reset to optimized order</button><button class="btn" type="button" onclick="loadWithdrawalAccountOrder(true)">Reload</button></div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Account</th><th>Draw priority (1 = drawn first)</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+  return `<div class="table-actions"><button class="btn primary" type="button" ${withdrawalAccountOrderChanged ? "" : "disabled"} onclick="saveWithdrawalAccountOrder()">Save account order</button><button class="btn" type="button" onclick="resetWithdrawalAccountOrderToDefault()">Reset to default order</button><button class="btn" type="button" onclick="loadWithdrawalAccountOrder(true)">Reload</button></div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Account</th><th>Draw priority (1 = drawn first)</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
 }
 
 // ── #274: unified Build Impact change summary ───────────────────────────────
