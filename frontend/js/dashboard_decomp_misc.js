@@ -5,6 +5,40 @@
 // an inline onclick/oninput HTML attribute is explicitly bridged onto
 // `window` at the bottom of this file.
 
+// ── #266: Next Housing Step per-field "restore app estimate" ───────────────
+// housingLastEstimate caches the last geography-computed estimate fetched
+// per Next Housing Step (dashboard.js's estimateHousingFromState) so a
+// single field can be reset to the app's computed value without a fresh API
+// call and without touching any other field the user has since edited.
+window.housingLastEstimate = {};
+window.applyHousingEstimateField = function (stepNum, label, val) {
+  if (val === null || val === undefined) return false;
+  const r = window.rows.find(
+    (x) =>
+      x.section === "Housing" &&
+      window.norm(x.subsection || "") === "next_step_" + stepNum &&
+      window.norm(x.label) === label,
+  );
+  if (!r) return false;
+  const display =
+    typeof val === "number" && (label.includes("pct") || label === "mortgage_rate_pct")
+      ? (val * 100).toFixed(2) + "%"
+      : String(val);
+  window.editValue(r.row_index, display, null);
+  return true;
+};
+function restoreHousingEstimateField(stepNum, label) {
+  const cached = window.housingLastEstimate[stepNum];
+  if (!cached || !(label in cached)) {
+    window.showMessage('Click "Estimate fields" first to compute a value to restore.', "error");
+    return;
+  }
+  if (window.applyHousingEstimateField(stepNum, label, cached[label])) {
+    window.renderMain();
+    window.showMessage("Restored to the app-computed estimate.");
+  }
+}
+
 // ── #276: individual-account withdrawal draw-order override ────────────────
 // The account-TYPE cascade is fixed by the engine (see
 // FIXED_WITHDRAWAL_CASCADE_DESCRIPTION in dashboard.js); this is the
@@ -132,6 +166,7 @@ function unifiedBuildChangeSummaryHtml(changes, adminEvents) {
 }
 
 Object.assign(window, {
+  restoreHousingEstimateField,
   loadWithdrawalAccountOrder,
   updateWithdrawalAccountOrder,
   saveWithdrawalAccountOrder,
