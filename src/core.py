@@ -194,6 +194,22 @@ def registry(c: Mapping) -> list[dict]:
     return list(c.get('account_registry') or [])
 
 
+def _apply_draw_priority(ids: list[str], priority: Mapping[str, int]) -> list[str]:
+    """Re-sort ``ids`` by a user-set per-account draw priority (#276).
+
+    Accounts with an explicit priority (lower number = drawn first) sort
+    ahead of accounts without one; ties and unprioritized accounts keep their
+    original relative (registry) order -- a stable sort, not a full
+    re-ranking, so an override that only touches a couple of accounts
+    doesn't scramble the rest of the cascade.
+    """
+    def key(item):
+        i, aid = item
+        p = priority.get(aid)
+        return (0, p, i) if p is not None else (1, 0, i)
+    return [aid for _, aid in sorted(enumerate(ids), key=key)]
+
+
 def accounts(c: Mapping, *, owner_idx: int | None = None, tax: str | None = None,
              acct_type: str | None = None, include_cash: bool = True) -> list[str]:
     out: list[str] = []
@@ -207,6 +223,13 @@ def accounts(c: Mapping, *, owner_idx: int | None = None, tax: str | None = None
         if not include_cash and acct.get('tax') == 'cash':
             continue
         out.append(acct['id'])
+    # #276: individual-account-level withdrawal order override. Absent/empty
+    # by default (no CSV, or all rows still at the app's optimized default),
+    # in which case this is a no-op and every existing caller/cascade/golden
+    # test sees byte-identical ordering to before.
+    priority = c.get('account_draw_priority')
+    if priority:
+        out = _apply_draw_priority(out, priority)
     return out
 
 
