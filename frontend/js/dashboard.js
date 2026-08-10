@@ -1719,6 +1719,64 @@ function adminBuildChangeSummaryHtml(events) {
   html += "</tbody></table>";
   return html;
 }
+// #274: "User input changes" and "Admin/config changes" used to be two
+// separately-headed sections, which implied admin/config changes only ever
+// happen from the Settings/admin pages -- not true elsewhere in the app.
+// This merges both change lists into one "Source" column so the section is
+// organized by what changed, not by where the change was made.
+function unifiedBuildChangeSummaryHtml(changes, adminEvents) {
+  const userChanges = Array.isArray(changes) ? changes : capturedSessionChanges();
+  const evs = Array.isArray(adminEvents) ? adminEvents : [];
+  const rows = [];
+  const scenarioOnly = userChanges.filter((c) =>
+    String(c.scope || "")
+      .toLowerCase()
+      .includes("scenario analysis"),
+  );
+  userChanges.forEach((c) => {
+    const source = c.sourceStep
+      ? buildSourceJumpHtml(c.sourceStep, c.sourceTitle || stepTitleById(c.sourceStep))
+      : esc(c.group || "—");
+    rows.push({
+      factor: esc(c.label),
+      context: c.group ? `${esc(c.group)}${c.scope ? ` · ${esc(c.scope)}` : ""}` : "",
+      source,
+      before: esc(c.before || "blank"),
+      after: esc(c.after || "blank"),
+    });
+  });
+  evs.forEach((ev) => {
+    const file = ev.file || ev.kind || "admin config";
+    const by = ev.changed_by || "";
+    const chs = (ev.changes || []).slice(0, 8);
+    const list = chs.length
+      ? chs
+      : [{ label: `${ev.change_count || 1} change${(ev.change_count || 1) === 1 ? "" : "s"}`, before: "", after: "updated" }];
+    list.forEach((ch) => {
+      rows.push({
+        factor: esc(ch.label || ""),
+        context: "",
+        source: `Admin: ${esc(file)}${by ? ` · ${esc(by)}` : ""}`,
+        before: esc(ch.before || "blank"),
+        after: esc(ch.after || "blank"),
+      });
+    });
+  });
+  if (!rows.length)
+    return '<p class="small">No input or configuration changes were captured before this build.</p>';
+  let html = scenarioOnly.length
+    ? `<div class="section-note warning"><b>${scenarioOnly.length} scenario-only change${scenarioOnly.length === 1 ? "" : "s"} captured.</b> These values are used in the workbook Scenario Analysis sheet but do not move the headline Build Impact cards unless the matching base-plan input is also changed.</div>`
+    : "";
+  html +=
+    '<table class="change-table"><thead><tr><th>Factor</th><th>Source</th><th>Before</th><th>After</th></tr></thead><tbody>';
+  rows.slice(0, 40).forEach((r) => {
+    html += `<tr><td><div class="change-factor">${r.factor}</div>${r.context ? `<div class="change-context">${r.context}</div>` : ""}</td><td>${r.source}</td><td>${r.before}</td><td>${r.after}</td></tr>`;
+  });
+  if (rows.length > 40)
+    html += `<tr><td colspan="4" class="small">${rows.length - 40} more change${rows.length - 40 === 1 ? "" : "s"} captured.</td></tr>`;
+  html += "</tbody></table>";
+  return html;
+}
 function impactCardHtml(
   title,
   delta,
@@ -1923,7 +1981,7 @@ function latestBuildImpactHtml(entry) {
   if (!entry || entry.isSnapshot) return "";
   const before = currentKpi(entry.before || {}),
     after = currentKpi(entry.after || {});
-  return `<div class="latest-build-impact"><h3>Latest Build Impact</h3>${buildImpactNarrativeHtml(entry)}${buildImpactCardsHtml(before, after)}${buildImpactSuggestionsHtml(before, after, entry.after || {})}${modelHeardHtml(entry.after || {})}<details><summary>User input changes and source links</summary>${buildChangeSummaryHtml(entry.changes || [])}</details><details><summary>Admin/config changes</summary>${adminBuildChangeSummaryHtml(entry.admin_changes || [])}</details></div>`;
+  return `<div class="latest-build-impact"><h3>Latest Build Impact</h3>${buildImpactNarrativeHtml(entry)}${buildImpactCardsHtml(before, after)}${buildImpactSuggestionsHtml(before, after, entry.after || {})}${modelHeardHtml(entry.after || {})}<details><summary>Input and configuration changes</summary>${unifiedBuildChangeSummaryHtml(entry.changes || [], entry.admin_changes || [])}</details></div>`;
 }
 
 function mhBool(v) {
