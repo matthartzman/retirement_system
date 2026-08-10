@@ -7080,7 +7080,7 @@ const FIXED_WITHDRAWAL_CASCADE_DESCRIPTION =
 // to keep this file under its line-count ratchet.
 function renderWithdrawalOrderTable() {
   const editor = window.withdrawalAccountOrderEditorHtml ? window.withdrawalAccountOrderEditorHtml() : "";
-  return `<details><summary>Withdrawal order</summary><div class="field-list"><div class="section-note"><b>Account-type order is fixed by the engine — not user-configurable.</b> Every plan draws down account types in this order every year: ${esc(FIXED_WITHDRAWAL_CASCADE_DESCRIPTION)}. RMDs are mandatory income; Roth and home equity are preserved until other liquid sources are exhausted. Within a type (e.g. two taxable brokerage accounts), set the individual-account priority below -- default is the app's existing optimized order.</div>${editor}</div></details>`;
+  return `<details><summary>Withdrawal order</summary><div class="field-list"><div class="section-note"><b>Individual-account draw order is user-configurable below.</b> Each account defaults to its registry order and draws first within its account type when priority is tied; set a lower number to draw an account earlier relative to others of the same type (e.g. which of two taxable brokerage accounts drains first). The account-<i>type</i> sequence itself is fixed by the engine and not user-configurable, since it follows tax rules rather than preference: ${esc(FIXED_WITHDRAWAL_CASCADE_DESCRIPTION)}. RMDs are mandatory income; Roth and home equity are preserved until other liquid sources are exhausted.</div>${editor}</div></details>`;
 }
 function renderWithdrawalStrategy() {
   if (searchText.trim()) return renderFields("withdrawal_strategy");
