@@ -1397,7 +1397,7 @@ def spending_summary_taxonomy(root=None, year=None):
         u["annualized"] = round(u.get("actual", 0.0) * annual_factor, 2)
 
     output_types = []
-    grand_actual = grand_budget = 0.0
+    grand_actual = grand_budget = grand_ann_accum = 0.0
     core_budget_base = 0.0
     order = TRACKING_TYPE_ORDER + [tt for tt in sorted(by_tt_group) if tt not in TRACKING_TYPE_ORDER]
     for tt in order:
@@ -1425,7 +1425,13 @@ def spending_summary_taxonomy(root=None, year=None):
                 # template rows remain hidden until explicitly loaded/used.
                 if not (_nonzero_amount(ca) or _nonzero_amount(cb) or has_line_budget or _nonzero_amount(projection_seed)):
                     continue
-                ann = ca * annual_factor
+                # Income (Paychecks, Note P&I) and Large Discretionary (Large
+                # Gifts, Wedding, Other) are lumpy/one-time by nature -- scaling
+                # a single paycheck or gift by days-elapsed wildly overstates
+                # the year. Same exclusion set already used for the core
+                # spend-base run-rate floor (see _EXCLUDED_TRACKING_TYPES_FOR_SPEND_BASE
+                # / _TIME_BOUNDED_TRACKING_TYPES above); ticket 268.
+                ann = ca if (tt == "Income" or tt in _TIME_BOUNDED_TRACKING_TYPES) else ca * annual_factor
                 category_sum += cb
                 ga += ca
                 aliases_for_cat = sorted(alias_hits.get(cid, set()) | aliases_by_category.get(cid, set()))
@@ -1457,12 +1463,13 @@ def spending_summary_taxonomy(root=None, year=None):
             group_projection_seed = group_budget
             if not out_cats and not (_nonzero_amount(ga) or _nonzero_amount(group_budget) or _nonzero_amount(group_projection_seed)):
                 continue
+            grp_ann = ga if (tt == "Income" or tt in _TIME_BOUNDED_TRACKING_TYPES) else ga * annual_factor
             out_groups.append({
                 "group": grp,
                 "actual": round(ga, 2),  # compatibility alias for ytd_actual
                 "ytd_actual": round(ga, 2),
-                "annualized": round(ga * annual_factor, 2),  # compatibility alias for annualized_actual
-                "annualized_actual": round(ga * annual_factor, 2),
+                "annualized": round(grp_ann, 2),  # compatibility alias for annualized_actual
+                "annualized_actual": round(grp_ann, 2),
                 "budget": round(group_budget, 2),  # compatibility alias for annual_budget
                 "annual_budget": round(group_budget, 2),
                 "projection_seed": round(group_projection_seed, 2),
@@ -1476,12 +1483,13 @@ def spending_summary_taxonomy(root=None, year=None):
             type_actual += ga
             type_budget += group_budget
         if out_groups:
+            tt_ann = type_actual if (tt == "Income" or tt in _TIME_BOUNDED_TRACKING_TYPES) else type_actual * annual_factor
             output_types.append({
                 "tracking_type": tt,
                 "actual": round(type_actual, 2),  # compatibility alias for ytd_actual
                 "ytd_actual": round(type_actual, 2),
-                "annualized": round(type_actual * annual_factor, 2),  # compatibility alias for annualized_actual
-                "annualized_actual": round(type_actual * annual_factor, 2),
+                "annualized": round(tt_ann, 2),  # compatibility alias for annualized_actual
+                "annualized_actual": round(tt_ann, 2),
                 "budget": round(type_budget, 2),  # compatibility alias for annual_budget
                 "annual_budget": round(type_budget, 2),
                 "projection_seed": round(type_budget, 2),
@@ -1493,6 +1501,10 @@ def spending_summary_taxonomy(root=None, year=None):
         if tt != "Income" and tt not in _TRANSFER_NAMES:
             grand_actual += type_actual
             grand_budget += type_budget
+            # Large Discretionary (Large Gifts, etc.) is lumpy/one-time -- don't
+            # scale it by days-elapsed when rolling into the grand annualized
+            # total (ticket 268), matching the per-type treatment above.
+            grand_ann_accum += type_actual if tt in _TIME_BOUNDED_TRACKING_TYPES else type_actual * annual_factor
         if tt not in _EXCLUDED_TRACKING_TYPES_FOR_SPEND_BASE and tt not in _TIME_BOUNDED_TRACKING_TYPES:
             # Core spend base never includes Travel/Large Discretionary at any
             # level (mirrors spending_budget_resolver): those dollars project as
@@ -1513,8 +1525,8 @@ def spending_summary_taxonomy(root=None, year=None):
         "tracking_types": output_types,
         "grand_actual": round(grand_actual, 2),  # compatibility alias for expense_ytd_actual
         "grand_ytd_actual": round(grand_actual, 2),
-        "grand_annualized": round(grand_actual * annual_factor, 2),
-        "grand_annualized_actual": round(grand_actual * annual_factor, 2),
+        "grand_annualized": round(grand_ann_accum, 2),
+        "grand_annualized_actual": round(grand_ann_accum, 2),
         "grand_budget": round(grand_budget, 2),
         "grand_annual_budget": round(grand_budget, 2),
         "grand_projection_seed": round(grand_budget, 2),

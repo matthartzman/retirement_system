@@ -1719,6 +1719,64 @@ function adminBuildChangeSummaryHtml(events) {
   html += "</tbody></table>";
   return html;
 }
+// #274: "User input changes" and "Admin/config changes" used to be two
+// separately-headed sections, which implied admin/config changes only ever
+// happen from the Settings/admin pages -- not true elsewhere in the app.
+// This merges both change lists into one "Source" column so the section is
+// organized by what changed, not by where the change was made.
+function unifiedBuildChangeSummaryHtml(changes, adminEvents) {
+  const userChanges = Array.isArray(changes) ? changes : capturedSessionChanges();
+  const evs = Array.isArray(adminEvents) ? adminEvents : [];
+  const rows = [];
+  const scenarioOnly = userChanges.filter((c) =>
+    String(c.scope || "")
+      .toLowerCase()
+      .includes("scenario analysis"),
+  );
+  userChanges.forEach((c) => {
+    const source = c.sourceStep
+      ? buildSourceJumpHtml(c.sourceStep, c.sourceTitle || stepTitleById(c.sourceStep))
+      : esc(c.group || "—");
+    rows.push({
+      factor: esc(c.label),
+      context: c.group ? `${esc(c.group)}${c.scope ? ` · ${esc(c.scope)}` : ""}` : "",
+      source,
+      before: esc(c.before || "blank"),
+      after: esc(c.after || "blank"),
+    });
+  });
+  evs.forEach((ev) => {
+    const file = ev.file || ev.kind || "admin config";
+    const by = ev.changed_by || "";
+    const chs = (ev.changes || []).slice(0, 8);
+    const list = chs.length
+      ? chs
+      : [{ label: `${ev.change_count || 1} change${(ev.change_count || 1) === 1 ? "" : "s"}`, before: "", after: "updated" }];
+    list.forEach((ch) => {
+      rows.push({
+        factor: esc(ch.label || ""),
+        context: "",
+        source: `Admin: ${esc(file)}${by ? ` · ${esc(by)}` : ""}`,
+        before: esc(ch.before || "blank"),
+        after: esc(ch.after || "blank"),
+      });
+    });
+  });
+  if (!rows.length)
+    return '<p class="small">No input or configuration changes were captured before this build.</p>';
+  let html = scenarioOnly.length
+    ? `<div class="section-note warning"><b>${scenarioOnly.length} scenario-only change${scenarioOnly.length === 1 ? "" : "s"} captured.</b> These values are used in the workbook Scenario Analysis sheet but do not move the headline Build Impact cards unless the matching base-plan input is also changed.</div>`
+    : "";
+  html +=
+    '<table class="change-table"><thead><tr><th>Factor</th><th>Source</th><th>Before</th><th>After</th></tr></thead><tbody>';
+  rows.slice(0, 40).forEach((r) => {
+    html += `<tr><td><div class="change-factor">${r.factor}</div>${r.context ? `<div class="change-context">${r.context}</div>` : ""}</td><td>${r.source}</td><td>${r.before}</td><td>${r.after}</td></tr>`;
+  });
+  if (rows.length > 40)
+    html += `<tr><td colspan="4" class="small">${rows.length - 40} more change${rows.length - 40 === 1 ? "" : "s"} captured.</td></tr>`;
+  html += "</tbody></table>";
+  return html;
+}
 function impactCardHtml(
   title,
   delta,
@@ -1923,7 +1981,7 @@ function latestBuildImpactHtml(entry) {
   if (!entry || entry.isSnapshot) return "";
   const before = currentKpi(entry.before || {}),
     after = currentKpi(entry.after || {});
-  return `<div class="latest-build-impact"><h3>Latest Build Impact</h3>${buildImpactNarrativeHtml(entry)}${buildImpactCardsHtml(before, after)}${buildImpactSuggestionsHtml(before, after, entry.after || {})}${modelHeardHtml(entry.after || {})}<details><summary>User input changes and source links</summary>${buildChangeSummaryHtml(entry.changes || [])}</details><details><summary>Admin/config changes</summary>${adminBuildChangeSummaryHtml(entry.admin_changes || [])}</details></div>`;
+  return `<div class="latest-build-impact"><h3>Latest Build Impact</h3>${buildImpactNarrativeHtml(entry)}${buildImpactCardsHtml(before, after)}${buildImpactSuggestionsHtml(before, after, entry.after || {})}${modelHeardHtml(entry.after || {})}<details><summary>Input and configuration changes</summary>${unifiedBuildChangeSummaryHtml(entry.changes || [], entry.admin_changes || [])}</details></div>`;
 }
 
 function mhBool(v) {
@@ -2992,6 +3050,18 @@ function revealAndFocus(el) {
 function jumpRecommendationSource(stepId, rowIndex) {
   if (rowIndex !== undefined && rowIndex !== null && rowIndex !== "")
     inactiveEditReveals.add(Number(rowIndex));
+  // #269: recommendation rows (e.g. "Review growth mode") point at fields on
+  // a merged workspace's DEFAULT sub-tab (Spending Model, Levers, etc). If the
+  // user had last visited a different sub-tab of that same step, the stale
+  // localStorage tab choice meant setStep() below landed on the right page
+  // but the target field was never rendered, so the "reveal and focus" was a
+  // silent no-op -- the button looked like it "did nothing but scroll to top."
+  const _tabs = (typeof STRATEGY_TABS !== "undefined" && STRATEGY_TABS[stepId]) || null;
+  if (_tabs && _tabs.length) {
+    try {
+      localStorage.setItem(strategyTabKey(stepId), _tabs[0]);
+    } catch (_e) {}
+  }
   setStep(stepId || activeStep);
   setTimeout(() => {
     let el = null;
@@ -3402,7 +3472,7 @@ function pageRecommendationsHtml(stepId) {
         `<div class="recommendation-card ${esc(item.level || "info")}"><div><span class="recommendation-level">${esc(item.level || "info")}</span><h4>${esc(item.title)}</h4><p>${esc(formatAcronyms(item.body))}</p>${item.impact ? `<p class="small"><b>Why it matters:</b> ${esc(formatAcronyms(item.impact))}</p>` : ""}</div><div class="recommendation-actions">${recommendationSourceButton(item)}</div></div>`,
     )
     .join("");
-  return `<section class="page-recommendations" data-contract="${RECOMMENDATION_ENGINE_VERSION}"><div class="page-recommendations-head"><div><span class="eyebrow">Page recommendations</span><h3>Suggested reviews before the next build</h3><p class="small">Explainable suggestions only — nothing is changed automatically. Each item links back to the input that controls the recommendation.</p></div></div><div class="page-recommendation-list">${rowsHtml}</div></section>`;
+  return `<details class="page-recommendations" data-contract="${RECOMMENDATION_ENGINE_VERSION}"><summary class="page-recommendations-head"><span class="eyebrow">Page recommendations</span><h3>Suggested reviews before the next build (${items.length})</h3><p class="small">Explainable suggestions only — nothing is changed automatically. Each item links back to the input that controls the recommendation.</p></summary><div class="page-recommendation-list">${rowsHtml}</div></details>`;
 }
 
 
@@ -7113,12 +7183,23 @@ function renderWithdrawalStrategy() {
       r.section === "Withdrawal Policy" &&
       r.subsection === "Tax-Loss Harvesting",
   );
+  // #277: Gain Harvest gets its own collapsible section, on par with Tax
+  // Loss Harvesting, instead of being lumped into "Other funding and
+  // rollover settings" below. Annual Funding Tolerance and Decedent
+  // Balances Pass To Survivor explicitly stay in that misc section.
+  const gainHarvest = other.filter(
+    (r) => r.section === "Withdrawal Policy" && r.subsection === "Gain Harvesting",
+  );
   const misc = other.filter(
     (r) =>
       !(r.section === "HSA Policy" && r.subsection === "Withdrawals") &&
       !(
         r.section === "Withdrawal Policy" &&
         r.subsection === "Tax-Loss Harvesting"
+      ) &&
+      !(
+        r.section === "Withdrawal Policy" &&
+        r.subsection === "Gain Harvesting"
       ),
   );
   let html = renderWithdrawalOrderTable();
@@ -7164,6 +7245,8 @@ function renderWithdrawalStrategy() {
   }
   if (tlh.length)
     html += `<details><summary>Tax Loss Harvesting</summary><div class="field-list"><div class="section-note">Controls whether and how the projection harvests capital losses from taxable-account lots each year.</div>${sortRowsByDependency(tlh).map(fieldHtml).join("")}</div></details>`;
+  if (gainHarvest.length)
+    html += `<details><summary>Gain Harvest</summary><div class="field-list"><div class="section-note">Controls whether and how the projection harvests capital gains from taxable-account lots each year (e.g. to fill up a low tax bracket).</div>${sortRowsByDependency(gainHarvest).map(fieldHtml).join("")}</div></details>`;
   if (misc.length)
     html += `<details><summary>Other funding and rollover settings</summary><div class="field-list"><div class="section-note">Annual funding tolerance and spousal rollover settings are operational assumptions. They affect workbook QC, survivor account consolidation, RMD timing, and late-life cash-flow output.</div>${sortRowsByDependency(misc).map(fieldHtml).join("")}</div></details>`;
   return html;
@@ -9775,7 +9858,7 @@ function renderCategoryMappingRules() {
   html +=
     '<button class="btn" onclick="loadMappingRules(true)">Reload</button></div>';
   html +=
-    '<div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Match text</th><th>Match source</th><th>Exact?</th><th>Target category</th><th>Priority</th><th></th></tr></thead><tbody>';
+    '<div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Match text</th><th>Match source</th><th style="width:64px">Exact?</th><th>Target category</th><th>Priority</th><th style="width:64px"></th></tr></thead><tbody>';
   if (!rules.length) {
     html +=
       '<tr><td colspan="6" class="small" style="padding:12px">No auto-mapping rules defined. Add a rule only for merchant/category text that should be classified the same way every time.</td></tr>';
@@ -9795,7 +9878,7 @@ function renderCategoryMappingRules() {
         opts =
           `<option value="${esc(current)}" selected>${esc(current)}</option>` +
           opts;
-      html += `<tr><td><input value="${esc(rule.keyword)}" oninput="updateMappingRule(${i},'keyword',this.value)" style="width:160px"></td><td><select onchange="updateMappingRule(${i},'match_field',this.value)"><option value="category"${rule.match_field === "category" ? " selected" : ""}>Category text</option><option value="merchant"${rule.match_field === "merchant" ? " selected" : ""}>Merchant text</option></select></td><td style="text-align:center"><input type="checkbox" ${rule.exact ? "checked" : ""} onchange="updateMappingRule(${i},'exact',this.checked)"></td><td><select onchange="updateMappingRule(${i},'category_id',this.value)" style="min-width:260px"><option value="" ${current ? "" : "selected"}>Select category…</option>${opts}</select></td><td><input type="number" value="${rule.priority || 50}" oninput="updateMappingRule(${i},'priority',parseInt(this.value)||50)" style="width:70px"></td><td><button class="danger-link" onclick="deleteMappingRule(${i})">Delete</button></td></tr>`;
+      html += `<tr><td><input value="${esc(rule.keyword)}" oninput="updateMappingRule(${i},'keyword',this.value)" style="width:160px"></td><td><select onchange="updateMappingRule(${i},'match_field',this.value)"><option value="category"${rule.match_field === "category" ? " selected" : ""}>Category text</option><option value="merchant"${rule.match_field === "merchant" ? " selected" : ""}>Merchant text</option></select></td><td style="width:64px;text-align:center"><input type="checkbox" ${rule.exact ? "checked" : ""} onchange="updateMappingRule(${i},'exact',this.checked)"></td><td><select onchange="updateMappingRule(${i},'category_id',this.value)" style="min-width:260px"><option value="" ${current ? "" : "selected"}>Select category…</option>${opts}</select></td><td><input type="number" value="${rule.priority || 50}" oninput="updateMappingRule(${i},'priority',parseInt(this.value)||50)" style="width:70px"></td><td style="width:64px;white-space:nowrap"><button class="danger-link" onclick="deleteMappingRule(${i})">Delete</button></td></tr>`;
     });
   }
   html += "</tbody></table></div></div>";
@@ -11159,7 +11242,7 @@ function renderReportsAndReview() {
 // below regardless of which workspace it's for.
 const STRATEGY_TABS = {
   distribution_strategy: ["Levers", "Roth Conversion", "Withdrawal Order", "Allocation & Location"],
-  spending_core: ["Spending Model", "Actual Spending (YTD)", "Spending Analysis", "Other Spending"],
+  spending_core: ["Spending Model", "Other Spending", "Actual Spending (YTD)", "Spending Analysis"],
 };
 
 // Shared left-nav sub-tab strip for any STRATEGY_TABS-registered workspace step.
@@ -11194,6 +11277,12 @@ function goToStrategyTab(step, tab) {
     localStorage.setItem(strategyTabKey(step), next);
   } catch (_e) {}
   setStep(step);
+  // #269: clicking "Actual Spending (YTD)" used to silently do nothing while
+  // its transaction data (re)loaded in the background -- surface the same
+  // progress overlay used elsewhere for YTD loads instead of a silent wait.
+  if (step === "spending_core" && next === "Actual Spending (YTD)") {
+    loadYtdStatus(false).then(renderMain);
+  }
 }
 function renderDistributionStrategy() {
   const tab = getStrategyTab("distribution_strategy");
@@ -11235,7 +11324,12 @@ function renderDafConfig() {
   return `<div class="section-note">Contribution amount/year fund the DAF in a lump sum (tax-deductible up to 60% of AGI in the contribution year); annual grant amount/start/end schedule ongoing charitable distributions out of the DAF balance. See Charitable Giving in the workbook report for a sizing recommendation.</div><div class="field-list">${rs.map(fieldHtml).join("")}</div>`;
 }
 function renderLifestyleSpending() {
-  return `<div class="lifestyle-workspace"><details><summary>Travel</summary>${renderTravelBudgetPage()}</details><details><summary>Large Items</summary>${renderLargeDiscretionaryBudgetPage()}</details><details><summary>Donor-Advised Fund (DAF)</summary>${renderDafConfig()}</details></div>`;
+  // #269: DAF settings live on Special Strategies -> Charitable Giving
+  // (renderEntityCharitable -> renderFields("entity_charitable"), which
+  // already includes the DAF-group rows renderDafConfig also rendered here).
+  // Keeping both showed the identical fields twice; keep the one under
+  // Special Strategies and drop this duplicate.
+  return `<div class="lifestyle-workspace"><details><summary>Travel</summary>${renderTravelBudgetPage()}</details><details><summary>Large Items</summary>${renderLargeDiscretionaryBudgetPage()}</details></div>`;
 }
 const SPENDING_WORKFLOW_STEPS = [
   { label: "Spending Model", stepId: "spending_core" },
