@@ -25,21 +25,19 @@ client_*.csv files over the ones in that directory, regenerate the two pins
 below via the __main__ block, and update this docstring's commit reference.
 Last regenerated against commit fa6652b.
 
-Landmine avoided, documented rather than fixed: src/data_io.py's parse_client
-loads client_holdings.csv via
+Landmine, now fixed: src/data_io.py's parse_client used to load
+client_holdings.csv via
 ``candidate_input_files('client_holdings.csv', ..., root=Path(_project_root))``
-with an EXPLICIT root kwarg, so RETIREMENT_SYSTEM_WORKSPACE_ROOT alone does
+with an EXPLICIT root kwarg, so RETIREMENT_SYSTEM_WORKSPACE_ROOT alone did
 NOT redirect holdings resolution -- only the sectioned client_data.csv merge
-honors it. Confirmed empirically before this file was written: pointing only
-the workspace root at a temp copy while leaving client_holdings.csv out of it
+honored it. Confirmed empirically before the fix: pointing only the
+workspace root at a temp copy while leaving client_holdings.csv out of it
 produced IDENTICAL results, proving holdings were still being read from the
-real repo input/. Fixing that root= hardcode belongs to a future item (it
-would affect the general workspace-redirection story, not just this test)
--- this file works around it locally by monkeypatching
-candidate_input_files for the duration of the frozen build only, verified
-empirically (see the two PASS checks in this file's development history) to
-correctly redirect holdings to the frozen copy and to exactly reproduce a
-direct run against the source commit's real input/.
+real repo input/. The hardcoded root= kwarg has since been removed from
+data_io's plan-data lookups (see ``_frozen_config()``'s docstring below), so
+RETIREMENT_SYSTEM_WORKSPACE_ROOT alone now correctly redirects holdings too
+-- verified by test_frozen_fixture_is_isolated_from_the_real_input_directory
+below, which fails loudly if this ever regresses.
 """
 from __future__ import annotations
 
