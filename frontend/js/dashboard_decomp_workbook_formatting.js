@@ -64,6 +64,20 @@ export async function loadWorkbookFormat(force = false) {
   }
 }
 
+// Called after a real build completes (see dashboard_decomp_row_model.js's
+// build-success handler, which does the same for detailedResultsData).
+// Without this, workbookFormatData stays whatever was fetched the first
+// time this page was ever opened this session: loadWorkbookFormat() only
+// refetches on `force`, and nothing else ever set that flag on navigation.
+// Reported live -- edit a width, rebuild, navigate back to this page: the
+// saved override still showed correctly (it's a separate value, kept live
+// by every autosave PATCH), but "Last built" and the overrides_stale
+// banner both reflected the OLD build from before the edit, making a
+// correctly-applied override look like it silently failed.
+export function invalidateWorkbookFormatCache() {
+  workbookFormatData = null;
+}
+
 export function refreshWorkbookFormat() {
   workbookFormatData = null;
   loadWorkbookFormat(true);
@@ -297,12 +311,16 @@ export function renderWorkbookFormatting() {
 // module-private state above (workbookFormatData/Loading/Error, wfOpen) is
 // read only by this file's own functions -- dashboard.js and this file's
 // own inline onclick/oninput HTML attributes only ever call the functions
-// below, so only they need the window bridge.
+// below, so only they need the window bridge. invalidateWorkbookFormatCache
+// is the one exception: dashboard_decomp_row_model.js's build-success
+// handler calls it as window.invalidateWorkbookFormatCache(), since that's
+// a separate module.
 Object.assign(window, {
   wfToggle,
   wfWidthInputKeydown,
   loadWorkbookFormat,
   refreshWorkbookFormat,
+  invalidateWorkbookFormatCache,
   _wfEffectiveWidth,
   _wfIsOverridden,
   _wfEffectiveAlign,

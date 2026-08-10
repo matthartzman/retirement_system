@@ -4435,6 +4435,7 @@ export async function runBuild(queue = false, opts = {}) {
       detailedResultsError = "";
       detailedResultSheetError = "";
       activeDetailedSheet = "";
+      if (window.invalidateWorkbookFormatCache) window.invalidateWorkbookFormatCache();
       updateBuildOverlay(
         "Preparing Build Impact",
         "Comparing changes, terminal net worth, after-tax net worth, lifetime taxes, Monte Carlo success probability, and Roth conversions.",
