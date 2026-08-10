@@ -9765,7 +9765,7 @@ function renderCategoryMappingRules() {
   html +=
     '<button class="btn" onclick="loadMappingRules(true)">Reload</button></div>';
   html +=
-    '<div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Match text</th><th>Match source</th><th style="width:64px">Exact?</th><th>Target category</th><th>Priority</th><th style="width:64px"></th></tr></thead><tbody>';
+    '<div class="lot-table-wrap pinned-col-right"><table class="lot-table"><thead><tr><th>Match text</th><th>Match source</th><th style="width:64px">Exact?</th><th>Target category</th><th>Priority</th><th style="width:64px"></th></tr></thead><tbody>';
   if (!rules.length) {
     html +=
       '<tr><td colspan="6" class="small" style="padding:12px">No auto-mapping rules defined. Add a rule only for merchant/category text that should be classified the same way every time.</td></tr>';
