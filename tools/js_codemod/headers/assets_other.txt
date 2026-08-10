@@ -1,0 +1,32 @@
+/* Assets & Protection: liabilities, note receivables, 529 education accounts,
+   and the "other assets" item table -- extracted from dashboard.js by
+   tools/js_codemod/extract_module.mjs.
+
+   First domain cluster of the Wave 6.4 domain-module split (see
+   docs/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md),
+   following the shared-core extraction that produced
+   dashboard_decomp_row_model.js. Selected as a connected component of
+   dashboard.js's internal call graph (tools/js_codemod/find_clusters.mjs),
+   stable across fan-in cutoffs 3 through 8.
+
+   Loaded BEFORE dashboard.js, in the same position as
+   dashboard_decomp_row_model.js -- not after it with the other leaves.
+   dashboard.js ends its module body with a queueMicrotask() that schedules the
+   real boot work, and a microtask checkpoint runs after that script's
+   evaluation, so it can fire before a LATER module script has evaluated. This
+   module's own top level is nothing but declarations and one Object.assign, so
+   it has no evaluation-time dependency on dashboard.js and is safe to run
+   first.
+
+   The four constant tables (LIABILITY_LABELS, LIABILITY_TYPES,
+   LIABILITY_TYPE_FIELDS, OTHER_ASSET_TYPES) moved with the code: they are read
+   by this cluster and by nothing else anywhere in the repo, so leaving them in
+   dashboard.js would have stranded them behind four generated window accessors
+   that exist to serve exactly one other file.
+
+   What this module still reaches back into dashboard.js for, all through the
+   generated window bridge and all verified present before this pass landed:
+   the function renderMain (a reassigned monkey-patch chain, exposed via a get
+   accessor, so a bare call here gets the live decorated implementation), the
+   read-only state rows/searchText/planSource/dirty, and the writable state
+   activeStep/lastBuildOk (both `let`, both with set accessors). */
