@@ -6,14 +6,10 @@
     "addAltOption",
     "addBudgetLine",
     "addCategoryDetailRow",
-    "addEducation529Section",
     "addGroupDetailRow",
     "addLargeDiscLine",
-    "addLiability",
     "addManualYtdAccount",
     "addMappingRule",
-    "addNoteReceivable",
-    "addOtherAssetItem",
     "addParentheticals",
     "addSelectedYtdAccount",
     "addUniqueRow",
@@ -91,10 +87,7 @@
     "deleteCategoryBudget",
     "deleteCategoryDetailRow",
     "deleteLargeDiscLine",
-    "deleteLiability",
     "deleteMappingRule",
-    "deleteNoteReceivable",
-    "deleteOtherAssetItem",
     "deleteSavedScenarioSet",
     "deleteTaxonomyCat",
     "deleteTaxonomyGroup",
@@ -182,7 +175,6 @@
     "largeDiscTypeFromLine",
     "latestBuildImpactHtml",
     "leverPctPoints",
-    "liabilityFieldsForType",
     "lineBelongsToDomain",
     "listFolderFileNames",
     "loadAnnualizedActuals",
@@ -219,8 +211,6 @@
     "normalizeValueForSave",
     "normalizeYtdActualsPeriod",
     "normalizedAssetSourceName",
-    "noteReceivableRow",
-    "noteReceivableSubsections",
     "noteSessionFieldChange",
     "noteSpecialSessionChange",
     "numberDisplayDecimals",
@@ -239,11 +229,6 @@
     "optimizerPreviewTarget",
     "optionalModuleState",
     "orderedRowsByLabel",
-    "otherAssetInputCell",
-    "otherAssetRow",
-    "otherAssetRows",
-    "otherAssetSubsections",
-    "otherAssetTypeCell",
     "pageHelp",
     "pageRecommendationsForStep",
     "pageRecommendationsHtml",
@@ -304,7 +289,6 @@
     "renderAllocationRecommendation",
     "renderAssetClassSelectionTable",
     "renderAssetsCashReserves",
-    "renderAssetsSpecial",
     "renderBaseHomeSaleRows",
     "renderBuildPreflightPanel",
     "renderCategoryMappingRules",
@@ -323,15 +307,12 @@
     "renderEntityCharitable",
     "renderEstateWithAnnuityLink",
     "renderFieldFinderGroups",
-    "renderHELOCInputsOnOtherPage",
     "renderHoldingPeriodSettingsHtml",
     "renderHomeSaleScenarioRows",
     "renderHouseholdPeople",
-    "renderHsaPolicyOnOtherAssets",
     "renderIncomeStreamsSection",
     "renderIncomeWork",
     "renderLargeDiscretionaryBudgetPage",
-    "renderLiabilitiesTable",
     "renderLifeIllustrations",
     "renderLifestyleSpending",
     "renderLtcStress",
@@ -341,13 +322,10 @@
     "renderMonteCarloOptions",
     "renderNav",
     "renderNextHousingStepSection",
-    "renderNoteInterestTable",
-    "renderNoteReceivableTable",
     "renderOptimizerAllocationPanel",
     "renderOptimizerOverrideTable",
     "renderOptimizerPreviewNote",
     "renderOptionalFunctions",
-    "renderOtherAssetItemsTable",
     "renderPlanDataReport",
     "renderPlanningLevers",
     "renderPlanningWorkbench",
@@ -467,7 +445,6 @@
     "setDetailedResultSheet",
     "setDetailedResultsNavOpen",
     "setGroupBudgetMode",
-    "setLiabilityType",
     "setMcEngineMode",
     "setNavSearch",
     "setPlanningCaseActive",
@@ -533,7 +510,6 @@
     "updateGroupDetailCategory",
     "updateLargeDiscLine",
     "updateLargeDiscLineMoney",
-    "updateLiability",
     "updateMappingRule",
     "updateSearchToggle",
     "updateTaxAddGroups",
@@ -601,10 +577,6 @@
     "LARGE_DISC_CATEGORY_IDS",
     "LARGE_DISC_TYPES",
     "LIABILITY_HEADER",
-    "LIABILITY_LABELS",
-    "LIABILITY_TYPES",
-    "LIABILITY_TYPE_FIELDS",
-    "OTHER_ASSET_TYPES",
     "PERSON_TABLE_LABELS",
     "PERSON_VALUE_TOKEN_RE",
     "PLAN_DATA_FILES",
@@ -762,10 +734,6 @@
     "LARGE_DISC_CATEGORY_IDS",
     "LARGE_DISC_TYPES",
     "LIABILITY_HEADER",
-    "LIABILITY_LABELS",
-    "LIABILITY_TYPES",
-    "LIABILITY_TYPE_FIELDS",
-    "OTHER_ASSET_TYPES",
     "PERSON_TABLE_LABELS",
     "PERSON_VALUE_TOKEN_RE",
     "PLAN_DATA_FILES",
@@ -1027,6 +995,144 @@
       "name": "renderMain",
       "file": "frontend/js/dashboard_batch_assumption_edit.js",
       "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planSource",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planSource",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planSource",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planSource",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "searchText",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planSource",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_assets_other.js",
+      "kind": "call",
       "scope": "inside-function"
     },
     {

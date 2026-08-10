@@ -59,8 +59,13 @@ JS_DIR = ROOT / "frontend" / "js"
 # (ytdCategoryFilter, ytdTxSearch, ytdAccountFilter), fixing 3 real silent-
 # failure bugs (those filter/search inputs updating an accidental implicit
 # global instead of the real state). 3 new generated lines, no slack added.
+# 2026-08-10: lowered from 15,308 -- first domain-cluster extraction
+# (docs/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md):
+# tools/js_codemod/extract_module.mjs moved the 24-function assets cluster
+# (liabilities, note receivables, 529s, other-asset items) plus the 4 constant
+# tables only it reads into frontend/js/dashboard_decomp_assets_other.js.
 # Set at the post-extraction measurement with no headroom.
-DASHBOARD_JS_MAX_LINES = 15_308
+DASHBOARD_JS_MAX_LINES = 14_822
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling

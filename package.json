@@ -15,6 +15,7 @@
   "author": "Matt Hartzman",
   "license": "MIT",
   "devDependencies": {
+    "@babel/parser": "^7.29.8",
     "@playwright/test": "^1.62.1",
     "jscodeshift": "^17.4.0"
   }
