@@ -738,7 +738,15 @@ def _extract_scorp_sheet(wb):
     ws.sheet_view.showGridLines = False
     ws.sheet_properties.tabColor = SECTION_COLOR.get('2')
     start = _find_row_containing(src, 'S-CORPORATION vs. LLC') or 25
-    end = min(_used_row(src), start + 15)
+    # Fix #273: a fixed start+15 window bled one row into the next section
+    # ("Withdrawal-Sequencing Strategy Comparison") -- its heading got copied
+    # but not its body, leaving a spurious empty heading at the bottom of this
+    # extracted sheet. Stop before that next section's heading when present.
+    next_section_row = _find_row_containing(src, 'Withdrawal-Sequencing Strategy Comparison')
+    if next_section_row and next_section_row > start:
+        end = min(_used_row(src), next_section_row - 1)
+    else:
+        end = min(_used_row(src), start + 15)
     _copy_rows(src, ws, start, end, 1, max_col=src.max_column)
     if ws['A1'].value:
         ws['A1'].value = 'S-CORP vs LLC — ENTITY COMPARISON'
