@@ -857,6 +857,9 @@ body.chart-modal-open{overflow:hidden}
   .lot-table-wrap.pinned-col .lot-table th:first-child,
   .lot-table-wrap.pinned-col .lot-table td:first-child{position:sticky;left:0;z-index:2;background:#fffdf8}
   .lot-table-wrap.pinned-col .lot-table th:first-child{z-index:3;background:#fbfaf7}
+  .lot-table-wrap.pinned-col-right .lot-table th:last-child,
+  .lot-table-wrap.pinned-col-right .lot-table td:last-child{position:sticky;right:0;z-index:2;background:#fffdf8;box-shadow:-6px 0 6px -6px rgba(0,0,0,.12)}
+  .lot-table-wrap.pinned-col-right .lot-table th:last-child{z-index:3;background:#fbfaf7}
 }
 .lot-table-wrap.cols-collapsed .lot-table [data-col-group="extra"]{display:none}
 .col-group-toggle{margin-left:auto}
