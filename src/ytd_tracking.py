@@ -23,6 +23,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from . import platform_runtime as _platform_runtime
+from .plan_file_io import atomic_write
 from typing import Any
 
 TRANSACTION_COLUMNS = [
@@ -156,14 +157,11 @@ def _read_csv_dicts(path: Path, columns: list[str]) -> list[dict[str, str]]:
 
 
 def _write_csv_dicts(path: Path, columns: list[str], rows: list[dict[str, Any]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    with tmp.open("w", newline="", encoding="utf-8") as f:
+    with atomic_write(path) as f:
         writer = csv.DictWriter(f, fieldnames=columns, lineterminator="\n", extrasaction="ignore")
         writer.writeheader()
         for row in rows:
             writer.writerow({col: str(row.get(col, "") if row.get(col, "") is not None else "") for col in columns})
-    tmp.replace(path)
 
 
 def _current_year(today: date | None = None) -> int:
