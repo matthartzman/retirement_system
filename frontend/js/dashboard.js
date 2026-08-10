@@ -7125,12 +7125,23 @@ function renderWithdrawalStrategy() {
       r.section === "Withdrawal Policy" &&
       r.subsection === "Tax-Loss Harvesting",
   );
+  // #277: Gain Harvest gets its own collapsible section, on par with Tax
+  // Loss Harvesting, instead of being lumped into "Other funding and
+  // rollover settings" below. Annual Funding Tolerance and Decedent
+  // Balances Pass To Survivor explicitly stay in that misc section.
+  const gainHarvest = other.filter(
+    (r) => r.section === "Withdrawal Policy" && r.subsection === "Gain Harvesting",
+  );
   const misc = other.filter(
     (r) =>
       !(r.section === "HSA Policy" && r.subsection === "Withdrawals") &&
       !(
         r.section === "Withdrawal Policy" &&
         r.subsection === "Tax-Loss Harvesting"
+      ) &&
+      !(
+        r.section === "Withdrawal Policy" &&
+        r.subsection === "Gain Harvesting"
       ),
   );
   let html = renderWithdrawalOrderTable();
@@ -7176,6 +7187,8 @@ function renderWithdrawalStrategy() {
   }
   if (tlh.length)
     html += `<details><summary>Tax Loss Harvesting</summary><div class="field-list"><div class="section-note">Controls whether and how the projection harvests capital losses from taxable-account lots each year.</div>${sortRowsByDependency(tlh).map(fieldHtml).join("")}</div></details>`;
+  if (gainHarvest.length)
+    html += `<details><summary>Gain Harvest</summary><div class="field-list"><div class="section-note">Controls whether and how the projection harvests capital gains from taxable-account lots each year (e.g. to fill up a low tax bracket).</div>${sortRowsByDependency(gainHarvest).map(fieldHtml).join("")}</div></details>`;
   if (misc.length)
     html += `<details><summary>Other funding and rollover settings</summary><div class="field-list"><div class="section-note">Annual funding tolerance and spousal rollover settings are operational assumptions. They affect workbook QC, survivor account consolidation, RMD timing, and late-life cash-flow output.</div>${sortRowsByDependency(misc).map(fieldHtml).join("")}</div></details>`;
   return html;
