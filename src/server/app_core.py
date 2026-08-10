@@ -62,6 +62,7 @@ try:
     from ..workspace_context import sanitize_id, workspace_file, workspace_output_dir
     from ..roth_ui_build_guard import canonicalize_roth_csv_content, normalize_roth_csv_value
     from ..us_states import state_abbr_choice_options, state_name_choice_options
+    from ..plan_file_io import atomic_write, plan_file_lock, write_text_atomic
     from .plan_data_files import (
         CLIENT_DATA_CSV_FILES,
         CLIENT_DATA_CSV_FILE_SET,
@@ -103,6 +104,7 @@ except ImportError:  # direct execution fallback
     from src.secrets_store import encryption_status, set_secret
     from src.workspace_context import sanitize_id, workspace_file, workspace_output_dir
     from src.roth_ui_build_guard import canonicalize_roth_csv_content, normalize_roth_csv_value
+    from src.plan_file_io import atomic_write, plan_file_lock, write_text_atomic
     from src.us_states import state_abbr_choice_options, state_name_choice_options
     from src.server.plan_data_files import (
         CLIENT_DATA_CSV_FILES,
@@ -433,11 +435,8 @@ def _read_csv_rows_file(path: Path) -> list[list[str]]:
 
 
 def _write_csv_rows_file(path: Path, rows: list[list[str]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    with tmp.open("w", newline="", encoding="utf-8") as f:
+    with atomic_write(path) as f:
         csv.writer(f, lineterminator="\n").writerows(rows)
-    tmp.replace(path)
 
 def _system_config_path() -> Path:
     return BASE_DIR / "system_config.csv"
@@ -721,26 +720,26 @@ def _read_plan_data_file(file_name: str) -> str | None:
 def _write_plan_data_file(file_name: str, content: str, *, preserve_protected: bool = True) -> Path:
     name = _normalize_plan_data_file_name(file_name)
     path = _plan_data_path(name, prefer_existing=False)
-    if name in CLIENT_DATA_CSV_FILE_SET:
-        content = canonicalize_roth_csv_content(content)
-    if preserve_protected and name in CLIENT_DATA_CSV_FILE_SET and path.exists():
-        try:
-            content = _merge_protected_client_data_values(content, path.read_text(encoding="utf-8-sig"))
-        except Exception as exc:
-            _audit("protected_client_data_merge_warning", {"file": name, "error": str(exc)})
-    # The SQLite plan store is canonical: write it first, authoritatively. The
-    # on-disk CSV is then written as an import/export mirror (folder
-    # download/portability; the build materializes plan data from the DB).
-    # client_data.csv is the sectioned anchor and is not stored in the DB.
-    if name != "client_data.csv":
-        try:
-            set_client_file(name, content, _workspace_id(), _client_id(), _current_user().user_id, _sqlite_db())
-        except Exception as exc:
-            _audit("plan_data_db_write_warning", {"file": name, "error": str(exc)})
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(content, encoding="utf-8")
-    tmp.replace(path)
+    with plan_file_lock(path):
+        if name in CLIENT_DATA_CSV_FILE_SET:
+            content = canonicalize_roth_csv_content(content)
+        if preserve_protected and name in CLIENT_DATA_CSV_FILE_SET and path.exists():
+            try:
+                content = _merge_protected_client_data_values(content, path.read_text(encoding="utf-8-sig"))
+            except Exception as exc:
+                _audit("protected_client_data_merge_warning", {"file": name, "error": str(exc)})
+        # The SQLite plan store is canonical: write it first, authoritatively. The
+        # on-disk CSV is then written as an import/export mirror (folder
+        # download/portability; the build materializes plan data from the DB).
+        # client_data.csv is the sectioned anchor and is not stored in the DB.
+        if name != "client_data.csv":
+            try:
+                set_client_file(name, content, _workspace_id(), _client_id(), _current_user().user_id, _sqlite_db())
+            except Exception as exc:
+                _audit("plan_data_db_write_warning", {"file": name, "error": str(exc)})
+        # write_text_atomic keeps write_text's "\n" -> os.linesep translation,
+        # which _merge_protected_client_data_values above depends on.
+        write_text_atomic(path, content)
     return path
 
 
@@ -755,11 +754,8 @@ def _csv_read_rows(path: Path) -> list[list[str]]:
 
 
 def _csv_write_rows(path: Path, rows: list[list[str]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    with tmp.open("w", newline="", encoding="utf-8") as f:
+    with atomic_write(path) as f:
         csv.writer(f, lineterminator="\n").writerows(rows)
-    tmp.replace(path)
 
 
 def _ensure_header(rows: list[list[str]]) -> list[list[str]]:
@@ -1110,11 +1106,10 @@ def _read_client_section_rows(section: str, fallback_file: str = "client_data.cs
 
 
 def _write_client_rows(path: Path, rows: list[list[str]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    with tmp.open("w", newline="", encoding="utf-8") as f:
+    # Deliberately not lineterminator="\n" -- keeps this helper's existing
+    # "\r\n" output (csv.writer's default) rather than matching _csv_write_rows.
+    with atomic_write(path) as f:
         csv.writer(f).writerows(rows)
-    tmp.replace(path)
 
 def _read_schema_map() -> dict:
     return _load_schema_registry()
