@@ -61,3 +61,33 @@ def test_duplicate_name_is_refused():
                   "frontend/js/dashboard_decomp_should_not_exist.js", "--check")
     assert result.returncode != 0, result.stdout + result.stderr
     assert "duplicate" in (result.stdout + result.stderr).lower()
+
+
+def test_check_mode_round_trips_real_functions_without_writing():
+    """End-to-end proof that the transform is lossless, run against whatever
+    functions dashboard.js actually has right now.
+
+    The two names are picked from the census at runtime rather than hardcoded,
+    so this test keeps working after future extraction passes remove any
+    particular function. It exercises the full pipeline -- splice out, write the
+    module, read the module back, reconstruct the original from it -- and the
+    tool exits non-zero if the reconstruction is not byte-identical.
+    """
+    census = json.loads(CENSUS_REPORT.read_text(encoding="utf-8"))
+    reassigned = set(census["reassigned_functions"])
+    candidates = [n for n in census["functions"] if n not in reassigned][:2]
+    assert len(candidates) == 2
+
+    before = DASHBOARD_JS.read_bytes()
+    out_rel = "frontend/js/dashboard_decomp_check_only_tmp.js"
+    result = _run("--names", ",".join(candidates), "--out", out_rel, "--check")
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "CHECK PASSED" in result.stdout
+    assert DASHBOARD_JS.read_bytes() == before, "check mode must not modify dashboard.js"
+    assert not (ROOT / out_rel).exists(), "check mode must not leave its output file behind"
+
+
+def test_check_mode_leaves_no_temp_files():
+    tmp_leftovers = list((ROOT / "frontend" / "js").glob("*check-tmp*"))
+    assert tmp_leftovers == [], f"temp files left behind: {tmp_leftovers}"

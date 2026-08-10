@@ -13,45 +13,49 @@
 // changes the graph for the next one, so re-run this after each pass rather
 // than trusting a previous report.
 //
+// Uses @babel/parser directly, NOT jscodeshift: jscodeshift's node.start/.end
+// are only valid byte offsets when the source is CRLF, and this tool slices
+// function bodies by offset to build the reference graph. On an LF checkout
+// (Linux/CI) jscodeshift offsets are wrong for every function, which would
+// silently produce a meaningless clustering rather than an obvious error. See
+// the parser note in extract_module.mjs for the measurement.
+//
 // Never modifies source. Usage: node tools/js_codemod/find_clusters.mjs [--cutoff N]
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import jscodeshift from "jscodeshift";
+import * as babelParser from "@babel/parser";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..", "..");
 const DASHBOARD_PATH = path.join(ROOT, "frontend", "js", "dashboard.js");
 const OUT_PATH = path.join(__dirname, "clusters_report.json");
-const j = jscodeshift.withParser("babel");
 
 const cutoffArg = process.argv.indexOf("--cutoff");
 const CUTOFF = cutoffArg === -1 ? 3 : Number(process.argv[cutoffArg + 1]);
 
 const source = fs.readFileSync(DASHBOARD_PATH, "utf8");
-const root = j(source);
+const program = babelParser.parse(source, { sourceType: "module" }).program;
 
 // Only top-level FUNCTIONS participate in the call graph. A `let x = function(){}`
 // is a function too (that is how convert_dashboard.mjs rewrites the reassigned
 // ones), so classify by initializer, not by declaration keyword.
 const functions = new Map();
-root.find(j.Program).forEach((programPath) => {
-  for (const stmt of programPath.node.body) {
-    if (stmt.type === "FunctionDeclaration" && stmt.id) {
-      functions.set(stmt.id.name, { start: stmt.start, end: stmt.end });
-    } else if (stmt.type === "VariableDeclaration") {
-      for (const decl of stmt.declarations) {
-        if (
-          decl.id.type === "Identifier" &&
-          decl.init &&
-          (decl.init.type === "FunctionExpression" || decl.init.type === "ArrowFunctionExpression")
-        ) {
-          functions.set(decl.id.name, { start: stmt.start, end: stmt.end });
-        }
+for (const stmt of program.body) {
+  if (stmt.type === "FunctionDeclaration" && stmt.id) {
+    functions.set(stmt.id.name, { start: stmt.start, end: stmt.end });
+  } else if (stmt.type === "VariableDeclaration") {
+    for (const decl of stmt.declarations) {
+      if (
+        decl.id.type === "Identifier" &&
+        decl.init &&
+        (decl.init.type === "FunctionExpression" || decl.init.type === "ArrowFunctionExpression")
+      ) {
+        functions.set(decl.id.name, { start: stmt.start, end: stmt.end });
       }
     }
   }
-});
+}
 
 const names = [...functions.keys()];
 const regexCache = new Map();
