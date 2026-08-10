@@ -42,23 +42,34 @@ def _entity_label(entity):
 
 
 def _proposed_changes(c):
-    """Mechanically-derivable engine overrides for not-yet-adopted
-    recommendations. Each entry: (label, overrides, note)."""
+    """Every mechanically-derivable engine-lever recommendation this sheet
+    tracks, active or not. Each entry: (label, overrides, note, is_active,
+    how_to_incorporate). #272: previously only listed not-yet-adopted items,
+    which meant an active recommendation was invisible here -- a planner
+    reviewing this sheet couldn't tell "already done" from "never considered."
+    is_active items still get a run_scenario delta (overrides applied to a
+    plan already at that setting is a harmless no-op re-run, useful as a
+    sanity check that the number matches the current-plan column)."""
     changes = []
-    if not c.get('ltc_enabled'):
-        # Reuses the "OPTIMAL" illustrative face/premium already shown on
-        # Sheet 19 Section C so the two sheets never quote different figures.
+    ltc_active = bool(c.get('ltc_enabled'))
+    # Reuses the "OPTIMAL" illustrative face/premium already shown on
+    # Sheet 19 Section C so the two sheets never quote different figures.
+    changes.append((
+        'Hybrid Life/LTC Policy ($500K face, ~$18,500/yr premium)',
+        {'ltc_enabled': True, 'ltc_annual_prem': 18500, 'ltc_face': 500000,
+         'ltc_start_year': max(int(c.get('plan_start', 2024)), 2027)},
+        'Premium reduces cash flow every year the policy is active; see Sheet 19 for coverage detail.',
+        ltc_active,
+        'Already active.' if ltc_active else 'To incorporate: enable "ltc_enabled" and set premium/face/start year on the LTC Stress page, then rebuild.',
+    ))
+    scorp_active = str(c.get('entity', '')).strip().lower() == 's_corp'
+    if scorp_active or (c.get('earned', 0) or 0) > 0:
         changes.append((
-            'Adopt Hybrid Life/LTC Policy ($500K face, ~$18,500/yr premium)',
-            {'ltc_enabled': True, 'ltc_annual_prem': 18500, 'ltc_face': 500000,
-             'ltc_start_year': max(int(c.get('plan_start', 2024)), 2027)},
-            'Premium reduces cash flow every year the policy is active; see Sheet 19 for coverage detail.',
-        ))
-    if str(c.get('entity', '')).strip().lower() != 's_corp' and (c.get('earned', 0) or 0) > 0:
-        changes.append((
-            f"Elect S-Corporation (currently {_entity_label(c.get('entity'))})",
+            f"S-Corporation election (currently {_entity_label(c.get('entity'))})",
             {'entity': 's_corp'},
             'Splits earnings into W-2 salary + distribution; payroll tax applies to salary only. See Sheet 9.',
+            scorp_active,
+            'Already active.' if scorp_active else 'To incorporate: set entity=s_corp and a reasonable W-2 salary on the Work Income page, then rebuild.',
         ))
     return changes
 
@@ -66,17 +77,24 @@ def _proposed_changes(c):
 def _report_only_items(c):
     """Recommendations whose flag is read only by report-building code, not
     the projection engine -- listing a run_scenario delta for these would
-    always show $0 and wrongly imply no benefit."""
+    always show $0 and wrongly imply no benefit. Each entry: (label, note,
+    is_active, how_to_incorporate)."""
     items = []
-    if not c.get('cst_enabled'):
-        items.append(('Credit Shelter Trust at First Death',
-                       'Estate-tax-only effect, not modeled in annual cash flow -- see Sheet 14 for the state exemption preserved.'))
-    if not c.get('qtip_enabled'):
-        items.append(('QTIP Trust for Annuity Post-First-Death',
-                       'Estate-tax-only effect, not modeled in annual cash flow -- see Sheet 14.'))
-    if not (c.get('daf_amount', 0) or 0) > 0:
-        items.append(('DAF Contribution in Highest-Income Year',
-                       'Deduction and carryforward are modeled on Sheet 12, not in this workbook\'s annual cash flow.'))
+    cst_active = bool(c.get('cst_enabled'))
+    items.append(('Credit Shelter Trust at First Death',
+                   'Estate-tax-only effect, not modeled in annual cash flow -- see Sheet 14 for the state exemption preserved.',
+                   cst_active,
+                   'Already active.' if cst_active else 'To incorporate: enable "cst_enabled" on the Estate page, then rebuild.'))
+    qtip_active = bool(c.get('qtip_enabled'))
+    items.append(('QTIP Trust for Annuity Post-First-Death',
+                   'Estate-tax-only effect, not modeled in annual cash flow -- see Sheet 14.',
+                   qtip_active,
+                   'Already active.' if qtip_active else 'To incorporate: enable "qtip_enabled" on the Estate page, then rebuild.'))
+    daf_active = (c.get('daf_amount', 0) or 0) > 0
+    items.append(('DAF Contribution in Highest-Income Year',
+                   'Deduction and carryforward are modeled on Sheet 12, not in this workbook\'s annual cash flow.',
+                   daf_active,
+                   'Already active.' if daf_active else 'To incorporate: set a DAF contribution amount/year on Special Strategies > Charitable Giving, then rebuild.'))
     return items
 
 
@@ -86,20 +104,21 @@ def build_sheet_current_vs_proposed(ws, c, rows):
     section_title(ws, 1, 'CURRENT VS. PROPOSED', 7)
     r = 3
     write_cell(ws, r, 1,
-                "Re-runs this plan with each not-yet-adopted recommendation applied, using the same "
-                "projection engine as the rest of this workbook -- not a separate estimate. Only "
-                "recommendations that change the annual cash-flow projection are shown below with a "
-                "dollar delta; estate/charitable-only recommendations are listed separately with a "
-                "pointer to the sheet that models them, since toggling their flag alone doesn't move "
-                "these numbers.", align='left')
-    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=7)
+                "Lists every recommendation this workbook tracks -- both already ACTIVE/incorporated "
+                "and PROPOSED/not-yet-incorporated -- using the same projection engine as the rest of "
+                "this workbook, not a separate estimate. Only recommendations that change the annual "
+                "cash-flow projection get a dollar delta; estate/charitable-only recommendations are "
+                "listed separately with a pointer to the sheet that models them, since toggling their "
+                "flag alone doesn't move these numbers. The rightmost column gives the specific step to "
+                "incorporate a proposed item.", align='left')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
     r += 2
 
     base_nw = rows[-1]['total_nw']
     base_tax = sum(row['total_tax'] for row in rows)
 
-    write_hdr(ws, r, 1, 'Engine-Modeled Comparisons', NAVY, WHITE, span=7); r += 1
-    hdrs = ['Proposed Change', 'Current Terminal NW', 'Proposed Terminal NW',
+    write_hdr(ws, r, 1, 'Engine-Modeled Comparisons', NAVY, WHITE, span=8); r += 1
+    hdrs = ['Recommendation', 'Status', 'Current Terminal NW', 'Proposed Terminal NW',
             'Δ Terminal NW', 'Current Lifetime Tax', 'Proposed Lifetime Tax', 'Δ Lifetime Tax']
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
@@ -107,10 +126,10 @@ def build_sheet_current_vs_proposed(ws, c, rows):
 
     changes = _proposed_changes(c)
     if not changes:
-        write_cell(ws, r, 1, 'No mechanically-comparable recommendations are currently outstanding.', align='left')
-        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=7)
+        write_cell(ws, r, 1, 'No mechanically-comparable recommendations are tracked for this plan.', align='left')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
         r += 1
-    for label, overrides, note in changes:
+    for label, overrides, note, is_active, how_to in changes:
         _c2, rows2 = _run_scenario(c, overrides)
         if not rows2:
             continue
@@ -118,30 +137,38 @@ def build_sheet_current_vs_proposed(ws, c, rows):
         prop_tax = sum(row2['total_tax'] for row2 in rows2)
         delta_nw = prop_nw - base_nw
         delta_tax = prop_tax - base_tax
+        status_bg = 'E2EFDA' if is_active else 'FFF2CC'
         bg = 'E2EFDA' if delta_nw > 0 else ('FCE4D6' if delta_nw < 0 else None)
         write_cell(ws, r, 1, label, bold=True)
-        write_cell(ws, r, 2, base_nw, fmt=FMT_DOLLAR)
-        write_cell(ws, r, 3, prop_nw, fmt=FMT_DOLLAR, bg=bg)
-        write_cell(ws, r, 4, delta_nw, fmt=FMT_DOLLAR, bold=True, bg=bg)
-        write_cell(ws, r, 5, base_tax, fmt=FMT_DOLLAR)
-        write_cell(ws, r, 6, prop_tax, fmt=FMT_DOLLAR)
-        write_cell(ws, r, 7, delta_tax, fmt=FMT_DOLLAR)
+        write_cell(ws, r, 2, 'ACTIVE' if is_active else 'PROPOSED', bold=True, bg=status_bg, align='center')
+        write_cell(ws, r, 3, base_nw, fmt=FMT_DOLLAR)
+        write_cell(ws, r, 4, prop_nw, fmt=FMT_DOLLAR, bg=bg)
+        write_cell(ws, r, 5, delta_nw, fmt=FMT_DOLLAR, bold=True, bg=bg)
+        write_cell(ws, r, 6, base_tax, fmt=FMT_DOLLAR)
+        write_cell(ws, r, 7, prop_tax, fmt=FMT_DOLLAR)
+        write_cell(ws, r, 8, delta_tax, fmt=FMT_DOLLAR)
         r += 1
         write_cell(ws, r, 1, note, align='left')
-        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=7)
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=4)
+        write_cell(ws, r, 5, how_to, align='left', bold=not is_active)
+        ws.merge_cells(start_row=r, start_column=5, end_row=r, end_column=8)
         r += 1
 
     r += 1
-    write_hdr(ws, r, 1, 'Estate/Charitable-Only Recommendations (see referenced sheet)', ORANGE, WHITE, span=7); r += 1
+    write_hdr(ws, r, 1, 'Estate/Charitable-Only Recommendations (see referenced sheet)', ORANGE, WHITE, span=8); r += 1
     report_only = _report_only_items(c)
     if not report_only:
-        write_cell(ws, r, 1, 'None outstanding.', align='left')
-        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=7)
+        write_cell(ws, r, 1, 'None tracked for this plan.', align='left')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
         r += 1
-    for label, note in report_only:
+    for label, note, is_active, how_to in report_only:
+        status_bg = 'E2EFDA' if is_active else 'FFF2CC'
         write_cell(ws, r, 1, label, bold=True, bg=LGRAY)
-        write_cell(ws, r, 2, note, align='left')
-        ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=7)
+        write_cell(ws, r, 2, 'ACTIVE' if is_active else 'PROPOSED', bold=True, bg=status_bg, align='center')
+        write_cell(ws, r, 3, note, align='left')
+        ws.merge_cells(start_row=r, start_column=3, end_row=r, end_column=5)
+        write_cell(ws, r, 6, how_to, align='left', bold=not is_active)
+        ws.merge_cells(start_row=r, start_column=6, end_row=r, end_column=8)
         r += 1
 
     qc('37. Current vs Proposed',

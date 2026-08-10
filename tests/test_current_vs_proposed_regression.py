@@ -57,13 +57,17 @@ def test_report_only_recommendations_are_never_run_through_the_engine():
     c["qtip_enabled"] = False
     c["daf_amount"] = 0
     report_only = _report_only_items(c)
-    labels = {label for label, _note in report_only}
+    labels = {label for label, _note, _is_active, _how_to in report_only}
     assert "Credit Shelter Trust at First Death" in labels
     assert "QTIP Trust for Annuity Post-First-Death" in labels
     assert "DAF Contribution in Highest-Income Year" in labels
+    assert all(is_active is False for _l, _n, is_active, _h in report_only)
 
 
-def test_already_adopted_recommendations_are_excluded():
+def test_already_adopted_recommendations_show_as_active_not_excluded():
+    # #272: Sheet 37 must list every tracked recommendation, active or not --
+    # a planner reviewing this sheet needs to see "already done" alongside
+    # "not yet incorporated," not have adopted items silently disappear.
     c, rows = sample_config_and_rows()
     c = dict(c)
     c["cst_enabled"] = True
@@ -71,8 +75,12 @@ def test_already_adopted_recommendations_are_excluded():
     c["daf_amount"] = 50000
     c["ltc_enabled"] = True
     c["entity"] = "s_corp"
-    assert _report_only_items(c) == []
-    assert _proposed_changes(c) == []
+    report_only = _report_only_items(c)
+    changes = _proposed_changes(c)
+    assert report_only, "expected active estate/charitable items to still be listed"
+    assert all(is_active is True for _l, _n, is_active, _h in report_only)
+    assert changes, "expected active engine-modeled items to still be listed"
+    assert all(is_active is True for _l, _o, _n, is_active, _h in changes)
 
 
 def test_ltc_proposed_change_shows_a_real_engine_delta_not_zero():
@@ -82,7 +90,8 @@ def test_ltc_proposed_change_shows_a_real_engine_delta_not_zero():
     changes = _proposed_changes(c)
     ltc_changes = [ch for ch in changes if "LTC" in ch[0]]
     assert ltc_changes, "expected an LTC recommendation when ltc_enabled is off"
-    label, overrides, note = ltc_changes[0]
+    label, overrides, note, is_active, how_to = ltc_changes[0]
+    assert is_active is False
     assert overrides["ltc_enabled"] is True
     assert overrides.get("ltc_annual_prem", 0) > 0
 
@@ -100,10 +109,10 @@ def test_sheet37_renders_and_uses_the_real_projection_engine():
     assert any("Estate/Charitable-Only Recommendations" in t for t in texts)
 
 
-def test_sheet37_lists_no_report_only_items_when_frozen_fixture_already_adopted_them():
+def test_sheet37_shows_active_status_when_frozen_fixture_already_adopted_them():
     # The frozen test fixture already has cst/qtip/daf configured (per Wave
-    # 5.3's own investigation), so Sheet 37 should show "None outstanding"
-    # for the estate/charitable-only section, not fabricate rows.
+    # 5.3's own investigation); #272 means those rows are now shown marked
+    # ACTIVE rather than omitted.
     from openpyxl import Workbook
 
     c, rows = sample_config_and_rows()
@@ -112,5 +121,5 @@ def test_sheet37_lists_no_report_only_items_when_frozen_fixture_already_adopted_
     build_sheet_current_vs_proposed(ws, c, rows)
     texts = [str(cell.value) for row in ws.iter_rows() for cell in row if cell.value is not None]
     report_only = _report_only_items(c)
-    if not report_only:
-        assert any("None outstanding." in t for t in texts)
+    if report_only and all(is_active for _l, _n, is_active, _h in report_only):
+        assert any(t == "ACTIVE" for t in texts)
