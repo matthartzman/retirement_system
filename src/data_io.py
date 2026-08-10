@@ -2215,6 +2215,23 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['cash_ids']         = _ar.ids_by_tax(c['account_registry'], 'cash')
     c['invest_ids']       = _ar.all_investment_ids(c['account_registry'])
 
+    # ── Individual-account withdrawal-order override (#276) ──────────────────
+    # Plan Data rows: [Withdrawal Policy][Account Order][<account_id>] =
+    # priority (lower draws first). Uses the same generic Section/Subsection/
+    # Label CSV convention as every other plan-data field (so the existing
+    # generic field editor/autosave UI can manage it with no new endpoint),
+    # rather than a bespoke file. Absent/empty by default, in which case
+    # accounts()/draw_order() fall back to their existing (account-type-level)
+    # ordering untouched -- see core.py's _apply_draw_priority docstring.
+    c['account_draw_priority'] = {}
+    for _aid, _pr in (data.get('Withdrawal Policy', {}).get('Account Order', {}) or {}).items():
+        _pr = str(_pr or '').strip()
+        if _pr:
+            try:
+                c['account_draw_priority'][str(_aid).strip()] = int(float(_pr))
+            except (TypeError, ValueError):
+                pass
+
     # Taxable portfolio income assumptions.  Taxable-account ETFs/funds distribute
     # dividends/interest that must enter AGI, SS provisional income, IRMAA MAGI,
     # NIIT, and cash-flow funding.  Use security_master.csv to identify asset

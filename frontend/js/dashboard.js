@@ -1680,103 +1680,13 @@ function buildChangeSummaryHtml(changes) {
   html += "</tbody></table>";
   return html;
 }
-function adminBuildChangeSummaryHtml(events) {
-  const evs = Array.isArray(events) ? events : [];
-  if (!evs.length)
-    return '<p class="small">No admin configuration changes were recorded since the previous build.</p>';
-  let rows = [];
-  evs.forEach((ev) => {
-    (ev.changes || [])
-      .slice(0, 8)
-      .forEach((ch) =>
-        rows.push({
-          file: ev.file || ev.kind || "admin config",
-          by: ev.changed_by || "",
-          label: ch.label || "",
-          before: ch.before || "",
-          after: ch.after || "",
-          count: ev.change_count || 1,
-        }),
-      );
-  });
-  if (!rows.length) {
-    rows = evs.map((ev) => ({
-      file: ev.file || ev.kind || "admin config",
-      by: ev.changed_by || "",
-      label: `${ev.change_count || 1} change${(ev.change_count || 1) === 1 ? "" : "s"}`,
-      before: "",
-      after: "updated",
-      count: ev.change_count || 1,
-    }));
-  }
-  let html =
-    '<table class="change-table"><thead><tr><th>Admin file / setting</th><th>Before</th><th>After</th></tr></thead><tbody>';
-  rows.slice(0, 25).forEach((r) => {
-    html += `<tr><td><div class="change-factor">${esc(r.label)}</div><div class="change-context">${esc(r.file)}${r.by ? ` · ${esc(r.by)}` : ""}</div></td><td>${esc(r.before || "blank")}</td><td>${esc(r.after || "blank")}</td></tr>`;
-  });
-  if (rows.length > 25)
-    html += `<tr><td colspan="3" class="small">${rows.length - 25} more admin setting change${rows.length - 25 === 1 ? "" : "s"} captured.</td></tr>`;
-  html += "</tbody></table>";
-  return html;
-}
 // #274: "User input changes" and "Admin/config changes" used to be two
 // separately-headed sections, which implied admin/config changes only ever
 // happen from the Settings/admin pages -- not true elsewhere in the app.
-// This merges both change lists into one "Source" column so the section is
-// organized by what changed, not by where the change was made.
-function unifiedBuildChangeSummaryHtml(changes, adminEvents) {
-  const userChanges = Array.isArray(changes) ? changes : capturedSessionChanges();
-  const evs = Array.isArray(adminEvents) ? adminEvents : [];
-  const rows = [];
-  const scenarioOnly = userChanges.filter((c) =>
-    String(c.scope || "")
-      .toLowerCase()
-      .includes("scenario analysis"),
-  );
-  userChanges.forEach((c) => {
-    const source = c.sourceStep
-      ? buildSourceJumpHtml(c.sourceStep, c.sourceTitle || stepTitleById(c.sourceStep))
-      : esc(c.group || "—");
-    rows.push({
-      factor: esc(c.label),
-      context: c.group ? `${esc(c.group)}${c.scope ? ` · ${esc(c.scope)}` : ""}` : "",
-      source,
-      before: esc(c.before || "blank"),
-      after: esc(c.after || "blank"),
-    });
-  });
-  evs.forEach((ev) => {
-    const file = ev.file || ev.kind || "admin config";
-    const by = ev.changed_by || "";
-    const chs = (ev.changes || []).slice(0, 8);
-    const list = chs.length
-      ? chs
-      : [{ label: `${ev.change_count || 1} change${(ev.change_count || 1) === 1 ? "" : "s"}`, before: "", after: "updated" }];
-    list.forEach((ch) => {
-      rows.push({
-        factor: esc(ch.label || ""),
-        context: "",
-        source: `Admin: ${esc(file)}${by ? ` · ${esc(by)}` : ""}`,
-        before: esc(ch.before || "blank"),
-        after: esc(ch.after || "blank"),
-      });
-    });
-  });
-  if (!rows.length)
-    return '<p class="small">No input or configuration changes were captured before this build.</p>';
-  let html = scenarioOnly.length
-    ? `<div class="section-note warning"><b>${scenarioOnly.length} scenario-only change${scenarioOnly.length === 1 ? "" : "s"} captured.</b> These values are used in the workbook Scenario Analysis sheet but do not move the headline Build Impact cards unless the matching base-plan input is also changed.</div>`
-    : "";
-  html +=
-    '<table class="change-table"><thead><tr><th>Factor</th><th>Source</th><th>Before</th><th>After</th></tr></thead><tbody>';
-  rows.slice(0, 40).forEach((r) => {
-    html += `<tr><td><div class="change-factor">${r.factor}</div>${r.context ? `<div class="change-context">${r.context}</div>` : ""}</td><td>${r.source}</td><td>${r.before}</td><td>${r.after}</td></tr>`;
-  });
-  if (rows.length > 40)
-    html += `<tr><td colspan="4" class="small">${rows.length - 40} more change${rows.length - 40 === 1 ? "" : "s"} captured.</td></tr>`;
-  html += "</tbody></table>";
-  return html;
-}
+// unifiedBuildChangeSummaryHtml() (dashboard_decomp_misc.js) merges both
+// change lists into one "Source" column instead, and adminBuildChangeSummaryHtml
+// (the old admin-only renderer) was removed as dead code once that was its
+// only caller.
 function impactCardHtml(
   title,
   delta,
@@ -1981,7 +1891,7 @@ function latestBuildImpactHtml(entry) {
   if (!entry || entry.isSnapshot) return "";
   const before = currentKpi(entry.before || {}),
     after = currentKpi(entry.after || {});
-  return `<div class="latest-build-impact"><h3>Latest Build Impact</h3>${buildImpactNarrativeHtml(entry)}${buildImpactCardsHtml(before, after)}${buildImpactSuggestionsHtml(before, after, entry.after || {})}${modelHeardHtml(entry.after || {})}<details><summary>Input and configuration changes</summary>${unifiedBuildChangeSummaryHtml(entry.changes || [], entry.admin_changes || [])}</details></div>`;
+  return `<div class="latest-build-impact"><h3>Latest Build Impact</h3>${buildImpactNarrativeHtml(entry)}${buildImpactCardsHtml(before, after)}${buildImpactSuggestionsHtml(before, after, entry.after || {})}${modelHeardHtml(entry.after || {})}<details><summary>Input and configuration changes</summary>${window.unifiedBuildChangeSummaryHtml(entry.changes || [], entry.admin_changes || [])}</details></div>`;
 }
 
 function mhBool(v) {
@@ -3050,12 +2960,10 @@ function revealAndFocus(el) {
 function jumpRecommendationSource(stepId, rowIndex) {
   if (rowIndex !== undefined && rowIndex !== null && rowIndex !== "")
     inactiveEditReveals.add(Number(rowIndex));
-  // #269: recommendation rows (e.g. "Review growth mode") point at fields on
-  // a merged workspace's DEFAULT sub-tab (Spending Model, Levers, etc). If the
-  // user had last visited a different sub-tab of that same step, the stale
-  // localStorage tab choice meant setStep() below landed on the right page
-  // but the target field was never rendered, so the "reveal and focus" was a
-  // silent no-op -- the button looked like it "did nothing but scroll to top."
+  // #269: reset a merged workspace (e.g. spending_core) to its default
+  // sub-tab -- a stale localStorage tab choice made setStep() below land on
+  // the right page but the target field wasn't rendered, so "Review growth
+  // mode" looked like it did nothing but scroll to top.
   const _tabs = (typeof STRATEGY_TABS !== "undefined" && STRATEGY_TABS[stepId]) || null;
   if (_tabs && _tabs.length) {
     try {
@@ -7169,8 +7077,15 @@ function withdrawalOtherRows() {
 // checks the two stay identical.
 const FIXED_WITHDRAWAL_CASCADE_DESCRIPTION =
   "RMDs → HSA window → tax-sensitive pre-tax → taxable/trust → final pre-tax/HSA → Roth last → Home Equity";
+// #276: the account-TYPE cascade above is fixed by the engine (see the note
+// above FIXED_WITHDRAWAL_CASCADE_DESCRIPTION); the individual-ACCOUNT-level
+// override within whichever type-slot an account falls into (e.g. which of
+// two taxable brokerage accounts drains first) is implemented in
+// dashboard_decomp_misc.js (withdrawalAccountOrderEditorHtml() and friends)
+// to keep this file under its line-count ratchet.
 function renderWithdrawalOrderTable() {
-  return `<details><summary>Withdrawal order</summary><div class="field-list"><div class="section-note"><b>Fixed by the engine — not user-configurable.</b> Every plan draws down accounts in this order every year: ${esc(FIXED_WITHDRAWAL_CASCADE_DESCRIPTION)}. RMDs are mandatory income; Roth and home equity are preserved until other liquid sources are exhausted.</div></div></details>`;
+  const editor = window.withdrawalAccountOrderEditorHtml ? window.withdrawalAccountOrderEditorHtml() : "";
+  return `<details><summary>Withdrawal order</summary><div class="field-list"><div class="section-note"><b>Account-type order is fixed by the engine — not user-configurable.</b> Every plan draws down account types in this order every year: ${esc(FIXED_WITHDRAWAL_CASCADE_DESCRIPTION)}. RMDs are mandatory income; Roth and home equity are preserved until other liquid sources are exhausted. Within a type (e.g. two taxable brokerage accounts), set the individual-account priority below -- default is the app's existing optimized order.</div>${editor}</div></details>`;
 }
 function renderWithdrawalStrategy() {
   if (searchText.trim()) return renderFields("withdrawal_strategy");
@@ -7183,10 +7098,7 @@ function renderWithdrawalStrategy() {
       r.section === "Withdrawal Policy" &&
       r.subsection === "Tax-Loss Harvesting",
   );
-  // #277: Gain Harvest gets its own collapsible section, on par with Tax
-  // Loss Harvesting, instead of being lumped into "Other funding and
-  // rollover settings" below. Annual Funding Tolerance and Decedent
-  // Balances Pass To Survivor explicitly stay in that misc section.
+  // #277: Gain Harvest gets its own collapsible section, on par with TLH.
   const gainHarvest = other.filter(
     (r) => r.section === "Withdrawal Policy" && r.subsection === "Gain Harvesting",
   );
@@ -11277,9 +11189,7 @@ function goToStrategyTab(step, tab) {
     localStorage.setItem(strategyTabKey(step), next);
   } catch (_e) {}
   setStep(step);
-  // #269: clicking "Actual Spending (YTD)" used to silently do nothing while
-  // its transaction data (re)loaded in the background -- surface the same
-  // progress overlay used elsewhere for YTD loads instead of a silent wait.
+  // #269: surface the YTD-load progress overlay instead of silently waiting.
   if (step === "spending_core" && next === "Actual Spending (YTD)") {
     loadYtdStatus(false).then(renderMain);
   }
@@ -11324,11 +11234,7 @@ function renderDafConfig() {
   return `<div class="section-note">Contribution amount/year fund the DAF in a lump sum (tax-deductible up to 60% of AGI in the contribution year); annual grant amount/start/end schedule ongoing charitable distributions out of the DAF balance. See Charitable Giving in the workbook report for a sizing recommendation.</div><div class="field-list">${rs.map(fieldHtml).join("")}</div>`;
 }
 function renderLifestyleSpending() {
-  // #269: DAF settings live on Special Strategies -> Charitable Giving
-  // (renderEntityCharitable -> renderFields("entity_charitable"), which
-  // already includes the DAF-group rows renderDafConfig also rendered here).
-  // Keeping both showed the identical fields twice; keep the one under
-  // Special Strategies and drop this duplicate.
+  // #269: DAF settings duplicate Special Strategies -> Charitable Giving; drop here.
   return `<div class="lifestyle-workspace"><details><summary>Travel</summary>${renderTravelBudgetPage()}</details><details><summary>Large Items</summary>${renderLargeDiscretionaryBudgetPage()}</details></div>`;
 }
 const SPENDING_WORKFLOW_STEPS = [
@@ -15260,7 +15166,7 @@ Object.assign(window, {
   _checkAppStatusRun, activeOptimizerUsedTarget, addAltOption, addBudgetLine, addCategoryDetailRow,
   addEducation529Section, addGroupDetailRow, addLargeDiscLine, addLiability, addManualYtdAccount,
   addMappingRule, addNoteReceivable, addOtherAssetItem, addParentheticals, addSelectedYtdAccount,
-  addUniqueRow, addYtdAccount, addYtdTxn, adminBuildChangeSummaryHtml, allocationCommonRows,
+  addUniqueRow, addYtdAccount, addYtdTxn, allocationCommonRows,
   allocationCoverageCalloutHtml, allocationModeHtml, allocationModeIsComputed,
   allocationOptimizerRecommendationHtml, allocationPageRecommendations, allocationPolicyRows,
   allocationPreviewFingerprint, allocationPreviewRowsForPost, allocationRowsOrNote,
