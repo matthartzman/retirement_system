@@ -7,8 +7,10 @@ from typing import Any, Iterable
 
 try:
     from ..plan_data_registry import SYSTEM_REFERENCE_FILES, client_data_csv_files
+    from ..plan_file_io import atomic_write, plan_file_lock, write_text_atomic
 except ImportError:  # pragma: no cover - direct execution fallback
     from src.plan_data_registry import SYSTEM_REFERENCE_FILES, client_data_csv_files
+    from src.plan_file_io import atomic_write, plan_file_lock, write_text_atomic
 
 ADMIN_PLAN_DATA_FILES = set(client_data_csv_files()) | {
     "client_holdings.csv", "client_liabilities.csv", "target_allocation.csv",
@@ -23,11 +25,8 @@ def read_csv_rows(path: Path) -> list[list[str]]:
 
 
 def write_csv_rows(path: Path, rows: Iterable[Iterable[Any]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    with tmp.open("w", newline="", encoding="utf-8") as f:
+    with atomic_write(path) as f:
         csv.writer(f, lineterminator="\n").writerows(rows)
-    tmp.replace(path)
 
 
 def normalize_reference_file_name(file_name: str) -> str:
@@ -73,17 +72,17 @@ def csv_file_payload(kind: str, file_name: str, *, base_dir: Path, system_config
 
 def save_csv_file(kind: str, file_name: str, body: dict[str, Any], *, base_dir: Path, system_config_path: Path) -> tuple[dict[str, Any], int, list[list[str]], list[list[str]]]:
     p = admin_csv_path(kind, file_name, base_dir=base_dir, system_config_path=system_config_path)
-    before_rows = read_csv_rows(p) if p.exists() else []
-    content = body.get("csv_content") if isinstance(body, dict) else None
-    rows = body.get("rows") if isinstance(body, dict) else None
-    if content is not None:
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(str(content), encoding="utf-8")
-    elif isinstance(rows, list):
-        write_csv_rows(p, rows)
-    else:
-        return {"success": False, "error": "csv_content or rows required"}, 400, before_rows, before_rows
-    after_rows = read_csv_rows(p) if p.exists() else []
+    with plan_file_lock(p):
+        before_rows = read_csv_rows(p) if p.exists() else []
+        content = body.get("csv_content") if isinstance(body, dict) else None
+        rows = body.get("rows") if isinstance(body, dict) else None
+        if content is not None:
+            write_text_atomic(p, str(content))
+        elif isinstance(rows, list):
+            write_csv_rows(p, rows)
+        else:
+            return {"success": False, "error": "csv_content or rows required"}, 400, before_rows, before_rows
+        after_rows = read_csv_rows(p) if p.exists() else []
     payload = {"success": True, "kind": str(kind).lower(), "file": p.name, "path": str(p)}
     return payload, 200, before_rows, after_rows
 
@@ -98,17 +97,17 @@ def system_config_payload(system_config_path: Path) -> dict[str, Any]:
 
 
 def save_system_config(body: dict[str, Any], system_config_path: Path) -> tuple[dict[str, Any], int, list[list[str]], list[list[str]]]:
-    before_rows = read_csv_rows(system_config_path) if system_config_path.exists() else []
-    content = body.get("csv_content") if isinstance(body, dict) else None
-    rows = body.get("rows") if isinstance(body, dict) else None
-    if content is not None:
-        system_config_path.parent.mkdir(parents=True, exist_ok=True)
-        system_config_path.write_text(str(content), encoding="utf-8")
-    elif isinstance(rows, list):
-        write_csv_rows(system_config_path, rows)
-    else:
-        return {"success": False, "error": "csv_content or rows required"}, 400, before_rows, before_rows
-    after_rows = read_csv_rows(system_config_path) if system_config_path.exists() else []
+    with plan_file_lock(system_config_path):
+        before_rows = read_csv_rows(system_config_path) if system_config_path.exists() else []
+        content = body.get("csv_content") if isinstance(body, dict) else None
+        rows = body.get("rows") if isinstance(body, dict) else None
+        if content is not None:
+            write_text_atomic(system_config_path, str(content))
+        elif isinstance(rows, list):
+            write_csv_rows(system_config_path, rows)
+        else:
+            return {"success": False, "error": "csv_content or rows required"}, 400, before_rows, before_rows
+        after_rows = read_csv_rows(system_config_path) if system_config_path.exists() else []
     return {"success": True, "path": str(system_config_path)}, 200, before_rows, after_rows
 
 
@@ -129,10 +128,10 @@ def read_reference_file(base_dir: Path, file_name: str) -> tuple[str | dict[str,
 
 def save_reference_file(base_dir: Path, file_name: str, content: str) -> tuple[dict[str, Any], list[list[str]], list[list[str]]]:
     p = reference_file_path(base_dir, file_name)
-    before_rows = read_csv_rows(p) if p.exists() else []
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(str(content or ""), encoding="utf-8")
-    after_rows = read_csv_rows(p) if p.exists() else []
+    with plan_file_lock(p):
+        before_rows = read_csv_rows(p) if p.exists() else []
+        write_text_atomic(p, str(content or ""))
+        after_rows = read_csv_rows(p) if p.exists() else []
     return {"success": True, "file": p.name, "path": str(p), "bytes": len(str(content or ""))}, before_rows, after_rows
 
 

@@ -24,6 +24,8 @@ import csv
 from pathlib import Path
 from typing import Callable, NamedTuple, Optional, Sequence, Union
 
+from .plan_file_io import atomic_write, plan_file_lock
+
 Row = list
 # A callable row source takes the same target_dir apply_backfill was given,
 # so a dynamic entry (e.g. "one row per holdings account") reads from the
@@ -106,11 +108,8 @@ def _read_rows(path: Path) -> list[Row]:
 
 
 def _write_rows(path: Path, rows: list[Row]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    with tmp.open("w", newline="", encoding="utf-8") as f:
+    with atomic_write(path) as f:
         csv.writer(f, lineterminator="\n").writerows(rows)
-    tmp.replace(path)
 
 
 def apply_backfill(target_dir: Path, entries: Sequence[BackfillEntry]) -> dict[str, int]:
@@ -134,20 +133,21 @@ def apply_backfill(target_dir: Path, entries: Sequence[BackfillEntry]) -> dict[s
     added_counts: dict[str, int] = {}
     for file_name, file_entries in by_file.items():
         path = target_dir / file_name
-        rows = ensure_header(_read_rows(path))
-        seen = {row_key(r) for r in rows[1:]}
-        added = 0
-        for entry in file_entries:
-            candidates = entry.rows(target_dir) if callable(entry.rows) else entry.rows
-            missing = [list(r) for r in candidates if row_key(r) not in seen]
-            if not missing:
-                continue
-            insert_at = entry.anchor(rows) if entry.anchor is not None else len(rows)
-            rows[insert_at:insert_at] = missing
-            for r in missing:
-                seen.add(row_key(r))
-            added += len(missing)
-        if added:
-            _write_rows(path, rows)
-            added_counts[file_name] = added
+        with plan_file_lock(path):
+            rows = ensure_header(_read_rows(path))
+            seen = {row_key(r) for r in rows[1:]}
+            added = 0
+            for entry in file_entries:
+                candidates = entry.rows(target_dir) if callable(entry.rows) else entry.rows
+                missing = [list(r) for r in candidates if row_key(r) not in seen]
+                if not missing:
+                    continue
+                insert_at = entry.anchor(rows) if entry.anchor is not None else len(rows)
+                rows[insert_at:insert_at] = missing
+                for r in missing:
+                    seen.add(row_key(r))
+                added += len(missing)
+            if added:
+                _write_rows(path, rows)
+                added_counts[file_name] = added
     return added_counts
