@@ -75,6 +75,27 @@
     // ~19,400 to ~15,300 lines. Domain clustering (the REST of the scope
     // doc's plan -- ~10-15 modules for the remaining ~586 functions) is
     // still not attempted: that's a separate pass on top of this one.
+    // v5 (docs/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md):
+    // first DOMAIN cluster extracted, and the first one done by a general
+    // tool rather than by hand. Built tools/js_codemod/extract_module.mjs: it
+    // discovers byte offsets via the AST, splices the source string, then
+    // proves the move was lossless by reading its own generated module back
+    // off disk and reconstructing the original dashboard.js from it (deriving
+    // the text from the OUTPUT is what makes that a real check and not a
+    // tautology). Moved the 24-function assets cluster (liabilities, note
+    // receivables, 529s, other-asset items) plus the 4 constant tables only
+    // that cluster reads into frontend/js/dashboard_decomp_assets_other.js.
+    // Loaded BEFORE dashboard.js like row_model.js: dashboard.js schedules its
+    // boot work with queueMicrotask, whose checkpoint can fire before a later
+    // module script evaluates, so a leaf loaded after it is not guaranteed to
+    // have installed its window bridge in time. ~13 domain clusters remain;
+    // re-run tools/js_codemod/find_clusters.mjs before each, since every
+    // extraction changes the graph for the next one.
+    // NOTE for anyone extending the codemods: extract_module.mjs and
+    // find_clusters.mjs use @babel/parser directly, NOT jscodeshift.
+    // jscodeshift's node.start/.end are only valid byte offsets on a CRLF
+    // source -- on an LF checkout (Linux/CI) all 584 of dashboard.js's
+    // top-level functions slice wrong. Do not "unify" them back.
     loaded_by:'dashboard_source_truth_banners.js',
     compatibility:'dashboard.js remains the public behavior owner; its top-level surface is now bridged to window explicitly and tool-verified (tests/test_dashboard_js_module_bridge_regression.py) instead of implicitly global.'
   };
