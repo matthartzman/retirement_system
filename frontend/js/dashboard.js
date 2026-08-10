@@ -5998,27 +5998,11 @@ async function estimateHousingFromState(stepNum) {
       hoa_pct: isPurchase ? e.hoa_pct : null,
       mortgage_rate_pct: isPurchase ? e.mortgage_rate_pct : null,
     };
+    // #266: cache for per-field restoreHousingEstimateField() below.
+    window.housingLastEstimate[stepNum] = fieldMap;
     let applied = 0;
-    for (const [label, val] of Object.entries(fieldMap)) {
-      if (val === null || val === undefined) continue;
-      const r = rows.find(
-        (x) =>
-          x.section === "Housing" &&
-          norm(x.subsection || "") === "next_step_" + stepNum &&
-          norm(x.label) === label,
-      );
-      if (r) {
-        const display =
-          typeof val === "number" &&
-          (label.includes("pct") ||
-            label === "re_tax_pct" ||
-            label === "hoa_pct" ||
-            label === "mortgage_rate_pct")
-            ? (val * 100).toFixed(2) + "%"
-            : String(val);
-        editValue(r.row_index, display, null);
-        applied++;
-      }
+    for (const label of Object.keys(fieldMap)) {
+      if (window.applyHousingEstimateField(stepNum, label, fieldMap[label])) applied++;
     }
     renderMain();
     showMessage(
@@ -6032,6 +6016,7 @@ async function estimateHousingFromState(stepNum) {
     showMessage("Error fetching estimate: " + err.message, "error");
   }
 }
+// #266: housing-estimate apply/restore helpers live in dashboard_decomp_misc.js.
 
 function housingRentMonthlyValue() {
   const rentLabels = new Set(["monthly_rent"]);
@@ -6157,6 +6142,16 @@ function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
     ' <span class="small">Fills typical ' +
     (isPurchase ? "purchase" : "rental") +
     " costs for a 3BR/2BA home with at least a 40×40 ft backyard. All values are editable.</span></div>";
+  // #266: per-field restore-to-estimate links.
+  var restoreFieldLabels = { insurance_annual: "Insurance", utilities_annual: "Utilities", maintenance_annual: "Maintenance", re_tax_pct: "RE Tax %", hoa_pct: "HOA %" };
+  var cachedEst = window.housingLastEstimate[stepNum];
+  if (cachedEst) {
+    var restoreLinks = Object.keys(restoreFieldLabels)
+      .filter((lbl) => cachedEst[lbl] !== null && cachedEst[lbl] !== undefined)
+      .map((lbl) => '<button class="btn tiny" type="button" onclick="restoreHousingEstimateField(' + stepNum + ",'" + lbl + '\')">↺ ' + esc(restoreFieldLabels[lbl]) + "</button>")
+      .join(" ");
+    if (restoreLinks) estimateBtn += '<div class="section-note small" style="margin-bottom:8px">Restore app estimate for one field: ' + restoreLinks + "</div>";
+  }
 
   var typeToggle = "";
   if (typeRow) {
