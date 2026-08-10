@@ -10,6 +10,8 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 DASHBOARD_JS = ROOT / "frontend" / "js" / "dashboard.js"
 INDEX_HTML = ROOT / "frontend" / "index.html"
@@ -84,13 +86,52 @@ def test_generated_block_has_the_do_not_hand_edit_header():
     assert "do not hand-edit" in js.lower() or "regenerate:" in js.lower()
 
 
-def test_codemod_check_mode_reports_no_drift():
-    result = subprocess.run(
+def _run_check() -> subprocess.CompletedProcess:
+    return subprocess.run(
         ["node", str(CONVERT_SCRIPT), "--check"],
         cwd=ROOT, text=True, capture_output=True, timeout=60,
     )
+
+
+def test_codemod_check_mode_reports_no_drift():
+    result = _run_check()
     assert result.returncode == 0, (
         "dashboard.js has drifted from the codemod's expected output "
         f"(hand-edited generated block, or a new top-level function/variable added "
         f"without regenerating census_report.json?):\n{result.stdout}{result.stderr}"
     )
+
+
+@pytest.mark.parametrize("label,eol", [("LF", b"\n"), ("CRLF", b"\r\n")], ids=["lf", "crlf"])
+def test_codemod_check_mode_is_line_ending_agnostic(label, eol):
+    """--check must report drift on CONTENT differences only, never on line endings.
+
+    The repo sets core.autocrlf=true and .gitattributes pins only *.csv and the
+    plan-data manifest, so a Windows clone/worktree checks dashboard.js out as
+    pure CRLF while Linux/CI gets pure LF. The codemod builds its generated
+    window-bridge block with bare "\\n", so a byte-for-byte comparison against
+    the CRLF file reported all ~265 generated lines as drift -- "dashboard.js is
+    out of sync with the codemod" on every fresh Windows checkout, with zero
+    real content drift and an empty `git diff`.
+
+    A single-EOL assertion cannot catch this, because whichever flavour the
+    running platform happens to check out is the one that passes. So drive both
+    flavours explicitly: pre-fix this fails on Linux (the CRLF case) and on
+    Windows (the CRLF case) alike.
+
+    The file is restored byte-for-byte in `finally` -- this test rewrites a
+    tracked source file and must never leave it altered, even on failure.
+    """
+    original = DASHBOARD_JS.read_bytes()
+    rewritten = original.replace(b"\r\n", b"\n").replace(b"\n", eol)
+    try:
+        DASHBOARD_JS.write_bytes(rewritten)
+        result = _run_check()
+        assert result.returncode == 0, (
+            f"--check reported drift on a pure-{label} copy of dashboard.js whose "
+            f"content is byte-identical once line endings are normalized:\n"
+            f"{result.stdout}{result.stderr}"
+        )
+    finally:
+        DASHBOARD_JS.write_bytes(original)
+    assert DASHBOARD_JS.read_bytes() == original, "dashboard.js was not restored"
