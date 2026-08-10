@@ -11226,7 +11226,8 @@ function renderDafConfig() {
   );
   if (!rs.length)
     return `<div class="section-note">No DAF rows found in Plan Data. Reload Plan Data, or add a [DAF][Settings] section.</div>`;
-  return `<div class="section-note">Contribution amount/year fund the DAF in a lump sum (tax-deductible up to 60% of AGI in the contribution year); annual grant amount/start/end schedule ongoing charitable distributions out of the DAF balance. See Charitable Giving in the workbook report for a sizing recommendation.</div><div class="field-list">${rs.map(fieldHtml).join("")}</div>`;
+  const recPanel = window.dafRecommendationPanelHtml ? window.dafRecommendationPanelHtml() : "";
+  return `<div class="section-note">Contribution amount/year fund the DAF in a lump sum (tax-deductible up to 60% of AGI cash / 30% of AGI appreciated holdings in the contribution year); annual grant amount/start/end schedule ongoing charitable distributions out of the DAF balance. See Charitable Giving in the workbook report for the full sizing detail.</div>${recPanel}<div class="field-list">${rs.map(fieldHtml).join("")}</div>`;
 }
 function renderLifestyleSpending() {
   // #269: DAF settings duplicate Special Strategies -> Charitable Giving; drop here.
