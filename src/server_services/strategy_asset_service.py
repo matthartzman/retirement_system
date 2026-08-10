@@ -159,6 +159,10 @@ class StrategyAssetServiceContext:
     sync_config_backends: SyncFn
     audit: AuditFn | None = None
     travel_extra_types: list[str] | None = None
+    # #276: added after the other fields with a default so existing call
+    # sites/tests that construct this context without every optional field
+    # keep working unchanged.
+    all_account_ids_from_holdings: Callable[[], list[str]] = lambda: []
 
 
 class StrategyAssetService:
@@ -205,6 +209,64 @@ class StrategyAssetService:
     # had zero effect on the workbook. See
     # documentation/reports/SYSTEM_REVIEW_2026-07-18.md §10.1 and
     # src/taxes.py's FIXED_WITHDRAWAL_CASCADE_DESCRIPTION.
+    #
+    # #276: the account-TYPE-level cascade above is still fixed/hardcoded --
+    # that's a deliberate engine design, not this ticket's target. This adds
+    # a *new*, narrower control: an optional per-individual-ACCOUNT priority
+    # within whichever type-slot an account already falls into (e.g. which
+    # of two taxable brokerage accounts drains first). Unlike the old
+    # withdrawal-order table, this one is actually read by the engine --
+    # core.py's accounts()/_apply_draw_priority -- so saving it has a real
+    # effect. Stored as generic [Withdrawal Policy][Account Order][<account
+    # id>] rows in client_policy.csv, same convention as the Priority N rows
+    # above; empty/default value = the app's existing optimized order.
+    _WITHDRAWAL_ACCOUNT_ORDER_FILE = "client_policy.csv"
+    _WITHDRAWAL_ACCOUNT_ORDER_SECTION = "Withdrawal Policy"
+    _WITHDRAWAL_ACCOUNT_ORDER_SUBSECTION = "Account Order"
+
+    def withdrawal_account_order_payload(self) -> tuple[dict[str, Any], int]:
+        account_ids = self.context.all_account_ids_from_holdings()
+        path = self.context.plan_data_path(self._WITHDRAWAL_ACCOUNT_ORDER_FILE)
+        rows = self.context.csv_read_rows(path)
+        saved: dict[str, str] = {}
+        for r in rows[1:] if rows else []:
+            cols = list(r) + [""] * 4
+            if cols[0].strip() == self._WITHDRAWAL_ACCOUNT_ORDER_SECTION and cols[1].strip() == self._WITHDRAWAL_ACCOUNT_ORDER_SUBSECTION:
+                saved[cols[2].strip()] = cols[3].strip()
+        # Default priority = current index in the app's existing (optimized)
+        # order, i.e. account discovery order -- matches accounts()'s
+        # fallback when no override is saved, so "default" really means "no
+        # change yet."
+        accounts_out = [
+            {"account_id": aid, "priority": saved.get(aid, str(i + 1))}
+            for i, aid in enumerate(account_ids)
+        ]
+        return {"success": True, "accounts": accounts_out}, 200
+
+    def save_withdrawal_account_order_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
+        entries = body.get("accounts") or []
+        if not isinstance(entries, list):
+            return {"success": False, "error": "accounts must be a list"}, 400
+        clean: dict[str, str] = {}
+        for e in entries:
+            if not isinstance(e, dict):
+                continue
+            aid = str(e.get("account_id") or "").strip()
+            pr = str(e.get("priority") or "").strip()
+            if aid and pr:
+                clean[aid] = pr
+        path = self.context.plan_data_path(self._WITHDRAWAL_ACCOUNT_ORDER_FILE)
+        rows = self.context.ensure_header(self.context.csv_read_rows(path))
+        kept = [
+            r for r in rows[1:]
+            if not (len(r) >= 2 and str(r[0]).strip() == self._WITHDRAWAL_ACCOUNT_ORDER_SECTION and str(r[1]).strip() == self._WITHDRAWAL_ACCOUNT_ORDER_SUBSECTION)
+        ]
+        new_rows = [rows[0], *kept]
+        for aid, pr in clean.items():
+            new_rows.append([self._WITHDRAWAL_ACCOUNT_ORDER_SECTION, self._WITHDRAWAL_ACCOUNT_ORDER_SUBSECTION, aid, pr, "int", "Individual-account withdrawal draw priority (lower = drawn first); blank/default = app's optimized order."])
+        self.context.csv_write_rows(path, new_rows)
+        self._audit("withdrawal_account_order_saved", {"count": len(clean)})
+        return {"success": True, "saved": len(clean)}, 200
 
     def large_discretionary_payload(self) -> tuple[dict[str, Any], int]:
         return {"success": True, "types": self.context.travel_extra_types or [], "events": self.context.large_discretionary_expenses_from_plan_data()}, 200

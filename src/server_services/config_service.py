@@ -223,6 +223,28 @@ class ConfigService:
             self._audit("allocation_preview_failed", {"error": str(exc)})
             return {"success": False, "error": str(exc)}, 500
 
+    def daf_recommendation_payload(self, body: dict[str, Any]) -> tuple[JsonDict, int]:
+        """#270: recommend a DAF contribution amount for the current plan,
+        maximizing within the IRS AGI ceiling (60% cash / 30% appreciated).
+        Read-only -- never writes the plan; the UI applies the number itself."""
+        try:
+            from ..daf_optimizer import recommend_daf_contribution
+            from ..report_compute import prepare_config_from_sectioned_data
+        except ImportError:  # pragma: no cover - direct execution fallback
+            from src.daf_optimizer import recommend_daf_contribution
+            from src.report_compute import prepare_config_from_sectioned_data
+        try:
+            data = self.context.load_active_config()[0]
+            cfg = prepare_config_from_sectioned_data(data, "", optimize_roth=False)
+            year = body.get("year")
+            appreciated = bool(body.get("appreciated", cfg.get("daf_contribution_is_appreciated", False)))
+            out = recommend_daf_contribution(cfg, rows=None, year=int(year) if year else None, appreciated=appreciated)
+            out["success"] = True
+            return out, 200
+        except Exception as exc:
+            self._audit("daf_recommendation_failed", {"error": str(exc)})
+            return {"success": False, "error": str(exc)}, 500
+
     def _validate_all_workspace_plan_rows(self, file_rows: dict[str, list[list[str]]]) -> list[str]:
         combined: list[dict[str, str]] = []
         names = [n for n in self.context.plan_data_csv_files if n != "client_holdings.csv"]

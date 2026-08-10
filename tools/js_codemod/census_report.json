@@ -19,7 +19,6 @@
     "addUniqueRow",
     "addYtdAccount",
     "addYtdTxn",
-    "adminBuildChangeSummaryHtml",
     "allocationCommonRows",
     "allocationCoverageCalloutHtml",
     "allocationModeHtml",

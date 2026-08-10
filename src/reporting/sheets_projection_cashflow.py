@@ -409,6 +409,30 @@ def build_sheet6(ws, c, rows):
                                bold=(lbl.startswith('Net')))
                 below += 1
 
+    # ── DAF Contribution/Grant Callout (#270) ─────────────────────────────────
+    # daf_contrib_yr already flows into Σ_Spend (via 'lump') above, so the
+    # dollars are already counted in the cash bridge; this section just makes
+    # that draw/outflow visible and explicit instead of buried anonymously in
+    # the generic lump line, same treatment as the Home Sale callout above.
+    if c.get('daf_enabled', False):
+        daf_rows_shown = [rw for rw in rows if float(rw.get('daf_contrib_yr', 0) or 0) > 0 or float(rw.get('daf_grant_yr', 0) or 0) > 0]
+        if daf_rows_shown:
+            write_hdr(ws, below, 1, 'Donor-Advised Fund (DAF)', BLUE, WHITE, span=6)
+            below += 1
+            write_hdr(ws, below, 1, 'Year', DGRAY, WHITE)
+            write_hdr(ws, below, 2, 'Contribution (cash-flow outflow)', DGRAY, WHITE)
+            write_hdr(ws, below, 3, 'Annual Grant (from DAF balance, not new cash)', DGRAY, WHITE)
+            below += 1
+            for rw in daf_rows_shown:
+                write_cell(ws, below, 1, rw['year'], fmt=FMT_YEAR)
+                write_cell(ws, below, 2, float(rw.get('daf_contrib_yr', 0) or 0), fmt=FMT_DOLLAR_ZERO_BAND, bold=True)
+                write_cell(ws, below, 3, float(rw.get('daf_grant_yr', 0) or 0), fmt=FMT_DOLLAR_ZERO_BAND)
+                below += 1
+            funding_note = 'appreciated holdings (30% AGI limit)' if c.get('daf_contribution_is_appreciated', False) else 'cash (60% AGI limit)'
+            write_cell(ws, below, 1, f"Funded from: {funding_note}. See Special Strategies for the recommended contribution and funding-account choice.", align='left')
+            ws.merge_cells(start_row=below, start_column=1, end_row=below, end_column=6)
+            below += 1
+
     # C5 / Wave 3.4: lifetime cash-need and tax totals sum nominal dollars
     # across three decades of years -- add the today's-purchasing-power
     # companion so the totals are comparable to the plan-start figures above.

@@ -23,6 +23,7 @@ try:
         _liquidity_buffers_from_csv_rows,
         _normalize_date_for_csv,
         _normalize_large_discretionary_type,
+        _all_account_ids_from_holdings,
         _plan_data_path,
         _pre_tax_account_options_from_holdings,
         _read_client_section_rows,
@@ -78,6 +79,7 @@ except ImportError:
         _liquidity_buffers_from_csv_rows,
         _normalize_date_for_csv,
         _normalize_large_discretionary_type,
+        _all_account_ids_from_holdings,
         _plan_data_path,
         _pre_tax_account_options_from_holdings,
         _read_client_section_rows,
@@ -147,6 +149,7 @@ def _strategy_asset_feature_service() -> strategy_asset_service.StrategyAssetSer
             normalize_large_discretionary_type=_normalize_large_discretionary_type,
             replace_large_discretionary_expenses=_replace_large_discretionary_expenses,
             pre_tax_account_options_from_holdings=_pre_tax_account_options_from_holdings,
+            all_account_ids_from_holdings=_all_account_ids_from_holdings,
             forced_roth_conversions_from_csv_rows=_forced_roth_conversions_from_csv_rows,
             replace_forced_roth_conversions=_replace_forced_roth_conversions,
             liquidity_buffers_from_csv_rows=_liquidity_buffers_from_csv_rows,
@@ -418,6 +421,15 @@ def allocation_preview():
     return jsonify(payload), status
 
 
+@app.route("/api/daf/recommendation", methods=["POST"])
+def daf_recommendation():
+    denied = _require("read_config")
+    if denied:
+        return denied
+    payload, status = _config_feature_service().daf_recommendation_payload(request.get_json(silent=True) or {})
+    return jsonify(payload), status
+
+
 @app.route("/api/config/rows", methods=["POST"])
 def update_config_rows():
     denied = _require("write_config")
@@ -485,6 +497,23 @@ def save_liquidity_buffers():
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
     body = request.get_json(silent=True) or {}
     return _service_json(_strategy_asset_feature_service().save_liquidity_buffers_payload(body))
+
+@app.route("/api/withdrawal-account-order", methods=["GET"])
+def get_withdrawal_account_order():
+    denied = _require("read_config")
+    if denied:
+        return denied
+    return _service_json(_strategy_asset_feature_service().withdrawal_account_order_payload())
+
+@app.route("/api/withdrawal-account-order", methods=["POST"])
+def save_withdrawal_account_order():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    if not _runtime_config().allow_csv_write:
+        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
+    body = request.get_json(silent=True) or {}
+    return _service_json(_strategy_asset_feature_service().save_withdrawal_account_order_payload(body))
 
 @app.route("/api/other-asset/add", methods=["POST"])
 def add_other_asset_item():
