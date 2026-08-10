@@ -2992,6 +2992,18 @@ function revealAndFocus(el) {
 function jumpRecommendationSource(stepId, rowIndex) {
   if (rowIndex !== undefined && rowIndex !== null && rowIndex !== "")
     inactiveEditReveals.add(Number(rowIndex));
+  // #269: recommendation rows (e.g. "Review growth mode") point at fields on
+  // a merged workspace's DEFAULT sub-tab (Spending Model, Levers, etc). If the
+  // user had last visited a different sub-tab of that same step, the stale
+  // localStorage tab choice meant setStep() below landed on the right page
+  // but the target field was never rendered, so the "reveal and focus" was a
+  // silent no-op -- the button looked like it "did nothing but scroll to top."
+  const _tabs = (typeof STRATEGY_TABS !== "undefined" && STRATEGY_TABS[stepId]) || null;
+  if (_tabs && _tabs.length) {
+    try {
+      localStorage.setItem(strategyTabKey(stepId), _tabs[0]);
+    } catch (_e) {}
+  }
   setStep(stepId || activeStep);
   setTimeout(() => {
     let el = null;
@@ -3402,7 +3414,7 @@ function pageRecommendationsHtml(stepId) {
         `<div class="recommendation-card ${esc(item.level || "info")}"><div><span class="recommendation-level">${esc(item.level || "info")}</span><h4>${esc(item.title)}</h4><p>${esc(formatAcronyms(item.body))}</p>${item.impact ? `<p class="small"><b>Why it matters:</b> ${esc(formatAcronyms(item.impact))}</p>` : ""}</div><div class="recommendation-actions">${recommendationSourceButton(item)}</div></div>`,
     )
     .join("");
-  return `<section class="page-recommendations" data-contract="${RECOMMENDATION_ENGINE_VERSION}"><div class="page-recommendations-head"><div><span class="eyebrow">Page recommendations</span><h3>Suggested reviews before the next build</h3><p class="small">Explainable suggestions only — nothing is changed automatically. Each item links back to the input that controls the recommendation.</p></div></div><div class="page-recommendation-list">${rowsHtml}</div></section>`;
+  return `<details class="page-recommendations" data-contract="${RECOMMENDATION_ENGINE_VERSION}"><summary class="page-recommendations-head"><span class="eyebrow">Page recommendations</span><h3>Suggested reviews before the next build (${items.length})</h3><p class="small">Explainable suggestions only — nothing is changed automatically. Each item links back to the input that controls the recommendation.</p></summary><div class="page-recommendation-list">${rowsHtml}</div></details>`;
 }
 
 
@@ -11159,7 +11171,7 @@ function renderReportsAndReview() {
 // below regardless of which workspace it's for.
 const STRATEGY_TABS = {
   distribution_strategy: ["Levers", "Roth Conversion", "Withdrawal Order", "Allocation & Location"],
-  spending_core: ["Spending Model", "Actual Spending (YTD)", "Spending Analysis", "Other Spending"],
+  spending_core: ["Spending Model", "Other Spending", "Actual Spending (YTD)", "Spending Analysis"],
 };
 
 // Shared left-nav sub-tab strip for any STRATEGY_TABS-registered workspace step.
@@ -11194,6 +11206,12 @@ function goToStrategyTab(step, tab) {
     localStorage.setItem(strategyTabKey(step), next);
   } catch (_e) {}
   setStep(step);
+  // #269: clicking "Actual Spending (YTD)" used to silently do nothing while
+  // its transaction data (re)loaded in the background -- surface the same
+  // progress overlay used elsewhere for YTD loads instead of a silent wait.
+  if (step === "spending_core" && next === "Actual Spending (YTD)") {
+    loadYtdStatus(false).then(renderMain);
+  }
 }
 function renderDistributionStrategy() {
   const tab = getStrategyTab("distribution_strategy");
@@ -11235,7 +11253,12 @@ function renderDafConfig() {
   return `<div class="section-note">Contribution amount/year fund the DAF in a lump sum (tax-deductible up to 60% of AGI in the contribution year); annual grant amount/start/end schedule ongoing charitable distributions out of the DAF balance. See Charitable Giving in the workbook report for a sizing recommendation.</div><div class="field-list">${rs.map(fieldHtml).join("")}</div>`;
 }
 function renderLifestyleSpending() {
-  return `<div class="lifestyle-workspace"><details><summary>Travel</summary>${renderTravelBudgetPage()}</details><details><summary>Large Items</summary>${renderLargeDiscretionaryBudgetPage()}</details><details><summary>Donor-Advised Fund (DAF)</summary>${renderDafConfig()}</details></div>`;
+  // #269: DAF settings live on Special Strategies -> Charitable Giving
+  // (renderEntityCharitable -> renderFields("entity_charitable"), which
+  // already includes the DAF-group rows renderDafConfig also rendered here).
+  // Keeping both showed the identical fields twice; keep the one under
+  // Special Strategies and drop this duplicate.
+  return `<div class="lifestyle-workspace"><details><summary>Travel</summary>${renderTravelBudgetPage()}</details><details><summary>Large Items</summary>${renderLargeDiscretionaryBudgetPage()}</details></div>`;
 }
 const SPENDING_WORKFLOW_STEPS = [
   { label: "Spending Model", stepId: "spending_core" },
