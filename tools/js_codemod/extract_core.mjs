@@ -9,39 +9,56 @@
 // tests/test_active_input_recursion_guard_regression.py's
 // _dashboard_smoke_sources()) -- matching that convention means those tests
 // pick this file up with zero changes.
+//
+// PARSER CHOICE -- load-bearing, do not "simplify" this back to jscodeshift.
+// This tool slices function bodies out of the source by byte offset and
+// rewrites dashboard.js with the result. jscodeshift.withParser("babel")
+// reports node.start/node.end as though every newline were two characters, so
+// its offsets are only correct on a CRLF source. Measured against this repo's
+// own dashboard.js: CRLF -> all 584 top-level functions slice correctly;
+// the identical file LF-normalised -> ALL 584 slice wrong, each "function"
+// being garbage taken from the middle of unrelated code. This repo has
+// core.autocrlf=true and .gitattributes pins only *.csv and
+// input/plan_data_manifest.json to eol=lf -- nothing covers *.js -- so a
+// Windows checkout is CRLF and a Linux/macOS/CI checkout is LF. The shipped
+// dashboard_decomp_row_model.js extraction is correct only because this tool
+// was run on Windows; re-running it on Linux under jscodeshift would silently
+// corrupt both output files. recast's node.loc is not a fallback either: it is
+// null for a declaration nested inside an `export`. Plain @babel/parser reports
+// true offsets under both line endings. Guarded by
+// tests/frontend/js_codemod_parser_offsets.test.mjs. Same choice as
+// extract_module.mjs and find_clusters.mjs.
+//
 // Usage: node tools/js_codemod/extract_core.mjs
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import jscodeshift from "jscodeshift";
+import * as babelParser from "@babel/parser";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..", "..");
 const DASHBOARD_PATH = path.join(ROOT, "frontend", "js", "dashboard.js");
 const OUT_PATH = path.join(ROOT, "frontend", "js", "dashboard_decomp_row_model.js");
-const j = jscodeshift.withParser("babel");
 
 const source = fs.readFileSync(DASHBOARD_PATH, "utf8");
-const root = j(source);
+const program = babelParser.parse(source, { sourceType: "module" }).program;
 
 const functions = new Map();
-root.find(j.Program).forEach((programPath) => {
-  for (const stmt of programPath.node.body) {
-    if (stmt.type === "FunctionDeclaration" && stmt.id) {
-      functions.set(stmt.id.name, { start: stmt.start, end: stmt.end });
-    } else if (stmt.type === "VariableDeclaration") {
-      for (const decl of stmt.declarations) {
-        if (
-          decl.id.type === "Identifier" &&
-          decl.init &&
-          (decl.init.type === "FunctionExpression" || decl.init.type === "ArrowFunctionExpression")
-        ) {
-          functions.set(decl.id.name, { start: stmt.start, end: stmt.end });
-        }
+for (const stmt of program.body) {
+  if (stmt.type === "FunctionDeclaration" && stmt.id) {
+    functions.set(stmt.id.name, { start: stmt.start, end: stmt.end });
+  } else if (stmt.type === "VariableDeclaration") {
+    for (const decl of stmt.declarations) {
+      if (
+        decl.id.type === "Identifier" &&
+        decl.init &&
+        (decl.init.type === "FunctionExpression" || decl.init.type === "ArrowFunctionExpression")
+      ) {
+        functions.set(decl.id.name, { start: stmt.start, end: stmt.end });
       }
     }
   }
-});
+}
 
 const names = [...functions.keys()];
 const regexCache = new Map();
