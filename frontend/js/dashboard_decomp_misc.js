@@ -136,24 +136,61 @@ Object.assign(window, { fetchDafRecommendation, applyDafRecommendation, setDafFu
 // State lives here, not on window via defineProperty, because nothing
 // outside this file's own render/update functions reads or assigns it.
 let withdrawalAccountOrder = null,
-  withdrawalAccountOrderChanged = false;
+  withdrawalAccountOrderChanged = false,
+  // Registry/discovery order as returned by the API (always the same array
+  // order regardless of any saved priority override -- see
+  // withdrawal_account_order_payload() in strategy_asset_service.py). Kept
+  // separately from withdrawalAccountOrder (which is re-sorted to the
+  // current EFFECTIVE order for display/dragging) so "Reset to default
+  // order" can restore it without a round trip.
+  withdrawalAccountOrderDefaultIds = null,
+  _withdrawalOrderDragIdx = null;
 
 async function loadWithdrawalAccountOrder(force) {
   if (withdrawalAccountOrder && !force) return;
   try {
     const out = await window.api("/api/withdrawal-account-order");
-    withdrawalAccountOrder = (out && out.accounts) || [];
+    const accounts = (out && out.accounts) || [];
+    withdrawalAccountOrderDefaultIds = accounts.map((r) => r.account_id);
+    withdrawalAccountOrder = [...accounts].sort(
+      (a, b) => Number(a.priority || 0) - Number(b.priority || 0),
+    );
   } catch (e) {
     withdrawalAccountOrder = [];
+    withdrawalAccountOrderDefaultIds = [];
   }
   withdrawalAccountOrderChanged = false;
   window.renderMain();
 }
-function updateWithdrawalAccountOrder(i, value) {
-  if (!withdrawalAccountOrder || !withdrawalAccountOrder[i]) return;
-  withdrawalAccountOrder[i].priority = value;
+function _renumberWithdrawalAccountOrder() {
+  (withdrawalAccountOrder || []).forEach((r, i) => (r.priority = String(i + 1)));
+}
+function withdrawalOrderDragStart(e, i) {
+  _withdrawalOrderDragIdx = i;
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = "move";
+    try {
+      e.dataTransfer.setData("text/plain", String(i));
+    } catch (_e) {}
+  }
+}
+function withdrawalOrderDragOver(e) {
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+}
+function withdrawalOrderDrop(e, i) {
+  e.preventDefault();
+  const from = _withdrawalOrderDragIdx;
+  _withdrawalOrderDragIdx = null;
+  if (from === null || from === undefined || from === i || !withdrawalAccountOrder) return;
+  const [moved] = withdrawalAccountOrder.splice(from, 1);
+  withdrawalAccountOrder.splice(i, 0, moved);
+  _renumberWithdrawalAccountOrder();
   withdrawalAccountOrderChanged = true;
   window.renderMain();
+}
+function withdrawalOrderDragEnd() {
+  _withdrawalOrderDragIdx = null;
 }
 async function saveWithdrawalAccountOrder() {
   try {
@@ -172,27 +209,43 @@ async function saveWithdrawalAccountOrder() {
   }
   window.renderMain();
 }
+// Plain primitive `let` isn't visible on window as a live value once
+// reassigned, so autosave-on-navigation-away (saveWorkingCopy() in
+// dashboard_decomp_row_model.js) reads dirtiness through this getter instead.
+function withdrawalAccountOrderIsDirty() {
+  return withdrawalAccountOrderChanged;
+}
 function resetWithdrawalAccountOrderToDefault() {
-  if (!withdrawalAccountOrder) return;
-  withdrawalAccountOrder.forEach((r, i) => (r.priority = String(i + 1)));
+  if (!withdrawalAccountOrder || !withdrawalAccountOrderDefaultIds) return;
+  const byId = new Map(withdrawalAccountOrder.map((r) => [r.account_id, r]));
+  withdrawalAccountOrder = withdrawalAccountOrderDefaultIds.map(
+    (aid) => byId.get(aid) || { account_id: aid, priority: "" },
+  );
+  _renumberWithdrawalAccountOrder();
   withdrawalAccountOrderChanged = true;
   window.renderMain();
 }
 // Renders the editable account list; dashboard.js's renderWithdrawalOrderTable()
-// calls this for the part below the fixed-cascade note.
+// calls this for the part below the fixed-cascade note. Reordering is
+// drag-and-drop (grab the 4-dot handle) rather than typed priority numbers --
+// draw order is entirely defined by row position, so no number column is
+// needed once dragging is available.
 function withdrawalAccountOrderEditorHtml() {
   if (!withdrawalAccountOrder) setTimeout(() => loadWithdrawalAccountOrder(false), 0);
   const esc = window.esc;
+  const displayName = window.translatePersonPlaceholders || ((s) => s);
+  const dragHandle =
+    '<svg class="drag-handle-icon" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" focusable="false"><circle cx="4" cy="4" r="1.7"></circle><circle cx="10" cy="4" r="1.7"></circle><circle cx="4" cy="10" r="1.7"></circle><circle cx="10" cy="10" r="1.7"></circle></svg>';
   const rowsHtml = (withdrawalAccountOrder || [])
     .map(
       (r, i) =>
-        `<tr><td>${esc(r.account_id)}</td><td><input type="number" min="1" step="1" value="${esc(r.priority)}" style="width:70px" oninput="updateWithdrawalAccountOrder(${i},this.value)"></td></tr>`,
+        `<tr draggable="true" class="withdrawal-order-row" ondragstart="withdrawalOrderDragStart(event,${i})" ondragover="withdrawalOrderDragOver(event)" ondrop="withdrawalOrderDrop(event,${i})" ondragend="withdrawalOrderDragEnd()"><td class="drag-handle-cell" title="Drag to reorder">${dragHandle}</td><td>${esc(displayName(r.account_id))}</td></tr>`,
     )
     .join("");
   if (!withdrawalAccountOrder) return '<p class="small">Loading accounts…</p>';
   if (!withdrawalAccountOrder.length)
     return '<p class="small">No accounts found yet. Add accounts on Investment Holdings first.</p>';
-  return `<div class="table-actions"><button class="btn primary" type="button" ${withdrawalAccountOrderChanged ? "" : "disabled"} onclick="saveWithdrawalAccountOrder()">Save account order</button><button class="btn" type="button" onclick="resetWithdrawalAccountOrderToDefault()">Reset to default order</button><button class="btn" type="button" onclick="loadWithdrawalAccountOrder(true)">Reload</button></div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Account</th><th>Draw priority (1 = drawn first)</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+  return `<div class="table-actions"><button class="btn primary" type="button" ${withdrawalAccountOrderChanged ? "" : "disabled"} onclick="saveWithdrawalAccountOrder()">Save account order</button><button class="btn" type="button" onclick="resetWithdrawalAccountOrderToDefault()">Reset to default order</button><button class="btn" type="button" onclick="loadWithdrawalAccountOrder(true)">Reload</button></div><div class="section-note small">Drag the <b>⠿</b> handle to reorder accounts drawn first within their type. Order saves automatically when you leave this section.</div><div class="lot-table-wrap"><table class="lot-table withdrawal-order-table"><thead><tr><th style="width:36px"></th><th>Account (drawn top to bottom)</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
 }
 
 // ── #274: unified Build Impact change summary ───────────────────────────────
@@ -257,9 +310,13 @@ function unifiedBuildChangeSummaryHtml(changes, adminEvents) {
 Object.assign(window, {
   restoreHousingEstimateField,
   loadWithdrawalAccountOrder,
-  updateWithdrawalAccountOrder,
   saveWithdrawalAccountOrder,
   resetWithdrawalAccountOrderToDefault,
   withdrawalAccountOrderEditorHtml,
+  withdrawalAccountOrderIsDirty,
+  withdrawalOrderDragStart,
+  withdrawalOrderDragOver,
+  withdrawalOrderDrop,
+  withdrawalOrderDragEnd,
   unifiedBuildChangeSummaryHtml,
 });

@@ -4281,6 +4281,8 @@ export async function saveWorkingCopy() {
   if (rulesChanged) await saveMappingRulesData();
   if (taxBudgetChanged) await saveTaxonomyBudgetData();
   if (budgetLinesChanged) await saveBudgetLines();
+  if (window.withdrawalAccountOrderIsDirty && window.withdrawalAccountOrderIsDirty() && window.saveWithdrawalAccountOrder)
+    await window.saveWithdrawalAccountOrder();
   await saveHoldings();
   await saveLiabilities();
   await syncBackends();
