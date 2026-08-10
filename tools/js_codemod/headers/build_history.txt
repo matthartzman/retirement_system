@@ -1,0 +1,47 @@
+/* Build History & "What the Model Heard": the saved build-history list (view,
+   revert, delete an entry) and the latest-build impact summary (before/after
+   KPI cards, the plain-language narrative, and the per-field "what changed"
+   breakdown) -- extracted from dashboard.js by
+   tools/js_codemod/extract_module.mjs.
+
+   Second domain cluster of the Wave 6.4 domain-module split (see
+   docs/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md),
+   following the first real extraction (dashboard_decomp_assets_other.js).
+   Selected as a connected component of dashboard.js's internal call graph
+   (tools/js_codemod/find_clusters.mjs), stable across fan-in cutoffs 3
+   through 8.
+
+   Loaded BEFORE dashboard.js, in the same position as
+   dashboard_decomp_row_model.js and dashboard_decomp_assets_other.js -- not
+   after it with the other leaves. dashboard.js ends its module body with a
+   queueMicrotask() that schedules the real boot work, and a microtask
+   checkpoint runs after that script's evaluation, so it can fire before a
+   LATER module script has evaluated. This module's own top level is nothing
+   but declarations and one Object.assign, so it has no evaluation-time
+   dependency on dashboard.js and is safe to run first. (Confirmed this
+   matters here specifically: dashboard_decomp_row_model.js, loaded just
+   before this module, calls buildHistoryEntryHtml/latestBuildImpactHtml from
+   inside its own render functions -- not at its own module top level -- so by
+   the time those calls actually happen the window bridge below has already
+   been installed.)
+
+   No constant tables moved with this cluster. BUILD_HISTORY_MAX and
+   BUILD_IMPACT_SOURCE_STEP_IDS, which this cluster reads, stay in
+   dashboard.js because dashboard_decomp_row_model.js also reads them
+   directly -- unlike the LIABILITY_* tables in the first extraction, these
+   are genuinely shared and already have generated window accessors.
+
+   What this module still reaches back into dashboard.js for, all through the
+   generated window bridge and all present before this pass landed: the
+   function renderMain (a reassigned monkey-patch chain, exposed via a get
+   accessor, so a bare call here gets the live decorated implementation); the
+   read-only state rows/planSource, plus dirty/sessionChanges/
+   sessionSpecialChanges (read via their existing get accessor and mutated
+   in place with .clear(), never reassigned, so no setter is needed for
+   those three); and the writable state
+   activeStep/lastBuildOk/buildHistory/lastBuildCompare (all `let`, all
+   reassigned, all with existing set accessors). Also calls
+   loadBuildHistory(), which the row-model extraction already moved to
+   dashboard_decomp_row_model.js and bridged onto window -- a cross-module
+   reference resolved the same way, not a new dependency this pass
+   introduces. */
