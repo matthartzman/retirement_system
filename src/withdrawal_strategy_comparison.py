@@ -118,6 +118,50 @@ def _gross_up(net_needed: float, source: str, ordinary_rate: float, ltcg_rate: f
     return net_needed, 0.0
 
 
+def _net_spending_need(row: Mapping[str, Any], ordinary_rate: float, ltcg_rate: float,
+                        gain_fraction: float) -> float:
+    """The NET spending the engine's own elective draws actually delivered.
+
+    ira_wd/trust_wd/roth_wd are GROSS withdrawals -- each already contains the
+    tax due on itself. A counterfactual strategy has to reproduce the same
+    SPENDING, not the same gross withdrawal: funding a dollar of spending from
+    Roth costs one dollar, from pre-tax costs 1/(1-rate). So the comparison
+    baseline has to be net, and each strategy grosses it back up through its
+    own source mix.
+
+    hsa_wd is excluded rather than netted: HSA is not one of the three tracked
+    buckets and every strategy's order starts with it, so it funds the same
+    slice of spending under all of them and cancels out of the comparison.
+    """
+    ira = float(row.get("ira_wd", 0.0) or 0.0)
+    trust = float(row.get("trust_wd", 0.0) or 0.0)
+    roth = float(row.get("roth_wd", 0.0) or 0.0)
+    gross = ira + trust + roth
+    tax = (
+        _tax_on_gross(ira, "pretax", ordinary_rate, ltcg_rate, gain_fraction)
+        + _tax_on_gross(trust, "taxable", ordinary_rate, ltcg_rate, gain_fraction)
+    )
+    return max(0.0, gross - tax)
+
+
+def _tax_on_gross(gross: float, source: str, ordinary_rate: float, ltcg_rate: float, gain_fraction: float) -> float:
+    """Tax due on a draw whose GROSS size is already known.
+
+    The counterpart to :func:`_gross_up`, which solves the opposite problem
+    ("how much must I withdraw to net N?"). Use this whenever the withdrawal
+    amount comes from the real engine -- ira_wd/trust_wd/roth_wd are already
+    gross withdrawals, so passing them through _gross_up would inflate them a
+    second time.
+    """
+    if gross <= 0:
+        return 0.0
+    if source == "pretax":
+        return gross * max(0.0, min(0.55, ordinary_rate))
+    if source == "taxable":
+        return gross * max(0.0, min(0.55, ltcg_rate)) * max(0.0, min(1.0, gain_fraction))
+    return 0.0  # roth (and anything untracked) is tax-free here
+
+
 def simulate_withdrawal_strategy(c: Mapping[str, Any], rows: list, strategy_key: str, ltcg_rate: float = 0.15) -> dict:
     """Approximate year-by-year simulation of one named strategy.
 
@@ -155,16 +199,21 @@ def simulate_withdrawal_strategy(c: Mapping[str, Any], rows: list, strategy_key:
             + float(row.get("ira_wd", 0.0) or 0.0)
         )
 
-        for k in ("pretax", "roth", "taxable"):
-            bal[k] = max(0.0, bal[k] * (1.0 + bucket_ret[k]))
-
         # RMDs are forced from pre-tax regardless of strategy.
         rmd_draw = min(rmd, bal["pretax"])
         bal["pretax"] -= rmd_draw
         ordinary_rate = marginal_rate(max(0.0, elective_need + rmd_draw), year, filing, brk_inf)
         lifetime_tax += rmd_draw * max(0.0, min(0.55, ordinary_rate))
 
-        remaining = elective_need
+        # current_plan replays the engine's own GROSS draws; every other
+        # strategy funds the equivalent NET spending through its own order.
+        # Using the gross figure for both was the double-gross-up that drained
+        # all three counterfactuals to zero.
+        remaining = (
+            elective_need
+            if strategy_key == "current_plan"
+            else _net_spending_need(row, ordinary_rate, ltcg_rate, gain_fraction)
+        )
         if strategy_key == "current_plan":
             # This strategy IS the real plan, not a counterfactual reorder --
             # use the real per-account withdrawal split directly (ira_wd,
@@ -177,14 +226,22 @@ def simulate_withdrawal_strategy(c: Mapping[str, Any], rows: list, strategy_key:
             # engine's actual, more tax-aware allocation -- defeating the
             # point of using "current plan" as the accurate baseline the
             # other strategies are compared against.
+            # ira_wd/trust_wd/roth_wd are the engine's GROSS withdrawals, and
+            # elective_need above is their sum -- so draw them as-is. Passing
+            # them through _gross_up (which answers "what must I withdraw to
+            # NET this?") inflated every draw by 1/(1-rate): measured on the
+            # frozen plan, a real ira_wd of 170,349 became a 224,143 draw
+            # (+31.6%) every single year. Compounded over the horizon that
+            # emptied all three buckets, so this "baseline" reported a $0
+            # terminal portfolio and 2 shortfall years for a household the
+            # real engine shows solvent -- the exact failure the two
+            # current_plan regression tests were written to catch.
             for source, key in (("pretax", "ira_wd"), ("taxable", "trust_wd"), ("roth", "roth_wd")):
                 want = float(row.get(key, 0.0) or 0.0)
-                gross, tax = _gross_up(want, source, ordinary_rate, ltcg_rate, gain_fraction)
-                draw = min(gross, bal[source])
-                net_funded = draw * (1.0 - (tax / gross if gross > 0 else 0.0))
+                draw = min(want, bal[source])
                 bal[source] -= draw
-                lifetime_tax += tax * (draw / gross if gross > 0 else 0.0)
-                remaining -= net_funded
+                lifetime_tax += _tax_on_gross(draw, source, ordinary_rate, ltcg_rate, gain_fraction)
+                remaining -= draw
             remaining -= float(row.get("hsa_wd", 0.0) or 0.0)  # HSA not tracked in bal; matches reality (0 tax)
             # This module's simulated balances necessarily drift from the
             # real engine's over a multi-decade plan (simplified flat-rate
@@ -197,15 +254,15 @@ def simulate_withdrawal_strategy(c: Mapping[str, Any], rows: list, strategy_key:
             # shortfall while an untouched bucket sits available -- an
             # artifact of simulator drift, not a real funding gap.
             if remaining > 1e-6:
+                # Residual is in the same GROSS units as the draws above, so
+                # this cascade stays on a gross basis too.
                 for source in ("pretax", "taxable", "roth"):
                     if remaining <= 1e-6:
                         break
-                    gross, tax = _gross_up(remaining, source, ordinary_rate, ltcg_rate, gain_fraction)
-                    draw = min(gross, bal[source])
-                    net_funded = draw * (1.0 - (tax / gross if gross > 0 else 0.0))
+                    draw = min(remaining, bal[source])
                     bal[source] -= draw
-                    lifetime_tax += tax * (draw / gross if gross > 0 else 0.0)
-                    remaining -= net_funded
+                    lifetime_tax += _tax_on_gross(draw, source, ordinary_rate, ltcg_rate, gain_fraction)
+                    remaining -= draw
         elif strategy["order"] == "proportional":
             total_bal = bal["pretax"] + bal["roth"] + bal["taxable"]
             shares = {k: (bal[k] / total_bal if total_bal > 0 else 0.0) for k in ("pretax", "roth", "taxable")}
@@ -248,6 +305,17 @@ def simulate_withdrawal_strategy(c: Mapping[str, Any], rows: list, strategy_key:
                 actual_tax = tax * (draw / gross if gross > 0 else 0.0)
                 lifetime_tax += actual_tax
                 remaining -= net_funded
+
+        # Grow AFTER the year's withdrawals, not before. The real engine takes
+        # withdrawals at the start of the year and compounds what is left, so
+        # growing first credited a full year of return to money that had
+        # already been spent. Verified against the frozen plan: in a year with
+        # no withdrawals the implied engine return matches this module's rate
+        # (4.95% vs 4.94%), while in a year drawing 170,349 it fell to 4.43%
+        # -- exactly (start - out) * (1 + r). Recorded balances stay
+        # end-of-year, directly comparable to the engine's pretax_nw/trust_nw.
+        for k in ("pretax", "roth", "taxable"):
+            bal[k] = max(0.0, bal[k] * (1.0 + bucket_ret[k]))
 
         yearly.append({
             "year": year,
