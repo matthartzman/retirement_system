@@ -1,10 +1,10 @@
 // Shared helpers for the Playwright E2E suite (tests/e2e/). Extracted after
 // both J1 and J3 independently hit the same flaky pattern: openCurrentPlan()
 // resolves (networkidle fires) before window.planLoaded -- a closure-private
-// variable in frontend/js/dashboard.js, not exposed for a test to poll
-// directly -- has actually flipped true. window.setStep() silently no-ops
-// back to 'start' while it is still false, so a single setStep() call right
-// after opening the plan can land on the wrong page.
+// variable in frontend/js/dashboard.js -- has actually flipped true.
+// window.setStep() silently no-ops back to 'start' while it is still false,
+// so a single setStep() call right after opening the plan can land on the
+// wrong page.
 //
 // This was reproducible ~25% of the time in this suite's own field-save-persist
 // spec specifically on its SECOND openCurrentPlan() call within one test (the
@@ -13,6 +13,22 @@
 // "open the plan twice in two separate tests" was reliable, which narrowed
 // the flake to timing around the load-after-save path specifically, not an
 // inherent one-open-per-session limitation.
+//
+// The comment above described the race correctly but this function never
+// actually closed it -- there was no wait for planLoaded at all, only
+// networkidle. Confirmed directly (2026-08-11): the dashboard.js ES-module
+// conversion's generated window bridge means window.planLoaded IS readable
+// now (Object.defineProperty accessor for every externally-referenced
+// top-level variable), so "not exposed for a test to poll directly" is
+// stale -- the fix below was possible the whole time. Root-caused via a
+// second-openCurrentPlan build hanging 30+ minutes in CI
+// (workbook-format-stale-cache.spec.js): runBuild()'s internal
+// saveWorkingCopy() call checks `if (!planLoaded) return false;` FIRST, so
+// clicking Build Reports inside this race makes runBuild() silently return
+// false having never called preflight -- the build overlay is left showing
+// whatever loadAll() last set ("Loading plan"/"Saving current plan"), and a
+// test that only waits for a TERMINAL overlay title waits forever for a
+// build that never started.
 import { expect } from '@playwright/test';
 
 export async function openCurrentPlan(page) {
@@ -24,6 +40,7 @@ export async function openCurrentPlan(page) {
     await keepEditing.click();
   }
   await page.waitForLoadState('networkidle');
+  await page.waitForFunction(() => window.planLoaded === true, { timeout: 15_000 });
 }
 
 // Navigates to `stepId` and waits for `headingText` to actually appear,
