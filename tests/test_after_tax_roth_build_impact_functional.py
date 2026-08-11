@@ -13,6 +13,7 @@ def test_build_impact_has_terminal_nw_first_lifetime_tax_second_risk_third_cards
     # authoritative PTI figure.
     js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
     js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js += (ROOT / 'frontend/js/dashboard_decomp_build_history.js').read_text(encoding='utf-8')
     assert "after_tax_terminal_nw" in js
     assert "total_roth_conversions" in js
     assert "post_tax_inheritance" in js
@@ -33,6 +34,7 @@ def test_impact_card_help_shows_as_info_icon_not_inline_text():
     # headline + Before/After only.
     js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
     js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js += (ROOT / 'frontend/js/dashboard_decomp_build_history.js').read_text(encoding='utf-8')
     start = js.index("function impactCardHtml")
     fn = js[start: js.index("function buildImpactCardsHtml", start)]
     assert "field-info-i" in fn
@@ -45,6 +47,7 @@ def test_impact_notes_render_below_the_grid_not_as_a_phantom_card():
     # into a single .impact-notes block below the 3-card grid.
     js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
     js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js += (ROOT / 'frontend/js/dashboard_decomp_build_history.js').read_text(encoding='utf-8')
     start = js.index("function buildImpactCardsHtml")
     fn = js[start: js.index("function mhBool", start)]
     assert "impact-notes" in fn
@@ -71,6 +74,7 @@ def test_impact_grid_supports_five_cards():
 def test_impact_card_uses_current_build_value_when_baseline_missing():
     js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
     js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js += (ROOT / 'frontend/js/dashboard_decomp_build_history.js').read_text(encoding='utf-8')
     assert "Number.isFinite(Number(delta))" in js
     assert "deltaFormatter(delta)" in js
     assert 'valueFormatter(afterVal)' in js and '"Not available"' in js

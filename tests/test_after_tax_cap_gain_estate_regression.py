@@ -59,6 +59,7 @@ def test_plan_summary_exposes_terminal_cap_gain_fields():
 def test_frontend_after_tax_description_mentions_capital_gains():
     js = Path("frontend/js/dashboard.js").read_text(encoding="utf-8")
     js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js += (ROOT / 'frontend/js/dashboard_decomp_build_history.js').read_text(encoding='utf-8')
     assert "deferred capital-gains tax on taxable brokerage assets" in js
     assert "summary.terminal_deferred_tax_total" in js
 

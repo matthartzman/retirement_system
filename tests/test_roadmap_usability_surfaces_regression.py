@@ -60,6 +60,7 @@ def test_report_navigation_surfaces_stale_output_state():
 def test_build_history_surfaces_output_fingerprints_and_pricing_mode():
     js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
     js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js += (ROOT / 'frontend/js/dashboard_decomp_build_history.js').read_text(encoding='utf-8')
     css = (ROOT / "frontend/css/dashboard.css").read_text(encoding="utf-8")
 
     assert "function buildHistoryProvenance" in js
