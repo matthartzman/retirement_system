@@ -118,6 +118,32 @@ def _gross_up(net_needed: float, source: str, ordinary_rate: float, ltcg_rate: f
     return net_needed, 0.0
 
 
+def _net_spending_need(row: Mapping[str, Any], ordinary_rate: float, ltcg_rate: float,
+                        gain_fraction: float) -> float:
+    """The NET spending the engine's own elective draws actually delivered.
+
+    ira_wd/trust_wd/roth_wd are GROSS withdrawals -- each already contains the
+    tax due on itself. A counterfactual strategy has to reproduce the same
+    SPENDING, not the same gross withdrawal: funding a dollar of spending from
+    Roth costs one dollar, from pre-tax costs 1/(1-rate). So the comparison
+    baseline has to be net, and each strategy grosses it back up through its
+    own source mix.
+
+    hsa_wd is excluded rather than netted: HSA is not one of the three tracked
+    buckets and every strategy's order starts with it, so it funds the same
+    slice of spending under all of them and cancels out of the comparison.
+    """
+    ira = float(row.get("ira_wd", 0.0) or 0.0)
+    trust = float(row.get("trust_wd", 0.0) or 0.0)
+    roth = float(row.get("roth_wd", 0.0) or 0.0)
+    gross = ira + trust + roth
+    tax = (
+        _tax_on_gross(ira, "pretax", ordinary_rate, ltcg_rate, gain_fraction)
+        + _tax_on_gross(trust, "taxable", ordinary_rate, ltcg_rate, gain_fraction)
+    )
+    return max(0.0, gross - tax)
+
+
 def _tax_on_gross(gross: float, source: str, ordinary_rate: float, ltcg_rate: float, gain_fraction: float) -> float:
     """Tax due on a draw whose GROSS size is already known.
 
@@ -173,16 +199,21 @@ def simulate_withdrawal_strategy(c: Mapping[str, Any], rows: list, strategy_key:
             + float(row.get("ira_wd", 0.0) or 0.0)
         )
 
-        for k in ("pretax", "roth", "taxable"):
-            bal[k] = max(0.0, bal[k] * (1.0 + bucket_ret[k]))
-
         # RMDs are forced from pre-tax regardless of strategy.
         rmd_draw = min(rmd, bal["pretax"])
         bal["pretax"] -= rmd_draw
         ordinary_rate = marginal_rate(max(0.0, elective_need + rmd_draw), year, filing, brk_inf)
         lifetime_tax += rmd_draw * max(0.0, min(0.55, ordinary_rate))
 
-        remaining = elective_need
+        # current_plan replays the engine's own GROSS draws; every other
+        # strategy funds the equivalent NET spending through its own order.
+        # Using the gross figure for both was the double-gross-up that drained
+        # all three counterfactuals to zero.
+        remaining = (
+            elective_need
+            if strategy_key == "current_plan"
+            else _net_spending_need(row, ordinary_rate, ltcg_rate, gain_fraction)
+        )
         if strategy_key == "current_plan":
             # This strategy IS the real plan, not a counterfactual reorder --
             # use the real per-account withdrawal split directly (ira_wd,
@@ -274,6 +305,17 @@ def simulate_withdrawal_strategy(c: Mapping[str, Any], rows: list, strategy_key:
                 actual_tax = tax * (draw / gross if gross > 0 else 0.0)
                 lifetime_tax += actual_tax
                 remaining -= net_funded
+
+        # Grow AFTER the year's withdrawals, not before. The real engine takes
+        # withdrawals at the start of the year and compounds what is left, so
+        # growing first credited a full year of return to money that had
+        # already been spent. Verified against the frozen plan: in a year with
+        # no withdrawals the implied engine return matches this module's rate
+        # (4.95% vs 4.94%), while in a year drawing 170,349 it fell to 4.43%
+        # -- exactly (start - out) * (1 + r). Recorded balances stay
+        # end-of-year, directly comparable to the engine's pretax_nw/trust_nw.
+        for k in ("pretax", "roth", "taxable"):
+            bal[k] = max(0.0, bal[k] * (1.0 + bucket_ret[k]))
 
         yearly.append({
             "year": year,
