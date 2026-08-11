@@ -1,5 +1,36 @@
 
 
+## 2026-08-10 — Correcting a stale pin that never matched (no engine change)
+
+**What was wrong.** `PINNED_TERMINAL_NW` / `PINNED_LIFETIME_TAX` in
+`tests/test_frozen_sample_plan_golden_master_regression.py` held 5,824,239.30 /
+1,290,848.91, but the frozen fixture and engine compute **6,044,750.40 / 1,465,666.69**
+— and always have. This gate has been failing since the day it was authored and had
+never passed once.
+
+**How that was established.** Running the test file's own `__main__` regen block at
+`77b7676` — the commit that introduced 5,824,239.30, per the entry immediately below —
+already prints 6,044,750.40. So does every commit after it (`56c457a`, `52ffe60`,
+`3b1cedf`, `531c883`, `355564d`, `main`), and so does CI on both windows-latest/3.11
+and windows-latest/3.14, agreeing to the digit: `6044750.402866955`. The frozen fixture
+is byte-unchanged since `56c457a`. A value that is identical across six commits, two
+interpreters, and two machines is not drift.
+
+**Root cause.** The 2026-08-05 entry below documents the home-purchase regeneration and
+states the new pins in prose, but the two constants in the test file were never edited
+to match. The entry's "4 failures → 0" claim did not cover this test: it carries
+`@pytest.mark.golden_master`, not `slow`, so `-m "not slow"` would have run it.
+
+**Why nobody noticed.** CI on `main` was red for several unrelated reasons — a hardcoded
+`C:\RetirementPlanning\Version 10\...` absolute path in 33 test files, `input/*.csv`
+absent on the runner (`/input/*` is gitignored), no `npm ci` in the Python test job, and
+Playwright e2e timeouts — so one more red test did not stand out. Those are addressed in
+the follow-up commit; the e2e timeouts are not.
+
+**What changed.** Only the two constants, corrected to the values the fixture actually
+produces, plus a provenance comment. No `src/` change; correcting them cannot mask an
+engine regression because the computed value never moved.
+
 ## 2026-08-05 — Frozen fixture gains a home-purchase scenario (fixture data change)
 
 **What was wrong.** `tests/test_cashflow_chart_home_purchase_down_payment.py` was

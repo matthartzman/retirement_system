@@ -1,11 +1,20 @@
 import csv
 from pathlib import Path
 
+from conftest import TEST_INPUT_DIR
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def rows(name):
-    with open(ROOT / name, newline='', encoding='utf-8-sig') as f:
+    # 'input/foo.csv' resolves to the committed frozen plan, not the user's live
+    # input/. /input/* is gitignored, so reading ROOT/'input' here meant a
+    # guaranteed FileNotFoundError on CI and in any fresh worktree -- and
+    # conftest's own TEST_INPUT_DIR docstring already names itself as what
+    # tests hardcoding ROOT/"input" should use instead.
+    name = str(name)
+    path = TEST_INPUT_DIR / Path(name).name if name.startswith('input/') else ROOT / name
+    with open(path, newline='', encoding='utf-8-sig') as f:
         return list(csv.DictReader(f))
 
 

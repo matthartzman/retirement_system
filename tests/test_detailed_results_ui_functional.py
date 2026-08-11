@@ -258,7 +258,7 @@ def test_chart_dashboard_falls_back_to_embedded_excel_chart_ranges(tmp_path):
 
 def test_detailed_results_ui_nav_and_endpoint_are_present():
     js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
-    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
+    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
     rui = (ROOT / 'frontend/js/reports_ui.js').read_text(encoding='utf-8')
     css = (ROOT / 'frontend/css/dashboard.css').read_text(encoding='utf-8')
     routes = (ROOT / 'src/server/workbook_routes.py').read_text(encoding='utf-8')
@@ -316,7 +316,7 @@ def test_detailed_results_ui_nav_and_endpoint_are_present():
 
 def test_results_explorer_uses_human_headings_not_measure_fallbacks():
     js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
-    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
+    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
     rui = (ROOT / 'frontend/js/reports_ui.js').read_text(encoding='utf-8')
     css = (ROOT / 'frontend/css/dashboard.css').read_text(encoding='utf-8')
 

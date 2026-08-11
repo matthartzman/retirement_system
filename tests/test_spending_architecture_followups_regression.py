@@ -1,11 +1,17 @@
 import csv
 from pathlib import Path
 
+from conftest import TEST_INPUT_DIR, dashboard_js_sources
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def csv_rows(name):
-    with open(ROOT / name, newline='', encoding='utf-8-sig') as f:
+    # 'input/foo.csv' resolves to the committed frozen plan, not the user's
+    # live input/ (gitignored, so absent on CI and in fresh worktrees).
+    name = str(name)
+    path = TEST_INPUT_DIR / Path(name).name if name.startswith('input/') else ROOT / name
+    with open(path, newline='', encoding='utf-8-sig') as f:
         return list(csv.DictReader(f))
 
 
@@ -22,8 +28,7 @@ def test_taxonomy_realignment_for_104():
 
 
 def test_spending_nav_and_save_copy():
-    js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
-    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
+    js = dashboard_js_sources()
     spending_core = js.index('id: "spending_core"')
     travel = js.index('id: "spending_travel"')
     large = js.index('id: "spending_travel_extras"')
@@ -36,8 +41,7 @@ def test_spending_nav_and_save_copy():
 
 
 def test_insurance_policy_dropdown_includes_all_types_and_heloc_on_other_page():
-    js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
-    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
+    js = dashboard_js_sources()
     assert "renderHELOCInputsOnOtherPage" in js
     assert "HELOC modeling inputs" in js
     assert "Use HELOC or turn it off" in js
