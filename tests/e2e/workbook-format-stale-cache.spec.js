@@ -35,27 +35,63 @@ async function triggerBuildAndWaitPatiently(page) {
   // a timeout inside the finally block rather than a missing-button error --
   // which is why raising the timeout from 700s to 1800s changed nothing.
   // Go where the page's own "Rebuild now" shortcut points, then build.
+  //
+  // The click-and-verify loop below exists because of a real DOM race, not
+  // timing that a longer wait fixes: right after openCurrentPlan() resolves,
+  // the header banner (the thing that decides whether "Build Reports" exists
+  // at all) is still catching up to two of loadAll()'s deliberately
+  // un-awaited tail promises (refreshBuildStatus(), fetchCurrentSummaryKpi()
+  // -- see #201's comment on loadAll() for why they're fire-and-forget).
+  // openCurrentPlan() waits for window.planLoaded, which is necessary but
+  // not sufficient: the banner can still re-render (a raw innerHTML swap,
+  // not a framework with stable element identity) in the same window
+  // Playwright resolves "Build Reports" as visible and dispatches the click.
+  // When that lands badly, .click() succeeds against a DOM node whose
+  // onclick reference is detached microtasks later, runBuild() never starts,
+  // and the overlay sits on "Loading plan" (loadAll()'s own title) for the
+  // rest of the test's budget -- reproduced directly by instrumenting this
+  // exact sequence; no single flag to await closes the window. So each
+  // attempt below confirms the click actually landed (the overlay going
+  // active, or the preflight-warnings modal appearing, are only possible
+  // once runBuild() has genuinely started) and retries the full find+click
+  // cycle if it didn't, rather than trusting one click blindly.
   const build = page.getByRole('button', { name: 'Build Reports' }).first();
-  if (!(await build.isVisible().catch(() => false))) {
-    await navigateToStep(page, 'reports_and_review', 'Reports & Review');
-    // Reports & Review is a tabbed workspace (Preflight | Build | Impact |
-    // Results | Downloads | Plan Data Review) that does NOT open on Build, so
-    // arriving on the step is not enough -- "Build Reports" only exists once
-    // the Build tab is selected. exact:true so this does not match the
-    // "Build Reports" button itself.
-    const buildTab = page.getByRole('button', { name: 'Build', exact: true }).first();
-    if (await buildTab.isVisible().catch(() => false)) {
-      await buildTab.click();
+  const overlay = page.locator('#buildOverlay.active');
+  const continueBuild = page.locator('.inapp-confirm', { hasText: 'Continue Build' });
+  const deadline = Date.now() + 60_000;
+  let started = false;
+  while (Date.now() < deadline) {
+    if (!(await build.isVisible().catch(() => false))) {
+      await navigateToStep(page, 'reports_and_review', 'Reports & Review');
+      // Reports & Review is a tabbed workspace (Preflight | Build | Impact |
+      // Results | Downloads | Plan Data Review) that does NOT open on Build,
+      // so arriving on the step is not enough -- "Build Reports" only exists
+      // once the Build tab is selected. exact:true so this does not match
+      // the "Build Reports" button itself.
+      const buildTab = page.getByRole('button', { name: 'Build', exact: true }).first();
+      if (await buildTab.isVisible().catch(() => false)) {
+        await buildTab.click();
+      }
     }
+    if (!(await build.isVisible().catch(() => false))) {
+      await page.waitForTimeout(500);
+      continue;
+    }
+    await build.click();
+    started = await Promise.race([
+      overlay.waitFor({ state: 'visible', timeout: 3_000 }).then(() => true),
+      continueBuild.waitFor({ state: 'visible', timeout: 3_000 }).then(() => true),
+    ]).catch(() => false);
+    if (started) break;
   }
   // Bounded wait so a genuinely missing button fails fast and legibly instead
   // of hanging until the test timeout.
-  await expect(build, 'no "Build Reports" button to start the build from').toBeVisible({
-    timeout: 15_000,
-  });
-  await build.click();
-  const continueBuild = page.locator('.inapp-confirm', { hasText: 'Continue Build' });
-  if (await continueBuild.waitFor({ state: 'visible', timeout: 15_000 }).then(() => true).catch(() => false)) {
+  if (!started) {
+    await expect(build, 'clicking "Build Reports" never started a build').toBeVisible({
+      timeout: 5_000,
+    });
+  }
+  if (await continueBuild.isVisible().catch(() => false)) {
     await continueBuild.click();
   }
   const title = page.locator('.build-overlay .build-progress-title');
