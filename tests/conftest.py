@@ -189,3 +189,64 @@ def _reset_market_data_price_cache():
     _market_data._DEFAULT_PROVIDER.cache = copy.deepcopy(_PRISTINE_PROVIDER_CACHE)
     yield
     _market_data._DEFAULT_PROVIDER.cache = copy.deepcopy(_PRISTINE_PROVIDER_CACHE)
+
+
+# ---------------------------------------------------------------------------
+# `requires_live_input` -- tests that read the real, gitignored input/ CSVs
+# ---------------------------------------------------------------------------
+# .gitignore excludes /input/* (it is the user's actual financial data), so the
+# only input/ entries in a clean checkout are the READMEs, demo/, and the YTD
+# sample. Any test that asserts on the live plan's own rows therefore CANNOT
+# run on CI or in a fresh `git worktree add` -- it dies with FileNotFoundError
+# on a path that will never exist there. Those were a large share of the CI
+# failures on main as of 2026-08-10.
+#
+# Marking them skip-when-absent keeps the local signal (where the data does
+# exist, they run and assert exactly as before) while letting CI report a
+# truthful green instead of noise that masks real regressions. This is the same
+# treatment any credentials-dependent test gets.
+#
+# Usage, per test or per module:
+#     pytestmark = pytest.mark.requires_live_input("client_income.csv")
+#     @pytest.mark.requires_live_input("client_assets.csv", "client_income.csv")
+#
+# Passing no filenames means "the live plan generally" and checks client_data.csv.
+_LIVE_INPUT_DIR = ROOT / "input"
+
+
+def pytest_collection_modifyitems(config, items):
+    for item in items:
+        marker = item.get_closest_marker("requires_live_input")
+        if marker is None:
+            continue
+        names = marker.args or ("client_data.csv",)
+        missing = [n for n in names if not (_LIVE_INPUT_DIR / n).exists()]
+        if missing:
+            item.add_marker(
+                pytest.mark.skip(
+                    reason=(
+                        "requires the live, gitignored input/ plan data; missing: "
+                        + ", ".join(missing)
+                    )
+                )
+            )
+
+
+def dashboard_js_sources() -> str:
+    """frontend/js/dashboard.js concatenated with every dashboard_decomp_*.js.
+
+    dashboard.js is being split progressively into domain modules, so a test
+    that greps only dashboard.js (or only dashboard.js + one decomp module)
+    silently starts failing the moment its symbol moves -- which is exactly how
+    renderHsaPolicyOnOtherAssets, renderHELOCInputsOnOtherPage and the "Add 529
+    section" checks broke when d019148 extracted dashboard_decomp_assets_other.js.
+    Globbed, so the next extraction cannot reintroduce that. Same reasoning as
+    the equivalent concatenation in tools/run_regression.py.
+    """
+    js_dir = ROOT / "frontend" / "js"
+    parts = [(js_dir / "dashboard.js").read_text(encoding="utf-8")]
+    parts += [
+        p.read_text(encoding="utf-8")
+        for p in sorted(js_dir.glob("dashboard_decomp_*.js"))
+    ]
+    return "\n".join(parts)

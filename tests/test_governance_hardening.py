@@ -1,4 +1,5 @@
 from __future__ import annotations
+import pytest
 import json, subprocess, sys, unittest
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
@@ -37,6 +38,10 @@ class GovernanceHardeningTests(unittest.TestCase):
         self.assertGreaterEqual(approx['success_rate'],0.0)
         self.assertLessEqual(approx['success_rate'],1.0)
 
+    # plan_data_manifest.json and the CSVs check_plan_data_sync.py hashes both
+    # live under the gitignored /input/*, so this gate can only be meaningful
+    # against the real workspace.
+    @pytest.mark.requires_live_input('plan_data_manifest.json', 'client_data.csv')
     def test_schema_coverage_and_plan_manifest_exist(self):
         self.assertTrue((ROOT/'reference_data/generated_schema_coverage.csv').exists())
         self.assertTrue((ROOT/'input/plan_data_manifest.json').exists())

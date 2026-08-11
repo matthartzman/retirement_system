@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_user_helper_uses_educational_page_and_field_sections():
     js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
-    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
+    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
     for token in [
         "What this page is for",
         "How the values work together",

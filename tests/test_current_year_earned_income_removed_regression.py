@@ -1,4 +1,6 @@
 from pathlib import Path
+
+import pytest
 import csv
 import json
 
@@ -20,6 +22,11 @@ def test_work_income_page_hides_internal_earned_income_end_year_driver():
     assert "lbl!=='earned_income_last_year'" in text
 
 
+# Asserts the LIVE plan's own configured value ("2027") and that
+# input/client_data.json mirrors it. The frozen fixture deliberately does not
+# commit client_data.json (it is a derived artifact -- see conftest), so this
+# check only has meaning against the real workspace.
+@pytest.mark.requires_live_input("client_income.csv", "client_data.json")
 def test_income_mirrors_store_earned_income_last_year_as_year_not_currency():
     with (ROOT / "input/client_income.csv").open(newline="", encoding="utf-8-sig") as f:
         rows = list(csv.DictReader(f))
