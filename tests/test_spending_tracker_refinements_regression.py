@@ -2,11 +2,15 @@ from pathlib import Path
 
 from src import spending_tracker as st
 
+import pytest
+
+from conftest import TEST_INPUT_DIR
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_tracker_hides_zero_rows_and_normalizes_requested_groups():
-    summary = st.spending_summary_taxonomy(ROOT, year=2026)
+    summary = st.spending_summary_taxonomy(TEST_INPUT_DIR.parent, year=2026)
     assert summary["tracking_types"]
 
     def has_visible_value(row):
@@ -39,6 +43,11 @@ def test_tracker_hides_zero_rows_and_normalizes_requested_groups():
     assert "Bills & Utilities" not in groups_by_type.get("Housing", set())
 
 
+# The `expected` label set below is calibrated to the LIVE plan's YTD
+# transactions -- the tracker hides zero-activity rows, so the frozen
+# fixture legitimately yields a smaller set (no 'Postage & Shipping').
+# Kept on live data so the assertion keeps its original meaning.
+@pytest.mark.requires_live_input('client_spending_taxonomy.csv', 'ytd_transactions.csv')
 def test_business_is_in_main_hierarchy_without_separate_dashboard_section():
     js = (ROOT / "frontend/js/spending_dashboard.js").read_text(encoding="utf-8")
     assert "Business now appears inside the main Tracking Type hierarchy" in js

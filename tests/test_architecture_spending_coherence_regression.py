@@ -37,7 +37,11 @@ def test_flask_removal_and_workbench_proposals_are_documented():
 
 
 def test_healthcare_premium_group_and_medical_oop_cap_contract():
-    flat = taxonomy_flat(ROOT)
+    # Staged frozen workspace, not the repo root: ROOT/input is gitignored, so
+    # taxonomy_flat(ROOT) found no taxonomy at all on CI and every lookup below
+    # raised KeyError. The budget_rows assertion further down already reads
+    # TEST_INPUT_DIR -- this just makes the taxonomy read agree with it.
+    flat = taxonomy_flat(TEST_INPUT_DIR.parent)
 
     for cid in ['pre65_wellness_premium', 'medicare_part_b', 'medicare_part_d', 'medigap_premium']:
         assert flat[cid]['tracking_type'] == 'Wellness'

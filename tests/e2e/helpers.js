@@ -79,15 +79,20 @@ export async function triggerBuildAndWaitForOverlay(page) {
   }
 
   const title = page.locator('.build-overlay .build-progress-title');
-  // The real build (Monte Carlo + 27 workbook sheets, even with the reduced
-  // sim counts tools/e2e_server.py sets) took ~26s in isolation but ran past
-  // 60s under repeated-run system load while still genuinely progressing
-  // (observed reaching the late-stage "Finalizing workbook" phase, not stuck
-  // at the start) -- 80s leaves headroom under Playwright's own 90s test
-  // timeout without that margin evaporating under load.
+  // Measured 2026-08-10 on an otherwise-idle machine: one full build through
+  // src.build_entry.run_build against the same frozen workspace this server
+  // stages takes 106s, and 110s with the reduced RETIREMENT_MC_SIMS=16 /
+  // RETIREMENT_MC_SENSITIVITY_SIMS=3 that tools/e2e_server.py sets -- i.e.
+  // Monte Carlo is NOT the cost here, so those reductions buy nothing. The
+  // previous 80s ceiling (written when a build was ~26s) therefore could not
+  // pass even on an idle machine: the overlay was consistently observed at
+  // the late-stage "Writing workbook pages" when the deadline hit, still
+  // progressing rather than stuck. 240s is ~2x the measured build so a loaded
+  // CI runner still clears it; callers must raise their own test timeout to
+  // match, since the project default is 120s.
   await expect(title, 'build overlay never reached a terminal state').toHaveText(
     /^Build (complete|failed)$/,
-    { timeout: 80_000 },
+    { timeout: 240_000 },
   );
   return title.innerText();
 }

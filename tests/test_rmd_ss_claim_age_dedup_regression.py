@@ -42,7 +42,14 @@ class Item195RmdSsClaimAgeDedupTests(unittest.TestCase):
 
     def test_household_generic_fields_are_gone_from_live_and_frozen_csv(self):
         for rel in ("input/client_policy.csv", "tests/fixtures/sample_plan_frozen/client_policy.csv"):
-            text = (ROOT / rel).read_text(encoding="utf-8")
+            path = ROOT / rel
+            # /input/* is gitignored, so the live copy simply does not exist on
+            # CI or in a fresh worktree. Check whichever copies are present --
+            # the frozen one always is, so this keeps real coverage there
+            # instead of erroring out before it gets that far.
+            if not path.exists():
+                continue
+            text = path.read_text(encoding="utf-8")
             self.assertNotIn("Model Constants,Retirement,ss_claim_age,", text, rel)
             self.assertNotIn("Model Constants,Retirement,rmd_start_age,", text, rel)
 
@@ -65,7 +72,7 @@ class Item195RmdSsClaimAgeDedupTests(unittest.TestCase):
 
     def test_per_member_rmd_and_claim_age_are_reachable_on_guided_steps(self):
         js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
-        js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
+        js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
         # #239 (ticket list update): member_1_/2_rmd_start_age moved from
         # Economic & Tax Assumptions to a dedicated "RMD start age" column on
         # the Household & People table -- explicitly excluded from

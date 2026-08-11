@@ -25,7 +25,7 @@ def test_mobile_shell_dom_hooks_present_in_index_html():
 
 def test_mobile_shell_toggle_functions_defined_in_dashboard_js():
     js = read("frontend/js/dashboard.js")
-    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
+    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
     assert "function openNavDrawer()" in js
     assert "function closeNavDrawer()" in js
     assert "function toggleNavDrawer()" in js

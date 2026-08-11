@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_dashboard_top_level_groups():
     js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
-    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
+    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
     steps_block = re.search(r"const STEPS = \[(.*?)\n\];", js, re.S).group(1)
     groups = []
     for name in re.findall(r'group: "([^"]+)"', steps_block):
@@ -21,7 +21,7 @@ def test_dashboard_top_level_groups():
 def test_primary_workflow_is_database_first_not_csv_folder_save_load():
     html = (ROOT / "frontend/index.html").read_text(encoding="utf-8")
     js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
-    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
+    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
     assert ">Admin<" not in html
     assert "Save Plan Data" not in html
     assert "Build Workbook" not in html
