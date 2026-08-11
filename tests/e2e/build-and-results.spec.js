@@ -8,6 +8,10 @@ import { test, expect } from '@playwright/test';
 import { openCurrentPlan, navigateToStep, triggerBuildAndWaitForOverlay } from './helpers.js';
 
 test('triggering a build renders real results in Results Explorer', async ({ page }) => {
+  // A real build measures ~110s (see triggerBuildAndWaitForOverlay), so this
+  // cannot run inside the project default 120s per-test timeout -- the build
+  // alone consumes it before the Results Explorer assertions even start.
+  test.setTimeout(420_000);
   await openCurrentPlan(page);
 
   // --- Build -------------------------------------------------------------
