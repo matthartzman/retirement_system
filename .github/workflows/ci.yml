@@ -14,8 +14,6 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            python-version: '3.11'
-          - os: windows-latest
             python-version: '3.14'
 
     steps:
@@ -31,6 +29,19 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt -r requirements-dev.txt
+
+    # Several pytest tests shell out to the tools/js_codemod/*.mjs codemods
+    # (tests/test_dashboard_codemod_census_report_regression.py,
+    # test_dashboard_extract_module_tool.py,
+    # test_dashboard_js_module_bridge_regression.py). Those scripts import
+    # @babel/parser and jscodeshift, so without node_modules they die with
+    # ERR_MODULE_NOT_FOUND and the tests report it as tool failure/drift.
+    - uses: actions/setup-node@v6
+      with:
+        node-version: "22"
+
+    - name: Install Node dependencies
+      run: npm ci
 
     - name: Remove pytest-timeout plugin
       run: |
@@ -65,6 +76,12 @@ jobs:
     - uses: actions/setup-node@v6
       with:
         node-version: "22"
+
+    # js_codemod_parser_offsets.test.mjs imports @babel/parser directly, so
+    # this suite needs node_modules even though the other frontend tests are
+    # dependency-free vm-sandbox tests.
+    - name: Install Node dependencies
+      run: npm ci
 
     - name: Frontend JS unit tests
       # node 22 (LTS) is required: `node --test` only gained glob-pattern

@@ -22,6 +22,10 @@ markers = [
     "golden_master: pins exact dollar figures against a frozen or synthetic plan; a failure means the ENGINE changed",
     "contract: asserts the shape of an API/route/snapshot contract other code depends on",
     "e2e: drives the real build pipeline or HTTP layer end-to-end",
+    # Skips itself when the named input/ CSVs are absent. /input/* is
+    # gitignored (real financial data), so these cannot run on CI or in a fresh
+    # worktree. See the handler in tests/conftest.py.
+    "requires_live_input: reads the live, gitignored input/ plan CSVs",
 ]
 # Timeout safety net removed: pytest-timeout configuration was causing
 # silent crashes in CI despite plugin installation attempts. Tests will
