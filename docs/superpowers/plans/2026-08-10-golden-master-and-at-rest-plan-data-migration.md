@@ -31,7 +31,29 @@
 
 ---
 
-## Phase 1 — Golden Master Recovery
+## Phase 1 — Golden Master Recovery — ✅ DONE 2026-08-10 (premise was wrong; see below)
+
+> **Outcome, recorded after execution.** Phase 1's stated premise — "an engine change
+> moved the pin, bisect to find it" — was **incorrect**, and Tasks 1-2 below are kept
+> only as a record of how that was discovered. There was no engine change: the pin
+> 5,824,239.30 was **stale and never reproducible**, failing at `77b7676`, the very
+> commit that introduced it. The computed 6,044,750.40 is identical across six commits,
+> Python 3.11 and 3.14, and local + CI. Fix was a two-constant correction.
+>
+> **Two method traps this hit — worth remembering:**
+> 1. **Task 1's bisect returned a confidently wrong answer** (`355564d`). `git bisect`
+>    never re-tests the "good" endpoint you hand it; the endpoint here (`531c883`) was
+>    already bad, so the whole range was bad and the result was meaningless. **Measure
+>    the good endpoint before bisecting.** Direct per-commit measurement settled it.
+> 2. **`git log -S <value>` named the wrong origin commit**, because ticket 261 in
+>    `56c457a` renamed the file and made the value look newly added. Use
+>    `git log --follow -S`.
+>
+> Task 1 Step 5's classification should have offered a third branch beside
+> "intentional" / "regression": **"the pin never matched"** — check by running the regen
+> block at the commit that introduced the pin, before bisecting anything.
+
+## Phase 1 (as originally written)
 
 **Current state (verified 2026-08-10 on `main` @ `ccb47c1`):**
 `tests/test_frozen_sample_plan_golden_master_regression.py::FrozenSamplePlanGoldenMasterTests::test_frozen_plan_dollar_figures_are_exact` FAILS:
