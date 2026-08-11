@@ -31,7 +31,7 @@ class PricingUiReleaseTests(unittest.TestCase):
     def test_admin_and_user_help_panels_are_purpose_impact_consider_not_boilerplate(self):
         admin = (ROOT/'frontend/js/admin.js').read_text(encoding='utf-8')
         user = (ROOT/'frontend/js/dashboard.js').read_text(encoding='utf-8')
-        user += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
+        user += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
         self.assertIn('What this page controls', admin)
         self.assertIn('Value options and how to choose', admin)
         self.assertIn('Likely planning or system impact', admin)

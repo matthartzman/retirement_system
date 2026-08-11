@@ -3,17 +3,22 @@ import csv
 import importlib.util
 import sys
 
+from conftest import TEST_INPUT_DIR, dashboard_js_sources
+
 ROOT = Path(__file__).resolve().parents[1]
 
 def read(path: str) -> str:
-    return (ROOT / path).read_text(encoding='utf-8')
+    # 'input/foo.csv' resolves to the committed frozen plan, not the user's
+    # live input/ (gitignored, so absent on CI and in fresh worktrees).
+    path = str(path)
+    target = TEST_INPUT_DIR / Path(path).name if path.startswith('input/') else ROOT / path
+    return target.read_text(encoding='utf-8')
 
 
 def test_user_and_admin_navigation_have_single_scope_toggle_search_and_status_offline_message():
     user_html = read('frontend/index.html')
     admin_html = read('frontend/admin.html')
-    user_js = read('frontend/js/dashboard.js')
-    user_js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
+    user_js = dashboard_js_sources()
     admin_js = read('frontend/js/admin.js')
     assert 'id="combinedSearch"' in user_html
     assert 'setSearchScope(\'nav\')' in user_html and 'setSearchScope(\'page\')' in user_html
@@ -30,8 +35,7 @@ def test_user_and_admin_navigation_have_single_scope_toggle_search_and_status_of
 
 
 def test_inline_field_context_help_removed_and_nav_descriptions_break_line():
-    user_js = read('frontend/js/dashboard.js')
-    user_js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
+    user_js = dashboard_js_sources()
     admin_js = read('frontend/js/admin.js')
     assert 'class="field-note"' not in user_js
     assert '<br><span class="step-desc"' in user_js
@@ -39,7 +43,7 @@ def test_inline_field_context_help_removed_and_nav_descriptions_break_line():
 
 
 def test_social_security_funding_discount_defaults_and_engine_application_are_present():
-    income = read('input/client_income.csv') if (ROOT/'input/client_income.csv').exists() else read('../input/input/client_income.csv')
+    income = read('input/client_income.csv')
     assert 'ss_funding_discount_year,2032' in income
     assert 'ss_funding_discount_pct,22.00%' in income
     assert 'ss_funding_factor' in read('src/planning_engines.py')
@@ -58,9 +62,8 @@ def test_tax_and_irmaa_tables_updated_to_2025_and_workflow_documents_annual_revi
 
 
 def test_other_assets_grouping_and_529_add_route_exist():
-    user_js = read('frontend/js/dashboard.js')
-    user_js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
-    assets = read('input/client_assets.csv') if (ROOT/'input/client_assets.csv').exists() else read('../input/input/client_assets.csv')
+    user_js = dashboard_js_sources()
+    assets = read('input/client_assets.csv')
     assert 'Other Assets' in user_js
     assert 'Note Receivable' in user_js or 'Note receivable' in user_js or 'note_receivable' in user_js
     assert "'HSA':1" in user_js and "'DAF':2" in user_js and "'529 Plans':3" in user_js
@@ -75,8 +78,7 @@ def test_withdrawal_order_is_fixed_and_reserve_ui_controls_are_dropdown_based():
     # documentation/reports/SYSTEM_REVIEW_2026-07-18.md §10.1). It was
     # deliberately removed and replaced with a fixed, read-only cascade
     # description; test_withdrawal_roth_ui_cleanup.py covers that in detail.
-    user_js = read('frontend/js/dashboard.js')
-    user_js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
+    user_js = dashboard_js_sources()
     # The Liquidity Buffer reserve_account field is checked against the
     # schema template (the stable contract for "does this field still
     # exist"), not a live input/client_assets.csv -- a household with no

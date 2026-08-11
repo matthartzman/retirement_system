@@ -25,7 +25,35 @@ import { openCurrentPlan, navigateToStep } from './helpers.js';
 // stuck, just slow, so this test polls with its own more patient timeout
 // instead of adopting the shared helper's budget for every other spec too.
 async function triggerBuildAndWaitPatiently(page) {
-  await page.getByRole('button', { name: 'Build Reports' }).first().click();
+  // "Build Reports" is rendered contextually (onclick="runBuild(false)"), not
+  // by the app shell -- the home page has one, the Workbook Formatting page
+  // does not. This test's SECOND build is triggered while sitting on Workbook
+  // Formatting, whose only build affordance is a "Rebuild now" button that is
+  // pure navigation (data-step-id="reports_and_review"), not a trigger. The
+  // previous unconditional click therefore auto-waited on a button that page
+  // never renders, silently consuming the entire test budget and surfacing as
+  // a timeout inside the finally block rather than a missing-button error --
+  // which is why raising the timeout from 700s to 1800s changed nothing.
+  // Go where the page's own "Rebuild now" shortcut points, then build.
+  const build = page.getByRole('button', { name: 'Build Reports' }).first();
+  if (!(await build.isVisible().catch(() => false))) {
+    await navigateToStep(page, 'reports_and_review', 'Reports & Review');
+    // Reports & Review is a tabbed workspace (Preflight | Build | Impact |
+    // Results | Downloads | Plan Data Review) that does NOT open on Build, so
+    // arriving on the step is not enough -- "Build Reports" only exists once
+    // the Build tab is selected. exact:true so this does not match the
+    // "Build Reports" button itself.
+    const buildTab = page.getByRole('button', { name: 'Build', exact: true }).first();
+    if (await buildTab.isVisible().catch(() => false)) {
+      await buildTab.click();
+    }
+  }
+  // Bounded wait so a genuinely missing button fails fast and legibly instead
+  // of hanging until the test timeout.
+  await expect(build, 'no "Build Reports" button to start the build from').toBeVisible({
+    timeout: 15_000,
+  });
+  await build.click();
   const continueBuild = page.locator('.inapp-confirm', { hasText: 'Continue Build' });
   if (await continueBuild.waitFor({ state: 'visible', timeout: 15_000 }).then(() => true).catch(() => false)) {
     await continueBuild.click();
@@ -99,10 +127,27 @@ test('a rebuilt column width replaces the stale "Last built" value after navigat
     const rowAfter = page.locator('.wf-col-row', {
       has: page.locator(`input[onchange*="setWorkbookColWidth('${sheet}','${col}'"]`),
     });
-    await expect(
-      rowAfter.locator('.wf-col-default'),
-      'Last built still shows the pre-rebuild width -- the client-side cache was not invalidated after the build',
-    ).toHaveText(`Last built: ${testWidth}`);
+    // Compare the NUMBER, not the formatted string: testWidth is built with
+    // toFixed(2) ("15.00") but the page renders the width unpadded ("15"), so
+    // a literal toHaveText fails on formatting even when the behaviour under
+    // test is correct. expect.poll keeps the retry semantics toHaveText had.
+    await expect
+      .poll(
+        async () => {
+          // textContent, not innerText: innerText returns "" for anything not
+          // visible, and a background re-render (checkAppStatus polls every
+          // 15s -- see expandFirstColumn's note) can collapse the containing
+          // <details> mid-poll, which turned the parse into NaN forever.
+          const text = (await rowAfter.locator('.wf-col-default').textContent()) ?? '';
+          return parseFloat(text.replace(/[^0-9.]/g, ''));
+        },
+        {
+          message:
+            'Last built still shows the pre-rebuild width -- the client-side cache was not invalidated after the build',
+          timeout: 5_000,
+        },
+      )
+      .toBeCloseTo(parseFloat(testWidth), 2);
     await expect(page.locator('.workbook-format-panel .section-note.warn')).toHaveCount(0);
   } finally {
     // Restore the original width regardless of pass/fail so this test never

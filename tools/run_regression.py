@@ -112,7 +112,22 @@ for py_file in [
 # 2. Boot sequence (dashboard.js)
 # ---------------------------------------------------------------------------
 heading("Boot sequence")
-dash = file_text("frontend/js/dashboard.js")
+# dashboard.js is progressively being split into frontend/js/dashboard_decomp_*.js
+# modules (see docs/superpowers/plans/2026-08-06-dashboard-js-domain-module-split-SCOPE.md).
+# Every one of those files is code that USED to live in dashboard.js, so for the
+# purposes of these "is this behavior still present" greps they are all one unit:
+# searching dashboard.js alone reported 11 false failures (shutdownAndClose,
+# downloadWithBuild, runBuild, setDetailColGroupOpen, the humanLabel/valueKind
+# checks, ...) purely because the code moved. Same reasoning -- and same fix --
+# as the dashboard.js -> reports_ui.js extraction handled a few lines below.
+# Globbed rather than listed so the next extraction does not reintroduce this.
+dash = "\n".join(
+    [file_text("frontend/js/dashboard.js")]
+    + [
+        p.read_text(encoding="utf-8", errors="replace")
+        for p in sorted((ROOT / "frontend" / "js").glob("dashboard_decomp_*.js"))
+    ]
+)
 nav = file_text("frontend/js/navigation.js")
 reports_ui = file_text("frontend/js/reports_ui.js")
 # Detail-table/chart rendering (detailCurrencyK, niceTickRange,
