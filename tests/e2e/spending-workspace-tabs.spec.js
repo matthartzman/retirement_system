@@ -24,11 +24,17 @@ test('the Spending nav step tab-switches between its four merged pages', async (
 
   await page.getByRole('tab', { name: 'Other Spending' }).click();
   await expect(page.getByRole('tab', { name: 'Other Spending' })).toHaveClass(/active/);
-  // Other Spending keeps its existing Travel/Large Items/DAF accordions
-  // (the Wave 1.4 jump-to-field fix depends on them staying <details>-based).
+  // Other Spending keeps its Travel/Large Items accordions (the Wave 1.4
+  // jump-to-field fix depends on them staying <details>-based).
   await expect(page.locator('.lifestyle-workspace > details > summary', { hasText: 'Travel' })).toBeVisible();
   await expect(page.locator('.lifestyle-workspace > details > summary', { hasText: 'Large Items' })).toBeVisible();
-  await expect(page.locator('.lifestyle-workspace > details > summary', { hasText: 'Donor-Advised Fund' })).toBeVisible();
+  // DAF is deliberately NOT here: #269 removed the duplicate Donor-Advised
+  // Fund section from Other Spending, leaving the canonical one on the
+  // Charitable Giving step (entity_charitable). Asserted negatively so the
+  // duplicate cannot quietly come back.
+  await expect(
+    page.locator('.lifestyle-workspace > details > summary', { hasText: 'Donor-Advised Fund' }),
+  ).toHaveCount(0);
 
   // The tab choice is also a left-nav sub-tab, and is persisted to
   // localStorage the same way Distribution Strategy's tabs are.
