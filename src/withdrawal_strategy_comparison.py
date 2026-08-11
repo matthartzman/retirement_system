@@ -118,6 +118,24 @@ def _gross_up(net_needed: float, source: str, ordinary_rate: float, ltcg_rate: f
     return net_needed, 0.0
 
 
+def _tax_on_gross(gross: float, source: str, ordinary_rate: float, ltcg_rate: float, gain_fraction: float) -> float:
+    """Tax due on a draw whose GROSS size is already known.
+
+    The counterpart to :func:`_gross_up`, which solves the opposite problem
+    ("how much must I withdraw to net N?"). Use this whenever the withdrawal
+    amount comes from the real engine -- ira_wd/trust_wd/roth_wd are already
+    gross withdrawals, so passing them through _gross_up would inflate them a
+    second time.
+    """
+    if gross <= 0:
+        return 0.0
+    if source == "pretax":
+        return gross * max(0.0, min(0.55, ordinary_rate))
+    if source == "taxable":
+        return gross * max(0.0, min(0.55, ltcg_rate)) * max(0.0, min(1.0, gain_fraction))
+    return 0.0  # roth (and anything untracked) is tax-free here
+
+
 def simulate_withdrawal_strategy(c: Mapping[str, Any], rows: list, strategy_key: str, ltcg_rate: float = 0.15) -> dict:
     """Approximate year-by-year simulation of one named strategy.
 
@@ -177,14 +195,22 @@ def simulate_withdrawal_strategy(c: Mapping[str, Any], rows: list, strategy_key:
             # engine's actual, more tax-aware allocation -- defeating the
             # point of using "current plan" as the accurate baseline the
             # other strategies are compared against.
+            # ira_wd/trust_wd/roth_wd are the engine's GROSS withdrawals, and
+            # elective_need above is their sum -- so draw them as-is. Passing
+            # them through _gross_up (which answers "what must I withdraw to
+            # NET this?") inflated every draw by 1/(1-rate): measured on the
+            # frozen plan, a real ira_wd of 170,349 became a 224,143 draw
+            # (+31.6%) every single year. Compounded over the horizon that
+            # emptied all three buckets, so this "baseline" reported a $0
+            # terminal portfolio and 2 shortfall years for a household the
+            # real engine shows solvent -- the exact failure the two
+            # current_plan regression tests were written to catch.
             for source, key in (("pretax", "ira_wd"), ("taxable", "trust_wd"), ("roth", "roth_wd")):
                 want = float(row.get(key, 0.0) or 0.0)
-                gross, tax = _gross_up(want, source, ordinary_rate, ltcg_rate, gain_fraction)
-                draw = min(gross, bal[source])
-                net_funded = draw * (1.0 - (tax / gross if gross > 0 else 0.0))
+                draw = min(want, bal[source])
                 bal[source] -= draw
-                lifetime_tax += tax * (draw / gross if gross > 0 else 0.0)
-                remaining -= net_funded
+                lifetime_tax += _tax_on_gross(draw, source, ordinary_rate, ltcg_rate, gain_fraction)
+                remaining -= draw
             remaining -= float(row.get("hsa_wd", 0.0) or 0.0)  # HSA not tracked in bal; matches reality (0 tax)
             # This module's simulated balances necessarily drift from the
             # real engine's over a multi-decade plan (simplified flat-rate
@@ -197,15 +223,15 @@ def simulate_withdrawal_strategy(c: Mapping[str, Any], rows: list, strategy_key:
             # shortfall while an untouched bucket sits available -- an
             # artifact of simulator drift, not a real funding gap.
             if remaining > 1e-6:
+                # Residual is in the same GROSS units as the draws above, so
+                # this cascade stays on a gross basis too.
                 for source in ("pretax", "taxable", "roth"):
                     if remaining <= 1e-6:
                         break
-                    gross, tax = _gross_up(remaining, source, ordinary_rate, ltcg_rate, gain_fraction)
-                    draw = min(gross, bal[source])
-                    net_funded = draw * (1.0 - (tax / gross if gross > 0 else 0.0))
+                    draw = min(remaining, bal[source])
                     bal[source] -= draw
-                    lifetime_tax += tax * (draw / gross if gross > 0 else 0.0)
-                    remaining -= net_funded
+                    lifetime_tax += _tax_on_gross(draw, source, ordinary_rate, ltcg_rate, gain_fraction)
+                    remaining -= draw
         elif strategy["order"] == "proportional":
             total_bal = bal["pretax"] + bal["roth"] + bal["taxable"]
             shares = {k: (bal[k] / total_bal if total_bal > 0 else 0.0) for k in ("pretax", "roth", "taxable")}
