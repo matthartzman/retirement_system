@@ -33,23 +33,41 @@ test('editing a field, saving, and reloading persists the change', async ({ page
   const saveButton = page.locator('#saveChangesBtn');
   await expect(saveButton).toBeDisabled(); // nothing dirty yet
 
-  await field.selectOption(EDITED_VALUE);
-  await field.blur();
-  await expect(saveButton, 'editing a field did not enable the Save button').toBeEnabled();
-  await expect(page.locator('#unsavedStatus')).toBeVisible();
+  try {
+    await field.selectOption(EDITED_VALUE);
+    await field.blur();
+    await expect(saveButton, 'editing a field did not enable the Save button').toBeEnabled();
+    await expect(page.locator('#unsavedStatus')).toBeVisible();
 
-  await saveButton.click();
-  await expect(page.locator('#actionMessage'), 'no save confirmation appeared').toContainText('Changes saved.');
-  await expect(saveButton, 'Save button did not return to disabled after a successful save').toBeDisabled();
-  await expect(page.locator('#unsavedStatus')).toBeHidden();
+    await saveButton.click();
+    await expect(page.locator('#actionMessage'), 'no save confirmation appeared').toContainText('Changes saved.');
+    await expect(saveButton, 'Save button did not return to disabled after a successful save').toBeDisabled();
+    await expect(page.locator('#unsavedStatus')).toBeHidden();
 
-  // The real regression check: reload from scratch (a fresh network request
-  // cycle, not just in-memory state) and confirm the edit actually reached
-  // the backend rather than only updating the DOM.
-  await openCurrentPlan(page);
-  await navigateToStep(page, 'household_people', 'Household & People');
-  await expect(
-    page.locator(`[data-row="${FIELD_ROW}"]`),
-    'edited value did not survive a full page reload',
-  ).toHaveValue(EDITED_VALUE);
+    // The real regression check: reload from scratch (a fresh network request
+    // cycle, not just in-memory state) and confirm the edit actually reached
+    // the backend rather than only updating the DOM.
+    await openCurrentPlan(page);
+    await navigateToStep(page, 'household_people', 'Household & People');
+    await expect(
+      page.locator(`[data-row="${FIELD_ROW}"]`),
+      'edited value did not survive a full page reload',
+    ).toHaveValue(EDITED_VALUE);
+  } finally {
+    // Revert regardless of pass/fail: this spec runs against the SAME shared
+    // e2e workspace database as every other spec file, and EDITED_VALUE
+    // ('Wisconsin') is not in reference_data/state_tax.csv's supported list
+    // -- left in place, it fails the next real build any LATER spec in the
+    // run triggers with "Unsupported residence_state 'Wisconsin'", a
+    // completely unrelated-looking error nowhere near this file. Confirmed
+    // directly: workbook-format-stale-cache.spec.js failed this way when run
+    // after this spec in the full suite.
+    const current = await field.inputValue().catch(() => null);
+    if (current !== ORIGINAL_VALUE) {
+      await field.selectOption(ORIGINAL_VALUE);
+      await field.blur();
+      await saveButton.click().catch(() => {});
+      await expect(page.locator('#actionMessage')).toContainText('Changes saved.', { timeout: 10_000 }).catch(() => {});
+    }
+  }
 });
