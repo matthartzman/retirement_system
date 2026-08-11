@@ -34,6 +34,8 @@ fixture (not just unit-tested against synthetic numbers):
 """
 from __future__ import annotations
 
+import pytest
+
 from src.data_io import load_csv, parse_client
 from src.plan_config import ensure_engine_config
 from src.planning_engines import project
@@ -133,3 +135,63 @@ def test_sheet9_renders_the_comparison_section():
     text = [str(cell.value) for row in ws.iter_rows() for cell in row if cell.value is not None]
     assert any("Withdrawal-Sequencing" in t for t in text)
     assert any("Current Plan" in t for t in text)
+
+
+def test_no_strategy_depletes_a_household_the_engine_shows_solvent():
+    """Counterfactual strategies fund the same SPENDING, not the same gross draw.
+
+    ira_wd/trust_wd/roth_wd are the engine's GROSS withdrawals -- each already
+    carries the tax due on itself. Summing them into `elective_need` and then
+    grossing THAT up again per strategy charged tax twice, so every alternative
+    strategy over-drew ~30% a year and reported a $0 terminal portfolio with
+    3-4 shortfall years for a household the real engine shows solvent
+    (PINNED_FAILURES == []). That made the entire comparison table meaningless:
+    every alternative to the current plan looked catastrophic.
+    """
+    c, rows = sample_config_and_rows()
+    for key in WITHDRAWAL_STRATEGIES:
+        result = simulate_withdrawal_strategy(c, rows, key)
+        assert result["years_with_shortfall"] == 0, (
+            f"{key} reports {result['years_with_shortfall']} shortfall year(s) for a "
+            "household the engine shows fully solvent"
+        )
+        assert result["terminal_total_nw_approx"] > 0, (
+            f"{key} drains the portfolio to zero for a solvent household"
+        )
+
+
+def test_net_spending_need_strips_the_tax_already_inside_the_engines_gross_draws():
+    """Pins the gross-vs-net contract directly, not through a simulation.
+
+    The engine's draws are gross: a $100k IRA withdrawal at 25% delivers $75k
+    of spending, not $100k. Comparing strategies on the gross figure charged
+    every alternative tax twice.
+    """
+    from src.withdrawal_strategy_comparison import _net_spending_need
+
+    row = {"ira_wd": 100_000.0, "trust_wd": 50_000.0, "roth_wd": 25_000.0, "hsa_wd": 9_999.0}
+    expected = (100_000.0 + 50_000.0 + 25_000.0) - (
+        100_000.0 * 0.25          # ordinary rate on the pre-tax draw
+        + 50_000.0 * 0.15 * 0.40  # LTCG rate on the taxable draw's gain fraction
+    )
+    assert _net_spending_need(row, 0.25, 0.15, 0.40) == pytest.approx(expected)
+
+    # Roth is untaxed, and hsa_wd is excluded entirely (it is not one of the
+    # three tracked buckets and funds the same slice under every strategy).
+    only_roth = {"roth_wd": 40_000.0, "hsa_wd": 1_000.0}
+    assert _net_spending_need(only_roth, 0.25, 0.15, 0.40) == pytest.approx(40_000.0)
+
+
+def test_current_plan_is_the_lowest_tax_and_highest_terminal_of_the_four():
+    """Directional sanity now that the alternatives are no longer all
+    flat-zero: this household's real, bracket-aware sequencing should not be
+    beaten by any of the three simplified reorderings.
+    """
+    c, rows = sample_config_and_rows()
+    results = {k: simulate_withdrawal_strategy(c, rows, k) for k in WITHDRAWAL_STRATEGIES}
+    current = results["current_plan"]
+    for key, r in results.items():
+        if key == "current_plan":
+            continue
+        assert r["lifetime_tax_approx"] >= current["lifetime_tax_approx"], key
+        assert r["terminal_total_nw_approx"] <= current["terminal_total_nw_approx"], key
