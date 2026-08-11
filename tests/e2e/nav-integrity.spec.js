@@ -4,7 +4,7 @@
 // interactively. System review 2026-08-04, finding
 // `no-browser-execution-testing` / `ui-accordion-breaks-jump-to-field`.
 import { test, expect } from '@playwright/test';
-import { openCurrentPlan, navigateToStep } from './helpers.js';
+import { openCurrentPlan } from './helpers.js';
 
 // Steps that fetch build/results-derived data as part of their own render
 // (economic_tax_assumptions previews Results Explorer data) legitimately
@@ -65,31 +65,59 @@ test('guided-step navigation has no dead ends, and jump-to-field opens a closed 
   expect(unexpected404s, `unexpected 404s while visiting: ${unexpected404s.join(' | ')}`).toEqual([]);
 
   // --- Part 2: jump-to-field opens a closed accordion and focuses it -----
-  await navigateToStep(page, 'lifestyle_spending', 'Other Spending');
+  // Discover a real (step, row) target at runtime instead of hardcoding one.
+  //
+  // This originally pinned row 361 -- the DAF "Enabled" toggle inside the
+  // Donor-Advised Fund accordion on Other Spending. #269 removed that
+  // duplicate section (its canonical home is now the Charitable Giving step),
+  // so the locator matched nothing and the test hung to its 120s timeout.
+  // Other Spending in fact has NO [data-row] fields left at all: Travel and
+  // Large Items are budget-line tables. A row index is just a position in the
+  // plan-data CSV and shifts whenever rows are added or removed, so scanning
+  // for the behaviour keeps this honest across UI moves rather than pinning a
+  // coordinate that silently rots.
+  const target = await page.evaluate((ids) => {
+    for (const stepId of ids) {
+      window.setStep(stepId);
+      for (const d of document.querySelectorAll('details:not([open])')) {
+        const row = d.querySelector('[data-row]');
+        if (row) return { stepId, row: Number(row.getAttribute('data-row')) };
+      }
+    }
+    return null;
+  }, stepIds);
+  expect(
+    target,
+    'no step has a [data-row] inside a closed accordion -- jump-to-field reveal is no longer exercisable',
+  ).not.toBeNull();
 
-  // Real target on the frozen fixture: row 361 is the DAF "Enabled" toggle,
-  // rendered inside a closed <details>Donor-Advised Fund (DAF)</details>
-  // accordion by renderLifestyleSpending() -- exactly the Travel/Large
-  // Discretionary/DAF class of field the original bug affected. Confirmed
-  // interactively before writing this spec: data-row="361" resolves to a
-  // <label> wrapping the checkbox, not the checkbox itself.
+  const targetRow = target.row;
+  await page.evaluate((stepId) => window.setStep(stepId), target.stepId);
+
   const detailsBefore = await page
-    .locator('[data-row="361"]')
+    .locator(`[data-row="${targetRow}"]`)
     .evaluate((el) => el.closest('details')?.open);
-  expect(detailsBefore, 'fixture drifted: row 361 is expected to start inside a CLOSED accordion').toBe(false);
+  expect(
+    detailsBefore,
+    `${target.stepId} row ${targetRow} is expected to start inside a CLOSED accordion`,
+  ).toBe(false);
 
-  await page.evaluate(() => window.jumpRecommendationSource('lifestyle_spending', 361));
+  await page.evaluate(
+    ({ stepId, row }) => window.jumpRecommendationSource(stepId, row),
+    target,
+  );
 
   // jumpRecommendationSource defers its scroll/reveal/focus work via its own
   // internal setTimeout(..., 80) (frontend/js/dashboard.js), so a check made
   // synchronously right after calling it races that delay. waitForFunction
   // polls until the real condition is true instead of guessing a fixed wait.
   await page.waitForFunction(
-    () => document.querySelector('[data-row="361"]')?.closest('details')?.open === true,
+    (row) => document.querySelector(`[data-row="${row}"]`)?.closest('details')?.open === true,
+    targetRow,
     { timeout: 5000 },
   );
   const detailsAfter = await page
-    .locator('[data-row="361"]')
+    .locator(`[data-row="${targetRow}"]`)
     .evaluate((el) => el.closest('details')?.open);
   expect(detailsAfter, 'revealAndFocus did not open the containing <details>').toBe(true);
 
@@ -97,9 +125,9 @@ test('guided-step navigation has no dead ends, and jump-to-field opens a closed 
   // Chrome (confirmed interactively) -- so the correct assertion is that
   // focus landed somewhere INSIDE the revealed accordion, not on the exact
   // label element itself.
-  const focusInsideAccordion = await page.evaluate(() => {
-    const details = document.querySelector('[data-row="361"]')?.closest('details');
+  const focusInsideAccordion = await page.evaluate((row) => {
+    const details = document.querySelector(`[data-row="${row}"]`)?.closest('details');
     return !!details && details.contains(document.activeElement);
-  });
+  }, targetRow);
   expect(focusInsideAccordion, 'focus did not land inside the revealed accordion').toBe(true);
 });
