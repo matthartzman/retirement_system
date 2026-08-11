@@ -18,7 +18,7 @@ def read(rel: str) -> str:
 
 def test_field_finder_groups_by_top_level_category_not_individual_page():
     js = read("frontend/js/dashboard.js")
-    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
+    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
     assert "function fieldFinderCategoryName(group)" in js
     assert "function fieldFinderCategoryOrder()" in js
     # Categories are keyed by each field's owning step's nav group, not its
@@ -29,7 +29,7 @@ def test_field_finder_groups_by_top_level_category_not_individual_page():
 
 def test_field_finder_still_sorts_fields_alphabetically_within_a_group():
     js = read("frontend/js/dashboard.js")
-    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
+    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
     assert 'const la = humanLabel(a.label, a),\n          lb = humanLabel(b.label, b);' in js
     assert 'return (\n          la.localeCompare(lb) ||\n          friendlyGroup(a).localeCompare(friendlyGroup(b))\n        );' in js
 
@@ -39,7 +39,7 @@ def test_field_finder_shows_source_page_per_field_after_dropping_page_grouping()
     the broader category (instead of by page) would silently lose that
     unless each field row carries its own page label."""
     js = read("frontend/js/dashboard.js")
-    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
+    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
     assert "field-source-page" in js
     assert "stepTitleById(stepId)" in js
     css = read("frontend/css/dashboard.css")
@@ -56,7 +56,7 @@ def test_field_finder_disambiguates_same_labeled_fields_across_subsections():
     differs from the page title, and used as a secondary sort key so
     identically-labeled fields group together in a stable order."""
     js = read("frontend/js/dashboard.js")
-    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
+    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
     assert 'const qualifier = friendlyGroup(r);' in js
     assert 'qualifier && norm(qualifier) !== norm(pageTitle) ? qualifier : ""' in js
 
@@ -66,7 +66,7 @@ def test_field_finder_intro_desc_and_section_note_are_not_near_duplicates():
     of 'every editable field ... search ... prefer the source page', which
     read as redundant when shown stacked at the top of the page."""
     js = read("frontend/js/dashboard.js")
-    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
+    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
     assert 'id: "all_assumptions"' in js
     step_start = js.index('id: "all_assumptions"')
     step_block = js[step_start : step_start + 600]

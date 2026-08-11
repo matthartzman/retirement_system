@@ -60,7 +60,7 @@ def test_new_frontend_modules_are_loaded_before_dashboard():
 def test_navigation_behavior_is_feature_owned_with_dashboard_wrappers():
     nav = read("frontend/js/navigation.js")
     dashboard = read("frontend/js/dashboard.js")
-    dashboard += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
+    dashboard += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
     assert "window.RetirementNavigation" in nav
     assert "AUTOSAVE_STEPS" in nav
     assert 'function setStep(id) {\n  return window.RetirementNavigation.setStep' in dashboard
@@ -71,7 +71,7 @@ def test_navigation_behavior_is_feature_owned_with_dashboard_wrappers():
 def test_planning_workbench_case_store_moved_out_of_dashboard():
     workbench = read("frontend/js/planning_workbench_ui.js")
     dashboard = read("frontend/js/dashboard.js")
-    dashboard += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
+    dashboard += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
     assert "window.RetirementPlanningWorkbench" in workbench
     assert "retirement.planning_case_v1" in workbench
     assert "planning_case_v1" in workbench
@@ -82,7 +82,7 @@ def test_planning_workbench_case_store_moved_out_of_dashboard():
 def test_reports_shell_rendering_moved_out_of_dashboard():
     reports = read("frontend/js/reports_ui.js")
     dashboard = read("frontend/js/dashboard.js")
-    dashboard += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
+    dashboard += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
     assert "window.RetirementReportsUI" in reports
     assert 'function renderDetailedResults() {\n  return window.RetirementReportsUI.renderDetailedResults' in dashboard
     assert 'function renderDetailedResultsNav() {\n  return window.RetirementReportsUI.renderDetailedResultsNav' in dashboard

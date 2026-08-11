@@ -1,3 +1,4 @@
+import pytest
 import copy
 import json
 import unittest
@@ -29,6 +30,10 @@ class RegressionV781Tests(unittest.TestCase):
         self.assertEqual(RMD_DIVISORS[85], 16.0)
         self.assertEqual(RMD_DIVISORS[101], 6.0)
 
+    # client_data.json is a derived artifact the frozen fixture deliberately
+    # does not commit (see conftest), and /input/* is gitignored, so this can
+    # only run against the real workspace.
+    @pytest.mark.requires_live_input('client_data.json')
     def test_sectioned_client_json_does_not_return_zero_forecast(self):
         plan = json.loads((ROOT / 'input' / 'client_data.json').read_text())
         c = build_plan_from_json(plan)

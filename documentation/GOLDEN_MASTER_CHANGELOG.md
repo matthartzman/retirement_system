@@ -21,10 +21,11 @@ states the new pins in prose, but the two constants in the test file were never 
 to match. The entry's "4 failures → 0" claim did not cover this test: it carries
 `@pytest.mark.golden_master`, not `slow`, so `-m "not slow"` would have run it.
 
-**Why nobody noticed.** CI on `main` is red for several unrelated reasons — a hardcoded
-`C:\RetirementPlanning\Version 10\...` absolute path in a frontend test, `input/*.csv`
-absent on the runner, and Playwright e2e timeouts — so one more red test did not stand
-out. Those remain open and are NOT addressed here.
+**Why nobody noticed.** CI on `main` was red for several unrelated reasons — a hardcoded
+`C:\RetirementPlanning\Version 10\...` absolute path in 33 test files, `input/*.csv`
+absent on the runner (`/input/*` is gitignored), no `npm ci` in the Python test job, and
+Playwright e2e timeouts — so one more red test did not stand out. Those are addressed in
+the follow-up commit; the e2e timeouts are not.
 
 **What changed.** Only the two constants, corrected to the values the fixture actually
 produces, plus a provenance comment. No `src/` change; correcting them cannot mask an
