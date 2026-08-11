@@ -8,7 +8,7 @@ if str(ROOT) not in sys.path:
 
 def test_scenario_ui_shows_canonical_home_basis_and_removes_retired_duplicates():
     js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
-    js += open(r"C:\RetirementPlanning\Version 10\frontend\js\dashboard_decomp_row_model.js", encoding="utf-8").read()
+    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
 
     assert "function rowIsRetiredScenarioHomeDuplicate" in js
     assert "rowIsCanonicalHomeBasis" in js

@@ -90,5 +90,7 @@
   "test_ui_tax_ss_cleanup.py",
   "test_wellness_section_name_match.py",
   "test_withdrawal_roth_ui_cleanup.py",
-  "test_workbench_stress_module_gating.py"
+  "test_workbench_stress_module_gating.py",
+  "test_dashboard_extract_module_tool.py",
+  "test_ytd_spending_growth_regression.py"
 ]

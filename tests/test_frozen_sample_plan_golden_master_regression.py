@@ -114,8 +114,29 @@ FROZEN_TODAY = "2026-08-04"
 # At its true asset level the plan depletes in its final five years, so
 # fail_count is now pinned rather than asserted to be zero. See the assertion
 # for why that is a stricter gate, not a weaker one.
-PINNED_TERMINAL_NW = 5824239.30
-PINNED_LIFETIME_TAX = 1290848.91
+#
+# Corrected 2026-08-10 -- the two values below were STALE, not drifted. They
+# were never reproducible: running this file's own __main__ regen block at
+# 77b7676 (the commit that first introduced 5,824,239.30, and the same commit
+# that added the home-purchase scenario described below) already prints
+# 6,044,750.40. So do the commits after it -- 56c457a, 52ffe60, 3b1cedf,
+# 531c883, 355564d, and main -- and so does CI on BOTH windows-latest/3.11 and
+# windows-latest/3.14, to the same 6044750.402866955. The frozen fixture is
+# byte-unchanged since 56c457a.
+#
+# In other words: the 2026-08-05 regen note immediately below was written but
+# the two numbers above it were never updated to match, so this gate has been
+# red since it was authored and has never once passed. It was not noticed
+# because CI is red on main for several unrelated reasons (a hardcoded
+# C:\RetirementPlanning path in a frontend test, missing input/ CSVs on the
+# runner, Playwright e2e timeouts), so one more red test did not stand out.
+#
+# This is therefore NOT an engine regression and regenerating does not mask
+# one: the computed value has been constant across every commit and both
+# interpreters since the pin was written. Verified by bisect + direct
+# per-commit measurement, 2026-08-10.
+PINNED_TERMINAL_NW = 6044750.40
+PINNED_LIFETIME_TAX = 1465666.69
 PINNED_FAILURES = []
 # Regenerated 2026-08-05 (fixture data change, not an engine change): added a
 # fictional home-purchase scenario to Housing next_step_1 (Texas, $400,000 @
