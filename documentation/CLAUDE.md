@@ -104,21 +104,39 @@ Update every matching test **in the same session as the code change** — not la
 
 ### Golden master maintenance
 
-`tests/test_recommendations_regression.py` and `tests/fixtures/golden_master_engine_cases.json` store expected projection numbers. Whenever input data or engine constants change, regenerate and update them:
+Absolute projection dollars for the frozen household are pinned in **one** place:
+`tests/test_frozen_sample_plan_golden_master_regression.py` (`PINNED_TERMINAL_NW`,
+`PINNED_LIFETIME_TAX`). Per-scenario metrics live in
+`tests/fixtures/golden_master_engine_cases.json`. Regenerate only when a
+golden-master fixture or an engine constant deliberately changed:
 
-```python
-# Get current values:
-python -c "
-from src.data_io import load_csv, parse_client, summarize_validation
-from src.plan_config import ensure_engine_config
-from src.planning_engines import project
-from pathlib import Path
-c = ensure_engine_config(parse_client(load_csv(Path('input/client_data.csv')), ''), source='test')
-c.update({'roth_policy': 'none', 'mc_paths': 5, 'mc_sensitivity_sims': 1})
-rows = project(c)
-print('nw:', round(rows[-1]['total_nw'], 2), 'tax:', round(sum(r['total_tax'] for r in rows), 2))
-"
 ```
+python -m tests.test_frozen_sample_plan_golden_master_regression
+```
+
+That file's `__main__` block prints the new constants, computed the same way the
+test asserts them, and it is self-contained — `_frozen_config()` stages the whole
+fixture directory through `RETIREMENT_SYSTEM_WORKSPACE_ROOT` and pins the clock,
+so it does not depend on pytest's conftest. Use `-m`: running it as a path
+(`python tests/test_..._regression.py`) puts `tests/` on `sys.path` instead of the
+repo root and dies with `ModuleNotFoundError: No module named 'src'`.
+
+**Do not regenerate these figures by pointing a script at `input/client_data.csv`.**
+That path is the live plan — `/input/*` is gitignored real client data, so it is
+absent on CI and in any fresh worktree, and on a developer machine it is whatever
+household was last saved. The tests do not read it: `tests/conftest.py` stages
+`input/` from the committed `tests/fixtures/sample_plan_frozen/` and pins the
+clock via `RETIREMENT_SYSTEM_FROZEN_TODAY`. A regen snippet reading the live path
+produces figures for the wrong household, which is exactly how these pins were
+wrong twice — see the 2026-08-10 and 2026-08-12 entries in
+`documentation/GOLDEN_MASTER_CHANGELOG.md`.
+
+Because the fixture, the clock and the holdings prices are all frozen, a move in
+these dollars is an **engine change**, never routine data drift. Investigate
+before re-pinning: compute the figures at the commit that set the pin and at a
+few commits since (the test's `__main__` block works at any commit). Identical
+values across commits mean the pin was wrong, not the engine. Re-pin only once
+you can name the change that moved them, and add a changelog entry saying what.
 
 ### Fixture file locations
 
