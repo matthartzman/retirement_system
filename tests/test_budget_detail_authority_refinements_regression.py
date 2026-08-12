@@ -3,6 +3,8 @@ from pathlib import Path
 
 from conftest import TEST_INPUT_DIR
 
+from _decomp_dashboard import dashboard_js_text
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -36,7 +38,7 @@ def test_home_improvement_is_single_category_and_line_target():
 
 
 def test_wellness_budget_detail_uses_group_level_add_row_and_contains_premium_categories():
-    js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     # Wellness shares the same Tracking Type -> Group -> Category renderer as
     # Spending Model/Lifestyle Spending, so "+ Add row" appears once per group
     # instead of once per category (bug 132).
