@@ -327,6 +327,8 @@ fix-verify loops that currently make each split session long.
 
 ## 7. Stale branch disposition (audited 2026-08-12)
 
+**Outcome: all five are now resolved — one landed, four deleted. No local branches remain besides `main`, and no worktrees.** One remote branch, `origin/worktree-dashboard-js-split-codemod-task6`, is merged (PR #56) and still present; deleting it is a remote-side change and was left for you.
+
 Five local branches were unmerged at the start of this cleanup. Two were deleted as fully merged;
 of the remaining four, `git cherry` plus per-file content comparison against `origin/main` split them
 cleanly into *already landed under a different SHA* and *genuinely unlanded*.
@@ -334,9 +336,9 @@ cleanly into *already landed under a different SHA* and *genuinely unlanded*.
 | Branch | Finding | Recommendation |
 |---|---|---|
 | `claude/elastic-chaum-1e4a9c` | Genuinely unlanded: fixed `find_dead_functions.mjs` + the sweep it enabled | ✅ **LANDED** — `3979d17`, see §7.1 |
-| `worktree-withdrawal-regression-and-e2e` | `git cherry` marks it `-` (patch-equivalent upstream). `b9fc8c1` superseded it and main now carries *more* than the branch — diffing main→branch **removes** 61 lines from `helpers.js`. | **Delete.** `git branch -D worktree-withdrawal-regression-and-e2e` |
-| `fix/regen-frozen-golden-master` | `git cherry` marks all 3 commits `+`, but that is SHA-level, not content-level: `src/withdrawal_strategy_comparison.py` and `tests/test_withdrawal_sequencing_comparison_regression.py` are **byte-identical to main**. The work landed reworked as `91ab5fe`. Only the grep baseline differs, and main is ahead there. The "silent cherry-pick merge error" it fixes is already resolved upstream. | **Delete.** `git branch -D fix/regen-frozen-golden-master` |
-| `claude/clever-cannon-05accc` | **Do not merge.** Its entire delta over main is a one-word comment typo in `convert_dashboard.mjs` (`the splices above` → `below`). Everything else is damage: **34 committed merge-conflict markers** (`<<<<<<< Updated upstream`) inside `src/planning_engines.py`, `deterministic_engine.py` and `sheets_stress.py`; `input/client_data.json` and `.yaml` — **gitignored real client data**; and a stray `metrics_dump.json`. The message says "Fix EOL conversion issues in codemod"; the content is an accidentally committed dirty tree. It would now fail the conflict-marker guard added in `3363f73`. | **Delete**, optionally applying the one-word comment fix directly first. Nothing else is salvageable. |
+| `worktree-withdrawal-regression-and-e2e` | `git cherry` marks it `-` (patch-equivalent upstream). `b9fc8c1` superseded it and main now carries *more* than the branch — diffing main→branch **removes** 61 lines from `helpers.js`. | ✅ **DELETED** 2026-08-12 |
+| `fix/regen-frozen-golden-master` | `git cherry` marks all 3 commits `+`, but that is SHA-level, not content-level: `src/withdrawal_strategy_comparison.py` and `tests/test_withdrawal_sequencing_comparison_regression.py` are **byte-identical to main**. The work landed reworked as `91ab5fe`. Only the grep baseline differs, and main is ahead there. The "silent cherry-pick merge error" it fixes is already resolved upstream. | ✅ **DELETED** 2026-08-12 |
+| `claude/clever-cannon-05accc` | **Do not merge.** Its entire delta over main is a one-word comment typo in `convert_dashboard.mjs` (`the splices above` → `below`). Everything else is damage: **34 committed merge-conflict markers** (`<<<<<<< Updated upstream`) inside `src/planning_engines.py`, `deterministic_engine.py` and `sheets_stress.py`; `input/client_data.json` and `.yaml` — **gitignored real client data**; and a stray `metrics_dump.json`. The message says "Fix EOL conversion issues in codemod"; the content is an accidentally committed dirty tree. It would now fail the conflict-marker guard added in `3363f73`. | ✅ **DELETED** 2026-08-12; the one-word comment fix was applied directly as `595b83a`. Nothing else was salvageable. |
 
 > **Two lessons worth carrying.** First, `git cherry` answers "is this *patch* upstream", not "is this
 > *work* upstream" — `fix/regen-frozen-golden-master` reads as three unlanded commits and is in fact
