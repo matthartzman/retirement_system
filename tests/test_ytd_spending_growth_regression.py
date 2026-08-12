@@ -8,11 +8,31 @@ from src import ytd_tracking as ytd
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_ytd_transaction_csv_header_is_strict(tmp_path):
+def test_ytd_transaction_csv_header_accepts_a_partial_header(tmp_path):
+    """Ticket 279 reversed this deliberately.
+
+    This test previously asserted that 'Date,Merchant,Amount' must be REJECTED,
+    pinning an exact nine-column, ordered, case-sensitive match. That rejected
+    ordinary bank exports whose data was perfectly usable -- normalize_transaction
+    already fills absent columns with "" -- and the error named only the expected
+    header, never what the file actually had, so users could not tell what to fix.
+    Only Date and Amount are required now; see
+    tests/test_ytd_transaction_import_header_tolerance.py for the full contract.
+    """
     rows, errors = ytd.load_transactions_from_csv_text('Date,Merchant,Amount\n2026-01-01,A,-1\n')
+    assert errors == []
+    assert len(rows) == 1
+    assert rows[0]['Date'] == '2026-01-01'
+    assert rows[0]['Category'] == ''
+
+
+def test_ytd_transaction_csv_header_still_rejects_a_missing_required_column(tmp_path):
+    """The strictness that remains, and the diagnostic that was missing."""
+    rows, errors = ytd.load_transactions_from_csv_text('Date,Merchant\n2026-01-01,A\n')
     assert rows == []
     assert errors
-    assert 'Date, Merchant, Category, Account, Original Statement, Notes, Amount, Tags, Owner' in errors[0]
+    assert 'Amount' in errors[0]
+    assert 'Date, Merchant' in errors[0]  # echoes what was actually received
 
 
 def test_ytd_import_replace_and_incremental(tmp_path):
