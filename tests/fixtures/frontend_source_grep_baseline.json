@@ -8,7 +8,6 @@
   "test_admin_nav_progress_cleanup_functional.py",
   "test_admin_system_config_compact_functional.py",
   "test_admin_user_ui_model_functional.py",
-  "test_after_tax_cap_gain_estate_regression.py",
   "test_after_tax_roth_build_impact_functional.py",
   "test_allocation_optimizer_preview_ui_functional.py",
   "test_allocation_policy_cleanup_regression.py",

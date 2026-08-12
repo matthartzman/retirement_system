@@ -35,16 +35,7 @@
     "boolishValue",
     "budgetSectionIsSummary",
     "budgetSectionLines",
-    "buildChangeSummaryHtml",
-    "buildHistoryEntryHtml",
-    "buildHistoryProvenanceHtml",
-    "buildImpactCardsHtml",
-    "buildImpactNarrativeHtml",
-    "buildImpactSourceLinksHtml",
-    "buildImpactSuggestionsHtml",
-    "buildKpiDial",
     "buildSessionSummaryHtml",
-    "buildSourceJumpHtml",
     "buildWithDesktopProgress",
     "cacheChart",
     "catEffectiveBudget",
@@ -74,7 +65,6 @@
     "defaultPlanDataPath",
     "deleteAllYtdTransactions",
     "deleteBudgetLine",
-    "deleteBuildHistoryEntry",
     "deleteLargeDiscLine",
     "deleteYtdAccount",
     "deleteYtdTxn",
@@ -137,8 +127,6 @@
     "homeSaleActivationYearRow",
     "humanizeGroupKey",
     "illustrationPlanYears",
-    "impactCardHtml",
-    "impactDirectionWord",
     "importPlanDataContents",
     "importPreviewList",
     "incomeStreamSubsections",
@@ -147,7 +135,6 @@
     "kpiHasValues",
     "largeDiscCategoryFromType",
     "largeDiscTypeFromLine",
-    "latestBuildImpactHtml",
     "leverPctPoints",
     "lineBelongsToDomain",
     "listFolderFileNames",
@@ -165,13 +152,6 @@
     "mcEngineToggleHtml",
     "mergeDetailedSheetMeta",
     "mergeProtectedClientData",
-    "mhBool",
-    "mhMoney",
-    "mhOnOff",
-    "mhPct",
-    "mhRow",
-    "mhText",
-    "modelHeardHtml",
     "moneyHtml",
     "moneyNegativeClass",
     "moveToNextEntry",
@@ -341,7 +321,6 @@
     "restoreWorkbookViewState",
     "revealAndFocus",
     "revertLastBuildChanges",
-    "revertToBuildHistoryEntry",
     "rollForwardYtdAccounts",
     "rothPageRecommendations",
     "rothPolicyValue",
@@ -351,7 +330,6 @@
     "rowsByLabel",
     "rowsNotIn",
     "saveAndExit",
-    "saveBuildHistory",
     "saveChanges",
     "saveCurrentPlanToSelectedFolderForBuild",
     "saveLiabilities",
@@ -391,7 +369,6 @@
     "setYtdActualsPeriod",
     "setYtdSort",
     "setYtdTxnPage",
-    "shortHash",
     "showConfigCardHelp",
     "showHelpAutoCollapseNoticeOnce",
     "showPlanDataFileManifest",
@@ -401,7 +378,6 @@
     "showYtdLoadOverlay",
     "sleep",
     "socialSecurityPageRecommendations",
-    "sourceStepForSpecialLabel",
     "spendingFlowFooterHtml",
     "spendingPageRecommendations",
     "ssActiveCell",
@@ -1053,6 +1029,180 @@
       "name": "renderMain",
       "file": "frontend/js/dashboard_decomp_assets_other.js",
       "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "BUILD_HISTORY_LS_KEY",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildHistory",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildHistory",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sessionChanges",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sessionSpecialChanges",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildCompare",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planSource",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildHistory",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildHistory",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildCompare",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildCompare",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildCompare",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildHistory",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
       "scope": "inside-function"
     },
     {
@@ -2280,12 +2430,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "saveBuildHistory",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
       "name": "lastBuildCompare",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "assign",
@@ -2343,12 +2487,6 @@
       "name": "sessionSpecialChanges",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "sourceStepForSpecialLabel",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
       "scope": "inside-function"
     },
     {
@@ -2550,19 +2688,7 @@
       "scope": "inside-function"
     },
     {
-      "name": "buildHistoryEntryHtml",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
       "name": "planningWorkbenchBuildImpactHtml",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "latestBuildImpactHtml",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "call",
       "scope": "inside-function"
