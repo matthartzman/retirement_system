@@ -56,7 +56,19 @@ jobs:
 
     - name: Run tests
       run: |
-        pytest tests/ --tb=short -q --cov=src --cov-report=xml
+        pytest tests/ --tb=short -q --cov=src --cov-report=xml -v > /tmp/pytest_output.txt 2>&1 || TEST_EXIT=$?
+        cat /tmp/pytest_output.txt
+        exit ${TEST_EXIT:-0}
+
+    - name: Verify frozen golden-master gate executed (F0.3)
+      run: |
+        if grep -q "test_frozen_plan_dollar_figures_are_exact PASSED\|test_frozen_plan_dollar_figures_are_exact" /tmp/pytest_output.txt; then
+          echo "✓ Frozen golden-master test executed and passed"
+        else
+          echo "✗ FAIL: Frozen golden-master test did not execute or was skipped"
+          echo "  This is a mandatory gate. Check pytest output above."
+          exit 1
+        fi
 
     - name: Fail if the test suite mutated input/
       run: git diff --exit-code -- input/

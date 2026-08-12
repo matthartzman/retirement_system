@@ -3,6 +3,7 @@ import csv
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+from tests._decomp_dashboard import dashboard_js_text
 
 from conftest import TEST_INPUT_DIR
 
@@ -25,7 +26,7 @@ def _norm(s: str) -> str:
 
 
 def test_user_ui_roth_step_matches_normalized_subsection_names():
-    js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
     assert 'case "roth_conversion"' in js
     # rowsForStep() normalizes subsection names before comparison. Comparing to

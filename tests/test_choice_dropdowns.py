@@ -2,6 +2,7 @@ from pathlib import Path
 import csv
 import pytest
 ROOT = Path(__file__).resolve().parents[1]
+from tests._decomp_dashboard import dashboard_js_text
 
 
 def test_manual_schema_overrides_generated_duplicates_and_roth_choices_are_choices():
@@ -17,7 +18,7 @@ def test_manual_schema_overrides_generated_duplicates_and_roth_choices_are_choic
 
 
 def test_user_ui_choice_renderer_uses_server_choice_options_and_irmaa_tier_labels():
-    js = (ROOT/'frontend/js/dashboard.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
     assert 'r?.choice_options' in js
     assert 'choiceValue(o)' in js

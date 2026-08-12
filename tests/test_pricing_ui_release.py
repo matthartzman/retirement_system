@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+from tests._decomp_dashboard import dashboard_js_text
 sys.path.insert(0, str(ROOT))
 from src.version import VERSION
 
@@ -30,7 +31,7 @@ class PricingUiReleaseTests(unittest.TestCase):
 
     def test_admin_and_user_help_panels_are_purpose_impact_consider_not_boilerplate(self):
         admin = (ROOT/'frontend/js/admin.js').read_text(encoding='utf-8')
-        user = (ROOT/'frontend/js/dashboard.js').read_text(encoding='utf-8')
+        user = dashboard_js_text()
         user += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
         self.assertIn('What this page controls', admin)
         self.assertIn('Value options and how to choose', admin)

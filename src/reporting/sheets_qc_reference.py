@@ -311,27 +311,7 @@ def build_sheet24(ws, c, rows):
     write_cell(ws, r, 1, 'Tax-efficient asset placement: same overall allocation, but assets '
                'held in their most tax-advantaged account. Equities (growth + qualified '
                'dividends/LTCG) favor Roth and taxable; bonds/REITs (ordinary income) favor IRA.')
-    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=7); r += 1
-
-    # Interim disclosure (system review 2026-08-04, finding C3). The projection
-    # engine applies ONE return to every account -- planning_engines._account_return
-    # reads c['account_returns'], which nothing populates -- so asset location
-    # cannot move the plan's outcome no matter what this sheet recommends. The
-    # savings below are a standalone side-calculation on fixed assumptions, not
-    # a projected result. Remove this notice when sleeve-level per-account
-    # returns land (planned wave item 3.5); until then the sheet must not imply
-    # the plan reflects these savings.
-    write_cell(ws, r, 1,
-               'IMPORTANT — how to read this sheet: the figures below are an illustrative '
-               'side-calculation using standard tax-rate assumptions. They are NOT produced by '
-               'this plan’s projection. The projection currently grows every account at the same '
-               'rate, so moving assets between accounts does not change any other number in this '
-               'workbook. Treat this as a directional indication of where asset location could '
-               'help, not as a result already included in your plan.',
-               align='left')
-    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=7)
-    ws.row_dimensions[r].height = 58
-    r += 2
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=7); r += 2
 
     # ── Current balances by account ──────────────────────────────────────────
     bal = c['balances']

@@ -36,6 +36,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+from tests._decomp_dashboard import dashboard_js_text
 REPORT_PATH = ROOT / "tools" / "js_codemod" / "dead_function_candidates.json"
 
 # Deliberately retained, 2026-08-11. Every other name this list once held was
@@ -66,7 +67,7 @@ def _report() -> dict | None:
 
 
 def test_removed_dead_bindings_do_not_reappear_in_dashboard_js():
-    js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    js = dashboard_js_text()
     for name in ("APP_UNAVAILABLE_MESSAGE", "BUDGET_SECTION_DEFS", "planFileHandles"):
         assert name not in js, f"{name} was removed as dead code -- do not reintroduce it"
 

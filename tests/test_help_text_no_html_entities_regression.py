@@ -16,6 +16,7 @@ from pathlib import Path
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
+from tests._decomp_dashboard import dashboard_js_text
 DASHBOARD_JS = ROOT / "frontend" / "js" / "dashboard.js"
 
 # Entities that would survive esc() and render visibly to the user.

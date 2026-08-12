@@ -41,6 +41,41 @@ from math import isfinite
 GrowthResult = namedtuple('GrowthResult', ['total_growth', 'by_account', 'warnings'])
 
 
+def _apply_account_return_adjustments(c: dict, returns_by_year: dict, years: list[int]):
+    """Apply per-account return adjustments to a base return-by-year dict.
+
+    For each account in account_returns, creates a per-year return path using the
+    account's return delta. This enables asset-location-aware success rates in MC.
+
+    Args:
+        c: plan dict containing account_returns (per-account return deltas)
+        returns_by_year: dict[year] -> float (base portfolio return for that year)
+        years: list of year values
+
+    Returns:
+        dict[account_id][year] = float, or empty dict if no account_returns configured
+    """
+    account_returns = c.get('account_returns') or {}
+    if not account_returns:
+        return {}
+
+    invest_ids = c.get('invest_ids') or []
+    try:
+        result = {}
+        for acct_id in invest_ids:
+            if acct_id not in account_returns:
+                continue
+
+            acct_delta = float(account_returns[acct_id])
+            result[acct_id] = {
+                yr: returns_by_year.get(yr, 0.0) + acct_delta
+                for yr in years
+            }
+        return result
+    except Exception:
+        return {}
+
+
 def _account_return(c, account_id, default_return, year=None):
     """Return the account-specific growth rate, falling back to plan return.
 
@@ -48,7 +83,12 @@ def _account_return(c, account_id, default_return, year=None):
     For now this keeps deterministic projections compatible with the existing
     single return assumption.
     """
-    # Year-specific simulated return path takes precedence in Monte Carlo.
+    # Monte Carlo per-account per-year returns take precedence (Wave 3.5 completion).
+    if year is not None and isinstance(c.get('return_by_account_by_year'), dict):
+        acct_returns = c['return_by_account_by_year'].get(account_id, {})
+        if isinstance(acct_returns, dict) and year in acct_returns:
+            return float(acct_returns[year])
+    # Fallback: year-specific simulated return path (single rate for all accounts).
     if year is not None and isinstance(c.get('return_by_year'), dict) and year in c.get('return_by_year'):
         return float(c['return_by_year'][year])
     overrides = c.get('account_returns') or {}
@@ -2473,6 +2513,8 @@ def _run_one_mc_path(c: dict, rng: random.Random, mu: float, sig: float, use_ass
     years = list(range(int(c2['plan_start']), int(c2['plan_end']) + 1))
     returns, return_diag = _generate_return_path(c2, rng, mu, sig, years, use_asset_classes=use_asset_classes)
     c2['return_by_year'] = returns
+    # Compute per-account returns for asset-location-aware projections (Wave 3.5 completion, F1.1)
+    c2['return_by_account_by_year'] = _apply_account_return_adjustments(c2, returns, years)
     inflation_paths = _sample_inflation_and_health_paths(
         c2, rng, years, returns,
         float(return_diag.get('portfolio_expected_return', mu) or mu),

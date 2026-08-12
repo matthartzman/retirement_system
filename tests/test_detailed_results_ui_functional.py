@@ -12,6 +12,7 @@ from openpyxl.chart.series import SeriesLabel
 from src.detailed_results import workbook_detailed_results, workbook_detailed_index, workbook_detailed_sheet, _clean_sheet_title
 
 ROOT = Path(__file__).resolve().parents[1]
+from tests._decomp_dashboard import dashboard_js_text
 
 
 def test_detailed_results_parser_groups_workbook_sections(tmp_path):
@@ -257,7 +258,7 @@ def test_chart_dashboard_falls_back_to_embedded_excel_chart_ranges(tmp_path):
     assert 'could not be reconstructed' not in sheet['chart_note']
 
 def test_detailed_results_ui_nav_and_endpoint_are_present():
-    js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
     rui = (ROOT / 'frontend/js/reports_ui.js').read_text(encoding='utf-8')
     css = (ROOT / 'frontend/css/dashboard.css').read_text(encoding='utf-8')
@@ -315,7 +316,7 @@ def test_detailed_results_ui_nav_and_endpoint_are_present():
 
 
 def test_results_explorer_uses_human_headings_not_measure_fallbacks():
-    js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
     rui = (ROOT / 'frontend/js/reports_ui.js').read_text(encoding='utf-8')
     css = (ROOT / 'frontend/css/dashboard.css').read_text(encoding='utf-8')

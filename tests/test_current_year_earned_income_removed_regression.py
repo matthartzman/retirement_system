@@ -6,6 +6,7 @@ import json
 
 
 ROOT = Path(__file__).resolve().parents[1]
+from tests._decomp_dashboard import dashboard_js_text
 DASHBOARD = ROOT / "frontend/js/dashboard.js"
 
 

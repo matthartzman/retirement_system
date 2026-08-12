@@ -21,6 +21,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+from tests._decomp_dashboard import dashboard_js_text
 
 
 def _schema_keys() -> set:
@@ -71,7 +72,7 @@ class Item195RmdSsClaimAgeDedupTests(unittest.TestCase):
         self.assertNotIn(("Social Security", "Wife", "claim_age"), keys)
 
     def test_per_member_rmd_and_claim_age_are_reachable_on_guided_steps(self):
-        js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+        js = dashboard_js_text()
         js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
         # #239 (ticket list update): member_1_/2_rmd_start_age moved from
         # Economic & Tax Assumptions to a dedicated "RMD start age" column on
