@@ -1,5 +1,59 @@
 
 
+## 2026-08-12 — Removing the duplicate copy of that same stale pin (no engine change)
+
+**What was wrong.** The 2026-08-10 entry below corrected
+`PINNED_TERMINAL_NW` / `PINNED_LIFETIME_TAX` in
+`tests/test_frozen_sample_plan_golden_master_regression.py` from
+5,824,239.30 / 1,290,848.91 to the values the frozen fixture actually computes,
+6,044,750.40 / 1,465,666.69. It missed a **second copy of the same two numbers**
+in `tests/test_recommendations_regression.py`, which still held the stale pair
+and emitted this on every full test run:
+
+    UserWarning: golden-master baseline drift: terminal_total_nw = 6,044,750.40
+    (pinned 5,824,239.30, delta +220,511.10)
+    UserWarning: golden-master baseline drift: lifetime_tax = 1,465,666.69
+    (pinned 1,290,848.91, delta +174,817.78)
+
+**No engine change, again.** The warning's own text says "if the plan data did
+NOT change, investigate the engine", so the engine was investigated first. Both
+figures are byte-identical at `f454117`, `56c457a` (the commit that wrote the
+pins), `e8eeb2e` (DAF optimizer), `ff8350d` (per-account withdrawal draw-order),
+`91ab5fe` (withdrawal-comparison semantics) and `main` — and across three
+consecutive runs at a fixed commit. A number that does not move across the
+entire DAF/draw-order/withdrawal-comparison body of engine work is not drifting.
+The pin was wrong when written, exactly as in the entry below.
+
+**Why the warn-only rationale no longer applied.** That helper existed because
+"these baselines move whenever the sample client's data is edited, which is a
+routine event." That stopped being true once `tests/conftest.py` began staging
+`input/` from the committed `tests/fixtures/sample_plan_frozen/` and pinning the
+clock with `RETIREMENT_SYSTEM_FROZEN_TODAY` — which it already did at
+`56c457a`. With frozen data, frozen date and frozen prices, a move in these
+dollars can only be an engine change, so downgrading it to a warning removed the
+protection without removing the maintenance burden.
+
+**What changed.** Deleted the duplicated dollar pins and the
+`_warn_on_baseline_drift` helper from `test_recommendations_regression.py`,
+rather than re-pinning a second copy — having the same two numbers in two files
+is what let the 2026-08-10 correction land in only one of them. That test keeps
+its structural gate (`fail_count`/`warn_count` zero, full 2026-2056 horizon).
+Absolute dollars for this household are now asserted in exactly one place,
+`test_frozen_sample_plan_golden_master_regression.py`, to the cent.
+
+Also corrected two stale docs that pointed maintainers at the live plan:
+`documentation/CLAUDE.md`'s "Golden master maintenance" regen snippet read
+`input/client_data.csv` (gitignored real client data, absent on CI and in any
+fresh worktree) — running it reproduces the original defect, since it prints
+figures for whatever household the author last saved rather than the frozen
+fixture the test pins. It now points at the authoritative test's own `__main__`
+regen block. `test_tax_loss_harvesting_regression.py`'s docstring made the same
+"live, routinely edited" claim and referenced the now-deleted helper.
+
+**Verification.** Full `pytest -m "not slow"`: all pass, zero warnings.
+`test_frozen_sample_plan_golden_master_regression.py` passes unchanged, still
+pinning 6,044,750.40 / 1,465,666.69.
+
 ## 2026-08-10 — Correcting a stale pin that never matched (no engine change)
 
 **What was wrong.** `PINNED_TERMINAL_NW` / `PINNED_LIFETIME_TAX` in
