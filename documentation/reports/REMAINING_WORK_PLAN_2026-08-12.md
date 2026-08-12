@@ -3,11 +3,14 @@
 **Basis:** progress audit of `documentation/reports/SYSTEM_REVIEW_2026-08-04.md` against the repo at
 `origin/main` (`a2693ea`), plus a live fast-tier test run and CI history.
 
-**Status: F0.1 and F0.2 are DONE (branch `fix/frozen-golden-master-gate`). Everything else is
-proposed and unexecuted.**
+**Status (last updated 2026-08-12, `main` @ `b3d14c2`).** Executed and on `main`: **F0.1 + F0.2**
+(the frozen-gate fix and re-pin, §2), the **dead-code sweep** off `claude/elastic-chaum-1e4a9c`
+(§7.1), and the **stale-branch cleanup** (§7). Everything else below is proposed and unexecuted.
 
-**Scope decision (2026-08-12):** the 141-function singleton tail is **out of scope for this cycle** —
-F3.5 is deferred, F3 stops after the four real clusters. See §4/F3.
+**Scope decision (2026-08-12):** the singleton tail is **out of scope for this cycle** — F3.5 is
+deferred, F3 stops after the four real clusters. See §4/F3. The tail was 141 functions when that
+call was made; the dead-code sweep has since cut it to **109** without any extraction, which
+strengthens rather than weakens the decision.
 
 ---
 
@@ -24,17 +27,18 @@ F3.5 is deferred, F3 stops after the four real clusters. See §4/F3.
 | 4 — Architecture debt | 4.1–4.10 | ✅ complete; **4.11 reverted and closed won't-fix** (`7d1ca0f`, `511cb35`) |
 | 5 — New planner capability | 5.1–5.6 | ✅ complete (Sheets 15/37, sustainable-spending solve, LTC, life insurance) |
 | 6 — UI restructure | 6.1–6.3 | ✅ complete |
-| 6.4 — `dashboard.js` split | in progress | 🟡 **~35% done — the main open workstream** |
+| 6.4 — `dashboard.js` split | in progress | 🟡 **19,661 → 11,447 lines; four clusters left — the main open workstream** |
 
 ### What is genuinely left
 
 Four things, in descending order of how much they cost you if ignored:
 
-1. **The mandatory golden-master gate is not trustworthy.** (§2, F0)
-2. **`dashboard.js` domain split is 35% through a ~12-cluster job** whose per-pass cost is dominated by
-   test breakage, not by the extraction. (§4)
+1. ~~**The mandatory golden-master gate is not trustworthy.**~~ ✅ **Fixed** — §2.
+2. **`dashboard.js` domain split** — four real clusters left of a ~12-cluster job, whose per-pass cost
+   is dominated by test breakage, not by the extraction. (§4)
 3. **Wave 3.5 (C3, per-account returns) never reached the Monte Carlo path** — the headline success
-   rate still uses one return for every account, which is the exact defect the finding named. (F1)
+   rate still uses one return for every account, which is the exact defect the finding named. **This is
+   now the most important open item.** (F1)
 4. **At-rest plan-data migration Phase 2/3** from `docs/superpowers/plans/2026-08-10-…-migration.md`
    never started (version gate + `wellness → healthcare`). (F5)
 
