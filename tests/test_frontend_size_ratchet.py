@@ -79,7 +79,19 @@ JS_DIR = ROOT / "frontend" / "js"
 # dashboard_decomp_build_history.js via tools/js_codemod/extract_module.mjs.
 # Measured after regenerating the census and bridge, so it includes the
 # bridge shrinking as those names left its Object.assign block.
-DASHBOARD_JS_MAX_LINES = 12_304
+#
+# 2026-08-12: lowered again from 12,304 -- merged the dead-code sweep
+# (claude/elastic-chaum-1e4a9c), which deleted unreachable top-level functions
+# from the post-extraction tree (see
+# tests/test_dashboard_dead_code_sweep_regression.py). The branch's own note
+# claimed 12,202, measured against a tree that predated the build_history
+# extraction; the two changes compound, so neither side's number survives the
+# merge. Extraction moves declarations OUT to new modules, the sweep removes
+# ones that were never reachable from anywhere. Re-measured on the merged tree
+# after regenerating census + bridge, in that order (convert_dashboard.mjs
+# reads census_report.json, so a stale census silently regenerates a stale
+# bridge).
+DASHBOARD_JS_MAX_LINES = 11_447
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling

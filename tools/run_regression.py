@@ -162,7 +162,10 @@ heading("Download & build")
 check("Download: downloadFile defined", "function downloadFile(url)" in dash)
 check("Download: downloadWithBuild defined", "async function downloadWithBuild(" in dash)
 check("Download: runBuild defined", "async function runBuild(" in dash)
-check("Download: buildWithDesktopProgress defined", "async function buildWithDesktopProgress(" in dash)
+# buildWithDesktopProgress was deleted 2026-08-11 as dead code: nothing in the
+# app called it, and unlike updateBuildProgress (which src/desktop_api.py
+# invokes by name through pywebview's evaluate_js) no Python caller existed
+# either. This check asserted its presence only, so it outlived the function.
 
 # ---------------------------------------------------------------------------
 # 5. Housing screen

@@ -23,6 +23,12 @@ def _dashboard_js() -> str:
     return (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8") + (ROOT / "frontend" / "js" / "dashboard_decomp_row_model.js").read_text(encoding="utf-8")
 
 
+def _build_lifecycle_js() -> str:
+    return (ROOT / "frontend" / "js" / "dashboard_decomp_build_lifecycle.js").read_text(
+        encoding="utf-8"
+    )
+
+
 def _plan_routes() -> str:
     return (ROOT / "src" / "server" / "plan_routes.py").read_text(encoding="utf-8")
 
@@ -40,7 +46,12 @@ def test_first_run_to_build_journey_has_preflight_and_results_review():
     assert "async function runBuild" in js
     assert "saveWorkingCopy" in js
     assert "/api/build/preflight" in js
-    assert "/api/build/start" in js
+    # 2026-08-11: the only /api/build/start call in dashboard.js itself lived in
+    # buildWithDesktopProgress, which had no callers and was deleted in the
+    # dead-code sweep. The live call has always been in the build-lifecycle
+    # module, so assert against the file that actually performs it rather than
+    # dropping the guard.
+    assert "/api/build/start" in _build_lifecycle_js()
     assert "renderBuildImpactAfterBuild" in js
     assert '@app.route("/api/build/preflight", methods=["GET"])' in routes
     assert '@app.route("/api/build/start", methods=["POST"])' in routes
