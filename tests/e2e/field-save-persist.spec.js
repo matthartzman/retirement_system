@@ -62,11 +62,19 @@ test('editing a field, saving, and reloading persists the change', async ({ page
     // completely unrelated-looking error nowhere near this file. Confirmed
     // directly: workbook-format-stale-cache.spec.js failed this way when run
     // after this spec in the full suite.
+    // Every step here is individually best-effort. When the body above fails,
+    // the page is often already closing, and an unguarded call in a `finally`
+    // REPLACES the real assertion error with its own -- this block used to
+    // report "locator.selectOption: Target page, context or browser has been
+    // closed" after burning the full 120s test timeout, which is what the
+    // actual CI failure looked like for days while the real cause (the Save
+    // button never enabling) was only visible on the retry that happened to
+    // fail differently. Cleanup must never be able to outrank the diagnosis.
     const current = await field.inputValue().catch(() => null);
-    if (current !== ORIGINAL_VALUE) {
-      await field.selectOption(ORIGINAL_VALUE);
-      await field.blur();
-      await saveButton.click().catch(() => {});
+    if (current !== null && current !== ORIGINAL_VALUE) {
+      await field.selectOption(ORIGINAL_VALUE, { timeout: 5_000 }).catch(() => {});
+      await field.blur().catch(() => {});
+      await saveButton.click({ timeout: 5_000 }).catch(() => {});
       await expect(page.locator('#actionMessage')).toContainText('Changes saved.', { timeout: 10_000 }).catch(() => {});
     }
   }
