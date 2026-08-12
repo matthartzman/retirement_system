@@ -21,9 +21,12 @@ by name through pywebview's evaluate_js (src/desktop_api.py pushes build
 progress that way), so updateBuildProgress was reported dead while desktop mode
 called it on every build tick. The finder now scans the Python sources too.
 
-With all four fixed the tool reported 71 genuinely dead functions. 83 were
-deleted (those 56, plus 27 more that fell out as cascades once their only
-callers went); the 15 that remain are kept on purpose, see below. Asserting an
+With all five fixed the tool reported real dead code. This branch was then
+merged with the domain-cluster extraction work, and the sweep re-run against
+the combined tree: 69 unreachable functions were deleted across dashboard.js
+and the decomp modules (including renderTaxonomyBudgetTable, which the
+extraction had carried into dashboard_decomp_spending_taxonomy.js); the 15 that
+remain are kept on purpose, see below. Asserting an
 empty list again would just restore the vacuum, so this is a RATCHET: the test
 fails if anything NEW goes dead. The list may shrink freely; it may never grow.
 """
@@ -35,9 +38,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 REPORT_PATH = ROOT / "tools" / "js_codemod" / "dead_function_candidates.json"
 
-# Deliberately retained, 2026-08-11. The other 83 names this list once held were
-# deleted outright (56 directly dead, plus 27 that fell out as cascades once
-# their only callers went). What remains is the Planning Cases rendering layer:
+# Deliberately retained, 2026-08-11. Every other name this list once held was
+# deleted outright, iterating delete -> regenerate bridge -> re-scan until the
+# cascades stopped (deleting a function orphans its helpers). What remains is the Planning Cases rendering layer:
 # its data layer is still live and wired to a Save Case button, and a
 # replacement UI is planned, so these are kept as building blocks rather than
 # deleted and rewritten later.

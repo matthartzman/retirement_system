@@ -1,10 +1,12 @@
 from pathlib import Path
 
+from _decomp_dashboard import dashboard_js_text
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def dashboard_js() -> str:
-    return (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8") + (ROOT / "frontend" / "js" / "dashboard_decomp_row_model.js").read_text(encoding="utf-8")
+    return dashboard_js_text() + (ROOT / "frontend" / "js" / "dashboard_decomp_row_model.js").read_text(encoding="utf-8")
 
 
 def test_scenario_page_uses_canonical_home_value_and_basis_not_retired_duplicates():

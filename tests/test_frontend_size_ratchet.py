@@ -65,11 +65,23 @@ JS_DIR = ROOT / "frontend" / "js"
 # (liabilities, note receivables, 529s, other-asset items) plus the 4 constant
 # tables only it reads into frontend/js/dashboard_decomp_assets_other.js.
 # Set at the post-extraction measurement with no headroom.
-# 2026-08-11: lowered 14,822 -> 13,829 after the dead-code sweep deleted 83
-# unreachable top-level functions (see
-# tests/test_dashboard_dead_code_sweep_regression.py). Ratcheting DOWN after a
-# real removal is the point of this number; it must never be raised.
-DASHBOARD_JS_MAX_LINES = 13_829
+# 2026-08-11: lowered from 14,822 -- extracted 39 declaration(s) into
+# dashboard_decomp_spending_taxonomy.js via
+# tools/js_codemod/extract_module.mjs. Measured after regenerating the
+# census and bridge, so it includes the bridge shrinking as those names left
+# its Object.assign block.
+# 2026-08-12: lowered from 14,021 -- extracted 40 declaration(s) into
+# dashboard_decomp_housing_scenarios.js via
+# tools/js_codemod/extract_module.mjs. Measured after regenerating the
+# census and bridge, so it includes the bridge shrinking as those names left
+# its Object.assign block.
+# 2026-08-11: lowered from 13,060 -- merged the dead-code sweep, which deleted
+# 71 unreachable top-level functions from the post-extraction tree (see
+# tests/test_dashboard_dead_code_sweep_regression.py). Deletion and extraction
+# compound: extraction moved declarations OUT to new modules, the sweep removed
+# ones that were never reachable from anywhere. Measured after regenerating the
+# census and bridge.
+DASHBOARD_JS_MAX_LINES = 12_202
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling

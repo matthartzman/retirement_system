@@ -49,12 +49,15 @@ def test_census_function_and_variable_counts_are_in_expected_bands():
     # fan-in>=3 hub functions out of dashboard.js into
     # dashboard_decomp_row_model.js; census.mjs only counts dashboard.js's own
     # remaining top-level functions.
-    # 2026-08-11: lower bound 500 -> 450. The dead-code sweep deleted 83
-    # unreachable top-level functions (see
-    # tests/test_dashboard_dead_code_sweep_regression.py), taking dashboard.js's
-    # externally-referenced count to 492. The band tracks reality after a
-    # deliberate removal; it is not a target to grow back into.
-    assert 450 <= len(report["functions"]) <= 650
+    # 2026-08-11: floor lowered 500 -> 150 and DELIBERATELY left loose. The
+    # domain-cluster extraction programme lowers this number every pass (585 ->
+    # 562 -> 523 -> 484 over four passes, with ~10 clusters still to go), so a
+    # tight band here is not a regression guard -- it is a rename of "edit this
+    # test again next pass". What actually constrains dashboard.js's size is
+    # tests/test_frontend_size_ratchet.py, which is monotonic and cannot be
+    # raised. This assertion's remaining job is coarse: catch a census.mjs that
+    # returns nothing, or that starts counting the whole repo.
+    assert 150 <= len(report["functions"]) <= 650
     assert len(report["variables"]) >= 10
     assert set(report["functions"]).isdisjoint(report["variables"])
 
