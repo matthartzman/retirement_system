@@ -452,15 +452,6 @@ export function spendingRowProjectionSeed(row) {
   );
 }
 
-export function spendingRowHasValue(row) {
-  return !!(
-    spendingRowYtd(row) ||
-    spendingRowAnnualized(row) ||
-    spendingRowBudget(row) ||
-    spendingRowProjectionSeed(row)
-  );
-}
-
 export function setGroupBudgetMode(tt, grp, mode) {
   groupBudgetMode[tt + "::" + grp] = mode;
   const gk = groupKeyFor(tt, grp);
@@ -475,25 +466,6 @@ export function setGroupBudgetMode(tt, grp, mode) {
   }
   taxBudgetChanged = true;
   syncTaxonomyBudgetToBudgetLines();
-  markBudgetLinesDirty();
-  renderMain();
-}
-
-export function addCategoryDetailRow(catId) {
-  budgetLines.push({
-    section: "category_budget",
-    line_id: "cb_" + (Date.now() % 1000000),
-    label: "",
-    category_id: catId,
-    start_year: "",
-    end_year: "",
-    one_time_year: "",
-    amount_per_year: "",
-    mode: "detail",
-    notes: "",
-  });
-  categoryBudgetMode[catId] = "detail";
-  syncCategoryTotal(catId);
   markBudgetLinesDirty();
   renderMain();
 }
@@ -541,27 +513,6 @@ export function deleteCategoryDetailRow(lineId, catId) {
   renderMain();
 }
 
-export async function deleteCategoryBudget(catId, label) {
-  if (
-    !(await showInAppConfirm(
-      'All budget entries for "' + label + '" will be cleared.',
-      {
-        title: "Remove Budget Entries",
-        confirmLabel: "Remove",
-        variant: "warn",
-      },
-    ))
-  )
-    return;
-  budgetLines = (budgetLines || []).filter((l) => l.category_id !== catId);
-  taxBudget[catId] = { annual_budget: 0, notes: "", _delete: true };
-  delete categoryBudgetMode[catId];
-  taxBudgetChanged = true;
-  syncTaxonomyBudgetToBudgetLines();
-  markBudgetLinesDirty();
-  renderMain();
-}
-
 export async function loadAnnualizedActuals() {
   if (
     !(await showInAppConfirm(
@@ -603,91 +554,6 @@ export async function loadAnnualizedActuals() {
   } catch (e) {
     showMessage("Error loading actuals: " + e.message, "error");
   }
-}
-
-export function renderTaxonomyBudgetTable() {
-  if (!taxBudgetLoaded) {
-    setTimeout(() => loadTaxonomyBudget(false), 0);
-  }
-  const data = taxonomyData || [];
-  const expenseTypes = data.filter((t) => t.tracking_type !== "Income");
-  if (!expenseTypes.length)
-    return '<div class="question"><b>Loading…</b></div>';
-  let html = "";
-  html +=
-    '<div class="table-actions"><button class="btn" onclick="loadAnnualizedActuals()" title="Overwrite every category budget with its annualized current-year spend; new transaction categories are merged into the taxonomy">Load annualized current spend</button></div>';
-  html +=
-    '<div class="section-note small">Each <b>group</b> can be set as a single <b>Summary</b> total or expanded to <b>Detail</b> per category. In Detail mode each category supports multiple rows with optional start / end years — useful for time-bounded spending like travel or large events.</div>';
-  let grandTotal = 0;
-  expenseTypes.forEach(function (t) {
-    (t.groups || []).forEach(function (g) {
-      grandTotal += groupEffectiveBudget(t.tracking_type, g.group);
-    });
-  });
-  html += '<div class="taxonomy-tree">';
-  expenseTypes.forEach(function (typeData) {
-    const tt = typeData.tracking_type;
-    if (tt === "Housing") {
-      html += `<details class="taxonomy-type-section" data-dkey="budgtt:Housing"><summary><b>Housing</b> <span class="small" style="font-weight:400;color:var(--muted)">managed on Housing page</span></summary><div class="taxonomy-group"><div class="section-note">Mortgage, insurance, utilities, maintenance, and home improvements are entered on the Housing page and flow into the projection automatically. <button class="btn" style="padding:2px 10px;font-size:12px" data-step-id="spending_mortgage_events">Go to Housing page →</button></div></div></details>`;
-      return;
-    }
-    if (tt === "Wellness") {
-      html += `<details class="taxonomy-type-section" data-dkey="budgtt:Wellness"><summary><b>Wellness</b> <span class="small" style="font-weight:400;color:var(--muted)">managed on Wellness page</span></summary><div class="taxonomy-group"><div class="section-note">Bridge premiums, Medicare costs, and out-of-pocket estimates are entered on the Wellness page and flow into the projection directly. <button class="btn" style="padding:2px 10px;font-size:12px" data-step-id="retirement_wellness">Go to Wellness page →</button></div></div></details>`;
-      return;
-    }
-    let ttTotal = 0;
-    (typeData.groups || []).forEach((g) => {
-      ttTotal += groupEffectiveBudget(tt, g.group);
-    });
-    html += `<details class="taxonomy-type-section" data-dkey="budgtt:${esc(tt)}"><summary><b>${esc(tt)}</b>${ttActual || ttAnnualized || ttTotal ? ` <span class="small">Actual ${dollars0(ttActual)} · Annualized ${dollars0(ttAnnualized)} · Budget ${dollars0(ttTotal)}/yr</span>` : ""}</summary>`;
-    (typeData.groups || []).forEach(function (grp) {
-      const gname = grp.group;
-      const gj = esc(gname).replace(/'/g, "\\'");
-      const gmode = groupIsSummary(tt, gname) ? "summary" : "detail";
-      const gk = groupKeyFor(tt, gname);
-      const catSum = groupCatSum(tt, gname);
-      const eff = groupEffectiveBudget(tt, gname);
-      const catCount = (grp.categories || []).length;
-      html += `<div class="taxonomy-group"><h4 class="taxonomy-group-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span>${esc(gname)}</span><span class="small" style="font-weight:400">Actual ${dollars0(grp.actual)} · Annualized ${dollars0(grp.annualized)} · Budget ${dollars0(eff)}/yr</span><span style="margin-left:auto"><button class="btn ${gmode === "summary" ? "primary" : ""}" style="padding:0 8px" ${readOnlyRef ? "disabled " : ""}onclick="setGroupBudgetMode('${esc(tt)}','${gj}','summary')">Summary</button> <button class="btn ${gmode === "detail" ? "primary" : ""}" style="padding:0 8px" ${readOnlyRef ? "disabled " : ""}onclick="setGroupBudgetMode('${esc(tt)}','${gj}','detail')">Detail</button></span></h4>`;
-      if (gmode === "summary") {
-        // #231: Travel/Large Discretionary group budgets are time-bounded in
-        // the projection (spending_budget_resolver.py TIME_BOUNDED_LINE_TRACKING_TYPES)
-        // -- only these two tracking types honor start/end year on the group
-        // row, so only show the fields where they actually take effect.
-        const gYearFields = ["Travel", "Large Discretionary"].includes(tt)
-          ? `<label class="small">Start year&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="number" value="${esc((taxBudget[gk] || {}).start_year || "")}" placeholder="plan start" oninput="updateTaxBudget('${esc(gk)}','start_year',this.value)" style="width:90px"> <label class="small">End year&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="number" value="${esc((taxBudget[gk] || {}).end_year || "")}" placeholder="plan end" oninput="updateTaxBudget('${esc(gk)}','end_year',this.value)" style="width:90px"> `
-          : "";
-        html += `<div class="table-actions"><label class="small">Group budget / yr&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue((taxBudget[gk] || {}).annual_budget))}" placeholder="${catSum > 0 ? dollars0(catSum) : "$0"}" onfocus="focusBudgetMoney(this)" oninput="updateTaxBudgetMoney('${esc(gk)}','annual_budget',this)" onblur="blurBudgetMoney(this)" style="width:140px"> ${gYearFields}<span class="small">categories hidden</span></div>`;
-      } else {
-        html += '<div class="budget-cat-detail-list">';
-        (grp.categories || []).forEach(function (cat) {
-          const catId = cat.id;
-          const cidEsc = esc(catId);
-          const lines = catDetailLines(catId);
-          const b = taxBudget[catId] || {};
-          const hasData = lines.length > 0 || Number(b.annual_budget) > 0;
-          const lineTotal = catDetailSum(catId);
-          const displayTotal = lineTotal || Number(b.annual_budget) || 0;
-          html += `<div class="budget-cat-entry"><div class="budget-cat-header" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)"><span class="budget-cat-name" style="font-weight:500">${esc(cat.label)}</span>${hasData ? `<span class="small" style="color:var(--muted)">$${Math.round(displayTotal).toLocaleString()}/yr</span>` : ""}${hasData ? `<span style="margin-left:auto"><button class="danger-link" style="font-size:11px" onclick="deleteCategoryBudget('${cidEsc}','${esc(cat.label)}')">Delete</button></span>` : `<span style="margin-left:auto"></span>`}<button class="btn" style="padding:0 8px;font-size:11px" ${readOnlyRef ? "disabled " : ""}onclick="addCategoryDetailRow('${cidEsc}')">+ Add row</button></div>`;
-          if (lines.length > 0) {
-            html += `<table class="lot-table budget-cat-lines-table" style="margin:0 0 4px 12px;width:calc(100% - 12px)"><thead><tr><th>Label</th><th>Start year</th><th>End year</th><th>Amount / yr</th><th></th></tr></thead><tbody>`;
-            lines.forEach(function (l) {
-              const lid = esc(l.line_id);
-              html += `<tr><td><input value="${esc(l.label || "")}" placeholder="e.g. Europe trip" oninput="updateCategoryDetail('${lid}','label',this.value,'${cidEsc}')" style="width:140px"></td><td><input type="number" value="${esc(l.start_year || "")}" placeholder="—" oninput="updateCategoryDetail('${lid}','start_year',this.value,'${cidEsc}')" style="width:80px"></td><td><input type="number" value="${esc(l.end_year || "")}" placeholder="forever" oninput="updateCategoryDetail('${lid}','end_year',this.value,'${cidEsc}')" style="width:80px"></td><td><input type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue(l.amount_per_year))}" placeholder="$0" onfocus="focusBudgetMoney(this)" oninput="updateCategoryDetailMoney('${lid}','amount_per_year',this,'${cidEsc}')" onblur="blurBudgetMoney(this)" style="width:110px"></td><td><button class="danger-link" onclick="deleteCategoryDetailRow('${lid}','${cidEsc}')">×</button></td></tr>`;
-            });
-            html += `</tbody></table>`;
-          }
-          html += `</div>`;
-        });
-        html += "</div>";
-      }
-      html += `</div>`;
-    });
-    html += `</details>`;
-  });
-  html += `<div class="section-note" style="margin-top:12px"><b>Total annual budget: $${Math.round(grandTotal).toLocaleString()}</b></div>`;
-  html += `</div>`;
-  return html;
 }
 
 export function trackingBudgetTypesForDomain(domain) {
@@ -764,6 +630,19 @@ export function renderDomainBudgetTable(domain) {
   let html = "";
   if (domain === "core") {
     html += `<details class="section-note help-detail"><summary style="cursor:pointer;font-weight:500;list-style:none;display:flex;align-items:center;gap:6px"><span style="font-size:13px">▸</span> Annual Budget vs. Projection Seed — when do they differ?</summary><div style="margin-top:8px"><p class="small"><b>Annual Budget</b> is what you entered. <b>Projection Seed</b> is what the engine uses as the year-one spending base for that category. In most cases they are equal. They diverge in four scenarios:</p><ul class="small" style="margin:6px 0 0 18px;line-height:1.8"><li><b>Cap/reference categories</b> (e.g., Medical OOP Cap in Wellness): Annual Budget holds the cap value so you can see it; Projection Seed is forced to <b>$0</b> because a cap is a ceiling on out-of-pocket costs, not a recurring spending input.</li><li><b>Group in Summary mode</b>: The single group-level override number becomes the Projection Seed for the whole group. Any per-category Annual Budget values that were entered before switching to Summary are stale — the engine ignores them and uses the group total.</li><li><b>Detail-line total disagrees with the Annual Budget override</b>: In Detail mode, Projection Seed equals the sum of the detail lines. If you also typed a manual value in the Annual field, it is stored but overridden by the line sum in the projection.</li><li><b>$0 budget categories with transaction history</b>: The category appears in the table because transactions were imported, but Projection Seed = $0, so it contributes nothing to the projected spend base.</li></ul><p class="small" style="margin-top:8px">The <b>Projection Seed</b> column in each group header shows the value that feeds the projection. If it looks wrong compared to Annual Budget, check whether Summary mode is active or whether a cap/reference flag is set on that category.</p></div></details>`;
+  }
+  // #1000: bulk "overwrite every category budget with its annualized current
+  // spend". Shown only on the core domain because it rewrites EVERY category
+  // in the taxonomy, not just the domain being viewed -- repeating it on each
+  // domain tab would imply a per-domain scope it does not have.
+  //
+  // Deliberately NOT guarded by readOnlyRef: that const is declared per
+  // tracking type inside the data.forEach below (it means "this tracking type
+  // is budgeted on its source page"), so it is both out of scope here and the
+  // wrong question to ask -- there is no workspace-wide read-only mode. The
+  // showInAppConfirm() inside loadAnnualizedActuals is the guard.
+  if (domain === "core") {
+    html += `<div class="table-actions"><button class="btn" type="button" onclick="loadAnnualizedActuals()" title="Overwrite every category budget with its annualized current-year spend; new transaction categories are merged into the taxonomy">Load annualized current spend</button> <span class="small" style="color:var(--muted)">Overwrites all category budgets across every tracking type.</span></div>`;
   }
   html += '<div class="taxonomy-tree">';
   data.forEach(function (typeData) {
@@ -862,19 +741,6 @@ export function renderSpendingSetup() {
   return renderCoreSpendingUnified();
 }
 
-export async function reloadSpendingSetup() {
-  clearSpendingCaches();
-  mappingRules = null;
-  await Promise.all([
-    loadTaxonomy(true),
-    loadSpendingModel(true),
-    loadBudgetLines(true),
-    loadTaxonomyBudget(true),
-    loadMappingRules(true),
-  ]);
-  renderMain();
-}
-
 // Every export above is also re-attached to window: dashboard.js calls these
 // as bare globals, and this file's own rendered HTML uses inline
 // onclick="..." handlers, which always resolve through window regardless of
@@ -905,19 +771,19 @@ Object.assign(window, {
   spendingRowAnnualized,
   spendingRowBudget,
   spendingRowProjectionSeed,
-  spendingRowHasValue,
+  
   setGroupBudgetMode,
-  addCategoryDetailRow,
+  
   addGroupDetailRow,
   updateGroupDetailCategory,
   deleteCategoryDetailRow,
-  deleteCategoryBudget,
+  
   loadAnnualizedActuals,
-  renderTaxonomyBudgetTable,
+  
   trackingBudgetTypesForDomain,
   loadTemplateGroup,
   renderDomainBudgetTable,
   renderCoreSpendingUnified,
   renderSpendingSetup,
-  reloadSpendingSetup,
+  
 });

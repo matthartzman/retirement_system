@@ -300,97 +300,6 @@ export async function captureBuildBaseline() {
   return cloneSummary(sessionBaselineSummary || {});
 }
 
-export function snapshotPendingEdits() {
-  const fieldUpdates = [];
-  try {
-    dirty.forEach((value, idx) => {
-      const row = rows.find((r) => r.row_index === idx);
-      if (row)
-        fieldUpdates.push({
-          section: row.section || "",
-          subsection: row.subsection || "",
-          label: row.label || "",
-          value: String(value ?? ""),
-        });
-    });
-  } catch (_e) {}
-  return {
-    fieldUpdates,
-    holdingsChanged: !!holdingsChanged,
-    holdingsText: String(holdingsText || ""),
-    liabilitiesChanged: !!liabilitiesChanged,
-    liabilitiesText: String(liabilitiesText || ""),
-    travelExtrasChanged: !!travelExtrasChanged,
-    travelExtras: JSON.parse(JSON.stringify(travelExtras || [])),
-    liquidityChanged: !!liquidityChanged,
-    liquidityBuffers: JSON.parse(JSON.stringify(liquidityBuffers || [])),
-    forcedConversionsChanged: !!forcedConversionsChanged,
-    forcedConversions: JSON.parse(JSON.stringify(forcedConversions || [])),
-  };
-}
-export function hasSnapshotEdits(s) {
-  return !!(
-    s &&
-    (s.fieldUpdates?.length ||
-      s.holdingsChanged ||
-      s.liabilitiesChanged ||
-      s.travelExtrasChanged ||
-      s.liquidityChanged)
-  );
-}
-export function restorePendingEdits(s) {
-  if (!s) return;
-  (s.fieldUpdates || []).forEach((u) => {
-    const row = rows.find(
-      (r) =>
-        r.section === u.section &&
-        r.subsection === u.subsection &&
-        r.label === u.label,
-    );
-    if (row) {
-      const original = storageValueForInput(row, row.value || "");
-      if (String(u.value) === String(original)) dirty.delete(row.row_index);
-      else {
-        dirty.set(row.row_index, String(u.value));
-        noteSessionFieldChange(
-          row,
-          displayValueForInput(row, row.value || ""),
-          displayValueForInput(row, u.value),
-          original,
-          u.value,
-        );
-      }
-    }
-  });
-  if (s.holdingsChanged) {
-    holdingsText = String(s.holdingsText || "");
-    holdingRowsCache = null;
-    holdingsChanged = true;
-    noteSpecialSessionChange("Investment holdings updated");
-  }
-  if (s.liabilitiesChanged) {
-    liabilitiesText = String(s.liabilitiesText || "");
-    liabilityRowsCache = null;
-    liabilitiesChanged = true;
-    noteSpecialSessionChange("Liabilities updated");
-  }
-  if (s.travelExtrasChanged) {
-    travelExtras = JSON.parse(JSON.stringify(s.travelExtras || []));
-    travelExtrasChanged = true;
-    noteSpecialSessionChange("Large Discretionary Expenses updated");
-  }
-  if (s.liquidityChanged) {
-    liquidityBuffers = JSON.parse(JSON.stringify(s.liquidityBuffers || []));
-    liquidityChanged = true;
-    noteSpecialSessionChange("Liquidity buffers updated");
-  }
-  if (s.forcedConversionsChanged) {
-    forcedConversions = JSON.parse(JSON.stringify(s.forcedConversions || []));
-    forcedConversionsChanged = true;
-    noteSpecialSessionChange("Forced conversions updated");
-  }
-  updateUnsaved();
-}
 export function renderBuildImpactAfterBuild(message) {
   activeStep = "build_impact";
   planLoaded = true;
@@ -424,8 +333,8 @@ Object.assign(window, {
   buildWithProgress,
   fetchCurrentSummaryKpi,
   captureBuildBaseline,
-  snapshotPendingEdits,
-  hasSnapshotEdits,
-  restorePendingEdits,
+  
+  
+  
   renderBuildImpactAfterBuild,
 });

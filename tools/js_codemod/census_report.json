@@ -4,14 +4,10 @@
     "_checkAppStatusRun",
     "activeOptimizerUsedTarget",
     "addAltOption",
-    "addBudgetLine",
     "addLargeDiscLine",
     "addManualYtdAccount",
     "addParentheticals",
-    "addSelectedYtdAccount",
-    "addYtdAccount",
     "addYtdTxn",
-    "allocationCommonRows",
     "allocationCoverageCalloutHtml",
     "allocationModeHtml",
     "allocationModeIsComputed",
@@ -20,7 +16,6 @@
     "allocationPolicyRows",
     "allocationPreviewFingerprint",
     "allocationPreviewRowsForPost",
-    "allocationRowsOrNote",
     "allocationTargetsValid",
     "alternateAssetRows",
     "alternateAssetSourceOptions",
@@ -33,9 +28,6 @@
     "blurYtdAccountMoney",
     "blurYtdTxnAmount",
     "boolishValue",
-    "budgetSectionIsSummary",
-    "budgetSectionLines",
-    "buildSessionSummaryHtml",
     "buildWithDesktopProgress",
     "cacheChart",
     "catEffectiveBudget",
@@ -54,7 +46,6 @@
     "closeChartModal",
     "closeExitModal",
     "closeNavDrawer",
-    "closeoutItem",
     "collapseAllDetailGroups",
     "copyOptimizerOverrideToUserTargets",
     "csvEscape",
@@ -62,26 +53,21 @@
     "currentScenarioOverrideItems",
     "decimalsFromText",
     "deduplicateYtdTransactions",
-    "defaultPlanDataPath",
     "deleteAllYtdTransactions",
-    "deleteBudgetLine",
     "deleteLargeDiscLine",
     "deleteYtdAccount",
     "deleteYtdTxn",
     "dependencyRank",
     "deriveTotalRothConversions",
-    "detailColumnGroupKey",
     "detailProgressState",
     "detailedProgressHtml",
     "detailedSheetByName",
     "discardAndExit",
     "dismissMessage",
     "domainBudgetNote",
-    "domainLineSections",
     "downloadBlob",
     "downloadFile",
     "downloadYtdTemplate",
-    "ensurePlanFolderPermission",
     "exitApp",
     "expandAllDetailColumnsOnPage",
     "expandAllDetailGroups",
@@ -95,7 +81,6 @@
     "fieldDefaultMeaning",
     "fieldFinderCategoryName",
     "fieldFinderCategoryOrder",
-    "fieldFinderStepOrder",
     "fieldLabelNoteHtml",
     "fieldLikelyImpact",
     "fieldSizeClass",
@@ -103,7 +88,6 @@
     "fieldTooltipPreview",
     "filterChoiceOptionsForRow",
     "findAssetRow",
-    "findCsvByName",
     "findMatrixCell",
     "findRows",
     "finiteOrNull",
@@ -116,18 +100,13 @@
     "getStrategyTab",
     "goToStrategyTab",
     "groupModelData",
-    "handleImportPlanFiles",
-    "handleImportPlanFolder",
     "handleYtdTransactionUpload",
-    "hasAnnuityDeathBenefits",
     "helpList",
     "hideSpendingModelLoadOverlay",
     "hideUnusedTemplateCategories",
     "hideYtdLoadOverlay",
-    "homeSaleActivationYearRow",
     "humanizeGroupKey",
     "illustrationPlanYears",
-    "importPlanDataContents",
     "importPreviewList",
     "incomeStreamSubsections",
     "irmaaModeValue",
@@ -136,23 +115,17 @@
     "largeDiscCategoryFromType",
     "largeDiscTypeFromLine",
     "leverPctPoints",
-    "lineBelongsToDomain",
-    "listFolderFileNames",
     "loadCanonicalGlossary",
     "loadDetailedResults",
     "loadSavedPlan",
     "loadTaxFreshnessStatus",
-    "logoutSaas",
     "makeYtdAccountRow",
-    "markMatrixDirty",
-    "matrixKey",
     "matrixPolicies",
     "matrixYears",
     "mcEngineRow",
     "mcEngineToggleHtml",
     "mergeDetailedSheetMeta",
     "mergeProtectedClientData",
-    "moneyHtml",
     "moneyNegativeClass",
     "moveToNextEntry",
     "nbaPanelHtml",
@@ -171,10 +144,7 @@
     "openExitModal",
     "openNavDrawer",
     "openNextCollapsedSectionFrom",
-    "openPathPrompt",
-    "openSystemAdmin",
     "openSystemConfigurationConsole",
-    "optimizerInputRows",
     "optimizerOverrideTotalHtml",
     "optimizerPreviewStatusCell",
     "optimizerPreviewTarget",
@@ -215,12 +185,9 @@
     "planningLeversPlaceholder",
     "planningWorkbenchBuildImpactHtml",
     "planningWorkbenchStressSelectorHtml",
-    "postPlanDataFile",
     "primaryActionForStep",
     "promotePlanningCase",
-    "promptSavePlanDataFiles",
     "readFileFromFolder",
-    "readLocalCsvFile",
     "readYtdActualsPeriod",
     "recFindBy",
     "recFindStepRow",
@@ -231,16 +198,13 @@
     "recommendationSourceButton",
     "recoverPriorSpendingBudget",
     "recoverYtdAccountSetup",
-    "refreshFromPlanFolder",
     "refreshLivePrices",
-    "reloadBudgetLineDefaults",
     "rememberBuildCompare",
     "renderAllocationRecommendation",
     "renderAssetClassSelectionTable",
     "renderAssetsCashReserves",
     "renderBuildPreflightPanel",
     "renderCurrentAllocationModeNote",
-    "renderDafConfig",
     "renderDeathBenefitsTable",
     "renderDetailedResults",
     "renderDetailedResultsNav",
@@ -278,13 +242,11 @@
     "renderRetirementIncome",
     "renderRetirementWellness",
     "renderReview",
-    "renderReviewCloseoutChecklist",
     "renderRothConversion",
     "renderRothMissingNotice",
     "renderRothRows",
     "renderSpecialIncomeAnnuitiesInsurance",
     "renderSpecialStrategies",
-    "renderSpendingBudgetInput",
     "renderSpendingDashboardOrLoad",
     "renderSpendingWorkflowBanner",
     "renderSsCompactTable",
@@ -304,16 +266,12 @@
     "renderWorkbenchStressHtml",
     "renderWorkspaceSubtabsNav",
     "renderYearMatrix",
-    "renderYtdCategoriesStep",
     "renderYtdDuplicateReview",
     "renderYtdSummary",
-    "renderYtdTopCategories",
-    "renderYtdTopIncomeCategories",
     "renderYtdTracking",
     "renderYtdTransactions",
     "renderYtdTransactionsStep",
     "renderYtdUploadPanel",
-    "reportFreshnessNotice",
     "resetAllocationPreview",
     "resetDemoToDefaults",
     "resetYtdTxnPage",
@@ -327,25 +285,17 @@
     "rowConfigValue",
     "rowIsRetirementWellness",
     "rowSortKeyForIncomeWork",
-    "rowsByLabel",
-    "rowsNotIn",
     "saveAndExit",
     "saveChanges",
     "saveCurrentPlanToSelectedFolderForBuild",
     "saveLiabilities",
     "savePlanAs",
-    "savePlanDataToFolder",
-    "savePlanDataToPath",
-    "saveSpendingBudgetAll",
-    "saveSpendingSetupAll",
     "saveValueForRow",
     "saveYtdAccountSetup",
     "saveYtdPending",
     "saveYtdTransactions",
     "scenarioRowKeyFromParts",
     "sectionFlagEnabled",
-    "seedWellnessOop",
-    "selectPlanDataForImport",
     "selectedFolderDiffersFromLoadedPlan",
     "selectionActionSelect",
     "serializeCsvTable",
@@ -353,8 +303,6 @@
     "setAllDetailColumnGroups",
     "setAllocationSelectionMode",
     "setAutoLoad",
-    "setBudgetSectionMode",
-    "setCategoryBudgetMode",
     "setCombinedSearch",
     "setDetailedResultSheet",
     "setDetailedResultsNavOpen",
@@ -362,7 +310,6 @@
     "setNavSearch",
     "setPlanningCaseActive",
     "setPlanningLeverInput",
-    "setSearch",
     "setSearchScope",
     "setSelectionAction",
     "setStrategyTab",
@@ -399,38 +346,28 @@
     "takeBuildSnapshot",
     "targetPctInput",
     "taxFreshnessBannerHtml",
-    "taxonomyCategoryOptionsHtml",
     "toggleDetailColGroup",
     "toggleDetailColumnGroup",
     "toggleHelpSheet",
     "toggleNavDrawer",
     "translatePersonValueLabel",
-    "travelTypeList",
     "undoSessionFieldChange",
     "unfreezePricingSnapshot",
-    "updateBudgetLine",
     "updateLargeDiscLine",
     "updateLargeDiscLineMoney",
     "updateSearchToggle",
     "updateYtdAccountMoney",
     "updateYtdTxnAmount",
     "validateAllocationTargetsOrMessage",
-    "versionPrefixSuggestion",
-    "visibleAssetSpecialRow",
-    "visibleBudgetLinesForDomain",
     "wireStepNavigation",
     "withdrawalOtherRows",
-    "writeFileHandle",
-    "writePlanDataFilesToFolder",
     "yesNoOptionHelp",
     "ytdAccountMoneyDisplay",
-    "ytdAccountOptions",
     "ytdAccountRoleOptions",
     "ytdActualsPeriodToggleHtml",
     "ytdBlendEnabledRow",
     "ytdBlendToggleHtml",
     "ytdCancelDedup",
-    "ytdDate",
     "ytdDateAwarePageBoundaries",
     "ytdDeleteSelectedDuplicates",
     "ytdFilterOptions",
@@ -443,7 +380,6 @@
     "ytdIsGrowthRole",
     "ytdMappableAccounts",
     "ytdMetricCard",
-    "ytdMissingAccountOptions",
     "ytdMoney",
     "ytdPct",
     "ytdPeriodTargetYear",
@@ -1557,174 +1493,6 @@
       "name": "sessionBaselineSummary",
       "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
       "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "dirty",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "liabilitiesChanged",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "liabilitiesText",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "travelExtrasChanged",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "travelExtras",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "liquidityChanged",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "liquidityBuffers",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "forcedConversionsChanged",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "forcedConversions",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "dirty",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "dirty",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "noteSessionFieldChange",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "noteSpecialSessionChange",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "liabilitiesText",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "liabilityRowsCache",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "liabilitiesChanged",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "noteSpecialSessionChange",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "travelExtras",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "travelExtrasChanged",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "noteSpecialSessionChange",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "liquidityBuffers",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "liquidityChanged",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "noteSpecialSessionChange",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "forcedConversions",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "forcedConversionsChanged",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "noteSpecialSessionChange",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "call",
       "scope": "inside-function"
     },
     {
@@ -5376,18 +5144,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "PLAN_DATA_FILES",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "postPlanDataFile",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
       "name": "planLoaded",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
@@ -6140,24 +5896,6 @@
     {
       "name": "budgetLines",
       "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "categoryBudgetMode",
-      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "budgetLines",
-      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
       "kind": "assign",
       "scope": "inside-function"
     },
@@ -6165,42 +5903,6 @@
       "name": "budgetLines",
       "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
       "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "budgetLines",
-      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "budgetLines",
-      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudget",
-      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "categoryBudgetMode",
-      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudgetChanged",
-      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
-      "kind": "assign",
       "scope": "inside-function"
     },
     {
@@ -6249,42 +5951,6 @@
       "name": "renderMain",
       "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
       "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudgetLoaded",
-      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxonomyData",
-      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudget",
-      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudget",
-      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudget",
-      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "taxBudget",
-      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
-      "kind": "read",
       "scope": "inside-function"
     },
     {
@@ -6338,126 +6004,6 @@
     {
       "name": "taxBudget",
       "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "mappingRules",
-      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "noteSpecialSessionChange",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "travelExtrasChanged",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildOk",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "appReady",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "travelExtras",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "travelExtras",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "travelExtras",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "travelExtras",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "travelExtras",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "travelExtras",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "travelExtras",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "travelExtras",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "travelExtras",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "travelTypeList",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "travelExtras",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "travelExtras",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
       "kind": "read",
       "scope": "inside-function"
     },

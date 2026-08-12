@@ -1,6 +1,114 @@
 {
-  "schema": "dead_function_candidates_v1",
-  "total_top_level_functions": 760,
-  "dead_candidates": [],
-  "zero_app_references_but_referenced_in_tests": []
+  "schema": "dead_function_candidates_v2",
+  "declaration_sources": [
+    "frontend/js/dashboard.js",
+    "frontend/js/dashboard_decomp_assets_other.js",
+    "frontend/js/dashboard_decomp_build_lifecycle.js",
+    "frontend/js/dashboard_decomp_estate_insurance.js",
+    "frontend/js/dashboard_decomp_holdings.js",
+    "frontend/js/dashboard_decomp_home_panels.js",
+    "frontend/js/dashboard_decomp_housing_scenarios.js",
+    "frontend/js/dashboard_decomp_local_backups.js",
+    "frontend/js/dashboard_decomp_misc.js",
+    "frontend/js/dashboard_decomp_row_model.js",
+    "frontend/js/dashboard_decomp_spending_taxonomy.js",
+    "frontend/js/dashboard_decomp_state_inputs.js",
+    "frontend/js/dashboard_decomp_supplemental_tables.js",
+    "frontend/js/dashboard_decomp_workbook_formatting.js"
+  ],
+  "total_top_level_functions": 814,
+  "dead_candidates": [
+    "normalizePlanningCaseRunType",
+    "normalizePlanningCaseSource",
+    "planningCaseActiveId",
+    "planningCaseBaseSnapshotId",
+    "planningCaseCardsHtml",
+    "planningCaseId",
+    "planningCaseMatrixHtml",
+    "planningCaseMetricSummary",
+    "planningCaseNowIso",
+    "planningCaseOverrideFromRow",
+    "planningCaseOverrideTable",
+    "planningCaseOverridesForSource",
+    "planningCaseSaveAll",
+    "planningCaseSourceButtons",
+    "planningWorkbenchStressSelectorHtml"
+  ],
+  "zero_app_references_but_referenced_in_tests": [
+    "buildWithDesktopProgress",
+    "chatMessageHtml",
+    "renderYtdTracking",
+    "saveCurrentPlanToSelectedFolderForBuild",
+    "selectedFolderDiffersFromLoadedPlan",
+    "showPlanDataFileManifest",
+    "startBuildProgressTicker"
+  ],
+  "declared_in": {
+    "normalizePlanningCaseRunType": [
+      "frontend\\js\\dashboard.js"
+    ],
+    "normalizePlanningCaseSource": [
+      "frontend\\js\\dashboard.js"
+    ],
+    "planningCaseActiveId": [
+      "frontend\\js\\dashboard.js"
+    ],
+    "planningCaseBaseSnapshotId": [
+      "frontend\\js\\dashboard.js"
+    ],
+    "planningCaseCardsHtml": [
+      "frontend\\js\\dashboard.js"
+    ],
+    "planningCaseId": [
+      "frontend\\js\\dashboard.js"
+    ],
+    "planningCaseMatrixHtml": [
+      "frontend\\js\\dashboard.js"
+    ],
+    "planningCaseMetricSummary": [
+      "frontend\\js\\dashboard.js"
+    ],
+    "planningCaseNowIso": [
+      "frontend\\js\\dashboard.js"
+    ],
+    "planningCaseOverrideFromRow": [
+      "frontend\\js\\dashboard.js"
+    ],
+    "planningCaseOverrideTable": [
+      "frontend\\js\\dashboard.js"
+    ],
+    "planningCaseOverridesForSource": [
+      "frontend\\js\\dashboard.js"
+    ],
+    "planningCaseSaveAll": [
+      "frontend\\js\\dashboard.js"
+    ],
+    "planningCaseSourceButtons": [
+      "frontend\\js\\dashboard.js"
+    ],
+    "planningWorkbenchStressSelectorHtml": [
+      "frontend\\js\\dashboard.js"
+    ],
+    "buildWithDesktopProgress": [
+      "frontend\\js\\dashboard.js"
+    ],
+    "chatMessageHtml": [
+      "frontend\\js\\dashboard.js"
+    ],
+    "renderYtdTracking": [
+      "frontend\\js\\dashboard.js"
+    ],
+    "saveCurrentPlanToSelectedFolderForBuild": [
+      "frontend\\js\\dashboard.js"
+    ],
+    "selectedFolderDiffersFromLoadedPlan": [
+      "frontend\\js\\dashboard.js"
+    ],
+    "showPlanDataFileManifest": [
+      "frontend\\js\\dashboard.js"
+    ],
+    "startBuildProgressTicker": [
+      "frontend\\js\\dashboard_decomp_build_lifecycle.js"
+    ]
+  }
 }
