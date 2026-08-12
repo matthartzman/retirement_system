@@ -11,14 +11,44 @@ def test_release_notes_are_under_documentation_release_notes():
     assert notes_dir.exists()
 
 
+def _is_inside_nested_checkout(path: Path) -> bool:
+    """True if `path` lives inside a git worktree nested under ROOT.
+
+    Parallel checkouts each carry their own documentation/readme/ copy, which
+    is out of scope for THIS project's README-location policy. This used to be
+    handled by excluding the literal path component 'worktrees', which only
+    covered .claude/worktrees/ -- a worktree created anywhere else (e.g.
+    wt/js-split/, the layout the remaining-work plan actually recommends) sailed
+    straight past it and failed the test on a clean tree.
+
+    Detect the thing itself instead of one of its names: a nested checkout is a
+    directory below ROOT carrying its own .git entry (a file for a worktree, a
+    directory for a clone). Naming is then irrelevant.
+    """
+    for parent in path.parents:
+        if parent == ROOT:
+            return False
+        if not parent.is_relative_to(ROOT):
+            return False
+        if (parent / '.git').exists():
+            return True
+    return False
+
+
 def test_readmes_are_under_documentation_readme():
-    # .claude/worktrees holds full parallel checkouts for other Claude Code
-    # sessions; each has its own documentation/readme/ copy that is out of
-    # scope for this project's own README-location policy. node_modules/ is
-    # gitignored, vendored, third-party code (added when tests/e2e/'s
-    # Playwright suite landed) -- its own packages' READMEs are not this
-    # project's to relocate.
-    outside = [p.relative_to(ROOT) for p in ROOT.rglob('*README*.md') if '.pytest_cache' not in p.parts and 'input' not in p.parts and 'dist' not in p.parts and 'worktrees' not in p.parts and 'node_modules' not in p.parts and not p.is_relative_to(ROOT / 'documentation' / 'readme')]
+    # node_modules/ is gitignored, vendored, third-party code (added when
+    # tests/e2e/'s Playwright suite landed) -- its own packages' READMEs are
+    # not this project's to relocate. Nested checkouts are skipped
+    # structurally; see _is_inside_nested_checkout.
+    outside = [
+        p.relative_to(ROOT) for p in ROOT.rglob('*README*.md')
+        if '.pytest_cache' not in p.parts
+        and 'input' not in p.parts
+        and 'dist' not in p.parts
+        and 'node_modules' not in p.parts
+        and not p.is_relative_to(ROOT / 'documentation' / 'readme')
+        and not _is_inside_nested_checkout(p)
+    ]
     assert outside == []
     assert (ROOT / 'documentation' / 'readme' / 'README.md').exists()
     assert (ROOT / 'documentation' / 'readme' / 'CLEAN_PACKAGE_README.md').exists()
