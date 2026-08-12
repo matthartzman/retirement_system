@@ -212,16 +212,20 @@ that looks done because the thing you inspected changed.*
 
 ### Phase F3 — Complete the `dashboard.js` domain split · serial, one batch per fresh session
 
-State at `origin/main`: `dashboard.js` is **12,304 lines** (from 19,661), 460 functions,
-184 components, 4 clusters extracted. Remaining shape: four real clusters, five small ones, and a
-141-function singleton tail.
+State at `origin/main` (`3979d17`, after the dead-code sweep landed): `dashboard.js` is
+**11,447 lines** (from 19,661 at the review), **396 functions**, 146 components, 4 clusters
+extracted. Remaining shape: four real clusters (66 / 56 / 31 / 14), five small ones, and a
+**109-function singleton tail**.
+
+> Superseded figures, kept so the deltas are legible: before the sweep this read 12,304 lines,
+> 460 functions, 184 components, 141 singletons, largest cluster 80.
 
 | Batch | Contents | Effort | Model · reasoning effort | Session |
 |---|---|---|---|---|
 | F3.1 | Small clusters 3–7: recommendations/jump (14), income streams (11), large-discretionary (9), death-benefits/illustrations (9), MC/stress options (8) — disjoint domains, batch all five | M | sonnet · medium (opus · medium for cluster pick + error triage) | one |
-| F3.2 | Cluster 2 — checklist / closeout / save-load (33) | M | sonnet · medium | one |
+| F3.2 | Cluster 2 — checklist / closeout / save-load (**31**, was 33) | M | sonnet · medium | one |
 | F3.3 | Cluster 1 — allocation / optimizer (56). Highest cross-talk with engine-facing UI; verify the optimizer panel live. | L | **opus · medium** — mechanically routine, but the blast radius is wide | one |
-| F3.4 | Cluster 0 — YTD tracking + plan-folder I/O (80). Largest, and it owns file-system/permission flows Playwright covers only partly. **Do last.** | L | **opus · high** — file-system and permission flows are the least test-covered surface in the app | one |
+| F3.4 | Cluster 0 — YTD tracking + plan-folder I/O (**66**, was 80). Largest, and it owns file-system/permission flows Playwright covers only partly. **Do last.** | L | **opus · high** — file-system and permission flows are the least test-covered surface in the app | one |
 | ~~F3.5~~ | ~~Singleton tail (141 functions) → themed modules~~ — **DEFERRED, 2026-08-12 scope decision.** Worst effort-to-benefit ratio in the plan; `dashboard.js` lands at ~7–8k lines instead of ~4k, at roughly half the sessions. | — | — | — |
 | F3.6 | Close-out: lower the ratchet to final, update `phase3_module_manifest.js`, record the split as stopping at the four-cluster line (not "complete") against the Wave 6.4 scope doc | S | haiku · low | — |
 
@@ -231,7 +235,7 @@ changes the graph) → `extract_module --check` → real → `finish_extraction`
 triages any newly-surfaced runtime error** (calling a function for the first time can expose latent
 bugs that were never reachable); **sonnet does the mechanical passes**.
 
-Target with F3.5 deferred: `dashboard.js` at **~7,000–8,000 lines** — the four real clusters out, the
+Target with F3.5 deferred: `dashboard.js` at **~6,000–7,000 lines** — the four real clusters out, the
 141-function singleton tail left in place alongside boot, `STEPS`, `renderMain` dispatch, and shared
 state. Down from 19,661 at the review, 12,304 today. The size ratchet keeps that from regressing, so
 stopping here is a stable resting point rather than an abandoned migration — say so in F3.6's
@@ -321,7 +325,27 @@ fix-verify loops that currently make each split session long.
 
 ---
 
-## 7. Execution log
+## 7. Stale branch disposition (audited 2026-08-12)
+
+Five local branches were unmerged at the start of this cleanup. Two were deleted as fully merged;
+of the remaining four, `git cherry` plus per-file content comparison against `origin/main` split them
+cleanly into *already landed under a different SHA* and *genuinely unlanded*.
+
+| Branch | Finding | Recommendation |
+|---|---|---|
+| `claude/elastic-chaum-1e4a9c` | Genuinely unlanded: fixed `find_dead_functions.mjs` + the sweep it enabled | ✅ **LANDED** — `3979d17`, see §7.1 |
+| `worktree-withdrawal-regression-and-e2e` | `git cherry` marks it `-` (patch-equivalent upstream). `b9fc8c1` superseded it and main now carries *more* than the branch — diffing main→branch **removes** 61 lines from `helpers.js`. | **Delete.** `git branch -D worktree-withdrawal-regression-and-e2e` |
+| `fix/regen-frozen-golden-master` | `git cherry` marks all 3 commits `+`, but that is SHA-level, not content-level: `src/withdrawal_strategy_comparison.py` and `tests/test_withdrawal_sequencing_comparison_regression.py` are **byte-identical to main**. The work landed reworked as `91ab5fe`. Only the grep baseline differs, and main is ahead there. The "silent cherry-pick merge error" it fixes is already resolved upstream. | **Delete.** `git branch -D fix/regen-frozen-golden-master` |
+| `claude/clever-cannon-05accc` | **Do not merge.** Its entire delta over main is a one-word comment typo in `convert_dashboard.mjs` (`the splices above` → `below`). Everything else is damage: **34 committed merge-conflict markers** (`<<<<<<< Updated upstream`) inside `src/planning_engines.py`, `deterministic_engine.py` and `sheets_stress.py`; `input/client_data.json` and `.yaml` — **gitignored real client data**; and a stray `metrics_dump.json`. The message says "Fix EOL conversion issues in codemod"; the content is an accidentally committed dirty tree. It would now fail the conflict-marker guard added in `3363f73`. | **Delete**, optionally applying the one-word comment fix directly first. Nothing else is salvageable. |
+
+> **Two lessons worth carrying.** First, `git cherry` answers "is this *patch* upstream", not "is this
+> *work* upstream" — `fix/regen-frozen-golden-master` reads as three unlanded commits and is in fact
+> fully superseded. Compare file content before trusting it. Second, `claude/clever-cannon-05accc`
+> committed gitignored client data and conflict markers under a message describing neither; the guards
+> that would now catch both (`3363f73`) postdate it. Worth confirming those guards run on every branch,
+> not only on `main`.
+
+## 7.1 Execution log
 
 **2026-08-12 — F0.1 + F0.2, branch `fix/frozen-golden-master-gate`** (opus · high)
 
@@ -337,3 +361,40 @@ Method note worth keeping: the first four hypotheses were wrong, and the written
 the wrong one. What broke it open was an **audit-hook trace of every file the "hermetic" build
 opened** — cheaper than any amount of reading, and it named the offending path in one run. Reach for
 that earlier next time a test's answer depends on the machine.
+
+**2026-08-12 — merged to `main` and pushed (`952c27b`)**
+
+Upstream had meanwhile landed PR #58 on the same wrong premise, treating 6,044,750.40 as the true
+value. Its *action* was kept (de-duplicating the pins is right whichever pair is correct, and both
+doc fixes are load-bearing) and its changelog entry carries a correction banner. Also untracked
+`.claude/settings.local.json`, which had failed the hygiene guard on every run since `3363f73`.
+Removed four merged branches and the `dashboard-js-split-codemod-task6` worktree.
+
+**2026-08-12 — dead-code sweep landed (`3979d17`)** (opus · medium, one session)
+
+`claude/elastic-chaum-1e4a9c` merged: `find_dead_functions.mjs` fixed (it was structurally unable to
+fail) plus the unreachable functions the fixed finder surfaced. `dashboard.js` 12,304 → **11,447**;
+396 functions, 146 components, **109 singletons** (was 141).
+
+Three conflicts, and the resolution generalizes:
+
+- Both `dashboard.js` hunks were inside the **auto-generated** window-bridge block, not the source
+  body. Hand-merging generated output is how it silently stops matching its generator — so the body
+  was taken as auto-merged (branch deletions intact) and the block regenerated. **Order is
+  load-bearing and undocumented:** `convert_dashboard.mjs` reads `census_report.json`, so `census.mjs`
+  must run first. Running convert first fails outright on conflicted JSON (loud, fine); running it
+  against a *stale* census silently emits a stale bridge that no test compares against the source.
+  Worth encoding in `finish_extraction.mjs` as F2.3 lands.
+- The ratchet: neither side's number survived. HEAD's 12,304 predated the sweep, the branch's 12,202
+  predated the `build_history` extraction. Extraction and deletion compound — re-measure on the merged
+  tree, never take a side.
+
+Verified beyond the suite, because static tests structurally cannot prove a deleted function was
+unreachable — that is the finder's own blind spot: `tools/run_regression.py` 98/98, fast tier green
+with **zero** failures (the hygiene one is now fixed), and real-browser Playwright — nav-integrity
+(walks every guided step), field-save-persist, and the full build → Results Explorer journey.
+
+**Correction to project memory:** it recorded this sweep as landed on 2026-08-11. It was not — the
+branch never merged, so `main` carried the broken finder and the dead functions for a further day.
+The memory note has been corrected. A "done" in memory that was never verified against `origin/main`
+is the same failure mode as §2's pin: a record trusted instead of measured.
