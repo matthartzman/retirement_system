@@ -119,6 +119,29 @@
     // binding the new module reaches back for is actually on the bridge, with
     // a setter where the module assigns to it. That last check is the one
     // nothing else in the pipeline performs.
+    // v7 (same spec): THIRD domain cluster, and the first run of the fully
+    // automated follow-up. Moved the 40-declaration housing/scenarios cluster
+    // (housing spending page, home-sale and stress-sell rows, scenario
+    // templates and saved scenario sets, the shared inactive-value reveal
+    // panel) plus SCENARIO_TEMPLATES into
+    // frontend/js/dashboard_decomp_housing_scenarios.js; dashboard.js went
+    // 14,021 -> 13,072 lines.
+    //
+    // Housing and scenarios came out as one component rather than two because
+    // the scenario layer exists to override housing assumptions -- they share
+    // the rows being diffed and the reveal helpers. Splitting them would have
+    // put a cross-module edge through the middle of that.
+    //
+    // SCENARIO_SET_STORAGE_KEY stayed behind: dashboard_decomp_row_model.js
+    // also reads it, so the codemod's variable safety rule refused to move it,
+    // by name, rather than letting the split quietly break it. That refusal is
+    // the rule earning its keep for the first time.
+    //
+    // Dependency surface is much lighter than v6's: one reassigned function
+    // (renderMain), one written `let` (activeStep), seven read-only bindings.
+    // Enumerated up front with the new tools/js_codemod/cluster_deps.mjs and
+    // then independently re-verified after the fact by
+    // tools/js_codemod/finish_extraction.mjs -- the two agreed.
     loaded_by:'dashboard_source_truth_banners.js',
     compatibility:'dashboard.js remains the public behavior owner; its top-level surface is now bridged to window explicitly and tool-verified (tests/test_dashboard_js_module_bridge_regression.py) instead of implicitly global.'
   };
