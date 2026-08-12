@@ -108,6 +108,41 @@ def load_transactions(root: Path | None = None, year: int | None = None) -> list
     return rows
 
 
+def _annualization_period_days(txns, year: int, today: date | None = None) -> int:
+    """Days of `year` the transaction data actually covers: Jan 1 -> last txn.
+
+    Ticket 287. Annualizing observed spending is a run-rate extrapolation, so
+    the denominator has to be the span the DATA covers, not the span the
+    CALENDAR covers. With the log imported through Jul 31 and today Aug 12,
+    dividing by 224 elapsed days rather than 212 understates the run rate by
+    ~5%, and the error grows with every day the import lags.
+
+    `ytd_tracking.py` (~1002-1016) already applies this rule, which is why the
+    YTD Tracking page and Spending Analysis reported different annualized
+    figures for one household. Both exceptions it makes are kept here:
+
+    * A COMPLETED prior year is full data, not a partial period -- extrapolating
+      it would inflate history that needs no extrapolation.
+    * The period is clamped at `today`, so one mis-keyed future date (a
+      2026-12-31 typo) cannot stretch the denominator and silently drive the
+      factor toward 1.0 -- the same understatement this ticket fixes, arriving
+      from the other direction.
+
+    Deliberately distinct from `ytd_projection_blend._remaining_fraction`,
+    which stays today-anchored because "how much of the year is left to spend"
+    depends on the calendar, not on whether anyone imported transactions.
+    """
+    today = today or date.today()
+    jan1 = date(year, 1, 1)
+    dec31 = date(year, 12, 31)
+    if year < today.year:
+        return (dec31 - jan1).days + 1
+    dates = [d for d in (t.get("date") for t in (txns or [])) if isinstance(d, date) and d.year == year]
+    end = max(dates) if dates else today
+    end = min(end, today, dec31)
+    return max(1, (end - jan1).days + 1)
+
+
 def load_budget(root: Path | None = None) -> dict[str, dict]:
     """Load spending_budget.csv → {group: {budget_pct, budget_override, notes}}."""
     path = _root(root) / "input" / "spending_budget.csv"
@@ -160,9 +195,8 @@ def group_actuals(root: Path | None = None, year: int | None = None) -> dict:
     cat_map = load_category_map(r)
     txns = load_transactions(r, year)
 
-    today = date.today()
-    jan1 = date(year, 1, 1)
-    days_elapsed = max(1, (min(today, date(year, 12, 31)) - jan1).days + 1)
+    # Ticket 287: extrapolate over the period the data covers, not the calendar.
+    days_elapsed = _annualization_period_days(txns, year)
     annual_factor = 365.0 / days_elapsed
 
     groups: dict[str, dict[str, Any]] = {}
@@ -1235,9 +1269,8 @@ def _actuals_by_taxonomy(root, year: int):
     flat = taxonomy_flat(root)
     aliases = load_aliases(root)
     txns = load_transactions_extended(root, year)
-    today = date.today()
-    jan1 = date(year, 1, 1)
-    days_elapsed = max(1, (min(today, date(year, 12, 31)) - jan1).days + 1)
+    # Ticket 287: extrapolate over the period the data covers, not the calendar.
+    days_elapsed = _annualization_period_days(txns, year)
     annual_factor = 365.0 / days_elapsed
     actuals: dict[str, dict] = {}
     alias_hits: dict[str, set[str]] = {}
