@@ -267,7 +267,7 @@ HSA Policy,Contributions,requires_hdhp,boolean,FALSE,TRUE,,,Require HDHP eligibi
 Model Constants,Retirement,member_1_rmd_start_age,integer,FALSE,75,72,75,Optional per-member RMD start age override for member 1; defaults to the statutory age derived from date of birth (SECURE 2.0) when blank.
 Model Constants,Retirement,member_2_rmd_start_age,integer,FALSE,75,72,75,Optional per-member RMD start age override for member 2; defaults to the statutory age derived from date of birth (SECURE 2.0) when blank.
 Reporting,Output,real_dollar_reporting_enabled,boolean,FALSE,TRUE,,,Show today-dollar outputs.
-Withdrawal Policy,Roth Conversion,roth_tax_discount_rate,percent,FALSE,2.50%,0,20,"Annual discount rate for comparing lifetime taxes in the Roth optimizer, shown as a percent such as 2.50%."
+Withdrawal Policy,Roth Conversion,roth_tax_discount_rate,percent,FALSE,6.50%,0,20,"Nominal annual discount rate for comparing lifetime taxes in the Roth optimizer, shown as a percent such as 6.50%. Nominal because the tax and wealth figures it discounts are projected in nominal dollars; set it near your expected long-run portfolio return, not near inflation."
 Estate Planning,Federal,portability_enabled,boolean,FALSE,TRUE,,,Federal portability enabled.
 Estate Planning,Step-Up,property_regime,choice,FALSE,COMMON_LAW,,,Basis step-up property regime.
 System Configuration,Plan Chat,openai_api_key_secret_name,text,FALSE,plan_chat_openai_api_key,,,Encrypted secrets-store name for Plan Chat API key; plaintext keys are not read from CSV.

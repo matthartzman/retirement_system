@@ -41,6 +41,28 @@ from math import isfinite
 GrowthResult = namedtuple('GrowthResult', ['total_growth', 'by_account', 'warnings'])
 
 
+def _roth_discount_rate(c: dict) -> float:
+    """Nominal discount rate for the Roth objective's present-value terms.
+
+    Shared with data_io's parse default so the objective can never score
+    against a different rate than the plan page displays. Falls back to
+    DEFAULT_ROTH_TAX_DISCOUNT_RATE (6.5% nominal) rather than the inflation
+    assumption -- see that constant's note for why those are not the same
+    quantity.
+    """
+    try:
+        from .data_io import DEFAULT_ROTH_TAX_DISCOUNT_RATE as _default
+    except ImportError:  # pragma: no cover - direct execution fallback
+        from src.data_io import DEFAULT_ROTH_TAX_DISCOUNT_RATE as _default
+    raw = c.get('roth_tax_discount_rate')
+    if raw is None:
+        raw = _default
+    try:
+        return max(-0.99, float(raw or 0.0))
+    except Exception:
+        return _default
+
+
 def _account_return_tilt(c: dict, account_id) -> float:
     """This account's expected return RELATIVE to the plan-wide return.
 
@@ -1841,7 +1863,7 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
     # total_tax already includes federal, state, payroll, IRMAA, NIIT, and LTCG.
     # Score lifetime taxes in plan-start present value so a 2056 tax dollar does
     # not weigh the same as a 2026 tax dollar against terminal wealth.
-    discount = max(-0.99, float(c.get('roth_tax_discount_rate', c.get('inf', 0.025)) or 0.0))
+    discount = _roth_discount_rate(c)
     plan_start = int(c.get('plan_start', rows[0].get('year', 0) if rows else 0) or 0)
     lifetime_tax = sum(float(r.get('total_tax', 0.0) or 0.0) / ((1.0 + discount) ** max(0, int(r.get('year', plan_start)) - plan_start)) for r in rows)
     lifetime_tax_nominal = sum(float(r.get('total_tax', 0.0) or 0.0) for r in rows)
