@@ -1,10 +1,11 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+from tests._decomp_dashboard import dashboard_js_text
 
 
 def test_user_ui_hides_legacy_irmaa_cap_and_uses_single_guardrail_behavior():
-    js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     assert (
         'const ROTH_IRMAA_LABELS = [\n  "irmaa_guardrail_mode",\n  "roth_irmaa_target_tier",\n  "roth_irmaa_headroom_usage_pct",\n  "irmaa_annual_inflator",\n];'
         in js
@@ -15,7 +16,7 @@ def test_user_ui_hides_legacy_irmaa_cap_and_uses_single_guardrail_behavior():
 
 
 def test_fill_to_irmaa_policy_does_not_duplicate_irmaa_guardrail_rows():
-    js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     assert (
         '} else if (policyIsIrmaa) {\n    strategy = orderedRowsByLabel([\n      "roth_irmaa_target_tier",\n      "roth_irmaa_headroom_usage_pct",\n      "irmaa_annual_inflator",\n      ...ROTH_WINDOW_LABELS,\n    ]);'
         in js

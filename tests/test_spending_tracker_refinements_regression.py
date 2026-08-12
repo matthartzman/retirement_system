@@ -7,6 +7,7 @@ import pytest
 from conftest import TEST_INPUT_DIR
 
 ROOT = Path(__file__).resolve().parents[1]
+from tests._decomp_dashboard import dashboard_js_text
 
 
 def test_tracker_hides_zero_rows_and_normalizes_requested_groups():

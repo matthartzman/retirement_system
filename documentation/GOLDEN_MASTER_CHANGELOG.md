@@ -1,4 +1,31 @@
+## 2026-08-12 (c) — Monte Carlo per-account returns enabled (Wave 3.5 completion, F1.1-F1.3)
 
+**What changed.** Wave 3.5 populated `c['account_returns']` with per-account returns based on
+holdings mix (asset location), but only the deterministic path used them. Monte Carlo applied a
+single blended return to all accounts regardless of their allocations, which meant:
+- Asset-location arbitrage plays (different accounts, different returns) were invisible in MC
+- The headline success rate (which ranks all our multi-account conclusions) used wrong numbers
+- The number-moving changes in Wave 3.5 looked complete because the inspection changed; the MC
+  path remained half-fixed
+
+**Fix (F1.1).** Route Monte Carlo paths through per-account returns:
+- Added `_apply_account_return_adjustments()` to build `return_by_account_by_year` dict from base
+  returns and per-account deltas
+- Modified `_account_return()` to check `return_by_account_by_year[account_id][year]` first,
+  then fall back to uniform `return_by_year[year]`  
+- Modified `_run_one_mc_path()` to populate `return_by_account_by_year` before projection
+
+**Test (F1.2).** Acceptance tests verify:
+- The per-account routing is wired (4 unit tests, all passing)
+- The old behavior (uniform returns) vs. new (divergent per-account) paths are distinct
+
+**Pins.** Frozen master pins are UNCHANGED: **5,824,239.30 / 1,290,848.91**. The Monte Carlo
+changes only affect MC paths (`monte_carlo_exact_scalar`), not the deterministic projection
+that seeds the frozen gate. Per-account MC paths will show in downstream success-rate outputs,
+but this gate (which measures one deterministic run) is unaffected. The fix is verified by:
+- Full-suite tests passing (deterministic frozen fixture is byte-identical)
+- Unit tests for MC per-account routing (F1.2, 4/4 passing)
+- Integration tests in the regression suite (F4.1 sign-off, TBD)
 
 ## 2026-08-12 (b) — The frozen gate was measuring the machine, not the fixture (real fix + re-pin)
 

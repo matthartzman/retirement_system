@@ -1,10 +1,11 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+from tests._decomp_dashboard import dashboard_js_text
 
 
 def test_user_ui_has_simple_complex_monte_carlo_toggle():
-    js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    js = dashboard_js_text()
     css = (ROOT / "frontend" / "css" / "dashboard.css").read_text(encoding="utf-8")
     index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert "function mcEngineToggleHtml" in js

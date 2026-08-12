@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+from tests._decomp_dashboard import dashboard_js_text
 
 # Whole of section 3 (Risk & Stress Tests) plus a couple of System/Optimizer
 # sheets, so we can assert both sheet removal and empty-section pruning.
@@ -112,7 +113,7 @@ def test_nav_gating_source_covers_monte_carlo():
     assert gates.get("survivor_stress") == "survivor_stress_test"
     assert gates.get("scenarios") == "what_if_analysis"
 
-    js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    js = dashboard_js_text()
     js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
     assert "moduleGates.step_gates" in js, "dashboard.js must still consume the server-declared step gates"
 

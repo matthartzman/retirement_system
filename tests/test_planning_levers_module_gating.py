@@ -19,6 +19,7 @@ from pathlib import Path
 from src.module_catalog import step_gate_map
 
 ROOT = Path(__file__).resolve().parents[1]
+from tests._decomp_dashboard import dashboard_js_text
 
 # Every quick-nav button on the Planning Levers page, and the step id it
 # jumps to. Must match frontend/js/dashboard.js::renderPlanningLevers().
@@ -31,7 +32,7 @@ LEVER_NAV_STEPS = [
 
 
 def _planning_levers_fn():
-    js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     start = js.index('function renderPlanningLevers(')
     end = js.index('\nfunction chatMessageHtml', start)
     return js[start:end]

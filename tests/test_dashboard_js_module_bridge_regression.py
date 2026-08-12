@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+from tests._decomp_dashboard import dashboard_js_text
 DASHBOARD_JS = ROOT / "frontend" / "js" / "dashboard.js"
 INDEX_HTML = ROOT / "frontend" / "index.html"
 CENSUS_REPORT = ROOT / "tools" / "js_codemod" / "census_report.json"

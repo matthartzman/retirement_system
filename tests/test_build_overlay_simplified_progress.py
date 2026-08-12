@@ -9,6 +9,7 @@ from pathlib import Path
 from _decomp_dashboard import dashboard_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
+from tests._decomp_dashboard import dashboard_js_text
 DASHBOARD_CSS = ROOT / "frontend" / "css" / "dashboard.css"
 
 

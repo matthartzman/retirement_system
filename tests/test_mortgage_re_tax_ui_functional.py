@@ -1,10 +1,11 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+from tests._decomp_dashboard import dashboard_js_text
 
 
 def test_mortgage_re_tax_ui_and_reporting_labels_are_present():
-    js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
     assert 'Mortgage and RE Tax' in js
     assert 'Annual Real Estate Taxes' in js
