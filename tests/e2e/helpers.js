@@ -43,6 +43,62 @@ export async function openCurrentPlan(page) {
   await page.waitForFunction(() => window.planLoaded === true, { timeout: 15_000 });
 }
 
+// Waits until no loadAll() is still in flight, which `planLoaded` above does
+// NOT establish on its own.
+//
+// Why this exists (root-caused 2026-08-12 against the running app, not
+// inferred): loadAll() in dashboard_decomp_row_model.js ends with, in this
+// order, `dirty.clear()`, `planLoaded = true`, then `renderMain()`. So
+// planLoaded flips true BEFORE the re-render, and more importantly a SECOND
+// overlapping loadAll (the boot load kicked off by page.goto('/'), then the
+// one the "Open Current Plan" click starts) can still be mid-flight when the
+// first one's planLoaded satisfies the wait above. When that second load
+// lands it clears `dirty` and replaces every row node -- silently discarding
+// an edit the test had already made and re-disabling the Save button.
+//
+// That is exactly how field-save-persist.spec.js was failing: observed
+// directly in the browser, the edit registered correctly (dirty=1, Save
+// enabled), then ~300ms later the row node was replaced, the value snapped
+// back to its original, and dirty returned to 0 -- so
+// `expect(saveButton).toBeEnabled()` failed 5s later against a button that
+// had genuinely been enabled a moment earlier.
+//
+// networkidle does not cover it: loadAll's tail fires
+// fetchCurrentSummaryKpi() and refreshBuildStatus() as unawaited promises, so
+// the network can be idle with the re-render still pending.
+//
+// The signal used here is the one that actually matters to a caller about to
+// edit a field: the first [data-row] element has been the SAME DOM node for an
+// uninterrupted quiet window. renderMain() is the LAST thing loadAll does
+// (after dirty.clear()), and it replaces every row node -- so row-node
+// identity holding steady is proof that no loadAll is still pending, and it
+// stays correct regardless of which of the two planLoaded bindings a given
+// build wires to window.
+//
+// Deliberately does NOT also require `dirty` to be empty: callers navigate
+// with unsaved edits in hand, and an edit the test just made legitimately
+// leaves dirty non-empty. Gating on that would hang those callers forever.
+// Node identity alone already covers the clobber, since dirty.clear() cannot
+// reach a test without the re-render that follows it.
+//
+// A null probe (steps that render no rows at all) is treated as a stable
+// state rather than a failure -- there are no row nodes to be clobbered.
+export async function waitForPlanSettled(page, { quietMs = 750, timeout = 20_000 } = {}) {
+  await page.waitForFunction(
+    (quiet) => {
+      const probe = document.querySelector('[data-row]');
+      if (window.__e2eSettleNode !== probe) {
+        window.__e2eSettleNode = probe;
+        window.__e2eSettleSince = Date.now();
+        return false;
+      }
+      return Date.now() - window.__e2eSettleSince >= quiet;
+    },
+    quietMs,
+    { timeout },
+  );
+}
+
 // Navigates to `stepId` and waits for `headingText` to actually appear,
 // RETRYING window.setStep() rather than calling it once and hoping the plan
 // finished loading. setStep() is idempotent and safe to call repeatedly, so
@@ -57,6 +113,11 @@ export async function navigateToStep(page, stepId, headingText) {
     await page.evaluate((id) => window.setStep(id), stepId);
     try {
       await expect(heading).toBeVisible({ timeout: 500 });
+      // The heading appearing does not mean the page is done changing: a
+      // loadAll() still in flight will re-render every row underneath it and
+      // clear `dirty`, discarding an edit a caller makes in that window. See
+      // waitForPlanSettled below for the full root cause.
+      await waitForPlanSettled(page);
       return;
     } catch (e) {
       lastError = e;

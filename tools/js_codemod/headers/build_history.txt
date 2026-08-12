@@ -1,0 +1,66 @@
+/* Build History & "What the Model Heard": the saved build-history list (view,
+   revert, delete an entry, provenance badges) and the latest-build impact
+   summary (before/after KPI dials, the plain-language narrative, the
+   per-field "what changed" breakdown, and the follow-up suggestions) --
+   extracted from dashboard.js by tools/js_codemod/extract_module.mjs.
+
+   Fourth domain cluster of the Wave 6.4 domain-module split (see
+   docs/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md),
+   after dashboard_decomp_assets_other.js,
+   dashboard_decomp_spending_taxonomy.js and
+   dashboard_decomp_housing_scenarios.js. Selected as a connected component of
+   dashboard.js's internal call graph (tools/js_codemod/find_clusters.mjs),
+   re-run against the current file rather than trusting the previous report --
+   every extraction changes the graph for the next one.
+
+   The build-history list and the impact summary arrive as ONE component
+   rather than two because reverting is defined in terms of the comparison:
+   the history entry stores the before/after snapshot the impact cards render,
+   and both sides share the source-step jump links and the money/percent
+   formatters (mhBool, mhPct, mhMoney, mhText, mhOnOff, mhRow). Splitting them
+   would have put a cross-module edge through the middle of that.
+
+   Loaded BEFORE dashboard.js, in the same position as the other extracted
+   modules -- not after them with the leaves. dashboard.js ends its module body
+   with a queueMicrotask() that schedules the real boot work, and a microtask
+   checkpoint runs after that script's evaluation, so it can fire before a
+   LATER module script has evaluated. This module's own top level is nothing
+   but declarations and one Object.assign, so it has no evaluation-time
+   dependency on dashboard.js and is safe to run first. (Confirmed this matters
+   here specifically: dashboard_decomp_row_model.js calls
+   buildHistoryEntryHtml/latestBuildImpactHtml from inside its own render
+   functions -- not at its own module top level -- so by the time those calls
+   actually happen the window bridge below has already been installed.)
+
+   No constant tables moved with this cluster. BUILD_HISTORY_LS_KEY, which
+   this cluster reads, stays in dashboard.js behind its generated accessor:
+   dashboard_decomp_row_model.js reads it too, so it is shared state and the
+   codemod's variable safety rule refused it by name rather than letting the
+   split quietly break it.
+
+   What this module still reaches back into dashboard.js for, enumerated with
+   tools/js_codemod/cluster_deps.mjs against the moved declarations' own text,
+   so this list is exhaustive as of this pass rather than illustrative:
+
+     - the function renderMain (a reassigned monkey-patch chain, exposed via a
+       get accessor, so a bare call here gets the live decorated
+       implementation);
+
+     - four WRITTEN state variables -- activeStep, buildHistory, lastBuildOk,
+       lastBuildCompare. All are `let` in dashboard.js and all get set
+       accessors from convert_dashboard.mjs. The bare assignments from inside
+       this module are legal despite module strict mode precisely because the
+       bridge has already defined those properties on window: strict mode only
+       throws for an identifier that resolves to nothing at all. Remove one of
+       those setters and that assignment starts throwing at call time, which
+       no static check in this pipeline catches;
+
+     - six read-only bindings -- BUILD_HISTORY_LS_KEY, dirty, planSource,
+       rows, sessionChanges, sessionSpecialChanges. The last three are read
+       through their existing get accessor and mutated in place with .clear()
+       or .add(), never reassigned, so they need no setter.
+
+     - loadBuildHistory(), which the row-model extraction already moved to
+       dashboard_decomp_row_model.js and bridged onto window -- a cross-module
+       reference resolved the same way, not a new dependency this pass
+       introduces. */
