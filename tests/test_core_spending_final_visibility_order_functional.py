@@ -1,18 +1,35 @@
+import re
 from pathlib import Path
+
+from _decomp_dashboard import dashboard_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def _js():
-    return (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8") + \
-        (ROOT / "frontend/js/dashboard_decomp_row_model.js").read_text(encoding="utf-8")
+    return dashboard_js_text()
+
+
+def _fn_body(js: str, decl: str) -> str:
+    """Slice one top-level function's text out of the assembled frontend source.
+
+    Ends at the NEXT top-level function declaration rather than at a named
+    neighbour. The old sentinel here was `function renderFields`, which broke
+    the moment renderSpendingCore moved into dashboard_decomp_spending_taxonomy.js:
+    the concatenation puts extracted modules after dashboard.js, so a function
+    left behind in dashboard.js now sits *before* the slice start and the
+    forward search finds nothing. Any neighbour-name sentinel has that same
+    failure mode on the next extraction pass; this one does not.
+    """
+    start = js.index(decl)
+    nxt = re.search(r"\n(?:export )?function ", js[start + len(decl):])
+    end = start + len(decl) + nxt.start() if nxt else len(js)
+    return js[start:end]
 
 
 def test_core_spending_renderer_is_flat_ordered_and_excludes_daf():
     js = _js()
-    start = js.index("function renderSpendingCore()")
-    end = js.index("function renderFields", start)
-    body = js[start:end]
+    body = _fn_body(js, "function renderSpendingCore()")
     assert "core-spending-flat" in body
     assert "renderFieldGroups(ordered)" not in body
     assert "daf_annual_contribution" not in body.split("const labels =", 1)[1].split("const ordered = [];", 1)[0]
@@ -28,9 +45,7 @@ def test_core_spending_route_excludes_daf_annual_contribution():
 
 def test_core_spending_control_order_in_renderer():
     js = _js()
-    start = js.index("function renderSpendingCore()")
-    end = js.index("function renderFields", start)
-    body = js[start:end]
+    body = _fn_body(js, "function renderSpendingCore()")
     labels_region = body.split("const labels =", 1)[1].split("const ordered = [];", 1)[0]
     manual_branch, cpi_branch = labels_region.split('mode === "manual_override"', 1)[1].split("? [", 1)[1].split(
         "]\n      : [", 1

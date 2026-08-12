@@ -1,0 +1,51 @@
+/* Housing and scenarios: the housing spending page (rent vs own, home-sale
+   assumptions, stress sell-home rows), the scenario manager (templates, saved
+   scenario sets, current-override diffing), and the inactive-value reveal
+   panel shared by both -- extracted from dashboard.js by
+   tools/js_codemod/extract_module.mjs.
+
+   Third domain cluster of the Wave 6.4 domain-module split (see
+   docs/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md),
+   after dashboard_decomp_assets_other.js and
+   dashboard_decomp_spending_taxonomy.js. Selected as a connected component of
+   dashboard.js's internal call graph (tools/js_codemod/find_clusters.mjs),
+   re-run against the current file rather than trusting the previous report --
+   every extraction changes the graph for the next one.
+
+   Housing and scenarios arrive as ONE component rather than two because the
+   scenario layer's whole job is overriding housing assumptions: the home-sale
+   and rent rows are what scenario sets diff against, and both sides share the
+   inactive-row reveal helpers. Splitting them would have put a cross-module
+   edge through the middle of that relationship for no benefit.
+
+   Loaded BEFORE dashboard.js, in the same position as the other extracted
+   modules -- not after them with the leaves. dashboard.js ends its module body
+   with a queueMicrotask() that schedules the real boot work, and a microtask
+   checkpoint runs after that script's evaluation, so it can fire before a
+   LATER module script has evaluated. This module's own top level is nothing
+   but declarations and one Object.assign, so it has no evaluation-time
+   dependency on dashboard.js and is safe to run first.
+
+   SCENARIO_TEMPLATES moved with the code (read by this cluster and nothing
+   else anywhere in the repo). SCENARIO_SET_STORAGE_KEY did NOT: it is also
+   read by dashboard_decomp_row_model.js, so it is shared state and stays in
+   dashboard.js behind its generated accessor. The codemod's variable safety
+   rule refused it by name rather than letting the split quietly break it.
+
+   What this module still reaches back into dashboard.js for, enumerated with
+   tools/js_codemod/cluster_deps.mjs against the moved declarations' own text,
+   so this list is exhaustive as of this pass rather than illustrative:
+
+     - the function renderMain (a reassigned monkey-patch chain, exposed via a
+       get accessor, so a bare call here gets the live decorated
+       implementation);
+
+     - one WRITTEN state variable, activeStep. It is `let` in dashboard.js and
+       gets a set accessor from convert_dashboard.mjs. The bare assignment from
+       inside this module is legal despite module strict mode precisely because
+       the bridge has already defined the property on window: strict mode only
+       throws for an identifier that resolves to nothing at all. Remove that
+       setter and the assignment starts throwing at call time;
+
+     - seven read-only bindings -- SCENARIO_SET_STORAGE_KEY, dirty,
+       inactiveEditReveals, planLoaded, planSource, rows, searchText. */

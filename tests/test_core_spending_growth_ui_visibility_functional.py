@@ -1,10 +1,12 @@
 from pathlib import Path
 
+from _decomp_dashboard import dashboard_js_text
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_core_spending_page_has_inline_growth_controls_without_extra_heading():
-    js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
+    js = dashboard_js_text()
     assert "coreSpendingGrowthPanel" not in js
     assert "Use CPI / General Inflation" in js
     assert "Manual spending increase override" in js
@@ -25,6 +27,6 @@ def test_backend_materializes_forward_schema_rows_on_sync_and_load():
 
 
 def test_core_spending_tokens_in_dashboard():
-    a = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
+    a = dashboard_js_text()
     for token in ["Core Spending Base", "Core Spending Increase Stops", "core_spending_growth_mode", "core_spending_manual_growth_rate"]:
         assert token in a

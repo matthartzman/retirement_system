@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from _decomp_dashboard import dashboard_js_text
+
 ROOT = Path(__file__).resolve().parents[1]
 DASHBOARD_JS = ROOT / "frontend" / "js" / "dashboard.js"
 DASHBOARD_CSS = ROOT / "frontend" / "css" / "dashboard.css"
@@ -8,7 +10,7 @@ CHANGELOG = ROOT / "documentation" / "GOLDEN_MASTER_CHANGELOG.md"
 
 
 def test_scenarios_page_has_templates_saved_sets_and_diffs():
-    js = DASHBOARD_JS.read_text(encoding="utf-8")
+    js = dashboard_js_text()
 
     assert "SCENARIO_TEMPLATES" in js
     assert "Conservative markets" in js
@@ -25,7 +27,7 @@ def test_scenarios_page_has_templates_saved_sets_and_diffs():
 
 
 def test_scenario_templates_stage_existing_fields_without_build_logic_changes():
-    js = DASHBOARD_JS.read_text(encoding="utf-8")
+    js = dashboard_js_text()
 
     assert "applyScenarioTemplate" in js
     assert "applySavedScenarioSet" in js
