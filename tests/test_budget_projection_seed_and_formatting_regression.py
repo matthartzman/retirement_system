@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from _decomp_dashboard import dashboard_js_text
+
 from src.spending_budget_resolver import apply_budget_to_engine_config
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,8 +34,7 @@ category,ho_insurance,Homeowners Insurance,2000,,,,
 
 
 def test_heloc_repayment_years_is_integer_not_currency_in_ui_source():
-    js = Path('frontend/js/dashboard.js').read_text(encoding='utf-8')
-    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     assert 'if (r && l === "heloc_repayment_years") return "number"' in js
 
 
@@ -55,8 +56,7 @@ line,home_improvement,Home Improvement,25000,2026,2030,,projection window
 
 
 def test_housing_ui_has_rent_buy_toggle_and_area_type_dropdown():
-    js = Path('frontend/js/dashboard.js').read_text(encoding='utf-8')
-    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     assert 'Rent or Buy' in js
     assert 'class="btn-toggle' in js
     assert '(!isPurchase ? " active" : "")' in js

@@ -1,4 +1,6 @@
 from pathlib import Path
+
+from _decomp_dashboard import dashboard_js_text
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -11,16 +13,14 @@ from src.report_compute import build_model_heard_assumptions
 
 
 def test_scenario_ui_separates_base_home_sale_from_stress_only_rows():
-    js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
-    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
 
     assert "function rowIsBaseHomeSaleInput" in js
     assert "function rowIsStressSellHomeInput" in js
 
 
 def test_retired_scenario_home_basis_cannot_reappear_as_editable_scenario_input():
-    js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
-    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
 
     assert "function rowIsRetiredScenarioHomeDuplicate" in js
     assert "function isEditable(r) {\n  return (\n    r &&\n    !r.is_header &&\n    !r.is_comment &&\n    r.label &&\n    !rowIsRetiredScenarioHomeDuplicate(r)\n  );\n}" in js
