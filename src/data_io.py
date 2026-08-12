@@ -1030,7 +1030,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # values rather than double-counting them.
     try:
         from .spending_budget_resolver import apply_budget_to_engine_config as _apply_unified_spending_budget
-        _apply_unified_spending_budget(c, root=Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        _apply_unified_spending_budget(c)
     except Exception:
         # Optional during migration/blank-plan startup; keep legacy values if unavailable.
         pass
