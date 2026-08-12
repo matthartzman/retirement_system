@@ -1011,6 +1011,13 @@ const SYSTEM_CONFIG_FIELD_HELP = {
     "Review this list before Save Changes if you want to confirm exactly what will be saved.",
     "No planning impact — this is a review log, not an input.",
   ),
+  annualized_actuals: pageHelp(
+    "Annualized actuals",
+    "Overwrites every category's Annual Budget with its annualized current-year spend, and merges any new transaction categories into the taxonomy.",
+    "This is a bulk, all-or-nothing overwrite across every tracking type — it cannot be applied to a single domain, group, or category, and there is no undo beyond restoring a backup. Categories touched are stamped with an 'Annualized actual' note. Groups left in Summary mode still project from their group-level override, so rewriting the per-category values under them will not change the projection until you switch the group back to Detail.",
+    "Use it when seeding a brand-new plan from an imported transaction history, or when you want to re-baseline every budget against actual spending after a full year of data. Avoid it once budgets have been hand-tuned — take a backup first.",
+    "Changes the year-one spending base for every category that receives a value, so it moves the projected spend base and everything downstream of it.",
+  ),
   csv_backup: pageHelp(
     "CSV backup",
     "Exports a CSV backup of holdings, transactions, target allocations, and reference data for recovery or external review.",
@@ -1031,11 +1038,7 @@ function showConfigCardHelp(key) {
   document.getElementById("helpPanel").innerHTML =
     SYSTEM_CONFIG_FIELD_HELP[key] || STEP_HELP.system_configuration;
 }
-// esc/escJs now live in dashboard_shared_helpers.js (A13), loaded first.
-
-async function logoutSaas() {
-  return true;
-} // v11 local-only: no login/logout flow
+ // v11 local-only: no login/logout flow
 
 function dismissMessage() {
   const el = document.getElementById("actionMessage");
@@ -2605,9 +2608,6 @@ function planningWorkbenchBuildImpactHtml() {
   );
 }
 
-function buildSessionSummaryHtml() {
-  return renderBuildImpactPage();
-}
 async function revertLastBuildChanges() {
   if (
     !(await showInAppConfirm(
@@ -2650,12 +2650,6 @@ async function revertLastBuildChanges() {
     showMessage("Error reverting changes: " + e.message, "error");
   }
 }
-
-
-
-
-
-
 
 
 function sectionFlagEnabled(sectionName, subsectionName, labelName) {
@@ -2703,7 +2697,6 @@ function rowIsRetirementWellness(r) {
 }
 
 
-
 function rowIsCanonicalHomeBasis(r) {
   return (
     String(r.section || "").trim() === "Other Assets" &&
@@ -2739,26 +2732,6 @@ function stressHomeSaleYearRow() {
     ) || null
   );
 }
-function homeSaleActivationYearRow(stepId = "") {
-  const baseYear = baseHomeSaleYearRow();
-  const scenarioYear = stressHomeSaleYearRow();
-  if (stepId === "scenarios_stress") return scenarioYear || baseYear || null;
-  return baseYear || scenarioYear || null;
-}
-
-function visibleAssetSpecialRow(r) {
-  const gate = rowModuleGate(r.section);
-  if (
-    ["Equity Compensation", "DAF", "Education Funding"].includes(r.section) &&
-    gate &&
-    !optionalFunctionEnabled(gate.key)
-  )
-    return false;
-  if (r.section === "Hybrid LTC" && !ltcLifePolicyModuleEnabled()) return false;
-  return true;
-}
-
-
 function rowIsEconomyScenario(r) {
   return (
     r.section === "Scenarios" &&
@@ -3384,12 +3357,6 @@ function pageRecommendationsHtml(stepId) {
 }
 
 
-
-
-
-
-
-
 function pageSaveMode(stepId) {
   const autosave =
     (window.RetirementNavigation &&
@@ -3631,14 +3598,6 @@ function moneyNegativeClass(value) {
   const n = numberFromDisplay(value);
   return n !== null && n < 0 ? " negative-money" : "";
 }
-function moneyHtml(value) {
-  const text = currencyDisplay(value);
-  return `<span class="money-value${moneyNegativeClass(value)}">${esc(text)}</span>`;
-}
-
-
-
-
 function updateTaxBudgetMoney(catId, field, el) {
   updateTaxBudget(catId, field, budgetMoneyNumber(el && el.value));
 }
@@ -4040,10 +3999,6 @@ function dependencyRank(label) {
   return "50";
 }
 
-function fieldFinderStepOrder(stepId) {
-  const i = STEPS.findIndex((s) => s.id === stepId);
-  return i < 0 ? 9999 : i;
-}
 function fieldFinderCategoryName(group) {
   return group === "Reports" ? "Reports & Review" : group || "Uncategorized";
 }
@@ -4130,9 +4085,6 @@ function renderFieldFinderGroups(rs) {
 }
 
 
-
-
-
 // True for any mode where the plan is driven by a computed recommendation
 // rather than the user's manually-entered target_pct rows.
 function allocationModeIsComputed(mode) {
@@ -4201,7 +4153,6 @@ function allocationOptimizerRecommendationHtml() {
   );
   return `<div class="section-note" id="allocationOptimizerExplanation"><b>Optimizer recommendation:</b> this is a second-opinion mix based on risk tolerance or auto risk score, age, withdrawal rate, years to retirement, human-capital stability, existing assets credited against class targets, concentration flags, enabled asset classes, capital-market assumptions, correlations, glide path, and inflation-sensitive spending. Consider it because it can reflect household-specific risk capacity and diversification relationships that a static mix cannot see.<br><br><b>Current inputs used by the optimizer:</b> risk tolerance ${esc(risk ? displayValueForInput(risk, valOf(risk)) : "auto")}; glide path ${esc(glide ? displayValueForInput(glide, valOf(glide)) : "default")}; cash target ${esc(cash ? displayValueForInput(cash, valOf(cash)) : "default")}; human-capital stability ${esc(hc ? displayValueForInput(hc, valOf(hc)) : "default")}; inflation-sensitive spending ${esc(infl ? displayValueForInput(infl, valOf(infl)) : "default")}; capital-market preset ${esc(cap ? displayValueForInput(cap, valOf(cap)) : "baseline")}; horizon ${esc(horizon ? displayValueForInput(horizon, valOf(horizon)) : "30")} years.</div>`;
 }
-
 
 
 function alternateAssetRows() {
@@ -4489,33 +4440,6 @@ function renderAssetClassSelectionTable() {
   html += `</tbody></table></div>${optMode ? "" : allocationTotalHtml()}</div>`;
   return html;
 }
-function optimizerInputRows() {
-  const wanted = new Set([
-    "risk_tolerance",
-    "human_capital_stability",
-    "concentration_employer_stock",
-    "concentration_real_estate",
-    "concentration_business",
-    "glide_path",
-    "inflation_sensitive_spending_pct",
-  ]);
-  const rows1 = rows
-    .filter(isEditable)
-    .filter(
-      (r) =>
-        r.section === "Model Constants" &&
-        norm(r.subsection) === "allocation" &&
-        wanted.has(norm(r.label)),
-    );
-  const rows2 = rows
-    .filter(isEditable)
-    .filter(
-      (r) =>
-        r.section === "Asset Class Assumptions" &&
-        norm(r.subsection) === "global",
-    );
-  return rows1.concat(rows2);
-}
 function allocationPolicyRows() {
   return rows.filter(isEditable).filter((r) => {
     const sec = r.section,
@@ -4526,18 +4450,11 @@ function allocationPolicyRows() {
     );
   });
 }
-function allocationCommonRows() {
-  const r = allocationModeRow();
-  return r ? [r] : [];
-}
-
 function allocationTargetsValid() {
   const rs = allocationTargetRows();
   if (!rs.length) return true;
   return Math.abs(allocationTargetTotalPct() - 100) <= 0.01;
 }
-
-
 
 
 function optimizerOverrideTotalHtml() {
@@ -4601,12 +4518,6 @@ function copyOptimizerOverrideToUserTargets() {
   );
   renderMain();
 }
-function allocationRowsOrNote(rs, msg) {
-  return rs.length
-    ? renderFieldGroups(rs)
-    : `<div class="holdings"><div class="section-note">${msg}</div></div>`;
-}
-
 function renderCurrentAllocationModeNote() {
   return allocationModeHtml();
 }
@@ -4988,9 +4899,6 @@ function renderHouseholdPeople() {
     : "";
   return banner + html + renderFieldGroups(rest);
 }
-function hasAnnuityDeathBenefits() {
-  return matrixRows("Annuity Death Benefits").length > 0;
-}
 function rowSortKeyForIncomeWork(r) {
   const sub = norm(r.subsection || "");
   const sec = norm(r.section || "");
@@ -5119,7 +5027,6 @@ function undoSessionFieldChange(rowIndex) {
   renderMain();
   renderSteps();
 }
-
 
 
 function showYtdBlendChoiceModal(summary) {
@@ -5288,7 +5195,7 @@ function renderWelcome() {
   return `<div class="pane-head"><div class="eyebrow">Welcome</div><h2>Retirement planning workspace</h2><p>Enter source facts first, then model strategy and stress tests, run preflight, build reports, and review the workbook results.</p>${demoModeActive ? '<div class="section-note" style="margin:6px 0">Viewing the demo plan (Alex &amp; Morgan). Your real plan is backed up — click <b>Open Current Plan</b> to switch back. Edits you make here are kept for next time you open the demo; on desktop, <b>Save Plan As</b> also lets you keep a named copy.</div>' : ""}<div class="pane-actions"><button class="btn primary" data-requires-app="1" onclick="startNewPlan()">Start New Plan</button><button class="btn" data-requires-app="1" onclick="openCurrentPlan()">Open Current Plan</button><button class="btn" data-requires-app="1" onclick="openDemoPlan()">Open Demo Plan</button>${demoModeActive ? "" : '<button class="btn" onclick="resetDemoToDefaults()">Reset Demo to Defaults</button>'}<button class="btn" onclick="savePlanAs()">Save Plan As</button><button class="btn" onclick="loadSavedPlan()">Load Saved Plan</button></div><div style="margin:8px 0 4px;font-size:13px"><label style="cursor:pointer;user-select:none"><input type="checkbox" id="autoLoadCheck"${_autoLoad ? " checked" : ""} onchange="setAutoLoad(this.checked)"> Auto-load plan on next start</label></div></div>${nbaPanelHtml()}${taxFreshnessBannerHtml()}${planKpiMetricsHtml()}${firstRunChecklistHtml(false)}<div class="feature-grid"><div class="feature-card"><h3>Your plan</h3><ul><li><b>The saved plan</b> is the active source for all projections.</li><li><b>Plan Data files</b> can be exported for backup, sharing, or recovery.</li><li><b>Reports</b> are generated snapshots — edit the plan, then rebuild to update them.</li></ul></div><div class="feature-card"><h3>Save and build</h3><ul><li><b>Save Changes</b> stores ordinary fields, tables, category budgets, transaction edits, holdings, liabilities, and strategy-table edits.</li><li><b>Build Reports</b>, <b>Download Workbook</b>, and <b>Download PDF</b> save first, run preflight, then rebuild reports.</li><li>Use page-level reload buttons only when discarding unsaved page edits.</li></ul></div><div class="feature-card"><h3>Spending flow</h3><ul><li>Spending Categories defines the Tracking Type, Group, and Category model.</li><li>Housing, Wellness, and Travel are authoritative detail pages.</li><li>Income &amp; Expense Transactions feeds Spending Analysis and actual-vs-model review.</li></ul></div><div class="feature-card"><h3>Final review</h3><ol class="small"><li>Open Reports &amp; Review.</li><li>Check the Preflight tab for missing fields.</li><li>Resolve blockers, then build.</li><li>Review Impact and Results, then download the workbook.</li></ol></div></div>${closeoutChecklistHtml()}`;
 }
 function renderSystemConfiguration() {
-  return `<div class="system-config-panel"><div class="section-note">Maintenance utilities for this workspace — pricing snapshots, backups, CSV export, the recent-change log, and the raw System Configuration Console. Plan assumptions, optional modules, the field finder, and workbook formatting are now pages in the left nav under Settings.</div><section class="system-config-section"><div class="system-config-grid"><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('pricing_mode')" onfocus="showConfigCardHelp('pricing_mode')"><h3>Pricing mode</h3><p class="small">Check live/cache/fallback pricing status, refresh live quotes when the cache looks stale, then freeze a saved price snapshot when reports need reproducible advisor values.</p><button class="btn" type="button" data-step-id="build_impact" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Open Build History</button> <button class="btn primary" type="button" onclick="event.stopPropagation();refreshLivePrices()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Refresh Prices</button> <button class="btn" type="button" onclick="event.stopPropagation();freezePricingSnapshot()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Freeze latest prices</button> <button class="btn" type="button" onclick="event.stopPropagation();unfreezePricingSnapshot()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Unfreeze prices</button></div>${localBackupControlsHtml()}<div class="feature-card" tabindex="0" onclick="showConfigCardHelp('session_changes')" onfocus="showConfigCardHelp('session_changes')"><h3>Session changes</h3>${recentChangesLogHtml()}</div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('system_config_console')" onfocus="showConfigCardHelp('system_config_console')"><h3>System configuration console</h3><p class="small">Maintain pricing providers, build timeout, tax constants, reference files, diagnostics, and raw system configuration rows. Opens as its own page.</p><button class="btn primary" type="button" onclick="event.stopPropagation();openSystemConfigurationConsole()" onfocus="event.stopPropagation();showConfigCardHelp('system_config_console')">Open System Configuration Console</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('csv_backup')" onfocus="showConfigCardHelp('csv_backup')"><h3>CSV backup</h3><p class="small">Export a CSV backup of holdings, transactions, target allocations, and reference data for recovery or external review.</p><button class="btn" type="button" onclick="event.stopPropagation();exportCsvBackup()" onfocus="event.stopPropagation();showConfigCardHelp('csv_backup')">Export CSV backup</button></div></div></section></div>`;
+  return `<div class="system-config-panel"><div class="section-note">Maintenance utilities for this workspace — pricing snapshots, backups, CSV export, the recent-change log, and the raw System Configuration Console. Plan assumptions, optional modules, the field finder, and workbook formatting are now pages in the left nav under Settings.</div><section class="system-config-section"><div class="system-config-grid"><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('pricing_mode')" onfocus="showConfigCardHelp('pricing_mode')"><h3>Pricing mode</h3><p class="small">Check live/cache/fallback pricing status, refresh live quotes when the cache looks stale, then freeze a saved price snapshot when reports need reproducible advisor values.</p><button class="btn" type="button" data-step-id="build_impact" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Open Build History</button> <button class="btn primary" type="button" onclick="event.stopPropagation();refreshLivePrices()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Refresh Prices</button> <button class="btn" type="button" onclick="event.stopPropagation();freezePricingSnapshot()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Freeze latest prices</button> <button class="btn" type="button" onclick="event.stopPropagation();unfreezePricingSnapshot()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Unfreeze prices</button></div>${localBackupControlsHtml()}<div class="feature-card" tabindex="0" onclick="showConfigCardHelp('session_changes')" onfocus="showConfigCardHelp('session_changes')"><h3>Session changes</h3>${recentChangesLogHtml()}</div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('system_config_console')" onfocus="showConfigCardHelp('system_config_console')"><h3>System configuration console</h3><p class="small">Maintain pricing providers, build timeout, tax constants, reference files, diagnostics, and raw system configuration rows. Opens as its own page.</p><button class="btn primary" type="button" onclick="event.stopPropagation();openSystemConfigurationConsole()" onfocus="event.stopPropagation();showConfigCardHelp('system_config_console')">Open System Configuration Console</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('annualized_actuals')" onfocus="showConfigCardHelp('annualized_actuals')"><h3>Annualized actuals</h3><p class="small">Re-baseline the plan by overwriting <b>every</b> category budget with its annualized current-year spend. New transaction categories are merged into the taxonomy. Bulk overwrite with no undo — export a backup first.</p><button class="btn" type="button" onclick="event.stopPropagation();loadAnnualizedActuals()" onfocus="event.stopPropagation();showConfigCardHelp('annualized_actuals')">Load annualized current spend</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('csv_backup')" onfocus="showConfigCardHelp('csv_backup')"><h3>CSV backup</h3><p class="small">Export a CSV backup of holdings, transactions, target allocations, and reference data for recovery or external review.</p><button class="btn" type="button" onclick="event.stopPropagation();exportCsvBackup()" onfocus="event.stopPropagation();showConfigCardHelp('csv_backup')">Export CSV backup</button></div></div></section></div>`;
 }
 
 // Workbook formatting (Settings → Manage Workbook Formatting) moved to
@@ -5408,15 +5315,6 @@ function openSystemConfigurationConsole() {
 }
 
 const DEFAULT_TRAVEL_TYPES = ["Wedding", "Large Gifts", "Other"];
-function travelTypeList() {
-  return [
-    ...new Set([
-      ...(travelTypes || []),
-      ...DEFAULT_TRAVEL_TYPES,
-      ...travelExtras.map((e) => e.type).filter(Boolean),
-    ]),
-  ].sort((a, b) => a.localeCompare(b));
-}
 function setAutoLoad(v) {
   try {
     localStorage.setItem("rpAutoLoad", v ? "1" : "0");
@@ -5880,25 +5778,6 @@ function renderRetirementIncome() {
     "</details>";
   return ssSection + renderIncomeStreamsSection();
 }
-async function seedWellnessOop() {
-  try {
-    const out = await api("/api/healthcare/seed", { method: "POST" });
-    if (out && out.seeded > 0) {
-      await loadAll({ source: planSource, preferLocal: false, silent: true });
-      activeStep = "retirement_wellness";
-      renderMain();
-      showMessage(
-        "Out-of-pocket detail fields added (" +
-          out.seeded +
-          " rows). Save Changes to persist.",
-      );
-    } else {
-      showMessage("Out-of-pocket detail fields already present.");
-    }
-  } catch (e) {
-    showMessage("Error seeding OOP fields: " + e.message, "error");
-  }
-}
 function renderRetirementWellness() {
   if (searchText.trim()) return renderFields("retirement_wellness");
   let html =
@@ -6328,11 +6207,6 @@ function renderSpendingHousing() {
 }
 
 
-
-
-
-
-
 let liabilityRowsCache = null;
 function parseCsvLine(line) {
   const out = [];
@@ -6483,23 +6357,6 @@ async function saveLiabilities() {
   return { updated: 1 };
 }
 
-
-function matrixKey(section) {
-  return "matrix:" + section;
-}
-function markMatrixDirty(section) {
-  lastBuildOk = false;
-  updateUnsaved();
-  if (
-    row &&
-    row.section === "Asset Allocation Policy" &&
-    norm(row.label).includes("target_pct")
-  ) {
-    const box = document.getElementById("allocationTargetTotal");
-    if (box) box.outerHTML = allocationTotalHtml();
-  }
-  scheduleStatusUpdate();
-}
 
 function matrixYears(rs) {
   return [
@@ -6723,17 +6580,8 @@ const ROTH_WINDOW_LABELS = [
   "max_annual_conversion_pct_of_traditional_ira",
 ];
 const IRMAA_OFF_MODES = ["IGNORE", "WARN_ONLY", "NONE", "OFF"];
-function rowsByLabel(labels) {
-  const want = new Set(labels.map(norm));
-  return rowsForStep("roth_conversion").filter((r) => want.has(norm(r.label)));
-}
-
 function orderedRowsByLabel(labels) {
   return labels.map(rowByNormLabel).filter(Boolean);
-}
-function rowsNotIn(labels) {
-  const used = new Set(labels.map(norm));
-  return rowsForStep("roth_conversion").filter((r) => !used.has(norm(r.label)));
 }
 function rothPolicyValue() {
   const r = rowByNormLabel("roth_conversion_policy");
@@ -7119,7 +6967,6 @@ function scenarioRowKeyFromParts(section, subsection, label) {
     "::",
   );
 }
-
 
 
 function scenarioTemplateById(id) {
@@ -7516,9 +7363,6 @@ function blurYtdTxnAmount(i, input) {
   }
   updateYtdTxn(i, "Amount", raw);
 }
-function ytdDate(v) {
-  return String(v || "");
-}
 function showYtdLoadOverlay() {
   setBuildOverlay(
     true,
@@ -7567,8 +7411,6 @@ function taxFreshnessBannerHtml() {
     .join("");
   return `<div class="section-note warning"><b>${rows.length} reference constant${rows.length === 1 ? " needs" : "s need"} annual review.</b> These drive tax brackets, IRMAA, Social Security, state tax, and capital market return calculations — confirm against the current-year source before relying on projections.<ul class="inapp-modal-list">${items}</ul><button class="btn tiny" type="button" onclick="setStep('system_configuration');setTimeout(()=>openSystemConfigurationConsole(),0)">Open tax-law dashboard</button></div>`;
 }
-
-
 
 
 function addYtdTxn() {
@@ -7622,9 +7464,6 @@ async function saveYtdTransactions() {
   }
 }
 
-function addYtdAccount() {
-  addSelectedYtdAccount();
-}
 async function deleteYtdAccount(i) {
   if (
     !(await showInAppConfirm("This cannot be undone.", {
@@ -7921,19 +7760,6 @@ function ytdIsGrowthRole(role) {
     role === "Pension"
   );
 }
-function ytdAccountOptions(selected, includeBlank = false) {
-  const opts = ytdTransactionAccounts();
-  let html = includeBlank ? '<option value=""></option>' : "";
-  html += opts
-    .map(
-      (o) =>
-        `<option value="${esc(o)}" ${String(selected || "") === o ? "selected" : ""}>${esc(o)}</option>`,
-    )
-    .join("");
-  if (selected && !opts.includes(selected))
-    html += `<option value="${esc(selected)}" selected>${esc(selected)} (not in current transactions)</option>`;
-  return html;
-}
 function ytdMappableAccounts() {
   const holding = ytdInvestmentHoldingAccounts();
   const annuityPension = (ytdData?.summary?.annuity_pension_accounts || [])
@@ -7956,17 +7782,6 @@ function ytdInvestmentOptions(selected) {
     html += `<option value="${esc(selected)}" selected>${esc(accountDisplayLabel(selected))} (not in accounts)</option>`;
   return html;
 }
-function ytdMissingAccountOptions() {
-  const existing = new Set(
-    (ytdData?.account_setup || [])
-      .map((r) => String(r.Account || "").trim())
-      .filter(Boolean),
-  );
-  return ytdTransactionAccounts()
-    .filter((a) => !existing.has(a))
-    .map((o) => `<option value="${esc(o)}">${esc(o)}</option>`)
-    .join("");
-}
 function makeYtdAccountRow(acct = "", role = "Cash / spending") {
   return {
     Account: acct,
@@ -7976,43 +7791,6 @@ function makeYtdAccountRow(acct = "", role = "Cash / spending") {
     "Prior Year End Balance": "0",
     "Current Value": role === "Investment" ? "" : "0",
   };
-}
-function addSelectedYtdAccount() {
-  if (!ytdData)
-    ytdData = {
-      transactions: [],
-      account_setup: [],
-      summary: { enabled: false },
-    };
-  ytdData.account_setup = ytdData.account_setup || [];
-  const sel = document.getElementById("ytdAddAccountSelect");
-  const acct = sel
-    ? String(sel.value || "").trim()
-    : ytdTransactionAccounts().find(
-        (a) =>
-          !(ytdData.account_setup || []).some(
-            (r) => String(r.Account || "") === a,
-          ),
-      ) || "";
-  if (!acct) {
-    showMessage(
-      "No unmapped transaction accounts are available to add. Use the inline Account/source name and Account type controls for pensions, annuities, offline assets, and other non-transaction rows.",
-      "error",
-    );
-    return;
-  }
-  if (
-    ytdData.account_setup.some((r) => String(r.Account || "").trim() === acct)
-  ) {
-    showMessage(
-      "That transaction account is already in the mapping table.",
-      "error",
-    );
-    return;
-  }
-  ytdData.account_setup.push(makeYtdAccountRow(acct, "Cash / spending", ""));
-  markYtdAccountsDirty();
-  renderMain();
 }
 function addManualYtdAccount() {
   if (!ytdData)
@@ -8246,12 +8024,6 @@ function ytdMetricCard(
   const actualLabel = isLastYear ? "Actual (last year)" : "Actual YTD";
   return `<div class="ytd-metric"><h3>${esc(title)}</h3><div class="ytd-metric-values"><span><b>${ytdMoney(actual)}</b><small>${esc(actualLabel)}</small></span><span><b>${ytdMoney(forecast)}</b><small>${esc(forecastLabel)}</small></span></div>${ytdSparkline(series, actualKey, forecastKey, sparkOptions)}${extra ? `<p class="small">${esc(extra)}</p>` : ""}</div>`;
 }
-function renderYtdTopIncomeCategories() {
-  return "";
-}
-function renderYtdTopCategories() {
-  return "";
-}
 function renderYtdUploadPanel(enabled) {
   return `<div class="ytd-upload-panel"><input type="file" id="ytdUploadInput" accept=".csv,text/csv" style="display:none" onchange="handleYtdTransactionUpload(this)"><div><h3>Import transactions</h3><p class="small">Required CSV header: <code>Date, Merchant, Category, Account, Original Statement, Notes, Amount, Tags, Owner</code>. All rows with a valid date are imported, regardless of year. Use the Year-to-date / Last year toggle above to choose which calendar year's actuals are shown.</p></div><div class="table-actions"><select id="ytdUploadMode"><option value="replace">Replace all</option><option value="incremental">Add without replacing</option></select><button class="btn primary" type="button" data-requires-app="1" onclick="document.getElementById('ytdUploadInput').click()">Preview &amp; import CSV</button><button class="btn" type="button" data-requires-app="1" onclick="downloadYtdTemplate()">Download Template</button>${enabled ? `<button class="btn" type="button" data-requires-app="1" onclick="deduplicateYtdTransactions()">Remove Duplicates</button>` : ""} ${enabled ? `<button class="btn danger" type="button" data-requires-app="1" onclick="deleteAllYtdTransactions()">Delete All</button>` : ""}</div></div>`;
 }
@@ -8332,12 +8104,6 @@ function ytdBlendToggleHtml() {
 function renderYtdTracking() {
   const enabled = !!ytdData?.summary?.enabled;
   return `<div class="holdings ytd-tracking"><h3 class="group-title">YTD spending and growth progress</h3>${enabled ? ytdActualsPeriodToggleHtml("tracking") : ""}${ytdBlendToggleHtml()}${renderYtdUploadPanel(enabled)}${renderYtdSummary()}</div>${renderYtdTransactions()}${renderYtdAccounts()}`;
-}
-function renderYtdCategoriesStep() {
-  if (!ytdData && typeof loadYtdStatus === "function") {
-    setTimeout(() => loadYtdStatus().then(() => renderMain()), 0);
-  }
-  return renderYtdAccounts();
 }
 function renderYtdTransactionsStep() {
   const enabled = !!ytdData?.summary?.enabled;
@@ -8737,11 +8503,6 @@ function setDetailedResultSheet(name) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, 0);
 }
-function detailColumnGroupKey(section, groupIndex) {
-  return `${String(section?.title || "section")
-    .replace(/[^a-z0-9]+/gi, "_")
-    .slice(0, 42)}_${Number(section?.start_row || 0)}_${groupIndex}`;
-}
 function toggleDetailColumnGroup(key) {
   detailedColumnGroupsOpen[key] = detailedColumnGroupsOpen[key] === false;
   saveWorkbookViewState();
@@ -8872,100 +8633,6 @@ function renderBuildPreflightPanel() {
   return `<div class="preflight-panel ${cls}"><div><h3>${esc(title)}</h3>${body}</div><div class="preflight-actions"><button class="btn" type="button" onclick="refreshPreflightForReview()">Refresh Preflight</button></div></div>`;
 }
 
-function reportFreshnessNotice() {
-  if (planStateFresh()) return "";
-  let msg = "These report outputs may not match the current saved plan.";
-  if (unsavedChangeCount())
-    msg =
-      "There are unsaved edits. Save and rebuild before using these reports as final.";
-  else if (
-    buildPreflight &&
-    buildPreflight.warnings &&
-    buildPreflight.warnings.length
-  )
-    msg = buildPreflight.warnings[0];
-  return `<div class="section-note warning report-freshness-notice"><b>Reports may be stale.</b> ${esc(msg)} <button class="btn" type="button" onclick="goToReportsTab('Build')">Go to Build →</button></div>`;
-}
-function closeoutItem(cls, title, body, action) {
-  return `<div class="closeout-item ${esc(cls)}"><span class="closeout-status">${esc(cls === "done" ? "Done" : cls === "warn" ? "Review" : "Next")}</span><div><b>${esc(title)}</b><p>${esc(body)}</p>${action || ""}</div></div>`;
-}
-function renderReviewCloseoutChecklist(stats, ready, unsaved) {
-  const p = buildPreflight || {},
-    pricing = p.pricing_status || p.pricing_mode || "not checked",
-    artifacts = planStateArtifactsReady();
-  const qc =
-    (lastBuildSummary && lastBuildSummary.qc_result) ||
-    (p.summary && p.summary.qc_result) ||
-    "not reviewed";
-  let html =
-    '<section class="review-closeout"><div class="review-closeout-head"><div><span class="eyebrow">Review-and-Build closeout</span><h3>Final report sequence</h3><p class="small">Use this order for a low-risk final package: validate inputs, save, confirm pricing, run preflight, build, inspect QC, review Plan Data Summary, then download.</p></div><button class="btn primary" type="button" data-requires-app="1" onclick="runBuild(false)">Build Reports</button></div><div class="closeout-list">';
-  html += closeoutItem(
-    ready ? "done" : "warn",
-    "Validate required inputs",
-    ready
-      ? "Required fields and holdings are ready."
-      : "Complete required fields and add at least one valid holding before final reports.",
-    `<button class="btn tiny" type="button" data-step-id="review">Review missing inputs</button>`,
-  );
-  html += closeoutItem(
-    unsaved ? "warn" : "done",
-    "Save working copy",
-    unsaved
-      ? `${unsaved} pending change${unsaved === 1 ? "" : "s"} need to be saved or will be saved by the build.`
-      : "No unsaved edits are currently staged.",
-    `<button class="btn tiny" type="button" data-requires-app="1" onclick="saveAll(true)">Save Changes</button>`,
-  );
-  html += closeoutItem(
-    p.pricing_status || p.pricing_mode ? "done" : "warn",
-    "Refresh or freeze pricing",
-    `Pricing mode/status: ${pricing}. Freeze prices when reports need reproducible advisor values.`,
-    `<button class="btn tiny" type="button" onclick="freezePricingSnapshot()">Freeze latest prices</button> <button class="btn tiny" type="button" onclick="unfreezePricingSnapshot()">Unfreeze</button>`,
-  );
-  html += closeoutItem(
-    buildPreflight
-      ? p.blockers && p.blockers.length
-        ? "warn"
-        : "done"
-      : "todo",
-    "Run preflight",
-    buildPreflight
-      ? `Readiness: ${p.readiness || "checked"}. Warnings: ${(p.warnings || []).length}. Blockers: ${(p.blockers || []).length}.`
-      : "Refresh preflight before starting a long build.",
-    `<button class="btn tiny" type="button" onclick="refreshPreflightForReview()">Refresh Preflight</button>`,
-  );
-  html += closeoutItem(
-    artifacts ? "done" : "todo",
-    "Build report package",
-    artifacts
-      ? "Workbook, summary, and results model artifacts are present."
-      : "Build reports to create the workbook, PDF, dashboard, and Results Explorer model.",
-    `<button class="btn tiny primary" type="button" data-requires-app="1" onclick="runBuild(false)">Build Reports</button>`,
-  );
-  html += closeoutItem(
-    planStateFresh() ? "done" : "warn",
-    "Inspect QC and Build History",
-    planStateFresh()
-      ? `Reports are current. QC: ${qc}.`
-      : "Open Build History after a successful current build and check QC/fingerprints.",
-    `<button class="btn tiny" type="button" data-step-id="build_impact">Open Build History</button>`,
-  );
-  html += closeoutItem(
-    "todo",
-    "Inspect Plan Data Summary",
-    "Print or save the read-only input packet before sharing final reports.",
-    `<button class="btn tiny" type="button" data-step-id="plan_data_report">Open Plan Data Summary</button>`,
-  );
-  html += closeoutItem(
-    artifacts ? "done" : "todo",
-    "Download final outputs",
-    artifacts
-      ? "Outputs can be downloaded; downloads rebuild first if needed."
-      : "Download after build, or use Download Workbook/PDF to save, build, and deliver in one action.",
-    `<button class="btn tiny good" type="button" data-requires-app="1" onclick="downloadWithBuild('/api/xlsx','Workbook')">Workbook</button> <button class="btn tiny good" type="button" data-requires-app="1" onclick="downloadWithBuild('/api/pdf','PDF')">PDF</button>`,
-  );
-  html += "</div></section>";
-  return html;
-}
 function renderReview() {
   const fresh = planStateFresh();
   const arts = planStateArtifactsReady();
@@ -9247,7 +8914,6 @@ async function loadMappingRules(force) {
 }
 
 
-
 function addMappingRule() {
   if (!mappingRules) mappingRules = [];
   mappingRules.unshift({
@@ -9317,108 +8983,6 @@ function renderCategoryMappingRules() {
 }
 
 
-
-
-async function reloadBudgetLineDefaults() {
-  if (
-    !(await showInAppConfirm(
-      "All spending budget rows will be replaced with defaults. Unsaved edits will be lost.",
-      {
-        title: "Reload Defaults",
-        confirmLabel: "Replace with Defaults",
-        variant: "warn",
-      },
-    ))
-  )
-    return;
-  try {
-    const out = await api("/api/spending/budget-lines/defaults");
-    budgetLines = out && out.success ? out.lines || [] : [];
-    budgetSectionMode = {};
-    budgetLines.forEach((l) => {
-      if (l.mode === "summary") budgetSectionMode[l.section] = "summary";
-    });
-    budgetLinesChanged = true;
-    markBudgetLinesDirty();
-    renderMain();
-  } catch (e) {
-    showMessage("Error loading defaults: " + e.message, "error");
-  }
-}
-
-function budgetSectionLines(section) {
-  return budgetLines.filter((l) => l.section === section);
-}
-function budgetSectionIsSummary(section) {
-  return budgetSectionMode[section] === "summary";
-}
-function setBudgetSectionMode(section, mode) {
-  budgetSectionMode[section] = mode;
-  budgetLines.forEach((l) => {
-    if (l.section === section) l.mode = mode;
-  });
-  markBudgetLinesDirty();
-  renderMain();
-}
-function addBudgetLine(section) {
-  const prefix =
-    {
-      large_discretionary: "ld",
-      home_improvement: "hi",
-      travel: "tr",
-      gifts_charity: "gc",
-    }[section] || "bl";
-  budgetLines.push({
-    section,
-    line_id: prefix + "_" + (Date.now() % 100000),
-    label: "",
-    category_id: "",
-    start_year: "",
-    end_year: "",
-    one_time_year: "",
-    amount_per_year: "",
-    mode: budgetSectionIsSummary(section) ? "summary" : "detail",
-    notes: "",
-  });
-  markBudgetLinesDirty();
-  renderMain();
-}
-async function deleteBudgetLine(lineId) {
-  if (
-    !(await showInAppConfirm("This cannot be undone.", {
-      title: "Delete Budget Row",
-      confirmLabel: "Delete",
-      variant: "danger",
-    }))
-  )
-    return;
-  budgetLines = budgetLines.filter((l) => l.line_id !== lineId);
-  markBudgetLinesDirty();
-  renderMain();
-}
-function updateBudgetLine(lineId, field, val) {
-  const l = budgetLines.find((x) => x.line_id === lineId);
-  if (!l) return;
-  l[field] = val;
-  markBudgetLinesDirty();
-}
-function taxonomyCategoryOptionsHtml(selected) {
-  let html = '<option value="">— map to category —</option>';
-  (taxonomyData || [])
-    .filter((t) => t.tracking_type !== "Income")
-    .forEach((t) => {
-      (t.groups || []).forEach((g) => {
-        (g.categories || []).forEach((c) => {
-          html += `<option value="${esc(c.id)}"${c.id === selected ? " selected" : ""}>${esc(t.tracking_type)} › ${esc(g.group)} › ${esc(c.label)}</option>`;
-        });
-      });
-    });
-  return html;
-}
-
-
-
-
 function catEffectiveBudget(catId) {
   if (categoryBudgetMode[catId] === "detail") return catDetailSum(catId);
   if (hasExplicitBudget(catId))
@@ -9451,7 +9015,6 @@ function groupCatIds(tt, grp) {
   });
   return ids;
 }
-
 
 
 function groupEffectiveBudget(tt, grp) {
@@ -9499,14 +9062,6 @@ function spendingRowProjectionSeed(row) {
           : row.budget),
   );
 }
-function spendingRowHasValue(row) {
-  return !!(
-    spendingRowYtd(row) ||
-    spendingRowAnnualized(row) ||
-    spendingRowBudget(row) ||
-    spendingRowProjectionSeed(row)
-  );
-}
 function setGroupBudgetMode(tt, grp, mode) {
   groupBudgetMode[tt + "::" + grp] = mode;
   const gk = groupKeyFor(tt, grp);
@@ -9525,30 +9080,6 @@ function setGroupBudgetMode(tt, grp, mode) {
   renderMain();
 }
 
-function setCategoryBudgetMode(catId, mode) {
-  categoryBudgetMode[catId] = mode;
-  if (mode === "detail") syncCategoryTotal(catId);
-  markBudgetLinesDirty();
-  renderMain();
-}
-function addCategoryDetailRow(catId) {
-  budgetLines.push({
-    section: "category_budget",
-    line_id: "cb_" + (Date.now() % 1000000),
-    label: "",
-    category_id: catId,
-    start_year: "",
-    end_year: "",
-    one_time_year: "",
-    amount_per_year: "",
-    mode: "detail",
-    notes: "",
-  });
-  categoryBudgetMode[catId] = "detail";
-  syncCategoryTotal(catId);
-  markBudgetLinesDirty();
-  renderMain();
-}
 function addGroupDetailRow(tt, grp) {
   const cats = groupCatIds(tt, grp);
   const catId = cats[0] || "";
@@ -9589,28 +9120,6 @@ function deleteCategoryDetailRow(lineId, catId) {
   markBudgetLinesDirty();
   renderMain();
 }
-async function deleteCategoryBudget(catId, label) {
-  if (
-    !(await showInAppConfirm(
-      'All budget entries for "' + label + '" will be cleared.',
-      {
-        title: "Remove Budget Entries",
-        confirmLabel: "Remove",
-        variant: "warn",
-      },
-    ))
-  )
-    return;
-  budgetLines = (budgetLines || []).filter((l) => l.category_id !== catId);
-  taxBudget[catId] = { annual_budget: 0, notes: "", _delete: true };
-  delete categoryBudgetMode[catId];
-  taxBudgetChanged = true;
-  syncTaxonomyBudgetToBudgetLines();
-  markBudgetLinesDirty();
-  renderMain();
-}
-
-
 async function recoverPriorSpendingBudget() {
   if (
     !(await showInAppConfirm(
@@ -9692,120 +9201,6 @@ async function loadAnnualizedActuals() {
     showMessage("Error loading actuals: " + e.message, "error");
   }
 }
-async function saveSpendingBudgetAll() {
-  try {
-    if (budgetLinesChanged)
-      await api("/api/spending/budget-lines", {
-        method: "POST",
-        body: JSON.stringify({ lines: budgetLines }),
-      });
-    if (taxBudgetChanged) {
-      await api("/api/spending/budget/taxonomy/save", {
-        method: "POST",
-        body: JSON.stringify({ budget: taxBudget }),
-      });
-      syncTaxonomyBudgetToBudgetLines();
-    }
-    budgetLinesChanged = false;
-    taxBudgetChanged = false;
-    renderMain();
-    showMessage("Spending category changes saved.");
-  } catch (e) {
-    showMessage("Error saving spending budget: " + e.message, "error");
-  }
-}
-
-function renderTaxonomyBudgetTable() {
-  if (!taxBudgetLoaded) {
-    setTimeout(() => loadTaxonomyBudget(false), 0);
-  }
-  const data = taxonomyData || [];
-  const expenseTypes = data.filter((t) => t.tracking_type !== "Income");
-  if (!expenseTypes.length)
-    return '<div class="question"><b>Loading…</b></div>';
-  let html = "";
-  html +=
-    '<div class="table-actions"><button class="btn" onclick="loadAnnualizedActuals()" title="Overwrite every category budget with its annualized current-year spend; new transaction categories are merged into the taxonomy">Load annualized current spend</button></div>';
-  html +=
-    '<div class="section-note small">Each <b>group</b> can be set as a single <b>Summary</b> total or expanded to <b>Detail</b> per category. In Detail mode each category supports multiple rows with optional start / end years — useful for time-bounded spending like travel or large events.</div>';
-  let grandTotal = 0;
-  expenseTypes.forEach(function (t) {
-    (t.groups || []).forEach(function (g) {
-      grandTotal += groupEffectiveBudget(t.tracking_type, g.group);
-    });
-  });
-  html += '<div class="taxonomy-tree">';
-  expenseTypes.forEach(function (typeData) {
-    const tt = typeData.tracking_type;
-    if (tt === "Housing") {
-      html += `<details class="taxonomy-type-section" data-dkey="budgtt:Housing"><summary><b>Housing</b> <span class="small" style="font-weight:400;color:var(--muted)">managed on Housing page</span></summary><div class="taxonomy-group"><div class="section-note">Mortgage, insurance, utilities, maintenance, and home improvements are entered on the Housing page and flow into the projection automatically. <button class="btn" style="padding:2px 10px;font-size:12px" data-step-id="spending_mortgage_events">Go to Housing page →</button></div></div></details>`;
-      return;
-    }
-    if (tt === "Wellness") {
-      html += `<details class="taxonomy-type-section" data-dkey="budgtt:Wellness"><summary><b>Wellness</b> <span class="small" style="font-weight:400;color:var(--muted)">managed on Wellness page</span></summary><div class="taxonomy-group"><div class="section-note">Bridge premiums, Medicare costs, and out-of-pocket estimates are entered on the Wellness page and flow into the projection directly. <button class="btn" style="padding:2px 10px;font-size:12px" data-step-id="retirement_wellness">Go to Wellness page →</button></div></div></details>`;
-      return;
-    }
-    let ttTotal = 0;
-    (typeData.groups || []).forEach((g) => {
-      ttTotal += groupEffectiveBudget(tt, g.group);
-    });
-    html += `<details class="taxonomy-type-section" data-dkey="budgtt:${esc(tt)}"><summary><b>${esc(tt)}</b>${ttActual || ttAnnualized || ttTotal ? ` <span class="small">Actual ${dollars0(ttActual)} · Annualized ${dollars0(ttAnnualized)} · Budget ${dollars0(ttTotal)}/yr</span>` : ""}</summary>`;
-    (typeData.groups || []).forEach(function (grp) {
-      const gname = grp.group;
-      const gj = esc(gname).replace(/'/g, "\\'");
-      const gmode = groupIsSummary(tt, gname) ? "summary" : "detail";
-      const gk = groupKeyFor(tt, gname);
-      const catSum = groupCatSum(tt, gname);
-      const eff = groupEffectiveBudget(tt, gname);
-      const catCount = (grp.categories || []).length;
-      html += `<div class="taxonomy-group"><h4 class="taxonomy-group-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span>${esc(gname)}</span><span class="small" style="font-weight:400">Actual ${dollars0(grp.actual)} · Annualized ${dollars0(grp.annualized)} · Budget ${dollars0(eff)}/yr</span><span style="margin-left:auto"><button class="btn ${gmode === "summary" ? "primary" : ""}" style="padding:0 8px" ${readOnlyRef ? "disabled " : ""}onclick="setGroupBudgetMode('${esc(tt)}','${gj}','summary')">Summary</button> <button class="btn ${gmode === "detail" ? "primary" : ""}" style="padding:0 8px" ${readOnlyRef ? "disabled " : ""}onclick="setGroupBudgetMode('${esc(tt)}','${gj}','detail')">Detail</button></span></h4>`;
-      if (gmode === "summary") {
-        // #231: Travel/Large Discretionary group budgets are time-bounded in
-        // the projection (spending_budget_resolver.py TIME_BOUNDED_LINE_TRACKING_TYPES)
-        // -- only these two tracking types honor start/end year on the group
-        // row, so only show the fields where they actually take effect.
-        const gYearFields = ["Travel", "Large Discretionary"].includes(tt)
-          ? `<label class="small">Start year&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="number" value="${esc((taxBudget[gk] || {}).start_year || "")}" placeholder="plan start" oninput="updateTaxBudget('${esc(gk)}','start_year',this.value)" style="width:90px"> <label class="small">End year&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="number" value="${esc((taxBudget[gk] || {}).end_year || "")}" placeholder="plan end" oninput="updateTaxBudget('${esc(gk)}','end_year',this.value)" style="width:90px"> `
-          : "";
-        html += `<div class="table-actions"><label class="small">Group budget / yr&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue((taxBudget[gk] || {}).annual_budget))}" placeholder="${catSum > 0 ? dollars0(catSum) : "$0"}" onfocus="focusBudgetMoney(this)" oninput="updateTaxBudgetMoney('${esc(gk)}','annual_budget',this)" onblur="blurBudgetMoney(this)" style="width:140px"> ${gYearFields}<span class="small">categories hidden</span></div>`;
-      } else {
-        html += '<div class="budget-cat-detail-list">';
-        (grp.categories || []).forEach(function (cat) {
-          const catId = cat.id;
-          const cidEsc = esc(catId);
-          const lines = catDetailLines(catId);
-          const b = taxBudget[catId] || {};
-          const hasData = lines.length > 0 || Number(b.annual_budget) > 0;
-          const lineTotal = catDetailSum(catId);
-          const displayTotal = lineTotal || Number(b.annual_budget) || 0;
-          html += `<div class="budget-cat-entry"><div class="budget-cat-header" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)"><span class="budget-cat-name" style="font-weight:500">${esc(cat.label)}</span>${hasData ? `<span class="small" style="color:var(--muted)">$${Math.round(displayTotal).toLocaleString()}/yr</span>` : ""}${hasData ? `<span style="margin-left:auto"><button class="danger-link" style="font-size:11px" onclick="deleteCategoryBudget('${cidEsc}','${esc(cat.label)}')">Delete</button></span>` : `<span style="margin-left:auto"></span>`}<button class="btn" style="padding:0 8px;font-size:11px" ${readOnlyRef ? "disabled " : ""}onclick="addCategoryDetailRow('${cidEsc}')">+ Add row</button></div>`;
-          if (lines.length > 0) {
-            html += `<table class="lot-table budget-cat-lines-table" style="margin:0 0 4px 12px;width:calc(100% - 12px)"><thead><tr><th>Label</th><th>Start year</th><th>End year</th><th>Amount / yr</th><th></th></tr></thead><tbody>`;
-            lines.forEach(function (l) {
-              const lid = esc(l.line_id);
-              html += `<tr><td><input value="${esc(l.label || "")}" placeholder="e.g. Europe trip" oninput="updateCategoryDetail('${lid}','label',this.value,'${cidEsc}')" style="width:140px"></td><td><input type="number" value="${esc(l.start_year || "")}" placeholder="—" oninput="updateCategoryDetail('${lid}','start_year',this.value,'${cidEsc}')" style="width:80px"></td><td><input type="number" value="${esc(l.end_year || "")}" placeholder="forever" oninput="updateCategoryDetail('${lid}','end_year',this.value,'${cidEsc}')" style="width:80px"></td><td><input type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue(l.amount_per_year))}" placeholder="$0" onfocus="focusBudgetMoney(this)" oninput="updateCategoryDetailMoney('${lid}','amount_per_year',this,'${cidEsc}')" onblur="blurBudgetMoney(this)" style="width:110px"></td><td><button class="danger-link" onclick="deleteCategoryDetailRow('${lid}','${cidEsc}')">×</button></td></tr>`;
-            });
-            html += `</tbody></table>`;
-          }
-          html += `</div>`;
-        });
-        html += "</div>";
-      }
-      html += `</div>`;
-    });
-    html += `</details>`;
-  });
-  html += `<div class="section-note" style="margin-top:12px"><b>Total annual budget: $${Math.round(grandTotal).toLocaleString()}</b></div>`;
-  html += `</div>`;
-  return html;
-}
-
-
-
-
-
-
-
 function trackingBudgetTypesForDomain(domain) {
   if (domain === "core")
     return [
@@ -9833,19 +9228,6 @@ function domainBudgetNote(domain) {
   if (domain === "travel")
     return "Travel is the only editable place for recurring travel projection inputs plus transaction-based travel detail. Domestic-travel and lifestyle labels are intentionally not used here.";
   return "Large Discretionary Budget Detail supports only Wedding, Large Gifts, and Other projection rows.";
-}
-function domainLineSections(domain) {
-  if (domain === "housing") return ["home_improvement"];
-  if (domain === "travel") return ["travel"];
-  if (domain === "large_discretionary") return ["large_discretionary"];
-  return ["category_budget"];
-}
-function lineBelongsToDomain(line, domain) {
-  const secs = domainLineSections(domain);
-  return secs.includes(String(line.section || ""));
-}
-function visibleBudgetLinesForDomain(domain) {
-  return (budgetLines || []).filter((l) => lineBelongsToDomain(l, domain));
 }
 function loadTemplateGroup(tt, grp) {
   api("/api/spending/restore-template", {
@@ -9930,6 +9312,19 @@ function renderDomainBudgetTable(domain) {
   let html = "";
   if (domain === "core") {
     html += `<details class="section-note help-detail"><summary style="cursor:pointer;font-weight:500;list-style:none;display:flex;align-items:center;gap:6px"><span style="font-size:13px">▸</span> Annual Budget vs. Projection Seed — when do they differ?</summary><div style="margin-top:8px"><p class="small"><b>Annual Budget</b> is what you entered. <b>Projection Seed</b> is what the engine uses as the year-one spending base for that category. In most cases they are equal. They diverge in four scenarios:</p><ul class="small" style="margin:6px 0 0 18px;line-height:1.8"><li><b>Cap/reference categories</b> (e.g., Medical OOP Cap in Wellness): Annual Budget holds the cap value so you can see it; Projection Seed is forced to <b>$0</b> because a cap is a ceiling on out-of-pocket costs, not a recurring spending input.</li><li><b>Group in Summary mode</b>: The single group-level override number becomes the Projection Seed for the whole group. Any per-category Annual Budget values that were entered before switching to Summary are stale — the engine ignores them and uses the group total.</li><li><b>Detail-line total disagrees with the Annual Budget override</b>: In Detail mode, Projection Seed equals the sum of the detail lines. If you also typed a manual value in the Annual field, it is stored but overridden by the line sum in the projection.</li><li><b>$0 budget categories with transaction history</b>: The category appears in the table because transactions were imported, but Projection Seed = $0, so it contributes nothing to the projected spend base.</li></ul><p class="small" style="margin-top:8px">The <b>Projection Seed</b> column in each group header shows the value that feeds the projection. If it looks wrong compared to Annual Budget, check whether Summary mode is active or whether a cap/reference flag is set on that category.</p></div></details>`;
+  }
+  // #1000: bulk "overwrite every category budget with its annualized current
+  // spend". Shown only on the core domain because it rewrites EVERY category
+  // in the taxonomy, not just the domain being viewed -- repeating it on each
+  // domain tab would imply a per-domain scope it does not have.
+  //
+  // Deliberately NOT guarded by readOnlyRef: that const is declared per
+  // tracking type inside the data.forEach below (it means "this tracking type
+  // is budgeted on its source page"), so it is both out of scope here and the
+  // wrong question to ask -- there is no workspace-wide read-only mode. The
+  // showInAppConfirm() inside loadAnnualizedActuals is the guard.
+  if (domain === "core") {
+    html += `<div class="table-actions"><button class="btn" type="button" onclick="loadAnnualizedActuals()" title="Overwrite every category budget with its annualized current-year spend; new transaction categories are merged into the taxonomy">Load annualized current spend</button> <span class="small" style="color:var(--muted)">Overwrites all category budgets across every tracking type.</span></div>`;
   }
   html += '<div class="taxonomy-tree">';
   data.forEach(function (typeData) {
@@ -10143,38 +9538,8 @@ function renderLargeDiscretionaryBudgetPage() {
   return html;
 }
 
-function renderSpendingBudgetInput() {
-  return renderDomainBudgetPage("core");
-}
-
 function renderSpendingSetup() {
   return renderCoreSpendingUnified();
-}
-
-async function saveSpendingSetupAll() {
-  try {
-    await Promise.all([
-      rulesChanged ? saveMappingRulesData() : Promise.resolve(),
-      taxBudgetChanged ? saveTaxonomyBudgetData() : Promise.resolve(),
-      budgetLinesChanged ? saveBudgetLines() : Promise.resolve(),
-    ]);
-    showMessage("Spending Categories saved.", "success");
-    renderMain();
-  } catch (e) {
-    showMessage("Error saving spending setup: " + e.message, "error");
-  }
-}
-async function reloadSpendingSetup() {
-  clearSpendingCaches();
-  mappingRules = null;
-  await Promise.all([
-    loadTaxonomy(true),
-    loadSpendingModel(true),
-    loadBudgetLines(true),
-    loadTaxonomyBudget(true),
-    loadMappingRules(true),
-  ]);
-  renderMain();
 }
 
 function renderSpendingDashboardOrLoad() {
@@ -10742,17 +10107,6 @@ function renderSpecialStrategies() {
   html += "</div>";
   return html;
 }
-function renderDafConfig() {
-  if (!optionalFunctionEnabled("charitable_giving"))
-    return `<div class="section-note">Donor-advised fund inputs are hidden until Charitable Giving is enabled under <a href="#" onclick="setStep('optional_functions');return false">Optional Modules</a>.</div>`;
-  const rs = rows.filter(
-    (r) => isEditable(r) && friendlyGroup(r) === "DAF",
-  );
-  if (!rs.length)
-    return `<div class="section-note">No DAF rows found in Plan Data. Reload Plan Data, or add a [DAF][Settings] section.</div>`;
-  const recPanel = window.dafRecommendationPanelHtml ? window.dafRecommendationPanelHtml() : "";
-  return `<div class="section-note">Contribution amount/year fund the DAF in a lump sum (tax-deductible up to 60% of AGI cash / 30% of AGI appreciated holdings in the contribution year); annual grant amount/start/end schedule ongoing charitable distributions out of the DAF balance. See Charitable Giving in the workbook report for the full sizing detail.</div>${recPanel}<div class="field-list">${rs.map(fieldHtml).join("")}</div>`;
-}
 function renderLifestyleSpending() {
   // #269: DAF settings duplicate Special Strategies -> Charitable Giving; drop here.
   return `<div class="lifestyle-workspace"><details><summary>Travel</summary>${renderTravelBudgetPage()}</details><details><summary>Large Items</summary>${renderLargeDiscretionaryBudgetPage()}</details></div>`;
@@ -10963,7 +10317,6 @@ let renderMain = function() {
 };
 
 
-
 function wireStepNavigation() {
   return window.RetirementNavigation.wireStepNavigation(navigationContext());
 }
@@ -10978,11 +10331,6 @@ function setSearchScope(scope) {
 }
 function setCombinedSearch(q) {
   return window.RetirementNavigation.setCombinedSearch(navigationContext(), q);
-}
-function setSearch(q) {
-  searchText = q;
-  renderMain();
-  updateSearchToggle();
 }
 let statusTimer = null;
 
@@ -13696,7 +13044,6 @@ function fieldLikelyImpact(row, g) {
 // Every writer of #helpPanel must reveal it, not just fill it.
 
 
-
 async function fetchWithTimeout(url, opts = {}, timeoutMs = 1200) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -13940,11 +13287,6 @@ function downloadBlob(name, text) {
     a.remove();
   }, 500);
 }
-async function writeFileHandle(handle, content) {
-  const writable = await handle.createWritable();
-  await writable.write(content);
-  await writable.close();
-}
 async function fetchPlanDataFiles(opts = {}) {
   const out = {};
   const mergeProtected = opts.mergeProtectedClientData !== false;
@@ -13967,16 +13309,6 @@ async function fetchPlanDataFiles(opts = {}) {
   }
   return out;
 }
-async function ensurePlanFolderPermission(dirHandle, mode = "readwrite") {
-  if (!dirHandle || !dirHandle.queryPermission) return true;
-  let perm = await dirHandle.queryPermission({ mode });
-  if (perm === "granted") return true;
-  perm = await dirHandle.requestPermission({ mode });
-  return perm === "granted";
-}
-
-
-
 function normalizePlanDataTextForCompare(v) {
   return String(v ?? "")
     .replace(/\r\n/g, "\n")
@@ -14000,156 +13332,12 @@ async function saveCurrentPlanToSelectedFolderForBuild() {
   return true;
 }
 
-async function listFolderFileNames(dirHandle) {
-  const names = [];
-  if (!dirHandle || !dirHandle.values) return names;
-  try {
-    for await (const entry of dirHandle.values()) {
-      if (entry.kind === "file") names.push(entry.name);
-    }
-  } catch (_e) {}
-  return names.sort((a, b) => a.localeCompare(b));
-}
 function showPlanDataFileManifest(title, names) {
   showMessage(title || "CSV adapter folder selected.");
   activeStep = planLoaded ? "review" : "start";
   renderMain();
 }
 
-async function refreshFromPlanFolder(opts = {}) {
-  if (!planFolderHandle) return false;
-  const ok = await ensurePlanFolderPermission(planFolderHandle, "readwrite");
-  if (!ok)
-    throw new Error(
-      "Permission to read the selected CSV adapter folder was not granted.",
-    );
-  const contents = await readPlanDataFolderContents(
-    planFolderHandle,
-    opts.requireRequired !== false,
-  );
-  await pushPlanDataContents(contents);
-  lastBuildOk = false;
-  if (!opts.silent) showMessage("CSV set imported from the selected folder.");
-  return true;
-}
-function versionPrefixSuggestion() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `v${y}${m}${day}_${hh}${mm}_`;
-}
-async function writePlanDataFilesToFolder(dir, files, prefix = "") {
-  for (const name of PLAN_DATA_FILES) {
-    const h = await dir.getFileHandle(prefix + name, { create: true });
-    await writeFileHandle(h, files[name] || "");
-  }
-}
-function openPathPrompt(opts = {}) {
-  return new Promise((resolve) => {
-    const modal = document.getElementById("pathModal");
-    const title = document.getElementById("pathModalTitle");
-    const help = document.getElementById("pathModalHelp");
-    const input = document.getElementById("pathModalInput");
-    const note = document.getElementById("pathModalNote");
-    const browse = document.getElementById("pathModalBrowseBtn");
-    const cancel = document.getElementById("pathModalCancelBtn");
-    const primary = document.getElementById("pathModalPrimaryBtn");
-    title.textContent = opts.title || "Plan Data Folder";
-    help.textContent = opts.help || "Enter or browse to a CSV adapter folder.";
-    input.value = opts.defaultPath || "";
-    note.textContent =
-      opts.note ||
-      "Path save/load is available in local mode. Browse uses your browser folder picker when supported.";
-    browse.style.display = opts.allowBrowse === false ? "none" : "";
-    primary.textContent = opts.primaryText || "Continue";
-    function close(result) {
-      modal.style.display = "none";
-      browse.onclick = cancel.onclick = primary.onclick = null;
-      resolve(result);
-    }
-    browse.onclick = async () => {
-      if (window.showDirectoryPicker) {
-        try {
-          const pickerOpts = {
-            id: opts.pickerId || "retirement-plan-data",
-            mode: "readwrite",
-          };
-          if (planFolderHandle) pickerOpts.startIn = planFolderHandle;
-          const dir = await window.showDirectoryPicker(pickerOpts);
-          close({ action: "browse", dir });
-          return;
-        } catch (e) {
-          if (e && e.name === "AbortError") return;
-          showMessage("Folder browse error: " + e.message, "error");
-          return;
-        }
-      }
-      document.getElementById("planImport").click();
-      close({ action: "file_input" });
-    };
-    cancel.onclick = () => close({ action: "cancel" });
-    primary.onclick = () => close({ action: "path", path: input.value.trim() });
-    modal.style.display = "flex";
-    setTimeout(() => {
-      input.focus();
-      input.select();
-    }, 0);
-  });
-}
-async function savePlanDataToPath(pathText, files) {
-  const out = await api("/api/plan-data/save-to-path", {
-    method: "POST",
-    body: JSON.stringify({ path: pathText, files }),
-  });
-  if (!out || out.success === false)
-    throw new Error(
-      out && out.error
-        ? out.error
-        : "Failed to save Plan Data to the selected path.",
-    );
-  planFolderHandle = null;
-  planFolderName = "";
-  showMessage("Changes saved to " + out.path);
-  return true;
-}
-async function savePlanDataToFolder(files) {
-  const def = await defaultPlanDataPath();
-  const choice = await openPathPrompt({
-    title: "Save Changes Folder",
-    help: "Review or edit the folder path where Plan Data should be saved.",
-    defaultPath: def,
-    primaryText: "Save to path",
-    pickerId: "retirement-plan-data-save",
-  });
-  if (!choice || choice.action === "cancel") return false;
-  if (choice.action === "path") {
-    const path = String(choice.path || "").trim();
-    if (!path) return false;
-    return await savePlanDataToPath(path, files);
-  }
-  if (choice.action === "browse" && choice.dir) {
-    const dir = choice.dir;
-    await writePlanDataFilesToFolder(dir, files, "");
-    planFolderHandle = dir;
-    planFolderName = dir.name || "CSV adapter folder";
-    showPlanDataFileManifest(
-      "Changes saved to selected folder",
-      await listFolderFileNames(dir),
-    );
-    return true;
-  }
-  if (!window.showDirectoryPicker) {
-    for (const name of PLAN_DATA_FILES) downloadBlob(name, files[name] || "");
-    return true;
-  }
-  return false;
-}
-async function promptSavePlanDataFiles(files) {
-  return await savePlanDataToFolder(files);
-}
 async function saveYtdPending() {
   var _anyChanged = false;
   if (ytdTransactionsChanged) {
@@ -14177,41 +13365,6 @@ async function saveYtdPending() {
 }
 
 
-async function buildWithDesktopProgress(buildBody) {
-  const started = await api("/api/build/start", {
-    method: "POST",
-    body: JSON.stringify(buildBody),
-  });
-  if (!started || !started.job_id)
-    throw new Error("Build progress endpoint did not return a job id.");
-  const initPct = Math.max(0, Number(started.progress) || 0);
-  updateBuildOverlay(
-    started.phase || "Preparing build",
-    "Build started.",
-    initPct,
-  );
-  startSmoothProgress(initPct, 82, 22, 5000);
-  return new Promise(function (resolve, reject) {
-    window.__desktopBuildResolve = function (result) {
-      stopSmoothProgress();
-      resolve(result);
-    };
-    window.__desktopBuildReject = function (err) {
-      stopSmoothProgress();
-      reject(err);
-    };
-    window.__desktopBuildTimeout = setTimeout(
-      function () {
-        stopSmoothProgress();
-        window.__desktopBuildResolve = null;
-        window.__desktopBuildReject = null;
-        reject(new Error("Build progress timed out after about 40 minutes."));
-      },
-      40 * 60 * 1000,
-    );
-  });
-}
-
 function downloadFile(url) {
   if (!lastBuildOk) {
     showMessage(
@@ -14229,141 +13382,10 @@ function downloadFile(url) {
   window.location.href = apiUrl(url);
 }
 
-function findCsvByName(files, needle) {
-  needle = String(needle || "").toLowerCase();
-  return Array.from(files || []).find((f) => {
-    const nm = String(f.name || "").toLowerCase();
-    const rel = String(f.webkitRelativePath || "").toLowerCase();
-    return nm === needle || rel.endsWith("/" + needle);
-  });
-}
-async function readLocalCsvFile(files, label) {
-  if (!files || !files.length) throw new Error("No Plan Data selected");
-  const f = files[0];
-  return await f.text();
-}
-async function postPlanDataFile(name, content) {
-  try {
-    await api("/api/plan-data/" + encodeURIComponent(name), {
-      method: "POST",
-      body: JSON.stringify({ csv_content: content }),
-    });
-  } catch (e) {
-    let msg = String(e && e.message ? e.message : e);
-    if (msg.toLowerCase().includes("<!doctype html>"))
-      msg = "An internal error occurred while saving the file.";
-    throw new Error("Could not import " + name + ": " + msg);
-  }
-}
-async function importPlanDataContents(contents, sourceLabel) {
-  if (!contents["client_data.csv"] || !contents["client_holdings.csv"])
-    throw new Error(
-      "The selected folder does not contain a complete Plan Data CSV set.",
-    );
-  await pushPlanDataContents(contents);
-  lastBuildOk = false;
-  planLoaded = true;
-  planSource = sourceLabel || "Imported Plan Data CSV set";
-  planFileNames.clientData = "client_data.csv";
-  planFileNames.clientHoldings = "client_holdings.csv";
-  await loadAll({ source: planSource, preferLocal: false, silent: true });
-  return true;
-}
 async function readFileFromFolder(dirHandle, name) {
   const h = await dirHandle.getFileHandle(name);
   const f = await h.getFile();
   return await f.text();
-}
-async function handleImportPlanFolder(dirHandle) {
-  const okPerm = await ensurePlanFolderPermission(dirHandle, "readwrite");
-  if (!okPerm)
-    throw new Error(
-      "Permission to read the selected CSV adapter folder was not granted.",
-    );
-  const contents = await readPlanDataFolderContents(dirHandle, true);
-  const ok = await importPlanDataContents(
-    contents,
-    "Imported Plan Data CSV set",
-  );
-  if (ok) {
-    planFolderHandle = dirHandle;
-    planFolderName = dirHandle.name || "CSV adapter folder";
-    showPlanDataFileManifest(
-      "CSV set imported from selected folder",
-      await listFolderFileNames(dirHandle),
-    );
-  }
-}
-async function defaultPlanDataPath() {
-  try {
-    const out = await api("/api/config/backends");
-    if (out && out.csv_path)
-      return String(out.csv_path).replace(/[\\/][^\\/]*$/, "");
-  } catch (_e) {}
-  return "input";
-}
-async function selectPlanDataForImport() {
-  try {
-    const def = await defaultPlanDataPath();
-    const choice = await openPathPrompt({
-      title: "Import Plan Data CSV set",
-      help: "Import a Plan Data CSV adapter folder into the local database.",
-      defaultPath: def,
-      primaryText: "Import path",
-      pickerId: "retirement-plan-data",
-    });
-    if (!choice || choice.action === "cancel") return;
-    if (choice.action === "path" && String(choice.path || "").trim()) {
-      const out = await api("/api/plan-data/load-from-path", {
-        method: "POST",
-        body: JSON.stringify({ path: String(choice.path).trim() }),
-      });
-      if (!out || out.success === false)
-        throw new Error(
-          out && out.error ? out.error : "Failed to import CSV set.",
-        );
-      await loadAll({
-        source: "Imported CSV set: " + choice.path,
-        preferLocal: false,
-        silent: true,
-      });
-      activeStep = "household_people";
-      showMessage("CSV set imported from " + choice.path);
-      return;
-    }
-    if (choice.action === "browse" && choice.dir) {
-      await handleImportPlanFolder(choice.dir);
-      return;
-    }
-  } catch (e) {
-    if (e && e.name === "AbortError") return;
-    showMessage("Error importing CSV set: " + e.message, "error");
-  }
-}
-async function handleImportPlanFiles(files) {
-  try {
-    const contents = {};
-    for (const name of PLAN_DATA_FILES) {
-      const f = findCsvByName(files, name);
-      if (f) contents[name] = await f.text();
-    }
-    await pushPlanDataContents(contents);
-    lastBuildOk = false;
-    planLoaded = true;
-    await loadAll({
-      source: "Imported Plan Data CSV set",
-      preferLocal: false,
-      silent: true,
-    });
-  } catch (e) {
-    showMessage("Error importing Plan Data: " + e.message, "error");
-  } finally {
-    const inp = document.getElementById("planImport");
-    if (inp) inp.value = "";
-  }
-}
-function openSystemAdmin() {
-  setStep("system_configuration");
 }
 function openExitModal() {
   document.getElementById("exitModal").style.display = "flex";
@@ -14683,140 +13705,125 @@ Object.defineProperty(window, "ytdTransactionsChanged", { get: () => ytdTransact
 Object.defineProperty(window, "ytdTxColsCollapsed", { get: () => ytdTxColsCollapsed, set: (v) => { ytdTxColsCollapsed = v; }, configurable: true });
 Object.defineProperty(window, "ytdTxSearch", { get: () => ytdTxSearch, set: (v) => { ytdTxSearch = v; }, configurable: true });
 Object.assign(window, {
-  _checkAppStatusRun, activeOptimizerUsedTarget, addAltOption, addBudgetLine, addCategoryDetailRow,
-  addGroupDetailRow, addLargeDiscLine, addManualYtdAccount, addMappingRule, addParentheticals,
-  addSelectedYtdAccount, addUniqueRow, addYtdAccount, addYtdTxn, allocationCommonRows,
+  _checkAppStatusRun, activeOptimizerUsedTarget, addAltOption, addGroupDetailRow, addLargeDiscLine,
+  addManualYtdAccount, addMappingRule, addParentheticals, addUniqueRow, addYtdTxn,
   allocationCoverageCalloutHtml, allocationModeHtml, allocationModeIsComputed,
   allocationOptimizerRecommendationHtml, allocationPageRecommendations, allocationPolicyRows,
-  allocationPreviewFingerprint, allocationPreviewRowsForPost, allocationRowsOrNote,
-  allocationTargetsValid, alternateAssetRows, alternateAssetSourceOptions, alternateSelect,
-  applySavedScenarioSet, applyScenarioTemplate, artifactHashFromPreflight, assetActionForSubsection,
+  allocationPreviewFingerprint, allocationPreviewRowsForPost, allocationTargetsValid,
+  alternateAssetRows, alternateAssetSourceOptions, alternateSelect, applySavedScenarioSet,
+  applyScenarioTemplate, artifactHashFromPreflight, assetActionForSubsection,
   assetClassNamesForAllocation, autoCollapseHelpForNarrowLaptop, baseHomeSaleYearRow,
-  blurYtdAccountMoney, blurYtdTxnAmount, boolishValue, budgetSectionIsSummary, budgetSectionLines,
-  buildChangeSummaryHtml, buildHistoryEntryHtml, buildHistoryProvenanceHtml, buildImpactCardsHtml,
-  buildImpactNarrativeHtml, buildImpactSourceLinksHtml, buildImpactSuggestionsHtml, buildKpiDial,
-  buildSessionSummaryHtml, buildSourceJumpHtml, buildWithDesktopProgress, cacheChart,
-  catEffectiveBudget, changeImpactScope, changeKey, chatMessageHtml, checkAppStatus,
+  blurYtdAccountMoney, blurYtdTxnAmount, boolishValue, buildChangeSummaryHtml, buildHistoryEntryHtml,
+  buildHistoryProvenanceHtml, buildImpactCardsHtml, buildImpactNarrativeHtml,
+  buildImpactSourceLinksHtml, buildImpactSuggestionsHtml, buildKpiDial, buildSourceJumpHtml,
+  cacheChart, catEffectiveBudget, changeImpactScope, changeKey, chatMessageHtml, checkAppStatus,
   checklistItemStatus, choiceHelpText, choiceLabel, choiceOptions, chooseDefaultDetailedSheet,
   classKey, clearHousingNextStep, clientDataKey, cloneSummary, closeChartModal, closeExitModal,
-  closeNavDrawer, closeoutItem, collapseAllDetailGroups, copyOptimizerOverrideToUserTargets,
+  closeNavDrawer, collapseAllDetailGroups, copyOptimizerOverrideToUserTargets,
   coreSpendingGrowthMode, csvEscape, currentManualOverrideItems, currentScenarioOverrideItems,
-  currentSpendingTreeForDomain, decimalsFromText, deduplicateYtdTransactions, defaultPlanDataPath,
-  deleteAllYtdTransactions, deleteBudgetLine, deleteBuildHistoryEntry, deleteCategoryBudget,
-  deleteCategoryDetailRow, deleteLargeDiscLine, deleteMappingRule, deleteSavedScenarioSet,
-  deleteTaxonomyCat, deleteTaxonomyGroup, deleteYtdAccount, deleteYtdTxn, dependencyRank,
-  deriveTotalRothConversions, detailColumnGroupKey, detailProgressState, detailedProgressHtml,
-  detailedSheetByName, discardAndExit, dismissMessage, dollars0, domainBudgetNote,
-  domainLineSections, downloadBlob, downloadFile, downloadYtdTemplate, ensurePlanFolderPermission,
-  estimateHousingFromState, exitApp, expandAllDetailColumnsOnPage, expandAllDetailGroups,
-  exportCsvBackup, fetchPlanDataFiles, fetchText, fetchWithTimeout, fieldAllowedValues,
-  fieldConnection, fieldControlOnly, fieldDefaultMeaning, fieldFinderCategoryName,
-  fieldFinderCategoryOrder, fieldFinderStepOrder, fieldLabelNoteHtml, fieldLikelyImpact,
-  fieldSizeClass, fieldTooltipHtml, fieldTooltipPreview, filterChoiceOptionsForRow, findAssetRow,
-  findCsvByName, findMatrixCell, findRows, finiteOrNull, firstRunChecklistHtml, fmtPctCell,
-  focusYtdAccountMoney, focusYtdTxnAmount, focusableEntries, freezePricingSnapshot, getStrategyTab,
-  goToStrategyTab, groupCatIds, groupEffectiveBudget, groupModelData, handleImportPlanFiles,
-  handleImportPlanFolder, handleYtdTransactionUpload, hasAnnuityDeathBenefits, helpList,
-  hideSpendingModelLoadOverlay, hideUnusedTemplateCategories, hideYtdLoadOverlay,
-  homeSaleActivationYearRow, homeSaleScenarioYearRow, housingAreaTypeSelect, housingRentIsConfigured,
-  housingRentMonthlyValue, humanizeGroupKey, illustrationPlanYears, impactCardHtml,
-  impactDirectionWord, importPlanDataContents, importPreviewList, inactiveRowsForStep,
-  inactiveValueDisplay, inactiveValuesPanel, incomeStreamSubsections, irmaaModeValue,
-  jumpRecommendationSource, kpiHasValues, largeDiscCategoryFromType, largeDiscTypeFromLine,
-  latestBuildImpactHtml, leverPctPoints, lineBelongsToDomain, listFolderFileNames,
-  loadAnnualizedActuals, loadCanonicalGlossary, loadDetailedResults, loadMappingRules, loadSavedPlan,
-  loadTaxFreshnessStatus, loadTemplateGroup, logoutSaas, makeYtdAccountRow, markMatrixDirty,
-  matrixKey, matrixPolicies, matrixYears, mcEngineRow, mcEngineToggleHtml, mergeDetailedSheetMeta,
+  currentSpendingTreeForDomain, decimalsFromText, deduplicateYtdTransactions,
+  deleteAllYtdTransactions, deleteBuildHistoryEntry, deleteCategoryDetailRow, deleteLargeDiscLine,
+  deleteMappingRule, deleteSavedScenarioSet, deleteTaxonomyCat, deleteTaxonomyGroup,
+  deleteYtdAccount, deleteYtdTxn, dependencyRank, deriveTotalRothConversions, detailProgressState,
+  detailedProgressHtml, detailedSheetByName, discardAndExit, dismissMessage, dollars0,
+  domainBudgetNote, downloadBlob, downloadFile, downloadYtdTemplate, estimateHousingFromState,
+  exitApp, expandAllDetailColumnsOnPage, expandAllDetailGroups, exportCsvBackup, fetchPlanDataFiles,
+  fetchText, fetchWithTimeout, fieldAllowedValues, fieldConnection, fieldControlOnly,
+  fieldDefaultMeaning, fieldFinderCategoryName, fieldFinderCategoryOrder, fieldLabelNoteHtml,
+  fieldLikelyImpact, fieldSizeClass, fieldTooltipHtml, fieldTooltipPreview,
+  filterChoiceOptionsForRow, findAssetRow, findMatrixCell, findRows, finiteOrNull,
+  firstRunChecklistHtml, fmtPctCell, focusYtdAccountMoney, focusYtdTxnAmount, focusableEntries,
+  freezePricingSnapshot, getStrategyTab, goToStrategyTab, groupCatIds, groupEffectiveBudget,
+  groupModelData, handleYtdTransactionUpload, helpList, hideSpendingModelLoadOverlay,
+  hideUnusedTemplateCategories, hideYtdLoadOverlay, homeSaleScenarioYearRow, housingAreaTypeSelect,
+  housingRentIsConfigured, housingRentMonthlyValue, humanizeGroupKey, illustrationPlanYears,
+  impactCardHtml, impactDirectionWord, importPreviewList, inactiveRowsForStep, inactiveValueDisplay,
+  inactiveValuesPanel, incomeStreamSubsections, irmaaModeValue, jumpRecommendationSource,
+  kpiHasValues, largeDiscCategoryFromType, largeDiscTypeFromLine, latestBuildImpactHtml,
+  leverPctPoints, loadAnnualizedActuals, loadCanonicalGlossary, loadDetailedResults,
+  loadMappingRules, loadSavedPlan, loadTaxFreshnessStatus, loadTemplateGroup, makeYtdAccountRow,
+  matrixPolicies, matrixYears, mcEngineRow, mcEngineToggleHtml, mergeDetailedSheetMeta,
   mergeProtectedClientData, mhBool, mhMoney, mhOnOff, mhPct, mhRow, mhText, modelHeardHtml,
-  moneyHtml, moneyNegativeClass, moveToNextEntry, nbaPanelHtml, normalizePlanDataTextForCompare,
+  moneyNegativeClass, moveToNextEntry, nbaPanelHtml, normalizePlanDataTextForCompare,
   normalizePlanningCaseRunType, normalizePlanningCaseSource, normalizeValueForSave,
   normalizeYtdActualsPeriod, normalizedAssetSourceName, noteSessionFieldChange,
   noteSpecialSessionChange, numberDisplayDecimals, openCachedChart, openCurrentPlan, openDemoPlan,
-  openExitModal, openNavDrawer, openNextCollapsedSectionFrom, openPathPrompt, openSystemAdmin,
-  openSystemConfigurationConsole, optimizerInputRows, optimizerOverrideTotalHtml,
-  optimizerPreviewStatusCell, optimizerPreviewTarget, optionalModuleState, orderedRowsByLabel,
-  pageHelp, pageRecommendationsForStep, pageRecommendationsHtml, pageSaveMode, pageSaveModeHtml,
-  pageStatusHtml, parseCsvLine, parseCsvTable, parseDollarLike, percentDisplayDecimals, percentRaw,
-  personCellInput, personNickPlaceholder, personTokenLabel, planningCaseActiveId, planningCaseAdopt,
+  openExitModal, openNavDrawer, openNextCollapsedSectionFrom, openSystemConfigurationConsole,
+  optimizerOverrideTotalHtml, optimizerPreviewStatusCell, optimizerPreviewTarget,
+  optionalModuleState, orderedRowsByLabel, pageHelp, pageRecommendationsForStep,
+  pageRecommendationsHtml, pageSaveMode, pageSaveModeHtml, pageStatusHtml, parseCsvLine,
+  parseCsvTable, parseDollarLike, percentDisplayDecimals, percentRaw, personCellInput,
+  personNickPlaceholder, personTokenLabel, planningCaseActiveId, planningCaseAdopt,
   planningCaseArchive, planningCaseBaseSnapshotId, planningCaseCardsHtml, planningCaseCreate,
   planningCaseDelete, planningCaseId, planningCaseMatrixHtml, planningCaseMetricSummary,
   planningCaseNowIso, planningCaseOverrideFromRow, planningCaseOverrideTable,
   planningCaseOverridesForSource, planningCaseReadAll, planningCaseSaveAll,
   planningCaseSourceButtons, planningLeversBaselineReady, planningLeversPlaceholder,
-  planningWorkbenchBuildImpactHtml, planningWorkbenchStressSelectorHtml, postPlanDataFile,
-  primaryActionForStep, promotePlanningCase, promptSavePlanDataFiles, readFileFromFolder,
-  readLocalCsvFile, readYtdActualsPeriod, recFindBy, recFindStepRow, recRowValue, recStepRows,
-  recYes, recentChangesLogHtml, recommendationSourceButton, recoverPriorSpendingBudget,
-  recoverYtdAccountSetup, refreshFromPlanFolder, refreshLivePrices, reloadBudgetLineDefaults,
-  reloadDomainBudget, reloadSpendingSetup, rememberBuildCompare, renderAllocationRecommendation,
-  renderAssetClassSelectionTable, renderAssetsCashReserves, renderBaseHomeSaleRows,
-  renderBuildPreflightPanel, renderCategoryMappingRules, renderCollapsibleDomainBudgetSection,
-  renderCoreSpendingUnified, renderCurrentAllocationModeNote, renderCurrentScenarioOverridesHtml,
-  renderDafConfig, renderDeathBenefitsTable, renderDetailedResults, renderDetailedResultsNav,
-  renderDetailedResultsProgressTick, renderDistributionStrategy, renderDivorceOptions,
-  renderDomainBudgetTable, renderEntityCharitable, renderEstateWithAnnuityLink,
-  renderFieldFinderGroups, renderHoldingPeriodSettingsHtml, renderHomeSaleScenarioRows,
-  renderHouseholdPeople, renderIncomeStreamsSection, renderIncomeWork,
+  planningWorkbenchBuildImpactHtml, planningWorkbenchStressSelectorHtml, primaryActionForStep,
+  promotePlanningCase, readFileFromFolder, readYtdActualsPeriod, recFindBy, recFindStepRow,
+  recRowValue, recStepRows, recYes, recentChangesLogHtml, recommendationSourceButton,
+  recoverPriorSpendingBudget, recoverYtdAccountSetup, refreshLivePrices, reloadDomainBudget,
+  rememberBuildCompare, renderAllocationRecommendation, renderAssetClassSelectionTable,
+  renderAssetsCashReserves, renderBaseHomeSaleRows, renderBuildPreflightPanel,
+  renderCategoryMappingRules, renderCollapsibleDomainBudgetSection, renderCoreSpendingUnified,
+  renderCurrentAllocationModeNote, renderCurrentScenarioOverridesHtml, renderDeathBenefitsTable,
+  renderDetailedResults, renderDetailedResultsNav, renderDetailedResultsProgressTick,
+  renderDistributionStrategy, renderDivorceOptions, renderDomainBudgetTable, renderEntityCharitable,
+  renderEstateWithAnnuityLink, renderFieldFinderGroups, renderHoldingPeriodSettingsHtml,
+  renderHomeSaleScenarioRows, renderHouseholdPeople, renderIncomeStreamsSection, renderIncomeWork,
   renderLargeDiscretionaryBudgetPage, renderLifeIllustrations, renderLifestyleSpending,
   renderLtcStress, renderMaxSharpeAllocationPanel, renderMeta, renderMonteCarloOptions, renderNav,
   renderNextHousingStepSection, renderOptimizerAllocationPanel, renderOptimizerOverrideTable,
   renderOptimizerPreviewNote, renderOptionalFunctions, renderPlanDataReport, renderPlanningLevers,
   renderPlanningWorkbench, renderRealLossAwarePanel, renderRealLossAwareTuningHtml,
   renderReportsAndReview, renderReportsBuild, renderReportsPreflight, renderRetirementIncome,
-  renderRetirementWellness, renderReview, renderReviewCloseoutChecklist, renderRothConversion,
-  renderRothMissingNotice, renderRothRows, renderSavedScenarioSetsHtml,
-  renderScenarioManagementPanel, renderScenarioTemplatesHtml, renderScenarios,
-  renderSpecialIncomeAnnuitiesInsurance, renderSpecialStrategies, renderSpendingBudgetInput,
-  renderSpendingCore, renderSpendingDashboardOrLoad, renderSpendingHousing, renderSpendingSetup,
-  renderSpendingWorkflowBanner, renderSsCompactTable, renderSsPolicySection, renderStateResidency,
-  renderStrategyTabs, renderStressSellHomeRows, renderSurvivorStress, renderSystemConfiguration,
-  renderTabbedWorkspace, renderTangencyAllocationPanel, renderTaxonomyBudgetTable,
+  renderRetirementWellness, renderReview, renderRothConversion, renderRothMissingNotice,
+  renderRothRows, renderSavedScenarioSetsHtml, renderScenarioManagementPanel,
+  renderScenarioTemplatesHtml, renderScenarios, renderSpecialIncomeAnnuitiesInsurance,
+  renderSpecialStrategies, renderSpendingCore, renderSpendingDashboardOrLoad, renderSpendingHousing,
+  renderSpendingSetup, renderSpendingWorkflowBanner, renderSsCompactTable, renderSsPolicySection,
+  renderStateResidency, renderStrategyTabs, renderStressSellHomeRows, renderSurvivorStress,
+  renderSystemConfiguration, renderTabbedWorkspace, renderTangencyAllocationPanel,
   renderTaxonomyManager, renderTotalWealthAllocationHtml, renderTravelBudgetPage, renderWelcome,
   renderWithdrawalOrderTable, renderWithdrawalStrategy, renderWorkbenchLeverEditorHtml,
-  renderWorkbenchStressHtml, renderWorkspaceSubtabsNav, renderYearMatrix, renderYtdCategoriesStep,
-  renderYtdDuplicateReview, renderYtdSummary, renderYtdTopCategories, renderYtdTopIncomeCategories,
-  renderYtdTracking, renderYtdTransactions, renderYtdTransactionsStep, renderYtdUploadPanel,
-  reportFreshnessNotice, resetAllocationPreview, resetDemoToDefaults, resetYtdTxnPage,
+  renderWorkbenchStressHtml, renderWorkspaceSubtabsNav, renderYearMatrix, renderYtdDuplicateReview,
+  renderYtdSummary, renderYtdTracking, renderYtdTransactions, renderYtdTransactionsStep,
+  renderYtdUploadPanel, resetAllocationPreview, resetDemoToDefaults, resetYtdTxnPage,
   restoreGroupBudgetModes, restoreWorkbookViewState, revealAndFocus, revealInactiveRow,
   revertLastBuildChanges, revertToBuildHistoryEntry, rollForwardYtdAccounts, rothPageRecommendations,
   rothPolicyValue, rowConfigValue, rowIsCanonicalHomeBasis, rowIsEconomyScenario,
   rowIsHomeSaleAssumption, rowIsRentInput, rowIsRetirementWellness, rowSortKeyForIncomeWork,
-  rowValueIsMeaningful, rowsByLabel, rowsNotIn, saveAndExit, saveBuildHistory, saveChanges,
+  rowValueIsMeaningful, saveAndExit, saveBuildHistory, saveChanges,
   saveCurrentPlanToSelectedFolderForBuild, saveCurrentScenarioSet, saveLiabilities, savePlanAs,
-  savePlanDataToFolder, savePlanDataToPath, saveSpendingBudgetAll, saveSpendingSetupAll,
   saveValueForRow, saveYtdAccountSetup, saveYtdPending, saveYtdTransactions,
   scenarioActiveOverrideItems, scenarioCurrentItems, scenarioDiffTableHtml, scenarioRowKeyFromParts,
   scenarioSetDiffItems, scenarioTemplateById, scenarioTemplateDiffItems, scenarioWriteSets,
-  sectionFlagEnabled, seedHousingRows, seedWellnessOop, selectPlanDataForImport,
-  selectedFolderDiffersFromLoadedPlan, selectionActionSelect, serializeCsvTable,
-  serializeLiabilities, setAllDetailColumnGroups, setAllocationSelectionMode, setAutoLoad,
-  setBudgetSectionMode, setCategoryBudgetMode, setCombinedSearch, setDetailedResultSheet,
-  setDetailedResultsNavOpen, setGroupBudgetMode, setMcEngineMode, setNavSearch,
-  setPlanningCaseActive, setPlanningLeverInput, setSearch, setSearchScope, setSelectionAction,
-  setStrategyTab, setYtdActualsPeriod, setYtdSort, setYtdTxnPage, shortHash, showConfigCardHelp,
-  showHelpAutoCollapseNoticeOnce, showPlanDataFileManifest, showSpendingModelLoadOverlay,
-  showTaxonomyAddForm, showYtdBlendChoiceModal, showYtdLoadOverlay, sleep,
-  socialSecurityPageRecommendations, sourceStepForSpecialLabel, spendingFlowFooterHtml,
-  spendingPageRecommendations, spendingRowAnnualized, spendingRowBudget, spendingRowHasValue,
-  spendingRowProjectionSeed, spendingRowYtd, ssActiveCell, ssClaimFactor, ssMonthlyAtClaimAgeCell,
-  ssPersonRows, startDetailedResultsProgress, startNewPlan, stepHelpLinkHtml, stepIdForRow,
-  stepSearchText, stopDetailedResultsProgress, strategyLeverOverrideItems, stressHomeSaleYearRow,
+  sectionFlagEnabled, seedHousingRows, selectedFolderDiffersFromLoadedPlan, selectionActionSelect,
+  serializeCsvTable, serializeLiabilities, setAllDetailColumnGroups, setAllocationSelectionMode,
+  setAutoLoad, setCombinedSearch, setDetailedResultSheet, setDetailedResultsNavOpen,
+  setGroupBudgetMode, setMcEngineMode, setNavSearch, setPlanningCaseActive, setPlanningLeverInput,
+  setSearchScope, setSelectionAction, setStrategyTab, setYtdActualsPeriod, setYtdSort, setYtdTxnPage,
+  shortHash, showConfigCardHelp, showHelpAutoCollapseNoticeOnce, showPlanDataFileManifest,
+  showSpendingModelLoadOverlay, showTaxonomyAddForm, showYtdBlendChoiceModal, showYtdLoadOverlay,
+  sleep, socialSecurityPageRecommendations, sourceStepForSpecialLabel, spendingFlowFooterHtml,
+  spendingPageRecommendations, spendingRowAnnualized, spendingRowBudget, spendingRowProjectionSeed,
+  spendingRowYtd, ssActiveCell, ssClaimFactor, ssMonthlyAtClaimAgeCell, ssPersonRows,
+  startDetailedResultsProgress, startNewPlan, stepHelpLinkHtml, stepIdForRow, stepSearchText,
+  stopDetailedResultsProgress, strategyLeverOverrideItems, stressHomeSaleYearRow,
   stressOverrideItems, stripUiLabelPrefix, submitAddTaxonomy, suggestedNext, summaryFromApiPayload,
-  takeBuildSnapshot, targetPctInput, taxFreshnessBannerHtml, taxonomyCategoryOptionsHtml,
-  toggleDetailColGroup, toggleDetailColumnGroup, toggleHelpSheet, toggleNavDrawer,
-  trackingBudgetTypesForDomain, translatePersonValueLabel, travelTypeList, undoSessionFieldChange,
-  unfreezePricingSnapshot, updateBudgetLine, updateCategoryDetailMoney, updateGroupDetailCategory,
-  updateLargeDiscLine, updateLargeDiscLineMoney, updateMappingRule, updateSearchToggle,
-  updateTaxAddGroups, updateTaxBudgetMoney, updateYtdAccountMoney, updateYtdTxnAmount,
-  validateAllocationTargetsOrMessage, versionPrefixSuggestion, visibleAssetSpecialRow,
-  visibleBudgetLinesForDomain, wireStepNavigation, withdrawalOtherRows, writeFileHandle,
-  writePlanDataFilesToFolder, yesNoOptionHelp, ytdAccountMoneyDisplay, ytdAccountOptions,
-  ytdAccountRoleOptions, ytdActualsPeriodToggleHtml, ytdBlendEnabledRow, ytdBlendToggleHtml,
-  ytdCancelDedup, ytdDate, ytdDateAwarePageBoundaries, ytdDeleteSelectedDuplicates, ytdFilterOptions,
-  ytdFilteredTxns, ytdFirstExistingValue, ytdHeader, ytdImportPreviewMessage,
+  takeBuildSnapshot, targetPctInput, taxFreshnessBannerHtml, toggleDetailColGroup,
+  toggleDetailColumnGroup, toggleHelpSheet, toggleNavDrawer, trackingBudgetTypesForDomain,
+  translatePersonValueLabel, undoSessionFieldChange, unfreezePricingSnapshot,
+  updateCategoryDetailMoney, updateGroupDetailCategory, updateLargeDiscLine,
+  updateLargeDiscLineMoney, updateMappingRule, updateSearchToggle, updateTaxAddGroups,
+  updateTaxBudgetMoney, updateYtdAccountMoney, updateYtdTxnAmount,
+  validateAllocationTargetsOrMessage, wireStepNavigation, withdrawalOtherRows, yesNoOptionHelp,
+  ytdAccountMoneyDisplay, ytdAccountRoleOptions, ytdActualsPeriodToggleHtml, ytdBlendEnabledRow,
+  ytdBlendToggleHtml, ytdCancelDedup, ytdDateAwarePageBoundaries, ytdDeleteSelectedDuplicates,
+  ytdFilterOptions, ytdFilteredTxns, ytdFirstExistingValue, ytdHeader, ytdImportPreviewMessage,
   ytdInvestmentHoldingAccounts, ytdInvestmentOptions, ytdIsGrowthRole, ytdMappableAccounts,
-  ytdMetricCard, ytdMissingAccountOptions, ytdMoney, ytdPct, ytdPeriodTargetYear,
-  ytdRolloverBannerHtml, ytdSelectAllDuplicates, ytdSelectFieldHtml, ytdSelectOptions, ytdShortDate,
-  ytdSparkline, ytdStaleGrowthAccounts, ytdToggleDuplicateGroup, ytdToggleDuplicateSelect,
-  ytdTxPageBoundaries, ytdTxYear, ytdTxnPager, ytdTxnsForPeriod, ytdUpdateDedupDeleteBtn,
+  ytdMetricCard, ytdMoney, ytdPct, ytdPeriodTargetYear, ytdRolloverBannerHtml,
+  ytdSelectAllDuplicates, ytdSelectFieldHtml, ytdSelectOptions, ytdShortDate, ytdSparkline,
+  ytdStaleGrowthAccounts, ytdToggleDuplicateGroup, ytdToggleDuplicateSelect, ytdTxPageBoundaries,
+  ytdTxYear, ytdTxnPager, ytdTxnsForPeriod, ytdUpdateDedupDeleteBtn,
 });

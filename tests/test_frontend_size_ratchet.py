@@ -65,7 +65,11 @@ JS_DIR = ROOT / "frontend" / "js"
 # (liabilities, note receivables, 529s, other-asset items) plus the 4 constant
 # tables only it reads into frontend/js/dashboard_decomp_assets_other.js.
 # Set at the post-extraction measurement with no headroom.
-DASHBOARD_JS_MAX_LINES = 14_822
+# 2026-08-11: lowered 14,822 -> 13,829 after the dead-code sweep deleted 83
+# unreachable top-level functions (see
+# tests/test_dashboard_dead_code_sweep_regression.py). Ratcheting DOWN after a
+# real removal is the point of this number; it must never be raised.
+DASHBOARD_JS_MAX_LINES = 13_829
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling

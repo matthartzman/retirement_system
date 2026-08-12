@@ -49,7 +49,12 @@ def test_census_function_and_variable_counts_are_in_expected_bands():
     # fan-in>=3 hub functions out of dashboard.js into
     # dashboard_decomp_row_model.js; census.mjs only counts dashboard.js's own
     # remaining top-level functions.
-    assert 500 <= len(report["functions"]) <= 650
+    # 2026-08-11: lower bound 500 -> 450. The dead-code sweep deleted 83
+    # unreachable top-level functions (see
+    # tests/test_dashboard_dead_code_sweep_regression.py), taking dashboard.js's
+    # externally-referenced count to 492. The band tracks reality after a
+    # deliberate removal; it is not a target to grow back into.
+    assert 450 <= len(report["functions"]) <= 650
     assert len(report["variables"]) >= 10
     assert set(report["functions"]).isdisjoint(report["variables"])
 
