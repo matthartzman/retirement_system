@@ -1,4 +1,59 @@
-## 2026-08-12 (c) — Monte Carlo per-account returns enabled (Wave 3.5 completion, F1.1-F1.3)
+## 2026-08-12 (d) — Correcting (c): the units were wrong and the headline path was still untouched
+
+**(c) below is superseded.** It is kept because its diagnosis of the *problem* is right; its claim
+to have fixed it is not. Two defects, both found by reviewing the landed diff against real fixture
+data rather than against the unit tests that shipped with it.
+
+**1. The units were wrong — every simulated return roughly doubled.**
+`c['account_returns']` holds **absolute** expected rates: `data_io.py:~2425` writes
+`_base_ret + (acct_ret - portfolio_ret)`, the plan return plus that account's tilt. (c)'s
+`_apply_account_return_adjustments()` treated each value as a **delta** and added it to the sampled
+portfolio return. Measured on the frozen fixture, with `c['ret']` = 5%:
+
+| | sampled 2030 return | account rate | (c) produced |
+|---|---|---|---|
+| `Member_1_IRA` | 0.0550 | 0.049763 | **0.104763** |
+| `Member_1_Roth` | 0.0550 | 0.052510 | **0.107510** |
+
+What transfers onto a path that already carries its own sampled portfolio return is the **tilt**,
+`account_returns[acct] - c['ret']`. Extracted as `_account_return_tilt()` so the convention has one
+home. Tilts are dollar-weighted to ~zero across the portfolio, so the plan's expected return is
+preserved as the portfolio average while asset location redistributes it — which is the point of C3.
+
+**2. Only the scalar MC path was wired; the headline number never moved.**
+(c) set `return_by_account_by_year` in `_run_one_mc_path()` — the scalar path. The **vectorized**
+path (`_mc_vectorized_projection`) still grew every bucket at one identical rate
+(`balances[b] * (1.0 + growth)`), and that is the path that produces the reported success rate. So
+the number a user sees was unchanged by Wave 3.5 *and* by (c).
+
+This is the third occurrence of one failure mode, and the review named it in advance (§2.5,
+*"a change that looks done because the thing you inspected changed"*): the deterministic path was
+fixed in Wave 3.5, the scalar path in (c), the vectorized path in neither.
+
+The vectorized path evolves tax **buckets**, not accounts, so per-account tilts are collapsed by
+`_mc_bucket_return_tilts()` — dollar-weighted, because a $10k bond-heavy IRA and a $1M one cannot
+move the pretax bucket equally. `cash` is deliberately excluded: that bucket already grows on a
+short-rate proxy tied to inflation, not the equity draw. On the frozen fixture the resulting tilts
+are `pretax -0.000538`, `roth +0.002487`, `hsa +0.003018`, `taxable +0.001333` — bonds in the IRA
+suppressing future RMD growth, the Roth compounding fastest, exactly the behavior C3 asked for.
+
+**Expected movement.** Monte Carlo success rates and MC-derived figures move; every deterministic
+figure is unchanged, and the frozen dollar-exact gate is unmoved (it runs `project()`, which was
+already correct). A plan with no holdings detail yields an empty tilt dict, which is bit-identical
+to the previous behavior — so plans that never had asset-location data are not disturbed.
+
+**Guarding it.** `tests/test_monte_carlo_per_account_returns_wave35.py` now pins the convention
+against real fixture data (`test_real_account_returns_do_not_double_the_simulated_return`) and
+asserts the vectorized growth step itself responds to tilts, rather than asserting only on a helper
+that can be correct while the shipped path is inert. (c)'s own tests passed throughout both defects
+because they fed synthetic deltas — they encoded the implementation's assumption instead of the
+data's contract.
+
+**Also fixed here:** (c) rewrote this file's stored line endings LF → CRLF, changing all 1,209 lines
+and destroying `git blame` for the whole changelog. Renormalized to LF, matching every other text
+file in the repo.
+
+## 2026-08-12 (c) — Monte Carlo per-account returns enabled (Wave 3.5 completion, F1.1-F1.3) — SUPERSEDED by (d)
 
 **What changed.** Wave 3.5 populated `c['account_returns']` with per-account returns based on
 holdings mix (asset location), but only the deterministic path used them. Monte Carlo applied a
