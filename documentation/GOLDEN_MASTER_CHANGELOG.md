@@ -1,3 +1,36 @@
+## 2026-08-12 (e) — Roth discount rate defaults to 6.5% nominal, decoupled from inflation
+
+**What changed.** `roth_tax_discount_rate` defaulted to `c['inf']` (2.50%). It now defaults to
+`DEFAULT_ROTH_TAX_DISCOUNT_RATE = 0.065`.
+
+**Why.** The rate is applied to NOMINAL flows — lifetime tax, estate tax, the ACA PTC loss, and the
+terminal-wealth component are all projected in nominal dollars — so it has to be a nominal rate.
+Defaulting it to inflation made it a pure *deflator*: it restated the objective in today's purchasing
+power and applied no time preference on top, i.e. a **0% real discount rate**. That systematically
+under-rewards locking in current tax rates, because future tax savings were discounted more slowly
+than the portfolio generating them compounds. 6.5% is roughly the expected long-run portfolio return —
+what a dollar handed to the IRS today would otherwise have earned.
+
+**Inflation itself is unchanged.** `c['inf']` is untouched; only the discount rate's *fallback to it*
+is removed. They were never the same quantity, and the coupling meant editing an inflation assumption
+silently retuned the optimizer's time preference — a test now pins that two plans with different
+inflation assumptions get the same discount rate.
+
+**Blast radius.** This moves the DEFAULT only. Any plan with an explicit stored value keeps it, so no
+existing household's numbers change on upgrade. Expect **larger optimizer-selected conversions** in
+plans that were relying on the default, particularly long-horizon ones — the correct direction given
+the objective was under-valuing early conversions, but it is a visible change in recommendations.
+
+**Golden master unmoved.** The frozen fixture sets 2.50% explicitly rather than inheriting, so the
+dollar-exact gate does not move. That is deliberate and worth keeping: a fixture that pins its own
+assumptions cannot be silently re-scored by a future default change. The new default is covered by
+`tests/test_roth_discount_rate_default_unit.py` instead.
+
+Also updated: `reference_data/schema.csv` (default + help text now say *nominal*, and point at
+portfolio return rather than inflation) and `input/demo/client_policy.csv`. `planning_engines`' own
+fallback, which could previously drift from the parse default, now shares it via
+`_roth_discount_rate()`.
+
 ## 2026-08-12 (d) — Correcting (c): the units were wrong and the headline path was still untouched
 
 **(c) below is superseded.** It is kept because its diagnosis of the *problem* is right; its claim

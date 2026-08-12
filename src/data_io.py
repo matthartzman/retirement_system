@@ -30,6 +30,23 @@ from . import platform_runtime as _platform_runtime
 # exists once so it can't drift across the CSV- and JSON-parsing code paths.
 DEFAULT_SS_WAGE_BASE = 184500
 
+# Roth optimizer discount rate, NOMINAL. The flows it discounts -- lifetime
+# tax, estate tax, the ACA PTC loss, and the terminal-wealth component -- are
+# all projected in nominal dollars, so the rate has to be nominal too.
+#
+# This used to fall through to c['inf'] (2.5%). Dividing nominal flows by
+# inflation is a pure deflator: it restates the objective in today's purchasing
+# power with NO time preference on top, i.e. a 0% real discount rate. That
+# under-rewards locking in current tax rates, because future tax savings were
+# discounted more slowly than the portfolio generating them compounds. 6.5% is
+# roughly the expected long-run portfolio return -- what a dollar paid to the
+# IRS today would otherwise have earned.
+#
+# Deliberately NOT tied to c['inf']: they are different quantities, and the
+# coupling meant editing an inflation assumption silently retuned the
+# optimizer's time preference.
+DEFAULT_ROTH_TAX_DISCOUNT_RATE = 0.065
+
 from .plan_data_registry import CLIENT_DATA_PART_FILES
 
 
@@ -1417,7 +1434,8 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['roth_survivor_tax_risk_weight'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
                                    'survivor_tax_risk_weight','0.25'), 0.25)
     c['roth_tax_discount_rate'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_tax_discount_rate', str(c.get('inf', 0.025))), c.get('inf', 0.025))
+                                   'roth_tax_discount_rate', str(DEFAULT_ROTH_TAX_DISCOUNT_RATE)),
+                                   DEFAULT_ROTH_TAX_DISCOUNT_RATE)
 
     # Estate
     c['fed_exempt']  = _n(_v(data,'Estate Planning','Federal','exemption_mfj','30000000'), 30000000)

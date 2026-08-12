@@ -168,7 +168,7 @@ Scenarios,Divorce_Property,year,2030,year,,
 Scenarios,Divorce_Property,from_account,Member_1_Trust,,,
 Scenarios,Divorce_Health,cobra_monthly,"$1,500",USD/mo,,
 Scenarios,Divorce_Health,cobra_end_year,2032,year,,
-Withdrawal Policy,Roth Conversion,roth_tax_discount_rate,2.50%,percent,Present-value discount rate for lifetime taxes in Roth optimizer scoring.,
+Withdrawal Policy,Roth Conversion,roth_tax_discount_rate,6.50%,percent,Nominal present-value discount rate for lifetime taxes in Roth optimizer scoring. Set near expected portfolio return; the figures it discounts are nominal.,
 Withdrawal Policy,Roth Conversion,roth_conversion_target_bracket_base_year,22.00%,choice,Fill to top of this bracket through CONV_END_YR
 Model Constants,Retirement,member_1_rmd_start_age,75,years,Optional per-member RMD start age; defaults to the statutory age derived from date of birth (SECURE 2.0) when blank.,
 Model Constants,Retirement,member_2_rmd_start_age,75,years,Optional per-member RMD start age; defaults to the statutory age derived from date of birth (SECURE 2.0) when blank.,
