@@ -50,7 +50,8 @@ function restoreHousingEstimateField(stepNum, label) {
 // cash from that specific account first.
 window.dafRecommendation = null;
 window.dafFundingAccounts = null;
-Object.assign(window, { });
+Object.assign(window, {
+  saveGeneratedTextFile, });
 
 // ── #276: individual-account withdrawal draw-order override ────────────────
 // The account-TYPE cascade is fixed by the engine (see
@@ -229,6 +230,29 @@ function unifiedBuildChangeSummaryHtml(changes, adminEvents) {
     html += `<tr><td colspan="4" class="small">${rows.length - 40} more change${rows.length - 40 === 1 ? "" : "s"} captured.</td></tr>`;
   html += "</tbody></table>";
   return html;
+}
+
+// ── Ticket 279: saving a generated file, visibly ──────────────────────────
+// A download that says nothing reads as a download that did nothing. In
+// desktop mode it literally did nothing: PyWebView has no download manager,
+// so downloadBlob's `<a download>` click drops the file somewhere the user
+// cannot find, or not at all. Use the native Save As dialog there (defaulting
+// to Downloads) and report the real path; in the browser keep the blob path
+// but still say what was written and where to look for it.
+async function saveGeneratedTextFile(name, text, label) {
+  label = label || "File";
+  if (window.pywebview && window.pywebview.api && window.pywebview.api.save_text_file) {
+    const res = await window.pywebview.api.save_text_file(name, text, "CSV");
+    if (res && res.cancelled) {
+      if (res.error) showMessage(label + " was not saved: " + res.error, "error");
+      return null;
+    }
+    showMessage(label + " saved to " + (res && res.path ? res.path : name), "success");
+    return res && res.path ? res.path : null;
+  }
+  downloadBlob(name, text);
+  showMessage(label + " downloaded as \"" + name + "\" — check your browser's Downloads folder.", "success");
+  return null;
 }
 
 Object.assign(window, {

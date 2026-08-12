@@ -38,6 +38,12 @@ TRANSACTION_COLUMNS = [
     "Owner",
 ]
 
+# Ticket 279: the only two the importer cannot invent. Everything else is
+# descriptive or resolved downstream (unmapped categories already have a
+# documented path through the taxonomy), so demanding them all rejected
+# otherwise-usable exports for no gain.
+REQUIRED_TRANSACTION_COLUMNS = ["Date", "Amount"]
+
 ACCOUNT_SETUP_COLUMNS = [
     "Account",
     "Role",
@@ -383,11 +389,50 @@ def load_transactions_from_csv_text(text: str) -> tuple[list[dict[str, str]], li
     if not reader.fieldnames:
         return [], ["CSV is empty or missing a header row."]
     actual = [str(x or "").strip() for x in reader.fieldnames]
-    if actual != TRANSACTION_COLUMNS:
-        return [], ["CSV header must exactly match: " + ", ".join(TRANSACTION_COLUMNS)]
+
+    # Ticket 279. This used to demand an exact, ordered, case-sensitive match on
+    # all nine columns and then report only the EXPECTED header -- so a user
+    # seeing "received 0" had no way to tell whether their file had a renamed
+    # column, an extra one, a different order, or different capitalization.
+    #
+    # Accept anything unambiguously correct (any order, any case, surrounding
+    # whitespace, extra columns, absent OPTIONAL columns -- normalize_transaction
+    # already fills missing keys with ""), and when it does fail, say what is
+    # actually wrong.
+    canon = {c.strip().lower(): c for c in TRANSACTION_COLUMNS}
+    mapping: dict[str, str] = {}
+    dupes: list[str] = []
+    # Keyed by the ORIGINAL fieldname: DictReader keys each row by the raw
+    # header text, so a stripped key here would silently drop a column whose
+    # header carried surrounding whitespace.
+    for name in (reader.fieldnames or []):
+        name = str(name or "")
+        target = canon.get(name.strip().lower())
+        if target is None:
+            continue  # extra column: ignored, not fatal
+        if target in mapping.values():
+            dupes.append(target)
+        else:
+            mapping[name] = target
+    if dupes:
+        return [], [
+            "CSV has more than one column named: " + ", ".join(sorted(set(dupes)))
+            + ". Remove the duplicate so the right value is imported."
+        ]
+    missing = [c for c in REQUIRED_TRANSACTION_COLUMNS if c not in mapping.values()]
+    if missing:
+        return [], [
+            "CSV is missing required column(s): " + ", ".join(missing)
+            + ". Header received: " + (", ".join(actual) if actual else "(none)")
+            + ". Expected columns: " + ", ".join(TRANSACTION_COLUMNS)
+            + " (order does not matter; extra columns are ignored; only "
+            + ", ".join(REQUIRED_TRANSACTION_COLUMNS) + " are required)."
+        ]
+
     rows = []
     errors = []
     for i, raw in enumerate(reader, start=2):
+        raw = {mapping[k]: v for k, v in raw.items() if k in mapping}
         row = normalize_transaction(raw)
         if not row["Date"] and not row["Merchant"] and not row["Amount"]:
             continue

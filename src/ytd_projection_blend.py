@@ -81,6 +81,28 @@ def _year_days(year: int) -> int:
     return 366 if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0) else 365
 
 
+def _data_elapsed_fraction(plan_root, year: int, fallback: float) -> float:
+    """Fraction of `year` the transaction log covers (Jan 1 -> last txn).
+
+    Ticket 287, run-rate half. Returns `fallback` (the today-anchored elapsed
+    fraction) when the log is unreadable or empty, so a plan with no imported
+    transactions behaves exactly as before.
+    """
+    if plan_root is None:
+        return max(1e-9, fallback)
+    try:
+        try:
+            from .spending_tracker import load_transactions, _annualization_period_days
+        except ImportError:  # pragma: no cover - direct execution fallback
+            from src.spending_tracker import load_transactions, _annualization_period_days
+        txns = load_transactions(plan_root, year)
+        if not txns:
+            return max(1e-9, fallback)
+        return max(1e-9, _annualization_period_days(txns, year) / _year_days(year))
+    except Exception:
+        return max(1e-9, fallback)
+
+
 def _remaining_fraction(today: date) -> float:
     year_days = _year_days(today.year)
     elapsed_days = (today - date(today.year, 1, 1)).days + 1
@@ -235,7 +257,21 @@ def compute_current_year_overrides(c: dict[str, Any], root: str | Path, *, today
             # manual remainder override is a deliberate projection and is left
             # untouched.
             if spend_remaining_override is None:
-                elapsed_fraction = max(1e-9, 1.0 - remaining_fraction)
+                # Ticket 287. The floor is a RUN-RATE extrapolation, so its
+                # denominator is the period the transaction log actually covers
+                # (Jan 1 -> last transaction), not the period the calendar
+                # covers. Anchoring it to today while the import lags divides
+                # observed spend by more days than produced it, understating
+                # the run rate and letting the floor sit below the client's
+                # real pace -- exactly what the floor exists to prevent.
+                #
+                # Note this is the opposite anchor from `spend_remaining` a few
+                # lines above, and deliberately so: how much of the year is
+                # LEFT to spend depends on the calendar, while how fast the
+                # client HAS been spending depends on the data. Same year, two
+                # questions, two denominators.
+                elapsed_fraction = _data_elapsed_fraction(
+                    plan_root, current_year, fallback=1.0 - remaining_fraction)
                 core_annualized = spend_actual / elapsed_fraction
                 if core_annualized > blended_core:
                     blend_meta['spend_floor_applied'] = True

@@ -259,6 +259,48 @@ class DesktopApi:
         except Exception as exc:  # noqa: BLE001
             return {"cancelled": True, "error": str(exc)}
 
+    def save_text_file(self, default_name: str, text: str, kind: str = "CSV") -> dict:
+        """Save generated text through a native Save As dialog, returning the path.
+
+        Ticket 279. The browser blob-download path (`downloadBlob`) is a no-op
+        worth nothing in desktop mode: PyWebView has no download manager, so an
+        `<a download>` click either does nothing visible or drops the file
+        somewhere the user never finds -- reported as "download template either
+        does nothing or just doesn't let me know where it put the template."
+        Same reasoning as ``export_csv_backup`` above, which already sidesteps
+        downloads for exactly this.
+
+        Defaults to the user's Downloads folder (falling back to Documents,
+        then home) so the suggested location matches where a browser would have
+        put it. Returns the real path so the caller can TELL the user where it
+        landed rather than leaving them to guess.
+        """
+        try:
+            import webview  # noqa: PLC0415
+            if not webview.windows:
+                return {"cancelled": True, "error": "No window"}
+            suffix = Path(default_name).suffix or ".csv"
+            start_dir = next(
+                (p for p in (Path.home() / "Downloads", Path.home() / "Documents", Path.home())
+                 if p.is_dir()),
+                Path.home(),
+            )
+            result = webview.windows[0].create_file_dialog(
+                webview.SAVE_DIALOG,
+                directory=str(start_dir),
+                save_filename=default_name,
+                file_types=(f"{kind} (*{suffix})", "All files (*.*)"),
+            )
+            if not result:
+                return {"cancelled": True}
+            path = result[0] if isinstance(result, (list, tuple)) else result
+            if path and not str(path).lower().endswith(suffix.lower()):
+                path = str(path) + suffix
+            Path(path).write_text(text or "", encoding="utf-8", newline="")
+            return {"cancelled": False, "path": str(path)}
+        except Exception as exc:  # noqa: BLE001
+            return {"cancelled": True, "error": str(exc)}
+
     def show_open_dialog(self) -> dict:
         """Open a native Open File dialog filtered to .rpx files."""
         try:

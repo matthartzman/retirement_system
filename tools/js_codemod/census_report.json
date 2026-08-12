@@ -2036,6 +2036,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "downloadBlob",
+      "file": "frontend/js/dashboard_decomp_misc.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
       "name": "moduleGates",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",

@@ -5787,7 +5787,7 @@ async function rollForwardYtdAccounts() {
 async function downloadYtdTemplate() {
   try {
     const text = await fetchText("/api/ytd/transactions/template");
-    downloadBlob("ytd_transactions_template.csv", text);
+    await saveGeneratedTextFile("ytd_transactions_template.csv", text, "Transaction template");
   } catch (e) {
     showMessage("Error downloading YTD template: " + e.message, "error");
   }
@@ -6254,7 +6254,7 @@ function ytdMetricCard(
   return `<div class="ytd-metric"><h3>${esc(title)}</h3><div class="ytd-metric-values"><span><b>${ytdMoney(actual)}</b><small>${esc(actualLabel)}</small></span><span><b>${ytdMoney(forecast)}</b><small>${esc(forecastLabel)}</small></span></div>${ytdSparkline(series, actualKey, forecastKey, sparkOptions)}${extra ? `<p class="small">${esc(extra)}</p>` : ""}</div>`;
 }
 function renderYtdUploadPanel(enabled) {
-  return `<div class="ytd-upload-panel"><input type="file" id="ytdUploadInput" accept=".csv,text/csv" style="display:none" onchange="handleYtdTransactionUpload(this)"><div><h3>Import transactions</h3><p class="small">Required CSV header: <code>Date, Merchant, Category, Account, Original Statement, Notes, Amount, Tags, Owner</code>. All rows with a valid date are imported, regardless of year. Use the Year-to-date / Last year toggle above to choose which calendar year's actuals are shown.</p></div><div class="table-actions"><select id="ytdUploadMode"><option value="replace">Replace all</option><option value="incremental">Add without replacing</option></select><button class="btn primary" type="button" data-requires-app="1" onclick="document.getElementById('ytdUploadInput').click()">Preview &amp; import CSV</button><button class="btn" type="button" data-requires-app="1" onclick="downloadYtdTemplate()">Download Template</button>${enabled ? `<button class="btn" type="button" data-requires-app="1" onclick="deduplicateYtdTransactions()">Remove Duplicates</button>` : ""} ${enabled ? `<button class="btn danger" type="button" data-requires-app="1" onclick="deleteAllYtdTransactions()">Delete All</button>` : ""}</div></div>`;
+  return `<div class="ytd-upload-panel"><input type="file" id="ytdUploadInput" accept=".csv,text/csv" style="display:none" onchange="handleYtdTransactionUpload(this)"><div><h3>Import transactions</h3><p class="small">CSV columns: <code>Date, Merchant, Category, Account, Original Statement, Notes, Amount, Tags, Owner</code> — only <code>Date</code> and <code>Amount</code> are required. Column order does not matter, capitalization is ignored, and extra columns are skipped. All rows with a valid date are imported, regardless of year. Use the Year-to-date / Last year toggle above to choose which calendar year's actuals are shown.</p></div><div class="table-actions"><select id="ytdUploadMode"><option value="replace">Replace all</option><option value="incremental">Add without replacing</option></select><button class="btn primary" type="button" data-requires-app="1" onclick="document.getElementById('ytdUploadInput').click()">Preview &amp; import CSV</button><button class="btn" type="button" data-requires-app="1" onclick="downloadYtdTemplate()">Download Template</button>${enabled ? `<button class="btn" type="button" data-requires-app="1" onclick="deduplicateYtdTransactions()">Remove Duplicates</button>` : ""} ${enabled ? `<button class="btn danger" type="button" data-requires-app="1" onclick="deleteAllYtdTransactions()">Delete All</button>` : ""}</div></div>`;
 }
 function renderYtdSummary() {
   const s = ytdData?.summary || { enabled: false };
