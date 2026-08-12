@@ -73,12 +73,25 @@ def test_engine_reads_only_canonical_large_discretionary_section():
 
 
 def test_user_ui_uses_visible_category_select_not_vacation_only_button():
+    """The Large Discretionary editor must offer a visible category dropdown.
+
+    2026-08-11: re-pointed from renderTravelExtras to
+    renderLargeDiscretionaryBudgetPage. The old "Travel & Extras" table this
+    test was written against had no callers and was deleted in the dead-code
+    sweep -- so these assertions were passing on source text that no user could
+    reach. The guard's INTENT (a visible category select, not a vacation-only
+    button) is unchanged and is satisfied by the live budget-line editor.
+    """
     js = dashboard_js_text()
-    assert "Home Improvement" in js
-    assert "Choose category" in js
-    assert 'travelExtras.push({\n    type: ""' in js
-    assert "<select onchange=\"updateTravelExtra" in js
-    assert "Current planned spending in this table" in js
+    # The live editor and its category dropdown.
+    assert "function renderLargeDiscretionaryBudgetPage" in js
+    assert '<select onchange="updateLargeDiscLine(' in js
+    # The dropdown is populated from a real category list, not a single button.
+    assert 'LARGE_DISC_TYPES = ["Wedding", "Large Gifts", "Other"]' in js
+    assert "function largeDiscTypeFromLine" in js
+    # Rows are user-addable and user-removable, not a fixed vacation-only row.
+    assert "function addLargeDiscLine" in js
+    assert "function deleteLargeDiscLine" in js
 
 
 def test_user_ui_routes_home_sale_out_of_economic_tax_assumptions():

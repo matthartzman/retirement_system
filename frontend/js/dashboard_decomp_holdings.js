@@ -505,15 +505,6 @@ export async function saveHoldings() {
   return { updated: 1 };
 }
 
-export function holdingsComplete() {
-  return (
-    (window.holdingsText || "")
-      .split(/\r?\n/)
-      .filter((x) => x.trim() && !x.toLowerCase().startsWith("account,"))
-      .length > 0
-  );
-}
-
 // Every export above is also re-attached to window: dashboard.js calls these
 // as bare globals (event-handler dispatch, save/load flows), and this file's
 // own rendered HTML uses inline onclick="addHoldingLot()"-style handlers,
@@ -548,5 +539,5 @@ Object.assign(window, {
   holdingsCurrentPrice,
   holdingLotCurrentValue,
   saveHoldings,
-  holdingsComplete,
+  
 });

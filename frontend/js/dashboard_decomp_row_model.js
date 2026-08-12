@@ -4266,19 +4266,6 @@ export function hasUnsavedPlanChanges() {
   );
 }
 
-export async function pushPlanDataContents(contents) {
-  if (!contents["client_data.csv"] || !contents["client_holdings.csv"])
-    throw new Error(
-      "The selected folder does not contain a complete Plan Data CSV set.",
-    );
-  for (const name of PLAN_DATA_FILES) {
-    if (Object.prototype.hasOwnProperty.call(contents, name))
-      await postPlanDataFile(name, contents[name]);
-  }
-  await syncBackends();
-  return true;
-}
-
 export async function saveWorkingCopy() {
   if (!planLoaded) {
     showMessage("Start or open the local plan before saving.", "error");
@@ -4622,7 +4609,7 @@ Object.assign(window, {
   planningLeverRows,
   planningWorkbenchContext,
   pushBuildHistoryEntry,
-  pushPlanDataContents,
+  
   rawRowsForStep,
   readPlanDataFolderContents,
   recAdd,
