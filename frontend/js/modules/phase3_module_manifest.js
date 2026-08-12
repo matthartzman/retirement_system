@@ -96,6 +96,29 @@
     // jscodeshift's node.start/.end are only valid byte offsets on a CRLF
     // source -- on an LF checkout (Linux/CI) all 584 of dashboard.js's
     // top-level functions slice wrong. Do not "unify" them back.
+    // v6 (same spec): SECOND domain cluster, extracted with the v5 tool
+    // unchanged -- the point of building a general codemod was that the next
+    // pass costs a dry run and a header file, not another bespoke edit. Moved
+    // the 39-declaration spending cluster (taxonomy manager, category mapping
+    // rules, domain budget tables, unified core-spending view) into
+    // frontend/js/dashboard_decomp_spending_taxonomy.js; dashboard.js went
+    // 14,822 -> 14,021 lines. Loaded BEFORE dashboard.js for the same
+    // queueMicrotask reason as v5. No constants moved: unlike the assets
+    // cluster, every constant table this one reads is shared with the rest of
+    // dashboard.js. This cluster leans on the bridge harder than v5 did -- it
+    // writes back to four dashboard.js `let`s (budgetLines, mappingRules,
+    // rulesChanged, taxBudgetChanged) and reads thirteen more. Those bare
+    // assignments only work because convert_dashboard.mjs emits set accessors:
+    // module code is strict, and a strict-mode assignment to an unresolvable
+    // identifier throws, so dropping a setter turns a silent global write into
+    // a ReferenceError. The full dependency list is enumerated in the module's
+    // own header (tools/js_codemod/headers/spending_taxonomy.txt).
+    // This pass also added tools/js_codemod/finish_extraction.mjs, which runs
+    // the whole deterministic follow-up (index.html wiring, census, bridge,
+    // clusters report, manifest, ratchet) and verifies that every dashboard.js
+    // binding the new module reaches back for is actually on the bridge, with
+    // a setter where the module assigns to it. That last check is the one
+    // nothing else in the pipeline performs.
     loaded_by:'dashboard_source_truth_banners.js',
     compatibility:'dashboard.js remains the public behavior owner; its top-level surface is now bridged to window explicitly and tool-verified (tests/test_dashboard_js_module_bridge_regression.py) instead of implicitly global.'
   };
