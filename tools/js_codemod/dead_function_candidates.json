@@ -7,14 +7,16 @@
     "frontend/js/dashboard_decomp_estate_insurance.js",
     "frontend/js/dashboard_decomp_holdings.js",
     "frontend/js/dashboard_decomp_home_panels.js",
+    "frontend/js/dashboard_decomp_housing_scenarios.js",
     "frontend/js/dashboard_decomp_local_backups.js",
     "frontend/js/dashboard_decomp_misc.js",
     "frontend/js/dashboard_decomp_row_model.js",
+    "frontend/js/dashboard_decomp_spending_taxonomy.js",
     "frontend/js/dashboard_decomp_state_inputs.js",
     "frontend/js/dashboard_decomp_supplemental_tables.js",
     "frontend/js/dashboard_decomp_workbook_formatting.js"
   ],
-  "total_top_level_functions": 813,
+  "total_top_level_functions": 814,
   "dead_candidates": [
     "normalizePlanningCaseRunType",
     "normalizePlanningCaseSource",
@@ -33,6 +35,7 @@
     "planningWorkbenchStressSelectorHtml"
   ],
   "zero_app_references_but_referenced_in_tests": [
+    "buildWithDesktopProgress",
     "chatMessageHtml",
     "renderYtdTracking",
     "saveCurrentPlanToSelectedFolderForBuild",
@@ -84,6 +87,9 @@
       "frontend\\js\\dashboard.js"
     ],
     "planningWorkbenchStressSelectorHtml": [
+      "frontend\\js\\dashboard.js"
+    ],
+    "buildWithDesktopProgress": [
       "frontend\\js\\dashboard.js"
     ],
     "chatMessageHtml": [

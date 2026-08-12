@@ -89,15 +89,32 @@ def _node_smoke(js_body: str, tmp_path: Path) -> str:
         // Extract just the pieces under test (avoids needing the whole
         // ~16k-line file's other top-level boot side effects for this smoke).
         const startMarker = 'let appCheckPromise = null;';
-        // setAppControls moved to dashboard_decomp_row_model.js (domain-module-
-        // split shared-core extraction, 2026-08-06) -- it's no longer text that
-        // follows checkAppStatus/_checkAppStatusRun in dashboard.js, so it can't
-        // be the end-of-region marker anymore. seedHousingRows is the next
-        // top-level declaration after _checkAppStatusRun in the current file.
-        const endMarker = 'async function seedHousingRows() {{';
+        // The region under test is appCheckPromise + checkAppStatus +
+        // _checkAppStatusRun. Its END is found STRUCTURALLY -- the next
+        // top-level declaration after _checkAppStatusRun -- rather than by
+        // naming whichever function currently follows it.
+        //
+        // Naming the neighbour has already broken this test twice, once per
+        // extraction pass that happened to move that neighbour out of
+        // dashboard.js: setAppControls (row-model extraction, 2026-08-06) and
+        // then seedHousingRows (housing/scenarios extraction, 2026-08-11).
+        // Both times the marker vanished, the slice failed, and node exited 1
+        // with 'markers not found' -- a confusing failure for a test whose
+        // real subject is a startup race. There are ~10 more extraction passes
+        // planned, so this stops paying that toll.
+        //
+        // Top-level declarations in dashboard.js all start at column 0 and
+        // nested code is indented, so a newline-anchored match is a reliable
+        // boundary. NOTE the doubled backslashes: this whole harness is a
+        // Python f-string, so a single \\r there would reach node as a real
+        // carriage return and split the regex literal across two lines.
         const startIdx = code.indexOf(startMarker);
-        const endIdx = code.indexOf(endMarker);
-        if (startIdx < 0 || endIdx < 0) throw new Error('markers not found');
+        if (startIdx < 0) throw new Error('start marker not found: ' + startMarker);
+        const runIdx = code.indexOf('async function _checkAppStatusRun', startIdx);
+        if (runIdx < 0) throw new Error('_checkAppStatusRun not found after the start marker');
+        const rest = code.slice(runIdx + 1);
+        const nextDecl = /\\r?\\n(?:async function|function|let|const|var) /.exec(rest);
+        const endIdx = nextDecl ? runIdx + 1 + nextDecl.index : code.length;
         const slice = code.slice(startIdx, endIdx);
         eval(slice);
         {js_body}

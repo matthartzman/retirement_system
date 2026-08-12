@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from _decomp_dashboard import dashboard_js_text
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -8,8 +10,7 @@ def read(path: str) -> str:
 
 
 def test_dashboard_has_shared_active_input_usage_layer_and_page_summary():
-    js = read("frontend/js/dashboard.js")
-    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     assert "function rowBuildUsageState" in js
     assert "function inactiveValuesPanel" in js
     assert "function inactiveRowsForStep" in js
@@ -21,8 +22,7 @@ def test_dashboard_has_shared_active_input_usage_layer_and_page_summary():
 
 
 def test_social_security_pia_and_claim_age_inputs_are_mutually_explained():
-    js = read("frontend/js/dashboard.js")
-    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     # The general "Inactive values" summary (elsewhere on the page) still
     # explains why a saved-but-unused FRA/PIA value isn't driving the build.
     assert "Monthly at FRA/PIA is blank or zero" in js
@@ -40,8 +40,7 @@ def test_social_security_pia_and_claim_age_inputs_are_mutually_explained():
 
 
 def test_allocation_optimizer_hides_unused_user_targets_and_lists_them_inactive():
-    js = read("frontend/js/dashboard.js")
-    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     assert "User target percentages are hidden because the next build will not use them" in js
     assert "A computed allocation mode is selected" in js
     assert "Choose Use user-specified allocation" in js
@@ -50,8 +49,7 @@ def test_allocation_optimizer_hides_unused_user_targets_and_lists_them_inactive(
 
 
 def test_conditional_modules_and_modes_have_activation_explanations():
-    js = read("frontend/js/dashboard.js")
-    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     for token in [
         "Core spending is set to CPI/general inflation mode",
         "Monte Carlo is set to Simple / Quick Vectorized mode",
