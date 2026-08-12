@@ -48,8 +48,17 @@ class DashboardDecompTestGuardTests(unittest.TestCase):
         for test_file in sorted(TEST_DIR.glob("test_*.py")):
             content = test_file.read_text()
 
-            # Skip conftest and helper files
-            if test_file.name in ["conftest.py", "_decomp_dashboard.py"]:
+            # Skip conftest and helper files.
+            #
+            # This file must skip ITSELF. Its docstring and failure message
+            # necessarily spell out the very patterns it forbids -- that is
+            # what makes the message actionable -- so scanning itself matches
+            # every one of them and the guard fails on a clean tree. Same
+            # self-defeating loop that find_dead_functions.mjs hits with the
+            # dead-code ratchet, and it is excluded there for the same reason:
+            # a file whose job is to NAME a pattern cannot also be audited FOR
+            # that pattern.
+            if test_file.name in ["conftest.py", "_decomp_dashboard.py", Path(__file__).name]:
                 continue
 
             # Check for disallowed patterns
