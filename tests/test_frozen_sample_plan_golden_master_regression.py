@@ -135,8 +135,42 @@ FROZEN_TODAY = "2026-08-04"
 # one: the computed value has been constant across every commit and both
 # interpreters since the pin was written. Verified by bisect + direct
 # per-commit measurement, 2026-08-10.
-PINNED_TERMINAL_NW = 6044750.40
-PINNED_LIFETIME_TAX = 1465666.69
+#
+# ---------------------------------------------------------------------------
+# Re-pinned 2026-08-12 -- 6,044,750.40 was a BUG ARTIFACT, and the 08-10
+# analysis above was measuring the bug rather than the fixture.
+#
+# data_io.parse_client passed spending_budget_resolver an explicit
+# ``root=`` computed from ``__file__``, so the unified spending budget,
+# spending taxonomy, and optional-module gating were resolved against the
+# REPO's input/ directory and RETIREMENT_SYSTEM_WORKSPACE_ROOT was ignored for
+# those three files. The frozen fixture ships its own copies of all three; they
+# were never read.
+#
+# That made this gate answer differently depending on the machine it ran on:
+#
+#   fresh checkout / worktree / CI  input/*.csv is gitignored and absent, so
+#                                   the resolver found nothing and fell through
+#                                   to legacy fallbacks   -> 6,044,750.40
+#   a warm working copy             the resolver read the developer's LIVE
+#                                   plan                  -> 5,824,239.30
+#
+# Both readings ignore the fixture. The 08-10 measurements (bisect, per-commit,
+# CI) were all taken in the first environment, which is why they agreed with
+# each other, agreed across interpreters, and still disagreed with a working
+# copy -- and why CI stayed green while the same commit failed locally.
+#
+# With the hardcoded root removed (src/data_io.py, same commit as this note),
+# the frozen build reads the frozen spending data and produces 5,824,239.30 in
+# BOTH environments -- verified in this working copy and in a clean worktree at
+# a2693ea. The value below is that number: the first pin this gate has carried
+# that describes the fixture rather than the ambient machine.
+#
+# Guarded by test_frozen_build_reads_its_own_spending_budget_not_the_live_one,
+# which fails if any spending input is ever again resolved from outside the
+# redirected workspace.
+PINNED_TERMINAL_NW = 5824239.30
+PINNED_LIFETIME_TAX = 1290848.91
 PINNED_FAILURES = []
 # Regenerated 2026-08-05 (fixture data change, not an engine change): added a
 # fictional home-purchase scenario to Housing next_step_1 (Texas, $400,000 @
@@ -153,8 +187,13 @@ PINNED_FAILURES = []
 # returns, and the SSA/SOA mortality table.
 
 
-def _frozen_config():
+def _frozen_config(withhold: tuple[str, ...] = ()):
     """Build the frozen plan's engine config from a fully self-contained copy.
+
+    ``withhold`` names files to leave OUT of the staged workspace. It exists for
+    the isolation guardrails below, which prove the redirect is real by checking
+    that removing a frozen input actually changes the result -- if it does not,
+    the build silently read the live repo ``input/`` instead.
 
     Every file in FROZEN_DIR is staged -- not just client_*.csv. The earlier
     version copied only client_*.csv and monkeypatched
@@ -188,7 +227,7 @@ def _frozen_config():
     workspace = Path(tempfile.mkdtemp(prefix="frozen_sample_plan_"))
     (workspace / "input").mkdir(parents=True)
     for f in sorted(FROZEN_DIR.iterdir()):
-        if f.is_file():
+        if f.is_file() and f.name not in withhold:
             shutil.copy(f, workspace / "input" / f.name)
 
     _prev_root = os.environ.get("RETIREMENT_SYSTEM_WORKSPACE_ROOT")
@@ -322,6 +361,43 @@ class FrozenSamplePlanGoldenMasterTests(unittest.TestCase):
             "total balances. This means the frozen build silently fell back to the real "
             "repo input/client_holdings.csv instead of the frozen copy -- the mandatory "
             "gate above would be pinned against live, not frozen, data.",
+        )
+
+    def test_frozen_build_reads_its_own_spending_budget_not_the_live_one(self):
+        """Second guardrail, same class as the one above but a different door.
+
+        The holdings guardrail above only ever proved the redirect for the files
+        parse_client resolves through candidate_input_files. The unified
+        spending budget does NOT come through that path: data_io.parse_client
+        handed spending_budget_resolver an explicit ``root=`` computed from
+        ``__file__``, so the resolver read the repo's own input/ directory and
+        ignored RETIREMENT_SYSTEM_WORKSPACE_ROOT entirely -- the exact landmine
+        this file's module docstring describes as fixed, surviving in a second
+        module nobody re-checked.
+
+        The consequence was worse than a stale number: on a machine with a warm
+        input/ the gate silently pinned against the LIVE plan's spending, and in
+        a fresh checkout or on CI (where input/*.csv is gitignored and absent)
+        the resolver found nothing and fell through to legacy fallback values.
+        Same commit, same fixture, two different answers -- $220,511.10 apart --
+        so the gate passed in CI while failing locally and proved nothing in
+        either place.
+
+        Withholding the frozen budget must change the answer. If it does not,
+        the build is reading spending data from somewhere other than the frozen
+        workspace.
+        """
+        full = _frozen_config()
+        without_budget = _frozen_config(withhold=("client_spending_budget.csv",))
+
+        self.assertNotEqual(
+            round(float(full["spend_base"]), 2),
+            round(float(without_budget["spend_base"]), 2),
+            "Withholding client_spending_budget.csv from the redirected workspace had no "
+            "effect on spend_base, so the frozen build resolved its spending budget from "
+            "outside the frozen workspace (historically: the repo's live input/ directory, "
+            "via a hardcoded root= in data_io.parse_client). The mandatory gate above is "
+            "then pinned against ambient machine state, not the fixture.",
         )
 
 

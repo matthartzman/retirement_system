@@ -1,5 +1,56 @@
 
 
+## 2026-08-12 — The frozen gate was measuring the machine, not the fixture (real fix + re-pin)
+
+**What was wrong.** `src/data_io.py`'s `parse_client()` handed
+`spending_budget_resolver.apply_budget_to_engine_config()` an explicit
+`root=Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))` — the repo root,
+computed from `__file__`. Everything reached through that root ignored
+`RETIREMENT_SYSTEM_WORKSPACE_ROOT`: `client_spending_budget.csv`,
+`client_spending_taxonomy.csv`, and `client_optional_functions.csv` were always read from
+the repo's own `input/` directory. The frozen fixture ships its own copies of all three.
+They were never read.
+
+This is the same landmine the test file's module docstring describes as fixed — a
+hardcoded `root=` defeating the workspace redirect — surviving in a second module that
+the original fix never touched.
+
+**Why it produced two different answers.** `/input/*` is gitignored, so what sits in that
+directory is a property of the checkout, not the commit:
+
+| Environment | What the resolver found | Terminal NW |
+|---|---|---|
+| Fresh checkout, git worktree, CI | nothing — falls through to legacy fallbacks | 6,044,750.40 |
+| A warm working copy | the developer's **live** plan | 5,824,239.30 |
+
+Neither reading involves the fixture. The gate passed in CI and failed locally **at the
+same commit, with byte-identical fixture and engine** — verified by running `a2693ea` in
+both a warm working copy and a clean worktree.
+
+**This supersedes the 2026-08-10 entry below.** That analysis was sound in its own terms
+and its conclusion — "the computed value is identical across six commits, two
+interpreters, and two machines" — was true. But every one of those measurements was taken
+in a fresh-checkout environment, so they were all measuring the same fallback path. The
+agreement was evidence of a shared environment, not of a correct pin. Bisect and
+per-commit measurement cannot see a defect that is constant across all commits.
+
+**What changed.**
+- `src/data_io.py`: dropped the hardcoded `root=`, so spending resolution honors
+  `RETIREMENT_SYSTEM_WORKSPACE_ROOT` like every other plan-data lookup. **This is a
+  production fix, not a test fix** — any run under a custom workspace root (the e2e
+  server, a multi-workspace build) was resolving spending against the wrong directory.
+- Pins re-generated to **5,824,239.30 / 1,290,848.91**, which the frozen build now
+  produces identically in a warm working copy and in a clean worktree.
+- New guardrail `test_frozen_build_reads_its_own_spending_budget_not_the_live_one` fails
+  if any spending input is ever again resolved from outside the redirected workspace.
+  The pre-existing holdings guardrail could not catch this: it only covers files resolved
+  through `candidate_input_files`, and the spending budget does not go through that path.
+
+**Does re-pinning mask an engine regression?** No. The engine is unchanged — the same
+commit computes 5,824,239.30 in both environments once the redirect is honored, and the
+two withdrawal-semantics commits in the range (`7a263e6`, `91ab5fe`) were measured
+individually and moved nothing here.
+
 ## 2026-08-10 — Correcting a stale pin that never matched (no engine change)
 
 **What was wrong.** `PINNED_TERMINAL_NW` / `PINNED_LIFETIME_TAX` in
