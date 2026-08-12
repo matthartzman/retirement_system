@@ -1,0 +1,44 @@
+/* Spending setup and taxonomy: the category/group taxonomy manager, category
+   mapping rules, domain budget tables, and the unified core-spending view --
+   extracted from dashboard.js by tools/js_codemod/extract_module.mjs.
+
+   Second domain cluster of the Wave 6.4 domain-module split (see
+   docs/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md),
+   following dashboard_decomp_assets_other.js. Selected as a connected component
+   of dashboard.js's internal call graph (tools/js_codemod/find_clusters.mjs):
+   39 declarations, the largest coherent single-domain component remaining.
+
+   Loaded BEFORE dashboard.js, in the same position as
+   dashboard_decomp_row_model.js and dashboard_decomp_assets_other.js -- not
+   after them with the other leaves. dashboard.js ends its module body with a
+   queueMicrotask() that schedules the real boot work, and a microtask
+   checkpoint runs after that script's evaluation, so it can fire before a LATER
+   module script has evaluated. This module's own top level is nothing but
+   declarations and one Object.assign, so it has no evaluation-time dependency
+   on dashboard.js and is safe to run first.
+
+   What this module still reaches back into dashboard.js for, all through the
+   generated window bridge. Enumerated by walking the moved declarations' text
+   against dashboard.js's top-level bindings, so this list is exhaustive as of
+   this pass rather than illustrative:
+
+     - the function renderMain (a reassigned monkey-patch chain, exposed via a
+       get accessor, so a bare call here gets the live decorated implementation);
+
+     - four WRITTEN state variables -- budgetLines, mappingRules, rulesChanged,
+       taxBudgetChanged. All four are `let` in dashboard.js and all four get a
+       set accessor from convert_dashboard.mjs. A bare assignment from inside
+       this module is legal despite module strict mode precisely because the
+       bridge has already defined the property on window: strict mode only
+       throws for an identifier that resolves to nothing at all, and these
+       resolve to the global accessor pair. Remove a setter and the assignment
+       starts throwing, so the bridge is load-bearing here, not cosmetic;
+
+     - thirteen read-only state variables -- categoryBudgetMode, groupBudgetMode,
+       rows, searchText, spendingModelData, spendingModelError,
+       spendingModelLoading, taxBudget, taxBudgetLoaded, taxonomyData,
+       taxonomyError, taxonomyFlat, taxonomyLoading.
+
+   No constants moved with this cluster: unlike the assets cluster, every
+   constant table it reads is shared with other parts of dashboard.js and so
+   had to stay behind. */

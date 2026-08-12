@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from _decomp_dashboard import dashboard_js_text
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -22,8 +24,7 @@ def test_planning_workbench_contract_helper_validates_shape():
 
 
 def test_dashboard_adds_planning_workbench_step_and_case_store():
-    js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
-    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
 
     assert 'id: "planning_workbench"' in js
     assert 'title: "Planning Workbench"' in js
@@ -37,8 +38,7 @@ def test_dashboard_adds_planning_workbench_step_and_case_store():
 
 
 def test_planning_workbench_route_is_available_before_plan_load():
-    dashboard = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
-    dashboard += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    dashboard = dashboard_js_text()
     navigation = (ROOT / "frontend" / "js" / "navigation.js").read_text(encoding="utf-8")
 
     assert (
@@ -54,8 +54,7 @@ def test_planning_workbench_route_is_available_before_plan_load():
 
 
 def test_legacy_pages_use_workbench_language_and_preserve_routes():
-    js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
-    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
 
     for step_id in ["planning_levers", "scenarios", "monte_carlo_options", "build_impact"]:
         assert f'id: "{step_id}"' in js

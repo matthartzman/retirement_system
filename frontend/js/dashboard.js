@@ -2704,18 +2704,8 @@ function rowIsRetirementWellness(r) {
 
 
 
-function rowIsCanonicalHomeBasis(r) {
-  return (
-    String(r.section || "").trim() === "Other Assets" &&
-    norm(r.subsection || "") === "home" &&
-    norm(r.label) === "home_basis"
-  );
-}
 
 
-function rowIsHomeSaleAssumption(r) {
-  return rowIsBaseHomeSaleInput(r) || rowIsStressSellHomeInput(r);
-}
 function baseHomeSaleYearRow() {
   return (
     rows.find(
@@ -2759,23 +2749,8 @@ function visibleAssetSpecialRow(r) {
 }
 
 
-function rowIsEconomyScenario(r) {
-  return (
-    r.section === "Scenarios" &&
-    ["high_inflation", "low_return"].includes(norm(r.subsection))
-  );
-}
 
 
-function rowValueIsMeaningful(row, state) {
-  const raw = String(valOf(row) || "").trim();
-  if (state && state.listAlways) return true;
-  if (raw === "") return false;
-  const clean = raw.replace(/[$,%\s,]/g, "").toLowerCase();
-  if (["0", "0.0", "0.00", "false", "no", "none", "off"].includes(clean))
-    return false;
-  return true;
-}
 function assetActionForSubsection(subsection) {
   const a = selectionActionRows().find(
     (x) => norm(x.subsection) === norm(subsection),
@@ -2827,60 +2802,6 @@ function optionalModuleState(row) {
 }
 
 
-function inactiveRowsForStep(id) {
-  return rawRowsForStep(id)
-    .map((r) => ({ row: r, state: rowBuildUsageState(r, id) }))
-    .filter(
-      (x) =>
-        !x.state.active &&
-        !x.state.optionalModuleOff &&
-        rowValueIsMeaningful(x.row, x.state),
-    );
-}
-function inactiveValueDisplay(row, state = {}) {
-  if (state && state.suppressValue) return "retired value ignored";
-  const v = displayValueForInput(row, valOf(row));
-  return v === "" ? "blank" : v;
-}
-function revealInactiveRow(idx) {
-  inactiveEditReveals.add(Number(idx));
-  renderMain();
-  setTimeout(() => {
-    const el = document.querySelector(`[data-row="${idx}"]`);
-    if (el) {
-      el.focus();
-      if (el.select) el.select();
-    }
-  }, 0);
-}
-function inactiveValuesPanel(stepId) {
-  const skip = new Set([
-    "start",
-    "review",
-    "build_impact",
-    "detailed_results",
-    "assumption_signoff",
-  ]);
-  if (skip.has(stepId) || !planLoaded) return "";
-  const items = inactiveRowsForStep(stepId);
-  const title = "Inactive values";
-  if (!items.length) return "";
-  const rowsHtml = items
-    .slice(0, 12)
-    .map(({ row, state }) => {
-      const action = state.noReveal
-        ? `<span class="small">${esc(state.actionLabel || "Edit the active source instead")}</span>`
-        : `<button class="btn" type="button" onclick="revealInactiveRow(${row.row_index})">${esc(state.actionLabel || "Edit to activate")}</button>`;
-      const label = state.displayLabel || humanLabel(row.label, row);
-      return `<tr><td><b>${esc(label)}</b><div class="small">${esc(friendlyGroup(row))}</div></td><td>${esc(inactiveValueDisplay(row, state))}</td><td>${esc(formatAcronyms(state.reason || "This value is currently not consumed by the build."))}</td><td>${esc(formatAcronyms(state.activation || "Change the controlling setting for this page."))}</td><td>${esc(formatAcronyms(state.effect || fieldGuidance(row).impact))}</td><td>${action}</td></tr>`;
-    })
-    .join("");
-  const more =
-    items.length > 12
-      ? `<p class="small">${items.length - 12} additional inactive value${items.length - 12 === 1 ? "" : "s"} are hidden from this summary. Use page search or All assumptions to review broader configuration.</p>`
-      : "";
-  return `<details class="inactive-values-panel"><summary>${title}: ${items.length} saved value${items.length === 1 ? "" : "s"} not used by the next build</summary><div class="inactive-values-body"><p class="small">Inactive values are saved in Plan Data but are hidden as ordinary inputs because the current build settings will not consume them. Use the action column only when you intentionally want to change the controlling setting or value so the build starts using it.</p><div class="lot-table-wrap"><table class="lot-table inactive-values-table"><thead><tr><th>Inactive value</th><th>Saved value</th><th>Why inactive</th><th>What would activate it</th><th>Likely effect on impacts</th><th></th></tr></thead><tbody>${rowsHtml}</tbody></table></div>${more}</div></details>`;
-}
 
 const RECOMMENDATION_ENGINE_VERSION = "page_recommendations_v1";
 const RECOMMENDATION_STEP_IDS = new Set([
@@ -3639,17 +3560,6 @@ function moneyHtml(value) {
 
 
 
-function updateTaxBudgetMoney(catId, field, el) {
-  updateTaxBudget(catId, field, budgetMoneyNumber(el && el.value));
-}
-function updateCategoryDetailMoney(lineId, field, el, catId) {
-  updateCategoryDetail(
-    lineId,
-    field,
-    String(budgetMoneyNumber(el && el.value)),
-    catId,
-  );
-}
 function updateLargeDiscLineMoney(lineId, field, el) {
   updateLargeDiscLine(lineId, field, String(budgetMoneyNumber(el && el.value)));
 }
@@ -4850,74 +4760,6 @@ function renderAllocationRecommendation() {
   html += renderTotalWealthAllocationHtml();
   return html;
 }
-function coreSpendingGrowthMode() {
-  const r =
-    findEditableRow("Cashflow", "Spending", "core_spending_growth_mode") ||
-    rows.find(
-      (x) => isEditable(x) && norm(x.label) === "core_spending_growth_mode",
-    );
-  const v = String(r ? valOf(r) : "cpi")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_");
-  return v === "manual" || v === "manual_override" ? "manual_override" : "cpi";
-}
-function renderSpendingCore() {
-  if (searchText.trim()) return renderFields("spending_core");
-  /* DAF contributions are intentionally routed to Charitable Giving, not Core Spending. */ const rs =
-    rowsForStep("spending_core").filter(
-      (r) => norm(r.label) !== "daf_annual_contribution",
-    );
-  const mode = coreSpendingGrowthMode();
-  const hidden = new Set([
-    "core_spending_manual_growth_rate",
-    "inflation_general",
-    "daf_annual_contribution",
-    "annual_charitable_giving_low",
-    "annual_charitable_giving_high",
-  ]);
-  const labels =
-    mode === "manual_override"
-      ? [
-          "core_spending_growth_mode",
-          "annual_spending_base_year",
-          "spending_freeze_year",
-          "core_spending_manual_growth_rate",
-        ]
-      : [
-          "core_spending_growth_mode",
-          "annual_spending_base_year",
-          "spending_freeze_year",
-          "inflation_general",
-        ];
-  const ordered = [];
-  labels.forEach((l) => {
-    const r = rs.find((x) => norm(x.label) === norm(l));
-    if (r) ordered.push(r);
-  });
-  rs.forEach((r) => {
-    if (!ordered.includes(r) && !hidden.has(norm(r.label))) ordered.push(r);
-  });
-  const have = Object.fromEntries(
-    [
-      "annual_spending_base_year",
-      "core_spending_growth_mode",
-      "core_spending_manual_growth_rate",
-      "inflation_general",
-      "spending_freeze_year",
-    ].map((l) => [l, !!rs.find((x) => norm(x.label) === norm(l))]),
-  );
-  let missingMsg = "";
-  if (
-    !have.core_spending_growth_mode ||
-    !have.spending_freeze_year ||
-    (!have.inflation_general && mode === "cpi") ||
-    (!have.core_spending_manual_growth_rate && mode === "manual_override")
-  )
-    missingMsg = `<div class="section-note warning" id="coreSpendingRowsMissing"><b>Core spending controls are being created:</b> save or reload Plan Data if any control is missing. Expected rows are Core Spending Base, Core Spending Increase Stops, Core Spending Increase Method, and the relevant increase-rate field.</div>`;
-  let html = `<div class="section-note"><b>Projection controls:</b> Core spending base/growth controls feed recurring lifestyle spending. The category hierarchy below is the comprehensive income/expense model except taxes/transfers. Category assignment happens here; Accounts & Sources lives on Income & Expense Transactions.</div>${missingMsg}`;
-  html += `<div class="field-list core-spending-flat">${ordered.map(fieldHtml).join("")}</div>`;
-  return html;
-}
 
 const PERSON_TABLE_LABELS = [
   "name",
@@ -5919,413 +5761,9 @@ function renderAssetsCashReserves() {
   html += renderLiquidityBuffers();
   return html;
 }
-async function estimateHousingFromState(stepNum) {
-  const sub = "next_step_" + stepNum;
-  const stateRow = rows.find(
-    (r) =>
-      r.section === "Housing" &&
-      norm(r.subsection || "") === "next_step_" + stepNum &&
-      norm(r.label) === "state",
-  );
-  const typeRow = rows.find(
-    (r) =>
-      r.section === "Housing" &&
-      norm(r.subsection || "") === "next_step_" + stepNum &&
-      norm(r.label) === "type",
-  );
-  const cityTypeRow = rows.find(
-    (r) =>
-      r.section === "Housing" &&
-      norm(r.subsection || "") === "next_step_" + stepNum &&
-      norm(r.label) === "city_type",
-  );
-  const popRow = rows.find(
-    (r) =>
-      r.section === "Housing" &&
-      norm(r.subsection || "") === "next_step_" + stepNum &&
-      norm(r.label) === "population_size",
-  );
-  const stateVal = stateRow
-    ? String(valOf(stateRow) || "")
-        .trim()
-        .toUpperCase()
-    : "";
-  const typeVal = typeRow
-    ? String(valOf(typeRow) || "purchase").toLowerCase()
-    : "purchase";
-  const isPurchase = typeVal === "purchase";
-  if (!stateVal) {
-    showMessage("Enter a state abbreviation first (e.g. IL, TX, FL).", "error");
-    return;
-  }
-  if (isPurchase && cityTypeRow && !String(valOf(cityTypeRow) || "").trim()) {
-    showMessage("Select an Area Type before estimating.", "error");
-    return;
-  }
-  if (isPurchase && popRow && !String(valOf(popRow) || "").trim()) {
-    showMessage("Enter a Population before estimating.", "error");
-    return;
-  }
-  const cityTypeVal = cityTypeRow
-    ? String(valOf(cityTypeRow) || "suburban").trim()
-    : "suburban";
-  const popVal = popRow
-    ? String(valOf(popRow) || "20000").replace(/[^0-9]/g, "")
-    : "20000";
-  try {
-    const out = await api("/api/housing/state-estimate", {
-      method: "POST",
-      body: JSON.stringify({
-        state: stateVal,
-        step: sub,
-        type: typeVal,
-        city_type: cityTypeVal,
-        population_size: parseInt(popVal) || 20000,
-      }),
-    });
-    if (!out || !out.estimate) {
-      showMessage("No estimate available for " + stateVal, "error");
-      return;
-    }
-    const e = out.estimate;
-    const fieldMap = {
-      purchase_price: isPurchase ? e.purchase_price : null,
-      monthly_rent: !isPurchase ? e.monthly_rent : null,
-      insurance_annual: e.insurance_annual,
-      utilities_annual: e.utilities_annual,
-      maintenance_annual: isPurchase ? e.maintenance_annual : null,
-      re_tax_pct: isPurchase ? e.re_tax_pct : null,
-      hoa_pct: isPurchase ? e.hoa_pct : null,
-      mortgage_rate_pct: isPurchase ? e.mortgage_rate_pct : null,
-    };
-    // #266: cache for per-field restoreHousingEstimateField() below.
-    window.housingLastEstimate[stepNum] = fieldMap;
-    let applied = 0;
-    for (const label of Object.keys(fieldMap)) {
-      if (window.applyHousingEstimateField(stepNum, label, fieldMap[label])) applied++;
-    }
-    renderMain();
-    showMessage(
-      "Estimated values applied for " +
-        stateVal +
-        " (" +
-        applied +
-        " fields). Review and adjust as needed.",
-    );
-  } catch (err) {
-    showMessage("Error fetching estimate: " + err.message, "error");
-  }
-}
 // #266: housing-estimate apply/restore helpers live in dashboard_decomp_misc.js.
 
-function housingRentMonthlyValue() {
-  const rentLabels = new Set(["monthly_rent"]);
-  let maxRent = 0;
-  (rows || []).forEach(function (r) {
-    const lbl = norm((r && r.label) || "");
-    if (rentLabels.has(lbl)) {
-      const n = numberFromDisplay(valOf(r));
-      if (n !== null && n > maxRent) maxRent = n;
-    }
-  });
-  return maxRent;
-}
-function housingRentIsConfigured() {
-  return housingRentMonthlyValue() > 0;
-}
-function rowIsRentInput(r) {
-  const l = norm((r && r.label) || "");
-  return l === "monthly_rent";
-}
-function housingAreaTypeSelect(row) {
-  const cur = String(valOf(row) || "")
-    .trim()
-    .toLowerCase();
-  const opts = ["urban", "suburban", "rural"];
-  return `<select data-row="${row.row_index}" onchange="editValue(${row.row_index},this.value,this)" onfocus="showFieldHelp(${row.row_index})"><option value="">Select area type</option>${opts.map((o) => `<option value="${o}" ${norm(o) === norm(cur) ? "selected" : ""}>${titleWord(o)}</option>`).join("")}</select>`;
-}
 
-async function clearHousingNextStep(stepNum) {
-  if (
-    !(await showInAppConfirm(
-      "All fields in Next Step " + stepNum + " will be reset.",
-      { title: "Clear Next Step", confirmLabel: "Clear", variant: "warn" },
-    ))
-  )
-    return;
-  var sub = "next_step_" + stepNum;
-  rows
-    .filter(function (r) {
-      return r.section === "Housing" && norm(r.subsection || "") === sub;
-    })
-    .forEach(function (r) {
-      dirty.set(r.row_index, "");
-    });
-  renderMain();
-}
-function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
-  if (!stepRows || !stepRows.length) return "";
-  var typeRow = stepRows.find(function (r) {
-    return norm(r.label) === "type";
-  });
-  var typeVal = typeRow
-    ? String(valOf(typeRow) || "purchase").toLowerCase()
-    : "purchase";
-  var isPurchase = typeVal !== "rent";
-  var stateRow = stepRows.find(function (r) {
-    return norm(r.label) === "state";
-  });
-  var cityTypeRow = stepRows.find(function (r) {
-    return norm(r.label) === "city_type";
-  });
-  var popRow = stepRows.find(function (r) {
-    return norm(r.label) === "population_size";
-  });
-  var stateVal = stateRow ? String(valOf(stateRow) || "").trim() : "";
-  var cityTypeVal = cityTypeRow ? String(valOf(cityTypeRow) || "").trim() : "";
-  var popVal = popRow ? String(valOf(popRow) || "").trim() : "";
-
-  // Purchase: State → Area Type → Population → [Estimate] → remaining fields
-  // Rent: State → [Estimate] → remaining fields (no Area Type, Population, or HOA)
-  var PURCHASE_FIRST = ["state", "city_type", "population_size"];
-  var PURCHASE_REST = [
-    "start_year",
-    "end_year",
-    "purchase_price",
-    "down_payment",
-    "mortgage_rate_pct",
-    "insurance_annual",
-    "utilities_annual",
-    "maintenance_annual",
-    "re_tax_pct",
-    "hoa_pct",
-  ];
-  var RENT_FIRST = ["state"];
-  var RENT_REST = [
-    "start_year",
-    "end_year",
-    "monthly_rent",
-    "insurance_annual",
-    "utilities_annual",
-  ];
-
-  function pickRows(labels) {
-    var out = [];
-    labels.forEach(function (lbl) {
-      var r = stepRows.find(function (x) {
-        return norm(x.label) === lbl && x !== typeRow;
-      });
-      if (r) out.push(r);
-    });
-    return out;
-  }
-  var firstRows = pickRows(isPurchase ? PURCHASE_FIRST : RENT_FIRST);
-  var restRows = pickRows(isPurchase ? PURCHASE_REST : RENT_REST);
-
-  // Estimate button: Purchase requires all 3 inputs; Rent requires state only
-  var estimateReady = isPurchase
-    ? stateVal && cityTypeVal && popVal
-    : !!stateVal;
-  var estimateHint = isPurchase
-    ? "Enter State, Area Type, and Population to enable"
-    : "Enter State to enable";
-  var estimateBtn =
-    '<div class="section-note" style="margin-top:4px;margin-bottom:8px">' +
-    '<button class="btn btn-sm" type="button" data-requires-app="1"' +
-    (estimateReady ? "" : ' disabled title="' + estimateHint + '"') +
-    ' onclick="estimateHousingFromState(' +
-    stepNum +
-    ')">' +
-    "Estimate fields" +
-    (stateVal ? " (" + esc(stateVal.toUpperCase()) + ")" : "") +
-    "</button>" +
-    ' <span class="small">Fills typical ' +
-    (isPurchase ? "purchase" : "rental") +
-    " costs for a 3BR/2BA home with at least a 40×40 ft backyard. All values are editable.</span></div>";
-  // #266: per-field restore-to-estimate links.
-  var restoreFieldLabels = { insurance_annual: "Insurance", utilities_annual: "Utilities", maintenance_annual: "Maintenance", re_tax_pct: "RE Tax %", hoa_pct: "HOA %" };
-  var cachedEst = window.housingLastEstimate[stepNum];
-  if (cachedEst) {
-    var restoreLinks = Object.keys(restoreFieldLabels)
-      .filter((lbl) => cachedEst[lbl] !== null && cachedEst[lbl] !== undefined)
-      .map((lbl) => '<button class="btn tiny" type="button" onclick="restoreHousingEstimateField(' + stepNum + ",'" + lbl + '\')">↺ ' + esc(restoreFieldLabels[lbl]) + "</button>")
-      .join(" ");
-    if (restoreLinks) estimateBtn += '<div class="section-note small" style="margin-bottom:8px">Restore app estimate for one field: ' + restoreLinks + "</div>";
-  }
-
-  var typeToggle = "";
-  if (typeRow) {
-    typeToggle =
-      '<div class="field housing-type-field"><div class="field-label">Rent or Buy</div>' +
-      '<div class="btn-toggle-group">' +
-      '<button type="button" class="btn-toggle' +
-      (isPurchase ? " active" : "") +
-      '" onclick="editValue(' +
-      typeRow.row_index +
-      ",'purchase',null);renderMain()\">Buy</button>" +
-      '<button type="button" class="btn-toggle' +
-      (!isPurchase ? " active" : "") +
-      '" onclick="editValue(' +
-      typeRow.row_index +
-      ",'rent',null);renderMain()\">Rent</button>" +
-      '</div><div class="field-hint">Choose whether this housing step is a purchase or a rental. Rent stays visible even when the saved rent amount is currently zero.</div></div>';
-  }
-
-  var html =
-    '<details><summary class="section-header">' +
-    esc(stepLabel) +
-    '</summary><div class="section-body">';
-  html +=
-    '<button class="btn danger" type="button" onclick="clearHousingNextStep(' +
-    stepNum +
-    ')">Clear This Step</button>';
-  html += typeToggle;
-  if (firstRows.length)
-    html +=
-      '<div class="field-list">' +
-      firstRows
-        .map(function (r) {
-          return norm(r.label) === "city_type"
-            ? '<div class="field"><div class="field-label">Area Type</div>' +
-                housingAreaTypeSelect(r) +
-                "</div>"
-            : fieldHtml(r);
-        })
-        .join("") +
-      "</div>";
-  html += estimateBtn;
-  if (restRows.length)
-    html +=
-      '<div class="field-list">' + restRows.map(fieldHtml).join("") + "</div>";
-  html += "</div></details>";
-  return html;
-}
-function renderCollapsibleDomainBudgetSection(domain, openByDefault) {
-  const title = domainBudgetTitle(domain);
-  return `<details class="domain-budget-section" data-dkey="domain-budget:${esc(domain)}"><summary class="section-header">${esc(title)}</summary><div class="section-body">${renderDomainBudgetPage(domain, { embedded: true })}</div></details>`;
-}
-function renderSpendingHousing() {
-  const rs = rowsForStep("spending_mortgage_events");
-  const _CURRENT_MORTGAGE_EXCL = ["annual_real_estate_taxes"];
-  const mortgage = rs.filter(
-    (r) =>
-      String(r.section || "").trim() === "Cashflow" &&
-      norm(r.subsection || "") === "mortgage" &&
-      !_CURRENT_MORTGAGE_EXCL.includes(norm(r.label || "")),
-  );
-  const homeRows = rs.filter(
-    (r) =>
-      String(r.section || "").trim() === "Other Assets" &&
-      norm(r.subsection || "") === "home",
-  );
-  const _CURRENT_HOME_EXCL = [
-    "city_type",
-    "population_size",
-    "hoa_pct",
-    "hoa_annual",
-    "homeowners_insurance_annual",
-    "home_maintenance_annual",
-    "utilities_annual",
-  ];
-  const housingOpRows = rs.filter(
-    (r) =>
-      String(r.section || "").trim() === "Housing" &&
-      norm(r.subsection || "") === "current_home" &&
-      !_CURRENT_HOME_EXCL.includes(norm(r.label || "")),
-  );
-  const homeImprovRows = rs.filter(
-    (r) =>
-      String(r.section || "").trim() === "Housing" &&
-      norm(r.subsection || "") === "home_improvements",
-  );
-  const nextStep1Rows = rs.filter(
-    (r) =>
-      String(r.section || "").trim() === "Housing" &&
-      norm(r.subsection || "") === "next_step_1",
-  );
-  const nextStep2Rows = rs.filter(
-    (r) =>
-      String(r.section || "").trim() === "Housing" &&
-      norm(r.subsection || "") === "next_step_2",
-  );
-  const keyHomeRows = homeRows.filter((r) => {
-    const l = norm(r.label || "");
-    return homeValueLabelIsCanonical(r.label) || l === "home_basis";
-  });
-
-  // Determine if any next housing step is a Purchase — home improvements only show then.
-  const nextStep1TypeRow = nextStep1Rows.find((r) => norm(r.label) === "type");
-  const nextStep2TypeRow = nextStep2Rows.find((r) => norm(r.label) === "type");
-  const nextStep1IsBuy =
-    !nextStep1TypeRow ||
-    String(valOf(nextStep1TypeRow) || "purchase").toLowerCase() === "purchase";
-  const nextStep2IsBuy =
-    !nextStep2TypeRow ||
-    String(valOf(nextStep2TypeRow) || "purchase").toLowerCase() === "purchase";
-  const anyNextStepIsBuy = nextStep1IsBuy || nextStep2IsBuy;
-
-  let html = "";
-
-  html += renderCollapsibleDomainBudgetSection("housing", true);
-
-  html +=
-    '<details><summary class="section-header">Current home</summary><div class="section-body">';
-  html +=
-    '<div class="section-note">Current mortgage payment timing and home value. Real-estate taxes, homeowners insurance, maintenance, and utilities are entered in Housing Budget Detail below. Click <button class="btn btn-sm" type="button" onclick="seedHousingRows()">Seed Housing Fields</button> to add insurance, utilities, maintenance, and next-housing-step fields if not yet present.</div>';
-  if (mortgage.length)
-    html +=
-      '<div class="field-list">' + mortgage.map(fieldHtml).join("") + "</div>";
-  if (housingOpRows.length)
-    html +=
-      '<div class="field-list">' +
-      housingOpRows.map(fieldHtml).join("") +
-      "</div>";
-  if (keyHomeRows.length)
-    html +=
-      '<div class="field-list">' +
-      keyHomeRows.map(fieldHtml).join("") +
-      "</div>";
-  html += "</div></details>";
-
-  html += renderBaseHomeSaleRows(rs);
-
-  if (nextStep1Rows.length) {
-    html += renderNextHousingStepSection(
-      nextStep1Rows,
-      "Next Housing Step 1",
-      1,
-    );
-  }
-  if (nextStep2Rows.length) {
-    html += renderNextHousingStepSection(
-      nextStep2Rows,
-      "Next Housing Step 2",
-      2,
-    );
-  }
-  if (!nextStep1Rows.length && !nextStep2Rows.length) {
-    html +=
-      '<details><summary class="section-header">Next Housing Step (Purchase)</summary><div class="section-body">';
-    html +=
-      '<div class="section-note">Next-step housing fields not found. Click <button class="btn btn-sm" type="button" onclick="seedHousingRows()">Seed Housing Fields</button> to add fields for future housing steps.</div>';
-    html += "</div></details>";
-  }
-
-  // Home improvement projects — only relevant for purchase (not rent).
-  if (homeImprovRows.length && anyNextStepIsBuy) {
-    html +=
-      '<details><summary class="section-header">Home improvement projects</summary><div class="section-body">';
-    html +=
-      '<div class="section-note">Planned improvement costs are entered here as part of Housing. Other pages may reference them read-only.</div>';
-    html +=
-      '<div class="field-list">' +
-      homeImprovRows.map(fieldHtml).join("") +
-      "</div>";
-    html += "</div></details>";
-  }
-
-  return html;
-}
 
 
 
@@ -6921,198 +6359,8 @@ function renderRothConversion() {
   return html;
 }
 
-function homeSaleScenarioYearRow(home) {
-  return (
-    home.find(
-      (r) =>
-        String(r.section || "").trim() === "Scenarios" &&
-        norm(r.subsection) === "sell_home" &&
-        (norm(r.label) === "home_sale_year" ||
-          norm(r.label) === "planned_home_sale_year"),
-    ) ||
-    home.find(
-      (r) =>
-        norm(r.label) === "home_sale_year" ||
-        norm(r.label) === "planned_home_sale_year",
-    )
-  );
-}
-function addUniqueRow(target, row) {
-  if (row && !target.includes(row)) target.push(row);
-}
-function renderBaseHomeSaleRows(rs) {
-  const base = rs
-    .filter(rowIsBaseHomeSaleInput)
-    .filter((r) => !rowIsRetiredScenarioHomeDuplicate(r));
-  if (!base.length) return "";
-  const year = base.find(
-    (r) =>
-      String(r.section || "").trim() === "Other Assets" &&
-      norm(r.subsection) === "home" &&
-      norm(r.label) === "home_sale_year",
-  );
-  const currentYear = new Date().getFullYear();
-  const yearNum = year
-    ? Number(String(valOf(year) || "0").replace(/[^0-9]/g, "")) || 0
-    : 0;
-  const active = yearNum >= currentYear; // Year always first; remaining fields only when a year is entered
-  let yearFirst = [year].filter(Boolean);
-  let restVisible = [];
-  if (active) {
-    base
-      .filter(
-        (r) =>
-          r !== year &&
-          !rowIsCanonicalHomeValue(r) &&
-          !rowIsCanonicalHomeBasis(r),
-      )
-      .forEach((r) => {
-        if (!restVisible.includes(r)) restVisible.push(r);
-      });
-  }
-  const introNote = active
-    ? '<div class="section-note">Sale year set — enter sale price, commission, and related details. Home value and basis are managed in Current Home above.</div>'
-    : '<div class="section-note">Enter a home sale year to reveal sale detail fields.</div>';
-  return `<details><summary class="section-header">Home Sale</summary><div class="field-list">${introNote}${yearFirst.map(fieldHtml).join("")}${restVisible.map(fieldHtml).join("")}</div></details>`;
-}
-function renderStressSellHomeRows(rs) {
-  const stress = rs.filter(rowIsStressSellHomeInput);
-  if (!stress.length) return "";
-  const year = homeSaleScenarioYearRow(stress);
-  const active = year && (Number(currencyRaw(valOf(year) || 0)) || 0) > 0;
-  const canonicalValue = rs.find(rowIsCanonicalHomeValue);
-  const canonicalBasis = rs.find(rowIsCanonicalHomeBasis);
-  let visible = [];
-  addUniqueRow(visible, canonicalValue);
-  addUniqueRow(visible, canonicalBasis);
-  if (active)
-    stress
-      .filter((r) => housingRentIsConfigured() || !rowIsRentInput(r))
-      .forEach((r) => addUniqueRow(visible, r));
-  else
-    addUniqueRow(
-      visible,
-      year || stress.find((r) => norm(r.label).includes("home_sale_year")),
-    );
-  return `<details><summary>Sell Home stress test — scenario sheet only</summary><div class="field-list"><div class="section-note warning"><b>Scenario-only:</b> these Sell Home stress-test rows are used by the Scenario Analysis workbook sheet, but they do <b>not</b> change the base-plan Build Impact cards. To change headline terminal net worth, set the Base Plan Home Sale Year above. The Home Value and Home Basis shown here are shared canonical Home asset facts. The sale value used by this stress test is projected from canonical Home Value and appreciation.</div>${sortRowsByDependency(visible).map(fieldHtml).join("")}</div></details>`;
-}
-function renderHomeSaleScenarioRows(rs) {
-  const has = rs.some(
-    (r) => rowIsBaseHomeSaleInput(r) || rowIsStressSellHomeInput(r),
-  );
-  if (!has) return "";
-  return renderBaseHomeSaleRows(rs) + renderStressSellHomeRows(rs);
-}
 
 const SCENARIO_SET_STORAGE_KEY = "retirement.scenario_sets.v1";
-const SCENARIO_TEMPLATES = [
-  {
-    id: "conservative_markets",
-    title: "Conservative markets",
-    desc: "Raise inflation and lower portfolio return, then include both shocks in the combined stress test.",
-    changes: [
-      {
-        subsection: "High Inflation",
-        label: "inflation_override",
-        value: "4.50%",
-        why: "Tests sustained purchasing-power pressure.",
-      },
-      {
-        subsection: "Low Return",
-        label: "portfolio_return_override",
-        value: "4.00%",
-        why: "Tests lower expected portfolio growth.",
-      },
-      {
-        subsection: "Combined Stress Test",
-        label: "include_high_inflation",
-        value: "TRUE",
-        why: "Includes inflation in the combined stress case.",
-      },
-      {
-        subsection: "Combined Stress Test",
-        label: "include_low_return",
-        value: "TRUE",
-        why: "Includes low returns in the combined stress case.",
-      },
-    ],
-  },
-  {
-    id: "spending_pressure",
-    title: "Spending pressure",
-    desc: "Model a higher-spending case and include it in the combined stress test.",
-    changes: [
-      {
-        subsection: "Higher Spending",
-        label: "spend_multiplier",
-        value: "1.20",
-        why: "Increases scenario spending by 20%.",
-      },
-      {
-        subsection: "Combined Stress Test",
-        label: "include_spend_more",
-        value: "TRUE",
-        why: "Includes the higher-spending case in the combined stress test.",
-      },
-    ],
-  },
-  {
-    id: "retire_later_income",
-    title: "Retire later bridge",
-    desc: "Turn on the retire-later scenario with continued earned income assumptions.",
-    changes: [
-      {
-        subsection: "Retire Later",
-        label: "member_1_retire_year",
-        value: "2029",
-        why: "Moves the scenario retirement year later.",
-      },
-      {
-        subsection: "Retire Later",
-        label: "salary_override",
-        value: "$50,000",
-        why: "Adds scenario earned income during the bridge period.",
-      },
-      {
-        subsection: "Retire Later",
-        label: "income_growth_rate_override",
-        value: "0.00%",
-        why: "Keeps the bridge-income case easy to read.",
-      },
-      {
-        subsection: "Combined Stress Test",
-        label: "include_retire_later",
-        value: "TRUE",
-        why: "Includes retire-later in the combined case.",
-      },
-    ],
-  },
-  {
-    id: "home_sale_liquidity",
-    title: "Home-sale liquidity",
-    desc: "Turn on the Sell Home stress case and include it in the combined stress test.",
-    changes: [
-      {
-        subsection: "Sell Home",
-        label: "home_sale_year",
-        value: "2045",
-        why: "Activates the scenario-only home sale timing.",
-      },
-      {
-        subsection: "Sell Home",
-        label: "home_sale_proceeds_account",
-        value: "Member_2_Trust",
-        why: "Routes proceeds to the configured account for the stress case.",
-      },
-      {
-        subsection: "Combined Stress Test",
-        label: "include_sell_home",
-        value: "TRUE",
-        why: "Includes home sale in the combined case.",
-      },
-    ],
-  },
-];
 
 function scenarioRowKeyFromParts(section, subsection, label) {
   return [norm(section || "Scenarios"), norm(subsection), norm(label)].join(
@@ -7122,266 +6370,8 @@ function scenarioRowKeyFromParts(section, subsection, label) {
 
 
 
-function scenarioTemplateById(id) {
-  return SCENARIO_TEMPLATES.find((t) => t.id === id) || null;
-}
 
-function scenarioWriteSets(list) {
-  try {
-    localStorage.setItem(
-      SCENARIO_SET_STORAGE_KEY,
-      JSON.stringify((list || []).slice(0, 20)),
-    );
-    return true;
-  } catch (e) {
-    showMessage("Could not save scenario set locally: " + e.message, "error");
-    return false;
-  }
-}
-function scenarioCurrentItems() {
-  const seen = new Set();
-  return scenarioRowsForManagement(rawRowsForStep("scenarios"))
-    .filter((r) => {
-      const k = scenarioRowKey(r);
-      if (seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    })
-    .map((r) => ({
-      key: scenarioRowKey(r),
-      section: r.section,
-      subsection: r.subsection,
-      label: r.label,
-      value: String(valOf(r) || ""),
-      display_value: displayValueForInput(r, valOf(r) || ""),
-      name: scenarioFieldName(r),
-    }));
-}
-function scenarioActiveOverrideItems(rs) {
-  return scenarioRowsForManagement(rs)
-    .filter((r) => rowValueIsMeaningful(r) && norm(r.subsection) !== "base")
-    .map((r) => ({
-      key: scenarioRowKey(r),
-      subsection: r.subsection,
-      label: humanLabel(r.label, r),
-      value: displayValueForInput(r, valOf(r) || ""),
-      group: friendlyGroup(r),
-    }));
-}
-function scenarioSetDiffItems(set) {
-  const map = {};
-  scenarioRowsForManagement(rawRowsForStep("scenarios")).forEach((r) => {
-    map[scenarioRowKey(r)] = r;
-  });
-  return (set.items || [])
-    .map((item) => {
-      const r = map[item.key] || scenarioFindRow(item.subsection, item.label);
-      if (!r)
-        return {
-          name: item.name || `${item.subsection} · ${item.label}`,
-          current: "Not found",
-          saved: item.display_value || item.value || "",
-          missing: true,
-        };
-      const cur = displayValueForInput(r, valOf(r) || "");
-      const saved = displayValueForInput(r, item.value || "");
-      return {
-        name: item.name || scenarioFieldName(r),
-        current: cur || "blank",
-        saved: saved || "blank",
-        changed: String(cur) !== String(saved),
-      };
-    })
-    .filter((x) => x.changed || x.missing);
-}
-function scenarioDiffTableHtml(items, emptyText) {
-  const list = (items || []).slice(0, 10);
-  if (!list.length)
-    return `<p class="small">${esc(emptyText || "No differences from the current scenario values.")}</p>`;
-  let html =
-    '<table class="lot-table scenario-diff-table"><thead><tr><th>Assumption</th><th>Current</th><th>Saved / template</th></tr></thead><tbody>';
-  list.forEach((x) => {
-    html += `<tr><td>${esc(x.name || `${x.group || ""} ${x.label || ""}`)}</td><td>${esc(x.current || "blank")}</td><td>${esc(x.saved || x.value || "blank")}</td></tr>`;
-  });
-  html += "</tbody></table>";
-  if ((items || []).length > list.length)
-    html += `<p class="small">+${(items || []).length - list.length} additional difference${(items || []).length - list.length === 1 ? "" : "s"}.</p>`;
-  return html;
-}
-function scenarioTemplateDiffItems(tpl) {
-  return (tpl.changes || []).map((c) => {
-    const r = scenarioFindRow(c.subsection, c.label);
-    return {
-      name: r ? scenarioFieldName(r) : `${c.subsection} · ${c.label}`,
-      current: r ? displayValueForInput(r, valOf(r) || "") : "Not found",
-      saved: c.value || "",
-      changed: true,
-    };
-  });
-}
-function applyScenarioTemplate(id) {
-  const tpl = scenarioTemplateById(id);
-  if (!tpl) return;
-  let applied = 0,
-    missing = [];
-  (tpl.changes || []).forEach((c) => {
-    const r = scenarioFindRow(c.subsection, c.label);
-    if (!r) {
-      missing.push(`${c.subsection} / ${c.label}`);
-      return;
-    }
-    editValue(r.row_index, c.value, null);
-    applied++;
-  });
-  renderMain();
-  showMessage(
-    `${tpl.title} template applied to ${applied} scenario assumption${applied === 1 ? "" : "s"}${missing.length ? "; " + missing.length + " field(s) were not found." : ""}`,
-  );
-}
-async function saveCurrentScenarioSet() {
-  const name = await showInAppPrompt("Name this scenario set:", "", {
-    title: "Save Scenario Set",
-  });
-  if (!name || !name.trim()) return;
-  const items = scenarioCurrentItems();
-  const set = {
-    id: "scen_" + Date.now(),
-    schema: "scenario_set_v1",
-    name: name.trim(),
-    created_at: new Date().toISOString(),
-    items,
-  };
-  const sets = scenarioStoredSets().filter((s) => s.name !== set.name);
-  sets.unshift(set);
-  if (scenarioWriteSets(sets)) {
-    showMessage("Scenario set saved locally.");
-    renderMain();
-  }
-}
-function applySavedScenarioSet(id) {
-  const set = scenarioStoredSets().find((s) => s.id === id);
-  if (!set) return;
-  let applied = 0,
-    missing = 0;
-  (set.items || []).forEach((item) => {
-    const r =
-      scenarioRowsForManagement(rawRowsForStep("scenarios")).find(
-        (x) => scenarioRowKey(x) === item.key,
-      ) || scenarioFindRow(item.subsection, item.label);
-    if (!r) {
-      missing++;
-      return;
-    }
-    editValue(r.row_index, item.value || "", null);
-    applied++;
-  });
-  renderMain();
-  showMessage(
-    `Applied saved scenario set "${set.name}" to ${applied} assumption${applied === 1 ? "" : "s"}${missing ? "; " + missing + " saved field(s) were not found." : ""}`,
-  );
-}
-async function deleteSavedScenarioSet(id) {
-  const sets = scenarioStoredSets();
-  const set = sets.find((s) => s.id === id);
-  if (!set) return;
-  if (
-    !(await showInAppConfirm(
-      '"' + set.name + '" will be permanently removed.',
-      {
-        title: "Delete Scenario Set",
-        confirmLabel: "Delete",
-        variant: "danger",
-      },
-    ))
-  )
-    return;
-  if (scenarioWriteSets(sets.filter((s) => s.id !== id))) {
-    showMessage("Scenario set deleted.");
-    renderMain();
-  }
-}
-function renderScenarioTemplatesHtml() {
-  let html = '<div class="scenario-template-grid">';
-  SCENARIO_TEMPLATES.forEach((t) => {
-    html += `<div class="scenario-template-card"><div><h4>${esc(t.title)}</h4><p class="small">${esc(t.desc)}</p></div>${scenarioDiffTableHtml(scenarioTemplateDiffItems(t), "Template assumptions are already set this way.")}<button class="btn" type="button" onclick="applyScenarioTemplate('${escJs(t.id)}')">Apply template</button></div>`;
-  });
-  html += "</div>";
-  return html;
-}
-function renderSavedScenarioSetsHtml() {
-  const sets = scenarioStoredSets();
-  if (!sets.length)
-    return '<p class="small">No saved scenario sets yet. Save the current scenario assumptions when you want a reusable package of what-if overrides.</p>';
-  let html = '<div class="scenario-set-list">';
-  sets.forEach((set) => {
-    const diffs = scenarioSetDiffItems(set);
-    const date = set.created_at
-      ? new Date(set.created_at).toLocaleString()
-      : "";
-    html += `<details class="scenario-set-card"><summary><b>${esc(set.name)}</b><span>${esc(date)} · ${(set.items || []).length} assumption${(set.items || []).length === 1 ? "" : "s"}</span></summary><div class="scenario-set-body">${scenarioDiffTableHtml(diffs, "This saved set matches the current scenario assumptions.")}<div class="table-actions"><button class="btn" type="button" onclick="applySavedScenarioSet('${escJs(set.id)}')">Apply saved set</button><button class="danger-link" type="button" onclick="deleteSavedScenarioSet('${escJs(set.id)}')">Delete</button></div></div></details>`;
-  });
-  html += "</div>";
-  return html;
-}
-function renderCurrentScenarioOverridesHtml(rs) {
-  const items = scenarioActiveOverrideItems(rs);
-  if (!items.length)
-    return '<p class="small">No active scenario-only overrides have meaningful values yet.</p>';
-  let html =
-    '<table class="lot-table scenario-overrides-table"><thead><tr><th>Scenario</th><th>Assumption</th><th>Current value</th></tr></thead><tbody>';
-  items.slice(0, 16).forEach((x) => {
-    html += `<tr><td>${esc(x.group)}</td><td>${esc(x.label)}</td><td>${esc(x.value)}</td></tr>`;
-  });
-  html += "</tbody></table>";
-  if (items.length > 16)
-    html += `<p class="small">+${items.length - 16} additional active override${items.length - 16 === 1 ? "" : "s"}.</p>`;
-  return html;
-}
-function renderScenarioManagementPanel(rs) {
-  return `<section class="scenario-management"><div class="scenario-management-head"><div><span class="eyebrow">Planning Workbench</span><h3>Scenario Change Sets</h3><p class="small">Templates stage common deterministic what-if overrides. Saved sets are browser-local change sets; review the diff, apply a set, then Save Changes, rebuild, and compare in the Planning Workbench.</p></div><button class="btn primary" type="button" onclick="saveCurrentScenarioSet()">Save current scenario set</button></div><details><summary>Scenario templates</summary>${renderScenarioTemplatesHtml()}</details><details><summary>Saved named scenario sets</summary>${renderSavedScenarioSetsHtml()}</details><details><summary>Current scenario overrides</summary>${renderCurrentScenarioOverridesHtml(rs)}</details></section>`;
-}
 
-function renderScenarios() {
-  if (searchText.trim()) return renderFields("scenarios");
-  const rs = rowsForStep("scenarios");
-  const economy = rs.filter(rowIsEconomyScenario);
-  const stateComp = rs.filter(
-    (r) => String(r.section || "").trim() === "State Comparison",
-  );
-  const homeSale = rs.filter((r) => rowIsHomeSaleAssumption(r));
-  const other = rs.filter(
-    (r) =>
-      !rowIsEconomyScenario(r) &&
-      !homeSale.includes(r) &&
-      !stateComp.includes(r),
-  );
-  let html = `<div class="field-list"><div class="section-note"><b>Scenario Change Sets are deterministic planning cases.</b> Use the Stress Suite & Monte Carlo page for probabilistic or adverse-assumption testing. Economy shocks and scenario enable/year controls are grouped first because they determine which dependent assumptions matter. Home sale is split into a base-plan panel that affects Build Impact and a stress-test panel that affects scenario sheets only.</div></div>`;
-  html += renderScenarioManagementPanel(rs);
-  html += economy.length
-    ? `<details><summary>Economy</summary><div class="field-list">${sortRowsByDependency(economy).map(fieldHtml).join("")}</div></details>`
-    : "";
-  html += renderHomeSaleScenarioRows(rs);
-  if (stateComp.length) {
-    const hwRows = stateComp.filter(
-      (r) => norm(r.subsection || "") === "homeowners_insurance",
-    );
-    const autoRows = stateComp.filter(
-      (r) => norm(r.subsection || "") === "auto_insurance",
-    );
-    html += `<details><summary>State comparison — insurance costs</summary><div class="field-list"><div class="section-note">Compare insurance costs between Illinois (baseline) and a target relocation state. These are reference inputs only — they do not feed the projection model but appear in the scenario outputs for advisor review.</div>`;
-    if (hwRows.length) {
-      html += `<div class="subsection-label">Homeowners insurance</div>`;
-      html += hwRows.map(fieldHtml).join("");
-    }
-    if (autoRows.length) {
-      html += `<div class="subsection-label">Auto insurance</div>`;
-      html += autoRows.map(fieldHtml).join("");
-    }
-    html += `</div></details>`;
-  }
-  html += renderFieldGroups(other);
-  return html;
-}
 
 
 function mcEngineRow() {
@@ -9025,79 +8015,8 @@ function renderNav() {
   return window.RetirementNavigation.renderNav(navigationContext());
 }
 
-function renderTaxonomyManager() {
-  if (!taxonomyData && !taxonomyLoading && !taxonomyError) {
-    setTimeout(() => loadTaxonomy(false), 0);
-  }
-  let html =
-    '<div class="holdings taxonomy-manager"><h3 class="group-title">Category Manager</h3>';
-  html +=
-    '<div class="section-note">Manage the canonical <b>Tracking Type → Group → Category</b> tree. Transaction assignment uses these canonical categories, so there is no separate group-mapping table to maintain.</div>';
-  if (taxonomyLoading) {
-    html += '<div class="question"><b>Loading taxonomy…</b></div>';
-  } else if (taxonomyError && !taxonomyData) {
-    html += `<div class="missing-list"><p>${esc(taxonomyError)}</p></div><button class="btn" onclick="loadTaxonomy(true)">Retry</button>`;
-  } else if (taxonomyData) {
-    html +=
-      '<div class="table-actions"><button class="btn" onclick="showTaxonomyAddForm()">+ Add Category</button><button class="btn" onclick="loadTaxonomy(true)">Reload</button></div>';
-    html += '<div id="taxonomyAddForm" style="display:none"></div>';
-    html += '<div class="taxonomy-tree">';
-    (taxonomyData || []).forEach(function (typeData) {
-      const totalCats = (typeData.groups || []).reduce(
-        (s, g) => s + (g.categories || []).length,
-        0,
-      );
-      html += `<details class="taxonomy-type-section"><summary><b>${esc(typeData.tracking_type)}</b> <span class="small">(${totalCats} categories)</span></summary>`;
-      (typeData.groups || []).forEach(function (grp) {
-        html += `<div class="taxonomy-group"><h4 class="taxonomy-group-title">${esc(grp.group)} <span class="small">(${(grp.categories || []).length})</span></h4>`;
-        html +=
-          '<table class="lot-table taxonomy-cat-table"><thead><tr><th>ID</th><th>Label</th><th>Notes</th><th></th></tr></thead><tbody>';
-        (grp.categories || []).forEach(function (cat) {
-          html += `<tr><td><code class="small">${esc(cat.id)}</code></td><td>${esc(cat.label)}</td><td class="small">${esc(cat.notes || "")}</td><td><button class="danger-link" onclick="deleteTaxonomyCat('${esc(cat.id)}','${esc(cat.label)}')">Delete</button></td></tr>`;
-        });
-        html += "</tbody></table></div>";
-      });
-      html += "</details>";
-    });
-    html += "</div>";
-  } else {
-    html +=
-      '<div class="question"><b>No taxonomy loaded.</b> <button class="btn" onclick="loadTaxonomy(true)">Load Taxonomy</button></div>';
-  }
-  html +=
-    '<details class="advanced-mapping-rules" style="margin-top:32px"><summary><b>Advanced Auto-Mapping Rules</b><span class="small" style="margin-left:8px;font-weight:400;color:var(--muted)">merchant/category text rules</span></summary>' +
-    renderCategoryMappingRules() +
-    "</details>";
-  html += "</div>";
-  return html;
-}
 
-function showTaxonomyAddForm() {
-  const form = document.getElementById("taxonomyAddForm");
-  if (!form) return;
-  const types = taxonomyData || [];
-  let typeOpts = types
-    .map(
-      (t) =>
-        `<option value="${esc(t.tracking_type)}">${esc(t.tracking_type)}</option>`,
-    )
-    .join("");
-  form.style.display = "block";
-  form.innerHTML = `<div class="taxonomy-add-inner" style="padding:12px;border:1px solid var(--line);border-radius:6px;margin:12px 0"><h4>Add Custom Category</h4><div class="field-row" style="display:flex;gap:12px;align-items:center;margin:6px 0"><label style="width:120px">Tracking Type</label><select id="taxAddType" onchange="updateTaxAddGroups()">${typeOpts}</select></div><div class="field-row" style="display:flex;gap:12px;align-items:center;margin:6px 0"><label style="width:120px">Group</label><select id="taxAddGroup"></select><span class="small" style="margin-left:8px">or new: <input id="taxAddNewGroup" placeholder="New group name" style="width:160px"></span></div><div class="field-row" style="display:flex;gap:12px;align-items:center;margin:6px 0"><label style="width:120px">Category key</label><input id="taxAddId" placeholder="e.g. my_category (lowercase_underscores)" style="width:220px" oninput="this.value=this.value.replace(/[^a-z0-9_]/g,'')"></div><div class="field-row" style="display:flex;gap:12px;align-items:center;margin:6px 0"><label style="width:120px">Label</label><input id="taxAddLabel" placeholder="Display name" style="width:220px"></div><div class="field-row" style="display:flex;gap:12px;align-items:center;margin:6px 0"><label style="width:120px">Notes</label><input id="taxAddNotes" placeholder="Optional description" style="width:220px"></div><div class="table-actions"><button class="btn primary" onclick="submitAddTaxonomy()">Add Category</button><button class="btn" onclick="document.getElementById('taxonomyAddForm').style.display='none'">Cancel</button></div></div>`;
-  updateTaxAddGroups();
-}
 
-function updateTaxAddGroups() {
-  const typeEl = document.getElementById("taxAddType");
-  const groupEl = document.getElementById("taxAddGroup");
-  if (!typeEl || !groupEl) return;
-  const sel = typeEl.value;
-  const typeData = (taxonomyData || []).find((t) => t.tracking_type === sel);
-  const groups = typeData ? (typeData.groups || []).map((g) => g.group) : [];
-  groupEl.innerHTML = groups
-    .map((g) => `<option value="${esc(g)}">${esc(g)}</option>`)
-    .join("");
-}
 
 
 function showSpendingModelLoadOverlay() {
@@ -9117,204 +8036,16 @@ function hideSpendingModelLoadOverlay() {
 }
 
 
-async function reloadDomainBudget(domain) {
-  clearSpendingCaches();
-  await Promise.all([
-    loadTaxonomy(true),
-    loadSpendingModel(true),
-    loadBudgetLines(true),
-    loadTaxonomyBudget(true),
-  ]);
-  renderMain();
-}
-function currentSpendingTreeForDomain(domain) {
-  const wanted = new Set(trackingBudgetTypesForDomain(domain));
-  const modelTypes =
-    spendingModelData && Array.isArray(spendingModelData.tracking_types)
-      ? spendingModelData.tracking_types
-      : [];
-  if (modelTypes.length) {
-    return modelTypes.filter((t) => wanted.has(t.tracking_type));
-  }
-  return (taxonomyData || []).filter((t) => wanted.has(t.tracking_type));
-}
-function dollars0(v) {
-  return "$" + Math.round(budgetMoneyNumber(v) || 0).toLocaleString();
-}
-
-async function submitAddTaxonomy() {
-  const tt = ((document.getElementById("taxAddType") || {}).value || "").trim();
-  const newGrp = (
-    (document.getElementById("taxAddNewGroup") || {}).value || ""
-  ).trim();
-  const grp =
-    newGrp ||
-    ((document.getElementById("taxAddGroup") || {}).value || "").trim();
-  const catId = (
-    (document.getElementById("taxAddId") || {}).value || ""
-  ).trim();
-  const label = (
-    (document.getElementById("taxAddLabel") || {}).value || ""
-  ).trim();
-  const notes = (
-    (document.getElementById("taxAddNotes") || {}).value || ""
-  ).trim();
-  if (!tt || !grp || !catId || !label) {
-    showMessage(
-      "Tracking Type, Group, Category key, and Label are all required.",
-      "error",
-    );
-    return;
-  }
-  try {
-    const out = await api("/api/spending/taxonomy/category", {
-      method: "POST",
-      body: JSON.stringify({
-        tracking_type: tt,
-        group: grp,
-        id: catId,
-        label: label,
-        notes: notes,
-      }),
-    });
-    if (out && out.success) {
-      showMessage('Category "' + label + '" added.');
-      await Promise.all([loadTaxonomy(true), loadSpendingModel(true)]);
-    } else
-      showMessage((out && out.error) || "Failed to add category.", "error");
-  } catch (e) {
-    showMessage("Error: " + e.message, "error");
-  }
-}
-
-async function deleteTaxonomyCat(catId, label) {
-  if (
-    !(await showInAppConfirm(
-      '"' + label + '" (' + catId + ") will be permanently deleted.",
-      { title: "Delete Category", confirmLabel: "Delete", variant: "danger" },
-    ))
-  )
-    return;
-  try {
-    const out = await api(
-      "/api/spending/taxonomy/category/" + encodeURIComponent(catId),
-      { method: "DELETE" },
-    );
-    if (out && out.success) {
-      showMessage("Category deleted.");
-      await Promise.all([loadTaxonomy(true), loadSpendingModel(true)]);
-    } else showMessage((out && out.error) || "Failed to delete.", "error");
-  } catch (e) {
-    showMessage("Error: " + e.message, "error");
-  }
-}
-
-async function deleteTaxonomyGroup(tt, grp) {
-  if (
-    !(await showInAppConfirm('"' + grp + '" will be removed from ' + tt + ".", {
-      title: "Delete Group",
-      confirmLabel: "Delete",
-      variant: "danger",
-    }))
-  )
-    return;
-  try {
-    const out = await api("/api/spending/taxonomy/group", {
-      method: "DELETE",
-      body: JSON.stringify({ tracking_type: tt, group: grp }),
-    });
-    if (out && out.success) {
-      showMessage("Group deleted.");
-      await Promise.all([loadTaxonomy(true), loadSpendingModel(true)]);
-    } else
-      showMessage((out && out.error) || "Failed to delete group.", "error");
-  } catch (e) {
-    showMessage("Error: " + e.message, "error");
-  }
-}
-
-async function loadMappingRules(force) {
-  if (mappingRules && !force) return;
-  try {
-    const out = await api("/api/spending/rules");
-    mappingRules = out && out.success ? out.rules || [] : [];
-    if (!taxonomyFlat || !Object.keys(taxonomyFlat).length)
-      await loadTaxonomy(false);
-  } catch (e) {
-    mappingRules = [];
-  }
-  renderMain();
-}
 
 
 
-function addMappingRule() {
-  if (!mappingRules) mappingRules = [];
-  mappingRules.unshift({
-    keyword: "",
-    category_id: "",
-    match_field: "category",
-    exact: false,
-    priority: 50,
-  });
-  rulesChanged = true;
-  renderMain();
-}
 
-function updateMappingRule(i, field, val) {
-  if (!mappingRules || !mappingRules[i]) return;
-  mappingRules[i][field] = val;
-  rulesChanged = true;
-}
 
-function deleteMappingRule(i) {
-  if (!mappingRules) return;
-  mappingRules.splice(i, 1);
-  rulesChanged = true;
-  renderMain();
-}
 
-function renderCategoryMappingRules() {
-  if (!mappingRules && !rulesChanged) {
-    setTimeout(() => loadMappingRules(false), 0);
-  }
-  let html =
-    '<div class="holdings"><h3 class="group-title">Advanced Auto-Mapping Rules</h3>';
-  html +=
-    '<div class="section-note">Optional rules auto-assign imported merchant or category text to a canonical Spending Category. Most users should use the category picker in Spending Categories; use these rules only when the same text should be classified automatically every time.</div>';
-  const rules = mappingRules || [];
-  html +=
-    '<div class="table-actions"><button class="btn" onclick="addMappingRule()">+ Add rule</button>';
-  html += `<button class="btn primary" ${rulesChanged ? "" : "disabled"} onclick="saveMappingRulesData()">Save Changes</button>`;
-  html +=
-    '<button class="btn" onclick="loadMappingRules(true)">Reload</button></div>';
-  html +=
-    '<div class="lot-table-wrap pinned-col-right"><table class="lot-table"><thead><tr><th>Match text</th><th>Match source</th><th style="width:64px">Exact?</th><th>Target category</th><th>Priority</th><th style="width:64px"></th></tr></thead><tbody>';
-  if (!rules.length) {
-    html +=
-      '<tr><td colspan="6" class="small" style="padding:12px">No auto-mapping rules defined. Add a rule only for merchant/category text that should be classified the same way every time.</td></tr>';
-  } else {
-    const catIds = Object.keys(taxonomyFlat || {}).sort((a, b) =>
-      a.localeCompare(b),
-    );
-    rules.forEach(function (rule, i) {
-      const current = String(rule.category_id || "");
-      let opts = catIds
-        .map(
-          (id) =>
-            `<option value="${esc(id)}" ${id === current ? "selected" : ""}>${esc(id)}${taxonomyFlat[id] && taxonomyFlat[id].label ? " — " + esc(taxonomyFlat[id].label) : ""}</option>`,
-        )
-        .join("");
-      if (current && !catIds.includes(current))
-        opts =
-          `<option value="${esc(current)}" selected>${esc(current)}</option>` +
-          opts;
-      html += `<tr><td><input value="${esc(rule.keyword)}" oninput="updateMappingRule(${i},'keyword',this.value)" style="width:160px"></td><td><select onchange="updateMappingRule(${i},'match_field',this.value)"><option value="category"${rule.match_field === "category" ? " selected" : ""}>Category text</option><option value="merchant"${rule.match_field === "merchant" ? " selected" : ""}>Merchant text</option></select></td><td style="width:64px;text-align:center"><input type="checkbox" ${rule.exact ? "checked" : ""} onchange="updateMappingRule(${i},'exact',this.checked)"></td><td><select onchange="updateMappingRule(${i},'category_id',this.value)" style="min-width:260px"><option value="" ${current ? "" : "selected"}>Select category…</option>${opts}</select></td><td><input type="number" value="${rule.priority || 50}" oninput="updateMappingRule(${i},'priority',parseInt(this.value)||50)" style="width:70px"></td><td style="width:64px;white-space:nowrap"><button class="danger-link" onclick="deleteMappingRule(${i})">Delete</button></td></tr>`;
-    });
-  }
-  html += "</tbody></table></div></div>";
-  return html;
-}
+
+
+
+
 
 
 
@@ -9440,28 +8171,9 @@ function groupModelData(tt, grp) {
     ) || null
   );
 }
-function groupCatIds(tt, grp) {
-  const ids = [];
-  (taxonomyData || []).forEach((t) => {
-    if (t.tracking_type === tt)
-      (t.groups || []).forEach((g) => {
-        if (g.group === grp)
-          (g.categories || []).forEach((c) => ids.push(c.id));
-      });
-  });
-  return ids;
-}
 
 
 
-function groupEffectiveBudget(tt, grp) {
-  if (groupIsSummary(tt, grp)) {
-    const gk = groupKeyFor(tt, grp);
-    if (hasExplicitBudget(gk)) return budgetAmount(taxBudget[gk].annual_budget);
-    return groupCatSum(tt, grp);
-  }
-  return groupCatSum(tt, grp);
-}
 function restoreGroupBudgetModes() {
   groupBudgetMode = {};
   Object.keys(taxBudget || {}).forEach((k) => {
@@ -9471,141 +8183,10 @@ function restoreGroupBudgetModes() {
     }
   });
 }
-function spendingRowYtd(row) {
-  return budgetAmount(
-    row && (row.ytd_actual !== undefined ? row.ytd_actual : row.actual),
-  );
-}
-function spendingRowAnnualized(row) {
-  return budgetAmount(
-    row &&
-      (row.annualized_actual !== undefined
-        ? row.annualized_actual
-        : row.annualized),
-  );
-}
-function spendingRowBudget(row) {
-  return budgetAmount(
-    row && (row.annual_budget !== undefined ? row.annual_budget : row.budget),
-  );
-}
-function spendingRowProjectionSeed(row) {
-  return budgetAmount(
-    row &&
-      (row.projection_seed !== undefined
-        ? row.projection_seed
-        : row.annual_budget !== undefined
-          ? row.annual_budget
-          : row.budget),
-  );
-}
-function spendingRowHasValue(row) {
-  return !!(
-    spendingRowYtd(row) ||
-    spendingRowAnnualized(row) ||
-    spendingRowBudget(row) ||
-    spendingRowProjectionSeed(row)
-  );
-}
-function setGroupBudgetMode(tt, grp, mode) {
-  groupBudgetMode[tt + "::" + grp] = mode;
-  const gk = groupKeyFor(tt, grp);
-  if (mode === "summary") {
-    const sum = groupCatSum(tt, grp);
-    if (!taxBudget[gk]) taxBudget[gk] = { annual_budget: 0, notes: "" };
-    if (!(Number(taxBudget[gk].annual_budget) > 0))
-      taxBudget[gk].annual_budget = Math.round(sum);
-    taxBudget[gk]._mode = "summary";
-  } else {
-    if (taxBudget[gk]) taxBudget[gk]._mode = "detail";
-  }
-  taxBudgetChanged = true;
-  syncTaxonomyBudgetToBudgetLines();
-  markBudgetLinesDirty();
-  renderMain();
-}
 
 function setCategoryBudgetMode(catId, mode) {
   categoryBudgetMode[catId] = mode;
   if (mode === "detail") syncCategoryTotal(catId);
-  markBudgetLinesDirty();
-  renderMain();
-}
-function addCategoryDetailRow(catId) {
-  budgetLines.push({
-    section: "category_budget",
-    line_id: "cb_" + (Date.now() % 1000000),
-    label: "",
-    category_id: catId,
-    start_year: "",
-    end_year: "",
-    one_time_year: "",
-    amount_per_year: "",
-    mode: "detail",
-    notes: "",
-  });
-  categoryBudgetMode[catId] = "detail";
-  syncCategoryTotal(catId);
-  markBudgetLinesDirty();
-  renderMain();
-}
-function addGroupDetailRow(tt, grp) {
-  const cats = groupCatIds(tt, grp);
-  const catId = cats[0] || "";
-  budgetLines.push({
-    section: "category_budget",
-    line_id: "cb_" + (Date.now() % 1000000),
-    label: "",
-    category_id: catId,
-    start_year: "",
-    end_year: "",
-    one_time_year: "",
-    amount_per_year: "",
-    mode: "detail",
-    notes: "",
-  });
-  if (catId) {
-    categoryBudgetMode[catId] = "detail";
-    syncCategoryTotal(catId);
-  }
-  markBudgetLinesDirty();
-  renderMain();
-}
-function updateGroupDetailCategory(lineId, newCatId, oldCatId) {
-  const l = budgetLines.find((x) => x.line_id === lineId);
-  if (!l) return;
-  l.category_id = newCatId;
-  if (newCatId) {
-    categoryBudgetMode[newCatId] = "detail";
-    syncCategoryTotal(newCatId);
-  }
-  if (oldCatId && oldCatId !== newCatId) syncCategoryTotal(oldCatId);
-  markBudgetLinesDirty();
-  renderMain();
-}
-function deleteCategoryDetailRow(lineId, catId) {
-  budgetLines = budgetLines.filter((l) => l.line_id !== lineId);
-  syncCategoryTotal(catId);
-  markBudgetLinesDirty();
-  renderMain();
-}
-async function deleteCategoryBudget(catId, label) {
-  if (
-    !(await showInAppConfirm(
-      'All budget entries for "' + label + '" will be cleared.',
-      {
-        title: "Remove Budget Entries",
-        confirmLabel: "Remove",
-        variant: "warn",
-      },
-    ))
-  )
-    return;
-  budgetLines = (budgetLines || []).filter((l) => l.category_id !== catId);
-  taxBudget[catId] = { annual_budget: 0, notes: "", _delete: true };
-  delete categoryBudgetMode[catId];
-  taxBudgetChanged = true;
-  syncTaxonomyBudgetToBudgetLines();
   markBudgetLinesDirty();
   renderMain();
 }
@@ -9650,48 +8231,6 @@ async function recoverPriorSpendingBudget() {
   }
 }
 
-async function loadAnnualizedActuals() {
-  if (
-    !(await showInAppConfirm(
-      "Load annualized current spend into EVERY category budget? This overwrites all category totals and adds any new transaction categories to the taxonomy.",
-      {
-        title: "Load Annualized Actuals",
-        confirmLabel: "Load",
-        variant: "warn",
-      },
-    ))
-  )
-    return;
-  try {
-    const out = await api("/api/spending/budget/load-actuals", {
-      method: "POST",
-      body: JSON.stringify({}),
-    });
-    if (!out || out.success === false)
-      throw new Error((out && out.error) || "Failed to load actuals.");
-    const a = out.actuals || {};
-    Object.keys(a).forEach((id) => {
-      const v = Math.round(Number(a[id]) || 0);
-      if (!taxBudget[id]) taxBudget[id] = { annual_budget: 0, notes: "" };
-      taxBudget[id].annual_budget = v;
-      if (!taxBudget[id].notes) taxBudget[id].notes = "Annualized actual";
-    });
-    taxBudgetChanged = true;
-    await loadTaxonomy(true);
-    await saveTaxonomyBudgetData();
-    showMessage(
-      (out.merged_count
-        ? out.merged_count +
-          " new transaction categor" +
-          (out.merged_count > 1 ? "ies" : "y") +
-          " merged. "
-        : "") + "Annualized actuals loaded into category budgets.",
-    );
-    renderMain();
-  } catch (e) {
-    showMessage("Error loading actuals: " + e.message, "error");
-  }
-}
 async function saveSpendingBudgetAll() {
   try {
     if (budgetLinesChanged)
@@ -9715,90 +8254,6 @@ async function saveSpendingBudgetAll() {
   }
 }
 
-function renderTaxonomyBudgetTable() {
-  if (!taxBudgetLoaded) {
-    setTimeout(() => loadTaxonomyBudget(false), 0);
-  }
-  const data = taxonomyData || [];
-  const expenseTypes = data.filter((t) => t.tracking_type !== "Income");
-  if (!expenseTypes.length)
-    return '<div class="question"><b>Loading…</b></div>';
-  let html = "";
-  html +=
-    '<div class="table-actions"><button class="btn" onclick="loadAnnualizedActuals()" title="Overwrite every category budget with its annualized current-year spend; new transaction categories are merged into the taxonomy">Load annualized current spend</button></div>';
-  html +=
-    '<div class="section-note small">Each <b>group</b> can be set as a single <b>Summary</b> total or expanded to <b>Detail</b> per category. In Detail mode each category supports multiple rows with optional start / end years — useful for time-bounded spending like travel or large events.</div>';
-  let grandTotal = 0;
-  expenseTypes.forEach(function (t) {
-    (t.groups || []).forEach(function (g) {
-      grandTotal += groupEffectiveBudget(t.tracking_type, g.group);
-    });
-  });
-  html += '<div class="taxonomy-tree">';
-  expenseTypes.forEach(function (typeData) {
-    const tt = typeData.tracking_type;
-    if (tt === "Housing") {
-      html += `<details class="taxonomy-type-section" data-dkey="budgtt:Housing"><summary><b>Housing</b> <span class="small" style="font-weight:400;color:var(--muted)">managed on Housing page</span></summary><div class="taxonomy-group"><div class="section-note">Mortgage, insurance, utilities, maintenance, and home improvements are entered on the Housing page and flow into the projection automatically. <button class="btn" style="padding:2px 10px;font-size:12px" data-step-id="spending_mortgage_events">Go to Housing page →</button></div></div></details>`;
-      return;
-    }
-    if (tt === "Wellness") {
-      html += `<details class="taxonomy-type-section" data-dkey="budgtt:Wellness"><summary><b>Wellness</b> <span class="small" style="font-weight:400;color:var(--muted)">managed on Wellness page</span></summary><div class="taxonomy-group"><div class="section-note">Bridge premiums, Medicare costs, and out-of-pocket estimates are entered on the Wellness page and flow into the projection directly. <button class="btn" style="padding:2px 10px;font-size:12px" data-step-id="retirement_wellness">Go to Wellness page →</button></div></div></details>`;
-      return;
-    }
-    let ttTotal = 0;
-    (typeData.groups || []).forEach((g) => {
-      ttTotal += groupEffectiveBudget(tt, g.group);
-    });
-    html += `<details class="taxonomy-type-section" data-dkey="budgtt:${esc(tt)}"><summary><b>${esc(tt)}</b>${ttActual || ttAnnualized || ttTotal ? ` <span class="small">Actual ${dollars0(ttActual)} · Annualized ${dollars0(ttAnnualized)} · Budget ${dollars0(ttTotal)}/yr</span>` : ""}</summary>`;
-    (typeData.groups || []).forEach(function (grp) {
-      const gname = grp.group;
-      const gj = esc(gname).replace(/'/g, "\\'");
-      const gmode = groupIsSummary(tt, gname) ? "summary" : "detail";
-      const gk = groupKeyFor(tt, gname);
-      const catSum = groupCatSum(tt, gname);
-      const eff = groupEffectiveBudget(tt, gname);
-      const catCount = (grp.categories || []).length;
-      html += `<div class="taxonomy-group"><h4 class="taxonomy-group-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span>${esc(gname)}</span><span class="small" style="font-weight:400">Actual ${dollars0(grp.actual)} · Annualized ${dollars0(grp.annualized)} · Budget ${dollars0(eff)}/yr</span><span style="margin-left:auto"><button class="btn ${gmode === "summary" ? "primary" : ""}" style="padding:0 8px" ${readOnlyRef ? "disabled " : ""}onclick="setGroupBudgetMode('${esc(tt)}','${gj}','summary')">Summary</button> <button class="btn ${gmode === "detail" ? "primary" : ""}" style="padding:0 8px" ${readOnlyRef ? "disabled " : ""}onclick="setGroupBudgetMode('${esc(tt)}','${gj}','detail')">Detail</button></span></h4>`;
-      if (gmode === "summary") {
-        // #231: Travel/Large Discretionary group budgets are time-bounded in
-        // the projection (spending_budget_resolver.py TIME_BOUNDED_LINE_TRACKING_TYPES)
-        // -- only these two tracking types honor start/end year on the group
-        // row, so only show the fields where they actually take effect.
-        const gYearFields = ["Travel", "Large Discretionary"].includes(tt)
-          ? `<label class="small">Start year&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="number" value="${esc((taxBudget[gk] || {}).start_year || "")}" placeholder="plan start" oninput="updateTaxBudget('${esc(gk)}','start_year',this.value)" style="width:90px"> <label class="small">End year&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="number" value="${esc((taxBudget[gk] || {}).end_year || "")}" placeholder="plan end" oninput="updateTaxBudget('${esc(gk)}','end_year',this.value)" style="width:90px"> `
-          : "";
-        html += `<div class="table-actions"><label class="small">Group budget / yr&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue((taxBudget[gk] || {}).annual_budget))}" placeholder="${catSum > 0 ? dollars0(catSum) : "$0"}" onfocus="focusBudgetMoney(this)" oninput="updateTaxBudgetMoney('${esc(gk)}','annual_budget',this)" onblur="blurBudgetMoney(this)" style="width:140px"> ${gYearFields}<span class="small">categories hidden</span></div>`;
-      } else {
-        html += '<div class="budget-cat-detail-list">';
-        (grp.categories || []).forEach(function (cat) {
-          const catId = cat.id;
-          const cidEsc = esc(catId);
-          const lines = catDetailLines(catId);
-          const b = taxBudget[catId] || {};
-          const hasData = lines.length > 0 || Number(b.annual_budget) > 0;
-          const lineTotal = catDetailSum(catId);
-          const displayTotal = lineTotal || Number(b.annual_budget) || 0;
-          html += `<div class="budget-cat-entry"><div class="budget-cat-header" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)"><span class="budget-cat-name" style="font-weight:500">${esc(cat.label)}</span>${hasData ? `<span class="small" style="color:var(--muted)">$${Math.round(displayTotal).toLocaleString()}/yr</span>` : ""}${hasData ? `<span style="margin-left:auto"><button class="danger-link" style="font-size:11px" onclick="deleteCategoryBudget('${cidEsc}','${esc(cat.label)}')">Delete</button></span>` : `<span style="margin-left:auto"></span>`}<button class="btn" style="padding:0 8px;font-size:11px" ${readOnlyRef ? "disabled " : ""}onclick="addCategoryDetailRow('${cidEsc}')">+ Add row</button></div>`;
-          if (lines.length > 0) {
-            html += `<table class="lot-table budget-cat-lines-table" style="margin:0 0 4px 12px;width:calc(100% - 12px)"><thead><tr><th>Label</th><th>Start year</th><th>End year</th><th>Amount / yr</th><th></th></tr></thead><tbody>`;
-            lines.forEach(function (l) {
-              const lid = esc(l.line_id);
-              html += `<tr><td><input value="${esc(l.label || "")}" placeholder="e.g. Europe trip" oninput="updateCategoryDetail('${lid}','label',this.value,'${cidEsc}')" style="width:140px"></td><td><input type="number" value="${esc(l.start_year || "")}" placeholder="—" oninput="updateCategoryDetail('${lid}','start_year',this.value,'${cidEsc}')" style="width:80px"></td><td><input type="number" value="${esc(l.end_year || "")}" placeholder="forever" oninput="updateCategoryDetail('${lid}','end_year',this.value,'${cidEsc}')" style="width:80px"></td><td><input type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue(l.amount_per_year))}" placeholder="$0" onfocus="focusBudgetMoney(this)" oninput="updateCategoryDetailMoney('${lid}','amount_per_year',this,'${cidEsc}')" onblur="blurBudgetMoney(this)" style="width:110px"></td><td><button class="danger-link" onclick="deleteCategoryDetailRow('${lid}','${cidEsc}')">×</button></td></tr>`;
-            });
-            html += `</tbody></table>`;
-          }
-          html += `</div>`;
-        });
-        html += "</div>";
-      }
-      html += `</div>`;
-    });
-    html += `</details>`;
-  });
-  html += `<div class="section-note" style="margin-top:12px"><b>Total annual budget: $${Math.round(grandTotal).toLocaleString()}</b></div>`;
-  html += `</div>`;
-  return html;
-}
 
 
 
@@ -9806,22 +8261,6 @@ function renderTaxonomyBudgetTable() {
 
 
 
-function trackingBudgetTypesForDomain(domain) {
-  if (domain === "core")
-    return [
-      "Core Expenses",
-      "Wellness",
-      "Housing",
-      "Travel",
-      "Large Discretionary",
-      "Business",
-    ];
-  if (domain === "housing") return ["Housing"];
-  if (domain === "healthcare") return ["Wellness"];
-  if (domain === "travel") return ["Travel"];
-  if (domain === "large_discretionary") return ["Large Discretionary"];
-  return [];
-}
 
 function domainBudgetNote(domain) {
   if (domain === "core")
@@ -9846,31 +8285,6 @@ function lineBelongsToDomain(line, domain) {
 }
 function visibleBudgetLinesForDomain(domain) {
   return (budgetLines || []).filter((l) => lineBelongsToDomain(l, domain));
-}
-function loadTemplateGroup(tt, grp) {
-  api("/api/spending/restore-template", {
-    method: "POST",
-    body: JSON.stringify({ tracking_type: tt, group: grp }),
-  })
-    .then(function (out) {
-      if (out && out.success) {
-        showMessage(
-          (out.count || 0) + " template categories loaded for " + grp + ".",
-        );
-        clearSpendingCaches();
-        loadTaxonomy(true);
-        loadSpendingModel(true);
-        loadTaxonomyBudget(true);
-        loadBudgetLines(true);
-      } else
-        showMessage(
-          (out && out.error) || "Unable to load template categories.",
-          "error",
-        );
-    })
-    .catch(function (e) {
-      showMessage("Error loading template categories: " + e.message, "error");
-    });
 }
 async function hideUnusedTemplateCategories() {
   if (
@@ -9899,130 +8313,7 @@ async function hideUnusedTemplateCategories() {
       showMessage("Error hiding templates: " + e.message, "error");
     });
 }
-function renderDomainBudgetTable(domain) {
-  if (!taxBudgetLoaded) {
-    setTimeout(() => loadTaxonomyBudget(false), 0);
-  }
-  if (!spendingModelData && !spendingModelLoading) {
-    setTimeout(() => loadSpendingModel(false), 0);
-  }
-  const data = currentSpendingTreeForDomain(domain);
-  if (spendingModelError && !data.length)
-    return (
-      '<div class="missing-list"><p>' +
-      esc(spendingModelError) +
-      '</p><button class="btn" onclick="reloadDomainBudget(\'' +
-      esc(domain) +
-      "')\">Reload</button></div>"
-    );
-  if (!data.length)
-    return (
-      '<div class="question"><b>No ' +
-      esc(domainBudgetTitle(domain)) +
-      ' transaction categories loaded.</b><p class="small">Spending Categories shows Tracking Types, Groups, and Categories with non-zero YTD Actual, Annualized Actual, Annual Budget, or Projection Seed. Use Income &amp; Expense Transactions to import transactions, or add budget/projection values on the source page, then Reload.</p></div>'
-    );
-  let grandTotal = 0;
-  data.forEach(function (t) {
-    (t.groups || []).forEach(function (g) {
-      grandTotal += groupEffectiveBudget(t.tracking_type, g.group);
-    });
-  });
-  let html = "";
-  if (domain === "core") {
-    html += `<details class="section-note help-detail"><summary style="cursor:pointer;font-weight:500;list-style:none;display:flex;align-items:center;gap:6px"><span style="font-size:13px">▸</span> Annual Budget vs. Projection Seed — when do they differ?</summary><div style="margin-top:8px"><p class="small"><b>Annual Budget</b> is what you entered. <b>Projection Seed</b> is what the engine uses as the year-one spending base for that category. In most cases they are equal. They diverge in four scenarios:</p><ul class="small" style="margin:6px 0 0 18px;line-height:1.8"><li><b>Cap/reference categories</b> (e.g., Medical OOP Cap in Wellness): Annual Budget holds the cap value so you can see it; Projection Seed is forced to <b>$0</b> because a cap is a ceiling on out-of-pocket costs, not a recurring spending input.</li><li><b>Group in Summary mode</b>: The single group-level override number becomes the Projection Seed for the whole group. Any per-category Annual Budget values that were entered before switching to Summary are stale — the engine ignores them and uses the group total.</li><li><b>Detail-line total disagrees with the Annual Budget override</b>: In Detail mode, Projection Seed equals the sum of the detail lines. If you also typed a manual value in the Annual field, it is stored but overridden by the line sum in the projection.</li><li><b>$0 budget categories with transaction history</b>: The category appears in the table because transactions were imported, but Projection Seed = $0, so it contributes nothing to the projected spend base.</li></ul><p class="small" style="margin-top:8px">The <b>Projection Seed</b> column in each group header shows the value that feeds the projection. If it looks wrong compared to Annual Budget, check whether Summary mode is active or whether a cap/reference flag is set on that category.</p></div></details>`;
-  }
-  html += '<div class="taxonomy-tree">';
-  data.forEach(function (typeData) {
-    const tt = typeData.tracking_type;
-    let ttTotal = 0,
-      ttActual = 0,
-      ttAnnualized = 0,
-      ttProjection = 0;
-    (typeData.groups || []).forEach((g) => {
-      const eff = groupEffectiveBudget(tt, g.group);
-      ttTotal += eff;
-      ttProjection += spendingRowProjectionSeed(g) || eff;
-      ttActual += spendingRowYtd(g);
-      ttAnnualized += spendingRowAnnualized(g);
-    });
-    const readOnlyRef =
-      domain === "core" && ["Housing", "Wellness", "Travel"].includes(tt);
-    html += `<details class="taxonomy-type-section" data-dkey="budget:${esc(domain)}:${esc(tt)}"><summary><b>${esc(tt)}</b> <span class="small">YTD ${dollars0(ttActual)} · Annualized ${dollars0(ttAnnualized)} · Budget ${dollars0(ttTotal)} · Projection Seed ${dollars0(ttProjection || ttTotal)}</span>${tt === "Business" ? ` <span class="small" style="font-weight:400;color:var(--muted)">modeled; excluded from core spend base</span>` : ""}${readOnlyRef ? ` <span class="small" style="font-weight:400;color:var(--muted)">read-only reference</span>` : ""}</summary>`;
-    if (readOnlyRef)
-      html +=
-        '<div class="section-note">This Tracking Type is budgeted on its source page. Values appear here as read-only reference so Spending Categories remains comprehensive without creating duplicate inputs.</div>';
-    (typeData.groups || []).forEach(function (grp) {
-      const gname = grp.group;
-      const gj = esc(gname).replace(/'/g, "\\'");
-      const gmode = groupIsSummary(tt, gname) ? "summary" : "detail";
-      const gk = groupKeyFor(tt, gname);
-      const catSum = groupCatSum(tt, gname);
-      const eff = groupEffectiveBudget(tt, gname);
-      const catCount = (grp.categories || []).length;
-      html += `<div class="taxonomy-group"><h4 class="taxonomy-group-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span>${esc(gname)}</span><span class="small" style="font-weight:400">YTD ${dollars0(spendingRowYtd(grp))} · Annualized ${dollars0(spendingRowAnnualized(grp))} · Budget ${dollars0(eff)} · Projection Seed ${dollars0(spendingRowProjectionSeed(grp) || eff)}</span><span style="margin-left:auto"><button class="btn" style="padding:0 8px" ${readOnlyRef ? "disabled " : ""}onclick="loadTemplateGroup('${esc(tt)}','${gj}')">Load template categories for group</button> ${catCount === 0 ? `<button class="danger-link" style="font-size:11px" onclick="deleteTaxonomyGroup('${esc(tt)}','${gj}')">Delete group</button>` : ""} <button class="btn ${gmode === "summary" ? "primary" : ""}" style="padding:0 8px" ${readOnlyRef ? "disabled " : ""}onclick="setGroupBudgetMode('${esc(tt)}','${gj}','summary')">Summary</button> <button class="btn ${gmode === "detail" ? "primary" : ""}" style="padding:0 8px" ${readOnlyRef ? "disabled " : ""}onclick="setGroupBudgetMode('${esc(tt)}','${gj}','detail')">Detail</button></span></h4>`;
-      if (gmode === "summary") {
-        // #231: Travel/Large Discretionary group budgets are time-bounded in
-        // the projection (spending_budget_resolver.py TIME_BOUNDED_LINE_TRACKING_TYPES)
-        // -- only these two tracking types honor start/end year on the group
-        // row, so only show the fields where they actually take effect.
-        const gYearFields = ["Travel", "Large Discretionary"].includes(tt)
-          ? `<label class="small">Start year&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="number" value="${esc((taxBudget[gk] || {}).start_year || "")}" placeholder="plan start" oninput="updateTaxBudget('${esc(gk)}','start_year',this.value)" style="width:90px"> <label class="small">End year&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="number" value="${esc((taxBudget[gk] || {}).end_year || "")}" placeholder="plan end" oninput="updateTaxBudget('${esc(gk)}','end_year',this.value)" style="width:90px"> `
-          : "";
-        html += `<div class="table-actions"><label class="small">Group budget / yr&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue((taxBudget[gk] || {}).annual_budget))}" placeholder="${catSum > 0 ? dollars0(catSum) : "$0"}" onfocus="focusBudgetMoney(this)" oninput="updateTaxBudgetMoney('${esc(gk)}','annual_budget',this)" onblur="blurBudgetMoney(this)" style="width:140px"> ${gYearFields}<span class="small">category and line detail disabled — group number wins</span></div>`;
-      } else {
-        html += '<div class="budget-cat-detail-list">';
-        (grp.categories || []).forEach(function (cat) {
-          const catId = cat.id;
-          const cidEsc = esc(catId);
-          const b = taxBudget[catId] || {};
-          const catHasExplicitBudget = hasExplicitBudget(catId);
-          const lineTotal = catDetailSum(catId);
-          const displayTotal =
-            lineTotal ||
-            (catHasExplicitBudget
-              ? budgetAmount(b.annual_budget)
-              : spendingRowBudget(cat));
-          const hasData =
-            catDetailLines(catId).length > 0 ||
-            catHasExplicitBudget ||
-            spendingRowBudget(cat) > 0 ||
-            spendingRowProjectionSeed(cat) > 0;
-          html += `<div class="budget-cat-entry"><div class="budget-cat-header" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)"><span class="budget-cat-name" style="font-weight:500">${esc(cat.label)}</span><span class="small" style="color:var(--muted)">${cat.actual || cat.annualized || hasData ? `YTD Actual ${dollars0(spendingRowYtd(cat))} · Annualized Actual ${dollars0(spendingRowAnnualized(cat))}${hasData ? ` · Annual Budget ${dollars0(displayTotal)}/yr · Projection Seed ${dollars0(spendingRowProjectionSeed(cat) || displayTotal)}` : ""}` : ""}</span><span style="margin-left:auto"><button class="danger-link" style="font-size:11px" ${readOnlyRef ? "disabled" : ""} onclick="deleteTaxonomyCat('${cidEsc}','${esc(cat.label)}')">Delete</button></span><label class="small">Annual <input ${readOnlyRef ? "disabled " : ""}type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue(b.annual_budget))}" placeholder="$0" onfocus="focusBudgetMoney(this)" oninput="updateTaxBudgetMoney('${cidEsc}','annual_budget',this)" onblur="blurBudgetMoney(this)" style="width:100px"></label></div></div>`;
-        });
-        html += "</div>";
-        const allGroupLines = [];
-        (grp.categories || []).forEach(function (cat) {
-          catDetailLines(cat.id).forEach(function (l) {
-            allGroupLines.push(l);
-          });
-        });
-        if (allGroupLines.length > 0) {
-          html += `<table class="lot-table budget-cat-lines-table" style="margin:4px 0;width:100%"><thead><tr><th>Category</th><th>Label</th><th>Start year</th><th>End year</th><th>One-time year</th><th>Amount / yr</th><th></th></tr></thead><tbody>`;
-          allGroupLines.forEach(function (l) {
-            const lid = esc(l.line_id);
-            const cidEsc = esc(l.category_id || "");
-            html += `<tr><td><select ${readOnlyRef ? "disabled " : ""} onchange="updateGroupDetailCategory('${lid}',this.value,'${cidEsc}')">${(grp.categories || []).map((c) => `<option value="${esc(c.id)}"${c.id === l.category_id ? " selected" : ""}>${esc(c.label)}</option>`).join("")}</select></td><td><input value="${esc(l.label || "")}" placeholder="description" oninput="updateCategoryDetail('${lid}','label',this.value,'${cidEsc}')" style="width:120px"></td><td><input type="number" value="${esc(l.start_year || "")}" placeholder="—" oninput="updateCategoryDetail('${lid}','start_year',this.value,'${cidEsc}')" style="width:72px"></td><td><input type="number" value="${esc(l.end_year || "")}" placeholder="forever" oninput="updateCategoryDetail('${lid}','end_year',this.value,'${cidEsc}')" style="width:72px"></td><td><input type="number" value="${esc(l.one_time_year || "")}" placeholder="—" oninput="updateCategoryDetail('${lid}','one_time_year',this.value,'${cidEsc}')" style="width:72px"></td><td><input type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue(l.amount_per_year))}" placeholder="$0" onfocus="focusBudgetMoney(this)" oninput="updateCategoryDetailMoney('${lid}','amount_per_year',this,'${cidEsc}')" onblur="blurBudgetMoney(this)" style="width:100px"></td><td><button class="danger-link" onclick="deleteCategoryDetailRow('${lid}','${cidEsc}')">×</button></td></tr>`;
-          });
-          html += "</tbody></table>";
-        }
-        html += `<div class="table-actions" style="margin-top:4px"><button class="btn" style="font-size:12px" ${readOnlyRef ? "disabled " : ""} onclick="addGroupDetailRow('${esc(tt)}','${gj}')">+ Add row</button></div>`;
-      }
-      html += "</div>";
-    });
-    html += "</details>";
-  });
-  html += `<div class="section-note" style="margin-top:12px"><b>${esc(domainBudgetTitle(domain))} total: $${Math.round(grandTotal).toLocaleString()}/yr</b></div>`;
-  html += "</div>";
-  return html;
-}
 
-function renderCoreSpendingUnified() {
-  let html = renderSpendingCore();
-  html +=
-    '<div style="margin-top:32px">' + renderDomainBudgetPage("core") + "</div>";
-  html += '<div style="margin-top:32px">' + renderTaxonomyManager() + "</div>";
-  return html;
-}
 function renderTravelBudgetPage() {
   return renderDomainBudgetPage("travel");
 }
@@ -10147,9 +8438,6 @@ function renderSpendingBudgetInput() {
   return renderDomainBudgetPage("core");
 }
 
-function renderSpendingSetup() {
-  return renderCoreSpendingUnified();
-}
 
 async function saveSpendingSetupAll() {
   try {
@@ -10163,18 +8451,6 @@ async function saveSpendingSetupAll() {
   } catch (e) {
     showMessage("Error saving spending setup: " + e.message, "error");
   }
-}
-async function reloadSpendingSetup() {
-  clearSpendingCaches();
-  mappingRules = null;
-  await Promise.all([
-    loadTaxonomy(true),
-    loadSpendingModel(true),
-    loadBudgetLines(true),
-    loadTaxonomyBudget(true),
-    loadMappingRules(true),
-  ]);
-  renderMain();
 }
 
 function renderSpendingDashboardOrLoad() {
@@ -13787,25 +12063,6 @@ async function _checkAppStatusRun(show) {
 }
 
 
-async function seedHousingRows() {
-  try {
-    const resp = await api("/api/housing/seed", { method: "POST" });
-    if (resp && resp.seeded !== undefined) {
-      await loadAll({ source: planSource, preferLocal: false, silent: true });
-      activeStep = "spending_mortgage_events";
-      renderMain();
-      showMessage(
-        "Housing fields added (" +
-          resp.seeded +
-          " rows). Save Changes to persist.",
-      );
-    } else {
-      showMessage("Housing seed returned unexpected response.", "warn");
-    }
-  } catch (e) {
-    showMessage("Error seeding housing fields: " + e.message, "error");
-  }
-}
 
 
 async function startNewPlan() {
@@ -14683,50 +12940,43 @@ Object.defineProperty(window, "ytdTransactionsChanged", { get: () => ytdTransact
 Object.defineProperty(window, "ytdTxColsCollapsed", { get: () => ytdTxColsCollapsed, set: (v) => { ytdTxColsCollapsed = v; }, configurable: true });
 Object.defineProperty(window, "ytdTxSearch", { get: () => ytdTxSearch, set: (v) => { ytdTxSearch = v; }, configurable: true });
 Object.assign(window, {
-  _checkAppStatusRun, activeOptimizerUsedTarget, addAltOption, addBudgetLine, addCategoryDetailRow,
-  addGroupDetailRow, addLargeDiscLine, addManualYtdAccount, addMappingRule, addParentheticals,
-  addSelectedYtdAccount, addUniqueRow, addYtdAccount, addYtdTxn, allocationCommonRows,
-  allocationCoverageCalloutHtml, allocationModeHtml, allocationModeIsComputed,
+  _checkAppStatusRun, activeOptimizerUsedTarget, addAltOption, addBudgetLine, addLargeDiscLine,
+  addManualYtdAccount, addParentheticals, addSelectedYtdAccount, addYtdAccount, addYtdTxn,
+  allocationCommonRows, allocationCoverageCalloutHtml, allocationModeHtml, allocationModeIsComputed,
   allocationOptimizerRecommendationHtml, allocationPageRecommendations, allocationPolicyRows,
   allocationPreviewFingerprint, allocationPreviewRowsForPost, allocationRowsOrNote,
   allocationTargetsValid, alternateAssetRows, alternateAssetSourceOptions, alternateSelect,
-  applySavedScenarioSet, applyScenarioTemplate, artifactHashFromPreflight, assetActionForSubsection,
-  assetClassNamesForAllocation, autoCollapseHelpForNarrowLaptop, baseHomeSaleYearRow,
-  blurYtdAccountMoney, blurYtdTxnAmount, boolishValue, budgetSectionIsSummary, budgetSectionLines,
-  buildChangeSummaryHtml, buildHistoryEntryHtml, buildHistoryProvenanceHtml, buildImpactCardsHtml,
-  buildImpactNarrativeHtml, buildImpactSourceLinksHtml, buildImpactSuggestionsHtml, buildKpiDial,
-  buildSessionSummaryHtml, buildSourceJumpHtml, buildWithDesktopProgress, cacheChart,
-  catEffectiveBudget, changeImpactScope, changeKey, chatMessageHtml, checkAppStatus,
-  checklistItemStatus, choiceHelpText, choiceLabel, choiceOptions, chooseDefaultDetailedSheet,
-  classKey, clearHousingNextStep, clientDataKey, cloneSummary, closeChartModal, closeExitModal,
-  closeNavDrawer, closeoutItem, collapseAllDetailGroups, copyOptimizerOverrideToUserTargets,
-  coreSpendingGrowthMode, csvEscape, currentManualOverrideItems, currentScenarioOverrideItems,
-  currentSpendingTreeForDomain, decimalsFromText, deduplicateYtdTransactions, defaultPlanDataPath,
-  deleteAllYtdTransactions, deleteBudgetLine, deleteBuildHistoryEntry, deleteCategoryBudget,
-  deleteCategoryDetailRow, deleteLargeDiscLine, deleteMappingRule, deleteSavedScenarioSet,
-  deleteTaxonomyCat, deleteTaxonomyGroup, deleteYtdAccount, deleteYtdTxn, dependencyRank,
-  deriveTotalRothConversions, detailColumnGroupKey, detailProgressState, detailedProgressHtml,
-  detailedSheetByName, discardAndExit, dismissMessage, dollars0, domainBudgetNote,
-  domainLineSections, downloadBlob, downloadFile, downloadYtdTemplate, ensurePlanFolderPermission,
-  estimateHousingFromState, exitApp, expandAllDetailColumnsOnPage, expandAllDetailGroups,
+  artifactHashFromPreflight, assetActionForSubsection, assetClassNamesForAllocation,
+  autoCollapseHelpForNarrowLaptop, baseHomeSaleYearRow, blurYtdAccountMoney, blurYtdTxnAmount,
+  boolishValue, budgetSectionIsSummary, budgetSectionLines, buildChangeSummaryHtml,
+  buildHistoryEntryHtml, buildHistoryProvenanceHtml, buildImpactCardsHtml, buildImpactNarrativeHtml,
+  buildImpactSourceLinksHtml, buildImpactSuggestionsHtml, buildKpiDial, buildSessionSummaryHtml,
+  buildSourceJumpHtml, buildWithDesktopProgress, cacheChart, catEffectiveBudget, changeImpactScope,
+  changeKey, chatMessageHtml, checkAppStatus, checklistItemStatus, choiceHelpText, choiceLabel,
+  choiceOptions, chooseDefaultDetailedSheet, classKey, clientDataKey, cloneSummary, closeChartModal,
+  closeExitModal, closeNavDrawer, closeoutItem, collapseAllDetailGroups,
+  copyOptimizerOverrideToUserTargets, csvEscape, currentManualOverrideItems,
+  currentScenarioOverrideItems, decimalsFromText, deduplicateYtdTransactions, defaultPlanDataPath,
+  deleteAllYtdTransactions, deleteBudgetLine, deleteBuildHistoryEntry, deleteLargeDiscLine,
+  deleteYtdAccount, deleteYtdTxn, dependencyRank, deriveTotalRothConversions, detailColumnGroupKey,
+  detailProgressState, detailedProgressHtml, detailedSheetByName, discardAndExit, dismissMessage,
+  domainBudgetNote, domainLineSections, downloadBlob, downloadFile, downloadYtdTemplate,
+  ensurePlanFolderPermission, exitApp, expandAllDetailColumnsOnPage, expandAllDetailGroups,
   exportCsvBackup, fetchPlanDataFiles, fetchText, fetchWithTimeout, fieldAllowedValues,
   fieldConnection, fieldControlOnly, fieldDefaultMeaning, fieldFinderCategoryName,
   fieldFinderCategoryOrder, fieldFinderStepOrder, fieldLabelNoteHtml, fieldLikelyImpact,
   fieldSizeClass, fieldTooltipHtml, fieldTooltipPreview, filterChoiceOptionsForRow, findAssetRow,
   findCsvByName, findMatrixCell, findRows, finiteOrNull, firstRunChecklistHtml, fmtPctCell,
   focusYtdAccountMoney, focusYtdTxnAmount, focusableEntries, freezePricingSnapshot, getStrategyTab,
-  goToStrategyTab, groupCatIds, groupEffectiveBudget, groupModelData, handleImportPlanFiles,
-  handleImportPlanFolder, handleYtdTransactionUpload, hasAnnuityDeathBenefits, helpList,
-  hideSpendingModelLoadOverlay, hideUnusedTemplateCategories, hideYtdLoadOverlay,
-  homeSaleActivationYearRow, homeSaleScenarioYearRow, housingAreaTypeSelect, housingRentIsConfigured,
-  housingRentMonthlyValue, humanizeGroupKey, illustrationPlanYears, impactCardHtml,
-  impactDirectionWord, importPlanDataContents, importPreviewList, inactiveRowsForStep,
-  inactiveValueDisplay, inactiveValuesPanel, incomeStreamSubsections, irmaaModeValue,
-  jumpRecommendationSource, kpiHasValues, largeDiscCategoryFromType, largeDiscTypeFromLine,
-  latestBuildImpactHtml, leverPctPoints, lineBelongsToDomain, listFolderFileNames,
-  loadAnnualizedActuals, loadCanonicalGlossary, loadDetailedResults, loadMappingRules, loadSavedPlan,
-  loadTaxFreshnessStatus, loadTemplateGroup, logoutSaas, makeYtdAccountRow, markMatrixDirty,
-  matrixKey, matrixPolicies, matrixYears, mcEngineRow, mcEngineToggleHtml, mergeDetailedSheetMeta,
+  goToStrategyTab, groupModelData, handleImportPlanFiles, handleImportPlanFolder,
+  handleYtdTransactionUpload, hasAnnuityDeathBenefits, helpList, hideSpendingModelLoadOverlay,
+  hideUnusedTemplateCategories, hideYtdLoadOverlay, homeSaleActivationYearRow, humanizeGroupKey,
+  illustrationPlanYears, impactCardHtml, impactDirectionWord, importPlanDataContents,
+  importPreviewList, incomeStreamSubsections, irmaaModeValue, jumpRecommendationSource, kpiHasValues,
+  largeDiscCategoryFromType, largeDiscTypeFromLine, latestBuildImpactHtml, leverPctPoints,
+  lineBelongsToDomain, listFolderFileNames, loadCanonicalGlossary, loadDetailedResults,
+  loadSavedPlan, loadTaxFreshnessStatus, logoutSaas, makeYtdAccountRow, markMatrixDirty, matrixKey,
+  matrixPolicies, matrixYears, mcEngineRow, mcEngineToggleHtml, mergeDetailedSheetMeta,
   mergeProtectedClientData, mhBool, mhMoney, mhOnOff, mhPct, mhRow, mhText, modelHeardHtml,
   moneyHtml, moneyNegativeClass, moveToNextEntry, nbaPanelHtml, normalizePlanDataTextForCompare,
   normalizePlanningCaseRunType, normalizePlanningCaseSource, normalizeValueForSave,
@@ -14748,75 +12998,63 @@ Object.assign(window, {
   readLocalCsvFile, readYtdActualsPeriod, recFindBy, recFindStepRow, recRowValue, recStepRows,
   recYes, recentChangesLogHtml, recommendationSourceButton, recoverPriorSpendingBudget,
   recoverYtdAccountSetup, refreshFromPlanFolder, refreshLivePrices, reloadBudgetLineDefaults,
-  reloadDomainBudget, reloadSpendingSetup, rememberBuildCompare, renderAllocationRecommendation,
-  renderAssetClassSelectionTable, renderAssetsCashReserves, renderBaseHomeSaleRows,
-  renderBuildPreflightPanel, renderCategoryMappingRules, renderCollapsibleDomainBudgetSection,
-  renderCoreSpendingUnified, renderCurrentAllocationModeNote, renderCurrentScenarioOverridesHtml,
+  rememberBuildCompare, renderAllocationRecommendation, renderAssetClassSelectionTable,
+  renderAssetsCashReserves, renderBuildPreflightPanel, renderCurrentAllocationModeNote,
   renderDafConfig, renderDeathBenefitsTable, renderDetailedResults, renderDetailedResultsNav,
   renderDetailedResultsProgressTick, renderDistributionStrategy, renderDivorceOptions,
-  renderDomainBudgetTable, renderEntityCharitable, renderEstateWithAnnuityLink,
-  renderFieldFinderGroups, renderHoldingPeriodSettingsHtml, renderHomeSaleScenarioRows,
-  renderHouseholdPeople, renderIncomeStreamsSection, renderIncomeWork,
-  renderLargeDiscretionaryBudgetPage, renderLifeIllustrations, renderLifestyleSpending,
-  renderLtcStress, renderMaxSharpeAllocationPanel, renderMeta, renderMonteCarloOptions, renderNav,
-  renderNextHousingStepSection, renderOptimizerAllocationPanel, renderOptimizerOverrideTable,
+  renderEntityCharitable, renderEstateWithAnnuityLink, renderFieldFinderGroups,
+  renderHoldingPeriodSettingsHtml, renderHouseholdPeople, renderIncomeStreamsSection,
+  renderIncomeWork, renderLargeDiscretionaryBudgetPage, renderLifeIllustrations,
+  renderLifestyleSpending, renderLtcStress, renderMaxSharpeAllocationPanel, renderMeta,
+  renderMonteCarloOptions, renderNav, renderOptimizerAllocationPanel, renderOptimizerOverrideTable,
   renderOptimizerPreviewNote, renderOptionalFunctions, renderPlanDataReport, renderPlanningLevers,
   renderPlanningWorkbench, renderRealLossAwarePanel, renderRealLossAwareTuningHtml,
   renderReportsAndReview, renderReportsBuild, renderReportsPreflight, renderRetirementIncome,
   renderRetirementWellness, renderReview, renderReviewCloseoutChecklist, renderRothConversion,
-  renderRothMissingNotice, renderRothRows, renderSavedScenarioSetsHtml,
-  renderScenarioManagementPanel, renderScenarioTemplatesHtml, renderScenarios,
-  renderSpecialIncomeAnnuitiesInsurance, renderSpecialStrategies, renderSpendingBudgetInput,
-  renderSpendingCore, renderSpendingDashboardOrLoad, renderSpendingHousing, renderSpendingSetup,
+  renderRothMissingNotice, renderRothRows, renderSpecialIncomeAnnuitiesInsurance,
+  renderSpecialStrategies, renderSpendingBudgetInput, renderSpendingDashboardOrLoad,
   renderSpendingWorkflowBanner, renderSsCompactTable, renderSsPolicySection, renderStateResidency,
-  renderStrategyTabs, renderStressSellHomeRows, renderSurvivorStress, renderSystemConfiguration,
-  renderTabbedWorkspace, renderTangencyAllocationPanel, renderTaxonomyBudgetTable,
-  renderTaxonomyManager, renderTotalWealthAllocationHtml, renderTravelBudgetPage, renderWelcome,
-  renderWithdrawalOrderTable, renderWithdrawalStrategy, renderWorkbenchLeverEditorHtml,
-  renderWorkbenchStressHtml, renderWorkspaceSubtabsNav, renderYearMatrix, renderYtdCategoriesStep,
-  renderYtdDuplicateReview, renderYtdSummary, renderYtdTopCategories, renderYtdTopIncomeCategories,
-  renderYtdTracking, renderYtdTransactions, renderYtdTransactionsStep, renderYtdUploadPanel,
-  reportFreshnessNotice, resetAllocationPreview, resetDemoToDefaults, resetYtdTxnPage,
-  restoreGroupBudgetModes, restoreWorkbookViewState, revealAndFocus, revealInactiveRow,
-  revertLastBuildChanges, revertToBuildHistoryEntry, rollForwardYtdAccounts, rothPageRecommendations,
-  rothPolicyValue, rowConfigValue, rowIsCanonicalHomeBasis, rowIsEconomyScenario,
-  rowIsHomeSaleAssumption, rowIsRentInput, rowIsRetirementWellness, rowSortKeyForIncomeWork,
-  rowValueIsMeaningful, rowsByLabel, rowsNotIn, saveAndExit, saveBuildHistory, saveChanges,
-  saveCurrentPlanToSelectedFolderForBuild, saveCurrentScenarioSet, saveLiabilities, savePlanAs,
-  savePlanDataToFolder, savePlanDataToPath, saveSpendingBudgetAll, saveSpendingSetupAll,
-  saveValueForRow, saveYtdAccountSetup, saveYtdPending, saveYtdTransactions,
-  scenarioActiveOverrideItems, scenarioCurrentItems, scenarioDiffTableHtml, scenarioRowKeyFromParts,
-  scenarioSetDiffItems, scenarioTemplateById, scenarioTemplateDiffItems, scenarioWriteSets,
-  sectionFlagEnabled, seedHousingRows, seedWellnessOop, selectPlanDataForImport,
-  selectedFolderDiffersFromLoadedPlan, selectionActionSelect, serializeCsvTable,
-  serializeLiabilities, setAllDetailColumnGroups, setAllocationSelectionMode, setAutoLoad,
-  setBudgetSectionMode, setCategoryBudgetMode, setCombinedSearch, setDetailedResultSheet,
-  setDetailedResultsNavOpen, setGroupBudgetMode, setMcEngineMode, setNavSearch,
-  setPlanningCaseActive, setPlanningLeverInput, setSearch, setSearchScope, setSelectionAction,
-  setStrategyTab, setYtdActualsPeriod, setYtdSort, setYtdTxnPage, shortHash, showConfigCardHelp,
-  showHelpAutoCollapseNoticeOnce, showPlanDataFileManifest, showSpendingModelLoadOverlay,
-  showTaxonomyAddForm, showYtdBlendChoiceModal, showYtdLoadOverlay, sleep,
+  renderStrategyTabs, renderSurvivorStress, renderSystemConfiguration, renderTabbedWorkspace,
+  renderTangencyAllocationPanel, renderTotalWealthAllocationHtml, renderTravelBudgetPage,
+  renderWelcome, renderWithdrawalOrderTable, renderWithdrawalStrategy,
+  renderWorkbenchLeverEditorHtml, renderWorkbenchStressHtml, renderWorkspaceSubtabsNav,
+  renderYearMatrix, renderYtdCategoriesStep, renderYtdDuplicateReview, renderYtdSummary,
+  renderYtdTopCategories, renderYtdTopIncomeCategories, renderYtdTracking, renderYtdTransactions,
+  renderYtdTransactionsStep, renderYtdUploadPanel, reportFreshnessNotice, resetAllocationPreview,
+  resetDemoToDefaults, resetYtdTxnPage, restoreGroupBudgetModes, restoreWorkbookViewState,
+  revealAndFocus, revertLastBuildChanges, revertToBuildHistoryEntry, rollForwardYtdAccounts,
+  rothPageRecommendations, rothPolicyValue, rowConfigValue, rowIsRetirementWellness,
+  rowSortKeyForIncomeWork, rowsByLabel, rowsNotIn, saveAndExit, saveBuildHistory, saveChanges,
+  saveCurrentPlanToSelectedFolderForBuild, saveLiabilities, savePlanAs, savePlanDataToFolder,
+  savePlanDataToPath, saveSpendingBudgetAll, saveSpendingSetupAll, saveValueForRow,
+  saveYtdAccountSetup, saveYtdPending, saveYtdTransactions, scenarioRowKeyFromParts,
+  sectionFlagEnabled, seedWellnessOop, selectPlanDataForImport, selectedFolderDiffersFromLoadedPlan,
+  selectionActionSelect, serializeCsvTable, serializeLiabilities, setAllDetailColumnGroups,
+  setAllocationSelectionMode, setAutoLoad, setBudgetSectionMode, setCategoryBudgetMode,
+  setCombinedSearch, setDetailedResultSheet, setDetailedResultsNavOpen, setMcEngineMode,
+  setNavSearch, setPlanningCaseActive, setPlanningLeverInput, setSearch, setSearchScope,
+  setSelectionAction, setStrategyTab, setYtdActualsPeriod, setYtdSort, setYtdTxnPage, shortHash,
+  showConfigCardHelp, showHelpAutoCollapseNoticeOnce, showPlanDataFileManifest,
+  showSpendingModelLoadOverlay, showYtdBlendChoiceModal, showYtdLoadOverlay, sleep,
   socialSecurityPageRecommendations, sourceStepForSpecialLabel, spendingFlowFooterHtml,
-  spendingPageRecommendations, spendingRowAnnualized, spendingRowBudget, spendingRowHasValue,
-  spendingRowProjectionSeed, spendingRowYtd, ssActiveCell, ssClaimFactor, ssMonthlyAtClaimAgeCell,
-  ssPersonRows, startDetailedResultsProgress, startNewPlan, stepHelpLinkHtml, stepIdForRow,
-  stepSearchText, stopDetailedResultsProgress, strategyLeverOverrideItems, stressHomeSaleYearRow,
-  stressOverrideItems, stripUiLabelPrefix, submitAddTaxonomy, suggestedNext, summaryFromApiPayload,
-  takeBuildSnapshot, targetPctInput, taxFreshnessBannerHtml, taxonomyCategoryOptionsHtml,
-  toggleDetailColGroup, toggleDetailColumnGroup, toggleHelpSheet, toggleNavDrawer,
-  trackingBudgetTypesForDomain, translatePersonValueLabel, travelTypeList, undoSessionFieldChange,
-  unfreezePricingSnapshot, updateBudgetLine, updateCategoryDetailMoney, updateGroupDetailCategory,
-  updateLargeDiscLine, updateLargeDiscLineMoney, updateMappingRule, updateSearchToggle,
-  updateTaxAddGroups, updateTaxBudgetMoney, updateYtdAccountMoney, updateYtdTxnAmount,
-  validateAllocationTargetsOrMessage, versionPrefixSuggestion, visibleAssetSpecialRow,
-  visibleBudgetLinesForDomain, wireStepNavigation, withdrawalOtherRows, writeFileHandle,
-  writePlanDataFilesToFolder, yesNoOptionHelp, ytdAccountMoneyDisplay, ytdAccountOptions,
-  ytdAccountRoleOptions, ytdActualsPeriodToggleHtml, ytdBlendEnabledRow, ytdBlendToggleHtml,
-  ytdCancelDedup, ytdDate, ytdDateAwarePageBoundaries, ytdDeleteSelectedDuplicates, ytdFilterOptions,
-  ytdFilteredTxns, ytdFirstExistingValue, ytdHeader, ytdImportPreviewMessage,
-  ytdInvestmentHoldingAccounts, ytdInvestmentOptions, ytdIsGrowthRole, ytdMappableAccounts,
-  ytdMetricCard, ytdMissingAccountOptions, ytdMoney, ytdPct, ytdPeriodTargetYear,
-  ytdRolloverBannerHtml, ytdSelectAllDuplicates, ytdSelectFieldHtml, ytdSelectOptions, ytdShortDate,
-  ytdSparkline, ytdStaleGrowthAccounts, ytdToggleDuplicateGroup, ytdToggleDuplicateSelect,
-  ytdTxPageBoundaries, ytdTxYear, ytdTxnPager, ytdTxnsForPeriod, ytdUpdateDedupDeleteBtn,
+  spendingPageRecommendations, ssActiveCell, ssClaimFactor, ssMonthlyAtClaimAgeCell, ssPersonRows,
+  startDetailedResultsProgress, startNewPlan, stepHelpLinkHtml, stepIdForRow, stepSearchText,
+  stopDetailedResultsProgress, strategyLeverOverrideItems, stressHomeSaleYearRow,
+  stressOverrideItems, stripUiLabelPrefix, suggestedNext, summaryFromApiPayload, takeBuildSnapshot,
+  targetPctInput, taxFreshnessBannerHtml, taxonomyCategoryOptionsHtml, toggleDetailColGroup,
+  toggleDetailColumnGroup, toggleHelpSheet, toggleNavDrawer, translatePersonValueLabel,
+  travelTypeList, undoSessionFieldChange, unfreezePricingSnapshot, updateBudgetLine,
+  updateLargeDiscLine, updateLargeDiscLineMoney, updateSearchToggle, updateYtdAccountMoney,
+  updateYtdTxnAmount, validateAllocationTargetsOrMessage, versionPrefixSuggestion,
+  visibleAssetSpecialRow, visibleBudgetLinesForDomain, wireStepNavigation, withdrawalOtherRows,
+  writeFileHandle, writePlanDataFilesToFolder, yesNoOptionHelp, ytdAccountMoneyDisplay,
+  ytdAccountOptions, ytdAccountRoleOptions, ytdActualsPeriodToggleHtml, ytdBlendEnabledRow,
+  ytdBlendToggleHtml, ytdCancelDedup, ytdDate, ytdDateAwarePageBoundaries,
+  ytdDeleteSelectedDuplicates, ytdFilterOptions, ytdFilteredTxns, ytdFirstExistingValue, ytdHeader,
+  ytdImportPreviewMessage, ytdInvestmentHoldingAccounts, ytdInvestmentOptions, ytdIsGrowthRole,
+  ytdMappableAccounts, ytdMetricCard, ytdMissingAccountOptions, ytdMoney, ytdPct,
+  ytdPeriodTargetYear, ytdRolloverBannerHtml, ytdSelectAllDuplicates, ytdSelectFieldHtml,
+  ytdSelectOptions, ytdShortDate, ytdSparkline, ytdStaleGrowthAccounts, ytdToggleDuplicateGroup,
+  ytdToggleDuplicateSelect, ytdTxPageBoundaries, ytdTxYear, ytdTxnPager, ytdTxnsForPeriod,
+  ytdUpdateDedupDeleteBtn,
 });
