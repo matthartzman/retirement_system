@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from _decomp_dashboard import dashboard_js_text
+
 from src import spending_tracker as st
 
 
@@ -42,8 +44,10 @@ category,groceries,Groceries,6000,,,,core budget row
 
 
 def test_spending_analysis_and_categories_use_same_reconciliation_labels():
-    dash = Path("frontend/js/dashboard.js").read_text(encoding="utf-8")
-    analysis = Path("frontend/js/spending_dashboard.js").read_text(encoding="utf-8")
+    dash = dashboard_js_text()
+    analysis = (
+        Path(__file__).resolve().parents[1] / "frontend/js/spending_dashboard.js"
+    ).read_text(encoding="utf-8")
     for label in ["YTD Actual", "Annualized Actual", "Annual Budget", "Projection Seed"]:
         assert label in dash
         assert label in analysis

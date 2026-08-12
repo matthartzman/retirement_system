@@ -1,10 +1,12 @@
 from pathlib import Path
 
+from _decomp_dashboard import dashboard_js_text
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_core_spending_step_has_growth_mode_and_relevant_rates():
-    js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding="utf-8")
+    js = dashboard_js_text()
     assert "core_spending_growth_mode" in js
     assert "core_spending_manual_growth_rate" in js
     assert "coreSpendingGrowthMode" in js
