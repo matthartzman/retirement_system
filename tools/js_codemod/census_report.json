@@ -5,11 +5,8 @@
     "activeOptimizerUsedTarget",
     "addAltOption",
     "addBudgetLine",
-    "addCategoryDetailRow",
-    "addGroupDetailRow",
     "addLargeDiscLine",
     "addManualYtdAccount",
-    "addMappingRule",
     "addParentheticals",
     "addSelectedYtdAccount",
     "addUniqueRow",
@@ -73,24 +70,17 @@
     "closeoutItem",
     "collapseAllDetailGroups",
     "copyOptimizerOverrideToUserTargets",
-    "coreSpendingGrowthMode",
     "csvEscape",
     "currentManualOverrideItems",
     "currentScenarioOverrideItems",
-    "currentSpendingTreeForDomain",
     "decimalsFromText",
     "deduplicateYtdTransactions",
     "defaultPlanDataPath",
     "deleteAllYtdTransactions",
     "deleteBudgetLine",
     "deleteBuildHistoryEntry",
-    "deleteCategoryBudget",
-    "deleteCategoryDetailRow",
     "deleteLargeDiscLine",
-    "deleteMappingRule",
     "deleteSavedScenarioSet",
-    "deleteTaxonomyCat",
-    "deleteTaxonomyGroup",
     "deleteYtdAccount",
     "deleteYtdTxn",
     "dependencyRank",
@@ -101,7 +91,6 @@
     "detailedSheetByName",
     "discardAndExit",
     "dismissMessage",
-    "dollars0",
     "domainBudgetNote",
     "domainLineSections",
     "downloadBlob",
@@ -142,8 +131,6 @@
     "freezePricingSnapshot",
     "getStrategyTab",
     "goToStrategyTab",
-    "groupCatIds",
-    "groupEffectiveBudget",
     "groupModelData",
     "handleImportPlanFiles",
     "handleImportPlanFolder",
@@ -177,13 +164,10 @@
     "leverPctPoints",
     "lineBelongsToDomain",
     "listFolderFileNames",
-    "loadAnnualizedActuals",
     "loadCanonicalGlossary",
     "loadDetailedResults",
-    "loadMappingRules",
     "loadSavedPlan",
     "loadTaxFreshnessStatus",
-    "loadTemplateGroup",
     "logoutSaas",
     "makeYtdAccountRow",
     "markMatrixDirty",
@@ -283,17 +267,13 @@
     "refreshFromPlanFolder",
     "refreshLivePrices",
     "reloadBudgetLineDefaults",
-    "reloadDomainBudget",
-    "reloadSpendingSetup",
     "rememberBuildCompare",
     "renderAllocationRecommendation",
     "renderAssetClassSelectionTable",
     "renderAssetsCashReserves",
     "renderBaseHomeSaleRows",
     "renderBuildPreflightPanel",
-    "renderCategoryMappingRules",
     "renderCollapsibleDomainBudgetSection",
-    "renderCoreSpendingUnified",
     "renderCurrentAllocationModeNote",
     "renderCurrentScenarioOverridesHtml",
     "renderDafConfig",
@@ -303,7 +283,6 @@
     "renderDetailedResultsProgressTick",
     "renderDistributionStrategy",
     "renderDivorceOptions",
-    "renderDomainBudgetTable",
     "renderEntityCharitable",
     "renderEstateWithAnnuityLink",
     "renderFieldFinderGroups",
@@ -348,10 +327,8 @@
     "renderSpecialIncomeAnnuitiesInsurance",
     "renderSpecialStrategies",
     "renderSpendingBudgetInput",
-    "renderSpendingCore",
     "renderSpendingDashboardOrLoad",
     "renderSpendingHousing",
-    "renderSpendingSetup",
     "renderSpendingWorkflowBanner",
     "renderSsCompactTable",
     "renderSsPolicySection",
@@ -362,8 +339,6 @@
     "renderSystemConfiguration",
     "renderTabbedWorkspace",
     "renderTangencyAllocationPanel",
-    "renderTaxonomyBudgetTable",
-    "renderTaxonomyManager",
     "renderTotalWealthAllocationHtml",
     "renderTravelBudgetPage",
     "renderWelcome",
@@ -444,7 +419,6 @@
     "setCombinedSearch",
     "setDetailedResultSheet",
     "setDetailedResultsNavOpen",
-    "setGroupBudgetMode",
     "setMcEngineMode",
     "setNavSearch",
     "setPlanningCaseActive",
@@ -462,7 +436,6 @@
     "showPlanDataFileManifest",
     "showSpendingModelLoadOverlay",
     "showStepHelp",
-    "showTaxonomyAddForm",
     "showYtdBlendChoiceModal",
     "showYtdLoadOverlay",
     "sleep",
@@ -470,11 +443,6 @@
     "sourceStepForSpecialLabel",
     "spendingFlowFooterHtml",
     "spendingPageRecommendations",
-    "spendingRowAnnualized",
-    "spendingRowBudget",
-    "spendingRowHasValue",
-    "spendingRowProjectionSeed",
-    "spendingRowYtd",
     "ssActiveCell",
     "ssClaimFactor",
     "ssMonthlyAtClaimAgeCell",
@@ -489,7 +457,6 @@
     "stressHomeSaleYearRow",
     "stressOverrideItems",
     "stripUiLabelPrefix",
-    "submitAddTaxonomy",
     "suggestedNext",
     "summaryFromApiPayload",
     "takeBuildSnapshot",
@@ -500,20 +467,14 @@
     "toggleDetailColumnGroup",
     "toggleHelpSheet",
     "toggleNavDrawer",
-    "trackingBudgetTypesForDomain",
     "translatePersonValueLabel",
     "travelTypeList",
     "undoSessionFieldChange",
     "unfreezePricingSnapshot",
     "updateBudgetLine",
-    "updateCategoryDetailMoney",
-    "updateGroupDetailCategory",
     "updateLargeDiscLine",
     "updateLargeDiscLineMoney",
-    "updateMappingRule",
     "updateSearchToggle",
-    "updateTaxAddGroups",
-    "updateTaxBudgetMoney",
     "updateYtdAccountMoney",
     "updateYtdTxnAmount",
     "validateAllocationTargetsOrMessage",
@@ -2612,12 +2573,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "coreSpendingGrowthMode",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
       "name": "baseHomeSaleYearRow",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "call",
@@ -4388,12 +4343,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "groupCatIds",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
       "name": "groupModelData",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "call",
@@ -4565,12 +4514,6 @@
       "name": "taxonomyData",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderDomainBudgetTable",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
       "scope": "inside-function"
     },
     {
@@ -5621,6 +5564,600 @@
       "name": "appReady",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "searchText",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyData",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyLoading",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyError",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyLoading",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyError",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyData",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyError",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyData",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyData",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyData",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyData",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelData",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelData",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelData",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyData",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "mappingRules",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "mappingRules",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyFlat",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyFlat",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "mappingRules",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "mappingRules",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "mappingRules",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "mappingRules",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rulesChanged",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "mappingRules",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "mappingRules",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "mappingRules",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rulesChanged",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "mappingRules",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "mappingRules",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rulesChanged",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "mappingRules",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rulesChanged",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "mappingRules",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rulesChanged",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyFlat",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyFlat",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyFlat",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyFlat",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyData",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "groupBudgetMode",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudgetChanged",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLines",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "categoryBudgetMode",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLines",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "categoryBudgetMode",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLines",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "categoryBudgetMode",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLines",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLines",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLines",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLines",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "categoryBudgetMode",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudgetChanged",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudgetChanged",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudgetLoaded",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyData",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudgetLoaded",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelData",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelLoading",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelError",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelError",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "mappingRules",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "call",
       "scope": "inside-function"
     },
     {
