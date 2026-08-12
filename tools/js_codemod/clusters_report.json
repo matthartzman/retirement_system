@@ -1,11 +1,11 @@
 {
   "schema": "dashboard_clusters_v1",
   "cutoff": 3,
-  "total_functions": 562,
+  "total_functions": 523,
   "hubs": [
     {
       "name": "renderMain",
-      "fan_in": 81
+      "fan_in": 69
     }
   ],
   "components": [
@@ -148,47 +148,6 @@
       "setStrategyTab",
       "targetPctInput",
       "withdrawalOtherRows"
-    ],
-    [
-      "addCategoryDetailRow",
-      "addGroupDetailRow",
-      "addMappingRule",
-      "coreSpendingGrowthMode",
-      "currentSpendingTreeForDomain",
-      "deleteCategoryBudget",
-      "deleteCategoryDetailRow",
-      "deleteMappingRule",
-      "deleteTaxonomyCat",
-      "deleteTaxonomyGroup",
-      "dollars0",
-      "groupCatIds",
-      "groupEffectiveBudget",
-      "loadAnnualizedActuals",
-      "loadMappingRules",
-      "loadTemplateGroup",
-      "reloadDomainBudget",
-      "reloadSpendingSetup",
-      "renderCategoryMappingRules",
-      "renderCoreSpendingUnified",
-      "renderDomainBudgetTable",
-      "renderSpendingCore",
-      "renderSpendingSetup",
-      "renderTaxonomyBudgetTable",
-      "renderTaxonomyManager",
-      "setGroupBudgetMode",
-      "showTaxonomyAddForm",
-      "spendingRowAnnualized",
-      "spendingRowBudget",
-      "spendingRowHasValue",
-      "spendingRowProjectionSeed",
-      "spendingRowYtd",
-      "submitAddTaxonomy",
-      "trackingBudgetTypesForDomain",
-      "updateCategoryDetailMoney",
-      "updateGroupDetailCategory",
-      "updateMappingRule",
-      "updateTaxAddGroups",
-      "updateTaxBudgetMoney"
     ],
     [
       "addUniqueRow",
