@@ -1,0 +1,37 @@
+v8 (same spec): FOURTH domain cluster. Moved the 24-declaration
+build-history/model-heard cluster (the saved build-history list with its
+view/revert/delete and provenance badges, the latest-build impact summary
+with before/after KPI dials, the plain-language narrative, the per-field
+"what changed" breakdown and follow-up suggestions) into
+frontend/js/dashboard_decomp_build_history.js; dashboard.js went
+13,060 -> 12,311 lines.
+
+The history list and the impact summary came out as one component rather
+than two because reverting is defined in terms of the comparison: the
+history entry stores the before/after snapshot the impact cards render,
+and both sides share the source-step jump links and the mh* formatters.
+Splitting them would have put a cross-module edge through the middle of
+that.
+
+BUILD_HISTORY_LS_KEY stayed behind: dashboard_decomp_row_model.js also
+reads it, so the codemod's variable safety rule refused to move it, by
+name, rather than letting the split quietly break it -- the same refusal
+that held SCENARIO_SET_STORAGE_KEY back in v7.
+
+Dependency surface: one reassigned function (renderMain), four written
+`let`s (activeStep, buildHistory, lastBuildOk, lastBuildCompare -- the
+widest write surface of any pass so far, and the reason the bridge-setter
+check matters here), six read-only bindings, plus one cross-module call
+to loadBuildHistory() that the row-model extraction had already bridged.
+Enumerated up front with tools/js_codemod/cluster_deps.mjs and then
+independently re-verified after the fact by
+tools/js_codemod/finish_extraction.mjs -- the two agreed.
+
+This pass was regenerated from scratch on top of main rather than merged
+from its original branch (PR #52). That branch was cut before the
+spending/taxonomy and housing/scenarios extractions landed, so five of
+its seven conflicting files were tool-generated artifacts and
+hand-resolving them would have risked exactly the silently-missing
+bridge setter finish_extraction.mjs exists to catch. Re-running the
+codemod against current main is cheaper and verifiable; the branch's
+hand-edited diff was discarded.
