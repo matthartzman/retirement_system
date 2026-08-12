@@ -1,11 +1,11 @@
 {
   "schema": "dashboard_clusters_v1",
   "cutoff": 3,
-  "total_functions": 484,
+  "total_functions": 460,
   "hubs": [
     {
       "name": "renderMain",
-      "fan_in": 60
+      "fan_in": 58
     }
   ],
   "components": [
@@ -183,32 +183,6 @@
       "taxFreshnessBannerHtml",
       "undoSessionFieldChange",
       "unfreezePricingSnapshot"
-    ],
-    [
-      "buildChangeSummaryHtml",
-      "buildHistoryEntryHtml",
-      "buildHistoryProvenanceHtml",
-      "buildImpactCardsHtml",
-      "buildImpactNarrativeHtml",
-      "buildImpactSourceLinksHtml",
-      "buildImpactSuggestionsHtml",
-      "buildKpiDial",
-      "buildSourceJumpHtml",
-      "deleteBuildHistoryEntry",
-      "impactCardHtml",
-      "impactDirectionWord",
-      "latestBuildImpactHtml",
-      "mhBool",
-      "mhMoney",
-      "mhOnOff",
-      "mhPct",
-      "mhRow",
-      "mhText",
-      "modelHeardHtml",
-      "revertToBuildHistoryEntry",
-      "saveBuildHistory",
-      "shortHash",
-      "sourceStepForSpecialLabel"
     ],
     [
       "allocationPageRecommendations",

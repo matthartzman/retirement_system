@@ -7,13 +7,14 @@ usability coverage.
 """
 from pathlib import Path
 
+from _decomp_dashboard import dashboard_js_text
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_plan_state_and_preflight_ui_are_first_class_surfaces():
     html = (ROOT / "frontend/index.html").read_text(encoding="utf-8")
-    js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
-    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     css = (ROOT / "frontend/css/dashboard.css").read_text(encoding="utf-8")
 
     assert 'id="planStateBanner"' in html
@@ -26,8 +27,7 @@ def test_plan_state_and_preflight_ui_are_first_class_surfaces():
 
 
 def test_first_run_checklist_guides_logical_flow_to_review_and_build():
-    js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
-    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     css = (ROOT / "frontend/css/dashboard.css").read_text(encoding="utf-8")
 
     assert "function firstRunChecklistHtml" in js
@@ -48,8 +48,7 @@ def test_first_run_checklist_guides_logical_flow_to_review_and_build():
 
 
 def test_report_navigation_surfaces_stale_output_state():
-    js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
-    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
 
     assert "planStateFresh" in js
     assert "reportStale" in js
@@ -58,8 +57,7 @@ def test_report_navigation_surfaces_stale_output_state():
 
 
 def test_build_history_surfaces_output_fingerprints_and_pricing_mode():
-    js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
-    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     css = (ROOT / "frontend/css/dashboard.css").read_text(encoding="utf-8")
 
     assert "function buildHistoryProvenance" in js
@@ -77,8 +75,7 @@ def test_system_configuration_is_single_consolidated_section():
     # wrapper) was removed; Save Plan and Report Readiness were dropped; CSV
     # Backup and the renamed "All Assumptions Editor" moved into the one
     # section, and a button opens the System Configuration Console.
-    js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
-    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     css = (ROOT / "frontend/css/dashboard.css").read_text(encoding="utf-8")
 
     # Consolidated: the split headings and the advanced <details> are gone.
