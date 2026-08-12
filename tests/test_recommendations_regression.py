@@ -1,6 +1,5 @@
 import json
 import unittest
-import warnings
 from pathlib import Path
 
 from src.data_io import load_csv, parse_client, summarize_validation
@@ -24,26 +23,6 @@ def sample_config():
 
 
 
-def _warn_on_baseline_drift(items, tol=5000.0):
-    """Report drift in plan-data-coupled baselines without failing.
-
-    These baselines move whenever the sample client's data is edited, which is
-    a routine event. Failing on it trains people to regenerate the number
-    reflexively, which is how a real regression slips through. Engine
-    correctness is gated by the synthetic golden master instead.
-    """
-    for name, actual, expected in items:
-        delta = actual - expected
-        if abs(delta) > tol:
-            warnings.warn(
-                f"golden-master baseline drift: {name} = {actual:,.2f} "
-                f"(pinned {expected:,.2f}, delta {delta:+,.2f}). "
-                f"Expected after a deliberate plan-data change; if the plan data "
-                f"did NOT change, investigate the engine.",
-                UserWarning,
-                stacklevel=2,
-            )
-
 class RecommendationCompletionTests(unittest.TestCase):
     def test_config_contract_and_schema_source_are_recorded(self):
         c = sample_config()
@@ -53,19 +32,37 @@ class RecommendationCompletionTests(unittest.TestCase):
         self.assertTrue(c['all_acct_ids'])
 
     def test_sample_projection_golden_master_and_release_gate(self):
-        # Structural assertions below are the BLOCKING gate for this sample plan.
-        # The two dollar figures are a WARN-ONLY diagnostic.
+        # Structural gate for the frozen sample plan: no validation
+        # failures/warnings, and the full 2026-2056 horizon.
         #
-        # Those figures are pinned to input/client_data.csv and the sibling
-        # client_*.csv files load_csv merges into it - live, frequently-edited
-        # client data. Drift here means the plan data changed, which is routine
-        # and expected; it is not evidence of an engine regression. Conflating
-        # the two is what made this file accumulate ~130 lines of changelog.
-        # Engine regressions are caught by the synthetic golden-master gate,
-        # which reads no client data at all.
+        # The two dollar figures this test used to carry (terminal_total_nw and
+        # lifetime_tax) were REMOVED rather than re-pinned, 2026-08-12. They were
+        # a second copy of
+        # test_frozen_sample_plan_golden_master_regression.py's
+        # PINNED_TERMINAL_NW / PINNED_LIFETIME_TAX -- same frozen fixture, same
+        # frozen prices, same project() call, same two numbers -- and that
+        # duplication is exactly what let a stale pin survive unnoticed.
         #
-        # The history of why these figures moved (items 141-143, 165-169,
-        # 185-186) now lives in documentation/GOLDEN_MASTER_CHANGELOG.md.
+        # Both copies held 5,824,239.30 / 1,290,848.91, which the fixture has
+        # never produced. The 2026-08-10 changelog entry corrected the
+        # authoritative pair to the real values (6,044,750.40 / 1,465,666.69)
+        # and this copy was missed, so it went on warning about a
+        # +220,511 / +174,818 "drift" that did not exist. Verified before
+        # deleting: the figures are byte-identical at f454117, 56c457a (the
+        # commit that wrote the pins), e8eeb2e, ff8350d, 91ab5fe and main, and
+        # across three consecutive runs -- i.e. unchanged straight through the
+        # DAF-optimizer, per-account-draw-order and withdrawal-comparison
+        # engine work. Nothing drifted; the pin was simply wrong.
+        #
+        # The old warn-only rationale ("these move whenever the sample client's
+        # data is edited, which is routine") no longer held either: conftest
+        # stages input/ from the committed tests/fixtures/sample_plan_frozen/
+        # and pins the clock via RETIREMENT_SYSTEM_FROZEN_TODAY, so this plan is
+        # static. Any real move in these dollars is an ENGINE change, and it now
+        # fails test_frozen_sample_plan_golden_master_regression.py to the cent
+        # instead of emitting a warning nobody reads. That file's __main__ regen
+        # block is the single place to update. See
+        # documentation/GOLDEN_MASTER_CHANGELOG.md.
         with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
             c = sample_config()
             rows = project(c)
@@ -73,16 +70,6 @@ class RecommendationCompletionTests(unittest.TestCase):
         self.assertEqual(summary['fail_count'], 0)
         self.assertEqual(summary['warn_count'], 0)
         self.assertEqual((rows[0]['year'], rows[-1]['year'], len(rows)), (2026, 2056, 31))
-        # Warn-only: report drift, never fail. See _warn_on_baseline_drift.
-        _warn_on_baseline_drift([
-            # Regenerated 2026-08-05 (fixture data change: added a home-
-            # purchase scenario to the frozen fixture's Housing next_step_1
-            # -- see test_199's PINNED_* block and GOLDEN_MASTER_CHANGELOG.md
-            # for the full history). Warn-only, so this update is hygiene,
-            # not a required fix.
-            ('terminal_total_nw', rows[-1]['total_nw'], 5_824_239.30),
-            ('lifetime_tax', sum(r['total_tax'] for r in rows), 1_290_848.91),
-        ])
 
     def test_fixed_point_taxable_withdrawal_solver_runs_before_roth(self):
         # The fixed-point solver only runs when there's sufficient investment tax

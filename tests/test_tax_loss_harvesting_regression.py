@@ -94,12 +94,22 @@ class EngineIntegrationTests(unittest.TestCase):
         projection when tlh_policy is off (the default). Compared against a
         freshly-computed reference (a config that never touches any tlh_*
         field, relying on parse_client's CSV-default 'off') rather than a
-        pinned dollar figure -- this test's config reads the live, routinely
-        edited input/client_data.csv, and a hardcoded absolute pin here goes
-        stale every time that plan data changes even though the TLH-off
-        no-op property itself remains correct. See test_recommendations_regression.py's
-        _warn_on_baseline_drift for the same live-plan-drift concern applied
-        to that file's own dollar pins."""
+        pinned dollar figure.
+
+        That relative comparison is the right shape here regardless of what the
+        config reads, because the property under test is "off changes nothing",
+        not "off produces $N" -- a pin would have to be regenerated on every
+        deliberate fixture edit while proving strictly less.
+
+        (Historical note, corrected 2026-08-12: this docstring used to justify
+        the choice by saying the config "reads the live, routinely edited
+        input/client_data.csv". It does not -- conftest stages input/ from the
+        committed tests/fixtures/sample_plan_frozen/ and pins the clock -- and it
+        pointed at a _warn_on_baseline_drift helper in
+        test_recommendations_regression.py that has since been deleted, along
+        with the two stale pins it guarded. Absolute dollar pins for this frozen
+        household live in exactly one place now:
+        test_frozen_sample_plan_golden_master_regression.py.)"""
         with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
             c_off = sample_config('off')
             rows_off = project(c_off)
