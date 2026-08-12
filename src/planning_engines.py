@@ -41,15 +41,93 @@ from math import isfinite
 GrowthResult = namedtuple('GrowthResult', ['total_growth', 'by_account', 'warnings'])
 
 
+def _account_return_tilt(c: dict, account_id) -> float:
+    """This account's expected return RELATIVE to the plan-wide return.
+
+    ``c['account_returns']`` holds ABSOLUTE expected rates: data_io writes
+    ``_base_ret + (acct_ret - portfolio_ret)`` -- the plan return plus the
+    account's tilt from its actual holdings mix. The deterministic engine
+    consumes them as rates directly.
+
+    A Monte Carlo path already carries its own sampled portfolio return for
+    the year, so what transfers onto that path is the TILT, not the rate.
+    Adding the absolute rate instead roughly doubles growth: with c['ret']=0.05
+    and a 5.5% sampled year, a 4.98% IRA compounds at 10.48%.
+
+    Tilts are dollar-weighted to approximately zero across the portfolio by
+    construction, so applying them preserves the plan's expected return as the
+    portfolio-wide average while letting asset location redistribute it --
+    which is the whole point of finding C3.
+    """
+    account_returns = c.get('account_returns') or {}
+    if account_id not in account_returns:
+        return 0.0
+    try:
+        return float(account_returns[account_id]) - float(c.get('ret', 0.0) or 0.0)
+    except Exception:
+        return 0.0
+
+
+def _mc_bucket_return_tilts(c: dict) -> dict:
+    """Dollar-weighted return tilt per projection bucket.
+
+    The vectorized MC evolves tax BUCKETS (pretax/roth/taxable/hsa), not
+    individual accounts, so per-account tilts have to be collapsed the same way
+    the balances are -- weighted by dollars, since a $10k bond-heavy IRA and a
+    $1M one cannot move the pretax bucket equally.
+
+    'cash' is deliberately absent: the vectorized path grows cash on its own
+    short-rate proxy tied to inflation rather than the equity draw, so a tilt
+    against the equity return would be meaningless there.
+    """
+    account_returns = c.get('account_returns') or {}
+    if not account_returns:
+        return {}
+    balances = c.get('balances') or {}
+    weighted: dict = {}
+    totals: dict = {}
+    for acct in (c.get('account_registry') or []):
+        aid = acct.get('id')
+        if aid not in account_returns:
+            continue
+        tax = str(acct.get('tax') or '').lower()
+        if tax == 'cash':
+            continue
+        bucket = {'pre_tax': 'pretax', 'roth': 'roth', 'hsa': 'hsa'}.get(tax, 'taxable')
+        try:
+            bal = float(balances.get(aid, acct.get('balance', 0.0)) or 0.0)
+        except Exception:
+            bal = 0.0
+        if bal <= 0:
+            continue
+        weighted[bucket] = weighted.get(bucket, 0.0) + bal * _account_return_tilt(c, aid)
+        totals[bucket] = totals.get(bucket, 0.0) + bal
+    return {b: weighted[b] / totals[b] for b in weighted if totals.get(b, 0.0) > 0}
+
+
+def _mc_apply_bucket_growth(balances: dict, growth, bucket_tilts: dict):
+    """Grow each market bucket by the sampled return plus that bucket's tilt.
+
+    Split out so the vectorized projection and its tests exercise the same
+    code. With an empty ``bucket_tilts`` this is bit-identical to the previous
+    ``balances[b] * (1.0 + growth)``.
+    """
+    for bucket in ('taxable', 'pretax', 'roth', 'hsa'):
+        rate = growth + float(bucket_tilts.get(bucket, 0.0) or 0.0)
+        balances[bucket] = _np.maximum(0.0, balances[bucket] * (1.0 + rate))
+    return balances
+
+
 def _apply_account_return_adjustments(c: dict, returns_by_year: dict, years: list[int]):
     """Apply per-account return adjustments to a base return-by-year dict.
 
-    For each account in account_returns, creates a per-year return path using the
-    account's return delta. This enables asset-location-aware success rates in MC.
+    For each account in account_returns, creates a per-year return path by
+    carrying that account's TILT (see _account_return_tilt) onto the sampled
+    portfolio return. This enables asset-location-aware success rates in MC.
 
     Args:
-        c: plan dict containing account_returns (per-account return deltas)
-        returns_by_year: dict[year] -> float (base portfolio return for that year)
+        c: plan dict containing account_returns (per-account ABSOLUTE rates)
+        returns_by_year: dict[year] -> float (sampled portfolio return that year)
         years: list of year values
 
     Returns:
@@ -66,7 +144,7 @@ def _apply_account_return_adjustments(c: dict, returns_by_year: dict, years: lis
             if acct_id not in account_returns:
                 continue
 
-            acct_delta = float(account_returns[acct_id])
+            acct_delta = _account_return_tilt(c, acct_id)
             result[acct_id] = {
                 yr: returns_by_year.get(yr, 0.0) + acct_delta
                 for yr in years
@@ -3032,6 +3110,12 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
     """
     n_sims, n_years = returns.shape
     starts = _mc_bucket_starting_balances(c)
+    # C3 / Wave 3.5 completion. Wave 3.5 wired per-account returns into the
+    # deterministic engine, and its follow-up wired the scalar MC path; both
+    # left THIS path -- the one that produces the headline success rate --
+    # growing every bucket at one identical rate. Empty dict => bit-identical
+    # to the previous behavior, so plans without holdings detail are unmoved.
+    bucket_tilts = _mc_bucket_return_tilts(c)
     flows = _mc_row_bucket_flows(c, base_rows)
     years = _np.array(flows['years'], dtype=int)
     active = years.reshape(1, -1) <= max_death_years.reshape(-1, 1)
@@ -3108,8 +3192,7 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
         balances['roth'] += conv
 
         growth = returns[:, j]
-        for bucket in ('taxable', 'pretax', 'roth', 'hsa'):
-            balances[bucket] = _np.maximum(0.0, balances[bucket] * (1.0 + growth))
+        _mc_apply_bucket_growth(balances, growth, bucket_tilts)
         # Cash gets a conservative short-rate proxy tied to inflation rather than equity returns.
         cash_rate = _np.clip(inflation_paths['inflation_by_year_matrix'][:, j] * 0.60, 0.0, 0.06)
         balances['cash'] = _np.maximum(0.0, balances['cash'] * (1.0 + cash_rate))
