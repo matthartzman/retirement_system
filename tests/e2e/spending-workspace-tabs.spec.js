@@ -6,12 +6,14 @@
 import { test, expect } from '@playwright/test';
 import { openCurrentPlan, navigateToStep } from './helpers.js';
 
-test('the Spending nav step tab-switches between its four merged pages', async ({ page }) => {
+// Ticket 286 added a fifth tab: Withdrawal Order, moved here from the
+// Distribution Strategy sub-nav (which that ticket removed entirely).
+test('the Spending nav step tab-switches between its merged pages', async ({ page }) => {
   await openCurrentPlan(page);
   await navigateToStep(page, 'spending_core', 'Spending Model');
 
   const tabs = page.locator('.spending-workspace .workspace-tab');
-  await expect(tabs).toHaveCount(4);
+  await expect(tabs).toHaveCount(5);
   await expect(tabs.first()).toHaveClass(/active/);
   await expect(tabs.first()).toHaveText('Spending Model');
 

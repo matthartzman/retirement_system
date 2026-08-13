@@ -629,12 +629,16 @@ export function renderStressSellHomeRows(rs) {
   return `<details><summary>Sell Home stress test — scenario sheet only</summary><div class="field-list"><div class="section-note warning"><b>Scenario-only:</b> these Sell Home stress-test rows are used by the Scenario Analysis workbook sheet, but they do <b>not</b> change the base-plan Build Impact cards. To change headline terminal net worth, set the Base Plan Home Sale Year above. The Home Value and Home Basis shown here are shared canonical Home asset facts. The sale value used by this stress test is projected from canonical Home Value and appreciation.</div>${sortRowsByDependency(visible).map(fieldHtml).join("")}</div></details>`;
 }
 
+// Ticket 286: Scenarios shows the STRESS home-sale panel only. It used to also
+// render renderBaseHomeSaleRows() -- byte-identical to the panel the Housing
+// page already owns (renderSpendingHousing, ~line 513) -- so the same
+// home_sale_year/price fields were editable on two pages with no indication
+// they were the same plan values. Housing is the single home for base-plan
+// home-sale input; Scenarios keeps only the stress variant, which drives
+// scenario sheets rather than the base projection.
 export function renderHomeSaleScenarioRows(rs) {
-  const has = rs.some(
-    (r) => rowIsBaseHomeSaleInput(r) || rowIsStressSellHomeInput(r),
-  );
-  if (!has) return "";
-  return renderBaseHomeSaleRows(rs) + renderStressSellHomeRows(rs);
+  if (!rs.some(rowIsStressSellHomeInput)) return "";
+  return renderStressSellHomeRows(rs);
 }
 
 export const SCENARIO_TEMPLATES = [
@@ -992,7 +996,7 @@ export function renderScenarios() {
       !homeSale.includes(r) &&
       !stateComp.includes(r),
   );
-  let html = `<div class="field-list"><div class="section-note"><b>Scenario Change Sets are deterministic planning cases.</b> Use the Stress Suite & Monte Carlo page for probabilistic or adverse-assumption testing. Economy shocks and scenario enable/year controls are grouped first because they determine which dependent assumptions matter. Home sale is split into a base-plan panel that affects Build Impact and a stress-test panel that affects scenario sheets only.</div></div>`;
+  let html = `<div class="field-list"><div class="section-note"><b>Scenario Change Sets are deterministic planning cases.</b> Use the Stress Suite & Monte Carlo page for probabilistic or adverse-assumption testing. Economy shocks and scenario enable/year controls are grouped first because they determine which dependent assumptions matter. Home sale here is the stress-test panel only, affecting scenario sheets; the base-plan home sale is entered once on the Housing page under Spending.</div></div>`;
   html += renderScenarioManagementPanel(rs);
   html += economy.length
     ? `<details><summary>Economy</summary><div class="field-list">${sortRowsByDependency(economy).map(fieldHtml).join("")}</div></details>`
