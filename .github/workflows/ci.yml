@@ -54,13 +54,22 @@ jobs:
     - name: Type check (mypy, informational — not yet a merge gate)
       run: mypy src/ --ignore-missing-imports || true
 
+    # shell: bash is load-bearing, not stylistic. This job runs on
+    # windows-latest, where the default shell is pwsh -- and every line below is
+    # bash: `/tmp/...`, `|| TEST_EXIT=$?`, `${TEST_EXIT:-0}`, `grep`. Under pwsh
+    # the redirect resolved to D:\tmp\pytest_output.txt, which does not exist, so
+    # the step died with "Could not find a part of the path" BEFORE pytest ran.
+    # The job then reported failure on every commit -- including docs-only ones
+    # -- while executing zero tests, so a red CI here meant nothing at all.
     - name: Run tests
+      shell: bash
       run: |
         pytest tests/ --tb=short -q --cov=src --cov-report=xml -v > /tmp/pytest_output.txt 2>&1 || TEST_EXIT=$?
         cat /tmp/pytest_output.txt
         exit ${TEST_EXIT:-0}
 
     - name: Verify frozen golden-master gate executed (F0.3)
+      shell: bash
       run: |
         if grep -q "test_frozen_plan_dollar_figures_are_exact PASSED\|test_frozen_plan_dollar_figures_are_exact" /tmp/pytest_output.txt; then
           echo "✓ Frozen golden-master test executed and passed"
