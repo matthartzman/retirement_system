@@ -7715,7 +7715,7 @@ function goToStrategyTab(step, tab) {
 // Conversion and Allocation & Location are embedded here, inside the decide
 // box, and no longer carry their own nav entries.
 function renderDistributionStrategy() {
-  return `<div class="tabbed-workspace strategy-workspace"><div class="workspace-tab-body">${renderPlanningLevers(true)}<details class="decide-embed" open><summary>Roth Conversion</summary>${analysisFrame(renderRothConversion(), "strategy")}</details><details class="decide-embed"><summary>Asset allocation &amp; location</summary>${analysisFrame(renderAllocationRecommendation(), "strategy")}</details></div></div>`;
+  return `<div class="tabbed-workspace strategy-workspace"><div class="workspace-tab-body">${renderPlanningLevers(true)}<details class="decide-embed" open><summary>Roth Conversion</summary>${analysisFrame(renderRothConversion(), "strategy")}</details><details class="decide-embed"><summary>Asset allocation &amp; location</summary>${analysisFrame(renderAllocationRecommendation(), "strategy")}<details class="decide-embed-sub"><summary>Allocation policy settings</summary>${renderAllocationPolicy()}</details></details></div></div>`;
 }
 function renderSpecialStrategies() {
   let html = '<div class="special-strategy-workspace">';
