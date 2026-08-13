@@ -24,7 +24,9 @@ from tests._decomp_dashboard import dashboard_js_text
 # Every quick-nav button on the Planning Levers page, and the step id it
 # jumps to. Must match frontend/js/dashboard.js::renderPlanningLevers().
 LEVER_NAV_STEPS = [
-    "roth_conversion", "allocation_assets", "withdrawal_strategy",
+    # Ticket 286: withdrawal sequencing moved to the Spending workspace's
+    # "Withdrawal Order" tab, so the lever button now jumps to spending_core.
+    "roth_conversion", "allocation_assets", "spending_core",
     "income_retirement", "entity_charitable", "heloc_strategy",
     "monte_carlo_options", "scenarios", "survivor_stress",
     "ltc_stress", "divorce_options",

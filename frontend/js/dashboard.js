@@ -38,7 +38,7 @@ const STEPS = [
     intro:
       "Contribution amounts here add to account balances annually until the retirement date. Business salary level affects payroll tax and business-income deductions.",
     help: "High earned income in late working years compresses Roth conversion room below the bracket ceiling — coordinate with the Roth Conversion tab when the retirement date is near.",
-    helpLink: { id: "distribution_strategy", label: "Open Distribution Strategy → Roth Conversion" },
+    helpLink: { id: "distribution_strategy", label: "Open Distribution Strategy (Roth conversion is on that page)" },
   },
   {
     id: "income_retirement",
@@ -48,7 +48,7 @@ const STEPS = [
     intro:
       "Enter each person’s Social Security benefit from their statement along with the planned claiming age and the household spousal/survivor policy. Delaying past full retirement age adds about 8% per year up to age 70; the higher earner’s delay has the greatest survivor income impact. Survivor percentages control how much pension or annuity income continues after the first death.",
     help: "Early claiming opens gap years for Roth conversion if other income is low — model the joint timing strategy with the Roth Conversion tab. Pensions and annuities with survivor protection can be treated as fixed-income-equivalent coverage in the allocation analysis — set the coverage option on the Asset allocation & location tab.",
-    helpLink: { id: "distribution_strategy", label: "Open Distribution Strategy → Roth Conversion / Asset allocation & location" },
+    helpLink: { id: "distribution_strategy", label: "Open Distribution Strategy (Roth conversion and allocation are on that page)" },
   },
   {
     id: "spending_core",
@@ -207,7 +207,8 @@ const STEPS = [
   },
   {
     id: "roth_conversion",
-    group: "Strategy",
+    // Ticket 286: embedded in the Strategy decide box; no own nav entry.
+    group: null,
     title: "Roth Conversion",
     desc: "Conversion policy, ceiling (bracket or fixed dollar), Medicare income surcharge guardrails, and objective weights for tax, legacy, survivor, and estate.",
     intro:
@@ -217,7 +218,8 @@ const STEPS = [
   },
   {
     id: "allocation_assets",
-    group: "Strategy",
+    // Ticket 286: embedded in the Strategy decide box; no own nav entry.
+    group: null,
     title: "Asset allocation & location",
     desc: "User-defined targets or optimizer recommendation, asset-class include/exclude/alternate settings, and optional overrides.",
     intro:
@@ -236,13 +238,14 @@ const STEPS = [
     hidden: true,  },
   {
     id: "withdrawal_strategy",
-    group: "Strategy",
+    // Ticket 286: now the Spending workspace’s "Withdrawal Order" tab.
+    group: null,
     title: "Withdrawal sequencing",
     desc: "Bucket draw order, trust withdrawals, and spousal rollover election. HSA withdrawal timing is set on Other Assets and Liabilities.",
     intro:
       "Earlier priority means a bucket is drawn sooner. Drawing taxable accounts first can manage required distributions but may realize capital gains; preserving Roth typically maximizes tax-free compounding for legacy.",
     help: "When required distributions exceed annual spending needs, the excess is reinvested in taxable unless converted to Roth — Roth conversion policy is set on the Roth Conversion tab. HSA timing controls are under Other Assets and Liabilities.",
-    helpLink: { id: "distribution_strategy", label: "Open Distribution Strategy → Roth Conversion" },
+    helpLink: { id: "distribution_strategy", label: "Open Distribution Strategy (Roth conversion is on that page)" },
     hidden: true,
   },
   {
@@ -1563,11 +1566,12 @@ function renderPlanningLevers(embedded) {
   function tr(r) {
     return `<tr><td>${esc(r.focus)}</td><td><b>${esc(r.lever)}</b><div class="small">${esc(r.note)}</div></td><td class="lever-source-cell">${sourceCell(r)}</td><td>${inputCell(r)}</td><td>${fmtMoney(r.tnw)}</td><td>${fmtPct(r.success)}</td></tr>`;
   }
+  // Ticket 286: when embedded, Roth conversion and asset allocation render inline below rather than as links, so the decide box IS the page. Withdrawal sequencing moved to Spending.
   const decideButtons = embedded
     ? ""
     : leverNavButton("roth_conversion", "Roth conversion") +
       leverNavButton("allocation_assets", "Asset allocation") +
-      leverNavButton("withdrawal_strategy", "Withdrawal sequencing");
+      leverNavButton("spending_core", "Withdrawal order");
   const otherDecideButtons =
     leverNavButton("income_retirement", "Social Security") +
     leverNavButton("entity_charitable", "Charitable giving") +
@@ -1578,7 +1582,7 @@ function renderPlanningLevers(embedded) {
     leverNavButton("survivor_stress", "Survivor") +
     leverNavButton("ltc_stress", "Long-term care") +
     leverNavButton("divorce_options", "Divorce / QDRO");
-  return `<div class="holdings planning-levers"><h3 class="group-title">Strategy Levers</h3><p class="small"><button class="btn tiny" type="button" data-step-id="planning_workbench">Back to Planning Workbench</button></p><p class="small">Estimates assume all other inputs stay fixed. Change the test amount to resize any estimate without affecting your plan. Use the Source column beside each lever to jump to the page where the actual plan value is changed, then rebuild to confirm the real effect.</p><div class="feature-grid optimizer-hub" style="margin:10px 0 14px"><div class="feature-card">${embedded ? '<h3>Strategy · decide</h3><p class="small">Roth conversion, asset allocation, and withdrawal order are the tabs above. Other decide-levers:</p>' : "<h3>Strategy · decide</h3>"}<div class="pane-actions">${decideButtons}${otherDecideButtons}</div></div><div class="feature-card"><h3>Stress tests · resilience</h3><div class="pane-actions">${resilienceButtons}</div></div></div><div class="ytd-status-grid"><div class="pill"><b>Current terminal NW</b><span>${fmtMoney(b.terminal)}</span></div><div class="pill" title="Post-Tax Inheritance: terminal net worth minus the embedded taxes heirs would owe on pre-tax accounts and unrealized gains — what beneficiaries actually keep."><b>Post-Tax Inheritance (PTI)</b><span>${Number.isFinite(b.pti) ? fmtMoney(b.pti) : "—"}</span></div><div class="pill"><b>Lifetime taxes</b><span>${Number.isFinite(b.lifetime_tax) ? fmtMoney(b.lifetime_tax) : "—"}</span></div><div class="pill"><b>Current success rate</b><span>${fmtPct(b.success)}</span></div><div class="pill"><b>Core annual spending</b><span>${fmtMoney(b.spend)}</span></div><div class="pill"><b>Earned income assumption</b><span>${fmtMoney(b.earned)}</span></div></div><div class="section-note small" style="margin:4px 0 10px"><b>TNW</b> = Terminal Net Worth (projected portfolio at end of plan horizon) · <b>PTI</b> = Post-Tax Inheritance (TNW minus embedded taxes heirs would owe) · <b>Success rate</b> = Monte Carlo trials where the plan maintains the reserve floor through the planning horizon</div><div><div><h3>Ranked by estimated TNW lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${tnw.map(tr).join("")}</tbody></table></div></div><div><h3>Ranked by estimated success lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${suc.map(tr).join("")}</tbody></table></div></div></div><p class="section-note">After ranking, use the Source button beside a lever to change the actual input → rebuild → check Build History to see the measured effect on projected net worth and success rate.</p></div>`;
+  return `<div class="holdings planning-levers"><h3 class="group-title">Strategy Levers</h3><p class="small"><button class="btn tiny" type="button" data-step-id="planning_workbench">Back to Planning Workbench</button></p><p class="small">Estimates assume all other inputs stay fixed. Change the test amount to resize any estimate without affecting your plan. Use the Source column beside each lever to jump to the page where the actual plan value is changed, then rebuild to confirm the real effect.</p><div class="feature-grid optimizer-hub" style="margin:10px 0 14px"><div class="feature-card">${embedded ? '<h3>Strategy · decide</h3><p class="small">Roth conversion and asset allocation are below. Withdrawal order moved to Spending. Other decide-levers:</p>' : "<h3>Strategy · decide</h3>"}<div class="pane-actions">${decideButtons}${otherDecideButtons}</div></div><div class="feature-card"><h3>Stress tests · resilience</h3><div class="pane-actions">${resilienceButtons}</div></div></div><div class="ytd-status-grid"><div class="pill"><b>Current terminal NW</b><span>${fmtMoney(b.terminal)}</span></div><div class="pill" title="Post-Tax Inheritance: terminal net worth minus the embedded taxes heirs would owe on pre-tax accounts and unrealized gains — what beneficiaries actually keep."><b>Post-Tax Inheritance (PTI)</b><span>${Number.isFinite(b.pti) ? fmtMoney(b.pti) : "—"}</span></div><div class="pill"><b>Lifetime taxes</b><span>${Number.isFinite(b.lifetime_tax) ? fmtMoney(b.lifetime_tax) : "—"}</span></div><div class="pill"><b>Current success rate</b><span>${fmtPct(b.success)}</span></div><div class="pill"><b>Core annual spending</b><span>${fmtMoney(b.spend)}</span></div><div class="pill"><b>Earned income assumption</b><span>${fmtMoney(b.earned)}</span></div></div><div class="section-note small" style="margin:4px 0 10px"><b>TNW</b> = Terminal Net Worth (projected portfolio at end of plan horizon) · <b>PTI</b> = Post-Tax Inheritance (TNW minus embedded taxes heirs would owe) · <b>Success rate</b> = Monte Carlo trials where the plan maintains the reserve floor through the planning horizon</div><div><div><h3>Ranked by estimated TNW lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${tnw.map(tr).join("")}</tbody></table></div></div><div><h3>Ranked by estimated success lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${suc.map(tr).join("")}</tbody></table></div></div></div><p class="section-note">After ranking, use the Source button beside a lever to change the actual input → rebuild → check Build History to see the measured effect on projected net worth and success rate.</p></div>`;
 }
 
 function chatMessageHtml(m) {
@@ -7660,9 +7664,12 @@ function renderReportsAndReview() {
 // used to be several separate nav steps -- keyed by the merged step's own
 // id, reused by getStrategyTab/setStrategyTab/goToStrategyTab/renderStrategyTabs
 // below regardless of which workspace it's for.
+// Ticket 286: distribution_strategy's sub-nav is gone. Its four tabs duplicated
+// nav entries that already existed at top level; Withdrawal Order moved to the
+// Spending workspace below, and Roth Conversion / Allocation & Location are now
+// embedded in the Strategy decide box (renderPlanningLevers).
 const STRATEGY_TABS = {
-  distribution_strategy: ["Levers", "Roth Conversion", "Withdrawal Order", "Allocation & Location"],
-  spending_core: ["Spending Model", "Other Spending", "Actual Spending (YTD)", "Spending Analysis"],
+  spending_core: ["Spending Model", "Other Spending", "Actual Spending (YTD)", "Spending Analysis", "Withdrawal Order"],
 };
 
 // Shared left-nav sub-tab strip for any STRATEGY_TABS-registered workspace step.
@@ -7702,17 +7709,13 @@ function goToStrategyTab(step, tab) {
     loadYtdStatus(false).then(renderMain);
   }
 }
+// Ticket 286: the sub-nav is gone. Its four tabs were alternate routes into
+// steps that already existed at top level, so every one of them appeared twice
+// in the left nav. Withdrawal Order moved to the Spending workspace; Roth
+// Conversion and Allocation & Location are embedded here, inside the decide
+// box, and no longer carry their own nav entries.
 function renderDistributionStrategy() {
-  const tab = getStrategyTab("distribution_strategy");
-  let body;
-  if (tab === "Roth Conversion")
-    body = analysisFrame(renderRothConversion(), "strategy");
-  else if (tab === "Withdrawal Order")
-    body = analysisFrame(renderWithdrawalStrategy(), "strategy");
-  else if (tab === "Allocation & Location")
-    body = analysisFrame(renderAllocationRecommendation(), "strategy");
-  else body = renderPlanningLevers(true);
-  return `<div class="tabbed-workspace strategy-workspace">${renderStrategyTabs("distribution_strategy", STRATEGY_TABS.distribution_strategy, tab)}<div class="workspace-tab-body">${body}</div></div>`;
+  return `<div class="tabbed-workspace strategy-workspace"><div class="workspace-tab-body">${renderPlanningLevers(true)}<details class="decide-embed" open><summary>Roth Conversion</summary>${analysisFrame(renderRothConversion(), "strategy")}</details><details class="decide-embed"><summary>Asset allocation &amp; location</summary>${analysisFrame(renderAllocationRecommendation(), "strategy")}</details></div></div>`;
 }
 function renderSpecialStrategies() {
   let html = '<div class="special-strategy-workspace">';
