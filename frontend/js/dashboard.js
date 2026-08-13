@@ -5112,14 +5112,10 @@ function renderSpecialIncomeAnnuitiesInsurance() {
   );
 }
 
+// Excluded: "Priority N" is the removed legacy cascade table; "Account Order" is owned by the Withdrawal order drag editor above and would otherwise re-render as raw integers (ticket 285). See tests/frontend/withdrawal_other_rows.test.mjs.
 function withdrawalOtherRows() {
-  return rowsForStep("withdrawal_strategy").filter(
-    (r) =>
-      !(
-        r.section === "Withdrawal Policy" &&
-        /^Priority\s+\d+$/i.test(String(r.subsection || ""))
-      ),
-  );
+  const isOwnedElsewhere = (r) => r.section === "Withdrawal Policy" && (r.subsection === "Account Order" || /^Priority\s+\d+$/i.test(String(r.subsection || "")));
+  return rowsForStep("withdrawal_strategy").filter((r) => !isOwnedElsewhere(r));
 }
 // The withdrawal cascade order used to be an editable "compressed
 // withdrawal-order table" here (Priority 1-6, saved via POST
