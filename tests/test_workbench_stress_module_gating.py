@@ -15,7 +15,7 @@ can't drift from the nav gating again.
 from pathlib import Path
 
 from src.module_catalog import step_gate_map
-from tests._decomp_dashboard import dashboard_js_text
+from tests._decomp_dashboard import dashboard_function_source, dashboard_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -31,11 +31,13 @@ def _stress_suite_fn():
     top-level `function` in the SAME text keeps the intent -- assert about this
     function's body, not the whole file -- without assuming which neighbour it
     is or which file either ends up in.
+
+    Bounding on a literal '\\nfunction ' was not enough: extracted modules
+    declare `export function`, so that scan misses every declaration in the
+    module and the slice runs on into the next file. dashboard_function_source
+    matches both shapes.
     """
-    js = dashboard_js_text()
-    start = js.index('function renderWorkbenchStressHtml(')
-    nxt = js.find('\nfunction ', start + 1)
-    return js[start:] if nxt == -1 else js[start:nxt]
+    return dashboard_function_source('renderWorkbenchStressHtml')
 
 
 def test_monte_carlo_and_survivor_blocks_are_gated_through_the_generic_helper():

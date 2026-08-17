@@ -20,7 +20,7 @@ from openpyxl import Workbook
 from src.reporting.sheets_strategy import build_sheet13
 from src.reporting.workbook_common import STATE_TAX_RULES
 from src.taxes import STATE_COL_FACTORS
-from tests._decomp_dashboard import dashboard_js_text
+from tests._decomp_dashboard import dashboard_function_source, dashboard_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -127,9 +127,7 @@ def test_no_separate_geographic_cost_of_living_table_remains():
 
 def test_state_residency_button_removed_from_planning_levers_decide_card():
     js = dashboard_js_text()
-    start = js.index('function renderPlanningLevers(')
-    end = js.index('\nfunction chatMessageHtml', start)
-    fn = js[start:end]
+    fn = dashboard_function_source('renderPlanningLevers', js)
     assert 'data-step-id="state_residency">State residency</button>' not in fn
     # The State Residency page/nav step itself must still exist elsewhere --
     # this only removes the lever quick-nav shortcut, not the whole feature.

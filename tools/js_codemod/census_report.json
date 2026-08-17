@@ -2,25 +2,14 @@
   "schema": "dashboard_census_v4",
   "functions": [
     "_checkAppStatusRun",
-    "activeOptimizerUsedTarget",
-    "addAltOption",
     "addManualYtdAccount",
     "addParentheticals",
     "addYtdTxn",
-    "allocationCoverageCalloutHtml",
-    "allocationModeHtml",
-    "allocationModeIsComputed",
-    "allocationOptimizerRecommendationHtml",
-    "allocationPolicyRows",
     "allocationPreviewFingerprint",
     "allocationPreviewRowsForPost",
     "allocationTargetsValid",
-    "alternateAssetRows",
-    "alternateAssetSourceOptions",
-    "alternateSelect",
     "artifactHashFromPreflight",
     "assetActionForSubsection",
-    "assetClassNamesForAllocation",
     "autoCollapseHelpForNarrowLaptop",
     "baseHomeSaleYearRow",
     "blurYtdAccountMoney",
@@ -37,14 +26,12 @@
     "choiceLabel",
     "choiceOptions",
     "chooseDefaultDetailedSheet",
-    "classKey",
     "clientDataKey",
     "cloneSummary",
     "closeChartModal",
     "closeExitModal",
     "closeNavDrawer",
     "collapseAllDetailGroups",
-    "copyOptimizerOverrideToUserTargets",
     "csvEscape",
     "currentManualOverrideItems",
     "currentScenarioOverrideItems",
@@ -81,9 +68,7 @@
     "fieldTooltipHtml",
     "fieldTooltipPreview",
     "filterChoiceOptionsForRow",
-    "findAssetRow",
     "finiteOrNull",
-    "fmtPctCell",
     "focusYtdAccountMoney",
     "focusYtdTxnAmount",
     "focusableEntries",
@@ -97,8 +82,6 @@
     "hideYtdLoadOverlay",
     "humanizeGroupKey",
     "importPreviewList",
-    "irmaaModeValue",
-    "kpiHasValues",
     "leverPctPoints",
     "loadCanonicalGlossary",
     "loadDetailedResults",
@@ -112,7 +95,6 @@
     "normalizePlanningCaseSource",
     "normalizeValueForSave",
     "normalizeYtdActualsPeriod",
-    "normalizedAssetSourceName",
     "noteSessionFieldChange",
     "noteSpecialSessionChange",
     "numberDisplayDecimals",
@@ -120,11 +102,7 @@
     "openExitModal",
     "openNavDrawer",
     "openNextCollapsedSectionFrom",
-    "optimizerOverrideTotalHtml",
-    "optimizerPreviewStatusCell",
-    "optimizerPreviewTarget",
     "optionalModuleState",
-    "orderedRowsByLabel",
     "pageHelp",
     "pageSaveMode",
     "pageSaveModeHtml",
@@ -154,8 +132,6 @@
     "planningCaseReadAll",
     "planningCaseSaveAll",
     "planningCaseSourceButtons",
-    "planningLeversBaselineReady",
-    "planningLeversPlaceholder",
     "planningWorkbenchBuildImpactHtml",
     "planningWorkbenchStressSelectorHtml",
     "primaryActionForStep",
@@ -165,45 +141,27 @@
     "recoverPriorSpendingBudget",
     "recoverYtdAccountSetup",
     "rememberBuildCompare",
-    "renderAllocationRecommendation",
-    "renderAssetClassSelectionTable",
     "renderAssetsCashReserves",
-    "renderCurrentAllocationModeNote",
     "renderDetailedResultsNav",
     "renderDetailedResultsProgressTick",
-    "renderDistributionStrategy",
     "renderEntityCharitable",
     "renderEstateWithAnnuityLink",
     "renderFieldFinderGroups",
-    "renderHoldingPeriodSettingsHtml",
     "renderHouseholdPeople",
     "renderIncomeWork",
     "renderMain",
-    "renderMaxSharpeAllocationPanel",
     "renderMeta",
     "renderNav",
-    "renderOptimizerAllocationPanel",
-    "renderOptimizerOverrideTable",
-    "renderOptimizerPreviewNote",
     "renderOptionalFunctions",
-    "renderPlanningLevers",
     "renderPlanningWorkbench",
-    "renderRealLossAwarePanel",
-    "renderRealLossAwareTuningHtml",
     "renderRetirementWellness",
-    "renderRothConversion",
-    "renderRothMissingNotice",
-    "renderRothRows",
     "renderSpecialStrategies",
     "renderSpendingDashboardOrLoad",
     "renderSpendingWorkflowBanner",
     "renderStateResidency",
     "renderStrategyTabs",
-    "renderTangencyAllocationPanel",
-    "renderTotalWealthAllocationHtml",
     "renderWithdrawalOrderTable",
     "renderWithdrawalStrategy",
-    "renderWorkbenchLeverEditorHtml",
     "renderWorkspaceSubtabsNav",
     "renderYtdDuplicateReview",
     "renderYtdSummary",
@@ -217,7 +175,6 @@
     "restoreWorkbookViewState",
     "revertLastBuildChanges",
     "rollForwardYtdAccounts",
-    "rothPolicyValue",
     "rowConfigValue",
     "rowIsRetirementWellness",
     "rowSortKeyForIncomeWork",
@@ -232,19 +189,15 @@
     "scenarioRowKeyFromParts",
     "sectionFlagEnabled",
     "selectedFolderDiffersFromLoadedPlan",
-    "selectionActionSelect",
     "serializeCsvTable",
     "serializeLiabilities",
     "setAllDetailColumnGroups",
-    "setAllocationSelectionMode",
     "setCombinedSearch",
     "setDetailedResultSheet",
     "setDetailedResultsNavOpen",
     "setNavSearch",
     "setPlanningCaseActive",
-    "setPlanningLeverInput",
     "setSearchScope",
-    "setSelectionAction",
     "setStrategyTab",
     "setYtdActualsPeriod",
     "setYtdSort",
@@ -268,7 +221,6 @@
     "suggestedNext",
     "summaryFromApiPayload",
     "takeBuildSnapshot",
-    "targetPctInput",
     "toggleDetailColGroup",
     "toggleDetailColumnGroup",
     "toggleHelpSheet",
@@ -746,6 +698,282 @@
       "name": "renderMain",
       "file": "frontend/js/dashboard_batch_assumption_edit.js",
       "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planningLeverInputs",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planLoaded",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildCompare",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildCompare",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildPreflight",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planningLeverInputs",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planningLeverInputs",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreview",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreview",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewLoading",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewError",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewError",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreview",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreview",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewLoading",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewError",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreviewError",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreview",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreview",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreview",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreview",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreview",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreview",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreview",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "allocationPreview",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "searchText",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ROTH_WINDOW_LABELS",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ROTH_WINDOW_LABELS",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ROTH_WINDOW_LABELS",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ROTH_WINDOW_LABELS",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ROTH_WINDOW_LABELS",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "IRMAA_OFF_MODES",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ROTH_LEGACY_LABELS",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
       "scope": "inside-function"
     },
     {
@@ -1374,12 +1602,6 @@
     },
     {
       "name": "summaryFromApiPayload",
-      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "kpiHasValues",
       "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
       "kind": "call",
       "scope": "inside-function"
@@ -2162,12 +2384,6 @@
       "name": "planLoaded",
       "file": "frontend/js/dashboard_decomp_home_panels.js",
       "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "kpiHasValues",
-      "file": "frontend/js/dashboard_decomp_home_panels.js",
-      "kind": "call",
       "scope": "inside-function"
     },
     {
@@ -2999,12 +3215,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "renderWorkbenchLeverEditorHtml",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
       "name": "buildHistory",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
@@ -3143,12 +3353,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "allocationModeIsComputed",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
       "name": "assetActionForSubsection",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "call",
@@ -3170,24 +3374,6 @@
       "name": "rows",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rothPolicyValue",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rothPolicyValue",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "irmaaModeValue",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
       "scope": "inside-function"
     },
     {
@@ -3924,12 +4110,6 @@
     },
     {
       "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "allocationPolicyRows",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "call",
       "scope": "inside-function"
@@ -5357,12 +5537,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "optimizerOverrideTotalHtml",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
       "name": "FIELD_GUIDANCE_OVERRIDES",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
@@ -5921,12 +6095,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "kpiHasValues",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
       "name": "lastBuildSummary",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
@@ -5940,12 +6108,6 @@
     },
     {
       "name": "rememberBuildCompare",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "kpiHasValues",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "call",
       "scope": "inside-function"
@@ -7489,6 +7651,8 @@
     "RECOMMENDATION_STEP_IDS",
     "REPORTS_TABS",
     "REQUIRED_PLAN_DATA_FILES",
+    "ROTH_LEGACY_LABELS",
+    "ROTH_WINDOW_LABELS",
     "SCENARIO_SET_STORAGE_KEY",
     "STEPS",
     "STEP_HELP",
