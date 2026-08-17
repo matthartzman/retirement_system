@@ -50,10 +50,15 @@ from conftest import TEST_INPUT_DIR
 
 
 def sample_config_and_rows():
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
-    c["roth_policy"] = "none"
-    c = ensure_engine_config(c, source="test")
+    # parse_client() is what prices the holdings, so it has to be inside the
+    # frozen block too -- wrapping only project() pins the projection while the
+    # opening balances still come from the untracked, machine-local
+    # output/market_price_cache.json. The strategies here are ranked against
+    # each other by margins well under a percent, so a stale quote flips them.
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+        c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+        c["roth_policy"] = "none"
+        c = ensure_engine_config(c, source="test")
         rows = project(c)
     return c, rows
 

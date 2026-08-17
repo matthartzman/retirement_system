@@ -2,6 +2,8 @@ import copy
 import unittest
 from pathlib import Path
 
+import pytest
+
 from src.data_io import load_csv, parse_client
 from src.plan_config import ensure_engine_config
 from src.planning_engines import project
@@ -12,6 +14,28 @@ from tests.golden_pricing import FROZEN_GOLDEN_MASTER_PRICES, frozen_holdings_pr
 ROOT = Path(__file__).resolve().parents[1]
 
 from conftest import TEST_INPUT_DIR
+
+
+@pytest.fixture(autouse=True)
+def _pin_holdings_prices():
+    """Freeze holdings pricing for the whole of every test in this file.
+
+    Two reasons it has to be the whole test, not just the parse_client call:
+
+    1. parse_client() is what prices the holdings, so pinning only a later
+       project() leaves the opening balances resolved against the untracked,
+       machine-local output/market_price_cache.json. Every dollar threshold
+       below then depends on when this machine last fetched a quote -- which
+       is how the ITOT assertions here went red at a cached 170.44 against the
+       fixture's frozen 165.265.
+    2. parse_client() hands LotEngine the module-global market_data.PRICE_CACHE
+       *by reference*, and leaving this context manager calls
+       reset_pricing_runtime_state(), which clears that dict. A config built
+       inside the block and used outside it therefore prices every lot at
+       zero. The config is only valid while the block is open.
+    """
+    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+        yield
 
 
 def sample_config(tlh_policy='off'):
@@ -110,11 +134,14 @@ class EngineIntegrationTests(unittest.TestCase):
         with the two stale pins it guarded. Absolute dollar pins for this frozen
         household live in exactly one place now:
         test_frozen_sample_plan_golden_master_regression.py.)"""
-        with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
-            c_off = sample_config('off')
-            rows_off = project(c_off)
-            c_baseline = baseline_config_without_tlh_overrides()
-            rows_baseline = project(c_baseline)
+        # No frozen_holdings_prices block here: the autouse _pin_holdings_prices
+        # fixture already holds one open for the whole test. Re-entering and
+        # leaving it here would clear market_data.PRICE_CACHE mid-test, which
+        # LotEngine holds by reference -- see that fixture's docstring.
+        c_off = sample_config('off')
+        rows_off = project(c_off)
+        c_baseline = baseline_config_without_tlh_overrides()
+        rows_baseline = project(c_baseline)
         self.assertAlmostEqual(rows_off[-1]['total_nw'], rows_baseline[-1]['total_nw'], places=2)
         self.assertAlmostEqual(
             sum(r['total_tax'] for r in rows_off),
