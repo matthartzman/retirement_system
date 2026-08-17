@@ -179,6 +179,46 @@
     // bridge setter finish_extraction.mjs exists to catch. Re-running the
     // codemod against current main is cheaper and verifiable; the branch's
     // hand-edited diff was discarded.
+    // v9-v12 (2026-08-17, plan REMAINING_WORK_PLAN_2026-08-12 phase F3): the
+    // last four domain clusters, taking dashboard.js 11,446 -> 7,481 lines.
+    //   v9  five small disjoint clusters in one batch -- page_recommendations
+    //       (14), income_streams (11), large_discretionary (9), death_benefits
+    //       (8), mc_stress_options (8)
+    //   v10 checklist / closeout / save-load (31)
+    //   v11 allocation / optimizer (48)
+    //   v12 YTD tracking + plan-folder I/O (65), done last because it owns the
+    //       file-system and permission flows Playwright covers only partly
+    //
+    // showStepHelp stayed behind out of the death_benefits component: other
+    // leaf modules monkey-patch it as a decorator chain, which needs the
+    // reassignable-let + get/set accessor treatment convert_dashboard.mjs
+    // applies only inside dashboard.js. extract_module.mjs refused it by name,
+    // the same way it held back SCENARIO_SET_STORAGE_KEY in v7 and
+    // BUILD_HISTORY_LS_KEY in v8.
+    //
+    // THE SPLIT STOPS HERE, AND THAT IS A RESTING POINT, NOT AN ABANDONED
+    // MIGRATION. What remains in dashboard.js is boot, STEPS, the renderMain
+    // dispatch, shared state, and a tail of 111 single-function components with
+    // no cohesive domain between them. The 2026-08-12 scope decision deferred
+    // that tail (F3.5) deliberately: extracting it buys roughly 3,000 more
+    // lines for about half the total sessions the whole project has spent, and
+    // themed modules assembled out of unrelated singletons are a filing system,
+    // not a domain boundary. The size ratchet
+    // (tests/test_frontend_size_ratchet.py) pins 7,481 so this cannot silently
+    // regrow. If someone revives the tail, the affinity-grouping tool that was
+    // dropped with it (F2.4) needs reviving too.
+    //
+    // Method note worth keeping: the per-pass cost here was never the
+    // extraction, which is a dry run plus a cluster list. It was tests that
+    // read dashboard.js directly, or that sliced it between two landmark
+    // symbols. Both break the moment their subject moves, and both fail in ways
+    // that point away from the real cause -- ValueError deep in a helper, or a
+    // count assertion that is off by one. Sweeping every such test onto
+    // tests/_decomp_dashboard.py (dashboard_js_text for whole-frontend
+    // assertions, dashboard_function_source for one-function assertions) took
+    // v10 to zero breakage on a 31-function cluster, after v9 broke four tests
+    // moving 50.
+    domain_split_status:'stopped at the four-cluster line, by the 2026-08-12 scope decision -- not incomplete',
     loaded_by:'dashboard_source_truth_banners.js',
     compatibility:'dashboard.js remains the public behavior owner; its top-level surface is now bridged to window explicitly and tool-verified (tests/test_dashboard_js_module_bridge_regression.py) instead of implicitly global.'
   };

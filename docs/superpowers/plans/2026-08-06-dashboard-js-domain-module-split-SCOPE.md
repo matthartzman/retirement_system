@@ -162,3 +162,45 @@ project with its own risk profile. If/when it's prioritized:
 
 **Not scoped further here — this document stops at "here is the shape of the problem and
 why it's a separate project," per the request to scope it, not implement it.**
+
+---
+
+## Outcome (2026-08-17)
+
+This document scoped the domain split as a separate project and stopped there. It was
+subsequently prioritized and is now **finished, at a deliberately chosen stopping line**.
+
+All three recommendations above were followed, and the order mattered:
+
+1. The shared core came out first (`dashboard_decomp_row_model.js` and siblings), as
+   recommended, before any domain cluster was touched.
+2. Clusters were re-scoped from the post-shared-core graph, and re-derived again before
+   every subsequent pass — `find_clusters.mjs` is re-run each time, because each extraction
+   changes fan-in counts for everything left.
+3. The codemod was built as shared infrastructure first (`extract_module.mjs`,
+   `finish_extraction.mjs`, `cluster_deps.mjs`, `extract_batch.mjs`). No cluster was ever
+   moved by hand.
+
+**Result:** `dashboard.js` 19,661 → **7,481 lines**, twelve domain clusters extracted, and
+the ~600-cross-edge load-order question in concern #4 answered mechanically rather than by
+inspection: `finish_extraction.mjs` verifies, on every pass, that each binding a module
+reaches back for is exposed on the window bridge, with a setter wherever the module assigns
+to it. That check is the reason a strict-mode `ReferenceError` at field-edit time never
+shipped — nothing else in the pipeline looks for it.
+
+**Where it stops, and why that is a resting point.** The four large domain clusters are out.
+What remains is boot, `STEPS`, the `renderMain` dispatch, shared state, and a tail of 111
+single-function components. That tail was deferred by scope decision on 2026-08-12: it is
+roughly 3,000 further lines for about half the sessions the whole project has cost, and
+grouping unrelated singletons into themed files produces a filing system rather than the
+domain boundaries this document argued for. The size ratchet pins 7,481 so it cannot quietly
+regrow. Read the tail as "left in place on purpose", not as work someone forgot.
+
+One correction to concern #2 as written here. The dominant per-pass cost turned out not to
+be the cross-module edges — those were handled by tooling and were largely uneventful. It
+was **tests reading `dashboard.js` directly, or slicing it between two landmark symbols**.
+Both break as soon as their subject moves, and both fail in ways that point away from the
+cause. Routing every such test through `tests/_decomp_dashboard.py` took one pass from four
+broken tests per 50 functions moved to zero broken tests per 31 moved. Anyone attempting a
+comparable split elsewhere in this codebase should buy that indirection before the bulk
+work, not during it.
