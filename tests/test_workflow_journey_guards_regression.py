@@ -14,13 +14,14 @@ input-edit-then-rebuild scenario) and test_workflow_route_plumbing_contract.py
 (route wiring with fakes standing in for the build subprocess).
 """
 from pathlib import Path
+from tests._decomp_dashboard import dashboard_js_text
 
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def _dashboard_js() -> str:
-    return (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8") + (ROOT / "frontend" / "js" / "dashboard_decomp_row_model.js").read_text(encoding="utf-8")
+    return dashboard_js_text() + (ROOT / "frontend" / "js" / "dashboard_decomp_row_model.js").read_text(encoding="utf-8")
 
 
 def _build_lifecycle_js() -> str:

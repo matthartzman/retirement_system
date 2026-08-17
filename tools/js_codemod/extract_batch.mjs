@@ -11,10 +11,20 @@
  * Refuses to proceed if any per-cluster verification fails, so a bad extraction
  * cannot hide inside a batch. Prints one consolidated report at the end.
  *
+ * A cluster is named EXPLICITLY, as `moduleName: fn1,fn2,fn3`. It is not a
+ * component index into clusters_report.json, and that is deliberate: every
+ * extraction rewrites the dependency graph, so the indices in a report taken
+ * before the batch are already stale by the second cluster in the same batch.
+ * Naming the functions outright is the only form that means the same thing at
+ * step 5 as it did at step 1.
+ *
  * Usage:
- *   node tools/js_codemod/extract_batch.mjs recommendations,income_streams,large_discretionary,death_benefits,mc_stress
- *   node tools/js_codemod/extract_batch.mjs --clusters-file=/path/to/clusters.txt
- *   node tools/js_codemod/extract_batch.mjs --check  (dry-run, no actual changes)
+ *   node tools/js_codemod/extract_batch.mjs --clusters-file=batch.txt
+ *   node tools/js_codemod/extract_batch.mjs "recommendations: recYes,recFindBy" "mc_stress: mcEngineRow,..."
+ *   node tools/js_codemod/extract_batch.mjs --check --clusters-file=batch.txt  (dry-run)
+ *
+ * batch.txt is one `moduleName: fn1,fn2,...` per line; blank lines and lines
+ * starting with # are ignored.
  */
 
 import fs from "node:fs";
@@ -40,11 +50,37 @@ function parseArgs(args) {
     } else if (arg.startsWith("--clusters-file=")) {
       result.clustersFile = arg.split("=")[1];
     } else if (!arg.startsWith("--")) {
-      result.clusters = arg.split(",").map((s) => s.trim()).filter(Boolean);
+      result.clusters.push(arg);
     }
   }
 
   return result;
+}
+
+// "moduleName: fn1, fn2" -> { name, names: [fn1, fn2] }. Rejects anything else
+// rather than guessing, because a cluster spec that parses loosely is how a
+// typo becomes a module named after a function.
+function parseClusterSpec(spec) {
+  const idx = spec.indexOf(":");
+  if (idx === -1) {
+    die(
+      `cluster spec "${spec}" has no ":". Expected "moduleName: fn1,fn2,...". ` +
+        `Function names must be listed explicitly -- component indices from ` +
+        `clusters_report.json go stale after the first extraction in a batch.`,
+    );
+  }
+  const name = spec.slice(0, idx).trim();
+  const names = spec
+    .slice(idx + 1)
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!name) die(`cluster spec "${spec}" has an empty module name`);
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+    die(`module name "${name}" is not a bare identifier; it becomes a filename`);
+  }
+  if (!names.length) die(`cluster "${name}" lists no function names`);
+  return { name, names };
 }
 
 function die(message) {
@@ -106,18 +142,24 @@ function main() {
   }
 
   if (!clusters || clusters.length === 0) {
-    die("No clusters specified. Usage: extract_batch.mjs cluster1,cluster2,... or --clusters-file=...");
+    die(
+      'No clusters specified. Usage: extract_batch.mjs "moduleName: fn1,fn2,..." ' +
+        "[...] or --clusters-file=...",
+    );
   }
 
-  logSection(`Batch Extraction: ${clusters.length} clusters`);
-  log(`Clusters: ${clusters.join(", ")}`);
+  const specs = clusters.map(parseClusterSpec);
+
+  logSection(`Batch Extraction: ${specs.length} clusters`);
+  for (const s of specs) log(`  ${s.name} (${s.names.length} functions)`);
   log(`Mode: ${args.check ? "DRY-RUN (--check)" : "EXECUTE"}\n`);
 
   const results = [];
   let failedCluster = null;
 
-  for (const cluster of clusters) {
-    logSection(`Cluster: ${cluster}`);
+  for (const spec of specs) {
+    const cluster = spec.name;
+    logSection(`Cluster: ${cluster} (${spec.names.length} functions)`);
 
     const clusterResult = {
       name: cluster,
@@ -125,17 +167,26 @@ function main() {
       success: true,
     };
 
-    // Step 1: extract_module
+    // Step 1: extract_module. Note the SPACE-separated argument form --
+    // extract_module.mjs's parseArgs compares argv[i] === "--names" exactly and
+    // dies on anything else, so the "--names=x" form aborts before it starts.
     const moduleFile = `dashboard_decomp_${cluster}.js`;
     const extractResult = runCommand(
       "node",
       [
         EXTRACT_MODULE_TOOL,
-        `--names=${cluster}`,
-        `--out=${path.join("frontend/js", moduleFile)}`,
-      ],
+        "--names",
+        spec.names.join(","),
+        "--out",
+        path.join("frontend/js", moduleFile),
+        // --check is extract_module's OWN verification mode, not a skip. Run it
+        // for real so a dry run actually reports whether the cluster is
+        // extractable; a dry run that executes nothing always "succeeds", which
+        // is not a check.
+        args.check ? "--check" : "",
+      ].filter(Boolean),
       "Extract module",
-      args.check,
+      false,
     );
 
     clusterResult.steps.extract = extractResult.success ? "✓" : "✗";
@@ -148,16 +199,31 @@ function main() {
       break;
     }
 
+    // A dry run stops here, and says so rather than reporting the remaining
+    // steps as passed. finish_extraction and `node --check` both read the new
+    // module off disk, and --check mode never wrote one; there is no honest way
+    // to run them now. What a dry run does establish is the thing most likely
+    // to be wrong in a hand-written batch file: that every named function
+    // exists, is top-level, and is movable.
+    if (args.check) {
+      clusterResult.steps.finish = "skipped(dry-run)";
+      clusterResult.steps.verify = "skipped(dry-run)";
+      results.push(clusterResult);
+      log(`\n  ✅ Cluster "${cluster}" is extractable (dry-run)\n`);
+      continue;
+    }
+
     // Step 2: finish_extraction
     const finishResult = runCommand(
       "node",
       [
         FINISH_EXTRACTION_TOOL,
-        `--module=${path.join("frontend/js", moduleFile)}`,
+        "--module",
+        path.join("frontend/js", moduleFile),
         args.check ? "--check" : "",
       ].filter(Boolean),
       "Finish extraction",
-      args.check,
+      false,
     );
 
     clusterResult.steps.finish = finishResult.success ? "✓" : "✗";

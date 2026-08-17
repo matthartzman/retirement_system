@@ -20,6 +20,7 @@ from openpyxl import Workbook
 from src.reporting.sheets_strategy import build_sheet13
 from src.reporting.workbook_common import STATE_TAX_RULES
 from src.taxes import STATE_COL_FACTORS
+from tests._decomp_dashboard import dashboard_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -125,7 +126,7 @@ def test_no_separate_geographic_cost_of_living_table_remains():
 
 
 def test_state_residency_button_removed_from_planning_levers_decide_card():
-    js = (ROOT / 'frontend/js/dashboard.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     start = js.index('function renderPlanningLevers(')
     end = js.index('\nfunction chatMessageHtml', start)
     fn = js[start:end]

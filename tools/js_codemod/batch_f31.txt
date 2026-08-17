@@ -1,0 +1,17 @@
+# F3.1 -- the five small disjoint clusters, from find_clusters.mjs at 11,446 lines.
+# Function names are listed explicitly on purpose: component indices shift as
+# soon as the first cluster in this batch is extracted.
+
+page_recommendations: allocationPageRecommendations,jumpRecommendationSource,pageRecommendationsForStep,pageRecommendationsHtml,recFindBy,recFindStepRow,recRowValue,recStepRows,recYes,recommendationSourceButton,revealAndFocus,rothPageRecommendations,socialSecurityPageRecommendations,spendingPageRecommendations
+
+income_streams: fieldControlOnly,findRows,incomeStreamSubsections,renderIncomeStreamsSection,renderRetirementIncome,renderSsCompactTable,renderSsPolicySection,ssActiveCell,ssClaimFactor,ssMonthlyAtClaimAgeCell,ssPersonRows
+
+large_discretionary: addLargeDiscLine,deleteLargeDiscLine,largeDiscCategoryFromType,largeDiscTypeFromLine,renderLargeDiscretionaryBudgetPage,renderLifestyleSpending,renderTravelBudgetPage,updateLargeDiscLine,updateLargeDiscLineMoney
+
+# showStepHelp is in this component but stays behind: other leaf modules
+# monkey-patch it as a decorator chain, which needs the reassignable-let +
+# get/set accessor treatment convert_dashboard.mjs only applies inside
+# dashboard.js. extract_module refuses to move it, correctly.
+death_benefits: findMatrixCell,illustrationPlanYears,matrixPolicies,matrixYears,renderDeathBenefitsTable,renderLifeIllustrations,renderSpecialIncomeAnnuitiesInsurance,renderYearMatrix
+
+mc_stress_options: mcEngineRow,mcEngineToggleHtml,renderDivorceOptions,renderLtcStress,renderMonteCarloOptions,renderSurvivorStress,renderWorkbenchStressHtml,setMcEngineMode

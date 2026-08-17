@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from _decomp_dashboard import dashboard_js_text
+from tests._decomp_dashboard import dashboard_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -24,8 +25,7 @@ def test_mobile_shell_dom_hooks_present_in_index_html():
 
 
 def test_mobile_shell_toggle_functions_defined_in_dashboard_js():
-    js = read("frontend/js/dashboard.js")
-    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     assert "function openNavDrawer()" in js
     assert "function closeNavDrawer()" in js
     assert "function toggleNavDrawer()" in js

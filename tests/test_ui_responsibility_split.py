@@ -2,6 +2,7 @@ from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.version import VERSION
+from tests._decomp_dashboard import dashboard_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -15,8 +16,7 @@ CLIENT_PLAN_FILES = [
 def test_navigation_search_exists_in_user_and_admin_ui():
     user_html = (ROOT/'frontend/index.html').read_text(encoding='utf-8')
     admin_html = (ROOT/'frontend/admin.html').read_text(encoding='utf-8')
-    user_js = (ROOT/'frontend/js/dashboard.js').read_text(encoding='utf-8')
-    user_js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    user_js = dashboard_js_text()
     admin_js = (ROOT/'frontend/js/admin.js').read_text(encoding='utf-8')
     assert 'placeholder="Search navigation' in user_html
     assert 'function setNavSearch' in user_js
@@ -25,8 +25,7 @@ def test_navigation_search_exists_in_user_and_admin_ui():
 
 
 def test_collapsible_sections_closed_by_default_and_single_section_not_forced_open():
-    user_js = (ROOT/'frontend/js/dashboard.js').read_text(encoding='utf-8')
-    user_js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    user_js = dashboard_js_text()
     admin_js = (ROOT/'frontend/js/admin.js').read_text(encoding='utf-8')
     assert "idx===0?'open'" not in user_js
     assert "opts.defaultOpen||isFirst" not in admin_js
@@ -43,8 +42,7 @@ def test_admin_no_longer_exposes_client_plan_data_editors():
 
 
 def test_user_ui_has_client_specific_advanced_pages_and_output_focused_help():
-    user_js = (ROOT/'frontend/js/dashboard.js').read_text(encoding='utf-8')
-    user_js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    user_js = dashboard_js_text()
     for token in ['id: "economic_tax_assumptions"', 'id: "withdrawal_strategy"', 'id: "roth_conversion"', 'id: "allocation_assets"', 'id: "optional_functions"']:
         assert token in user_js
     for phrase in ['Monte Carlo', 'Executive Summary']:
