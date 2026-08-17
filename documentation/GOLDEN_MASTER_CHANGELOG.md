@@ -37,6 +37,15 @@ without holdings detail produce no tilts and are bit-identical, which is pinned.
 changes. Expect modestly **less** favorable Roth-conversion rankings where the tailwind was doing the
 work.
 
+**Client-facing disclosure shipped alongside (S1/P4).** Sheet 3A (Monte Carlo) section A now states
+what the tilt model does and does not support: per-account holdings differences enter as a constant
+per-bucket offset, not sleeve-level volatility, so within the taxable/pretax/Roth/HSA buckets every
+account takes the same annual shock. The success rate therefore **cannot** credit a bond tent or
+de-risking glidepath held inside retirement accounts with reducing failure risk. Cash accounts are
+the exception — they grow on a short-rate path and are genuinely modeled as low-volatility. No
+figures move; this is disclosure, guarded by
+`test_monte_carlo_sheet_discloses_the_asset_location_modeling_limit`.
+
 **Provenance.** Found by `documentation/reports/PLANNER_SIGNOFF_2026-08-17.md` (finding S2), which
 also documents why the existing test named `..._and_market_neutral` did not catch it: it checks dollar
 weighting and never checks neutrality (S3). New guard:

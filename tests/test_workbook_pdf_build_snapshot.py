@@ -227,6 +227,57 @@ class Phase5WorkbookSnapshotTests(unittest.TestCase):
             for phrase in phrases:
                 self.assertIn(phrase, text, f"{sheet} missing {phrase}")
 
+    def test_monte_carlo_sheet_discloses_the_asset_location_modeling_limit(self):
+        """The success rate must ship with the limit on what it can support.
+
+        Per-account returns reach Monte Carlo as a constant per-bucket return
+        offset, not as sleeve-level draws with their own volatility (see
+        documentation/reports/PLANNER_SIGNOFF_2026-08-17.md finding S1). Within
+        the taxable/pretax/Roth/HSA buckets every account takes the SAME annual
+        market shock and differs only by that constant, so the success rate is
+        structurally blind to de-risking INSIDE those buckets -- a bond tent or
+        glidepath cannot move it, because the bonds fall in lockstep with
+        equities.
+
+        The cash bucket is the exception and must not be swept into the same
+        claim: it grows on a short-rate path rather than the equity draw, so a
+        cash reserve held in a cash account genuinely is modeled as
+        low-volatility.
+
+        Asset LOCATION is modeled and may be cited. Asset ALLOCATION de-risking
+        within the market buckets may not. Without this disclosure a reader has
+        no way to tell which conclusions the number supports, and the natural
+        reading -- "my bond tent didn't help" -- is an artifact of the model
+        rather than a finding about the plan.
+        """
+        import openpyxl
+        from src.reporting.workbook_format_config import stable_name_for_sheet_title
+
+        wb = openpyxl.load_workbook(self.workbook_path, data_only=True, read_only=True)
+        # Resolved through the stable-name API, never a hardcoded '3A. ...':
+        # section letters are recomputed per build and shift whenever an
+        # optional module is toggled.
+        mc_sheets = [
+            name for name in wb.sheetnames
+            if stable_name_for_sheet_title(name) == '15. Market-Luck Stress Test'
+        ]
+        if not mc_sheets:
+            self.skipTest('Monte Carlo module is off in this build; no sheet to disclose on')
+
+        text = "\n".join(
+            str(cell)
+            for row in wb[mc_sheets[0]].iter_rows(values_only=True)
+            for cell in row if cell is not None
+        )
+        self.assertIn(
+            'cannot credit a bond tent or de-risking glidepath held inside retirement accounts '
+            'with reducing failure risk',
+            text,
+            f"{mc_sheets[0]} presents a success rate without disclosing that the model "
+            "cannot see allocation de-risking. Restore the disclosure in "
+            "sheets_stress.py's Methodology table rather than deleting this test.",
+        )
+
     def test_workbook_snapshot_rejects_stale_roth_language(self):
         import openpyxl
         snap = json.loads((FIXTURES / "workbook_snapshot_expectations.json").read_text(encoding="utf-8"))

@@ -70,12 +70,22 @@ Consequences a planner should hold onto:
 
 - Asset **location** (which account holds what) is now modeled, directionally. This satisfies the
   letter of finding C3.
-- Asset **allocation de-risking within the MC** is still invisible. A cash reserve, a bond tent, or
-  any bucket strategy produces **no sequence-of-returns protection** in the success rate, because the
-  reserve crashes in lockstep with equities, merely offset.
-- Therefore: **do not ship any recommendation whose justification is that a cash reserve or glidepath
-  reduces failure risk, and cite the MC success rate as evidence.** The engine cannot see that effect.
-  Recommendations resting on asset *location* are supported.
+- Asset **allocation de-risking inside the four market buckets** is invisible. A bond tent or
+  glidepath held within taxable/pretax/Roth/HSA produces **no sequence-of-returns protection** in the
+  success rate, because those bonds take the identical annual shock as equities, merely offset by a
+  constant.
+- Therefore: **do not ship any recommendation whose justification is that de-risking inside
+  retirement accounts reduces failure risk, and cite the MC success rate as evidence.** The engine
+  cannot see that effect. Recommendations resting on asset *location* are supported.
+
+> **Correction (2026-08-17, during P4).** This finding as first written said "a cash reserve, a bond
+> tent, or any bucket strategy" produces no protection. **The cash half was wrong.** The vectorized
+> path grows the `cash` bucket on a short-rate proxy tied to inflation rather than the equity draw
+> (`planning_engines.py:3219`), so a cash reserve held in a cash-type account genuinely *is* modeled
+> as low-volatility. The gap is narrower than stated and confined to the four market buckets. Found by
+> reading the built Sheet 3A output while writing P4's disclosure, not by re-reading the source —
+> which is the same lesson §3 rule 1 draws, applied to this document's own claim. The commit message
+> on `399d093` carries the original overstatement; this section supersedes it.
 
 This is a reasonable scope reduction — a full sleeve covariance structure is a much larger change
 than F1's "M · 1–2 days" estimate allowed. The defect is that no document says the substitution
@@ -249,7 +259,8 @@ None are blockers. Ordered by value.
 | ✅ P1 | **Re-normalize the bucket tilts every step.** **DONE 2026-08-17** — `_mc_apply_bucket_growth` now subtracts the current step's balance-weighted mean tilt, so neutrality holds at every year and on every path independently rather than only at t=0. Realized portfolio growth now equals the sampled return to floating point in every projection year (worst excess **0.000000 bps**, was +24.9). The inter-bucket spread — the Wave 3.5 deliverable — is preserved exactly. Golden pins unmoved; changelog entry 2026-08-17. | S | opus · medium |
 | ✅ P2 | **Regression guard.** **DONE 2026-08-17** — `tests/test_mc_bucket_tilt_neutrality_regression.py`, six cases. Per rule 2 it was demonstrated red first: the all-Roth end-state case failed by **+24.87 bps**, matching the fixture measurement that motivated it. Covers the late-horizon mix, per-path independence, the degenerate single-bucket end state, preservation of the spread (so a fix cannot degenerate into zeroing the tilts), and the untilted bit-identical path. | S | sonnet · medium |
 | P3 | **Rename `test_..._and_market_neutral`** (S3). Neutrality is now genuinely covered by P2's file, so all that remains is dropping the false half of the name — it tests dollar weighting, and should say so. | XS | sonnet · low |
-| P4 | **Record the S1 substitution** in the plan, `GOLDEN_MASTER_CHANGELOG.md` and project memory: MC models asset *location* via mean shift, not sleeve variance. Add the "no cash-reserve/glidepath claims from the success rate" constraint to the MC methodology note in the client deliverable. | S | sonnet · medium |
+| ✅ P4 | **DONE 2026-08-17.** Two rows added to Sheet 3A (Monte Carlo) section A, directly above the success rate: what asset location does model, and the limit on what the number supports. Guarded by `test_monte_carlo_sheet_discloses_the_asset_location_modeling_limit`, demonstrated red first against a real build, resolving the sheet through `stable_name_for_sheet_title` rather than a hardcoded `3A.` (section letters are recomputed per build). Recorded here, in the plan, in the changelog and in project memory. Writing it corrected S1 — see the banner above. | S | sonnet · medium |
+| **P7** | **NEW, found while writing P4.** Sheet 3A section G tells the reader *"The configured liquidity buffer (Trust accounts) is the primary mitigation"* for sequence-of-returns risk. Trust maps to the **taxable** bucket, which takes the full equity shock — so this is exactly the claim S1 says the success rate cannot support, already shipping. Either re-word it to rest on withdrawal ordering (which *is* modeled: the cascade draws cash first) or move the buffer into a cash-type account so the claim becomes true. Audit section G's other narrative claims against S1 in the same pass. | S | opus · medium — it is client-facing advice, not description |
 | P5 | Reconcile the cash-account tilt divergence between the scalar and vectorized MC paths (S5). | XS | sonnet · low |
 | P6 | Optional: source-level second look at C1, C2, C5 under the §3 rule. Deferred by the Q1 disposition. | M | opus · high |
 

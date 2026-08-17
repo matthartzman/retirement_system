@@ -87,6 +87,15 @@ def build_sheet15(ws, c, rows, mc_data):
         ('Success Definition',     mc_data.get('success_definition', 'Liquid assets remain positive and no annual spending gap is unfunded')),
         ('Success Rate 95% CI',    f'{mc_data.get("success_rate_ci_low", suc):.1%}–{mc_data.get("success_rate_ci_high", suc):.1%} (SE {mc_data.get("success_rate_standard_error", 0):.1%})'),
         ('Sequence-of-Returns',    'Sims sorted by first-5-year average return, split into quintiles'),
+        ('Asset Location',         'Per-account holdings differences enter as a constant return offset per tax bucket, '
+                                   'renormalized each year so they redistribute return between buckets without changing '
+                                   'the portfolio total. Cash accounts are modeled separately on a short-rate path.'),
+        ('Asset Location — Limits', 'Within the taxable / pretax / Roth / HSA buckets, every account takes the SAME annual '
+                                   'market shock and differs only by that constant offset — sleeves are not simulated with '
+                                   'their own volatility. This model therefore cannot credit a bond tent or de-risking '
+                                   'glidepath held inside retirement accounts with reducing failure risk, and the success '
+                                   'rate should not be read as evidence for or against those strategies. Cash reserves held '
+                                   'in cash accounts ARE modeled with their own low-volatility path.'),
         ('Sensitivity Grid',       f'{mc_data.get("sensitivity_sims", 200):,} full re-simulations per cell; μ ∈ {{4%–8%}}, σ ∈ {{8%–16%}}'),
         ('Note',                   'Deterministic projection is a no-volatility reference path; MC median is the probabilistic planning number.'),
     ]
