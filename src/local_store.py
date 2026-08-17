@@ -202,6 +202,41 @@ def latest_sectioned_data(db_path: str | Path | None = None) -> SectionedData:
     return json.loads(row[0]) if row else {}
 
 
+def get_local_setting(key: str, default: Any = None, db_path: str | Path | None = None) -> Any:
+    """Read one JSON-encoded value out of the local_settings table.
+
+    Returns `default` when the store does not exist yet, the key is absent, or
+    the stored value will not parse. That last case is deliberate rather than
+    lax: the first consumer of this is the plan-data schema-version gate, which
+    runs during startup, and a JSONDecodeError there would refuse to open a
+    database the user can otherwise still use. Treating an unreadable version
+    marker as "not migrated yet" is safe, because the migration itself is
+    idempotent.
+    """
+    p = _resolve(db_path)
+    if not p.exists():
+        return default
+    with sqlite3.connect(p) as con:
+        row = con.execute("SELECT value_json FROM local_settings WHERE key=?", (key,)).fetchone()
+    if not row:
+        return default
+    try:
+        return json.loads(row[0])
+    except (TypeError, ValueError):
+        return default
+
+
+def set_local_setting(key: str, value: Any, db_path: str | Path | None = None) -> None:
+    """Write one JSON-encoded value to local_settings, upserting on the key."""
+    p = init_local_store(db_path)
+    with sqlite3.connect(p) as con:
+        con.execute(
+            "INSERT INTO local_settings(key, value_json, updated_at) VALUES(?,?,?) "
+            "ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json, updated_at=excluded.updated_at",
+            (key, json.dumps(value, sort_keys=True, default=str), now_utc()),
+        )
+
+
 def save_result_snapshot(result: dict[str, Any], event_log: list[dict[str, Any]] | None = None, plan_snapshot_id: str | None = None, db_path: str | Path | None = None) -> str:
     p = init_local_store(db_path)
     result_sha = _digest(result)

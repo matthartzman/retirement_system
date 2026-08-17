@@ -124,6 +124,22 @@ def main() -> int:
         parser.print_help()
         return 0
 
+    # Migrate stored Plan Data once, before either mode opens it. This runs
+    # after _set_local_mode_defaults() because the workspace root it resolves
+    # against is env-driven, and before the dispatch below so both modes get it.
+    #
+    # It is deliberately NOT above the frozen script-runner branch at module
+    # scope: that path runs tools/build_workbook.py in a subprocess, and a
+    # build has no business rewriting plan data at rest.
+    #
+    # run_startup_plan_data_migration() swallows its own failures by design --
+    # a bad CSV degrades to the existing per-load normalization rather than
+    # stopping the app from booting.
+    from src.plan_data_migration import run_startup_plan_data_migration
+    _migration = run_startup_plan_data_migration()
+    if _migration["total_changed"]:
+        print(f"Plan Data migrated at rest: {_migration['migrated']}")
+
     if args.mode == "server":
         return _run_server()
     return _run_desktop()

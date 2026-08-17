@@ -85,3 +85,329 @@ def test_parse_client_reads_legacy_household_via_migration():
     c = parse_client({k: {s: dict(v) for s, v in sd.items()} for k, sd in data.items()}, "")
     assert c["h_name"] == "Robert"
     assert c["w_name"] == "Susan"
+
+
+# --- Phase 2: the version gate and the one-shot at-rest runner -----------------
+#
+# Before this, PLAN_DATA_SCHEMA_VERSION had no consumer and migrate_csv_content
+# had no caller: every load re-normalized legacy shapes in memory and nothing
+# ever rewrote the data, so legacy rows lived forever and each new transform
+# added permanent per-load cost.
+
+
+def _tmp_db():
+    import tempfile
+    return Path(tempfile.mkdtemp()) / "s.sqlite"
+
+
+def _staged_input(tmp_path):
+    """An input/ dir holding one legacy file and one already-current file."""
+    work = tmp_path / "input"
+    work.mkdir(parents=True, exist_ok=True)
+    (work / "client_data.csv").write_text(
+        "section,subsection,label,value\n"
+        "Household,,husband_name,Robert\n"
+        "Household,,wife_name,Susan\n",
+        encoding="utf-8", newline="",
+    )
+    (work / "client_policy.csv").write_text(
+        "section,subsection,label,value\nHousehold,,member_1_name,Robert\n",
+        encoding="utf-8", newline="",
+    )
+    return work
+
+
+def test_a_never_migrated_store_reports_version_zero():
+    from src.plan_data_migration import stored_schema_version
+    assert stored_schema_version(db_path=_tmp_db()) == 0
+
+
+def test_needs_migration_is_true_one_version_behind():
+    from src.plan_data_migration import (
+        PLAN_DATA_SCHEMA_VERSION, needs_migration, set_stored_schema_version,
+    )
+    db = _tmp_db()
+    set_stored_schema_version(PLAN_DATA_SCHEMA_VERSION - 1, db_path=db)
+    assert needs_migration(db_path=db) is True
+
+
+def test_needs_migration_is_false_once_stamped_current():
+    from src.plan_data_migration import (
+        PLAN_DATA_SCHEMA_VERSION, needs_migration, set_stored_schema_version,
+    )
+    db = _tmp_db()
+    set_stored_schema_version(PLAN_DATA_SCHEMA_VERSION, db_path=db)
+    assert needs_migration(db_path=db) is False
+
+
+def test_runner_rewrites_legacy_rows_and_stamps_the_version(tmp_path):
+    from src.plan_data_migration import (
+        PLAN_DATA_SCHEMA_VERSION, migrate_plan_data_at_rest, stored_schema_version,
+    )
+    work, db = _staged_input(tmp_path), _tmp_db()
+    report = migrate_plan_data_at_rest(work, db_path=db)
+
+    assert report["skipped"] is False
+    assert report["total_changed"] == 2
+    assert "client_data.csv" in report["migrated"]
+    text = (work / "client_data.csv").read_text(encoding="utf-8")
+    assert "member_1_name" in text and "husband_name" not in text
+    assert stored_schema_version(db_path=db) == PLAN_DATA_SCHEMA_VERSION
+
+
+def test_runner_leaves_already_current_files_untouched(tmp_path):
+    """An unchanged file must keep its bytes AND its mtime.
+
+    Rewriting every file unconditionally would churn every hash in
+    plan_data_manifest.json on each upgrade, which is how a migration that
+    changed nothing still looks like it changed everything.
+    """
+    from src.plan_data_migration import migrate_plan_data_at_rest
+    work, db = _staged_input(tmp_path), _tmp_db()
+    untouched = work / "client_policy.csv"
+    before_text = untouched.read_text(encoding="utf-8")
+    before_mtime = untouched.stat().st_mtime_ns
+
+    report = migrate_plan_data_at_rest(work, db_path=db)
+
+    assert "client_policy.csv" not in report["migrated"]
+    assert untouched.read_text(encoding="utf-8") == before_text
+    assert untouched.stat().st_mtime_ns == before_mtime
+
+
+def test_runner_is_idempotent_and_skips_the_second_time(tmp_path):
+    from src.plan_data_migration import migrate_plan_data_at_rest
+    work, db = _staged_input(tmp_path), _tmp_db()
+    migrate_plan_data_at_rest(work, db_path=db)
+    after_first = (work / "client_data.csv").read_text(encoding="utf-8")
+
+    second = migrate_plan_data_at_rest(work, db_path=db)
+
+    assert second["skipped"] is True
+    assert second["total_changed"] == 0
+    assert (work / "client_data.csv").read_text(encoding="utf-8") == after_first
+
+
+def test_dry_run_reports_without_writing_or_stamping(tmp_path):
+    from src.plan_data_migration import (
+        migrate_plan_data_at_rest, stored_schema_version,
+    )
+    work, db = _staged_input(tmp_path), _tmp_db()
+    before = (work / "client_data.csv").read_text(encoding="utf-8")
+
+    report = migrate_plan_data_at_rest(work, db_path=db, dry_run=True)
+
+    assert report["total_changed"] == 2
+    assert (work / "client_data.csv").read_text(encoding="utf-8") == before
+    assert stored_schema_version(db_path=db) == 0
+
+
+def test_startup_migration_is_safe_when_input_dir_is_missing():
+    """A missing/unreadable input dir must not raise -- startup would die."""
+    import tempfile
+    from src.plan_data_migration import migrate_plan_data_at_rest
+    work = Path(tempfile.mkdtemp())
+    report = migrate_plan_data_at_rest(work / "does_not_exist", db_path=work / "s.sqlite")
+    assert report["total_changed"] == 0
+
+
+def test_startup_migration_survives_an_undecodable_csv():
+    """One unreadable file must not stop the readable ones migrating."""
+    import tempfile
+    from src.plan_data_migration import migrate_plan_data_at_rest
+    work = Path(tempfile.mkdtemp())
+    (work / "broken.csv").write_bytes(b"\xff\xfe\x00\x00not utf8")
+    (work / "client_household.csv").write_text(
+        "section,subsection,label,value,units,notes\n"
+        "Household,,husband_name,Matt,text,\n",
+        encoding="utf-8",
+    )
+    report = migrate_plan_data_at_rest(work, db_path=work / "s.sqlite")
+    assert report["total_changed"] == 1  # good file still migrated
+
+
+def test_startup_wrapper_resolves_input_through_the_workspace_root(monkeypatch, tmp_path):
+    """It must honour RETIREMENT_SYSTEM_WORKSPACE_ROOT, not a __file__ root.
+
+    This is the 2026-08-12 frozen-gate bug as a migration: a hardcoded root
+    there made runs under a custom workspace resolve plan data against the repo
+    instead. Reading the wrong files is recoverable; REWRITING them is not.
+    """
+    from src.plan_data_migration import run_startup_plan_data_migration
+    work = tmp_path / "ws"
+    (work / "input").mkdir(parents=True)
+    (work / "input" / "client_data.csv").write_text(
+        "section,subsection,label,value\nHousehold,,husband_name,Robert\n",
+        encoding="utf-8", newline="",
+    )
+    monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(work))
+
+    report = run_startup_plan_data_migration(db_path=tmp_path / "s.sqlite")
+
+    assert report["total_changed"] == 1
+    assert "member_1_name" in (work / "input" / "client_data.csv").read_text(encoding="utf-8")
+
+
+def test_startup_wrapper_never_raises_on_a_broken_store(monkeypatch, tmp_path):
+    import src.plan_data_migration as m
+    monkeypatch.setattr(m, "migrate_plan_data_at_rest", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    report = m.run_startup_plan_data_migration(input_dir=tmp_path, db_path=tmp_path / "s.sqlite")
+    assert report == {"migrated": {}, "total_changed": 0, "skipped": True}
+
+
+# --- Phase 3: wellness -> healthcare, namespaces 2 and 3 only -----------------
+#
+# Scope was set by the inventory at
+# docs/superpowers/plans/2026-08-10-wellness-rename-inventory.md. The section
+# name "Wellness" is the PARENT of Healthcare in this product's hierarchy
+# (healthcare = premiums/doctor/dentist; wellness also covers gym, massage,
+# supplements), so it is correct as-is and deliberately not renamed.
+
+
+def test_mc_shock_params_are_renamed_to_healthcare():
+    from src.plan_data_migration import migrate_csv_content
+    content = (
+        "section,subsection,label,value\n"
+        "Model Constants,Monte Carlo,wellness_cost_shocks,TRUE\n"
+        "Model Constants,Monte Carlo,wellness_shock_annual_prob,0.03\n"
+        "Model Constants,Monte Carlo,wellness_shock_mean_cost,150000\n"
+    )
+    out, changed = migrate_csv_content(content)
+    assert changed == 3
+    assert "healthcare_cost_shocks" in out
+    assert "healthcare_shock_annual_prob" in out
+    assert "healthcare_shock_mean_cost" in out
+    assert "wellness_" not in out
+
+
+def test_premium_category_ids_are_renamed_in_the_taxonomy():
+    from src.plan_data_migration import migrate_csv_content
+    content = (
+        "section,subsection,label,value\n"
+        "Wellness,Healthcare Premium,pre65_wellness_premium,1\n"
+        "Wellness,Healthcare Premium,wellness_premium,1\n"
+    )
+    out, changed = migrate_csv_content(content)
+    assert changed == 2
+    assert "pre65_healthcare_premium" in out
+    assert "healthcare_premium" in out
+
+
+def test_the_wellness_section_name_is_never_renamed():
+    """Wellness is the parent group, not a stale synonym for healthcare.
+
+    Renaming it would also be unsafe: migrate_rows has no section-rename
+    support, and data_io's _v() returns its hardcoded DEFAULT when a section is
+    missing rather than raising -- so a renamed section silently swaps real
+    client values for defaults. Both reasons, one test.
+    """
+    from src.plan_data_migration import migrate_csv_content
+    content = (
+        "section,subsection,label,value\n"
+        "Wellness,Medicare,part_b_base_premium_monthly,999\n"
+        "Wellness,Wellness Budget Detail,gym_fitness,1200\n"
+    )
+    out, changed = migrate_csv_content(content)
+    assert changed == 0
+    assert "Wellness,Medicare" in out
+    assert "Wellness Budget Detail" in out
+
+
+def test_flat_category_columns_are_renamed_too():
+    """The category id is a foreign key in four flat files migrate_rows cannot see.
+
+    Renaming only the sectioned taxonomy would leave budget lines, rules and
+    aliases pointing at an id that no longer exists.
+    """
+    from src.plan_data_migration import migrate_flat_category_content
+    budget = (
+        "section,line_id,label,category_id\n"
+        "category,pre65_premium,Pre-65 Healthcare Premium,pre65_wellness_premium\n"
+    )
+    out, changed = migrate_flat_category_content(budget)
+    assert changed == 1
+    assert "pre65_healthcare_premium" in out
+    assert "pre65_wellness_premium" not in out
+
+
+def test_flat_migration_covers_the_aliases_foreign_key():
+    from src.plan_data_migration import migrate_flat_category_content
+    aliases = (
+        "match_value,match_field,exact,priority,category_id,source\n"
+        "Healthcare Premium,category,0,50,pre65_wellness_premium,user\n"
+    )
+    out, changed = migrate_flat_category_content(aliases)
+    assert changed == 1
+    assert "pre65_healthcare_premium" in out
+
+
+def test_flat_migration_leaves_the_tracking_bucket_alone():
+    """spending_category_map.csv's 4th column is `tracking`, a functional group.
+
+    It reads `wellness` because healthcare rolls UP into wellness, and it feeds
+    wellness_base_yr through report_compute/results_model. Renaming it would be
+    an engine change, which this phase forbids.
+    """
+    from src.plan_data_migration import migrate_flat_category_content
+    cat_map = (
+        "super_group,group,category,tracking\n"
+        "Expenses,Healthcare Premium,Healthcare Premium,wellness\n"
+        "Expenses,Medical,Health Club,wellness\n"
+    )
+    out, changed = migrate_flat_category_content(cat_map)
+    assert changed == 0
+    assert out.count("wellness") == 2
+
+
+def test_flat_migration_never_touches_transaction_descriptions():
+    """Client transaction records are evidence, not terminology to tidy.
+
+    ytd_transactions.csv carries Amazon product titles containing "Optimal
+    Wellness". A sweep that rewrote those would falsify the client's own
+    purchase log to satisfy a rename.
+    """
+    from src.plan_data_migration import migrate_flat_category_content
+    txns = (
+        "date,merchant,category,description\n"
+        "2025-03-05,Amazon,Vitamins & Supplements,"
+        "\"Nordic Naturals Omega-3 - Immune Support, Optimal Wellness\"\n"
+    )
+    out, changed = migrate_flat_category_content(txns)
+    assert changed == 0
+    assert "Optimal Wellness" in out
+
+
+def test_runner_applies_both_sectioned_and_flat_transforms(tmp_path):
+    """The at-rest runner must move the taxonomy AND its flat foreign keys.
+
+    Renaming one without the other is the broken-join case: a budget line would
+    point at a category id that no longer exists anywhere.
+    """
+    from src.plan_data_migration import migrate_plan_data_at_rest
+    work = tmp_path / "input"
+    work.mkdir(parents=True)
+    (work / "client_spending_taxonomy.csv").write_text(
+        "section,subsection,label,value\n"
+        "Wellness,Healthcare Premium,pre65_wellness_premium,1\n",
+        encoding="utf-8", newline="",
+    )
+    (work / "client_spending_aliases.csv").write_text(
+        "match_value,match_field,exact,priority,category_id,source\n"
+        "Healthcare Premium,category,0,50,pre65_wellness_premium,user\n",
+        encoding="utf-8", newline="",
+    )
+    (work / "spending_category_map.csv").write_text(
+        "super_group,group,category,tracking\n"
+        "Expenses,Healthcare Premium,Healthcare Premium,wellness\n",
+        encoding="utf-8", newline="",
+    )
+
+    report = migrate_plan_data_at_rest(work, db_path=tmp_path / "s.sqlite")
+
+    assert "client_spending_taxonomy.csv" in report["migrated"]
+    assert "client_spending_aliases.csv" in report["migrated"]
+    # The tracking bucket is untouched, so its file never gets rewritten.
+    assert "spending_category_map.csv" not in report["migrated"]
+    assert "pre65_healthcare_premium" in (work / "client_spending_taxonomy.csv").read_text(encoding="utf-8")
+    assert "pre65_healthcare_premium" in (work / "client_spending_aliases.csv").read_text(encoding="utf-8")
+    assert "wellness" in (work / "spending_category_map.csv").read_text(encoding="utf-8")
