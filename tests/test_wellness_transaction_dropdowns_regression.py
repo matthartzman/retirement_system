@@ -37,7 +37,7 @@ def test_income_expense_transactions_is_last_spending_step():
     assert "Actual Spending (This Year)" in spending_blocks[-1]
 
 
-def test_ytd_transaction_merchant_category_account_are_selects():
+def test_ytd_transaction_merchant_category_account_pick_from_existing_values():
     js = dashboard_js_text()
     assert "function ytdSelectFieldHtml" in js
     assert "ytdExistingValues(field)" in js
@@ -47,6 +47,30 @@ def test_ytd_transaction_merchant_category_account_are_selects():
     assert '${ytdSelectFieldHtml(i, "Merchant", r.Merchant)}' in js
     assert '${ytdSelectFieldHtml(i, "Category", r.Category)}' in js
     assert '${ytdSelectFieldHtml(i, "Account", r.Account)}' in js
+    # The three columns must never write straight through to the row: every
+    # edit goes via commitYtdExistingValue, which rejects anything that is not
+    # already an existing value (see the next test).
     assert "updateYtdTxn(${i},'Merchant',this.value)" not in js
     assert "updateYtdTxn(${i},'Category',this.value)" not in js
     assert "updateYtdTxn(${i},'Account',this.value)" not in js
+    assert "commitYtdExistingValue(${i},'${field}',this)" in js
+
+
+def test_ytd_existing_value_options_are_shared_not_inlined_per_row():
+    """Perf ratchet. These columns used to inline a full <option> list into a
+    per-row <select>: O(rows x distinct values), measured on a real plan at
+    825,635 <option> nodes / ~62MB of DOM for one page of the step. They now
+    share one <datalist> per field, rendered once for the whole table.
+    """
+    js = dashboard_js_text()
+    assert "function ytdExistingDatalistsHtml" in js
+    assert "${ytdExistingDatalistsHtml()}" in js
+    # Exactly one call site -- once for the table, not once per row.
+    assert js.count("${ytdExistingDatalistsHtml()}") == 1
+    field_html = js.split("function ytdSelectFieldHtml", 1)[1].split("\n}", 1)[0]
+    assert 'list="${ytdDatalistId(field)}"' in field_html
+    assert "<option" not in field_html
+    assert "<select" not in field_html
+    # The per-row path must not rebuild the distinct-value set either.
+    assert "ytdExistingValues(" not in field_html
+    assert "ytdHasExistingValues(field)" in field_html

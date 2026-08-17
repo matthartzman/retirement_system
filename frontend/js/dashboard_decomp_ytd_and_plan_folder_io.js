@@ -387,30 +387,11 @@ export function ytdFirstExistingValue(field) {
   return vals.length ? vals[0] : "";
 }
 
-export function ytdSelectOptions(field, selected) {
-  const cur = String(selected || "").trim();
-  const vals = ytdExistingValues(field);
-  if (cur && !vals.some((v) => v.toLowerCase() === cur.toLowerCase()))
-    vals.unshift(cur);
-  if (!vals.length) return '<option value="">No existing values</option>';
-  let html = cur
-    ? ""
-    : '<option value="" selected disabled>Select existing ' +
-      esc(field) +
-      "</option>";
-  html += vals
-    .map(
-      (v) =>
-        `<option value="${esc(v)}" ${String(v) === cur ? "selected" : ""}>${esc(v)}</option>`,
-    )
-    .join("");
-  return html;
-}
-
-export function ytdSelectFieldHtml(i, field, value) {
-  const disabled = ytdExistingValues(field).length ? "" : " disabled";
-  return `<select class="ytd-existing-select"${disabled} onchange="updateYtdTxn(${i},'${field}',this.value)">${ytdSelectOptions(field, value)}</select>`;
-}
+// ytdSelectFieldHtml / ytdExistingDatalistsHtml / commitYtdExistingValue live in
+// dashboard_decomp_row_model.js, next to ytdExistingValues. The per-row <select>
+// that used to live here (ytdSelectOptions + a <select>-emitting
+// ytdSelectFieldHtml) was replaced by one shared <datalist> per field: the old
+// shape inlined every distinct value into every row.
 
 export function resetYtdTxnPage() {
   ytdTxPage = 0;
@@ -671,7 +652,7 @@ export function renderYtdTransactions() {
   const firstDate = pageRows.length ? pageRows[0].r.Date : "";
   const lastDate = pageRows.length ? pageRows[pageRows.length - 1].r.Date : "";
   const pagerHtml = ytdTxnPager(total, start, end, pages, firstDate, lastDate);
-  return `<div class="holdings ytd-section"><h3 class="group-title">Transactions</h3><div class="table-actions"><input class="search" style="max-width:260px" placeholder="Search transactions..." value="${esc(ytdTxSearch)}" oninput="ytdTxSearch=this.value;resetYtdTxnPage();renderMain()"><select onchange="ytdCategoryFilter=this.value;resetYtdTxnPage();renderMain()"><option value="">All categories</option>${ytdFilterOptions("Category").replace(`value=\"${esc(ytdCategoryFilter)}\"`, `value=\"${esc(ytdCategoryFilter)}\" selected`)}</select><select onchange="ytdAccountFilter=this.value;resetYtdTxnPage();renderMain()"><option value="">All accounts</option>${ytdFilterOptions("Account").replace(`value=\"${esc(ytdAccountFilter)}\"`, `value=\"${esc(ytdAccountFilter)}\" selected`)}</select><button class="btn" type="button" onclick="addYtdTxn()">Add transaction</button><button class="btn primary" id="ytdSaveTransactionsBtn" type="button" ${ytdTransactionsChanged ? "" : "disabled"} onclick="saveYtdTransactions()">Save transaction edits</button><button class="btn col-group-toggle" type="button" onclick="ytdTxColsCollapsed=!ytdTxColsCollapsed;renderMain()">${ytdTxColsCollapsed ? "Show all columns" : "Hide extra columns"}</button></div>${pagerHtml}<div class="lot-table-wrap ytd-table-wrap ytd-tx-table-wrap pinned-col${ytdTxColsCollapsed ? " cols-collapsed" : ""}"><table class="lot-table ytd-tx-table"><thead><tr>${ytdHeader("Date", "Date")}${ytdHeader("Merchant", "Merchant")}${ytdHeader("Category", "Category")}${ytdHeader("Account", "Account")}${ytdHeader("Amount", "Amount")}<th data-col-group="extra">Statement</th><th data-col-group="extra">Notes</th><th data-col-group="extra">Tags</th><th data-col-group="extra">Owner</th><th></th></tr></thead><tbody>${pageRows.map(({ r, i }) => `<tr><td class="ytd-date-cell"><input class="ytd-date-input" value="${esc(r.Date || "")}" oninput="updateYtdTxn(${i},'Date',this.value)"></td><td>${ytdSelectFieldHtml(i, "Merchant", r.Merchant)}</td><td>${ytdSelectFieldHtml(i, "Category", r.Category)}</td><td>${ytdSelectFieldHtml(i, "Account", r.Account)}</td><td class="ytd-amount-cell"><input class="ytd-amount-input${ytdAmountIsNegative(r.Amount) ? " ytd-negative-amount" : ""}" value="${esc(ytdTxnMoneyDisplay(r.Amount))}" onfocus="focusYtdTxnAmount(this)" oninput="updateYtdTxnAmount(${i},this)" onblur="blurYtdTxnAmount(${i},this)"></td><td data-col-group="extra"><input value="${esc(r["Original Statement"] || "")}" oninput="updateYtdTxn(${i},'Original Statement',this.value)"></td><td data-col-group="extra"><input value="${esc(r.Notes || "")}" oninput="updateYtdTxn(${i},'Notes',this.value)"></td><td data-col-group="extra"><input value="${esc(r.Tags || "")}" oninput="updateYtdTxn(${i},'Tags',this.value)"></td><td data-col-group="extra"><input value="${esc(r.Owner || "")}" oninput="updateYtdTxn(${i},'Owner',this.value)"></td><td><button class="danger-link" type="button" onclick="deleteYtdTxn(${i})">Delete</button></td></tr>`).join("") || `<tr><td colspan="10"><span class="small">${esc(emptyMessage)}</span></td></tr>`}</tbody></table></div>${pagerHtml}</div>`;
+  return `<div class="holdings ytd-section">${ytdExistingDatalistsHtml()}<h3 class="group-title">Transactions</h3><div class="table-actions"><input class="search" style="max-width:260px" placeholder="Search transactions..." value="${esc(ytdTxSearch)}" oninput="ytdTxSearch=this.value;resetYtdTxnPage();renderMain()"><select onchange="ytdCategoryFilter=this.value;resetYtdTxnPage();renderMain()"><option value="">All categories</option>${ytdFilterOptions("Category").replace(`value=\"${esc(ytdCategoryFilter)}\"`, `value=\"${esc(ytdCategoryFilter)}\" selected`)}</select><select onchange="ytdAccountFilter=this.value;resetYtdTxnPage();renderMain()"><option value="">All accounts</option>${ytdFilterOptions("Account").replace(`value=\"${esc(ytdAccountFilter)}\"`, `value=\"${esc(ytdAccountFilter)}\" selected`)}</select><button class="btn" type="button" onclick="addYtdTxn()">Add transaction</button><button class="btn primary" id="ytdSaveTransactionsBtn" type="button" ${ytdTransactionsChanged ? "" : "disabled"} onclick="saveYtdTransactions()">Save transaction edits</button><button class="btn col-group-toggle" type="button" onclick="ytdTxColsCollapsed=!ytdTxColsCollapsed;renderMain()">${ytdTxColsCollapsed ? "Show all columns" : "Hide extra columns"}</button></div>${pagerHtml}<div class="lot-table-wrap ytd-table-wrap ytd-tx-table-wrap pinned-col${ytdTxColsCollapsed ? " cols-collapsed" : ""}"><table class="lot-table ytd-tx-table"><thead><tr>${ytdHeader("Date", "Date")}${ytdHeader("Merchant", "Merchant")}${ytdHeader("Category", "Category")}${ytdHeader("Account", "Account")}${ytdHeader("Amount", "Amount")}<th data-col-group="extra">Statement</th><th data-col-group="extra">Notes</th><th data-col-group="extra">Tags</th><th data-col-group="extra">Owner</th><th></th></tr></thead><tbody>${pageRows.map(({ r, i }) => `<tr><td class="ytd-date-cell"><input class="ytd-date-input" value="${esc(r.Date || "")}" oninput="updateYtdTxn(${i},'Date',this.value)"></td><td>${ytdSelectFieldHtml(i, "Merchant", r.Merchant)}</td><td>${ytdSelectFieldHtml(i, "Category", r.Category)}</td><td>${ytdSelectFieldHtml(i, "Account", r.Account)}</td><td class="ytd-amount-cell"><input class="ytd-amount-input${ytdAmountIsNegative(r.Amount) ? " ytd-negative-amount" : ""}" value="${esc(ytdTxnMoneyDisplay(r.Amount))}" onfocus="focusYtdTxnAmount(this)" oninput="updateYtdTxnAmount(${i},this)" onblur="blurYtdTxnAmount(${i},this)"></td><td data-col-group="extra"><input value="${esc(r["Original Statement"] || "")}" oninput="updateYtdTxn(${i},'Original Statement',this.value)"></td><td data-col-group="extra"><input value="${esc(r.Notes || "")}" oninput="updateYtdTxn(${i},'Notes',this.value)"></td><td data-col-group="extra"><input value="${esc(r.Tags || "")}" oninput="updateYtdTxn(${i},'Tags',this.value)"></td><td data-col-group="extra"><input value="${esc(r.Owner || "")}" oninput="updateYtdTxn(${i},'Owner',this.value)"></td><td><button class="danger-link" type="button" onclick="deleteYtdTxn(${i})">Delete</button></td></tr>`).join("") || `<tr><td colspan="10"><span class="small">${esc(emptyMessage)}</span></td></tr>`}</tbody></table></div>${pagerHtml}</div>`;
 }
 
 export function ytdBlendEnabledRow() {
@@ -987,8 +968,6 @@ Object.assign(window, {
   deleteAllYtdTransactions,
   ytdFilterOptions,
   ytdFirstExistingValue,
-  ytdSelectOptions,
-  ytdSelectFieldHtml,
   resetYtdTxnPage,
   setYtdTxnPage,
   ytdDateAwarePageBoundaries,
