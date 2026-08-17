@@ -3105,6 +3105,71 @@ export function ytdExistingValues(field) {
   ].sort((a, b) => a.localeCompare(b));
 }
 
+// The three transaction columns constrained to values already present
+// somewhere in the transaction history.
+const YTD_EXISTING_FIELDS = ["Merchant", "Category", "Account"];
+
+export function ytdDatalistId(field) {
+  return (
+    "ytd-existing-" + String(field).toLowerCase().replace(/[^a-z0-9]+/g, "-")
+  );
+}
+
+// One shared <datalist> per field, rendered once for the whole table.
+//
+// These columns used to inline a full <option> list into a per-row <select>,
+// which is O(rows x distinct values): on a real plan that was 1,525 distinct
+// merchants repeated on every visible row -- 825,635 <option> nodes and a
+// ~62MB DOM for one page of the Transactions step. Sharing the lists makes it
+// O(rows + distinct values), ~1.5k nodes, and gives type-ahead filtering
+// instead of scrolling a 1,525-entry dropdown.
+export function ytdExistingDatalistsHtml() {
+  return YTD_EXISTING_FIELDS.map(
+    (field) =>
+      `<datalist id="${ytdDatalistId(field)}">${ytdExistingValues(field)
+        .map((v) => `<option value="${esc(v)}"></option>`)
+        .join("")}</datalist>`,
+  ).join("");
+}
+
+// Cheap emptiness probe. ytdSelectFieldHtml runs once per row per field, so it
+// must not rebuild (and sort) the whole distinct-value set the way the old
+// per-row ytdExistingValues().length check did.
+export function ytdHasExistingValues(field) {
+  return (ytdData?.transactions || []).some((r) =>
+    String(r[field] || "").trim(),
+  );
+}
+
+// A <select> could only ever yield an existing value; a datalist-backed <input>
+// also accepts free text, so enforce the same contract here -- anything typed
+// that isn't already an existing value snaps back to the row's stored value.
+// Matching is case-insensitive and commits the canonical casing, so picking
+// from the list and typing the same text by hand land on the same value.
+export function commitYtdExistingValue(i, field, el) {
+  const row = ytdData?.transactions?.[i];
+  const cur = row ? String(row[field] || "") : "";
+  const typed = String(el.value || "").trim();
+  const match = typed
+    ? ytdExistingValues(field).find(
+        (v) => v.toLowerCase() === typed.toLowerCase(),
+      )
+    : "";
+  if (!match) {
+    el.value = cur;
+    return;
+  }
+  el.value = match;
+  if (match !== cur) updateYtdTxn(i, field, match);
+}
+
+export function ytdSelectFieldHtml(i, field, value) {
+  const has = ytdHasExistingValues(field);
+  const disabled = has ? "" : " disabled";
+  const placeholder = has ? `Select existing ${field}` : "No existing values";
+  return `<input class="ytd-existing-select" list="${ytdDatalistId(field)}"${disabled} placeholder="${esc(placeholder)}" value="${esc(value || "")}" onchange="commitYtdExistingValue(${i},'${field}',this)">`;
+}
+
 export function ytdTransactionAccounts() {
   const saved =
     ytdData?.summary?.transaction_accounts ||
@@ -4540,6 +4605,7 @@ Object.assign(window, {
   catDetailSum,
   choiceValue,
   clearSpendingCaches,
+  commitYtdExistingValue,
   currencyRaw,
   currentKpi,
   deriveAfterTaxTerminalNw,
@@ -4685,8 +4751,12 @@ Object.assign(window, {
   valueKind,
   visibleSteps,
   ytdAmountIsNegative,
+  ytdDatalistId,
+  ytdExistingDatalistsHtml,
   ytdExistingValues,
+  ytdHasExistingValues,
   ytdRawMoney,
+  ytdSelectFieldHtml,
   ytdTransactionAccounts,
   ytdTxnMoneyDisplay,
 });

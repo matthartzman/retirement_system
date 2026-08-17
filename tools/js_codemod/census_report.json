@@ -385,8 +385,6 @@
     "ytdPeriodTargetYear",
     "ytdRolloverBannerHtml",
     "ytdSelectAllDuplicates",
-    "ytdSelectFieldHtml",
-    "ytdSelectOptions",
     "ytdShortDate",
     "ytdSparkline",
     "ytdStaleGrowthAccounts",
@@ -3635,6 +3633,18 @@
       "name": "renderMain",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
       "scope": "inside-function"
     },
     {
