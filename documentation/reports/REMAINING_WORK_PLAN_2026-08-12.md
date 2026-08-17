@@ -273,8 +273,17 @@ none blocking, one client-facing.
 **P1 and P2 executed 2026-08-17.** The MC tilt drift is fixed — realized growth now equals the sampled
 return to floating point in every projection year — and guarded by
 `tests/test_mc_bucket_tilt_neutrality_regression.py`, demonstrated red first per F4.3's rule 2.
-Golden pins unmoved; fast tier 1,635 passed / 4 skipped / 0 failed. **P4 (the client-facing S1
-disclosure) is now the highest-value open follow-up**, with P3, P5 and P6 remaining.
+Golden pins unmoved; fast tier 1,635 passed / 4 skipped / 0 failed.
+
+**P4 executed 2026-08-17.** Sheet 3A (Monte Carlo) now discloses, directly above the success rate,
+that per-account returns enter as a constant per-bucket offset rather than sleeve-level volatility —
+so the number cannot credit de-risking *inside* the taxable/pretax/Roth/HSA buckets. Guarded by a
+red-first test against a real build. Writing it **corrected S1**: the cash bucket grows on a
+short-rate path, so a cash reserve *is* modeled as low-volatility and the original finding
+overstated the gap. It also surfaced **P7** — Sheet 3A section G already tells the client the Trust
+liquidity buffer mitigates sequence risk, which is precisely the unsupported claim class.
+
+Open follow-ups: **P7** (client-facing advice, highest value), then P3, P5, P6.
 
 ### Phase F5 — At-rest plan-data migration · independent, parallel-safe
 
