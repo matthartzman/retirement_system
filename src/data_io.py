@@ -2249,7 +2249,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['hsa_consume_by'] = str(_v(data, 'HSA Policy', 'Withdrawals',
                                  'hsa_consume_by', 'second_death_p90') or 'second_death_p90').strip()
     _bank = _v(data, 'HSA Policy', 'Withdrawals', 'hsa_expense_bank', '')
-    c['hsa_expense_bank'] = None if str(_bank or '').strip() == '' else _n(_bank, 0.0)
+    c['hsa_expense_bank'] = None if (_bank is None or str(_bank).strip() == '') else _n(_bank, 0.0)
     c['hsa_nonqualified_treatment'] = str(_v(data, 'HSA Policy', 'Withdrawals',
                                              'hsa_nonqualified_treatment', 'block') or 'block').strip().lower()
     c['hsa_state_conformity'] = _b(_v(data, 'HSA Policy', 'Withdrawals', 'hsa_state_conformity', 'TRUE'))
