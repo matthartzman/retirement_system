@@ -2239,6 +2239,21 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['cash_ids']         = _ar.ids_by_tax(c['account_registry'], 'cash')
     c['invest_ids']       = _ar.all_investment_ids(c['account_registry'])
 
+    # ── HSA Policy ────────────────────────────────────────────────────────
+    # The engine currently treats an HSA as tax-free at every stage including
+    # death, which is wrong for a non-spouse beneficiary (the whole balance
+    # becomes ordinary income to them in the year of death). These inputs are
+    # consumed by later HSA-optimizer work; this task only parses them.
+    c['hsa_beneficiary_type'] = str(_v(data, 'HSA Policy', 'Beneficiary',
+                                       'hsa_beneficiary_type', 'spouse') or 'spouse').strip().lower()
+    c['hsa_consume_by'] = str(_v(data, 'HSA Policy', 'Withdrawals',
+                                 'hsa_consume_by', 'second_death_p90') or 'second_death_p90').strip()
+    _bank = _v(data, 'HSA Policy', 'Withdrawals', 'hsa_expense_bank', '')
+    c['hsa_expense_bank'] = None if str(_bank or '').strip() == '' else _n(_bank, 0.0)
+    c['hsa_nonqualified_treatment'] = str(_v(data, 'HSA Policy', 'Withdrawals',
+                                             'hsa_nonqualified_treatment', 'block') or 'block').strip().lower()
+    c['hsa_state_conformity'] = _b(_v(data, 'HSA Policy', 'Withdrawals', 'hsa_state_conformity', 'TRUE'))
+
     # ── Individual-account withdrawal-order override (#276) ──────────────────
     # Plan Data rows: [Withdrawal Policy][Account Order][<account_id>] =
     # priority (lower draws first). Uses the same generic Section/Subsection/
@@ -2612,6 +2627,15 @@ def build_plan_from_json(plan, url_template=''):
     c['hsa_ids']          = _ar.hsa_ids(c['account_registry'])
     c['cash_ids']         = _ar.ids_by_tax(c['account_registry'], 'cash')
     c['invest_ids']       = _ar.all_investment_ids(c['account_registry'])
+
+    # ── HSA Policy ────────────────────────────────────────────────────────
+    # The flat wizard JSON schema has no HSA Policy section, so these are
+    # the same conservative defaults parse_client() uses for the CSV path.
+    c['hsa_beneficiary_type'] = 'spouse'
+    c['hsa_consume_by'] = 'second_death_p90'
+    c['hsa_expense_bank'] = None
+    c['hsa_nonqualified_treatment'] = 'block'
+    c['hsa_state_conformity'] = True
 
     # ── Income ────────────────────────────────────────────────────────────
     inc = plan.get('income', {})
