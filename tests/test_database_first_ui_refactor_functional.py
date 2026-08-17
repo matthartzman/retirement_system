@@ -5,8 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 from tests._decomp_dashboard import dashboard_js_text
 
 def test_dashboard_top_level_groups():
-    js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
-    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     steps_block = re.search(r"const STEPS = \[(.*?)\n\];", js, re.S).group(1)
     groups = []
     for name in re.findall(r'group: "([^"]+)"', steps_block):
@@ -21,8 +20,7 @@ def test_dashboard_top_level_groups():
 
 def test_primary_workflow_is_database_first_not_csv_folder_save_load():
     html = (ROOT / "frontend/index.html").read_text(encoding="utf-8")
-    js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
-    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     assert ">Admin<" not in html
     assert "Save Plan Data" not in html
     assert "Build Workbook" not in html
@@ -58,7 +56,7 @@ def test_build_and_load_no_longer_use_remembered_csv_folder_as_authority():
     # and function B", so row_model's content must come FIRST or these two
     # cross-file boundaries land in the wrong order.
     js = (ROOT / "frontend/js/dashboard_decomp_row_model.js").read_text(encoding="utf-8")
-    js += (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
+    js += dashboard_js_text()
     load_fn = re.search(r"async function loadAll\(opts = \{\}\).*?async function startNewPlan", js, re.S).group(0)
     # downloadWithBuild (not downloadFile, a different, similarly-named
     # function that stayed in dashboard.js) is the next top-level declaration

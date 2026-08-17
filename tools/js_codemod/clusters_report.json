@@ -1,11 +1,11 @@
 {
   "schema": "dashboard_clusters_v1",
   "cutoff": 3,
-  "total_functions": 460,
+  "total_functions": 346,
   "hubs": [
     {
       "name": "renderMain",
-      "fan_in": 58
+      "fan_in": 44
     }
   ],
   "components": [
@@ -16,30 +16,21 @@
       "clientDataKey",
       "csvEscape",
       "deduplicateYtdTransactions",
-      "defaultPlanDataPath",
       "deleteAllYtdTransactions",
       "deleteYtdTxn",
-      "downloadBlob",
       "downloadYtdTemplate",
-      "ensurePlanFolderPermission",
       "fetchPlanDataFiles",
       "fetchText",
       "focusYtdTxnAmount",
-      "handleImportPlanFolder",
       "handleYtdTransactionUpload",
-      "importPlanDataContents",
       "importPreviewList",
-      "listFolderFileNames",
       "mergeProtectedClientData",
       "normalizePlanDataTextForCompare",
       "normalizeYtdActualsPeriod",
       "openCachedChart",
-      "openPathPrompt",
       "parseCsvTable",
-      "promptSavePlanDataFiles",
       "readFileFromFolder",
       "readYtdActualsPeriod",
-      "refreshFromPlanFolder",
       "renderYtdDuplicateReview",
       "renderYtdSummary",
       "renderYtdTracking",
@@ -49,20 +40,14 @@
       "resetYtdTxnPage",
       "saveCurrentPlanToSelectedFolderForBuild",
       "saveLiabilities",
-      "savePlanDataToFolder",
-      "savePlanDataToPath",
       "saveYtdTransactions",
-      "selectPlanDataForImport",
       "selectedFolderDiffersFromLoadedPlan",
       "serializeCsvTable",
       "serializeLiabilities",
       "setYtdActualsPeriod",
       "setYtdSort",
       "setYtdTxnPage",
-      "showPlanDataFileManifest",
       "updateYtdTxnAmount",
-      "writeFileHandle",
-      "writePlanDataFilesToFolder",
       "ytdActualsPeriodToggleHtml",
       "ytdBlendEnabledRow",
       "ytdBlendToggleHtml",
@@ -107,8 +92,6 @@
       "copyOptimizerOverrideToUserTargets",
       "findAssetRow",
       "fmtPctCell",
-      "getStrategyTab",
-      "goToStrategyTab",
       "irmaaModeValue",
       "kpiHasValues",
       "normalizedAssetSourceName",
@@ -133,25 +116,18 @@
       "renderRothConversion",
       "renderRothMissingNotice",
       "renderRothRows",
-      "renderStrategyTabs",
       "renderTangencyAllocationPanel",
       "renderTotalWealthAllocationHtml",
-      "renderWithdrawalOrderTable",
-      "renderWithdrawalStrategy",
       "renderWorkbenchLeverEditorHtml",
-      "renderWorkspaceSubtabsNav",
       "rothPolicyValue",
       "selectionActionSelect",
       "setAllocationSelectionMode",
       "setPlanningLeverInput",
       "setSelectionAction",
-      "setStrategyTab",
-      "targetPctInput",
-      "withdrawalOtherRows"
+      "targetPctInput"
     ],
     [
       "checklistItemStatus",
-      "closeoutItem",
       "exportCsvBackup",
       "firstRunChecklistHtml",
       "freezePricingSnapshot",
@@ -170,7 +146,6 @@
       "renderReportsBuild",
       "renderReportsPreflight",
       "renderReview",
-      "renderReviewCloseoutChecklist",
       "renderSystemConfiguration",
       "renderTabbedWorkspace",
       "renderWelcome",
@@ -183,67 +158,6 @@
       "taxFreshnessBannerHtml",
       "undoSessionFieldChange",
       "unfreezePricingSnapshot"
-    ],
-    [
-      "allocationPageRecommendations",
-      "jumpRecommendationSource",
-      "pageRecommendationsForStep",
-      "pageRecommendationsHtml",
-      "recFindBy",
-      "recFindStepRow",
-      "recRowValue",
-      "recStepRows",
-      "recYes",
-      "recommendationSourceButton",
-      "revealAndFocus",
-      "rothPageRecommendations",
-      "socialSecurityPageRecommendations",
-      "spendingPageRecommendations"
-    ],
-    [
-      "fieldControlOnly",
-      "findRows",
-      "incomeStreamSubsections",
-      "renderIncomeStreamsSection",
-      "renderRetirementIncome",
-      "renderSsCompactTable",
-      "renderSsPolicySection",
-      "ssActiveCell",
-      "ssClaimFactor",
-      "ssMonthlyAtClaimAgeCell",
-      "ssPersonRows"
-    ],
-    [
-      "addLargeDiscLine",
-      "deleteLargeDiscLine",
-      "largeDiscCategoryFromType",
-      "largeDiscTypeFromLine",
-      "renderLargeDiscretionaryBudgetPage",
-      "renderLifestyleSpending",
-      "renderTravelBudgetPage",
-      "updateLargeDiscLine",
-      "updateLargeDiscLineMoney"
-    ],
-    [
-      "findMatrixCell",
-      "illustrationPlanYears",
-      "matrixPolicies",
-      "matrixYears",
-      "renderDeathBenefitsTable",
-      "renderLifeIllustrations",
-      "renderSpecialIncomeAnnuitiesInsurance",
-      "renderYearMatrix",
-      "showStepHelp"
-    ],
-    [
-      "mcEngineRow",
-      "mcEngineToggleHtml",
-      "renderDivorceOptions",
-      "renderLtcStress",
-      "renderMonteCarloOptions",
-      "renderSurvivorStress",
-      "renderWorkbenchStressHtml",
-      "setMcEngineMode"
     ],
     [
       "choiceHelpText",
@@ -277,21 +191,10 @@
       "loadCanonicalGlossary"
     ],
     [
-      "addManualYtdAccount",
-      "addSelectedYtdAccount",
-      "addYtdAccount",
-      "makeYtdAccountRow"
-    ],
-    [
       "rollForwardYtdAccounts",
       "ytdIsGrowthRole",
       "ytdRolloverBannerHtml",
       "ytdStaleGrowthAccounts"
-    ],
-    [
-      "baseHomeSaleYearRow",
-      "homeSaleActivationYearRow",
-      "stressHomeSaleYearRow"
     ],
     [
       "changeImpactScope",
@@ -309,11 +212,6 @@
       "toggleNavDrawer"
     ],
     [
-      "domainLineSections",
-      "lineBelongsToDomain",
-      "visibleBudgetLinesForDomain"
-    ],
-    [
       "fieldFinderCategoryName",
       "fieldFinderCategoryOrder",
       "renderFieldFinderGroups"
@@ -324,9 +222,19 @@
       "openNextCollapsedSectionFrom"
     ],
     [
+      "getStrategyTab",
+      "goToStrategyTab",
+      "renderWorkspaceSubtabsNav"
+    ],
+    [
       "personCellInput",
       "personNickPlaceholder",
       "renderHouseholdPeople"
+    ],
+    [
+      "renderWithdrawalOrderTable",
+      "renderWithdrawalStrategy",
+      "withdrawalOtherRows"
     ],
     [
       "ytdInvestmentHoldingAccounts",
@@ -334,8 +242,8 @@
       "ytdMappableAccounts"
     ],
     [
-      "addBudgetLine",
-      "budgetSectionIsSummary"
+      "addManualYtdAccount",
+      "makeYtdAccountRow"
     ],
     [
       "allocationPreviewFingerprint",
@@ -374,16 +282,8 @@
       "fieldTooltipPreview"
     ],
     [
-      "findCsvByName",
-      "handleImportPlanFiles"
-    ],
-    [
       "humanizeGroupKey",
       "personTokenLabel"
-    ],
-    [
-      "moneyHtml",
-      "moneyNegativeClass"
     ],
     [
       "pageSaveMode",
@@ -406,21 +306,15 @@
       "rowSortKeyForIncomeWork"
     ],
     [
+      "renderStrategyTabs",
+      "setStrategyTab"
+    ],
+    [
       "setDetailedResultSheet",
       "setDetailedResultsNavOpen"
     ],
     [
-      "setSearch",
-      "updateSearchToggle"
-    ],
-    [
       "addParentheticals"
-    ],
-    [
-      "allocationCommonRows"
-    ],
-    [
-      "allocationRowsOrNote"
     ],
     [
       "artifactHashFromPreflight"
@@ -429,10 +323,7 @@
       "assetActionForSubsection"
     ],
     [
-      "budgetSectionLines"
-    ],
-    [
-      "buildSessionSummaryHtml"
+      "baseHomeSaleYearRow"
     ],
     [
       "buildWithDesktopProgress"
@@ -456,9 +347,6 @@
       "currentScenarioOverrideItems"
     ],
     [
-      "deleteBudgetLine"
-    ],
-    [
       "deleteYtdAccount"
     ],
     [
@@ -466,9 +354,6 @@
     ],
     [
       "deriveTotalRothConversions"
-    ],
-    [
-      "detailColumnGroupKey"
     ],
     [
       "detailedProgressHtml"
@@ -483,6 +368,9 @@
       "domainBudgetNote"
     ],
     [
+      "downloadBlob"
+    ],
+    [
       "downloadFile"
     ],
     [
@@ -490,9 +378,6 @@
     ],
     [
       "fieldDefaultMeaning"
-    ],
-    [
-      "fieldFinderStepOrder"
     ],
     [
       "fieldLabelNoteHtml"
@@ -513,9 +398,6 @@
       "groupModelData"
     ],
     [
-      "hasAnnuityDeathBenefits"
-    ],
-    [
       "hideSpendingModelLoadOverlay"
     ],
     [
@@ -528,16 +410,10 @@
       "leverPctPoints"
     ],
     [
-      "logoutSaas"
-    ],
-    [
-      "markMatrixDirty"
-    ],
-    [
-      "matrixKey"
-    ],
-    [
       "mergeDetailedSheetMeta"
+    ],
+    [
+      "moneyNegativeClass"
     ],
     [
       "normalizePlanningCaseRunType"
@@ -547,12 +423,6 @@
     ],
     [
       "noteSpecialSessionChange"
-    ],
-    [
-      "openSystemAdmin"
-    ],
-    [
-      "optimizerInputRows"
     ],
     [
       "optionalModuleState"
@@ -624,28 +494,16 @@
       "planningWorkbenchStressSelectorHtml"
     ],
     [
-      "postPlanDataFile"
-    ],
-    [
-      "readLocalCsvFile"
-    ],
-    [
       "recoverPriorSpendingBudget"
     ],
     [
       "recoverYtdAccountSetup"
     ],
     [
-      "reloadBudgetLineDefaults"
-    ],
-    [
       "rememberBuildCompare"
     ],
     [
       "renderAssetsCashReserves"
-    ],
-    [
-      "renderDafConfig"
     ],
     [
       "renderDetailedResultsNav"
@@ -666,9 +524,6 @@
       "renderRetirementWellness"
     ],
     [
-      "renderSpendingBudgetInput"
-    ],
-    [
       "renderSpendingDashboardOrLoad"
     ],
     [
@@ -676,18 +531,6 @@
     ],
     [
       "renderStateResidency"
-    ],
-    [
-      "renderYtdCategoriesStep"
-    ],
-    [
-      "renderYtdTopCategories"
-    ],
-    [
-      "renderYtdTopIncomeCategories"
-    ],
-    [
-      "reportFreshnessNotice"
     ],
     [
       "resetAllocationPreview"
@@ -708,18 +551,6 @@
       "rowIsRetirementWellness"
     ],
     [
-      "rowsByLabel"
-    ],
-    [
-      "rowsNotIn"
-    ],
-    [
-      "saveSpendingBudgetAll"
-    ],
-    [
-      "saveSpendingSetupAll"
-    ],
-    [
       "saveYtdAccountSetup"
     ],
     [
@@ -732,16 +563,7 @@
       "sectionFlagEnabled"
     ],
     [
-      "seedWellnessOop"
-    ],
-    [
       "setAllDetailColumnGroups"
-    ],
-    [
-      "setBudgetSectionMode"
-    ],
-    [
-      "setCategoryBudgetMode"
     ],
     [
       "setCombinedSearch"
@@ -756,7 +578,13 @@
       "setSearchScope"
     ],
     [
+      "showPlanDataFileManifest"
+    ],
+    [
       "showSpendingModelLoadOverlay"
+    ],
+    [
+      "showStepHelp"
     ],
     [
       "showYtdLoadOverlay"
@@ -780,6 +608,9 @@
       "strategyLeverOverrideItems"
     ],
     [
+      "stressHomeSaleYearRow"
+    ],
+    [
       "stressOverrideItems"
     ],
     [
@@ -790,9 +621,6 @@
     ],
     [
       "summaryFromApiPayload"
-    ],
-    [
-      "taxonomyCategoryOptionsHtml"
     ],
     [
       "toggleDetailColGroup"
@@ -807,34 +635,16 @@
       "translatePersonValueLabel"
     ],
     [
-      "travelTypeList"
-    ],
-    [
-      "updateBudgetLine"
+      "updateSearchToggle"
     ],
     [
       "updateYtdAccountMoney"
     ],
     [
-      "versionPrefixSuggestion"
-    ],
-    [
-      "visibleAssetSpecialRow"
-    ],
-    [
       "wireStepNavigation"
     ],
     [
-      "ytdAccountOptions"
-    ],
-    [
       "ytdAccountRoleOptions"
-    ],
-    [
-      "ytdDate"
-    ],
-    [
-      "ytdMissingAccountOptions"
     ]
   ]
 }

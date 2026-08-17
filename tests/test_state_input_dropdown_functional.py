@@ -16,6 +16,7 @@ from src.us_states import (
     state_name_choice_options,
     states_and_dc,
 )
+from tests._decomp_dashboard import dashboard_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -57,8 +58,7 @@ def test_target_state_uses_abbreviations():
 
 
 def test_dashboard_js_renders_state_fields_as_dropdowns_not_free_text():
-    main_js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
-    main_js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    main_js = dashboard_js_text()
     state_js = (
         ROOT / "frontend" / "js" / "dashboard_decomp_state_inputs.js"
     ).read_text(encoding="utf-8")

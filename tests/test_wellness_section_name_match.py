@@ -14,6 +14,7 @@ every real household, regardless of what Wellness data was actually entered.
 import subprocess
 import textwrap
 from pathlib import Path
+from tests._decomp_dashboard import dashboard_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 JS = ROOT / "frontend" / "js" / "dashboard.js"
@@ -30,7 +31,7 @@ def _smoke_sources_js_array():
 
 
 def read_js():
-    return JS.read_text(encoding="utf-8")
+    return dashboard_js_text()
 
 
 def test_no_stale_lowercase_healthcare_row_comparisons_remain():

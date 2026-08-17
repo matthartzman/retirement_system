@@ -72,7 +72,7 @@ def test_business_is_in_main_hierarchy_without_separate_dashboard_section():
 
 
 def test_top_20_ytd_sections_removed_and_tracker_levels_are_visually_distinct():
-    dash = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
+    dash = dashboard_js_text()
     spend_js = (ROOT / "frontend/js/spending_dashboard.js").read_text(encoding="utf-8")
     css = (ROOT / "frontend/css/dashboard.css").read_text(encoding="utf-8")
     assert "Top 20 YTD income categories" not in dash

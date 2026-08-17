@@ -1,0 +1,5 @@
+# F3.2 -- cluster 2: checklist / closeout / save-load (31 functions).
+# Function names listed explicitly; component indices shift after every
+# extraction, so an index would not mean the same thing twice.
+
+checklist_closeout: checklistItemStatus,exportCsvBackup,firstRunChecklistHtml,freezePricingSnapshot,loadSavedPlan,loadTaxFreshnessStatus,nbaPanelHtml,openCurrentPlan,openDemoPlan,openSystemConfigurationConsole,recentChangesLogHtml,refreshLivePrices,renderBuildPreflightPanel,renderDetailedResults,renderPlanDataReport,renderReportsAndReview,renderReportsBuild,renderReportsPreflight,renderReview,renderSystemConfiguration,renderTabbedWorkspace,renderWelcome,resetDemoToDefaults,savePlanAs,setAutoLoad,showConfigCardHelp,showYtdBlendChoiceModal,startNewPlan,taxFreshnessBannerHtml,undoSessionFieldChange,unfreezePricingSnapshot

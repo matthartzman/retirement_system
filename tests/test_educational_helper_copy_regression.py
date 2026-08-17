@@ -5,8 +5,7 @@ from tests._decomp_dashboard import dashboard_js_text
 
 
 def test_user_helper_uses_educational_page_and_field_sections():
-    js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
-    js += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     for token in [
         "What this page is for",
         "How the values work together",

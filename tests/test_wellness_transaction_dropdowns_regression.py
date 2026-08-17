@@ -4,12 +4,13 @@ import csv
 ROOT = Path(__file__).resolve().parents[1]
 
 from conftest import TEST_INPUT_DIR
+from tests._decomp_dashboard import dashboard_js_text
 HEALTHCARE_PREMIUM = "Healthcare Premium"
 OLD_STEP = "retirement_" + "health" + "care"
 
 
 def test_wellness_uses_healthcare_premium_language_without_renaming_step():
-    js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    js = dashboard_js_text()
     assert 'id: "retirement_wellness"' in js
     assert 'title: "Wellness"' in js
     assert OLD_STEP not in js
@@ -28,7 +29,7 @@ def test_wellness_uses_healthcare_premium_language_without_renaming_step():
 
 
 def test_income_expense_transactions_is_last_spending_step():
-    js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    js = dashboard_js_text()
     steps_src = js.split("const STEPS = [", 1)[1].split("\n];", 1)[0]
     step_blocks = steps_src.split("\n  {\n")
     spending_blocks = [b for b in step_blocks if 'group: "Spending"' in b]
@@ -37,7 +38,7 @@ def test_income_expense_transactions_is_last_spending_step():
 
 
 def test_ytd_transaction_merchant_category_account_are_selects():
-    js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    js = dashboard_js_text()
     assert "function ytdSelectFieldHtml" in js
     assert "ytdExistingValues(field)" in js
     assert 'Merchant: ytdFirstExistingValue("Merchant")' in js

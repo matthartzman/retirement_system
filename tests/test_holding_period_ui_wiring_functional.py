@@ -23,6 +23,7 @@ import sys
 import textwrap
 import unittest
 from pathlib import Path
+from tests._decomp_dashboard import dashboard_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 JS = ROOT / "frontend" / "js" / "dashboard.js"
@@ -95,7 +96,7 @@ class AllocationUIBackfillRowsTests(unittest.TestCase):
 
 class DashboardJsStringPresenceTests(unittest.TestCase):
     def read_js(self):
-        return JS.read_text(encoding="utf-8") + (JS_DIR / "dashboard_decomp_row_model.js").read_text(encoding="utf-8")
+        return dashboard_js_text()
 
     def test_real_loss_aware_present_in_mode_dropdown_and_buttons(self):
         # Asserts the mode is WIRED UP, not what its label happens to say. The

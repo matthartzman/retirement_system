@@ -8,6 +8,7 @@ field (not the browser's default DOM-order focus target).
 from __future__ import annotations
 
 from pathlib import Path
+from tests._decomp_dashboard import dashboard_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -37,7 +38,7 @@ def test_tab_key_handler_jumps_between_width_fields_only():
     assert '.wf-col-width input[type=number]' in js
     assert 'onkeydown="wfWidthInputKeydown(event)"' in js
 
-    main_js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    main_js = dashboard_js_text()
     # The page-wide generic Tab handler must defer to wfWidthInputKeydown
     # instead of racing it, or focus ends up on the wrong field.
     assert 'el.closest(".wf-col-width")' in main_js

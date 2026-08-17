@@ -1496,28 +1496,6 @@ function renderEntityCharitable() {
   let html = `<div class="section-note">Qualified charitable distributions (age 70½+) satisfy required distributions without the amount appearing as taxable income. S-Corp election is a self-employment decision, entered on <a href="#" onclick="setStep('income_work');return false">Work Income</a>.</div>`;
   return html + renderFields("entity_charitable");
 }
-function renderSurvivorStress() {
-  const rs = rowsForStep("survivor_stress");
-  let html = `<div class="section-note">These are the key inputs driving the Survivor workbook sheet. The primary risks: single-filer tax bracket compression, loss of one Social Security stream, and accelerated required distributions. Change mortality ages or filing status on <a href="#" onclick="setStep('household_people');return false">Household &amp; People</a> to adjust the base assumptions. After rebuilding, view the full Survivor analysis on <a href="#" onclick="setStep('detailed_results');return false">Retirement Plan Workbook</a>.</div>`;
-  return (
-    html +
-    (rs.length
-      ? renderFieldGroups(rs)
-      : `<div class="field-list"><p>Survivor inputs are entered on Household &amp; People. The full survivor result appears in the workbook after a build.</p></div>`)
-  );
-}
-function renderLtcStress() {
-  if (!optionalFunctionEnabled("long_term_care_stress"))
-    return '<div class="field-list"><p>Long-Term Care Stress inputs are hidden until the Long-Term-Care Stress optional workbook module is enabled on <a href="#" onclick="setStep(\'optional_functions\');return false">Optional Modules</a>.</p></div>';
-  const rs = rowsForStep("ltc_stress");
-  let html = `<div class="section-note">Set care cost and duration, then rebuild. Policy details (benefit amount, elimination period) are on <a href="#" onclick="setStep('assets_special');return false">Other assets</a>.</div>`;
-  return (
-    html +
-    (rs.length
-      ? renderFieldGroups(rs)
-      : `<div class="field-list"><p>No long-term-care policy inputs found yet. Add a Hybrid LTC policy on Other assets.</p></div>`)
-  );
-}
 function planningLeversBaselineReady() {
   return !!(
     planLoaded &&
@@ -1594,35 +1572,6 @@ function chatMessageHtml(m) {
   return `<div class="chat-msg ${role}"><div class="chat-meta">${esc(label)}</div>${esc(m.content || "")}${source}</div>`;
 }
 
-function renderWorkbenchStressHtml() {
-  let html = '<div class="wb-stress-suite">';
-  if (!stepGatedByOptionalModule("monte_carlo_options")) {
-    html +=
-      '<details><summary><b>Probability Analysis (Monte Carlo)</b><span class="small"> engine mode, trial count, and volatility settings</span></summary>' +
-      analysisFrame(renderMonteCarloOptions(), "stress") +
-      "</details>";
-  }
-  if (!stepGatedByOptionalModule("survivor_stress")) {
-    html +=
-      '<details><summary><b>Survivor / Early Death</b><span class="small"> mortality ages, survivor filing status, and account rollover</span></summary>' +
-      analysisFrame(renderSurvivorStress(), "stress") +
-      "</details>";
-  }
-  if (optionalFunctionEnabled("long_term_care_stress")) {
-    html +=
-      '<details><summary><b>Long-Term Care</b><span class="small"> annual care cost, duration, and coverage benefit</span></summary>' +
-      analysisFrame(renderLtcStress(), "stress") +
-      "</details>";
-  }
-  if (optionalFunctionEnabled("divorce_qdro")) {
-    html +=
-      '<details><summary><b>Divorce Planning</b><span class="small"> account transfer, alimony, and asset division</span></summary>' +
-      analysisFrame(renderDivorceOptions(), "stress") +
-      "</details>";
-  }
-  html += "</div>";
-  return html;
-}
 function renderWorkbenchLeverEditorHtml() {
   if (!planningLeversBaselineReady())
     return '<p class="small" style="color:var(--muted)">Build reports once to unlock lever estimates in this panel.</p><div class="pane-actions"><button class="btn primary" type="button" data-requires-app="1" onclick="runBuild(false)">Build Reports</button></div>';
@@ -2033,44 +1982,7 @@ const RECOMMENDATION_STEP_IDS = new Set([
   "spending_core",
   "income_retirement",
 ]);
-function recRowValue(row) {
-  return row
-    ? String(displayValueForInput(row, valOf(row)) || valOf(row) || "").trim()
-    : "";
-}
-function recStepRows(stepId) {
-  try {
-    return rowsForStep(stepId, { includeInactive: true }) || [];
-  } catch (_e) {
-    return [];
-  }
-}
-function recFindStepRow(stepId, labels) {
-  const wanted = (Array.isArray(labels) ? labels : [labels]).map(norm);
-  return (
-    recStepRows(stepId).find((r) => wanted.includes(norm(r.label))) ||
-    rows.find((r) => isEditable(r) && wanted.includes(norm(r.label))) ||
-    null
-  );
-}
-function recFindBy(sectionName, subsectionName, labelName) {
-  return (
-    rows.find(
-      (r) =>
-        isEditable(r) &&
-        String(r.section || "") === sectionName &&
-        norm(r.subsection) === norm(subsectionName) &&
-        norm(r.label) === norm(labelName),
-    ) || null
-  );
-}
 
-function recYes(row) {
-  const v = String(valOf(row) || "")
-    .trim()
-    .toLowerCase();
-  return ["yes", "true", "1", "on", "enabled"].includes(v);
-}
 // Expand every collapsed ancestor of `el`, then scroll/focus/select it.
 //
 // Content inside a closed <details> is not focusable and has no layout, so
@@ -2084,447 +1996,7 @@ function recYes(row) {
 // This is a bug CLASS, not one call site: anything that scrolls to a row can
 // hit it whenever the target is nested in a collapsed container. Route every
 // such call through here rather than fixing the one path that was reported.
-function revealAndFocus(el) {
-  if (!el) return false;
-  let node = el.parentElement;
-  while (node) {
-    if (node.tagName === "DETAILS" && !node.open) node.open = true;
-    // Collapsible nav/section groups use a class rather than <details>.
-    if (node.classList && node.classList.contains("collapsed"))
-      node.classList.remove("collapsed");
-    node = node.parentElement;
-  }
-  if (el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "center" });
-  if (el.focus) el.focus({ preventScroll: true });
-  if (el.select) el.select();
-  return true;
-}
 
-function jumpRecommendationSource(stepId, rowIndex) {
-  if (rowIndex !== undefined && rowIndex !== null && rowIndex !== "")
-    inactiveEditReveals.add(Number(rowIndex));
-  // #269: reset a merged workspace (e.g. spending_core) to its default
-  // sub-tab -- a stale localStorage tab choice made setStep() below land on
-  // the right page but the target field wasn't rendered, so "Review growth
-  // mode" looked like it did nothing but scroll to top.
-  const _tabs = (typeof STRATEGY_TABS !== "undefined" && STRATEGY_TABS[stepId]) || null;
-  if (_tabs && _tabs.length) {
-    try {
-      localStorage.setItem(strategyTabKey(stepId), _tabs[0]);
-    } catch (_e) {}
-  }
-  setStep(stepId || activeStep);
-  setTimeout(() => {
-    let el = null;
-    if (rowIndex !== undefined && rowIndex !== null && rowIndex !== "")
-      el =
-        document.querySelector(`[data-row="${rowIndex}"]`) ||
-        document.getElementById("field-" + rowIndex);
-    revealAndFocus(el);
-  }, 80);
-}
-function recommendationSourceButton(item) {
-  const row = item.row;
-  if (!row)
-    return `<button class="btn tiny" type="button" data-step-id="${esc(item.stepId || activeStep)}">${esc(item.actionLabel || "Open page")}</button>`;
-  return `<button class="btn tiny recommendation-source-jump" type="button" onclick="jumpRecommendationSource('${escJs(item.stepId || activeStep)}',${Number(row.row_index)})">${esc(item.actionLabel || "Review input")}</button>`;
-}
-function rothPageRecommendations() {
-  const recs = [];
-  const policy = recFindStepRow("roth_conversion", "roth_conversion_policy");
-  const policyVal = String(policy ? valOf(policy) : "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_");
-  const targetBracket = recFindStepRow("roth_conversion", [
-    "roth_target_bracket_rate",
-    "roth_conversion_target_bracket_base_year",
-  ]);
-  const irmaa = recFindStepRow("roth_conversion", "irmaa_guardrail_mode");
-  const irmaaVal = String(irmaa ? valOf(irmaa) : "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_");
-  const headroom = recFindStepRow("roth_conversion", "roth_headroom_usage_pct");
-  const headroomPct = headroom ? parsePercentInput(valOf(headroom)) : 0;
-  const fixed = recFindStepRow("roth_conversion", "roth_fixed_annual_amount");
-  const fixedAmt = fixed ? fieldNumericValue(fixed) : 0;
-  const end = recFindStepRow("roth_conversion", [
-    "roth_conv_window_end_offset",
-    "conversion_window_end_offset",
-    "max_conversion_years",
-  ]);
-  if (!policy || !policyVal) {
-    recAdd(
-      recs,
-      "warn",
-      "Choose a Roth conversion policy",
-      "A missing policy leaves the workbook without a clear voluntary-conversion strategy. Pick none, bracket-fill, IRMAA-guarded, fixed-dollar, or optimizer mode intentionally.",
-      policy || targetBracket,
-      "roth_conversion",
-      "Changes current taxes, future RMDs, Medicare thresholds, survivor tax compression, and after-tax inheritance.",
-      "Choose policy",
-    );
-  } else if (
-    ["none", "off", "disabled", "no_voluntary_conversions"].includes(policyVal)
-  ) {
-    recAdd(
-      recs,
-      "info",
-      "Run one bounded Roth comparison",
-      "The current policy disables voluntary conversions. Keep that as the base case, but compare one bracket-fill or IRMAA-guarded build before ruling conversions out.",
-      policy,
-      "roth_conversion",
-      "May raise current taxes while lowering lifetime taxes, RMDs, and survivor tax risk.",
-      "Review policy",
-    );
-  } else if (
-    irmaa &&
-    ["ignore", "off", "none", "warn_only"].includes(irmaaVal)
-  ) {
-    recAdd(
-      recs,
-      "warn",
-      "Add a hard Medicare IRMAA guardrail for final review",
-      "The active Roth policy can generate useful tax savings, but warn-only/ignored IRMAA behavior may let conversions cross Medicare premium cliffs. Use an avoidance mode for an advisor-ready comparison.",
-      irmaa,
-      "roth_conversion",
-      "Affects conversion size, Medicare premiums, lifetime tax, and cash-flow headroom.",
-      "Review guardrail",
-    );
-  } else {
-    recAdd(
-      recs,
-      "info",
-      "Keep Roth tests bounded by a clear ceiling",
-      `Policy ${recRowValue(policy)} is active. Confirm the bracket or IRMAA ceiling reflects the highest current-tax cost the household is willing to accept.`,
-      targetBracket || irmaa || policy,
-      "roth_conversion",
-      "Keeps tax savings, terminal net worth, and Medicare-premium tradeoffs explainable.",
-      "Review ceiling",
-    );
-  }
-  if (
-    headroom &&
-    headroomPct >= 100 &&
-    policyVal &&
-    !["none", "off", "disabled", "no_voluntary_conversions"].includes(policyVal)
-  ) {
-    recAdd(
-      recs,
-      "info",
-      "Consider leaving threshold headroom",
-      "Headroom is set to 100%, which uses the full available bracket/IRMAA room. For final plans, a 90–95% guardrail can reduce accidental cliff exposure from dividends, interest, or data updates.",
-      headroom,
-      "roth_conversion",
-      "Reduces risk of crossing a tax or Medicare threshold because of small income-estimate changes.",
-      "Review headroom",
-    );
-  }
-  if (fixed && fixedAmt > 0 && end && String(valOf(end) || "").trim() === "") {
-    recAdd(
-      recs,
-      "warn",
-      "Set a fixed-conversion window",
-      "Fixed-dollar conversions are active but the window/end control appears blank. Define when conversions stop so the recommendation does not persist longer than intended.",
-      end,
-      "roth_conversion",
-      "Changes the years where current taxes rise and future RMDs fall.",
-      "Review window",
-    );
-  }
-  return recs.slice(0, 4);
-}
-function allocationPageRecommendations(stepId) {
-  const recs = [];
-  const mode = allocationSelectionMode();
-  const modeRow = allocationModeRow();
-  if (mode === "user_target") {
-    const total = allocationTargetTotalPct();
-    if (Math.abs(total - 100) > 0.01) {
-      recAdd(
-        recs,
-        "warn",
-        "Balance active targets to 100%",
-        "User-specified allocation is active, but included/alternate target rows total " +
-          total.toFixed(2) +
-          "%. Rebalance the target table before saving or building.",
-        allocationTargetRows()[0] || modeRow,
-        "allocation_assets",
-        "Prevents misleading drift, expected-return, and Monte Carlo comparisons.",
-        "Review targets",
-      );
-    } else {
-      recAdd(
-        recs,
-        "info",
-        "Compare the optimizer before finalizing the user target",
-        "User-specified allocation is valid. Use the optimizer as a second opinion before locking the target mix for a final report.",
-        modeRow,
-        "allocation_assets",
-        "Tests whether risk tolerance, glide path, human capital, and concentrated assets imply a different mix.",
-        "Review mode",
-      );
-    }
-  } else {
-    if (optimizerOverrideHasEntries() && !optimizerOverrideValid()) {
-      recAdd(
-        recs,
-        "warn",
-        "Fix optimizer override total",
-        "Optimizer override rows are partly filled but total " +
-          optimizerOverrideTotalPct().toFixed(2) +
-          "%. Complete them to 100% or clear all override cells to use the computed recommendation.",
-        optimizerOverrideRows()[0] || modeRow,
-        "allocation_assets",
-        "Avoids accidentally replacing the optimizer with an invalid override.",
-        "Review overrides",
-      );
-    } else {
-      recAdd(
-        recs,
-        "info",
-        "Document why the optimizer target is acceptable",
-        "Optimizer mode is active. Confirm the supporting risk, glide path, capital-market preset, and concentration assumptions before relying on the computed target.",
-        modeRow,
-        "allocation_assets",
-        "Makes allocation recommendations easier to defend in Build Impact and reports.",
-        "Review allocation mode",
-      );
-    }
-  }
-  const cash = findTargetRow("Cash");
-  if (cash && parsePercentInput(valOf(cash)) < 2 && mode === "user_target") {
-    recAdd(
-      recs,
-      "info",
-      "Check whether cash target supports the reserve floor",
-      "Cash target is below 2%. Confirm separate cash-reserve rules are enough before reducing liquid ballast.",
-      cash,
-      "allocation_assets",
-      "Can affect liquidity failures, rebalancing pressure, and downside comfort.",
-      "Review cash target",
-    );
-  }
-  const risk = recFindBy("Model Constants", "Allocation", "risk_tolerance");
-  const glide = recFindBy("Model Constants", "Allocation", "glide_path");
-  if (stepId === "allocation_policy" && risk) {
-    recAdd(
-      recs,
-      "info",
-      "Keep risk tolerance and glide path paired",
-      "Risk tolerance should match the glide path used near retirement. Review both together when a plan is close to the retirement date.",
-      risk,
-      "allocation_policy",
-      "Controls the optimizer recommendation and can affect Monte Carlo success and terminal value.",
-      "Review risk input",
-    );
-  }
-  if (stepId === "allocation_policy" && glide) {
-    recAdd(
-      recs,
-      "info",
-      "Confirm the glide path before final reports",
-      "A glide path can de-risk over time; a static target keeps risk more constant. Choose deliberately before comparing stress results.",
-      glide,
-      "allocation_policy",
-      "Changes age-based allocation and long-horizon risk/reward.",
-      "Review glide path",
-    );
-  }
-  return recs.slice(0, 4);
-}
-function spendingPageRecommendations() {
-  const recs = [];
-  const base = recFindStepRow("spending_core", "annual_spending_base_year");
-  const growth = recFindStepRow("spending_core", "core_spending_growth_mode");
-  const manual = recFindStepRow(
-    "spending_core",
-    "core_spending_manual_growth_rate",
-  );
-  const freeze = recFindStepRow("spending_core", "spending_freeze_year");
-  const inflation = recFindStepRow("spending_core", "inflation_general");
-  const baseAmt = base ? fieldNumericValue(base) : 0;
-  if (!base || baseAmt <= 0) {
-    recAdd(
-      recs,
-      "warn",
-      "Enter a realistic core spending base",
-      "Core spending is blank or zero, so the projection cannot reliably estimate withdrawals, taxes, or plan risk. Use Spending Analysis or budget lines to seed it.",
-      base || growth,
-      "spending_core",
-      "Spending is usually one of the largest drivers of terminal net worth and probability of success.",
-      "Review spending base",
-    );
-  } else {
-    recAdd(
-      recs,
-      "info",
-      "Reconcile core spending with actuals before building",
-      "Core spending is " +
-        fmtMoney(baseAmt) +
-        ". Compare it with recent transactions and budget lines before treating a report as final.",
-      base,
-      "spending_core",
-      "Aligns the 30-year model with real household behavior and reduces false precision.",
-      "Review spending base",
-    );
-  }
-  if (growth && norm(valOf(growth)) === "manual_override") {
-    const manualPct = manual ? parsePercentInput(valOf(manual)) : 0;
-    const cpi = inflation ? parsePercentInput(valOf(inflation)) : NaN;
-    if (Number.isFinite(cpi) && manualPct > cpi + 1) {
-      recAdd(
-        recs,
-        "warn",
-        "Explain why spending grows faster than CPI",
-        "Manual spending growth is more than one point above general inflation. That may be intentional, but it should be documented before final review.",
-        manual,
-        "spending_core",
-        "Raises withdrawals, taxes, and Monte Carlo failure risk over the retirement horizon.",
-        "Review growth rate",
-      );
-    } else {
-      recAdd(
-        recs,
-        "info",
-        "Document the manual spending-growth assumption",
-        "Manual spending growth overrides CPI. Add notes or confirm the rate so future comparisons are interpretable.",
-        manual || growth,
-        "spending_core",
-        "Changes long-term spending, withdrawals, and terminal net worth.",
-        "Review growth mode",
-      );
-    }
-  } else if (growth) {
-    recAdd(
-      recs,
-      "info",
-      "Use a scenario for non-CPI spending stress",
-      "Core spending currently follows CPI/general inflation. For pressure testing, keep the base case stable and use Scenarios for a higher-spending case.",
-      growth,
-      "spending_core",
-      "Keeps base-plan spending clean while still testing lifestyle risk.",
-      "Review growth mode",
-    );
-  }
-  if (freeze && fieldNumericValue(freeze) > 0) {
-    recAdd(
-      recs,
-      "info",
-      "Confirm the spending freeze year is intentional",
-      "A spending freeze can improve long-term results materially. Confirm it represents real lifestyle behavior, not a placeholder.",
-      freeze,
-      "spending_core",
-      "Can raise terminal net worth and success probability by stopping inflation growth after the freeze year.",
-      "Review freeze year",
-    );
-  }
-  return recs.slice(0, 4);
-}
-function socialSecurityPageRecommendations() {
-  const recs = [];
-  const claims = recStepRows("income_retirement").filter(
-    (r) => norm(r.label) === "claim_age",
-  );
-  const survivor =
-    recFindBy(
-      "Social Security",
-      "Policy",
-      "survivor_benefit_uses_deceased_claim_age",
-    ) ||
-    recFindBy("Social Security", "Policy", "survivor_pct_of_higher_benefit");
-  const early = claims.find(
-    (r) => fieldNumericValue(r) > 0 && fieldNumericValue(r) < 67,
-  );
-  const not70 = claims.find(
-    (r) => fieldNumericValue(r) >= 67 && fieldNumericValue(r) < 70,
-  );
-  if (early) {
-    recAdd(
-      recs,
-      "warn",
-      "Stress-test early claiming",
-      "At least one claim age is before full retirement age. Compare a later-claim scenario before finalizing because early claiming can permanently reduce survivor income.",
-      early,
-      "income_retirement",
-      "Affects annual income, Roth conversion room, taxes, withdrawals, survivor benefits, and terminal value.",
-      "Review claim age",
-    );
-  } else if (not70) {
-    recAdd(
-      recs,
-      "info",
-      "Compare delaying the higher earner to 70",
-      "A claim age is between full retirement age and 70. Test delaying the higher benefit to age 70, especially when survivor protection matters.",
-      not70,
-      "income_retirement",
-      "May improve longevity and survivor income but can increase bridge withdrawals before claiming.",
-      "Review claim age",
-    );
-  } else if (claims.length) {
-    recAdd(
-      recs,
-      "info",
-      "Document why age-70 claiming is acceptable",
-      "Claim ages appear set to 70. Confirm the bridge years are affordable and the Roth window before Social Security is intentional.",
-      claims[0],
-      "income_retirement",
-      "Delaying benefits can improve inflation-linked income and survivor protection.",
-      "Review claim age",
-    );
-  }
-  if (
-    survivor &&
-    !recYes(survivor) &&
-    norm(survivor.label).includes("survivor_benefit_uses")
-  ) {
-    recAdd(
-      recs,
-      "warn",
-      "Review survivor benefit treatment",
-      "Survivor benefit handling affects the income floor for the surviving member. Confirm this setting before relying on survivor stress outputs.",
-      survivor,
-      "income_retirement",
-      "Changes survivor cash flow, withdrawals, taxes, and downside risk.",
-      "Review survivor setting",
-    );
-  }
-  return recs.slice(0, 4);
-}
-function pageRecommendationsForStep(stepId) {
-  if (!RECOMMENDATION_STEP_IDS.has(stepId) || !planLoaded) return [];
-  try {
-    if (stepId === "roth_conversion") return rothPageRecommendations();
-    if (stepId === "allocation_assets" || stepId === "allocation_policy")
-      return allocationPageRecommendations(stepId);
-    if (stepId === "spending_core") return spendingPageRecommendations();
-    if (stepId === "income_retirement")
-      return socialSecurityPageRecommendations();
-    return [];
-  } catch (e) {
-    return [
-      {
-        level: "warn",
-        title: "Recommendations unavailable",
-        body: "The page-local recommendation engine could not interpret the current values on this page. Save and reload, then review the source fields manually.",
-        stepId,
-        row: null,
-        impact: String((e && e.message) || e),
-        actionLabel: "Open page",
-      },
-    ];
-  }
-}
-function pageRecommendationsHtml(stepId) {
-  const items = pageRecommendationsForStep(stepId);
-  if (!items.length) return "";
-  const rowsHtml = items
-    .map(
-      (item) =>
-        `<div class="recommendation-card ${esc(item.level || "info")}"><div><span class="recommendation-level">${esc(item.level || "info")}</span><h4>${esc(item.title)}</h4><p>${esc(formatAcronyms(item.body))}</p>${item.impact ? `<p class="small"><b>Why it matters:</b> ${esc(formatAcronyms(item.impact))}</p>` : ""}</div><div class="recommendation-actions">${recommendationSourceButton(item)}</div></div>`,
-    )
-    .join("");
-  return `<details class="page-recommendations" data-contract="${RECOMMENDATION_ENGINE_VERSION}"><summary class="page-recommendations-head"><span class="eyebrow">Page recommendations</span><h3>Suggested reviews before the next build (${items.length})</h3><p class="small">Explainable suggestions only — nothing is changed automatically. Each item links back to the input that controls the recommendation.</p></summary><div class="page-recommendation-list">${rowsHtml}</div></details>`;
-}
 
 
 function pageSaveMode(stepId) {
@@ -2767,9 +2239,6 @@ function percentRaw(value) {
 function moneyNegativeClass(value) {
   const n = numberFromDisplay(value);
   return n !== null && n < 0 ? " negative-money" : "";
-}
-function updateLargeDiscLineMoney(lineId, field, el) {
-  updateLargeDiscLine(lineId, field, String(budgetMoneyNumber(el && el.value)));
 }
 function percentDisplayDecimals(row, value) {
   const schema = row?.schema || {};
@@ -4679,196 +4148,9 @@ async function loadSavedPlan() {
 /* Large Discretionary Expenses (travel extras), liquidity reserve buffers, and
    forced Roth conversions moved to frontend/js/dashboard_decomp_supplemental_tables.js
    (loaded before dashboard.js). */
-function findRows(sectionName, subsectionName, labels) {
-  return labels
-    .map((l) => findEditableRow(sectionName, subsectionName, l))
-    .filter(Boolean);
-}
-function ssPersonRows(person) {
-  return findRows("Social Security", person, [
-    "claim_age",
-    "monthly_pia_at_fra_today_dollars",
-    "fra_age",
-  ]);
-}
-function ssActiveCell(row) {
-  if (!row) return '<span class="small">Missing</span>';
-  return fieldControlOnly(row);
-}
 // Mirrors src/projection_stages/deterministic_engine.py _fra_for_birth_year /
 // _ss_claim_factor closely enough for this preview cell. The workbook build
 // always uses the authoritative Python engine; this is a display estimate.
-function ssClaimFactor(claimAge, fra) {
-  const months = Math.round((Number(claimAge || fra) - fra) * 12);
-  if (months >= 0) return 1.0 + months * (0.08 / 12.0);
-  const early = Math.abs(months);
-  const first36 = Math.min(36, early) * (5.0 / 900.0);
-  const extra = Math.max(0, early - 36) * (5.0 / 1200.0);
-  return Math.max(0.0, 1.0 - first36 - extra);
-}
-function ssMonthlyAtClaimAgeCell(person, claimAgeRow) {
-  if (!claimAgeRow) return '<span class="small">Missing</span>';
-  const age = Math.max(
-    62,
-    Math.min(70, Math.round(fieldNumericValue(claimAgeRow) || 70)),
-  );
-  const benefitRow = findEditableRow(
-    "Social Security",
-    person,
-    `ss_benefit_age_${age}`,
-  );
-  const amount = benefitRow ? fieldNumericValue(benefitRow) : 0;
-  if (benefitRow && amount)
-    return `<span class="computed-value">${esc(fmtMoney(amount))}</span>`;
-  // No SSA-quoted figure for this exact age — derive it from FRA/PIA using
-  // the SSA reduction/delayed-credit factor instead of just asking the user
-  // to fill in the table, so a claim-age change always shows a value.
-  const fraRow = findEditableRow("Social Security", person, "fra_age");
-  const fra = (fraRow ? fieldNumericValue(fraRow) : 0) || 67;
-  const piaRow = findEditableRow(
-    "Social Security",
-    person,
-    "monthly_pia_at_fra_today_dollars",
-  );
-  const age67Row = findEditableRow("Social Security", person, "ss_benefit_age_67");
-  const pia =
-    (piaRow ? fieldNumericValue(piaRow) : 0) ||
-    (age67Row ? fieldNumericValue(age67Row) : 0);
-  if (!pia)
-    return `<span class="small">Enter Monthly at FRA</span>`;
-  const derived = pia * ssClaimFactor(age, fra);
-  return `<span class="computed-value">~${esc(fmtMoney(derived))} <span class="small">(derived from FRA)</span></span>`;
-}
-function renderSsCompactTable() {
-  const people = [
-    { key: "Member 1", n: 1 },
-    { key: "Member 2", n: 2 },
-  ];
-  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Social Security</h3><div class="section-note">Enter each person’s FRA Age, Monthly at FRA, and claiming age. Monthly at Claim Age is calculated: it’s looked up from a saved SSA benefit-table entry for that exact age when available, otherwise it’s derived from FRA Age and Monthly at FRA using the SSA reduction/delayed-credit factor. FRA Age defaults to 67 (SSA birth-year rule) if left blank.</div><div class="lot-table-wrap"><table class="lot-table compact-table ss-compact-table"><thead><tr><th>Person</th><th>FRA Age</th><th>Monthly at FRA</th><th>Claim Age</th><th>Monthly at Claim Age</th></tr></thead><tbody>`;
-  people.forEach((p) => {
-    const r = ssPersonRows(p.key);
-    const by = {};
-    r.forEach((x) => (by[norm(x.label)] = x));
-    html += `<tr><td><b>${esc(personDisplayName(p.n))}</b></td><td>${ssActiveCell(by.fra_age)}</td><td>${ssActiveCell(by.monthly_pia_at_fra_today_dollars)}</td><td>${ssActiveCell(by.claim_age)}</td><td>${ssMonthlyAtClaimAgeCell(p.key, by.claim_age)}</td></tr>`;
-  });
-  return html + "</tbody></table></div></div>";
-}
-function fieldControlOnly(r) {
-  const html = fieldHtml(r);
-  const m = html.match(
-    /<div>(<input[\s\S]*?<\/input>|<select[\s\S]*?<\/select>|<input[\s\S]*?>)(?:<div class="unit">[\s\S]*?<\/div>)?<\/div><\/div>$/,
-  );
-  if (m) return m[1];
-  const wrap = document.createElement("div");
-  wrap.innerHTML = html;
-  const ctrl = wrap.querySelector("input,select,textarea");
-  return ctrl ? ctrl.outerHTML : html;
-}
-function incomeStreamSubsections() {
-  return [
-    ...new Set(
-      rows
-        .filter(isEditable)
-        .filter(
-          (r) =>
-            r.section === "Income Streams" &&
-            ![
-              "joint_and_survivor_percentage",
-              "recovery_age",
-            ].includes(norm(r.subsection)),
-        )
-        .map((r) => String(r.subsection || ""))
-        .filter(Boolean),
-    ),
-  ];
-}
-function renderIncomeStreamsSection() {
-  const globalRows = findRows(
-    "Income Streams",
-    "Joint-and-Survivor Percentage",
-    ["js_pct"],
-  )
-    .concat(
-      findRows("Income Streams", "Recovery Age", ["principal_recovery_age"]),
-    )
-    // #236: moved from Economic and Tax Assumptions -- these are annuity-wide
-    // defaults, not per-stream Income Streams rows, so they're looked up by
-    // their actual Economic Assumptions section/subsection.
-    .concat(
-      findRows("Economic Assumptions", "", [
-        "annuity_default_dividend_rate",
-        "annuity_default_additional_income_pct",
-      ]),
-    );
-  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Pensions and annuities</h3><div class="section-note">Each card starts with Type, then the payment and valuation fields for that income stream. Recovery Age is the age at which each stream's cash dividend payout stops (the guaranteed payment continues for life).</div>`;
-  incomeStreamSubsections().forEach((sub) => {
-    let rs = rows
-      .filter(isEditable)
-      .filter((r) => r.section === "Income Streams" && r.subsection === sub);
-    const typeRow = rs.find((r) => norm(r.label) === "type");
-    rs = rs.filter((r) => norm(r.label) !== "type");
-    const ordered = [...(typeRow ? [typeRow] : []), ...rs];
-    html += `<details><summary>${esc(translatePersonPlaceholders(sub))}</summary><div class="field-list">${ordered.map(fieldHtml).join("")}</div></details>`;
-  });
-  if (globalRows.length)
-    html += `<details><summary>Plan-wide income stream settings</summary><div class="field-list">${globalRows.map(fieldHtml).join("")}</div></details>`;
-  return html + "</div>";
-}
-function renderSsPolicySection() {
-  const compactLabels = new Set([
-    "claim_age",
-    "monthly_pia_at_fra_today_dollars",
-    "fra_age",
-  ]);
-  // Per-age SSA benefit-table entries (62-70) still drive the Monthly at
-  // Claim Age lookup in the compact table above and the engine's benefit
-  // calculation, but are not shown as an editable table on this page.
-  const hiddenLabels = new Set(
-    Array.from({ length: 9 }, (_, i) => `ss_benefit_age_${62 + i}`),
-  );
-  const excludedSubs = new Set(["funding discount"]);
-  const rs = rows
-    .filter(isEditable)
-    .filter(
-      (r) =>
-        r.section === "Social Security" &&
-        !compactLabels.has(norm(r.label)) &&
-        !hiddenLabels.has(norm(r.label)) &&
-        !excludedSubs.has(String(r.subsection || "").toLowerCase()),
-    );
-  const fundingRows = [
-    findEditableRow("Social Security", "Funding Discount", "ss_funding_discount_year"),
-    findEditableRow("Social Security", "Funding Discount", "ss_funding_discount_pct"),
-  ].filter(Boolean);
-  if (!rs.length && !fundingRows.length) return "";
-  const bySub = {};
-  rs.forEach((r) => {
-    const k = String(r.subsection || "");
-    (bySub[k] = bySub[k] || []).push(r);
-  });
-  if (fundingRows.length) {
-    const policyKey =
-      Object.keys(bySub).find((k) => k.toLowerCase() === "policy") || "Policy";
-    bySub[policyKey] = (bySub[policyKey] || []).concat(fundingRows);
-  }
-  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Social Security policy &amp; benefit details</h3><div class="section-note">Household-wide spousal, survivor, and funding-discount policy settings.</div>`;
-  Object.keys(bySub).forEach((sub) => {
-    if (sub && sub.toLowerCase() !== "policy")
-      html += `<div class="subsection-label">${esc(friendlyGroup({ section: "Social Security", subsection: sub }) || sub)}</div>`;
-    html += `<div class="field-list inline-row">${bySub[sub].map(fieldHtml).join("")}</div>`;
-  });
-  return html + "</div>";
-}
-function renderRetirementIncome() {
-  const ssInner = renderSsCompactTable() + renderSsPolicySection();
-  const ssSummary =
-    "Claim ages, FRA, per-age benefit tables, spousal/survivor policy, and funding discount";
-  const ssSection =
-    `<details class="allocation-policy-collapsed"><summary><b>Social Security</b><span class="small" style="margin-left:8px;font-weight:normal;color:var(--muted)">${esc(ssSummary)}</span></summary>` +
-    ssInner +
-    "</details>";
-  return ssSection + renderIncomeStreamsSection();
-}
 function renderRetirementWellness() {
   if (searchText.trim()) return renderFields("retirement_wellness");
   let html =
@@ -5043,78 +4325,9 @@ async function saveLiabilities() {
 }
 
 
-function matrixYears(rs) {
-  return [
-    ...new Set(rs.map((r) => String(r.subsection || "")).filter(Boolean)),
-  ].sort(
-    (a, b) =>
-      (Number(a) || 0) - (Number(b) || 0) || String(a).localeCompare(String(b)),
-  );
-}
-function matrixPolicies(rs) {
-  return [
-    ...new Set(rs.map((r) => String(r.label || "")).filter(Boolean)),
-  ].sort((a, b) => humanLabel(a).localeCompare(humanLabel(b)));
-}
-function findMatrixCell(rs, policy, year) {
-  return rs.find(
-    (r) => String(r.label) === policy && String(r.subsection) === year,
-  );
-}
-function renderYearMatrix(section, title, intro, opts = {}) {
-  const rs = matrixRows(section);
-  if (!rs.length)
-    return `<div class="holdings"><h3 class="group-title">${esc(title)}</h3><div class="section-note">No year-by-year rows were found for ${esc(section)}.</div></div>`;
-  const years = matrixYears(rs);
-  const policies = matrixPolicies(rs);
-  const frozen = opts.frozenLabel || "Policy";
-  let html = `<div class="holdings"><h3 class="group-title">${esc(title)}</h3><div class="section-note">${esc(intro)}</div>`;
-  html += `<div class="table-actions"><button class="btn" type="button" onclick="showStepHelp(activeStep)">How to use this table</button></div>`;
-  html += `<div class="matrix-wrap" role="region" aria-label="${esc(title)} matrix" tabindex="0"><table class="matrix-table"><thead><tr><th>${esc(frozen)}</th>${years.map((y) => `<th>${esc(y)}</th>`).join("")}</tr></thead><tbody>`;
-  policies.forEach((pol) => {
-    html += `<tr><td><span>${esc(humanLabel(pol))}</span></td>`;
-    years.forEach((y) => {
-      const r = findMatrixCell(rs, pol, y);
-      html += `<td>${r ? `<input type="text" value="${esc(displayValueForInput(r, valOf(r)))}" aria-label="${esc(humanLabel(pol))} ${esc(y)}" oninput="editValue(${r.row_index},this.value,this)" onfocus="beginEdit(${r.row_index},this)" onblur="finishEdit(${r.row_index},this)">` : '<span class="small">—</span>'}</td>`;
-    });
-    html += "</tr>";
-  });
-  html += "</tbody></table></div>";
-  html += `<p class="small">Tip: use <span class="kbd">Tab</span> or <span class="kbd">Return</span> to move across the editable year cells. Scroll horizontally to reach later years; the ${esc(frozen.toLowerCase())} column remains visible.</p>`;
-  html += "</div>";
-  return html;
-}
-function renderDeathBenefitsTable() {
-  return renderYearMatrix(
-    "Annuity Death Benefits",
-    "Annuity death benefits",
-    "Each row is a separate annuity policy. Each column is a calendar year. Enter the benefit payable to heirs if death occurs in that year.",
-    { frozenLabel: "Policy" },
-  );
-}
 // #215: carrier-illustration schedules for Life policies -- the plan's
 // projection years are read from the existing Annuity Death Benefits matrix
 // (already correct for this household) rather than re-derived here.
-function illustrationPlanYears() {
-  return matrixYears(matrixRows("Annuity Death Benefits"));
-}
-function renderLifeIllustrations() {
-  const years = illustrationPlanYears();
-  if (!years.length) return "";
-  const cashValue = matrixRows("Life Illustration Cash Value");
-  const deathBenefit = matrixRows("Life Illustration Death Benefit");
-  const premium = matrixRows("Life Illustration Premium");
-  if (!cashValue.length && !deathBenefit.length && !premium.length) return "";
-  return `<details><summary>Life Insurance Illustrations</summary><div class="section-note">Enter values from each Life policy's carrier illustration for the years shown. Each policy below matches a policy added under Insurance Policies.</div>${renderYearMatrix("Life Illustration Cash Value", "Cash value", "Cash surrender value in each year, per the illustration.", { frozenLabel: "Policy" })}${renderYearMatrix("Life Illustration Death Benefit", "Death benefit", "Death benefit payable to beneficiaries in each year, per the illustration.", { frozenLabel: "Policy" })}${renderYearMatrix("Life Illustration Premium", "Premium", "Premium due in each year, per the illustration.", { frozenLabel: "Policy" })}</details>`;
-}
-function renderSpecialIncomeAnnuitiesInsurance() {
-  if (searchText.trim()) return renderFields("annuity_death_benefits");
-  return (
-    renderDeathBenefitsTable() +
-    renderLifeIllustrations() +
-    renderInsurancePolicies()
-  );
-}
 
 // Excluded: "Priority N" is the removed legacy cascade table; "Account Order" is owned by the Withdrawal order drag editor above and would otherwise re-render as raw integers (ticket 285). See tests/frontend/withdrawal_other_rows.test.mjs.
 function withdrawalOtherRows() {
@@ -5460,87 +4673,7 @@ function scenarioRowKeyFromParts(section, subsection, label) {
 }
 
 
-function mcEngineRow() {
-  return (
-    rows.find(
-      (x) =>
-        isEditable(x) &&
-        rowIsMonteCarlo(x) &&
-        norm(x.label) === "mc_engine_mode",
-    ) || rows.find((x) => isEditable(x) && norm(x.label) === "mc_engine_mode")
-  );
-}
-function setMcEngineMode(value) {
-  const r = mcEngineRow();
-  if (!r) {
-    showMessage(
-      "Monte Carlo engine row is missing from Plan Data. Reload the current plan with this package to backfill it.",
-      "error",
-    );
-    return;
-  }
-  editValue(r.row_index, value, null);
-  renderMain();
-}
-function mcEngineToggleHtml(engine) {
-  const mode = mcEngineModeValue();
-  if (!engine)
-    return '<p class="small">Monte Carlo engine row is missing from Plan Data. Reloading Plan Data with this package will add it automatically.</p>';
-  return `<div class="mc-mode-toggle" role="radiogroup" aria-label="Monte Carlo engine mode"><button type="button" class="mc-mode-option ${mode === "quick_vectorized" ? "active" : ""}" aria-pressed="${mode === "quick_vectorized" ? "true" : "false"}" onclick="setMcEngineMode('quick_vectorized')"><b>Simple</b><span>Runs in seconds. Good for testing changes during plan entry. Approximate — not for final outputs.</span></button><button type="button" class="mc-mode-option ${mode === "advanced_exact_scalar" ? "active" : ""}" aria-pressed="${mode === "advanced_exact_scalar" ? "true" : "false"}" onclick="setMcEngineMode('advanced_exact_scalar')"><b>Complex</b><span>Runs fuller paths per trial. Use for final and advisor-ready workbooks where precision matters.</span></button></div><div class="small mc-mode-current">Saved value: ${esc(valOf(engine) || "advanced_exact_scalar")}</div>`;
-}
-function renderMonteCarloOptions() {
-  if (searchText.trim()) return renderFields("monte_carlo_options");
-  const rs = rowsForStep("monte_carlo_options");
-  const engine = mcEngineRow();
-  const mode = mcEngineModeValue();
-  const quick = new Set([
-    "mc_engine_mode",
-    "mc_simulations",
-    "mc_portfolio_sigma",
-    "success_liquid_floor",
-    "use_asset_class_covariance",
-    "mc_home_equity_contingency",
-    "mc_home_equity_haircut",
-    "mc_home_equity_access_lag_years",
-  ]);
-  const advancedOnly = new Set([
-    "mc_sensitivity_simulations",
-    "stochastic_tax_brackets",
-    "stochastic_irmaa",
-    "healthcare_cost_shocks",
-    "healthcare_shock_annual_prob",
-    "healthcare_shock_mean_cost",
-    "recenter_regime_returns",
-    "stochastic_inflation",
-    "inflation_sigma",
-    "return_inflation_correlation",
-    "return_serial_correlation",
-  ]);
-  const rowsToShow = rs.filter((r) => {
-    const l = norm(r.label);
-    if (l === "mc_engine_mode") return false;
-    if (mode === "quick_vectorized") return quick.has(l);
-    return (
-      quick.has(l) ||
-      advancedOnly.has(l) ||
-      l.includes("monte_carlo") ||
-      l.includes("simulation")
-    );
-  });
-  let html =
-    '<div class="field-list"><div class="section-note mc-engine-card"><b>Start here: choose the Monte Carlo engine.</b><p>Use <b>Simple</b> for fast assumption testing. Use <b>Complex</b> for final/advisor-ready workbooks because each simulated path runs the fuller planning engine.</p>' +
-    mcEngineToggleHtml(engine) +
-    "</div></div>";
-  html += `<div class="field-list"><div class="section-note"><b>Showing ${mode === "quick_vectorized" ? "simple / quick-mode" : "complex / advanced-mode"} options.</b> ${mode === "quick_vectorized" ? "Only the settings that materially affect the faster approximation are shown. Switch to Complex to see sensitivity grids, stochastic tax/IRMAA, inflation-path, serial-correlation, and Wellness-shock controls." : "Advanced controls are shown because Complex mode runs fuller scalar paths and can use tax/IRMAA, inflation, sensitivity, Wellness-shock, and serial-correlation settings."}</div></div>`;
-  html += renderFieldGroups(rowsToShow);
-  return html;
-}
 
-function renderDivorceOptions() {
-  return optionalFunctionEnabled("divorce_qdro")
-    ? renderFields("divorce_options")
-    : '<div class="field-list"><p>Divorce options are hidden until the Divorce/QDRO optional workbook module is enabled on Optional workbook modules.</p></div>';
-}
 
 function ytdMoney(v) {
   if (v === null || v === undefined || v === "") return "Not available";
@@ -7050,125 +6183,13 @@ async function hideUnusedTemplateCategories() {
     });
 }
 
-function renderTravelBudgetPage() {
-  return renderDomainBudgetPage("travel");
-}
 const LARGE_DISC_TYPES = ["Wedding", "Large Gifts", "Other"];
-function largeDiscTypeFromLine(line) {
-  const cid = String(line.category_id || "").toLowerCase();
-  const label = String(line.label || "").toLowerCase();
-  if (
-    cid === "weddings" ||
-    cid === "children_weddings" ||
-    label.includes("wedding")
-  )
-    return "Wedding";
-  if (
-    cid === "significant_gifts" ||
-    cid === "large_gifts" ||
-    label.includes("gift")
-  )
-    return "Large Gifts";
-  return "Other";
-}
-function largeDiscCategoryFromType(type) {
-  if (type === "Wedding") return "weddings";
-  if (type === "Large Gifts") return "significant_gifts";
-  return "other_large_discretionary";
-}
-function updateLargeDiscLine(lineId, field, val) {
-  const l = (budgetLines || []).find((x) => x.line_id === lineId);
-  if (!l) return;
-  if (field === "type") {
-    l.category_id = largeDiscCategoryFromType(val);
-    if (!String(l.label || "").trim()) l.label = val;
-  } else {
-    l[field] = val;
-  }
-  markBudgetLinesDirty();
-}
-function addLargeDiscLine() {
-  budgetLines.push({
-    section: "large_discretionary",
-    line_id: "ld_" + (Date.now() % 1000000),
-    label: "",
-    category_id: "other_large_discretionary",
-    start_year: "",
-    end_year: "",
-    one_time_year: "",
-    amount_per_year: "",
-    mode: "detail",
-    notes: "",
-  });
-  markBudgetLinesDirty();
-  renderMain();
-}
-async function deleteLargeDiscLine(lineId) {
-  if (
-    !(await showInAppConfirm("This cannot be undone.", {
-      title: "Delete Budget Detail",
-      confirmLabel: "Delete",
-      variant: "danger",
-    }))
-  )
-    return;
-  budgetLines = (budgetLines || []).filter((l) => l.line_id !== lineId);
-  markBudgetLinesDirty();
-  renderMain();
-}
 const LARGE_DISC_CATEGORY_IDS = [
   "weddings",
   "children_weddings",
   "significant_gifts",
   "other_large_discretionary",
 ];
-function renderLargeDiscretionaryBudgetPage() {
-  if (!budgetLinesLoaded) {
-    setTimeout(() => loadBudgetLines(false), 0);
-  }
-  const lines = (budgetLines || []).filter(
-    (l) =>
-      String(l.section || "") === "large_discretionary" ||
-      LARGE_DISC_CATEGORY_IDS.includes(String(l.category_id || "")),
-  );
-  // #208: Large Discretionary rows are inherently lumpy (weddings, gifts, one-time
-  // purchases) -- summing one-time and recurring rows into a single "$X/yr" figure
-  // implied an ongoing annual commitment that doesn't exist. Split the total so a
-  // one-time lump is shown as a lump, not folded into a misleading per-year rate.
-  let oneTimeTotal = 0;
-  let recurringTotal = 0;
-  lines.forEach((l) => {
-    const amt = Number(String(l.amount_per_year || "").replace(/[$,]/g, "")) || 0;
-    if (l.one_time_year) oneTimeTotal += amt;
-    else recurringTotal += amt;
-  });
-  let html =
-    '<div class="holdings"><div class="table-actions"><button class="btn primary" ' +
-    (budgetLinesChanged ? "" : "disabled") +
-    ' onclick="saveAll(true)">Save Changes</button><button class="btn" onclick="loadBudgetLines(true)">Reload</button><button class="btn" onclick="addLargeDiscLine()">Add Row</button></div>';
-  html +=
-    '<div class="lot-table-wrap"><table class="lot-table travel-table"><thead><tr><th>Type</th><th>Description</th><th>Amount</th><th>Year</th><th>Repeat Start</th><th>Repeat End</th><th>Notes</th><th>Actions</th></tr></thead><tbody>';
-  if (!lines.length) {
-    html +=
-      '<tr><td colspan="8" class="small" style="padding:12px">No Large Discretionary projection rows. Add Wedding, Large Gifts, or Other as needed.</td></tr>';
-  }
-  lines.forEach(function (l) {
-    const lid = esc(l.line_id);
-    const typ = largeDiscTypeFromLine(l);
-    html += `<tr><td><select onchange="updateLargeDiscLine('${lid}','type',this.value)">${LARGE_DISC_TYPES.map((t) => `<option value="${esc(t)}" ${t === typ ? "selected" : ""}>${esc(t)}</option>`).join("")}</select></td><td><input value="${esc(l.label || "")}" placeholder="Description" oninput="updateLargeDiscLine('${lid}','label',this.value)" style="width:160px"></td><td><input type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue(l.amount_per_year))}" onfocus="focusBudgetMoney(this)" oninput="updateLargeDiscLineMoney('${lid}','amount_per_year',this)" onblur="blurBudgetMoney(this)" style="width:110px"></td><td><input type="number" value="${esc(l.one_time_year || "")}" placeholder="one-time" oninput="updateLargeDiscLine('${lid}','one_time_year',this.value)" style="width:90px"></td><td><input type="number" value="${esc(l.start_year || "")}" placeholder="—" oninput="updateLargeDiscLine('${lid}','start_year',this.value)" style="width:90px"></td><td><input type="number" value="${esc(l.end_year || "")}" placeholder="forever" oninput="updateLargeDiscLine('${lid}','end_year',this.value)" style="width:90px"></td><td><input value="${esc(l.notes || "")}" placeholder="Optional" oninput="updateLargeDiscLine('${lid}','notes',this.value)" style="width:180px"></td><td><button class="danger-link" onclick="deleteLargeDiscLine('${lid}')">Delete</button></td></tr>`;
-  });
-  html +=
-    '</tbody></table></div><div class="section-note"><b>One-time lump total: $' +
-    Math.round(oneTimeTotal).toLocaleString() +
-    "</b> (projects only in each row's own year, never annualized)" +
-    (recurringTotal
-      ? " · <b>Recurring: $" +
-        Math.round(recurringTotal).toLocaleString() +
-        "/yr</b> (rows with a start/end range instead of a one-time year)"
-      : "") +
-    "</div></div>";
-  return html;
-}
 
 function renderSpendingDashboardOrLoad() {
   if (typeof renderSpendingDashboard === "function")
@@ -7733,10 +6754,6 @@ function renderSpecialStrategies() {
   }
   html += "</div>";
   return html;
-}
-function renderLifestyleSpending() {
-  // #269: DAF settings duplicate Special Strategies -> Charitable Giving; drop here.
-  return `<div class="lifestyle-workspace"><details><summary>Travel</summary>${renderTravelBudgetPage()}</details><details><summary>Large Items</summary>${renderLargeDiscretionaryBudgetPage()}</details></div>`;
 }
 const SPENDING_WORKFLOW_STEPS = [
   { label: "Spending Model", stepId: "spending_core" },
@@ -11236,9 +10253,13 @@ Object.defineProperty(window, "BUILD_IMPACT_SOURCE_STEP_IDS", { get: () => BUILD
 Object.defineProperty(window, "DEFAULT_TRAVEL_TYPES", { get: () => DEFAULT_TRAVEL_TYPES, configurable: true });
 Object.defineProperty(window, "FIELD_GUIDANCE_OVERRIDES", { get: () => FIELD_GUIDANCE_OVERRIDES, configurable: true });
 Object.defineProperty(window, "IRMAA_OFF_MODES", { get: () => IRMAA_OFF_MODES, configurable: true });
+Object.defineProperty(window, "LARGE_DISC_CATEGORY_IDS", { get: () => LARGE_DISC_CATEGORY_IDS, configurable: true });
+Object.defineProperty(window, "LARGE_DISC_TYPES", { get: () => LARGE_DISC_TYPES, configurable: true });
 Object.defineProperty(window, "LIABILITY_HEADER", { get: () => LIABILITY_HEADER, configurable: true });
 Object.defineProperty(window, "PERSON_VALUE_TOKEN_RE", { get: () => PERSON_VALUE_TOKEN_RE, configurable: true });
 Object.defineProperty(window, "PLAN_DATA_FILES", { get: () => PLAN_DATA_FILES, configurable: true });
+Object.defineProperty(window, "RECOMMENDATION_ENGINE_VERSION", { get: () => RECOMMENDATION_ENGINE_VERSION, configurable: true });
+Object.defineProperty(window, "RECOMMENDATION_STEP_IDS", { get: () => RECOMMENDATION_STEP_IDS, configurable: true });
 Object.defineProperty(window, "REPORTS_TABS", { get: () => REPORTS_TABS, configurable: true });
 Object.defineProperty(window, "REQUIRED_PLAN_DATA_FILES", { get: () => REQUIRED_PLAN_DATA_FILES, configurable: true });
 Object.defineProperty(window, "SCENARIO_SET_STORAGE_KEY", { get: () => SCENARIO_SET_STORAGE_KEY, configurable: true });
@@ -11346,101 +10367,88 @@ Object.defineProperty(window, "ytdTransactionsChanged", { get: () => ytdTransact
 Object.defineProperty(window, "ytdTxColsCollapsed", { get: () => ytdTxColsCollapsed, set: (v) => { ytdTxColsCollapsed = v; }, configurable: true });
 Object.defineProperty(window, "ytdTxSearch", { get: () => ytdTxSearch, set: (v) => { ytdTxSearch = v; }, configurable: true });
 Object.assign(window, {
-  _checkAppStatusRun, activeOptimizerUsedTarget, addAltOption, addLargeDiscLine, addManualYtdAccount,
+  _checkAppStatusRun, activeOptimizerUsedTarget, addAltOption, addManualYtdAccount,
   addParentheticals, addYtdTxn, allocationCoverageCalloutHtml, allocationModeHtml,
-  allocationModeIsComputed, allocationOptimizerRecommendationHtml, allocationPageRecommendations,
-  allocationPolicyRows, allocationPreviewFingerprint, allocationPreviewRowsForPost,
-  allocationTargetsValid, alternateAssetRows, alternateAssetSourceOptions, alternateSelect,
-  artifactHashFromPreflight, assetActionForSubsection, assetClassNamesForAllocation,
-  autoCollapseHelpForNarrowLaptop, baseHomeSaleYearRow, blurYtdAccountMoney, blurYtdTxnAmount,
-  boolishValue, buildWithDesktopProgress, cacheChart, catEffectiveBudget, changeImpactScope,
-  changeKey, chatMessageHtml, checkAppStatus, checklistItemStatus, choiceHelpText, choiceLabel,
-  choiceOptions, chooseDefaultDetailedSheet, classKey, clientDataKey, cloneSummary, closeChartModal,
-  closeExitModal, closeNavDrawer, collapseAllDetailGroups, copyOptimizerOverrideToUserTargets,
-  csvEscape, currentManualOverrideItems, currentScenarioOverrideItems, decimalsFromText,
-  deduplicateYtdTransactions, deleteAllYtdTransactions, deleteLargeDiscLine, deleteYtdAccount,
-  deleteYtdTxn, dependencyRank, deriveTotalRothConversions, detailProgressState,
-  detailedProgressHtml, detailedSheetByName, discardAndExit, dismissMessage, domainBudgetNote,
-  downloadBlob, downloadFile, downloadYtdTemplate, exitApp, expandAllDetailColumnsOnPage,
-  expandAllDetailGroups, exportCsvBackup, fetchPlanDataFiles, fetchText, fetchWithTimeout,
-  fieldAllowedValues, fieldConnection, fieldControlOnly, fieldDefaultMeaning,
+  allocationModeIsComputed, allocationOptimizerRecommendationHtml, allocationPolicyRows,
+  allocationPreviewFingerprint, allocationPreviewRowsForPost, allocationTargetsValid,
+  alternateAssetRows, alternateAssetSourceOptions, alternateSelect, artifactHashFromPreflight,
+  assetActionForSubsection, assetClassNamesForAllocation, autoCollapseHelpForNarrowLaptop,
+  baseHomeSaleYearRow, blurYtdAccountMoney, blurYtdTxnAmount, boolishValue, buildWithDesktopProgress,
+  cacheChart, catEffectiveBudget, changeImpactScope, changeKey, chatMessageHtml, checkAppStatus,
+  checklistItemStatus, choiceHelpText, choiceLabel, choiceOptions, chooseDefaultDetailedSheet,
+  classKey, clientDataKey, cloneSummary, closeChartModal, closeExitModal, closeNavDrawer,
+  collapseAllDetailGroups, copyOptimizerOverrideToUserTargets, csvEscape, currentManualOverrideItems,
+  currentScenarioOverrideItems, decimalsFromText, deduplicateYtdTransactions,
+  deleteAllYtdTransactions, deleteYtdAccount, deleteYtdTxn, dependencyRank,
+  deriveTotalRothConversions, detailProgressState, detailedProgressHtml, detailedSheetByName,
+  discardAndExit, dismissMessage, domainBudgetNote, downloadBlob, downloadFile, downloadYtdTemplate,
+  exitApp, expandAllDetailColumnsOnPage, expandAllDetailGroups, exportCsvBackup, fetchPlanDataFiles,
+  fetchText, fetchWithTimeout, fieldAllowedValues, fieldConnection, fieldDefaultMeaning,
   fieldFinderCategoryName, fieldFinderCategoryOrder, fieldLabelNoteHtml, fieldLikelyImpact,
   fieldSizeClass, fieldTooltipHtml, fieldTooltipPreview, filterChoiceOptionsForRow, findAssetRow,
-  findMatrixCell, findRows, finiteOrNull, firstRunChecklistHtml, fmtPctCell, focusYtdAccountMoney,
-  focusYtdTxnAmount, focusableEntries, freezePricingSnapshot, getStrategyTab, goToStrategyTab,
-  groupModelData, handleYtdTransactionUpload, helpList, hideSpendingModelLoadOverlay,
-  hideUnusedTemplateCategories, hideYtdLoadOverlay, humanizeGroupKey, illustrationPlanYears,
-  importPreviewList, incomeStreamSubsections, irmaaModeValue, jumpRecommendationSource, kpiHasValues,
-  largeDiscCategoryFromType, largeDiscTypeFromLine, leverPctPoints, loadCanonicalGlossary,
-  loadDetailedResults, loadSavedPlan, loadTaxFreshnessStatus, makeYtdAccountRow, matrixPolicies,
-  matrixYears, mcEngineRow, mcEngineToggleHtml, mergeDetailedSheetMeta, mergeProtectedClientData,
-  moneyNegativeClass, moveToNextEntry, nbaPanelHtml, normalizePlanDataTextForCompare,
-  normalizePlanningCaseRunType, normalizePlanningCaseSource, normalizeValueForSave,
-  normalizeYtdActualsPeriod, normalizedAssetSourceName, noteSessionFieldChange,
-  noteSpecialSessionChange, numberDisplayDecimals, openCachedChart, openCurrentPlan, openDemoPlan,
-  openExitModal, openNavDrawer, openNextCollapsedSectionFrom, openSystemConfigurationConsole,
-  optimizerOverrideTotalHtml, optimizerPreviewStatusCell, optimizerPreviewTarget,
-  optionalModuleState, orderedRowsByLabel, pageHelp, pageRecommendationsForStep,
-  pageRecommendationsHtml, pageSaveMode, pageSaveModeHtml, pageStatusHtml, parseCsvLine,
-  parseCsvTable, parseDollarLike, percentDisplayDecimals, percentRaw, personCellInput,
-  personNickPlaceholder, personTokenLabel, planningCaseActiveId, planningCaseAdopt,
-  planningCaseArchive, planningCaseBaseSnapshotId, planningCaseCardsHtml, planningCaseCreate,
-  planningCaseDelete, planningCaseId, planningCaseMatrixHtml, planningCaseMetricSummary,
-  planningCaseNowIso, planningCaseOverrideFromRow, planningCaseOverrideTable,
-  planningCaseOverridesForSource, planningCaseReadAll, planningCaseSaveAll,
-  planningCaseSourceButtons, planningLeversBaselineReady, planningLeversPlaceholder,
-  planningWorkbenchBuildImpactHtml, planningWorkbenchStressSelectorHtml, primaryActionForStep,
-  promotePlanningCase, readFileFromFolder, readYtdActualsPeriod, recFindBy, recFindStepRow,
-  recRowValue, recStepRows, recYes, recentChangesLogHtml, recommendationSourceButton,
-  recoverPriorSpendingBudget, recoverYtdAccountSetup, refreshLivePrices, rememberBuildCompare,
-  renderAllocationRecommendation, renderAssetClassSelectionTable, renderAssetsCashReserves,
-  renderBuildPreflightPanel, renderCurrentAllocationModeNote, renderDeathBenefitsTable,
+  finiteOrNull, firstRunChecklistHtml, fmtPctCell, focusYtdAccountMoney, focusYtdTxnAmount,
+  focusableEntries, freezePricingSnapshot, getStrategyTab, goToStrategyTab, groupModelData,
+  handleYtdTransactionUpload, helpList, hideSpendingModelLoadOverlay, hideUnusedTemplateCategories,
+  hideYtdLoadOverlay, humanizeGroupKey, importPreviewList, irmaaModeValue, kpiHasValues,
+  leverPctPoints, loadCanonicalGlossary, loadDetailedResults, loadSavedPlan, loadTaxFreshnessStatus,
+  makeYtdAccountRow, mergeDetailedSheetMeta, mergeProtectedClientData, moneyNegativeClass,
+  moveToNextEntry, nbaPanelHtml, normalizePlanDataTextForCompare, normalizePlanningCaseRunType,
+  normalizePlanningCaseSource, normalizeValueForSave, normalizeYtdActualsPeriod,
+  normalizedAssetSourceName, noteSessionFieldChange, noteSpecialSessionChange, numberDisplayDecimals,
+  openCachedChart, openCurrentPlan, openDemoPlan, openExitModal, openNavDrawer,
+  openNextCollapsedSectionFrom, openSystemConfigurationConsole, optimizerOverrideTotalHtml,
+  optimizerPreviewStatusCell, optimizerPreviewTarget, optionalModuleState, orderedRowsByLabel,
+  pageHelp, pageSaveMode, pageSaveModeHtml, pageStatusHtml, parseCsvLine, parseCsvTable,
+  parseDollarLike, percentDisplayDecimals, percentRaw, personCellInput, personNickPlaceholder,
+  personTokenLabel, planningCaseActiveId, planningCaseAdopt, planningCaseArchive,
+  planningCaseBaseSnapshotId, planningCaseCardsHtml, planningCaseCreate, planningCaseDelete,
+  planningCaseId, planningCaseMatrixHtml, planningCaseMetricSummary, planningCaseNowIso,
+  planningCaseOverrideFromRow, planningCaseOverrideTable, planningCaseOverridesForSource,
+  planningCaseReadAll, planningCaseSaveAll, planningCaseSourceButtons, planningLeversBaselineReady,
+  planningLeversPlaceholder, planningWorkbenchBuildImpactHtml, planningWorkbenchStressSelectorHtml,
+  primaryActionForStep, promotePlanningCase, readFileFromFolder, readYtdActualsPeriod,
+  recentChangesLogHtml, recoverPriorSpendingBudget, recoverYtdAccountSetup, refreshLivePrices,
+  rememberBuildCompare, renderAllocationRecommendation, renderAssetClassSelectionTable,
+  renderAssetsCashReserves, renderBuildPreflightPanel, renderCurrentAllocationModeNote,
   renderDetailedResults, renderDetailedResultsNav, renderDetailedResultsProgressTick,
-  renderDistributionStrategy, renderDivorceOptions, renderEntityCharitable,
-  renderEstateWithAnnuityLink, renderFieldFinderGroups, renderHoldingPeriodSettingsHtml,
-  renderHouseholdPeople, renderIncomeStreamsSection, renderIncomeWork,
-  renderLargeDiscretionaryBudgetPage, renderLifeIllustrations, renderLifestyleSpending,
-  renderLtcStress, renderMaxSharpeAllocationPanel, renderMeta, renderMonteCarloOptions, renderNav,
-  renderOptimizerAllocationPanel, renderOptimizerOverrideTable, renderOptimizerPreviewNote,
-  renderOptionalFunctions, renderPlanDataReport, renderPlanningLevers, renderPlanningWorkbench,
-  renderRealLossAwarePanel, renderRealLossAwareTuningHtml, renderReportsAndReview,
-  renderReportsBuild, renderReportsPreflight, renderRetirementIncome, renderRetirementWellness,
-  renderReview, renderRothConversion, renderRothMissingNotice, renderRothRows,
-  renderSpecialIncomeAnnuitiesInsurance, renderSpecialStrategies, renderSpendingDashboardOrLoad,
-  renderSpendingWorkflowBanner, renderSsCompactTable, renderSsPolicySection, renderStateResidency,
-  renderStrategyTabs, renderSurvivorStress, renderSystemConfiguration, renderTabbedWorkspace,
-  renderTangencyAllocationPanel, renderTotalWealthAllocationHtml, renderTravelBudgetPage,
+  renderDistributionStrategy, renderEntityCharitable, renderEstateWithAnnuityLink,
+  renderFieldFinderGroups, renderHoldingPeriodSettingsHtml, renderHouseholdPeople, renderIncomeWork,
+  renderMaxSharpeAllocationPanel, renderMeta, renderNav, renderOptimizerAllocationPanel,
+  renderOptimizerOverrideTable, renderOptimizerPreviewNote, renderOptionalFunctions,
+  renderPlanDataReport, renderPlanningLevers, renderPlanningWorkbench, renderRealLossAwarePanel,
+  renderRealLossAwareTuningHtml, renderReportsAndReview, renderReportsBuild, renderReportsPreflight,
+  renderRetirementWellness, renderReview, renderRothConversion, renderRothMissingNotice,
+  renderRothRows, renderSpecialStrategies, renderSpendingDashboardOrLoad,
+  renderSpendingWorkflowBanner, renderStateResidency, renderStrategyTabs, renderSystemConfiguration,
+  renderTabbedWorkspace, renderTangencyAllocationPanel, renderTotalWealthAllocationHtml,
   renderWelcome, renderWithdrawalOrderTable, renderWithdrawalStrategy,
-  renderWorkbenchLeverEditorHtml, renderWorkbenchStressHtml, renderWorkspaceSubtabsNav,
-  renderYearMatrix, renderYtdDuplicateReview, renderYtdSummary, renderYtdTracking,
-  renderYtdTransactions, renderYtdTransactionsStep, renderYtdUploadPanel, resetAllocationPreview,
-  resetDemoToDefaults, resetYtdTxnPage, restoreGroupBudgetModes, restoreWorkbookViewState,
-  revealAndFocus, revertLastBuildChanges, rollForwardYtdAccounts, rothPageRecommendations,
+  renderWorkbenchLeverEditorHtml, renderWorkspaceSubtabsNav, renderYtdDuplicateReview,
+  renderYtdSummary, renderYtdTracking, renderYtdTransactions, renderYtdTransactionsStep,
+  renderYtdUploadPanel, resetAllocationPreview, resetDemoToDefaults, resetYtdTxnPage,
+  restoreGroupBudgetModes, restoreWorkbookViewState, revertLastBuildChanges, rollForwardYtdAccounts,
   rothPolicyValue, rowConfigValue, rowIsRetirementWellness, rowSortKeyForIncomeWork, saveAndExit,
   saveChanges, saveCurrentPlanToSelectedFolderForBuild, saveLiabilities, savePlanAs, saveValueForRow,
   saveYtdAccountSetup, saveYtdPending, saveYtdTransactions, scenarioRowKeyFromParts,
   sectionFlagEnabled, selectedFolderDiffersFromLoadedPlan, selectionActionSelect, serializeCsvTable,
   serializeLiabilities, setAllDetailColumnGroups, setAllocationSelectionMode, setAutoLoad,
-  setCombinedSearch, setDetailedResultSheet, setDetailedResultsNavOpen, setMcEngineMode,
-  setNavSearch, setPlanningCaseActive, setPlanningLeverInput, setSearchScope, setSelectionAction,
-  setStrategyTab, setYtdActualsPeriod, setYtdSort, setYtdTxnPage, showConfigCardHelp,
-  showHelpAutoCollapseNoticeOnce, showPlanDataFileManifest, showSpendingModelLoadOverlay,
-  showYtdBlendChoiceModal, showYtdLoadOverlay, sleep, socialSecurityPageRecommendations,
-  spendingFlowFooterHtml, spendingPageRecommendations, ssActiveCell, ssClaimFactor,
-  ssMonthlyAtClaimAgeCell, ssPersonRows, startDetailedResultsProgress, startNewPlan,
+  setCombinedSearch, setDetailedResultSheet, setDetailedResultsNavOpen, setNavSearch,
+  setPlanningCaseActive, setPlanningLeverInput, setSearchScope, setSelectionAction, setStrategyTab,
+  setYtdActualsPeriod, setYtdSort, setYtdTxnPage, showConfigCardHelp, showHelpAutoCollapseNoticeOnce,
+  showPlanDataFileManifest, showSpendingModelLoadOverlay, showYtdBlendChoiceModal,
+  showYtdLoadOverlay, sleep, spendingFlowFooterHtml, startDetailedResultsProgress, startNewPlan,
   stepHelpLinkHtml, stepIdForRow, stepSearchText, stopDetailedResultsProgress,
   strategyLeverOverrideItems, stressHomeSaleYearRow, stressOverrideItems, stripUiLabelPrefix,
   suggestedNext, summaryFromApiPayload, takeBuildSnapshot, targetPctInput, taxFreshnessBannerHtml,
   toggleDetailColGroup, toggleDetailColumnGroup, toggleHelpSheet, toggleNavDrawer,
-  translatePersonValueLabel, undoSessionFieldChange, unfreezePricingSnapshot, updateLargeDiscLine,
-  updateLargeDiscLineMoney, updateSearchToggle, updateYtdAccountMoney, updateYtdTxnAmount,
-  validateAllocationTargetsOrMessage, wireStepNavigation, withdrawalOtherRows, yesNoOptionHelp,
-  ytdAccountMoneyDisplay, ytdAccountRoleOptions, ytdActualsPeriodToggleHtml, ytdBlendEnabledRow,
-  ytdBlendToggleHtml, ytdCancelDedup, ytdDateAwarePageBoundaries, ytdDeleteSelectedDuplicates,
-  ytdFilterOptions, ytdFilteredTxns, ytdFirstExistingValue, ytdHeader, ytdImportPreviewMessage,
-  ytdInvestmentHoldingAccounts, ytdInvestmentOptions, ytdIsGrowthRole, ytdMappableAccounts,
-  ytdMetricCard, ytdMoney, ytdPct, ytdPeriodTargetYear, ytdRolloverBannerHtml,
-  ytdSelectAllDuplicates, ytdSelectFieldHtml, ytdSelectOptions, ytdShortDate, ytdSparkline,
-  ytdStaleGrowthAccounts, ytdToggleDuplicateGroup, ytdToggleDuplicateSelect, ytdTxPageBoundaries,
-  ytdTxYear, ytdTxnPager, ytdTxnsForPeriod, ytdUpdateDedupDeleteBtn,
+  translatePersonValueLabel, undoSessionFieldChange, unfreezePricingSnapshot, updateSearchToggle,
+  updateYtdAccountMoney, updateYtdTxnAmount, validateAllocationTargetsOrMessage, wireStepNavigation,
+  withdrawalOtherRows, yesNoOptionHelp, ytdAccountMoneyDisplay, ytdAccountRoleOptions,
+  ytdActualsPeriodToggleHtml, ytdBlendEnabledRow, ytdBlendToggleHtml, ytdCancelDedup,
+  ytdDateAwarePageBoundaries, ytdDeleteSelectedDuplicates, ytdFilterOptions, ytdFilteredTxns,
+  ytdFirstExistingValue, ytdHeader, ytdImportPreviewMessage, ytdInvestmentHoldingAccounts,
+  ytdInvestmentOptions, ytdIsGrowthRole, ytdMappableAccounts, ytdMetricCard, ytdMoney, ytdPct,
+  ytdPeriodTargetYear, ytdRolloverBannerHtml, ytdSelectAllDuplicates, ytdSelectFieldHtml,
+  ytdSelectOptions, ytdShortDate, ytdSparkline, ytdStaleGrowthAccounts, ytdToggleDuplicateGroup,
+  ytdToggleDuplicateSelect, ytdTxPageBoundaries, ytdTxYear, ytdTxnPager, ytdTxnsForPeriod,
+  ytdUpdateDedupDeleteBtn,
 });

@@ -91,7 +91,32 @@ JS_DIR = ROOT / "frontend" / "js"
 # after regenerating census + bridge, in that order (convert_dashboard.mjs
 # reads census_report.json, so a stale census silently regenerates a stale
 # bridge).
-DASHBOARD_JS_MAX_LINES = 11_447
+# 2026-08-17: lowered from 11,447 -- extracted 14 declaration(s) into
+# dashboard_decomp_page_recommendations.js via
+# tools/js_codemod/extract_module.mjs. Measured after regenerating the
+# census and bridge, so it includes the bridge shrinking as those names left
+# its Object.assign block.
+# 2026-08-17: lowered from 10,967 -- extracted 11 declaration(s) into
+# dashboard_decomp_income_streams.js via
+# tools/js_codemod/extract_module.mjs. Measured after regenerating the
+# census and bridge, so it includes the bridge shrinking as those names left
+# its Object.assign block.
+# 2026-08-17: lowered from 10,778 -- extracted 9 declaration(s) into
+# dashboard_decomp_large_discretionary.js via
+# tools/js_codemod/extract_module.mjs. Measured after regenerating the
+# census and bridge, so it includes the bridge shrinking as those names left
+# its Object.assign block.
+# 2026-08-17: lowered from 10,659 -- extracted 8 declaration(s) into
+# dashboard_decomp_death_benefits.js via
+# tools/js_codemod/extract_module.mjs. Measured after regenerating the
+# census and bridge, so it includes the bridge shrinking as those names left
+# its Object.assign block.
+# 2026-08-17: lowered from 10,588 -- extracted 8 declaration(s) into
+# dashboard_decomp_mc_stress_options.js via
+# tools/js_codemod/extract_module.mjs. Measured after regenerating the
+# census and bridge, so it includes the bridge shrinking as those names left
+# its Object.assign block.
+DASHBOARD_JS_MAX_LINES = 10_454
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling

@@ -6,6 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.ytd_tracking import ytd_summary
+from tests._decomp_dashboard import dashboard_js_text
 
 
 def write_csv(path: Path, rows, fieldnames):
@@ -59,7 +60,7 @@ def test_ytd_re_tax_income_and_growth_rules(tmp_path):
 
 
 def test_planning_levers_ui_and_workbook_source_present():
-    js = Path('frontend/js/dashboard.js').read_text(encoding='utf-8')
+    js = dashboard_js_text()
     wb = Path('src/reporting/workbook_builder.py').read_text(encoding='utf-8')
     assert 'id: "planning_levers"' in js
     assert 'renderPlanningLevers' in js

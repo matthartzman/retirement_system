@@ -5,7 +5,7 @@ from tests._decomp_dashboard import dashboard_js_text
 
 
 def test_user_field_helper_no_longer_uses_label_equals_value_boilerplate():
-    js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
+    js = dashboard_js_text()
     forbidden = [
         "value the planner should use for this household",
         "is the ${friendlyGroup(row).toLowerCase()} value",

@@ -4,6 +4,7 @@ from pathlib import Path
 from datetime import date
 
 from src import ytd_tracking as ytd
+from tests._decomp_dashboard import dashboard_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -84,8 +85,7 @@ def test_ytd_growth_uses_current_holdings_minus_prior_year_balance(tmp_path):
 
 
 def test_ytd_ui_contains_step_upload_table_and_account_mapping():
-    text = open('frontend/js/dashboard.js', encoding='utf-8').read()
-    text += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    text = dashboard_js_text()
     assert 'id: "ytd_transactions"' in text
     assert 'YTD spending and growth' in text
     assert 'Income &amp; Expense Transactions' in text
@@ -254,8 +254,7 @@ def test_ytd_status_exposes_account_dropdown_sources(tmp_path):
     assert s['investment_holding_accounts'] == ['Joint Brokerage']
 
 def test_ytd_role_change_rerenders_mapping_dropdown_enabled_state():
-    text = open('frontend/js/dashboard.js', encoding='utf-8').read()
-    text += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    text = dashboard_js_text()
     assert 'if (field === "Role") renderMain()' in text
     assert 'Mapped Investment Account' in text
     assert 'ytdInvestmentOptions' in text
@@ -358,8 +357,7 @@ Cashflow,Mortgage,real_estate_tax_annual_adjustment_pct,3.00%,percent,
 
 
 def test_ytd_save_buttons_enable_immediately_after_inline_edits():
-    text = open('frontend/js/dashboard.js', encoding='utf-8').read()
-    text += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    text = dashboard_js_text()
     assert 'function setYtdDirtyButtonStates()' in text
     assert "id=\"ytdSaveAccountSetupBtn\"" in text
     assert "id=\"ytdSaveTransactionsBtn\"" in text
@@ -370,8 +368,7 @@ def test_ytd_save_buttons_enable_immediately_after_inline_edits():
 
 
 def test_ytd_transactions_table_formats_amounts_compactly():
-    text = open('frontend/js/dashboard.js', encoding='utf-8').read()
-    text += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    text = dashboard_js_text()
     css = open('frontend/css/dashboard.css', encoding='utf-8').read()
     assert 'function ytdTxnMoneyDisplay' in text
     assert 'ytd-amount-input' in text
@@ -396,8 +393,7 @@ def test_ytd_account_mapping_allows_manual_non_transaction_sources_and_broader_t
 
 
 def test_ytd_account_mapping_ui_has_manual_add_and_grouped_broader_account_types():
-    text = open('frontend/js/dashboard.js', encoding='utf-8').read()
-    text += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    text = dashboard_js_text()
     assert 'Add account/source' in text
     assert 'addManualYtdAccount' in text
     assert 'Assets and income sources' in text
@@ -423,8 +419,7 @@ def test_ytd_account_mapping_preserves_non_investment_current_values(tmp_path):
 
 
 def test_ytd_account_mapping_ui_uses_inline_source_add_current_value_no_notes_or_prior_date_column():
-    text = open('frontend/js/dashboard.js', encoding='utf-8').read()
-    text += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    text = dashboard_js_text()
     assert 'id="ytdManualAccountName"' in text
     assert 'id="ytdManualAccountRole"' in text
     assert "prompt('Account/source" not in text
@@ -439,8 +434,7 @@ def test_ytd_account_mapping_ui_uses_inline_source_add_current_value_no_notes_or
 
 
 def test_ytd_transaction_table_uses_pagination_controls_instead_of_first_500_only():
-    text = open('frontend/js/dashboard.js', encoding='utf-8').read()
-    text += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    text = dashboard_js_text()
     assert 'const YTD_TX_PAGE_SIZE = 500' in text
     assert 'function ytdTxnPager' in text
     assert 'setYtdTxnPage(0' in text

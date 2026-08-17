@@ -8,6 +8,7 @@ from src.portfolio_analytics import (
     snapshot_prices,
     unfreeze_pricing_snapshot,
 )
+from tests._decomp_dashboard import dashboard_js_text
 
 
 def test_pricing_snapshot_freeze_contract_round_trip(tmp_path):
@@ -57,7 +58,7 @@ def test_market_data_provider_frozen_mode_uses_snapshot_without_live_calls():
 def test_pricing_freeze_routes_and_docs_are_registered():
     docs = open("documentation/API_CONTRACTS.md", encoding="utf-8").read()
     routes = open("src/server/plan_routes.py", encoding="utf-8").read()
-    js = open("frontend/js/dashboard.js", encoding="utf-8").read()
+    js = dashboard_js_text()
 
     assert "pricing_snapshot_freeze_v1" in docs
     assert "@app.route(\"/api/prices/freeze\"" in routes
