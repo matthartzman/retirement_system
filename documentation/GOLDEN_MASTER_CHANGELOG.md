@@ -1,4 +1,165 @@
-## 2026-08-17 — MC bucket tilts are renormalized every step, not just at t=0
+## 2026-08-17 (b) — Sheet 3A stops crediting the liquidity buffer with mitigating sequence risk (P7, P3, P5)
+
+**What changed.** Three follow-ups from `documentation/reports/PLANNER_SIGNOFF_2026-08-17.md`. **No
+projection figures move**; pins stay at 5,824,239.30 / 1,290,848.91.
+
+**P7 — the narrative sections contradicted the disclosure shipped one section above them.** Sheet 3A
+section G told the reader that *"the configured liquidity buffer (Trust accounts) is the primary
+mitigation"* for sequence-of-returns risk, and section E's quintile note said the Reserve requirement
+lets the plan ride out early bear markets *"without forced selling"*. Both are client-facing advice,
+and this engine supports neither:
+
+1. Trust maps to the **taxable** bucket, and within a bucket every account takes the same annual
+   market shock (S1). A reserved dollar is exactly as exposed to an early bear market as any other
+   taxable dollar.
+2. What the buffer actually does is set a floor under the taxable draw
+   (`liquidity_buffer_years_for_year`, consumed by `withdraw_taxable_trust`). That is a withdrawal
+   **order** preference — it redirects spending into other buckets. It never changes any dollar's
+   volatility, and the model has no forced-selling mechanic for it to avoid.
+3. That floor is applied in the deterministic cascade only. The vectorized MC scales the
+   deterministic engine's planned bucket withdrawals and never re-enforces the floor against shocked
+   balances.
+
+Both passages now rest on what *is* modeled: the cascade spends cash-type accounts first and cash
+grows on a short-rate path rather than the equity draw, so reserves held **in a cash account** are
+genuinely insulated — and the configured buffer is named as the different, non-protective mechanism
+it is. Roth conversions keep their claim in section E, because the conversion and its tax are
+simulated on every path.
+
+The sign-off offered a second option — "move the buffer into a cash-type account so the claim becomes
+true". **That option does not exist as configuration.** A Liquidity Buffer row's `reserve_account`
+field (`Taxable/Trust | Roth | IRA | HSA | Cash`) is written, stored and round-tripped by the UI and
+read by **nothing** in the engine; the floor is applied to the taxable bucket regardless of its value.
+Only holding the reserve in an account whose registry `tax` is `cash` gets the modeled treatment. The
+inert field is a separate defect, recorded as a new follow-up rather than fixed here.
+
+Audit of section G's remaining claims against S1: *Overall Plan Assessment*, *Return Assumption
+Stress* and the Q1 figure in *Annuity Income as a Floor* are computed values; *When to Take Action*
+and *Recommended Annual Review* are review triggers, not model claims. Those five stand.
+
+Guarded by `test_monte_carlo_sheet_does_not_credit_the_liquidity_buffer_with_mitigating_sequence_risk`,
+which resolves the sheet through `stable_name_for_sheet_title` rather than a hardcoded `3A.`. Per §3
+rule 2 each of its three assertions was demonstrated red **individually** against a real build: the
+section G claim, the section E claim, and the positive assertion that the correction is present (a
+guard that only forbids phrases passes on a sheet that says nothing at all).
+
+**P3 — `test_bucket_return_tilts_are_dollar_weighted_and_market_neutral` renamed** to
+`test_bucket_return_tilts_are_dollar_weighted` (S3). The neutrality half of the name never had an
+assertion behind it, which is how the tilt drift went unnoticed; neutrality is now genuinely covered
+by `tests/test_mc_bucket_tilt_neutrality_regression.py`. Body unchanged.
+
+**P5 — the two MC paths no longer disagree about cash** (S5). `_apply_account_return_adjustments`
+(scalar/loop path) tilted **any** account present in `account_returns`, cash-tax or not, while
+`_mc_bucket_return_tilts` (vectorized path, which produces the headline success rate) excludes cash
+and grows it on the short-rate proxy. The scalar path now applies the same exclusion. On the frozen
+fixture the paths agreed only by accident — its cash accounts hold nothing that maps to a CMA class,
+so they never reach `account_returns` — which is why no existing test could see this. New guard
+`tests/test_mc_cash_tilt_path_parity_regression.py` uses the fixture S5 named (a money-market fund
+that *does* map to a CMA class, inside a cash account) and was demonstrated red on the pre-fix engine.
+It also pins that non-cash accounts keep their tilt, since "stop tilting entirely" would otherwise
+pass. **Blast radius:** plans holding a CMA-classifiable security in a cash account — previously the
+scalar MC grew those dollars at the equity return plus a tilt. Plans without one are bit-identical.
+
+## 2026-08-17 (d) — The Liquidity Buffer's reserve_account is now honored (P8), and the insurance sheet stops printing example dollars (P9)
+
+**Golden pins unmoved** at 5,824,239.30 / 1,290,848.91, and that is the design, not a
+coincidence — see "Blast radius" below.
+
+### P8 — `reserve_account` was a live control wired to nothing
+
+A Liquidity Buffer row's `reserve_account` (`Taxable/Trust | Roth | IRA | HSA | Cash`) is rendered as
+a dropdown, persisted to `client_assets.csv`, and validated against `reference_data/schema.csv`. No
+engine code read it. `withdraw_taxable_trust` applied the reserve floor to the **taxable** bucket
+unconditionally, so selecting "Roth" did two wrong things at once: it left Roth fully drainable, and
+it held back a bucket the user never named.
+
+**What changed.** `liquidity_buffer_for_year` now returns `(years, bucket)`, and a new
+`liquidity_reserve_floor(c, year, bucket, spend_floor_base)` returns the floor that applies to one
+bucket — zero when the reserve names a different one. It is applied in four draws:
+`withdraw_taxable_trust`, `withdraw_roth`, `withdraw_pretax_elective`, and `withdraw_hsa_gap`, with
+`spend_floor_base` threaded through all six deterministic-cascade call sites.
+
+Two consequences beyond the withdrawal floor, both deliberate:
+
+- **`trust_surf` no longer subtracts a non-taxable reserve.** Trust headroom feeds
+  `non_roth_surplus`, which caps Roth conversions; subtracting a Roth or HSA reserve from the
+  *taxable* balance understated conversion capacity.
+- **An IRA reserve now also caps conversions.** Converting pre-tax dollars to Roth empties the
+  bucket the reserve is meant to preserve exactly as spending them would, so `ira_total` is net of
+  the pretax floor.
+
+**Cash is honest about being a no-op.** The deterministic cascade's priorities are RMD, HSA, pre-tax
+elective, taxable/trust, Roth, home equity — cash-tax accounts appear in none of them, so a cash
+reserve is preserved by construction and there is no draw to constrain. Rather than leave that
+implicit, `liquidity_reserve_floor(..., 'cash', ...)` returns the correct number for a future cash
+draw to use, and `CashReserveTests` pins the situation so that whoever adds one is told to apply it.
+The UI help text and the schema description now say this outright.
+
+**Blast radius.** Any plan whose `reserve_account` is the schema default `Taxable/Trust` — including
+the frozen fixture and the demo plan — is **bit-identical**, because the floor lands exactly where it
+always did. Unrecognized and blank values also fall back to taxable, so no stored plan can shift by
+reinterpretation. Plans that selected Roth/IRA/HSA change: the named bucket is now preserved and
+taxable is not, which is what the setting always claimed to do. IRA reserves additionally see smaller
+recommended conversions. Guard: `tests/test_liquidity_reserve_account_regression.py`, 12 cases.
+Demonstrated per §3 rule 2 by planting the pre-P8 semantics (floor forced back to taxable-only):
+7 of the 12 went red, and the 5 that held are the deliberate pins — the working taxable case, the
+year-range check, and the two fallbacks — which must be insensitive to this change.
+
+### P9 — the insurance sheet printed example dollars as advice
+
+Same class as C2, at a location C2 never named (found by P6). On `19. Life Insurance`:
+
+- `'★ RECOMMENDED — $500K face, start 2027, ~$18,500/yr'` sat in the same table row whose Death
+  Benefit column renders the **configured** `ltc_face`, so any household with different settings got
+  a row that contradicted itself. Now derived from `ltc_face`/`ltc_start_year`/`ltc_annual_prem`, or
+  stated as not configured.
+- `'Consider if IL estate tax > $320K materializes'` — C2's exact figure, computed nowhere. Now
+  derived from `summary_figures.credit_shelter_trust_savings`, the same helper Sheets 1 and 14 share.
+- A flat `$500,000` **Estate Liquidity Buffer** need, sitting one row beneath Section B's own note
+  boasting that these needs come from the household's projection "not a generic income multiple". Now
+  `estimate_terminal_estate_tax(c, rows[-1])` — the tax actually projected at the terminal estate,
+  which is what an illiquid estate must raise cash for.
+- A closing recommendation naming a specific commercial product (`Lincoln MoneyGuard`). Removed; the
+  closing paragraph now describes this plan's own configuration and labels the premium table as
+  indicative market pricing rather than quotes.
+- **A dead `is_optimal`**: it computed which coverage row matched the client's configured face and
+  was then discarded — every cell keyed off a `'★'` baked into the $500K description string, so every
+  client was shown $500K as "OPTIMAL" regardless. The highlight now follows the configured face.
+
+Guarded by `test_insurance_sheet_prints_no_client_independent_dollar_figures`. All seven of its
+assertions — five forbidden strings and two positive ones — were demonstrated red against a real
+pre-fix build. Section B's gap arithmetic changes for every plan (the estate-liquidity need is now
+computed rather than $500,000); this is reporting only and moves no projection figure.
+
+## 2026-08-17 (c) — C5's guard could not fail; rewritten (P6). No engine change.
+
+**What changed.** Test only. `tests/test_roth_objective_deflator_regression.py`'s
+`test_terminal_component_is_discounted_below_nominal_after_tax_nw` now asserts on
+`terminal_wealth_score` — the value that actually enters the Roth objective's score — instead of on
+arithmetic it performed itself.
+
+**Why.** The old body computed `expected_pv = after_tax_terminal_nw / (1+d)**n` and asserted
+`expected_pv < after_tax_terminal_nw`. That is true by arithmetic for any positive discount over any
+horizon longer than zero years. It never read the objective. Reverting
+`after_tax_terminal_nw_pv` (`planning_engines.py:1917`) to the nominal figure restores finding C5's
+defect in full — plan-end wealth weighted undiscounted against discounted lifetime tax and estate
+tax — and **both tests in the file stayed green**.
+
+Against the same planted defect the rewritten test fails at **6,185,244 vs 2,948,770**: the objective
+would have been weighting terminal wealth at 2.1x its present value, which in long-horizon plans
+systematically over-rewards deferring wealth into the far future. The test pins
+`roth_objective_mode='MAXIMIZE_PTI'` so the terminal weight is a known 1.0 rather than whichever
+branch the fixture happens to select, and rejects the nominal figure explicitly so a regression
+cannot pass by coincidence.
+
+**The engine was and is correct** — all four `terminal_component` branches use the PV, at the same
+discount as the tax and estate terms, while the reported `after_tax_terminal_nw` and
+`post_tax_inheritance` stay nominal. **No figures move and no pins change**; this closes a hole in
+the protection, not a hole in the math. Found by P6's second look at C1/C2/C5
+(`documentation/reports/PLANNER_SIGNOFF_2026-08-17.md` §5), which also confirmed C1's and C2's fixes
+and logged two surviving C2-class hardcoded figures on the insurance sheet as P9.
+
+## 2026-08-17 (b) — Sheet 3A stops crediting the liquidity buffer with mitigating sequence risk (P7, P3, P5)
 
 **What changed.** `_mc_apply_bucket_growth` now subtracts the balance-weighted mean tilt of the
 current step's bucket mix before applying the per-bucket tilts.

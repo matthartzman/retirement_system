@@ -240,7 +240,7 @@ HSA Policy,Withdrawals,hsa_withdrawal_start_year,year,FALSE,,2026,2100,Optional 
 HSA Policy,Withdrawals,hsa_withdrawal_end_year,year,FALSE,,2026,2100,Optional last year for annual_pct or smooth_window HSA draw policy.
 Social Security,Funding Discount,ss_funding_discount_year,year,FALSE,2032,2026,2100,First year Social Security gross benefits are reduced for funding-shortfall stress.
 Social Security,Funding Discount,ss_funding_discount_pct,percent,FALSE,22.00%,0,100,Gross Social Security benefit reduction percentage from the funding-discount year onward.
-Liquidity Buffer,buffer_1,reserve_account,choice,FALSE,Taxable/Trust,,,Taxable/Trust | Roth | IRA | HSA | Cash; account bucket intended to preserve the reserve for this rule.
+Liquidity Buffer,buffer_1,reserve_account,choice,FALSE,Taxable/Trust,,,Taxable/Trust | Roth | IRA | HSA | Cash; account bucket whose balance the withdrawal cascade holds above this reserve. Cash accounts are never drawn by the cascade, so a Cash reserve is preserved by construction.
 Education Funding,529 Plan 1,beneficiary,text,FALSE,,,,Beneficiary name for this 529 plan.
 Education Funding,529 Plan 1,current_balance,dollars,FALSE,$0,0,,Current 529 plan balance.
 Education Funding,529 Plan 1,annual_contribution,dollars,FALSE,$0,0,,Annual 529 contribution.

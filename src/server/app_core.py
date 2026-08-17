@@ -1627,7 +1627,7 @@ def _liquidity_buffer_rows(buffers: list[dict]) -> list[list[str]]:
             ["Liquidity Buffer", f"buffer_{i}", "start_year", start, "year", "First year this reserve rule applies; blank means plan start", "", ""],
             ["Liquidity Buffer", f"buffer_{i}", "end_year", end, "year", "Last year this reserve rule applies; blank means open-ended", "", ""],
             ["Liquidity Buffer", f"buffer_{i}", "years_of_expenses", yrs, "years", "Years of expenses to retain as a reserve; default is 0", "", ""],
-            ["Liquidity Buffer", f"buffer_{i}", "reserve_account", acct, "choice", "Taxable/Trust | Roth | IRA | HSA | Cash; account bucket intended to preserve the reserve for this row", "", ""],
+            ["Liquidity Buffer", f"buffer_{i}", "reserve_account", acct, "choice", "Taxable/Trust | Roth | IRA | HSA | Cash; bucket the withdrawal cascade holds above this reserve (Cash is never drawn, so it is preserved by construction)", "", ""],
         ])
     rows.append(["", "", "", "", "", "", "", ""])
     return rows

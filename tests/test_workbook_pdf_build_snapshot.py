@@ -278,6 +278,136 @@ class Phase5WorkbookSnapshotTests(unittest.TestCase):
             "sheets_stress.py's Methodology table rather than deleting this test.",
         )
 
+    def test_monte_carlo_sheet_does_not_credit_the_liquidity_buffer_with_mitigating_sequence_risk(self):
+        """The narrative sections must not claim what the Methodology section disclaims.
+
+        The Interpretation section used to tell the reader that "the configured
+        liquidity buffer (Trust accounts) is the primary mitigation" for
+        sequence-of-returns risk. Three independent facts about this engine make
+        that false, and it is client-facing advice, not description:
+
+        1. Trust maps to the TAXABLE bucket, and within a bucket every account
+           takes the same annual market shock (finding S1). A reserved dollar is
+           no less exposed to an early bear market than any other taxable dollar.
+        2. What the buffer actually does is set a floor under the taxable draw
+           (planning_engines.liquidity_buffer_years_for_year, consumed by
+           withdraw_taxable_trust). That is a withdrawal-ORDER preference: it
+           redirects spending to other buckets. It never changes any dollar's
+           volatility.
+        3. The floor is applied in the deterministic cascade only. The
+           vectorized MC scales the deterministic engine's planned bucket
+           withdrawals and never re-enforces the floor against shocked balances.
+
+        The genuine, modeled mitigation is the cash bucket: it is drawn first and
+        grows on a short-rate path rather than the equity draw. The sheet may
+        cite that, and must not let it be confused with the buffer -- selecting
+        'Cash' as a Liquidity Buffer row's reserve_account does NOT move money
+        into that bucket; only holding the reserve in a cash-type account does.
+        """
+        import openpyxl
+        from src.reporting.workbook_format_config import stable_name_for_sheet_title
+
+        wb = openpyxl.load_workbook(self.workbook_path, data_only=True, read_only=True)
+        mc_sheets = [
+            name for name in wb.sheetnames
+            if stable_name_for_sheet_title(name) == '15. Market-Luck Stress Test'
+        ]
+        if not mc_sheets:
+            self.skipTest('Monte Carlo module is off in this build; no sheet to make claims on')
+
+        text = "\n".join(
+            str(cell)
+            for row in wb[mc_sheets[0]].iter_rows(values_only=True)
+            for cell in row if cell is not None
+        )
+
+        # The unsupported claim, in the two forms it shipped in (section G's
+        # "primary mitigation" and section E's "riding out early bear markets").
+        for forbidden in (
+            'is the primary mitigation',
+            'without forced selling',
+        ):
+            self.assertNotIn(
+                forbidden, text,
+                f"{mc_sheets[0]} credits a mitigation the model does not simulate. "
+                "Reserved taxable/Trust dollars take the same market shock as the rest "
+                "of the bucket; see this test's docstring before re-wording.",
+            )
+
+        # And the correction must be present, not merely the claim absent.
+        self.assertIn(
+            'every reserved dollar still takes the full taxable-bucket market shock',
+            text,
+            f"{mc_sheets[0]} no longer tells the reader what the liquidity buffer does "
+            "and does not do. Restore the correction in sheets_stress.py section G "
+            "rather than deleting this test.",
+        )
+
+    def test_insurance_sheet_prints_no_client_independent_dollar_figures(self):
+        """Insurance verdicts must describe THIS household, not a fixed example.
+
+        Finding C2 was that the Executive Summary published literal dollar
+        amounts gated on booleans but never varying with the plan. It was fixed
+        at the location the review cited; P6 found the same class alive on the
+        insurance sheet, which C2 never named:
+
+        - "$500K face, start 2027, ~$18,500/yr" printed in the same table row
+          whose Death Benefit column renders the CONFIGURED face, so a household
+          with different settings got a row contradicting itself.
+        - "IL estate tax > $320K" -- the exact figure C2 was raised about,
+          computed nowhere, while summary_figures.credit_shelter_trust_savings
+          derives the real one from the user-editable il_exempt.
+        - A flat $500,000 "Estate Liquidity Buffer" need, sitting one row under
+          Section B's own note boasting that these needs come from the
+          household's projection rather than a generic multiple.
+        - A closing recommendation naming a specific commercial product.
+
+        The indicative premium table in Section C is deliberately still present:
+        it is a market-pricing comparison, and it is now labeled as indicative
+        rather than presented as a plan output.
+        """
+        import openpyxl
+        from src.reporting.workbook_format_config import stable_name_for_sheet_title
+
+        wb = openpyxl.load_workbook(self.workbook_path, data_only=True, read_only=True)
+        sheets = [
+            name for name in wb.sheetnames
+            if stable_name_for_sheet_title(name) == '19. Life Insurance'
+        ]
+        if not sheets:
+            self.skipTest('Life insurance module is off in this build; no sheet to check')
+
+        text = "\n".join(
+            str(cell)
+            for row in wb[sheets[0]].iter_rows(values_only=True)
+            for cell in row if cell is not None
+        )
+
+        for forbidden in (
+            '$500K face, start 2027',
+            '$320K',
+            'Lincoln MoneyGuard',
+            '★ RECOMMENDED',
+            '★ OPTIMAL',
+        ):
+            self.assertNotIn(
+                forbidden, text,
+                f"{sheets[0]} prints '{forbidden}', a client-independent figure or a "
+                "product name, as though it were advice derived from this plan. "
+                "Derive it from the configured values or drop the figure (finding C2's class).",
+            )
+
+        # Absence is not enough -- a sheet that dropped the verdicts entirely
+        # would pass the loop above. Pin that the derived text is present.
+        self.assertTrue(
+            'Configured:' in text or 'Not currently configured' in text,
+            f"{sheets[0]} no longer states the plan's own hybrid policy configuration.",
+        )
+        self.assertIn(
+            'Estate Liquidity Buffer (projected estate tax at the terminal estate)', text,
+            f"{sheets[0]} no longer labels where the estate-liquidity need comes from.",
+        )
+
     def test_workbook_snapshot_rejects_stale_roth_language(self):
         import openpyxl
         snap = json.loads((FIXTURES / "workbook_snapshot_expectations.json").read_text(encoding="utf-8"))

@@ -1872,7 +1872,8 @@ def run_deterministic_projection_stage(c):
             irmaa_thr_yr = c['irmaa_base'] * _irmaa_factor_for_year(year)
             marg = marginal_rate(taxable_inc, year, filing, c['brk_inf'])
             pretax_res = _legacy_pe.withdraw_pretax_elective(
-                c, bal, gap, agi, taxable_inc, year, filing, top_24_yr, irmaa_thr_yr, marg
+                c, bal, gap, agi, taxable_inc, year, filing, top_24_yr, irmaa_thr_yr, marg,
+                spend_floor_base=spend,
             )
             ira_wd = pretax_res['amount']
             h_ira_elective = pretax_res['h_amount']
@@ -1901,7 +1902,7 @@ def run_deterministic_projection_stage(c):
                 gap += delta_tax
                 add_res = _legacy_pe.withdraw_pretax_elective(
                     c, bal, gap, agi + ira_wd, taxable_inc + ira_wd, year, filing,
-                    top_24_yr, irmaa_thr_yr, marg,
+                    top_24_yr, irmaa_thr_yr, marg, spend_floor_base=spend,
                 )
                 add_wd = float(add_res.get('amount', 0.0) or 0.0)
                 gap = add_res['new_gap']
@@ -2176,7 +2177,7 @@ def run_deterministic_projection_stage(c):
         if gap > 0 and sum(max(0.0, float(bal.get(_aid, 0.0) or 0.0)) for _aid in c.get('pre_tax_ids', [])) > 0:
             pretax_res2 = _legacy_pe.withdraw_pretax_elective(
                 c, bal, gap, agi, taxable_inc, year, filing, top_24_yr, irmaa_thr_yr, marg,
-                respect_tax_caps=False,
+                respect_tax_caps=False, spend_floor_base=spend,
             )
             ira_wd_before_p4b = ira_wd
             ira_wd += pretax_res2['amount']
@@ -2206,6 +2207,7 @@ def run_deterministic_projection_stage(c):
                 add_res2 = _legacy_pe.withdraw_pretax_elective(
                     c, bal, gap, agi + ira_wd, taxable_inc + ira_wd, year, filing,
                     top_24_yr, irmaa_thr_yr, marg, respect_tax_caps=False,
+                    spend_floor_base=spend,
                 )
                 add_wd2 = float(add_res2.get('amount', 0.0) or 0.0)
                 gap = add_res2['new_gap']
@@ -2340,7 +2342,7 @@ def run_deterministic_projection_stage(c):
         # remaining HSA balance and all pre-tax/taxable sources are exhausted or
         # unavailable for the cash gap, draw HSA before touching Roth.
         if gap > 0 and sum(max(0.0, float(bal.get(_aid, 0.0) or 0.0)) for _aid in c.get('hsa_ids', [])) > 0:
-            hsa_res2 = _legacy_pe.withdraw_hsa_gap(c, bal, gap, year=year)
+            hsa_res2 = _legacy_pe.withdraw_hsa_gap(c, bal, gap, year=year, spend_floor_base=spend)
             hsa_wd += hsa_res2['amount']
             gap = hsa_res2['new_gap']
             for _aid, _amt in dict(hsa_res2.get('by_account', {}) or {}).items():
@@ -2349,7 +2351,7 @@ def run_deterministic_projection_stage(c):
             row['hsa_wd'] = hsa_wd
 
         # ── Priority 5: Roth withdrawal ─────────────────────────────────────
-        roth_res = _legacy_pe.withdraw_roth(c, bal, gap)
+        roth_res = _legacy_pe.withdraw_roth(c, bal, gap, year=year, spend_floor_base=spend)
         roth_wd = roth_res['amount']
         h_roth_wd = roth_res['h_amount']
         w_roth_wd = roth_res['w_amount']
