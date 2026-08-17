@@ -177,6 +177,14 @@ def _apply_account_return_adjustments(c: dict, returns_by_year: dict, years: lis
         returns_by_year: dict[year] -> float (sampled portfolio return that year)
         years: list of year values
 
+    Cash-tax accounts are excluded, matching ``_mc_bucket_return_tilts``. The
+    vectorized path -- the one that produces the headline success rate -- grows
+    cash on a short-rate proxy tied to inflation rather than on the equity draw,
+    so a tilt measured against the equity return has no meaning there. Tilting
+    cash here and not there made the two MC paths disagree about any cash
+    account holding a CMA-classifiable security, e.g. a money-market fund
+    (finding S5). The exclusion is now stated once and applied in both places.
+
     Returns:
         dict[account_id][year] = float, or empty dict if no account_returns configured
     """
@@ -185,10 +193,15 @@ def _apply_account_return_adjustments(c: dict, returns_by_year: dict, years: lis
         return {}
 
     invest_ids = c.get('invest_ids') or []
+    cash_ids = {
+        acct.get('id')
+        for acct in (c.get('account_registry') or [])
+        if str(acct.get('tax') or '').lower() == 'cash'
+    }
     try:
         result = {}
         for acct_id in invest_ids:
-            if acct_id not in account_returns:
+            if acct_id not in account_returns or acct_id in cash_ids:
                 continue
 
             acct_delta = _account_return_tilt(c, acct_id)
@@ -928,7 +941,8 @@ def withdraw_hsa_window(c: Mapping, bal: BalanceMap, year: int, wellness_cost: f
     return {"amount": amount, "by_account": by_account}
 
 
-def withdraw_hsa_gap(c: Mapping, bal: BalanceMap, gap: float, year: int = 0) -> Dict:
+def withdraw_hsa_gap(c: Mapping, bal: BalanceMap, gap: float, year: int = 0,
+                     spend_floor_base: float = 0.0) -> Dict:
     """Use remaining HSA dollars for an unfunded spending gap before Roth.
 
     HSA is a non-Roth liquid bucket. The normal HSA window still controls the
@@ -952,7 +966,10 @@ def withdraw_hsa_gap(c: Mapping, bal: BalanceMap, gap: float, year: int = 0) -> 
         if year < win_start or (win_end > 0 and year <= win_end):
             return {"amount": 0.0, "new_gap": gap, "by_account": {}}
     ids = list(c.get("hsa_ids", []) or [])
-    amount = min(float(gap or 0.0), sum(max(0.0, float(bal.get(aid, 0.0) or 0.0)) for aid in ids))
+    # A reserve configured against the HSA bucket holds HSA dollars back (P8).
+    total_hsa = sum(max(0.0, float(bal.get(aid, 0.0) or 0.0)) for aid in ids)
+    floor = liquidity_reserve_floor(c, year, "hsa", spend_floor_base)
+    amount = min(float(gap or 0.0), max(0.0, total_hsa - floor))
     by_account = _draw_pro_rata_accounts(bal, ids, amount)
     drawn = sum(by_account.values())
     return {"amount": drawn, "new_gap": gap - drawn, "by_account": by_account}
@@ -1043,6 +1060,7 @@ def withdraw_pretax_elective(
     marginal_rate: float,
     *,
     respect_tax_caps: bool = True,
+    spend_floor_base: float = 0.0,
 ) -> Dict:
     """Withdraw pre-tax dollars to fill a cash gap.
 
@@ -1071,7 +1089,11 @@ def withdraw_pretax_elective(
     h_ids = owner_account_ids(registry, 0, "pre_tax")
     w_ids = owner_account_ids(registry, 1, "pre_tax")
     pretax_ids = _owner_tax_ids_pro_rata_order(registry, "pre_tax")
-    available = sum(max(0.0, float(bal.get(aid, 0.0))) for aid in pretax_ids)
+    # A reserve configured against the IRA bucket holds pre-tax dollars back the
+    # same way a taxable reserve holds taxable dollars back (P8). Applied before
+    # the tax caps so the reserve is a hard floor, not a tax-sensitive one.
+    available = max(0.0, sum(max(0.0, float(bal.get(aid, 0.0))) for aid in pretax_ids)
+                    - liquidity_reserve_floor(c, year, "pretax", spend_floor_base))
     tax_cap = max_taxable if respect_tax_caps else available
     amount = min(gross_up, tax_cap, available)
     by_account = _draw_pro_rata_accounts(bal, pretax_ids, amount)
@@ -1090,22 +1112,73 @@ def withdraw_pretax_elective(
     }
 
 
-def liquidity_buffer_years_for_year(c: Mapping, year: int) -> float:
-    """Return configured liquidity reserve years for the given year.
+# A Liquidity Buffer row's reserve_account names the bucket whose balance the
+# reserve is meant to preserve. These are the choices offered by the UI and
+# reference_data/schema.csv; anything unrecognized falls back to taxable, which
+# is both the schema default and the behavior every plan had before the field
+# was honored (P8).
+LIQUIDITY_RESERVE_BUCKETS = {
+    "taxable/trust": "taxable",
+    "taxable": "taxable",
+    "trust": "taxable",
+    "roth": "roth",
+    "ira": "pretax",
+    "pretax": "pretax",
+    "pre_tax": "pretax",
+    "hsa": "hsa",
+    "cash": "cash",
+}
+DEFAULT_LIQUIDITY_RESERVE_BUCKET = "taxable"
 
-    Reserve rules are defined by start year, end year, and years of expenses
-    to retain. If rows overlap, the first matching schedule row wins.
-    Missing configuration defaults to zero retained expense years.
+
+def liquidity_buffer_for_year(c: Mapping, year: int) -> tuple[float, str]:
+    """Return (reserve years, reserve bucket) configured for the given year.
+
+    Reserve rules are defined by start year, end year, years of expenses to
+    retain, and the account bucket that reserve is meant to preserve. If rows
+    overlap, the first matching schedule row wins. Missing configuration
+    defaults to zero retained expense years against the taxable bucket.
+
+    Until P8 the bucket half was parsed, stored, round-tripped by the UI and
+    then ignored: the floor was applied to taxable/trust whatever the row said,
+    so a user who selected "Cash" silently got taxable treatment.
     """
+    def _bucket(rec: Mapping) -> str:
+        raw = rec.get("reserve_account", rec.get("preserve_account", "")) or ""
+        return LIQUIDITY_RESERVE_BUCKETS.get(str(raw).strip().lower(), DEFAULT_LIQUIDITY_RESERVE_BUCKET)
+
     for rec in c.get("liquidity_buffer_schedule", []) or []:
         try:
             start = int(rec.get("start_year", c.get("plan_start", year)) or c.get("plan_start", year))
             end = int(rec.get("end_year", 9999) or 9999)
             if start <= int(year) <= end:
-                return float(rec.get("years_of_expenses", 0) or 0)
+                return float(rec.get("years_of_expenses", 0) or 0), _bucket(rec)
         except Exception:
             continue
-    return float(c.get('near_term_buffer_years', 0) if year <= c.get('near_term_buffer_end_year', c.get('plan_start', year)) else c.get('long_term_buffer_years', 0))
+    legacy = float(c.get('near_term_buffer_years', 0) if year <= c.get('near_term_buffer_end_year', c.get('plan_start', year)) else c.get('long_term_buffer_years', 0))
+    return legacy, DEFAULT_LIQUIDITY_RESERVE_BUCKET
+
+
+def liquidity_buffer_years_for_year(c: Mapping, year: int) -> float:
+    """Return configured liquidity reserve years for the given year.
+
+    Bucket-agnostic view of :func:`liquidity_buffer_for_year`, kept for callers
+    that only need the magnitude.
+    """
+    return liquidity_buffer_for_year(c, year)[0]
+
+
+def liquidity_reserve_floor(c: Mapping, year: int, bucket: str, spend_floor_base: float) -> float:
+    """Dollar floor the configured reserve places under one bucket's balance.
+
+    Returns 0.0 when no reserve applies this year, or when the reserve targets
+    a different bucket -- a reserve held in Roth must not restrict the taxable
+    draw, which is what made every reserve behave as a taxable reserve before.
+    """
+    years, reserve_bucket = liquidity_buffer_for_year(c, year)
+    if years <= 0 or reserve_bucket != bucket:
+        return 0.0
+    return float(years) * max(0.0, float(spend_floor_base))
 
 
 def withdraw_taxable_trust(c: Mapping, bal: BalanceMap, year: int, gap: float, spend_floor_base: float) -> Dict:
@@ -1121,13 +1194,8 @@ def withdraw_taxable_trust(c: Mapping, bal: BalanceMap, year: int, gap: float, s
     w_ids = owner_account_ids(registry, 1, "taxable")
     taxable_ids = _owner_tax_ids_pro_rata_order(registry, "taxable")
     total_taxable = sum(max(0.0, float(bal.get(aid, 0.0))) for aid in taxable_ids)
-    buf_years = liquidity_buffer_years_for_year(c, year)
-    if buf_years > 0:
-        floor = float(buf_years) * max(0.0, float(spend_floor_base))
-        available = max(0.0, total_taxable - floor)
-        amount = min(gap, available)
-    else:
-        amount = min(gap, total_taxable)
+    floor = liquidity_reserve_floor(c, year, "taxable", spend_floor_base)
+    amount = min(gap, max(0.0, total_taxable - floor))
     by_account = _draw_pro_rata_accounts(bal, taxable_ids, amount)
     return {
         "amount": sum(by_account.values()),
@@ -1138,15 +1206,24 @@ def withdraw_taxable_trust(c: Mapping, bal: BalanceMap, year: int, gap: float, s
     }
 
 
-def withdraw_roth(c: Mapping, bal: BalanceMap, gap: float) -> Dict:
-    """Withdraw Roth dollars as final liquid-account resort."""
+def withdraw_roth(c: Mapping, bal: BalanceMap, gap: float, year: int = 0,
+                  spend_floor_base: float = 0.0) -> Dict:
+    """Withdraw Roth dollars as final liquid-account resort.
+
+    ``year``/``spend_floor_base`` are optional so existing two-and-three
+    argument callers keep working; supplying them lets a reserve configured
+    against the Roth bucket hold Roth dollars back, the same way a taxable
+    reserve holds taxable dollars back (P8).
+    """
     if gap <= 1e-6:
         return {"amount": 0.0, "new_gap": gap, "by_account": {}, "h_amount": 0.0, "w_amount": 0.0}
     registry = c.get("account_registry", [])
     h_ids = owner_account_ids(registry, 0, "roth")
     w_ids = owner_account_ids(registry, 1, "roth")
     roth_ids = _owner_tax_ids_pro_rata_order(registry, "roth")
-    amount = min(gap, sum(max(0.0, float(bal.get(aid, 0.0))) for aid in roth_ids))
+    total_roth = sum(max(0.0, float(bal.get(aid, 0.0))) for aid in roth_ids)
+    floor = liquidity_reserve_floor(c, year, "roth", spend_floor_base)
+    amount = min(gap, max(0.0, total_roth - floor))
     by_account = _draw_pro_rata_accounts(bal, roth_ids, amount)
     return {
         "amount": sum(by_account.values()),
@@ -1460,14 +1537,22 @@ def plan_roth_conversion(
         + h_single_ann + h_joint_ann + note_princ_yr + note_int_yr + rmd_total
         + portfolio_ordinary + portfolio_qualified + portfolio_tax_exempt
     )
-    buf_yrs = liquidity_buffer_years_for_year(c, year)
+    # Trust headroom is taxable dollars above the reserve -- but only when the
+    # reserve is actually held in taxable. A Roth or HSA reserve leaves the
+    # taxable bucket entirely free to fund conversions, and subtracting it here
+    # (as every reserve did before P8) understated conversion capacity.
     taxable_ids = c.get("taxable_ids") or _ar.taxable_ids(c.get("account_registry", []))
-    trust_surf = max(0.0, _sum_bal(bal, taxable_ids) - buf_yrs * spend)
+    trust_surf = max(0.0, _sum_bal(bal, taxable_ids)
+                     - liquidity_reserve_floor(c, year, "taxable", spend))
     non_roth_surplus = income_streams + trust_surf - total_spend_need - base_tax_est
 
     primary_avail = _available_by_owner(c, bal, 0)
     secondary_avail = _available_by_owner(c, bal, 1)
-    ira_total = primary_avail + secondary_avail
+    # An IRA reserve must survive conversions too: converting pre-tax dollars to
+    # Roth empties the bucket the reserve is meant to preserve just as surely as
+    # spending them would.
+    ira_total = max(0.0, primary_avail + secondary_avail
+                    - liquidity_reserve_floor(c, year, "pretax", spend))
     amount = 0.0
     binding = ""
     secondary_binding = ""

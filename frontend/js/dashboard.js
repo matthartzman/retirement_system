@@ -4348,11 +4348,11 @@ const FIELD_GUIDANCE_OVERRIDES = {
   },
   reserve_account: {
     purpose:
-      "The account bucket the plan should try to preserve for this cash reserve rule.",
+      "The account bucket the plan preserves for this cash reserve rule.",
     impact:
-      "This affects which assets are protected from spending first when the withdrawal engine funds annual needs.",
+      "The withdrawal engine holds this bucket's balance above the reserve while funding annual needs, and draws the other buckets first. An IRA reserve also caps Roth conversions, since converting empties the bucket just as spending it would.",
     consider:
-      "Choose Cash for checking/money-market reserves, Taxable/Trust for brokerage reserves, or a retirement/HSA bucket only if that is the intentional reserve source.",
+      "Choose Taxable/Trust for brokerage reserves, or a retirement/HSA bucket only if that is the intentional reserve source. Cash accounts are never spent by the withdrawal cascade, so a Cash reserve is already preserved and the setting changes nothing.",
   },
   years_of_expenses: {
     purpose:

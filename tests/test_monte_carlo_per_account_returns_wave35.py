@@ -137,7 +137,7 @@ class MonteCarloPerAccountReturnsTests(unittest.TestCase):
                 "absolute rate.",
             )
 
-    def test_bucket_return_tilts_are_dollar_weighted_and_market_neutral(self):
+    def test_bucket_return_tilts_are_dollar_weighted(self):
         """The vectorized MC grows tax BUCKETS, not accounts, so per-account
         tilts must be dollar-weighted into per-bucket tilts.
 
@@ -145,6 +145,13 @@ class MonteCarloPerAccountReturnsTests(unittest.TestCase):
         pretax bucket equally. Averaging the rates instead of weighting them is
         the obvious wrong implementation, so this fixture makes the two answers
         differ (simple mean = +0.02, dollar-weighted = ~+0.0373).
+
+        Scope: dollar weighting ONLY. This test was previously named
+        "..._and_market_neutral", but nothing in the body ever asserted market
+        neutrality -- the claim existed only in the identifier, which is how the
+        tilt-drift defect went unnoticed (finding S3). Neutrality is covered by
+        tests/test_mc_bucket_tilt_neutrality_regression.py; do not re-add the
+        claim to this name without assertions behind it.
         """
         c = {
             'ret': 0.05,

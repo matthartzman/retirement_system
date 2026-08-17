@@ -27,6 +27,7 @@ from .workbook_common import (
     write_hdr,
 )
 from ..person_labels import display_accounts_in_text as _display_accounts_in_text
+from . import summary_figures
 def build_sheet15(ws, c, rows, mc_data):
     """Market-Luck Stress Test — 8 sections:
     A. Methodology  B. Headline Results  B3. Required Spending Cut on Failing
@@ -390,9 +391,11 @@ def build_sheet15(ws, c, rows, mc_data):
     # key note
     r += 1
     note = ('Sequence-of-Returns Risk is the dominant tail risk in this plan. '
-            'The difference between Q1 and Q5 success rates illustrates why the '
-            'Reserve requirement and Roth conversion strategy are critical: '
-            'they allow riding out early bear markets without forced selling.')
+            'The spread between Q1 and Q5 success rates measures it: identical average '
+            'returns in a different order produce these different outcomes. Roth conversions '
+            'move these numbers, because the conversion and the tax it triggers are simulated '
+            'on every path. The Reserve requirement does not — reserved taxable/Trust dollars '
+            'take the same annual market shock as the rest of the bucket. See section G.')
     dat(r, 1, note, align='left', bg=LGRAY)
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=10)
     r += 2
@@ -458,8 +461,13 @@ def build_sheet15(ws, c, rows, mc_data):
         ('Primary Risk: Sequence-of-Returns',
          'The first 5–10 years of retirement carry the highest risk. A sustained bear '
          'market early in the distribution phase, before Social Security and annuity income '
-         'fully offset spending, can permanently impair the portfolio. The configured liquidity '
-         'buffer (Trust accounts) is the primary mitigation.'),
+         'fully offset spending, can permanently impair the portfolio. The mitigation this model '
+         'credits is withdrawal ORDER: the cascade spends cash-type accounts first, and cash grows '
+         'on a short-rate path rather than the equity draw, so reserves held in a cash account are '
+         'insulated from an early bear market. The configured liquidity buffer is not that: it '
+         'sets a floor under the taxable/Trust draw, redirecting spending to other buckets while '
+         'every reserved dollar still takes the full taxable-bucket market shock. That floor is '
+         'applied only in the deterministic cascade, not re-enforced against each simulated path.'),
         ('Annuity Income as a Floor',
          f'{str(c.get("w_nick") or c.get("w_name") or "Member 2")} pension + joint annuities provide deterministic income starting in the configured income year. '
          'This income floor reduces spending pressure, but it does not by itself guarantee liquid funding success. '
@@ -1181,9 +1189,17 @@ def build_sheet19(ws, c, rows):
     worst_delta = min((s['delta_nw'] for s in single_death_scenarios), default=0.0)
     survivor_shortfall = max(0.0, -worst_delta)
 
+    # The estate-liquidity need is the estate tax this plan actually projects at
+    # the terminal estate -- that is what an illiquid estate has to raise cash
+    # for. It was a flat $500,000 constant, which sat one row under Section B's
+    # own note boasting that these needs are derived from the household rather
+    # than from a generic multiple (finding P9, the C2 class).
+    from ..after_tax import estimate_terminal_estate_tax as _est_estate_tax
+    estate_liquidity_need = _est_estate_tax(c, rows[-1]) if rows else 0.0
     needs = [
         ('Survivor Shortfall (worst early-death scenario, Sheet 18)', survivor_shortfall),
-        ('Estate Liquidity Buffer', 500000.0),
+        ('Estate Liquidity Buffer (projected estate tax at the terminal estate)',
+         estate_liquidity_need),
     ]
     total_need = sum(need for _, need in needs)
     total_gap = max(0.0, total_need - first_yr_db - liquid_nw)
@@ -1226,11 +1242,17 @@ def build_sheet19(ws, c, rows):
     ltc_home_today     =  68000  # IL median
     ltc_inf = c.get('med_inf', 0.055)
 
+    # Illustrative market quotes, not plan outputs -- the face/premium pairs are
+    # indicative hybrid-policy pricing, and the row descriptions are written
+    # against them rather than against this household. The star is applied below
+    # from the CONFIGURED face, not baked into a description here: it used to
+    # sit permanently on the $500K row, so every client was shown $500K as
+    # "OPTIMAL" no matter what they had configured (finding P9).
     options = [
-        (250000,  9500, 137, 3, 'Light coverage — 3yr facility = $411K at today cost; covers moderate scenario'),
-        (350000, 13000, 192, 4, 'Moderate — 4yr = $412K home care / $549K facility coverage'),
-        (500000, 18500, 274, 5, '★ OPTIMAL — 5yr facility covers worst-case; premium affordable vs estate risk'),
-        (750000, 27000, 411, 6, 'Premium — extensive coverage; premium ~1.8% of estate annually'),
+        (250000,  9500, 137, 3, 'Light coverage — 3yr facility at today\'s cost; covers a moderate scenario'),
+        (350000, 13000, 192, 4, 'Moderate — 4yr of home care, or ~3yr of facility care'),
+        (500000, 18500, 274, 5, 'Substantial — 5yr facility covers the worst-case duration'),
+        (750000, 27000, 411, 6, 'Premium — extensive coverage; highest ongoing premium'),
     ]
 
     opt_enabled = c.get('ltc_enabled', False)
@@ -1250,14 +1272,18 @@ def build_sheet19(ws, c, rows):
         prem_5yr      = prem_est * 5
         facility_5yr  = ltc_facility_today * 5
         be_yrs        = prem_5yr / max(1, ltc_facility_today - prem_est)
-        is_optimal    = (face == opt_face or (opt_face == 0 and '★' in desc))
-        bg = 'C6EFCE' if '★' in desc else (LGRAY if face % 2 == 0 else None)
-        write_cell(ws, r, 1, f'${face:,}',     bold='★' in desc, bg=bg)
-        write_cell(ws, r, 2, f'~${prem_est:,}/yr', bold='★' in desc, bg=bg)
+        # Mark the row this household has actually configured. `is_optimal` was
+        # computed exactly like this and then discarded -- every cell keyed off
+        # a hardcoded star instead, so the highlight never moved off $500K.
+        is_configured = (face == opt_face)
+        marker = '  ← configured for this plan' if is_configured else ''
+        bg = 'C6EFCE' if is_configured else (LGRAY if face % 2 == 0 else None)
+        write_cell(ws, r, 1, f'${face:,}',     bold=is_configured, bg=bg)
+        write_cell(ws, r, 2, f'~${prem_est:,}/yr', bold=is_configured, bg=bg)
         write_cell(ws, r, 3, f'${daily}/day',  bg=bg)
         write_cell(ws, r, 4, f'{yrs} years',   bg=bg)
         write_cell(ws, r, 5, f'~{be_yrs:.1f} yrs into claim', bg=bg)
-        write_cell(ws, r, 6, desc, bold='★' in desc, bg=bg)
+        write_cell(ws, r, 6, desc + marker, bold=is_configured, bg=bg)
         r += 1
 
     r += 1
@@ -1270,10 +1296,26 @@ def build_sheet19(ws, c, rows):
 
     # Section D: standard options comparison
     write_hdr(ws, r, 1, 'Section D — All Coverage Options', NAVY, WHITE, span=6); r+=1
+    # Verdicts describe THIS plan's configuration. The hybrid row used to print
+    # "$500K face, start 2027, ~$18,500/yr" in the same row whose Death Benefit
+    # column renders the configured face, so any household with different
+    # settings got a row that contradicted itself; the GUL row cited a flat
+    # "$320K" IL estate tax that is computed nowhere (finding P9, the C2 class).
+    _cst = summary_figures.credit_shelter_trust_savings(c)
+    _hybrid_verdict = (
+        f'Configured: ${opt_face:,.0f} face, start {opt_start}, ~${opt_prem:,.0f}/yr'
+        if opt_enabled else
+        'Not currently configured — see Section C for the coverage levels compared'
+    )
+    _gul_verdict = (
+        f'Consider if state estate tax approaching ~${_cst["tax_saved"]:,.0f} materializes (Sheet 14)'
+        if _cst else
+        'Consider if a state estate-tax liability materializes (Sheet 14)'
+    )
     options2 = [
         ('20-Year Term',     f'{_nick1} or {_nick2}', '$500K-$1M', 'N/A',                 'None',         'Low cost; expires before mortality age — limited utility'),
-        ('Hybrid Life/LTC',  _insured_display,  f'${opt_face:,.0f}',  'Yes, accelerated DB', 'Grows modestly', '★ RECOMMENDED — $500K face, start 2027, ~$18,500/yr'),
-        ('Second-to-Die GUL','Joint',            '$1M+',              'At second death',     'None/minimal',   'Consider if IL estate tax > $320K materializes'),
+        ('Hybrid Life/LTC',  _insured_display,  f'${opt_face:,.0f}',  'Yes, accelerated DB', 'Grows modestly', _hybrid_verdict),
+        ('Second-to-Die GUL','Joint',            '$1M+',              'At second death',     'None/minimal',   _gul_verdict),
     ]
     hdrs = ['Product','Insured','Death Benefit','LTC Accel','Cash Value','Verdict']
     for i, h in enumerate(hdrs, 1):
@@ -1281,16 +1323,24 @@ def build_sheet19(ws, c, rows):
     r += 1
     for opt2 in options2:
         for i, val in enumerate(opt2, 1):
-            bg = 'E2EFDA' if '★' in opt2[-1] and i==6 else None
+            bg = 'E2EFDA' if (opt_enabled and opt2[0] == 'Hybrid Life/LTC' and i == 6) else None
             write_cell(ws, r, i, val, bg=bg)
         r += 1
 
     r += 1
-    write_cell(ws, r, 1,
-               'Recommendation: $500K Hybrid Life/LTC (e.g. Lincoln MoneyGuard) starting 2027. '
-               'Prioritize the lower-cost insured first; consider a second policy in a later review year. '
-               'Annuity death benefits may be material early but decline over time — '
-               'the hybrid policy fills the gap as annuity DB expires.')
+    _closing = (
+        (f'This plan configures a ${opt_face:,.0f} Hybrid Life/LTC policy on {_insured_display} '
+         f'starting {opt_start} at ~${opt_prem:,.0f}/yr. '
+         if opt_enabled else
+         'No Hybrid Life/LTC policy is configured in this plan; Section C compares coverage levels '
+         'against the gap computed in Section B. ')
+        + 'Where two insureds are candidates, the lower-cost one is generally funded first, with a '
+        'second policy revisited in a later review year. Annuity death benefits may be material '
+        'early but decline over time, so a hybrid policy is what fills the gap as annuity DB '
+        'expires. Coverage levels and premiums above are indicative market pricing for comparison, '
+        'not quotes — confirm with an underwriter before acting.'
+    )
+    write_cell(ws, r, 1, _closing)
     ws.merge_cells(start_row=r,start_column=1,end_row=r,end_column=6)
 
     qc('19. Life Insurance', 'Annuity DB table; gap analysis; options documented', True, '')

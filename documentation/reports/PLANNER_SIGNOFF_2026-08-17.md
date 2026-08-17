@@ -258,11 +258,78 @@ None are blockers. Ordered by value.
 |---|---|---|---|
 | ✅ P1 | **Re-normalize the bucket tilts every step.** **DONE 2026-08-17** — `_mc_apply_bucket_growth` now subtracts the current step's balance-weighted mean tilt, so neutrality holds at every year and on every path independently rather than only at t=0. Realized portfolio growth now equals the sampled return to floating point in every projection year (worst excess **0.000000 bps**, was +24.9). The inter-bucket spread — the Wave 3.5 deliverable — is preserved exactly. Golden pins unmoved; changelog entry 2026-08-17. | S | opus · medium |
 | ✅ P2 | **Regression guard.** **DONE 2026-08-17** — `tests/test_mc_bucket_tilt_neutrality_regression.py`, six cases. Per rule 2 it was demonstrated red first: the all-Roth end-state case failed by **+24.87 bps**, matching the fixture measurement that motivated it. Covers the late-horizon mix, per-path independence, the degenerate single-bucket end state, preservation of the spread (so a fix cannot degenerate into zeroing the tilts), and the untilted bit-identical path. | S | sonnet · medium |
-| P3 | **Rename `test_..._and_market_neutral`** (S3). Neutrality is now genuinely covered by P2's file, so all that remains is dropping the false half of the name — it tests dollar weighting, and should say so. | XS | sonnet · low |
+| ✅ P3 | **DONE 2026-08-17.** Renamed to `test_bucket_return_tilts_are_dollar_weighted`, with a scope note in the docstring recording that the neutrality claim existed only in the identifier (S3) and pointing at P2's file as the place it is actually asserted. The cross-reference in that file was updated to match. Body unchanged. | XS | sonnet · low |
 | ✅ P4 | **DONE 2026-08-17.** Two rows added to Sheet 3A (Monte Carlo) section A, directly above the success rate: what asset location does model, and the limit on what the number supports. Guarded by `test_monte_carlo_sheet_discloses_the_asset_location_modeling_limit`, demonstrated red first against a real build, resolving the sheet through `stable_name_for_sheet_title` rather than a hardcoded `3A.` (section letters are recomputed per build). Recorded here, in the plan, in the changelog and in project memory. Writing it corrected S1 — see the banner above. | S | sonnet · medium |
-| **P7** | **NEW, found while writing P4.** Sheet 3A section G tells the reader *"The configured liquidity buffer (Trust accounts) is the primary mitigation"* for sequence-of-returns risk. Trust maps to the **taxable** bucket, which takes the full equity shock — so this is exactly the claim S1 says the success rate cannot support, already shipping. Either re-word it to rest on withdrawal ordering (which *is* modeled: the cascade draws cash first) or move the buffer into a cash-type account so the claim becomes true. Audit section G's other narrative claims against S1 in the same pass. | S | opus · medium — it is client-facing advice, not description |
-| P5 | Reconcile the cash-account tilt divergence between the scalar and vectorized MC paths (S5). | XS | sonnet · low |
-| P6 | Optional: source-level second look at C1, C2, C5 under the §3 rule. Deferred by the Q1 disposition. | M | opus · high |
+| ✅ **P7** | **DONE 2026-08-17.** Re-worded to rest on what is modeled (option 1). Section G's *Primary Risk* item now names withdrawal ORDER as the credited mitigation — the cascade spends cash-type accounts first and cash grows on a short-rate path — and states plainly that the configured buffer is a different mechanism that sets a floor under the taxable/Trust draw while every reserved dollar still takes the full bucket shock, and that the floor is applied only in the deterministic cascade, never re-enforced per simulated path. **Option 2 was found to be unavailable:** a Liquidity Buffer row's `reserve_account` field is written and round-tripped by the UI and read by nothing in the engine — the floor hits the taxable bucket whatever it says — so selecting "Cash" there cannot make the claim true. Only holding the reserve in a registry account with `tax='cash'` does. That inert field is logged as P8. Scope note: **section E's quintile note carried the same claim more strongly** ("riding out early bear markets without forced selling" — the model has no forced-selling mechanic at all) and was fixed in the same pass; leaving it would have had the sheet contradict itself. Audit of G's other five items: three are computed values, two are review triggers, none make an S1-class claim — they stand. Guard: `test_monte_carlo_sheet_does_not_credit_the_liquidity_buffer_with_mitigating_sequence_risk`, each of its three assertions demonstrated red individually against a real build (per §3 rule 2, including the positive assertion — a forbid-only guard passes on a sheet that says nothing). Also checked what these guards structurally cannot see: they read cell *values*, so a disclosure could be present and still be visually clipped. Measured the rendered geometry of all three passages (this one, the section E note, and P4's) in a built workbook against `minimize_row_heights`' calibrated width model at the final column widths — 5/3/6 lines needing 73/45/87 pt against 73/45/87 pt allotted. Nothing is clipped; recorded because the check is not obvious from the test names. | S | opus · medium — it is client-facing advice, not description |
+| ✅ P5 | **DONE 2026-08-17.** `_apply_account_return_adjustments` now applies the same cash-tax exclusion as `_mc_bucket_return_tilts`, so the scalar path stops tilting cash accounts against an equity return the vectorized path never applies to them. Guard: `tests/test_mc_cash_tilt_path_parity_regression.py`, built on the exact fixture S5 named (a money-market fund mapping to a CMA class, held in a cash account) since the frozen fixture cannot distinguish the two implementations — per §3 rule 3. Demonstrated red on the pre-fix engine. Golden pins unmoved. | XS | sonnet · low |
+| ✅ **P8** | **DONE 2026-08-17 — honored, not removed.** `liquidity_buffer_for_year` now returns `(years, bucket)` and a new `liquidity_reserve_floor(c, year, bucket, spend_floor_base)` applies the floor to the bucket the row names, in `withdraw_taxable_trust`, `withdraw_roth`, `withdraw_pretax_elective` and `withdraw_hsa_gap`, with `spend_floor_base` threaded through all six deterministic call sites. Two consequences beyond the floor, both deliberate: `trust_surf` no longer subtracts a non-taxable reserve from the taxable balance (it was understating Roth-conversion capacity), and an IRA reserve now caps conversions too — converting empties the reserved bucket as surely as spending it. **Cash is a documented no-op**: the deterministic cascade never draws cash-tax accounts, so a cash reserve is preserved by construction; the floor helper still returns the right number and `CashReserveTests` pins it for whoever adds a cash draw. **Golden pins unmoved by design** — the default, unrecognized and blank values all resolve to taxable, so every stored plan is bit-identical. Guard: `tests/test_liquidity_reserve_account_regression.py`, 12 cases; planting the pre-P8 taxable-only semantics turned 7 red, and the 5 that held are the pins that must be insensitive. | S | opus · medium — silent no-op on a client-visible input |
+| ✅ P6 | **DONE 2026-08-17 — and it found one.** Source-level second look at C1, C2, C5 under the §3 rule. **C1 and C5's engine fixes are real** and were re-derived, not re-read. **C5's guard was not:** `test_terminal_component_is_discounted_below_nominal_after_tax_nw` computed the present value itself and asserted `pv < nominal` — true by arithmetic for any positive discount over any positive horizon — while never reading the objective. Demonstrated: with `after_tax_terminal_nw_pv` reverted to the nominal figure (C5's defect, fully restored) **both tests stayed green**. Rewritten to assert on `terminal_wealth_score`, the component that actually enters the score; the planted defect now fails it by 6,185,244 vs 2,948,770 — the objective had been weighting terminal wealth at **2.1×** its present value against discounted tax terms. Two C2-class residuals logged as P9. Full detail in §5. | M | opus · high |
+
+| ✅ **P9** | **DONE 2026-08-17.** All four figures on `19. Life Insurance` now derive from the plan: the hybrid verdict from `ltc_face`/`ltc_start_year`/`ltc_annual_prem` (it previously printed “$500K face, start 2027, ~$18,500/yr” in the same row whose Death Benefit column renders the configured face), the GUL verdict from `summary_figures.credit_shelter_trust_savings` instead of a flat $320K, and the Estate Liquidity Buffer from `estimate_terminal_estate_tax` instead of a flat $500,000 — that one sat one row under Section B’s own note boasting these needs are not a generic multiple. Also removed a named commercial product from the closing recommendation, labeled the premium table as indicative pricing rather than quotes, and revived a **dead `is_optimal`**: it computed which coverage row matched the client’s configured face and was discarded in favor of a ★ baked into the $500K string, so every client saw $500K as “OPTIMAL”. Guard: `test_insurance_sheet_prints_no_client_independent_dollar_figures`; all seven assertions demonstrated red against a real pre-fix build. Reporting only — no projection figure moves. | S | sonnet · medium |
 
 **P4 is the one with a client-facing deadline** — it is a disclosure, and the next build ships without
 it otherwise.
+
+---
+
+## 5. P6 — the second look at C1, C2, C5
+
+Run 2026-08-17 under the §3 rule. Each finding's shipped fix was re-derived from source and, where a
+guard existed, the guard was tested by planting the original defect. Verdicts:
+
+### C1 · Executive Summary Roth headline — **fix confirmed**
+
+`sum(roth_conv) * 0.22` is gone. `sheets_summary_builder.py:118` calls
+`summary_figures.roth_strategy_benefit(c)`, which reads the Sheet 11 candidate contract and returns
+the selected-versus-next-best deltas in both lifetime tax and after-tax terminal net worth — the
+review's recommendation (a). It returns `None` below two candidates, so the "versus next best" row is
+omitted rather than published against nothing. This is the shipped behavior, read at source.
+
+### C2 · Hardcoded client-independent dollars — **fix confirmed at the reported location, residuals elsewhere**
+
+The Executive Summary block now derives from `summary_figures.credit_shelter_trust_savings`, which
+scales with the user-editable `il_exempt`, and **Sheet 14 reads the same helper**
+(`sheets_strategy.py:1445`) — the shared-helper structure documentation asked for, so the flagship
+page and the estate sheet cannot drift apart the way `glossary.py`'s docstring records happening
+before. Both render the 8% as explicitly approximate.
+
+Two notes rather than defects: (i) the shared 8% average rate coexists with `core.illinois_estate_tax()`,
+which computes the real graduated tax — the two sheets now agree with each other but not with the
+engine's own capability, which is an upgrade path, not a contradiction, since it is labeled
+approximate; (ii) the same hardcoded-dollar pattern survives on the insurance/estate sheet, outside
+the range C2 cited. Logged as **P9** — this is the part of C2 that a location-scoped fix would always
+have missed, and the reason a finding's *class* is worth grepping for, not just its line numbers.
+
+### C5 · Nominal headline figures + inconsistent Roth objective — **engine fix confirmed; guard was vacuous**
+
+The objective half is fixed, and fixed carefully. `after_tax_terminal_nw_pv` (`planning_engines.py:1917`)
+is a **separate** variable from the reported `after_tax_terminal_nw`, and every one of the four
+`terminal_component` branches — default, `MINIMIZE_LIFETIME_TAX`, `MAXIMIZE_TERMINAL_NET_WORTH`,
+`MAXIMIZE_PTI` — uses the PV, at the same discount as `lifetime_tax` and `estate_tax_penalty`. The
+reported figure and `post_tax_inheritance` stay nominal. All four branches checked individually.
+
+**The guard, however, could not fail.** `test_terminal_component_is_discounted_below_nominal_after_tax_nw`
+computed the present value itself and asserted `expected_pv < after_tax_terminal_nw`. For any positive
+discount over any horizon longer than zero years that is arithmetically necessary. The test never read
+`terminal_wealth_score`, `score`, or any other objective output.
+
+Demonstrated rather than argued: reverting line 1917 to `after_tax_terminal_nw_pv = after_tax_terminal_nw`
+restores C5's defect in full, and **both tests in the file stayed green**. Rewritten to assert that
+`terminal_wealth_score` equals the PV under a pinned `MAXIMIZE_PTI` mode (known weight 1.0), and to
+reject the nominal figure explicitly. Against the planted defect it now fails at
+**6,185,244 vs 2,948,770** — the objective had been weighting plan-end wealth at 2.1× its present
+value while the tax it costs was discounted, which is the exact bias C5 described.
+
+`test_post_tax_inheritance_stays_nominal_not_discounted` was checked and left alone: it restates the
+definition at `:2117`, but it would genuinely fail if PTI were discounted, so it is a real pin.
+
+### What this says about the Q1 disposition
+
+Q1 chose a standing rule over re-auditing C1/C2/C5 individually, on the reasoning that the rule
+generalizes. The rule is right, but it is forward-looking — it governs verification written *after*
+2026-08-17, and C5's guard was written before. Two of the three findings needed no action; the third
+was carrying a guard with **the same defect as instance 3** ("a guard that cannot fail") in the
+mechanism protecting it. So the audit was worth its M. The generalizable lesson is narrower than
+"re-audit everything": **a guard written for a finding about unverified claims deserves the planted-defect
+test before the finding is closed**, because that is exactly the context in which a green check is
+least informative.
