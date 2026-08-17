@@ -33,7 +33,6 @@
     "changeKey",
     "chatMessageHtml",
     "checkAppStatus",
-    "checklistItemStatus",
     "choiceHelpText",
     "choiceLabel",
     "choiceOptions",
@@ -68,7 +67,6 @@
     "exitApp",
     "expandAllDetailColumnsOnPage",
     "expandAllDetailGroups",
-    "exportCsvBackup",
     "fetchPlanDataFiles",
     "fetchText",
     "fetchWithTimeout",
@@ -85,12 +83,10 @@
     "filterChoiceOptionsForRow",
     "findAssetRow",
     "finiteOrNull",
-    "firstRunChecklistHtml",
     "fmtPctCell",
     "focusYtdAccountMoney",
     "focusYtdTxnAmount",
     "focusableEntries",
-    "freezePricingSnapshot",
     "getStrategyTab",
     "goToStrategyTab",
     "groupModelData",
@@ -106,14 +102,11 @@
     "leverPctPoints",
     "loadCanonicalGlossary",
     "loadDetailedResults",
-    "loadSavedPlan",
-    "loadTaxFreshnessStatus",
     "makeYtdAccountRow",
     "mergeDetailedSheetMeta",
     "mergeProtectedClientData",
     "moneyNegativeClass",
     "moveToNextEntry",
-    "nbaPanelHtml",
     "normalizePlanDataTextForCompare",
     "normalizePlanningCaseRunType",
     "normalizePlanningCaseSource",
@@ -124,12 +117,9 @@
     "noteSpecialSessionChange",
     "numberDisplayDecimals",
     "openCachedChart",
-    "openCurrentPlan",
-    "openDemoPlan",
     "openExitModal",
     "openNavDrawer",
     "openNextCollapsedSectionFrom",
-    "openSystemConfigurationConsole",
     "optimizerOverrideTotalHtml",
     "optimizerPreviewStatusCell",
     "optimizerPreviewTarget",
@@ -172,17 +162,13 @@
     "promotePlanningCase",
     "readFileFromFolder",
     "readYtdActualsPeriod",
-    "recentChangesLogHtml",
     "recoverPriorSpendingBudget",
     "recoverYtdAccountSetup",
-    "refreshLivePrices",
     "rememberBuildCompare",
     "renderAllocationRecommendation",
     "renderAssetClassSelectionTable",
     "renderAssetsCashReserves",
-    "renderBuildPreflightPanel",
     "renderCurrentAllocationModeNote",
-    "renderDetailedResults",
     "renderDetailedResultsNav",
     "renderDetailedResultsProgressTick",
     "renderDistributionStrategy",
@@ -200,16 +186,11 @@
     "renderOptimizerOverrideTable",
     "renderOptimizerPreviewNote",
     "renderOptionalFunctions",
-    "renderPlanDataReport",
     "renderPlanningLevers",
     "renderPlanningWorkbench",
     "renderRealLossAwarePanel",
     "renderRealLossAwareTuningHtml",
-    "renderReportsAndReview",
-    "renderReportsBuild",
-    "renderReportsPreflight",
     "renderRetirementWellness",
-    "renderReview",
     "renderRothConversion",
     "renderRothMissingNotice",
     "renderRothRows",
@@ -218,11 +199,8 @@
     "renderSpendingWorkflowBanner",
     "renderStateResidency",
     "renderStrategyTabs",
-    "renderSystemConfiguration",
-    "renderTabbedWorkspace",
     "renderTangencyAllocationPanel",
     "renderTotalWealthAllocationHtml",
-    "renderWelcome",
     "renderWithdrawalOrderTable",
     "renderWithdrawalStrategy",
     "renderWorkbenchLeverEditorHtml",
@@ -234,7 +212,6 @@
     "renderYtdTransactionsStep",
     "renderYtdUploadPanel",
     "resetAllocationPreview",
-    "resetDemoToDefaults",
     "resetYtdTxnPage",
     "restoreGroupBudgetModes",
     "restoreWorkbookViewState",
@@ -248,7 +225,6 @@
     "saveChanges",
     "saveCurrentPlanToSelectedFolderForBuild",
     "saveLiabilities",
-    "savePlanAs",
     "saveValueForRow",
     "saveYtdAccountSetup",
     "saveYtdPending",
@@ -261,7 +237,6 @@
     "serializeLiabilities",
     "setAllDetailColumnGroups",
     "setAllocationSelectionMode",
-    "setAutoLoad",
     "setCombinedSearch",
     "setDetailedResultSheet",
     "setDetailedResultsNavOpen",
@@ -274,17 +249,14 @@
     "setYtdActualsPeriod",
     "setYtdSort",
     "setYtdTxnPage",
-    "showConfigCardHelp",
     "showHelpAutoCollapseNoticeOnce",
     "showPlanDataFileManifest",
     "showSpendingModelLoadOverlay",
     "showStepHelp",
-    "showYtdBlendChoiceModal",
     "showYtdLoadOverlay",
     "sleep",
     "spendingFlowFooterHtml",
     "startDetailedResultsProgress",
-    "startNewPlan",
     "stepHelpLinkHtml",
     "stepIdForRow",
     "stepSearchText",
@@ -297,14 +269,11 @@
     "summaryFromApiPayload",
     "takeBuildSnapshot",
     "targetPctInput",
-    "taxFreshnessBannerHtml",
     "toggleDetailColGroup",
     "toggleDetailColumnGroup",
     "toggleHelpSheet",
     "toggleNavDrawer",
     "translatePersonValueLabel",
-    "undoSessionFieldChange",
-    "unfreezePricingSnapshot",
     "updateSearchToggle",
     "updateYtdAccountMoney",
     "updateYtdTxnAmount",
@@ -1472,6 +1441,498 @@
     {
       "name": "showStepHelp",
       "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "SYSTEM_CONFIG_FIELD_HELP",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "STEP_HELP",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sessionChanges",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sessionSpecialChanges",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sessionChanges",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planLoaded",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildPreflight",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_autoLoadPref",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_autoLoadPref",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "_autoLoadPref",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "demoModeActive",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "demoModeActive",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildPreflight",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildPreflight",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildPreflight",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planLoaded",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "demoModeActive",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "demoModeActive",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxFreshnessLoading",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxFreshnessData",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxFreshnessLoading",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxFreshnessData",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxFreshnessData",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxFreshnessLoading",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxFreshnessData",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxFreshnessLoading",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxFreshnessData",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildPreflight",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildPreflight",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activePlanReportSection",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "STEPS",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "REPORTS_TABS",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "reportsActiveTab",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "reportsActiveTab",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "REPORTS_TABS",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planFolderHandle",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planFolderName",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sessionChanges",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sessionSpecialChanges",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liabilitiesChanged",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "travelExtrasChanged",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liquidityChanged",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "forcedConversionsChanged",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTransactionsChanged",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdAccountsChanged",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyData",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyFlat",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyError",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelData",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "spendingModelError",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "mappingRules",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rulesChanged",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudgetChanged",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxBudgetLoaded",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLines",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLinesChanged",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetLinesLoaded",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "budgetSectionMode",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "categoryBudgetMode",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "groupBudgetMode",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sessionBaselineSummary",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sessionBaselineCaptured",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planChatMessages",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
       "kind": "call",
       "scope": "inside-function"
     },
@@ -6504,12 +6965,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "checklistItemStatus",
-      "file": "frontend/js/dashboard_source_truth_banners.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
       "name": "lastBuildOk",
       "file": "frontend/js/dashboard_source_truth_banners.js",
       "kind": "read",
@@ -6894,12 +7349,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "renderDetailedResults",
-      "file": "frontend/js/reports_ui.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
       "name": "renderMain",
       "file": "frontend/js/spending_dashboard.js",
       "kind": "call",
@@ -7042,7 +7491,10 @@
     "REQUIRED_PLAN_DATA_FILES",
     "SCENARIO_SET_STORAGE_KEY",
     "STEPS",
+    "STEP_HELP",
     "STRATEGY_TABS",
+    "SYSTEM_CONFIG_FIELD_HELP",
+    "_autoLoadPref",
     "_smoothCap",
     "_smoothDelayTimer",
     "_smoothFromPct",
@@ -7050,6 +7502,7 @@
     "_smoothSpeed",
     "_smoothStart",
     "activeDetailedSheet",
+    "activePlanReportSection",
     "activeStep",
     "allocationPreview",
     "allocationPreviewError",
@@ -7106,7 +7559,9 @@
     "moduleGates",
     "moduleStatus",
     "navSearchText",
+    "planChatMessages",
     "planFolderHandle",
+    "planFolderName",
     "planLoaded",
     "planSource",
     "planningLeverInputs",
@@ -7127,6 +7582,8 @@
     "taxBudget",
     "taxBudgetChanged",
     "taxBudgetLoaded",
+    "taxFreshnessData",
+    "taxFreshnessLoading",
     "taxonomyData",
     "taxonomyError",
     "taxonomyFlat",

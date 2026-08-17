@@ -1,11 +1,11 @@
 {
   "schema": "dashboard_clusters_v1",
   "cutoff": 3,
-  "total_functions": 346,
+  "total_functions": 315,
   "hubs": [
     {
       "name": "renderMain",
-      "fan_in": 44
+      "fan_in": 38
     }
   ],
   "components": [
@@ -125,39 +125,6 @@
       "setPlanningLeverInput",
       "setSelectionAction",
       "targetPctInput"
-    ],
-    [
-      "checklistItemStatus",
-      "exportCsvBackup",
-      "firstRunChecklistHtml",
-      "freezePricingSnapshot",
-      "loadSavedPlan",
-      "loadTaxFreshnessStatus",
-      "nbaPanelHtml",
-      "openCurrentPlan",
-      "openDemoPlan",
-      "openSystemConfigurationConsole",
-      "recentChangesLogHtml",
-      "refreshLivePrices",
-      "renderBuildPreflightPanel",
-      "renderDetailedResults",
-      "renderPlanDataReport",
-      "renderReportsAndReview",
-      "renderReportsBuild",
-      "renderReportsPreflight",
-      "renderReview",
-      "renderSystemConfiguration",
-      "renderTabbedWorkspace",
-      "renderWelcome",
-      "resetDemoToDefaults",
-      "savePlanAs",
-      "setAutoLoad",
-      "showConfigCardHelp",
-      "showYtdBlendChoiceModal",
-      "startNewPlan",
-      "taxFreshnessBannerHtml",
-      "undoSessionFieldChange",
-      "unfreezePricingSnapshot"
     ],
     [
       "choiceHelpText",
