@@ -6,6 +6,8 @@ bracket-stacking formula, and per-lot holding periods).
 import unittest
 from pathlib import Path
 
+import pytest
+
 from src.core import TaxLot, LotEngine
 from src.data_io import load_csv, parse_client
 from src.plan_config import ensure_engine_config
@@ -16,6 +18,26 @@ from tests.golden_pricing import FROZEN_GOLDEN_MASTER_PRICES, frozen_holdings_pr
 ROOT = Path(__file__).resolve().parents[1]
 
 from conftest import TEST_INPUT_DIR
+
+
+@pytest.fixture(autouse=True)
+def _pin_holdings_prices():
+    """Freeze holdings pricing for the whole of every test in this file.
+
+    Same defect and same fix as test_tax_loss_harvesting_regression.py, which
+    this file was modelled on: parse_client() is what prices the holdings, so
+    pinning only a later project() leaves the opening balances resolved against
+    the untracked, machine-local output/market_price_cache.json. And the config
+    is only valid while the block is open, because parse_client hands LotEngine
+    the module-global market_data.PRICE_CACHE *by reference*, and leaving the
+    context manager clears that dict.
+
+    Here it surfaced only under `pytest -n auto`, which is worse than a plain
+    red test: it reads as parallelism flakiness rather than as a real dependency
+    on machine state.
+    """
+    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+        yield
 
 
 def sample_config(gain_harvest_policy='off'):
@@ -145,11 +167,14 @@ class EngineIntegrationTests(unittest.TestCase):
         """Regression guard mirroring test_167's TLH-off no-op test: the new
         engine code path must not alter any existing projection when
         gain_harvest_policy is off (the default)."""
-        with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
-            c_off = sample_config('off')
-            rows_off = project(c_off)
-            c_baseline = baseline_config_without_gain_harvest_overrides()
-            rows_baseline = project(c_baseline)
+        # No frozen_holdings_prices block: the autouse _pin_holdings_prices
+        # fixture holds one open for the whole test. Re-entering and leaving it
+        # here would clear market_data.PRICE_CACHE mid-test, which LotEngine
+        # holds by reference.
+        c_off = sample_config('off')
+        rows_off = project(c_off)
+        c_baseline = baseline_config_without_gain_harvest_overrides()
+        rows_baseline = project(c_baseline)
         self.assertAlmostEqual(rows_off[-1]['total_nw'], rows_baseline[-1]['total_nw'], places=2)
         self.assertAlmostEqual(
             sum(r['total_tax'] for r in rows_off),
@@ -190,10 +215,11 @@ class EngineIntegrationTests(unittest.TestCase):
         self.assertLess(first['gain_harvest_realized'], 500_000)
 
     def test_apply_mode_does_not_change_projection_when_no_appreciated_lots_exist(self):
-        with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
-            c = sample_config('apply')
-            isolate_taxable_lots(c)
-            rows = project(c)
+        # Pricing is already pinned by the autouse fixture; see its docstring
+        # for why re-entering the block here would be actively harmful.
+        c = sample_config('apply')
+        isolate_taxable_lots(c)
+        rows = project(c)
         self.assertTrue(all(r.get('gain_harvest_realized', 0) == 0 for r in rows))
 
 
