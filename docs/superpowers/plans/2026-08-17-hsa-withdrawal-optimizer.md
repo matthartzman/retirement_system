@@ -178,7 +178,7 @@ import unittest
 
 from src.after_tax import effective_heir_ten_year_rate, hsa_terminal_tax
 
-BASE = {"heir_filing_status": "Single", "brk_inf": 0.0,
+BASE = {"roth_heir_filing_status": "Single", "brk_inf": 0.0,
         "plan_start": 2026, "plan_end": 2056}
 
 
@@ -297,7 +297,7 @@ import unittest
 
 from src.after_tax import estimate_terminal_hsa_deferred_tax
 
-BASE = {"heir_filing_status": "Single", "brk_inf": 0.0,
+BASE = {"roth_heir_filing_status": "Single", "brk_inf": 0.0,
         "plan_start": 2026, "plan_end": 2056}
 TERMINAL = {"hsa_nw": 400_000.0}
 
