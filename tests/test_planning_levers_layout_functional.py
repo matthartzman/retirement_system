@@ -1,7 +1,7 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-from tests._decomp_dashboard import dashboard_js_text
+from tests._decomp_dashboard import dashboard_function_source, dashboard_js_text
 
 
 def test_planning_levers_ui_has_source_column_and_compact_inputs():
@@ -26,9 +26,7 @@ def test_planning_levers_gates_ltc_quick_nav_button_on_optional_function():
     # same server-declared stepGatedByOptionalModule() the rest of the app's
     # navigation already uses -- see test_planning_levers_module_gating.py
     # for the full cross-module coverage.
-    js = (dashboard_js_text() + (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8-sig'))
-    start = js.index('function renderPlanningLevers(')
-    fn = js[start: js.index('\nfunction ', start + 1)]
+    fn = dashboard_function_source('renderPlanningLevers')
     assert 'leverNavButton("ltc_stress", "Long-term care")' in fn
     assert 'stepGatedByOptionalModule(stepId)' in fn
     # The only reference to the ltc_stress button should be the single

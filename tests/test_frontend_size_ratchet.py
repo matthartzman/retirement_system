@@ -121,7 +121,12 @@ JS_DIR = ROOT / "frontend" / "js"
 # tools/js_codemod/extract_module.mjs. Measured after regenerating the
 # census and bridge, so it includes the bridge shrinking as those names left
 # its Object.assign block.
-DASHBOARD_JS_MAX_LINES = 9_276
+# 2026-08-17: lowered from 9,276 -- extracted 48 declaration(s) into
+# dashboard_decomp_allocation_optimizer.js via
+# tools/js_codemod/extract_module.mjs. Measured after regenerating the
+# census and bridge, so it includes the bridge shrinking as those names left
+# its Object.assign block.
+DASHBOARD_JS_MAX_LINES = 8_373
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling
