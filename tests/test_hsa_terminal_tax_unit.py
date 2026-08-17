@@ -5,7 +5,7 @@ import unittest
 
 from src.after_tax import effective_heir_ten_year_rate, hsa_terminal_tax
 
-BASE = {"heir_filing_status": "Single", "brk_inf": 0.0,
+BASE = {"roth_heir_filing_status": "Single", "brk_inf": 0.0,
         "plan_start": 2026, "plan_end": 2056}
 
 
@@ -37,3 +37,16 @@ class HsaTerminalTaxTests(unittest.TestCase):
         small = hsa_terminal_tax(c, 50_000.0) / 50_000.0
         large = hsa_terminal_tax(c, 800_000.0) / 800_000.0
         self.assertGreater(large, small)
+
+    def test_heir_filing_status_actually_changes_the_tax(self):
+        """Proves roth_heir_filing_status is live: MFJ brackets are wider than
+        Single, so the same non-spouse lump must be taxed less under MFJ."""
+        bal = 500_000.0
+        single = dict(BASE, hsa_beneficiary_type="non_spouse",
+                       roth_heir_filing_status="Single")
+        mfj = dict(BASE, hsa_beneficiary_type="non_spouse",
+                    roth_heir_filing_status="MFJ")
+        tax_single = hsa_terminal_tax(single, bal)
+        tax_mfj = hsa_terminal_tax(mfj, bal)
+        self.assertLess(tax_mfj, tax_single,
+                         "MFJ brackets are wider than Single; tax must be lower")
