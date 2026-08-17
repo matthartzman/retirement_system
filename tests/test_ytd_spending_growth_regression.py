@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import date
 
 from src import ytd_tracking as ytd
-from tests._decomp_dashboard import dashboard_js_text
+from tests._decomp_dashboard import dashboard_function_source, dashboard_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -425,7 +425,10 @@ def test_ytd_account_mapping_ui_uses_inline_source_add_current_value_no_notes_or
     assert "prompt('Account/source" not in text
     assert '<th>Prior Year End Balance</th><th>Current Value</th>' in text
     assert 'From holdings' in text
-    account_section = text[text.index('function renderYtdAccounts'):text.index('function renderYtdTracking')]
+    # renderYtdAccounts stayed in dashboard.js while renderYtdTracking moved out
+    # in F3.4, so slicing between them now spans the entire rest of dashboard.js
+    # and picks up the taxonomy manager's <th>Notes</th> column.
+    account_section = dashboard_function_source('renderYtdAccounts', text)
     assert '<th>Notes</th>' not in account_section
     assert '<th>Prior Year End Date</th>' not in account_section
     assert 'ytdAddAccountSelect' not in account_section

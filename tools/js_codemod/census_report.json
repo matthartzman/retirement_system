@@ -4,7 +4,6 @@
     "_checkAppStatusRun",
     "addManualYtdAccount",
     "addParentheticals",
-    "addYtdTxn",
     "allocationPreviewFingerprint",
     "allocationPreviewRowsForPost",
     "allocationTargetsValid",
@@ -13,10 +12,8 @@
     "autoCollapseHelpForNarrowLaptop",
     "baseHomeSaleYearRow",
     "blurYtdAccountMoney",
-    "blurYtdTxnAmount",
     "boolishValue",
     "buildWithDesktopProgress",
-    "cacheChart",
     "catEffectiveBudget",
     "changeImpactScope",
     "changeKey",
@@ -26,20 +23,15 @@
     "choiceLabel",
     "choiceOptions",
     "chooseDefaultDetailedSheet",
-    "clientDataKey",
     "cloneSummary",
     "closeChartModal",
     "closeExitModal",
     "closeNavDrawer",
     "collapseAllDetailGroups",
-    "csvEscape",
     "currentManualOverrideItems",
     "currentScenarioOverrideItems",
     "decimalsFromText",
-    "deduplicateYtdTransactions",
-    "deleteAllYtdTransactions",
     "deleteYtdAccount",
-    "deleteYtdTxn",
     "dependencyRank",
     "deriveTotalRothConversions",
     "detailProgressState",
@@ -50,12 +42,9 @@
     "domainBudgetNote",
     "downloadBlob",
     "downloadFile",
-    "downloadYtdTemplate",
     "exitApp",
     "expandAllDetailColumnsOnPage",
     "expandAllDetailGroups",
-    "fetchPlanDataFiles",
-    "fetchText",
     "fetchWithTimeout",
     "fieldAllowedValues",
     "fieldConnection",
@@ -70,35 +59,28 @@
     "filterChoiceOptionsForRow",
     "finiteOrNull",
     "focusYtdAccountMoney",
-    "focusYtdTxnAmount",
     "focusableEntries",
     "getStrategyTab",
     "goToStrategyTab",
     "groupModelData",
-    "handleYtdTransactionUpload",
     "helpList",
     "hideSpendingModelLoadOverlay",
     "hideUnusedTemplateCategories",
     "hideYtdLoadOverlay",
     "humanizeGroupKey",
-    "importPreviewList",
     "leverPctPoints",
     "loadCanonicalGlossary",
     "loadDetailedResults",
     "makeYtdAccountRow",
     "mergeDetailedSheetMeta",
-    "mergeProtectedClientData",
     "moneyNegativeClass",
     "moveToNextEntry",
-    "normalizePlanDataTextForCompare",
     "normalizePlanningCaseRunType",
     "normalizePlanningCaseSource",
     "normalizeValueForSave",
-    "normalizeYtdActualsPeriod",
     "noteSessionFieldChange",
     "noteSpecialSessionChange",
     "numberDisplayDecimals",
-    "openCachedChart",
     "openExitModal",
     "openNavDrawer",
     "openNextCollapsedSectionFrom",
@@ -108,7 +90,6 @@
     "pageSaveModeHtml",
     "pageStatusHtml",
     "parseCsvLine",
-    "parseCsvTable",
     "parseDollarLike",
     "percentDisplayDecimals",
     "percentRaw",
@@ -136,8 +117,6 @@
     "planningWorkbenchStressSelectorHtml",
     "primaryActionForStep",
     "promotePlanningCase",
-    "readFileFromFolder",
-    "readYtdActualsPeriod",
     "recoverPriorSpendingBudget",
     "recoverYtdAccountSetup",
     "rememberBuildCompare",
@@ -163,14 +142,7 @@
     "renderWithdrawalOrderTable",
     "renderWithdrawalStrategy",
     "renderWorkspaceSubtabsNav",
-    "renderYtdDuplicateReview",
-    "renderYtdSummary",
-    "renderYtdTracking",
-    "renderYtdTransactions",
-    "renderYtdTransactionsStep",
-    "renderYtdUploadPanel",
     "resetAllocationPreview",
-    "resetYtdTxnPage",
     "restoreGroupBudgetModes",
     "restoreWorkbookViewState",
     "revertLastBuildChanges",
@@ -180,17 +152,11 @@
     "rowSortKeyForIncomeWork",
     "saveAndExit",
     "saveChanges",
-    "saveCurrentPlanToSelectedFolderForBuild",
-    "saveLiabilities",
     "saveValueForRow",
     "saveYtdAccountSetup",
     "saveYtdPending",
-    "saveYtdTransactions",
     "scenarioRowKeyFromParts",
     "sectionFlagEnabled",
-    "selectedFolderDiffersFromLoadedPlan",
-    "serializeCsvTable",
-    "serializeLiabilities",
     "setAllDetailColumnGroups",
     "setCombinedSearch",
     "setDetailedResultSheet",
@@ -199,9 +165,6 @@
     "setPlanningCaseActive",
     "setSearchScope",
     "setStrategyTab",
-    "setYtdActualsPeriod",
-    "setYtdSort",
-    "setYtdTxnPage",
     "showHelpAutoCollapseNoticeOnce",
     "showPlanDataFileManifest",
     "showSpendingModelLoadOverlay",
@@ -228,46 +191,18 @@
     "translatePersonValueLabel",
     "updateSearchToggle",
     "updateYtdAccountMoney",
-    "updateYtdTxnAmount",
     "validateAllocationTargetsOrMessage",
     "wireStepNavigation",
     "withdrawalOtherRows",
     "yesNoOptionHelp",
     "ytdAccountMoneyDisplay",
     "ytdAccountRoleOptions",
-    "ytdActualsPeriodToggleHtml",
-    "ytdBlendEnabledRow",
-    "ytdBlendToggleHtml",
-    "ytdCancelDedup",
-    "ytdDateAwarePageBoundaries",
-    "ytdDeleteSelectedDuplicates",
-    "ytdFilterOptions",
-    "ytdFilteredTxns",
-    "ytdFirstExistingValue",
-    "ytdHeader",
-    "ytdImportPreviewMessage",
     "ytdInvestmentHoldingAccounts",
     "ytdInvestmentOptions",
     "ytdIsGrowthRole",
     "ytdMappableAccounts",
-    "ytdMetricCard",
-    "ytdMoney",
-    "ytdPct",
-    "ytdPeriodTargetYear",
     "ytdRolloverBannerHtml",
-    "ytdSelectAllDuplicates",
-    "ytdSelectFieldHtml",
-    "ytdSelectOptions",
-    "ytdShortDate",
-    "ytdSparkline",
-    "ytdStaleGrowthAccounts",
-    "ytdToggleDuplicateGroup",
-    "ytdToggleDuplicateSelect",
-    "ytdTxPageBoundaries",
-    "ytdTxYear",
-    "ytdTxnPager",
-    "ytdTxnsForPeriod",
-    "ytdUpdateDedupDeleteBtn"
+    "ytdStaleGrowthAccounts"
   ],
   "variables": [
     "BUILD_HISTORY_LS_KEY",
@@ -666,18 +601,6 @@
     },
     {
       "name": "appReady",
-      "file": "frontend/js/dashboard_batch_assumption_edit.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "csvEscape",
-      "file": "frontend/js/dashboard_batch_assumption_edit.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "csvEscape",
       "file": "frontend/js/dashboard_batch_assumption_edit.js",
       "kind": "read",
       "scope": "inside-function"
@@ -2291,18 +2214,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "csvEscape",
-      "file": "frontend/js/dashboard_decomp_holdings.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "csvEscape",
-      "file": "frontend/js/dashboard_decomp_holdings.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
       "name": "lastBuildOk",
       "file": "frontend/js/dashboard_decomp_holdings.js",
       "kind": "assign",
@@ -2334,24 +2245,6 @@
     },
     {
       "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_holdings.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "ytdMoney",
-      "file": "frontend/js/dashboard_decomp_holdings.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "importPreviewList",
-      "file": "frontend/js/dashboard_decomp_holdings.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "importPreviewList",
       "file": "frontend/js/dashboard_decomp_holdings.js",
       "kind": "call",
       "scope": "inside-function"
@@ -3695,12 +3588,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "cacheChart",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
       "name": "planLoaded",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
@@ -4184,12 +4071,6 @@
       "name": "liabilityRowsCache",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "serializeLiabilities",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
       "scope": "inside-function"
     },
     {
@@ -5825,12 +5706,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "readFileFromFolder",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
       "name": "REQUIRED_PLAN_DATA_FILES",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
@@ -5936,12 +5811,6 @@
       "name": "budgetLinesChanged",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "saveLiabilities",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
       "scope": "inside-function"
     },
     {
@@ -7103,6 +6972,966 @@
       "scope": "inside-function"
     },
     {
+      "name": "YTD_ACTUALS_PERIOD_LS_KEY",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdActualsPeriod",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdActualsPeriod",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "YTD_ACTUALS_PERIOD_LS_KEY",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdActualsPeriod",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdActualsPeriod",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "chartCacheSeq",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "chartCache",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "chartCache",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "PROTECTED_CLIENT_DATA_KEYS",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "PROTECTED_CLIENT_DATA_KEYS",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liabilitiesText",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liabilitiesText",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liabilitiesChanged",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liabilitiesText",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "liabilitiesChanged",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxPage",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxPage",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxSort",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "YTD_TX_PAGE_SIZE",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "YTD_TX_PAGE_SIZE",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxSort",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxPage",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxSort",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxPage",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxPage",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxPage",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxPage",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxPage",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxPage",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxSearch",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdCategoryFilter",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdCategoryFilter",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdAccountFilter",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdAccountFilter",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxSort",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxSort",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxSort",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxSort",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxSort",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxSort",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxSort",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxSort",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateGroups",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdActualsPeriod",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "YTD_TX_PAGE_SIZE",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxPage",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxPage",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxPage",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxPage",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxPage",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxPage",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "YTD_TX_PAGE_SIZE",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "YTD_TX_PAGE_SIZE",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxSearch",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdCategoryFilter",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdCategoryFilter",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdAccountFilter",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdAccountFilter",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTransactionsChanged",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxColsCollapsed",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxColsCollapsed",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateGroups",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateSelected",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateSelected",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateSelected",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateSelected",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateSelected",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateSelected",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateSelected",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateSelected",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateGroups",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateGroups",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateSelected",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateGroups",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateGroups",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateSelected",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateSelected",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateGroups",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateGroups",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateSelected",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateSelected",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateSelected",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateGroups",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateSelected",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateGroups",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateSelected",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateGroups",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateSelected",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateSelected",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateSelected",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdDuplicateSelected",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "apiBase",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "PLAN_DATA_FILES",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planFolderHandle",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planFolderHandle",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planFolderHandle",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planFolderHandle",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "PLAN_DATA_FILES",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "planFolderHandle",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "activeStep",
       "file": "frontend/js/dashboard_source_truth_banners.js",
       "kind": "read",
@@ -7583,18 +8412,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "renderYtdSummary",
-      "file": "frontend/js/spending_dashboard.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderYtdSummary",
-      "file": "frontend/js/spending_dashboard.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
       "name": "closeChartModal",
       "file": "frontend/index.html (inline)",
       "kind": "call",
@@ -7602,25 +8419,25 @@
     },
     {
       "name": "ytdTxSearch",
-      "file": "frontend/js/dashboard.js",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
       "kind": "assign",
       "scope": "inline-html-handler"
     },
     {
       "name": "ytdCategoryFilter",
-      "file": "frontend/js/dashboard.js",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
       "kind": "assign",
       "scope": "inline-html-handler"
     },
     {
       "name": "ytdAccountFilter",
-      "file": "frontend/js/dashboard.js",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
       "kind": "assign",
       "scope": "inline-html-handler"
     },
     {
       "name": "ytdTxColsCollapsed",
-      "file": "frontend/js/dashboard.js",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
       "kind": "assign",
       "scope": "inline-html-handler"
     },
@@ -7647,6 +8464,7 @@
     "LIABILITY_HEADER",
     "PERSON_VALUE_TOKEN_RE",
     "PLAN_DATA_FILES",
+    "PROTECTED_CLIENT_DATA_KEYS",
     "RECOMMENDATION_ENGINE_VERSION",
     "RECOMMENDATION_STEP_IDS",
     "REPORTS_TABS",
@@ -7658,6 +8476,8 @@
     "STEP_HELP",
     "STRATEGY_TABS",
     "SYSTEM_CONFIG_FIELD_HELP",
+    "YTD_ACTUALS_PERIOD_LS_KEY",
+    "YTD_TX_PAGE_SIZE",
     "_autoLoadPref",
     "_smoothCap",
     "_smoothDelayTimer",
@@ -7689,6 +8509,8 @@
     "buildPreflight",
     "buildProgressTicker",
     "categoryBudgetMode",
+    "chartCache",
+    "chartCacheSeq",
     "csrfToken",
     "demoModeActive",
     "detailResultsSearchText",
@@ -7760,8 +8582,12 @@
     "ytdActualsPeriod",
     "ytdCategoryFilter",
     "ytdData",
+    "ytdDuplicateGroups",
+    "ytdDuplicateSelected",
     "ytdTransactionsChanged",
     "ytdTxColsCollapsed",
-    "ytdTxSearch"
+    "ytdTxPage",
+    "ytdTxSearch",
+    "ytdTxSort"
   ]
 }

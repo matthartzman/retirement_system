@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 
-from _decomp_dashboard import dashboard_js_text
+from _decomp_dashboard import dashboard_function_source, dashboard_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -22,10 +22,14 @@ def test_spending_category_mapping_language_is_consolidated():
 
 
 def test_accounts_sources_live_on_transactions_page_not_category_manager():
-    js = dashboard_js_text()
-    ytd_fn = js[js.index("function renderYtdTransactionsStep") : js.index("function renderYtdTracking", js.index("function renderYtdTransactionsStep")) if "function renderYtdTracking" in js[js.index("function renderYtdTransactionsStep"):] else js.index("function renderSpendingDashboardOrLoad")]
+    # Both of these used to be sliced between neighbouring functions. F3.4 moved
+    # renderYtdTransactionsStep and renderYtdTracking into
+    # dashboard_decomp_ytd_and_plan_folder_io.js, where they appear in a
+    # different order than they did in dashboard.js -- so the old slice came out
+    # empty and the assertion failed against "".
+    ytd_fn = dashboard_function_source("renderYtdTransactionsStep")
     assert "${renderYtdAccounts()}" in ytd_fn
-    tax_fn = js[js.index("function renderTaxonomyManager") : js.index("function showTaxonomyAddForm")]
+    tax_fn = dashboard_function_source("renderTaxonomyManager")
     assert "renderYtdAccounts" not in tax_fn
 
 
