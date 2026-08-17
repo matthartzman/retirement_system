@@ -85,6 +85,39 @@ def effective_heir_ten_year_rate(c: Mapping[str, Any], pretax_balance: Any,
     return max(0.0, min(1.0, total_tax / bal))
 
 
+def hsa_terminal_tax(c: Mapping[str, Any], hsa_balance: Any,
+                     terminal_year: Any = None) -> float:
+    """Federal tax due on an HSA balance left at death, in dollars.
+
+    A spouse beneficiary inherits the account AS an HSA -- fully tax-free, no
+    event. Any other beneficiary is the cliff: the account ceases to be an HSA
+    on the date of death and its entire fair-market value is ordinary income to
+    the beneficiary IN THAT SINGLE YEAR. No SECURE 10-year stretch, no basis,
+    no step-up.
+
+    ``effective_heir_ten_year_rate`` is deliberately NOT reused. Its whole
+    premise is spreading the balance across ten bracket-filling slices, and
+    that spreading is precisely the relief an inherited HSA does not receive.
+    Reusing it would understate this tax badly on large balances.
+    """
+    from .core import compute_fed_tax
+
+    beneficiary = str(c.get("hsa_beneficiary_type", "spouse") or "spouse").strip().lower()
+    if beneficiary in ("spouse", "charity"):
+        return 0.0
+
+    bal = max(0.0, _f(hsa_balance, 0.0))
+    if bal <= 0:
+        return 0.0
+
+    filing = _heir_filing_status(c)
+    brk_inf = _f(c.get("brk_inf", 0.0), 0.0)
+    if terminal_year is None:
+        terminal_year = c.get("plan_end", c.get("plan_start", 0))
+    year0 = int(_f(terminal_year, 0.0))
+    return max(0.0, compute_fed_tax(bal, year0, filing, brk_inf))
+
+
 def _account_ten_year_schedule(balance: float, decedent_reached_rbd: bool, annual_growth_rate: float = 0.0) -> list:
     """Item 4.9 (P5 phase 2): ten annual distribution amounts for one inherited
     pre-tax account.
