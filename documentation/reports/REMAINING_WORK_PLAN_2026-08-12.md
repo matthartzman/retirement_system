@@ -3,9 +3,18 @@
 **Basis:** progress audit of `documentation/reports/SYSTEM_REVIEW_2026-08-04.md` against the repo at
 `origin/main` (`a2693ea`), plus a live fast-tier test run and CI history.
 
-**Status (last updated 2026-08-12, `main` @ `b3d14c2`).** Executed and on `main`: **F0.1 + F0.2**
-(the frozen-gate fix and re-pin, §2), the **dead-code sweep** off `claude/elastic-chaum-1e4a9c`
-(§7.1), and the **stale-branch cleanup** (§7). Everything else below is proposed and unexecuted.
+**Status (last updated 2026-08-17, `wt/js-split` @ `d205973` + uncommitted F3.4).**
+
+- ✅ **F0** complete (§2, §7.1) · ✅ **F1** complete, but landed broken in `8522862` and repaired in
+  `1bbae33`; see the sign-off's S1–S4 for what it actually implements · ✅ **F2** complete, though
+  all three deliverables shipped non-functional in `8522862` and were made real in `4b6c818`.
+- 🟡 **F3**: F3.1–F3.3 landed; **F3.4 is extracted but uncommitted and unverified** in the working
+  tree. F3.6 open. `dashboard.js` is at **7,481 lines**, down from 19,661 — already inside the target
+  band. F3.5/F2.4 remain deferred by the scope decision below.
+- ✅ **F4 complete 2026-08-17** — `PLANNER_SIGNOFF_2026-08-17.md` closes F4.1, F4.2 and F4.3, plus
+  Wave 3.8 and the review's three open questions. **Signed off with one client-facing disclosure
+  outstanding (P4) and five other follow-ups**; none block F3 or F5.
+- ❌ **F5** not started. `PLAN_DATA_SCHEMA_VERSION = 2` still has no consumer.
 
 **Scope decision (2026-08-12):** the singleton tail is **out of scope for this cycle** — F3.5 is
 deferred, F3 stops after the four real clusters. See §4/F3. The tail was 141 functions when that
@@ -249,9 +258,23 @@ manifest note, so a future reader doesn't mistake the tail for work that was for
 
 | # | Item | Effort | Model · reasoning effort | Worktree |
 |---|---|---|---|---|
-| F4.1 | Wave 3.8 — re-run the workflow's **automated** planner sign-off against the finished engine work. The 2026-08-05 sign-off was a manual stand-in taken under a session-limit block, and it predates F1. | S | opus · high — it is a review, and its whole value is catching what the last one missed | main |
-| F4.2 | Close the review's three remaining open questions in writing: verifier adversariality (C1/C2/C5 never got a second look), Wave 5 sequencing (moot — all shipped), XL decomposition (moot — 2.1/4.x/6.4 all decomposed in practice). | S | sonnet · medium | main |
-| F4.3 | **New:** re-open the verifier-adversariality question with §2 as evidence. A 0/28 refutation rate has now produced two misses — the second mortality sampler (§2.5 of the review) and the pin analysis this plan overturned. Both were *confirmations of a prior conclusion* rather than independent re-derivations. Worth one written rule: a verifier that agrees with the record has not verified anything. | S | opus · high | main |
+| ✅ F4.1 | Wave 3.8 planner sign-off against the finished engine work | S · done 2026-08-17 | **opus · high** | `wt/js-split` |
+| ✅ F4.2 | The review's three open questions closed in writing | S · done 2026-08-17 | opus · high | same |
+| ✅ F4.3 | Verifier adversariality re-opened; standing rule written | S · done 2026-08-17 | opus · high | same |
+
+**All three are delivered in `PLANNER_SIGNOFF_2026-08-17.md`.** It was worth the opus · high billing:
+the sign-off re-derived F1 from source rather than from the record and found four issues the record
+did not contain — including a **+20 bps upward drift** in the Monte Carlo return assumption over the
+horizon, which the Roth conversion recommendation feeds itself (S2), and an acceptance test that
+asserts market neutrality only in its name (S3). F4.3's evidence base grew from the two misses this
+row anticipated to **four**; the rule is §3 of that document. Six follow-ups (P1–P6) came out of it,
+none blocking, one client-facing.
+
+**P1 and P2 executed 2026-08-17.** The MC tilt drift is fixed — realized growth now equals the sampled
+return to floating point in every projection year — and guarded by
+`tests/test_mc_bucket_tilt_neutrality_regression.py`, demonstrated red first per F4.3's rule 2.
+Golden pins unmoved; fast tier 1,635 passed / 4 skipped / 0 failed. **P4 (the client-facing S1
+disclosure) is now the highest-value open follow-up**, with P3, P5 and P6 remaining.
 
 ### Phase F5 — At-rest plan-data migration · independent, parallel-safe
 

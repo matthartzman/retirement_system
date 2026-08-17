@@ -1,3 +1,48 @@
+## 2026-08-17 — MC bucket tilts are renormalized every step, not just at t=0
+
+**What changed.** `_mc_apply_bucket_growth` now subtracts the balance-weighted mean tilt of the
+current step's bucket mix before applying the per-bucket tilts.
+
+**Why.** The tilts are computed once, from the OPENING balance mix
+(`_mc_bucket_return_tilts`), and were then applied unchanged for the entire horizon. The mix does not
+hold still: withdrawal sequencing and RMDs drain the negatively-tilted pretax bucket, and Roth
+conversions actively move dollars into the positively-tilted Roth one. So a tilt set that netted to
+approximately zero at t=0 became a systematic tailwind. Measured on the frozen fixture, the effective
+portfolio-wide tilt drifted monotonically:
+
+    2026 +4.3 bps -> 2036 +7.6 -> 2046 +15.0 -> 2056 +24.9 bps
+
+That is invented return, applied on every path, and concentrated in exactly the late years where
+Monte Carlo success or failure is decided. Worse, it was **self-reinforcing for the engine's own
+advice**: converted dollars inherit the destination Roth account's holdings tilt, so every dollar the
+optimizer recommends converting was thereafter assumed to earn ~30 bps more, and the conversion
+analysis ranks strategies by success rate.
+
+`_account_return_tilt`'s docstring already asserted the correct property -- tilts "preserve the plan's
+expected return as the portfolio-wide average while letting asset location redistribute it". This
+makes that true at every step rather than only the first. After the fix the realized portfolio growth
+equals the sampled return to floating point in **every** projection year (worst |excess| 0.000000 bps).
+
+**The spread between buckets is untouched**, which is the actual Wave 3.5 deliverable -- only the
+portfolio-wide mean is removed. A fix that zeroed the tilts would satisfy neutrality while silently
+undoing asset location, so that is pinned by its own assertion.
+
+**Golden master unmoved.** `_mc_apply_bucket_growth` is reached only from the vectorized Monte Carlo
+path; the deterministic projection that produces the pinned figures never calls it. Pins stay at
+5,824,239.30 / 1,290,848.91, verified green.
+
+**Blast radius.** Monte Carlo success rates move **down slightly** in plans with holdings detail --
+correctly, since they were carrying up to ~25 bps of unearned return late in the horizon. Plans
+without holdings detail produce no tilts and are bit-identical, which is pinned. No stored data
+changes. Expect modestly **less** favorable Roth-conversion rankings where the tailwind was doing the
+work.
+
+**Provenance.** Found by `documentation/reports/PLANNER_SIGNOFF_2026-08-17.md` (finding S2), which
+also documents why the existing test named `..._and_market_neutral` did not catch it: it checks dollar
+weighting and never checks neutrality (S3). New guard:
+`tests/test_mc_bucket_tilt_neutrality_regression.py`, demonstrated red against the old code first --
+its all-Roth end-state case failed by exactly the +24.87 bps the fixture measurement predicted.
+
 ## 2026-08-12 (e) — Roth discount rate defaults to 6.5% nominal, decoupled from inflation
 
 **What changed.** `roth_tax_discount_rate` defaulted to `c['inf']` (2.50%). It now defaults to

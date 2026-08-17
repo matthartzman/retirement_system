@@ -130,12 +130,37 @@ def _mc_bucket_return_tilts(c: dict) -> dict:
 def _mc_apply_bucket_growth(balances: dict, growth, bucket_tilts: dict):
     """Grow each market bucket by the sampled return plus that bucket's tilt.
 
+    Tilts REDISTRIBUTE return between buckets; they must never change the
+    portfolio total, which stays at the sampled return. That conservation is
+    what lets asset location matter without the engine inventing return.
+
+    The tilts arrive computed once from the OPENING balance mix, but that mix
+    moves all horizon -- withdrawals and RMDs drain the negatively-tilted
+    pretax bucket, conversions fill the positively-tilted Roth one -- so a set
+    that nets to zero at t=0 does not stay netted. It drifted to +24.9 bps of
+    free return by 2056 on the frozen fixture. Subtracting THIS step's
+    balance-weighted mean tilt restores neutrality at every step and on every
+    path independently, and leaves the spread between buckets -- the actual
+    Wave 3.5 deliverable -- exactly intact.
+
     Split out so the vectorized projection and its tests exercise the same
     code. With an empty ``bucket_tilts`` this is bit-identical to the previous
     ``balances[b] * (1.0 + growth)``.
     """
-    for bucket in ('taxable', 'pretax', 'roth', 'hsa'):
-        rate = growth + float(bucket_tilts.get(bucket, 0.0) or 0.0)
+    buckets = ('taxable', 'pretax', 'roth', 'hsa')
+    if not bucket_tilts:
+        for bucket in buckets:
+            balances[bucket] = _np.maximum(0.0, balances[bucket] * (1.0 + growth))
+        return balances
+
+    tilts = {b: float(bucket_tilts.get(b, 0.0) or 0.0) for b in buckets}
+    total = sum(balances[b] for b in buckets)
+    weighted = sum(balances[b] * tilts[b] for b in buckets)
+    safe_total = _np.where(total > 0.0, total, 1.0)
+    mean_tilt = _np.where(total > 0.0, weighted / safe_total, 0.0)
+
+    for bucket in buckets:
+        rate = growth + tilts[bucket] - mean_tilt
         balances[bucket] = _np.maximum(0.0, balances[bucket] * (1.0 + rate))
     return balances
 

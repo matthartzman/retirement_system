@@ -412,7 +412,7 @@ Sequential within the wave (each is bisectable). **Reordered per §2.5: C3 now p
 | 3.5 | **Sleeve-level per-account returns** (C3) — *was 3.5/L, now M and ordered first* | planner | **M** | 1–2 | opus |
 | 3.6 | **SSA/SOA mortality table** (C4) — **must change *both* samplers; see §2.5** | planner | **L** | 3–5 | opus |
 | 3.7 | Final golden-master regeneration + `GOLDEN_MASTER_CHANGELOG.md` entry covering 3.1–3.6 | — | M | 1–2 | opus |
-| **3.8** | **Re-run the workflow's planner sign-off against this document** *(decided — §6 Q1)* | planner | S | ½ | opus |
+| **3.8** | ✅ **DONE 2026-08-17** — planner sign-off re-run against the finished engine work, not the document. See `PLANNER_SIGNOFF_2026-08-17.md`. Signed off with one required disclosure (MC models asset *location* via a mean shift, not sleeve variance) and six follow-ups. | planner | S | ½ | opus |
 
 **Wave 3 total: ~11–18 working days** (sequential — these do not overlap).
 
@@ -612,6 +612,12 @@ All five were decided on 2026-08-04. Recorded here because each changed the plan
 | **Q5** | Golden-master regeneration timing? | **Regenerate *before* Wave 3, and again after** | Added **3.0**. The pending `_mode` regen clears first so Wave 3's six engine changes diff against a clean baseline and stay individually attributable. |
 
 ### Remaining open questions
+
+> ✅ **All three closed 2026-08-17** in `PLANNER_SIGNOFF_2026-08-17.md` §2, alongside Wave **3.8**.
+> Summary: Q1 (verifier adversariality) is **confirmed as a real defect** — the 0/28 refutation rate
+> did reflect insufficiently adversarial verification, now at four documented misses — and is closed
+> with a standing rule (§3 of that document) rather than by re-auditing C1/C2/C5 individually. Q2 and
+> Q3 are closed **moot**: all of Wave 5 shipped, and 2.1/4.x/6.4 were each decomposed in practice.
 
 1. **Verifier adversariality is still unquantified.** The C3/C4 re-assessment (§2.5) found a real
    error the panel missed — a second mortality sampler — which suggests the 0/28 refutation rate does
