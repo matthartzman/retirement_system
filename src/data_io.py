@@ -739,6 +739,12 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['survivor_filing'] = _v(data,'Household','','survivor_filing_status','Single').strip() or 'Single'
     if c['survivor_filing'] not in _td.FILING_STATUSES:
         c['survivor_filing'] = 'Single'
+    # Survivor spending factor: the share of joint core spending and recurring
+    # extras a one-person household still spends. Housing is excluded (the
+    # survivor keeps the same home) and so are wellness/LTC premiums, which are
+    # already modelled per person and would otherwise be reduced twice.
+    c['survivor_spend_factor'] = min(1.0, max(0.0, _n(
+        _v(data,'Household','','survivor_spend_factor','0.65'), 0.65)))
 
     # ── Members Abstraction (9.2) ─────────────────────────────────────────────
     # Build a members list from the Household data. Supports 1 or 2 adult
@@ -2559,6 +2565,10 @@ def build_plan_from_json(plan, url_template=''):
     filing = plan.get('filing_status', 'MFJ' if c['household_size'] > 1 else 'Single')
     c['filing_status']  = filing if filing in _td.FILING_STATUSES else ('MFJ' if c['household_size'] > 1 else 'Single')
     c['survivor_filing'] = plan.get('survivor_filing_status', 'Single')
+    # See parse_client() for what this scales and, more importantly, what it
+    # must not scale (housing, wellness, LTC).
+    c['survivor_spend_factor'] = min(1.0, max(0.0, _n(
+        plan.get('survivor_spend_factor', 0.65), 0.65)))
     c['state']          = plan.get('state', 'Illinois')
     c['trust_type']     = 'revocable living trust'
 

@@ -279,6 +279,44 @@ def run_deterministic_projection_stage(c):
             return (1 + float(c.get('spend_inf', c.get('inf', 0.0)) or 0.0)) ** max(0, year - c['plan_start'])
         return _infl_factor(year)
 
+    # ── Survivor spending factor ────────────────────────────────────────────
+    # A one-person household does not spend what a two-person household spends.
+    # The factor applies to core spending and recurring extras (travel, large
+    # discretionary) ONLY.
+    #
+    # Deliberately NOT scaled:
+    #   * housing (mortgage/rent/operating/RE tax/HELOC/home improvement) —
+    #     the survivor lives in the same house, so those costs do not halve;
+    #   * wellness and LTC premiums — those are already built per person and
+    #     drop on their own at the first death (~0.53 of the joint figure on
+    #     the frozen fixture). Applying the factor on top would compound two
+    #     reductions (0.53 x 0.65 ~ 0.34 of joint), which is wrong;
+    #   * lumps and business expenses — neither is per-capita consumption.
+    #
+    # Guarded on household_size: a genuinely single-member plan has
+    # w_death_yr forced to w_dob_yr ("already dead") so its w_alive is False
+    # in every year. Without this guard such a household would look like a
+    # permanent survivor and have its whole plan scaled, even though its
+    # spend_base is already one person's spending.
+    _survivor_factor_input = c.get('survivor_spend_factor', 0.65)
+    try:
+        _survivor_factor_input = float(_survivor_factor_input)
+    except (TypeError, ValueError):
+        _survivor_factor_input = 0.65
+    _survivor_spend_factor = min(1.0, max(0.0, _survivor_factor_input))
+    _household_is_couple = int(c.get('household_size', len(c.get('members') or []) or 1)) > 1
+
+    def _survivor_factor(n_alive):
+        """1.0 unless exactly one member of a couple is still alive.
+
+        n_alive == 0 is deliberately left at 1.0 here: zeroing living
+        expenses after the second death is Task S2's job, and returning a
+        scale factor for it would be the wrong mechanism anyway.
+        """
+        if _household_is_couple and n_alive == 1:
+            return _survivor_spend_factor
+        return 1.0
+
     def _medicare_month_fraction(dob_yr, dob_month, year):
         """Fraction of `year` (0.0-1.0) a person is Medicare Part B/D enrolled.
 
@@ -546,6 +584,7 @@ def run_deterministic_projection_stage(c):
         w_alive = year <= c['w_death_yr']
         row['h_alive'] = h_alive
         row['w_alive'] = w_alive
+        n_alive = (1 if h_alive else 0) + (1 if w_alive else 0)
 
         # Filing status change year after first death.  Year of death remains
         # MFJ where applicable.  QSS is available for the next two years when
@@ -1037,6 +1076,12 @@ def run_deterministic_projection_stage(c):
         else:
             spend = c['spend_base'] * _spending_factor(c['spending_freeze_yr'])
         spend = c.get('ytd_blend_spend_override', {}).get(year, spend)
+        # Survivor scaling is applied last, after the YTD blend override, so a
+        # blended current-year figure is scaled too if that year ever became a
+        # survivor year.
+        survivor_factor_yr = _survivor_factor(n_alive)
+        row['survivor_spend_factor_yr'] = survivor_factor_yr
+        spend *= survivor_factor_yr
         row['spend_base_yr'] = spend
 
         # Recurring extras — Home Improvement items route to housing costs; all others to rec_extra
@@ -1075,6 +1120,9 @@ def run_deterministic_projection_stage(c):
             # nothing else.
             _topup = 0.0
         rec_extra += _topup
+        # Same survivor scaling as core spending. home_improvement_extra is
+        # deliberately excluded — it has already been routed to housing above.
+        rec_extra *= survivor_factor_yr
         row['rec_extra'] = rec_extra
         row['home_improvement_extra'] = home_improvement_extra
 
