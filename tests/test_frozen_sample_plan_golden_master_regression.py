@@ -25,6 +25,14 @@ client_*.csv files over the ones in that directory, regenerate the two pins
 below via the __main__ block, and update this docstring's commit reference.
 Last regenerated against commit fa6652b.
 
+When this file's mandatory test fails (PINNED_TERMINAL_NW / PINNED_LIFETIME_TAX
+no longer match), do NOT hand-edit the two constants below -- see
+documentation/GOLDEN_MASTER_RECOVERY_RUNBOOK.md for the full recovery process
+(decision tree, the two method traps that previously produced a confidently
+wrong bisect result, and tools/regen_golden_master.py). A hand-edited pin with
+no matching provenance update is caught by
+tests/test_golden_master_pin_provenance.py, which fails the suite.
+
 Landmine, now fixed: src/data_io.py's parse_client used to load
 client_holdings.csv via
 ``candidate_input_files('client_holdings.csv', ..., root=Path(_project_root))``
@@ -169,6 +177,16 @@ FROZEN_TODAY = "2026-08-04"
 # Guarded by test_frozen_build_reads_its_own_spending_budget_not_the_live_one,
 # which fails if any spending input is ever again resolved from outside the
 # redirected workspace.
+#
+# --- Machine-checked provenance (tests/test_golden_master_pin_provenance.py) ---
+# The line below is a test-enforced gate, not decoration: the provenance test
+# parses it and fails if its date/values do not match this file's current
+# PINNED_* constants AND documentation/GOLDEN_MASTER_CHANGELOG.md's newest
+# entry. Do not hand-edit the constants below without updating this line and
+# the changelog -- use `py -3.14 tools/regen_golden_master.py regen --reason
+# <file>`, which updates all three together. See
+# documentation/GOLDEN_MASTER_RECOVERY_RUNBOOK.md.
+# 2026-08-18: PINNED_TERMINAL_NW=5824239.30 PINNED_LIFETIME_TAX=1290848.91
 PINNED_TERMINAL_NW = 5824239.30
 PINNED_LIFETIME_TAX = 1290848.91
 PINNED_FAILURES = []

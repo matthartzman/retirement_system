@@ -1,3 +1,28 @@
+## 2026-08-18 — Ticket 286: golden-master recovery tooling and a test-enforced provenance gate
+
+**What changed.** No projection figures move; pins stay at 5,824,239.30 / 1,290,848.91. This is
+process tooling, not an engine or fixture change.
+
+Added `tools/regen_golden_master.py` (`measure` / `verify-endpoint <sha>` / `origin <value>` /
+`regen --reason <file>`) and `documentation/GOLDEN_MASTER_RECOVERY_RUNBOOK.md`, mechanizing the two
+method traps recorded in the 2026-08-10 postmortem
+(`docs/superpowers/plans/2026-08-10-golden-master-and-at-rest-plan-data-migration.md`, "Phase 1"):
+`git bisect` never re-verifies the "good" endpoint you hand it (`verify-endpoint` checks it first,
+in a detached worktree, before you bisect), and plain `git log -S` can name the wrong origin commit
+when a rename hides a value's history (`origin` always uses `--follow`). The runbook's decision tree
+adds the third branch the original postmortem said was missing beside "intentional" and
+"regression": **"the pin never matched"** -- verify at the introducing commit before bisecting
+anything.
+
+Added a test-enforced provenance gate, `tests/test_golden_master_pin_provenance.py`. It parses the
+single-line `# <date>: PINNED_TERMINAL_NW=... PINNED_LIFETIME_TAX=...` comment directly above the
+pin constants in `tests/test_frozen_sample_plan_golden_master_regression.py`, and fails if either (a)
+that line is missing, (b) its recorded values don't match the actual `PINNED_*` constants (catches a
+hand-edited pin whose comment was left stale -- a naive "is there a comment?" check would pass this),
+or (c) its date doesn't match this changelog's newest entry. `tools/regen_golden_master.py regen`
+updates the pin constants, the provenance line, and this changelog together, so the only way to move
+a pin without a recorded justification is to bypass the tool -- which now turns the suite red.
+
 ## 2026-08-17 (b) — Sheet 3A stops crediting the liquidity buffer with mitigating sequence risk (P7, P3, P5)
 
 **What changed.** Three follow-ups from `documentation/reports/PLANNER_SIGNOFF_2026-08-17.md`. **No
