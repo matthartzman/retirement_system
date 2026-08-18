@@ -190,20 +190,71 @@ class NonQualifiedWithdrawalTreatmentTests(unittest.TestCase):
 
     def test_allow_taxable_adds_income_and_a_pre65_penalty(self):
         bal = {"Member_1_HSA": 100_000.0}
-        c = dict(C, hsa_expense_bank=10_000.0, hsa_nonqualified_treatment="allow_taxable",
-                 hsa_owner_age=60)
-        out = withdraw_hsa_window(c, bal, 2030, requested=50_000.0)
+        c = dict(C, hsa_expense_bank=10_000.0, hsa_nonqualified_treatment="allow_taxable")
+        out = withdraw_hsa_window(c, bal, 2030, requested=50_000.0, hsa_owner_age=60)
         self.assertAlmostEqual(out["amount"], 50_000.0, places=6)
         self.assertAlmostEqual(out["taxable_amount"], 40_000.0, places=6)
         self.assertAlmostEqual(out["penalty"], 8_000.0, places=6)  # 20% of the non-qualified part
 
     def test_after_65_there_is_income_but_no_penalty(self):
         bal = {"Member_1_HSA": 100_000.0}
-        c = dict(C, hsa_expense_bank=10_000.0, hsa_nonqualified_treatment="allow_taxable",
-                 hsa_owner_age=70)
-        out = withdraw_hsa_window(c, bal, 2030, requested=50_000.0)
+        c = dict(C, hsa_expense_bank=10_000.0, hsa_nonqualified_treatment="allow_taxable")
+        out = withdraw_hsa_window(c, bal, 2030, requested=50_000.0, hsa_owner_age=70)
         self.assertAlmostEqual(out["taxable_amount"], 40_000.0, places=6)
         self.assertAlmostEqual(out["penalty"], 0.0, places=6)
+
+    def test_a_missing_owner_age_raises_instead_of_assuming_no_penalty(self):
+        """The age has no silent default. Omitting it used to fail open: the old
+        `c.get("hsa_owner_age", 65)` made `< 65` always False, so the 20% penalty
+        could never fire and nothing anywhere populated the key."""
+        bal = {"Member_1_HSA": 100_000.0}
+        c = dict(C, hsa_expense_bank=10_000.0, hsa_nonqualified_treatment="allow_taxable")
+        with self.assertRaises(ValueError) as ctx:
+            withdraw_hsa_window(c, bal, 2030, requested=50_000.0)
+        self.assertIn("hsa_owner_age", str(ctx.exception))
+
+    def test_a_zero_bank_makes_the_entire_draw_taxable(self):
+        """bank=0.0 is no substantiated receipts at all, so qualified_available is
+        0.0 and every drawn dollar is non-qualified."""
+        bal = {"Member_1_HSA": 100_000.0}
+        c = dict(C, hsa_expense_bank=0.0, hsa_nonqualified_treatment="allow_taxable")
+        out = withdraw_hsa_window(c, bal, 2030, requested=50_000.0, hsa_owner_age=60)
+        self.assertAlmostEqual(out["amount"], 50_000.0, places=6)
+        self.assertAlmostEqual(out["taxable_amount"], 50_000.0, places=6)
+        self.assertAlmostEqual(out["penalty"], 10_000.0, places=6)
+
+
+class NonQualifiedDrawStillHonorsTheReserveFloorTests(unittest.TestCase):
+    """`allow_taxable` lifts the *bank* ceiling, never the liquidity-reserve
+    *floor*. The other non-qualified tests all run with an identically-zero
+    floor, so none of them can catch a floor bypass; this one can."""
+
+    SPEND = 100_000.0  # floor = 2 x 100k = 200k
+
+    def _plan(self, bank) -> dict:
+        return {
+            "plan_start": 2026,
+            "hsa_ids": ["Member_1_HSA"],
+            "hsa_withdrawal_mode": "spend_as_needed",
+            "hsa_expense_bank": bank,
+            "hsa_nonqualified_treatment": "allow_taxable",
+            "liquidity_buffer_schedule": [{
+                "start_year": 2026, "end_year": 2035,
+                "years_of_expenses": 2.0, "reserve_account": "HSA",
+            }],
+        }
+
+    def test_the_floor_still_binds_under_allow_taxable(self):
+        """500k balance, 100k bank, 200k floor. Lifting the bank frees the 300k
+        above the floor -- not the whole 500k. 100k of that is qualified, so the
+        other 200k is the taxable non-qualified part."""
+        bal = {"Member_1_HSA": 500_000.0}
+        out = withdraw_hsa_window(self._plan(100_000.0), bal, 2030, wellness_cost=5_000.0,
+                                  requested=1_000_000.0, spend_floor_base=self.SPEND,
+                                  hsa_owner_age=70)
+        self.assertAlmostEqual(out["amount"], 300_000.0, places=6)
+        self.assertAlmostEqual(out["taxable_amount"], 200_000.0, places=6)
+        self.assertAlmostEqual(bal["Member_1_HSA"], 200_000.0, places=6)
 
 
 if __name__ == "__main__":  # pragma: no cover

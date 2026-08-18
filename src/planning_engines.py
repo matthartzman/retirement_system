@@ -939,7 +939,8 @@ def hsa_available_to_draw(c: Mapping, bal: BalanceMap, cumulative_drawn: float =
 
 def withdraw_hsa_window(c: Mapping, bal: BalanceMap, year: int, wellness_cost: float = 0.0,
                         requested: float | None = None, cumulative_drawn: float = 0.0,
-                        spend_floor_base: float = 0.0) -> Dict:
+                        spend_floor_base: float = 0.0,
+                        hsa_owner_age: float | None = None) -> Dict:
     """Apply scheduled HSA withdrawals across all registry HSA accounts.
 
     In ``spend_as_needed`` mode the HSA historically paid only that year's
@@ -955,6 +956,21 @@ def withdraw_hsa_window(c: Mapping, bal: BalanceMap, year: int, wellness_cost: f
     requested figure becomes the whole draw. A caller that supplies
     ``requested`` must therefore fold the year's medical spend into it, or the
     wellness cost stops being paid from the HSA.
+
+    ``hsa_owner_age`` is the HSA owner's age in ``year``. It has no silent
+    default: when ``hsa_nonqualified_treatment='allow_taxable'`` actually
+    produces non-qualified dollars and no age was supplied, this raises rather
+    than quietly assuming 65 and reporting no penalty. A defaulted age is a
+    fail-open on a penalty, and this repo has shipped enough guards that could
+    not fail. Callers pass the age explicitly, the way ``h_age``/``w_age`` are
+    threaded elsewhere.
+
+    Known limitation, deliberately not solved here: a single scalar age cannot
+    represent a household holding two HSAs with different owners.
+    ``_draw_pro_rata_accounts`` splits the draw across every id in ``hsa_ids``,
+    but the 20% pre-65 penalty is assessed per owner, so a mixed-age couple
+    needs a per-account age and a per-account penalty split. Wiring the caller
+    is the place to fix that.
     """
     mode = str(c.get("hsa_withdrawal_mode", "spend_as_needed") or "spend_as_needed").lower()
     if mode == "spend_as_needed":
@@ -992,8 +1008,16 @@ def withdraw_hsa_window(c: Mapping, bal: BalanceMap, year: int, wellness_cost: f
         penalty = 0.0
         if requested is not None:
             taxable_amount = max(0.0, drawn - qualified_available)
-            if taxable_amount > 1e-9 and float(c.get("hsa_owner_age", 65) or 65) < 65:
-                penalty = taxable_amount * 0.20
+            if taxable_amount > 1e-9:
+                if hsa_owner_age is None:
+                    raise ValueError(
+                        "withdraw_hsa_window: hsa_nonqualified_treatment='allow_taxable' "
+                        f"produced {taxable_amount:,.2f} of non-qualified withdrawal, but no "
+                        "hsa_owner_age was supplied. The 20% pre-65 penalty cannot be assessed "
+                        "without the owner's age, and defaulting the age would silently report "
+                        "no penalty. Pass hsa_owner_age explicitly.")
+                if float(hsa_owner_age) < 65:
+                    penalty = taxable_amount * 0.20
         return {"amount": drawn, "by_account": by_account,
                 "taxable_amount": taxable_amount, "penalty": penalty}
     start = int(c.get("hsa_win_start", 9999))
