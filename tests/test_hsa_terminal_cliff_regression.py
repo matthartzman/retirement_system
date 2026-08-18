@@ -53,3 +53,19 @@ class HsaTerminalCliffTests(unittest.TestCase):
         c = dict(BASE, hsa_beneficiary_type="spouse")
         out = estimate_after_tax_terminal_net_worth(c, END_TO_END_TERMINAL)
         self.assertEqual(out["after_tax_terminal_nw"], END_TO_END_TERMINAL["total_nw"])
+
+    def test_roth_objective_sees_the_hsa_cliff(self):
+        """Both optimizers must score against ONE estate. If the Roth objective
+        values a terminal HSA at 100c while the HSA optimizer values it at the
+        cliff, the joint scoring in Task 9 is inconsistent by construction.
+
+        _roth_strategy_metrics is the Roth optimizer's actual per-candidate
+        scorer (src/planning_engines.py, called from
+        optimize_roth_conversion_strategy for every candidate strategy)."""
+        from src.planning_engines import _roth_strategy_metrics
+        rows = [dict(END_TO_END_TERMINAL, pretax_nw=0.0, roth_nw=0.0, trust_nw=0.0,
+                      total_tax=0.0, roth_conv=0.0, roth_wd=0.0)]
+        spouse = _roth_strategy_metrics(dict(BASE, hsa_beneficiary_type="spouse"), rows)
+        heir = _roth_strategy_metrics(dict(BASE, hsa_beneficiary_type="non_spouse"), rows)
+        self.assertLess(heir["after_tax_terminal_nw"], spouse["after_tax_terminal_nw"])
+        self.assertLess(heir["score"], spouse["score"])
