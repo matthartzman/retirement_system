@@ -32,35 +32,59 @@ test('changing the Holdings account filter keeps it focused after the autosave r
   // through the app's own addHoldingLot() (the same function "Add Lot"
   // wires to), which is a synchronous, already-load-bearing path, so the
   // dropdown has real accounts to select between regardless of fixture state.
-  await page.evaluate(() => {
-    window.addHoldingLot('E2E_Account_A');
-    window.addHoldingLot('E2E_Account_B');
-  });
-  await expect(select.locator('option')).toHaveCount(3);
+  //
+  // This mutates in-memory holding rows and marks them dirty; if anything in
+  // this test (or a later autosave-on-navigation) persists that to the
+  // server, the shared frozen e2e workspace would carry these synthetic
+  // accounts into every later run. Clean up in a `finally`, matching the
+  // precedent in workbook-format-tab-focus.spec.js's restoreWidth(): the
+  // shared saved plan must not be left mutated, pass or fail.
+  try {
+    await page.evaluate(() => {
+      window.addHoldingLot('E2E_Account_A');
+      window.addHoldingLot('E2E_Account_B');
+    });
+    await expect(select.locator('option')).toHaveCount(3);
 
-  await select.focus();
-  // Changing a <select>'s value via keyboard (not selectOption(), which can
-  // resolve without ever moving real page focus onto the element in some
-  // Playwright/browser combinations) is what genuinely fires `change` on a
-  // focused, live element -- matching how a real user tabs to a dropdown
-  // and arrows through it.
-  await select.selectOption({ index: 2 });
+    await select.focus();
+    // Changing a <select>'s value via keyboard (not selectOption(), which can
+    // resolve without ever moving real page focus onto the element in some
+    // Playwright/browser combinations) is what genuinely fires `change` on a
+    // focused, live element -- matching how a real user tabs to a dropdown
+    // and arrows through it.
+    await select.selectOption({ index: 2 });
 
-  // setHoldingAccount -> renderMain() replaces #mainPane's entire subtree,
-  // including this exact <select> node, synchronously inside the change
-  // handler. Before the fix, the freshly-rendered replacement <select>
-  // exists in the DOM but nothing is focused (document.activeElement fell
-  // back to <body>). After the fix, renderMain's generic capture/restore
-  // re-resolves the new node by data-focus-key and refocuses it.
-  const isFocused = await page.evaluate(() => {
-    const el = document.activeElement;
-    return !!el && el.tagName === 'SELECT' && el.getAttribute('data-focus-key') === 'holdings:account-select';
-  });
-  expect(isFocused, 'focus did not survive the Holdings account-select autosave rerender -- fell back to document.body or elsewhere').toBe(true);
+    // setHoldingAccount -> renderMain() replaces #mainPane's entire subtree,
+    // including this exact <select> node, synchronously inside the change
+    // handler. Before the fix, the freshly-rendered replacement <select>
+    // exists in the DOM but nothing is focused (document.activeElement fell
+    // back to <body>). After the fix, renderMain's generic capture/restore
+    // re-resolves the new node by data-focus-key and refocuses it.
+    const isFocused = await page.evaluate(() => {
+      const el = document.activeElement;
+      return !!el && el.tagName === 'SELECT' && el.getAttribute('data-focus-key') === 'holdings:account-select';
+    });
+    expect(isFocused, 'focus did not survive the Holdings account-select autosave rerender -- fell back to document.body or elsewhere').toBe(true);
 
-  // Not just "some select is focused" -- it must be the SAME logical field,
-  // now showing the value the user actually chose (proves this is the
-  // freshly re-rendered replacement, not a stale reference).
-  const selectedIndex = await page.evaluate(() => document.activeElement.selectedIndex);
-  expect(selectedIndex).toBe(2);
+    // Not just "some select is focused" -- it must be the SAME logical field,
+    // now showing the value the user actually chose (proves this is the
+    // freshly re-rendered replacement, not a stale reference).
+    const selectedIndex = await page.evaluate(() => document.activeElement.selectedIndex);
+    expect(selectedIndex).toBe(2);
+  } finally {
+    // Remove the two synthetic accounts and, if anything marked holdings
+    // dirty, push the removal to the server explicitly -- do not rely on a
+    // navigation-triggered autosave that this test never invokes. Runs
+    // whether the test passed or failed.
+    await page.evaluate(async () => {
+      const h = window.ensureHoldingRows();
+      h.data = h.data.filter(
+        (r) => r.account !== 'E2E_Account_A' && r.account !== 'E2E_Account_B',
+      );
+      window.holdingRowsCache = h;
+      window.currentHoldingAccount = 'ALL';
+      window.markHoldingsDirty();
+      await window.saveHoldings();
+    });
+  }
 });
