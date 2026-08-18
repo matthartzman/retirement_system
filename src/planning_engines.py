@@ -905,16 +905,52 @@ def apply_rmds(bal: BalanceMap, rmd_result: Mapping) -> Dict[str, float]:
     return withdrawn
 
 
-def withdraw_hsa_window(c: Mapping, bal: BalanceMap, year: int, wellness_cost: float = 0.0) -> Dict:
-    """Apply scheduled HSA withdrawals across all registry HSA accounts."""
+def hsa_available_to_draw(c: Mapping, bal: BalanceMap, cumulative_drawn: float = 0.0) -> float:
+    """Dollars the HSA can pay out tax-free right now.
+
+    Bounded by the account balances and by the substantiated expense bank. A
+    bank of None means unlimited, which is the default: most households have
+    far more unreimbursed receipts than they realize, and the constraint only
+    binds once someone actually enters a figure.
+    """
+    ids = list(c.get("hsa_ids", []) or [])
+    balance = sum(max(0.0, float(bal.get(aid, 0.0) or 0.0)) for aid in ids)
+    bank = c.get("hsa_expense_bank")
+    if bank is None:
+        return balance
+    return max(0.0, min(balance, float(bank) - max(0.0, float(cumulative_drawn))))
+
+
+def withdraw_hsa_window(c: Mapping, bal: BalanceMap, year: int, wellness_cost: float = 0.0,
+                        requested: float | None = None, cumulative_drawn: float = 0.0,
+                        spend_floor_base: float = 0.0) -> Dict:
+    """Apply scheduled HSA withdrawals across all registry HSA accounts.
+
+    In ``spend_as_needed`` mode the HSA historically paid only that year's
+    wellness cost, which throttles the account to one calendar year of medical
+    spending even when the household holds a deep bank of substantiated
+    receipts. Passing ``requested`` asks for a general tax-free draw instead;
+    it is bounded by :func:`hsa_available_to_draw` (balances and expense bank)
+    and by any liquidity reserve configured against the HSA bucket. Callers
+    that pass no ``requested`` keep the legacy wellness-linked behavior
+    exactly. ``annual_pct`` and ``smooth_window`` are unaffected.
+    """
     mode = str(c.get("hsa_withdrawal_mode", "spend_as_needed") or "spend_as_needed").lower()
     if mode == "spend_as_needed":
-        # Draw HSA to cover wellness costs (tax-free qualified medical use)
+        # Draw HSA to cover wellness costs (tax-free qualified medical use), or
+        # the explicitly requested general draw when the caller supplies one.
         ids = list(c.get("hsa_ids", []) or [])
-        if not ids or wellness_cost <= 1e-6:
+        target = float(wellness_cost) if requested is None else max(0.0, float(requested))
+        if not ids or target <= 1e-6:
             return {"amount": 0.0, "by_account": {}}
-        available = sum(max(0.0, float(bal.get(aid, 0.0) or 0.0)) for aid in ids)
-        amount = min(float(wellness_cost), available)
+        if requested is None:
+            available = sum(max(0.0, float(bal.get(aid, 0.0) or 0.0)) for aid in ids)
+        else:
+            # A reserve held in the HSA bucket must survive the general draw;
+            # otherwise the floor honored in withdraw_hsa_gap arrives too late.
+            available = max(0.0, hsa_available_to_draw(c, bal, cumulative_drawn)
+                            - liquidity_reserve_floor(c, year, "hsa", spend_floor_base))
+        amount = min(target, available)
         if amount <= 1e-6:
             return {"amount": 0.0, "by_account": {}}
         by_account = _draw_pro_rata_accounts(bal, ids, amount)
