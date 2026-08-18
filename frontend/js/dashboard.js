@@ -4109,7 +4109,7 @@ let renderMain = function() {
   else if (activeStep === "allocation_policy")
     content += renderAllocationPolicy();
   else if (activeStep === "allocation_assets")
-    content += analysisFrame(renderAllocationRecommendation(), "strategy");
+    content += analysisFrame(renderAllocationRecommendation(), "strategy") + `<details class="decide-embed-sub"><summary>Allocation policy settings</summary>${renderAllocationPolicy()}</details>`;
   else if (activeStep === "build_impact") content += renderBuildImpactPage();
   else if (activeStep === "planning_workbench")
     content += renderPlanningWorkbench();
