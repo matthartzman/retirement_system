@@ -177,5 +177,34 @@ class BankAndReserveComposeCorrectlyTests(unittest.TestCase):
             100_000.0, places=6)
 
 
+class NonQualifiedWithdrawalTreatmentTests(unittest.TestCase):
+    """A draw beyond the substantiated bank is either blocked (default) or
+    permitted as taxable income with a pre-65 penalty."""
+
+    def test_draw_beyond_the_bank_is_blocked_by_default(self):
+        bal = {"Member_1_HSA": 100_000.0}
+        out = withdraw_hsa_window(dict(C, hsa_expense_bank=10_000.0), bal, 2030, requested=50_000.0)
+        self.assertAlmostEqual(out["amount"], 10_000.0, places=6)
+        self.assertAlmostEqual(out.get("taxable_amount", 0.0), 0.0, places=6)
+        self.assertAlmostEqual(out.get("penalty", 0.0), 0.0, places=6)
+
+    def test_allow_taxable_adds_income_and_a_pre65_penalty(self):
+        bal = {"Member_1_HSA": 100_000.0}
+        c = dict(C, hsa_expense_bank=10_000.0, hsa_nonqualified_treatment="allow_taxable",
+                 hsa_owner_age=60)
+        out = withdraw_hsa_window(c, bal, 2030, requested=50_000.0)
+        self.assertAlmostEqual(out["amount"], 50_000.0, places=6)
+        self.assertAlmostEqual(out["taxable_amount"], 40_000.0, places=6)
+        self.assertAlmostEqual(out["penalty"], 8_000.0, places=6)  # 20% of the non-qualified part
+
+    def test_after_65_there_is_income_but_no_penalty(self):
+        bal = {"Member_1_HSA": 100_000.0}
+        c = dict(C, hsa_expense_bank=10_000.0, hsa_nonqualified_treatment="allow_taxable",
+                 hsa_owner_age=70)
+        out = withdraw_hsa_window(c, bal, 2030, requested=50_000.0)
+        self.assertAlmostEqual(out["taxable_amount"], 40_000.0, places=6)
+        self.assertAlmostEqual(out["penalty"], 0.0, places=6)
+
+
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

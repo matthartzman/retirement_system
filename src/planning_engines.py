@@ -963,20 +963,39 @@ def withdraw_hsa_window(c: Mapping, bal: BalanceMap, year: int, wellness_cost: f
         ids = list(c.get("hsa_ids", []) or [])
         target = float(wellness_cost) if requested is None else max(0.0, float(requested))
         if not ids or target <= 1e-6:
-            return {"amount": 0.0, "by_account": {}}
+            return {"amount": 0.0, "by_account": {}, "taxable_amount": 0.0, "penalty": 0.0}
         if requested is None:
-            available = sum(max(0.0, float(bal.get(aid, 0.0) or 0.0)) for aid in ids)
+            qualified_available = sum(max(0.0, float(bal.get(aid, 0.0) or 0.0)) for aid in ids)
+            available = qualified_available
         else:
             # A reserve held in the HSA bucket must survive the general draw;
             # otherwise the floor honored in withdraw_hsa_gap arrives too late.
             # The helper composes the floor and the bank correctly.
-            available = hsa_available_to_draw(c, bal, cumulative_drawn, year, spend_floor_base)
+            qualified_available = hsa_available_to_draw(c, bal, cumulative_drawn, year, spend_floor_base)
+            treatment = str(c.get("hsa_nonqualified_treatment", "block") or "block").strip().lower()
+            if treatment == "allow_taxable":
+                # Non-qualified dollars beyond the substantiated bank are still
+                # permitted -- as taxable income, possibly penalized -- but the
+                # liquidity-reserve floor is never bypassed, only the bank is.
+                # Re-use the same helper with the bank lifted so the floor
+                # composition isn't duplicated here.
+                available = hsa_available_to_draw(
+                    dict(c, hsa_expense_bank=None), bal, cumulative_drawn, year, spend_floor_base)
+            else:
+                available = qualified_available
         amount = min(target, available)
         if amount <= 1e-6:
-            return {"amount": 0.0, "by_account": {}}
+            return {"amount": 0.0, "by_account": {}, "taxable_amount": 0.0, "penalty": 0.0}
         by_account = _draw_pro_rata_accounts(bal, ids, amount)
         drawn = sum(by_account.values())
-        return {"amount": drawn, "by_account": by_account}
+        taxable_amount = 0.0
+        penalty = 0.0
+        if requested is not None:
+            taxable_amount = max(0.0, drawn - qualified_available)
+            if taxable_amount > 1e-9 and float(c.get("hsa_owner_age", 65) or 65) < 65:
+                penalty = taxable_amount * 0.20
+        return {"amount": drawn, "by_account": by_account,
+                "taxable_amount": taxable_amount, "penalty": penalty}
     start = int(c.get("hsa_win_start", 9999))
     end = int(c.get("hsa_win_end", 0))
     if not (start <= year <= end):
