@@ -128,5 +128,54 @@ class ReserveFloorStillBindsTests(unittest.TestCase):
         self.assertAlmostEqual(out["amount"], 500_000.0, places=6)
 
 
+class BankAndReserveComposeCorrectlyTests(unittest.TestCase):
+    """The bank and the reserve floor constrain DIFFERENT things: the floor
+    reserves *balance*, the bank caps *tax-free capacity*. Subtracting the floor
+    from the already-bank-capped figure charges the floor against the bank twice
+    and zeroes out draws that are perfectly legitimate."""
+
+    SPEND = 100_000.0  # floor = 2 x 100k = 200k
+
+    def _plan(self, bank) -> dict:
+        return {
+            "plan_start": 2026,
+            "hsa_ids": ["Member_1_HSA"],
+            "hsa_withdrawal_mode": "spend_as_needed",
+            "hsa_expense_bank": bank,
+            "liquidity_buffer_schedule": [{
+                "start_year": 2026, "end_year": 2035,
+                "years_of_expenses": 2.0, "reserve_account": "HSA",
+            }],
+        }
+
+    def test_a_finite_bank_under_a_reserve_floor_is_still_fully_drawable(self):
+        """500k balance, 100k bank, 200k floor: 300k of balance sits above the
+        floor and the bank permits 100k, so 100k is drawable -- not 0."""
+        bal = {"Member_1_HSA": 500_000.0}
+        out = withdraw_hsa_window(self._plan(100_000.0), bal, 2030, wellness_cost=5_000.0,
+                                  requested=1_000_000.0, spend_floor_base=self.SPEND)
+        self.assertAlmostEqual(out["amount"], 100_000.0, places=6)
+        self.assertAlmostEqual(bal["Member_1_HSA"], 400_000.0, places=6)
+
+    def test_the_helper_itself_honors_the_reserve_floor(self):
+        """Later tasks consume the helper directly; the floor must live inside it
+        so it cannot be bypassed."""
+        self.assertAlmostEqual(
+            hsa_available_to_draw(self._plan(100_000.0), {"Member_1_HSA": 500_000.0},
+                                  0.0, 2030, self.SPEND), 100_000.0, places=6)
+
+    def test_the_floor_still_binds_when_it_is_tighter_than_the_bank(self):
+        """500k balance, 400k bank, 200k floor -> balance above the floor wins."""
+        self.assertAlmostEqual(
+            hsa_available_to_draw(self._plan(400_000.0), {"Member_1_HSA": 500_000.0},
+                                  0.0, 2030, self.SPEND), 300_000.0, places=6)
+
+    def test_the_helper_defaults_stay_reserve_blind(self):
+        """Existing callers pass no year/spend_floor_base and must be unchanged."""
+        self.assertAlmostEqual(
+            hsa_available_to_draw(self._plan(100_000.0), {"Member_1_HSA": 500_000.0}),
+            100_000.0, places=6)
+
+
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

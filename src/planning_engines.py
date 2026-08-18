@@ -905,20 +905,36 @@ def apply_rmds(bal: BalanceMap, rmd_result: Mapping) -> Dict[str, float]:
     return withdrawn
 
 
-def hsa_available_to_draw(c: Mapping, bal: BalanceMap, cumulative_drawn: float = 0.0) -> float:
+def hsa_available_to_draw(c: Mapping, bal: BalanceMap, cumulative_drawn: float = 0.0,
+                          year: int = 0, spend_floor_base: float = 0.0) -> float:
     """Dollars the HSA can pay out tax-free right now.
 
-    Bounded by the account balances and by the substantiated expense bank. A
-    bank of None means unlimited, which is the default: most households have
-    far more unreimbursed receipts than they realize, and the constraint only
-    binds once someone actually enters a figure.
+    Bounded by three separate things, which compose in a specific order:
+
+    * the account balances;
+    * any liquidity reserve configured against the HSA bucket, which reserves
+      *balance* -- dollars that must stay in the account;
+    * the substantiated expense bank, which caps *tax-free capacity* rather
+      than balance. A bank of None means unlimited, which is the default: most
+      households have far more unreimbursed receipts than they realize, and the
+      constraint only binds once someone actually enters a figure.
+
+    The floor is therefore subtracted from the balance and the bank applied to
+    the remainder -- never the reverse, which would charge the reserve against
+    the bank as well and zero out draws the household can legitimately take
+    (500k balance, 100k bank, 200k floor leaves 100k drawable, not nothing).
+
+    ``year`` and ``spend_floor_base`` default to an inert (no reserve) view so
+    existing callers are unchanged; pass both to honor a configured reserve.
     """
     ids = list(c.get("hsa_ids", []) or [])
     balance = sum(max(0.0, float(bal.get(aid, 0.0) or 0.0)) for aid in ids)
+    above_floor = max(0.0, balance - liquidity_reserve_floor(c, year, "hsa", spend_floor_base))
     bank = c.get("hsa_expense_bank")
     if bank is None:
-        return balance
-    return max(0.0, min(balance, float(bank) - max(0.0, float(cumulative_drawn))))
+        return above_floor
+    bank_remaining = float(bank) - max(0.0, float(cumulative_drawn))
+    return max(0.0, min(bank_remaining, above_floor))
 
 
 def withdraw_hsa_window(c: Mapping, bal: BalanceMap, year: int, wellness_cost: float = 0.0,
@@ -934,6 +950,11 @@ def withdraw_hsa_window(c: Mapping, bal: BalanceMap, year: int, wellness_cost: f
     and by any liquidity reserve configured against the HSA bucket. Callers
     that pass no ``requested`` keep the legacy wellness-linked behavior
     exactly. ``annual_pct`` and ``smooth_window`` are unaffected.
+
+    Obligation: passing ``requested`` discards ``wellness_cost`` entirely -- the
+    requested figure becomes the whole draw. A caller that supplies
+    ``requested`` must therefore fold the year's medical spend into it, or the
+    wellness cost stops being paid from the HSA.
     """
     mode = str(c.get("hsa_withdrawal_mode", "spend_as_needed") or "spend_as_needed").lower()
     if mode == "spend_as_needed":
@@ -948,8 +969,8 @@ def withdraw_hsa_window(c: Mapping, bal: BalanceMap, year: int, wellness_cost: f
         else:
             # A reserve held in the HSA bucket must survive the general draw;
             # otherwise the floor honored in withdraw_hsa_gap arrives too late.
-            available = max(0.0, hsa_available_to_draw(c, bal, cumulative_drawn)
-                            - liquidity_reserve_floor(c, year, "hsa", spend_floor_base))
+            # The helper composes the floor and the bank correctly.
+            available = hsa_available_to_draw(c, bal, cumulative_drawn, year, spend_floor_base)
         amount = min(target, available)
         if amount <= 1e-6:
             return {"amount": 0.0, "by_account": {}}
