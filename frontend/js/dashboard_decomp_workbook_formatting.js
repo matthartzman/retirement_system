@@ -43,8 +43,34 @@ export function wfWidthInputKeydown(event) {
   if (table && !table.open) table.open = true;
   const sheet = target.closest("details.wf-sheet");
   if (sheet && !sheet.open) sheet.open = true;
+  const focusKey = target.getAttribute("data-focus-key");
   target.focus();
   target.select();
+  // #285: if the field being LEFT was just edited, the .focus() call above
+  // synchronously fires blur/change on it *before* focus visibly moves --
+  // and that change handler's autosave (setWorkbookColWidth) calls
+  // renderMain() synchronously too, from inside that same blur cascade.
+  // renderMain replaces #mainPane's innerHTML, so `target` (still just a
+  // plain object reference to the OLD node) is detached by the time this
+  // focus() call actually gets around to focusing it -- focusing a detached
+  // node is a no-op, so focus falls back to <body>. (document.activeElement
+  // reads as <body> for the whole blur/change cascade in Chromium, so
+  // renderMain's own generic focus-preserving capture -- see dashboard.js's
+  // renderMain -- has nothing to capture at that instant either; this is a
+  // second, narrower fix for that specific synchronous race, not a
+  // duplicate of the general one.) Re-resolve the freshly-rendered
+  // replacement by the stable key and retry once the dust has settled. A
+  // no-op if the width was NOT edited (target.focus() already succeeded
+  // normally) or if, for any reason, no matching node exists after render.
+  if (focusKey && document.activeElement !== target) {
+    const revived = document.querySelector(
+      `[data-focus-key="${CSS.escape(focusKey)}"]`,
+    );
+    if (revived) {
+      revived.focus({ preventScroll: true });
+      revived.select();
+    }
+  }
 }
 
 export async function loadWorkbookFormat(force = false) {
@@ -246,7 +272,7 @@ export function _wfColumnHtml(sheet, colNode) {
   const resetBtn = overridden
     ? `<button class="btn tiny" type="button" onclick="resetWorkbookCol('${escJs(sheet)}','${escJs(col)}')">Reset</button>`
     : "";
-  return `<div class="wf-col-row${overridden ? " wf-col-overridden" : ""}"><span class="wf-col-title" title="${title}">${title}</span><span class="wf-col-meta">col ${esc(col)}</span><label class="wf-col-width">Width <input type="number" min="1" max="255" step="0.5" value="${esc(String(eff))}" onchange="setWorkbookColWidth('${escJs(sheet)}','${escJs(col)}',this.value)" onkeydown="wfWidthInputKeydown(event)" /></label><span class="small wf-col-default">Last built: ${esc(String(colNode.width))}</span>${resetBtn}${_wfAlignHtml(sheet, col, colNode)}</div>`;
+  return `<div class="wf-col-row${overridden ? " wf-col-overridden" : ""}"><span class="wf-col-title" title="${title}">${title}</span><span class="wf-col-meta">col ${esc(col)}</span><label class="wf-col-width">Width <input type="number" min="1" max="255" step="0.5" value="${esc(String(eff))}" data-focus-key="${esc("wf:" + sheet + ":" + col)}" onchange="setWorkbookColWidth('${escJs(sheet)}','${escJs(col)}',this.value)" onkeydown="wfWidthInputKeydown(event)" /></label><span class="small wf-col-default">Last built: ${esc(String(colNode.width))}</span>${resetBtn}${_wfAlignHtml(sheet, col, colNode)}</div>`;
 }
 
 export function _wfTableHtml(sheet, tableNode, showTableLayer) {
