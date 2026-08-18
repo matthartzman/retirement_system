@@ -300,6 +300,23 @@ def estimate_terminal_pretax_deferred_tax(c: Mapping[str, Any], terminal: Mappin
     }
 
 
+def estimate_terminal_hsa_deferred_tax(c: Mapping[str, Any],
+                                       terminal: Mapping[str, Any]) -> Dict[str, float]:
+    """Deferred tax embedded in a terminal HSA balance.
+
+    Mirrors estimate_terminal_pretax_deferred_tax's shape so callers can treat
+    the two the same way. Until this existed, hsa_nw flowed into after-tax
+    terminal net worth at 100 cents on the dollar -- which made an HSA a
+    strictly dominant asset and any drawdown optimizer's answer "never
+    withdraw."
+    """
+    hsa_nw = max(0.0, _f(terminal.get("hsa_nw"), 0.0))
+    return {
+        "terminal_hsa_nw": hsa_nw,
+        "hsa_deferred_tax": hsa_terminal_tax(c, hsa_nw),
+    }
+
+
 def _lot_mv_basis_for_account(c: Mapping[str, Any], account_id: str) -> Tuple[float, float]:
     """Return remaining lot market value and basis for an account.
 
@@ -590,13 +607,22 @@ def estimate_after_tax_terminal_net_worth(c: Mapping[str, Any], terminal: Mappin
     terminal_nw = _f(terminal.get("total_nw"), 0.0)
     pretax = estimate_terminal_pretax_deferred_tax(c, terminal)
     taxable = estimate_terminal_taxable_deferred_cap_gain_tax(c, terminal)
-    total_deferred = pretax["terminal_deferred_pretax_tax"] + taxable["terminal_deferred_taxable_cap_gain_tax"]
+    # hsa_nw is part of total_nw, and a non-spouse beneficiary owes ordinary
+    # income tax on the whole balance in the year of death, so it belongs in the
+    # deferred-tax total alongside the pre-tax and capital-gains haircuts.
+    # hsa_deferred_tax is already DOLLARS -- unlike the pre-tax component it is
+    # not a rate to be multiplied by a balance.
+    hsa = estimate_terminal_hsa_deferred_tax(c, terminal)
+    total_deferred = (pretax["terminal_deferred_pretax_tax"]
+                      + taxable["terminal_deferred_taxable_cap_gain_tax"]
+                      + hsa["hsa_deferred_tax"])
     after_tax = terminal_nw - total_deferred
     estate_tax = estimate_terminal_estate_tax(c, terminal)
     return {
         "terminal_nw": terminal_nw,
         **pretax,
         **taxable,
+        **hsa,
         "terminal_deferred_tax_total": total_deferred,
         "after_tax_terminal_nw": after_tax,
         "after_tax_terminal_net_worth": after_tax,
