@@ -79,10 +79,27 @@ PROVENANCE_RE = re.compile(
 CONST_NW_RE = re.compile(r"^PINNED_TERMINAL_NW\s*=\s*(-?\d+(?:\.\d+)?)", re.MULTILINE)
 CONST_TAX_RE = re.compile(r"^PINNED_LIFETIME_TAX\s*=\s*(-?\d+(?:\.\d+)?)", re.MULTILINE)
 
+# Exact-match set: rejects a reason that IS one of these, verbatim (a short,
+# generic non-answer). Deliberately does NOT include words common in honest
+# prose ("fix", "update", "test", "regen", "changed") -- those are only
+# rejected below if the ENTIRE reason is just that word, never as a
+# substring, so "Recomputed after the DAF carryforward fix landed; see
+# commit abc123" is never flagged for containing "fix".
 _PLACEHOLDER_REASONS = {
     "todo", "tbd", "n/a", "na", "reason", "test", "testing", "placeholder",
     "asdf", "wip", "fix", "update", "regen", "update pin", "changed",
 }
+# Substring markers: unambiguous placeholder tokens that essentially never
+# appear in a genuine justification, so they're caught anywhere in the text
+# (word-boundary matched, case-insensitive) -- not just as the whole reason.
+# This is what catches "TODO -- will fill in later, need more analysis time":
+# long enough and not a whole-string match against _PLACEHOLDER_REASONS, but
+# still a placeholder in substance (fix round 1, Finding 5).
+_PLACEHOLDER_MARKERS = ("todo", "tbd", "fixme", "xxx", "placeholder", "wip", "n/a")
+_PLACEHOLDER_MARKER_RE = re.compile(
+    r"(?<![a-z0-9])(?:" + "|".join(re.escape(m) for m in _PLACEHOLDER_MARKERS) + r")(?![a-z0-9])",
+    re.IGNORECASE,
+)
 MIN_REASON_LEN = 30
 
 
@@ -143,11 +160,15 @@ def cmd_measure(_args) -> int:
     return 0
 
 
-def cmd_verify_endpoint(args) -> int:
-    status = subprocess.run(
+def _git_status_porcelain() -> str:
+    return subprocess.run(
         ["git", "status", "--porcelain"], cwd=str(ROOT),
         capture_output=True, text=True, check=True,
     ).stdout
+
+
+def cmd_verify_endpoint(args) -> int:
+    status = _git_status_porcelain()
     if status.strip():
         print(
             "Refusing: working tree is dirty. verify-endpoint checks out a "
@@ -235,6 +256,14 @@ def _validate_reason(reason_path: Path) -> str:
             f"--reason file {reason_path} looks like a placeholder ('{text.strip()}'). "
             "Write an actual justification."
         )
+    marker_match = _PLACEHOLDER_MARKER_RE.search(text)
+    if marker_match:
+        raise SystemExit(
+            f"--reason file {reason_path} contains the placeholder marker "
+            f"'{marker_match.group(0)}' ('{text.strip()}'). A reason that is long enough and "
+            "not an exact placeholder can still just be a placeholder wearing more words -- "
+            "write an actual justification, not a promise to write one later."
+        )
     return text
 
 
@@ -243,6 +272,16 @@ def cmd_regen(args) -> int:
         raise SystemExit("regen requires --reason <file>. A pin cannot move silently.")
     reason_path = Path(args.reason)
     reason_text = _validate_reason(reason_path)
+
+    status = _git_status_porcelain()
+    if status.strip():
+        raise SystemExit(
+            "Refusing: working tree is dirty. regen rewrites two tracked files "
+            f"({PIN_FILE.relative_to(ROOT)}, {CHANGELOG_FILE.relative_to(ROOT)}) and needs a "
+            "clean baseline to do that against -- a dirty tree makes it ambiguous whether the "
+            "resulting diff reflects only the regen or also your uncommitted changes. Commit "
+            "or stash first (consistent with verify-endpoint's same guard).\n\n" + status
+        )
 
     old_nw, old_tax = _current_pins()
     new_nw, new_tax = _run_regen_block(ROOT)
@@ -260,8 +299,13 @@ def cmd_regen(args) -> int:
             lambda m: provenance_line + "\n" + m.group(0), pin_text, count=1
         )
 
-    pin_text = CONST_NW_RE.sub(f"PINNED_TERMINAL_NW = {new_nw!r}", pin_text, count=1)
-    pin_text = CONST_TAX_RE.sub(f"PINNED_LIFETIME_TAX = {new_tax!r}", pin_text, count=1)
+    # Same format as the provenance line above (":.2f") -- not the constant's
+    # own repr. They're only equivalent today because upstream values happen
+    # to be pre-rounded to the cent; a single format keeps that guaranteed
+    # rather than incidental, and keeps a future reader from suspecting two
+    # different numeric sources when they're one (fix round 1, Finding 4).
+    pin_text = CONST_NW_RE.sub(f"PINNED_TERMINAL_NW = {new_nw:.2f}", pin_text, count=1)
+    pin_text = CONST_TAX_RE.sub(f"PINNED_LIFETIME_TAX = {new_tax:.2f}", pin_text, count=1)
     PIN_FILE.write_text(pin_text, encoding="utf-8")
 
     changelog = CHANGELOG_FILE.read_text(encoding="utf-8")
