@@ -4010,6 +4010,19 @@ function primaryActionForStep(stepId) {
     return '<button class="btn primary" type="button" onclick="saveAll(true)">Save Changes</button>';
   return '<button class="btn" type="button" data-step-id="reports_and_review">Review Reports</button>';
 }
+// #285: preserve focus (and, when safe, selection) across the innerHTML
+// replace that renderMain() performs below. This is a GENERAL fix, not a
+// Workbook-Formatting-only patch: every field in this app that autosaves on
+// change and then calls renderMain() synchronously (there are many --
+// Holdings' account filter, several spending/YTD fields, workbook column
+// widths...) has the same trap armed, since `#mainPane.innerHTML = content`
+// destroys and rebuilds every node in the pane, including whatever was just
+// focused. Any element that wants to survive a re-render opts in with a
+// stable `data-focus-key` attribute; nothing else is touched. This must be a
+// no-op -- never steal focus somewhere the user did not ask for -- when
+// nothing was focused inside #mainPane, when the focused node has no
+// data-focus-key, or when that key does not resolve to anything after the
+// render.
 let renderMain = function() {
   renderSteps();
   renderMeta();
@@ -4138,75 +4151,21 @@ let renderMain = function() {
     if (k) _dOpen[k] = d.open;
   });
   // #285: preserve focus (and, when safe, selection) across the innerHTML
-  // replace below. This is a GENERAL fix, not a Workbook-Formatting-only
-  // patch: every field in this app that autosaves on change and then calls
-  // renderMain() synchronously (there are many -- Holdings' account filter,
-  // several spending/YTD fields, workbook column widths...) has the same
-  // trap armed, since `#mainPane.innerHTML = content` destroys and rebuilds
-  // every node in the pane, including whatever was just focused. Any element
-  // that wants to survive a re-render opts in with a stable `data-focus-key`
-  // attribute; nothing else is touched. This must be a no-op -- never steal
-  // focus somewhere the user did not ask for -- when nothing was focused
-  // inside #mainPane, when the focused node has no data-focus-key, or when
-  // that key does not resolve to anything after the render.
+  // replace below -- see captureMainPaneFocus/restoreMainPaneFocus above for
+  // the guards (no-op when nothing focused, when focus is outside
+  // #mainPane, when the node has no data-focus-key, or when the key does
+  // not resolve after re-render). Capture must happen BEFORE the innerHTML
+  // write and restore AFTER it, synchronously within this call -- no await
+  // may be introduced between them.
   const _mainPane = document.getElementById("mainPane");
-  const _prevActive = document.activeElement;
-  const _focusKey =
-    _prevActive &&
-    _prevActive.getAttribute &&
-    _mainPane &&
-    _mainPane.contains(_prevActive)
-      ? _prevActive.getAttribute("data-focus-key")
-      : null;
-  let _focusValue, _focusSelStart, _focusSelEnd;
-  let _hasSel = false;
-  if (_focusKey) {
-    _focusValue = "value" in _prevActive ? _prevActive.value : undefined;
-    try {
-      if (typeof _prevActive.selectionStart === "number") {
-        _focusSelStart = _prevActive.selectionStart;
-        _focusSelEnd = _prevActive.selectionEnd;
-        _hasSel = true;
-      }
-    } catch (e) {
-      // Some input types (e.g. type=number) throw reading selectionStart --
-      // treat that as "no selection to restore", not an error.
-    }
-  }
+  const _focusState = captureMainPaneFocus(_mainPane);
   _mainPane.innerHTML = content;
   document.querySelectorAll("#mainPane details").forEach(function (d) {
     const k = _dKey(d);
     if (k && Object.prototype.hasOwnProperty.call(_dOpen, k))
       d.open = _dOpen[k];
   });
-  if (_focusKey) {
-    const _revived = document.querySelector(
-      `[data-focus-key="${CSS.escape(_focusKey)}"]`,
-    );
-    if (_revived) {
-      _revived.focus({ preventScroll: true });
-      // Restore a caret/selection only when the value round-tripped
-      // identical -- otherwise a stale selection range would clobber a
-      // fresh server-provided value with a leftover caret position.
-      if ("value" in _revived && _revived.value === _focusValue) {
-        if (_hasSel) {
-          try {
-            _revived.setSelectionRange(_focusSelStart, _focusSelEnd);
-          } catch (e) {
-            if (typeof _revived.select === "function") {
-              try {
-                _revived.select();
-              } catch (e2) {}
-            }
-          }
-        } else if (typeof _revived.select === "function") {
-          try {
-            _revived.select();
-          } catch (e2) {}
-        }
-      }
-    }
-  }
+  restoreMainPaneFocus(_focusState);
   setAppControls(appReady);
   showStepHelp(activeStep);
 };
