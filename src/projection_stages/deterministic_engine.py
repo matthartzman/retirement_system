@@ -1955,6 +1955,22 @@ def run_deterministic_projection_stage(c):
         row['_hsa_by_account'] = dict(hsa_res.get('by_account', {}) or {})
         for _aid, _amt in row['_hsa_by_account'].items():
             _add_account_flow(row['_account_withdrawals'], _aid, _amt)
+        # Non-qualified HSA withdrawals (hsa_nonqualified_treatment='allow_taxable')
+        # are ordinary income, plus a 20% pre-65 penalty. Both are 0.0 in the
+        # qualified/default-blocked case, so this is a no-op unless that branch
+        # actually fires.
+        hsa_nonqual_taxable = float(hsa_res.get('taxable_amount', 0.0) or 0.0)
+        hsa_nonqual_penalty = float(hsa_res.get('penalty', 0.0) or 0.0)
+        row['hsa_nonqual_taxable'] = hsa_nonqual_taxable
+        row['hsa_nonqual_penalty'] = hsa_nonqual_penalty
+        if hsa_nonqual_taxable > 0:
+            agi += hsa_nonqual_taxable
+            taxable_inc += hsa_nonqual_taxable
+            irmaa_magi_current += hsa_nonqual_taxable
+        if hsa_nonqual_penalty > 0:
+            total_tax_pre_niit += hsa_nonqual_penalty
+            total_tax += hsa_nonqual_penalty
+            gap += hsa_nonqual_penalty
 
         # ── Priority 3: Pre-tax elective withdrawal ─────────────────────────
         h_ira_elective = 0.0; w_ira_elective = 0.0; ira_wd = 0.0; pretax_by_account = {}
