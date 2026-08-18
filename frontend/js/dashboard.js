@@ -4173,7 +4173,7 @@ let renderMain = function() {
       // treat that as "no selection to restore", not an error.
     }
   }
-  document.getElementById("mainPane").innerHTML = content;
+  _mainPane.innerHTML = content;
   document.querySelectorAll("#mainPane details").forEach(function (d) {
     const k = _dKey(d);
     if (k && Object.prototype.hasOwnProperty.call(_dOpen, k))
