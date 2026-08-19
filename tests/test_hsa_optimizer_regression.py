@@ -24,6 +24,90 @@ COUPLE = {
 }
 
 
+# --- Task 10 schedule-search fixtures ---------------------------------------
+#
+# Both households carry an explicit `hsa_consume_by` year. The percentile path
+# is already pinned by ConsumeByMortalityTests below; resolving it again here
+# would only make these fixtures hostage to the mortality table's exact shape
+# (Task 7 found the p90 deadline collapses to `plan_end` on most stock
+# horizons, which would leave the search no interior years to discriminate
+# between). The mortality table is still load-bearing in these fixtures -- it
+# is what the residual-risk term reads -- just not for the deadline.
+
+def _rows(years, filing_of, rate_of, hsa_nw):
+    out = []
+    for i, y in enumerate(years):
+        row = {"year": y, "filing": filing_of(y),
+               "effective_marginal_rate": rate_of(y), "irmaa_tier": 0}
+        if i == 0:
+            row["hsa_nw"] = hsa_nw
+        out.append(row)
+    return out
+
+
+# A single-filing-status household: every year is an MFJ year at the same rate,
+# so nothing but the deadline constraint itself is under test.
+FEASIBLE_ROWS = _rows(range(2026, 2041), lambda y: "MFJ", lambda y: 0.22, 500_000.0)
+
+FEASIBLE_C = {
+    "plan_start": 2026,
+    "plan_end": 2040,
+    "hsa_consume_by": "2040",
+    "ret": 0.05,
+    "brk_inf": 0.0,
+    "members": [
+        {"role": "member_1", "dob_yr": 1958, "mortality_age": 92},
+        {"role": "member_2", "dob_yr": 1960, "mortality_age": 95},
+    ],
+}
+
+# The same household with a floor the optimizer may not draw through. That
+# floor is the only mechanism at this signature that can make the consume-by
+# constraint genuinely unsatisfiable, so it is how the infeasible state is
+# reached without ever moving the deadline.
+OVERSIZED_C = dict(FEASIBLE_C, hsa_min_ending_balance=250_000.0)
+
+# The survivor household: MFJ through 2030, then Single (first death) through
+# the 2040 deadline.
+#
+# Three things about this fixture are deliberate and load-bearing:
+#
+# 1. `hsa_beneficiary_type` is 'non_spouse'. With the schema default ('spouse')
+#    `hsa_terminal_tax` returns exactly 0.0 for every balance, the
+#    residual-mortality-risk term is structurally zero, and
+#    `test_optimizer_does_not_back_load_into_the_final_years` becomes a guard
+#    that cannot fail -- it would then be passing or failing on discounting
+#    alone, with zero contribution from the term it exists to test.
+# 2. `ret` (12%) is above the 6.5% default tax discount rate, so deferral is
+#    genuinely attractive here: a dollar left in the HSA compounds tax-free
+#    faster than the objective discounts it. That makes this a HARD case for
+#    anti-back-loading rather than one the discount factor wins by itself.
+#    Verified: with the terminal-tax term neutralized, the search puts 58% of
+#    the balance in the final three years; with it live, 38%.
+# 3. The members are old enough (86 and 84 at plan start) that the second death
+#    has real probability mass inside the window -- the residual term is an
+#    expectation over that mass, and a young couple would make it negligible
+#    for reasons that have nothing to do with whether the term is correct.
+SURVIVOR_ROWS = _rows(range(2026, 2041),
+                      lambda y: "MFJ" if y <= 2030 else "Single",
+                      lambda y: 0.22 if y <= 2030 else 0.32,
+                      600_000.0)
+
+SURVIVOR_C = {
+    "plan_start": 2026,
+    "plan_end": 2040,
+    "hsa_consume_by": "2040",
+    "ret": 0.12,
+    "brk_inf": 0.0,
+    "hsa_beneficiary_type": "non_spouse",
+    "roth_heir_filing_status": "Single",
+    "members": [
+        {"role": "member_1", "dob_yr": 1936, "mortality_age": 92},
+        {"role": "member_2", "dob_yr": 1938, "mortality_age": 95},
+    ],
+}
+
+
 @pytest.mark.unit
 class ConsumeByTests(unittest.TestCase):
     def test_explicit_year_is_honored(self):
@@ -318,6 +402,71 @@ class JointScoringTests(unittest.TestCase):
         # more than the pool actually contains.
         capped = joint_headroom_used({}, {"bracket_room": 0.0}, hsa_draw=25_000.0, conversion=40_000.0)
         self.assertAlmostEqual(capped, 25_000.0, places=6)
+
+
+@pytest.mark.unit
+class ScheduleSearchTests(unittest.TestCase):
+    def test_a_feasible_plan_consumes_the_balance_by_the_deadline(self):
+        from src.hsa_schedule import build_schedule
+        out = build_schedule(FEASIBLE_C, FEASIBLE_ROWS)
+        self.assertEqual(out["feasibility"], "feasible")
+        self.assertAlmostEqual(out["residual"], 0.0, places=2)
+
+    def test_an_oversized_balance_reports_infeasible_and_never_moves_the_deadline(self):
+        from src.hsa_schedule import build_schedule, resolve_consume_by_year
+        out = build_schedule(OVERSIZED_C, FEASIBLE_ROWS)
+        self.assertEqual(out["feasibility"], "infeasible")
+        self.assertGreater(out["residual"], 0.0)
+        self.assertLessEqual(max(out["by_year"]), resolve_consume_by_year(OVERSIZED_C, FEASIBLE_ROWS))
+
+    def test_optimizer_beats_smooth_window_by_weighting_survivor_years(self):
+        """(a) Names the wrong implementation it must reject: a level drawdown.
+        Beating it on total score is not enough -- it must beat it BECAUSE more
+        dollars land in survivor years."""
+        from src.hsa_schedule import build_schedule, schedule_score, level_schedule
+        opt = build_schedule(SURVIVOR_C, SURVIVOR_ROWS)
+        lvl = level_schedule(SURVIVOR_C, SURVIVOR_ROWS)
+        self.assertGreater(schedule_score(SURVIVOR_C, SURVIVOR_ROWS, opt["by_year"]),
+                           schedule_score(SURVIVOR_C, SURVIVOR_ROWS, lvl))
+        survivor_years = [r["year"] for r in SURVIVOR_ROWS if r["filing"] == "Single"]
+        opt_share = sum(opt["by_year"].get(y, 0.0) for y in survivor_years) / sum(opt["by_year"].values())
+        lvl_share = sum(lvl.get(y, 0.0) for y in survivor_years) / sum(lvl.values())
+        self.assertGreater(opt_share, lvl_share)
+
+    def test_optimizer_does_not_back_load_into_the_final_years(self):
+        """(b) The failure mode that appears if the residual term is missing or
+        mis-weighted. Such a schedule satisfies every constraint and feasibility
+        check while maximizing exposure to an early death. Nothing else catches it."""
+        from src.hsa_schedule import build_schedule, resolve_consume_by_year
+        out = build_schedule(SURVIVOR_C, SURVIVOR_ROWS)
+        deadline = resolve_consume_by_year(SURVIVOR_C, SURVIVOR_ROWS)
+        years = sorted(out["by_year"])
+        last_three = [y for y in years if y > deadline - 3]
+        share = sum(out["by_year"][y] for y in last_three) / sum(out["by_year"].values())
+        self.assertLess(share, 0.50,
+                        "more than half the balance in the final three years means the "
+                        "residual term is not pricing early-death risk")
+
+    def test_the_surplus_state_is_reachable_not_dead_code(self):
+        """`feasible_with_surplus` is the third feasibility state and no test in
+        the brief exercises it. A state nothing can reach is a state that does
+        not exist, so pin one household that does reach it: very old members and
+        a large balance make the terminal-cliff risk of carrying money into the
+        late years exceed the tax value of drawing it there, so the schedule
+        empties the account strictly before the deadline and the deadline never
+        binds."""
+        from src.hsa_schedule import build_schedule
+        rows = [{"year": y, "filing": "Single", "effective_marginal_rate": 0.24, "irmaa_tier": 0}
+                for y in range(2026, 2051)]
+        rows[0]["hsa_nw"] = 3_000_000.0
+        c = {"plan_start": 2026, "plan_end": 2050, "hsa_consume_by": "2050", "ret": 0.02,
+             "brk_inf": 0.0, "hsa_beneficiary_type": "non_spouse",
+             "members": [{"role": "member_1", "dob_yr": 1930},
+                         {"role": "member_2", "dob_yr": 1932}]}
+        out = build_schedule(c, rows)
+        self.assertEqual(out["feasibility"], "feasible_with_surplus")
+        self.assertAlmostEqual(out["residual"], 0.0, places=2)
+        self.assertLess(max(y for y, v in out["by_year"].items() if v > 0.0), 2050)
 
 
 if __name__ == "__main__":
