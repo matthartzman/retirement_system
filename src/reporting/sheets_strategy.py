@@ -15,13 +15,13 @@ from .workbook_common import (
     WHITE,
     col_factors,
     get_column_letter,
-    illinois_estate_tax,
     indexed_federal_estate_exemption,
     marginal_rate,
     qc,
     salt_cap,
     section_title,
     standard_deduction,
+    state_estate_tax,
     state_income_tax,
     supported_states,
     write_cell,
@@ -719,7 +719,9 @@ def build_sheet12(ws, c, rows):
         est_agi_base     = c.get('earned', 290000) * 0.9   # rough net of SE deductions
         filing_base      = 'MFJ'
         n65_base         = 0
-        _state_rules     = STATE_TAX_RULES.get(c.get('state'), STATE_TAX_RULES.get('Illinois', {}))
+        # c['state'] is guaranteed set and supported by require_residence_state_for_build()
+        # (item 291) by the time a real build reaches here; no Illinois fallback needed.
+        _state_rules     = STATE_TAX_RULES.get(c.get('state'), {})
         salt_gross_base  = est_agi_base * _state_rules.get('rate', 0.0495)
         mort_int_base    = 0.0
         senior_bonus_base = 0.0
@@ -1363,26 +1365,54 @@ def build_sheet14(ws, c, rows):
         write_cell(ws, r, 2, f'Estate below ${fed_exempt/1e6:.1f}M exemption — no federal tax likely'); r+=1
     r += 1
 
-    # Illinois estate tax -- the engine only models Illinois estate tax, so
-    # this section must not print for a household residing in any other
-    # state (item 3.1: it previously showed regardless of residence).
-    _is_il_resident = str(c.get('state', 'Illinois') or 'Illinois') == 'Illinois'
-    if c['model_state_est'] and _is_il_resident:
-        write_hdr(ws, r, 1, 'Illinois Estate Tax (At Second Death)', ORANGE, WHITE, span=4); r+=1
-        il_exempt = c['il_exempt']
-        il_excess = max(0, est2 - il_exempt)
-        il_tax = illinois_estate_tax(est2, il_exempt)
-        write_cell(ws, r, 1, 'IL Exemption'); write_cell(ws, r, 2, il_exempt, fmt=FMT_DOLLAR); r+=1
-        write_cell(ws, r, 1, 'Estate over IL Exemption'); write_cell(ws, r, 2, il_excess, fmt=FMT_DOLLAR); r+=1
-        write_cell(ws, r, 1, 'Est. IL Estate Tax (cliff/interrelated calc)', bold=True)
-        write_cell(ws, r, 2, il_tax, fmt=FMT_DOLLAR, bold=True,
-                   bg='FCE4D6' if il_tax>0 else 'E2EFDA'); r+=1
-        if il_tax > 0:
-            write_cell(ws, r, 1, '⚠ ACTION REQUIRED', bold=True, bg='FCE4D6', fg=RED)
+    # State estate tax -- dispatched by the resident state's estate_calc
+    # mechanism (item 291), not hardcoded to Illinois. Three cases, and the
+    # section always prints SOMETHING rather than silently vanishing for a
+    # non-IL household (item 3.1's original defect: it showed Illinois's
+    # numbers regardless of residence; the fix must not overcorrect into
+    # showing nothing at all for other states).
+    _resident_state = str(c.get('state', '') or '')
+    # Always defined (0.0 default) regardless of which branch below runs --
+    # the qc() audit line near this sheet's end reports it unconditionally,
+    # and previously relied on the IL-only code path always having set it,
+    # which was itself latent-broken for any non-IL resident (NameError,
+    # simply never exercised by a test that reached this line with one).
+    il_tax = 0.0
+    if c['model_state_est']:
+        _state_exempt_configured = c.get('il_exempt')
+        _tax, _status = state_estate_tax(_resident_state, est2, _state_exempt_configured)
+        il_tax = _tax
+        if _status == 'computed':
+            write_hdr(ws, r, 1, f'{_resident_state} Estate Tax (At Second Death)', ORANGE, WHITE, span=4); r+=1
+            il_exempt = c['il_exempt']
+            il_excess = max(0, est2 - il_exempt)
+            write_cell(ws, r, 1, f'{_resident_state} Exemption'); write_cell(ws, r, 2, il_exempt, fmt=FMT_DOLLAR); r+=1
+            write_cell(ws, r, 1, f'Estate over {_resident_state} Exemption'); write_cell(ws, r, 2, il_excess, fmt=FMT_DOLLAR); r+=1
+            write_cell(ws, r, 1, f'Est. {_resident_state} Estate Tax (cliff/interrelated calc)', bold=True)
+            write_cell(ws, r, 2, _tax, fmt=FMT_DOLLAR, bold=True,
+                       bg='FCE4D6' if _tax>0 else 'E2EFDA'); r+=1
+            if _tax > 0:
+                write_cell(ws, r, 1, '⚠ ACTION REQUIRED', bold=True, bg='FCE4D6', fg=RED)
+                write_cell(ws, r, 2,
+                           f'Estate may exceed ${c["il_exempt"]/1e6:.0f}M {_resident_state} exemption. Consider: annual gifting, ILIT, '
+                           'charitable bequest, or credit-shelter/QTIP trust. Calculation uses the IL cliff/interrelated structure, not a tax-on-excess shortcut.',
+                           bg='FCE4D6'); r+=2
+        elif _status == 'none':
+            write_hdr(ws, r, 1, 'State Estate Tax (At Second Death)', ORANGE, WHITE, span=4); r+=1
+            write_cell(ws, r, 1, 'Note')
+            write_cell(ws, r, 2, f'{_resident_state or "This state"} does not levy a state estate tax.'); r+=2
+        else:
+            # 'not_modeled' (a real tax this engine cannot yet compute) or
+            # 'unrecognized' (state not in STATE_TAX_RULES at all) -- both
+            # must say so explicitly rather than silently showing $0 as if
+            # it were a computed figure.
+            write_hdr(ws, r, 1, 'State Estate Tax (At Second Death)', ORANGE, WHITE, span=4); r+=1
+            write_cell(ws, r, 1, '⚠ NOT MODELED', bold=True, bg='FFF4E5', fg=RED)
             write_cell(ws, r, 2,
-                       f'Estate may exceed ${c["il_exempt"]/1e6:.0f}M IL exemption. Consider: annual gifting, ILIT, '
-                       'charitable bequest, or credit-shelter/QTIP trust. Calculation uses the IL cliff/interrelated structure, not a tax-on-excess shortcut.',
-                       bg='FCE4D6'); r+=2
+                       f'{_resident_state or "This state"} is not modeled by this engine for state estate tax. '
+                       'If this state levies one, it is NOT included in any figure on this workbook -- consult a '
+                       'local estate attorney for an accurate estimate.',
+                       bg='FFF4E5'); r+=2
 
     # Gifting
     write_hdr(ws, r, 1, 'Gifting Strategy', NAVY, WHITE, span=4); r+=1
@@ -1567,7 +1597,7 @@ def build_sheet14(ws, c, rows):
     r += 1
 
     qc('14. Estate Plan', 'Federal/IL tax, QTIP, Credit Shelter documented', True,
-       f"IL est. tax: ${il_tax if c['model_state_est'] else 0:,.0f}, CS saves ~${cs_tax_saved:,.0f}, "
+       f"State est. tax: ${il_tax:,.0f}, CS saves ~${cs_tax_saved:,.0f}, "
        f"{len(findings)} beneficiary/titling review prompt(s), "
        f"per-beneficiary drawdown {'available' if drawdown.get('available') else 'not available'}")
 
