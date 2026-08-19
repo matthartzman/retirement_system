@@ -172,5 +172,153 @@ class ScoringTests(unittest.TestCase):
                 self.assertEqual(score_year({}, row, 10_000.0), absent)
 
 
+class SurplusWaterfallTests(unittest.TestCase):
+    def test_spending_need_is_funded_before_anything_else(self):
+        from src.hsa_schedule import allocate_surplus
+        out = allocate_surplus({}, {"spending_need": 30_000.0, "conversion_tax_capacity": 20_000.0},
+                               50_000.0)
+        self.assertAlmostEqual(out["to_spending"], 30_000.0, places=6)
+        self.assertAlmostEqual(out["to_conversion_tax"], 20_000.0, places=6)
+        self.assertAlmostEqual(out["to_taxable"], 0.0, places=6)
+
+    def test_leftover_after_conversion_tax_spills_to_taxable(self):
+        from src.hsa_schedule import allocate_surplus
+        out = allocate_surplus({}, {"spending_need": 10_000.0, "conversion_tax_capacity": 5_000.0},
+                               50_000.0)
+        self.assertAlmostEqual(out["to_taxable"], 35_000.0, places=6)
+
+    def test_priorities_saturate_correctly_when_surplus_is_short(self):
+        """A surplus too small to clear even the first priority must all go
+        to spending, and nothing should go negative."""
+        from src.hsa_schedule import allocate_surplus
+        out = allocate_surplus({}, {"spending_need": 30_000.0, "conversion_tax_capacity": 20_000.0},
+                               10_000.0)
+        self.assertAlmostEqual(out["to_spending"], 10_000.0, places=6)
+        self.assertAlmostEqual(out["to_conversion_tax"], 0.0, places=6)
+        self.assertAlmostEqual(out["to_taxable"], 0.0, places=6)
+
+    def test_surplus_never_increases_the_conversion_itself(self):
+        """The guardrail. Surplus changes how conversion tax is FUNDED, never how
+        much conversion is worth doing. Without this pin, 'free' tax money
+        quietly inflates the recommendation.
+
+        The plan's own brief names a placeholder function, `choose_conversion_amount`,
+        that does not exist. `plan_roth_conversion` is the real conversion-sizing
+        function (found via `grep -rn "def .*conversion" src/planning_engines.py`),
+        and its signature takes ~30 keyword args pulled from live engine state.
+        `tests/test_roth_ltcg_niit_guardrails.py` already exercises it directly
+        with a minimal fixture -- following that idiom here rather than inventing
+        a new calling convention.
+
+        `hsa_surplus_available` is not referenced anywhere in `planning_engines.py`
+        today (grepped), so this test is a forward-looking guard: it passes now
+        because nothing reads the key, and it exists to catch the day some later
+        change wires HSA surplus into conversion sizing without going through the
+        waterfall above -- i.e. lets "free" surplus dollars silently inflate how
+        much conversion the engine decides is worth doing.
+        """
+        from src.core import (
+            inflate_brackets, standard_deduction, compute_fed_tax,
+            FEDERAL_BRACKETS_BASE_YEAR, FEDERAL_BRACKETS_MFJ,
+        )
+        from src.planning_engines import plan_roth_conversion
+
+        def _amount(hsa_surplus_available):
+            c = {
+                'plan_start': 2026,
+                'roth_policy': 'fill_to_bracket',
+                'roth_target_rate': 0.35,
+                'roth_headroom_usage_pct': 1.0,
+                'roth_max_annual_conversion_pct_of_traditional_ira': 1.0,
+                'roth_irmaa_cap': False,
+                'roth_ltcg_headroom_usage_pct': 1.0,
+                'roth_niit_headroom_usage_pct': 1.0,
+                'brk_inf': 0.0,
+                'account_registry': [{'id': 'H_IRA', 'owner_idx': 0, 'tax': 'pre_tax', 'label': 'IRA'}],
+                'hsa_surplus_available': hsa_surplus_available,
+            }
+            bal = {'H_IRA': 2_000_000.0}
+            plan = plan_roth_conversion(
+                c=c, bal=bal, year=2026, filing='MFJ',
+                earned_base=0.0, half_se_ded=0.0, sehi_ded=0.0,
+                h_ss=0.0, w_ss=0.0, rmd_total=0.0, pension=0.0,
+                wife_single_ann=0.0, wife_joint_ann=0.0, h_single_ann=0.0, h_joint_ann=0.0,
+                note_int_yr=0.0, note_princ_yr=0.0, total_spend_need=0.0, spend=0.0,
+                portfolio_ordinary=0.0, portfolio_qualified=0.0, portfolio_tax_exempt=0.0,
+                aca_bridge_people=0, h_age=60.0, w_age=58.0,
+                brackets_by_status=FEDERAL_BRACKETS_BASE_YEAR, brackets_mfj=FEDERAL_BRACKETS_MFJ,
+                inflate_brackets_fn=inflate_brackets, standard_deduction_fn=standard_deduction,
+                compute_fed_tax_fn=compute_fed_tax, state_tax_estimate_fn=lambda agi, yr: 0.0,
+            )
+            return plan.amount
+
+        base = _amount(0.0)
+        with_surplus = _amount(100_000.0)
+        self.assertGreater(base, 0.0, "the fixture must produce a real conversion to be a meaningful pin")
+        self.assertAlmostEqual(with_surplus, base, places=6)
+
+
+class JointScoringTests(unittest.TestCase):
+    def test_headroom_is_not_double_counted(self):
+        """An HSA draw lowers AGI and frees headroom; a conversion consumes it.
+        Scored separately, both claim the same dollars."""
+        from src.hsa_schedule import joint_headroom_used
+        used = joint_headroom_used({}, {"bracket_room": 40_000.0},
+                                   hsa_draw=25_000.0, conversion=40_000.0)
+        self.assertLessEqual(used, 40_000.0 + 25_000.0)
+        self.assertGreater(used, 40_000.0)
+
+    def test_zero_conversion_uses_none_of_the_freed_room(self):
+        """With no conversion at all, nothing is claiming any bracket room --
+        the draw's freed headroom is real but unused, not "used"."""
+        from src.hsa_schedule import joint_headroom_used
+        used = joint_headroom_used({}, {"bracket_room": 40_000.0},
+                                   hsa_draw=25_000.0, conversion=0.0)
+        self.assertAlmostEqual(used, 0.0, places=6)
+
+    def test_zero_draw_reduces_to_the_conversions_own_claim(self):
+        """With no HSA draw, there is nothing to double-count against --
+        headroom used collapses to whatever the conversion alone claims."""
+        from src.hsa_schedule import joint_headroom_used
+        used = joint_headroom_used({}, {"bracket_room": 40_000.0},
+                                   hsa_draw=0.0, conversion=25_000.0)
+        self.assertAlmostEqual(used, 25_000.0, places=6)
+
+    def test_a_small_conversion_relative_to_room_claims_little_of_the_freed_room(self):
+        """Monotonicity check on the interaction term itself, not just the
+        overall bounds: a conversion using a SMALL fraction of bracket_room
+        should claim a correspondingly SMALL fraction of hsa_draw, not the
+        same fraction a much larger conversion would."""
+        from src.hsa_schedule import joint_headroom_used
+        small = joint_headroom_used({}, {"bracket_room": 40_000.0}, hsa_draw=25_000.0, conversion=4_000.0)
+        large = joint_headroom_used({}, {"bracket_room": 40_000.0}, hsa_draw=25_000.0, conversion=36_000.0)
+        # Both must sit strictly inside (own claim, own claim + hsa_draw) --
+        # and the larger conversion must have claimed a bigger absolute share
+        # of the freed room, not just a bigger total.
+        self.assertGreater(small, 4_000.0)
+        self.assertLess(small, 4_000.0 + 25_000.0)
+        self.assertGreater(large, 36_000.0)
+        self.assertLessEqual(large, 36_000.0 + 25_000.0)
+        self.assertLess(small - 4_000.0, large - 36_000.0)
+
+    def test_a_zero_base_room_still_credits_the_conversions_claim_on_freed_room(self):
+        """The bracket_room-is-zero edge case.
+
+        With no base room at all, the ONLY pool available is what the draw
+        freed. An implementation that computes `min(conversion, bracket_room)`
+        as its floor before adding a fraction of hsa_draw wrongly zeroes out
+        here, discarding a real conversion's real claim on the freed room --
+        caught during implementation precisely because none of the other
+        fixtures in this file exercise bracket_room == 0.
+        """
+        from src.hsa_schedule import joint_headroom_used
+        used = joint_headroom_used({}, {"bracket_room": 0.0}, hsa_draw=25_000.0, conversion=10_000.0)
+        self.assertAlmostEqual(used, 10_000.0, places=6)
+        # A conversion bigger than the entire pool (base + freed) cannot use
+        # more than the pool actually contains.
+        capped = joint_headroom_used({}, {"bracket_room": 0.0}, hsa_draw=25_000.0, conversion=40_000.0)
+        self.assertAlmostEqual(capped, 25_000.0, places=6)
+
+
 if __name__ == "__main__":
     unittest.main()
