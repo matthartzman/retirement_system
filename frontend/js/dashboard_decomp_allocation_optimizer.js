@@ -38,7 +38,7 @@ export function planningLeversPlaceholder() {
   return `<div class="holdings planning-levers planning-levers-empty"><div class="empty-state-panel"><span class="eyebrow">Baseline required</span><h3>Build once before using Strategy Levers</h3><p>Planning Levers rank changes against the latest successful baseline. Build reports first so the page can use real terminal net worth, post-tax inheritance, lifetime tax, and Monte Carlo success values instead of placeholder zeros.</p><div class="pane-actions"><button class="btn primary" type="button" data-requires-app="1" onclick="runBuild(false)">Build Reports</button><button class="btn" type="button" data-step-id="review">Open Review and Build</button><button class="btn" type="button" onclick="refreshPreflightForReview()">Refresh Preflight</button></div></div><div class="feature-grid optimizer-hub" style="margin:10px 0 14px"><div class="feature-card"><h3>What unlocks after build</h3><p class="small">Ranked lever estimates, measured baseline KPIs, and source-page jumps for changing the actual plan.</p></div><div class="feature-card"><h3>Where to work meanwhile</h3><p class="small">Use Roth Conversion, Asset Allocation, Spending Categories, Scenarios, and Monte Carlo pages to stage inputs before the first baseline build.</p></div></div></div>`;
 }
 
-export function renderPlanningLevers(embedded) {
+export function renderPlanningLevers() {
   if (!planningLeversBaselineReady()) return planningLeversPlaceholder();
   const b = planningLeverBase();
   const rows = planningLeverRows();
@@ -72,12 +72,10 @@ export function renderPlanningLevers(embedded) {
   function tr(r) {
     return `<tr><td>${esc(r.focus)}</td><td><b>${esc(r.lever)}</b><div class="small">${esc(r.note)}</div></td><td class="lever-source-cell">${sourceCell(r)}</td><td>${inputCell(r)}</td><td>${fmtMoney(r.tnw)}</td><td>${fmtPct(r.success)}</td></tr>`;
   }
-  // Ticket 286: when embedded, Roth conversion and asset allocation render inline below rather than as links, so the decide box IS the page. Withdrawal sequencing moved to Spending.
-  const decideButtons = embedded
-    ? ""
-    : leverNavButton("roth_conversion", "Roth conversion") +
-      leverNavButton("allocation_assets", "Asset allocation") +
-      leverNavButton("spending_core", "Withdrawal order");
+  const decideButtons =
+    leverNavButton("roth_conversion", "Roth conversion") +
+    leverNavButton("allocation_assets", "Asset allocation & location") +
+    leverNavButton("spending_core", "Withdrawal order");
   const otherDecideButtons =
     leverNavButton("income_retirement", "Social Security") +
     leverNavButton("entity_charitable", "Charitable giving") +
@@ -88,7 +86,7 @@ export function renderPlanningLevers(embedded) {
     leverNavButton("survivor_stress", "Survivor") +
     leverNavButton("ltc_stress", "Long-term care") +
     leverNavButton("divorce_options", "Divorce / QDRO");
-  return `<div class="holdings planning-levers"><h3 class="group-title">Strategy Levers</h3><p class="small"><button class="btn tiny" type="button" data-step-id="planning_workbench">Back to Planning Workbench</button></p><p class="small">Estimates assume all other inputs stay fixed. Change the test amount to resize any estimate without affecting your plan. Use the Source column beside each lever to jump to the page where the actual plan value is changed, then rebuild to confirm the real effect.</p><div class="feature-grid optimizer-hub" style="margin:10px 0 14px"><div class="feature-card">${embedded ? '<h3>Strategy · decide</h3><p class="small">Roth conversion and asset allocation are below. Withdrawal order moved to Spending. Other decide-levers:</p>' : "<h3>Strategy · decide</h3>"}<div class="pane-actions">${decideButtons}${otherDecideButtons}</div></div><div class="feature-card"><h3>Stress tests · resilience</h3><div class="pane-actions">${resilienceButtons}</div></div></div><div class="ytd-status-grid"><div class="pill"><b>Current terminal NW</b><span>${fmtMoney(b.terminal)}</span></div><div class="pill" title="Post-Tax Inheritance: terminal net worth minus the embedded taxes heirs would owe on pre-tax accounts and unrealized gains — what beneficiaries actually keep."><b>Post-Tax Inheritance (PTI)</b><span>${Number.isFinite(b.pti) ? fmtMoney(b.pti) : "—"}</span></div><div class="pill"><b>Lifetime taxes</b><span>${Number.isFinite(b.lifetime_tax) ? fmtMoney(b.lifetime_tax) : "—"}</span></div><div class="pill"><b>Current success rate</b><span>${fmtPct(b.success)}</span></div><div class="pill"><b>Core annual spending</b><span>${fmtMoney(b.spend)}</span></div><div class="pill"><b>Earned income assumption</b><span>${fmtMoney(b.earned)}</span></div></div><div class="section-note small" style="margin:4px 0 10px"><b>TNW</b> = Terminal Net Worth (projected portfolio at end of plan horizon) · <b>PTI</b> = Post-Tax Inheritance (TNW minus embedded taxes heirs would owe) · <b>Success rate</b> = Monte Carlo trials where the plan maintains the reserve floor through the planning horizon</div><div><div><h3>Ranked by estimated TNW lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${tnw.map(tr).join("")}</tbody></table></div></div><div><h3>Ranked by estimated success lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${suc.map(tr).join("")}</tbody></table></div></div></div><p class="section-note">After ranking, use the Source button beside a lever to change the actual input → rebuild → check Build History to see the measured effect on projected net worth and success rate.</p></div>`;
+  return `<div class="holdings planning-levers"><h3 class="group-title">Strategy Levers</h3><p class="small"><button class="btn tiny" type="button" data-step-id="planning_workbench">Back to Planning Workbench</button></p><p class="small">Estimates assume all other inputs stay fixed. Change the test amount to resize any estimate without affecting your plan. Use the Source column beside each lever to jump to the page where the actual plan value is changed, then rebuild to confirm the real effect.</p><div class="feature-grid optimizer-hub" style="margin:10px 0 14px"><div class="feature-card"><h3>Strategy · decide</h3><div class="pane-actions">${decideButtons}${otherDecideButtons}</div></div><div class="feature-card"><h3>Stress tests · resilience</h3><div class="pane-actions">${resilienceButtons}</div></div></div><div class="ytd-status-grid"><div class="pill"><b>Current terminal NW</b><span>${fmtMoney(b.terminal)}</span></div><div class="pill" title="Post-Tax Inheritance: terminal net worth minus the embedded taxes heirs would owe on pre-tax accounts and unrealized gains — what beneficiaries actually keep."><b>Post-Tax Inheritance (PTI)</b><span>${Number.isFinite(b.pti) ? fmtMoney(b.pti) : "—"}</span></div><div class="pill"><b>Lifetime taxes</b><span>${Number.isFinite(b.lifetime_tax) ? fmtMoney(b.lifetime_tax) : "—"}</span></div><div class="pill"><b>Current success rate</b><span>${fmtPct(b.success)}</span></div><div class="pill"><b>Core annual spending</b><span>${fmtMoney(b.spend)}</span></div><div class="pill"><b>Earned income assumption</b><span>${fmtMoney(b.earned)}</span></div></div><div class="section-note small" style="margin:4px 0 10px"><b>TNW</b> = Terminal Net Worth (projected portfolio at end of plan horizon) · <b>PTI</b> = Post-Tax Inheritance (TNW minus embedded taxes heirs would owe) · <b>Success rate</b> = Monte Carlo trials where the plan maintains the reserve floor through the planning horizon</div><div><div><h3>Ranked by estimated TNW lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${tnw.map(tr).join("")}</tbody></table></div></div><div><h3>Ranked by estimated success lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${suc.map(tr).join("")}</tbody></table></div></div></div><p class="section-note">After ranking, use the Source button beside a lever to change the actual input → rebuild → check Build History to see the measured effect on projected net worth and success rate.</p></div>`;
 }
 
 export function renderWorkbenchLeverEditorHtml() {
@@ -886,6 +884,16 @@ export function renderRothConversion() {
       !norm(r.label).startsWith("forced_"),
   );
   let html = renderRothMissingNotice();
+  // Ticket 289: disclose two Roth Conversion Modeling Guide levers this engine
+  // does not implement. Gated on the ABSENCE of a row for either future
+  // plan-data key, so building the lever removes its own disclosure -- see
+  // the matching gate in sheets_strategy.py's Conversion Strategy notes.
+  if (
+    !rowByNormLabel("roth_conversion_tax_source") &&
+    !rowByNormLabel("roth_conversion_asset_location_aware")
+  ) {
+    html += `<div class="section-note">This model does not yet choose <b>how</b> conversion taxes are paid (taxable cash vs. withholding from the IRA) or preferentially convert higher-growth holdings inside the IRA first (asset-location-aware conversion). Both apply the same conversion mechanics either way; see the workbook's Roth Conversion sheet for the full disclosure.</div>`;
+  }
   html += `<div class="field-list"><div class="section-note">Choose a conversion policy first — the page shows only the controls relevant to that choice. Fill-to-IRMAA uses the Medicare premium tier boundary as the conversion ceiling; choosing it hides the separate IRMAA guardrail to avoid duplicate controls. Bracket strategy options appear only for bracket-fill and optimizer policies.</div>${control.map(fieldHtml).join("")}</div>`;
   const policyLabel = policyIsFixed
     ? "Fixed-dollar conversion controls"
@@ -935,7 +943,7 @@ export function renderRothConversion() {
 }
 
 export function renderDistributionStrategy() {
-  return `<div class="tabbed-workspace strategy-workspace"><div class="workspace-tab-body">${renderPlanningLevers(true)}<details class="decide-embed" open><summary>Roth Conversion</summary>${analysisFrame(renderRothConversion(), "strategy")}</details><details class="decide-embed"><summary>Asset allocation &amp; location</summary>${analysisFrame(renderAllocationRecommendation(), "strategy")}<details class="decide-embed-sub"><summary>Allocation policy settings</summary>${renderAllocationPolicy()}</details></details></div></div>`;
+  return `<div class="tabbed-workspace strategy-workspace"><div class="workspace-tab-body">${renderPlanningLevers()}</div></div>`;
 }
 
 // Every export above is also re-attached to window: dashboard.js calls these

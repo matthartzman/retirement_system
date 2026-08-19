@@ -79,9 +79,17 @@ def credit_shelter_trust_savings(c):
     """
     if not c.get('cs_enabled', True):
         return None
-    # The engine only models Illinois estate tax (item 3.1) -- a household
-    # residing elsewhere has no state estate tax for a CST to shelter.
-    if str(c.get('state', 'Illinois') or 'Illinois') != 'Illinois':
+    # Item 291: the CST-shelter math below (the flat 0.08 average-rate
+    # assumption) is specific to the il_credit_table mechanism's typical
+    # effective rate, not a generic "any state with an estate tax" figure --
+    # so this must gate on the resolved state's estate_calc mechanism, not
+    # merely on whether an estate tax exists at all.
+    try:
+        from ..core import STATE_TAX_RULES
+    except ImportError:  # pragma: no cover - direct execution fallback
+        from src.core import STATE_TAX_RULES
+    _rules = STATE_TAX_RULES.get(str(c.get('state', '') or ''), {})
+    if _rules.get('estate_calc') != 'il_credit_table':
         return None
     il_exempt = _f(c.get('il_exempt'))
     if il_exempt is None:

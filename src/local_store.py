@@ -202,6 +202,68 @@ def latest_sectioned_data(db_path: str | Path | None = None) -> SectionedData:
     return json.loads(row[0]) if row else {}
 
 
+def rewrite_sectioned_snapshots(transform, db_path: str | Path | None = None, dry_run: bool = False) -> int:
+    """Apply ``transform`` to every ``plan_snapshots.sectioned_json`` row, in place.
+
+    ``transform`` has the same contract as ``migrate_sectioned_data``: it takes a parsed
+    sectioned dict and returns ``(new_dict, changed_count)``. Only rows where the
+    transform reports a nonzero ``changed_count`` are UPDATEd; untouched rows are left
+    completely alone.
+
+    ALL snapshots are migrated, not just the latest. Old snapshots are restorable, and a
+    restore that resurrects legacy keys after the schema version has already been
+    stamped would defeat the gate permanently -- the store would report "migrated" while
+    still able to serve legacy shapes. See docs/superpowers/sdd/task-5-brief.md.
+
+    Ordering is preserved by construction: the UPDATE touches only ``sectioned_json`` --
+    never ``created_at`` -- and SQLite does not reassign a row's ``rowid`` on UPDATE (only
+    on delete+reinsert, or an explicit write to an INTEGER PRIMARY KEY rowid alias, which
+    ``plan_snapshots`` does not have; its primary key is the TEXT ``snapshot_id``). So the
+    ``created_at DESC, rowid DESC`` tie-break that ``latest_sectioned_data`` and
+    ``latest_plan_input`` rely on to resolve same-second saves cannot be disturbed by this
+    sweep, and which snapshot is "latest" cannot change.
+
+    The whole sweep runs as one transaction: if ``transform`` raises partway through, the
+    ``with`` block rolls back every UPDATE made so far rather than leaving some rows
+    migrated and others not. The caller depends on this -- a partial migration must not
+    have the version stamped over it, or the un-migrated remainder would be skipped
+    forever.
+
+    ``dry_run=True`` reports what would change without writing anything.
+
+    Returns the number of snapshot rows changed (0 if the store does not exist yet).
+    """
+    p = _resolve(db_path)
+    if not p.exists():
+        return 0
+    with sqlite3.connect(p) as con:
+        rows = con.execute("SELECT rowid, sectioned_json FROM plan_snapshots").fetchall()
+        total = len(rows)
+        touched = 0
+        for i, (rowid, sectioned_json) in enumerate(rows, start=1):
+            data = json.loads(sectioned_json)
+            new_data, changed = transform(data)
+            if changed:
+                touched += 1
+                if not dry_run:
+                    con.execute(
+                        "UPDATE plan_snapshots SET sectioned_json=? WHERE rowid=?",
+                        (json.dumps(new_data, sort_keys=True), rowid),
+                    )
+            # A boot that appears hung is its own defect (ticket 290) -- surface
+            # progress on a large table rather than migrating silently.
+            if total >= 50 and (i % 50 == 0 or i == total):
+                print(f"Migrating plan snapshots at rest: {i}/{total}...")
+        if not dry_run and touched:
+            print(f"Migrated {touched}/{total} plan snapshot(s) at rest.")
+        if dry_run:
+            # Never commit a write in dry-run mode; rolling back is the safest way
+            # to guarantee that even if a future edit accidentally queues one, it
+            # never reaches disk.
+            con.rollback()
+    return touched
+
+
 def get_local_setting(key: str, default: Any = None, db_path: str | Path | None = None) -> Any:
     """Read one JSON-encoded value out of the local_settings table.
 

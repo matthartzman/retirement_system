@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Dict, Tuple
 
-from .core import ltcg_tax_on_gain, niit_tax, state_income_tax, illinois_estate_tax, indexed_federal_estate_exemption
+from .core import ltcg_tax_on_gain, niit_tax, state_income_tax, illinois_estate_tax, state_estate_tax, indexed_federal_estate_exemption
 
 
 def _f(value: Any, default: float = 0.0) -> float:
@@ -502,7 +502,9 @@ def estimate_terminal_taxable_deferred_cap_gain_tax(c: Mapping[str, Any], termin
 
     state_tax = 0.0
     if retained_gain > 0:
-        state = str(c.get("state", "Illinois") or "Illinois")
+        # c["state"] is guaranteed set and supported by require_residence_state_for_build()
+        # (item 291) by the time a real build reaches here; no Illinois fallback needed.
+        state = str(c.get("state", "") or "")
         age_over_65 = True
         state_tax = state_income_tax(
             state,
@@ -571,12 +573,14 @@ def estimate_terminal_estate_tax(c: Mapping[str, Any], terminal: Mapping[str, An
     for inflation to the terminal year (a fixed plan-start exemption applied
     decades out understates the real future exemption and overstates federal
     tax on long-horizon plans -- see indexed_federal_estate_exemption).
-    State: Illinois graduated estate tax above the state exemption, only when
-    state estate tax is modeled AND the household's residence state is
-    Illinois -- the engine only models Illinois estate tax, so a household
-    residing elsewhere must not be charged it. Mirrors the optimizer's
-    per-row estate-tax model. When the business-succession module is on, the
-    owner's business interest is added to the taxable estate.
+    State: dispatched by state_estate_tax() on the household's residence
+    state's estate_calc mechanism (item 291) -- computed for states with a
+    modeled mechanism, 0 for states with no estate tax, and 0 (with a
+    reporting-layer disclosure obligation the caller must honor -- see
+    state_estate_tax's own docstring) for a state that levies one this engine
+    cannot yet compute. Mirrors the optimizer's per-row estate-tax model.
+    When the business-succession module is on, the owner's business interest
+    is added to the taxable estate.
     """
     row_total = max(0.0, _f(terminal.get("total_nw"), 0.0))
     row_cst = max(0.0, _f(terminal.get("cst_excluded_from_survivor_estate"), 0.0))
@@ -585,14 +589,17 @@ def estimate_terminal_estate_tax(c: Mapping[str, Any], terminal: Mapping[str, An
     fed_exempt = indexed_federal_estate_exemption(
         c.get("fed_exempt"), c.get("plan_start", target_year), target_year, c.get("brk_inf", 0.02),
     )
+    # Always a real number, never None -- see planning_engines.py's identical
+    # comment: state_estate_tax() would otherwise fall back to the state's
+    # own default exemption instead of preserving exact pre-refactor
+    # behavior (always using whatever il_exempt resolves to, including 0.0).
     state_exempt = max(0.0, _f(c.get("il_exempt"), 0.0))
-    is_il_resident = str(c.get("state", "Illinois") or "Illinois") == "Illinois"
     federal_taxable = max(0.0, row_total + biz - (row_cst if c.get("federal_portability_enabled", True) else 0.0))
     state_taxable = max(0.0, row_total + biz - row_cst)
     federal_tax = max(0.0, federal_taxable - fed_exempt) * 0.40 if fed_exempt else 0.0
     state_tax = (
-        illinois_estate_tax(state_taxable, state_exempt)
-        if c.get("model_state_est", True) and state_exempt and is_il_resident
+        state_estate_tax(str(c.get("state", "") or ""), state_taxable, state_exempt)[0]
+        if c.get("model_state_est", True) and state_exempt
         else 0.0
     )
     return max(0.0, federal_tax + state_tax)

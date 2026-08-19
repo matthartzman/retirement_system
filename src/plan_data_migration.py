@@ -23,7 +23,19 @@ from typing import List, Sequence
 # re-runs against already-stored plans.
 #   2 -> 3 (2026-08-17): wellness -> healthcare for the Monte Carlo shock params
 #   and the premium category ids, including the flat-table foreign keys.
-PLAN_DATA_SCHEMA_VERSION = 3
+#   3 -> 4 (2026-08-19, item 291 Class 4): Estate Planning|Illinois ->
+#   Estate Planning|State (subsection only -- the label itself,
+#   state_estate_exemption, turned out to already be state-generic on
+#   investigation, not "il_exempt" as the ticket assumed; only the subsection
+#   baked in the state name). Python identifiers (c['il_exempt'], the
+#   in-memory dict key) are deliberately unchanged -- data-at-rest labels
+#   only, same scope boundary as the wellness->healthcare rename above.
+#   4 -> 5 (2026-08-19, item 291 Step 7.7): found during the ticket's own
+#   closing sweep, not by the original brief -- State Comparison|auto_insurance
+#   |illinois_baseline_annual baked the state name directly into a LABEL
+#   (the auto-insurance baseline for whatever state the household actually
+#   lives in, not specifically Illinois).
+PLAN_DATA_SCHEMA_VERSION = 5
 
 # (section, subsection) -> {old_label: new_label}. A ``None`` subsection matches
 # any subsection within the section.
@@ -63,6 +75,19 @@ _LABEL_RENAMES = {
         "pre65_wellness_premium": "pre65_healthcare_premium",
         "wellness_premium": "healthcare_premium",
     },
+    # Item 291 Step 7.7 (2026-08-19), found during the ticket's own closing
+    # sweep. Subsection ("auto_insurance"/"homeowners_insurance") was already
+    # state-generic; only the label baked in "illinois". The homeowners_insurance
+    # row is currently dead data -- data_io.py reads homeowners insurance from
+    # Housing|current_home|homeowners_insurance_annual instead, a pre-existing,
+    # unrelated gap left as-is -- but it is renamed for consistency with its
+    # auto_insurance sibling under the same section, in case it is ever wired up.
+    ("State Comparison", "auto_insurance"): {
+        "illinois_baseline_annual": "current_state_baseline_annual",
+    },
+    ("State Comparison", "homeowners_insurance"): {
+        "illinois_baseline_annual": "current_state_baseline_annual",
+    },
 }
 
 # Category ids are foreign keys in flat tables that migrate_rows cannot reach:
@@ -92,6 +117,12 @@ _SUBSECTION_RENAMES = {
         "Husband Single Annuity": "Member 1 Single Annuity",
         "Husband Joint Annuity": "Member 1 Joint Annuity",
     },
+    # Item 291 Class 4: "Illinois" as a subsection name baked the assumption
+    # directly into the plan-data schema -- the exemption field is a generic
+    # state-estate-tax input, not something that only exists for Illinois
+    # (see src.core.state_estate_tax, which now dispatches this same value by
+    # the household's actual resident state).
+    "Estate Planning": {"Illinois": "State"},
 }
 
 
@@ -269,20 +300,41 @@ def needs_migration(db_path=None) -> bool:
 
 
 def migrate_plan_data_at_rest(input_dir, db_path=None, dry_run: bool = False) -> dict:
-    """Migrate every sectioned Plan Data CSV under ``input_dir`` once, in place.
+    """Migrate every sectioned Plan Data CSV, AND every DB snapshot, once, in place.
 
-    Returns ``{"migrated": {name: changed}, "total_changed": int, "skipped": bool}``.
+    Returns ``{"migrated": {name: changed}, "total_changed": int, "skipped": bool,
+    "snapshots": int}``, plus an ``"error"`` key (str) ONLY when the DB
+    snapshot sweep raised -- absent on every successful call, so
+    ``report.get("error")`` is the check. ``total_changed`` is the sum of CSV
+    field changes and migrated snapshot rows, so existing callers that only
+    look at ``total_changed`` (e.g. ``main.py``'s startup log) keep working
+    unmodified.
 
     Only files that actually change are rewritten, so untouched files keep their
     mtime and their plan_data_manifest.json hash -- otherwise a migration that
     changed one file would look like it changed all of them. When the store is
     already stamped at the current version this is a no-op (``skipped=True``).
-    ``dry_run=True`` reports what would change without writing or stamping.
+    ``dry_run=True`` reports what would change without writing or stamping,
+    including for the DB snapshot sweep.
+
+    The DB is canonical: ``local_store.latest_sectioned_data()`` reads
+    ``plan_snapshots.sectioned_json`` directly, so migrating only the CSVs left
+    every snapshot -- including the newest one actually read at runtime -- in its
+    legacy shape. ALL snapshot rows are migrated here, not just the latest, because
+    an older snapshot can be restored and a restore after the version is stamped
+    must not resurrect legacy shapes the gate believes are gone.
+
+    The snapshot sweep runs after the CSV loop and before the version is
+    stamped. A DB error during the sweep is NOT swallowed the way a per-file CSV
+    read error is: it aborts the whole call and leaves the version unstamped, so
+    the migration retries in full next boot rather than reporting "migrated"
+    over a store that only partially moved.
     """
     from pathlib import Path
+    from .local_store import rewrite_sectioned_snapshots
 
     if not dry_run and not needs_migration(db_path=db_path):
-        return {"migrated": {}, "total_changed": 0, "skipped": True}
+        return {"migrated": {}, "total_changed": 0, "skipped": True, "snapshots": 0}
 
     root = Path(input_dir)
     migrated: dict = {}
@@ -311,9 +363,33 @@ def migrate_plan_data_at_rest(input_dir, db_path=None, dry_run: bool = False) ->
         if not dry_run:
             path.write_text(new_content, encoding="utf-8", newline="")
 
+    try:
+        snapshot_changed = rewrite_sectioned_snapshots(
+            migrate_sectioned_data, db_path=db_path, dry_run=dry_run,
+        )
+    except Exception as exc:
+        # Degrade exactly like an at-boot failure must: never stamp the version
+        # over a sweep that did not finish, so the next boot retries everything
+        # (CSVs already migrated are idempotent no-ops; the DB is untouched
+        # because rewrite_sectioned_snapshots rolled back its own transaction).
+        #
+        # Final-review finding (2026-08-19): this used to swallow the failure
+        # entirely -- no log, no error field -- so a persistently-failing
+        # sweep (e.g. one malformed sectioned_json row) would retry and fail
+        # silently on every boot forever, with CSVs at the new schema version
+        # and DB snapshots stuck at the old one, and nothing visible saying
+        # so. The caller (run_startup_plan_data_migration / main.py) still
+        # must not raise -- a bad DB row must not stop the server booting --
+        # but "don't raise" is not the same as "don't report."
+        return {
+            "migrated": migrated, "total_changed": total, "skipped": False,
+            "snapshots": 0, "error": f"{type(exc).__name__}: {exc}",
+        }
+
+    total += snapshot_changed
     if not dry_run:
         set_stored_schema_version(PLAN_DATA_SCHEMA_VERSION, db_path=db_path)
-    return {"migrated": migrated, "total_changed": total, "skipped": False}
+    return {"migrated": migrated, "total_changed": total, "skipped": False, "snapshots": snapshot_changed}
 
 
 def run_startup_plan_data_migration(input_dir=None, db_path=None) -> dict:

@@ -813,7 +813,15 @@ let budgetLines = [],
   groupBudgetMode = {};
 let ytdDuplicateGroups = null,
   ytdDuplicateSelected = new Set();
-const YTD_TX_PAGE_SIZE = 500;
+// Ticket 290: measured at 3000 transactions (a realistic full-year history),
+// a 500-row page produced ~5,000 form-control DOM nodes for the transaction
+// table alone (each row renders ~10 <input>/<select> elements, not plain
+// text cells) and was a real, multi-second contributor to the renderMain()
+// that builds this page. Lowered to 100 -- still several screens of rows
+// before a planner needs "Next", and a direct, proportional cut to the
+// dominant cost this ticket's own measurement identified, using pagination
+// machinery that already existed rather than adding new code.
+const YTD_TX_PAGE_SIZE = 100;
 let detailedResultsData = null,
   detailedResultSheets = {},
   detailedResultsLoading = false,
@@ -3904,22 +3912,10 @@ function setStrategyTab(step, tab) {
   } catch (_e) {}
   renderMain();
 }
-// Jump to a strategy workspace tab from the left nav. Persists the tab first,
-// then routes through setStep so the plan-loaded navigation guard applies (the
-// strategy workspace requires a loaded plan, unlike the plan-independent
-// Reports workspace).
-function goToStrategyTab(step, tab) {
-  const tabs = STRATEGY_TABS[step] || [];
-  const next = tabs.includes(tab) ? tab : tabs[0] || "";
-  try {
-    localStorage.setItem(strategyTabKey(step), next);
-  } catch (_e) {}
-  setStep(step);
-  // #269: surface the YTD-load progress overlay instead of silently waiting.
-  if (step === "spending_core" && next === "Actual Spending (YTD)") {
-    loadYtdStatus(false).then(renderMain);
-  }
-}
+// goToStrategyTab moved to dashboard_decomp_row_model.js (ticket 290, to fit
+// the size ratchet after its overlay-ordering fix) -- it is still reachable
+// as a bare global via that file's own window bridge, matching every other
+// cross-module onclick target in this codebase.
 // Ticket 286: the sub-nav is gone. Its four tabs were alternate routes into
 // steps that already existed at top level, so every one of them appeared twice
 // in the left nav. Withdrawal Order moved to the Spending workspace; Roth
@@ -4010,6 +4006,19 @@ function primaryActionForStep(stepId) {
     return '<button class="btn primary" type="button" onclick="saveAll(true)">Save Changes</button>';
   return '<button class="btn" type="button" data-step-id="reports_and_review">Review Reports</button>';
 }
+// #285: preserve focus (and, when safe, selection) across the innerHTML
+// replace that renderMain() performs below. This is a GENERAL fix, not a
+// Workbook-Formatting-only patch: every field in this app that autosaves on
+// change and then calls renderMain() synchronously (there are many --
+// Holdings' account filter, several spending/YTD fields, workbook column
+// widths...) has the same trap armed, since `#mainPane.innerHTML = content`
+// destroys and rebuilds every node in the pane, including whatever was just
+// focused. Any element that wants to survive a re-render opts in with a
+// stable `data-focus-key` attribute; nothing else is touched. This must be a
+// no-op -- never steal focus somewhere the user did not ask for -- when
+// nothing was focused inside #mainPane, when the focused node has no
+// data-focus-key, or when that key does not resolve to anything after the
+// render.
 let renderMain = function() {
   renderSteps();
   renderMeta();
@@ -4109,7 +4118,7 @@ let renderMain = function() {
   else if (activeStep === "allocation_policy")
     content += renderAllocationPolicy();
   else if (activeStep === "allocation_assets")
-    content += analysisFrame(renderAllocationRecommendation(), "strategy");
+    content += analysisFrame(renderAllocationRecommendation(), "strategy") + `<details class="decide-embed-sub"><summary>Allocation policy settings</summary>${renderAllocationPolicy()}</details>`;
   else if (activeStep === "build_impact") content += renderBuildImpactPage();
   else if (activeStep === "planning_workbench")
     content += renderPlanningWorkbench();
@@ -4137,12 +4146,22 @@ let renderMain = function() {
     const k = _dKey(d);
     if (k) _dOpen[k] = d.open;
   });
-  document.getElementById("mainPane").innerHTML = content;
+  // #285: preserve focus (and, when safe, selection) across the innerHTML
+  // replace below -- see captureMainPaneFocus/restoreMainPaneFocus above for
+  // the guards (no-op when nothing focused, when focus is outside
+  // #mainPane, when the node has no data-focus-key, or when the key does
+  // not resolve after re-render). Capture must happen BEFORE the innerHTML
+  // write and restore AFTER it, synchronously within this call -- no await
+  // may be introduced between them.
+  const _mainPane = document.getElementById("mainPane");
+  const _focusState = captureMainPaneFocus(_mainPane);
+  _mainPane.innerHTML = content;
   document.querySelectorAll("#mainPane details").forEach(function (d) {
     const k = _dKey(d);
     if (k && Object.prototype.hasOwnProperty.call(_dOpen, k))
       d.open = _dOpen[k];
   });
+  restoreMainPaneFocus(_focusState);
   setAppControls(appReady);
   showStepHelp(activeStep);
 };
@@ -6082,10 +6101,10 @@ const FIELD_GUIDANCE_OVERRIDES = {
     impact: "Changes all numbers in the State Comparison sheet. Different states have different income taxes, property taxes, insurance rates, and living costs.",
     consider: "Enter the two-letter state abbreviation (like FL, TX, NV) of the place you are seriously considering or want to explore. Leave blank if you do not plan to move.",
   },
-  illinois_baseline_annual: {
-    purpose: "Your current homeowners insurance annual premium in Illinois — the amount you actually pay today.",
+  current_state_baseline_annual: {
+    purpose: "Your current auto insurance annual premium in your current state — the amount you actually pay today.",
     impact: "Becomes the baseline for the State Comparison sheet. The plan compares this against estimated target-state premiums to show potential insurance savings from moving.",
-    consider: "Check your most recent homeowners insurance bill or account for the actual annual premium you pay, including any discounts like multi-policy bundling.",
+    consider: "Check your most recent auto insurance bill for the actual annual premium you pay, including any discounts like multi-policy bundling.",
   },
   notes: {
     purpose: "A free-text place to write down important details about this item — such as coverage differences, why an estimate might be unusually high or low, or any other context worth remembering.",
@@ -6094,7 +6113,7 @@ const FIELD_GUIDANCE_OVERRIDES = {
   },
   target_state_annual: {
     purpose: "Your estimated homeowners insurance annual premium in the target state — a projection or quote for what the policy would cost there.",
-    impact: "Changes the estimated cost of living in the target state. The plan subtracts this from your Illinois premium to show potential insurance savings if you move.",
+    impact: "Changes the estimated cost of living in the target state. The plan subtracts this from your current-state premium to show potential insurance savings if you move.",
     consider: "Call an insurance agent, get a quote online, or research typical premiums in that state. Use a cost estimate for the same house and coverage level you have today so the comparison is fair.",
   },
   applicable_pct_cap: {
@@ -7441,7 +7460,7 @@ Object.assign(window, {
   expandAllDetailGroups, fetchWithTimeout, fieldAllowedValues, fieldConnection, fieldDefaultMeaning,
   fieldFinderCategoryName, fieldFinderCategoryOrder, fieldLabelNoteHtml, fieldLikelyImpact,
   fieldSizeClass, fieldTooltipHtml, fieldTooltipPreview, filterChoiceOptionsForRow, finiteOrNull,
-  focusYtdAccountMoney, focusableEntries, getStrategyTab, goToStrategyTab, groupModelData, helpList,
+  focusYtdAccountMoney, focusableEntries, getStrategyTab, groupModelData, helpList,
   hideSpendingModelLoadOverlay, hideUnusedTemplateCategories, hideYtdLoadOverlay, humanizeGroupKey,
   leverPctPoints, loadCanonicalGlossary, loadDetailedResults, makeYtdAccountRow,
   mergeDetailedSheetMeta, moneyNegativeClass, moveToNextEntry, normalizePlanningCaseRunType,

@@ -23,6 +23,7 @@ def test_roth_strategy_metrics_assigns_legacy_estate_survivor_liquidity_scores()
         'estate_tax_objective_mode': 'BALANCED',
         'fed_exempt': 30_000_000,
         'il_exempt': 4_000_000,
+        'state': 'Illinois',
         'model_state_est': True,
         'federal_portability_enabled': True,
         'h_death_yr': 2030,
