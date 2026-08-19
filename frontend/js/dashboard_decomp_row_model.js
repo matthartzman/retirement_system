@@ -3726,28 +3726,35 @@ export async function goToStrategyTab(step, tab) {
   // the browser actually paints it BEFORE the blocking render begins --
   // painting an overlay you never yield to is why it used to appear late.
   const isSpendingWorkspace = step === "spending_core";
-  if (isSpendingWorkspace) {
-    window.showYtdLoadOverlay();
-    // Not requestAnimationFrame: browsers throttle or entirely suspend rAF
-    // callbacks for a document that has lost visibility/compositing (tab
-    // backgrounded, window minimized) -- exactly the case a user alt-tabbing
-    // away during a slow load would hit, which would hang this await
-    // indefinitely and leave the app looking permanently frozen. A
-    // macrotask yield (setTimeout 0) still fires while backgrounded and
-    // reliably lets the browser paint the overlay before the blocking
-    // render below begins.
-    await new Promise((r) => setTimeout(r, 0));
-  }
-  setStep(step);
-  if (goingToYtd) {
-    // silent=true: the overlay is already up from above; loadYtdStatus must
-    // not show/hide its own second copy on top of it (that would leave the
-    // depth-counted overlay stuck open after only one of the two hides).
-    await loadYtdStatus(true);
-    window.renderMain();
-    window.hideYtdLoadOverlay();
-  } else if (isSpendingWorkspace) {
-    window.hideYtdLoadOverlay();
+  // Final-review finding (2026-08-19): showYtdLoadOverlay() sets the
+  // no-cancel class, so a throw from setStep/loadYtdStatus/renderMain below
+  // used to leave the user stranded behind an undismissable overlay --
+  // exactly the locked-screen symptom this ticket exists to fix, just moved
+  // to a new trigger (an exception instead of a slow render). The overlay
+  // is guaranteed to hide on any exit path, not only the happy one.
+  try {
+    if (isSpendingWorkspace) {
+      window.showYtdLoadOverlay();
+      // Not requestAnimationFrame: browsers throttle or entirely suspend rAF
+      // callbacks for a document that has lost visibility/compositing (tab
+      // backgrounded, window minimized) -- exactly the case a user alt-tabbing
+      // away during a slow load would hit, which would hang this await
+      // indefinitely and leave the app looking permanently frozen. A
+      // macrotask yield (setTimeout 0) still fires while backgrounded and
+      // reliably lets the browser paint the overlay before the blocking
+      // render below begins.
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    setStep(step);
+    if (goingToYtd) {
+      // silent=true: the overlay is already up from above; loadYtdStatus must
+      // not show/hide its own second copy on top of it (that would leave the
+      // depth-counted overlay stuck open after only one of the two hides).
+      await loadYtdStatus(true);
+      window.renderMain();
+    }
+  } finally {
+    if (isSpendingWorkspace) window.hideYtdLoadOverlay();
   }
 }
 
