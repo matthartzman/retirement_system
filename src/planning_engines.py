@@ -2095,8 +2095,13 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
     estate_mode = str(c.get('estate_tax_objective_mode', 'BALANCED') or 'BALANCED').upper()
     estate_mult = {'OFF': 0.0, 'MONITOR_ONLY': 0.0, 'BALANCED': 1.0, 'STRONG': 2.0}.get(estate_mode, 1.0)
     fed_exempt_base = c.get('fed_exempt', 0.0)
+    # Always a real number, never None -- state_estate_tax() falls back to the
+    # state's own default exemption when passed None, but this preserves the
+    # exact pre-refactor behavior of always using whatever il_exempt resolves
+    # to (including 0.0, which taxes the entire estate above $0, not the
+    # state's default exemption).
     state_exempt = max(0.0, float(c.get('il_exempt', 0.0) or 0.0))
-    is_il_resident = str(c.get('state', 'Illinois') or 'Illinois') == 'Illinois'
+    resident_state = str(c.get('state', '') or '')
 
     def _estate_tax_for_row(row: Mapping) -> float:
         row_total = max(0.0, float(row.get('total_nw', 0.0) or 0.0))
@@ -2107,8 +2112,8 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
         state_taxable = max(0.0, row_total - row_cst)
         federal_tax = max(0.0, federal_taxable - fed_exempt) * 0.40 if fed_exempt else 0.0
         state_tax = (
-            illinois_estate_tax(state_taxable, state_exempt)
-            if c.get('model_state_est', True) and state_exempt and is_il_resident
+            state_estate_tax(resident_state, state_taxable, state_exempt)[0]
+            if c.get('model_state_est', True) and state_exempt
             else 0.0
         )
         return federal_tax + state_tax

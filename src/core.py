@@ -1120,6 +1120,49 @@ def illinois_estate_tax(gross_estate, exemption=4_000_000.0, iterations=30):
     return max(0.0, tax)
 
 
+def state_estate_tax(state, taxable_estate, exemption=None):
+    """Dispatch state estate tax on data (item 291's Class 2), not on a
+    hardcoded state name. Returns ``(tax_amount, status)``.
+
+    ``status`` is one of:
+      - ``'computed'``     -- ``tax_amount`` is a real, modeled figure.
+      - ``'none'``         -- this state does not levy an estate tax
+                              (``estate_calc == 'none'``); ``tax_amount`` is 0.0
+                              and that 0.0 is correct, not a placeholder.
+      - ``'not_modeled'``  -- this state DOES levy an estate tax, but this
+                              engine has no calculation for its mechanism yet
+                              (e.g. New York's own graduated-rate table, which
+                              is a genuinely different computation from
+                              Illinois's pre-2005-federal-credit-table cliff
+                              method -- reusing ``illinois_estate_tax`` for a
+                              different state's law would produce a wrong
+                              dollar figure, not an approximate one).
+                              ``tax_amount`` is 0.0, but callers MUST NOT treat
+                              that 0.0 as "no tax owed" the way they may for
+                              ``'none'`` -- a reporting caller must render an
+                              explicit "not modeled" disclosure rather than
+                              silently presenting $0 as if it were computed.
+      - ``'unrecognized'`` -- ``state`` has no entry in ``STATE_TAX_RULES`` at
+                              all. Same 0.0/must-disclose contract as
+                              ``'not_modeled'``.
+
+    Extending to a new state's real mechanism means adding both a new
+    ``estate_calc`` value handled here AND its actual calculation -- adding
+    just the CSV/STATE_TAX_DEFAULTS row is not sufficient and must not silently
+    fall through to ``'none'``.
+    """
+    rules = STATE_TAX_RULES.get(state)
+    if not rules:
+        return 0.0, 'unrecognized'
+    calc = rules.get('estate_calc', 'none')
+    exempt = exemption if exemption is not None else rules.get('estate_exempt', 0.0)
+    if calc == 'il_credit_table':
+        return illinois_estate_tax(taxable_estate, exempt), 'computed'
+    if calc == 'not_modeled':
+        return 0.0, 'not_modeled'
+    return 0.0, 'none'
+
+
 def indexed_federal_estate_exemption(fed_exempt_base, plan_start, target_year, brk_inf):
     """Grow the federal estate exemption to the year it is actually applied.
 
