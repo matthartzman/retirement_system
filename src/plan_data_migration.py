@@ -23,7 +23,14 @@ from typing import List, Sequence
 # re-runs against already-stored plans.
 #   2 -> 3 (2026-08-17): wellness -> healthcare for the Monte Carlo shock params
 #   and the premium category ids, including the flat-table foreign keys.
-PLAN_DATA_SCHEMA_VERSION = 3
+#   3 -> 4 (2026-08-19, item 291 Class 4): Estate Planning|Illinois ->
+#   Estate Planning|State (subsection only -- the label itself,
+#   state_estate_exemption, turned out to already be state-generic on
+#   investigation, not "il_exempt" as the ticket assumed; only the subsection
+#   baked in the state name). Python identifiers (c['il_exempt'], the
+#   in-memory dict key) are deliberately unchanged -- data-at-rest labels
+#   only, same scope boundary as the wellness->healthcare rename above.
+PLAN_DATA_SCHEMA_VERSION = 4
 
 # (section, subsection) -> {old_label: new_label}. A ``None`` subsection matches
 # any subsection within the section.
@@ -92,6 +99,12 @@ _SUBSECTION_RENAMES = {
         "Husband Single Annuity": "Member 1 Single Annuity",
         "Husband Joint Annuity": "Member 1 Joint Annuity",
     },
+    # Item 291 Class 4: "Illinois" as a subsection name baked the assumption
+    # directly into the plan-data schema -- the exemption field is a generic
+    # state-estate-tax input, not something that only exists for Illinois
+    # (see src.core.state_estate_tax, which now dispatches this same value by
+    # the household's actual resident state).
+    "Estate Planning": {"Illinois": "State"},
 }
 
 
