@@ -8,7 +8,7 @@ import csv
 import io
 from pathlib import Path
 
-from src.plan_data_migration import migrate_csv_content, migrate_rows
+from src.plan_data_migration import migrate_csv_content, migrate_rows, migrate_sectioned_data
 
 ROOT = Path(__file__).resolve().parents[1]
 LEGACY = ROOT / "tests" / "fixtures" / "legacy_plans" / "legacy_household.csv"
@@ -412,3 +412,94 @@ def test_runner_applies_both_sectioned_and_flat_transforms(tmp_path):
     assert "pre65_healthcare_premium" in (work / "client_spending_taxonomy.csv").read_text(encoding="utf-8")
     assert "pre65_healthcare_premium" in (work / "client_spending_aliases.csv").read_text(encoding="utf-8")
     assert "wellness" in (work / "spending_category_map.csv").read_text(encoding="utf-8")
+
+
+# --- Estate Planning|Illinois -> Estate Planning|State, 2026-08-19 (item 291 Class 4) ---
+#
+# Subsection only -- the label (state_estate_exemption) was already
+# state-generic on investigation, not "il_exempt" as the ticket assumed;
+# only the SUBSECTION name baked Illinois in. Python identifiers
+# (c['il_exempt'], the in-memory dict key) are deliberately unchanged.
+
+
+def test_estate_planning_illinois_subsection_migrates_to_state():
+    rows = [
+        ["section", "subsection", "label", "value", "units", "notes"],
+        ["Estate Planning", "Illinois", "state_estate_exemption", "4000000", "USD", ""],
+    ]
+    out, changed = migrate_rows(rows)
+    assert changed == 1
+    migrated_row = next(r for r in out if r[2] == "state_estate_exemption")
+    assert migrated_row[0] == "Estate Planning"
+    assert migrated_row[1] == "State"
+    assert not any(r[1] == "Illinois" for r in out if r[0] == "Estate Planning")
+
+
+def test_estate_planning_migration_respects_current_key_wins():
+    """migrate_rows semantics: a legacy row colliding with an existing
+    current row is DROPPED, never overwritten."""
+    rows = [
+        ["section", "subsection", "label", "value", "units", "notes"],
+        ["Estate Planning", "State", "state_estate_exemption", "5000000", "USD", ""],
+        ["Estate Planning", "Illinois", "state_estate_exemption", "4000000", "USD", ""],
+    ]
+    out, changed = migrate_rows(rows)
+    values = [r[3] for r in out if r[0] == "Estate Planning" and r[2] == "state_estate_exemption"]
+    assert values == ["5000000"], "the current row must survive; the legacy row must be dropped, not overwrite it"
+    assert changed == 1
+
+
+def test_estate_planning_migration_applies_to_sectioned_data_too():
+    data = {"Estate Planning": {"Illinois": {"state_estate_exemption": "4000000"}}}
+    out, changed = migrate_sectioned_data(data)
+    assert out["Estate Planning"]["State"]["state_estate_exemption"] == "4000000"
+    assert "Illinois" not in out["Estate Planning"]
+    assert changed == 1
+
+
+def test_estate_planning_already_current_shape_is_a_no_op():
+    rows = [
+        ["section", "subsection", "label", "value", "units", "notes"],
+        ["Estate Planning", "State", "state_estate_exemption", "4000000", "USD", ""],
+    ]
+    out, changed = migrate_rows(rows)
+    assert changed == 0
+    assert out[1][1] == "State"
+
+
+def test_other_estate_planning_subsections_are_not_touched():
+    """Only the Illinois subsection renames -- Federal and Credit Shelter
+    Trust are genuinely federal/generic concepts, not state-specific."""
+    rows = [
+        ["section", "subsection", "label", "value", "units", "notes"],
+        ["Estate Planning", "Federal", "exemption_mfj", "30000000", "USD", ""],
+        ["Estate Planning", "Credit Shelter Trust", "shelter_cap", "8000000", "USD", ""],
+    ]
+    out, changed = migrate_rows(rows)
+    assert changed == 0
+    assert [r[1] for r in out[1:]] == ["Federal", "Credit Shelter Trust"]
+
+
+def test_dry_run_against_live_input_reports_the_expected_file(tmp_path):
+    """Step 5.5's requirement: dry-run against live input/ and confirm the
+    changed-file list matches expectations before applying. Never applies
+    for real -- this test only reads the live input/ tree read-only via a
+    dry_run call, which writes nothing, per this branch's binding safety
+    constraint (never mutate live data)."""
+    from pathlib import Path
+    from src.plan_data_migration import migrate_plan_data_at_rest
+
+    live_input = Path("input")
+    if not (live_input / "client_insurance_estate.csv").exists():
+        import pytest
+        pytest.skip("no live client_insurance_estate.csv in this worktree")
+
+    report = migrate_plan_data_at_rest(live_input, db_path=tmp_path / "s.sqlite", dry_run=True)
+
+    # The live worktree file (restored locally for ticket 291 Class 1's own
+    # blast-radius fix) still carries the legacy "Illinois" subsection, so a
+    # dry run against it must report exactly this file as needing migration.
+    assert "client_insurance_estate.csv" in report["migrated"]
+    # Never written -- dry_run must leave the file untouched.
+    original = (live_input / "client_insurance_estate.csv").read_text(encoding="utf-8")
+    assert "Illinois" in original, "dry_run must not have written to the live file"

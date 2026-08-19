@@ -1440,7 +1440,11 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
 
     # Estate
     c['fed_exempt']  = _n(_v(data,'Estate Planning','Federal','exemption_mfj','30000000'), 30000000)
-    c['il_exempt']   = _n(_v(data,'Estate Planning','Illinois','state_estate_exemption','4000000'), 4000000)
+    # Section 'State' (item 291 Class 4; was 'Illinois' -- migrate_sectioned_data,
+    # called above, upgrades any legacy row to this shape before this read runs).
+    # Label itself was already state-generic (state_estate_exemption); only the
+    # subsection baked in the state name.
+    c['il_exempt']   = _n(_v(data,'Estate Planning','State','state_estate_exemption','4000000'), 4000000)
     # #227: a funded Credit Shelter Trust shelters decedent assets from the
     # survivor's estate entirely (see cs_enabled/cs_amount below) rather than
     # doubling il_exempt directly -- il_exempt itself must stay the survivor's

@@ -9,7 +9,7 @@ Household,,member_2_nickname,text,FALSE,,,Short name used in reports and charts;
 Household,,member_2_dob,date,TRUE,,,Date of birth M/D/YYYY,
 Household,,member_2_retirement_date,date,TRUE,,,Retirement date,
 Household,,member_2_mortality_age,integer,TRUE,95,70,120,Plan horizon age
-Household,,residence_state,text,TRUE,Illinois,,,"State for tax, estate analysis"
+Household,,residence_state,text,TRUE,,,,"State for tax, estate analysis. Required -- a build fails without it (item 291); the app never assumes a default state."
 Household,,filing_status,choice,TRUE,MFJ,,,MFJ | Single | HOH | MFS
 Household,,survivor_filing_status,choice,FALSE,Single,,,Filing status after first death: Single | HOH
 Household,,survivor_has_dependent,boolean,FALSE,FALSE,,,Enables QSS brackets.
