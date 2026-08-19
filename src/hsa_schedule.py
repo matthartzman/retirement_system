@@ -821,13 +821,258 @@ def build_schedule(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> d
     return {'by_year': by_year, 'feasibility': feasibility, 'residual': residual}
 
 
+def rerun_optimizer(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
+                    schedule_rows: Sequence[Mapping[str, Any]]) -> list:
+    """Re-run the schedule search over a schedule the user has already edited.
+
+    `rows` is the projection (the row list `build_schedule` reads, carrying
+    `hsa_nw` on row 0). `schedule_rows` is the current flat-CSV shape --
+    `year` / `optimizer_amount` / `override_amount` / `locked` / `note`.
+    Returns a NEW list in that same shape, one row per year of the true
+    horizon. Neither input is mutated.
+
+    **The contract this function exists to keep.** A re-run may never eat the
+    user's intent. Concretely:
+
+    * `override_amount` is copied through untouched on every path, for every
+      year, whatever `locked` says. It is never overwritten, never defaulted,
+      never "helpfully" cleared. The optimizer does not write that column at
+      all -- that is the whole reason a re-run is safe to press.
+    * A year pinned by an override or a lock is planned AROUND, not through.
+      Its dollars are honored exactly and the remaining years divide only what
+      is genuinely left after it draws.
+    * The deadline is never moved to accommodate the result. If the user's own
+      numbers cannot close the account, `schedule_feasibility` says so; nothing
+      here quietly redistributes into a pinned year to make the answer prettier.
+
+    **`optimizer_amount` is refreshed** -- that is the point of a re-run -- with
+    one deliberate exception. For a year that is pinned by `locked` with no
+    override behind it, `resolve_year_amount` reads the pin OUT of
+    `optimizer_amount`: that column *is* the locked value. Refreshing it would
+    silently move the very number the lock exists to hold, which is the same
+    class of failure as eating an override. So:
+
+    * override-backed year -- refreshed to what the unconstrained search would
+      propose if the year were free. The override wins regardless, so the
+      column is inert until the user clears the override, at which point they
+      get a current number rather than a stale one.
+    * locked-only year -- preserved exactly. The lock is the value.
+    * every other year -- refreshed to this run's answer.
+
+    **Why the remaining pool comes from `_simulate_residual`.** The pinned
+    years' dollars are not simply subtracted from the starting balance: a draw
+    in 2030 stops compounding in 2030, so what it costs the rest of the
+    schedule depends on where in the growth sequence it lands. Running the
+    pinned amounts through the same grow-then-draw recursion `build_schedule`
+    and `schedule_score` already trust gives the balance genuinely left over,
+    priced at the deadline; dividing back out by the window's total growth
+    returns it to the starting-balance units `_allocation_shares` works in. A
+    flat `balance - sum(pinned)` would be a second, quietly disagreeing balance
+    model.
+
+    Robustness, both directions, because the CSV can be stale relative to a
+    changed `hsa_consume_by`: a `schedule_rows` entry for a year outside the
+    true horizon is ignored (never emitted -- that would be moving the
+    deadline), and a horizon year with no entry at all is simply unpinned.
+
+    **Row order.** The rows the caller handed in come back in the order they
+    were handed in; horizon years the file did not cover are appended after
+    them, ascending. A re-run refreshes the user's table, it does not reshuffle
+    it, and the caller can address `out[i]` for the row it passed at `i`. With
+    no input rows (the first run) that degenerates to plain ascending order.
+    """
+    years = _schedule_years(c, rows)
+    if not years:
+        return []
+
+    in_window = set(years)
+    existing_by_year = {}
+    emit_order = []
+    for row in schedule_rows or ():
+        try:
+            year = int(row['year'])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if year in existing_by_year:
+            continue
+        existing_by_year[year] = row
+        if year in in_window:
+            emit_order.append(year)
+    emit_order.extend(year for year in years if year not in existing_by_year)
+
+    # What is already committed, and by which tier. `resolve_year_amount` is
+    # the ONE place the precedence ladder is decided; re-deriving any tier of
+    # it here is exactly how a silent precedence bug gets in.
+    fixed = {}
+    locked_only = set()
+    for year in years:
+        row = existing_by_year.get(year)
+        if row is None:
+            continue
+        amount, source = resolve_year_amount(row)
+        if source in ('override', 'locked'):
+            fixed[year] = amount
+            if source == 'locked':
+                locked_only.add(year)
+
+    growth = _as_float(c.get('ret', 0.0), 0.0)
+    floor = max(0.0, _as_float(c.get('hsa_min_ending_balance', 0.0), 0.0))
+    plan_start = _horizon(c, rows)[0]
+    window_growth = (1.0 + growth) ** len(years)
+
+    # `_simulate_residual` reports at the deadline; `_allocation_shares` and the
+    # draw formula below both work in starting-balance dollars, so discount it
+    # back over the window before subtracting the floor (which is also a
+    # starting-balance figure -- see `build_schedule`).
+    residual_after_fixed = _simulate_residual(c, rows, years, fixed)
+    pool = max(0.0, (residual_after_fixed / window_growth if window_growth else 0.0) - floor)
+
+    free_years = [year for year in years if year not in fixed]
+    # `free_years` is already filtered, so the `fixed=` mask is redundant here
+    # by construction. It is passed anyway: it costs nothing, it keeps the
+    # parameter exercised by a real caller, and it means a future caller that
+    # stops filtering still cannot hand a pinned year a share of the pool.
+    shares = _allocation_shares(c, rows, free_years, pool, fixed=fixed)
+
+    # What the search would say with nothing pinned at all -- the number an
+    # override-backed year's inert `optimizer_amount` column is refreshed to.
+    unconstrained = build_schedule(c, rows)['by_year']
+
+    out = []
+    for year in emit_order:
+        source_row = existing_by_year.get(year) or {}
+        if year in locked_only:
+            optimizer_amount = _as_float(source_row.get('optimizer_amount'), 0.0)
+        elif year in fixed:
+            optimizer_amount = unconstrained.get(year, 0.0)
+        else:
+            offset = (int(year) - int(plan_start)) + 1
+            optimizer_amount = shares.get(year, 0.0) * pool * (1.0 + growth) ** offset
+        out.append({
+            'year': year,
+            'optimizer_amount': optimizer_amount,
+            # Untouched, on every path, including when it is absent.
+            'override_amount': source_row.get('override_amount'),
+            'locked': source_row.get('locked', False),
+            'note': source_row.get('note'),
+        })
+
+    if out:
+        # `schedule_feasibility` takes only (c, rows) and cannot see the
+        # projection separately, so the round trip has to be self-describing
+        # about the balance it was built to consume.
+        out[0]['hsa_nw'] = _starting_balance(rows)
+    return out
+
+
+def schedule_feasibility(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> str:
+    """`'feasible' | 'feasible_with_surplus' | 'infeasible'` for a SCHEDULE.
+
+    `rows` here is a schedule in the flat-CSV shape -- `rerun_optimizer`'s
+    output, or the CSV as the user last edited it -- **not** the projection
+    rows. Row 0 carries `hsa_nw`, the balance being consumed, which is what
+    `rerun_optimizer` stamps there.
+
+    The classification is `build_schedule`'s, unchanged, so the two cannot
+    disagree about the same plan:
+
+    * a positive `hsa_min_ending_balance` is a floor the optimizer may not draw
+      through, which is a residual that cannot reach zero -- `'infeasible'`
+      structurally, however well the rest of the window is scheduled;
+    * any residual left standing past `_RESIDUAL_TOL` is `'infeasible'`, and it
+      is reported rather than papered over: the user's overrides are honored
+      and the consequence surfaced;
+    * an account emptied strictly before the deadline is
+      `'feasible_with_surplus'` -- the deadline never bound;
+    * otherwise `'feasible'`.
+
+    The per-year amount is `resolve_year_amount`'s, so the same precedence
+    ladder decides what this function scores as the user's schedule decides.
+    Rows outside the true horizon are ignored (a stale CSV must not move the
+    deadline), and a row whose source is `'mode'` contributes nothing: that
+    tier means "no schedule-layer answer for this year", and reading its
+    placeholder 0.0 as a real instruction would be the documented misuse.
+    """
+    years = _schedule_years(c, rows)
+    if not years:
+        return 'infeasible'
+    in_window = set(years)
+
+    by_year = {}
+    for row in rows or ():
+        try:
+            year = int(row['year'])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if year not in in_window:
+            continue
+        amount, source = resolve_year_amount(row)
+        if source == 'mode':
+            continue
+        by_year[year] = amount
+
+    # The balance being consumed. `rerun_optimizer` stamps it on the first row
+    # it emits, but it is looked up by SCANNING rather than by position: a
+    # schedule is a table, a caller is entitled to sort it by year before
+    # handing it back, and a feasibility answer that silently depended on which
+    # row happened to be first would be exactly the kind of order-coupling that
+    # only shows up in production. `_simulate_residual` reads its balance
+    # through `_starting_balance` (i.e. `rows[0]`), so it is handed a synthetic
+    # one-row projection carrying the balance found here.
+    balance = 0.0
+    for row in rows or ():
+        if not isinstance(row, Mapping):
+            continue
+        value = _as_float(row.get('hsa_nw'), _ABSENT)
+        if value is not None:
+            balance = max(0.0, value)
+            break
+
+    residual = _simulate_residual(c, [{'hsa_nw': balance}], years, by_year)
+    floor = max(0.0, _as_float(c.get('hsa_min_ending_balance', 0.0), 0.0))
+
+    if floor > 0.0 or residual > _RESIDUAL_TOL:
+        return 'infeasible'
+    funded = [year for year in years if by_year.get(year, 0.0) > 0.0]
+    if funded and max(funded) < years[-1]:
+        return 'feasible_with_surplus'
+    return 'feasible'
+
+
 def _allocation_shares(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
-                       years: Sequence[int], drawable: float) -> dict:
-    """{year: share of the drawable balance}, summing to 1 (or to 0 if empty)."""
+                       years: Sequence[int], drawable: float,
+                       fixed: Optional[Mapping[int, float]] = None) -> dict:
+    """{year: share of the drawable balance}, summing to 1 (or to 0 if empty).
+
+    `years` does NOT have to be contiguous. Growth is compounded from each
+    year's TRUE distance from `plan_start`, never from its position in this
+    list. For `build_schedule`'s own call the two are identical -- that list is
+    always the full `plan_start`..deadline range -- but `rerun_optimizer` hands
+    in a FILTERED list (the years not already pinned by a lock or an override),
+    and there the list index is simply the wrong number: the third entry of a
+    filtered list can be eight years past `plan_start`, and compounding it for
+    three would systematically misprice every remaining year.
+
+    `fixed` marks years whose amount is already committed elsewhere (a lock or
+    an override). Their weight is forced to 0.0 so they cannot compete for the
+    drawable pool. Their dollars are accounted for by the caller's balance
+    tracking, NOT here: this function never deducts them from `drawable`, and
+    doing so here as well would double-count them.
+    """
     if not years:
         return {}
     if drawable <= 0.0:
         return {year: 0.0 for year in years}
+
+    fixed = fixed or {}
+    # The anchor the growth offsets are measured from. `_schedule_years` starts
+    # its range here, so for the unfiltered call `year - plan_start` and the old
+    # `enumerate` index are the same integer for every year -- the fix is inert
+    # there by construction. The `years[0]` fallback covers a config with no
+    # horizon at all, and reproduces the old index behaviour exactly.
+    plan_start = _horizon(c, rows)[0]
+    if plan_start is None:
+        plan_start = int(years[0])
 
     growth = _as_float(c.get('ret', 0.0), 0.0)
     pmf = _second_death_pmf(c, years)
@@ -839,9 +1084,9 @@ def _allocation_shares(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
 
     weights = {}
     carried_risk = 0.0
-    for offset, year in enumerate(years):
+    for year in years:
         row = _row_for_year(rows, year)
-        grown = increment * (1.0 + growth) ** (offset + 1)
+        grown = increment * (1.0 + growth) ** ((int(year) - int(plan_start)) + 1)
         # Risk of carrying this increment THROUGH this year, accumulated: an
         # increment drawn in year Y was exposed in every year up to Y.
         #
@@ -858,7 +1103,13 @@ def _allocation_shares(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
         carried_risk += (pmf.get(year, 0.0)
                          * _terminal_tax_rate(c, reference_balance, year) * grown
                          * _pv_factor(c, row))
-        weights[year] = max(0.0, score_year(c, row, grown) - carried_risk)
+        if year in fixed:
+            # Already committed elsewhere. It still accumulated carried risk
+            # above -- the balance really was carried through this year -- but
+            # it must not bid for the pool the free years are dividing up.
+            weights[year] = 0.0
+        else:
+            weights[year] = max(0.0, score_year(c, row, grown) - carried_risk)
 
     powered = {year: weight ** _CONCENTRATION for year, weight in weights.items()}
     total = sum(powered.values())
@@ -866,9 +1117,12 @@ def _allocation_shares(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
         # Every year is net-negative (or the rows carry no rate at all). The
         # deadline still has to be met, so fall back to the level split rather
         # than refusing to draw -- declining to schedule is not an option the
-        # constraint leaves open.
-        share = 1.0 / float(len(years))
-        return {year: share for year in years}
+        # constraint leaves open. Fixed years stay out of that split too.
+        free = [year for year in years if year not in fixed]
+        if not free:
+            return {year: 0.0 for year in years}
+        share = 1.0 / float(len(free))
+        return {year: (share if year in set(free) else 0.0) for year in years}
     return {year: value / total for year, value in powered.items()}
 
 
