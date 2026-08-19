@@ -24,6 +24,10 @@ import unittest
 
 from src.server import app_core, plan_data_files
 from src import local_plan_data_sync
+# The Task 10 schedule-search fixtures, imported rather than re-declared: a
+# second copy could drift, and then the search tests and the round-trip
+# contract tests would silently be describing two different households.
+from tests.test_hsa_optimizer_regression import FEASIBLE_C, FEASIBLE_ROWS, OVERSIZED_C
 
 HSA_SCHEDULE_HEADER = ["year", "optimizer_amount", "override_amount", "locked", "note"]
 
@@ -254,6 +258,391 @@ class OverridePresenceParsingTests(unittest.TestCase):
                     {}):
             amt, _ = resolve_year_amount(row)
             self.assertIsInstance(amt, float, msg="row=%r" % (row,))
+
+
+def _expected_shares(c, rows, years, drawable, fixed=None):
+    """Reference `_allocation_shares`, written against TRUE calendar offsets.
+
+    Deliberately not a copy of the implementation: it calls the module's own
+    `score_year` for the per-year weight and re-derives only the two things
+    under test -- the growth offset (`year - plan_start`, never the list index)
+    and the `fixed` mask. It is only valid for a config whose terminal-tax rate
+    is zero (the schema-default 'spouse' beneficiary), which makes
+    `_allocation_shares`'s carried-risk term structurally zero. FEASIBLE_C is
+    such a config.
+    """
+    from src.hsa_schedule import _CONCENTRATION, _row_for_year, score_year
+    growth = float(c.get("ret", 0.0))
+    plan_start = int(c["plan_start"])
+    increment = drawable / float(len(years))
+    weights = {}
+    for year in years:
+        if fixed and year in fixed:
+            weights[year] = 0.0
+            continue
+        grown = increment * (1.0 + growth) ** ((year - plan_start) + 1)
+        weights[year] = max(0.0, score_year(c, _row_for_year(rows, year), grown))
+    powered = {y: w ** _CONCENTRATION for y, w in weights.items()}
+    total = sum(powered.values())
+    if total <= 0.0:
+        return {y: 1.0 / float(len(years)) for y in years}
+    return {y: v / total for y, v in powered.items()}
+
+
+class AllocationSharesOffsetTests(unittest.TestCase):
+    """`_allocation_shares` must compound at each year's TRUE distance from
+    plan_start, not at its position in the years list it was handed.
+
+    For `build_schedule`'s own call the two are numerically identical -- that
+    years list is always the contiguous plan_start..deadline range -- which is
+    why the bug was invisible. The round-trip contract calls it with a FILTERED
+    list (the years not already pinned by a lock or an override), and there the
+    list index is simply the wrong number.
+    """
+
+    def test_contiguous_years_are_unchanged_by_the_offset_fix(self):
+        """Backward-compatibility guard: over the full range the true offset and
+        the list index agree, so the shares must still be exactly the reference."""
+        from src.hsa_schedule import _allocation_shares, _schedule_years
+        years = _schedule_years(FEASIBLE_C, FEASIBLE_ROWS)
+        got = _allocation_shares(FEASIBLE_C, FEASIBLE_ROWS, years, 400_000.0)
+        want = _expected_shares(FEASIBLE_C, FEASIBLE_ROWS, years, 400_000.0)
+        self.assertEqual(sorted(got), sorted(want))
+        for year in years:
+            self.assertAlmostEqual(got[year], want[year], places=12,
+                                   msg="year=%r" % (year,))
+
+    def test_a_filtered_years_list_compounds_at_the_true_calendar_offset(self):
+        """The real bug. 2033 is 7 years past plan_start but only index 1 in
+        this list; its growth factor must be (1+ret)**8, not (1+ret)**2."""
+        from src.hsa_schedule import _allocation_shares
+        years = [2026, 2033, 2040]
+        got = _allocation_shares(FEASIBLE_C, FEASIBLE_ROWS, years, 400_000.0)
+        want = _expected_shares(FEASIBLE_C, FEASIBLE_ROWS, years, 400_000.0)
+        for year in years:
+            self.assertAlmostEqual(got[year], want[year], places=12,
+                                   msg="year=%r" % (year,))
+
+    def test_the_filtered_case_is_discriminating_not_a_coincidence(self):
+        """Names the wrong implementation explicitly. If list-index offsets and
+        true-calendar offsets happened to produce the same shares for this
+        fixture, the test above would be a guard that cannot fail."""
+        from src.hsa_schedule import _CONCENTRATION, _row_for_year, score_year
+        years = [2026, 2033, 2040]
+        growth = FEASIBLE_C["ret"]
+        increment = 400_000.0 / 3.0
+        by_index, by_calendar = {}, {}
+        for idx, year in enumerate(years):
+            row = _row_for_year(FEASIBLE_ROWS, year)
+            by_index[year] = score_year(
+                FEASIBLE_C, row,
+                increment * (1.0 + growth) ** (idx + 1)) ** _CONCENTRATION
+            by_calendar[year] = score_year(
+                FEASIBLE_C, row,
+                increment * (1.0 + growth) ** (year - 2026 + 1)) ** _CONCENTRATION
+        idx_total, cal_total = sum(by_index.values()), sum(by_calendar.values())
+        self.assertNotAlmostEqual(by_index[2040] / idx_total,
+                                  by_calendar[2040] / cal_total, places=6)
+
+    def test_shares_still_sum_to_one_on_a_filtered_list(self):
+        from src.hsa_schedule import _allocation_shares
+        got = _allocation_shares(FEASIBLE_C, FEASIBLE_ROWS, [2026, 2033, 2040], 400_000.0)
+        self.assertAlmostEqual(sum(got.values()), 1.0, places=9)
+
+    def test_fixed_is_optional_and_none_leaves_behavior_unchanged(self):
+        from src.hsa_schedule import _allocation_shares, _schedule_years
+        years = _schedule_years(FEASIBLE_C, FEASIBLE_ROWS)
+        without = _allocation_shares(FEASIBLE_C, FEASIBLE_ROWS, years, 400_000.0)
+        explicit_none = _allocation_shares(FEASIBLE_C, FEASIBLE_ROWS, years, 400_000.0,
+                                           fixed=None)
+        empty = _allocation_shares(FEASIBLE_C, FEASIBLE_ROWS, years, 400_000.0, fixed={})
+        for year in years:
+            self.assertAlmostEqual(without[year], explicit_none[year], places=12,
+                                   msg="year=%r" % (year,))
+            self.assertAlmostEqual(without[year], empty[year], places=12,
+                                   msg="year=%r" % (year,))
+
+    def test_a_fixed_year_gets_zero_weight_and_never_competes_for_the_pool(self):
+        from src.hsa_schedule import _allocation_shares, _schedule_years
+        years = _schedule_years(FEASIBLE_C, FEASIBLE_ROWS)
+        fixed = {2030: 50_000.0, 2031: 50_000.0}
+        got = _allocation_shares(FEASIBLE_C, FEASIBLE_ROWS, years, 400_000.0, fixed=fixed)
+        self.assertAlmostEqual(got[2030], 0.0, places=12)
+        self.assertAlmostEqual(got[2031], 0.0, places=12)
+        self.assertAlmostEqual(sum(got.values()), 1.0, places=9)
+        want = _expected_shares(FEASIBLE_C, FEASIBLE_ROWS, years, 400_000.0, fixed=fixed)
+        for year in years:
+            self.assertAlmostEqual(got[year], want[year], places=12,
+                                   msg="year=%r" % (year,))
+
+
+class RoundTripTests(unittest.TestCase):
+    def test_rerunning_the_optimizer_never_touches_override_values(self):
+        from src.hsa_schedule import rerun_optimizer
+        rows = [{"year": 2030, "optimizer_amount": 10_000.0, "override_amount": 25_000.0,
+                 "locked": False}]
+        out = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, rows)
+        self.assertAlmostEqual(out[0]["override_amount"], 25_000.0, places=6)
+
+    def test_rerunning_does_refresh_the_optimizer_column(self):
+        from src.hsa_schedule import rerun_optimizer
+        rows = [{"year": 2030, "optimizer_amount": 1.0, "override_amount": None, "locked": False}]
+        out = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, rows)
+        self.assertNotAlmostEqual(out[0]["optimizer_amount"], 1.0, places=6)
+
+    def test_locked_years_are_planned_around_not_through(self):
+        from src.hsa_schedule import rerun_optimizer
+        rows = [{"year": 2030, "optimizer_amount": 10_000.0, "override_amount": 40_000.0,
+                 "locked": True}]
+        out = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, rows)
+        self.assertAlmostEqual(out[0]["override_amount"], 40_000.0, places=6)
+
+    def test_clearing_an_override_returns_the_year_to_optimizer_control(self):
+        from src.hsa_schedule import resolve_year_amount
+        _, src = resolve_year_amount({"optimizer_amount": 10_000.0, "override_amount": None,
+                                      "locked": False})
+        self.assertEqual(src, "optimizer")
+
+    def test_overrides_that_break_the_deadline_report_infeasible(self):
+        """Honor the user's numbers, surface the consequence. Never silently
+        redistribute into locked or overridden years."""
+        from src.hsa_schedule import rerun_optimizer, schedule_feasibility
+        rows = [{"year": y, "optimizer_amount": 0.0, "override_amount": 0.0, "locked": True}
+                for y in range(2030, 2045)]
+        out = rerun_optimizer(OVERSIZED_C, FEASIBLE_ROWS, rows)
+        self.assertEqual(schedule_feasibility(OVERSIZED_C, out), "infeasible")
+
+
+class RerunShapeTests(unittest.TestCase):
+    """What `rerun_optimizer` returns, beyond the two headline guarantees."""
+
+    def test_the_output_covers_exactly_the_true_horizon(self):
+        from src.hsa_schedule import rerun_optimizer, _schedule_years
+        rows = [{"year": 2030, "optimizer_amount": 10_000.0, "override_amount": None,
+                 "locked": False}]
+        out = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, rows)
+        self.assertEqual(sorted(r["year"] for r in out),
+                         _schedule_years(FEASIBLE_C, FEASIBLE_ROWS))
+
+    def test_the_first_run_emits_the_horizon_in_ascending_order(self):
+        from src.hsa_schedule import rerun_optimizer, _schedule_years
+        out = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, [])
+        self.assertEqual([r["year"] for r in out],
+                         _schedule_years(FEASIBLE_C, FEASIBLE_ROWS))
+
+    def test_the_caller_s_own_rows_come_back_in_the_order_they_were_given(self):
+        """A re-run refreshes the user's table; it does not reshuffle it. Rows
+        the file did not cover are appended after, ascending."""
+        from src.hsa_schedule import rerun_optimizer
+        rows = [{"year": y, "optimizer_amount": 1.0, "override_amount": None, "locked": False}
+                for y in (2035, 2030)]
+        out = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, rows)
+        years = [r["year"] for r in out]
+        self.assertEqual(years[:2], [2035, 2030])
+        self.assertEqual(years[2:], sorted(years[2:]))
+
+    def test_schedule_rows_outside_the_horizon_are_ignored_not_emitted(self):
+        """The CSV can be stale relative to a changed `hsa_consume_by`. A year
+        past the deadline must not survive into the new schedule: the deadline
+        is never moved to accommodate a stale row."""
+        from src.hsa_schedule import rerun_optimizer
+        rows = [{"year": 2044, "optimizer_amount": 5_000.0, "override_amount": 99_000.0,
+                 "locked": True}]
+        out = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, rows)
+        self.assertNotIn(2044, [r["year"] for r in out])
+        self.assertLessEqual(max(r["year"] for r in out), 2040)
+
+    def test_an_empty_schedule_reproduces_the_unconstrained_search(self):
+        """With nothing pinned the round trip must agree with `build_schedule`
+        exactly. A second, quietly-disagreeing allocation model would be its
+        own bug."""
+        from src.hsa_schedule import rerun_optimizer, build_schedule
+        out = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, [])
+        want = build_schedule(FEASIBLE_C, FEASIBLE_ROWS)["by_year"]
+        for row in out:
+            self.assertAlmostEqual(row["optimizer_amount"], want[row["year"]], places=6,
+                                   msg="year=%r" % (row["year"],))
+
+    def test_the_starting_balance_is_stamped_onto_the_first_row(self):
+        """`schedule_feasibility(c, rows)` cannot see the projection rows, so
+        the round trip has to be self-describing about the balance it consumed."""
+        from src.hsa_schedule import rerun_optimizer, _starting_balance
+        out = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, [])
+        self.assertAlmostEqual(out[0]["hsa_nw"], _starting_balance(FEASIBLE_ROWS), places=6)
+
+    def test_every_row_carries_the_full_csv_shape(self):
+        from src.hsa_schedule import rerun_optimizer
+        out = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, [])
+        for row in out:
+            for key in ("year", "optimizer_amount", "override_amount", "locked", "note"):
+                self.assertIn(key, row, msg="year=%r key=%r" % (row["year"], key))
+
+    def test_the_note_column_survives_a_rerun(self):
+        from src.hsa_schedule import rerun_optimizer
+        rows = [{"year": 2030, "optimizer_amount": 1.0, "override_amount": None,
+                 "locked": False, "note": "why this year"}]
+        out = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, rows)
+        self.assertEqual([r["note"] for r in out if r["year"] == 2030], ["why this year"])
+
+    def test_the_input_schedule_rows_are_not_mutated(self):
+        from src.hsa_schedule import rerun_optimizer
+        rows = [{"year": 2030, "optimizer_amount": 1.0, "override_amount": 25_000.0,
+                 "locked": True, "note": "keep"}]
+        before = [dict(r) for r in rows]
+        rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, rows)
+        self.assertEqual(rows, before)
+
+    def test_a_horizon_year_with_no_schedule_row_is_simply_unpinned(self):
+        from src.hsa_schedule import rerun_optimizer
+        out = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, [])
+        for row in out:
+            self.assertIsNone(row["override_amount"], msg="year=%r" % (row["year"],))
+            self.assertGreater(row["optimizer_amount"], 0.0, msg="year=%r" % (row["year"],))
+
+
+class RerunPlansAroundPinnedYearsTests(unittest.TestCase):
+    """A pinned year is planned AROUND: it keeps its dollars, and the balance
+    the remaining years share is what is genuinely left after it draws."""
+
+    def test_a_large_override_shrinks_what_the_other_years_are_given(self):
+        from src.hsa_schedule import rerun_optimizer
+        base = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, [])
+        rows = [{"year": 2030, "optimizer_amount": None, "override_amount": 200_000.0,
+                 "locked": False}]
+        out = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, rows)
+        base_rest = sum(r["optimizer_amount"] for r in base if r["year"] != 2030)
+        out_rest = sum(r["optimizer_amount"] for r in out if r["year"] != 2030)
+        self.assertLess(out_rest, base_rest)
+
+    def test_the_pinned_year_is_not_re_planned_through(self):
+        """The other years must absorb the whole REMAINING pool -- not the whole
+        balance (which would double-spend the pinned dollars) and not a flat
+        balance-minus-override (which would ignore that the pinned draw lands
+        part-way through the growth sequence)."""
+        from src.hsa_schedule import (rerun_optimizer, schedule_feasibility,
+                                      _schedule_years, _simulate_residual)
+        rows = [{"year": 2030, "optimizer_amount": None, "override_amount": 200_000.0,
+                 "locked": False}]
+        out = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, rows)
+        years = _schedule_years(FEASIBLE_C, FEASIBLE_ROWS)
+        by_year = {r["year"]: (200_000.0 if r["year"] == 2030 else r["optimizer_amount"])
+                   for r in out}
+        self.assertAlmostEqual(
+            _simulate_residual(FEASIBLE_C, FEASIBLE_ROWS, years, by_year), 0.0, places=2)
+        self.assertEqual(schedule_feasibility(FEASIBLE_C, out), "feasible")
+
+    def test_a_locked_year_keeps_its_pinned_optimizer_amount(self):
+        """`locked` means "pin the value the optimizer wrote". With no override
+        behind it, `resolve_year_amount` reads that pin OUT of optimizer_amount
+        -- so refreshing that column for a locked year would silently move the
+        very number the lock exists to hold."""
+        from src.hsa_schedule import rerun_optimizer, resolve_year_amount
+        rows = [{"year": 2030, "optimizer_amount": 10_000.0, "override_amount": None,
+                 "locked": True}]
+        out = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, rows)
+        pinned = [r for r in out if r["year"] == 2030][0]
+        self.assertAlmostEqual(pinned["optimizer_amount"], 10_000.0, places=6)
+        amt, src = resolve_year_amount(pinned)
+        self.assertEqual(src, "locked")
+        self.assertAlmostEqual(amt, 10_000.0, places=6)
+
+    def test_an_override_backed_year_still_refreshes_its_optimizer_column(self):
+        """With an override present the optimizer column is inert -- the
+        override wins unconditionally -- so it is refreshed to what the search
+        would propose if the year were free, which is exactly what the user
+        falls back to if they later clear the override."""
+        from src.hsa_schedule import rerun_optimizer, build_schedule
+        rows = [{"year": 2030, "optimizer_amount": 1.0, "override_amount": 25_000.0,
+                 "locked": True}]
+        out = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, rows)
+        pinned = [r for r in out if r["year"] == 2030][0]
+        self.assertAlmostEqual(pinned["override_amount"], 25_000.0, places=6)
+        self.assertNotAlmostEqual(pinned["optimizer_amount"], 1.0, places=6)
+        self.assertAlmostEqual(pinned["optimizer_amount"],
+                               build_schedule(FEASIBLE_C, FEASIBLE_ROWS)["by_year"][2030],
+                               places=6)
+
+    def test_a_rerun_is_idempotent_on_its_own_output(self):
+        """The round trip proper: re-running over the schedule a re-run just
+        produced must not drift. This is the property a user experiences."""
+        from src.hsa_schedule import rerun_optimizer
+        rows = [{"year": 2030, "optimizer_amount": 10_000.0, "override_amount": 25_000.0,
+                 "locked": True}]
+        once = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, rows)
+        twice = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, once)
+        self.assertEqual(len(once), len(twice))
+        for a, b in zip(once, twice):
+            self.assertEqual(a["year"], b["year"])
+            self.assertAlmostEqual(a["optimizer_amount"], b["optimizer_amount"], places=6,
+                                   msg="year=%r" % (a["year"],))
+            self.assertEqual(a["override_amount"], b["override_amount"])
+            self.assertEqual(a["locked"], b["locked"])
+
+
+class ScheduleFeasibilityTests(unittest.TestCase):
+    def test_a_clean_rerun_is_feasible(self):
+        from src.hsa_schedule import rerun_optimizer, schedule_feasibility
+        out = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, [])
+        self.assertEqual(schedule_feasibility(FEASIBLE_C, out), "feasible")
+
+    def test_a_positive_floor_is_infeasible_by_construction(self):
+        """Mirrors `build_schedule`: a floor the optimizer may not draw through
+        is a residual that cannot reach zero, so it reports infeasible however
+        well the remaining years are otherwise scheduled."""
+        from src.hsa_schedule import rerun_optimizer, schedule_feasibility
+        out = rerun_optimizer(OVERSIZED_C, FEASIBLE_ROWS, [])
+        self.assertEqual(schedule_feasibility(OVERSIZED_C, out), "infeasible")
+
+    def test_overrides_that_underdraw_leave_a_residual_and_report_infeasible(self):
+        """No floor at all: the infeasibility comes purely from the user's own
+        numbers, which are honored rather than quietly topped up."""
+        from src.hsa_schedule import schedule_feasibility, _schedule_years, _starting_balance
+        years = _schedule_years(FEASIBLE_C, FEASIBLE_ROWS)
+        rows = [{"year": y, "optimizer_amount": 0.0, "override_amount": 1.0, "locked": True}
+                for y in years]
+        rows[0]["hsa_nw"] = _starting_balance(FEASIBLE_ROWS)
+        self.assertEqual(schedule_feasibility(FEASIBLE_C, rows), "infeasible")
+
+    def test_emptying_the_account_early_reports_surplus(self):
+        """The third state has to be reachable through this signature too, or
+        it is dead code here."""
+        from src.hsa_schedule import schedule_feasibility, _schedule_years, _starting_balance
+        years = _schedule_years(FEASIBLE_C, FEASIBLE_ROWS)
+        balance = _starting_balance(FEASIBLE_ROWS)
+        rows = [{"year": y, "optimizer_amount": 0.0, "override_amount": 0.0, "locked": False}
+                for y in years]
+        # One early year draws more than the account can possibly hold, so the
+        # balance is gone long before the deadline.
+        rows[0]["override_amount"] = balance * 10.0
+        rows[0]["hsa_nw"] = balance
+        self.assertEqual(schedule_feasibility(FEASIBLE_C, rows), "feasible_with_surplus")
+
+    def test_the_verdict_does_not_depend_on_which_row_is_first(self):
+        """`rerun_optimizer` stamps the balance on the row it emits first, but a
+        caller is entitled to sort the table by year before handing it back. A
+        feasibility answer that quietly depended on row position would only
+        break in production."""
+        from src.hsa_schedule import rerun_optimizer, schedule_feasibility
+        rows = [{"year": y, "optimizer_amount": 1.0, "override_amount": None, "locked": False}
+                for y in (2035, 2030)]
+        out = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, rows)
+        self.assertEqual(schedule_feasibility(FEASIBLE_C, out), "feasible")
+        self.assertEqual(
+            schedule_feasibility(FEASIBLE_C, sorted(out, key=lambda r: r["year"])),
+            "feasible")
+        self.assertEqual(
+            schedule_feasibility(FEASIBLE_C, list(reversed(out))), "feasible")
+
+    def test_no_horizon_is_infeasible_rather_than_a_crash(self):
+        from src.hsa_schedule import schedule_feasibility
+        self.assertEqual(schedule_feasibility({}, []), "infeasible")
+
+    def test_rows_outside_the_horizon_are_ignored(self):
+        from src.hsa_schedule import schedule_feasibility, rerun_optimizer
+        out = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, [])
+        stale = list(out) + [{"year": 2044, "optimizer_amount": 0.0,
+                              "override_amount": 500_000.0, "locked": True}]
+        self.assertEqual(schedule_feasibility(FEASIBLE_C, stale), "feasible")
 
 
 if __name__ == "__main__":
