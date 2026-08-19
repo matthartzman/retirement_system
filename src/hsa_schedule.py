@@ -537,3 +537,374 @@ def joint_headroom_used(c: Mapping[str, Any], row: Mapping[str, Any],
 
     fraction = min(1.0, conversion / bracket_room)
     return min(conversion, bracket_room) + hsa_draw * fraction
+
+
+# --- Schedule search --------------------------------------------------------
+#
+# `score_year` ranks one (year, amount) pair. This section decides the whole
+# schedule: given that the balance must reach zero by `resolve_consume_by_year`,
+# which years do the draws land in, and how much lands in each.
+#
+# Two terms fight each other here, and the fight is the point:
+#
+# * The per-year value (`score_year`) plus tax-free compounding pulls dollars
+#   LATER -- a dollar left in the HSA grows untaxed, and survivor years price
+#   the displaced dollar dearer (compressed Single brackets).
+# * The residual-mortality-risk penalty pulls dollars EARLIER -- every year the
+#   balance is still standing is a year the second death could land on it and
+#   hand a non-spouse beneficiary the whole balance as ordinary income in one
+#   year.
+#
+# Drop the second term and the search back-loads into the final years before
+# the deadline: that schedule satisfies every constraint and every feasibility
+# check while maximizing exposure to an early death. That is the failure mode
+# `test_optimizer_does_not_back_load_into_the_final_years` exists to catch, and
+# it is why the penalty lives here rather than in `score_year` -- it is a
+# function of the running balance the schedule leaves standing, not of any one
+# candidate (year, amount) pair.
+
+# Residual below this (in dollars) counts as "the balance reached zero". The
+# grow-then-draw recursion below empties the account exactly when there is no
+# floor, so this only absorbs float noise, not a real shortfall.
+_RESIDUAL_TOL = 1.0
+
+# How sharply the search concentrates on its best years. The objective is
+# linear in each year's draw, so its unconstrained optimum is degenerate: put
+# the ENTIRE balance in the single highest-net-weight year. That is not a
+# schedule anyone can execute -- a real draw is bounded by the year's qualified
+# expense bank (Task 6) and by what the household can absorb -- and this
+# signature carries no per-year capacity to bound it with. So the allocation is
+# proportional to net weight raised to this exponent: 0 would BE the level
+# schedule, infinity would be the degenerate single-year answer, and 3.0 sits
+# between -- concentrated enough that the good years genuinely win, spread
+# enough that the answer stays executable. It is a calibration constant, not a
+# derived quantity; the tests do not depend on its exact value, only on the
+# ordering it produces.
+_CONCENTRATION = 3.0
+
+
+def level_schedule(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> dict:
+    """The naive baseline: the starting balance split evenly across the window.
+
+    This is deliberately what `hsa_withdrawal_mode='smooth_window'` already
+    does today (balance / years remaining), and it is the reference point the
+    real search has to beat. It is nominal and growth-blind on purpose: it does
+    not know that an undrawn dollar compounds, does not know that a survivor
+    year prices the displaced dollar higher, and does not know that a balance
+    left standing is exposed to the terminal cliff. Making it smarter would
+    only make the comparison less informative.
+    """
+    years = _schedule_years(c, rows)
+    balance = _starting_balance(rows)
+    if not years:
+        return {}
+    share = balance / float(len(years))
+    return {year: share for year in years}
+
+
+def schedule_score(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
+                   by_year: Mapping[int, float]) -> float:
+    """Present-valued value, in dollars, of drawing `by_year` out of the HSA.
+
+    The balance is tracked grow-then-draw: each year the account grows at the
+    plan's own return assumption (`c['ret']`, the same field
+    `planning_engines` uses for exactly this purpose), then that year's draw
+    comes out of what is there, capped at the balance -- a schedule cannot
+    withdraw money that does not exist, and one that tries is scored on what it
+    actually got, not on what it asked for.
+
+    Each year's `score_year` is passed the ACTUAL grown dollar amount withdrawn,
+    never a constant nominal one. `score_year`'s own docstring flags why: its
+    carry-cost term discounts but does not credit the tax-free compounding a
+    deferred dollar earns, so scoring one fixed amount across candidate years
+    systematically front-loads. Passing the grown amount is what closes that
+    gap, and it is why an allocation expressed as a share of the ORIGINAL
+    balance is valued at the grown dollars it actually becomes.
+
+    From the raw sum, the residual-mortality-risk penalty is subtracted:
+
+        for each year Y:
+            P(second death lands in Y) x hsa_terminal_tax(balance entering Y, Y)
+
+    discounted with the same `_pv_factor` every other term here uses. The
+    balance entering Y (before that year's draw) is the money that would still
+    be sitting there if death occurred at the start of Y -- the whole of which
+    becomes ordinary income to a non-spouse beneficiary in that single year.
+    Note that `hsa_terminal_tax` returns exactly 0.0 for a spouse or charity
+    beneficiary, which is the schema default: for those households this penalty
+    is correctly zero, and the schedule is driven by rate and discounting
+    alone.
+    """
+    years = _schedule_years(c, rows)
+    if not years:
+        return 0.0
+
+    growth = _as_float(c.get('ret', 0.0), 0.0)
+    pmf = _second_death_pmf(c, years)
+    balance = _starting_balance(rows)
+    total = 0.0
+
+    for year in years:
+        row = _row_for_year(rows, year)
+        balance *= (1.0 + growth)
+        # Money standing at the START of the year is what an early death in
+        # that year would hand the beneficiary -- priced before the draw.
+        pv = _pv_factor(c, row)
+        probability = pmf.get(year, 0.0)
+        if probability > 0.0 and balance > 0.0:
+            total -= probability * _hsa_terminal_tax(c, balance, year) * pv
+
+        draw = min(max(0.0, _as_float(by_year.get(year), 0.0)), max(0.0, balance))
+        if draw > 0.0:
+            total += score_year(c, row, draw)
+            balance -= draw
+
+    return total
+
+
+def build_schedule(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> dict:
+    """Choose which years the HSA is drawn in, and report whether it can close.
+
+    Returns ``{'by_year': {year: dollars}, 'feasibility': str, 'residual': float}``.
+
+    **The search.** Each year in `plan_start`..`resolve_consume_by_year` gets a
+    net weight: what a reference increment allocated to that year is worth
+    (`score_year` on the increment GROWN to that year, so the comparison is
+    like-for-like) minus the mortality risk of carrying that increment through
+    every year up to and including it. The second half is cumulative and
+    therefore strictly increasing in the year -- that is the anti-back-loading
+    gradient, and it is the only thing in the objective that penalizes waiting.
+    Years whose net weight is negative -- where the expected terminal-cliff cost
+    of carrying a dollar that long exceeds the tax value of drawing it then --
+    get nothing at all.
+
+    The balance is then allocated in proportion to those weights raised to
+    `_CONCENTRATION` (see that constant for why the answer is not simply "all of
+    it in the best year"). Allocations are expressed as shares of the STARTING
+    balance and converted to nominal draws at the point of withdrawal, which is
+    what makes the grow-then-draw recursion in `schedule_score` land exactly on
+    the floor: a schedule whose shares sum to 1 leaves precisely
+    `hsa_min_ending_balance` grown to the deadline, and nothing else.
+
+    **Feasibility.** `hsa_min_ending_balance` is the only thing at this
+    signature that can make the constraint genuinely unsatisfiable, and it does
+    so structurally: a floor the optimizer may not draw through is a residual
+    that cannot reach zero, so those plans report `'infeasible'` with the
+    residual they are actually left holding. The deadline is NEVER moved to
+    rescue them -- no year key past `resolve_consume_by_year` is ever emitted,
+    infeasible or not, because a schedule that answers "cannot be consumed by
+    the deadline" with "then use a later deadline" has not answered anything.
+    `'feasible_with_surplus'` reports the case where the balance is consumed
+    with room to spare -- the last funded year lands strictly before the
+    deadline, i.e. the deadline never bound at all. `'feasible'` is the ordinary
+    case: consumed, using the window up to the deadline.
+    """
+    years = _schedule_years(c, rows)
+    balance = _starting_balance(rows)
+    floor = max(0.0, _as_float(c.get('hsa_min_ending_balance', 0.0), 0.0))
+    growth = _as_float(c.get('ret', 0.0), 0.0)
+
+    if not years:
+        return {'by_year': {}, 'feasibility': 'infeasible', 'residual': balance}
+
+    drawable = max(0.0, balance - floor)
+    shares = _allocation_shares(c, rows, years, drawable)
+
+    by_year = {}
+    for offset, year in enumerate(years):
+        # `drawable` is a share of the STARTING balance; by the time it is
+        # withdrawn it has compounded for `offset + 1` years (the account grows
+        # before each year's draw). Expressing it this way is what makes the
+        # shares sum to a schedule that lands exactly on the floor.
+        by_year[year] = shares[year] * drawable * (1.0 + growth) ** (offset + 1)
+
+    residual = _simulate_residual(c, rows, years, by_year)
+    funded = [y for y in years if by_year[y] > 0.0]
+
+    if floor > 0.0 or residual > _RESIDUAL_TOL:
+        feasibility = 'infeasible'
+    elif funded and max(funded) < years[-1]:
+        feasibility = 'feasible_with_surplus'
+    else:
+        feasibility = 'feasible'
+
+    return {'by_year': by_year, 'feasibility': feasibility, 'residual': residual}
+
+
+def _allocation_shares(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
+                       years: Sequence[int], drawable: float) -> dict:
+    """{year: share of the drawable balance}, summing to 1 (or to 0 if empty)."""
+    if not years:
+        return {}
+    if drawable <= 0.0:
+        return {year: 0.0 for year in years}
+
+    growth = _as_float(c.get('ret', 0.0), 0.0)
+    pmf = _second_death_pmf(c, years)
+    reference_balance = _starting_balance(rows)
+    # One increment's worth of balance. Scoring a realistic increment rather
+    # than a nominal $1 matters: the IRMAA cliff term is not linear in the
+    # amount, so a $1 probe would read every year as nowhere near a threshold.
+    increment = drawable / float(len(years))
+
+    weights = {}
+    carried_risk = 0.0
+    for offset, year in enumerate(years):
+        row = _row_for_year(rows, year)
+        grown = increment * (1.0 + growth) ** (offset + 1)
+        # Risk of carrying this increment THROUGH this year, accumulated: an
+        # increment drawn in year Y was exposed in every year up to Y.
+        #
+        # The increment is priced at the rate the WHOLE balance would face, not
+        # at the rate the increment would face standing alone. That is not a
+        # detail: `hsa_terminal_tax` runs the balance through the progressive
+        # brackets from the bottom, so a $60k slice prices at ~13% while the
+        # $600k balance it is part of prices at ~30%. An increment is not
+        # inherited by itself -- it is inherited on top of everything else the
+        # schedule has not yet drawn -- and pricing it standalone would halve
+        # the penalty relative to what `schedule_score` actually charges,
+        # leaving the search optimizing a materially different objective from
+        # the one it is judged on.
+        carried_risk += (pmf.get(year, 0.0)
+                         * _terminal_tax_rate(c, reference_balance, year) * grown
+                         * _pv_factor(c, row))
+        weights[year] = max(0.0, score_year(c, row, grown) - carried_risk)
+
+    powered = {year: weight ** _CONCENTRATION for year, weight in weights.items()}
+    total = sum(powered.values())
+    if total <= 0.0:
+        # Every year is net-negative (or the rows carry no rate at all). The
+        # deadline still has to be met, so fall back to the level split rather
+        # than refusing to draw -- declining to schedule is not an option the
+        # constraint leaves open.
+        share = 1.0 / float(len(years))
+        return {year: share for year in years}
+    return {year: value / total for year, value in powered.items()}
+
+
+def _simulate_residual(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
+                       years: Sequence[int], by_year: Mapping[int, float]) -> float:
+    """Balance still standing after the deadline year's draw.
+
+    Same grow-then-draw recursion `schedule_score` uses, so the reported
+    residual is the one the score was computed against rather than an
+    independently derived (and potentially disagreeing) figure.
+    """
+    growth = _as_float(c.get('ret', 0.0), 0.0)
+    balance = _starting_balance(rows)
+    for year in years:
+        balance *= (1.0 + growth)
+        balance -= min(max(0.0, _as_float(by_year.get(year), 0.0)), max(0.0, balance))
+    return max(0.0, balance)
+
+
+def _hsa_terminal_tax(c: Mapping[str, Any], balance: float, year: int) -> float:
+    """`after_tax.hsa_terminal_tax`, imported lazily and read defensively.
+
+    Zero for a spouse or charity beneficiary -- which is the schema default --
+    because those inherit the account AS an HSA with no tax event at all.
+    """
+    try:
+        from .after_tax import hsa_terminal_tax
+    except ImportError:  # pragma: no cover - direct execution fallback
+        from src.after_tax import hsa_terminal_tax
+    return max(0.0, _as_float(hsa_terminal_tax(c, balance, terminal_year=year), 0.0))
+
+
+def _terminal_tax_rate(c: Mapping[str, Any], balance: float, year: int) -> float:
+    """Average terminal-cliff tax rate on `balance`, as a fraction of it.
+
+    Zero for a spouse or charity beneficiary, for the same reason
+    `hsa_terminal_tax` is: nothing is owed, so no schedule should be distorted
+    to avoid it.
+    """
+    if balance <= 0.0:
+        return 0.0
+    return _hsa_terminal_tax(c, balance, year) / balance
+
+
+def _second_death_pmf(c: Mapping[str, Any], years: Sequence[int]) -> dict:
+    """{year: P(the SECOND death lands in that year)}.
+
+    Differenced out of the same per-member CDFs `_second_death_year_at_percentile`
+    reads, combining members as independent lives exactly the way that function
+    does -- this is not a second mortality model. An empty dict (no members, no
+    birth years) correctly switches the residual-risk term off rather than
+    inventing a distribution.
+    """
+    members = c.get('members') or []
+    plan_start = _horizon(c, [])[0]
+    if plan_start is None and years:
+        plan_start = years[0]
+    if not members or plan_start is None:
+        return {}
+
+    cdfs = []
+    for idx, member in enumerate(members):
+        cdf = _member_death_cdf(member, 0 if idx == 0 else 1, plan_start)
+        if cdf is None:
+            return {}
+        cdfs.append(cdf)
+
+    pmf = {}
+    for year in years:
+        prior = 1.0
+        current = 1.0
+        for cdf in cdfs:
+            prior *= _cdf_at(cdf, year - 1)
+            current *= _cdf_at(cdf, year)
+        pmf[year] = max(0.0, current - prior)
+    return pmf
+
+
+def _schedule_years(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> list:
+    """`plan_start`..deadline, inclusive. Empty when there is no horizon at all."""
+    plan_start = _horizon(c, rows)[0]
+    if plan_start is None:
+        return []
+    deadline = resolve_consume_by_year(c, rows)
+    if deadline < plan_start:
+        return []
+    return list(range(int(plan_start), int(deadline) + 1))
+
+
+def _starting_balance(rows: Sequence[Mapping[str, Any]]) -> float:
+    """`rows[0]['hsa_nw']` -- the balance the schedule has to consume.
+
+    Both `build_schedule` and `schedule_score` derive it this way independently,
+    so neither can be handed a balance that disagrees with the rows it is
+    scoring against.
+    """
+    if not rows:
+        return 0.0
+    return max(0.0, _as_float(rows[0].get('hsa_nw'), 0.0))
+
+
+def _row_for_year(rows: Sequence[Mapping[str, Any]], year: int) -> dict:
+    """The projection row for `year`, synthesized from the nearest one if sparse.
+
+    A schedule window can outrun the rows it was handed (a sparse fixture, a
+    horizon that comes from the config rather than the rows). Falling back to
+    the nearest row's tax characteristics with the right `year` keeps
+    discounting correct rather than silently scoring a missing year at zero,
+    which would read as "this year is worthless" instead of "this year is
+    unknown".
+    """
+    for row in rows or ():
+        try:
+            if int(row['year']) == int(year):
+                return dict(row)
+        except (KeyError, TypeError, ValueError):
+            continue
+    nearest = None
+    best = None
+    for row in rows or ():
+        try:
+            distance = abs(int(row['year']) - int(year))
+        except (KeyError, TypeError, ValueError):
+            continue
+        if best is None or distance < best:
+            nearest, best = row, distance
+    out = dict(nearest) if nearest else {}
+    out['year'] = year
+    return out
