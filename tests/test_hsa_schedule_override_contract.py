@@ -70,5 +70,190 @@ class BlankHsaScheduleCsvTests(unittest.TestCase):
         self.assertEqual(rows[0], HSA_SCHEDULE_HEADER)
 
 
+class PrecedenceTests(unittest.TestCase):
+    def test_override_wins_over_everything(self):
+        from src.hsa_schedule import resolve_year_amount
+        amt, src = resolve_year_amount({"optimizer_amount": 10_000.0, "override_amount": 25_000.0,
+                                        "locked": True})
+        self.assertAlmostEqual(amt, 25_000.0, places=6)
+        self.assertEqual(src, "override")
+
+    def test_locked_without_override_pins_the_optimizer_value(self):
+        from src.hsa_schedule import resolve_year_amount
+        amt, src = resolve_year_amount({"optimizer_amount": 10_000.0, "override_amount": None,
+                                        "locked": True})
+        self.assertAlmostEqual(amt, 10_000.0, places=6)
+        self.assertEqual(src, "locked")
+
+    def test_optimizer_value_is_used_when_nothing_else_applies(self):
+        from src.hsa_schedule import resolve_year_amount
+        amt, src = resolve_year_amount({"optimizer_amount": 10_000.0, "override_amount": None,
+                                        "locked": False})
+        self.assertEqual(src, "optimizer")
+
+    def test_zero_is_a_real_override_not_an_absent_one(self):
+        """The classic falsy bug: 0.0 must not be treated as 'no override'."""
+        from src.hsa_schedule import resolve_year_amount
+        amt, src = resolve_year_amount({"optimizer_amount": 10_000.0, "override_amount": 0.0,
+                                        "locked": False})
+        self.assertAlmostEqual(amt, 0.0, places=6)
+        self.assertEqual(src, "override")
+
+
+class ModeTierTests(unittest.TestCase):
+    """The fourth precedence tier: nothing at the schedule layer for this year.
+
+    src == 'mode' means "this function has nothing to say -- fall back to the
+    hsa_withdrawal_mode path". amt is a placeholder 0.0 and must never be
+    consumed as a real withdrawal figure.
+    """
+
+    def test_missing_optimizer_amount_falls_through_to_mode(self):
+        from src.hsa_schedule import resolve_year_amount
+        amt, src = resolve_year_amount({"year": 2030})
+        self.assertEqual(src, "mode")
+        self.assertAlmostEqual(amt, 0.0, places=6)
+
+    def test_none_optimizer_amount_falls_through_to_mode(self):
+        from src.hsa_schedule import resolve_year_amount
+        amt, src = resolve_year_amount({"optimizer_amount": None, "override_amount": None,
+                                        "locked": False})
+        self.assertEqual(src, "mode")
+        self.assertAlmostEqual(amt, 0.0, places=6)
+
+    def test_empty_string_optimizer_amount_falls_through_to_mode(self):
+        """A blank CSV cell is an absent optimizer value, not a zero one."""
+        from src.hsa_schedule import resolve_year_amount
+        amt, src = resolve_year_amount({"optimizer_amount": "", "override_amount": "",
+                                        "locked": ""})
+        self.assertEqual(src, "mode")
+        self.assertAlmostEqual(amt, 0.0, places=6)
+
+    def test_override_still_wins_when_the_optimizer_never_ran_for_the_year(self):
+        from src.hsa_schedule import resolve_year_amount
+        amt, src = resolve_year_amount({"override_amount": 25_000.0})
+        self.assertAlmostEqual(amt, 25_000.0, places=6)
+        self.assertEqual(src, "override")
+
+    def test_zero_override_still_wins_when_the_optimizer_never_ran(self):
+        """Falsy-zero must survive the missing-optimizer path too."""
+        from src.hsa_schedule import resolve_year_amount
+        amt, src = resolve_year_amount({"optimizer_amount": None, "override_amount": 0.0,
+                                        "locked": False})
+        self.assertAlmostEqual(amt, 0.0, places=6)
+        self.assertEqual(src, "override")
+
+    def test_locked_with_no_optimizer_amount_degrades_to_mode(self):
+        """`locked` pins an optimizer value; with none written there is nothing
+        to pin, so the year has no schedule-layer answer at all."""
+        from src.hsa_schedule import resolve_year_amount
+        amt, src = resolve_year_amount({"optimizer_amount": None, "override_amount": None,
+                                        "locked": True})
+        self.assertEqual(src, "mode")
+        self.assertAlmostEqual(amt, 0.0, places=6)
+
+    def test_zero_optimizer_amount_is_a_real_schedule_value_not_an_absent_one(self):
+        """0.0 from the optimizer means draw nothing this year -- a real
+        answer, not a fall-through to mode."""
+        from src.hsa_schedule import resolve_year_amount
+        amt, src = resolve_year_amount({"optimizer_amount": 0.0, "override_amount": None,
+                                        "locked": False})
+        self.assertAlmostEqual(amt, 0.0, places=6)
+        self.assertEqual(src, "optimizer")
+
+    def test_zero_optimizer_amount_can_still_be_locked(self):
+        from src.hsa_schedule import resolve_year_amount
+        amt, src = resolve_year_amount({"optimizer_amount": 0.0, "override_amount": None,
+                                        "locked": True})
+        self.assertAlmostEqual(amt, 0.0, places=6)
+        self.assertEqual(src, "locked")
+
+
+class LockedFlagParsingTests(unittest.TestCase):
+    """locked arrives from a CSV cell, so it is a string, not a bool."""
+
+    def test_string_false_is_not_locked(self):
+        """The dangerous case: `if row.get('locked'):` treats "False" as True."""
+        from src.hsa_schedule import resolve_year_amount
+        amt, src = resolve_year_amount({"optimizer_amount": 10_000.0, "override_amount": None,
+                                        "locked": "False"})
+        self.assertAlmostEqual(amt, 10_000.0, places=6)
+        self.assertEqual(src, "optimizer")
+
+    def test_string_upper_false_is_not_locked(self):
+        from src.hsa_schedule import resolve_year_amount
+        _, src = resolve_year_amount({"optimizer_amount": 10_000.0, "locked": "FALSE"})
+        self.assertEqual(src, "optimizer")
+
+    def test_other_falsy_spellings_are_not_locked(self):
+        from src.hsa_schedule import resolve_year_amount
+        for raw in ("0", "no", "No", "n", "off", "  ", ""):
+            _, src = resolve_year_amount({"optimizer_amount": 10_000.0, "locked": raw})
+            self.assertEqual(src, "optimizer", msg="locked=%r" % (raw,))
+
+    def test_absent_and_none_locked_are_not_locked(self):
+        from src.hsa_schedule import resolve_year_amount
+        for row in ({"optimizer_amount": 10_000.0},
+                    {"optimizer_amount": 10_000.0, "locked": None},
+                    {"optimizer_amount": 10_000.0, "locked": False}):
+            _, src = resolve_year_amount(row)
+            self.assertEqual(src, "optimizer", msg="row=%r" % (row,))
+
+    def test_truthy_spellings_are_locked(self):
+        from src.hsa_schedule import resolve_year_amount
+        for raw in ("True", "TRUE", "true", " true ", "1", "yes", "YES", "Yes", True):
+            amt, src = resolve_year_amount({"optimizer_amount": 10_000.0, "locked": raw})
+            self.assertAlmostEqual(amt, 10_000.0, places=6, msg="locked=%r" % (raw,))
+            self.assertEqual(src, "locked", msg="locked=%r" % (raw,))
+
+
+class OverridePresenceParsingTests(unittest.TestCase):
+    """override_amount also arrives as a CSV string."""
+
+    def test_blank_string_override_is_absent(self):
+        from src.hsa_schedule import resolve_year_amount
+        amt, src = resolve_year_amount({"optimizer_amount": 10_000.0, "override_amount": "",
+                                        "locked": False})
+        self.assertAlmostEqual(amt, 10_000.0, places=6)
+        self.assertEqual(src, "optimizer")
+
+    def test_string_zero_override_is_present(self):
+        """A "0.0" cell is still a real, deliberate zero override."""
+        from src.hsa_schedule import resolve_year_amount
+        amt, src = resolve_year_amount({"optimizer_amount": 10_000.0, "override_amount": "0.0",
+                                        "locked": "TRUE"})
+        self.assertAlmostEqual(amt, 0.0, places=6)
+        self.assertEqual(src, "override")
+
+    def test_numeric_string_override_is_parsed(self):
+        from src.hsa_schedule import resolve_year_amount
+        amt, src = resolve_year_amount({"optimizer_amount": 10_000.0,
+                                        "override_amount": "25000", "locked": "False"})
+        self.assertAlmostEqual(amt, 25_000.0, places=6)
+        self.assertEqual(src, "override")
+
+    def test_unparseable_override_is_treated_as_absent(self):
+        """Garbage in the cell must not silently become a withdrawal figure."""
+        from src.hsa_schedule import resolve_year_amount
+        amt, src = resolve_year_amount({"optimizer_amount": 10_000.0, "override_amount": "n/a",
+                                        "locked": False})
+        self.assertAlmostEqual(amt, 10_000.0, places=6)
+        self.assertEqual(src, "optimizer")
+
+    def test_the_resolver_is_pure_and_does_not_mutate_the_row(self):
+        from src.hsa_schedule import resolve_year_amount
+        row = {"optimizer_amount": 10_000.0, "override_amount": "0.0", "locked": "TRUE"}
+        before = dict(row)
+        resolve_year_amount(row)
+        self.assertEqual(row, before)
+
+    def test_the_amount_is_always_a_float(self):
+        from src.hsa_schedule import resolve_year_amount
+        for row in ({"optimizer_amount": "10000", "locked": "TRUE"},
+                    {"override_amount": "250"},
+                    {}):
+            amt, _ = resolve_year_amount(row)
+            self.assertIsInstance(amt, float, msg="row=%r" % (row,))
+
 if __name__ == "__main__":
     unittest.main()
