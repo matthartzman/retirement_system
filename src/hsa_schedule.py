@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import re
 import warnings
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any, Mapping, Optional, Sequence, Tuple
 
 DEFAULT_CONSUME_BY = 'second_death_p90'
 
@@ -431,6 +431,96 @@ def _as_float(value: Any, default: float) -> float:
     if out != out or out in (float('inf'), float('-inf')):  # NaN / inf
         return default
     return out
+
+
+# `_as_float`'s sentinel for "this cell is absent". Typed `Any` so passing it as
+# the `default` of a `-> float` helper stays type-honest at the call site; the
+# result is then presence-checked with `is not None`, never with truthiness --
+# a 0.0 override is a real, deliberate instruction to draw nothing.
+_ABSENT: Any = None
+
+_TRUTHY_CELLS = ('TRUE', 'YES', '1')
+
+
+def _as_bool(value: Any) -> bool:
+    """Parse a boolean that may be a real bool or a CSV cell's text.
+
+    `client_hsa_schedule.csv` round-trips through a CSV, so `locked` reaches
+    this module as a string far more often than as a Python `bool`. The naive
+    `if row.get('locked'):` is actively dangerous here: the string `"False"` is
+    truthy, so an explicitly *unlocked* row would silently read as locked and
+    freeze a year the user never pinned.
+
+    Mirrors the `_b` idiom in `src/data_io.py` rather than importing it -- that
+    is a private name in an unrelated module, and this file's convention is
+    small local helpers (see `_as_float`).
+
+    Truthy: `True`, `"True"` / `"TRUE"` / `"true"` (any case or surrounding
+    whitespace), `"1"`, `"yes"`. Everything else -- `False`, `"False"`, `"0"`,
+    `"no"`, `""`, whitespace, `None`, an absent key -- is falsy.
+    """
+    return str(value).strip().upper() in _TRUTHY_CELLS
+
+
+def resolve_year_amount(row: Mapping[str, Any]) -> Tuple[float, str]:
+    """Resolve one schedule year to `(amount, source)` -- the whole precedence ladder.
+
+    The ladder is **override > locked > optimizer > mode**, and this is the one
+    place it is decided. Do not re-derive any tier of it at a call site: a
+    precedence bug is silent, and the user finds out only when an edit they
+    made vanishes.
+
+    The four sources, and exactly what `amount` means for each:
+
+    * ``'override'`` -- the user typed a number into `override_amount`. The
+      optimizer never writes that column, which is what makes a re-run safe:
+      there is no path by which recomputing the schedule can overwrite the
+      user's intent. Wins unconditionally, including over `locked`, and
+      including when the optimizer never produced a value for this year at all.
+      `amount` is the user's number.
+    * ``'locked'`` -- no override, but the user pinned the optimizer's own value
+      for this year. `amount` is that pinned `optimizer_amount`; later re-runs
+      must plan *around* this year rather than through it.
+    * ``'optimizer'`` -- the schedule search's answer for this year, unpinned
+      and unedited. `amount` is `optimizer_amount`.
+    * ``'mode'`` -- **there is no schedule-layer answer for this year.** The
+      search did not cover it, or the row does not exist. `amount` is `0.0`,
+      and it is a placeholder, *not* a withdrawal of zero: callers must ignore
+      it entirely and take the year's figure from the `hsa_withdrawal_mode`
+      path instead (`withdraw_hsa_window`). This function has no access to `c`
+      or to live engine state and cannot compute that value itself. Reading the
+      `0.0` as a real instruction would silently suppress the mode-based
+      withdrawal for that year.
+
+    `locked` with no `optimizer_amount` behind it also resolves to ``'mode'``.
+    "Locked" means *pin the value the optimizer wrote*; with nothing written
+    there is nothing to pin, and inventing a 0.0 to freeze would be a stronger
+    claim than the data supports -- it would suppress the year's withdrawal on
+    the strength of a checkbox alone. The user can still express "draw nothing
+    this year" unambiguously, by entering a 0 override.
+
+    Zero is real at every tier: `override_amount` of `0.0` (or the string
+    `"0.0"`) is an override, and `optimizer_amount` of `0.0` is a schedule
+    value. Absence is only ever `None`, a blank cell, or unparseable text.
+
+    Pure: reads nothing but `row`, and mutates nothing.
+    """
+    row = row or {}
+
+    # Presence is `is not None` on the parsed value, never truthiness --
+    # `if row.get('override_amount'):` would discard a deliberate 0 override.
+    override = _as_float(row.get('override_amount'), _ABSENT)
+    if override is not None:
+        return override, 'override'
+
+    optimizer = _as_float(row.get('optimizer_amount'), _ABSENT)
+    if optimizer is None:
+        return 0.0, 'mode'
+
+    if _as_bool(row.get('locked')):
+        return optimizer, 'locked'
+
+    return optimizer, 'optimizer'
 
 
 def allocate_surplus(c: Mapping[str, Any], row: Mapping[str, Any], surplus: Any) -> dict:
