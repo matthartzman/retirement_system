@@ -269,20 +269,38 @@ def needs_migration(db_path=None) -> bool:
 
 
 def migrate_plan_data_at_rest(input_dir, db_path=None, dry_run: bool = False) -> dict:
-    """Migrate every sectioned Plan Data CSV under ``input_dir`` once, in place.
+    """Migrate every sectioned Plan Data CSV, AND every DB snapshot, once, in place.
 
-    Returns ``{"migrated": {name: changed}, "total_changed": int, "skipped": bool}``.
+    Returns ``{"migrated": {name: changed}, "total_changed": int, "skipped": bool,
+    "snapshots": int}``. ``total_changed`` is the sum of CSV field changes and
+    migrated snapshot rows, so existing callers that only look at
+    ``total_changed`` (e.g. ``main.py``'s startup log) keep working unmodified.
 
     Only files that actually change are rewritten, so untouched files keep their
     mtime and their plan_data_manifest.json hash -- otherwise a migration that
     changed one file would look like it changed all of them. When the store is
     already stamped at the current version this is a no-op (``skipped=True``).
-    ``dry_run=True`` reports what would change without writing or stamping.
+    ``dry_run=True`` reports what would change without writing or stamping,
+    including for the DB snapshot sweep.
+
+    The DB is canonical: ``local_store.latest_sectioned_data()`` reads
+    ``plan_snapshots.sectioned_json`` directly, so migrating only the CSVs left
+    every snapshot -- including the newest one actually read at runtime -- in its
+    legacy shape. ALL snapshot rows are migrated here, not just the latest, because
+    an older snapshot can be restored and a restore after the version is stamped
+    must not resurrect legacy shapes the gate believes are gone.
+
+    The snapshot sweep runs after the CSV loop and before the version is
+    stamped. A DB error during the sweep is NOT swallowed the way a per-file CSV
+    read error is: it aborts the whole call and leaves the version unstamped, so
+    the migration retries in full next boot rather than reporting "migrated"
+    over a store that only partially moved.
     """
     from pathlib import Path
+    from .local_store import rewrite_sectioned_snapshots
 
     if not dry_run and not needs_migration(db_path=db_path):
-        return {"migrated": {}, "total_changed": 0, "skipped": True}
+        return {"migrated": {}, "total_changed": 0, "skipped": True, "snapshots": 0}
 
     root = Path(input_dir)
     migrated: dict = {}
@@ -311,9 +329,21 @@ def migrate_plan_data_at_rest(input_dir, db_path=None, dry_run: bool = False) ->
         if not dry_run:
             path.write_text(new_content, encoding="utf-8", newline="")
 
+    try:
+        snapshot_changed = rewrite_sectioned_snapshots(
+            migrate_sectioned_data, db_path=db_path, dry_run=dry_run,
+        )
+    except Exception:
+        # Degrade exactly like an at-boot failure must: never stamp the version
+        # over a sweep that did not finish, so the next boot retries everything
+        # (CSVs already migrated are idempotent no-ops; the DB is untouched
+        # because rewrite_sectioned_snapshots rolled back its own transaction).
+        return {"migrated": migrated, "total_changed": total, "skipped": False, "snapshots": 0}
+
+    total += snapshot_changed
     if not dry_run:
         set_stored_schema_version(PLAN_DATA_SCHEMA_VERSION, db_path=db_path)
-    return {"migrated": migrated, "total_changed": total, "skipped": False}
+    return {"migrated": migrated, "total_changed": total, "skipped": False, "snapshots": snapshot_changed}
 
 
 def run_startup_plan_data_migration(input_dir=None, db_path=None) -> dict:
