@@ -1,3 +1,109 @@
+## 2026-08-18 — Household spending now responds to mortality (S1/S2/S3)
+
+**Engine change. Pins move: `5,824,239.30 / 1,290,848.91` → `5,821,763.41 / 1,303,155.26`.**
+Terminal net worth **down** $2,475.89; lifetime tax **up** $12,306.35. Both are net of two
+opposing engine changes landing together — see the breakdown below before reading the totals as
+one effect.
+
+**What was broken.** Household spending did not respond to mortality at all. Measured on the
+frozen fixture (`h_death_yr=2054`, `w_death_yr=2056`): `spend_base_yr` was byte-identical
+(134,976.17) whether both members were alive, one was alive, or — on an extended horizon — both
+were dead. Wellness already scales per-person and roughly halves at the first death; core
+spending, housing, and every other component simply did not know anyone had died. Past the second
+death the plan kept charging core spending and housing indefinitely, with figures that kept
+inflating, producing an `unfunded_gap` for a household that no longer existed. The home was never
+sold — `home_val` kept appreciating while the plan paid ~$85k/yr to carry a house nobody lived in.
+
+**Origin.** Found while investigating Monte Carlo horizon truncation on an unrelated HSA
+withdrawal-optimizer branch. Landed on its own branch (`worktree-survivor-estate-spending`, off
+`main` @ `c79d805`) specifically so this movement stays attributable and separate from that work.
+
+### S1 — survivor spending factor (moves NW up)
+
+New `survivor_spend_factor` (schema `Household`, default **0.65**), applied to **exactly two**
+components — core spending and recurring extras (travel/large-discretionary) — when exactly one
+household member is alive. Deliberately **not** applied to housing (the survivor lives in the same
+house), wellness/LTC (already per-person; stacking would compound two reductions to ~0.34 of
+joint), lumps, or business expenses.
+
+Gated on `household_size > 1`, not on the alive count alone: `data_io` forces
+`w_death_yr = w_dob_yr` for a genuinely single-member household ("already dead"), so an ungated
+factor would have scaled a single filer's *entire* plan by 0.65 — even though `spend_base` there
+is already one person's spending. Confirmed on both the frozen fixture and the synthetic library:
+`single_filer` is the one scenario left completely unmoved.
+
+Direction: today's effective factor is 1.00, so 0.65 **reduces** survivor-year spending and moves
+terminal net worth **up**. A change that makes plans look better gets more scrutiny, not less —
+the acceptance tests pin survivor-year `spend_base_yr`/`rec_extra` directly against the both-alive
+figures rather than inferring correctness from a terminal pin.
+
+### S2 — estate-only spending after the second death (latent on a default horizon)
+
+Once nobody is alive, every living-expense component of the spending assembly zeroes: core,
+extras, lumps, all housing, wellness, LTC, business expenses, HELOC principal & interest. Taxes on
+estate income are untouched. The ACA premium-credit recompute — a second site that rebuilds
+`wellness_base_yr` from premium components — is guarded the same way, or it would have silently
+resurrected spending the estate-mode block just zeroed.
+
+**Latent by construction on a default-horizon plan**, because `plan_end = max(h_death_yr,
+w_death_yr)` — the second death year itself — so a normal projection has no both-dead rows. Zero
+effect on the pins above; verified with an extended horizon (`plan_end=2070` on the frozen
+fixture) that every living-expense component and `unfunded_gap` are exactly 0.0 in every post-death
+year, and that both-alive/survivor years are untouched by the estate-mode block.
+
+### S3 — home sale at the second death (NOT latent — moves NW down, moves tax up)
+
+Reuses the **existing** home-sale machinery (mortgage payoff, selling costs, gain, proceeds
+routing) rather than new mechanics, triggered at the second death, with the existing death
+step-up applied so the sale realizes no taxable gain.
+
+**Unlike S2, this is not latent.** The sale trigger is `year == second_death_yr`, and that year is
+*always* `plan_end` on a default horizon by construction — the sale fires on every plan, moved or
+not. Isolated effect beyond S1 alone, measured on the frozen fixture: terminal NW **−$143,676.84**
+(selling costs leaving the estate) and lifetime tax **+$12,306.35** (sale proceeds begin generating
+taxable investment income in a Trust account a year earlier than illiquid home equity would have).
+
+**A real defect was caught and fixed during implementation, not shipped.** The estate sale
+initially reused `home_sale_px` — the user's assumed price for a *specific planned downsizing
+transaction*, not a market-value forced disposition. On the frozen fixture that stale figure
+(1,750,000) would have replaced the home's real appreciated value (2,954,344.94) at second death,
+destroying **$1.53M** of estate value. Caught before commit by reading the diagnostic output line
+by line rather than trusting a passing test suite — the pre-fix test only asserted
+`home_sale_gross > 0`, which the bug also satisfied. Fixed (an estate sale always uses market
+value; real planned-downsizing sales still respect `home_sale_px`) and a new test added asserting
+the actual dollar figure, demonstrated failing against the reverted code before being trusted.
+
+### Net effect on the pins
+
+S1 alone: NW +$141,201, tax unchanged (survivor shortfall funded from Roth, so AGI is
+bit-identical). S3 on top: NW −$143,676.84, tax +$12,306.35. Net: NW **−$2,475.89**, tax
+**+$12,306.35** — a small net NW change masking two much larger opposing effects. Read the
+per-component figures above, not the net, if attributing a future number to this change.
+
+### Other suites this moved, both confirmed as consequences rather than defects
+
+- **`tests/test_synthetic_golden_master.py`** — 9 of 10 scenarios move; `single_filer` does not
+  (independent confirmation of the household-size gate). `early_survivor_compression` moves the
+  most (+$4.01M NW), which is expected — it is the scenario built to stress a long survivor
+  period, exactly where a previously-nonexistent survivor factor has maximal effect. Regenerated
+  alongside the two named pins.
+- **`tests/test_withdrawal_sequencing_comparison_regression.py::test_current_plan_is_the_lowest_tax_and_highest_terminal_of_the_four`**
+  — the `proportional` strategy now edges `current_plan` on terminal NW by ~0.88%
+  (1,486,978.06 vs 1,473,968.52); the lifetime-tax half of the assertion still holds. That test's
+  own fixture docstring already documents this comparison as fragile ("ranked against each other
+  by margins well under a percent, so a stale quote flips them"). Confirmed against the unmodified
+  engine (S1–S3 stashed, test rerun) that the comparison passes cleanly on `origin/main` — this
+  branch's change closed an already-thin, self-documented-fragile margin with real, substantial
+  engine changes, not noise. **Left unresolved and unmodified**: fixing the withdrawal-sequencing
+  engine is outside this branch's ownership, and a blind edit to code this change doesn't
+  understand is worse than leaving an honest, logged finding for separate review.
+
+### Verification
+
+`tests/test_survivor_spending_regression.py` — 16/16, including two guards mutation-tested red on
+a planted defect before being trusted (the market-value fix above, and the death step-up). Frozen
+and synthetic golden masters both green after regeneration. `input/` unmutated throughout.
+
 ## 2026-08-17 (b) — Sheet 3A stops crediting the liquidity buffer with mitigating sequence risk (P7, P3, P5)
 
 **What changed.** Three follow-ups from `documentation/reports/PLANNER_SIGNOFF_2026-08-17.md`. **No
