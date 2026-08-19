@@ -988,8 +988,10 @@ def schedule_feasibility(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]
 
     The per-year amount is `resolve_year_amount`'s, so the same precedence
     ladder decides what this function scores as the user's schedule decides.
-    Rows outside the true horizon are ignored (a stale CSV must not move the
-    deadline), and a row whose source is `'mode'` contributes nothing: that
+    Rows outside the true horizon are ignored entirely -- for their amount AND
+    for the `hsa_nw` they carry (a stale CSV must not move the deadline, and it
+    must not restate the balance either), and a row whose source is `'mode'`
+    contributes nothing: that
     tier means "no schedule-layer answer for this year", and reading its
     placeholder 0.0 as a real instruction would be the documented misuse.
     """
@@ -1019,9 +1021,22 @@ def schedule_feasibility(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]
     # only shows up in production. `_simulate_residual` reads its balance
     # through `_starting_balance` (i.e. `rows[0]`), so it is handed a synthetic
     # one-row projection carrying the balance found here.
+    #
+    # The scan applies the SAME `in_window` filter the amount loop above does,
+    # for the same documented reason: a stale row is stale for every column it
+    # carries, not just its amount. Without the filter a leftover row past the
+    # deadline could supply the balance purely by sorting ahead of the real
+    # one -- the same order-coupling this scan exists to remove, reintroduced
+    # through the horizon.
     balance = 0.0
     for row in rows or ():
         if not isinstance(row, Mapping):
+            continue
+        try:
+            year = int(row['year'])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if year not in in_window:
             continue
         value = _as_float(row.get('hsa_nw'), _ABSENT)
         if value is not None:
