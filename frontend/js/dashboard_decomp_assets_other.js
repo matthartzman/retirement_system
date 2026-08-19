@@ -321,6 +321,7 @@ export function renderAssetsSpecial() {
     }
     if (g === "HSA") {
       html += renderHsaPolicyOnOtherAssets(rs);
+      html += renderHsaSchedule();
       return;
     }
     if (g === "529 Plans") {
