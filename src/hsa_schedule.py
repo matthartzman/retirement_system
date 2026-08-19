@@ -208,7 +208,13 @@ def _clamp(year: int, plan_start: Optional[int], plan_end: Optional[int]) -> int
 # expensive joint one.
 _SINGLE_BRACKET_COMPRESSION_PREMIUM = 1.10
 
-_COMPRESSED_FILINGS = frozenset({'SINGLE', 'MFS'})
+# Filing statuses whose brackets are compressed relative to MFJ, upper-cased to
+# match `_filing`. HOH belongs here with Single: `survivor_filing_status` is
+# `Single | HOH` (reference_data/schema.csv) and the engine writes that value
+# straight into `row['filing']`, so leaving HOH out would silently switch the
+# survivor premium off for every plan that configures an HOH survivor -- which
+# is the whole economic rationale of the term.
+_COMPRESSED_FILINGS = frozenset({'SINGLE', 'MFS', 'HOH'})
 
 # Medicare enrollees the IRMAA surcharge is charged to, by filing status. The
 # surcharge is per beneficiary, which is why an MFJ crossing costs twice a
@@ -250,7 +256,25 @@ def score_year(c: Mapping[str, Any], row: Mapping[str, Any], amount: Any) -> flo
     (the Roth optimizer does exactly that inline). When it is absent the cliff
     term contributes nothing, which is the only honest reading of "no cliff
     information available": assuming a number would bias every real row toward
-    either always-crossing or never-crossing.
+    either always-crossing or never-crossing. A malformed value (non-numeric,
+    NaN, negative) is read the same way absence is, for the same reason.
+
+    **Known gap, owned by the caller (Task 10's schedule search).** The
+    carry-cost/discount term only discounts -- it does not credit the tax-free
+    compounding a dollar left in the HSA would earn by NOT being drawn this
+    year. So scoring one fixed `amount` across several years is not a
+    like-for-like comparison: the discount factor alone makes early years
+    dominate late survivor years even where the late year has the better tax
+    characteristics, because the deferred dollar's growth is never counted.
+    This signature is only coherent if the caller passes each candidate year's
+    actual grown draw amount rather than a constant nominal one. Scoring equal
+    nominal amounts across candidate years will systematically front-load the
+    schedule and fail the H3.5(a) rejection test (the optimizer must beat
+    `smooth_window` specifically by weighting survivor years). Measured: a
+    joint 2028 year at 22% scores ~1939.65 against a survivor 2048 year at 32%
+    plus the compression premium scoring ~880.75 for the SAME fixed amount --
+    a 2.2x gap in the wrong direction, and it only closes once realistic
+    compounding is applied to the later year's dollar.
 
     Every field is read defensively. A scoring function that raised on a
     malformed row would take down a whole projection over one diagnostic.
@@ -285,11 +309,18 @@ def _irmaa_cliff_value(row: Mapping[str, Any], amount: float) -> float:
     search sees a gradient toward the cliff instead of a flat plateau, and it
     decays fast enough (headroom 5x the draw is worth 4% of the step) that a
     year nowhere near a threshold cannot win on this term.
+
+    A missing, non-numeric, NaN or negative `irmaa_headroom` carries no cliff
+    information and contributes nothing, the same as absence. Only a genuine
+    0.0 means "at the edge" and buys the full step.
     """
-    headroom = row.get('irmaa_headroom')
-    if headroom is None:
+    # Absent, unparseable and negative headrooms are all the same statement --
+    # "no cliff information available" -- and all degrade to no cliff term. A
+    # malformed value must NOT land on 0.0, because 0.0 is a real signal here
+    # ("no room left, the next dollar crosses") that pays out the whole step.
+    headroom = _as_float(row.get('irmaa_headroom'), -1.0)
+    if headroom < 0.0:
         return 0.0
-    headroom = max(0.0, _as_float(headroom, 0.0))
 
     step = _next_tier_surcharge_step(row)
     if step <= 0.0:
@@ -307,11 +338,7 @@ def _next_tier_surcharge_step(row: Mapping[str, Any]) -> float:
     Zero at the top tier -- there is no next tier to cross.
     """
     filing = _filing(row)
-    try:
-        from .taxes import IRMAA_TIERS_BASE_YEAR
-    except ImportError:  # pragma: no cover - direct execution fallback
-        from src.taxes import IRMAA_TIERS_BASE_YEAR
-    tiers = IRMAA_TIERS_BASE_YEAR.get(filing) or IRMAA_TIERS_BASE_YEAR.get('MFJ') or []
+    tiers = _irmaa_tiers_for(filing)
     if not tiers:
         return 0.0
 
@@ -322,6 +349,26 @@ def _next_tier_surcharge_step(row: Mapping[str, Any]) -> float:
 
     enrollees = _IRMAA_ENROLLEES.get(filing, 1)
     return max(0.0, (_tier_annual(tiers, tier + 1) - _tier_annual(tiers, tier)) * enrollees)
+
+
+def _irmaa_tiers_for(filing: str) -> Sequence[Sequence[float]]:
+    """`IRMAA_TIERS_BASE_YEAR` rows for an upper-cased filing status.
+
+    The table's keys are mixed case ('Single', 'MFJ', 'MFS', 'HOH') while
+    `_filing` normalizes to upper case, so a direct `.get()` misses 'Single'
+    and quietly reads whatever the fallback names instead. Matching on the
+    table's own keys keeps the two conventions from having to agree, and an
+    unrecognized status still falls back to MFJ -- the conservative direction,
+    since MFJ is what an unlabeled row already defaults to.
+    """
+    try:
+        from .taxes import IRMAA_TIERS_BASE_YEAR
+    except ImportError:  # pragma: no cover - direct execution fallback
+        from src.taxes import IRMAA_TIERS_BASE_YEAR
+    for key, tiers in IRMAA_TIERS_BASE_YEAR.items():
+        if key.upper() == filing:
+            return tiers
+    return IRMAA_TIERS_BASE_YEAR.get('MFJ') or []
 
 
 def _tier_annual(tiers: Sequence[Sequence[float]], tier: int) -> float:
@@ -368,6 +415,9 @@ def _filing(row: Mapping[str, Any]) -> str:
     Defaulting to MFJ is the conservative direction here: it declines to award
     the survivor premium and declines to halve the IRMAA enrollee count, so an
     unlabeled row can never be flattered into looking like a survivor year.
+
+    Upper-cased, so every comparison against it must be too -- see
+    `_irmaa_tiers_for` for the table whose keys are not.
     """
     raw = row.get('filing')
     return ('' if raw is None else str(raw).strip().upper()) or 'MFJ'

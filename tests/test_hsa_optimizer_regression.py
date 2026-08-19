@@ -140,6 +140,37 @@ class ScoringTests(unittest.TestCase):
         single = {"year": 2040, "filing": "Single", "effective_marginal_rate": 0.32, "irmaa_tier": 0}
         self.assertGreater(score_year({}, single, 10_000.0), score_year({}, joint, 10_000.0))
 
+    def test_an_hoh_survivor_also_gets_the_compressed_bracket_premium(self):
+        """`survivor_filing_status` is `Single | HOH` (reference_data/schema.csv),
+        and the engine writes that value straight into `row['filing']`. HOH
+        brackets are compressed relative to MFJ for the same reason Single's
+        are, so an HOH survivor must out-score an MFJ year at the same rate."""
+        from src.hsa_schedule import score_year
+        joint = {"year": 2040, "filing": "MFJ", "effective_marginal_rate": 0.22, "irmaa_tier": 0}
+        hoh = {"year": 2040, "filing": "HOH", "effective_marginal_rate": 0.22, "irmaa_tier": 0}
+        self.assertGreater(score_year({}, hoh, 10_000.0), score_year({}, joint, 10_000.0))
+
+    def test_the_single_table_is_read_for_a_single_filer(self):
+        """The IRMAA table's keys are mixed case ('Single'), so an upper-cased
+        lookup misses and silently substitutes another filing status's rows."""
+        from src.hsa_schedule import _irmaa_tiers_for
+        from src.taxes import IRMAA_TIERS_BASE_YEAR
+        for raw, key in (("Single", "Single"), ("single", "Single"), ("MFS", "MFS"),
+                         ("HOH", "HOH"), ("MFJ", "MFJ")):
+            self.assertIs(_irmaa_tiers_for(raw.upper()), IRMAA_TIERS_BASE_YEAR[key])
+
+    def test_a_malformed_headroom_is_read_as_no_signal_not_as_zero_headroom(self):
+        """An unparseable headroom must degrade exactly the way `None` does --
+        contributing nothing -- rather than reading as 'zero room left, about
+        to cross' and paying out the whole surcharge step."""
+        from src.hsa_schedule import score_year
+        base = {"year": 2030, "effective_marginal_rate": 0.22, "irmaa_tier": 1}
+        absent = score_year({}, dict(base), 10_000.0)
+        for bad in ("abc", "", -5_000.0, float("nan")):
+            with self.subTest(headroom=bad):
+                row = dict(base, irmaa_headroom=bad)
+                self.assertEqual(score_year({}, row, 10_000.0), absent)
+
 
 if __name__ == "__main__":
     unittest.main()
