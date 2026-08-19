@@ -306,6 +306,11 @@ def run_deterministic_projection_stage(c):
     _survivor_spend_factor = min(1.0, max(0.0, _survivor_factor_input))
     _household_is_couple = int(c.get('household_size', len(c.get('members') or []) or 1)) > 1
 
+    # The second death is when the household ceases to exist. For a genuinely
+    # single-member plan data_io forces w_death_yr into the past, so max() is
+    # still that member's own death.
+    _second_death_yr = max(int(c['h_death_yr']), int(c['w_death_yr']))
+
     def _survivor_factor(n_alive):
         """1.0 unless exactly one member of a couple is still alive.
 
@@ -685,10 +690,21 @@ def run_deterministic_projection_stage(c):
         mort_bal_yr = c['mort_schedule'].get(year, 0.0)
         if year > c['mort_end'] or home_sold:
             mort_bal_yr = 0.0
-        if not home_sold and c.get('home_sale_yr') and year == c['home_sale_yr']:
+        # Estate disposition: the home is sold at the second death rather than
+        # carried by a household that no longer exists. Reuses the existing sale
+        # machinery below (mortgage payoff, selling costs, proceeds routing).
+        _estate_sale = (not home_sold) and year == _second_death_yr
+        if not home_sold and ((c.get('home_sale_yr') and year == c['home_sale_yr'])
+                              or _estate_sale):
             # ── Home sale year ────────────────────────────────────────────────
             # 1. Gross proceeds
-            gross_proceeds = c['home_sale_px'] if c['home_sale_px'] > 0 else home_val
+            # An estate sale is at MARKET value. home_sale_px is the user's assumed
+            # price for a specific planned downsizing; applying it to a later
+            # estate disposition would value the home at a stale figure -- on the
+            # frozen fixture that is 1,750,000 against a 3,282,605 market value,
+            # destroying 1.53M of estate value.
+            gross_proceeds = home_val if _estate_sale else (
+                c['home_sale_px'] if c['home_sale_px'] > 0 else home_val)
             # 2. Selling costs (realtor commission + closing)
             selling_costs = gross_proceeds * c['home_sell_cost_pct']
             # 3. Pay off remaining mortgage (from amortization schedule)
@@ -696,7 +712,9 @@ def run_deterministic_projection_stage(c):
             mort_bal_yr = 0.0  # mortgage retired at sale
             proceeds_after = max(0, gross_proceeds - selling_costs - mort_payoff)
             # 4. Capital gain: (gross - selling costs) - basis  [selling costs reduce gain]
-            basis = c.get('home_basis', 0) or c['home_val'] * 0.5
+            # Assets receive a basis step-up at death, so an estate sale in the
+            # year of the second death realizes no taxable gain.
+            basis = gross_proceeds if _estate_sale else (c.get('home_basis', 0) or c['home_val'] * 0.5)
             cap_gain = max(0, gross_proceeds - selling_costs - basis)
             # 5. §121 exclusion: $500k for MFJ, $250k otherwise. The filing
             # status is already switched to survivor_filing after the configured
@@ -1449,6 +1467,38 @@ def run_deterministic_projection_stage(c):
         # so it must be funded from the portfolio. Previously it was used only for
         # the SALT deduction and was missing here, understating cash need and
         # overstating net worth by the property-tax amount each year.
+        # ── Estate mode: nobody is alive ─────────────────────────────────
+        # Past the second death there are no living expenses of any kind. The
+        # plan used to keep charging core spending and housing indefinitely --
+        # and kept inflating them -- so a household that no longer existed
+        # accumulated an unfunded gap. Taxes on estate income still apply and
+        # are computed elsewhere; this zeroes CONSUMPTION only.
+        #
+        # Latent on a default horizon: plan_end == the second death year, so a
+        # normal plan has no both-dead rows for this to touch.
+        if n_alive == 0:
+            spend = rec_extra = lump_yr = 0.0
+            mort_yr = rent_yr = housing_operating_yr = re_tax_yr = 0.0
+            ltc_prem_yr = wellness_base_yr = wellness_shock_yr = 0.0
+            heloc_interest_yr = heloc_repayment_principal_yr = 0.0
+            business_expenses_yr = 0.0
+            row['home_improvement_yr'] = 0.0
+            row['spend_base_yr'] = 0.0
+            row['rec_extra'] = 0.0
+            row['lump'] = 0.0
+            row['ltc_prem_yr'] = 0.0
+            row['wellness_base_yr'] = 0.0
+            row['wellness_shock_yr'] = 0.0
+            row['business_expenses_yr'] = 0.0
+            row['mortgage_payment_yr'] = 0.0
+            row['rent_yr'] = 0.0
+            row['real_estate_tax_yr'] = 0.0
+            row['housing_operating_yr'] = 0.0
+            row['housing_utilities_yr'] = 0.0
+            row['housing_maintenance_yr'] = 0.0
+            row['housing_other_yr'] = 0.0
+            row['housing_total_yr'] = 0.0
+
         total_spend_need = (spend + rec_extra + lump_yr + mort_yr + row['home_improvement_yr']
                             + rent_yr + housing_operating_yr + re_tax_yr + ltc_prem_yr
                             + wellness_base_yr + wellness_shock_yr
@@ -1593,7 +1643,10 @@ def run_deterministic_projection_stage(c):
         # the credit, the extra net premium is included in spending before the
         # withdrawal cascade and is also exposed to the Roth optimizer metrics.
         aca_ptc_final = aca_premium_tax_credit(c, year=year, magi=irmaa_magi_current, bridge_people=bridge_people)
-        if abs(aca_ptc_final - aca_ptc_yr) > 1e-9:
+        # n_alive guard: the ACA recompute rebuilds wellness_base_yr and
+        # total_spend_need from premium components, which would resurrect
+        # spending the estate-mode block above just zeroed.
+        if n_alive > 0 and abs(aca_ptc_final - aca_ptc_yr) > 1e-9:
             aca_ptc_yr = aca_ptc_final
             bridge_premium_yr = max(0.0, bridge_premium_gross - aca_ptc_yr)
             wellness_premium_yr = bridge_premium_yr + partb_yr + partd_yr + partg_yr

@@ -27,9 +27,19 @@ Measured on the frozen fixture (`h_death_yr=2054`, `w_death_yr=2056`):
 - The home (`home_val` 3.9M by 2074) is never sold; `home_sale_net` stays 0 forever while the
   plan pays ~85k/yr to carry it.
 
-**Blast-radius note:** in a *default* plan `plan_end = max(h_death_yr, w_death_yr)`, so there are
-**no both-dead rows** and the post-death half of this defect is **latent**. The survivor half is
-live and does move client numbers.
+**Blast-radius note, corrected during implementation.** In a *default* plan
+`plan_end = max(h_death_yr, w_death_yr)` — the second death year itself — so there are **no
+both-dead rows**, and S2 (estate-mode spending) is genuinely **latent** on a default horizon.
+
+**S3 (the home sale) is NOT latent, and the plan was wrong to assume so.** The sale trigger is
+`year == second_death_yr`, and that year is *always* inside `plan_start..plan_end` by
+construction — it IS `plan_end`. So the home sale fires on every default-horizon plan, moving
+the golden master even before the horizon is ever extended. Measured on the frozen fixture:
+terminal NW moves an additional −143,676.84 beyond S1 alone (selling costs), lifetime tax
++12,306.35 (sale proceeds begin generating taxable investment income in a Trust account a year
+earlier than illiquid home equity would have). Both are the modeled reality of your "sell at
+second death" decision, not a defect — flagged here because it changes what S4 must regenerate
+and explain.
 
 ## Decisions (from the user, 2026-08-18)
 
@@ -127,6 +137,28 @@ spending directly rather than inferring it from the terminal figure.
 
 **Tests** (same file): post-death `home_val` goes to 0 and proceeds appear in the estate; carrying
 costs are 0; gain reflects the step-up.
+
+## Downstream gates S4 must also handle (found during S1-S3 implementation)
+
+Two suites beyond the two named pins moved when S1-S3 landed. Neither indicates a defect in
+this plan's work — both are documented as fragile-by-design in their own source, and this
+plan's change is a substantial, deliberate engine change, not noise.
+
+1. **`tests/test_synthetic_golden_master.py`** — 9 of 10 scenarios move, all upward (found
+   during S1; see S1's task section). A second golden-master-shaped gate the original plan
+   did not name. Must be regenerated alongside the two named pins.
+
+2. **`tests/test_withdrawal_sequencing_comparison_regression.py::test_current_plan_is_the_lowest_tax_and_highest_terminal_of_the_four`** — the `proportional` strategy now edges out
+   `current_plan` on terminal NW by ~0.88% (1,486,978.06 vs 1,473,968.52); the lifetime-tax
+   half of the assertion still holds. **The test's own docstring for `sample_config_and_rows`
+   already warns**: *"The strategies here are ranked against each other by margins well under
+   a percent, so a stale quote flips them."* Confirmed against origin/main with this branch's
+   changes stashed: the comparison passes cleanly on the unmodified engine, so S1-S3 genuinely
+   closed an already-thin margin rather than exposing a pre-existing flake. Left untouched —
+   fixing the withdrawal-sequencing engine itself is out of scope for a spending/mortality
+   change and risks a blind edit to code this plan does not own. S4 (or a human) must decide:
+   accept the new ranking and adjust the test's threshold/expectation, or treat it as a real
+   finding about the current-plan sequencing under reduced survivor spending.
 
 ## Task S4 — regenerate and document
 
