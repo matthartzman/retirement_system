@@ -27,22 +27,27 @@ its presence:
   stale provenance line (any date, any values) untouched -- the case a
   "does a comment exist" check would miss entirely.
 * `test_provenance_date_matches_changelog` -- the provenance line's date
-  must equal the newest changelog entry that *documents the current pin
-  values* -- i.e. the newest `## YYYY-MM-DD` entry whose body contains both
-  `PINNED_TERMINAL_NW` and `PINNED_LIFETIME_TAX` formatted as they appear in
-  the constants right now (`f"{value:,.2f}"`). Binding to the newest entry
-  that documents THESE values, rather than to `max()` over every dated
-  header in the changelog, is deliberate (fix round 1, Finding 1): the
-  changelog is used for golden-master-adjacent changes generally, not only
-  pin moves, and same-day/later unrelated entries are routine (see e.g. the
-  2026-08-17 (b)/(c)/(d) entries, which explicitly state the pins are
-  unchanged). Binding to `max(all dated headers)` meant the first unrelated
-  changelog entry added after this one would advance the required date with
-  no pin edit involved, and the only way to silence it would be bumping the
-  provenance date without a real justification -- recreating the exact
-  stale-provenance shape this gate exists to catch. If NO entry documents
-  the current pin values at all, that is a failure, not a vacuous pass --
-  see the "guards that cannot fail" project memory.
+  must equal the newest changelog entry that *records a pin regeneration of
+  these exact values*, identified by an explicit machine-readable marker:
+
+      <!-- pin-provenance: terminal_nw=<value> lifetime_tax=<value> -->
+
+  The marker, not prose, is the binding. Fix round 1 bound this to "any
+  dated entry whose body contains both formatted values somewhere", which
+  read as an improvement over `max(all dated headers)` but was not durable:
+  this changelog's established convention for UNRELATED changes is to
+  restate the current pins as unchanged-confirmation boilerplate -- "pins
+  stay at 5,824,239.30 / 1,290,848.91" appears that way at lines 3, 29, 90,
+  218 and 350 of the changelog, and the 2026-08-18 entry added by ticket 286
+  itself used that very phrasing. Under a substring rule, the next routine
+  entry following that convention would have become the newest "documenting"
+  entry and forced the provenance date to be bumped with no pin move -- the
+  same train-date-bumping-to-silence failure the substring rule was meant to
+  fix, merely deferred by one commit. An HTML comment cannot be produced
+  accidentally by prose, is invisible in rendered markdown, and is written
+  by `tools/regen_golden_master.py regen` as part of a real regeneration.
+  If NO entry carries a marker for the current pin values, that is a
+  failure, not a vacuous pass -- see the "guards that cannot fail" memory.
 
 Planted-defect verification for this file's own guard-that-cannot-fail risk,
 including the fix-round-1 cases (an unrelated newer changelog entry must NOT
@@ -57,6 +62,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PIN_FILE = ROOT / "tests" / "test_frozen_sample_plan_golden_master_regression.py"
 CHANGELOG_FILE = ROOT / "documentation" / "GOLDEN_MASTER_CHANGELOG.md"
+
+# Written by `tools/regen_golden_master.py regen`. Prose cannot satisfy this by
+# accident, which is the entire point -- see this module's docstring.
+PIN_PROVENANCE_MARKER_RE = re.compile(
+    r"<!--\s*pin-provenance:\s*terminal_nw=([0-9.]+)\s+lifetime_tax=([0-9.]+)\s*-->"
+)
 
 PROVENANCE_RE = re.compile(
     r"^# (?P<date>\d{4}-\d{2}-\d{2}): "
@@ -154,20 +165,32 @@ def test_provenance_date_matches_changelog():
     entries = _changelog_entries(changelog_text)
     assert entries, f"No dated '## YYYY-MM-DD' entries found in {CHANGELOG_FILE}."
 
-    documenting_dates = [
-        date for date, body in entries if nw_str in body and tax_str in body
-    ]
+    # Bind to the explicit marker, NOT to prose mentioning the values. This
+    # changelog routinely restates unchanged pins in entries about unrelated
+    # work; a substring rule would let those entries advance the required
+    # date with no pin move. Compare as floats so 5824239.3 and 5824239.30
+    # are the same value, while still rejecting a genuinely different number.
+    documenting_dates = []
+    for date, body in entries:
+        for m in PIN_PROVENANCE_MARKER_RE.finditer(body):
+            if float(m.group(1)) == actual_nw and float(m.group(2)) == actual_tax:
+                documenting_dates.append(date)
+                break
+
     assert documenting_dates, (
-        f"No entry in {CHANGELOG_FILE} documents the current pin values "
-        f"(PINNED_TERMINAL_NW={nw_str}, PINNED_LIFETIME_TAX={tax_str} -- checked for both "
-        "formatted values appearing together in a single dated entry's body). Every value "
-        f"the pins carry must be traceable to a changelog entry that states it. {HELP}"
+        f"No entry in {CHANGELOG_FILE} carries a pin-provenance marker for the current "
+        f"pins (terminal_nw={actual_nw:.2f}, lifetime_tax={actual_tax:.2f}). A real pin "
+        "regeneration writes\n"
+        f"    <!-- pin-provenance: terminal_nw={actual_nw:.2f} lifetime_tax={actual_tax:.2f} -->\n"
+        "into its dated entry. Prose restating the values does NOT count, deliberately: "
+        "this changelog states unchanged pins in entries about unrelated work, so prose "
+        f"cannot distinguish a regeneration from a passing mention. {HELP}"
     )
     newest_documenting_date = max(documenting_dates)
 
     assert provenance["date"] == newest_documenting_date, (
         f"Provenance date ({provenance['date']}) does not match the newest changelog entry "
-        f"that documents the current pin values ({newest_documenting_date}) in "
-        f"{CHANGELOG_FILE}. Every pin move needs a changelog entry, dated the same day as the "
-        f"pin file's provenance line, that states the new values. {HELP}"
+        f"carrying a pin-provenance marker for these values ({newest_documenting_date}) in "
+        f"{CHANGELOG_FILE}. Every pin move needs a dated changelog entry, same day as the "
+        f"pin file's provenance line, whose marker states the new values. {HELP}"
     )
