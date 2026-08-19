@@ -255,5 +255,6 @@ class OverridePresenceParsingTests(unittest.TestCase):
             amt, _ = resolve_year_amount(row)
             self.assertIsInstance(amt, float, msg="row=%r" % (row,))
 
+
 if __name__ == "__main__":
     unittest.main()
