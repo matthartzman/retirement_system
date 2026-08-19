@@ -61,7 +61,6 @@
     "focusYtdAccountMoney",
     "focusableEntries",
     "getStrategyTab",
-    "goToStrategyTab",
     "groupModelData",
     "helpList",
     "hideSpendingModelLoadOverlay",

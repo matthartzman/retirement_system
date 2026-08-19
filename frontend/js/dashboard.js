@@ -813,7 +813,15 @@ let budgetLines = [],
   groupBudgetMode = {};
 let ytdDuplicateGroups = null,
   ytdDuplicateSelected = new Set();
-const YTD_TX_PAGE_SIZE = 500;
+// Ticket 290: measured at 3000 transactions (a realistic full-year history),
+// a 500-row page produced ~5,000 form-control DOM nodes for the transaction
+// table alone (each row renders ~10 <input>/<select> elements, not plain
+// text cells) and was a real, multi-second contributor to the renderMain()
+// that builds this page. Lowered to 100 -- still several screens of rows
+// before a planner needs "Next", and a direct, proportional cut to the
+// dominant cost this ticket's own measurement identified, using pagination
+// machinery that already existed rather than adding new code.
+const YTD_TX_PAGE_SIZE = 100;
 let detailedResultsData = null,
   detailedResultSheets = {},
   detailedResultsLoading = false,
@@ -3904,22 +3912,10 @@ function setStrategyTab(step, tab) {
   } catch (_e) {}
   renderMain();
 }
-// Jump to a strategy workspace tab from the left nav. Persists the tab first,
-// then routes through setStep so the plan-loaded navigation guard applies (the
-// strategy workspace requires a loaded plan, unlike the plan-independent
-// Reports workspace).
-function goToStrategyTab(step, tab) {
-  const tabs = STRATEGY_TABS[step] || [];
-  const next = tabs.includes(tab) ? tab : tabs[0] || "";
-  try {
-    localStorage.setItem(strategyTabKey(step), next);
-  } catch (_e) {}
-  setStep(step);
-  // #269: surface the YTD-load progress overlay instead of silently waiting.
-  if (step === "spending_core" && next === "Actual Spending (YTD)") {
-    loadYtdStatus(false).then(renderMain);
-  }
-}
+// goToStrategyTab moved to dashboard_decomp_row_model.js (ticket 290, to fit
+// the size ratchet after its overlay-ordering fix) -- it is still reachable
+// as a bare global via that file's own window bridge, matching every other
+// cross-module onclick target in this codebase.
 // Ticket 286: the sub-nav is gone. Its four tabs were alternate routes into
 // steps that already existed at top level, so every one of them appeared twice
 // in the left nav. Withdrawal Order moved to the Spending workspace; Roth
@@ -7464,7 +7460,7 @@ Object.assign(window, {
   expandAllDetailGroups, fetchWithTimeout, fieldAllowedValues, fieldConnection, fieldDefaultMeaning,
   fieldFinderCategoryName, fieldFinderCategoryOrder, fieldLabelNoteHtml, fieldLikelyImpact,
   fieldSizeClass, fieldTooltipHtml, fieldTooltipPreview, filterChoiceOptionsForRow, finiteOrNull,
-  focusYtdAccountMoney, focusableEntries, getStrategyTab, goToStrategyTab, groupModelData, helpList,
+  focusYtdAccountMoney, focusableEntries, getStrategyTab, groupModelData, helpList,
   hideSpendingModelLoadOverlay, hideUnusedTemplateCategories, hideYtdLoadOverlay, humanizeGroupKey,
   leverPctPoints, loadCanonicalGlossary, loadDetailedResults, makeYtdAccountRow,
   mergeDetailedSheetMeta, moneyNegativeClass, moveToNextEntry, normalizePlanningCaseRunType,
