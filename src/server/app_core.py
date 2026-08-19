@@ -552,6 +552,14 @@ def _blank_liabilities_csv(content: str) -> str:
     return out.getvalue()
 
 
+def _blank_hsa_schedule_csv(content: str) -> str:
+    rows = list(csv.reader(io.StringIO(content or "")))
+    header = rows[0] if rows else ["year", "optimizer_amount", "override_amount", "locked", "note"]
+    out = io.StringIO()
+    csv.writer(out, lineterminator="\n").writerow(header)
+    return out.getvalue()
+
+
 def _make_blank_plan_files() -> dict[str, str]:
     """Create a blank-client-data Plan Data set from packaged templates."""
     source_dir = WORKSPACE_ROOT / "input"
@@ -569,6 +577,8 @@ def _make_blank_plan_files() -> dict[str, str]:
             text = _blank_holdings_csv(text)
         elif name == "client_liabilities.csv":
             text = _blank_liabilities_csv(text)
+        elif name == "client_hsa_schedule.csv":
+            text = _blank_hsa_schedule_csv(text)
         files[name] = text
     return files
 
