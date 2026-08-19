@@ -175,6 +175,26 @@ def test_a_failed_sweep_does_not_stamp_the_version(tmp_path, monkeypatch):
     assert "husband_name" in _snapshot(db, "a")["Household"][""], (
         "rows changed despite the sweep failing"
     )
+    # Final-review finding (2026-08-19): a failed sweep used to be silently
+    # indistinguishable from "nothing needed migrating" -- same report shape,
+    # no way to tell the two apart from the return value. That is what let a
+    # persistently-failing sweep retry forever with nothing visible saying so.
+    assert "error" in report, "a failed sweep must be reported, not silently indistinguishable from success"
+    assert "simulated DB failure mid-sweep" in report["error"]
+
+
+def test_successful_sweep_reports_no_error_key(tmp_path):
+    """The 'error' key's absence, not a falsy value, is the success signal --
+    report.get("error") must be the only check a caller needs."""
+    import src.local_store as local_store
+    from src.plan_data_migration import migrate_plan_data_at_rest
+
+    db = tmp_path / "s.sqlite"
+    _seed_snapshots(db, [("a", "2026-01-01T00:00:00Z", _legacy())])
+
+    report = migrate_plan_data_at_rest(_empty_input(tmp_path), db_path=db)
+
+    assert "error" not in report
 
 
 def test_partial_sweep_rolls_back_rather_than_half_migrating(tmp_path):

@@ -139,6 +139,11 @@ def main() -> int:
     _migration = run_startup_plan_data_migration()
     if _migration["total_changed"]:
         print(f"Plan Data migrated at rest: {_migration['migrated']}")
+    if _migration.get("error"):
+        # DB snapshots stayed unmigrated this boot; CSVs (if any changed above)
+        # did not. The version is deliberately left unstamped so this retries
+        # on next boot -- see migrate_plan_data_at_rest's own comment.
+        print(f"WARNING: Plan Data DB-snapshot migration failed and will retry next boot: {_migration['error']}")
 
     if args.mode == "server":
         return _run_server()

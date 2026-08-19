@@ -303,9 +303,12 @@ def migrate_plan_data_at_rest(input_dir, db_path=None, dry_run: bool = False) ->
     """Migrate every sectioned Plan Data CSV, AND every DB snapshot, once, in place.
 
     Returns ``{"migrated": {name: changed}, "total_changed": int, "skipped": bool,
-    "snapshots": int}``. ``total_changed`` is the sum of CSV field changes and
-    migrated snapshot rows, so existing callers that only look at
-    ``total_changed`` (e.g. ``main.py``'s startup log) keep working unmodified.
+    "snapshots": int}``, plus an ``"error"`` key (str) ONLY when the DB
+    snapshot sweep raised -- absent on every successful call, so
+    ``report.get("error")`` is the check. ``total_changed`` is the sum of CSV
+    field changes and migrated snapshot rows, so existing callers that only
+    look at ``total_changed`` (e.g. ``main.py``'s startup log) keep working
+    unmodified.
 
     Only files that actually change are rewritten, so untouched files keep their
     mtime and their plan_data_manifest.json hash -- otherwise a migration that
@@ -364,12 +367,24 @@ def migrate_plan_data_at_rest(input_dir, db_path=None, dry_run: bool = False) ->
         snapshot_changed = rewrite_sectioned_snapshots(
             migrate_sectioned_data, db_path=db_path, dry_run=dry_run,
         )
-    except Exception:
+    except Exception as exc:
         # Degrade exactly like an at-boot failure must: never stamp the version
         # over a sweep that did not finish, so the next boot retries everything
         # (CSVs already migrated are idempotent no-ops; the DB is untouched
         # because rewrite_sectioned_snapshots rolled back its own transaction).
-        return {"migrated": migrated, "total_changed": total, "skipped": False, "snapshots": 0}
+        #
+        # Final-review finding (2026-08-19): this used to swallow the failure
+        # entirely -- no log, no error field -- so a persistently-failing
+        # sweep (e.g. one malformed sectioned_json row) would retry and fail
+        # silently on every boot forever, with CSVs at the new schema version
+        # and DB snapshots stuck at the old one, and nothing visible saying
+        # so. The caller (run_startup_plan_data_migration / main.py) still
+        # must not raise -- a bad DB row must not stop the server booting --
+        # but "don't raise" is not the same as "don't report."
+        return {
+            "migrated": migrated, "total_changed": total, "skipped": False,
+            "snapshots": 0, "error": f"{type(exc).__name__}: {exc}",
+        }
 
     total += snapshot_changed
     if not dry_run:
