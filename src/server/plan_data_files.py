@@ -24,6 +24,7 @@ PLAN_DATA_CSV_FILES = [
     *CLIENT_DATA_CSV_FILES,
     "client_holdings.csv",
     "client_liabilities.csv",
+    "client_hsa_schedule.csv",
     "target_allocation.csv",
     "client_spending_taxonomy.csv",
     "client_spending_aliases.csv",
