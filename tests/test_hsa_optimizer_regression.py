@@ -84,7 +84,7 @@ OVERSIZED_C = dict(FEASIBLE_C, hsa_min_ending_balance=250_000.0)
 #    anti-back-loading rather than one the discount factor wins by itself.
 #    Verified: with the terminal-tax term neutralized, the search puts 58% of
 #    the balance in the final three years; with it live, 38%.
-# 3. The members are old enough (86 and 84 at plan start) that the second death
+# 3. The members are old enough (90 and 88 at plan start) that the second death
 #    has real probability mass inside the window -- the residual term is an
 #    expectation over that mass, and a young couple would make it negligible
 #    for reasons that have nothing to do with whether the term is correct.
