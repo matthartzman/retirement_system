@@ -414,6 +414,14 @@ def build_hsa_schedule_section(ws, c, rows, r):
     anywhere else would let a reader adopt one and not the other, which is the
     single misreading that makes both wrong.
     """
+    # NOTE (2026-08-19): 'optimize' is not yet a value data_io.py will accept --
+    # it coerces anything outside spend_as_needed/annual_pct/smooth_window back
+    # to spend_as_needed, so this branch is currently unreachable from real
+    # plan data. Admitting it in data_io is a deliberately separate, engine-
+    # level task: planning_engines.py's withdraw_hsa_window has no 'optimize'
+    # case either, and an admitted value would silently fall through to the
+    # smooth_window branch there today -- wrong semantics, not just inert.
+    # See the Task 15 entry in .superpowers/sdd/progress.md.
     if str(c.get('hsa_withdrawal_mode') or '').strip().lower() != 'optimize':
         return r
 
