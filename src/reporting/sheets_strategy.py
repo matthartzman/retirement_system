@@ -34,6 +34,36 @@ def build_sheet9(ws, c, rows):
     ws.sheet_view.showGridLines = False
     section_title(ws, 1, 'RETIREMENT STRATEGY & INVESTMENT POLICY STATEMENT', 8)
 
+    # Item 291 Class 5/6: the key-risks row below was hardcoded 'Illinois
+    # Residency' / '$4M IL exemption' regardless of the household's actual
+    # resident state. Dispatched through the same state_estate_tax() used by
+    # Sheet 14 (Class 2) so this summary agrees with the detailed section
+    # rather than presenting a different picture of the same mechanism.
+    _resident_state = str(c.get('state', '') or '')
+    try:
+        _state_exempt = max(0.0, float(c.get('il_exempt', 0.0) or 0.0)) or None
+    except (TypeError, ValueError):
+        _state_exempt = None
+    _est_tax, _est_status = state_estate_tax(_resident_state, 1.0, _state_exempt)
+    if _est_status == 'computed':
+        _residency_label = f'{_resident_state} Residency'
+        _residency_note = (
+            f'Estate exposure above the ${_state_exempt/1e6:,.1f}M {_resident_state} exemption; '
+            'see Sheet 13 & 14' if _state_exempt else 'See Sheet 13 & 14'
+        )
+    elif _est_status == 'not_modeled':
+        _residency_label = f'{_resident_state} Residency'
+        _residency_note = (
+            f'{_resident_state} levies a state estate tax this engine does not yet compute '
+            '(see Sheet 14) — consult a local estate attorney for actual exposure.'
+        )
+    else:
+        _residency_label = f'{_resident_state} Residency' if _resident_state else 'State Residency'
+        _residency_note = (
+            f'{_resident_state} does not levy a state estate tax.' if _resident_state
+            else 'Residence state not set.'
+        )
+
     content = [
         ('WITHDRAWAL SEQUENCE STRATEGY', [
             ('Phase 1: Pre-SS / Pre-RMD',
@@ -62,7 +92,7 @@ def build_sheet9(ws, c, rows):
             ('Long-Term Care', 'LTC stress test on Sheet 17; no LTC policy in force — consider hybrid life/LTC'),
             ('Premature Death', 'Survivor analysis on Sheet 18; joint annuities continue at 100% J&S'),
             ('Inflation Regime', 'Base case 2.5%; stress test at 4.5% on Sheet 16'),
-            ('Illinois Residency', 'Estate exposure above $4M IL exemption; see Sheet 13 & 14'),
+            (_residency_label, _residency_note),
             ('Concentrated/Illiquid Holdings',
              'Startup equity $66K at 2%/yr — illiquid; annuity death benefits decline to $0 by 2042'),
         ]),
@@ -101,7 +131,7 @@ def build_sheet9(ws, c, rows):
         ('QBI Deduction',               '20% of W-2 wages + allocable basis',       '20% of net income (simpler)'),
         ('Reasonable Compensation',     f'Required (${salary:,.0f} set in CSV)',     'Not applicable'),
         ('Administrative Cost',         '$1,500–$3,000/yr (payroll, returns)',       '$200–$500/yr (simpler)'),
-        ('Illinois Corp Surcharge',     f'{c.get("scorp_state_rate",0.015):.1%} on taxable income', 'None'),
+        (f'{_resident_state or "State"} Corp Surcharge', f'{c.get("scorp_state_rate",0.015):.1%} on taxable income', 'None'),
         ('SEHI Deduction',              'Added to W-2 box 1; deducted via Sch 1',   'Deducted directly on Sch 1'),
         ('Retirement Contributions',    'Up to $70K total (employer + employee)',    'Same cap'),
         ('Audit Risk',                  'Moderate (reasonable salary scrutiny)',     'Higher SE income triggers'),
@@ -131,7 +161,7 @@ def build_sheet9(ws, c, rows):
     note = (f'At ${gross:,.0f} gross income with ${salary:,.0f} reasonable salary, '
             f'the S-Corp saves approximately ${se_tax_savings:,.0f} in payroll taxes '
             f'less ~$2,500 in administrative overhead = net ${max(0,se_tax_savings-2500):,.0f}/yr benefit. '
-            f'Illinois {c.get("scorp_state_rate",0.015):.1%} corporate surcharge applies on distributable income. '
+            f'{_resident_state or "The configured state"} {c.get("scorp_state_rate",0.015):.1%} corporate surcharge applies on distributable income. '
             'Annuity PV/reserve figures elsewhere in the workbook are calibration-dependent and should be refreshed against current carrier illustrations before sale/replacement decisions.')
     write_cell(ws, r, 1, note, bg='F4F5F7', align='left')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)

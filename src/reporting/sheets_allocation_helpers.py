@@ -175,16 +175,32 @@ def _trade_tax_rates(c):
     ordinary = min(max(ordinary, 0.12), 0.37)
     ltcg = _safe_float(c.get('rebalance_ltcg_rate', 0.15), 0.15)
     ltcg = min(max(ltcg, 0.0), 0.20)
+    # Item 291 Class 5. Was three layers of dead code, not one: (1) `_td`
+    # here is the `taxes` module (imported from .workbook_common) -- but
+    # STATE_TAX_RULES is never defined IN taxes.py, only computed as a
+    # module-level variable in core.py (`STATE_TAX_RULES = _td.load_state_tax([])`),
+    # so `getattr(_td, 'STATE_TAX_RULES', {})` always returned the `{}`
+    # default, unconditionally, for every state; (2) `state_key` was
+    # uppercased ("ILLINOIS") against proper-case keys ("Illinois") even if
+    # `rules` had ever been non-empty; (3) the fallback compared against the
+    # 2-letter code 'IL', but c['state'] stores the full name, so it also
+    # never matched. `state` was therefore silently 0.0 for every state,
+    # Illinois included, regardless of the household's real marginal state
+    # rate. This function only feeds the Asset Allocation sheet's taxable-
+    # sale recommendation helper (_estimate_taxable_sale) -- not the
+    # deterministic/MC projection engine -- so fixing this carries no
+    # golden-master risk. load_state_tax([]) is the exact mechanism core.py
+    # itself uses to build STATE_TAX_RULES (see core.py's own module-level
+    # assignment) -- called directly here rather than importing core to
+    # avoid coupling this reporting helper to core's full import surface.
     state = 0.0
     try:
-        state_key = str(c.get('state', '') or '').strip().upper()
-        rules = getattr(_td, 'STATE_TAX_RULES', {}) or {}
+        state_key = str(c.get('state', '') or '').strip()
+        rules = _td.load_state_tax([]) or {}
         if state_key in rules:
             state = _safe_float(rules.get(state_key, {}).get('rate', 0.0), 0.0)
     except Exception:
         state = 0.0
-    if not state and str(c.get('state', '') or '').strip().upper() == 'IL':
-        state = 0.0495
     niit = 0.038 if bool(c.get('model_niit', True)) else 0.0
     return {
         'ordinary': ordinary,
