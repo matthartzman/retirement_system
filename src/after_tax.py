@@ -452,7 +452,9 @@ def estimate_terminal_taxable_deferred_cap_gain_tax(c: Mapping[str, Any], termin
 
     state_tax = 0.0
     if retained_gain > 0:
-        state = str(c.get("state", "Illinois") or "Illinois")
+        # c["state"] is guaranteed set and supported by require_residence_state_for_build()
+        # (item 291) by the time a real build reaches here; no Illinois fallback needed.
+        state = str(c.get("state", "") or "")
         age_over_65 = True
         state_tax = state_income_tax(
             state,

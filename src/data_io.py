@@ -66,7 +66,7 @@ from .plan_config import ensure_engine_config
 from . import core as _ar  # consolidated from account_registry
 from . import optimization as _ao  # consolidated from allocation_optimizer
 from . import allocation_policy as _ap
-from .core import ASSET_CLASS_RETURNS, TAX_BASE_YEAR, statutory_rmd_start_age  # consolidated from engine_core
+from .core import ASSET_CLASS_RETURNS, TAX_BASE_YEAR, statutory_rmd_start_age, require_residence_state_for_build  # consolidated from engine_core
 from .market_data import PRICE_CACHE, fetch_price, prewarm_prices, set_fallback_prices, set_frozen_prices, configure_holdings_pricing, configure_api_keys  # consolidated from market_data_providers
 from .workspace_context import candidate_input_files, active_workspace_id
 from .roth_ui_build_guard import normalize_roth_policy, normalize_irmaa_guardrail_mode, percent_to_float, is_explicit_user_roth_policy, strategy_for_roth_policy
@@ -694,7 +694,8 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['w_mort_age']= _n(_v(data,'Household','','member_2_mortality_age','95'), 95)
     c['h_death_yr']= int(c['h_dob_yr'] + c['h_mort_age'])
     c['w_death_yr']= int(c['w_dob_yr'] + c['w_mort_age'])
-    c['state']     = _v(data,'Household','','residence_state','Illinois')
+    c['state']     = _v(data,'Household','','residence_state','')
+    require_residence_state_for_build(c['state'])
     c['trust_type']= _v(data,'Estate Planning','Trust Structure','trust_type','revocable living trust')
 
     # Market pricing settings live in multi_user/system_config.csv and are merged by the active config loader.
@@ -2559,7 +2560,8 @@ def build_plan_from_json(plan, url_template=''):
     filing = plan.get('filing_status', 'MFJ' if c['household_size'] > 1 else 'Single')
     c['filing_status']  = filing if filing in _td.FILING_STATUSES else ('MFJ' if c['household_size'] > 1 else 'Single')
     c['survivor_filing'] = plan.get('survivor_filing_status', 'Single')
-    c['state']          = plan.get('state', 'Illinois')
+    c['state']          = plan.get('state', '')
+    require_residence_state_for_build(c['state'])
     c['trust_type']     = 'revocable living trust'
 
     # ── Timeline ──────────────────────────────────────────────────────────
