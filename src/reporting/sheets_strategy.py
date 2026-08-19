@@ -15,13 +15,13 @@ from .workbook_common import (
     WHITE,
     col_factors,
     get_column_letter,
-    illinois_estate_tax,
     indexed_federal_estate_exemption,
     marginal_rate,
     qc,
     salt_cap,
     section_title,
     standard_deduction,
+    state_estate_tax,
     state_income_tax,
     supported_states,
     write_cell,
@@ -33,6 +33,36 @@ def build_sheet9(ws, c, rows):
     """Retirement Strategy"""
     ws.sheet_view.showGridLines = False
     section_title(ws, 1, 'RETIREMENT STRATEGY & INVESTMENT POLICY STATEMENT', 8)
+
+    # Item 291 Class 5/6: the key-risks row below was hardcoded 'Illinois
+    # Residency' / '$4M IL exemption' regardless of the household's actual
+    # resident state. Dispatched through the same state_estate_tax() used by
+    # Sheet 14 (Class 2) so this summary agrees with the detailed section
+    # rather than presenting a different picture of the same mechanism.
+    _resident_state = str(c.get('state', '') or '')
+    try:
+        _state_exempt = max(0.0, float(c.get('il_exempt', 0.0) or 0.0)) or None
+    except (TypeError, ValueError):
+        _state_exempt = None
+    _est_tax, _est_status = state_estate_tax(_resident_state, 1.0, _state_exempt)
+    if _est_status == 'computed':
+        _residency_label = f'{_resident_state} Residency'
+        _residency_note = (
+            f'Estate exposure above the ${_state_exempt/1e6:,.1f}M {_resident_state} exemption; '
+            'see Sheet 13 & 14' if _state_exempt else 'See Sheet 13 & 14'
+        )
+    elif _est_status == 'not_modeled':
+        _residency_label = f'{_resident_state} Residency'
+        _residency_note = (
+            f'{_resident_state} levies a state estate tax this engine does not yet compute '
+            '(see Sheet 14) — consult a local estate attorney for actual exposure.'
+        )
+    else:
+        _residency_label = f'{_resident_state} Residency' if _resident_state else 'State Residency'
+        _residency_note = (
+            f'{_resident_state} does not levy a state estate tax.' if _resident_state
+            else 'Residence state not set.'
+        )
 
     content = [
         ('WITHDRAWAL SEQUENCE STRATEGY', [
@@ -62,7 +92,7 @@ def build_sheet9(ws, c, rows):
             ('Long-Term Care', 'LTC stress test on Sheet 17; no LTC policy in force — consider hybrid life/LTC'),
             ('Premature Death', 'Survivor analysis on Sheet 18; joint annuities continue at 100% J&S'),
             ('Inflation Regime', 'Base case 2.5%; stress test at 4.5% on Sheet 16'),
-            ('Illinois Residency', 'Estate exposure above $4M IL exemption; see Sheet 13 & 14'),
+            (_residency_label, _residency_note),
             ('Concentrated/Illiquid Holdings',
              'Startup equity $66K at 2%/yr — illiquid; annuity death benefits decline to $0 by 2042'),
         ]),
@@ -101,7 +131,7 @@ def build_sheet9(ws, c, rows):
         ('QBI Deduction',               '20% of W-2 wages + allocable basis',       '20% of net income (simpler)'),
         ('Reasonable Compensation',     f'Required (${salary:,.0f} set in CSV)',     'Not applicable'),
         ('Administrative Cost',         '$1,500–$3,000/yr (payroll, returns)',       '$200–$500/yr (simpler)'),
-        ('Illinois Corp Surcharge',     f'{c.get("scorp_state_rate",0.015):.1%} on taxable income', 'None'),
+        (f'{_resident_state or "State"} Corp Surcharge', f'{c.get("scorp_state_rate",0.015):.1%} on taxable income', 'None'),
         ('SEHI Deduction',              'Added to W-2 box 1; deducted via Sch 1',   'Deducted directly on Sch 1'),
         ('Retirement Contributions',    'Up to $70K total (employer + employee)',    'Same cap'),
         ('Audit Risk',                  'Moderate (reasonable salary scrutiny)',     'Higher SE income triggers'),
@@ -131,7 +161,7 @@ def build_sheet9(ws, c, rows):
     note = (f'At ${gross:,.0f} gross income with ${salary:,.0f} reasonable salary, '
             f'the S-Corp saves approximately ${se_tax_savings:,.0f} in payroll taxes '
             f'less ~$2,500 in administrative overhead = net ${max(0,se_tax_savings-2500):,.0f}/yr benefit. '
-            f'Illinois {c.get("scorp_state_rate",0.015):.1%} corporate surcharge applies on distributable income. '
+            f'{_resident_state or "The configured state"} {c.get("scorp_state_rate",0.015):.1%} corporate surcharge applies on distributable income. '
             'Annuity PV/reserve figures elsewhere in the workbook are calibration-dependent and should be refreshed against current carrier illustrations before sale/replacement decisions.')
     write_cell(ws, r, 1, note, bg='F4F5F7', align='left')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
@@ -706,6 +736,28 @@ def build_sheet11(ws, c, rows):
         f'Current configurable headroom defaults: tax bracket {float(c.get("roth_headroom_usage_pct",0.95)):.0%}, IRMAA {float(c.get("roth_irmaa_headroom_usage_pct",0.95)):.0%}, annual IRA percentage cap {float(c.get("roth_max_annual_conversion_pct_of_traditional_ira",0.20)):.0%}.',
         f'Current explicit conversion-window cap: {int(c.get("roth_max_conversion_years",10))} year(s), also bounded by the RMD-age window.',
     ]
+    # Ticket 289: disclose two levers the Roth Conversion Modeling Guide names
+    # but this engine does not implement. Gated on the ABSENCE of a plan-data
+    # key that would exist once either feature ships, so building the lever
+    # removes its own disclosure automatically -- a stale "not modeled" note
+    # claiming a shipped feature doesn't exist is worse than none.
+    if not c.get('roth_conversion_tax_source'):
+        notes.append(
+            'This model computes the conversion tax cost and applies it, but does not choose HOW '
+            'the tax is paid -- there is no "pay from taxable cash" vs. "withhold from the IRA" '
+            'lever. The engine applies the same tax mechanics regardless of source; whichever '
+            'account the household actually draws from to cover the tax is a decision made outside '
+            'this model.'
+        )
+    if not c.get('roth_conversion_asset_location_aware'):
+        notes.append(
+            'Conversions are sized in dollars, not by which holdings inside the IRA get converted -- '
+            "there is no asset-location-aware selection that would prefer converting the highest-"
+            'expected-growth sleeve first. Separately, this workbook\'s Monte Carlo models account '
+            'LOCATION (which tax bucket a dollar sits in), not in-account sleeve variance, so even a '
+            'sleeve-aware conversion would not be expected to move the success rate shown elsewhere '
+            'in this workbook.'
+        )
     for note in notes:
         write_cell(ws, r, 1, '• ' + note, align='left')
         ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=len(hdrs))
@@ -835,7 +887,9 @@ def build_sheet12(ws, c, rows):
         est_agi_base     = c.get('earned', 290000) * 0.9   # rough net of SE deductions
         filing_base      = 'MFJ'
         n65_base         = 0
-        _state_rules     = STATE_TAX_RULES.get(c.get('state'), STATE_TAX_RULES.get('Illinois', {}))
+        # c['state'] is guaranteed set and supported by require_residence_state_for_build()
+        # (item 291) by the time a real build reaches here; no Illinois fallback needed.
+        _state_rules     = STATE_TAX_RULES.get(c.get('state'), {})
         salt_gross_base  = est_agi_base * _state_rules.get('rate', 0.0495)
         mort_int_base    = 0.0
         senior_bonus_base = 0.0
@@ -1230,11 +1284,26 @@ def build_sheet13(ws, c, rows):
     # "Geographic Cost-of-Living Delta" table below it comparing exactly one
     # target state. Merged here into a single Tax and Expenses table so every
     # state gets both its tax burden AND its estimated auto/home-insurance/
-    # utilities/maintenance delta in one place. The cost-of-living factors
-    # (STATE_COL_FACTORS / col_factors()) are indexed with Illinois = 1.00 for
-    # every category, so Illinois is the fixed basis those deltas are computed
-    # from regardless of which state the household currently lives in.
-    current_state = c.get('state', 'Illinois')
+    # utilities/maintenance delta in one place.
+    #
+    # Item 291 (Class 3): the DELTA shown to the reader is computed relative
+    # to the household's own state (tgt_col[key] / cur_col[key] below) --
+    # that part was already correct before this pass, regardless of which
+    # state the raw STATE_COL_FACTORS table happens to use as its internal
+    # basis. What was wrong was the DISCLOSURE text, which said "indexed to
+    # Illinois = 1.00" unconditionally -- true of the underlying table, but
+    # confusing/alienating framing for a non-Illinois household reading a
+    # number that IS already relative to their own state. The prose below
+    # states the comparison directly (vs. the household's own state) AND
+    # discloses that the underlying factor table is Illinois-derived --
+    # dropping the disclosure would relabel an Illinois-derived index as
+    # neutral, which is the same defect this ticket removes elsewhere.
+    # Follow-up recommended (out of scope here per the brief -- sourcing a
+    # properly independent regional cost index is its own project, not a
+    # line item inside a de-hardcoding pass): once STATE_COL_FACTORS is
+    # replaced with real, non-Illinois-anchored data, this disclosure
+    # sentence can be dropped.
+    current_state = c.get('state', '')
     _abbr = {
         'IL': 'Illinois', 'IN': 'Indiana', 'FL': 'Florida', 'TX': 'Texas',
         'TN': 'Tennessee', 'NC': 'North Carolina', 'AZ': 'Arizona',
@@ -1247,8 +1316,10 @@ def build_sheet13(ws, c, rows):
             if name.lower() == key.lower() or key.lower() in name.lower():
                 return key
         return _abbr.get(name.strip().upper())
-    cur_key = _resolve_state(current_state) or 'Illinois'
-    cur_col = col_factors(cur_key, STATE_TAX_RULES.get(cur_key))
+    cur_key = _resolve_state(current_state)
+    cur_col = col_factors(cur_key, STATE_TAX_RULES.get(cur_key)) if cur_key else {
+        'auto': 1.0, 'home_ins': 1.0, 'utilities': 1.0, 'maintenance': 1.0,
+    }
     expense_baselines = {
         'auto': c.get('current_auto_insurance_annual', 0),
         'home_ins': c.get('current_homeowners_insurance_annual', 0),
@@ -1257,13 +1328,18 @@ def build_sheet13(ws, c, rows):
     }
 
     write_hdr(ws, r, 1, 'Lifetime Tax and Expenses by State', NAVY, WHITE, span=14); r += 1
+    _cur_label = cur_key or (current_state or 'your current state')
     write_cell(ws, r, 1,
         f'Tax columns are lifetime totals over the {yrs}-year plan horizon. Expense delta '
         f'columns estimate the ANNUAL change in auto/homeowners insurance, utilities, and '
-        f'home maintenance vs. the household\'s current budgeted amounts in {cur_key}, using '
-        f'geographic cost-of-living factors indexed to Illinois = 1.00. ESTIMATE ONLY — '
-        f'replace with real quotes when available. Override factors via reference_data/'
-        f'state_tax.csv (col_auto, col_home_ins, col_utilities, col_maintenance).', fg='888888')
+        f'home maintenance vs. {_cur_label} -- the household\'s own current budgeted amounts, '
+        f'e.g. "about 15% less than {_cur_label}" rather than a comparison to any fixed '
+        f'baseline. ESTIMATE ONLY — replace with real quotes when available. The underlying '
+        f'cost-of-living factor table (STATE_COL_FACTORS) is itself Illinois-derived data; the '
+        f'comparison above is computed as a ratio against it, not read from it directly, but the '
+        f'source data has not yet been replaced with an independently sourced regional cost '
+        f'index. Override factors via reference_data/state_tax.csv (col_auto, col_home_ins, '
+        f'col_utilities, col_maintenance).', fg='888888')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14); r += 1
 
     hdrs = ['State', 'Income Rate', 'Income Tax', 'Property Tax', 'Sales Tax', 'Estate Tax',
@@ -1303,13 +1379,25 @@ def build_sheet13(ws, c, rows):
 
         prop_tax = home_val_avg * rules.get('prop_rate', 0) * yrs
         sales_tax = taxable_spend * rules.get('sales_rate', 0)
-        is_current = c.get('state', 'Illinois') in state_name
+        is_current = c.get('state', '') == state_name
         est_tax = 0
+        est_tax_not_modeled = False
         # For current state, use the CST-adjusted exemption from the plan
         _estate_exempt = c['il_exempt'] if is_current else rules.get('estate_exempt', 0)
-        if rules.get('estate') and rows[-1]['total_nw'] > _estate_exempt:
+        # Item 291: this quick cross-state comparison's flat 8%-of-excess
+        # heuristic was only ever validated against the il_credit_table
+        # mechanism (Illinois). Applying it to a state whose real estate tax
+        # this engine has not modeled (e.g. New York -- see state_estate_tax's
+        # docstring) would silently print a fabricated number here even
+        # though Sheet 14's own estate section explicitly discloses that
+        # state's tax as NOT MODELED -- the two sections would contradict
+        # each other. Gate the estimate to the one mechanism it was built
+        # for; flag the row instead of guessing for anything else.
+        if rules.get('estate_calc') == 'il_credit_table' and rows[-1]['total_nw'] > _estate_exempt:
             excess = rows[-1]['total_nw'] - _estate_exempt
             est_tax = excess * 0.08
+        elif rules.get('estate') and rows[-1]['total_nw'] > _estate_exempt:
+            est_tax_not_modeled = True
         total = inc_tax + prop_tax + sales_tax + est_tax
 
         # Geographic cost-of-living expense delta for this state vs. the
@@ -1327,7 +1415,7 @@ def build_sheet13(ws, c, rows):
         state_rows.append({
             'state_name': state_name, 'rules': rules, 'is_current': is_current,
             'inc_tax': inc_tax, 'prop_tax': prop_tax, 'sales_tax': sales_tax,
-            'est_tax': est_tax, 'total': total,
+            'est_tax': est_tax, 'est_tax_not_modeled': est_tax_not_modeled, 'total': total,
             'retirement_taxed': retirement_taxed,
             'expense_deltas': expense_deltas, 'lifetime_expense_delta': lifetime_expense_delta,
         })
@@ -1348,11 +1436,12 @@ def build_sheet13(ws, c, rows):
         bg = 'E2EFDA' if sr['combined_delta'] < -50000 else ('FCE4D6' if sr['combined_delta'] > 50000 else None)
         ed = sr['expense_deltas']
 
+        _state_label = sr['state_name'] + (' *' if sr['est_tax_not_modeled'] else '') + (' (Current)' if is_current else '')
         vals = [
-            (sr['state_name'] + (' (Current)' if is_current else ''), None),
+            (_state_label, None),
             (f'{rules["rate"]*100:.1f}%' if rules['rate'] > 0 else 'None', None),
             (sr['inc_tax'], FMT_DOLLAR), (sr['prop_tax'], FMT_DOLLAR), (sr['sales_tax'], FMT_DOLLAR),
-            (sr['est_tax'], FMT_DOLLAR), (sr['total'], FMT_DOLLAR),
+            ('Not modeled *' if sr['est_tax_not_modeled'] else sr['est_tax'], None if sr['est_tax_not_modeled'] else FMT_DOLLAR), (sr['total'], FMT_DOLLAR),
             (sr['tax_delta'] if not is_current else 'Baseline', FMT_DOLLAR if not is_current else None),
             (ed['auto'], FMT_DOLLAR), (ed['home_ins'], FMT_DOLLAR),
             (ed['utilities'], FMT_DOLLAR), (ed['maintenance'], FMT_DOLLAR),
@@ -1365,22 +1454,47 @@ def build_sheet13(ws, c, rows):
                        fg='C00000' if i==14 and isinstance(val,(int,float)) and val>0 else '000000')
         r += 1
 
+    if any(sr['est_tax_not_modeled'] for sr in state_rows):
+        write_cell(ws, r, 1,
+            '* This state levies a state estate tax that this engine does not yet model (its '
+            'mechanism differs from the Illinois cliff/interrelated-credit calculation this '
+            'workbook computes). Its estate tax is NOT included in Total Tax or either delta '
+            'column above -- both are understated for that row.', fg='C00000')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14); r += 1
+
     r += 2
     # ── Key insight callout ──────────────────────────────────────────────────
+    # Item 291: this must describe the household's ACTUAL resident state, not
+    # assume Illinois -- the claim "exempts retirement income" is simply
+    # false as written for a state that doesn't (most states in this table
+    # tax it; Illinois, Florida, Texas, Tennessee, Nevada, South Dakota, and
+    # Wyoming are the exemptors here).
     ret_pct = total_retirement / total_agi * 100 if total_agi > 0 else 0
-    write_cell(ws, r, 1,
-        f'Illinois exempts ${total_retirement:,.0f} of retirement income '
-        f'({ret_pct:.0f}% of AGI) from state tax. '
-        f'Moving to a state that taxes retirement income (e.g. North Carolina) '
-        f'would add ~${total_retirement * 0.045:,.0f} in lifetime state income tax.',
-        bold=True)
-    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
-    r += 1
-    write_cell(ws, r, 1,
-        'Qualified retirement income includes IRA/401k RMDs, pension, qualified annuity '
-        'distributions, and Roth conversions. Non-qualified (Personal market) annuity income '
-        'is taxable even in Illinois.', fg='888888')
-    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
+    _cur_rules = STATE_TAX_RULES.get(cur_key, {}) if cur_key else {}
+    _cur_label2 = cur_key or (current_state or 'Your current state')
+    if _cur_rules.get('exempt_retirement'):
+        write_cell(ws, r, 1,
+            f'{_cur_label2} exempts ${total_retirement:,.0f} of retirement income '
+            f'({ret_pct:.0f}% of AGI) from state tax. '
+            f'Moving to a state that taxes retirement income (e.g. North Carolina) '
+            f'would add ~${total_retirement * 0.045:,.0f} in lifetime state income tax.',
+            bold=True)
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
+        r += 1
+        write_cell(ws, r, 1,
+            f'Qualified retirement income includes IRA/401k RMDs, pension, qualified annuity '
+            f'distributions, and Roth conversions. Non-qualified (Personal market) annuity income '
+            f'is taxable even in {_cur_label2}.', fg='888888')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
+    else:
+        write_cell(ws, r, 1,
+            f'{_cur_label2} taxes qualified retirement income (IRA/401k RMDs, pension, qualified '
+            f'annuity distributions, and Roth conversions) -- ${total_retirement:,.0f} '
+            f'({ret_pct:.0f}% of AGI) of it is subject to state tax over the plan horizon. '
+            f'Moving to a state that exempts retirement income (e.g. Illinois) would avoid '
+            f'that state income tax on this income entirely.',
+            bold=True)
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
 
     qc('13. State Residency', f'{len(STATE_TAX_RULES)} states compared with retirement-income and expense treatment', True,
        f'retirement={ret_pct:.0f}% of AGI')
@@ -1479,26 +1593,54 @@ def build_sheet14(ws, c, rows):
         write_cell(ws, r, 2, f'Estate below ${fed_exempt/1e6:.1f}M exemption — no federal tax likely'); r+=1
     r += 1
 
-    # Illinois estate tax -- the engine only models Illinois estate tax, so
-    # this section must not print for a household residing in any other
-    # state (item 3.1: it previously showed regardless of residence).
-    _is_il_resident = str(c.get('state', 'Illinois') or 'Illinois') == 'Illinois'
-    if c['model_state_est'] and _is_il_resident:
-        write_hdr(ws, r, 1, 'Illinois Estate Tax (At Second Death)', ORANGE, WHITE, span=4); r+=1
-        il_exempt = c['il_exempt']
-        il_excess = max(0, est2 - il_exempt)
-        il_tax = illinois_estate_tax(est2, il_exempt)
-        write_cell(ws, r, 1, 'IL Exemption'); write_cell(ws, r, 2, il_exempt, fmt=FMT_DOLLAR); r+=1
-        write_cell(ws, r, 1, 'Estate over IL Exemption'); write_cell(ws, r, 2, il_excess, fmt=FMT_DOLLAR); r+=1
-        write_cell(ws, r, 1, 'Est. IL Estate Tax (cliff/interrelated calc)', bold=True)
-        write_cell(ws, r, 2, il_tax, fmt=FMT_DOLLAR, bold=True,
-                   bg='FCE4D6' if il_tax>0 else 'E2EFDA'); r+=1
-        if il_tax > 0:
-            write_cell(ws, r, 1, '⚠ ACTION REQUIRED', bold=True, bg='FCE4D6', fg=RED)
+    # State estate tax -- dispatched by the resident state's estate_calc
+    # mechanism (item 291), not hardcoded to Illinois. Three cases, and the
+    # section always prints SOMETHING rather than silently vanishing for a
+    # non-IL household (item 3.1's original defect: it showed Illinois's
+    # numbers regardless of residence; the fix must not overcorrect into
+    # showing nothing at all for other states).
+    _resident_state = str(c.get('state', '') or '')
+    # Always defined (0.0 default) regardless of which branch below runs --
+    # the qc() audit line near this sheet's end reports it unconditionally,
+    # and previously relied on the IL-only code path always having set it,
+    # which was itself latent-broken for any non-IL resident (NameError,
+    # simply never exercised by a test that reached this line with one).
+    il_tax = 0.0
+    if c['model_state_est']:
+        _state_exempt_configured = c.get('il_exempt')
+        _tax, _status = state_estate_tax(_resident_state, est2, _state_exempt_configured)
+        il_tax = _tax
+        if _status == 'computed':
+            write_hdr(ws, r, 1, f'{_resident_state} Estate Tax (At Second Death)', ORANGE, WHITE, span=4); r+=1
+            il_exempt = c['il_exempt']
+            il_excess = max(0, est2 - il_exempt)
+            write_cell(ws, r, 1, f'{_resident_state} Exemption'); write_cell(ws, r, 2, il_exempt, fmt=FMT_DOLLAR); r+=1
+            write_cell(ws, r, 1, f'Estate over {_resident_state} Exemption'); write_cell(ws, r, 2, il_excess, fmt=FMT_DOLLAR); r+=1
+            write_cell(ws, r, 1, f'Est. {_resident_state} Estate Tax (cliff/interrelated calc)', bold=True)
+            write_cell(ws, r, 2, _tax, fmt=FMT_DOLLAR, bold=True,
+                       bg='FCE4D6' if _tax>0 else 'E2EFDA'); r+=1
+            if _tax > 0:
+                write_cell(ws, r, 1, '⚠ ACTION REQUIRED', bold=True, bg='FCE4D6', fg=RED)
+                write_cell(ws, r, 2,
+                           f'Estate may exceed ${c["il_exempt"]/1e6:.0f}M {_resident_state} exemption. Consider: annual gifting, ILIT, '
+                           'charitable bequest, or credit-shelter/QTIP trust. Calculation uses the IL cliff/interrelated structure, not a tax-on-excess shortcut.',
+                           bg='FCE4D6'); r+=2
+        elif _status == 'none':
+            write_hdr(ws, r, 1, 'State Estate Tax (At Second Death)', ORANGE, WHITE, span=4); r+=1
+            write_cell(ws, r, 1, 'Note')
+            write_cell(ws, r, 2, f'{_resident_state or "This state"} does not levy a state estate tax.'); r+=2
+        else:
+            # 'not_modeled' (a real tax this engine cannot yet compute) or
+            # 'unrecognized' (state not in STATE_TAX_RULES at all) -- both
+            # must say so explicitly rather than silently showing $0 as if
+            # it were a computed figure.
+            write_hdr(ws, r, 1, 'State Estate Tax (At Second Death)', ORANGE, WHITE, span=4); r+=1
+            write_cell(ws, r, 1, '⚠ NOT MODELED', bold=True, bg='FFF4E5', fg=RED)
             write_cell(ws, r, 2,
-                       f'Estate may exceed ${c["il_exempt"]/1e6:.0f}M IL exemption. Consider: annual gifting, ILIT, '
-                       'charitable bequest, or credit-shelter/QTIP trust. Calculation uses the IL cliff/interrelated structure, not a tax-on-excess shortcut.',
-                       bg='FCE4D6'); r+=2
+                       f'{_resident_state or "This state"} is not modeled by this engine for state estate tax. '
+                       'If this state levies one, it is NOT included in any figure on this workbook -- consult a '
+                       'local estate attorney for an accurate estimate.',
+                       bg='FFF4E5'); r+=2
 
     # Gifting
     write_hdr(ws, r, 1, 'Gifting Strategy', NAVY, WHITE, span=4); r+=1
@@ -1683,7 +1825,7 @@ def build_sheet14(ws, c, rows):
     r += 1
 
     qc('14. Estate Plan', 'Federal/IL tax, QTIP, Credit Shelter documented', True,
-       f"IL est. tax: ${il_tax if c['model_state_est'] else 0:,.0f}, CS saves ~${cs_tax_saved:,.0f}, "
+       f"State est. tax: ${il_tax:,.0f}, CS saves ~${cs_tax_saved:,.0f}, "
        f"{len(findings)} beneficiary/titling review prompt(s), "
        f"per-beneficiary drawdown {'available' if drawdown.get('available') else 'not available'}")
 

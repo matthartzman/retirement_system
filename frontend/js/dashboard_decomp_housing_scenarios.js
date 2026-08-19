@@ -1009,7 +1009,7 @@ export function renderScenarios() {
     const autoRows = stateComp.filter(
       (r) => norm(r.subsection || "") === "auto_insurance",
     );
-    html += `<details><summary>State comparison — insurance costs</summary><div class="field-list"><div class="section-note">Compare insurance costs between Illinois (baseline) and a target relocation state. These are reference inputs only — they do not feed the projection model but appear in the scenario outputs for advisor review.</div>`;
+    html += `<details><summary>State comparison — insurance costs</summary><div class="field-list"><div class="section-note">Compare insurance costs between your current state (baseline) and a target relocation state. These are reference inputs only — they do not feed the projection model but appear in the scenario outputs for advisor review.</div>`;
     if (hwRows.length) {
       html += `<div class="subsection-label">Homeowners insurance</div>`;
       html += hwRows.map(fieldHtml).join("");

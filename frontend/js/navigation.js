@@ -20,9 +20,7 @@
     timing_tax:'state_residency',
     heloc_strategy:'special_strategies',
     entity_charitable:'special_strategies',
-    roth_conversion:'distribution_strategy',
     withdrawal_strategy:'distribution_strategy',
-    allocation_assets:'distribution_strategy',
     allocation_policy:'distribution_strategy',
     investment_strategy:'distribution_strategy'
   };

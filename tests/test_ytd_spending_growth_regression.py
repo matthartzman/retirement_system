@@ -436,9 +436,15 @@ def test_ytd_account_mapping_ui_uses_inline_source_add_current_value_no_notes_or
     assert 'ytd-delete-cell' in text
 
 
-def test_ytd_transaction_table_uses_pagination_controls_instead_of_first_500_only():
+def test_ytd_transaction_table_uses_pagination_controls_instead_of_a_fixed_slice():
+    # Ticket 290 lowered the page size from 500 to 100 (measured: 500 rows of
+    # form-control cells was a real, multi-second contributor to renderMain).
+    # This test pins that pagination controls exist and the page size is read
+    # from the named constant, not a literal slice -- it does NOT pin the
+    # exact page size, so tuning that constant again later doesn't require
+    # touching this test.
     text = dashboard_js_text()
-    assert 'const YTD_TX_PAGE_SIZE = 500' in text
+    assert 'const YTD_TX_PAGE_SIZE = ' in text
     assert 'function ytdTxnPager' in text
     assert 'setYtdTxnPage(0' in text
     assert 'Previous' in text and 'Next' in text and 'Last' in text

@@ -1,5 +1,15 @@
 ## 2026-08-19 — HSA withdrawal optimizer (H0–H5): no pins moved, and none could have
 
+<!-- pin-provenance: terminal_nw=5821763.41 lifetime_tax=1303155.26 -->
+
+*(Marker added when merging worktree-tickets-284-291 into main: this entry's own
+prose already documents these exact values, but ticket 286's provenance gate,
+`tests/test_golden_master_pin_provenance.py`, binds only to the machine-readable
+marker, not prose -- see that file's docstring for why. Freshly computed on the
+fully-merged tree and confirmed identical to this entry's pre-merge value, so
+tickets 284-291's changes introduced no drift on top of the HSA optimizer's own
+verified-unchanged pins.)*
+
 **Not an engine change to any existing plan. Pins unchanged: `5,821,763.41 / 1,303,155.26`.**
 Regenerated via `python -m tests.test_frozen_sample_plan_golden_master_regression` and confirmed
 byte-identical to the value already checked in; `PINNED_FAILURES` (`[]`) also unmoved.
@@ -151,6 +161,37 @@ per-component figures above, not the net, if attributing a future number to this
 `tests/test_survivor_spending_regression.py` — 16/16, including two guards mutation-tested red on
 a planted defect before being trusted (the market-value fix above, and the death step-up). Frozen
 and synthetic golden masters both green after regeneration. `input/` unmutated throughout.
+## 2026-08-18 — Ticket 286: golden-master recovery tooling and a test-enforced provenance gate
+
+<!-- pin-provenance: terminal_nw=5824239.30 lifetime_tax=1290848.91 -->
+
+*(The marker above is the machine-readable binding read by
+`tests/test_golden_master_pin_provenance.py`. It records which changelog entry the pin
+file's provenance line points at. Prose restating pin values is deliberately NOT a
+binding, because entries about unrelated work routinely restate unchanged pins.)*
+
+**What changed.** No projection figures move; pins stay at 5,824,239.30 / 1,290,848.91. This is
+process tooling, not an engine or fixture change.
+
+Added `tools/regen_golden_master.py` (`measure` / `verify-endpoint <sha>` / `origin <value>` /
+`regen --reason <file>`) and `documentation/GOLDEN_MASTER_RECOVERY_RUNBOOK.md`, mechanizing the two
+method traps recorded in the 2026-08-10 postmortem
+(`docs/superpowers/plans/2026-08-10-golden-master-and-at-rest-plan-data-migration.md`, "Phase 1"):
+`git bisect` never re-verifies the "good" endpoint you hand it (`verify-endpoint` checks it first,
+in a detached worktree, before you bisect), and plain `git log -S` can name the wrong origin commit
+when a rename hides a value's history (`origin` always uses `--follow`). The runbook's decision tree
+adds the third branch the original postmortem said was missing beside "intentional" and
+"regression": **"the pin never matched"** -- verify at the introducing commit before bisecting
+anything.
+
+Added a test-enforced provenance gate, `tests/test_golden_master_pin_provenance.py`. It parses the
+single-line `# <date>: PINNED_TERMINAL_NW=... PINNED_LIFETIME_TAX=...` comment directly above the
+pin constants in `tests/test_frozen_sample_plan_golden_master_regression.py`, and fails if either (a)
+that line is missing, (b) its recorded values don't match the actual `PINNED_*` constants (catches a
+hand-edited pin whose comment was left stale -- a naive "is there a comment?" check would pass this),
+or (c) its date doesn't match this changelog's newest entry. `tools/regen_golden_master.py regen`
+updates the pin constants, the provenance line, and this changelog together, so the only way to move
+a pin without a recorded justification is to bypass the tool -- which now turns the suite red.
 
 ## 2026-08-17 (b) — Sheet 3A stops crediting the liquidity buffer with mitigating sequence risk (P7, P3, P5)
 

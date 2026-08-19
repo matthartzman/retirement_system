@@ -797,10 +797,17 @@ qc('16. Scenario Analysis', 'All CSV scenarios have result rows', True, '')
 # modeled funding." Illustrative regional cost-of-care index, NOT a
 # survey-precise figure -- coastal/high-cost-of-living states run
 # meaningfully above the national median for home care and facility care,
-# lower-cost-of-living states run below it. Anchored at 1.0 for Illinois
-# since Sheet 19's existing "OPTIMAL" LTC illustration ($103K/yr IL median
-# facility care) was already implicitly IL-anchored; unlisted states default
-# to the national baseline (1.0).
+# lower-cost-of-living states run below it.
+#
+# Item 291 note (this is NOT the pattern that ticket removes elsewhere):
+# 1.0 here means the NATIONAL baseline, and unlisted states already default
+# to it (see _ltc_state_cost_index below) -- this table is looked up by the
+# household's OWN state, never silently substituted with Illinois. Illinois
+# happens to sit at 1.0 only because Sheet 19's existing "OPTIMAL" LTC
+# illustration ($103K/yr IL median facility care) was already implicitly
+# IL-anchored when this index was built; that is a historical coincidence
+# of which dollar figure got pinned first, not a design assumption that the
+# household lives in Illinois.
 LTC_STATE_COST_INDEX = {
     # High cost of living
     'california': 1.35, 'new york': 1.30, 'massachusetts': 1.30, 'connecticut': 1.30,

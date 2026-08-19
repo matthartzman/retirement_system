@@ -1667,7 +1667,15 @@ def run_deterministic_projection_stage(c):
 
         # SALT
         # Preliminary state tax estimate for SALT deduction (computed before final state_tax)
-        # SALT estimate: use residence state rate (not hardcoded IL)
+        # SALT estimate: use residence state rate (not hardcoded IL). Item 291
+        # (2026-08-19): a Step 7.7 sweep flagged this fallback and neutralized
+        # it, then reverted after a scope conflict with Class 1's own
+        # deliberate, tested leniency design at this exact defensive layer --
+        # see src.core.state_income_tax's matching revert and its comment for
+        # the full reasoning. A real build can no longer reach this with an
+        # unrecognized/blank state (require_residence_state_for_build, Class
+        # 1); this fallback exists only for lower-level/defensive callers this
+        # repo deliberately keeps lenient, out of scope for this ticket.
         _state_rules = STATE_TAX_RULES.get(c['state'], STATE_TAX_RULES['Illinois'])
         il_tax_est = agi * _state_rules.get('rate', 0.0495)
         configured_prop_tax_yr = float(row.get('real_estate_tax_yr', 0.0) or 0.0)

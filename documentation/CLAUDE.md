@@ -138,6 +138,14 @@ few commits since (the test's `__main__` block works at any commit). Identical
 values across commits mean the pin was wrong, not the engine. Re-pin only once
 you can name the change that moved them, and add a changelog entry saying what.
 
+**Full recovery process (decision tree, tooling, and the two method traps that
+previously produced a confidently wrong answer):** see
+`documentation/GOLDEN_MASTER_RECOVERY_RUNBOOK.md`. Regenerate pins ONLY via
+`py -3.14 tools/regen_golden_master.py regen --reason <file>` — hand-editing
+`PINNED_TERMINAL_NW`/`PINNED_LIFETIME_TAX` directly is caught by the
+test-enforced provenance gate, `tests/test_golden_master_pin_provenance.py`,
+which fails the suite if the pin and its provenance comment disagree.
+
 ### Fixture file locations
 
 | File | What it tests |
