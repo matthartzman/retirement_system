@@ -56,6 +56,7 @@
   "test_roadmap_steps_1_11_static_regression.py",
   "test_roadmap_usability_surfaces_regression.py",
   "test_roth_controls_visible.py",
+  "test_roth_guide_helper_text_and_gap_disclosure_regression.py",
   "test_roth_user_ui_render_fix.py",
   "test_scenario_home_value_display_fix.py",
   "test_scenario_templates_sets_regression.py",
