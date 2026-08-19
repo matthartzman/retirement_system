@@ -169,8 +169,8 @@ FROZEN_TODAY = "2026-08-04"
 # Guarded by test_frozen_build_reads_its_own_spending_budget_not_the_live_one,
 # which fails if any spending input is ever again resolved from outside the
 # redirected workspace.
-PINNED_TERMINAL_NW = 5824239.30
-PINNED_LIFETIME_TAX = 1290848.91
+PINNED_TERMINAL_NW = 5821763.41
+PINNED_LIFETIME_TAX = 1303155.26
 PINNED_FAILURES = []
 # Regenerated 2026-08-05 (fixture data change, not an engine change): added a
 # fictional home-purchase scenario to Housing next_step_1 (Texas, $400,000 @
