@@ -833,6 +833,33 @@ def supported_states():
     return tuple(sorted(STATE_TAX_RULES.keys()))
 
 
+def require_residence_state_for_build(state):
+    """Fail loudly when a REAL build has no usable residence_state (item 291).
+
+    Distinct from `_require_supported_state` below, which is deliberately
+    lenient on a BLANK state -- that leniency exists for low-level/defensive
+    callers (partial snapshots, autosave backups) that were never going to
+    produce a client-facing deliverable in the first place; see its own
+    docstring. This function is the actual per-build gate, called once
+    `c['state']` is finalized: it treats a MISSING state exactly like an
+    unsupported one, because data_io.py no longer silently substitutes
+    Illinois for a blank residence_state (item 291's Class 1 fix) -- so by
+    the time a real build reaches here, blank genuinely means "the field was
+    never filled in", not "an in-progress partial snapshot". A real build
+    must never ship Illinois's numbers for a household that never said it
+    lives in Illinois.
+    """
+    if not state:
+        raise ValueError(
+            "residence_state is not set. State tax, estate, and cost-of-living "
+            "figures cannot be computed without it. Set it on the State Residency "
+            "page (Plan Data field: residence_state), then rebuild. Supported "
+            f"states: {', '.join(supported_states())}. To model another state, "
+            "add a row to reference_data/state_tax.csv."
+        )
+    _require_supported_state(state)
+
+
 def _require_supported_state(state):
     """Fail loudly on a residence_state with no modeled tax rules (item 1.11).
 

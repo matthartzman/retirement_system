@@ -42,7 +42,8 @@ class RothDiscountRateDefaultTests(unittest.TestCase):
         """
         rates = []
         for inf in ("2.00%", "3.50%"):
-            data = {"Economic Assumptions": {"": {"inflation_general": inf}}}
+            data = {"Economic Assumptions": {"": {"inflation_general": inf}},
+                    "Household": {"": {"residence_state": "Illinois"}}}
             c = parse_client(data, "")
             rates.append(c["roth_tax_discount_rate"])
         self.assertEqual(rates[0], rates[1])
@@ -53,6 +54,7 @@ class RothDiscountRateDefaultTests(unittest.TestCase):
         DEFAULT, not stored plans."""
         data = {
             "Withdrawal Policy": {"Roth Conversion": {"roth_tax_discount_rate": "5.00%"}},
+            "Household": {"": {"residence_state": "Illinois"}},
         }
         c = parse_client(data, "")
         self.assertAlmostEqual(c["roth_tax_discount_rate"], 0.05, places=10)
@@ -76,7 +78,8 @@ class RothDiscountRateDefaultTests(unittest.TestCase):
         )
 
     def test_inflation_assumption_itself_is_untouched(self):
-        data = {"Economic Assumptions": {"": {"inflation_general": "3.50%"}}}
+        data = {"Economic Assumptions": {"": {"inflation_general": "3.50%"}},
+                "Household": {"": {"residence_state": "Illinois"}}}
         c = parse_client(data, "")
         self.assertAlmostEqual(c["inf"], 0.035, places=10)
 
