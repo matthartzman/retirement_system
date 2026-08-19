@@ -311,6 +311,13 @@ def cmd_regen(args) -> int:
     changelog = CHANGELOG_FILE.read_text(encoding="utf-8")
     entry = (
         f"## {today} — Golden-master pin regenerated via `tools/regen_golden_master.py regen`\n\n"
+        # Machine-readable binding required by
+        # tests/test_golden_master_pin_provenance.py. Plain-float format (not
+        # comma-grouped) so the gate parses it with float() directly. Prose
+        # restating pin values deliberately does NOT satisfy that gate, because
+        # entries about unrelated work routinely restate unchanged pins -- so
+        # this marker is what makes a real regeneration distinguishable.
+        f"<!-- pin-provenance: terminal_nw={new_nw:.2f} lifetime_tax={new_tax:.2f} -->\n\n"
         f"**Old pins.** terminal_nw={old_nw:,.2f}, lifetime_tax={old_tax:,.2f}\n\n"
         f"**New pins.** terminal_nw={new_nw:,.2f}, lifetime_tax={new_tax:,.2f}\n\n"
         f"**Reason.**\n\n{reason_text}\n\n"

@@ -1,5 +1,12 @@
 ## 2026-08-18 — Ticket 286: golden-master recovery tooling and a test-enforced provenance gate
 
+<!-- pin-provenance: terminal_nw=5824239.30 lifetime_tax=1290848.91 -->
+
+*(The marker above is the machine-readable binding read by
+`tests/test_golden_master_pin_provenance.py`. It records which changelog entry the pin
+file's provenance line points at. Prose restating pin values is deliberately NOT a
+binding, because entries about unrelated work routinely restate unchanged pins.)*
+
 **What changed.** No projection figures move; pins stay at 5,824,239.30 / 1,290,848.91. This is
 process tooling, not an engine or fixture change.
 
