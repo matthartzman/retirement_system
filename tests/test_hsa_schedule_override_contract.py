@@ -732,5 +732,15 @@ class ScheduleFeasibilityTests(unittest.TestCase):
         self.assertEqual(appended, prepended)
 
 
+class HsaScheduleUiTests(unittest.TestCase):
+    def test_schedule_table_shows_optimizer_and_override_side_by_side(self):
+        from tests._decomp_dashboard import dashboard_js_text
+        js = dashboard_js_text()
+        self.assertIn("function renderHsaSchedule", js)
+        self.assertIn("hsa-optimizer-amount", js)
+        self.assertIn("hsa-override-amount", js)
+        self.assertIn("hsa-schedule-feasibility", js)
+
+
 if __name__ == "__main__":
     unittest.main()
