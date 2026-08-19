@@ -1,3 +1,51 @@
+## 2026-08-19 — HSA withdrawal optimizer (H0–H5): no pins moved, and none could have
+
+**Not an engine change to any existing plan. Pins unchanged: `5,821,763.41 / 1,303,155.26`.**
+Regenerated via `python -m tests.test_frozen_sample_plan_golden_master_regression` and confirmed
+byte-identical to the value already checked in; `PINNED_FAILURES` (`[]`) also unmoved.
+
+**Why zero movement is the correct, attributable outcome — not a missed regeneration.** This
+16-task branch (`worktree-hsa-optimizer`) built a complete HSA drawdown scheduler: the terminal
+tax cliff a non-spouse beneficiary owes (H1), decoupling withdrawals from current-year medical
+spend (H2), a constrained schedule search that shares its objective with Roth conversion (H3), a
+per-year override table with a precedence resolver and round-trip contract (H4), and workbook
+disclosure (H5). None of it can move a single existing plan's numbers today, for two independent,
+compounding reasons:
+
+1. **The terminal cliff (H1) is exactly zero for the frozen fixture's beneficiary.** A spouse
+   inherits an HSA tax-free; the fixture's `hsa_beneficiary_type` defaults to `spouse`, so
+   `hsa_terminal_tax()` returns `0.0` and `estimate_after_tax_terminal_net_worth`'s new HSA term
+   never has anything to subtract. This mirrors the frozen fixture's identical role in every prior
+   cliff/reporting change on this codebase (`documentation/reports/PLANNER_SIGNOFF_2026-08-17.md`).
+2. **`hsa_withdrawal_mode='optimize'` is not reachable from real plan data at all.**
+   `src/data_io.py` coerces any value outside the three legacy modes (`spend_as_needed`,
+   `annual_pct`, `smooth_window`) back to `spend_as_needed`; the UI schema offers the same three.
+   The frozen fixture's own `client_assets.csv` sets `smooth_window`. So the schedule search
+   (H3), the override table (H4), and the workbook disclosure (H5) never execute against any real
+   household in this build — **no plan is affected, not "every plan except one that chose
+   `optimize`," because that choice does not exist in this build.** This is intentional,
+   deliberately-scoped, and recorded as an Open Item in
+   `docs/superpowers/plans/2026-08-17-hsa-withdrawal-optimizer.md` — a future task must admit
+   `'optimize'` in `data_io.py` and add the corresponding engine branch before this feature can
+   affect a single client number. When that task lands, expect a real pin movement and a real
+   golden-master regeneration, attributable to it alone.
+
+**H2's decoupling (Tasks 5-6) is the one change in this scope that touches the three EXISTING,
+already-reachable modes** — `withdraw_hsa_window`'s `spend_as_needed` path no longer caps a draw
+at the current year's medical cost once a caller passes an explicit `requested` amount. This is
+provably inert for every plan today too: the sole production call site
+(`deterministic_engine.py`) still calls it with only `wellness_cost=`, never `requested=` — the
+new parameter has no caller, so the branch it enables is exercised only by this branch's own unit
+tests. Both facts (`mode='optimize'` unreachable, `requested=` never passed) were independently
+verified in the Task 15 review by grep and by re-deriving the gating logic, not merely asserted.
+
+**Verification.** Frozen golden master: 3/3 passed, pins unmoved. Fast tier
+(`pytest tests/ -m "not slow" -q`, `grep -E "^(FAILED|ERROR|SUBFAILED)"` — see the `SUBFAILED`
+project-memory note this branch surfaced at Task 12): clean apart from the pre-existing, unrelated
+`test_withdrawal_sequencing_comparison_regression.py::test_current_plan_is_the_lowest_tax_and_highest_terminal_of_the_four`
+failure (tracked separately; not caused by or fixed on this branch). `input/` unmutated throughout
+all 16 tasks.
+
 ## 2026-08-18 — Household spending now responds to mortality (S1/S2/S3)
 
 **Engine change. Pins move: `5,824,239.30 / 1,290,848.91` → `5,821,763.41 / 1,303,155.26`.**
