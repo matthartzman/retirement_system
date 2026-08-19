@@ -6101,10 +6101,10 @@ const FIELD_GUIDANCE_OVERRIDES = {
     impact: "Changes all numbers in the State Comparison sheet. Different states have different income taxes, property taxes, insurance rates, and living costs.",
     consider: "Enter the two-letter state abbreviation (like FL, TX, NV) of the place you are seriously considering or want to explore. Leave blank if you do not plan to move.",
   },
-  illinois_baseline_annual: {
-    purpose: "Your current homeowners insurance annual premium in Illinois — the amount you actually pay today.",
+  current_state_baseline_annual: {
+    purpose: "Your current auto insurance annual premium in your current state — the amount you actually pay today.",
     impact: "Becomes the baseline for the State Comparison sheet. The plan compares this against estimated target-state premiums to show potential insurance savings from moving.",
-    consider: "Check your most recent homeowners insurance bill or account for the actual annual premium you pay, including any discounts like multi-policy bundling.",
+    consider: "Check your most recent auto insurance bill for the actual annual premium you pay, including any discounts like multi-policy bundling.",
   },
   notes: {
     purpose: "A free-text place to write down important details about this item — such as coverage differences, why an estimate might be unusually high or low, or any other context worth remembering.",
@@ -6113,7 +6113,7 @@ const FIELD_GUIDANCE_OVERRIDES = {
   },
   target_state_annual: {
     purpose: "Your estimated homeowners insurance annual premium in the target state — a projection or quote for what the policy would cost there.",
-    impact: "Changes the estimated cost of living in the target state. The plan subtracts this from your Illinois premium to show potential insurance savings if you move.",
+    impact: "Changes the estimated cost of living in the target state. The plan subtracts this from your current-state premium to show potential insurance savings if you move.",
     consider: "Call an insurance agent, get a quote online, or research typical premiums in that state. Use a cost estimate for the same house and coverage level you have today so the comparison is fair.",
   },
   applicable_pct_cap: {

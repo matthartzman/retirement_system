@@ -38,6 +38,24 @@ doesn't re-flag it without re-deriving the same investigation.
    national-average-style default dict, not to Illinois's specific numbers.
    No test needed here since there is no behavior to guard; this
    note exists so a future sweep doesn't re-flag it without re-checking.
+
+Step 7.7's own closing `grep -rin illinois` sweep also found src.core's
+state_income_tax and the deterministic engine's SALT estimate both falling
+back to Illinois's specific rate for a genuinely BLANK residence_state. A fix
+was attempted and then REVERTED -- not a false positive, but a genuine scope
+conflict with Class 1's own deliberate, tested design at this exact
+low-level, defensive layer (see test_residence_state_required_for_build_regression.py
+::test_existing_low_level_leniency_is_unaffected and
+test_unsupported_state_preflight_regression.py
+::test_blank_state_still_falls_back_silently_not_bricked -- both explicitly
+assert `state_income_tax('', ...) == state_income_tax('Illinois', ...)`, and
+both docstrings say "this ticket adds a new gate, it does not change the old
+one"). A blank state can never reach a real build
+(require_residence_state_for_build already blocks that); this fallback exists
+only for defensive/partial-snapshot callers Class 1 deliberately kept lenient.
+Human decision (2026-08-19): revert the code change, keep those two tests
+passing as originally written. See core.py's state_income_tax and
+deterministic_engine.py's SALT-estimate comments for the full reasoning.
 """
 from __future__ import annotations
 
