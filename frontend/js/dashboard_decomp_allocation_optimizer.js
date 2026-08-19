@@ -884,6 +884,16 @@ export function renderRothConversion() {
       !norm(r.label).startsWith("forced_"),
   );
   let html = renderRothMissingNotice();
+  // Ticket 289: disclose two Roth Conversion Modeling Guide levers this engine
+  // does not implement. Gated on the ABSENCE of a row for either future
+  // plan-data key, so building the lever removes its own disclosure -- see
+  // the matching gate in sheets_strategy.py's Conversion Strategy notes.
+  if (
+    !rowByNormLabel("roth_conversion_tax_source") &&
+    !rowByNormLabel("roth_conversion_asset_location_aware")
+  ) {
+    html += `<div class="section-note">This model does not yet choose <b>how</b> conversion taxes are paid (taxable cash vs. withholding from the IRA) or preferentially convert higher-growth holdings inside the IRA first (asset-location-aware conversion). Both apply the same conversion mechanics either way; see the workbook's Roth Conversion sheet for the full disclosure.</div>`;
+  }
   html += `<div class="field-list"><div class="section-note">Choose a conversion policy first — the page shows only the controls relevant to that choice. Fill-to-IRMAA uses the Medicare premium tier boundary as the conversion ceiling; choosing it hides the separate IRMAA guardrail to avoid duplicate controls. Bracket strategy options appear only for bracket-fill and optimizer policies.</div>${control.map(fieldHtml).join("")}</div>`;
   const policyLabel = policyIsFixed
     ? "Fixed-dollar conversion controls"

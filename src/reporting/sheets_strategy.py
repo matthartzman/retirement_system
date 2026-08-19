@@ -574,6 +574,28 @@ def build_sheet11(ws, c, rows):
         f'Current configurable headroom defaults: tax bracket {float(c.get("roth_headroom_usage_pct",0.95)):.0%}, IRMAA {float(c.get("roth_irmaa_headroom_usage_pct",0.95)):.0%}, annual IRA percentage cap {float(c.get("roth_max_annual_conversion_pct_of_traditional_ira",0.20)):.0%}.',
         f'Current explicit conversion-window cap: {int(c.get("roth_max_conversion_years",10))} year(s), also bounded by the RMD-age window.',
     ]
+    # Ticket 289: disclose two levers the Roth Conversion Modeling Guide names
+    # but this engine does not implement. Gated on the ABSENCE of a plan-data
+    # key that would exist once either feature ships, so building the lever
+    # removes its own disclosure automatically -- a stale "not modeled" note
+    # claiming a shipped feature doesn't exist is worse than none.
+    if not c.get('roth_conversion_tax_source'):
+        notes.append(
+            'This model computes the conversion tax cost and applies it, but does not choose HOW '
+            'the tax is paid -- there is no "pay from taxable cash" vs. "withhold from the IRA" '
+            'lever. The engine applies the same tax mechanics regardless of source; whichever '
+            'account the household actually draws from to cover the tax is a decision made outside '
+            'this model.'
+        )
+    if not c.get('roth_conversion_asset_location_aware'):
+        notes.append(
+            'Conversions are sized in dollars, not by which holdings inside the IRA get converted -- '
+            "there is no asset-location-aware selection that would prefer converting the highest-"
+            'expected-growth sleeve first. Separately, this workbook\'s Monte Carlo models account '
+            'LOCATION (which tax bucket a dollar sits in), not in-account sleeve variance, so even a '
+            'sleeve-aware conversion would not be expected to move the success rate shown elsewhere '
+            'in this workbook.'
+        )
     for note in notes:
         write_cell(ws, r, 1, '• ' + note, align='left')
         ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=len(hdrs))
