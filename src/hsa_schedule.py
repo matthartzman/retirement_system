@@ -431,3 +431,109 @@ def _as_float(value: Any, default: float) -> float:
     if out != out or out in (float('inf'), float('-inf')):  # NaN / inf
         return default
     return out
+
+
+def allocate_surplus(c: Mapping[str, Any], row: Mapping[str, Any], surplus: Any) -> dict:
+    """Waterfall a year's HSA surplus across three priorities, in order.
+
+    Consuming by the deadline (design spec S2) can produce more cash than the
+    plan needs to spend that year. This decides where it goes:
+
+    1. **Spending** -- fund whatever the year still needs first. This is not
+       optional; a schedule that leaves a real spending gap while "optimizing"
+       is not a schedule.
+    2. **Roth conversion tax** -- paying conversion tax from outside the IRA is
+       what makes a conversion efficient, and a tax-free bucket you have to
+       drain anyway is the cheapest possible source for it. `row` supplies
+       `conversion_tax_capacity`: how much MORE conversion tax this year could
+       usefully absorb, computed by whoever is running the schedule search --
+       this function only allocates against it, it does not derive it.
+    3. **Taxable** -- whatever is left spills to a taxable account. Always a
+       safe landing; never a defect if this is nonzero.
+
+    Every priority is filled in full before the next opens, and the three
+    outputs sum to exactly `surplus` (short of it only if `surplus` itself is
+    negative, which is clamped to zero). This is deliberately a pure
+    allocation with no tax logic of its own -- `row['conversion_tax_capacity']`
+    is the only place a conversion-sizing decision could sneak in, and Task 9's
+    own guardrail test pins that it can't (see
+    `test_surplus_never_increases_the_conversion_itself`): this function
+    changes how conversion tax gets FUNDED, never how much conversion is worth
+    doing in the first place.
+    """
+    surplus = max(0.0, _as_float(surplus, 0.0))
+    spending_need = max(0.0, _as_float(row.get('spending_need'), 0.0))
+    conversion_tax_capacity = max(0.0, _as_float(row.get('conversion_tax_capacity'), 0.0))
+
+    to_spending = min(surplus, spending_need)
+    remaining = surplus - to_spending
+    to_conversion_tax = min(remaining, conversion_tax_capacity)
+    remaining -= to_conversion_tax
+    to_taxable = remaining
+
+    return {
+        'to_spending': to_spending,
+        'to_conversion_tax': to_conversion_tax,
+        'to_taxable': to_taxable,
+    }
+
+
+def joint_headroom_used(c: Mapping[str, Any], row: Mapping[str, Any],
+                        hsa_draw: Any, conversion: Any) -> float:
+    """Bracket headroom the pair {HSA draw, Roth conversion} claims TOGETHER.
+
+    Section 3.1 of the design spec names this the most likely correctness bug
+    in the whole feature. An HSA draw funds spending that would otherwise have
+    come from a taxable IRA withdrawal, so relative to that baseline it lowers
+    AGI and frees `hsa_draw` of ADDITIONAL bracket room beyond `bracket_room`
+    (`row['bracket_room']`, the room `plan_roth_conversion` already computes as
+    `top_target - pre_agi` -- see `conv_bracket_room` on a real
+    `ConversionPlan`). A conversion then consumes some of that combined,
+    larger pool. Scored separately -- the draw credited its full freeing
+    effect, the conversion sized against `bracket_room` alone -- both claims
+    can be added up to `bracket_room + hsa_draw` even though they draw from
+    the SAME pool. That double-counted sum is this function's upper bound, not
+    its answer: `joint_headroom_used` returns the corrected, non-doubled
+    figure a schedule search should actually charge against the pool.
+
+    Two easy cases pin the shape: with no conversion at all, nothing is
+    claiming any room, so the freed headroom is real but unused --
+    `joint_headroom_used` is 0, not `bracket_room`. With no HSA draw, there is
+    nothing to correct for -- it collapses to whatever the conversion alone
+    claims, `min(conversion, bracket_room)`.
+
+    Between those, the fraction of `hsa_draw` charged as used scales with how
+    much of `bracket_room` the conversion itself fills: a conversion using a
+    small sliver of the base room should not get credited with claiming a
+    large sliver of the freed room too, and a conversion that saturates the
+    base room is treated as reaching fully into the freed room as well, on the
+    conservative assumption that a real optimizer would keep pushing into it
+    rather than stopping exactly at the old ceiling. This is a first-pass
+    estimate, not a derived tax identity -- there is no closed form for "how
+    much of a displaced dollar and a converted dollar overlap" the way there
+    is for, say, a discount factor. It is deliberately the conservative
+    direction: it biases toward MORE headroom counted as used, not less,
+    because the double-count risk this function exists to prevent is a
+    schedule search thinking it got headroom for free.
+
+    Whoever wires this into a real search (Task 10) should treat it as
+    provisional and revisit it if candidate schedules cluster suspiciously
+    close to IRMAA or bracket thresholds -- the same caution `score_year`'s
+    docstring gives its own compounding gap.
+    """
+    bracket_room = max(0.0, _as_float(row.get('bracket_room'), 0.0))
+    hsa_draw = max(0.0, _as_float(hsa_draw, 0.0))
+    conversion = max(0.0, _as_float(conversion, 0.0))
+
+    if hsa_draw <= 0.0 or conversion <= 0.0:
+        return min(conversion, bracket_room)
+
+    if bracket_room <= 0.0:
+        # No base room to speak of -- the only pool that exists is what the
+        # draw freed, so usage is simply how much of THAT the conversion
+        # reaches. `min(conversion, bracket_room)` would wrongly floor this
+        # at zero, discarding the conversion's real claim on the freed room.
+        return min(conversion, hsa_draw)
+
+    fraction = min(1.0, conversion / bracket_room)
+    return min(conversion, bracket_room) + hsa_draw * fraction
