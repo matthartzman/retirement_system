@@ -153,15 +153,35 @@ class SurvivorSpendingFactorTests(unittest.TestCase):
                 msg=f"{year} total_spend did not move by exactly the core+extras reduction",
             )
 
-    def test_factor_of_one_reproduces_todays_numbers_bit_identically(self):
-        terminal_nw = self.rows_unity[-1]["total_nw"]
-        lifetime_tax = sum(r["total_tax"] for r in self.rows_unity)
-        self.assertAlmostEqual(
-            terminal_nw, PRE_S1_TERMINAL_NW, places=2,
-            msg=("survivor_spend_factor=1.0 must be a no-op against the pre-S1 engine; "
-                 f"terminal NW is {terminal_nw:,.2f}, expected {PRE_S1_TERMINAL_NW:,.2f}"),
-        )
-        self.assertAlmostEqual(lifetime_tax, PRE_S1_LIFETIME_TAX, places=2)
+    def test_factor_of_one_applies_no_survivor_scaling(self):
+        """A factor of 1.0 must leave survivor-year spending unscaled.
+
+        This deliberately asserts on the COMPONENTS the factor touches rather
+        than on terminal net worth. An earlier version pinned whole-plan
+        terminal NW against a pre-S1 figure, which made it fail the moment
+        Task S3 (the estate home sale) legitimately moved the plan -- a local
+        property proved by a global pin breaks on every unrelated change.
+        Whole-plan dollars are the golden master's job, not this file's.
+        """
+        for year in SURVIVOR_YEARS:
+            unity = self.by_year_unity[year]
+            default = self.by_year_default[year]
+            self.assertAlmostEqual(
+                default["spend_base_yr"],
+                unity["spend_base_yr"] * SURVIVOR_SPEND_FACTOR_DEFAULT, places=6,
+                msg=f"{year}: default run must be exactly the factor times the unscaled run",
+            )
+            self.assertAlmostEqual(
+                default["rec_extra"],
+                unity["rec_extra"] * SURVIVOR_SPEND_FACTOR_DEFAULT, places=6,
+            )
+
+        for year in BOTH_ALIVE_YEARS:
+            self.assertAlmostEqual(
+                self.by_year_unity[year]["spend_base_yr"],
+                self.by_year_default[year]["spend_base_yr"], places=6,
+                msg=f"{year} has both members alive; the factor must not apply",
+            )
 
     def test_a_genuinely_single_member_household_is_never_scaled(self):
         """A one-person plan is not a survivor plan.
@@ -201,3 +221,116 @@ class SurvivorSpendingFactorTests(unittest.TestCase):
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
+
+
+# ── Tasks S2 + S3 ───────────────────────────────────────────────────────────
+# Past the second death nobody is alive, so there are no living expenses of any
+# kind, and the home is disposed of rather than carried forever.
+#
+# These need an EXTENDED horizon to observe at all: a default plan has
+# plan_end == max(death years) == the second death year, so it contains no
+# both-dead rows. That is why this half of the defect was latent.
+
+SECOND_DEATH_YEAR = 2056
+
+LIVING_EXPENSE_KEYS = (
+    "spend_base_yr", "rec_extra", "housing_total_yr", "housing_operating_yr",
+    "housing_utilities_yr", "housing_maintenance_yr", "housing_other_yr",
+    "real_estate_tax_yr", "mortgage_payment_yr", "rent_yr",
+    "wellness_base_yr", "wellness_shock_yr", "ltc_prem_yr",
+    "business_expenses_yr", "total_spend",
+)
+
+
+def _rows_extended(plan_end=2070):
+    """Project past the second death so both-dead rows exist."""
+    from src.planning_engines import project
+    from tests.golden_pricing import FROZEN_GOLDEN_MASTER_PRICES, frozen_holdings_prices
+
+    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+        c = _frozen_config()
+        c["plan_end"] = plan_end
+        rows = project(c)
+    return {int(r["year"]): r for r in rows}, rows
+
+
+@pytest.mark.golden_master
+class EstateOnlyAfterSecondDeathTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.by_year, cls.rows = _rows_extended()
+
+    def test_every_living_expense_is_zero_after_the_second_death(self):
+        """The defect: the plan charged a dead household core spending and
+        housing forever, and the figures kept inflating."""
+        for year in range(SECOND_DEATH_YEAR + 1, 2071):
+            row = self.by_year[year]
+            for key in LIVING_EXPENSE_KEYS:
+                self.assertAlmostEqual(
+                    float(row.get(key) or 0.0), 0.0, places=6,
+                    msg=f"{key} is non-zero in {year}, when nobody is alive",
+                )
+
+    def test_no_unfunded_gap_can_arise_after_the_second_death(self):
+        """A household that no longer exists cannot fail to fund itself.
+        Pre-fix this reported a 232,874 gap by 2065."""
+        for year in range(SECOND_DEATH_YEAR + 1, 2071):
+            self.assertAlmostEqual(
+                float(self.by_year[year].get("unfunded_gap") or 0.0), 0.0, places=6,
+                msg=f"unfunded_gap is non-zero in {year}, when nobody is alive",
+            )
+
+    def test_both_alive_and_survivor_years_are_untouched_by_estate_mode(self):
+        """Estate mode must not reach back into years someone is alive."""
+        for year in (2053, 2054, 2055, 2056):
+            self.assertGreater(
+                float(self.by_year[year].get("total_spend") or 0.0), 0.0,
+                msg=f"{year} has someone alive and must still spend",
+            )
+
+
+@pytest.mark.golden_master
+class HomeSoldAtSecondDeathTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.by_year, cls.rows = _rows_extended()
+
+    def test_the_home_is_sold_in_the_second_death_year(self):
+        row = self.by_year[SECOND_DEATH_YEAR]
+        self.assertGreater(float(row.get("home_sale_gross") or 0.0), 0.0,
+                           "the home must be disposed of at the second death")
+        self.assertGreater(float(row.get("home_sale_net") or 0.0), 0.0,
+                           "net proceeds must reach the estate")
+
+    def test_the_estate_sale_uses_market_value_not_a_downsizing_price(self):
+        """An estate sale is a forced disposition, not a planned downsizing.
+
+        home_sale_px is the user's assumed price for a SPECIFIC planned
+        downsizing transaction. If the estate sale reused it, a stale
+        assumption (1,750,000 on this fixture) would silently replace the
+        home's real appreciated market value at second death, destroying real
+        estate value. Caught during implementation: measured 1.53M lost on
+        the frozen fixture before this was fixed.
+        """
+        row = self.by_year[SECOND_DEATH_YEAR]
+        appreciated_market_value = self.by_year[SECOND_DEATH_YEAR - 1]["home_val"] * (1 + 0.03)
+        self.assertGreater(
+            float(row.get("home_sale_gross") or 0.0), appreciated_market_value * 0.9,
+            "estate sale gross proceeds look like a stale home_sale_px, not market value",
+        )
+
+    def test_the_home_is_not_carried_after_the_second_death(self):
+        """Pre-fix home_val kept appreciating to 3.9M while the plan paid
+        ~85k/yr to carry a house nobody lived in."""
+        for year in range(SECOND_DEATH_YEAR + 1, 2071):
+            self.assertAlmostEqual(
+                float(self.by_year[year].get("home_val") or 0.0), 0.0, places=6,
+                msg=f"home_val is non-zero in {year}, after the home was sold",
+            )
+
+    def test_death_triggered_sale_is_stepped_up_so_no_gain_is_taxed(self):
+        """Assets receive a basis step-up at death, so a sale in the year of
+        death realizes no taxable gain."""
+        row = self.by_year[SECOND_DEATH_YEAR]
+        self.assertAlmostEqual(float(row.get("home_sale_taxable") or 0.0), 0.0, places=6)
+        self.assertAlmostEqual(float(row.get("home_sale_tax") or 0.0), 0.0, places=6)
