@@ -633,6 +633,57 @@ class ScheduleFeasibilityTests(unittest.TestCase):
         self.assertEqual(
             schedule_feasibility(FEASIBLE_C, list(reversed(out))), "feasible")
 
+    def _underdrawn_rows(self, balance_at):
+        """A schedule that draws $1/year against a real $500k balance, with the
+        `hsa_nw`-carrying row at position `balance_at`.
+
+        Every year underdraws by four orders of magnitude, so the residual is
+        the starting balance almost untouched. That is what makes the fixture
+        discriminating: the verdict is `'infeasible'` if and only if the real,
+        nonzero balance was actually FOUND. An implementation that read the
+        wrong row would see no `hsa_nw` at all, fall back to 0.0, and a
+        zero-balance account is trivially consumed by any draw -- so it would
+        report `'feasible'` and the guard would go red.
+
+        The `'feasible'` fixture the order-independence test above uses cannot
+        do this job: a schedule that already nets to zero nets to zero whatever
+        `hsa_nw` resolves to, so it passes against a position-0-only read too.
+        """
+        from src.hsa_schedule import _schedule_years, _starting_balance
+        years = _schedule_years(FEASIBLE_C, FEASIBLE_ROWS)
+        rows = [{"year": y, "optimizer_amount": 0.0, "override_amount": 1.0,
+                 "locked": True} for y in years]
+        rows[balance_at]["hsa_nw"] = _starting_balance(FEASIBLE_ROWS)
+        return rows
+
+    def test_an_underdrawn_schedule_is_infeasible_with_the_balance_row_first(self):
+        """Baseline placement: `rerun_optimizer`'s own stamping position."""
+        from src.hsa_schedule import schedule_feasibility
+        rows = self._underdrawn_rows(0)
+        self.assertEqual(schedule_feasibility(FEASIBLE_C, rows), "infeasible")
+
+    def test_an_underdrawn_schedule_is_infeasible_with_the_balance_row_in_the_middle(self):
+        """Same row set, balance moved off position 0. A position-0-only lookup
+        reads no balance here and wrongly reports 'feasible'."""
+        from src.hsa_schedule import schedule_feasibility
+        rows = self._underdrawn_rows(7)
+        self.assertEqual(schedule_feasibility(FEASIBLE_C, rows), "infeasible")
+
+    def test_an_underdrawn_schedule_is_infeasible_with_the_balance_row_last(self):
+        """The far end of the same table, and the same requirement."""
+        from src.hsa_schedule import schedule_feasibility
+        rows = self._underdrawn_rows(-1)
+        self.assertEqual(schedule_feasibility(FEASIBLE_C, rows), "infeasible")
+
+    def test_an_underdrawn_schedule_is_infeasible_when_the_table_is_reversed(self):
+        """Reversing the caller's table moves the balance row from first to
+        last without changing a single number in it. The verdict must not."""
+        from src.hsa_schedule import schedule_feasibility
+        rows = self._underdrawn_rows(0)
+        self.assertEqual(schedule_feasibility(FEASIBLE_C, rows), "infeasible")
+        self.assertEqual(
+            schedule_feasibility(FEASIBLE_C, list(reversed(rows))), "infeasible")
+
     def test_no_horizon_is_infeasible_rather_than_a_crash(self):
         from src.hsa_schedule import schedule_feasibility
         self.assertEqual(schedule_feasibility({}, []), "infeasible")
@@ -643,6 +694,42 @@ class ScheduleFeasibilityTests(unittest.TestCase):
         stale = list(out) + [{"year": 2044, "optimizer_amount": 0.0,
                               "override_amount": 500_000.0, "locked": True}]
         self.assertEqual(schedule_feasibility(FEASIBLE_C, stale), "feasible")
+
+    def _stale_balance_row(self):
+        """A row past the deadline carrying a `hsa_nw` ten times the real one.
+
+        2044 is outside the 2026..2040 horizon, so this row is stale by the
+        function's own documented rule -- "a stale CSV must not move the
+        deadline". The amount loop already skips it. The point of the wrong
+        balance is that it is loud: if the balance scan honors it, the clean
+        schedule underdraws by 4.5M and the verdict flips to 'infeasible'.
+        """
+        return {"year": 2044, "optimizer_amount": 0.0, "override_amount": 0.0,
+                "locked": True, "hsa_nw": 5_000_000.0}
+
+    def test_a_stale_out_of_horizon_row_cannot_supply_the_balance_when_appended(self):
+        from src.hsa_schedule import schedule_feasibility, rerun_optimizer
+        out = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, [])
+        rows = list(out) + [self._stale_balance_row()]
+        self.assertEqual(schedule_feasibility(FEASIBLE_C, rows), "feasible")
+
+    def test_a_stale_out_of_horizon_row_cannot_supply_the_balance_when_prepended(self):
+        """The discriminating placement. Appending hid the bug because the real
+        balance row still came first; prepending puts the stale row in front of
+        it, and a scan without the horizon filter takes the stale number."""
+        from src.hsa_schedule import schedule_feasibility, rerun_optimizer
+        out = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, [])
+        rows = [self._stale_balance_row()] + list(out)
+        self.assertEqual(schedule_feasibility(FEASIBLE_C, rows), "feasible")
+
+    def test_the_stale_row_s_placement_cannot_change_the_verdict(self):
+        """Same data, two positions, one answer -- stated as the contract rather
+        than as two independent facts that happen to agree."""
+        from src.hsa_schedule import schedule_feasibility, rerun_optimizer
+        out = rerun_optimizer(FEASIBLE_C, FEASIBLE_ROWS, [])
+        appended = schedule_feasibility(FEASIBLE_C, list(out) + [self._stale_balance_row()])
+        prepended = schedule_feasibility(FEASIBLE_C, [self._stale_balance_row()] + list(out))
+        self.assertEqual(appended, prepended)
 
 
 if __name__ == "__main__":
