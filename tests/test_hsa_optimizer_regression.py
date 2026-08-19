@@ -469,5 +469,87 @@ class ScheduleSearchTests(unittest.TestCase):
         self.assertLess(max(y for y, v in out["by_year"].items() if v > 0.0), 2050)
 
 
+class HsaScheduleSheetSectionTests(unittest.TestCase):
+    """The workbook section that carries the schedule, tested directly.
+
+    The workbook-snapshot guard for this section
+    (`test_hsa_schedule_discloses_its_modeling_limits` in
+    tests/test_workbook_pdf_build_snapshot.py) resolves the sheet out of a real
+    build against the FROZEN fixture -- whose `hsa_withdrawal_mode` is not
+    `'optimize'`. The section is mode-gated, so on that build it correctly does
+    not render and the guard skips. A guard that skips proves nothing about the
+    content, so the disclosure text and the table are pinned HERE, against a
+    config that does turn the mode on, with no workbook build in the loop.
+    """
+
+    def _render(self, c, rows):
+        import openpyxl
+        from src.reporting.sheets_strategy import build_hsa_schedule_section
+        ws = openpyxl.Workbook().active
+        end = build_hsa_schedule_section(ws, c, rows, 1)
+        text = "\n".join(
+            str(cell)
+            for row in ws.iter_rows(values_only=True)
+            for cell in row if cell is not None
+        )
+        return text, end
+
+    def test_the_section_is_absent_for_every_non_optimize_mode(self):
+        """Tasks 5/6's modes produce no schedule, so there is nothing to report
+        on. Rendering an empty or placeholder section for them would be worse
+        than omitting it: it would present the four modeling limits as if they
+        qualified a recommendation the build never made."""
+        for mode in (None, "spend_as_needed", "annual_pct", "smooth_window"):
+            c = dict(FEASIBLE_C)
+            if mode is not None:
+                c["hsa_withdrawal_mode"] = mode
+            text, end = self._render(c, FEASIBLE_ROWS)
+            self.assertEqual(text, "", f"mode {mode!r} rendered a schedule section")
+            self.assertEqual(end, 1, f"mode {mode!r} consumed rows on the sheet")
+
+    def test_optimize_mode_renders_the_schedule_and_all_four_limits(self):
+        c = dict(FEASIBLE_C, hsa_withdrawal_mode="optimize")
+        text, end = self._render(c, FEASIBLE_ROWS)
+        self.assertGreater(end, 1, "optimize mode rendered nothing")
+
+        # 1. Deterministic-path-only, not re-optimized per MC path.
+        self.assertIn("optimized on the deterministic path", text)
+        # 2. Bucket-level in the vectorized MC -> balances only, no volatility channel.
+        self.assertIn("bucket level", text)
+        self.assertIn("only through balances", text)
+        # 3. Deadline is a longevity percentile and a planning choice, with the
+        #    residual exposure spelled out as a consequence, not just a number.
+        self.assertIn("longevity percentile", text)
+        self.assertIn("planning choice, not a prediction", text)
+        self.assertIn("If you outlive", text)
+        self.assertIn("ordinary income", text)
+        # 4. Objective shared with Roth -> changing either retunes both.
+        self.assertIn("shares the Roth conversion objective", text)
+        self.assertIn("retunes both", text)
+
+        # The table itself: every funded year and its dollars, plus the
+        # feasibility state and residual reported ONCE rather than per row.
+        from src.hsa_schedule import build_schedule
+        out = build_schedule(c, FEASIBLE_ROWS)
+        funded = [y for y, v in out["by_year"].items() if v > 0.0]
+        self.assertTrue(funded, "fixture produced no funded years to render")
+        for year in funded:
+            self.assertIn(str(year), text)
+        self.assertEqual(text.count(out["feasibility"].replace("_", " ")), 1,
+                         "feasibility state must be shown once, not per row")
+
+    def test_the_infeasible_residual_is_reported_not_swallowed(self):
+        """The one state whose number the reader most needs is the one a
+        prettier sheet would hide."""
+        c = dict(OVERSIZED_C, hsa_withdrawal_mode="optimize")
+        text, _ = self._render(c, FEASIBLE_ROWS)
+        from src.hsa_schedule import build_schedule
+        out = build_schedule(c, FEASIBLE_ROWS)
+        self.assertEqual(out["feasibility"], "infeasible")
+        self.assertGreater(out["residual"], 0.0)
+        self.assertIn("infeasible", text)
+        self.assertIn(f"${out['residual']:,.0f}", text)
+
+
 if __name__ == "__main__":
     unittest.main()

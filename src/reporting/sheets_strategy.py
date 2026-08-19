@@ -391,6 +391,130 @@ def build_sheet10(ws, c, rows):
 
     return {'best': best, 'current': current, 'scenarios': scenarios}
 
+_HSA_SECTION_SPAN = 15
+_HSA_SECTION_TITLE = 'PROPOSED HSA DRAWDOWN SCHEDULE — And What This Number Cannot Tell You'
+
+
+def build_hsa_schedule_section(ws, c, rows, r):
+    """Render the optimizer's proposed HSA drawdown schedule and its limits.
+
+    Returns the next free row; renders NOTHING and returns `r` unchanged unless
+    `hsa_withdrawal_mode` is `'optimize'`.
+
+    **Why the gate.** The other withdrawal modes (`spend_as_needed`,
+    `annual_pct`, `smooth_window`) produce no schedule to report on. An empty or
+    placeholder section for them would be worse than no section: it would put
+    four modeling caveats in front of a reader as if they qualified a
+    recommendation this build never made.
+
+    **Why this sheet.** The schedule is not an independent recommendation. The
+    same year-by-year bracket/IRMAA headroom is divided between HSA draws and
+    Roth conversions by one shared objective (`joint_headroom_used` /
+    `allocate_surplus`), so the two answers move together. Putting the schedule
+    anywhere else would let a reader adopt one and not the other, which is the
+    single misreading that makes both wrong.
+    """
+    if str(c.get('hsa_withdrawal_mode') or '').strip().lower() != 'optimize':
+        return r
+
+    from ..hsa_schedule import build_schedule, resolve_consume_by_year
+
+    schedule = build_schedule(c, rows)
+    by_year = schedule.get('by_year') or {}
+    feasibility = str(schedule.get('feasibility', 'infeasible'))
+    residual = float(schedule.get('residual', 0.0) or 0.0)
+    # The recursion in `build_schedule` lands on the floor to floating-point
+    # precision, not exactly -- a feasible plan can report a residual of 8e-11.
+    # Anything under a dollar is arithmetic noise, and reading the "you are
+    # exposed" paragraph to a household over $0.00000000008 would discredit the
+    # disclosure that matters.
+    exposed = residual >= 1.0
+    deadline = resolve_consume_by_year(c, rows)
+
+    write_hdr(ws, r, 1, _HSA_SECTION_TITLE, NAVY, WHITE, span=_HSA_SECTION_SPAN); r += 1
+
+    # ── Overall result: stated once, not repeated down the table ─────────────
+    _state_label = feasibility.replace('_', ' ')
+    write_cell(ws, r, 1, 'Consume-By Deadline', bold=True, bg=LGRAY)
+    write_cell(ws, r, 2, deadline, fmt=FMT_YEAR, bold=True)
+    write_cell(ws, r, 4, 'Feasibility', bold=True, bg=LGRAY)
+    write_cell(ws, r, 5, _state_label, bold=True,
+               bg='FCE4D6' if feasibility == 'infeasible' else 'E2EFDA')
+    write_cell(ws, r, 7, 'Residual at Deadline', bold=True, bg=LGRAY)
+    write_cell(ws, r, 8, round(residual, 2) if exposed else 0.0, fmt=FMT_DOLLAR, bold=True)
+    r += 2
+
+    # ── The schedule itself ──────────────────────────────────────────────────
+    write_hdr(ws, r, 1, 'Year-by-Year Proposed HSA Withdrawal', DGRAY, WHITE, span=_HSA_SECTION_SPAN); r += 1
+    write_hdr(ws, r, 1, 'Year', DGRAY, WHITE, size=8)
+    write_hdr(ws, r, 2, 'Proposed HSA Draw', DGRAY, WHITE, size=8)
+    r += 1
+    total = 0.0
+    for year in sorted(by_year):
+        amount = float(by_year[year] or 0.0)
+        total += amount
+        write_cell(ws, r, 1, int(year), fmt=FMT_YEAR, align='center')
+        write_cell(ws, r, 2, amount, fmt=FMT_DOLLAR, bg=LGRAY if amount > 0 else None,
+                   bold=amount > 0)
+        r += 1
+    write_cell(ws, r, 1, 'Total', bold=True, bg=LGRAY)
+    write_cell(ws, r, 2, total, fmt=FMT_DOLLAR, bold=True, bg=LGRAY)
+    r += 2
+
+    # ── The four limits that must ship with the number ───────────────────────
+    write_hdr(ws, r, 1, 'What This Schedule Cannot Tell You — Read Before Acting',
+              ORANGE, WHITE, span=_HSA_SECTION_SPAN); r += 1
+
+    _residual_txt = (
+        f'If you outlive {deadline}, roughly ${residual:,.0f} is still sitting in the HSA on that '
+        'date. Those dollars are not lost — but they are outside everything this schedule assumed '
+        'about them. Whatever remains at the second death passes to your beneficiary, and a '
+        'non-spouse beneficiary must take it as ordinary income, taxed at their rate in that year, '
+        'with none of the tax-free medical treatment you get while alive. That is the exposure the '
+        'deadline is buying down, and it does not disappear because the date was chosen well.'
+        if exposed else
+        f'If you outlive {deadline}, this schedule has already drawn the account to zero by that '
+        f'date (residual ${residual:,.0f}), so there is no remaining balance to be taxed as ordinary '
+        'income to a non-spouse beneficiary. That is the outcome the deadline exists to produce — '
+        'but it is produced by the schedule being FOLLOWED. Draw less than this in the early years, '
+        'or start later, and the residual comes back.'
+    )
+
+    limits = [
+        ('Deterministic Path Only',
+         'This schedule is optimized on the deterministic path — the single no-volatility reference '
+         'projection — and is NOT re-optimized per Monte Carlo path. Every simulated path draws the '
+         'same dollars in the same years. Read it as the answer to the reference projection, not as '
+         'a policy that adapts to how markets actually turn out.'),
+        ('Monte Carlo Sees Balances, Not Volatility',
+         'Inside the vectorized Monte Carlo the HSA is modeled at the bucket level: every account in '
+         'the HSA bucket takes the same annual market shock and differs only by a constant return '
+         'offset (the same limit disclosed on the Market-Luck Stress Test sheet). Changing this '
+         'schedule can therefore move the success rate only through balances — how many dollars sit '
+         'in which bucket, and when — never through any volatility channel. Do not read a success-rate '
+         'difference between two schedules as evidence about risk.'),
+        ('The Deadline Is a Choice, Not a Forecast',
+         f'The {deadline} consume-by deadline rests on a longevity percentile, not on a known date. '
+         'It is a planning choice, not a prediction: the household can and may outlive it. '
+         + _residual_txt),
+        ('Shared Objective With Roth Conversion',
+         'This schedule shares the Roth conversion objective shown above: one joint scorer divides the '
+         'same year-by-year bracket and IRMAA headroom between HSA withdrawals and Roth conversions. '
+         'Changing either retunes both. Adjust the Roth policy and expect these HSA amounts to move; '
+         'adjust the HSA schedule and expect the conversion plan to move. These are not two '
+         'independent recommendations and neither should be adopted on its own.'),
+    ]
+    for label, text in limits:
+        write_cell(ws, r, 1, label, bold=True, bg=LGRAY, align='left')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=3)
+        write_cell(ws, r, 4, text, align='left')
+        ws.merge_cells(start_row=r, start_column=4, end_row=r, end_column=_HSA_SECTION_SPAN)
+        ws.row_dimensions[r].height = 58
+        r += 1
+
+    return r + 1
+
+
 def build_sheet11(ws, c, rows):
     """Roth Conversion Plan — canonical strategy contract and diagnostics."""
     ws.sheet_view.showGridLines = False
@@ -579,6 +703,12 @@ def build_sheet11(ws, c, rows):
         ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=len(hdrs))
         ws.row_dimensions[r].height = 32
         r += 1
+
+    # The HSA drawdown schedule shares this sheet's objective, so it ships with
+    # this sheet's recommendation. Mode-gated: renders nothing unless the HSA
+    # schedule optimizer is the configured withdrawal mode.
+    r += 2
+    r = build_hsa_schedule_section(ws, c, rows, r)
 
     ws.column_dimensions['B'].width = 14
     ws.column_dimensions['C'].width = 28
