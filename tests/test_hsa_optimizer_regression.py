@@ -116,5 +116,30 @@ class ConsumeByHorizonFromRowsTests(unittest.TestCase):
         self.assertEqual(resolve_consume_by_year(c, []), 2026)
 
 
+@pytest.mark.unit
+class ScoringTests(unittest.TestCase):
+    def test_a_higher_marginal_rate_year_scores_higher(self):
+        from src.hsa_schedule import score_year
+        lo = {"year": 2030, "effective_marginal_rate": 0.12, "irmaa_tier": 0}
+        hi = {"year": 2030, "effective_marginal_rate": 0.32, "irmaa_tier": 0}
+        self.assertGreater(score_year({}, hi, 10_000.0), score_year({}, lo, 10_000.0))
+
+    def test_a_year_that_avoids_an_irmaa_crossing_scores_higher(self):
+        from src.hsa_schedule import score_year
+        flat = {"year": 2030, "effective_marginal_rate": 0.22, "irmaa_tier": 1,
+                "irmaa_headroom": 50_000.0}
+        cliff = {"year": 2030, "effective_marginal_rate": 0.22, "irmaa_tier": 1,
+                 "irmaa_headroom": 500.0}
+        self.assertGreater(score_year({}, cliff, 10_000.0), score_year({}, flat, 10_000.0))
+
+    def test_survivor_years_score_higher_than_joint_years_at_equal_income(self):
+        """Section 1.3 of the spec: the survivor files Single at compressed
+        brackets, so the displaced dollar is dearer."""
+        from src.hsa_schedule import score_year
+        joint = {"year": 2040, "filing": "MFJ", "effective_marginal_rate": 0.22, "irmaa_tier": 0}
+        single = {"year": 2040, "filing": "Single", "effective_marginal_rate": 0.32, "irmaa_tier": 0}
+        self.assertGreater(score_year({}, single, 10_000.0), score_year({}, joint, 10_000.0))
+
+
 if __name__ == "__main__":
     unittest.main()

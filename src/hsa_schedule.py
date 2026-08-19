@@ -185,3 +185,199 @@ def _clamp(year: int, plan_start: Optional[int], plan_end: Optional[int]) -> int
     if plan_start is not None:
         year = max(year, plan_start)
     return year
+
+
+# --- Per-year scoring -------------------------------------------------------
+#
+# `score_year` answers the only question the consume-by constraint leaves open:
+# given that the balance must reach zero by the deadline, WHICH years should the
+# withdrawals land in? It returns the present-valued benefit, in dollars, of
+# drawing `amount` in that row's year, so a search can rank candidate years
+# against each other on one comparable scale.
+
+# Section 1.3 of the design spec: after the first death the survivor files
+# Single at roughly half the MFJ bracket widths. `effective_marginal_rate` is a
+# POINT estimate at the current margin (deterministic_engine's `_EMR_BUMP`
+# perturbation), so it already carries the level effect of those compressed
+# brackets. What it cannot carry is the CONVEXITY: a whole block of `amount`
+# dollars traverses more bracket boundaries at half-width, so the average rate
+# across the displaced block sits further above the marginal rate for a Single
+# filer than for an MFJ one. This premium prices that gap, and nothing else --
+# it is deliberately small, because the level effect is already in the rate and
+# double-counting it would let a cheap survivor year outrank a genuinely
+# expensive joint one.
+_SINGLE_BRACKET_COMPRESSION_PREMIUM = 1.10
+
+_COMPRESSED_FILINGS = frozenset({'SINGLE', 'MFS'})
+
+# Medicare enrollees the IRMAA surcharge is charged to, by filing status. The
+# surcharge is per beneficiary, which is why an MFJ crossing costs twice a
+# Single one at the same tier (`core.irmaa_surcharge`'s `n_people`).
+_IRMAA_ENROLLEES = {'MFJ': 2}
+
+
+def score_year(c: Mapping[str, Any], row: Mapping[str, Any], amount: Any) -> float:
+    """Present-valued benefit, in dollars, of drawing `amount` in `row`'s year.
+
+    Four terms, all in the same units so they can simply be added:
+
+    * **Displacement** -- the tax avoided on the alternative dollar the HSA
+      draw displaces, at that year's marginal rate and filing status. This is
+      the term that makes an expensive year beat a cheap one.
+    * **Cliff** -- the IRMAA tier crossing avoided. A step, not a slope: worth
+      the full annual surcharge step when the draw actually keeps the household
+      under the next threshold, and very little when the threshold is far away.
+    * **Carry cost / discount** -- later years are worth less, discounted at the
+      shared `roth_tax_discount_rate` (see `_roth_discount_rate`). The HSA
+      optimizer deliberately does NOT get its own rate: section 3.1 of the
+      design spec requires HSA draws and Roth conversions to be scored jointly,
+      and two discount rates would make that joint answer depend on which
+      optimizer ran first.
+    * **Residual risk** -- NOT priced here, on purpose. The expected lump-sum
+      tax on a balance still held at death is a function of the balance the
+      schedule leaves standing, not of one candidate (year, amount) pair, so it
+      cannot be evaluated from this signature without being double-counted
+      across every candidate year. It belongs to the schedule search that owns
+      the running balance. Nothing here substitutes for it: the discount factor
+      also pulls draws earlier, but it prices impatience, not mortality, and
+      section 3.1 is explicit that the residual term is load-bearing rather
+      than a refinement.
+
+    `row` is a projection row. `effective_marginal_rate`, `irmaa_tier`,
+    `filing` and `year` are real fields the deterministic engine sets.
+    ``row['irmaa_headroom']`` is **optional** and is not a field any projection
+    row carries today -- IRMAA headroom is computed at candidate-scoring time
+    (the Roth optimizer does exactly that inline). When it is absent the cliff
+    term contributes nothing, which is the only honest reading of "no cliff
+    information available": assuming a number would bias every real row toward
+    either always-crossing or never-crossing.
+
+    Every field is read defensively. A scoring function that raised on a
+    malformed row would take down a whole projection over one diagnostic.
+    """
+    amount = _as_float(amount, 0.0)
+    if amount <= 0.0:
+        return 0.0
+
+    displacement = amount * _displaced_dollar_rate(row)
+    cliff = _irmaa_cliff_value(row, amount)
+    return (displacement + cliff) * _pv_factor(c, row)
+
+
+def _displaced_dollar_rate(row: Mapping[str, Any]) -> float:
+    """Effective rate on the dollar the draw displaces, incl. the Single premium."""
+    rate = _as_float(row.get('effective_marginal_rate'), 0.0)
+    # Clamped, not trusted: the field is a finite-difference diagnostic and the
+    # engine itself sets it to None when the difference blows up.
+    rate = min(1.0, max(0.0, rate))
+    if _filing(row) in _COMPRESSED_FILINGS:
+        rate *= _SINGLE_BRACKET_COMPRESSION_PREMIUM
+    return rate
+
+
+def _irmaa_cliff_value(row: Mapping[str, Any], amount: float) -> float:
+    """Value of the IRMAA tier crossing this draw avoids, in dollars.
+
+    `irmaa_headroom` is the room left under the next tier's threshold. If the
+    displaced dollars would have run past it, the draw buys the whole surcharge
+    step; if the threshold is far off, it buys almost nothing. The quadratic
+    taper below the crossing point is not a probability -- it exists so a
+    search sees a gradient toward the cliff instead of a flat plateau, and it
+    decays fast enough (headroom 5x the draw is worth 4% of the step) that a
+    year nowhere near a threshold cannot win on this term.
+    """
+    headroom = row.get('irmaa_headroom')
+    if headroom is None:
+        return 0.0
+    headroom = max(0.0, _as_float(headroom, 0.0))
+
+    step = _next_tier_surcharge_step(row)
+    if step <= 0.0:
+        return 0.0
+    if amount >= headroom:
+        return step
+    return step * (amount / headroom) ** 2
+
+
+def _next_tier_surcharge_step(row: Mapping[str, Any]) -> float:
+    """Annual household cost of moving from this row's IRMAA tier to the next.
+
+    Read off the same `IRMAA_TIERS_BASE_YEAR` table `core.irmaa_surcharge`
+    uses, at this row's filing status, so this is not a second IRMAA model.
+    Zero at the top tier -- there is no next tier to cross.
+    """
+    filing = _filing(row)
+    try:
+        from .taxes import IRMAA_TIERS_BASE_YEAR
+    except ImportError:  # pragma: no cover - direct execution fallback
+        from src.taxes import IRMAA_TIERS_BASE_YEAR
+    tiers = IRMAA_TIERS_BASE_YEAR.get(filing) or IRMAA_TIERS_BASE_YEAR.get('MFJ') or []
+    if not tiers:
+        return 0.0
+
+    tier = int(_as_float(row.get('irmaa_tier'), 0.0))
+    tier = max(0, min(tier, len(tiers)))
+    if tier >= len(tiers):
+        return 0.0
+
+    enrollees = _IRMAA_ENROLLEES.get(filing, 1)
+    return max(0.0, (_tier_annual(tiers, tier + 1) - _tier_annual(tiers, tier)) * enrollees)
+
+
+def _tier_annual(tiers: Sequence[Sequence[float]], tier: int) -> float:
+    """Per-beneficiary annual Part B + Part D surcharge at `tier` (0 = none).
+
+    Tier numbering follows `core.irmaa_tier`: 0 is below the lowest threshold,
+    and tier k is the k-th entry of the table.
+    """
+    if tier <= 0:
+        return 0.0
+    part_b, part_d = tiers[tier - 1][1], tiers[tier - 1][2]
+    return (float(part_b) + float(part_d)) * 12.0
+
+
+def _pv_factor(c: Mapping[str, Any], row: Mapping[str, Any]) -> float:
+    """Discount from this row's year back to `plan_start`.
+
+    No `plan_start` (or no `year`) means no anchor to discount against, so this
+    degrades to 1.0 rather than raising. That is safe for ranking: with no
+    anchor the factor is the same constant for every candidate year, so it
+    scales scores without reordering them.
+    """
+    plan_start = row_year = None
+    try:
+        if c.get('plan_start') is not None:
+            plan_start = int(c['plan_start'])
+        if row.get('year') is not None:
+            row_year = int(row['year'])
+    except (TypeError, ValueError):
+        return 1.0
+    if plan_start is None or row_year is None:
+        return 1.0
+
+    from .planning_engines import _roth_discount_rate
+    rate = _roth_discount_rate(dict(c))
+    if rate <= -1.0:
+        return 1.0
+    return (1.0 + rate) ** -max(0, row_year - plan_start)
+
+
+def _filing(row: Mapping[str, Any]) -> str:
+    """This row's filing status, normalized. Missing means the joint case.
+
+    Defaulting to MFJ is the conservative direction here: it declines to award
+    the survivor premium and declines to halve the IRMAA enrollee count, so an
+    unlabeled row can never be flattered into looking like a survivor year.
+    """
+    raw = row.get('filing')
+    return ('' if raw is None else str(raw).strip().upper()) or 'MFJ'
+
+
+def _as_float(value: Any, default: float) -> float:
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        return default
+    if out != out or out in (float('inf'), float('-inf')):  # NaN / inf
+        return default
+    return out
