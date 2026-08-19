@@ -1116,11 +1116,26 @@ def build_sheet13(ws, c, rows):
     # "Geographic Cost-of-Living Delta" table below it comparing exactly one
     # target state. Merged here into a single Tax and Expenses table so every
     # state gets both its tax burden AND its estimated auto/home-insurance/
-    # utilities/maintenance delta in one place. The cost-of-living factors
-    # (STATE_COL_FACTORS / col_factors()) are indexed with Illinois = 1.00 for
-    # every category, so Illinois is the fixed basis those deltas are computed
-    # from regardless of which state the household currently lives in.
-    current_state = c.get('state', 'Illinois')
+    # utilities/maintenance delta in one place.
+    #
+    # Item 291 (Class 3): the DELTA shown to the reader is computed relative
+    # to the household's own state (tgt_col[key] / cur_col[key] below) --
+    # that part was already correct before this pass, regardless of which
+    # state the raw STATE_COL_FACTORS table happens to use as its internal
+    # basis. What was wrong was the DISCLOSURE text, which said "indexed to
+    # Illinois = 1.00" unconditionally -- true of the underlying table, but
+    # confusing/alienating framing for a non-Illinois household reading a
+    # number that IS already relative to their own state. The prose below
+    # states the comparison directly (vs. the household's own state) AND
+    # discloses that the underlying factor table is Illinois-derived --
+    # dropping the disclosure would relabel an Illinois-derived index as
+    # neutral, which is the same defect this ticket removes elsewhere.
+    # Follow-up recommended (out of scope here per the brief -- sourcing a
+    # properly independent regional cost index is its own project, not a
+    # line item inside a de-hardcoding pass): once STATE_COL_FACTORS is
+    # replaced with real, non-Illinois-anchored data, this disclosure
+    # sentence can be dropped.
+    current_state = c.get('state', '')
     _abbr = {
         'IL': 'Illinois', 'IN': 'Indiana', 'FL': 'Florida', 'TX': 'Texas',
         'TN': 'Tennessee', 'NC': 'North Carolina', 'AZ': 'Arizona',
@@ -1133,8 +1148,10 @@ def build_sheet13(ws, c, rows):
             if name.lower() == key.lower() or key.lower() in name.lower():
                 return key
         return _abbr.get(name.strip().upper())
-    cur_key = _resolve_state(current_state) or 'Illinois'
-    cur_col = col_factors(cur_key, STATE_TAX_RULES.get(cur_key))
+    cur_key = _resolve_state(current_state)
+    cur_col = col_factors(cur_key, STATE_TAX_RULES.get(cur_key)) if cur_key else {
+        'auto': 1.0, 'home_ins': 1.0, 'utilities': 1.0, 'maintenance': 1.0,
+    }
     expense_baselines = {
         'auto': c.get('current_auto_insurance_annual', 0),
         'home_ins': c.get('current_homeowners_insurance_annual', 0),
@@ -1143,13 +1160,18 @@ def build_sheet13(ws, c, rows):
     }
 
     write_hdr(ws, r, 1, 'Lifetime Tax and Expenses by State', NAVY, WHITE, span=14); r += 1
+    _cur_label = cur_key or (current_state or 'your current state')
     write_cell(ws, r, 1,
         f'Tax columns are lifetime totals over the {yrs}-year plan horizon. Expense delta '
         f'columns estimate the ANNUAL change in auto/homeowners insurance, utilities, and '
-        f'home maintenance vs. the household\'s current budgeted amounts in {cur_key}, using '
-        f'geographic cost-of-living factors indexed to Illinois = 1.00. ESTIMATE ONLY — '
-        f'replace with real quotes when available. Override factors via reference_data/'
-        f'state_tax.csv (col_auto, col_home_ins, col_utilities, col_maintenance).', fg='888888')
+        f'home maintenance vs. {_cur_label} -- the household\'s own current budgeted amounts, '
+        f'e.g. "about 15% less than {_cur_label}" rather than a comparison to any fixed '
+        f'baseline. ESTIMATE ONLY — replace with real quotes when available. The underlying '
+        f'cost-of-living factor table (STATE_COL_FACTORS) is itself Illinois-derived data; the '
+        f'comparison above is computed as a ratio against it, not read from it directly, but the '
+        f'source data has not yet been replaced with an independently sourced regional cost '
+        f'index. Override factors via reference_data/state_tax.csv (col_auto, col_home_ins, '
+        f'col_utilities, col_maintenance).', fg='888888')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14); r += 1
 
     hdrs = ['State', 'Income Rate', 'Income Tax', 'Property Tax', 'Sales Tax', 'Estate Tax',
@@ -1189,13 +1211,25 @@ def build_sheet13(ws, c, rows):
 
         prop_tax = home_val_avg * rules.get('prop_rate', 0) * yrs
         sales_tax = taxable_spend * rules.get('sales_rate', 0)
-        is_current = c.get('state', 'Illinois') in state_name
+        is_current = c.get('state', '') == state_name
         est_tax = 0
+        est_tax_not_modeled = False
         # For current state, use the CST-adjusted exemption from the plan
         _estate_exempt = c['il_exempt'] if is_current else rules.get('estate_exempt', 0)
-        if rules.get('estate') and rows[-1]['total_nw'] > _estate_exempt:
+        # Item 291: this quick cross-state comparison's flat 8%-of-excess
+        # heuristic was only ever validated against the il_credit_table
+        # mechanism (Illinois). Applying it to a state whose real estate tax
+        # this engine has not modeled (e.g. New York -- see state_estate_tax's
+        # docstring) would silently print a fabricated number here even
+        # though Sheet 14's own estate section explicitly discloses that
+        # state's tax as NOT MODELED -- the two sections would contradict
+        # each other. Gate the estimate to the one mechanism it was built
+        # for; flag the row instead of guessing for anything else.
+        if rules.get('estate_calc') == 'il_credit_table' and rows[-1]['total_nw'] > _estate_exempt:
             excess = rows[-1]['total_nw'] - _estate_exempt
             est_tax = excess * 0.08
+        elif rules.get('estate') and rows[-1]['total_nw'] > _estate_exempt:
+            est_tax_not_modeled = True
         total = inc_tax + prop_tax + sales_tax + est_tax
 
         # Geographic cost-of-living expense delta for this state vs. the
@@ -1213,7 +1247,7 @@ def build_sheet13(ws, c, rows):
         state_rows.append({
             'state_name': state_name, 'rules': rules, 'is_current': is_current,
             'inc_tax': inc_tax, 'prop_tax': prop_tax, 'sales_tax': sales_tax,
-            'est_tax': est_tax, 'total': total,
+            'est_tax': est_tax, 'est_tax_not_modeled': est_tax_not_modeled, 'total': total,
             'retirement_taxed': retirement_taxed,
             'expense_deltas': expense_deltas, 'lifetime_expense_delta': lifetime_expense_delta,
         })
@@ -1234,11 +1268,12 @@ def build_sheet13(ws, c, rows):
         bg = 'E2EFDA' if sr['combined_delta'] < -50000 else ('FCE4D6' if sr['combined_delta'] > 50000 else None)
         ed = sr['expense_deltas']
 
+        _state_label = sr['state_name'] + (' *' if sr['est_tax_not_modeled'] else '') + (' (Current)' if is_current else '')
         vals = [
-            (sr['state_name'] + (' (Current)' if is_current else ''), None),
+            (_state_label, None),
             (f'{rules["rate"]*100:.1f}%' if rules['rate'] > 0 else 'None', None),
             (sr['inc_tax'], FMT_DOLLAR), (sr['prop_tax'], FMT_DOLLAR), (sr['sales_tax'], FMT_DOLLAR),
-            (sr['est_tax'], FMT_DOLLAR), (sr['total'], FMT_DOLLAR),
+            ('Not modeled *' if sr['est_tax_not_modeled'] else sr['est_tax'], None if sr['est_tax_not_modeled'] else FMT_DOLLAR), (sr['total'], FMT_DOLLAR),
             (sr['tax_delta'] if not is_current else 'Baseline', FMT_DOLLAR if not is_current else None),
             (ed['auto'], FMT_DOLLAR), (ed['home_ins'], FMT_DOLLAR),
             (ed['utilities'], FMT_DOLLAR), (ed['maintenance'], FMT_DOLLAR),
@@ -1251,22 +1286,47 @@ def build_sheet13(ws, c, rows):
                        fg='C00000' if i==14 and isinstance(val,(int,float)) and val>0 else '000000')
         r += 1
 
+    if any(sr['est_tax_not_modeled'] for sr in state_rows):
+        write_cell(ws, r, 1,
+            '* This state levies a state estate tax that this engine does not yet model (its '
+            'mechanism differs from the Illinois cliff/interrelated-credit calculation this '
+            'workbook computes). Its estate tax is NOT included in Total Tax or either delta '
+            'column above -- both are understated for that row.', fg='C00000')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14); r += 1
+
     r += 2
     # ── Key insight callout ──────────────────────────────────────────────────
+    # Item 291: this must describe the household's ACTUAL resident state, not
+    # assume Illinois -- the claim "exempts retirement income" is simply
+    # false as written for a state that doesn't (most states in this table
+    # tax it; Illinois, Florida, Texas, Tennessee, Nevada, South Dakota, and
+    # Wyoming are the exemptors here).
     ret_pct = total_retirement / total_agi * 100 if total_agi > 0 else 0
-    write_cell(ws, r, 1,
-        f'Illinois exempts ${total_retirement:,.0f} of retirement income '
-        f'({ret_pct:.0f}% of AGI) from state tax. '
-        f'Moving to a state that taxes retirement income (e.g. North Carolina) '
-        f'would add ~${total_retirement * 0.045:,.0f} in lifetime state income tax.',
-        bold=True)
-    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
-    r += 1
-    write_cell(ws, r, 1,
-        'Qualified retirement income includes IRA/401k RMDs, pension, qualified annuity '
-        'distributions, and Roth conversions. Non-qualified (Personal market) annuity income '
-        'is taxable even in Illinois.', fg='888888')
-    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
+    _cur_rules = STATE_TAX_RULES.get(cur_key, {}) if cur_key else {}
+    _cur_label2 = cur_key or (current_state or 'Your current state')
+    if _cur_rules.get('exempt_retirement'):
+        write_cell(ws, r, 1,
+            f'{_cur_label2} exempts ${total_retirement:,.0f} of retirement income '
+            f'({ret_pct:.0f}% of AGI) from state tax. '
+            f'Moving to a state that taxes retirement income (e.g. North Carolina) '
+            f'would add ~${total_retirement * 0.045:,.0f} in lifetime state income tax.',
+            bold=True)
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
+        r += 1
+        write_cell(ws, r, 1,
+            f'Qualified retirement income includes IRA/401k RMDs, pension, qualified annuity '
+            f'distributions, and Roth conversions. Non-qualified (Personal market) annuity income '
+            f'is taxable even in {_cur_label2}.', fg='888888')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
+    else:
+        write_cell(ws, r, 1,
+            f'{_cur_label2} taxes qualified retirement income (IRA/401k RMDs, pension, qualified '
+            f'annuity distributions, and Roth conversions) -- ${total_retirement:,.0f} '
+            f'({ret_pct:.0f}% of AGI) of it is subject to state tax over the plan horizon. '
+            f'Moving to a state that exempts retirement income (e.g. Illinois) would avoid '
+            f'that state income tax on this income entirely.',
+            bold=True)
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
 
     qc('13. State Residency', f'{len(STATE_TAX_RULES)} states compared with retirement-income and expense treatment', True,
        f'retirement={ret_pct:.0f}% of AGI')
