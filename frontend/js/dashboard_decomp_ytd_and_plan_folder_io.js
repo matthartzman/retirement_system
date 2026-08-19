@@ -934,6 +934,144 @@ export async function readFileFromFolder(dirHandle, name) {
   return await f.text();
 }
 
+// -- HSA schedule per-year override table (Task 14) ---------------------
+// client_hsa_schedule.csv (year, optimizer_amount, override_amount, locked,
+// note) is registered as a flat plan-data table (Task 11:
+// src/server/plan_data_files.py PLAN_DATA_CSV_FILES /
+// src/local_plan_data_sync.py PLAN_DATA_CSV_FILES /
+// app_core.py _blank_hsa_schedule_csv), and the Python side is fully built
+// out (resolve_year_amount / rerun_optimizer / schedule_feasibility in
+// src/hsa_schedule.py) -- but unlike client_holdings.csv (/api/holdings) or
+// client_liabilities.csv (/api/liabilities) above, no /api/hsa-schedule (or
+// equivalent) route exists anywhere in this codebase, and no task in this
+// plan adds one. renderHsaSchedule therefore reads and writes a plain
+// module-local array (ensureHsaScheduleRows) instead of fetching from a
+// server endpoint that has nowhere to send the request.
+// ensureHsaScheduleRows / markHsaScheduleDirty are the seam a later task can
+// replace with a real fetch/save cycle -- mirroring
+// ensureLiabilityRows/serializeLiabilities/saveLiabilities above -- without
+// touching renderHsaSchedule or its edit handlers.
+
+let hsaScheduleRows = null;
+let hsaScheduleChanged = false;
+// 'feasible' | 'feasible_with_surplus' | 'infeasible' | null. null means "not
+// computed yet": nothing here calls schedule_feasibility() over a wire, so
+// the badge stays in a neutral "not yet computed" state until a later task
+// wires a real round trip and stores the verdict here.
+let hsaScheduleFeasibilityVerdict = null;
+
+export function ensureHsaScheduleRows() {
+  if (!hsaScheduleRows) hsaScheduleRows = [];
+  return hsaScheduleRows;
+}
+
+export function markHsaScheduleDirty() {
+  hsaScheduleChanged = true;
+}
+
+export function addHsaScheduleYear() {
+  const rows = ensureHsaScheduleRows();
+  const lastYear = rows.length
+    ? Math.max(...rows.map((r) => Number(r.year) || 0))
+    : new Date().getFullYear();
+  rows.push({
+    year: rows.length ? lastYear + 1 : lastYear,
+    optimizer_amount: null,
+    override_amount: null,
+    locked: false,
+    note: "",
+  });
+  markHsaScheduleDirty();
+  renderMain();
+}
+
+export async function deleteHsaScheduleYear(i) {
+  if (
+    !(await showInAppConfirm("This cannot be undone.", {
+      title: "Delete Schedule Year",
+      confirmLabel: "Delete",
+      variant: "danger",
+    }))
+  )
+    return;
+  ensureHsaScheduleRows().splice(i, 1);
+  markHsaScheduleDirty();
+  renderMain();
+}
+
+export function updateHsaScheduleOverride(i, val) {
+  const rows = ensureHsaScheduleRows();
+  if (!rows[i]) return;
+  const raw = String(val ?? "").trim();
+  const n = Number(raw.replace(/[$,]/g, ""));
+  rows[i].override_amount = raw === "" || !Number.isFinite(n) ? null : n;
+  markHsaScheduleDirty();
+}
+
+export function toggleHsaScheduleLock(i, checked) {
+  const rows = ensureHsaScheduleRows();
+  if (!rows[i]) return;
+  rows[i].locked = !!checked;
+  markHsaScheduleDirty();
+}
+
+export function updateHsaScheduleNote(i, val) {
+  const rows = ensureHsaScheduleRows();
+  if (!rows[i]) return;
+  rows[i].note = String(val ?? "");
+  markHsaScheduleDirty();
+}
+
+export function hsaScheduleAmountDisplay(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? ytdMoney(n) : "";
+}
+
+export function hsaScheduleFeasibilityLabel(v) {
+  return (
+    {
+      feasible: "Feasible",
+      feasible_with_surplus: "Feasible (surplus)",
+      infeasible: "Infeasible",
+    }[v] || "Not yet computed"
+  );
+}
+
+export function renderHsaSchedule() {
+  const rows = ensureHsaScheduleRows();
+  const verdict = hsaScheduleFeasibilityVerdict;
+  const badge =
+    `<span class="hsa-schedule-feasibility${verdict ? " " + esc(String(verdict).replace(/_/g, "-")) : " unknown"}">` +
+    `${esc(hsaScheduleFeasibilityLabel(verdict))}</span>`;
+  let html =
+    `<div class="hsa-schedule"><h3 class="group-title">HSA Withdrawal Schedule</h3>` +
+    `<div class="section-note">Per-year HSA withdrawal plan. "Optimizer" is the search's own proposal for the year and is read-only here; enter an amount in "Override" to take that year over yourself, or check "Locked" to pin whatever the optimizer last proposed for it without entering a number of your own.</div>` +
+    `<div class="table-actions">${badge}<button class="btn" type="button" onclick="addHsaScheduleYear()">Add Year</button></div>`;
+  if (!rows.length) {
+    html +=
+      `<div class="section-note small">No schedule years yet. Run the HSA optimizer or add a year to begin.</div></div>`;
+    return html;
+  }
+  html +=
+    `<div class="hsa-schedule-table-wrap"><table class="hsa-schedule-table"><thead><tr>` +
+    `<th>Year</th><th>Optimizer</th><th>Override</th><th>Locked</th><th>Note</th><th>Actions</th>` +
+    `</tr></thead><tbody>`;
+  rows.forEach((r, i) => {
+    const locked = !!r.locked;
+    html +=
+      `<tr>` +
+      `<td data-label="Year">${esc(r.year ?? "")}</td>` +
+      `<td data-label="Optimizer"><span class="hsa-optimizer-amount">${esc(hsaScheduleAmountDisplay(r.optimizer_amount))}</span></td>` +
+      `<td data-label="Override"><input class="hsa-override-amount" type="text" value="${esc(r.override_amount ?? "")}" placeholder="—" oninput="updateHsaScheduleOverride(${i},this.value)"></td>` +
+      `<td data-label="Locked"><input type="checkbox" class="hsa-schedule-locked" ${locked ? "checked" : ""} onchange="toggleHsaScheduleLock(${i},this.checked)"></td>` +
+      `<td data-label="Note"><input type="text" class="hsa-schedule-note" value="${esc(r.note ?? "")}" oninput="updateHsaScheduleNote(${i},this.value)"></td>` +
+      `<td data-label="Actions"><button class="danger-link" onclick="deleteHsaScheduleYear(${i})">Delete</button></td>` +
+      `</tr>`;
+  });
+  html += `</tbody></table></div></div>`;
+  return html;
+}
+
 // Every export above is also re-attached to window: dashboard.js calls these
 // as bare globals, and this file's own rendered HTML uses inline
 // onclick="..." handlers, which always resolve through window regardless of
@@ -1003,4 +1141,14 @@ Object.assign(window, {
   selectedFolderDiffersFromLoadedPlan,
   saveCurrentPlanToSelectedFolderForBuild,
   readFileFromFolder,
+  ensureHsaScheduleRows,
+  markHsaScheduleDirty,
+  addHsaScheduleYear,
+  deleteHsaScheduleYear,
+  updateHsaScheduleOverride,
+  toggleHsaScheduleLock,
+  updateHsaScheduleNote,
+  hsaScheduleAmountDisplay,
+  hsaScheduleFeasibilityLabel,
+  renderHsaSchedule,
 });
