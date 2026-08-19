@@ -503,3 +503,63 @@ def test_dry_run_against_live_input_reports_the_expected_file(tmp_path):
     # Never written -- dry_run must leave the file untouched.
     original = (live_input / "client_insurance_estate.csv").read_text(encoding="utf-8")
     assert "Illinois" in original, "dry_run must not have written to the live file"
+
+
+# --- State Comparison|*|illinois_baseline_annual -> current_state_baseline_annual,
+# 2026-08-19 (item 291 Step 7.7, found during the ticket's own closing sweep,
+# not the original brief) ---
+#
+# Label only -- both subsections (auto_insurance, homeowners_insurance) were
+# already state-generic. The homeowners_insurance row is currently dead data
+# (data_io.py reads homeowners insurance from a different section entirely)
+# but is renamed too for consistency with its auto_insurance sibling.
+
+
+def test_state_comparison_auto_insurance_label_migrates():
+    rows = [
+        ["section", "subsection", "label", "value", "units", "notes"],
+        ["State Comparison", "auto_insurance", "illinois_baseline_annual", "1750", "USD", ""],
+    ]
+    out, changed = migrate_rows(rows)
+    assert changed == 1
+    migrated_row = next(r for r in out if r[0] == "State Comparison" and r[1] == "auto_insurance")
+    assert migrated_row[2] == "current_state_baseline_annual"
+
+
+def test_state_comparison_homeowners_insurance_label_migrates_too():
+    rows = [
+        ["section", "subsection", "label", "value", "units", "notes"],
+        ["State Comparison", "homeowners_insurance", "illinois_baseline_annual", "1900", "USD", ""],
+    ]
+    out, changed = migrate_rows(rows)
+    assert changed == 1
+    migrated_row = next(r for r in out if r[0] == "State Comparison" and r[1] == "homeowners_insurance")
+    assert migrated_row[2] == "current_state_baseline_annual"
+
+
+def test_state_comparison_migration_respects_current_key_wins():
+    rows = [
+        ["section", "subsection", "label", "value", "units", "notes"],
+        ["State Comparison", "auto_insurance", "current_state_baseline_annual", "2000", "USD", ""],
+        ["State Comparison", "auto_insurance", "illinois_baseline_annual", "1750", "USD", ""],
+    ]
+    out, changed = migrate_rows(rows)
+    values = [
+        r[3] for r in out
+        if r[0] == "State Comparison" and r[1] == "auto_insurance" and r[2] == "current_state_baseline_annual"
+    ]
+    assert values == ["2000"], "the current row must survive; the legacy row must be dropped, not overwrite it"
+    assert changed == 1
+
+
+def test_state_comparison_target_state_annual_is_not_touched():
+    """Only the label that baked in 'illinois' renames -- target_state_annual
+    and notes are already state-generic and must pass through unchanged."""
+    rows = [
+        ["section", "subsection", "label", "value", "units", "notes"],
+        ["State Comparison", "auto_insurance", "target_state_annual", "", "USD", ""],
+        ["State Comparison", "auto_insurance", "notes", "", "text", ""],
+    ]
+    out, changed = migrate_rows(rows)
+    assert changed == 0
+    assert [r[2] for r in out[1:]] == ["target_state_annual", "notes"]

@@ -30,7 +30,12 @@ from typing import List, Sequence
 #   baked in the state name). Python identifiers (c['il_exempt'], the
 #   in-memory dict key) are deliberately unchanged -- data-at-rest labels
 #   only, same scope boundary as the wellness->healthcare rename above.
-PLAN_DATA_SCHEMA_VERSION = 4
+#   4 -> 5 (2026-08-19, item 291 Step 7.7): found during the ticket's own
+#   closing sweep, not by the original brief -- State Comparison|auto_insurance
+#   |illinois_baseline_annual baked the state name directly into a LABEL
+#   (the auto-insurance baseline for whatever state the household actually
+#   lives in, not specifically Illinois).
+PLAN_DATA_SCHEMA_VERSION = 5
 
 # (section, subsection) -> {old_label: new_label}. A ``None`` subsection matches
 # any subsection within the section.
@@ -69,6 +74,19 @@ _LABEL_RENAMES = {
     ("Wellness", "Healthcare Premium"): {
         "pre65_wellness_premium": "pre65_healthcare_premium",
         "wellness_premium": "healthcare_premium",
+    },
+    # Item 291 Step 7.7 (2026-08-19), found during the ticket's own closing
+    # sweep. Subsection ("auto_insurance"/"homeowners_insurance") was already
+    # state-generic; only the label baked in "illinois". The homeowners_insurance
+    # row is currently dead data -- data_io.py reads homeowners insurance from
+    # Housing|current_home|homeowners_insurance_annual instead, a pre-existing,
+    # unrelated gap left as-is -- but it is renamed for consistency with its
+    # auto_insurance sibling under the same section, in case it is ever wired up.
+    ("State Comparison", "auto_insurance"): {
+        "illinois_baseline_annual": "current_state_baseline_annual",
+    },
+    ("State Comparison", "homeowners_insurance"): {
+        "illinois_baseline_annual": "current_state_baseline_annual",
     },
 }
 

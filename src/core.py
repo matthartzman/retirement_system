@@ -888,6 +888,16 @@ def _require_supported_state(state):
 def state_income_tax(state, earned, retirement_dist, ss_taxable, investment_inc,
                      nonqual_annuity, roth_conv, year, age_over_65=True, filing='MFJ', brk_inf=0.02):
     _require_supported_state(state)
+    # Item 291 (2026-08-19): a Step 7.7 sweep flagged this fallback and it was
+    # reverted after a genuine scope conflict with Class 1's own deliberate,
+    # tested design -- see test_existing_low_level_leniency_is_unaffected /
+    # test_blank_state_still_falls_back_silently_not_bricked and their
+    # docstrings ("this ticket adds a new gate, it does not change the old
+    # one"). A blank state can never reach a real build
+    # (require_residence_state_for_build already blocks that at the build
+    # gate); this fallback exists only for defensive/partial-snapshot callers
+    # this repo deliberately keeps lenient, and changing its shape here was
+    # out of scope for those callers, not a live silent-Illinois-in-output bug.
     rules = STATE_TAX_RULES.get(state, STATE_TAX_RULES.get('Illinois', _td.STATE_TAX_DEFAULTS.get('Illinois')))
     if rules['type'] == 'none':
         return 0.0

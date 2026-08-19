@@ -1086,7 +1086,9 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # auto insurance is a separate transportation budget captured here.
     c['residency_target_state'] = str(_v(data,'State Comparison','','target_state','') or '').strip()
     _auto_policy_premium = _insurance_policy_premium_sum(data, 'Auto')
-    c['current_auto_insurance_annual'] = _auto_policy_premium if _auto_policy_premium > 0 else _n(_v(data,'State Comparison','auto_insurance','illinois_baseline_annual','0'), 0)
+    # Label 'current_state_baseline_annual' (item 291, was 'illinois_baseline_annual';
+    # migrate_sectioned_data, called above, upgrades any legacy row first).
+    c['current_auto_insurance_annual'] = _auto_policy_premium if _auto_policy_premium > 0 else _n(_v(data,'State Comparison','auto_insurance','current_state_baseline_annual','0'), 0)
 
     # Future housing steps (rent/buy) are entered on the Housing page and feed
     # both annual cash flow and net worth.  A blank start year disables a step.
