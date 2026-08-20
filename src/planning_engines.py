@@ -1344,6 +1344,104 @@ def withdraw_taxable_trust(c: Mapping, bal: BalanceMap, year: int, gap: float, s
     }
 
 
+def donate_taxable_in_kind(c: Mapping, bal: BalanceMap, year: int, amount: float,
+                           spend_floor_base: float) -> Dict:
+    """Transfer appreciated securities in kind out of the taxable accounts.
+
+    This is not a withdrawal: no cash is produced, no gain is realized, and
+    nothing funds household spending. Only the shares move.
+
+    **Taxable accounts only, by law.** An IRA cannot make a qualified
+    charitable distribution to a donor-advised fund -- IRC 408(d)(8)(B)(i)
+    excludes DAFs from QCD treatment, and SECURE 2.0's one-time split-interest
+    election excludes them too. A traditional IRA or 401(k) can of course be
+    distributed and the cash donated, but that is ordinary income first and a
+    deduction second: it is a *cash* contribution, already modeled by the
+    ``daf_contribution_is_appreciated = False`` path, which the normal
+    withdrawal waterfall funds from whichever bucket it judges best. Roth and
+    HSA dollars have no charitable-transfer mechanism at all, and gifting them
+    would trade a tax-free asset for a deduction. So there is no legitimate
+    non-taxable source for the in-kind path, and this function does not look
+    for one.
+
+    Accounts are ranked by embedded long-term gain, largest first, so the most
+    appreciation escapes tax. Without lot data no such ranking is possible and
+    the draw falls back to pro-rata by balance. The configured taxable
+    liquidity reserve is honored exactly as it is for a cash draw, so a gift
+    cannot push the bucket below its floor.
+
+    Returns ``amount`` actually gifted, ``by_account``, ``gain_avoided``, and
+    ``shortfall`` -- the requested dollars that could not be gifted, whether
+    because of the reserve floor or because too little long-term stock was
+    held. Callers must surface a shortfall rather than reporting the full
+    requested gift as given.
+    """
+    requested = max(0.0, float(amount or 0.0))
+    if requested <= 0:
+        return {"amount": 0.0, "by_account": {}, "gain_avoided": 0.0, "shortfall": 0.0,
+                "h_amount": 0.0, "w_amount": 0.0, "long_term_capped": False}
+
+    registry = c.get("account_registry", [])
+    h_ids = owner_account_ids(registry, 0, "taxable")
+    w_ids = owner_account_ids(registry, 1, "taxable")
+    taxable_ids = _owner_tax_ids_pro_rata_order(registry, "taxable")
+    total_taxable = sum(max(0.0, float(bal.get(aid, 0.0))) for aid in taxable_ids)
+    floor = liquidity_reserve_floor(c, year, "taxable", spend_floor_base)
+    budget = min(requested, max(0.0, total_taxable - floor))
+
+    lot_engine = c.get("lot_engine")
+    has_lots = bool(lot_engine and getattr(lot_engine, "use_lots", False))
+    if not has_lots:
+        by_account = _draw_pro_rata_accounts(bal, taxable_ids, budget)
+        gifted = sum(by_account.values())
+        fallback = float(getattr(lot_engine, "fallback", 0.0) or 0.0) if lot_engine else 0.0
+        return {
+            "amount": gifted,
+            "by_account": by_account,
+            "gain_avoided": gifted * fallback,
+            "shortfall": max(0.0, requested - gifted),
+            "h_amount": sum(by_account.get(aid, 0.0) for aid in h_ids),
+            "w_amount": sum(by_account.get(aid, 0.0) for aid in w_ids),
+            "long_term_capped": False,
+        }
+
+    ranked = sorted(
+        (aid for aid in taxable_ids if max(0.0, float(bal.get(aid, 0.0) or 0.0)) > 0),
+        key=lambda aid: -(lot_engine.embedded_long_term_gain(aid, current_year=year) or 0.0),
+    )
+    by_account: Dict[str, float] = {}
+    gain_avoided = 0.0
+    remaining = budget
+    for aid in ranked:
+        if remaining <= 1e-9:
+            break
+        # Never gift more than the account actually holds, and never more than
+        # its long-term lots can cover.
+        room = min(remaining, max(0.0, float(bal.get(aid, 0.0) or 0.0)))
+        if room <= 1e-9:
+            continue
+        gifted, gain, _consumed = lot_engine.donate_lots(aid, room, current_year=year, mutate=True)
+        if gifted <= 1e-9:
+            continue
+        bal[aid] = max(0.0, float(bal.get(aid, 0.0) or 0.0) - gifted)
+        by_account[aid] = by_account.get(aid, 0.0) + gifted
+        gain_avoided += gain
+        remaining -= gifted
+
+    total_gifted = sum(by_account.values())
+    return {
+        "amount": total_gifted,
+        "by_account": by_account,
+        "gain_avoided": gain_avoided,
+        "shortfall": max(0.0, requested - total_gifted),
+        "h_amount": sum(by_account.get(aid, 0.0) for aid in h_ids),
+        "w_amount": sum(by_account.get(aid, 0.0) for aid in w_ids),
+        # True when long-term stock, not the reserve floor, was the binding
+        # constraint -- the advisor-visible reason a gift came up short.
+        "long_term_capped": total_gifted + 1e-6 < budget,
+    }
+
+
 def withdraw_roth(c: Mapping, bal: BalanceMap, gap: float, year: int = 0,
                   spend_floor_base: float = 0.0) -> Dict:
     """Withdraw Roth dollars as final liquid-account resort.

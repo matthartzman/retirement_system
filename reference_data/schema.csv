@@ -443,8 +443,8 @@ Cashflow,Charitable Giving,w_qcd_end_year,year,FALSE,,2026,2100,Optional last ye
 DAF,Settings,enabled,boolean,FALSE,FALSE,,,Enable a Donor-Advised Fund contribution/grant schedule.
 DAF,Settings,contribution_amount,dollars,FALSE,$0,0,,One-time DAF contribution amount in the contribution year.
 DAF,Settings,contribution_year,year,FALSE,,2026,2100,Year the DAF contribution is made.
-DAF,Settings,annual_grant_amount,dollars,FALSE,$0,0,,Annual amount granted out of the DAF to charity during the grant window.
+DAF,Settings,annual_grant_amount,dollars,FALSE,$0,0,,Annual amount granted out of the DAF to charity during the grant window. Grants are netted against annual_charitable_giving_low for the itemized deduction - those dollars were already deducted in the contribution year and a DAF grant is never deductible again.
 DAF,Settings,grant_start_year,year,FALSE,,2026,2100,First year of DAF grants.
 DAF,Settings,grant_end_year,year,FALSE,,2026,2100,Last year of DAF grants.
-DAF,Settings,contribution_is_appreciated,boolean,FALSE,FALSE,,,TRUE if the DAF contribution is appreciated securities rather than cash: limits the deductible amount to 30% of AGI instead of 60%, with a 5-year carryforward for any excess.
+DAF,Settings,contribution_is_appreciated,boolean,FALSE,FALSE,,,TRUE if the DAF contribution is appreciated securities rather than cash. Limits the deductible amount to 30% of AGI instead of 60% (5-year carryforward for any excess) and transfers the shares in kind out of the taxable accounts - no cash withdrawal and no realized capital gain. A cash contribution is instead funded through the normal spending/withdrawal waterfall.
 Estate Planning,Step-Up,former_spouse_name,text,FALSE,,,,Optional name used only by the Beneficiary & Titling Audit (Sheet 14) to flag a former spouse still named as a beneficiary on any account.
