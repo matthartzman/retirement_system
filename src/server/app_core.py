@@ -1221,7 +1221,7 @@ def _choice_options_for_config_row(section: str, subsection: str, label: str, un
         "estate_tax_objective_mode": ["OFF", "MONITOR_ONLY", "BALANCED", "STRONG"],
         "irmaa_guardrail_mode": ["IGNORE", "WARN_ONLY", "AVOID_NEXT_TIER", "AVOID_TIER_2_OR_ABOVE", "CUSTOM_MAGI_CAP"],
         "legacy_objective_mode": ["OFF", "LOW", "BALANCED", "STRONG"],
-        "hsa_withdrawal_mode": ["spend_as_needed", "annual_pct", "smooth_window"],
+        "hsa_withdrawal_mode": ["spend_as_needed", "annual_pct", "smooth_window", "optimize"],
         "core_spending_growth_mode": ["cpi", "manual_override"],
     }
     if lbl == "core_spending_growth_mode":

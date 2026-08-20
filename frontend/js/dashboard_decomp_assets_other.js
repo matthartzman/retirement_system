@@ -249,6 +249,16 @@ export async function deleteNoteReceivable(subsection) {
   }
 }
 
+// Extracted from renderWithdrawalStrategy() in dashboard.js (size ratchet).
+// Start/end year are the smooth_window controls and are irrelevant in
+// optimize mode -- it uses hsa_consume_by (a deadline) and
+// hsa_min_ending_balance (a floor) instead.
+export function hsaOptimizeVisibleRows(hsa) {
+  return hsa.filter((r) =>
+    ["hsa_consume_by", "hsa_min_ending_balance"].includes(norm(r.label)),
+  );
+}
+
 export function renderHsaPolicyOnOtherAssets(rs) {
   const gr = (rs || []).filter((r) => r.section === "HSA Policy");
   if (!gr.length) return "";
@@ -294,6 +304,10 @@ export function renderHsaPolicyOnOtherAssets(rs) {
     body += `<h4 class="group-title">Spousal Rollover</h4>${rolloverRows.map(fieldHtml).join("")}`;
   if (otherRows.length)
     body += `<h4 class="group-title">Other HSA controls</h4>${otherRows.map(fieldHtml).join("")}`;
+  // Nested inside the same collapsible HSA section, not a sibling <details>
+  // block -- the schedule is a consequence of hsa_withdrawal_mode above it,
+  // not an independent settings group.
+  body += renderHsaSchedule();
   return `<details><summary>HSA</summary><div class="field-list">${body}</div></details>`;
 }
 
@@ -321,7 +335,6 @@ export function renderAssetsSpecial() {
     }
     if (g === "HSA") {
       html += renderHsaPolicyOnOtherAssets(rs);
-      html += renderHsaSchedule();
       return;
     }
     if (g === "529 Plans") {
@@ -557,6 +570,7 @@ Object.assign(window, {
   renderNoteReceivableTable,
   addNoteReceivable,
   deleteNoteReceivable,
+  hsaOptimizeVisibleRows,
   renderHsaPolicyOnOtherAssets,
   renderAssetsSpecial,
   addEducation529Section,

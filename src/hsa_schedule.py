@@ -17,6 +17,20 @@ chosen accordingly:
 
 So the default is the conservative end (`second_death_p90`), and no fallback in
 this module ever resolves earlier than that default would.
+
+**Wiring status (2026-08-19):** `resolve_year_amount`'s precedence ladder
+(override > locked > optimizer > mode) is live end-to-end -- a user-entered
+`override_amount` in `client_hsa_schedule.csv` reaches the withdrawal cascade
+via `planning_engines.withdraw_hsa_window`'s `'optimize'` branch. The search
+itself, `rerun_optimizer`/`build_schedule` below, is NOT called anywhere in
+the projection pipeline: it needs full per-year projection rows for tax
+context (`score_year`'s `row` argument), which only exist after a projection
+runs -- and that projection is exactly what would consume the schedule this
+function produces. Wiring it needs a real two-pass sequence (a baseline run
+for context, then `build_schedule`/`rerun_optimizer`, then the real run using
+the result) and is deliberately left as separate future work, not attempted
+alongside the override plumbing. Until then, `optimizer_amount` is never
+written automatically; every schedule row a household has is one they typed.
 """
 from __future__ import annotations
 

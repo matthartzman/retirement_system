@@ -4314,6 +4314,12 @@ export async function loadAll(opts = {}) {
     }
     liabilityRowsCache = null;
     liabilitiesChanged = false;
+    try {
+      const hr = await fetch(apiUrl("/api/hsa-schedule"));
+      loadHsaScheduleFromCsv(await hr.text());
+    } catch (_e) {
+      loadHsaScheduleFromCsv("");
+    }
     dirty.clear();
     if (window.RetirementAppStore) window.RetirementAppStore.resetPlanFlags();
     window.holdingsChanged = false;
@@ -4408,6 +4414,7 @@ export async function saveWorkingCopy() {
     await window.saveWithdrawalAccountOrder();
   await saveHoldings();
   await saveLiabilities();
+  await saveHsaSchedule();
   await syncBackends();
   updateUnsaved();
   return true;

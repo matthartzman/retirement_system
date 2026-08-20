@@ -934,23 +934,23 @@ export async function readFileFromFolder(dirHandle, name) {
   return await f.text();
 }
 
-// -- HSA schedule per-year override table (Task 14) ---------------------
+// -- HSA schedule per-year override table --------------------------------
 // client_hsa_schedule.csv (year, optimizer_amount, override_amount, locked,
-// note) is registered as a flat plan-data table (Task 11:
-// src/server/plan_data_files.py PLAN_DATA_CSV_FILES /
-// src/local_plan_data_sync.py PLAN_DATA_CSV_FILES /
-// app_core.py _blank_hsa_schedule_csv), and the Python side is fully built
-// out (resolve_year_amount / rerun_optimizer / schedule_feasibility in
-// src/hsa_schedule.py) -- but unlike client_holdings.csv (/api/holdings) or
-// client_liabilities.csv (/api/liabilities) above, no /api/hsa-schedule (or
-// equivalent) route exists anywhere in this codebase, and no task in this
-// plan adds one. renderHsaSchedule therefore reads and writes a plain
-// module-local array (ensureHsaScheduleRows) instead of fetching from a
-// server endpoint that has nowhere to send the request.
-// ensureHsaScheduleRows / markHsaScheduleDirty are the seam a later task can
-// replace with a real fetch/save cycle -- mirroring
-// ensureLiabilityRows/serializeLiabilities/saveLiabilities above -- without
-// touching renderHsaSchedule or its edit handlers.
+// note) round-trips through /api/hsa-schedule (loadHsaScheduleFromCsv on
+// load, saveHsaSchedule as part of saveAll), mirroring
+// ensureLiabilityRows/serializeLiabilities/saveLiabilities above exactly.
+//
+// The `optimizer_amount` column has no automatic writer yet: the schedule
+// search itself (rerun_optimizer / build_schedule in src/hsa_schedule.py) is
+// fully built but not wired into the projection pipeline -- it needs full
+// per-year projection rows for tax context, which only exist after a
+// projection runs, and that projection is what would consume the schedule's
+// own output. That two-pass sequencing is real, separate engine work, not
+// done here. What *does* work end-to-end: enter an amount in "Override" for
+// a year, save (or just Build Reports), and `resolve_year_amount`'s
+// precedence ladder (override > locked > optimizer > mode) makes that year's
+// HSA draw exactly what you typed -- "Locked" has nothing to pin until a
+// year has an `optimizer_amount`, so it is a no-op until the search exists.
 
 let hsaScheduleRows = null;
 let hsaScheduleChanged = false;
@@ -963,6 +963,67 @@ let hsaScheduleFeasibilityVerdict = null;
 export function ensureHsaScheduleRows() {
   if (!hsaScheduleRows) hsaScheduleRows = [];
   return hsaScheduleRows;
+}
+
+const HSA_SCHEDULE_HEADER = [
+  "year",
+  "optimizer_amount",
+  "override_amount",
+  "locked",
+  "note",
+];
+
+// Hydrates hsaScheduleRows from client_hsa_schedule.csv text fetched on plan
+// load -- previously nothing did this, so the table always started empty
+// and any prior save was invisible on reload even after saveHsaSchedule()
+// existed to write one.
+export function loadHsaScheduleFromCsv(text) {
+  const table = parseCsvTable(text);
+  const dataRows = table.length && /year/i.test(String(table[0][0] || ""))
+    ? table.slice(1)
+    : table;
+  hsaScheduleRows = dataRows
+    .filter((r) => String(r[0] ?? "").trim() !== "")
+    .map((r) => ({
+      year: Number(r[0]) || 0,
+      optimizer_amount: r[1] === undefined || r[1] === "" ? null : Number(r[1]),
+      override_amount: r[2] === undefined || r[2] === "" ? null : Number(r[2]),
+      locked: /^(true|1|yes)$/i.test(String(r[3] ?? "")),
+      note: String(r[4] ?? ""),
+    }));
+  hsaScheduleChanged = false;
+}
+
+export function serializeHsaSchedule() {
+  const rows = ensureHsaScheduleRows();
+  const lines = [HSA_SCHEDULE_HEADER.map(csvEscape).join(",")];
+  rows.forEach((r) =>
+    lines.push(
+      [
+        r.year,
+        r.optimizer_amount ?? "",
+        r.override_amount ?? "",
+        r.locked ? "TRUE" : "FALSE",
+        r.note ?? "",
+      ]
+        .map(csvEscape)
+        .join(","),
+    ),
+  );
+  return lines.join("\n") + "\n";
+}
+
+export async function saveHsaSchedule() {
+  if (!hsaScheduleChanged) return { updated: 0 };
+  const content = serializeHsaSchedule();
+  const res = await fetch(apiUrl("/api/hsa-schedule"), {
+    method: "POST",
+    headers: { "Content-Type": "text/csv" },
+    body: content,
+  });
+  if (!res.ok) throw new Error(await res.text());
+  hsaScheduleChanged = false;
+  return { updated: 1 };
 }
 
 export function markHsaScheduleDirty() {
@@ -1045,11 +1106,11 @@ export function renderHsaSchedule() {
     `${esc(hsaScheduleFeasibilityLabel(verdict))}</span>`;
   let html =
     `<div class="hsa-schedule"><h3 class="group-title">HSA Withdrawal Schedule</h3>` +
-    `<div class="section-note">Per-year HSA withdrawal plan. "Optimizer" is the search's own proposal for the year and is read-only here; enter an amount in "Override" to take that year over yourself, or check "Locked" to pin whatever the optimizer last proposed for it without entering a number of your own.</div>` +
+    `<div class="section-note">Per-year HSA withdrawal plan for Optimizer mode. There is no separate calculation step: "Add Year" adds a row for a year, type an amount in "Override" for it, and that amount applies the next time you save or build -- exactly like any other plan field. "Optimizer" shows the search's own proposal once that feature computes one (not yet available); until then it stays blank and that year draws an even, level amount instead. "Locked" pins whatever the optimizer proposed, so it has nothing to do yet either.</div>` +
     `<div class="table-actions">${badge}<button class="btn" type="button" onclick="addHsaScheduleYear()">Add Year</button></div>`;
   if (!rows.length) {
     html +=
-      `<div class="section-note small">No schedule years yet. Run the HSA optimizer or add a year to begin.</div></div>`;
+      `<div class="section-note small">No schedule years yet. Click "Add Year" to enter an override for a specific year.</div></div>`;
     return html;
   }
   html +=
@@ -1151,4 +1212,7 @@ Object.assign(window, {
   hsaScheduleAmountDisplay,
   hsaScheduleFeasibilityLabel,
   renderHsaSchedule,
+  loadHsaScheduleFromCsv,
+  serializeHsaSchedule,
+  saveHsaSchedule,
 });
