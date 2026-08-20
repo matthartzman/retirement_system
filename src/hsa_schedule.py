@@ -29,8 +29,15 @@ runs -- and that projection is exactly what would consume the schedule this
 function produces. Wiring it needs a real two-pass sequence (a baseline run
 for context, then `build_schedule`/`rerun_optimizer`, then the real run using
 the result) and is deliberately left as separate future work, not attempted
-alongside the override plumbing. Until then, `optimizer_amount` is never
-written automatically; every schedule row a household has is one they typed.
+alongside the override plumbing.
+
+**Default schedule (2026-08-20):** `generate_default_schedule` below is
+NOT that search algorithm -- it is a static, level-draw placeholder,
+written once by `workbook_builder._ensure_hsa_default_schedule` the first
+time a build runs in `optimize` mode with no schedule file yet, so the mode
+has something sane to fall back on before the real search exists. It never
+overwrites an existing file, so a household's own entries -- or, eventually,
+a real optimizer run -- always take precedence the moment they exist.
 """
 from __future__ import annotations
 
@@ -86,6 +93,78 @@ def resolve_consume_by_year(c: Mapping[str, Any], rows: Sequence[Mapping[str, An
         year = _resolve_spec(DEFAULT_CONSUME_BY, c, plan_start, plan_end)
 
     return _clamp(int(year), plan_start, plan_end)
+
+
+def generate_default_schedule(c: Mapping[str, Any]) -> list:
+    """A static, level-draw placeholder schedule for `optimize` mode when no
+    real schedule exists yet.
+
+    Deliberately NOT the search algorithm (`build_schedule`/`rerun_optimizer`
+    above) -- that needs full per-year projection rows this call site does not
+    have (see the module docstring's "Wiring status"). This produces one flat
+    number: divide the HSA's current balance evenly across every year from
+    `plan_start` through `resolve_consume_by_year`'s own deadline. Every year
+    gets the exact same `optimizer_amount`.
+
+    That flatness is the point, not a simplification of it. The bug this
+    function exists to fix (2026-08-20) was a PER-YEAR-recalculated fallback
+    (`total remaining / years remaining`, re-evaluated fresh each year against
+    the household's own `plan_end`) that is mathematically guaranteed to draw
+    100% of whatever is left in the account's final year, however far that
+    balance had drifted from the original plan by then -- `years_remaining`
+    hits exactly 1 at the horizon and the formula collapses to "draw
+    everything." A schedule computed ONCE, up front, against the shorter
+    mortality-percentile deadline (not the household's full life horizon,
+    which can run decades past when a single survivor should have drained the
+    account) cannot reproduce that cliff: the shares are fixed the moment
+    this function returns, so no later year's draw depends on how much of the
+    balance is left by the time that year arrives.
+
+    This is a placeholder, not the optimizer's real answer -- it does not
+    weight survivor years, does not account for tax bracket headroom, and
+    does not react to bad market years. It exists so `optimize` mode has
+    something sane to fall back on the moment a household turns it on, before
+    the real search algorithm is built. A real optimizer run, or a
+    household's own manual entries, both take precedence over this the
+    instant they exist (`resolve_year_amount`'s precedence ladder: override >
+    locked > optimizer > mode -- this function only ever populates
+    `optimizer_amount`, the lowest tier a real entry can still override).
+
+    Returns `[]` (write nothing) when there is no HSA balance to schedule, or
+    the resolved deadline does not leave at least one year on or after
+    `plan_start` -- there is nothing sensible to divide in either case.
+    """
+    ids = list(c.get('hsa_ids', []) or [])
+    balances = c.get('balances', {}) or {}
+    total = sum(max(0.0, _as_float(balances.get(aid), 0.0)) for aid in ids)
+    if total <= 0.0:
+        return []
+
+    plan_start = c.get('plan_start')
+    if plan_start is None:
+        return []
+    plan_start = int(plan_start)
+
+    # No projection rows exist yet at this call site (this runs once, right
+    # after parse_client, before the projection loop starts) -- resolve_consume_by_year
+    # falls back to c['plan_start']/c['plan_end'] when rows is empty, which is
+    # exactly what we want here.
+    deadline = resolve_consume_by_year(c, [])
+    years = list(range(plan_start, deadline + 1))
+    if not years:
+        return []
+
+    level = round(total / len(years), 2)
+    return [
+        {
+            'year': y,
+            'optimizer_amount': level,
+            'override_amount': None,
+            'locked': False,
+            'note': 'Default level draw -- placeholder until the schedule search is built.',
+        }
+        for y in years
+    ]
 
 
 def _resolve_spec(spec: str, c: Mapping[str, Any],
