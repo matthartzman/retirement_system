@@ -870,6 +870,52 @@ def _ensure_active_plan_data_loaded(data, config_meta):
         (f" source at {path}." if path else ".")
     )
 
+def _ensure_hsa_default_schedule(c, workspace_id):
+    """Write a default HSA schedule the first time a build runs in `optimize`
+    mode with no `client_hsa_schedule.csv` yet -- fixes a real bug
+    (2026-08-20): with no schedule to consult, `withdraw_hsa_window`'s
+    `optimize` branch fell back to a per-year-recalculated level draw that is
+    guaranteed to dump 100% of the remaining balance into the plan's final
+    year (`years_remaining` hits exactly 1 there). See
+    `hsa_schedule.generate_default_schedule`'s own docstring for why a
+    schedule computed once, up front, cannot reproduce that cliff.
+
+    Runs once per build, here (not inside the per-year engine call, which
+    would mean writing a file thousands of times per Monte Carlo trial) and
+    only when `hsa_withdrawal_mode == 'optimize'`. Only writes when the file
+    is genuinely absent -- a build never overwrites an existing schedule, so
+    a household's own manual entries (or, eventually, a real optimizer run)
+    are always safe once they exist. Failure here degrades to the prior
+    per-year fallback rather than failing the build -- a schedule a household
+    never asked for is not worth blocking a build over.
+    """
+    if str(c.get('hsa_withdrawal_mode', '') or '').strip().lower() != 'optimize':
+        return
+    if c.get('hsa_schedule_rows'):
+        return
+    try:
+        from ..workspace_context import workspace_file
+        from ..hsa_schedule import generate_default_schedule
+        path = workspace_file('client_hsa_schedule.csv', workspace_id, prefer_existing=False)
+        if path.exists():
+            return
+        rows = generate_default_schedule(c)
+        if not rows:
+            return
+        lines = ['year,optimizer_amount,override_amount,locked,note']
+        for r in rows:
+            note = str(r['note']).replace('"', '""')
+            lines.append(f"{r['year']},{r['optimizer_amount']},,FALSE,\"{note}\"")
+        content = '\n'.join(lines) + '\n'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding='utf-8')
+        c['hsa_schedule_rows'] = rows
+        c['hsa_schedule_by_year'] = {r['year']: r for r in rows}
+        print(f"HSA optimize mode: wrote a default level-draw schedule ({len(rows)} years) -- {path}")
+    except Exception as exc:
+        print(f"Warning: could not write a default HSA schedule ({exc}); optimize mode will use its per-year fallback for this build.")
+
+
 def main():
     import os as _os
     base_dir = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
@@ -899,6 +945,7 @@ def main():
 
     print('Parsing client data and normalizing engine contract...')
     c = prepare_config_from_sectioned_data(data, url_template, optimize_roth=True)
+    _ensure_hsa_default_schedule(c, workspace_id)
     try:
         from ..ytd_projection_blend import compute_current_year_overrides
         c.update(compute_current_year_overrides(c, workspace_input_dir(workspace_id), today=datetime.date.today()))
