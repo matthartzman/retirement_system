@@ -1234,6 +1234,21 @@ def _choice_options_for_config_row(section: str, subsection: str, label: str, un
             {"value": "quick_vectorized", "label": "Simple — Quick Vectorized (faster, approximate)"},
             {"value": "advanced_exact_scalar", "label": "Complex — Advanced Exact Scalar (slower, advisor-ready)"},
         ]
+    if lbl == "hsa_withdrawal_mode":
+        # Item 291-adjacent fix (2026-08-20): hsa_withdrawal_mode was left in
+        # the plain-string `fixed` dict below, so it fell through to the
+        # generic `v.replace("_", " ")` auto-label -- "spend as needed",
+        # "annual pct", "optimize" with no capitalization. Verified live in
+        # the browser: choice_options is what the frontend actually renders
+        # from (dashboard.js's own fixed[label] entry for this same field is
+        # unreachable dead code, since Array.isArray(r.choice_options) always
+        # wins first -- see choiceOptions() in frontend/js/dashboard.js).
+        return [
+            {"value": "spend_as_needed", "label": "Spend as needed"},
+            {"value": "annual_pct", "label": "Annual percentage"},
+            {"value": "smooth_window", "label": "Smooth window"},
+            {"value": "optimize", "label": "Optimizer"},
+        ]
     if lbl == "roth_target_bracket_rate":
         return _federal_bracket_choice_options("MFJ")
     if lbl == "roth_irmaa_target_tier":

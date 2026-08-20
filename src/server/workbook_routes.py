@@ -29,6 +29,7 @@ from .app_core import (
     PLAN_DATA_FILES,
     SCHEMA_PATH,
     SPENDING_BUDGET_SECTIONS,
+    WORKSPACE_ROOT,
     _admin_changes_between,
     _audit,
     _client_id,
@@ -633,7 +634,8 @@ def get_holdings():
     denied = _require("read_config")
     if denied:
         return denied
-    result = holdings_service.read_holdings(base_dir=BASE_DIR, workspace_id=_workspace_id(), client_id=_client_id(), db_path=_sqlite_db())
+    # base_dir=WORKSPACE_ROOT -- see get_hsa_schedule's comment (same bug class).
+    result = holdings_service.read_holdings(base_dir=WORKSPACE_ROOT, workspace_id=_workspace_id(), client_id=_client_id(), db_path=_sqlite_db())
     if result.get("path"):
         return send_file(str(result["path"]), mimetype="text/csv")
     return result.get("content") or holdings_service.EMPTY_HOLDINGS_CSV, 200, {"Content-Type": result.get("content_type") or "text/csv"}
@@ -648,7 +650,7 @@ def save_holdings():
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
     content = request.get_data(as_text=True)
     try:
-        result = holdings_service.save_holdings(content=content, base_dir=BASE_DIR, workspace_id=_workspace_id(), client_id=_client_id(), user_id=_current_user().user_id, db_path=_sqlite_db())
+        result = holdings_service.save_holdings(content=content, base_dir=WORKSPACE_ROOT, workspace_id=_workspace_id(), client_id=_client_id(), user_id=_current_user().user_id, db_path=_sqlite_db())
     except ValueError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
     _audit("holdings_saved", {"bytes": result.get("bytes", len(content)), "path": result.get("path")})
@@ -666,7 +668,7 @@ def preview_holdings_import():
         from src.import_preview import preview_holdings_import as _preview_holdings_import
     body = request.get_json(silent=True) or {}
     incoming = body.get("csv_text") or body.get("csv") or body.get("content") or ""
-    current = holdings_service.read_holdings(base_dir=BASE_DIR, workspace_id=_workspace_id(), client_id=_client_id(), db_path=_sqlite_db())
+    current = holdings_service.read_holdings(base_dir=WORKSPACE_ROOT, workspace_id=_workspace_id(), client_id=_client_id(), db_path=_sqlite_db())
     current_text = current.get("content") or ""
     if current.get("path"):
         try:
@@ -683,7 +685,8 @@ def get_liabilities():
     denied = _require("read_config")
     if denied:
         return denied
-    result = holdings_service.read_liabilities(base_dir=BASE_DIR, workspace_id=_workspace_id(), client_id=_client_id(), db_path=_sqlite_db())
+    # base_dir=WORKSPACE_ROOT -- see get_hsa_schedule's comment (same bug class).
+    result = holdings_service.read_liabilities(base_dir=WORKSPACE_ROOT, workspace_id=_workspace_id(), client_id=_client_id(), db_path=_sqlite_db())
     if result.get("path"):
         return send_file(str(result["path"]), mimetype="text/csv")
     return result.get("content") or holdings_service.EMPTY_LIABILITIES_CSV, 200, {"Content-Type": result.get("content_type") or "text/csv"}
@@ -698,7 +701,7 @@ def save_liabilities():
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
     content = request.get_data(as_text=True)
     try:
-        result = holdings_service.save_liabilities(content=content, base_dir=BASE_DIR, workspace_id=_workspace_id(), client_id=_client_id(), user_id=_current_user().user_id, db_path=_sqlite_db())
+        result = holdings_service.save_liabilities(content=content, base_dir=WORKSPACE_ROOT, workspace_id=_workspace_id(), client_id=_client_id(), user_id=_current_user().user_id, db_path=_sqlite_db())
     except ValueError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
     _audit("liabilities_saved", {"bytes": result.get("bytes", len(content)), "path": result.get("path")})
@@ -710,7 +713,18 @@ def get_hsa_schedule():
     denied = _require("read_config")
     if denied:
         return denied
-    result = holdings_service.read_hsa_schedule(base_dir=BASE_DIR, workspace_id=_workspace_id(), client_id=_client_id(), db_path=_sqlite_db())
+    # base_dir=WORKSPACE_ROOT, NOT BASE_DIR: BASE_DIR (app_core.py) is
+    # Path(__file__).resolve().parents[2] -- the real package directory,
+    # computed once at import time and NEVER redirected by
+    # RETIREMENT_SYSTEM_WORKSPACE_ROOT. This is the exact same bug class
+    # documented above in _run_build (search "Found via the Playwright E2E
+    # build journey") -- this route was the second, unfixed instance of it:
+    # under a redirected workspace, the schedule read/write silently hit the
+    # real package's own input/ directory instead of the active workspace,
+    # which is both a correctness bug (wrong data on a multi-workspace
+    # deployment) and a safety hazard (a redirected/isolated session's writes
+    # leaking into the real, unredirected checkout).
+    result = holdings_service.read_hsa_schedule(base_dir=WORKSPACE_ROOT, workspace_id=_workspace_id(), client_id=_client_id(), db_path=_sqlite_db())
     if result.get("path"):
         return send_file(str(result["path"]), mimetype="text/csv")
     return result.get("content") or holdings_service.EMPTY_HSA_SCHEDULE_CSV, 200, {"Content-Type": result.get("content_type") or "text/csv"}
@@ -725,7 +739,8 @@ def save_hsa_schedule():
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
     content = request.get_data(as_text=True)
     try:
-        result = holdings_service.save_hsa_schedule(content=content, base_dir=BASE_DIR, workspace_id=_workspace_id(), client_id=_client_id(), user_id=_current_user().user_id, db_path=_sqlite_db())
+        # base_dir=WORKSPACE_ROOT -- see get_hsa_schedule's comment above.
+        result = holdings_service.save_hsa_schedule(content=content, base_dir=WORKSPACE_ROOT, workspace_id=_workspace_id(), client_id=_client_id(), user_id=_current_user().user_id, db_path=_sqlite_db())
     except ValueError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
     _audit("hsa_schedule_saved", {"bytes": result.get("bytes", len(content)), "path": result.get("path")})
