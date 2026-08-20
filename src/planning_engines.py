@@ -1092,10 +1092,33 @@ def withdraw_hsa_gap(c: Mapping, bal: BalanceMap, gap: float, year: int = 0,
     draw for those years; allowing gap-fills on top would double-deplete the HSA
     and prevent it from lasting the intended window length.  Gap-fills are only
     permitted after the window ends, when any remaining HSA balance is fair game.
+
+    In optimize mode, gap-filling is suppressed unconditionally, for the same
+    reason -- the schedule (client_hsa_schedule.csv, via resolve_year_amount)
+    is the sole authority on the year's draw -- but with no window to scope
+    the suppression to, since optimize's horizon is not a win_start/win_end
+    pair.
     """
     if gap <= 1e-6:
         return {"amount": 0.0, "new_gap": gap, "by_account": {}}
     mode = str(c.get("hsa_withdrawal_mode", "spend_as_needed") or "spend_as_needed").lower()
+    if mode == "optimize":
+        # Real bug (2026-08-20), found by a user comparing a $2,000/year
+        # override entered via the UI against the resulting workbook: the
+        # entered amount never showed up, and the account drained years
+        # before the household expected. This function's OWN docstring
+        # already explains why -- "allowing gap-fills on top would
+        # double-deplete the HSA" -- but 'optimize' was simply never added
+        # to the suppression below when that mode was built, so every year
+        # with any unfunded cash-flow gap silently topped up (or dwarfed)
+        # withdraw_hsa_window's scheduled/overridden draw with an
+        # unscheduled extra one. 'optimize' has no win_start/win_end window
+        # to gate on the way smooth_window/annual_pct do below -- its
+        # horizon comes from client_hsa_schedule.csv (resolve_year_amount)
+        # and, once a real search exists, resolve_consume_by_year -- so
+        # suppression here is unconditional for the whole plan, not scoped
+        # to a configured window.
+        return {"amount": 0.0, "new_gap": gap, "by_account": {}}
     if mode in ("smooth_window", "annual_pct") and year > 0:
         win_start = int(c.get("hsa_win_start", 9999))
         win_end = int(c.get("hsa_win_end", 0))
