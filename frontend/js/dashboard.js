@@ -2178,7 +2178,6 @@ function choiceOptions(r) {
         label: "Complex — Advanced Exact Scalar (slower, advisor-ready)",
       },
     ],
-    hsa_withdrawal_mode: [{ value: "spend_as_needed", label: "Spend as needed" }, { value: "annual_pct", label: "Annual percentage" }, { value: "smooth_window", label: "Smooth window" }, { value: "optimize", label: "Optimizer" }],
     city_type: ["urban", "suburban", "rural"],
     type: ["purchase", "rent"],
     allocation_selection_mode: [
