@@ -2178,7 +2178,7 @@ function choiceOptions(r) {
         label: "Complex — Advanced Exact Scalar (slower, advisor-ready)",
       },
     ],
-    hsa_withdrawal_mode: ["spend_as_needed", "annual_pct", "smooth_window"],
+    hsa_withdrawal_mode: [{ value: "spend_as_needed", label: "Spend as needed" }, { value: "annual_pct", label: "Annual percentage" }, { value: "smooth_window", label: "Smooth window" }, { value: "optimize", label: "Optimizer" }],
     city_type: ["urban", "suburban", "rural"],
     type: ["purchase", "rent"],
     allocation_selection_mode: [
@@ -2972,6 +2972,8 @@ function renderWithdrawalStrategy() {
           ].includes(norm(r.label)),
         ),
       );
+    else if (mode === "optimize")
+      visible = visible.concat(hsaOptimizeVisibleRows(hsa));
     else
       visible = visible.concat(
         hsa.filter(
@@ -2981,6 +2983,8 @@ function renderWithdrawalStrategy() {
               "hsa_withdrawal_start_year",
               "hsa_withdrawal_end_year",
               "withdrawal_window",
+              "hsa_consume_by",
+              "hsa_min_ending_balance",
             ].includes(norm(r.label)) && r !== modeRow,
         ),
       );

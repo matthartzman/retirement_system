@@ -1020,6 +1020,44 @@ def withdraw_hsa_window(c: Mapping, bal: BalanceMap, year: int, wellness_cost: f
                     penalty = taxable_amount * 0.20
         return {"amount": drawn, "by_account": by_account,
                 "taxable_amount": taxable_amount, "penalty": penalty}
+    if mode == "optimize":
+        # Item 291-adjacent wiring (2026-08-19): resolve_year_amount's
+        # precedence ladder (override > locked > optimizer > mode), applied
+        # to whatever row client_hsa_schedule.csv has for this year. There is
+        # no automatic search yet (see hsa_schedule.py's module docstring),
+        # so optimizer_amount is only ever populated by a user's own entry --
+        # 'optimizer'/'locked' sources are therefore currently unreachable in
+        # practice, not dead code; they activate the moment something writes
+        # optimizer_amount.
+        from .hsa_schedule import resolve_year_amount
+        row = c.get("hsa_schedule_by_year", {}).get(year)
+        resolved_amount, source = resolve_year_amount(row or {})
+        ids = list(c.get("hsa_ids", []))
+        total = sum(max(0.0, float(bal.get(aid, 0.0))) for aid in ids)
+        if source != "mode":
+            amount = max(0.0, min(resolved_amount, total))
+        elif total > 0:
+            # No schedule entry for this year: level the remaining balance
+            # over what's left of the plan horizon. This is a simple,
+            # conservative stand-in -- not the schedule search's own
+            # mortality-percentile deadline (resolve_consume_by_year), which
+            # needs the full projection row list this per-year call does not
+            # have. Matches smooth_window's own math below, just without a
+            # configured window.
+            plan_end = int(c.get("plan_end", year) or year)
+            years_remaining = max(1, plan_end - year + 1)
+            amount = total / years_remaining
+        else:
+            amount = 0.0
+        by_account: Dict[str, float] = {}
+        if amount > 0 and total > 0:
+            for aid in ids:
+                before = max(0.0, float(bal.get(aid, 0.0)))
+                draw = amount * before / total
+                bal[aid] = max(0.0, before - draw)
+                by_account[aid] = draw
+        return {"amount": amount, "by_account": by_account}
+
     start = int(c.get("hsa_win_start", 9999))
     end = int(c.get("hsa_win_end", 0))
     if not (start <= year <= end):

@@ -705,6 +705,33 @@ def save_liabilities():
     return jsonify({"success": True, "path": result.get("path")})
 
 
+@app.route("/api/hsa-schedule", methods=["GET"])
+def get_hsa_schedule():
+    denied = _require("read_config")
+    if denied:
+        return denied
+    result = holdings_service.read_hsa_schedule(base_dir=BASE_DIR, workspace_id=_workspace_id(), client_id=_client_id(), db_path=_sqlite_db())
+    if result.get("path"):
+        return send_file(str(result["path"]), mimetype="text/csv")
+    return result.get("content") or holdings_service.EMPTY_HSA_SCHEDULE_CSV, 200, {"Content-Type": result.get("content_type") or "text/csv"}
+
+
+@app.route("/api/hsa-schedule", methods=["POST"])
+def save_hsa_schedule():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    if not _runtime_config().allow_csv_write:
+        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
+    content = request.get_data(as_text=True)
+    try:
+        result = holdings_service.save_hsa_schedule(content=content, base_dir=BASE_DIR, workspace_id=_workspace_id(), client_id=_client_id(), user_id=_current_user().user_id, db_path=_sqlite_db())
+    except ValueError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    _audit("hsa_schedule_saved", {"bytes": result.get("bytes", len(content)), "path": result.get("path")})
+    return jsonify({"success": True, "path": result.get("path")})
+
+
 @app.route("/api/spending/budget-lines", methods=["GET"])
 def get_spending_budget_lines():
     denied = _require("read_config")

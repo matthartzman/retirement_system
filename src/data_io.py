@@ -1264,8 +1264,14 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # use HSA only when needed for a funding gap before touching Roth. Optional
     # annual_pct and smooth_window modes allow an advisor/user to spend HSA over a
     # controlled window. Legacy withdrawal_window is still honored when present.
+    # optimize admitted 2026-08-19: see withdraw_hsa_window's own 'optimize'
+    # branch and c['hsa_schedule_rows'] below for what it actually does today --
+    # per-year override entries via resolve_year_amount, falling back to an
+    # even/level draw for any year with no schedule row. The automatic search
+    # (rerun_optimizer/build_schedule) is NOT wired into the projection yet;
+    # see the module docstring at the top of hsa_schedule.py.
     c['hsa_withdrawal_mode'] = str(_v(data,'HSA Policy','Withdrawals','hsa_withdrawal_mode','spend_as_needed') or 'spend_as_needed').strip().lower()
-    if c['hsa_withdrawal_mode'] not in ('spend_as_needed','annual_pct','smooth_window'):
+    if c['hsa_withdrawal_mode'] not in ('spend_as_needed','annual_pct','smooth_window','optimize'):
         c['hsa_withdrawal_mode'] = 'spend_as_needed'
     c['hsa_annual_spend_pct'] = min(1.0, max(0.0, _n(_v(data,'HSA Policy','Withdrawals','hsa_annual_spend_pct','10%'), 0.10)))
     c['hsa_win_start'] = 9999
@@ -2173,6 +2179,51 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
         except Exception:
             liabilities = []
     c['liabilities'] = liabilities
+
+    # ── Load HSA withdrawal schedule from client_hsa_schedule.csv ─────────────
+    # Flat table: year, optimizer_amount, override_amount, locked, note. Rows
+    # feed hsa_schedule.resolve_year_amount, consumed by
+    # withdraw_hsa_window's 'optimize' branch. Mirrors the liabilities load
+    # above; an absent/unparseable file yields an empty list, which
+    # resolve_year_amount treats as "no schedule entry for any year" (mode
+    # fallback for every year), matching a plan that never used this feature.
+    hsa_schedule_rows = []
+    hsa_sched_file = None
+    for _hs_path in candidate_input_files('client_hsa_schedule.csv', active_workspace_id()):
+        _hs = str(_hs_path)
+        if os.path.exists(_hs):
+            hsa_sched_file = _hs
+            break
+    if hsa_sched_file:
+        try:
+            with open(hsa_sched_file, newline='', encoding='utf-8-sig') as hf:
+                for row in _csv.DictReader(hf):
+                    year_raw = (row.get('year', '') or '').strip()
+                    if not year_raw:
+                        continue
+                    try:
+                        year = int(float(year_raw))
+                    except Exception:
+                        continue
+                    def _clean_opt_num(raw):
+                        raw = (str(raw or '')).replace('$', '').replace(',', '').strip()
+                        if not raw:
+                            return None
+                        try:
+                            return float(raw)
+                        except Exception:
+                            return None
+                    hsa_schedule_rows.append({
+                        'year': year,
+                        'optimizer_amount': _clean_opt_num(row.get('optimizer_amount')),
+                        'override_amount': _clean_opt_num(row.get('override_amount')),
+                        'locked': str(row.get('locked', '') or '').strip().lower() in ('true', '1', 'yes'),
+                        'note': (row.get('note', '') or '').strip(),
+                    })
+        except Exception:
+            hsa_schedule_rows = []
+    c['hsa_schedule_rows'] = hsa_schedule_rows
+    c['hsa_schedule_by_year'] = {r['year']: r for r in hsa_schedule_rows}
 
     # Keep an immutable copy for the workbook rebalancing tax optimizer.
     # Projection withdrawals can mutate c['lots_by_account'] through LotEngine,
