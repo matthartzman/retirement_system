@@ -410,17 +410,28 @@ def build_sheet6(ws, c, rows):
                 below += 1
 
     # ── DAF Contribution/Grant Callout (#270) ─────────────────────────────────
-    # daf_contrib_yr already flows into Σ_Spend (via 'lump') above, so the
+    # A *cash* contribution flows into Σ_Spend (via 'lump') above, so those
     # dollars are already counted in the cash bridge; this section just makes
-    # that draw/outflow visible and explicit instead of buried anonymously in
-    # the generic lump line, same treatment as the Home Sale callout above.
+    # the draw visible and explicit instead of buried anonymously in the
+    # generic lump line, same treatment as the Home Sale callout above.
+    #
+    # An *appreciated* contribution is an in-kind share transfer -- it never
+    # touches the cash bridge at all (no lump, no withdrawal, no realized
+    # gain), so this callout is the only place it appears. Label the column
+    # accordingly rather than calling it a cash-flow outflow.
     if c.get('daf_enabled', False):
-        daf_rows_shown = [rw for rw in rows if float(rw.get('daf_contrib_yr', 0) or 0) > 0 or float(rw.get('daf_grant_yr', 0) or 0) > 0]
+        daf_inkind = bool(c.get('daf_contribution_is_appreciated', False))
+        daf_rows_shown = [rw for rw in rows
+                          if float(rw.get('daf_contrib_yr', 0) or 0) > 0
+                          or float(rw.get('daf_inkind_yr', 0) or 0) > 0
+                          or float(rw.get('daf_grant_yr', 0) or 0) > 0]
         if daf_rows_shown:
             write_hdr(ws, below, 1, 'Donor-Advised Fund (DAF)', BLUE, WHITE, span=6)
             below += 1
             write_hdr(ws, below, 1, 'Year', DGRAY, WHITE)
-            write_hdr(ws, below, 2, 'Contribution (cash-flow outflow)', DGRAY, WHITE)
+            contrib_hdr = ('Contribution (in-kind share transfer, no cash outflow)'
+                           if daf_inkind else 'Contribution (cash-flow outflow)')
+            write_hdr(ws, below, 2, contrib_hdr, DGRAY, WHITE)
             write_hdr(ws, below, 3, 'Annual Grant (from DAF balance, not new cash)', DGRAY, WHITE)
             below += 1
             for rw in daf_rows_shown:
@@ -428,10 +439,31 @@ def build_sheet6(ws, c, rows):
                 write_cell(ws, below, 2, float(rw.get('daf_contrib_yr', 0) or 0), fmt=FMT_DOLLAR_ZERO_BAND, bold=True)
                 write_cell(ws, below, 3, float(rw.get('daf_grant_yr', 0) or 0), fmt=FMT_DOLLAR_ZERO_BAND)
                 below += 1
-            funding_note = 'appreciated holdings (30% AGI limit)' if c.get('daf_contribution_is_appreciated', False) else 'cash (60% AGI limit)'
-            write_cell(ws, below, 1, f"Funded from: {funding_note}. See Special Strategies for the recommended contribution and funding-account choice.", align='left')
+            funding_note = ('appreciated holdings (30% AGI limit); shares are transferred in '
+                            'kind from the taxable accounts, so the embedded capital gain is '
+                            'never realized and no gain tax is due'
+                            if daf_inkind else
+                            'cash (60% AGI limit); funded by the withdrawal waterfall like any '
+                            'other spending need')
+            write_cell(ws, below, 1, f"Funded from: {funding_note}. Grants shown above are paid from the DAF balance and are not deducted again — the deduction was taken in the contribution year. See Special Strategies for the recommended contribution and funding-account choice.", align='left')
             ws.merge_cells(start_row=below, start_column=1, end_row=below, end_column=6)
             below += 1
+            # A gift the taxable accounts couldn't fully fund must say so —
+            # otherwise a capped contribution reads as the full requested one.
+            _shortfall_rows = [rw for rw in daf_rows_shown
+                               if float(rw.get('daf_inkind_shortfall', 0) or 0) > 1.0]
+            for rw in _shortfall_rows:
+                _short = float(rw.get('daf_inkind_shortfall', 0) or 0)
+                _reason = ('not enough long-term stock to gift (short-term lots deduct at cost '
+                           'basis, not market value, so they are not gifted)'
+                           if rw.get('daf_inkind_long_term_capped')
+                           else 'the taxable liquidity reserve floor')
+                write_cell(ws, below, 1,
+                           f"{int(rw['year'])}: requested contribution reduced by "
+                           f"${_short:,.0f} — {_reason}.",
+                           align='left')
+                ws.merge_cells(start_row=below, start_column=1, end_row=below, end_column=6)
+                below += 1
 
     # C5 / Wave 3.4: lifetime cash-need and tax totals sum nominal dollars
     # across three decades of years -- add the today's-purchasing-power

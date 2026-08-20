@@ -497,6 +497,90 @@ class LotEngine:
         """Non-mutating gain estimate for scenario/planning reads."""
         return self.gain_on_withdrawal(account, amount, current_year=current_year, mutate=False)
 
+    def _donatable_lots(self, account, current_year=None):
+        """Long-term lots for ``account``, most-appreciated first.
+
+        Charitable lot selection is the mirror image of sale lot selection, so
+        it deliberately ignores ``self.method``. A sale wants the *highest*
+        basis (HIFO) to minimize the gain it realizes; an in-kind gift wants
+        the *lowest* basis, because that embedded gain disappears at the
+        charity and is never taxed to anyone -- gifting high-basis shares
+        wastes the strategy and strands the low-basis shares in the portfolio
+        for a future taxable sale.
+
+        Short-term lots are excluded outright: a gift of property held one year
+        or less is deductible only at cost basis, not fair market value (IRC
+        170(e)(1)(A)), so donating them forfeits the deduction this model
+        grants. Callers cap the gift at what long-term lots can cover.
+        """
+        out = []
+        for sym, lot_list in (self.lots.get(account, {}) or {}).items():
+            price = self.prices.get(sym, 0)
+            for lot in lot_list:
+                if not self.is_long_term(lot, current_year):
+                    continue
+                if lot.qty <= 0 or price <= 0:
+                    continue
+                out.append((lot, price))
+        out.sort(key=lambda x: x[0].cost_per_share)
+        return out
+
+    def donatable_value(self, account, current_year=None):
+        """Market value of the long-term lots ``account`` could gift in kind."""
+        if not self.use_lots:
+            return None  # no lot data: caller falls back to balance-based logic
+        return sum(lot.qty * price for lot, price in self._donatable_lots(account, current_year))
+
+    def embedded_long_term_gain(self, account, current_year=None):
+        """Unrealized long-term gain sitting in ``account``.
+
+        Used to rank accounts for an in-kind gift: donate out of the account
+        carrying the most appreciation, so the most gain escapes tax.
+        """
+        if not self.use_lots:
+            return None
+        total = 0.0
+        for lot, price in self._donatable_lots(account, current_year):
+            total += max(0.0, lot.qty * price - lot.cost_basis)
+        return total
+
+    def donate_lots(self, account, amount, current_year=None, mutate=True):
+        """Consume long-term lots for an in-kind charitable gift.
+
+        Returns ``(value_gifted, gain_avoided, consumed)``. ``value_gifted``
+        can fall short of ``amount`` when the account holds too little
+        long-term stock -- callers must surface that rather than silently
+        treating the whole gift as given. No gain is realized: an in-kind
+        charitable transfer is not a realization event, so ``gain_avoided`` is
+        reporting only, the tax the household did not pay.
+        """
+        if not self.use_lots:
+            # No usable lot data anywhere: "which lot" is not a meaningful
+            # question, so gift by balance and report the flat-fraction gain.
+            return amount, amount * self.fallback, []
+
+        remaining = max(0.0, float(amount or 0.0))
+        gifted = 0.0
+        gain_avoided = 0.0
+        consumed = []
+        for lot, price in self._donatable_lots(account, current_year):
+            if remaining <= 1e-9:
+                break
+            mv = lot.qty * price
+            if mv <= 0:
+                continue
+            give_mv = min(remaining, mv)
+            give_fraction = give_mv / mv
+            give_basis = lot.cost_basis * give_fraction
+            gain_avoided += max(0.0, give_mv - give_basis)
+            if mutate:
+                lot.qty *= (1 - give_fraction)
+                lot.cost_basis *= (1 - give_fraction)
+            gifted += give_mv
+            remaining -= give_mv
+            consumed.append((lot.symbol, give_mv, max(0.0, give_mv - give_basis)))
+        return gifted, gain_avoided, consumed
+
     def gain_on_withdrawal(self, account, amount, current_year=None, mutate=True):
         """
         Compute realized gain for a withdrawal of $amount from account.

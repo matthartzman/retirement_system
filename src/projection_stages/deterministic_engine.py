@@ -1144,15 +1144,30 @@ def run_deterministic_projection_stage(c):
         row['rec_extra'] = rec_extra
         row['home_improvement_extra'] = home_improvement_extra
 
-        # Lump events (including DAF contribution as a deductible lump)
+        # Lump events (including a cash DAF contribution as a deductible lump)
         lump_yr = c['lump'].get(year, 0)
-        # DAF contribution: added to spending in contribution year, tax-deductible
+        # DAF contribution. A *cash* gift is a real cash outflow: it joins the
+        # lump line, lands in total_spend_need, and the withdrawal waterfall
+        # funds it like any other spending need.
+        #
+        # An *appreciated-securities* gift is not a cash transaction at all --
+        # the shares move in kind from a taxable account straight to the DAF.
+        # Routing it through the spending bridge forced a taxable draw that
+        # realized the embedded capital gain, which is precisely the tax the
+        # strategy exists to avoid. It is handled instead as a direct in-kind
+        # transfer below (search: daf_inkind_yr), after RMDs and the Roth
+        # conversion have settled this year's balances.
         daf_contrib_yr = 0.0
+        daf_is_inkind = bool(c.get('daf_contribution_is_appreciated', False))
+        daf_gift_requested = 0.0
         if c.get('daf_enabled', False) and year == c.get('daf_year', 0):
-            daf_contrib_yr = c.get('daf_amount', 0)
-            lump_yr += daf_contrib_yr
+            daf_gift_requested = float(c.get('daf_amount', 0) or 0.0)
+            if not daf_is_inkind:
+                daf_contrib_yr = daf_gift_requested
+                lump_yr += daf_contrib_yr
         row['lump']          = lump_yr
         row['daf_contrib_yr']= daf_contrib_yr
+        row['daf_inkind_yr'] = 0.0
         # DAF grants (reduces annual charitable giving from the DAF balance, not new cash)
         daf_grant_yr = 0.0
         if (c.get('daf_enabled', False) and
@@ -1586,6 +1601,52 @@ def run_deterministic_projection_stage(c):
         if roth_conv > 0:
             emit(EvConversion(year, moved.source_note, 'Roth', roth_conv))
 
+        # ── DAF in-kind contribution (appreciated securities) ────────────────
+        # The shares leave the taxable accounts without being sold, so this is
+        # a balance transfer, not a withdrawal: no cash proceeds, no gap
+        # relief, and -- the whole point -- no realized capital gain. Reuse
+        # withdraw_taxable_trust purely for its account selection: same
+        # pro-rata ordering and same liquidity-reserve floor a cash draw would
+        # honor, so a gift can't push the taxable bucket below its reserve.
+        # Runs here, before the deduction stack below reads daf_contrib_yr, so
+        # a gift the taxable accounts can't fully fund deducts only what was
+        # actually given.
+        if daf_is_inkind and daf_gift_requested > 0:
+            _daf_res = _legacy_pe.donate_taxable_in_kind(c, bal, year, daf_gift_requested, spend)
+            _daf_by_account = dict(_daf_res.get('by_account', {}) or {})
+            daf_contrib_yr = float(_daf_res.get('amount', 0.0) or 0.0)
+            row['daf_inkind_yr'] = daf_contrib_yr
+            row['daf_contrib_yr'] = daf_contrib_yr
+            row['_daf_inkind_by_account'] = dict(_daf_by_account)
+            # Reporting only: the tax the household never paid because the
+            # embedded gain went to the charity instead of through a sale.
+            row['daf_inkind_gain_avoided'] = float(_daf_res.get('gain_avoided', 0.0) or 0.0)
+            # Never let a capped gift look like a full one. shortfall is the
+            # reserve floor or thin long-term holdings biting; long_term_capped
+            # says which, so the advisor can act on it.
+            row['daf_inkind_shortfall'] = float(_daf_res.get('shortfall', 0.0) or 0.0)
+            row['daf_inkind_long_term_capped'] = bool(_daf_res.get('long_term_capped', False))
+            for _daf_aid, _daf_amt in _daf_by_account.items():
+                _daf_amt = float(_daf_amt or 0.0)
+                if _daf_amt <= 0:
+                    continue
+                # Books as a transfer out, not a withdrawal: the account
+                # roll-forward in sheets_qc_reference has to foot (Opening +
+                # ... - Transfers Out - Withdrawals + Growth = Ending) and
+                # _account_withdrawals stays reserved for cash withdrawals,
+                # which is what the cash bridge and trust_wd both mean by it.
+                _add_account_flow(row['_account_transfers_out'], _daf_aid, _daf_amt)
+                # Deliberately do NOT spend bal_basis_free here: a donor gifts
+                # the low-basis shares and keeps the stepped-up ones. Clamp
+                # instead, so the tracked basis-free amount can never exceed
+                # what is left in the account.
+                if _daf_aid in bal_basis_free:
+                    bal_basis_free[_daf_aid] = min(bal_basis_free[_daf_aid],
+                                                   max(0.0, float(bal.get(_daf_aid, 0.0) or 0.0)))
+            if daf_contrib_yr > 0:
+                emit(EvTransfer(year, 'Taxable', 'DAF', daf_contrib_yr,
+                                'DAF in-kind contribution (appreciated securities)'))
+
         # ── AGI / Tax ────────────────────────────────────────────────────────
         # Social Security taxation uses the statutory provisional-income phase-in,
         # not a flat 85% inclusion. High-income plans will still usually land at
@@ -1688,7 +1749,16 @@ def run_deterministic_projection_stage(c):
         # treat char_low as the household's total giving intent and net the
         # QCD portion out of the itemizable cash-gift component so the same
         # dollars aren't counted twice.
-        char = max(0, (c['char_low'] - qcd_total_yr) - 0.005*agi)
+        #
+        # DAF grants get the identical treatment: a grant paid out of the DAF
+        # balance satisfies part of the same char_low giving intent, but those
+        # dollars were already deducted in the contribution year (and a grant
+        # out of a DAF is never itself deductible), so leaving them in the
+        # itemizable cash-gift component double-deducted them across the whole
+        # grant window. Netting here, not in the cash bridge -- char_low is a
+        # deduction input only and is not a cash-flow line, so a grant moves
+        # no cash in this model.
+        char = max(0, (c['char_low'] - qcd_total_yr - daf_grant_yr) - 0.005*agi)
 
         # Item 4.2 (P4): DAF contribution deduction, AGI-limited with a
         # 5-year carryforward (IRC 170(b)(1)(G)/(d)(1)) — replaces treating
@@ -1745,7 +1815,12 @@ def run_deterministic_projection_stage(c):
         daf_deduction_carryforward = new_carryforward
         row['daf_deduction_yr'] = daf_deduction_yr
         row['daf_deduction_carryforward'] = sum(amt for _yr, amt in daf_deduction_carryforward)
+        # Split reporting so the recurring cash-gift component stays visible
+        # separately from the DAF slice -- without it the grant netting above
+        # is invisible to callers and untestable except through taxable_inc.
+        row['charitable_cash_deduction_yr'] = char
         char += daf_deduction_yr
+        row['charitable_deduction_yr'] = char
 
         # Standard vs itemized
         n65 = (1 if h_age >= 65 else 0) + (1 if w_age >= 65 else 0)
@@ -2426,6 +2501,7 @@ def run_deterministic_projection_stage(c):
                     total_tax -= _fed_tax_savings
                     gap -= _fed_tax_savings
                     char += _daf_extra_used
+                    row['charitable_deduction_yr'] = char
                     item_ded = _candidate_item_ded
                     ded = _new_ded
                     daf_deduction_yr += _daf_extra_used
