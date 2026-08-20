@@ -1,3 +1,30 @@
+## 2026-08-20 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5814607.29 lifetime_tax=1304382.77 -->
+
+**Old pins.** terminal_nw=5,821,763.41, lifetime_tax=1,303,155.26
+
+**New pins.** terminal_nw=5,814,607.29, lifetime_tax=1,304,382.77
+
+**Reason.**
+
+Commit 332eac2 "DAF: stop double-deducting grants; gift appreciated shares
+in kind" fixed a real double-deduction bug: daf_grant_yr was computed and
+displayed but never actually netted out of the household's itemizable
+cash-gift deduction, so a DAF grant year deducted the same charitable
+dollars twice (once at contribution, again via undiminished giving intent
+during the grant window). Grants are now netted the same way QCD dollars
+already were.
+
+The frozen fixture's contribution is cash (not appreciated shares), so the
+commit's second fix (in-kind funding of appreciated gifts) is a no-op for
+this pin -- the entire delta is attributable to the grant-netting fix alone,
+per the commit's own stated verification (reverting only that line restores
+the old pin exactly).
+
+18 new tests in tests/test_daf_grant_deduction_and_inkind_funding.py, each
+verified failing with its defect planted back, per that commit's message.
+
 ## 2026-08-19 — HSA withdrawal optimizer (H0–H5): no pins moved, and none could have
 
 <!-- pin-provenance: terminal_nw=5821763.41 lifetime_tax=1303155.26 -->
