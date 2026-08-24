@@ -3069,6 +3069,14 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
 
     all_total_by_year = defaultdict(list)
     all_liquid_by_year = defaultdict(list)
+    # Phase 1 (optimization refactor): per-path, per-year spend-by-tier,
+    # deflated to plan-start (real) dollars using EACH path's own sampled
+    # inflation_index_by_year -- not the blanket deterministic assumption.
+    # rows already carry spend_by_tier (Phase 0, deterministic_engine.py)
+    # in this path's own nominal dollars, since project(c2) above consumes
+    # c2['inflation_index_by_year'] directly. Purely additive: does not
+    # affect success/failure, terminal values, or any existing output.
+    all_spend_by_tier_by_year: dict[str, dict[int, list]] = defaultdict(lambda: defaultdict(list))
     first5_avgs = []
     terminal_total = []
     terminal_liquid = []
@@ -3101,11 +3109,15 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         sampled_wellness_shocks.extend(float(v or 0.0) for v in inflation_paths.get('wellness_shock_by_year', {}).values())
         first5_avgs.append(sum(path_returns) / max(1, len(path_returns)))
 
+        path_infl_index = inflation_paths.get('inflation_index_by_year') or {}
         for yr in base_years:
             r = by_year.get(yr) or last_row
             liquid = _liquid_value(r)
             all_total_by_year[yr].append(float(r.get('total_nw', 0) or 0))
             all_liquid_by_year[yr].append(liquid)
+            _infl_idx_yr = float(path_infl_index.get(yr, 1.0) or 1.0)
+            for _tier, _nominal in (r.get('spend_by_tier') or {}).items():
+                all_spend_by_tier_by_year[_tier][yr].append(float(_nominal or 0.0) / max(1e-9, _infl_idx_yr))
 
         final_total = float(last_row.get('total_nw', 0) or 0)
         final_liquid = _liquid_value(last_row)
@@ -3130,6 +3142,10 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
 
     pct_by_year = {yr: _percentiles(all_total_by_year[yr], 0.0) for yr in base_years}
     liquid_pct_by_year = {yr: _percentiles(all_liquid_by_year[yr], success_threshold) for yr in base_years}
+    spend_by_tier_real_pct_by_year = {
+        tier: {yr: _percentiles(vals, 0.0) for yr, vals in year_map.items()}
+        for tier, year_map in all_spend_by_tier_by_year.items()
+    }
 
     # Quintiles are sorted by first-5-year returns, but success is now funded-plan
     # success and terminal values are terminal liquid assets. Total terminal net
@@ -3184,6 +3200,12 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
     return {
         'pct_by_year': pct_by_year,                         # total net worth distribution
         'liquid_pct_by_year': liquid_pct_by_year,           # liquid funding distribution
+        # Phase 1 (optimization refactor): {tier: {year: percentile-dict}},
+        # real (plan-start-dollar) spending by SPENDING_TIERS tier, deflated
+        # per path by that path's own sampled inflation. Empty dict if rows
+        # never carried spend_by_tier (e.g. a fixture calling this without
+        # going through project()/deterministic_engine.py).
+        'spend_by_tier_real_pct_by_year': spend_by_tier_real_pct_by_year,
         'quintiles': quintiles,
         'sensitivity': sensitivity,
         'sensitivity_sims': sens_N,
@@ -3293,6 +3315,15 @@ def _mc_row_bucket_flows(c: dict, base_rows: list[dict]) -> dict:
     deterministic_inflation_index = []
     inf = float(c.get('inf', 0.025) or 0.025)
     start = int(c.get('plan_start', years[0] if years else 0))
+    # Phase 1 (optimization refactor): the deterministic tier composition of
+    # total_spend, per year, keyed by whatever SPENDING_TIERS keys the rows
+    # actually carry (Phase 0's deterministic_engine.py row['spend_by_tier']).
+    tier_keys: list[str] = []
+    for _row in base_rows:
+        for _t in (_row.get('spend_by_tier') or {}):
+            if _t not in tier_keys:
+                tier_keys.append(_t)
+    spend_by_tier: dict[str, list] = {t: [] for t in tier_keys}
 
     def _bucket_for_account(aid: str) -> str:
         tax = registry.get(aid, '')
@@ -3318,6 +3349,9 @@ def _mc_row_bucket_flows(c: dict, base_rows: list[dict]) -> dict:
         total_tax.append(float(row.get('total_tax', 0.0) or 0.0))
         gross_income.append(float(row.get('gross_income', 0.0) or 0.0))
         deterministic_inflation_index.append((1.0 + inf) ** max(0, int(row['year']) - start))
+        _row_tiers = row.get('spend_by_tier') or {}
+        for t in tier_keys:
+            spend_by_tier[t].append(float(_row_tiers.get(t, 0.0) or 0.0))
 
     try:
         for name in out:
@@ -3327,6 +3361,7 @@ def _mc_row_bucket_flows(c: dict, base_rows: list[dict]) -> dict:
         out['total_tax'] = _np.array(total_tax, dtype=float)
         out['gross_income'] = _np.array(gross_income, dtype=float)
         out['deterministic_inflation_index'] = _np.array(deterministic_inflation_index, dtype=float)
+        out['spend_by_tier'] = {t: _np.array(v, dtype=float) for t, v in spend_by_tier.items()}
     except Exception:
         pass
     out['years'] = years
@@ -3601,6 +3636,24 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
         out['liquid'][:, j] = balances['pretax'] + balances['roth'] + balances['taxable'] + balances['hsa']
         out['total'][:, j] = out['liquid'][:, j] + balances['cash'] + nonliquid[j]
         out['unfunded'][:, j] = unfunded
+
+    # Phase 1 (optimization refactor): real (plan-start-dollar), per-tier
+    # spend matrices. Mirrors the existing spend scaling above (deterministic
+    # tier $ for year j * this path's inflation-index ratio * cut_mult) then
+    # deflates by this path's own cumulative inflation index -- consistent
+    # with "real spending: deflated to plan-start dollars using each path's
+    # sampled inflation index" (plan §7). Purely additive: does not affect
+    # unfunded/liquid/total or the success/failure calculation above, which
+    # already ran. Skips gracefully if base_rows never carried spend_by_tier.
+    tier_flows = flows.get('spend_by_tier') or {}
+    real_total = None
+    for tier, det_by_year in tier_flows.items():
+        nominal = det_by_year.reshape(1, -1) * spending_scale * cut_mult.reshape(-1, 1)
+        real = nominal / _np.maximum(1e-9, inf_idx)
+        out[f'spend_{tier}_real'] = real
+        real_total = real if real_total is None else real_total + real
+    if real_total is not None:
+        out['spend_total_real'] = real_total
     return out
 
 
