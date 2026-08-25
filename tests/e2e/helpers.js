@@ -41,6 +41,17 @@ export async function openCurrentPlan(page) {
   }
   await page.waitForLoadState('networkidle');
   await page.waitForFunction(() => window.planLoaded === true, { timeout: 15_000 });
+  // planLoaded flipping true does not mean loadAll() is done -- see
+  // waitForPlanSettled's own comment below for the full root cause (a second
+  // overlapping loadAll, e.g. the boot load from page.goto() racing the one
+  // "Open Current Plan" starts, can still be mid-flight and about to reset
+  // planLoaded back to false). navigateToStep() already guards its own
+  // callers this way; a caller that goes straight from openCurrentPlan() into
+  // an action gated on planLoaded (e.g. triggerBuildAndWaitForOverlay's
+  // "Build Reports" click, whose runBuild() silently no-ops if planLoaded is
+  // false) needs the same guarantee, so give it here too instead of leaving
+  // every such caller to remember it separately.
+  await waitForPlanSettled(page);
 }
 
 // Waits until no loadAll() is still in flight, which `planLoaded` above does
