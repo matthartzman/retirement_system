@@ -64,25 +64,55 @@ class VectorizedSpendByTierRealTests(unittest.TestCase):
     deterministic plan's own tier composition, only deflated to real
     dollars -- and the tiers must sum to the deterministic real total."""
 
-    def test_no_cut_paths_all_match_deterministic_real_spend(self):
+    def test_no_cut_paths_match_before_first_death_and_diverge_after(self):
+        # Phase 1 items 4-6 superseded the old expectation here (every path
+        # identical for a given year with no cut applied) -- that WAS the
+        # bug: the vectorized engine used to ignore first death entirely.
+        # A household's spending is only guaranteed identical across paths
+        # BEFORE any path's own first death; after it, survivor economics
+        # (spend factor, SS/pension changes, filing status) legitimately
+        # make paths diverge from the joint-economics deterministic value
+        # and from each other (different spouse dies first, different year).
         c = _base_config()
+        c["plan_end"] = int(c["plan_start"]) + 30  # full horizon (ages run
+        # into the 90s), so first-death events actually occur within plan
+        # for a meaningful fraction of paths -- the truncated 8-year config
+        # other tests in this file use is too short for that.
         base_rows = project(c)
-        batch = _mc_vectorized_batch(c, base_rows, 12, 7, 0.06, 0.12, 0.0, use_asset_classes=False)
+        batch = _mc_vectorized_batch(c, base_rows, 40, 7, 0.06, 0.12, 0.0, use_asset_classes=False)
         proj = batch["projection"]
         self.assertIn("spend_total_real", proj)
+        h_death = batch["h_death_years"]
+        w_death = batch["w_death_years"]
+        first_death = np.minimum(h_death, w_death)
 
         start = int(c["plan_start"])
         inf = float(c.get("inf", 0.025) or 0.025)
+        saw_pre_death_year = False
+        saw_post_death_divergence = False
         for j, row in enumerate(base_rows):
-            det_real_total = float(row.get("total_spend", 0.0) or 0.0) / ((1.0 + inf) ** max(0, int(row["year"]) - start))
+            year = int(row["year"])
+            det_real_total = float(row.get("total_spend", 0.0) or 0.0) / ((1.0 + inf) ** max(0, year - start))
             path_values = proj["spend_total_real"][:, j]
-            # All paths identical (no cut, no path-specific dependence besides
-            # the shared deterministic tier composition) and matching the
-            # deterministic engine's own real spend for that year.
-            self.assertTrue(np.allclose(path_values, path_values[0]),
-                             f"year {row['year']}: spend_total_real varies across paths with no cut applied")
-            self.assertAlmostEqual(float(path_values[0]), det_real_total, places=0,
-                                    msg=f"year {row['year']}: spend_total_real {path_values[0]} != deterministic real total {det_real_total}")
+            pre_death_mask = year <= first_death
+            if pre_death_mask.any():
+                pre_vals = path_values[pre_death_mask]
+                self.assertTrue(np.allclose(pre_vals, det_real_total, atol=1.0),
+                                 f"year {year}: a path still in joint economics (first death not yet "
+                                 f"reached) diverged from the deterministic real spend")
+                saw_pre_death_year = True
+            post_death_mask = ~pre_death_mask
+            if post_death_mask.any():
+                post_vals = path_values[post_death_mask]
+                if not np.allclose(post_vals, det_real_total, atol=1.0):
+                    saw_post_death_divergence = True
+
+        self.assertTrue(saw_pre_death_year, "no year had any path still in pre-first-death joint economics")
+        self.assertTrue(
+            saw_post_death_divergence,
+            "no post-first-death path ever differed from the joint-economics deterministic value -- "
+            "survivor economics may not be wired into the vectorized withdrawal recursion",
+        )
 
     def test_per_tier_matrices_sum_to_spend_total_real(self):
         c = _base_config()
