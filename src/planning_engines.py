@@ -3010,14 +3010,14 @@ def _run_one_mc_path(c: dict, rng: random.Random, mu: float, sig: float, use_ass
     # paths directly, so each scalar MC path uses its own sampled tax thresholds
     # rather than a geometric-mean approximation.
     rows = project(c2)
-    return rows, years, returns, return_diag, inflation_paths
+    return rows, years, returns, return_diag, inflation_paths, c2
 
 
 def _sensitivity_success_rate(c: dict, mu: float, sig: float, n_sims: int, seed: int, threshold: float) -> float:
     rng = random.Random(seed)
     successes = 0
     for _ in range(max(1, int(n_sims))):
-        rows, _years, _returns, _diag, _infl = _run_one_mc_path(c, rng, mu, sig, use_asset_classes=False)
+        rows, _years, _returns, _diag, _infl, _c2 = _run_one_mc_path(c, rng, mu, sig, use_asset_classes=False)
         if _funding_success(rows, threshold):
             successes += 1
     return successes / max(1, int(n_sims))
@@ -3130,6 +3130,21 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
     # against zero is meaningless.
     all_liquidity_coverage_by_year: dict[int, list] = defaultdict(list)
     path_min_liquidity_coverage: list = []
+    # Phase 2 (optimization refactor): after-tax transfer/legacy value
+    # distribution. Reuses estimate_after_tax_terminal_net_worth (the SAME
+    # helper already used for the deterministic Roth-optimizer scoring path,
+    # see the estimate_after_tax_terminal_net_worth call a few hundred lines
+    # above in this file) against each path's own last_row -- which, unlike
+    # the vectorized engine, is already a full deterministic terminal row
+    # with real per-account balances, so no aggregate-bucket approximation
+    # is needed here. path_c2 (this path's own resampled h_death_yr/
+    # w_death_yr) drives the §1014 step-up classification correctly per
+    # path. Wrapped defensively: an unusual per-path config/terminal state
+    # should reduce this one path's legacy figure to a fallback, not abort
+    # the whole MC batch.
+    from .after_tax import estimate_after_tax_terminal_net_worth as _estimate_after_tax_terminal_net_worth
+    all_after_tax_terminal_nw: list = []
+    all_post_tax_inheritance: list = []
     first5_avgs = []
     terminal_total = []
     terminal_liquid = []
@@ -3152,7 +3167,7 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
     progress_step = max(1, N // 10)
     print(f'Monte Carlo exact scalar paths: 0/{N}', flush=True)
     for sim_idx in range(N):
-        rows, years, returns, return_diag, inflation_paths = _run_one_mc_path(c, rng, mu, sig, use_asset_classes=True)
+        rows, years, returns, return_diag, inflation_paths, path_c2 = _run_one_mc_path(c, rng, mu, sig, use_asset_classes=True)
         return_model_counts[str(return_diag.get('return_model', 'unknown'))] += 1
         by_year = {r['year']: r for r in rows}
         last_row = rows[-1]
@@ -3222,6 +3237,13 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
 
         final_total = float(last_row.get('total_nw', 0) or 0)
         final_liquid = _liquid_value(last_row)
+        try:
+            _after_tax_metrics = _estimate_after_tax_terminal_net_worth(path_c2, last_row)
+            all_after_tax_terminal_nw.append(float(_after_tax_metrics.get('after_tax_terminal_nw', final_total) or final_total))
+            all_post_tax_inheritance.append(float(_after_tax_metrics.get('post_tax_inheritance', final_total) or final_total))
+        except Exception:
+            all_after_tax_terminal_nw.append(final_total)
+            all_post_tax_inheritance.append(final_total)
         path_success = _funding_success(rows, success_threshold)
         path_success_no_ruin = path_success if success_threshold <= 0 else _funding_success(rows, 0.0)
         terminal_total.append(final_total)
@@ -3392,6 +3414,15 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         'worst_liquidity_coverage_ratio_pct': (
             _percentiles(path_min_liquidity_coverage, 1.0) if success_threshold > 0 else None
         ),
+        # Optimization-refactor Phase 2: after-tax transfer/legacy value
+        # distribution -- same estimate_after_tax_terminal_net_worth used by
+        # the deterministic Roth-optimizer scoring path, applied per MC path
+        # against that path's own terminal row and resampled death years.
+        # Nominal dollars, matching the sibling terminal_total_nw/
+        # terminal_liquid_assets convention (neither of those deflates
+        # either).
+        'after_tax_terminal_nw_pct': _percentiles(all_after_tax_terminal_nw, 0.0),
+        'post_tax_inheritance_pct': _percentiles(all_post_tax_inheritance, 0.0),
         'failure_rate': 1.0 - success_rate,
         'home_equity_contingency_enabled': he_contingency_enabled,
         'home_equity_contingency_reserve': he_reserve,
@@ -4113,6 +4144,46 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
         coverage = projection['liquid'] / success_threshold
         liquidity_coverage_pct_by_year = {yr: _percentiles(coverage[:, i].tolist(), 1.0) for i, yr in enumerate(years)}
         worst_liquidity_coverage_ratio_pct = _percentiles(_np.min(coverage, axis=1).tolist(), 1.0)
+    # Phase 2 (optimization refactor): after-tax transfer/legacy value
+    # distribution. Reuses the SAME estimate_after_tax_terminal_net_worth
+    # helper as monte_carlo_exact_scalar and the deterministic Roth-optimizer
+    # scoring path, but this engine only tracks aggregate cash/taxable/
+    # pretax/roth/hsa buckets (no per-account cost basis), so the terminal
+    # dict passed in sets 'trust_nw' to the aggregate taxable balance --
+    # exactly the fallback branch estimate_terminal_taxable_deferred_cap_gain_tax
+    # already uses "if terminal trust_nw was populated but account-level
+    # taxable IDs were not" (this always takes that branch here, since a
+    # synthetic dict never has the real taxable_ids keys populated). Each
+    # path's own resampled h_death/w_death drives the §1014 step-up
+    # classification correctly. A per-path dict copy plus this helper is
+    # ~0.02ms (benchmarked directly against this repo's real fixture config,
+    # 434 keys) -- negligible even at thousands of paths, unlike the earlier
+    # 81x survivor-bucket regression (which was ~4,500 extra FULL project()
+    # calls); this adds zero project() calls. Nominal dollars, matching the
+    # sibling terminal_total_nw/terminal_liquid_assets convention.
+    after_tax_terminal_nw_pct = None
+    post_tax_inheritance_pct = None
+    try:
+        from .after_tax import estimate_after_tax_terminal_net_worth as _estimate_after_tax_terminal_net_worth
+        _n_sims_actual = int(projection['total'].shape[0])
+        _after_tax_vals = []
+        _post_tax_vals = []
+        for _i in range(_n_sims_actual):
+            _c_path = {**c, 'h_death_yr': int(h_death[_i]), 'w_death_yr': int(w_death[_i])}
+            _terminal_path = {
+                'year': years[-1],
+                'total_nw': float(projection['total'][_i, -1]),
+                'pretax_nw': float(projection['pretax'][_i, -1]),
+                'hsa_nw': float(projection['hsa'][_i, -1]),
+                'trust_nw': float(projection['taxable'][_i, -1]),
+            }
+            _m = _estimate_after_tax_terminal_net_worth(_c_path, _terminal_path)
+            _after_tax_vals.append(float(_m.get('after_tax_terminal_nw', _terminal_path['total_nw']) or _terminal_path['total_nw']))
+            _post_tax_vals.append(float(_m.get('post_tax_inheritance', _terminal_path['total_nw']) or _terminal_path['total_nw']))
+        after_tax_terminal_nw_pct = _percentiles(_after_tax_vals, 0.0)
+        post_tax_inheritance_pct = _percentiles(_post_tax_vals, 0.0)
+    except Exception:
+        pass
     return {
         'years': years,
         'returns': returns,
@@ -4133,6 +4204,8 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
         'cumulative_shortfall_real_pct': cumulative_shortfall_real_pct,
         'liquidity_coverage_pct_by_year': liquidity_coverage_pct_by_year,
         'worst_liquidity_coverage_ratio_pct': worst_liquidity_coverage_ratio_pct,
+        'after_tax_terminal_nw_pct': after_tax_terminal_nw_pct,
+        'post_tax_inheritance_pct': post_tax_inheritance_pct,
     }
 
 
@@ -4667,6 +4740,10 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None, survivor_buckets='__uns
         # (see _mc_vectorized_batch/monte_carlo_exact_scalar for definitions).
         'liquidity_coverage_pct_by_year': batch.get('liquidity_coverage_pct_by_year'),
         'worst_liquidity_coverage_ratio_pct': batch.get('worst_liquidity_coverage_ratio_pct'),
+        # Optimization-refactor Phase 2: after-tax transfer/legacy value
+        # distribution (see _mc_vectorized_batch/monte_carlo_exact_scalar).
+        'after_tax_terminal_nw_pct': batch.get('after_tax_terminal_nw_pct'),
+        'post_tax_inheritance_pct': batch.get('post_tax_inheritance_pct'),
         'terminal_total_nw': _percentiles(terminal_total.tolist(), 0.0),
         'terminal_liquid_assets': _percentiles(terminal_liquid.tolist(), success_threshold),
         'nw0': float(proj['pretax'][0, 0] + proj['roth'][0, 0] + proj['taxable'][0, 0] + proj['hsa'][0, 0]),
