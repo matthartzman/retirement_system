@@ -3130,6 +3130,20 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
     # against zero is meaningless.
     all_liquidity_coverage_by_year: dict[int, list] = defaultdict(list)
     path_min_liquidity_coverage: list = []
+    # Phase 2 (optimization refactor): survivor-period dashboard rows --
+    # among paths whose sampled first death actually falls within this
+    # path's own modeled years (years strictly after first death, up to and
+    # including the second death -- mirrors the vectorized engine's
+    # use_bucket_mask & active), what fraction see a funding failure (the
+    # SAME unfunded>$1-or-liquid<=floor definition _funding_success/
+    # path_success already use) specifically during that window. Only
+    # meaningful for two-member households -- a single-person household has
+    # no survivor to report on (sample_household_death_years defaults its
+    # synthetic "spouse" death year to the member's own, degenerating the
+    # window to nothing).
+    _household_has_two_members = len(c.get('members') or []) >= 2
+    survivor_period_paths_with_window = 0
+    survivor_period_paths_with_failure = 0
     # Phase 2 (optimization refactor): after-tax transfer/legacy value
     # distribution. Reuses estimate_after_tax_terminal_net_worth (the SAME
     # helper already used for the deterministic Roth-optimizer scoring path,
@@ -3187,6 +3201,10 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         _path_consecutive_run = 0
         _path_max_consecutive_cut_years = 0
         _path_min_liquidity_coverage = None
+        _path_first_death = int(path_c2.get('first_death_yr', 0) or 0)
+        _path_second_death = max(int(path_c2.get('h_death_yr', 0) or 0), int(path_c2.get('w_death_yr', 0) or 0))
+        _path_has_survivor_window = False
+        _path_survivor_failure = False
         for yr in base_years:
             r = by_year.get(yr) or last_row
             liquid = _liquid_value(r)
@@ -3194,6 +3212,10 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
                 _coverage_yr = liquid / success_threshold
                 all_liquidity_coverage_by_year[yr].append(_coverage_yr)
                 _path_min_liquidity_coverage = _coverage_yr if _path_min_liquidity_coverage is None else min(_path_min_liquidity_coverage, _coverage_yr)
+            if _household_has_two_members and _path_first_death > 0 and _path_first_death < yr <= _path_second_death:
+                _path_has_survivor_window = True
+                if float(r.get('unfunded_gap', 0.0) or 0.0) > 1.0 or liquid <= success_threshold:
+                    _path_survivor_failure = True
             all_total_by_year[yr].append(float(r.get('total_nw', 0) or 0))
             all_liquid_by_year[yr].append(liquid)
             _infl_idx_yr = float(path_infl_index.get(yr, 1.0) or 1.0)
@@ -3234,6 +3256,10 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         cumulative_shortfall_real_list.append(_path_cumulative_shortfall_real)
         if _path_min_liquidity_coverage is not None:
             path_min_liquidity_coverage.append(_path_min_liquidity_coverage)
+        if _path_has_survivor_window:
+            survivor_period_paths_with_window += 1
+            if _path_survivor_failure:
+                survivor_period_paths_with_failure += 1
 
         final_total = float(last_row.get('total_nw', 0) or 0)
         final_liquid = _liquid_value(last_row)
@@ -3423,6 +3449,14 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         # either).
         'after_tax_terminal_nw_pct': _percentiles(all_after_tax_terminal_nw, 0.0),
         'post_tax_inheritance_pct': _percentiles(all_post_tax_inheritance, 0.0),
+        # Optimization-refactor Phase 2: survivor-period dashboard rows --
+        # see the accumulator comment above the sim loop for definitions.
+        'survivor_period_applicable_probability': (
+            survivor_period_paths_with_window / max(1, N) if survivor_period_paths_with_window > 0 else None
+        ),
+        'survivor_period_failure_probability': (
+            survivor_period_paths_with_failure / survivor_period_paths_with_window if survivor_period_paths_with_window > 0 else None
+        ),
         'failure_rate': 1.0 - success_rate,
         'home_equity_contingency_enabled': he_contingency_enabled,
         'home_equity_contingency_reserve': he_reserve,
@@ -4073,6 +4107,14 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
     out['max_annual_shortfall_real'] = _np.max(unfunded_real, axis=1)
     out['cumulative_shortfall_real'] = _np.sum(unfunded_real, axis=1)
     out['max_consecutive_cut_years'] = _max_consecutive_true_per_row(cut_mask)
+    # Phase 2 (optimization refactor): expose the survivor-period mask
+    # (years strictly after this path's own sampled first death) computed
+    # above for bucket selection, so callers can report metrics scoped to
+    # the survivor period specifically (e.g. "did a shortfall occur only
+    # after the first spouse died"). All-False when survivor_buckets/death
+    # years were not supplied (single-person household, or a caller that
+    # didn't pass them) -- there is no survivor period to report on.
+    out['use_bucket_mask'] = use_bucket_mask
     return out
 
 
@@ -4129,6 +4171,30 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
     cumulative_shortfall_real_pct = (
         _percentiles(projection['cumulative_shortfall_real'].tolist(), 0.0) if 'cumulative_shortfall_real' in projection else None
     )
+    # Phase 2 (optimization refactor): survivor-period dashboard rows --
+    # scope the SAME failure definition path_success/failure_matrix already
+    # use (unfunded > $1 OR liquid <= floor, restricted to active years) to
+    # specifically the years after each path's own sampled first death
+    # (projection['use_bucket_mask'], see _mc_vectorized_projection). Only
+    # meaningful for paths whose first death actually falls within the
+    # modeled horizon -- reported as two figures so the conditional
+    # probability isn't read without its base rate: what fraction of paths
+    # have a survivor period to speak of, and among those, what fraction
+    # see a funding failure specifically during it. None entirely when no
+    # path in this batch has a survivor window (single-person household,
+    # or survivor economics unavailable/off).
+    survivor_period_applicable_probability = None
+    survivor_period_failure_probability = None
+    survivor_window = projection.get('use_bucket_mask')
+    if survivor_window is not None:
+        survivor_active = survivor_window & active
+        has_survivor_window = _np.any(survivor_active, axis=1)
+        if bool(_np.any(has_survivor_window)):
+            survivor_period_applicable_probability = float(_np.mean(has_survivor_window))
+            survivor_failure = _np.any(failure_matrix & survivor_active, axis=1)
+            survivor_period_failure_probability = float(
+                _np.sum(survivor_failure[has_survivor_window]) / _np.sum(has_survivor_window)
+            )
     # Phase 2 (optimization refactor): liquidity coverage distribution --
     # liquid retirement assets divided by success_threshold, the SAME flat
     # nominal-dollar reserve floor path_success above already compares
@@ -4206,6 +4272,8 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
         'worst_liquidity_coverage_ratio_pct': worst_liquidity_coverage_ratio_pct,
         'after_tax_terminal_nw_pct': after_tax_terminal_nw_pct,
         'post_tax_inheritance_pct': post_tax_inheritance_pct,
+        'survivor_period_applicable_probability': survivor_period_applicable_probability,
+        'survivor_period_failure_probability': survivor_period_failure_probability,
     }
 
 
@@ -4744,6 +4812,10 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None, survivor_buckets='__uns
         # distribution (see _mc_vectorized_batch/monte_carlo_exact_scalar).
         'after_tax_terminal_nw_pct': batch.get('after_tax_terminal_nw_pct'),
         'post_tax_inheritance_pct': batch.get('post_tax_inheritance_pct'),
+        # Optimization-refactor Phase 2: survivor-period dashboard rows
+        # (see _mc_vectorized_batch for definitions).
+        'survivor_period_applicable_probability': batch.get('survivor_period_applicable_probability'),
+        'survivor_period_failure_probability': batch.get('survivor_period_failure_probability'),
         'terminal_total_nw': _percentiles(terminal_total.tolist(), 0.0),
         'terminal_liquid_assets': _percentiles(terminal_liquid.tolist(), success_threshold),
         'nw0': float(proj['pretax'][0, 0] + proj['roth'][0, 0] + proj['taxable'][0, 0] + proj['hsa'][0, 0]),
