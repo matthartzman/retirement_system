@@ -781,7 +781,14 @@ def sample_household_death_years(c: Mapping, rng: random.Random) -> dict:
         w = sample_death_year(c, 1, rng)
     else:
         w = int(c.get('w_death_yr', h))
-    return {'h_death_yr': h, 'w_death_yr': w, 'plan_end': max(h, w)}
+    # Adjacent fix found while implementing Phase 1 items 4-6: without this,
+    # every scalar MC path left first_death_yr at the base config's stale
+    # value (or 0), so deterministic_engine.py's Qualifying-Surviving-Spouse
+    # 2-year MFJ-extension window (gated on qss_dependent) was timed off the
+    # wrong year for every qss_dependent=True path. The primary MFJ->single
+    # filing-status switch is unaffected (it keys off h_death_yr/w_death_yr
+    # directly, not first_death_yr).
+    return {'h_death_yr': h, 'w_death_yr': w, 'first_death_yr': min(h, w), 'plan_end': max(h, w)}
 
 # ===== END mortality_engine.py =====
 
