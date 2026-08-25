@@ -63,12 +63,15 @@ or `success_rate`.
 | `liquidity_coverage_pct_by_year` + `worst_liquidity_coverage_ratio_pct` | both MC engines | `liquid / success_threshold`, i.e. how many times over the existing reserve floor is covered — re-labels a relationship the success/failure test already uses, rather than inventing a new floor concept |
 | `after_tax_terminal_nw_pct` + `post_tax_inheritance_pct` | both MC engines | Reuses `estimate_after_tax_terminal_net_worth` (`src/after_tax.py`), the same helper the deterministic Roth-optimizer scoring path already calls. Scalar engine reuses the path's real per-account terminal row exactly; vectorized engine approximates via the same aggregate-taxable-balance fallback `estimate_terminal_taxable_deferred_cap_gain_tax` already has for accounts without per-lot cost basis |
 
-All five are covered by dedicated regression test files (see
+| `survivor_period_applicable_probability` + `survivor_period_failure_probability` | both MC engines | Scopes the same funding-failure condition `path_success`/`_funding_success` already use to the years strictly after each path's own sampled first death, up to and including the second death. `None` for a single-person household or when no path in the batch has a survivor window |
+
+All six are covered by dedicated regression test files (see
 `tests/test_spending_priority_cut_check_regression.py`,
 `tests/test_essential_fully_funded_probability_regression.py`,
 `tests/test_mc_cut_statistics_regression.py`,
 `tests/test_liquidity_coverage_distribution_regression.py`,
-`tests/test_after_tax_legacy_value_distribution_regression.py`) and were
+`tests/test_after_tax_legacy_value_distribution_regression.py`,
+`tests/test_survivor_period_dashboard_rows_regression.py`) and were
 verified against the full local suite, the `-m slow` build-functional suite,
 and CI, with zero regressions against the pre-existing baseline failure set
 (see below).
@@ -83,7 +86,6 @@ and CI, with zero regressions against the pre-existing baseline failure set
 - **"Probability of meeting a user legacy floor"** — no `legacy_floor`-style
   config field exists anywhere in this codebase yet. Adding one needs a
   CSV-schema / UI / docs decision, not just a reporting-layer computation.
-- **Separate survivor-period dashboard rows.**
 - **Phases 3–6 of the overall plan** (tax NPV / ELTR state-contingent tax
   modeling, LCV feasibility gate and scoring, adaptive policy guardrails,
   expanded stress scenarios) are entirely unimplemented.
