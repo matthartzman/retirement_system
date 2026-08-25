@@ -3096,6 +3096,14 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
     _GIFT_CHARITY_FIELDS = (('daf_contrib', 'daf_contrib_yr'), ('qcd_total', 'qcd_total_yr'), ('gift_total', 'gift_total_yr'))
     all_gift_charity_by_year: dict[str, dict[int, list]] = defaultdict(lambda: defaultdict(list))
     all_lifetime_gift_charity_pv: list = []
+    # Phase 2 (optimization refactor): "probability essential spending is
+    # fully funded" -- counts paths whose essential-tier shortfall (the
+    # discretionary -> important -> essential cascade against each year's
+    # row['unfunded_gap'], same logic as spending_priority_cut_check) is
+    # zero in every year. This engine already has row['unfunded_gap'] and
+    # row['spend_by_tier'] for free (each path is a full deterministic
+    # rerun), so no new engine computation is needed -- just attribution.
+    essential_fully_funded_count = 0
     first5_avgs = []
     terminal_total = []
     terminal_liquid = []
@@ -3130,6 +3138,7 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
 
         path_infl_index = inflation_paths.get('inflation_index_by_year') or {}
         _path_lifetime_gift_charity = 0.0
+        _path_essential_shortfall_ever = False
         for yr in base_years:
             r = by_year.get(yr) or last_row
             liquid = _liquid_value(r)
@@ -3144,7 +3153,17 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
                 _real_amt = float(r.get(_key, 0.0) or 0.0) / max(1e-9, _infl_idx_yr)
                 all_gift_charity_by_year[_label][yr].append(_real_amt)
                 _path_lifetime_gift_charity += _real_amt
+            _remaining_unfunded = float(r.get('unfunded_gap', 0.0) or 0.0)
+            _tiers_yr = r.get('spend_by_tier') or {}
+            for _tier in ('discretionary', 'important', 'essential'):
+                _avail = float(_tiers_yr.get(_tier, 0.0) or 0.0)
+                _taken = min(_avail, _remaining_unfunded)
+                if _tier == 'essential' and _taken > 1.0:
+                    _path_essential_shortfall_ever = True
+                _remaining_unfunded -= _taken
         all_lifetime_gift_charity_pv.append(_path_lifetime_gift_charity)
+        if not _path_essential_shortfall_ever:
+            essential_fully_funded_count += 1
 
         final_total = float(last_row.get('total_nw', 0) or 0)
         final_liquid = _liquid_value(last_row)
@@ -3293,6 +3312,9 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         'success_rate_no_ruin_ci_high': success_no_ruin_ci_high,
         'liquid_success_rate': success_rate,
         'total_nw_success_rate': total_nw_positive / max(1, N),
+        # Optimization-refactor Phase 2: fraction of paths whose essential-
+        # tier spending was never left unfunded in any year.
+        'essential_fully_funded_probability': essential_fully_funded_count / max(1, N),
         'failure_rate': 1.0 - success_rate,
         'home_equity_contingency_enabled': he_contingency_enabled,
         'home_equity_contingency_reserve': he_reserve,
@@ -3889,6 +3911,29 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
             gift_charity_total = real if gift_charity_total is None else gift_charity_total + real
     if gift_charity_total is not None:
         out['gift_charity_real'] = gift_charity_total
+
+    # Phase 2 (optimization refactor): attribute each path/year's already-
+    # computed unfunded shortfall (out['unfunded'] above) to spend tiers via
+    # the same discretionary -> important -> essential cascade as
+    # spending_priority_cut_check, to answer "was essential spending ever
+    # left unfunded on this path" (the plan's "probability essential
+    # spending is fully funded" dashboard metric). Reporting-only: reads
+    # out['unfunded'] after the recursion above already finalized it, and
+    # never feeds back into unfunded/liquid/total/path_success.
+    if eff['spend_by_tier']:
+        remaining_unfunded = out['unfunded'].copy()
+        essential_shortfall_nominal = _np.zeros((n_sims, n_years))
+        for tier in ('discretionary', 'important', 'essential'):
+            tier_arr = eff['spend_by_tier'].get(tier)
+            if tier_arr is None:
+                continue
+            tier_nominal = tier_arr * spending_scale * cut_mult.reshape(-1, 1)
+            taken = _np.minimum(tier_nominal, remaining_unfunded)
+            if tier == 'essential':
+                essential_shortfall_nominal = taken
+            remaining_unfunded = remaining_unfunded - taken
+        out['essential_shortfall_real'] = essential_shortfall_nominal / _np.maximum(1e-9, inf_idx)
+        out['essential_fully_funded'] = _np.all(essential_shortfall_nominal <= 1.0, axis=1)
     return out
 
 
@@ -3921,6 +3966,15 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
     any_failure = _np.any(failure_matrix, axis=1)
     first_failure_idx = _np.argmax(failure_matrix, axis=1)
     first_failure_years = [years[int(idx)] if bool(any_failure[i]) else None for i, idx in enumerate(first_failure_idx)]
+    # Phase 2 (optimization refactor): "probability essential spending is
+    # fully funded" -- the fraction of paths whose essential-tier shortfall
+    # (see _mc_vectorized_projection's tail) is zero in every year. None
+    # when spend_by_tier was unavailable (e.g. base_rows never went through
+    # Phase 0's deterministic engine).
+    essential_fully_funded_probability = (
+        float(_np.mean(projection['essential_fully_funded']))
+        if 'essential_fully_funded' in projection else None
+    )
     return {
         'years': years,
         'returns': returns,
@@ -3933,6 +3987,7 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
         'w_death_years': w_death,
         'max_death_years': max_death,
         'survivor_buckets': survivor_buckets,
+        'essential_fully_funded_probability': essential_fully_funded_probability,
     }
 
 
@@ -4438,6 +4493,9 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None):
         'first_failure_distribution': first_failure_distribution,
         'required_cut_distribution': required_cut_distribution,
         'sustainable_spending_solve': sustainable_spending,
+        # Optimization-refactor Phase 2: fraction of paths whose essential-
+        # tier spending was never left unfunded (see _mc_vectorized_batch).
+        'essential_fully_funded_probability': batch.get('essential_fully_funded_probability'),
         'terminal_total_nw': _percentiles(terminal_total.tolist(), 0.0),
         'terminal_liquid_assets': _percentiles(terminal_liquid.tolist(), success_threshold),
         'nw0': float(proj['pretax'][0, 0] + proj['roth'][0, 0] + proj['taxable'][0, 0] + proj['hsa'][0, 0]),
