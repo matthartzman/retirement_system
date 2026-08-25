@@ -3533,15 +3533,15 @@ def _mc_effective_row_flows(flows: dict, survivor_buckets, bucket_id, use_bucket
             else:
                 bucket_matrix = survivor_buckets['arrays'][f'{name}.{b}'][bucket_id, :]
                 out[name][b] = _np.where(use_bucket_mask, bucket_matrix, det_row)
-    for field in ('total_tax', 'gross_income', 'gross_cash_flow_yr', 'daf_contrib_yr', 'qcd_total_yr', 'gift_total_yr'):
-        det_field = flows.get(field)
+    for flow_field in ('total_tax', 'gross_income', 'gross_cash_flow_yr', 'daf_contrib_yr', 'qcd_total_yr', 'gift_total_yr'):
+        det_field = flows.get(flow_field)
         if det_field is None:
             continue
         det_row = det_field.reshape(1, n_years)
-        if survivor_buckets is None or field not in survivor_buckets.get('arrays', {}):
-            out[field] = _np.broadcast_to(det_row, (n_sims, n_years))
+        if survivor_buckets is None or flow_field not in survivor_buckets.get('arrays', {}):
+            out[flow_field] = _np.broadcast_to(det_row, (n_sims, n_years))
         else:
-            out[field] = _np.where(use_bucket_mask, survivor_buckets['arrays'][field][bucket_id, :], det_row)
+            out[flow_field] = _np.where(use_bucket_mask, survivor_buckets['arrays'][flow_field][bucket_id, :], det_row)
     out['spend_by_tier'] = {}
     for tier, det_arr in (flows.get('spend_by_tier') or {}).items():
         det_row = det_arr.reshape(1, n_years)
@@ -3879,13 +3879,13 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
     # Tax/gross-cash-flow: NOT scaled by cut_mult (a spending cut doesn't
     # proportionally reduce tax owed or gross income) but still scaled by
     # this path's own inflation ratio and deflated to real dollars.
-    for field, key in (('total_tax', 'tax_total_real'), ('gross_cash_flow_yr', 'gross_cash_flow_real')):
-        if field in eff:
-            out[key] = eff[field] * spending_scale / _np.maximum(1e-9, inf_idx)
+    for flow_field, out_key in (('total_tax', 'tax_total_real'), ('gross_cash_flow_yr', 'gross_cash_flow_real')):
+        if flow_field in eff:
+            out[out_key] = eff[flow_field] * spending_scale / _np.maximum(1e-9, inf_idx)
     gift_charity_total = None
-    for field in ('daf_contrib_yr', 'qcd_total_yr', 'gift_total_yr'):
-        if field in eff:
-            real = eff[field] * spending_scale / _np.maximum(1e-9, inf_idx)
+    for flow_field in ('daf_contrib_yr', 'qcd_total_yr', 'gift_total_yr'):
+        if flow_field in eff:
+            real = eff[flow_field] * spending_scale / _np.maximum(1e-9, inf_idx)
             gift_charity_total = real if gift_charity_total is None else gift_charity_total + real
     if gift_charity_total is not None:
         out['gift_charity_real'] = gift_charity_total
