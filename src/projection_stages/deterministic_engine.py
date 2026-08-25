@@ -2823,6 +2823,17 @@ def run_deterministic_projection_stage(c):
             'unfunded_gap': row['unfunded_gap'],
         }
 
+        # Optimization-refactor Phase 1 item 2: gross external cash flow, for
+        # ELTR (effective lifetime tax rate) and tax-NPV reporting. Reuses
+        # cashflow_breakdown's income/draws sub-dicts, which already exclude
+        # internal transfers (Roth conversion, DAF in-kind, gifting, spousal
+        # rollover, CST funding) by construction -- see the reconciliation
+        # guarantees documented above cashflow_breakdown.
+        row['gross_cash_flow_yr'] = (
+            sum(row['cashflow_breakdown']['income'].values())
+            + sum(row['cashflow_breakdown']['draws'].values())
+        )
+
         # ── Portfolio growth (end-of-year) ───────────────────────────────────
         port_ret = c['ret']
         def _growth_event(acct, before, rate, growth):
