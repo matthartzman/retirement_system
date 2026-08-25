@@ -21,8 +21,8 @@ def test_aca_premium_tax_credit_enhanced_and_cliff_cases():
 def test_scalar_projection_uses_per_year_tax_index_paths():
     from src.data_io import load_csv, parse_client
     from src.planning_engines import project
-    from pathlib import Path
-    data = load_csv(Path('input') / 'client_data.csv')
+    from conftest import TEST_INPUT_DIR
+    data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
     c = parse_client(data, '')
     c['plan_end'] = c['plan_start'] + 2
     # Pin roth_policy so this isolates the bracket-index plumbing being tested,

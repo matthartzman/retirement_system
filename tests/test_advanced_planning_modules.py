@@ -21,6 +21,7 @@ from src.reporting.workbook_common import (
 from src.reporting.sheets_protection import build_existing_life, build_disability, build_pc_umbrella
 from src.reporting.sheets_wealth import (build_education_funding, build_equity_comp,
                                          build_special_needs, build_business_succession)
+from conftest import TEST_INPUT_DIR
 
 os.environ.setdefault("RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS", "1")
 
@@ -38,13 +39,13 @@ MODULES = [
 
 @pytest.fixture(scope="module")
 def cfg_rows():
-    data = load_csv("input/client_data.csv")
+    data = load_csv(TEST_INPUT_DIR / "client_data.csv")
     c = prepare_config_from_sectioned_data(data)
     return c, project(c)
 
 
 def test_parse_returns_all_module_keys():
-    data = load_csv("input/client_data.csv")
+    data = load_csv(TEST_INPUT_DIR / "client_data.csv")
     m = parse_advanced_modules(data)
     for key in ["edu_funding", "life_policies", "disability", "pc_umbrella",
                 "equity_comp", "special_needs", "business_succession"]:
@@ -55,7 +56,7 @@ def test_parse_returns_all_module_keys():
 
 
 def test_parse_classifies_insurance_by_kind():
-    data = load_csv("input/client_data.csv")
+    data = load_csv(TEST_INPUT_DIR / "client_data.csv")
     m = parse_advanced_modules(data)
     # A life policy carries a face amount; a DI policy a monthly benefit; a P&C
     # policy a coverage limit. Classification must not cross-contaminate.

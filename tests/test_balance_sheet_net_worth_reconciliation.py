@@ -24,10 +24,11 @@ from src.planning_engines import project
 from src.reporting.sheets_projection_facade import build_sheet5
 from src.reporting.sheets_tax_reporter import build_sheet3
 from tests.golden_pricing import FROZEN_GOLDEN_MASTER_PRICES, frozen_holdings_prices
+from conftest import TEST_INPUT_DIR
 
 
 def _real_config_and_rows():
-    c = ensure_engine_config(parse_client(load_csv('input/client_data.csv'), ''), source='test')
+    c = ensure_engine_config(parse_client(load_csv(TEST_INPUT_DIR / 'client_data.csv'), ''), source='test')
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
         rows = project(c)
     return c, rows

@@ -2,6 +2,7 @@ from __future__ import annotations
 import pytest
 import json, subprocess, sys, unittest
 from pathlib import Path
+from conftest import TEST_INPUT_DIR
 ROOT=Path(__file__).resolve().parents[1]
 
 class GovernanceHardeningTests(unittest.TestCase):
@@ -26,7 +27,7 @@ class GovernanceHardeningTests(unittest.TestCase):
     def test_exact_scalar_mc_validation_mode_and_vectorized_labeling(self):
         from src.data_io import load_csv, parse_client
         from src.planning_engines import monte_carlo
-        cfg=parse_client(load_csv(ROOT/'input/client_data.csv'), '')
+        cfg=parse_client(load_csv(TEST_INPUT_DIR/'client_data.csv'), '')
         cfg['mc_sims']=8; cfg['mc_sensitivity_sims']=2; cfg['mc_use_asset_class_covariance']=False
         cfg['mc_engine_mode']='exact_scalar'
         exact=monte_carlo(dict(cfg), seed=812)
