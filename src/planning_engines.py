@@ -3104,6 +3104,22 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
     # row['spend_by_tier'] for free (each path is a full deterministic
     # rerun), so no new engine computation is needed -- just attribution.
     essential_fully_funded_count = 0
+    # Phase 2 (optimization refactor): genuine per-path MC cut statistics --
+    # "probability of any cut," worst annual cut depth, longest consecutive
+    # run of cut years, and cumulative real-dollar shortfall -- computed from
+    # each path's own realized row['unfunded_gap'] (the same figure the
+    # essential-fully-funded cascade above already reads), not a single
+    # hypothetical solved cut_frac (that is spending_priority_cut_check's
+    # job, a reporting-layer re-label of ONE scenario). "Cut" here means any
+    # unfunded_gap > $1 (nominal, matching the essential-shortfall threshold
+    # above) in that year, regardless of which tier the shortfall would
+    # ultimately spill into. Reporting-only: never feeds back into
+    # unfunded/liquid/total/path_success/success_rate.
+    any_cut_count = 0
+    cut_years_list: list = []
+    max_annual_shortfall_real_list: list = []
+    max_consecutive_cut_years_list: list = []
+    cumulative_shortfall_real_list: list = []
     first5_avgs = []
     terminal_total = []
     terminal_liquid = []
@@ -3139,6 +3155,12 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         path_infl_index = inflation_paths.get('inflation_index_by_year') or {}
         _path_lifetime_gift_charity = 0.0
         _path_essential_shortfall_ever = False
+        _path_any_cut = False
+        _path_cut_years = 0
+        _path_max_annual_shortfall_real = 0.0
+        _path_cumulative_shortfall_real = 0.0
+        _path_consecutive_run = 0
+        _path_max_consecutive_cut_years = 0
         for yr in base_years:
             r = by_year.get(yr) or last_row
             liquid = _liquid_value(r)
@@ -3153,7 +3175,8 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
                 _real_amt = float(r.get(_key, 0.0) or 0.0) / max(1e-9, _infl_idx_yr)
                 all_gift_charity_by_year[_label][yr].append(_real_amt)
                 _path_lifetime_gift_charity += _real_amt
-            _remaining_unfunded = float(r.get('unfunded_gap', 0.0) or 0.0)
+            _unfunded_nominal_yr = float(r.get('unfunded_gap', 0.0) or 0.0)
+            _remaining_unfunded = _unfunded_nominal_yr
             _tiers_yr = r.get('spend_by_tier') or {}
             for _tier in ('discretionary', 'important', 'essential'):
                 _avail = float(_tiers_yr.get(_tier, 0.0) or 0.0)
@@ -3161,9 +3184,24 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
                 if _tier == 'essential' and _taken > 1.0:
                     _path_essential_shortfall_ever = True
                 _remaining_unfunded -= _taken
+            if _unfunded_nominal_yr > 1.0:
+                _path_any_cut = True
+                _path_cut_years += 1
+                _path_consecutive_run += 1
+                _path_max_consecutive_cut_years = max(_path_max_consecutive_cut_years, _path_consecutive_run)
+            else:
+                _path_consecutive_run = 0
+            _unfunded_real_yr = _unfunded_nominal_yr / max(1e-9, _infl_idx_yr)
+            _path_cumulative_shortfall_real += _unfunded_real_yr
+            _path_max_annual_shortfall_real = max(_path_max_annual_shortfall_real, _unfunded_real_yr)
         all_lifetime_gift_charity_pv.append(_path_lifetime_gift_charity)
         if not _path_essential_shortfall_ever:
             essential_fully_funded_count += 1
+        any_cut_count += int(_path_any_cut)
+        cut_years_list.append(_path_cut_years)
+        max_annual_shortfall_real_list.append(_path_max_annual_shortfall_real)
+        max_consecutive_cut_years_list.append(_path_max_consecutive_cut_years)
+        cumulative_shortfall_real_list.append(_path_cumulative_shortfall_real)
 
         final_total = float(last_row.get('total_nw', 0) or 0)
         final_liquid = _liquid_value(last_row)
@@ -3315,6 +3353,15 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         # Optimization-refactor Phase 2: fraction of paths whose essential-
         # tier spending was never left unfunded in any year.
         'essential_fully_funded_probability': essential_fully_funded_count / max(1, N),
+        # Optimization-refactor Phase 2: genuine per-path MC cut statistics --
+        # see the accumulator comment above the sim loop for definitions.
+        # Distributions are percentile-ized across paths (one scalar per
+        # path, summarized the same way terminal_total_nw is).
+        'probability_any_cut': any_cut_count / max(1, N),
+        'cut_years_pct': _percentiles(cut_years_list, 0.0),
+        'max_annual_shortfall_real_pct': _percentiles(max_annual_shortfall_real_list, 0.0),
+        'max_consecutive_cut_years_pct': _percentiles(max_consecutive_cut_years_list, 0.0),
+        'cumulative_shortfall_real_pct': _percentiles(cumulative_shortfall_real_list, 0.0),
         'failure_rate': 1.0 - success_rate,
         'home_equity_contingency_enabled': he_contingency_enabled,
         'home_equity_contingency_reserve': he_reserve,
@@ -3734,6 +3781,22 @@ def _mc_apply_withdrawal_bucket(balances, request, bucket: str):
     return amount, request - amount
 
 
+def _max_consecutive_true_per_row(mask) -> "_np.ndarray":
+    """For a boolean ``(n_sims, n_years)`` matrix, the longest run of
+    consecutive True columns per row. Small ``n_years`` (a plan horizon), so
+    a plain Python loop over columns -- vectorized across all rows/paths at
+    once via the running-counter reset trick -- is simpler than a fully
+    vectorized run-length encoding and just as fast at this scale.
+    """
+    n_sims = mask.shape[0]
+    run = _np.zeros(n_sims, dtype=int)
+    best = _np.zeros(n_sims, dtype=int)
+    for j in range(mask.shape[1]):
+        run = _np.where(mask[:, j], run + 1, 0)
+        best = _np.maximum(best, run)
+    return best
+
+
 def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation_paths: dict, max_death_years, spend_cut_frac=0.0,
                                h_death_years=None, w_death_years=None, survivor_buckets=None):
     """Vectorized tax-bucket withdrawal recursion for Monte Carlo paths.
@@ -3934,6 +3997,21 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
             remaining_unfunded = remaining_unfunded - taken
         out['essential_shortfall_real'] = essential_shortfall_nominal / _np.maximum(1e-9, inf_idx)
         out['essential_fully_funded'] = _np.all(essential_shortfall_nominal <= 1.0, axis=1)
+
+    # Phase 2 (optimization refactor): genuine per-path MC cut statistics --
+    # mirrors monte_carlo_exact_scalar's per-path accumulators above, but
+    # vectorized across every path at once from the same out['unfunded'] this
+    # engine already finalized. "Cut" means any unfunded > $1 (nominal) in
+    # that year, matching the essential-shortfall threshold above.
+    # Reporting-only: reads out['unfunded'] after the recursion already ran,
+    # never feeds back into unfunded/liquid/total/path_success.
+    cut_mask = out['unfunded'] > 1.0
+    unfunded_real = out['unfunded'] / _np.maximum(1e-9, inf_idx)
+    out['any_cut'] = _np.any(cut_mask, axis=1)
+    out['cut_years_count'] = _np.sum(cut_mask, axis=1)
+    out['max_annual_shortfall_real'] = _np.max(unfunded_real, axis=1)
+    out['cumulative_shortfall_real'] = _np.sum(unfunded_real, axis=1)
+    out['max_consecutive_cut_years'] = _max_consecutive_true_per_row(cut_mask)
     return out
 
 
@@ -3975,6 +4053,21 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
         float(_np.mean(projection['essential_fully_funded']))
         if 'essential_fully_funded' in projection else None
     )
+    # Phase 2 (optimization refactor): genuine per-path MC cut statistics --
+    # see _mc_vectorized_projection's tail for the per-path arrays; summarized
+    # here as a probability plus percentile distributions, mirroring
+    # monte_carlo_exact_scalar's equivalent aggregation.
+    probability_any_cut = float(_np.mean(projection['any_cut'])) if 'any_cut' in projection else None
+    cut_years_pct = _percentiles(projection['cut_years_count'].tolist(), 0.0) if 'cut_years_count' in projection else None
+    max_annual_shortfall_real_pct = (
+        _percentiles(projection['max_annual_shortfall_real'].tolist(), 0.0) if 'max_annual_shortfall_real' in projection else None
+    )
+    max_consecutive_cut_years_pct = (
+        _percentiles(projection['max_consecutive_cut_years'].tolist(), 0.0) if 'max_consecutive_cut_years' in projection else None
+    )
+    cumulative_shortfall_real_pct = (
+        _percentiles(projection['cumulative_shortfall_real'].tolist(), 0.0) if 'cumulative_shortfall_real' in projection else None
+    )
     return {
         'years': years,
         'returns': returns,
@@ -3988,6 +4081,11 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
         'max_death_years': max_death,
         'survivor_buckets': survivor_buckets,
         'essential_fully_funded_probability': essential_fully_funded_probability,
+        'probability_any_cut': probability_any_cut,
+        'cut_years_pct': cut_years_pct,
+        'max_annual_shortfall_real_pct': max_annual_shortfall_real_pct,
+        'max_consecutive_cut_years_pct': max_consecutive_cut_years_pct,
+        'cumulative_shortfall_real_pct': cumulative_shortfall_real_pct,
     }
 
 
@@ -4511,6 +4609,13 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None, survivor_buckets='__uns
         # Optimization-refactor Phase 2: fraction of paths whose essential-
         # tier spending was never left unfunded (see _mc_vectorized_batch).
         'essential_fully_funded_probability': batch.get('essential_fully_funded_probability'),
+        # Optimization-refactor Phase 2: genuine per-path MC cut statistics
+        # (see _mc_vectorized_batch/monte_carlo_exact_scalar for definitions).
+        'probability_any_cut': batch.get('probability_any_cut'),
+        'cut_years_pct': batch.get('cut_years_pct'),
+        'max_annual_shortfall_real_pct': batch.get('max_annual_shortfall_real_pct'),
+        'max_consecutive_cut_years_pct': batch.get('max_consecutive_cut_years_pct'),
+        'cumulative_shortfall_real_pct': batch.get('cumulative_shortfall_real_pct'),
         'terminal_total_nw': _percentiles(terminal_total.tolist(), 0.0),
         'terminal_liquid_assets': _percentiles(terminal_liquid.tolist(), success_threshold),
         'nw0': float(proj['pretax'][0, 0] + proj['roth'][0, 0] + proj['taxable'][0, 0] + proj['hsa'][0, 0]),
