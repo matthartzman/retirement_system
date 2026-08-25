@@ -3120,6 +3120,16 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
     max_annual_shortfall_real_list: list = []
     max_consecutive_cut_years_list: list = []
     cumulative_shortfall_real_list: list = []
+    # Phase 2 (optimization refactor): liquidity coverage distribution --
+    # liquid retirement assets (the same _liquid_value figure the funding-
+    # success test already uses) divided by success_threshold, the SAME
+    # flat nominal-dollar reserve floor _funding_success already compares
+    # min_liquid against -- so this reuses success/failure's own existing
+    # floor definition rather than inventing a new one. Undefined (None)
+    # when there is no floor requirement (threshold <= 0), since a ratio
+    # against zero is meaningless.
+    all_liquidity_coverage_by_year: dict[int, list] = defaultdict(list)
+    path_min_liquidity_coverage: list = []
     first5_avgs = []
     terminal_total = []
     terminal_liquid = []
@@ -3161,9 +3171,14 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         _path_cumulative_shortfall_real = 0.0
         _path_consecutive_run = 0
         _path_max_consecutive_cut_years = 0
+        _path_min_liquidity_coverage = None
         for yr in base_years:
             r = by_year.get(yr) or last_row
             liquid = _liquid_value(r)
+            if success_threshold > 0:
+                _coverage_yr = liquid / success_threshold
+                all_liquidity_coverage_by_year[yr].append(_coverage_yr)
+                _path_min_liquidity_coverage = _coverage_yr if _path_min_liquidity_coverage is None else min(_path_min_liquidity_coverage, _coverage_yr)
             all_total_by_year[yr].append(float(r.get('total_nw', 0) or 0))
             all_liquid_by_year[yr].append(liquid)
             _infl_idx_yr = float(path_infl_index.get(yr, 1.0) or 1.0)
@@ -3202,6 +3217,8 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         max_annual_shortfall_real_list.append(_path_max_annual_shortfall_real)
         max_consecutive_cut_years_list.append(_path_max_consecutive_cut_years)
         cumulative_shortfall_real_list.append(_path_cumulative_shortfall_real)
+        if _path_min_liquidity_coverage is not None:
+            path_min_liquidity_coverage.append(_path_min_liquidity_coverage)
 
         final_total = float(last_row.get('total_nw', 0) or 0)
         final_liquid = _liquid_value(last_row)
@@ -3362,6 +3379,19 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         'max_annual_shortfall_real_pct': _percentiles(max_annual_shortfall_real_list, 0.0),
         'max_consecutive_cut_years_pct': _percentiles(max_consecutive_cut_years_list, 0.0),
         'cumulative_shortfall_real_pct': _percentiles(cumulative_shortfall_real_list, 0.0),
+        # Optimization-refactor Phase 2: liquidity coverage distribution --
+        # {year: percentile-dict} of liquid / success_threshold (the same
+        # reserve floor _funding_success already compares against), plus
+        # each path's own worst-year (minimum) coverage ratio, percentile-
+        # ized across paths. None when success_threshold <= 0 (no floor
+        # requirement configured, so the ratio is undefined).
+        'liquidity_coverage_pct_by_year': (
+            {yr: _percentiles(vals, 1.0) for yr, vals in all_liquidity_coverage_by_year.items()}
+            if success_threshold > 0 else None
+        ),
+        'worst_liquidity_coverage_ratio_pct': (
+            _percentiles(path_min_liquidity_coverage, 1.0) if success_threshold > 0 else None
+        ),
         'failure_rate': 1.0 - success_rate,
         'home_equity_contingency_enabled': he_contingency_enabled,
         'home_equity_contingency_reserve': he_reserve,
@@ -4068,6 +4098,21 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
     cumulative_shortfall_real_pct = (
         _percentiles(projection['cumulative_shortfall_real'].tolist(), 0.0) if 'cumulative_shortfall_real' in projection else None
     )
+    # Phase 2 (optimization refactor): liquidity coverage distribution --
+    # liquid retirement assets divided by success_threshold, the SAME flat
+    # nominal-dollar reserve floor path_success above already compares
+    # min-liquid against (matches monte_carlo_exact_scalar's equivalent
+    # metric exactly). {year: percentile-dict} plus each path's own
+    # worst-year (minimum) coverage ratio, percentile-ized across paths.
+    # None when success_threshold <= 0 (no floor requirement configured).
+    # Not masked by each path's own active/death-year window, matching the
+    # existing liquid_pct_by_year/terminal_liquid_assets convention.
+    liquidity_coverage_pct_by_year = None
+    worst_liquidity_coverage_ratio_pct = None
+    if success_threshold > 0:
+        coverage = projection['liquid'] / success_threshold
+        liquidity_coverage_pct_by_year = {yr: _percentiles(coverage[:, i].tolist(), 1.0) for i, yr in enumerate(years)}
+        worst_liquidity_coverage_ratio_pct = _percentiles(_np.min(coverage, axis=1).tolist(), 1.0)
     return {
         'years': years,
         'returns': returns,
@@ -4086,6 +4131,8 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
         'max_annual_shortfall_real_pct': max_annual_shortfall_real_pct,
         'max_consecutive_cut_years_pct': max_consecutive_cut_years_pct,
         'cumulative_shortfall_real_pct': cumulative_shortfall_real_pct,
+        'liquidity_coverage_pct_by_year': liquidity_coverage_pct_by_year,
+        'worst_liquidity_coverage_ratio_pct': worst_liquidity_coverage_ratio_pct,
     }
 
 
@@ -4616,6 +4663,10 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None, survivor_buckets='__uns
         'max_annual_shortfall_real_pct': batch.get('max_annual_shortfall_real_pct'),
         'max_consecutive_cut_years_pct': batch.get('max_consecutive_cut_years_pct'),
         'cumulative_shortfall_real_pct': batch.get('cumulative_shortfall_real_pct'),
+        # Optimization-refactor Phase 2: liquidity coverage distribution
+        # (see _mc_vectorized_batch/monte_carlo_exact_scalar for definitions).
+        'liquidity_coverage_pct_by_year': batch.get('liquidity_coverage_pct_by_year'),
+        'worst_liquidity_coverage_ratio_pct': batch.get('worst_liquidity_coverage_ratio_pct'),
         'terminal_total_nw': _percentiles(terminal_total.tolist(), 0.0),
         'terminal_liquid_assets': _percentiles(terminal_liquid.tolist(), success_threshold),
         'nw0': float(proj['pretax'][0, 0] + proj['roth'][0, 0] + proj['taxable'][0, 0] + proj['hsa'][0, 0]),
