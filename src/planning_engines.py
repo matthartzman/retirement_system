@@ -4056,6 +4056,108 @@ def essential_discretionary_floor_check(base_rows: list[dict], cut_frac) -> dict
     }
 
 
+def spending_priority_cut_check(base_rows: list[dict], cut_frac) -> dict:
+    """Optimization-refactor Phase 2 (tiered cuts): extends
+    ``essential_discretionary_floor_check``'s 2-tier check (discretionary ==
+    travel only, vs. everything else) into the full SPENDING_TIERS
+    cut-priority cascade -- discretionary first, then important, essential
+    protected as a last resort -- using Phase 0's ``row['spend_by_tier']``
+    classification instead of the travel-only proxy.
+
+    ``contingent_liability`` is EXCLUDED from this cascade entirely, per the
+    plan's Phase 2 item 4: contingent liabilities (LTC, a medical shock, a
+    home modification) are meant to be funded through explicit state-
+    dependent rules, not cut like ordinary lifestyle spending. Those funding
+    rules are not yet built (a documented future phase); for now this
+    function simply never counts contingent_liability dollars as available
+    to absorb a cut, so it is neither inflated nor deflated by this check.
+
+    Purely a reporting-layer computation, exactly like
+    ``essential_discretionary_floor_check``: re-labels an already-computed
+    uniform dollar cut by spending-tier priority using the existing
+    per-row ``spend_by_tier``, and never changes which accounts fund
+    withdrawals or any dollar total the engine/MC layer already produces.
+
+    Also reports the cumulative-cut bookkeeping Phase 2's dashboard section
+    asks for: cut-years, cumulative cut dollars, worst single-year cut, and
+    the longest run of consecutive cut years -- all in the deterministic
+    engine's own nominal dollars (matching total_spend's convention, the
+    same as essential_discretionary_floor_check above), not deflated to real
+    plan-start dollars.
+    """
+    empty = {
+        'essential_protected': None, 'worst_year_essential_shortfall': 0.0, 'worst_year': None,
+        'cut_years': 0, 'cumulative_cut_dollars': 0.0, 'max_annual_cut_dollars': 0.0,
+        'max_consecutive_cut_years': 0, 'tier_cut_by_year': {},
+    }
+    if cut_frac is None:
+        return empty
+    cut_frac = max(0.0, float(cut_frac))
+    worst_essential_shortfall = 0.0
+    worst_year = None
+    cut_years = 0
+    cumulative_cut = 0.0
+    max_annual_cut = 0.0
+    max_consecutive = 0
+    current_consecutive = 0
+    tier_cut_by_year: dict[int, dict[str, float]] = {}
+
+    for row in base_rows:
+        tiers = row.get('spend_by_tier') or {}
+        total_cuttable = sum(v for t, v in tiers.items() if t != 'contingent_liability')
+        if total_cuttable <= 0:
+            current_consecutive = 0
+            continue
+        target_cut = total_cuttable * cut_frac
+        if target_cut <= 1e-9:
+            current_consecutive = 0
+            continue
+
+        remaining = target_cut
+        year_cut: dict[str, float] = {}
+        for tier in ('discretionary', 'important', 'essential'):
+            available = float(tiers.get(tier, 0.0) or 0.0)
+            taken = min(available, remaining)
+            if taken > 0:
+                year_cut[tier] = taken
+                remaining -= taken
+            if remaining <= 1e-9:
+                break
+        # Any leftover (shouldn't happen -- the three tiers above sum to
+        # total_cuttable -- but a floating-point guard) counts toward the
+        # essential shortfall too, same as an essential-tier cut would.
+        essential_shortfall = year_cut.get('essential', 0.0) + max(0.0, remaining)
+
+        year_val = int(row.get('year')) if row.get('year') is not None else None
+        if year_val is not None:
+            tier_cut_by_year[year_val] = year_cut
+
+        if essential_shortfall > worst_essential_shortfall:
+            worst_essential_shortfall = essential_shortfall
+            worst_year = year_val
+
+        actual_cut = sum(year_cut.values())
+        if actual_cut > 1.0:
+            cut_years += 1
+            cumulative_cut += actual_cut
+            max_annual_cut = max(max_annual_cut, actual_cut)
+            current_consecutive += 1
+            max_consecutive = max(max_consecutive, current_consecutive)
+        else:
+            current_consecutive = 0
+
+    return {
+        'essential_protected': worst_essential_shortfall <= 1.0,
+        'worst_year_essential_shortfall': worst_essential_shortfall,
+        'worst_year': worst_year,
+        'cut_years': cut_years,
+        'cumulative_cut_dollars': cumulative_cut,
+        'max_annual_cut_dollars': max_annual_cut,
+        'max_consecutive_cut_years': max_consecutive,
+        'tier_cut_by_year': tier_cut_by_year,
+    }
+
+
 def sustainable_spending_solve(c: dict, base_rows: list[dict], batch: dict, success_threshold: float,
                                 targets=(0.95, 0.85, 0.75), max_iters: int = 20, cut_cap: float = 0.90,
                                 tolerance: float = 0.0025) -> list[dict]:
@@ -4124,6 +4226,19 @@ def sustainable_spending_solve(c: dict, base_rows: list[dict], batch: dict, succ
         entry['essential_protected'] = floor['essential_protected']
         entry['essential_shortfall_worst_year_amount'] = floor['worst_year_essential_shortfall']
         entry['essential_shortfall_worst_year'] = floor['worst_year']
+        # Optimization-refactor Phase 2: the full tier-priority cascade
+        # (discretionary -> important -> essential last-resort), replacing
+        # the travel-only 2-tier proxy above with Phase 0's real
+        # spend_by_tier classification. Additive fields; essential_protected
+        # above is left untouched for existing callers (sheets_stress.py).
+        tiered = spending_priority_cut_check(base_rows, entry['required_cut'])
+        entry['tiered_cut_years'] = tiered['cut_years']
+        entry['tiered_cumulative_cut_dollars'] = tiered['cumulative_cut_dollars']
+        entry['tiered_max_annual_cut_dollars'] = tiered['max_annual_cut_dollars']
+        entry['tiered_max_consecutive_cut_years'] = tiered['max_consecutive_cut_years']
+        entry['tiered_essential_protected'] = tiered['essential_protected']
+        entry['tiered_essential_shortfall_worst_year_amount'] = tiered['worst_year_essential_shortfall']
+        entry['tiered_essential_shortfall_worst_year'] = tiered['worst_year']
     return results
 
 
