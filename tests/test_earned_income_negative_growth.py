@@ -45,8 +45,9 @@ def test_engine_halves_earned_income_the_following_year(tmp_path):
     from src.plan_config import ensure_engine_config
     from src.planning_engines import project
     from tests.golden_pricing import FROZEN_GOLDEN_MASTER_PRICES, frozen_holdings_prices
+    from conftest import TEST_INPUT_DIR
 
-    c = ensure_engine_config(parse_client(load_csv('input/client_data.csv'), ''), source='test')
+    c = ensure_engine_config(parse_client(load_csv(TEST_INPUT_DIR / 'client_data.csv'), ''), source='test')
     c['earn_inc'] = -0.5
     # This household's real earn_end may equal earn_start (retiring this
     # year) -- extend it so there's a real "next year" of earned income to

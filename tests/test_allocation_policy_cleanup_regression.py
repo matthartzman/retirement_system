@@ -8,6 +8,7 @@ from src.config_backend import load_csv
 from src.data_io import parse_client
 from src.planning_engines import project
 from src import allocation_policy as ap
+from conftest import TEST_INPUT_DIR
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -69,7 +70,7 @@ class AllocationPolicyCleanupTests(unittest.TestCase):
                     self.assertNotIn(token, text, f'{token} remained in {path.relative_to(ROOT)}')
 
     def test_switching_allocation_mode_changes_projection_assumptions_and_terminal_value(self):
-        data = load_csv(ROOT / 'input' / 'client_data.csv')
+        data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
         user_cfg = parse_client(copy.deepcopy(data), '')
         opt_data = copy.deepcopy(data)
         opt_data.setdefault('Asset Allocation Policy', {}).setdefault('Global', {})['allocation_selection_mode'] = ap.ALLOCATION_MODE_OPTIMIZER
