@@ -4297,7 +4297,7 @@ def sustainable_spending_solve(c: dict, base_rows: list[dict], batch: dict, succ
     return results
 
 
-def monte_carlo(c, n_sims=1000, seed=42, base_rows=None):
+def monte_carlo(c, n_sims=1000, seed=42, base_rows=None, survivor_buckets='__unset__'):
     """Run Monte Carlo on the shared vectorized fast core by default.
 
     The exact scalar path remains available for validation by setting
@@ -4307,6 +4307,20 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None):
     caller's already-computed rows (e.g. report_compute.run_projection_artifacts,
     which runs the same deterministic engine just before this) to skip a second
     full year-by-year run. Recomputed from ``c`` when omitted.
+
+    ``survivor_buckets`` (optimization refactor Phase 1 items 4-6 performance
+    fix): pass an already-built ``_mc_survivor_bucket_flows(c, base_rows)``
+    result to skip rebuilding it (2 * n_years project() calls) on this call.
+    Needed by any caller that invokes monte_carlo() many times against
+    scenario-mutated configs sharing the same underlying mortality/death-
+    timing profile -- e.g. sheets_strategy.py's Social Security claim-age
+    sweep, which calls this 81x per build and would otherwise pay the
+    survivor-bucket cost 81x too (this was a real, measured CI regression:
+    ~4,500 extra project() calls per build, causing subprocess timeouts in
+    tests/test_all_modules_off_build_functional.py). The sentinel default
+    (rather than None) distinguishes "not provided, build it yourself" from
+    "explicitly None, there are no survivor buckets" (e.g. a single-person
+    household), since both must be handled differently below.
     """
     if str(c.get('mc_engine_mode', 'vectorized_batched')).lower() in {'exact_scalar', 'scalar', 'advanced_exact_scalar'}:
         return monte_carlo_exact_scalar(c, n_sims=n_sims, seed=seed, base_rows=base_rows)
@@ -4360,10 +4374,11 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None):
     # every one of those ~26-90 invocations. mc_vectorized_survivor_economics
     # defaults True (matches this codebase's other mc_* toggles, which all
     # default on); kept only as an emergency kill switch, not a rollout gate.
-    survivor_buckets = (
-        _mc_survivor_bucket_flows(c, base_rows)
-        if bool(c.get('mc_vectorized_survivor_economics', True)) else None
-    )
+    if survivor_buckets == '__unset__':
+        survivor_buckets = (
+            _mc_survivor_bucket_flows(c, base_rows)
+            if bool(c.get('mc_vectorized_survivor_economics', True)) else None
+        )
     print(f'Monte Carlo vectorized batch: sampling {max(1, N)} paths', flush=True)
     batch = _mc_vectorized_batch(c, base_rows, max(1, N), int(seed), mu, sig, success_threshold, use_asset_classes=True, survivor_buckets=survivor_buckets)
     print('Monte Carlo vectorized batch: main batch complete', flush=True)
