@@ -121,7 +121,8 @@ time). No new config field — reuses the existing `hsa_ids`/HSA-availability
 machinery. **Provably inert on the frozen fixture** (contingent_liability
 tier is $0 there), so the golden master pins do not move; real effect only
 for households with `ltc_annual_prem` configured or (in MC only) a sampled
-wellness shock.
+wellness shock. Gated on `hsa_withdrawal_mode` — see "Mode interaction"
+below, which is load-bearing for this option and narrows where it fires.
 
 **Option B — A dedicated contingent-liability reserve**, analogous to the
 existing Liquidity Buffer's `reserve_account` mechanic (a segregated dollar
@@ -144,9 +145,93 @@ silently changing `spend_by_tier` percentages that other reporting (the
 Phase 2 dashboard metrics) already reads. Out of scope for this
 increment; noted as a legitimate follow-up.
 
+## Mode interaction: defer to `hsa_withdrawal_mode`, do not override it
+
+This was originally left open here with a recommendation to override the
+mode. **That recommendation is withdrawn** — reading the existing
+precedent reversed it.
+
+`withdraw_hsa_gap` (`planning_engines.py:1112-1135`) already suppresses
+unscheduled HSA draws: unconditionally under `optimize`, and before and
+during the configured window under `smooth_window`/`annual_pct`. That
+suppression is not arbitrary. Its own comment records a **real
+user-reported bug (2026-08-20)**: a household entered a $2,000/yr
+override, unscheduled gap-fills stacked on top of the scheduled draw, and
+the account drained years before the household expected. The established
+rule is that when a household configures a scheduled mode, *the schedule
+is the sole authority on that year's draw*.
+
+A contingent-liability draw layered on top of a scheduled draw
+re-introduces exactly that defect shape. Two specifics that make the
+override position untenable:
+
+1. **It really is double-depletion, not self-correcting arithmetic.** With
+   `smooth_window` (balance $80k, 8 years left → $10k scheduled) and a $40k
+   shock, a CL-first draw makes that year's total $45k — 4.5x the
+   household's chosen pace. The window still zeroes by its end year, but
+   every subsequent year runs on a materially smaller balance.
+2. **HSA dollars are not stranded during a window.** The scheduled draw
+   already feeds HSA cash into the general pool every window year, and
+   `total_spend_need` (which includes `ltc_prem_yr`/`wellness_shock_yr`)
+   is funded from that pool. A CL-first rule would not unlock otherwise
+   unreachable money during the window; it would only accelerate the
+   schedule.
+
+**Decision: reuse the gating `withdraw_hsa_gap` already has** rather than
+inventing a second, competing rule.
+
+| Mode | CL-first draw |
+|---|---|
+| `spend_as_needed` (the parse default) | Applies |
+| `smooth_window` / `annual_pct` | Suppressed before and during the window; permitted after it ends |
+| `optimize` | Suppressed (see below) |
+
+This does not hollow out the increment. `ltc_prem_yr` receives **no**
+HSA-preferential treatment in any engine or any mode today, and
+`spend_as_needed` is the parse default for any household that has not
+configured a window (`data_io.py:1273-1275`). Aligning the three engines —
+the stated goal — is unaffected.
+
+### `optimize` mode: suppressed here, but it belongs in the scheduler
+
+Suppression under `optimize` is correct for a *different* reason than the
+window modes, and the distinction matters to whoever picks this up next.
+
+**`optimize` is reachable from real plan data.** `data_io.py:1274` admits
+it in the allowed-modes tuple. Note that the 2026-08-19 entry in
+`documentation/GOLDEN_MASTER_CHANGELOG.md` states `optimize` is coerced
+back to `spend_as_needed` and therefore affects no household — **that
+claim is stale**; the mode has since been admitted. Do not rely on it.
+
+What is *not* wired is the search. Per `src/hsa_schedule.py`'s own module
+docstring, `rerun_optimizer`/`build_schedule` are never called from the
+projection pipeline: they need full per-year projection rows for tax
+context (`score_year`'s `row` argument), which only exist after a
+projection runs — deliberately deferred to a future two-pass sequence.
+What *is* live is `resolve_year_amount`'s precedence ladder reading
+`client_hsa_schedule.csv`, plus `generate_default_schedule`'s static
+level-draw placeholder.
+
+So under `optimize` today the year's draw comes from a schedule file that
+knows nothing about contingent-liability need — and silently overriding it
+is precisely the 2026-08-20 defect. But `optimize` is also the one mode
+where contingent-liability need *should* influence the outcome, and the
+right layer for that is the schedule itself: a scheduler that knows year
+2033 carries a $40k LTC event and places HSA dollars into that year
+produces a better plan than any post-hoc draw could.
+
+**Hook for whoever wires the two-pass search:** `score_year` already
+receives a projection `row`, and Phase 0 put `row['spend_by_tier']` —
+including `contingent_liability` — on every row. The signal is already
+present in the data the scorer gets; making it a scoring term needs no new
+plumbing. Record this so the suppression above is not misread as
+"`optimize` does not care about contingent liabilities": the intent is
+that `optimize` should care about them *better*, at the scheduling layer.
+
 ## Recommendation
 
-Ship Option A as the next increment. Concretely:
+Ship Option A as the next increment, gated by the mode-deference rule
+above. Concretely:
 
 1. New helper in `planning_engines.py` (or `deterministic_engine.py`,
    colocated with the other named withdrawal-priority functions) —
@@ -155,24 +240,37 @@ Ship Option A as the next increment. Concretely:
    and residual un-covered contingent-liability dollars (folded back into
    `total_cash_need`'s existing gap so the rest of the cascade is
    unchanged).
-2. Insert it in the deterministic cascade **before Priority 2's scheduled
-   HSA draw** (contingent-liability need is the more specific claim on the
-   HSA balance; the scheduled draw should size itself against whatever
-   remains, not double-count).
-3. Extend `_mc_vectorized_projection`'s existing shock-only HSA-first
-   handling to also draw `ltc_prem_yr` (today it's shock-only), so the
-   vectorized MC engine and the deterministic/scalar engines apply the
-   same rule.
-4. New regression test file (`tests/test_contingent_liability_hsa_funding_regression.py`,
+2. **Gate it on `hsa_withdrawal_mode` using the same predicate
+   `withdraw_hsa_gap` already applies** (suppressed under `optimize`;
+   suppressed before and during the window under
+   `smooth_window`/`annual_pct`). Factor that predicate out of
+   `withdraw_hsa_gap` into a shared helper rather than copying it, so the
+   two call sites cannot drift — a silent divergence here is exactly the
+   class of bug the 2026-08-20 fix was cleaning up.
+3. Insert it in the deterministic cascade **before Priority 2's scheduled
+   HSA draw**, so that under `spend_as_needed` (where it is active) the
+   contingent-liability claim is satisfied first and the scheduled draw
+   sizes itself against whatever remains. Under the gated-off modes this
+   step is a no-op and Priority 2 behaves exactly as today.
+4. Extend `_mc_vectorized_projection`'s existing shock-only HSA-first
+   handling to also draw `ltc_prem_yr` (today it's shock-only), under the
+   same gate, so the vectorized MC engine and the deterministic/scalar
+   engines apply the same rule.
+5. New regression test file (`tests/test_contingent_liability_hsa_funding_regression.py`,
    matching this repo's `test_<scope>_<type>.py` convention) covering: (a)
-   HSA balance fully covers a configured `ltc_annual_prem` → HSA balance
-   drops by that amount, taxable/pretax/Roth draws are unaffected; (b) HSA
-   balance insufficient → HSA drained first, residual falls through the
-   existing cascade unchanged in total; (c) no HSA balance / no `hsa_ids`
-   → cascade is bit-identical to today (regression guard); (d) frozen
-   golden master unmoved (confirms the $0 contingent-liability-on-fixture
-   finding above holds after the change, not just before it).
-5. Verify against the same discipline as every prior increment: targeted
+   under `spend_as_needed`, HSA balance fully covers a configured
+   `ltc_annual_prem` → HSA balance drops by that amount, taxable/pretax/Roth
+   draws are unaffected; (b) HSA balance insufficient → HSA drained first,
+   residual falls through the existing cascade unchanged in total; (c) no
+   HSA balance / no `hsa_ids` → cascade is bit-identical to today
+   (regression guard); (d) **under `smooth_window`/`annual_pct` inside the
+   window, and under `optimize`, the cascade is bit-identical to today** —
+   the guard that the mode-deference decision above is actually honored,
+   and the one most likely to catch a future refactor re-introducing the
+   2026-08-20 defect; (e) frozen golden master unmoved (confirms the $0
+   contingent-liability-on-fixture finding above holds after the change,
+   not just before it).
+6. Verify against the same discipline as every prior increment: targeted
    tests, full `-m "not slow"` diff against baseline, `-m slow` pass (this
    touches the withdrawal cascade, which the Phase 1 items 4-6 methodology
    lesson in `OPTIMIZATION_REFACTOR_STATUS.md` specifically warns needs an
@@ -185,26 +283,42 @@ $0.00 in the deterministic run (no `ltc_annual_prem` configured, no
 sampled wellness shock in `project()`), so Option A's new funding step has
 nothing to draw and is a complete no-op on the pinned household — to be
 confirmed by running the golden-master regen script before and after and
-diffing, not just asserted. Real effect is scoped to: (a) any household
-configuring `ltc_annual_prem` > 0, where HSA balance now funds it
-preferentially instead of falling into the generic cascade, and (b) Monte
-Carlo `success_rate` for households with a sampled wellness shock, since
-`ltc_prem_yr` joining the HSA-first treatment (previously shock-only)
-changes which dollars draw HSA vs. taxable/pretax in MC paths that also
-carry an LTC premium.
+diffing, not just asserted.
 
-## Open question needing an explicit decision before implementation
+The mode-deference decision narrows the blast radius further, and in the
+frozen fixture's favor twice over: the fixture sets
+`hsa_withdrawal_mode = smooth_window` with a 2031-2040 window
+(`client_assets.csv`), so even a household-shaped-like-the-fixture with an
+LTC premium configured would see this step gated off inside that window.
 
-`withdraw_hsa_window`'s `smooth_window`/`annual_pct` modes are indifferent
-to actual medical need (they level or fixed-percent the balance on a
-schedule) — see the frozen fixture, which uses `smooth_window`. Should the
-new contingent-liability-first draw apply **regardless of
-`hsa_withdrawal_mode`** (treating it as a distinct, higher-priority claim
-that runs before the mode-specific scheduled draw touches whatever HSA
-balance remains), or should it defer to a household's explicit
-`hsa_withdrawal_mode` choice and only activate under `spend_as_needed`
-(mirroring `withdraw_hsa_window`'s own mode-gating)? This document
-recommends the former — a contingent-liability bill should not go unfunded
-by HSA cash a scheduled `annual_pct` draw hasn't gotten to yet — but this
-is a real behavior decision, not just an implementation detail, and should
-be confirmed before writing the code.
+Real effect is therefore scoped to:
+
+- Households on `spend_as_needed` (the parse default) configuring
+  `ltc_annual_prem` > 0, where HSA balance now funds it preferentially
+  instead of falling into the generic cascade.
+- Households on `smooth_window`/`annual_pct` **after** their window ends,
+  same case as above — matching `withdraw_hsa_gap`'s own "any remaining
+  HSA balance is fair game" rule for post-window years.
+- Monte Carlo `success_rate` for those same households when a wellness
+  shock is sampled, since `ltc_prem_yr` joining the HSA-first treatment
+  (previously shock-only) changes which dollars draw HSA vs.
+  taxable/pretax on paths that also carry an LTC premium.
+
+Households on `optimize`, or inside an `annual_pct`/`smooth_window`
+window, are bit-identical to today by construction — pinned by test (d)
+above.
+
+## Open questions
+
+**None blocking.** The one open question this document originally carried
+— whether the new draw overrides `hsa_withdrawal_mode` or defers to it —
+was decided during review in favor of **deferring**, on the strength of
+the 2026-08-20 double-depletion bug and the two specifics recorded under
+"Mode interaction" above.
+
+One item to confirm during implementation (narrowing, not blocking): the
+deterministic engine calls `withdraw_hsa_window(..., wellness_cost=...)`.
+If `wellness_cost` already includes `wellness_shock_yr` under
+`spend_as_needed`, then shocks are already HSA-funded in that mode and the
+genuinely-new coverage is `ltc_prem_yr` alone. Confirm from the call site
+rather than assuming; it changes the size of the change, not its shape.
