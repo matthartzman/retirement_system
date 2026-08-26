@@ -151,13 +151,22 @@ entry. Covered by
 `tests/test_contingent_liability_hsa_funding_regression.py` (15 tests,
 mode-deference guards mutation-tested red first).
 
-**Left open by design:** contingent-liability need should influence
-`optimize` mode *through the schedule search*, not by bypassing it. That
-search (`hsa_schedule.rerun_optimizer`/`build_schedule`) is still not
-wired into the projection pipeline. `score_year` already receives a
-projection row carrying Phase 0's `spend_by_tier`, so the signal needs no
-new plumbing when someone wires it — see the design doc's `optimize`
-section.
+**Left open by design:** `optimize` mode still runs a static level-draw
+placeholder (`generate_default_schedule`) rather than a real search —
+`hsa_schedule.rerun_optimizer`/`build_schedule` are not wired into the
+projection pipeline.
+
+⚠️ **PR #66 originally recorded here that contingent-liability need should
+become a `score_year` input. Follow-up research found that wrong** — see
+`docs/superpowers/plans/2026-08-26-hsa-schedule-search-contingent-liability-spec.md`.
+A CL year is a *low* marginal-rate year, because `ltc_prem_yr` and
+`wellness_shock_yr` already generate an itemized medical deduction
+(`deterministic_engine.py:1876`), so a positive CL scoring term would push
+draws toward the years the tax model has already priced as worst to draw
+in — double-counting a signal the deduction already transmits, with the
+wrong sign. The genuine gap is that per-year tax-free capacity is not
+modeled at all (`hsa_expense_bank` is a lifetime scalar defaulting to
+unlimited). See that spec for the corrected options.
 
 ## Not done
 
