@@ -2175,7 +2175,19 @@ def run_deterministic_projection_stage(c):
                 _fed_tax_extra = max(0.0, _new_fed_tax - fed_tax)
                 fed_tax = _new_fed_tax
                 taxable_inc = _new_taxable_inc
-                total_tax += _fed_tax_extra
+                # Update the PRE-NIIT subtotal, not `total_tax` directly.
+                # `total_tax` is rebuilt from scratch further down
+                # (`total_tax_pre_niit + ltcg_tax + niit - tlh_ordinary_credit`),
+                # so a direct `total_tax += ...` here is silently discarded
+                # while the `fed_tax` change survives -- leaving the two
+                # disagreeing. That showed up as a 178.21 cash-flow
+                # reconciliation residual in
+                # test_cashflow_breakdown_single_source_of_truth.py, with the
+                # breakdown's `other` remainder absorbing exactly the gap.
+                # Recomputing the subtotal from its own components is the
+                # idiom the engine already uses at its other two update sites.
+                total_tax_pre_niit = fed_tax + state_tax + payroll_tax + irmaa_yr
+                total_tax = total_tax_pre_niit + home_sale_ltcg_tax
                 gap += _fed_tax_extra
                 item_ded = _cand_item_ded
                 ded = _new_ded
