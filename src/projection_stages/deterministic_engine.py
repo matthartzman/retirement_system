@@ -2623,15 +2623,23 @@ def run_deterministic_projection_stage(c):
         _hsa_reimbursed = min(max(0.0, hsa_wd), max(0.0, medical_expense_yr))
         if _hsa_reimbursed > 1e-6 and medical_ded > 1e-6:
             # Net the reimbursed dollars out of the DEDUCTION directly rather
-            # than re-deriving `max(0, net_medical - 0.075*agi)`. `agi` rises
-            # across the cascade, so re-deriving here would apply a larger
-            # floor than the one the original `medical_ded` was computed
-            # against and strip more deduction than the HSA actually
-            # reimbursed (measured: an 18,439 drop against a 10,168
-            # reimbursement in one fixture year). Whether the floor should use
-            # first-pass or converged AGI is a separate question this change
-            # deliberately does not touch -- it corrects the double benefit
-            # only, and inherits whatever floor the engine already applied.
+            # than re-deriving `max(0, net_medical - 0.075*agi)` here.
+            #
+            # The two are algebraically identical while the deduction is above
+            # the floor AND `agi` is the same at both points -- and on the
+            # frozen fixture's own configuration they are: both forms produce
+            # byte-identical pins, so no test here distinguishes them. They
+            # diverge only where `agi` has been mutated between the deduction
+            # (computed early, off first-pass agi) and this correction
+            # (post-cascade); measured under a `roth_policy='none'`
+            # configuration, re-deriving stripped 18,439 against a 10,168
+            # reimbursement in one year.
+            #
+            # Netting directly is preferred anyway because it inherits
+            # whatever floor the engine already applied instead of silently
+            # re-basing it. Whether that floor should use first-pass or
+            # converged AGI is a real question, and a separate one from the
+            # double benefit this block exists to correct.
             _new_medical_ded = max(0.0, medical_ded - _hsa_reimbursed)
             _medical_ded_lost = medical_ded - _new_medical_ded
             if _medical_ded_lost > 1e-6:
