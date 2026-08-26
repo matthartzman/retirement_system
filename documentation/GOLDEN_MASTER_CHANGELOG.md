@@ -1,3 +1,35 @@
+## 2026-08-26 — Optimization-refactor Phase 2 correction: contingent_liability now included in the tiered-cut cascade
+
+**No pins moved. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**
+
+Corrects already-shipped Phase 2 behavior, not new engine behavior. Both MC
+engines' essential-shortfall attribution (`essential_fully_funded_probability`)
+and `spending_priority_cut_check`'s `tier_cut_by_year` hardcoded a
+`('discretionary', 'important', 'essential')` cascade that skipped
+`contingent_liability` entirely — treating LTC premiums and wellness-shock
+costs as fully protected from ever absorbing a shortfall. This contradicted
+`SPENDING_TIER_CUT_ORDER` (`spending_budget_resolver.py`), which Phase 0
+already defined and documented as "the future phase's single source of
+truth for cut ordering": discretionary, important, **contingent_liability**,
+essential. Fixed to use that canonical order.
+
+**Why the deterministic pins don't move.** This changes only which tier a
+cut is attributed to in the reporting layer — `spend_base`, `total_spend`,
+withdrawal amounts, and `unfunded`/`unfunded_gap` are untouched. The frozen
+fixture's `base_rows = project(c)` call path is unaffected.
+
+**What DID change, and is expected to.** For any household with nonzero
+`contingent_liability` spending (LTC premiums, wellness shocks) and any
+shortfall year, `essential_fully_funded_probability` will now be *higher*
+than before (a shortfall correctly exhausts contingent-liability dollars
+before ever reaching essential, rather than skipping past them), and
+`spending_priority_cut_check`'s `tier_cut_by_year`/`tiered_*` fields will
+show a `contingent_liability` entry in years where a cut reaches that tier.
+Not modeled: `ltc_prem_yr` (a premium, a genuine choice to forgo coverage)
+and `wellness_shock_yr` (an already-incurred cost) are cut identically
+since `spend_by_tier` sums them into one figure — a real remaining nuance
+left for a future refinement.
+
 ## 2026-08-24/25 — Optimization-refactor Phase 1 items 2-6: no pins moved, but vectorized MC `success_rate` now differs by design for survivor-sensitive households
 
 **Not a deterministic-engine change to any existing plan. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**

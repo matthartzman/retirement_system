@@ -57,7 +57,7 @@ or `success_rate`.
 
 | Metric | Where | Notes |
 |---|---|---|
-| `spending_priority_cut_check` | `planning_engines.py` | Extends `essential_discretionary_floor_check`'s 2-tier check into the full discretionary→important→essential cascade; wired into `sustainable_spending_solve` as `tiered_*` fields |
+| `spending_priority_cut_check` | `planning_engines.py` | Extends `essential_discretionary_floor_check`'s 2-tier check into the full `SPENDING_TIER_CUT_ORDER` cascade (discretionary→important→contingent_liability→essential); wired into `sustainable_spending_solve` as `tiered_*` fields |
 | `essential_fully_funded_probability` | both MC engines | Fraction of paths whose essential tier is never left unfunded |
 | `probability_any_cut` + `cut_years_pct` / `max_annual_shortfall_real_pct` / `max_consecutive_cut_years_pct` / `cumulative_shortfall_real_pct` | both MC engines | Genuine per-path cut statistics from each path's own realized shortfall (not a single solved cut_frac scenario) |
 | `liquidity_coverage_pct_by_year` + `worst_liquidity_coverage_ratio_pct` | both MC engines | `liquid / success_threshold`, i.e. how many times over the existing reserve floor is covered — re-labels a relationship the success/failure test already uses, rather than inventing a new floor concept |
@@ -76,13 +76,35 @@ verified against the full local suite, the `-m slow` build-functional suite,
 and CI, with zero regressions against the pre-existing baseline failure set
 (see below).
 
+### Correction: contingent-liability funding rules (`ffa142b`)
+
+`spending_budget_resolver.py` already defined `SPENDING_TIER_CUT_ORDER`
+(discretionary, important, **contingent_liability**, essential) with a
+comment describing it as "the future phase's single source of truth for
+cut ordering" — but `spending_priority_cut_check` and both MC engines'
+essential-shortfall cascades hardcoded a `('discretionary', 'important',
+'essential')` tuple that skipped `contingent_liability` entirely, treating
+LTC premiums and wellness-shock costs as fully protected from ever
+absorbing a shortfall. This was **wrong relative to the already-documented
+design**, not a new feature to build: fixed by using
+`SPENDING_TIER_CUT_ORDER` in all three places. A cut now correctly reaches
+`contingent_liability` before `essential`, matching the intended priority.
+See `documentation/GOLDEN_MASTER_CHANGELOG.md`'s 2026-08-26 entry for the
+full before/after. Deliberately not modeled (a real remaining nuance): the
+tier bundles `ltc_prem_yr` (a premium, a genuine choice to forgo coverage)
+and `wellness_shock_yr` (an already-incurred cost, not really
+discretionary) — both cut identically since `spend_by_tier` sums them into
+one figure; splitting them needs a Phase-0-level change to how the tier is
+computed.
+
 ## Not done
 
 - **Redirecting actual withdrawal amounts by tier priority** inside the MC
   engines (today's uniform `cut_mult` would become tier-prioritized). A much
   larger, riskier rewrite than the reporting-only additions above — treat as
   its own project, not a quick follow-on.
-- **Contingent-liability funding rules.**
+- **Splitting contingent_liability into premium vs. incurred-shock
+  sub-priorities** — see the correction above.
 - **"Probability of meeting a user legacy floor"** — no `legacy_floor`-style
   config field exists anywhere in this codebase yet. Adding one needs a
   CSV-schema / UI / docs decision, not just a reporting-layer computation.
