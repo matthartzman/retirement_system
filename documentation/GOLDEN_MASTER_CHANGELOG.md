@@ -1,3 +1,23 @@
+## 2026-08-26 — Optimization-refactor Phase 2 addition: probability of meeting a user legacy floor
+
+**No pins moved. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**
+
+New reporting field, `probability_legacy_floor_met`, in both
+`monte_carlo_exact_scalar` and `_mc_vectorized_batch`/`monte_carlo()`:
+the fraction of Monte Carlo paths whose after-tax terminal bequest
+(`post_tax_inheritance`, already computed for
+`after_tax_terminal_nw_pct`/`post_tax_inheritance_pct`) meets or exceeds a
+household-configured `legacy_floor` dollar target, read defensively via
+`c.get('legacy_floor', 0.0)`. Reports `None` (not a misleading 0.0 or 1.0)
+whenever no floor is configured, matching the same convention already used
+for `survivor_period_*` and `liquidity_coverage_pct_by_year`.
+
+**Why the pins don't move.** Purely additive: reads each engine's
+already-finalized `post_tax_inheritance` tracking and never feeds back
+into `unfunded`/`liquid`/`total`/`path_success`/`success_rate`. No CSV
+schema field named `legacy_floor` exists yet, so this is inert for every
+household until front-end/schema wiring is added in a later increment.
+
 ## 2026-08-26 — Optimization-refactor Phase 2 refinement: contingent_liability split into premium (cuttable) vs. incurred shock (protected)
 
 **No pins moved. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**
