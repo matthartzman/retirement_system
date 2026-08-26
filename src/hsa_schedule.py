@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import re
 import warnings
-from typing import Any, Mapping, Optional, Sequence, Tuple
+from typing import Any, Mapping, MutableMapping, Optional, Sequence, Tuple
 
 DEFAULT_CONSUME_BY = 'second_death_p90'
 
@@ -1056,6 +1056,144 @@ def rerun_optimizer(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
         # about the balance it was built to consume.
         out[0]['hsa_nw'] = _starting_balance(rows)
     return out
+
+
+#: Bound on schedule-search rounds. Each round costs two full projections
+#: (~20-60ms each), and gains fall off fast -- the frozen fixture's second
+#: round adds ~1.7% over the first and the third essentially nothing. The
+#: bound exists so a pathological config cannot spin: rounds stop early the
+#: moment a round fails to beat the incumbent by _SCHEDULE_SEARCH_MIN_GAIN.
+_SCHEDULE_SEARCH_MAX_ROUNDS = 4
+
+#: Dollars of present-valued score a round must add to be worth adopting.
+#: Guards against an infinite alternation between two schedules whose scores
+#: differ only by floating-point noise.
+_SCHEDULE_SEARCH_MIN_GAIN = 1.0
+
+
+def run_schedule_search(c: MutableMapping[str, Any]) -> dict:
+    """Wire the schedule search into a build: propose a schedule, score it
+    against the one already in effect, and keep the better.
+
+    This is the piece this module's header called out as missing -- the search
+    (`build_schedule`/`rerun_optimizer`) needs full per-year projection rows
+    for tax context, and those only exist after a projection runs, which is
+    the projection that would consume the schedule.
+
+    **How that circularity is resolved: candidate scoring, not a one-shot
+    two-pass.** This follows the pattern
+    `planning_engines.optimize_roth_conversion_strategy` already uses for the
+    identical problem -- enumerate candidates, run a FULL projection per
+    candidate, score each on its own rows, keep the winner. Every score is
+    therefore self-consistent (the projection has that candidate in effect),
+    so there is no fixed point to iterate toward. Scoring a proposal against
+    a baseline's tax context -- the obvious two-pass shortcut -- would instead
+    price a schedule using rates it changes.
+
+    Two candidates are compared:
+
+    * **incumbent** -- whatever is configured now, which for a first build is
+      `generate_default_schedule`'s static level draw (written by
+      `workbook_builder._ensure_hsa_default_schedule`), and thereafter the
+      household's own table.
+    * **proposal** -- `rerun_optimizer` run over a baseline projection.
+
+    Because the incumbent is always a candidate, **the result can never be
+    worse than today's behavior**: a degenerate or unhelpful search simply
+    loses the comparison. That is a stronger guarantee than a feature flag,
+    and it needs no flag to deliver.
+
+    User intent is safe by construction: `rerun_optimizer` copies
+    `override_amount` through untouched on every path and plans *around*
+    locked years rather than through them. This function only ever installs
+    what that returns, and never writes `override_amount` itself.
+
+    Returns a diagnostic dict -- ``{'ran': bool, 'reason': str,
+    'chosen': 'proposal'|'incumbent', 'incumbent_score': float,
+    'proposal_score': float}`` -- and, when the proposal wins, installs it on
+    ``c`` as `hsa_schedule_rows`/`hsa_schedule_by_year`. Cost is one extra
+    `project()` per candidate; a full-horizon projection measures ~20-60ms,
+    which is not the class of cost that caused the 81x Monte Carlo CI
+    timeouts (see documentation/OPTIMIZATION_REFACTOR_STATUS.md).
+
+    Never raises into a build: any failure returns ``ran=False`` with a
+    reason and leaves ``c`` untouched, so the incumbent schedule stands.
+    """
+    out = {'ran': False, 'reason': '', 'chosen': 'incumbent',
+           'incumbent_score': None, 'proposal_score': None}
+    if str(c.get('hsa_withdrawal_mode', '') or '').strip().lower() != 'optimize':
+        out['reason'] = 'not in optimize mode'
+        return out
+    try:
+        import copy as _copy
+        from .planning_engines import project as _project
+
+        def _score_with(schedule_rows):
+            """Full projection with `schedule_rows` installed, scored on its
+            OWN rows -- the self-consistency R1 requires."""
+            trial = _copy.deepcopy(dict(c))
+            trial['hsa_schedule_rows'] = list(schedule_rows or [])
+            trial['hsa_schedule_by_year'] = {r['year']: r for r in (schedule_rows or [])}
+            trial_rows = _project(trial)
+            by_year = {}
+            for r in (schedule_rows or []):
+                amount, source = resolve_year_amount(r)
+                if source != 'mode':
+                    by_year[int(r['year'])] = amount
+            return schedule_score(trial, trial_rows, by_year), trial_rows
+
+        incumbent_rows = list(c.get('hsa_schedule_rows') or [])
+        incumbent_score, incumbent_projection = _score_with(incumbent_rows)
+        first_incumbent_score = incumbent_score
+
+        best_rows = incumbent_rows
+        best_score = incumbent_score
+        best_projection = incumbent_projection
+        latest_proposal_score = None
+        iterations = 0
+
+        # Candidate SCORING is self-consistent (each candidate is scored on
+        # its own projection), but candidate GENERATION still reads the
+        # incumbent's rows for tax context -- so one pass does not reach a
+        # fixed point: re-running against an adopted proposal measurably
+        # improves it again. Iterate while that keeps paying, which is cheap
+        # (a full projection is ~20-60ms) and safe: a round is adopted only
+        # when it scores strictly higher, so the sequence is monotonic and
+        # can never end below where it started.
+        for _ in range(_SCHEDULE_SEARCH_MAX_ROUNDS):
+            proposal_rows = rerun_optimizer(c, best_projection, best_rows)
+            if not proposal_rows:
+                break
+            proposal_score, proposal_projection = _score_with(proposal_rows)
+            latest_proposal_score = proposal_score
+            iterations += 1
+            if proposal_score <= best_score + _SCHEDULE_SEARCH_MIN_GAIN:
+                break
+            best_rows = proposal_rows
+            best_score = proposal_score
+            best_projection = proposal_projection
+
+        if not best_rows and not incumbent_rows:
+            out['reason'] = 'search produced no schedule'
+            return out
+
+        out['ran'] = True
+        out['rounds'] = iterations
+        out['incumbent_score'] = float(first_incumbent_score)
+        out['proposal_score'] = float(
+            latest_proposal_score if latest_proposal_score is not None else first_incumbent_score)
+        out['chosen_score'] = float(best_score)
+        if best_score > first_incumbent_score:
+            out['chosen'] = 'proposal'
+            out['reason'] = f'proposal scored higher after {iterations} round(s)'
+            c['hsa_schedule_rows'] = best_rows
+            c['hsa_schedule_by_year'] = {r['year']: r for r in best_rows}
+        else:
+            out['reason'] = 'incumbent scored at least as high; kept'
+        return out
+    except Exception as exc:  # never fail a build over a schedule proposal
+        out['reason'] = f'search failed, incumbent kept ({exc})'
+        return out
 
 
 def schedule_feasibility(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> str:
