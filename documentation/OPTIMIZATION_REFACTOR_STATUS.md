@@ -168,6 +168,41 @@ wrong sign. The genuine gap is that per-year tax-free capacity is not
 modeled at all (`hsa_expense_bank` is a lifetime scalar defaulting to
 unlimited). See that spec for the corrected options.
 
+### Phase 2 follow-on — HSA schedule search wired into builds
+
+`hsa_schedule.py`'s own header recorded that its search
+(`build_schedule`/`rerun_optimizer`) was never called from the projection
+pipeline, so `optimize` mode ran `generate_default_schedule`'s static
+level-draw **placeholder**. `run_schedule_search` now closes that, called
+once per build from `workbook_builder.main`.
+
+The schedule-needs-rows-needs-schedule circularity is resolved the way
+`optimize_roth_conversion_strategy` already resolves it: score candidates
+on their **own** full projections and keep the winner. The incumbent is
+always a candidate, so the outcome can never be worse than the placeholder
+— a structural guarantee, no feature flag needed.
+
+Bounded iteration (4 rounds, `$1` min gain) because one round does not
+reach a fixed point: candidate *scoring* is self-consistent but candidate
+*generation* reads the incumbent's rows, so a re-run beat its own output by
+~1.7%. Found by the convergence regression, not by inspection. Safe because
+each round is adopted only on a strictly higher score.
+
+Measured on the frozen fixture forced into `optimize`: 10,698 → 29,698
+(**2.8x**) over 4 rounds, ~0.24s; a settled re-run adopts nothing in
+~0.06s. Pins unmoved (the fixture is `smooth_window`, so the search is a
+no-op there). User overrides and locks provably survive — `rerun_optimizer`
+owns that contract and the wiring only installs what it returns.
+
+Design and the research behind it (including two corrections to the spec's
+own earlier claims) in
+`docs/superpowers/plans/2026-08-26-hsa-schedule-search-contingent-liability-spec.md`;
+blast radius in `documentation/GOLDEN_MASTER_CHANGELOG.md`'s 2026-08-26 (b)
+entry. Covered by
+`tests/test_hsa_schedule_search_wiring_regression.py` (9 tests; the
+never-worse guarantee and all three user-intent guards mutation-tested red
+first).
+
 ## Not done
 
 - **Genuinely redirecting withdrawal requests (not just reporting
@@ -180,8 +215,7 @@ unlimited). See that spec for the corrected options.
   contingent-liability tier specifically, which is a genuine
   request-redirection for that one tier; what remains is the general case
   for essential/important/discretionary.
-- **Wiring the HSA schedule search** so `optimize` mode can weigh
-  contingent-liability need (see PR #66's "left open by design" above).
+- ~~**Wiring the HSA schedule search**~~ — **done**, see below.
 - **Reclassifying `ltc_prem_yr`** out of `contingent_liability` into
   `essential` — it is a scheduled premium, not a shock, and is tiered as
   contingent only because it *hedges* a contingent liability. Taxonomy

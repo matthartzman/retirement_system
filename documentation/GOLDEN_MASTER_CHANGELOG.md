@@ -1,3 +1,66 @@
+## 2026-08-26 (b) — The HSA schedule search is wired into builds: no pins moved, but `optimize`-mode households get a real search instead of a level-draw placeholder
+
+**Not a change to any figure on the frozen fixture. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**
+
+**Why the pins don't move.** The frozen fixture's `client_assets.csv` sets
+`hsa_withdrawal_mode = smooth_window`, and `run_schedule_search` returns
+immediately (`ran=False`, "not in optimize mode") for every mode except
+`optimize`. The deterministic run that produces the pins never reaches the
+search. Confirmed by running the golden-master gate before and after.
+
+**What changed.** `hsa_schedule.py` documented that its own search --
+`build_schedule`/`rerun_optimizer` -- was "NOT called anywhere in the
+projection pipeline," because the search needs full per-year projection rows
+for tax context and those only exist after the projection that would consume
+the schedule. So `optimize` mode actually ran
+`generate_default_schedule`'s **static level draw**, an explicitly-labelled
+placeholder, not a search. `run_schedule_search` now closes that, called once
+per build from `workbook_builder.main` just after
+`_ensure_hsa_default_schedule`.
+
+**How the circularity is resolved.** Not by a two-pass approximation (which
+would price a schedule using rates it changes), but by the pattern
+`optimize_roth_conversion_strategy` already uses for the identical problem:
+score candidates on their **own** full projections and keep the winner. The
+incumbent schedule is always a candidate, so **the result can never be worse
+than the previous behavior** -- a degenerate search simply loses the
+comparison. That guarantee is structural and needs no feature flag.
+
+**One round is not enough, and that was found by test, not inspection.**
+Candidate scoring is self-consistent, but candidate *generation* still reads
+the incumbent's rows, so a single round does not reach a fixed point: a
+re-run against an adopted proposal beat it again by ~1.7%. The search
+therefore iterates (bounded at `_SCHEDULE_SEARCH_MAX_ROUNDS = 4`, stopping
+early below a `$1` gain), which is safe because each round is adopted only
+on a strictly higher score -- the sequence is monotonic. Measured on the
+frozen fixture forced into `optimize`: level-draw incumbent scores 10,698,
+the search settles at 29,698 over 4 rounds (**2.8x**), and a subsequent run
+adopts nothing and stops after one round.
+
+**User intent is safe by construction.** The search installs only what
+`rerun_optimizer` returns, and that function's contract -- "a re-run may
+never eat the user's intent" -- copies `override_amount` through untouched on
+every path and plans *around* locked years rather than through them.
+Verified end-to-end: a planted override survives exactly and resolves as
+`override`; a locked year's `optimizer_amount` is unmoved and resolves as
+`locked`; a deliberate `0.0` override is honored rather than read as absent.
+
+**Cost.** Two full projections per round; a full-horizon `project()` measures
+~20-60ms, so a first search is ~0.24s and a settled re-run ~0.06s. This is
+not the class of cost behind the 81x `monte_carlo()` CI timeouts recorded in
+`documentation/OPTIMIZATION_REFACTOR_STATUS.md`.
+
+**Blast radius.** Bit-identical for every household not in `optimize` mode --
+including the frozen fixture and the demo plan. For `optimize` households
+(reachable: `data_io.py:1274` admits the mode) the HSA drawdown schedule
+changes, and with it every figure downstream of HSA withdrawal timing. Never
+raises into a build: any failure returns `ran=False` and leaves the incumbent
+schedule standing.
+
+New coverage: `tests/test_hsa_schedule_search_wiring_regression.py` (9
+tests). The never-worse guarantee and all three user-intent guards were
+demonstrated red against planted defects before being trusted, per §3 rule 2.
+
 ## 2026-08-26 — Contingent-liability spending draws the HSA first: no pins moved, but HSA sourcing changes for households with an LTC premium
 
 **Not a change to any figure on the frozen fixture. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**
