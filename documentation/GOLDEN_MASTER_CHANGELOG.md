@@ -1,3 +1,98 @@
+## 2026-08-26 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5758190.35 lifetime_tax=1323907.58 -->
+
+**Old pins.** terminal_nw=5,814,607.29, lifetime_tax=1,304,382.77
+
+**New pins.** terminal_nw=5,758,190.35, lifetime_tax=1,323,907.58
+
+**Reason.**
+
+HSA-reimbursed medical is no longer also deducted on Schedule A
+
+**Engine change. Pins move: `5,814,607.29 / 1,304,382.77` -> `5,758,190.35 / 1,323,907.58`.**
+Terminal net worth **down** $56,416.94; lifetime tax **up** $19,524.81.
+
+**What was wrong.** A qualified medical expense cannot both be reimbursed
+tax-free from an HSA and deducted on Schedule A. `medical_expense_yr`
+(`deterministic_engine.py`) was computed from the household's full medical
+spend -- wellness premiums, wellness detail budget, wellness shocks and the
+LTC premium -- and fed the itemized medical deduction above the
+7.5%-of-AGI floor with **no reduction for HSA dollars already reimbursed
+against the same expense**. Nothing anywhere netted the two.
+
+Measured on the frozen fixture before the fix: **all 123,301.40 of lifetime
+HSA withdrawals were also clearing the floor**, i.e. every HSA dollar the
+plan drew was taking both benefits. The fixture draws its HSA on a
+`smooth_window` schedule from 2031, and its medical spend (72k+/yr and
+rising) far exceeds those draws, so the draws are amply covered by
+qualified expenses -- they are genuinely qualified, and therefore genuinely
+not separately deductible.
+
+**Two of this refactor's own recent changes made it more reachable**, which
+is worth recording rather than leaving to be rediscovered. PR #66
+(`fund_contingent_liability_from_hsa`) routes `ltc_prem_yr +
+wellness_shock_yr` preferentially to the HSA, and those are two of the four
+components of `medical_expense_yr` -- so HSA dollars now cover exactly the
+costs most likely to clear the floor. PR #67's schedule search then
+optimizes against a model that overstated HSA value in precisely the
+high-medical years it draws toward. The defect predates both; its frequency
+did not.
+
+**The fix.** After Priority 4c (the last point at which `hsa_wd` is final),
+the deduction is reduced by the HSA dollars reimbursed against that year's
+medical spend, and fed tax / taxable income / total tax are recomputed. The
+placement is load-bearing in both directions: earlier would miss 4c's
+gap-fill dollars, and because this correction *increases* tax the gap grows
+and must still be funded -- Roth (Priority 5) and home equity follow, so the
+cascade absorbs it. `unfunded_gap` stays 0.00 in every fixture year.
+(The DAF re-deduction block earlier in the same function is the same shape
+with the opposite sign; it only ever lowers tax, which is why it can sit
+before the remaining draws.)
+
+Two deliberate limits on scope:
+
+* **Only the deduction changes.** The medical spend is a real cash cost;
+  `total_spend` and the `wellness_*` row fields are untouched. This changes
+  what is deductible, not what is spent.
+* **The floor's AGI basis is left alone.** The shipped version nets the
+  reimbursed dollars out of the deduction directly rather than re-deriving
+  `max(0, net_medical - 0.075*agi)` at the correction point.
+
+  Precision about what that is worth, since an earlier draft of this entry
+  overstated it: the two forms are **algebraically identical** while the
+  deduction is above the floor and `agi` is the same at both points, and on
+  this fixture's own configuration they are — planting the re-derived form
+  produces **byte-identical pins**, so no test in this repo distinguishes
+  them. They diverge only where `agi` has been mutated between the deduction
+  (computed early, off first-pass agi) and the correction (post-cascade);
+  measured under a `roth_policy='none'` configuration, re-deriving stripped
+  18,439 against a 10,168 reimbursement in one year. That is a real
+  divergence but **not** one that moves these pins.
+
+  Netting directly is still preferred, because it inherits whatever floor
+  the engine already applied instead of silently re-basing it — which keeps
+  this change scoped to the double benefit. Whether the floor should use
+  first-pass or converged AGI is a real question, and a separate one.
+
+**Std-vs-itemized is re-evaluated**, so a household pushed below the
+standard deduction by this correction takes the standard one. That caps the
+damage at `item_ded - std_ded` rather than the full lost medical deduction,
+and is why the realized lifetime-tax move (+19,524.81) is below the ~27-30k
+a naive `lost_deduction x marginal_rate` estimate predicts.
+
+**Blast radius.** Every household that both draws an HSA and itemizes
+medical costs above the floor sees higher tax and lower terminal net worth.
+Households that never draw an HSA, or whose medical spend never clears the
+floor, are bit-identical. **This makes affected plans look worse**, which
+per this changelog's own 2026-08-18 precedent deserves more scrutiny rather
+than less -- the direction is uncomfortable but it is the direction the tax
+treatment requires.
+
+Design and prior research:
+`docs/superpowers/plans/2026-08-26-hsa-expense-bank-and-double-dip-spec.md`.
+New coverage: `tests/test_hsa_medical_deduction_double_dip_regression.py`.
+
 ## 2026-08-26 (b) — The HSA schedule search is wired into builds: no pins moved, but `optimize`-mode households get a real search instead of a level-draw placeholder
 
 **Not a change to any figure on the frozen fixture. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**
