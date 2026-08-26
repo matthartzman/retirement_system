@@ -2600,6 +2600,65 @@ def run_deterministic_projection_stage(c):
                 _add_account_flow(row['_account_withdrawals'], _aid, _amt)
             row['hsa_wd'] = hsa_wd
 
+        # ── No double benefit: HSA-reimbursed medical is not also deductible ─
+        # A qualified medical expense cannot both be reimbursed tax-free from
+        # the HSA and deducted on Schedule A. `medical_expense_yr` above was
+        # computed from the full medical spend with no reduction for HSA
+        # dollars, so every HSA withdrawal was silently taking both benefits.
+        # Measured on the frozen fixture before this fix: all 123,301.40 of
+        # lifetime HSA withdrawals were also clearing the 7.5%-of-AGI floor.
+        #
+        # Placed HERE, after Priority 4c, for two reasons that are load-bearing:
+        #   * `hsa_wd` is not final until 4c's gap-fill has run, so netting any
+        #     earlier would miss those dollars;
+        #   * this correction INCREASES tax, so the gap grows and must still be
+        #     funded. Roth (Priority 5) and home equity follow, so the cascade
+        #     can absorb it. The DAF re-deduction block above is the same shape
+        #     but the opposite sign -- it only ever lowers tax, which is why it
+        #     can sit before the remaining draws without needing them.
+        #
+        # Only the DEDUCTION is corrected. The medical spend itself is a real
+        # cash cost and `total_spend`/`row['wellness_*']` are untouched: this
+        # changes what is deductible, not what is spent.
+        _hsa_reimbursed = min(max(0.0, hsa_wd), max(0.0, medical_expense_yr))
+        if _hsa_reimbursed > 1e-6 and medical_ded > 1e-6:
+            # Net the reimbursed dollars out of the DEDUCTION directly rather
+            # than re-deriving `max(0, net_medical - 0.075*agi)`. `agi` rises
+            # across the cascade, so re-deriving here would apply a larger
+            # floor than the one the original `medical_ded` was computed
+            # against and strip more deduction than the HSA actually
+            # reimbursed (measured: an 18,439 drop against a 10,168
+            # reimbursement in one fixture year). Whether the floor should use
+            # first-pass or converged AGI is a separate question this change
+            # deliberately does not touch -- it corrects the double benefit
+            # only, and inherits whatever floor the engine already applied.
+            _new_medical_ded = max(0.0, medical_ded - _hsa_reimbursed)
+            _medical_ded_lost = medical_ded - _new_medical_ded
+            if _medical_ded_lost > 1e-6:
+                _cand_item_ded = item_ded - _medical_ded_lost
+                # std-vs-itemized is re-evaluated: a household pushed below the
+                # standard deduction by this correction takes the standard one,
+                # which caps the damage at (item_ded - std_ded) rather than the
+                # full lost medical deduction.
+                _new_ded = max(std_ded, _cand_item_ded + (qbi_ded if c['qbi_elig'] else 0.0))
+                _new_taxable_inc = max(0.0, agi - _new_ded)
+                _new_fed_tax = _compute_fed_tax_path(_new_taxable_inc, year, filing, c['brk_inf'])
+                _fed_tax_extra = max(0.0, _new_fed_tax - fed_tax)
+                fed_tax = _new_fed_tax
+                taxable_inc = _new_taxable_inc
+                total_tax += _fed_tax_extra
+                gap += _fed_tax_extra
+                item_ded = _cand_item_ded
+                ded = _new_ded
+                medical_ded = _new_medical_ded
+                row['medical_expense_deduction'] = medical_ded
+                row['medical_expense_hsa_reimbursed'] = _hsa_reimbursed
+                row['taxable_inc'] = taxable_inc
+                row['fed_tax'] = fed_tax
+                row['total_tax'] = total_tax
+                row['net_income'] = row.get('gross_income', agi) - total_tax
+                row['total_cash_need'] = total_spend_need + total_tax + other_cash_need_yr
+
         # ── Priority 5: Roth withdrawal ─────────────────────────────────────
         roth_res = _legacy_pe.withdraw_roth(c, bal, gap, year=year, spend_floor_base=spend)
         roth_wd = roth_res['amount']
