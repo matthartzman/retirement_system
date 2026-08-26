@@ -1,3 +1,33 @@
+## 2026-08-26 — Optimization-refactor Phase 2 refinement: contingent_liability split into premium (cuttable) vs. incurred shock (protected)
+
+**No pins moved. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**
+
+Follow-up refinement to the same-day cascade correction below. The
+`contingent_liability` tier bundled two different kinds of dollars:
+`ltc_prem_yr` (an LTC insurance premium — a genuine choice to forgo future
+coverage) and `wellness_shock_yr` (an already-incurred health/LTC event
+cost — not a discretionary spending choice). Both were cut identically at
+`contingent_liability`'s cascade priority. Now `ltc_prem_yr` stays in
+`contingent_liability`; `wellness_shock_yr` routes into `essential`
+instead, protecting it at essential's priority.
+
+**Why the pins don't move.** Purely a re-labeling within
+`row['spend_by_tier']` — the sum across all tiers (and therefore
+`total_spend`) is unchanged, only which tier a dollar is attributed to.
+
+**What DID change, and is expected to.** For any household with nonzero
+`wellness_shock_yr` (an MC-sampled health-shock cost) and a shortfall deep
+enough to reach the old contingent_liability tier, that dollar amount now
+counts toward `essential` instead — `essential_fully_funded_probability`
+will show a shortfall *sooner* for such paths (essential is no longer
+artificially protected by dollars that were never really discretionary
+contingent-liability spending), while `spending_priority_cut_check`'s
+`tier_cut_by_year` will show smaller `contingent_liability` cuts (now just
+the LTC premium) with the shock-cost portion appearing under `essential`
+instead. Both MC engines picked this up automatically — no MC-engine-level
+code changes were needed, since `SPENDING_TIER_CUT_ORDER`-based cascades
+already consume `spend_by_tier`'s tier keys generically.
+
 ## 2026-08-26 — Optimization-refactor Phase 2 correction: contingent_liability now included in the tiered-cut cascade
 
 **No pins moved. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**

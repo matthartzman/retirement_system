@@ -90,12 +90,22 @@ design**, not a new feature to build: fixed by using
 `SPENDING_TIER_CUT_ORDER` in all three places. A cut now correctly reaches
 `contingent_liability` before `essential`, matching the intended priority.
 See `documentation/GOLDEN_MASTER_CHANGELOG.md`'s 2026-08-26 entry for the
-full before/after. Deliberately not modeled (a real remaining nuance): the
-tier bundles `ltc_prem_yr` (a premium, a genuine choice to forgo coverage)
-and `wellness_shock_yr` (an already-incurred cost, not really
-discretionary) — both cut identically since `spend_by_tier` sums them into
-one figure; splitting them needs a Phase-0-level change to how the tier is
-computed.
+full before/after.
+
+### Refinement: premium vs. incurred-shock cut split (`0e65806`)
+
+Closes the nuance flagged above. `contingent_liability` bundled
+`ltc_prem_yr` (a premium — a genuine choice to forgo future coverage) and
+`wellness_shock_yr` (an already-incurred health/LTC event cost — not
+really a discretionary choice), cutting both identically. Fixed at the
+Phase-0 source (`deterministic_engine.py`'s tier classification, not a new
+MC-level mechanism): `ltc_prem_yr` stays in `contingent_liability`;
+`wellness_shock_yr` now routes into `essential`, protecting it at
+essential's cascade priority instead. Both MC engines picked this up for
+free — `SPENDING_TIER_CUT_ORDER`-based cascades already consume
+`spend_by_tier`'s tier keys generically, so no MC-engine-level code changes
+were needed. See `documentation/GOLDEN_MASTER_CHANGELOG.md`'s matching
+2026-08-26 entry.
 
 ## Not done
 
@@ -103,8 +113,6 @@ computed.
   engines (today's uniform `cut_mult` would become tier-prioritized). A much
   larger, riskier rewrite than the reporting-only additions above — treat as
   its own project, not a quick follow-on.
-- **Splitting contingent_liability into premium vs. incurred-shock
-  sub-priorities** — see the correction above.
 - **"Probability of meeting a user legacy floor"** — no `legacy_floor`-style
   config field exists anywhere in this codebase yet. Adding one needs a
   CSV-schema / UI / docs decision, not just a reporting-layer computation.
