@@ -2070,13 +2070,38 @@ def run_deterministic_projection_stage(c):
 
         buf_yrs = liquidity_buffer_years_for_year(c, year)
 
+        # ── Priority 1b: contingent-liability spend draws HSA first ───────────
+        # Optimization refactor: the contingent_liability spending tier
+        # (ltc_prem_yr + wellness_shock_yr) is qualified medical expense, so
+        # the HSA -- the one account whose dollars come out tax-free for
+        # exactly this -- funds it ahead of the ordinary cascade. Runs BEFORE
+        # Priority 2 so the scheduled window draw sizes itself against
+        # whatever remains rather than double-counting the same balance.
+        # Gated on hsa_withdrawal_mode (see hsa_unscheduled_draw_allowed): a
+        # household that configured a scheduled drawdown keeps that schedule
+        # as the sole authority, so under those modes this is a no-op and
+        # Priority 2 behaves exactly as before.
+        cl_res = _legacy_pe.fund_contingent_liability_from_hsa(
+            c, bal,
+            ltc_prem_yr=row.get('ltc_prem_yr', 0.0),
+            wellness_shock_yr=row.get('wellness_shock_yr', 0.0),
+            year=year, spend_floor_base=spend)
+        cl_hsa_wd = cl_res['amount']
+        gap -= cl_hsa_wd
+        row['contingent_liability_hsa_wd'] = cl_hsa_wd
+        row['contingent_liability_unfunded_by_hsa'] = cl_res['residual']
+        cl_by_account = dict(cl_res.get('by_account', {}) or {})
+        row['_hsa_by_account'] = dict(cl_by_account)
+        for _aid, _amt in cl_by_account.items():
+            _add_account_flow(row['_account_withdrawals'], _aid, _amt)
+
         # ── Priority 2: HSA (scheduled, not gap-driven) ────────────────────────
         hsa_res = _legacy_pe.withdraw_hsa_window(c, bal, year, wellness_cost=row.get('wellness_base_yr', 0.0))
-        hsa_wd = hsa_res['amount']
-        gap -= hsa_wd
+        hsa_wd = cl_hsa_wd + hsa_res['amount']
+        gap -= hsa_res['amount']
         row['hsa_wd'] = hsa_wd
-        row['_hsa_by_account'] = dict(hsa_res.get('by_account', {}) or {})
-        for _aid, _amt in row['_hsa_by_account'].items():
+        for _aid, _amt in dict(hsa_res.get('by_account', {}) or {}).items():
+            row['_hsa_by_account'][_aid] = row['_hsa_by_account'].get(_aid, 0.0) + _amt
             _add_account_flow(row['_account_withdrawals'], _aid, _amt)
 
         # ── Priority 3: Pre-tax elective withdrawal ─────────────────────────
