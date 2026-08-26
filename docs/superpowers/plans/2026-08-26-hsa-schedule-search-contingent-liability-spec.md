@@ -190,7 +190,18 @@ only through the tax context it already produces (the medical deduction
 moves the marginal rate, and `score_year` reads that) — the *correct*
 mechanism, already wired.
 
-**Option B — Model per-year qualified-expense capacity.** Replace the
+**Option B — Model per-year qualified-expense capacity.** ⚠️ **Superseded —
+do not build as written.** Follow-up research
+(`2026-08-26-hsa-expense-bank-and-double-dip-spec.md`) established that a
+*cumulative* bank is the correct tax model, not a defect: a qualified
+expense can justify a tax-free withdrawal at any later date, which is the
+basis of the "shoebox" strategy. A per-year cap would model the wrong rule.
+That research also found the real defect underneath — the same medical
+dollar can currently take both a tax-free HSA reimbursement and a Schedule A
+deduction, because nothing nets HSA draws out of `medical_expense_yr`. See
+that spec. Original text follows for the record:
+
+Replace the
 lifetime `hsa_expense_bank` scalar with a per-year qualified-expense figure
 (which `medical_expense_yr` already computes), bounding tax-free draws
 year-by-year. This is the change that would make CL-awareness genuinely
