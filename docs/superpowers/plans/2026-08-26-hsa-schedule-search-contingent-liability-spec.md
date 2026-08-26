@@ -122,11 +122,29 @@ for spec in _roth_strategy_candidate_specs(c):
 candidates.sort(...); best = candidates[0]
 ```
 
-There is no convergence problem because every candidate is evaluated on a
-projection that already has that candidate's policy in effect — each score
-is self-consistent by construction. **This supersedes the two-pass framing
-in Option A below**, which would have scored a schedule against a tax
-context produced *without* it.
+Every candidate is evaluated on a projection that already has that
+candidate's policy in effect, so each score is self-consistent by
+construction. **This supersedes the two-pass framing in Option A below**,
+which would have scored a schedule against a tax context produced *without*
+it.
+
+> **Correction, found during implementation.** This section originally
+> concluded "there is no convergence problem." That is half right, and the
+> half that is wrong matters. Candidate *scoring* is self-consistent, so an
+> adopted schedule is never worse than the incumbent. But candidate
+> *generation* still reads the incumbent's rows for tax context, so a single
+> round does **not** reach a fixed point: measured on the frozen fixture, a
+> re-run against an adopted proposal beat it again by ~1.7% (29,170 →
+> 29,680). This was caught by the convergence regression written for the
+> implementation, not by inspection.
+>
+> The fix is bounded iteration, which is safe precisely *because* of the
+> scoring property: a round is adopted only when it scores strictly higher,
+> so the sequence is monotonic and cannot end below where it started. The
+> shipped search iterates up to `_SCHEDULE_SEARCH_MAX_ROUNDS` (4), stopping
+> early once a round fails to add `_SCHEDULE_SEARCH_MIN_GAIN` ($1). On the
+> frozen fixture it settles in 4 rounds at 29,698 and a subsequent run stops
+> after one round having adopted nothing.
 
 ### R2. `score_year`'s grown-amount contract is already honored
 
