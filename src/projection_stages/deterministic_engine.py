@@ -242,6 +242,16 @@ def run_deterministic_projection_stage(c):
     # carryforward expires last among equals but nothing is used out of the
     # order it was generated.
     daf_deduction_carryforward: list = []
+    # HSA expense-bank accumulation (optimization refactor, Option B):
+    # cumulative substantiated unreimbursed qualified medical expense,
+    # available to justify a tax-free HSA draw at any later date (the
+    # "shoebox strategy" -- see docs/superpowers/plans/
+    # 2026-08-26-hsa-expense-bank-and-double-dip-spec.md). Seeded from the
+    # user's entered historical figure (blank means nothing entered yet, not
+    # unlimited -- it accrues from here); grown every year by that year's
+    # medical_expense_yr; drawn down by Priority 1b/4c's HSA draws, the two
+    # sites that enforce it. Never reset across years.
+    hsa_bank_balance = float(c.get('hsa_expense_bank')) if c.get('hsa_expense_bank') is not None else 0.0
     # Item 4.8 (P11): cumulative federal lifetime-exemption dollars consumed
     # by taxable gifts (amounts above the per-donee annual exclusion) made
     # during the plan so far. Reduces the exemption still available at
@@ -2081,12 +2091,22 @@ def run_deterministic_projection_stage(c):
         # household that configured a scheduled drawdown keeps that schedule
         # as the sole authority, so under those modes this is a no-op and
         # Priority 2 behaves exactly as before.
+        #
+        # HSA expense-bank accumulation (Option B): this year's qualified
+        # medical spend accrues to the running bank BEFORE either draw this
+        # year is sized, so a receipt generated this year can justify a
+        # reimbursement this year. Only Priority 1b (here) and Priority 4c
+        # below enforce the bank -- Priority 2's scheduled/window draw is
+        # deliberately left uncapped; see the spec's "Implementation note".
+        hsa_bank_balance += medical_expense_yr
+        _hsa_bank_c = dict(c, hsa_expense_bank=hsa_bank_balance)
         cl_res = _legacy_pe.fund_contingent_liability_from_hsa(
-            c, bal,
+            _hsa_bank_c, bal,
             ltc_prem_yr=row.get('ltc_prem_yr', 0.0),
             wellness_shock_yr=row.get('wellness_shock_yr', 0.0),
             year=year, spend_floor_base=spend)
         cl_hsa_wd = cl_res['amount']
+        hsa_bank_balance = max(0.0, hsa_bank_balance - cl_hsa_wd)
         gap -= cl_hsa_wd
         row['contingent_liability_hsa_wd'] = cl_hsa_wd
         row['contingent_liability_unfunded_by_hsa'] = cl_res['residual']
@@ -2688,13 +2708,18 @@ def run_deterministic_projection_stage(c):
         # remaining HSA balance and all pre-tax/taxable sources are exhausted or
         # unavailable for the cash gap, draw HSA before touching Roth.
         if gap > 0 and sum(max(0.0, float(bal.get(_aid, 0.0) or 0.0)) for _aid in c.get('hsa_ids', [])) > 0:
-            hsa_res2 = _legacy_pe.withdraw_hsa_gap(c, bal, gap, year=year, spend_floor_base=spend)
+            # Re-read the bank balance: Priority 1b (and this year's accrual)
+            # already ran above, so hsa_bank_balance reflects what remains.
+            hsa_res2 = _legacy_pe.withdraw_hsa_gap(
+                dict(c, hsa_expense_bank=hsa_bank_balance), bal, gap, year=year, spend_floor_base=spend)
+            hsa_bank_balance = max(0.0, hsa_bank_balance - hsa_res2['amount'])
             hsa_wd += hsa_res2['amount']
             gap = hsa_res2['new_gap']
             for _aid, _amt in dict(hsa_res2.get('by_account', {}) or {}).items():
                 row['_hsa_by_account'][_aid] = row['_hsa_by_account'].get(_aid, 0.0) + _amt
                 _add_account_flow(row['_account_withdrawals'], _aid, _amt)
             row['hsa_wd'] = hsa_wd
+        row['hsa_expense_bank_balance'] = hsa_bank_balance
 
         # ── Priority 5: Roth withdrawal ─────────────────────────────────────
         roth_res = _legacy_pe.withdraw_roth(c, bal, gap, year=year, spend_floor_base=spend)
