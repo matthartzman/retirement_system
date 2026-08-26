@@ -1,17 +1,17 @@
 ## 2026-08-26 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
-<!-- pin-provenance: terminal_nw=5763251.84 lifetime_tax=1316527.24 -->
+<!-- pin-provenance: terminal_nw=5763251.84 lifetime_tax=1316887.09 -->
 
-**Old pins.** terminal_nw=5,758,190.35, lifetime_tax=1,323,907.58
+**Old pins.** terminal_nw=5,763,251.84, lifetime_tax=1,316,527.24
 
-**New pins.** terminal_nw=5,763,251.84, lifetime_tax=1,316,527.24
+**New pins.** terminal_nw=5,763,251.84, lifetime_tax=1,316,887.09
 
 **Reason.**
 
 HSA-reimbursed medical is no longer also deducted on Schedule A
 
-**Engine change. Pins move: `5,814,607.29 / 1,304,382.77` -> `5,763,251.84 / 1,316,527.24`.**
-Terminal net worth **down** $51,355.45; lifetime tax **up** $12,144.47.
+**Engine change. Pins move: `5,814,607.29 / 1,304,382.77` -> `5,763,251.84 / 1,316,887.09`.**
+Terminal net worth **down** $51,355.45; lifetime tax **up** $12,504.32.
 
 **What was wrong.** A qualified medical expense cannot both be reimbursed
 tax-free from an HSA and deducted on Schedule A. `medical_expense_yr`
@@ -61,12 +61,25 @@ last-resort liquidity draw against a general cash shortfall, not a
 reimbursement of that year's medical spend. It also errs conservative --
 netting less means the correction is never more aggressive than the
 evidence supports, and it is why the lifetime-tax move (+12,144.47) is
-smaller than the after-4c placement produced (+19,524.81).
+smaller than the after-4c placement produced.
 `unfunded_gap` stays 0.00 in every fixture year.
 
 (The DAF re-deduction block later in the same function is the same shape
 with the opposite sign; it only ever lowers tax, which is why it can safely
 sit after the draws -- a shrinking gap needs no funding.)
+
+**One more trap this hit, worth recording.** The block first updated
+`total_tax` directly. That is silently discarded: `total_tax` is rebuilt
+from scratch further down as
+`total_tax_pre_niit + ltcg_tax + niit - tlh_ordinary_credit`, so the
+`fed_tax` change survived while the `total_tax` change did not, leaving the
+two disagreeing by the corrected amount. It surfaced as a 178.21 cash-flow
+reconciliation residual in
+`tests/test_cashflow_breakdown_single_source_of_truth.py`, with the
+breakdown's `other` remainder absorbing exactly the gap. The fix is to
+recompute `total_tax_pre_niit` from its own components -- the idiom the
+engine already uses at its other two update sites -- rather than to
+hand-maintain `total_tax`.
 
 Two deliberate limits on scope:
 
@@ -91,7 +104,7 @@ Two deliberate limits on scope:
 **Std-vs-itemized is re-evaluated**, so a household pushed below the
 standard deduction by this correction takes the standard one. That caps the
 damage at `item_ded - std_ded` rather than the full lost medical deduction,
-and is one of two reasons the realized lifetime-tax move (+12,144.47) sits
+and is one of two reasons the realized lifetime-tax move (+12,504.32) sits
 well below the ~27-30k a naive `lost_deduction x marginal_rate` estimate
 predicts -- the other being the Priority-4c exclusion described above.
 
