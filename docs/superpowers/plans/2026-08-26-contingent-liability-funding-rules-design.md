@@ -222,11 +222,29 @@ produces a better plan than any post-hoc draw could.
 
 **Hook for whoever wires the two-pass search:** `score_year` already
 receives a projection `row`, and Phase 0 put `row['spend_by_tier']` —
-including `contingent_liability` — on every row. The signal is already
-present in the data the scorer gets; making it a scoring term needs no new
-plumbing. Record this so the suppression above is not misread as
-"`optimize` does not care about contingent liabilities": the intent is
-that `optimize` should care about them *better*, at the scheduling layer.
+including `contingent_liability` — on every row, so the signal is present
+in the data the scorer gets.
+
+> ⚠️ **Superseded.** This paragraph originally went on to recommend making
+> that signal a scoring term. Follow-up research
+> (`2026-08-26-hsa-schedule-search-contingent-liability-spec.md`) found
+> that wrong; it was written here before `score_year` had been read.
+> `score_year` prices tax efficiency — `(displacement + irmaa_cliff) *
+> pv_factor`, where displacement is the marginal rate on the dollar the
+> draw displaces. But a contingent-liability year is a *low* marginal-rate
+> year: `ltc_prem_yr` and `wellness_shock_yr` both feed
+> `medical_expense_yr` and generate an itemized deduction above the
+> 7.5%-of-AGI floor (`deterministic_engine.py:1876`). A positive CL
+> scoring term would therefore push draws toward the years the tax model
+> has already priced as the *least* valuable to draw in — double-counting
+> a signal the deduction already transmits, and transmitting it with the
+> wrong sign.
+>
+> The suppression under `optimize` is still correct; only the proposed
+> remedy was wrong. The real gap is that per-year tax-free draw capacity is
+> not modeled at all (`hsa_expense_bank` is a single lifetime scalar
+> defaulting to unlimited), so the model already permits tax-free draws in
+> years with no qualified expense. See that spec for corrected options.
 
 ## Recommendation
 
