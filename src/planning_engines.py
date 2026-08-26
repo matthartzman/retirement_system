@@ -3157,6 +3157,7 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
     # should reduce this one path's legacy figure to a fallback, not abort
     # the whole MC batch.
     from .after_tax import estimate_after_tax_terminal_net_worth as _estimate_after_tax_terminal_net_worth
+    from .spending_budget_resolver import SPENDING_TIER_CUT_ORDER
     all_after_tax_terminal_nw: list = []
     all_post_tax_inheritance: list = []
     first5_avgs = []
@@ -3230,7 +3231,7 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
             _unfunded_nominal_yr = float(r.get('unfunded_gap', 0.0) or 0.0)
             _remaining_unfunded = _unfunded_nominal_yr
             _tiers_yr = r.get('spend_by_tier') or {}
-            for _tier in ('discretionary', 'important', 'essential'):
+            for _tier in SPENDING_TIER_CUT_ORDER:
                 _avail = float(_tiers_yr.get(_tier, 0.0) or 0.0)
                 _taken = min(_avail, _remaining_unfunded)
                 if _tier == 'essential' and _taken > 1.0:
@@ -4072,16 +4073,18 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
 
     # Phase 2 (optimization refactor): attribute each path/year's already-
     # computed unfunded shortfall (out['unfunded'] above) to spend tiers via
-    # the same discretionary -> important -> essential cascade as
-    # spending_priority_cut_check, to answer "was essential spending ever
-    # left unfunded on this path" (the plan's "probability essential
-    # spending is fully funded" dashboard metric). Reporting-only: reads
-    # out['unfunded'] after the recursion above already finalized it, and
-    # never feeds back into unfunded/liquid/total/path_success.
+    # the same SPENDING_TIER_CUT_ORDER cascade as spending_priority_cut_check
+    # (discretionary -> important -> contingent_liability -> essential), to
+    # answer "was essential spending ever left unfunded on this path" (the
+    # plan's "probability essential spending is fully funded" dashboard
+    # metric). Reporting-only: reads out['unfunded'] after the recursion
+    # above already finalized it, and never feeds back into
+    # unfunded/liquid/total/path_success.
     if eff['spend_by_tier']:
+        from .spending_budget_resolver import SPENDING_TIER_CUT_ORDER
         remaining_unfunded = out['unfunded'].copy()
         essential_shortfall_nominal = _np.zeros((n_sims, n_years))
-        for tier in ('discretionary', 'important', 'essential'):
+        for tier in SPENDING_TIER_CUT_ORDER:
             tier_arr = eff['spend_by_tier'].get(tier)
             if tier_arr is None:
                 continue
@@ -4401,17 +4404,31 @@ def spending_priority_cut_check(base_rows: list[dict], cut_frac) -> dict:
     """Optimization-refactor Phase 2 (tiered cuts): extends
     ``essential_discretionary_floor_check``'s 2-tier check (discretionary ==
     travel only, vs. everything else) into the full SPENDING_TIERS
-    cut-priority cascade -- discretionary first, then important, essential
-    protected as a last resort -- using Phase 0's ``row['spend_by_tier']``
+    cut-priority cascade using Phase 0's ``row['spend_by_tier']``
     classification instead of the travel-only proxy.
 
-    ``contingent_liability`` is EXCLUDED from this cascade entirely, per the
-    plan's Phase 2 item 4: contingent liabilities (LTC, a medical shock, a
-    home modification) are meant to be funded through explicit state-
-    dependent rules, not cut like ordinary lifestyle spending. Those funding
-    rules are not yet built (a documented future phase); for now this
-    function simply never counts contingent_liability dollars as available
-    to absorb a cut, so it is neither inflated nor deflated by this check.
+    Cascade order is ``SPENDING_TIER_CUT_ORDER``
+    (``spending_budget_resolver.py``) -- discretionary, important,
+    contingent_liability, essential -- the single source of truth that
+    module's own comment says exists exactly for "a future spending-priority
+    policy (Phase 2)". An earlier version of this function hardcoded
+    ``('discretionary', 'important', 'essential')`` and excluded
+    contingent_liability entirely, treating LTC premiums and wellness-shock
+    costs as fully protected from ever funding a shortfall -- that
+    contradicted the already-documented cut order and understated how often
+    essential spending is genuinely protected (a shortfall should exhaust
+    contingent-liability dollars before ever touching essential, not skip
+    straight past them). Fixed to use the canonical order.
+
+    Deliberately NOT modeled here (a real remaining nuance, left for a
+    future refinement): contingent_liability bundles two different kinds of
+    dollars -- ``ltc_prem_yr`` (an insurance premium, a genuine choice to
+    forgo future coverage) and ``wellness_shock_yr`` (an already-incurred
+    health/LTC event cost, not really a discretionary choice to skip). Both
+    are cut identically here since ``spend_by_tier`` sums them into one
+    tier-level figure; splitting them into separately-prioritized
+    sub-categories would need a Phase-0-level change to how the tier is
+    computed, out of scope for this reporting-layer fix.
 
     Purely a reporting-layer computation, exactly like
     ``essential_discretionary_floor_check``: re-labels an already-computed
@@ -4426,6 +4443,7 @@ def spending_priority_cut_check(base_rows: list[dict], cut_frac) -> dict:
     same as essential_discretionary_floor_check above), not deflated to real
     plan-start dollars.
     """
+    from .spending_budget_resolver import SPENDING_TIER_CUT_ORDER
     empty = {
         'essential_protected': None, 'worst_year_essential_shortfall': 0.0, 'worst_year': None,
         'cut_years': 0, 'cumulative_cut_dollars': 0.0, 'max_annual_cut_dollars': 0.0,
@@ -4445,7 +4463,7 @@ def spending_priority_cut_check(base_rows: list[dict], cut_frac) -> dict:
 
     for row in base_rows:
         tiers = row.get('spend_by_tier') or {}
-        total_cuttable = sum(v for t, v in tiers.items() if t != 'contingent_liability')
+        total_cuttable = sum(v for t, v in tiers.items() if t in SPENDING_TIER_CUT_ORDER)
         if total_cuttable <= 0:
             current_consecutive = 0
             continue
@@ -4456,7 +4474,7 @@ def spending_priority_cut_check(base_rows: list[dict], cut_frac) -> dict:
 
         remaining = target_cut
         year_cut: dict[str, float] = {}
-        for tier in ('discretionary', 'important', 'essential'):
+        for tier in SPENDING_TIER_CUT_ORDER:
             available = float(tiers.get(tier, 0.0) or 0.0)
             taken = min(available, remaining)
             if taken > 0:
@@ -4464,9 +4482,9 @@ def spending_priority_cut_check(base_rows: list[dict], cut_frac) -> dict:
                 remaining -= taken
             if remaining <= 1e-9:
                 break
-        # Any leftover (shouldn't happen -- the three tiers above sum to
-        # total_cuttable -- but a floating-point guard) counts toward the
-        # essential shortfall too, same as an essential-tier cut would.
+        # Any leftover (shouldn't happen -- SPENDING_TIER_CUT_ORDER's tiers
+        # sum to total_cuttable -- but a floating-point guard) counts toward
+        # the essential shortfall too, same as an essential-tier cut would.
         essential_shortfall = year_cut.get('essential', 0.0) + max(0.0, remaining)
 
         year_val = int(row.get('year')) if row.get('year') is not None else None

@@ -1,9 +1,9 @@
 """Optimization-refactor Phase 2 (tiered cuts): spending_priority_cut_check
 extends essential_discretionary_floor_check's 2-tier check (discretionary ==
-travel only, vs. everything else) into the full SPENDING_TIERS cut-priority
-cascade -- discretionary first, then important, essential protected as a
-last resort -- using Phase 0's row['spend_by_tier'] classification.
-contingent_liability is never counted as available to absorb a cut.
+travel only, vs. everything else) into the full SPENDING_TIER_CUT_ORDER
+cascade (discretionary -> important -> contingent_liability -> essential,
+essential protected as a last resort) using Phase 0's row['spend_by_tier']
+classification.
 
 Like essential_discretionary_floor_check, this is a reporting-layer
 computation: it re-labels an already-computed uniform dollar cut by
@@ -51,7 +51,7 @@ def test_none_cut_returns_none_protected():
 
 def test_small_cut_comes_entirely_from_discretionary():
     rows = _synthetic_rows({"essential": 40000.0, "important": 20000.0, "discretionary": 10000.0, "contingent_liability": 5000.0})
-    total_cuttable = 40000.0 + 20000.0 + 10000.0
+    total_cuttable = 40000.0 + 20000.0 + 10000.0 + 5000.0
     # A cut fraction whose dollar amount is smaller than the discretionary
     # tier alone must come entirely from discretionary.
     cut_frac = 5000.0 / total_cuttable
@@ -91,14 +91,49 @@ def test_cut_spills_into_essential_only_as_last_resort():
     assert result["worst_year"] == 2030
 
 
-def test_contingent_liability_dollars_are_never_available_to_absorb_a_cut():
-    # A household whose ONLY tier is contingent_liability has nothing
-    # cuttable at all, however large the requested cut fraction.
+def test_cut_spills_into_contingent_liability_once_important_is_exhausted():
+    # SPENDING_TIER_CUT_ORDER places contingent_liability (LTC premiums,
+    # wellness shocks) third -- cut before essential, but only after
+    # discretionary and important are both exhausted.
+    rows = _synthetic_rows({"essential": 40000.0, "important": 20000.0, "discretionary": 10000.0, "contingent_liability": 15000.0})
+    total_cuttable = 40000.0 + 20000.0 + 10000.0 + 15000.0
+    # Discretionary + important (30000) fully exhausted, 5000 more into
+    # contingent_liability, which still has 10000 of room left afterward.
+    cut_frac = 35000.0 / total_cuttable
+    result = spending_priority_cut_check(rows, cut_frac)
+    year_cut = result["tier_cut_by_year"][2030]
+    assert year_cut["discretionary"] == 10000.0
+    assert year_cut["important"] == 20000.0
+    assert round(year_cut["contingent_liability"], 2) == 5000.0
+    assert "essential" not in year_cut
+    assert result["essential_protected"] is True
+
+
+def test_cut_spills_into_essential_only_after_contingent_liability_is_also_exhausted():
+    rows = _synthetic_rows({"essential": 40000.0, "important": 20000.0, "discretionary": 10000.0, "contingent_liability": 15000.0})
+    total_cuttable = 40000.0 + 20000.0 + 10000.0 + 15000.0
+    # Discretionary + important + contingent_liability (45000) fully
+    # exhausted, 2000 more into essential.
+    cut_frac = 47000.0 / total_cuttable
+    result = spending_priority_cut_check(rows, cut_frac)
+    year_cut = result["tier_cut_by_year"][2030]
+    assert year_cut["discretionary"] == 10000.0
+    assert year_cut["important"] == 20000.0
+    assert round(year_cut["contingent_liability"], 2) == 15000.0
+    assert round(year_cut["essential"], 2) == 2000.0
+    assert result["essential_protected"] is False
+    assert round(result["worst_year_essential_shortfall"], 2) == 2000.0
+
+
+def test_a_household_with_only_contingent_liability_spending_can_still_absorb_a_cut():
+    # Confirms contingent_liability dollars ARE now counted as available to
+    # absorb a cut (the corrected behavior) -- a household whose only tier
+    # is contingent_liability is not exempt from a 100% cut.
     rows = _synthetic_rows({"contingent_liability": 50000.0})
     result = spending_priority_cut_check(rows, 1.0)
-    assert result["tier_cut_by_year"] == {}
-    assert result["cut_years"] == 0
-    assert result["essential_protected"] is True  # nothing to protect, nothing shortfell
+    year_cut = result["tier_cut_by_year"][2030]
+    assert year_cut == {"contingent_liability": 50000.0}
+    assert result["essential_protected"] is True  # nothing left to shortfall essential
 
 
 def test_cumulative_and_consecutive_cut_year_bookkeeping():
