@@ -107,15 +107,36 @@ free — `SPENDING_TIER_CUT_ORDER`-based cascades already consume
 were needed. See `documentation/GOLDEN_MASTER_CHANGELOG.md`'s matching
 2026-08-26 entry.
 
+### Probability of meeting a user legacy floor (`e9e4059`)
+
+Re-scoped down from the "Not done" framing this doc previously carried
+("needs a CSV-schema / UI / docs decision"): the same "backend field ready,
+no CSV/UI wiring yet" pattern already applies to every other Phase 2 metric
+in this table, so `legacy_floor` doesn't need schema work to be useful now.
+Both engines already compute `post_tax_inheritance` per path (the same
+value backing `after_tax_terminal_nw_pct`/`post_tax_inheritance_pct`).
+Added `probability_legacy_floor_met`: the fraction of paths whose
+`post_tax_inheritance` meets or exceeds `c.get('legacy_floor', 0.0)`, read
+defensively since no config field exists in the CSV schema yet. Reports
+`None` (the same None-when-inapplicable convention as
+`survivor_period_*`/`liquidity_coverage_pct_by_year`) whenever no floor is
+configured, rather than a misleading 0.0 or 1.0. Reporting-only — never
+feeds back into `unfunded`/`liquid`/`total`/`path_success`/`success_rate`.
+Covered by `tests/test_legacy_floor_probability_regression.py` (7 tests:
+None-when-unconfigured, trivially-low/absurdly-high floor bounds,
+monotonicity, both engines).
+
 ## Not done
 
 - **Redirecting actual withdrawal amounts by tier priority** inside the MC
   engines (today's uniform `cut_mult` would become tier-prioritized). A much
   larger, riskier rewrite than the reporting-only additions above — treat as
   its own project, not a quick follow-on.
-- **"Probability of meeting a user legacy floor"** — no `legacy_floor`-style
-  config field exists anywhere in this codebase yet. Adding one needs a
-  CSV-schema / UI / docs decision, not just a reporting-layer computation.
+- **`legacy_floor` CSV-schema / UI / docs wiring** — the backend metric
+  (`probability_legacy_floor_met`, above) works today via
+  `c.get('legacy_floor', 0.0)`, but no household-facing way to set the value
+  exists yet (CSV column, UI field, docs). Same status as every other Phase 2
+  metric in this file: backend ready, front end not yet wired.
 - **Phases 3–6 of the overall plan** (tax NPV / ELTR state-contingent tax
   modeling, LCV feasibility gate and scoring, adaptive policy guardrails,
   expanded stress scenarios) are entirely unimplemented.
