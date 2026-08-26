@@ -1086,6 +1086,104 @@ def withdraw_hsa_window(c: Mapping, bal: BalanceMap, year: int, wellness_cost: f
     return {"amount": amount, "by_account": by_account}
 
 
+def hsa_unscheduled_draw_allowed(c: Mapping, year: int = 0) -> bool:
+    """Whether an UNSCHEDULED HSA draw may run in ``year``, given the
+    household's ``hsa_withdrawal_mode``.
+
+    Extracted from ``withdraw_hsa_gap`` so that every unscheduled-draw site
+    shares one predicate. There is now a second such site --
+    ``fund_contingent_liability_from_hsa`` -- and a copied-and-drifted rule
+    here is exactly the failure this function exists to prevent: the
+    2026-08-20 defect below was a mode that had simply never been added to
+    one of these checks.
+
+    The rule, unchanged from ``withdraw_hsa_gap``'s original inline form:
+
+    * ``optimize`` -- suppressed unconditionally. The schedule
+      (``client_hsa_schedule.csv`` via ``resolve_year_amount``) is the sole
+      authority on the year's draw, and unlike the window modes it has no
+      win_start/win_end pair to scope a suppression to.
+    * ``smooth_window`` / ``annual_pct`` -- suppressed before and during the
+      configured window, where ``withdraw_hsa_window`` already handles the
+      scheduled draw. Permitted after the window ends, when any remaining
+      balance is fair game.
+    * ``spend_as_needed`` -- always permitted; there is no schedule to
+      conflict with.
+
+    ``year=0`` (the parameter default, used by callers that do not thread a
+    year) skips the window comparison entirely, preserving the original
+    behavior exactly -- a window check against year 0 would otherwise
+    suppress every such call.
+    """
+    mode = str(c.get("hsa_withdrawal_mode", "spend_as_needed") or "spend_as_needed").lower()
+    if mode == "optimize":
+        return False
+    if mode in ("smooth_window", "annual_pct") and year > 0:
+        win_start = int(c.get("hsa_win_start", 9999))
+        win_end = int(c.get("hsa_win_end", 0))
+        if year < win_start or (win_end > 0 and year <= win_end):
+            return False
+    return True
+
+
+def fund_contingent_liability_from_hsa(c: Mapping, bal: BalanceMap,
+                                        ltc_prem_yr: float = 0.0,
+                                        wellness_shock_yr: float = 0.0,
+                                        year: int = 0,
+                                        spend_floor_base: float = 0.0) -> Dict:
+    """Optimization refactor: fund contingent-liability spending from the HSA
+    first, ahead of the ordinary withdrawal cascade.
+
+    ``contingent_liability`` (the SPENDING_TIERS tier in
+    ``spending_budget_resolver.py``) is ``ltc_prem_yr + wellness_shock_yr`` --
+    an LTC insurance premium and a sampled major-medical/LTC shock. Until
+    now neither had ANY dedicated funding treatment: both were summed into
+    ``total_spend_need`` and funded by whatever the cascade reached first.
+    In particular the scheduled HSA draw does not cover them --
+    ``deterministic_engine`` calls ``withdraw_hsa_window`` with
+    ``wellness_cost=row['wellness_base_yr']``, which is
+    ``wellness_premium_yr + wellness_detail_budget_yr`` and excludes both of
+    these components.
+
+    That left the one account designed for medical costs funding them only
+    incidentally. Both components are qualified medical expenses (LTC
+    premiums up to the IRS age-based limits; medical/LTC shocks outright),
+    so HSA dollars spent on them are tax-free out -- which is why this draw
+    needs no ``hsa_owner_age``/penalty plumbing the way
+    ``withdraw_hsa_window``'s general ``requested`` path does: a qualified
+    draw can never produce the non-qualified dollars that carry the pre-65
+    20% penalty.
+
+    Bounded by the HSA balance net of any liquidity reserve configured
+    against the HSA bucket (P8's ``liquidity_reserve_floor``), matching
+    ``withdraw_hsa_gap``. Gated by ``hsa_unscheduled_draw_allowed`` -- a
+    household that configured a scheduled drawdown mode keeps that schedule
+    as the sole authority on the year's draw; see that function for why.
+
+    Returns ``amount`` drawn, ``by_account``, and ``residual`` -- the
+    contingent-liability dollars this draw could not cover, which simply
+    remain in the caller's cash gap and fall through the existing cascade
+    unchanged.
+    """
+    need = max(0.0, float(ltc_prem_yr or 0.0)) + max(0.0, float(wellness_shock_yr or 0.0))
+    if need <= 1e-6:
+        return {"amount": 0.0, "by_account": {}, "residual": 0.0}
+    unfunded = {"amount": 0.0, "by_account": {}, "residual": need}
+    if not hsa_unscheduled_draw_allowed(c, year):
+        return unfunded
+    ids = list(c.get("hsa_ids", []) or [])
+    if not ids:
+        return unfunded
+    total_hsa = sum(max(0.0, float(bal.get(aid, 0.0) or 0.0)) for aid in ids)
+    floor = liquidity_reserve_floor(c, year, "hsa", spend_floor_base)
+    amount = min(need, max(0.0, total_hsa - floor))
+    if amount <= 1e-6:
+        return unfunded
+    by_account = _draw_pro_rata_accounts(bal, ids, amount)
+    drawn = sum(by_account.values())
+    return {"amount": drawn, "by_account": by_account, "residual": max(0.0, need - drawn)}
+
+
 def withdraw_hsa_gap(c: Mapping, bal: BalanceMap, gap: float, year: int = 0,
                      spend_floor_base: float = 0.0) -> Dict:
     """Use remaining HSA dollars for an unfunded spending gap before Roth.
@@ -1094,45 +1192,26 @@ def withdraw_hsa_gap(c: Mapping, bal: BalanceMap, gap: float, year: int = 0,
     planned annual draw, but if IRA and taxable/trust dollars cannot fill the
     cash gap, this final pass prevents Roth withdrawals while HSA dollars remain.
 
-    In smooth_window or annual_pct mode, gap-filling is suppressed both before
-    and during the configured window.  withdraw_hsa_window handles the scheduled
-    draw for those years; allowing gap-fills on top would double-deplete the HSA
-    and prevent it from lasting the intended window length.  Gap-fills are only
-    permitted after the window ends, when any remaining HSA balance is fair game.
+    The mode gating -- suppressed unconditionally under optimize, and before
+    and during the configured window under smooth_window/annual_pct -- now
+    lives in ``hsa_unscheduled_draw_allowed``, shared with
+    ``fund_contingent_liability_from_hsa``. See that function for the rule
+    and its rationale.
 
-    In optimize mode, gap-filling is suppressed unconditionally, for the same
-    reason -- the schedule (client_hsa_schedule.csv, via resolve_year_amount)
-    is the sole authority on the year's draw -- but with no window to scope
-    the suppression to, since optimize's horizon is not a win_start/win_end
-    pair.
+    A real bug (2026-08-20) motivated that gating, and is why it is shared
+    rather than duplicated: a user comparing a $2,000/year override entered
+    via the UI against the resulting workbook found the entered amount never
+    showed up and the account drained years before the household expected.
+    This function's own docstring already explained why -- "allowing
+    gap-fills on top would double-deplete the HSA" -- but 'optimize' had
+    simply never been added to the check, so every year with any unfunded
+    cash-flow gap silently topped up (or dwarfed) withdraw_hsa_window's
+    scheduled/overridden draw with an unscheduled extra one.
     """
     if gap <= 1e-6:
         return {"amount": 0.0, "new_gap": gap, "by_account": {}}
-    mode = str(c.get("hsa_withdrawal_mode", "spend_as_needed") or "spend_as_needed").lower()
-    if mode == "optimize":
-        # Real bug (2026-08-20), found by a user comparing a $2,000/year
-        # override entered via the UI against the resulting workbook: the
-        # entered amount never showed up, and the account drained years
-        # before the household expected. This function's OWN docstring
-        # already explains why -- "allowing gap-fills on top would
-        # double-deplete the HSA" -- but 'optimize' was simply never added
-        # to the suppression below when that mode was built, so every year
-        # with any unfunded cash-flow gap silently topped up (or dwarfed)
-        # withdraw_hsa_window's scheduled/overridden draw with an
-        # unscheduled extra one. 'optimize' has no win_start/win_end window
-        # to gate on the way smooth_window/annual_pct do below -- its
-        # horizon comes from client_hsa_schedule.csv (resolve_year_amount)
-        # and, once a real search exists, resolve_consume_by_year -- so
-        # suppression here is unconditional for the whole plan, not scoped
-        # to a configured window.
+    if not hsa_unscheduled_draw_allowed(c, year):
         return {"amount": 0.0, "new_gap": gap, "by_account": {}}
-    if mode in ("smooth_window", "annual_pct") and year > 0:
-        win_start = int(c.get("hsa_win_start", 9999))
-        win_end = int(c.get("hsa_win_end", 0))
-        # Block gap-fills before the window starts, and also during the window
-        # (the scheduled smooth draw already handles those years).
-        if year < win_start or (win_end > 0 and year <= win_end):
-            return {"amount": 0.0, "new_gap": gap, "by_account": {}}
     ids = list(c.get("hsa_ids", []) or [])
     # A reserve configured against the HSA bucket holds HSA dollars back (P8).
     total_hsa = sum(max(0.0, float(bal.get(aid, 0.0) or 0.0)) for aid in ids)
@@ -3988,6 +4067,11 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
     det_idx = _np.maximum(1e-12, flows['deterministic_inflation_index']).reshape(1, -1)
     spending_scale = inf_idx / det_idx
     cut_mult = _np.clip(1.0 - _np.broadcast_to(_np.asarray(spend_cut_frac, dtype=float), (n_sims,)), 0.0, 1.0)
+    # Per-calendar-year gate for the wellness-shock HSA draw below. Depends
+    # only on (c, year) -- not on the path -- so it is resolved once here
+    # rather than per path per year inside the recursion.
+    cl_hsa_allowed_by_year = _np.array(
+        [hsa_unscheduled_draw_allowed(c, int(y)) for y in years], dtype=bool)
 
     # Phase 1 items 4-6: select each path's survivor-bucket trajectory (if
     # any) for years after that path's own sampled first death. bucket_id
@@ -4055,8 +4139,22 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
         # Pretax withdrawals carry an approximate marginal tax gross-up so the
         # vectorized path does not understate tax pressure in poor markets.
         planned['pretax'] = planned['pretax'] * (1.0 + tax_drag[:, j])
+        # Wellness shocks are the sampled half of the contingent_liability
+        # tier, and drawing them from the HSA first is this engine's own
+        # long-standing precedent -- but it was ungated, while the
+        # deterministic engine's new contingent-liability draw defers to
+        # hsa_withdrawal_mode. Applying the same gate here keeps the two
+        # engines from disagreeing about the same tier: under a scheduled
+        # drawdown mode the schedule is the sole authority on HSA dollars,
+        # so the shock falls to taxable exactly as any other spend would.
+        # (The premium half, ltc_prem_yr, needs no wiring here -- it flows
+        # in through eff['withdrawals']['hsa'], since the deterministic rows
+        # this engine scales already carry that draw.)
         shock_need = shocks[:, j] * act
-        hsa_shock, shock_left = _mc_apply_withdrawal_bucket(balances, shock_need, 'hsa')
+        if cl_hsa_allowed_by_year[j]:
+            hsa_shock, shock_left = _mc_apply_withdrawal_bucket(balances, shock_need, 'hsa')
+        else:
+            shock_left = shock_need
         planned['taxable'] = planned['taxable'] + shock_left
 
         unfunded = _np.zeros(n_sims, dtype=float)
