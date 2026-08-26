@@ -1,17 +1,17 @@
 ## 2026-08-26 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
-<!-- pin-provenance: terminal_nw=5758190.35 lifetime_tax=1323907.58 -->
+<!-- pin-provenance: terminal_nw=5763251.84 lifetime_tax=1316527.24 -->
 
-**Old pins.** terminal_nw=5,814,607.29, lifetime_tax=1,304,382.77
+**Old pins.** terminal_nw=5,758,190.35, lifetime_tax=1,323,907.58
 
-**New pins.** terminal_nw=5,758,190.35, lifetime_tax=1,323,907.58
+**New pins.** terminal_nw=5,763,251.84, lifetime_tax=1,316,527.24
 
 **Reason.**
 
 HSA-reimbursed medical is no longer also deducted on Schedule A
 
-**Engine change. Pins move: `5,814,607.29 / 1,304,382.77` -> `5,758,190.35 / 1,323,907.58`.**
-Terminal net worth **down** $56,416.94; lifetime tax **up** $19,524.81.
+**Engine change. Pins move: `5,814,607.29 / 1,304,382.77` -> `5,763,251.84 / 1,316,527.24`.**
+Terminal net worth **down** $51,355.45; lifetime tax **up** $12,144.47.
 
 **What was wrong.** A qualified medical expense cannot both be reimbursed
 tax-free from an HSA and deducted on Schedule A. `medical_expense_yr`
@@ -39,16 +39,34 @@ optimizes against a model that overstated HSA value in precisely the
 high-medical years it draws toward. The defect predates both; its frequency
 did not.
 
-**The fix.** After Priority 4c (the last point at which `hsa_wd` is final),
-the deduction is reduced by the HSA dollars reimbursed against that year's
-medical spend, and fed tax / taxable income / total tax are recomputed. The
-placement is load-bearing in both directions: earlier would miss 4c's
-gap-fill dollars, and because this correction *increases* tax the gap grows
-and must still be funded -- Roth (Priority 5) and home equity follow, so the
-cascade absorbs it. `unfunded_gap` stays 0.00 in every fixture year.
-(The DAF re-deduction block earlier in the same function is the same shape
-with the opposite sign; it only ever lowers tax, which is why it can sit
-before the remaining draws.)
+**The fix.** Between Priority 2 and Priority 3, the deduction is reduced by
+the HSA dollars reimbursed against that year's medical spend, and fed tax /
+taxable income / total tax are recomputed.
+
+**Placement is load-bearing, and the first attempt got it wrong.** This
+correction *increases* tax, so the gap grows and the rest of the cascade
+must still be able to fund it IN ORDER. An initial version sat after
+Priority 4c, reasoning that `hsa_wd` is not final until 4c's gap-fill runs.
+`test_recommendations_regression.py::test_fixed_point_taxable_withdrawal_solver_runs_before_roth`
+caught that: with the demand added after 3/4b/4c, only Roth was left to fund
+it, so the plan drew Roth while pre-tax and HSA balances still remained --
+10 violations of the cascade's Roth-last invariant. Correctness of the
+withdrawal ORDER outranks capturing every last netted dollar.
+
+The trade that buys: only draws known by that point are netted -- Priority
+1b's contingent-liability draw (which exists precisely to pay qualified
+medical) and Priority 2's scheduled window draw. Priority 4c's gap-fill is
+excluded, which is defensible rather than merely convenient: 4c is a
+last-resort liquidity draw against a general cash shortfall, not a
+reimbursement of that year's medical spend. It also errs conservative --
+netting less means the correction is never more aggressive than the
+evidence supports, and it is why the lifetime-tax move (+12,144.47) is
+smaller than the after-4c placement produced (+19,524.81).
+`unfunded_gap` stays 0.00 in every fixture year.
+
+(The DAF re-deduction block later in the same function is the same shape
+with the opposite sign; it only ever lowers tax, which is why it can safely
+sit after the draws -- a shrinking gap needs no funding.)
 
 Two deliberate limits on scope:
 
@@ -57,29 +75,25 @@ Two deliberate limits on scope:
   what is deductible, not what is spent.
 * **The floor's AGI basis is left alone.** The shipped version nets the
   reimbursed dollars out of the deduction directly rather than re-deriving
-  `max(0, net_medical - 0.075*agi)` at the correction point.
-
-  Precision about what that is worth, since an earlier draft of this entry
-  overstated it: the two forms are **algebraically identical** while the
-  deduction is above the floor and `agi` is the same at both points, and on
-  this fixture's own configuration they are — planting the re-derived form
-  produces **byte-identical pins**, so no test in this repo distinguishes
-  them. They diverge only where `agi` has been mutated between the deduction
-  (computed early, off first-pass agi) and the correction (post-cascade);
-  measured under a `roth_policy='none'` configuration, re-deriving stripped
-  18,439 against a 10,168 reimbursement in one year. That is a real
-  divergence but **not** one that moves these pins.
-
-  Netting directly is still preferred, because it inherits whatever floor
-  the engine already applied instead of silently re-basing it — which keeps
-  this change scoped to the double benefit. Whether the floor should use
+  `max(0, net_medical - 0.075*agi)` at the correction point. Being precise
+  about what that is worth, since an earlier draft of this entry overstated
+  it: the two forms are **algebraically identical** while the deduction is
+  above the floor and `agi` is unchanged between the two points, and
+  planting the re-derived form produces **byte-identical pins** -- no test
+  here distinguishes them. They diverge only where `agi` has been mutated
+  in between; measured under a `roth_policy='none'` configuration,
+  re-deriving stripped 18,439 against a 10,168 reimbursement in one year.
+  Real, but not something that moves these pins. Netting directly is still
+  preferred because it inherits whatever floor the engine already applied
+  instead of silently re-basing it. Whether that floor should use
   first-pass or converged AGI is a real question, and a separate one.
 
 **Std-vs-itemized is re-evaluated**, so a household pushed below the
 standard deduction by this correction takes the standard one. That caps the
 damage at `item_ded - std_ded` rather than the full lost medical deduction,
-and is why the realized lifetime-tax move (+19,524.81) is below the ~27-30k
-a naive `lost_deduction x marginal_rate` estimate predicts.
+and is one of two reasons the realized lifetime-tax move (+12,144.47) sits
+well below the ~27-30k a naive `lost_deduction x marginal_rate` estimate
+predicts -- the other being the Priority-4c exclusion described above.
 
 **Blast radius.** Every household that both draws an HSA and itemizes
 medical costs above the floor sees higher tax and lower terminal net worth.
