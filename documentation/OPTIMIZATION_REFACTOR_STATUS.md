@@ -122,9 +122,27 @@ defensively since no config field exists in the CSV schema yet. Reports
 `survivor_period_*`/`liquidity_coverage_pct_by_year`) whenever no floor is
 configured, rather than a misleading 0.0 or 1.0. Reporting-only — never
 feeds back into `unfunded`/`liquid`/`total`/`path_success`/`success_rate`.
-Covered by `tests/test_legacy_floor_probability_regression.py` (7 tests:
+Covered by `tests/test_legacy_floor_probability_regression.py` (8 tests:
 None-when-unconfigured, trivially-low/absurdly-high floor bounds,
-monotonicity, both engines).
+monotonicity, both engines, plus a CSV-schema wiring test).
+
+### `legacy_floor` CSV-schema wiring
+
+Closes the "Not done" item below: added `Estate Planning / Legacy /
+legacy_floor` (dollars, default 0) to `reference_data/schema.csv`, a
+matching data row (`$0`, inert) to `input/demo/client_insurance_estate.csv`
+and `tests/fixtures/sample_plan_frozen/client_insurance_estate.csv`, and
+one line in `parse_client()` (`src/data_io.py`) reading it into
+`c['legacy_floor']`. No `frontend/js/dashboard.js` changes: the file was
+one line under its size-ratchet ceiling (`tests/test_frontend_size_ratchet.py`),
+and both existing generic fallbacks already cover this field without a
+bespoke entry — `fieldTooltipPreview` falls back to the schema row's
+`description` column for the short tooltip, and `fieldGuidance()` falls
+back to a generic purpose/impact/consider block for anything without a
+`FIELD_GUIDANCE_OVERRIDES` entry (the same precedent already used for the
+per-member QCD fields, per that function's own comment). The generic input
+row renders automatically from the schema entry, matching how every other
+`Estate Planning` field already works with zero bespoke `dashboard.js` code.
 
 ## Not done
 
@@ -132,11 +150,6 @@ monotonicity, both engines).
   engines (today's uniform `cut_mult` would become tier-prioritized). A much
   larger, riskier rewrite than the reporting-only additions above — treat as
   its own project, not a quick follow-on.
-- **`legacy_floor` CSV-schema / UI / docs wiring** — the backend metric
-  (`probability_legacy_floor_met`, above) works today via
-  `c.get('legacy_floor', 0.0)`, but no household-facing way to set the value
-  exists yet (CSV column, UI field, docs). Same status as every other Phase 2
-  metric in this file: backend ready, front end not yet wired.
 - **Phases 3–6 of the overall plan** (tax NPV / ELTR state-contingent tax
   modeling, LCV feasibility gate and scoring, adaptive policy guardrails,
   expanded stress scenarios) are entirely unimplemented.
