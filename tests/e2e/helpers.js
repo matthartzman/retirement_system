@@ -150,6 +150,23 @@ export async function navigateToStep(page, stepId, headingText) {
 export async function triggerBuildAndWaitForOverlay(page) {
   const title = page.locator('.build-overlay .build-progress-title');
 
+  // "Build Reports" only exists in the Reports & Review step's "Build" tab
+  // content (frontend/js/dashboard_decomp_checklist_closeout.js) -- it is
+  // simply absent from the DOM when the "Results" tab is showing instead.
+  // Root-caused directly against a failure screenshot (2026-08-26): when a
+  // prior spec in this shared-server suite (workbook-format-stale-cache.spec.js)
+  // already ran a real build, re-opening the plan lands on Reports & Review
+  // with "Results" active by default (there's existing output to show), not
+  // "Build" -- so the click below hung the full test timeout waiting for a
+  // button that was never going to appear. window.setReportsTab is exposed
+  // on window the same way window.setStep is (see navigateToStep above); call
+  // it here so this helper doesn't depend on whichever tab a previous test
+  // left active.
+  await page.evaluate(() => window.setReportsTab('Build'));
+  await expect(page.getByRole('button', { name: 'Build Reports' }).first()).toBeVisible({
+    timeout: 10_000,
+  });
+
   // The openCurrentPlan()/waitForPlanSettled() guard above closes the
   // planLoaded race for the COMMON case, but it cannot guarantee a second
   // loadAll() (e.g. periodic loadAll()-triggered background refreshes, or
