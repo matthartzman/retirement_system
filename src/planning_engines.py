@@ -3450,6 +3450,21 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         # either).
         'after_tax_terminal_nw_pct': _percentiles(all_after_tax_terminal_nw, 0.0),
         'post_tax_inheritance_pct': _percentiles(all_post_tax_inheritance, 0.0),
+        # Optimization-refactor Phase 2: "probability of meeting a user
+        # legacy floor" -- fraction of paths whose post-tax inheritance
+        # (the same after-tax bequest figure above, per path rather than
+        # percentile-ized) meets or exceeds a household-configured
+        # legacy_floor dollar target. No CSV/UI wiring exists for
+        # legacy_floor yet (a future product decision, not a code
+        # blocker) -- this reads it defensively via c.get() so it's
+        # already correct once that field exists, and reports None (not a
+        # misleading 0.0 or 1.0) when no floor is configured, matching the
+        # None-when-inapplicable convention used elsewhere in this file
+        # (liquidity_coverage_pct_by_year, survivor_period_*).
+        'probability_legacy_floor_met': (
+            sum(1 for v in all_post_tax_inheritance if v >= float(c.get('legacy_floor', 0.0) or 0.0)) / max(1, N)
+            if float(c.get('legacy_floor', 0.0) or 0.0) > 0 else None
+        ),
         # Optimization-refactor Phase 2: survivor-period dashboard rows --
         # see the accumulator comment above the sim loop for definitions.
         'survivor_period_applicable_probability': (
@@ -4232,6 +4247,7 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
     # sibling terminal_total_nw/terminal_liquid_assets convention.
     after_tax_terminal_nw_pct = None
     post_tax_inheritance_pct = None
+    probability_legacy_floor_met = None
     try:
         from .after_tax import estimate_after_tax_terminal_net_worth as _estimate_after_tax_terminal_net_worth
         _n_sims_actual = int(projection['total'].shape[0])
@@ -4251,6 +4267,12 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
             _post_tax_vals.append(float(_m.get('post_tax_inheritance', _terminal_path['total_nw']) or _terminal_path['total_nw']))
         after_tax_terminal_nw_pct = _percentiles(_after_tax_vals, 0.0)
         post_tax_inheritance_pct = _percentiles(_post_tax_vals, 0.0)
+        # Optimization-refactor Phase 2: "probability of meeting a user
+        # legacy floor" -- see monte_carlo_exact_scalar's matching
+        # accumulator comment for the None-when-unconfigured convention.
+        _legacy_floor = float(c.get('legacy_floor', 0.0) or 0.0)
+        if _legacy_floor > 0 and _post_tax_vals:
+            probability_legacy_floor_met = float(_np.mean(_np.asarray(_post_tax_vals) >= _legacy_floor))
     except Exception:
         pass
     return {
@@ -4275,6 +4297,7 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
         'worst_liquidity_coverage_ratio_pct': worst_liquidity_coverage_ratio_pct,
         'after_tax_terminal_nw_pct': after_tax_terminal_nw_pct,
         'post_tax_inheritance_pct': post_tax_inheritance_pct,
+        'probability_legacy_floor_met': probability_legacy_floor_met,
         'survivor_period_applicable_probability': survivor_period_applicable_probability,
         'survivor_period_failure_probability': survivor_period_failure_probability,
     }
@@ -4830,6 +4853,9 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None, survivor_buckets='__uns
         # distribution (see _mc_vectorized_batch/monte_carlo_exact_scalar).
         'after_tax_terminal_nw_pct': batch.get('after_tax_terminal_nw_pct'),
         'post_tax_inheritance_pct': batch.get('post_tax_inheritance_pct'),
+        # Optimization-refactor Phase 2: "probability of meeting a user
+        # legacy floor" (see _mc_vectorized_batch/monte_carlo_exact_scalar).
+        'probability_legacy_floor_met': batch.get('probability_legacy_floor_met'),
         # Optimization-refactor Phase 2: survivor-period dashboard rows
         # (see _mc_vectorized_batch for definitions).
         'survivor_period_applicable_probability': batch.get('survivor_period_applicable_probability'),
