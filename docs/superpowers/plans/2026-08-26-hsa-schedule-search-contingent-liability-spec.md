@@ -100,20 +100,108 @@ schedule. The docstring measures it — a joint 2028 year at 22% scoring
 fixed amount, "a 2.2x gap in the wrong direction." The caller must pass each
 year's actual grown amount.
 
+## Follow-up research (resolves all three open questions below)
+
+Done before implementing. Three findings, two of which correct this
+document's own earlier claims.
+
+### R1. The house pattern is candidate scoring, not a two-pass approximation
+
+Open question 1 asked how the Roth optimizer resolves the
+schedule-depends-on-rows-depends-on-schedule circularity, "before inventing
+a second answer." It does not use a two-pass approximation at all.
+`optimize_roth_conversion_strategy` (`planning_engines.py:2570`) enumerates
+~10-12 **named, parameterized** candidates
+(`_roth_strategy_candidate_specs`) and runs a **full `run_scenario` per
+candidate**, scoring each on its own projection:
+
+```python
+for spec in _roth_strategy_candidate_specs(c):
+    c2, rows = run_scenario(base, overrides)   # full projection per candidate
+    candidates.append({**spec, **_roth_strategy_metrics(c2, rows)})
+candidates.sort(...); best = candidates[0]
+```
+
+Every candidate is evaluated on a projection that already has that
+candidate's policy in effect, so each score is self-consistent by
+construction. **This supersedes the two-pass framing in Option A below**,
+which would have scored a schedule against a tax context produced *without*
+it.
+
+> **Correction, found during implementation.** This section originally
+> concluded "there is no convergence problem." That is half right, and the
+> half that is wrong matters. Candidate *scoring* is self-consistent, so an
+> adopted schedule is never worse than the incumbent. But candidate
+> *generation* still reads the incumbent's rows for tax context, so a single
+> round does **not** reach a fixed point: measured on the frozen fixture, a
+> re-run against an adopted proposal beat it again by ~1.7% (29,170 →
+> 29,680). This was caught by the convergence regression written for the
+> implementation, not by inspection.
+>
+> The fix is bounded iteration, which is safe precisely *because* of the
+> scoring property: a round is adopted only when it scores strictly higher,
+> so the sequence is monotonic and cannot end below where it started. The
+> shipped search iterates up to `_SCHEDULE_SEARCH_MAX_ROUNDS` (4), stopping
+> early once a round fails to add `_SCHEDULE_SEARCH_MIN_GAIN` ($1). On the
+> frozen fixture it settles in 4 rounds at 29,698 and a subsequent run stops
+> after one round having adopted nothing.
+
+### R2. `score_year`'s grown-amount contract is already honored
+
+Recommendation step 3 below ("honor `score_year`'s grown-amount contract")
+is **already done** and should not be re-implemented. `schedule_score`
+(`hsa_schedule.py:788`) documents and implements it explicitly — it tracks
+the balance grow-then-draw and passes each year's *actual grown* amount,
+naming this as what closes `score_year`'s documented front-loading gap.
+`build_schedule` likewise scores "the increment GROWN to that year, so the
+comparison is like-for-like." The 2.2x front-loading defect is a hazard for
+a *new* caller, not a live defect in the existing machinery.
+
+So the existing search machinery is more complete than this spec assumed:
+`schedule_score`, `build_schedule` (a weight-based allocator with an
+anti-back-loading mortality gradient), and `rerun_optimizer` all exist and
+are coherent. **What is missing is purely the wiring** — nothing calls them
+from the projection pipeline.
+
+### R3. Cost is a non-issue
+
+Open question 2 worried about the per-build cost, citing the 81×
+`monte_carlo()` CI-timeout lesson. Measured on the frozen fixture: a
+**full-horizon `project()` is ~20-60ms** (31 rows). The 81× incident was
+`monte_carlo()`, which is orders of magnitude more expensive; `project()`
+is not in that class. The Roth optimizer already spends ~12 full scenarios
+per build on the same basis. One or two extra projections for the HSA
+schedule is negligible, and no special performance design is needed —
+though an `-m slow` pass is still owed before calling it verified.
+
 ## Options
 
-**Option A — Wire the two-pass search; add no CL term** (recommended).
-Deliver what is actually missing and well-founded: make `optimize` mode run
-a real search instead of a static level-draw placeholder. Scope: a baseline
-projection for tax context, `build_schedule`/`rerun_optimizer`, then the
-real projection consuming the result; plus honoring `score_year`'s
-grown-amount contract, since passing constant nominal amounts is a known
-front-loading defect with a measured magnitude. CL need enters only through
-the tax context it already produces (the medical deduction moves the
-marginal rate, and `score_year` reads that) — which is the *correct*
-mechanism, and is already wired.
+**Option A — Wire the search as a scored candidate; add no CL term**
+(recommended). Make `optimize` mode run a real search instead of the static
+level-draw placeholder. Per R1, structure it the way this codebase already
+resolves this exact circularity: build a candidate schedule from a baseline
+projection, then **score it against the existing default/level schedule by
+running a full scenario for each** and taking the better. That makes the
+result never worse than today's placeholder by construction, which is a
+stronger guarantee than a one-shot two-pass sequence gives, and it reuses
+the established pattern rather than inventing a second one. Per R2, the
+grown-amount handling is already correct and needs no work. CL need enters
+only through the tax context it already produces (the medical deduction
+moves the marginal rate, and `score_year` reads that) — the *correct*
+mechanism, already wired.
 
-**Option B — Model per-year qualified-expense capacity.** Replace the
+**Option B — Model per-year qualified-expense capacity.** ⚠️ **Superseded —
+do not build as written.** Follow-up research
+(`2026-08-26-hsa-expense-bank-and-double-dip-spec.md`) established that a
+*cumulative* bank is the correct tax model, not a defect: a qualified
+expense can justify a tax-free withdrawal at any later date, which is the
+basis of the "shoebox" strategy. A per-year cap would model the wrong rule.
+That research also found the real defect underneath — the same medical
+dollar can currently take both a tax-free HSA reimbursement and a Schedule A
+deduction, because nothing nets HSA draws out of `medical_expense_yr`. See
+that spec. Original text follows for the record:
+
+Replace the
 lifetime `hsa_expense_bank` scalar with a per-year qualified-expense figure
 (which `medical_expense_yr` already computes), bounding tax-free draws
 year-by-year. This is the change that would make CL-awareness genuinely
@@ -137,13 +225,18 @@ from the roadmap in favor of Option B as the real successor. Concretely:
    the 2026-08-26 design doc, both of which currently point a future
    implementer at Option C. Leaving an incorrect hook documented is worse
    than leaving nothing.
-2. Wire the two-pass sequence for `optimize` mode, with a feature gate so a
-   failed/degenerate search falls back to `generate_default_schedule` rather
-   than producing an unfunded plan.
-3. Honor `score_year`'s grown-amount contract; add a regression pinning the
-   H3.5(a) property its docstring names — the optimizer must beat
-   `smooth_window` by weighting survivor years — since that is precisely
-   what a constant-nominal caller silently fails.
+2. Wire `optimize` mode as a **scored candidate comparison** (per R1), not a
+   one-shot two-pass: baseline projection → `build_schedule` → score that
+   schedule and the existing default/level schedule by running a full
+   scenario for each → keep the better. A degenerate or failing search then
+   loses to the placeholder on score rather than needing a separate feature
+   gate, so the result is never worse than today's behavior by
+   construction.
+3. ~~Honor `score_year`'s grown-amount contract~~ — **already done**, see R2.
+   Still add a regression pinning the H3.5(a) property `score_year`'s
+   docstring names (the optimizer must beat `smooth_window` by weighting
+   survivor years), because that property is currently asserted nowhere and
+   is what a future constant-nominal caller would silently break.
 4. Blast radius to establish before implementing: `optimize` **is** reachable
    (`data_io.py:1274`), so unlike the 2026-08-19 changelog's stale claim this
    is not a zero-household change. The frozen fixture uses `smooth_window`,
@@ -151,18 +244,17 @@ from the roadmap in favor of Option B as the real successor. Concretely:
 
 ## Open questions
 
-1. **Two-pass convergence.** The baseline run's tax context differs from the
-   final run's (the schedule changes AGI, which changes marginal rates,
-   which would change the schedule). Is one pass enough, or does this need
-   iteration to a fixed point — and if one pass, what bounds the error? The
-   Roth optimizer faces the same shape of problem; worth checking how it
-   resolves this before inventing a second answer.
-2. **Cost.** A baseline projection per build is real work, and the Phase 1
-   items 4-6 lesson in `OPTIMIZATION_REFACTOR_STATUS.md` is that an 81×
-   `monte_carlo()` sweep caused genuine CI timeouts. Measure before wiring,
-   and run an `-m slow` pass.
-3. **Does Option B belong first?** If per-year capacity is the real
-   constraint, a search built without it may optimize against a model that
-   permits draws it shouldn't. Sequencing A→B means A's schedules get
-   re-derived once B lands. Worth deciding deliberately rather than by
-   default.
+1. ~~**Two-pass convergence.**~~ **Resolved by R1** — the house pattern
+   (candidate + full scenario per candidate) makes each score
+   self-consistent, so there is no fixed point to chase.
+2. ~~**Cost.**~~ **Resolved by R3** — `project()` is ~20-60ms; the 81×
+   incident was `monte_carlo()`, a different class of cost. An `-m slow`
+   pass is still owed, but no performance design is needed.
+3. **Does Option B belong first?** Still open, but **less pressing under the
+   R1 architecture**: a schedule built against a model that permits
+   over-generous tax-free draws is still *scored* on its own real
+   projection and must beat the placeholder to be adopted, so the failure
+   mode is a mediocre schedule that loses the comparison, not a silently
+   wrong one that ships. Sequencing A→B still means A's schedules get
+   re-derived once B lands. Worth deciding deliberately, but it no longer
+   blocks A.
