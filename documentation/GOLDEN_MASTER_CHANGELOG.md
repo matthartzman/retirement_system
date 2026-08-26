@@ -1,3 +1,72 @@
+## 2026-08-26 — Contingent-liability spending draws the HSA first: no pins moved, but HSA sourcing changes for households with an LTC premium
+
+**Not a change to any figure on the frozen fixture. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**
+
+**Why the pins don't move.** The `contingent_liability` spending tier is
+`ltc_prem_yr + wellness_shock_yr`. On the frozen fixture both are zero in the
+deterministic run that produces the pins: no `ltc_enabled`/`ltc_annual_prem`
+is configured in its `client_assets.csv`, and `wellness_shock_yr` is only ever
+populated from `c['wellness_shock_by_year']`, which `project()` never sets --
+it is sampled per-path inside the Monte Carlo engines. So the new funding step
+has nothing to draw and is a complete no-op on the pinned household. Confirmed
+by running the golden-master gate before and after, not merely asserted.
+
+**What changed.** `fund_contingent_liability_from_hsa` (`planning_engines.py`)
+funds that tier from the HSA ahead of the ordinary withdrawal cascade, as a new
+Priority 1b in `deterministic_engine.py` placed *before* the scheduled window
+draw so the latter sizes itself against what remains. Both components are
+qualified medical expense, so the draw is tax-free out and needs no
+`hsa_owner_age`/penalty plumbing -- a qualified draw cannot produce the
+non-qualified dollars carrying the pre-65 20% penalty.
+
+Before this, neither component had any HSA-preferential treatment: the
+deterministic engine calls `withdraw_hsa_window` with
+`wellness_cost=row['wellness_base_yr']`, which is `wellness_premium_yr +
+wellness_detail_budget_yr` and excludes both. The account designed for medical
+costs was funding them only incidentally, via the generic cascade.
+
+**This is a re-sourcing change, not a re-sizing one.** `total_spend` is
+identical with and without the new step -- measured at $330,065.08 across all
+four `hsa_withdrawal_mode` values on a probe household carrying a $12k LTC
+premium. Only *which account pays* changes. The visible consequence is that an
+affected household's HSA depletes earlier (on that probe: $74.5k -> $30.2k ->
+$0 across 2026-2028 rather than lasting longer), with correspondingly more
+taxable/pre-tax left intact -- which is the intended effect, and interacts with
+the HSA terminal cliff that `hsa_terminal_tax` already models.
+
+**Deliberately defers to `hsa_withdrawal_mode` rather than overriding it.**
+Suppressed under `optimize`, and before and during the window under
+`smooth_window`/`annual_pct`; resumes after the window ends. An unscheduled
+draw stacked on a scheduled one is the shape of the real user-reported defect
+fixed on 2026-08-20 (a $2,000/yr override that never appeared because
+gap-fills drained the account years early). The gating predicate was therefore
+*extracted* from `withdraw_hsa_gap` into a shared
+`hsa_unscheduled_draw_allowed` rather than duplicated -- a copied-and-drifted
+rule is exactly how that defect arose. Design rationale:
+`docs/superpowers/plans/2026-08-26-contingent-liability-funding-rules-design.md`.
+
+**Also gated: the vectorized MC engine's pre-existing wellness-shock HSA draw.**
+`_mc_vectorized_projection` already drew sampled shocks from the HSA first, but
+ungated -- which would now contradict the deterministic engine under scheduled
+modes. It shares the predicate. **Consequence:** `monte_carlo()`'s
+`success_rate` moves for households on `smooth_window`/`annual_pct`/`optimize`
+that sample a wellness shock, because those shocks now fall to taxable in
+window years instead of drawing the HSA the schedule has claimed. This is
+intentional -- the two engines disagreeing about the same tier was the defect
+-- not a regression. The premium half needed no wiring in either MC engine: it
+propagates through the deterministic rows they consume (the scalar reruns
+`project()`; the vectorized reads `eff['withdrawals']['hsa']`).
+
+**Blast radius.** Bit-identical for households on `optimize`, inside an
+`annual_pct`/`smooth_window` window, or with no contingent-liability spend at
+all -- which includes the frozen fixture and the demo plan. Real for
+`spend_as_needed` (the parse default) or post-window households configuring an
+LTC premium, plus MC success rates as described above.
+
+New coverage: `tests/test_contingent_liability_hsa_funding_regression.py` (15
+tests). The two mode-deference guards were demonstrated red against a planted
+"override the mode" defect before being trusted, per §3 rule 2.
+
 ## 2026-08-24/25 — Optimization-refactor Phase 1 items 2-6: no pins moved, but vectorized MC `success_rate` now differs by design for survivor-sensitive households
 
 **Not a deterministic-engine change to any existing plan. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**

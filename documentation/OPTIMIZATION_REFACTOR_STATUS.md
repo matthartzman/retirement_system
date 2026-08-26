@@ -119,6 +119,46 @@ that real (e.g. HSA preferentially funding essential/medical spend beyond
 its current shock-only role) is the larger, riskier rewrite the "Not done"
 item below still refers to.
 
+### Phase 2 follow-on — Contingent-liability funding rules (PR #66)
+
+The `contingent_liability` tier (`ltc_prem_yr + wellness_shock_yr`) now
+draws the HSA ahead of the ordinary cascade, via
+`fund_contingent_liability_from_hsa` as a new Priority 1b in
+`deterministic_engine.py` (before the scheduled window draw, so that
+sizes itself against what remains). Both components are qualified
+medical expense, so the draw is tax-free out and needs no owner-age or
+penalty plumbing.
+
+Before this, neither component had ANY HSA-preferential treatment —
+`withdraw_hsa_window` is called with `wellness_cost=wellness_base_yr`,
+which excludes both. This corrected a real gap, not a cosmetic one.
+
+**Defers to `hsa_withdrawal_mode`** (suppressed under `optimize`, and
+before/during the window under `smooth_window`/`annual_pct`; resumes
+after). The gating predicate was extracted from `withdraw_hsa_gap` into
+a shared `hsa_unscheduled_draw_allowed` rather than duplicated, because
+a copied-and-drifted copy of that rule is exactly how the 2026-08-20
+double-depletion defect arose. Also gated the vectorized MC engine's
+pre-existing *ungated* shock-HSA-first block on the same predicate, so
+the engines cannot disagree about the same tier.
+
+Re-sourcing, not re-sizing: `total_spend` is identical across all four
+modes. Golden-master pins unmoved (the frozen fixture has no LTC premium
+and `project()` never samples a shock). Design rationale in
+`docs/superpowers/plans/2026-08-26-contingent-liability-funding-rules-design.md`;
+blast radius in `documentation/GOLDEN_MASTER_CHANGELOG.md`'s 2026-08-26
+entry. Covered by
+`tests/test_contingent_liability_hsa_funding_regression.py` (15 tests,
+mode-deference guards mutation-tested red first).
+
+**Left open by design:** contingent-liability need should influence
+`optimize` mode *through the schedule search*, not by bypassing it. That
+search (`hsa_schedule.rerun_optimizer`/`build_schedule`) is still not
+wired into the projection pipeline. `score_year` already receives a
+projection row carrying Phase 0's `spend_by_tier`, so the signal needs no
+new plumbing when someone wires it — see the design doc's `optimize`
+section.
+
 ## Not done
 
 - **Genuinely redirecting withdrawal requests (not just reporting
@@ -127,8 +167,18 @@ item below still refers to.
   just how a cut's dollars are reported across tiers (that reporting slice
   is now done — see PR #64 above). Still a much larger, riskier rewrite
   than the reporting-only additions above — treat as its own project, not
-  a quick follow-on.
-- **Contingent-liability funding rules.**
+  a quick follow-on. Note that PR #66 has since carved out the
+  contingent-liability tier specifically, which is a genuine
+  request-redirection for that one tier; what remains is the general case
+  for essential/important/discretionary.
+- **Wiring the HSA schedule search** so `optimize` mode can weigh
+  contingent-liability need (see PR #66's "left open by design" above).
+- **Reclassifying `ltc_prem_yr`** out of `contingent_liability` into
+  `essential` — it is a scheduled premium, not a shock, and is tiered as
+  contingent only because it *hedges* a contingent liability. Taxonomy
+  correctness only; would shift `spend_by_tier` percentages that the
+  Phase 2 dashboard metrics read, so it needs its own regression coverage
+  (Option C in the 2026-08-26 design doc).
 - **"Probability of meeting a user legacy floor"** — no `legacy_floor`-style
   config field exists anywhere in this codebase yet. Adding one needs a
   CSV-schema / UI / docs decision, not just a reporting-layer computation.
