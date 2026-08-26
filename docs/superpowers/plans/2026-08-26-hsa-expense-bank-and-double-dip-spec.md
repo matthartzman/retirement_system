@@ -159,6 +159,82 @@ Steps:
    deduction correction, not a spending one.
 5. Verify per the standing discipline, including an `-m slow` pass.
 
+## Implementation note (added after Option A shipped as PR #68): the bank is currently dead code
+
+Before starting Option B, re-verified `hsa_available_to_draw` (the function
+that applies `hsa_expense_bank` as a cap) against every draw site in the
+cascade. Finding: **`hsa_expense_bank` currently has zero effect on any
+projection output.** `hsa_available_to_draw` is only reachable through
+`withdraw_hsa_window`'s `requested=`/`cumulative_drawn=` parameters, and
+nothing in the codebase calls it with those — Priority 2's real call site is
+`withdraw_hsa_window(c, bal, year, wellness_cost=...)`, no `requested`. The
+other two draw sites, `fund_contingent_liability_from_hsa` (Priority 1b) and
+`withdraw_hsa_gap` (Priority 4c), never call `hsa_available_to_draw` at all —
+they cap by balance and the liquidity-reserve floor only. So accumulating the
+bank, on its own, would grow a number nothing reads. This increment now
+covers enforcement as well as accumulation.
+
+**Scope was narrowed after checking the blast radius directly**, rather than
+capping every draw site uniformly:
+
+- **Enforced**: Priority 1b (`fund_contingent_liability_from_hsa`) and
+  Priority 4c (`withdraw_hsa_gap`) — the two sites that already share
+  `hsa_unscheduled_draw_allowed`. Both now cap their draw by
+  `hsa_available_to_draw` against a running bank balance.
+- **Not enforced, deliberately**: `withdraw_hsa_window`'s scheduled modes
+  (`spend_as_needed`'s default wellness-cost draw, `smooth_window`,
+  `annual_pct`, `optimize`). These already carry the codebase's established
+  "mode is the sole authority" precedent (the same reasoning
+  `hsa_unscheduled_draw_allowed`'s docstring gives for suppressing Priority
+  1b/4c under a configured schedule) — a household that set up a level-draw
+  window has expressed an explicit drawdown intent, and silently truncating
+  it against a bank estimate risks the same class of surprise as the
+  2026-08-20 double-depletion bug. Capping the two unscheduled sites still
+  makes the bank a real, enforced constraint for the first time; capping the
+  scheduled modes too is a larger, separate decision and is left as
+  explicitly deferred future work.
+- **`hsa_nonqualified_treatment='allow_taxable'` is not extended** to the
+  newly-enforced sites. Both `fund_contingent_liability_from_hsa` and
+  `withdraw_hsa_gap` simply draw less once the bank is exhausted (the excess
+  falls through to the next cascade priority); it is never converted to a
+  taxable/penalized HSA distribution. That conversion already exists for
+  `withdraw_hsa_window`'s `requested=` path (unreachable today) and is not
+  duplicated here — the two unscheduled sites can never produce non-qualified
+  dollars by construction, so there is nothing to convert.
+- **Verified against the frozen fixture**: its `hsa_withdrawal_mode` is
+  `smooth_window` and `hsa_expense_bank` is blank. Because smooth_window is
+  one of the not-enforced modes, Priority 2's core leveled draw is untouched
+  by this change; only whatever the fixture draws through 1b/4c is newly
+  capped. This bounds the pin-move risk considerably versus capping every
+  mode.
+- **MC engines are out of scope.** `_mc_vectorized_projection` and
+  `monte_carlo_exact_scalar` reimplement the contingent-liability HSA draw
+  inline (arrays, not a call to `fund_contingent_liability_from_hsa`), so
+  they do not pick up this change automatically. Left as a documented
+  follow-up rather than folded in here.
+
+### Accumulation mechanics
+
+A single running scalar, `hsa_bank_balance`, threaded through the year loop
+the same way `lifetime_exemption_used` already is (declared once above the
+loop, updated in place, never reset):
+
+- Seed: `float(c.get('hsa_expense_bank'))` if set, else `0.0`. This is the
+  one deliberate behavior change to blank's meaning — "unlimited" becomes
+  "nothing entered yet, accrues from here" — accepted per the blast-radius
+  discussion above.
+- Each year, before Priority 1b: `hsa_bank_balance += medical_expense_yr`
+  (that year's qualified medical spend — already computed earlier in the
+  same function, at the deduction step).
+- After each of Priority 1b's and Priority 4c's draws:
+  `hsa_bank_balance -= amount_drawn` (floored at 0).
+- The two draw sites see the current balance via a local `dict(c,
+  hsa_expense_bank=hsa_bank_balance)` override passed only to that call —
+  `c['hsa_expense_bank']` itself (the user's raw entry) is left untouched so
+  nothing else reads a mutated value.
+- `row['hsa_expense_bank_balance']` records the ending balance for the year,
+  for visibility and test assertions.
+
 ## Open questions
 
 1. **Row ordering** (step 1) — genuinely open, and the main risk. Worth

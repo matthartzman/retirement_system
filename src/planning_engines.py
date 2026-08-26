@@ -1174,9 +1174,14 @@ def fund_contingent_liability_from_hsa(c: Mapping, bal: BalanceMap,
     ids = list(c.get("hsa_ids", []) or [])
     if not ids:
         return unfunded
-    total_hsa = sum(max(0.0, float(bal.get(aid, 0.0) or 0.0)) for aid in ids)
-    floor = liquidity_reserve_floor(c, year, "hsa", spend_floor_base)
-    amount = min(need, max(0.0, total_hsa - floor))
+    # hsa_available_to_draw composes the liquidity-reserve floor and the
+    # substantiated-expense bank correctly (floor first, bank against the
+    # remainder) -- see its docstring. Both this function and
+    # withdraw_hsa_gap draw only qualified dollars by construction, so the
+    # bank cap applies outright; there is no non-qualified overflow to
+    # convert to taxable income the way withdraw_hsa_window's requested path
+    # can.
+    amount = min(need, hsa_available_to_draw(c, bal, 0.0, year, spend_floor_base))
     if amount <= 1e-6:
         return unfunded
     by_account = _draw_pro_rata_accounts(bal, ids, amount)
@@ -1213,10 +1218,12 @@ def withdraw_hsa_gap(c: Mapping, bal: BalanceMap, gap: float, year: int = 0,
     if not hsa_unscheduled_draw_allowed(c, year):
         return {"amount": 0.0, "new_gap": gap, "by_account": {}}
     ids = list(c.get("hsa_ids", []) or [])
-    # A reserve configured against the HSA bucket holds HSA dollars back (P8).
-    total_hsa = sum(max(0.0, float(bal.get(aid, 0.0) or 0.0)) for aid in ids)
-    floor = liquidity_reserve_floor(c, year, "hsa", spend_floor_base)
-    amount = min(float(gap or 0.0), max(0.0, total_hsa - floor))
+    # hsa_available_to_draw composes the liquidity-reserve floor (P8) and the
+    # substantiated-expense bank (floor first, bank against the remainder).
+    # This draw is claimed tax-free like any other qualified HSA withdrawal,
+    # so it draws down the same bank capacity Priority 1b does -- there is no
+    # non-qualified overflow to convert to taxable income here either.
+    amount = min(float(gap or 0.0), hsa_available_to_draw(c, bal, 0.0, year, spend_floor_base))
     by_account = _draw_pro_rata_accounts(bal, ids, amount)
     drawn = sum(by_account.values())
     return {"amount": drawn, "new_gap": gap - drawn, "by_account": by_account}
