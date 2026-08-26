@@ -1,3 +1,15 @@
+## 2026-08-26 — Optimization-refactor Phase 2 addition: `legacy_floor` CSV-schema wiring
+
+**No pins moved. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**
+
+Follow-up to the `probability_legacy_floor_met` reporting field below: adds
+the `Estate Planning / Legacy / legacy_floor` schema row (dollars, default
+0) so households can actually set it, plus one line in `parse_client()`
+reading it into `c['legacy_floor']`. The frozen golden-master fixture's new
+row is `$0` (inert, matching the schema default), so the pinned figures are
+unaffected. No `frontend/js/dashboard.js` changes were needed or made — see
+`documentation/OPTIMIZATION_REFACTOR_STATUS.md`'s matching entry for why.
+
 ## 2026-08-26 — Optimization-refactor Phase 2 addition: probability of meeting a user legacy floor
 
 **No pins moved. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**
