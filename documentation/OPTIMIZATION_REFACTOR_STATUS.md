@@ -4,8 +4,10 @@ Tracks progress on the "Final Optimization Implementation Plan — Revised": a
 multi-phase rewrite of the retirement system's Monte Carlo/tax/decision engine
 toward a constrained, multi-objective, state-contingent policy framework
 (replacing terminal-net-worth-only optimization with a Lifetime
-Consumption-and-Transfer Value / LCV framing). Work happens on branch
-`claude/plan-execution-tg1rps`, PR #59.
+Consumption-and-Transfer Value / LCV framing). Phase 0-2 landed via
+`claude/plan-execution-tg1rps`, PR #59 (merged). The tier-priority-cut
+follow-on below landed via `claude/confit-optimization-refactor-cyyk9v`,
+PR #64 (merged).
 
 This document is the durable record of what's done and what's next — the
 in-session planning notes Claude Code keeps locally do not survive a new
@@ -76,12 +78,56 @@ verified against the full local suite, the `-m slow` build-functional suite,
 and CI, with zero regressions against the pre-existing baseline failure set
 (see below).
 
+### Phase 2 follow-on — Tier-priority MC spending cuts (PR #64)
+
+Scoped down from the "redirect actual withdrawal amounts by tier priority"
+item below into a safe, reporting/attribution-only slice: the vectorized MC
+engine's `spend_cut_frac` (used only by the diagnostic
+`_mc_required_cut_distribution`/`sustainable_spending_solve` binary
+searches, never the primary success/failure computation) previously shrank
+discretionary/important/essential spend by the identical fraction. New
+`_mc_tier_priority_retained` (`planning_engines.py`) redistributes the SAME
+total dollar cut by cut priority instead — discretionary first, essential
+protected last — mirroring the cascade `spending_priority_cut_check`
+already uses for reporting. `contingent_liability` keeps the pre-existing
+uniform treatment and stays excluded from the cascade (its own funding
+rules are the separate, still-not-built item below).
+
+Deliberately proven NOT to touch withdrawal totals: for a fixed
+`spend_cut_frac` the aggregate dollars pulled from
+taxable/pretax/roth/cash — and therefore `unfunded`/`liquid`/`total`/
+`path_success`/`success_rate` — are unchanged, since the total dollar cut
+across the three cuttable tiers is conserved regardless of which tier
+absorbs it. Only `spend_{tier}_real`, `essential_shortfall_real`, and
+`essential_fully_funded` change. `spend_cut_frac` defaults to `0.0` for
+every other caller, so this is a no-op for the overwhelming majority of
+calls. Golden master pins unmoved (untouched deterministic engine).
+
+Covered by `tests/test_mc_tier_priority_cut_regression.py` (cascade-helper
+unit tests plus engine-level no-cut-is-bit-identical / cut-stays-within-
+discretionary-and-important / total-unaffected-by-attribution tests).
+Verified against the existing Phase 1/2 spend-by-tier and cut-statistics
+tests (unchanged), the golden master (unmoved), and CI (Windows job green;
+`e2e-tests` confirmed still base-red on `main` itself, unrelated).
+
+**What "actual withdrawal amounts" still means literal redirection, not yet
+done**: the withdrawal REQUESTS pulled from each tax bucket
+(taxable/pretax/roth/cash) are still a single blended `cut_mult`/survivor/
+tax-drag figure — they are not themselves split or reordered by spend
+tier, because spend tiers aren't tagged to which bucket funds them. Making
+that real (e.g. HSA preferentially funding essential/medical spend beyond
+its current shock-only role) is the larger, riskier rewrite the "Not done"
+item below still refers to.
+
 ## Not done
 
-- **Redirecting actual withdrawal amounts by tier priority** inside the MC
-  engines (today's uniform `cut_mult` would become tier-prioritized). A much
-  larger, riskier rewrite than the reporting-only additions above — treat as
-  its own project, not a quick follow-on.
+- **Genuinely redirecting withdrawal requests (not just reporting
+  attribution) by tier priority** inside the MC engines — which bucket
+  (taxable/pretax/roth/cash/HSA) gets drawn down to fund which tier, not
+  just how a cut's dollars are reported across tiers (that reporting slice
+  is now done — see PR #64 above). Still a much larger, riskier rewrite
+  than the reporting-only additions above — treat as its own project, not
+  a quick follow-on.
 - **Contingent-liability funding rules.**
 - **"Probability of meeting a user legacy floor"** — no `legacy_floor`-style
   config field exists anywhere in this codebase yet. Adding one needs a
@@ -135,11 +181,9 @@ and CI, with zero regressions against the pre-existing baseline failure set
 
 ## Resuming this work in a new session
 
-1. `git fetch origin claude/plan-execution-tg1rps && git checkout claude/plan-execution-tg1rps`
-   — recovers all code/tests/docs; the branch is kept fully pushed after
-   every increment.
-2. Check PR #59's CI status and this file's **Not done** section for the
-   next increment.
+1. Both PR #59 and PR #64 are merged to `main` — start a fresh branch off
+   `main` rather than resuming either of those branches.
+2. Check this file's **Not done** section for the next increment.
 3. Follow the verification discipline above — targeted regression tests
    first, then a full `-m "not slow"` suite diff against the baseline
    identity, then an `-m slow` pass for anything touching MC performance,
