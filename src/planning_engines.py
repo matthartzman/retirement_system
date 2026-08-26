@@ -781,7 +781,14 @@ def sample_household_death_years(c: Mapping, rng: random.Random) -> dict:
         w = sample_death_year(c, 1, rng)
     else:
         w = int(c.get('w_death_yr', h))
-    return {'h_death_yr': h, 'w_death_yr': w, 'plan_end': max(h, w)}
+    # Adjacent fix found while implementing Phase 1 items 4-6: without this,
+    # every scalar MC path left first_death_yr at the base config's stale
+    # value (or 0), so deterministic_engine.py's Qualifying-Surviving-Spouse
+    # 2-year MFJ-extension window (gated on qss_dependent) was timed off the
+    # wrong year for every qss_dependent=True path. The primary MFJ->single
+    # filing-status switch is unaffected (it keys off h_death_yr/w_death_yr
+    # directly, not first_death_yr).
+    return {'h_death_yr': h, 'w_death_yr': w, 'first_death_yr': min(h, w), 'plan_end': max(h, w)}
 
 # ===== END mortality_engine.py =====
 
@@ -3003,14 +3010,14 @@ def _run_one_mc_path(c: dict, rng: random.Random, mu: float, sig: float, use_ass
     # paths directly, so each scalar MC path uses its own sampled tax thresholds
     # rather than a geometric-mean approximation.
     rows = project(c2)
-    return rows, years, returns, return_diag, inflation_paths
+    return rows, years, returns, return_diag, inflation_paths, c2
 
 
 def _sensitivity_success_rate(c: dict, mu: float, sig: float, n_sims: int, seed: int, threshold: float) -> float:
     rng = random.Random(seed)
     successes = 0
     for _ in range(max(1, int(n_sims))):
-        rows, _years, _returns, _diag, _infl = _run_one_mc_path(c, rng, mu, sig, use_asset_classes=False)
+        rows, _years, _returns, _diag, _infl, _c2 = _run_one_mc_path(c, rng, mu, sig, use_asset_classes=False)
         if _funding_success(rows, threshold):
             successes += 1
     return successes / max(1, int(n_sims))
@@ -3069,6 +3076,89 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
 
     all_total_by_year = defaultdict(list)
     all_liquid_by_year = defaultdict(list)
+    # Phase 1 (optimization refactor): per-path, per-year spend-by-tier,
+    # deflated to plan-start (real) dollars using EACH path's own sampled
+    # inflation_index_by_year -- not the blanket deterministic assumption.
+    # rows already carry spend_by_tier (Phase 0, deterministic_engine.py)
+    # in this path's own nominal dollars, since project(c2) above consumes
+    # c2['inflation_index_by_year'] directly. Purely additive: does not
+    # affect success/failure, terminal values, or any existing output.
+    all_spend_by_tier_by_year: dict[str, dict[int, list]] = defaultdict(lambda: defaultdict(list))
+    # Phase 1 items 2-3: same per-path, real-dollar aggregation pattern for
+    # tax/gross-cash-flow (tax NPV / ELTR inputs) and realized lifetime
+    # gift/charity transfers. gift_total/qcd_total/daf_contrib are the only
+    # REALIZED cash/asset-transfer fields (daf_grant_yr and the *_deduction_yr
+    # fields are tax/DAF-internal bookkeeping and would double-count if summed
+    # here -- see deterministic_engine.py's daf_grant_yr/charitable_deduction_yr
+    # comments).
+    all_tax_by_year: dict[int, list] = defaultdict(list)
+    all_gross_cash_flow_by_year: dict[int, list] = defaultdict(list)
+    _GIFT_CHARITY_FIELDS = (('daf_contrib', 'daf_contrib_yr'), ('qcd_total', 'qcd_total_yr'), ('gift_total', 'gift_total_yr'))
+    all_gift_charity_by_year: dict[str, dict[int, list]] = defaultdict(lambda: defaultdict(list))
+    all_lifetime_gift_charity_pv: list = []
+    # Phase 2 (optimization refactor): "probability essential spending is
+    # fully funded" -- counts paths whose essential-tier shortfall (the
+    # discretionary -> important -> essential cascade against each year's
+    # row['unfunded_gap'], same logic as spending_priority_cut_check) is
+    # zero in every year. This engine already has row['unfunded_gap'] and
+    # row['spend_by_tier'] for free (each path is a full deterministic
+    # rerun), so no new engine computation is needed -- just attribution.
+    essential_fully_funded_count = 0
+    # Phase 2 (optimization refactor): genuine per-path MC cut statistics --
+    # "probability of any cut," worst annual cut depth, longest consecutive
+    # run of cut years, and cumulative real-dollar shortfall -- computed from
+    # each path's own realized row['unfunded_gap'] (the same figure the
+    # essential-fully-funded cascade above already reads), not a single
+    # hypothetical solved cut_frac (that is spending_priority_cut_check's
+    # job, a reporting-layer re-label of ONE scenario). "Cut" here means any
+    # unfunded_gap > $1 (nominal, matching the essential-shortfall threshold
+    # above) in that year, regardless of which tier the shortfall would
+    # ultimately spill into. Reporting-only: never feeds back into
+    # unfunded/liquid/total/path_success/success_rate.
+    any_cut_count = 0
+    cut_years_list: list = []
+    max_annual_shortfall_real_list: list = []
+    max_consecutive_cut_years_list: list = []
+    cumulative_shortfall_real_list: list = []
+    # Phase 2 (optimization refactor): liquidity coverage distribution --
+    # liquid retirement assets (the same _liquid_value figure the funding-
+    # success test already uses) divided by success_threshold, the SAME
+    # flat nominal-dollar reserve floor _funding_success already compares
+    # min_liquid against -- so this reuses success/failure's own existing
+    # floor definition rather than inventing a new one. Undefined (None)
+    # when there is no floor requirement (threshold <= 0), since a ratio
+    # against zero is meaningless.
+    all_liquidity_coverage_by_year: dict[int, list] = defaultdict(list)
+    path_min_liquidity_coverage: list = []
+    # Phase 2 (optimization refactor): survivor-period dashboard rows --
+    # among paths whose sampled first death actually falls within this
+    # path's own modeled years (years strictly after first death, up to and
+    # including the second death -- mirrors the vectorized engine's
+    # use_bucket_mask & active), what fraction see a funding failure (the
+    # SAME unfunded>$1-or-liquid<=floor definition _funding_success/
+    # path_success already use) specifically during that window. Only
+    # meaningful for two-member households -- a single-person household has
+    # no survivor to report on (sample_household_death_years defaults its
+    # synthetic "spouse" death year to the member's own, degenerating the
+    # window to nothing).
+    _household_has_two_members = len(c.get('members') or []) >= 2
+    survivor_period_paths_with_window = 0
+    survivor_period_paths_with_failure = 0
+    # Phase 2 (optimization refactor): after-tax transfer/legacy value
+    # distribution. Reuses estimate_after_tax_terminal_net_worth (the SAME
+    # helper already used for the deterministic Roth-optimizer scoring path,
+    # see the estimate_after_tax_terminal_net_worth call a few hundred lines
+    # above in this file) against each path's own last_row -- which, unlike
+    # the vectorized engine, is already a full deterministic terminal row
+    # with real per-account balances, so no aggregate-bucket approximation
+    # is needed here. path_c2 (this path's own resampled h_death_yr/
+    # w_death_yr) drives the §1014 step-up classification correctly per
+    # path. Wrapped defensively: an unusual per-path config/terminal state
+    # should reduce this one path's legacy figure to a fallback, not abort
+    # the whole MC batch.
+    from .after_tax import estimate_after_tax_terminal_net_worth as _estimate_after_tax_terminal_net_worth
+    all_after_tax_terminal_nw: list = []
+    all_post_tax_inheritance: list = []
     first5_avgs = []
     terminal_total = []
     terminal_liquid = []
@@ -3091,7 +3181,7 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
     progress_step = max(1, N // 10)
     print(f'Monte Carlo exact scalar paths: 0/{N}', flush=True)
     for sim_idx in range(N):
-        rows, years, returns, return_diag, inflation_paths = _run_one_mc_path(c, rng, mu, sig, use_asset_classes=True)
+        rows, years, returns, return_diag, inflation_paths, path_c2 = _run_one_mc_path(c, rng, mu, sig, use_asset_classes=True)
         return_model_counts[str(return_diag.get('return_model', 'unknown'))] += 1
         by_year = {r['year']: r for r in rows}
         last_row = rows[-1]
@@ -3101,14 +3191,85 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         sampled_wellness_shocks.extend(float(v or 0.0) for v in inflation_paths.get('wellness_shock_by_year', {}).values())
         first5_avgs.append(sum(path_returns) / max(1, len(path_returns)))
 
+        path_infl_index = inflation_paths.get('inflation_index_by_year') or {}
+        _path_lifetime_gift_charity = 0.0
+        _path_essential_shortfall_ever = False
+        _path_any_cut = False
+        _path_cut_years = 0
+        _path_max_annual_shortfall_real = 0.0
+        _path_cumulative_shortfall_real = 0.0
+        _path_consecutive_run = 0
+        _path_max_consecutive_cut_years = 0
+        _path_min_liquidity_coverage = None
+        _path_first_death = int(path_c2.get('first_death_yr', 0) or 0)
+        _path_second_death = max(int(path_c2.get('h_death_yr', 0) or 0), int(path_c2.get('w_death_yr', 0) or 0))
+        _path_has_survivor_window = False
+        _path_survivor_failure = False
         for yr in base_years:
             r = by_year.get(yr) or last_row
             liquid = _liquid_value(r)
+            if success_threshold > 0:
+                _coverage_yr = liquid / success_threshold
+                all_liquidity_coverage_by_year[yr].append(_coverage_yr)
+                _path_min_liquidity_coverage = _coverage_yr if _path_min_liquidity_coverage is None else min(_path_min_liquidity_coverage, _coverage_yr)
+            if _household_has_two_members and _path_first_death > 0 and _path_first_death < yr <= _path_second_death:
+                _path_has_survivor_window = True
+                if float(r.get('unfunded_gap', 0.0) or 0.0) > 1.0 or liquid <= success_threshold:
+                    _path_survivor_failure = True
             all_total_by_year[yr].append(float(r.get('total_nw', 0) or 0))
             all_liquid_by_year[yr].append(liquid)
+            _infl_idx_yr = float(path_infl_index.get(yr, 1.0) or 1.0)
+            for _tier, _nominal in (r.get('spend_by_tier') or {}).items():
+                all_spend_by_tier_by_year[_tier][yr].append(float(_nominal or 0.0) / max(1e-9, _infl_idx_yr))
+            all_tax_by_year[yr].append(float(r.get('total_tax', 0.0) or 0.0) / max(1e-9, _infl_idx_yr))
+            all_gross_cash_flow_by_year[yr].append(float(r.get('gross_cash_flow_yr', 0.0) or 0.0) / max(1e-9, _infl_idx_yr))
+            for _label, _key in _GIFT_CHARITY_FIELDS:
+                _real_amt = float(r.get(_key, 0.0) or 0.0) / max(1e-9, _infl_idx_yr)
+                all_gift_charity_by_year[_label][yr].append(_real_amt)
+                _path_lifetime_gift_charity += _real_amt
+            _unfunded_nominal_yr = float(r.get('unfunded_gap', 0.0) or 0.0)
+            _remaining_unfunded = _unfunded_nominal_yr
+            _tiers_yr = r.get('spend_by_tier') or {}
+            for _tier in ('discretionary', 'important', 'essential'):
+                _avail = float(_tiers_yr.get(_tier, 0.0) or 0.0)
+                _taken = min(_avail, _remaining_unfunded)
+                if _tier == 'essential' and _taken > 1.0:
+                    _path_essential_shortfall_ever = True
+                _remaining_unfunded -= _taken
+            if _unfunded_nominal_yr > 1.0:
+                _path_any_cut = True
+                _path_cut_years += 1
+                _path_consecutive_run += 1
+                _path_max_consecutive_cut_years = max(_path_max_consecutive_cut_years, _path_consecutive_run)
+            else:
+                _path_consecutive_run = 0
+            _unfunded_real_yr = _unfunded_nominal_yr / max(1e-9, _infl_idx_yr)
+            _path_cumulative_shortfall_real += _unfunded_real_yr
+            _path_max_annual_shortfall_real = max(_path_max_annual_shortfall_real, _unfunded_real_yr)
+        all_lifetime_gift_charity_pv.append(_path_lifetime_gift_charity)
+        if not _path_essential_shortfall_ever:
+            essential_fully_funded_count += 1
+        any_cut_count += int(_path_any_cut)
+        cut_years_list.append(_path_cut_years)
+        max_annual_shortfall_real_list.append(_path_max_annual_shortfall_real)
+        max_consecutive_cut_years_list.append(_path_max_consecutive_cut_years)
+        cumulative_shortfall_real_list.append(_path_cumulative_shortfall_real)
+        if _path_min_liquidity_coverage is not None:
+            path_min_liquidity_coverage.append(_path_min_liquidity_coverage)
+        if _path_has_survivor_window:
+            survivor_period_paths_with_window += 1
+            if _path_survivor_failure:
+                survivor_period_paths_with_failure += 1
 
         final_total = float(last_row.get('total_nw', 0) or 0)
         final_liquid = _liquid_value(last_row)
+        try:
+            _after_tax_metrics = _estimate_after_tax_terminal_net_worth(path_c2, last_row)
+            all_after_tax_terminal_nw.append(float(_after_tax_metrics.get('after_tax_terminal_nw', final_total) or final_total))
+            all_post_tax_inheritance.append(float(_after_tax_metrics.get('post_tax_inheritance', final_total) or final_total))
+        except Exception:
+            all_after_tax_terminal_nw.append(final_total)
+            all_post_tax_inheritance.append(final_total)
         path_success = _funding_success(rows, success_threshold)
         path_success_no_ruin = path_success if success_threshold <= 0 else _funding_success(rows, 0.0)
         terminal_total.append(final_total)
@@ -3130,6 +3291,21 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
 
     pct_by_year = {yr: _percentiles(all_total_by_year[yr], 0.0) for yr in base_years}
     liquid_pct_by_year = {yr: _percentiles(all_liquid_by_year[yr], success_threshold) for yr in base_years}
+    spend_by_tier_real_pct_by_year = {
+        tier: {yr: _percentiles(vals, 0.0) for yr, vals in year_map.items()}
+        for tier, year_map in all_spend_by_tier_by_year.items()
+    }
+    total_tax_real_pct_by_year = {yr: _percentiles(vals, 0.0) for yr, vals in all_tax_by_year.items()}
+    gross_cash_flow_real_pct_by_year = {yr: _percentiles(vals, 0.0) for yr, vals in all_gross_cash_flow_by_year.items()}
+    gift_charity_real_pct_by_year = {
+        label: {yr: _percentiles(vals, 0.0) for yr, vals in year_map.items()}
+        for label, year_map in all_gift_charity_by_year.items()
+    }
+    # Lifetime PV is a per-path scalar (summed across years for that path,
+    # THEN percentile-ized) -- percentiles aren't additive across correlated
+    # per-year draws, so this must not be derived from the per-year
+    # percentiles above. Mirrors how terminal_total_nw is already computed.
+    lifetime_gift_charity_pv_real = _percentiles(all_lifetime_gift_charity_pv, 0.0)
 
     # Quintiles are sorted by first-5-year returns, but success is now funded-plan
     # success and terminal values are terminal liquid assets. Total terminal net
@@ -3184,6 +3360,20 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
     return {
         'pct_by_year': pct_by_year,                         # total net worth distribution
         'liquid_pct_by_year': liquid_pct_by_year,           # liquid funding distribution
+        # Phase 1 (optimization refactor): {tier: {year: percentile-dict}},
+        # real (plan-start-dollar) spending by SPENDING_TIERS tier, deflated
+        # per path by that path's own sampled inflation. Empty dict if rows
+        # never carried spend_by_tier (e.g. a fixture calling this without
+        # going through project()/deterministic_engine.py).
+        'spend_by_tier_real_pct_by_year': spend_by_tier_real_pct_by_year,
+        # Phase 1 items 2-3: real (plan-start-dollar) tax, gross-external-
+        # cash-flow, and realized lifetime gift/charity distributions, each
+        # deflated per path by that path's own sampled inflation. Purely
+        # additive new keys.
+        'total_tax_real_pct_by_year': total_tax_real_pct_by_year,
+        'gross_cash_flow_real_pct_by_year': gross_cash_flow_real_pct_by_year,
+        'gift_charity_real_pct_by_year': gift_charity_real_pct_by_year,
+        'lifetime_gift_charity_pv_real': lifetime_gift_charity_pv_real,
         'quintiles': quintiles,
         'sensitivity': sensitivity,
         'sensitivity_sims': sens_N,
@@ -3225,6 +3415,48 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         'success_rate_no_ruin_ci_high': success_no_ruin_ci_high,
         'liquid_success_rate': success_rate,
         'total_nw_success_rate': total_nw_positive / max(1, N),
+        # Optimization-refactor Phase 2: fraction of paths whose essential-
+        # tier spending was never left unfunded in any year.
+        'essential_fully_funded_probability': essential_fully_funded_count / max(1, N),
+        # Optimization-refactor Phase 2: genuine per-path MC cut statistics --
+        # see the accumulator comment above the sim loop for definitions.
+        # Distributions are percentile-ized across paths (one scalar per
+        # path, summarized the same way terminal_total_nw is).
+        'probability_any_cut': any_cut_count / max(1, N),
+        'cut_years_pct': _percentiles(cut_years_list, 0.0),
+        'max_annual_shortfall_real_pct': _percentiles(max_annual_shortfall_real_list, 0.0),
+        'max_consecutive_cut_years_pct': _percentiles(max_consecutive_cut_years_list, 0.0),
+        'cumulative_shortfall_real_pct': _percentiles(cumulative_shortfall_real_list, 0.0),
+        # Optimization-refactor Phase 2: liquidity coverage distribution --
+        # {year: percentile-dict} of liquid / success_threshold (the same
+        # reserve floor _funding_success already compares against), plus
+        # each path's own worst-year (minimum) coverage ratio, percentile-
+        # ized across paths. None when success_threshold <= 0 (no floor
+        # requirement configured, so the ratio is undefined).
+        'liquidity_coverage_pct_by_year': (
+            {yr: _percentiles(vals, 1.0) for yr, vals in all_liquidity_coverage_by_year.items()}
+            if success_threshold > 0 else None
+        ),
+        'worst_liquidity_coverage_ratio_pct': (
+            _percentiles(path_min_liquidity_coverage, 1.0) if success_threshold > 0 else None
+        ),
+        # Optimization-refactor Phase 2: after-tax transfer/legacy value
+        # distribution -- same estimate_after_tax_terminal_net_worth used by
+        # the deterministic Roth-optimizer scoring path, applied per MC path
+        # against that path's own terminal row and resampled death years.
+        # Nominal dollars, matching the sibling terminal_total_nw/
+        # terminal_liquid_assets convention (neither of those deflates
+        # either).
+        'after_tax_terminal_nw_pct': _percentiles(all_after_tax_terminal_nw, 0.0),
+        'post_tax_inheritance_pct': _percentiles(all_post_tax_inheritance, 0.0),
+        # Optimization-refactor Phase 2: survivor-period dashboard rows --
+        # see the accumulator comment above the sim loop for definitions.
+        'survivor_period_applicable_probability': (
+            survivor_period_paths_with_window / max(1, N) if survivor_period_paths_with_window > 0 else None
+        ),
+        'survivor_period_failure_probability': (
+            survivor_period_paths_with_failure / survivor_period_paths_with_window if survivor_period_paths_with_window > 0 else None
+        ),
         'failure_rate': 1.0 - success_rate,
         'home_equity_contingency_enabled': he_contingency_enabled,
         'home_equity_contingency_reserve': he_reserve,
@@ -3293,6 +3525,21 @@ def _mc_row_bucket_flows(c: dict, base_rows: list[dict]) -> dict:
     deterministic_inflation_index = []
     inf = float(c.get('inf', 0.025) or 0.025)
     start = int(c.get('plan_start', years[0] if years else 0))
+    # Phase 1 items 2-3: gross external cash flow (tax NPV / ELTR) and the
+    # three REALIZED cash/asset-transfer fields for lifetime gift/charity PV.
+    # daf_grant_yr/*_deduction_yr are deliberately excluded -- see
+    # monte_carlo_exact_scalar's _GIFT_CHARITY_FIELDS comment.
+    _EXTRA_SCALAR_FIELDS = ('gross_cash_flow_yr', 'daf_contrib_yr', 'qcd_total_yr', 'gift_total_yr')
+    extra_scalar: dict[str, list] = {f: [] for f in _EXTRA_SCALAR_FIELDS}
+    # Phase 1 (optimization refactor): the deterministic tier composition of
+    # total_spend, per year, keyed by whatever SPENDING_TIERS keys the rows
+    # actually carry (Phase 0's deterministic_engine.py row['spend_by_tier']).
+    tier_keys: list[str] = []
+    for _row in base_rows:
+        for _t in (_row.get('spend_by_tier') or {}):
+            if _t not in tier_keys:
+                tier_keys.append(_t)
+    spend_by_tier: dict[str, list] = {t: [] for t in tier_keys}
 
     def _bucket_for_account(aid: str) -> str:
         tax = registry.get(aid, '')
@@ -3318,6 +3565,11 @@ def _mc_row_bucket_flows(c: dict, base_rows: list[dict]) -> dict:
         total_tax.append(float(row.get('total_tax', 0.0) or 0.0))
         gross_income.append(float(row.get('gross_income', 0.0) or 0.0))
         deterministic_inflation_index.append((1.0 + inf) ** max(0, int(row['year']) - start))
+        _row_tiers = row.get('spend_by_tier') or {}
+        for t in tier_keys:
+            spend_by_tier[t].append(float(_row_tiers.get(t, 0.0) or 0.0))
+        for f in _EXTRA_SCALAR_FIELDS:
+            extra_scalar[f].append(float(row.get(f, 0.0) or 0.0))
 
     try:
         for name in out:
@@ -3327,9 +3579,140 @@ def _mc_row_bucket_flows(c: dict, base_rows: list[dict]) -> dict:
         out['total_tax'] = _np.array(total_tax, dtype=float)
         out['gross_income'] = _np.array(gross_income, dtype=float)
         out['deterministic_inflation_index'] = _np.array(deterministic_inflation_index, dtype=float)
+        out['spend_by_tier'] = {t: _np.array(v, dtype=float) for t, v in spend_by_tier.items()}
+        for f in _EXTRA_SCALAR_FIELDS:
+            out[f] = _np.array(extra_scalar[f], dtype=float)
     except Exception:
         pass
     out['years'] = years
+    return out
+
+
+def _mc_survivor_bucket_flows(c: dict, base_rows: list[dict]):
+    """Optimization-refactor Phase 1 items 4-6: precomputed survivor-period
+    deterministic trajectories for the vectorized MC engine.
+
+    The vectorized engine normally scales ONE joint-economics trajectory
+    (base_rows) identically for every path, which is only correct until
+    either spouse dies -- deterministic_engine.py's survivor spending factor,
+    Social Security survivor-benefit switch, pension/annuity js_pct haircut,
+    and filing-status switch (MFJ -> optional QSS window -> survivor_filing)
+    are all real and already correct in that engine, but the vectorized
+    engine never applies them per path. (The scalar engine,
+    monte_carlo_exact_scalar, already gets this correctly "for free" because
+    it reruns project() per path with that path's own sampled death years --
+    this function gives the vectorized engine equivalent fidelity cheaply:
+    rerun project() once per plausible (which-spouse-died-first,
+    first-death-year) combination, not once per MC path, then
+    _mc_vectorized_projection blends each path into the bucket matching its
+    own sampled first-death year.)
+
+    Returns None for a single-person household (_mc_vectorized_death_years
+    already sets w = h.copy() in that case -- there is no first-death event
+    to model) or empty base_rows.
+
+    Pure function of (c, base_rows): must be computed ONCE per monte_carlo()
+    invocation and threaded explicitly through every downstream vectorized MC
+    call (_mc_vectorized_batch, the sensitivity grid, the required-cut and
+    sustainable-spending bisections) -- rebuilding it per call would multiply
+    its cost (2 * n_years project() calls) by the ~26-90 vectorized-engine
+    invocations a single monte_carlo() call can make.
+    """
+    members = c.get('members') or []
+    years = [int(r['year']) for r in base_rows]
+    n_years = len(years)
+    if len(members) < 2 or n_years == 0:
+        return None
+    plan_start = int(c.get('plan_start', years[0]))
+    plan_end = int(c.get('plan_end', years[-1]))
+    # Guarantees the survivor's OWN death never fires inside this bucket's
+    # project() run. The caller's active = years <= max_death_years mask
+    # (built from each path's REAL sampled second-death year) is what
+    # truncates spending at the correct point, not this bucket -- so this
+    # placeholder doesn't need to match any real second-death year.
+    far_future = plan_end + 200
+    withdrawal_names = ('withdrawals', 'deposits', 'conversions_out', 'conversions_in')
+    withdrawal_buckets = ('pretax', 'roth', 'taxable', 'hsa', 'cash')
+    scalar_fields = ('total_tax', 'gross_income', 'gross_cash_flow_yr',
+                      'daf_contrib_yr', 'qcd_total_yr', 'gift_total_yr')
+    n_buckets = 2 * n_years
+    arrays: dict = {
+        f'{name}.{b}': _np.zeros((n_buckets, n_years), dtype=float)
+        for name in withdrawal_names for b in withdrawal_buckets
+    }
+    for f in scalar_fields:
+        arrays[f] = _np.zeros((n_buckets, n_years), dtype=float)
+    tier_arrays: dict = {}
+
+    for spouse_first in (0, 1):  # 0 = H dies first, 1 = W dies first
+        for year_idx, fd_year in enumerate(years):
+            overrides = {'first_death_yr': fd_year}
+            if spouse_first == 0:
+                overrides['h_death_yr'] = fd_year
+                overrides['w_death_yr'] = far_future
+            else:
+                overrides['w_death_yr'] = fd_year
+                overrides['h_death_yr'] = far_future
+            _c2, rows2 = run_scenario(c, overrides=overrides)
+            flows2 = _mc_row_bucket_flows(_c2, rows2)
+            bucket_id = spouse_first * n_years + year_idx
+            for name in withdrawal_names:
+                for b in withdrawal_buckets:
+                    arrays[f'{name}.{b}'][bucket_id] = flows2[name][b]
+            for f in scalar_fields:
+                arrays[f][bucket_id] = flows2.get(f, _np.zeros(n_years))
+            for tier, arr in (flows2.get('spend_by_tier') or {}).items():
+                if tier not in tier_arrays:
+                    tier_arrays[tier] = _np.zeros((n_buckets, n_years), dtype=float)
+                tier_arrays[tier][bucket_id] = arr
+
+    return {
+        'years': years,
+        'n_years': n_years,
+        'n_buckets': n_buckets,
+        'plan_start': plan_start,
+        'arrays': arrays,
+        'spend_by_tier': tier_arrays,
+    }
+
+
+def _mc_effective_row_flows(flows: dict, survivor_buckets, bucket_id, use_bucket_mask, n_sims: int, n_years: int) -> dict:
+    """Blend the single deterministic trajectory (``flows``) with each path's
+    survivor-bucket trajectory (``survivor_buckets``) for years after that
+    path's own first death (``use_bucket_mask``).
+
+    When ``survivor_buckets`` is None (a single-person household, or the
+    ``mc_vectorized_survivor_economics`` flag is off), every field reduces to
+    ``np.broadcast_to(flows[...], (n_sims, n_years))`` -- bit-identical to the
+    pre-Phase-1-items-4-6 behavior by construction.
+    """
+    withdrawal_buckets = ('pretax', 'roth', 'taxable', 'hsa', 'cash')
+    out: dict = {}
+    for name in ('withdrawals', 'deposits', 'conversions_out', 'conversions_in'):
+        out[name] = {}
+        for b in withdrawal_buckets:
+            det_row = flows[name][b].reshape(1, n_years)
+            if survivor_buckets is None:
+                out[name][b] = _np.broadcast_to(det_row, (n_sims, n_years))
+            else:
+                bucket_matrix = survivor_buckets['arrays'][f'{name}.{b}'][bucket_id, :]
+                out[name][b] = _np.where(use_bucket_mask, bucket_matrix, det_row)
+    for flow_field in ('total_tax', 'gross_income', 'gross_cash_flow_yr', 'daf_contrib_yr', 'qcd_total_yr', 'gift_total_yr'):
+        det_field = flows.get(flow_field)
+        if det_field is None:
+            continue
+        det_row = det_field.reshape(1, n_years)
+        if survivor_buckets is None or flow_field not in survivor_buckets.get('arrays', {}):
+            out[flow_field] = _np.broadcast_to(det_row, (n_sims, n_years))
+        else:
+            out[flow_field] = _np.where(use_bucket_mask, survivor_buckets['arrays'][flow_field][bucket_id, :], det_row)
+    out['spend_by_tier'] = {}
+    for tier, det_arr in (flows.get('spend_by_tier') or {}).items():
+        det_row = det_arr.reshape(1, n_years)
+        if survivor_buckets is None or tier not in (survivor_buckets.get('spend_by_tier') or {}):
+            out['spend_by_tier'][tier] = _np.broadcast_to(det_row, (n_sims, n_years))
+        else:
+            out['spend_by_tier'][tier] = _np.where(use_bucket_mask, survivor_buckets['spend_by_tier'][tier][bucket_id, :], det_row)
     return out
 
 
@@ -3493,7 +3876,24 @@ def _mc_apply_withdrawal_bucket(balances, request, bucket: str):
     return amount, request - amount
 
 
-def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation_paths: dict, max_death_years, spend_cut_frac=0.0):
+def _max_consecutive_true_per_row(mask) -> "_np.ndarray":
+    """For a boolean ``(n_sims, n_years)`` matrix, the longest run of
+    consecutive True columns per row. Small ``n_years`` (a plan horizon), so
+    a plain Python loop over columns -- vectorized across all rows/paths at
+    once via the running-counter reset trick -- is simpler than a fully
+    vectorized run-length encoding and just as fast at this scale.
+    """
+    n_sims = mask.shape[0]
+    run = _np.zeros(n_sims, dtype=int)
+    best = _np.zeros(n_sims, dtype=int)
+    for j in range(mask.shape[1]):
+        run = _np.where(mask[:, j], run + 1, 0)
+        best = _np.maximum(best, run)
+    return best
+
+
+def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation_paths: dict, max_death_years, spend_cut_frac=0.0,
+                               h_death_years=None, w_death_years=None, survivor_buckets=None):
     """Vectorized tax-bucket withdrawal recursion for Monte Carlo paths.
 
     ``spend_cut_frac``: per-path uniform reduction (0..1) applied to the
@@ -3503,6 +3903,17 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
     Used by ``_mc_required_cut_distribution`` (P13 phase 1) to binary-search
     the smallest cut that rescues a failing path; never touches the primary
     success/failure computation itself.
+
+    ``h_death_years``/``w_death_years``/``survivor_buckets`` (optimization
+    refactor Phase 1 items 4-6): per-path sampled death years and the
+    precomputed survivor trajectories from ``_mc_survivor_bucket_flows``. All
+    three default to None, which makes every survivor-blended matrix below
+    reduce to broadcasting the single deterministic trajectory across every
+    path -- bit-identical to the pre-items-4-6 behavior. Passing them applies
+    each path's own first-death-year- and which-spouse-dependent survivor
+    spending factor, SS/pension changes, and filing-status tax effects to the
+    WITHDRAWAL REQUESTS themselves (not just a reported side-metric), for
+    years after that path's own sampled first death.
     """
     n_sims, n_years = returns.shape
     starts = _mc_bucket_starting_balances(c)
@@ -3521,6 +3932,29 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
     det_idx = _np.maximum(1e-12, flows['deterministic_inflation_index']).reshape(1, -1)
     spending_scale = inf_idx / det_idx
     cut_mult = _np.clip(1.0 - _np.broadcast_to(_np.asarray(spend_cut_frac, dtype=float), (n_sims,)), 0.0, 1.0)
+
+    # Phase 1 items 4-6: select each path's survivor-bucket trajectory (if
+    # any) for years after that path's own sampled first death. bucket_id
+    # here MUST use the exact formula _mc_survivor_bucket_flows used to WRITE
+    # its arrays (spouse_first * n_years + year_idx, same n_years/plan_start
+    # the bucket dict itself recorded) -- any drift silently selects the
+    # wrong bucket for every path.
+    if survivor_buckets is not None and h_death_years is not None and w_death_years is not None:
+        first_death = _np.minimum(h_death_years, w_death_years)
+        # Tie (h_death_years == w_death_years) arbitrarily assigned to "H
+        # first"; provably inert since a tie year is also that path's
+        # max_death_years, so the active mask already excludes every year
+        # > first_death for that path regardless of which bucket is picked.
+        spouse_first = _np.where(h_death_years <= w_death_years, 0, 1)
+        sb_plan_start = int(survivor_buckets['plan_start'])
+        sb_n_years = int(survivor_buckets['n_years'])
+        year_idx = _np.clip(first_death - sb_plan_start, 0, sb_n_years - 1).astype(int)
+        bucket_id = spouse_first * sb_n_years + year_idx
+        use_bucket_mask = years.reshape(1, -1) > first_death.reshape(-1, 1)
+    else:
+        bucket_id = None
+        use_bucket_mask = _np.zeros((n_sims, n_years), dtype=bool)
+    eff = _mc_effective_row_flows(flows, survivor_buckets, bucket_id, use_bucket_mask, n_sims, n_years)
 
     balances = {
         'pretax': _np.full(n_sims, starts['pretax'], dtype=float),
@@ -3542,26 +3976,29 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
     for r in base_rows], dtype=float)
 
     tax_drag = _np.clip(
-        _np.divide(flows['total_tax'], _np.maximum(1.0, flows['gross_income']), out=_np.zeros(n_years), where=_np.maximum(1.0, flows['gross_income']) > 0),
+        _np.divide(eff['total_tax'], _np.maximum(1.0, eff['gross_income']),
+                   out=_np.zeros((n_sims, n_years)), where=_np.maximum(1.0, eff['gross_income']) > 0),
         0.0, 0.55
     )
 
     for j in range(n_years):
         act = active[:, j]
-        # Start with the scalar engine's planned bucket withdrawals, then scale
-        # spending-sensitive rows to the sampled inflation path and medical/LTC
-        # shocks.  Shock costs first draw against HSA when possible, then the
-        # normal withdrawal cascade covers any remaining funding need.
+        # Start with the scalar engine's planned bucket withdrawals (blended
+        # with each path's survivor-bucket trajectory after its own first
+        # death -- see eff above), then scale spending-sensitive rows to the
+        # sampled inflation path and medical/LTC shocks. Shock costs first
+        # draw against HSA when possible, then the normal withdrawal cascade
+        # covers any remaining funding need.
         planned = {
-            'taxable': flows['withdrawals']['taxable'][j] * spending_scale[:, j] * cut_mult,
-            'pretax': flows['withdrawals']['pretax'][j] * spending_scale[:, j] * cut_mult,
-            'roth': flows['withdrawals']['roth'][j] * spending_scale[:, j] * cut_mult,
-            'hsa': flows['withdrawals']['hsa'][j] * med_idx[:, j] / det_idx[:, j],
-            'cash': flows['withdrawals']['cash'][j] * spending_scale[:, j] * cut_mult,
+            'taxable': eff['withdrawals']['taxable'][:, j] * spending_scale[:, j] * cut_mult,
+            'pretax': eff['withdrawals']['pretax'][:, j] * spending_scale[:, j] * cut_mult,
+            'roth': eff['withdrawals']['roth'][:, j] * spending_scale[:, j] * cut_mult,
+            'hsa': eff['withdrawals']['hsa'][:, j] * med_idx[:, j] / det_idx[:, j],
+            'cash': eff['withdrawals']['cash'][:, j] * spending_scale[:, j] * cut_mult,
         }
         # Pretax withdrawals carry an approximate marginal tax gross-up so the
         # vectorized path does not understate tax pressure in poor markets.
-        planned['pretax'] = planned['pretax'] * (1.0 + tax_drag[j])
+        planned['pretax'] = planned['pretax'] * (1.0 + tax_drag[:, j])
         shock_need = shocks[:, j] * act
         hsa_shock, shock_left = _mc_apply_withdrawal_bucket(balances, shock_need, 'hsa')
         planned['taxable'] = planned['taxable'] + shock_left
@@ -3581,9 +4018,9 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
             unfunded += _np.maximum(0.0, left)
 
         for bucket in ('cash', 'taxable', 'pretax', 'roth', 'hsa'):
-            balances[bucket] += _np.where(act, flows['deposits'][bucket][j], 0.0)
+            balances[bucket] += _np.where(act, eff['deposits'][bucket][:, j], 0.0)
 
-        conv = _np.minimum(balances['pretax'], _np.where(act, flows['conversions_out']['pretax'][j] * spending_scale[:, j], 0.0))
+        conv = _np.minimum(balances['pretax'], _np.where(act, eff['conversions_out']['pretax'][:, j] * spending_scale[:, j], 0.0))
         balances['pretax'] -= conv
         balances['roth'] += conv
 
@@ -3601,10 +4038,95 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
         out['liquid'][:, j] = balances['pretax'] + balances['roth'] + balances['taxable'] + balances['hsa']
         out['total'][:, j] = out['liquid'][:, j] + balances['cash'] + nonliquid[j]
         out['unfunded'][:, j] = unfunded
+
+    # Phase 1 items 1-3 (optimization refactor): real (plan-start-dollar)
+    # spend/tax/cash-flow/gift-charity matrices, using the SAME
+    # survivor-blended eff[...] values as the driving recursion above (items
+    # 4-6), so these figures are consistent with the withdrawals that
+    # actually happened. Deflates by this path's own cumulative inflation
+    # index -- consistent with "real spending: deflated to plan-start dollars
+    # using each path's sampled inflation index" (plan §7). Purely additive:
+    # does not affect unfunded/liquid/total or the success/failure
+    # calculation above, which already ran. Skips gracefully if base_rows
+    # never carried spend_by_tier.
+    real_total = None
+    for tier, det_arr in eff['spend_by_tier'].items():
+        real = det_arr * spending_scale * cut_mult.reshape(-1, 1) / _np.maximum(1e-9, inf_idx)
+        out[f'spend_{tier}_real'] = real
+        real_total = real if real_total is None else real_total + real
+    if real_total is not None:
+        out['spend_total_real'] = real_total
+    # Tax/gross-cash-flow: NOT scaled by cut_mult (a spending cut doesn't
+    # proportionally reduce tax owed or gross income) but still scaled by
+    # this path's own inflation ratio and deflated to real dollars.
+    for flow_field, out_key in (('total_tax', 'tax_total_real'), ('gross_cash_flow_yr', 'gross_cash_flow_real')):
+        if flow_field in eff:
+            out[out_key] = eff[flow_field] * spending_scale / _np.maximum(1e-9, inf_idx)
+    gift_charity_total = None
+    for flow_field in ('daf_contrib_yr', 'qcd_total_yr', 'gift_total_yr'):
+        if flow_field in eff:
+            real = eff[flow_field] * spending_scale / _np.maximum(1e-9, inf_idx)
+            gift_charity_total = real if gift_charity_total is None else gift_charity_total + real
+    if gift_charity_total is not None:
+        out['gift_charity_real'] = gift_charity_total
+
+    # Phase 2 (optimization refactor): attribute each path/year's already-
+    # computed unfunded shortfall (out['unfunded'] above) to spend tiers via
+    # the same discretionary -> important -> essential cascade as
+    # spending_priority_cut_check, to answer "was essential spending ever
+    # left unfunded on this path" (the plan's "probability essential
+    # spending is fully funded" dashboard metric). Reporting-only: reads
+    # out['unfunded'] after the recursion above already finalized it, and
+    # never feeds back into unfunded/liquid/total/path_success.
+    if eff['spend_by_tier']:
+        remaining_unfunded = out['unfunded'].copy()
+        essential_shortfall_nominal = _np.zeros((n_sims, n_years))
+        for tier in ('discretionary', 'important', 'essential'):
+            tier_arr = eff['spend_by_tier'].get(tier)
+            if tier_arr is None:
+                continue
+            tier_nominal = tier_arr * spending_scale * cut_mult.reshape(-1, 1)
+            taken = _np.minimum(tier_nominal, remaining_unfunded)
+            if tier == 'essential':
+                essential_shortfall_nominal = taken
+            remaining_unfunded = remaining_unfunded - taken
+        out['essential_shortfall_real'] = essential_shortfall_nominal / _np.maximum(1e-9, inf_idx)
+        out['essential_fully_funded'] = _np.all(essential_shortfall_nominal <= 1.0, axis=1)
+
+    # Phase 2 (optimization refactor): genuine per-path MC cut statistics --
+    # mirrors monte_carlo_exact_scalar's per-path accumulators above, but
+    # vectorized across every path at once from the same out['unfunded'] this
+    # engine already finalized. "Cut" means any unfunded > $1 (nominal) in
+    # that year, matching the essential-shortfall threshold above.
+    # Reporting-only: reads out['unfunded'] after the recursion already ran,
+    # never feeds back into unfunded/liquid/total/path_success.
+    cut_mask = out['unfunded'] > 1.0
+    unfunded_real = out['unfunded'] / _np.maximum(1e-9, inf_idx)
+    out['any_cut'] = _np.any(cut_mask, axis=1)
+    out['cut_years_count'] = _np.sum(cut_mask, axis=1)
+    out['max_annual_shortfall_real'] = _np.max(unfunded_real, axis=1)
+    out['cumulative_shortfall_real'] = _np.sum(unfunded_real, axis=1)
+    out['max_consecutive_cut_years'] = _max_consecutive_true_per_row(cut_mask)
+    # Phase 2 (optimization refactor): expose the survivor-period mask
+    # (years strictly after this path's own sampled first death) computed
+    # above for bucket selection, so callers can report metrics scoped to
+    # the survivor period specifically (e.g. "did a shortfall occur only
+    # after the first spouse died"). All-False when survivor_buckets/death
+    # years were not supplied (single-person household, or a caller that
+    # didn't pass them) -- there is no survivor period to report on.
+    out['use_bucket_mask'] = use_bucket_mask
     return out
 
 
-def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int, mu: float, sig: float, success_threshold: float, use_asset_classes: bool = True):
+def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int, mu: float, sig: float, success_threshold: float, use_asset_classes: bool = True, survivor_buckets=None):
+    """``survivor_buckets`` (optimization refactor Phase 1 items 4-6): pass
+    the caller's already-built ``_mc_survivor_bucket_flows(c, base_rows)``
+    result to avoid rebuilding it (2 * n_years project() calls) on every one
+    of the many _mc_vectorized_batch calls a single monte_carlo() invocation
+    makes (main batch + sensitivity grid + bisections). When omitted, this
+    function builds it itself (gated by mc_vectorized_survivor_economics,
+    default True) as a safe-but-slow fallback for direct/test callers.
+    """
     np_rng = _np.random.default_rng(int(seed))
     years = [int(r['year']) for r in base_rows]
     h_death, w_death, max_death = _mc_vectorized_death_years(c, np_rng, int(n_sims))
@@ -3614,13 +4136,120 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
         float(return_diag.get('portfolio_expected_return', mu) or mu),
         float(return_diag.get('portfolio_sigma', sig) or sig),
     )
-    projection = _mc_vectorized_projection(c, base_rows, returns, inflation_paths, max_death)
+    if survivor_buckets is None and bool(c.get('mc_vectorized_survivor_economics', True)):
+        survivor_buckets = _mc_survivor_bucket_flows(c, base_rows)
+    projection = _mc_vectorized_projection(c, base_rows, returns, inflation_paths, max_death,
+                                            h_death_years=h_death, w_death_years=w_death,
+                                            survivor_buckets=survivor_buckets)
     active = _np.array(years, dtype=int).reshape(1, -1) <= max_death.reshape(-1, 1)
     failure_matrix = ((projection['unfunded'] > 1.0) | (projection['liquid'] <= float(success_threshold))) & active
     path_success = ~_np.any(failure_matrix, axis=1)
     any_failure = _np.any(failure_matrix, axis=1)
     first_failure_idx = _np.argmax(failure_matrix, axis=1)
     first_failure_years = [years[int(idx)] if bool(any_failure[i]) else None for i, idx in enumerate(first_failure_idx)]
+    # Phase 2 (optimization refactor): "probability essential spending is
+    # fully funded" -- the fraction of paths whose essential-tier shortfall
+    # (see _mc_vectorized_projection's tail) is zero in every year. None
+    # when spend_by_tier was unavailable (e.g. base_rows never went through
+    # Phase 0's deterministic engine).
+    essential_fully_funded_probability = (
+        float(_np.mean(projection['essential_fully_funded']))
+        if 'essential_fully_funded' in projection else None
+    )
+    # Phase 2 (optimization refactor): genuine per-path MC cut statistics --
+    # see _mc_vectorized_projection's tail for the per-path arrays; summarized
+    # here as a probability plus percentile distributions, mirroring
+    # monte_carlo_exact_scalar's equivalent aggregation.
+    probability_any_cut = float(_np.mean(projection['any_cut'])) if 'any_cut' in projection else None
+    cut_years_pct = _percentiles(projection['cut_years_count'].tolist(), 0.0) if 'cut_years_count' in projection else None
+    max_annual_shortfall_real_pct = (
+        _percentiles(projection['max_annual_shortfall_real'].tolist(), 0.0) if 'max_annual_shortfall_real' in projection else None
+    )
+    max_consecutive_cut_years_pct = (
+        _percentiles(projection['max_consecutive_cut_years'].tolist(), 0.0) if 'max_consecutive_cut_years' in projection else None
+    )
+    cumulative_shortfall_real_pct = (
+        _percentiles(projection['cumulative_shortfall_real'].tolist(), 0.0) if 'cumulative_shortfall_real' in projection else None
+    )
+    # Phase 2 (optimization refactor): survivor-period dashboard rows --
+    # scope the SAME failure definition path_success/failure_matrix already
+    # use (unfunded > $1 OR liquid <= floor, restricted to active years) to
+    # specifically the years after each path's own sampled first death
+    # (projection['use_bucket_mask'], see _mc_vectorized_projection). Only
+    # meaningful for paths whose first death actually falls within the
+    # modeled horizon -- reported as two figures so the conditional
+    # probability isn't read without its base rate: what fraction of paths
+    # have a survivor period to speak of, and among those, what fraction
+    # see a funding failure specifically during it. None entirely when no
+    # path in this batch has a survivor window (single-person household,
+    # or survivor economics unavailable/off).
+    survivor_period_applicable_probability = None
+    survivor_period_failure_probability = None
+    survivor_window = projection.get('use_bucket_mask')
+    if survivor_window is not None:
+        survivor_active = survivor_window & active
+        has_survivor_window = _np.any(survivor_active, axis=1)
+        if bool(_np.any(has_survivor_window)):
+            survivor_period_applicable_probability = float(_np.mean(has_survivor_window))
+            survivor_failure = _np.any(failure_matrix & survivor_active, axis=1)
+            survivor_period_failure_probability = float(
+                _np.sum(survivor_failure[has_survivor_window]) / _np.sum(has_survivor_window)
+            )
+    # Phase 2 (optimization refactor): liquidity coverage distribution --
+    # liquid retirement assets divided by success_threshold, the SAME flat
+    # nominal-dollar reserve floor path_success above already compares
+    # min-liquid against (matches monte_carlo_exact_scalar's equivalent
+    # metric exactly). {year: percentile-dict} plus each path's own
+    # worst-year (minimum) coverage ratio, percentile-ized across paths.
+    # None when success_threshold <= 0 (no floor requirement configured).
+    # Not masked by each path's own active/death-year window, matching the
+    # existing liquid_pct_by_year/terminal_liquid_assets convention.
+    liquidity_coverage_pct_by_year = None
+    worst_liquidity_coverage_ratio_pct = None
+    if success_threshold > 0:
+        coverage = projection['liquid'] / success_threshold
+        liquidity_coverage_pct_by_year = {yr: _percentiles(coverage[:, i].tolist(), 1.0) for i, yr in enumerate(years)}
+        worst_liquidity_coverage_ratio_pct = _percentiles(_np.min(coverage, axis=1).tolist(), 1.0)
+    # Phase 2 (optimization refactor): after-tax transfer/legacy value
+    # distribution. Reuses the SAME estimate_after_tax_terminal_net_worth
+    # helper as monte_carlo_exact_scalar and the deterministic Roth-optimizer
+    # scoring path, but this engine only tracks aggregate cash/taxable/
+    # pretax/roth/hsa buckets (no per-account cost basis), so the terminal
+    # dict passed in sets 'trust_nw' to the aggregate taxable balance --
+    # exactly the fallback branch estimate_terminal_taxable_deferred_cap_gain_tax
+    # already uses "if terminal trust_nw was populated but account-level
+    # taxable IDs were not" (this always takes that branch here, since a
+    # synthetic dict never has the real taxable_ids keys populated). Each
+    # path's own resampled h_death/w_death drives the §1014 step-up
+    # classification correctly. A per-path dict copy plus this helper is
+    # ~0.02ms (benchmarked directly against this repo's real fixture config,
+    # 434 keys) -- negligible even at thousands of paths, unlike the earlier
+    # 81x survivor-bucket regression (which was ~4,500 extra FULL project()
+    # calls); this adds zero project() calls. Nominal dollars, matching the
+    # sibling terminal_total_nw/terminal_liquid_assets convention.
+    after_tax_terminal_nw_pct = None
+    post_tax_inheritance_pct = None
+    try:
+        from .after_tax import estimate_after_tax_terminal_net_worth as _estimate_after_tax_terminal_net_worth
+        _n_sims_actual = int(projection['total'].shape[0])
+        _after_tax_vals = []
+        _post_tax_vals = []
+        for _i in range(_n_sims_actual):
+            _c_path = {**c, 'h_death_yr': int(h_death[_i]), 'w_death_yr': int(w_death[_i])}
+            _terminal_path = {
+                'year': years[-1],
+                'total_nw': float(projection['total'][_i, -1]),
+                'pretax_nw': float(projection['pretax'][_i, -1]),
+                'hsa_nw': float(projection['hsa'][_i, -1]),
+                'trust_nw': float(projection['taxable'][_i, -1]),
+            }
+            _m = _estimate_after_tax_terminal_net_worth(_c_path, _terminal_path)
+            _after_tax_vals.append(float(_m.get('after_tax_terminal_nw', _terminal_path['total_nw']) or _terminal_path['total_nw']))
+            _post_tax_vals.append(float(_m.get('post_tax_inheritance', _terminal_path['total_nw']) or _terminal_path['total_nw']))
+        after_tax_terminal_nw_pct = _percentiles(_after_tax_vals, 0.0)
+        post_tax_inheritance_pct = _percentiles(_post_tax_vals, 0.0)
+    except Exception:
+        pass
     return {
         'years': years,
         'returns': returns,
@@ -3632,11 +4261,24 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
         'h_death_years': h_death,
         'w_death_years': w_death,
         'max_death_years': max_death,
+        'survivor_buckets': survivor_buckets,
+        'essential_fully_funded_probability': essential_fully_funded_probability,
+        'probability_any_cut': probability_any_cut,
+        'cut_years_pct': cut_years_pct,
+        'max_annual_shortfall_real_pct': max_annual_shortfall_real_pct,
+        'max_consecutive_cut_years_pct': max_consecutive_cut_years_pct,
+        'cumulative_shortfall_real_pct': cumulative_shortfall_real_pct,
+        'liquidity_coverage_pct_by_year': liquidity_coverage_pct_by_year,
+        'worst_liquidity_coverage_ratio_pct': worst_liquidity_coverage_ratio_pct,
+        'after_tax_terminal_nw_pct': after_tax_terminal_nw_pct,
+        'post_tax_inheritance_pct': post_tax_inheritance_pct,
+        'survivor_period_applicable_probability': survivor_period_applicable_probability,
+        'survivor_period_failure_probability': survivor_period_failure_probability,
     }
 
 
-def _mc_vectorized_sensitivity_success_rate(c: dict, base_rows: list[dict], mu: float, sig: float, n_sims: int, seed: int, threshold: float) -> float:
-    batch = _mc_vectorized_batch(c, base_rows, max(1, int(n_sims)), seed, mu, sig, threshold, use_asset_classes=False)
+def _mc_vectorized_sensitivity_success_rate(c: dict, base_rows: list[dict], mu: float, sig: float, n_sims: int, seed: int, threshold: float, survivor_buckets=None) -> float:
+    batch = _mc_vectorized_batch(c, base_rows, max(1, int(n_sims)), seed, mu, sig, threshold, use_asset_classes=False, survivor_buckets=survivor_buckets)
     try:
         return float(_np.mean(batch['path_success']))
     except Exception:
@@ -3661,9 +4303,21 @@ def _mc_required_cut_distribution(c: dict, base_rows: list[dict], batch: dict, s
     max_death_f = batch['max_death_years'][fail_idx]
     infl_f = {k: v[fail_idx] for k, v in batch['inflation_paths'].items()}
     n_fail = int(fail_idx.size)
+    # Phase 1 items 4-6: survivor_buckets is a pure function of (c, base_rows)
+    # -- not of which paths failed -- so it's reused unfiltered; only the
+    # per-path death-year arrays need the same fail_idx filter as returns/
+    # inflation/max_death above.
+    h_death_f = batch.get('h_death_years')
+    w_death_f = batch.get('w_death_years')
+    if h_death_f is not None:
+        h_death_f = h_death_f[fail_idx]
+    if w_death_f is not None:
+        w_death_f = w_death_f[fail_idx]
+    survivor_buckets = batch.get('survivor_buckets')
 
     def _succeeds(cut_vec):
-        proj = _mc_vectorized_projection(c, base_rows, returns_f, infl_f, max_death_f, spend_cut_frac=cut_vec)
+        proj = _mc_vectorized_projection(c, base_rows, returns_f, infl_f, max_death_f, spend_cut_frac=cut_vec,
+                                          h_death_years=h_death_f, w_death_years=w_death_f, survivor_buckets=survivor_buckets)
         active = years.reshape(1, -1) <= max_death_f.reshape(-1, 1)
         failure = ((proj['unfunded'] > 1.0) | (proj['liquid'] <= float(success_threshold))) & active
         return ~_np.any(failure, axis=1)
@@ -3694,7 +4348,9 @@ def _mc_success_rate_for_uniform_cut(c: dict, base_rows: list[dict], batch: dict
     only rescales withdrawal requests (see _mc_vectorized_projection), so
     this needs no new market-path simulation and is cheap to call repeatedly
     during a bisection."""
-    proj = _mc_vectorized_projection(c, base_rows, batch['returns'], batch['inflation_paths'], batch['max_death_years'], spend_cut_frac=cut_frac)
+    proj = _mc_vectorized_projection(c, base_rows, batch['returns'], batch['inflation_paths'], batch['max_death_years'], spend_cut_frac=cut_frac,
+                                      h_death_years=batch.get('h_death_years'), w_death_years=batch.get('w_death_years'),
+                                      survivor_buckets=batch.get('survivor_buckets'))
     years = _np.array(batch['years'], dtype=int)
     active = years.reshape(1, -1) <= batch['max_death_years'].reshape(-1, 1)
     failure = ((proj['unfunded'] > 1.0) | (proj['liquid'] <= float(success_threshold))) & active
@@ -3738,6 +4394,108 @@ def essential_discretionary_floor_check(base_rows: list[dict], cut_frac) -> dict
         'essential_protected': worst_shortfall <= 1.0,
         'worst_year_essential_shortfall': worst_shortfall,
         'worst_year': worst_year,
+    }
+
+
+def spending_priority_cut_check(base_rows: list[dict], cut_frac) -> dict:
+    """Optimization-refactor Phase 2 (tiered cuts): extends
+    ``essential_discretionary_floor_check``'s 2-tier check (discretionary ==
+    travel only, vs. everything else) into the full SPENDING_TIERS
+    cut-priority cascade -- discretionary first, then important, essential
+    protected as a last resort -- using Phase 0's ``row['spend_by_tier']``
+    classification instead of the travel-only proxy.
+
+    ``contingent_liability`` is EXCLUDED from this cascade entirely, per the
+    plan's Phase 2 item 4: contingent liabilities (LTC, a medical shock, a
+    home modification) are meant to be funded through explicit state-
+    dependent rules, not cut like ordinary lifestyle spending. Those funding
+    rules are not yet built (a documented future phase); for now this
+    function simply never counts contingent_liability dollars as available
+    to absorb a cut, so it is neither inflated nor deflated by this check.
+
+    Purely a reporting-layer computation, exactly like
+    ``essential_discretionary_floor_check``: re-labels an already-computed
+    uniform dollar cut by spending-tier priority using the existing
+    per-row ``spend_by_tier``, and never changes which accounts fund
+    withdrawals or any dollar total the engine/MC layer already produces.
+
+    Also reports the cumulative-cut bookkeeping Phase 2's dashboard section
+    asks for: cut-years, cumulative cut dollars, worst single-year cut, and
+    the longest run of consecutive cut years -- all in the deterministic
+    engine's own nominal dollars (matching total_spend's convention, the
+    same as essential_discretionary_floor_check above), not deflated to real
+    plan-start dollars.
+    """
+    empty = {
+        'essential_protected': None, 'worst_year_essential_shortfall': 0.0, 'worst_year': None,
+        'cut_years': 0, 'cumulative_cut_dollars': 0.0, 'max_annual_cut_dollars': 0.0,
+        'max_consecutive_cut_years': 0, 'tier_cut_by_year': {},
+    }
+    if cut_frac is None:
+        return empty
+    cut_frac = max(0.0, float(cut_frac))
+    worst_essential_shortfall = 0.0
+    worst_year = None
+    cut_years = 0
+    cumulative_cut = 0.0
+    max_annual_cut = 0.0
+    max_consecutive = 0
+    current_consecutive = 0
+    tier_cut_by_year: dict[int, dict[str, float]] = {}
+
+    for row in base_rows:
+        tiers = row.get('spend_by_tier') or {}
+        total_cuttable = sum(v for t, v in tiers.items() if t != 'contingent_liability')
+        if total_cuttable <= 0:
+            current_consecutive = 0
+            continue
+        target_cut = total_cuttable * cut_frac
+        if target_cut <= 1e-9:
+            current_consecutive = 0
+            continue
+
+        remaining = target_cut
+        year_cut: dict[str, float] = {}
+        for tier in ('discretionary', 'important', 'essential'):
+            available = float(tiers.get(tier, 0.0) or 0.0)
+            taken = min(available, remaining)
+            if taken > 0:
+                year_cut[tier] = taken
+                remaining -= taken
+            if remaining <= 1e-9:
+                break
+        # Any leftover (shouldn't happen -- the three tiers above sum to
+        # total_cuttable -- but a floating-point guard) counts toward the
+        # essential shortfall too, same as an essential-tier cut would.
+        essential_shortfall = year_cut.get('essential', 0.0) + max(0.0, remaining)
+
+        year_val = int(row.get('year')) if row.get('year') is not None else None
+        if year_val is not None:
+            tier_cut_by_year[year_val] = year_cut
+
+        if essential_shortfall > worst_essential_shortfall:
+            worst_essential_shortfall = essential_shortfall
+            worst_year = year_val
+
+        actual_cut = sum(year_cut.values())
+        if actual_cut > 1.0:
+            cut_years += 1
+            cumulative_cut += actual_cut
+            max_annual_cut = max(max_annual_cut, actual_cut)
+            current_consecutive += 1
+            max_consecutive = max(max_consecutive, current_consecutive)
+        else:
+            current_consecutive = 0
+
+    return {
+        'essential_protected': worst_essential_shortfall <= 1.0,
+        'worst_year_essential_shortfall': worst_essential_shortfall,
+        'worst_year': worst_year,
+        'cut_years': cut_years,
+        'cumulative_cut_dollars': cumulative_cut,
+        'max_annual_cut_dollars': max_annual_cut,
+        'max_consecutive_cut_years': max_consecutive,
+        'tier_cut_by_year': tier_cut_by_year,
     }
 
 
@@ -3809,10 +4567,23 @@ def sustainable_spending_solve(c: dict, base_rows: list[dict], batch: dict, succ
         entry['essential_protected'] = floor['essential_protected']
         entry['essential_shortfall_worst_year_amount'] = floor['worst_year_essential_shortfall']
         entry['essential_shortfall_worst_year'] = floor['worst_year']
+        # Optimization-refactor Phase 2: the full tier-priority cascade
+        # (discretionary -> important -> essential last-resort), replacing
+        # the travel-only 2-tier proxy above with Phase 0's real
+        # spend_by_tier classification. Additive fields; essential_protected
+        # above is left untouched for existing callers (sheets_stress.py).
+        tiered = spending_priority_cut_check(base_rows, entry['required_cut'])
+        entry['tiered_cut_years'] = tiered['cut_years']
+        entry['tiered_cumulative_cut_dollars'] = tiered['cumulative_cut_dollars']
+        entry['tiered_max_annual_cut_dollars'] = tiered['max_annual_cut_dollars']
+        entry['tiered_max_consecutive_cut_years'] = tiered['max_consecutive_cut_years']
+        entry['tiered_essential_protected'] = tiered['essential_protected']
+        entry['tiered_essential_shortfall_worst_year_amount'] = tiered['worst_year_essential_shortfall']
+        entry['tiered_essential_shortfall_worst_year'] = tiered['worst_year']
     return results
 
 
-def monte_carlo(c, n_sims=1000, seed=42, base_rows=None):
+def monte_carlo(c, n_sims=1000, seed=42, base_rows=None, survivor_buckets='__unset__'):
     """Run Monte Carlo on the shared vectorized fast core by default.
 
     The exact scalar path remains available for validation by setting
@@ -3822,6 +4593,20 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None):
     caller's already-computed rows (e.g. report_compute.run_projection_artifacts,
     which runs the same deterministic engine just before this) to skip a second
     full year-by-year run. Recomputed from ``c`` when omitted.
+
+    ``survivor_buckets`` (optimization refactor Phase 1 items 4-6 performance
+    fix): pass an already-built ``_mc_survivor_bucket_flows(c, base_rows)``
+    result to skip rebuilding it (2 * n_years project() calls) on this call.
+    Needed by any caller that invokes monte_carlo() many times against
+    scenario-mutated configs sharing the same underlying mortality/death-
+    timing profile -- e.g. sheets_strategy.py's Social Security claim-age
+    sweep, which calls this 81x per build and would otherwise pay the
+    survivor-bucket cost 81x too (this was a real, measured CI regression:
+    ~4,500 extra project() calls per build, causing subprocess timeouts in
+    tests/test_all_modules_off_build_functional.py). The sentinel default
+    (rather than None) distinguishes "not provided, build it yourself" from
+    "explicitly None, there are no survivor buckets" (e.g. a single-person
+    household), since both must be handled differently below.
     """
     if str(c.get('mc_engine_mode', 'vectorized_batched')).lower() in {'exact_scalar', 'scalar', 'advanced_exact_scalar'}:
         return monte_carlo_exact_scalar(c, n_sims=n_sims, seed=seed, base_rows=base_rows)
@@ -3867,8 +4652,21 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None):
     gross_home_equity_v = max(0.0, float(c.get('home_val', 0) or 0) - float(c.get('mortgage_bal', 0) or 0))
     he_reserve_v = gross_home_equity_v * (1.0 - he_haircut_v) if he_contingency_enabled_v else 0.0
 
+    # Phase 1 items 4-6 (optimization refactor): build the survivor-period
+    # bucket trajectories ONCE for this whole monte_carlo() call and thread
+    # the same object through the main batch, every sensitivity-grid cell,
+    # and the required-cut/sustainable-spending bisections below -- rebuilding
+    # it per call would multiply its cost (2 * n_years project() calls) by
+    # every one of those ~26-90 invocations. mc_vectorized_survivor_economics
+    # defaults True (matches this codebase's other mc_* toggles, which all
+    # default on); kept only as an emergency kill switch, not a rollout gate.
+    if survivor_buckets == '__unset__':
+        survivor_buckets = (
+            _mc_survivor_bucket_flows(c, base_rows)
+            if bool(c.get('mc_vectorized_survivor_economics', True)) else None
+        )
     print(f'Monte Carlo vectorized batch: sampling {max(1, N)} paths', flush=True)
-    batch = _mc_vectorized_batch(c, base_rows, max(1, N), int(seed), mu, sig, success_threshold, use_asset_classes=True)
+    batch = _mc_vectorized_batch(c, base_rows, max(1, N), int(seed), mu, sig, success_threshold, use_asset_classes=True, survivor_buckets=survivor_buckets)
     print('Monte Carlo vectorized batch: main batch complete', flush=True)
     proj = batch['projection']
     returns = batch['returns']
@@ -3919,7 +4717,7 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None):
         for j, sig_s in enumerate(sigs_grid):
             cell_seed = int(seed) + 10_000 + i * 100 + j
             sensitivity[(mu_s, sig_s)] = _mc_vectorized_sensitivity_success_rate(
-                c, base_rows, mu_s, sig_s, sens_N, cell_seed, success_threshold
+                c, base_rows, mu_s, sig_s, sens_N, cell_seed, success_threshold, survivor_buckets=survivor_buckets
             )
             done_cells += 1
             print(f'Monte Carlo sensitivity grid: {done_cells}/{total_cells} cells × {sens_N} paths', flush=True)
@@ -3996,6 +4794,28 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None):
         'first_failure_distribution': first_failure_distribution,
         'required_cut_distribution': required_cut_distribution,
         'sustainable_spending_solve': sustainable_spending,
+        # Optimization-refactor Phase 2: fraction of paths whose essential-
+        # tier spending was never left unfunded (see _mc_vectorized_batch).
+        'essential_fully_funded_probability': batch.get('essential_fully_funded_probability'),
+        # Optimization-refactor Phase 2: genuine per-path MC cut statistics
+        # (see _mc_vectorized_batch/monte_carlo_exact_scalar for definitions).
+        'probability_any_cut': batch.get('probability_any_cut'),
+        'cut_years_pct': batch.get('cut_years_pct'),
+        'max_annual_shortfall_real_pct': batch.get('max_annual_shortfall_real_pct'),
+        'max_consecutive_cut_years_pct': batch.get('max_consecutive_cut_years_pct'),
+        'cumulative_shortfall_real_pct': batch.get('cumulative_shortfall_real_pct'),
+        # Optimization-refactor Phase 2: liquidity coverage distribution
+        # (see _mc_vectorized_batch/monte_carlo_exact_scalar for definitions).
+        'liquidity_coverage_pct_by_year': batch.get('liquidity_coverage_pct_by_year'),
+        'worst_liquidity_coverage_ratio_pct': batch.get('worst_liquidity_coverage_ratio_pct'),
+        # Optimization-refactor Phase 2: after-tax transfer/legacy value
+        # distribution (see _mc_vectorized_batch/monte_carlo_exact_scalar).
+        'after_tax_terminal_nw_pct': batch.get('after_tax_terminal_nw_pct'),
+        'post_tax_inheritance_pct': batch.get('post_tax_inheritance_pct'),
+        # Optimization-refactor Phase 2: survivor-period dashboard rows
+        # (see _mc_vectorized_batch for definitions).
+        'survivor_period_applicable_probability': batch.get('survivor_period_applicable_probability'),
+        'survivor_period_failure_probability': batch.get('survivor_period_failure_probability'),
         'terminal_total_nw': _percentiles(terminal_total.tolist(), 0.0),
         'terminal_liquid_assets': _percentiles(terminal_liquid.tolist(), success_threshold),
         'nw0': float(proj['pretax'][0, 0] + proj['roth'][0, 0] + proj['taxable'][0, 0] + proj['hsa'][0, 0]),

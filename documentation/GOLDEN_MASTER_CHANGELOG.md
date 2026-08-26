@@ -1,3 +1,73 @@
+## 2026-08-24/25 — Optimization-refactor Phase 1 items 2-6: no pins moved, but vectorized MC `success_rate` now differs by design for survivor-sensitive households
+
+**Not a deterministic-engine change to any existing plan. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**
+
+**Why the deterministic pins don't move.** This work adds one new additive
+deterministic-engine field (`row['gross_cash_flow_yr']`, derived from the
+already-reconciled `cashflow_breakdown` income/draws sub-dicts) and a new
+`_mc_survivor_bucket_flows()` helper in `planning_engines.py` that calls
+`project()` on *overridden* configs (forced `h_death_yr`/`w_death_yr`
+combinations) to build survivor-period trajectories for the vectorized MC
+engine. The frozen fixture's own `base_rows = project(c)` call path — what
+`test_frozen_sample_plan_golden_master_regression.py` pins — is untouched.
+
+**What DID change, and is expected to.** Before this work, the vectorized
+Monte Carlo engine (`_mc_vectorized_projection`) sampled each path's own
+husband/wife death years but only used their *maximum* as an activity
+cutoff — every path spent and paid tax as a continuously-married joint
+household right up until the second death, regardless of when the first
+spouse actually died. The scalar engine (`monte_carlo_exact_scalar`)
+never had this gap (it reruns the full deterministic engine per path with
+that path's own sampled death years, so survivor spending factor, Social
+Security survivor-benefit switching, pension/annuity `js_pct` haircut, and
+filing-status switching were already correct there). This closes the gap
+in the vectorized engine by rerunning `project()` once per
+(which-spouse-died-first, first-death-year) combination — not per path —
+and blending each path into the bucket matching its own sampled first
+death.
+
+**Consequence:** `monte_carlo()`'s `success_rate` (and every dependent
+figure: `liquid_pct_by_year`, `required_cut_distribution`,
+`sustainable_spending_solve`, the new `spend_total_real`/`spend_<tier>_real`
+matrices) now differs from pre-change output for any two-spouse household
+with survivor-sensitive inputs (asymmetric ages, distinct Social Security
+benefits, single-life annuities). This is intentional — the prior behavior
+overstated joint spending/tax after a spouse's death — not a regression.
+Gated by a new `mc_vectorized_survivor_economics` config flag, defaulted
+`True` to match every other `mc_*` toggle in this codebase; kept only as an
+emergency kill switch, not a rollout gate.
+
+**Test expectations deliberately rewritten** (not just re-pinned) because
+they encoded the bug as expected behavior:
+`tests/test_optimization_phase1_mc_spend_by_tier.py`'s
+`test_no_cut_paths_all_match_deterministic_real_spend` (asserted every path
+saw identical spend for a given year with no cut applied, including years
+after a sampled first death) → replaced with
+`test_no_cut_paths_match_before_first_death_and_diverge_after`, which
+asserts uniformity only holds before any path's own first death.
+
+**Scalar-vs-vectorized agreement:** a real, double-digit-percentage-point
+gap in `success_rate` remains even with this fix (see
+`tests/test_scalar_vectorized_survivor_reconciliation.py`, gated behind
+`RUN_SLOW_MC_RECONCILIATION=1` for CI speed) — the vectorized engine still
+approximates tax with a single blended `tax_drag` ratio. Survivor economics
+measurably narrows that gap (confirmed empirically, ~0.11 vs. ~0.135 at the
+test fixture/seed) but closing it fully is Phase 3 of the optimization
+refactor ("state-contingent tax approximation"), not this phase's job.
+
+New coverage: `tests/test_survivor_bucket_alignment.py` (the bucket-ID
+`spouse_first * n_years + year_idx` formula must be computed identically on
+the write side, `_mc_survivor_bucket_flows`, and the read side,
+`_mc_vectorized_projection` — a drift there would silently select the wrong
+bucket for every path), `tests/test_vectorized_mc_survivor_economics.py`
+(fixed-seed fixture proving spend/withdrawals diverge only after first
+death), `tests/test_scalar_vectorized_survivor_reconciliation.py` (above).
+
+Also fixed, as a separate commit (same PR, independently attributable):
+`sample_household_death_years()` never set `first_death_yr`, mistiming the
+Qualifying-Surviving-Spouse 2-year MFJ-extension window for every scalar-MC
+path with `qss_dependent=True`.
+
 ## 2026-08-20 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
 <!-- pin-provenance: terminal_nw=5814607.29 lifetime_tax=1304382.77 -->
