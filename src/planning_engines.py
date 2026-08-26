@@ -3892,6 +3892,62 @@ def _max_consecutive_true_per_row(mask) -> "_np.ndarray":
     return best
 
 
+def _mc_tier_priority_retained(tier_scaled: dict, cut_mult) -> dict:
+    """Optimization-refactor Phase 2 follow-on ("Not done" item 1):
+    redistribute the SAME total dollar cut a uniform ``cut_mult`` already
+    applies across discretionary/important/essential tiers by cut priority
+    (discretionary first, essential protected last) instead of shrinking
+    every tier by the identical fraction -- the vectorized-engine analogue of
+    the cascade ``spending_priority_cut_check`` already uses to report a
+    solved ``cut_frac``.
+
+    ``tier_scaled`` holds each tier's nominal spend, already scaled to a
+    path's sampled inflation (pre-cut) -- shape ``(n_sims, n_years)`` per
+    tier. ``cut_mult`` is the per-path retained fraction (``1 -
+    spend_cut_frac``, shape ``(n_sims,)``).
+
+    ``contingent_liability`` (if present) is excluded from the cuttable pool
+    and keeps the pre-existing uniform ``cut_mult`` treatment, exactly
+    matching ``spending_priority_cut_check``'s own exclusion -- funding rules
+    for it are a separate, not-yet-built phase (see the "Not done" section of
+    documentation/OPTIMIZATION_REFACTOR_STATUS.md).
+
+    The combined total across ALL tiers is unchanged either way (bit-
+    identical to the pre-existing uniform reduction): this only changes how
+    the same dollar cut is attributed across tiers, never the total. It
+    therefore never affects out['taxable']/'pretax'/'roth'/'cash']/'liquid'/
+    'total'/'unfunded'/'path_success'/'success_rate' -- none of which read
+    tier attribution -- only 'spend_{tier}_real' and the essential-shortfall
+    attribution derived from it below.
+    """
+    mult = _np.clip(_np.asarray(cut_mult, dtype=float), 0.0, 1.0).reshape(-1, 1)
+    cuttable = [t for t in ('discretionary', 'important', 'essential') if t in tier_scaled]
+    if not cuttable:
+        return {tier: arr * mult for tier, arr in tier_scaled.items()}
+    zeros = _np.zeros_like(tier_scaled[cuttable[0]])
+    d_arr = tier_scaled.get('discretionary', zeros)
+    i_arr = tier_scaled.get('important', zeros)
+    e_arr = tier_scaled.get('essential', zeros)
+    total_cuttable = d_arr + i_arr + e_arr
+    target_cut = total_cuttable * (1.0 - mult)
+    d_taken = _np.minimum(d_arr, target_cut)
+    rem1 = _np.maximum(0.0, target_cut - d_taken)
+    i_taken = _np.minimum(i_arr, rem1)
+    rem2 = _np.maximum(0.0, rem1 - i_taken)
+    e_taken = _np.minimum(e_arr, rem2)
+    retained: dict = {}
+    if 'discretionary' in tier_scaled:
+        retained['discretionary'] = d_arr - d_taken
+    if 'important' in tier_scaled:
+        retained['important'] = i_arr - i_taken
+    if 'essential' in tier_scaled:
+        retained['essential'] = e_arr - e_taken
+    for tier, arr in tier_scaled.items():
+        if tier not in retained:
+            retained[tier] = arr * mult
+    return retained
+
+
 def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation_paths: dict, max_death_years, spend_cut_frac=0.0,
                                h_death_years=None, w_death_years=None, survivor_buckets=None):
     """Vectorized tax-bucket withdrawal recursion for Monte Carlo paths.
@@ -4050,8 +4106,10 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
     # calculation above, which already ran. Skips gracefully if base_rows
     # never carried spend_by_tier.
     real_total = None
-    for tier, det_arr in eff['spend_by_tier'].items():
-        real = det_arr * spending_scale * cut_mult.reshape(-1, 1) / _np.maximum(1e-9, inf_idx)
+    tier_scaled = {tier: det_arr * spending_scale for tier, det_arr in eff['spend_by_tier'].items()}
+    tier_retained = _mc_tier_priority_retained(tier_scaled, cut_mult) if tier_scaled else {}
+    for tier, retained_arr in tier_retained.items():
+        real = retained_arr / _np.maximum(1e-9, inf_idx)
         out[f'spend_{tier}_real'] = real
         real_total = real if real_total is None else real_total + real
     if real_total is not None:
@@ -4082,10 +4140,9 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
         remaining_unfunded = out['unfunded'].copy()
         essential_shortfall_nominal = _np.zeros((n_sims, n_years))
         for tier in ('discretionary', 'important', 'essential'):
-            tier_arr = eff['spend_by_tier'].get(tier)
-            if tier_arr is None:
+            tier_nominal = tier_retained.get(tier)
+            if tier_nominal is None:
                 continue
-            tier_nominal = tier_arr * spending_scale * cut_mult.reshape(-1, 1)
             taken = _np.minimum(tier_nominal, remaining_unfunded)
             if tier == 'essential':
                 essential_shortfall_nominal = taken
