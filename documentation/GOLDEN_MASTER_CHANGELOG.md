@@ -1,3 +1,125 @@
+## 2026-08-26 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5763251.84 lifetime_tax=1316887.09 -->
+
+**Old pins.** terminal_nw=5,763,251.84, lifetime_tax=1,316,527.24
+
+**New pins.** terminal_nw=5,763,251.84, lifetime_tax=1,316,887.09
+
+**Reason.**
+
+HSA-reimbursed medical is no longer also deducted on Schedule A
+
+**Engine change. Pins move: `5,814,607.29 / 1,304,382.77` -> `5,763,251.84 / 1,316,887.09`.**
+Terminal net worth **down** $51,355.45; lifetime tax **up** $12,504.32.
+
+**What was wrong.** A qualified medical expense cannot both be reimbursed
+tax-free from an HSA and deducted on Schedule A. `medical_expense_yr`
+(`deterministic_engine.py`) was computed from the household's full medical
+spend -- wellness premiums, wellness detail budget, wellness shocks and the
+LTC premium -- and fed the itemized medical deduction above the
+7.5%-of-AGI floor with **no reduction for HSA dollars already reimbursed
+against the same expense**. Nothing anywhere netted the two.
+
+Measured on the frozen fixture before the fix: **all 123,301.40 of lifetime
+HSA withdrawals were also clearing the floor**, i.e. every HSA dollar the
+plan drew was taking both benefits. The fixture draws its HSA on a
+`smooth_window` schedule from 2031, and its medical spend (72k+/yr and
+rising) far exceeds those draws, so the draws are amply covered by
+qualified expenses -- they are genuinely qualified, and therefore genuinely
+not separately deductible.
+
+**Two of this refactor's own recent changes made it more reachable**, which
+is worth recording rather than leaving to be rediscovered. PR #66
+(`fund_contingent_liability_from_hsa`) routes `ltc_prem_yr +
+wellness_shock_yr` preferentially to the HSA, and those are two of the four
+components of `medical_expense_yr` -- so HSA dollars now cover exactly the
+costs most likely to clear the floor. PR #67's schedule search then
+optimizes against a model that overstated HSA value in precisely the
+high-medical years it draws toward. The defect predates both; its frequency
+did not.
+
+**The fix.** Between Priority 2 and Priority 3, the deduction is reduced by
+the HSA dollars reimbursed against that year's medical spend, and fed tax /
+taxable income / total tax are recomputed.
+
+**Placement is load-bearing, and the first attempt got it wrong.** This
+correction *increases* tax, so the gap grows and the rest of the cascade
+must still be able to fund it IN ORDER. An initial version sat after
+Priority 4c, reasoning that `hsa_wd` is not final until 4c's gap-fill runs.
+`test_recommendations_regression.py::test_fixed_point_taxable_withdrawal_solver_runs_before_roth`
+caught that: with the demand added after 3/4b/4c, only Roth was left to fund
+it, so the plan drew Roth while pre-tax and HSA balances still remained --
+10 violations of the cascade's Roth-last invariant. Correctness of the
+withdrawal ORDER outranks capturing every last netted dollar.
+
+The trade that buys: only draws known by that point are netted -- Priority
+1b's contingent-liability draw (which exists precisely to pay qualified
+medical) and Priority 2's scheduled window draw. Priority 4c's gap-fill is
+excluded, which is defensible rather than merely convenient: 4c is a
+last-resort liquidity draw against a general cash shortfall, not a
+reimbursement of that year's medical spend. It also errs conservative --
+netting less means the correction is never more aggressive than the
+evidence supports, and it is why the lifetime-tax move (+12,144.47) is
+smaller than the after-4c placement produced.
+`unfunded_gap` stays 0.00 in every fixture year.
+
+(The DAF re-deduction block later in the same function is the same shape
+with the opposite sign; it only ever lowers tax, which is why it can safely
+sit after the draws -- a shrinking gap needs no funding.)
+
+**One more trap this hit, worth recording.** The block first updated
+`total_tax` directly. That is silently discarded: `total_tax` is rebuilt
+from scratch further down as
+`total_tax_pre_niit + ltcg_tax + niit - tlh_ordinary_credit`, so the
+`fed_tax` change survived while the `total_tax` change did not, leaving the
+two disagreeing by the corrected amount. It surfaced as a 178.21 cash-flow
+reconciliation residual in
+`tests/test_cashflow_breakdown_single_source_of_truth.py`, with the
+breakdown's `other` remainder absorbing exactly the gap. The fix is to
+recompute `total_tax_pre_niit` from its own components -- the idiom the
+engine already uses at its other two update sites -- rather than to
+hand-maintain `total_tax`.
+
+Two deliberate limits on scope:
+
+* **Only the deduction changes.** The medical spend is a real cash cost;
+  `total_spend` and the `wellness_*` row fields are untouched. This changes
+  what is deductible, not what is spent.
+* **The floor's AGI basis is left alone.** The shipped version nets the
+  reimbursed dollars out of the deduction directly rather than re-deriving
+  `max(0, net_medical - 0.075*agi)` at the correction point. Being precise
+  about what that is worth, since an earlier draft of this entry overstated
+  it: the two forms are **algebraically identical** while the deduction is
+  above the floor and `agi` is unchanged between the two points, and
+  planting the re-derived form produces **byte-identical pins** -- no test
+  here distinguishes them. They diverge only where `agi` has been mutated
+  in between; measured under a `roth_policy='none'` configuration,
+  re-deriving stripped 18,439 against a 10,168 reimbursement in one year.
+  Real, but not something that moves these pins. Netting directly is still
+  preferred because it inherits whatever floor the engine already applied
+  instead of silently re-basing it. Whether that floor should use
+  first-pass or converged AGI is a real question, and a separate one.
+
+**Std-vs-itemized is re-evaluated**, so a household pushed below the
+standard deduction by this correction takes the standard one. That caps the
+damage at `item_ded - std_ded` rather than the full lost medical deduction,
+and is one of two reasons the realized lifetime-tax move (+12,504.32) sits
+well below the ~27-30k a naive `lost_deduction x marginal_rate` estimate
+predicts -- the other being the Priority-4c exclusion described above.
+
+**Blast radius.** Every household that both draws an HSA and itemizes
+medical costs above the floor sees higher tax and lower terminal net worth.
+Households that never draw an HSA, or whose medical spend never clears the
+floor, are bit-identical. **This makes affected plans look worse**, which
+per this changelog's own 2026-08-18 precedent deserves more scrutiny rather
+than less -- the direction is uncomfortable but it is the direction the tax
+treatment requires.
+
+Design and prior research:
+`docs/superpowers/plans/2026-08-26-hsa-expense-bank-and-double-dip-spec.md`.
+New coverage: `tests/test_hsa_medical_deduction_double_dip_regression.py`.
+
 ## 2026-08-26 (b) — The HSA schedule search is wired into builds: no pins moved, but `optimize`-mode households get a real search instead of a level-draw placeholder
 
 **Not a change to any figure on the frozen fixture. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**
