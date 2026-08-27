@@ -203,6 +203,45 @@ entry. Covered by
 never-worse guarantee and all three user-intent guards mutation-tested red
 first).
 
+### Phase 2 follow-on — HSA expense-bank accumulation and enforcement (Option B)
+
+Follow-on to the double-dip fix. Before starting, re-verified `hsa_expense_bank`
+against every draw site and found it **had zero effect on any projection
+output**: `hsa_available_to_draw` (the function that applies the bank as a
+cap) was only reachable through `withdraw_hsa_window`'s `requested=`/
+`cumulative_drawn=` parameters, and nothing in the codebase ever called it
+with those. `fund_contingent_liability_from_hsa` (Priority 1b) and
+`withdraw_hsa_gap` (Priority 4c) never consulted `hsa_available_to_draw` at
+all — balance and the liquidity-reserve floor only. So this increment
+covers both accumulation (the originally-scoped Option B) and enforcement
+(a prerequisite discovered along the way, since accumulating a number
+nothing reads is inert).
+
+Enforcement is deliberately narrow: only Priority 1b and Priority 4c — the
+two sites that already share `hsa_unscheduled_draw_allowed` — now cap their
+draw by the bank. `withdraw_hsa_window`'s scheduled modes (`spend_as_needed`
+default, `smooth_window`, `annual_pct`, `optimize`) are untouched, on the
+same "mode is the sole authority" precedent `hsa_unscheduled_draw_allowed`
+already establishes for those modes. The frozen fixture runs
+`smooth_window`, so its core scheduled draw is unaffected by this change.
+
+Accumulation: a single running scalar (`hsa_bank_balance`, same pattern as
+`lifetime_exemption_used`) seeded from the user's entered figure (blank now
+means "nothing entered yet, accrues from here" rather than "unlimited" —
+the one deliberate behavior change), grown each year by `medical_expense_yr`,
+drawn down by Priority 1b's and 4c's draws. `row['hsa_expense_bank_balance']`
+records the year-end balance.
+
+Out of scope, documented as deferred: extending `hsa_nonqualified_treatment
+='allow_taxable'` to the newly-enforced sites (they can never produce
+non-qualified dollars by construction, so there's nothing to convert); MC
+engine parity (`_mc_vectorized_projection`/`monte_carlo_exact_scalar`
+reimplement the contingent-liability draw inline rather than calling
+`fund_contingent_liability_from_hsa`); capping the scheduled modes.
+
+Design, the dead-bank finding, and the narrowed-scope rationale in
+`docs/superpowers/plans/2026-08-26-hsa-expense-bank-and-double-dip-spec.md`.
+
 ## Not done
 
 - **Genuinely redirecting withdrawal requests (not just reporting
