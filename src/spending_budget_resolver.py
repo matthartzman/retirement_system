@@ -114,6 +114,52 @@ SPENDING_TIER_CUT_ORDER = tuple(
     sorted(SPENDING_TIERS, key=lambda t: SPENDING_TIERS[t]["cut_priority"])
 )
 
+#: Genuine per-tier funding policy (optimization-refactor "Not done" item:
+#: "which bucket gets drawn down to fund which tier"), Option B from
+#: ``docs/superpowers/plans/2026-08-27-mc-tier-priority-withdrawal-
+#: redirection-spec.md``. Each tier's tuple is the ONLY buckets that tier's
+#: spending may draw from, walked in this order; a tier's need that survives
+#: every bucket in its own tuple is a genuine shortfall for that tier -- it
+#: never falls through to a bucket outside this list (e.g. discretionary
+#: never reaches Roth just because taxable/pretax ran dry).
+#:
+#: ``cash`` is prepended for every tier: it is the household's spendable
+#: buffer, not a tax-advantaged account, so there is no policy reason to
+#: reserve it for any one tier -- it is simply the cheapest dollar to spend
+#: and was already first in the pre-existing (tier-blind) draw order.
+#:
+#: essential / contingent_liability: the full HSA->pretax->taxable->Roth
+#: cascade the deterministic engine already uses for its own withdrawal
+#: order (Roth as the genuine last resort) -- these are non-negotiable
+#: obligations (core living costs, LTC premiums, incurred wellness shocks),
+#: so nothing is walled off.
+#: important: HSA->pretax->taxable, but never Roth -- meaningful
+#: quality-of-life spending should not draw down the household's most
+#: tax-advantaged, longest-compounding account.
+#: discretionary: taxable->pretax only -- never HSA (a qualified-medical-
+#: expense account with no relationship to a vacation or a big-ticket
+#: purchase) and never Roth. If taxable and pretax both run dry, the
+#: discretionary spend simply doesn't happen.
+SPENDING_TIER_BUCKET_POLICY: dict[str, tuple[str, ...]] = {
+    SPENDING_TIER_ESSENTIAL: ("cash", "hsa", "pretax", "taxable", "roth"),
+    SPENDING_TIER_CONTINGENT: ("cash", "hsa", "pretax", "taxable", "roth"),
+    SPENDING_TIER_IMPORTANT: ("cash", "hsa", "pretax", "taxable"),
+    SPENDING_TIER_DISCRETIONARY: ("cash", "taxable", "pretax"),
+}
+
+#: Funding priority (the reverse of SPENDING_TIER_CUT_ORDER): essential and
+#: contingent_liability are funded FIRST from shared buckets so they are
+#: never crowded out by important/discretionary spending competing for the
+#: same accounts; discretionary is funded last. ``"other"`` (taxes and any
+#: non-tier-tagged cash need, e.g. debt service) is funded alongside
+#: essential/contingent_liability, using the same unrestricted bucket
+#: policy, since those obligations are no more optional than essential
+#: spending itself.
+MC_TIER_FUNDING_ORDER: tuple[str, ...] = (
+    "other", SPENDING_TIER_ESSENTIAL, SPENDING_TIER_CONTINGENT,
+    SPENDING_TIER_IMPORTANT, SPENDING_TIER_DISCRETIONARY,
+)
+
 #: Tracking types that are never household lifestyle spending and are
 #: therefore left untiered (Income/Transfer are cash-flow sources, not
 #: spending; Business is tracked for reference only and is already excluded

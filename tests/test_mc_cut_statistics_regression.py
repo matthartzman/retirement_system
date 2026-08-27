@@ -52,6 +52,20 @@ def _synthetic_zero_income_setup(total_spends: list, tiers: dict):
     the full explanation), since scaling a zero by a positive factor is
     still zero -- so the any_cut/cut_years_count/max_consecutive_cut_years
     threshold checks below are robust to it even across multiple years.
+
+    Genuine per-tier redirection (Option B) drives each tier's withdrawal
+    request directly from ``spend_by_tier``, not from a separately-set
+    ``total_spend``/``_account_withdrawals`` figure -- so unlike the
+    pre-Option-B version of this fixture (which put the desired per-year
+    unfunded amount in ``total_spends``, entirely decoupled from a FIXED
+    ``tiers`` dict), each year's ``spend_by_tier`` is now put ENTIRELY into
+    the 'essential' tier and sized to that year's ``total_spends`` entry
+    directly. essential has unrestricted (full-cascade) bucket access and
+    the account balance is always 0 here, so the result is identical to the
+    old behavior: unfunded == that year's requested amount, deterministically,
+    with a $0 request producing a genuine $0 shortfall. ``tiers`` (the tier
+    labels to actually use, in cut-order) is kept as a parameter for the one
+    caller that inspects tier composition rather than just totals.
     """
     plan_start = 2030
     n_years = len(total_spends)
@@ -69,7 +83,7 @@ def _synthetic_zero_income_setup(total_spends: list, tiers: dict):
             "total_spend": spend,
             "total_tax": 0.0,
             "gross_income": 0.0,
-            "spend_by_tier": dict(tiers),
+            "spend_by_tier": {"essential": spend},
             "total_nw": 0.0, "pretax_nw": 0.0, "roth_nw": 0.0, "trust_nw": 0.0, "hsa_nw": 0.0,
         }
         for y, spend in zip(years, total_spends)

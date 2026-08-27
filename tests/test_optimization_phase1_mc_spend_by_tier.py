@@ -73,6 +73,18 @@ class VectorizedSpendByTierRealTests(unittest.TestCase):
         # (spend factor, SS/pension changes, filing status) legitimately
         # make paths diverge from the joint-economics deterministic value
         # and from each other (different spouse dies first, different year).
+        #
+        # Genuine per-tier bucket redirection (Option B) adds a SECOND,
+        # independent source of legitimate pre-death divergence: a path with
+        # poor-enough returns can genuinely fail to fund its full deterministic
+        # demand even before any death occurs -- unlike the pre-Option-B
+        # reporting-only figures, which were pure deterministic-value replays
+        # oblivious to whether the withdrawal cascade actually succeeded. So
+        # the pre-death equality check below is additionally restricted to
+        # paths/years with NO genuine shortfall (proj['unfunded'] <= $1) --
+        # among those, demand was fully met, so the identity must still hold
+        # exactly; a divergence there would be a real bug, not an expected
+        # consequence of a path running short of money.
         c = _base_config()
         c["plan_end"] = int(c["plan_start"]) + 30  # full horizon (ages run
         # into the 90s), so first-death events actually occur within plan
@@ -94,24 +106,25 @@ class VectorizedSpendByTierRealTests(unittest.TestCase):
             year = int(row["year"])
             det_real_total = float(row.get("total_spend", 0.0) or 0.0) / ((1.0 + inf) ** max(0, year - start))
             path_values = proj["spend_total_real"][:, j]
-            pre_death_mask = year <= first_death
+            fully_funded_mask = proj["unfunded"][:, j] <= 1.0
+            pre_death_mask = (year <= first_death) & fully_funded_mask
             if pre_death_mask.any():
                 pre_vals = path_values[pre_death_mask]
                 self.assertTrue(np.allclose(pre_vals, det_real_total, atol=1.0),
-                                 f"year {year}: a path still in joint economics (first death not yet "
-                                 f"reached) diverged from the deterministic real spend")
+                                 f"year {year}: a fully-funded path still in joint economics (first death "
+                                 f"not yet reached) diverged from the deterministic real spend")
                 saw_pre_death_year = True
-            post_death_mask = ~pre_death_mask
+            post_death_mask = (year > first_death) & fully_funded_mask
             if post_death_mask.any():
                 post_vals = path_values[post_death_mask]
                 if not np.allclose(post_vals, det_real_total, atol=1.0):
                     saw_post_death_divergence = True
 
-        self.assertTrue(saw_pre_death_year, "no year had any path still in pre-first-death joint economics")
+        self.assertTrue(saw_pre_death_year, "no fully-funded year had any path still in pre-first-death joint economics")
         self.assertTrue(
             saw_post_death_divergence,
-            "no post-first-death path ever differed from the joint-economics deterministic value -- "
-            "survivor economics may not be wired into the vectorized withdrawal recursion",
+            "no fully-funded post-first-death path ever differed from the joint-economics deterministic "
+            "value -- survivor economics may not be wired into the vectorized withdrawal recursion",
         )
 
     def test_per_tier_matrices_sum_to_spend_total_real(self):
@@ -124,14 +137,22 @@ class VectorizedSpendByTierRealTests(unittest.TestCase):
         summed = sum(proj[k] for k in tier_keys)
         self.assertTrue(np.allclose(summed, proj["spend_total_real"], atol=1.0))
 
-    def test_spend_cut_frac_scales_real_spend_down(self):
+    def test_spend_cut_frac_scales_real_spend_down_in_first_year(self):
+        # Superseded from an exact-half assertion across the whole horizon:
+        # under Option B, genuine per-tier bucket restriction means how much
+        # of a (now smaller) cut demand gets funded depends on that tier's
+        # own account balances, and less drawn in an earlier year compounds
+        # forward -- see test_mc_tier_priority_cut_regression.py's matching
+        # test for the full explanation. Checked at year 0, where both runs
+        # share identical starting balances and the fixture is comfortably
+        # funded enough that neither run should see a genuine shortfall.
         c = _base_config()
         base_rows = project(c)
         batch = _mc_vectorized_batch(c, base_rows, 5, 11, 0.06, 0.12, 0.0, use_asset_classes=False)
         from src.planning_engines import _mc_vectorized_projection
         no_cut = _mc_vectorized_projection(c, base_rows, batch["returns"], batch["inflation_paths"], batch["max_death_years"], spend_cut_frac=0.0)
         half_cut = _mc_vectorized_projection(c, base_rows, batch["returns"], batch["inflation_paths"], batch["max_death_years"], spend_cut_frac=0.5)
-        self.assertTrue(np.allclose(half_cut["spend_total_real"], no_cut["spend_total_real"] * 0.5, atol=1.0))
+        self.assertTrue(np.allclose(half_cut["spend_total_real"][:, 0], no_cut["spend_total_real"][:, 0] * 0.5, atol=1.0))
 
 
 class ScalarSpendByTierRealTests(unittest.TestCase):
