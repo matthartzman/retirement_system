@@ -3273,6 +3273,13 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         except Exception as exc:
             portfolio_diag['return_model_warning'] = str(exc)
     N = int(c.get('mc_sims', n_sims or 1000))
+    # Phase 3 (optimization refactor): tax NPV / ELTR -- see the vectorized
+    # engine's matching comment (_mc_vectorized_projection) for the full
+    # rationale. Shares _roth_discount_rate(c) with the Roth optimizer's own
+    # PV objective so this reporting figure and the plan's actual scoring
+    # can never silently disagree about what "the" discount rate is.
+    _tax_npv_discount = _roth_discount_rate(c)
+    _tax_npv_plan_start = int(c.get('plan_start', base_years[0] if base_years else 0))
     configured_threshold = float(c.get('mc_success_liquid_floor', 0.0) or 0.0)
     # If the CSV leaves the floor at 0, use the plan's own reserve policy.
     # A zero-year reserve policy therefore produces a zero reserve floor.
@@ -3319,6 +3326,12 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
     _GIFT_CHARITY_FIELDS = (('daf_contrib', 'daf_contrib_yr'), ('qcd_total', 'qcd_total_yr'), ('gift_total', 'gift_total_yr'))
     all_gift_charity_by_year: dict[str, dict[int, list]] = defaultdict(lambda: defaultdict(list))
     all_lifetime_gift_charity_pv: list = []
+    # Phase 3 (optimization refactor): tax NPV / ELTR -- per-path PV of
+    # total_tax and gross_cash_flow_yr, discounted nominal-dollar (not
+    # CPI-real) figures, matching _roth_strategy_metrics's own convention.
+    # Reporting-only, same as every accumulator in this block.
+    all_tax_npv: list = []
+    all_eltr: list = []
     # Phase 2 (optimization refactor): "probability essential spending is
     # fully funded" -- counts paths whose essential-tier shortfall (the
     # discretionary -> important -> essential cascade against each year's
@@ -3435,6 +3448,8 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
 
         path_infl_index = inflation_paths.get('inflation_index_by_year') or {}
         _path_lifetime_gift_charity = 0.0
+        _path_tax_npv = 0.0
+        _path_gross_cash_flow_npv = 0.0
         _path_essential_shortfall_ever = False
         _path_any_cut = False
         _path_cut_years = 0
@@ -3474,6 +3489,12 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
                     all_spend_by_tier_by_year[_tier][yr].append(float(_nominal or 0.0) / max(1e-9, _infl_idx_yr))
             all_tax_by_year[yr].append(float(r.get('total_tax', 0.0) or 0.0) / max(1e-9, _infl_idx_yr))
             all_gross_cash_flow_by_year[yr].append(float(r.get('gross_cash_flow_yr', 0.0) or 0.0) / max(1e-9, _infl_idx_yr))
+            # Phase 3 (optimization refactor): tax NPV / ELTR -- nominal
+            # (not CPI-real) dollars discounted to plan-start PV, matching
+            # _roth_strategy_metrics's own convention.
+            _pv_factor_yr = 1.0 / ((1.0 + _tax_npv_discount) ** max(0, int(yr) - _tax_npv_plan_start))
+            _path_tax_npv += float(r.get('total_tax', 0.0) or 0.0) * _pv_factor_yr
+            _path_gross_cash_flow_npv += float(r.get('gross_cash_flow_yr', 0.0) or 0.0) * _pv_factor_yr
             for _label, _key in _GIFT_CHARITY_FIELDS:
                 _real_amt = float(r.get(_key, 0.0) or 0.0) / max(1e-9, _infl_idx_yr)
                 all_gift_charity_by_year[_label][yr].append(_real_amt)
@@ -3506,6 +3527,9 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
             _path_cumulative_shortfall_real += _unfunded_real_yr
             _path_max_annual_shortfall_real = max(_path_max_annual_shortfall_real, _unfunded_real_yr)
         all_lifetime_gift_charity_pv.append(_path_lifetime_gift_charity)
+        all_tax_npv.append(_path_tax_npv)
+        if _path_gross_cash_flow_npv > 1e-6:
+            all_eltr.append(_path_tax_npv / _path_gross_cash_flow_npv)
         if not _path_essential_shortfall_ever:
             essential_fully_funded_count += 1
         any_cut_count += int(_path_any_cut)
@@ -3565,6 +3589,13 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
     # per-year draws, so this must not be derived from the per-year
     # percentiles above. Mirrors how terminal_total_nw is already computed.
     lifetime_gift_charity_pv_real = _percentiles(all_lifetime_gift_charity_pv, 0.0)
+    # Phase 3 (optimization refactor): tax NPV / ELTR distribution --
+    # mirrors the vectorized engine's matching percentile summary. None for
+    # ELTR specifically when every path had zero PV'd gross cash flow (no
+    # paths to divide by), the scalar-engine analogue of the vectorized
+    # engine's NaN-filtered percentile guard.
+    tax_npv_pct = _percentiles(all_tax_npv, 0.0)
+    effective_lifetime_tax_rate_pct = _percentiles(all_eltr, 0.0) if all_eltr else None
 
     # Quintiles are sorted by first-5-year returns, but success is now funded-plan
     # success and terminal values are terminal liquid assets. Total terminal net
@@ -3633,6 +3664,8 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         'gross_cash_flow_real_pct_by_year': gross_cash_flow_real_pct_by_year,
         'gift_charity_real_pct_by_year': gift_charity_real_pct_by_year,
         'lifetime_gift_charity_pv_real': lifetime_gift_charity_pv_real,
+        'tax_npv_pct': tax_npv_pct,
+        'effective_lifetime_tax_rate_pct': effective_lifetime_tax_rate_pct,
         'quintiles': quintiles,
         'sensitivity': sensitivity,
         'sensitivity_sims': sens_N,
@@ -4576,6 +4609,44 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
     if gift_charity_total is not None:
         out['gift_charity_real'] = gift_charity_total
 
+    # Phase 3 (optimization refactor): tax NPV / ELTR (effective lifetime
+    # tax rate), per docs/superpowers/plans/2026-08-27-phase3-tax-npv-eltr-
+    # spec.md's Option A. Generalizes the PV-discounting pattern
+    # _roth_strategy_metrics already uses to score a single deterministic
+    # Roth-conversion candidate (planning_engines.py's _roth_discount_rate)
+    # to a per-path figure across the whole MC distribution -- the
+    # "state-contingent" half of the phase name, since a single
+    # deterministic number cannot be state-contingent. gross_cash_flow_yr
+    # was built in Phase 1 explicitly for this ("for ELTR ... reporting")
+    # and was unconsumed until now.
+    #
+    # Uses each path's own NOMINAL (sampled-inflation) dollar trajectory --
+    # eff[field] * spending_scale, the same pre-deflation figure
+    # tax_total_real/gross_cash_flow_real above divide by inf_idx to reach
+    # real dollars -- discounted year-by-year to plan-start PV, matching
+    # _roth_strategy_metrics's own convention (it discounts the
+    # deterministic engine's nominal total_tax, never a CPI-deflated
+    # figure). A PV is already expressed in year-0-equivalent dollars, so
+    # no separate real-dollar deflation is layered on top.
+    #
+    # Reporting-only: reads eff[...]/spending_scale, both already finalized
+    # before this point, and never feeds back into unfunded/liquid/total/
+    # path_success/success_rate.
+    if 'total_tax' in eff and 'gross_cash_flow_yr' in eff:
+        discount = _roth_discount_rate(c)
+        plan_start = int(c.get('plan_start', years[0] if len(years) else 0))
+        discount_factor = 1.0 / _np.power(1.0 + discount, _np.maximum(0, years - plan_start)).reshape(1, -1)
+        tax_nominal = eff['total_tax'] * spending_scale
+        gross_cash_flow_nominal = eff['gross_cash_flow_yr'] * spending_scale
+        tax_npv = _np.sum(tax_nominal * discount_factor, axis=1)
+        gross_cash_flow_npv = _np.sum(gross_cash_flow_nominal * discount_factor, axis=1)
+        out['tax_npv'] = tax_npv
+        out['gross_cash_flow_npv'] = gross_cash_flow_npv
+        out['effective_lifetime_tax_rate'] = _np.divide(
+            tax_npv, gross_cash_flow_npv,
+            out=_np.full_like(tax_npv, _np.nan), where=gross_cash_flow_npv > 1e-6,
+        )
+
     # Phase 2 (optimization refactor), superseded by Option B: previously
     # this block RECONSTRUCTED essential's shortfall by walking
     # SPENDING_TIER_CUT_ORDER against out['unfunded'] after the fact, since
@@ -4753,6 +4824,19 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
             probability_legacy_floor_met = float(_np.mean(_np.asarray(_post_tax_vals) >= _legacy_floor))
     except Exception:
         pass
+    # Phase 3 (optimization refactor): tax NPV / ELTR distribution across
+    # the MC batch -- see _mc_vectorized_projection's tail for the per-path
+    # computation. None when the projection didn't carry these fields
+    # (e.g. base_rows never went through the deterministic engine's
+    # gross_cash_flow_yr wiring), matching the None-when-inapplicable
+    # convention every other optional Phase 2/3 metric here uses.
+    tax_npv_pct = _percentiles(projection['tax_npv'].tolist(), 0.0) if 'tax_npv' in projection else None
+    effective_lifetime_tax_rate_pct = None
+    if 'effective_lifetime_tax_rate' in projection:
+        _eltr_vals = projection['effective_lifetime_tax_rate']
+        _eltr_finite = _eltr_vals[_np.isfinite(_eltr_vals)]
+        if _eltr_finite.size:
+            effective_lifetime_tax_rate_pct = _percentiles(_eltr_finite.tolist(), 0.0)
     return {
         'years': years,
         'returns': returns,
@@ -4778,6 +4862,8 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
         'probability_legacy_floor_met': probability_legacy_floor_met,
         'survivor_period_applicable_probability': survivor_period_applicable_probability,
         'survivor_period_failure_probability': survivor_period_failure_probability,
+        'tax_npv_pct': tax_npv_pct,
+        'effective_lifetime_tax_rate_pct': effective_lifetime_tax_rate_pct,
     }
 
 
