@@ -3211,6 +3211,76 @@ def _mc_scalar_tier_bucket_reconstruction(c: dict, rows: list[dict]):
     return results
 
 
+def _mc_scalar_guyton_klinger_shadow(c: dict, rows: list[dict], returns: dict, inflation_by_year: dict):
+    """Scalar-engine analogue of the vectorized engine's Guyton-Klinger
+    guardrail SHADOW simulation (optimization-refactor Phase 5, see
+    docs/superpowers/plans/2026-08-27-phase5-adaptive-guardrails-spec.md
+    and the matching, more fully-commented block in
+    ``_mc_vectorized_projection`` for the full rule description and
+    rationale -- this function implements the identical algorithm, not a
+    reduced one).
+
+    Tracks ONE aggregate liquid-portfolio value (not per-tax-bucket) for
+    this path, seeded from the same starting balances the deterministic
+    engine used and this path's own year-1 actual portfolio draw (net of
+    income, matching the same income-netting fix the tier-priority-
+    redirection increment required for its own cascade). Grows the shadow
+    portfolio using ``returns[year]`` -- this path's own already-sampled
+    total portfolio return for that year, the same figure
+    ``monte_carlo_exact_scalar`` already uses for its own per-path
+    trajectory -- rather than inferring an implied rate from balance
+    deltas (unlike ``_mc_scalar_tier_bucket_reconstruction``'s per-bucket
+    growth-factor inference, this shadow tracks one aggregate figure with
+    no per-bucket split to reconcile against, so the real portfolio-level
+    return is directly available and simpler to reuse as-is).
+
+    Fixed default GK parameters (20% bands, 10% cut/raise, 15-year
+    capital-preservation suspension window) -- identical constants to the
+    vectorized engine's block, per the same user sign-off.
+
+    Returns ``{year: {'spend_nominal': float, 'cut': bool, 'raise': bool}}``
+    (this path's total consumption -- portfolio draw + that year's
+    guaranteed income -- plus whether each guardrail rule fired that
+    year), or ``None`` if ``rows`` is empty.
+    """
+    if not rows:
+        return None
+    starts = _mc_bucket_starting_balances(c)
+    total_start_liquid = float(sum(starts.values()))
+    plan_end = int(c.get('plan_end', int(rows[-1]['year'])))
+
+    def _withdrawal_total(row: dict) -> float:
+        return sum(max(0.0, float(amt or 0.0)) for amt in (row.get('_account_withdrawals') or {}).values())
+
+    withdrawal = _withdrawal_total(rows[0])
+    portfolio = total_start_liquid
+    iwr = withdrawal / max(1e-9, portfolio)
+    _gk_band, _gk_adjust, _gk_suspension_years = 0.20, 0.10, 15
+    results: dict = {}
+    prior_return = None
+    for idx, row in enumerate(rows):
+        yr = int(row['year'])
+        if idx > 0:
+            infl_rate = float(inflation_by_year.get(yr, c.get('inf', 0.025)) or 0.0)
+            if prior_return is None or prior_return >= 0.0:
+                withdrawal = withdrawal * (1.0 + infl_rate)
+        years_remaining = plan_end - yr
+        cwr = withdrawal / max(1e-9, portfolio)
+        do_cut = years_remaining > _gk_suspension_years and cwr > iwr * (1.0 + _gk_band)
+        do_raise = (not do_cut) and cwr < iwr * (1.0 - _gk_band)
+        if do_cut:
+            withdrawal *= (1.0 - _gk_adjust)
+        elif do_raise:
+            withdrawal *= (1.0 + _gk_adjust)
+        income = float(row.get('income_funding', 0.0) or 0.0)
+        results[yr] = {'spend_nominal': withdrawal + income, 'cut': do_cut, 'raise': do_raise}
+        portfolio = max(0.0, portfolio - withdrawal)
+        r = float(returns.get(yr, 0.0) or 0.0)
+        portfolio = portfolio * (1.0 + r)
+        prior_return = r
+    return results
+
+
 def _run_one_mc_path(c: dict, rng: random.Random, mu: float, sig: float, use_asset_classes: bool = True):
     c2 = _clone_for_mc(c)
     c2.update(sample_household_death_years(c2, rng))
@@ -3332,6 +3402,15 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
     # Reporting-only, same as every accumulator in this block.
     all_tax_npv: list = []
     all_eltr: list = []
+    # Phase 5 (optimization refactor): Guyton-Klinger guardrail shadow
+    # simulation -- per-year real "what would consumption have looked
+    # like under GK's rules" plus per-path cut/raise-ever counts.
+    # Reporting-only, same as every accumulator in this block.
+    all_guardrail_spend_by_year: dict[int, list] = defaultdict(list)
+    all_guardrail_cut_years: list = []
+    all_guardrail_raise_years: list = []
+    guardrail_ever_cut_count = 0
+    guardrail_ever_raise_count = 0
     # Phase 2 (optimization refactor): "probability essential spending is
     # fully funded" -- counts paths whose essential-tier shortfall (the
     # discretionary -> important -> essential cascade against each year's
@@ -3439,6 +3518,11 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         # the two engines now disagree about whether tier redirection
         # affects overall funding success, not just tier attribution.
         tier_recon = _mc_scalar_tier_bucket_reconstruction(c, rows)
+        gk_shadow = _mc_scalar_guyton_klinger_shadow(c, rows, returns, inflation_paths.get('inflation_by_year') or {})
+        _path_guardrail_cut_years = 0
+        _path_guardrail_raise_years = 0
+        _path_guardrail_ever_cut = False
+        _path_guardrail_ever_raise = False
         last_row = rows[-1]
         path_returns = [returns[y] for y in years[:5]]
         sampled_returns.extend(returns[y] for y in years)
@@ -3476,6 +3560,15 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
             all_total_by_year[yr].append(float(r.get('total_nw', 0) or 0))
             all_liquid_by_year[yr].append(liquid)
             _infl_idx_yr = float(path_infl_index.get(yr, 1.0) or 1.0)
+            _gk_yr = gk_shadow.get(yr) if gk_shadow is not None else None
+            if _gk_yr is not None:
+                all_guardrail_spend_by_year[yr].append(_gk_yr['spend_nominal'] / max(1e-9, _infl_idx_yr))
+                if _gk_yr['cut']:
+                    _path_guardrail_cut_years += 1
+                    _path_guardrail_ever_cut = True
+                if _gk_yr['raise']:
+                    _path_guardrail_raise_years += 1
+                    _path_guardrail_ever_raise = True
             _recon_yr = tier_recon.get(yr) if tier_recon is not None else None
             if _recon_yr is not None:
                 # Genuine per-tier funded spend (Option B), not the gross
@@ -3530,6 +3623,11 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         all_tax_npv.append(_path_tax_npv)
         if _path_gross_cash_flow_npv > 1e-6:
             all_eltr.append(_path_tax_npv / _path_gross_cash_flow_npv)
+        if gk_shadow is not None:
+            all_guardrail_cut_years.append(_path_guardrail_cut_years)
+            all_guardrail_raise_years.append(_path_guardrail_raise_years)
+            guardrail_ever_cut_count += int(_path_guardrail_ever_cut)
+            guardrail_ever_raise_count += int(_path_guardrail_ever_raise)
         if not _path_essential_shortfall_ever:
             essential_fully_funded_count += 1
         any_cut_count += int(_path_any_cut)
@@ -3596,6 +3694,12 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
     # engine's NaN-filtered percentile guard.
     tax_npv_pct = _percentiles(all_tax_npv, 0.0)
     effective_lifetime_tax_rate_pct = _percentiles(all_eltr, 0.0) if all_eltr else None
+    # Phase 5 (optimization refactor): Guyton-Klinger guardrail shadow
+    # simulation summary -- mirrors the vectorized engine's matching
+    # percentile/probability summary.
+    guardrail_spend_real_pct_by_year = {yr: _percentiles(vals, 0.0) for yr, vals in all_guardrail_spend_by_year.items()}
+    probability_guardrail_cut = float(guardrail_ever_cut_count) / N if all_guardrail_cut_years else None
+    probability_guardrail_raise = float(guardrail_ever_raise_count) / N if all_guardrail_raise_years else None
 
     # Quintiles are sorted by first-5-year returns, but success is now funded-plan
     # success and terminal values are terminal liquid assets. Total terminal net
@@ -3666,6 +3770,9 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         'lifetime_gift_charity_pv_real': lifetime_gift_charity_pv_real,
         'tax_npv_pct': tax_npv_pct,
         'effective_lifetime_tax_rate_pct': effective_lifetime_tax_rate_pct,
+        'guardrail_spend_real_pct_by_year': guardrail_spend_real_pct_by_year,
+        'probability_guardrail_cut': probability_guardrail_cut,
+        'probability_guardrail_raise': probability_guardrail_raise,
         'quintiles': quintiles,
         'sensitivity': sensitivity,
         'sensitivity_sims': sens_N,
@@ -4647,6 +4754,121 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
             out=_np.full_like(tax_npv, _np.nan), where=gross_cash_flow_npv > 1e-6,
         )
 
+    # Phase 5 (optimization refactor): Guyton-Klinger adaptive-guardrail
+    # SHADOW simulation, per docs/superpowers/plans/2026-08-27-phase5-
+    # adaptive-guardrails-spec.md's Option A (full 4-rule GK, fixed default
+    # bands, both engines together -- per explicit user sign-off, since no
+    # prior implementation existed anywhere in this codebase to anchor a
+    # formula against, unlike Phases 3-4).
+    #
+    # This is a genuinely SEPARATE, self-contained alternate spending
+    # trajectory -- not a transformation of the plan's own real
+    # total_spend path. It answers "what would this household's spending
+    # have looked like if it had followed GK's dynamic rule from year 1
+    # forward instead of its own planned spend growth," starting from the
+    # SAME year-1 nominal spend and the SAME starting liquid balance, then
+    # evolving under the rules below using THIS PATH'S OWN realized
+    # returns/inflation (the same "reuse real path-specific data" principle
+    # _mc_scalar_tier_bucket_reconstruction's growth-factor inference and
+    # the tier-priority-redirection income-netting fix both established).
+    #
+    # Tracks ONE aggregate liquid-portfolio value per path (pretax+roth+
+    # taxable+hsa+cash combined) -- GK's rules are defined against total
+    # portfolio value, not a per-tax-bucket split, and this is a shadow
+    # figure never fed into the real withdrawal cascade, so there is no
+    # bucket-level funding-source question here (that is what
+    # SPENDING_TIER_BUCKET_POLICY already answers for the REAL cascade).
+    #
+    # The four rules, in the order Guyton & Klinger (2006) prescribe:
+    #   1. Withdrawal Rule: each year's desired withdrawal is last year's,
+    #      increased by that year's realized inflation -- UNLESS the prior
+    #      year's total portfolio return was negative, in which case the
+    #      increase is skipped (frozen at last year's nominal dollar level).
+    #   2. Capital Preservation Rule: if the current withdrawal rate
+    #      (desired withdrawal / start-of-year portfolio value) exceeds the
+    #      INITIAL withdrawal rate (year 1's own ratio) by more than 20%,
+    #      cut the withdrawal by 10%. Suspended in the plan's final 15
+    #      years (preserving capital matters less once the horizon is
+    #      short) -- GK_CAPITAL_PRESERVATION_SUSPENSION_YEARS below.
+    #   3. Prosperity Rule: if the current withdrawal rate falls more than
+    #      20% BELOW the initial rate, raise the withdrawal by 10%. No
+    #      time-based suspension in the standard formulation.
+    #   4. Portfolio Management Rule: governs WHICH asset class funds a
+    #      given year's withdrawal (e.g. avoid selling equities after a
+    #      down year) -- deliberately OUT OF SCOPE here: it never changes
+    #      the withdrawal AMOUNT, only its funding source, so it has no
+    #      effect on the dollar figure (`guardrail_spend_real`) this shadow
+    #      simulation reports.
+    # A cut/raise is a permanent step-change to the withdrawal level (the
+    # adjusted amount becomes next year's "last year's withdrawal" for
+    # Rule 1), not a one-year blip -- matching GK's own definition.
+    #
+    # Fixed default bands (GK's own commonly-cited parameters; per user
+    # sign-off, CSV-schema configurability is an explicit, separately-
+    # scoped follow-up, the same "backend ready, no CSV/UI yet" pattern
+    # several earlier Phase 2 metrics used):
+    _gk_band = 0.20            # +/-20% of the initial withdrawal rate
+    _gk_adjust = 0.10          # 10% cut or raise when a guardrail triggers
+    _gk_suspension_years = 15  # capital-preservation rule suspended once
+                                # this many years or fewer remain in the plan
+    if 'total_spend' in flows and 'income_funding' in eff and years.size:
+        plan_end_gk = int(c.get('plan_end', int(years[-1])))
+        total_start_liquid = float(sum(starts.values()))
+        # GK's "withdrawal rate" is defined against the PORTFOLIO draw, not
+        # total household spending -- most of total_spend is typically
+        # covered by guaranteed income (SS/pension/wages), not the
+        # portfolio, exactly the same real bug the tier-priority-
+        # redirection increment found and fixed for that cascade (using
+        # gross spend as the portfolio draw manufactured false shortfalls
+        # there too). Anchor to this path's own actual year-1 portfolio
+        # draw (the deterministic engine's own already-income-net
+        # withdrawal decision, replayed forward and scaled -- the same
+        # eff['withdrawals'] figure the tier cascade above reads), not
+        # gross total_spend.
+        buckets_gk = ('pretax', 'roth', 'taxable', 'hsa', 'cash')
+        year1_portfolio_draw = _np.sum(
+            [eff['withdrawals'][b][:, 0] for b in buckets_gk], axis=0
+        ) * spending_scale[:, 0]
+        gk_withdrawal = year1_portfolio_draw.astype(float).copy()
+        gk_portfolio = _np.full(n_sims, total_start_liquid, dtype=float)
+        gk_iwr = gk_withdrawal / _np.maximum(1e-9, gk_portfolio)
+        gk_spend_nominal = _np.zeros((n_sims, n_years))
+        gk_cut_years = _np.zeros(n_sims, dtype=int)
+        gk_raise_years = _np.zeros(n_sims, dtype=int)
+        gk_ever_cut = _np.zeros(n_sims, dtype=bool)
+        gk_ever_raise = _np.zeros(n_sims, dtype=bool)
+        prior_return = None
+        for j in range(n_years):
+            act_j = active[:, j]
+            if j > 0:
+                infl_rate_j = inflation_paths['inflation_by_year_matrix'][:, j]
+                freeze = prior_return < 0.0
+                gk_withdrawal = _np.where(freeze, gk_withdrawal, gk_withdrawal * (1.0 + infl_rate_j))
+            years_remaining = plan_end_gk - int(years[j])
+            cwr = gk_withdrawal / _np.maximum(1e-9, gk_portfolio)
+            do_cut = (years_remaining > _gk_suspension_years) & (cwr > gk_iwr * (1.0 + _gk_band))
+            do_raise = (~do_cut) & (cwr < gk_iwr * (1.0 - _gk_band))
+            gk_withdrawal = _np.where(do_cut, gk_withdrawal * (1.0 - _gk_adjust), gk_withdrawal)
+            gk_withdrawal = _np.where(do_raise, gk_withdrawal * (1.0 + _gk_adjust), gk_withdrawal)
+            gk_cut_years += (do_cut & act_j).astype(int)
+            gk_raise_years += (do_raise & act_j).astype(int)
+            gk_ever_cut |= (do_cut & act_j)
+            gk_ever_raise |= (do_raise & act_j)
+            actual_withdrawal = _np.where(act_j, gk_withdrawal, 0.0)
+            # Reported spend is total consumption (portfolio draw + this
+            # year's guaranteed income), comparable to spend_total_real --
+            # only the PORTFOLIO draw is subject to GK's rules/growth above.
+            income_j = _np.where(act_j, eff['income_funding'][:, j] * spending_scale[:, j], 0.0)
+            gk_spend_nominal[:, j] = actual_withdrawal + income_j
+            gk_portfolio = _np.maximum(0.0, gk_portfolio - actual_withdrawal)
+            gk_portfolio = gk_portfolio * (1.0 + returns[:, j])
+            prior_return = returns[:, j]
+        out['guardrail_spend_real'] = gk_spend_nominal / _np.maximum(1e-9, inf_idx)
+        out['guardrail_cut_years_count'] = gk_cut_years
+        out['guardrail_raise_years_count'] = gk_raise_years
+        out['guardrail_ever_cut'] = gk_ever_cut
+        out['guardrail_ever_raise'] = gk_ever_raise
+
     # Phase 2 (optimization refactor), superseded by Option B: previously
     # this block RECONSTRUCTED essential's shortfall by walking
     # SPENDING_TIER_CUT_ORDER against out['unfunded'] after the fact, since
@@ -4837,6 +5059,17 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
         _eltr_finite = _eltr_vals[_np.isfinite(_eltr_vals)]
         if _eltr_finite.size:
             effective_lifetime_tax_rate_pct = _percentiles(_eltr_finite.tolist(), 0.0)
+    # Phase 5 (optimization refactor): Guyton-Klinger guardrail shadow-
+    # simulation summary -- probability a path ever triggered the capital-
+    # preservation (cut) or prosperity (raise) rule, mirroring every other
+    # probability_* convention here. None when the projection didn't carry
+    # these fields (e.g. base_rows never carried total_spend/spend_by_tier).
+    probability_guardrail_cut = (
+        float(_np.mean(projection['guardrail_ever_cut'])) if 'guardrail_ever_cut' in projection else None
+    )
+    probability_guardrail_raise = (
+        float(_np.mean(projection['guardrail_ever_raise'])) if 'guardrail_ever_raise' in projection else None
+    )
     return {
         'years': years,
         'returns': returns,
@@ -4864,6 +5097,8 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
         'survivor_period_failure_probability': survivor_period_failure_probability,
         'tax_npv_pct': tax_npv_pct,
         'effective_lifetime_tax_rate_pct': effective_lifetime_tax_rate_pct,
+        'probability_guardrail_cut': probability_guardrail_cut,
+        'probability_guardrail_raise': probability_guardrail_raise,
     }
 
 
