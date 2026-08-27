@@ -92,6 +92,275 @@ and `wellness_shock_yr` (an already-incurred cost) are cut identically
 since `spend_by_tier` sums them into one figure — a real remaining nuance
 left for a future refinement.
 
+**Reconciliation note (2026-08-27, merging `claude/plan-execution-tg1rps`):**
+this entry and the split above it landed on a branch that diverged before
+the five entries below (PR #66-#69) existed. A separate, later PR (#70,
+merged first) independently reclassified `ltc_prem_yr` the *opposite* way
+(into `essential`) without knowing about this correction; on reconciling
+the two branches, PR #70's classification was reverted in favor of the one
+described here, per explicit user decision -- this entry's finding (the
+cascade hardcoded an exclusion contradicting `SPENDING_TIER_CUT_ORDER`'s
+own documented order) is a genuine pre-existing bug fix. `_mc_tier_priority_
+retained` (introduced by PR #64, one of the entries below, which this
+branch never saw) was reconciled to read via `SPENDING_TIER_CUT_ORDER` too,
+so the vectorized engine's essential-shortfall cascade and
+`spending_priority_cut_check` agree. No pins moved by the reconciliation
+itself -- both branches' changes were pin-neutral on the frozen fixture.
+
+## 2026-08-26 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5763251.84 lifetime_tax=1316887.09 -->
+
+**Old pins.** terminal_nw=5,763,251.84, lifetime_tax=1,316,527.24
+
+**New pins.** terminal_nw=5,763,251.84, lifetime_tax=1,316,887.09
+
+**Reason.**
+
+HSA-reimbursed medical is no longer also deducted on Schedule A
+
+**Engine change. Pins move: `5,814,607.29 / 1,304,382.77` -> `5,763,251.84 / 1,316,887.09`.**
+Terminal net worth **down** $51,355.45; lifetime tax **up** $12,504.32.
+
+**What was wrong.** A qualified medical expense cannot both be reimbursed
+tax-free from an HSA and deducted on Schedule A. `medical_expense_yr`
+(`deterministic_engine.py`) was computed from the household's full medical
+spend -- wellness premiums, wellness detail budget, wellness shocks and the
+LTC premium -- and fed the itemized medical deduction above the
+7.5%-of-AGI floor with **no reduction for HSA dollars already reimbursed
+against the same expense**. Nothing anywhere netted the two.
+
+Measured on the frozen fixture before the fix: **all 123,301.40 of lifetime
+HSA withdrawals were also clearing the floor**, i.e. every HSA dollar the
+plan drew was taking both benefits. The fixture draws its HSA on a
+`smooth_window` schedule from 2031, and its medical spend (72k+/yr and
+rising) far exceeds those draws, so the draws are amply covered by
+qualified expenses -- they are genuinely qualified, and therefore genuinely
+not separately deductible.
+
+**Two of this refactor's own recent changes made it more reachable**, which
+is worth recording rather than leaving to be rediscovered. PR #66
+(`fund_contingent_liability_from_hsa`) routes `ltc_prem_yr +
+wellness_shock_yr` preferentially to the HSA, and those are two of the four
+components of `medical_expense_yr` -- so HSA dollars now cover exactly the
+costs most likely to clear the floor. PR #67's schedule search then
+optimizes against a model that overstated HSA value in precisely the
+high-medical years it draws toward. The defect predates both; its frequency
+did not.
+
+**The fix.** Between Priority 2 and Priority 3, the deduction is reduced by
+the HSA dollars reimbursed against that year's medical spend, and fed tax /
+taxable income / total tax are recomputed.
+
+**Placement is load-bearing, and the first attempt got it wrong.** This
+correction *increases* tax, so the gap grows and the rest of the cascade
+must still be able to fund it IN ORDER. An initial version sat after
+Priority 4c, reasoning that `hsa_wd` is not final until 4c's gap-fill runs.
+`test_recommendations_regression.py::test_fixed_point_taxable_withdrawal_solver_runs_before_roth`
+caught that: with the demand added after 3/4b/4c, only Roth was left to fund
+it, so the plan drew Roth while pre-tax and HSA balances still remained --
+10 violations of the cascade's Roth-last invariant. Correctness of the
+withdrawal ORDER outranks capturing every last netted dollar.
+
+The trade that buys: only draws known by that point are netted -- Priority
+1b's contingent-liability draw (which exists precisely to pay qualified
+medical) and Priority 2's scheduled window draw. Priority 4c's gap-fill is
+excluded, which is defensible rather than merely convenient: 4c is a
+last-resort liquidity draw against a general cash shortfall, not a
+reimbursement of that year's medical spend. It also errs conservative --
+netting less means the correction is never more aggressive than the
+evidence supports, and it is why the lifetime-tax move (+12,144.47) is
+smaller than the after-4c placement produced.
+`unfunded_gap` stays 0.00 in every fixture year.
+
+(The DAF re-deduction block later in the same function is the same shape
+with the opposite sign; it only ever lowers tax, which is why it can safely
+sit after the draws -- a shrinking gap needs no funding.)
+
+**One more trap this hit, worth recording.** The block first updated
+`total_tax` directly. That is silently discarded: `total_tax` is rebuilt
+from scratch further down as
+`total_tax_pre_niit + ltcg_tax + niit - tlh_ordinary_credit`, so the
+`fed_tax` change survived while the `total_tax` change did not, leaving the
+two disagreeing by the corrected amount. It surfaced as a 178.21 cash-flow
+reconciliation residual in
+`tests/test_cashflow_breakdown_single_source_of_truth.py`, with the
+breakdown's `other` remainder absorbing exactly the gap. The fix is to
+recompute `total_tax_pre_niit` from its own components -- the idiom the
+engine already uses at its other two update sites -- rather than to
+hand-maintain `total_tax`.
+
+Two deliberate limits on scope:
+
+* **Only the deduction changes.** The medical spend is a real cash cost;
+  `total_spend` and the `wellness_*` row fields are untouched. This changes
+  what is deductible, not what is spent.
+* **The floor's AGI basis is left alone.** The shipped version nets the
+  reimbursed dollars out of the deduction directly rather than re-deriving
+  `max(0, net_medical - 0.075*agi)` at the correction point. Being precise
+  about what that is worth, since an earlier draft of this entry overstated
+  it: the two forms are **algebraically identical** while the deduction is
+  above the floor and `agi` is unchanged between the two points, and
+  planting the re-derived form produces **byte-identical pins** -- no test
+  here distinguishes them. They diverge only where `agi` has been mutated
+  in between; measured under a `roth_policy='none'` configuration,
+  re-deriving stripped 18,439 against a 10,168 reimbursement in one year.
+  Real, but not something that moves these pins. Netting directly is still
+  preferred because it inherits whatever floor the engine already applied
+  instead of silently re-basing it. Whether that floor should use
+  first-pass or converged AGI is a real question, and a separate one.
+
+**Std-vs-itemized is re-evaluated**, so a household pushed below the
+standard deduction by this correction takes the standard one. That caps the
+damage at `item_ded - std_ded` rather than the full lost medical deduction,
+and is one of two reasons the realized lifetime-tax move (+12,504.32) sits
+well below the ~27-30k a naive `lost_deduction x marginal_rate` estimate
+predicts -- the other being the Priority-4c exclusion described above.
+
+**Blast radius.** Every household that both draws an HSA and itemizes
+medical costs above the floor sees higher tax and lower terminal net worth.
+Households that never draw an HSA, or whose medical spend never clears the
+floor, are bit-identical. **This makes affected plans look worse**, which
+per this changelog's own 2026-08-18 precedent deserves more scrutiny rather
+than less -- the direction is uncomfortable but it is the direction the tax
+treatment requires.
+
+Design and prior research:
+`docs/superpowers/plans/2026-08-26-hsa-expense-bank-and-double-dip-spec.md`.
+New coverage: `tests/test_hsa_medical_deduction_double_dip_regression.py`.
+
+## 2026-08-26 (b) — The HSA schedule search is wired into builds: no pins moved, but `optimize`-mode households get a real search instead of a level-draw placeholder
+
+**Not a change to any figure on the frozen fixture. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**
+
+**Why the pins don't move.** The frozen fixture's `client_assets.csv` sets
+`hsa_withdrawal_mode = smooth_window`, and `run_schedule_search` returns
+immediately (`ran=False`, "not in optimize mode") for every mode except
+`optimize`. The deterministic run that produces the pins never reaches the
+search. Confirmed by running the golden-master gate before and after.
+
+**What changed.** `hsa_schedule.py` documented that its own search --
+`build_schedule`/`rerun_optimizer` -- was "NOT called anywhere in the
+projection pipeline," because the search needs full per-year projection rows
+for tax context and those only exist after the projection that would consume
+the schedule. So `optimize` mode actually ran
+`generate_default_schedule`'s **static level draw**, an explicitly-labelled
+placeholder, not a search. `run_schedule_search` now closes that, called once
+per build from `workbook_builder.main` just after
+`_ensure_hsa_default_schedule`.
+
+**How the circularity is resolved.** Not by a two-pass approximation (which
+would price a schedule using rates it changes), but by the pattern
+`optimize_roth_conversion_strategy` already uses for the identical problem:
+score candidates on their **own** full projections and keep the winner. The
+incumbent schedule is always a candidate, so **the result can never be worse
+than the previous behavior** -- a degenerate search simply loses the
+comparison. That guarantee is structural and needs no feature flag.
+
+**One round is not enough, and that was found by test, not inspection.**
+Candidate scoring is self-consistent, but candidate *generation* still reads
+the incumbent's rows, so a single round does not reach a fixed point: a
+re-run against an adopted proposal beat it again by ~1.7%. The search
+therefore iterates (bounded at `_SCHEDULE_SEARCH_MAX_ROUNDS = 4`, stopping
+early below a `$1` gain), which is safe because each round is adopted only
+on a strictly higher score -- the sequence is monotonic. Measured on the
+frozen fixture forced into `optimize`: level-draw incumbent scores 10,698,
+the search settles at 29,698 over 4 rounds (**2.8x**), and a subsequent run
+adopts nothing and stops after one round.
+
+**User intent is safe by construction.** The search installs only what
+`rerun_optimizer` returns, and that function's contract -- "a re-run may
+never eat the user's intent" -- copies `override_amount` through untouched on
+every path and plans *around* locked years rather than through them.
+Verified end-to-end: a planted override survives exactly and resolves as
+`override`; a locked year's `optimizer_amount` is unmoved and resolves as
+`locked`; a deliberate `0.0` override is honored rather than read as absent.
+
+**Cost.** Two full projections per round; a full-horizon `project()` measures
+~20-60ms, so a first search is ~0.24s and a settled re-run ~0.06s. This is
+not the class of cost behind the 81x `monte_carlo()` CI timeouts recorded in
+`documentation/OPTIMIZATION_REFACTOR_STATUS.md`.
+
+**Blast radius.** Bit-identical for every household not in `optimize` mode --
+including the frozen fixture and the demo plan. For `optimize` households
+(reachable: `data_io.py:1274` admits the mode) the HSA drawdown schedule
+changes, and with it every figure downstream of HSA withdrawal timing. Never
+raises into a build: any failure returns `ran=False` and leaves the incumbent
+schedule standing.
+
+New coverage: `tests/test_hsa_schedule_search_wiring_regression.py` (9
+tests). The never-worse guarantee and all three user-intent guards were
+demonstrated red against planted defects before being trusted, per §3 rule 2.
+
+## 2026-08-26 — Contingent-liability spending draws the HSA first: no pins moved, but HSA sourcing changes for households with an LTC premium
+
+**Not a change to any figure on the frozen fixture. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**
+
+**Why the pins don't move.** The `contingent_liability` spending tier is
+`ltc_prem_yr + wellness_shock_yr`. On the frozen fixture both are zero in the
+deterministic run that produces the pins: no `ltc_enabled`/`ltc_annual_prem`
+is configured in its `client_assets.csv`, and `wellness_shock_yr` is only ever
+populated from `c['wellness_shock_by_year']`, which `project()` never sets --
+it is sampled per-path inside the Monte Carlo engines. So the new funding step
+has nothing to draw and is a complete no-op on the pinned household. Confirmed
+by running the golden-master gate before and after, not merely asserted.
+
+**What changed.** `fund_contingent_liability_from_hsa` (`planning_engines.py`)
+funds that tier from the HSA ahead of the ordinary withdrawal cascade, as a new
+Priority 1b in `deterministic_engine.py` placed *before* the scheduled window
+draw so the latter sizes itself against what remains. Both components are
+qualified medical expense, so the draw is tax-free out and needs no
+`hsa_owner_age`/penalty plumbing -- a qualified draw cannot produce the
+non-qualified dollars carrying the pre-65 20% penalty.
+
+Before this, neither component had any HSA-preferential treatment: the
+deterministic engine calls `withdraw_hsa_window` with
+`wellness_cost=row['wellness_base_yr']`, which is `wellness_premium_yr +
+wellness_detail_budget_yr` and excludes both. The account designed for medical
+costs was funding them only incidentally, via the generic cascade.
+
+**This is a re-sourcing change, not a re-sizing one.** `total_spend` is
+identical with and without the new step -- measured at $330,065.08 across all
+four `hsa_withdrawal_mode` values on a probe household carrying a $12k LTC
+premium. Only *which account pays* changes. The visible consequence is that an
+affected household's HSA depletes earlier (on that probe: $74.5k -> $30.2k ->
+$0 across 2026-2028 rather than lasting longer), with correspondingly more
+taxable/pre-tax left intact -- which is the intended effect, and interacts with
+the HSA terminal cliff that `hsa_terminal_tax` already models.
+
+**Deliberately defers to `hsa_withdrawal_mode` rather than overriding it.**
+Suppressed under `optimize`, and before and during the window under
+`smooth_window`/`annual_pct`; resumes after the window ends. An unscheduled
+draw stacked on a scheduled one is the shape of the real user-reported defect
+fixed on 2026-08-20 (a $2,000/yr override that never appeared because
+gap-fills drained the account years early). The gating predicate was therefore
+*extracted* from `withdraw_hsa_gap` into a shared
+`hsa_unscheduled_draw_allowed` rather than duplicated -- a copied-and-drifted
+rule is exactly how that defect arose. Design rationale:
+`docs/superpowers/plans/2026-08-26-contingent-liability-funding-rules-design.md`.
+
+**Also gated: the vectorized MC engine's pre-existing wellness-shock HSA draw.**
+`_mc_vectorized_projection` already drew sampled shocks from the HSA first, but
+ungated -- which would now contradict the deterministic engine under scheduled
+modes. It shares the predicate. **Consequence:** `monte_carlo()`'s
+`success_rate` moves for households on `smooth_window`/`annual_pct`/`optimize`
+that sample a wellness shock, because those shocks now fall to taxable in
+window years instead of drawing the HSA the schedule has claimed. This is
+intentional -- the two engines disagreeing about the same tier was the defect
+-- not a regression. The premium half needed no wiring in either MC engine: it
+propagates through the deterministic rows they consume (the scalar reruns
+`project()`; the vectorized reads `eff['withdrawals']['hsa']`).
+
+**Blast radius.** Bit-identical for households on `optimize`, inside an
+`annual_pct`/`smooth_window` window, or with no contingent-liability spend at
+all -- which includes the frozen fixture and the demo plan. Real for
+`spend_as_needed` (the parse default) or post-window households configuring an
+LTC premium, plus MC success rates as described above.
+
+New coverage: `tests/test_contingent_liability_hsa_funding_regression.py` (15
+tests). The two mode-deference guards were demonstrated red against a planted
+"override the mode" defect before being trusted, per §3 rule 2.
+
 ## 2026-08-24/25 — Optimization-refactor Phase 1 items 2-6: no pins moved, but vectorized MC `success_rate` now differs by design for survivor-sensitive households
 
 **Not a deterministic-engine change to any existing plan. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**

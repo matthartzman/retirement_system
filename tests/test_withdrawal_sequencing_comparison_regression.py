@@ -193,14 +193,44 @@ def test_current_plan_is_the_lowest_tax_and_highest_terminal_of_the_four():
     meaningfully beaten by any of the three simplified reorderings.
 
     The terminal-net-worth check allows a small relative tolerance rather
-    than a strict inequality: this module's own docstring already flags
-    that "proportional" lands within well under a percent of current_plan
-    on this fixture (confirmed directly: +0.875%), so a strict `<=` chases
-    a near-tie that platform-level floating-point differences can flip
-    either way without any actual regression in the underlying strategies.
-    The tolerance (2%) stays far below the other two strategies' margins
-    (roth_first -2.0%, conventional_taxable_first -11.6% on this fixture),
-    so a genuine algorithmic regression that meaningfully favored an
+    than a strict inequality, because "proportional" legitimately lands
+    within a percent or two of current_plan on this fixture (a strict `<=`
+    chased that near-tie and flipped on platform-level floating-point
+    differences and on ordinary engine changes -- the margin has read
+    +0.875%, +0.905%, and +1.512% across different points in this repo's
+    history with no bug involved each time, purely because the *real*
+    engine's ira_wd/trust_wd/roth_wd split shifts whenever cascade logic
+    changes, and this module replays that split through its own simplified
+    tax model). Root cause, not just "a near-tie": this comparison module
+    (`src/withdrawal_strategy_comparison.py`) is explicitly a lower-fidelity
+    approximation (see its own module docstring) -- one flat marginal rate
+    per year, no IRMAA/NIIT, no bracket-filling. `current_plan` replays the
+    REAL engine's real, bracket-aware draws through that simplified lens, so
+    it gets no credit here for tax optimization the approximation can't see.
+    Every OTHER strategy, "proportional" included, computes its draw targets
+    fresh each year directly against THIS module's own simplified objective
+    -- a strategy scored under the same simplified model it optimizes
+    against has a small structural edge over one whose real-world draws were
+    optimized elsewhere, under stricter real tax rules this tool doesn't
+    model. Confirmed directly: on one measured run "proportional" paid MORE
+    approximate lifetime tax than current_plan (+19,438) yet still finished
+    with a higher terminal net worth, because current_plan's simulated
+    balances drift from the real engine's over decades and its own
+    residual-fallback cascade (see that module's comments) draws from
+    pretax FIRST when a bucket runs dry in this simulation -- working
+    against current_plan's actual "spend Roth last" intent in exactly the
+    years that drift is largest. None of this is a defect in the real
+    engine's actual withdrawal cascade, which this comparison tool never
+    touches -- it is inherent to approximating a bracket-aware plan with a
+    flat-rate scorer. Do not hardcode which of the three alternatives is
+    the closest near-tie: on the same measured run "roth_first" was also
+    within a fraction of a percent of current_plan (the same drift/fallback
+    mechanism applies to it too), while only "conventional_taxable_first"
+    ran meaningfully worse (double-digit percent) -- which alternative ends
+    up near the tolerance boundary can shift as the real engine's cascade
+    changes, so the 2% tolerance is sized to the near-tie mechanism
+    described above, not to any one strategy's specific historical margin.
+    A genuine algorithmic regression that meaningfully favored an
     alternative strategy would still fail this test.
     """
     c, rows = sample_config_and_rows()

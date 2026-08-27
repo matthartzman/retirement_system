@@ -41,6 +41,17 @@ export async function openCurrentPlan(page) {
   }
   await page.waitForLoadState('networkidle');
   await page.waitForFunction(() => window.planLoaded === true, { timeout: 15_000 });
+  // planLoaded flipping true does not mean loadAll() is done -- see
+  // waitForPlanSettled's own comment below for the full root cause (a second
+  // overlapping loadAll, e.g. the boot load from page.goto() racing the one
+  // "Open Current Plan" starts, can still be mid-flight and about to reset
+  // planLoaded back to false). navigateToStep() already guards its own
+  // callers this way; a caller that goes straight from openCurrentPlan() into
+  // an action gated on planLoaded (e.g. triggerBuildAndWaitForOverlay's
+  // "Build Reports" click, whose runBuild() silently no-ops if planLoaded is
+  // false) needs the same guarantee, so give it here too instead of leaving
+  // every such caller to remember it separately.
+  await waitForPlanSettled(page);
 }
 
 // Waits until no loadAll() is still in flight, which `planLoaded` above does
@@ -137,7 +148,66 @@ export async function navigateToStep(page, stepId, headingText) {
 // immediately with the overlay still reading "Checking build preflight" --
 // passing the wait without the build ever actually running.
 export async function triggerBuildAndWaitForOverlay(page) {
-  await page.getByRole('button', { name: 'Build Reports' }).first().click();
+  const title = page.locator('.build-overlay .build-progress-title');
+
+  // "Build Reports" only exists in the Reports & Review step's "Build" tab
+  // content (frontend/js/dashboard_decomp_checklist_closeout.js) -- it is
+  // simply absent from the DOM when the "Results" tab is showing instead.
+  // Root-caused directly against a failure screenshot (2026-08-26): when a
+  // prior spec in this shared-server suite (workbook-format-stale-cache.spec.js)
+  // already ran a real build, re-opening the plan lands on Reports & Review
+  // with "Results" active by default (there's existing output to show), not
+  // "Build" -- so the click below hung the full test timeout waiting for a
+  // button that was never going to appear. window.setReportsTab is exposed
+  // on window the same way window.setStep is (see navigateToStep above); call
+  // it here so this helper doesn't depend on whichever tab a previous test
+  // left active.
+  await page.evaluate(() => window.setReportsTab('Build'));
+  await expect(page.getByRole('button', { name: 'Build Reports' }).first()).toBeVisible({
+    timeout: 10_000,
+  });
+
+  // The openCurrentPlan()/waitForPlanSettled() guard above closes the
+  // planLoaded race for the COMMON case, but it cannot guarantee a second
+  // loadAll() (e.g. periodic loadAll()-triggered background refreshes, or
+  // one left running by whatever the previous spec in a shared-server suite
+  // was doing) never lands between that wait returning and this click firing
+  // -- and runBuild()'s own saveWorkingCopy() silently `return false`s on a
+  // false planLoaded with the overlay left showing whatever it displayed
+  // before the click, never advancing to "Preparing build"/"Saving current
+  // plan". Root-caused directly against CI (2026-08-26): even with the
+  // openCurrentPlan() fix in place, workbook-format-tab-focus.spec.js still
+  // hung on "Loading plan" for the full 240s in the shared 13-file suite
+  // (though not in a 2-file isolated repro), meaning some OTHER loadAll
+  // trigger this suite doesn't control can still win the race. Detect the
+  // silent no-op directly -- the overlay title must change away from
+  // whatever it read before the click within a short window if a build
+  // genuinely started -- and retry the click rather than trusting the
+  // upstream wait alone.
+  const clickBuildAndConfirmItStarted = async () => {
+    const before = await title.innerText().catch(() => '');
+    await page.getByRole('button', { name: 'Build Reports' }).first().click();
+    try {
+      await expect(
+        title,
+        "build overlay title never left its pre-click state -- runBuild() likely silently no-op'd on a false planLoaded",
+      ).not.toHaveText(before, { timeout: 10_000 });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  let started = await clickBuildAndConfirmItStarted();
+  if (!started) {
+    started = await clickBuildAndConfirmItStarted();
+  }
+  if (!started) {
+    throw new Error(
+      'Build Reports click never advanced the overlay past its pre-click state after 2 attempts -- ' +
+        `stuck on "${await title.innerText().catch(() => '(no overlay)')}"`,
+    );
+  }
 
   // locator.isVisible({timeout}) does NOT poll -- it is a one-shot immediate
   // check (Playwright resolves the element handle within `timeout`, but
@@ -156,7 +226,6 @@ export async function triggerBuildAndWaitForOverlay(page) {
     await continueBuild.click();
   }
 
-  const title = page.locator('.build-overlay .build-progress-title');
   // Measured 2026-08-10 on an otherwise-idle machine: one full build through
   // src.build_entry.run_build against the same frozen workspace this server
   // stages takes 106s, and 110s with the reduced RETIREMENT_MC_SIMS=16 /
