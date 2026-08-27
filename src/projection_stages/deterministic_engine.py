@@ -1762,8 +1762,24 @@ def run_deterministic_projection_stage(c):
         elif spend:
             _tier_add('important', spend)
         _tier_add('discretionary', rec_extra + lump_yr + row.get('home_improvement_yr', 0.0))
+        # ltc_prem_yr is a scheduled, known-in-advance premium -- the same
+        # shape as a mortgage payment or a Medicare premium -- not a shock.
+        # It is tiered with the other fixed essentials, not with
+        # wellness_shock_yr's genuinely irregular, sampled cost: it hedges a
+        # contingent liability, it isn't itself one, the same distinction
+        # already drawn for ho_insurance (an essential premium against home
+        # damage, not a "home damage" tier). See
+        # docs/superpowers/plans/2026-08-26-ltc-premium-tier-reclassification-spec.md.
+        # This also changes cut-priority treatment, not just a label: both
+        # spending_priority_cut_check (planning_engines.py) and the
+        # vectorized MC redistribution exclude contingent_liability from the
+        # tier-priority cascade entirely (flat/uniform cut), while essential
+        # is cuttable, just last in priority order -- so this premium is now
+        # protected like other fixed costs instead of never benefiting from
+        # priority protection. Purely additive/reporting: neither consumer
+        # changes a dollar total, only per-tier attribution.
         _tier_add('essential', mort_yr + re_tax_yr + rent_yr + housing_operating_yr
-                   + heloc_interest_yr + heloc_repayment_principal_yr)
+                   + heloc_interest_yr + heloc_repayment_principal_yr + ltc_prem_yr)
         _wellness_essential_raw = (wellness_premium_yr + wellness_medical_yr + wellness_dental_yr
                                     + wellness_vision_yr + wellness_rx_otc_yr)
         _wellness_raw_total = _wellness_essential_raw + wellness_other_yr
@@ -1771,7 +1787,7 @@ def run_deterministic_projection_stage(c):
             _wellness_scale = wellness_base_yr / _wellness_raw_total
             _tier_add('essential', _wellness_essential_raw * _wellness_scale)
             _tier_add('important', wellness_other_yr * _wellness_scale)
-        _tier_add('contingent_liability', ltc_prem_yr + wellness_shock_yr)
+        _tier_add('contingent_liability', wellness_shock_yr)
         if business_expenses_yr:
             _tier_add('unclassified', business_expenses_yr)
         row['spend_by_tier'] = {k: round(v, 2) for k, v in _tier_totals.items() if v}
