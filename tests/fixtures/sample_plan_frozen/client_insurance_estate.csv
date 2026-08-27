@@ -72,6 +72,7 @@ Estate Planning,Federal,exemption_mfj,"$30,000,000",USD,OBBBA permanent from 202
 Estate Planning,Illinois,state_estate_exemption,"$4,000,000",USD,Illinois estate-tax exemption - no portability; cliff structure,
 Estate Planning,Illinois,state_estate_rate_note,graduated 0.8%-16%,,Illinois graduated estate-tax rate schedule above the exemption,
 Estate Planning,Gifting,annual_exclusion_per_donee,"$19,000",USD,base-year federal annual gift-tax exclusion per recipient,
+Estate Planning,Legacy,legacy_floor,$0,USD,Desired minimum after-tax terminal bequest; 0 means no legacy target is configured,
 Estate Planning,Trust Structure,trust_type,revocable living trust,,,
 Estate Planning,Step-Up,basis_step_up_at_death,TRUE,boolean,Modeled: taxable-account basis is stepped up at death and drawn before gain-bearing lots.,
 Estate Planning,SN_Beneficiary,name,,,Optional special-needs beneficiary field; blank unless applicable.,

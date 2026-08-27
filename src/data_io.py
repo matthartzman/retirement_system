@@ -1493,6 +1493,9 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
                                  'Funds up to the CST shelter cap; bypasses survivor estate for IL tax, on top of the survivor\'s own separate IL exemption')
     # QTIP manages annuity income after first death (annuity held in QTIP for benefit of survivor)
     c['qtip_manages_annuity'] = _b(_v(data,'Estate Planning','QTIP Trust','manages_annuity_after_first_death','TRUE'))
+    # Desired minimum after-tax terminal bequest; 0/unset means no target is configured.
+    # Consumed by monte_carlo()/monte_carlo_exact_scalar()'s probability_legacy_floor_met.
+    c['legacy_floor'] = _n(_v(data,'Estate Planning','Legacy','legacy_floor','0'), 0)
 
     # Forced Actions — supports normalized Roth Conversion N rows:
     # source_account / year / amount. Legacy date-subsection rows still parse.

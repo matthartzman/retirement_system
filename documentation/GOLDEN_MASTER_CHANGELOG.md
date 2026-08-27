@@ -1,3 +1,112 @@
+## 2026-08-26 — Optimization-refactor Phase 2 addition: `legacy_floor` CSV-schema wiring
+
+**No pins moved. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**
+
+Follow-up to the `probability_legacy_floor_met` reporting field below: adds
+the `Estate Planning / Legacy / legacy_floor` schema row (dollars, default
+0) so households can actually set it, plus one line in `parse_client()`
+reading it into `c['legacy_floor']`. The frozen golden-master fixture's new
+row is `$0` (inert, matching the schema default), so the pinned figures are
+unaffected. No `frontend/js/dashboard.js` changes were needed or made — see
+`documentation/OPTIMIZATION_REFACTOR_STATUS.md`'s matching entry for why.
+
+## 2026-08-26 — Optimization-refactor Phase 2 addition: probability of meeting a user legacy floor
+
+**No pins moved. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**
+
+New reporting field, `probability_legacy_floor_met`, in both
+`monte_carlo_exact_scalar` and `_mc_vectorized_batch`/`monte_carlo()`:
+the fraction of Monte Carlo paths whose after-tax terminal bequest
+(`post_tax_inheritance`, already computed for
+`after_tax_terminal_nw_pct`/`post_tax_inheritance_pct`) meets or exceeds a
+household-configured `legacy_floor` dollar target, read defensively via
+`c.get('legacy_floor', 0.0)`. Reports `None` (not a misleading 0.0 or 1.0)
+whenever no floor is configured, matching the same convention already used
+for `survivor_period_*` and `liquidity_coverage_pct_by_year`.
+
+**Why the pins don't move.** Purely additive: reads each engine's
+already-finalized `post_tax_inheritance` tracking and never feeds back
+into `unfunded`/`liquid`/`total`/`path_success`/`success_rate`. No CSV
+schema field named `legacy_floor` exists yet, so this is inert for every
+household until front-end/schema wiring is added in a later increment.
+
+## 2026-08-26 — Optimization-refactor Phase 2 refinement: contingent_liability split into premium (cuttable) vs. incurred shock (protected)
+
+**No pins moved. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**
+
+Follow-up refinement to the same-day cascade correction below. The
+`contingent_liability` tier bundled two different kinds of dollars:
+`ltc_prem_yr` (an LTC insurance premium — a genuine choice to forgo future
+coverage) and `wellness_shock_yr` (an already-incurred health/LTC event
+cost — not a discretionary spending choice). Both were cut identically at
+`contingent_liability`'s cascade priority. Now `ltc_prem_yr` stays in
+`contingent_liability`; `wellness_shock_yr` routes into `essential`
+instead, protecting it at essential's priority.
+
+**Why the pins don't move.** Purely a re-labeling within
+`row['spend_by_tier']` — the sum across all tiers (and therefore
+`total_spend`) is unchanged, only which tier a dollar is attributed to.
+
+**What DID change, and is expected to.** For any household with nonzero
+`wellness_shock_yr` (an MC-sampled health-shock cost) and a shortfall deep
+enough to reach the old contingent_liability tier, that dollar amount now
+counts toward `essential` instead — `essential_fully_funded_probability`
+will show a shortfall *sooner* for such paths (essential is no longer
+artificially protected by dollars that were never really discretionary
+contingent-liability spending), while `spending_priority_cut_check`'s
+`tier_cut_by_year` will show smaller `contingent_liability` cuts (now just
+the LTC premium) with the shock-cost portion appearing under `essential`
+instead. Both MC engines picked this up automatically — no MC-engine-level
+code changes were needed, since `SPENDING_TIER_CUT_ORDER`-based cascades
+already consume `spend_by_tier`'s tier keys generically.
+
+## 2026-08-26 — Optimization-refactor Phase 2 correction: contingent_liability now included in the tiered-cut cascade
+
+**No pins moved. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**
+
+Corrects already-shipped Phase 2 behavior, not new engine behavior. Both MC
+engines' essential-shortfall attribution (`essential_fully_funded_probability`)
+and `spending_priority_cut_check`'s `tier_cut_by_year` hardcoded a
+`('discretionary', 'important', 'essential')` cascade that skipped
+`contingent_liability` entirely — treating LTC premiums and wellness-shock
+costs as fully protected from ever absorbing a shortfall. This contradicted
+`SPENDING_TIER_CUT_ORDER` (`spending_budget_resolver.py`), which Phase 0
+already defined and documented as "the future phase's single source of
+truth for cut ordering": discretionary, important, **contingent_liability**,
+essential. Fixed to use that canonical order.
+
+**Why the deterministic pins don't move.** This changes only which tier a
+cut is attributed to in the reporting layer — `spend_base`, `total_spend`,
+withdrawal amounts, and `unfunded`/`unfunded_gap` are untouched. The frozen
+fixture's `base_rows = project(c)` call path is unaffected.
+
+**What DID change, and is expected to.** For any household with nonzero
+`contingent_liability` spending (LTC premiums, wellness shocks) and any
+shortfall year, `essential_fully_funded_probability` will now be *higher*
+than before (a shortfall correctly exhausts contingent-liability dollars
+before ever reaching essential, rather than skipping past them), and
+`spending_priority_cut_check`'s `tier_cut_by_year`/`tiered_*` fields will
+show a `contingent_liability` entry in years where a cut reaches that tier.
+Not modeled: `ltc_prem_yr` (a premium, a genuine choice to forgo coverage)
+and `wellness_shock_yr` (an already-incurred cost) are cut identically
+since `spend_by_tier` sums them into one figure — a real remaining nuance
+left for a future refinement.
+
+**Reconciliation note (2026-08-27, merging `claude/plan-execution-tg1rps`):**
+this entry and the split above it landed on a branch that diverged before
+the five entries below (PR #66-#69) existed. A separate, later PR (#70,
+merged first) independently reclassified `ltc_prem_yr` the *opposite* way
+(into `essential`) without knowing about this correction; on reconciling
+the two branches, PR #70's classification was reverted in favor of the one
+described here, per explicit user decision -- this entry's finding (the
+cascade hardcoded an exclusion contradicting `SPENDING_TIER_CUT_ORDER`'s
+own documented order) is a genuine pre-existing bug fix. `_mc_tier_priority_
+retained` (introduced by PR #64, one of the entries below, which this
+branch never saw) was reconciled to read via `SPENDING_TIER_CUT_ORDER` too,
+so the vectorized engine's essential-shortfall cascade and
+`spending_priority_cut_check` agree. No pins moved by the reconciliation
+itself -- both branches' changes were pin-neutral on the frozen fixture.
+
 ## 2026-08-26 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
 <!-- pin-provenance: terminal_nw=5763251.84 lifetime_tax=1316887.09 -->
