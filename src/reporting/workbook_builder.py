@@ -946,6 +946,23 @@ def main():
     print('Parsing client data and normalizing engine contract...')
     c = prepare_config_from_sectioned_data(data, url_template, optimize_roth=True)
     _ensure_hsa_default_schedule(c, workspace_id)
+    # Optimization refactor: with a schedule now guaranteed to exist above,
+    # let the real search try to beat it. Scores the incumbent schedule and
+    # the search's proposal on their own full projections and keeps the
+    # better, so this can never be worse than the level-draw default. No-op
+    # outside optimize mode; never raises into a build.
+    try:
+        from ..hsa_schedule import run_schedule_search
+        _hsa_search = run_schedule_search(c)
+        c['hsa_schedule_search'] = _hsa_search
+        if _hsa_search.get('ran'):
+            print(
+                f"HSA optimize mode: schedule search {_hsa_search['chosen']} "
+                f"(incumbent {_hsa_search['incumbent_score']:,.0f} vs "
+                f"proposal {_hsa_search['proposal_score']:,.0f})"
+            )
+    except Exception as _exc:
+        print(f'Warning: HSA schedule search skipped ({_exc}); incumbent schedule kept.')
     try:
         from ..ytd_projection_blend import compute_current_year_overrides
         c.update(compute_current_year_overrides(c, workspace_input_dir(workspace_id), today=datetime.date.today()))

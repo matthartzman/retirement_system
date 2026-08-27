@@ -55,7 +55,7 @@ class RoadmapCompletionTests(unittest.TestCase):
 
     def test_path_level_wellness_shock_feeds_projection_rows(self):
         c = fast_config()
-        rows, _years, _returns, _diag, paths = _run_one_mc_path(c, random.Random(123), 0.06, 0.12)
+        rows, _years, _returns, _diag, paths, _c2 = _run_one_mc_path(c, random.Random(123), 0.06, 0.12)
         self.assertGreaterEqual(sum(paths["wellness_shock_by_year"].values()), 0.0)
         self.assertIn("wellness_shock_yr", rows[0])
 
