@@ -419,6 +419,53 @@ balance exhaustion) and
 mirrors the same coverage plus multi-year balance-carries-forward and
 income-funding-first checks).
 
+### Phase 3 — Tax NPV / ELTR distribution across the MC batch
+
+Per `docs/superpowers/plans/2026-08-27-phase3-tax-npv-eltr-spec.md`'s
+Option A (the only surviving description of Phase 3 was one line in this
+doc's own intro — the source planning document was never committed, so the
+spec reconstructed a scope from what already existed in code rather than
+guessing at a lost design). Generalizes the PV-discounting pattern
+`_roth_strategy_metrics` already uses to score a single deterministic
+Roth-conversion candidate into a per-path figure reported across the whole
+MC distribution — the "state-contingent" half of the phase name, since a
+single deterministic number cannot be state-contingent.
+
+`tax_npv` (each path's `total_tax` discounted year-by-year to plan-start
+PV) and `effective_lifetime_tax_rate` (`tax_npv / gross_cash_flow_npv`)
+added to both MC engines, reported as percentile distributions
+(`tax_npv_pct`/`effective_lifetime_tax_rate_pct`) exactly like every other
+Phase 2 metric. Shares `_roth_discount_rate(c)` (the Roth optimizer's own
+`roth_tax_discount_rate` config knob) so this reporting figure and the
+plan's actual Roth-conversion scoring can never silently disagree about
+what "the" discount rate is — the spec's open question on this was
+resolved in favor of reuse over a second, redundant config field.
+`gross_cash_flow_yr` — built in Phase 1 explicitly "for ELTR ... reporting"
+and unconsumed until now — finally has a reader.
+
+Uses each path's own NOMINAL (sampled-inflation) dollar trajectory, not a
+CPI-deflated one, matching `_roth_strategy_metrics`'s own convention: a PV
+is already expressed in year-0-equivalent dollars, so no separate
+real-dollar deflation layers on top. `ELTR` is `NaN` (vectorized) /
+omitted from the per-path list (scalar) for a path with zero PV'd gross
+cash flow, rather than a divide-by-zero crash or a misleading 0.0/1.0.
+Reporting-only: never feeds back into `unfunded`/`liquid`/`total`/
+`path_success`/`success_rate`. Covered by
+`tests/test_tax_npv_eltr_distribution_regression.py` (8 tests: exact PV
+arithmetic against a synthetic fixture, monotonicity, the zero-cash-flow
+guard, both engines present and in the same ballpark on the real fixture,
+and the shared-discount-rate contract with the Roth optimizer).
+
+**Left open by design** (per the spec's own open questions, deliberately
+not resolved here): whether `gross_cash_flow_yr` is the right ELTR
+denominator vs. `total_spend` or a taxable-income-like figure, and whether
+Option C (an active tax-decision layer that changes plan behavior based on
+realized tax state, as opposed to this reporting-only metric) is a
+legitimate future item once a concrete consumer of ELTR reporting makes
+the case for it.
+
+## Not done
+
 - ~~**Genuinely redirecting withdrawal requests (not just reporting
   attribution) by tier priority**~~ — **done**, see above.
 - ~~**Wiring the HSA schedule search**~~ — **done**, see below.
@@ -428,9 +475,13 @@ income-funding-first checks).
   (`0e65806`) — the split PR #70 proposed, minus the direction it initially
   guessed wrong on `ltc_prem_yr` specifically.
 - ~~**"Probability of meeting a user legacy floor"**~~ — **done**, see above.
-- **Phases 3–6 of the overall plan** (tax NPV / ELTR state-contingent tax
-  modeling, LCV feasibility gate and scoring, adaptive policy guardrails,
-  expanded stress scenarios) are entirely unimplemented.
+- ~~**Phase 3 — tax NPV / ELTR state-contingent tax modeling**~~ — **done**
+  (reporting-only slice, see above). The active-tax-decision-layer reading
+  (Option C in the Phase 3 spec) remains explicitly out of scope.
+- **Phases 4–6 of the overall plan** (LCV feasibility gate and scoring,
+  adaptive policy guardrails, expanded stress scenarios) are entirely
+  unimplemented, and have essentially no existing scaffolding to build on
+  (confirmed via the Phase 3 spec's own research pass).
 
 ## Verification discipline established this session
 
