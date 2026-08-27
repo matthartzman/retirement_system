@@ -3074,6 +3074,143 @@ def _adjust_annuity_pmt_for_mc(stream: dict, returns: dict, inflation_paths: dic
     return stream
 
 
+def _mc_scalar_tier_bucket_reconstruction(c: dict, rows: list[dict]):
+    """Scalar-engine analogue of the vectorized engine's genuine per-tier
+    withdrawal redirection (optimization-refactor "Not done" item, Option B
+    -- docs/superpowers/plans/2026-08-27-mc-tier-priority-withdrawal-
+    redirection-spec.md).
+
+    ``monte_carlo_exact_scalar`` has no independent withdrawal mechanism to
+    redirect: each path is a full rerun of ``project()`` (the deterministic
+    engine), which just replays whatever bucket split the deterministic
+    cascade already decided -- unlike the vectorized engine's own
+    ``balances`` dict, there is nothing here to intercept mid-cascade. This
+    function builds a PARALLEL per-path bucket-balance tracker instead,
+    without touching deterministic_engine.py: it starts from the same
+    account balances the deterministic engine used, and for each year
+    re-derives a genuinely tier-restricted withdrawal (SPENDING_TIER_BUCKET_
+    POLICY, MC_TIER_FUNDING_ORDER, income_funding-first -- exactly mirroring
+    ``_mc_vectorized_projection``'s mechanism) against ITS OWN reconstructed
+    balances, rather than reusing the real ``_account_withdrawals`` split.
+
+    Each bucket's growth for the year is inferred from this path's own REAL
+    trajectory (``growth_factor = real_ending_nw / (real_starting_balance -
+    real_withdrawal + deposits - conversions_out + conversions_in)``, falling
+    back to 1.0 when the denominator is negligible) and applied to the
+    RECONSTRUCTED balance -- so this reuses the real, path-specific account
+    returns rather than re-sampling or approximating a portfolio-wide rate,
+    the same fidelity principle ``_mc_vectorized_projection`` follows by
+    reusing each path's own sampled returns.
+
+    Returns ``{year: {'unfunded': float, 'tier_shortfall': {tier: float},
+    'tier_actual_spend': {tier: float}}}``, or ``None`` if no row in this
+    path carried ``spend_by_tier`` (Phase 0 unavailable for this plan) --
+    callers must fall back to the pre-existing ``unfunded_gap``/
+    ``SPENDING_TIER_CUT_ORDER`` reconstruction in that case, preserving
+    behavior for any plan predating Phase 0.
+    """
+    if not any(r.get('spend_by_tier') for r in rows):
+        return None
+    from .spending_budget_resolver import (
+        SPENDING_TIER_BUCKET_POLICY, MC_TIER_FUNDING_ORDER, SPENDING_TIER_ESSENTIAL,
+    )
+    registry = {a.get('id'): str(a.get('tax') or '').lower() for a in c.get('account_registry') or []}
+    buckets = ('pretax', 'roth', 'taxable', 'hsa', 'cash')
+    nw_field = {'pretax': 'pretax_nw', 'roth': 'roth_nw', 'taxable': 'trust_nw', 'hsa': 'hsa_nw', 'cash': 'cash_nw'}
+    other_bucket_order = SPENDING_TIER_BUCKET_POLICY[SPENDING_TIER_ESSENTIAL]
+
+    def _bucket_for(aid: str) -> str:
+        tax = registry.get(aid, '')
+        if tax == 'pre_tax':
+            return 'pretax'
+        if tax == 'roth':
+            return 'roth'
+        if tax == 'hsa':
+            return 'hsa'
+        if tax == 'cash':
+            return 'cash'
+        return 'taxable'
+
+    def _account_totals(row: dict, key: str) -> dict:
+        totals = {b: 0.0 for b in buckets}
+        for aid, amount in (row.get(key) or {}).items():
+            totals[_bucket_for(str(aid))] += max(0.0, float(amount or 0.0))
+        return totals
+
+    starts = _mc_bucket_starting_balances(c)
+    my_balance = dict(starts)
+    real_balance = dict(starts)
+    results: dict = {}
+
+    for row in rows:
+        withdrawals = _account_totals(row, '_account_withdrawals')
+        deposits = _account_totals(row, '_account_deposits')
+        conv_out = _account_totals(row, '_account_conversions_out')
+        conv_in = _account_totals(row, '_account_conversions_in')
+
+        tiers = row.get('spend_by_tier') or {}
+        total_tier_need = sum(float(v or 0.0) for v in tiers.values())
+        other_nominal = max(0.0, sum(withdrawals.values()) - total_tier_need)
+        income = float(row.get('income_funding', 0.0) or 0.0)
+
+        need_by_label = {'other': other_nominal}
+        for tier, amount in tiers.items():
+            need_by_label[tier] = float(amount or 0.0)
+        gross_need_by_label = dict(need_by_label)
+
+        extra_tiers = tuple(t for t in tiers if t not in SPENDING_TIER_BUCKET_POLICY)
+        funding_order = (MC_TIER_FUNDING_ORDER[0],) + extra_tiers + MC_TIER_FUNDING_ORDER[1:]
+
+        income_avail = income
+        for label in funding_order:
+            if label == 'other' or label not in need_by_label:
+                continue
+            covered = min(income_avail, need_by_label[label])
+            need_by_label[label] -= covered
+            income_avail -= covered
+
+        tier_shortfall: dict = {}
+        tier_actual_spend: dict = {}
+        unfunded = 0.0
+        for label in funding_order:
+            if label not in need_by_label:
+                continue
+            bucket_order = SPENDING_TIER_BUCKET_POLICY.get(label, other_bucket_order)
+            remaining = max(0.0, need_by_label[label])
+            for bucket in bucket_order:
+                take = min(my_balance[bucket], remaining)
+                my_balance[bucket] -= take
+                remaining -= take
+                if remaining <= 1e-9:
+                    break
+            shortfall = max(0.0, remaining)
+            if label != 'other':
+                tier_shortfall[label] = shortfall
+                tier_actual_spend[label] = gross_need_by_label[label] - shortfall
+            unfunded += shortfall
+
+        for bucket in buckets:
+            my_balance[bucket] += deposits[bucket]
+        pretax_conv = min(my_balance['pretax'], conv_out.get('pretax', 0.0))
+        my_balance['pretax'] -= pretax_conv
+        my_balance['roth'] += pretax_conv
+
+        for bucket in buckets:
+            real_end = float(row.get(nw_field[bucket], 0.0) or 0.0)
+            real_denom = (real_balance[bucket] - withdrawals[bucket] + deposits[bucket]
+                          - conv_out[bucket] + conv_in[bucket])
+            growth_factor = real_end / real_denom if abs(real_denom) > 1e-6 else 1.0
+            my_balance[bucket] = my_balance[bucket] * growth_factor
+            real_balance[bucket] = real_end
+
+        results[int(row['year'])] = {
+            'unfunded': unfunded,
+            'tier_shortfall': tier_shortfall,
+            'tier_actual_spend': tier_actual_spend,
+        }
+    return results
+
+
 def _run_one_mc_path(c: dict, rng: random.Random, mu: float, sig: float, use_asset_classes: bool = True):
     c2 = _clone_for_mc(c)
     c2.update(sample_household_death_years(c2, rng))
@@ -3271,6 +3408,24 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         rows, years, returns, return_diag, inflation_paths, path_c2 = _run_one_mc_path(c, rng, mu, sig, use_asset_classes=True)
         return_model_counts[str(return_diag.get('return_model', 'unknown'))] += 1
         by_year = {r['year']: r for r in rows}
+        # Optimization-refactor "Not done" item, Option B: genuine per-tier
+        # withdrawal redirection, scalar-engine parity. NOTE this is
+        # deliberately narrower than the vectorized engine's version: it
+        # drives essential_fully_funded_probability/cut-statistics/
+        # spend_{tier}_real reporting below, but NOT path_success/
+        # success_rate (those stay computed from `rows`' own real
+        # unfunded_gap, unchanged) -- redefining the scalar engine's
+        # headline success probability around a reconstructed, approximated
+        # balance trajectory is a materially bigger and more consequential
+        # decision than adding genuine tier-attribution reporting, and was
+        # not part of what this increment's product decision covered. See
+        # documentation/OPTIMIZATION_REFACTOR_STATUS.md for the open
+        # question this leaves: the vectorized engine's headline success
+        # rate DOES already reflect genuine redirection (its unfunded/
+        # success computation and its tier cascade share one recursion), so
+        # the two engines now disagree about whether tier redirection
+        # affects overall funding success, not just tier attribution.
+        tier_recon = _mc_scalar_tier_bucket_reconstruction(c, rows)
         last_row = rows[-1]
         path_returns = [returns[y] for y in years[:5]]
         sampled_returns.extend(returns[y] for y in years)
@@ -3306,23 +3461,40 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
             all_total_by_year[yr].append(float(r.get('total_nw', 0) or 0))
             all_liquid_by_year[yr].append(liquid)
             _infl_idx_yr = float(path_infl_index.get(yr, 1.0) or 1.0)
-            for _tier, _nominal in (r.get('spend_by_tier') or {}).items():
-                all_spend_by_tier_by_year[_tier][yr].append(float(_nominal or 0.0) / max(1e-9, _infl_idx_yr))
+            _recon_yr = tier_recon.get(yr) if tier_recon is not None else None
+            if _recon_yr is not None:
+                # Genuine per-tier funded spend (Option B), not the gross
+                # spend_by_tier demand -- mirrors the vectorized engine's
+                # spend_{tier}_real, which also reports tier_actual_spend
+                # rather than pre-shortfall demand.
+                for _tier, _actual in _recon_yr['tier_actual_spend'].items():
+                    all_spend_by_tier_by_year[_tier][yr].append(float(_actual) / max(1e-9, _infl_idx_yr))
+            else:
+                for _tier, _nominal in (r.get('spend_by_tier') or {}).items():
+                    all_spend_by_tier_by_year[_tier][yr].append(float(_nominal or 0.0) / max(1e-9, _infl_idx_yr))
             all_tax_by_year[yr].append(float(r.get('total_tax', 0.0) or 0.0) / max(1e-9, _infl_idx_yr))
             all_gross_cash_flow_by_year[yr].append(float(r.get('gross_cash_flow_yr', 0.0) or 0.0) / max(1e-9, _infl_idx_yr))
             for _label, _key in _GIFT_CHARITY_FIELDS:
                 _real_amt = float(r.get(_key, 0.0) or 0.0) / max(1e-9, _infl_idx_yr)
                 all_gift_charity_by_year[_label][yr].append(_real_amt)
                 _path_lifetime_gift_charity += _real_amt
-            _unfunded_nominal_yr = float(r.get('unfunded_gap', 0.0) or 0.0)
-            _remaining_unfunded = _unfunded_nominal_yr
-            _tiers_yr = r.get('spend_by_tier') or {}
-            for _tier in SPENDING_TIER_CUT_ORDER:
-                _avail = float(_tiers_yr.get(_tier, 0.0) or 0.0)
-                _taken = min(_avail, _remaining_unfunded)
-                if _tier == 'essential' and _taken > 1.0:
+            if _recon_yr is not None:
+                # Genuine per-tier shortfall (Option B): essential's own
+                # tracked shortfall, not a post-hoc SPENDING_TIER_CUT_ORDER
+                # reconstruction against one blended unfunded_gap number.
+                _unfunded_nominal_yr = float(_recon_yr['unfunded'])
+                if float(_recon_yr['tier_shortfall'].get('essential', 0.0)) > 1.0:
                     _path_essential_shortfall_ever = True
-                _remaining_unfunded -= _taken
+            else:
+                _unfunded_nominal_yr = float(r.get('unfunded_gap', 0.0) or 0.0)
+                _remaining_unfunded = _unfunded_nominal_yr
+                _tiers_yr = r.get('spend_by_tier') or {}
+                for _tier in SPENDING_TIER_CUT_ORDER:
+                    _avail = float(_tiers_yr.get(_tier, 0.0) or 0.0)
+                    _taken = min(_avail, _remaining_unfunded)
+                    if _tier == 'essential' and _taken > 1.0:
+                        _path_essential_shortfall_ever = True
+                    _remaining_unfunded -= _taken
             if _unfunded_nominal_yr > 1.0:
                 _path_any_cut = True
                 _path_cut_years += 1
@@ -3631,7 +3803,15 @@ def _mc_row_bucket_flows(c: dict, base_rows: list[dict]) -> dict:
     # three REALIZED cash/asset-transfer fields for lifetime gift/charity PV.
     # daf_grant_yr/*_deduction_yr are deliberately excluded -- see
     # monte_carlo_exact_scalar's _GIFT_CHARITY_FIELDS comment.
-    _EXTRA_SCALAR_FIELDS = ('gross_cash_flow_yr', 'daf_contrib_yr', 'qcd_total_yr', 'gift_total_yr')
+    # 'income_funding' (optimization-refactor Option B): the deterministic
+    # engine's income_from_streams (SS + pension + annuities + wages, see
+    # deterministic_engine.py:2001-2006) -- the cash that funds spending
+    # WITHOUT any account withdrawal at all. Needed so the genuine per-tier
+    # cascade below doesn't try to draw a tier's FULL gross spend_by_tier
+    # demand from investment buckets when most of it was already covered by
+    # income the deterministic engine's own gap = total_cash_need -
+    # income_from_streams already nets out.
+    _EXTRA_SCALAR_FIELDS = ('gross_cash_flow_yr', 'daf_contrib_yr', 'qcd_total_yr', 'gift_total_yr', 'income_funding')
     extra_scalar: dict[str, list] = {f: [] for f in _EXTRA_SCALAR_FIELDS}
     # Phase 1 (optimization refactor): the deterministic tier composition of
     # total_spend, per year, keyed by whatever SPENDING_TIERS keys the rows
@@ -3736,7 +3916,7 @@ def _mc_survivor_bucket_flows(c: dict, base_rows: list[dict]):
     withdrawal_names = ('withdrawals', 'deposits', 'conversions_out', 'conversions_in')
     withdrawal_buckets = ('pretax', 'roth', 'taxable', 'hsa', 'cash')
     scalar_fields = ('total_tax', 'gross_income', 'gross_cash_flow_yr',
-                      'daf_contrib_yr', 'qcd_total_yr', 'gift_total_yr')
+                      'daf_contrib_yr', 'qcd_total_yr', 'gift_total_yr', 'income_funding')
     n_buckets = 2 * n_years
     arrays: dict = {
         f'{name}.{b}': _np.zeros((n_buckets, n_years), dtype=float)
@@ -3799,7 +3979,7 @@ def _mc_effective_row_flows(flows: dict, survivor_buckets, bucket_id, use_bucket
             else:
                 bucket_matrix = survivor_buckets['arrays'][f'{name}.{b}'][bucket_id, :]
                 out[name][b] = _np.where(use_bucket_mask, bucket_matrix, det_row)
-    for flow_field in ('total_tax', 'gross_income', 'gross_cash_flow_yr', 'daf_contrib_yr', 'qcd_total_yr', 'gift_total_yr'):
+    for flow_field in ('total_tax', 'gross_income', 'gross_cash_flow_yr', 'daf_contrib_yr', 'qcd_total_yr', 'gift_total_yr', 'income_funding'):
         det_field = flows.get(flow_field)
         if det_field is None:
             continue
@@ -3978,6 +4158,39 @@ def _mc_apply_withdrawal_bucket(balances, request, bucket: str):
     return amount, request - amount
 
 
+def _mc_tier_bucket_cascade(balances, need, bucket_order: tuple, tax_drag=None):
+    """Genuine per-tier withdrawal redirection (optimization-refactor "Not
+    done" item, Option B): draw ``need`` (shape ``(n_sims,)``, this tier's
+    real dollar spending need for the year) sequentially from ``balances``
+    using ONLY the buckets in ``bucket_order`` -- unlike
+    ``_mc_apply_withdrawal_bucket``'s pre-existing fallback loop (which lets
+    any bucket cover any shortfall), a need that survives every bucket in
+    this tuple is a genuine shortfall for THIS tier: it never falls through
+    to a bucket outside ``bucket_order``.
+
+    ``tax_drag`` (shape ``(n_sims,)``), if given, grosses up the request at
+    the ``'pretax'`` step so the gross dollars actually pulled from pretax
+    also cover the approximate marginal tax on that withdrawal -- the same
+    padding the pre-existing single-bucket-replay code applied, now scoped
+    to whichever tier's cascade reaches the pretax step. The residual need
+    carried forward is converted back to net (spending-power) dollars so
+    later buckets in the cascade see the true remaining need, not the
+    grossed-up figure.
+
+    Returns the genuinely unfunded remainder for this tier (>= 0); balances
+    are mutated in place as each bucket in ``bucket_order`` is drawn down.
+    """
+    remaining = _np.maximum(0.0, need)
+    for bucket in bucket_order:
+        if bucket == 'pretax' and tax_drag is not None:
+            grossed = remaining * (1.0 + tax_drag)
+            _taken, left = _mc_apply_withdrawal_bucket(balances, grossed, 'pretax')
+            remaining = left / (1.0 + tax_drag)
+        else:
+            _taken, remaining = _mc_apply_withdrawal_bucket(balances, remaining, bucket)
+    return remaining
+
+
 def _max_consecutive_true_per_row(mask) -> "_np.ndarray":
     """For a boolean ``(n_sims, n_years)`` matrix, the longest run of
     consecutive True columns per row. Small ``n_years`` (a plan horizon), so
@@ -4148,24 +4361,39 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
         0.0, 0.55
     )
 
+    # Optimization-refactor "Not done" item, Option B ("Genuinely
+    # redirecting withdrawal requests... by tier priority" --
+    # docs/superpowers/plans/2026-08-27-mc-tier-priority-withdrawal-
+    # redirection-spec.md): computed BEFORE the recursion below (unlike the
+    # pre-existing reporting-only version of this block, which ran after the
+    # recursion had already finalized withdrawals/balances) because these
+    # per-tier real dollar needs now DRIVE which bucket the cascade below
+    # draws from, not just how a completed cut is attributed after the fact.
+    # tier_scaled/tier_retained empty (falsy) => every branch below is a
+    # provable no-op and this engine is bit-identical to a plan whose rows
+    # never carried spend_by_tier (Phase 0 never ran).
+    tier_scaled = {tier: det_arr * spending_scale for tier, det_arr in eff['spend_by_tier'].items()}
+    tier_retained = _mc_tier_priority_retained(tier_scaled, cut_mult) if tier_scaled else {}
+    if tier_scaled:
+        from .spending_budget_resolver import (
+            SPENDING_TIER_BUCKET_POLICY, MC_TIER_FUNDING_ORDER,
+            SPENDING_TIER_ESSENTIAL, SPENDING_TIER_CONTINGENT,
+        )
+        _other_bucket_order = SPENDING_TIER_BUCKET_POLICY[SPENDING_TIER_ESSENTIAL]
+        tier_shortfall = {tier: _np.zeros((n_sims, n_years)) for tier in tier_retained}
+        tier_actual_spend = {tier: _np.zeros((n_sims, n_years)) for tier in tier_retained}
+        # A row's spend_by_tier can carry a tier key SPENDING_TIER_BUCKET_
+        # POLICY doesn't recognize (e.g. deterministic_engine.py's
+        # 'unclassified' bucket for business_expenses_yr -- a real dollar
+        # amount, just not one of the four taxonomized tiers). Fund it
+        # alongside essential/contingent_liability/'other' (unrestricted
+        # full cascade, highest funding priority) rather than silently
+        # dropping it from both withdrawals and reporting.
+        _extra_tiers = tuple(t for t in tier_retained if t not in SPENDING_TIER_BUCKET_POLICY)
+        funding_order = (MC_TIER_FUNDING_ORDER[0],) + _extra_tiers + MC_TIER_FUNDING_ORDER[1:]
+
     for j in range(n_years):
         act = active[:, j]
-        # Start with the scalar engine's planned bucket withdrawals (blended
-        # with each path's survivor-bucket trajectory after its own first
-        # death -- see eff above), then scale spending-sensitive rows to the
-        # sampled inflation path and medical/LTC shocks. Shock costs first
-        # draw against HSA when possible, then the normal withdrawal cascade
-        # covers any remaining funding need.
-        planned = {
-            'taxable': eff['withdrawals']['taxable'][:, j] * spending_scale[:, j] * cut_mult,
-            'pretax': eff['withdrawals']['pretax'][:, j] * spending_scale[:, j] * cut_mult,
-            'roth': eff['withdrawals']['roth'][:, j] * spending_scale[:, j] * cut_mult,
-            'hsa': eff['withdrawals']['hsa'][:, j] * med_idx[:, j] / det_idx[:, j],
-            'cash': eff['withdrawals']['cash'][:, j] * spending_scale[:, j] * cut_mult,
-        }
-        # Pretax withdrawals carry an approximate marginal tax gross-up so the
-        # vectorized path does not understate tax pressure in poor markets.
-        planned['pretax'] = planned['pretax'] * (1.0 + tax_drag[:, j])
         # Wellness shocks are the sampled half of the contingent_liability
         # tier, and drawing them from the HSA first is this engine's own
         # long-standing precedent -- but it was ungated, while the
@@ -4173,30 +4401,120 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
         # hsa_withdrawal_mode. Applying the same gate here keeps the two
         # engines from disagreeing about the same tier: under a scheduled
         # drawdown mode the schedule is the sole authority on HSA dollars,
-        # so the shock falls to taxable exactly as any other spend would.
-        # (The premium half, ltc_prem_yr, needs no wiring here -- it flows
-        # in through eff['withdrawals']['hsa'], since the deterministic rows
-        # this engine scales already carry that draw.)
+        # so the shock falls into the normal cascade exactly as any other
+        # spend would. (The premium half, ltc_prem_yr, needs no wiring here
+        # -- it flows in through eff['withdrawals']['hsa'] / spend_by_tier's
+        # contingent_liability total, since the deterministic rows this
+        # engine scales already carry that draw.)
         shock_need = shocks[:, j] * act
         if cl_hsa_allowed_by_year[j]:
-            hsa_shock, shock_left = _mc_apply_withdrawal_bucket(balances, shock_need, 'hsa')
+            _, shock_left = _mc_apply_withdrawal_bucket(balances, shock_need, 'hsa')
         else:
             shock_left = shock_need
-        planned['taxable'] = planned['taxable'] + shock_left
 
-        unfunded = _np.zeros(n_sims, dtype=float)
-        for bucket in ('cash', 'taxable', 'pretax', 'roth', 'hsa'):
-            req = _np.where(act, planned[bucket], 0.0)
-            taken, left = _mc_apply_withdrawal_bucket(balances, req, bucket)
-            # Cascade residual need through remaining liquid buckets.
-            if _np.any(left > 1e-6):
-                for fallback in ('taxable', 'pretax', 'roth', 'hsa', 'cash'):
-                    if fallback == bucket:
-                        continue
-                    extra, left = _mc_apply_withdrawal_bucket(balances, left, fallback)
-                    if not _np.any(left > 1e-6):
-                        break
-            unfunded += _np.maximum(0.0, left)
+        if tier_scaled:
+            # Genuine per-tier redirection: each tier's real dollar need for
+            # this year draws ONLY from the buckets SPENDING_TIER_BUCKET_
+            # POLICY allows it, in MC_TIER_FUNDING_ORDER (essential/
+            # contingent_liability/taxes-and-misc funded first so they are
+            # never crowded out by important/discretionary competing for the
+            # same shared balances; discretionary last). A tier's need that
+            # survives every bucket in its own policy is a genuine
+            # shortfall for THAT tier -- it does not fall through to a
+            # bucket outside its policy (contrast with the pre-existing
+            # any-bucket-covers-any-shortfall fallback this replaces).
+            #
+            # "other" is whatever this year's total deterministic bucket
+            # draw represents beyond the tier-tagged spend total (taxes,
+            # debt service, and any other non-tier-tagged cash need) --
+            # these are no more optional than essential spending, so they
+            # share essential's unrestricted bucket policy and funding
+            # priority. Deliberately NOT scaled by cut_mult (a spending cut
+            # doesn't proportionally reduce tax owed), only by this path's
+            # own sampled inflation.
+            other_nominal = _np.maximum(0.0, (
+                eff['withdrawals']['taxable'][:, j] + eff['withdrawals']['pretax'][:, j]
+                + eff['withdrawals']['roth'][:, j] + eff['withdrawals']['cash'][:, j]
+                - sum(eff['spend_by_tier'][t][:, j] for t in eff['spend_by_tier'])
+            ))
+            need_by_label = {'other': _np.where(act, other_nominal * spending_scale[:, j], 0.0)}
+            for tier in tier_retained:
+                tier_need = _np.where(act, tier_retained[tier][:, j], 0.0)
+                if tier == SPENDING_TIER_CONTINGENT:
+                    tier_need = tier_need + shock_left
+                need_by_label[tier] = tier_need
+            if SPENDING_TIER_CONTINGENT not in tier_retained:
+                need_by_label['other'] = need_by_label['other'] + shock_left
+
+            # income_funding (SS/pension/annuities/wages) pays for spending
+            # tiers directly, with NO account withdrawal at all, before the
+            # bucket cascade below ever runs -- exactly how the deterministic
+            # engine's own gap = total_cash_need - income_from_streams
+            # already treats it. 'other' is excluded here: it is derived
+            # from eff['withdrawals'] (the deterministic engine's actual,
+            # already-income-net investment-account draw), so it is already
+            # net of income and must not have income subtracted a second
+            # time. Applied in funding_order (essential/contingent_liability
+            # first, discretionary last) so income -- the cheapest possible
+            # dollar, no account depletion or tax cost -- covers the
+            # highest-priority spending first, same as the bucket cascade's
+            # own priority.
+            # gross_need_by_label (pre-income) is what spend_{tier}_real
+            # reports as "actually spent" -- a tier funded partly by income
+            # and partly by an account withdrawal is still fully spent, so
+            # reporting must not shrink to only the withdrawn portion.
+            gross_need_by_label = dict(need_by_label)
+            income_avail = _np.where(act, eff['income_funding'][:, j] * spending_scale[:, j], 0.0)
+            for label in funding_order:
+                if label == 'other' or label not in need_by_label:
+                    continue
+                covered = _np.minimum(income_avail, need_by_label[label])
+                need_by_label[label] = need_by_label[label] - covered
+                income_avail = income_avail - covered
+
+            unfunded = _np.zeros(n_sims, dtype=float)
+            for label in funding_order:
+                if label not in need_by_label:
+                    continue
+                bucket_order = SPENDING_TIER_BUCKET_POLICY.get(label, _other_bucket_order)
+                drag = tax_drag[:, j] if 'pretax' in bucket_order else None
+                shortfall = _mc_tier_bucket_cascade(balances, need_by_label[label], bucket_order, tax_drag=drag)
+                if label != 'other':
+                    tier_shortfall[label][:, j] = shortfall
+                    tier_actual_spend[label][:, j] = gross_need_by_label[label] - shortfall
+                unfunded = unfunded + shortfall
+        else:
+            # Pre-existing behavior for a plan whose rows never carried
+            # spend_by_tier: one blended per-bucket request (the
+            # deterministic engine's own already-decided split, replayed
+            # forward and scaled), with fallback across ANY bucket for
+            # whatever a single bucket couldn't cover -- unchanged.
+            planned = {
+                'taxable': eff['withdrawals']['taxable'][:, j] * spending_scale[:, j] * cut_mult,
+                'pretax': eff['withdrawals']['pretax'][:, j] * spending_scale[:, j] * cut_mult,
+                'roth': eff['withdrawals']['roth'][:, j] * spending_scale[:, j] * cut_mult,
+                'hsa': eff['withdrawals']['hsa'][:, j] * med_idx[:, j] / det_idx[:, j],
+                'cash': eff['withdrawals']['cash'][:, j] * spending_scale[:, j] * cut_mult,
+            }
+            # Pretax withdrawals carry an approximate marginal tax gross-up so
+            # the vectorized path does not understate tax pressure in poor
+            # markets.
+            planned['pretax'] = planned['pretax'] * (1.0 + tax_drag[:, j])
+            planned['taxable'] = planned['taxable'] + shock_left
+
+            unfunded = _np.zeros(n_sims, dtype=float)
+            for bucket in ('cash', 'taxable', 'pretax', 'roth', 'hsa'):
+                req = _np.where(act, planned[bucket], 0.0)
+                taken, left = _mc_apply_withdrawal_bucket(balances, req, bucket)
+                # Cascade residual need through remaining liquid buckets.
+                if _np.any(left > 1e-6):
+                    for fallback in ('taxable', 'pretax', 'roth', 'hsa', 'cash'):
+                        if fallback == bucket:
+                            continue
+                        extra, left = _mc_apply_withdrawal_bucket(balances, left, fallback)
+                        if not _np.any(left > 1e-6):
+                            break
+                unfunded += _np.maximum(0.0, left)
 
         for bucket in ('cash', 'taxable', 'pretax', 'roth', 'hsa'):
             balances[bucket] += _np.where(act, eff['deposits'][bucket][:, j], 0.0)
@@ -4230,11 +4548,16 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
     # does not affect unfunded/liquid/total or the success/failure
     # calculation above, which already ran. Skips gracefully if base_rows
     # never carried spend_by_tier.
+    # spend_{tier}_real / spend_total_real report each tier's GENUINELY
+    # funded spend (tier_actual_spend, tracked during the per-tier cascade
+    # above), not the pre-cut/pre-shortfall tier_retained demand -- under
+    # Option B a tier can now fall short of its own demand independent of
+    # any other tier (e.g. discretionary runs out of taxable/pretax while
+    # essential is still fully funded), and that reality should be what
+    # these figures show.
     real_total = None
-    tier_scaled = {tier: det_arr * spending_scale for tier, det_arr in eff['spend_by_tier'].items()}
-    tier_retained = _mc_tier_priority_retained(tier_scaled, cut_mult) if tier_scaled else {}
-    for tier, retained_arr in tier_retained.items():
-        real = retained_arr / _np.maximum(1e-9, inf_idx)
+    for tier in tier_retained:
+        real = tier_actual_spend[tier] / _np.maximum(1e-9, inf_idx)
         out[f'spend_{tier}_real'] = real
         real_total = real if real_total is None else real_total + real
     if real_total is not None:
@@ -4253,34 +4576,16 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
     if gift_charity_total is not None:
         out['gift_charity_real'] = gift_charity_total
 
-    # Phase 2 (optimization refactor): attribute each path/year's already-
-    # computed unfunded shortfall (out['unfunded'] above) to spend tiers via
-    # the same SPENDING_TIER_CUT_ORDER cascade as spending_priority_cut_check
-    # (discretionary -> important -> contingent_liability -> essential), to
-    # answer "was essential spending ever left unfunded on this path" (the
-    # plan's "probability essential spending is fully funded" dashboard
-    # metric). Reporting-only: reads out['unfunded'] after the recursion
-    # above already finalized it, and never feeds back into
-    # unfunded/liquid/total/path_success.
-    if eff['spend_by_tier']:
-        from .spending_budget_resolver import SPENDING_TIER_CUT_ORDER
-        remaining_unfunded = out['unfunded'].copy()
-        essential_shortfall_nominal = _np.zeros((n_sims, n_years))
-        # SPENDING_TIER_CUT_ORDER (not the old hardcoded
-        # ('discretionary', 'important', 'essential') tuple that used to
-        # skip contingent_liability entirely -- see ffa142b), read from
-        # tier_retained (not eff['spend_by_tier'] directly) so this cascade
-        # sees the SAME priority-redistributed discretionary/important/
-        # essential amounts _mc_tier_priority_retained already computed
-        # above, not the pre-cut nominal figures.
-        for tier in SPENDING_TIER_CUT_ORDER:
-            tier_nominal = tier_retained.get(tier)
-            if tier_nominal is None:
-                continue
-            taken = _np.minimum(tier_nominal, remaining_unfunded)
-            if tier == 'essential':
-                essential_shortfall_nominal = taken
-            remaining_unfunded = remaining_unfunded - taken
+    # Phase 2 (optimization refactor), superseded by Option B: previously
+    # this block RECONSTRUCTED essential's shortfall by walking
+    # SPENDING_TIER_CUT_ORDER against out['unfunded'] after the fact, since
+    # the recursion above only tracked one blended unfunded total. Now that
+    # the per-tier cascade above tracks each tier's own genuine shortfall
+    # directly (tier_shortfall), essential's real funding failure is read
+    # straight from the ledger instead of re-derived.
+    if tier_scaled:
+        essential_shortfall_nominal = tier_shortfall.get(
+            SPENDING_TIER_ESSENTIAL, _np.zeros((n_sims, n_years)))
         out['essential_shortfall_real'] = essential_shortfall_nominal / _np.maximum(1e-9, inf_idx)
         out['essential_fully_funded'] = _np.all(essential_shortfall_nominal <= 1.0, axis=1)
 

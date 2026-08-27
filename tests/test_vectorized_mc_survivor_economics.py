@@ -92,9 +92,34 @@ class VectorizedSurvivorEconomicsFixtureTests(unittest.TestCase):
                     # default 0.65), and no other change in this fixture
                     # would push a path's spend UP after death, so "on"
                     # should never exceed "off" by more than a rounding
-                    # tolerance for spend specifically.
-                    self.assertTrue(np.all(on_vals <= off_vals + 1.0),
-                                     f"year {year}: survivor-economics spend exceeds the no-survivor-economics spend")
+                    # tolerance for spend specifically -- AS LONG AS neither
+                    # run has hit a genuine funding shortfall yet. Genuine
+                    # per-tier withdrawal redirection (optimization-refactor
+                    # Option B) means "on" and "off" draw down accounts
+                    # differently starting in the very first year (survivor
+                    # spend factor changes withdrawal amounts, which now
+                    # genuinely changes the bucket cascade, not just a
+                    # reporting label), and by a late year like 2045 that
+                    # divergence can compound: "off" (drawing more
+                    # aggressively pre-survivor-adjustment every year) can
+                    # deplete an account before "on" does, so a genuine
+                    # shortfall can make off_vals LOWER than on_vals even
+                    # though on_vals' own un-shortfalled demand is smaller --
+                    # the same compounding effect covered in
+                    # test_mc_tier_priority_cut_regression.py's matching
+                    # fix. Restrict the ordering check to paths where NEITHER
+                    # run has a shortfall this year, where the underlying
+                    # demand relationship still applies directly.
+                    both_fully_funded = (
+                        (proj_on["unfunded"][post_mask, j] <= 1.0)
+                        & (proj_off["unfunded"][post_mask, j] <= 1.0)
+                    )
+                    if both_fully_funded.any():
+                        self.assertTrue(
+                            np.all(on_vals[both_fully_funded] <= off_vals[both_fully_funded] + 1.0),
+                            f"year {year}: survivor-economics spend exceeds the no-survivor-economics "
+                            f"spend for a fully-funded path",
+                        )
 
         self.assertTrue(saw_pre_death_match, "no year had any path still before its own first death")
         self.assertTrue(saw_post_death_divergence,
