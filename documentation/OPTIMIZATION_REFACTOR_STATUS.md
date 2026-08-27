@@ -331,18 +331,96 @@ reimplement the contingent-liability draw inline rather than calling
 Design, the dead-bank finding, and the narrowed-scope rationale in
 `docs/superpowers/plans/2026-08-26-hsa-expense-bank-and-double-dip-spec.md`.
 
-## Not done
+### Genuine per-tier withdrawal redirection, Option B (both MC engines)
 
-- **Genuinely redirecting withdrawal requests (not just reporting
-  attribution) by tier priority** inside the MC engines — which bucket
-  (taxable/pretax/roth/cash/HSA) gets drawn down to fund which tier, not
-  just how a cut's dollars are reported across tiers (that reporting slice
-  is now done — see PR #64 above). Still a much larger, riskier rewrite
-  than the reporting-only additions above — treat as its own project, not
-  a quick follow-on. Note that PR #66 has since carved out the
-  contingent-liability tier specifically, which is a genuine
-  request-redirection for that one tier; what remains is the general case
-  for essential/important/discretionary.
+Closes the "Genuinely redirecting withdrawal requests... by tier priority"
+item below. Research and design options in
+`docs/superpowers/plans/2026-08-27-mc-tier-priority-withdrawal-redirection-
+spec.md`; the user picked **Option B** (a real tier→bucket policy, not just
+the smaller cascade-consistent-uniform-cut Option A) plus scalar-engine
+parity in the same pass, over two rounds of `AskUserQuestion` since the spec
+flagged this as a genuine product decision it couldn't resolve alone.
+
+**Policy** (`SPENDING_TIER_BUCKET_POLICY` / `MC_TIER_FUNDING_ORDER`,
+`spending_budget_resolver.py`): essential and contingent_liability keep the
+full HSA→pretax→taxable→Roth cascade (Roth as genuine last resort);
+important loses Roth access (HSA→pretax→taxable only); discretionary is
+restricted to taxable→pretax only (no HSA, no Roth). `cash` is available to
+every tier (not a tax-advantaged account, no policy reason to wall it off).
+Funding priority is the reverse of `SPENDING_TIER_CUT_ORDER`: essential/
+contingent_liability/taxes-and-misc funded first from shared balances (so
+they're never crowded out), discretionary last. A tier's need that survives
+every bucket in its own policy is a **genuine shortfall for that tier** — it
+does not fall through to a bucket outside its own policy, per the user's
+explicit choice (the alternative, falling through to the next tier's
+buckets, was declined).
+
+**Vectorized engine** (`_mc_vectorized_projection`): `_mc_tier_priority_
+retained`'s per-tier demand now DRIVES the withdrawal cascade instead of
+only attributing an already-decided uniform draw after the fact. A new
+`_mc_tier_bucket_cascade` helper draws each tier/pseudo-tier ("other" = tax
++ non-tier-tagged cash need; any tier key `SPENDING_TIER_BUCKET_POLICY`
+doesn't recognize, e.g. `deterministic_engine.py`'s `unclassified`
+business-expense bucket, is funded alongside essential) through its own
+bucket order against shared balances. `income_funding` (SS/pension/
+annuities/wages) is applied first, in the same funding-priority order,
+before any bucket draw — this was a real bug caught mid-implementation: the
+first version tried to draw each tier's FULL gross spend_by_tier demand from
+investment buckets, ignoring that most real households' spending is already
+covered by income (the deterministic engine's own `gap = total_cash_need -
+income_from_streams` already nets this out), which manufactured false
+shortfalls on a "comfortably funded" fixture (~70% probability of any cut).
+`essential_shortfall_real`/`essential_fully_funded` and `spend_{tier}_real`
+now read the genuinely tracked shortfall/actual-spend from the cascade
+instead of reconstructing an attribution from one blended `unfunded` number
+after the fact.
+
+**Scalar engine** (`monte_carlo_exact_scalar`): had no independent
+withdrawal mechanism to redirect at all — each path is a full rerun of
+`project()`, which just replays the deterministic engine's own already-
+decided bucket split (a real architectural asymmetry discovered mid-
+implementation, resolved via a second `AskUserQuestion`). New
+`_mc_scalar_tier_bucket_reconstruction` builds a PARALLEL per-path balance
+tracker — starting from the same account balances, re-deriving a
+tier-restricted draw each year against its OWN reconstructed balances — with
+each bucket's yearly growth inferred from that path's own REAL ending
+balance (`growth_factor = real_ending_nw / (real_starting_balance -
+real_withdrawal + deposits - conversions_out + conversions_in)`), so it
+reuses the real path-specific account returns rather than re-sampling.
+Deliberately does **not** touch `deterministic_engine.py`.
+
+**Deliberate scope boundary, flagged as an open question, not resolved
+here**: the vectorized engine's headline `success_rate`/`path_success`
+unavoidably reflects genuine redirection now (one recursion produces both
+`out['unfunded']` and the tier cascade). The scalar engine's `path_success`/
+`success_rate` were kept computed from `rows`' own real `unfunded_gap`,
+UNCHANGED — only `essential_fully_funded_probability`/cut-statistics/
+`spend_{tier}_real` reporting use the genuine reconstruction. Redefining the
+scalar engine's headline success probability around a reconstructed,
+approximated balance trajectory is a materially bigger, more consequential
+decision than adding genuine tier-attribution reporting, and was not part of
+what either `AskUserQuestion` round explicitly covered — so the two engines
+now have a known, documented asymmetry: whether tier redirection affects
+overall funding success (vectorized: yes: scalar: no, tier-attribution-only)
+rather than just tier attribution. Resolve explicitly before relying on
+scalar/vectorized success-rate parity for anything tier-sensitive.
+
+Existing tests that encoded the old uniform-cut/reporting-only invariants as
+bit-identical assertions were updated (not just their expected values —
+several of the invariants themselves were proven false by the spec's own
+analysis and needed new, weaker invariants: e.g. "half the cut yields
+exactly half the spend" no longer holds once bucket restriction means how
+much of a smaller demand gets FUNDED depends on real balances, not just
+demand). New coverage:
+`tests/test_mc_tier_bucket_policy_restriction_regression.py` (vectorized —
+proves a tier is blocked from a bucket it could otherwise reach, not just
+balance exhaustion) and
+`tests/test_scalar_mc_tier_bucket_reconstruction_regression.py` (scalar —
+mirrors the same coverage plus multi-year balance-carries-forward and
+income-funding-first checks).
+
+- ~~**Genuinely redirecting withdrawal requests (not just reporting
+  attribution) by tier priority**~~ — **done**, see above.
 - ~~**Wiring the HSA schedule search**~~ — **done**, see below.
 - ~~**Reclassifying `ltc_prem_yr`**~~ — **done**, see the reconciliation note
   above: `ltc_prem_yr` stays `contingent_liability` (now a real, reachable
