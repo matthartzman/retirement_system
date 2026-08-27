@@ -242,6 +242,16 @@ def run_deterministic_projection_stage(c):
     # carryforward expires last among equals but nothing is used out of the
     # order it was generated.
     daf_deduction_carryforward: list = []
+    # HSA expense-bank accumulation (optimization refactor, Option B):
+    # cumulative substantiated unreimbursed qualified medical expense,
+    # available to justify a tax-free HSA draw at any later date (the
+    # "shoebox strategy" -- see docs/superpowers/plans/
+    # 2026-08-26-hsa-expense-bank-and-double-dip-spec.md). Seeded from the
+    # user's entered historical figure (blank means nothing entered yet, not
+    # unlimited -- it accrues from here); grown every year by that year's
+    # medical_expense_yr; drawn down by Priority 1b/4c's HSA draws, the two
+    # sites that enforce it. Never reset across years.
+    hsa_bank_balance = float(c.get('hsa_expense_bank')) if c.get('hsa_expense_bank') is not None else 0.0
     # Item 4.8 (P11): cumulative federal lifetime-exemption dollars consumed
     # by taxable gifts (amounts above the per-donee annual exclusion) made
     # during the plan so far. Reduces the exemption still available at
@@ -1726,6 +1736,46 @@ def run_deterministic_projection_stage(c):
             row['wellness_base_yr'] = wellness_base_yr
             row['total_spend'] = total_spend_need
 
+        # ── Spending tiers (optimization-refactor Phase 0) ─────────────────
+        # Breaks total_spend_need into essential / important / discretionary /
+        # contingent_liability per the SPENDING_TIERS registry in
+        # spending_budget_resolver.py. Purely additive reporting: it never
+        # feeds back into total_spend_need, withdrawals, or taxes. spend_base
+        # is split using the household's actual category mix
+        # (spend_base_tier_shares); every other component maps to a single
+        # tier because it is already segregated in the row (e.g. mortgage /
+        # RE tax / utilities are Housing-essential; LTC premium and wellness
+        # shocks are the contingent-liability tier's namesake use case). The
+        # wellness split additionally respects the ACA-recompute above and
+        # the n_alive == 0 estate-mode zeroing by scaling its raw components
+        # to wellness_base_yr rather than using them directly.
+        _tier_totals: dict[str, float] = {}
+
+        def _tier_add(tier: str, amount: float) -> None:
+            if amount:
+                _tier_totals[tier] = _tier_totals.get(tier, 0.0) + amount
+
+        _base_shares = c.get('spend_base_tier_shares') or {}
+        if _base_shares:
+            for _tier, _frac in _base_shares.items():
+                _tier_add(_tier, spend * _frac)
+        elif spend:
+            _tier_add('important', spend)
+        _tier_add('discretionary', rec_extra + lump_yr + row.get('home_improvement_yr', 0.0))
+        _tier_add('essential', mort_yr + re_tax_yr + rent_yr + housing_operating_yr
+                   + heloc_interest_yr + heloc_repayment_principal_yr)
+        _wellness_essential_raw = (wellness_premium_yr + wellness_medical_yr + wellness_dental_yr
+                                    + wellness_vision_yr + wellness_rx_otc_yr)
+        _wellness_raw_total = _wellness_essential_raw + wellness_other_yr
+        if _wellness_raw_total > 0 and wellness_base_yr:
+            _wellness_scale = wellness_base_yr / _wellness_raw_total
+            _tier_add('essential', _wellness_essential_raw * _wellness_scale)
+            _tier_add('important', wellness_other_yr * _wellness_scale)
+        _tier_add('contingent_liability', ltc_prem_yr + wellness_shock_yr)
+        if business_expenses_yr:
+            _tier_add('unclassified', business_expenses_yr)
+        row['spend_by_tier'] = {k: round(v, 2) for k, v in _tier_totals.items() if v}
+
         # SALT
         # Preliminary state tax estimate for SALT deduction (computed before final state_tax)
         # SALT estimate: use residence state rate (not hardcoded IL). Item 291
@@ -2030,14 +2080,145 @@ def run_deterministic_projection_stage(c):
 
         buf_yrs = liquidity_buffer_years_for_year(c, year)
 
+        # ── Priority 1b: contingent-liability spend draws HSA first ───────────
+        # Optimization refactor: the contingent_liability spending tier
+        # (ltc_prem_yr + wellness_shock_yr) is qualified medical expense, so
+        # the HSA -- the one account whose dollars come out tax-free for
+        # exactly this -- funds it ahead of the ordinary cascade. Runs BEFORE
+        # Priority 2 so the scheduled window draw sizes itself against
+        # whatever remains rather than double-counting the same balance.
+        # Gated on hsa_withdrawal_mode (see hsa_unscheduled_draw_allowed): a
+        # household that configured a scheduled drawdown keeps that schedule
+        # as the sole authority, so under those modes this is a no-op and
+        # Priority 2 behaves exactly as before.
+        #
+        # HSA expense-bank accumulation (Option B): this year's qualified
+        # medical spend accrues to the running bank BEFORE either draw this
+        # year is sized, so a receipt generated this year can justify a
+        # reimbursement this year. Only Priority 1b (here) and Priority 4c
+        # below enforce the bank -- Priority 2's scheduled/window draw is
+        # deliberately left uncapped; see the spec's "Implementation note".
+        hsa_bank_balance += medical_expense_yr
+        _hsa_bank_c = dict(c, hsa_expense_bank=hsa_bank_balance)
+        cl_res = _legacy_pe.fund_contingent_liability_from_hsa(
+            _hsa_bank_c, bal,
+            ltc_prem_yr=row.get('ltc_prem_yr', 0.0),
+            wellness_shock_yr=row.get('wellness_shock_yr', 0.0),
+            year=year, spend_floor_base=spend)
+        cl_hsa_wd = cl_res['amount']
+        hsa_bank_balance = max(0.0, hsa_bank_balance - cl_hsa_wd)
+        gap -= cl_hsa_wd
+        row['contingent_liability_hsa_wd'] = cl_hsa_wd
+        row['contingent_liability_unfunded_by_hsa'] = cl_res['residual']
+        cl_by_account = dict(cl_res.get('by_account', {}) or {})
+        row['_hsa_by_account'] = dict(cl_by_account)
+        for _aid, _amt in cl_by_account.items():
+            _add_account_flow(row['_account_withdrawals'], _aid, _amt)
+
         # ── Priority 2: HSA (scheduled, not gap-driven) ────────────────────────
         hsa_res = _legacy_pe.withdraw_hsa_window(c, bal, year, wellness_cost=row.get('wellness_base_yr', 0.0))
-        hsa_wd = hsa_res['amount']
-        gap -= hsa_wd
+        hsa_wd = cl_hsa_wd + hsa_res['amount']
+        gap -= hsa_res['amount']
         row['hsa_wd'] = hsa_wd
-        row['_hsa_by_account'] = dict(hsa_res.get('by_account', {}) or {})
-        for _aid, _amt in row['_hsa_by_account'].items():
+        for _aid, _amt in dict(hsa_res.get('by_account', {}) or {}).items():
+            row['_hsa_by_account'][_aid] = row['_hsa_by_account'].get(_aid, 0.0) + _amt
             _add_account_flow(row['_account_withdrawals'], _aid, _amt)
+
+        # ── No double benefit: HSA-reimbursed medical is not also deductible ─
+        # A qualified medical expense cannot both be reimbursed tax-free from
+        # the HSA and deducted on Schedule A. `medical_expense_yr` above was
+        # computed from the full medical spend with no reduction for HSA
+        # dollars, so every HSA withdrawal was silently taking both benefits.
+        # Measured on the frozen fixture before this fix: all 123,301.40 of
+        # lifetime HSA withdrawals were also clearing the 7.5%-of-AGI floor.
+        #
+        # Placed HERE -- after Priority 2, before Priority 3 -- because this
+        # correction INCREASES tax, so the gap grows and the REST OF THE
+        # CASCADE MUST STILL BE ABLE TO FUND IT IN ORDER.
+        #
+        # An earlier version sat after Priority 4c, on the reasoning that
+        # `hsa_wd` is not final until 4c's gap-fill has run. That was wrong,
+        # and `test_recommendations_regression.py::
+        # test_fixed_point_taxable_withdrawal_solver_runs_before_roth` caught
+        # it: adding tax demand after 3/4b/4c leaves only Roth to fund it, so
+        # the plan drew Roth while pre-tax and HSA balances still remained --
+        # 10 violations of the cascade's Roth-last invariant. Correctness of
+        # the withdrawal ORDER outranks capturing every last netted dollar.
+        #
+        # The trade that buys: only the draws known by this point are netted --
+        # Priority 1b's contingent-liability draw (which exists precisely to
+        # pay qualified medical) and Priority 2's scheduled window draw.
+        # Priority 4c's gap-fill is excluded. That is defensible on the merits
+        # rather than merely convenient: 4c is a last-resort liquidity draw
+        # against a general cash shortfall, not a reimbursement of that year's
+        # medical spend. It also errs conservative -- it nets less, so the
+        # correction is never more aggressive than the evidence supports.
+        #
+        # (The DAF re-deduction block later in this function is the same shape
+        # with the opposite sign. It only ever LOWERS tax, which is why it can
+        # safely sit after the draws: a shrinking gap needs no funding.)
+        #
+        # Only the DEDUCTION is corrected. The medical spend itself is a real
+        # cash cost and `total_spend`/`row['wellness_*']` are untouched: this
+        # changes what is deductible, not what is spent.
+        _hsa_reimbursed = min(max(0.0, hsa_wd), max(0.0, medical_expense_yr))
+        if _hsa_reimbursed > 1e-6 and medical_ded > 1e-6:
+            # Net the reimbursed dollars out of the DEDUCTION directly rather
+            # than re-deriving `max(0, net_medical - 0.075*agi)` here.
+            #
+            # The two are algebraically identical while the deduction is above
+            # the floor AND `agi` is the same at both points -- and on the
+            # frozen fixture's own configuration they are: both forms produce
+            # byte-identical pins, so no test here distinguishes them. They
+            # diverge only where `agi` has been mutated between the deduction
+            # (computed early, off first-pass agi) and this correction
+            # (post-cascade); measured under a `roth_policy='none'`
+            # configuration, re-deriving stripped 18,439 against a 10,168
+            # reimbursement in one year.
+            #
+            # Netting directly is preferred anyway because it inherits
+            # whatever floor the engine already applied instead of silently
+            # re-basing it. Whether that floor should use first-pass or
+            # converged AGI is a real question, and a separate one from the
+            # double benefit this block exists to correct.
+            _new_medical_ded = max(0.0, medical_ded - _hsa_reimbursed)
+            _medical_ded_lost = medical_ded - _new_medical_ded
+            if _medical_ded_lost > 1e-6:
+                _cand_item_ded = item_ded - _medical_ded_lost
+                # std-vs-itemized is re-evaluated: a household pushed below the
+                # standard deduction by this correction takes the standard one,
+                # which caps the damage at (item_ded - std_ded) rather than the
+                # full lost medical deduction.
+                _new_ded = max(std_ded, _cand_item_ded + (qbi_ded if c['qbi_elig'] else 0.0))
+                _new_taxable_inc = max(0.0, agi - _new_ded)
+                _new_fed_tax = _compute_fed_tax_path(_new_taxable_inc, year, filing, c['brk_inf'])
+                _fed_tax_extra = max(0.0, _new_fed_tax - fed_tax)
+                fed_tax = _new_fed_tax
+                taxable_inc = _new_taxable_inc
+                # Update the PRE-NIIT subtotal, not `total_tax` directly.
+                # `total_tax` is rebuilt from scratch further down
+                # (`total_tax_pre_niit + ltcg_tax + niit - tlh_ordinary_credit`),
+                # so a direct `total_tax += ...` here is silently discarded
+                # while the `fed_tax` change survives -- leaving the two
+                # disagreeing. That showed up as a 178.21 cash-flow
+                # reconciliation residual in
+                # test_cashflow_breakdown_single_source_of_truth.py, with the
+                # breakdown's `other` remainder absorbing exactly the gap.
+                # Recomputing the subtotal from its own components is the
+                # idiom the engine already uses at its other two update sites.
+                total_tax_pre_niit = fed_tax + state_tax + payroll_tax + irmaa_yr
+                total_tax = total_tax_pre_niit + home_sale_ltcg_tax
+                gap += _fed_tax_extra
+                item_ded = _cand_item_ded
+                ded = _new_ded
+                medical_ded = _new_medical_ded
+                row['medical_expense_deduction'] = medical_ded
+                row['medical_expense_hsa_reimbursed'] = _hsa_reimbursed
+                row['taxable_inc'] = taxable_inc
+                row['fed_tax'] = fed_tax
+                row['total_tax'] = total_tax
+                row['net_income'] = row.get('gross_income', agi) - total_tax
+                row['total_cash_need'] = total_spend_need + total_tax + other_cash_need_yr
 
         # ── Priority 3: Pre-tax elective withdrawal ─────────────────────────
         h_ira_elective = 0.0; w_ira_elective = 0.0; ira_wd = 0.0; pretax_by_account = {}
@@ -2527,13 +2708,18 @@ def run_deterministic_projection_stage(c):
         # remaining HSA balance and all pre-tax/taxable sources are exhausted or
         # unavailable for the cash gap, draw HSA before touching Roth.
         if gap > 0 and sum(max(0.0, float(bal.get(_aid, 0.0) or 0.0)) for _aid in c.get('hsa_ids', [])) > 0:
-            hsa_res2 = _legacy_pe.withdraw_hsa_gap(c, bal, gap, year=year, spend_floor_base=spend)
+            # Re-read the bank balance: Priority 1b (and this year's accrual)
+            # already ran above, so hsa_bank_balance reflects what remains.
+            hsa_res2 = _legacy_pe.withdraw_hsa_gap(
+                dict(c, hsa_expense_bank=hsa_bank_balance), bal, gap, year=year, spend_floor_base=spend)
+            hsa_bank_balance = max(0.0, hsa_bank_balance - hsa_res2['amount'])
             hsa_wd += hsa_res2['amount']
             gap = hsa_res2['new_gap']
             for _aid, _amt in dict(hsa_res2.get('by_account', {}) or {}).items():
                 row['_hsa_by_account'][_aid] = row['_hsa_by_account'].get(_aid, 0.0) + _amt
                 _add_account_flow(row['_account_withdrawals'], _aid, _amt)
             row['hsa_wd'] = hsa_wd
+        row['hsa_expense_bank_balance'] = hsa_bank_balance
 
         # ── Priority 5: Roth withdrawal ─────────────────────────────────────
         roth_res = _legacy_pe.withdraw_roth(c, bal, gap, year=year, spend_floor_base=spend)
@@ -2782,6 +2968,17 @@ def run_deterministic_projection_stage(c):
             'surplus': surplus,          # authoritative engine value, not re-derived
             'unfunded_gap': row['unfunded_gap'],
         }
+
+        # Optimization-refactor Phase 1 item 2: gross external cash flow, for
+        # ELTR (effective lifetime tax rate) and tax-NPV reporting. Reuses
+        # cashflow_breakdown's income/draws sub-dicts, which already exclude
+        # internal transfers (Roth conversion, DAF in-kind, gifting, spousal
+        # rollover, CST funding) by construction -- see the reconciliation
+        # guarantees documented above cashflow_breakdown.
+        row['gross_cash_flow_yr'] = (
+            sum(row['cashflow_breakdown']['income'].values())
+            + sum(row['cashflow_breakdown']['draws'].values())
+        )
 
         # ── Portfolio growth (end-of-year) ───────────────────────────────────
         port_ret = c['ret']

@@ -51,6 +51,7 @@ import argparse
 import datetime as _dt
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -109,6 +110,28 @@ def _env_with_frozen_pricing():
     return env
 
 
+def _regen_interpreter() -> list[str]:
+    """Argv prefix for running the regen block.
+
+    Prefers the Windows launcher (`py -3.14`), which is what this repo's
+    documented workflow calls for and what pins the interpreter version on a
+    developer machine. Falls back to the interpreter running this tool when
+    `py` is not on PATH -- otherwise the regen path this repo *mandates*
+    (`CLAUDE.md`: hand-editing the pins is caught by
+    `tests/test_golden_master_pin_provenance.py`) is simply unrunnable on
+    Linux and CI, which is where it was first needed.
+
+    Overridable via `RETIREMENT_SYSTEM_REGEN_PYTHON` for a machine with
+    several interpreters and no launcher.
+    """
+    override = os.environ.get("RETIREMENT_SYSTEM_REGEN_PYTHON", "").strip()
+    if override:
+        return shlex.split(override)
+    if shutil.which("py"):
+        return ["py", "-3.14"]
+    return [sys.executable]
+
+
 def _run_regen_block(cwd: Path) -> tuple[float, float]:
     """Run the test file's own __main__ regen block and parse its output.
 
@@ -116,7 +139,7 @@ def _run_regen_block(cwd: Path) -> tuple[float, float]:
     that needs a number calls this, never a hand-rolled reimplementation.
     """
     proc = subprocess.run(
-        ["py", "-3.14", "-m", REGEN_MODULE],
+        [*_regen_interpreter(), "-m", REGEN_MODULE],
         cwd=str(cwd),
         env=_env_with_frozen_pricing(),
         capture_output=True,
