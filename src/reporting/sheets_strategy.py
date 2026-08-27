@@ -220,7 +220,7 @@ def build_sheet10(ws, c, rows):
     ws.sheet_view.showGridLines = False
     section_title(ws, 1, 'SOCIAL SECURITY CLAIMING STRATEGY', 10)
 
-    from ..planning_engines import monte_carlo, run_scenario as _run_scenario
+    from ..planning_engines import monte_carlo, run_scenario as _run_scenario, _mc_survivor_bucket_flows
     from ..after_tax import estimate_after_tax_terminal_net_worth as _est_after_tax
     import contextlib as _contextlib
     import io as _io
@@ -246,6 +246,23 @@ def build_sheet10(ws, c, rows):
     SWEEP_MC_SEED = 4242
 
     base_rows = list(rows or [])
+    # Perf fix (optimization refactor Phase 1 items 4-6): this sweep calls
+    # monte_carlo() up to 81x below (a 9x9 claim-age grid), and each call
+    # would otherwise independently rebuild the survivor-economics bucket
+    # trajectories (2 * n_years project() calls apiece) -- ~4,500 extra
+    # project() calls in one workbook build, which measurably caused
+    # subprocess timeouts in tests/test_all_modules_off_build_functional.py
+    # on CI. Claim age changes the SS BENEFIT AMOUNT, not the household's
+    # death-timing/mortality profile that drives which bucket a path falls
+    # into, so building the buckets once from the base (pre-sweep) config
+    # and reusing them across every claim-age pair is a safe, intentional
+    # approximation -- consistent with this sweep's own existing approach of
+    # reusing one fixed seed/path set across all 81 pairs so differences are
+    # attributable to claim age, not simulation noise.
+    _survivor_buckets_for_sweep = (
+        _mc_survivor_bucket_flows(c, base_rows)
+        if bool(c.get('mc_vectorized_survivor_economics', True)) else None
+    )
     base_terminal = float(base_rows[-1].get('total_nw', 0.0) or 0.0) if base_rows else 0.0
     base_tax = sum(float(r.get('total_tax', 0.0) or 0.0) for r in base_rows)
     base_ss = sum(float(r.get('h_ss', 0.0) or 0.0) + float(r.get('w_ss', 0.0) or 0.0) for r in base_rows)
@@ -310,7 +327,7 @@ def build_sheet10(ws, c, rows):
             c2['mc_sims'] = SWEEP_MC_SIMS
             c2['mc_sensitivity_sims'] = 1
             with _contextlib.redirect_stdout(_io.StringIO()):
-                mc_result = monte_carlo(c2, n_sims=SWEEP_MC_SIMS, seed=SWEEP_MC_SEED)
+                mc_result = monte_carlo(c2, n_sims=SWEEP_MC_SIMS, seed=SWEEP_MC_SEED, survivor_buckets=_survivor_buckets_for_sweep)
             mc_success_rate = float(mc_result.get('success_rate', 0.0) or 0.0)
             mc_p10_terminal_nw = float((mc_result.get('terminal_total_nw') or {}).get(10, 0.0) or 0.0)
         except Exception:
