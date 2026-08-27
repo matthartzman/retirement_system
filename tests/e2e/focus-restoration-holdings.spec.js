@@ -24,15 +24,19 @@ test('changing the Holdings account filter keeps it focused after the autosave r
   const select = page.locator('.table-actions select[data-focus-key="holdings:account-select"]');
   await expect(select, 'account-filter select is missing its data-focus-key -- the generalization this test exists to prove did not ship').toHaveCount(1);
 
-  // The frozen e2e fixture's client_holdings.csv is NOT actually reachable
-  // through /api/holdings in this workspace (confirmed directly by querying
-  // the endpoint: it returns only the empty-template header, 0 data rows) --
-  // a pre-existing data-loading gap unrelated to ticket 285's focus-restore
-  // fix, so this test does not depend on it. Seed two accounts directly
-  // through the app's own addHoldingLot() (the same function "Add Lot"
-  // wires to), which is a synchronous, already-load-bearing path, so the
-  // dropdown has real accounts to select between regardless of fixture state.
-  //
+  // The frozen e2e fixture's client_holdings.csv IS reachable through
+  // /api/holdings in this workspace (the fixture has 10 real accounts across
+  // Member_1/Member_2 -- Business_Checking, Family_Checking, IRA/401k/Roth/
+  // Trust/HSA per member -- plus the "All accounts" option, 11 total before
+  // this test adds anything). A prior version of this comment claimed 0 real
+  // accounts loaded and hardcoded an absolute option count/index off that;
+  // both assumptions broke once the underlying data-loading gap was fixed
+  // elsewhere. Assert the DELTA from whatever the real baseline is, and
+  // select the synthetic account by its value (not a positional index), so
+  // this test only depends on addHoldingLot() actually adding rows -- not on
+  // how many real accounts the fixture happens to carry.
+  const baselineCount = await select.locator('option').count();
+
   // This mutates in-memory holding rows and marks them dirty; if anything in
   // this test (or a later autosave-on-navigation) persists that to the
   // server, the shared frozen e2e workspace would carry these synthetic
@@ -44,7 +48,7 @@ test('changing the Holdings account filter keeps it focused after the autosave r
       window.addHoldingLot('E2E_Account_A');
       window.addHoldingLot('E2E_Account_B');
     });
-    await expect(select.locator('option')).toHaveCount(3);
+    await expect(select.locator('option')).toHaveCount(baselineCount + 2);
 
     await select.focus();
     // Changing a <select>'s value via keyboard (not selectOption(), which can
@@ -52,7 +56,7 @@ test('changing the Holdings account filter keeps it focused after the autosave r
     // Playwright/browser combinations) is what genuinely fires `change` on a
     // focused, live element -- matching how a real user tabs to a dropdown
     // and arrows through it.
-    await select.selectOption({ index: 2 });
+    await select.selectOption({ value: 'E2E_Account_B' });
 
     // setHoldingAccount -> renderMain() replaces #mainPane's entire subtree,
     // including this exact <select> node, synchronously inside the change
@@ -69,8 +73,8 @@ test('changing the Holdings account filter keeps it focused after the autosave r
     // Not just "some select is focused" -- it must be the SAME logical field,
     // now showing the value the user actually chose (proves this is the
     // freshly re-rendered replacement, not a stale reference).
-    const selectedIndex = await page.evaluate(() => document.activeElement.selectedIndex);
-    expect(selectedIndex).toBe(2);
+    const selectedValue = await page.evaluate(() => document.activeElement.value);
+    expect(selectedValue).toBe('E2E_Account_B');
   } finally {
     // Remove the two synthetic accounts and, if anything marked holdings
     // dirty, push the removal to the server explicitly -- do not rely on a
