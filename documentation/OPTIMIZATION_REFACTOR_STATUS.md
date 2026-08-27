@@ -419,6 +419,8 @@ balance exhaustion) and
 mirrors the same coverage plus multi-year balance-carries-forward and
 income-funding-first checks).
 
+## Not done
+
 - ~~**Genuinely redirecting withdrawal requests (not just reporting
   attribution) by tier priority**~~ — **done**, see above.
 - ~~**Wiring the HSA schedule search**~~ — **done**, see below.
