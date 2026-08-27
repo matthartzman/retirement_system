@@ -486,9 +486,14 @@ the case for it.
 - **Phase 4** (LCV feasibility gate and scoring) has a spec
   (`docs/superpowers/plans/2026-08-27-phase4-lcv-feasibility-gate-spec.md`)
   but no implementation yet.
-- **Phase 6** (expanded stress scenarios) is entirely unimplemented, and
-  has essentially no existing scaffolding to build on (confirmed via the
-  Phase 3 spec's own research pass, reconfirmed for Phase 6 specifically).
+- **Phase 6** (expanded stress scenarios) has a spec
+  (`docs/superpowers/plans/2026-08-27-phase6-expanded-stress-scenarios-spec.md`)
+  but no implementation yet. Unlike Phases 3-5, a real (if inextensible)
+  stress-scenario system already exists (`sheets_stress.py`'s hardcoded
+  Sheet 16/17/18 scenarios plus the reusable `run_scenario` primitive);
+  the open question is which new scenario(s) to add and whether to also
+  generalize the hardcoded list into a registry, both of which need
+  explicit product sign-off before implementation.
 
 ### Phase 5 — Guyton-Klinger adaptive-guardrail shadow simulation
 
