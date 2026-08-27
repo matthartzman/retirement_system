@@ -478,10 +478,62 @@ the case for it.
 - ~~**Phase 3 — tax NPV / ELTR state-contingent tax modeling**~~ — **done**
   (reporting-only slice, see above). The active-tax-decision-layer reading
   (Option C in the Phase 3 spec) remains explicitly out of scope.
-- **Phases 4–6 of the overall plan** (LCV feasibility gate and scoring,
-  adaptive policy guardrails, expanded stress scenarios) are entirely
-  unimplemented, and have essentially no existing scaffolding to build on
-  (confirmed via the Phase 3 spec's own research pass).
+- ~~**Phase 5 — adaptive policy guardrails**~~ — **done** (reporting-only
+  shadow simulation, see below). Full Guyton-Klinger, both engines, fixed
+  default bands — per explicit user sign-off on all three, since (unlike
+  Phases 3-4) no existing implementation anywhere in the codebase could
+  anchor the formula.
+- **Phase 4** (LCV feasibility gate and scoring) has a spec
+  (`docs/superpowers/plans/2026-08-27-phase4-lcv-feasibility-gate-spec.md`)
+  but no implementation yet.
+- **Phase 6** (expanded stress scenarios) is entirely unimplemented, and
+  has essentially no existing scaffolding to build on (confirmed via the
+  Phase 3 spec's own research pass, reconfirmed for Phase 6 specifically).
+
+### Phase 5 — Guyton-Klinger adaptive-guardrail shadow simulation
+
+Per `docs/superpowers/plans/2026-08-27-phase5-adaptive-guardrails-spec.md`'s
+Option A. Unlike Phases 3-4, no existing spending-cut mechanism in this
+codebase re-evaluates year by year against realized portfolio state —
+`spend_cut_frac`/`sustainable_spending_solve`/`_mc_required_cut_
+distribution` are all single static scalars applied uniformly across an
+entire path — so this is genuinely new sequential per-year decision
+logic, the first of its kind in this refactor, not a combination of
+existing fields.
+
+Implements the full 4-rule Guyton-Klinger framework as a **shadow**
+simulation (never touches the real withdrawal cascade,
+`unfunded`/`liquid`/`total`/`path_success`/`success_rate`) in both MC
+engines (`_mc_vectorized_projection` and a new
+`_mc_scalar_guyton_klinger_shadow`, mirroring the parallel-reconstruction
+pattern already proven for tier-priority redirection): (1) Withdrawal
+Rule — inflation-adjust each year unless the prior year's return was
+negative; (2) Capital Preservation Rule — cut 10% if the withdrawal rate
+exceeds 120% of the initial rate, suspended in the plan's final 15 years;
+(3) Prosperity Rule — raise 10% if the rate falls below 80% of the
+initial rate; (4) Portfolio Management Rule — deliberately out of scope
+(governs which asset funds a withdrawal, not the withdrawal amount, so it
+cannot change the reported dollar figure).
+
+Tracks ONE aggregate liquid-portfolio value (not per-tax-bucket — GK's
+rules are defined against total portfolio value), anchored to each
+path's own actual year-1 portfolio draw net of income (the same
+income-netting fix the tier-priority-redirection increment required for
+its own cascade — using gross `total_spend` as the anchor here first
+produced an implausible ~81% lifetime cut probability before the fix).
+New fields: `guardrail_spend_real` (per path/year, total consumption =
+portfolio draw + that year's guaranteed income),
+`guardrail_cut_years_count`/`guardrail_raise_years_count`,
+`guardrail_ever_cut`/`guardrail_ever_raise`, and batch-level
+`probability_guardrail_cut`/`probability_guardrail_raise`. Fixed default
+bands (20%/10%/15-year window); CSV-schema configurability is an
+explicit, separately-scoped follow-up per the same "backend ready, no
+CSV/UI yet" pattern several earlier Phase 2 metrics used. Covered by
+`tests/test_guyton_klinger_guardrail_shadow_regression.py` (11 tests:
+exact year-0 dollar match, capital-preservation cut trigger, the 15-year
+suspension window, prosperity raise trigger, no-trigger-within-band,
+degenerate zero-draw guard, both engines' mechanics matching, and a
+real-fixture cross-engine sanity check).
 
 ## Verification discipline established this session
 
