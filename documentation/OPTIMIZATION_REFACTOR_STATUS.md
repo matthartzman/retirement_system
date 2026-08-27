@@ -59,7 +59,7 @@ or `success_rate`.
 
 | Metric | Where | Notes |
 |---|---|---|
-| `spending_priority_cut_check` | `planning_engines.py` | Extends `essential_discretionary_floor_check`'s 2-tier check into the full discretionary→important→essential cascade; wired into `sustainable_spending_solve` as `tiered_*` fields |
+| `spending_priority_cut_check` | `planning_engines.py` | Extends `essential_discretionary_floor_check`'s 2-tier check into the full `SPENDING_TIER_CUT_ORDER` cascade (discretionary→important→contingent_liability→essential); wired into `sustainable_spending_solve` as `tiered_*` fields |
 | `essential_fully_funded_probability` | both MC engines | Fraction of paths whose essential tier is never left unfunded |
 | `probability_any_cut` + `cut_years_pct` / `max_annual_shortfall_real_pct` / `max_consecutive_cut_years_pct` / `cumulative_shortfall_real_pct` | both MC engines | Genuine per-path cut statistics from each path's own realized shortfall (not a single solved cut_frac scenario) |
 | `liquidity_coverage_pct_by_year` + `worst_liquidity_coverage_ratio_pct` | both MC engines | `liquid / success_threshold`, i.e. how many times over the existing reserve floor is covered — re-labels a relationship the success/failure test already uses, rather than inventing a new floor concept |
@@ -77,6 +77,95 @@ All six are covered by dedicated regression test files (see
 verified against the full local suite, the `-m slow` build-functional suite,
 and CI, with zero regressions against the pre-existing baseline failure set
 (see below).
+
+### Correction: contingent-liability funding rules (`ffa142b`)
+
+`spending_budget_resolver.py` already defined `SPENDING_TIER_CUT_ORDER`
+(discretionary, important, **contingent_liability**, essential) with a
+comment describing it as "the future phase's single source of truth for
+cut ordering" — but `spending_priority_cut_check` and both MC engines'
+essential-shortfall cascades hardcoded a `('discretionary', 'important',
+'essential')` tuple that skipped `contingent_liability` entirely, treating
+LTC premiums and wellness-shock costs as fully protected from ever
+absorbing a shortfall. This was **wrong relative to the already-documented
+design**, not a new feature to build: fixed by using
+`SPENDING_TIER_CUT_ORDER` in all three places. A cut now correctly reaches
+`contingent_liability` before `essential`, matching the intended priority.
+See `documentation/GOLDEN_MASTER_CHANGELOG.md`'s 2026-08-26 entry for the
+full before/after.
+
+### Refinement: premium vs. incurred-shock cut split (`0e65806`)
+
+Closes the nuance flagged above. `contingent_liability` bundled
+`ltc_prem_yr` (a premium — a genuine choice to forgo future coverage) and
+`wellness_shock_yr` (an already-incurred health/LTC event cost — not
+really a discretionary choice), cutting both identically. Fixed at the
+Phase-0 source (`deterministic_engine.py`'s tier classification, not a new
+MC-level mechanism): `ltc_prem_yr` stays in `contingent_liability`;
+`wellness_shock_yr` now routes into `essential`, protecting it at
+essential's cascade priority instead. Both MC engines picked this up for
+free — `SPENDING_TIER_CUT_ORDER`-based cascades already consume
+`spend_by_tier`'s tier keys generically, so no MC-engine-level code changes
+were needed. See `documentation/GOLDEN_MASTER_CHANGELOG.md`'s matching
+2026-08-26 entry.
+
+### Probability of meeting a user legacy floor (`e9e4059`)
+
+Re-scoped down from the "Not done" framing this doc previously carried
+("needs a CSV-schema / UI / docs decision"): the same "backend field ready,
+no CSV/UI wiring yet" pattern already applies to every other Phase 2 metric
+in this table, so `legacy_floor` doesn't need schema work to be useful now.
+Both engines already compute `post_tax_inheritance` per path (the same
+value backing `after_tax_terminal_nw_pct`/`post_tax_inheritance_pct`).
+Added `probability_legacy_floor_met`: the fraction of paths whose
+`post_tax_inheritance` meets or exceeds `c.get('legacy_floor', 0.0)`, read
+defensively since no config field exists in the CSV schema yet. Reports
+`None` (the same None-when-inapplicable convention as
+`survivor_period_*`/`liquidity_coverage_pct_by_year`) whenever no floor is
+configured, rather than a misleading 0.0 or 1.0. Reporting-only — never
+feeds back into `unfunded`/`liquid`/`total`/`path_success`/`success_rate`.
+Covered by `tests/test_legacy_floor_probability_regression.py` (8 tests:
+None-when-unconfigured, trivially-low/absurdly-high floor bounds,
+monotonicity, both engines, plus a CSV-schema wiring test).
+
+### `legacy_floor` CSV-schema wiring
+
+Closes the "Not done" item below: added `Estate Planning / Legacy /
+legacy_floor` (dollars, default 0) to `reference_data/schema.csv`, a
+matching data row (`$0`, inert) to `input/demo/client_insurance_estate.csv`
+and `tests/fixtures/sample_plan_frozen/client_insurance_estate.csv`, and
+one line in `parse_client()` (`src/data_io.py`) reading it into
+`c['legacy_floor']`. No `frontend/js/dashboard.js` changes: the file was
+one line under its size-ratchet ceiling (`tests/test_frontend_size_ratchet.py`),
+and both existing generic fallbacks already cover this field without a
+bespoke entry — `fieldTooltipPreview` falls back to the schema row's
+`description` column for the short tooltip, and `fieldGuidance()` falls
+back to a generic purpose/impact/consider block for anything without a
+`FIELD_GUIDANCE_OVERRIDES` entry (the same precedent already used for the
+per-member QCD fields, per that function's own comment). The generic input
+row renders automatically from the schema entry, matching how every other
+`Estate Planning` field already works with zero bespoke `dashboard.js` code.
+
+### Reconciliation note (2026-08-27)
+
+The two sections above (`ffa142b`, `0e65806`) landed on `claude/plan-
+execution-tg1rps`, an unmerged branch left over after PR #59 merged, which
+diverged from `main` before PR #64/#66/#67/#68/#69 below existed. Meanwhile
+a separate PR #70 on `claude/confit-optimization-refactor-cyyk9v` (merged
+first) independently reclassified `ltc_prem_yr` the OPPOSITE way — into
+`essential`, leaving `wellness_shock_yr` in `contingent_liability` — without
+knowing `ffa142b`/`0e65806` existed. On merging this branch, PR #70's
+classification was reverted in favor of this branch's (`ltc_prem_yr` stays
+`contingent_liability`, `wellness_shock_yr` moves to `essential`), per
+explicit user decision: `ffa142b`'s finding (the cascade hardcoded an
+exclusion that contradicted `SPENDING_TIER_CUT_ORDER`'s own documented
+order) is a real, pre-existing bug fix that should supersede a same-shaped
+but differently-reasoned change made without seeing it. `_mc_tier_priority_
+retained` (PR #64, below) was reconciled to read via `SPENDING_TIER_CUT_
+ORDER` too, so the vectorized engine's essential-shortfall cascade and
+`spending_priority_cut_check` agree. See PR #70's own now-superseded spec,
+`docs/superpowers/plans/2026-08-26-ltc-premium-tier-reclassification-spec.md`,
+for the reasoning that was reverted.
 
 ### Phase 2 follow-on — Tier-priority MC spending cuts (PR #64)
 
@@ -255,15 +344,12 @@ Design, the dead-bank finding, and the narrowed-scope rationale in
   request-redirection for that one tier; what remains is the general case
   for essential/important/discretionary.
 - ~~**Wiring the HSA schedule search**~~ — **done**, see below.
-- **Reclassifying `ltc_prem_yr`** out of `contingent_liability` into
-  `essential` — it is a scheduled premium, not a shock, and is tiered as
-  contingent only because it *hedges* a contingent liability. Taxonomy
-  correctness only; would shift `spend_by_tier` percentages that the
-  Phase 2 dashboard metrics read, so it needs its own regression coverage
-  (Option C in the 2026-08-26 design doc).
-- **"Probability of meeting a user legacy floor"** — no `legacy_floor`-style
-  config field exists anywhere in this codebase yet. Adding one needs a
-  CSV-schema / UI / docs decision, not just a reporting-layer computation.
+- ~~**Reclassifying `ltc_prem_yr`**~~ — **done**, see the reconciliation note
+  above: `ltc_prem_yr` stays `contingent_liability` (now a real, reachable
+  cut-cascade tier per `ffa142b`), `wellness_shock_yr` moved to `essential`
+  (`0e65806`) — the split PR #70 proposed, minus the direction it initially
+  guessed wrong on `ltc_prem_yr` specifically.
+- ~~**"Probability of meeting a user legacy floor"**~~ — **done**, see above.
 - **Phases 3–6 of the overall plan** (tax NPV / ELTR state-contingent tax
   modeling, LCV feasibility gate and scoring, adaptive policy guardrails,
   expanded stress scenarios) are entirely unimplemented.

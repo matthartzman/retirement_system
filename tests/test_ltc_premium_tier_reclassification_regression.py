@@ -1,30 +1,30 @@
-"""ltc_prem_yr classifies as `essential`, not `contingent_liability`.
+"""ltc_prem_yr stays `contingent_liability`; wellness_shock_yr moves to `essential`.
 
-Design: docs/superpowers/plans/2026-08-26-ltc-premium-tier-reclassification-spec.md
+Design: commit `0e65806` on `claude/plan-execution-tg1rps` (merged into
+`claude/confit-optimization-refactor-cyyk9v` 2026-08-27), reconciled against
+this branch's own earlier, opposite-direction attempt (PR #70, reverted --
+see the "Reconciliation note" in `documentation/OPTIMIZATION_REFACTOR_STATUS.md`
+and `documentation/GOLDEN_MASTER_CHANGELOG.md`).
 
-An LTC insurance premium is a scheduled, known-in-advance cost -- the same
-shape as a mortgage payment or a Medicare premium -- not a shock. Before
-this fix, `deterministic_engine.py` tiered it with `wellness_shock_yr`
-(a genuinely irregular, sampled cost) under `contingent_liability` only
-because it *hedges* a contingent liability, not because paying it is
-itself contingent.
-
-This is not just a reporting relabel: `contingent_liability` is excluded
-entirely from the MC engines' tier-priority cut cascade
-(`spending_priority_cut_check` and the vectorized redistribution both
-special-case it), while `essential` is cuttable, just last in priority
-order. So before this fix, an LTC premium was NEVER protected by priority
-ordering; after it, the premium is protected like any other fixed cost.
+`contingent_liability` bundled two different kinds of dollars: `ltc_prem_yr`
+(an LTC insurance premium -- a genuine choice to forgo future coverage) and
+`wellness_shock_yr` (an already-incurred health/LTC event cost -- not really
+a discretionary choice). This file asserts the final split: the premium
+stays `contingent_liability`, cuttable at that tier's `SPENDING_TIER_CUT_
+ORDER` priority (between important and essential, per `ffa142b`'s cascade-
+inclusion fix); the incurred shock routes into `essential`, protecting it
+at essential's priority instead.
 
 Every guard below compares an LTC-enabled run against a matched
 LTC-disabled run of the SAME household and asserts the exact dollar DELTA,
-not a loose `>=`/`>` against the tier's already-large total -- an early
-draft of this file used loose inequalities against the ltc-enabled run
-alone, and every one of them still passed with the fix reverted, because
-essential's other components (mortgage, property tax, ...) already
-cleared the threshold on their own regardless of where the LTC premium
-was tiered. Mutation-tested: reverting the fix (putting ltc_prem_yr back
-into contingent_liability) turns every delta-based guard below red.
+not a loose `>=`/`>` against a tier's already-large total -- an earlier
+version of this file (testing the opposite, since-reverted direction) used
+loose inequalities and every one of them still passed with that fix
+reverted, because essential's other components (mortgage, property tax,
+...) already cleared the threshold on their own regardless of where the
+LTC premium was tiered. Mutation-tested: swapping the direction back (as
+if `ltc_prem_yr` routed to `essential` again) turns every delta-based
+guard below red.
 """
 from __future__ import annotations
 
@@ -33,6 +33,7 @@ import unittest
 from conftest import TEST_INPUT_DIR
 from src.data_io import load_csv, parse_client
 from src.planning_engines import project, spending_priority_cut_check
+from src.spending_budget_resolver import SPENDING_TIER_CUT_ORDER
 
 LTC_PREMIUM = 18_500
 
@@ -69,24 +70,7 @@ class ClassificationTests(unittest.TestCase):
             "the guards below are vacuous",
         )
 
-    def test_ltc_premium_moves_essential_by_exactly_the_premium(self):
-        with_ltc, without_ltc = _paired_rows()
-        for year, r in with_ltc.items():
-            ltc = r.get("ltc_prem_yr") or 0.0
-            if ltc <= 1.0:
-                continue
-            base = without_ltc.get(year)
-            if base is None:
-                continue
-            with_essential = (r.get("spend_by_tier") or {}).get("essential", 0.0)
-            base_essential = (base.get("spend_by_tier") or {}).get("essential", 0.0)
-            self.assertAlmostEqual(
-                with_essential - base_essential, ltc, places=2,
-                msg=f"year {year}: turning on the {ltc} LTC premium changed "
-                    f"essential by {with_essential - base_essential}, not {ltc}",
-            )
-
-    def test_ltc_premium_does_not_move_contingent_liability(self):
+    def test_ltc_premium_moves_contingent_liability_by_exactly_the_premium(self):
         with_ltc, without_ltc = _paired_rows()
         for year, r in with_ltc.items():
             ltc = r.get("ltc_prem_yr") or 0.0
@@ -98,10 +82,27 @@ class ClassificationTests(unittest.TestCase):
             with_cl = (r.get("spend_by_tier") or {}).get("contingent_liability", 0.0)
             base_cl = (base.get("spend_by_tier") or {}).get("contingent_liability", 0.0)
             self.assertAlmostEqual(
-                with_cl, base_cl, places=2,
+                with_cl - base_cl, ltc, places=2,
+                msg=f"year {year}: turning on the {ltc} LTC premium changed "
+                    f"contingent_liability by {with_cl - base_cl}, not {ltc}",
+            )
+
+    def test_ltc_premium_does_not_move_essential(self):
+        with_ltc, without_ltc = _paired_rows()
+        for year, r in with_ltc.items():
+            ltc = r.get("ltc_prem_yr") or 0.0
+            if ltc <= 1.0:
+                continue
+            base = without_ltc.get(year)
+            if base is None:
+                continue
+            with_essential = (r.get("spend_by_tier") or {}).get("essential", 0.0)
+            base_essential = (base.get("spend_by_tier") or {}).get("essential", 0.0)
+            self.assertAlmostEqual(
+                with_essential, base_essential, places=2,
                 msg=f"year {year}: turning on the {ltc} LTC premium moved "
-                    f"contingent_liability from {base_cl} to {with_cl} -- it "
-                    "should be shock-only, unaffected by the premium",
+                    f"essential from {base_essential} to {with_essential} -- "
+                    "the premium should stay in contingent_liability",
             )
 
     def test_a_household_with_no_ltc_premium_is_unaffected(self):
@@ -125,20 +126,19 @@ class ClassificationTests(unittest.TestCase):
 
 
 class CutPriorityPoolTests(unittest.TestCase):
-    """The actual behavior change: which pool the premium's dollars fall
-    into for the MC/deterministic tier-priority cut cascade, not just how
-    they are labeled in a report. Directly exercises
-    spending_priority_cut_check's own exclusion rule (planning_engines.py:
-    `total_cuttable = sum(v for t, v in tiers.items() if t !=
-    'contingent_liability')`) via a paired delta, the same way
-    ClassificationTests does for the raw tier dollars."""
+    """The actual behavior change: which tier -- and cascade priority --
+    the premium's dollars fall into, not just how they are labeled in a
+    report. Directly exercises spending_priority_cut_check's own cuttable
+    rule (planning_engines.py: `total_cuttable = sum(v for t, v in
+    tiers.items() if t in SPENDING_TIER_CUT_ORDER)`, fixed in `ffa142b` to
+    include contingent_liability) via a paired delta."""
 
     def test_total_cuttable_pool_grows_by_exactly_the_premium(self):
         with_ltc, without_ltc = _paired_rows()
 
         def total_cuttable(row):
             tiers = row.get("spend_by_tier") or {}
-            return sum(v for t, v in tiers.items() if t != "contingent_liability")
+            return sum(v for t, v in tiers.items() if t in SPENDING_TIER_CUT_ORDER)
 
         for year, r in with_ltc.items():
             ltc = r.get("ltc_prem_yr") or 0.0
@@ -150,19 +150,19 @@ class CutPriorityPoolTests(unittest.TestCase):
             self.assertAlmostEqual(
                 total_cuttable(r) - total_cuttable(base), ltc, places=2,
                 msg=f"year {year}: the cuttable pool did not grow by the "
-                    f"{ltc} LTC premium when it was enabled -- it is still "
-                    "being excluded as if it were contingent_liability",
+                    f"{ltc} LTC premium when it was enabled",
             )
 
-    def test_a_near_total_cut_takes_more_essential_dollars_with_the_premium_on(self):
-        # With cut_frac high enough to blow through discretionary+important
-        # and land in essential in both runs, the WITH-ltc run's essential
-        # cut must exceed the WITHOUT-ltc run's by roughly the premium --
-        # confirming the extra dollars are actually reachable by the cut
-        # cascade, not just present in the reported total.
+    def test_a_moderate_cut_takes_more_contingent_liability_dollars_with_the_premium_on(self):
+        # cut_frac sized to spill past discretionary+important into
+        # contingent_liability (its SPENDING_TIER_CUT_ORDER priority, ahead
+        # of essential) in both runs -- the WITH-ltc run's contingent_
+        # liability cut must exceed the WITHOUT-ltc run's, confirming the
+        # extra premium dollars are actually reachable by the cascade, not
+        # just present in the reported total.
         with_ltc, without_ltc = _paired_rows()
-        with_result = spending_priority_cut_check(list(with_ltc.values()), cut_frac=0.99)
-        without_result = spending_priority_cut_check(list(without_ltc.values()), cut_frac=0.99)
+        with_result = spending_priority_cut_check(list(with_ltc.values()), cut_frac=0.5)
+        without_result = spending_priority_cut_check(list(without_ltc.values()), cut_frac=0.5)
         checked_any = False
         for year, r in with_ltc.items():
             ltc = r.get("ltc_prem_yr") or 0.0
@@ -172,18 +172,46 @@ class CutPriorityPoolTests(unittest.TestCase):
             without_cuts = without_result["tier_cut_by_year"].get(year)
             if not with_cuts or not without_cuts:
                 continue
-            with_essential_cut = with_cuts.get("essential", 0.0)
-            without_essential_cut = without_cuts.get("essential", 0.0)
-            if with_essential_cut <= 0.0 and without_essential_cut <= 0.0:
+            with_cl_cut = with_cuts.get("contingent_liability", 0.0)
+            without_cl_cut = without_cuts.get("contingent_liability", 0.0)
+            if with_cl_cut <= 0.0 and without_cl_cut <= 0.0:
                 continue
             checked_any = True
             self.assertGreater(
-                with_essential_cut, without_essential_cut,
-                f"year {year}: essential's cut did not grow when the LTC "
-                "premium was enabled, even though the cut reaches essential "
-                "in both runs",
+                with_cl_cut, without_cl_cut,
+                f"year {year}: contingent_liability's cut did not grow when "
+                "the LTC premium was enabled, even though the cut reaches "
+                "contingent_liability in both runs",
             )
-        self.assertTrue(checked_any, "no cut-check year reached essential in either run")
+        self.assertTrue(checked_any, "no cut-check year reached contingent_liability in either run")
+
+    def test_essential_is_never_cut_before_contingent_liability_in_an_ltc_year(self):
+        # Direct assertion of cascade ORDER, not just pool membership:
+        # essential must show zero cut in any year where contingent_liability
+        # still has room, confirming the premium is genuinely reached before
+        # essential rather than merely counted in the same total.
+        with_ltc, _ = _paired_rows()
+        result = spending_priority_cut_check(list(with_ltc.values()), cut_frac=0.15)
+        checked_any = False
+        for year, r in with_ltc.items():
+            ltc = r.get("ltc_prem_yr") or 0.0
+            if ltc <= 1.0:
+                continue
+            cuts = result["tier_cut_by_year"].get(year)
+            if not cuts:
+                continue
+            cl_tier = (r.get("spend_by_tier") or {}).get("contingent_liability", 0.0)
+            cl_cut = cuts.get("contingent_liability", 0.0)
+            essential_cut = cuts.get("essential", 0.0)
+            if cl_cut >= cl_tier - 1e-6:
+                continue  # contingent_liability tier exhausted this year; not the case this test needs
+            checked_any = True
+            self.assertEqual(
+                essential_cut, 0.0,
+                f"year {year}: essential was cut ({essential_cut}) while "
+                f"contingent_liability still had room ({cl_tier - cl_cut} left)",
+            )
+        self.assertTrue(checked_any, "no cut-check year left contingent_liability partially unexhausted")
 
 
 if __name__ == "__main__":

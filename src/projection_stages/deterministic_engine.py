@@ -1744,11 +1744,19 @@ def run_deterministic_projection_stage(c):
         # is split using the household's actual category mix
         # (spend_base_tier_shares); every other component maps to a single
         # tier because it is already segregated in the row (e.g. mortgage /
-        # RE tax / utilities are Housing-essential; LTC premium and wellness
-        # shocks are the contingent-liability tier's namesake use case). The
-        # wellness split additionally respects the ACA-recompute above and
-        # the n_alive == 0 estate-mode zeroing by scaling its raw components
-        # to wellness_base_yr rather than using them directly.
+        # RE tax / utilities are Housing-essential). The wellness split
+        # additionally respects the ACA-recompute above and the n_alive == 0
+        # estate-mode zeroing by scaling its raw components to
+        # wellness_base_yr rather than using them directly.
+        #
+        # contingent_liability holds only ltc_prem_yr -- an insurance
+        # premium is a genuine (if painful) choice to forgo future coverage,
+        # so it is cuttable at the tier's documented cascade priority
+        # (SPENDING_TIER_CUT_ORDER: after important, before essential).
+        # wellness_shock_yr is routed into 'essential' instead: it is an
+        # already-incurred health/LTC event cost, not a discretionary
+        # spending choice, so it is protected at essential's level rather
+        # than bundled with the premium at a lower cascade priority.
         _tier_totals: dict[str, float] = {}
 
         def _tier_add(tier: str, amount: float) -> None:
@@ -1762,24 +1770,8 @@ def run_deterministic_projection_stage(c):
         elif spend:
             _tier_add('important', spend)
         _tier_add('discretionary', rec_extra + lump_yr + row.get('home_improvement_yr', 0.0))
-        # ltc_prem_yr is a scheduled, known-in-advance premium -- the same
-        # shape as a mortgage payment or a Medicare premium -- not a shock.
-        # It is tiered with the other fixed essentials, not with
-        # wellness_shock_yr's genuinely irregular, sampled cost: it hedges a
-        # contingent liability, it isn't itself one, the same distinction
-        # already drawn for ho_insurance (an essential premium against home
-        # damage, not a "home damage" tier). See
-        # docs/superpowers/plans/2026-08-26-ltc-premium-tier-reclassification-spec.md.
-        # This also changes cut-priority treatment, not just a label: both
-        # spending_priority_cut_check (planning_engines.py) and the
-        # vectorized MC redistribution exclude contingent_liability from the
-        # tier-priority cascade entirely (flat/uniform cut), while essential
-        # is cuttable, just last in priority order -- so this premium is now
-        # protected like other fixed costs instead of never benefiting from
-        # priority protection. Purely additive/reporting: neither consumer
-        # changes a dollar total, only per-tier attribution.
         _tier_add('essential', mort_yr + re_tax_yr + rent_yr + housing_operating_yr
-                   + heloc_interest_yr + heloc_repayment_principal_yr + ltc_prem_yr)
+                   + heloc_interest_yr + heloc_repayment_principal_yr)
         _wellness_essential_raw = (wellness_premium_yr + wellness_medical_yr + wellness_dental_yr
                                     + wellness_vision_yr + wellness_rx_otc_yr)
         _wellness_raw_total = _wellness_essential_raw + wellness_other_yr
@@ -1787,7 +1779,18 @@ def run_deterministic_projection_stage(c):
             _wellness_scale = wellness_base_yr / _wellness_raw_total
             _tier_add('essential', _wellness_essential_raw * _wellness_scale)
             _tier_add('important', wellness_other_yr * _wellness_scale)
-        _tier_add('contingent_liability', wellness_shock_yr)
+        # Reconciled with 'claude/confit-optimization-refactor-cyyk9v' PR #70
+        # (merged first, then reverted here in favor of this branch's design,
+        # per user decision 2026-08-27): ltc_prem_yr (an insurance premium --
+        # a genuine choice to forgo future coverage) stays in
+        # contingent_liability, cuttable at that tier's documented cascade
+        # priority (see ffa142b/0e65806 below). wellness_shock_yr (an
+        # already-incurred health/LTC event cost, not a discretionary
+        # choice) routes into essential instead, protecting it at
+        # essential's cascade priority rather than bundling it with the
+        # premium at a lower one.
+        _tier_add('contingent_liability', ltc_prem_yr)
+        _tier_add('essential', wellness_shock_yr)
         if business_expenses_yr:
             _tier_add('unclassified', business_expenses_yr)
         row['spend_by_tier'] = {k: round(v, 2) for k, v in _tier_totals.items() if v}
