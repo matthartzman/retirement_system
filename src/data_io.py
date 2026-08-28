@@ -1653,6 +1653,16 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['scen_sell_basis_source'] = 'Other Assets/Home/home_basis'
     c['scen_sell_acct']        = (_v(data,'Scenarios','Sell Home',
                                         'home_sale_proceeds_account', '') or '').strip()
+    # Divorce/QDRO scenario (optimization-refactor Phase 6): a one-time,
+    # tax-free (IRC S1041) split of all investment accounts at a configured
+    # year. Mirrors Sell Home's pattern exactly -- a CSV-editable Scenarios
+    # subsection feeding generic `divorce_split_yr`/`divorce_split_pct`
+    # override keys the deterministic engine reads the same way it reads
+    # `home_sale_yr`.
+    c['scen_divorce_yr']       = _y(_v(data,'Scenarios','Divorce',
+                                        'divorce_year', '2029'), 2029)
+    c['scen_divorce_split_pct'] = max(0.0, min(1.0, _n(_v(data,'Scenarios','Divorce',
+                                        'divorce_split_pct', '50%'), 0.50)))
     c['scen_inf_override']     = _n(_v(data,'Scenarios','High Inflation',
                                         'inflation_override', '0.045'), 0.045)
     c['scen_ret_override']     = _n(_v(data,'Scenarios','Low Return',

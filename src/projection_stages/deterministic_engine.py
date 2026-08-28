@@ -694,6 +694,26 @@ def run_deterministic_projection_stage(c):
         else:
             row['startup_sale_proceeds'] = 0.0
 
+        # ── Divorce/QDRO asset split (optimization-refactor Phase 6) ─────────
+        # A one-time reduction of every investment account at a configured
+        # year, modeling a QDRO/marital-asset division. Unlike a home sale,
+        # transfers incident to divorce are not a taxable event (IRC S1041):
+        # the departing share simply leaves the household's balance sheet,
+        # no capital gain, no basis adjustment, no tax pass needed.
+        row['divorce_split_amount'] = 0.0
+        if c.get('divorce_split_yr') and year == int(c['divorce_split_yr']):
+            _divorce_pct = max(0.0, min(1.0, float(c.get('divorce_split_pct', 0.0) or 0.0)))
+            if _divorce_pct > 0:
+                _divorce_split_total = 0.0
+                for _aid in _ar.all_investment_ids(c.get('account_registry', [])):
+                    _before = float(bal.get(_aid, 0.0) or 0.0)
+                    if _before > 0:
+                        _taken = _before * _divorce_pct
+                        bal[_aid] = _before - _taken
+                        _add_account_flow(row['_account_transfers_out'], _aid, _taken)
+                        _divorce_split_total += _taken
+                row['divorce_split_amount'] = _divorce_split_total
+
         # ── Home value appreciation & planned sale ───────────────────────────
         home_sold = home_val <= 0   # already sold in a prior year
         # Mortgage balance — computed once here, used in both sale and non-sale branches

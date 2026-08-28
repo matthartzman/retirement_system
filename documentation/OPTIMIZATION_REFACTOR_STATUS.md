@@ -490,14 +490,74 @@ the case for it.
   in this refactor to date, since (unlike every other phase) it changes
   what two already-shipped, tested optimizers actually recommend, not just
   what gets reported.
-- **Phase 6** (expanded stress scenarios) has a spec
-  (`docs/superpowers/plans/2026-08-27-phase6-expanded-stress-scenarios-spec.md`)
-  but no implementation yet. Unlike Phases 3-5, a real (if inextensible)
-  stress-scenario system already exists (`sheets_stress.py`'s hardcoded
-  Sheet 16/17/18 scenarios plus the reusable `run_scenario` primitive);
-  the open question is which new scenario(s) to add and whether to also
-  generalize the hardcoded list into a registry, both of which need
-  explicit product sign-off before implementation.
+- ~~**Phase 6 — expanded stress scenarios**~~ — **done**, see below. Two
+  new Sheet 16 rows (SS-cut contrast, Divorce/QDRO asset split), Option A
+  (add to the existing hardcoded pattern, no framework generalization) —
+  per full sign-off, including two mid-session corrections to the original
+  spec's own assumptions (see below).
+
+**All phases (0-6) of the "Final Optimization Implementation Plan —
+Revised" are now complete.** Each phase's own explicitly-deferred future
+work remains open (not re-litigated here): Phase 3's active tax-decision
+layer, Phase 4's Option B/C-adjacent items already folded into its own
+scope, Phase 6's full alimony modeling (Option D3) and scenario-registry
+generalization (Option B). None of these are "not done" in the sense the
+list above tracked — they are explicitly out-of-scope follow-ups a phase's
+own spec named and deferred on purpose.
+
+### Phase 6 — Expanded stress scenarios (SS-cut contrast + Divorce/QDRO)
+
+Per `docs/superpowers/plans/2026-08-27-phase6-expanded-stress-scenarios-spec.md`
+and its `2026-08-28-phase6-scenario-implementation-design.md` follow-up.
+Two corrections surfaced during sign-off that changed the actual
+implementation from what either spec assumed:
+
+1. **"SS benefit cut" was never something to build** — a real, live,
+   fully-wired `ss_funding_discount_year`/`ss_funding_discount_pct` config
+   pair (`Social Security > Funding Discount`, default 2032/22%) already
+   applies a trust-fund-underfunding haircut to **every** plan's baseline
+   projection by default. The implementation-design doc's research missed
+   this entirely (searched for `ss_cut`/`trust_fund_depletion`-style
+   literal strings, not the field's actual name). This inverted the
+   scenario's framing: the new Sheet 16 row is **"No Social Security
+   Benefit Cut"** — `run_scenario({'ss_funding_discount_pct': 0.0})` — the
+   contrast showing the upside if the base case's already-pessimistic
+   default assumption does not materialize. Pure config override, zero new
+   engine code.
+2. **Divorce/QDRO's asset-split half needed new engine code after all** —
+   the implementation-design doc assumed a plain `balances` override could
+   model the split, but a config override only changes the plan-start
+   balance; representing a split at a future ("near-term") year requires a
+   home-sale-style mid-plan event the engine checks for during its
+   year-by-year loop (confirmed by reading how `home_sale_yr` is checked
+   inside `deterministic_engine.py`'s loop, not applied as a static
+   override). Built accordingly: new `divorce_split_yr`/`divorce_split_pct`
+   fields, checked the same way `home_sale_yr` is, splitting every account
+   in `core.all_investment_ids` by the configured percentage at the
+   configured year. Tax-free (transfers incident to divorce are not a
+   taxable event under IRC S1041 — no capital gain, no basis adjustment,
+   no tax pass, unlike the home-sale mechanism it mirrors structurally).
+   New Sheet 16 row: **"Divorce/QDRO Asset Split"**, defaulting to a 50/50
+   split of all investment accounts in 2029 (CSV-editable via `Scenarios >
+   Divorce`, mirroring the existing `Scenarios > Sell Home` pattern
+   exactly). Asset-split only, per Option D1 — does **not** model ongoing
+   spousal support/alimony (explicitly deferred: no bounded-year-range
+   expense field exists anywhere in the deterministic engine, so building
+   that properly is a separate, larger future item).
+
+Covered by `tests/test_expanded_stress_scenarios_regression.py` (8 tests):
+the No-SS-Cut override is confirmed not to mutate the base plan and to
+raise terminal wealth vs. the base case; the divorce-split defaults parse
+from CSV; the split reduces investment accounts by the exact configured
+percentage at the exact configured year (verified against the real
+fixture's own pre-split investment total, with a small real-fixture
+floating-point tolerance for the withdrawal cascade's own fixed-point
+iteration); the split is confirmed tax-free (the tax delta versus a
+no-split run is checked against a bound far below any real capital-gains
+rate, ruling out an accidental taxable-disposition treatment); a
+zero-percent or unset year is a no-op; non-investment-tagged accounts
+(e.g. HSA) are confirmed untouched by a 100% split; and Sheet 16 builds
+without crashing and includes both new scenario labels.
 
 ### Phase 4 — LCV feasibility gate and scoring
 
