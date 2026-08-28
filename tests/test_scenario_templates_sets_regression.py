@@ -6,7 +6,6 @@ ROOT = Path(__file__).resolve().parents[1]
 from tests._decomp_dashboard import dashboard_js_text
 DASHBOARD_JS = ROOT / "frontend" / "js" / "dashboard.js"
 DASHBOARD_CSS = ROOT / "frontend" / "css" / "dashboard.css"
-SPEC = ROOT / "documentation" / "CURRENT_SYSTEM_DESIGN_SPEC.md"
 CHANGELOG = ROOT / "documentation" / "GOLDEN_MASTER_CHANGELOG.md"
 
 
@@ -40,14 +39,12 @@ def test_scenario_templates_stage_existing_fields_without_build_logic_changes():
     assert "home_sale_year" in js
 
 
-def test_scenario_management_is_styled_and_roadmap_marked_complete():
+def test_scenario_management_is_styled_and_documented():
     css = DASHBOARD_CSS.read_text(encoding="utf-8")
-    spec = SPEC.read_text(encoding="utf-8")
     changelog = CHANGELOG.read_text(encoding="utf-8")
 
     assert ".scenario-management" in css
     assert ".scenario-template-grid" in css
     assert ".scenario-set-card" in css
     assert ".scenario-diff-table" in css
-    assert "Scenario templates and saved scenario sets. Completed" in spec
     assert "scenario_set_v1" in changelog

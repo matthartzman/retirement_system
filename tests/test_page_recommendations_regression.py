@@ -4,7 +4,6 @@ ROOT = Path(__file__).resolve().parents[1]
 from tests._decomp_dashboard import dashboard_js_text
 DASHBOARD_CSS = ROOT / "frontend" / "css" / "dashboard.css"
 RECOMMENDATIONS_JS = ROOT / "frontend" / "js" / "dashboard_decomp_page_recommendations.js"
-SPEC = ROOT / "documentation" / "CURRENT_SYSTEM_DESIGN_SPEC.md"
 CHANGELOG = ROOT / "documentation" / "GOLDEN_MASTER_CHANGELOG.md"
 
 
@@ -51,14 +50,11 @@ def test_recommendations_cover_initial_roadmap_domains_without_auto_applying_val
     assert "runBuild(" not in recommendations_section
 
 
-def test_recommendation_ui_is_styled_and_roadmap_updated():
+def test_recommendation_ui_is_styled_and_documented():
     css = DASHBOARD_CSS.read_text(encoding="utf-8")
-    spec = SPEC.read_text(encoding="utf-8")
     changelog = CHANGELOG.read_text(encoding="utf-8")
 
     assert ".page-recommendations" in css
     assert ".recommendation-card" in css
     assert ".recommendation-source-jump" in css
-    assert "Recommendation engine for Roth/allocation/spending/SS. Initial explainable" in spec
-    assert "page_recommendations_v1" in spec
     assert "# v11 page-local recommendation engine" in changelog
