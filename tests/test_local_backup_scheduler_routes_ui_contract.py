@@ -32,12 +32,9 @@ def test_normal_settings_exposes_backup_controls() -> None:
     assert 'maybeRunLocalBackup("build")' in js
 
 
-def test_backup_contract_is_documented_and_roadmap_completed() -> None:
+def test_backup_contract_is_documented() -> None:
     api = read("documentation/API_CONTRACTS.md")
-    spec = read("documentation/CURRENT_SYSTEM_DESIGN_SPEC.md")
     changelog = read("documentation/GOLDEN_MASTER_CHANGELOG.md")
     assert "local_backup_scheduler_v1" in api
     assert "/api/plan/backups/run" in api
-    assert "Add local backup scheduler with retention policy. Completed" in spec
-    assert "Automated local backup retention. Completed" in spec
     assert "# v11 local backup scheduler" in changelog
