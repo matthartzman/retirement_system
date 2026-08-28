@@ -61,6 +61,7 @@ from .sheets_current_vs_proposed import build_sheet_current_vs_proposed
 from .dashboard import post_save_patch, build_html_dashboard
 from ..governance import advisor_readiness, source_citations, tax_law_dashboard, stress_narratives, workbook_consistency_warnings
 from ..after_tax import estimate_after_tax_terminal_net_worth
+from ..planning_engines import compute_baseline_lcv_and_eltr
 from ..build_snapshot import SNAPSHOT_FILENAME, write_build_snapshot, checkpoint_sqlite_database
 from ..report_package import REPORT_PACKAGE_FILENAME, write_report_package
 from ..results_model import RESULTS_MODEL_FILENAME, write_result_explorer_model
@@ -1275,6 +1276,8 @@ def main():
         'terminal_pretax_nw': 0.0,
         'terminal_roth_nw': 0.0,
         'lifetime_tax': 0.0,
+        'lcv': 0.0,
+        'eltr': 0.0,
         'total_roth_conversions': 0.0,
         'mc_success': 0.0,
         'after_tax_terminal_nw': 0.0,
@@ -1296,11 +1299,14 @@ def main():
         lifetime_tax = sum(float(r.get('total_tax', 0.0) or 0.0) for r in rows)
         total_roth_conversions = sum(float(r.get('roth_conv', 0.0) or 0.0) for r in rows)
         mc_success = float((mc_data or {}).get('success_rate', 0.0) or 0.0)
+        baseline_lcv_eltr = compute_baseline_lcv_and_eltr(c, rows)
         summary_data.update({
             'terminal_nw': float(terminal.get('total_nw', 0.0) or 0.0),
             'terminal_pretax_nw': float(terminal.get('pretax_nw', 0.0) or 0.0),
             'terminal_roth_nw': float(terminal.get('roth_nw', 0.0) or 0.0),
             'lifetime_tax': lifetime_tax,
+            'lcv': float(baseline_lcv_eltr.get('lcv', 0.0) or 0.0),
+            'eltr': float(baseline_lcv_eltr.get('eltr', 0.0) or 0.0),
             'total_roth_conversions': total_roth_conversions,
             'mc_success': mc_success,
             'after_tax_terminal_nw': float(after_tax_kpis.get('after_tax_terminal_nw', 0.0) or 0.0),

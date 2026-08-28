@@ -101,13 +101,10 @@
     const last = call(ctx.getLastBuildSummary) || {};
     const k = Object.keys(last).length ? last : h;
     return {
-      terminal_nw:
-        Number(
-          k.inheritable_nw ?? k.terminal_net_worth ?? k.terminal_nw ?? 0,
-        ) || 0,
+      lcv: Number(k.lcv ?? k.lcv_score ?? 0) || 0,
       success_probability:
         Number(k.mc_success ?? k.success_probability ?? 0) || 0,
-      lifetime_tax: Number(k.lifetime_tax ?? 0) || 0,
+      eltr: Number(k.eltr ?? k.effective_lifetime_tax_rate ?? 0) || 0,
       roth_conversion_total:
         Number(k.roth_conversion_total ?? k.total_roth_conversions ?? 0) || 0,
       pti: Number(k.post_tax_inheritance ?? k.pti ?? 0) || 0,
@@ -347,10 +344,10 @@
       },
     ].concat(cases.filter((c) => !c.archived));
     let html =
-      '<div class="lot-table-wrap"><table class="lot-table planning-workbench-matrix"><thead><tr><th>Case</th><th>Source</th><th>Run type</th><th>Success</th><th>Terminal NW</th><th>Lifetime tax</th><th>Roth conversions</th><th>Decision</th></tr></thead><tbody>';
+      '<div class="lot-table-wrap"><table class="lot-table planning-workbench-matrix"><thead><tr><th>Case</th><th>Source</th><th>Run type</th><th>Success</th><th>LCV</th><th>ELTR</th><th>Roth conversions</th><th>Decision</th></tr></thead><tbody>';
     rows.forEach(function (c, i) {
       const r = c.result_summary || {};
-      html += `<tr class="${i === 0 ? "baseline-row" : ""}"><td><b>${esc(ctx, c.name || "Built Baseline")}</b><div class="small">${esc(ctx, c.base_snapshot_id || "latest build")}</div></td><td>${esc(ctx, c.source || "baseline")}</td><td>${esc(ctx, c.run_type || "baseline")}</td><td>${ctx.fmtPct((Number(r.success_probability ?? r.mc_success ?? 0) || 0) * 100)}</td><td>${ctx.fmtMoney(Number(r.terminal_nw ?? r.terminal_net_worth ?? r.inheritable_nw ?? 0) || 0)}</td><td>${ctx.fmtMoney(Number(r.lifetime_tax ?? 0) || 0)}</td><td>${ctx.fmtMoney(Number(r.roth_conversion_total ?? 0) || 0)}</td><td>${i === 0 ? "—" : `<button class="btn tiny" type="button" onclick="setPlanningCaseActive('${escJs(ctx, c.case_id)}')">Review</button>`}</td></tr>`;
+      html += `<tr class="${i === 0 ? "baseline-row" : ""}"><td><b>${esc(ctx, c.name || "Built Baseline")}</b><div class="small">${esc(ctx, c.base_snapshot_id || "latest build")}</div></td><td>${esc(ctx, c.source || "baseline")}</td><td>${esc(ctx, c.run_type || "baseline")}</td><td>${ctx.fmtPct((Number(r.success_probability ?? r.mc_success ?? 0) || 0) * 100)}</td><td>${ctx.fmtMoney(Number(r.lcv ?? r.lcv_score ?? 0) || 0)}</td><td>${ctx.fmtPct((Number(r.eltr ?? r.effective_lifetime_tax_rate ?? 0) || 0) * 100)}</td><td>${ctx.fmtMoney(Number(r.roth_conversion_total ?? 0) || 0)}</td><td>${i === 0 ? "—" : `<button class="btn tiny" type="button" onclick="setPlanningCaseActive('${escJs(ctx, c.case_id)}')">Review</button>`}</td></tr>`;
     });
     html += "</tbody></table></div>";
     return html;

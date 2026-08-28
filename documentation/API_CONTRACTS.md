@@ -442,8 +442,8 @@ Guardrails:
   "run_type": "quick_compare|full_build|stress_suite",
   "result_summary": {
     "success_probability": 0.86,
-    "terminal_nw": 2400000,
-    "lifetime_tax": 720000,
+    "lcv": 3100000,
+    "eltr": 0.18,
     "roth_conversion_total": 180000
   },
   "created_at": "2026-06-26T00:00:00Z"
