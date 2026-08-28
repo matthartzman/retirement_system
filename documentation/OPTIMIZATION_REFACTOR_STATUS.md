@@ -483,9 +483,13 @@ the case for it.
   default bands — per explicit user sign-off on all three, since (unlike
   Phases 3-4) no existing implementation anywhere in the codebase could
   anchor the formula.
-- **Phase 4** (LCV feasibility gate and scoring) has a spec
-  (`docs/superpowers/plans/2026-08-27-phase4-lcv-feasibility-gate-spec.md`)
-  but no implementation yet.
+- ~~**Phase 4 — LCV feasibility gate and scoring**~~ — **done**, see below.
+  Option C (full sign-off): replaces the terminal-wealth-dominant basis of
+  BOTH the Roth conversion optimizer and the SS claim-age sweep with an
+  LCV score, gated by feasibility — the largest, most consequential change
+  in this refactor to date, since (unlike every other phase) it changes
+  what two already-shipped, tested optimizers actually recommend, not just
+  what gets reported.
 - **Phase 6** (expanded stress scenarios) has a spec
   (`docs/superpowers/plans/2026-08-27-phase6-expanded-stress-scenarios-spec.md`)
   but no implementation yet. Unlike Phases 3-5, a real (if inextensible)
@@ -494,6 +498,100 @@ the case for it.
   the open question is which new scenario(s) to add and whether to also
   generalize the hardcoded list into a registry, both of which need
   explicit product sign-off before implementation.
+
+### Phase 4 — LCV feasibility gate and scoring
+
+Per `docs/superpowers/plans/2026-08-27-phase4-lcv-feasibility-gate-spec.md`'s
+Option C, per explicit sign-off on every design fork below (the largest
+number of sign-off rounds any phase in this refactor has needed, given how
+much more is actually at stake than the spec's own overview suggested once
+`_roth_strategy_metrics`'s real complexity and the feasibility gate's
+Monte-Carlo dependency were surfaced).
+
+**LCV (Lifetime Consumption-and-Transfer Value) score** = PV(lifetime
+consumption) + PV(after-tax terminal transfer), using the same discount
+convention (`_roth_discount_rate`/`roth_tax_discount_rate`) and
+plan-start-PV pattern `_roth_strategy_metrics` already used for
+`lifetime_tax`. Consumption is `total_spend` off the deterministic
+`project()` rows (the same rows both optimizers already work from); the
+transfer half reuses `after_tax_terminal_nw_pv`, already computed for the
+Roth optimizer's own deflator fix (C5).
+
+**Feasibility gate**: `essential_fully_funded_probability >= 95%`
+(`LCV_FEASIBILITY_GATE_THRESHOLD`, fixed, not household-configurable yet).
+A candidate below the gate is **hard-excluded from selection** — never
+chosen no matter how favorable its LCV score, though it still appears,
+ranked, in the full disclosure table for comparison. If every candidate in
+a sweep fails the gate, selection falls back to ranking the full
+(ungated) set so a recommendation is still produced, flagged via
+`roth_optimization['all_candidates_infeasible']` (Roth optimizer) or a
+"Feasibility Gate: Not met by any pair" summary row (SS claim-age sweep).
+
+**Both optimizers, replaced together, in the same increment:**
+
+- **Roth conversion optimizer** (`_roth_strategy_metrics`,
+  `optimize_roth_conversion_strategy`): LCV replaces ONLY the
+  terminal/tax trade-off's terminal-wealth basis —
+  `terminal_component = terminal_weight * lcv_score` (was
+  `terminal_weight * after_tax_terminal_nw_pv`) in every `roth_objective_
+  mode` branch. `tax_component` and every other component (`legacy_
+  adjustment`, `estate_tax_penalty`, `survivor_tax_risk_penalty`,
+  `aca_ptc_component`, `liquidity_component`, the Roth-leakage guard) are
+  **untouched** — per explicit sign-off, since this function turned out to
+  already be 6+ live, separately-tested behaviors (5 selectable
+  `objective_mode` variants plus those components), not just "terminal
+  wealth minus tax" as the spec's own overview had characterized it.
+  Replacing all of that wholesale would have deleted real, working
+  financial-planning features nobody asked to remove.
+- **SS claim-age sweep** (`sheets_strategy.py`'s `build_sheet10`): LCV
+  replaces only `after_tax_terminal_nw` in `score = after_tax_terminal_nw
+  + SS_SURVIVOR_WEIGHT * survivor_period_ss_income`; the survivor-SS-income
+  bonus (a real, deliberately-tuned survivor-protection incentive, per its
+  own code comment) is untouched.
+
+**The feasibility gate's Monte Carlo dependency and its real, measured
+cost** — the gate needs a true probability, which only MC can produce, but
+the Roth optimizer previously ran zero MC (all-deterministic, ~30
+candidates by default) and the SS sweep already ran a small per-pair MC
+purely informationally (81 pairs). Per explicit sign-off:
+  - Roth optimizer: now runs a real small MC (200 sims, fixed seed 4242)
+    per candidate. Survivor buckets are built ONCE from the base
+    (no-conversion) config and reused across every candidate — Roth policy
+    doesn't change sampled death years, so this mirrors the SS sweep's own
+    established, CI-timeout-motivated safe reuse pattern exactly.
+  - SS claim-age sweep: reuses its existing per-pair MC run at no extra
+    cost — `essential_fully_funded_probability` is just read off a result
+    that was already being computed and discarded (mc_success_rate/p10
+    were the only fields read before).
+  - **Bug caught before landing**: `monte_carlo()`'s sim count is
+    `c.get('mc_sims', n_sims or 1000)` — config wins over the `n_sims=`
+    argument. The first implementation passed `n_sims=200` without also
+    setting `c2['mc_sims']`, so it silently ran the household's FULL
+    configured sim count (typically 1000) plus a 25-cell sensitivity grid
+    per candidate, and printed unsuppressed progress output the whole
+    time. Fixed by setting `c2['mc_sims']`/`c2['mc_sensitivity_sims']`
+    explicitly and wrapping the call in `contextlib.redirect_stdout`,
+    exactly matching the SS sweep's own existing pattern.
+  - **Measured real-world cost, reported to and accepted by the user**:
+    ~40 seconds added to a full-length `optimize_roth_conversion_strategy`
+    call with the default `OPTIMIZER_CHOOSES` (29 candidates) — on top of
+    this codebase's documented ~90s-per-workbook-build baseline. This is
+    the same shape of regression (MC-in-a-loop) that previously caused a
+    real CI subprocess-timeout failure for the SS sweep and required its
+    own dedicated fix (see Phase 1 items 4-6 above) — flagged explicitly
+    before landing, and accepted as-is rather than reducing sim count or
+    reverting to a deterministic proxy.
+
+Covered by `tests/test_lcv_feasibility_gate_regression.py` (7 tests:
+exact LCV-formula arithmetic against a real fixture, LCV substitution
+verified across multiple `objective_mode` branches, empty-rows guard,
+every Roth candidate carries valid feasibility fields, hard-exclusion
+verified via a monkeypatched impossible threshold, trivial-threshold
+never-infeasible sanity check, gate threshold surfaced on
+`roth_optimization`). `tests/test_roth_objective_deflator_regression.py`
+and `tests/test_ss_timing_score_survivor_weighted.py` (pre-existing files
+whose assertions were coupled to the old formula) were updated in the same
+change to assert against the new LCV-based formula instead.
 
 ### Phase 5 — Guyton-Klinger adaptive-guardrail shadow simulation
 

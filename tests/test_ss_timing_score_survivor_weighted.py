@@ -7,6 +7,7 @@ happened to reward delay for the wrong (double-counted) reason.
 """
 from pathlib import Path
 
+import pytest
 from openpyxl import Workbook
 
 from src.data_io import load_csv, parse_client
@@ -35,10 +36,19 @@ def _run(config_overrides=None):
     return build_sheet10(ws, c, rows)
 
 
-def test_score_is_after_tax_terminal_nw_plus_weighted_survivor_period_ss_income():
+def test_score_is_lcv_score_plus_weighted_survivor_period_ss_income():
+    # Optimization-refactor Phase 4 (Option C, full sign-off): the score's
+    # wealth basis is now the LCV score (PV of lifetime spending plus PV of
+    # after-tax terminal transfer), not bare after_tax_terminal_nw -- see
+    # docs/superpowers/plans/2026-08-27-phase4-lcv-feasibility-gate-spec.md.
+    # The survivor-period SS income term is untouched.
     result = _run()
     best = result["best"]
-    assert best["objective_value"] == best["after_tax_terminal_nw"] + 1.0 * best["survivor_period_ss_income"]
+    assert best["objective_value"] == pytest.approx(best["lcv_score"] + 1.0 * best["survivor_period_ss_income"], rel=1e-9)
+    # lcv_score must exceed bare after-tax terminal wealth for a real
+    # household with nonzero lifetime spending -- otherwise the consumption
+    # term isn't actually contributing.
+    assert best["lcv_score"] > best["after_tax_terminal_nw"]
     # The old score's components (gross terminal_nw with lifetime_ss added
     # back and lifetime_tax/irmaa subtracted again) must no longer equal the
     # new score -- otherwise nothing actually changed.
