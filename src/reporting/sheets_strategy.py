@@ -220,7 +220,10 @@ def build_sheet10(ws, c, rows):
     ws.sheet_view.showGridLines = False
     section_title(ws, 1, 'SOCIAL SECURITY CLAIMING STRATEGY', 10)
 
-    from ..planning_engines import monte_carlo, run_scenario as _run_scenario, _mc_survivor_bucket_flows
+    from ..planning_engines import (
+        monte_carlo, run_scenario as _run_scenario, _mc_survivor_bucket_flows,
+        _roth_discount_rate, LCV_FEASIBILITY_GATE_THRESHOLD,
+    )
     from ..after_tax import estimate_after_tax_terminal_net_worth as _est_after_tax
     import contextlib as _contextlib
     import io as _io
@@ -304,25 +307,37 @@ def build_sheet10(ws, c, rows):
         after_tax_terminal_nw = float(
             _est_after_tax(c2, terminal_row).get('after_tax_terminal_nw', terminal) if proj_rows else terminal
         )
-        # P3 (system review 2026-07-21): score on after-tax terminal wealth,
-        # NOT gross terminal_nw plus separately-subtracted lifetime_tax/irmaa
-        # -- terminal_nw already reflects every dollar of tax paid along the
-        # way (higher tax means lower ending balances), so adding lifetime_ss
-        # back in and subtracting lifetime_tax/irmaa again double-counted
-        # both in the same direction the old score's bias ran. Mandatorily
-        # weighted by survivor-period SS income (not just a year count, which
-        # can't differentiate pairs since real death years don't move with
-        # claim age) so the score keeps rewarding delaying the higher
-        # earner's claim for the actual reason to delay -- survivor/longevity
-        # protection -- rather than for an accounting artifact.
-        score = after_tax_terminal_nw + SS_SURVIVOR_WEIGHT * survivor_period_ss_income
-        # Informational-only probabilistic metrics: do NOT feed the score or
-        # the recommendation above. Delaying SS is fundamentally a longevity/
-        # market-risk hedge that a single deterministic mortality assumption
-        # can't show; these columns surface that without replacing the
-        # deterministic ranking this sheet has always used.
+        # Optimization-refactor Phase 4 (Option C, full sign-off): the
+        # after-tax-terminal-wealth basis of the score is replaced with an
+        # LCV (Lifetime Consumption-and-Transfer Value) score -- PV of
+        # lifetime consumption plus PV of after-tax terminal transfer, same
+        # discount convention the Roth optimizer's _roth_strategy_metrics
+        # already uses for its own PV terms. The survivor-period SS income
+        # bonus below is untouched (still nominal, still not PV'd) -- it is
+        # a distinct, deliberately-tuned incentive to delay the higher
+        # earner's claim for survivor protection, not a wealth term LCV
+        # should absorb. See docs/superpowers/plans/2026-08-27-phase4-lcv-
+        # feasibility-gate-spec.md.
+        _discount = _roth_discount_rate(c2)
+        _plan_start = int(c2.get('plan_start', proj_rows[0].get('year', 0) if proj_rows else 0) or 0)
+        consumption_pv = sum(
+            float(r.get('total_spend', 0.0) or 0.0) / ((1.0 + _discount) ** max(0, int(r.get('year', _plan_start) or _plan_start) - _plan_start))
+            for r in proj_rows
+        )
+        _terminal_year = int(terminal_row.get('year', _plan_start) or _plan_start) if proj_rows else _plan_start
+        after_tax_terminal_nw_pv = after_tax_terminal_nw / ((1.0 + _discount) ** max(0, _terminal_year - _plan_start))
+        lcv_score = consumption_pv + after_tax_terminal_nw_pv
+        score = lcv_score + SS_SURVIVOR_WEIGHT * survivor_period_ss_income
+        # This MC run was already made purely informational (mc_success_rate/
+        # mc_p10_terminal_nw never fed the score or recommendation -- delaying
+        # SS is fundamentally a longevity/market-risk hedge a single
+        # deterministic mortality assumption can't show). It now ALSO
+        # supplies essential_fully_funded_probability for the Phase 4
+        # feasibility gate below, at no extra cost since the call already
+        # runs for every pair.
         mc_success_rate = None
         mc_p10_terminal_nw = None
+        feasibility_probability = 0.0
         try:
             c2['mc_sims'] = SWEEP_MC_SIMS
             c2['mc_sensitivity_sims'] = 1
@@ -330,6 +345,7 @@ def build_sheet10(ws, c, rows):
                 mc_result = monte_carlo(c2, n_sims=SWEEP_MC_SIMS, seed=SWEEP_MC_SEED, survivor_buckets=_survivor_buckets_for_sweep)
             mc_success_rate = float(mc_result.get('success_rate', 0.0) or 0.0)
             mc_p10_terminal_nw = float((mc_result.get('terminal_total_nw') or {}).get(10, 0.0) or 0.0)
+            feasibility_probability = float(mc_result.get('essential_fully_funded_probability', 0.0) or 0.0)
         except Exception:
             pass
         return {
@@ -338,6 +354,9 @@ def build_sheet10(ws, c, rows):
             'lifetime_tax': lifetime_tax, 'lifetime_ss': lifetime_ss,
             'irmaa': irmaa, 'survivor_years': survivor_years,
             'survivor_period_ss_income': survivor_period_ss_income, 'objective_value': score,
+            'lcv_score': lcv_score,
+            'feasibility_probability': feasibility_probability,
+            'feasibility_gate_met': feasibility_probability >= LCV_FEASIBILITY_GATE_THRESHOLD,
             'delta_terminal': terminal - base_terminal,
             'delta_tax': lifetime_tax - base_tax,
             'delta_ss': lifetime_ss - base_ss,
@@ -368,7 +387,16 @@ def build_sheet10(ws, c, rows):
     _obj_span = _obj_hi - _obj_lo
     for d in scenarios:
         d['rank_score'] = int(round(100 * (d['objective_value'] - _obj_lo) / _obj_span)) if _obj_span else 100
-    best = scenarios[0] if scenarios else {'h_age': h_current, 'w_age': w_current, 'objective_value': 0.0, 'rank_score': 0}
+    # Optimization-refactor Phase 4 (Option C, full sign-off): a pair that
+    # fails the feasibility gate is hard-excluded from the RECOMMENDATION
+    # regardless of its LCV score, though it still appears (ranked) in the
+    # full disclosure table above. If every pair fails the gate, fall back
+    # to ranking the full set so a recommendation is still produced.
+    _feasible_scenarios = [d for d in scenarios if d.get('feasibility_gate_met')]
+    _all_scenarios_infeasible = bool(scenarios) and not _feasible_scenarios
+    _ranked_pool = _feasible_scenarios if _feasible_scenarios else scenarios
+    _ranked_pool_sorted = sorted(_ranked_pool, key=lambda d: d['objective_value'], reverse=True)
+    best = _ranked_pool_sorted[0] if _ranked_pool_sorted else {'h_age': h_current, 'w_age': w_current, 'objective_value': 0.0, 'rank_score': 0}
     current = next((x for x in scenarios if x['h_age'] == h_current and x['w_age'] == w_current), None)
 
     r = 3
@@ -376,12 +404,17 @@ def build_sheet10(ws, c, rows):
     _s1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
     _s2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
     summary = [
-        (f'Recommended {_s1} Claim Age', best['h_age'], 'Highest score (after-tax terminal wealth plus survivor-period SS income) from the 62–70 × 62–70 projection sweep.'),
+        (f'Recommended {_s1} Claim Age', best['h_age'], 'Highest score (LCV -- PV of lifetime spending plus PV of after-tax terminal transfer -- plus survivor-period SS income) among claim-age pairs meeting the essential-funding feasibility gate, from the 62–70 × 62–70 projection sweep.'),
         (f'Recommended {_s2} Claim Age', best['w_age'], 'Projection uses the same tax, IRMAA, withdrawal, ACA, survivor, and estate machinery as the base plan.'),
         ('Current Configured Claim Ages', f"{_s1} {h_current} / {_s2} {w_current}", 'Current row shown below for comparison.'),
         ('Best vs Current After-Tax Terminal NW', (best['after_tax_terminal_nw'] - (current or best)['after_tax_terminal_nw']) if current else 0.0, 'Positive means the sweep’s selected pair improves after-tax terminal net worth versus current config.'),
         ('Best vs Current Lifetime Tax', (best['lifetime_tax'] - (current or best)['lifetime_tax']) if current else 0.0, 'Negative means lower lifetime tax versus current config.'),
     ]
+    if _all_scenarios_infeasible:
+        summary.append((
+            'Feasibility Gate', 'Not met by any pair',
+            'No claim-age pair in this sweep reached the essential-spending funding probability floor -- the recommendation above is the best-scoring pair anyway (feasibility could not gate the choice).',
+        ))
     for label, value, note in summary:
         write_cell(ws, r, 1, label, bold=True, bg=LGRAY)
         write_cell(ws, r, 2, value, fmt=FMT_DOLLAR if isinstance(value, (int, float)) and 'Age' not in label else None)
@@ -391,7 +424,7 @@ def build_sheet10(ws, c, rows):
 
     r += 1
     write_hdr(ws, r, 1, 'Top 10 claiming pairs — full projection ranking', NAVY, WHITE, span=15); r += 1
-    write_cell(ws, r, 1, 'Score (0-100) ranks these 81 claim-age pairs relative to each other (100 = best in this set). Objective Value is the underlying after-tax-wealth-plus-survivor-income figure the ranking is computed from -- a scoring unit, not a projected dollar outcome. Lifetime SS is a raw, undiscounted total across the whole plan horizon: it can be HIGHER for an earlier claim age even though delaying grows the monthly check, because delaying trades away entire years of checks for a larger one later (a breakeven-age effect, not a return comparison) -- Score already accounts for this by weighting survivor-period SS income instead of raw lifetime SS.', align='left')
+    write_cell(ws, r, 1, 'Score (0-100) ranks these 81 claim-age pairs relative to each other (100 = best in this set). Objective Value is the underlying LCV-plus-survivor-income figure the ranking is computed from (LCV = PV of lifetime spending plus PV of after-tax terminal transfer) -- a scoring unit, not a projected dollar outcome. The Recommended row above is chosen only from pairs whose modeled essential-spending funding probability clears a feasibility floor; other pairs still appear here, ranked, for comparison. Lifetime SS is a raw, undiscounted total across the whole plan horizon: it can be HIGHER for an earlier claim age even though delaying grows the monthly check, because delaying trades away entire years of checks for a larger one later (a breakeven-age effect, not a return comparison) -- Score already accounts for this by weighting survivor-period SS income instead of raw lifetime SS.', align='left')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=15)
     ws.row_dimensions[r].height = 40
     r += 1
