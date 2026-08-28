@@ -604,6 +604,23 @@ def build_sheet16(ws, c, rows):
     # Low return: use CSV override rate
     nw_ret, tax_ret = run_scenario({'ret': c['scen_ret_override']})
 
+    # Optimization-refactor Phase 6: No SS Benefit Cut. The BASE plan already
+    # models the trust-fund funding-discount haircut by default
+    # (ss_funding_discount_year/pct, default 2032/22%) -- this scenario shows
+    # the upside if that pessimistic default assumption does NOT materialize,
+    # i.e. Congress fixes funding and full benefits are paid.
+    nw_no_ss_cut, tax_no_ss_cut = run_scenario({'ss_funding_discount_pct': 0.0})
+
+    # Optimization-refactor Phase 6: Divorce/QDRO asset split. A one-time,
+    # tax-free division of every investment account at a configured year
+    # (default 2029, 50/50) -- asset-split only, does not model ongoing
+    # spousal support/alimony (see docs/superpowers/plans/2026-08-28-
+    # phase6-scenario-implementation-design.md's Option D1).
+    nw_divorce, tax_divorce = run_scenario({
+        'divorce_split_yr': c['scen_divorce_yr'],
+        'divorce_split_pct': c['scen_divorce_split_pct'],
+    })
+
     # ── PDIA What-If: Lower Dividend (4.50%, same split) ─────────────────
     def run_pdia_scenario(div_override=None, cash_pct_override=None):
         """Re-run with modified annuity parameters across all streams."""
@@ -737,6 +754,18 @@ def build_sheet16(ws, c, rows):
          f'Less cash now, more income growth later. '
          f'Annuity income at age 80: ${ann_5050:,.0f} vs ${ann_base:,.0f} base',
          nw_pdia_5050, tax_pdia_5050, True, nw_pdia_5050 - base_nw),
+
+        ('No Social Security Benefit Cut',
+         f'Assumes Congress fixes trust-fund funding; full benefits paid '
+         f'(vs base case, which already assumes a {c["ss_funding_discount_pct"]*100:.0f}% cut '
+         f'from {int(c["ss_funding_discount_year"])} onward)',
+         nw_no_ss_cut, tax_no_ss_cut, True, nw_no_ss_cut - base_nw),
+
+        (f'Divorce/QDRO Asset Split ({c["scen_divorce_split_pct"]*100:.0f}%, {int(c["scen_divorce_yr"])})',
+         f'One-time, tax-free division of all investment accounts in '
+         f'{int(c["scen_divorce_yr"])} — asset split only, does not model '
+         f'ongoing spousal support',
+         nw_divorce, tax_divorce, nw_divorce > 0, nw_divorce - base_nw),
 
         ('COMBINED Stress Test',
          combo_desc,
