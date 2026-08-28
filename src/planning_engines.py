@@ -41,6 +41,15 @@ from math import isfinite
 GrowthResult = namedtuple('GrowthResult', ['total_growth', 'by_account', 'warnings'])
 
 
+# Optimization-refactor Phase 4: LCV (Lifetime Consumption-and-Transfer
+# Value) feasibility gate threshold. A conversion/claim-age candidate whose
+# essential_fully_funded_probability falls below this bar is excluded from
+# ranking entirely, regardless of how favorable its LCV score is -- see
+# docs/superpowers/plans/2026-08-27-phase4-lcv-feasibility-gate-spec.md.
+# Fixed per explicit product sign-off (not household-configurable yet).
+LCV_FEASIBILITY_GATE_THRESHOLD = 0.95
+
+
 def _roth_discount_rate(c: dict) -> float:
     """Nominal discount rate for the Roth objective's present-value terms.
 
@@ -2212,7 +2221,9 @@ Version 7.5 MC correction:
 - Re-runs the sensitivity grid instead of using a terminal-value shortcut.
 """
 
+import contextlib
 import copy
+import io
 from collections import defaultdict
 
 # consolidated: project() below is from projection_engine; sample_household_death_years()
@@ -2307,6 +2318,7 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
             'legacy_adjustment': 0.0, 'estate_tax_penalty': 0.0,
             'peak_estate_tax_exposure': 0.0,
             'aca_ptc_loss': 0.0, 'aca_ptc_score': 0.0, 'score': 0.0,
+            'consumption_pv': 0.0, 'lcv_score': 0.0,
         }
     terminal = rows[-1]
     terminal_pretax = float(terminal.get('pretax_nw', 0.0) or 0.0)
@@ -2381,6 +2393,17 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
 
     def _peak(field: str) -> float:
         return max((max(0.0, float(r.get(field, 0.0) or 0.0)) for r in rows), default=0.0)
+
+    # Optimization-refactor Phase 4 (Option C, full sign-off): LCV score =
+    # PV(lifetime consumption) + PV(after-tax terminal transfer), same
+    # discount convention lifetime_tax already uses above. This REPLACES the
+    # terminal-wealth basis of terminal_component below (making the "wealth"
+    # side of the objective consumption-aware, not just bequest-aware) while
+    # tax_component, legacy/estate/survivor/ACA/liquidity components, and the
+    # Roth-leakage guard are untouched -- see
+    # docs/superpowers/plans/2026-08-27-phase4-lcv-feasibility-gate-spec.md.
+    consumption_pv = sum(float(r.get('total_spend', 0.0) or 0.0) / _disc(r) for r in rows)
+    lcv_score = consumption_pv + after_tax_terminal_nw_pv
 
     # The comparison table must score dimensions that matter during the plan, not
     # only the final projection row. In many valid plans, both pre-tax and Roth
@@ -2504,7 +2527,7 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
     objective_mode = str(c.get('roth_objective_mode', 'BALANCED_RETIREMENT') or 'BALANCED_RETIREMENT').upper()
     # Start with balanced professional planning defaults, then allow modes to
     # emphasize a single dimension while preserving the Roth-last leakage guard.
-    terminal_component = terminal_weight * after_tax_terminal_nw_pv
+    terminal_component = terminal_weight * lcv_score
     tax_component = -tax_weight * lifetime_tax
     legacy_component = legacy_adjustment
     estate_component = -estate_tax_penalty
@@ -2515,11 +2538,11 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
     # plans that preserve a positive non-Roth liquid reserve during the horizon.
     liquidity_component = 0.01 * max(0.0, avg_liquid_nonroth)
     if objective_mode == 'MINIMIZE_LIFETIME_TAX':
-        terminal_component = 0.10 * after_tax_terminal_nw_pv
+        terminal_component = 0.10 * lcv_score
         tax_component = -1.00 * lifetime_tax
         legacy_component = 0.25 * legacy_adjustment
     elif objective_mode == 'MAXIMIZE_TERMINAL_NET_WORTH':
-        terminal_component = 1.25 * after_tax_terminal_nw_pv
+        terminal_component = 1.25 * lcv_score
         tax_component = -0.10 * lifetime_tax
         legacy_component = 0.25 * legacy_adjustment
     elif objective_mode == 'LEGACY_OPTIMIZED':
@@ -2530,7 +2553,7 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
         # Post-Tax Inheritance = after-tax terminal NW minus estate tax. Reward the
         # after-tax estate fully and the estate-tax drag fully; lifetime tax is
         # already reflected in after-tax compounding, so keep it a light factor.
-        terminal_component = 1.0 * after_tax_terminal_nw_pv
+        terminal_component = 1.0 * lcv_score
         tax_component = -0.10 * lifetime_tax
         legacy_component = 0.25 * legacy_adjustment
         estate_component = -1.0 * estate_tax_penalty
@@ -2571,15 +2594,23 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
         'total_objective_score': score,
         'objective_mode': objective_mode,
         'score': score,
+        'consumption_pv': consumption_pv,
+        'lcv_score': lcv_score,
     }
 
 
 def optimize_roth_conversion_strategy(c: dict) -> dict:
     """Score every Roth conversion candidate so the workbook can disclose alternatives.
 
-    The objective is configurable but defaults to a balanced, after-tax terminal
-    net-worth score less a lifetime-tax penalty. Each candidate still obeys the
-    withdrawal engine's Roth-last rule.
+    The objective is configurable but defaults to a balanced LCV (Lifetime
+    Consumption-and-Transfer Value: PV of lifetime spending plus PV of
+    after-tax terminal transfer -- optimization-refactor Phase 4) score less
+    a lifetime-tax penalty, gated by feasibility: a candidate whose modeled
+    essential_fully_funded_probability falls below
+    ``LCV_FEASIBILITY_GATE_THRESHOLD`` is excluded from selection regardless
+    of its LCV score (see docs/superpowers/plans/2026-08-27-phase4-lcv-
+    feasibility-gate-spec.md). Each candidate still obeys the withdrawal
+    engine's Roth-last rule.
 
     When ``roth_policy`` requests optimization ('optimize', 'optimize_terminal_tax',
     'terminal_tax_optimize', 'balanced_optimize'), the top-scoring candidate is
@@ -2593,6 +2624,49 @@ def optimize_roth_conversion_strategy(c: dict) -> dict:
 
     base = copy.deepcopy(c)
     base['roth_policy'] = 'none'
+    # Optimization-refactor Phase 4: the feasibility gate needs a real
+    # essential_fully_funded_probability, which only Monte Carlo can produce
+    # -- so a small MC now runs per candidate (~30 candidates in the default
+    # OPTIMIZER_CHOOSES sweep). Roth conversion policy does not change the
+    # household's sampled death years, so the survivor buckets built once
+    # from the base (no-conversion) deterministic projection are safe to
+    # reuse across every candidate's MC run, exactly the fix already proven
+    # for sheets_strategy.py's SS claim-age sweep (see its own comment on
+    # this same reuse and the CI-timeout regression that motivated it).
+    _roth_feasibility_survivor_buckets = None
+    if bool(c.get('mc_vectorized_survivor_economics', True)):
+        try:
+            _base_det_rows = project(base)
+            _roth_feasibility_survivor_buckets = _mc_survivor_bucket_flows(base, _base_det_rows)
+        except Exception:
+            _roth_feasibility_survivor_buckets = None
+    _ROTH_FEASIBILITY_MC_SIMS = 200
+    _ROTH_FEASIBILITY_MC_SEED = 4242
+
+    def _score_candidate(c2: dict, rows: list) -> dict:
+        metrics = _roth_strategy_metrics(c2, rows)
+        feasibility_probability = 0.0
+        try:
+            # monte_carlo()'s N is c.get('mc_sims', n_sims or 1000) -- config
+            # wins over the n_sims= argument, so mc_sims/mc_sensitivity_sims
+            # must be overridden on c2 directly (same as the SS claim-age
+            # sweep already does) or this runs the household's FULL
+            # configured sim count (often 1000 + a 25-cell sensitivity grid)
+            # per candidate instead of this small feasibility-only sample.
+            c2['mc_sims'] = _ROTH_FEASIBILITY_MC_SIMS
+            c2['mc_sensitivity_sims'] = 1
+            with contextlib.redirect_stdout(io.StringIO()):
+                _mc = monte_carlo(
+                    c2, n_sims=_ROTH_FEASIBILITY_MC_SIMS, seed=_ROTH_FEASIBILITY_MC_SEED,
+                    base_rows=rows, survivor_buckets=_roth_feasibility_survivor_buckets,
+                )
+            feasibility_probability = float(_mc.get('essential_fully_funded_probability', 0.0) or 0.0)
+        except Exception:
+            feasibility_probability = 0.0
+        metrics['feasibility_probability'] = feasibility_probability
+        metrics['feasibility_gate_met'] = feasibility_probability >= LCV_FEASIBILITY_GATE_THRESHOLD
+        return metrics
+
     candidates = []
     for spec in _roth_strategy_candidate_specs(c):
         overrides = {'roth_policy': spec['policy'], **(spec.get('overrides') or {})}
@@ -2602,11 +2676,23 @@ def optimize_roth_conversion_strategy(c: dict) -> dict:
         if spec.get('fixed_amount') is not None:
             overrides['roth_fixed_amount'] = float(spec['fixed_amount'])
         c2, rows = run_scenario(base, overrides)
-        metrics = _roth_strategy_metrics(c2, rows)
+        metrics = _score_candidate(c2, rows)
         candidates.append({**spec, **metrics})
 
     candidates.sort(key=lambda x: (x['score'], x['after_tax_terminal_nw'], -x['lifetime_tax']), reverse=True)
-    best = candidates[0] if candidates else {'policy': 'none', 'label': 'No voluntary conversions'}
+    # Optimization-refactor Phase 4 (Option C, full sign-off): a candidate
+    # that fails the feasibility gate is hard-excluded from selection --
+    # never chosen no matter how favorable its LCV score is. Ranking/
+    # reporting still shows every candidate (candidates list above, used by
+    # Sheet 11's disclosure table) so a failing candidate remains visible for
+    # comparison; only the *selection* below is restricted. If every
+    # candidate fails the gate, fall back to ranking the full set so a
+    # recommendation is still produced, flagged via
+    # roth_all_candidates_infeasible below.
+    _feasible_candidates = [x for x in candidates if x.get('feasibility_gate_met')]
+    _all_candidates_infeasible = bool(candidates) and not _feasible_candidates
+    _ranked_pool = _feasible_candidates if _feasible_candidates else candidates
+    best = _ranked_pool[0] if _ranked_pool else {'policy': 'none', 'label': 'No voluntary conversions'}
 
     if auto_optimize:
         selected = best
@@ -2634,7 +2720,7 @@ def optimize_roth_conversion_strategy(c: dict) -> dict:
         if selected is None:
             # Score the exact configured policy directly so it always has a row.
             c2, rows = run_scenario(base, {'roth_policy': requested_policy})
-            metrics = _roth_strategy_metrics(c2, rows)
+            metrics = _score_candidate(c2, rows)
             selected = {
                 'label': f'Configured strategy ({requested_policy})',
                 'policy': requested_policy,
@@ -2684,6 +2770,8 @@ def optimize_roth_conversion_strategy(c: dict) -> dict:
         'pre_tax_bequest_penalty_pct': float(c.get('roth_pre_tax_bequest_penalty_pct', 0.0) or 0.0),
         'roth_bequest_preference_bonus_pct': float(c.get('roth_bequest_preference_bonus_pct', 0.0) or 0.0),
         'survivor_tax_risk_weight': float(c.get('roth_survivor_tax_risk_weight', 0.0) or 0.0),
+        'feasibility_gate_threshold': LCV_FEASIBILITY_GATE_THRESHOLD,
+        'all_candidates_infeasible': _all_candidates_infeasible,
         'candidates': candidates,
     }
     return c

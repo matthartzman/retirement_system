@@ -24,7 +24,7 @@ def sample_config():
 
 
 def test_terminal_component_is_discounted_below_nominal_after_tax_nw():
-    """The OBJECTIVE's terminal component must be the present value.
+    """The OBJECTIVE's terminal component must be built on present values.
 
     Rewritten 2026-08-17 (P6). The previous body computed the PV itself and
     asserted ``pv < nominal`` -- true by arithmetic for any positive discount
@@ -34,15 +34,21 @@ def test_terminal_component_is_discounted_below_nominal_after_tax_nw():
     green). The claim lived only in the test's name, which is finding S3's shape
     inside C5's own guard.
 
-    This body asserts on ``terminal_wealth_score`` -- the component that
-    actually enters the score -- and pins it to the PV while rejecting the
-    nominal figure, which is the observable that separates the two
-    implementations.
+    Updated again for optimization-refactor Phase 4 (Option C, full
+    sign-off): ``terminal_wealth_score`` is no longer ``weight *
+    after_tax_terminal_nw_pv`` alone -- it is ``weight * lcv_score``, where
+    ``lcv_score = consumption_pv + after_tax_terminal_nw_pv`` (LCV = Lifetime
+    Consumption-and-Transfer Value; see
+    docs/superpowers/plans/2026-08-27-phase4-lcv-feasibility-gate-spec.md).
+    Both addends are still plan-start present values, so the deflation
+    guarantee this test exists to pin still holds; it is asserted against
+    ``lcv_score`` (the actual objective input) instead of
+    ``after_tax_terminal_nw_pv`` alone.
     """
     c = sample_config()
     # Pin the mode so the terminal weight is a known constant rather than
     # whichever branch the fixture happens to select.
-    c["roth_objective_mode"] = "MAXIMIZE_PTI"  # terminal_component = 1.0 * pv
+    c["roth_objective_mode"] = "MAXIMIZE_PTI"  # terminal_component = 1.0 * lcv_score
     rows = project(c)
     result = _roth_strategy_metrics(c, rows)
 
@@ -57,18 +63,25 @@ def test_terminal_component_is_discounted_below_nominal_after_tax_nw():
     assert terminal_year > plan_start
     discount = _roth_discount_rate(c)
     assert discount > 0, "fixture must carry a positive discount or nothing distinguishes the two"
-    expected_pv = after_tax_terminal_nw / ((1.0 + discount) ** (terminal_year - plan_start))
+    expected_terminal_pv = after_tax_terminal_nw / ((1.0 + discount) ** (terminal_year - plan_start))
+    expected_lcv_score = expected_terminal_pv + result["consumption_pv"]
 
     terminal_component = result["terminal_wealth_score"]
-    assert terminal_component == pytest.approx(expected_pv, rel=1e-9), (
-        "the Roth objective's terminal component is not the present value of "
-        "after-tax terminal net worth (finding C5). Undiscounted plan-end "
-        "wealth systematically over-rewards deferring wealth into the far "
-        "future relative to the discounted taxes paid to get there."
+    assert terminal_component == pytest.approx(expected_lcv_score, rel=1e-9), (
+        "the Roth objective's terminal component is not weight * lcv_score "
+        "(consumption_pv + PV of after-tax terminal net worth). Undiscounted "
+        "or non-LCV plan-end wealth systematically over-rewards deferring "
+        "wealth into the far future relative to the discounted taxes paid to "
+        "get there, and ignores lifetime consumption entirely."
     )
-    # And explicitly reject the defect, so a change that makes the component
-    # nominal again cannot pass by coincidence.
-    assert terminal_component < after_tax_terminal_nw
+    # And explicitly reject the pre-Phase-4 formula (bare after_tax_terminal_
+    # nw_pv, dropping the consumption term) so a regression to it cannot pass
+    # by coincidence. LCV legitimately CAN exceed nominal after_tax_terminal_
+    # nw once lifetime consumption is added in -- that is expected, not a
+    # defect (a plan that spends a great deal and leaves a modest bequest
+    # should score well on LCV even though its bequest alone looks small).
+    assert terminal_component > expected_terminal_pv
+    assert result["consumption_pv"] > 0
 
 
 def test_post_tax_inheritance_stays_nominal_not_discounted():
