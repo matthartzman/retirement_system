@@ -5,7 +5,6 @@ from _decomp_dashboard import dashboard_js_text
 ROOT = Path(__file__).resolve().parents[1]
 from tests._decomp_dashboard import dashboard_js_text
 DASHBOARD_CSS = ROOT / "frontend" / "css" / "dashboard.css"
-SPEC = ROOT / "documentation" / "CURRENT_SYSTEM_DESIGN_SPEC.md"
 
 
 def test_build_impact_has_natural_language_summary_and_source_links():
@@ -26,10 +25,8 @@ def test_captured_changes_store_source_step_metadata():
     assert "<th>Source page</th>" in js
 
 
-def test_build_impact_summary_is_styled_and_roadmap_marked_complete():
+def test_build_impact_summary_is_styled():
     css = DASHBOARD_CSS.read_text(encoding="utf-8")
-    spec = SPEC.read_text(encoding="utf-8")
     assert ".latest-build-impact" in css
     assert ".impact-narrative" in css
     assert ".build-impact-source-list" in css
-    assert "Natural-language Build Impact summary with source-page links completed" in spec

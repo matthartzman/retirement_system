@@ -2599,6 +2599,94 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
     }
 
 
+def compute_baseline_lcv_and_eltr(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, float]:
+    """LCV and ELTR for the plan's own baseline/as-built projection.
+
+    Mirrors _roth_strategy_metrics's lcv_score (PV of lifetime consumption
+    plus PV of after-tax terminal transfer) and the tax-NPV/ELTR convention
+    shared with the Monte Carlo engines (PV of total tax divided by PV of
+    gross cash flow, same discount rate via _roth_discount_rate) -- but for
+    the household's actual plan rather than a Roth-conversion candidate, so
+    the Planning Workbench Impact screen can report the same two headline
+    metrics used elsewhere (Executive Summary, Roth optimizer disclosure,
+    Monte Carlo stress test) instead of raw terminal net worth and nominal
+    lifetime tax.
+    """
+    rows = list(rows or [])
+    if not rows:
+        return {'lcv': 0.0, 'eltr': 0.0}
+    plan_start = int(c.get('plan_start', rows[0].get('year', 0) if rows else 0) or 0)
+    discount = _roth_discount_rate(c)
+
+    def _disc(row: Mapping) -> float:
+        return (1.0 + discount) ** max(0, int(row.get('year', plan_start) or plan_start) - plan_start)
+
+    terminal = rows[-1]
+    try:
+        from .after_tax import estimate_after_tax_terminal_net_worth as _estimate_after_tax_terminal_net_worth
+        after_tax_terminal_nw = float(_estimate_after_tax_terminal_net_worth(c, terminal).get('after_tax_terminal_nw', 0.0) or 0.0)
+    except Exception:
+        after_tax_terminal_nw = float(terminal.get('total_nw', 0.0) or 0.0)
+    terminal_year = int(terminal.get('year', plan_start) or plan_start)
+    after_tax_terminal_nw_pv = after_tax_terminal_nw / ((1.0 + discount) ** max(0, terminal_year - plan_start))
+
+    consumption_pv = sum(float(r.get('total_spend', 0.0) or 0.0) / _disc(r) for r in rows)
+    lcv = consumption_pv + after_tax_terminal_nw_pv
+
+    tax_npv = sum(float(r.get('total_tax', 0.0) or 0.0) / _disc(r) for r in rows)
+    gross_cash_flow_npv = sum(float(r.get('gross_cash_flow_yr', 0.0) or 0.0) / _disc(r) for r in rows)
+    eltr = (tax_npv / gross_cash_flow_npv) if gross_cash_flow_npv > 1e-6 else 0.0
+
+    return {'lcv': lcv, 'eltr': eltr}
+
+
+def compute_future_lcv_and_eftr(c: Mapping, rows: Iterable[Mapping], as_of_year: Optional[int] = None) -> Dict[str, float]:
+    """FCV and EFTR: the forward-looking counterparts of LCV/ELTR.
+
+    Same PV mechanics as compute_baseline_lcv_and_eltr, but years already
+    elapsed as of ``as_of_year`` (default: today, via platform_runtime.today,
+    so tests can pin it) are excluded and the present-value basis shifts from
+    plan_start to as_of_year. This is a supplemental "from here forward" view
+    for a plan that has been running a while (e.g. YTD-blended builds) --
+    intentionally NOT part of the Planning Workbench Impact matrix, whose
+    LCV/ELTR figures stay whole-lifetime (from plan_start) so a saved case
+    remains comparable across the time it sits unreviewed, and to the
+    Roth-optimizer/Monte-Carlo LCV/ELTR figures that also use that
+    convention. Surfaced instead as its own supplemental figures (Executive
+    Summary, a dedicated Planning Workbench panel).
+    """
+    rows = list(rows or [])
+    if as_of_year is None:
+        from . import platform_runtime as _pr
+        as_of_year = _pr.today().year
+    as_of_year = int(as_of_year)
+    future_rows = [r for r in rows if int(r.get('year', as_of_year) or as_of_year) >= as_of_year]
+    if not future_rows:
+        return {'fcv': 0.0, 'eftr': 0.0}
+    discount = _roth_discount_rate(c)
+
+    def _disc(row: Mapping) -> float:
+        return (1.0 + discount) ** max(0, int(row.get('year', as_of_year) or as_of_year) - as_of_year)
+
+    terminal = future_rows[-1]
+    try:
+        from .after_tax import estimate_after_tax_terminal_net_worth as _estimate_after_tax_terminal_net_worth
+        after_tax_terminal_nw = float(_estimate_after_tax_terminal_net_worth(c, terminal).get('after_tax_terminal_nw', 0.0) or 0.0)
+    except Exception:
+        after_tax_terminal_nw = float(terminal.get('total_nw', 0.0) or 0.0)
+    terminal_year = int(terminal.get('year', as_of_year) or as_of_year)
+    after_tax_terminal_nw_pv = after_tax_terminal_nw / ((1.0 + discount) ** max(0, terminal_year - as_of_year))
+
+    consumption_pv = sum(float(r.get('total_spend', 0.0) or 0.0) / _disc(r) for r in future_rows)
+    fcv = consumption_pv + after_tax_terminal_nw_pv
+
+    tax_npv = sum(float(r.get('total_tax', 0.0) or 0.0) / _disc(r) for r in future_rows)
+    gross_cash_flow_npv = sum(float(r.get('gross_cash_flow_yr', 0.0) or 0.0) / _disc(r) for r in future_rows)
+    eftr = (tax_npv / gross_cash_flow_npv) if gross_cash_flow_npv > 1e-6 else 0.0
+
+    return {'fcv': fcv, 'eftr': eftr}
+
+
 def optimize_roth_conversion_strategy(c: dict) -> dict:
     """Score every Roth conversion candidate so the workbook can disclose alternatives.
 
