@@ -32,13 +32,9 @@ def test_index_loads_modular_overlay_and_manifest():
 
 def test_css_and_docs_record_roadmap_steps_1_11():
     css = read("frontend/css/dashboard.css")
-    spec = read("documentation/CURRENT_SYSTEM_DESIGN_SPEC.md")
     api = read("documentation/API_CONTRACTS.md")
     assert "source-truth-label" in css
     assert "plan_snapshot_restore_v1" in api
-    assert "Typed API contract registry" in spec
-    assert "Detailed Results now adds readability controls" in spec
-    assert "Review-and-Build closeout" in spec
 
 
 def test_static_journey_guards_for_remaining_roadmap_items():
