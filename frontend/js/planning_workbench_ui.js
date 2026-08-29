@@ -352,6 +352,19 @@
     html += "</tbody></table></div>";
     return html;
   }
+  function forwardLookingHtml(ctx) {
+    // FCV/EFTR (future-only LCV/ELTR, from today forward) are read directly
+    // from the latest build only -- never from a saved case's frozen
+    // result_summary or cached build-history kpi -- because "today" moves
+    // every day a case sits unreviewed, unlike the whole-lifetime LCV/ELTR
+    // above. Deliberately its own panel, not a column on the Impact matrix.
+    const last = call(ctx.getLastBuildSummary) || {};
+    if (!Object.keys(last).length)
+      return '<div class="feature-card forward-looking-panel"><h3>Forward-Looking (From Today)</h3><p class="small">Build the plan to see FCV/EFTR from today forward.</p></div>';
+    const fcv = Number(last.fcv ?? 0) || 0;
+    const eftr = Number(last.eftr ?? 0) || 0;
+    return `<div class="feature-card forward-looking-panel"><h3>Forward-Looking (From Today)</h3><p class="small">Supplemental to the Impact matrix above, not a substitute: what's left from today forward in the latest build, not the whole-lifetime figures used for comparing cases.</p><div class="impact-grid"><div class="impact-card"><span>FCV</span><b>${ctx.fmtMoney(fcv)}</b></div><div class="impact-card"><span>EFTR</span><b>${ctx.fmtPct(eftr * 100)}</b></div></div></div>`;
+  }
   function cardsHtml(ctx, cases, active) {
     if (!cases.length)
       return '<p class="small">No saved planning cases yet. Use the actions above to save staged edits, strategy levers, scenario overrides, or stress assumptions as a reusable case.</p>';
@@ -411,6 +424,7 @@
       '<details><summary><b>Unified Comparison Matrix</b><span class="small"> one vocabulary for every run type</span></summary>' +
       matrixHtml(ctx, cases) +
       "</details>";
+    html += forwardLookingHtml(ctx);
     html +=
       '<div class="feature-grid">' +
       stressSelectorHtml(ctx, cases) +
@@ -460,6 +474,7 @@
     sourceButtons,
     overrideTable,
     matrixHtml,
+    forwardLookingHtml,
     cardsHtml,
     stressSelectorHtml,
     renderWorkbench,
