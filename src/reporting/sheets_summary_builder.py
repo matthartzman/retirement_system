@@ -36,6 +36,7 @@ from .workbook_common import (
 from .. import allocation_policy as _ap
 from . import summary_figures
 from ..governance import readiness_label as _readiness_label
+from ..planning_engines import compute_future_lcv_and_eftr
 from .sheets_allocation_helpers import _workbook_pricing_source_label, _rebalance_settings
 
 def _tlh_recommendation_row(c, rows, rec_no):
@@ -171,6 +172,24 @@ def build_sheet1(ws, c, rows, mc_data, ss_sweep=None):
     for label, value, fmt in headlines:
         c1 = write_cell(ws, r, 1, label, bold=True, bg=LGRAY)
         c2 = write_cell(ws, r, 2, value, fmt=fmt, bold=True, bg=GRAY)
+        ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=6)
+        r += 1
+
+    # Forward-Looking Metrics (From Today) -- FCV/EFTR are the future-only
+    # counterparts of LCV/ELTR: everything already elapsed as of today is
+    # excluded, and present value is taken from today rather than plan_start.
+    # Kept as its own labeled sub-section rather than folded into Headline
+    # Numbers above, since it answers a different question ("from here
+    # forward") than the whole-lifetime headline figures.
+    r += 1
+    write_hdr(ws, r, 1, 'Forward-Looking Metrics (From Today)', NAVY, WHITE, span=6); r += 1
+    future_metrics = compute_future_lcv_and_eftr(c, rows)
+    for label, value, fmt in [
+        ('Future Consumption Value (FCV, from today)', future_metrics.get('fcv', 0.0), FMT_DOLLAR),
+        ('Effective Future Tax Rate (EFTR, from today)', future_metrics.get('eftr', 0.0), FMT_PCT),
+    ]:
+        write_cell(ws, r, 1, label, bold=True, bg=LGRAY)
+        write_cell(ws, r, 2, value, fmt=fmt, bold=True, bg=GRAY)
         ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=6)
         r += 1
 
