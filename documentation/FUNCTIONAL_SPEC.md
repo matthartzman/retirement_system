@@ -1,6 +1,6 @@
 # Retirement Planning System — Functional Spec
 
-Generated: 2026-08-28. Describes the system as the code currently behaves. This
+Generated: 2026-08-29. Describes the system as the code currently behaves. This
 is not a changelog — it does not describe how the system got here, only what
 it does today.
 
@@ -64,10 +64,20 @@ source shown in-app.
   on LCV and still be excluded from the recommendation if it fails this gate;
   it stays visible for comparison, just not selected.
 - **ELTR (effective lifetime tax rate)** — total taxes paid, discounted to
-  today, divided by total gross cash that passed through the household's
-  hands, discounted to today. One number answering "what share of every
-  dollar did taxes take," reported as a distribution across Monte Carlo
-  paths.
+  plan start, divided by total gross cash that passed through the
+  household's hands, discounted to plan start. One number answering "what
+  share of every dollar did taxes take," reported as a distribution across
+  Monte Carlo paths, and as a single whole-lifetime figure for the built
+  baseline plan (Executive Summary; Planning Workbench Impact matrix).
+- **FCV / EFTR (forward-looking LCV/ELTR)** — the same two figures restricted
+  to what's left from today forward: years already elapsed are excluded, and
+  present value is taken from today instead of plan start. Answers "from
+  here on" for a plan that's partway through its horizon, rather than "over
+  the whole plan." Shown on the Executive Summary and in its own
+  supplemental Planning Workbench panel, deliberately separate from the
+  Impact matrix's whole-lifetime LCV/ELTR — a saved comparison case is
+  captured once and never re-run, so a "from today" number attached to it
+  would go stale the moment it's reviewed later.
 - **Monte Carlo stress test** — runs the plan hundreds to thousands of times
   under randomly sampled market returns, inflation, and (optionally)
   mortality, reporting probability of success, probability essential spending
@@ -202,10 +212,17 @@ per-client plan data shown here is read-only.
 ### 4.11 Planning Workbench
 A cross-cutting workspace that unifies strategy, stress, and scenario tools
 into one flow: pick a baseline, build a change set, choose a run type, see
-the impact, decide. Includes a "Strategy Levers" table ranking each lever by
-its estimated effect on terminal net worth and success rate, each with a
-jump-to-source link back to the real input page. This workspace holds its
-own state locally and never mutates the saved plan on its own.
+the impact, decide. The Impact matrix (Unified Comparison Matrix) compares
+the built baseline against every saved case by success probability, LCV,
+ELTR, and total Roth conversions — the same whole-lifetime figures the Roth
+optimizer and Monte Carlo engine report, so a saved case is directly
+comparable to those. A separate "Forward-Looking (From Today)" panel below
+the matrix shows FCV/EFTR for the latest build only, deliberately kept off
+the matrix itself since those numbers move every day and a saved case's
+snapshot does not. Also includes a "Strategy Levers" table ranking each
+lever by its estimated effect on terminal net worth and success rate, each
+with a jump-to-source link back to the real input page. This workspace
+holds its own state locally and never mutates the saved plan on its own.
 
 ## 5. Outputs and their audiences
 

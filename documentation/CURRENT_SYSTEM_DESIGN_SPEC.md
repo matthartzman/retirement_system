@@ -1,6 +1,6 @@
 # Retirement Planning System — Current System Design Spec
 
-Generated: 2026-08-28. This describes the system as implemented in the
+Generated: 2026-08-29. This describes the system as implemented in the
 current codebase, verified against source (not against prior design docs).
 Where an earlier design intent has been superseded, this document describes
 only what the code does now. See `documentation/FUNCTIONAL_SPEC.md` for the
@@ -369,6 +369,19 @@ statistics identically.
 - Tax NPV/ELTR: both MC engines discount each year's `total_tax` to plan
   start to get `tax_npv`, then divide by discounted gross external cash flow
   for `effective_lifetime_tax_rate`, reported as percentiles.
+- `compute_baseline_lcv_and_eltr(c, rows)` and `compute_future_lcv_and_eftr(c,
+  rows, as_of_year=None)` (`src/planning_engines.py`) are the single-run,
+  non-candidate counterparts of `_roth_strategy_metrics`'s `lcv_score` and
+  the MC engines' tax-NPV/ELTR: same discount rate (`_roth_discount_rate`)
+  and PV mechanics, applied to the plan's own built projection rather than a
+  Roth-conversion candidate. The baseline variant discounts to `plan_start`
+  (whole-lifetime, comparable to the optimizer/MC figures); the future
+  variant discounts to `as_of_year` (default: `platform_runtime.today().year`,
+  so tests can pin it) and excludes rows before that year. Both are wired
+  into `plan_summary.json` (`lcv`/`eltr`/`fcv`/`eftr`) by
+  `workbook_builder.py`, and the future variant is also called directly by
+  `sheets_summary_builder.py::build_sheet1` for the Executive Summary's
+  Forward-Looking Metrics rows.
 
 ### 6.5 Stress scenarios
 
@@ -476,6 +489,17 @@ save `.xlsx` → post-save XML patch (chart title fonts) → generate PDF from
 the same saved workbook object → generate the HTML dashboard from the
 workbook → write the Results Explorer JSON model → write `plan_summary.json`
 → write build snapshot and `report_package.json`.
+
+`plan_summary.json`'s KPI dict is the one place both the UI and the Excel
+Executive Summary read headline figures from: `terminal_nw`/`lifetime_tax`
+(nominal, whole-lifetime), `lcv`/`eltr` (whole-lifetime, plan-start PV,
+comparable to the Roth optimizer's and Monte Carlo's own figures), and
+`fcv`/`eftr` (forward-looking, PV to today, excluding elapsed years). The
+Executive Summary sheet (`sheets_summary_builder.py::build_sheet1`) renders
+the first two groups as "Headline Numbers" and the third as its own
+"Forward-Looking Metrics (From Today)" sub-section, rather than mixing them,
+since they answer different questions ("over the whole plan" vs. "from here
+forward").
 
 `src/report_compute.py` is the framework-free orchestration layer (parse →
 normalize → optimize → project → validate → Monte Carlo) shared by both the
