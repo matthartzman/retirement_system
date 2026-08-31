@@ -8513,6 +8513,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "renderMain",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
       "name": "closeChartModal",
       "file": "frontend/index.html (inline)",
       "kind": "call",

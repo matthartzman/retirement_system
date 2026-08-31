@@ -33,7 +33,16 @@ ACCOUNT_TYPES = {
 
 
 def _infer_type(account_name):
-    """Infer account type from an account identifier."""
+    """Infer account type from an account identifier.
+
+    Raises ValueError when the name matches none of the recognized
+    type-indicating suffixes (item 1.16 / finding F9), rather than silently
+    modeling an unrecognized account as taxable. A typo'd or unsupported
+    account name previously produced a fully confident plan that used the
+    wrong tax treatment and RMD behavior, with nothing on any report saying
+    so -- the same silent-wrongness pattern `_require_supported_state` above
+    exists to prevent for residence_state.
+    """
     name = account_name.lower()
     if '_401k' in name:        return '401k'
     if '_403b' in name:        return '403b'
@@ -43,7 +52,16 @@ def _infer_type(account_name):
     if '_hsa' in name:         return 'hsa'
     if '_checking' in name:    return 'checking'
     if '_529' in name:         return '529'
-    return 'taxable'
+    if '_taxable' in name or '_brokerage' in name or '_investment' in name:
+        return 'taxable'
+    raise ValueError(
+        f"Unrecognized account name {account_name!r}: no known account-type "
+        "suffix found. Account names must indicate their tax treatment via a "
+        "recognized suffix: _401k, _403b, _ira, _roth, _trust, _hsa, "
+        "_checking, _529, _taxable, _brokerage, or _investment. Rename the "
+        "account in client_holdings.csv (or the Positions section of "
+        "client_data.csv) to include one of these suffixes."
+    )
 
 
 def _infer_owner(account_name, members):
@@ -68,7 +86,7 @@ def build_registry_from_balances(balances, members):
     for acct_name, balance in balances.items():
         acct_type = _infer_type(acct_name)
         owner_idx = _infer_owner(acct_name, members)
-        type_info = ACCOUNT_TYPES.get(acct_type, ACCOUNT_TYPES['taxable'])
+        type_info = ACCOUNT_TYPES[acct_type]
         owner_name = (members[owner_idx].get('nickname') or members[owner_idx]['name']) if owner_idx < len(members) else 'Unknown'
 
         registry.append({
@@ -98,7 +116,13 @@ def build_registry_from_json(accounts_json, members):
     registry = []
     for i, acct in enumerate(accounts_json):
         acct_type = acct.get('acct_type', 'taxable')
-        type_info = ACCOUNT_TYPES.get(acct_type, ACCOUNT_TYPES['taxable'])
+        if acct_type not in ACCOUNT_TYPES:
+            raise ValueError(
+                f"Unrecognized acct_type {acct_type!r} for account "
+                f"{acct.get('id', acct.get('label', f'acct_{i+1}'))!r}. Supported "
+                f"account types: {', '.join(sorted(ACCOUNT_TYPES))}."
+            )
+        type_info = ACCOUNT_TYPES[acct_type]
         owner_idx = acct.get('owner_idx', 0)
         owner_name = (members[owner_idx].get('nickname') or members[owner_idx]['name']) if owner_idx < len(members) else 'Unknown'
 
@@ -291,125 +315,7 @@ def draw_order(c: Mapping, tax: str, owner_priority: Sequence[int] = (1, 0)) -> 
     return ordered
 
 
-def draw_from_accounts(bal: MutableMapping[str, float], ids: Iterable[str], amount: float) -> dict[str, float]:
-    remaining = max(0.0, float(amount or 0.0))
-    out: dict[str, float] = {}
-    for aid in ids:
-        if remaining <= 0:
-            break
-        before = max(0.0, float(bal.get(aid, 0.0) or 0.0))
-        draw = min(before, remaining)
-        if draw > 0:
-            bal[aid] = before - draw
-            out[aid] = draw
-            remaining -= draw
-    return out
-
-
-def owner_amounts(c: Mapping, by_account: Mapping[str, float], tax: str | None = None) -> dict[int, float]:
-    result: dict[int, float] = {}
-    acct_owner = {a['id']: a.get('owner_idx', 0) for a in registry(c) if tax is None or a.get('tax') == tax}
-    for aid, amt in by_account.items():
-        owner = acct_owner.get(aid, 0)
-        result[owner] = result.get(owner, 0.0) + float(amt or 0.0)
-    return result
-
 # ===== END account_access.py =====
-
-
-# ===== BEGIN events.py =====
-
-"""
-events.py — Event log and typed events for the retirement projection engine.
-
-Every computation step in project() emits typed events to a log.
-Events are pure data (namedtuples) — immutable, serializable, traceable.
-The log can be queried after projection to answer "where did this $X come from?"
-"""
-from collections import namedtuple
-
-# ── Event types ──────────────────────────────────────────────────────────────
-# Each has (year, ...) so events can be filtered/grouped by year.
-
-Income       = namedtuple('Income',       ['year','source','gross','net','tax','account','note'])
-Withdrawal   = namedtuple('Withdrawal',   ['year','priority','source_acct','amount','reason','note'])
-Spending     = namedtuple('Spending',      ['year','category','amount','note'])
-Tax          = namedtuple('Tax',           ['year','kind','amount','base','rate','note'])
-Transfer     = namedtuple('Transfer',      ['year','from_acct','to_acct','amount','reason'])
-Contribution = namedtuple('Contribution',  ['year','account','amount','note'])
-AssetChange  = namedtuple('AssetChange',   ['year','asset','old_val','new_val','reason'])
-Conversion   = namedtuple('Conversion',    ['year','from_acct','to_acct','amount','tax_cost','note'])
-HomeSale     = namedtuple('HomeSale',      ['year','gross','costs','mort_payoff','basis','gain',
-                                            'sec121','taxable_gain','ltcg_tax','net','dest_acct'])
-Growth       = namedtuple('Growth',        ['year','account','balance_before','return_rate','growth_amount'])
-Death        = namedtuple('Death',         ['year','spouse','rollover_desc'])
-RMD          = namedtuple('RMD',           ['year','account','balance','divisor','amount'])
-Scenario     = namedtuple('Scenario',      ['name','overrides','terminal_nw','lifetime_tax','delta_nw'])
-Warning      = namedtuple('Warning',       ['year','code','message'])
-
-
-class EventLog:
-    """Append-only event log with query helpers."""
-
-    def __init__(self):
-        self._events = []
-
-    def emit(self, event):
-        self._events.append(event)
-        return event
-
-    def all(self):
-        return list(self._events)
-
-    def by_year(self, year):
-        return [e for e in self._events if hasattr(e, 'year') and e.year == year]
-
-    def by_type(self, event_type):
-        return [e for e in self._events if isinstance(e, event_type)]
-
-    def by_year_type(self, year, event_type):
-        return [e for e in self._events
-                if isinstance(e, event_type) and hasattr(e, 'year') and e.year == year]
-
-    def incomes(self, year=None):
-        return self.by_year_type(year, Income) if year else self.by_type(Income)
-
-    def withdrawals(self, year=None):
-        return self.by_year_type(year, Withdrawal) if year else self.by_type(Withdrawal)
-
-    def taxes(self, year=None):
-        return self.by_year_type(year, Tax) if year else self.by_type(Tax)
-
-    def warnings(self):
-        return self.by_type(Warning)
-
-    def total_income(self, year):
-        return sum(e.gross for e in self.incomes(year))
-
-    def total_tax(self, year):
-        return sum(e.amount for e in self.taxes(year))
-
-    def total_withdrawals(self, year):
-        return sum(e.amount for e in self.withdrawals(year))
-
-    def dollar_lineage(self, year, account):
-        """Trace every dollar that flowed into or out of an account in a given year."""
-        inflows  = [e for e in self.by_year(year)
-                    if hasattr(e, 'account') and e.account == account and hasattr(e, 'amount')]
-        outflows = [e for e in self.by_year(year)
-                    if hasattr(e, 'source_acct') and e.source_acct == account]
-        return {'inflows': inflows, 'outflows': outflows}
-
-    def __len__(self):
-        return len(self._events)
-
-    def summary(self):
-        """Quick stats for logging."""
-        types = {}
-        for e in self._events:
-            t = type(e).__name__
-            types[t] = types.get(t, 0) + 1
-        return types
 
 
 # ── Lot-level basis engine ───────────────────────────────────────────────────
@@ -492,10 +398,6 @@ class LotEngine:
         if current_year is None or acq is None:
             return True
         return int(current_year) - acq >= 1
-
-    def preview_gain_on_withdrawal(self, account, amount, current_year=None):
-        """Non-mutating gain estimate for scenario/planning reads."""
-        return self.gain_on_withdrawal(account, amount, current_year=current_year, mutate=False)
 
     def _donatable_lots(self, account, current_year=None):
         """Long-term lots for ``account``, most-appreciated first.
@@ -708,8 +610,6 @@ def validate_projection(rows, c, extra_invariants=None):
             if not passed:
                 failures.append((i, row.get('year', '?'), inv.severity, inv.name, msg))
     return failures
-
-# ===== END events.py =====
 
 
 # ===== BEGIN engine_core.py =====
@@ -1035,9 +935,6 @@ _STATE_INCOME_BRACKETS = {
     ('New York','MFJ'): [(0, 17150, .04), (17150, 23600, .045), (23600, 27900, .0525), (27900, 161550, .055), (161550, 323200, .06), (323200, 2155350, .0685), (2155350, 5000000, .0965), (5000000, 25000000, .103), (25000000, float('inf'), .109)],
     ('New York','HOH'): [(0, 12800, .04), (12800, 17650, .045), (17650, 20900, .0525), (20900, 107650, .055), (107650, 269300, .06), (269300, 1616450, .0685), (1616450, 5000000, .0965), (5000000, 25000000, .103), (25000000, float('inf'), .109)],
 }
-
-def il_income_tax(agi, year):
-    return max(0, agi * 0.0495)
 
 def irmaa_surcharge(agi, year, plan_start, inflator=0.02, n_people=2, filing='MFJ'):
     tiers = IRMAA_TIERS_BASE_YEAR.get(filing, IRMAA_TIERS_BASE_YEAR['MFJ'])

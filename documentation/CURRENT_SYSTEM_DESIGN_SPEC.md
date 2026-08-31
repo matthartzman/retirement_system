@@ -504,7 +504,7 @@ forward").
 `src/report_compute.py` is the framework-free orchestration layer (parse →
 normalize → optimize → project → validate → Monte Carlo) shared by both the
 workbook builder and plain API/test paths, deliberately free of any
-openpyxl dependency. `src/dashboard_ui/builder.py`/`template.py` copy
+openpyxl dependency. `src/dashboard_ui/builder.py` copies
 `frontend/` into `output/` so a built workbook bundle can open the offline
 dashboard without a running server.
 
@@ -585,9 +585,9 @@ as **present but inert**, not as enforced access control:
 - Vectorized Monte Carlo output is explicitly labeled approximate relative
   to exact-scalar (§6.3); treat differences between the two as expected
   until a tolerance-bounded parity check exists.
-- `route_manifest.py`/`server/features/*.py` describe route *ownership* for
-  tooling, not actual route module boundaries (§3.3) — the four route files
-  remain a single shared namespace.
+- `route_manifest.py` describes route *ownership* for tooling, not actual
+  route module boundaries (§3.3) — the four route files remain a single
+  shared namespace.
 - Multi-tenant identifiers (`workspace_id`, `client_id`) persist throughout
   the codebase but are hardcoded to `"local"` everywhere they resolve
   (§3.5) — there is no multi-tenant capability to build on top of without
