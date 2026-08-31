@@ -12,6 +12,12 @@ window.spendingError = '';
 // expanded row independently, so expanding one Type/Group/Category no longer
 // collapses another that happens to share the same scalar slot.
 window.spendingExpandedKeys = new Set();
+// U3 (system review 2026-08-31): "Show over/watch only" filter chip -- when
+// active, renderSpendingBars() auto-expands and hides every 'ok' row so
+// flagged categories are reachable in one click instead of manually
+// expanding every Type/Group disclosure (up to 24 clicks for a 6x4
+// household).
+window.spendingExceptionsOnly = false;
 window.spendingDivergencePct = 0;
 export function getSpendingDivergencePct() { return window.spendingDivergencePct || 0 }
 window.getSpendingDivergencePct = getSpendingDivergencePct;
@@ -167,6 +173,11 @@ export function collapseAllSpending() {
   renderMain();
 }
 
+export function toggleSpendingExceptionsOnly() {
+  window.spendingExceptionsOnly = !window.spendingExceptionsOnly;
+  renderMain();
+}
+
 export function renderSpendingDashboard() {
   if (!window.spendingData && !window.spendingLoading && !window.spendingError) {
     setTimeout(function () { loadSpendingDashboard(false) }, 0);
@@ -244,6 +255,20 @@ export function renderSpendingBars(d) {
     var vpct = ((ann - bud) / bud) * 100;
     return { cls: vpct > 15 ? 'over' : vpct > 5 ? 'watch' : 'ok', vpct: Math.round(vpct * 10) / 10 };
   }
+  var exceptionsOnly = !!window.spendingExceptionsOnly;
+  // Reuses statusFor() (not a recomputation) to decide whether a Type/Group
+  // row contains any non-'ok' descendant, so the exceptions filter can hide
+  // whole branches that are entirely on-budget.
+  function groupHasException(g) {
+    if (statusFor(spendAnnualized(g), spendBudget(g)).cls !== 'ok') return true;
+    return (g.categories || []).some(function (c) {
+      return statusFor(spendAnnualized(c), spendBudget(c)).cls !== 'ok';
+    });
+  }
+  function typeHasException(t) {
+    if (statusFor(spendAnnualized(t), spendBudget(t)).cls !== 'ok') return true;
+    return (t.groups || []).some(groupHasException);
+  }
   function barCell(ann, bud) {
     var barPct = Math.min(100, ((ann || 0) / maxVal) * 100);
     var budPct = bud ? Math.min(100, (bud / maxVal) * 100) : 0;
@@ -261,14 +286,19 @@ export function renderSpendingBars(d) {
   }
 
   var html = '<h3 class="group-title">Income and Expenses by Tracking Type / Group / Category' +
+    ' <button class="btn tiny' + (exceptionsOnly ? ' primary' : '') + '" type="button" onclick="toggleSpendingExceptionsOnly()">' +
+    (exceptionsOnly ? 'Show all' : 'Show over/watch only') + '</button>' +
     (window.spendingExpandedKeys.size ? ' <button class="btn tiny" type="button" onclick="collapseAllSpending()">Collapse all</button>' : '') +
     '</h3>';
   html += '<div class="spend-bars">';
   html += '<div class="spend-bar-header"><span>Tracking type · Group · Category</span><span>Annualized Actual vs. Annual Budget</span><span>YTD Actual | Annualized Actual | Annual Budget | Projection Seed</span></div>';
 
+  var shownAny = false;
   types.forEach(function (t) {
+    if (exceptionsOnly && !typeHasException(t)) return;
+    shownAny = true;
     var tt = t.tracking_type;
-    var typeExpanded = window.spendingExpandedKeys.has('type:' + tt);
+    var typeExpanded = exceptionsOnly || window.spendingExpandedKeys.has('type:' + tt);
     var tytd = spendYtd(t), tann = spendAnnualized(t), tbud = spendBudget(t), tseed = spendProjectionSeed(t);
     var st = statusFor(tann, tbud);
     html += '<div class="spend-bar-row spend-type-row ' + st.cls + '" onclick="toggleSpendingType(\'' + esc(tt).replace(/'/g, "\\'") + '\')">';
@@ -278,8 +308,9 @@ export function renderSpendingBars(d) {
     if (!typeExpanded) return;
 
     (t.groups || []).forEach(function (g) {
+      if (exceptionsOnly && !groupHasException(g)) return;
       var gkey = tt + '::' + g.group;
-      var gExpanded = window.spendingExpandedKeys.has('group:' + gkey);
+      var gExpanded = exceptionsOnly || window.spendingExpandedKeys.has('group:' + gkey);
       var gytd = spendYtd(g), gann = spendAnnualized(g), gbud = spendBudget(g), gseed = spendProjectionSeed(g);
       var gs = statusFor(gann, gbud);
       html += '<div class="spend-bar-row spend-group-row ' + gs.cls + '" onclick="event.stopPropagation();toggleSpendingGroup(\'' + esc(gkey).replace(/'/g, "\\'") + '\')">';
@@ -289,14 +320,19 @@ export function renderSpendingBars(d) {
       if (!gExpanded) return;
       html += '<div class="spend-bar-detail">';
       (g.categories || []).forEach(function (c) {
-        var cytd = spendYtd(c), cann = spendAnnualized(c), cbud = spendBudget(c), cseed = spendProjectionSeed(c);
+        var cann = spendAnnualized(c), cbud = spendBudget(c);
         var cs = statusFor(cann, cbud);
+        if (exceptionsOnly && cs.cls === 'ok') return;
+        var cytd = spendYtd(c), cseed = spendProjectionSeed(c);
         html += '<div class="spend-cat-row"><span><span class="spend-level-pill">Category</span>' + esc(c.label || c.id) + '</span>' +
           '<span>YTD ' + fmtSpend(cytd) + ' · Annualized ' + fmtSpend(cann) + ' · Budget ' + fmtSpend(cbud) + ' · Projection Seed ' + fmtSpend(cseed) + (cbud ? ' <span class="small ' + cs.cls + '">' + fmtVariancePct(cs.vpct || 0) + '</span>' : '') + '</span></div>';
       });
       html += '</div>';
     });
   });
+  if (exceptionsOnly && !shownAny) {
+    html += '<div class="section-note">No categories are currently over budget or in the watch range.</div>';
+  }
   html += '</div>';
   return html;
 }
@@ -407,7 +443,8 @@ Object.assign(window, {
   renderModelStatusPanel, fmtSpend, fmtVariancePct, spendYtd, spendAnnualized,
   spendBudget, spendProjectionSeed, spendHasReconcileValue, loadSpendingDashboard,
   seedSpendingBudget, applySpendingForecast, toggleSpendingKey, toggleSpendingGroup,
-  toggleSpendingCat, toggleSpendingType, collapseAllSpending, renderSpendingDashboard,
+  toggleSpendingCat, toggleSpendingType, collapseAllSpending, toggleSpendingExceptionsOnly,
+  renderSpendingDashboard,
   renderSpendingSummary, renderSpendingBars, renderSpendingMonthly, renderModelManaged,
   renderBusinessSection, renderUnmappedWarning,
 });

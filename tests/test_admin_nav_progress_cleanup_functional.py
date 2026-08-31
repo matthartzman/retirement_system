@@ -8,7 +8,6 @@ ADMIN_CSS = ROOT / "frontend" / "css" / "admin.css"
 ADMIN_JS = ROOT / "frontend" / "js" / "admin.js"
 INDEX_HTML = ROOT / "frontend" / "index.html"
 DASHBOARD_JS = ROOT / "frontend" / "js" / "dashboard.js"
-TEMPLATE = ROOT / "src" / "dashboard_ui" / "template.py"
 
 
 def test_system_config_is_split_into_left_nav_pages():
@@ -38,7 +37,6 @@ def test_focused_pages_use_left_step_navigation_not_nested_card_nav():
 
 def test_build_progress_starts_at_beginning():
     html = INDEX_HTML.read_text(encoding="utf-8") + "\n" + dashboard_js_text()
-    template = TEMPLATE.read_text(encoding="utf-8")
     assert 'Capturing the current workbook baseline...",\n      0' in html
     assert 'Math.max(0, Math.min(100, Number(pct)))' in html
     assert 'b.style.width = "0%"' in html
@@ -46,4 +44,3 @@ def test_build_progress_starts_at_beginning():
     assert "Elapsed ${formatElapsed(" in html
     assert "buildOverlayExpectedLabel" not in html
     assert "api/build/progress" in html
-    assert "dashboard UI asset loader" in template

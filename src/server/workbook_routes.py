@@ -64,25 +64,13 @@ from .app_core import (
     workspace_output_dir,
 )
 from ..http_runtime.wsgi_facade import Response
-try:
-    from ..schema_registry import load_schema as _load_schema_registry, validate_value as _schema_validate_value, validate_rows as _schema_validate_rows
-except ImportError:
-    from src.schema_registry import load_schema as _load_schema_registry, validate_value as _schema_validate_value, validate_rows as _schema_validate_rows
+from ..schema_registry import load_schema as _load_schema_registry, validate_value as _schema_validate_value, validate_rows as _schema_validate_rows
 
-try:
-    from ..build_snapshot import SNAPSHOT_FILENAME, read_build_snapshot
-except ImportError:
-    from src.build_snapshot import SNAPSHOT_FILENAME, read_build_snapshot
+from ..build_snapshot import SNAPSHOT_FILENAME, read_build_snapshot
 
-try:
-    from ..results_model import RESULTS_MODEL_FILENAME
-except ImportError:
-    from src.results_model import RESULTS_MODEL_FILENAME
+from ..results_model import RESULTS_MODEL_FILENAME
 
-try:
-    from ..server_services import build_job_service, build_service, holdings_service, plan_data_file_service, plan_forms_service, report_service, spending_service
-except ImportError:
-    from src.server_services import build_job_service, build_service, holdings_service, plan_data_file_service, plan_forms_service, report_service, spending_service
+from ..server_services import build_job_service, build_service, holdings_service, plan_data_file_service, plan_forms_service, report_service, spending_service
 
 
 # Build-job orchestration is owned by server_services.build_job_service.
@@ -483,10 +471,7 @@ def get_workbook_format():
     denied = _require("read_config")
     if denied:
         return denied
-    try:
-        from ..reporting import workbook_format_config as _wf
-    except ImportError:
-        from src.reporting import workbook_format_config as _wf
+    from ..reporting import workbook_format_config as _wf
     overrides = _wf.load_overrides()
     alignments = _wf.load_alignments()
     workbook_path = _workspace_output() / "retirement_plan.xlsx"
@@ -533,10 +518,7 @@ def save_workbook_format():
     denied = _require("write_config")
     if denied:
         return denied
-    try:
-        from ..reporting import workbook_format_config as _wf
-    except ImportError:
-        from src.reporting import workbook_format_config as _wf
+    from ..reporting import workbook_format_config as _wf
     body = request.get_json(silent=True) or {}
     overrides = body.get("overrides") or {}
     if not isinstance(overrides, dict):
@@ -662,10 +644,7 @@ def preview_holdings_import():
     denied = _require("read_config")
     if denied:
         return denied
-    try:
-        from ..import_preview import preview_holdings_import as _preview_holdings_import
-    except ImportError:
-        from src.import_preview import preview_holdings_import as _preview_holdings_import
+    from ..import_preview import preview_holdings_import as _preview_holdings_import
     body = request.get_json(silent=True) or {}
     incoming = body.get("csv_text") or body.get("csv") or body.get("content") or ""
     current = holdings_service.read_holdings(base_dir=WORKSPACE_ROOT, workspace_id=_workspace_id(), client_id=_client_id(), db_path=_sqlite_db())
@@ -786,10 +765,7 @@ def run_plan_from_json():
     if not plan:
         return jsonify(status="error", error="No JSON body"), 400
     try:
-        try:
-            from ..server_forecast import forecast_from_plan_json
-        except ImportError:
-            from src.server_forecast import forecast_from_plan_json
+        from ..server_forecast import forecast_from_plan_json
         result = forecast_from_plan_json(plan, run_mc=True)
         return jsonify(**result)
     except ValueError as exc:

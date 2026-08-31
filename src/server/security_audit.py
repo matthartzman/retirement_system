@@ -30,18 +30,11 @@ import secrets
 import time
 from pathlib import Path
 
-try:
-    from ..http_runtime.wsgi_facade import request
-    from ..security import constant_time_token_ok, extract_bearer_or_header, get_server_token, redact_text
-    from ..permissions import UserContext
-    from ..workspace_context import sanitize_id, workspace_output_dir
-    from ..config_backend import append_audit_event_sqlite, lookup_api_token
-except ImportError:  # direct execution fallback
-    from src.http_runtime.wsgi_facade import request
-    from src.security import constant_time_token_ok, extract_bearer_or_header, get_server_token, redact_text
-    from src.permissions import UserContext
-    from src.workspace_context import sanitize_id, workspace_output_dir
-    from src.config_backend import append_audit_event_sqlite, lookup_api_token
+from ..http_runtime.wsgi_facade import request
+from src.security import constant_time_token_ok, extract_bearer_or_header, get_server_token, redact_text
+from src.permissions import UserContext
+from src.workspace_context import sanitize_id, workspace_output_dir
+from src.config_backend import append_audit_event_sqlite, lookup_api_token
 
 from . import app_core as _app_core
 

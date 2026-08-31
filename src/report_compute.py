@@ -90,7 +90,8 @@ def build_model_heard_assumptions(c: Mapping[str, Any], rows: Sequence[Mapping[s
             'aca_ptc_loss_weight': c.get('roth_aca_ptc_loss_weight', 1.0),
         },
         'monte_carlo': {
-            'engine_mode': c.get('mc_engine_mode', 'exact_scalar'),
+            # Fallback matches the engine default in data_io.py / monte_carlo().
+            'engine_mode': c.get('mc_engine_mode', 'vectorized'),
             'simulation_count': c.get('mc_simulations'),
             'sensitivity_simulation_count': c.get('mc_sensitivity_simulations'),
         },

@@ -8,10 +8,7 @@ import re
 from pathlib import Path
 from typing import Iterable, Optional
 
-try:
-    from . import platform_runtime
-except ImportError:  # direct execution fallback
-    from src import platform_runtime
+from . import platform_runtime
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -31,10 +28,7 @@ def _default_root(root: Optional[Path]) -> Path:
 
 
 def _runtime_cfg():
-    try:
-        from .runtime_config import load_runtime_config
-    except ImportError:
-        from src.runtime_config import load_runtime_config
+    from .runtime_config import load_runtime_config
     return load_runtime_config()
 
 

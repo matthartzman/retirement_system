@@ -252,10 +252,7 @@ class MarketDataProvider:
             try:
                 from .secrets_store import get_secret
             except ImportError:
-                try:
-                    from src.secrets_store import get_secret
-                except ImportError:
-                    get_secret = None  # type: ignore
+                get_secret = None  # type: ignore
             if get_secret is not None:
                 if not self.fmp_api_key:
                     self.fmp_api_key = _clean_secret(get_secret("fmp_api_key"))

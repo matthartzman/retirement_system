@@ -5,10 +5,7 @@ from typing import Any
 
 
 def _store():
-    try:
-        from ..local_store import import_sectioned_plan, latest_plan_snapshot, latest_sectioned_data
-    except ImportError:  # pragma: no cover - direct execution fallback
-        from src.local_store import import_sectioned_plan, latest_plan_snapshot, latest_sectioned_data
+    from ..local_store import import_sectioned_plan, latest_plan_snapshot, latest_sectioned_data
     return latest_sectioned_data, import_sectioned_plan, latest_plan_snapshot
 
 

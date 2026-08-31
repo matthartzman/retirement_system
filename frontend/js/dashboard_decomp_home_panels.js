@@ -36,6 +36,8 @@ export function planKpiMetricsHtml() {
       label: "Probability of Success",
       val: successVal,
       html: heEnabled && Number.isFinite(Number(heRate)),
+      title:
+        "Percentage of simulated scenarios where the plan stays solvent",
     },
     {
       label: "Lifetime taxes",
@@ -46,7 +48,7 @@ export function planKpiMetricsHtml() {
   const cards = metrics
     .map(
       (m) =>
-        `<div class="plan-kpi-card"><div class="plan-kpi-value">${m.html ? m.val : esc(m.val)}</div><div class="plan-kpi-label">${esc(m.label)}</div></div>`,
+        `<div class="plan-kpi-card"><div class="plan-kpi-value">${m.html ? m.val : esc(m.val)}</div><div class="plan-kpi-label"${m.title ? ` title="${esc(m.title)}"` : ""}>${esc(m.label)}</div></div>`,
     )
     .join("");
   return `<div class="plan-kpi-section"><div class="plan-kpi-head"><span>Last build results</span><button class="btn tiny" type="button" data-step-id="reports_and_review">View Reports &rarr;</button></div><div class="plan-kpi-grid">${cards}</div></div>`;

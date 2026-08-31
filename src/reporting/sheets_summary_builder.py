@@ -1,7 +1,7 @@
 """Excel summary sheet builder — executive summary and assumptions.
 
 This module provides the high-level Excel sheet builders for summary reports:
-- build_sheet1: Executive Summary (headline numbers, recommendations, release notes)
+- build_sheet1: Executive Summary (headline numbers, recommendations, build assumptions)
 - build_sheet2: Assumptions & Tax Law (configurable input tables)
 
 System review 2026-08-04, architect finding `reporting-facade-theater`
@@ -208,9 +208,27 @@ def build_sheet1(ws, c, rows, mc_data, ss_sweep=None):
     entity_label = {'s_corp': 'S-Corp', 'sole_prop': 'Sole Prop', 'w2': 'W2'}.get(
         str(c.get('entity', '')).strip().lower(), str(c.get('entity', '')).strip() or 'Sole Prop')
     # Same source as Sheet 14's own CST block, so the two can never disagree.
-    # Previously '$4M'/'~$320K' were hardcoded here and only correct when
-    # il_exempt happened to equal its default.
-    _cst = summary_figures.credit_shelter_trust_savings(c)
+    # Previously '$4M'/'~$320K' were hardcoded here, then a flat 8% of the
+    # funding amount -- both published without ever asking whether THIS
+    # household's projected estate exceeds the exemption. It now returns None
+    # (and the row below does not render at all) when the trust is not a live
+    # planning question for this estate; see finding F2, SYSTEM_REVIEW
+    # 2026-08-31. require_enabled=False because the whole point of the
+    # recommendation row is that the trust is not yet in place.
+    _cst = summary_figures.credit_shelter_trust_savings(c, rows, require_enabled=False)
+    if _cst and _cst['tax_saved'] is not None:
+        _cst_value = (f"~${_cst['tax_saved']:,.0f} state estate tax avoided on the "
+                      f"${_cst['funding_amount']:,.0f} bypass amount "
+                      f"({_cst['avg_rate']:.1%} effective rate on the projected "
+                      f"${_cst['projected_estate']:,.0f} estate)")
+    elif _cst:
+        # Near-miss band: worth recommending, but there is no dollar figure to
+        # publish, so say why instead of printing a fabricated or $0 saving.
+        _cst_value = (f"Projected estate ${_cst['projected_estate']:,.0f} is just under the "
+                      f"${_cst['state_exemption']:,.0f} exemption — no tax sheltered at current "
+                      f"projections, but the exemption is lost at first death without the trust")
+    else:
+        _cst_value = 'See Sheet 14'
     candidate_recs = [
         (True, 'Claim Social Security — ' + _ss_age_label,
            'Highest-scoring pair from the full 62-70 x 62-70 projection sweep on Sheet 10; weighs lifetime SS income against lifetime tax and IRMAA drag, not terminal net worth alone.',
@@ -219,13 +237,16 @@ def build_sheet1(ws, c, rows, mc_data, ss_sweep=None):
         (True, 'Roth conversions through the configured conversion window',
            'Use the selected Roth strategy from Sheet 11; forced conversions are separated from voluntary optimizer choices.',
            'Tax cost depends on selected strategy','Compare candidate scores, lifetime tax, terminal value, and legacy/estate components on Sheet 11','Sheet 11'),
-        (not c.get('cst_enabled'), 'Credit Shelter Trust at First Death',
+        # Materiality-gated (F2): fires only when the trust is not already in
+        # place AND the projected second-death estate is at or near the state
+        # exemption. Below that, the row is suppressed entirely rather than
+        # shown with a $0 or a stale figure.
+        (bool(_cst) and not c.get('cst_enabled'), 'Credit Shelter Trust at First Death',
            (f"Preserves the ${_cst['state_exemption']:,.0f} state exemption at first death; assets bypass "
             f"the survivor estate for state estate-tax purposes" if _cst else
             'Preserves the state estate-tax exemption at first death; assets bypass the survivor estate'),
            'Typical legal setup: $2,500–$5,000',
-           (f"~${_cst['tax_saved']:,.0f} state estate tax avoided on the ${_cst['funding_amount']:,.0f} "
-            f"bypass amount ({_cst['avg_rate']:.0%} avg rate)" if _cst else 'See Sheet 14'), 'Sheet 14'),
+           _cst_value, 'Sheet 14'),
         (not (c.get('daf_amount', 0) or 0) > 0, 'DAF contribution in the highest-income planning year',
            'Fund a DAF in a high-income year to claim the deduction while SALT is still elevated, then grant out over following years',
            '$0 (charitable intent)','See Sheet 12 for the modeled deduction and carryforward','Sheet 12'),
@@ -246,8 +267,12 @@ def build_sheet1(ws, c, rows, mc_data, ss_sweep=None):
         (str(c.get('state', '')).strip().lower() == 'illinois', 'Illinois Residency Review',
            'Moving to a no-estate-tax state saves no income tax (IL already exempts retirement income) but can avoid IL estate tax',
            'Relocation costs',
-           (f"~${_cst['tax_saved']:,.0f} IL estate tax if the estate exceeds ${_cst['state_exemption']:,.0f}; "
-            f"no income tax savings" if _cst else 'See Sheet 13'), 'Sheet 13'),
+           # The avoided tax here is the state estate tax on the WHOLE
+           # projected estate, not the CST's marginal shelter -- reusing
+           # tax_saved for it (as this row previously did) understated it.
+           (f"~${_cst['estate_tax_without_cst']:,.0f} IL estate tax on the projected "
+            f"${_cst['projected_estate']:,.0f} estate vs. the ${_cst['state_exemption']:,.0f} "
+            f"exemption; no income tax savings" if _cst else 'See Sheet 13'), 'Sheet 13'),
     ]
     _tlh_rec = _tlh_recommendation_row(c, rows, 0)
     if _tlh_rec:
@@ -258,9 +283,17 @@ def build_sheet1(ws, c, rows, mc_data, ss_sweep=None):
             write_cell(ws, r, i, val, bold=(i==1), align='left' if i>1 else 'center')
         r+=1
 
-    # Release notes
+    # Assumptions used in this build. Formerly headed "Release Notes", which
+    # reads like a software changelog and is not what this block contains --
+    # it is build provenance plus two modelling assumptions (finding D4,
+    # SYSTEM_REVIEW_2026-08-31). The bullets are audited for internal config
+    # paths at the same time: the auto-depreciation CSV pointer
+    # ("Other Assets > Autos > depreciation_years") is genuinely useful to a
+    # maintainer, so it moved to the QC sheet's Modeling Adjustments table
+    # (sheets_qc_reference.build_sheet21) rather than being deleted. No other
+    # bullet here names a file, CSV field, table, or code path.
     r+=1
-    write_cell(ws, r, 1, 'Release Notes', bold=True, bg=LGRAY)
+    write_cell(ws, r, 1, 'Assumptions Used in This Build', bold=True, bg=LGRAY)
     ws.merge_cells(start_row=r,start_column=1,end_row=r,end_column=6)
     r+=1
     _pricing_label, _pricing_note = _workbook_pricing_source_label()
@@ -268,7 +301,7 @@ def build_sheet1(ws, c, rows, mc_data, ss_sweep=None):
         f"Built: {datetime.date.today()}",
         f"Workbook pricing source: {_pricing_label}. {_pricing_note}",
         "Annuity Model: Age-86 principal recovery; 20% dividends reinvested, 80% cash; flat guaranteed payment continues post-recovery",
-        "Auto Depreciation: Straight-line over 7 years (CSV: Other Assets > Autos > depreciation_years)",
+        "Auto Depreciation: Straight-line over 7 years",
     ]
     for note in notes:
         write_cell(ws, r, 1, note, bg=GRAY)

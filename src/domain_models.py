@@ -26,10 +26,7 @@ def _s(value: Any) -> str:
 
 
 def decimal_value(value: Any, default: Decimal = Decimal("0")) -> Decimal:
-    try:
-        from .money import decimal_from_user_value
-    except ImportError:  # pragma: no cover
-        from src.money import decimal_from_user_value
+    from .money import decimal_from_user_value
     return decimal_from_user_value(value, default)
 
 

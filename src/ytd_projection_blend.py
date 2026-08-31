@@ -59,12 +59,8 @@ from pathlib import Path
 from . import platform_runtime as _platform_runtime
 from typing import Any
 
-try:
-    from .ytd_tracking import ytd_summary, annual_spending_forecast
-    from .spending_tracker import ytd_core_spending_actual, ytd_actual_by_tracking_type
-except ImportError:  # pragma: no cover - direct execution fallback
-    from src.ytd_tracking import ytd_summary, annual_spending_forecast
-    from src.spending_tracker import ytd_core_spending_actual, ytd_actual_by_tracking_type
+from .ytd_tracking import ytd_summary, annual_spending_forecast
+from src.spending_tracker import ytd_core_spending_actual, ytd_actual_by_tracking_type
 
 # Tracking types whose current-year recurring extra (the cash flow "Travel"
 # column) is floored at spent-so-far + the budgeted remainder of the year. Only
@@ -91,10 +87,7 @@ def _data_elapsed_fraction(plan_root, year: int, fallback: float) -> float:
     if plan_root is None:
         return max(1e-9, fallback)
     try:
-        try:
-            from .spending_tracker import load_transactions, _annualization_period_days
-        except ImportError:  # pragma: no cover - direct execution fallback
-            from src.spending_tracker import load_transactions, _annualization_period_days
+        from .spending_tracker import load_transactions, _annualization_period_days
         txns = load_transactions(plan_root, year)
         if not txns:
             return max(1e-9, fallback)

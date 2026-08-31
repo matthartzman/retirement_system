@@ -55,10 +55,7 @@ def _root(root: Path | None = None) -> Path:
     base = os.environ.get("RETIREMENT_SYSTEM_BASE_DIR")
     if base:
         return Path(base)
-    try:
-        from .platform_runtime import workspace_root
-    except ImportError:  # pragma: no cover - direct execution fallback
-        from src.platform_runtime import workspace_root
+    from .platform_runtime import workspace_root
     return workspace_root()
 
 

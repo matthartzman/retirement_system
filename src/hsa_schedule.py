@@ -454,10 +454,7 @@ def _irmaa_tiers_for(filing: str) -> Sequence[Sequence[float]]:
     unrecognized status still falls back to MFJ -- the conservative direction,
     since MFJ is what an unlabeled row already defaults to.
     """
-    try:
-        from .taxes import IRMAA_TIERS_BASE_YEAR
-    except ImportError:  # pragma: no cover - direct execution fallback
-        from src.taxes import IRMAA_TIERS_BASE_YEAR
+    from .taxes import IRMAA_TIERS_BASE_YEAR
     for key, tiers in IRMAA_TIERS_BASE_YEAR.items():
         if key.upper() == filing:
             return tiers
@@ -1394,10 +1391,7 @@ def _hsa_terminal_tax(c: Mapping[str, Any], balance: float, year: int) -> float:
     Zero for a spouse or charity beneficiary -- which is the schema default --
     because those inherit the account AS an HSA with no tax event at all.
     """
-    try:
-        from .after_tax import hsa_terminal_tax
-    except ImportError:  # pragma: no cover - direct execution fallback
-        from src.after_tax import hsa_terminal_tax
+    from .after_tax import hsa_terminal_tax
     return max(0.0, _as_float(hsa_terminal_tax(c, balance, terminal_year=year), 0.0))
 
 

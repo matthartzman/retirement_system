@@ -7,20 +7,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
-try:
-    from ..schema_registry import validate_rows as _schema_validate_rows
-except ImportError:  # pragma: no cover - direct execution fallback
-    from src.schema_registry import validate_rows as _schema_validate_rows
+from ..schema_registry import validate_rows as _schema_validate_rows
 
-try:
-    from ..report_package import REPORT_PACKAGE_FILENAME
-except ImportError:  # pragma: no cover - direct execution fallback
-    from src.report_package import REPORT_PACKAGE_FILENAME
+from ..report_package import REPORT_PACKAGE_FILENAME
 
-try:
-    from . import build_job_service
-except ImportError:  # pragma: no cover - direct execution fallback
-    from src.server_services import build_job_service
+from . import build_job_service
 
 
 _QC_RE = re.compile(r"QC:\s*(\d+)\s*/\s*(\d+)\s+PASS")
