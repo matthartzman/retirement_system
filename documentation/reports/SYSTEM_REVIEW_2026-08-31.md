@@ -600,6 +600,8 @@ The problems are not "this system is bad." They are the accumulated cost of many
 
 **Evidence.** `src/planning_engines.py:1668-1685` — `conversion_window_end_year()` anchors solely to the primary member's date of birth, with no reference to a younger spouse's DOB; enforced at line 1863. The ~30 candidate strategies are all constant-rate across the window — none vary by year or phase. The survivor filing-status switch is already modelled elsewhere in the engine but does not extend this window.
 
+*Added by the planner's review pass:* the bracket-target lookup at `src/planning_engines.py:1872` — `top_target = next((hi for _lo, hi, rate in brk if rate == target_rate), 400000)` — falls back to a hardcoded `400000` bracket top whenever the configured `roth_target_rate` matches no bracket rate. That is a silent wrong answer waiting for a rate typo (or a bracket-table edit), and it is worth fixing while item 3.2 is already inside this function.
+
 **Options.**
 
 | Option | Tradeoff |
@@ -632,7 +634,7 @@ The problems are not "this system is bad." They are the accumulated cost of many
 
 **Options.** (1) Complete the estate-tax mechanism for NY — the graduated table plus the 105%-of-exemption cliff — and audit the other twelve. (2) Expand to all 50 states at flat-rate income-tax fidelity, keeping `not_modeled` honest for unimplemented estate mechanisms. (3) Move the CA/NY bracket tables into a data-driven, dated reference dataset and extend retirement exclusions to age-tiered.
 
-**Recommendation: Option 1 first.** New York's estate cliff is the highest-consequence single omission among states the tool already claims to support — a household just over the exemption faces a discontinuity the tool currently reports as zero. Then Option 2, with Option 3 as the structure that makes the whole thing maintainable.
+**Recommendation: Option 1 first, and Option 1 must include the three-year gift add-back** (see §5.4) — otherwise the cliff calculation completes but still under-reports NY estate tax for any household that gifted within three years of death. New York's estate cliff is the highest-consequence single omission among states the tool already claims to support — a household just over the exemption faces a discontinuity the tool currently reports as zero. Then Option 2, with Option 3 as the structure that makes the whole thing maintainable.
 
 ---
 
@@ -643,9 +645,9 @@ The problems are not "this system is bad." They are the accumulated cost of many
 
 **Options.** (1) Promote guardrails to an adoptable policy selector (fixed real / Guyton-Klinger / floor-ceiling band), running in both engines. (2) Add a simple age-phased real spending curve — discretionary declines X% between ages A and B. (3) Report the shadow more prominently instead of making it adoptable.
 
-**Recommendation: Option 1, with Option 2 as a separate, independent control.** A static-real-spending-forever plan systematically overstates ruin risk, so this affects the headline probability-of-success number directly.
+**Recommendation: Option 1, with Option 2 as a separate, independent control.** A static-real-spending-forever assumption overstates ruin risk for households with meaningful discretionary spending, because it models a retiree who never adjusts. The size of the effect is household-specific. Either way it affects the headline probability-of-success number directly. *(Wording corrected on the planner's review pass — the original "systematically overstates ruin risk" overclaimed a uniform direction and magnitude.)*
 
-**Risk.** Both options make plans look better. Pair either with **mandatory disclosure of the modelled spending cut's size and duration** — otherwise the tool is trading an honest pessimism for a hidden optimism.
+**Risk.** Both options make plans look better. Pair either with **mandatory disclosure of the modelled spending cut's size and duration** — otherwise the tool is trading an honest pessimism for a hidden optimism. Note further that under any policy other than fixed-real, "probability of success" silently changes meaning: it becomes *survived having cut* rather than *funded as asked*, while reporting the same percentage. See §5.4 for the disclosure this requires.
 
 ---
 
@@ -678,7 +680,7 @@ The problems are not "this system is bad." They are the accumulated cost of many
 
 **Options.** (1) Add IRA basis (pro-rata) and an inherited-IRA type, both defaulting to today's behaviour. (2) Add a trust tax-schedule branch. (3) Make unmodelled types explicit and blocking rather than silently misclassified.
 
-**Recommendation: Option 3 first as a guardrail, then Option 1.** Silent misclassification is the immediate danger: a user can type an account name the tool does not know, get a fully confident plan, and never learn it was modelled as the wrong tax type.
+**Recommendation: Option 3 first as a guardrail, then Option 1.** Silent misclassification is the immediate danger: a user can type an account name the tool does not know, get a fully confident plan, and never learn it was modelled as the wrong tax type. **This is the only finding in the entire review that produces a wrong answer today, silently, and it is S effort with no prerequisite — so the guardrail is scheduled in Wave 1 (item 1.16), beside the other silent-wrongness fix, 1.10.** Whether it blocks outright or warns first for already-saved plans is an open question in the appendix.
 
 ---
 
@@ -711,7 +713,7 @@ The problems are not "this system is bad." They are the accumulated cost of many
 
 **Options.** (1) A new tax-capacity worksheet — one row per year, all headroom types plus actions taken. (2) Add capacity columns to the existing (already very wide) tax sheet. (3) An in-app single-year capacity panel rather than a workbook sheet.
 
-**Recommendation: Option 1 as a new sheet.** This has the highest ratio of planner value to engineering cost in the entire review — the data is already computed, it is merely scattered.
+**Recommendation: Option 1 as a new sheet.** This has the highest ratio of planner value to engineering cost in the entire review — the data is already computed, it is merely scattered. **It derives nothing new and has no prerequisite, so it is scheduled in Wave 1 (item 1.17), not mid-Wave-2** — the earlier draft placed it in Wave 2, which contradicted this priority claim.
 
 ---
 
@@ -722,7 +724,7 @@ The problems are not "this system is bad." They are the accumulated cost of many
 
 **Options.** (1) Archive each build's KPI snapshot and diff outcomes with attribution (market / spending / assumption). (2) Snapshot-only comparison, no attribution. (3) Extend YTD tracking to multi-year actuals.
 
-**Recommendation: Option 2 first, then Option 1's attribution once a real snapshot series exists.** Attribution logic built before any snapshots exist cannot be validated.
+**Recommendation: Option 2 first, then Option 1's attribution once a real snapshot series exists.** Attribution logic built before any snapshots exist cannot be validated. **Schedule the snapshot archive itself in Wave 1 (item 1.15), not Wave 3** — four items in this programme move the headline probability of success, and a snapshot archive installed after those movements cannot explain any of them. It is an instrument, not a payoff. See §3.2.
 
 ---
 
@@ -747,6 +749,9 @@ U2 recommends removing the fixed 370px help column entirely, on the grounds that
 A4 recommends gating sweeps on need and making the SS grid coarse-then-refine, to cut roughly 20,000 projections per build. F3 wants the Roth conversion window extended to plan end (a wider candidate space), and F11 wants the SS winner's neighbourhood re-scored at three longevity assumptions (3× the cost in that neighbourhood). These pull in opposite directions on the same compute budget.
 
 *Resolution: the conflict is real but it is sequenced away, and the sequencing is the single most important insight in this section.* A1 (flip the default to the vectorized engine) and A4 (gate the sweeps) together reduce the per-build cost by roughly an order of magnitude — the 200-sim Monte Carlo under `exact_scalar` costs 200 full projections per candidate, and both the engine flip and the gating attack that multiplier. **The freed budget is exactly what F3 and F11 want to spend.** So: do A1 and A4 *first*, and the planner's richer analyses become affordable without a regression in build time. Attempting F3 or F11 before A1/A4 would make an already-slow build materially worse and would likely be rejected on performance grounds — which is how good planning proposals get killed by unrelated architecture. Order matters more than priority here.
+
+**A precondition that is easy to mis-schedule: KPI snapshotting comes before the number-moving work, not after it.**
+Four separate items move the headline probability of success — 1.1 (the engine-default flip), 3.2 (the extended conversion window), 3.4 (the bracket-target withdrawal policy) and 3.5 (the adoptable spending policy). F13's build KPI snapshot archive is the only mechanism in the system that can later explain *why* the number moved, and a snapshot archive is worthless for a flip that already happened. It is therefore a **precondition of the number-moving work, not a payoff of it**, and is scheduled as Wave 1 item 1.15 rather than in Wave 3. This was the planner's first blocking edit and it is correct.
 
 A secondary note on this resolution: A4's coarse-then-refine SS grid and F11's "re-run the winner's neighbourhood at three longevity assumptions" are *the same mechanism*. A coarse-then-refine sweep already has a "refine the neighbourhood of the winner" phase. F11's longevity sensitivity should be implemented as a second dimension of that refine phase, not as a separate pass. This makes the two findings cheaper together than either is alone.
 
@@ -779,11 +784,11 @@ Four findings, one piece of work. It is the first thing to do after the engine d
 
 **A single coherent programme in three waves, sequenced so that architecture work pays for the planning work that follows it.**
 
-*Wave 1 — make the ground safe and take the free wins.* Flip the Monte Carlo default to the engine that is actually tested, and add the fidelity-tolerance test that makes exact-scalar a validation oracle instead of an untested shipping path. Fix the five tests that assert against a commented-out block. Delete the provably dead scaffolding. In parallel, take the cheap high-value user-facing fixes that touch nothing structural: the glossary wiring, the collapsed allocation-policy disclosure, the grid overflow breakpoint, the source-of-truth banner jargon, the fabricated CST savings figure. Independently, extract characterization tests from golden-master fixture data so the engine work in Wave 2 has a safety net.
+*Wave 1 — make the ground safe, install the instrument, and take the free wins.* Stand up the build KPI snapshot archive **first**, so that every subsequent change to the headline number is attributable in a series rather than asserted. Flip the Monte Carlo default to the engine that is actually tested, and add the fidelity-tolerance test that makes exact-scalar a validation oracle instead of an untested shipping path. Fix the five tests that assert against a commented-out block. Delete the provably dead scaffolding. Close the one finding that produces a wrong answer *today, silently* — the account-taxonomy guardrail. Ship the tax-capacity worksheet, which derives nothing new and has no prerequisite. In parallel, take the cheap high-value user-facing fixes that touch nothing structural: the glossary wiring, the collapsed allocation-policy disclosure, the grid overflow breakpoint, the source-of-truth banner jargon, and the whole fabricated-CST recommendation row. Independently, extract characterization tests from golden-master fixture data so the engine work in Wave 2 has a safety net.
 
-*Wave 2 — extract the kernel, gate the sweeps, fix the modelling errors.* Extract the tax kernel (serving A2, A6, Q3 and A9 simultaneously). Extract the shared sweep runner with need-based gating built in. Fix the internal contradictions the planner found: the exemption threaded through all three consumers, the two step-up fractions reconciled, the account-taxonomy guardrail against silent misclassification, the Joint Life RMD table. Add the tax-capacity worksheet — the highest value-to-cost ratio item in the review. Build the real integration and error-path test layers.
+*Wave 2 — extract the kernel, gate the sweeps, fix the modelling errors.* Extract the tax kernel (serving A2, A6, Q3 and A9 simultaneously). Extract the shared sweep runner with need-based gating built in. Fix the internal contradictions the planner found: the exemption threaded through all three consumers, the two step-up fractions reconciled, the Joint Life RMD table. Generalize Wave 1's CST materiality predicate to the remaining recommendation rows (LTC, S-Corp, QTIP). Build the real integration and error-path test layers.
 
-*Wave 3 — spend the budget the first two waves created.* Extend the Roth conversion window and add phase candidates. Fix the heir tax model. Add the bracket-target hybrid withdrawal policy. Add the adoptable spending policy with mandatory cut disclosure. Complete New York's estate tax. Add the SS breakeven presentation and longevity refinement. Continue the engine decomposition into real pipeline stages, and continue converting frontend leaves to real imports.
+*Wave 3 — spend the budget the first two waves created.* Extend the Roth conversion window and add phase candidates. Fix the heir tax model. Add the bracket-target hybrid withdrawal policy. Add the adoptable spending policy with mandatory cut disclosure *and* the conditional-success relabelling it requires. Complete New York's estate tax, including the three-year gift add-back. Add the SS breakeven presentation and longevity refinement. Continue the engine decomposition into real pipeline stages, and continue converting frontend leaves to real imports.
 
 ### What this plan is deliberately NOT doing, and why
 
@@ -838,7 +843,7 @@ Four findings, one piece of work. It is the first thing to do after the engine d
 ### 5.3 Content and wording
 
 - `addParentheticals` applied to `pageHelp()`'s `meaning`, `connections`, `options` and `impact` fields, and to KPI tile labels in `frontend/js/dashboard_decomp_home_panels.js`.
-- `TERM_NOTES` gains entries for "probability of success" (currently absent from `TERM_NOTES`, `ACRONYM_DEFINITIONS` and `src/glossary.py` alike) and "advisor-ready".
+- `TERM_NOTES` gains entries for "probability of success" (currently absent from `TERM_NOTES`, `ACRONYM_DEFINITIONS` and `src/glossary.py` alike) and "advisor-ready". **The "probability of success" wording is specified now rather than left to Wave 3**, so that it survives the later changes that alter what the number means: it must say the figure is *the share of simulated paths that funded the plan under this plan's assumptions* — not a general or industry figure — and the **same string** must be used for the `TERM_NOTES` entry and for the new KPI-tile tooltip, so the two surfaces cannot drift. When item 3.5 lands, that same string is what gains the conditional-success qualifier described in §5.4.
 - Of the ten `SOURCE_TRUTH_STEPS` banners in `frontend/js/dashboard_source_truth_banners.js:3-24`: delete those that state only storage mechanics; rewrite `build_impact` and `review` in outcome language ("this is a preview until you Save"). No banner mentions SQLite, adapters, or a CSV filename.
 - `src/reporting/sheets_summary_builder.py:271`: the `(CSV: Other Assets > Autos > depreciation_years)` parenthetical moves to the QC/Reference sheet. The "Release Notes" section is renamed to match its actual content (modelling assumptions and build provenance), and its other three bullets are audited at the same time.
 - `documentation/readme/README.md` gains a two-line end-user section above the developer commands.
@@ -848,19 +853,25 @@ Four findings, one piece of work. It is the first thing to do after the engine d
 
 **Materiality predicates (shared).** A single function answering: projected gross estate at each death, applicable federal and state exemption for that year net of lifetime exemption already consumed, and the resulting exposure. Consumed by the Executive Summary recommendation gate, the CST savings figure, the Roth optimizer's estate penalty, and `estimate_terminal_estate_tax` — the three consumers that currently disagree (F7).
 
-**CST savings.** Replaces `sheltered * 0.08` at `src/reporting/summary_figures.py:106`. Must compute the actual `illinois_estate_tax()` delta with and without the trust, and must return *no figure at all* when the projected estate does not exceed the applicable exemption. A recommendation with no material value shows as "reviewed — not material for this household", not as a dollar amount.
+**CST savings and the CST recommendation row.** Replaces `sheltered * 0.08` at `src/reporting/summary_figures.py:106`. Must compute the actual `illinois_estate_tax()` delta with and without the trust, and must return *no figure at all* when the projected estate does not exceed the applicable exemption. **The same predicate must also suppress the recommendation row itself** — fixing only the figure while leaving the boolean gate for a later wave would publish an unqualified bare recommendation with no number attached, which is worse than the fabricated number it replaced. A recommendation with no material value shows as "reviewed — not material for this household", not as a dollar amount and not as a bare row. Item 2.11 then *generalizes this same predicate* to the LTC, S-Corp and QTIP rows; it does not introduce it.
 
-**Roth conversion window.** `conversion_window_end_year()` extends to plan end rather than the primary member's RMD age, and considers both members' dates of birth. Candidate set gains phase-varying strategies ("fill bracket X until SS claim, then bracket Y"). The existing guardrails must be verified to fire correctly in late years *before* the window is widened — an unguarded late conversion can raise Medicare premiums.
+**Roth conversion window.** `conversion_window_end_year()` extends to plan end rather than the primary member's RMD age, and considers both members' dates of birth — **and must remain open through the survivor's single-filer years, which the engine already models elsewhere.** The widow's-bracket case is a filing-status transition, not merely a date-of-birth one, and it is the more valuable of the two windows. **Both existing window controls (`roth_max_conversion_years`, `conv_window_offset`) remain authoritative when explicitly set; the extension changes only the default.** Candidate set gains phase-varying strategies ("fill bracket X until SS claim, then bracket Y"). The hardcoded `400000` bracket-top fallback at `src/planning_engines.py:1872` is replaced with an explicit error or a nearest-bracket resolution while this function is open. The existing guardrails must be verified to fire correctly in late years *before* the window is widened — an unguarded late conversion can raise Medicare premiums.
 
-**Heir tax model.** `effective_heir_ten_year_rate()` gains per-beneficiary baseline ordinary income, state of residence, and a beneficiary class (spouse / minor child / disabled or chronically ill / less-than-ten-years-younger / other). All default to today's values so existing plans do not move. Eligible designated beneficiaries take the life-expectancy stretch, not the 10-year rule.
+**Heir tax model.** `effective_heir_ten_year_rate()` gains per-beneficiary baseline ordinary income, state of residence, and a beneficiary class (spouse / minor child / disabled or chronically ill / less-than-ten-years-younger / other). Eligible designated beneficiaries take the life-expectancy stretch, not the 10-year rule. **Baseline income and state default to today's values. Beneficiary class defaults to the class inferred from the account's existing beneficiary and titling data where that data exists**; plans whose after-tax legacy figure moves as a result should be flagged in the build notes as a **correction, not suppressed**. *(Corrected on the planner's review pass: the earlier "all default to today's values so existing plans do not move" framing was right for baseline income and state but wrong for beneficiary class — today's default of "everyone gets the 10-year rule" is legally incorrect for spouse, minor-child, disabled-or-chronically-ill, and less-than-ten-years-younger beneficiaries, so preserving it is preserving a known-wrong answer.)*
 
 **Bracket-target withdrawal policy.** A policy option that fills ordinary income to a configured target bracket from pre-tax accounts, then draws taxable, then follows the existing cascade. Implemented inside the existing true-up rather than replacing it. This is the policy most CFPs actually implement, and it is the 80% case of arbitrary reordering.
 
-**Adoptable spending policy.** A selector: fixed-real (today's behaviour, remains the default), Guyton-Klinger guardrails, or a floor-ceiling band. The chosen policy runs in *both* the deterministic and Monte Carlo engines, and the shadow portfolio in `src/planning_engines.py` becomes the live one. Mandatory output: the size and duration of every modelled spending cut. Separately, an optional age-phased real spending curve (discretionary declines X% between ages A and B).
+**Adoptable spending policy.** A selector: fixed-real (today's behaviour, remains the default), Guyton-Klinger guardrails, or a floor-ceiling band. The chosen policy runs in *both* the deterministic and Monte Carlo engines, and the shadow portfolio in `src/planning_engines.py` becomes the live one. Mandatory output: the size and duration of every modelled spending cut.
+
+**Mandatory relabelling when a non-fixed-real policy is active.** When any policy other than fixed-real is selected, the probability-of-success label and its glossary note must state that success is **conditional on the modelled spending cuts**, and the KPI tile must display **the worst modelled cut alongside the percentage**. Without this, the same percentage silently changes meaning — *survived having cut* rather than *funded as asked* — with no signal to the reader that it did. This is the same string specified in §5.3, gaining a qualifier; it is not a second, separately authored sentence.
+
+Separately, an optional age-phased real spending curve (discretionary declines X% between ages A and B).
+
+**New York estate tax.** `state_estate_tax()` gains the real NY mechanism — the graduated rate table plus the 105%-of-exemption cliff — replacing `estate_calc='not_modeled'` for NY only. **This must include the three-year gift add-back**, which brings prior taxable gifts back into the NY gross estate. That add-back consumes the same lifetime-gift series threaded in F7 (item 2.6, already 3.6's prerequisite), so the data is available. Without it, the cliff calculation completes but still under-reports NY estate tax for any household that gifted late — which is precisely the household most likely to be sitting near the cliff.
 
 **Tax-capacity worksheet (new sheet).** One row per projection year. Columns: ordinary income, remaining headroom to the next federal bracket, remaining 0% LTCG headroom, distance to the next IRMAA tier, distance to the ACA cliff (during bridge years), remaining QCD capacity, and the actions actually taken that year (conversion, harvest, QCD). Every value is already computed somewhere; this sheet consolidates rather than derives.
 
-**RMD Joint Life table.** `rmd_divisor()` takes a spouse age and sole-beneficiary flag, applying the Joint Life table when the sole beneficiary spouse is more than ten years younger, with an age-gap fallback when titling is not explicit.
+**RMD Joint Life table.** `rmd_divisor()` (`src/core.py:754`) takes a spouse age and sole-beneficiary flag, applying the Joint Life table when the sole beneficiary spouse is more than ten years younger, with an age-gap fallback when titling is not explicit. While the function is open, confirm that its **hardcoded age-72 floor cannot fire ahead of `statutory_rmd_start_age()`** — the latter implements the SECURE 2.0 §107 73/75 ramp, and the two are currently independent constants in the same module. This is a pure age-keyed table lookup and has **no dependency on the tax-kernel extraction**.
 
 **SS breakeven and longevity.** A cumulative breakeven presentation over the rows the 81-pair sweep already computes (essentially free), plus a refine pass re-scoring the winner's neighbourhood at three longevity assumptions — implemented as a second dimension of `strategy_sweep`'s refine phase, not a separate sweep.
 
@@ -891,7 +902,7 @@ Effort scale: **S** ≤ 1 day · **M** ≈ 2–5 days · **L** ≈ 1–2 weeks �
 
 | # | Item | Finding | Prereq | Effort | Risk | Verification | Parallel? |
 |---|---|---|---|---|---|---|---|
-| 1.1 | Flip MC default to `quick_vectorized`; add exact-scalar fidelity-tolerance test | A1 | — | M | **High** | Before/after projection diff on the demo plan, reviewed and signed off by a planner. Golden master will NOT catch this — it already runs vectorized. | Yes |
+| 1.1 | Flip MC default to `quick_vectorized`; add exact-scalar fidelity-tolerance test | A1 | — | M | **High** | Before/after projection diff on the demo plan, reviewed and signed off by a planner. Golden master will NOT catch this — it already runs vectorized. KPI snapshot archive (1.15) in place so the flip is attributable in the series. Tolerance answered per appendix Q3 before starting. | Yes |
 | 1.2 | Repoint 5 marker tests at real `frontend/` files; delete `src/dashboard_ui/template.py` | A14 | — | S | Low | The 5 tests fail if the corresponding frontend feature is removed (verify by temporary deletion). | Yes |
 | 1.3 | Delete `src/server/features/` (8 modules, zero importers) + tier-1 dead scaffolding | A8 | 1.2 | S | Low | Full suite green; grep confirms zero remaining references, including through `from ..core import *`. | Yes |
 | 1.4 | Remove the 80-block dual-import shim via codemod; add a lint rule | A10 | — | M | Low | Full suite green; PyInstaller build succeeds; a deliberate broken transitive import now fails loudly rather than silently. | Yes |
@@ -900,13 +911,21 @@ Effort scale: **S** ≤ 1 day · **M** ≈ 2–5 days · **L** ≈ 1–2 weeks �
 | 1.7 | `<details open>` on allocation policy | U5 | — | S | None | Policy fields visible on first render of `allocation_assets`. | Yes |
 | 1.8 | Spending "Exceptions" filter chip | U3 | — | S | Low | With one over-budget category in a 6×4 household, it is reachable in one click. | Yes |
 | 1.9 | Source-of-truth banners: delete mechanics-only, rewrite `build_impact` / `review` | D3 | — | M | Low | No banner contains "SQLite", "adapter", or a `.csv` filename. | Yes |
-| 1.10 | Fix the fabricated CST savings figure | F2 (partial) | — | S | Medium | `src/reporting/summary_figures.py` no longer returns a dollar figure when the projected estate is below the exemption; a hand-worked household reproduces the `illinois_estate_tax()` delta. | Yes |
+| 1.10 | Fix the fabricated CST savings figure **and suppress the CST recommendation row when the projected estate is below the applicable exemption** | F2 (partial) | — | S | Medium | `src/reporting/summary_figures.py` no longer returns a dollar figure when the projected estate is below the exemption, **and the row itself does not render** — no bare unqualified recommendation is left behind; a hand-worked household reproduces the `illinois_estate_tax()` delta. | Yes |
 | 1.11 | Release-notes config-path relocation + section rename + bullet audit | D4 | — | S | Low | Sheet 1 contains no CSV path; the QC sheet does. | Yes |
 | 1.12 | LTCG cross-implementation equivalence test (diagnostic only) | A6 | — | S | None | The test either passes (A6 is a refactor) or fails (A6 is a bug fix). **This result determines Wave 2 scope.** | Yes |
 | 1.13 | Characterization tests extracted from golden-master fixture data for `taxes.py`, `after_tax.py`, `gain_harvest.py`, `tlh.py` | Q3 | — | M | Low | Each module has a test that fails on a deliberately introduced one-cent change. | Yes |
 | 1.14 | Merge 8 admin functional files → 1; merge 2 Roth UI files | Q1, Q2 | — | M | Low | Assertion count preserved or deliberately reduced with each removal justified. | Yes |
+| 1.15 | Build KPI snapshot archive + comparison view *(moved from Wave 3 item 3.9)* | F13 | — | M | Low | Two builds a week apart produce a comparable KPI series. **Must exist before 1.1, 3.2, 3.4 and 3.5 land**, since those four move the headline probability of success and this is the only mechanism that can explain why. | Yes |
+| 1.16 | Account-taxonomy guardrail: unrecognized account names error rather than silently becoming `taxable` *(moved from Wave 2 item 2.8)* | F9 | — | S | Medium | An unknown account name produces a clear user-facing error, not a confident plan. | Yes |
+| 1.17 | Tax-capacity worksheet (new sheet) *(moved from Wave 2 item 2.10)* | F12 | — | M | Low | One row per year; every headroom figure reconciles against its existing source sheet. When 2.1 lands, the sheet's bracket/IRMAA/LTCG reads are repointed at `tax_kernel` — no figures should move. | Yes |
 
-**All 14 Wave 1 items can run concurrently** — they touch disjoint files. 1.3 waits only on 1.2 (which deletes `template.py`). 1.1 is the only high-risk item and should not be batched with others in the same review.
+**All 17 Wave 1 items can run concurrently** — they touch disjoint files. 1.3 waits only on 1.2 (which deletes `template.py`). 1.1 is the only high-risk item and should not be batched with others in the same review.
+
+**Why 1.15, 1.16 and 1.17 are here rather than in later waves** (all three moved on the planner's review pass):
+- **1.15 (KPI snapshots)** is an instrument, and an instrument installed after the measurement is worthless. Four items in this programme move the flagship percentage; this is the only one that records the series they move through.
+- **1.16 (account-taxonomy guardrail)** is the sole finding in the entire review that produces a **wrong answer today, silently** — an unrecognized account name is modelled as `taxable` and the user is never told. It is S effort with no prerequisite; there is no defensible reason it waits a wave. It belongs beside 1.10, the other silent-wrongness fix.
+- **1.17 (tax-capacity worksheet)** is called the highest planner-value-to-engineering-cost item in the review (§2.5 F12). It derives nothing new and has no prerequisite. Scheduling it mid-Wave-2 contradicted the document's own priority claim.
 
 ### Wave 2 — Kernel, sweeps, and modelling corrections
 
@@ -914,15 +933,15 @@ Effort scale: **S** ≤ 1 day · **M** ≈ 2–5 days · **L** ≈ 1–2 weeks �
 |---|---|---|---|---|---|---|---|
 | 2.1 | Extract `src/tax_kernel.py`; repoint `core.py:1295`, `deterministic_engine.py:476`, `tlh.py:159` | A2, A6, A9 | 1.12, 1.13 | L | **High** | Golden master green **or** an explained, signed-off diff if 1.12 showed the inflation indices diverge. Kernel gets hand-computed unit tests. | No — everything downstream waits on it |
 | 2.2 | Register the tax stage in `STAGE_IMPLEMENTATIONS`; delete the dead branch and per-row dict copy | A9 | 2.1 | S | Low | `STAGE_IMPLEMENTATIONS` non-empty; the previously unreachable branch now executes. | No |
-| 2.3 | Extract `src/strategy_sweep.py` with need-based gating; adopt at 3 call sites | A4 | 1.1 | L | **High** | Build wall-clock time measured before/after. Recommended strategy unchanged on the frozen fixture, or the change is planner-signed-off. | Yes (with 2.4–2.8) |
+| 2.3 | Extract `src/strategy_sweep.py` with need-based gating; adopt at 3 call sites | A4 | 1.1 | L | **High** | Build wall-clock time measured before/after. Recommended strategy unchanged on the frozen fixture, or the change is planner-signed-off. | Yes (with 2.4–2.7) |
 | 2.4 | Retire JSON/YAML config backends | A3 | — | S | Low | `_sync_config_backends()` writes 3 stores, not 4; suite green. | Yes |
 | 2.5 | Collapse the two SQLite stores into one | A3 | 2.4 | L | **High** | `test_real_build_journey_reflects_a_user_edited_input` green (this is the test that caught the prior revert); per-field save latency measured. | No — sequence after 2.4 |
 | 2.6 | Thread lifetime exemption through all 3 estate consumers | F7 | — | S | Medium | All three consumers report the same remaining exemption for a household with lifetime gifts. | Yes |
 | 2.7 | Reconcile the two step-up fractions; default joint accounts to JTWROS; add the titling audit prompt | F8 | — | M | Medium | `planning_engines.py:430` and `after_tax.py:363` agree; first-death outcome no longer depends on which spouse dies first. | Yes |
-| 2.8 | Account-taxonomy guardrail: unrecognized account names error rather than silently becoming `taxable` | F9 | — | S | Medium | An unknown account name produces a clear user-facing error, not a confident plan. | Yes |
-| 2.9 | RMD Joint Life table with age-gap fallback | F10 | 2.1 | S | Medium | A 12-year age gap produces the Joint Life divisor; golden master diff explained. | Yes |
-| 2.10 | Tax-capacity worksheet (new sheet) | F12 | — | M | Low | One row per year; every headroom figure reconciles against its existing source sheet. | Yes |
-| 2.11 | Materiality gating for Executive Summary recommendations; top-N ranking with "reviewed, not material" | F2 | 1.10, 2.6 | M | Medium | The CST recommendation does not fire for a household well under the exemption. | No — after 1.10 and 2.6 |
+| 2.8 | *(moved to Wave 1 as item 1.16 — number retired, not reused, so existing cross-references stay unambiguous)* | F9 | — | — | — | — | — |
+| 2.9 | RMD Joint Life table with age-gap fallback; **confirm the age-72 floor in `rmd_divisor` (`src/core.py:754`) cannot fire ahead of `statutory_rmd_start_age`** (SECURE 2.0 73/75 ramp) | F10 | — | S | Medium | A 12-year age gap produces the Joint Life divisor; no owner receives an RMD before their statutory start age; golden master diff explained. | **Yes** |
+| 2.10 | *(moved to Wave 1 as item 1.17 — number retired, not reused)* | F12 | — | — | — | — | — |
+| 2.11 | **Generalize 1.10's materiality predicate** to the remaining Executive Summary recommendations (LTC, S-Corp, QTIP); top-N ranking with "reviewed, not material" | F2 | 1.10, 2.6 | M | Medium | No recommendation row fires for a household well under the relevant threshold; the CST row (already gated in 1.10) is refactored onto the shared predicate rather than re-implemented. | No — after 1.10 and 2.6 |
 | 2.12 | Cross-layer integration tests (route → service → engine → response) | Q7 | — | M | Low | 10+ integration tests; a deliberately broken service-layer contract is caught without a subprocess build. | Yes |
 | 2.13 | Error-path tests: build-failure surfacing and malformed-input rejection | Q5 | — | M | Low | A crashed build subprocess produces an asserted user-visible error state. | Yes |
 | 2.14 | 3 new e2e specs: new-plan-creation, admin-config-change, build-failure | Q4 | 2.13 | M | Low | 16 specs green in CI. | No — after 2.13 |
@@ -934,28 +953,28 @@ Effort scale: **S** ≤ 1 day · **M** ≈ 2–5 days · **L** ≈ 1–2 weeks �
 | 2.20 | Coordination summary cards on income/strategy pages | U4 | — | L | Low | Claim ages and conversion policy visible without leaving the income page. | Yes |
 | 2.21 | End-user section in the shipped README | D6 | — | S | None | README's first section is meaningful to someone running the packaged app. | Yes |
 
-**Concurrency inside Wave 2:** 2.1 runs alone and first (everything with a tax dependency waits). Once 2.1 lands, three independent tracks run in parallel — *engine/sweep* (2.2, 2.3, 2.9), *data and modelling* (2.4→2.5, 2.6→2.11, 2.7, 2.8, 2.10), *tests and UI* (2.12, 2.13→2.14, 2.15, 2.16, 2.17, 2.18, 2.19, 2.20, 2.21). 2.5 must follow 2.4; 2.11 must follow both 1.10 and 2.6; 2.14 must follow 2.13.
+**Concurrency inside Wave 2:** 2.1 runs alone and first (everything with a *tax-kernel* dependency waits). Once 2.1 lands, three independent tracks run in parallel — *engine/sweep* (2.2, 2.3), *data and modelling* (2.4→2.5, 2.6→2.11, 2.7), *tests and UI* (2.12, 2.13→2.14, 2.15, 2.16, 2.17, 2.18, 2.19, 2.20, 2.21). **2.9 no longer waits on 2.1 and can start immediately** — `rmd_divisor` is a pure table lookup keyed on owner age (`src/core.py:754`) and touches none of the tax kernel's bracket, IRMAA or LTCG closures; the earlier prerequisite was an error, corrected on the planner's review pass. 2.5 must follow 2.4; 2.11 must follow both 1.10 and 2.6; 2.14 must follow 2.13. Items 2.8 and 2.10 have moved to Wave 1.
 
 ### Wave 3 — Spend the budget
 
 | # | Item | Finding | Prereq | Effort | Risk | Verification | Parallel? |
 |---|---|---|---|---|---|---|---|
-| 3.1 | Verify Roth guardrails fire correctly in late years | F3 (gate) | 2.1 | S | Medium | Guardrails demonstrably fire past RMD age before the window is widened. **Blocks 3.2.** | No |
-| 3.2 | Extend the conversion window to plan end; consider both members' DOB; add phase-varying candidates | F3 | 3.1, 2.3 | L | **High** | Build time within budget post-2.3; recommendation change planner-signed-off. | No |
-| 3.3 | Heir tax model: baseline income, state, beneficiary class, EDB branch | F4 | 2.1 | M | Medium | An EDB beneficiary takes the stretch, not the 10-year rule; existing plans unchanged at default settings. | Yes |
+| 3.1 | Verify Roth guardrails fire correctly in late years, **and verify that post-RMD-age conversion headroom is computed net of the year's RMD** | F3 (gate) | 2.1 | S | Medium | Guardrails demonstrably fire past RMD age before the window is widened. `pre_non_ss` (`src/planning_engines.py:1874`) does include `rmd_total` today, **but this code path has never actually executed in a window extending past RMD age — this needs an explicit test, not an assumption.** **Blocks 3.2.** | No |
+| 3.2 | Extend the conversion window to plan end (default only — `roth_max_conversion_years` and `conv_window_offset` stay authoritative when explicitly set); keep it open through the survivor's single-filer years; consider both members' DOB; add phase-varying candidates; replace the hardcoded `400000` bracket-top fallback at `src/planning_engines.py:1872` | F3 | 3.1, 2.3 | L | **High** | Build time within budget post-2.3; the widow's-bracket years are inside the window for a two-member household; an unmatched `roth_target_rate` now fails loudly instead of defaulting to a 400k bracket top; recommendation change planner-signed-off and visible in the 1.15 KPI series. | No |
+| 3.3 | Heir tax model: baseline income, state, beneficiary class, EDB branch | F4 | 2.1 | M | Medium | An EDB beneficiary takes the stretch, not the 10-year rule. Baseline income and state default to today's values; **beneficiary class defaults to the class inferred from existing beneficiary/titling data where present.** Plans whose after-tax legacy figure moves are flagged in the build notes as a **correction, not suppressed** — "existing plans unchanged" is explicitly *not* the acceptance criterion for the class field. | Yes |
 | 3.4 | Bracket-target hybrid withdrawal policy | F1 | 2.1, 2.2 | L | **High** | The policy produces the intended bracket fill; golden master diff explained; interaction with the Roth optimizer's bracket cap verified. | Yes |
-| 3.5 | Adoptable spending policy selector + mandatory cut disclosure | F6 | 2.1 | M | **High** | Policy runs in both engines; every plan reports modelled cut size and duration. | Yes |
-| 3.6 | Complete the New York estate tax (graduated table + 105% cliff) | F5 | 2.6 | L | Medium | A household just over the NY exemption shows the cliff; `not_modeled` removed for NY only. | Yes |
+| 3.5 | Adoptable spending policy selector + mandatory cut disclosure + **conditional-success relabelling** | F6 | 2.1, 1.5, 1.15 | M | **High** | Policy runs in both engines; every plan reports modelled cut size and duration. **With any non-fixed-real policy active, the probability-of-success label and its glossary note state that success is conditional on the modelled spending cuts, and the KPI tile displays the worst modelled cut alongside the percentage** (same string as 1.5's `TERM_NOTES` entry, qualified — not a second sentence). | Yes |
+| 3.6 | Complete the New York estate tax (graduated table + 105% cliff + **three-year gift add-back**) | F5 | 2.6 | L | Medium | A household just over the NY exemption shows the cliff; a household that gifted within three years of death has those gifts added back into the NY gross estate, consuming the same lifetime-gift series threaded in 2.6; `not_modeled` removed for NY only. | Yes |
 | 3.7 | SS cumulative breakeven presentation | F11 | — | S | Low | Breakeven age shown per claim pair from rows already computed. | Yes |
 | 3.8 | SS longevity refinement as a second refine dimension of `strategy_sweep` | F11 | 2.3, 3.7 | M | Medium | The winner's neighbourhood scored at 3 longevity assumptions; build time within budget. | No — after 2.3 and 3.7 |
-| 3.9 | Build KPI snapshot archive + comparison view | F13 | — | M | Low | Two builds a week apart produce a comparable KPI series. | Yes |
+| 3.9 | *(moved to Wave 1 as item 1.15 — number retired, not reused)* | F13 | — | — | — | — | — |
 | 3.10 | Continue engine decomposition into registered pipeline stages | A2 | 2.1, 2.2 | XL | High | Each extracted stage golden-master-gated; `STAGE_IMPLEMENTATIONS` grows monotonically. | Yes (ongoing) |
 | 3.11 | Frontend: convert leaf modules to real imports bottom-up | A7 | — | L | Medium | The ordered script-tag list in `frontend/index.html` shrinks; the load-order regression test and e2e specs green after each step. | Yes (ongoing) |
 | 3.12 | Extend `results_model` page by page, deleting scraper paths | A12 | — | L | Medium | Model coverage rises from 6 pages; `src/detailed_results.py` parsing paths shrink correspondingly. | Yes (ongoing) |
 | 3.13 | Split `parse_client` into `src/parsing/` siblings; move validation out | A5 | 1.13 | L | High | One section at a time, golden master green after each. | Yes (ongoing) |
 | 3.14 | HSA/YTD test-cluster duplication audit, then act if confirmed | Q9 | 2.15 | S | Low | Audit report; merge only what is confirmed duplicative. | Yes |
 
-**Concurrency inside Wave 3:** 3.1 gates 3.2 and must complete first. 3.8 follows 3.7 and 2.3. Everything else runs concurrently; 3.10–3.13 are ongoing background tracks rather than discrete deliverables.
+**Concurrency inside Wave 3:** 3.1 gates 3.2 and must complete first. 3.8 follows 3.7 and 2.3. Everything else runs concurrently; 3.10–3.13 are ongoing background tracks rather than discrete deliverables. Item 3.9 has moved to Wave 1 as 1.15 — and because 3.2, 3.4 and 3.5 all move the flagship percentage, none of them should land before that snapshot archive is collecting.
 
 ### Wave table with minimal effective model per item
 
@@ -974,11 +993,14 @@ Model selection principle: **haiku** for mechanical, pattern-uniform sweeps with
 | 1.7 `<details open>` | **haiku** | One attribute. |
 | 1.8 Spending exceptions chip | sonnet | New UI affordance over existing data. |
 | 1.9 Banner rewrite/delete | sonnet | Editorial judgment about which banners carry a real fact. |
-| 1.10 CST figure fix | **opus** | Financially consequential; must decide when to publish no figure at all. |
+| 1.10 CST figure fix + row suppression | **opus** | Financially consequential; must decide when to publish no figure *and no row* at all. |
 | 1.11 Release-notes relocation | **haiku** | Move one string, rename one heading. |
 | 1.12 LTCG equivalence test | sonnet | Scoped diagnostic; the interpretation is what matters and comes later. |
 | 1.13 Characterization tests | sonnet | Repetitive but each module needs its own extraction judgment. |
 | 1.14 Merge admin/roth test files | **haiku** | Mechanical dedupe with a clear "keep newest assertion" rule. |
+| 1.15 Build KPI snapshots | sonnet | Scoped persistence plus a comparison view. |
+| 1.16 Account-taxonomy guardrail | sonnet | Scoped; the hard part is choosing where to fail. |
+| 1.17 Tax-capacity worksheet | sonnet | New sheet over already-computed data. |
 
 **Wave 2**
 
@@ -991,10 +1013,8 @@ Model selection principle: **haiku** for mechanical, pattern-uniform sweeps with
 | 2.5 Collapse SQLite stores | **opus** | Touches the config-resolution path; this exact change failed once before. |
 | 2.6 Thread lifetime exemption | sonnet | Scoped, three known call sites. |
 | 2.7 Step-up reconciliation | **opus** | Requires deciding which fraction is *correct*, not just making them agree. |
-| 2.8 Account-taxonomy guardrail | sonnet | Scoped; the hard part is choosing where to fail. |
-| 2.9 RMD Joint Life table | sonnet | Well-specified table lookup with a defined fallback. |
-| 2.10 Tax-capacity worksheet | sonnet | New sheet over already-computed data. |
-| 2.11 Materiality gating | **opus** | Client-facing recommendation logic; wrong gating is a liability. |
+| 2.9 RMD Joint Life table + statutory-start-age check | sonnet | Well-specified table lookup with a defined fallback; the start-age cross-check is a bounded reading task. |
+| 2.11 Materiality gating (generalization) | **opus** | Client-facing recommendation logic; wrong gating is a liability. |
 | 2.12 Integration tests | sonnet | Scoped new test layer against a defined seam. |
 | 2.13 Error-path tests | sonnet | Scoped; requires deciding the correct user-visible behaviour. |
 | 2.14 Three e2e specs | sonnet | Scoped Playwright work following an existing pattern. |
@@ -1010,15 +1030,14 @@ Model selection principle: **haiku** for mechanical, pattern-uniform sweeps with
 
 | Item | Model | Why |
 |---|---|---|
-| 3.1 Guardrail verification | sonnet | Focused investigation with a binary outcome. |
+| 3.1 Guardrail + RMD-net-headroom verification | sonnet | Focused investigation with a binary outcome; must produce a test, not a reading of the code. |
 | 3.2 Extend conversion window | **opus** | Changes the flagship recommendation; interacts with guardrails and build budget. |
 | 3.3 Heir tax model | **opus** | Legal correctness (EDB classes) plus the highest-leverage assumption in the Roth objective. |
 | 3.4 Bracket-target withdrawal policy | **opus** | New engine policy inside the most delicate true-up logic. |
-| 3.5 Adoptable spending policy | **opus** | Runs in both engines and moves the headline success probability. |
-| 3.6 New York estate tax | **opus** | Statutory table plus a cliff; getting it subtly wrong is worse than `not_modeled`. |
+| 3.5 Adoptable spending policy + conditional-success relabelling | **opus** | Runs in both engines, moves the headline success probability, and changes what that number *means* — the relabelling is not optional polish. |
+| 3.6 New York estate tax + three-year gift add-back | **opus** | Statutory table plus a cliff plus an add-back; getting it subtly wrong is worse than `not_modeled`. |
 | 3.7 SS breakeven presentation | sonnet | Presentation over existing rows. |
 | 3.8 SS longevity refinement | sonnet | Adds one dimension to a runner 2.3 already designed. |
-| 3.9 Build KPI snapshots | sonnet | Scoped persistence plus a comparison view. |
 | 3.10 Engine decomposition (ongoing) | **opus** | The remaining thirteen stages of the highest-risk refactor. |
 | 3.11 Frontend real imports (ongoing) | sonnet | Repetitive and scoped, but load order caused a real outage — needs care. |
 | 3.12 `results_model` extension (ongoing) | sonnet | Page-by-page, each with a clear before/after. |
@@ -1035,7 +1054,7 @@ These are decisions the review cannot make on the reader's behalf. Each names th
 
 2. **Does anyone use the JSON/YAML config backends?** (A3) They are user-switchable and untested, and nothing reads them under the shipped configuration. Retiring them is the cheap first step toward collapsing the four data stores — but it removes a switch someone may be relying on.
 
-3. **What tolerance is acceptable between the vectorized and exact-scalar Monte Carlo engines?** (A1) The fidelity test needs a number. This is a financial judgment (how much probability-of-success drift is acceptable?), not an engineering one.
+3. **What tolerance is acceptable between the vectorized and exact-scalar Monte Carlo engines?** (A1) **Blocks 1.1. Must be answered before Wave 1 begins.** The fidelity test needs a number. This is a financial judgment (how much probability-of-success drift is acceptable?), not an engineering one — and 1.1 cannot be verified without it, so it is a gate rather than a background question.
 
 4. **After the LTCG equivalence diagnostic (1.12): if the two inflation indices genuinely diverge in shipped configs, which one is correct?** (A6) `irmaa_inflator` and `brk_inf` / `fed_tax_bracket_inflator` are independently settable and differ in at least one fixture (0.028 vs 0.02). Unifying changes reported LTCG tax and requires golden-master regeneration.
 
@@ -1049,8 +1068,70 @@ These are decisions the review cannot make on the reader's behalf. Each names th
 
 9. **Is 50-state coverage a product goal?** (F5) The plan completes New York only, on the grounds that it is the one case where the tool claims support and silently returns zero. Broader expansion is a product decision with a real maintenance tail.
 
-10. **Who signs off on recommendation changes?** (A4, F2, F3) Several items change *which strategy the plan recommends*. Code review is not sufficient for these. The plan assumes a planner sign-off gate exists; if it does not, one needs to be created before Wave 2 item 2.3.
+10. **Who signs off on recommendation changes?** (A4, F2, F3) **Blocks 2.3. Must be answered before that item starts.** Several items change *which strategy the plan recommends*. Code review is not sufficient for these. The plan assumes a planner sign-off gate exists; if it does not, one needs to be created before Wave 2 item 2.3 — and 1.1 in Wave 1 also carries a sign-off requirement, so in practice the gate is needed earlier than 2.3 even though 2.3 is where it becomes structurally blocking.
+
+11. **Should the account-taxonomy guardrail (1.16) block, or warn first?** (F9) The item as written makes an unrecognized account name a hard, user-facing error. That is the right end state — it is the only finding producing a silently wrong answer today. But a saved plan that has been building happily with a misclassified account will begin failing on the first build after upgrade, which is a support event even though the plan was already wrong. A warn-loudly-then-block-next-release phasing avoids that at the cost of leaving the wrong answer in circulation for one more release. This is a product call about existing users, not a modelling question, and the review does not make it.
+
+### Noted disagreements with the planner's review pass
+
+Both positions are recorded rather than resolved, per the review's convention of leaving decisions visible.
+
+**D-1. Should item 1.15 (KPI snapshots) be a hard blocker on item 1.1 (the engine-default flip)?**
+
+*Planner's position:* yes. Items 1.1, 3.2, 3.4 and 3.5 all move the headline probability of success; F13's snapshot archive is the only mechanism that can explain why, and it must exist before those land. Otherwise the largest single movement in the number — the engine flip — is the one movement with no series to place it in.
+
+*Reviewer's position:* the move of F13 from Wave 3 to Wave 1 is accepted without reservation and is a genuine improvement. The narrower question is whether 1.1 should *wait* on 1.15. 1.1 is the highest-leverage and highest-risk item in the programme, it already carries its own attribution mechanism (a before/after projection diff on the demo plan with planner sign-off), and 1.15 is M effort. Hard-blocking a High-risk M item on a Low-risk M item that shares no files inverts the usual priority. The verification line has been added to 1.1 as requested; what has *not* been asserted is that 1.1 must be the later of the two to merge.
+
+*Practical effect either way:* small. Both items sit in the same wave and both are marked parallel-safe. If 1.15 lands first the question is moot; if 1.1 lands first, the flip's before/after diff should be retained and back-filled into the snapshot series once 1.15 exists, so nothing is lost.
+
+**D-2. Placement of item 1.17 (tax-capacity worksheet) relative to the tax-kernel extraction (2.1).**
+
+*Planner's position:* Wave 1. It derives nothing new, has no prerequisite, and the document elsewhere calls it the highest planner-value-to-engineering-cost item in the review — leaving it mid-Wave-2 makes the document contradict its own priority claim.
+
+*Reviewer's position:* agreed, and the move is made. The one caveat worth recording is that the sheet reads bracket, IRMAA and 0%-LTCG headroom from the same computations 2.1 will later repoint at `tax_kernel`. Building the sheet first means a small, mechanical follow-up inside 2.1, and it means the sheet is a useful *detector* for 2.1 — any figure that moves when the kernel is extracted is a bug in the extraction. That is a reason to sequence it first, not a reason to defer it, but the follow-up should be planned rather than discovered. It is written into 1.17's verification column.
 
 ---
 
-*End of review. Cross-check pass completed with zero findings refuted; corrections from that pass are carried inline and marked throughout. No source file was modified in producing this document.*
+## 8. Planner sign-off
+
+The CFP-level reviewer re-read this document in full against the source and returned a verdict plus fourteen edits. All fourteen were spot-checked against the repository (`src/core.py:754`, `src/planning_engines.py:1872` and `:1874` among them) and all fourteen have been applied. Two carry a recorded disagreement in the appendix (D-1, D-2); neither disagreement blocked the edit.
+
+**Verdict.** All thirteen financial-planning findings are present, evidenced accurately, and none were softened. The F1 cross-check correction — that the withdrawal-order UI copy is honest and the engine is the defect — is handled correctly, and §4 explicitly forbids re-deriving the copy fix. The core sequencing insight in §3.2 is right and is the document's best work: A1 and A4 create the compute budget that F3 and F11 spend, and F11's longevity refinement genuinely is the second dimension of A4's refine phase rather than a separate pass. **Waves 1–3 are not reordered wholesale.**
+
+**The one structural weakness found, and how it was closed.** Four separate items move the flagship probability-of-success percentage — 1.1, 3.2, 3.4 and 3.5 — and only one of them (3.5, from F6) was originally asked to disclose why. Three changes close this together:
+1. F13's KPI snapshot archive moved from Wave 3 to Wave 1 (item 1.15), reframed as a **precondition** of the number-moving work rather than a payoff of it;
+2. item 3.5 now carries mandatory **conditional-success relabelling** — under any non-fixed-real spending policy, the label, the glossary note and the KPI tile must say that success is conditional on the modelled cuts, and the tile must show the worst modelled cut beside the percentage;
+3. item 1.5 now **specifies the "probability of success" `TERM_NOTES` string immediately**, as one shared string across the glossary entry and the new KPI-tile tooltip, so that the Wave 3 qualifier attaches to a single definition rather than to two that have drifted.
+
+**What changed as a result — the complete list.**
+
+*Schedule changes (three items moved, one prerequisite deleted):*
+- **3.9 → 1.15** — build KPI snapshots, moved to Wave 1; it is the instrument for the rest of the programme.
+- **2.8 → 1.16** — account-taxonomy guardrail, moved to Wave 1; it is the only finding producing a wrong answer today, silently, and it is S effort with no prerequisite.
+- **2.10 → 1.17** — tax-capacity worksheet, moved to Wave 1; the document called it the highest value-to-cost item in the review while scheduling it mid-Wave-2.
+- **2.9 prerequisite "2.1" deleted** — `rmd_divisor` is a pure age-keyed table lookup unrelated to the tax kernel's bracket/IRMAA/LTCG closures; the item now runs in parallel from the start of Wave 2.
+- Moved numbers are **retired, not reused**, so cross-references elsewhere remain unambiguous.
+
+*Scope widened on five items:*
+- **1.10** — no longer just the fabricated CST figure; it must also suppress the CST recommendation row below the exemption. Fixing the figure alone would have left an unqualified bare recommendation with no number attached for a whole wave — worse than the fabricated number. **2.11** is correspondingly re-described as *generalizing* this predicate to LTC/S-Corp/QTIP rather than introducing it.
+- **2.9** — must confirm the age-72 floor in `rmd_divisor` cannot fire ahead of `statutory_rmd_start_age` (the SECURE 2.0 73/75 ramp).
+- **3.1** — must verify with an explicit test that post-RMD-age conversion headroom is net of the year's RMD. `pre_non_ss` does include `rmd_total` today, but that path has never executed in a window extending past RMD age, so it is an assumption rather than a verified behaviour.
+- **3.2** — the window must stay open through the survivor's single-filer years (the widow's-bracket case is a filing-status transition, and is the more valuable of the two windows); both existing controls stay authoritative when explicitly set, with only the default changing; and the hardcoded `400000` bracket-top fallback is fixed while the function is open.
+- **3.6** — must include New York's three-year gift add-back, which consumes the lifetime-gift series already threaded by its own prerequisite (2.6). Without it the cliff calculation completes but still under-reports for exactly the households most likely to be near the cliff.
+
+*Corrections to stated positions:*
+- **F6 evidence softened.** "Systematically overstates ruin risk" overclaimed a uniform direction and magnitude; it now reads as an overstatement *for households with meaningful discretionary spending*, because the model assumes a retiree who never adjusts, with a household-specific effect size.
+- **F4 / item 3.3 default corrected.** "Defaults to today's values so existing plans do not move" is right for heir baseline income and state but wrong for beneficiary class: today's "everyone gets the 10-year rule" default is legally incorrect for spouse, minor-child, disabled-or-chronically-ill, and less-than-ten-years-younger beneficiaries. Class now defaults to the class inferred from existing beneficiary and titling data, and plans whose after-tax legacy figure moves are flagged as a **correction, not suppressed**.
+- **F3 evidence extended** with the `400000` bracket-top fallback at `src/planning_engines.py:1872`.
+
+*Appendix:*
+- Open question 3 (vectorized-versus-exact-scalar tolerance) marked **"Blocks 1.1. Must be answered before Wave 1 begins."**
+- Open question 10 (recommendation-change sign-off gate) marked **"Blocks 2.3."**
+- New open question 11 added: whether the account-taxonomy guardrail should block outright or warn first for existing plans.
+- Two noted disagreements recorded with both positions stated (D-1: whether 1.15 should hard-block 1.1; D-2: 1.17's placement relative to the tax-kernel extraction).
+
+**Planner's closing note.** *"Nothing in the plan hides a number a planner needs or degrades planning quality as such."*
+
+---
+
+*End of review. Cross-check pass completed with zero findings refuted; corrections from that pass are carried inline and marked throughout. A subsequent financial-planner sign-off pass produced fourteen edits, all applied and summarized in §8, with two noted disagreements recorded in the appendix. No source file was modified in producing this document.*
