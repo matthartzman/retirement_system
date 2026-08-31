@@ -211,13 +211,6 @@ def _json_unhandled_error(exc):
 
 
 
-def _runtime_security_startup_findings(cfg=None) -> list[str]:
-    """Local-only package: no public-hosting startup security modes remain."""
-    return []
-
-def enforce_startup_security(cfg=None) -> None:
-    return None
-
 def _runtime_config():
     try:
         return load_runtime_config()
@@ -669,39 +662,6 @@ def _plan_data_path(file_name: str, prefer_existing: bool = True) -> Path:
     return workspace_file(name, _workspace_id(), WORKSPACE_ROOT, prefer_existing=prefer_existing)
 
 
-
-def _apply_plan_data_payload(plan_data_files: dict) -> dict:
-    """Write a client-supplied Plan Data snapshot before a build.
-
-    The UI uses this when a user has selected a local Plan Data folder. It
-    forces the build endpoint to start from the latest local-disk CSV contents
-    rather than whatever the server working copy happened to contain.
-    """
-    if not isinstance(plan_data_files, dict):
-        return {"files": [], "bytes": 0}
-    written = []
-    total = 0
-    missing_required = []
-    for required in ("client_data.csv", "client_holdings.csv"):
-        if required not in plan_data_files:
-            missing_required.append(required)
-    if missing_required:
-        raise ValueError("Missing required local Plan Data file(s): " + ", ".join(missing_required))
-    for raw_name, raw_content in plan_data_files.items():
-        name = _normalize_plan_data_file_name(raw_name)
-        content = "" if raw_content is None else str(raw_content)
-        path = _write_plan_data_file(name, content)
-        written.append({"file": name, "path": str(path), "bytes": len(content)})
-        total += len(content)
-    try:
-        _ensure_user_ui_plan_data_rows()
-    except Exception as exc:
-        _audit("plan_data_payload_ui_row_warning", {"error": str(exc)})
-    try:
-        _sync_config_backends()
-    except Exception as exc:
-        _audit("plan_data_payload_sync_warning", {"error": str(exc)})
-    return {"files": written, "bytes": total}
 
 def _read_plan_data_file(file_name: str) -> str | None:
     name = _normalize_plan_data_file_name(file_name)

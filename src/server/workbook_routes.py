@@ -72,6 +72,8 @@ from ..results_model import RESULTS_MODEL_FILENAME
 
 from ..server_services import build_job_service, build_service, holdings_service, plan_data_file_service, plan_forms_service, report_service, spending_service
 
+from ..local_store import list_kpi_snapshots, compare_kpi_snapshots
+
 
 # Build-job orchestration is owned by server_services.build_job_service.
 # This route module keeps thin HTTP adapter calls and desktop push registration.
@@ -558,6 +560,49 @@ def append_history():
         return denied
     payload, status = report_service.append_history_payload(_workspace_output(), request.get_json(silent=True) or {})
     return jsonify(payload), status
+
+
+@app.route("/api/kpi-snapshots", methods=["GET"])
+def get_kpi_snapshots():
+    """Newest-first list of archived build KPI snapshots (Wave 1 item 1.15 --
+    documentation/reports/SYSTEM_REVIEW_2026-08-31.md, finding F13).
+
+    Comparison-only, no attribution -- see get_kpi_snapshot_compare() below.
+    """
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    try:
+        limit = int(request.args.get("limit", 10))
+    except (TypeError, ValueError):
+        limit = 10
+    snapshots = list_kpi_snapshots(limit=limit, db_path=_sqlite_db())
+    return jsonify({"success": True, "schema": "kpi_snapshot_list_v1", "snapshots": snapshots})
+
+
+@app.route("/api/kpi-snapshots/compare", methods=["GET"])
+def get_kpi_snapshot_compare():
+    """Raw before/after diff of headline KPIs between two archived builds.
+
+    ``from``/``to`` query params take a ``snapshot_id``; when omitted, compares
+    the two most recent snapshots (``to`` = latest, ``from`` = the one before
+    it). Wave-1-scoped: reports *what* changed, not *why* -- attribution is
+    Wave 3's job once a real snapshot series exists to validate it against.
+    """
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    result = compare_kpi_snapshots(
+        from_id=request.args.get("from") or None,
+        to_id=request.args.get("to") or None,
+        db_path=_sqlite_db(),
+    )
+    if result is None:
+        return jsonify({
+            "success": False,
+            "error": "Fewer than two KPI snapshots are available to compare, or the requested snapshot id was not found.",
+        }), 404
+    return jsonify(result)
 
 
 @app.route("/api/plan-data/files", methods=["GET"])

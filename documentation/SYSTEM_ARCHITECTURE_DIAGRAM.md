@@ -341,14 +341,6 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server/admin_routes.py` | `governance`, `server.app_core`, `server_services`, `version` | — |
 | `src/server/app_core.py` | `src`, `config_backend`, `http_runtime.wsgi_facade`, `permissions`, `roth_ui_build_guard`, `runtime_config`, `schema_registry`, `secrets_store`, `security`, `server.plan_data_files`, `server.security_audit`, `system_config`, `workspace_context` | — |
 | `src/server/base_routes.py` | `api_contracts`, `glossary`, `server.app_core`, `server.route_manifest`, `server_services`, `version` | — |
-| `src/server/features/__init__.py` | — | — |
-| `src/server/features/admin.py` | `server.route_manifest` | — |
-| `src/server/features/build_results.py` | `server.route_manifest` | — |
-| `src/server/features/plan_data.py` | `server.route_manifest` | — |
-| `src/server/features/pricing.py` | `server.route_manifest` | — |
-| `src/server/features/spending.py` | `server.route_manifest` | — |
-| `src/server/features/strategy_assets.py` | `server.route_manifest` | — |
-| `src/server/features/ytd.py` | `server.route_manifest` | — |
 | `src/server/plan_data_files.py` | `plan_data_registry` | — |
 | `src/server/plan_routes.py` | `src`, `portfolio_analytics`, `secrets_store`, `server.app_core`, `server_services`, `version` | — |
 | `src/server/route_manifest.py` | — | — |
@@ -494,7 +486,6 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 |---|---|---|
 | `src/dashboard_ui/__init__.py` | `dashboard_ui.builder` | — |
 | `src/dashboard_ui/builder.py` | — | — |
-| `src/dashboard_ui/template.py` | `version` | — |
 
 ---
 
