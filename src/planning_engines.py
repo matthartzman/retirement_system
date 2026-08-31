@@ -59,10 +59,7 @@ def _roth_discount_rate(c: dict) -> float:
     assumption -- see that constant's note for why those are not the same
     quantity.
     """
-    try:
-        from .data_io import DEFAULT_ROTH_TAX_DISCOUNT_RATE as _default
-    except ImportError:  # pragma: no cover - direct execution fallback
-        from src.data_io import DEFAULT_ROTH_TAX_DISCOUNT_RATE as _default
+    from .data_io import DEFAULT_ROTH_TAX_DISCOUNT_RATE as _default
     raw = c.get('roth_tax_discount_rate')
     if raw is None:
         raw = _default
@@ -3070,10 +3067,7 @@ def _portfolio_asset_class_inputs(c: dict):
     total = sum(w for _cls, w in pairs) or 1.0
     classes = [cls for cls, _w in pairs]
     weights = [w / total for _cls, w in pairs]
-    try:
-        from .vectorized_fast_core import portfolio_moments
-    except ImportError:  # pragma: no cover
-        from src.vectorized_fast_core import portfolio_moments
+    from .vectorized_fast_core import portfolio_moments
     moments = portfolio_moments(classes, weights, _opt.ASSET_CLASSES, _opt._CORR)
     means = [_opt.ASSET_CLASSES[cls]['ret'] for cls in classes]
     cov = moments['covariance']
@@ -5625,6 +5619,17 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None, survivor_buckets='__uns
     household), since both must be handled differently below.
     """
     if str(c.get('mc_engine_mode', 'vectorized_batched')).lower() in {'exact_scalar', 'scalar', 'advanced_exact_scalar'}:
+        # ``survivor_buckets`` is deliberately NOT forwarded here:
+        # monte_carlo_exact_scalar() has no such parameter because it never
+        # builds survivor buckets in the first place - it re-derives survivor
+        # economics per path inside its own scalar loop, so there is no
+        # 2 * n_years project() prelude for the caller's cache to skip. The
+        # cache exists purely to de-duplicate _mc_survivor_bucket_flows()
+        # across the vectorized path's repeated sweep calls (see the docstring
+        # above). Dropping it on this branch is therefore a no-op, not a lost
+        # optimization; and since data_io.py now defaults unset plans to the
+        # vectorized engine, this branch is an explicit opt-in / validation
+        # oracle rather than the hot path the CI-timeout fix was written for.
         return monte_carlo_exact_scalar(c, n_sims=n_sims, seed=seed, base_rows=base_rows)
 
     c = ensure_engine_config(c, source='monte_carlo')

@@ -20,14 +20,8 @@ from .app_core import (
     send_file,
     send_from_directory,
 )
-try:
-    from ..version import VERSION
-except ImportError:
-    from src.version import VERSION
-try:
-    from ..server_services import base_service
-except ImportError:
-    from src.server_services import base_service
+from ..version import VERSION
+from ..server_services import base_service
 # RELEASE_GATE_EXPECTED_VERSION_LITERAL: "version": "9"
 
 
@@ -140,12 +134,8 @@ def api_contracts():
     denied = _require("view_dashboard")
     if denied:
         return denied
-    try:
-        from ..api_contracts import contract_summary
-        from .route_manifest import route_manifest
-    except ImportError:
-        from src.api_contracts import contract_summary
-        from src.server.route_manifest import route_manifest
+    from ..api_contracts import contract_summary
+    from src.server.route_manifest import route_manifest
     return jsonify({
         "success": True,
         "schema": "api_contract_registry_v1",
@@ -163,10 +153,7 @@ def api_glossary():
     denied = _require("view_dashboard")
     if denied:
         return denied
-    try:
-        from ..glossary import build_glossary
-    except ImportError:
-        from src.glossary import build_glossary
+    from ..glossary import build_glossary
     return jsonify({
         "success": True,
         "schema": "glossary_v1",

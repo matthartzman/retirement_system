@@ -3,14 +3,8 @@ from __future__ import annotations
 import csv, re
 from pathlib import Path
 from typing import Dict, Tuple
-try:
-    from .plan_data_registry import client_data_csv_files
-except ImportError:  # pragma: no cover - direct execution fallback
-    from src.plan_data_registry import client_data_csv_files
-try:
-    from . import platform_runtime
-except ImportError:  # pragma: no cover - direct execution fallback
-    from src import platform_runtime
+from .plan_data_registry import client_data_csv_files
+from . import platform_runtime
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA_PATH = ROOT / 'reference_data' / 'schema.csv'
 GENERATED_SCHEMA_PATH = ROOT / 'reference_data' / 'generated_schema_coverage.csv'

@@ -11,12 +11,8 @@ EMPTY_HSA_SCHEDULE_CSV = "year,optimizer_amount,override_amount,locked,note\n"
 
 
 def read_holdings(*, base_dir: Path, workspace_id: str, client_id: str, db_path: Path) -> dict[str, Any]:
-    try:
-        from ..workspace_context import workspace_file
-        from ..config_backend import get_client_file
-    except ImportError:
-        from src.workspace_context import workspace_file
-        from src.config_backend import get_client_file
+    from ..workspace_context import workspace_file
+    from src.config_backend import get_client_file
     p = workspace_file("client_holdings.csv", workspace_id, base_dir)
     if p.exists():
         return {"source": "workspace_file", "path": str(p), "content": None, "content_type": "text/csv"}
@@ -27,12 +23,8 @@ def read_holdings(*, base_dir: Path, workspace_id: str, client_id: str, db_path:
 
 
 def save_holdings(*, content: str, base_dir: Path, workspace_id: str, client_id: str, user_id: str, db_path: Path) -> dict[str, Any]:
-    try:
-        from ..workspace_context import workspace_file
-        from ..config_backend import set_client_file
-    except ImportError:
-        from src.workspace_context import workspace_file
-        from src.config_backend import set_client_file
+    from ..workspace_context import workspace_file
+    from src.config_backend import set_client_file
     if not content:
         raise ValueError("No content in request")
     p = workspace_file("client_holdings.csv", workspace_id, base_dir, prefer_existing=False)
@@ -43,12 +35,8 @@ def save_holdings(*, content: str, base_dir: Path, workspace_id: str, client_id:
 
 
 def read_liabilities(*, base_dir: Path, workspace_id: str, client_id: str, db_path: Path) -> dict[str, Any]:
-    try:
-        from ..workspace_context import workspace_file
-        from ..config_backend import get_client_file
-    except ImportError:
-        from src.workspace_context import workspace_file
-        from src.config_backend import get_client_file
+    from ..workspace_context import workspace_file
+    from src.config_backend import get_client_file
     p = workspace_file("client_liabilities.csv", workspace_id, base_dir)
     if p.exists():
         return {"source": "workspace_file", "path": str(p), "content": None, "content_type": "text/csv"}
@@ -59,12 +47,8 @@ def read_liabilities(*, base_dir: Path, workspace_id: str, client_id: str, db_pa
 
 
 def save_liabilities(*, content: str, base_dir: Path, workspace_id: str, client_id: str, user_id: str, db_path: Path) -> dict[str, Any]:
-    try:
-        from ..workspace_context import workspace_file
-        from ..config_backend import set_client_file
-    except ImportError:
-        from src.workspace_context import workspace_file
-        from src.config_backend import set_client_file
+    from ..workspace_context import workspace_file
+    from src.config_backend import set_client_file
     if not content:
         raise ValueError("No content in request")
     p = workspace_file("client_liabilities.csv", workspace_id, base_dir, prefer_existing=False)
@@ -80,12 +64,8 @@ def read_hsa_schedule(*, base_dir: Path, workspace_id: str, client_id: str, db_p
     parser/serializer on the frontend, but no read/write API route existed --
     the schedule table lived only in a page-local JS array that evaporated on
     reload. This closes that gap."""
-    try:
-        from ..workspace_context import workspace_file
-        from ..config_backend import get_client_file
-    except ImportError:
-        from src.workspace_context import workspace_file
-        from src.config_backend import get_client_file
+    from ..workspace_context import workspace_file
+    from src.config_backend import get_client_file
     p = workspace_file("client_hsa_schedule.csv", workspace_id, base_dir)
     if p.exists():
         return {"source": "workspace_file", "path": str(p), "content": None, "content_type": "text/csv"}
@@ -96,12 +76,8 @@ def read_hsa_schedule(*, base_dir: Path, workspace_id: str, client_id: str, db_p
 
 
 def save_hsa_schedule(*, content: str, base_dir: Path, workspace_id: str, client_id: str, user_id: str, db_path: Path) -> dict[str, Any]:
-    try:
-        from ..workspace_context import workspace_file
-        from ..config_backend import set_client_file
-    except ImportError:
-        from src.workspace_context import workspace_file
-        from src.config_backend import set_client_file
+    from ..workspace_context import workspace_file
+    from src.config_backend import set_client_file
     if not content:
         raise ValueError("No content in request")
     p = workspace_file("client_hsa_schedule.csv", workspace_id, base_dir, prefer_existing=False)

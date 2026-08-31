@@ -10,6 +10,7 @@ from src.optimization import compute_optimal_allocation
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from _decomp_dashboard import dashboard_js_text
 from conftest import TEST_INPUT_DIR
 
 
@@ -64,13 +65,16 @@ class AllocationUIModePanelsTests(unittest.TestCase):
         self.assertGreater(out['liquid_targets']['Cash'], 0.05)
 
     def test_ui_has_mode_specific_panels_and_copy_button(self):
-        html = (ROOT / 'src' / 'dashboard_ui' / 'template.py').read_text(encoding='utf-8')
-        self.assertIn('renderAllocationRecommendation', html)
-        self.assertIn('renderUserAllocationPanel', html)
-        self.assertIn('renderOptimizerAllocationPanel', html)
-        self.assertIn('Copy optimizer override to user-defined', html)
-        self.assertIn('optimizer_override_pct', html)
-        self.assertIn('Optional override percentages below replace the computed optimizer result', html)
+        js = dashboard_js_text()
+        self.assertIn('renderAllocationRecommendation', js)
+        self.assertIn('renderOptimizerAllocationPanel', js)
+        self.assertIn('renderMaxSharpeAllocationPanel', js)
+        self.assertIn('renderTangencyAllocationPanel', js)
+        self.assertIn('Copy optimizer override to user-defined', js)
+        self.assertIn('optimizer_override_pct', js)
+        self.assertIn(
+            'Enter percentages only when you want to override the computed result', js
+        )
 
     def test_canonical_frontend_contains_visible_allocation_mode_panel(self):
         html = (ROOT / 'frontend' / 'index.html').read_text(encoding='utf-8')

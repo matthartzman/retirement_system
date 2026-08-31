@@ -454,6 +454,7 @@ const TERM_NOTES = {
     "(percentage of simulated scenarios where the plan stays solvent)",
   "probability of success":
     "(percentage of simulated scenarios where the plan stays solvent)",
+  "advisor-ready": "(built with the slower, more precise settings meant for a final review, not a quick draft)",
 };
 function addParentheticals(text) {
   let out = String(text || "");
@@ -967,7 +968,7 @@ function pageHelp(title, meaning, connections, options, impact) {
     options,
     impact,
   ]);
-  return `<div class="help-title">${esc(title)}</div><div class="help-body"><h3>What this page is for</h3><p>${esc(meaning)}</p><h3>How the values work together</h3><p>${esc(connections)}</p><h3>How to choose values</h3><p>${esc(options)}</p><h3>Likely planning impact</h3><p>${esc(impact)}</p>${acronyms}</div>`;
+  return `<div class="help-title">${esc(title)}</div><div class="help-body"><h3>What this page is for</h3><p>${esc(addParentheticals(meaning))}</p><h3>How the values work together</h3><p>${esc(addParentheticals(connections))}</p><h3>How to choose values</h3><p>${esc(addParentheticals(options))}</p><h3>Likely planning impact</h3><p>${esc(addParentheticals(impact))}</p>${acronyms}</div>`;
 }
 const SYSTEM_CONFIG_FIELD_HELP = {
   local_backups: pageHelp(
@@ -4121,7 +4122,7 @@ let renderMain = function() {
   else if (activeStep === "allocation_policy")
     content += renderAllocationPolicy();
   else if (activeStep === "allocation_assets")
-    content += analysisFrame(renderAllocationRecommendation(), "strategy") + `<details class="decide-embed-sub"><summary>Allocation policy settings</summary>${renderAllocationPolicy()}</details>`;
+    content += analysisFrame(renderAllocationRecommendation(), "strategy") + `<details class="decide-embed-sub" open><summary>Allocation policy settings</summary>${renderAllocationPolicy()}</details>`;
   else if (activeStep === "build_impact") content += renderBuildImpactPage();
   else if (activeStep === "planning_workbench")
     content += renderPlanningWorkbench();

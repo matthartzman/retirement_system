@@ -1337,14 +1337,14 @@ def build_sheet19(ws, c, rows):
     # column renders the configured face, so any household with different
     # settings got a row that contradicted itself; the GUL row cited a flat
     # "$320K" IL estate tax that is computed nowhere (finding P9, the C2 class).
-    _cst = summary_figures.credit_shelter_trust_savings(c)
+    _cst = summary_figures.credit_shelter_trust_savings(c, rows, require_enabled=False)
     _hybrid_verdict = (
         f'Configured: ${opt_face:,.0f} face, start {opt_start}, ~${opt_prem:,.0f}/yr'
         if opt_enabled else
         'Not currently configured — see Section C for the coverage levels compared'
     )
     _gul_verdict = (
-        f'Consider if state estate tax approaching ~${_cst["tax_saved"]:,.0f} materializes (Sheet 14)'
+        f'Consider if state estate tax approaching ~${_cst["estate_tax_without_cst"]:,.0f} materializes (Sheet 14)'
         if _cst else
         'Consider if a state estate-tax liability materializes (Sheet 14)'
     )

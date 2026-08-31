@@ -5,12 +5,8 @@ import csv, datetime, json, math
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
-try:
-    from .version import VERSION, RELEASE_LABEL
-    from . import taxes
-except ImportError:  # pragma: no cover
-    from src.version import VERSION, RELEASE_LABEL
-    from src import taxes
+from .version import VERSION, RELEASE_LABEL
+from src import taxes
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 TAX_DASHBOARD = PROJECT_ROOT / "reference_data" / "tax_update_dashboard.csv"

@@ -10,6 +10,7 @@ from src.optimization import compute_optimal_allocation
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from _decomp_dashboard import dashboard_js_text
 from conftest import TEST_INPUT_DIR
 
 
@@ -42,12 +43,12 @@ class AllocationOptimizerToggleTests(unittest.TestCase):
         self.assertAlmostEqual(selected['liquid_targets'].get('US Large Cap', 0), forced['liquid_targets'].get('US Large Cap', 0), places=8)
 
     def test_ui_exposes_optimizer_toggle_and_explanation(self):
-        html = (ROOT / 'src' / 'dashboard_ui' / 'template.py').read_text(encoding='utf-8')
-        self.assertIn('Use allocation optimizer recommendation', html)
-        self.assertIn('Use user-specified allocation', html)
-        self.assertIn('allocationOptimizerRecommendationHtml', html)
-        self.assertIn('Current inputs used by the optimizer', html)
-        self.assertIn('User-specified allocation total', html)
+        js = dashboard_js_text()
+        self.assertIn('Use allocation optimizer recommendation', js)
+        self.assertIn('Use user-specified allocation', js)
+        self.assertIn('allocationOptimizerRecommendationHtml', js)
+        self.assertIn('Current inputs used by the optimizer', js)
+        self.assertIn('User-specified allocation total', js)
 
 
 if __name__ == '__main__':

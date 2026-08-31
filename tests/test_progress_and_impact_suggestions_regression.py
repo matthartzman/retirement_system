@@ -5,7 +5,6 @@ from _decomp_dashboard import dashboard_js_text
 ROOT = Path(__file__).resolve().parents[1]
 INDEX_HTML = ROOT / "frontend" / "index.html"
 DASHBOARD_JS = ROOT / "frontend" / "js" / "dashboard.js"
-TEMPLATE = ROOT / "src" / "dashboard_ui" / "template.py"
 
 
 def test_build_overlay_has_static_percent_not_looping_bar():

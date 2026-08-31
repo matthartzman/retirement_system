@@ -60,6 +60,7 @@
   "test_roth_user_ui_render_fix.py",
   "test_scenario_home_value_display_fix.py",
   "test_scenario_templates_sets_regression.py",
+  "test_simplified_allocation_regression.py",
   "test_spending_reconciliation_fields_regression.py",
   "test_spending_tracker_refinements_regression.py",
   "test_state_input_dropdown_functional.py",
