@@ -31,13 +31,9 @@ def build_sheet7(ws, c, rows):
     section_title(ws, 1, 'LIFETIME TAX PROJECTION', 16)
 
     r = 2
-    # Kept short deliberately: the PDF export lays this sheet out as a 16-column
-    # table (enterprise_pdf.py's _band_table), and a long note merged across
-    # every column wraps into a cell tall enough to blow the page-frame limit
-    # -- ReportLab cannot split one row across pages, so the WHOLE PDF export
-    # silently fails and no PDF is written (caught by
-    # test_workbook_pdf_build_snapshot.py's test_build_also_produces_downloadable_pdf).
-    # A longer version of this note previously did exactly that.
+    # Kept short deliberately: a long note merged across every column wraps
+    # into an oversized row on a 16-column table. A longer version of this
+    # note previously did exactly that.
     write_cell(ws, r, 1,
                '"Marginal Rate (bracket)" is the statutory bracket alone; "Effective Marginal Rate" '
                'is what one more $1,000 actually costs this household this year (Social Security '

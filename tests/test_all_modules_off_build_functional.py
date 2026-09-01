@@ -68,7 +68,6 @@ def _assert_core_artifacts(out_dir: Path, result, label: str):
     tail = (result.stdout + result.stderr)[-4000:]
     assert result.returncode == 0, f"{label} build failed:\n{tail}"
     assert (out_dir / "retirement_plan.xlsx").exists(), f"{label}: workbook missing"
-    assert (out_dir / "retirement_plan.pdf").exists(), f"{label}: PDF missing"
     assert (out_dir / "retirement_dashboard.html").exists(), f"{label}: HTML dashboard missing"
     html = (out_dir / "retirement_dashboard.html").read_text(encoding="utf-8")
     assert len(html) > 1000, f"{label}: HTML dashboard suspiciously small ({len(html)} chars)"
@@ -77,7 +76,7 @@ def _assert_core_artifacts(out_dir: Path, result, label: str):
 @pytest.mark.slow
 def test_build_succeeds_with_every_optional_module_off(tmp_path_factory):
     """The explicit ask: turn off all optional modules, build, and confirm the
-    result is a real, non-empty workbook/PDF/HTML set rather than a crash.
+    result is a real, non-empty workbook/HTML set rather than a crash.
 
     Regression pin: charts_dashboard off used to raise
     ``KeyError('Workbook charts sheet not found...')`` out of

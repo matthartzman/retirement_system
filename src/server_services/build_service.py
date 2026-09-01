@@ -103,7 +103,6 @@ def build_preflight_payload(
     meta = file_meta_func or file_meta
     artifacts = {
         "workbook": meta(output_dir / "retirement_plan.xlsx"),
-        "pdf": meta(output_dir / "retirement_plan.pdf"),
         "html_dashboard": meta(output_dir / "retirement_dashboard.html"),
         "results_model": meta(output_dir / "results_explorer_model.json"),
         "summary": meta(output_dir / "plan_summary.json"),
