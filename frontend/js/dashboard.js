@@ -3878,17 +3878,17 @@ function renderOptionalFunctions() {
   html += "</div>";
   return html;
 }
-const REPORTS_TABS = [
-  "Preflight",
-  "Build",
-  "Impact",
-  "Results",
-  "Downloads",
-  "Plan Data Review",
-];
-let reportsActiveTab = "Results";
+// #301: Reports & Review is primarily the Impact page (Build/Download live
+// as buttons on it, not separate tabs -- see renderBuildImpactPage()'s
+// headerActions), with Plan Data Review and Build History folded into
+// collapsible <details> sections on that same page instead of their own
+// tabs. Preflight and Results stay separate tabs -- distinct enough
+// workflows (readiness checklist; full workbook sheet browser) that folding
+// them in would bury rather than simplify.
+const REPORTS_TABS = ["Preflight", "Impact", "Results"];
+let reportsActiveTab = "Impact";
 try {
-  reportsActiveTab = localStorage.getItem("reports_active_tab") || "Results";
+  reportsActiveTab = localStorage.getItem("reports_active_tab") || "Impact";
 } catch (_e) {}
 
 

@@ -7,11 +7,15 @@
   // plan-independent/admin pages) stay on the explicit-save + 3-way guard below.
   const AUTOSAVE_STEPS=['household_people','income_work','income_retirement','lifestyle_spending','spending_core','spending_setup','retirement_wellness','spending_mortgage_events','ytd_transactions','holdings','assets_home_cash','annuity_death_benefits','assets_special','estate','distribution_strategy','state_residency','special_strategies','economic_tax_assumptions','optional_functions','all_assumptions'];
   const PLAN_INDEPENDENT_STEPS=['start','system_configuration','workbook_formatting','detailed_results','planning_workbench','reports_and_review'];
+  // #301: Reports & Review is primarily the Impact page now -- Downloads and
+  // Plan Data Review no longer have their own tabs (folded into Impact as
+  // action buttons / collapsible sections), so jump-links to those step ids
+  // land on Impact too rather than a tab that no longer exists.
   const REPORTS_REDIRECTS={
     detailed_results:'Results',
     build_impact:'Impact',
-    review:'Downloads',
-    plan_data_report:'Plan Data Review'
+    review:'Impact',
+    plan_data_report:'Impact'
   };
   const STEP_REDIRECTS={
     spending_travel:'lifestyle_spending',

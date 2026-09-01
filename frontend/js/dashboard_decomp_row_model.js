@@ -1043,15 +1043,26 @@ export function renderBuildImpactPage() {
   if (unsaved && buildHistory.length > 0)
     promptBar =
       '<div class="section-note warning build-snapshot-prompt"><b>You have unsaved changes.</b> Take a snapshot now to preserve the current state before rebuilding. <button class="btn" type="button" data-requires-app="1" onclick="takeBuildSnapshot()">Take Snapshot</button></div>';
+  // #301: Build and Download are buttons on the primary Impact page, not
+  // separate tabs -- renderReportsBuild()/renderReview() are the same
+  // status+action blocks the old standalone Build/Downloads tabs used.
+  const buildAndDownload = renderReportsBuild() + renderReview();
   const headerActions =
-    '<div class="pane-actions"><button class="btn" type="button" data-requires-app="1" onclick="takeBuildSnapshot()">Take Snapshot</button> <button class="btn danger" type="button" data-requires-app="1" onclick="revertLastBuildChanges()">Revert User Changes</button> <button class="btn" data-requires-app="1" data-download="1" onclick="downloadWithBuild(\'/api/xlsx\',\'Workbook\')">Download Workbook</button> <button class="btn primary" type="button" data-step-id="review">Back to Download Reports</button></div>';
+    '<div class="pane-actions"><button class="btn" type="button" data-requires-app="1" onclick="takeBuildSnapshot()">Take Snapshot</button> <button class="btn danger" type="button" data-requires-app="1" onclick="revertLastBuildChanges()">Revert User Changes</button></div>';
+  const planDataReviewSection =
+    '<details class="plan-data-review-collapsible"><summary class="section-header">Plan Data Review</summary>' +
+    renderPlanDataReport() +
+    "</details>";
   if (!buildHistory.length)
     return (
       '<div class="build-impact"><div class="impact-panel">' +
       promptBar +
-      "<h3>No build history yet</h3><p>Download your workbook from the Download Reports step to see before/after impact here, or take a snapshot to record the current state.</p>" +
+      buildAndDownload +
+      "<h3>No build history yet</h3><p>Build or download your workbook above to see before/after impact here, or take a snapshot to record the current state.</p>" +
       headerActions +
-      "</div></div>"
+      "</div>" +
+      planDataReviewSection +
+      "</div>"
     );
   const allNw = buildHistory
     .map((e) => e.kpi && e.kpi.inheritable_nw)
@@ -1094,14 +1105,17 @@ export function renderBuildImpactPage() {
   return (
     '<div class="build-impact"><div class="impact-panel">' +
     promptBar +
-    '<h3>Impact & Build History</h3><p class="small">Up to ' +
-    BUILD_HISTORY_MAX +
-    " builds and snapshots. Dials are heat-mapped: green = best across all entries, red = worst. Post-Tax Inheritance (PTI) is projected net worth minus the embedded taxes heirs would owe on pre-tax accounts and unrealized gains.</p>" +
+    buildAndDownload +
+    "<h3>Impact</h3><p class=\"small\">Dials are heat-mapped: green = best across all entries, red = worst. Post-Tax Inheritance (PTI) is projected net worth minus the embedded taxes heirs would owe on pre-tax accounts and unrealized gains.</p>" +
     headerActions +
     latestImpact +
-    '<div class="build-history-list">' +
+    '<details class="build-history-collapsible"><summary class="section-header">Build History (up to ' +
+    BUILD_HISTORY_MAX +
+    ' builds and snapshots)</summary><div class="build-history-list">' +
     historyHtml +
-    "</div></div></div>"
+    "</div></details></div>" +
+    planDataReviewSection +
+    "</div>"
   );
 }
 

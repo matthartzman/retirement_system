@@ -300,6 +300,9 @@
     "forcedConversions",
     "forcedConversionsChanged",
     "groupBudgetMode",
+    "homeSaleSplitAccounts",
+    "homeSaleSplits",
+    "homeSaleSplitsChanged",
     "inactiveEditReveals",
     "lastBuildCompare",
     "lastBuildOk",
@@ -321,6 +324,8 @@
     "planSource",
     "planningLeverInputs",
     "reportsActiveTab",
+    "residencySchedule",
+    "residencyScheduleChanged",
     "rows",
     "rulesChanged",
     "runtime",
@@ -2396,6 +2401,12 @@
       "name": "renderMain",
       "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
       "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
+      "kind": "read",
       "scope": "inside-function"
     },
     {
@@ -5435,6 +5446,18 @@
       "scope": "inside-function"
     },
     {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
       "name": "FIELD_GUIDANCE_OVERRIDES",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
@@ -5759,6 +5782,18 @@
       "scope": "inside-function"
     },
     {
+      "name": "homeSaleSplitsChanged",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencyScheduleChanged",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "ytdTransactionsChanged",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
@@ -5796,6 +5831,78 @@
     },
     {
       "name": "validateAllocationTargetsOrMessage",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplits",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencySchedule",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencySchedule",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencySchedule",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "call",
       "scope": "inside-function"
@@ -6944,6 +7051,330 @@
       "name": "forcedConversionsChanged",
       "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
       "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplits",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplitAccounts",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplitsChanged",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplits",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplitAccounts",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplitsChanged",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplits",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplitsChanged",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "noteSpecialSessionChange",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplitsChanged",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "appReady",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplits",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplits",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplitAccounts",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplitAccounts",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplits",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplits",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplits",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplits",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplits",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplits",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplits",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplitAccounts",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplits",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencySchedule",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencyScheduleChanged",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencySchedule",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencyScheduleChanged",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencySchedule",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencyScheduleChanged",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "noteSpecialSessionChange",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencyScheduleChanged",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "appReady",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencySchedule",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencySchedule",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencySchedule",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencySchedule",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencySchedule",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencySchedule",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencySchedule",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencySchedule",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencySchedule",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencySchedule",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencySchedule",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencySchedule",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencySchedule",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencySchedule",
+      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
       "scope": "inside-function"
     },
     {
@@ -8645,6 +9076,9 @@
     "forcedConversions",
     "forcedConversionsChanged",
     "groupBudgetMode",
+    "homeSaleSplitAccounts",
+    "homeSaleSplits",
+    "homeSaleSplitsChanged",
     "inactiveEditReveals",
     "lastBuildCompare",
     "lastBuildOk",
@@ -8665,6 +9099,8 @@
     "planSource",
     "planningLeverInputs",
     "reportsActiveTab",
+    "residencySchedule",
+    "residencyScheduleChanged",
     "rows",
     "rulesChanged",
     "runtime",
