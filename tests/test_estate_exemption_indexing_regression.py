@@ -83,3 +83,19 @@ def test_credit_shelter_trust_savings_none_for_non_illinois_resident():
     c["il_exempt"] = 4_000_000.0
     c["state"] = "Texas"
     assert credit_shelter_trust_savings(c) is None
+
+
+def test_credit_shelter_trust_defaults_carry_the_decedents_own_4m_exemption():
+    """#303: Illinois has no portability, so a funded CST at first death is
+    the only way to use the first decedent's own exemption instead of losing
+    it. The household's combined shelter must default to $8M total -- the
+    decedent's own $4M carried into the trust (il_cst_shelter_cap / cs_amount,
+    unset in the fixture so this exercises the default) PLUS the survivor's
+    own separate $4M exemption (il_exempt) -- not $12M from letting the trust
+    default to the same $8M figure that was meant to describe the combined
+    total.
+    """
+    c = sample_config()
+    assert c["il_exempt"] == 4_000_000.0
+    assert c["il_cst_shelter_cap"] == 4_000_000.0
+    assert c["il_exempt"] + c["il_cst_shelter_cap"] == 8_000_000.0
