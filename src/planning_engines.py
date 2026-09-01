@@ -870,6 +870,14 @@ def compute_rmds(
     1.408-8, A-9 / 1.401(a)(9)-8), so folding the annuity's value into this
     aggregate base would double-count that RMD requirement. Keep this
     separation when modifying account-registry inclusion logic.
+
+    #295: a funded QLAC is the SAME carve-out under the SAME regulation, but
+    applies before the QLAC itself starts paying income (that's the whole
+    point of a QLAC -- deferred income with no RMD due on the deferred
+    premium). _ar.qlac_excluded_rmd_balance() subtracts the (capped) premium
+    from this owner's balance base; the dollars stay in the account for
+    growth/withdrawal purposes elsewhere, only the RMD divisor's numerator
+    shrinks.
     """
     divisor_fn = divisor_fn or rmd_divisor
     registry = c.get("account_registry", [])
@@ -882,7 +890,8 @@ def compute_rmds(
 
     for owner_idx, age, alive in ((0, h_age, h_alive), (1, w_age, w_alive)):
         ids = _ar.rmd_ids_by_owner(registry, owner_idx)
-        total_bal = _ar.sum_bal(bal, ids)
+        total_bal = _ar.sum_bal(bal, ids) - _ar.qlac_excluded_rmd_balance(c, owner_idx, year)
+        total_bal = max(0.0, total_bal)
         start_age = start_ages.get(owner_idx, start_age_default)
         divisor = divisor_fn(age) if alive and age >= start_age else 0.0
         amount = max(0.0, total_bal / divisor) if divisor and total_bal > 500 else 0.0

@@ -5377,6 +5377,31 @@ const FIELD_GUIDANCE_OVERRIDES = {
     impact: "'Fixed' ignores market and inflation changes. 'Variable' can help if returns beat expectations but hurt if they underperform. 'COLA' protects you if inflation rises. The choice affects how realistic your stress-test scenarios are.",
     consider: "Most traditional pensions are fixed; if yours adjusts for inflation, pick COLA. If it's truly fixed, pick Fixed. If it varies with company earnings or fund performance, pick Variable. Ask your pension administrator how yours works.",
   },
+  qlac_enabled: {
+    purpose: "Turns on a Qualified Longevity Annuity Contract (QLAC) for this person — a deferred-income annuity bought with pre-tax retirement dollars (IRA, 401(k), 403(b), or SEP-IRA).",
+    impact: "The premium is withdrawn from the source account in the purchase year and excluded from this person's required minimum distribution (RMD) calculation from that point on — RMDs drop immediately, even though the QLAC itself doesn't start paying income until the configured start year.",
+    consider: "Turn this on only once the contract is actually purchased (or being modeled as a firm decision), not just to explore numbers — leaving it off with fields filled in changes nothing in the projection, which is the safe way to draft a QLAC before committing.",
+  },
+  premium: {
+    purpose: "The dollar amount used to purchase the QLAC — a one-time payment from the source account, not an ongoing contribution.",
+    impact: "A larger premium buys more guaranteed future income and shelters more of the source account's balance from RMDs, but permanently removes that much liquidity from the household's accessible retirement savings. Capped at the statutory aggregate limit ($210,000 for 2025, indexed annually) regardless of what's entered — the projection engine never lets more than that count toward the RMD exclusion or leave the account.",
+    consider: "Get an actual carrier quote before finalizing an amount — the guaranteed monthly payment (initial_guaranteed_income_payment) should come from that quote, not be estimated separately from the premium.",
+  },
+  qlac_source_account: {
+    purpose: "Which traditional IRA, 401(k), 403(b), or SEP-IRA the QLAC premium is paid from.",
+    impact: "The premium leaves this account's balance in the purchase year, and this is also the account whose RMD calculation is reduced by the (capped) premium amount once the contract is purchased.",
+    consider: "A QLAC can only be funded from a pre-tax account — it cannot be purchased from a Roth IRA or a taxable brokerage account. If this person has more than one eligible account, the choice mainly affects which account's RMD shrinks.",
+  },
+  purchase_year: {
+    purpose: "The plan year the QLAC premium is actually paid — separate from when income starts. A QLAC is deferred by definition, so this is typically years before the income start date.",
+    impact: "Determines when the premium leaves the source account and when the RMD exclusion begins applying to that account. Has no effect on when income starts (set that on first_payment above).",
+    consider: "Use the actual or planned purchase date. Leave blank to default to plan start.",
+  },
+  death_benefit_pct: {
+    purpose: "An optional return-of-premium death benefit: if this person dies before recovering the full premium in payments, this percentage of the unpaid premium is returned to beneficiaries instead of being forfeited to the insurer.",
+    impact: "A higher percentage protects the household against an early death shrinking the value received, but lowers the guaranteed monthly payment the carrier offers for the same premium — it's a trade-off the carrier prices into the quote, not something this plan computes independently.",
+    consider: "0% (no death benefit) maximizes monthly income and is common when the goal is pure longevity insurance. A nonzero percentage matters more if leaving money to heirs is a priority alongside guaranteed income.",
+  },
   qualified: {
     purpose: "This marks whether your annuity or pension comes from an employer-sponsored retirement plan (qualified) or from personal after-tax savings (non-qualified). This determines how much of each payment is taxable.",
     impact: "Qualified income is fully taxable when you withdraw it. Non-qualified income uses an exclusion ratio so you recover your basis tax-free before the rest becomes taxable. Getting this wrong can significantly over- or under-estimate your tax burden.",

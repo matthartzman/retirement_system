@@ -688,6 +688,52 @@ def statutory_rmd_start_age(dob_year):
         return 73
     return 75
 
+
+# ── Qualified Longevity Annuity Contract (QLAC) ───────────────────────────────
+# #295. IRC Sec. 401(a)(9)(H) / Treas. Reg. 1.401(a)(9)-6(a)(2), as amended by
+# SECURE 2.0 Act Sec. 202 (2022): a QLAC is a deferred-income annuity bought
+# with pre-tax retirement dollars (traditional IRA/401k/403b/SEP) whose
+# premium is excluded from the RMD-divisor account-balance base for the
+# account(s) it was purchased from, up to a flat dollar cap indexed for
+# inflation (SECURE 2.0 removed the prior 25%-of-balance cap entirely -- the
+# dollar limit is now the ONLY cap). 2025 figure per IRS Notice 2024-80.
+# Income must begin no later than the age-85 statutory deadline (IRC Sec.
+# 401(a)(9)(H)(iv)); qlac_income_start_year_cap() below is the corresponding
+# "no later than" year for a given birth year.
+QLAC_PREMIUM_LIMIT_BASE_YEAR = 2025
+QLAC_PREMIUM_LIMIT_BASE = 210_000.0
+QLAC_LATEST_INCOME_START_AGE = 85
+
+
+def qlac_premium_limit(year, brk_inf):
+    """Inflation-indexed QLAC aggregate premium cap for a given plan year.
+
+    Aggregate across ALL of a person's traditional IRAs/401k's/403b's/SEP-IRAs
+    combined -- not per-contract or per-account. This module models at most
+    one QLAC contract per person (c['h_qlac']/c['wife_qlac']), so applying
+    this cap to that single premium figure is equivalent to the real
+    aggregate-across-accounts rule.
+    """
+    return QLAC_PREMIUM_LIMIT_BASE * (1.0 + float(brk_inf or 0.0)) ** (int(year) - QLAC_PREMIUM_LIMIT_BASE_YEAR)
+
+
+def qlac_income_start_year_cap(dob_year):
+    """Latest plan year QLAC income may begin without violating the age-85 rule."""
+    return int(dob_year) + QLAC_LATEST_INCOME_START_AGE
+
+
+def qlac_excluded_rmd_balance(c, owner_idx, year):
+    """Dollar amount to subtract from an owner's RMD-divisor balance base for
+    a funded, enabled QLAC (#295) -- capped at the statutory premium limit
+    regardless of what was actually configured, so a misconfigured plan can
+    never claim more RMD relief than the law allows."""
+    stream = c.get('h_qlac' if owner_idx == 0 else 'wife_qlac')
+    if not stream or not stream.get('enabled'):
+        return 0.0
+    premium = max(0.0, float(stream.get('premium', 0.0) or 0.0))
+    cap = qlac_premium_limit(year, c.get('brk_inf', 0.02))
+    return min(premium, cap)
+
 ASSET_CLASS_RETURNS = {
     'equity':    0.08,
     'commodity': 0.05,

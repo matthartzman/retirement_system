@@ -892,6 +892,32 @@ TLH_UI_PLAN_DATA_ROWS: list[list[str]] = [
      "Fraction of the lower-basis replacement expected to be sold (and its larger gain taxed) before basis step-up at death. Lower values make harvesting more permanently valuable."],
 ]
 
+# #295: QLAC (Qualified Longevity Annuity Contract) -- one slot per member,
+# alongside the existing fixed annuity/pension slots this section already
+# carries (Member N Single/Joint Annuity, Member 2 Pension). Disabled by
+# default (enabled=FALSE), so backfilling these rows into every existing
+# plan changes nothing about that plan's projection until a user opts in.
+def _qlac_ui_plan_data_rows(member: str) -> list[list[str]]:
+    sub = f"Member {member} QLAC"
+    return [
+        ["Income Streams", sub, "qlac_enabled", "FALSE", "bool",
+         "Enable a Qualified Longevity Annuity Contract for this person -- a deferred-income annuity bought with pre-tax retirement dollars whose premium is excluded from this person's RMD-divisor balance once purchased (IRC Sec. 401(a)(9)(H))."],
+        ["Income Streams", sub, "premium", "$0", "USD",
+         "Purchase premium. Capped at the statutory aggregate limit (2025: $210,000, indexed annually) regardless of what's entered here -- the projection engine enforces the cap even if this field is set higher."],
+        ["Income Streams", sub, "qlac_source_account", "", "text",
+         "Traditional IRA/401(k)/403(b)/SEP-IRA account id the premium is paid from (e.g. Member_1_IRA). Must be a pre-tax account -- a QLAC cannot be funded from a Roth or taxable account."],
+        ["Income Streams", sub, "purchase_year", "", "year",
+         "Year the premium is actually paid. Blank = plan start."],
+        ["Income Streams", sub, "first_payment", "", "date",
+         "Year QLAC income begins. Must be no later than the year this person turns 85 (IRC Sec. 401(a)(9)(H)(iv))."],
+        ["Income Streams", sub, "initial_guaranteed_income_payment", "$0", "USD",
+         "Guaranteed monthly QLAC payment starting in the first-payment year (from the carrier's quote). A QLAC has no dividend/cash component, so this is the payment for the life of the contract, before any COLA."],
+        ["Income Streams", sub, "death_benefit_pct", "0.00%", "percent",
+         "Optional return-of-premium death benefit: share of unpaid premium returned to beneficiaries if this person dies before recovering the full premium in payments. 0% = no death benefit (higher payout rate); not yet reflected in terminal net worth."],
+    ]
+
+QLAC_UI_PLAN_DATA_ROWS: list[list[str]] = _qlac_ui_plan_data_rows("1") + _qlac_ui_plan_data_rows("2")
+
 # A7: PLAN_DATA_BACKFILL_ENTRIES replaces twelve near-identical
 # _ensure_*_ui_plan_data_rows functions (each: read a CSV, compute missing
 # canonical rows, find an insertion point, splice, write back) with one
@@ -930,6 +956,11 @@ PLAN_DATA_BACKFILL_ENTRIES: list[plan_data_backfill.BackfillEntry] = [
     plan_data_backfill.BackfillEntry(
         "client_income.csv", SOCIAL_SECURITY_FUNDING_UI_PLAN_DATA_ROWS,
         plan_data_backfill.insert_before(plan_data_backfill.section_is("Income Streams")),
+    ),
+    plan_data_backfill.BackfillEntry(
+        "client_income.csv", QLAC_UI_PLAN_DATA_ROWS,
+        plan_data_backfill.insert_before(plan_data_backfill.section_subsection_is(
+            "Income Streams", "Joint-and-Survivor Percentage")),
     ),
     plan_data_backfill.BackfillEntry(
         "client_household.csv", SS_FRA_AGE_UI_PLAN_DATA_ROWS,

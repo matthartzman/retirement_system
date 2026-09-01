@@ -1655,6 +1655,44 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['wife_joint']     = load_stream('Member 2 Joint Annuity',    annuitant='wife')
     c['h_single']       = load_stream('Member 1 Single Annuity',   annuitant='husband')
     c['h_joint']        = load_stream('Member 1 Joint Annuity',    annuitant='husband')
+
+    # #295: QLAC (Qualified Longevity Annuity Contract) -- a deferred-income
+    # annuity bought with pre-tax retirement dollars. Reuses load_stream()'s
+    # payment machinery (base=0/div_rate=0/add_pct=0 collapses it to a pure
+    # guaranteed payment starting at first_yr -- see annuity_cash_income() in
+    # core.py) plus QLAC-specific fields load_stream doesn't have: the
+    # purchase premium (what src/core.py's qlac_excluded_rmd_balance()
+    # subtracts from the RMD base) and the source account it was purchased
+    # from. Two fixed slots (one per member), matching the existing
+    # single/joint annuity and pension slot pattern above rather than the
+    # "Other Asset N" numbered-row pattern -- SECURE 2.0 permits only one
+    # QLAC-eligible aggregate premium limit per person, not a list.
+    def load_qlac(name, annuitant='wife'):
+        s = load_stream(name, annuitant=annuitant)
+        s['base'] = 0.0
+        s['div_rate'] = 0.0
+        s['add_pct'] = 0.0
+        # CSV labels prefixed qlac_ where they'd otherwise collide with an
+        # existing generic field-help entry keyed by label alone (frontend
+        # FIELD_GUIDANCE_OVERRIDES has no section/subsection disambiguation)
+        # -- "enabled" already means the ACA subsidy toggle and
+        # "source_account" already means a Roth conversion's source account;
+        # showing that text on a QLAC row would be actively misleading.
+        s['enabled'] = _b(_v(data,'Income Streams',name,'qlac_enabled','FALSE'))
+        s['premium'] = _n(_v(data,'Income Streams',name,'premium','0'), 0)
+        s['source_account'] = str(_v(data,'Income Streams',name,'qlac_source_account','') or '').strip()
+        # Year the premium is actually paid out of source_account -- distinct
+        # from first_yr (income START year, i.e. first_payment above), since
+        # the whole point of a QLAC is deferring income years past purchase.
+        s['purchase_year'] = _y(_v(data,'Income Streams',name,'purchase_year', str(c['plan_start'])), c['plan_start'])
+        # Return-of-premium death benefit: % of unpaid premium returned to
+        # beneficiaries if the annuitant dies before recovering the full
+        # premium in payments. 0 = no death benefit (higher payout rate).
+        s['death_benefit_pct'] = max(0.0, min(1.0, _n(_v(data,'Income Streams',name,'death_benefit_pct','0'), 0)))
+        return s
+
+    c['h_qlac']    = load_qlac('Member 1 QLAC', annuitant='husband')
+    c['wife_qlac'] = load_qlac('Member 2 QLAC', annuitant='wife')
     _js_raw = _v(data,'Income Streams','Joint-and-Survivor Percentage','js_pct','100')
     c['js_pct'] = _n(_js_raw, 100)
     # If the source string contained '%', _n already converted to fraction (e.g. "100%" → 1.0).
@@ -2816,6 +2854,13 @@ def build_plan_from_json(plan, url_template=''):
         c['wife_pension']['init_pmt'] = inc['pension_monthly']
     for key in ['wife_single', 'wife_joint', 'h_single', 'h_joint']:
         c[key] = _empty_stream()
+    # #295: QLAC defaults (disabled/no premium) for the JSON/wizard config
+    # path -- see parse_client's load_qlac() for the CSV path's equivalent.
+    for key, owner_dob in (('h_qlac', c['h_dob_yr']), ('wife_qlac', c['w_dob_yr'])):
+        c[key] = _empty_stream()
+        c[key]['annuitant_dob_yr'] = owner_dob
+        c[key].update({'enabled': False, 'premium': 0.0, 'source_account': '',
+                        'purchase_year': c['plan_start'], 'death_benefit_pct': 0.0})
     c['ann_recovery_age'] = 86
     c['ann_db'] = {}
     c['annuity_calib'] = _td.DEFAULT_ANNUITY_CALIB
