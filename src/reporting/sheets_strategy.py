@@ -216,6 +216,41 @@ def build_sheet9(ws, c, rows):
     qc('9. Retirement Strategy', 'Withdrawal cascade and key risks documented', True, '')
 
 
+def ss_breakeven_age(monthly_early, age_early, monthly_late, age_late):
+    """Nominal cumulative-dollar breakeven age between claiming at
+    ``age_early`` (getting ``monthly_early``/mo) and claiming later at
+    ``age_late`` (getting the higher ``monthly_late``/mo) -- the age at
+    which the later choice's bigger checks have caught up to the head
+    start the earlier choice banked. No COLA, tax, or investment-return
+    adjustment: the standard, simplified reference figure (item 3.7, F11
+    Option 2), not a projection.
+
+    Returns ``None`` when ``monthly_late`` is not actually higher (no
+    crossing point exists -- delaying never pays off).
+    """
+    if monthly_late <= monthly_early:
+        return None
+    head_start = monthly_early * 12 * (age_late - age_early)
+    monthly_delta = monthly_late - monthly_early
+    return age_late + (head_start / monthly_delta) / 12
+
+
+def ss_breakeven_row(person_label, benefit_table, age_early, age_late):
+    """One breakeven comparison row for build_sheet10's breakeven table, or
+    None if either age is missing from ``benefit_table`` (SSA-quoted
+    monthly benefit at that age was never entered).
+    """
+    m_early = benefit_table.get(age_early)
+    m_late = benefit_table.get(age_late)
+    if not m_early or not m_late:
+        return None
+    breakeven = ss_breakeven_age(m_early, age_early, m_late, age_late)
+    return (
+        person_label, age_early, m_early, age_late, m_late,
+        f'{breakeven:.1f}' if breakeven is not None else 'Never (later age is not higher)',
+    )
+
+
 def build_sheet10(ws, c, rows):
     """Social Security Timing — full spouse-pair projection sweep."""
     ws.sheet_view.showGridLines = False
@@ -482,6 +517,64 @@ def build_sheet10(ws, c, rows):
             fmt = FMT_PCT if i == 14 else (FMT_DOLLAR if i >= 5 and i != 13 else None)
             write_cell(ws, r, i, val, fmt=fmt, bg=bg)
         r += 1
+
+    # Item 3.7 (F11, Option 2): a cumulative breakeven presentation.
+    # Deliberately NOT derived from the projection sweep above -- each
+    # SSA-quoted monthly benefit (h_ss_benefit_table/w_ss_benefit_table,
+    # already parsed from Plan Data's Social Security ss_benefit_age_62..70
+    # rows) is a real government figure that needs no engine run to compare,
+    # so this is genuinely free rather than "nearly free". It is nominal
+    # (no COLA, tax, or investment-return adjustment) -- the standard,
+    # simplified breakeven framing advisors and clients already expect, and
+    # explicitly NOT what the recommendation above is based on (that
+    # recommendation weighs after-tax terminal wealth, survivor-period
+    # income, and feasibility -- see this sheet's own closing note).
+    breakeven_rows = []
+    for label, table in ((_s1, c.get('h_ss_benefit_table') or {}), (_s2, c.get('w_ss_benefit_table') or {})):
+        row = ss_breakeven_row(f'{label}: claim at 62 vs. delay to 70', table, 62, 70)
+        if row:
+            breakeven_rows.append(row)
+    # Direction-neutral labels: the recommended age can be earlier OR later
+    # than the currently configured age (e.g. the sweep may recommend
+    # claiming sooner), so "current vs. recommended" must not be phrased as
+    # if recommended were always a delay -- state both ages plainly and let
+    # the Earlier/Later age columns (already reordered by ss_breakeven_row)
+    # carry the actual direction.
+    if h_current != best['h_age']:
+        row = ss_breakeven_row(f'{_s1}: current configured age {h_current} vs. recommended age {best["h_age"]}', c.get('h_ss_benefit_table') or {}, min(h_current, best['h_age']), max(h_current, best['h_age']))
+        if row:
+            breakeven_rows.append(row)
+    if w_current != best['w_age']:
+        row = ss_breakeven_row(f'{_s2}: current configured age {w_current} vs. recommended age {best["w_age"]}', c.get('w_ss_benefit_table') or {}, min(w_current, best['w_age']), max(w_current, best['w_age']))
+        if row:
+            breakeven_rows.append(row)
+
+    if breakeven_rows:
+        r += 2
+        write_hdr(ws, r, 1, 'Cumulative claiming breakeven (nominal, SSA-quoted benefit amounts)', NAVY, WHITE, span=14); r += 1
+        write_cell(
+            ws, r, 1,
+            'The age at which delaying claiming has paid for itself in raw cumulative dollars -- claiming earlier gets more, smaller checks; '
+            'claiming later gets fewer, larger checks, so the later choice starts behind and eventually catches up. Uses each person\'s own '
+            'SSA-quoted monthly benefit at each age exactly as entered, with no COLA, tax, or investment-return adjustment -- a simplified, '
+            'standard reference figure, not the basis for the recommendation above.',
+            align='left',
+        )
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
+        ws.row_dimensions[r].height = 30
+        r += 1
+        hdrs = ['Comparison', 'Earlier age', 'Monthly at earlier age', 'Later age', 'Monthly at later age', 'Breakeven age']
+        for i, h in enumerate(hdrs, 1):
+            write_hdr(ws, r, i, h, DGRAY, WHITE)
+        r += 1
+        for label, age_early, m_early, age_late, m_late, breakeven in breakeven_rows:
+            write_cell(ws, r, 1, label)
+            write_cell(ws, r, 2, age_early)
+            write_cell(ws, r, 3, m_early, fmt=FMT_DOLLAR)
+            write_cell(ws, r, 4, age_late)
+            write_cell(ws, r, 5, m_late, fmt=FMT_DOLLAR)
+            write_cell(ws, r, 6, breakeven)
+            r += 1
 
     r += 2
     write_hdr(ws, r, 1, f'Coarse-then-refine 62–70 × 62–70 spouse-pair sweep ({len(scenarios)} pairs scored)', NAVY, WHITE, span=14); r += 1
