@@ -100,7 +100,7 @@ const ADMIN_HELP = {
     purpose:
       "Control whether holdings are valued from live quotes, cached quotes, or fallback cost basis.",
     impact:
-      "Pricing affects account values in the workbook, allocation drift, trade recommendations, tax-lot gain/loss estimates, PDF/report warnings, and advisor-ready pricing status.",
+      "Pricing affects account values in the workbook, allocation drift, trade recommendations, tax-lot gain/loss estimates, report warnings, and advisor-ready pricing status.",
     consider:
       "Use CACHE for ordinary work. It uses any cached quote, even stale, before falling back to cost basis when no cache exists. Cost basis is now only a fallback when no cached quote exists.",
   },
@@ -108,7 +108,7 @@ const ADMIN_HELP = {
     title: "Workbook build diagnostics",
     purpose: "Review what the last build actually used and produced.",
     impact:
-      "Diagnostics reveal the source data behind workbook/PDF outputs: price sources, QC status, generated files, and whether report warnings should be investigated.",
+      "Diagnostics reveal the source data behind workbook outputs: price sources, QC status, generated files, and whether report warnings should be investigated.",
     consider:
       "Ask: did the workbook use the data and assumptions I expected? Open this after changing pricing, tax, allocation, or other system settings.",
   },
@@ -902,7 +902,7 @@ function adminFieldGuidance(key, note, units, location) {
       purpose:
         "Sets the maximum number of seconds allowed for a workbook build before timing out.",
       impact:
-        "Exact scalar Monte Carlo, Social Security claiming sweeps, sensitivity grids, PDF generation, and large client plans may need a higher timeout.",
+        "Exact scalar Monte Carlo, Social Security claiming sweeps, sensitivity grids, and large client plans may need a higher timeout.",
       consider:
         "For interactive exact-scalar Monte Carlo, 900–1800 seconds is typical; for large advisor-grade runs, 2400+ may be appropriate. Save and restart the app after changing it.",
     };
@@ -1029,7 +1029,7 @@ function adminConnectionHelp(key, location) {
   if (k.includes("tax"))
     return "Connects to tax schedules, Roth scoring, lifetime tax, estate-tax exposure, and QC freshness warnings.";
   if (k.includes("build") || k.includes("timeout"))
-    return "Connects to UI build reliability, Monte Carlo completion, workbook/PDF generation, and final plan_summary output.";
+    return "Connects to UI build reliability, Monte Carlo completion, workbook generation, and final plan_summary output.";
   if (
     k.includes("allocation") ||
     k.includes("optimizer") ||
@@ -1054,7 +1054,7 @@ function adminDefaultMeaning(key, note, units, location) {
   if (k.includes("pricing"))
     return `Controls how market values are obtained or reused for holdings in ${loc}. This affects whether account values come from live quotes, cached quotes, or local fallback data.`;
   if (k.includes("timeout") || k.includes("max_build_seconds"))
-    return `Sets how long the local build process may run before the UI treats it as failed. Longer values give Monte Carlo, workbook, PDF, and dashboard generation more time to finish.`;
+    return `Sets how long the local build process may run before the UI treats it as failed. Longer values give Monte Carlo, workbook, and dashboard generation more time to finish.`;
   if (k.includes("path") || k.includes("folder") || k.includes("csv"))
     return `Identifies a local file or adapter location used for import, export, diagnostics, or recovery while the SQLite database remains the primary source of truth.`;
   if (k.includes("tax") || k.includes("bracket") || k.includes("deduction"))

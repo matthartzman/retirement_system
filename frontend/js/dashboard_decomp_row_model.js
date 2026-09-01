@@ -1044,12 +1044,12 @@ export function renderBuildImpactPage() {
     promptBar =
       '<div class="section-note warning build-snapshot-prompt"><b>You have unsaved changes.</b> Take a snapshot now to preserve the current state before rebuilding. <button class="btn" type="button" data-requires-app="1" onclick="takeBuildSnapshot()">Take Snapshot</button></div>';
   const headerActions =
-    '<div class="pane-actions"><button class="btn" type="button" data-requires-app="1" onclick="takeBuildSnapshot()">Take Snapshot</button> <button class="btn danger" type="button" data-requires-app="1" onclick="revertLastBuildChanges()">Revert User Changes</button> <button class="btn" data-requires-app="1" data-download="1" onclick="downloadWithBuild(\'/api/xlsx\',\'Workbook\')">Download Workbook</button> <button class="btn" data-requires-app="1" data-download="1" onclick="downloadWithBuild(\'/api/pdf\',\'PDF\')">Download PDF</button> <button class="btn primary" type="button" data-step-id="review">Back to Download Reports</button></div>';
+    '<div class="pane-actions"><button class="btn" type="button" data-requires-app="1" onclick="takeBuildSnapshot()">Take Snapshot</button> <button class="btn danger" type="button" data-requires-app="1" onclick="revertLastBuildChanges()">Revert User Changes</button> <button class="btn" data-requires-app="1" data-download="1" onclick="downloadWithBuild(\'/api/xlsx\',\'Workbook\')">Download Workbook</button> <button class="btn primary" type="button" data-step-id="review">Back to Download Reports</button></div>';
   if (!buildHistory.length)
     return (
       '<div class="build-impact"><div class="impact-panel">' +
       promptBar +
-      "<h3>No build history yet</h3><p>Download your workbook or PDF from the Download Reports step to see before/after impact here, or take a snapshot to record the current state.</p>" +
+      "<h3>No build history yet</h3><p>Download your workbook from the Download Reports step to see before/after impact here, or take a snapshot to record the current state.</p>" +
       headerActions +
       "</div></div>"
     );
@@ -1948,7 +1948,7 @@ export function updatePlanStateBanner() {
       cls += " warn";
       title = "No current report package";
       detail =
-        "Build reports to create the workbook, PDF, dashboard, and Results Explorer model.";
+        "Build reports to create the workbook, dashboard, and Results Explorer model.";
       action = `<button class="btn primary" type="button" data-requires-app="1" onclick="runBuild(false)">Build Reports</button>`;
     } else if (!planStateFresh()) {
       cls += " warn";
@@ -4546,7 +4546,7 @@ export async function runBuild(queue = false, opts = {}) {
     showMessage("Building outputs...");
     updateBuildOverlay(
       "Starting build",
-      "Launching generated workbook, PDF, and report outputs from the saved database snapshot.",
+      "Launching generated workbook and report outputs from the saved database snapshot.",
       0,
     );
     const out = await buildWithProgress(buildBody);

@@ -1055,6 +1055,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "dirty",
       "file": "frontend/js/dashboard_decomp_build_history.js",
       "kind": "read",

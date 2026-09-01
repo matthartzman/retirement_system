@@ -23,7 +23,6 @@ def _write_bytes(path: Path, payload: bytes = b"artifact") -> None:
 
 def _seed_report_output(output: Path) -> None:
     _write_bytes(output / "retirement_plan.xlsx")
-    _write_bytes(output / "retirement_plan.pdf")
     _write_bytes(output / "retirement_dashboard.html")
     _write_json(output / RESULTS_MODEL_FILENAME, {"schema": RESULTS_MODEL_SCHEMA, "source": "test", "sheets": [{"name": "Summary"}], "categories": [{"label": "Summary"}]})
     _write_json(output / "plan_summary.json", {"build_id": "phase4", "terminal_nw": 123})

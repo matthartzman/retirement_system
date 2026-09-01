@@ -25,7 +25,7 @@ def fast_config():
 class RoadmapCompletionTests(unittest.TestCase):
     def test_requirements_manifest_lists_runtime_dependencies(self):
         text = (ROOT / "requirements.txt").read_text(encoding="utf-8")
-        for package in ["numpy", "openpyxl", "reportlab", "matplotlib", "pillow", "cryptography", "pywebview"]:
+        for package in ["numpy", "openpyxl", "matplotlib", "pillow", "cryptography", "pywebview"]:
             self.assertIn(package, text)
         self.assertNotIn("Flask", text)
         self.assertNotIn("Werkzeug", text)

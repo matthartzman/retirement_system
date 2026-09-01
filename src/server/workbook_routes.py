@@ -84,7 +84,6 @@ _BUILD_JOBS = build_job_service.BuildJobRegistry()
 _CURRENT_BUILD_OUTPUT_FILES = [
     "plan_summary.json",
     "retirement_plan.xlsx",
-    "retirement_plan.pdf",
     "retirement_dashboard.html",
     RESULTS_MODEL_FILENAME,
     SNAPSHOT_FILENAME,
@@ -459,11 +458,6 @@ def get_report_package():
 @app.route("/api/xlsx", methods=["GET"])
 def get_xlsx():
     return _download_file("retirement_plan.xlsx")
-
-
-@app.route("/api/pdf", methods=["GET"])
-def get_pdf():
-    return _download_file("retirement_plan.pdf")
 
 
 @app.route("/api/workbook-format", methods=["GET"])

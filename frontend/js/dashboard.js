@@ -339,9 +339,9 @@ const STEPS = [
     id: "review",
     group: "Reports",
     title: "Download Reports",
-    desc: "Build and download the workbook and PDF — downloads automatically save first when there are pending changes.",
+    desc: "Build and download the workbook — downloads automatically save first when there are pending changes.",
     intro:
-      "A build saves all current inputs, runs the full projection engine (cash flow, taxes, RMDs, Monte Carlo, scenarios), and writes the workbook. The PDF is an advisor-ready formatted summary. Both are read-only snapshots — edit values here, then rebuild.",
+      "A build saves all current inputs, runs the full projection engine (cash flow, taxes, RMDs, Monte Carlo, scenarios), and writes the workbook. It is a read-only snapshot — edit values here, then rebuild.",
     help: "A successful build updates projected final net worth, lifetime taxes, Monte Carlo success, and all narrative sections. Use Save Changes to save without triggering a rebuild.",
     hidden: true,
   },
@@ -601,7 +601,7 @@ const STEP_HELP = {
   review: pageHelp(
     "Download Reports",
     "Downloads automatically save and build as needed — you do not need to save separately before downloading.",
-    "Save Changes stores all entered values. Download Workbook and Download PDF each save, build, and deliver in one click when there are unsaved changes or no current build.",
+    "Save Changes stores all entered values. Download Workbook saves, builds, and delivers in one click when there are unsaved changes or no current build.",
     "Use Save Changes when you want to save without triggering a rebuild. Use Download when ready for final output. Resolve any required-field warnings before downloading. Bulk import/export is in Settings → System Configuration.",
     "A successful build refreshes projected net worth, lifetime taxes, Monte Carlo success, allocation recommendations, and all narrative sections. The downloaded file reflects the last successful build — download again after each rebuild to get the latest.",
   ),
@@ -609,7 +609,7 @@ const STEP_HELP = {
     "Build impact",
     "This page explains what changed in the latest build compared with the session baseline. It is a review and revert tool, not a data-entry page.",
     "The comparison uses values captured before this editing session and values after the last successful build. It helps connect changed assumptions to terminal net worth, lifetime taxes, Roth conversions, liquidity, and output warnings.",
-    "Revert restores captured before-values for edited inputs. Rebuild confirms whether the reverted or edited plan changes the authoritative workbook/PDF outputs.",
+    "Revert restores captured before-values for edited inputs. Rebuild confirms whether the reverted or edited plan changes the authoritative workbook output.",
     "Large differences identify high-leverage assumptions. A positive terminal-net-worth change is not automatically better if it increases lifetime taxes, liquidity stress, survivor risk, or Monte Carlo failure.",
   ),
   planning_workbench: pageHelp(
@@ -1864,7 +1864,7 @@ function pageSaveMode(stepId) {
       kind: "build-gated",
       label: "Build saves first",
       detail:
-        "Build Reports, Download Workbook, and Download PDF save the working copy before preflight and report generation.",
+        "Build Reports and Download Workbook save the working copy before preflight and report generation.",
     };
   if (["build_impact", "detailed_results", "plan_data_report"].includes(stepId))
     return {
@@ -4059,7 +4059,7 @@ let renderMain = function() {
       : `Step ${_stIdx} of ${visibleSteps().length}`;
   let content = `<div class="pane-head"><div class="eyebrow">${_eyebrow}</div><div class="page-title-row"><h2>${esc(st.title)}</h2>${pageStatusHtml(st.id)}</div><p>${esc(addParentheticals(st.intro))}</p>${pageSaveModeHtml(st.id)}<div class="pane-actions"><button class="btn" type="button" data-step-id="planning_workbench">Compare & Decide</button>${primaryActionForStep(st.id)}`;
   if (st.id === "review")
-    content += `<button class="btn good" data-requires-app="1" onclick="downloadWithBuild('/api/xlsx','Workbook')">Download Workbook</button><button class="btn good" data-requires-app="1" onclick="downloadWithBuild('/api/pdf','PDF')">Download PDF</button>`;
+    content += `<button class="btn good" data-requires-app="1" onclick="downloadWithBuild('/api/xlsx','Workbook')">Download Workbook</button>`;
   content += `</div></div><div class="question"><b>${esc(st.desc)}</b>${esc(st.help)}${stepHelpLinkHtml(st)}</div>`;
   content += inactiveValuesPanel(activeStep);
   content += pageRecommendationsHtml(activeStep);
