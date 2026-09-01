@@ -206,3 +206,39 @@ def credit_shelter_trust_savings(c, rows=None, require_enabled=True):
         'avg_rate': (saved / sheltered) if publish_figure else None,
         'below_exemption': estate <= exemption,
     }
+
+
+def federal_estate_materiality(c, rows=None, margin=CST_MATERIALITY_MARGIN):
+    """Whether FEDERAL estate tax planning is a live question for this
+    household, independent of which (if any) state estate tax is modeled.
+
+    Item 2.11: generalizes 1.10/F2's materiality gating -- previously only
+    applied to the Illinois-specific Credit Shelter Trust row -- to
+    recommendation rows whose relevance is driven by *federal* estate
+    exposure rather than a specific state's mechanism (starting with QTIP,
+    since a QTIP trust is a federal marital-deduction/estate-tax tool
+    usable in any state, not an Illinois-only planning question the way
+    ``credit_shelter_trust_savings`` is scoped). Nets out lifetime gift
+    exemption already consumed (see ``after_tax.estimate_terminal_estate_tax``,
+    item 2.6) so this agrees with the same terminal estate-tax figure the
+    Executive Summary and Roth optimizer's estate penalty use.
+
+    Returns ``(projected_estate, federal_exemption_net_of_gifts, exposed)``.
+    ``exposed`` is True when the projected estate is at or within ``margin``
+    below the net exemption -- the same "estate tax planning is a live
+    question, even if not yet triggered" threshold ``credit_shelter_trust_savings``
+    uses. Returns ``(None, None, False)`` when no projection is available.
+    """
+    estate, terminal = projected_second_death_estate(c, rows)
+    if estate is None:
+        return None, None, False
+    from ..core import indexed_federal_estate_exemption
+    target_year = int((terminal or {}).get('year', c.get('plan_end', c.get('plan_start', 0))) or 0)
+    fed_exempt = indexed_federal_estate_exemption(
+        c.get('fed_exempt'), c.get('plan_start', target_year), target_year, c.get('brk_inf', 0.02))
+    lifetime_used = _f((terminal or {}).get('lifetime_exemption_used_cumulative')) or 0.0
+    fed_exempt = max(0.0, fed_exempt - lifetime_used)
+    if fed_exempt <= 0:
+        return estate, fed_exempt, True
+    exposed = estate >= fed_exempt * (1.0 - margin)
+    return estate, fed_exempt, exposed
