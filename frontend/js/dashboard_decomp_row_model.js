@@ -3907,6 +3907,15 @@ export function editValue(idx, val, el) {
       if (box) box.outerHTML = optimizerOverrideTotalHtml();
     }
   }
+  if (row && row.section === "Housing" && dirty.has(idx)) {
+    const adjusted = reestimateHousingCostsOnValueChange(row, original, stored);
+    if (adjusted) {
+      renderMain();
+      showMessage(
+        `Re-estimated ${adjusted} housing cost field${adjusted === 1 ? "" : "s"} (utilities/maintenance/insurance) for the updated ${norm(row.label) === "purchase_price" ? "home value" : "rent"}. Review and adjust as needed.`,
+      );
+    }
+  }
   updateUnsaved();
   if (window.RetirementAppStore)
     window.RetirementAppStore.markDirty(unsavedChangeCount());
