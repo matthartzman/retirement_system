@@ -52,6 +52,7 @@ from .. import core as _ar  # consolidated from account_registry
 from .. import core as _aa  # consolidated from account_access
 from .. import tlh as _tlh
 from .. import gain_harvest as _gh
+from .. import tax_kernel as _tk
 from ..equity_comp import equity_comp_year_events as _equity_comp_year_events
 from ..core import amt_tax as _amt_tax
 
@@ -400,12 +401,7 @@ def run_deterministic_projection_stage(c):
         return _path_ratio('ss_cola_index_by_year', c['ss_cola'], year, claim_year)
 
     def _bracket_factor_for_year(year):
-        idx = c.get('bracket_index_by_year') if isinstance(c.get('bracket_index_by_year'), dict) else None
-        if idx:
-            base_year = getattr(getattr(_ar, '_td', None), 'FEDERAL_BRACKETS_VALUE_YEAR', TAX_BASE_YEAR)
-            base_to_plan = (1.0 + float(c.get('brk_inf', 0.02) or 0.0)) ** (int(c.get('plan_start', year)) - int(base_year))
-            return base_to_plan * float(idx.get(year, idx.get(int(year), 1.0)) or 1.0)
-        return (1.0 + float(c.get('brk_inf', 0.02) or 0.0)) ** (int(year) - getattr(getattr(_ar, '_td', None), 'FEDERAL_BRACKETS_VALUE_YEAR', TAX_BASE_YEAR))
+        return _tk.bracket_factor_for_year(c, year)
 
     def _inflate_brackets_path(brackets, inflator_unused, years_from_plan_start):
         year_eff = int(c.get('plan_start', 0) or 0) + int(years_from_plan_start or 0)
@@ -452,40 +448,16 @@ def run_deterministic_projection_stage(c):
         return (base + add_per * n_over_65) * _bracket_factor_for_year(year)
 
     def _irmaa_factor_for_year(year):
-        idx = c.get('irmaa_index_by_year') if isinstance(c.get('irmaa_index_by_year'), dict) else None
-        if idx:
-            return float(idx.get(year, idx.get(int(year), 1.0)) or 1.0)
-        return (1.0 + float(c.get('irmaa_inflator', 0.02) or 0.0)) ** (int(year) - int(c.get('plan_start', year)))
+        return _tk.irmaa_factor_for_year(c, year)
 
     def _irmaa_surcharge_path(agi, year, n_people, filing):
-        tiers = IRMAA_TIERS_BASE_YEAR.get(filing, IRMAA_TIERS_BASE_YEAR['MFJ'])
-        infl = _irmaa_factor_for_year(year)
-        for threshold, partb, partd in reversed(tiers):
-            if agi > threshold * infl:
-                return (partb + partd) * n_people * 12
-        return 0.0
+        return _tk.irmaa_surcharge(agi, year, n_people, filing, c)
 
     def _irmaa_tier_path(agi, year, filing):
-        tiers = IRMAA_TIERS_BASE_YEAR.get(filing, IRMAA_TIERS_BASE_YEAR['MFJ'])
-        infl = _irmaa_factor_for_year(year)
-        for i, (threshold, _, _) in enumerate(reversed(tiers)):
-            if agi > threshold * infl:
-                return len(tiers) - i
-        return 0
+        return _tk.irmaa_tier(agi, year, filing, c)
 
     def _ltcg_tax_on_gain_path(gain, ordinary_income, year):
-        if gain <= 0:
-            return 0.0
-        infl = _bracket_factor_for_year(year)
-        top0 = c['ltcg_0_top'] * infl
-        top15 = c['ltcg_15_top'] * infl
-        base = max(0.0, ordinary_income)
-        tax = 0.0
-        remaining = float(gain or 0.0)
-        in0 = min(remaining, max(0.0, top0 - base)); remaining -= in0
-        in15 = min(remaining, max(0.0, top15 - max(base, top0))); tax += in15 * 0.15; remaining -= in15
-        tax += max(0.0, remaining) * 0.20
-        return max(0.0, tax)
+        return _tk.ltcg_tax_on_gain(c, gain, ordinary_income, year)
 
     def _fra_for_birth_year(dob_year, fra_override=None):
         if fra_override and float(fra_override) > 0:
