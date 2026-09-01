@@ -35,6 +35,9 @@ def test_workbook_uses_numbered_sections_and_lettered_children(built_workbook_pa
         # the advanced modules (2J-2M in the old static mapping) off, so Gain
         # Harvesting lands densely at 2J instead of leaving a gap at 2N.
         '2J. Gain Harvesting',
+        # system review 2026-08-31 item 1.17: new always-on core sheet, lands
+        # densely at the end of section 2's letter order (highest letter_rank).
+        '2K. Tax Capacity',
         '3. Risk & Stress Tests',
         '3A. Monte Carlo',
         '3B. Survivor',
