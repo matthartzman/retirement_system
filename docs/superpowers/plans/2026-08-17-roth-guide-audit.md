@@ -56,7 +56,7 @@ describes. The SECURE Act 10-year non-spouse rule and the spousal-rollover
 exemption are both modeled as heir-category-conditioned distribution
 schedules. Not re-derived from first principles for this audit (out of scope
 for a helper-text ticket to re-verify tax-law mechanics already covered by
-`tests/test_after_tax_cap_gain_estate_regression.py` and sibling suites), but
+`tests/test_after_tax_cap_gain_estate_functional.py` and sibling suites), but
 the guide's specific claims (100% income-tax-free to heirs, 5-year Roth
 funding rule, spouse vs. non-spouse vs. eligible-designated-beneficiary
 timelines) each have a corresponding modeled branch, not a placeholder.

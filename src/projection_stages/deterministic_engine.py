@@ -2149,7 +2149,7 @@ def run_deterministic_projection_stage(c):
         #
         # An earlier version sat after Priority 4c, on the reasoning that
         # `hsa_wd` is not final until 4c's gap-fill has run. That was wrong,
-        # and `test_recommendations_regression.py::
+        # and `test_recommendations_functional.py::
         # test_fixed_point_taxable_withdrawal_solver_runs_before_roth` caught
         # it: adding tax demand after 3/4b/4c leaves only Roth to fund it, so
         # the plan drew Roth while pre-tax and HSA balances still remained --

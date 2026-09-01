@@ -156,7 +156,7 @@ taxable income / total tax are recomputed.
 correction *increases* tax, so the gap grows and the rest of the cascade
 must still be able to fund it IN ORDER. An initial version sat after
 Priority 4c, reasoning that `hsa_wd` is not final until 4c's gap-fill runs.
-`test_recommendations_regression.py::test_fixed_point_taxable_withdrawal_solver_runs_before_roth`
+`test_recommendations_functional.py::test_fixed_point_taxable_withdrawal_solver_runs_before_roth`
 caught that: with the demand added after 3/4b/4c, only Roth was left to fund
 it, so the plan drew Roth while pre-tax and HSA balances still remained --
 10 violations of the cascade's Roth-last invariant. Correctness of the
@@ -1054,7 +1054,7 @@ individually and moved nothing here.
 `tests/test_frozen_sample_plan_golden_master_regression.py` from
 5,824,239.30 / 1,290,848.91 to the values the frozen fixture actually computes,
 6,044,750.40 / 1,465,666.69. It missed a **second copy of the same two numbers**
-in `tests/test_recommendations_regression.py`, which still held the stale pair
+in `tests/test_recommendations_functional.py`, which still held the stale pair
 and emitted this on every full test run:
 
     UserWarning: golden-master baseline drift: terminal_total_nw = 6,044,750.40
@@ -1081,7 +1081,7 @@ dollars can only be an engine change, so downgrading it to a warning removed the
 protection without removing the maintenance burden.
 
 **What changed.** Deleted the duplicated dollar pins and the
-`_warn_on_baseline_drift` helper from `test_recommendations_regression.py`,
+`_warn_on_baseline_drift` helper from `test_recommendations_functional.py`,
 rather than re-pinning a second copy — having the same two numbers in two files
 is what let the 2026-08-10 correction land in only one of them. That test keeps
 its structural gate (`fail_count`/`warn_count` zero, full 2026-2056 horizon).
@@ -1094,7 +1094,7 @@ Also corrected two stale docs that pointed maintainers at the live plan:
 fresh worktree) — running it reproduces the original defect, since it prints
 figures for whatever household the author last saved rather than the frozen
 fixture the test pins. It now points at the authoritative test's own `__main__`
-regen block. `test_tax_loss_harvesting_regression.py`'s docstring made the same
+regen block. `test_tax_loss_harvesting_functional.py`'s docstring made the same
 "live, routinely edited" claim and referenced the now-deleted helper.
 
 **Verification.** Full `pytest -m "not slow"`: all pass, zero warnings.

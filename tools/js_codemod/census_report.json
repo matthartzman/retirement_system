@@ -126,7 +126,6 @@
     "renderEstateWithAnnuityLink",
     "renderFieldFinderGroups",
     "renderHouseholdPeople",
-    "renderIncomeWork",
     "renderMain",
     "renderMeta",
     "renderNav",
@@ -148,7 +147,6 @@
     "rollForwardYtdAccounts",
     "rowConfigValue",
     "rowIsRetirementWellness",
-    "rowSortKeyForIncomeWork",
     "saveAndExit",
     "saveChanges",
     "saveValueForRow",
@@ -2484,6 +2482,12 @@
     },
     {
       "name": "rows",
+      "file": "frontend/js/dashboard_decomp_income_streams.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "searchText",
       "file": "frontend/js/dashboard_decomp_income_streams.js",
       "kind": "read",
       "scope": "inside-function"

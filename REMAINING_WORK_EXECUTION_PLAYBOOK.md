@@ -128,7 +128,7 @@ git commit -m "F3.6: Lower ratchet, document dashboard split completion at 4-clu
 
 ```bash
 # Main branch (or worktree wt/engine-c3-mc):
-python -m pytest tests/test_recommendations_regression.py::PlanningSolveWave3Tests -xvs
+python -m pytest tests/test_recommendations_functional.py::PlanningSolveWave3Tests -xvs
 
 # Check: success-rate outputs now show per-account MC divergence
 # Compare pre/post F1.1 reports
