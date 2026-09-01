@@ -760,31 +760,31 @@ body.chart-modal-open{overflow:hidden}
 .nav-backdrop{display:none;position:fixed;inset:0;background:rgba(20,20,20,.45);z-index:59}
 .mobile-progress{display:none}
 /* .help-toggle wraps the "Context Help" h2 so it can act as a collapse toggle
-   at narrow widths; only above 1180px does it become the desktop collapse
-   control instead (U3, next rule). */
+   at every width -- see the unified rule below (U2). */
 .help-toggle{display:block;width:100%;padding:0;margin:0;background:none;border:none;text-align:left;cursor:default;font:inherit;color:inherit}
 .help-toggle-icon{display:none}
 
-/* Desktop help-pane collapse (U3): mirrors the mobile help-open pattern but
-   defaults to expanded, since aside.card.help ships always-visible above
-   1180px. Collapsing hides the pane and gives its 370px back to .content. */
+/* Desktop help pane (U2, revised 2026-09-01): the pane used to ship
+   always-visible, a permanent ~21% tax on content width for text the
+   on-page .question box already carries inline (dashboard.js's st.desc /
+   st.help). It now defaults CLOSED at every desktop width and opens
+   on-demand via the same body.help-open class the sub-1181px pattern
+   below already used -- one class, one meaning, at every breakpoint,
+   rather than the previous body.help-collapsed (opt OUT, desktop-only)
+   and body.help-open (opt IN, mobile-only) pair defaulting to opposite
+   states depending on which rule happened to load. This also subsumes the
+   old U7 fix (a separate unconditional collapse in the 1181-1460px range,
+   now redundant since collapsed is the default everywhere above 1180px
+   too) and the JS-side autoCollapseHelpForNarrowLaptop() workaround for
+   that same gap -- removed alongside this, see dashboard.js. */
 @media(min-width:1181px){
   .help-toggle{cursor:pointer}
   .help-toggle-icon{display:inline-block;transition:transform .18s ease;color:var(--muted)}
-  body.help-collapsed main{grid-template-columns:310px 1fr}
-  body.help-collapsed aside.card.help{display:none}
-  body.help-collapsed .help-toggle-icon{transform:rotate(180deg)}
-}
-
-/* U7: between 1181px and ~1460px the full 310/700+/370 three-column grid
-   (plus its 18px gaps) no longer fits without horizontal overflow, but the
-   only prior breakpoint was the full single-column collapse at 1180px. Drop
-   the 370px help column by default in this intermediate range -- same
-   layout the manual help-collapsed toggle above produces -- so there is no
-   overflow gap between the two existing breakpoints. */
-@media(min-width:1181px) and (max-width:1460px){
-  main{grid-template-columns:310px minmax(700px,1fr)}
+  main{grid-template-columns:310px 1fr}
   aside.card.help{display:none}
+  body.help-open main{grid-template-columns:310px minmax(700px,1fr) 370px}
+  body.help-open aside.card.help{display:block}
+  body.help-open .help-toggle-icon{transform:rotate(180deg)}
 }
 
 @media(max-width:1180px){
