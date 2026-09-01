@@ -213,6 +213,15 @@ CONTRACTS: tuple[EndpointContract, ...] = (
         response_fields=(_f("success", "bool", True), _f("count", "int", True), _f("sync", "dict")),
     ),
     EndpointContract(
+        "/api/home-sale-splits", "GET", "home_sale_splits_v1",
+        response_fields=(_f("success", "bool", True), _f("splits", "list", True), _f("accounts", "list", True)),
+    ),
+    EndpointContract(
+        "/api/home-sale-splits", "POST", "home_sale_splits_update_v1",
+        request_fields=(_f("splits", "list", True), _f("sync", "bool")),
+        response_fields=(_f("success", "bool", True), _f("count", "int", True), _f("sync", "dict")),
+    ),
+    EndpointContract(
         "/api/insurance-policy/add", "POST", "insurance_policy_add_v1",
         request_fields=(_f("policy_type", "str"),),
         response_fields=(_f("success", "bool", True), _f("section", "str"), _f("message", "str")),

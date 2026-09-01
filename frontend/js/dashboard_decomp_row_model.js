@@ -4312,6 +4312,7 @@ export async function loadAll(opts = {}) {
     await loadBudgetLines(false);
     await loadLiquidityBuffers();
     await loadForcedConversions();
+    await loadHomeSaleSplits();
     await loadEstateStateOptions();
     await loadYtdStatus(true);
     const h = await fetch(apiUrl("/api/holdings"));
@@ -4400,6 +4401,7 @@ export function hasUnsavedPlanChanges() {
     travelExtrasChanged ||
     liquidityChanged ||
     forcedConversionsChanged ||
+    homeSaleSplitsChanged ||
     ytdTransactionsChanged ||
     ytdAccountsChanged ||
     rulesChanged ||
@@ -4414,10 +4416,23 @@ export async function saveWorkingCopy() {
     return false;
   }
   if (!validateAllocationTargetsOrMessage()) return false;
+  if (
+    homeSaleSplits.length &&
+    Math.abs(homeSaleSplitPctTotal() - 100) >= 0.01
+  ) {
+    activeStep = "spending_mortgage_events";
+    renderMain();
+    showMessage(
+      `Home sale split percentages must total 100% before saving (currently ${homeSaleSplitPctTotal().toFixed(1)}%).`,
+      "error",
+    );
+    return false;
+  }
   await saveChanges(false);
   await saveTravelExtras(false);
   await saveLiquidityBuffers(false);
   await saveForcedConversions(false);
+  await saveHomeSaleSplits(false);
   await saveYtdPending();
   if (rulesChanged) await saveMappingRulesData();
   if (taxBudgetChanged) await saveTaxonomyBudgetData();

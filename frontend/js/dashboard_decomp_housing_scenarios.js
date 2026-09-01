@@ -644,7 +644,7 @@ export function renderBaseHomeSaleRows(rs) {
   const introNote = active
     ? '<div class="section-note">Sale year set — enter sale price, commission, and related details. Home value and basis are managed in Current Home above.</div>'
     : '<div class="section-note">Enter a home sale year to reveal sale detail fields.</div>';
-  return `<details><summary class="section-header">Home Sale</summary><div class="field-list">${introNote}${yearFirst.map(fieldHtml).join("")}${restVisible.map(fieldHtml).join("")}</div></details>`;
+  return `<details><summary class="section-header">Home Sale</summary><div class="field-list">${introNote}${yearFirst.map(fieldHtml).join("")}${restVisible.map(fieldHtml).join("")}</div>${active ? renderHomeSaleSplits() : ""}</details>`;
 }
 
 export function renderStressSellHomeRows(rs) {

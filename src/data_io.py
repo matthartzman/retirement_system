@@ -1102,6 +1102,24 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # home-sale math and the Sell Home scenario.
     c['home_basis']    = _n(_v(data,'Other Assets','Home','home_basis','0'), 0)
     c['home_sale_acct']= _v(data,'Other Assets','Home','home_sale_proceeds_account','').strip()
+    # #299: house sale proceeds may be split across multiple accounts by
+    # percentage instead of going to a single account. Rows live under
+    # numbered 'Home Sale Split N' subsections (see
+    # src/server/app_core.py's _home_sale_splits_from_csv_rows /
+    # _replace_home_sale_splits, the read/write pair the UI's add/delete-row
+    # editor round-trips through). Empty when unconfigured -- the engine
+    # falls back to the single home_sale_acct field above in that case.
+    c['home_sale_splits'] = []
+    for _sub, _vals in (data.get('Home Sale Split') or {}).items():
+        if not str(_sub or '').strip().lower().startswith('split_'):
+            continue
+        _acct = str(_vals.get('account', '') or '').strip()
+        _pct = _n(_vals.get('percentage', '0'), 0.0)
+        if _pct > 1.0:
+            _pct = _pct / 100.0
+        if not _acct or _pct <= 0:
+            continue
+        c['home_sale_splits'].append({'account': _acct, 'pct': _pct})
 
     # Current-home operating costs are entered in Housing Budget Detail/current
     # home rows.  Future housing steps carry explicit rent/buy operating costs;

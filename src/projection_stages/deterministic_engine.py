@@ -767,16 +767,42 @@ def run_deterministic_projection_stage(c):
                 net_proceeds = max(0.0, net_proceeds - heloc_payoff_yr)
                 bal['_heloc_balance'] = max(0.0, _heloc_bal_at_sale - heloc_payoff_yr)
                 row['heloc_payoff'] = heloc_payoff_yr
-            acct = c.get('home_sale_acct') or _aa.first_taxable(c)
-            if acct not in bal:
-                acct = _aa.first_taxable(c)
-            _aa.deposit(bal, acct, net_proceeds)
-            _add_account_flow(row['_account_deposits'], acct, net_proceeds)
-            _tag_deposit_source(row, acct, 'Home Sale Proceeds', net_proceeds)
-            # These dollars already had their gain taxed → stepped-up basis.
-            # Track as basis-free so future trust draws don't tax them again.
-            if acct in bal_basis_free:
-                bal_basis_free[acct] += net_proceeds
+            # #299: proceeds may be split across multiple accounts by
+            # percentage (home_sale_splits) instead of one designated
+            # account. Drop any split naming an account that doesn't exist
+            # in this plan's balances and renormalize the remaining
+            # percentages to 1.0, so the full net_proceeds is always
+            # deposited somewhere even if a configured account was removed
+            # after the split was set up.
+            _configured_splits = [
+                s for s in (c.get('home_sale_splits') or [])
+                if str(s.get('account', '')) in bal and float(s.get('pct', 0) or 0) > 0
+            ]
+            _split_pct_total = sum(float(s.get('pct', 0) or 0) for s in _configured_splits)
+            if _configured_splits and _split_pct_total > 0:
+                deposits = [
+                    (str(s['account']), net_proceeds * (float(s['pct']) / _split_pct_total))
+                    for s in _configured_splits
+                ]
+                acct = deposits[0][0]
+            else:
+                acct = c.get('home_sale_acct') or _aa.first_taxable(c)
+                if acct not in bal:
+                    acct = _aa.first_taxable(c)
+                deposits = [(acct, net_proceeds)]
+            for _dep_acct, _dep_amt in deposits:
+                if _dep_amt <= 0:
+                    continue
+                _aa.deposit(bal, _dep_acct, _dep_amt)
+                _add_account_flow(row['_account_deposits'], _dep_acct, _dep_amt)
+                _tag_deposit_source(row, _dep_acct, 'Home Sale Proceeds', _dep_amt)
+                # These dollars already had their gain taxed → stepped-up basis.
+                # Track as basis-free so future trust draws don't tax them again.
+                if _dep_acct in bal_basis_free:
+                    bal_basis_free[_dep_acct] += _dep_amt
+            row['home_sale_splits_applied'] = [
+                {'account': a, 'amount': amt} for a, amt in deposits if amt > 0
+            ] if len(deposits) > 1 else []
             # 8. Zero out home value — no longer owned
             home_val = 0.0
             home_equity = 0.0

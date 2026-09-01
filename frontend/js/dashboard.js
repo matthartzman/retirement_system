@@ -771,6 +771,9 @@ let apiBase = "",
   forcedConversions = [],
   forcedConversionsChanged = false,
   forcedConversionAccounts = [],
+  homeSaleSplits = [],
+  homeSaleSplitsChanged = false,
+  homeSaleSplitAccounts = [],
   estateStateOptions = [],
   planLoaded = false,
   demoModeActive = false,
@@ -7397,6 +7400,9 @@ Object.defineProperty(window, "forcedConversionAccounts", { get: () => forcedCon
 Object.defineProperty(window, "forcedConversions", { get: () => forcedConversions, set: (v) => { forcedConversions = v; }, configurable: true });
 Object.defineProperty(window, "forcedConversionsChanged", { get: () => forcedConversionsChanged, set: (v) => { forcedConversionsChanged = v; }, configurable: true });
 Object.defineProperty(window, "groupBudgetMode", { get: () => groupBudgetMode, set: (v) => { groupBudgetMode = v; }, configurable: true });
+Object.defineProperty(window, "homeSaleSplitAccounts", { get: () => homeSaleSplitAccounts, set: (v) => { homeSaleSplitAccounts = v; }, configurable: true });
+Object.defineProperty(window, "homeSaleSplits", { get: () => homeSaleSplits, set: (v) => { homeSaleSplits = v; }, configurable: true });
+Object.defineProperty(window, "homeSaleSplitsChanged", { get: () => homeSaleSplitsChanged, set: (v) => { homeSaleSplitsChanged = v; }, configurable: true });
 Object.defineProperty(window, "inactiveEditReveals", { get: () => inactiveEditReveals, set: (v) => { inactiveEditReveals = v; }, configurable: true });
 Object.defineProperty(window, "lastBuildCompare", { get: () => lastBuildCompare, set: (v) => { lastBuildCompare = v; }, configurable: true });
 Object.defineProperty(window, "lastBuildOk", { get: () => lastBuildOk, set: (v) => { lastBuildOk = v; }, configurable: true });
