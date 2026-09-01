@@ -1708,6 +1708,75 @@ def _replace_home_sale_splits(splits: list[dict]) -> None:
     new_rows[insert_at:insert_at] = normalized
     _write_client_rows(path, new_rows)
 
+
+def _residency_schedule_from_csv_rows(rows: list[list[str]]) -> list[dict]:
+    """Read normalized State Residency Schedule rows (#302)."""
+    def col(row, idx, default=""):
+        return (row[idx] if len(row) > idx else default) or ""
+
+    normalized: dict[str, dict] = {}
+    for row in rows[1:]:
+        sec, sub, label, value = [col(row, i).strip() for i in range(4)]
+        if sec == "State Residency Schedule" and re.match(r"period_\d+", sub):
+            normalized.setdefault(sub, {})[label] = value
+    if not normalized:
+        return []
+    out = []
+    for key in sorted(normalized, key=lambda x: int(re.search(r"\d+", x).group(0)) if re.search(r"\d+", x) else 0):
+        rec = normalized[key]
+        if str(rec.get("state", "")).strip():
+            out.append({
+                "state": rec.get("state", ""),
+                "start_year": rec.get("start_year", ""),
+                "end_year": rec.get("end_year", ""),
+            })
+    return out
+
+
+def _residency_schedule_rows(schedule: list[dict]) -> list[list[str]]:
+    rows = [
+        ["", "", "", "", "", "", "", ""],
+        ["# -- State Residency Schedule: state residency over time -- last row is open-ended --", "", "", "", "", "", "", ""],
+    ]
+    for i, p in enumerate(schedule, 1):
+        state = str(p.get("state") or "").strip()
+        start = str(p.get("start_year") or "").strip()
+        end = str(p.get("end_year") or "").strip()
+        rows.extend([
+            ["State Residency Schedule", f"period_{i}", "state", state, "choice", "Residence state during this period", "", ""],
+            ["State Residency Schedule", f"period_{i}", "start_year", start, "year", "First year this residency period applies", "", ""],
+            ["State Residency Schedule", f"period_{i}", "end_year", end, "year", "Last year this residency period applies; blank on the last row means open-ended", "", ""],
+        ])
+    rows.append(["", "", "", "", "", "", "", ""])
+    return rows
+
+
+def _replace_residency_schedule(schedule: list[dict]) -> None:
+    path = _client_section_path("State Residency Schedule", "client_data.csv")
+    with path.open(newline="", encoding="utf-8-sig") as f:
+        rows = list(csv.reader(f))
+    while rows and not any(str(c).strip() for c in rows[-1]):
+        rows.pop()
+    indices = []
+    for i, r in enumerate(rows):
+        if not r:
+            continue
+        if str(r[0]).startswith("# -- State Residency Schedule"):
+            indices.append(i)
+        elif len(r) >= 1 and str(r[0]).strip() == "State Residency Schedule":
+            indices.append(i)
+    insert_at = min(indices) if indices else None
+    new_rows = [r for i, r in enumerate(rows) if i not in set(indices)]
+    if insert_at is None:
+        insert_at = len(new_rows)
+        for i, r in enumerate(new_rows):
+            if len(r) >= 1 and str(r[0]).strip() == "Household":
+                insert_at = i + 1
+    normalized = _residency_schedule_rows(schedule)
+    new_rows[insert_at:insert_at] = normalized
+    _write_client_rows(path, new_rows)
+
+
 def _sync_config_backends() -> dict:
     # Wave 4.11 (system review 2026-08-04, `csv-roundtrip-on-every-save`)
     # tried making this DB->CSV export only, reasoning every real caller

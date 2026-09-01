@@ -284,6 +284,102 @@ export function renderHomeSaleSplits() {
   return html;
 }
 
+// #302: state residency over time -- state, start year, end year rows, the
+// last row always open-ended (no end year). Same client-array/add-delete-
+// row/single-endpoint shape as the tables above; state_for_year() in
+// src/core.py is the resolver every state-tax call site in the projection
+// engine reads instead of the static residence_state field, so this is
+// where "all associated taxes change" actually happens.
+export async function loadResidencySchedule() {
+  try {
+    const out = await api("/api/residency-schedule");
+    residencySchedule = out.schedule || [];
+    residencyScheduleChanged = false;
+  } catch (e) {
+    residencySchedule = [];
+  }
+}
+export async function saveResidencySchedule(sync = false) {
+  if (!residencyScheduleChanged) return { updated: 0 };
+  const out = await api("/api/residency-schedule", {
+    method: "POST",
+    body: JSON.stringify({ schedule: residencySchedule, sync }),
+  });
+  residencyScheduleChanged = false;
+  return out;
+}
+export function markResidencyScheduleDirty() {
+  noteSpecialSessionChange("State residency schedule");
+  residencyScheduleChanged = true;
+  lastBuildOk = false;
+  updateUnsaved();
+  setAppControls(appReady);
+  scheduleStatusUpdate();
+}
+export function updateResidencyPeriod(i, field, val) {
+  residencySchedule[i][field] = val;
+  // The last row is always open-ended -- clear any end_year a stale DOM
+  // value might have carried in from before this became the last row.
+  if (i === residencySchedule.length - 1) residencySchedule[i].end_year = "";
+  markResidencyScheduleDirty();
+  renderMain();
+}
+export function addResidencyPeriod() {
+  const last = residencySchedule[residencySchedule.length - 1];
+  if (last) {
+    // The row that was previously open-ended now needs a real end year --
+    // default it to one year before the new row's start so the periods are
+    // contiguous, but leave it for the user to confirm/adjust.
+    const nextStart = last.start_year ? String(Number(last.start_year) + 1) : "";
+    last.end_year = nextStart ? String(Number(nextStart) - 1) : "";
+  }
+  const newIndex = residencySchedule.length;
+  residencySchedule.push({
+    state: last ? last.state : "",
+    start_year: last && last.end_year ? String(Number(last.end_year) + 1) : "",
+    end_year: "",
+  });
+  markResidencyScheduleDirty();
+  renderMain();
+  setTimeout(() => {
+    const f = document.querySelector(
+      `[data-residency-row="${newIndex}"] input,[data-residency-row="${newIndex}"] select`,
+    );
+    if (f) {
+      f.focus();
+      if (f.select) f.select();
+    }
+  }, 0);
+}
+export async function deleteResidencyPeriod(i) {
+  if (
+    !(await showInAppConfirm("This cannot be undone.", {
+      title: "Delete Residency Row",
+      confirmLabel: "Delete",
+      variant: "danger",
+    }))
+  )
+    return;
+  residencySchedule.splice(i, 1);
+  // Whatever is now the last row must return to open-ended.
+  if (residencySchedule.length)
+    residencySchedule[residencySchedule.length - 1].end_year = "";
+  markResidencyScheduleDirty();
+  renderMain();
+}
+export function renderResidencySchedule() {
+  let html = `<div class="holdings"><h3 class="group-title">State residency over time</h3><div class="section-note">Optional: model a move to another state at a known year instead of one fixed state for the whole plan. All state income tax, estate tax, and other state-dependent figures use the state that applies in each projection year. Leave empty to use the single Household residence state for the whole plan. The last row is always open-ended (no end year) -- it applies from its start year through the end of the plan.</div><div class="table-actions"><button class="btn" type="button" onclick="addResidencyPeriod()">Add residency period</button></div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>State</th><th>Start year</th><th>End year</th><th></th></tr></thead><tbody>`;
+  if (!residencySchedule.length) {
+    html += `<tr><td colspan="4"><span class="small">No residency rows. The single Household residence state is used for the whole plan.</span></td></tr>`;
+  }
+  residencySchedule.forEach((p, i) => {
+    const isLast = i === residencySchedule.length - 1;
+    html += `<tr data-residency-row="${i}"><td><input type="text" value="${esc(p.state || "")}" placeholder="Illinois" oninput="updateResidencyPeriod(${i},'state',this.value)"></td><td><input class="tiny" type="text" value="${esc(p.start_year || "")}" placeholder="YYYY" oninput="updateResidencyPeriod(${i},'start_year',this.value)"></td><td>${isLast ? `<span class="small" title="The last row is always open-ended">Open-ended</span>` : `<input class="tiny" type="text" value="${esc(p.end_year || "")}" placeholder="YYYY" oninput="updateResidencyPeriod(${i},'end_year',this.value)">`}</td><td><button class="danger-link" type="button" onclick="deleteResidencyPeriod(${i})">Delete</button></td></tr>`;
+  });
+  html += `</tbody></table></div></div>`;
+  return html;
+}
+
 // Wave 6.4 ("leaves inward" ES-module migration): converted to a real ES
 // module. No cross-file mutable state (verified: nothing outside this file
 // reads or writes this file's module-level consts/let), so only the
@@ -322,4 +418,11 @@ Object.assign(window, {
   deleteHomeSaleSplit,
   homeSaleSplitPctTotal,
   renderHomeSaleSplits,
+  loadResidencySchedule,
+  saveResidencySchedule,
+  markResidencyScheduleDirty,
+  updateResidencyPeriod,
+  addResidencyPeriod,
+  deleteResidencyPeriod,
+  renderResidencySchedule,
 });

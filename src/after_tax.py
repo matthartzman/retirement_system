@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Dict, Tuple
 
-from .core import ltcg_tax_on_gain, niit_tax, state_income_tax, illinois_estate_tax, state_estate_tax, indexed_federal_estate_exemption
+from .core import ltcg_tax_on_gain, niit_tax, state_income_tax, illinois_estate_tax, state_estate_tax, indexed_federal_estate_exemption, state_for_year
 
 
 def _f(value: Any, default: float = 0.0) -> float:
@@ -598,7 +598,7 @@ def estimate_terminal_estate_tax(c: Mapping[str, Any], terminal: Mapping[str, An
     state_taxable = max(0.0, row_total + biz - row_cst)
     federal_tax = max(0.0, federal_taxable - fed_exempt) * 0.40 if fed_exempt else 0.0
     state_tax = (
-        state_estate_tax(str(c.get("state", "") or ""), state_taxable, state_exempt)[0]
+        state_estate_tax(state_for_year(c, target_year), state_taxable, state_exempt)[0]
         if c.get("model_state_est", True) and state_exempt
         else 0.0
     )

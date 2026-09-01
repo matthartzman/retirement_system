@@ -869,6 +869,32 @@ def _require_supported_state(state):
         )
 
 
+def state_for_year(c, year):
+    """#302: resolve the state used for a given tax year's computation.
+
+    c['residency_schedule'] (state/start_year/end_year rows, an optional
+    add/delete-row UI editor on top of the single c['state'] field) lets a
+    household model a mid-plan move. Every state-tax call site (income tax
+    in the deterministic engine, state estate tax in after_tax.py/
+    planning_engines.py) calls this instead of reading c['state'] directly,
+    so a household that moves state actually gets that state's tax rules
+    for the years it applied, rather than one static state for the whole
+    projection.
+
+    Falls back to the plain c['state'] whenever no schedule is configured,
+    or when `year` falls in a gap the schedule doesn't cover (e.g. before
+    the first configured period's start_year) -- preserving today's
+    single-state behavior exactly for the common case.
+    """
+    schedule = c.get('residency_schedule') or []
+    if not schedule:
+        return c.get('state', '')
+    for period in schedule:
+        if period['start_year'] <= year <= period.get('end_year', 9999):
+            return period['state']
+    return c.get('state', '') or schedule[0]['state']
+
+
 def state_income_tax(state, earned, retirement_dist, ss_taxable, investment_inc,
                      nonqual_annuity, roth_conv, year, age_over_65=True, filing='MFJ', brk_inf=0.02):
     _require_supported_state(state)

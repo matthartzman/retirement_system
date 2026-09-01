@@ -4313,6 +4313,7 @@ export async function loadAll(opts = {}) {
     await loadLiquidityBuffers();
     await loadForcedConversions();
     await loadHomeSaleSplits();
+    await loadResidencySchedule();
     await loadEstateStateOptions();
     await loadYtdStatus(true);
     const h = await fetch(apiUrl("/api/holdings"));
@@ -4402,6 +4403,7 @@ export function hasUnsavedPlanChanges() {
     liquidityChanged ||
     forcedConversionsChanged ||
     homeSaleSplitsChanged ||
+    residencyScheduleChanged ||
     ytdTransactionsChanged ||
     ytdAccountsChanged ||
     rulesChanged ||
@@ -4428,11 +4430,43 @@ export async function saveWorkingCopy() {
     );
     return false;
   }
+  for (let i = 0; i < residencySchedule.length; i++) {
+    const p = residencySchedule[i];
+    const isLast = i === residencySchedule.length - 1;
+    if (!p.state || !p.start_year) {
+      activeStep = "state_residency";
+      renderMain();
+      showMessage(
+        `Residency row ${i + 1} needs a state and a start year before saving.`,
+        "error",
+      );
+      return false;
+    }
+    if (isLast && p.end_year) {
+      activeStep = "state_residency";
+      renderMain();
+      showMessage(
+        "The last residency row must be open-ended — clear its end year before saving.",
+        "error",
+      );
+      return false;
+    }
+    if (!isLast && !p.end_year) {
+      activeStep = "state_residency";
+      renderMain();
+      showMessage(
+        `Residency row ${i + 1} needs an end year — only the last row may be open-ended.`,
+        "error",
+      );
+      return false;
+    }
+  }
   await saveChanges(false);
   await saveTravelExtras(false);
   await saveLiquidityBuffers(false);
   await saveForcedConversions(false);
   await saveHomeSaleSplits(false);
+  await saveResidencySchedule(false);
   await saveYtdPending();
   if (rulesChanged) await saveMappingRulesData();
   if (taxBudgetChanged) await saveTaxonomyBudgetData();

@@ -726,6 +726,33 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['w_death_yr']= int(c['w_dob_yr'] + c['w_mort_age'])
     c['state']     = _v(data,'Household','','residence_state','')
     require_residence_state_for_build(c['state'])
+    # #302: an optional residency SCHEDULE for households that change state
+    # residency mid-plan (state, start_year, end_year rows; the last row is
+    # open-ended). Purely additive -- when empty, every consumer keeps using
+    # the single c['state'] field above unchanged. Rows live under numbered
+    # 'State Residency Schedule'/'period_N' subsections (see
+    # src/server/app_core.py's _residency_schedule_from_csv_rows /
+    # _replace_residency_schedule, the read/write pair the UI's add/delete-row
+    # editor round-trips through). state_for_year() in deterministic_engine.py
+    # is the resolver every state-tax call site uses instead of the static
+    # field, so this is where "taxes actually change" lives.
+    c['residency_schedule'] = []
+    for _sub, _vals in (data.get('State Residency Schedule') or {}).items():
+        if not str(_sub or '').strip().lower().startswith('period_'):
+            continue
+        _rstate = str(_vals.get('state', '') or '').strip()
+        if not _rstate:
+            continue
+        _rstart = _y(_vals.get('start_year', ''), 0)
+        if not _rstart:
+            continue
+        _rend = _y(_vals.get('end_year', ''), 0)
+        c['residency_schedule'].append({
+            'state': _rstate,
+            'start_year': _rstart,
+            'end_year': _rend if _rend else 9999,
+        })
+    c['residency_schedule'].sort(key=lambda p: p['start_year'])
     c['trust_type']= _v(data,'Estate Planning','Trust Structure','trust_type','revocable living trust')
 
     # Market pricing settings live in multi_user/system_config.csv and are merged by the active config loader.

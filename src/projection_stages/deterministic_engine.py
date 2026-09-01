@@ -54,6 +54,7 @@ from .. import tlh as _tlh
 from .. import gain_harvest as _gh
 from ..equity_comp import equity_comp_year_events as _equity_comp_year_events
 from ..core import amt_tax as _amt_tax
+from ..core import state_for_year
 
 # withdrawal_engine/conversion_engine/inheritance_engine/growth_engine were
 # consolidated into planning_engines.py itself; call sites below use
@@ -438,7 +439,7 @@ def run_deterministic_projection_stage(c):
         new_taxable_inc = taxable_inc_base + ira_wd_cumulative
         new_fed_tax = _compute_fed_tax_path(new_taxable_inc, year, filing, c['brk_inf'])
         new_state_tax = state_income_tax(
-            c['state'], earned_net, retirement_dist_base + ira_wd_cumulative, ss_taxable,
+            state_for_year(c, year), earned_net, retirement_dist_base + ira_wd_cumulative, ss_taxable,
             investment_inc, nonqual_ann, roth_conv, year, h_over_65, filing=filing,
             brk_inf=c['brk_inf'],
         )
@@ -1607,7 +1608,7 @@ def run_deterministic_projection_stage(c):
                                    for k in ['wife_single','h_single']
                                    if not c[k].get('qualified', True))
             return state_income_tax(
-                c['state'], max(0, net_earned_taxable - half_se_ded - sehi_ded),
+                state_for_year(c, _tax_year), max(0, net_earned_taxable - half_se_ded - sehi_ded),
                 rmd_taxable_total + _qual_ann_est, _ss_taxable_est, note_int_yr + portfolio_ordinary + portfolio_qualified,
                 _nonqual_ann_est, 0.0, _tax_year, h_age >= 65 or w_age >= 65, filing=filing,
                 brk_inf=c['brk_inf'],
@@ -1852,7 +1853,7 @@ def run_deterministic_projection_stage(c):
         # unrecognized/blank state (require_residence_state_for_build, Class
         # 1); this fallback exists only for lower-level/defensive callers this
         # repo deliberately keeps lenient, out of scope for this ticket.
-        _state_rules = STATE_TAX_RULES.get(c['state'], STATE_TAX_RULES['Illinois'])
+        _state_rules = STATE_TAX_RULES.get(state_for_year(c, year), STATE_TAX_RULES['Illinois'])
         il_tax_est = agi * _state_rules.get('rate', 0.0495)
         configured_prop_tax_yr = float(row.get('real_estate_tax_yr', 0.0) or 0.0)
         estimated_prop_tax_yr = (home_val * _state_rules.get('prop_rate', 0.0)) if home_val > 0 else 0.0
@@ -1972,7 +1973,7 @@ def run_deterministic_projection_stage(c):
         retirement_dist = rmd_taxable_total + qual_ann  # pension already included in qual_ann if qualified
         earned_net = max(0, net_earned_taxable - half_se_ded - sehi_ded)
         h_over_65 = h_age >= 65 or w_age >= 65
-        state_tax = state_income_tax(c['state'], earned_net, retirement_dist,
+        state_tax = state_income_tax(state_for_year(c, year), earned_net, retirement_dist,
                                      ss_taxable, note_int_yr + portfolio_ordinary + portfolio_qualified, nonqual_ann,
                                      roth_conv, year, h_over_65, filing=filing, brk_inf=c['brk_inf'])
 
@@ -2916,7 +2917,7 @@ def run_deterministic_projection_stage(c):
             _taxable = max(0.0, _agi - ded)
             _fed = _compute_fed_tax_path(_taxable, year, filing, c['brk_inf'])
             _state = state_income_tax(
-                c['state'], earned_net, retirement_dist + ira_wd + extra_ordinary, _ss_tax,
+                state_for_year(c, year), earned_net, retirement_dist + ira_wd + extra_ordinary, _ss_tax,
                 note_int_yr + portfolio_ordinary + portfolio_qualified, nonqual_ann, roth_conv,
                 year, h_over_65, filing=filing, brk_inf=c['brk_inf'])
             _niit_v = niit_tax(row.get('nii', 0.0) or 0.0, _agi, filing)
