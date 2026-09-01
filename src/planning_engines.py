@@ -434,7 +434,28 @@ def _basis_step_fraction_for_death(c: Mapping, first_death: bool = True) -> floa
 
 
 def _account_titling(c: Mapping, account_id: str) -> dict:
-    return (c.get('account_titling') or {}).get(account_id) or {}
+    """Explicit per-account titling, defaulting joint accounts to JTWROS.
+
+    Finding F8 (item 2.7): an account with no explicit titling on file used
+    to fall straight through to the household-wide property_regime default
+    via ``_basis_step_fraction_for_death``, which returns 1.0 (a full
+    step-up) for common-law-state first deaths. Combined with
+    ``core._infer_owner`` assigning every joint/household-named account
+    wholesale to member_1, this produced an asymmetric step-up outcome
+    depending on which spouse happened to die first, even though the
+    account is genuinely jointly held. An account this codebase infers as
+    joint/household-named (``infer_member_role(account_id) == 'household'``)
+    now defaults to JTWROS (50/50) titling absent an explicit override,
+    matching how such accounts are actually owned; an explicit titling
+    record on file still takes precedence.
+    """
+    explicit = (c.get('account_titling') or {}).get(account_id)
+    if explicit:
+        return explicit
+    from .person_labels import infer_member_role
+    if infer_member_role(account_id) == 'household':
+        return {'titling': 'JTWROS'}
+    return {}
 
 
 def _account_basis_step_fraction(c: Mapping, account_id: str, first_death: bool = True) -> float:
@@ -819,15 +840,25 @@ from . import core as _ar  # consolidated from account_registry
 BalanceMap = MutableMapping[str, float]
 
 
-def rmd_divisor(age: int | float, table: Mapping[int, float] | None = None) -> float:
-    """Return SECURE 2.0 Uniform Lifetime divisor for an age.
+def rmd_divisor(age: int | float, table: Mapping[int, float] | None = None,
+                 spouse_age: int | float | None = None,
+                 sole_beneficiary_spouse: bool = False) -> float:
+    """Return the RMD divisor for an age: SECURE 2.0 Uniform Lifetime by
+    default, or IRS Table II (Joint and Last Survivor) when
+    `sole_beneficiary_spouse` is true and the spouse is more than 10 years
+    younger (finding F10 / item 2.9) -- the Uniform Lifetime table alone
+    understates the RMD reduction available in that case.
 
     `table` is injectable so build_workbook can keep its current source of
-    truth while tests can exercise this helper independently.
+    truth while tests can exercise this helper independently; it only
+    overrides the Uniform Lifetime lookup, not the Joint Life table.
     """
     age_i = int(age)
     if age_i < 72:
         return 0.0
+    if sole_beneficiary_spouse and spouse_age is not None and (age_i - spouse_age) > 10:
+        from .core import joint_life_divisor
+        return float(joint_life_divisor(age_i, spouse_age))
     if table and age_i in table:
         return float(table[age_i])
     try:
@@ -839,6 +870,36 @@ def rmd_divisor(age: int | float, table: Mapping[int, float] | None = None) -> f
     # Beyond table age, keep declining conservatively without corrupting
     # known-table ages such as age 80 (20.2, not a linear approximation).
     return max(2.0, 2.9 - max(0, age_i - 115) * 0.1)
+
+
+def _spouse_is_sole_beneficiary(c: Mapping, ids: Sequence[str], spouse_name: str) -> bool:
+    """True if per-account titling data names the spouse as sole primary
+    beneficiary for this owner's RMD-eligible accounts, or if no titling
+    record is on file for any of them at all.
+
+    Finding F10 / item 2.9: "automatic detection via titling plus an
+    age-gap fallback." Absent an explicit record naming someone else, this
+    assumes the spouse is the beneficiary -- the common case for retirement
+    accounts, and the reason the age-gap alone is the documented fallback
+    rather than withholding the more favorable Joint Life divisor by
+    default. An explicit record naming a different beneficiary (not the
+    spouse) for any of these accounts overrides the fallback to False.
+    """
+    titling = c.get('account_titling') or {}
+    spouse_l = str(spouse_name or '').strip().lower()
+    for aid in ids:
+        rec = titling.get(aid)
+        if not rec:
+            continue
+        ben = str(rec.get('primary_beneficiary') or '').strip().lower()
+        if not ben:
+            continue
+        if 'spouse' in ben:
+            continue
+        if spouse_l and spouse_l in ben:
+            continue
+        return False
+    return True
 
 
 def owner_account_ids(registry: Sequence[Mapping], owner_idx: int, tax_type: str | None = None) -> List[str]:
@@ -878,13 +939,27 @@ def compute_rmds(
         0: int(c.get("h_rmd_start_age", start_age_default) or start_age_default),
         1: int(c.get("w_rmd_start_age", start_age_default) or start_age_default),
     }
+    # F10 / item 2.9: the spouse's age and name for the Joint Life table gate
+    # -- owner_idx 0 (h)'s spouse is w and vice versa.
+    spouse_age_of = {0: w_age, 1: h_age}
+    spouse_alive_of = {0: w_alive, 1: h_alive}
+    spouse_name_of = {0: c.get("w_name", ""), 1: c.get("h_name", "")}
     by_owner: Dict[int, Dict] = {}
 
     for owner_idx, age, alive in ((0, h_age, h_alive), (1, w_age, w_alive)):
         ids = _ar.rmd_ids_by_owner(registry, owner_idx)
         total_bal = _ar.sum_bal(bal, ids)
         start_age = start_ages.get(owner_idx, start_age_default)
-        divisor = divisor_fn(age) if alive and age >= start_age else 0.0
+        sole_spouse = bool(spouse_alive_of[owner_idx]) and _spouse_is_sole_beneficiary(
+            c, ids, spouse_name_of[owner_idx])
+        try:
+            divisor = divisor_fn(age, spouse_age=spouse_age_of[owner_idx],
+                                  sole_beneficiary_spouse=sole_spouse) if alive and age >= start_age else 0.0
+        except TypeError:
+            # A caller-supplied divisor_fn (e.g. in tests) may not accept
+            # the newer keyword arguments -- fall back to the plain call
+            # rather than breaking existing single-arg callables.
+            divisor = divisor_fn(age) if alive and age >= start_age else 0.0
         amount = max(0.0, total_bal / divisor) if divisor and total_bal > 500 else 0.0
         by_owner[owner_idx] = {
             "ids": ids,
