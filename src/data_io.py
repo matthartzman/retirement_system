@@ -1489,13 +1489,18 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # Label itself was already state-generic (state_estate_exemption); only the
     # subsection baked in the state name.
     c['il_exempt']   = _n(_v(data,'Estate Planning','State','state_estate_exemption','4000000'), 4000000)
-    # #227: a funded Credit Shelter Trust shelters decedent assets from the
+    # #227/#303: a funded Credit Shelter Trust shelters decedent assets from the
     # survivor's estate entirely (see cs_enabled/cs_amount below) rather than
     # doubling il_exempt directly -- il_exempt itself must stay the survivor's
     # own plain exemption or the trust benefit gets double-counted. This cap
-    # governs how much can be moved into the trust at first death and should
-    # be reviewed alongside il_exempt (see https://creativeplanning.com/insights/taxes/state-estate-inheritance-taxes/).
-    c['il_cst_shelter_cap'] = _n(_v(data,'Estate Planning','Credit Shelter Trust','shelter_cap','8000000'), 8000000)
+    # governs how much of the FIRST decedent's own exemption can be carried
+    # into the trust at first death, so it defaults to the same $4,000,000 as
+    # il_exempt: decedent's $4M (CST-sheltered) + survivor's own separate $4M
+    # (il_exempt) = the $8,000,000 combined household IL exemption Illinois'
+    # lack of portability otherwise loses at the first death. A default of
+    # $8,000,000 here would let the trust shelter the survivor's own exemption
+    # a second time, understating combined household exposure by up to $4M.
+    c['il_cst_shelter_cap'] = _n(_v(data,'Estate Planning','Credit Shelter Trust','shelter_cap','4000000'), 4000000)
     c['cst_enabled'] = _b(_v(data,'Estate Planning','Credit Shelter Trust','enabled','FALSE'))
     c['basis_step_up_at_death'] = _b(_v(data,'Estate Planning','Step-Up','basis_step_up_at_death','TRUE'))
     c['basis_step_up_property_regime'] = str(_v(data,'Estate Planning','Step-Up','property_regime','COMMON_LAW') or 'COMMON_LAW').strip().upper()
@@ -1520,7 +1525,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['cs_amount']         = _n(_v(data,'Estate Planning','Credit Shelter Trust','amount',
                                   str(c['il_cst_shelter_cap'])), c['il_cst_shelter_cap'])
     c['cs_note']           = _v(data,'Estate Planning','Credit Shelter Trust','note',
-                                 'Funds up to the CST shelter cap; bypasses survivor estate for IL tax, on top of the survivor\'s own separate IL exemption')
+                                 'Funds up to the CST shelter cap (decedent\'s own $4M IL exemption by default); bypasses survivor estate for IL tax, on top of the survivor\'s own separate $4M IL exemption -- $8M combined by default')
     # QTIP manages annuity income after first death (annuity held in QTIP for benefit of survivor)
     c['qtip_manages_annuity'] = _b(_v(data,'Estate Planning','QTIP Trust','manages_annuity_after_first_death','TRUE'))
     # Desired minimum after-tax terminal bequest; 0/unset means no target is configured.
