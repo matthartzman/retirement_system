@@ -9,6 +9,7 @@ from src.optimization import compute_optimal_allocation
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from _decomp_dashboard import dashboard_function_source, dashboard_js_text
 from conftest import TEST_INPUT_DIR
 
 
@@ -30,11 +31,14 @@ class SimplifiedAllocationTests(unittest.TestCase):
         self.assertAlmostEqual(opt['liquid_targets']['US Large Cap'], 0.4375, places=4)
 
     def test_ui_enforces_allocation_total_and_does_not_list_loaded_files(self):
-        html = (ROOT / 'src' / 'dashboard_ui' / 'template.py').read_text(encoding='utf-8')
-        self.assertIn('allocationTargetsValid', html)
-        self.assertIn('Active included/alternate target rows must total 100.00%', html)
-        self.assertIn('pathModalInput', html)
-        self.assertNotIn('showPlanDataFileManifest(title,names){document.getElementById', html)
+        js = dashboard_js_text()
+        html = (ROOT / 'frontend' / 'index.html').read_text(encoding='utf-8')
+        self.assertIn('allocationTargetsValid', js)
+        self.assertIn('Active included/alternate target rows must total 100.00%', js)
+        self.assertIn('id="pathModalInput"', html)
+        manifest_fn = dashboard_function_source('showPlanDataFileManifest', js)
+        self.assertNotIn('getElementById', manifest_fn)
+        self.assertNotIn('These are the filenames found in the selected folder', js)
         self.assertNotIn('These are the filenames found in the selected folder', html)
 
 

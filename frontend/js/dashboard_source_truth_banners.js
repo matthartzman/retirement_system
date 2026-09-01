@@ -1,26 +1,24 @@
 (function () {
   "use strict";
+  // D3 (system review 2026-08-31): these banners previously stated storage
+  // mechanics verbatim to end users (SQLite, "adapter", literal CSV
+  // filenames) on every listed step, which answers no question a retiree
+  // has. Steps that carried no actionable fact beyond "here's where this is
+  // stored" (plan_data_report, all_assumptions, holdings, ytd_transactions,
+  // spending_dashboard, spending_core, system_configuration,
+  // detailed_results) had their banner removed outright -- several of those
+  // duplicated guidance already shown elsewhere (spendingFlowHtml() covers
+  // the spending steps' workflow order; addStaleAdvisorNotice() below
+  // already shows a conditional, implementation-noun-free staleness warning
+  // on detailed_results/build_impact/review when the plan is actually
+  // stale). Only build_impact and review carried a genuine, always-relevant
+  // "this reflects your last build" warning, so those two are kept and
+  // rewritten in outcome language instead.
   const SOURCE_TRUTH_STEPS = {
-    plan_data_report:
-      "Authoritative source: saved SQLite local plan. This page is a printable review packet, not an editing surface.",
-    all_assumptions:
-      "Authoritative source: saved SQLite local plan rows. CSV/JSON/YAML files are portable adapters and backups.",
-    holdings:
-      "Authoritative source: SQLite client_holdings.csv adapter. Broker CSV imports are staged previews until Save Changes.",
-    ytd_transactions:
-      "Authoritative source: SQLite YTD transaction table. CSV imports are previewed before they replace or append rows.",
-    spending_dashboard:
-      "Authoritative source: SQLite spending taxonomy, budget, and YTD transactions. Spending Analysis is the sync checkpoint before Build.",
-    spending_core:
-      "Authoritative source: guided spending categories in SQLite. Detail pages may seed or override category budget lines.",
-    system_configuration:
-      "Authoritative source: local SQLite plan plus system_config.csv for runtime settings. Advanced CSV files are maintenance adapters.",
     review:
-      "Authoritative source: saved SQLite plan. Build outputs are snapshots and are advisor-ready only after a current build.",
+      "These reports reflect your last successful build, not live edits. Save and rebuild after changes to keep them current.",
     build_impact:
-      "Authoritative source: last successful build snapshot. Rebuild after edits before relying on advisor-ready language.",
-    detailed_results:
-      "Authoritative source: generated Results Explorer model and workbook artifacts from the last build snapshot.",
+      "This shows the impact of your last build. Rebuild after edits to see updated numbers.",
   };
   const SPENDING_STEPS = [
     "spending_core",

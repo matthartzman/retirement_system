@@ -776,6 +776,17 @@ body.chart-modal-open{overflow:hidden}
   body.help-collapsed .help-toggle-icon{transform:rotate(180deg)}
 }
 
+/* U7: between 1181px and ~1460px the full 310/700+/370 three-column grid
+   (plus its 18px gaps) no longer fits without horizontal overflow, but the
+   only prior breakpoint was the full single-column collapse at 1180px. Drop
+   the 370px help column by default in this intermediate range -- same
+   layout the manual help-collapsed toggle above produces -- so there is no
+   overflow gap between the two existing breakpoints. */
+@media(min-width:1181px) and (max-width:1460px){
+  main{grid-template-columns:310px minmax(700px,1fr)}
+  aside.card.help{display:none}
+}
+
 @media(max-width:1180px){
   /* --- 6.1 Off-canvas nav drawer ---
      The header's existing <=1180px rule stacks .head into a column

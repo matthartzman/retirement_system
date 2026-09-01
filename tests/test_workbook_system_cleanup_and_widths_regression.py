@@ -23,6 +23,9 @@ def test_system_section_uses_clean_sheet_sequence_without_feature_toggle(built_w
         # plan has the advanced modules off, so Gain Harvesting fills the gap
         # densely instead of leaving one.
         '2. Optimizers','2A. Roth Conversion','2B. Asset Allocation','2C. State Residency','2D. Social Security','2E. S-Corp vs LLC','2F. Charitable Giving','2G. Estate & Legacy Planning','2I. Tax-Loss Harvesting','2J. Gain Harvesting',
+        # system review 2026-08-31 item 1.17: new always-on core sheet, lands
+        # densely at the end of section 2's letter order (highest letter_rank).
+        '2K. Tax Capacity',
         '3. Risk & Stress Tests','3A. Monte Carlo','3B. Survivor','3C. LTC + Life Insurance',
         '4. System','4A. Plan Data','4B. Assumptions','2H. Planning Levers','4C. Account Reconciliation','4D. Quality Control','4E. RMD Audit','4F. Methodology','4G. Glossary',
     ]

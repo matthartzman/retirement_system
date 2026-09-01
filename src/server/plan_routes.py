@@ -110,26 +110,11 @@ except ImportError:
         request,
         set_client_file,
     )
-try:
-    from ..version import VERSION
-except ImportError:
-    from src.version import VERSION
-try:
-    from ..server_services import base_service, config_service, demo_plan_service, pricing_service, ytd_service, plan_file_service, portfolio_service, secret_service, spending_service, strategy_asset_service
-except ImportError:
-    from src.server_services import base_service, config_service, demo_plan_service, pricing_service, ytd_service, plan_file_service, portfolio_service, secret_service, spending_service, strategy_asset_service
-try:
-    from ..portfolio_analytics import freeze_latest_pricing_snapshot, unfreeze_pricing_snapshot
-except ImportError:
-    from src.portfolio_analytics import freeze_latest_pricing_snapshot, unfreeze_pricing_snapshot
-try:
-    from .. import local_backup_scheduler
-except ImportError:
-    from src import local_backup_scheduler
-try:
-    from ..secrets_store import set_secret as _set_secret_value
-except ImportError:
-    from src.secrets_store import set_secret as _set_secret_value
+from ..version import VERSION
+from ..server_services import base_service, config_service, demo_plan_service, pricing_service, ytd_service, plan_file_service, portfolio_service, secret_service, spending_service, strategy_asset_service
+from ..portfolio_analytics import freeze_latest_pricing_snapshot, unfreeze_pricing_snapshot
+from .. import local_backup_scheduler
+from ..secrets_store import set_secret as _set_secret_value
 
 
 

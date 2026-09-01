@@ -21,10 +21,7 @@ YTD_PERSISTED_FILES = ("ytd_transactions.csv", "ytd_account_setup.csv", "ytd_imp
 
 
 def _load_ytd_module():
-    try:
-        from .. import ytd_tracking as ytd
-    except ImportError:  # pragma: no cover - direct execution fallback
-        from src import ytd_tracking as ytd
+    from .. import ytd_tracking as ytd
     return ytd
 
 
@@ -302,10 +299,7 @@ class YtdService:
         return self.ytd.csv_template()
 
     def preview_transactions_import(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
-        try:
-            from ..import_preview import preview_ytd_transactions_import
-        except ImportError:  # pragma: no cover - direct execution fallback
-            from src.import_preview import preview_ytd_transactions_import
+        from ..import_preview import preview_ytd_transactions_import
         text = body.get("csv_text") or body.get("csv") or body.get("content") or ""
         mode = body.get("mode") or "replace"
         payload = preview_ytd_transactions_import(self.input_root(), str(text), str(mode))

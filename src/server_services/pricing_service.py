@@ -63,12 +63,8 @@ def refresh_prices(
 
 
 def configured_market_data_provider(load_active_config_fn: Callable[[], tuple[dict, dict]] | None = None):
-    try:
-        from ..market_data import MarketDataProvider
-        from ..config_backend import load_active_config, setting
-    except ImportError:
-        from src.market_data import MarketDataProvider
-        from src.config_backend import load_active_config, setting
+    from ..market_data import MarketDataProvider
+    from src.config_backend import load_active_config, setting
     loader = load_active_config_fn or load_active_config
     try:
         data, meta = loader()
@@ -198,8 +194,5 @@ class PriceSymbolTestRegistry:
 
 
 def latest_price_snapshots(*, workspace_id: str, db_path: Path) -> dict[str, Any]:
-    try:
-        from ..portfolio_analytics import load_latest_snapshots
-    except ImportError:
-        from src.portfolio_analytics import load_latest_snapshots
+    from ..portfolio_analytics import load_latest_snapshots
     return load_latest_snapshots(workspace_id=workspace_id, db_path=db_path)

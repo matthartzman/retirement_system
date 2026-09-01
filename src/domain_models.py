@@ -26,10 +26,7 @@ def _s(value: Any) -> str:
 
 
 def decimal_value(value: Any, default: Decimal = Decimal("0")) -> Decimal:
-    try:
-        from .money import decimal_from_user_value
-    except ImportError:  # pragma: no cover
-        from src.money import decimal_from_user_value
+    from .money import decimal_from_user_value
     return decimal_from_user_value(value, default)
 
 
@@ -294,17 +291,3 @@ def plan_input_from_json(path: str | Path) -> PlanInput:
     )
     plan.validate()
     return plan
-
-
-def plan_input_from_dict(obj: Mapping[str, Any]) -> PlanInput:
-    """Create a PlanInput from its canonical JSON/dict payload."""
-    tmp = Path(".plan_input_from_dict_tmp.json")
-    tmp.write_text(json.dumps(dict(obj), default=str), encoding="utf-8")
-    try:
-        return plan_input_from_json(tmp)
-    finally:
-        try:
-            tmp.unlink()
-        except Exception:
-            pass
-

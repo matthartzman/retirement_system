@@ -297,6 +297,36 @@ def _v(data, section, subsection, label, default=''):
     except KeyError:
         return default
 
+MC_ENGINE_MODE_DEFAULT = 'quick_vectorized'
+
+def _mc_engine_mode_from_plan_data(data):
+    """Resolve the plan's Monte Carlo engine to a canonical engine key.
+
+    The DEFAULT when the plan does not state one (row absent, or the value is
+    blank/whitespace) is the vectorized batched engine. That matches what every
+    shipped plan already sets explicitly (``input/demo/client_policy.csv`` and
+    ``tests/fixtures/sample_plan_frozen/client_policy.csv`` both say
+    ``quick_vectorized``), what ``planning_engines.monte_carlo()``'s own in-code
+    fallback assumes (``vectorized_batched``), and what the test suite
+    exercises. The exact-scalar path stays fully supported as an explicit
+    opt-in and as the validation oracle the vectorized engine is checked
+    against - see ``tests/test_mc_engine_fidelity_tolerance_unit.py``.
+
+    An unrecognized value is passed through unchanged (as before), so a typo
+    surfaces in diagnostics rather than being silently coerced.
+    """
+    raw = str(_v(data, 'Model Constants', 'Monte Carlo',
+                 'mc_engine_mode', MC_ENGINE_MODE_DEFAULT) or '').strip().lower()
+    if not raw:
+        raw = MC_ENGINE_MODE_DEFAULT
+    _mc_engine_map = {
+        'advanced_exact_scalar': 'exact_scalar',
+        'exact_scalar': 'exact_scalar',
+        'quick_vectorized': 'vectorized',
+        'vectorized': 'vectorized',
+    }
+    return _mc_engine_map.get(raw, raw)
+
 def _n(v, default=0.0):
     # Boundary parse uses Decimal for money/percentage precision, then returns
     # a float execution copy for the retained numerical engine.
@@ -1732,15 +1762,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
                                      'mc_simulations','1000'), 1000))
     c['mc_sensitivity_sims'] = int(os.getenv('RETIREMENT_MC_SENSITIVITY_SIMS') or _n(_v(data,'Model Constants','Monte Carlo',
                                      'mc_sensitivity_simulations','200'), 200))
-    _mc_engine_raw = str(_v(data,'Model Constants','Monte Carlo',
-                                     'mc_engine_mode','advanced_exact_scalar') or 'advanced_exact_scalar').strip().lower()
-    _mc_engine_map = {
-        'advanced_exact_scalar': 'exact_scalar',
-        'exact_scalar': 'exact_scalar',
-        'quick_vectorized': 'vectorized',
-        'vectorized': 'vectorized',
-    }
-    c['mc_engine_mode'] = _mc_engine_map.get(_mc_engine_raw, _mc_engine_raw)
+    c['mc_engine_mode'] = _mc_engine_mode_from_plan_data(data)
     c['mc_success_liquid_floor'] = _n(_v(data,'Model Constants','Monte Carlo',
                                      'success_liquid_floor','0'), 0)
     c['mc_recenter_regime_returns'] = _b(_v(data,'Model Constants','Monte Carlo',

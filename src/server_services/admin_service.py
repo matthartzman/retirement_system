@@ -5,12 +5,8 @@ import json
 from pathlib import Path
 from typing import Any, Iterable
 
-try:
-    from ..plan_data_registry import SYSTEM_REFERENCE_FILES, client_data_csv_files
-    from ..plan_file_io import atomic_write, plan_file_lock, write_text_atomic
-except ImportError:  # pragma: no cover - direct execution fallback
-    from src.plan_data_registry import SYSTEM_REFERENCE_FILES, client_data_csv_files
-    from src.plan_file_io import atomic_write, plan_file_lock, write_text_atomic
+from ..plan_data_registry import SYSTEM_REFERENCE_FILES, client_data_csv_files
+from src.plan_file_io import atomic_write, plan_file_lock, write_text_atomic
 
 ADMIN_PLAN_DATA_FILES = set(client_data_csv_files()) | {
     "client_holdings.csv", "client_liabilities.csv", "target_allocation.csv",

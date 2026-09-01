@@ -11,6 +11,7 @@ from src.planning_engines import project
 
 ROOT = Path(__file__).resolve().parents[1]
 
+from _decomp_dashboard import dashboard_js_text
 from conftest import TEST_INPUT_DIR
 
 
@@ -26,14 +27,21 @@ class AllocationScenarioTests(unittest.TestCase):
         text = (TEST_INPUT_DIR / 'client_policy.csv').read_text(encoding='utf-8')
         self.assertIn('Scenarios,Allocation User Defined,allocation_selection_mode,user_target', text)
         self.assertIn('Scenarios,Allocation Optimizer Defined,allocation_selection_mode,optimizer_recommendation', text)
-        ui = (ROOT / 'src' / 'dashboard_ui' / 'template.py').read_text(encoding='utf-8')
-        self.assertIn("title:'Scenarios'", ui)
-        self.assertIn("title:'Monte Carlo options'", ui)
-        self.assertIn("case 'scenarios':return sec==='Scenarios'&&!rowIsDivorceScenario(r)", ui)
-        self.assertIn("case 'monte_carlo_options':return rowIsMonteCarlo(r)", ui)
-        self.assertIn("case 'divorce_options':return optionalFunctionEnabled('divorce_qdro')&&rowIsDivorceScenario(r)", ui)
-        self.assertNotIn('Allocation — User Defined', ui)
-        self.assertNotIn('Allocation — Optimizer Defined', ui)
+        js = dashboard_js_text()
+        self.assertIn('leverNavButton("scenarios", "Scenarios")', js)
+        self.assertIn('leverNavButton("monte_carlo_options", "Monte Carlo")', js)
+        self.assertIn('case "scenarios":', js)
+        self.assertIn('sec === "Scenarios" && !rowIsDivorceScenario(r)', js)
+        self.assertIn('case "monte_carlo_options":', js)
+        self.assertIn(
+            'rowIsMonteCarlo(r) || hasAny(r.label, ["monte_carlo", "simulation"])', js
+        )
+        self.assertIn('case "divorce_options":', js)
+        self.assertIn(
+            'rowIsDivorceScenario(row) && !optionalFunctionEnabled("divorce_qdro")', js
+        )
+        self.assertNotIn('Allocation — User Defined', js)
+        self.assertNotIn('Allocation — Optimizer Defined', js)
 
     def test_allocation_scenario_stats_are_cashflow_ready(self):
         c = self._config()

@@ -64,25 +64,15 @@ from .app_core import (
     workspace_output_dir,
 )
 from ..http_runtime.wsgi_facade import Response
-try:
-    from ..schema_registry import load_schema as _load_schema_registry, validate_value as _schema_validate_value, validate_rows as _schema_validate_rows
-except ImportError:
-    from src.schema_registry import load_schema as _load_schema_registry, validate_value as _schema_validate_value, validate_rows as _schema_validate_rows
+from ..schema_registry import load_schema as _load_schema_registry, validate_value as _schema_validate_value, validate_rows as _schema_validate_rows
 
-try:
-    from ..build_snapshot import SNAPSHOT_FILENAME, read_build_snapshot
-except ImportError:
-    from src.build_snapshot import SNAPSHOT_FILENAME, read_build_snapshot
+from ..build_snapshot import SNAPSHOT_FILENAME, read_build_snapshot
 
-try:
-    from ..results_model import RESULTS_MODEL_FILENAME
-except ImportError:
-    from src.results_model import RESULTS_MODEL_FILENAME
+from ..results_model import RESULTS_MODEL_FILENAME
 
-try:
-    from ..server_services import build_job_service, build_service, holdings_service, plan_data_file_service, plan_forms_service, report_service, spending_service
-except ImportError:
-    from src.server_services import build_job_service, build_service, holdings_service, plan_data_file_service, plan_forms_service, report_service, spending_service
+from ..server_services import build_job_service, build_service, holdings_service, plan_data_file_service, plan_forms_service, report_service, spending_service
+
+from ..local_store import list_kpi_snapshots, compare_kpi_snapshots
 
 
 # Build-job orchestration is owned by server_services.build_job_service.
@@ -483,10 +473,7 @@ def get_workbook_format():
     denied = _require("read_config")
     if denied:
         return denied
-    try:
-        from ..reporting import workbook_format_config as _wf
-    except ImportError:
-        from src.reporting import workbook_format_config as _wf
+    from ..reporting import workbook_format_config as _wf
     overrides = _wf.load_overrides()
     alignments = _wf.load_alignments()
     workbook_path = _workspace_output() / "retirement_plan.xlsx"
@@ -533,10 +520,7 @@ def save_workbook_format():
     denied = _require("write_config")
     if denied:
         return denied
-    try:
-        from ..reporting import workbook_format_config as _wf
-    except ImportError:
-        from src.reporting import workbook_format_config as _wf
+    from ..reporting import workbook_format_config as _wf
     body = request.get_json(silent=True) or {}
     overrides = body.get("overrides") or {}
     if not isinstance(overrides, dict):
@@ -576,6 +560,49 @@ def append_history():
         return denied
     payload, status = report_service.append_history_payload(_workspace_output(), request.get_json(silent=True) or {})
     return jsonify(payload), status
+
+
+@app.route("/api/kpi-snapshots", methods=["GET"])
+def get_kpi_snapshots():
+    """Newest-first list of archived build KPI snapshots (Wave 1 item 1.15 --
+    documentation/reports/SYSTEM_REVIEW_2026-08-31.md, finding F13).
+
+    Comparison-only, no attribution -- see get_kpi_snapshot_compare() below.
+    """
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    try:
+        limit = int(request.args.get("limit", 10))
+    except (TypeError, ValueError):
+        limit = 10
+    snapshots = list_kpi_snapshots(limit=limit, db_path=_sqlite_db())
+    return jsonify({"success": True, "schema": "kpi_snapshot_list_v1", "snapshots": snapshots})
+
+
+@app.route("/api/kpi-snapshots/compare", methods=["GET"])
+def get_kpi_snapshot_compare():
+    """Raw before/after diff of headline KPIs between two archived builds.
+
+    ``from``/``to`` query params take a ``snapshot_id``; when omitted, compares
+    the two most recent snapshots (``to`` = latest, ``from`` = the one before
+    it). Wave-1-scoped: reports *what* changed, not *why* -- attribution is
+    Wave 3's job once a real snapshot series exists to validate it against.
+    """
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    result = compare_kpi_snapshots(
+        from_id=request.args.get("from") or None,
+        to_id=request.args.get("to") or None,
+        db_path=_sqlite_db(),
+    )
+    if result is None:
+        return jsonify({
+            "success": False,
+            "error": "Fewer than two KPI snapshots are available to compare, or the requested snapshot id was not found.",
+        }), 404
+    return jsonify(result)
 
 
 @app.route("/api/plan-data/files", methods=["GET"])
@@ -662,10 +689,7 @@ def preview_holdings_import():
     denied = _require("read_config")
     if denied:
         return denied
-    try:
-        from ..import_preview import preview_holdings_import as _preview_holdings_import
-    except ImportError:
-        from src.import_preview import preview_holdings_import as _preview_holdings_import
+    from ..import_preview import preview_holdings_import as _preview_holdings_import
     body = request.get_json(silent=True) or {}
     incoming = body.get("csv_text") or body.get("csv") or body.get("content") or ""
     current = holdings_service.read_holdings(base_dir=WORKSPACE_ROOT, workspace_id=_workspace_id(), client_id=_client_id(), db_path=_sqlite_db())
@@ -786,10 +810,7 @@ def run_plan_from_json():
     if not plan:
         return jsonify(status="error", error="No JSON body"), 400
     try:
-        try:
-            from ..server_forecast import forecast_from_plan_json
-        except ImportError:
-            from src.server_forecast import forecast_from_plan_json
+        from ..server_forecast import forecast_from_plan_json
         result = forecast_from_plan_json(plan, run_mc=True)
         return jsonify(**result)
     except ValueError as exc:

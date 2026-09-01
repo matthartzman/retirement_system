@@ -35,29 +35,6 @@ class AccountConfig(TypedDict, total=False):
     balance: float
 
 
-class EngineConfigDict(TypedDict, total=False):
-    plan_start: int
-    plan_end: int
-    filing_status: str
-    survivor_filing: str
-    members: List[MemberConfig]
-    balances: Dict[str, float]
-    account_registry: List[AccountConfig]
-    all_acct_ids: List[str]
-    pre_tax_ids: List[str]
-    roth_ids: List[str]
-    taxable_ids: List[str]
-    hsa_ids: List[str]
-    cash_ids: List[str]
-    invest_ids: List[str]
-    ret: float
-    inf: float
-    brk_inf: float
-    mc_sigma: float
-    roth_policy: str
-
-
-
 def _freeze_value(value: Any) -> Any:
     if type(value) is dict or isinstance(value, _ABCMapping):
         return MappingProxyType({k: _freeze_value(v) for k, v in value.items()})

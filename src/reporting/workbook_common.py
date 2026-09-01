@@ -61,14 +61,8 @@ MED  = Side(style='medium')
 def thin_border():
     return Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
 
-def med_border():
-    return Border(left=MED, right=MED, top=MED, bottom=MED)
-
 def fill(hex_color):
     return PatternFill('solid', fgColor=hex_color)
-
-def hdr_font(bold=True, color=WHITE, size=11):
-    return Font(name='Arial', bold=bold, color=color, size=size)
 
 def body_font(bold=False, color='000000', size=10):
     return Font(name='Arial', bold=bold, color=color, size=size)
@@ -91,9 +85,6 @@ FMT_INT      = '#,##0'
 # Normalized 0-100 candidate-ranking score (not a dollar amount — see FMT_DOLLAR
 # for the underlying weighted-dollar objective value it is derived from).
 FMT_SCORE    = '0.0"/100"'
-
-def set_col_width(ws, col, width):
-    ws.column_dimensions[get_column_letter(col)].width = width
 
 def write_hdr(ws, row, col, text, bg=NAVY, fg=WHITE, bold=True, span=1, size=11):
     c = ws.cell(row=row, column=col, value=text)
@@ -410,39 +401,6 @@ def qc(sheet, check, passed, detail=''):
 # ─────────────────────────────────────────────────────────────────────────────
 # Sheet builders
 # ─────────────────────────────────────────────────────────────────────────────
-
-def auto_fit_columns(ws, min_width=8, max_width=50, skip_rows=2):
-    """Auto-fit column widths based on cell content, skipping title rows.
-    Respects min/max bounds. Uses openpyxl cell values only (no rendering)."""
-    col_widths = {}
-    for row in ws.iter_rows(min_row=skip_rows + 1):
-        for cell in row:
-            if cell.value is None:
-                continue
-            col = cell.column
-            try:
-                val_str = str(cell.value)
-                # Format numbers nicely for width estimation
-                if isinstance(cell.value, float):
-                    if cell.number_format and '%' in cell.number_format:
-                        val_str = f'{cell.value:.1%}'
-                    elif cell.number_format and '$' in cell.number_format:
-                        val_str = f'${cell.value:,.0f}'
-                    else:
-                        val_str = f'{cell.value:.2f}'
-                length = max(len(val_str), 6)
-            except Exception:
-                length = 8
-            col_widths[col] = max(col_widths.get(col, min_width), length)
-    # Also check header row
-    for cell in ws[skip_rows]:
-        if cell.value:
-            col_widths[cell.column] = max(col_widths.get(cell.column, min_width),
-                                          len(str(cell.value)) + 1)
-    for col, width in col_widths.items():
-        ws.column_dimensions[get_column_letter(col)].width = min(max(width + 2, min_width), max_width)
-
-
 
 # Export private helper names to sheet modules using star imports.
 __all__ = [name for name in globals() if not name.startswith("__")]

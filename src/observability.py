@@ -40,21 +40,6 @@ def _sink_from_config(config: Any) -> list[dict[str, Any]] | None:
     return None
 
 
-def emit_performance_event(config: Any, name: str, component: str, event_type: str = "event", **metadata: Any) -> dict[str, Any]:
-    event = PerformanceEvent(
-        event_id=uuid.uuid4().hex,
-        name=name,
-        component=component,
-        event_type=event_type,
-        started_at=_utc(),
-        metadata=dict(metadata),
-    ).to_dict()
-    sink = _sink_from_config(config)
-    if sink is not None:
-        sink.append(event)
-    return event
-
-
 @contextmanager
 def observe(name: str, component: str, config: Any = None, **metadata: Any) -> Iterator[dict[str, Any]]:
     event_id = uuid.uuid4().hex

@@ -49,10 +49,7 @@ def _load_federal_tax_law_tables(reference_year=None):
     migration/import adapter below.
     """
     try:
-        try:
-            from .tax_law import load_tax_law_dataset
-        except ImportError:
-            from src.tax_law import load_tax_law_dataset
+        from .tax_law import load_tax_law_dataset
         ds = load_tax_law_dataset()
         year = int(reference_year or TAX_REFERENCE_YEAR)
         engine = ds.as_engine_tables(year)
@@ -333,10 +330,7 @@ def load_tax_constants(search_dirs=None):
     # v11 primary path: tax-law values are loaded from the dated local dataset.
     # tax_constants.csv remains a compatibility/import adapter below.
     try:
-        try:
-            from .tax_law import load_tax_law_dataset
-        except ImportError:
-            from src.tax_law import load_tax_law_dataset
+        from .tax_law import load_tax_law_dataset
         ds = load_tax_law_dataset()
         engine = ds.as_engine_tables(TAX_REFERENCE_YEAR)
         for filing, val in engine.get('standard_deduction', {}).items():
