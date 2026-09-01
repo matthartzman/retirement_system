@@ -2369,6 +2369,33 @@ def _roth_strategy_candidate_specs(c: Mapping) -> List[Dict]:
     return specs
 
 
+def _roth_strategy_comparison_specs(c: Mapping) -> List[Dict]:
+    """Small, fixed comparison set for the disclosure table when the top-
+    level Roth policy is already an explicit, non-optimizing choice AND the
+    user hasn't asked for a specific ``roth_bracket_strategy`` family either
+    (item 2.3 / A4 gating). In that combination, _roth_strategy_candidate_specs
+    would otherwise default to full_set=True and score the entire ~30-candidate
+    sweep purely to populate a comparison table the engine's actual output
+    does not depend on -- optimize_roth_conversion_strategy always scores the
+    exact configured policy directly (see its own fallback below) regardless
+    of what else is in this list, so shrinking it changes only how many
+    alternatives Sheet 11 discloses, never the selected/projected policy.
+
+    Deliberately not used when roth_bracket_strategy names a specific family
+    (FIXED_DOLLAR, IRMAA_GUARDED, etc.): that already returns a small,
+    user-requested family-specific set via _roth_strategy_candidate_specs,
+    which this must not override.
+    """
+    configured_target = float(c.get('roth_target_rate', 0.22) or 0.22)
+    configured_fixed = float(c.get('roth_fixed_amount', 50000) or 0.0) or 50000.0
+    return [
+        {'label': 'No voluntary conversions', 'policy': 'none', 'strategy_code': 'NONE', 'target_rate': None, 'fixed_amount': None, 'overrides': {}},
+        {'label': f'Fill current/configured {int(configured_target * 100)}% bracket', 'policy': 'fill_to_bracket', 'strategy_code': 'FILL_CURRENT_BRACKET', 'target_rate': configured_target, 'fixed_amount': None, 'overrides': {}},
+        {'label': 'IRMAA-guarded conversion', 'policy': 'fill_to_irmaa', 'strategy_code': 'IRMAA_GUARDED', 'target_rate': None, 'fixed_amount': None, 'overrides': {}},
+        {'label': f'Fixed ${configured_fixed:,.0f}/yr', 'policy': 'fixed_dollar', 'strategy_code': f'FIXED_DOLLAR_{int(configured_fixed)}', 'target_rate': None, 'fixed_amount': configured_fixed, 'overrides': {}},
+    ]
+
+
 def _roth_legacy_mode_multiplier(c: Mapping) -> float:
     mode = str(c.get('roth_legacy_objective_mode', 'OFF') or 'OFF').strip().upper()
     return {
@@ -2838,6 +2865,43 @@ def optimize_roth_conversion_strategy(c: dict) -> dict:
         c2, rows = run_scenario(base, overrides)
         return _score_candidate(c2, rows)
 
+    # Item 2.3 (A4), need-based gating: the full ~30-candidate sweep is only
+    # needed when the engine is actually choosing the policy (auto_optimize)
+    # or the user explicitly asked to compare a specific strategy FAMILY via
+    # roth_bracket_strategy. An explicit top-level policy with no family
+    # request left at its OPTIMIZER_CHOOSES default was running that same
+    # full sweep purely to populate a disclosure table whose SELECTED policy
+    # never depends on it (see the explicit-policy branch below, which always
+    # scores the exact configured policy directly) -- that case now gets
+    # _roth_strategy_comparison_specs' small fixed set instead.
+    #
+    # Narrowed after a real diff surfaced against test_synthetic_golden_master.py
+    # (2026-09-01): several full-set specs share the exact SAME policy and
+    # target_rate as each other for a 'fill_to_bracket' policy (e.g.
+    # FILL_CURRENT_BRACKET, SURVIVOR_TAX_AWARE, RMD_REDUCTION, and
+    # LEGACY_TARGETED all reduce to target_rate == configured_target once
+    # configured_target already clears their own max(configured_target, X)
+    # floors) -- the explicit-policy match below picks whichever of those
+    # happens to score highest, so shrinking the field can silently change
+    # WHICH near-duplicate spec's label gets disclosed as "selected" even
+    # though every one of them scores and projects identically for the
+    # actual plan (see the match logic's own comment: it never applies a
+    # matched candidate's overrides back onto c, only its label/strategy_code
+    # for disclosure). 'none' and 'fill_to_irmaa' have exactly one full-set
+    # spec each -- no ambiguity, safe to reduce. 'fixed_dollar' matches on
+    # fixed_amount to 1e-6 precision and _roth_strategy_candidate_specs'
+    # own seen-key dedup already collapses a configured amount that
+    # coincides with one of its literal amounts -- also unambiguous.
+    # 'fill_to_bracket' is the one policy where reduction can change the
+    # disclosed label, so it always gets the full sweep.
+    _requested_bracket_strategy = str(c.get('roth_bracket_strategy', 'OPTIMIZER_CHOOSES') or 'OPTIMIZER_CHOOSES').strip().upper()
+    _use_full_roth_sweep = (
+        auto_optimize
+        or _requested_bracket_strategy != 'OPTIMIZER_CHOOSES'
+        or requested_policy == 'fill_to_bracket'
+    )
+    _roth_specs = _roth_strategy_candidate_specs(c) if _use_full_roth_sweep else _roth_strategy_comparison_specs(c)
+
     # Item 2.3 (A4): shared enumerate/evaluate/rank/gate shape -- see
     # src/strategy_sweep.py's own docstring. The candidate scoring itself
     # (_score_candidate/_roth_strategy_metrics above) is untouched; this
@@ -2856,7 +2920,7 @@ def optimize_roth_conversion_strategy(c: dict) -> dict:
     # recommendation is still produced, flagged via
     # roth_all_candidates_infeasible below.
     _sweep = strategy_sweep.run_sweep(
-        _roth_strategy_candidate_specs(c),
+        _roth_specs,
         _evaluate_roth_candidate,
         sort_key=lambda x: (x['score'], x['after_tax_terminal_nw'], -x['lifetime_tax']),
         fallback_best={'policy': 'none', 'label': 'No voluntary conversions'},

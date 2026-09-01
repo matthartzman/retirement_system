@@ -251,18 +251,20 @@ def build_sheet10(ws, c, rows):
 
     base_rows = list(rows or [])
     # Perf fix (optimization refactor Phase 1 items 4-6): this sweep calls
-    # monte_carlo() up to 81x below (a 9x9 claim-age grid), and each call
-    # would otherwise independently rebuild the survivor-economics bucket
-    # trajectories (2 * n_years project() calls apiece) -- ~4,500 extra
-    # project() calls in one workbook build, which measurably caused
+    # monte_carlo() below for every pair it scores -- up to 81 times for a
+    # full 9x9 claim-age grid, though item 2.3's coarse-then-refine gating
+    # (below) now typically scores well under that -- and each call would
+    # otherwise independently rebuild the survivor-economics bucket
+    # trajectories (2 * n_years project() calls apiece) -- thousands of
+    # extra project() calls in one workbook build, which measurably caused
     # subprocess timeouts in tests/test_all_modules_off_build_functional.py
     # on CI. Claim age changes the SS BENEFIT AMOUNT, not the household's
     # death-timing/mortality profile that drives which bucket a path falls
     # into, so building the buckets once from the base (pre-sweep) config
     # and reusing them across every claim-age pair is a safe, intentional
     # approximation -- consistent with this sweep's own existing approach of
-    # reusing one fixed seed/path set across all 81 pairs so differences are
-    # attributable to claim age, not simulation noise.
+    # reusing one fixed seed/path set across every pair scored so differences
+    # are attributable to claim age, not simulation noise.
     _survivor_buckets_for_sweep = (
         _mc_survivor_bucket_flows(c, base_rows)
         if bool(c.get('mc_vectorized_survivor_economics', True)) else None
@@ -375,21 +377,49 @@ def build_sheet10(ws, c, rows):
     h_floor = max(62, min(70, h_cur_age))
     w_floor = max(62, min(70, w_cur_age))
 
-    # Item 2.3 (A4): shared enumerate/evaluate/rank/gate shape -- see
-    # src/strategy_sweep.py's own docstring. _safe_project_pair's scoring
-    # (LCV + survivor-weight objective, feasibility probability) is
-    # untouched; this only replaces the loop/sort/feasibility-gate-with-
-    # fallback plumbing around it, byte-for-byte equivalent to the inline
-    # version this replaced (verified against the golden master and the
-    # frozen claim-age pair table).
-    _pairs = [
-        {'h_age': h_age, 'w_age': w_age}
-        for h_age in range(h_floor, 71)
-        for w_age in range(w_floor, 71)
+    # Item 2.3 (A4) gating: coarse-then-refine instead of an exhaustive
+    # 62-70 x 62-70 grid (up to 81 pairs, each a full project() plus a
+    # 200-sim monte_carlo()). Score every-other-age first (5x5=25 pairs at
+    # a typical 62-70 range, always including 70 itself as an endpoint),
+    # locate its best pair, then exhaustively re-score the FULL individual-
+    # age neighborhood around that coarse best (up to another 25 pairs,
+    # deduplicated against the coarse pass) rather than just its immediate
+    # coarse-grid neighbors -- the review's own caveat on this option is
+    # that a coarse pass can miss a non-convex optimum, and a full local
+    # refinement (not a handful of offset checks) is what keeps that risk
+    # low while still cutting typical total evaluations by roughly half.
+    # Empirically verified to select the SAME recommended pair as the prior
+    # exhaustive 81-pair sweep on the frozen household (see this file's own
+    # test coverage and the item's commit message for the comparison).
+    _COARSE_STEP = 2
+    _evaluated: dict[tuple, dict] = {}
+
+    def _evaluate_pair(spec: dict) -> dict:
+        key = (spec['h_age'], spec['w_age'])
+        if key not in _evaluated:
+            _evaluated[key] = _safe_project_pair(spec['h_age'], spec['w_age'])
+        return _evaluated[key]
+
+    _coarse_h = sorted(set(range(h_floor, 71, _COARSE_STEP)) | {70})
+    _coarse_w = sorted(set(range(w_floor, 71, _COARSE_STEP)) | {70})
+    _coarse_pairs = [{'h_age': h, 'w_age': w} for h in _coarse_h for w in _coarse_w]
+    _coarse_sweep = strategy_sweep.run_sweep(
+        _coarse_pairs, _evaluate_pair, sort_key=lambda d: d['objective_value'],
+    )
+    _coarse_best = _coarse_sweep.best if _coarse_sweep.candidates else {'h_age': h_floor, 'w_age': w_floor}
+
+    _refine_h = range(max(h_floor, _coarse_best['h_age'] - _COARSE_STEP), min(70, _coarse_best['h_age'] + _COARSE_STEP) + 1)
+    _refine_w = range(max(w_floor, _coarse_best['w_age'] - _COARSE_STEP), min(70, _coarse_best['w_age'] + _COARSE_STEP) + 1)
+    _seen_pairs = {(p['h_age'], p['w_age']) for p in _coarse_pairs}
+    _refine_pairs = [
+        {'h_age': h, 'w_age': w}
+        for h in _refine_h for w in _refine_w
+        if (h, w) not in _seen_pairs
     ]
+
     _sweep = strategy_sweep.run_sweep(
-        _pairs,
-        lambda spec: _safe_project_pair(spec['h_age'], spec['w_age']),
+        _coarse_pairs + _refine_pairs,
+        _evaluate_pair,
         sort_key=lambda d: d['objective_value'],
         fallback_best={'h_age': h_current, 'w_age': w_current, 'objective_value': 0.0, 'rank_score': 0},
     )
@@ -413,11 +443,11 @@ def build_sheet10(ws, c, rows):
     current = next((x for x in scenarios if x['h_age'] == h_current and x['w_age'] == w_current), None)
 
     r = 3
-    write_hdr(ws, r, 1, 'Recommended spouse-pair claim ages from full projection sweep', NAVY, WHITE, span=12); r += 1
+    write_hdr(ws, r, 1, 'Recommended spouse-pair claim ages from a coarse-then-refine projection sweep', NAVY, WHITE, span=12); r += 1
     _s1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
     _s2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
     summary = [
-        (f'Recommended {_s1} Claim Age', best['h_age'], 'Highest score (LCV -- PV of lifetime spending plus PV of after-tax terminal transfer -- plus survivor-period SS income) among claim-age pairs meeting the essential-funding feasibility gate, from the 62–70 × 62–70 projection sweep.'),
+        (f'Recommended {_s1} Claim Age', best['h_age'], f'Highest score (LCV -- PV of lifetime spending plus PV of after-tax terminal transfer -- plus survivor-period SS income) among claim-age pairs meeting the essential-funding feasibility gate, from a {len(scenarios)}-pair coarse-then-refine sweep of the 62–70 × 62–70 grid.'),
         (f'Recommended {_s2} Claim Age', best['w_age'], 'Projection uses the same tax, IRMAA, withdrawal, ACA, survivor, and estate machinery as the base plan.'),
         ('Current Configured Claim Ages', f"{_s1} {h_current} / {_s2} {w_current}", 'Current row shown below for comparison.'),
         ('Best vs Current After-Tax Terminal NW', (best['after_tax_terminal_nw'] - (current or best)['after_tax_terminal_nw']) if current else 0.0, 'Positive means the sweep’s selected pair improves after-tax terminal net worth versus current config.'),
@@ -436,8 +466,8 @@ def build_sheet10(ws, c, rows):
         r += 1
 
     r += 1
-    write_hdr(ws, r, 1, 'Top 10 claiming pairs — full projection ranking', NAVY, WHITE, span=15); r += 1
-    write_cell(ws, r, 1, 'Score (0-100) ranks these 81 claim-age pairs relative to each other (100 = best in this set). Objective Value is the underlying LCV-plus-survivor-income figure the ranking is computed from (LCV = PV of lifetime spending plus PV of after-tax terminal transfer) -- a scoring unit, not a projected dollar outcome. The Recommended row above is chosen only from pairs whose modeled essential-spending funding probability clears a feasibility floor; other pairs still appear here, ranked, for comparison. Lifetime SS is a raw, undiscounted total across the whole plan horizon: it can be HIGHER for an earlier claim age even though delaying grows the monthly check, because delaying trades away entire years of checks for a larger one later (a breakeven-age effect, not a return comparison) -- Score already accounts for this by weighting survivor-period SS income instead of raw lifetime SS.', align='left')
+    write_hdr(ws, r, 1, 'Top 10 claiming pairs — coarse-then-refine projection ranking', NAVY, WHITE, span=15); r += 1
+    write_cell(ws, r, 1, f'Score (0-100) ranks these {len(scenarios)} claim-age pairs relative to each other (100 = best in this set). This is a coarse-then-refine sweep of the 62-70 x 62-70 grid, not every one of its up to 81 pairs -- an every-other-age coarse pass locates the strongest region, then every individual age around that region is scored. Objective Value is the underlying LCV-plus-survivor-income figure the ranking is computed from (LCV = PV of lifetime spending plus PV of after-tax terminal transfer) -- a scoring unit, not a projected dollar outcome. The Recommended row above is chosen only from pairs whose modeled essential-spending funding probability clears a feasibility floor; other pairs still appear here, ranked, for comparison. Lifetime SS is a raw, undiscounted total across the whole plan horizon: it can be HIGHER for an earlier claim age even though delaying grows the monthly check, because delaying trades away entire years of checks for a larger one later (a breakeven-age effect, not a return comparison) -- Score already accounts for this by weighting survivor-period SS income instead of raw lifetime SS.', align='left')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=15)
     ws.row_dimensions[r].height = 40
     r += 1
@@ -454,7 +484,7 @@ def build_sheet10(ws, c, rows):
         r += 1
 
     r += 2
-    write_hdr(ws, r, 1, 'Complete 62–70 × 62–70 spouse-pair sweep', NAVY, WHITE, span=14); r += 1
+    write_hdr(ws, r, 1, f'Coarse-then-refine 62–70 × 62–70 spouse-pair sweep ({len(scenarios)} pairs scored)', NAVY, WHITE, span=14); r += 1
     hdrs = [f'{_s1} Claim', f'{_s2} Claim', 'Score (0-100)', 'Objective Value', 'After-Tax Terminal NW', 'Survivor-Period SS Income', 'Terminal NW', 'Δ Terminal NW', 'Lifetime SS', 'Lifetime Tax', 'IRMAA', 'Survivor Years', 'MC Success %', 'MC P10 Terminal NW']
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
@@ -468,7 +498,9 @@ def build_sheet10(ws, c, rows):
         r += 1
 
     r += 1
-    note = (f'This sheet runs every {_s1}/{_s2} claiming-age pair from 62 through 70 through the projection engine. '
+    note = (f'This sheet runs {_s1}/{_s2} claiming-age pairs from 62 through 70 through the projection engine using a coarse-then-refine '
+            'sweep (an every-other-age pass locates the strongest region, then every individual age around that region is scored) rather than '
+            'every one of the up to 81 possible pairs. '
             'It does not use a static break-even table or a hard-coded age-70 answer. The score ranks each pair on after-tax terminal net worth '
             'plus survivor-period SS income (the SS dollars received in the fixed years when only one spouse is alive, weighted 1:1 with wealth by default via ss_survivor_weight) -- '
             'not gross terminal net worth with lifetime SS added back and lifetime tax/IRMAA subtracted again, which double-counted both in the same direction. '
@@ -480,7 +512,7 @@ def build_sheet10(ws, c, rows):
 
     for col in range(1, 16):
         ws.column_dimensions[get_column_letter(col)].width = 16
-    qc('10. Social Security', 'Claim ages 62-70 swept by spouse against full projection', True, '')
+    qc('10. Social Security', 'Claim ages 62-70 swept by spouse against a coarse-then-refine projection', True, '')
 
     return {'best': best, 'current': current, 'scenarios': scenarios}
 
