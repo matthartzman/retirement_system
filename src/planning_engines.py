@@ -2473,7 +2473,6 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
     # to (including 0.0, which taxes the entire estate above $0, not the
     # state's default exemption).
     state_exempt = max(0.0, float(c.get('il_exempt', 0.0) or 0.0))
-    resident_state = str(c.get('state', '') or '')
 
     def _estate_tax_for_row(row: Mapping) -> float:
         row_total = max(0.0, float(row.get('total_nw', 0.0) or 0.0))
@@ -2484,7 +2483,7 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
         state_taxable = max(0.0, row_total - row_cst)
         federal_tax = max(0.0, federal_taxable - fed_exempt) * 0.40 if fed_exempt else 0.0
         state_tax = (
-            state_estate_tax(resident_state, state_taxable, state_exempt)[0]
+            state_estate_tax(state_for_year(c, row_year), state_taxable, state_exempt)[0]
             if c.get('model_state_est', True) and state_exempt
             else 0.0
         )

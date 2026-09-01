@@ -774,6 +774,8 @@ let apiBase = "",
   homeSaleSplits = [],
   homeSaleSplitsChanged = false,
   homeSaleSplitAccounts = [],
+  residencySchedule = [],
+  residencyScheduleChanged = false,
   estateStateOptions = [],
   planLoaded = false,
   demoModeActive = false,
@@ -1409,7 +1411,8 @@ function renderStateResidency() {
   const stateComp = rs.filter(
     (r) => String(r.section || "").trim() === "State Comparison",
   );
-  let html = `<div class="section-note">Baseline state is set on <a href="#" onclick="setStep('household_people');return false">Household People</a>. Enter the target state and cost differences below — the workbook State Residency sheet shows annual and lifetime impact.</div>`;
+  let html = renderResidencySchedule();
+  html += `<div class="section-note">Baseline state is set on <a href="#" onclick="setStep('household_people');return false">Household People</a>. Enter the target state and cost differences below — the workbook State Residency sheet shows annual and lifetime impact.</div>`;
   if (!stateComp.length)
     return (
       html +
@@ -7424,6 +7427,8 @@ Object.defineProperty(window, "planSource", { get: () => planSource, set: (v) =>
 Object.defineProperty(window, "planningLeverInputs", { get: () => planningLeverInputs, set: (v) => { planningLeverInputs = v; }, configurable: true });
 Object.defineProperty(window, "renderMain", { get: () => renderMain, set: (v) => { renderMain = v; }, configurable: true });
 Object.defineProperty(window, "reportsActiveTab", { get: () => reportsActiveTab, set: (v) => { reportsActiveTab = v; }, configurable: true });
+Object.defineProperty(window, "residencySchedule", { get: () => residencySchedule, set: (v) => { residencySchedule = v; }, configurable: true });
+Object.defineProperty(window, "residencyScheduleChanged", { get: () => residencyScheduleChanged, set: (v) => { residencyScheduleChanged = v; }, configurable: true });
 Object.defineProperty(window, "rows", { get: () => rows, set: (v) => { rows = v; }, configurable: true });
 Object.defineProperty(window, "rulesChanged", { get: () => rulesChanged, set: (v) => { rulesChanged = v; }, configurable: true });
 Object.defineProperty(window, "runtime", { get: () => runtime, set: (v) => { runtime = v; }, configurable: true });

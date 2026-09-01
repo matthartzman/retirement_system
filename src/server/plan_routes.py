@@ -35,6 +35,8 @@ try:
         _replace_home_sale_splits,
         _replace_large_discretionary_expenses,
         _replace_liquidity_buffers,
+        _replace_residency_schedule,
+        _residency_schedule_from_csv_rows,
         _request_system_config_csv,
         _require,
         _runtime_config,
@@ -93,6 +95,8 @@ except ImportError:
         _replace_home_sale_splits,
         _replace_large_discretionary_expenses,
         _replace_liquidity_buffers,
+        _replace_residency_schedule,
+        _residency_schedule_from_csv_rows,
         _request_system_config_csv,
         _require,
         _runtime_config,
@@ -145,6 +149,8 @@ def _strategy_asset_feature_service() -> strategy_asset_service.StrategyAssetSer
             replace_liquidity_buffers=_replace_liquidity_buffers,
             home_sale_splits_from_csv_rows=_home_sale_splits_from_csv_rows,
             replace_home_sale_splits=_replace_home_sale_splits,
+            residency_schedule_from_csv_rows=_residency_schedule_from_csv_rows,
+            replace_residency_schedule=_replace_residency_schedule,
             ensure_user_ui_plan_data_rows=_ensure_user_ui_plan_data_rows,
             sync_config_backends=_sync_config_backends,
             audit=_audit,
@@ -505,6 +511,23 @@ def save_home_sale_splits():
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
     body = request.get_json(silent=True) or {}
     return _service_json(_strategy_asset_feature_service().save_home_sale_splits_payload(body))
+
+@app.route("/api/residency-schedule", methods=["GET"])
+def get_residency_schedule():
+    denied = _require("read_config")
+    if denied:
+        return denied
+    return _service_json(_strategy_asset_feature_service().residency_schedule_payload())
+
+@app.route("/api/residency-schedule", methods=["POST"])
+def save_residency_schedule():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    if not _runtime_config().allow_csv_write:
+        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
+    body = request.get_json(silent=True) or {}
+    return _service_json(_strategy_asset_feature_service().save_residency_schedule_payload(body))
 
 @app.route("/api/withdrawal-account-order", methods=["GET"])
 def get_withdrawal_account_order():

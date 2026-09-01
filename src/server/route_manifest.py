@@ -25,7 +25,7 @@ ROUTE_MODULES = {
         "/api/estate-state-options", "/api/estate-state/add", "/api/trust-account/add",
         "/api/insurance-policy/add", "/api/insurance-policy/delete", "/api/life-illustration/seed", "/api/capital-market/assumptions",
         "/api/capital-market/correlations", "/api/housing/seed", "/api/housing/state-estimate", "/api/wellness/seed", "/api/config/sync",
-        "/api/home-sale-splits",
+        "/api/home-sale-splits", "/api/residency-schedule",
     ],
     "admin": ["/api/admin/diagnostics", "/api/admin/system-config", "/api/contracts", "/api/glossary"],
 }
