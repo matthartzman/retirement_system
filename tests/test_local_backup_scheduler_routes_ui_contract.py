@@ -11,11 +11,16 @@ def read(rel: str) -> str:
 
 
 def test_backup_api_routes_and_stub_map_are_registered() -> None:
+    # src/server/plan_routes.py is where these routes are actually registered
+    # (@app.route(...)) -- src/server/__init__.py just imports the route
+    # modules for their registration side effect and was never a second
+    # source of truth here. It used to also list these route strings, but
+    # only inside `_ensure_test_url_map`'s dead fallback URL map (item 1.3 /
+    # finding A8), which this test was inadvertently grepping like a text
+    # fixture rather than checking real route registration.
     routes = read("src/server/plan_routes.py")
-    init = read("src/server/__init__.py")
     for route in ("/api/plan/backups", "/api/plan/backups/config", "/api/plan/backups/run"):
         assert route in routes
-        assert route in init
     assert "local_backup_scheduler" in routes
     assert "local_backup_run" in routes
 

@@ -1772,7 +1772,9 @@ def build_sheet14(ws, c, rows):
     # Shared with the Executive Summary's recommendation row via summary_figures,
     # so the flagship page and this sheet cannot report different numbers.
     il_exempt = c['il_exempt']
-    _cst_figures = summary_figures.credit_shelter_trust_savings(c)
+    # require_enabled=False so the block still quantifies the trust when it is
+    # configured off -- that is exactly the case a reader needs the number for.
+    _cst_figures = summary_figures.credit_shelter_trust_savings(c, rows, require_enabled=False)
     if _cst_figures:
         cst_cap = _cst_figures['shelter_cap']
         cs_amt = _cst_figures['funding_amount']
@@ -1780,20 +1782,38 @@ def build_sheet14(ws, c, rows):
     else:
         cst_cap = c.get('il_cst_shelter_cap', il_exempt)
         cs_amt = c.get('cs_amount', cst_cap)
-        cs_tax_saved = min(cs_amt, cst_cap) * 0.08
+        # No fabricated fallback rate here any more (finding F2): when the
+        # shared figure declines to produce a number, this sheet says so.
+        cs_tax_saved = None
+    if cs_tax_saved is not None:
+        _saved_detail = (f'~${cs_tax_saved:,.0f} — the difference between the projected state estate tax on the '
+                         f'${_cst_figures["projected_estate"]:,.0f} second-death estate with and without the trust '
+                         f'(${_cst_figures["estate_tax_without_cst"]:,.0f} vs ${_cst_figures["estate_tax_with_cst"]:,.0f}); '
+                         f'{_cst_figures["avg_rate"]:.1%} effective rate on the ${cs_amt:,.0f} bypass amount')
+        _rec_detail = f'STRONGLY RECOMMENDED — potential ${cs_tax_saved:,.0f} IL estate tax savings'
+    elif _cst_figures:
+        _saved_detail = (f'$0 at current projections — the ${_cst_figures["projected_estate"]:,.0f} second-death '
+                         f'estate does not clear the ${il_exempt:,.0f} state exemption. The trust still preserves '
+                         f'the first decedent\'s exemption, which Illinois does not make portable.')
+        _rec_detail = ('Worth having — the estate is close enough to the exemption that ordinary growth crosses it, '
+                       'but no tax is sheltered at the currently projected estate value.')
+    else:
+        _saved_detail = ('Not quantified for this household — the projected second-death estate is well below the '
+                         'state exemption, or this state\'s estate tax is not modeled by this engine.')
+        _rec_detail = 'Reviewed — not material at the projected estate value.'
     write_hdr(ws, r, 1, f'Credit Shelter Trust (Bypass Trust)  [{"ENABLED" if cs_on else "DISABLED"}]',
               bg='375623' if cs_on else DGRAY, span=4); r += 1
     cs_rows = [
         ('Status',                  'ENABLED — Credit Shelter Trust in place' if cs_on else 'DISABLED'),
         ('Funding Amount',          f'${cs_amt:,.0f} (up to the ${cst_cap:,.0f} CST shelter cap)'),
         ('Purpose',                 f'Assets bypass survivor estate for IL purposes, on top of (not instead of) the survivor\'s own separate ${il_exempt:,.0f} IL exemption applied later.'),
-        ('Projected IL Tax Saved',  f'~${cs_tax_saved:,.0f} (approx 8% avg rate on ${cs_amt:,.0f} bypass amount)'),
+        ('Projected IL Tax Saved',  _saved_detail),
         ('Mechanism',               'First-to-die funds trust up to IL exemption; survivor has limited access (income, HEMS); '
                                     'remainder passes to heirs free of IL estate tax'),
         ('Federal Effect',          'No federal benefit (OBBBA $30M exemption covers this estate); pure IL tax play'),
         ('Portability',             'Illinois has NO portability — unused exemption at first death is LOST without this trust'),
         ('Cost',                    '$3,000–$5,000 drafting; trustee fees ~0.5%/yr on trust assets'),
-        ('Recommendation',          f'STRONGLY RECOMMENDED — potential ${cs_tax_saved:,.0f} IL estate tax savings'),
+        ('Recommendation',          _rec_detail),
     ]
     for label, detail in cs_rows:
         is_rec = 'STRONGLY' in detail
@@ -1874,8 +1894,9 @@ def build_sheet14(ws, c, rows):
             r += 1
     r += 1
 
+    _cs_saved_note = f"~${cs_tax_saved:,.0f}" if cs_tax_saved is not None else "not material at current projections"
     qc('14. Estate Plan', 'Federal/IL tax, QTIP, Credit Shelter documented', True,
-       f"State est. tax: ${il_tax:,.0f}, CS saves ~${cs_tax_saved:,.0f}, "
+       f"State est. tax: ${il_tax:,.0f}, CS saves {_cs_saved_note}, "
        f"{len(findings)} beneficiary/titling review prompt(s), "
        f"per-beneficiary drawdown {'available' if drawdown.get('available') else 'not available'}")
 

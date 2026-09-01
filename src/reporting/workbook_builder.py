@@ -53,6 +53,7 @@ from .sheets_tax_reporter import build_sheet3
 from .sheets_allocation_helpers import build_sheet4
 from .sheets_projection_facade import build_sheet5, build_sheet6, build_sheet7, build_sheet8
 from .sheets_strategy import build_sheet9, build_sheet10, build_sheet11, build_sheet12, build_sheet_tlh, build_sheet_gain_harvest, build_sheet13, build_sheet14
+from .sheets_tax_capacity import build_sheet_tax_capacity
 from .sheets_stress import build_sheet15, build_sheet16, build_sheet17, build_sheet18, build_sheet19, build_sheet20
 from .sheets_protection import build_existing_life, build_disability, build_pc_umbrella
 from .sheets_wealth import build_education_funding, build_equity_comp, build_special_needs, build_business_succession
@@ -65,6 +66,7 @@ from ..planning_engines import compute_baseline_lcv_and_eltr, compute_future_lcv
 from ..build_snapshot import SNAPSHOT_FILENAME, write_build_snapshot, checkpoint_sqlite_database
 from ..report_package import REPORT_PACKAGE_FILENAME, write_report_package
 from ..results_model import RESULTS_MODEL_FILENAME, write_result_explorer_model
+from ..local_store import save_kpi_snapshot
 
 
 def _build_plan_input_fingerprint(base_dir, config_meta):
@@ -1054,6 +1056,9 @@ def main():
     if '11. Roth Conversion' in sheets:
         print('  Sheet 11 — Roth Conversion')
         build_sheet11(sheets['11. Roth Conversion'], c, rows)
+    if '11B. Tax Capacity' in sheets:
+        print('  Sheet 11B — Tax Capacity')
+        build_sheet_tax_capacity(sheets['11B. Tax Capacity'], c, rows)
     if '12. Charitable Giving' in sheets:
         print('  Sheet 12 — Charitable Giving')
         build_sheet12(sheets['12. Charitable Giving'], c, rows)
@@ -1349,6 +1354,39 @@ def main():
         build_snapshot=snapshot,
     )
     print(f'Report package written: {_os.path.join(str(output_path_dir), REPORT_PACKAGE_FILENAME)} ({package.get("artifact_count", 0)} artifacts)')
+
+    # Archive a small dated headline-KPI snapshot (Wave 1 item 1.15 --
+    # documentation/reports/SYSTEM_REVIEW_2026-08-31.md, finding F13). This is
+    # comparison-only: no attribution logic, that is Wave 3's job once a real
+    # snapshot series exists. Best-effort -- a snapshot failure must never
+    # fail an otherwise-successful build.
+    try:
+        mc_terminal_pct = (mc_data or {}).get('terminal_total_nw') or {}
+        frozen_today = _os.environ.get('RETIREMENT_SYSTEM_FROZEN_TODAY', '').strip()
+        # Under a frozen clock (tests, and any reproducible-build run), date
+        # the snapshot by the plan's projection basis date rather than the
+        # moment the build subprocess happened to run, so two builds of the
+        # same plan a week apart produce a comparable, sensibly-dated pair of
+        # rows instead of two rows a few seconds apart under today's real date.
+        kpi_created_at = f'{frozen_today}T00:00:00Z' if frozen_today else None
+        kpi_payload = {
+            'probability_of_success': summary_data.get('mc_success'),
+            'terminal_nw_deterministic': summary_data.get('terminal_nw'),
+            'terminal_nw_mc_median': mc_terminal_pct.get(50),
+            'terminal_nw_mc_p10': mc_terminal_pct.get(10),
+            'terminal_nw_mc_p90': mc_terminal_pct.get(90),
+            'lifetime_tax': summary_data.get('lifetime_tax'),
+            'lcv': summary_data.get('lcv'),
+            'eltr': summary_data.get('eltr'),
+            'fcv': summary_data.get('fcv'),
+            'eftr': summary_data.get('eftr'),
+            'total_roth_conversions': summary_data.get('total_roth_conversions'),
+            'after_tax_terminal_nw': summary_data.get('after_tax_terminal_nw'),
+        }
+        kpi_snapshot_id = save_kpi_snapshot(kpi_payload, build_id=build_id, created_at=kpi_created_at)
+        print(f'KPI snapshot archived: {kpi_snapshot_id}')
+    except Exception as _kpi_snap_exc:
+        print(f'Warning: KPI snapshot archive failed (build continues): {_kpi_snap_exc}')
 
     print('Build complete.')
     return out_path

@@ -446,10 +446,7 @@ def get_correlation(a, b):
 
 def build_covariance_matrix(classes):
     """Build covariance matrix using the shared vectorized fast core."""
-    try:
-        from .vectorized_fast_core import covariance_matrix
-    except ImportError:  # pragma: no cover
-        from src.vectorized_fast_core import covariance_matrix
+    from .vectorized_fast_core import covariance_matrix
     return covariance_matrix(classes, ASSET_CLASSES, _CORR)
 
 

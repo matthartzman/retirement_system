@@ -27,6 +27,34 @@ DEFAULT_DB = platform_runtime.workspace_root() / "local_state" / "retirement_sys
 # auto-backup copies the whole file, so the cost is paid again per build.
 DEFAULT_RESULT_SNAPSHOT_RETENTION = 10
 
+# KPI snapshots are a small dated series of headline build outputs (Wave 1 item
+# 1.15 -- documentation/reports/SYSTEM_REVIEW_2026-08-31.md, finding F13 and
+# the §3.2 cross-cutting note on why this must exist before the engine/policy
+# changes that move "probability of success"). Kept at the same retention
+# depth as the local_state/*.db.version_* backup convention documented in
+# CLAUDE.md's "Backup naming conventions" section, rather than inventing a
+# separate policy.
+DEFAULT_KPI_SNAPSHOT_RETENTION = 10
+
+# Headline KPI fields tracked per snapshot -- deliberately just the numbers
+# already computed into plan_summary.json / the Monte Carlo result, not a new
+# derivation. See src/reporting/workbook_builder.py's plan-summary block for
+# where each of these comes from.
+KPI_SNAPSHOT_METRICS = (
+    "probability_of_success",
+    "terminal_nw_deterministic",
+    "terminal_nw_mc_median",
+    "terminal_nw_mc_p10",
+    "terminal_nw_mc_p90",
+    "lifetime_tax",
+    "lcv",
+    "eltr",
+    "fcv",
+    "eftr",
+    "total_roth_conversions",
+    "after_tax_terminal_nw",
+)
+
 
 def now_utc() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -109,6 +137,24 @@ def init_local_store(db_path: str | Path | None = None) -> Path:
             inflation_index TEXT,
             PRIMARY KEY(snapshot_id, income_id),
             FOREIGN KEY(snapshot_id) REFERENCES plan_snapshots(snapshot_id)
+        )""")
+        con.execute("""CREATE TABLE IF NOT EXISTS kpi_snapshots(
+            snapshot_id TEXT PRIMARY KEY,
+            created_at TEXT NOT NULL,
+            build_id TEXT,
+            probability_of_success REAL,
+            terminal_nw_deterministic REAL,
+            terminal_nw_mc_median REAL,
+            terminal_nw_mc_p10 REAL,
+            terminal_nw_mc_p90 REAL,
+            lifetime_tax REAL,
+            lcv REAL,
+            eltr REAL,
+            fcv REAL,
+            eftr REAL,
+            total_roth_conversions REAL,
+            after_tax_terminal_nw REAL,
+            kpi_json TEXT NOT NULL
         )""")
         con.execute("""CREATE TABLE IF NOT EXISTS plan_spending_policy(
             snapshot_id TEXT PRIMARY KEY,
@@ -337,6 +383,195 @@ def prune_result_snapshots(keep: int = DEFAULT_RESULT_SNAPSHOT_RETENTION, db_pat
         return 0
     with sqlite3.connect(p) as con:
         return _prune_result_snapshots(con, keep)
+
+
+def save_kpi_snapshot(
+    kpis: dict[str, Any],
+    build_id: str = "",
+    created_at: str | None = None,
+    db_path: str | Path | None = None,
+) -> str:
+    """Append one dated headline-KPI snapshot (Wave 1 item 1.15).
+
+    Append-only, like ``save_result_snapshot``: a build never overwrites a
+    prior snapshot, it adds a new row, then prunes back to
+    ``DEFAULT_KPI_SNAPSHOT_RETENTION`` rows (the same "keep the last 10"
+    convention CLAUDE.md documents for ``local_state/*.db.version_*``
+    backups). ``created_at`` defaults to the real wall clock but accepts an
+    explicit override so a build running under
+    ``RETIREMENT_SYSTEM_FROZEN_TODAY`` can date the snapshot by the plan's
+    projection basis date rather than the moment the build subprocess
+    happened to run -- this is what makes two builds of the same plan a week
+    apart produce a comparable, sensibly-dated pair of rows instead of two
+    rows a few seconds apart under today's real date.
+
+    Only the metrics in ``KPI_SNAPSHOT_METRICS`` are indexed into columns for
+    cheap SQL comparison; the full ``kpis`` dict is preserved verbatim in
+    ``kpi_json`` so a future (Wave 3) attribution pass has everything that was
+    known at archive time, not just today's shortlist.
+    """
+    p = init_local_store(db_path)
+    created = created_at or now_utc()
+    snapshot_id = hashlib.sha256(f"{created}:{build_id}:{_stable_json(kpis)}".encode("utf-8")).hexdigest()[:16]
+    payload = dict(kpis)
+    payload["build_id"] = build_id
+    payload["created_at"] = created
+    with sqlite3.connect(p) as con:
+        con.execute(
+            """INSERT INTO kpi_snapshots(
+                   snapshot_id, created_at, build_id, probability_of_success,
+                   terminal_nw_deterministic, terminal_nw_mc_median, terminal_nw_mc_p10,
+                   terminal_nw_mc_p90, lifetime_tax, lcv, eltr, fcv, eftr,
+                   total_roth_conversions, after_tax_terminal_nw, kpi_json
+               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+               ON CONFLICT(snapshot_id) DO NOTHING""",
+            (
+                snapshot_id,
+                created,
+                build_id or None,
+                kpis.get("probability_of_success"),
+                kpis.get("terminal_nw_deterministic"),
+                kpis.get("terminal_nw_mc_median"),
+                kpis.get("terminal_nw_mc_p10"),
+                kpis.get("terminal_nw_mc_p90"),
+                kpis.get("lifetime_tax"),
+                kpis.get("lcv"),
+                kpis.get("eltr"),
+                kpis.get("fcv"),
+                kpis.get("eftr"),
+                kpis.get("total_roth_conversions"),
+                kpis.get("after_tax_terminal_nw"),
+                json.dumps(payload, sort_keys=True, default=str),
+            ),
+        )
+        _prune_kpi_snapshots(con)
+    return snapshot_id
+
+
+def _prune_kpi_snapshots(con: sqlite3.Connection, keep: int = DEFAULT_KPI_SNAPSHOT_RETENTION) -> int:
+    """Delete all but the newest ``keep`` KPI snapshots. Returns rows removed.
+
+    ``created_at`` has second precision (or is caller-supplied, e.g. a plain
+    date under a frozen clock), so ``snapshot_id`` breaks ties to keep the
+    ordering total and the retained set deterministic -- mirroring
+    ``_prune_result_snapshots``.
+    """
+    keep = max(1, int(keep))
+    cur = con.execute(
+        """DELETE FROM kpi_snapshots WHERE snapshot_id NOT IN (
+               SELECT snapshot_id FROM kpi_snapshots
+               ORDER BY created_at DESC, snapshot_id DESC LIMIT ?
+           )""",
+        (keep,),
+    )
+    return cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+
+
+def prune_kpi_snapshots(keep: int = DEFAULT_KPI_SNAPSHOT_RETENTION, db_path: str | Path | None = None) -> int:
+    """Public entrypoint to trim accumulated KPI snapshots."""
+    p = _resolve(db_path)
+    if not p.exists():
+        return 0
+    with sqlite3.connect(p) as con:
+        return _prune_kpi_snapshots(con, keep)
+
+
+def _kpi_row_to_payload(row: tuple) -> dict[str, Any]:
+    snapshot_id, created_at, build_id, kpi_json = row
+    try:
+        payload = json.loads(kpi_json)
+    except Exception:
+        payload = {}
+    payload["snapshot_id"] = snapshot_id
+    payload["created_at"] = created_at
+    payload["build_id"] = build_id
+    return payload
+
+
+def list_kpi_snapshots(limit: int = DEFAULT_KPI_SNAPSHOT_RETENTION, db_path: str | Path | None = None) -> list[dict[str, Any]]:
+    """Newest-first list of archived KPI snapshots (for a "history" view)."""
+    p = _resolve(db_path)
+    if not p.exists():
+        return []
+    with sqlite3.connect(p) as con:
+        rows = con.execute(
+            "SELECT snapshot_id, created_at, build_id, kpi_json FROM kpi_snapshots ORDER BY created_at DESC, snapshot_id DESC LIMIT ?",
+            (max(1, int(limit)),),
+        ).fetchall()
+    return [_kpi_row_to_payload(r) for r in rows]
+
+
+def get_kpi_snapshot(snapshot_id: str, db_path: str | Path | None = None) -> dict[str, Any] | None:
+    p = _resolve(db_path)
+    if not p.exists() or not snapshot_id:
+        return None
+    with sqlite3.connect(p) as con:
+        row = con.execute(
+            "SELECT snapshot_id, created_at, build_id, kpi_json FROM kpi_snapshots WHERE snapshot_id=?",
+            (snapshot_id,),
+        ).fetchone()
+    return _kpi_row_to_payload(row) if row else None
+
+
+def get_kpi_snapshot_by_build_id(build_id: str, db_path: str | Path | None = None) -> dict[str, Any] | None:
+    """Latest snapshot recorded for a given build id, when that is a more
+    convenient handle than the content-derived snapshot_id (e.g. tests that
+    set RETIREMENT_SYSTEM_BUILD_ID explicitly)."""
+    p = _resolve(db_path)
+    if not p.exists() or not build_id:
+        return None
+    with sqlite3.connect(p) as con:
+        row = con.execute(
+            "SELECT snapshot_id, created_at, build_id, kpi_json FROM kpi_snapshots WHERE build_id=? ORDER BY created_at DESC, snapshot_id DESC LIMIT 1",
+            (build_id,),
+        ).fetchone()
+    return _kpi_row_to_payload(row) if row else None
+
+
+def compare_kpi_snapshots(
+    from_id: str | None = None,
+    to_id: str | None = None,
+    db_path: str | Path | None = None,
+) -> dict[str, Any] | None:
+    """Wave-1-scoped raw before/after diff of headline KPIs between two builds.
+
+    Deliberately no attribution (market vs. spending vs. assumption change) --
+    that is Wave 3's job once a real snapshot series exists to validate it
+    against (documentation/reports/SYSTEM_REVIEW_2026-08-31.md, F13). This
+    only ever reports *what* changed.
+
+    When ``from_id``/``to_id`` are omitted, compares the two most recent
+    snapshots (``to`` = latest, ``from`` = the one immediately before it).
+    Returns ``None`` when fewer than two snapshots are available, or a
+    requested id does not resolve to a stored snapshot.
+    """
+    to_snap = get_kpi_snapshot(to_id, db_path=db_path) if to_id else None
+    from_snap = get_kpi_snapshot(from_id, db_path=db_path) if from_id else None
+    if to_snap is None or from_snap is None:
+        recent = list_kpi_snapshots(limit=2, db_path=db_path)
+        if to_snap is None:
+            to_snap = recent[0] if len(recent) >= 1 else None
+        if from_snap is None:
+            from_snap = recent[1] if len(recent) >= 2 else None
+    if not to_snap or not from_snap:
+        return None
+    diff: dict[str, Any] = {}
+    for key in KPI_SNAPSHOT_METRICS:
+        before = from_snap.get(key)
+        after = to_snap.get(key)
+        delta = None
+        pct_change = None
+        if isinstance(before, (int, float)) and isinstance(after, (int, float)) and not isinstance(before, bool) and not isinstance(after, bool):
+            delta = after - before
+            pct_change = (delta / before) if before else None
+        diff[key] = {"from": before, "to": after, "delta": delta, "pct_change": pct_change}
+    return {
+        "success": True,
+        "schema": "kpi_snapshot_compare_v1",
+        "from": {"snapshot_id": from_snap.get("snapshot_id"), "created_at": from_snap.get("created_at"), "build_id": from_snap.get("build_id")},
+        "to": {"snapshot_id": to_snap.get("snapshot_id"), "created_at": to_snap.get("created_at"), "build_id": to_snap.get("build_id")},
+        "diff": diff,
+    }
 
 
 def append_build_event(stage: str, event_type: str, detail: dict[str, Any] | None = None, build_id: str | None = None, db_path: str | Path | None = None) -> None:

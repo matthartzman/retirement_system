@@ -15,22 +15,13 @@ import sqlite3
 from pathlib import Path
 from typing import Dict, Tuple, Optional as _Optional, List as _List
 
-try:
-    from .system_config import discover_system_config_csv, load_system_config, system_setting
-    from . import platform_runtime
-    from .plan_data_registry import (
-        CLIENT_DATA_PART_FILES,
-        client_data_part_stems,
-        client_data_suffixed_files,
-    )
-except ImportError:
-    from src.system_config import discover_system_config_csv, load_system_config, system_setting
-    from src import platform_runtime
-    from src.plan_data_registry import (
-        CLIENT_DATA_PART_FILES,
-        client_data_part_stems,
-        client_data_suffixed_files,
-    )
+from .system_config import discover_system_config_csv, load_system_config, system_setting
+from . import platform_runtime
+from .plan_data_registry import (
+    CLIENT_DATA_PART_FILES,
+    client_data_part_stems,
+    client_data_suffixed_files,
+)
 
 # PROJECT_ROOT stays the code/package root (read-only assets). Writable data
 # (input/, local_state/) hangs off the workspace root, which equals the package

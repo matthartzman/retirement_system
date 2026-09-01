@@ -10,14 +10,9 @@ import os
 import shutil
 from pathlib import Path
 
-try:
-    from .runtime_config import load_runtime_config
-    from .workspace_context import active_workspace_id, workspace_input_dir
-    from .plan_data_registry import client_data_csv_files, client_data_derived_files
-except ImportError:  # pragma: no cover
-    from src.runtime_config import load_runtime_config
-    from src.workspace_context import active_workspace_id, workspace_input_dir
-    from src.plan_data_registry import client_data_csv_files, client_data_derived_files
+from .runtime_config import load_runtime_config
+from src.workspace_context import active_workspace_id, workspace_input_dir
+from src.plan_data_registry import client_data_csv_files, client_data_derived_files
 
 PLAN_DATA_CSV_FILES = [
     *client_data_csv_files(),

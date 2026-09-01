@@ -35,9 +35,3 @@ def cents_from_user_value(value: Any, default_cents: int = 0) -> int:
     return int((d * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
-def decimal_money(value: Any, default: Decimal = ZERO) -> Decimal:
-    return decimal_from_user_value(value, default).quantize(CENT, rounding=ROUND_HALF_UP)
-
-
-def execution_float(value: Any, default: float = 0.0) -> float:
-    return float(decimal_from_user_value(value, Decimal(str(default))))

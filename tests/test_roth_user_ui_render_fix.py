@@ -76,3 +76,81 @@ def test_roth_step_filter_would_return_controls_from_input_rows():
     assert ROTH_PRIMARY <= labels
     assert 'roth_conversion_wife_ira_to_roth' not in labels
     assert len(ui_rows) >= 15
+
+
+def test_roth_conversion_controls_moved_to_user_ui_not_admin_editor():
+    """Roth conversion controls live in main UI (dashboard.js), not admin.js."""
+    admin = (ROOT / 'frontend/js/admin.js').read_text(encoding='utf-8')
+    user = dashboard_js_text()
+    user += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    assert 'id: "roth_conversion"' in user
+    assert "Roth conversion strategy" in user
+    assert '(sec === "Withdrawal Policy" &&' in user
+    assert 'sec === "Model Constants" &&\n            sub === "irmaa"' in user
+    assert "title:'Roth conversion controls'" not in admin
+
+
+def test_schema_exposes_roth_optimizer_governance_controls():
+    """Reference data schema includes roth objective and headroom controls."""
+    labels = set()
+    with (ROOT / 'reference_data/schema.csv').open(newline='', encoding='utf-8') as f:
+        for row in csv.reader(f):
+            if len(row) > 2:
+                labels.add(row[2])
+    assert {'roth_objective_mode','estate_tax_objective_mode','roth_headroom_usage_pct','irmaa_guardrail_mode','roth_irmaa_headroom_usage_pct'} <= labels
+
+
+def test_engine_parses_and_uses_headroom_and_estate_controls():
+    """Engine reads and applies roth objective, headroom, and estate tax controls."""
+    data_io = (ROOT / 'src/data_io.py').read_text(encoding='utf-8')
+    engine = (ROOT / 'src/planning_engines.py').read_text(encoding='utf-8')
+    assert "c['roth_objective_mode']" in data_io
+    assert "c['estate_tax_objective_mode']" in data_io
+    assert "c.get('roth_headroom_usage_pct'" in engine
+    assert "estate_tax_penalty" in engine
+
+
+def test_roth_user_page_uses_visible_purpose_built_layout():
+    """Roth step has purpose-built layout with section details, label arrays, content rendering."""
+    user = dashboard_js_text()
+    user += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    assert 'function renderRothConversion()' in user
+    assert 'details class="roth-section"' in user or "details class='roth-section'" in user
+    assert "ROTH_PRIMARY_LABELS" in user
+    assert (
+        'const ROTH_IRMAA_LABELS = [\n  "irmaa_guardrail_mode",\n  "roth_irmaa_target_tier",\n  "roth_irmaa_headroom_usage_pct",\n  "irmaa_annual_inflator",\n];'
+        in user
+    )
+    assert "ROTH_LEGACY_IRMAA_LABELS" not in user
+    assert (
+        'const ROTH_LEGACY_LABELS = [\n  "roth_objective_mode",\n  "estate_tax_objective_mode",\n  "legacy_objective_mode",'
+        in user
+    )
+    assert 'roth_conversion")\n    content +=' in user and "renderRothConversion" in user
+
+
+def test_choice_schema_fields_render_as_select_controls():
+    """Choice-type fields render as HTML select dropdowns."""
+    user = dashboard_js_text()
+    user += (ROOT / 'frontend/js/dashboard_decomp_row_model.js').read_text(encoding='utf-8')
+    assert 'function choiceOptions' in user
+    assert 'type === "choice" || norm(units) === "choice"' in user
+    assert '<select data-row=' in user
+
+
+def test_runtime_backfills_missing_roth_controls_for_older_plan_data():
+    """App backfills missing roth controls on load via PLAN_DATA_BACKFILL_ENTRIES table."""
+    app_core = (ROOT / 'src/server/app_core.py').read_text(encoding='utf-8')
+    assert 'ROTH_UI_PLAN_DATA_ROWS' in app_core
+    for label in ['roth_objective_mode', 'estate_tax_objective_mode', 'roth_headroom_usage_pct', 'irmaa_guardrail_mode', 'roth_irmaa_headroom_usage_pct', 'roth_irmaa_target_tier']:
+        assert label in app_core
+
+    # A7 (Wave 3 item 3.12): backfilling itself is now the declarative
+    # PLAN_DATA_BACKFILL_ENTRIES table over src/plan_data_backfill.py's
+    # batched engine, not a dedicated _ensure_roth_ui_plan_data_rows()
+    # function - assert this row set is actually wired into that table.
+    import src.server.app_core as ac
+    assert any(
+        entry.rows is ac.ROTH_UI_PLAN_DATA_ROWS
+        for entry in ac.PLAN_DATA_BACKFILL_ENTRIES
+    )

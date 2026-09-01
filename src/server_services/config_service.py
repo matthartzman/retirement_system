@@ -14,14 +14,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-try:
-    from ..roth_ui_build_guard import normalize_roth_csv_value
-    from .. import allocation_policy as allocation_policy_mod
-    from ..schema_registry import validate_rows as _schema_validate_rows_full
-except ImportError:  # pragma: no cover - direct execution fallback
-    from src.roth_ui_build_guard import normalize_roth_csv_value
-    from src import allocation_policy as allocation_policy_mod
-    from src.schema_registry import validate_rows as _schema_validate_rows_full
+from ..roth_ui_build_guard import normalize_roth_csv_value
+from .. import allocation_policy as allocation_policy_mod
+from ..schema_registry import validate_rows as _schema_validate_rows_full
 
 JsonDict = dict[str, Any]
 AuditFn = Callable[[str, dict[str, Any] | None], None]
@@ -100,10 +95,7 @@ class ConfigService:
         frontend needs no separate module-name lookup for its reason/
         activation text.
         """
-        try:
-            from ..module_catalog import CATALOG, section_gate_map, step_gate_map
-        except ImportError:  # pragma: no cover - direct execution fallback
-            from src.module_catalog import CATALOG, section_gate_map, step_gate_map
+        from ..module_catalog import CATALOG, section_gate_map, step_gate_map
         section_gates = {
             section: {"key": key, "label": f"{CATALOG[key].name} optional workbook module"}
             for section, key in section_gate_map().items()
@@ -122,11 +114,7 @@ class ConfigService:
             from ..module_catalog import module_status
             from ..report_compute import prepare_config_from_sectioned_data
         except ImportError:  # pragma: no cover - direct execution fallback
-            try:
-                from src.module_catalog import module_status
-                from src.report_compute import prepare_config_from_sectioned_data
-            except ImportError:
-                return {}
+            return {}
         # #234: this only reads module on/off toggles from cfg -- it never
         # needs real holding values, so the live price-provider network calls
         # parse_client() makes for every held symbol (measured: ~12s of the
@@ -177,14 +165,9 @@ class ConfigService:
             else:
                 data = self.context.load_active_config()[0]
             data.setdefault("Asset Allocation Policy", {}).setdefault("Global", {})["allocation_selection_mode"] = mode
-            try:
-                from ..report_compute import prepare_config_from_sectioned_data
-                from ..optimization import compute_optimal_allocation
-                from .. import allocation_policy as _ap
-            except ImportError:  # pragma: no cover - direct execution fallback
-                from src.report_compute import prepare_config_from_sectioned_data
-                from src.optimization import compute_optimal_allocation
-                from src import allocation_policy as _ap
+            from ..report_compute import prepare_config_from_sectioned_data
+            from ..optimization import compute_optimal_allocation
+            from .. import allocation_policy as _ap
             cfg = prepare_config_from_sectioned_data(data, "", optimize_roth=False)
             selected = compute_optimal_allocation(cfg, force_mode=mode)
             optimizer = compute_optimal_allocation(cfg, force_mode=_ap.ALLOCATION_MODE_OPTIMIZER)
@@ -227,12 +210,8 @@ class ConfigService:
         """#270: recommend a DAF contribution amount for the current plan,
         maximizing within the IRS AGI ceiling (60% cash / 30% appreciated).
         Read-only -- never writes the plan; the UI applies the number itself."""
-        try:
-            from ..daf_optimizer import recommend_daf_contribution
-            from ..report_compute import prepare_config_from_sectioned_data
-        except ImportError:  # pragma: no cover - direct execution fallback
-            from src.daf_optimizer import recommend_daf_contribution
-            from src.report_compute import prepare_config_from_sectioned_data
+        from ..daf_optimizer import recommend_daf_contribution
+        from ..report_compute import prepare_config_from_sectioned_data
         try:
             data = self.context.load_active_config()[0]
             cfg = prepare_config_from_sectioned_data(data, "", optimize_roth=False)

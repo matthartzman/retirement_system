@@ -13,10 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-try:
-    from ..plan_file_io import plan_file_lock, write_text_atomic
-except ImportError:  # pragma: no cover - direct execution fallback
-    from src.plan_file_io import plan_file_lock, write_text_atomic
+from ..plan_file_io import plan_file_lock, write_text_atomic
 
 AuditFn = Callable[[str, dict[str, Any] | None], None]
 PathFn = Callable[[str], Path]

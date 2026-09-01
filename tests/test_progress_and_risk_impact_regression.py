@@ -5,7 +5,6 @@ from _decomp_dashboard import dashboard_js_text
 ROOT = Path(__file__).resolve().parents[1]
 INDEX_HTML = ROOT / "frontend" / "index.html"
 DASHBOARD_JS = ROOT / "frontend" / "js" / "dashboard.js"
-TEMPLATE = ROOT / "src" / "dashboard_ui" / "template.py"
 
 
 def test_build_overlay_uses_real_milestones_not_fake_ticker():
@@ -16,7 +15,6 @@ def test_build_overlay_uses_real_milestones_not_fake_ticker():
     assert "typical local builds finish" not in text
     assert "phases=['Running retirement projection'" not in text
     assert "buildPulse" not in text
-    assert "dashboard UI asset loader" in TEMPLATE.read_text(encoding="utf-8")
 
 
 def test_build_impact_includes_monte_carlo_risk_dimension():

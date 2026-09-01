@@ -98,6 +98,15 @@ def build_sheet21(ws, checks, rows=None, c=None):
          'intentionally NOT aggregated into this base.'),
         ('Roth Conversion Forced Actions',
          'Forced Roth conversion amounts are read from CSV Forced Actions.'),
+        # Relocated from the Executive Summary's build-assumptions block
+        # (finding D4, SYSTEM_REVIEW_2026-08-31): the useful life is a client-
+        # facing assumption and stays on Sheet 1, but the CSV field that
+        # controls it is maintainer detail and belongs here.
+        ('Auto Depreciation',
+         'Autos are depreciated straight-line to $0 over their useful life. '
+         'The useful life is configurable per vehicle in '
+         'client_assets.csv > Other Assets > Autos > depreciation_years '
+         '(default 7 years).'),
         ('NIIT / State Estate Tax',
          'Modeled per Plan Settings toggles (both TRUE). IL estate tax: ~$4M exemption, '
          'graduated 0.8%–16% rates, no portability.'),

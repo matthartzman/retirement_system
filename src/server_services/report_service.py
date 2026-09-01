@@ -12,10 +12,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-try:
-    from ..report_package import REPORT_PACKAGE_FILENAME, REPORT_PACKAGE_SCHEMA, read_report_package
-except ImportError:  # pragma: no cover - direct execution fallback
-    from src.report_package import REPORT_PACKAGE_FILENAME, REPORT_PACKAGE_SCHEMA, read_report_package
+from ..report_package import REPORT_PACKAGE_FILENAME, REPORT_PACKAGE_SCHEMA, read_report_package
 
 
 def resolve_output_file(output_dir: Path, name: str, fallback_output_dir: Path | None = None) -> Path:
@@ -46,10 +43,7 @@ def detailed_results_payload(
     sheet_name: str = "",
 ) -> tuple[dict[str, Any], int]:
     try:
-        try:
-            from ..detailed_results import workbook_detailed_results, workbook_detailed_index, workbook_detailed_sheet
-        except ImportError:  # pragma: no cover - direct execution fallback
-            from src.detailed_results import workbook_detailed_results, workbook_detailed_index, workbook_detailed_sheet
+        from ..detailed_results import workbook_detailed_results, workbook_detailed_index, workbook_detailed_sheet
 
         workbook_path = resolve_output_file(output_dir, "retirement_plan.xlsx", fallback_output_dir)
         if mode == "index":
