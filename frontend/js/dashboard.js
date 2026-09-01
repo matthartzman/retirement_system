@@ -27,7 +27,7 @@ const STEPS = [
     title: "Household & People",
     desc: "Names, birth dates, state of residence, tax filing status, retirement dates, planning horizon, and survivor income and filing assumptions.",
     intro:
-      "Birth dates determine ages for Social Security timing, required minimum distributions, Medicare eligibility, survivor horizon, and retirement period length. The retirement date ends earned income and starts the withdrawal period. Choose a conservative planning horizon — the projection runs through this age for both members.",
+      "Enter each person's legal name, date of birth, retirement date, and mortality/planning-horizon age, plus the household's filing status and state of residence.",
     help: "Filing status affects tax brackets across the entire projection — changing it after plan entry can materially shift lifetime taxes and survivor results. Survivor assumptions drive the Survivor stress report and also appear there for review before a rebuild.",
   },
   {
@@ -121,7 +121,7 @@ const STEPS = [
     title: "Investment Holdings",
     desc: "One row per tax lot: account, ticker, shares, purchase date, and cost basis.",
     intro:
-      "Add holdings from your broker here. Account names must match those used on Withdrawal Sequencing and Asset Allocation.",
+      "Add holdings from your broker here — a broker statement or CSV export usually lists everything a row needs directly.",
     help: "Lot-level cost basis enables tax-aware sell guidance in the allocation output. Use CASH at price 1.00 for money market and cash positions. Export before replacing to preserve a backup.",
   },
   {
@@ -148,7 +148,7 @@ const STEPS = [
     title: "Other Assets and Liabilities",
     desc: "Non-portfolio assets: notes receivable, HSA, 529 plans, equity compensation, collectibles, and personal property.",
     intro:
-      "Asset type controls where the value appears — estate, education, Wellness, or charitable planning. Planned sale dates connect illiquid assets to future cash flow.",
+      "Pick the asset type that best describes each item's economic purpose, then enter today's fair value and, for anything illiquid, a planned sale date.",
     help: "HSA balances grow tax-free and should reflect intended use. Donor-advised fund configuration is set on Other Spending.",
   },
   {
@@ -157,7 +157,7 @@ const STEPS = [
     title: "Estate Inputs",
     desc: "Federal and state exemptions, trust structure, beneficiary needs, lifetime gifting, and charitable intent.",
     intro:
-      "Estate tax exposure is estimated from current exemptions and projected asset values at each mortality date. Trust structure choices affect how assets pass to the survivor and to beneficiaries. Insurance policies (life, disability, long-term care, umbrella, and property and casualty) are entered on Insurance.",
+      "Enter federal and state exemption elections, trust structure, beneficiary needs, lifetime gifting, and charitable intent for this household.",
     help: "The federal exemption can change with law updates — confirm the current-law amount in Settings and model the impact of any reduction in Scenarios. Long-term-care hybrid policies with an investment component should also appear on Other assets.",
   },
   {
@@ -166,7 +166,7 @@ const STEPS = [
     title: "Planning Workbench",
     desc: "Unified place to review the baseline, assemble change sets, compare scenarios, run stress suites, and decide what to adopt.",
     intro:
-      "The workbench turns Strategy (with Scenario comparison), Stress Tests, and Build Impact into one flow: Baseline → Change Set → Run Type → Impact → Decision.",
+      "Pick a baseline, stage a change set to test, choose Scenario or Stress as the run type, then review Impact and record a Decision.",
     help: "Planning cases are browser-local change sets. They do not alter the saved plan until you explicitly jump to source pages, edit inputs, save, and rebuild.",
   },
   {
@@ -1945,90 +1945,32 @@ function toggleNavDrawer() {
   if (document.body.classList.contains("nav-open")) closeNavDrawer();
   else openNavDrawer();
 }
+// Item 2.18 (U2): the help pane used to ship always-visible above 1180px --
+// a permanent ~21% tax on content width for text the on-page .question box
+// already carries inline -- and only collapsed via a manual opt-out
+// (help-collapsed) or a JS auto-collapse workaround for the 1181-1500px
+// laptop gap (autoCollapseHelpForNarrowLaptop, U1), which duplicated a
+// case dashboard.css's own @media rules already covered. Both mechanisms
+// are gone: the pane now defaults CLOSED at every width via one class,
+// body.help-open, used identically at every breakpoint (dashboard.css) --
+// opened on demand via this toggle, or forced open by a field's help icon
+// (ensureHelpPanelVisible, dashboard_decomp_row_model.js).
 function toggleHelpSheet() {
-  // Mobile (<=768px) and desktop (>=1181px, U3) toggle different classes with
-  // opposite defaults (help-open opts into showing; help-collapsed opts out).
-  // Each must be read-and-flipped independently — deriving one from the
-  // other's toggle() result breaks on the very first click, since a fresh
-  // page has neither class present regardless of which breakpoint that
-  // absence means "closed" (mobile) vs. "expanded" (desktop) for.
   const btn = document.querySelector("#helpPane .help-toggle");
-  if (window.matchMedia && window.matchMedia("(min-width: 1181px)").matches) {
-    const collapsed = document.body.classList.toggle("help-collapsed");
-    try {
-      if (window.localStorage)
-        window.localStorage.setItem(
-          "retirementHelpCollapsed",
-          collapsed ? "1" : "0",
-        );
-    } catch (_e) {}
-    if (btn) btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
-    return;
-  }
   const open = document.body.classList.toggle("help-open");
+  try {
+    if (window.localStorage)
+      window.localStorage.setItem("retirementHelpOpen", open ? "1" : "0");
+  } catch (_e) {}
   if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
 }
 try {
   if (
     window.localStorage &&
-    window.localStorage.getItem("retirementHelpCollapsed") === "1"
+    window.localStorage.getItem("retirementHelpOpen") === "1"
   )
-    document.body.classList.add("help-collapsed");
+    document.body.classList.add("help-open");
 } catch (_e) {}
-function showHelpAutoCollapseNoticeOnce() {
-  try {
-    if (
-      window.localStorage &&
-      window.localStorage.getItem("retirementHelpAutoCollapseNoticeShown") ===
-        "1"
-    )
-      return;
-    if (window.localStorage)
-      window.localStorage.setItem("retirementHelpAutoCollapseNoticeShown", "1");
-  } catch (_e) {}
-  showMessage(
-    "Context Help moved into a toggle to fit this screen width. Click the Context Help heading to bring it back.",
-    "info",
-    { persistent: true },
-  );
-}
-// Tracks whether autoCollapseHelpForNarrowLaptop currently holds the help
-// pane collapsed on its own authority (as opposed to a user's manual click,
-// which is tracked separately via the retirementHelpCollapsed localStorage
-// key). Kept as a private flag rather than read back via
-// document.body.classList.contains(), which some of this codebase's minimal
-// Node smoke-test DOM mocks don't implement.
-let _autoHelpCollapsedActive = false;
-function autoCollapseHelpForNarrowLaptop() {
-  // U1: 1280x800/1366x768/1440x900 render the 3-column grid but can't
-  // satisfy its width floor (see dashboard.css main{} + the 1180px
-  // breakpoint), causing horizontal overflow instead of the clean
-  // single-column fallback. Below 1181px that fallback already applies, so
-  // this only needs to act in the narrow desktop gap above it.
-  let manual = null;
-  try {
-    manual = window.localStorage
-      ? window.localStorage.getItem("retirementHelpCollapsed")
-      : null;
-  } catch (_e) {}
-  if (manual !== null) return; // the user already made an explicit choice
-  const w = window.innerWidth;
-  const btn = document.querySelector("#helpPane .help-toggle");
-  if (w > 1180 && w < 1500) {
-    if (!_autoHelpCollapsedActive) {
-      document.body.classList.add("help-collapsed");
-      _autoHelpCollapsedActive = true;
-      if (btn) btn.setAttribute("aria-expanded", "false");
-      showHelpAutoCollapseNoticeOnce();
-    }
-  } else if (w >= 1500 && _autoHelpCollapsedActive) {
-    document.body.classList.remove("help-collapsed");
-    _autoHelpCollapsedActive = false;
-    if (btn) btn.setAttribute("aria-expanded", "true");
-  }
-}
-window.addEventListener("resize", autoCollapseHelpForNarrowLaptop);
-autoCollapseHelpForNarrowLaptop();
 (function wireMobileShellDismiss() {
   const stepsBox = document.getElementById("steps");
   if (stepsBox)
@@ -6847,12 +6789,11 @@ function fieldLikelyImpact(row, g) {
       "Changing this value can affect cash flow, terminal net worth, lifetime taxes, interim liquidity, risk metrics, recommendations, or workbook narratives depending on how the field is used.";
   return [base, directional, consider].filter(Boolean).join(" ");
 }
-// #250: autoCollapseHelpForNarrowLaptop() (U1) hides the help pane at typical
-// laptop widths (1181-1499px) to avoid horizontal overflow. showFieldHelp
-// only wrote into #helpPanel's innerHTML, so clicking a field -- or the "i"
-// tooltip icon whose title text literally promises "Click for the full
-// explanation" -- silently updated hidden content: nothing visibly happened.
-// Every writer of #helpPanel must reveal it, not just fill it.
+// #250: the help pane is closed by default at every width (item 2.18, U2).
+// showFieldHelp only wrote into #helpPanel's innerHTML, so clicking a field
+// -- or the "i" tooltip icon whose title text literally promises "Click for
+// the full explanation" -- silently updated hidden content: nothing visibly
+// happened. Every writer of #helpPanel must reveal it, not just fill it.
 
 
 async function fetchWithTimeout(url, opts = {}, timeoutMs = 1200) {
@@ -7410,47 +7351,46 @@ Object.defineProperty(window, "ytdTxSort", { get: () => ytdTxSort, set: (v) => {
 Object.assign(window, {
   _checkAppStatusRun, addManualYtdAccount, addParentheticals, allocationPreviewFingerprint,
   allocationPreviewRowsForPost, allocationTargetsValid, artifactHashFromPreflight,
-  assetActionForSubsection, autoCollapseHelpForNarrowLaptop, baseHomeSaleYearRow,
-  blurYtdAccountMoney, boolishValue, buildWithDesktopProgress, catEffectiveBudget, changeImpactScope,
-  changeKey, chatMessageHtml, checkAppStatus, choiceHelpText, choiceLabel, choiceOptions,
-  chooseDefaultDetailedSheet, cloneSummary, closeChartModal, closeExitModal, closeNavDrawer,
-  collapseAllDetailGroups, currentManualOverrideItems, currentScenarioOverrideItems,
-  decimalsFromText, deleteYtdAccount, dependencyRank, deriveTotalRothConversions,
-  detailProgressState, detailedProgressHtml, detailedSheetByName, discardAndExit, dismissMessage,
-  domainBudgetNote, downloadBlob, downloadFile, exitApp, expandAllDetailColumnsOnPage,
-  expandAllDetailGroups, fetchWithTimeout, fieldAllowedValues, fieldConnection, fieldDefaultMeaning,
-  fieldFinderCategoryName, fieldFinderCategoryOrder, fieldLabelNoteHtml, fieldLikelyImpact,
-  fieldSizeClass, fieldTooltipHtml, fieldTooltipPreview, filterChoiceOptionsForRow, finiteOrNull,
-  focusYtdAccountMoney, focusableEntries, getStrategyTab, groupModelData, helpList,
-  hideSpendingModelLoadOverlay, hideUnusedTemplateCategories, hideYtdLoadOverlay, humanizeGroupKey,
-  leverPctPoints, loadCanonicalGlossary, loadDetailedResults, makeYtdAccountRow,
-  mergeDetailedSheetMeta, moneyNegativeClass, moveToNextEntry, normalizePlanningCaseRunType,
-  normalizePlanningCaseSource, normalizeValueForSave, noteSessionFieldChange,
-  noteSpecialSessionChange, numberDisplayDecimals, openExitModal, openNavDrawer,
-  openNextCollapsedSectionFrom, optionalModuleState, pageHelp, pageSaveMode, pageSaveModeHtml,
-  pageStatusHtml, parseCsvLine, parseDollarLike, percentDisplayDecimals, percentRaw, personCellInput,
-  personNickPlaceholder, personTokenLabel, planningCaseActiveId, planningCaseAdopt,
-  planningCaseArchive, planningCaseBaseSnapshotId, planningCaseCardsHtml, planningCaseCreate,
-  planningCaseDelete, planningCaseId, planningCaseMatrixHtml, planningCaseMetricSummary,
-  planningCaseNowIso, planningCaseOverrideFromRow, planningCaseOverrideTable,
-  planningCaseOverridesForSource, planningCaseReadAll, planningCaseSaveAll,
-  planningCaseSourceButtons, planningWorkbenchBuildImpactHtml, planningWorkbenchStressSelectorHtml,
-  primaryActionForStep, promotePlanningCase, recoverPriorSpendingBudget, recoverYtdAccountSetup,
-  rememberBuildCompare, renderAssetsCashReserves, renderDetailedResultsNav,
-  renderDetailedResultsProgressTick, renderEntityCharitable, renderEstateWithAnnuityLink,
-  renderFieldFinderGroups, renderHouseholdPeople, renderMeta, renderNav, renderOptionalFunctions,
-  renderPlanningWorkbench, renderRetirementWellness, renderSpecialStrategies,
-  renderSpendingDashboardOrLoad, renderSpendingWorkflowBanner, renderStateResidency,
-  renderStrategyTabs, renderWithdrawalOrderTable, renderWithdrawalStrategy,
+  assetActionForSubsection, baseHomeSaleYearRow, blurYtdAccountMoney, boolishValue,
+  buildWithDesktopProgress, catEffectiveBudget, changeImpactScope, changeKey, chatMessageHtml,
+  checkAppStatus, choiceHelpText, choiceLabel, choiceOptions, chooseDefaultDetailedSheet,
+  cloneSummary, closeChartModal, closeExitModal, closeNavDrawer, collapseAllDetailGroups,
+  currentManualOverrideItems, currentScenarioOverrideItems, decimalsFromText, deleteYtdAccount,
+  dependencyRank, deriveTotalRothConversions, detailProgressState, detailedProgressHtml,
+  detailedSheetByName, discardAndExit, dismissMessage, domainBudgetNote, downloadBlob, downloadFile,
+  exitApp, expandAllDetailColumnsOnPage, expandAllDetailGroups, fetchWithTimeout, fieldAllowedValues,
+  fieldConnection, fieldDefaultMeaning, fieldFinderCategoryName, fieldFinderCategoryOrder,
+  fieldLabelNoteHtml, fieldLikelyImpact, fieldSizeClass, fieldTooltipHtml, fieldTooltipPreview,
+  filterChoiceOptionsForRow, finiteOrNull, focusYtdAccountMoney, focusableEntries, getStrategyTab,
+  groupModelData, helpList, hideSpendingModelLoadOverlay, hideUnusedTemplateCategories,
+  hideYtdLoadOverlay, humanizeGroupKey, leverPctPoints, loadCanonicalGlossary, loadDetailedResults,
+  makeYtdAccountRow, mergeDetailedSheetMeta, moneyNegativeClass, moveToNextEntry,
+  normalizePlanningCaseRunType, normalizePlanningCaseSource, normalizeValueForSave,
+  noteSessionFieldChange, noteSpecialSessionChange, numberDisplayDecimals, openExitModal,
+  openNavDrawer, openNextCollapsedSectionFrom, optionalModuleState, pageHelp, pageSaveMode,
+  pageSaveModeHtml, pageStatusHtml, parseCsvLine, parseDollarLike, percentDisplayDecimals,
+  percentRaw, personCellInput, personNickPlaceholder, personTokenLabel, planningCaseActiveId,
+  planningCaseAdopt, planningCaseArchive, planningCaseBaseSnapshotId, planningCaseCardsHtml,
+  planningCaseCreate, planningCaseDelete, planningCaseId, planningCaseMatrixHtml,
+  planningCaseMetricSummary, planningCaseNowIso, planningCaseOverrideFromRow,
+  planningCaseOverrideTable, planningCaseOverridesForSource, planningCaseReadAll,
+  planningCaseSaveAll, planningCaseSourceButtons, planningWorkbenchBuildImpactHtml,
+  planningWorkbenchStressSelectorHtml, primaryActionForStep, promotePlanningCase,
+  recoverPriorSpendingBudget, recoverYtdAccountSetup, rememberBuildCompare, renderAssetsCashReserves,
+  renderDetailedResultsNav, renderDetailedResultsProgressTick, renderEntityCharitable,
+  renderEstateWithAnnuityLink, renderFieldFinderGroups, renderHouseholdPeople, renderMeta, renderNav,
+  renderOptionalFunctions, renderPlanningWorkbench, renderRetirementWellness,
+  renderSpecialStrategies, renderSpendingDashboardOrLoad, renderSpendingWorkflowBanner,
+  renderStateResidency, renderStrategyTabs, renderWithdrawalOrderTable, renderWithdrawalStrategy,
   renderWorkspaceSubtabsNav, resetAllocationPreview, restoreGroupBudgetModes,
   restoreWorkbookViewState, revertLastBuildChanges, rollForwardYtdAccounts, rowConfigValue,
   rowIsRetirementWellness, saveAndExit, saveChanges, saveValueForRow, saveYtdAccountSetup,
   saveYtdPending, scenarioRowKeyFromParts, sectionFlagEnabled, setAllDetailColumnGroups,
   setCombinedSearch, setDetailedResultSheet, setDetailedResultsNavOpen, setNavSearch,
-  setPlanningCaseActive, setSearchScope, setStrategyTab, showHelpAutoCollapseNoticeOnce,
-  showPlanDataFileManifest, showSpendingModelLoadOverlay, showYtdLoadOverlay, sleep,
-  spendingFlowFooterHtml, startDetailedResultsProgress, stepHelpLinkHtml, stepIdForRow,
-  stepSearchText, stopDetailedResultsProgress, strategyLeverOverrideItems, stressHomeSaleYearRow,
+  setPlanningCaseActive, setSearchScope, setStrategyTab, showPlanDataFileManifest,
+  showSpendingModelLoadOverlay, showYtdLoadOverlay, sleep, spendingFlowFooterHtml,
+  startDetailedResultsProgress, stepHelpLinkHtml, stepIdForRow, stepSearchText,
+  stopDetailedResultsProgress, strategyLeverOverrideItems, stressHomeSaleYearRow,
   stressOverrideItems, stripUiLabelPrefix, suggestedNext, summaryFromApiPayload, takeBuildSnapshot,
   toggleDetailColGroup, toggleDetailColumnGroup, toggleHelpSheet, toggleNavDrawer,
   translatePersonValueLabel, updateSearchToggle, updateYtdAccountMoney,

@@ -4164,7 +4164,7 @@ export function fieldGuidance(row) {
 }
 
 export function ensureHelpPanelVisible() {
-  document.body.classList.remove("help-collapsed");
+  document.body.classList.add("help-open");
 }
 
 export function showFieldHelp(idx) {
