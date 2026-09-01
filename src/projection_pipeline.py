@@ -72,13 +72,38 @@ def _n(value: Any) -> float:
         return 0.0
 
 
+def tax_assessment_stage(config: Mapping[str, Any]) -> dict[str, Any]:
+    """The TaxAssessment stage's real implementation now lives in
+    ``tax_kernel`` (system review Wave 2 item 2.1/2.2): the federal-bracket,
+    IRMAA, and LTCG bracket-stacking closures that ``core.py``, the
+    deterministic engine, and ``tlh.py`` used to each re-derive
+    independently are now pure, independently-testable functions there.
+
+    This does not yet re-run the year-by-year tax computation outside the
+    single ``engine_project`` call below (that is the rest of A2's stage
+    decomposition, not yet complete) — but the module boundary is real, so
+    this stage is no longer describing metrics from an engine call with no
+    corresponding standalone implementation anywhere.
+    """
+    from . import tax_kernel
+    return {
+        "delegates_to": "src.tax_kernel",
+        "kernel_functions": (
+            "bracket_factor_for_year", "irmaa_factor_for_year", "irmaa_surcharge",
+            "irmaa_tier", "ltcg_marginal_rate", "ltcg_tax_on_gain",
+        ),
+    }
+
+
 # A2: stages that have been genuinely extracted as independently callable
-# implementations (none yet — see the review's A3/engine-decomposition arc).
-# A stage absent from this registry gets its metrics from the single
-# `engine_project` call rather than its own execution, so its event reports
-# "inlined", not "completed" — the pipeline doesn't yet run 14 real stages,
-# it runs one and describes it 14 ways.
-STAGE_IMPLEMENTATIONS: dict[str, Callable[[Mapping[str, Any]], Any]] = {}
+# implementations. A stage absent from this registry gets its metrics from
+# the single `engine_project` call rather than its own execution, so its
+# event reports "inlined", not "completed" — the pipeline doesn't yet run
+# all 14 stages independently, it runs one and describes most of them
+# inline. TaxAssessment is the first exception (item 2.2).
+STAGE_IMPLEMENTATIONS: dict[str, Callable[[Mapping[str, Any]], Any]] = {
+    "TaxAssessment": tax_assessment_stage,
+}
 
 
 def _summarize_all_stages(stages: tuple[PipelineStage, ...], rows: list[dict[str, Any]]) -> tuple[StageSummary, ...]:

@@ -1,24 +1,33 @@
-"""Diagnostic: do the three independent LTCG bracket-stacking implementations agree?
+"""Do the three (formerly independent) LTCG bracket-stacking call sites agree?
 
-System review 2026-08-31, finding A6 / Wave 1 item 1.12. The 0%/15%/20% LTCG
-bracket-stacking rule is implemented independently three times:
+System review 2026-08-31, finding A6 / Wave 1 item 1.12 / Wave 2 item 2.1.
 
-  * ``src.core.ltcg_tax_on_gain`` -- inflates the bracket tops using
-    ``c['irmaa_inflator']`` compounded from ``c['plan_start']``.
-  * ``run_deterministic_projection_stage``'s nested ``_ltcg_tax_on_gain_path``
-    (in ``src.projection_stages.deterministic_engine``) -- inflates using
-    ``c['brk_inf']`` (a.k.a. ``fed_tax_bracket_inflator``) compounded from
-    ``src.taxes.FEDERAL_BRACKETS_VALUE_YEAR``, via its sibling closure
-    ``_bracket_factor_for_year``.
-  * ``src.tlh._ltcg_marginal_rate`` -- a third copy of the *stacking rule*
-    (which of the 0/15/20 bands the next dollar falls in), but it does not
-    compute its own inflation factor at all: callers hand it a
-    ``bracket_factor`` already computed elsewhere.
+**History.** This file originally started as a DIAGNOSTIC ONLY test (no src/
+edit) written to answer, with numbers, whether the 0%/15%/20% LTCG
+bracket-stacking rule's three independent implementations --
+``src.core.ltcg_tax_on_gain`` (inflating bracket tops using
+``c['irmaa_inflator']`` compounded from ``c['plan_start']``),
+``run_deterministic_projection_stage``'s nested ``_ltcg_tax_on_gain_path`` /
+``_bracket_factor_for_year`` (inflating using ``c['brk_inf']`` compounded
+from ``src.taxes.FEDERAL_BRACKETS_VALUE_YEAR``), and
+``src.tlh._ltcg_marginal_rate`` -- actually disagreed in practice, or were
+merely a tidiness issue. They disagreed substantially: up to ~$7,869 over a
+30-year horizon at one real fixture's configured rates (see the retained
+scenario tests below, now flipped from "diverge" to "agree" assertions).
 
-This is DIAGNOSTIC ONLY (no src/ edit): it exists to answer, with numbers,
-whether the two different inflation conventions actually cause the
-implementations to disagree in practice, or whether it is "just" a tidiness
-issue that Wave 2's tax-kernel extraction (item 2.1) can clean up for free.
+**Fix (Wave 2 item 2.1).** ``src/tax_kernel.py`` is now the single canonical
+implementation. Financial sign-off: the unified convention is
+``brk_inf``/``fed_tax_bracket_inflator``, compounded from
+``taxes.FEDERAL_BRACKETS_VALUE_YEAR`` -- the engine's pre-existing
+convention. ``core.ltcg_tax_on_gain`` and the engine's
+``_ltcg_tax_on_gain_path`` are now both thin call sites into
+``tax_kernel.ltcg_tax_on_gain``, so they are expected to agree exactly
+(irrespective of ``irmaa_inflator``, which the kernel does not consult for
+LTCG at all) rather than merely "close enough". This file is kept -- rather
+than deleted -- as the regression guard against the fix regressing: it still
+extracts the engine's real nested-closure source by AST (not a transcribed
+copy), so it fails loudly if the engine's internal structure changes instead
+of silently drifting.
 
 Method
 ------
@@ -96,7 +105,10 @@ def _extract_engine_ltcg_fn(c: dict):
     ``c``."""
     bf_src = _extract_nested_source(de.run_deterministic_projection_stage, "_bracket_factor_for_year")
     ltcg_src = _extract_nested_source(de.run_deterministic_projection_stage, "_ltcg_tax_on_gain_path")
-    namespace = {"c": c, "TAX_BASE_YEAR": de.TAX_BASE_YEAR, "_ar": de._ar}
+    # Post-2.1, both nested closures are one-line delegations to `_tk`
+    # (module-level alias for src.tax_kernel) rather than self-contained
+    # arithmetic, so the exec namespace must supply it.
+    namespace = {"c": c, "TAX_BASE_YEAR": de.TAX_BASE_YEAR, "_ar": de._ar, "_tk": de._tk}
     exec(compile(bf_src + "\n" + ltcg_src, "<deterministic_engine_ltcg_extract>", "exec"), namespace)
     return namespace["_ltcg_tax_on_gain_path"]
 
@@ -168,14 +180,19 @@ def test_tlh_reconstruction_matches_core_when_given_cores_own_bracket_factor():
     core.ltcg_tax_on_gain exactly when fed the SAME bracket_factor and bracket
     tops core.py itself would use. This isolates the disagreement (if any) to
     the *inflation index each implementation independently derives*, not to
-    tlh.py's stacking math being wrong."""
-    irmaa_inflator, plan_start = 0.02, 2026
+    tlh.py's stacking math being wrong.
+
+    Post-2.1: "core's own bracket factor" is ``tax_kernel.bracket_factor_for_year``
+    (brk_inf, compounded from the brackets' statutory value year) -- core.py no
+    longer derives its own irmaa_inflator/plan_start-based factor."""
+    import src.tax_kernel as tax_kernel
+    brk_inf, plan_start = 0.02, 2026
     for gain, oi, offset in _grid():
         year = plan_start + offset
         c = {"ltcg_0_top": LTCG_0_TOP, "ltcg_15_top": LTCG_15_TOP,
-             "irmaa_inflator": irmaa_inflator, "plan_start": plan_start}
+             "brk_inf": brk_inf, "plan_start": plan_start}
         core_tax = core.ltcg_tax_on_gain(c, gain, oi, year)
-        bf = (1.0 + irmaa_inflator) ** (year - plan_start)
+        bf = tax_kernel.bracket_factor_for_year(c, year)
         tlh_tax = _tlh_reconstructed_tax(gain, oi, bf)
         assert tlh_tax == pytest.approx(core_tax, abs=1e-6), (gain, oi, year)
 
@@ -200,67 +217,51 @@ def test_core_and_engine_agree_when_rate_and_index_base_year_both_match():
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Scenario B -- same rate, realistic plan_start (one year after the brackets'
-# value year, as essentially every real plan is): the index BASE YEAR alone,
-# with no rate mismatch at all, is enough to make the two disagree.
+# value year, as essentially every real plan is). Pre-2.1 this was enough,
+# on its own, to make core.py and the engine disagree (the base-year offset).
+# Post-2.1 both delegate to the same kernel function, so they must now agree.
 # ─────────────────────────────────────────────────────────────────────────────
 
-def test_core_and_engine_diverge_from_index_base_year_alone_even_with_matched_rates():
-    """core.py compounds irmaa_inflator from ``plan_start``; the engine
-    compounds brk_inf from ``taxes.FEDERAL_BRACKETS_VALUE_YEAR`` (a fixed
-    statutory-data vintage, currently one year behind a plan_start of 2026).
-    Even with irmaa_inflator == brk_inf, a real plan (plan_start != brackets'
-    value year) makes the two bracket-inflation factors differ by a full
-    extra year of compounding baked in from year one -- BEFORE any config
-    field is ever set differently. This locks in that finding: it is
-    EXPECTED (current, real) behavior that these disagree here, and the
-    assertions describe the actual measured shape of that disagreement."""
+def test_core_and_engine_agree_from_shared_kernel_despite_index_base_year_offset():
+    """Pre-2.1: core.py compounded irmaa_inflator from ``plan_start``; the
+    engine compounded brk_inf from ``taxes.FEDERAL_BRACKETS_VALUE_YEAR`` (a
+    fixed statutory-data vintage, currently one year behind a plan_start of
+    2026). Even with irmaa_inflator == brk_inf, a real plan (plan_start !=
+    brackets' value year) made the two bracket-inflation factors differ by a
+    full extra year of compounding baked in from year one. Post-2.1, both
+    ``core.ltcg_tax_on_gain`` and the engine's ``_ltcg_tax_on_gain_path`` are
+    thin call sites into ``tax_kernel.ltcg_tax_on_gain``, which does not
+    consult ``irmaa_inflator`` for LTCG at all -- so this scenario, which
+    used to be the base-year-offset repro case, must now produce identical
+    dollars regardless of what ``irmaa_inflator`` is set to."""
     rate = 0.02
     plan_start = FEDERAL_BRACKETS_VALUE_YEAR + 1  # e.g. 2026 when brackets are vintage 2025
     rows = _run_case(irmaa_inflator=rate, brk_inf=rate, plan_start=plan_start)
 
-    diffs = [row["engine_tax"] - row["core_tax"] for row in rows]
-    nonzero = [d for d in diffs if abs(d) > 0.005]
-    # At year == plan_start, core's exponent is 0 while the engine's is
-    # already 1 (year - FEDERAL_BRACKETS_VALUE_YEAR): the two brackets tops
-    # differ from day one whenever there is any nonzero gain in the affected
-    # 15%/20% bands, so this is not a rare, only-far-future-years effect.
-    assert nonzero, "expected the base-year-offset divergence to show up somewhere in the grid"
-    max_abs_diff = max(abs(d) for d in diffs)
-    assert max_abs_diff > 100.0, (
-        f"expected the fixed 1-year index-base offset to move some case's tax by "
-        f"more than $100 across a 30-year horizon; only saw ${max_abs_diff:.2f}"
-    )
+    for row in rows:
+        assert row["engine_tax"] == pytest.approx(row["core_tax"], abs=1e-6), row
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Scenario C -- divergent rates AND realistic plan_start, mirroring a real
-# fixture's actual configured values (irmaa_inflator=0.02, brk_inf=0.028).
+# Scenario C -- divergent irmaa_inflator/brk_inf AND realistic plan_start,
+# mirroring a real fixture's actual configured values (irmaa_inflator=0.02,
+# brk_inf=0.028). This was the worst-case, actually-shipped pre-2.1
+# divergence (~$7,869 over a 30-year horizon); post-2.1 the kernel ignores
+# irmaa_inflator for LTCG entirely, so core.py and the engine must agree.
 # ─────────────────────────────────────────────────────────────────────────────
 
-def test_core_and_engine_diverge_substantially_with_real_fixture_inflator_values():
+def test_core_and_engine_agree_from_shared_kernel_with_real_fixture_inflator_values():
     """One real fixture configures irmaa_inflator=0.02 and brk_inf=0.028 (see
-    src/data_io.py's API-config defaults). Combined with the base-year offset
-    from the previous test, this is the worst-case, actually-shipped
-    configuration. Locks in the measured magnitude so a future kernel
-    extraction (item 2.1) has a concrete before/after number to reconcile
-    against, and so this file documents -- rather than silently losing --
-    the size of the live disagreement."""
+    src/data_io.py's API-config defaults). Locks in that the tax-kernel
+    extraction (item 2.1) actually closed this gap end to end, not just in
+    the kernel's own unit tests."""
     plan_start = FEDERAL_BRACKETS_VALUE_YEAR + 1
     rows = _run_case(irmaa_inflator=0.02, brk_inf=0.028, plan_start=plan_start)
 
-    diffs = [row["engine_tax"] - row["core_tax"] for row in rows]
-    max_abs_diff = max(abs(d) for d in diffs)
-    pct_disagreeing = sum(1 for d in diffs if abs(d) > 0.005) / len(diffs)
-
-    # This is the headline diagnostic number: with a real fixture's own
-    # config values, core.py and the engine disagree on the LTCG tax dollar
-    # figure, by a nontrivial and growing-over-time amount, on the large
-    # majority of the grid.
-    assert pct_disagreeing > 0.5, (
-        f"expected the two real-world-configured implementations to disagree on "
-        f"most of the grid; only {pct_disagreeing:.0%} of cases disagreed"
-    )
-    assert max_abs_diff > 1_000.0, (
-        f"expected at least one case to disagree by more than $1,000 over a "
-        f"30-year horizon at these real fixture rates; worst was ${max_abs_diff:.2f}"
+    for row in rows:
+        assert row["engine_tax"] == pytest.approx(row["core_tax"], abs=1e-6), row
+    max_abs_diff = max(abs(row["engine_tax"] - row["core_tax"]) for row in rows)
+    assert max_abs_diff < 1e-6, (
+        f"expected core.py and the engine to agree exactly post-kernel-extraction; "
+        f"worst was ${max_abs_diff:.2f}"
     )

@@ -626,6 +626,7 @@ import datetime
 from collections import namedtuple
 
 from . import taxes as _td  # consolidated from tax_data
+from . import tax_kernel as _tk
 
 TAX_BASE_YEAR = _td.TAX_REFERENCE_YEAR
 
@@ -1190,24 +1191,16 @@ def marginal_rate(taxable, year, filing, brk_inf):
     return 0.37
 
 def ltcg_tax_on_gain(c, gain, ordinary_income, year):
-    if gain <= 0:
-        return 0.0
-    infl = (1 + c['irmaa_inflator']) ** (year - c['plan_start'])
-    top0 = c['ltcg_0_top'] * infl
-    top15 = c['ltcg_15_top'] * infl
-    base = max(0.0, ordinary_income)
-    tax = 0.0
-    remaining = gain
-    band0 = max(0.0, top0 - base)
-    in0 = min(remaining, band0)
-    remaining -= in0
-    band15 = max(0.0, top15 - max(base, top0))
-    in15 = min(remaining, band15)
-    tax += in15 * 0.15
-    remaining -= in15
-    tax += max(0.0, remaining) * 0.20
-    # NIIT is intentionally not included here; the projection adds NIIT once centrally.
-    return tax
+    """Thin call site into the canonical kernel implementation.
+
+    Tax-kernel extraction (system review Wave 2 item 2.1): this used to
+    inflate LTCG bracket tops using ``irmaa_inflator`` compounded from
+    ``plan_start``. It now delegates to ``tax_kernel.ltcg_tax_on_gain``,
+    which uses ``brk_inf`` (``fed_tax_bracket_inflator``) compounded from
+    the brackets' statutory value year -- see ``src/tax_kernel.py``'s module
+    docstring for the sign-off and the measured divergence this fixes.
+    """
+    return _tk.ltcg_tax_on_gain(c, gain, ordinary_income, year)
 
 def annuity_purchase_rate(age, calib=None):
     return _td.annuity_purchase_rate_from_calib(age, calib)
