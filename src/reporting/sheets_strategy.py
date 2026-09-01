@@ -310,10 +310,50 @@ def build_sheet10(ws, c, rows):
     h_current = int(c.get('h_ss_claim_age', c.get('ss_claim_age', 70)) or 70)
     w_current = int(c.get('w_ss_claim_age', c.get('ss_claim_age', 70)) or 70)
 
-    def _safe_project_pair(h_age, w_age):
+    def _safe_project_pair(h_age, w_age, h_mort_age=None, w_mort_age=None, skip_mc=False):
+        # h_mort_age/w_mort_age (item 3.8, F11): override the household's
+        # configured longevity assumption for this one call. None (the
+        # default, used by every claim-age-grid pair) means "leave it as
+        # configured" -- only the longevity-refinement pass below ever
+        # passes an explicit value.
+        #
+        # skip_mc (item 3.8): objective_value/score below is entirely
+        # deterministic -- it never depends on the Monte Carlo block further
+        # down, which exists only to attach feasibility_probability/
+        # mc_success_rate/mc_p10_terminal_nw. The longevity-refinement pass
+        # only needs objective_value to compare which pair wins under each
+        # lifespan assumption, so it sets skip_mc=True to avoid both the MC
+        # sampling cost AND a survivor-bucket rebuild under the overridden
+        # mortality age (a real, measured problem: an earlier version of
+        # this pass that let it fall through to the MC block took several
+        # minutes for a single sheet, rebuilding buckets -- 2 * n_years
+        # project() calls each -- for 6 extra calls, the exact class of cost
+        # the original bucket-reuse optimization above was built to avoid).
         def _mutate(c2):
             c2['h_ss_claim_age'] = int(h_age)
             c2['w_ss_claim_age'] = int(w_age)
+            # h_death_yr/w_death_yr (data_io.py) are computed ONCE at parse
+            # time as h_dob_yr + h_mort_age and never re-derived -- the
+            # engine reads the death year, not h_mort_age itself, so
+            # overriding h_mort_age/w_mort_age alone would silently have NO
+            # effect on the projection (root-caused directly: an earlier
+            # version of this override showed byte-identical objective_value
+            # across every longevity variant). plan_end/first_death_yr must
+            # move with it too, mirroring data_io.py's own derivation, or a
+            # "longer lifespan" variant would be silently truncated at the
+            # original (shorter) plan_end.
+            if h_mort_age is not None:
+                c2['h_mort_age'] = int(h_mort_age)
+                c2['h_death_yr'] = int(c2['h_dob_yr']) + int(h_mort_age)
+            if w_mort_age is not None and int(c2.get('w_mort_age', 0) or 0) > 0:
+                # w_mort_age == 0 is data_io.py's "already dead"/single-member
+                # sentinel (w_death_yr == h_dob_yr) -- applying a longevity
+                # delta to it would fabricate a spouse who was never modeled.
+                c2['w_mort_age'] = int(w_mort_age)
+                c2['w_death_yr'] = int(c2['w_dob_yr']) + int(w_mort_age)
+            if h_mort_age is not None or w_mort_age is not None:
+                c2['plan_end'] = max(c2['h_death_yr'], c2['w_death_yr'])
+                c2['first_death_yr'] = min(c2['h_death_yr'], c2['w_death_yr'])
             # Preserve the currently selected Roth policy so the sweep compares
             # SS timing through the same full projection engine without
             # recursively re-optimizing Roth conversions 81 times during
@@ -376,16 +416,27 @@ def build_sheet10(ws, c, rows):
         mc_success_rate = None
         mc_p10_terminal_nw = None
         feasibility_probability = 0.0
-        try:
-            c2['mc_sims'] = SWEEP_MC_SIMS
-            c2['mc_sensitivity_sims'] = 1
-            with _contextlib.redirect_stdout(_io.StringIO()):
-                mc_result = monte_carlo(c2, n_sims=SWEEP_MC_SIMS, seed=SWEEP_MC_SEED, survivor_buckets=_survivor_buckets_for_sweep)
-            mc_success_rate = float(mc_result.get('success_rate', 0.0) or 0.0)
-            mc_p10_terminal_nw = float((mc_result.get('terminal_total_nw') or {}).get(10, 0.0) or 0.0)
-            feasibility_probability = float(mc_result.get('essential_fully_funded_probability', 0.0) or 0.0)
-        except Exception:
-            pass
+        if not skip_mc:
+            try:
+                c2['mc_sims'] = SWEEP_MC_SIMS
+                c2['mc_sensitivity_sims'] = 1
+                # The pre-built _survivor_buckets_for_sweep are keyed to the
+                # household's CONFIGURED death-timing assumption -- reusing
+                # them under an overridden mortality age would silently
+                # score every longevity variant against the same (wrong)
+                # survivor window. Let monte_carlo() build its own fresh
+                # buckets instead whenever an override is in play; only the
+                # claim-age grid (never overridden) gets the cheap reuse.
+                _buckets_for_this_call = (
+                    _survivor_buckets_for_sweep if h_mort_age is None and w_mort_age is None else None
+                )
+                with _contextlib.redirect_stdout(_io.StringIO()):
+                    mc_result = monte_carlo(c2, n_sims=SWEEP_MC_SIMS, seed=SWEEP_MC_SEED, survivor_buckets=_buckets_for_this_call)
+                mc_success_rate = float(mc_result.get('success_rate', 0.0) or 0.0)
+                mc_p10_terminal_nw = float((mc_result.get('terminal_total_nw') or {}).get(10, 0.0) or 0.0)
+                feasibility_probability = float(mc_result.get('essential_fully_funded_probability', 0.0) or 0.0)
+            except Exception:
+                pass
         return {
             'h_age': int(h_age), 'w_age': int(w_age), 'terminal_nw': terminal,
             'after_tax_terminal_nw': after_tax_terminal_nw,
@@ -477,6 +528,54 @@ def build_sheet10(ws, c, rows):
     best = _sweep.best
     current = next((x for x in scenarios if x['h_age'] == h_current and x['w_age'] == w_current), None)
 
+    # Item 3.8 (F11, Option 1 "restricted to the winner's neighbourhood"):
+    # the sweep above scores every pair against ONE fixed mortality
+    # assumption (h_mort_age/w_mort_age) -- but longevity is the dominant
+    # driver of claiming decisions and, held fixed, cannot differentiate
+    # the pairs at all. Re-score the top 3 ranked pairs (not the whole
+    # grid -- "restricted to the neighbourhood" is what keeps this cheap)
+    # at two additional longevity assumptions bracketing the configured
+    # one, to show whether the recommendation is robust to how long the
+    # household actually lives. Deliberately informational only -- like
+    # item 3.7's breakeven table, this does NOT change `best` above; the
+    # primary recommendation stays the single configured-longevity sweep
+    # the rest of this sheet already explains.
+    LONGEVITY_SENSITIVITY_YEARS = int(c.get('ss_longevity_sensitivity_years', 5) or 5)
+    _h_mort_base = int(c.get('h_mort_age', 90) or 90)
+    _w_mort_base = int(c.get('w_mort_age', 92) or 92)
+    _longevity_variants = [
+        ('Shorter lifespan', -LONGEVITY_SENSITIVITY_YEARS),
+        ('Configured lifespan', 0),
+        ('Longer lifespan', LONGEVITY_SENSITIVITY_YEARS),
+    ]
+    _top_pairs = scenarios[:3]
+    longevity_rows = []  # (variant_label, [(h_age, w_age, objective_value, is_best_under_this_variant), ...])
+    for variant_label, delta in _longevity_variants:
+        variant_scores = []
+        for pair in _top_pairs:
+            if delta == 0:
+                variant_scores.append((pair['h_age'], pair['w_age'], pair['objective_value']))
+            else:
+                h_variant_age = max(1, _h_mort_base + delta)
+                w_variant_age = max(1, _w_mort_base + delta)
+                variant_metrics = _safe_project_pair(
+                    pair['h_age'], pair['w_age'],
+                    h_mort_age=h_variant_age, w_mort_age=w_variant_age,
+                    skip_mc=True,
+                )
+                variant_scores.append((pair['h_age'], pair['w_age'], variant_metrics['objective_value']))
+        best_under_variant = max(variant_scores, key=lambda x: x[2]) if variant_scores else None
+        longevity_rows.append((
+            variant_label, delta,
+            [(h, w, obj, (h, w) == (best_under_variant[0], best_under_variant[1]) if best_under_variant else False)
+             for h, w, obj in variant_scores],
+        ))
+    longevity_pair_is_stable = len({
+        next((h, w) for h, w, _obj, is_best in row_pairs if is_best)
+        for _label, _delta, row_pairs in longevity_rows
+        if any(is_best for _h, _w, _obj, is_best in row_pairs)
+    }) <= 1
+
     r = 3
     write_hdr(ws, r, 1, 'Recommended spouse-pair claim ages from a coarse-then-refine projection sweep', NAVY, WHITE, span=12); r += 1
     _s1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
@@ -498,6 +597,39 @@ def build_sheet10(ws, c, rows):
         write_cell(ws, r, 2, value, fmt=FMT_DOLLAR if isinstance(value, (int, float)) and 'Age' not in label else None)
         write_cell(ws, r, 3, note)
         ws.merge_cells(start_row=r, start_column=3, end_row=r, end_column=12)
+        r += 1
+
+    r += 2
+    write_hdr(ws, r, 1, 'Longevity sensitivity of the top-ranked pairs', NAVY, WHITE, span=12); r += 1
+    write_cell(
+        ws, r, 1,
+        f'The recommendation above is scored against one fixed lifespan assumption ({_s1} to {_h_mort_base}, {_s2} to {_w_mort_base}) -- '
+        'this re-scores only the top 3 ranked pairs (not the whole grid) at a shorter and a longer lifespan, '
+        f'{LONGEVITY_SENSITIVITY_YEARS} years each direction, to show whether the recommendation still wins if the household lives a '
+        'meaningfully shorter or longer life than assumed. This is informational and does not change the recommendation above.',
+        align='left',
+    )
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=12)
+    ws.row_dimensions[r].height = 30
+    r += 1
+    write_cell(
+        ws, r, 1,
+        ('The same pair scores best under all three lifespan assumptions -- the recommendation is robust to longevity uncertainty.'
+         if longevity_pair_is_stable else
+         'A DIFFERENT pair scores best under at least one alternate lifespan assumption -- see the table below before treating the '
+         'recommendation as robust to how long the household actually lives.'),
+        bold=True, bg=('E2EFDA' if longevity_pair_is_stable else 'FFF3CD'),
+    )
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=12)
+    r += 1
+    hdrs = ['Lifespan assumption'] + [f'{_s1} {p["h_age"]} / {_s2} {p["w_age"]}' for p in _top_pairs]
+    for i, h in enumerate(hdrs, 1):
+        write_hdr(ws, r, i, h, DGRAY, WHITE)
+    r += 1
+    for variant_label, delta, row_pairs in longevity_rows:
+        write_cell(ws, r, 1, f'{variant_label} ({_h_mort_base + delta}/{_w_mort_base + delta})' if delta else f'{variant_label} ({_h_mort_base}/{_w_mort_base})')
+        for i, (_h, _w, obj, is_best) in enumerate(row_pairs, 2):
+            write_cell(ws, r, i, obj, fmt=FMT_DOLLAR, bold=is_best, bg='E2EFDA' if is_best else None)
         r += 1
 
     r += 1
@@ -607,7 +739,10 @@ def build_sheet10(ws, c, rows):
         ws.column_dimensions[get_column_letter(col)].width = 16
     qc('10. Social Security', 'Claim ages 62-70 swept by spouse against a coarse-then-refine projection', True, '')
 
-    return {'best': best, 'current': current, 'scenarios': scenarios}
+    return {
+        'best': best, 'current': current, 'scenarios': scenarios,
+        'longevity_rows': longevity_rows, 'longevity_pair_is_stable': longevity_pair_is_stable,
+    }
 
 _HSA_SECTION_SPAN = 15
 _HSA_SECTION_TITLE = 'PROPOSED HSA DRAWDOWN SCHEDULE — And What This Number Cannot Tell You'
