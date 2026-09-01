@@ -35,7 +35,11 @@
       const text = await res.text();
       let data = text;
       try{ data = JSON.parse(text); }catch(_e){}
-      if(!res.ok) throw new Error((data && data.error) || text || res.statusText);
+      if(!res.ok){
+        const err = new Error((data && data.error) || text || res.statusText);
+        if(data && Array.isArray(data.errors)) err.errors = data.errors;
+        throw err;
+      }
       return data;
     }catch(e){
       if(e && e.name === 'AbortError') throw new Error('Request timed out after '+Math.round(timeoutMs/1000)+' seconds.');

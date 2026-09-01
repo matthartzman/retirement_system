@@ -109,6 +109,25 @@ export function buildHistoryProvenanceHtml(entry) {
   );
 }
 
+// A change's row_index is only a positional offset into the current CSV
+// files -- it is recomputed fresh on every read, not a stable id (see
+// _client_csv_rows in app_core.py). Any row added or removed anywhere in
+// the plan data between when a snapshot was taken and now shifts every
+// row_index downstream of it, so blindly replaying a snapshot's stored
+// row_index values can write a stale value into a completely different
+// field (wrong type/section), which is what made revert fail with
+// "Plan Data validation failed" (#297). Re-resolve each change's current
+// row_index by its stable (section, subsection, label) identity instead.
+export function resolveCurrentRowIndex(rowsList, c) {
+  const row = (rowsList || []).find(
+    (r) =>
+      (r.section || "") === (c.section || "") &&
+      (r.subsection || "") === (c.subsection || "") &&
+      (r.label || "") === (c.rawLabel || ""),
+  );
+  return row ? row.row_index : null;
+}
+
 export async function revertToBuildHistoryEntry(id) {
   loadBuildHistory();
   const entry = buildHistory.find((e) => e.id === id);
@@ -123,16 +142,29 @@ export async function revertToBuildHistoryEntry(id) {
     ))
   )
     return;
-  const changes = (entry.changes || []).filter(
+  const trackedChanges = (entry.changes || []).filter(
     (c) => !c.special && c.row_index !== undefined,
   );
-  if (!changes.length) {
+  if (!trackedChanges.length) {
     showMessage("No tracked field changes to revert in this snapshot.", "warn");
     return;
   }
+  const resolved = trackedChanges.map((c) => ({
+    change: c,
+    row_index: resolveCurrentRowIndex(rows, c),
+  }));
+  const stale = resolved.filter((r) => r.row_index == null);
+  const changes = resolved.filter((r) => r.row_index != null);
+  if (!changes.length) {
+    showMessage(
+      "None of this snapshot's tracked fields could be located in the current plan data (they may have been removed since).",
+      "error",
+    );
+    return;
+  }
   try {
-    const updates = changes.map((c) => ({
-      row_index: c.row_index,
+    const updates = changes.map(({ change: c, row_index }) => ({
+      row_index,
       value: String(
         c.beforeStorage != null
           ? c.beforeStorage
@@ -154,9 +186,20 @@ export async function revertToBuildHistoryEntry(id) {
     await loadAll({ source: planSource, preferLocal: false, silent: true });
     activeStep = "build_impact";
     renderMain();
-    showMessage("Reverted to snapshot state. Save Changes to persist.");
+    if (stale.length) {
+      showMessage(
+        `Reverted ${changes.length} field(s); ${stale.length} field(s) from this snapshot no longer exist and were skipped. Save Changes to persist.`,
+        "warn",
+      );
+    } else {
+      showMessage("Reverted to snapshot state. Save Changes to persist.");
+    }
   } catch (e) {
-    showMessage("Error reverting to snapshot: " + e.message, "error");
+    const detail =
+      e && Array.isArray(e.errors) && e.errors.length
+        ? " (" + e.errors.slice(0, 3).join("; ") + ")"
+        : "";
+    showMessage("Error reverting to snapshot: " + e.message + detail, "error");
   }
 }
 

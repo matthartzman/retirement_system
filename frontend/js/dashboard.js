@@ -1342,6 +1342,9 @@ function noteSessionFieldChange(
   if (!sessionChanges.has(key)) {
     sessionChanges.set(key, {
       row_index: row.row_index,
+      section: row.section || "",
+      subsection: row.subsection || "",
+      rawLabel: row.label || "",
       label: humanLabel(row.label, row),
       group: friendlyGroup(row),
       scope,
@@ -1362,6 +1365,9 @@ function noteSessionFieldChange(
     rec.sourceStep = sourceStep;
     rec.sourceTitle = sourceTitle;
     rec.row_index = row.row_index;
+    rec.section = row.section || "";
+    rec.subsection = row.subsection || "";
+    rec.rawLabel = row.label || "";
   }
   const rec = sessionChanges.get(key);
   if (String(rec.beforeStorage) === String(rec.afterStorage))
