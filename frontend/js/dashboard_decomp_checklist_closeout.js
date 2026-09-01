@@ -205,7 +205,7 @@ export function renderWelcome() {
     if (_autoLoadPref === null)
       _autoLoad = localStorage.getItem("rpAutoLoad") === "1";
   } catch (_e) {}
-  return `<div class="pane-head"><div class="eyebrow">Welcome</div><h2>Retirement planning workspace</h2><p>Enter source facts first, then model strategy and stress tests, run preflight, build reports, and review the workbook results.</p>${demoModeActive ? '<div class="section-note" style="margin:6px 0">Viewing the demo plan (Alex &amp; Morgan). Your real plan is backed up — click <b>Open Current Plan</b> to switch back. Edits you make here are kept for next time you open the demo; on desktop, <b>Save Plan As</b> also lets you keep a named copy.</div>' : ""}<div class="pane-actions"><button class="btn primary" data-requires-app="1" onclick="startNewPlan()">Start New Plan</button><button class="btn" data-requires-app="1" onclick="openCurrentPlan()">Open Current Plan</button><button class="btn" data-requires-app="1" onclick="openDemoPlan()">Open Demo Plan</button>${demoModeActive ? "" : '<button class="btn" onclick="resetDemoToDefaults()">Reset Demo to Defaults</button>'}<button class="btn" onclick="savePlanAs()">Save Plan As</button><button class="btn" onclick="loadSavedPlan()">Load Saved Plan</button></div><div style="margin:8px 0 4px;font-size:13px"><label style="cursor:pointer;user-select:none"><input type="checkbox" id="autoLoadCheck"${_autoLoad ? " checked" : ""} onchange="setAutoLoad(this.checked)"> Auto-load plan on next start</label></div></div>${nbaPanelHtml()}${taxFreshnessBannerHtml()}${planKpiMetricsHtml()}${firstRunChecklistHtml(false)}<div class="feature-grid"><div class="feature-card"><h3>Your plan</h3><ul><li><b>The saved plan</b> is the active source for all projections.</li><li><b>Plan Data files</b> can be exported for backup, sharing, or recovery.</li><li><b>Reports</b> are generated snapshots — edit the plan, then rebuild to update them.</li></ul></div><div class="feature-card"><h3>Save and build</h3><ul><li><b>Save Changes</b> stores ordinary fields, tables, category budgets, transaction edits, holdings, liabilities, and strategy-table edits.</li><li><b>Build Reports</b>, <b>Download Workbook</b>, and <b>Download PDF</b> save first, run preflight, then rebuild reports.</li><li>Use page-level reload buttons only when discarding unsaved page edits.</li></ul></div><div class="feature-card"><h3>Spending flow</h3><ul><li>Spending Categories defines the Tracking Type, Group, and Category model.</li><li>Housing, Wellness, and Travel are authoritative detail pages.</li><li>Income &amp; Expense Transactions feeds Spending Analysis and actual-vs-model review.</li></ul></div><div class="feature-card"><h3>Final review</h3><ol class="small"><li>Open Reports &amp; Review.</li><li>Check the Preflight tab for missing fields.</li><li>Resolve blockers, then build.</li><li>Review Impact and Results, then download the workbook.</li></ol></div></div>${closeoutChecklistHtml()}`;
+  return `<div class="pane-head"><div class="eyebrow">Welcome</div><h2>Retirement planning workspace</h2><p>Enter source facts first, then model strategy and stress tests, build reports, and review the workbook results.</p>${demoModeActive ? '<div class="section-note" style="margin:6px 0">Viewing the demo plan (Alex &amp; Morgan). Your real plan is backed up — click <b>Open Current Plan</b> to switch back. Edits you make here are kept for next time you open the demo; on desktop, <b>Save Plan As</b> also lets you keep a named copy.</div>' : ""}<div class="pane-actions"><button class="btn primary" data-requires-app="1" onclick="startNewPlan()">Start New Plan</button><button class="btn" data-requires-app="1" onclick="openCurrentPlan()">Open Current Plan</button><button class="btn" data-requires-app="1" onclick="openDemoPlan()">Open Demo Plan</button>${demoModeActive ? "" : '<button class="btn" onclick="resetDemoToDefaults()">Reset Demo to Defaults</button>'}<button class="btn" onclick="savePlanAs()">Save Plan As</button><button class="btn" onclick="loadSavedPlan()">Load Saved Plan</button></div><div style="margin:8px 0 4px;font-size:13px"><label style="cursor:pointer;user-select:none"><input type="checkbox" id="autoLoadCheck"${_autoLoad ? " checked" : ""} onchange="setAutoLoad(this.checked)"> Auto-load plan on next start</label></div></div>${nbaPanelHtml()}${taxFreshnessBannerHtml()}${planKpiMetricsHtml()}${firstRunChecklistHtml(false)}<div class="feature-grid"><div class="feature-card"><h3>Your plan</h3><ul><li><b>The saved plan</b> is the active source for all projections.</li><li><b>Plan Data files</b> can be exported for backup, sharing, or recovery.</li><li><b>Reports</b> are generated snapshots — edit the plan, then rebuild to update them.</li></ul></div><div class="feature-card"><h3>Save and build</h3><ul><li><b>Save Changes</b> stores ordinary fields, tables, category budgets, transaction edits, holdings, liabilities, and strategy-table edits.</li><li><b>Build Reports</b>, <b>Download Workbook</b>, and <b>Download PDF</b> save first, run preflight, then rebuild reports.</li><li>Use page-level reload buttons only when discarding unsaved page edits.</li></ul></div><div class="feature-card"><h3>Spending flow</h3><ul><li>Spending Categories defines the Tracking Type, Group, and Category model.</li><li>Housing, Wellness, and Travel are authoritative detail pages.</li><li>Income &amp; Expense Transactions feeds Spending Analysis and actual-vs-model review.</li></ul></div><div class="feature-card"><h3>Final review</h3><ol class="small"><li>Open Reports &amp; Review.</li><li>On the Build tab, check the readiness block above the Build button for missing fields, and resolve any blockers.</li><li>Build Reports.</li><li>Review Impact and Results, then download the workbook.</li></ol></div></div>${closeoutChecklistHtml()}`;
 }
 
 export function renderSystemConfiguration() {
@@ -426,12 +426,22 @@ export function firstRunChecklistHtml(compact = false) {
     },
     {
       title: "Review and build",
-      desc: "Run preflight, build reports, review impact and results, and download the final workbook.",
+      // Item 2.19 (finding U6): "Run preflight, build reports, ..." used to
+      // describe Preflight as its own step before this checklist card
+      // rendered on the Build tab too (it previously only appeared on the
+      // now-retired separate Preflight tab). Rewritten for the merged flow
+      // -- also avoids an accessible-name collision: this card's text
+      // containing the substring "build reports" made Playwright's
+      // getByRole('button', {name:'Build Reports'}) in the E2E suite match
+      // this card instead of the real Build Reports button once both
+      // rendered on the same tab (tests/e2e/helpers.js's
+      // triggerBuildAndWaitForOverlay).
+      desc: "Check readiness, run the build, review impact and results, and download the final workbook.",
       steps: ["review", "build_impact", "detailed_results", "plan_data_report"],
       next: "reports_and_review",
     },
   ];
-  let html = `<div class="first-run-checklist ${compact ? "compact" : ""}"><div class="first-run-head"><div><h3>${compact ? "Workflow checklist" : "Recommended workflow"}</h3><p class="small">A low-risk path through the plan: enter source data first, then strategy, stress tests, preflight, build, and review.</p></div>${compact ? "" : '<button class="btn primary" type="button" data-step-id="reports_and_review">Review and Build</button>'}</div><div class="first-run-items">`;
+  let html = `<div class="first-run-checklist ${compact ? "compact" : ""}"><div class="first-run-head"><div><h3>${compact ? "Workflow checklist" : "Recommended workflow"}</h3><p class="small">A low-risk path through the plan: enter source data first, then strategy, stress tests, build, and review.</p></div>${compact ? "" : '<button class="btn primary" type="button" data-step-id="reports_and_review">Review and Build</button>'}</div><div class="first-run-items">`;
   items.forEach((item) => {
     const st = checklistItemStatus(item.steps);
     html += `<button class="first-run-item ${st.cls}" type="button" data-step-id="${esc(item.next)}"><span class="check-status">${esc(st.label)}</span><b>${esc(item.title)}</b><small>${esc(item.desc)}</small></button>`;
@@ -1067,11 +1077,17 @@ export function renderTabbedWorkspace(tabs, active, handlerName) {
   return `<div class="workspace-tabs" role="tablist">${tabs.map((t) => `<button class="workspace-tab ${t === active ? "active" : ""}" type="button" role="tab" aria-selected="${t === active ? "true" : "false"}" onclick="${handlerName}('${escJs(t)}')">${esc(t)}</button>`).join("")}</div>`;
 }
 
-export function renderReportsPreflight() {
+// Item 2.19 (finding U6): the "Preflight" tab merged into "Build" -- the
+// readiness block (first-run checklist, build-preflight panel, and missing-
+// required-fields list) now renders directly above the Build Reports
+// button instead of requiring a separate tab click first. renderReadiness*
+// kept as its own function (rather than inlined into renderReportsBuild)
+// since it is still meaningfully reusable on its own.
+function renderReportsReadinessBlock() {
   const stats = overallStats();
   const missing = stats.missing || [];
   let html =
-    '<div class="reports-panel"><h3>Preflight</h3><p class="small">Check whether the plan is complete enough to build reports.</p>' +
+    '<div class="reports-readiness"><h3>Readiness</h3><p class="small">Whether the plan is complete enough to build reports.</p>' +
     firstRunChecklistHtml(true) +
     renderBuildPreflightPanel();
   if (missing.length) {
@@ -1086,7 +1102,7 @@ export function renderReportsPreflight() {
     html +=
       '<div class="section-note ok"><b>Plan is ready to build.</b> Warnings may still appear, but no required fields are missing.</div>';
   }
-  html += `<div class="pane-actions"><button class="btn primary" type="button" onclick="setReportsTab('Build');runBuild(false)">Build Now</button></div></div>`;
+  html += "</div>";
   return html;
 }
 
@@ -1106,16 +1122,15 @@ export function renderReportsBuild() {
     statusHtml =
       '<div class="section-note">No build on record. Build Reports creates the workbook, PDF, and Results Explorer.</div>';
   }
-  return `<div class="reports-panel"><h3>Build</h3><p class="small">Save the current plan and run the full projection engine. Creates the workbook, PDF, and Results Explorer model. Progress appears in the build overlay.</p><div class="pane-actions"><button class="btn primary" type="button" data-requires-app="1" onclick="runBuild(false)">Build Reports</button><button class="btn" type="button" onclick="refreshBuildStatus()">Refresh Status</button></div>${statusHtml}</div>`;
+  return `<div class="reports-panel"><h3>Build</h3><p class="small">Save the current plan and run the full projection engine. Creates the workbook, PDF, and Results Explorer model. Progress appears in the build overlay.</p>${renderReportsReadinessBlock()}<div class="pane-actions"><button class="btn primary" type="button" data-requires-app="1" onclick="runBuild(false)">Build Reports</button><button class="btn" type="button" onclick="refreshBuildStatus()">Refresh Status</button></div>${statusHtml}</div>`;
 }
 
 export function renderReportsAndReview() {
   const active = REPORTS_TABS.includes(reportsActiveTab)
     ? reportsActiveTab
-    : "Preflight";
+    : "Build";
   let body = "";
-  if (active === "Preflight") body = renderReportsPreflight();
-  else if (active === "Build") body = renderReportsBuild();
+  if (active === "Build") body = renderReportsBuild();
   else if (active === "Impact") body = renderBuildImpactPage();
   else if (active === "Results") body = renderDetailedResults();
   else if (active === "Downloads") body = renderReview();
@@ -1244,7 +1259,6 @@ Object.assign(window, {
   renderReview,
   renderPlanDataReport,
   renderTabbedWorkspace,
-  renderReportsPreflight,
   renderReportsBuild,
   renderReportsAndReview,
   startNewPlan,
