@@ -124,7 +124,7 @@ class Phase5WorkbookSnapshotTests(unittest.TestCase):
         # PII. Building against a deterministic fixture instead of "whatever a
         # human last saved" is what makes this an e2e/reporting-contract test
         # rather than a live-plan diagnostic (that diagnostic already exists,
-        # warn-only, in test_recommendations_regression.py).
+        # warn-only, in test_recommendations_functional.py).
         FROZEN_DIR = ROOT / "tests" / "fixtures" / "sample_plan_frozen"
         tmp_input = tmp_root / "input"
 

@@ -10,7 +10,7 @@
   new fields.
 
 Mirrors tests/test_allocation_ui_backfill_functional.py's and
-tests/test_active_input_recursion_guard_regression.py's conventions: string-presence
+tests/test_active_input_recursion_guard_functional.py's conventions: string-presence
 checks against the real backend list/frontend source, plus a node smoke test
 that actually executes dashboard.js's functions (not just string-matches)
 against a minimal DOM mock.
@@ -137,7 +137,7 @@ class DashboardJsStringPresenceTests(unittest.TestCase):
 class DashboardJsRuntimeBehaviorTests(unittest.TestCase):
     """Actually executes dashboard.js functions (not just string-matching)
     against a minimal DOM mock, mirroring
-    test_active_input_recursion_guard_regression.py's convention."""
+    test_active_input_recursion_guard_functional.py's convention."""
 
     def _run_smoke(self, tmp_path: Path, script_body: str) -> str:
         script = tmp_path / "dashboard_real_loss_aware_smoke.js"

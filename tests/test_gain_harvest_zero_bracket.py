@@ -24,7 +24,7 @@ from conftest import TEST_INPUT_DIR
 def _pin_holdings_prices():
     """Freeze holdings pricing for the whole of every test in this file.
 
-    Same defect and same fix as test_tax_loss_harvesting_regression.py, which
+    Same defect and same fix as test_tax_loss_harvesting_functional.py, which
     this file was modelled on: parse_client() is what prices the holdings, so
     pinning only a later project() leaves the opening balances resolved against
     the untracked, machine-local output/market_price_cache.json. And the config
