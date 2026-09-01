@@ -2297,6 +2297,7 @@ import contextlib
 import copy
 import io
 from collections import defaultdict
+from . import strategy_sweep
 
 # consolidated: project() below is from projection_engine; sample_household_death_years()
 # it calls is from mortality_engine (both now defined in this same module).
@@ -2827,8 +2828,7 @@ def optimize_roth_conversion_strategy(c: dict) -> dict:
         metrics['feasibility_gate_met'] = feasibility_probability >= LCV_FEASIBILITY_GATE_THRESHOLD
         return metrics
 
-    candidates = []
-    for spec in _roth_strategy_candidate_specs(c):
+    def _evaluate_roth_candidate(spec: dict) -> dict:
         overrides = {'roth_policy': spec['policy'], **(spec.get('overrides') or {})}
         if spec.get('target_rate') is not None:
             overrides['roth_target_rate'] = float(spec['target_rate'])
@@ -2836,23 +2836,34 @@ def optimize_roth_conversion_strategy(c: dict) -> dict:
         if spec.get('fixed_amount') is not None:
             overrides['roth_fixed_amount'] = float(spec['fixed_amount'])
         c2, rows = run_scenario(base, overrides)
-        metrics = _score_candidate(c2, rows)
-        candidates.append({**spec, **metrics})
+        return _score_candidate(c2, rows)
 
-    candidates.sort(key=lambda x: (x['score'], x['after_tax_terminal_nw'], -x['lifetime_tax']), reverse=True)
+    # Item 2.3 (A4): shared enumerate/evaluate/rank/gate shape -- see
+    # src/strategy_sweep.py's own docstring. The candidate scoring itself
+    # (_score_candidate/_roth_strategy_metrics above) is untouched; this
+    # only replaces the loop/sort/feasibility-gate-with-fallback plumbing
+    # around it, byte-for-byte equivalent to the inline version this
+    # replaced (verified against the golden master and the frozen Roth
+    # candidate table).
+    #
     # Optimization-refactor Phase 4 (Option C, full sign-off): a candidate
     # that fails the feasibility gate is hard-excluded from selection --
     # never chosen no matter how favorable its LCV score is. Ranking/
-    # reporting still shows every candidate (candidates list above, used by
+    # reporting still shows every candidate (candidates list below, used by
     # Sheet 11's disclosure table) so a failing candidate remains visible for
     # comparison; only the *selection* below is restricted. If every
     # candidate fails the gate, fall back to ranking the full set so a
     # recommendation is still produced, flagged via
     # roth_all_candidates_infeasible below.
-    _feasible_candidates = [x for x in candidates if x.get('feasibility_gate_met')]
-    _all_candidates_infeasible = bool(candidates) and not _feasible_candidates
-    _ranked_pool = _feasible_candidates if _feasible_candidates else candidates
-    best = _ranked_pool[0] if _ranked_pool else {'policy': 'none', 'label': 'No voluntary conversions'}
+    _sweep = strategy_sweep.run_sweep(
+        _roth_strategy_candidate_specs(c),
+        _evaluate_roth_candidate,
+        sort_key=lambda x: (x['score'], x['after_tax_terminal_nw'], -x['lifetime_tax']),
+        fallback_best={'policy': 'none', 'label': 'No voluntary conversions'},
+    )
+    candidates = _sweep.candidates
+    _all_candidates_infeasible = _sweep.all_infeasible
+    best = _sweep.best
 
     if auto_optimize:
         selected = best

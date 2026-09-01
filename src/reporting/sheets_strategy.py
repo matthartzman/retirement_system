@@ -28,6 +28,7 @@ from .workbook_common import (
     write_hdr,
 )
 from ..person_labels import display_accounts_in_text as _display_accounts_in_text
+from .. import strategy_sweep
 from . import summary_figures
 def build_sheet9(ws, c, rows):
     """Retirement Strategy"""
@@ -374,14 +375,29 @@ def build_sheet10(ws, c, rows):
     h_floor = max(62, min(70, h_cur_age))
     w_floor = max(62, min(70, w_cur_age))
 
-    scenarios = []
-    for h_age in range(h_floor, 71):
-        for w_age in range(w_floor, 71):
-            scenarios.append(_safe_project_pair(h_age, w_age))
-    scenarios.sort(key=lambda d: d['objective_value'], reverse=True)
+    # Item 2.3 (A4): shared enumerate/evaluate/rank/gate shape -- see
+    # src/strategy_sweep.py's own docstring. _safe_project_pair's scoring
+    # (LCV + survivor-weight objective, feasibility probability) is
+    # untouched; this only replaces the loop/sort/feasibility-gate-with-
+    # fallback plumbing around it, byte-for-byte equivalent to the inline
+    # version this replaced (verified against the golden master and the
+    # frozen claim-age pair table).
+    _pairs = [
+        {'h_age': h_age, 'w_age': w_age}
+        for h_age in range(h_floor, 71)
+        for w_age in range(w_floor, 71)
+    ]
+    _sweep = strategy_sweep.run_sweep(
+        _pairs,
+        lambda spec: _safe_project_pair(spec['h_age'], spec['w_age']),
+        sort_key=lambda d: d['objective_value'],
+        fallback_best={'h_age': h_current, 'w_age': w_current, 'objective_value': 0.0, 'rank_score': 0},
+    )
+    scenarios = _sweep.candidates
     # #200: normalize the raw dollar-scale objective into a 0-100 integer
     # rank score, matching the "Score (0-100) ranks relative to this set"
     # convention already used by the Roth-conversion candidate table below.
+    # Must run on the full (pre-gate) sorted set, same as before extraction.
     _obj_vals = [d['objective_value'] for d in scenarios]
     _obj_lo, _obj_hi = (min(_obj_vals), max(_obj_vals)) if _obj_vals else (0.0, 0.0)
     _obj_span = _obj_hi - _obj_lo
@@ -392,11 +408,8 @@ def build_sheet10(ws, c, rows):
     # regardless of its LCV score, though it still appears (ranked) in the
     # full disclosure table above. If every pair fails the gate, fall back
     # to ranking the full set so a recommendation is still produced.
-    _feasible_scenarios = [d for d in scenarios if d.get('feasibility_gate_met')]
-    _all_scenarios_infeasible = bool(scenarios) and not _feasible_scenarios
-    _ranked_pool = _feasible_scenarios if _feasible_scenarios else scenarios
-    _ranked_pool_sorted = sorted(_ranked_pool, key=lambda d: d['objective_value'], reverse=True)
-    best = _ranked_pool_sorted[0] if _ranked_pool_sorted else {'h_age': h_current, 'w_age': w_current, 'objective_value': 0.0, 'rank_score': 0}
+    _all_scenarios_infeasible = _sweep.all_infeasible
+    best = _sweep.best
     current = next((x for x in scenarios if x['h_age'] == h_current and x['w_age'] == w_current), None)
 
     r = 3
