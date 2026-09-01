@@ -29,11 +29,13 @@ from .workbook_common import (
     ORANGE,
     WHITE,
     qc,
-    run_scenario as _run_scenario,
     section_title,
     write_cell,
     write_hdr,
 )
+# Item 2.16 (finding A11): imported directly from the engine rather than
+# through workbook_common's pass-through re-export.
+from ..planning_engines import run_scenario as _run_scenario
 
 
 def _entity_label(entity):

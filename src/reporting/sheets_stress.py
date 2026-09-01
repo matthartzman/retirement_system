@@ -15,17 +15,19 @@ from .workbook_common import (
     _aa,
     annuity_cash_income,
     deflate_to_present,
-    essential_discretionary_floor_check,
     fill,
     ltcg_tax_on_gain,
-    project,
     qc,
-    run_scenario as _run_scenario,
     section_title,
     thin_border,
     write_cell,
     write_hdr,
 )
+# Item 2.16 (finding A11): imported directly from the engine rather than
+# through workbook_common's pass-through re-export, so the reporting
+# layer's real dependency on the engine is visible at the call site.
+from ..planning_engines import essential_discretionary_floor_check, project
+from ..planning_engines import run_scenario as _run_scenario
 from ..person_labels import display_accounts_in_text as _display_accounts_in_text
 from . import summary_figures
 def build_sheet15(ws, c, rows, mc_data):
