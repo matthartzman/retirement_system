@@ -22,16 +22,23 @@ class FullChecklistRemainingTests(unittest.TestCase):
         cfg["mc_sensitivity_sims"] = 1
         return cfg
 
-    def test_social_security_sheet_declares_true_62_to_70_pair_projection_sweep(self):
+    def test_social_security_sheet_uses_a_genuine_coarse_then_refine_projection_sweep(self):
         src = inspect.getsource(sheets_strategy.build_sheet10)
-        # #230: the lower bound is clamped to each person's current age (never
-        # sweep a claim age already passed), so the literal range floor is a
-        # variable, not a hardcoded 62 -- but the upper bound and the
-        # per-pair real projection call must still hold.
-        self.assertIn("for h_age in range(h_floor, 71)", src)
-        self.assertIn("for w_age in range(w_floor, 71)", src)
+        # #230, updated for item 2.3 (A4): the sheet no longer runs a flat
+        # h_floor..70 x w_floor..70 double loop (up to 81 pairs) -- it scores
+        # a coarse every-other-age grid first, then exhaustively refines the
+        # full individual-age neighborhood around the coarse best. Both
+        # bounds still clamp to each person's current age (never sweep a
+        # claim age already passed) and cap at 70.
+        self.assertIn("range(h_floor, 71, _COARSE_STEP)", src)
+        self.assertIn("range(w_floor, 71, _COARSE_STEP)", src)
         self.assertIn("h_floor = max(62, min(70, h_cur_age))", src)
         self.assertIn("w_floor = max(62, min(70, w_cur_age))", src)
+        # Every coarse AND refine candidate must still go through the real
+        # per-pair evaluator (which calls the real projection engine below),
+        # not a shortcut/approximation.
+        self.assertIn("_coarse_pairs, _evaluate_pair", src)
+        self.assertIn("_coarse_pairs + _refine_pairs,\n        _evaluate_pair,", src)
         # Wave 4.4 (system review 2026-08-04, `no-shared-scenario-runner`):
         # the per-pair deepcopy+override+project() call moved into the shared
         # planning_engines.run_scenario() helper, so the literal "project(c2)"
