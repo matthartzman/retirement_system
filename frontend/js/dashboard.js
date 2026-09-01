@@ -2709,51 +2709,8 @@ function renderHouseholdPeople() {
     : "";
   return banner + html + renderFieldGroups(rest);
 }
-function rowSortKeyForIncomeWork(r) {
-  const sub = norm(r.subsection || "");
-  const sec = norm(r.section || "");
-  if (sub === "earned_income") return "00";
-  if (sub === "self_employment") return "10";
-  if (sub === "s_corp") return "15";
-  if (sec === "payroll tax" && sub === "social security") return "20";
-  if (sec === "payroll tax" && sub === "medicare") return "25";
-  if (sec === "payroll tax") return "28";
-  if (sub === "retirement_contributions") return "40";
-  return "99";
-}
-function renderIncomeWork() {
-  if (searchText.trim()) return renderFields("income_work");
-  const rs = rowsForStep("income_work")
-    .slice()
-    .sort((a, b) =>
-      (rowSortKeyForIncomeWork(a) + humanLabel(a.label)).localeCompare(
-        rowSortKeyForIncomeWork(b) + humanLabel(b.label),
-      ),
-    );
-  if (!rs.length)
-    return '<div class="field-list"><p>No fields in this step.</p></div>';
-  const groups = [];
-  const groupMap = {};
-  rs.forEach((r) => {
-    const g = friendlyGroup(r);
-    if (!groupMap[g]) {
-      groupMap[g] = { name: g, rows: [] };
-      groups.push(groupMap[g]);
-    }
-    groupMap[g].rows.push(r);
-  });
-  const many = (rs.length > 14 || groups.length > 3) && groups.length > 1;
-  let html = "";
-  groups.forEach((g) => {
-    const body = sortRowsByDependency(g.rows).map(fieldHtml).join("");
-    if (many && g.rows.length > 1) {
-      html += `<details><summary>${esc(g.name)}</summary><div class="field-list">${body}</div></details>`;
-    } else {
-      html += `<div class="field-list">${groups.length > 1 ? `<h3 class="group-title">${esc(g.name)}</h3>` : ""}${body}</div>`;
-    }
-  });
-  return html;
-}
+// renderIncomeWork and rowSortKeyForIncomeWork moved to
+// dashboard_decomp_income_streams.js (item 2.20 / frontend size ratchet).
 function renderEstateWithAnnuityLink() {
   return renderEstateInformation();
 }
