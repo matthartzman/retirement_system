@@ -698,7 +698,7 @@ export function renderReview() {
   if (unsaved)
     statusHtml = `<div class="section-note warning"><b>${unsaved} unsaved change${unsaved === 1 ? "" : "s"}.</b> Changes are saved automatically before download. <button class="btn tiny" type="button" data-requires-app="1" onclick="saveAll(true)">Save Now</button></div>`;
   else if (!fresh)
-    statusHtml = `<div class="section-note warning"><b>Outputs may be stale.</b> Inputs changed since last build. <button class="btn tiny" type="button" onclick="goToReportsTab('Build')">Go to Build →</button></div>`;
+    statusHtml = `<div class="section-note warning"><b>Outputs may be stale.</b> Inputs changed since last build. <button class="btn tiny" type="button" onclick="goToReportsTab('Impact')">Go to Build →</button></div>`;
   else if (arts)
     statusHtml =
       '<div class="section-note ok">Report outputs are current.</div>';
@@ -774,7 +774,7 @@ export function renderPlanDataReport() {
   });
   nav += "</div>";
   var tools =
-    '<div class="plan-data-preview-tools"><div><b>Plan Data Summary preview</b><span>Read-only saved input packet for final review. Print or save this section as PDF before sharing reports.</span></div><div class="pane-actions"><button class="btn primary" type="button" onclick="window.print()">Print / Save PDF</button><button class="btn" type="button" onclick="goToReportsTab(\'Build\')">Go to Build</button></div></div>';
+    '<div class="plan-data-preview-tools"><div><b>Plan Data Summary preview</b><span>Read-only saved input packet for final review. Print or save this section as PDF before sharing reports.</span></div><div class="pane-actions"><button class="btn primary" type="button" onclick="window.print()">Print / Save PDF</button><button class="btn" type="button" onclick="goToReportsTab(\'Impact\')">Go to Build</button></div></div>';
 
   var body = "";
 
@@ -1112,14 +1112,11 @@ export function renderReportsBuild() {
 export function renderReportsAndReview() {
   const active = REPORTS_TABS.includes(reportsActiveTab)
     ? reportsActiveTab
-    : "Preflight";
+    : "Impact";
   let body = "";
   if (active === "Preflight") body = renderReportsPreflight();
-  else if (active === "Build") body = renderReportsBuild();
   else if (active === "Impact") body = renderBuildImpactPage();
   else if (active === "Results") body = renderDetailedResults();
-  else if (active === "Downloads") body = renderReview();
-  else if (active === "Plan Data Review") body = renderPlanDataReport();
   return `<div class="tabbed-workspace reports-workspace">${renderTabbedWorkspace(REPORTS_TABS, active, "setReportsTab")}<div class="workspace-tab-body">${body}</div></div>`;
 }
 
