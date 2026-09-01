@@ -321,7 +321,7 @@ const STEPS = [
     title: "Reports & Review",
     desc: "One workspace for readiness, build, impact, results, downloads, and plan data review.",
     intro:
-      "Start with preflight, build current reports, review impact and results, then download or print the final package.",
+      "Build current reports (readiness checks appear right above the Build button), review impact and results, then download or print the final package.",
     help: "Use this page for anything related to output. It keeps report readiness and results in one flow.",
   },
   {
@@ -3866,8 +3866,8 @@ function renderOptionalFunctions() {
   html += "</div>";
   return html;
 }
+// Item 2.19: "Preflight" merged into "Build" -- see renderReportsBuild().
 const REPORTS_TABS = [
-  "Preflight",
   "Build",
   "Impact",
   "Results",

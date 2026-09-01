@@ -152,17 +152,29 @@ export async function triggerBuildAndWaitForOverlay(page) {
 
   // "Build Reports" only exists in the Reports & Review step's "Build" tab
   // content (frontend/js/dashboard_decomp_checklist_closeout.js) -- it is
-  // simply absent from the DOM when the "Results" tab is showing instead.
-  // Root-caused directly against a failure screenshot (2026-08-26): when a
-  // prior spec in this shared-server suite (workbook-format-stale-cache.spec.js)
-  // already ran a real build, re-opening the plan lands on Reports & Review
-  // with "Results" active by default (there's existing output to show), not
-  // "Build" -- so the click below hung the full test timeout waiting for a
-  // button that was never going to appear. window.setReportsTab is exposed
-  // on window the same way window.setStep is (see navigateToStep above); call
-  // it here so this helper doesn't depend on whichever tab a previous test
-  // left active.
-  await page.evaluate(() => window.setReportsTab('Build'));
+  // simply absent from the DOM unless activeStep is "reports_and_review" AND
+  // the "Build" tab is active.
+  //
+  // Root-caused directly against the running app (2026-09-01), correcting an
+  // earlier version of this comment: openCurrentPlan() never navigates
+  // activeStep to "reports_and_review" -- it stays whatever it defaulted to
+  // ("start"). A call site that goes straight from openCurrentPlan() into
+  // this helper with NO prior build in the suite happens to still find a
+  // "Build Reports" button, but that is a DIFFERENT one -- the plan-state
+  // banner on the welcome page (updatePlanStateBanner(),
+  // dashboard_decomp_row_model.js) renders its own "Build Reports" button
+  // whenever no report package exists yet. Once a real build succeeds
+  // anywhere earlier in a shared-server suite run, that decoy stops
+  // rendering (the banner goes "ok"), activeStep is STILL "start", and the
+  // old `window.setReportsTab('Build')` call here only ever changed
+  // reportsActiveTab, never activeStep -- so the real Build Reports button
+  // on the Reports & Review step never rendered either, and the wait below
+  // failed outright instead of hanging. window.goToReportsTab is exposed on
+  // window the same way window.setStep is (see navigateToStep above) and
+  // sets both activeStep and reportsActiveTab together; use it here instead
+  // so this helper doesn't depend on whichever step/tab a previous test in
+  // the suite left active.
+  await page.evaluate(() => window.goToReportsTab('Build'));
   await expect(page.getByRole('button', { name: 'Build Reports' }).first()).toBeVisible({
     timeout: 10_000,
   });
