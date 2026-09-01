@@ -4250,8 +4250,11 @@ export async function api(path, opts = {}) {
     } catch {
       data = text;
     }
-    if (!res.ok)
-      throw new Error((data && data.error) || text || res.statusText);
+    if (!res.ok) {
+      const err = new Error((data && data.error) || text || res.statusText);
+      if (data && Array.isArray(data.errors)) err.errors = data.errors;
+      throw err;
+    }
     return data;
   } catch (e) {
     if (e && e.name === "AbortError")
