@@ -572,7 +572,9 @@ def estimate_terminal_estate_tax(c: Mapping[str, Any], terminal: Mapping[str, An
     Federal: 40% on the taxable estate above the federal exemption, indexed
     for inflation to the terminal year (a fixed plan-start exemption applied
     decades out understates the real future exemption and overstates federal
-    tax on long-horizon plans -- see indexed_federal_estate_exemption).
+    tax on long-horizon plans -- see indexed_federal_estate_exemption), net
+    of any lifetime gift exemption already consumed (item 2.6 -- see
+    ``lifetime_exemption_used_cumulative`` below).
     State: dispatched by state_estate_tax() on the household's residence
     state's estate_calc mechanism (item 291) -- computed for states with a
     modeled mechanism, 0 for states with no estate tax, and 0 (with a
@@ -589,6 +591,15 @@ def estimate_terminal_estate_tax(c: Mapping[str, Any], terminal: Mapping[str, An
     fed_exempt = indexed_federal_estate_exemption(
         c.get("fed_exempt"), c.get("plan_start", target_year), target_year, c.get("brk_inf", 0.02),
     )
+    # Finding F7 (item 2.6): the Estate sheet already subtracts lifetime
+    # gifts used against the federal exemption; this function -- the shared
+    # estate-tax model the Roth optimizer's estate penalty also calls into
+    # -- previously did not, so the two consumers disagreed about the same
+    # household's remaining exemption. `terminal` is a projection row (or a
+    # dict derived from one), which the deterministic engine populates with
+    # this cumulative running total every year.
+    lifetime_exemption_used = max(0.0, _f(terminal.get("lifetime_exemption_used_cumulative"), 0.0))
+    fed_exempt = max(0.0, fed_exempt - lifetime_exemption_used)
     # Always a real number, never None -- see planning_engines.py's identical
     # comment: state_estate_tax() would otherwise fall back to the state's
     # own default exemption instead of preserving exact pre-refactor
