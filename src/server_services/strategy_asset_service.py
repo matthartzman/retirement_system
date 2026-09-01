@@ -165,6 +165,9 @@ class StrategyAssetServiceContext:
     # sites/tests that construct this context without every optional field
     # keep working unchanged.
     all_account_ids_from_holdings: Callable[[], list[str]] = lambda: []
+    # #299: same reasoning -- defaulted so existing call sites/tests keep working.
+    home_sale_splits_from_csv_rows: Callable[[list[list[str]]], list[dict[str, Any]]] = lambda rows: []
+    replace_home_sale_splits: Callable[[list[dict[str, Any]]], None] = lambda splits: None
 
 
 class StrategyAssetService:
@@ -352,6 +355,46 @@ class StrategyAssetService:
             clean.append({"start_year": start, "end_year": end, "years_of_expenses": yrs, "reserve_account": reserve_account})
         self.context.replace_liquidity_buffers(clean)
         self._audit("liquidity_buffers_saved", {"count": len(clean)})
+        sync_result = None
+        if body.get("sync"):
+            sync_result = self.context.sync_config_backends()
+            self._audit("config_backends_synced", sync_result)
+        return {"success": True, "count": len(clean), "sync": sync_result}, 200
+
+    def home_sale_splits_payload(self) -> tuple[dict[str, Any], int]:
+        rows = self.context.read_client_section_rows("Home Sale Split", "client_assets.csv")
+        return {
+            "success": True,
+            "splits": self.context.home_sale_splits_from_csv_rows(rows),
+            "accounts": self.context.all_account_ids_from_holdings(),
+        }, 200
+
+    def save_home_sale_splits_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
+        splits = body.get("splits") or []
+        if not isinstance(splits, list):
+            return {"success": False, "error": "splits must be a list"}, 400
+        clean: list[dict[str, str]] = []
+        total_pct = 0.0
+        for s in splits:
+            if not isinstance(s, dict):
+                continue
+            account = str(s.get("account") or "").strip()
+            pct_raw = str(s.get("percentage") or "0").strip().replace("%", "")
+            try:
+                pct = float(pct_raw or 0)
+            except ValueError:
+                pct = 0.0
+            if not account and pct <= 0:
+                continue
+            clean.append({"account": account, "percentage": str(pct)})
+            total_pct += pct
+        if clean and abs(total_pct - 100.0) > 0.5:
+            return {
+                "success": False,
+                "error": f"Percentages must sum to 100% (currently {total_pct:g}%).",
+            }, 400
+        self.context.replace_home_sale_splits(clean)
+        self._audit("home_sale_splits_saved", {"count": len(clean)})
         sync_result = None
         if body.get("sync"):
             sync_result = self.context.sync_config_backends()

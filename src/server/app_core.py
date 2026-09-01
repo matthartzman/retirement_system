@@ -1643,6 +1643,71 @@ def _replace_liquidity_buffers(buffers: list[dict]) -> None:
     new_rows[insert_at:insert_at] = normalized
     _write_client_rows(path, new_rows)
 
+
+def _home_sale_splits_from_csv_rows(rows: list[list[str]]) -> list[dict]:
+    """Read normalized Home Sale Split rows (#299)."""
+    def col(row, idx, default=""):
+        return (row[idx] if len(row) > idx else default) or ""
+
+    normalized: dict[str, dict] = {}
+    for row in rows[1:]:
+        sec, sub, label, value = [col(row, i).strip() for i in range(4)]
+        if sec == "Home Sale Split" and re.match(r"split_\d+", sub):
+            normalized.setdefault(sub, {})[label] = value
+    if not normalized:
+        return []
+    out = []
+    for key in sorted(normalized, key=lambda x: int(re.search(r"\d+", x).group(0)) if re.search(r"\d+", x) else 0):
+        rec = normalized[key]
+        if str(rec.get("account", "")).strip():
+            out.append({
+                "account": rec.get("account", ""),
+                "percentage": rec.get("percentage", ""),
+            })
+    return out
+
+
+def _home_sale_split_rows(splits: list[dict]) -> list[list[str]]:
+    rows = [
+        ["", "", "", "", "", "", "", ""],
+        ["# -- Home Sale Split: split house sale proceeds across accounts by percentage --", "", "", "", "", "", "", ""],
+    ]
+    for i, s in enumerate(splits, 1):
+        acct = str(s.get("account") or "").strip()
+        pct = str(s.get("percentage") or "0").strip() or "0"
+        rows.extend([
+            ["Home Sale Split", f"split_{i}", "account", acct, "choice", "Account to receive this share of house sale proceeds", "", ""],
+            ["Home Sale Split", f"split_{i}", "percentage", pct, "percent", "Share of net house sale proceeds deposited to this account; all rows must sum to 100%", "", ""],
+        ])
+    rows.append(["", "", "", "", "", "", "", ""])
+    return rows
+
+
+def _replace_home_sale_splits(splits: list[dict]) -> None:
+    path = _client_section_path("Home Sale Split", "client_assets.csv")
+    with path.open(newline="", encoding="utf-8-sig") as f:
+        rows = list(csv.reader(f))
+    while rows and not any(str(c).strip() for c in rows[-1]):
+        rows.pop()
+    indices = []
+    for i, r in enumerate(rows):
+        if not r:
+            continue
+        if str(r[0]).startswith("# -- Home Sale Split"):
+            indices.append(i)
+        elif len(r) >= 1 and str(r[0]).strip() == "Home Sale Split":
+            indices.append(i)
+    insert_at = min(indices) if indices else None
+    new_rows = [r for i, r in enumerate(rows) if i not in set(indices)]
+    if insert_at is None:
+        insert_at = len(new_rows)
+        for i, r in enumerate(new_rows):
+            if len(r) >= 1 and str(r[0]).strip() == "Other Assets":
+                insert_at = i + 1
+    normalized = _home_sale_split_rows(splits)
+    new_rows[insert_at:insert_at] = normalized
+    _write_client_rows(path, new_rows)
+
 def _sync_config_backends() -> dict:
     # Wave 4.11 (system review 2026-08-04, `csv-roundtrip-on-every-save`)
     # tried making this DB->CSV export only, reasoning every real caller
