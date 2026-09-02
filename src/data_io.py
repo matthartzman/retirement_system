@@ -1437,13 +1437,26 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
         c['roth_policy_lock'] = 'USER_SELECTED'
     _roth_bracket_strategy = str(_v(data,'Withdrawal Policy','Roth Conversion',
                                    'roth_bracket_strategy','OPTIMIZER_CHOOSES') or 'OPTIMIZER_CHOOSES').strip().upper()
-    if _roth_bracket_strategy not in ('NONE','FILL_CURRENT_BRACKET','FILL_TARGET_BRACKET','PARTIAL_TARGET_BRACKET','IRMAA_GUARDED','SURVIVOR_TAX_AWARE','RMD_REDUCTION','LEGACY_TARGETED','OPTIMIZER_CHOOSES','FIXED_DOLLAR'):
+    if _roth_bracket_strategy not in ('NONE','FILL_CURRENT_BRACKET','FILL_TARGET_BRACKET','PARTIAL_TARGET_BRACKET','IRMAA_GUARDED','SURVIVOR_TAX_AWARE','RMD_REDUCTION','LEGACY_TARGETED','OPTIMIZER_CHOOSES','FIXED_DOLLAR','PHASE_VARYING'):
         _roth_bracket_strategy = 'OPTIMIZER_CHOOSES'
     if is_explicit_user_roth_policy(c['roth_policy']) and _roth_bracket_strategy == 'OPTIMIZER_CHOOSES':
         _roth_bracket_strategy = strategy_for_roth_policy(c['roth_policy'], _roth_bracket_strategy)
     c['roth_bracket_strategy'] = _roth_bracket_strategy
     c['roth_target_rate'] = percent_to_float(_v(data,'Withdrawal Policy','Roth Conversion',
                                    'roth_target_bracket_rate','0.22'), 0.22)
+    c['roth_phase_rate_1'] = percent_to_float(_v(data,'Withdrawal Policy','Roth Conversion',
+                                   'roth_phase_first_bracket_rate','24.00%'), 0.24)
+    c['roth_phase_rate_2'] = percent_to_float(_v(data,'Withdrawal Policy','Roth Conversion',
+                                   'roth_phase_second_bracket_rate','22.00%'), 0.22)
+    c['roth_phase_rate_3'] = percent_to_float(_v(data,'Withdrawal Policy','Roth Conversion',
+                                   'roth_phase_third_bracket_rate','12.00%'), 0.12)
+    try:
+        c['roth_phase_count'] = int(_n(_v(data,'Withdrawal Policy','Roth Conversion',
+                                   'roth_phase_count','3'), 3))
+    except Exception:
+        c['roth_phase_count'] = 3
+    if c['roth_phase_count'] not in (2, 3):
+        c['roth_phase_count'] = 3
     _roth_irmaa_target_tier = str(_v(data,'Withdrawal Policy','Roth Conversion',
                                    'roth_irmaa_target_tier','TIER_2') or 'TIER_2').strip().upper().replace(' ', '_')
     if _roth_irmaa_target_tier not in ('TIER_1','TIER_2','TIER_3','TIER_4','TIER_5'):
