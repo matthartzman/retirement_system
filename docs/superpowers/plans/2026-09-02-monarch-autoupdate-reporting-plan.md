@@ -1,7 +1,24 @@
 # Monarch auto-update + standalone financial trends reporter (tickets 305, 306) — Implementation Plan
 
-**Status: NOT approved for execution.** This plan is for review only, per
-explicit instruction — do not start Task 1 until the user approves.
+**Status: implemented (2026-09-02), pending the two items below.** Approved
+for execution and built in this same session. Phases A and B are both
+functionally complete and test-covered; two items remain before this is
+production-ready:
+
+1. **Real Monarch Extractor schema (Task A1).** The Monarch Extractor's code
+   was not attached to this session, so `src/monarch_field_map.json`'s
+   column-name defaults are still best-guess placeholders. Confirm them
+   against a real export before enabling auto-update for real.
+2. **Task Scheduler registration is untested on real Windows.** Both
+   PowerShell scripts (`register_monarch_autoimport_task.ps1`,
+   `register_trends_report_task.ps1`) were reviewed but only run in a Linux
+   dev/CI environment, which cannot execute `schtasks`. Run each once by
+   hand on the target Windows machine and confirm with
+   `schtasks /query /tn "<name>" /v /fo LIST` before relying on the 4am/5pm
+   triggers.
+
+Implementation deviated from this plan's original task list in a few places
+where testing surfaced a better answer; each is called out inline below.
 
 **Spec:** `docs/superpowers/specs/2026-09-02-monarch-autoupdate-reporting-design.md`
 (read first — every decision below traces back to a section there).
