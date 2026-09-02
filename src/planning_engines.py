@@ -1740,21 +1740,50 @@ def _conversion_order(c: Mapping) -> List[int]:
 def conversion_window_end_year(c: Mapping) -> int:
     """Return the last year for voluntary Roth conversions.
 
-    The legacy control is ``roth_conv_window_end_offset`` relative to the
-    primary member RMD year.  The v8.3 governance contract adds an explicit
-    ``max_conversion_years`` cap so advisors can constrain the optimizer to a
-    finite pre-RMD planning window without editing birth/RMD assumptions.
+    Item 3.2 (F3): ``conv_window_offset`` (CSV field
+    ``roth_conv_window_end_offset``) ships in every plan file with the
+    schema-documented default of ``-1`` (data_io.py) -- the row is always
+    present, so its presence in the CSV can't distinguish "advisor chose
+    -1" from "advisor never touched this field". The value itself is the
+    only usable signal: at the shipped default (-1), the window now extends
+    to plan end rather than closing the year before RMDs start, keeping the
+    two highest-value conversion opportunities in play -- the late pre-RMD
+    gap years and the survivor's compressed single-filer bracket years.
+    RMDs and voluntary conversions coexisting past RMD age is already
+    proven correct (item 3.1's guardrail verification); the optimizer's own
+    caps size conversions to zero once they stop being profitable, so
+    simply not closing the window is sufficient (system review's Option 1).
+
+    Any OTHER offset value means the advisor has deliberately overridden
+    it, and that offset remains authoritative, relative to RMD start -- but
+    now anchored to whichever member reaches RMD age later, not just the
+    primary member. The prior primary-member-only anchoring ignored a
+    younger spouse's own (later) RMD start year entirely.
+
+    ``roth_max_conversion_years`` (the v8.3 governance contract's explicit
+    cap, 0 = unset) is authoritative whenever set, in both cases.
     """
-    primary_dob = int(c.get("h_dob_yr", c.get("plan_start", 0)))
-    legacy_end = primary_dob + int(c.get("rmd_start_age", 75)) + int(c.get("conv_window_offset", -1))
+    plan_start = int(c.get("plan_start", 0))
+    h_dob = int(c.get("h_dob_yr", plan_start))
+    w_dob = int(c.get("w_dob_yr", h_dob))
+    h_rmd_age = int(c.get("h_rmd_start_age", c.get("rmd_start_age", 75)) or 75)
+    w_rmd_age = int(c.get("w_rmd_start_age", c.get("rmd_start_age", 75)) or 75)
+    later_rmd_year = max(h_dob + h_rmd_age, w_dob + w_rmd_age)
+
     try:
         max_years = int(float(c.get("roth_max_conversion_years", 0) or 0))
     except Exception:
         max_years = 0
+
+    offset = int(c.get("conv_window_offset", -1))
+    if offset == -1:
+        end = int(c.get("plan_end", later_rmd_year))
+    else:
+        end = later_rmd_year + offset
+
     if max_years > 0:
-        plan_start = int(c.get("plan_start", legacy_end))
-        return min(legacy_end, plan_start + max_years - 1)
-    return legacy_end
+        end = min(end, plan_start + max_years - 1)
+    return end
 
 
 def _available_by_owner(c: Mapping, bal: Mapping[str, float], owner_idx: int) -> float:
@@ -1941,7 +1970,23 @@ def plan_roth_conversion(
         year - int(c.get("plan_start", year)),
     )
     target_rate = float(c.get("roth_target_rate", c.get("roth_brk", 0.24)) or 0.24)
-    top_target = next((hi for _lo, hi, rate in brk if rate == target_rate), 400000)
+    _bracket_top_match = next((hi for _lo, hi, rate in brk if rate == target_rate), None)
+    if _bracket_top_match is None and policy not in ("fixed_dollar", "fill_to_irmaa"):
+        # Item 3.2 (F3, planner's review pass): a roth_target_rate that
+        # matches no bracket rate (a typo, or a bracket-table edit that drops
+        # a rate) used to fall back silently to a hardcoded $400,000 bracket
+        # top -- a wrong conversion-sizing cap with nothing in the output to
+        # flag it. Only the target-rate-based policies (fill_to_bracket and
+        # its family) actually consume this cap; fixed_dollar and
+        # fill_to_irmaa compute it only as an unused diagnostic field, so
+        # they are not gated on it matching.
+        raise ValueError(
+            f"roth_target_rate={target_rate!r} matches no bracket rate for filing={filing!r} "
+            f"in year={year} (available rates: {sorted({rate for _lo, _hi, rate in brk})}) -- "
+            "fix roth_target_rate or the bracket table rather than silently sizing conversions "
+            "against a hardcoded $400,000 bracket top"
+        )
+    top_target = _bracket_top_match if _bracket_top_match is not None else 400000.0
 
     pre_non_ss = (
         earned_base - half_se_ded - sehi_ded
