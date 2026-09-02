@@ -55,20 +55,52 @@ def test_row_missing_an_id_value_is_dropped_not_upserted():
     assert rows[0]["Monarch Id"] == "abc-2"
 
 
-def test_read_monarch_output_folder_reads_every_csv_and_reports_errors(tmp_path):
-    good = tmp_path / "export_2026_09_02.csv"
-    good.write_text("id,date,merchant\nabc-1,2026-03-04,Kroger\n", encoding="utf-8")
-    bad = tmp_path / "export_bad.csv"
-    bad.write_text("date,merchant\n2026-03-04,Kroger\n", encoding="utf-8")
+def test_read_monarch_output_folder_reads_only_the_two_pending_files(tmp_path):
+    (tmp_path / "new_transactions.csv").write_text(
+        "run_id,id,date,merchant\nrun-1,abc-1,2026-03-04,Kroger\n", encoding="utf-8"
+    )
+    # transactions.csv (full history) and duplicates_removed.csv must never
+    # be read, even though they sit in the same output folder.
+    (tmp_path / "transactions.csv").write_text("id,date,merchant\nabc-1,2026-03-04,Kroger\n", encoding="utf-8")
+    (tmp_path / "duplicates_removed.csv").write_text("id,date,merchant\nabc-9,2026-03-04,Dup\n", encoding="utf-8")
 
     result = mi.read_monarch_output_folder(tmp_path)
-    assert result["files_consumed"] == ["export_2026_09_02.csv"]
+    assert result["files_consumed"] == ["new_transactions.csv"]
     assert len(result["rows"]) == 1
-    assert "export_bad.csv" in result["errors"]
+    assert result["rows"][0]["Monarch Id"] == "abc-1"
+
+
+def test_read_monarch_output_folder_collects_run_ids(tmp_path):
+    (tmp_path / "new_transactions.csv").write_text(
+        "run_id,id,date,merchant\nrun-1,abc-1,2026-03-04,Kroger\nrun-2,abc-2,2026-03-05,Costco\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "changed_transactions.csv").write_text(
+        "run_id,id,date,merchant\nrun-1,abc-3,2026-03-06,Target\n", encoding="utf-8"
+    )
+    result = mi.read_monarch_output_folder(tmp_path)
+    assert result["run_ids"] == ["run-1", "run-2"]
+
+
+def test_read_monarch_output_folder_missing_file_is_skipped_not_an_error(tmp_path):
+    # A cycle with no changed transactions has no changed_transactions.csv
+    # at all -- that must be a normal, error-free skip.
+    (tmp_path / "new_transactions.csv").write_text("id,date,merchant\nabc-1,2026-03-04,Kroger\n", encoding="utf-8")
+    result = mi.read_monarch_output_folder(tmp_path)
+    assert result["errors"] == {}
+    assert result["files_consumed"] == ["new_transactions.csv"]
+
+
+def test_read_monarch_output_folder_reports_mapping_errors(tmp_path):
+    (tmp_path / "new_transactions.csv").write_text("date,merchant\n2026-03-04,Kroger\n", encoding="utf-8")
+    result = mi.read_monarch_output_folder(tmp_path)
+    assert result["rows"] == []
+    assert "new_transactions.csv" in result["errors"]
 
 
 def test_read_monarch_output_folder_missing_dir_reports_error(tmp_path):
     result = mi.read_monarch_output_folder(tmp_path / "does_not_exist")
     assert result["rows"] == []
     assert result["files_consumed"] == []
+    assert result["run_ids"] == []
     assert result["errors"]

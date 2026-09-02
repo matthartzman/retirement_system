@@ -108,27 +108,52 @@ Monarch-sourced rows.
 
 ### What "the output folder" means for import
 
-Ticket 305 states both new *and* changed transactions to be consumed are in
-the output folder — i.e. the Monarch Extractor's output is treated as an
-**incremental delta**, not a full snapshot to replace everything with. The
-importer therefore always *merges* (upsert) rather than *replaces*, matching
-the semantics above. **Open item to confirm before implementation:** whether
-the Monarch Extractor clears/archives its output folder after each of its own
-runs, or accumulates files run over run. The import script is written to be
-safe either way — upsert is idempotent, so reprocessing an already-consumed,
-unchanged file is a no-op — but if the folder accumulates files
-indefinitely, the daily job's read cost grows unboundedly over time. Default
-behavior: after a successful import, move each consumed CSV into
-`../Monarch Extractor/output/imported/<run-timestamp>/` (a subfolder of the
-extractor's own output folder, never deleting or touching files outside it)
-so the next run only sees genuinely new exports. This is presented here as
-the default rather than a locked decision — confirm during implementation
-kickoff.
+**Confirmed 2026-09-02 against the real `Monarch Extractor/monarch_extract.py`**
+(superseding the original open items below, kept struck through for history).
+The output folder holds four files plus the extractor's own SQLite state, not
+one generic export:
+
+| File | Contents | Consumed? |
+|---|---|---|
+| `new_transactions.csv` | Every still-**pending** new-transaction event, across every past extractor run, each tagged with a `run_id` | yes |
+| `changed_transactions.csv` | Every still-pending changed-transaction event, with `previous_<field>` columns for whatever changed | yes |
+| `transactions.csv` | Full history — every transaction ever seen | **never** (would just reprocess everything) |
+| `duplicates_removed.csv` | Raw rows the extractor already dropped as duplicates | **never** |
+| `monarch_state.sqlite3` | The extractor's own delivery-tracking DB | not ours to touch |
+
+So ticket 305's "both new and changed transactions to be consumed are in the
+output folder" maps directly onto `new_transactions.csv` +
+`changed_transactions.csv`, and those two files are themselves already an
+accumulating backlog of pending events, not a delta this importer has to
+diff itself — the importer's job is simply to upsert every row in them.
+
+The extractor tracks delivery itself: after this importer's upsert succeeds,
+it must run `python monarch_extract.py --mark-delivered <run_id>` (via the
+extractor's own `.venv`, since the script imports Playwright unconditionally
+even for this flag) for every distinct `run_id` it just imported. Only then
+do that run's rows drop out of the two pending files. This replaces the
+original design's "move consumed files to an `output/imported/` subfolder"
+idea entirely — this importer never moves or deletes anything in the
+extractor's output folder. Marking delivered is best-effort: a failure is
+reported (`mark_delivered_errors`) but does not fail the already-successful
+import, since re-upserting the same already-imported rows next cycle is a
+harmless no-op.
+
+~~Open item to confirm before implementation: whether the Monarch Extractor
+clears/archives its output folder after each of its own runs, or
+accumulates files run over run.~~ Resolved above — it accumulates pending
+events until explicitly acknowledged.
 
 ### Header mapping (Monarch CSV → internal schema)
 
 A small JSON config, `src/monarch_field_map.json` (or a `local_state/`
-override), maps Monarch Extractor column names to the internal field names:
+override), maps Monarch Extractor column names to the internal field names.
+**Confirmed 2026-09-02** against the real extractor: `id` (always lowercase),
+`date`, `merchant`, `amount`, `account`, `category`, and `run_id` are fixed
+columns on every row of `new_transactions.csv`/`changed_transactions.csv`;
+`original_statement`/`notes`/`tags`/`owner` are best-effort passthrough,
+present only if Monarch's own raw export included them (the extractor
+normalizes whatever extra columns it finds to a lowercase/underscored name).
 
 ```json
 {
@@ -140,14 +165,15 @@ override), maps Monarch Extractor column names to the internal field names:
   "original_statement_column": "original_statement",
   "notes_column": "notes",
   "amount_column": "amount",
-  "tags_column": "tags"
+  "tags_column": "tags",
+  "owner_column": "owner",
+  "run_id_column": "run_id"
 }
 ```
 
-Defaults above are best-guess placeholders. The import script logs and
-refuses to run (rather than silently importing garbage) if `id_column` is
-missing from a source file's header — this is the one column the id-based
-upsert cannot function without.
+The import script logs and refuses to run (rather than silently importing
+garbage) if `id_column` is missing from a source file's header — this is the
+one column the id-based upsert cannot function without.
 
 ### Auto-update policy + "mark complete"
 
@@ -197,12 +223,16 @@ order:
    `C:\RetirementPlanning\...` and the Monarch Extractor's output folder are
    plausible OneDrive-synced paths, so this guard is mandatory, not optional,
    for both this script and the ticket-306 script below.
-3. Read every `*.csv` in `source_dir`, apply the header/field mapping, run
-   `upsert_transactions_by_monarch_id()`.
-4. Write the status file + import history row (success or failure either
+3. Read `new_transactions.csv` and `changed_transactions.csv` from
+   `source_dir` (never `transactions.csv` or `duplicates_removed.csv`),
+   apply the header/field mapping, run `upsert_transactions_by_monarch_id()`.
+4. Mirror the updated YTD CSVs into the SQLite plan-data store (no Flask
+   request context to go through the normal save path).
+5. Best-effort acknowledge every imported `run_id` back to the extractor via
+   `monarch_extract.py --mark-delivered <run_id>` (see above) — failures are
+   reported, not fatal.
+6. Write the status file + import history row (success or failure either
    way).
-5. Optionally move consumed files to `output/imported/<timestamp>/` per the
-   default above.
 
 ### Task Scheduler registration
 
@@ -313,17 +343,26 @@ today's JSONL line. Registered via a second PowerShell helper,
   last completed run wrote (with a manual "run now" action available in each
   app for out-of-band refresh).
 
-## Open items to confirm before implementation
+## Open items — all resolved 2026-09-02
 
-1. Exact Monarch Extractor output column names (for `monarch_field_map.json`
-   defaults) — read a sample export header from
-   `..\Monarch Extractor\output` once available.
-2. Whether Monarch Extractor's output folder is cleared/archived by the
-   extractor itself between runs, or accumulates — decides whether this
-   design's "move consumed files to `output/imported/...`" default is needed,
-   harmless-but-unnecessary, or wrong.
-3. Which specific holdings-performance function(s) to call for ticket 306 —
-   confirm the exact reusable entry point in `holdings_service.py` /
-   projection code during Task 1 of the implementation plan.
-4. Chart library choice for the vendored trend charts (default: Chart.js
-   UMD) — confirm no licensing/preference objection.
+1. ~~Exact Monarch Extractor output column names.~~ Confirmed directly
+   against `Monarch Extractor/monarch_extract.py` (added to this repo the
+   same day). See "What 'the output folder' means for import" and "Header
+   mapping" above.
+2. ~~Whether Monarch Extractor's output folder is cleared/archived between
+   runs.~~ Confirmed: it accumulates pending events in `new_transactions.csv`/
+   `changed_transactions.csv` until explicitly acknowledged via
+   `--mark-delivered <run_id>`. The original "move consumed files" design was
+   wrong and has been replaced by that acknowledgment call.
+3. ~~Which holdings-performance function(s) to call for ticket 306.~~
+   Resolved during implementation: `src.ytd_tracking.ytd_summary()` alone
+   supplies YTD category spend, holdings current value/prior-year balance/
+   growth, and cashflow components — the same engine the main app's YTD
+   dashboard already calls. Net worth adds one plain sum over
+   `client_liabilities.csv`'s `balance` column plus account-setup liability
+   roles; no direct call into `holdings_service.py` or the projection engine
+   was needed.
+4. ~~Chart library choice.~~ Resolved during implementation: hand-rolled
+   inline SVG (no vendored library) — simple line/bar charts don't need one,
+   and it keeps the app dependency-free and fully offline with zero new
+   files to vet.
