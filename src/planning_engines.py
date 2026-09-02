@@ -2605,44 +2605,69 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
 
 
 def compute_baseline_lcv_and_eltr(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, float]:
-    """LCV and ELTR for the plan's own baseline/as-built projection.
+    """Headline metrics for the plan's own baseline/as-built projection
+    (#293): the Impact page and Executive Summary read these instead of raw
+    terminal net worth and nominal lifetime tax.
 
-    Mirrors _roth_strategy_metrics's lcv_score (PV of lifetime consumption
-    plus PV of after-tax terminal transfer) and the tax-NPV/ELTR convention
-    shared with the Monte Carlo engines (PV of total tax divided by PV of
-    gross cash flow, same discount rate via _roth_discount_rate) -- but for
-    the household's actual plan rather than a Roth-conversion candidate, so
-    the Planning Workbench Impact screen can report the same two headline
-    metrics used elsewhere (Executive Summary, Roth optimizer disclosure,
-    Monte Carlo stress test) instead of raw terminal net worth and nominal
-    lifetime tax.
+    - lcv: Expected After-Tax Lifetime Consumption-and-Transfer Value --
+      nominal (undiscounted) lifetime spending plus the after-tax, after-
+      estate-tax terminal transfer (Post-Tax Inheritance / PTI -- what
+      beneficiaries actually keep, not the estate-tax-exclusive
+      after_tax_terminal_nw). A plain sum of real dollars the household is
+      expected to consume or pass on, not a present-value abstraction.
+    - npv_future_taxes: total taxes paid, discounted to today's dollars at
+      the plan's own assumed portfolio return rate (c['ret']) -- an
+      apples-to-apples way to compare an early Roth conversion (tax paid
+      now, in today's dollars) against a late RMD (tax paid decades out,
+      worth less in today's dollars).
+    - eltr: unchanged from before -- the PV-based "effective lifetime tax
+      rate" used only internally, to compare Roth-conversion CANDIDATES
+      against each other on the Planning Workbench (planning_workbench_ui.js
+      reads it for that comparison table). This is a relative ranking
+      convention, not a literal headline dollar/rate figure, so it keeps its
+      own discount rate (_roth_discount_rate) rather than switching to
+      c['ret'] -- #293 did not ask to change candidate-ranking behavior.
+      The ticket's actual "Effective Future Tax Rate (EFTR)" is a DIFFERENT,
+      already-existing figure: compute_future_lcv_and_eftr's `eftr` below,
+      whose "from today onward, no upper bound" row set already IS "current
+      year through plan end" for a build run today -- nothing to fix there,
+      it just needed wiring onto the Impact page (see workbook_builder.py /
+      dashboard_decomp_build_history.js).
     """
     rows = list(rows or [])
     if not rows:
-        return {'lcv': 0.0, 'eltr': 0.0}
+        return {'lcv': 0.0, 'eltr': 0.0, 'npv_future_taxes': 0.0}
     plan_start = int(c.get('plan_start', rows[0].get('year', 0) if rows else 0) or 0)
-    discount = _roth_discount_rate(c)
+    roth_discount = _roth_discount_rate(c)
+    ret_discount = float(c.get('ret', 0.0) or 0.0)
 
-    def _disc(row: Mapping) -> float:
-        return (1.0 + discount) ** max(0, int(row.get('year', plan_start) or plan_start) - plan_start)
+    def _disc(row: Mapping, rate: float) -> float:
+        return (1.0 + rate) ** max(0, int(row.get('year', plan_start) or plan_start) - plan_start)
 
     terminal = rows[-1]
     try:
         from .after_tax import estimate_after_tax_terminal_net_worth as _estimate_after_tax_terminal_net_worth
-        after_tax_terminal_nw = float(_estimate_after_tax_terminal_net_worth(c, terminal).get('after_tax_terminal_nw', 0.0) or 0.0)
+        pti = float(_estimate_after_tax_terminal_net_worth(c, terminal).get('post_tax_inheritance', 0.0) or 0.0)
     except Exception:
-        after_tax_terminal_nw = float(terminal.get('total_nw', 0.0) or 0.0)
-    terminal_year = int(terminal.get('year', plan_start) or plan_start)
-    after_tax_terminal_nw_pv = after_tax_terminal_nw / ((1.0 + discount) ** max(0, terminal_year - plan_start))
+        pti = float(terminal.get('total_nw', 0.0) or 0.0)
 
-    consumption_pv = sum(float(r.get('total_spend', 0.0) or 0.0) / _disc(r) for r in rows)
-    lcv = consumption_pv + after_tax_terminal_nw_pv
+    # lcv (#293): nominal (undiscounted) lifetime consumption plus PTI -- the
+    # household's total expected financial welfare in real dollars, not a PV
+    # abstraction (contrast eltr below, an internal ranking score that stays PV).
+    consumption_nominal = sum(float(r.get('total_spend', 0.0) or 0.0) for r in rows)
+    lcv = consumption_nominal + pti
 
-    tax_npv = sum(float(r.get('total_tax', 0.0) or 0.0) / _disc(r) for r in rows)
-    gross_cash_flow_npv = sum(float(r.get('gross_cash_flow_yr', 0.0) or 0.0) / _disc(r) for r in rows)
-    eltr = (tax_npv / gross_cash_flow_npv) if gross_cash_flow_npv > 1e-6 else 0.0
+    # eltr: unchanged PV-based candidate-ranking score (see docstring above).
+    tax_npv_roth_disc = sum(float(r.get('total_tax', 0.0) or 0.0) / _disc(r, roth_discount) for r in rows)
+    gross_cash_flow_npv_roth_disc = sum(float(r.get('gross_cash_flow_yr', 0.0) or 0.0) / _disc(r, roth_discount) for r in rows)
+    eltr = (tax_npv_roth_disc / gross_cash_flow_npv_roth_disc) if gross_cash_flow_npv_roth_disc > 1e-6 else 0.0
 
-    return {'lcv': lcv, 'eltr': eltr}
+    # npv_future_taxes (#293): total tax discounted to today's dollars at the
+    # plan's own assumed portfolio return rate -- an apples-to-apples way to
+    # compare an early Roth conversion against a late RMD.
+    npv_future_taxes = sum(float(r.get('total_tax', 0.0) or 0.0) / _disc(r, ret_discount) for r in rows)
+
+    return {'lcv': lcv, 'eltr': eltr, 'npv_future_taxes': npv_future_taxes}
 
 
 def compute_future_lcv_and_eftr(c: Mapping, rows: Iterable[Mapping], as_of_year: Optional[int] = None) -> Dict[str, float]:

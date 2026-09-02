@@ -1272,6 +1272,8 @@ def main():
         'eltr': 0.0,
         'fcv': 0.0,
         'eftr': 0.0,
+        'npv_future_taxes': 0.0,
+        'terminal_nw_mc_p5': 0.0,
         'total_roth_conversions': 0.0,
         'mc_success': 0.0,
         'after_tax_terminal_nw': 0.0,
@@ -1304,6 +1306,8 @@ def main():
             'eltr': float(baseline_lcv_eltr.get('eltr', 0.0) or 0.0),
             'fcv': float(future_fcv_eftr.get('fcv', 0.0) or 0.0),
             'eftr': float(future_fcv_eftr.get('eftr', 0.0) or 0.0),
+            'npv_future_taxes': float(baseline_lcv_eltr.get('npv_future_taxes', 0.0) or 0.0),
+            'terminal_nw_mc_p5': float((mc_data or {}).get('terminal_total_nw', {}).get(5, 0.0) or 0.0),
             'total_roth_conversions': total_roth_conversions,
             'mc_success': mc_success,
             'after_tax_terminal_nw': float(after_tax_kpis.get('after_tax_terminal_nw', 0.0) or 0.0),
@@ -1369,6 +1373,8 @@ def main():
             'eftr': summary_data.get('eftr'),
             'total_roth_conversions': summary_data.get('total_roth_conversions'),
             'after_tax_terminal_nw': summary_data.get('after_tax_terminal_nw'),
+            'npv_future_taxes': summary_data.get('npv_future_taxes'),
+            'terminal_nw_mc_p5': mc_terminal_pct.get(5),
         }
         kpi_snapshot_id = save_kpi_snapshot(kpi_payload, build_id=build_id, created_at=kpi_created_at)
         print(f'KPI snapshot archived: {kpi_snapshot_id}')
