@@ -2886,6 +2886,30 @@
     {
       "name": "buildHistory",
       "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildHistory",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildHistory",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildHistory",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildHistory",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
       "scope": "inside-function"
     },
@@ -3119,6 +3143,12 @@
     },
     {
       "name": "stepIdForRow",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildHistory",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
       "scope": "inside-function"
