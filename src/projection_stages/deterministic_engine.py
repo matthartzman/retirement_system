@@ -2244,7 +2244,23 @@ def run_deterministic_projection_stage(c):
         _ira_retirement_dist_orig = retirement_dist
         if gap > 0:
             brk_yr = _inflate_brackets_path(FEDERAL_BRACKETS_MFJ, c['brk_inf'], year - c['plan_start'])
-            top_24_yr = next((hi for lo, hi, rate in brk_yr if rate == 0.24), 400_000)
+            # Item 3.4 (F1 Option 2): the Priority-3 elective pre-tax draw
+            # caps itself at a bracket ceiling before falling through to
+            # taxable/trust -- the withdrawal-order-equivalent CFPs actually
+            # implement ("fill ordinary income to the Nth bracket, then draw
+            # taxable") without the full cascade reorder F1 Option 1 would
+            # require. That ceiling used to be hardcoded to the 24% bracket;
+            # withdrawal_bracket_target_rate (data_io.py, default 0.24 --
+            # reproduces today's behavior exactly) makes it a real input.
+            _wd_target_rate = float(c.get('withdrawal_bracket_target_rate', 0.24) or 0.24)
+            top_24_yr = next((hi for _lo, hi, rate in brk_yr if rate == _wd_target_rate), None)
+            if top_24_yr is None:
+                raise ValueError(
+                    f"withdrawal_bracket_target_rate={_wd_target_rate!r} matches no federal bracket rate "
+                    f"in year={year} (available rates: {sorted({rate for _lo, _hi, rate in brk_yr})}) -- "
+                    "fix withdrawal_bracket_target_rate rather than silently capping pre-tax withdrawals "
+                    "against a hardcoded $400,000 bracket top"
+                )
             irmaa_thr_yr = c['irmaa_base'] * _irmaa_factor_for_year(year)
             marg = marginal_rate(taxable_inc, year, filing, c['brk_inf'])
             pretax_res = _legacy_pe.withdraw_pretax_elective(

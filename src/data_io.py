@@ -1390,6 +1390,18 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # the dead input, its CSV rows, and the UI table that edited it were removed
     # rather than wired up.
 
+    # ── Elective Withdrawal Bracket-Target Policy (item 3.4, F1 Option 2) ────
+    # withdraw_pretax_elective (planning_engines.py) has always capped its
+    # Priority-3 draw at a bracket ceiling before falling through to taxable/
+    # trust -- but that ceiling was hardcoded to the 24% federal bracket in
+    # deterministic_engine.py (top_24_yr), with no input anywhere to change
+    # it. This is the input: the actual policy CFPs describe ("fill ordinary
+    # income to the Nth bracket, then draw taxable") without restructuring
+    # the fixed cascade itself (F1 Option 1, deferred). Default 0.24 exactly
+    # reproduces today's hardcoded rate, so an unconfigured plan is unaffected.
+    c['withdrawal_bracket_target_rate'] = percent_to_float(_v(data,'Withdrawal Policy','Elective Withdrawal',
+                                   'withdrawal_bracket_target_rate','0.24'), 0.24)
+
     # ── Roth Conversion Policy (9.5) ──────────────────────────────────────────
     # optimize_terminal_tax: evaluate multiple conversion policies and choose the
     #                        weighted after-tax terminal NW / lifetime-tax optimum
@@ -2814,6 +2826,7 @@ def build_plan_from_json(plan, url_template=''):
     # ── Policy ────────────────────────────────────────────────────────────
     c['roth_policy']        = a.get('roth_policy', 'optimize_terminal_tax')
     c['roth_target_rate']   = a.get('roth_target_rate', 0.24)
+    c['withdrawal_bracket_target_rate'] = a.get('withdrawal_bracket_target_rate', 0.24)
     c['roth_irmaa_cap']     = True
     c['roth_fixed_amount']  = a.get('roth_fixed_amount', 50000)
     c['roth_optimize_terminal_weight'] = a.get('roth_optimize_terminal_weight', 1.0)
