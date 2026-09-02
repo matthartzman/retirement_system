@@ -931,6 +931,14 @@ def compute_rmds(
     1.408-8, A-9 / 1.401(a)(9)-8), so folding the annuity's value into this
     aggregate base would double-count that RMD requirement. Keep this
     separation when modifying account-registry inclusion logic.
+
+    #295: a funded QLAC is the SAME carve-out under the SAME regulation, but
+    applies before the QLAC itself starts paying income (that's the whole
+    point of a QLAC -- deferred income with no RMD due on the deferred
+    premium). _ar.qlac_excluded_rmd_balance() subtracts the (capped) premium
+    from this owner's balance base; the dollars stay in the account for
+    growth/withdrawal purposes elsewhere, only the RMD divisor's numerator
+    shrinks.
     """
     divisor_fn = divisor_fn or rmd_divisor
     registry = c.get("account_registry", [])
@@ -948,7 +956,8 @@ def compute_rmds(
 
     for owner_idx, age, alive in ((0, h_age, h_alive), (1, w_age, w_alive)):
         ids = _ar.rmd_ids_by_owner(registry, owner_idx)
-        total_bal = _ar.sum_bal(bal, ids)
+        total_bal = _ar.sum_bal(bal, ids) - _ar.qlac_excluded_rmd_balance(c, owner_idx, year)
+        total_bal = max(0.0, total_bal)
         start_age = start_ages.get(owner_idx, start_age_default)
         sole_spouse = bool(spouse_alive_of[owner_idx]) and _spouse_is_sole_beneficiary(
             c, ids, spouse_name_of[owner_idx])
@@ -2012,6 +2021,23 @@ def _roth_niit_threshold_base(c: Mapping, filing: str) -> float:
     return float(NIIT_THRESHOLD.get(filing, c.get("niit_threshold", 250000)) or 250000)
 
 
+def _roth_resolve_target_rate(c: Mapping, year: int, default_rate: float) -> float:
+    """Return the Roth target bracket rate for `year`.
+
+    `c['roth_phase_schedule']`, when present, is a list of `(end_year, rate)`
+    tuples in ascending `end_year` order. The rate for the first tuple whose
+    `end_year >= year` applies; years beyond the last tuple use its rate.
+    Absent a schedule, every existing (flat-rate) candidate is unaffected.
+    """
+    schedule = c.get('roth_phase_schedule')
+    if not schedule:
+        return default_rate
+    for end_year, rate in schedule:
+        if year <= end_year:
+            return float(rate)
+    return float(schedule[-1][1])
+
+
 def plan_roth_conversion(
     c: Mapping,
     bal: Mapping[str, float],
@@ -2068,7 +2094,9 @@ def plan_roth_conversion(
         float(c.get("brk_inf", 0.02)),
         year - int(c.get("plan_start", year)),
     )
-    target_rate = float(c.get("roth_target_rate", c.get("roth_brk", 0.24)) or 0.24)
+    target_rate = _roth_resolve_target_rate(
+        c, year, float(c.get("roth_target_rate", c.get("roth_brk", 0.24)) or 0.24)
+    )
     _bracket_top_match = next((hi for _lo, hi, rate in brk if rate == target_rate), None)
     if _bracket_top_match is None and policy not in ("fixed_dollar", "fill_to_irmaa"):
         # Item 3.2 (F3, planner's review pass): a roth_target_rate that
@@ -2078,7 +2106,10 @@ def plan_roth_conversion(
         # flag it. Only the target-rate-based policies (fill_to_bracket and
         # its family) actually consume this cap; fixed_dollar and
         # fill_to_irmaa compute it only as an unused diagnostic field, so
-        # they are not gated on it matching.
+        # they are not gated on it matching. Applies to the RESOLVED rate
+        # (roth_phase_schedule-aware via _roth_resolve_target_rate), so a
+        # phase-varying schedule with a bad rate in any one phase fails
+        # loud too, not just a flat roth_target_rate.
         raise ValueError(
             f"roth_target_rate={target_rate!r} matches no bracket rate for filing={filing!r} "
             f"in year={year} (available rates: {sorted({rate for _lo, _hi, rate in brk})}) -- "
@@ -2477,6 +2508,30 @@ def _roth_strategy_candidate_specs(c: Mapping) -> List[Dict]:
     configured_target = float(c.get('roth_target_rate', 0.22) or 0.22)
     selected = str(c.get('roth_bracket_strategy', 'OPTIMIZER_CHOOSES') or 'OPTIMIZER_CHOOSES').strip().upper()
 
+    # c['h_ss_start']/c['w_ss_start'] do NOT exist on the canonical CSV-driven
+    # `c` (parse_client() never sets them -- only the separate/legacy
+    # build_plan_from_json() loader does). Compute directly from the fields
+    # parse_client() does set: h_dob_yr/w_dob_yr, h_ss_claim_age/w_ss_claim_age,
+    # and members (len 1 for a single-member household, 2 for a couple -- the
+    # single-member path mirrors w_dob_yr onto h_dob_yr, so gate on
+    # len(members) rather than comparing dob years).
+    _ss_years = [int(c.get('h_dob_yr', 0) or 0) + int(c.get('h_ss_claim_age', 70) or 70)]
+    if len(c.get('members', []) or []) > 1:
+        _ss_years.append(int(c.get('w_dob_yr', 0) or 0) + int(c.get('w_ss_claim_age', 70) or 70))
+    _ss_years = sorted(set(_ss_years))
+    _window_end = conversion_window_end_year(c)
+
+    def _phase_varying_schedule():
+        r1 = float(c.get('roth_phase_rate_1', 0.24) or 0.24)
+        r2 = float(c.get('roth_phase_rate_2', 0.22) or 0.22)
+        r3 = float(c.get('roth_phase_rate_3', 0.12) or 0.12)
+        phase_count = int(float(c.get('roth_phase_count', 3) or 3))
+        first = _ss_years[0]
+        if phase_count == 3 and len(_ss_years) >= 2:
+            second = _ss_years[1]
+            return [(first, r1), (second, r2), (_window_end, r3)]
+        return [(first, r1), (_window_end, r2)]
+
     full_set = selected == 'OPTIMIZER_CHOOSES'
     if full_set or selected == 'NONE':
         add('No voluntary conversions', 'none', strategy_code='NONE')
@@ -2502,6 +2557,11 @@ def _roth_strategy_candidate_specs(c: Mapping) -> List[Dict]:
         for amt in (25000.0, 50000.0, configured_fixed, 75000.0, 100000.0, 150000.0, 200000.0, 250000.0, 300000.0):
             if amt > 0:
                 add(f'Fixed ${amt:,.0f}/yr', 'fixed_dollar', fixed_amount=amt, strategy_code=f'FIXED_DOLLAR_{int(amt)}')
+    if full_set or selected == 'PHASE_VARYING':
+        _sched = _phase_varying_schedule()
+        _rates_label = ' → '.join(f'{int(r*100)}%' for _y, r in _sched)
+        add(f'Phase-varying ({_rates_label} by SS claim year)', 'fill_to_bracket',
+            strategy_code='PHASE_VARYING', overrides={'roth_phase_schedule': _sched})
     if full_set:
         for rate in (0.10, 0.12, 0.22, 0.24, 0.32, 0.35):
             add(f'Dynamic fill to {int(rate * 100)}% bracket', 'fill_to_bracket', target_rate=rate, strategy_code=f'DYNAMIC_FILL_{int(rate*100)}')
@@ -2718,11 +2778,7 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
     # state's own default exemption when passed None, but this preserves the
     # exact pre-refactor behavior of always using whatever il_exempt resolves
     # to (including 0.0, which taxes the entire estate above $0, not the
-    # state's default exemption). Item 3.6 (F5): resolved_state_estate_exemption
-    # corrects the shipped $4M (Illinois's own exemption) default for a
-    # non-Illinois resident state to that state's real statutory exemption.
-    resident_state = str(c.get('state', '') or '')
-    state_exempt = resolved_state_estate_exemption(resident_state, float(c.get('il_exempt', 0.0) or 0.0))
+    # state's default exemption).
 
     def _estate_tax_for_row(row: Mapping) -> float:
         row_total = max(0.0, float(row.get('total_nw', 0.0) or 0.0))
@@ -2734,9 +2790,18 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
         federal_tax = max(0.0, federal_taxable - fed_exempt) * 0.40 if fed_exempt else 0.0
         # Item 3.6 (F5): New York's 3-year gift add-back.
         gift_addback = max(0.0, float(row.get('gift_total_last_3yr', 0.0) or 0.0))
+        # #302: resolve BOTH the resident state and its exemption per-row-year
+        # (state_for_year), not once at the top of this function -- a
+        # household with a residency schedule can be a different state in a
+        # later row-year, and item 3.6 (F5)'s resolved_state_estate_exemption
+        # corrects the shipped $4M (Illinois's own exemption) default for a
+        # non-Illinois resident state to that state's real statutory
+        # exemption instead.
+        row_state = state_for_year(c, row_year)
+        row_state_exempt = resolved_state_estate_exemption(row_state, float(c.get('il_exempt', 0.0) or 0.0))
         state_tax = (
-            state_estate_tax(resident_state, state_taxable, state_exempt, gift_addback=gift_addback)[0]
-            if c.get('model_state_est', True) and state_exempt
+            state_estate_tax(row_state, state_taxable, row_state_exempt, gift_addback=gift_addback)[0]
+            if c.get('model_state_est', True) and row_state_exempt
             else 0.0
         )
         return federal_tax + state_tax
@@ -2848,44 +2913,69 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
 
 
 def compute_baseline_lcv_and_eltr(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, float]:
-    """LCV and ELTR for the plan's own baseline/as-built projection.
+    """Headline metrics for the plan's own baseline/as-built projection
+    (#293): the Impact page and Executive Summary read these instead of raw
+    terminal net worth and nominal lifetime tax.
 
-    Mirrors _roth_strategy_metrics's lcv_score (PV of lifetime consumption
-    plus PV of after-tax terminal transfer) and the tax-NPV/ELTR convention
-    shared with the Monte Carlo engines (PV of total tax divided by PV of
-    gross cash flow, same discount rate via _roth_discount_rate) -- but for
-    the household's actual plan rather than a Roth-conversion candidate, so
-    the Planning Workbench Impact screen can report the same two headline
-    metrics used elsewhere (Executive Summary, Roth optimizer disclosure,
-    Monte Carlo stress test) instead of raw terminal net worth and nominal
-    lifetime tax.
+    - lcv: Expected After-Tax Lifetime Consumption-and-Transfer Value --
+      nominal (undiscounted) lifetime spending plus the after-tax, after-
+      estate-tax terminal transfer (Post-Tax Inheritance / PTI -- what
+      beneficiaries actually keep, not the estate-tax-exclusive
+      after_tax_terminal_nw). A plain sum of real dollars the household is
+      expected to consume or pass on, not a present-value abstraction.
+    - npv_future_taxes: total taxes paid, discounted to today's dollars at
+      the plan's own assumed portfolio return rate (c['ret']) -- an
+      apples-to-apples way to compare an early Roth conversion (tax paid
+      now, in today's dollars) against a late RMD (tax paid decades out,
+      worth less in today's dollars).
+    - eltr: unchanged from before -- the PV-based "effective lifetime tax
+      rate" used only internally, to compare Roth-conversion CANDIDATES
+      against each other on the Planning Workbench (planning_workbench_ui.js
+      reads it for that comparison table). This is a relative ranking
+      convention, not a literal headline dollar/rate figure, so it keeps its
+      own discount rate (_roth_discount_rate) rather than switching to
+      c['ret'] -- #293 did not ask to change candidate-ranking behavior.
+      The ticket's actual "Effective Future Tax Rate (EFTR)" is a DIFFERENT,
+      already-existing figure: compute_future_lcv_and_eftr's `eftr` below,
+      whose "from today onward, no upper bound" row set already IS "current
+      year through plan end" for a build run today -- nothing to fix there,
+      it just needed wiring onto the Impact page (see workbook_builder.py /
+      dashboard_decomp_build_history.js).
     """
     rows = list(rows or [])
     if not rows:
-        return {'lcv': 0.0, 'eltr': 0.0}
+        return {'lcv': 0.0, 'eltr': 0.0, 'npv_future_taxes': 0.0}
     plan_start = int(c.get('plan_start', rows[0].get('year', 0) if rows else 0) or 0)
-    discount = _roth_discount_rate(c)
+    roth_discount = _roth_discount_rate(c)
+    ret_discount = float(c.get('ret', 0.0) or 0.0)
 
-    def _disc(row: Mapping) -> float:
-        return (1.0 + discount) ** max(0, int(row.get('year', plan_start) or plan_start) - plan_start)
+    def _disc(row: Mapping, rate: float) -> float:
+        return (1.0 + rate) ** max(0, int(row.get('year', plan_start) or plan_start) - plan_start)
 
     terminal = rows[-1]
     try:
         from .after_tax import estimate_after_tax_terminal_net_worth as _estimate_after_tax_terminal_net_worth
-        after_tax_terminal_nw = float(_estimate_after_tax_terminal_net_worth(c, terminal).get('after_tax_terminal_nw', 0.0) or 0.0)
+        pti = float(_estimate_after_tax_terminal_net_worth(c, terminal).get('post_tax_inheritance', 0.0) or 0.0)
     except Exception:
-        after_tax_terminal_nw = float(terminal.get('total_nw', 0.0) or 0.0)
-    terminal_year = int(terminal.get('year', plan_start) or plan_start)
-    after_tax_terminal_nw_pv = after_tax_terminal_nw / ((1.0 + discount) ** max(0, terminal_year - plan_start))
+        pti = float(terminal.get('total_nw', 0.0) or 0.0)
 
-    consumption_pv = sum(float(r.get('total_spend', 0.0) or 0.0) / _disc(r) for r in rows)
-    lcv = consumption_pv + after_tax_terminal_nw_pv
+    # lcv (#293): nominal (undiscounted) lifetime consumption plus PTI -- the
+    # household's total expected financial welfare in real dollars, not a PV
+    # abstraction (contrast eltr below, an internal ranking score that stays PV).
+    consumption_nominal = sum(float(r.get('total_spend', 0.0) or 0.0) for r in rows)
+    lcv = consumption_nominal + pti
 
-    tax_npv = sum(float(r.get('total_tax', 0.0) or 0.0) / _disc(r) for r in rows)
-    gross_cash_flow_npv = sum(float(r.get('gross_cash_flow_yr', 0.0) or 0.0) / _disc(r) for r in rows)
-    eltr = (tax_npv / gross_cash_flow_npv) if gross_cash_flow_npv > 1e-6 else 0.0
+    # eltr: unchanged PV-based candidate-ranking score (see docstring above).
+    tax_npv_roth_disc = sum(float(r.get('total_tax', 0.0) or 0.0) / _disc(r, roth_discount) for r in rows)
+    gross_cash_flow_npv_roth_disc = sum(float(r.get('gross_cash_flow_yr', 0.0) or 0.0) / _disc(r, roth_discount) for r in rows)
+    eltr = (tax_npv_roth_disc / gross_cash_flow_npv_roth_disc) if gross_cash_flow_npv_roth_disc > 1e-6 else 0.0
 
-    return {'lcv': lcv, 'eltr': eltr}
+    # npv_future_taxes (#293): total tax discounted to today's dollars at the
+    # plan's own assumed portfolio return rate -- an apples-to-apples way to
+    # compare an early Roth conversion against a late RMD.
+    npv_future_taxes = sum(float(r.get('total_tax', 0.0) or 0.0) / _disc(r, ret_discount) for r in rows)
+
+    return {'lcv': lcv, 'eltr': eltr, 'npv_future_taxes': npv_future_taxes}
 
 
 def compute_future_lcv_and_eftr(c: Mapping, rows: Iterable[Mapping], as_of_year: Optional[int] = None) -> Dict[str, float]:
@@ -3115,6 +3205,9 @@ def optimize_roth_conversion_strategy(c: dict) -> dict:
             candidates.append(selected)
             candidates.sort(key=lambda x: (x['score'], x['after_tax_terminal_nw'], -x['lifetime_tax']), reverse=True)
         c['roth_policy_requested'] = requested_policy
+
+    if selected.get('overrides'):
+        c.update(selected['overrides'])
 
     # Item 4.3: surface the effective (derived-or-overridden) heir/terminal
     # pre-tax ordinary rates actually used to score the SELECTED strategy, so the

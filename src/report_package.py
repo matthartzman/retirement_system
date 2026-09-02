@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Canonical advisor report package contract.
 
-The workbook, PDF, HTML dashboard, Results Explorer model, and build snapshot
+The workbook, HTML dashboard, Results Explorer model, and build snapshot
 remain independent files.  This sidecar gives the UI and future renderers one
 versioned package manifest that identifies the current report bundle and the
 contracts each artifact satisfies.
@@ -59,7 +59,6 @@ def _artifact_map(output_dir: Path, output_files: Iterable[tuple[str, str, str, 
         output_files
         or [
             ("workbook", "retirement_plan.xlsx", "xlsx_workbook", True),
-            ("pdf", "retirement_plan.pdf", "pdf_report", False),
             ("html_dashboard", "retirement_dashboard.html", "offline_dashboard", True),
             ("results_model", RESULTS_MODEL_FILENAME, RESULTS_MODEL_SCHEMA, True),
             ("summary", "plan_summary.json", "plan_summary_v1", True),
@@ -102,7 +101,6 @@ def build_report_package(
         },
         "renderer_roles": {
             "workbook": "excel_renderer",
-            "pdf": "pdf_renderer",
             "html_dashboard": "offline_dashboard_renderer",
             "results_model": "canonical_semantic_report_model",
         },

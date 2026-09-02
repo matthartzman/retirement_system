@@ -11,7 +11,7 @@ from typing import Any, Mapping, Dict, Tuple
 
 from .core import (
     ltcg_tax_on_gain, niit_tax, state_income_tax, illinois_estate_tax, state_estate_tax,
-    indexed_federal_estate_exemption, resolved_state_estate_exemption,
+    indexed_federal_estate_exemption, resolved_state_estate_exemption, state_for_year,
 )
 
 
@@ -737,7 +737,7 @@ def estimate_terminal_estate_tax(c: Mapping[str, Any], terminal: Mapping[str, An
     # Item 3.6 (F5): resolved_state_estate_exemption corrects the shipped
     # $4M (Illinois's own exemption) default for a non-Illinois resident
     # state to that state's real statutory exemption instead.
-    resident_state = str(c.get("state", "") or "")
+    resident_state = state_for_year(c, target_year)
     state_exempt = resolved_state_estate_exemption(resident_state, _f(c.get("il_exempt"), 0.0))
     federal_taxable = max(0.0, row_total + biz - (row_cst if c.get("federal_portability_enabled", True) else 0.0))
     state_taxable = max(0.0, row_total + biz - row_cst)

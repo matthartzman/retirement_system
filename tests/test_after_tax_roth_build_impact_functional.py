@@ -1,30 +1,37 @@
 from pathlib import Path
 
-from _decomp_dashboard import dashboard_js_text
+from _decomp_dashboard import dashboard_function_source, dashboard_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_build_impact_has_terminal_nw_first_lifetime_tax_second_risk_third_cards():
+def test_build_impact_has_lcv_first_npv_tax_second_worst_case_third_eftr_fourth_cards():
     # #225: Post-Tax Inheritance is no longer its own headline card here --
     # PTI is computed at a different point in time on Estate & Legacy Plan
     # (second-death year) than a terminal-plan-year Impact comparison would
     # use, so showing both as equivalent headline figures read as a bug.
-    # Impact now only notes the estate-tax bite on the Terminal Net Worth
-    # card (and only when nonzero), pointing to Estate & Legacy Plan for the
+    # Impact now only notes the estate-tax bite baked into the LCV card (and
+    # only when nonzero), pointing to Estate & Legacy Plan for the
     # authoritative PTI figure.
+    # #293: the headline cards were converted from Terminal Net Worth /
+    # Lifetime Taxes / Probability of Success to Expected After-Tax LCV /
+    # NPV of Future Taxes / Worst-Case Ending Wealth (5th %ile), plus a new
+    # 4th Effective Future Tax Rate (EFTR) card.
     js = dashboard_js_text()
     assert "after_tax_terminal_nw" in js
     assert "total_roth_conversions" in js
     assert "post_tax_inheritance" in js
-    start = js.index("function buildImpactCardsHtml")
-    fn = js[start: js.index("function mhBool", start)]
+    fn = dashboard_function_source("buildImpactCardsHtml", js)
     assert "impact-grid" in fn
     assert '"Post-Tax Inheritance (PTI)"' not in fn
     assert "estateTaxNote" in fn
     return_expr = fn[fn.index("return `<div class=\"impact-grid\">"):]
-    assert return_expr.index("${nwCard}") < return_expr.index("Lifetime taxes")
-    assert return_expr.index("Lifetime taxes") < return_expr.index("${riskCard}")
+    assert (
+        return_expr.index("${lcvCard}")
+        < return_expr.index("NPV of Future Taxes")
+        < return_expr.index("${worstCaseCard}")
+        < return_expr.index("${eftrCard}")
+    )
 
 
 def test_impact_card_help_shows_as_info_icon_not_inline_text():
@@ -63,8 +70,13 @@ def test_plan_summary_writes_after_tax_and_roth_conversion_kpis():
 
 
 def test_impact_grid_supports_five_cards():
+    # #309: minmax narrowed from 185px to 160px (plus a tighter gap) so the
+    # 4 current cards fit one row without wrapping their longer new titles
+    # ("NPV of Future Taxes", "Effective Future Tax Rate (EFTR)") -- the
+    # auto-fit grid mechanism this test guards is unchanged, just the pinned
+    # width.
     css = (ROOT / "frontend/css/dashboard.css").read_text(encoding="utf-8")
-    assert ".impact-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr))" in css
+    assert ".impact-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))" in css
 
 
 def test_impact_card_uses_current_build_value_when_baseline_missing():

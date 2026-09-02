@@ -263,6 +263,7 @@ def build_sheet10(ws, c, rows):
     from ..planning_engines import (
         monte_carlo, run_scenario as _run_scenario, _mc_survivor_bucket_flows,
         _roth_discount_rate, LCV_FEASIBILITY_GATE_THRESHOLD,
+        compute_baseline_lcv_and_eltr,
     )
     from ..after_tax import estimate_after_tax_terminal_net_worth as _est_after_tax
     import contextlib as _contextlib
@@ -311,6 +312,11 @@ def build_sheet10(ws, c, rows):
     base_terminal = float(base_rows[-1].get('total_nw', 0.0) or 0.0) if base_rows else 0.0
     base_tax = sum(float(r.get('total_tax', 0.0) or 0.0) for r in base_rows)
     base_ss = sum(float(r.get('h_ss', 0.0) or 0.0) + float(r.get('w_ss', 0.0) or 0.0) for r in base_rows)
+    # #293: LCV/NPV-of-future-taxes deltas need a base-plan (current claim
+    # ages) figure to compare each swept pair against, same as
+    # base_terminal/base_tax above.
+    _base_metrics = compute_baseline_lcv_and_eltr(c, base_rows)
+    base_lcv = float(_base_metrics.get('lcv', 0.0) or 0.0)
     h_current = int(c.get('h_ss_claim_age', c.get('ss_claim_age', 70)) or 70)
     w_current = int(c.get('w_ss_claim_age', c.get('ss_claim_age', 70)) or 70)
 
@@ -419,6 +425,7 @@ def build_sheet10(ws, c, rows):
         # runs for every pair.
         mc_success_rate = None
         mc_p10_terminal_nw = None
+        mc_p5_terminal_nw = None
         feasibility_probability = 0.0
         if not skip_mc:
             try:
@@ -437,10 +444,26 @@ def build_sheet10(ws, c, rows):
                 with _contextlib.redirect_stdout(_io.StringIO()):
                     mc_result = monte_carlo(c2, n_sims=SWEEP_MC_SIMS, seed=SWEEP_MC_SEED, survivor_buckets=_buckets_for_this_call)
                 mc_success_rate = float(mc_result.get('success_rate', 0.0) or 0.0)
-                mc_p10_terminal_nw = float((mc_result.get('terminal_total_nw') or {}).get(10, 0.0) or 0.0)
+                _mc_terminal_pct = mc_result.get('terminal_total_nw') or {}
+                mc_p10_terminal_nw = float(_mc_terminal_pct.get(10, 0.0) or 0.0)
+                # #293: worst-case (5th percentile) ending wealth -- same
+                # percentile dict P10/median already read, just one more key.
+                mc_p5_terminal_nw = float(_mc_terminal_pct.get(5, 0.0) or 0.0)
                 feasibility_probability = float(mc_result.get('essential_fully_funded_probability', 0.0) or 0.0)
             except Exception:
                 pass
+        # #293: LCV (nominal lifetime spend + Post-Tax Inheritance) and NPV
+        # of Future Taxes (total tax discounted at c['ret']) -- the same
+        # headline figures the Impact page and Executive Summary use,
+        # computed here per swept claim-age pair for this table's own
+        # Terminal-NW/Lifetime-Tax columns. Deliberately NOT the score basis
+        # (lcv_score/objective_value above stay on their existing PV-based
+        # ranking convention) -- this only changes what's DISPLAYED. Uses
+        # only proj_rows (already computed deterministically), so this stays
+        # unconditional regardless of skip_mc.
+        _pair_metrics = compute_baseline_lcv_and_eltr(c2, proj_rows)
+        lcv = float(_pair_metrics.get('lcv', 0.0) or 0.0)
+        npv_future_taxes = float(_pair_metrics.get('npv_future_taxes', 0.0) or 0.0)
         return {
             'h_age': int(h_age), 'w_age': int(w_age), 'terminal_nw': terminal,
             'after_tax_terminal_nw': after_tax_terminal_nw,
@@ -448,6 +471,8 @@ def build_sheet10(ws, c, rows):
             'irmaa': irmaa, 'survivor_years': survivor_years,
             'survivor_period_ss_income': survivor_period_ss_income, 'objective_value': score,
             'lcv_score': lcv_score,
+            'lcv': lcv, 'npv_future_taxes': npv_future_taxes,
+            'delta_lcv': lcv - base_lcv,
             'feasibility_probability': feasibility_probability,
             'feasibility_gate_met': feasibility_probability >= LCV_FEASIBILITY_GATE_THRESHOLD,
             'delta_terminal': terminal - base_terminal,
@@ -455,6 +480,7 @@ def build_sheet10(ws, c, rows):
             'delta_ss': lifetime_ss - base_ss,
             'mc_success_rate': mc_success_rate,
             'mc_p10_terminal_nw': mc_p10_terminal_nw,
+            'mc_p5_terminal_nw': mc_p5_terminal_nw,
         }
 
     # #230: never sweep a claim age the person has already passed -- ages
@@ -588,8 +614,8 @@ def build_sheet10(ws, c, rows):
         (f'Recommended {_s1} Claim Age', best['h_age'], f'Highest score (LCV -- PV of lifetime spending plus PV of after-tax terminal transfer -- plus survivor-period SS income) among claim-age pairs meeting the essential-funding feasibility gate, from a {len(scenarios)}-pair coarse-then-refine sweep of the 62–70 × 62–70 grid.'),
         (f'Recommended {_s2} Claim Age', best['w_age'], 'Projection uses the same tax, IRMAA, withdrawal, ACA, survivor, and estate machinery as the base plan.'),
         ('Current Configured Claim Ages', f"{_s1} {h_current} / {_s2} {w_current}", 'Current row shown below for comparison.'),
-        ('Best vs Current After-Tax Terminal NW', (best['after_tax_terminal_nw'] - (current or best)['after_tax_terminal_nw']) if current else 0.0, 'Positive means the sweep’s selected pair improves after-tax terminal net worth versus current config.'),
-        ('Best vs Current Lifetime Tax', (best['lifetime_tax'] - (current or best)['lifetime_tax']) if current else 0.0, 'Negative means lower lifetime tax versus current config.'),
+        ('Best vs Current LCV', (best['lcv'] - (current or best)['lcv']) if current else 0.0, 'Positive means the sweep’s selected pair improves Expected After-Tax Lifetime Consumption-and-Transfer Value versus current config.'),
+        ('Best vs Current NPV of Future Taxes', (best['npv_future_taxes'] - (current or best)['npv_future_taxes']) if current else 0.0, 'Negative means a lower present-value tax burden versus current config.'),
     ]
     if _all_scenarios_infeasible:
         summary.append((
@@ -637,20 +663,20 @@ def build_sheet10(ws, c, rows):
         r += 1
 
     r += 1
-    write_hdr(ws, r, 1, 'Top 10 claiming pairs — coarse-then-refine projection ranking', NAVY, WHITE, span=15); r += 1
-    write_cell(ws, r, 1, f'Score (0-100) ranks these {len(scenarios)} claim-age pairs relative to each other (100 = best in this set). This is a coarse-then-refine sweep of the 62-70 x 62-70 grid, not every one of its up to 81 pairs -- an every-other-age coarse pass locates the strongest region, then every individual age around that region is scored. Objective Value is the underlying LCV-plus-survivor-income figure the ranking is computed from (LCV = PV of lifetime spending plus PV of after-tax terminal transfer) -- a scoring unit, not a projected dollar outcome. The Recommended row above is chosen only from pairs whose modeled essential-spending funding probability clears a feasibility floor; other pairs still appear here, ranked, for comparison. Lifetime SS is a raw, undiscounted total across the whole plan horizon: it can be HIGHER for an earlier claim age even though delaying grows the monthly check, because delaying trades away entire years of checks for a larger one later (a breakeven-age effect, not a return comparison) -- Score already accounts for this by weighting survivor-period SS income instead of raw lifetime SS.', align='left')
-    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=15)
+    write_hdr(ws, r, 1, 'Top 10 claiming pairs — coarse-then-refine projection ranking', NAVY, WHITE, span=14); r += 1
+    write_cell(ws, r, 1, f'Score (0-100) ranks these {len(scenarios)} claim-age pairs relative to each other (100 = best in this set). This is a coarse-then-refine sweep of the 62-70 x 62-70 grid, not every one of its up to 81 pairs -- an every-other-age coarse pass locates the strongest region, then every individual age around that region is scored. Objective Value is a present-value scoring unit (PV of lifetime spending plus PV of after-tax terminal transfer, plus survivor-period SS income) the ranking is computed from -- deliberately a different convention than the displayed LCV column (nominal lifetime spending plus Post-Tax Inheritance, the plan\'s headline figure), so Objective Value is not directly comparable to LCV dollar-for-dollar. The Recommended row above is chosen only from pairs whose modeled essential-spending funding probability clears a feasibility floor; other pairs still appear here, ranked, for comparison. Lifetime SS is a raw, undiscounted total across the whole plan horizon: it can be HIGHER for an earlier claim age even though delaying grows the monthly check, because delaying trades away entire years of checks for a larger one later (a breakeven-age effect, not a return comparison) -- Score already accounts for this by weighting survivor-period SS income instead of raw lifetime SS.', align='left')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
     ws.row_dimensions[r].height = 40
     r += 1
-    hdrs = ['Rank', f'{_s1} Claim', f'{_s2} Claim', 'Score (0-100)', 'Objective Value', 'After-Tax Terminal NW', 'Survivor-Period SS Income', 'Terminal NW', 'Δ Terminal NW', 'Lifetime SS', 'Lifetime Tax', 'IRMAA', 'Survivor Years', 'MC Success %', 'MC P10 Terminal NW']
+    hdrs = ['Rank', f'{_s1} Claim', f'{_s2} Claim', 'Score (0-100)', 'Objective Value', 'After-Tax Terminal NW', 'Survivor-Period SS Income', 'LCV', 'Δ LCV', 'Lifetime SS', 'NPV of Future Taxes', 'IRMAA', 'Survivor Years', 'Worst-Case Ending Wealth (5th %ile)']
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
     r += 1
     for rank, sc in enumerate(scenarios[:10], 1):
-        vals = [rank, sc['h_age'], sc['w_age'], sc['rank_score'], sc['objective_value'], sc['after_tax_terminal_nw'], sc['survivor_period_ss_income'], sc['terminal_nw'], sc['delta_terminal'], sc['lifetime_ss'], sc['lifetime_tax'], sc['irmaa'], sc['survivor_years'], sc.get('mc_success_rate'), sc.get('mc_p10_terminal_nw')]
+        vals = [rank, sc['h_age'], sc['w_age'], sc['rank_score'], sc['objective_value'], sc['after_tax_terminal_nw'], sc['survivor_period_ss_income'], sc['lcv'], sc['delta_lcv'], sc['lifetime_ss'], sc['npv_future_taxes'], sc['irmaa'], sc['survivor_years'], sc.get('mc_p5_terminal_nw')]
         bg = 'E2EFDA' if rank == 1 else ('F4F5F7' if sc is current else None)
         for i, val in enumerate(vals, 1):
-            fmt = FMT_PCT if i == 14 else (FMT_DOLLAR if i >= 5 and i != 13 else None)
+            fmt = FMT_DOLLAR if i >= 5 and i != 13 else None
             write_cell(ws, r, i, val, fmt=fmt, bg=bg)
         r += 1
 
@@ -713,16 +739,16 @@ def build_sheet10(ws, c, rows):
             r += 1
 
     r += 2
-    write_hdr(ws, r, 1, f'Coarse-then-refine 62–70 × 62–70 spouse-pair sweep ({len(scenarios)} pairs scored)', NAVY, WHITE, span=14); r += 1
-    hdrs = [f'{_s1} Claim', f'{_s2} Claim', 'Score (0-100)', 'Objective Value', 'After-Tax Terminal NW', 'Survivor-Period SS Income', 'Terminal NW', 'Δ Terminal NW', 'Lifetime SS', 'Lifetime Tax', 'IRMAA', 'Survivor Years', 'MC Success %', 'MC P10 Terminal NW']
+    write_hdr(ws, r, 1, f'Coarse-then-refine 62–70 × 62–70 spouse-pair sweep ({len(scenarios)} pairs scored)', NAVY, WHITE, span=13); r += 1
+    hdrs = [f'{_s1} Claim', f'{_s2} Claim', 'Score (0-100)', 'Objective Value', 'After-Tax Terminal NW', 'Survivor-Period SS Income', 'LCV', 'Δ LCV', 'Lifetime SS', 'NPV of Future Taxes', 'IRMAA', 'Survivor Years', 'Worst-Case Ending Wealth (5th %ile)']
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
     r += 1
     for sc in sorted(scenarios, key=lambda d: (d['h_age'], d['w_age'])):
-        vals = [sc['h_age'], sc['w_age'], sc['rank_score'], sc['objective_value'], sc['after_tax_terminal_nw'], sc['survivor_period_ss_income'], sc['terminal_nw'], sc['delta_terminal'], sc['lifetime_ss'], sc['lifetime_tax'], sc['irmaa'], sc['survivor_years'], sc.get('mc_success_rate'), sc.get('mc_p10_terminal_nw')]
+        vals = [sc['h_age'], sc['w_age'], sc['rank_score'], sc['objective_value'], sc['after_tax_terminal_nw'], sc['survivor_period_ss_income'], sc['lcv'], sc['delta_lcv'], sc['lifetime_ss'], sc['npv_future_taxes'], sc['irmaa'], sc['survivor_years'], sc.get('mc_p5_terminal_nw')]
         bg = 'E2EFDA' if sc is best else ('F4F5F7' if sc is current else None)
         for i, val in enumerate(vals, 1):
-            fmt = FMT_PCT if i == 13 else (FMT_DOLLAR if i >= 4 and i != 12 else None)
+            fmt = FMT_DOLLAR if i >= 4 and i != 12 else None
             write_cell(ws, r, i, val, fmt=fmt, bg=bg)
         r += 1
 
@@ -734,12 +760,12 @@ def build_sheet10(ws, c, rows):
             'plus survivor-period SS income (the SS dollars received in the fixed years when only one spouse is alive, weighted 1:1 with wealth by default via ss_survivor_weight) -- '
             'not gross terminal net worth with lifetime SS added back and lifetime tax/IRMAA subtracted again, which double-counted both in the same direction. '
             'Results remain sensitive to the selected Roth policy, mortality assumptions, ACA/IRMAA interactions, and survivor-benefit settings. '
-            f'MC Success % and MC P10 Terminal NW are informational Monte Carlo metrics ({SWEEP_MC_SIMS} paths per pair, one fixed seed reused across all pairs for apples-to-apples comparison, minimal sensitivity grid) — '
-            'they do not affect the score or recommendation above; a full-precision Monte Carlo run for the recommended pair is on Sheet 15.')
+            f'Worst-Case Ending Wealth (5th %ile) is an informational Monte Carlo metric ({SWEEP_MC_SIMS} paths per pair, one fixed seed reused across all pairs for apples-to-apples comparison, minimal sensitivity grid) — '
+            'it does not affect the score or recommendation above; a full-precision Monte Carlo run for the recommended pair is on Sheet 15.')
     write_cell(ws, r, 1, note, bg='F4F5F7', align='left')
-    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=13)
 
-    for col in range(1, 16):
+    for col in range(1, 15):
         ws.column_dimensions[get_column_letter(col)].width = 16
     qc('10. Social Security', 'Claim ages 62-70 swept by spouse against a coarse-then-refine projection', True, '')
 
@@ -1933,6 +1959,18 @@ def build_sheet14(ws, c, rows):
     # which was itself latent-broken for any non-IL resident (NameError,
     # simply never exercised by a test that reached this line with one).
     il_tax = 0.0
+    # A funded Credit Shelter Trust bypasses
+    # the survivor's estate for state-tax purposes (see the CST section
+    # below), so the same reduction the projection's own objective function
+    # applies (deterministic_engine._estate_tax_for_row: state_taxable =
+    # row_total - row_cst) must be applied here too. Without it, this
+    # headline number showed the state cliff/interrelated tax on the FULL
+    # second-death estate even when hundreds of thousands (or millions) of
+    # dollars were already excluded from that estate by a funded trust --
+    # disagreeing with the CST section's own "Projected IL Tax Saved" figure
+    # a few rows down, which already accounts for the shelter.
+    _cst_shelter_at_second_death = max(0.0, float(yr_second.get('cst_excluded_from_survivor_estate', 0.0) or 0.0))
+    _state_taxable_estate = max(0.0, est2 - _cst_shelter_at_second_death)
     if c['model_state_est']:
         # Item 3.6 (F5): resolved_state_estate_exemption corrects the shipped
         # $4M (Illinois's own exemption) default for a non-Illinois resident
@@ -1941,14 +1979,18 @@ def build_sheet14(ws, c, rows):
         # would show Illinois's $4M as their "NY Exemption" here.
         _state_exempt_configured = resolved_state_estate_exemption(_resident_state, float(c.get('il_exempt', 0.0) or 0.0))
         # Item 3.6 (F5): New York's 3-year gift add-back (harmless for any
-        # other state's calc branch, which ignores gift_addback).
+        # other state's calc branch, which ignores gift_addback). Taxable
+        # base is _state_taxable_estate (est2 net of the CST shelter, see
+        # the CST-reduction fix documented above this if-block) -- the gift
+        # add-back is a separate, additive adjustment state_estate_tax's own
+        # NY branch applies on top of that base, not a replacement for it.
         _gift_addback = max(0.0, float(yr_second.get('gift_total_last_3yr', 0.0) or 0.0))
-        _tax, _status = state_estate_tax(_resident_state, est2, _state_exempt_configured, gift_addback=_gift_addback)
+        _tax, _status = state_estate_tax(_resident_state, _state_taxable_estate, _state_exempt_configured, gift_addback=_gift_addback)
         il_tax = _tax
         if _status == 'computed':
             write_hdr(ws, r, 1, f'{_resident_state} Estate Tax (At Second Death)', ORANGE, WHITE, span=4); r+=1
             il_exempt = _state_exempt_configured
-            il_excess = max(0, est2 - il_exempt)
+            il_excess = max(0, _state_taxable_estate - il_exempt)
             _mechanism_note = (
                 'Calculation uses the IL cliff/interrelated structure, not a tax-on-excess shortcut.'
                 if _resident_state == 'Illinois' else
@@ -1959,6 +2001,12 @@ def build_sheet14(ws, c, rows):
                 'Calculation uses the modeled cliff/interrelated structure for this state, not a tax-on-excess shortcut.'
             )
             write_cell(ws, r, 1, f'{_resident_state} Exemption'); write_cell(ws, r, 2, il_exempt, fmt=FMT_DOLLAR); r+=1
+            if _cst_shelter_at_second_death > 0:
+                write_cell(ws, r, 1, 'Projected Estate at Second Death'); write_cell(ws, r, 2, est2, fmt=FMT_DOLLAR); r+=1
+                write_cell(ws, r, 1, 'Less: Sheltered by Funded Credit Shelter Trust')
+                write_cell(ws, r, 2, -_cst_shelter_at_second_death, fmt=FMT_DOLLAR); r+=1
+                write_cell(ws, r, 1, f'{_resident_state}-Taxable Estate (after CST)', bold=True)
+                write_cell(ws, r, 2, _state_taxable_estate, fmt=FMT_DOLLAR, bold=True); r+=1
             if _resident_state == 'New York' and _gift_addback > 0:
                 write_cell(ws, r, 1, 'Gifts Added Back (3-Year Look-Back)'); write_cell(ws, r, 2, _gift_addback, fmt=FMT_DOLLAR); r+=1
             write_cell(ws, r, 1, f'Estate over {_resident_state} Exemption'); write_cell(ws, r, 2, il_excess, fmt=FMT_DOLLAR); r+=1

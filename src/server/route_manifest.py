@@ -3,7 +3,7 @@ from __future__ import annotations
 """Route ownership manifest for the local desktop API."""
 
 ROUTE_MODULES = {
-    "build_results": ["/api/build/preflight", "/api/build/start", "/api/build/status/<job_id>", "/api/detailed-results", "/api/report-package", "/api/history", "/api/xlsx", "/api/pdf", "/api/workbook-format", "/files/<path:filename>", "/api/kpi-snapshots", "/api/kpi-snapshots/compare"],
+    "build_results": ["/api/build/preflight", "/api/build/start", "/api/build/status/<job_id>", "/api/detailed-results", "/api/report-package", "/api/history", "/api/xlsx", "/api/workbook-format", "/files/<path:filename>", "/api/kpi-snapshots", "/api/kpi-snapshots/compare"],
     "plan_data": ["/api/plan/forms", "/api/plan/save-as", "/api/plan/load-file", "/api/plan/snapshot/compare", "/api/plan/snapshot/restore"],
     "plan_config": ["/api/config/backends", "/api/config/rows", "/api/allocation-preview"],
     "pricing": ["/api/prices/refresh", "/api/prices/snapshots", "/api/prices/freeze", "/api/prices/unfreeze", "/api/prices/test-symbol", "/api/prices/test-symbol/start", "/api/prices/test-symbol/status/<job_id>"],
@@ -25,6 +25,7 @@ ROUTE_MODULES = {
         "/api/estate-state-options", "/api/estate-state/add", "/api/trust-account/add",
         "/api/insurance-policy/add", "/api/insurance-policy/delete", "/api/life-illustration/seed", "/api/capital-market/assumptions",
         "/api/capital-market/correlations", "/api/housing/seed", "/api/housing/state-estimate", "/api/wellness/seed", "/api/config/sync",
+        "/api/home-sale-splits", "/api/residency-schedule",
     ],
     "admin": ["/api/admin/diagnostics", "/api/admin/system-config", "/api/contracts", "/api/glossary"],
 }

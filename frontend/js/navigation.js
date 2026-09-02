@@ -7,11 +7,15 @@
   // plan-independent/admin pages) stay on the explicit-save + 3-way guard below.
   const AUTOSAVE_STEPS=['household_people','income_work','income_retirement','lifestyle_spending','spending_core','spending_setup','retirement_wellness','spending_mortgage_events','ytd_transactions','holdings','assets_home_cash','annuity_death_benefits','assets_special','estate','distribution_strategy','state_residency','special_strategies','economic_tax_assumptions','optional_functions','all_assumptions'];
   const PLAN_INDEPENDENT_STEPS=['start','system_configuration','workbook_formatting','detailed_results','planning_workbench','reports_and_review'];
+  // #301: Reports & Review is primarily the Impact page now -- Downloads and
+  // Plan Data Review no longer have their own tabs (folded into Impact as
+  // action buttons / collapsible sections), so jump-links to those step ids
+  // land on Impact too rather than a tab that no longer exists.
   const REPORTS_REDIRECTS={
     detailed_results:'Results',
     build_impact:'Impact',
-    review:'Downloads',
-    plan_data_report:'Plan Data Review'
+    review:'Impact',
+    plan_data_report:'Impact'
   };
   const STEP_REDIRECTS={
     spending_travel:'lifestyle_spending',
@@ -27,8 +31,41 @@
 
   function noop(){}
   function safeCall(fn){try{return typeof fn==='function'?fn():undefined}catch(_e){return undefined}}
-  function setStep(ctx,id){
+
+  // #296: an in-app Back/Forward history, independent of browser history (this
+  // app is a single page with no URL routing). Tracks the resolved step id --
+  // the same value ctx.setActiveStep() receives -- so Back/Forward retraces
+  // exactly the pages the user actually saw, not raw pre-redirect step ids.
+  let historyStack=[];
+  let historyIndex=-1;
+  function pushHistory(id){
+    if(historyIndex>=0&&historyStack[historyIndex]===id)return;
+    historyStack=historyStack.slice(0,historyIndex+1);
+    historyStack.push(id);
+    historyIndex=historyStack.length-1;
+  }
+  function canGoBack(){return historyIndex>0;}
+  function canGoForward(){return historyIndex<historyStack.length-1;}
+  function updateHistoryNavButtons(){
+    const back=document.getElementById('navBackBtn');
+    if(back)back.disabled=!canGoBack();
+    const fwd=document.getElementById('navForwardBtn');
+    if(fwd)fwd.disabled=!canGoForward();
+  }
+  function goBackInHistory(ctx){
+    if(!canGoBack())return;
+    historyIndex--;
+    setStep(ctx,historyStack[historyIndex],{skipHistory:true});
+  }
+  function goForwardInHistory(ctx){
+    if(!canGoForward())return;
+    historyIndex++;
+    setStep(ctx,historyStack[historyIndex],{skipHistory:true});
+  }
+
+  function setStep(ctx,id,opts){
     ctx=ctx||{};
+    opts=opts||{};
     const planLoaded=!!safeCall(ctx.getPlanLoaded);
     if(REPORTS_REDIRECTS[id]){
       safeCall(()=>ctx.setReportsTab(REPORTS_REDIRECTS[id]));
@@ -38,11 +75,15 @@
     }
     if(!planLoaded&&!PLAN_INDEPENDENT_STEPS.includes(id)){
       safeCall(()=>ctx.setActiveStep('start'));
+      if(!opts.skipHistory)pushHistory('start');
+      updateHistoryNavButtons();
       safeCall(ctx.renderMain);
       setTimeout(()=>{try{window.scrollTo({top:0,behavior:'smooth'});}catch(_e){}},0);
       return;
     }
     safeCall(()=>ctx.setActiveStep(id));
+    if(!opts.skipHistory)pushHistory(id);
+    updateHistoryNavButtons();
     updateSaveModeBadge(id,planLoaded);
     safeCall(()=>ctx.setSearchText(''));
     const srch=document.getElementById('combinedSearch');
@@ -91,6 +132,8 @@
 
   function exposeGlobals(ctx){
     window.setStep=function(id){return ctx.setStep(id)};
+    window.navigateHistoryBack=function(){goBackInHistory(ctx)};
+    window.navigateHistoryForward=function(){goForwardInHistory(ctx)};
     window.showStepHelp=ctx.showStepHelp||noop;
     window.jumpRecommendationSource=ctx.jumpRecommendationSource||noop;
     window.planningCaseCreate=ctx.planningCaseCreate||noop;
@@ -113,6 +156,8 @@
     ctx=ctx||{};
     if(window.__retirementStepNavWired){exposeGlobals(ctx);return;}
     window.__retirementStepNavWired=true;
+    pushHistory(safeCall(ctx.getActiveStep)||'start');
+    updateHistoryNavButtons();
     document.addEventListener('click',function(e){
       const detail=e.target&&e.target.closest?e.target.closest('[data-detail-sheet]'):null;
       if(detail&&!detail.disabled){

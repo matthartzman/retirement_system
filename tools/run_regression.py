@@ -373,7 +373,7 @@ check(
 # ---------------------------------------------------------------------------
 check("P1-A8: spendingData=null after saveYtdTransactions success", has_code(dash, "spendingData=null"))
 check("P1-A9: applySpendingForecast stale-data block present", "ytdTransactionsChanged||ytdAccountsChanged" in dash or "ytdTransactionsChanged || ytdAccountsChanged" in dash)
-check("P1-B1: guarded setStep defined in navigation module", "function setStep(ctx,id)" in nav and "wireStepNavigation" in nav)
+check("P1-B1: guarded setStep defined in navigation module", "function setStep(ctx,id,opts)" in nav and "wireStepNavigation" in nav)
 check("P1-B1: autosave steps list includes ytd_transactions", "'ytd_transactions'" in nav and "AUTOSAVE_STEPS" in nav)
 check("P2-C1: down_payment valueKind override returns percent", has_code(dash, "norm(r.label)==='down_payment'") or has_code(dash, "norm(r?.label)==='down_payment'"))
 check("P2-C1: humanLabel down_payment no trailing percent sign", "Down Payment '" not in dash)

@@ -754,11 +754,15 @@ ROTH_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Model Constants", "Roth Conversion", "roth_conv_window_end_offset", "-1", "years", "CONV_END_YR = H_RMD_start_yr + this offset; default -1 ends voluntary conversions the year before RMDs."],
     ["Model Constants", "IRMAA", "irmaa_annual_inflator", "2.00%", "pct", "Annual IRMAA threshold inflation rate used when projecting Medicare premium guardrails."],
     ["Withdrawal Policy", "Roth Conversion", "roth_conversion_policy", "optimize_terminal_tax", "choice", "optimize_terminal_tax | fill_to_bracket | fill_to_irmaa | fixed_dollar | none; high-level policy for voluntary conversions."],
-    ["Withdrawal Policy", "Roth Conversion", "roth_bracket_strategy", "OPTIMIZER_CHOOSES", "choice", "NONE | FILL_CURRENT_BRACKET | FILL_TARGET_BRACKET | PARTIAL_TARGET_BRACKET | IRMAA_GUARDED | SURVIVOR_TAX_AWARE | RMD_REDUCTION | LEGACY_TARGETED | OPTIMIZER_CHOOSES | FIXED_DOLLAR; strategy family considered by the Roth optimizer."],
+    ["Withdrawal Policy", "Roth Conversion", "roth_bracket_strategy", "OPTIMIZER_CHOOSES", "choice", "NONE | FILL_CURRENT_BRACKET | FILL_TARGET_BRACKET | PARTIAL_TARGET_BRACKET | IRMAA_GUARDED | SURVIVOR_TAX_AWARE | RMD_REDUCTION | LEGACY_TARGETED | OPTIMIZER_CHOOSES | FIXED_DOLLAR | PHASE_VARYING; strategy family considered by the Roth optimizer."],
     ["Withdrawal Policy", "Roth Conversion", "roth_objective_mode", "BALANCED_RETIREMENT", "choice", "BALANCED_RETIREMENT | MINIMIZE_LIFETIME_TAX | MAXIMIZE_TERMINAL_NET_WORTH | LEGACY_OPTIMIZED | ESTATE_TAX_AWARE | CUSTOM_WEIGHTED; objective used to rank Roth conversion candidates."],
     ["Withdrawal Policy", "Roth Conversion", "estate_tax_objective_mode", "BALANCED", "choice", "OFF | MONITOR_ONLY | BALANCED | STRONG; whether projected estate-tax exposure affects Roth strategy scoring."],
     ["Withdrawal Policy", "Roth Conversion", "roth_headroom_usage_pct", "95.00%", "percent", "Percentage of available tax-bracket headroom to use; 95% leaves margin below the threshold."],
     ["Withdrawal Policy", "Roth Conversion", "roth_target_bracket_rate", "22.00%", "choice", "10.00% | 12.00% | 22.00% | 24.00% | 32.00% | 35.00% | 37.00%; Target marginal bracket ceiling used by bracket-fill policies."],
+    ["Withdrawal Policy", "Roth Conversion", "roth_phase_first_bracket_rate", "24.00%", "choice", "10.00% | 12.00% | 22.00% | 24.00% | 32.00% | 35.00% | 37.00%; PHASE_VARYING strategy only -- bracket rate to fill until the first Social Security claim year."],
+    ["Withdrawal Policy", "Roth Conversion", "roth_phase_second_bracket_rate", "22.00%", "choice", "10.00% | 12.00% | 22.00% | 24.00% | 32.00% | 35.00% | 37.00%; PHASE_VARYING strategy only -- bracket rate for the next phase (second SS claim year if roth_phase_count is 3, otherwise the window end)."],
+    ["Withdrawal Policy", "Roth Conversion", "roth_phase_third_bracket_rate", "12.00%", "choice", "10.00% | 12.00% | 22.00% | 24.00% | 32.00% | 35.00% | 37.00%; PHASE_VARYING strategy only -- bracket rate for the final phase through the conversion window end. Unused when roth_phase_count is 2."],
+    ["Withdrawal Policy", "Roth Conversion", "roth_phase_count", "3", "choice", "2 | 3; PHASE_VARYING strategy only -- number of rate phases. 2 steps down once, at the first SS claim year. 3 steps down twice, at each spouse's SS claim year (degrades to 2 automatically for a single-member household or same-year claimants)."],
     ["Withdrawal Policy", "Roth Conversion", "roth_irmaa_target_tier", "TIER_2", "choice", "TIER_1 | TIER_2 | TIER_3 | TIER_4 | TIER_5; IRMAA cap tier used by Roth conversion guardrails. UI labels show MFJ and Single dollar thresholds from annual tax data."],
     ["Withdrawal Policy", "Roth Conversion", "irmaa_guardrail_mode", "AVOID_NEXT_TIER", "choice", "IGNORE | WARN_ONLY | AVOID_NEXT_TIER | AVOID_TIER_2_OR_ABOVE | CUSTOM_MAGI_CAP; Medicare threshold guardrail for Roth conversions."],
     ["Withdrawal Policy", "Roth Conversion", "roth_irmaa_headroom_usage_pct", "95.00%", "percent", "Percentage of available IRMAA headroom to use before stopping voluntary conversions."],
@@ -892,6 +896,32 @@ TLH_UI_PLAN_DATA_ROWS: list[list[str]] = [
      "Fraction of the lower-basis replacement expected to be sold (and its larger gain taxed) before basis step-up at death. Lower values make harvesting more permanently valuable."],
 ]
 
+# #295: QLAC (Qualified Longevity Annuity Contract) -- one slot per member,
+# alongside the existing fixed annuity/pension slots this section already
+# carries (Member N Single/Joint Annuity, Member 2 Pension). Disabled by
+# default (enabled=FALSE), so backfilling these rows into every existing
+# plan changes nothing about that plan's projection until a user opts in.
+def _qlac_ui_plan_data_rows(member: str) -> list[list[str]]:
+    sub = f"Member {member} QLAC"
+    return [
+        ["Income Streams", sub, "qlac_enabled", "FALSE", "bool",
+         "Enable a Qualified Longevity Annuity Contract for this person -- a deferred-income annuity bought with pre-tax retirement dollars whose premium is excluded from this person's RMD-divisor balance once purchased (IRC Sec. 401(a)(9)(H))."],
+        ["Income Streams", sub, "premium", "$0", "USD",
+         "Purchase premium. Capped at the statutory aggregate limit (2025: $210,000, indexed annually) regardless of what's entered here -- the projection engine enforces the cap even if this field is set higher."],
+        ["Income Streams", sub, "qlac_source_account", "", "text",
+         "Traditional IRA/401(k)/403(b)/SEP-IRA account id the premium is paid from (e.g. Member_1_IRA). Must be a pre-tax account -- a QLAC cannot be funded from a Roth or taxable account."],
+        ["Income Streams", sub, "purchase_year", "", "year",
+         "Year the premium is actually paid. Blank = plan start."],
+        ["Income Streams", sub, "first_payment", "", "date",
+         "Year QLAC income begins. Must be no later than the year this person turns 85 (IRC Sec. 401(a)(9)(H)(iv))."],
+        ["Income Streams", sub, "initial_guaranteed_income_payment", "$0", "USD",
+         "Guaranteed monthly QLAC payment starting in the first-payment year (from the carrier's quote). A QLAC has no dividend/cash component, so this is the payment for the life of the contract, before any COLA."],
+        ["Income Streams", sub, "death_benefit_pct", "0.00%", "percent",
+         "Optional return-of-premium death benefit: share of unpaid premium returned to beneficiaries if this person dies before recovering the full premium in payments. 0% = no death benefit (higher payout rate); not yet reflected in terminal net worth."],
+    ]
+
+QLAC_UI_PLAN_DATA_ROWS: list[list[str]] = _qlac_ui_plan_data_rows("1") + _qlac_ui_plan_data_rows("2")
+
 # A7: PLAN_DATA_BACKFILL_ENTRIES replaces twelve near-identical
 # _ensure_*_ui_plan_data_rows functions (each: read a CSV, compute missing
 # canonical rows, find an insertion point, splice, write back) with one
@@ -930,6 +960,11 @@ PLAN_DATA_BACKFILL_ENTRIES: list[plan_data_backfill.BackfillEntry] = [
     plan_data_backfill.BackfillEntry(
         "client_income.csv", SOCIAL_SECURITY_FUNDING_UI_PLAN_DATA_ROWS,
         plan_data_backfill.insert_before(plan_data_backfill.section_is("Income Streams")),
+    ),
+    plan_data_backfill.BackfillEntry(
+        "client_income.csv", QLAC_UI_PLAN_DATA_ROWS,
+        plan_data_backfill.insert_before(plan_data_backfill.section_subsection_is(
+            "Income Streams", "Joint-and-Survivor Percentage")),
     ),
     plan_data_backfill.BackfillEntry(
         "client_household.csv", SS_FRA_AGE_UI_PLAN_DATA_ROWS,
@@ -1176,7 +1211,7 @@ def _choice_options_for_config_row(section: str, subsection: str, label: str, un
         "allocation_selection_mode": ["user_target", "optimizer_recommendation"],
         "selection_action": ["include", "exclude", "consider_alternate_first"],
         "roth_conversion_policy": ["optimize_terminal_tax", "fill_to_bracket", "fill_to_irmaa", "fixed_dollar", "none"],
-        "roth_bracket_strategy": ["NONE", "FILL_CURRENT_BRACKET", "FILL_TARGET_BRACKET", "PARTIAL_TARGET_BRACKET", "IRMAA_GUARDED", "SURVIVOR_TAX_AWARE", "RMD_REDUCTION", "LEGACY_TARGETED", "OPTIMIZER_CHOOSES", "FIXED_DOLLAR"],
+        "roth_bracket_strategy": ["NONE", "FILL_CURRENT_BRACKET", "FILL_TARGET_BRACKET", "PARTIAL_TARGET_BRACKET", "IRMAA_GUARDED", "SURVIVOR_TAX_AWARE", "RMD_REDUCTION", "LEGACY_TARGETED", "OPTIMIZER_CHOOSES", "FIXED_DOLLAR", "PHASE_VARYING"],
         "roth_objective_mode": ["BALANCED_RETIREMENT", "MINIMIZE_LIFETIME_TAX", "MAXIMIZE_TERMINAL_NET_WORTH", "LEGACY_OPTIMIZED", "ESTATE_TAX_AWARE", "CUSTOM_WEIGHTED"],
         "estate_tax_objective_mode": ["OFF", "MONITOR_ONLY", "BALANCED", "STRONG"],
         "irmaa_guardrail_mode": ["IGNORE", "WARN_ONLY", "AVOID_NEXT_TIER", "AVOID_TIER_2_OR_ABOVE", "CUSTOM_MAGI_CAP"],
@@ -1642,6 +1677,140 @@ def _replace_liquidity_buffers(buffers: list[dict]) -> None:
     normalized = _liquidity_buffer_rows(buffers)
     new_rows[insert_at:insert_at] = normalized
     _write_client_rows(path, new_rows)
+
+
+def _home_sale_splits_from_csv_rows(rows: list[list[str]]) -> list[dict]:
+    """Read normalized Home Sale Split rows (#299)."""
+    def col(row, idx, default=""):
+        return (row[idx] if len(row) > idx else default) or ""
+
+    normalized: dict[str, dict] = {}
+    for row in rows[1:]:
+        sec, sub, label, value = [col(row, i).strip() for i in range(4)]
+        if sec == "Home Sale Split" and re.match(r"split_\d+", sub):
+            normalized.setdefault(sub, {})[label] = value
+    if not normalized:
+        return []
+    out = []
+    for key in sorted(normalized, key=lambda x: int(re.search(r"\d+", x).group(0)) if re.search(r"\d+", x) else 0):
+        rec = normalized[key]
+        if str(rec.get("account", "")).strip():
+            out.append({
+                "account": rec.get("account", ""),
+                "percentage": rec.get("percentage", ""),
+            })
+    return out
+
+
+def _home_sale_split_rows(splits: list[dict]) -> list[list[str]]:
+    rows = [
+        ["", "", "", "", "", "", "", ""],
+        ["# -- Home Sale Split: split house sale proceeds across accounts by percentage --", "", "", "", "", "", "", ""],
+    ]
+    for i, s in enumerate(splits, 1):
+        acct = str(s.get("account") or "").strip()
+        pct = str(s.get("percentage") or "0").strip() or "0"
+        rows.extend([
+            ["Home Sale Split", f"split_{i}", "account", acct, "choice", "Account to receive this share of house sale proceeds", "", ""],
+            ["Home Sale Split", f"split_{i}", "percentage", pct, "percent", "Share of net house sale proceeds deposited to this account; all rows must sum to 100%", "", ""],
+        ])
+    rows.append(["", "", "", "", "", "", "", ""])
+    return rows
+
+
+def _replace_home_sale_splits(splits: list[dict]) -> None:
+    path = _client_section_path("Home Sale Split", "client_assets.csv")
+    with path.open(newline="", encoding="utf-8-sig") as f:
+        rows = list(csv.reader(f))
+    while rows and not any(str(c).strip() for c in rows[-1]):
+        rows.pop()
+    indices = []
+    for i, r in enumerate(rows):
+        if not r:
+            continue
+        if str(r[0]).startswith("# -- Home Sale Split"):
+            indices.append(i)
+        elif len(r) >= 1 and str(r[0]).strip() == "Home Sale Split":
+            indices.append(i)
+    insert_at = min(indices) if indices else None
+    new_rows = [r for i, r in enumerate(rows) if i not in set(indices)]
+    if insert_at is None:
+        insert_at = len(new_rows)
+        for i, r in enumerate(new_rows):
+            if len(r) >= 1 and str(r[0]).strip() == "Other Assets":
+                insert_at = i + 1
+    normalized = _home_sale_split_rows(splits)
+    new_rows[insert_at:insert_at] = normalized
+    _write_client_rows(path, new_rows)
+
+
+def _residency_schedule_from_csv_rows(rows: list[list[str]]) -> list[dict]:
+    """Read normalized State Residency Schedule rows (#302)."""
+    def col(row, idx, default=""):
+        return (row[idx] if len(row) > idx else default) or ""
+
+    normalized: dict[str, dict] = {}
+    for row in rows[1:]:
+        sec, sub, label, value = [col(row, i).strip() for i in range(4)]
+        if sec == "State Residency Schedule" and re.match(r"period_\d+", sub):
+            normalized.setdefault(sub, {})[label] = value
+    if not normalized:
+        return []
+    out = []
+    for key in sorted(normalized, key=lambda x: int(re.search(r"\d+", x).group(0)) if re.search(r"\d+", x) else 0):
+        rec = normalized[key]
+        if str(rec.get("state", "")).strip():
+            out.append({
+                "state": rec.get("state", ""),
+                "start_year": rec.get("start_year", ""),
+                "end_year": rec.get("end_year", ""),
+            })
+    return out
+
+
+def _residency_schedule_rows(schedule: list[dict]) -> list[list[str]]:
+    rows = [
+        ["", "", "", "", "", "", "", ""],
+        ["# -- State Residency Schedule: state residency over time -- last row is open-ended --", "", "", "", "", "", "", ""],
+    ]
+    for i, p in enumerate(schedule, 1):
+        state = str(p.get("state") or "").strip()
+        start = str(p.get("start_year") or "").strip()
+        end = str(p.get("end_year") or "").strip()
+        rows.extend([
+            ["State Residency Schedule", f"period_{i}", "state", state, "choice", "Residence state during this period", "", ""],
+            ["State Residency Schedule", f"period_{i}", "start_year", start, "year", "First year this residency period applies", "", ""],
+            ["State Residency Schedule", f"period_{i}", "end_year", end, "year", "Last year this residency period applies; blank on the last row means open-ended", "", ""],
+        ])
+    rows.append(["", "", "", "", "", "", "", ""])
+    return rows
+
+
+def _replace_residency_schedule(schedule: list[dict]) -> None:
+    path = _client_section_path("State Residency Schedule", "client_data.csv")
+    with path.open(newline="", encoding="utf-8-sig") as f:
+        rows = list(csv.reader(f))
+    while rows and not any(str(c).strip() for c in rows[-1]):
+        rows.pop()
+    indices = []
+    for i, r in enumerate(rows):
+        if not r:
+            continue
+        if str(r[0]).startswith("# -- State Residency Schedule"):
+            indices.append(i)
+        elif len(r) >= 1 and str(r[0]).strip() == "State Residency Schedule":
+            indices.append(i)
+    insert_at = min(indices) if indices else None
+    new_rows = [r for i, r in enumerate(rows) if i not in set(indices)]
+    if insert_at is None:
+        insert_at = len(new_rows)
+        for i, r in enumerate(new_rows):
+            if len(r) >= 1 and str(r[0]).strip() == "Household":
+                insert_at = i + 1
+    normalized = _residency_schedule_rows(schedule)
+    new_rows[insert_at:insert_at] = normalized
+    _write_client_rows(path, new_rows)
+
 
 def _sync_config_backends() -> dict:
     # Wave 4.11 (system review 2026-08-04, `csv-roundtrip-on-every-save`)

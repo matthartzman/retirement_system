@@ -739,6 +739,33 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['w_death_yr']= int(c['w_dob_yr'] + c['w_mort_age'])
     c['state']     = _v(data,'Household','','residence_state','')
     require_residence_state_for_build(c['state'])
+    # #302: an optional residency SCHEDULE for households that change state
+    # residency mid-plan (state, start_year, end_year rows; the last row is
+    # open-ended). Purely additive -- when empty, every consumer keeps using
+    # the single c['state'] field above unchanged. Rows live under numbered
+    # 'State Residency Schedule'/'period_N' subsections (see
+    # src/server/app_core.py's _residency_schedule_from_csv_rows /
+    # _replace_residency_schedule, the read/write pair the UI's add/delete-row
+    # editor round-trips through). state_for_year() in deterministic_engine.py
+    # is the resolver every state-tax call site uses instead of the static
+    # field, so this is where "taxes actually change" lives.
+    c['residency_schedule'] = []
+    for _sub, _vals in (data.get('State Residency Schedule') or {}).items():
+        if not str(_sub or '').strip().lower().startswith('period_'):
+            continue
+        _rstate = str(_vals.get('state', '') or '').strip()
+        if not _rstate:
+            continue
+        _rstart = _y(_vals.get('start_year', ''), 0)
+        if not _rstart:
+            continue
+        _rend = _y(_vals.get('end_year', ''), 0)
+        c['residency_schedule'].append({
+            'state': _rstate,
+            'start_year': _rstart,
+            'end_year': _rend if _rend else 9999,
+        })
+    c['residency_schedule'].sort(key=lambda p: p['start_year'])
     c['trust_type']= _v(data,'Estate Planning','Trust Structure','trust_type','revocable living trust')
 
     # Market pricing settings live in multi_user/system_config.csv and are merged by the active config loader.
@@ -1115,6 +1142,24 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # home-sale math and the Sell Home scenario.
     c['home_basis']    = _n(_v(data,'Other Assets','Home','home_basis','0'), 0)
     c['home_sale_acct']= _v(data,'Other Assets','Home','home_sale_proceeds_account','').strip()
+    # #299: house sale proceeds may be split across multiple accounts by
+    # percentage instead of going to a single account. Rows live under
+    # numbered 'Home Sale Split N' subsections (see
+    # src/server/app_core.py's _home_sale_splits_from_csv_rows /
+    # _replace_home_sale_splits, the read/write pair the UI's add/delete-row
+    # editor round-trips through). Empty when unconfigured -- the engine
+    # falls back to the single home_sale_acct field above in that case.
+    c['home_sale_splits'] = []
+    for _sub, _vals in (data.get('Home Sale Split') or {}).items():
+        if not str(_sub or '').strip().lower().startswith('split_'):
+            continue
+        _acct = str(_vals.get('account', '') or '').strip()
+        _pct = _n(_vals.get('percentage', '0'), 0.0)
+        if _pct > 1.0:
+            _pct = _pct / 100.0
+        if not _acct or _pct <= 0:
+            continue
+        c['home_sale_splits'].append({'account': _acct, 'pct': _pct})
 
     # Current-home operating costs are entered in Housing Budget Detail/current
     # home rows.  Future housing steps carry explicit rent/buy operating costs;
@@ -1445,13 +1490,26 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
         c['roth_policy_lock'] = 'USER_SELECTED'
     _roth_bracket_strategy = str(_v(data,'Withdrawal Policy','Roth Conversion',
                                    'roth_bracket_strategy','OPTIMIZER_CHOOSES') or 'OPTIMIZER_CHOOSES').strip().upper()
-    if _roth_bracket_strategy not in ('NONE','FILL_CURRENT_BRACKET','FILL_TARGET_BRACKET','PARTIAL_TARGET_BRACKET','IRMAA_GUARDED','SURVIVOR_TAX_AWARE','RMD_REDUCTION','LEGACY_TARGETED','OPTIMIZER_CHOOSES','FIXED_DOLLAR'):
+    if _roth_bracket_strategy not in ('NONE','FILL_CURRENT_BRACKET','FILL_TARGET_BRACKET','PARTIAL_TARGET_BRACKET','IRMAA_GUARDED','SURVIVOR_TAX_AWARE','RMD_REDUCTION','LEGACY_TARGETED','OPTIMIZER_CHOOSES','FIXED_DOLLAR','PHASE_VARYING'):
         _roth_bracket_strategy = 'OPTIMIZER_CHOOSES'
     if is_explicit_user_roth_policy(c['roth_policy']) and _roth_bracket_strategy == 'OPTIMIZER_CHOOSES':
         _roth_bracket_strategy = strategy_for_roth_policy(c['roth_policy'], _roth_bracket_strategy)
     c['roth_bracket_strategy'] = _roth_bracket_strategy
     c['roth_target_rate'] = percent_to_float(_v(data,'Withdrawal Policy','Roth Conversion',
                                    'roth_target_bracket_rate','0.22'), 0.22)
+    c['roth_phase_rate_1'] = percent_to_float(_v(data,'Withdrawal Policy','Roth Conversion',
+                                   'roth_phase_first_bracket_rate','24.00%'), 0.24)
+    c['roth_phase_rate_2'] = percent_to_float(_v(data,'Withdrawal Policy','Roth Conversion',
+                                   'roth_phase_second_bracket_rate','22.00%'), 0.22)
+    c['roth_phase_rate_3'] = percent_to_float(_v(data,'Withdrawal Policy','Roth Conversion',
+                                   'roth_phase_third_bracket_rate','12.00%'), 0.12)
+    try:
+        c['roth_phase_count'] = int(_n(_v(data,'Withdrawal Policy','Roth Conversion',
+                                   'roth_phase_count','3'), 3))
+    except Exception:
+        c['roth_phase_count'] = 3
+    if c['roth_phase_count'] not in (2, 3):
+        c['roth_phase_count'] = 3
     _roth_irmaa_target_tier = str(_v(data,'Withdrawal Policy','Roth Conversion',
                                    'roth_irmaa_target_tier','TIER_2') or 'TIER_2').strip().upper().replace(' ', '_')
     if _roth_irmaa_target_tier not in ('TIER_1','TIER_2','TIER_3','TIER_4','TIER_5'):
@@ -1542,13 +1600,18 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # Label itself was already state-generic (state_estate_exemption); only the
     # subsection baked in the state name.
     c['il_exempt']   = _n(_v(data,'Estate Planning','State','state_estate_exemption','4000000'), 4000000)
-    # #227: a funded Credit Shelter Trust shelters decedent assets from the
+    # #227/#303: a funded Credit Shelter Trust shelters decedent assets from the
     # survivor's estate entirely (see cs_enabled/cs_amount below) rather than
     # doubling il_exempt directly -- il_exempt itself must stay the survivor's
     # own plain exemption or the trust benefit gets double-counted. This cap
-    # governs how much can be moved into the trust at first death and should
-    # be reviewed alongside il_exempt (see https://creativeplanning.com/insights/taxes/state-estate-inheritance-taxes/).
-    c['il_cst_shelter_cap'] = _n(_v(data,'Estate Planning','Credit Shelter Trust','shelter_cap','8000000'), 8000000)
+    # governs how much of the FIRST decedent's own exemption can be carried
+    # into the trust at first death, so it defaults to the same $4,000,000 as
+    # il_exempt: decedent's $4M (CST-sheltered) + survivor's own separate $4M
+    # (il_exempt) = the $8,000,000 combined household IL exemption Illinois'
+    # lack of portability otherwise loses at the first death. A default of
+    # $8,000,000 here would let the trust shelter the survivor's own exemption
+    # a second time, understating combined household exposure by up to $4M.
+    c['il_cst_shelter_cap'] = _n(_v(data,'Estate Planning','Credit Shelter Trust','shelter_cap','4000000'), 4000000)
     c['cst_enabled'] = _b(_v(data,'Estate Planning','Credit Shelter Trust','enabled','FALSE'))
     c['basis_step_up_at_death'] = _b(_v(data,'Estate Planning','Step-Up','basis_step_up_at_death','TRUE'))
     c['basis_step_up_property_regime'] = str(_v(data,'Estate Planning','Step-Up','property_regime','COMMON_LAW') or 'COMMON_LAW').strip().upper()
@@ -1573,7 +1636,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['cs_amount']         = _n(_v(data,'Estate Planning','Credit Shelter Trust','amount',
                                   str(c['il_cst_shelter_cap'])), c['il_cst_shelter_cap'])
     c['cs_note']           = _v(data,'Estate Planning','Credit Shelter Trust','note',
-                                 'Funds up to the CST shelter cap; bypasses survivor estate for IL tax, on top of the survivor\'s own separate IL exemption')
+                                 'Funds up to the CST shelter cap (decedent\'s own $4M IL exemption by default); bypasses survivor estate for IL tax, on top of the survivor\'s own separate $4M IL exemption -- $8M combined by default')
     # QTIP manages annuity income after first death (annuity held in QTIP for benefit of survivor)
     c['qtip_manages_annuity'] = _b(_v(data,'Estate Planning','QTIP Trust','manages_annuity_after_first_death','TRUE'))
     # Desired minimum after-tax terminal bequest; 0/unset means no target is configured.
@@ -1658,6 +1721,44 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['wife_joint']     = load_stream('Member 2 Joint Annuity',    annuitant='wife')
     c['h_single']       = load_stream('Member 1 Single Annuity',   annuitant='husband')
     c['h_joint']        = load_stream('Member 1 Joint Annuity',    annuitant='husband')
+
+    # #295: QLAC (Qualified Longevity Annuity Contract) -- a deferred-income
+    # annuity bought with pre-tax retirement dollars. Reuses load_stream()'s
+    # payment machinery (base=0/div_rate=0/add_pct=0 collapses it to a pure
+    # guaranteed payment starting at first_yr -- see annuity_cash_income() in
+    # core.py) plus QLAC-specific fields load_stream doesn't have: the
+    # purchase premium (what src/core.py's qlac_excluded_rmd_balance()
+    # subtracts from the RMD base) and the source account it was purchased
+    # from. Two fixed slots (one per member), matching the existing
+    # single/joint annuity and pension slot pattern above rather than the
+    # "Other Asset N" numbered-row pattern -- SECURE 2.0 permits only one
+    # QLAC-eligible aggregate premium limit per person, not a list.
+    def load_qlac(name, annuitant='wife'):
+        s = load_stream(name, annuitant=annuitant)
+        s['base'] = 0.0
+        s['div_rate'] = 0.0
+        s['add_pct'] = 0.0
+        # CSV labels prefixed qlac_ where they'd otherwise collide with an
+        # existing generic field-help entry keyed by label alone (frontend
+        # FIELD_GUIDANCE_OVERRIDES has no section/subsection disambiguation)
+        # -- "enabled" already means the ACA subsidy toggle and
+        # "source_account" already means a Roth conversion's source account;
+        # showing that text on a QLAC row would be actively misleading.
+        s['enabled'] = _b(_v(data,'Income Streams',name,'qlac_enabled','FALSE'))
+        s['premium'] = _n(_v(data,'Income Streams',name,'premium','0'), 0)
+        s['source_account'] = str(_v(data,'Income Streams',name,'qlac_source_account','') or '').strip()
+        # Year the premium is actually paid out of source_account -- distinct
+        # from first_yr (income START year, i.e. first_payment above), since
+        # the whole point of a QLAC is deferring income years past purchase.
+        s['purchase_year'] = _y(_v(data,'Income Streams',name,'purchase_year', str(c['plan_start'])), c['plan_start'])
+        # Return-of-premium death benefit: % of unpaid premium returned to
+        # beneficiaries if the annuitant dies before recovering the full
+        # premium in payments. 0 = no death benefit (higher payout rate).
+        s['death_benefit_pct'] = max(0.0, min(1.0, _n(_v(data,'Income Streams',name,'death_benefit_pct','0'), 0)))
+        return s
+
+    c['h_qlac']    = load_qlac('Member 1 QLAC', annuitant='husband')
+    c['wife_qlac'] = load_qlac('Member 2 QLAC', annuitant='wife')
     _js_raw = _v(data,'Income Streams','Joint-and-Survivor Percentage','js_pct','100')
     c['js_pct'] = _n(_js_raw, 100)
     # If the source string contained '%', _n already converted to fraction (e.g. "100%" → 1.0).
@@ -2819,6 +2920,13 @@ def build_plan_from_json(plan, url_template=''):
         c['wife_pension']['init_pmt'] = inc['pension_monthly']
     for key in ['wife_single', 'wife_joint', 'h_single', 'h_joint']:
         c[key] = _empty_stream()
+    # #295: QLAC defaults (disabled/no premium) for the JSON/wizard config
+    # path -- see parse_client's load_qlac() for the CSV path's equivalent.
+    for key, owner_dob in (('h_qlac', c['h_dob_yr']), ('wife_qlac', c['w_dob_yr'])):
+        c[key] = _empty_stream()
+        c[key]['annuitant_dob_yr'] = owner_dob
+        c[key].update({'enabled': False, 'premium': 0.0, 'source_account': '',
+                        'purchase_year': c['plan_start'], 'death_benefit_pct': 0.0})
     c['ann_recovery_age'] = 86
     c['ann_db'] = {}
     c['annuity_calib'] = _td.DEFAULT_ANNUITY_CALIB

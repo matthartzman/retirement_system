@@ -659,6 +659,14 @@ export function currentKpi(summary) {
     ),
     total_roth_conversions: deriveTotalRothConversions(summary),
     blended_return_info: firstFinite(summary.blended_return_info),
+    // #293: the 3 Impact-page dial metrics, plus EFTR (Effective Future Tax
+    // Rate) as a 4th supplemental stat -- already computed by
+    // compute_future_lcv_and_eftr (its "from today, no upper bound" row set
+    // already covers the current year through plan end).
+    lcv: firstFinite(summary.lcv),
+    npv_future_taxes: firstFinite(summary.npv_future_taxes),
+    terminal_nw_mc_p5: firstFinite(summary.terminal_nw_mc_p5),
+    eftr: firstFinite(summary.eftr),
   };
 }
 
@@ -669,6 +677,18 @@ export function loadBuildHistory() {
   } catch (_e) {
     buildHistory = [];
   }
+  // #309: entries saved before #293 have no `kpi.lcv` -- they were built
+  // from Terminal Net Worth / Lifetime Tax / MC Success, fields the history
+  // dials and suggestions panel no longer read at all. There is nothing to
+  // migrate those old entries to (LCV/NPV of Future Taxes/Worst-Case Ending
+  // Wealth/EFTR require re-running the build, which this load path must not
+  // do), so drop them rather than render dials with missing/undefined
+  // values for every pre-#293 entry.
+  const before = buildHistory.length;
+  buildHistory = buildHistory.filter(
+    (e) => e && e.kpi && Number.isFinite(Number(e.kpi.lcv)),
+  );
+  if (buildHistory.length !== before) saveBuildHistory();
 }
 
 export function pushBuildHistoryEntry(entry) {
@@ -1043,26 +1063,45 @@ export function renderBuildImpactPage() {
   if (unsaved && buildHistory.length > 0)
     promptBar =
       '<div class="section-note warning build-snapshot-prompt"><b>You have unsaved changes.</b> Take a snapshot now to preserve the current state before rebuilding. <button class="btn" type="button" data-requires-app="1" onclick="takeBuildSnapshot()">Take Snapshot</button></div>';
+  // #301: Build and Download are buttons on the primary Impact page, not
+  // separate tabs -- renderReportsBuild()/renderReview() are the same
+  // status+action blocks the old standalone Build/Downloads tabs used.
+  const buildAndDownload = renderReportsBuild() + renderReview();
   const headerActions =
-    '<div class="pane-actions"><button class="btn" type="button" data-requires-app="1" onclick="takeBuildSnapshot()">Take Snapshot</button> <button class="btn danger" type="button" data-requires-app="1" onclick="revertLastBuildChanges()">Revert User Changes</button> <button class="btn" data-requires-app="1" data-download="1" onclick="downloadWithBuild(\'/api/xlsx\',\'Workbook\')">Download Workbook</button> <button class="btn" data-requires-app="1" data-download="1" onclick="downloadWithBuild(\'/api/pdf\',\'PDF\')">Download PDF</button> <button class="btn primary" type="button" data-step-id="review">Back to Download Reports</button></div>';
+    '<div class="pane-actions"><button class="btn" type="button" data-requires-app="1" onclick="takeBuildSnapshot()">Take Snapshot</button> <button class="btn danger" type="button" data-requires-app="1" onclick="revertLastBuildChanges()">Revert User Changes</button></div>';
+  const planDataReviewSection =
+    '<details class="plan-data-review-collapsible"><summary class="section-header">Plan Data Review</summary>' +
+    renderPlanDataReport() +
+    "</details>";
   if (!buildHistory.length)
     return (
       '<div class="build-impact"><div class="impact-panel">' +
       promptBar +
-      "<h3>No build history yet</h3><p>Download your workbook or PDF from the Download Reports step to see before/after impact here, or take a snapshot to record the current state.</p>" +
+      buildAndDownload +
+      "<h3>No build history yet</h3><p>Build or download your workbook above to see before/after impact here, or take a snapshot to record the current state.</p>" +
       headerActions +
-      "</div></div>"
+      "</div>" +
+      planDataReviewSection +
+      "</div>"
     );
+  // #293/#309: four dials read LCV / NPV of Future Taxes / 5th-percentile
+  // worst-case ending wealth / EFTR -- the same four headline KPIs as the
+  // Build Impact cards -- instead of the retired Terminal Net Worth /
+  // Lifetime Tax / Monte Carlo pass-fail probability trio.
   const allNw = buildHistory
-    .map((e) => e.kpi && e.kpi.inheritable_nw)
+    .map((e) => e.kpi && e.kpi.lcv)
     .filter((v) => v !== null && v !== undefined && Number.isFinite(Number(v)))
     .map(Number);
   const allTax = buildHistory
-    .map((e) => e.kpi && e.kpi.lifetime_tax)
+    .map((e) => e.kpi && e.kpi.npv_future_taxes)
     .filter((v) => v !== null && v !== undefined && Number.isFinite(Number(v)))
     .map(Number);
   const allMc = buildHistory
-    .map((e) => e.kpi && e.kpi.mc_success)
+    .map((e) => e.kpi && e.kpi.terminal_nw_mc_p5)
+    .filter((v) => v !== null && v !== undefined && Number.isFinite(Number(v)))
+    .map(Number);
+  const allEftr = buildHistory
+    .map((e) => e.kpi && e.kpi.eftr)
     .filter((v) => v !== null && v !== undefined && Number.isFinite(Number(v)))
     .map(Number);
   function heatRange(vals, higher) {
@@ -1084,6 +1123,7 @@ export function renderBuildImpactPage() {
     nwHeat: heatRange(allNw, true),
     taxHeat: heatRange(allTax, false),
     mcHeat: heatRange(allMc, true),
+    eftrHeat: heatRange(allEftr, false),
   };
   let historyHtml = "";
   buildHistory.forEach(function (entry, idx) {
@@ -1094,14 +1134,17 @@ export function renderBuildImpactPage() {
   return (
     '<div class="build-impact"><div class="impact-panel">' +
     promptBar +
-    '<h3>Impact & Build History</h3><p class="small">Up to ' +
-    BUILD_HISTORY_MAX +
-    " builds and snapshots. Dials are heat-mapped: green = best across all entries, red = worst. Post-Tax Inheritance (PTI) is projected net worth minus the embedded taxes heirs would owe on pre-tax accounts and unrealized gains.</p>" +
+    buildAndDownload +
+    "<h3>Impact</h3><p class=\"small\">Dials are heat-mapped: green = best across all entries, red = worst. LCV (Expected After-Tax Lifetime Consumption-and-Transfer Value) is total lifetime spending plus the after-tax, after-estate-tax terminal transfer to heirs.</p>" +
     headerActions +
     latestImpact +
-    '<div class="build-history-list">' +
+    '<details class="build-history-collapsible"><summary class="section-header">Build History (up to ' +
+    BUILD_HISTORY_MAX +
+    ' builds and snapshots)</summary><div class="build-history-list">' +
     historyHtml +
-    "</div></div></div>"
+    "</div></details></div>" +
+    planDataReviewSection +
+    "</div>"
   );
 }
 
@@ -1948,7 +1991,7 @@ export function updatePlanStateBanner() {
       cls += " warn";
       title = "No current report package";
       detail =
-        "Build reports to create the workbook, PDF, dashboard, and Results Explorer model.";
+        "Build reports to create the workbook, dashboard, and Results Explorer model.";
       action = `<button class="btn primary" type="button" data-requires-app="1" onclick="runBuild(false)">Build Reports</button>`;
     } else if (!planStateFresh()) {
       cls += " warn";
@@ -3907,6 +3950,15 @@ export function editValue(idx, val, el) {
       if (box) box.outerHTML = optimizerOverrideTotalHtml();
     }
   }
+  if (row && row.section === "Housing" && dirty.has(idx)) {
+    const adjusted = reestimateHousingCostsOnValueChange(row, original, stored);
+    if (adjusted) {
+      renderMain();
+      showMessage(
+        `Re-estimated ${adjusted} housing cost field${adjusted === 1 ? "" : "s"} (utilities/maintenance/insurance) for the updated ${norm(row.label) === "purchase_price" ? "home value" : "rent"}. Review and adjust as needed.`,
+      );
+    }
+  }
   updateUnsaved();
   if (window.RetirementAppStore)
     window.RetirementAppStore.markDirty(unsavedChangeCount());
@@ -4250,8 +4302,11 @@ export async function api(path, opts = {}) {
     } catch {
       data = text;
     }
-    if (!res.ok)
-      throw new Error((data && data.error) || text || res.statusText);
+    if (!res.ok) {
+      const err = new Error((data && data.error) || text || res.statusText);
+      if (data && Array.isArray(data.errors)) err.errors = data.errors;
+      throw err;
+    }
     return data;
   } catch (e) {
     if (e && e.name === "AbortError")
@@ -4300,6 +4355,8 @@ export async function loadAll(opts = {}) {
     await loadBudgetLines(false);
     await loadLiquidityBuffers();
     await loadForcedConversions();
+    await loadHomeSaleSplits();
+    await loadResidencySchedule();
     await loadEstateStateOptions();
     await loadYtdStatus(true);
     const h = await fetch(apiUrl("/api/holdings"));
@@ -4388,6 +4445,8 @@ export function hasUnsavedPlanChanges() {
     travelExtrasChanged ||
     liquidityChanged ||
     forcedConversionsChanged ||
+    homeSaleSplitsChanged ||
+    residencyScheduleChanged ||
     ytdTransactionsChanged ||
     ytdAccountsChanged ||
     rulesChanged ||
@@ -4402,10 +4461,55 @@ export async function saveWorkingCopy() {
     return false;
   }
   if (!validateAllocationTargetsOrMessage()) return false;
+  if (
+    homeSaleSplits.length &&
+    Math.abs(homeSaleSplitPctTotal() - 100) >= 0.01
+  ) {
+    activeStep = "spending_mortgage_events";
+    renderMain();
+    showMessage(
+      `Home sale split percentages must total 100% before saving (currently ${homeSaleSplitPctTotal().toFixed(1)}%).`,
+      "error",
+    );
+    return false;
+  }
+  for (let i = 0; i < residencySchedule.length; i++) {
+    const p = residencySchedule[i];
+    const isLast = i === residencySchedule.length - 1;
+    if (!p.state || !p.start_year) {
+      activeStep = "state_residency";
+      renderMain();
+      showMessage(
+        `Residency row ${i + 1} needs a state and a start year before saving.`,
+        "error",
+      );
+      return false;
+    }
+    if (isLast && p.end_year) {
+      activeStep = "state_residency";
+      renderMain();
+      showMessage(
+        "The last residency row must be open-ended — clear its end year before saving.",
+        "error",
+      );
+      return false;
+    }
+    if (!isLast && !p.end_year) {
+      activeStep = "state_residency";
+      renderMain();
+      showMessage(
+        `Residency row ${i + 1} needs an end year — only the last row may be open-ended.`,
+        "error",
+      );
+      return false;
+    }
+  }
   await saveChanges(false);
   await saveTravelExtras(false);
   await saveLiquidityBuffers(false);
   await saveForcedConversions(false);
+  await saveHomeSaleSplits(false);
+  await saveResidencySchedule(false);
   await saveYtdPending();
   if (rulesChanged) await saveMappingRulesData();
   if (taxBudgetChanged) await saveTaxonomyBudgetData();
@@ -4543,7 +4647,7 @@ export async function runBuild(queue = false, opts = {}) {
     showMessage("Building outputs...");
     updateBuildOverlay(
       "Starting build",
-      "Launching generated workbook, PDF, and report outputs from the saved database snapshot.",
+      "Launching generated workbook and report outputs from the saved database snapshot.",
       0,
     );
     const out = await buildWithProgress(buildBody);

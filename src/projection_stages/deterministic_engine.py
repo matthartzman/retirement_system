@@ -55,6 +55,8 @@ from .. import gain_harvest as _gh
 from .. import tax_kernel as _tk
 from ..equity_comp import equity_comp_year_events as _equity_comp_year_events
 from ..core import amt_tax as _amt_tax
+from ..core import state_for_year
+from ..core import qlac_premium_limit
 
 # withdrawal_engine/conversion_engine/inheritance_engine/growth_engine were
 # consolidated into planning_engines.py itself; call sites below use
@@ -76,7 +78,7 @@ def run_deterministic_projection_stage(c):
 
     # Clear any cached annuity payment state (prevents stale data when
     # scenarios deep-copy c with a populated cache from the base run).
-    for _sk in ['wife_pension','wife_single','wife_joint','h_single','h_joint']:
+    for _sk in ['wife_pension','wife_single','wife_joint','h_single','h_joint','h_qlac','wife_qlac']:
         if _sk in c and isinstance(c[_sk], dict):
             c[_sk].pop('_pmt_cache', None)
 
@@ -434,7 +436,7 @@ def run_deterministic_projection_stage(c):
         new_taxable_inc = taxable_inc_base + ira_wd_cumulative
         new_fed_tax = _compute_fed_tax_path(new_taxable_inc, year, filing, c['brk_inf'])
         new_state_tax = state_income_tax(
-            c['state'], earned_net, retirement_dist_base + ira_wd_cumulative, ss_taxable,
+            state_for_year(c, year), earned_net, retirement_dist_base + ira_wd_cumulative, ss_taxable,
             investment_inc, nonqual_ann, roth_conv, year, h_over_65, filing=filing,
             brk_inf=c['brk_inf'],
         )
@@ -697,6 +699,30 @@ def run_deterministic_projection_stage(c):
                         _divorce_split_total += _taken
                 row['divorce_split_amount'] = _divorce_split_total
 
+        # ── QLAC purchase (#295) ──────────────────────────────────────────
+        # A one-time withdrawal of the premium from the configured pre-tax
+        # source account in the purchase year -- the dollars leave the IRA
+        # balance sheet the same way any other qualified-plan distribution
+        # would, becoming instead the deferred-income contract modeled via
+        # annuity_cash_income() (folded into h_single_ann/wife_single_ann
+        # above). Not a taxable distribution: a QLAC purchase inside a
+        # traditional IRA/401k is a same-character exchange (still pre-tax
+        # money, still taxed as ordinary income when the contract eventually
+        # pays out), not a withdrawal from the tax-deferred wrapper.
+        row['qlac_purchase_yr'] = 0.0
+        for _qlac_stream, _qlac_alive in ((c['h_qlac'], h_alive), (c['wife_qlac'], w_alive)):
+            if (_qlac_alive and _qlac_stream.get('enabled') and
+                    int(_qlac_stream.get('purchase_year', 0) or 0) == year):
+                _qlac_acct = _qlac_stream.get('source_account', '')
+                if _qlac_acct in bal and _qlac_acct in c.get('pre_tax_ids', []):
+                    _qlac_cap = qlac_premium_limit(year, c.get('brk_inf', 0.02))
+                    _qlac_amt = min(float(_qlac_stream.get('premium', 0.0) or 0.0), _qlac_cap,
+                                     float(bal.get(_qlac_acct, 0.0) or 0.0))
+                    if _qlac_amt > 0:
+                        bal[_qlac_acct] = float(bal.get(_qlac_acct, 0.0) or 0.0) - _qlac_amt
+                        _add_account_flow(row['_account_withdrawals'], _qlac_acct, _qlac_amt)
+                        row['qlac_purchase_yr'] += _qlac_amt
+
         # ── Home value appreciation & planned sale ───────────────────────────
         home_sold = home_val <= 0   # already sold in a prior year
         # Mortgage balance — computed once here, used in both sale and non-sale branches
@@ -750,16 +776,42 @@ def run_deterministic_projection_stage(c):
                 net_proceeds = max(0.0, net_proceeds - heloc_payoff_yr)
                 bal['_heloc_balance'] = max(0.0, _heloc_bal_at_sale - heloc_payoff_yr)
                 row['heloc_payoff'] = heloc_payoff_yr
-            acct = c.get('home_sale_acct') or _aa.first_taxable(c)
-            if acct not in bal:
-                acct = _aa.first_taxable(c)
-            _aa.deposit(bal, acct, net_proceeds)
-            _add_account_flow(row['_account_deposits'], acct, net_proceeds)
-            _tag_deposit_source(row, acct, 'Home Sale Proceeds', net_proceeds)
-            # These dollars already had their gain taxed → stepped-up basis.
-            # Track as basis-free so future trust draws don't tax them again.
-            if acct in bal_basis_free:
-                bal_basis_free[acct] += net_proceeds
+            # #299: proceeds may be split across multiple accounts by
+            # percentage (home_sale_splits) instead of one designated
+            # account. Drop any split naming an account that doesn't exist
+            # in this plan's balances and renormalize the remaining
+            # percentages to 1.0, so the full net_proceeds is always
+            # deposited somewhere even if a configured account was removed
+            # after the split was set up.
+            _configured_splits = [
+                s for s in (c.get('home_sale_splits') or [])
+                if str(s.get('account', '')) in bal and float(s.get('pct', 0) or 0) > 0
+            ]
+            _split_pct_total = sum(float(s.get('pct', 0) or 0) for s in _configured_splits)
+            if _configured_splits and _split_pct_total > 0:
+                deposits = [
+                    (str(s['account']), net_proceeds * (float(s['pct']) / _split_pct_total))
+                    for s in _configured_splits
+                ]
+                acct = deposits[0][0]
+            else:
+                acct = c.get('home_sale_acct') or _aa.first_taxable(c)
+                if acct not in bal:
+                    acct = _aa.first_taxable(c)
+                deposits = [(acct, net_proceeds)]
+            for _dep_acct, _dep_amt in deposits:
+                if _dep_amt <= 0:
+                    continue
+                _aa.deposit(bal, _dep_acct, _dep_amt)
+                _add_account_flow(row['_account_deposits'], _dep_acct, _dep_amt)
+                _tag_deposit_source(row, _dep_acct, 'Home Sale Proceeds', _dep_amt)
+                # These dollars already had their gain taxed → stepped-up basis.
+                # Track as basis-free so future trust draws don't tax them again.
+                if _dep_acct in bal_basis_free:
+                    bal_basis_free[_dep_acct] += _dep_amt
+            row['home_sale_splits_applied'] = [
+                {'account': a, 'amount': amt} for a, amt in deposits if amt > 0
+            ] if len(deposits) > 1 else []
             # 8. Zero out home value — no longer owned
             home_val = 0.0
             home_equity = 0.0
@@ -1079,12 +1131,24 @@ def run_deterministic_projection_stage(c):
 
         # Annuity income (death-governed)
         pension = annuity_cash_income(c['wife_pension'], year) if w_alive else 0
-        wife_single_ann = annuity_cash_income(c['wife_single'], year) if w_alive else 0
+        # #295: a QLAC is a deferred single-life annuity purchased with
+        # qualified (pre-tax) dollars -- same shape and tax treatment
+        # (100% taxable, no cash/dividend component) as this household's
+        # existing Single Annuity slot, so its income is folded directly
+        # into wife_single_ann/h_single_ann: every downstream consumer of
+        # that value (AGI, ACA premium credit, federal/state tax, terminal
+        # net worth's annuity PV) already treats it as "this person's fully
+        # taxable single-life annuity income for the year" and needs no
+        # separate wiring. wife_qlac_ann/h_qlac_ann are still tracked
+        # separately on the row for reporting visibility.
+        wife_qlac_ann = annuity_cash_income(c['wife_qlac'], year) if (w_alive and c['wife_qlac'].get('enabled')) else 0
+        h_qlac_ann = annuity_cash_income(c['h_qlac'], year) if (h_alive and c['h_qlac'].get('enabled')) else 0
+        wife_single_ann = (annuity_cash_income(c['wife_single'], year) if w_alive else 0) + wife_qlac_ann
         wife_joint_ann  = (annuity_cash_income(c['wife_joint'], year)
                           if (w_alive or h_alive) else 0)
         if not w_alive and h_alive:
             wife_joint_ann *= c['js_pct']
-        h_single_ann    = annuity_cash_income(c['h_single'], year) if h_alive else 0
+        h_single_ann    = (annuity_cash_income(c['h_single'], year) if h_alive else 0) + h_qlac_ann
         h_joint_ann     = (annuity_cash_income(c['h_joint'], year)
                           if (h_alive or w_alive) else 0)
         if not h_alive and w_alive:
@@ -1094,7 +1158,9 @@ def run_deterministic_projection_stage(c):
                     'wife_single_ann': wife_single_ann,
                     'wife_joint_ann': wife_joint_ann,
                     'h_single_ann': h_single_ann,
-                    'h_joint_ann': h_joint_ann})
+                    'h_joint_ann': h_joint_ann,
+                    'wife_qlac_ann': wife_qlac_ann,
+                    'h_qlac_ann': h_qlac_ann})
 
         # Note income
         row['note_princ'] = note_princ_yr
@@ -1596,7 +1662,7 @@ def run_deterministic_projection_stage(c):
                                    for k in ['wife_single','h_single']
                                    if not c[k].get('qualified', True))
             return state_income_tax(
-                c['state'], max(0, net_earned_taxable - half_se_ded - sehi_ded),
+                state_for_year(c, _tax_year), max(0, net_earned_taxable - half_se_ded - sehi_ded),
                 rmd_taxable_total + _qual_ann_est, _ss_taxable_est, note_int_yr + portfolio_ordinary + portfolio_qualified,
                 _nonqual_ann_est, 0.0, _tax_year, h_age >= 65 or w_age >= 65, filing=filing,
                 brk_inf=c['brk_inf'],
@@ -1841,7 +1907,7 @@ def run_deterministic_projection_stage(c):
         # unrecognized/blank state (require_residence_state_for_build, Class
         # 1); this fallback exists only for lower-level/defensive callers this
         # repo deliberately keeps lenient, out of scope for this ticket.
-        _state_rules = STATE_TAX_RULES.get(c['state'], STATE_TAX_RULES['Illinois'])
+        _state_rules = STATE_TAX_RULES.get(state_for_year(c, year), STATE_TAX_RULES['Illinois'])
         il_tax_est = agi * _state_rules.get('rate', 0.0495)
         configured_prop_tax_yr = float(row.get('real_estate_tax_yr', 0.0) or 0.0)
         estimated_prop_tax_yr = (home_val * _state_rules.get('prop_rate', 0.0)) if home_val > 0 else 0.0
@@ -1961,7 +2027,7 @@ def run_deterministic_projection_stage(c):
         retirement_dist = rmd_taxable_total + qual_ann  # pension already included in qual_ann if qualified
         earned_net = max(0, net_earned_taxable - half_se_ded - sehi_ded)
         h_over_65 = h_age >= 65 or w_age >= 65
-        state_tax = state_income_tax(c['state'], earned_net, retirement_dist,
+        state_tax = state_income_tax(state_for_year(c, year), earned_net, retirement_dist,
                                      ss_taxable, note_int_yr + portfolio_ordinary + portfolio_qualified, nonqual_ann,
                                      roth_conv, year, h_over_65, filing=filing, brk_inf=c['brk_inf'])
 
@@ -2921,7 +2987,7 @@ def run_deterministic_projection_stage(c):
             _taxable = max(0.0, _agi - ded)
             _fed = _compute_fed_tax_path(_taxable, year, filing, c['brk_inf'])
             _state = state_income_tax(
-                c['state'], earned_net, retirement_dist + ira_wd + extra_ordinary, _ss_tax,
+                state_for_year(c, year), earned_net, retirement_dist + ira_wd + extra_ordinary, _ss_tax,
                 note_int_yr + portfolio_ordinary + portfolio_qualified, nonqual_ann, roth_conv,
                 year, h_over_65, filing=filing, brk_inf=c['brk_inf'])
             _niit_v = niit_tax(row.get('nii', 0.0) or 0.0, _agi, filing)
@@ -3083,9 +3149,16 @@ def run_deterministic_projection_stage(c):
         second_death = max(c['h_death_yr'], c['w_death_yr'])
         db = c['ann_db'].get(year, {})
 
-        # Single-life: value through that annuitant's death
-        w_single_val = ann_pv_to_death(c['wife_single'], c['w_death_yr']) if w_alive else 0
-        h_single_val = ann_pv_to_death(c['h_single'], c['h_death_yr']) if h_alive else 0
+        # Single-life: value through that annuitant's death. #295: QLAC
+        # income was folded into wife_single_ann/h_single_ann above, so its
+        # remaining PV is folded into this same terminal-value bucket too --
+        # a QLAC's own return-of-premium death benefit (if any) is not yet
+        # modeled here (only the guaranteed-payment PV), matching how a
+        # non-annuitized QLAC balance is otherwise absent from net worth.
+        w_single_val = (ann_pv_to_death(c['wife_single'], c['w_death_yr']) +
+                        (ann_pv_to_death(c['wife_qlac'], c['w_death_yr']) if c['wife_qlac'].get('enabled') else 0)) if w_alive else 0
+        h_single_val = (ann_pv_to_death(c['h_single'], c['h_death_yr']) +
+                        (ann_pv_to_death(c['h_qlac'], c['h_death_yr']) if c['h_qlac'].get('enabled') else 0)) if h_alive else 0
         # Joint-life: value through second death
         w_joint_val  = ann_pv_to_death(c['wife_joint'], second_death) if (w_alive or h_alive)  else 0
         h_joint_val  = ann_pv_to_death(c['h_joint'], second_death) if (h_alive or w_alive) else 0

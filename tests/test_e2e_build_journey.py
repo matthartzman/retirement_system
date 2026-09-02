@@ -272,7 +272,3 @@ def test_detailed_results_read_routes_against_the_canonical_built_workbook(monke
         assert page.get("name") == name, (name, payload)
         checked += 1
     assert checked >= 4, f"expected to check several real sheets, only found {checked} in {sheet_names}"
-
-    pdf = client.get("/api/pdf", headers=HEADERS)
-    assert pdf.status_code == 200
-    assert len(pdf.get_data()) > 1000, "downloaded PDF suspiciously small"

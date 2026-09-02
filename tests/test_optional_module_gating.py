@@ -64,8 +64,7 @@ def gated_build(tmp_path_factory):
 def test_build_succeeds_with_modules_off(gated_build):
     out_dir, _ = gated_build
     assert (out_dir / "retirement_plan.xlsx").exists()
-    # Nothing breaks: the PDF and in-app dashboard are still produced.
-    assert (out_dir / "retirement_plan.pdf").exists()
+    # Nothing breaks: the in-app dashboard is still produced.
     assert (out_dir / "retirement_dashboard.html").exists()
 
 

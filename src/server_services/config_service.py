@@ -224,6 +224,25 @@ class ConfigService:
             self._audit("daf_recommendation_failed", {"error": str(exc)})
             return {"success": False, "error": str(exc)}, 500
 
+    def qlac_recommendation_payload(self, body: dict[str, Any]) -> tuple[JsonDict, int]:
+        """#295: recommend a QLAC premium for one household member, maximizing
+        within min(the statutory aggregate dollar cap, that person's available
+        pre-tax balance). Read-only -- never writes the plan; the UI applies
+        the number itself."""
+        from ..qlac_optimizer import recommend_qlac_premium
+        from ..report_compute import prepare_config_from_sectioned_data
+        try:
+            data = self.context.load_active_config()[0]
+            cfg = prepare_config_from_sectioned_data(data, "", optimize_roth=False)
+            year = body.get("year")
+            owner_idx = int(body.get("owner_idx", 0) or 0)
+            out = recommend_qlac_premium(cfg, owner_idx, year=int(year) if year else None)
+            out["success"] = True
+            return out, 200
+        except Exception as exc:
+            self._audit("qlac_recommendation_failed", {"error": str(exc)})
+            return {"success": False, "error": str(exc)}, 500
+
     def _validate_all_workspace_plan_rows(self, file_rows: dict[str, list[list[str]]]) -> list[str]:
         combined: list[dict[str, str]] = []
         names = [n for n in self.context.plan_data_csv_files if n != "client_holdings.csv"]

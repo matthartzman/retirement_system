@@ -19,6 +19,7 @@ try:
         _ensure_header,
         _ensure_user_ui_plan_data_rows,
         _forced_roth_conversions_from_csv_rows,
+        _home_sale_splits_from_csv_rows,
         _large_discretionary_expenses_from_plan_data,
         _liquidity_buffers_from_csv_rows,
         _normalize_date_for_csv,
@@ -31,8 +32,11 @@ try:
         _read_schema_map,
         _reference_file_path,
         _replace_forced_roth_conversions,
+        _replace_home_sale_splits,
         _replace_large_discretionary_expenses,
         _replace_liquidity_buffers,
+        _replace_residency_schedule,
+        _residency_schedule_from_csv_rows,
         _request_system_config_csv,
         _require,
         _runtime_config,
@@ -75,6 +79,7 @@ except ImportError:
         _ensure_header,
         _ensure_user_ui_plan_data_rows,
         _forced_roth_conversions_from_csv_rows,
+        _home_sale_splits_from_csv_rows,
         _large_discretionary_expenses_from_plan_data,
         _liquidity_buffers_from_csv_rows,
         _normalize_date_for_csv,
@@ -87,8 +92,11 @@ except ImportError:
         _read_schema_map,
         _reference_file_path,
         _replace_forced_roth_conversions,
+        _replace_home_sale_splits,
         _replace_large_discretionary_expenses,
         _replace_liquidity_buffers,
+        _replace_residency_schedule,
+        _residency_schedule_from_csv_rows,
         _request_system_config_csv,
         _require,
         _runtime_config,
@@ -139,6 +147,10 @@ def _strategy_asset_feature_service() -> strategy_asset_service.StrategyAssetSer
             replace_forced_roth_conversions=_replace_forced_roth_conversions,
             liquidity_buffers_from_csv_rows=_liquidity_buffers_from_csv_rows,
             replace_liquidity_buffers=_replace_liquidity_buffers,
+            home_sale_splits_from_csv_rows=_home_sale_splits_from_csv_rows,
+            replace_home_sale_splits=_replace_home_sale_splits,
+            residency_schedule_from_csv_rows=_residency_schedule_from_csv_rows,
+            replace_residency_schedule=_replace_residency_schedule,
             ensure_user_ui_plan_data_rows=_ensure_user_ui_plan_data_rows,
             sync_config_backends=_sync_config_backends,
             audit=_audit,
@@ -415,6 +427,15 @@ def daf_recommendation():
     return jsonify(payload), status
 
 
+@app.route("/api/qlac/recommendation", methods=["POST"])
+def qlac_recommendation():
+    denied = _require("read_config")
+    if denied:
+        return denied
+    payload, status = _config_feature_service().qlac_recommendation_payload(request.get_json(silent=True) or {})
+    return jsonify(payload), status
+
+
 @app.route("/api/config/rows", methods=["POST"])
 def update_config_rows():
     denied = _require("write_config")
@@ -482,6 +503,40 @@ def save_liquidity_buffers():
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
     body = request.get_json(silent=True) or {}
     return _service_json(_strategy_asset_feature_service().save_liquidity_buffers_payload(body))
+
+@app.route("/api/home-sale-splits", methods=["GET"])
+def get_home_sale_splits():
+    denied = _require("read_config")
+    if denied:
+        return denied
+    return _service_json(_strategy_asset_feature_service().home_sale_splits_payload())
+
+@app.route("/api/home-sale-splits", methods=["POST"])
+def save_home_sale_splits():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    if not _runtime_config().allow_csv_write:
+        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
+    body = request.get_json(silent=True) or {}
+    return _service_json(_strategy_asset_feature_service().save_home_sale_splits_payload(body))
+
+@app.route("/api/residency-schedule", methods=["GET"])
+def get_residency_schedule():
+    denied = _require("read_config")
+    if denied:
+        return denied
+    return _service_json(_strategy_asset_feature_service().residency_schedule_payload())
+
+@app.route("/api/residency-schedule", methods=["POST"])
+def save_residency_schedule():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    if not _runtime_config().allow_csv_write:
+        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
+    body = request.get_json(silent=True) or {}
+    return _service_json(_strategy_asset_feature_service().save_residency_schedule_payload(body))
 
 @app.route("/api/withdrawal-account-order", methods=["GET"])
 def get_withdrawal_account_order():
