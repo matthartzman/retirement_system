@@ -1680,15 +1680,33 @@ def build_sheet14(ws, c, rows):
     # which was itself latent-broken for any non-IL resident (NameError,
     # simply never exercised by a test that reached this line with one).
     il_tax = 0.0
+    # A funded Credit Shelter Trust bypasses
+    # the survivor's estate for state-tax purposes (see the CST section
+    # below), so the same reduction the projection's own objective function
+    # applies (deterministic_engine._estate_tax_for_row: state_taxable =
+    # row_total - row_cst) must be applied here too. Without it, this
+    # headline number showed the state cliff/interrelated tax on the FULL
+    # second-death estate even when hundreds of thousands (or millions) of
+    # dollars were already excluded from that estate by a funded trust --
+    # disagreeing with the CST section's own "Projected IL Tax Saved" figure
+    # a few rows down, which already accounts for the shelter.
+    _cst_shelter_at_second_death = max(0.0, float(yr_second.get('cst_excluded_from_survivor_estate', 0.0) or 0.0))
+    _state_taxable_estate = max(0.0, est2 - _cst_shelter_at_second_death)
     if c['model_state_est']:
         _state_exempt_configured = c.get('il_exempt')
-        _tax, _status = state_estate_tax(_resident_state, est2, _state_exempt_configured)
+        _tax, _status = state_estate_tax(_resident_state, _state_taxable_estate, _state_exempt_configured)
         il_tax = _tax
         if _status == 'computed':
             write_hdr(ws, r, 1, f'{_resident_state} Estate Tax (At Second Death)', ORANGE, WHITE, span=4); r+=1
             il_exempt = c['il_exempt']
-            il_excess = max(0, est2 - il_exempt)
+            il_excess = max(0, _state_taxable_estate - il_exempt)
             write_cell(ws, r, 1, f'{_resident_state} Exemption'); write_cell(ws, r, 2, il_exempt, fmt=FMT_DOLLAR); r+=1
+            if _cst_shelter_at_second_death > 0:
+                write_cell(ws, r, 1, 'Projected Estate at Second Death'); write_cell(ws, r, 2, est2, fmt=FMT_DOLLAR); r+=1
+                write_cell(ws, r, 1, 'Less: Sheltered by Funded Credit Shelter Trust')
+                write_cell(ws, r, 2, -_cst_shelter_at_second_death, fmt=FMT_DOLLAR); r+=1
+                write_cell(ws, r, 1, f'{_resident_state}-Taxable Estate (after CST)', bold=True)
+                write_cell(ws, r, 2, _state_taxable_estate, fmt=FMT_DOLLAR, bold=True); r+=1
             write_cell(ws, r, 1, f'Estate over {_resident_state} Exemption'); write_cell(ws, r, 2, il_excess, fmt=FMT_DOLLAR); r+=1
             write_cell(ws, r, 1, f'Est. {_resident_state} Estate Tax (cliff/interrelated calc)', bold=True)
             write_cell(ws, r, 2, _tax, fmt=FMT_DOLLAR, bold=True,
