@@ -112,3 +112,89 @@ def test_import_history_records_monarch_auto_mode_and_updated_count(tmp_path):
     history = ytd.read_import_history(tmp_path)
     assert history[-1]["Mode"] == "monarch_auto"
     assert history[-1]["Rows Updated"] == "1"
+
+
+# --- First-run adoption: a manually-uploaded transaction (no Monarch Id)
+# that Monarch's first pull also delivers must be matched, not duplicated. ---
+
+def test_first_run_adopts_a_matching_manual_row_instead_of_duplicating(tmp_path):
+    manual_row = _row("")
+    del manual_row["Monarch Id"]
+    ytd.write_transactions(tmp_path, [manual_row])
+    assert len(ytd.read_transactions(tmp_path)) == 1
+
+    # Monarch's own first pull delivers the same transaction, now carrying
+    # a real id, with byte-identical content.
+    result = ytd.upsert_transactions_by_monarch_id(tmp_path, [_row("mid-1")])
+
+    assert result["added"] == 0
+    assert result["adopted"] == 1
+    stored = ytd.read_transactions(tmp_path)
+    assert len(stored) == 1  # not 2
+    assert stored[0]["Monarch Id"] == "mid-1"
+
+
+def test_adoption_is_idempotent_on_a_later_run(tmp_path):
+    manual_row = _row("")
+    del manual_row["Monarch Id"]
+    ytd.write_transactions(tmp_path, [manual_row])
+    ytd.upsert_transactions_by_monarch_id(tmp_path, [_row("mid-1")])
+
+    # Monarch reappears with the same id on a later cycle (e.g. the extractor
+    # never got --mark-delivered) -- must be a plain no-op, not a second
+    # adoption or a duplicate.
+    result = ytd.upsert_transactions_by_monarch_id(tmp_path, [_row("mid-1")])
+    assert result["added"] == 0
+    assert result["adopted"] == 0
+    assert result["updated"] == 0
+    assert len(ytd.read_transactions(tmp_path)) == 1
+
+
+def test_ambiguous_manual_duplicates_are_not_adopted(tmp_path):
+    # Two genuinely separate manual rows with identical content (same day,
+    # same amount, same everything -- it happens) must NOT be silently
+    # merged into one Monarch-sourced row; adoption only fires when exactly
+    # one id-less row matches.
+    manual_row = _row("")
+    del manual_row["Monarch Id"]
+    ytd.write_transactions(tmp_path, [dict(manual_row), dict(manual_row)])
+    assert len(ytd.read_transactions(tmp_path)) == 2
+
+    result = ytd.upsert_transactions_by_monarch_id(tmp_path, [_row("mid-1")])
+    assert result["adopted"] == 0
+    assert result["added"] == 1
+    assert len(ytd.read_transactions(tmp_path)) == 3
+
+
+def test_content_mismatch_is_not_adopted_and_creates_a_second_row(tmp_path):
+    # Documents the known limitation: adoption is exact-content-only. If
+    # Monarch's own text differs even slightly from what was manually
+    # uploaded (e.g. a re-categorization), it won't match and a duplicate is
+    # created -- safer than a fuzzy match that could merge distinct
+    # transactions, but still a duplicate the user would need to notice.
+    manual_row = _row("", Category="Groceries")
+    del manual_row["Monarch Id"]
+    ytd.write_transactions(tmp_path, [manual_row])
+
+    result = ytd.upsert_transactions_by_monarch_id(tmp_path, [_row("mid-1", Category="Dining")])
+    assert result["adopted"] == 0
+    assert result["added"] == 1
+    assert len(ytd.read_transactions(tmp_path)) == 2
+
+
+def test_adopting_one_row_does_not_consume_a_second_distinct_manual_row(tmp_path):
+    manual_a = _row("", Merchant="Kroger")
+    del manual_a["Monarch Id"]
+    manual_b = _row("", Merchant="Costco", Amount="-15.00")
+    del manual_b["Monarch Id"]
+    ytd.write_transactions(tmp_path, [manual_a, manual_b])
+
+    result = ytd.upsert_transactions_by_monarch_id(
+        tmp_path, [_row("mid-1", Merchant="Kroger"), _row("mid-2", Merchant="Costco", Amount="-15.00")]
+    )
+    assert result["adopted"] == 2
+    assert result["added"] == 0
+    stored = ytd.read_transactions(tmp_path)
+    assert len(stored) == 2
+    assert {r["Merchant"] for r in stored} == {"Kroger", "Costco"}
+    assert all(r["Monarch Id"] for r in stored)

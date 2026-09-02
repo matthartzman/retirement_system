@@ -580,6 +580,17 @@ def upsert_transactions_by_monarch_id(
     "add if new and after the latest existing date" behavior so a
     non-Monarch row slipping into this path can't crash the import.
 
+    Adoption (first-run overlap): if an incoming row's Monarch id is unknown
+    AND its content exactly matches one, and only one, existing id-less row
+    (e.g. a transaction the user already uploaded manually, before Monarch
+    auto-update was ever enabled, for the same overlap window Monarch's own
+    first pull covers), that existing row is backfilled with the Monarch id
+    in place rather than appended as a duplicate. Matching is exact-content
+    only (never fuzzy) -- it can under-match (miss a real duplicate whose
+    text differs slightly) but can never merge two genuinely different
+    transactions, and never touches a row that isn't uniquely identified by
+    its content among the id-less rows.
+
     ``incoming_rows`` are already mapped to the internal column names (see
     the Monarch field-mapping loader) -- this function only merges, it does
     not know about Monarch's own column names.
@@ -590,8 +601,23 @@ def upsert_transactions_by_monarch_id(
     existing_hashes = {transaction_hash(r) for r in existing}
     latest_existing = max([parse_date(r.get("Date")) for r in existing if parse_date(r.get("Date"))] or [None])
 
+    # Hash -> index, but only for a hash that identifies exactly one id-less
+    # existing row -- an ambiguous hash (two id-less rows with identical
+    # content, e.g. two genuinely separate same-day/same-amount purchases)
+    # is deliberately excluded rather than guessed at.
+    idless_hash_counts: dict[str, int] = {}
+    idless_hash_to_index: dict[str, int] = {}
+    for i, r in enumerate(existing):
+        if r.get("Monarch Id"):
+            continue
+        h = transaction_hash(r)
+        idless_hash_counts[h] = idless_hash_counts.get(h, 0) + 1
+        idless_hash_to_index[h] = i
+    adoptable_hashes = {h for h, count in idless_hash_counts.items() if count == 1}
+
     added: list[dict[str, str]] = []
     updated: list[dict[str, str]] = []
+    adopted: list[dict[str, str]] = []
     skipped = 0
     invalid_date_rows = 0
 
@@ -604,10 +630,20 @@ def upsert_transactions_by_monarch_id(
         if monarch_id:
             idx = by_monarch_id.get(monarch_id)
             if idx is None:
-                existing.append(row)
-                by_monarch_id[monarch_id] = len(existing) - 1
-                existing_hashes.add(transaction_hash(row))
-                added.append(row)
+                h = transaction_hash(row)
+                adopt_idx = idless_hash_to_index.get(h) if h in adoptable_hashes else None
+                if adopt_idx is not None:
+                    existing_hashes.discard(transaction_hash(existing[adopt_idx]))
+                    existing[adopt_idx] = row
+                    by_monarch_id[monarch_id] = adopt_idx
+                    existing_hashes.add(h)
+                    adoptable_hashes.discard(h)  # this id-less row is now claimed
+                    adopted.append(row)
+                else:
+                    existing.append(row)
+                    by_monarch_id[monarch_id] = len(existing) - 1
+                    existing_hashes.add(transaction_hash(row))
+                    added.append(row)
             elif _transaction_content_differs(existing[idx], row):
                 existing[idx] = row
                 updated.append(row)
@@ -634,14 +670,19 @@ def upsert_transactions_by_monarch_id(
         "Rows Skipped": total_skipped,
         "Earliest Transaction Date": format_date(min(all_dates) if all_dates else None),
         "Latest Transaction Date": format_date(max(all_dates) if all_dates else None),
-        "Notes": f"Monarch auto-update: {len(added)} added, {len(updated)} updated, {total_skipped} skipped.",
-        "Rows Updated": str(len(updated)),
+        "Notes": (
+            f"Monarch auto-update: {len(added)} added, {len(updated)} updated, "
+            f"{len(adopted)} adopted (matched to an existing manually-entered row by exact content), "
+            f"{total_skipped} skipped."
+        ),
+        "Rows Updated": str(len(updated) + len(adopted)),
     })
     return {
         "success": True,
         "received": len(incoming_rows),
         "added": len(added),
         "updated": len(updated),
+        "adopted": len(adopted),
         "skipped": total_skipped,
         "invalid_date_rows": invalid_date_rows,
         "total": len(existing),
