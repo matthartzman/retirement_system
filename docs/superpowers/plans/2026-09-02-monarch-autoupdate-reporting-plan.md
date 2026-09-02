@@ -27,13 +27,21 @@ test-covered.
    for `monarch-browser/`, `.venv/`, `output/`, and `raw/`). Never commit
    anything from `Monarch Extractor/` beyond `monarch_extract.py` and
    `run_monarch.ps1`.
-2. **Task Scheduler registration is still untested on real Windows.** Both
-   PowerShell scripts (`register_monarch_autoimport_task.ps1`,
-   `register_trends_report_task.ps1`) were reviewed but only run in a Linux
-   dev/CI environment, which cannot execute `schtasks`. Run each once by
-   hand on the target Windows machine and confirm with
-   `schtasks /query /tn "<name>" /v /fo LIST` before relying on the 4am/5pm
-   triggers.
+2. **Task Scheduler registration: first real-Windows run found a bug,
+   fixed 2026-09-02.** `register_monarch_autoimport_task.ps1`'s original
+   hand-built `schtasks /create /tr "..."` command line broke on a real
+   workspace path containing a space (`C:\...\Version 10\...`) — PowerShell
+   and `schtasks.exe` disagreed about where the quoted argument boundaries
+   were, mangling the stored command
+   (`ERROR: Invalid argument/option - '10\tools\monarch_autoimport.py ...'`).
+   Rewrote both `register_monarch_autoimport_task.ps1` and
+   `register_trends_report_task.ps1` to use the built-in `ScheduledTasks`
+   module (`New-ScheduledTaskAction`/`Register-ScheduledTask`) instead of a
+   manually quoted command-line string, which can't hit this class of bug.
+   Confirm the fix with `.\register_monarch_autoimport_task.ps1 -Action
+   Register` followed by `schtasks /query /tn "<name>" /v /fo LIST` before
+   relying on the 4am/5pm triggers — this exact sequence is what surfaced
+   the original bug, so it's the right verification step.
 
 Implementation deviated from this plan's original task list in a few places
 where testing surfaced a better answer; each is called out inline below.

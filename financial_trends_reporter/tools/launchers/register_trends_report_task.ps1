@@ -8,10 +8,14 @@
   tools\launchers\register_monarch_autoimport_task.ps1: this app has no
   always-on background process either, so the unattended weekday-5pm log
   entry needs an OS-level scheduled task to invoke
-  tools\append_trends_log.py headlessly.
+  tools\append_trends_log.py headlessly. Uses the built-in ScheduledTasks
+  PowerShell module (New-ScheduledTaskAction / Register-ScheduledTask)
+  rather than a hand-built schtasks.exe /tr command-line string -- a
+  manually quoted /tr value breaks when any path involved contains a space
+  (e.g. "C:\...\Version 10\..."), which is exactly the bug this replaced.
 
-  Review the exact schtasks command this prints before trusting it against a
-  production machine -- it mutates OS-level scheduled tasks.
+  Review what this prints before trusting it against a production machine --
+  it mutates OS-level scheduled tasks.
 
 .PARAMETER Action
   Register (create/update) or Unregister (remove) the scheduled task.
@@ -47,20 +51,23 @@ if (-not $RetirementSystemDir) { $RetirementSystemDir = $RepoRoot }
 $ScriptPath = Join-Path $AppRoot "tools\append_trends_log.py"
 
 if ($Action -eq "Unregister") {
-    schtasks /delete /tn $TaskName /f
+    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
     Write-Host "Removed scheduled task '$TaskName'."
     exit 0
 }
 
-$PythonExe = (Get-Command python.exe -ErrorAction SilentlyContinue).Source
-if (-not $PythonExe) {
+$PythonCmd = Get-Command python.exe -ErrorAction SilentlyContinue
+if (-not $PythonCmd) {
     throw "python.exe was not found on PATH. Install Python first."
 }
-$TaskRun = "`"$PythonExe`" `"$ScriptPath`" --retirement-system-dir `"$RetirementSystemDir`""
+$ExecutablePath = $PythonCmd.Source
+$Arguments = "`"$ScriptPath`" --retirement-system-dir `"$RetirementSystemDir`""
 
 Write-Host "Registering scheduled task '$TaskName' to run Mon-Fri at $StartTime :"
-Write-Host "  $TaskRun"
+Write-Host "  $ExecutablePath $Arguments"
 
-schtasks /create /tn $TaskName /tr $TaskRun /sc weekly /d MON,TUE,WED,THU,FRI /st $StartTime /f
+$taskAction = New-ScheduledTaskAction -Execute $ExecutablePath -Argument $Arguments -WorkingDirectory $AppRoot
+$taskTrigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday, Tuesday, Wednesday, Thursday, Friday -At $StartTime
+Register-ScheduledTask -TaskName $TaskName -Action $taskAction -Trigger $taskTrigger -Force | Out-Null
 
 Write-Host "Done. Verify with: schtasks /query /tn `"$TaskName`" /v /fo LIST"
