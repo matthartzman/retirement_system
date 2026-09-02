@@ -659,6 +659,14 @@ export function currentKpi(summary) {
     ),
     total_roth_conversions: deriveTotalRothConversions(summary),
     blended_return_info: firstFinite(summary.blended_return_info),
+    // #293: the 3 Impact-page dial metrics, plus EFTR (Effective Future Tax
+    // Rate) as a 4th supplemental stat -- already computed by
+    // compute_future_lcv_and_eftr (its "from today, no upper bound" row set
+    // already covers the current year through plan end).
+    lcv: firstFinite(summary.lcv),
+    npv_future_taxes: firstFinite(summary.npv_future_taxes),
+    terminal_nw_mc_p5: firstFinite(summary.terminal_nw_mc_p5),
+    eftr: firstFinite(summary.eftr),
   };
 }
 
@@ -1064,16 +1072,22 @@ export function renderBuildImpactPage() {
       planDataReviewSection +
       "</div>"
     );
+  // #293: the three dials read LCV / NPV-of-future-taxes / 5th-percentile
+  // worst-case ending wealth instead of raw terminal net worth / nominal
+  // lifetime tax / Monte Carlo pass-fail probability. Object keys
+  // (nwHeat/taxHeat/mcHeat) are unchanged so buildHistoryEntryHtml's
+  // consumer code in dashboard_decomp_build_history.js needs no edits --
+  // only which kpi field feeds each dial has changed.
   const allNw = buildHistory
-    .map((e) => e.kpi && e.kpi.inheritable_nw)
+    .map((e) => e.kpi && e.kpi.lcv)
     .filter((v) => v !== null && v !== undefined && Number.isFinite(Number(v)))
     .map(Number);
   const allTax = buildHistory
-    .map((e) => e.kpi && e.kpi.lifetime_tax)
+    .map((e) => e.kpi && e.kpi.npv_future_taxes)
     .filter((v) => v !== null && v !== undefined && Number.isFinite(Number(v)))
     .map(Number);
   const allMc = buildHistory
-    .map((e) => e.kpi && e.kpi.mc_success)
+    .map((e) => e.kpi && e.kpi.terminal_nw_mc_p5)
     .filter((v) => v !== null && v !== undefined && Number.isFinite(Number(v)))
     .map(Number);
   function heatRange(vals, higher) {
