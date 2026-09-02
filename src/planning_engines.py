@@ -2899,6 +2899,9 @@ def optimize_roth_conversion_strategy(c: dict) -> dict:
             candidates.sort(key=lambda x: (x['score'], x['after_tax_terminal_nw'], -x['lifetime_tax']), reverse=True)
         c['roth_policy_requested'] = requested_policy
 
+    if selected.get('overrides'):
+        c.update(selected['overrides'])
+
     # Item 4.3: surface the effective (derived-or-overridden) heir/terminal
     # pre-tax ordinary rates actually used to score the SELECTED strategy, so the
     # workbook can disclose the real numbers rather than the flat config default.
