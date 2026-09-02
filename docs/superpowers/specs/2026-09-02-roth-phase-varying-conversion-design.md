@@ -127,12 +127,20 @@ Compute once, near the top of the function (after `selected`/`full_set` are
 established):
 
 ```python
-_ss_years = sorted({int(y) for y in (c.get('h_ss_start'), c.get('w_ss_start')) if y and int(y) < 9999})
+# c['h_ss_start']/c['w_ss_start'] do NOT exist on the canonical CSV-driven `c`
+# (parse_client() in data_io.py never sets them -- only the separate/legacy
+# build_plan_from_json() loader does). Compute directly from the fields
+# parse_client() does set: h_dob_yr/w_dob_yr, h_ss_claim_age/w_ss_claim_age,
+# and members (len 1 for a single-member household, 2 for a couple -- the
+# single-member path mirrors w_dob_yr onto h_dob_yr, so gate on len(members)
+# rather than comparing dob years).
+_ss_years = [int(c.get('h_dob_yr', 0) or 0) + int(c.get('h_ss_claim_age', 70) or 70)]
+if len(c.get('members', []) or []) > 1:
+    _ss_years.append(int(c.get('w_dob_yr', 0) or 0) + int(c.get('w_ss_claim_age', 70) or 70))
+_ss_years = sorted(set(_ss_years))
 _window_end = conversion_window_end_year(c)
 
 def _phase_varying_schedule():
-    if not _ss_years:
-        return None
     r1 = float(c.get('roth_phase_rate_1', 0.24) or 0.24)
     r2 = float(c.get('roth_phase_rate_2', 0.22) or 0.22)
     r3 = float(c.get('roth_phase_rate_3', 0.12) or 0.12)
@@ -144,15 +152,24 @@ def _phase_varying_schedule():
     return [(first, r1), (_window_end, r2)]
 ```
 
+`_ss_years` always has at least one element — it is seeded from
+`c.get('h_dob_yr', 0)` + `c.get('h_ss_claim_age', 70)`, both of which
+`parse_client()` always sets to a real value (schema defaults, never absent) on
+any config actually produced by the app. `_phase_varying_schedule()` therefore
+never returns `None`/empty; no "no SS data" fallback branch is needed. (A
+hand-built `Mapping` in a unit test that omits `h_dob_yr` entirely still gets a
+safe, non-crashing 2-phase schedule via the `.get(..., default)` calls — just a
+degenerate one anchored at year 70, which is fine for a test that isn't
+exercising that specific behavior.)
+
 Then, alongside the other `if full_set or selected == '...':` blocks:
 
 ```python
 if full_set or selected == 'PHASE_VARYING':
     _sched = _phase_varying_schedule()
-    if _sched:
-        _rates_label = ' → '.join(f'{int(r*100)}%' for _y, r in _sched)
-        add(f'Phase-varying ({_rates_label} by SS claim year)', 'fill_to_bracket',
-            strategy_code='PHASE_VARYING', overrides={'roth_phase_schedule': _sched})
+    _rates_label = ' → '.join(f'{int(r*100)}%' for _y, r in _sched)
+    add(f'Phase-varying ({_rates_label} by SS claim year)', 'fill_to_bracket',
+        strategy_code='PHASE_VARYING', overrides={'roth_phase_schedule': _sched})
 ```
 
 `target_rate` is intentionally left `None` in the `add(...)` call (this candidate
@@ -160,15 +177,6 @@ has no single rate); the existing `spec.get('target_rate') is not None` guards a
 call sites already handle `None` correctly (they just skip setting
 `roth_target_rate`/`roth_brk` from the spec, which is correct here — the schedule
 overrides them).
-
-If `_ss_years` is empty (no SS claim data at all — a legacy/synthetic config), no
-`PHASE_VARYING` candidate is added, even if explicitly selected via
-`roth_bracket_strategy` — degrade to no voluntary conversions is *not* automatic
-here, so add a defensive fallback: when `selected == 'PHASE_VARYING'` and `_sched`
-is `None`, fall through to behave like `FILL_CURRENT_BRACKET` (reuse
-`configured_target`) rather than silently producing zero candidates. This mirrors
-how other strategies never produce an empty candidate list for an explicit
-selection.
 
 ### 3. Winner-overrides propagation fix
 
@@ -234,9 +242,8 @@ argument), so `c.update({})` is a no-op for that fixture regardless of branch.
   - `roth_phase_count=3` with two distinct claim years → 3-tuple schedule.
   - `roth_phase_count=3` with one claim year (or a single-member household) →
     degrades to the 2-tuple schedule.
-  - No SS claim data at all: `PHASE_VARYING` absent from `full_set`; explicit
-    selection falls back to `FILL_CURRENT_BRACKET`-equivalent behavior rather than
-    an empty candidate list.
+  - A minimal config missing `h_dob_yr`/`h_ss_claim_age` entirely still returns a
+    valid (degenerate) 2-tuple schedule, never `None`/a crash.
   - Candidate present in the full sweep only when `roth_bracket_strategy=OPTIMIZER_CHOOSES`
     (or explicitly `PHASE_VARYING`), matching the `full_set`/`selected` gating used
     by every other strategy.
