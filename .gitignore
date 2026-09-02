@@ -43,6 +43,14 @@ financial_trends_reporter/data/*.jsonl
 !/input/README_YTD_INPUTS.md
 !/input/ytd_transactions_sample.csv
 
+# Monarch Extractor (ticket 305): only monarch_extract.py and run_monarch.ps1
+# are source. Everything else it creates at runtime is either a live browser
+# credential store or real transaction data, neither of which belongs in git.
+Monarch Extractor/monarch-browser/
+Monarch Extractor/.venv/
+Monarch Extractor/output/
+Monarch Extractor/raw/
+
 # Logs / scratch
 *.log
 build_log.txt
