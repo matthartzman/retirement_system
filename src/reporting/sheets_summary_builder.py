@@ -25,7 +25,6 @@ from .workbook_common import (
     WHITE,
     _ao,
     datetime,
-    deflate_to_present,
     input_style,
     module_enabled,
     qc,
@@ -36,7 +35,7 @@ from .workbook_common import (
 from .. import allocation_policy as _ap
 from . import summary_figures
 from ..governance import readiness_label as _readiness_label
-from ..planning_engines import compute_future_lcv_and_eftr
+from ..planning_engines import compute_baseline_lcv_and_eltr, compute_future_lcv_and_eftr
 from .sheets_allocation_helpers import _workbook_pricing_source_label, _rebalance_settings
 
 def _tlh_recommendation_row(c, rows, rec_no):
@@ -111,8 +110,17 @@ def build_sheet1(ws, c, rows, mc_data, ss_sweep=None):
     write_hdr(ws, r, 1, 'Headline Numbers', NAVY, WHITE, span=6); r+=1
     yr0 = rows[0]; yrn = rows[-1]
     success = mc_data.get('success_rate', 0.0)
-    lifetime_tax = sum(row['total_tax'] for row in rows)
-    terminal_nw  = yrn['total_nw']
+    # #293: the headline figures are Expected After-Tax LCV, NPV of Future
+    # Taxes, and Worst-Case (5th percentile Monte Carlo) Ending Wealth --
+    # replacing raw Terminal Net Worth, nominal lifetime tax, and Plan
+    # Success Rate. compute_baseline_lcv_and_eltr already computes lcv/
+    # npv_future_taxes from the same rows; the 5th percentile is already in
+    # mc_data['terminal_total_nw'] (same percentile dict the P10/P90/median
+    # figures elsewhere in the workbook already read).
+    _baseline_metrics = compute_baseline_lcv_and_eltr(c, rows)
+    lcv = _baseline_metrics.get('lcv', 0.0)
+    npv_future_taxes = _baseline_metrics.get('npv_future_taxes', 0.0)
+    worst_case_ending_wealth = (mc_data.get('terminal_total_nw') or {}).get(5, 0.0)
     # Selected-vs-next-best from the Sheet 11 candidate contract. Previously a
     # flat 22% of gross conversions labelled "tax saved", which contradicted
     # Sheet 11 and overstated the case (conversions cost tax in the year taken).
@@ -129,19 +137,14 @@ def build_sheet1(ws, c, rows, mc_data, ss_sweep=None):
     # enabled — otherwise mc_data is {} and these would read a misleading 0%.
     _mc_on = module_enabled(c, 'market_luck_stress_test')
     _ss_on = module_enabled(c, 'social_security_timing')
-    # C5 / Wave 3.4: a plan-end dollar buys less than a plan-start dollar --
-    # the headline terminal figure needs a purchasing-power-comparable
-    # companion, not just the nominal number, right next to it.
-    terminal_nw_pv = deflate_to_present(terminal_nw, yrn['year'], c)
     headlines = [
         ('Starting Net Worth (Y0)',        yr0['total_nw'],  FMT_DOLLAR),
-        ('Terminal Net Worth (Yn)',         terminal_nw,       FMT_DOLLAR),
-        (f"Terminal Net Worth (Yn, Today's $)", terminal_nw_pv, FMT_DOLLAR),
-        ('Lifetime Federal Tax (estimated)',lifetime_tax,       FMT_DOLLAR),
+        ('Expected After-Tax LCV',          lcv,               FMT_DOLLAR),
+        ('NPV of Future Taxes',             npv_future_taxes,  FMT_DOLLAR),
     ]
     if _mc_on:
         headlines += [
-            ('Plan Success Rate (Monte Carlo)', success,           FMT_PCT),
+            ('Worst-Case Ending Wealth (5th %ile)', worst_case_ending_wealth, FMT_DOLLAR),
             ('Model Risk Rating', (mc_data.get('model_risk') or {}).get('rating', mc_data.get('model_risk_rating','')), None),
         ]
     # Plain language, not the raw enum. ADVISOR_READY/BLOCKED/REVIEW_REQUIRED
@@ -308,7 +311,7 @@ def build_sheet1(ws, c, rows, mc_data, ss_sweep=None):
         ws.merge_cells(start_row=r,start_column=1,end_row=r,end_column=6)
         r+=1
 
-    qc('1. Executive Summary','Headline numbers present', True, f"NW: ${terminal_nw:,.0f}")
+    qc('1. Executive Summary','Headline numbers present', True, f"LCV: ${lcv:,.0f}")
 
 def build_sheet2(ws, c, rows):
     """Assumptions & Tax Law"""

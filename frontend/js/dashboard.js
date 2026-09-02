@@ -1209,6 +1209,9 @@ function rememberBuildCompare(compare, opts) {
         ? after.lifetime_tax
         : null,
       lcv: Number.isFinite(after.lcv) ? after.lcv : null, eltr: Number.isFinite(after.eltr) ? after.eltr : null, mc_success: Number.isFinite(after.mc_success) ? after.mc_success : null,
+      npv_future_taxes: Number.isFinite(after.npv_future_taxes) ? after.npv_future_taxes : null,
+      terminal_nw_mc_p5: Number.isFinite(after.terminal_nw_mc_p5) ? after.terminal_nw_mc_p5 : null,
+      eftr: Number.isFinite(after.eftr) ? after.eftr : null,
     },
     before: compare.before || {},
     after: compare.after || {},
@@ -1255,6 +1258,9 @@ async function takeBuildSnapshot() {
         ? kpis.lifetime_tax
         : null,
       lcv: Number.isFinite(kpis.lcv) ? kpis.lcv : null, eltr: Number.isFinite(kpis.eltr) ? kpis.eltr : null, mc_success: Number.isFinite(kpis.mc_success) ? kpis.mc_success : null,
+      npv_future_taxes: Number.isFinite(kpis.npv_future_taxes) ? kpis.npv_future_taxes : null,
+      terminal_nw_mc_p5: Number.isFinite(kpis.terminal_nw_mc_p5) ? kpis.terminal_nw_mc_p5 : null,
+      eftr: Number.isFinite(kpis.eftr) ? kpis.eftr : null,
     },
     before: cloneSummary(kpis),
     after: cloneSummary(kpis),
