@@ -34,6 +34,7 @@ from .workbook_common import (
     write_cell,
     write_hdr,
 )
+from ..planning_engines import compute_baseline_lcv_and_eltr
 
 
 def _entity_label(entity):
@@ -114,12 +115,17 @@ def build_sheet_current_vs_proposed(ws, c, rows):
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
     r += 2
 
-    base_nw = rows[-1]['total_nw']
-    base_tax = sum(row['total_tax'] for row in rows)
+    # #293: LCV (nominal lifetime spending + Post-Tax Inheritance) and NPV of
+    # Future Taxes (total tax discounted at c['ret']) replace raw Terminal NW
+    # and nominal Lifetime Tax as this comparison's headline figures, same
+    # convention as the Impact page and Executive Summary.
+    base_metrics = compute_baseline_lcv_and_eltr(c, rows)
+    base_lcv = base_metrics.get('lcv', 0.0)
+    base_npv_tax = base_metrics.get('npv_future_taxes', 0.0)
 
     write_hdr(ws, r, 1, 'Engine-Modeled Comparisons', NAVY, WHITE, span=8); r += 1
-    hdrs = ['Recommendation', 'Status', 'Current Terminal NW', 'Proposed Terminal NW',
-            'Δ Terminal NW', 'Current Lifetime Tax', 'Proposed Lifetime Tax', 'Δ Lifetime Tax']
+    hdrs = ['Recommendation', 'Status', 'Current LCV', 'Proposed LCV',
+            'Δ LCV', 'Current NPV of Future Taxes', 'Proposed NPV of Future Taxes', 'Δ NPV of Future Taxes']
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
     r += 1
@@ -133,20 +139,21 @@ def build_sheet_current_vs_proposed(ws, c, rows):
         _c2, rows2 = _run_scenario(c, overrides)
         if not rows2:
             continue
-        prop_nw = rows2[-1]['total_nw']
-        prop_tax = sum(row2['total_tax'] for row2 in rows2)
-        delta_nw = prop_nw - base_nw
-        delta_tax = prop_tax - base_tax
+        prop_metrics = compute_baseline_lcv_and_eltr(_c2, rows2)
+        prop_lcv = prop_metrics.get('lcv', 0.0)
+        prop_npv_tax = prop_metrics.get('npv_future_taxes', 0.0)
+        delta_lcv = prop_lcv - base_lcv
+        delta_npv_tax = prop_npv_tax - base_npv_tax
         status_bg = 'E2EFDA' if is_active else 'FFF2CC'
-        bg = 'E2EFDA' if delta_nw > 0 else ('FCE4D6' if delta_nw < 0 else None)
+        bg = 'E2EFDA' if delta_lcv > 0 else ('FCE4D6' if delta_lcv < 0 else None)
         write_cell(ws, r, 1, label, bold=True)
         write_cell(ws, r, 2, 'ACTIVE' if is_active else 'PROPOSED', bold=True, bg=status_bg, align='center')
-        write_cell(ws, r, 3, base_nw, fmt=FMT_DOLLAR)
-        write_cell(ws, r, 4, prop_nw, fmt=FMT_DOLLAR, bg=bg)
-        write_cell(ws, r, 5, delta_nw, fmt=FMT_DOLLAR, bold=True, bg=bg)
-        write_cell(ws, r, 6, base_tax, fmt=FMT_DOLLAR)
-        write_cell(ws, r, 7, prop_tax, fmt=FMT_DOLLAR)
-        write_cell(ws, r, 8, delta_tax, fmt=FMT_DOLLAR)
+        write_cell(ws, r, 3, base_lcv, fmt=FMT_DOLLAR)
+        write_cell(ws, r, 4, prop_lcv, fmt=FMT_DOLLAR, bg=bg)
+        write_cell(ws, r, 5, delta_lcv, fmt=FMT_DOLLAR, bold=True, bg=bg)
+        write_cell(ws, r, 6, base_npv_tax, fmt=FMT_DOLLAR)
+        write_cell(ws, r, 7, prop_npv_tax, fmt=FMT_DOLLAR)
+        write_cell(ws, r, 8, delta_npv_tax, fmt=FMT_DOLLAR)
         r += 1
         write_cell(ws, r, 1, note, align='left')
         ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=4)
