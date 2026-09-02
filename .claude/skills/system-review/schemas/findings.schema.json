@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "System Review Finding Register",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "id",
+      "title",
+      "expert",
+      "category",
+      "severity",
+      "confidence",
+      "inspection_status",
+      "verification_status",
+      "evidence",
+      "impact",
+      "recommendation",
+      "verification_method"
+    ],
+    "properties": {
+      "id": {
+        "type": "string",
+        "pattern": "^[A-Z]+-[0-9]{3,}$"
+      },
+      "title": {
+        "type": "string"
+      },
+      "expert": {
+        "enum": [
+          "architect",
+          "usability_accessibility",
+          "documentation",
+          "quality",
+          "financial_planner",
+          "orchestrator"
+        ]
+      },
+      "category": {
+        "type": "string",
+        "not": {
+          "pattern": "(?i)ci|github actions|pipeline"
+        }
+      },
+      "severity": {
+        "enum": [
+          "critical",
+          "high",
+          "medium",
+          "low"
+        ]
+      },
+      "confidence": {
+        "enum": [
+          "high",
+          "medium",
+          "low"
+        ]
+      },
+      "inspection_status": {
+        "enum": [
+          "inspected_no_material_finding",
+          "finding_identified",
+          "partially_inspected",
+          "not_inspected",
+          "could_not_validate",
+          "requires_external_domain_verification",
+          "not_applicable"
+        ]
+      },
+      "verification_status": {
+        "enum": [
+          "unverified",
+          "confirmed",
+          "partially_confirmed",
+          "refuted",
+          "duplicate",
+          "superseded",
+          "insufficient_evidence"
+        ]
+      },
+      "evidence": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "required": [
+            "path",
+            "description"
+          ],
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "lines": {
+              "type": "string"
+            },
+            "symbol": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "github_context": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "enum": [
+                "issue",
+                "pull_request",
+                "commit",
+                "release",
+                "tag"
+              ]
+            },
+            "id": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
+            },
+            "disposition": {
+              "enum": [
+                "confirmed",
+                "contextual_only",
+                "resolved",
+                "duplicate",
+                "out_of_scope",
+                "insufficient_evidence"
+              ]
+            }
+          }
+        }
+      },
+      "impact": {
+        "type": "string"
+      },
+      "jurisdiction": {
+        "type": "string"
+      },
+      "rule_year": {
+        "type": "string"
+      },
+      "recommendation": {
+        "type": "string"
+      },
+      "verification_method": {
+        "type": "string"
+      }
+    }
+  }
+}

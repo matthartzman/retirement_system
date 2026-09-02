@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "System Review Coverage Matrix",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "area",
+      "status",
+      "expert",
+      "evidence",
+      "residual_uncertainty"
+    ],
+    "properties": {
+      "area": {
+        "type": "string",
+        "not": {
+          "pattern": "(?i)ci|github actions|pipeline"
+        }
+      },
+      "status": {
+        "enum": [
+          "inspected_no_material_finding",
+          "finding_identified",
+          "partially_inspected",
+          "not_inspected",
+          "could_not_validate",
+          "requires_external_domain_verification",
+          "not_applicable"
+        ]
+      },
+      "expert": {
+        "type": "string"
+      },
+      "evidence": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "github_items": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "finding_ids": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "residual_uncertainty": {
+        "type": "string"
+      }
+    }
+  }
+}

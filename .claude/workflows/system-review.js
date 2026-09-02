@@ -1,321 +1,188 @@
-export const meta = {
-  name: 'system-review',
-  description: 'Five-expert full system review producing one recommendation + design + implementation plan document',
-  whenToUse: 'Periodic deep review of the whole retirement-planning system by an architect, usability, documentation, QA, and financial-planning panel.',
-  phases: [
-    { title: 'Recon', detail: 'map the system so experts do not re-derive it (haiku)' },
-    { title: 'Expert Review', detail: '5 domain experts in parallel; model tier set by the depth arg' },
-    { title: 'Cross-Check', detail: 'adversarial verification of high-impact claims (sonnet)' },
-    { title: 'Synthesis', detail: 'orchestrator sequences work and writes the single document (opus)' },
-    { title: 'Planner Sign-off', detail: 'financial planner reviews the final document, orchestrator applies edits' },
-  ],
-}
+/**
+ * System Review — GitHub MCP command-limited, CI-excluded workflow.
+ *
+ * Runs in a Claude Code project linked to a GitHub repository. GitHub interactions are
+ * limited to the approved command list. CI/GitHub Actions is intentionally excluded.
+ *
+ * Read commands used:
+ * get_me, search_repositories, list_branches, get_commit, list_commits, search_commits,
+ * search_code, get_file_contents, list_issues, search_issues, issue_read,
+ * list_pull_requests, search_pull_requests, pull_request_read, list_releases,
+ * get_latest_release, get_release_by_tag, list_tags, get_tag,
+ * list_repository_collaborators, get_teams, get_team_members, run_secret_scanning.
+ *
+ * Prohibited GitHub write commands:
+ * create_or_update_file, delete_file, create_pull_request, update_pull_request,
+ * update_pull_request_branch, merge_pull_request, pull_request_review_write,
+ * add_reply_to_pull_request_comment, add_comment_to_pending_review,
+ * request_copilot_review, issue_write, add_issue_comment, sub_issue_write,
+ * create_branch, push_files, fork_repository, create_repository.
+ *
+ * The final report is written only by the local project report adapter. If that adapter
+ * uses create_or_update_file, it may create only the selected previously non-existing
+ * report path after quality gates pass and must never overwrite.
+ */
 
-// ---------------------------------------------------------------------------
-// args: { scope?: string, date?: string, outPath?: string, depth?: 'standard' | 'deep' }
-//
-// depth controls the model tier of the expert panel only. Recon is always haiku and
-// synthesis/sign-off is always opus -- those tiers are not worth economising on.
-//   standard (default): architect + planner on opus, the other three on sonnet
-//   deep:               all five experts on opus
-// ---------------------------------------------------------------------------
-// args may arrive as an object or, depending on how the caller passed it, as a
-// JSON string. A string silently fell through to every default on the first
-// real run -- a `deep` request executed at `standard` and the report was named
-// SYSTEM_REVIEW_undated.md. Normalise before reading any field.
-let A = args
-if (typeof A === 'string') {
-  try { A = JSON.parse(A) } catch (e) { A = {} }
-}
-if (!A || typeof A !== 'object') A = {}
+export default async function systemReviewWorkflow({ scope, date, outPath, depth }) {
+  const config = {
+    scope: scope || "the entire system",
+    date,
+    outPath,
+    depth: depth === "deep" ? "deep" : "standard",
+    models: { expert: "expert_reasoning", standard: "standard_reasoning", recon: "recon", synthesis: "synthesis" },
+    githubPolicy: {
+      mode: "read-only-except-final-report",
+      ciExcluded: true,
+      allowedReadCommands: [
+        "get_me", "search_repositories", "list_branches", "get_commit", "list_commits",
+        "search_commits", "search_code", "get_file_contents", "list_issues", "search_issues",
+        "issue_read", "list_pull_requests", "search_pull_requests", "pull_request_read",
+        "list_releases", "get_latest_release", "get_release_by_tag", "list_tags", "get_tag",
+        "list_repository_collaborators", "get_teams", "get_team_members", "run_secret_scanning"
+      ]
+    }
+  };
 
-const scope = A.scope || 'the entire system'
-const date = A.date || 'undated'
-const outPath = A.outPath || `documentation/reports/SYSTEM_REVIEW_${date}.md`
-const depth = A.depth === 'deep' ? 'deep' : 'standard'
-if (date === 'undated') {
-  log('WARNING: no date arg received -- report will be written to SYSTEM_REVIEW_undated.md.')
-}
-// Model for an expert whose charter is judgement-dense enough to want opus at standard depth.
-const CORE = 'opus'
-// Model for the remaining experts -- opus only when the caller asked for depth: 'deep'.
-const AUX = depth === 'deep' ? 'opus' : 'sonnet'
+  const identity = await github.get_me({});
+  const repository = await resolveLinkedRepository({ scope: config.scope, identity });
+  const refContext = await resolveReviewRef(repository);
+  const manifest = await buildManifest({ repository, refContext, config, identity });
 
-const REPO_HINTS = `
-Repository layout (verify before relying on it):
-- src/            Python engine + server. Notable: src/dashboard_ui/, src/reporting/, src/projection_stages/,
-                  src/server/, src/server_services/, src/http_runtime/, core.py, domain_models.py.
-- frontend/       index.html, admin.html, css/, js/  -- the user-facing UI.
-- tests/          ~200 numbered pytest modules + tests/frontend/.
-- documentation/  design specs, plans, runbooks, release notes, reports/.
-- tools/          operational scripts. input/, output/, reference_data/, saved_plans/ hold data.
-Read documentation/CLAUDE.md and PROJECT_MANIFEST.md early -- they encode house rules.
-NOTE: some tests overwrite files under input/. Do NOT run the test suite; read tests, do not execute them.
-This review is READ-ONLY: no source edits, no commits. The only file written is the final report.
-`
+  const recon = await runParallel([
+    { name: "engine-architecture-calculations", model: config.models.recon },
+    { name: "ui-workflows", model: config.models.recon },
+    { name: "tests-docs-data-config", model: config.models.recon }
+  ], { manifest, config });
 
-const FINDINGS_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['summary', 'findings'],
-  properties: {
-    summary: { type: 'string', description: '3-6 sentence state-of-the-domain assessment' },
-    findings: {
-      type: 'array',
-      maxItems: 14,
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['id', 'title', 'evidence', 'impact', 'effort', 'options', 'recommendation'],
-        properties: {
-          id: { type: 'string', description: 'stable slug, e.g. arch-dead-compat-shims' },
-          title: { type: 'string' },
-          evidence: { type: 'string', description: 'concrete file:line references proving the finding is real' },
-          impact: { enum: ['critical', 'high', 'medium', 'low'] },
-          effort: { enum: ['S', 'M', 'L', 'XL'] },
-          options: {
-            type: 'array',
-            minItems: 2,
-            maxItems: 3,
-            items: {
-              type: 'object',
-              additionalProperties: false,
-              required: ['name', 'approach', 'tradeoff'],
-              properties: {
-                name: { type: 'string' },
-                approach: { type: 'string' },
-                tradeoff: { type: 'string' },
-              },
-            },
-          },
-          recommendation: { type: 'string', description: 'which option, and why' },
-          risk: { type: 'string' },
-          dependsOn: { type: 'array', items: { type: 'string' }, description: 'ids of other findings, if known' },
-        },
-      },
-    },
-  },
-}
+  const systemMap = normalizeSystemMap(recon, manifest);
+  const coverage = createCoverageMatrix(systemMap, manifest);
+  const expertReviews = await runParallel(panelForDepth(config.depth), { manifest, systemMap, coverage, config });
+  const findings = normalizeAndDeduplicateFindings(expertReviews).filter(notCiRelated);
+  const verifiedFindings = await verifyFindings(findings, { manifest, systemMap, coverage, config });
 
-const VERDICT_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['id', 'refuted', 'reason'],
-  properties: {
-    id: { type: 'string' },
-    refuted: { type: 'boolean', description: 'true if the evidence does not hold up when checked in the repo' },
-    reason: { type: 'string' },
-    correction: { type: 'string', description: 'restated finding if it was partly right' },
-  },
-}
+  let report = await synthesizeReport({ manifest, systemMap, coverage, findings: verifiedFindings, config });
+  report = removeCiContent(report);
 
-// --- Phase 1: recon ---------------------------------------------------------
-phase('Recon')
-log('Mapping the system before the panel convenes...')
+  const plannerSignoff = await plannerSignOff({ report, model: config.models.synthesis });
+  report = removeCiContent(applyPlannerChanges(report, plannerSignoff));
 
-const RECON = [
-  {
-    key: 'code',
-    prompt: `Map the Python/engine side of this repo. Produce a compact map: top-level modules and what each owns,
-the data flow from inputs to outputs, obvious layering, and where the same responsibility appears in more than one place.
-Cite file paths. Be terse -- this is a briefing for other reviewers, not a report.`,
-  },
-  {
-    key: 'ui',
-    prompt: `Map the user-facing surface: frontend/index.html, frontend/admin.html, frontend/js/, frontend/css/, and src/dashboard_ui/.
-List the screens/tabs, the navigation model, and where UI state lives. Note anything that looks like a generated report
-or workbook the user reads. Cite file paths. Be terse.`,
-  },
-  {
-    key: 'tests-docs',
-    prompt: `Map tests/ and documentation/. For tests: how they are organised, what layers they cover (unit / integration /
-golden-master / frontend / e2e), and roughly where the mass sits. For documentation: what the live documents are versus
-archived or superseded ones. Do NOT run any tests. Cite paths. Be terse.`,
-  },
-]
-
-const recon = (await parallel(RECON.map(r => () =>
-  agent(`${REPO_HINTS}\n\n${r.prompt}`, { label: `recon:${r.key}`, phase: 'Recon', model: 'haiku' })
-))).filter(Boolean)
-
-const BRIEF = `SYSTEM BRIEFING (from recon agents -- verify anything you rely on):\n\n${recon.join('\n\n---\n\n')}`
-
-// --- Phase 2 + 3: experts, each cross-checked as soon as it lands -----------
-phase('Expert Review')
-log(`Depth: ${depth} -- architect/planner on ${CORE}, usability/documentation/quality on ${AUX}.`)
-
-const COMMON = `${REPO_HINTS}\n\n${BRIEF}\n
-Review scope: ${scope}.
-Ground every finding in files you actually opened -- cite file:line. A finding with no evidence is worse than no finding.
-For each finding give 2-3 genuinely different options (not strawmen) with tradeoffs, then recommend one.
-Rank by impact, not by how much you enjoyed finding it. Cap at 14 findings; fewer, sharper is better.`
-
-const EXPERTS = [
-  {
-    key: 'architect',
-    model: CORE,
-    prompt: `You are a systems architect reviewing this codebase.
-Look for: dead code and unreachable branches; backward-compatibility shims that no longer have a caller and can be
-retired; duplicated logic that should become shared/common code; modules that have grown past one responsibility and
-should be decomposed into cohesive siblings; inefficient data flows (repeated recomputation, redundant passes, N+1 style
-loading); and layering violations. Distinguish "unused today" from "load-bearing compat" -- prove it with a search before
-you call something dead. Where you propose a decomposition, name the resulting modules and what each owns.`,
-  },
-  {
-    key: 'usability',
-    model: AUX,
-    prompt: `You are a usability expert reviewing the user interface (frontend/ and any generated dashboards/reports).
-Evaluate: workflow -- can a user complete a real task without backtracking; consistency of controls, labels, and
-interaction patterns across screens; and above all information density. Every avoidable scroll and every avoidable click
-is a defect: find places where content that belongs together is split across screens, where a value requires drilling in
-to see, where a multi-step flow could be one screen, and where whitespace or oversized components push content below the
-fold. Propose a more compact screen design where warranted -- describe the layout concretely (what moves where, what
-collapses, what becomes inline). Note the assumed viewport(s) you are designing against.`,
-  },
-  {
-    key: 'documentation',
-    model: AUX,
-    prompt: `You are a documentation and content expert. The reader is 60 years old, smart, and has little financial-planning
-experience. Review all user-facing content: on-screen labels, helper text, tooltips, generated report and workbook prose,
-and the user-facing docs under documentation/.
-Judge every passage against: does a non-expert understand it; is the term defined the first time it appears; is it saying
-something specific or is it boilerplate; and is it repeated somewhere else in the product. Flag redundant and boilerplate
-text for deletion, not rewriting, where deletion is enough. Also check layout hygiene of rendered output: margins,
-gutters, and column widths must be preserved -- flag anywhere text runs to the edge, columns collide, or content is
-clipped in reports/workbooks/PDF output. Give exact before/after wording for your top rewrites.`,
-  },
-  {
-    key: 'quality',
-    model: AUX,
-    prompt: `You are a test-quality enforcer. Review tests/ (read only -- do NOT execute the suite; some tests overwrite files
-under input/).
-Assess two axes. Redundancy: tests that assert the same behaviour as another test, tests pinned to implementation detail
-rather than behaviour, and golden-master coverage that duplicates what unit tests already prove. Comprehensiveness: which
-user-visible behaviours and failure modes have no test at all, with specific attention to functional coverage per module
-and true end-to-end coverage of the real user journeys (data in -> projection -> dashboard/report out).
-Propose a target test pyramid for this system: what should be unit, what integration, what golden-master, what e2e, and
-what should be deleted. Name specific test files for consolidation or removal.`,
-  },
-  {
-    key: 'planner',
-    model: CORE,
-    prompt: `You are a CFP-level financial planner with depth across retirement income, tax, estate, and inheritance planning.
-You are reviewing this software as a practitioner, not as an engineer.
-Assess: does the planning workflow match how a plan is actually built and revisited; are the modelling assumptions and
-outputs ones a planner would defend; what does a client or planner need to see that the system does not currently show.
-Propose enhancements across retirement (withdrawal sequencing, Roth conversion strategy, Social Security timing, RMDs,
-Medicare/IRMAA), tax (multi-year bracket management, capital-gain harvesting, state considerations), and estate/inheritance
-(beneficiary and titling review, step-up basis, gifting strategy, trust interaction, the SECURE Act 10-year rule, survivor
-transition). For each, say what the system would have to compute and show. This is product guidance for a planning tool --
-not personalised investment advice for any individual.`,
-  },
-]
-
-const reviewed = await pipeline(
-  EXPERTS,
-  e => agent(`${COMMON}\n\n${e.prompt}`, {
-    label: `expert:${e.key}`,
-    phase: 'Expert Review',
-    model: e.model,
-    effort: 'high',
-    schema: FINDINGS_SCHEMA,
-  }),
-  (res, e) => {
-    if (!res) return null
-    // Only the expensive claims get adversarially checked.
-    const hot = res.findings.filter(f => f.impact === 'critical' || f.impact === 'high' || f.effort === 'L' || f.effort === 'XL')
-    if (!hot.length) return { key: e.key, ...res }
-    return parallel(hot.map(f => () =>
-      agent(`${REPO_HINTS}\n
-Adversarially verify this review finding by opening the files yourself. Your job is to REFUTE it if it does not hold.
-Default to refuted=true when the cited evidence does not exist, is stale, or the claimed problem is actually load-bearing.
-If it is real but overstated, set refuted=false and supply a corrected statement.
-
-id: ${f.id}
-title: ${f.title}
-evidence: ${f.evidence}
-recommendation: ${f.recommendation}`,
-        { label: `verify:${f.id}`, phase: 'Cross-Check', model: 'sonnet', schema: VERDICT_SCHEMA })
-    )).then(verdicts => {
-      const byId = {}
-      verdicts.filter(Boolean).forEach(v => { byId[v.id] = v })
-      const kept = res.findings
-        .filter(f => !(byId[f.id] && byId[f.id].refuted))
-        .map(f => byId[f.id] && byId[f.id].correction ? { ...f, corrected: byId[f.id].correction } : f)
-      const dropped = res.findings.filter(f => byId[f.id] && byId[f.id].refuted)
-      if (dropped.length) log(`${e.key}: ${dropped.length} finding(s) refuted on cross-check`)
-      return { key: e.key, summary: res.summary, findings: kept, refuted: dropped.map(f => ({ id: f.id, title: f.title, why: byId[f.id].reason })) }
-    })
+  if (plannerSignoff.materialChanges) {
+    report = removeCiContent(await reverifyAndResynthesize({
+      report, plannerSignoff, manifest, systemMap, coverage, config
+    }));
   }
-)
 
-const panel = reviewed.filter(Boolean)
-log(`Panel complete: ${panel.map(p => `${p.key}=${p.findings.length}`).join(', ')}`)
-
-// --- Phase 4: synthesis -----------------------------------------------------
-phase('Synthesis')
-
-const PACKET = JSON.stringify(panel, null, 1)
-
-const SYNTH_BRIEF = `${REPO_HINTS}
-
-You are the orchestrator. Five experts have reviewed ${scope}; their verified findings are below as JSON.
-
-${PACKET}
-
-Write ONE document to ${outPath} (create parent directories if needed). It must stand alone -- a reader who has not seen
-this conversation can act on it. Required structure:
-
-1. Executive summary -- the 5-8 things that matter, in plain language, with the expected payoff of each.
-2. Panel findings by discipline -- architecture, usability, documentation/content, quality, financial planning.
-   For each finding: what it is, evidence (file:line), the options considered with tradeoffs, and the recommendation.
-   Keep options visible; the reader must be able to overrule you.
-3. Cross-cutting analysis -- where experts agree, where they CONFLICT (name the conflict and resolve it explicitly with
-   your reasoning), and what one change unlocks several others.
-4. Recommendation -- the single coherent plan you are proposing, and what you are deliberately NOT doing and why.
-5. Design -- for each accepted recommendation, the target-state design: modules and their responsibilities, screen layouts,
-   content/wording changes, test-pyramid shape, new planning capabilities and what they must compute.
-6. Implementation plan -- ordered workstreams with explicit dependencies. For each item: prerequisite items, effort (S/M/L/XL),
-   risk, what proves it worked (the verification step), and whether it can run in PARALLEL with its siblings.
-   Include a dependency-ordered wave table: Wave 1 / 2 / 3, with what runs concurrently inside each wave, and for each
-   item the MINIMAL EFFECTIVE MODEL to execute it (haiku for mechanical sweeps, sonnet for scoped changes,
-   opus for design-heavy or cross-cutting work) with a one-line justification.
-7. Appendix -- findings refuted during cross-check, and open questions for the user to decide.
-
-Rules: no invented file paths; every claim traceable to the packet or to a file you opened; write for a reader who is
-technical but has not memorised this codebase. Do not modify any source file -- the report is the only write.
-Return the absolute path of the file you wrote plus a 5-line summary of what is in it.`
-
-const written = await agent(SYNTH_BRIEF, { label: 'orchestrator:synthesis', phase: 'Synthesis', model: 'opus', effort: 'high' })
-
-// --- Phase 5: planner sign-off ---------------------------------------------
-phase('Planner Sign-off')
-
-const signoff = await agent(`${REPO_HINTS}
-
-You are the CFP-level financial planner from the panel. Read the final review document at ${outPath}.
-Judge it as the practitioner who has to live with the result: does the recommended plan serve the way real financial
-plans get built and revisited? Is anything recommended that would degrade planning quality, hide a number a planner needs,
-or mislead a 60-year-old non-expert reader? Is any planning capability mis-sequenced -- scheduled after work that depends on it?
-Return specific, actionable edits: section, what is wrong, what it should say instead. If the document is sound, say so
-plainly and list only genuine improvements.`, { label: 'planner:signoff', phase: 'Planner Sign-off', model: 'opus', effort: 'high' })
-
-const revised = await agent(`${REPO_HINTS}
-
-You are the orchestrator. The financial planner reviewed the document at ${outPath} and returned this:
-
-${signoff}
-
-Apply the edits that are correct. Where you disagree with the planner, do not silently drop the point -- record it in the
-open-questions appendix as a noted disagreement with both positions stated. Then append a short "Planner Sign-off" section
-summarising the planner's verdict and what changed as a result. Edit only ${outPath}.
-Return a 10-line summary of the final document and the list of changes the planner caused.`, { label: 'orchestrator:revision', phase: 'Planner Sign-off', model: 'opus' })
-
-return {
-  document: outPath,
-  depth,
-  synthesis: written,
-  plannerSignoff: signoff,
-  revision: revised,
-  counts: panel.map(p => ({ expert: p.key, kept: p.findings.length, refuted: (p.refuted || []).length })),
+  await validateReportQualityGate(report);
+  await writeFinalReportOnly({ outPath: config.outPath, report, overwrite: false });
+  return completionSummary(report, plannerSignoff, config.outPath);
 }
+
+async function buildManifest({ repository, refContext, config, identity }) {
+  const [githubContext, inventory, accessContext, securityContext] = await Promise.all([
+    collectGitHubWorkContext({ repository, refContext, scope: config.scope }),
+    buildRepositoryInventory({ repository, refContext, scope: config.scope }),
+    collectAccessContext({ repository }),
+    collectSecurityContext({ repository })
+  ]);
+  return {
+    review_run: {
+      date: config.date,
+      scope: config.scope,
+      depth: config.depth,
+      repository: {
+        provider: "github", owner: repository.owner, name: repository.name,
+        default_branch: refContext.defaultBranch, reviewed_ref: refContext.ref,
+        commit_sha: refContext.commitSha, pull_request_number: refContext.pullRequestNumber || null,
+        authenticated_user: identity.login || identity.username || "unknown"
+      },
+      github_policy: config.githubPolicy,
+      github_context: githubContext,
+      access_context: accessContext,
+      security_context: securityContext,
+      inventories: inventory,
+      explicit_exclusions: ["ci_and_github_actions"]
+    }
+  };
+}
+
+async function resolveLinkedRepository({ scope, identity }) {
+  const linked = await getLinkedProjectRepository();
+  if (linked?.owner && linked?.name) return linked;
+  const candidates = await github.search_repositories({ query: `user:${identity.login || identity.username}`, per_page: 100 });
+  const matches = selectRepositoriesMatchingProject(candidates, scope);
+  if (matches.length !== 1) throw new Error("Unable to uniquely resolve the GitHub repository linked to this project.");
+  return { owner: matches[0].owner.login, name: matches[0].name };
+}
+
+async function resolveReviewRef(repository) {
+  const branches = await github.list_branches({ owner: repository.owner, repo: repository.name, per_page: 100 });
+  const linkedRef = await getLinkedProjectRef();
+  const defaultBranch = await inferDefaultBranch(repository, branches);
+  const ref = linkedRef?.ref || defaultBranch;
+  const commit = await github.get_commit({ owner: repository.owner, repo: repository.name, ref });
+  const pullRequest = await findPullRequestForRef(repository, ref);
+  return { defaultBranch, ref, commitSha: commit.sha, pullRequestNumber: pullRequest?.number || null };
+}
+
+async function collectGitHubWorkContext({ repository, refContext, scope }) {
+  const common = { owner: repository.owner, repo: repository.name, per_page: 100 };
+  const [openIssues, openPrs, recentCommits, tags, releases, latestRelease, scopedIssues, scopedPrs] = await Promise.all([
+    github.list_issues({ ...common, state: "open" }), github.list_pull_requests({ ...common, state: "open" }),
+    github.list_commits({ ...common, sha: refContext.ref }), github.list_tags(common), github.list_releases(common),
+    github.get_latest_release(common).catch(() => null),
+    github.search_issues({ q: `repo:${repository.owner}/${repository.name} is:issue is:open ${scope}` }),
+    github.search_pull_requests({ query: `repo:${repository.owner}/${repository.name} is:pr ${scope}` })
+  ]);
+  const pullRequests = await hydratePullRequests({ repository, ref: refContext.ref, candidates: mergeUniqueByNumber(openPrs, scopedPrs) });
+  const scopeRelatedCommits = await github.search_commits({ q: `repo:${repository.owner}/${repository.name} ${scope}` }).catch(() => []);
+  return {
+    access: "GitHub MCP", open_issues: selectRelevantWorkItems(openIssues, scopedIssues, scope),
+    flagged_or_pending_issues: selectFlaggedOrPendingIssues(openIssues, scopedIssues), open_pull_requests: pullRequests,
+    recent_commits: recentCommits.slice(0, 30), scope_related_commits: scopeRelatedCommits.slice(0, 30),
+    tags: tags.slice(0, 30), releases: releases.slice(0, 10), latest_release: latestRelease
+  };
+}
+
+async function buildRepositoryInventory({ repository, refContext, scope }) {
+  const queries = ["path:documentation", "path:docs", "filename:README", "filename:ARCHITECTURE", "filename:DESIGN", "filename:IMPLEMENTATION", "filename:ADR", "path:.github", "filename:package.json", "filename:pyproject.toml", "filename:requirements.txt", "filename:Cargo.toml", "filename:go.mod", "filename:docker-compose.yml", "filename:compose.yml", "filename:Makefile", "filename:README.md"];
+  const results = await Promise.all(queries.map(query => github.search_code({ q: `repo:${repository.owner}/${repository.name} ${query}` })));
+  const candidates = flattenAndDedupeCodeSearch(results);
+  const files = await Promise.all(candidates.slice(0, 250).map(async item => {
+    const content = await github.get_file_contents({ owner: repository.owner, repo: repository.name, ref: refContext.ref, path: item.path });
+    return { path: item.path, sha: content.sha, content: decodeGitHubContent(content) };
+  }));
+  return classifyInventory(files, scope);
+}
+
+async function hydratePullRequests({ repository, ref, candidates }) {
+  const selected = candidates.filter(pr => pr.head?.ref === ref || pr.base?.ref === ref || isPotentiallyRelevant(pr)).slice(0, 30);
+  return Promise.all(selected.map(pr => github.pull_request_read({ owner: repository.owner, repo: repository.name, pull_number: pr.number, method: "get" })));
+}
+
+async function findPullRequestForRef(repository, ref) {
+  const prs = await github.list_pull_requests({ owner: repository.owner, repo: repository.name, state: "open", per_page: 100 });
+  return prs.find(pr => pr.head?.ref === ref) || null;
+}
+
+async function collectAccessContext({ repository }) {
+  const collaborators = await github.list_repository_collaborators({ owner: repository.owner, repo: repository.name, per_page: 100 }).catch(() => ({ status: "unavailable" }));
+  const teams = await github.get_teams({ owner: repository.owner, repo: repository.name, per_page: 100 }).catch(() => ({ status: "unavailable" }));
+  return { collaborators, teams, note: "Review access configuration only; do not modify it." };
+}
+
+async function collectSecurityContext({ repository }) {
+  const secretScan = await github.run_secret_scanning({ owner: repository.owner, repo: repository.name }).catch(error => ({ status: "unavailable", reason: String(error) }));
+  return { secret_scanning: secretScan };
+}
+
+function notCiRelated(finding) { return !/(\bci\b|github actions|workflow run|workflow job|check run|pipeline)/i.test(JSON.stringify(finding)); }
+function removeCiContent(report) { return stripCiSectionsAndClaims(report, "CI was intentionally excluded from this review."); }
+function panelForDepth(depth) { const expert="expert_reasoning", standard="standard_reasoning"; return [{name:"architect",model:expert},{name:"financial-planner",model:expert},{name:"usability-accessibility",model:depth==="deep"?expert:standard},{name:"documentation",model:depth==="deep"?expert:standard},{name:"quality",model:depth==="deep"?expert:standard}]; }
+
+// Host/project adapters: getLinkedProjectRepository, getLinkedProjectRef, inferDefaultBranch,
+// selectRepositoriesMatchingProject, selectRelevantWorkItems, selectFlaggedOrPendingIssues,
+// mergeUniqueByNumber, flattenAndDedupeCodeSearch, decodeGitHubContent, classifyInventory,
+// isPotentiallyRelevant, normalizeSystemMap, createCoverageMatrix, runParallel,
+// normalizeAndDeduplicateFindings, verifyFindings, synthesizeReport, plannerSignOff,
+// applyPlannerChanges, reverifyAndResynthesize, stripCiSectionsAndClaims,
+// validateReportQualityGate, writeFinalReportOnly, completionSummary.
