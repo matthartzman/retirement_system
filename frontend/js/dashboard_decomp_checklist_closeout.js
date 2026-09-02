@@ -426,12 +426,22 @@ export function firstRunChecklistHtml(compact = false) {
     },
     {
       title: "Review and build",
-      desc: "Run preflight, build reports, review impact and results, and download the final workbook.",
+      // Item 2.19 (finding U6): "Run preflight, build reports, ..." used to
+      // describe Preflight as its own step before this checklist card
+      // rendered on the Build tab too (it previously only appeared on the
+      // now-retired separate Preflight tab). Rewritten for the merged flow
+      // -- also avoids an accessible-name collision: this card's text
+      // containing the substring "build reports" made Playwright's
+      // getByRole('button', {name:'Build Reports'}) in the E2E suite match
+      // this card instead of the real Build Reports button once both
+      // rendered on the same tab (tests/e2e/helpers.js's
+      // triggerBuildAndWaitForOverlay).
+      desc: "Check readiness, run the build, review impact and results, and download the final workbook.",
       steps: ["review", "build_impact", "detailed_results", "plan_data_report"],
       next: "reports_and_review",
     },
   ];
-  let html = `<div class="first-run-checklist ${compact ? "compact" : ""}"><div class="first-run-head"><div><h3>${compact ? "Workflow checklist" : "Recommended workflow"}</h3><p class="small">A low-risk path through the plan: enter source data first, then strategy, stress tests, preflight, build, and review.</p></div>${compact ? "" : '<button class="btn primary" type="button" data-step-id="reports_and_review">Review and Build</button>'}</div><div class="first-run-items">`;
+  let html = `<div class="first-run-checklist ${compact ? "compact" : ""}"><div class="first-run-head"><div><h3>${compact ? "Workflow checklist" : "Recommended workflow"}</h3><p class="small">A low-risk path through the plan: enter source data first, then strategy, stress tests, build, and review.</p></div>${compact ? "" : '<button class="btn primary" type="button" data-step-id="reports_and_review">Review and Build</button>'}</div><div class="first-run-items">`;
   items.forEach((item) => {
     const st = checklistItemStatus(item.steps);
     html += `<button class="first-run-item ${st.cls}" type="button" data-step-id="${esc(item.next)}"><span class="check-status">${esc(st.label)}</span><b>${esc(item.title)}</b><small>${esc(item.desc)}</small></button>`;
@@ -1067,6 +1077,11 @@ export function renderTabbedWorkspace(tabs, active, handlerName) {
   return `<div class="workspace-tabs" role="tablist">${tabs.map((t) => `<button class="workspace-tab ${t === active ? "active" : ""}" type="button" role="tab" aria-selected="${t === active ? "true" : "false"}" onclick="${handlerName}('${escJs(t)}')">${esc(t)}</button>`).join("")}</div>`;
 }
 
+// #301: Preflight is its own tab again (superseding item 2.19's earlier
+// "merged into Build" restructuring) -- the readiness checklist is a
+// distinct workflow (a full pre-build gate) from the Build tab's own
+// status/action panel, so folding it in there buried it instead of
+// simplifying it.
 export function renderReportsPreflight() {
   const stats = overallStats();
   const missing = stats.missing || [];
@@ -1241,8 +1256,8 @@ Object.assign(window, {
   renderReview,
   renderPlanDataReport,
   renderTabbedWorkspace,
-  renderReportsPreflight,
   renderReportsBuild,
+  renderReportsPreflight,
   renderReportsAndReview,
   startNewPlan,
 });

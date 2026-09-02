@@ -17,8 +17,8 @@ python main.py --mode server
 **Run tests (pytest):**
 ```
 pytest tests/
-pytest tests/test_v11_architecture_regression.py          # single test file
-pytest tests/test_v11_architecture_regression.py::test_name  # single test
+pytest tests/test_v11_architecture_functional.py          # single test file
+pytest tests/test_v11_architecture_functional.py::test_name  # single test
 ```
 
 **Run regression checks (static analysis, not pytest):**

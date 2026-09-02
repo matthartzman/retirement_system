@@ -2,9 +2,9 @@
 // superscript-i affordance, extended here to every field).
 //
 // 1. Clicking the "i" icon (or the field row) only ever wrote into
-//    #helpPanel's innerHTML; it never re-showed the panel itself, which
-//    autoCollapseHelpForNarrowLaptop() (U1) hides at typical laptop widths
-//    (1181-1499px) via a `help-collapsed` class on <body>. The click did
+//    #helpPanel's innerHTML; it never re-showed the panel itself, which the
+//    help pane hides by default at every width since item 2.18 (U2) --
+//    body.help-open, set by ensureHelpPanelVisible() below. The click did
 //    something -- just nothing the user could see.
 // 2. The icon was gated on a small hand-curated FIELD_TOOLTIPS dict (~30
 //    entries), so most fields had no icon at all even though the full
@@ -20,11 +20,11 @@ const sandbox = loadDashboardSandbox();
 const { fieldTooltipPreview, fieldTooltipHtml, ensureHelpPanelVisible } = sandbox;
 
 describe("ensureHelpPanelVisible", () => {
-  test("removes help-collapsed from <body> so a hidden panel becomes visible", () => {
-    const removed = [];
-    sandbox.document.body.classList.remove = (cls) => removed.push(cls);
+  test("adds help-open to <body> so the closed-by-default panel becomes visible", () => {
+    const added = [];
+    sandbox.document.body.classList.add = (cls) => added.push(cls);
     ensureHelpPanelVisible();
-    assert.deepEqual(removed, ["help-collapsed"]);
+    assert.deepEqual(added, ["help-open"]);
   });
 });
 

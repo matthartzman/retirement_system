@@ -59,8 +59,15 @@ def test_plan_summary_exposes_terminal_cap_gain_fields():
 
 
 def test_frontend_after_tax_description_mentions_capital_gains():
+    # #293/#309 (independent of this item, landed on main): the standalone
+    # "Terminal net worth" Build Impact card that carried this exact wording
+    # was replaced by the Expected After-Tax LCV / NPV of Future Taxes /
+    # Worst-Case Ending Wealth / EFTR cards. The underlying concept (terminal
+    # net worth minus embedded taxes heirs would owe, including unrealized
+    # gains) is still surfaced -- now in the Post-Tax Inheritance tooltip.
     js = dashboard_js_text()
-    assert "deferred capital-gains tax on taxable brokerage assets" in js
+    assert "embedded taxes heirs would owe" in js
+    assert "unrealized gains" in js
     assert "summary.terminal_deferred_tax_total" in js
 
 

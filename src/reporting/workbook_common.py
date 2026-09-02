@@ -131,16 +131,17 @@ def section_title(ws, row, text, span=8, bg=None):
 # not carry separate financial implementations.
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 6.  PROJECTION / MONTE CARLO DELEGATION
+# 6.  (removed — see item 2.16 below)
 # ─────────────────────────────────────────────────────────────────────────────
-# `project`/`monte_carlo` are not called directly in this module, but several
-# sibling modules (e.g. sheets_stress.py) rely on getting them via their own
-# `from .workbook_common import *` wildcard import — do not remove as "unused".
-from ..planning_engines import project  # consolidated from projection_engine
-from ..planning_engines import monte_carlo  # consolidated from monte_carlo_engine
-from ..planning_engines import optimize_roth_conversion_strategy
-from ..planning_engines import run_scenario  # shared deepcopy+override+project helper (Wave 4.4)
-from ..planning_engines import essential_discretionary_floor_check  # Wave 5.5
+# Finding A11 (system review 2026-08-31): this used to re-export project,
+# monte_carlo, optimize_roth_conversion_strategy, run_scenario, and
+# essential_discretionary_floor_check from planning_engines, so sheet
+# builders reached the engine *through* this reporting-layer module instead
+# of importing it directly -- hiding the real dependency. monte_carlo and
+# optimize_roth_conversion_strategy had no importers anywhere (dead
+# re-exports); project/run_scenario/essential_discretionary_floor_check's
+# two real importers (sheets_stress.py, sheets_current_vs_proposed.py) now
+# import from ..planning_engines directly (item 2.16).
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 9.  WORKBOOK BUILDER
@@ -401,10 +402,6 @@ def qc(sheet, check, passed, detail=''):
 # ─────────────────────────────────────────────────────────────────────────────
 # Sheet builders
 # ─────────────────────────────────────────────────────────────────────────────
-
-# Export private helper names to sheet modules using star imports.
-__all__ = [name for name in globals() if not name.startswith("__")]
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Workbook-wide readability pass

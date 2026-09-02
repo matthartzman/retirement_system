@@ -52,6 +52,7 @@ from .. import core as _ar  # consolidated from account_registry
 from .. import core as _aa  # consolidated from account_access
 from .. import tlh as _tlh
 from .. import gain_harvest as _gh
+from .. import tax_kernel as _tk
 from ..equity_comp import equity_comp_year_events as _equity_comp_year_events
 from ..core import amt_tax as _amt_tax
 from ..core import state_for_year
@@ -402,12 +403,7 @@ def run_deterministic_projection_stage(c):
         return _path_ratio('ss_cola_index_by_year', c['ss_cola'], year, claim_year)
 
     def _bracket_factor_for_year(year):
-        idx = c.get('bracket_index_by_year') if isinstance(c.get('bracket_index_by_year'), dict) else None
-        if idx:
-            base_year = getattr(getattr(_ar, '_td', None), 'FEDERAL_BRACKETS_VALUE_YEAR', TAX_BASE_YEAR)
-            base_to_plan = (1.0 + float(c.get('brk_inf', 0.02) or 0.0)) ** (int(c.get('plan_start', year)) - int(base_year))
-            return base_to_plan * float(idx.get(year, idx.get(int(year), 1.0)) or 1.0)
-        return (1.0 + float(c.get('brk_inf', 0.02) or 0.0)) ** (int(year) - getattr(getattr(_ar, '_td', None), 'FEDERAL_BRACKETS_VALUE_YEAR', TAX_BASE_YEAR))
+        return _tk.bracket_factor_for_year(c, year)
 
     def _inflate_brackets_path(brackets, inflator_unused, years_from_plan_start):
         year_eff = int(c.get('plan_start', 0) or 0) + int(years_from_plan_start or 0)
@@ -454,40 +450,16 @@ def run_deterministic_projection_stage(c):
         return (base + add_per * n_over_65) * _bracket_factor_for_year(year)
 
     def _irmaa_factor_for_year(year):
-        idx = c.get('irmaa_index_by_year') if isinstance(c.get('irmaa_index_by_year'), dict) else None
-        if idx:
-            return float(idx.get(year, idx.get(int(year), 1.0)) or 1.0)
-        return (1.0 + float(c.get('irmaa_inflator', 0.02) or 0.0)) ** (int(year) - int(c.get('plan_start', year)))
+        return _tk.irmaa_factor_for_year(c, year)
 
     def _irmaa_surcharge_path(agi, year, n_people, filing):
-        tiers = IRMAA_TIERS_BASE_YEAR.get(filing, IRMAA_TIERS_BASE_YEAR['MFJ'])
-        infl = _irmaa_factor_for_year(year)
-        for threshold, partb, partd in reversed(tiers):
-            if agi > threshold * infl:
-                return (partb + partd) * n_people * 12
-        return 0.0
+        return _tk.irmaa_surcharge(agi, year, n_people, filing, c)
 
     def _irmaa_tier_path(agi, year, filing):
-        tiers = IRMAA_TIERS_BASE_YEAR.get(filing, IRMAA_TIERS_BASE_YEAR['MFJ'])
-        infl = _irmaa_factor_for_year(year)
-        for i, (threshold, _, _) in enumerate(reversed(tiers)):
-            if agi > threshold * infl:
-                return len(tiers) - i
-        return 0
+        return _tk.irmaa_tier(agi, year, filing, c)
 
     def _ltcg_tax_on_gain_path(gain, ordinary_income, year):
-        if gain <= 0:
-            return 0.0
-        infl = _bracket_factor_for_year(year)
-        top0 = c['ltcg_0_top'] * infl
-        top15 = c['ltcg_15_top'] * infl
-        base = max(0.0, ordinary_income)
-        tax = 0.0
-        remaining = float(gain or 0.0)
-        in0 = min(remaining, max(0.0, top0 - base)); remaining -= in0
-        in15 = min(remaining, max(0.0, top15 - max(base, top0))); tax += in15 * 0.15; remaining -= in15
-        tax += max(0.0, remaining) * 0.20
-        return max(0.0, tax)
+        return _tk.ltcg_tax_on_gain(c, gain, ordinary_income, year)
 
     def _fra_for_birth_year(dob_year, fra_override=None):
         if fra_override and float(fra_override) > 0:
@@ -581,6 +553,17 @@ def run_deterministic_projection_stage(c):
     _equity_on = bool(_opt.get('equity_compensation')) and bool(c.get('equity_comp'))
     _disability_on = bool(_opt.get('disability_income_insurance'))
     amt_credit_carry = 0.0  # ISO minimum-tax credit carried across years
+    # Item 3.5 (F6): running state for the adoptable spending guardrail
+    # policy (fixed_real/guyton_klinger/floor_ceiling_band), carried across
+    # years by spending_guardrail_year -- {} on the first active year.
+    _spend_guardrail_state: dict = {}
+    # Item 3.6 (F5): rolling 3-calendar-year window of gift_total_yr, for New
+    # York's 3-year gift add-back (NY Tax Law Β§954(a)(3) -- gifts made within
+    # 3 years of death are added back into the NY gross estate even though
+    # federal law no longer adds them back). A plain list capped at 3 entries
+    # -- this year plus the two before it -- rather than a full rows scan,
+    # since only the terminal (death) year's row ever reads it.
+    _recent_gift_totals: list = []
 
     for year in range(c['plan_start'], c['plan_end']+1):
         h_age = year - c['h_dob_yr']
@@ -1196,6 +1179,34 @@ def run_deterministic_projection_stage(c):
         survivor_factor_yr = _survivor_factor(n_alive)
         row['survivor_spend_factor_yr'] = survivor_factor_yr
         spend *= survivor_factor_yr
+
+        # ── Item 3.5 (F6): age-phased real spending curve (Option 2, always
+        # independently available) then the adoptable spending guardrail
+        # policy (fixed_real/guyton_klinger/floor_ceiling_band). Both are
+        # no-ops (factor 1.0 / policy passthrough) for every plan that
+        # hasn't configured them, so this is byte-identical to the prior
+        # unconditional `spend_base_yr = spend` for the shipped default.
+        _phase_age = max(h_age if h_alive else -1, w_age if w_alive else -1)
+        if _phase_age >= 0:
+            spend *= _legacy_pe.age_phased_spending_factor(
+                _phase_age, c.get('spending_phase_decline_pct', 0.0),
+                c.get('spending_phase_start_age', 0), c.get('spending_phase_end_age', 0),
+            )
+        _spend_policy = str(c.get('spending_policy', 'fixed_real') or 'fixed_real')
+        if _spend_policy in ('guyton_klinger', 'floor_ceiling_band') and spend > 0:
+            _portfolio_value_yr = sum(
+                max(0.0, float(bal.get(_aid, 0.0) or 0.0))
+                for _aid in (c.get('pre_tax_ids', []) + c.get('roth_ids', []) + c.get('taxable_ids', [])
+                             + c.get('hsa_ids', []) + c.get('cash_ids', []))
+            )
+            spend, _spend_guardrail_state, _spend_cut, _spend_raised = _legacy_pe.spending_guardrail_year(
+                _spend_policy, spend, _portfolio_value_yr, _spend_guardrail_state,
+                inflation_rate=c.get('inf', 0.025),
+                prior_return=None,  # documented no-op: single flat c['ret'], no year-to-year variation
+                years_remaining=c['plan_end'] - year,
+            )
+            row['spending_policy_cut_applied'] = bool(_spend_cut)
+            row['spending_policy_raise_applied'] = bool(_spend_raised)
         row['spend_base_yr'] = spend
 
         # Recurring extras — Home Improvement items route to housing costs; all others to rec_extra
@@ -1441,6 +1452,10 @@ def run_deterministic_projection_stage(c):
         row['gift_total_yr'] = gift_total_yr
         row['gift_excess_over_exclusion_yr'] = gift_excess_over_exclusion_yr
         row['lifetime_exemption_used_cumulative'] = lifetime_exemption_used
+        _recent_gift_totals.append(gift_total_yr)
+        if len(_recent_gift_totals) > 3:
+            _recent_gift_totals.pop(0)
+        row['gift_total_last_3yr'] = sum(_recent_gift_totals)
 
         portfolio_ordinary, portfolio_qualified, portfolio_tax_exempt = _taxable_portfolio_income_for_year()
         # Informational only — taxable dividend/interest income for the year,
@@ -2243,7 +2258,7 @@ def run_deterministic_projection_stage(c):
         #
         # An earlier version sat after Priority 4c, on the reasoning that
         # `hsa_wd` is not final until 4c's gap-fill has run. That was wrong,
-        # and `test_recommendations_regression.py::
+        # and `test_recommendations_functional.py::
         # test_fixed_point_taxable_withdrawal_solver_runs_before_roth` caught
         # it: adding tax demand after 3/4b/4c leaves only Roth to fund it, so
         # the plan drew Roth while pre-tax and HSA balances still remained --
@@ -2338,7 +2353,23 @@ def run_deterministic_projection_stage(c):
         _ira_retirement_dist_orig = retirement_dist
         if gap > 0:
             brk_yr = _inflate_brackets_path(FEDERAL_BRACKETS_MFJ, c['brk_inf'], year - c['plan_start'])
-            top_24_yr = next((hi for lo, hi, rate in brk_yr if rate == 0.24), 400_000)
+            # Item 3.4 (F1 Option 2): the Priority-3 elective pre-tax draw
+            # caps itself at a bracket ceiling before falling through to
+            # taxable/trust -- the withdrawal-order-equivalent CFPs actually
+            # implement ("fill ordinary income to the Nth bracket, then draw
+            # taxable") without the full cascade reorder F1 Option 1 would
+            # require. That ceiling used to be hardcoded to the 24% bracket;
+            # withdrawal_bracket_target_rate (data_io.py, default 0.24 --
+            # reproduces today's behavior exactly) makes it a real input.
+            _wd_target_rate = float(c.get('withdrawal_bracket_target_rate', 0.24) or 0.24)
+            top_24_yr = next((hi for _lo, hi, rate in brk_yr if rate == _wd_target_rate), None)
+            if top_24_yr is None:
+                raise ValueError(
+                    f"withdrawal_bracket_target_rate={_wd_target_rate!r} matches no federal bracket rate "
+                    f"in year={year} (available rates: {sorted({rate for _lo, _hi, rate in brk_yr})}) -- "
+                    "fix withdrawal_bracket_target_rate rather than silently capping pre-tax withdrawals "
+                    "against a hardcoded $400,000 bracket top"
+                )
             irmaa_thr_yr = c['irmaa_base'] * _irmaa_factor_for_year(year)
             marg = marginal_rate(taxable_inc, year, filing, c['brk_inf'])
             pretax_res = _legacy_pe.withdraw_pretax_elective(

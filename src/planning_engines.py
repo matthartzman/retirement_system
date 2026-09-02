@@ -434,7 +434,28 @@ def _basis_step_fraction_for_death(c: Mapping, first_death: bool = True) -> floa
 
 
 def _account_titling(c: Mapping, account_id: str) -> dict:
-    return (c.get('account_titling') or {}).get(account_id) or {}
+    """Explicit per-account titling, defaulting joint accounts to JTWROS.
+
+    Finding F8 (item 2.7): an account with no explicit titling on file used
+    to fall straight through to the household-wide property_regime default
+    via ``_basis_step_fraction_for_death``, which returns 1.0 (a full
+    step-up) for common-law-state first deaths. Combined with
+    ``core._infer_owner`` assigning every joint/household-named account
+    wholesale to member_1, this produced an asymmetric step-up outcome
+    depending on which spouse happened to die first, even though the
+    account is genuinely jointly held. An account this codebase infers as
+    joint/household-named (``infer_member_role(account_id) == 'household'``)
+    now defaults to JTWROS (50/50) titling absent an explicit override,
+    matching how such accounts are actually owned; an explicit titling
+    record on file still takes precedence.
+    """
+    explicit = (c.get('account_titling') or {}).get(account_id)
+    if explicit:
+        return explicit
+    from .person_labels import infer_member_role
+    if infer_member_role(account_id) == 'household':
+        return {'titling': 'JTWROS'}
+    return {}
 
 
 def _account_basis_step_fraction(c: Mapping, account_id: str, first_death: bool = True) -> float:
@@ -819,15 +840,25 @@ from . import core as _ar  # consolidated from account_registry
 BalanceMap = MutableMapping[str, float]
 
 
-def rmd_divisor(age: int | float, table: Mapping[int, float] | None = None) -> float:
-    """Return SECURE 2.0 Uniform Lifetime divisor for an age.
+def rmd_divisor(age: int | float, table: Mapping[int, float] | None = None,
+                 spouse_age: int | float | None = None,
+                 sole_beneficiary_spouse: bool = False) -> float:
+    """Return the RMD divisor for an age: SECURE 2.0 Uniform Lifetime by
+    default, or IRS Table II (Joint and Last Survivor) when
+    `sole_beneficiary_spouse` is true and the spouse is more than 10 years
+    younger (finding F10 / item 2.9) -- the Uniform Lifetime table alone
+    understates the RMD reduction available in that case.
 
     `table` is injectable so build_workbook can keep its current source of
-    truth while tests can exercise this helper independently.
+    truth while tests can exercise this helper independently; it only
+    overrides the Uniform Lifetime lookup, not the Joint Life table.
     """
     age_i = int(age)
     if age_i < 72:
         return 0.0
+    if sole_beneficiary_spouse and spouse_age is not None and (age_i - spouse_age) > 10:
+        from .core import joint_life_divisor
+        return float(joint_life_divisor(age_i, spouse_age))
     if table and age_i in table:
         return float(table[age_i])
     try:
@@ -839,6 +870,36 @@ def rmd_divisor(age: int | float, table: Mapping[int, float] | None = None) -> f
     # Beyond table age, keep declining conservatively without corrupting
     # known-table ages such as age 80 (20.2, not a linear approximation).
     return max(2.0, 2.9 - max(0, age_i - 115) * 0.1)
+
+
+def _spouse_is_sole_beneficiary(c: Mapping, ids: Sequence[str], spouse_name: str) -> bool:
+    """True if per-account titling data names the spouse as sole primary
+    beneficiary for this owner's RMD-eligible accounts, or if no titling
+    record is on file for any of them at all.
+
+    Finding F10 / item 2.9: "automatic detection via titling plus an
+    age-gap fallback." Absent an explicit record naming someone else, this
+    assumes the spouse is the beneficiary -- the common case for retirement
+    accounts, and the reason the age-gap alone is the documented fallback
+    rather than withholding the more favorable Joint Life divisor by
+    default. An explicit record naming a different beneficiary (not the
+    spouse) for any of these accounts overrides the fallback to False.
+    """
+    titling = c.get('account_titling') or {}
+    spouse_l = str(spouse_name or '').strip().lower()
+    for aid in ids:
+        rec = titling.get(aid)
+        if not rec:
+            continue
+        ben = str(rec.get('primary_beneficiary') or '').strip().lower()
+        if not ben:
+            continue
+        if 'spouse' in ben:
+            continue
+        if spouse_l and spouse_l in ben:
+            continue
+        return False
+    return True
 
 
 def owner_account_ids(registry: Sequence[Mapping], owner_idx: int, tax_type: str | None = None) -> List[str]:
@@ -886,6 +947,11 @@ def compute_rmds(
         0: int(c.get("h_rmd_start_age", start_age_default) or start_age_default),
         1: int(c.get("w_rmd_start_age", start_age_default) or start_age_default),
     }
+    # F10 / item 2.9: the spouse's age and name for the Joint Life table gate
+    # -- owner_idx 0 (h)'s spouse is w and vice versa.
+    spouse_age_of = {0: w_age, 1: h_age}
+    spouse_alive_of = {0: w_alive, 1: h_alive}
+    spouse_name_of = {0: c.get("w_name", ""), 1: c.get("h_name", "")}
     by_owner: Dict[int, Dict] = {}
 
     for owner_idx, age, alive in ((0, h_age, h_alive), (1, w_age, w_alive)):
@@ -893,7 +959,16 @@ def compute_rmds(
         total_bal = _ar.sum_bal(bal, ids) - _ar.qlac_excluded_rmd_balance(c, owner_idx, year)
         total_bal = max(0.0, total_bal)
         start_age = start_ages.get(owner_idx, start_age_default)
-        divisor = divisor_fn(age) if alive and age >= start_age else 0.0
+        sole_spouse = bool(spouse_alive_of[owner_idx]) and _spouse_is_sole_beneficiary(
+            c, ids, spouse_name_of[owner_idx])
+        try:
+            divisor = divisor_fn(age, spouse_age=spouse_age_of[owner_idx],
+                                  sole_beneficiary_spouse=sole_spouse) if alive and age >= start_age else 0.0
+        except TypeError:
+            # A caller-supplied divisor_fn (e.g. in tests) may not accept
+            # the newer keyword arguments -- fall back to the plain call
+            # rather than breaking existing single-arg callables.
+            divisor = divisor_fn(age) if alive and age >= start_age else 0.0
         amount = max(0.0, total_bal / divisor) if divisor and total_bal > 500 else 0.0
         by_owner[owner_idx] = {
             "ids": ids,
@@ -1674,25 +1749,153 @@ def _conversion_order(c: Mapping) -> List[int]:
 def conversion_window_end_year(c: Mapping) -> int:
     """Return the last year for voluntary Roth conversions.
 
-    The legacy control is ``roth_conv_window_end_offset`` relative to the
-    primary member RMD year.  The v8.3 governance contract adds an explicit
-    ``max_conversion_years`` cap so advisors can constrain the optimizer to a
-    finite pre-RMD planning window without editing birth/RMD assumptions.
+    Item 3.2 (F3): ``conv_window_offset`` (CSV field
+    ``roth_conv_window_end_offset``) ships in every plan file with the
+    schema-documented default of ``-1`` (data_io.py) -- the row is always
+    present, so its presence in the CSV can't distinguish "advisor chose
+    -1" from "advisor never touched this field". The value itself is the
+    only usable signal: at the shipped default (-1), the window now extends
+    to plan end rather than closing the year before RMDs start, keeping the
+    two highest-value conversion opportunities in play -- the late pre-RMD
+    gap years and the survivor's compressed single-filer bracket years.
+    RMDs and voluntary conversions coexisting past RMD age is already
+    proven correct (item 3.1's guardrail verification); the optimizer's own
+    caps size conversions to zero once they stop being profitable, so
+    simply not closing the window is sufficient (system review's Option 1).
+
+    Any OTHER offset value means the advisor has deliberately overridden
+    it, and that offset remains authoritative, relative to RMD start -- but
+    now anchored to whichever member reaches RMD age later, not just the
+    primary member. The prior primary-member-only anchoring ignored a
+    younger spouse's own (later) RMD start year entirely.
+
+    ``roth_max_conversion_years`` (the v8.3 governance contract's explicit
+    cap, 0 = unset) is authoritative whenever set, in both cases.
     """
-    primary_dob = int(c.get("h_dob_yr", c.get("plan_start", 0)))
-    legacy_end = primary_dob + int(c.get("rmd_start_age", 75)) + int(c.get("conv_window_offset", -1))
+    plan_start = int(c.get("plan_start", 0))
+    h_dob = int(c.get("h_dob_yr", plan_start))
+    w_dob = int(c.get("w_dob_yr", h_dob))
+    h_rmd_age = int(c.get("h_rmd_start_age", c.get("rmd_start_age", 75)) or 75)
+    w_rmd_age = int(c.get("w_rmd_start_age", c.get("rmd_start_age", 75)) or 75)
+    later_rmd_year = max(h_dob + h_rmd_age, w_dob + w_rmd_age)
+
     try:
         max_years = int(float(c.get("roth_max_conversion_years", 0) or 0))
     except Exception:
         max_years = 0
+
+    offset = int(c.get("conv_window_offset", -1))
+    if offset == -1:
+        end = int(c.get("plan_end", later_rmd_year))
+    else:
+        end = later_rmd_year + offset
+
     if max_years > 0:
-        plan_start = int(c.get("plan_start", legacy_end))
-        return min(legacy_end, plan_start + max_years - 1)
-    return legacy_end
+        end = min(end, plan_start + max_years - 1)
+    return end
 
 
 def _available_by_owner(c: Mapping, bal: Mapping[str, float], owner_idx: int) -> float:
     return _sum_bal(bal, _ids_by_owner_tax(c, owner_idx, "pre_tax"))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Item 3.5 (F6): adoptable spending policy -- deterministic-engine (single
+# path) implementation. The 4-rule Guyton-Klinger guardrail and the simpler
+# floor-ceiling band, previously modeled only as a Monte Carlo shadow (never
+# consumed as real policy -- see the vectorized shadow block in this same
+# module), become the LIVE spending figure the deterministic engine actually
+# uses when spending_policy is set to one of them.
+#
+# GK's Rule 1 (freeze the inflation increase after a negative-return year)
+# is a documented no-op here: the deterministic engine assumes one flat
+# annual return (c['ret']) for every year, so there is no year-to-year
+# return variation for the freeze to react to. It fires normally in Monte
+# Carlo, which has real per-path realized returns.
+# ─────────────────────────────────────────────────────────────────────────────
+
+SPENDING_GUARDRAIL_BAND = 0.20             # +/-20% of the initial withdrawal rate (GK)
+SPENDING_GUARDRAIL_ADJUST = 0.10           # 10% cut or raise when a GK guardrail triggers
+SPENDING_GUARDRAIL_SUSPENSION_YEARS = 15   # GK capital-preservation rule suspended this close to plan end
+SPENDING_FLOOR_CEILING_BAND_PCT = 0.10     # +/-10% of the plan's own fixed-real spend level
+
+
+def age_phased_spending_factor(age: float, decline_pct: float, start_age: int, end_age: int) -> float:
+    """Item 3.5 (F6, Option 2): independent, always-available age-phased real
+    spending curve -- discretionary spend declines by ``decline_pct``,
+    phased in linearly between ``start_age`` and ``end_age``, then holds at
+    the reduced level. Returns 1.0 (no-op) whenever decline_pct/start_age/
+    end_age are unset (the default for every existing plan) or malformed
+    (end_age <= start_age).
+    """
+    decline_pct = max(0.0, min(1.0, float(decline_pct or 0.0)))
+    start_age = int(start_age or 0)
+    end_age = int(end_age or 0)
+    if decline_pct <= 0.0 or end_age <= start_age:
+        return 1.0
+    age = float(age or 0.0)
+    if age <= start_age:
+        return 1.0
+    if age >= end_age:
+        return 1.0 - decline_pct
+    phase = (age - start_age) / (end_age - start_age)
+    return 1.0 - decline_pct * phase
+
+
+def spending_guardrail_year(
+    policy: str,
+    baseline_nominal_spend: float,
+    portfolio_value: float,
+    state: dict,
+    *,
+    inflation_rate: float = 0.0,
+    prior_return: float | None = None,
+    years_remaining: int | None = None,
+) -> tuple[float, dict, bool, bool]:
+    """One year's guardrail-adjusted spend for a SINGLE path (the
+    deterministic engine's own, or a per-path caller in the exact-scalar MC
+    engine). Returns ``(adjusted_spend, new_state, was_cut, was_raised)``.
+
+    ``state`` carries this path's own running guardrail state across years
+    (``{}`` on the first call): ``iwr`` (initial withdrawal rate, fixed once
+    from the FIRST call), ``last_withdrawal`` (GK's own running dollar
+    figure). Cut/raise are always reported relative to
+    ``baseline_nominal_spend`` (this year's normal fixed-real spend) -- the
+    plan's own "what would have been spent" figure -- not each policy's
+    internal reference, so disclosure means the same thing under either
+    policy.
+    """
+    if policy not in ("guyton_klinger", "floor_ceiling_band") or baseline_nominal_spend <= 0:
+        return baseline_nominal_spend, state, False, False
+    if not state.get("initialized"):
+        iwr = baseline_nominal_spend / max(1.0, float(portfolio_value))
+        new_state = {"initialized": True, "iwr": iwr, "last_withdrawal": baseline_nominal_spend}
+        return baseline_nominal_spend, new_state, False, False
+
+    iwr = float(state["iwr"])
+    portfolio_value = max(0.0, float(portfolio_value))
+    if policy == "floor_ceiling_band":
+        natural = iwr * portfolio_value
+        floor = baseline_nominal_spend * (1.0 - SPENDING_FLOOR_CEILING_BAND_PCT)
+        ceiling = baseline_nominal_spend * (1.0 + SPENDING_FLOOR_CEILING_BAND_PCT)
+        adjusted = min(ceiling, max(floor, natural))
+    else:  # guyton_klinger
+        withdrawal = float(state["last_withdrawal"])
+        freeze = prior_return is not None and prior_return < 0.0
+        if not freeze:
+            withdrawal *= (1.0 + float(inflation_rate or 0.0))
+        cwr = withdrawal / max(1e-9, portfolio_value)
+        suspend_capital_preservation = years_remaining is not None and years_remaining <= SPENDING_GUARDRAIL_SUSPENSION_YEARS
+        if not suspend_capital_preservation and cwr > iwr * (1.0 + SPENDING_GUARDRAIL_BAND):
+            withdrawal *= (1.0 - SPENDING_GUARDRAIL_ADJUST)
+        elif cwr < iwr * (1.0 - SPENDING_GUARDRAIL_BAND):
+            withdrawal *= (1.0 + SPENDING_GUARDRAIL_ADJUST)
+        adjusted = withdrawal
+
+    new_state = {"initialized": True, "iwr": iwr, "last_withdrawal": adjusted}
+    was_cut = adjusted < baseline_nominal_spend - 1e-6
+    was_raised = adjusted > baseline_nominal_spend + 1e-6
+    return adjusted, new_state, was_cut, was_raised
 
 
 
@@ -1894,7 +2097,26 @@ def plan_roth_conversion(
     target_rate = _roth_resolve_target_rate(
         c, year, float(c.get("roth_target_rate", c.get("roth_brk", 0.24)) or 0.24)
     )
-    top_target = next((hi for _lo, hi, rate in brk if rate == target_rate), 400000)
+    _bracket_top_match = next((hi for _lo, hi, rate in brk if rate == target_rate), None)
+    if _bracket_top_match is None and policy not in ("fixed_dollar", "fill_to_irmaa"):
+        # Item 3.2 (F3, planner's review pass): a roth_target_rate that
+        # matches no bracket rate (a typo, or a bracket-table edit that drops
+        # a rate) used to fall back silently to a hardcoded $400,000 bracket
+        # top -- a wrong conversion-sizing cap with nothing in the output to
+        # flag it. Only the target-rate-based policies (fill_to_bracket and
+        # its family) actually consume this cap; fixed_dollar and
+        # fill_to_irmaa compute it only as an unused diagnostic field, so
+        # they are not gated on it matching. Applies to the RESOLVED rate
+        # (roth_phase_schedule-aware via _roth_resolve_target_rate), so a
+        # phase-varying schedule with a bad rate in any one phase fails
+        # loud too, not just a flat roth_target_rate.
+        raise ValueError(
+            f"roth_target_rate={target_rate!r} matches no bracket rate for filing={filing!r} "
+            f"in year={year} (available rates: {sorted({rate for _lo, _hi, rate in brk})}) -- "
+            "fix roth_target_rate or the bracket table rather than silently sizing conversions "
+            "against a hardcoded $400,000 bracket top"
+        )
+    top_target = _bracket_top_match if _bracket_top_match is not None else 400000.0
 
     pre_non_ss = (
         earned_base - half_se_ded - sehi_ded
@@ -2250,6 +2472,7 @@ import contextlib
 import copy
 import io
 from collections import defaultdict
+from . import strategy_sweep
 
 # consolidated: project() below is from projection_engine; sample_household_death_years()
 # it calls is from mortality_engine (both now defined in this same module).
@@ -2348,6 +2571,33 @@ def _roth_strategy_candidate_specs(c: Mapping) -> List[Dict]:
     if not specs:
         add('No voluntary conversions', 'none', strategy_code='NONE')
     return specs
+
+
+def _roth_strategy_comparison_specs(c: Mapping) -> List[Dict]:
+    """Small, fixed comparison set for the disclosure table when the top-
+    level Roth policy is already an explicit, non-optimizing choice AND the
+    user hasn't asked for a specific ``roth_bracket_strategy`` family either
+    (item 2.3 / A4 gating). In that combination, _roth_strategy_candidate_specs
+    would otherwise default to full_set=True and score the entire ~30-candidate
+    sweep purely to populate a comparison table the engine's actual output
+    does not depend on -- optimize_roth_conversion_strategy always scores the
+    exact configured policy directly (see its own fallback below) regardless
+    of what else is in this list, so shrinking it changes only how many
+    alternatives Sheet 11 discloses, never the selected/projected policy.
+
+    Deliberately not used when roth_bracket_strategy names a specific family
+    (FIXED_DOLLAR, IRMAA_GUARDED, etc.): that already returns a small,
+    user-requested family-specific set via _roth_strategy_candidate_specs,
+    which this must not override.
+    """
+    configured_target = float(c.get('roth_target_rate', 0.22) or 0.22)
+    configured_fixed = float(c.get('roth_fixed_amount', 50000) or 0.0) or 50000.0
+    return [
+        {'label': 'No voluntary conversions', 'policy': 'none', 'strategy_code': 'NONE', 'target_rate': None, 'fixed_amount': None, 'overrides': {}},
+        {'label': f'Fill current/configured {int(configured_target * 100)}% bracket', 'policy': 'fill_to_bracket', 'strategy_code': 'FILL_CURRENT_BRACKET', 'target_rate': configured_target, 'fixed_amount': None, 'overrides': {}},
+        {'label': 'IRMAA-guarded conversion', 'policy': 'fill_to_irmaa', 'strategy_code': 'IRMAA_GUARDED', 'target_rate': None, 'fixed_amount': None, 'overrides': {}},
+        {'label': f'Fixed ${configured_fixed:,.0f}/yr', 'policy': 'fixed_dollar', 'strategy_code': f'FIXED_DOLLAR_{int(configured_fixed)}', 'target_rate': None, 'fixed_amount': configured_fixed, 'overrides': {}},
+    ]
 
 
 def _roth_legacy_mode_multiplier(c: Mapping) -> float:
@@ -2529,7 +2779,6 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
     # exact pre-refactor behavior of always using whatever il_exempt resolves
     # to (including 0.0, which taxes the entire estate above $0, not the
     # state's default exemption).
-    state_exempt = max(0.0, float(c.get('il_exempt', 0.0) or 0.0))
 
     def _estate_tax_for_row(row: Mapping) -> float:
         row_total = max(0.0, float(row.get('total_nw', 0.0) or 0.0))
@@ -2539,9 +2788,20 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
         federal_taxable = max(0.0, row_total - (row_cst if c.get('federal_portability_enabled', True) else 0.0))
         state_taxable = max(0.0, row_total - row_cst)
         federal_tax = max(0.0, federal_taxable - fed_exempt) * 0.40 if fed_exempt else 0.0
+        # Item 3.6 (F5): New York's 3-year gift add-back.
+        gift_addback = max(0.0, float(row.get('gift_total_last_3yr', 0.0) or 0.0))
+        # #302: resolve BOTH the resident state and its exemption per-row-year
+        # (state_for_year), not once at the top of this function -- a
+        # household with a residency schedule can be a different state in a
+        # later row-year, and item 3.6 (F5)'s resolved_state_estate_exemption
+        # corrects the shipped $4M (Illinois's own exemption) default for a
+        # non-Illinois resident state to that state's real statutory
+        # exemption instead.
+        row_state = state_for_year(c, row_year)
+        row_state_exempt = resolved_state_estate_exemption(row_state, float(c.get('il_exempt', 0.0) or 0.0))
         state_tax = (
-            state_estate_tax(state_for_year(c, row_year), state_taxable, state_exempt)[0]
-            if c.get('model_state_est', True) and state_exempt
+            state_estate_tax(row_state, state_taxable, row_state_exempt, gift_addback=gift_addback)[0]
+            if c.get('model_state_est', True) and row_state_exempt
             else 0.0
         )
         return federal_tax + state_tax
@@ -2833,8 +3093,7 @@ def optimize_roth_conversion_strategy(c: dict) -> dict:
         metrics['feasibility_gate_met'] = feasibility_probability >= LCV_FEASIBILITY_GATE_THRESHOLD
         return metrics
 
-    candidates = []
-    for spec in _roth_strategy_candidate_specs(c):
+    def _evaluate_roth_candidate(spec: dict) -> dict:
         overrides = {'roth_policy': spec['policy'], **(spec.get('overrides') or {})}
         if spec.get('target_rate') is not None:
             overrides['roth_target_rate'] = float(spec['target_rate'])
@@ -2842,23 +3101,71 @@ def optimize_roth_conversion_strategy(c: dict) -> dict:
         if spec.get('fixed_amount') is not None:
             overrides['roth_fixed_amount'] = float(spec['fixed_amount'])
         c2, rows = run_scenario(base, overrides)
-        metrics = _score_candidate(c2, rows)
-        candidates.append({**spec, **metrics})
+        return _score_candidate(c2, rows)
 
-    candidates.sort(key=lambda x: (x['score'], x['after_tax_terminal_nw'], -x['lifetime_tax']), reverse=True)
+    # Item 2.3 (A4), need-based gating: the full ~30-candidate sweep is only
+    # needed when the engine is actually choosing the policy (auto_optimize)
+    # or the user explicitly asked to compare a specific strategy FAMILY via
+    # roth_bracket_strategy. An explicit top-level policy with no family
+    # request left at its OPTIMIZER_CHOOSES default was running that same
+    # full sweep purely to populate a disclosure table whose SELECTED policy
+    # never depends on it (see the explicit-policy branch below, which always
+    # scores the exact configured policy directly) -- that case now gets
+    # _roth_strategy_comparison_specs' small fixed set instead.
+    #
+    # Narrowed after a real diff surfaced against test_synthetic_golden_master.py
+    # (2026-09-01): several full-set specs share the exact SAME policy and
+    # target_rate as each other for a 'fill_to_bracket' policy (e.g.
+    # FILL_CURRENT_BRACKET, SURVIVOR_TAX_AWARE, RMD_REDUCTION, and
+    # LEGACY_TARGETED all reduce to target_rate == configured_target once
+    # configured_target already clears their own max(configured_target, X)
+    # floors) -- the explicit-policy match below picks whichever of those
+    # happens to score highest, so shrinking the field can silently change
+    # WHICH near-duplicate spec's label gets disclosed as "selected" even
+    # though every one of them scores and projects identically for the
+    # actual plan (see the match logic's own comment: it never applies a
+    # matched candidate's overrides back onto c, only its label/strategy_code
+    # for disclosure). 'none' and 'fill_to_irmaa' have exactly one full-set
+    # spec each -- no ambiguity, safe to reduce. 'fixed_dollar' matches on
+    # fixed_amount to 1e-6 precision and _roth_strategy_candidate_specs'
+    # own seen-key dedup already collapses a configured amount that
+    # coincides with one of its literal amounts -- also unambiguous.
+    # 'fill_to_bracket' is the one policy where reduction can change the
+    # disclosed label, so it always gets the full sweep.
+    _requested_bracket_strategy = str(c.get('roth_bracket_strategy', 'OPTIMIZER_CHOOSES') or 'OPTIMIZER_CHOOSES').strip().upper()
+    _use_full_roth_sweep = (
+        auto_optimize
+        or _requested_bracket_strategy != 'OPTIMIZER_CHOOSES'
+        or requested_policy == 'fill_to_bracket'
+    )
+    _roth_specs = _roth_strategy_candidate_specs(c) if _use_full_roth_sweep else _roth_strategy_comparison_specs(c)
+
+    # Item 2.3 (A4): shared enumerate/evaluate/rank/gate shape -- see
+    # src/strategy_sweep.py's own docstring. The candidate scoring itself
+    # (_score_candidate/_roth_strategy_metrics above) is untouched; this
+    # only replaces the loop/sort/feasibility-gate-with-fallback plumbing
+    # around it, byte-for-byte equivalent to the inline version this
+    # replaced (verified against the golden master and the frozen Roth
+    # candidate table).
+    #
     # Optimization-refactor Phase 4 (Option C, full sign-off): a candidate
     # that fails the feasibility gate is hard-excluded from selection --
     # never chosen no matter how favorable its LCV score is. Ranking/
-    # reporting still shows every candidate (candidates list above, used by
+    # reporting still shows every candidate (candidates list below, used by
     # Sheet 11's disclosure table) so a failing candidate remains visible for
     # comparison; only the *selection* below is restricted. If every
     # candidate fails the gate, fall back to ranking the full set so a
     # recommendation is still produced, flagged via
     # roth_all_candidates_infeasible below.
-    _feasible_candidates = [x for x in candidates if x.get('feasibility_gate_met')]
-    _all_candidates_infeasible = bool(candidates) and not _feasible_candidates
-    _ranked_pool = _feasible_candidates if _feasible_candidates else candidates
-    best = _ranked_pool[0] if _ranked_pool else {'policy': 'none', 'label': 'No voluntary conversions'}
+    _sweep = strategy_sweep.run_sweep(
+        _roth_specs,
+        _evaluate_roth_candidate,
+        sort_key=lambda x: (x['score'], x['after_tax_terminal_nw'], -x['lifetime_tax']),
+        fallback_best={'policy': 'none', 'label': 'No voluntary conversions'},
+    )
+    candidates = _sweep.candidates
+    _all_candidates_infeasible = _sweep.all_infeasible
+    best = _sweep.best
 
     if auto_optimize:
         selected = best
@@ -5065,6 +5372,16 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
     _gk_adjust = 0.10          # 10% cut or raise when a guardrail triggers
     _gk_suspension_years = 15  # capital-preservation rule suspended once
                                 # this many years or fewer remain in the plan
+    # Item 3.5 (F6, Option 1): floor-ceiling band's own fixed default -- the
+    # simpler cousin of GK's 4-rule formula. Each year's "natural" draw is
+    # this path's OWN initial withdrawal rate reapplied to the CURRENT
+    # portfolio value (not last year's dollar amount grown by inflation, GK's
+    # own rule 1); that natural draw is then clamped to stay within +/-10% of
+    # the plan's ORIGINAL (undiminished) real spending level, so spending
+    # tracks the market but can never drift arbitrarily far from plan.
+    _fc_band_pct = 0.10
+    _spending_policy = str(c.get('spending_policy', 'fixed_real') or 'fixed_real').strip().lower()
+    _guardrail_active = _spending_policy in ('guyton_klinger', 'floor_ceiling_band')
     if 'total_spend' in flows and 'income_funding' in eff and years.size:
         plan_end_gk = int(c.get('plan_end', int(years[-1])))
         total_start_liquid = float(sum(starts.values()))
@@ -5091,19 +5408,36 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
         gk_raise_years = _np.zeros(n_sims, dtype=int)
         gk_ever_cut = _np.zeros(n_sims, dtype=bool)
         gk_ever_raise = _np.zeros(n_sims, dtype=bool)
+        # Item 3.5: shortfall tracking so a guardrail policy's own success
+        # can be defined honestly -- clamping the reported portfolio at 0
+        # (below, unchanged from the original shadow) silently absorbed any
+        # withdrawal the portfolio couldn't actually cover; this captures
+        # that gap BEFORE the clamp, per path per year, so "the guardrail
+        # portfolio never ran out" is a real claim, not an artifact of the
+        # floor.
+        gk_ever_depleted = _np.zeros(n_sims, dtype=bool)
+        worst_cut_frac = _np.zeros(n_sims, dtype=float)
         prior_return = None
         for j in range(n_years):
             act_j = active[:, j]
-            if j > 0:
-                infl_rate_j = inflation_paths['inflation_by_year_matrix'][:, j]
-                freeze = prior_return < 0.0
-                gk_withdrawal = _np.where(freeze, gk_withdrawal, gk_withdrawal * (1.0 + infl_rate_j))
-            years_remaining = plan_end_gk - int(years[j])
-            cwr = gk_withdrawal / _np.maximum(1e-9, gk_portfolio)
-            do_cut = (years_remaining > _gk_suspension_years) & (cwr > gk_iwr * (1.0 + _gk_band))
-            do_raise = (~do_cut) & (cwr < gk_iwr * (1.0 - _gk_band))
-            gk_withdrawal = _np.where(do_cut, gk_withdrawal * (1.0 - _gk_adjust), gk_withdrawal)
-            gk_withdrawal = _np.where(do_raise, gk_withdrawal * (1.0 + _gk_adjust), gk_withdrawal)
+            if _spending_policy == 'floor_ceiling_band':
+                natural = gk_iwr * gk_portfolio
+                floor_j = year1_portfolio_draw * (1.0 - _fc_band_pct) * inf_idx[:, j]
+                ceiling_j = year1_portfolio_draw * (1.0 + _fc_band_pct) * inf_idx[:, j]
+                gk_withdrawal = _np.clip(natural, floor_j, ceiling_j)
+                do_cut = act_j & (gk_withdrawal < ceiling_j) & (natural < floor_j)
+                do_raise = act_j & (natural > ceiling_j)
+            else:
+                if j > 0:
+                    infl_rate_j = inflation_paths['inflation_by_year_matrix'][:, j]
+                    freeze = prior_return < 0.0
+                    gk_withdrawal = _np.where(freeze, gk_withdrawal, gk_withdrawal * (1.0 + infl_rate_j))
+                years_remaining = plan_end_gk - int(years[j])
+                cwr = gk_withdrawal / _np.maximum(1e-9, gk_portfolio)
+                do_cut = (years_remaining > _gk_suspension_years) & (cwr > gk_iwr * (1.0 + _gk_band))
+                do_raise = (~do_cut) & (cwr < gk_iwr * (1.0 - _gk_band))
+                gk_withdrawal = _np.where(do_cut, gk_withdrawal * (1.0 - _gk_adjust), gk_withdrawal)
+                gk_withdrawal = _np.where(do_raise, gk_withdrawal * (1.0 + _gk_adjust), gk_withdrawal)
             gk_cut_years += (do_cut & act_j).astype(int)
             gk_raise_years += (do_raise & act_j).astype(int)
             gk_ever_cut |= (do_cut & act_j)
@@ -5114,14 +5448,41 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
             # only the PORTFOLIO draw is subject to GK's rules/growth above.
             income_j = _np.where(act_j, eff['income_funding'][:, j] * spending_scale[:, j], 0.0)
             gk_spend_nominal[:, j] = actual_withdrawal + income_j
+            shortfall_j = _np.maximum(0.0, actual_withdrawal - gk_portfolio)
+            gk_ever_depleted |= (shortfall_j > 1.0) & act_j
             gk_portfolio = _np.maximum(0.0, gk_portfolio - actual_withdrawal)
             gk_portfolio = gk_portfolio * (1.0 + returns[:, j])
             prior_return = returns[:, j]
+            # Original (fixed-real, undiminished) baseline draw for THIS
+            # year, to size the disclosed "worst modelled cut": year-1's own
+            # draw grown by inflation only, mirroring the plan's own real-
+            # spending assumption with none of this policy's cuts/raises.
+            baseline_j = year1_portfolio_draw * inf_idx[:, j]
+            cut_frac_j = _np.where(baseline_j > 1.0, _np.maximum(0.0, 1.0 - actual_withdrawal / _np.maximum(1e-9, baseline_j)), 0.0)
+            worst_cut_frac = _np.where(act_j, _np.maximum(worst_cut_frac, cut_frac_j), worst_cut_frac)
         out['guardrail_spend_real'] = gk_spend_nominal / _np.maximum(1e-9, inf_idx)
         out['guardrail_cut_years_count'] = gk_cut_years
         out['guardrail_raise_years_count'] = gk_raise_years
         out['guardrail_ever_cut'] = gk_ever_cut
         out['guardrail_ever_raise'] = gk_ever_raise
+        out['guardrail_ever_depleted'] = gk_ever_depleted
+        out['guardrail_worst_cut_frac'] = worst_cut_frac
+        if _guardrail_active:
+            # Item 3.5: promote the shadow from reporting-only to the LIVE
+            # policy -- a guardrail-active plan's own success is now defined
+            # as "the guardrail-managed portfolio, reacting to this path's
+            # realized returns, never failed to cover its own (self-cut)
+            # withdrawal" rather than the fixed-real cascade's unfunded_gap.
+            # Essential-tier funding (out['essential_fully_funded'] above,
+            # computed separately) is deliberately NOT overridden here: GK/
+            # floor-ceiling govern discretionary portfolio draw, matching
+            # real CFP practice and this codebase's own tier-cut cascade
+            # (essential is always protected last), so essential funding
+            # probability keeps meaning "funded as asked" even while the
+            # headline success rate's meaning changes (see the mandatory
+            # relabelling this item also adds in the reporting layer).
+            out['guardrail_policy_active'] = _np.ones(n_sims, dtype=bool)
+            out['guardrail_success'] = ~gk_ever_depleted
 
     # Phase 2 (optimization refactor), superseded by Option B: previously
     # this block RECONSTRUCTED essential's shortfall by walking
@@ -5187,6 +5548,18 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
     active = _np.array(years, dtype=int).reshape(1, -1) <= max_death.reshape(-1, 1)
     failure_matrix = ((projection['unfunded'] > 1.0) | (projection['liquid'] <= float(success_threshold))) & active
     path_success = ~_np.any(failure_matrix, axis=1)
+    # Item 3.5 (F6): a guardrail spending policy (Guyton-Klinger or
+    # floor-ceiling band) redefines what "success" means -- the household's
+    # OWN spending flexes with portfolio performance, so the fixed-real
+    # cascade's unfunded_gap (computed against the UNADJUSTED spend plan)
+    # is no longer the right failure definition. Use the guardrail
+    # portfolio's own survival instead: never failing to cover its own
+    # (self-cut) withdrawal. This is what makes success "survived having
+    # cut" rather than "funded as asked" -- the mandatory relabelling this
+    # item adds in the reporting layer exists specifically to disclose that
+    # meaning change, not to hide it.
+    if 'guardrail_success' in projection:
+        path_success = projection['guardrail_success']
     any_failure = _np.any(failure_matrix, axis=1)
     first_failure_idx = _np.argmax(failure_matrix, axis=1)
     first_failure_years = [years[int(idx)] if bool(any_failure[i]) else None for i, idx in enumerate(first_failure_idx)]
@@ -5877,7 +6250,13 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None, survivor_buckets='__uns
         'return_recentered': bool(c.get('mc_recenter_regime_returns', True)),
         'n_sims': N,
         'seed': seed,
-        'success_definition': 'No unfunded annual spending gap and liquid retirement assets remain above configured floor in every active projected year.',
+        'success_definition': (
+            'The guardrail-managed portfolio (Guyton-Klinger / floor-ceiling band) never failed to '
+            "cover its own, dynamically self-cut withdrawal -- this is conditional on the modelled "
+            "spending cuts (see worst_modeled_spending_cut_pct), not funded-as-asked."
+            if bool(proj.get('guardrail_policy_active') is not None and _np.any(proj.get('guardrail_policy_active')))
+            else 'No unfunded annual spending gap and liquid retirement assets remain above configured floor in every active projected year.'
+        ),
         'success_liquid_floor': success_threshold,
         'success_liquid_floor_source': success_threshold_source,
         'success_rate': success_rate,
@@ -5899,6 +6278,24 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None, survivor_buckets='__uns
         'first_failure_distribution': first_failure_distribution,
         'required_cut_distribution': required_cut_distribution,
         'sustainable_spending_solve': sustainable_spending,
+        # Item 3.5 (F6): mandatory disclosure of the modelled spending cut's
+        # size and duration whenever a guardrail spending policy is active
+        # (§5.4's own acceptance criterion) -- and success_definition/
+        # success_rate's meaning change made explicit rather than silent.
+        'spending_policy': str(c.get('spending_policy', 'fixed_real') or 'fixed_real').strip().lower(),
+        'spending_policy_active': bool(proj.get('guardrail_policy_active') is not None and _np.any(proj.get('guardrail_policy_active'))),
+        'worst_modeled_spending_cut_pct': (
+            float(_np.max(proj['guardrail_worst_cut_frac'])) if 'guardrail_worst_cut_frac' in proj else None
+        ),
+        'median_modeled_spending_cut_years': (
+            float(_np.median(proj['guardrail_cut_years_count'])) if 'guardrail_cut_years_count' in proj else None
+        ),
+        'max_modeled_spending_cut_years': (
+            int(_np.max(proj['guardrail_cut_years_count'])) if 'guardrail_cut_years_count' in proj else None
+        ),
+        'guardrail_probability_ever_cut': (
+            float(_np.mean(proj['guardrail_ever_cut'])) if 'guardrail_ever_cut' in proj else None
+        ),
         # Optimization-refactor Phase 2: fraction of paths whose essential-
         # tier spending was never left unfunded (see _mc_vectorized_batch).
         'essential_fully_funded_probability': batch.get('essential_fully_funded_probability'),

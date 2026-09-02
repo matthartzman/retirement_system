@@ -18,6 +18,7 @@ from .workbook_common import (
     indexed_federal_estate_exemption,
     marginal_rate,
     qc,
+    resolved_state_estate_exemption,
     salt_cap,
     section_title,
     standard_deduction,
@@ -28,6 +29,7 @@ from .workbook_common import (
     write_hdr,
 )
 from ..person_labels import display_accounts_in_text as _display_accounts_in_text
+from .. import strategy_sweep
 from . import summary_figures
 def build_sheet9(ws, c, rows):
     """Retirement Strategy"""
@@ -41,7 +43,10 @@ def build_sheet9(ws, c, rows):
     # rather than presenting a different picture of the same mechanism.
     _resident_state = str(c.get('state', '') or '')
     try:
-        _state_exempt = max(0.0, float(c.get('il_exempt', 0.0) or 0.0)) or None
+        # Item 3.6 (F5): resolved_state_estate_exemption corrects the shipped
+        # $4M (Illinois's own exemption) default for a non-Illinois resident
+        # state to that state's real statutory exemption instead.
+        _state_exempt = resolved_state_estate_exemption(_resident_state, float(c.get('il_exempt', 0.0) or 0.0)) or None
     except (TypeError, ValueError):
         _state_exempt = None
     _est_tax, _est_status = state_estate_tax(_resident_state, 1.0, _state_exempt)
@@ -215,6 +220,41 @@ def build_sheet9(ws, c, rows):
     qc('9. Retirement Strategy', 'Withdrawal cascade and key risks documented', True, '')
 
 
+def ss_breakeven_age(monthly_early, age_early, monthly_late, age_late):
+    """Nominal cumulative-dollar breakeven age between claiming at
+    ``age_early`` (getting ``monthly_early``/mo) and claiming later at
+    ``age_late`` (getting the higher ``monthly_late``/mo) -- the age at
+    which the later choice's bigger checks have caught up to the head
+    start the earlier choice banked. No COLA, tax, or investment-return
+    adjustment: the standard, simplified reference figure (item 3.7, F11
+    Option 2), not a projection.
+
+    Returns ``None`` when ``monthly_late`` is not actually higher (no
+    crossing point exists -- delaying never pays off).
+    """
+    if monthly_late <= monthly_early:
+        return None
+    head_start = monthly_early * 12 * (age_late - age_early)
+    monthly_delta = monthly_late - monthly_early
+    return age_late + (head_start / monthly_delta) / 12
+
+
+def ss_breakeven_row(person_label, benefit_table, age_early, age_late):
+    """One breakeven comparison row for build_sheet10's breakeven table, or
+    None if either age is missing from ``benefit_table`` (SSA-quoted
+    monthly benefit at that age was never entered).
+    """
+    m_early = benefit_table.get(age_early)
+    m_late = benefit_table.get(age_late)
+    if not m_early or not m_late:
+        return None
+    breakeven = ss_breakeven_age(m_early, age_early, m_late, age_late)
+    return (
+        person_label, age_early, m_early, age_late, m_late,
+        f'{breakeven:.1f}' if breakeven is not None else 'Never (later age is not higher)',
+    )
+
+
 def build_sheet10(ws, c, rows):
     """Social Security Timing — full spouse-pair projection sweep."""
     ws.sheet_view.showGridLines = False
@@ -251,18 +291,20 @@ def build_sheet10(ws, c, rows):
 
     base_rows = list(rows or [])
     # Perf fix (optimization refactor Phase 1 items 4-6): this sweep calls
-    # monte_carlo() up to 81x below (a 9x9 claim-age grid), and each call
-    # would otherwise independently rebuild the survivor-economics bucket
-    # trajectories (2 * n_years project() calls apiece) -- ~4,500 extra
-    # project() calls in one workbook build, which measurably caused
+    # monte_carlo() below for every pair it scores -- up to 81 times for a
+    # full 9x9 claim-age grid, though item 2.3's coarse-then-refine gating
+    # (below) now typically scores well under that -- and each call would
+    # otherwise independently rebuild the survivor-economics bucket
+    # trajectories (2 * n_years project() calls apiece) -- thousands of
+    # extra project() calls in one workbook build, which measurably caused
     # subprocess timeouts in tests/test_all_modules_off_build_functional.py
     # on CI. Claim age changes the SS BENEFIT AMOUNT, not the household's
     # death-timing/mortality profile that drives which bucket a path falls
     # into, so building the buckets once from the base (pre-sweep) config
     # and reusing them across every claim-age pair is a safe, intentional
     # approximation -- consistent with this sweep's own existing approach of
-    # reusing one fixed seed/path set across all 81 pairs so differences are
-    # attributable to claim age, not simulation noise.
+    # reusing one fixed seed/path set across every pair scored so differences
+    # are attributable to claim age, not simulation noise.
     _survivor_buckets_for_sweep = (
         _mc_survivor_bucket_flows(c, base_rows)
         if bool(c.get('mc_vectorized_survivor_economics', True)) else None
@@ -278,10 +320,50 @@ def build_sheet10(ws, c, rows):
     h_current = int(c.get('h_ss_claim_age', c.get('ss_claim_age', 70)) or 70)
     w_current = int(c.get('w_ss_claim_age', c.get('ss_claim_age', 70)) or 70)
 
-    def _safe_project_pair(h_age, w_age):
+    def _safe_project_pair(h_age, w_age, h_mort_age=None, w_mort_age=None, skip_mc=False):
+        # h_mort_age/w_mort_age (item 3.8, F11): override the household's
+        # configured longevity assumption for this one call. None (the
+        # default, used by every claim-age-grid pair) means "leave it as
+        # configured" -- only the longevity-refinement pass below ever
+        # passes an explicit value.
+        #
+        # skip_mc (item 3.8): objective_value/score below is entirely
+        # deterministic -- it never depends on the Monte Carlo block further
+        # down, which exists only to attach feasibility_probability/
+        # mc_success_rate/mc_p10_terminal_nw. The longevity-refinement pass
+        # only needs objective_value to compare which pair wins under each
+        # lifespan assumption, so it sets skip_mc=True to avoid both the MC
+        # sampling cost AND a survivor-bucket rebuild under the overridden
+        # mortality age (a real, measured problem: an earlier version of
+        # this pass that let it fall through to the MC block took several
+        # minutes for a single sheet, rebuilding buckets -- 2 * n_years
+        # project() calls each -- for 6 extra calls, the exact class of cost
+        # the original bucket-reuse optimization above was built to avoid).
         def _mutate(c2):
             c2['h_ss_claim_age'] = int(h_age)
             c2['w_ss_claim_age'] = int(w_age)
+            # h_death_yr/w_death_yr (data_io.py) are computed ONCE at parse
+            # time as h_dob_yr + h_mort_age and never re-derived -- the
+            # engine reads the death year, not h_mort_age itself, so
+            # overriding h_mort_age/w_mort_age alone would silently have NO
+            # effect on the projection (root-caused directly: an earlier
+            # version of this override showed byte-identical objective_value
+            # across every longevity variant). plan_end/first_death_yr must
+            # move with it too, mirroring data_io.py's own derivation, or a
+            # "longer lifespan" variant would be silently truncated at the
+            # original (shorter) plan_end.
+            if h_mort_age is not None:
+                c2['h_mort_age'] = int(h_mort_age)
+                c2['h_death_yr'] = int(c2['h_dob_yr']) + int(h_mort_age)
+            if w_mort_age is not None and int(c2.get('w_mort_age', 0) or 0) > 0:
+                # w_mort_age == 0 is data_io.py's "already dead"/single-member
+                # sentinel (w_death_yr == h_dob_yr) -- applying a longevity
+                # delta to it would fabricate a spouse who was never modeled.
+                c2['w_mort_age'] = int(w_mort_age)
+                c2['w_death_yr'] = int(c2['w_dob_yr']) + int(w_mort_age)
+            if h_mort_age is not None or w_mort_age is not None:
+                c2['plan_end'] = max(c2['h_death_yr'], c2['w_death_yr'])
+                c2['first_death_yr'] = min(c2['h_death_yr'], c2['w_death_yr'])
             # Preserve the currently selected Roth policy so the sweep compares
             # SS timing through the same full projection engine without
             # recursively re-optimizing Roth conversions 81 times during
@@ -345,27 +427,40 @@ def build_sheet10(ws, c, rows):
         mc_p10_terminal_nw = None
         mc_p5_terminal_nw = None
         feasibility_probability = 0.0
-        try:
-            c2['mc_sims'] = SWEEP_MC_SIMS
-            c2['mc_sensitivity_sims'] = 1
-            with _contextlib.redirect_stdout(_io.StringIO()):
-                mc_result = monte_carlo(c2, n_sims=SWEEP_MC_SIMS, seed=SWEEP_MC_SEED, survivor_buckets=_survivor_buckets_for_sweep)
-            mc_success_rate = float(mc_result.get('success_rate', 0.0) or 0.0)
-            _mc_terminal_pct = mc_result.get('terminal_total_nw') or {}
-            mc_p10_terminal_nw = float(_mc_terminal_pct.get(10, 0.0) or 0.0)
-            # #293: worst-case (5th percentile) ending wealth -- same
-            # percentile dict P10/median already read, just one more key.
-            mc_p5_terminal_nw = float(_mc_terminal_pct.get(5, 0.0) or 0.0)
-            feasibility_probability = float(mc_result.get('essential_fully_funded_probability', 0.0) or 0.0)
-        except Exception:
-            pass
+        if not skip_mc:
+            try:
+                c2['mc_sims'] = SWEEP_MC_SIMS
+                c2['mc_sensitivity_sims'] = 1
+                # The pre-built _survivor_buckets_for_sweep are keyed to the
+                # household's CONFIGURED death-timing assumption -- reusing
+                # them under an overridden mortality age would silently
+                # score every longevity variant against the same (wrong)
+                # survivor window. Let monte_carlo() build its own fresh
+                # buckets instead whenever an override is in play; only the
+                # claim-age grid (never overridden) gets the cheap reuse.
+                _buckets_for_this_call = (
+                    _survivor_buckets_for_sweep if h_mort_age is None and w_mort_age is None else None
+                )
+                with _contextlib.redirect_stdout(_io.StringIO()):
+                    mc_result = monte_carlo(c2, n_sims=SWEEP_MC_SIMS, seed=SWEEP_MC_SEED, survivor_buckets=_buckets_for_this_call)
+                mc_success_rate = float(mc_result.get('success_rate', 0.0) or 0.0)
+                _mc_terminal_pct = mc_result.get('terminal_total_nw') or {}
+                mc_p10_terminal_nw = float(_mc_terminal_pct.get(10, 0.0) or 0.0)
+                # #293: worst-case (5th percentile) ending wealth -- same
+                # percentile dict P10/median already read, just one more key.
+                mc_p5_terminal_nw = float(_mc_terminal_pct.get(5, 0.0) or 0.0)
+                feasibility_probability = float(mc_result.get('essential_fully_funded_probability', 0.0) or 0.0)
+            except Exception:
+                pass
         # #293: LCV (nominal lifetime spend + Post-Tax Inheritance) and NPV
         # of Future Taxes (total tax discounted at c['ret']) -- the same
         # headline figures the Impact page and Executive Summary use,
         # computed here per swept claim-age pair for this table's own
         # Terminal-NW/Lifetime-Tax columns. Deliberately NOT the score basis
         # (lcv_score/objective_value above stay on their existing PV-based
-        # ranking convention) -- this only changes what's DISPLAYED.
+        # ranking convention) -- this only changes what's DISPLAYED. Uses
+        # only proj_rows (already computed deterministically), so this stays
+        # unconditional regardless of skip_mc.
         _pair_metrics = compute_baseline_lcv_and_eltr(c2, proj_rows)
         lcv = float(_pair_metrics.get('lcv', 0.0) or 0.0)
         npv_future_taxes = float(_pair_metrics.get('npv_future_taxes', 0.0) or 0.0)
@@ -398,14 +493,57 @@ def build_sheet10(ws, c, rows):
     h_floor = max(62, min(70, h_cur_age))
     w_floor = max(62, min(70, w_cur_age))
 
-    scenarios = []
-    for h_age in range(h_floor, 71):
-        for w_age in range(w_floor, 71):
-            scenarios.append(_safe_project_pair(h_age, w_age))
-    scenarios.sort(key=lambda d: d['objective_value'], reverse=True)
+    # Item 2.3 (A4) gating: coarse-then-refine instead of an exhaustive
+    # 62-70 x 62-70 grid (up to 81 pairs, each a full project() plus a
+    # 200-sim monte_carlo()). Score every-other-age first (5x5=25 pairs at
+    # a typical 62-70 range, always including 70 itself as an endpoint),
+    # locate its best pair, then exhaustively re-score the FULL individual-
+    # age neighborhood around that coarse best (up to another 25 pairs,
+    # deduplicated against the coarse pass) rather than just its immediate
+    # coarse-grid neighbors -- the review's own caveat on this option is
+    # that a coarse pass can miss a non-convex optimum, and a full local
+    # refinement (not a handful of offset checks) is what keeps that risk
+    # low while still cutting typical total evaluations by roughly half.
+    # Empirically verified to select the SAME recommended pair as the prior
+    # exhaustive 81-pair sweep on the frozen household (see this file's own
+    # test coverage and the item's commit message for the comparison).
+    _COARSE_STEP = 2
+    _evaluated: dict[tuple, dict] = {}
+
+    def _evaluate_pair(spec: dict) -> dict:
+        key = (spec['h_age'], spec['w_age'])
+        if key not in _evaluated:
+            _evaluated[key] = _safe_project_pair(spec['h_age'], spec['w_age'])
+        return _evaluated[key]
+
+    _coarse_h = sorted(set(range(h_floor, 71, _COARSE_STEP)) | {70})
+    _coarse_w = sorted(set(range(w_floor, 71, _COARSE_STEP)) | {70})
+    _coarse_pairs = [{'h_age': h, 'w_age': w} for h in _coarse_h for w in _coarse_w]
+    _coarse_sweep = strategy_sweep.run_sweep(
+        _coarse_pairs, _evaluate_pair, sort_key=lambda d: d['objective_value'],
+    )
+    _coarse_best = _coarse_sweep.best if _coarse_sweep.candidates else {'h_age': h_floor, 'w_age': w_floor}
+
+    _refine_h = range(max(h_floor, _coarse_best['h_age'] - _COARSE_STEP), min(70, _coarse_best['h_age'] + _COARSE_STEP) + 1)
+    _refine_w = range(max(w_floor, _coarse_best['w_age'] - _COARSE_STEP), min(70, _coarse_best['w_age'] + _COARSE_STEP) + 1)
+    _seen_pairs = {(p['h_age'], p['w_age']) for p in _coarse_pairs}
+    _refine_pairs = [
+        {'h_age': h, 'w_age': w}
+        for h in _refine_h for w in _refine_w
+        if (h, w) not in _seen_pairs
+    ]
+
+    _sweep = strategy_sweep.run_sweep(
+        _coarse_pairs + _refine_pairs,
+        _evaluate_pair,
+        sort_key=lambda d: d['objective_value'],
+        fallback_best={'h_age': h_current, 'w_age': w_current, 'objective_value': 0.0, 'rank_score': 0},
+    )
+    scenarios = _sweep.candidates
     # #200: normalize the raw dollar-scale objective into a 0-100 integer
     # rank score, matching the "Score (0-100) ranks relative to this set"
     # convention already used by the Roth-conversion candidate table below.
+    # Must run on the full (pre-gate) sorted set, same as before extraction.
     _obj_vals = [d['objective_value'] for d in scenarios]
     _obj_lo, _obj_hi = (min(_obj_vals), max(_obj_vals)) if _obj_vals else (0.0, 0.0)
     _obj_span = _obj_hi - _obj_lo
@@ -416,19 +554,64 @@ def build_sheet10(ws, c, rows):
     # regardless of its LCV score, though it still appears (ranked) in the
     # full disclosure table above. If every pair fails the gate, fall back
     # to ranking the full set so a recommendation is still produced.
-    _feasible_scenarios = [d for d in scenarios if d.get('feasibility_gate_met')]
-    _all_scenarios_infeasible = bool(scenarios) and not _feasible_scenarios
-    _ranked_pool = _feasible_scenarios if _feasible_scenarios else scenarios
-    _ranked_pool_sorted = sorted(_ranked_pool, key=lambda d: d['objective_value'], reverse=True)
-    best = _ranked_pool_sorted[0] if _ranked_pool_sorted else {'h_age': h_current, 'w_age': w_current, 'objective_value': 0.0, 'rank_score': 0}
+    _all_scenarios_infeasible = _sweep.all_infeasible
+    best = _sweep.best
     current = next((x for x in scenarios if x['h_age'] == h_current and x['w_age'] == w_current), None)
 
+    # Item 3.8 (F11, Option 1 "restricted to the winner's neighbourhood"):
+    # the sweep above scores every pair against ONE fixed mortality
+    # assumption (h_mort_age/w_mort_age) -- but longevity is the dominant
+    # driver of claiming decisions and, held fixed, cannot differentiate
+    # the pairs at all. Re-score the top 3 ranked pairs (not the whole
+    # grid -- "restricted to the neighbourhood" is what keeps this cheap)
+    # at two additional longevity assumptions bracketing the configured
+    # one, to show whether the recommendation is robust to how long the
+    # household actually lives. Deliberately informational only -- like
+    # item 3.7's breakeven table, this does NOT change `best` above; the
+    # primary recommendation stays the single configured-longevity sweep
+    # the rest of this sheet already explains.
+    LONGEVITY_SENSITIVITY_YEARS = int(c.get('ss_longevity_sensitivity_years', 5) or 5)
+    _h_mort_base = int(c.get('h_mort_age', 90) or 90)
+    _w_mort_base = int(c.get('w_mort_age', 92) or 92)
+    _longevity_variants = [
+        ('Shorter lifespan', -LONGEVITY_SENSITIVITY_YEARS),
+        ('Configured lifespan', 0),
+        ('Longer lifespan', LONGEVITY_SENSITIVITY_YEARS),
+    ]
+    _top_pairs = scenarios[:3]
+    longevity_rows = []  # (variant_label, [(h_age, w_age, objective_value, is_best_under_this_variant), ...])
+    for variant_label, delta in _longevity_variants:
+        variant_scores = []
+        for pair in _top_pairs:
+            if delta == 0:
+                variant_scores.append((pair['h_age'], pair['w_age'], pair['objective_value']))
+            else:
+                h_variant_age = max(1, _h_mort_base + delta)
+                w_variant_age = max(1, _w_mort_base + delta)
+                variant_metrics = _safe_project_pair(
+                    pair['h_age'], pair['w_age'],
+                    h_mort_age=h_variant_age, w_mort_age=w_variant_age,
+                    skip_mc=True,
+                )
+                variant_scores.append((pair['h_age'], pair['w_age'], variant_metrics['objective_value']))
+        best_under_variant = max(variant_scores, key=lambda x: x[2]) if variant_scores else None
+        longevity_rows.append((
+            variant_label, delta,
+            [(h, w, obj, (h, w) == (best_under_variant[0], best_under_variant[1]) if best_under_variant else False)
+             for h, w, obj in variant_scores],
+        ))
+    longevity_pair_is_stable = len({
+        next((h, w) for h, w, _obj, is_best in row_pairs if is_best)
+        for _label, _delta, row_pairs in longevity_rows
+        if any(is_best for _h, _w, _obj, is_best in row_pairs)
+    }) <= 1
+
     r = 3
-    write_hdr(ws, r, 1, 'Recommended spouse-pair claim ages from full projection sweep', NAVY, WHITE, span=12); r += 1
+    write_hdr(ws, r, 1, 'Recommended spouse-pair claim ages from a coarse-then-refine projection sweep', NAVY, WHITE, span=12); r += 1
     _s1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
     _s2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
     summary = [
-        (f'Recommended {_s1} Claim Age', best['h_age'], 'Highest score (LCV -- PV of lifetime spending plus PV of after-tax terminal transfer -- plus survivor-period SS income) among claim-age pairs meeting the essential-funding feasibility gate, from the 62–70 × 62–70 projection sweep.'),
+        (f'Recommended {_s1} Claim Age', best['h_age'], f'Highest score (LCV -- PV of lifetime spending plus PV of after-tax terminal transfer -- plus survivor-period SS income) among claim-age pairs meeting the essential-funding feasibility gate, from a {len(scenarios)}-pair coarse-then-refine sweep of the 62–70 × 62–70 grid.'),
         (f'Recommended {_s2} Claim Age', best['w_age'], 'Projection uses the same tax, IRMAA, withdrawal, ACA, survivor, and estate machinery as the base plan.'),
         ('Current Configured Claim Ages', f"{_s1} {h_current} / {_s2} {w_current}", 'Current row shown below for comparison.'),
         ('Best vs Current LCV', (best['lcv'] - (current or best)['lcv']) if current else 0.0, 'Positive means the sweep’s selected pair improves Expected After-Tax Lifetime Consumption-and-Transfer Value versus current config.'),
@@ -446,9 +629,42 @@ def build_sheet10(ws, c, rows):
         ws.merge_cells(start_row=r, start_column=3, end_row=r, end_column=12)
         r += 1
 
+    r += 2
+    write_hdr(ws, r, 1, 'Longevity sensitivity of the top-ranked pairs', NAVY, WHITE, span=12); r += 1
+    write_cell(
+        ws, r, 1,
+        f'The recommendation above is scored against one fixed lifespan assumption ({_s1} to {_h_mort_base}, {_s2} to {_w_mort_base}) -- '
+        'this re-scores only the top 3 ranked pairs (not the whole grid) at a shorter and a longer lifespan, '
+        f'{LONGEVITY_SENSITIVITY_YEARS} years each direction, to show whether the recommendation still wins if the household lives a '
+        'meaningfully shorter or longer life than assumed. This is informational and does not change the recommendation above.',
+        align='left',
+    )
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=12)
+    ws.row_dimensions[r].height = 30
     r += 1
-    write_hdr(ws, r, 1, 'Top 10 claiming pairs — full projection ranking', NAVY, WHITE, span=14); r += 1
-    write_cell(ws, r, 1, 'Score (0-100) ranks these 81 claim-age pairs relative to each other (100 = best in this set). Objective Value is a present-value scoring unit (PV of lifetime spending plus PV of after-tax terminal transfer, plus survivor-period SS income) the ranking is computed from -- deliberately a different convention than the displayed LCV column (nominal lifetime spending plus Post-Tax Inheritance, the plan\'s headline figure), so Objective Value is not directly comparable to LCV dollar-for-dollar. The Recommended row above is chosen only from pairs whose modeled essential-spending funding probability clears a feasibility floor; other pairs still appear here, ranked, for comparison. Lifetime SS is a raw, undiscounted total across the whole plan horizon: it can be HIGHER for an earlier claim age even though delaying grows the monthly check, because delaying trades away entire years of checks for a larger one later (a breakeven-age effect, not a return comparison) -- Score already accounts for this by weighting survivor-period SS income instead of raw lifetime SS.', align='left')
+    write_cell(
+        ws, r, 1,
+        ('The same pair scores best under all three lifespan assumptions -- the recommendation is robust to longevity uncertainty.'
+         if longevity_pair_is_stable else
+         'A DIFFERENT pair scores best under at least one alternate lifespan assumption -- see the table below before treating the '
+         'recommendation as robust to how long the household actually lives.'),
+        bold=True, bg=('E2EFDA' if longevity_pair_is_stable else 'FFF3CD'),
+    )
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=12)
+    r += 1
+    hdrs = ['Lifespan assumption'] + [f'{_s1} {p["h_age"]} / {_s2} {p["w_age"]}' for p in _top_pairs]
+    for i, h in enumerate(hdrs, 1):
+        write_hdr(ws, r, i, h, DGRAY, WHITE)
+    r += 1
+    for variant_label, delta, row_pairs in longevity_rows:
+        write_cell(ws, r, 1, f'{variant_label} ({_h_mort_base + delta}/{_w_mort_base + delta})' if delta else f'{variant_label} ({_h_mort_base}/{_w_mort_base})')
+        for i, (_h, _w, obj, is_best) in enumerate(row_pairs, 2):
+            write_cell(ws, r, i, obj, fmt=FMT_DOLLAR, bold=is_best, bg='E2EFDA' if is_best else None)
+        r += 1
+
+    r += 1
+    write_hdr(ws, r, 1, 'Top 10 claiming pairs — coarse-then-refine projection ranking', NAVY, WHITE, span=14); r += 1
+    write_cell(ws, r, 1, f'Score (0-100) ranks these {len(scenarios)} claim-age pairs relative to each other (100 = best in this set). This is a coarse-then-refine sweep of the 62-70 x 62-70 grid, not every one of its up to 81 pairs -- an every-other-age coarse pass locates the strongest region, then every individual age around that region is scored. Objective Value is a present-value scoring unit (PV of lifetime spending plus PV of after-tax terminal transfer, plus survivor-period SS income) the ranking is computed from -- deliberately a different convention than the displayed LCV column (nominal lifetime spending plus Post-Tax Inheritance, the plan\'s headline figure), so Objective Value is not directly comparable to LCV dollar-for-dollar. The Recommended row above is chosen only from pairs whose modeled essential-spending funding probability clears a feasibility floor; other pairs still appear here, ranked, for comparison. Lifetime SS is a raw, undiscounted total across the whole plan horizon: it can be HIGHER for an earlier claim age even though delaying grows the monthly check, because delaying trades away entire years of checks for a larger one later (a breakeven-age effect, not a return comparison) -- Score already accounts for this by weighting survivor-period SS income instead of raw lifetime SS.', align='left')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
     ws.row_dimensions[r].height = 40
     r += 1
@@ -464,8 +680,66 @@ def build_sheet10(ws, c, rows):
             write_cell(ws, r, i, val, fmt=fmt, bg=bg)
         r += 1
 
+    # Item 3.7 (F11, Option 2): a cumulative breakeven presentation.
+    # Deliberately NOT derived from the projection sweep above -- each
+    # SSA-quoted monthly benefit (h_ss_benefit_table/w_ss_benefit_table,
+    # already parsed from Plan Data's Social Security ss_benefit_age_62..70
+    # rows) is a real government figure that needs no engine run to compare,
+    # so this is genuinely free rather than "nearly free". It is nominal
+    # (no COLA, tax, or investment-return adjustment) -- the standard,
+    # simplified breakeven framing advisors and clients already expect, and
+    # explicitly NOT what the recommendation above is based on (that
+    # recommendation weighs after-tax terminal wealth, survivor-period
+    # income, and feasibility -- see this sheet's own closing note).
+    breakeven_rows = []
+    for label, table in ((_s1, c.get('h_ss_benefit_table') or {}), (_s2, c.get('w_ss_benefit_table') or {})):
+        row = ss_breakeven_row(f'{label}: claim at 62 vs. delay to 70', table, 62, 70)
+        if row:
+            breakeven_rows.append(row)
+    # Direction-neutral labels: the recommended age can be earlier OR later
+    # than the currently configured age (e.g. the sweep may recommend
+    # claiming sooner), so "current vs. recommended" must not be phrased as
+    # if recommended were always a delay -- state both ages plainly and let
+    # the Earlier/Later age columns (already reordered by ss_breakeven_row)
+    # carry the actual direction.
+    if h_current != best['h_age']:
+        row = ss_breakeven_row(f'{_s1}: current configured age {h_current} vs. recommended age {best["h_age"]}', c.get('h_ss_benefit_table') or {}, min(h_current, best['h_age']), max(h_current, best['h_age']))
+        if row:
+            breakeven_rows.append(row)
+    if w_current != best['w_age']:
+        row = ss_breakeven_row(f'{_s2}: current configured age {w_current} vs. recommended age {best["w_age"]}', c.get('w_ss_benefit_table') or {}, min(w_current, best['w_age']), max(w_current, best['w_age']))
+        if row:
+            breakeven_rows.append(row)
+
+    if breakeven_rows:
+        r += 2
+        write_hdr(ws, r, 1, 'Cumulative claiming breakeven (nominal, SSA-quoted benefit amounts)', NAVY, WHITE, span=14); r += 1
+        write_cell(
+            ws, r, 1,
+            'The age at which delaying claiming has paid for itself in raw cumulative dollars -- claiming earlier gets more, smaller checks; '
+            'claiming later gets fewer, larger checks, so the later choice starts behind and eventually catches up. Uses each person\'s own '
+            'SSA-quoted monthly benefit at each age exactly as entered, with no COLA, tax, or investment-return adjustment -- a simplified, '
+            'standard reference figure, not the basis for the recommendation above.',
+            align='left',
+        )
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
+        ws.row_dimensions[r].height = 30
+        r += 1
+        hdrs = ['Comparison', 'Earlier age', 'Monthly at earlier age', 'Later age', 'Monthly at later age', 'Breakeven age']
+        for i, h in enumerate(hdrs, 1):
+            write_hdr(ws, r, i, h, DGRAY, WHITE)
+        r += 1
+        for label, age_early, m_early, age_late, m_late, breakeven in breakeven_rows:
+            write_cell(ws, r, 1, label)
+            write_cell(ws, r, 2, age_early)
+            write_cell(ws, r, 3, m_early, fmt=FMT_DOLLAR)
+            write_cell(ws, r, 4, age_late)
+            write_cell(ws, r, 5, m_late, fmt=FMT_DOLLAR)
+            write_cell(ws, r, 6, breakeven)
+            r += 1
+
     r += 2
-    write_hdr(ws, r, 1, 'Complete 62–70 × 62–70 spouse-pair sweep', NAVY, WHITE, span=13); r += 1
+    write_hdr(ws, r, 1, f'Coarse-then-refine 62–70 × 62–70 spouse-pair sweep ({len(scenarios)} pairs scored)', NAVY, WHITE, span=13); r += 1
     hdrs = [f'{_s1} Claim', f'{_s2} Claim', 'Score (0-100)', 'Objective Value', 'After-Tax Terminal NW', 'Survivor-Period SS Income', 'LCV', 'Δ LCV', 'Lifetime SS', 'NPV of Future Taxes', 'IRMAA', 'Survivor Years', 'Worst-Case Ending Wealth (5th %ile)']
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
@@ -479,7 +753,9 @@ def build_sheet10(ws, c, rows):
         r += 1
 
     r += 1
-    note = (f'This sheet runs every {_s1}/{_s2} claiming-age pair from 62 through 70 through the projection engine. '
+    note = (f'This sheet runs {_s1}/{_s2} claiming-age pairs from 62 through 70 through the projection engine using a coarse-then-refine '
+            'sweep (an every-other-age pass locates the strongest region, then every individual age around that region is scored) rather than '
+            'every one of the up to 81 possible pairs. '
             'It does not use a static break-even table or a hard-coded age-70 answer. The score ranks each pair on after-tax terminal net worth '
             'plus survivor-period SS income (the SS dollars received in the fixed years when only one spouse is alive, weighted 1:1 with wealth by default via ss_survivor_weight) -- '
             'not gross terminal net worth with lifetime SS added back and lifetime tax/IRMAA subtracted again, which double-counted both in the same direction. '
@@ -491,9 +767,12 @@ def build_sheet10(ws, c, rows):
 
     for col in range(1, 15):
         ws.column_dimensions[get_column_letter(col)].width = 16
-    qc('10. Social Security', 'Claim ages 62-70 swept by spouse against full projection', True, '')
+    qc('10. Social Security', 'Claim ages 62-70 swept by spouse against a coarse-then-refine projection', True, '')
 
-    return {'best': best, 'current': current, 'scenarios': scenarios}
+    return {
+        'best': best, 'current': current, 'scenarios': scenarios,
+        'longevity_rows': longevity_rows, 'longevity_pair_is_stable': longevity_pair_is_stable,
+    }
 
 _HSA_SECTION_SPAN = 15
 _HSA_SECTION_TITLE = 'PROPOSED HSA DRAWDOWN SCHEDULE — And What This Number Cannot Tell You'
@@ -1693,13 +1972,34 @@ def build_sheet14(ws, c, rows):
     _cst_shelter_at_second_death = max(0.0, float(yr_second.get('cst_excluded_from_survivor_estate', 0.0) or 0.0))
     _state_taxable_estate = max(0.0, est2 - _cst_shelter_at_second_death)
     if c['model_state_est']:
-        _state_exempt_configured = c.get('il_exempt')
-        _tax, _status = state_estate_tax(_resident_state, _state_taxable_estate, _state_exempt_configured)
+        # Item 3.6 (F5): resolved_state_estate_exemption corrects the shipped
+        # $4M (Illinois's own exemption) default for a non-Illinois resident
+        # state to that state's real statutory exemption instead -- without
+        # it, a New York household that never touched state_estate_exemption
+        # would show Illinois's $4M as their "NY Exemption" here.
+        _state_exempt_configured = resolved_state_estate_exemption(_resident_state, float(c.get('il_exempt', 0.0) or 0.0))
+        # Item 3.6 (F5): New York's 3-year gift add-back (harmless for any
+        # other state's calc branch, which ignores gift_addback). Taxable
+        # base is _state_taxable_estate (est2 net of the CST shelter, see
+        # the CST-reduction fix documented above this if-block) -- the gift
+        # add-back is a separate, additive adjustment state_estate_tax's own
+        # NY branch applies on top of that base, not a replacement for it.
+        _gift_addback = max(0.0, float(yr_second.get('gift_total_last_3yr', 0.0) or 0.0))
+        _tax, _status = state_estate_tax(_resident_state, _state_taxable_estate, _state_exempt_configured, gift_addback=_gift_addback)
         il_tax = _tax
         if _status == 'computed':
             write_hdr(ws, r, 1, f'{_resident_state} Estate Tax (At Second Death)', ORANGE, WHITE, span=4); r+=1
-            il_exempt = c['il_exempt']
+            il_exempt = _state_exempt_configured
             il_excess = max(0, _state_taxable_estate - il_exempt)
+            _mechanism_note = (
+                'Calculation uses the IL cliff/interrelated structure, not a tax-on-excess shortcut.'
+                if _resident_state == 'Illinois' else
+                'Calculation uses the graduated NY estate rate table with the 105%-of-exemption cliff '
+                '(no exclusion at all once the estate reaches 105% of the exemption) and adds back gifts '
+                'made within 3 years of death, not a tax-on-excess shortcut.'
+                if _resident_state == 'New York' else
+                'Calculation uses the modeled cliff/interrelated structure for this state, not a tax-on-excess shortcut.'
+            )
             write_cell(ws, r, 1, f'{_resident_state} Exemption'); write_cell(ws, r, 2, il_exempt, fmt=FMT_DOLLAR); r+=1
             if _cst_shelter_at_second_death > 0:
                 write_cell(ws, r, 1, 'Projected Estate at Second Death'); write_cell(ws, r, 2, est2, fmt=FMT_DOLLAR); r+=1
@@ -1707,6 +2007,8 @@ def build_sheet14(ws, c, rows):
                 write_cell(ws, r, 2, -_cst_shelter_at_second_death, fmt=FMT_DOLLAR); r+=1
                 write_cell(ws, r, 1, f'{_resident_state}-Taxable Estate (after CST)', bold=True)
                 write_cell(ws, r, 2, _state_taxable_estate, fmt=FMT_DOLLAR, bold=True); r+=1
+            if _resident_state == 'New York' and _gift_addback > 0:
+                write_cell(ws, r, 1, 'Gifts Added Back (3-Year Look-Back)'); write_cell(ws, r, 2, _gift_addback, fmt=FMT_DOLLAR); r+=1
             write_cell(ws, r, 1, f'Estate over {_resident_state} Exemption'); write_cell(ws, r, 2, il_excess, fmt=FMT_DOLLAR); r+=1
             write_cell(ws, r, 1, f'Est. {_resident_state} Estate Tax (cliff/interrelated calc)', bold=True)
             write_cell(ws, r, 2, _tax, fmt=FMT_DOLLAR, bold=True,
@@ -1714,8 +2016,8 @@ def build_sheet14(ws, c, rows):
             if _tax > 0:
                 write_cell(ws, r, 1, '⚠ ACTION REQUIRED', bold=True, bg='FCE4D6', fg=RED)
                 write_cell(ws, r, 2,
-                           f'Estate may exceed ${c["il_exempt"]/1e6:.0f}M {_resident_state} exemption. Consider: annual gifting, ILIT, '
-                           'charitable bequest, or credit-shelter/QTIP trust. Calculation uses the IL cliff/interrelated structure, not a tax-on-excess shortcut.',
+                           f'Estate may exceed ${il_exempt/1e6:.2f}M {_resident_state} exemption. Consider: annual gifting, ILIT, '
+                           f'charitable bequest, or credit-shelter/QTIP trust. {_mechanism_note}',
                            bg='FCE4D6'); r+=2
         elif _status == 'none':
             write_hdr(ws, r, 1, 'State Estate Tax (At Second Death)', ORANGE, WHITE, span=4); r+=1
@@ -1928,6 +2230,28 @@ def build_sheet14(ws, c, rows):
         write_hdr(ws, r, 3, 'Gross Terminal Balance', DGRAY, WHITE)
         write_hdr(ws, r, 4, 'Est. After-Tax Total', DGRAY, WHITE)
         r += 1
+        # Item 3.3 (F4): an account whose stretch schedule is no longer the
+        # 10-year rule (an eligible-designated-beneficiary class, explicit or
+        # inferred from qss_dependent) is a CORRECTION to a previously
+        # legally-wrong assumption, not a change to suppress -- the review's
+        # own acceptance criterion for this item. Surface it per account
+        # rather than silently changing the after-tax total with no note.
+        _edb_notes = []
+        for entry in drawdown['beneficiaries']:
+            for acct in entry['accounts']:
+                if acct['beneficiary_class'] != 'DESIGNATED':
+                    _origin = 'inferred from survivor_has_dependent' if acct.get('class_was_inferred') else 'entered in Account Titling'
+                    _edb_notes.append(
+                        f"{acct['label']} ({entry['beneficiary']}): {acct['beneficiary_class'].replace('_', ' ').title()} "
+                        f"({_origin}) -- own life-expectancy stretch, not the 10-year rule."
+                    )
+        if _edb_notes:
+            write_cell(ws, r, 1,
+                       'CORRECTION, not a suppressed change: ' + ' | '.join(_edb_notes),
+                       bg='FFF3CD', align='left')
+            ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=4)
+            ws.row_dimensions[r].height = 16 * max(1, len(_edb_notes))
+            r += 1
         for entry in drawdown['beneficiaries']:
             write_cell(ws, r, 1, entry['beneficiary'], bold=True, bg=LGRAY)
             write_cell(ws, r, 2, ', '.join(a['label'] for a in entry['accounts']))

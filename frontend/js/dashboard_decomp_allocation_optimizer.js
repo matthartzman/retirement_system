@@ -778,6 +778,25 @@ export function renderRothMissingNotice() {
   return `<div class="missing-list"><h3>Roth controls need to be backfilled</h3><p>The page is missing ${missing.length} primary control${missing.length === 1 ? "" : "s"}: ${missing.map(humanLabel).join(", ")}. Reload the current plan or start the app again; v11 now backfills these rows into client_policy.csv without overwriting existing values.</p></div>`;
 }
 
+export function ssClaimAgeCoordinationSummaryHtml() {
+  const parts = [
+    { key: "Member 1", n: 1 },
+    { key: "Member 2", n: 2 },
+  ]
+    .map((p) => {
+      const claim = ssPersonRows(p.key).find(
+        (x) => norm(x.label) === "claim_age",
+      );
+      const age = claim ? fieldNumericValue(claim) : 0;
+      return age ? `${personDisplayName(p.n)}: age ${age}` : null;
+    })
+    .filter(Boolean);
+  const claimText = parts.length
+    ? `Social Security claim ages — ${esc(parts.join(" · "))}`
+    : "Social Security claim ages are not yet set";
+  return `<div class="section-note coordination-summary">${claimText} <button class="btn tiny" type="button" data-step-id="income_work">Open Work Income &rarr;</button> <button class="btn tiny" type="button" data-step-id="income_retirement">Open SS, Pensions, &amp; Annuities &rarr;</button></div>`;
+}
+
 export function renderRothConversion() {
   if (searchText.trim()) return renderFields("roth_conversion");
   const policy = rothPolicyValue();
@@ -883,7 +902,12 @@ export function renderRothConversion() {
       !norm(r.label).startsWith("roth_conversion_") &&
       !norm(r.label).startsWith("forced_"),
   );
-  let html = renderRothMissingNotice();
+  // Item 2.20 (U4): read-only coordination card -- this page's own help
+  // text tells the user to model conversion timing jointly with work
+  // income and Social Security claiming, both on distant pages. Surface
+  // each person's claim age inline instead of making that a round trip.
+  let html = ssClaimAgeCoordinationSummaryHtml();
+  html += renderRothMissingNotice();
   // Ticket 289: disclose two Roth Conversion Modeling Guide levers this engine
   // does not implement. Gated on the ABSENCE of a row for either future
   // plan-data key, so building the lever removes its own disclosure -- see
@@ -998,6 +1022,7 @@ Object.assign(window, {
   irmaaModeValue,
   renderRothRows,
   renderRothMissingNotice,
+  ssClaimAgeCoordinationSummaryHtml,
   renderRothConversion,
   renderDistributionStrategy,
 });

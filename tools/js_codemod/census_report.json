@@ -9,7 +9,6 @@
     "allocationTargetsValid",
     "artifactHashFromPreflight",
     "assetActionForSubsection",
-    "autoCollapseHelpForNarrowLaptop",
     "baseHomeSaleYearRow",
     "blurYtdAccountMoney",
     "boolishValue",
@@ -126,7 +125,6 @@
     "renderEstateWithAnnuityLink",
     "renderFieldFinderGroups",
     "renderHouseholdPeople",
-    "renderIncomeWork",
     "renderMain",
     "renderMeta",
     "renderNav",
@@ -148,7 +146,6 @@
     "rollForwardYtdAccounts",
     "rowConfigValue",
     "rowIsRetirementWellness",
-    "rowSortKeyForIncomeWork",
     "saveAndExit",
     "saveChanges",
     "saveValueForRow",
@@ -164,7 +161,6 @@
     "setPlanningCaseActive",
     "setSearchScope",
     "setStrategyTab",
-    "showHelpAutoCollapseNoticeOnce",
     "showPlanDataFileManifest",
     "showSpendingModelLoadOverlay",
     "showStepHelp",
@@ -242,7 +238,6 @@
     "YTD_ACTUALS_PERIOD_LS_KEY",
     "YTD_TX_PAGE_SIZE",
     "_LOOKS_INTERNAL",
-    "_autoHelpCollapsedActive",
     "_autoLoadPref",
     "_smoothCap",
     "_smoothDelayTimer",
@@ -2326,6 +2321,30 @@
       "scope": "inside-function"
     },
     {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "planLoaded",
       "file": "frontend/js/dashboard_decomp_home_panels.js",
       "kind": "read",
@@ -2501,6 +2520,12 @@
     },
     {
       "name": "rows",
+      "file": "frontend/js/dashboard_decomp_income_streams.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "searchText",
       "file": "frontend/js/dashboard_decomp_income_streams.js",
       "kind": "read",
       "scope": "inside-function"

@@ -284,10 +284,22 @@ def run_projection_artifacts(c: Mapping[str, Any], run_mc: bool = True, enforce_
     except Exception as exc:
         cfg.setdefault('config_contract_warnings', []).append(f'PlanResult contract build failed: {exc}')
     try:
-        from .results_model import build_result_explorer_model
-        from .report_spec import report_spec_from_results_model
-        semantic_model = build_result_explorer_model(cfg, list(rows), mc_data)
-        cfg['report_spec'] = report_spec_from_results_model(semantic_model).to_dict()
+        # Item 2.17 (finding A13): report_spec was independently derived
+        # here AND inside attach_plan_result (result_contract.py), each
+        # rebuilding the full semantic model via build_result_explorer_model
+        # from equivalent (cfg/c, rows, mc_data) inputs -- the same
+        # computation done twice per projection for the same result.
+        # report_spec_from_results_model only ever reads a model's `sheets`
+        # key, so attach_plan_result's own report_spec (built from that same
+        # semantic model's `sheets`) is reused here instead of rebuilding it.
+        _plan_report_spec = (cfg.get('plan_result') or {}).get('report_spec')
+        if _plan_report_spec:
+            cfg['report_spec'] = _plan_report_spec
+        else:
+            from .results_model import build_result_explorer_model
+            from .report_spec import report_spec_from_results_model
+            semantic_model = build_result_explorer_model(cfg, list(rows), mc_data)
+            cfg['report_spec'] = report_spec_from_results_model(semantic_model).to_dict()
     except Exception as exc:
         cfg.setdefault('config_contract_warnings', []).append(f'ReportSpec contract build failed: {exc}')
     try:

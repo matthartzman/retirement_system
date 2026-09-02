@@ -1,22 +1,22 @@
 """Ticket 291, Class 2: state estate tax is dispatched by the resident
 state's `estate_calc` mechanism (data-driven), not hardcoded to Illinois.
 
-Three states cover the three real statuses `state_estate_tax()` can return:
-  - Illinois: `estate_calc = il_credit_table` -> 'computed', a real dollar figure.
-  - Florida:  `estate_calc = none`            -> 'none', $0 and that $0 is correct.
-  - New York: `estate_calc = not_modeled`     -> 'not_modeled' -- NY DOES levy
-    an estate tax (its own graduated-rate table, a genuinely different
-    computation from Illinois's pre-2005-federal-credit-table cliff method),
-    but this engine has no calculation for it. $0 here is NOT "no tax owed";
-    a reporting caller must disclose that explicitly, never present it as a
-    computed figure.
+Three states originally covered the three real statuses `state_estate_tax()`
+can return -- Illinois ('computed'), Florida ('none'), and New York
+('not_modeled', since NY DOES levy an estate tax but this engine had no
+calculation for its own graduated-rate/cliff mechanism).
 
-See docs/superpowers/plans/... (task-7-report.md) for why New York -- the
-only other state in reference_data/state_tax.csv with estate=TRUE -- was not
-also given a real calculation: implementing NY's actual estate tax law is a
-50-state-style expansion explicitly out of this ticket's scope, and applying
-the wrong state's mechanism to it would produce a confidently wrong dollar
-figure, which is worse than not computing one at all.
+Wave 3 item 3.6 (system review 2026-08-31, F5) completed New York's real
+mechanism (the graduated rate table, the 105%-of-exemption cliff, and the
+three-year gift add-back -- NY Tax Law Β§954(a)(3)), so New York moved from
+'not_modeled' to 'computed'. It is no longer the 'not_modeled' example here
+-- among the 13 states this codebase ships, NONE currently returns
+'not_modeled' (Illinois and New York, the only two with estate=True, are
+both computed now). The 'not_modeled' status itself remains a real,
+supported code path (for a future state added with estate=True but no
+mechanism yet, or a resident state string this session doesn't verify
+against a fixture) -- exercised below via a synthetic STATE_TAX_RULES entry
+rather than a real shipped state, since none currently occupies that bucket.
 """
 from __future__ import annotations
 
@@ -52,15 +52,36 @@ def test_florida_is_none_not_zero_masquerading_as_computed():
     assert tax == 0.0
 
 
-def test_new_york_is_not_modeled_despite_estate_true_in_the_data():
-    """The exact case this ticket's investigation surfaced: NY has
-    estate=TRUE in both reference_data/state_tax.csv and STATE_TAX_DEFAULTS,
-    but no real calculation exists for its mechanism. Confirms the dispatcher
-    does not silently fall through to 'none' or to Illinois's table for it."""
+def test_new_york_is_computed_with_its_own_graduated_cliff_mechanism():
+    """Item 3.6 (F5): NY moved from 'not_modeled' to a real, computed
+    mechanism -- its own graduated rate table plus the 105%-of-exemption
+    cliff, a genuinely different computation from Illinois's pre-2005-
+    federal-credit-table method. Confirms the dispatcher does not conflate
+    the two states' mechanisms."""
     assert STATE_TAX_RULES["New York"]["estate"] is True
+    assert STATE_TAX_RULES["New York"]["estate_calc"] == "ny_graduated_cliff"
     tax, status = state_estate_tax("New York", 8_000_000, 6_940_000)
-    assert status == "not_modeled"
-    assert tax == 0.0
+    assert status == "computed"
+    assert tax > 0.0
+    # Must not be Illinois's own credit-table figure for the same inputs --
+    # proof the two states' mechanisms are genuinely separate, not aliased.
+    assert tax != illinois_estate_tax(8_000_000, 6_940_000)
+
+
+def test_a_real_estate_tax_state_with_no_mechanism_yet_is_not_modeled_not_none():
+    """The 'not_modeled' status remains a real, supported code path even
+    though none of the 13 shipped states currently occupies it (both
+    estate=True states -- Illinois and New York -- are 'computed' as of
+    item 3.6). Exercised via a synthetic rules entry standing in for a
+    future state added with estate=True but no calculation yet."""
+    from src.core import STATE_TAX_RULES as _rules
+    _rules["Synthetica"] = {"estate": True, "estate_calc": "not_modeled", "estate_exempt": 5_000_000}
+    try:
+        tax, status = state_estate_tax("Synthetica", 8_000_000, 5_000_000)
+        assert status == "not_modeled"
+        assert tax == 0.0
+    finally:
+        del _rules["Synthetica"]
 
 
 def test_unrecognized_state_is_not_modeled_not_none():
@@ -77,7 +98,7 @@ def test_every_state_tax_rules_entry_has_an_estate_calc():
     for state, rules in STATE_TAX_RULES.items():
         assert "estate_calc" in rules, f"{state} has no estate_calc entry"
         if rules.get("estate") is True:
-            assert rules["estate_calc"] in ("il_credit_table", "not_modeled"), (
+            assert rules["estate_calc"] in ("il_credit_table", "ny_graduated_cliff", "not_modeled"), (
                 f"{state} has estate=True but estate_calc={rules.get('estate_calc')!r} "
                 "implies no tax is levied -- contradicts its own estate flag"
             )
@@ -129,12 +150,13 @@ def test_florida_household_sees_an_explicit_no_tax_note_not_silence():
     assert "NOT MODELED" not in text
 
 
-def test_new_york_household_sees_an_explicit_not_modeled_disclosure():
-    """The 'estate=TRUE but no calculation exists' case -- must never render
-    $0 silently as if it were a real computed figure."""
+def test_new_york_household_sees_a_computed_estate_tax_section():
+    """Item 3.6 (F5): NY is 'computed' now -- the section renders a real
+    figure using NY's own mechanism, not the old NOT MODELED disclosure,
+    and not Illinois's own section header."""
     text = _sheet14_text(_config_for_state("New York"))
-    assert "NOT MODELED" in text
-    assert "New York is not modeled" in text
+    assert "New York Estate Tax (At Second Death)" in text
+    assert "NOT MODELED" not in text
     assert "does not levy" not in text
     assert "Illinois Estate Tax" not in text
 
