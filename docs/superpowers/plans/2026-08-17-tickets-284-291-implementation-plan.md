@@ -146,7 +146,7 @@ Withdrawal order, Social Security, Charitable giving, HELOC strategy — each a 
 ### Step 1.4 — Guard
 
 - [ ] Add to the existing frontend contract suite (see
-      `tests/test_planning_workbench_consolidation_regression.py` for the pattern) a test asserting:
+      `tests/test_planning_workbench_consolidation_functional.py` for the pattern) a test asserting:
       the Distribution Strategy render contains `data-step-id="roth_conversion"` and
       `data-step-id="allocation_assets"`, contains **no** `decide-embed` markup, and exposes exactly
       six decide buttons.

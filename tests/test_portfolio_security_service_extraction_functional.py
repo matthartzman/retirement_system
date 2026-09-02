@@ -7,7 +7,7 @@ def read(path: str) -> str:
 
 # The "service exists" + "routes delegate" checks that used to live here are
 # generalized (system review 2026-07-21, Q6) into SERVICE_ROUTE_PAIRS in
-# test_service_extraction_regression.py, alongside every other extracted service's
+# test_service_extraction_functional.py, alongside every other extracted service's
 # equivalent pair. Only this file's manifest/packaging test remains.
 
 

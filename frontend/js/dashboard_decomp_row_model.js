@@ -3726,7 +3726,7 @@ export function renderDomainBudgetPage(domain, opts) {
 }
 
 export function setReportsTab(tab) {
-  reportsActiveTab = REPORTS_TABS.includes(tab) ? tab : "Preflight";
+  reportsActiveTab = REPORTS_TABS.includes(tab) ? tab : "Build";
   try {
     localStorage.setItem("reports_active_tab", reportsActiveTab);
   } catch (_e) {}
@@ -4216,7 +4216,7 @@ export function fieldGuidance(row) {
 }
 
 export function ensureHelpPanelVisible() {
-  document.body.classList.remove("help-collapsed");
+  document.body.classList.add("help-open");
 }
 
 export function showFieldHelp(idx) {

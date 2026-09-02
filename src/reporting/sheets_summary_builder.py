@@ -219,6 +219,12 @@ def build_sheet1(ws, c, rows, mc_data, ss_sweep=None):
     # 2026-08-31. require_enabled=False because the whole point of the
     # recommendation row is that the trust is not yet in place.
     _cst = summary_figures.credit_shelter_trust_savings(c, rows, require_enabled=False)
+    # Item 2.11: generalizes 1.10/F2's materiality gating to the QTIP row --
+    # previously fired purely on `not c.get('qtip_enabled')`, with no
+    # reference to whether this household's estate is even a federal
+    # estate-tax question. A QTIP trust with nothing behind it to shelter
+    # is not a recommendation; it is noise.
+    _qtip_estate, _qtip_fed_exempt, _qtip_exposed = summary_figures.federal_estate_materiality(c, rows)
     if _cst and _cst['tax_saved'] is not None:
         _cst_value = (f"~${_cst['tax_saved']:,.0f} state estate tax avoided on the "
                       f"${_cst['funding_amount']:,.0f} bypass amount "
@@ -259,9 +265,13 @@ def build_sheet1(ws, c, rows, mc_data, ss_sweep=None):
         (str(c.get('entity', '')).strip().lower() != 's_corp', f'S-Corporation vs LLC (Current: {entity_label})',
            'An S-Corp election splits earnings into reasonable W-2 salary and distributions, so self-employment tax applies only to the salary portion',
            'Added payroll/admin cost','See Sheet 9 for this household’s modeled SE tax','Sheet 9'),
-        (not c.get('qtip_enabled'), 'QTIP Trust to Manage Annuity Post-First-Death',
+        (not c.get('qtip_enabled') and _qtip_exposed, 'QTIP Trust to Manage Annuity Post-First-Death',
            'Annuity income flows to QTIP for survivor benefit; controls ultimate disposition to heirs',
-           'Typical legal setup: $3,000–$5,000','Qualifies for marital deduction; defers estate tax','Sheet 14'),
+           'Typical legal setup: $3,000–$5,000',
+           (f"Qualifies for marital deduction; defers estate tax on the projected "
+            f"${_qtip_estate:,.0f} estate against a ${_qtip_fed_exempt:,.0f} federal exemption"
+            if _qtip_estate is not None else 'Qualifies for marital deduction; defers estate tax'),
+           'Sheet 14'),
         (not any(float(entry.get('years_of_expenses', 0) or 0) > 0
                  for entry in (c.get('liquidity_buffer_schedule') or [])),
            'Set Reserve Requirement by Year Range',

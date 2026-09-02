@@ -19,6 +19,28 @@ export function planKpiMetricsHtml() {
   if (heEnabled && Number.isFinite(Number(heRate))) {
     successVal = `${Number.isFinite(k.mc_success) ? fmtPct(k.mc_success * 100) : "—"} <span class="small" title="With home equity contingency">(+HE: ${fmtPct(Number(heRate) * 100)})</span>`;
   }
+  // Item 3.5 (F6): a non-fixed-real spending policy (Guyton-Klinger /
+  // floor-ceiling band) changes what "success" means -- the household's
+  // own spending flexed to avoid running out, so this is "survived having
+  // cut", not "funded as asked" at the plan's normal spending level.
+  // Mandatory disclosure: the worst modelled cut alongside the percentage,
+  // and the label/tooltip state the conditional meaning explicitly.
+  const spendPolicyActive =
+    lastBuildSummary && lastBuildSummary.spending_policy_active;
+  const worstCutPct =
+    lastBuildSummary && lastBuildSummary.worst_modeled_spending_cut_pct;
+  let successLabel = "Probability of Success";
+  let successTitle = "Percentage of simulated scenarios where the plan stays solvent";
+  if (spendPolicyActive) {
+    successLabel = "Probability of Success (conditional on modelled cuts)";
+    successTitle =
+      "Percentage of simulated scenarios where the guardrail-managed portfolio never failed to " +
+      "cover its own, dynamically self-cut withdrawal -- conditional on the modelled spending " +
+      "cuts, not funded-as-asked spending at the plan's normal level.";
+    if (Number.isFinite(Number(worstCutPct))) {
+      successVal += ` <span class="small" title="Worst single-year spending cut modeled across simulated scenarios">(worst cut: ${fmtPct(Number(worstCutPct) * 100)})</span>`;
+    }
+  }
   const metrics = [
     {
       label: "Projected final portfolio",
@@ -33,11 +55,12 @@ export function planKpiMetricsHtml() {
       html: false,
     },
     {
-      label: "Probability of Success",
+      label: successLabel,
       val: successVal,
-      html: heEnabled && Number.isFinite(Number(heRate)),
-      title:
-        "Percentage of simulated scenarios where the plan stays solvent",
+      html:
+        (heEnabled && Number.isFinite(Number(heRate))) ||
+        (spendPolicyActive && Number.isFinite(Number(worstCutPct))),
+      title: successTitle,
     },
     {
       label: "Lifetime taxes",

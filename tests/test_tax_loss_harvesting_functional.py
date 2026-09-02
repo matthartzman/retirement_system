@@ -130,7 +130,7 @@ class EngineIntegrationTests(unittest.TestCase):
         input/client_data.csv". It does not -- conftest stages input/ from the
         committed tests/fixtures/sample_plan_frozen/ and pins the clock -- and it
         pointed at a _warn_on_baseline_drift helper in
-        test_recommendations_regression.py that has since been deleted, along
+        test_recommendations_functional.py that has since been deleted, along
         with the two stale pins it guarded. Absolute dollar pins for this frozen
         household live in exactly one place now:
         test_frozen_sample_plan_golden_master_regression.py.)"""

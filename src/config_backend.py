@@ -17,11 +17,7 @@ from typing import Dict, Tuple, Optional as _Optional, List as _List
 
 from .system_config import discover_system_config_csv, load_system_config, system_setting
 from . import platform_runtime
-from .plan_data_registry import (
-    CLIENT_DATA_PART_FILES,
-    client_data_part_stems,
-    client_data_suffixed_files,
-)
+from .plan_data_registry import CLIENT_DATA_PART_FILES
 
 # PROJECT_ROOT stays the code/package root (read-only assets). Writable data
 # (input/, local_state/) hangs off the workspace root, which equals the package
@@ -34,10 +30,6 @@ DEFAULT_YAML = _WORKSPACE_ROOT / "input" / "client_data.yaml"
 DEFAULT_DB = _WORKSPACE_ROOT / "local_state" / "retirement_system_v10.db"
 DEFAULT_CLIENTS_CSV = _WORKSPACE_ROOT / "local_state" / "local_plan_registry.csv"
 SettingMap = Dict[str, Dict[str, Dict[str, str]]]
-
-CLIENT_DATA_PART_STEMS = client_data_part_stems()
-CLIENT_DATA_JSON_FILES = client_data_suffixed_files(".json")
-CLIENT_DATA_YAML_FILES = client_data_suffixed_files(".yaml")
 
 _YEAR_LABEL_PATTERNS = [
     (re.compile(r"^annual_401k_limit_\d{4}$"), "annual_401k_limit_base_year"),
@@ -113,17 +105,6 @@ def _client_data_csv_paths(path: str | Path) -> list[Path]:
     return paths
 
 
-def _client_data_structured_paths(path: str | Path, suffix: str) -> list[Path]:
-    p = Path(path)
-    paths = [p]
-    if p.name == f"client_data{suffix}":
-        for stem in CLIENT_DATA_PART_STEMS:
-            part = p.parent / f"{stem}{suffix}"
-            if part.exists():
-                paths.append(part)
-    return paths
-
-
 def _load_csv_file(path: str | Path, result: SettingMap | None = None) -> SettingMap:
     result = result if result is not None else {}
     p = Path(path)
@@ -143,29 +124,10 @@ def load_csv(path: str | Path = DEFAULT_CSV) -> SettingMap:
     return result
 
 
-def _add_mapping(out: SettingMap, obj: object) -> SettingMap:
-    if isinstance(obj, dict):
-        for sec, subs in obj.items():
-            if isinstance(subs, dict):
-                for sub, labels in subs.items():
-                    if isinstance(labels, dict):
-                        for label, value in labels.items():
-                            _add(out, sec, sub, label, value)
-    return out
-
-
 def save_json(data: SettingMap, path: str | Path = DEFAULT_JSON) -> Path:
     p = Path(path); p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
     return p
-
-
-def load_json(path: str | Path = DEFAULT_JSON) -> SettingMap:
-    out: SettingMap = {}
-    for json_path in _client_data_structured_paths(path, ".json"):
-        if json_path.exists():
-            _add_mapping(out, json.loads(json_path.read_text(encoding="utf-8")))
-    return out
 
 
 def save_yaml(data: SettingMap, path: str | Path = DEFAULT_YAML) -> Path:
@@ -176,20 +138,6 @@ def save_yaml(data: SettingMap, path: str | Path = DEFAULT_YAML) -> Path:
     except Exception:
         p.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
     return p
-
-
-def load_yaml(path: str | Path = DEFAULT_YAML) -> SettingMap:
-    out: SettingMap = {}
-    for yaml_path in _client_data_structured_paths(path, ".yaml"):
-        if not yaml_path.exists():
-            continue
-        try:
-            import yaml  # type: ignore
-            obj = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
-        except Exception:
-            obj = json.loads(yaml_path.read_text(encoding="utf-8"))
-        _add_mapping(out, obj)
-    return out
 
 
 def _merge_system_config_sections(data: SettingMap, system_data: SettingMap) -> SettingMap:
@@ -292,11 +240,13 @@ def load_sqlite(db_path: str | Path = DEFAULT_DB, workspace_id: str = "local") -
 
 
 def load_config(backend: str = "SQLITE", path: str | Path | None = None, workspace_id: str = "local") -> SettingMap:
+    # Item 2.4 (finding A3): JSON/YAML config backends retired -- SQLITE is
+    # the v11 runtime source of truth (system_config.csv's config_backend
+    # default and only shipped value); CSV remains for one-time bootstrap
+    # migration. save_json/save_yaml still write the derived
+    # client_data.json/.yaml portability mirrors (export_client_json_yaml);
+    # only READING config from those files as an active backend is retired.
     b = (backend or "SQLITE").strip().upper()
-    if b == "JSON":
-        return load_json(resolve_path(path, DEFAULT_JSON))
-    if b == "YAML":
-        return load_yaml(resolve_path(path, DEFAULT_YAML))
     if b == "CSV":
         return load_csv(resolve_path(path, DEFAULT_CSV))
     return load_sqlite(resolve_path(path, DEFAULT_DB))
@@ -326,13 +276,12 @@ def load_active_config(cli_backend: str | None = None, cli_path: str | Path | No
     backend = (cli_backend or setting(bootstrap, "System Configuration", "Runtime", "config_backend", "SQLITE") or "SQLITE").upper()
     if cli_path:
         config_ref = str(cli_path)
-    elif backend == "JSON":
-        config_ref = setting(bootstrap, "System Configuration", "Runtime", "json_config_file", "input/client_data.json")
-    elif backend == "YAML":
-        config_ref = setting(bootstrap, "System Configuration", "Runtime", "yaml_config_file", "input/client_data.yaml")
     elif backend == "CSV":
         config_ref = setting(bootstrap, "System Configuration", "Runtime", "config_file", "input/client_data.csv") or "input/client_data.csv"
     else:
+        # Also catches a config_backend value of JSON/YAML (retired, item
+        # 2.4) or anything else unrecognized -- falls back to SQLITE rather
+        # than erroring on stale/hand-edited system_config.csv.
         backend = "SQLITE"
         config_ref = sqlite_db
         db_path = resolve_path(sqlite_db, DEFAULT_DB)

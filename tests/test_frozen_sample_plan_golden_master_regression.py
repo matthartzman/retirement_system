@@ -2,7 +2,7 @@
 
 Wave 1.7 built a synthetic-scenario gate (test_synthetic_golden_master.py)
 that reads no client data, plus demoted the real, live-edited sample plan's
-dollar pins in test_recommendations_regression.py to warn-only, since input/ churns
+dollar pins in test_recommendations_functional.py to warn-only, since input/ churns
 routinely and that churn was previously conflated with engine regressions.
 
 Both the original panel sign-off (§8 item 6) and the second post-Wave-1
@@ -71,7 +71,7 @@ FROZEN_TODAY = "2026-08-04"
 # parse_client() was being called OUTSIDE the frozen_holdings_prices block, so
 # c['balances'] depended on ambient pricing-cache state rather than being
 # truly pinned. The two values below are correct; they happen to equal
-# test_recommendations_regression.py's pre-401(k)-fix pins, which makes sense once
+# test_recommendations_functional.py's pre-401(k)-fix pins, which makes sense once
 # verified: this frozen household holds both a 401(k) AND a traditional IRA,
 # so it never exercises the destination==source path the rollover bug required
 # -- the fix legitimately has zero effect on this specific plan's numbers.
@@ -274,7 +274,7 @@ def _frozen_config(withhold: tuple[str, ...] = ()):
 class FrozenSamplePlanGoldenMasterTests(unittest.TestCase):
     """Mandatory: a regression here means the ENGINE changed, since the input
     is a static, committed copy no one edits day to day. Contrast with
-    test_recommendations_regression.py's warn-only pins, which track the live plan."""
+    test_recommendations_functional.py's warn-only pins, which track the live plan."""
 
     def test_frozen_plan_dollar_figures_are_exact(self):
         from src.data_io import summarize_validation
@@ -284,7 +284,7 @@ class FrozenSamplePlanGoldenMasterTests(unittest.TestCase):
         # _frozen_config() calls parse_client(), which itself calls
         # market_data.configure_holdings_pricing() and computes c['balances']
         # from priced holdings -- so it must be INSIDE the frozen-prices block,
-        # matching test_recommendations_regression.py's sample_config()+project() pattern.
+        # matching test_recommendations_functional.py's sample_config()+project() pattern.
         # Calling it outside (as an earlier version of this file did) makes
         # c['balances'] depend on whatever pricing-cache state happens to be
         # ambient (e.g. output/market_price_cache.json), which differs between

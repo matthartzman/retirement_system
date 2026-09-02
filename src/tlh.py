@@ -28,6 +28,8 @@ import os
 from pathlib import Path
 from typing import Any, Mapping
 
+from . import tax_kernel as _tk
+
 _REF_DIR = Path(__file__).resolve().parent.parent / 'reference_data'
 
 
@@ -160,17 +162,13 @@ def _ltcg_marginal_rate(ordinary_income: float, existing_gain: float,
                         ltcg_0_top: float, ltcg_15_top: float,
                         bracket_factor: float, niit_applies: bool) -> float:
     """Marginal LTCG rate on the next dollar of gain, given where ordinary income
-    plus existing gain already sits in the stacked 0/15/20% brackets."""
-    base = max(0.0, ordinary_income) + max(0.0, existing_gain)
-    top0 = ltcg_0_top * bracket_factor
-    top15 = ltcg_15_top * bracket_factor
-    if base < top0:
-        rate = 0.0
-    elif base < top15:
-        rate = 0.15
-    else:
-        rate = 0.20
-    return rate + (0.038 if niit_applies else 0.0)
+    plus existing gain already sits in the stacked 0/15/20% brackets.
+
+    Thin call site into ``tax_kernel.ltcg_marginal_rate`` (tax-kernel
+    extraction, system review Wave 2 item 2.1).
+    """
+    return _tk.ltcg_marginal_rate(ordinary_income, existing_gain,
+                                   ltcg_0_top, ltcg_15_top, bracket_factor, niit_applies)
 
 
 def scan_harvest_opportunities(c: Mapping[str, Any], year: int, *,
@@ -197,7 +195,13 @@ def scan_harvest_opportunities(c: Mapping[str, Any], year: int, *,
     ltcg_0_top = float(c.get('ltcg_0_top', 96_700) or 0.0)
     ltcg_15_top = float(c.get('ltcg_15_top', 600_050) or 0.0)
     try:
-        bf = (1.0 + float(c.get('bracket_inf', 0.02) or 0.0)) ** (int(year) - int(c.get('plan_start', year)))
+        # Tax-kernel extraction (Wave 2 item 2.1): this used to read a config
+        # key, `bracket_inf`, that data_io.py never actually sets -- it
+        # silently always fell back to its 0.02 default. Fixed to use the
+        # same `brk_inf` (fed_tax_bracket_inflator) convention, compounded
+        # from the brackets' statutory value year, as core.py and the
+        # deterministic engine now share via tax_kernel.
+        bf = _tk.bracket_factor_for_year(c, year)
     except Exception:
         bf = 1.0
     niit_applies = bool(c.get('model_niit', True)) and (ordinary_income + existing_lt_gain) > 250_000 * bf

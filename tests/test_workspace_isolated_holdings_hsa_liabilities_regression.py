@@ -22,7 +22,7 @@ workbook_routes.py's _run_build (search "Found via the Playwright E2E build
 journey" in that file) -- this was a second, unfixed instance of it.
 
 Two layers of guard, matching this repo's own established convention (see
-test_plan_data_budget_service_extraction_regression.py for the same
+test_plan_data_budget_service_extraction_functional.py for the same
 source-text-assertion pattern used for the same class of route-wiring bug):
 
 1. Source-text: every one of the seven call sites must reference

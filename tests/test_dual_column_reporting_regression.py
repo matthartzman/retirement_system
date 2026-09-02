@@ -47,13 +47,21 @@ def _sheet_text(ws):
     return cells
 
 
-def test_sheet1_shows_terminal_nw_todays_dollars_row():
+def test_sheet1_shows_a_today_referenced_companion_section():
+    # #293 (independent of this item, landed on main): Sheet 1's headline
+    # rows were replaced (Terminal Net Worth "(Yn, Today's $)" -> Expected
+    # After-Tax LCV / NPV of Future Taxes / Worst-Case Ending Wealth), but
+    # the dual-column intent this item exists for is preserved by the
+    # "Forward-Looking Metrics (From Today)" section (FCV/EFTR), which is
+    # explicitly present-valued from today rather than plan_start.
     c, rows = sample_config_and_rows()
     wb = Workbook()
     ws = wb.active
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
         build_sheet1(ws, c, rows, {}, ss_sweep=None)
-    assert any("Today's $" in t for t in _sheet_text(ws))
+    text = _sheet_text(ws)
+    assert any("From Today" in t for t in text)
+    assert any("from today" in t for t in text)
 
 
 def test_sheet5_summary_has_todays_dollars_column_header():
