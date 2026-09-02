@@ -2310,6 +2310,30 @@
       "scope": "inside-function"
     },
     {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "planLoaded",
       "file": "frontend/js/dashboard_decomp_home_panels.js",
       "kind": "read",

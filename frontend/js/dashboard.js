@@ -451,9 +451,9 @@ const TERM_NOTES = {
   "Terminal net worth": "(projected final portfolio value)",
   "Terminal Net Worth": "(projected final portfolio value)",
   "Monte Carlo success":
-    "(percentage of simulated scenarios where the plan stays solvent)",
+    "(percentage of simulated scenarios where the plan stays solvent -- conditional on the modelled spending cuts, not funded-as-asked spending, when a non-fixed-real spending policy is active)",
   "probability of success":
-    "(percentage of simulated scenarios where the plan stays solvent)",
+    "(percentage of simulated scenarios where the plan stays solvent -- conditional on the modelled spending cuts, not funded-as-asked spending, when a non-fixed-real spending policy is active)",
   "advisor-ready": "(built with the slower, more precise settings meant for a final review, not a quick draft)",
 };
 function addParentheticals(text) {
