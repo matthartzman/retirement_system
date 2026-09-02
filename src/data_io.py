@@ -1402,6 +1402,34 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['withdrawal_bracket_target_rate'] = percent_to_float(_v(data,'Withdrawal Policy','Elective Withdrawal',
                                    'withdrawal_bracket_target_rate','0.24'), 0.24)
 
+    # ── Adoptable Spending Policy (item 3.5, F6) ──────────────────────────────
+    # fixed_real (default, today's behavior): spend_base grows with inflation
+    #   forever, never adjusted by portfolio performance.
+    # guyton_klinger: the 4-rule (minus portfolio-management) guardrail
+    #   already modeled as an MC shadow becomes the LIVE policy -- portfolio
+    #   draw grows with inflation each year (frozen after a down year in MC,
+    #   which has real per-path returns to react to; the deterministic
+    #   engine's single flat assumed return has none, so its freeze rule is a
+    #   documented no-op there), cut/raised 10% when the withdrawal rate
+    #   drifts >20% from the initial rate.
+    # floor_ceiling_band: simpler cousin -- withdrawal tracks current
+    #   portfolio value directly but is clamped to +/-10% of the plan's own
+    #   original real spending level.
+    _spending_policy = str(_v(data,'Withdrawal Policy','Spending Policy',
+                              'spending_policy','fixed_real') or 'fixed_real').strip().lower()
+    c['spending_policy'] = _spending_policy if _spending_policy in ('fixed_real','guyton_klinger','floor_ceiling_band') else 'fixed_real'
+    # Age-phased real spending curve (Option 2, independent of the selector
+    # above): discretionary spend declines by this fraction, phased in
+    # linearly between start_age and end_age (of the older/only member still
+    # alive that year), then holds at the reduced level. All default to 0 --
+    # a no-op multiplier of 1.0 for every existing plan.
+    c['spending_phase_decline_pct'] = percent_to_float(_v(data,'Withdrawal Policy','Spending Policy',
+                                   'spending_phase_decline_pct','0'), 0.0)
+    c['spending_phase_start_age'] = int(_n(_v(data,'Withdrawal Policy','Spending Policy',
+                                   'spending_phase_start_age','0'), 0))
+    c['spending_phase_end_age'] = int(_n(_v(data,'Withdrawal Policy','Spending Policy',
+                                   'spending_phase_end_age','0'), 0))
+
     # ── Roth Conversion Policy (9.5) ──────────────────────────────────────────
     # optimize_terminal_tax: evaluate multiple conversion policies and choose the
     #                        weighted after-tax terminal NW / lifetime-tax optimum
@@ -2827,6 +2855,11 @@ def build_plan_from_json(plan, url_template=''):
     c['roth_policy']        = a.get('roth_policy', 'optimize_terminal_tax')
     c['roth_target_rate']   = a.get('roth_target_rate', 0.24)
     c['withdrawal_bracket_target_rate'] = a.get('withdrawal_bracket_target_rate', 0.24)
+    _sp = str(a.get('spending_policy', 'fixed_real') or 'fixed_real').strip().lower()
+    c['spending_policy'] = _sp if _sp in ('fixed_real', 'guyton_klinger', 'floor_ceiling_band') else 'fixed_real'
+    c['spending_phase_decline_pct'] = a.get('spending_phase_decline_pct', 0.0)
+    c['spending_phase_start_age'] = a.get('spending_phase_start_age', 0)
+    c['spending_phase_end_age'] = a.get('spending_phase_end_age', 0)
     c['roth_irmaa_cap']     = True
     c['roth_fixed_amount']  = a.get('roth_fixed_amount', 50000)
     c['roth_optimize_terminal_weight'] = a.get('roth_optimize_terminal_weight', 1.0)

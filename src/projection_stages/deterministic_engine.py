@@ -551,6 +551,10 @@ def run_deterministic_projection_stage(c):
     _equity_on = bool(_opt.get('equity_compensation')) and bool(c.get('equity_comp'))
     _disability_on = bool(_opt.get('disability_income_insurance'))
     amt_credit_carry = 0.0  # ISO minimum-tax credit carried across years
+    # Item 3.5 (F6): running state for the adoptable spending guardrail
+    # policy (fixed_real/guyton_klinger/floor_ceiling_band), carried across
+    # years by spending_guardrail_year -- {} on the first active year.
+    _spend_guardrail_state: dict = {}
 
     for year in range(c['plan_start'], c['plan_end']+1):
         h_age = year - c['h_dob_yr']
@@ -1102,6 +1106,34 @@ def run_deterministic_projection_stage(c):
         survivor_factor_yr = _survivor_factor(n_alive)
         row['survivor_spend_factor_yr'] = survivor_factor_yr
         spend *= survivor_factor_yr
+
+        # ── Item 3.5 (F6): age-phased real spending curve (Option 2, always
+        # independently available) then the adoptable spending guardrail
+        # policy (fixed_real/guyton_klinger/floor_ceiling_band). Both are
+        # no-ops (factor 1.0 / policy passthrough) for every plan that
+        # hasn't configured them, so this is byte-identical to the prior
+        # unconditional `spend_base_yr = spend` for the shipped default.
+        _phase_age = max(h_age if h_alive else -1, w_age if w_alive else -1)
+        if _phase_age >= 0:
+            spend *= _legacy_pe.age_phased_spending_factor(
+                _phase_age, c.get('spending_phase_decline_pct', 0.0),
+                c.get('spending_phase_start_age', 0), c.get('spending_phase_end_age', 0),
+            )
+        _spend_policy = str(c.get('spending_policy', 'fixed_real') or 'fixed_real')
+        if _spend_policy in ('guyton_klinger', 'floor_ceiling_band') and spend > 0:
+            _portfolio_value_yr = sum(
+                max(0.0, float(bal.get(_aid, 0.0) or 0.0))
+                for _aid in (c.get('pre_tax_ids', []) + c.get('roth_ids', []) + c.get('taxable_ids', [])
+                             + c.get('hsa_ids', []) + c.get('cash_ids', []))
+            )
+            spend, _spend_guardrail_state, _spend_cut, _spend_raised = _legacy_pe.spending_guardrail_year(
+                _spend_policy, spend, _portfolio_value_yr, _spend_guardrail_state,
+                inflation_rate=c.get('inf', 0.025),
+                prior_return=None,  # documented no-op: single flat c['ret'], no year-to-year variation
+                years_remaining=c['plan_end'] - year,
+            )
+            row['spending_policy_cut_applied'] = bool(_spend_cut)
+            row['spending_policy_raise_applied'] = bool(_spend_raised)
         row['spend_base_yr'] = spend
 
         # Recurring extras — Home Improvement items route to housing costs; all others to rec_extra

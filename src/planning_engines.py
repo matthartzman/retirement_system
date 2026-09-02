@@ -1790,6 +1790,105 @@ def _available_by_owner(c: Mapping, bal: Mapping[str, float], owner_idx: int) ->
     return _sum_bal(bal, _ids_by_owner_tax(c, owner_idx, "pre_tax"))
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Item 3.5 (F6): adoptable spending policy -- deterministic-engine (single
+# path) implementation. The 4-rule Guyton-Klinger guardrail and the simpler
+# floor-ceiling band, previously modeled only as a Monte Carlo shadow (never
+# consumed as real policy -- see the vectorized shadow block in this same
+# module), become the LIVE spending figure the deterministic engine actually
+# uses when spending_policy is set to one of them.
+#
+# GK's Rule 1 (freeze the inflation increase after a negative-return year)
+# is a documented no-op here: the deterministic engine assumes one flat
+# annual return (c['ret']) for every year, so there is no year-to-year
+# return variation for the freeze to react to. It fires normally in Monte
+# Carlo, which has real per-path realized returns.
+# ─────────────────────────────────────────────────────────────────────────────
+
+SPENDING_GUARDRAIL_BAND = 0.20             # +/-20% of the initial withdrawal rate (GK)
+SPENDING_GUARDRAIL_ADJUST = 0.10           # 10% cut or raise when a GK guardrail triggers
+SPENDING_GUARDRAIL_SUSPENSION_YEARS = 15   # GK capital-preservation rule suspended this close to plan end
+SPENDING_FLOOR_CEILING_BAND_PCT = 0.10     # +/-10% of the plan's own fixed-real spend level
+
+
+def age_phased_spending_factor(age: float, decline_pct: float, start_age: int, end_age: int) -> float:
+    """Item 3.5 (F6, Option 2): independent, always-available age-phased real
+    spending curve -- discretionary spend declines by ``decline_pct``,
+    phased in linearly between ``start_age`` and ``end_age``, then holds at
+    the reduced level. Returns 1.0 (no-op) whenever decline_pct/start_age/
+    end_age are unset (the default for every existing plan) or malformed
+    (end_age <= start_age).
+    """
+    decline_pct = max(0.0, min(1.0, float(decline_pct or 0.0)))
+    start_age = int(start_age or 0)
+    end_age = int(end_age or 0)
+    if decline_pct <= 0.0 or end_age <= start_age:
+        return 1.0
+    age = float(age or 0.0)
+    if age <= start_age:
+        return 1.0
+    if age >= end_age:
+        return 1.0 - decline_pct
+    phase = (age - start_age) / (end_age - start_age)
+    return 1.0 - decline_pct * phase
+
+
+def spending_guardrail_year(
+    policy: str,
+    baseline_nominal_spend: float,
+    portfolio_value: float,
+    state: dict,
+    *,
+    inflation_rate: float = 0.0,
+    prior_return: float | None = None,
+    years_remaining: int | None = None,
+) -> tuple[float, dict, bool, bool]:
+    """One year's guardrail-adjusted spend for a SINGLE path (the
+    deterministic engine's own, or a per-path caller in the exact-scalar MC
+    engine). Returns ``(adjusted_spend, new_state, was_cut, was_raised)``.
+
+    ``state`` carries this path's own running guardrail state across years
+    (``{}`` on the first call): ``iwr`` (initial withdrawal rate, fixed once
+    from the FIRST call), ``last_withdrawal`` (GK's own running dollar
+    figure). Cut/raise are always reported relative to
+    ``baseline_nominal_spend`` (this year's normal fixed-real spend) -- the
+    plan's own "what would have been spent" figure -- not each policy's
+    internal reference, so disclosure means the same thing under either
+    policy.
+    """
+    if policy not in ("guyton_klinger", "floor_ceiling_band") or baseline_nominal_spend <= 0:
+        return baseline_nominal_spend, state, False, False
+    if not state.get("initialized"):
+        iwr = baseline_nominal_spend / max(1.0, float(portfolio_value))
+        new_state = {"initialized": True, "iwr": iwr, "last_withdrawal": baseline_nominal_spend}
+        return baseline_nominal_spend, new_state, False, False
+
+    iwr = float(state["iwr"])
+    portfolio_value = max(0.0, float(portfolio_value))
+    if policy == "floor_ceiling_band":
+        natural = iwr * portfolio_value
+        floor = baseline_nominal_spend * (1.0 - SPENDING_FLOOR_CEILING_BAND_PCT)
+        ceiling = baseline_nominal_spend * (1.0 + SPENDING_FLOOR_CEILING_BAND_PCT)
+        adjusted = min(ceiling, max(floor, natural))
+    else:  # guyton_klinger
+        withdrawal = float(state["last_withdrawal"])
+        freeze = prior_return is not None and prior_return < 0.0
+        if not freeze:
+            withdrawal *= (1.0 + float(inflation_rate or 0.0))
+        cwr = withdrawal / max(1e-9, portfolio_value)
+        suspend_capital_preservation = years_remaining is not None and years_remaining <= SPENDING_GUARDRAIL_SUSPENSION_YEARS
+        if not suspend_capital_preservation and cwr > iwr * (1.0 + SPENDING_GUARDRAIL_BAND):
+            withdrawal *= (1.0 - SPENDING_GUARDRAIL_ADJUST)
+        elif cwr < iwr * (1.0 - SPENDING_GUARDRAIL_BAND):
+            withdrawal *= (1.0 + SPENDING_GUARDRAIL_ADJUST)
+        adjusted = withdrawal
+
+    new_state = {"initialized": True, "iwr": iwr, "last_withdrawal": adjusted}
+    was_cut = adjusted < baseline_nominal_spend - 1e-6
+    was_raised = adjusted > baseline_nominal_spend + 1e-6
+    return adjusted, new_state, was_cut, was_raised
+
+
 
 
 def aca_applicable_percentage(fpl_pct: float, enhanced: bool = True, cap: float = 0.085) -> float:
@@ -5176,6 +5275,16 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
     _gk_adjust = 0.10          # 10% cut or raise when a guardrail triggers
     _gk_suspension_years = 15  # capital-preservation rule suspended once
                                 # this many years or fewer remain in the plan
+    # Item 3.5 (F6, Option 1): floor-ceiling band's own fixed default -- the
+    # simpler cousin of GK's 4-rule formula. Each year's "natural" draw is
+    # this path's OWN initial withdrawal rate reapplied to the CURRENT
+    # portfolio value (not last year's dollar amount grown by inflation, GK's
+    # own rule 1); that natural draw is then clamped to stay within +/-10% of
+    # the plan's ORIGINAL (undiminished) real spending level, so spending
+    # tracks the market but can never drift arbitrarily far from plan.
+    _fc_band_pct = 0.10
+    _spending_policy = str(c.get('spending_policy', 'fixed_real') or 'fixed_real').strip().lower()
+    _guardrail_active = _spending_policy in ('guyton_klinger', 'floor_ceiling_band')
     if 'total_spend' in flows and 'income_funding' in eff and years.size:
         plan_end_gk = int(c.get('plan_end', int(years[-1])))
         total_start_liquid = float(sum(starts.values()))
@@ -5202,19 +5311,36 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
         gk_raise_years = _np.zeros(n_sims, dtype=int)
         gk_ever_cut = _np.zeros(n_sims, dtype=bool)
         gk_ever_raise = _np.zeros(n_sims, dtype=bool)
+        # Item 3.5: shortfall tracking so a guardrail policy's own success
+        # can be defined honestly -- clamping the reported portfolio at 0
+        # (below, unchanged from the original shadow) silently absorbed any
+        # withdrawal the portfolio couldn't actually cover; this captures
+        # that gap BEFORE the clamp, per path per year, so "the guardrail
+        # portfolio never ran out" is a real claim, not an artifact of the
+        # floor.
+        gk_ever_depleted = _np.zeros(n_sims, dtype=bool)
+        worst_cut_frac = _np.zeros(n_sims, dtype=float)
         prior_return = None
         for j in range(n_years):
             act_j = active[:, j]
-            if j > 0:
-                infl_rate_j = inflation_paths['inflation_by_year_matrix'][:, j]
-                freeze = prior_return < 0.0
-                gk_withdrawal = _np.where(freeze, gk_withdrawal, gk_withdrawal * (1.0 + infl_rate_j))
-            years_remaining = plan_end_gk - int(years[j])
-            cwr = gk_withdrawal / _np.maximum(1e-9, gk_portfolio)
-            do_cut = (years_remaining > _gk_suspension_years) & (cwr > gk_iwr * (1.0 + _gk_band))
-            do_raise = (~do_cut) & (cwr < gk_iwr * (1.0 - _gk_band))
-            gk_withdrawal = _np.where(do_cut, gk_withdrawal * (1.0 - _gk_adjust), gk_withdrawal)
-            gk_withdrawal = _np.where(do_raise, gk_withdrawal * (1.0 + _gk_adjust), gk_withdrawal)
+            if _spending_policy == 'floor_ceiling_band':
+                natural = gk_iwr * gk_portfolio
+                floor_j = year1_portfolio_draw * (1.0 - _fc_band_pct) * inf_idx[:, j]
+                ceiling_j = year1_portfolio_draw * (1.0 + _fc_band_pct) * inf_idx[:, j]
+                gk_withdrawal = _np.clip(natural, floor_j, ceiling_j)
+                do_cut = act_j & (gk_withdrawal < ceiling_j) & (natural < floor_j)
+                do_raise = act_j & (natural > ceiling_j)
+            else:
+                if j > 0:
+                    infl_rate_j = inflation_paths['inflation_by_year_matrix'][:, j]
+                    freeze = prior_return < 0.0
+                    gk_withdrawal = _np.where(freeze, gk_withdrawal, gk_withdrawal * (1.0 + infl_rate_j))
+                years_remaining = plan_end_gk - int(years[j])
+                cwr = gk_withdrawal / _np.maximum(1e-9, gk_portfolio)
+                do_cut = (years_remaining > _gk_suspension_years) & (cwr > gk_iwr * (1.0 + _gk_band))
+                do_raise = (~do_cut) & (cwr < gk_iwr * (1.0 - _gk_band))
+                gk_withdrawal = _np.where(do_cut, gk_withdrawal * (1.0 - _gk_adjust), gk_withdrawal)
+                gk_withdrawal = _np.where(do_raise, gk_withdrawal * (1.0 + _gk_adjust), gk_withdrawal)
             gk_cut_years += (do_cut & act_j).astype(int)
             gk_raise_years += (do_raise & act_j).astype(int)
             gk_ever_cut |= (do_cut & act_j)
@@ -5225,14 +5351,41 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
             # only the PORTFOLIO draw is subject to GK's rules/growth above.
             income_j = _np.where(act_j, eff['income_funding'][:, j] * spending_scale[:, j], 0.0)
             gk_spend_nominal[:, j] = actual_withdrawal + income_j
+            shortfall_j = _np.maximum(0.0, actual_withdrawal - gk_portfolio)
+            gk_ever_depleted |= (shortfall_j > 1.0) & act_j
             gk_portfolio = _np.maximum(0.0, gk_portfolio - actual_withdrawal)
             gk_portfolio = gk_portfolio * (1.0 + returns[:, j])
             prior_return = returns[:, j]
+            # Original (fixed-real, undiminished) baseline draw for THIS
+            # year, to size the disclosed "worst modelled cut": year-1's own
+            # draw grown by inflation only, mirroring the plan's own real-
+            # spending assumption with none of this policy's cuts/raises.
+            baseline_j = year1_portfolio_draw * inf_idx[:, j]
+            cut_frac_j = _np.where(baseline_j > 1.0, _np.maximum(0.0, 1.0 - actual_withdrawal / _np.maximum(1e-9, baseline_j)), 0.0)
+            worst_cut_frac = _np.where(act_j, _np.maximum(worst_cut_frac, cut_frac_j), worst_cut_frac)
         out['guardrail_spend_real'] = gk_spend_nominal / _np.maximum(1e-9, inf_idx)
         out['guardrail_cut_years_count'] = gk_cut_years
         out['guardrail_raise_years_count'] = gk_raise_years
         out['guardrail_ever_cut'] = gk_ever_cut
         out['guardrail_ever_raise'] = gk_ever_raise
+        out['guardrail_ever_depleted'] = gk_ever_depleted
+        out['guardrail_worst_cut_frac'] = worst_cut_frac
+        if _guardrail_active:
+            # Item 3.5: promote the shadow from reporting-only to the LIVE
+            # policy -- a guardrail-active plan's own success is now defined
+            # as "the guardrail-managed portfolio, reacting to this path's
+            # realized returns, never failed to cover its own (self-cut)
+            # withdrawal" rather than the fixed-real cascade's unfunded_gap.
+            # Essential-tier funding (out['essential_fully_funded'] above,
+            # computed separately) is deliberately NOT overridden here: GK/
+            # floor-ceiling govern discretionary portfolio draw, matching
+            # real CFP practice and this codebase's own tier-cut cascade
+            # (essential is always protected last), so essential funding
+            # probability keeps meaning "funded as asked" even while the
+            # headline success rate's meaning changes (see the mandatory
+            # relabelling this item also adds in the reporting layer).
+            out['guardrail_policy_active'] = _np.ones(n_sims, dtype=bool)
+            out['guardrail_success'] = ~gk_ever_depleted
 
     # Phase 2 (optimization refactor), superseded by Option B: previously
     # this block RECONSTRUCTED essential's shortfall by walking
@@ -5298,6 +5451,18 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
     active = _np.array(years, dtype=int).reshape(1, -1) <= max_death.reshape(-1, 1)
     failure_matrix = ((projection['unfunded'] > 1.0) | (projection['liquid'] <= float(success_threshold))) & active
     path_success = ~_np.any(failure_matrix, axis=1)
+    # Item 3.5 (F6): a guardrail spending policy (Guyton-Klinger or
+    # floor-ceiling band) redefines what "success" means -- the household's
+    # OWN spending flexes with portfolio performance, so the fixed-real
+    # cascade's unfunded_gap (computed against the UNADJUSTED spend plan)
+    # is no longer the right failure definition. Use the guardrail
+    # portfolio's own survival instead: never failing to cover its own
+    # (self-cut) withdrawal. This is what makes success "survived having
+    # cut" rather than "funded as asked" -- the mandatory relabelling this
+    # item adds in the reporting layer exists specifically to disclose that
+    # meaning change, not to hide it.
+    if 'guardrail_success' in projection:
+        path_success = projection['guardrail_success']
     any_failure = _np.any(failure_matrix, axis=1)
     first_failure_idx = _np.argmax(failure_matrix, axis=1)
     first_failure_years = [years[int(idx)] if bool(any_failure[i]) else None for i, idx in enumerate(first_failure_idx)]
@@ -5988,7 +6153,13 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None, survivor_buckets='__uns
         'return_recentered': bool(c.get('mc_recenter_regime_returns', True)),
         'n_sims': N,
         'seed': seed,
-        'success_definition': 'No unfunded annual spending gap and liquid retirement assets remain above configured floor in every active projected year.',
+        'success_definition': (
+            'The guardrail-managed portfolio (Guyton-Klinger / floor-ceiling band) never failed to '
+            "cover its own, dynamically self-cut withdrawal -- this is conditional on the modelled "
+            "spending cuts (see worst_modeled_spending_cut_pct), not funded-as-asked."
+            if bool(proj.get('guardrail_policy_active') is not None and _np.any(proj.get('guardrail_policy_active')))
+            else 'No unfunded annual spending gap and liquid retirement assets remain above configured floor in every active projected year.'
+        ),
         'success_liquid_floor': success_threshold,
         'success_liquid_floor_source': success_threshold_source,
         'success_rate': success_rate,
@@ -6010,6 +6181,24 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None, survivor_buckets='__uns
         'first_failure_distribution': first_failure_distribution,
         'required_cut_distribution': required_cut_distribution,
         'sustainable_spending_solve': sustainable_spending,
+        # Item 3.5 (F6): mandatory disclosure of the modelled spending cut's
+        # size and duration whenever a guardrail spending policy is active
+        # (§5.4's own acceptance criterion) -- and success_definition/
+        # success_rate's meaning change made explicit rather than silent.
+        'spending_policy': str(c.get('spending_policy', 'fixed_real') or 'fixed_real').strip().lower(),
+        'spending_policy_active': bool(proj.get('guardrail_policy_active') is not None and _np.any(proj.get('guardrail_policy_active'))),
+        'worst_modeled_spending_cut_pct': (
+            float(_np.max(proj['guardrail_worst_cut_frac'])) if 'guardrail_worst_cut_frac' in proj else None
+        ),
+        'median_modeled_spending_cut_years': (
+            float(_np.median(proj['guardrail_cut_years_count'])) if 'guardrail_cut_years_count' in proj else None
+        ),
+        'max_modeled_spending_cut_years': (
+            int(_np.max(proj['guardrail_cut_years_count'])) if 'guardrail_cut_years_count' in proj else None
+        ),
+        'guardrail_probability_ever_cut': (
+            float(_np.mean(proj['guardrail_ever_cut'])) if 'guardrail_ever_cut' in proj else None
+        ),
         # Optimization-refactor Phase 2: fraction of paths whose essential-
         # tier spending was never left unfunded (see _mc_vectorized_batch).
         'essential_fully_funded_probability': batch.get('essential_fully_funded_probability'),
