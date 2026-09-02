@@ -2159,6 +2159,28 @@ def build_sheet14(ws, c, rows):
         write_hdr(ws, r, 3, 'Gross Terminal Balance', DGRAY, WHITE)
         write_hdr(ws, r, 4, 'Est. After-Tax Total', DGRAY, WHITE)
         r += 1
+        # Item 3.3 (F4): an account whose stretch schedule is no longer the
+        # 10-year rule (an eligible-designated-beneficiary class, explicit or
+        # inferred from qss_dependent) is a CORRECTION to a previously
+        # legally-wrong assumption, not a change to suppress -- the review's
+        # own acceptance criterion for this item. Surface it per account
+        # rather than silently changing the after-tax total with no note.
+        _edb_notes = []
+        for entry in drawdown['beneficiaries']:
+            for acct in entry['accounts']:
+                if acct['beneficiary_class'] != 'DESIGNATED':
+                    _origin = 'inferred from survivor_has_dependent' if acct.get('class_was_inferred') else 'entered in Account Titling'
+                    _edb_notes.append(
+                        f"{acct['label']} ({entry['beneficiary']}): {acct['beneficiary_class'].replace('_', ' ').title()} "
+                        f"({_origin}) -- own life-expectancy stretch, not the 10-year rule."
+                    )
+        if _edb_notes:
+            write_cell(ws, r, 1,
+                       'CORRECTION, not a suppressed change: ' + ' | '.join(_edb_notes),
+                       bg='FFF3CD', align='left')
+            ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=4)
+            ws.row_dimensions[r].height = 16 * max(1, len(_edb_notes))
+            r += 1
         for entry in drawdown['beneficiaries']:
             write_cell(ws, r, 1, entry['beneficiary'], bold=True, bg=LGRAY)
             write_cell(ws, r, 2, ', '.join(a['label'] for a in entry['accounts']))
