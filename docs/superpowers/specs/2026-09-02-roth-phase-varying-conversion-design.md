@@ -226,10 +226,28 @@ argument), so `c.update({})` is a no-op for that fixture regardless of branch.
 - `frontend/js/dashboard.js` — `roth_bracket_strategy` dropdown array (~line 2161)
   gains `"PHASE_VARYING"`; add UI rows/help text for the 4 new fields following the
   existing pattern for `roth_target_bracket_rate` et al.
-- `input/client_policy.csv`, `input/demo/client_policy.csv`,
-  `tests/fixtures/sample_plan_frozen/client_policy.csv`, `reference_data/schema.csv`
-  — append `PHASE_VARYING` to the existing choice string on the
-  `roth_bracket_strategy` row; add the 4 new rows
+- `input/demo/client_policy.csv`, `reference_data/schema.csv` — append
+  `PHASE_VARYING` to the existing choice string on the `roth_bracket_strategy`
+  row; add the 4 new rows
+
+**Deliberately not touched:**
+- `input/client_policy.csv` — gitignored live/local client data (`.gitignore:35`,
+  `/input/*`), not shipped, not present on CI or a fresh worktree per
+  `documentation/CLAUDE.md`'s canonical-source-hierarchy section. Any real saved
+  plan picks up the new fields via `_v(..., default)`'s fallback today and via
+  `PLAN_DATA_BACKFILL_ENTRIES`' `ROTH_UI_PLAN_DATA_ROWS` entry the next time that
+  plan is loaded/saved through the app — no manual edit needed or possible to ship.
+  `tools/check_plan_data_sync.py` only fingerprints this same live `input/`
+  directory, so there is nothing to resync either.
+- `tests/fixtures/sample_plan_frozen/client_policy.csv`. Editing any golden-master
+  fixture file requires the regen ceremony in
+  `documentation/GOLDEN_MASTER_RECOVERY_RUNBOOK.md` even for a nominally-no-op
+  change — and it would be a no-op here, since `data_io.py`'s `_v(data, ...,
+  default)` lookup already returns the same default (`0.24`/`0.22`/`0.12`/`3`)
+  whether or not the CSV row exists, and the fixture's `roth_bracket_strategy`
+  stays pinned at `FILL_TARGET_BRACKET`, so `PHASE_VARYING` is never even
+  considered for it. Not worth the ceremony for a value the fixture doesn't
+  exercise.
 - `python tools/check_plan_data_sync.py --write` — resync `plan_data_manifest`
   after the schema change
 
