@@ -53,6 +53,8 @@ KPI_SNAPSHOT_METRICS = (
     "eftr",
     "total_roth_conversions",
     "after_tax_terminal_nw",
+    "npv_future_taxes",
+    "terminal_nw_mc_p5",
 )
 
 
@@ -154,8 +156,21 @@ def init_local_store(db_path: str | Path | None = None) -> Path:
             eftr REAL,
             total_roth_conversions REAL,
             after_tax_terminal_nw REAL,
+            npv_future_taxes REAL,
+            terminal_nw_mc_p5 REAL,
             kpi_json TEXT NOT NULL
         )""")
+        # #293: the two columns above were added after the table already shipped -- CREATE
+        # TABLE IF NOT EXISTS above is a no-op against an existing db file,
+        # so an existing kpi_snapshots table needs an explicit ALTER (same
+        # pattern as config_backend.py's price_snapshots.workspace_id
+        # migration) or every insert against a pre-#293 db fails with
+        # "no such column".
+        kpi_cols = [r[1] for r in con.execute("PRAGMA table_info(kpi_snapshots)").fetchall()]
+        if "npv_future_taxes" not in kpi_cols:
+            con.execute("ALTER TABLE kpi_snapshots ADD COLUMN npv_future_taxes REAL")
+        if "terminal_nw_mc_p5" not in kpi_cols:
+            con.execute("ALTER TABLE kpi_snapshots ADD COLUMN terminal_nw_mc_p5 REAL")
         con.execute("""CREATE TABLE IF NOT EXISTS plan_spending_policy(
             snapshot_id TEXT PRIMARY KEY,
             annual_core_spending_cents INTEGER,
@@ -422,8 +437,9 @@ def save_kpi_snapshot(
                    snapshot_id, created_at, build_id, probability_of_success,
                    terminal_nw_deterministic, terminal_nw_mc_median, terminal_nw_mc_p10,
                    terminal_nw_mc_p90, lifetime_tax, lcv, eltr, fcv, eftr,
-                   total_roth_conversions, after_tax_terminal_nw, kpi_json
-               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                   total_roth_conversions, after_tax_terminal_nw,
+                   npv_future_taxes, terminal_nw_mc_p5, kpi_json
+               ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                ON CONFLICT(snapshot_id) DO NOTHING""",
             (
                 snapshot_id,
@@ -441,6 +457,8 @@ def save_kpi_snapshot(
                 kpis.get("eftr"),
                 kpis.get("total_roth_conversions"),
                 kpis.get("after_tax_terminal_nw"),
+                kpis.get("npv_future_taxes"),
+                kpis.get("terminal_nw_mc_p5"),
                 json.dumps(payload, sort_keys=True, default=str),
             ),
         )

@@ -117,3 +117,50 @@ def test_workbook_builder_checkpoints_before_writing_any_output_artifact():
         "other essential output artifact) is written -- moving it later "
         "reintroduces the false-stale regression"
     )
+
+
+def test_kpi_snapshot_archive_and_its_checkpoint_run_before_any_output_artifact():
+    """The bug above reappeared through a second, later-added path:
+    save_kpi_snapshot() (workbook_builder.main()'s "Archive a small dated
+    headline-KPI snapshot" step) writes to the SQLite DB too, through the
+    same WAL-mode connection -- so its INSERT only lands in the .db-wal
+    sidecar until something checkpoints it. It used to run at the very end
+    of the build, after every essential artifact was already on disk; that
+    write then sat unflushed until write_build_snapshot() ->
+    capture_sqlite_database_snapshot()'s own checkpoint finally folded it
+    into the main .db file -- bumping the DB's mtime past every artifact's,
+    right after a successful build, exactly like the original regression.
+
+    Fix: both save_kpi_snapshot() and a checkpoint_sqlite_database() call
+    immediately after it were moved before "Saving workbook to" (before
+    wb.save() and the other essential artifact writes), so any WAL content
+    the snapshot write leaves behind is already folded into the main .db
+    file by the time an artifact is written, and the later checkpoint inside
+    capture_sqlite_database_snapshot() finds nothing left to flush."""
+    src = (
+        __import__("pathlib").Path(__file__).resolve().parents[1]
+        / "src" / "reporting" / "workbook_builder.py"
+    ).read_text(encoding="utf-8")
+    main_start = src.index("\ndef main():")
+    first_artifact_write_pos = src.index("Saving workbook to", main_start)
+    kpi_archive_call_pos = src.index("save_kpi_snapshot(kpi_payload", main_start)
+    assert kpi_archive_call_pos < first_artifact_write_pos, (
+        "save_kpi_snapshot() must run before the workbook (and every other "
+        "essential output artifact) is written -- moving it later "
+        "reintroduces the false-stale regression through the KPI-archive "
+        "write path"
+    )
+    # There must be a checkpoint_sqlite_database( call between the KPI
+    # archive write and the first artifact write, so that write's WAL
+    # content is folded into the main .db file before anything else reads
+    # or compares the DB's mtime.
+    second_checkpoint_pos = src.index(
+        "checkpoint_sqlite_database(", kpi_archive_call_pos
+    )
+    assert kpi_archive_call_pos < second_checkpoint_pos < first_artifact_write_pos, (
+        "a checkpoint_sqlite_database() call must run between "
+        "save_kpi_snapshot() and the first essential artifact write, or the "
+        "KPI archive's WAL content stays unflushed until the later "
+        "checkpoint inside capture_sqlite_database_snapshot() -- which by "
+        "then runs after every essential artifact is on disk"
+    )

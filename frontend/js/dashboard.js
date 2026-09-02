@@ -339,9 +339,9 @@ const STEPS = [
     id: "review",
     group: "Reports",
     title: "Download Reports",
-    desc: "Build and download the workbook and PDF — downloads automatically save first when there are pending changes.",
+    desc: "Build and download the workbook — downloads automatically save first when there are pending changes.",
     intro:
-      "A build saves all current inputs, runs the full projection engine (cash flow, taxes, RMDs, Monte Carlo, scenarios), and writes the workbook. The PDF is an advisor-ready formatted summary. Both are read-only snapshots — edit values here, then rebuild.",
+      "A build saves all current inputs, runs the full projection engine (cash flow, taxes, RMDs, Monte Carlo, scenarios), and writes the workbook. It is a read-only snapshot — edit values here, then rebuild.",
     help: "A successful build updates projected final net worth, lifetime taxes, Monte Carlo success, and all narrative sections. Use Save Changes to save without triggering a rebuild.",
     hidden: true,
   },
@@ -601,7 +601,7 @@ const STEP_HELP = {
   review: pageHelp(
     "Download Reports",
     "Downloads automatically save and build as needed — you do not need to save separately before downloading.",
-    "Save Changes stores all entered values. Download Workbook and Download PDF each save, build, and deliver in one click when there are unsaved changes or no current build.",
+    "Save Changes stores all entered values. Download Workbook saves, builds, and delivers in one click when there are unsaved changes or no current build.",
     "Use Save Changes when you want to save without triggering a rebuild. Use Download when ready for final output. Resolve any required-field warnings before downloading. Bulk import/export is in Settings → System Configuration.",
     "A successful build refreshes projected net worth, lifetime taxes, Monte Carlo success, allocation recommendations, and all narrative sections. The downloaded file reflects the last successful build — download again after each rebuild to get the latest.",
   ),
@@ -609,7 +609,7 @@ const STEP_HELP = {
     "Build impact",
     "This page explains what changed in the latest build compared with the session baseline. It is a review and revert tool, not a data-entry page.",
     "The comparison uses values captured before this editing session and values after the last successful build. It helps connect changed assumptions to terminal net worth, lifetime taxes, Roth conversions, liquidity, and output warnings.",
-    "Revert restores captured before-values for edited inputs. Rebuild confirms whether the reverted or edited plan changes the authoritative workbook/PDF outputs.",
+    "Revert restores captured before-values for edited inputs. Rebuild confirms whether the reverted or edited plan changes the authoritative workbook output.",
     "Large differences identify high-leverage assumptions. A positive terminal-net-worth change is not automatically better if it increases lifetime taxes, liquidity stress, survivor risk, or Monte Carlo failure.",
   ),
   planning_workbench: pageHelp(
@@ -771,6 +771,11 @@ let apiBase = "",
   forcedConversions = [],
   forcedConversionsChanged = false,
   forcedConversionAccounts = [],
+  homeSaleSplits = [],
+  homeSaleSplitsChanged = false,
+  homeSaleSplitAccounts = [],
+  residencySchedule = [],
+  residencyScheduleChanged = false,
   estateStateOptions = [],
   planLoaded = false,
   demoModeActive = false,
@@ -1209,6 +1214,9 @@ function rememberBuildCompare(compare, opts) {
         ? after.lifetime_tax
         : null,
       lcv: Number.isFinite(after.lcv) ? after.lcv : null, eltr: Number.isFinite(after.eltr) ? after.eltr : null, mc_success: Number.isFinite(after.mc_success) ? after.mc_success : null,
+      npv_future_taxes: Number.isFinite(after.npv_future_taxes) ? after.npv_future_taxes : null,
+      terminal_nw_mc_p5: Number.isFinite(after.terminal_nw_mc_p5) ? after.terminal_nw_mc_p5 : null,
+      eftr: Number.isFinite(after.eftr) ? after.eftr : null,
     },
     before: compare.before || {},
     after: compare.after || {},
@@ -1255,6 +1263,9 @@ async function takeBuildSnapshot() {
         ? kpis.lifetime_tax
         : null,
       lcv: Number.isFinite(kpis.lcv) ? kpis.lcv : null, eltr: Number.isFinite(kpis.eltr) ? kpis.eltr : null, mc_success: Number.isFinite(kpis.mc_success) ? kpis.mc_success : null,
+      npv_future_taxes: Number.isFinite(kpis.npv_future_taxes) ? kpis.npv_future_taxes : null,
+      terminal_nw_mc_p5: Number.isFinite(kpis.terminal_nw_mc_p5) ? kpis.terminal_nw_mc_p5 : null,
+      eftr: Number.isFinite(kpis.eftr) ? kpis.eftr : null,
     },
     before: cloneSummary(kpis),
     after: cloneSummary(kpis),
@@ -1342,6 +1353,9 @@ function noteSessionFieldChange(
   if (!sessionChanges.has(key)) {
     sessionChanges.set(key, {
       row_index: row.row_index,
+      section: row.section || "",
+      subsection: row.subsection || "",
+      rawLabel: row.label || "",
       label: humanLabel(row.label, row),
       group: friendlyGroup(row),
       scope,
@@ -1362,6 +1376,9 @@ function noteSessionFieldChange(
     rec.sourceStep = sourceStep;
     rec.sourceTitle = sourceTitle;
     rec.row_index = row.row_index;
+    rec.section = row.section || "";
+    rec.subsection = row.subsection || "";
+    rec.rawLabel = row.label || "";
   }
   const rec = sessionChanges.get(key);
   if (String(rec.beforeStorage) === String(rec.afterStorage))
@@ -1400,7 +1417,8 @@ function renderStateResidency() {
   const stateComp = rs.filter(
     (r) => String(r.section || "").trim() === "State Comparison",
   );
-  let html = `<div class="section-note">Baseline state is set on <a href="#" onclick="setStep('household_people');return false">Household People</a>. Enter the target state and cost differences below — the workbook State Residency sheet shows annual and lifetime impact.</div>`;
+  let html = renderResidencySchedule();
+  html += `<div class="section-note">Baseline state is set on <a href="#" onclick="setStep('household_people');return false">Household People</a>. Enter the target state and cost differences below — the workbook State Residency sheet shows annual and lifetime impact.</div>`;
   if (!stateComp.length)
     return (
       html +
@@ -1858,7 +1876,7 @@ function pageSaveMode(stepId) {
       kind: "build-gated",
       label: "Build saves first",
       detail:
-        "Build Reports, Download Workbook, and Download PDF save the working copy before preflight and report generation.",
+        "Build Reports and Download Workbook save the working copy before preflight and report generation.",
     };
   if (["build_impact", "detailed_results", "plan_data_report"].includes(stepId))
     return {
@@ -2093,6 +2111,7 @@ function choiceOptions(r) {
       "LEGACY_TARGETED",
       "OPTIMIZER_CHOOSES",
       "FIXED_DOLLAR",
+      "PHASE_VARYING",
     ],
     roth_objective_mode: [
       "BALANCED_RETIREMENT",
@@ -2901,6 +2920,10 @@ function renderWithdrawalStrategy() {
 const ROTH_PRIMARY_LABELS = [
   "roth_conversion_policy",
   "roth_bracket_strategy",
+  "roth_phase_first_bracket_rate",
+  "roth_phase_second_bracket_rate",
+  "roth_phase_third_bracket_rate",
+  "roth_phase_count",
   "roth_headroom_usage_pct",
   "roth_target_bracket_rate",
   "roth_fixed_annual_amount",
@@ -3765,17 +3788,18 @@ function renderOptionalFunctions() {
   html += "</div>";
   return html;
 }
-// Item 2.19: "Preflight" merged into "Build" -- see renderReportsBuild().
-const REPORTS_TABS = [
-  "Build",
-  "Impact",
-  "Results",
-  "Downloads",
-  "Plan Data Review",
-];
-let reportsActiveTab = "Results";
+// #301: Reports & Review is primarily the Impact page (Build/Download live
+// as buttons on it, not separate tabs -- see renderBuildImpactPage()'s
+// headerActions), with Plan Data Review and Build History folded into
+// collapsible <details> sections on that same page instead of their own
+// tabs. Preflight and Results stay separate tabs -- distinct enough
+// workflows (readiness checklist; full workbook sheet browser) that folding
+// them in would bury rather than simplify. Supersedes item 2.19's earlier
+// "Preflight merged into Build" 5-tab shape.
+const REPORTS_TABS = ["Preflight", "Impact", "Results"];
+let reportsActiveTab = "Impact";
 try {
-  reportsActiveTab = localStorage.getItem("reports_active_tab") || "Results";
+  reportsActiveTab = localStorage.getItem("reports_active_tab") || "Impact";
 } catch (_e) {}
 
 
@@ -3952,7 +3976,7 @@ let renderMain = function() {
       : `Step ${_stIdx} of ${visibleSteps().length}`;
   let content = `<div class="pane-head"><div class="eyebrow">${_eyebrow}</div><div class="page-title-row"><h2>${esc(st.title)}</h2>${pageStatusHtml(st.id)}</div><p>${esc(addParentheticals(st.intro))}</p>${pageSaveModeHtml(st.id)}<div class="pane-actions"><button class="btn" type="button" data-step-id="planning_workbench">Compare & Decide</button>${primaryActionForStep(st.id)}`;
   if (st.id === "review")
-    content += `<button class="btn good" data-requires-app="1" onclick="downloadWithBuild('/api/xlsx','Workbook')">Download Workbook</button><button class="btn good" data-requires-app="1" onclick="downloadWithBuild('/api/pdf','PDF')">Download PDF</button>`;
+    content += `<button class="btn good" data-requires-app="1" onclick="downloadWithBuild('/api/xlsx','Workbook')">Download Workbook</button>`;
   content += `</div></div><div class="question"><b>${esc(st.desc)}</b>${esc(st.help)}${stepHelpLinkHtml(st)}</div>`;
   content += inactiveValuesPanel(activeStep);
   content += pageRecommendationsHtml(activeStep);
@@ -5264,6 +5288,31 @@ const FIELD_GUIDANCE_OVERRIDES = {
     impact: "'Fixed' ignores market and inflation changes. 'Variable' can help if returns beat expectations but hurt if they underperform. 'COLA' protects you if inflation rises. The choice affects how realistic your stress-test scenarios are.",
     consider: "Most traditional pensions are fixed; if yours adjusts for inflation, pick COLA. If it's truly fixed, pick Fixed. If it varies with company earnings or fund performance, pick Variable. Ask your pension administrator how yours works.",
   },
+  qlac_enabled: {
+    purpose: "Turns on a Qualified Longevity Annuity Contract (QLAC) for this person — a deferred-income annuity bought with pre-tax retirement dollars (IRA, 401(k), 403(b), or SEP-IRA).",
+    impact: "The premium is withdrawn from the source account in the purchase year and excluded from this person's required minimum distribution (RMD) calculation from that point on — RMDs drop immediately, even though the QLAC itself doesn't start paying income until the configured start year.",
+    consider: "Turn this on only once the contract is actually purchased (or being modeled as a firm decision), not just to explore numbers — leaving it off with fields filled in changes nothing in the projection, which is the safe way to draft a QLAC before committing.",
+  },
+  premium: {
+    purpose: "The dollar amount used to purchase the QLAC — a one-time payment from the source account, not an ongoing contribution.",
+    impact: "A larger premium buys more guaranteed future income and shelters more of the source account's balance from RMDs, but permanently removes that much liquidity from the household's accessible retirement savings. Capped at the statutory aggregate limit ($210,000 for 2025, indexed annually) regardless of what's entered — the projection engine never lets more than that count toward the RMD exclusion or leave the account.",
+    consider: "Get an actual carrier quote before finalizing an amount — the guaranteed monthly payment (initial_guaranteed_income_payment) should come from that quote, not be estimated separately from the premium.",
+  },
+  qlac_source_account: {
+    purpose: "Which traditional IRA, 401(k), 403(b), or SEP-IRA the QLAC premium is paid from.",
+    impact: "The premium leaves this account's balance in the purchase year, and this is also the account whose RMD calculation is reduced by the (capped) premium amount once the contract is purchased.",
+    consider: "A QLAC can only be funded from a pre-tax account — it cannot be purchased from a Roth IRA or a taxable brokerage account. If this person has more than one eligible account, the choice mainly affects which account's RMD shrinks.",
+  },
+  purchase_year: {
+    purpose: "The plan year the QLAC premium is actually paid — separate from when income starts. A QLAC is deferred by definition, so this is typically years before the income start date.",
+    impact: "Determines when the premium leaves the source account and when the RMD exclusion begins applying to that account. Has no effect on when income starts (set that on first_payment above).",
+    consider: "Use the actual or planned purchase date. Leave blank to default to plan start.",
+  },
+  death_benefit_pct: {
+    purpose: "An optional return-of-premium death benefit: if this person dies before recovering the full premium in payments, this percentage of the unpaid premium is returned to beneficiaries instead of being forfeited to the insurer.",
+    impact: "A higher percentage protects the household against an early death shrinking the value received, but lowers the guaranteed monthly payment the carrier offers for the same premium — it's a trade-off the carrier prices into the quote, not something this plan computes independently.",
+    consider: "0% (no death benefit) maximizes monthly income and is common when the goal is pure longevity insurance. A nonzero percentage matters more if leaving money to heirs is a priority alongside guaranteed income.",
+  },
   qualified: {
     purpose: "This marks whether your annuity or pension comes from an employer-sponsored retirement plan (qualified) or from personal after-tax savings (non-qualified). This determines how much of each payment is taxable.",
     impact: "Qualified income is fully taxable when you withdraw it. Non-qualified income uses an exclusion ratio so you recover your basis tax-free before the rest becomes taxable. Getting this wrong can significantly over- or under-estimate your tax burden.",
@@ -6198,6 +6247,26 @@ const FIELD_GUIDANCE_OVERRIDES = {
     purpose: "How much the plan should prioritize maximizing after-tax wealth at the end of your life, versus spending comfortably during retirement.",
     impact: "Higher weight drives more aggressive Roth conversions to preserve after-tax wealth for heirs. Lower weight allows more spending flexibility during life.",
     consider: "Set high if leaving money behind is a top priority; set low if comfortable retirement spending matters most.",
+  },
+  roth_phase_count: {
+    purpose: "If you're using the PHASE_VARYING strategy, this is how many rate phases the plan uses: 2 (fill one rate until your Social Security claim, then a second rate) or 3 (fill one rate until the first spouse's SS claim, a second rate until the second spouse's claim, then a third rate).",
+    impact: "3 phases lets the plan step your conversion rate down twice as each spouse's SS income arrives, narrowing your bracket headroom. 2 phases uses one step-down at the first claim year, which is simpler and fine for a single filer or spouses claiming in the same year.",
+    consider: "Use 3 if you and your spouse claim Social Security in different years and want the plan to react to each one separately. Use 2 for a single filer or if you just want one clean step-down.",
+  },
+  roth_phase_first_bracket_rate: {
+    purpose: "If you're using the PHASE_VARYING strategy, this is the tax bracket the plan fills with conversions before your first Social Security claim year, when you typically have the most bracket headroom.",
+    impact: "A higher rate converts more aggressively in these early, lower-income years. A lower rate is more conservative.",
+    consider: "This is usually the highest of the three phase rates, since pre-Social-Security years tend to have the most room before other income fills your bracket.",
+  },
+  roth_phase_second_bracket_rate: {
+    purpose: "If you're using the PHASE_VARYING strategy, this is the tax bracket the plan fills after the first phase ends -- either through the second spouse's Social Security claim year (roth_phase_count = 3) or through the end of the conversion window (roth_phase_count = 2).",
+    impact: "As Social Security income arrives, your remaining bracket headroom typically shrinks -- a lower rate here reflects that. A higher rate keeps converting aggressively despite the added income.",
+    consider: "Usually set lower than roth_phase_first_bracket_rate, reflecting less headroom once Social Security income is flowing.",
+  },
+  roth_phase_third_bracket_rate: {
+    purpose: "If you're using the PHASE_VARYING strategy with roth_phase_count = 3, this is the tax bracket the plan fills after both spouses have claimed Social Security, through the end of the conversion window. Unused when roth_phase_count = 2.",
+    impact: "This is typically the most constrained phase -- both Social Security streams and any RMDs are competing for bracket room -- so a lower rate here is common.",
+    consider: "Usually the lowest of the three phase rates. If RMDs are close behind, keep this conservative to avoid overshooting into a bracket you can't afford.",
   },
   roth_target_bracket_rate: {
     purpose: "The federal tax bracket the plan will try to fill with Roth conversions each year without pushing you into a higher bracket. Choices: 10%, 12%, 22%, 24%, 32%, 35%, or 37%.",
@@ -7289,6 +7358,9 @@ Object.defineProperty(window, "forcedConversionAccounts", { get: () => forcedCon
 Object.defineProperty(window, "forcedConversions", { get: () => forcedConversions, set: (v) => { forcedConversions = v; }, configurable: true });
 Object.defineProperty(window, "forcedConversionsChanged", { get: () => forcedConversionsChanged, set: (v) => { forcedConversionsChanged = v; }, configurable: true });
 Object.defineProperty(window, "groupBudgetMode", { get: () => groupBudgetMode, set: (v) => { groupBudgetMode = v; }, configurable: true });
+Object.defineProperty(window, "homeSaleSplitAccounts", { get: () => homeSaleSplitAccounts, set: (v) => { homeSaleSplitAccounts = v; }, configurable: true });
+Object.defineProperty(window, "homeSaleSplits", { get: () => homeSaleSplits, set: (v) => { homeSaleSplits = v; }, configurable: true });
+Object.defineProperty(window, "homeSaleSplitsChanged", { get: () => homeSaleSplitsChanged, set: (v) => { homeSaleSplitsChanged = v; }, configurable: true });
 Object.defineProperty(window, "inactiveEditReveals", { get: () => inactiveEditReveals, set: (v) => { inactiveEditReveals = v; }, configurable: true });
 Object.defineProperty(window, "lastBuildCompare", { get: () => lastBuildCompare, set: (v) => { lastBuildCompare = v; }, configurable: true });
 Object.defineProperty(window, "lastBuildOk", { get: () => lastBuildOk, set: (v) => { lastBuildOk = v; }, configurable: true });
@@ -7310,6 +7382,8 @@ Object.defineProperty(window, "planSource", { get: () => planSource, set: (v) =>
 Object.defineProperty(window, "planningLeverInputs", { get: () => planningLeverInputs, set: (v) => { planningLeverInputs = v; }, configurable: true });
 Object.defineProperty(window, "renderMain", { get: () => renderMain, set: (v) => { renderMain = v; }, configurable: true });
 Object.defineProperty(window, "reportsActiveTab", { get: () => reportsActiveTab, set: (v) => { reportsActiveTab = v; }, configurable: true });
+Object.defineProperty(window, "residencySchedule", { get: () => residencySchedule, set: (v) => { residencySchedule = v; }, configurable: true });
+Object.defineProperty(window, "residencyScheduleChanged", { get: () => residencyScheduleChanged, set: (v) => { residencyScheduleChanged = v; }, configurable: true });
 Object.defineProperty(window, "rows", { get: () => rows, set: (v) => { rows = v; }, configurable: true });
 Object.defineProperty(window, "rulesChanged", { get: () => rulesChanged, set: (v) => { rulesChanged = v; }, configurable: true });
 Object.defineProperty(window, "runtime", { get: () => runtime, set: (v) => { runtime = v; }, configurable: true });

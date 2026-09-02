@@ -21,11 +21,9 @@ helpers below) and lays them out one row per projection year so every
 figure here also appears, unchanged, on its source sheet.
 
 Kept to a modest column count deliberately: Sheet 7's own comment documents
-a real prior failure where a too-wide/tall note collapsed the PDF export
-entirely (ReportLab cannot split one row across pages, so the whole export
-silently produced no PDF). This sheet's note is a single short paragraph and
-its column count (13) sits below Sheet 11's (15) and Sheet 7's (16), both of
-which already export to PDF successfully.
+a real prior failure where a too-wide/tall note blew a page-frame limit on
+export. This sheet's note is a single short paragraph and its column count
+(13) sits below Sheet 11's (15) and Sheet 7's (16).
 """
 
 from .workbook_common import (

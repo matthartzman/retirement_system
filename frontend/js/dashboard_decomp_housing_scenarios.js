@@ -235,6 +235,46 @@ export async function estimateHousingFromState(stepNum) {
   }
 }
 
+// #298: utilities/maintenance/insurance were entered once against a home
+// value or rent and then left stale after the user changed that value or
+// rent -- nothing recomputed them. When purchase_price or monthly_rent on a
+// Next Housing Step changes, scale the sibling utilities/maintenance/(for a
+// purchase) insurance figures by the same ratio the value/rent itself moved,
+// rather than re-querying state defaults (estimateHousingFromState above
+// would overwrite the price/rent the user just typed with a state lookup).
+export function reestimateHousingCostsOnValueChange(row, oldStored, newStored) {
+  if (!row || row.section !== "Housing") return 0;
+  const sub = norm(row.subsection || "");
+  if (!/^next_step_\d+$/.test(sub)) return 0;
+  const label = norm(row.label);
+  if (label !== "purchase_price" && label !== "monthly_rent") return 0;
+  const oldVal = numberFromDisplay(oldStored);
+  const newVal = numberFromDisplay(newStored);
+  if (!(oldVal > 0) || !(newVal > 0) || oldVal === newVal) return 0;
+  const ratio = newVal / oldVal;
+  const targets =
+    label === "purchase_price"
+      ? ["insurance_annual", "utilities_annual", "maintenance_annual"]
+      : ["insurance_annual", "utilities_annual"];
+  let adjusted = 0;
+  targets.forEach((lbl) => {
+    const r = rows.find(
+      (x) =>
+        x.section === "Housing" &&
+        norm(x.subsection || "") === sub &&
+        norm(x.label) === lbl,
+    );
+    if (!r) return;
+    const cur = numberFromDisplay(valOf(r));
+    if (!(cur > 0)) return;
+    const next = Math.round(cur * ratio);
+    if (next === cur) return;
+    editValue(r.row_index, String(next), null);
+    adjusted++;
+  });
+  return adjusted;
+}
+
 export function housingRentMonthlyValue() {
   const rentLabels = new Set(["monthly_rent"]);
   let maxRent = 0;
@@ -604,7 +644,7 @@ export function renderBaseHomeSaleRows(rs) {
   const introNote = active
     ? '<div class="section-note">Sale year set — enter sale price, commission, and related details. Home value and basis are managed in Current Home above.</div>'
     : '<div class="section-note">Enter a home sale year to reveal sale detail fields.</div>';
-  return `<details><summary class="section-header">Home Sale</summary><div class="field-list">${introNote}${yearFirst.map(fieldHtml).join("")}${restVisible.map(fieldHtml).join("")}</div></details>`;
+  return `<details><summary class="section-header">Home Sale</summary><div class="field-list">${introNote}${yearFirst.map(fieldHtml).join("")}${restVisible.map(fieldHtml).join("")}</div>${active ? renderHomeSaleSplits() : ""}</details>`;
 }
 
 export function renderStressSellHomeRows(rs) {
@@ -1059,6 +1099,7 @@ Object.assign(window, {
   revealInactiveRow,
   inactiveValuesPanel,
   estimateHousingFromState,
+  reestimateHousingCostsOnValueChange,
   housingRentMonthlyValue,
   housingRentIsConfigured,
   rowIsRentInput,

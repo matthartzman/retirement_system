@@ -11,7 +11,6 @@ from typing import Any, Callable
 CURRENT_BUILD_OUTPUT_FILES = [
     "plan_summary.json",
     "retirement_plan.xlsx",
-    "retirement_plan.pdf",
     "retirement_dashboard.html",
     "results_explorer_model.json",
     "build_snapshot.json",
@@ -76,8 +75,6 @@ def friendly_build_detail(low: str, fallback: str = "Working through the build s
         return "Running quality checks on the finished workbook."
     if "building html dashboard" in low or "schema-driven ui" in low:
         return "Refreshing the dashboard output."
-    if "building pdf report" in low:
-        return "Creating the optional PDF report."
     if "building ml forecast" in low or "forecast package" in low:
         return "Creating the optional forecast package."
     if low == "done!" or low.startswith("done!"):
@@ -150,8 +147,6 @@ def build_progress_from_line(line: str, current: int) -> tuple[int, str, str]:
         pct, title = max(current, 94), "Running quality checks"
     elif "building html dashboard" in low or "schema-driven ui" in low:
         pct, title = max(current, 96), "Refreshing dashboard"
-    elif "building pdf report" in low:
-        pct, title = max(current, 97), "Creating PDF report"
     elif "building ml forecast" in low or "forecast package" in low:
         pct, title = max(current, 98), "Creating forecast package"
     elif low == "done!" or low.startswith("done!"):

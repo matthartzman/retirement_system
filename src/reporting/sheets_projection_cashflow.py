@@ -386,6 +386,13 @@ def build_sheet6(ws, c, rows):
             pass
 
     # ── Home Sale Event Callout ───────────────────────────────────────────────
+    def _home_sale_deposit_label(cfg, sale_row):
+        splits = sale_row.get('home_sale_splits_applied') or []
+        if splits:
+            parts = ', '.join(f"{s['account']} ({s['amount']:,.0f})" for s in splits)
+            return f"Deposited to: {parts}"
+        return f"Deposited to: {cfg['home_sale_acct']}"
+
     below = len(rows) + 5
     if c.get('home_sale_yr') and c['home_sale_yr'] > 0:
         sale_row = next((rw for rw in rows if rw['year'] == c['home_sale_yr']), None)
@@ -401,7 +408,7 @@ def build_sheet6(ws, c, rows):
                 ('Taxable Gain',                      sale_row['home_sale_taxable'],         FMT_DOLLAR_ZERO_BAND),
                 ('LTCG Tax (bracketed 0/15/20%+NIIT)',sale_row['home_sale_tax'],             FMT_DOLLAR_ZERO_BAND),
                 ('Net Proceeds (basis-free in trust)',sale_row['home_sale_net'],             FMT_DOLLAR_ZERO_BAND),
-                (f"Deposited to: {c['home_sale_acct']}", '', None),
+                (_home_sale_deposit_label(c, sale_row), '', None),
             ]:
                 write_cell(ws, below, 1, lbl)
                 if val != '':
