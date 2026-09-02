@@ -1818,6 +1818,23 @@ def _roth_niit_threshold_base(c: Mapping, filing: str) -> float:
     return float(NIIT_THRESHOLD.get(filing, c.get("niit_threshold", 250000)) or 250000)
 
 
+def _roth_resolve_target_rate(c: Mapping, year: int, default_rate: float) -> float:
+    """Return the Roth target bracket rate for `year`.
+
+    `c['roth_phase_schedule']`, when present, is a list of `(end_year, rate)`
+    tuples in ascending `end_year` order. The rate for the first tuple whose
+    `end_year >= year` applies; years beyond the last tuple use its rate.
+    Absent a schedule, every existing (flat-rate) candidate is unaffected.
+    """
+    schedule = c.get('roth_phase_schedule')
+    if not schedule:
+        return default_rate
+    for end_year, rate in schedule:
+        if year <= end_year:
+            return float(rate)
+    return float(schedule[-1][1])
+
+
 def plan_roth_conversion(
     c: Mapping,
     bal: Mapping[str, float],
@@ -1874,7 +1891,9 @@ def plan_roth_conversion(
         float(c.get("brk_inf", 0.02)),
         year - int(c.get("plan_start", year)),
     )
-    target_rate = float(c.get("roth_target_rate", c.get("roth_brk", 0.24)) or 0.24)
+    target_rate = _roth_resolve_target_rate(
+        c, year, float(c.get("roth_target_rate", c.get("roth_brk", 0.24)) or 0.24)
+    )
     top_target = next((hi for _lo, hi, rate in brk if rate == target_rate), 400000)
 
     pre_non_ss = (
@@ -2266,6 +2285,30 @@ def _roth_strategy_candidate_specs(c: Mapping) -> List[Dict]:
     configured_target = float(c.get('roth_target_rate', 0.22) or 0.22)
     selected = str(c.get('roth_bracket_strategy', 'OPTIMIZER_CHOOSES') or 'OPTIMIZER_CHOOSES').strip().upper()
 
+    # c['h_ss_start']/c['w_ss_start'] do NOT exist on the canonical CSV-driven
+    # `c` (parse_client() never sets them -- only the separate/legacy
+    # build_plan_from_json() loader does). Compute directly from the fields
+    # parse_client() does set: h_dob_yr/w_dob_yr, h_ss_claim_age/w_ss_claim_age,
+    # and members (len 1 for a single-member household, 2 for a couple -- the
+    # single-member path mirrors w_dob_yr onto h_dob_yr, so gate on
+    # len(members) rather than comparing dob years).
+    _ss_years = [int(c.get('h_dob_yr', 0) or 0) + int(c.get('h_ss_claim_age', 70) or 70)]
+    if len(c.get('members', []) or []) > 1:
+        _ss_years.append(int(c.get('w_dob_yr', 0) or 0) + int(c.get('w_ss_claim_age', 70) or 70))
+    _ss_years = sorted(set(_ss_years))
+    _window_end = conversion_window_end_year(c)
+
+    def _phase_varying_schedule():
+        r1 = float(c.get('roth_phase_rate_1', 0.24) or 0.24)
+        r2 = float(c.get('roth_phase_rate_2', 0.22) or 0.22)
+        r3 = float(c.get('roth_phase_rate_3', 0.12) or 0.12)
+        phase_count = int(float(c.get('roth_phase_count', 3) or 3))
+        first = _ss_years[0]
+        if phase_count == 3 and len(_ss_years) >= 2:
+            second = _ss_years[1]
+            return [(first, r1), (second, r2), (_window_end, r3)]
+        return [(first, r1), (_window_end, r2)]
+
     full_set = selected == 'OPTIMIZER_CHOOSES'
     if full_set or selected == 'NONE':
         add('No voluntary conversions', 'none', strategy_code='NONE')
@@ -2291,6 +2334,11 @@ def _roth_strategy_candidate_specs(c: Mapping) -> List[Dict]:
         for amt in (25000.0, 50000.0, configured_fixed, 75000.0, 100000.0, 150000.0, 200000.0, 250000.0, 300000.0):
             if amt > 0:
                 add(f'Fixed ${amt:,.0f}/yr', 'fixed_dollar', fixed_amount=amt, strategy_code=f'FIXED_DOLLAR_{int(amt)}')
+    if full_set or selected == 'PHASE_VARYING':
+        _sched = _phase_varying_schedule()
+        _rates_label = ' → '.join(f'{int(r*100)}%' for _y, r in _sched)
+        add(f'Phase-varying ({_rates_label} by SS claim year)', 'fill_to_bracket',
+            strategy_code='PHASE_VARYING', overrides={'roth_phase_schedule': _sched})
     if full_set:
         for rate in (0.10, 0.12, 0.22, 0.24, 0.32, 0.35):
             add(f'Dynamic fill to {int(rate * 100)}% bracket', 'fill_to_bracket', target_rate=rate, strategy_code=f'DYNAMIC_FILL_{int(rate*100)}')
@@ -2850,6 +2898,9 @@ def optimize_roth_conversion_strategy(c: dict) -> dict:
             candidates.append(selected)
             candidates.sort(key=lambda x: (x['score'], x['after_tax_terminal_nw'], -x['lifetime_tax']), reverse=True)
         c['roth_policy_requested'] = requested_policy
+
+    if selected.get('overrides'):
+        c.update(selected['overrides'])
 
     # Item 4.3: surface the effective (derived-or-overridden) heir/terminal
     # pre-tax ordinary rates actually used to score the SELECTED strategy, so the
