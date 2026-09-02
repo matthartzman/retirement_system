@@ -81,3 +81,12 @@ coverage.xml
 /test-results/
 /playwright-report/
 /playwright/.cache/
+
+# Microsoft Office lock/autorecovery temp files (created while a doc is open)
+~$*.doc
+~$*.docx
+~$*.xls
+~$*.xlsx
+~$*.ppt
+~$*.pptx
+~WRL*.tmp
