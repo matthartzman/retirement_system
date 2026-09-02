@@ -1214,44 +1214,19 @@ def main():
         # console line nobody watching the app ever sees.
         format_override_warning = f'Workbook format overrides (column widths/alignment) were not applied: {_fmt_exc}'
         print(f'Warning: {format_override_warning}')
-    # Widen any numeric column that would otherwise render "#####" at its
-    # current width before row heights are computed from final widths --
-    # except a column the user explicitly overrode above, which must keep
-    # winning (#251).
-    widen_overflowing_number_columns(wb, protected_columns=protected_width_columns)
-    # Row heights are recomputed last, against the final column widths above,
-    # so every row is as short as possible while still showing all of its
-    # text (including text wrapped across merged cells).
-    minimize_row_heights(wb)
 
-    # Save workbook
-    print(f'Saving workbook to {out_path}')
-    wb.save(out_path)
-    print(f'Workbook saved: {out_path}')
-
-    # Post-save XML patch: enlarges chart titles (openpyxl doesn't expose title
-    # run-property font size directly) and refreshes chart caches. Best-effort:
-    # the .xlsx itself is already valid and saved, so a patch failure must not
-    # fail the whole build.
-    try:
-        _patch_result = post_save_patch(out_path)
-        print(f'Workbook XML patch: {_patch_result}')
-    except Exception as _patch_err:  # noqa: BLE001 - non-fatal, xlsx already saved
-        print(f'WARNING: chart title XML patch failed ({_patch_err}); workbook build continues.')
-
-    # Build offline HTML dashboard from the workbook and projection rows.
-    build_html_dashboard(out_path, html_path, rows, c)
-    print(f'HTML dashboard saved: {html_path}')
-
-    # Write Results Explorer model
-    results_model_path = _os.path.join(str(output_path_dir), RESULTS_MODEL_FILENAME)
-    write_result_explorer_model(results_model_path, c, rows, mc_data)
-    print(f'Results explorer model written: {results_model_path}')
-
-    # Write plan_summary.json so the build server can verify success and display KPIs.
-    # KPI computation and file write are separated: if KPI math fails we still write
-    # a minimal file (so the server recognises the build as complete); if the file
-    # write itself fails we propagate so the caller gets a real error message.
+    # KPI computation (summary_data) and the KPI-history DB archive happen
+    # here -- before any essential output artifact (workbook, HTML dashboard,
+    # results model, plan_summary.json, build_snapshot) is written to disk --
+    # for the same reason checkpoint_sqlite_database() above runs before any
+    # artifact write: src/server_services/build_service.py flags an artifact
+    # "stale" whenever its mtime is older than the SQLite DB's mtime.
+    # save_kpi_snapshot() below performs a real DB write (not just a WAL
+    # checkpoint), so if it ran after the essential artifacts were saved, the
+    # DB's mtime would advance past every artifact's and the build would look
+    # stale to the UI the instant it finished -- lastBuildOk would flip back
+    # to false right after a successful build, and downloadWithBuild()'s
+    # retry-build path would never reach downloadFile().
     import json as _json
     build_id = _os.environ.get('RETIREMENT_SYSTEM_BUILD_ID', '')
     terminal = rows[-1] if rows else {}
@@ -1322,29 +1297,6 @@ def main():
         })
     except Exception as _kpi_exc:
         print(f'Warning: KPI computation for plan summary failed (defaults used): {_kpi_exc}')
-    summary_out = _os.path.join(str(output_path_dir), 'plan_summary.json')
-    with open(summary_out, 'w', encoding='utf-8') as _sf:
-        _json.dump(summary_data, _sf, indent=2)
-    print(f'Plan summary written: {summary_out}')
-
-    snapshot = write_build_snapshot(
-        output_path_dir,
-        build_id=build_id,
-        plan_input_fingerprint=_build_plan_input_fingerprint(base_dir, config_meta),
-        summary=summary_data,
-        system_config_path=_os.path.join(base_dir, 'system_config.csv'),
-        pricing_diagnostics_path=_os.path.join(str(output_path_dir), 'pricing_diagnostics.json'),
-        sqlite_db_path=(config_meta or {}).get('sqlite_db') or (config_meta or {}).get('path'),
-    )
-    print(f'Build snapshot written: {_os.path.join(str(output_path_dir), SNAPSHOT_FILENAME)} ({snapshot.get("artifact_count", 0)} artifacts)')
-
-    package = write_report_package(
-        output_path_dir,
-        build_id=build_id,
-        summary=summary_data,
-        build_snapshot=snapshot,
-    )
-    print(f'Report package written: {_os.path.join(str(output_path_dir), REPORT_PACKAGE_FILENAME)} ({package.get("artifact_count", 0)} artifacts)')
 
     # Archive a small dated headline-KPI snapshot (Wave 1 item 1.15 --
     # documentation/reports/SYSTEM_REVIEW_2026-08-31.md, finding F13). This is
@@ -1380,6 +1332,80 @@ def main():
         print(f'KPI snapshot archived: {kpi_snapshot_id}')
     except Exception as _kpi_snap_exc:
         print(f'Warning: KPI snapshot archive failed (build continues): {_kpi_snap_exc}')
+    # save_kpi_snapshot() writes through a WAL-mode connection (see
+    # local_store.py), so the INSERT above only lands in the .db-wal file --
+    # the main .db file's mtime does not move until something checkpoints
+    # the WAL. Without this second checkpoint, that would happen later, at
+    # write_build_snapshot() -> capture_sqlite_database_snapshot()'s own
+    # checkpoint, which runs after every essential artifact below is already
+    # on disk -- reintroducing the exact staleness bug the early
+    # checkpoint_sqlite_database() call above and this whole reordering
+    # exist to prevent. Checkpointing here, before any essential artifact is
+    # written, makes that later checkpoint a no-op.
+    checkpoint_sqlite_database(config_meta.get('sqlite_db') or config_meta.get('path'))
+
+    # Widen any numeric column that would otherwise render "#####" at its
+    # current width before row heights are computed from final widths --
+    # except a column the user explicitly overrode above, which must keep
+    # winning (#251).
+    widen_overflowing_number_columns(wb, protected_columns=protected_width_columns)
+    # Row heights are recomputed last, against the final column widths above,
+    # so every row is as short as possible while still showing all of its
+    # text (including text wrapped across merged cells).
+    minimize_row_heights(wb)
+
+    # Save workbook
+    print(f'Saving workbook to {out_path}')
+    wb.save(out_path)
+    print(f'Workbook saved: {out_path}')
+
+    # Post-save XML patch: enlarges chart titles (openpyxl doesn't expose title
+    # run-property font size directly) and refreshes chart caches. Best-effort:
+    # the .xlsx itself is already valid and saved, so a patch failure must not
+    # fail the whole build.
+    try:
+        _patch_result = post_save_patch(out_path)
+        print(f'Workbook XML patch: {_patch_result}')
+    except Exception as _patch_err:  # noqa: BLE001 - non-fatal, xlsx already saved
+        print(f'WARNING: chart title XML patch failed ({_patch_err}); workbook build continues.')
+
+    # Build offline HTML dashboard from the workbook and projection rows.
+    build_html_dashboard(out_path, html_path, rows, c)
+    print(f'HTML dashboard saved: {html_path}')
+
+    # Write Results Explorer model
+    results_model_path = _os.path.join(str(output_path_dir), RESULTS_MODEL_FILENAME)
+    write_result_explorer_model(results_model_path, c, rows, mc_data)
+    print(f'Results explorer model written: {results_model_path}')
+
+    # Write plan_summary.json so the build server can verify success and
+    # display KPIs. summary_data (including its KPI math) and the
+    # KPI-history DB archive were already computed above, before the
+    # workbook/HTML dashboard/results model were saved -- see the comment
+    # there for why.
+    summary_out = _os.path.join(str(output_path_dir), 'plan_summary.json')
+    with open(summary_out, 'w', encoding='utf-8') as _sf:
+        _json.dump(summary_data, _sf, indent=2)
+    print(f'Plan summary written: {summary_out}')
+
+    snapshot = write_build_snapshot(
+        output_path_dir,
+        build_id=build_id,
+        plan_input_fingerprint=_build_plan_input_fingerprint(base_dir, config_meta),
+        summary=summary_data,
+        system_config_path=_os.path.join(base_dir, 'system_config.csv'),
+        pricing_diagnostics_path=_os.path.join(str(output_path_dir), 'pricing_diagnostics.json'),
+        sqlite_db_path=(config_meta or {}).get('sqlite_db') or (config_meta or {}).get('path'),
+    )
+    print(f'Build snapshot written: {_os.path.join(str(output_path_dir), SNAPSHOT_FILENAME)} ({snapshot.get("artifact_count", 0)} artifacts)')
+
+    package = write_report_package(
+        output_path_dir,
+        build_id=build_id,
+        summary=summary_data,
+        build_snapshot=snapshot,
+    )
+    print(f'Report package written: {_os.path.join(str(output_path_dir), REPORT_PACKAGE_FILENAME)} ({package.get("artifact_count", 0)} artifacts)')
 
     print('Build complete.')
     return out_path
