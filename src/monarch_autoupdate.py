@@ -29,14 +29,12 @@ class AutoUpdatePolicy:
     enabled: bool = False
     source_dir: str = DEFAULT_SOURCE_DIR
     field_map_path: str = ""  # "" = use the shipped default (src/monarch_field_map.json)
-    archive_consumed_files: bool = True
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "enabled": self.enabled,
             "source_dir": self.source_dir,
             "field_map_path": self.field_map_path,
-            "archive_consumed_files": self.archive_consumed_files,
         }
 
 
@@ -77,7 +75,6 @@ def normalize_policy(data: dict[str, Any] | None = None) -> AutoUpdatePolicy:
         enabled=bool(data.get("enabled", False)),
         source_dir=source_dir,
         field_map_path=field_map_path,
-        archive_consumed_files=bool(data.get("archive_consumed_files", True)),
     )
 
 
@@ -96,7 +93,7 @@ def load_policy(base_dir: str | Path) -> dict[str, Any]:
 def save_policy(base_dir: str | Path, updates: dict[str, Any]) -> dict[str, Any]:
     current = load_policy(base_dir)["policy"]
     merged = dict(current)
-    for key in ("enabled", "source_dir", "field_map_path", "archive_consumed_files"):
+    for key in ("enabled", "source_dir", "field_map_path"):
         if key in updates:
             merged[key] = updates[key]
     policy = normalize_policy(merged)

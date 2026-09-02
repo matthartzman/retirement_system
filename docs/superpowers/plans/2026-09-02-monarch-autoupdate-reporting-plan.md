@@ -1,15 +1,33 @@
 # Monarch auto-update + standalone financial trends reporter (tickets 305, 306) — Implementation Plan
 
-**Status: implemented (2026-09-02), pending the two items below.** Approved
-for execution and built in this same session. Phases A and B are both
-functionally complete and test-covered; two items remain before this is
-production-ready:
+**Status: implemented (2026-09-02).** Approved for execution and built in
+this same session. Phases A and B are both functionally complete and
+test-covered.
 
-1. **Real Monarch Extractor schema (Task A1).** The Monarch Extractor's code
-   was not attached to this session, so `src/monarch_field_map.json`'s
-   column-name defaults are still best-guess placeholders. Confirm them
-   against a real export before enabling auto-update for real.
-2. **Task Scheduler registration is untested on real Windows.** Both
+1. ~~Real Monarch Extractor schema (Task A1).~~ **Resolved 2026-09-02** —
+   the Monarch Extractor's actual source (`Monarch Extractor/monarch_extract.py`)
+   was added to this repo and read directly. `src/monarch_field_map.json`'s
+   defaults are now confirmed-correct, not guesses, and a real design gap was
+   found and fixed in the process: `new_transactions.csv`/
+   `changed_transactions.csv` accumulate every still-pending event across
+   every past run (not just the latest), and the extractor expects
+   `--mark-delivered <run_id>` after a successful import — the importer now
+   does this instead of the original (wrong) "archive consumed files"
+   scheme. See the spec's "What 'the output folder' means for import"
+   section and Task A6 below.
+
+   **Security note, for the record:** the first attempt to add this
+   subdirectory (commit `6796b9a`) also committed the extractor's full
+   Chromium/Playwright browser profile — including its live cookie jar and
+   saved-password database for the logged-in Monarch Money session — and was
+   briefly pushed to this repo while it was public. The user rotated Monarch
+   Money credentials and set the repo private; the branch history was then
+   rewritten to drop that commit entirely (replaced by `6a7039e` /
+   `4390ac5`, adding only the two real source files plus `.gitignore` rules
+   for `monarch-browser/`, `.venv/`, `output/`, and `raw/`). Never commit
+   anything from `Monarch Extractor/` beyond `monarch_extract.py` and
+   `run_monarch.ps1`.
+2. **Task Scheduler registration is still untested on real Windows.** Both
    PowerShell scripts (`register_monarch_autoimport_task.ps1`,
    `register_trends_report_task.ps1`) were reviewed but only run in a Linux
    dev/CI environment, which cannot execute `schtasks`. Run each once by
@@ -36,15 +54,16 @@ build, no new Python dependency). Windows Task Scheduler via PowerShell
 
 ## Phase A — Ticket 305: Monarch id upsert + 4am auto-update
 
-### Task A1: Confirm Monarch Extractor output schema
-- Read an actual sample export from `..\Monarch Extractor\output` (and its
-  docs, mentioned as living alongside the code/output there) to confirm: the
-  id column's real name, date/amount/category/merchant column names, file
-  naming pattern, and whether the extractor clears its output folder between
-  runs.
-- Fill in real defaults in `src/monarch_field_map.json` (spec's placeholder
-  values are guesses).
-- **Blocks every other Phase A task** — do this first.
+### Task A1: Confirm Monarch Extractor output schema — DONE (2026-09-02)
+- Read the real `Monarch Extractor/monarch_extract.py` directly (added to
+  this repo). Confirmed: `id` (lowercase)/`date`/`merchant`/`amount`/
+  `account`/`category`/`run_id` are fixed columns; `original_statement`/
+  `notes`/`tags`/`owner` are best-effort passthrough. Confirmed the file set
+  (`new_transactions.csv`/`changed_transactions.csv` to consume;
+  `transactions.csv`/`duplicates_removed.csv` never) and the
+  `--mark-delivered <run_id>` acknowledgment protocol.
+- `src/monarch_field_map.json` updated with confirmed (not guessed) defaults,
+  including the new `run_id_column`.
 
 ### Task A2: `Monarch Id` column + `Rows Updated` history column
 - Modify `src/ytd_tracking.py`: add `"Monarch Id"` to `TRANSACTION_COLUMNS`,
@@ -89,9 +108,10 @@ build, no new Python dependency). Windows Task Scheduler via PowerShell
   `tests/test_local_backup_scheduler_routes_ui_contract.py`'s pattern.
 
 ### Task A6: `tools/monarch_autoimport.py` headless script
-- Implements the spec's 5-step sequence: policy check → OneDrive-truncation
-  guard → read+map+upsert → write status/history → (optional) move consumed
-  files.
+- Implements the spec's sequence: policy check → OneDrive-truncation guard →
+  read `new_transactions.csv`/`changed_transactions.csv` + map + upsert →
+  mirror into SQLite → best-effort `--mark-delivered <run_id>` for every
+  imported run → write status/history.
 - OneDrive guard is a small, reusable helper (share it with Task B5 rather
   than duplicating) — e.g. `src/onedrive_guard.py`: checks file size > 0 and,
   on Windows, checks for the cloud-placeholder reparse-point attribute before
