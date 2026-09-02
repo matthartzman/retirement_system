@@ -209,11 +209,29 @@ if selected.get('overrides'):
 
 This covers both branches in one place and retroactively fixes the silent-drop bug
 for the three existing strategies as well as `PHASE_VARYING`, for both direct
-selection and `OPTIMIZER_CHOOSES`. No golden master risk: the frozen fixture pins
-`roth_bracket_strategy=FILL_TARGET_BRACKET`, whose candidate spec carries no
-`overrides` beyond `target_rate` (`{}` after the `target_rate`/`fixed_amount`
-keys are excluded — `add()` for `FILL_TARGET_BRACKET_*` passes no `overrides`
-argument), so `c.update({})` is a no-op for that fixture regardless of branch.
+selection and `OPTIMIZER_CHOOSES`.
+
+**Correction found during implementation:** the frozen sample-plan golden master
+(`tests/test_frozen_sample_plan_golden_master_regression.py`) is indeed unaffected
+— it pins `roth_bracket_strategy=FILL_TARGET_BRACKET`, whose candidate spec carries
+no `overrides`, so `c.update({})` is a no-op for it. But that is not the only
+golden-master gate in this repo: `tests/test_synthetic_golden_master.py` is a
+**separate, mandatory** CI/release gate over 9 scenarios built by
+`tests/synthetic_plans.py`, none of which set `roth_bracket_strategy` at all —
+they all default to `OPTIMIZER_CHOOSES`, and `RMD_REDUCTION` wins that sweep in
+every one of them (confirmed via `c['roth_optimization']['selected_strategy_code']`
+and via the old fixture's own `"selected_roth_strategy": "RMD-reduction
+conversion"` value, which predates this branch). Its `roth_max_conversion_years`
+cap was therefore silently not applying in all 9 pinned scenarios; this fix makes
+it apply, moving every scenario's `total_roth_conversion` down, `first_rmd_total`
+up, `lifetime_tax` down, and `terminal_total_nw` up — internally consistent with
+"a conversion-year cap that was supposed to apply is now actually applied."
+Confirmed by isolation (reverting only this fix restores the old pinned values
+exactly; `PHASE_VARYING` never wins any of these 9 scenarios). The fixture was
+regenerated and committed alongside the fix. The lesson for future changes to
+this function: check *both* golden-master gates, not just the frozen one — a
+change gated behind `roth_bracket_strategy != OPTIMIZER_CHOOSES` in the frozen
+fixture can still be live in the synthetic one.
 
 ## Files touched
 
@@ -226,10 +244,28 @@ argument), so `c.update({})` is a no-op for that fixture regardless of branch.
 - `frontend/js/dashboard.js` — `roth_bracket_strategy` dropdown array (~line 2161)
   gains `"PHASE_VARYING"`; add UI rows/help text for the 4 new fields following the
   existing pattern for `roth_target_bracket_rate` et al.
-- `input/client_policy.csv`, `input/demo/client_policy.csv`,
-  `tests/fixtures/sample_plan_frozen/client_policy.csv`, `reference_data/schema.csv`
-  — append `PHASE_VARYING` to the existing choice string on the
-  `roth_bracket_strategy` row; add the 4 new rows
+- `input/demo/client_policy.csv`, `reference_data/schema.csv` — append
+  `PHASE_VARYING` to the existing choice string on the `roth_bracket_strategy`
+  row; add the 4 new rows
+
+**Deliberately not touched:**
+- `input/client_policy.csv` — gitignored live/local client data (`.gitignore:35`,
+  `/input/*`), not shipped, not present on CI or a fresh worktree per
+  `documentation/CLAUDE.md`'s canonical-source-hierarchy section. Any real saved
+  plan picks up the new fields via `_v(..., default)`'s fallback today and via
+  `PLAN_DATA_BACKFILL_ENTRIES`' `ROTH_UI_PLAN_DATA_ROWS` entry the next time that
+  plan is loaded/saved through the app — no manual edit needed or possible to ship.
+  `tools/check_plan_data_sync.py` only fingerprints this same live `input/`
+  directory, so there is nothing to resync either.
+- `tests/fixtures/sample_plan_frozen/client_policy.csv`. Editing any golden-master
+  fixture file requires the regen ceremony in
+  `documentation/GOLDEN_MASTER_RECOVERY_RUNBOOK.md` even for a nominally-no-op
+  change — and it would be a no-op here, since `data_io.py`'s `_v(data, ...,
+  default)` lookup already returns the same default (`0.24`/`0.22`/`0.12`/`3`)
+  whether or not the CSV row exists, and the fixture's `roth_bracket_strategy`
+  stays pinned at `FILL_TARGET_BRACKET`, so `PHASE_VARYING` is never even
+  considered for it. Not worth the ceremony for a value the fixture doesn't
+  exercise.
 - `python tools/check_plan_data_sync.py --write` — resync `plan_data_manifest`
   after the schema change
 
