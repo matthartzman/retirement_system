@@ -8,12 +8,18 @@
   it only runs while its window is open. The 4am unattended import therefore
   needs an OS-level scheduled task to invoke
   tools\monarch_autoimport.py headlessly, independent of whether the app is
-  open. This script wraps schtasks.exe so the in-app settings toggle (and a
-  human, from an elevated PowerShell prompt) can register/update/remove that
-  task with one call.
+  open. This script uses the built-in ScheduledTasks PowerShell module
+  (New-ScheduledTaskAction / Register-ScheduledTask, available since
+  Windows 8 / Server 2012) rather than hand-building a schtasks.exe /tr
+  command-line string -- a manually quoted /tr value breaks when any path
+  involved contains a space (e.g. "C:\...\Version 10\..."), because
+  schtasks.exe's own command-line parsing and PowerShell's native-argument
+  passing disagree about where the quoted boundaries are. The ScheduledTasks
+  cmdlets take the executable and its arguments as separate parameters and
+  handle the quoting internally, so this class of bug can't recur.
 
-  Review the exact schtasks command this prints before trusting it against a
-  production machine -- it mutates OS-level scheduled tasks.
+  Review what this prints before trusting it against a production machine --
+  it mutates OS-level scheduled tasks.
 
 .PARAMETER Action
   Register (create/update) or Unregister (remove) the scheduled task.
@@ -43,7 +49,7 @@ $FrozenExe = Join-Path $RepoRoot "retirement_planner.exe"
 $ScriptPath = Join-Path $RepoRoot "tools\monarch_autoimport.py"
 
 if ($Action -eq "Unregister") {
-    schtasks /delete /tn $TaskName /f
+    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
     Write-Host "Removed scheduled task '$TaskName'."
     exit 0
 }
@@ -52,18 +58,21 @@ if (Test-Path $FrozenExe) {
     # Packaged build: the exe doubles as a script runner (see main.py's
     # frozen script-runner mode) -- run it against monarch_autoimport.py the
     # same way tools\build_workbook.py is already invoked in packaged builds.
-    $TaskRun = "`"$FrozenExe`" `"$ScriptPath`" --base-dir `"$RepoRoot`""
+    $ExecutablePath = $FrozenExe
 } else {
-    $PythonExe = (Get-Command python.exe -ErrorAction SilentlyContinue).Source
-    if (-not $PythonExe) {
+    $PythonCmd = Get-Command python.exe -ErrorAction SilentlyContinue
+    if (-not $PythonCmd) {
         throw "Neither retirement_planner.exe nor python.exe was found. Install Python or build the packaged app first."
     }
-    $TaskRun = "`"$PythonExe`" `"$ScriptPath`" --base-dir `"$RepoRoot`""
+    $ExecutablePath = $PythonCmd.Source
 }
+$Arguments = "`"$ScriptPath`" --base-dir `"$RepoRoot`""
 
 Write-Host "Registering scheduled task '$TaskName' to run daily at $StartTime :"
-Write-Host "  $TaskRun"
+Write-Host "  $ExecutablePath $Arguments"
 
-schtasks /create /tn $TaskName /tr $TaskRun /sc daily /st $StartTime /f
+$taskAction = New-ScheduledTaskAction -Execute $ExecutablePath -Argument $Arguments -WorkingDirectory $RepoRoot
+$taskTrigger = New-ScheduledTaskTrigger -Daily -At $StartTime
+Register-ScheduledTask -TaskName $TaskName -Action $taskAction -Trigger $taskTrigger -Force | Out-Null
 
 Write-Host "Done. Verify with: schtasks /query /tn `"$TaskName`" /v /fo LIST"

@@ -184,9 +184,9 @@ Follows the same shape as `src/local_backup_scheduler.py`'s policy file
   `source_dir` defaults to `../Monarch Extractor/output` (relative to the
   workspace root, per the ticket).
 - A settings toggle in the existing admin/settings UI flips `enabled` and,
-  when turning on, registers the 4am Windows Task Scheduler task (via
-  `schtasks /create`, run from a PowerShell helper — see "Task Scheduler
-  registration"); turning off unregisters it.
+  when turning on, registers the 4am Windows Task Scheduler task (via the
+  `ScheduledTasks` PowerShell module, run from a PowerShell helper — see
+  "Task Scheduler registration"); turning off unregisters it.
 - **"Mark the update as complete"** = after each run, write
   `local_state/monarch_autoupdate_status.json`:
   ```json
@@ -238,11 +238,15 @@ order:
 
 A PowerShell helper, `tools/launchers/register_monarch_autoimport_task.ps1`
 (matching this project's existing multi-shell launcher convention and the
-user's Windows/PowerShell preference), wraps:
-
-```powershell
-schtasks /create /tn "RetirementSystem_MonarchAutoImport" /tr "... python.exe ... tools\monarch_autoimport.py" /sc daily /st 04:00 /f
-```
+user's Windows/PowerShell preference), uses the built-in `ScheduledTasks`
+module (`New-ScheduledTaskAction` / `Register-ScheduledTask`), not a
+hand-built `schtasks.exe /tr` command-line string. **Found live 2026-09-02:**
+a manually quoted `/tr` value breaks whenever any path involved contains a
+space (e.g. a workspace at `C:\...\Version 10\...`) — `schtasks.exe`'s own
+command-line parsing and PowerShell's native-argument passing disagree about
+where the quoted boundaries are, silently mangling the stored command. The
+`ScheduledTasks` cmdlets take the executable and its arguments as separate
+parameters and quote them internally, so this class of bug can't recur.
 
 Also exposed as a button/toggle in the settings UI, which shells out to the
 same PowerShell script (subprocess), so enabling/disabling the toggle in-app
