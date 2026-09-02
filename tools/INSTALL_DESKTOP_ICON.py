@@ -11,6 +11,7 @@ PY = 'pythonw' if platform.system() == 'Windows' else 'python3'
 ICON = ROOT / 'frontend' / 'assets' / 'retirement_planner.ico'
 UI_SCRIPT = ROOT / 'tools' / 'launchers' / 'START_DESKTOP.py'
 RESET_SCRIPT = ROOT / 'tools' / 'set_local_mode.py'
+TRENDS_SCRIPT = ROOT / 'financial_trends_reporter' / 'main.py'
 
 def write_bat(name: str, script: Path) -> Path:
     target = DESKTOP / f'{name}.bat'
@@ -39,22 +40,23 @@ def create_windows_shortcut(name: str, script: Path) -> Path | None:
         return None
 
 launchers = [
-    ('Retirement Planner', UI_SCRIPT),
-    ('Retirement Planner - Reset Local Mode', RESET_SCRIPT),
+    ('Retirement Planner', UI_SCRIPT, 'Start Retirement System'),
+    ('Retirement Planner - Reset Local Mode', RESET_SCRIPT, 'Reset Retirement System to local mode'),
+    ('Financial Trends Reporter', TRENDS_SCRIPT, 'Start the financial trends reporter'),
 ]
 if platform.system() == 'Windows':
-    for name, script in launchers:
+    for name, script, _comment in launchers:
         created = create_windows_shortcut(name, script) or write_bat(name, script)
         print(f'Created {created}')
 elif platform.system() == 'Darwin':
-    for name, script in launchers:
+    for name, script, _comment in launchers:
         target = DESKTOP / f'{name}.command'
         target.write_text(f'#!/bin/bash\ncd "{ROOT}"\n{PY} "{script}"\n', encoding='utf-8')
         target.chmod(target.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
         print(f'Created {target}')
 else:
-    for name, script in launchers:
+    for name, script, comment in launchers:
         target = DESKTOP / f'{name}.desktop'
-        target.write_text(f'[Desktop Entry]\nType=Application\nName={name}\nComment=Start Retirement System\nExec={PY} "{script}"\nIcon={ROOT / "frontend" / "assets" / "retirement_planner.svg"}\nTerminal=true\nCategories=Office;Finance;\n', encoding='utf-8')
+        target.write_text(f'[Desktop Entry]\nType=Application\nName={name}\nComment={comment}\nExec={PY} "{script}"\nIcon={ROOT / "frontend" / "assets" / "retirement_planner.svg"}\nTerminal=true\nCategories=Office;Finance;\n', encoding='utf-8')
         target.chmod(target.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
         print(f'Created {target}')
