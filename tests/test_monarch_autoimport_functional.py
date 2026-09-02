@@ -1,24 +1,15 @@
-"""Ticket 305: end-to-end headless Monarch auto-import
-(tools/monarch_autoimport.py) against a temp workspace -- new file, then a
-second run with one changed row and one new row, confirming
+"""Ticket 305: end-to-end Monarch auto-import job (src/monarch_autoimport_job.py,
+run headlessly by tools/monarch_autoimport.py) against a temp workspace --
+new file, then a second run with one changed row and one new row, confirming
 ytd_transactions.csv, ytd_import_history.csv, the SQLite mirror, and the
 run-status file all reflect the merge correctly.
 """
 from __future__ import annotations
 
-import importlib.util
-import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-_spec = importlib.util.spec_from_file_location("monarch_autoimport", ROOT / "tools" / "monarch_autoimport.py")
-monarch_autoimport = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(monarch_autoimport)
-
 from src import config_backend, monarch_autoupdate as mau, ytd_tracking as ytd
+from src import monarch_autoimport_job as monarch_autoimport
 
 
 def _workspace(tmp_path: Path) -> Path:

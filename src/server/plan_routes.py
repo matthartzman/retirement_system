@@ -122,6 +122,8 @@ from ..version import VERSION
 from ..server_services import base_service, config_service, demo_plan_service, pricing_service, ytd_service, plan_file_service, portfolio_service, secret_service, spending_service, strategy_asset_service
 from ..portfolio_analytics import freeze_latest_pricing_snapshot, unfreeze_pricing_snapshot
 from .. import local_backup_scheduler
+from .. import monarch_autoupdate
+from ..monarch_autoimport_job import run as _run_monarch_autoimport
 from ..secrets_store import set_secret as _set_secret_value
 
 
@@ -354,6 +356,45 @@ def local_backup_run():
     _audit("local_backup_run", {"created": payload.get("created"), "trigger": body.get("trigger") or "manual"})
     return jsonify(payload), 200 if payload.get("success", True) else 400
 
+
+@app.route("/api/plan/monarch-autoupdate", methods=["GET"])
+def monarch_autoupdate_status():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    payload = monarch_autoupdate.load_policy(WORKSPACE_ROOT)
+    payload["status"] = monarch_autoupdate.load_status(WORKSPACE_ROOT)
+    return jsonify(payload)
+
+
+@app.route("/api/plan/monarch-autoupdate/config", methods=["POST"])
+def monarch_autoupdate_config():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    body = request.get_json(silent=True) or {}
+    payload = monarch_autoupdate.save_policy(WORKSPACE_ROOT, body)
+    # Best-effort: keep the OS-level Task Scheduler entry in sync with the
+    # toggle. A failure here (non-Windows dev box, no PowerShell, missing
+    # privilege) does not undo the just-saved policy -- it's surfaced to the
+    # UI's status chip instead.
+    registration = None
+    if "enabled" in body:
+        registration = monarch_autoupdate.register_scheduled_task(WORKSPACE_ROOT, bool(body.get("enabled")))
+    payload["task_registration"] = registration
+    _audit("monarch_autoupdate_policy_saved", {"policy": payload.get("policy"), "task_registration": registration})
+    return jsonify(payload)
+
+
+@app.route("/api/plan/monarch-autoupdate/run", methods=["POST"])
+def monarch_autoupdate_run():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    body = request.get_json(silent=True) or {}
+    payload = _run_monarch_autoimport(WORKSPACE_ROOT, force=bool(body.get("force", True)))
+    _audit("monarch_autoupdate_run", {"success": payload.get("success"), "skipped": payload.get("skipped")})
+    return jsonify(payload), 200 if payload.get("success", True) else 400
 
 
 @app.route("/api/portfolio/drift", methods=["GET"])

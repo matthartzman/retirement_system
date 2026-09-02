@@ -10,6 +10,8 @@ status, not the timing itself.
 """
 
 import json
+import subprocess
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -142,3 +144,31 @@ def write_status(
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     return payload
+
+
+def register_scheduled_task(base_dir: str | Path, enabled: bool) -> dict[str, Any]:
+    """Best-effort sync of the OS-level 4am Task Scheduler entry with the
+    in-app toggle, via the PowerShell helper script.
+
+    Never raises: a registration failure (non-Windows dev machine, no
+    PowerShell, insufficient privilege) must not block saving the toggle
+    itself -- the caller surfaces {"attempted", "success", "error"} to the
+    UI's status chip instead.
+    """
+    if sys.platform != "win32":
+        return {"attempted": False, "success": False, "error": "Not running on Windows; scheduled-task registration skipped."}
+    script = Path(base_dir) / "tools" / "launchers" / "register_monarch_autoimport_task.ps1"
+    if not script.exists():
+        return {"attempted": False, "success": False, "error": f"Registration script not found: {script}"}
+    action = "Register" if enabled else "Unregister"
+    try:
+        proc = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script), "-Action", action],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        return {"attempted": True, "success": proc.returncode == 0, "error": None if proc.returncode == 0 else proc.stderr.strip()}
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {"attempted": True, "success": False, "error": str(exc)}

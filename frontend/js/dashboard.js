@@ -7222,6 +7222,7 @@ checkAppStatus(true).then(function (ok) {
     })
     .catch(function () {});
   refreshLocalBackupStatus(true).catch(function () {});
+  refreshMonarchAutoUpdateStatus(true).catch(function () {});
   api("/api/prefs")
     .then(function (p) {
       var fromServer =
