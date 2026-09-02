@@ -154,3 +154,45 @@ def test_runtime_backfills_missing_roth_controls_for_older_plan_data():
         entry.rows is ac.ROTH_UI_PLAN_DATA_ROWS
         for entry in ac.PLAN_DATA_BACKFILL_ENTRIES
     )
+
+
+def test_phase_varying_added_to_bracket_strategy_choice_enum():
+    js = dashboard_js_text()
+    assert '"PHASE_VARYING"' in js
+    app_core = (ROOT / 'src/server/app_core.py').read_text(encoding='utf-8')
+    assert '"PHASE_VARYING"' in app_core
+    data_io = (ROOT / 'src/data_io.py').read_text(encoding='utf-8')
+    assert "'PHASE_VARYING'" in data_io
+
+
+def test_phase_varying_config_fields_present_in_schema_and_backfill():
+    labels = set()
+    with (ROOT / 'reference_data/schema.csv').open(newline='', encoding='utf-8') as f:
+        for row in csv.reader(f):
+            if len(row) > 2:
+                labels.add(row[2])
+    expected = {
+        'roth_phase_first_bracket_rate', 'roth_phase_second_bracket_rate',
+        'roth_phase_third_bracket_rate', 'roth_phase_count',
+    }
+    assert expected <= labels
+
+    app_core = (ROOT / 'src/server/app_core.py').read_text(encoding='utf-8')
+    for label in expected:
+        assert label in app_core
+
+    with (ROOT / 'input/demo/client_policy.csv').open(newline='', encoding='utf-8-sig') as f:
+        demo_rows = list(csv.DictReader(f))
+    demo_labels = {
+        r['label'] for r in demo_rows
+        if r['section'] == 'Withdrawal Policy' and r['subsection'] == 'Roth Conversion'
+    }
+    assert expected <= demo_labels
+
+
+def test_phase_varying_labels_grouped_with_roth_primary_controls():
+    js = dashboard_js_text()
+    assert '"roth_phase_first_bracket_rate"' in js
+    assert '"roth_phase_second_bracket_rate"' in js
+    assert '"roth_phase_third_bracket_rate"' in js
+    assert '"roth_phase_count"' in js
