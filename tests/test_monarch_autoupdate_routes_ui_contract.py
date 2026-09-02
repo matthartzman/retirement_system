@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from tests._decomp_dashboard import dashboard_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -11,6 +10,14 @@ def read(rel: str) -> str:
 
 
 def test_monarch_autoupdate_api_routes_are_registered() -> None:
+    # Deliberately checks src/server/plan_routes.py only (Python, not
+    # frontend JS/HTML/CSS) -- see tests/test_freeze_frontend_source_grep.py:
+    # new frontend-source string-literal assertions are frozen; behavioral
+    # frontend coverage for the settings card lives in
+    # tests/frontend/monarch_autoupdate_card.test.mjs (Node vm sandbox,
+    # executes the real render function) and the script-load-order check
+    # lives in tests/test_dashboard_startup_race_and_script_order.py
+    # alongside the equivalent local-backups check.
     routes = read("src/server/plan_routes.py")
     for route in (
         "/api/plan/monarch-autoupdate",
@@ -20,21 +27,3 @@ def test_monarch_autoupdate_api_routes_are_registered() -> None:
         assert route in routes
     assert "monarch_autoupdate" in routes
     assert "_run_monarch_autoimport" in routes
-
-
-def test_monarch_autoupdate_script_loads_before_dashboard_js() -> None:
-    # Same startup-race guarantee dashboard_decomp_local_backups.js relies on
-    # (test_dashboard_startup_race_and_script_order.py): the boot chain calls
-    # refreshMonarchAutoUpdateStatus(true), defined only in this classic script.
-    html = read("frontend/index.html")
-    monarch_pos = html.index('<script src="js/dashboard_decomp_monarch_autoupdate.js')
-    dashboard_pos = html.index('<script type="module" src="js/dashboard.js')
-    assert monarch_pos < dashboard_pos
-
-
-def test_normal_settings_exposes_monarch_autoupdate_controls() -> None:
-    js = dashboard_js_text() + read("frontend/js/dashboard_decomp_monarch_autoupdate.js") + read("frontend/js/dashboard_decomp_checklist_closeout.js")
-    assert "monarch_autoupdate_v1" not in js  # contract stays server-side; UI uses API routes
-    assert "Monarch auto-update" in js
-    assert "Enable daily auto-update" in js
-    assert "monarchAutoUpdateControlsHtml()" in js
