@@ -622,11 +622,24 @@ def parse_advanced_modules(data):
     for sub, vals in data.get('Account Titling', {}).items():
         if not sub:
             continue
+        # Item 3.3 (F4): per-account beneficiary tax modeling. beneficiary_class
+        # defaults to '' (treated as DESIGNATED -- the current 10-year-rule
+        # behavior) unless the advisor names one of the SECURE Act eligible-
+        # designated-beneficiary categories (see after_tax.py's
+        # EDB_BENEFICIARY_CLASSES). beneficiary_age/state/baseline_income all
+        # default to 0/'' -- no age-based EDB stretch, no state tax, no
+        # baseline-income bracket-stacking -- so an account with no row here,
+        # or one that predates these fields, keeps today's federal-only,
+        # zero-baseline, 10-year-rule behavior exactly.
         account_titling[sub] = {
             'primary_beneficiary': vals.get('primary_beneficiary', ''),
             'contingent_beneficiary': vals.get('contingent_beneficiary', ''),
             'titling': str(vals.get('titling', '') or '').strip().upper(),
             'trust_see_through': _b(vals.get('trust_see_through', 'FALSE')),
+            'beneficiary_class': str(vals.get('beneficiary_class', '') or '').strip().upper(),
+            'beneficiary_age': int(_n(vals.get('beneficiary_age', '0'), 0) or 0),
+            'beneficiary_state': str(vals.get('beneficiary_state', '') or '').strip().upper(),
+            'beneficiary_baseline_income': max(0.0, _n(vals.get('beneficiary_baseline_income', '0'), 0)),
         }
 
     # ── Item 4.8 (P11): gifting schedule with lifetime-exemption tracking ────

@@ -118,6 +118,92 @@ def hsa_terminal_tax(c: Mapping[str, Any], hsa_balance: Any,
     return max(0.0, compute_fed_tax(bal, year0, filing, brk_inf))
 
 
+# Item 3.3 (F4): SECURE Act eligible-designated-beneficiary categories that
+# take their own life-expectancy stretch instead of the 10-year rule (the
+# spouse category is deliberately absent -- per_beneficiary_ten_year_drawdown
+# only ever runs after the SECOND death, and spousal rollover at the FIRST
+# death already consolidates every retirement account under the survivor's
+# own owner_idx, so any beneficiary named here is never the decedent's
+# spouse by construction).
+EDB_BENEFICIARY_CLASSES = frozenset({
+    "EDB_MINOR_CHILD", "EDB_DISABLED", "EDB_CHRONICALLY_ILL",
+    "EDB_NOT_MORE_THAN_10_YEARS_YOUNGER",
+})
+
+# Chosen deliberately over a real IRS Single Life Expectancy Table: this
+# codebase carries no beneficiary date-of-birth input anywhere (only the new,
+# optional per-account beneficiary_age), and the existing 10-year-rule
+# schedule below already approximates around that same gap with a declining
+# divisor rather than a real per-age table. A flat default stretch, nudged by
+# beneficiary_age when given, is the same order of approximation, clearly
+# labeled rather than presented as table-accurate. The minor-child EDB
+# category's real-law transition to the 10-year rule at age of majority (21)
+# is NOT modeled here -- a documented simplification, not an oversight.
+DEFAULT_EDB_STRETCH_YEARS = 20
+
+
+def _edb_stretch_years(beneficiary_age: Any) -> int:
+    age = int(_f(beneficiary_age, 0.0))
+    if age <= 0:
+        return DEFAULT_EDB_STRETCH_YEARS
+    return max(10, min(40, 90 - age))
+
+
+def _account_stretch_schedule(balance: float, years: int, annual_growth_rate: float = 0.0) -> list:
+    """Item 3.3: N-year declining-divisor distribution for an EDB's own
+    life-expectancy stretch, generalizing _account_ten_year_schedule's
+    RBD-reached branch below. Unlike the 10-year rule (which allows full
+    deferral to year 10 when the decedent had not yet reached RBD), an EDB
+    beneficiary owes annual required distributions over their own life
+    expectancy regardless of the decedent's RBD status, so this schedule
+    (unlike the 10-year one) does not have a no-annual-RMD branch.
+    """
+    remaining = max(0.0, balance)
+    years = max(0, int(years))
+    if remaining <= 0 or years <= 0:
+        return [0.0] * years
+    growth = max(-0.99, float(annual_growth_rate or 0.0))
+    schedule = []
+    for divisor in range(years, 0, -1):
+        remaining *= (1.0 + growth)
+        slice_amt = remaining / divisor
+        schedule.append(slice_amt)
+        remaining -= slice_amt
+    return schedule
+
+
+def _slice_ordinary_tax(slice_amt: float, baseline_income: float, year: int, filing: str,
+                        brk_inf: float, state: str) -> float:
+    """Item 3.3 (F4): marginal federal + state ordinary tax on one
+    distribution slice, stacked on top of the heir's own baseline income
+    (default 0.0, matching the prior "heir's only income" behavior) rather
+    than taxing the slice as if it were the heir's sole income.
+    """
+    from .core import compute_fed_tax
+
+    if slice_amt <= 0:
+        return 0.0
+    baseline = max(0.0, _f(baseline_income, 0.0))
+    fed_with = compute_fed_tax(baseline + slice_amt, year, filing, brk_inf)
+    fed_without = compute_fed_tax(baseline, year, filing, brk_inf) if baseline > 0 else 0.0
+    tax = max(0.0, fed_with - fed_without)
+    state = str(state or "").strip()
+    if state:
+        try:
+            st_with = state_income_tax(state, 0.0, 0.0, 0.0, baseline + slice_amt, 0.0, 0.0,
+                                        year, age_over_65=False, filing=filing, brk_inf=brk_inf)
+            st_without = state_income_tax(state, 0.0, 0.0, 0.0, baseline, 0.0, 0.0,
+                                           year, age_over_65=False, filing=filing, brk_inf=brk_inf) if baseline > 0 else 0.0
+            tax += max(0.0, st_with - st_without)
+        except Exception:
+            # Item F5: only 13 states have a supported state_income_tax table;
+            # an heir's state outside that set (or blank/misconfigured) falls
+            # back to federal-only rather than raising out of a
+            # scenario-sensitivity report.
+            pass
+    return tax
+
+
 def _account_ten_year_schedule(balance: float, decedent_reached_rbd: bool, annual_growth_rate: float = 0.0) -> list:
     """Item 4.9 (P5 phase 2): ten annual distribution amounts for one inherited
     pre-tax account.
@@ -175,9 +261,21 @@ def per_beneficiary_ten_year_drawdown(c: Mapping[str, Any], rows: list) -> Dict[
     an assumed heir filing status, a simplified no-growth 10-year schedule,
     and (for RBD-reached decedents) an approximated declining-divisor RMD in
     place of the real IRS Single Life Expectancy Table.
-    """
-    from .core import compute_fed_tax
 
+    Item 3.3 (F4): a per-account ``beneficiary_class`` of one of
+    ``EDB_BENEFICIARY_CLASSES`` switches that account to its own
+    life-expectancy stretch (``_account_stretch_schedule``) instead of the
+    10-year rule. When the account has no explicit ``beneficiary_class`` AND
+    the household's ``qss_dependent`` flag (Household, survivor_has_dependent
+    -- the one existing signal this codebase already carries for "there is a
+    dependent child") is set, the class is inferred as EDB_MINOR_CHILD rather
+    than defaulting to DESIGNATED/10-year-rule; an explicit beneficiary_class
+    always overrides this inference. Each slice's tax now stacks on the
+    account's configured ``beneficiary_baseline_income`` (default 0.0, i.e.
+    unchanged "heir's only income" behavior) and adds state tax when
+    ``beneficiary_state`` names one of the 13 states this codebase supports
+    (default '', federal-only, unchanged).
+    """
     h_death_yr = int(_f(c.get("h_death_yr"), 0.0))
     w_death_yr = int(_f(c.get("w_death_yr"), 0.0))
     second_death_yr = max(h_death_yr, w_death_yr)
@@ -223,16 +321,43 @@ def per_beneficiary_ten_year_drawdown(c: Mapping[str, Any], rows: list) -> Dict[
         if balance <= 0:
             continue
         is_roth = acct.get("tax") == "roth"
-        schedule = _account_ten_year_schedule(
-            balance, decedent_reached_rbd and not is_roth, annual_growth_rate=_f(c.get("ret", 0.0), 0.0),
-        )
+        growth = _f(c.get("ret", 0.0), 0.0)
+        beneficiary_class = str(titling.get("beneficiary_class", "") or "").strip().upper()
+        class_was_inferred = False
+        if not beneficiary_class and c.get("qss_dependent"):
+            # Item 3.3 (F4) acceptance criterion: "beneficiary class defaults
+            # to the class inferred from existing beneficiary/titling data
+            # where present" -- an explicit '' default that always fell back
+            # to DESIGNATED (the 10-year rule) was rejected by the review
+            # ("'existing plans unchanged' is explicitly not the acceptance
+            # criterion for the class field"). qss_dependent (Household,
+            # survivor_has_dependent) is the one existing household-level
+            # signal this codebase already carries for "there is a minor/
+            # dependent child" (it already gates the QSS filing-status
+            # extension in planning_engines.py); a household that set it
+            # true, with no explicit beneficiary_class on this account,
+            # is treated as EDB_MINOR_CHILD rather than silently staying
+            # DESIGNATED. An explicit beneficiary_class value on the account
+            # always wins over this inference.
+            beneficiary_class = "EDB_MINOR_CHILD"
+            class_was_inferred = True
+        is_edb = beneficiary_class in EDB_BENEFICIARY_CLASSES
+        if is_edb:
+            stretch_years = _edb_stretch_years(titling.get("beneficiary_age"))
+            schedule = _account_stretch_schedule(balance, stretch_years, annual_growth_rate=growth)
+        else:
+            schedule = _account_ten_year_schedule(
+                balance, decedent_reached_rbd and not is_roth, annual_growth_rate=growth,
+            )
+        baseline_income = _f(titling.get("beneficiary_baseline_income"), 0.0)
+        beneficiary_state = str(titling.get("beneficiary_state", "") or "").strip()
         after_tax_total = 0.0
         pretax_total_tax = 0.0
         for i, slice_amt in enumerate(schedule):
             if is_roth or slice_amt <= 0:
                 after_tax_total += slice_amt
                 continue
-            tax = compute_fed_tax(slice_amt, second_death_yr + i, filing, brk_inf)
+            tax = _slice_ordinary_tax(slice_amt, baseline_income, second_death_yr + i, filing, brk_inf, beneficiary_state)
             pretax_total_tax += tax
             after_tax_total += slice_amt - tax
 
@@ -245,7 +370,9 @@ def per_beneficiary_ten_year_drawdown(c: Mapping[str, Any], rows: list) -> Dict[
             "label": acct.get("label") or aid,
             "tax_type": acct.get("tax"),
             "terminal_balance": balance,
-            "decedent_reached_rbd": bool(decedent_reached_rbd and not is_roth),
+            "beneficiary_class": beneficiary_class or "DESIGNATED",
+            "class_was_inferred": class_was_inferred,
+            "decedent_reached_rbd": bool(decedent_reached_rbd and not is_roth) if not is_edb else False,
             "annual_schedule": schedule,
             "after_tax_total": after_tax_total,
             "total_tax": pretax_total_tax,
