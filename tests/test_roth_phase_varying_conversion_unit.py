@@ -180,3 +180,38 @@ def test_parse_client_accepts_phase_varying_as_bracket_strategy():
     raw['Withdrawal Policy']['Roth Conversion']['roth_bracket_strategy'] = 'PHASE_VARYING'
     c = _parse_client(raw, "")
     assert c['roth_bracket_strategy'] == 'PHASE_VARYING'
+
+
+def _fake_specs_with_phase_varying_only(schedule):
+    return [{
+        'label': 'Phase test', 'policy': 'fill_to_bracket', 'strategy_code': 'PHASE_VARYING',
+        'target_rate': None, 'fixed_amount': None,
+        'overrides': {'roth_phase_schedule': schedule},
+    }]
+
+
+def test_auto_optimize_propagates_full_overrides_not_just_target_rate(monkeypatch):
+    c = _base_config()
+    c['roth_policy'] = 'optimize_terminal_tax'  # auto_optimize branch
+    schedule = [(int(c['plan_start']) + 3, 0.24), (int(c['plan_start']) + 8, 0.12)]
+    monkeypatch.setattr(
+        planning_engines, '_roth_strategy_candidate_specs',
+        lambda cfg: _fake_specs_with_phase_varying_only(schedule),
+    )
+    c = optimize_roth_conversion_strategy(c)
+    assert c['roth_optimization']['selected_strategy_code'] == 'PHASE_VARYING'
+    assert c['roth_phase_schedule'] == schedule
+
+
+def test_direct_selection_propagates_full_overrides_not_just_target_rate(monkeypatch):
+    c = _base_config()
+    c['roth_policy'] = 'fill_to_bracket'  # explicit-selection branch (not auto_optimize)
+    c['roth_bracket_strategy'] = 'PHASE_VARYING'
+    schedule = [(int(c['plan_start']) + 3, 0.24), (int(c['plan_start']) + 8, 0.12)]
+    monkeypatch.setattr(
+        planning_engines, '_roth_strategy_candidate_specs',
+        lambda cfg: _fake_specs_with_phase_varying_only(schedule),
+    )
+    c = optimize_roth_conversion_strategy(c)
+    assert c['roth_optimization']['selected_strategy_code'] == 'PHASE_VARYING'
+    assert c['roth_phase_schedule'] == schedule
