@@ -209,11 +209,29 @@ if selected.get('overrides'):
 
 This covers both branches in one place and retroactively fixes the silent-drop bug
 for the three existing strategies as well as `PHASE_VARYING`, for both direct
-selection and `OPTIMIZER_CHOOSES`. No golden master risk: the frozen fixture pins
-`roth_bracket_strategy=FILL_TARGET_BRACKET`, whose candidate spec carries no
-`overrides` beyond `target_rate` (`{}` after the `target_rate`/`fixed_amount`
-keys are excluded — `add()` for `FILL_TARGET_BRACKET_*` passes no `overrides`
-argument), so `c.update({})` is a no-op for that fixture regardless of branch.
+selection and `OPTIMIZER_CHOOSES`.
+
+**Correction found during implementation:** the frozen sample-plan golden master
+(`tests/test_frozen_sample_plan_golden_master_regression.py`) is indeed unaffected
+— it pins `roth_bracket_strategy=FILL_TARGET_BRACKET`, whose candidate spec carries
+no `overrides`, so `c.update({})` is a no-op for it. But that is not the only
+golden-master gate in this repo: `tests/test_synthetic_golden_master.py` is a
+**separate, mandatory** CI/release gate over 9 scenarios built by
+`tests/synthetic_plans.py`, none of which set `roth_bracket_strategy` at all —
+they all default to `OPTIMIZER_CHOOSES`, and `RMD_REDUCTION` wins that sweep in
+every one of them (confirmed via `c['roth_optimization']['selected_strategy_code']`
+and via the old fixture's own `"selected_roth_strategy": "RMD-reduction
+conversion"` value, which predates this branch). Its `roth_max_conversion_years`
+cap was therefore silently not applying in all 9 pinned scenarios; this fix makes
+it apply, moving every scenario's `total_roth_conversion` down, `first_rmd_total`
+up, `lifetime_tax` down, and `terminal_total_nw` up — internally consistent with
+"a conversion-year cap that was supposed to apply is now actually applied."
+Confirmed by isolation (reverting only this fix restores the old pinned values
+exactly; `PHASE_VARYING` never wins any of these 9 scenarios). The fixture was
+regenerated and committed alongside the fix. The lesson for future changes to
+this function: check *both* golden-master gates, not just the frozen one — a
+change gated behind `roth_bracket_strategy != OPTIMIZER_CHOOSES` in the frozen
+fixture can still be live in the synthetic one.
 
 ## Files touched
 
