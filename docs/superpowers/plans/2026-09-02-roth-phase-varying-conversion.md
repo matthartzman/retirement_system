@@ -29,7 +29,7 @@
 **Interfaces:**
 - Produces: `_roth_resolve_target_rate(c: Mapping, year: int, default_rate: float) -> float`, module-level in `src/planning_engines.py`. Later tasks read `c['roth_phase_schedule']` (a `list[tuple[int, float]]`, ascending by `end_year`) as the input this function consumes.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/test_roth_phase_varying_conversion_unit.py`:
 
@@ -96,12 +96,12 @@ def test_plan_roth_conversion_flat_rate_unaffected_by_new_helper():
     assert any(float(r.get("roth_conversion", 0.0) or 0.0) > 0 for r in rows)
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `pytest tests/test_roth_phase_varying_conversion_unit.py -v`
 Expected: `ImportError: cannot import name '_roth_resolve_target_rate'` (function does not exist yet). The last test may also fail/error for the same import reason — that's fine, all failures are expected at this point.
 
-- [ ] **Step 3: Add the helper and wire it in**
+- [x] **Step 3: Add the helper and wire it in**
 
 In `src/planning_engines.py`, immediately before `def plan_roth_conversion(` (currently line 1821), add:
 
@@ -137,22 +137,22 @@ with:
     )
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `pytest tests/test_roth_phase_varying_conversion_unit.py -v`
 Expected: PASS (all 5 tests)
 
-- [ ] **Step 5: Golden master check**
+- [x] **Step 5: Golden master check**
 
 Run: `python -m tests.test_frozen_sample_plan_golden_master_regression`
 Expected: prints the same `PINNED_TERMINAL_NW`/`PINNED_LIFETIME_TAX` values already pinned in that file (no schedule is ever set today, so `_roth_resolve_target_rate` always falls into the `if not schedule: return default_rate` branch — byte-identical to the old line).
 
-- [ ] **Step 6: Fast tier**
+- [x] **Step 6: Fast tier**
 
 Run: `pytest tests/ -m "not slow" --tb=short -q`
 Expected: PASS, no new failures.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/planning_engines.py tests/test_roth_phase_varying_conversion_unit.py
@@ -181,7 +181,7 @@ EOF
 - Produces: `_roth_strategy_candidate_specs(c)` now yields an additional spec dict `{'label': ..., 'policy': 'fill_to_bracket', 'strategy_code': 'PHASE_VARYING', 'target_rate': None, 'fixed_amount': None, 'overrides': {'roth_phase_schedule': [...]}}` whenever `full_set` is true or `selected == 'PHASE_VARYING'`. Later tasks (3, 4) rely on `strategy_code == 'PHASE_VARYING'` and the `roth_phase_schedule` override key.
 - Consumes new config keys (read via `c.get(key, default)`, so no data_io.py change is required for this task to work standalone): `roth_phase_rate_1`/`roth_phase_rate_2`/`roth_phase_rate_3` (floats, defaults `0.24`/`0.22`/`0.12`), `roth_phase_count` (int, default `3`), plus existing `h_dob_yr`/`w_dob_yr`/`h_ss_claim_age`/`w_ss_claim_age`/`members` (already set by `parse_client`).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_roth_phase_varying_conversion_unit.py`:
 
@@ -290,12 +290,12 @@ def test_phase_varying_minimal_config_never_crashes():
     assert schedule[0][1] == 0.24
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `pytest tests/test_roth_phase_varying_conversion_unit.py -v`
 Expected: FAIL — no `PHASE_VARYING` spec is ever produced (`_phase_varying_spec` raises the assertion), and `test_phase_varying_selectable_directly` fails since `selected == 'PHASE_VARYING'` isn't a recognized value yet (falls through to the empty-specs `if not specs: add('No voluntary conversions', ...)` default, so `len(specs) == 1` may accidentally pass but the strategy_code will be `'NONE'`, not `'PHASE_VARYING'` — `_phase_varying_spec` catches that).
 
-- [ ] **Step 3: Implement candidate generation**
+- [x] **Step 3: Implement candidate generation**
 
 In `src/planning_engines.py`, inside `_roth_strategy_candidate_specs`, immediately after the line (currently line 2267):
 
@@ -350,22 +350,22 @@ add:
             strategy_code='PHASE_VARYING', overrides={'roth_phase_schedule': _sched})
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `pytest tests/test_roth_phase_varying_conversion_unit.py -v`
 Expected: PASS (all tests from Task 1 and Task 2)
 
-- [ ] **Step 5: Golden master check**
+- [x] **Step 5: Golden master check**
 
 Run: `python -m tests.test_frozen_sample_plan_golden_master_regression`
 Expected: unchanged figures — the frozen fixture's `roth_bracket_strategy` is `FILL_TARGET_BRACKET` (not `OPTIMIZER_CHOOSES` or `PHASE_VARYING`), so `full_set` is `False` and `selected == 'PHASE_VARYING'` is `False`; the new `if` block's `add(...)` never executes for that fixture.
 
-- [ ] **Step 6: Fast tier**
+- [x] **Step 6: Fast tier**
 
 Run: `pytest tests/ -m "not slow" --tb=short -q`
 Expected: PASS, no new failures.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/planning_engines.py tests/test_roth_phase_varying_conversion_unit.py
@@ -396,7 +396,7 @@ EOF
 - Consumes: none new.
 - Produces: `parse_client(...)` now sets `c['roth_phase_rate_1']`/`c['roth_phase_rate_2']`/`c['roth_phase_rate_3']` (floats) and `c['roth_phase_count']` (int, `2` or `3`) on every parsed config, and accepts `'PHASE_VARYING'` as a valid `c['roth_bracket_strategy']` value. Task 2's `_roth_strategy_candidate_specs` already reads these same keys via `c.get(key, default)`, so this task only needs to confirm the real parser produces the same defaults (and would honor a CSV override, once one exists).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_roth_phase_varying_conversion_unit.py`:
 
@@ -419,14 +419,14 @@ def test_parse_client_accepts_phase_varying_as_bracket_strategy():
     assert c['roth_bracket_strategy'] == 'PHASE_VARYING'
 ```
 
-- [ ] **Step 2: Run tests to verify they fail (partially)**
+- [x] **Step 2: Run tests to verify they fail (partially)**
 
 Run: `pytest tests/test_roth_phase_varying_conversion_unit.py -v`
 Expected: `test_parse_client_sets_phase_config_defaults` FAILS with `KeyError: 'roth_phase_rate_1'`. `test_parse_client_accepts_phase_varying_as_bracket_strategy` FAILS because `'PHASE_VARYING'` isn't in the validation tuple yet, so it silently falls back to `'OPTIMIZER_CHOOSES'`.
 
 (`load_csv()`, `src/data_io.py:275-292`, returns exactly `{section: {subsection: {label: value}}}` — confirmed by reading its source — so the direct-dict injection `raw['Withdrawal Policy']['Roth Conversion']['roth_bracket_strategy'] = 'PHASE_VARYING'` in the second test is correct as written.)
 
-- [ ] **Step 3: Implement the parsing**
+- [x] **Step 3: Implement the parsing**
 
 In `src/data_io.py`, replace (currently lines 1438-1441):
 
@@ -471,22 +471,22 @@ add:
         c['roth_phase_count'] = 3
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `pytest tests/test_roth_phase_varying_conversion_unit.py -v`
 Expected: PASS (all tests from Tasks 1-3)
 
-- [ ] **Step 5: Golden master check**
+- [x] **Step 5: Golden master check**
 
 Run: `python -m tests.test_frozen_sample_plan_golden_master_regression`
 Expected: unchanged — new fields default to values equal to what `_phase_varying_schedule` already assumed via `c.get(key, default)` in Task 2, and the frozen fixture's `roth_bracket_strategy` stays `FILL_TARGET_BRACKET`.
 
-- [ ] **Step 6: Fast tier**
+- [x] **Step 6: Fast tier**
 
 Run: `pytest tests/ -m "not slow" --tb=short -q`
 Expected: PASS, no new failures.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/data_io.py tests/test_roth_phase_varying_conversion_unit.py
@@ -515,7 +515,7 @@ EOF
 - Consumes: `_roth_strategy_candidate_specs` (Task 2) — this task's tests monkeypatch it directly for speed/determinism rather than relying on real scoring outcomes.
 - Produces: after `optimize_roth_conversion_strategy(c)` returns, `c` carries every key in the selected candidate's `overrides` dict (not just `target_rate`/`fixed_amount`), in both the `auto_optimize` and explicit-selection branches.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_roth_phase_varying_conversion_unit.py`:
 
@@ -555,12 +555,12 @@ def test_direct_selection_propagates_full_overrides_not_just_target_rate(monkeyp
     assert c['roth_phase_schedule'] == schedule
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `pytest tests/test_roth_phase_varying_conversion_unit.py -v`
 Expected: both new tests FAIL with `KeyError: 'roth_phase_schedule'` — `c['roth_optimization']['selected_strategy_code']` will already read `'PHASE_VARYING'` correctly (that part of the code is unaffected), but `c['roth_phase_schedule']` itself is never set on the real `c`.
 
-- [ ] **Step 3: Implement the fix**
+- [x] **Step 3: Implement the fix**
 
 In `src/planning_engines.py`, the `if auto_optimize: ... else: ...` block (currently lines 2815-2853) ends with:
 
@@ -583,22 +583,22 @@ Insert one line right after `c['roth_policy_requested'] = requested_policy` (the
 
 Note the indentation: the new two lines sit at the same (outer) indent level as `if auto_optimize:`/`else:` themselves, not nested inside either branch — they run once, after both branches have set `selected`.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `pytest tests/test_roth_phase_varying_conversion_unit.py -v`
 Expected: PASS (all tests from Tasks 1-4)
 
-- [ ] **Step 5: Golden master check**
+- [x] **Step 5: Golden master check**
 
 Run: `python -m tests.test_frozen_sample_plan_golden_master_regression`
 Expected: unchanged. The frozen fixture's selected candidate (`FILL_TARGET_BRACKET_*`, built via `add(...)` with no `overrides=` argument) has `spec.get('overrides') or {}` == `{}`, so `c.update({})` is a no-op for it regardless of branch.
 
-- [ ] **Step 6: Fast tier**
+- [x] **Step 6: Fast tier**
 
 Run: `pytest tests/ -m "not slow" --tb=short -q`
 Expected: PASS, no new failures. Pay particular attention to any existing test involving `SURVIVOR_TAX_AWARE`, `RMD_REDUCTION`, or `LEGACY_TARGETED` selection — this fix now propagates their overrides too (previously silently dropped); if any existing test asserted the *old* (buggy) behavior, it will need updating to reflect the fix, not be treated as a regression to revert. Search first: `grep -rn "SURVIVOR_TAX_AWARE\|RMD_REDUCTION\|LEGACY_TARGETED" tests/`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/planning_engines.py tests/test_roth_phase_varying_conversion_unit.py
@@ -631,7 +631,7 @@ EOF
 
 **Interfaces:** none — this task is UI/config surface only, no new Python/JS functions.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `tests/test_roth_user_ui_render_fix.py`:
 
@@ -678,12 +678,12 @@ def test_phase_varying_labels_grouped_with_roth_primary_controls():
     assert '"roth_phase_count"' in js
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `pytest tests/test_roth_user_ui_render_fix.py -v`
 Expected: all three new tests FAIL (none of the strings exist yet).
 
-- [ ] **Step 3a: `src/server/app_core.py`**
+- [x] **Step 3a: `src/server/app_core.py`**
 
 Add `"PHASE_VARYING"` to the `roth_bracket_strategy` choice list at (currently line 1210):
 
@@ -795,17 +795,17 @@ Withdrawal Policy,Roth Conversion,roth_phase_third_bracket_rate,choice,FALSE,12.
 Withdrawal Policy,Roth Conversion,roth_phase_count,choice,FALSE,3,,,"2 | 3; PHASE_VARYING strategy only -- number of rate phases (degrades to 2 automatically for a single-member household or same-year claimants)."
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `pytest tests/test_roth_user_ui_render_fix.py -v`
 Expected: PASS (all tests, including the 3 new ones)
 
-- [ ] **Step 5: Fast tier**
+- [x] **Step 5: Fast tier**
 
 Run: `pytest tests/ -m "not slow" --tb=short -q`
 Expected: PASS, no new failures.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/server/app_core.py frontend/js/dashboard.js input/demo/client_policy.csv reference_data/schema.csv tests/test_roth_user_ui_render_fix.py
@@ -833,27 +833,43 @@ EOF
 
 **Interfaces:** none
 
-- [ ] **Step 1: Golden master, one more time**
+- [x] **Step 1: Golden master, one more time**
 
 Run: `python -m tests.test_frozen_sample_plan_golden_master_regression`
 Expected: figures identical to the value pinned in `tests/test_frozen_sample_plan_golden_master_regression.py` before Task 1 started.
 
-- [ ] **Step 2: Fast tier**
+- [x] **Step 2: Fast tier**
 
 Run: `pytest tests/ -m "not slow" --tb=short -q`
 Expected: PASS, 0 failures.
 
-- [ ] **Step 3: Full suite**
+- [x] **Step 3: Full suite**
 
 Run: `pytest tests/ -n auto --tb=short -q`
 Expected: PASS, 0 failures. If `pytest-xdist` isn't installed, fall back to `pytest tests/ --tb=short -q` (serial; slower but equivalent coverage).
 
-- [ ] **Step 4: Regression tooling**
+- [x] **Step 4: Regression tooling**
 
 Run: `python tools/run_regression.py`
 Expected: PASS (static-analysis checks, e.g. dead-code/wave-number-in-filename scans, not exercised by pytest).
 
-- [ ] **Step 5: Confirm git status is clean**
+- [x] **Step 5: Confirm git status is clean**
 
 Run: `git status`
 Expected: working tree clean (everything from Tasks 1-5 already committed); no stray modified files (e.g. accidentally-touched `input/client_policy.csv` from a local run against the live workspace).
+
+## Completion notes (deviations found during execution)
+
+All 6 tasks completed and committed. Three deviations from the plan's expectations, all resolved:
+
+1. **`tests/test_synthetic_golden_master.py` (mandatory gate) moved.** The plan's "no golden master risk" claim only checked the frozen sample-plan gate. This separate, mandatory synthetic gate has 9 scenarios that all default to `roth_bracket_strategy=OPTIMIZER_CHOOSES`, and `RMD_REDUCTION` wins that sweep in every one — so the Task 4 overrides-propagation fix (a real, confirmed bug fix) changed its pinned figures. Isolated via selective revert (reverting only the fix restores the old values exactly; `PHASE_VARYING` never wins any of these 9 scenarios) and confirmed internally consistent (fewer converted years → larger first RMD, lower lifetime tax, higher terminal NW — exactly what "a conversion-year cap that should apply is now actually applied" predicts). Regenerated and committed with user sign-off; documented in the design spec's Task 4 section.
+
+2. **`pytest -n auto` (xdist parallel) produced ~30 spurious ERRORs** in workbook-build-dependent tests — the documented Windows file-lock flake pattern from `documentation/CLAUDE.md` ("If a failure under `-n auto` is a `PermissionError`/`WinError 5`..."). Confirmed by running one of the failing tests in isolation (passed) and by rerunning the full suite serially (`pytest tests/ --tb=short -q`, no `-n`), which showed only the 3 pre-existing failures below. Not a regression.
+
+3. **3 pre-existing, unrelated test failures** present at the branch point (commit `111ecb0`, before any task started) and confirmed via `git log`/`git show` to belong to other in-progress work already merged into this branch, not to this change:
+   - `test_after_tax_cap_gain_estate_regression.py::test_frontend_after_tax_description_mentions_capital_gains`
+   - `test_dual_column_reporting_regression.py::test_sheet1_shows_terminal_nw_todays_dollars_row`
+   - `test_frontend_size_ratchet.py::test_dashboard_js_does_not_grow` — already 48 lines over its ratchet before this branch (`git show 111ecb0:frontend/js/dashboard.js | wc -l` = 7552 vs. the 7504 max). Task 5's UI wiring added ~25 more lines on top (now 7577), making an already-broken ratchet moderately worse. Flagging for the user — not fixed here, since the fix (extracting dashboard.js content into a module) is unrelated, out-of-scope refactoring work.
+   - `tools/run_regression.py` also has 1 pre-existing unrelated failure: `P1-B1: guarded setStep defined in navigation module` — the check's expected string (`"function setStep(ctx,id)"`) predates a parameter this repo's `setStep` already had (`ctx,id,opts`) at commit `111ecb0`, before this branch started.
+
+Golden master (`tests/test_frozen_sample_plan_golden_master_regression.py`) verified unchanged after every task: `PINNED_TERMINAL_NW = 5763251.84`, `PINNED_LIFETIME_TAX = 1316887.09`.
