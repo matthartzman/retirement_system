@@ -18,6 +18,7 @@ from .workbook_common import (
     indexed_federal_estate_exemption,
     marginal_rate,
     qc,
+    resolved_state_estate_exemption,
     salt_cap,
     section_title,
     standard_deduction,
@@ -42,7 +43,10 @@ def build_sheet9(ws, c, rows):
     # rather than presenting a different picture of the same mechanism.
     _resident_state = str(c.get('state', '') or '')
     try:
-        _state_exempt = max(0.0, float(c.get('il_exempt', 0.0) or 0.0)) or None
+        # Item 3.6 (F5): resolved_state_estate_exemption corrects the shipped
+        # $4M (Illinois's own exemption) default for a non-Illinois resident
+        # state to that state's real statutory exemption instead.
+        _state_exempt = resolved_state_estate_exemption(_resident_state, float(c.get('il_exempt', 0.0) or 0.0)) or None
     except (TypeError, ValueError):
         _state_exempt = None
     _est_tax, _est_status = state_estate_tax(_resident_state, 1.0, _state_exempt)
@@ -1930,14 +1934,33 @@ def build_sheet14(ws, c, rows):
     # simply never exercised by a test that reached this line with one).
     il_tax = 0.0
     if c['model_state_est']:
-        _state_exempt_configured = c.get('il_exempt')
-        _tax, _status = state_estate_tax(_resident_state, est2, _state_exempt_configured)
+        # Item 3.6 (F5): resolved_state_estate_exemption corrects the shipped
+        # $4M (Illinois's own exemption) default for a non-Illinois resident
+        # state to that state's real statutory exemption instead -- without
+        # it, a New York household that never touched state_estate_exemption
+        # would show Illinois's $4M as their "NY Exemption" here.
+        _state_exempt_configured = resolved_state_estate_exemption(_resident_state, float(c.get('il_exempt', 0.0) or 0.0))
+        # Item 3.6 (F5): New York's 3-year gift add-back (harmless for any
+        # other state's calc branch, which ignores gift_addback).
+        _gift_addback = max(0.0, float(yr_second.get('gift_total_last_3yr', 0.0) or 0.0))
+        _tax, _status = state_estate_tax(_resident_state, est2, _state_exempt_configured, gift_addback=_gift_addback)
         il_tax = _tax
         if _status == 'computed':
             write_hdr(ws, r, 1, f'{_resident_state} Estate Tax (At Second Death)', ORANGE, WHITE, span=4); r+=1
-            il_exempt = c['il_exempt']
+            il_exempt = _state_exempt_configured
             il_excess = max(0, est2 - il_exempt)
+            _mechanism_note = (
+                'Calculation uses the IL cliff/interrelated structure, not a tax-on-excess shortcut.'
+                if _resident_state == 'Illinois' else
+                'Calculation uses the graduated NY estate rate table with the 105%-of-exemption cliff '
+                '(no exclusion at all once the estate reaches 105% of the exemption) and adds back gifts '
+                'made within 3 years of death, not a tax-on-excess shortcut.'
+                if _resident_state == 'New York' else
+                'Calculation uses the modeled cliff/interrelated structure for this state, not a tax-on-excess shortcut.'
+            )
             write_cell(ws, r, 1, f'{_resident_state} Exemption'); write_cell(ws, r, 2, il_exempt, fmt=FMT_DOLLAR); r+=1
+            if _resident_state == 'New York' and _gift_addback > 0:
+                write_cell(ws, r, 1, 'Gifts Added Back (3-Year Look-Back)'); write_cell(ws, r, 2, _gift_addback, fmt=FMT_DOLLAR); r+=1
             write_cell(ws, r, 1, f'Estate over {_resident_state} Exemption'); write_cell(ws, r, 2, il_excess, fmt=FMT_DOLLAR); r+=1
             write_cell(ws, r, 1, f'Est. {_resident_state} Estate Tax (cliff/interrelated calc)', bold=True)
             write_cell(ws, r, 2, _tax, fmt=FMT_DOLLAR, bold=True,
@@ -1945,8 +1968,8 @@ def build_sheet14(ws, c, rows):
             if _tax > 0:
                 write_cell(ws, r, 1, '⚠ ACTION REQUIRED', bold=True, bg='FCE4D6', fg=RED)
                 write_cell(ws, r, 2,
-                           f'Estate may exceed ${c["il_exempt"]/1e6:.0f}M {_resident_state} exemption. Consider: annual gifting, ILIT, '
-                           'charitable bequest, or credit-shelter/QTIP trust. Calculation uses the IL cliff/interrelated structure, not a tax-on-excess shortcut.',
+                           f'Estate may exceed ${il_exempt/1e6:.2f}M {_resident_state} exemption. Consider: annual gifting, ILIT, '
+                           f'charitable bequest, or credit-shelter/QTIP trust. {_mechanism_note}',
                            bg='FCE4D6'); r+=2
         elif _status == 'none':
             write_hdr(ws, r, 1, 'State Estate Tax (At Second Death)', ORANGE, WHITE, span=4); r+=1

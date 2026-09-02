@@ -8,7 +8,7 @@ Arizona,2.50%,flat,FALSE,TRUE,0.63%,8.40%,FALSE,0,0,ARS §43-1011 (flat rate eff
 Colorado,4.40%,flat,FALSE,TRUE,0.55%,7.80%,FALSE,0,24000,CRS §39-22-104; §39-22-104(4)(f),none
 Nevada,0%,none,TRUE,TRUE,0.55%,8.23%,FALSE,0,0,NV Constitution Art. 10 §1,none
 California,9.30%,graduated,FALSE,TRUE,0.73%,8.75%,FALSE,0,0,CA Rev. & Tax Code §17041,none
-New York,6.85%,graduated,FALSE,TRUE,1.68%,8.00%,TRUE,6940000,20000,NY Tax Law §601; §612(c)(3-a),not_modeled
+New York,6.85%,graduated,FALSE,TRUE,1.68%,8.00%,TRUE,6940000,20000,NY Tax Law §601; §612(c)(3-a); §952 (graduated estate rate table); §954(a)(3) (3-year gift add-back),ny_graduated_cliff
 Indiana,3.05%,flat,FALSE,TRUE,0.87%,7.00%,FALSE,0,0,IN Department of Revenue flat individual income tax; verify current local/county rates separately,none
 South Dakota,0%,none,TRUE,TRUE,1.14%,6.11%,FALSE,0,0,No individual income tax imposed (SDCL Title 10),none
 Wyoming,0%,none,TRUE,TRUE,0.56%,5.39%,FALSE,0,0,WY Constitution Art. 15 §18 (income-tax credit provision precludes an income tax),none

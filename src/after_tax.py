@@ -9,7 +9,10 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Dict, Tuple
 
-from .core import ltcg_tax_on_gain, niit_tax, state_income_tax, illinois_estate_tax, state_estate_tax, indexed_federal_estate_exemption
+from .core import (
+    ltcg_tax_on_gain, niit_tax, state_income_tax, illinois_estate_tax, state_estate_tax,
+    indexed_federal_estate_exemption, resolved_state_estate_exemption,
+)
 
 
 def _f(value: Any, default: float = 0.0) -> float:
@@ -731,12 +734,20 @@ def estimate_terminal_estate_tax(c: Mapping[str, Any], terminal: Mapping[str, An
     # comment: state_estate_tax() would otherwise fall back to the state's
     # own default exemption instead of preserving exact pre-refactor
     # behavior (always using whatever il_exempt resolves to, including 0.0).
-    state_exempt = max(0.0, _f(c.get("il_exempt"), 0.0))
+    # Item 3.6 (F5): resolved_state_estate_exemption corrects the shipped
+    # $4M (Illinois's own exemption) default for a non-Illinois resident
+    # state to that state's real statutory exemption instead.
+    resident_state = str(c.get("state", "") or "")
+    state_exempt = resolved_state_estate_exemption(resident_state, _f(c.get("il_exempt"), 0.0))
     federal_taxable = max(0.0, row_total + biz - (row_cst if c.get("federal_portability_enabled", True) else 0.0))
     state_taxable = max(0.0, row_total + biz - row_cst)
     federal_tax = max(0.0, federal_taxable - fed_exempt) * 0.40 if fed_exempt else 0.0
+    # Item 3.6 (F5): New York's 3-year gift add-back -- gifts made within 3
+    # years of death are added back into the NY gross estate (only NY's
+    # calc branch actually consumes gift_addback; harmless elsewhere).
+    gift_addback = max(0.0, _f(terminal.get("gift_total_last_3yr"), 0.0))
     state_tax = (
-        state_estate_tax(str(c.get("state", "") or ""), state_taxable, state_exempt)[0]
+        state_estate_tax(resident_state, state_taxable, state_exempt, gift_addback=gift_addback)[0]
         if c.get("model_state_est", True) and state_exempt
         else 0.0
     )
