@@ -1,0 +1,13 @@
+{
+  "_comment": "Maps Monarch Extractor output CSV column names to this app's internal transaction fields. Column name matching is case-insensitive and whitespace-tolerant. 'id_column' is the only strictly required entry -- upsert_transactions_by_monarch_id() cannot upsert without a stable id. These are placeholder best-guess defaults; confirm against a real Monarch Extractor output file before relying on this in production (see docs/superpowers/specs/2026-09-02-monarch-autoupdate-reporting-design.md, 'Open items').",
+  "id_column": "id",
+  "date_column": "date",
+  "merchant_column": "merchant",
+  "category_column": "category",
+  "account_column": "account",
+  "original_statement_column": "original_statement",
+  "notes_column": "notes",
+  "amount_column": "amount",
+  "tags_column": "tags",
+  "owner_column": "owner"
+}
