@@ -677,6 +677,18 @@ export function loadBuildHistory() {
   } catch (_e) {
     buildHistory = [];
   }
+  // #309: entries saved before #293 have no `kpi.lcv` -- they were built
+  // from Terminal Net Worth / Lifetime Tax / MC Success, fields the history
+  // dials and suggestions panel no longer read at all. There is nothing to
+  // migrate those old entries to (LCV/NPV of Future Taxes/Worst-Case Ending
+  // Wealth/EFTR require re-running the build, which this load path must not
+  // do), so drop them rather than render dials with missing/undefined
+  // values for every pre-#293 entry.
+  const before = buildHistory.length;
+  buildHistory = buildHistory.filter(
+    (e) => e && e.kpi && Number.isFinite(Number(e.kpi.lcv)),
+  );
+  if (buildHistory.length !== before) saveBuildHistory();
 }
 
 export function pushBuildHistoryEntry(entry) {
@@ -1072,12 +1084,10 @@ export function renderBuildImpactPage() {
       planDataReviewSection +
       "</div>"
     );
-  // #293: the three dials read LCV / NPV-of-future-taxes / 5th-percentile
-  // worst-case ending wealth instead of raw terminal net worth / nominal
-  // lifetime tax / Monte Carlo pass-fail probability. Object keys
-  // (nwHeat/taxHeat/mcHeat) are unchanged so buildHistoryEntryHtml's
-  // consumer code in dashboard_decomp_build_history.js needs no edits --
-  // only which kpi field feeds each dial has changed.
+  // #293/#309: four dials read LCV / NPV of Future Taxes / 5th-percentile
+  // worst-case ending wealth / EFTR -- the same four headline KPIs as the
+  // Build Impact cards -- instead of the retired Terminal Net Worth /
+  // Lifetime Tax / Monte Carlo pass-fail probability trio.
   const allNw = buildHistory
     .map((e) => e.kpi && e.kpi.lcv)
     .filter((v) => v !== null && v !== undefined && Number.isFinite(Number(v)))
@@ -1088,6 +1098,10 @@ export function renderBuildImpactPage() {
     .map(Number);
   const allMc = buildHistory
     .map((e) => e.kpi && e.kpi.terminal_nw_mc_p5)
+    .filter((v) => v !== null && v !== undefined && Number.isFinite(Number(v)))
+    .map(Number);
+  const allEftr = buildHistory
+    .map((e) => e.kpi && e.kpi.eftr)
     .filter((v) => v !== null && v !== undefined && Number.isFinite(Number(v)))
     .map(Number);
   function heatRange(vals, higher) {
@@ -1109,6 +1123,7 @@ export function renderBuildImpactPage() {
     nwHeat: heatRange(allNw, true),
     taxHeat: heatRange(allTax, false),
     mcHeat: heatRange(allMc, true),
+    eftrHeat: heatRange(allEftr, false),
   };
   let historyHtml = "";
   buildHistory.forEach(function (entry, idx) {
@@ -1120,7 +1135,7 @@ export function renderBuildImpactPage() {
     '<div class="build-impact"><div class="impact-panel">' +
     promptBar +
     buildAndDownload +
-    "<h3>Impact</h3><p class=\"small\">Dials are heat-mapped: green = best across all entries, red = worst. Post-Tax Inheritance (PTI) is projected net worth minus the embedded taxes heirs would owe on pre-tax accounts and unrealized gains.</p>" +
+    "<h3>Impact</h3><p class=\"small\">Dials are heat-mapped: green = best across all entries, red = worst. LCV (Expected After-Tax Lifetime Consumption-and-Transfer Value) is total lifetime spending plus the after-tax, after-estate-tax terminal transfer to heirs.</p>" +
     headerActions +
     latestImpact +
     '<details class="build-history-collapsible"><summary class="section-header">Build History (up to ' +
