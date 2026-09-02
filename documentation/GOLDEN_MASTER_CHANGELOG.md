@@ -1,3 +1,19 @@
+## 2026-09-02 — Ticket 305: additive `Monarch Id` transaction column
+
+**No pins moved.**
+
+Adds `"Monarch Id"` to `TRANSACTION_COLUMNS` (`src/ytd_tracking.py`) and
+`"Rows Updated"` to `IMPORT_HISTORY_COLUMNS`, supporting the new Monarch
+auto-update upsert path (`upsert_transactions_by_monarch_id`). Both are
+purely additive and default to `""`/empty for every existing row: manual
+CSV uploads and every transaction entered before this change are
+unaffected. `transaction_hash()` is deliberately pinned to the original 9
+columns via a separate `_HASH_COLUMNS` list, so it produces byte-identical
+hashes to before this change for any row without a Monarch id — the
+existing hash-based dedup used by manual uploads is untouched.
+`docs/superpowers/specs/2026-09-02-monarch-autoupdate-reporting-design.md`
+has the full design.
+
 ## 2026-08-26 — Optimization-refactor Phase 2 addition: `legacy_floor` CSV-schema wiring
 
 **No pins moved. Pins unchanged: `5,814,607.29 / 1,304,382.77`.**
