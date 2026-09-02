@@ -2811,7 +2811,10 @@ def build_plan_from_json(plan, url_template=''):
     _heir_filing_json = str(a.get('roth_heir_filing_status', 'Single') or 'Single').strip()
     c['roth_heir_filing_status'] = _heir_filing_json if _heir_filing_json in ('Single','MFJ','HOH','MFS') else 'Single'
     c['roth_brk']           = c['roth_target_rate']
-    c['conv_window_offset'] = a.get('conv_window_offset', 0)
+    # -1 matches the CSV path's schema-documented default (see parse_client
+    # above) so conversion_window_end_year's default-vs-explicit signal
+    # (conv_window_offset == -1) is consistent across both config paths.
+    c['conv_window_offset'] = a.get('conv_window_offset', -1)
     c['forced_roth']        = {}
     c['liquidity_buffer_schedule'] = []
     for rec in a.get('liquidity_buffer_schedule', a.get('reserve_schedule', [])) or []:
