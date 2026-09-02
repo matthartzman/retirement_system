@@ -1,0 +1,1042 @@
+# System Review
+
+Performs a complete expert-panel review of a homegrown Retirement Planning system and produces **one auditable document** containing:
+
+**coverage → findings → options → recommendation → target design → implementation plan → validation plan**
+
+Use this skill when the user asks for:
+
+- a complete/system-wide review
+- a health check of the whole system
+- a consolidated improvement plan
+- an expert-panel review
+- a full architectural, usability, documentation, quality, and financial-planning assessment
+
+Do **not** use this skill for reviewing a single diff or isolated change. Use `/code-review` for that.
+
+The objective is to identify, as comprehensively as practical, errors, omissions, risks, inconsistencies, dead code, usability problems, documentation problems, testing gaps, financial-planning gaps, architectural weaknesses, and opportunities for improvement.
+
+The review must distinguish **what was actually inspected** from what was inferred or not validated.
+
+---
+
+## Panel
+
+The review consists of five domain experts plus an orchestrator.
+
+| Role | Charter |
+|---|---|
+| **Architect** | Architecture, efficiency, dead code, retired backward-compatibility shims, modularity, coupling, common-code reuse, data flow, performance |
+| **Usability / Accessibility** | Workflow, consistency, minimal scrolling/clicking, compact screen design, readability, accessibility, cognitive load, error handling |
+| **Documentation** | Clarity for a 60-year-old non-expert, accuracy, discoverability, terminology, removal of boilerplate/redundancy, preserved margins/gutters/layout |
+| **Quality** | Non-redundant but comprehensive testing, unit through end-to-end coverage, boundary cases, regression risk, testability, determinism |
+| **Financial Planner** | Retirement, taxation, Social Security/benefits where applicable, healthcare, estate, inheritance, beneficiaries, survivor scenarios, workflow gaps, financial-domain correctness and new features |
+| **Orchestrator** | Shared recon, sequencing, dependencies, conflict resolution, evidence quality, deduplication, synthesis, implementation waves, validation, final consistency |
+
+The orchestrator is **not** counted as a sixth domain expert.
+
+The financial planner always reviews the complete synthesized document before finalization. The orchestrator applies the planner's resulting edits. This is non-negotiable.
+
+If the planner's changes materially affect architecture, quality, usability, scope, dependencies, or implementation waves, the orchestrator must perform an impact analysis and re-verify affected conclusions before finalization.
+
+---
+
+# How to run it
+
+## 1. Scope
+
+If the user explicitly names a scope, use it verbatim.
+
+Examples:
+
+- "just the reporting layer"
+- "UI only"
+- "retirement calculations and tax logic"
+
+Otherwise use:
+
+`the entire system`
+
+Do not ask for scope unless the request is genuinely ambiguous.
+
+---
+
+## 2. Depth
+
+Default to:
+
+`standard`
+
+Use:
+
+`deep`
+
+when the user says:
+
+- deep
+- thorough
+- exhaustive
+- full
+- pre-release
+- comprehensive
+- after a major architectural change
+- or equivalent wording
+
+Depth changes expert model tiers only.
+
+| Depth | Architect | Financial Planner | Usability | Documentation | Quality | Recon | Verification | Synthesis / Sign-off |
+|---|---|---|---|---|---|---|---|---|
+| `standard` | opus | opus | sonnet | sonnet | sonnet | haiku | sonnet | opus |
+| `deep` | opus | opus | opus | opus | opus | haiku | sonnet | opus |
+
+Architecture and financial-planning judgment remain on opus at both depths.
+
+Recon remains economical because it is evidence collection and system mapping rather than final judgment.
+
+Synthesis and planner sign-off remain opus in both modes.
+
+---
+
+## 3. Output path
+
+Default:
+
+`documentation/reports/SYSTEM_REVIEW_<YYYY-MM-DD>.md`
+
+Use today's date from context.
+
+Do not use `Date.now()` inside workflow scripts.
+
+If the path already exists, use:
+
+- `SYSTEM_REVIEW_<date>-2.md`
+- `SYSTEM_REVIEW_<date>-3.md`
+- etc.
+
+Never overwrite a previous review.
+
+---
+
+## 4. Execute the workflow
+
+This skill explicitly requires the `Workflow` tool.
+
+Run:
+
+```text
+Workflow({
+  name: "system-review",
+  args: {
+    scope: "<scope, or 'the entire system'>",
+    date: "<YYYY-MM-DD>",
+    outPath: "<selected output path>",
+    depth: "standard"
+  }
+})
+````
+
+Use `"deep"` for deep reviews.
+
+Do not replace the workflow with an improvised sequence unless the Workflow tool is unavailable.
+
+---
+
+# Core review principle
+
+The workflow must not equate:
+
+> "no finding"
+
+with:
+
+> "area is healthy."
+
+Every expert must distinguish:
+
+1. **Inspected and no material finding**
+2. **Inspected and finding identified**
+3. **Partially inspected**
+4. **Not inspected**
+5. **Could not validate**
+6. **Requires external/domain verification**
+
+The final report must expose these distinctions.
+
+The goal is maximum practical coverage, not an unsupported claim of absolute completeness.
+
+---
+
+# Workflow
+
+## Phase 1 — Reconnaissance
+
+Run three reconnaissance passes in parallel:
+
+1. **Engine / Architecture / Calculations**
+2. **UI / Workflows**
+3. **Tests / Documentation / Data / Configuration**
+
+Reconnaissance uses haiku.
+
+Recon must produce a shared normalized system map rather than three unrelated summaries.
+
+The system map should identify, where applicable:
+
+* application entry points
+* major modules
+* calculation engines
+* financial-domain logic
+* data models
+* persistence/import/export
+* UI screens/routes/components
+* major user workflows
+* tests
+* documentation
+* configuration
+* external dependencies
+* generated files
+* potentially obsolete compatibility layers
+* known risk areas
+
+The five experts consume this map rather than independently rediscovering the repository structure.
+
+---
+
+# Phase 2 — Establish review coverage
+
+Before expert conclusions are synthesized, construct a coverage matrix.
+
+At minimum consider:
+
+* architecture
+* calculation engine
+* financial logic
+* retirement workflows
+* tax logic
+* benefits/Social Security where applicable
+* healthcare
+* estate/inheritance
+* beneficiaries
+* survivor scenarios
+* data integrity
+* input validation
+* numerical correctness
+* date handling
+* rounding/precision
+* edge cases
+* UI/workflows
+* accessibility
+* performance
+* security/privacy
+* documentation
+* testing
+* configuration
+* imports/exports
+* persistence
+* error handling
+* observability/logging where applicable
+
+The exact categories may be adapted to the actual system.
+
+For each area record:
+
+* inspected status
+* evidence
+* expert responsible
+* findings
+* residual uncertainty
+
+Do not invent review areas that are irrelevant to the system; record them as not applicable when appropriate.
+
+---
+
+# Phase 3 — Expert review
+
+Run all five expert reviews in parallel.
+
+Each expert must return structured findings.
+
+Every material finding must contain:
+
+```text
+Finding ID
+Expert
+Category
+Severity
+Confidence
+Status
+Evidence
+Observed behavior
+Why it matters
+Affected workflows/scenarios
+Root cause
+Options
+Recommendation
+Dependencies
+Implementation considerations
+Risk of change
+Verification method
+```
+
+---
+
+## Evidence requirements
+
+Every finding must cite evidence from files the expert actually opened.
+
+Preferred form:
+
+```text
+Evidence:
+- path/to/file.py:142-161 — function/symbol name
+- path/to/test_tax.py:88-104 — test name
+- path/to/config.json:17-24 — relevant configuration
+```
+
+Line ranges are preferred over single-line references.
+
+Where practical include a short description of what the cited evidence establishes.
+
+Do not make a claim based solely on an uninspected file.
+
+Do not cite a file merely because another agent mentioned it.
+
+The expert must have actually opened the cited evidence.
+
+If the evidence is incomplete, mark confidence accordingly.
+
+---
+
+# Severity
+
+Severity and implementation effort are separate dimensions.
+
+Use:
+
+### Critical
+
+Potential for:
+
+* materially incorrect financial results
+* harmful financial guidance
+* data corruption or loss
+* severe security/privacy exposure
+* catastrophic workflow failure
+* widespread incorrect calculations
+
+### High
+
+Potential for:
+
+* significant incorrect results
+* major workflow failure
+* important financial-domain omission
+* major regression risk
+* substantial user population impact
+* serious maintainability problem
+
+### Medium
+
+Meaningful:
+
+* functional limitation
+* usability problem
+* documentation gap
+* test gap
+* maintainability issue
+* moderate technical debt
+
+### Low
+
+Minor:
+
+* polish
+* wording
+* low-impact technical debt
+* small consistency issue
+* minor documentation improvement
+
+If severity is uncertain, explain why.
+
+Do not inflate severity merely because a finding is interesting.
+
+---
+
+# Confidence
+
+Every material finding must have:
+
+* `high`
+* `medium`
+* `low`
+
+Confidence reflects evidence quality, not severity.
+
+A Critical finding can have low confidence if it requires runtime or external validation.
+
+---
+
+# Options
+
+Each material finding should provide 2–3 real options **when meaningful**.
+
+Options must contain tradeoffs.
+
+Possible options include:
+
+* recommended change
+* alternative implementation
+* defer/do nothing
+
+Do not manufacture artificial alternatives.
+
+If the issue is an objective correctness defect, explicitly say:
+
+> No credible alternative; this is a correctness defect.
+
+For every option consider:
+
+* correctness
+* user impact
+* implementation effort
+* maintenance
+* regression risk
+* financial-domain implications
+* dependencies
+* future flexibility
+
+---
+
+# Cross-cutting expert checks
+
+All experts should identify issues relevant to their charter, but the review as a whole must explicitly consider the following.
+
+## Financial calculation correctness
+
+Check for:
+
+* rounding
+* precision
+* compounding
+* inflation
+* tax brackets
+* marginal vs effective rates
+* annual/monthly conversions
+* date boundaries
+* leap years where relevant
+* withdrawal calculations
+* account sequencing
+* portfolio depletion
+* scenario assumptions
+* deterministic calculations
+* stochastic/Monte Carlo assumptions where applicable
+
+Do not assume that numerically plausible output is correct.
+
+---
+
+## Boundary and scenario coverage
+
+Look for relevant boundary conditions, including where applicable:
+
+* early retirement
+* late retirement
+* benefit claiming boundaries
+* required-distribution boundaries
+* account depletion
+* zero balances
+* very large balances
+* zero/negative income
+* high income
+* high inflation
+* prolonged poor returns
+* exceptional longevity
+* death of either spouse
+* survivor household
+* remarriage
+* beneficiary changes
+* inherited accounts
+* missing or incomplete inputs
+
+Do not treat example ages or rule thresholds as universal. Validate against the system's jurisdiction and applicable rule year.
+
+---
+
+## Tax and legal assumptions
+
+For tax or estate findings, identify where possible:
+
+* jurisdiction
+* tax year/rule year
+* source of the rule
+* whether the rule is configurable
+* whether the assumption is documented
+* whether the system distinguishes planning assumptions from authoritative advice
+
+Do not present jurisdiction- or year-specific tax/legal conclusions as universally valid.
+
+Flag areas requiring human professional validation.
+
+---
+
+## Data integrity
+
+Review:
+
+* missing values
+* invalid values
+* duplicate records
+* inconsistent units
+* date formats
+* stale data
+* account ownership
+* household relationships
+* persistence
+* imports/exports
+* serialization
+* migration behavior
+* data loss
+* rounding/storage mismatches
+
+---
+
+## Security and privacy
+
+Where applicable inspect:
+
+* financial data exposure
+* secrets
+* authentication
+* authorization
+* file permissions
+* logs
+* exports
+* backups
+* sensitive error messages
+* third-party integrations
+* agent/AI exposure
+* accidental disclosure
+
+---
+
+## Accessibility
+
+Do not equate "easy for a 60-year-old" with accessibility.
+
+Check where applicable:
+
+* font size
+* contrast
+* keyboard navigation
+* focus behavior
+* semantic structure
+* screen-reader support
+* touch targets
+* error messages
+* cognitive load
+* consistent terminology
+
+---
+
+# Phase 4 — Quality and runtime validation
+
+The default workflow is read-only.
+
+The test suite must **not be executed against the canonical repository/data**.
+
+If tests can modify files under `input/`, assume execution is unsafe unless isolated execution is explicitly available.
+
+The Quality expert must therefore distinguish:
+
+### Static validation
+
+Can assess:
+
+* test coverage
+* missing test cases
+* test quality
+* assertions
+* fixtures
+* mocks
+* edge cases
+* regression coverage
+* test redundancy
+* determinism by inspection
+
+### Runtime validation
+
+Can only be claimed if tests or application behavior were actually executed safely.
+
+Never state or imply that tests pass merely because test code was inspected.
+
+If isolated execution is available, it may be used only when:
+
+* source remains unchanged
+* canonical inputs remain unchanged
+* production/personal data is not modified
+* the execution environment is disposable
+* results can be captured safely
+
+If runtime execution is not performed, the final report must explicitly say:
+
+> Runtime behavior was not validated during this review.
+
+---
+
+# Phase 5 — Adversarial verification
+
+As each expert finishes, begin verification rather than waiting for all experts.
+
+Verify every:
+
+* Critical finding
+* High finding
+* material architectural finding
+* material financial-domain finding
+* finding with low/medium confidence
+* finding that materially changes implementation scope
+
+The verifier's job is not merely to disagree.
+
+It must test:
+
+1. Is the finding supported by the cited evidence?
+2. Is the evidence sufficient?
+3. Is the severity correct?
+4. Is the finding already mitigated elsewhere?
+5. Is it duplicated?
+6. Is the proposed solution actually appropriate?
+7. Are there counterexamples?
+8. Could the issue be more serious than reported?
+9. What assumptions are unresolved?
+
+Allowed statuses:
+
+* `confirmed`
+* `partially-confirmed`
+* `refuted`
+* `duplicate`
+* `superseded`
+* `insufficient-evidence`
+
+A verifier may increase severity.
+
+A refuted finding must never disappear silently.
+
+Retain material rejected/refuted findings in an audit/disposition appendix with:
+
+* finding ID
+* original claim
+* verifier result
+* reason
+* evidence
+* final disposition
+
+---
+
+# Phase 6 — Synthesis
+
+The orchestrator synthesizes the verified findings using opus.
+
+The synthesis must:
+
+1. deduplicate findings
+2. reconcile evidence
+3. resolve conflicting expert recommendations
+4. distinguish severity from effort
+5. distinguish priority from dependency
+6. identify root causes
+7. identify systemic patterns
+8. recommend a target design
+9. produce implementation waves
+10. define validation criteria
+
+---
+
+## Conflict resolution
+
+When experts disagree, explicitly record:
+
+```text
+Conflict
+Alternatives
+Decision criterion
+Decision
+Rationale
+Consequence
+```
+
+Use the following default priority hierarchy when applicable:
+
+1. financial safety / calculation correctness
+2. data integrity
+3. legal/regulatory correctness
+4. security/privacy
+5. functional correctness
+6. maintainability
+7. usability/accessibility
+8. documentation
+9. performance/cost optimization
+10. cosmetic polish
+
+This hierarchy is a default, not an excuse to ignore important usability or architectural consequences.
+
+---
+
+# Target design
+
+The synthesized report must describe the recommended future state, not merely list fixes.
+
+Where applicable include:
+
+* module boundaries
+* responsibilities
+* shared/common code
+* data flow
+* calculation flow
+* UI workflow
+* validation boundaries
+* error handling
+* persistence
+* testing strategy
+* documentation structure
+* financial-domain assumptions
+* migration considerations
+
+The design must be consistent with the findings and implementation plan.
+
+---
+
+# Implementation plan
+
+Create dependency-ordered implementation waves.
+
+Each work item should include:
+
+```text
+ID
+Change
+Reason / finding IDs
+Dependencies
+Priority
+Effort
+Risk
+Owner role
+Parallel group
+Validation method
+Exit criteria
+Recommended model tier
+```
+
+Distinguish:
+
+* priority order
+* dependency order
+* parallel execution opportunities
+
+Do not claim tasks are parallelizable if they modify the same underlying component or have an unrecognized dependency.
+
+Use the **minimal effective model** for each implementation task.
+
+Do not automatically use opus for every task.
+
+---
+
+# Wave validation
+
+Every material implementation item must have an explicit validation method.
+
+Examples:
+
+* unit test
+* regression test
+* fixture
+* scenario test
+* UI workflow test
+* static verification
+* financial-planner review
+* documentation review
+* end-to-end test in isolated environment
+
+The implementation plan is incomplete if a material change has no credible way to verify it.
+
+---
+
+# Phase 7 — Financial planner sign-off
+
+The financial planner reviews the **finished synthesized document**, not merely the original findings.
+
+The planner must assess:
+
+* financial-domain correctness
+* retirement workflow completeness
+* tax assumptions
+* estate/inheritance considerations
+* survivor scenarios
+* beneficiary considerations
+* missing workflows/features
+* dangerous assumptions
+* misleading language
+* whether recommendations could lead to materially harmful decisions
+
+The planner returns a verdict such as:
+
+* `approved`
+* `approved-with-changes`
+* `not-approved`
+
+The planner must identify every required change.
+
+The orchestrator applies those edits.
+
+---
+
+# Material planner changes
+
+If planner sign-off changes any of:
+
+* severity
+* recommendation
+* architecture
+* scope
+* implementation priority
+* dependencies
+* testing requirements
+* financial assumptions
+
+then perform an impact analysis.
+
+Re-verify affected findings and implementation waves.
+
+Do not finalize a document whose recommendation and implementation plan are internally inconsistent.
+
+Record unresolved planner/orchestrator disagreements in the open-questions or dissent appendix.
+
+---
+
+# Final report structure
+
+The single output document should contain:
+
+## 1. Executive summary
+
+Include:
+
+* overall assessment
+* most important risks
+* most important opportunities
+* planner verdict
+* top recommendations
+
+## 2. Scope and methodology
+
+Include:
+
+* scope
+* date
+* depth
+* expert roles
+* model tiers
+* workflow phases
+* runtime validation status
+
+## 3. Coverage matrix
+
+Show:
+
+* area
+* inspected status
+* evidence
+* findings
+* residual uncertainty
+
+## 4. System health assessment
+
+Summarize:
+
+* architecture
+* usability/accessibility
+* documentation
+* quality/testing
+* financial planning/domain correctness
+* data integrity
+* security/privacy
+* performance
+
+## 5. Material findings
+
+For each finding include:
+
+* ID
+* severity
+* confidence
+* status
+* evidence
+* impact
+* root cause
+* options
+* recommendation
+* verification method
+
+## 6. Options and tradeoffs
+
+Present meaningful strategic alternatives.
+
+## 7. Recommendation
+
+State the recommended direction clearly.
+
+Do not merely average expert opinions.
+
+## 8. Target design
+
+Describe the recommended future state.
+
+## 9. Implementation waves
+
+Provide dependency-ordered, parallelizable work.
+
+## 10. Validation plan
+
+Explain how each major change and the resulting system will be validated.
+
+## 11. Assumptions and open questions
+
+Include:
+
+* unresolved technical questions
+* unresolved financial-domain questions
+* jurisdiction/rule-year assumptions
+* external facts requiring confirmation
+* areas requiring human professional review
+
+## 12. Review limitations
+
+Explicitly state:
+
+* files/areas not inspected
+* runtime behavior not validated
+* external dependencies not validated
+* assumptions
+* unavailable evidence
+
+## 13. Finding disposition appendix
+
+Retain:
+
+* refuted
+* duplicate
+* superseded
+* insufficient-evidence
+
+material findings and explain their disposition.
+
+## 14. Financial planner sign-off
+
+Include:
+
+* verdict
+* requested changes
+* final resolution
+* unresolved dissent, if any
+
+---
+
+# Read-only constraints
+
+The review must be read-only with respect to the system under review.
+
+Do not:
+
+* edit source files
+* edit tests
+* edit configuration
+* modify application data
+* modify canonical inputs
+* commit changes
+* create implementation patches
+
+The designated report is the only file written by the workflow.
+
+If isolated runtime validation creates temporary artifacts, they must remain outside the canonical project and be cleaned up afterward.
+
+---
+
+# Completeness rules
+
+The workflow must attempt to identify all practical categories of:
+
+* errors
+* omissions
+* inconsistencies
+* duplicated logic
+* dead code
+* obsolete compatibility shims
+* architectural problems
+* usability problems
+* accessibility problems
+* documentation gaps
+* test gaps
+* data-integrity risks
+* security/privacy risks
+* performance issues
+* financial-planning workflow gaps
+* tax/estate/inheritance gaps
+* calculation errors
+* boundary-condition failures
+
+Do not claim absolute completeness.
+
+Instead report residual uncertainty and uninspected areas.
+
+---
+
+# Cost and iteration
+
+At standard depth, the workflow uses approximately 15–25 agent invocations depending on repository size, verification volume, and planner feedback.
+
+Do not state an exact invocation count unless the Workflow result provides one.
+
+The important cost allocation is:
+
+* reconnaissance: economical
+* domain judgment: opus
+* adversarial verification: sonnet
+* synthesis: opus
+* planner sign-off: opus
+
+To re-run after editing the workflow script:
+
+```text
+Workflow({
+  scriptPath: ".claude/workflows/system-review.js",
+  resumeFromRunId: "<runId>"
+})
+```
+
+The unchanged prefix should return from cache and only the edited stage onward should rerun.
+
+---
+
+# Completion response
+
+When the workflow completes, report:
+
+1. final document path
+2. per-expert counts, including:
+
+   * confirmed
+   * partially-confirmed
+   * refuted
+   * duplicate/superseded
+   * insufficient-evidence
+3. financial planner verdict
+4. 3–5 headline recommendations
+5. major review limitations
+
+Then offer:
+
+> "I can start Wave 1 when you're ready."
+
+Do **not** start Wave 1 automatically.
+:::
