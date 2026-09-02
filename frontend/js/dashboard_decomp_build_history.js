@@ -373,69 +373,76 @@ export function impactCardHtml(
   return `<div class="impact-card"><span>${esc(title)}${infoIcon}</span><b class="${headlineColorClass}">${headline}</b><div class="impact-headline-label">${headlineLabel}</div><div class="impact-row"><span>Before</span><strong class="${bNeg ? "negative-money" : ""}">${valueFormatter(beforeVal)}</strong></div><div class="impact-row"><span>After</span><strong class="${aNeg ? "negative-money" : ""}">${valueFormatter(afterVal)}</strong></div></div>`;
 }
 
+// #293: the three headline cards report Expected After-Tax Lifetime
+// Consumption-and-Transfer Value (LCV), NPV of Future Taxes, and Worst-Case
+// Ending Wealth (5th percentile Monte Carlo outcome) -- replacing raw
+// Terminal Net Worth, nominal Lifetime Taxes, and Probability of Success.
 export function buildImpactCardsHtml(before, after) {
-  const dNw =
-    Number.isFinite(after.terminal_nw) && Number.isFinite(before.terminal_nw)
-      ? after.terminal_nw - before.terminal_nw
+  const dLcv =
+    Number.isFinite(after.lcv) && Number.isFinite(before.lcv)
+      ? after.lcv - before.lcv
       : null;
-  const dTax =
-    Number.isFinite(after.lifetime_tax) && Number.isFinite(before.lifetime_tax)
-      ? after.lifetime_tax - before.lifetime_tax
+  const dNpvTax =
+    Number.isFinite(after.npv_future_taxes) && Number.isFinite(before.npv_future_taxes)
+      ? after.npv_future_taxes - before.npv_future_taxes
       : null;
-  const mcBefore = Number.isFinite(before.mc_success)
-    ? before.mc_success * 100
-    : before.mc_success;
-  const mcAfter = Number.isFinite(after.mc_success)
-    ? after.mc_success * 100
-    : after.mc_success;
-  const dMc =
-    Number.isFinite(mcAfter) && Number.isFinite(mcBefore)
-      ? mcAfter - mcBefore
+  const dP5 =
+    Number.isFinite(after.terminal_nw_mc_p5) && Number.isFinite(before.terminal_nw_mc_p5)
+      ? after.terminal_nw_mc_p5 - before.terminal_nw_mc_p5
       : null;
-  // #202: success_rate also requires keeping the configured reserve floor, so
-  // a reserve-setting change can move this number even when the plan's real
-  // chance of running out of money didn't change. Show the no-ruin figure
-  // alongside so that distinction isn't lost.
-  const mcNoRuinBefore = Number.isFinite(before.mc_success_no_ruin)
-    ? before.mc_success_no_ruin * 100
-    : before.mc_success_no_ruin;
-  const mcNoRuinAfter = Number.isFinite(after.mc_success_no_ruin)
-    ? after.mc_success_no_ruin * 100
-    : after.mc_success_no_ruin;
-  const noRuinNote =
-    Number.isFinite(mcNoRuinBefore) || Number.isFinite(mcNoRuinAfter)
-      ? `<div class="small">Without the reserve-floor requirement (ran out of money at all): ${Number.isFinite(mcNoRuinBefore) ? fmtPct(mcNoRuinBefore) : "—"} → ${Number.isFinite(mcNoRuinAfter) ? fmtPct(mcNoRuinAfter) : "—"}</div>`
-      : "";
-  const riskCard =
-    Number.isFinite(mcAfter) || Number.isFinite(mcBefore)
+  const worstCaseCard =
+    Number.isFinite(after.terminal_nw_mc_p5) || Number.isFinite(before.terminal_nw_mc_p5)
       ? impactCardHtml(
-          "Probability of Success",
-          dMc,
-          mcBefore,
-          mcAfter,
-          fmtPct,
-          "Higher is generally better. This is the clearest risk-adjusted plan outcome when Monte Carlo results are available. Requires both not running out of money and keeping the configured reserve floor every year.",
-          fmtPctDelta,
+          "Worst-Case Ending Wealth (5th %ile)",
+          dP5,
+          before.terminal_nw_mc_p5,
+          after.terminal_nw_mc_p5,
+          fmtMoney,
+          "The 5th-percentile ending net worth across Monte Carlo simulation paths -- what the plan leaves even in a bad-market scenario, without collapsing risk into a single pass/fail probability.",
+          fmtDelta,
         )
-      : `<div class="impact-card"><span>Risk indicator</span><b>Not available</b><div class="impact-row"><span>Before</span><strong>${Number.isFinite(before.blended_return_info) ? fmtPct(before.blended_return_info) : "Not available"}</strong></div><div class="impact-row"><span>After</span><strong>${Number.isFinite(after.blended_return_info) ? fmtPct(after.blended_return_info) : "Not available"}</strong></div><div class="small">Probability of success was not available for this comparison.</div></div>`;
+      : `<div class="impact-card"><span>Worst-Case Ending Wealth (5th %ile)</span><b>Not available</b><div class="small">Monte Carlo results were not available for this comparison.</div></div>`;
   // #225: Post-Tax Inheritance was shown as its own headline card here AND
   // separately on Estate & Legacy Plan, computed at a different point in the
   // timeline (terminal plan year here vs. second-death year there) -- the two
   // numbers legitimately differ and showing both as equivalent headline
   // figures reads as a bug. Keep PTI as the Estate & Legacy Plan's own
-  // number; here, only note the estate-tax bite on the Terminal Net Worth
-  // card, and only when it's actually nonzero.
+  // number; here, only note the estate-tax bite baked into LCV's terminal
+  // component, and only when it's actually nonzero.
   const afterEstateTax = Number.isFinite(after.after_tax_terminal_nw) && Number.isFinite(after.post_tax_inheritance)
     ? after.after_tax_terminal_nw - after.post_tax_inheritance
     : null;
   const estateTaxNote =
     afterEstateTax !== null && Math.abs(afterEstateTax) > 0.5
-      ? `<div class="small">Post-inheritance (estate) tax reduces this by ${fmtMoney(afterEstateTax)} to ${fmtMoney(after.post_tax_inheritance)} for heirs. See Estate &amp; Legacy Plan for the figure at second death.</div>`
+      ? `<div class="small">LCV's terminal-transfer component is already net of estate tax (${fmtMoney(afterEstateTax)} reduced to ${fmtMoney(after.post_tax_inheritance)} for heirs). See Estate &amp; Legacy Plan for the figure at second death.</div>`
       : "";
-  const nwCard = impactCardHtml("Terminal net worth", dNw, before.terminal_nw, after.terminal_nw, fmtMoney, "Gross projected terminal net worth before embedded tax on remaining pre-tax assets: deferred ordinary tax on pre-tax retirement accounts plus deferred capital-gains tax on taxable brokerage assets.");
-  const notes = [estateTaxNote, noRuinNote].filter(Boolean).join("");
+  const lcvCard = impactCardHtml("Expected After-Tax LCV", dLcv, before.lcv, after.lcv, fmtMoney, "Lifetime Consumption-and-Transfer Value: total spending across the plan plus the after-tax, after-estate-tax terminal transfer to heirs (Post-Tax Inheritance) -- the household's total expected financial welfare, not just what's left at the end.");
+  // #293: Effective Future Tax Rate (EFTR) -- an added 4th stat, not a
+  // dial-replacement like the three above. Already computed by
+  // compute_future_lcv_and_eftr (total future tax / total future gross cash
+  // flow, current year through plan end); this card just surfaces it here.
+  const dEftr =
+    Number.isFinite(after.eftr) && Number.isFinite(before.eftr)
+      ? (after.eftr - before.eftr) * 100
+      : null;
+  const eftrBefore = Number.isFinite(before.eftr) ? before.eftr * 100 : before.eftr;
+  const eftrAfter = Number.isFinite(after.eftr) ? after.eftr * 100 : after.eftr;
+  const eftrCard =
+    Number.isFinite(eftrAfter) || Number.isFinite(eftrBefore)
+      ? impactCardHtml(
+          "Effective Future Tax Rate (EFTR)",
+          dEftr,
+          eftrBefore,
+          eftrAfter,
+          fmtPct,
+          "Total future taxes divided by total future gross cash flow, from the current year through the end of the plan -- the household's blended tax burden on every dollar that flows through the plan from here on.",
+          fmtPctDelta,
+          true,
+        )
+      : "";
+  const notes = [estateTaxNote].filter(Boolean).join("");
   const notesHtml = notes ? `<div class="impact-notes">${notes}</div>` : "";
-  return `<div class="impact-grid">${nwCard} ${impactCardHtml("Lifetime taxes", dTax, before.lifetime_tax, after.lifetime_tax, fmtMoney, "Estimated taxes paid during the projection.", fmtDelta, true)} ${riskCard}</div>${notesHtml}`;
+  return `<div class="impact-grid">${lcvCard} ${impactCardHtml("NPV of Future Taxes", dNpvTax, before.npv_future_taxes, after.npv_future_taxes, fmtMoney, "Total taxes paid, discounted to today's dollars at the plan's assumed portfolio return rate -- an apples-to-apples way to compare an early Roth conversion against a late RMD.", fmtDelta, true)} ${worstCaseCard} ${eftrCard}</div>${notesHtml}`;
 }
 
 export function impactDirectionWord(delta, kind) {
@@ -472,26 +479,29 @@ export function buildImpactSourceLinksHtml(changes) {
   return `<ul class="build-impact-source-list">${items}</ul>`;
 }
 
+// #293: narrative points reference LCV / NPV of Future Taxes / Worst-Case
+// (5th %ile) Ending Wealth instead of raw terminal net worth, nominal
+// lifetime tax, and Monte Carlo pass/fail probability.
 export function buildImpactNarrativeHtml(entry) {
   entry = entry || {};
   const before = currentKpi(entry.before || {}),
     after = currentKpi(entry.after || {});
-  const dNw =
-    Number.isFinite(after.terminal_nw) && Number.isFinite(before.terminal_nw)
-      ? after.terminal_nw - before.terminal_nw
+  const dLcv =
+    Number.isFinite(after.lcv) && Number.isFinite(before.lcv)
+      ? after.lcv - before.lcv
       : null;
-  const dTax =
-    Number.isFinite(after.lifetime_tax) && Number.isFinite(before.lifetime_tax)
-      ? after.lifetime_tax - before.lifetime_tax
+  const dNpvTax =
+    Number.isFinite(after.npv_future_taxes) && Number.isFinite(before.npv_future_taxes)
+      ? after.npv_future_taxes - before.npv_future_taxes
       : null;
   const dAfterTax =
     Number.isFinite(after.after_tax_terminal_nw) &&
     Number.isFinite(before.after_tax_terminal_nw)
       ? after.after_tax_terminal_nw - before.after_tax_terminal_nw
       : null;
-  const dMc =
-    Number.isFinite(after.mc_success) && Number.isFinite(before.mc_success)
-      ? (after.mc_success - before.mc_success) * 100
+  const dP5 =
+    Number.isFinite(after.terminal_nw_mc_p5) && Number.isFinite(before.terminal_nw_mc_p5)
+      ? after.terminal_nw_mc_p5 - before.terminal_nw_mc_p5
       : null;
   const changed = (entry.changes || []).length,
     adminChanged = (entry.admin_changes || []).length;
@@ -500,21 +510,21 @@ export function buildImpactNarrativeHtml(entry) {
   if (changed || adminChanged)
     lead = `This build compared ${changed} user input change${changed === 1 ? "" : "s"}${adminChanged ? ` plus ${adminChanged} admin/config event${adminChanged === 1 ? "" : "s"}` : ""} against the session baseline.`;
   const points = [];
+  if (Number.isFinite(dLcv))
+    points.push(
+      `Expected After-Tax LCV ${impactDirectionWord(dLcv)} by ${fmtDelta(dLcv)}.`,
+    );
   if (Number.isFinite(dAfterTax))
     points.push(
       `Post-Tax Inheritance ${impactDirectionWord(dAfterTax)} by ${fmtDelta(dAfterTax)}.`,
     );
-  if (Number.isFinite(dNw))
+  if (Number.isFinite(dNpvTax))
     points.push(
-      `Gross terminal net worth ${impactDirectionWord(dNw)} by ${fmtDelta(dNw)}.`,
+      `NPV of future taxes ${impactDirectionWord(dNpvTax, "tax")} by ${fmtDelta(dNpvTax)}.`,
     );
-  if (Number.isFinite(dTax))
+  if (Number.isFinite(dP5))
     points.push(
-      `Lifetime taxes ${impactDirectionWord(dTax, "tax")} by ${fmtDelta(dTax)}.`,
-    );
-  if (Number.isFinite(dMc))
-    points.push(
-      `Probability of success ${impactDirectionWord(dMc)} by ${fmtPctDelta(dMc)}.`,
+      `Worst-case (5th percentile) ending wealth ${impactDirectionWord(dP5)} by ${fmtDelta(dP5)}.`,
     );
   if (!points.length)
     points.push(
@@ -522,17 +532,17 @@ export function buildImpactNarrativeHtml(entry) {
     );
   let riskNote =
     "Use the source links below to inspect the inputs behind the measured changes before accepting the build as the new baseline.";
-  if (Number.isFinite(dMc) && dMc < 0)
+  if (Number.isFinite(dP5) && dP5 < 0)
     riskNote =
-      "Risk moved down, so treat higher net worth or lower tax results as tentative until you recover Monte Carlo success or explicitly accept more downside risk.";
+      "Worst-case ending wealth moved down, so treat a higher LCV or lower tax result as tentative until you recover bear-market durability or explicitly accept more downside risk.";
   else if (
-    Number.isFinite(dTax) &&
-    dTax > 0 &&
+    Number.isFinite(dNpvTax) &&
+    dNpvTax > 0 &&
     Number.isFinite(dAfterTax) &&
     dAfterTax > 0
   )
     riskNote =
-      "Taxes rose, but after-tax inheritance also improved; review allocation or income timing sources to confirm the tradeoff was intentional.";
+      "The NPV of future taxes rose, but after-tax inheritance also improved; review allocation or income timing sources to confirm the tradeoff was intentional.";
   else if (Number.isFinite(dAfterTax) && dAfterTax < 0)
     riskNote =
       "After-tax inheritance fell; start with the largest source-page change and test one rollback or lever at a time.";
