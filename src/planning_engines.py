@@ -2718,9 +2718,11 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
     # state's own default exemption when passed None, but this preserves the
     # exact pre-refactor behavior of always using whatever il_exempt resolves
     # to (including 0.0, which taxes the entire estate above $0, not the
-    # state's default exemption).
-    state_exempt = max(0.0, float(c.get('il_exempt', 0.0) or 0.0))
+    # state's default exemption). Item 3.6 (F5): resolved_state_estate_exemption
+    # corrects the shipped $4M (Illinois's own exemption) default for a
+    # non-Illinois resident state to that state's real statutory exemption.
     resident_state = str(c.get('state', '') or '')
+    state_exempt = resolved_state_estate_exemption(resident_state, float(c.get('il_exempt', 0.0) or 0.0))
 
     def _estate_tax_for_row(row: Mapping) -> float:
         row_total = max(0.0, float(row.get('total_nw', 0.0) or 0.0))
@@ -2730,8 +2732,10 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
         federal_taxable = max(0.0, row_total - (row_cst if c.get('federal_portability_enabled', True) else 0.0))
         state_taxable = max(0.0, row_total - row_cst)
         federal_tax = max(0.0, federal_taxable - fed_exempt) * 0.40 if fed_exempt else 0.0
+        # Item 3.6 (F5): New York's 3-year gift add-back.
+        gift_addback = max(0.0, float(row.get('gift_total_last_3yr', 0.0) or 0.0))
         state_tax = (
-            state_estate_tax(resident_state, state_taxable, state_exempt)[0]
+            state_estate_tax(resident_state, state_taxable, state_exempt, gift_addback=gift_addback)[0]
             if c.get('model_state_est', True) and state_exempt
             else 0.0
         )

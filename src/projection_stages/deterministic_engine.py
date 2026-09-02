@@ -555,6 +555,13 @@ def run_deterministic_projection_stage(c):
     # policy (fixed_real/guyton_klinger/floor_ceiling_band), carried across
     # years by spending_guardrail_year -- {} on the first active year.
     _spend_guardrail_state: dict = {}
+    # Item 3.6 (F5): rolling 3-calendar-year window of gift_total_yr, for New
+    # York's 3-year gift add-back (NY Tax Law Β§954(a)(3) -- gifts made within
+    # 3 years of death are added back into the NY gross estate even though
+    # federal law no longer adds them back). A plain list capped at 3 entries
+    # -- this year plus the two before it -- rather than a full rows scan,
+    # since only the terminal (death) year's row ever reads it.
+    _recent_gift_totals: list = []
 
     for year in range(c['plan_start'], c['plan_end']+1):
         h_age = year - c['h_dob_yr']
@@ -1379,6 +1386,10 @@ def run_deterministic_projection_stage(c):
         row['gift_total_yr'] = gift_total_yr
         row['gift_excess_over_exclusion_yr'] = gift_excess_over_exclusion_yr
         row['lifetime_exemption_used_cumulative'] = lifetime_exemption_used
+        _recent_gift_totals.append(gift_total_yr)
+        if len(_recent_gift_totals) > 3:
+            _recent_gift_totals.pop(0)
+        row['gift_total_last_3yr'] = sum(_recent_gift_totals)
 
         portfolio_ordinary, portfolio_qualified, portfolio_tax_exempt = _taxable_portfolio_income_for_year()
         # Informational only — taxable dividend/interest income for the year,

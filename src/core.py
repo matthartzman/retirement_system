@@ -1187,7 +1187,87 @@ def illinois_estate_tax(gross_estate, exemption=4_000_000.0, iterations=30):
     return max(0.0, tax)
 
 
-def state_estate_tax(state, taxable_estate, exemption=None):
+def new_york_estate_tax(taxable_estate, exemption, gift_addback=0.0, iterations=30):
+    """Item 3.6 (F5): New York's graduated-rate estate tax, including its
+    105%-of-exemption cliff and the three-year gift add-back (NY Tax Law
+    Β§954(a)(3) -- NY decoupled from the federal repeal of the 3-year rule,
+    so gifts made within 3 years of death are added back into the NY gross
+    estate even though they are NOT added back federally).
+
+    Rate table (NY DTF Form ET-706 instructions; stable published schedule,
+    NOT statutorily re-indexed the way the exemption amount is):
+        $0-$500k: 3.06%; then increasing marginal rates to 16% above $10.1M.
+
+    The cliff: an estate at or above 105% of the exemption gets NO exclusion
+    at all -- the full estate is taxed from dollar one, not just the excess.
+    Between 100% and 105% is a narrow phase-out band; NY's own real credit
+    formula for that band is more intricate than reproduced here. This
+    approximates it by linearly scaling the taxable base from $0 (at exactly
+    100% of the exemption) up to the full estate (at 105%), which reproduces
+    the cliff's qualitative shape -- a small band of estates paying tax that
+    rises far faster than their estate size did -- without claiming table
+    accuracy inside that narrow band. Documented approximation, not an
+    oversight, matching this codebase's own convention (e.g. item 3.3's EDB
+    stretch-years default).
+    """
+    gross = max(0.0, float(taxable_estate or 0.0)) + max(0.0, float(gift_addback or 0.0))
+    exempt = max(0.0, float(exemption or 0.0))
+    if exempt <= 0.0:
+        taxable_base = gross
+    elif gross <= exempt:
+        return 0.0
+    else:
+        cliff = exempt * 1.05
+        if gross >= cliff:
+            taxable_base = gross  # cliff: no exclusion at all above 105% of the exemption
+        else:
+            frac = (gross - exempt) / (cliff - exempt)
+            taxable_base = gross * max(0.0, min(1.0, frac))
+    table = [
+        (0, 500_000, 0, 0.0306), (500_000, 1_000_000, 15_300, 0.05),
+        (1_000_000, 1_500_000, 40_300, 0.055), (1_500_000, 2_100_000, 67_800, 0.065),
+        (2_100_000, 2_600_000, 107_700, 0.07), (2_600_000, 3_100_000, 142_700, 0.075),
+        (3_100_000, 3_600_000, 180_200, 0.08), (3_600_000, 4_100_000, 220_200, 0.088),
+        (4_100_000, 5_100_000, 264_200, 0.096), (5_100_000, 6_100_000, 360_200, 0.104),
+        (6_100_000, 7_100_000, 464_200, 0.112), (7_100_000, 8_100_000, 576_200, 0.12),
+        (8_100_000, 9_100_000, 696_200, 0.128), (9_100_000, 10_100_000, 824_200, 0.136),
+        (10_100_000, float('inf'), 960_200, 0.16),
+    ]
+    for lo, hi, base, rate in table:
+        if taxable_base <= lo:
+            return 0.0
+        if taxable_base <= hi:
+            return max(0.0, base + (taxable_base - lo) * rate)
+    return 0.0
+
+
+def resolved_state_estate_exemption(state, configured_exempt):
+    """Item 3.6 (F5): ``c['il_exempt']`` (CSV label ``state_estate_exemption``)
+    is a state-agnostic field an advisor can enter for any resident state,
+    but its shipped CSV default ('4000000') is Illinois's own exemption --
+    every caller previously passed it to ``state_estate_tax`` unconditionally,
+    which meant a New York household that never touched this field would
+    silently get Illinois's ~$4M exemption instead of New York's real
+    ~$6.94M one once NY gained a real ``computed`` mechanism (this item).
+    Same value-is-the-only-signal problem item 3.2 hit with
+    ``conv_window_offset``: presence in the CSV can't distinguish "advisor
+    entered 4000000 on purpose" from "advisor never touched this field."
+
+    At the shipped default AND a non-Illinois resident state, fall back to
+    that state's own statutory exemption (``STATE_TAX_RULES[state]
+    ['estate_exempt']``) instead. Any other configured value -- including a
+    deliberately-entered $4,000,000 for a non-Illinois state -- remains
+    authoritative, unchanged.
+    """
+    configured = max(0.0, float(configured_exempt or 0.0))
+    if configured == 4_000_000.0 and str(state or '').strip() != 'Illinois':
+        rules = STATE_TAX_RULES.get(state)
+        if rules and rules.get('estate_exempt'):
+            return float(rules['estate_exempt'])
+    return configured
+
+
+def state_estate_tax(state, taxable_estate, exemption=None, *, gift_addback=0.0):
     """Dispatch state estate tax on data (item 291's Class 2), not on a
     hardcoded state name. Returns ``(tax_amount, status)``.
 
@@ -1198,12 +1278,13 @@ def state_estate_tax(state, taxable_estate, exemption=None):
                               and that 0.0 is correct, not a placeholder.
       - ``'not_modeled'``  -- this state DOES levy an estate tax, but this
                               engine has no calculation for its mechanism yet
-                              (e.g. New York's own graduated-rate table, which
-                              is a genuinely different computation from
+                              (a genuinely different computation from
                               Illinois's pre-2005-federal-credit-table cliff
                               method -- reusing ``illinois_estate_tax`` for a
                               different state's law would produce a wrong
-                              dollar figure, not an approximate one).
+                              dollar figure, not an approximate one). New York
+                              (item 3.6, F5) is no longer in this bucket --
+                              see ``'ny_graduated_cliff'`` below.
                               ``tax_amount`` is 0.0, but callers MUST NOT treat
                               that 0.0 as "no tax owed" the way they may for
                               ``'none'`` -- a reporting caller must render an
@@ -1225,6 +1306,8 @@ def state_estate_tax(state, taxable_estate, exemption=None):
     exempt = exemption if exemption is not None else rules.get('estate_exempt', 0.0)
     if calc == 'il_credit_table':
         return illinois_estate_tax(taxable_estate, exempt), 'computed'
+    if calc == 'ny_graduated_cliff':
+        return new_york_estate_tax(taxable_estate, exempt, gift_addback=gift_addback), 'computed'
     if calc == 'not_modeled':
         return 0.0, 'not_modeled'
     return 0.0, 'none'

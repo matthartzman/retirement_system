@@ -117,14 +117,16 @@ def test_sheet9_residency_row_names_the_households_actual_state():
     assert not any("Illinois Residency" in t for t in text)
 
 
-def test_sheet9_residency_row_discloses_not_modeled_for_new_york():
-    # New York has estate=True but no real calculation exists (Class 2) --
-    # this row must say so explicitly, matching Sheet 14, not silently show
-    # a $0/none result that looks the same as "no estate tax here".
+def test_sheet9_residency_row_discloses_a_computed_exposure_for_new_york():
+    # Wave 3 item 3.6 (F5): New York gained a real computed mechanism (the
+    # graduated rate table plus the 105%-of-exemption cliff) -- this row
+    # now discloses the real exemption/exposure note, matching Sheet 14,
+    # rather than the old "not yet compute" placeholder.
     text = _sheet9_text(_minimal_sheet9_config("New York", il_exempt=6_940_000.0))
     combined = " ".join(text)
     assert "New York Residency" in combined
-    assert "does not yet compute" in combined or "not yet compute" in combined
+    assert "not yet compute" not in combined
+    assert "New York exemption" in combined or "See Sheet 13" in combined
 
 
 def test_sheet9_residency_row_states_no_estate_tax_for_a_none_state():
