@@ -36,6 +36,25 @@ TRANSACTION_COLUMNS = [
     "Amount",
     "Tags",
     "Owner",
+    "Monarch Id",
+]
+
+# The original 9 columns, used for the content-hash dedup that predates the
+# additive "Monarch Id" column. Keeping this list separate from
+# TRANSACTION_COLUMNS means transaction_hash() never changes for rows that
+# don't carry a Monarch Id (manual entries, non-Monarch CSV uploads) --
+# adding "Monarch Id" to TRANSACTION_COLUMNS must not change existing
+# hash-based dedup behavior for those rows.
+_HASH_COLUMNS = [
+    "Date",
+    "Merchant",
+    "Category",
+    "Account",
+    "Original Statement",
+    "Notes",
+    "Amount",
+    "Tags",
+    "Owner",
 ]
 
 # Ticket 279: the only two the importer cannot invent. Everything else is
@@ -64,6 +83,7 @@ IMPORT_HISTORY_COLUMNS = [
     "Earliest Transaction Date",
     "Latest Transaction Date",
     "Notes",
+    "Rows Updated",
 ]
 
 ROLE_OPTIONS = [
@@ -445,7 +465,7 @@ def load_transactions_from_csv_text(text: str) -> tuple[list[dict[str, str]], li
 
 def transaction_hash(row: dict[str, Any]) -> str:
     norm = normalize_transaction(row)
-    payload = "\u241f".join(str(norm.get(col, "")) for col in TRANSACTION_COLUMNS)
+    payload = "\u241f".join(str(norm.get(col, "")) for col in _HASH_COLUMNS)
     return hashlib.sha1(payload.encode("utf-8")).hexdigest()
 
 
@@ -542,6 +562,92 @@ def ensure_account_setup_for_transactions(root: str | Path, *, today: date | Non
     if changed or not account_setup_path(root).exists():
         write_account_setup(root, list(by_acct.values()))
     return read_account_setup(root)
+
+
+def _transaction_content_differs(a: dict[str, Any], b: dict[str, Any]) -> bool:
+    return any(str(a.get(col, "")) != str(b.get(col, "")) for col in TRANSACTION_COLUMNS)
+
+
+def upsert_transactions_by_monarch_id(
+    root: str | Path, incoming_rows: list[dict[str, Any]], *, today: date | None = None
+) -> dict[str, Any]:
+    """Merge Monarch-sourced rows into storage, keyed on a stored Monarch id.
+
+    Unlike ``import_transactions`` (content-hash dedup, append-only), this
+    upserts: a row whose "Monarch Id" already exists and whose content
+    changed replaces the stored row in place; an unseen "Monarch Id" is
+    added; a row with no "Monarch Id" falls back to the existing hash-based
+    "add if new and after the latest existing date" behavior so a
+    non-Monarch row slipping into this path can't crash the import.
+
+    ``incoming_rows`` are already mapped to the internal column names (see
+    the Monarch field-mapping loader) -- this function only merges, it does
+    not know about Monarch's own column names.
+    """
+    normalized_incoming = [normalize_transaction(r) for r in incoming_rows]
+    existing = [normalize_transaction(r) for r in read_transactions(root, today=today)]
+    by_monarch_id = {r["Monarch Id"]: i for i, r in enumerate(existing) if r.get("Monarch Id")}
+    existing_hashes = {transaction_hash(r) for r in existing}
+    latest_existing = max([parse_date(r.get("Date")) for r in existing if parse_date(r.get("Date"))] or [None])
+
+    added: list[dict[str, str]] = []
+    updated: list[dict[str, str]] = []
+    skipped = 0
+    invalid_date_rows = 0
+
+    for row in normalized_incoming:
+        d = parse_date(row.get("Date"))
+        if not d:
+            invalid_date_rows += 1
+            continue
+        monarch_id = row.get("Monarch Id", "").strip()
+        if monarch_id:
+            idx = by_monarch_id.get(monarch_id)
+            if idx is None:
+                existing.append(row)
+                by_monarch_id[monarch_id] = len(existing) - 1
+                existing_hashes.add(transaction_hash(row))
+                added.append(row)
+            elif _transaction_content_differs(existing[idx], row):
+                existing[idx] = row
+                updated.append(row)
+            # else: identical content under the same Monarch id -- no-op.
+        else:
+            h = transaction_hash(row)
+            if (latest_existing and d <= latest_existing) or h in existing_hashes:
+                skipped += 1
+                continue
+            existing.append(row)
+            existing_hashes.add(h)
+            added.append(row)
+
+    existing.sort(key=lambda r: (format_date(parse_date(r.get("Date"))) or "9999-12-31", r.get("Account", ""), r.get("Merchant", "")))
+    write_transactions(root, existing, today=today)
+    ensure_account_setup_for_transactions(root, today=today)
+    all_dates = [parse_date(r.get("Date")) for r in existing if parse_date(r.get("Date"))]
+    total_skipped = skipped + invalid_date_rows
+    append_import_history(root, {
+        "Loaded At": datetime.now().isoformat(timespec="seconds"),
+        "Mode": "monarch_auto",
+        "Rows Received": len(incoming_rows),
+        "Rows Added": len(added),
+        "Rows Skipped": total_skipped,
+        "Earliest Transaction Date": format_date(min(all_dates) if all_dates else None),
+        "Latest Transaction Date": format_date(max(all_dates) if all_dates else None),
+        "Notes": f"Monarch auto-update: {len(added)} added, {len(updated)} updated, {total_skipped} skipped.",
+        "Rows Updated": str(len(updated)),
+    })
+    return {
+        "success": True,
+        "received": len(incoming_rows),
+        "added": len(added),
+        "updated": len(updated),
+        "skipped": total_skipped,
+        "invalid_date_rows": invalid_date_rows,
+        "total": len(existing),
+        "earliest": format_date(min(all_dates) if all_dates else None),
+        "latest": format_date(max(all_dates) if all_dates else None),
+    }
 
 
 def transaction_text(row: dict[str, Any]) -> str:
