@@ -70,8 +70,13 @@ def test_plan_summary_writes_after_tax_and_roth_conversion_kpis():
 
 
 def test_impact_grid_supports_five_cards():
+    # #309: minmax narrowed from 185px to 160px (plus a tighter gap) so the
+    # 4 current cards fit one row without wrapping their longer new titles
+    # ("NPV of Future Taxes", "Effective Future Tax Rate (EFTR)") -- the
+    # auto-fit grid mechanism this test guards is unchanged, just the pinned
+    # width.
     css = (ROOT / "frontend/css/dashboard.css").read_text(encoding="utf-8")
-    assert ".impact-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr))" in css
+    assert ".impact-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))" in css
 
 
 def test_impact_card_uses_current_build_value_when_baseline_missing():

@@ -237,24 +237,38 @@ export function buildKpiDial(label, value, heatFn, fmtFn) {
   );
 }
 
+// #293/#309: the four dials mirror the four Build Impact cards -- LCV, NPV
+// of Future Taxes, Worst-Case Ending Wealth (5th %ile), and EFTR -- instead
+// of the retired Post-Tax Inheritance / Lifetime Tax / Success % trio. The
+// heat functions (nwHeat/taxHeat/mcHeat/eftrHeat) were already re-keyed to
+// these fields in dashboard_decomp_row_model.js; this is the matching fix
+// for the dial VALUES and LABELS themselves, which had been left reading
+// the old fields even though their color mapping was already on the new
+// ones.
 export function buildHistoryEntryHtml(entry, isCurrent, heat) {
   const kpi = entry.kpi || {};
   const nwDial = buildKpiDial(
-    "Post-Tax Inheritance",
-    kpi.inheritable_nw,
+    "Expected After-Tax LCV",
+    kpi.lcv,
     heat.nwHeat,
     fmtMoney,
   );
   const taxDial = buildKpiDial(
-    "Lifetime Tax",
-    kpi.lifetime_tax,
+    "NPV of Future Taxes",
+    kpi.npv_future_taxes,
     heat.taxHeat,
     fmtMoney,
   );
   const mcDial = buildKpiDial(
-    "Success %",
-    kpi.mc_success,
+    "Worst-Case Ending Wealth",
+    kpi.terminal_nw_mc_p5,
     heat.mcHeat,
+    fmtMoney,
+  );
+  const eftrDial = buildKpiDial(
+    "Effective Future Tax Rate",
+    kpi.eftr,
+    heat.eftrHeat,
     function (v) {
       return fmtPct(v * 100);
     },
@@ -299,6 +313,7 @@ export function buildHistoryEntryHtml(entry, isCurrent, heat) {
     nwDial +
     taxDial +
     mcDial +
+    eftrDial +
     "</div>" +
     buildHistoryProvenanceHtml(entry) +
     "<details><summary>Changes in this entry</summary>" +
@@ -436,7 +451,12 @@ export function buildImpactCardsHtml(before, after) {
   const worstCaseCard =
     Number.isFinite(after.terminal_nw_mc_p5) || Number.isFinite(before.terminal_nw_mc_p5)
       ? impactCardHtml(
-          "Worst-Case Ending Wealth (5th %ile)",
+          // #309: dropped the "(5th %ile)" suffix from the visible card
+          // title -- at card width, "Worst-Case Ending Wealth (5th %ile)"
+          // was the one label of the four that still wrapped to 2 lines
+          // even after the general font/padding shrink below. The tooltip
+          // (help text below) already states "5th-percentile" in full.
+          "Worst-Case Ending Wealth",
           dP5,
           before.terminal_nw_mc_p5,
           after.terminal_nw_mc_p5,
@@ -444,7 +464,7 @@ export function buildImpactCardsHtml(before, after) {
           "The 5th-percentile ending net worth across Monte Carlo simulation paths -- what the plan leaves even in a bad-market scenario, without collapsing risk into a single pass/fail probability.",
           fmtDelta,
         )
-      : `<div class="impact-card"><span>Worst-Case Ending Wealth (5th %ile)</span><b>Not available</b><div class="small">Monte Carlo results were not available for this comparison.</div></div>`;
+      : `<div class="impact-card"><span>Worst-Case Ending Wealth</span><b>Not available</b><div class="small">Monte Carlo results were not available for this comparison.</div></div>`;
   // #225: Post-Tax Inheritance was shown as its own headline card here AND
   // separately on Estate & Legacy Plan, computed at a different point in the
   // timeline (terminal plan year here vs. second-death year there) -- the two
@@ -774,18 +794,24 @@ export function modelHeardHtml(summary) {
   return `<details class="impact-suggestions model-used-panel collapsible-impact-section"><summary class="collapsible-summary"><span class="collapse-caret" aria-hidden="true"></span><span class="collapsible-title">What the model used in this build</span><span class="small collapsible-meta">${rows.length} impact checks</span></summary><div class="collapsible-content"><p class="small">Plain-English checks for assumptions that materially change cash flow, taxes, risk, and terminal net worth. These are not extra recommendations; they explain which model switches were actually consumed so you can run targeted what-if tests.</p><ol>${rows.join("")}</ol>${acronyms}</div></details>`;
 }
 
+// #293/#309: keyed to the plan's headline KPIs (LCV, NPV of Future Taxes,
+// Worst-Case Ending Wealth 5th %ile) instead of the retired Terminal Net
+// Worth / Lifetime Taxes / Probability of Success trio -- this section was
+// missed when those cards were converted, so it kept generating suggestions
+// in the old language even though before/after already carry the new
+// fields (dashboard.js/dashboard_decomp_row_model.js's kpi:{...} builders).
 export function buildImpactSuggestionsHtml(before, after, summary = {}) {
-  const dNw =
-    Number.isFinite(after.terminal_nw) && Number.isFinite(before.terminal_nw)
-      ? after.terminal_nw - before.terminal_nw
+  const dLcv =
+    Number.isFinite(after.lcv) && Number.isFinite(before.lcv)
+      ? after.lcv - before.lcv
       : null;
   const dTax =
-    Number.isFinite(after.lifetime_tax) && Number.isFinite(before.lifetime_tax)
-      ? after.lifetime_tax - before.lifetime_tax
+    Number.isFinite(after.npv_future_taxes) && Number.isFinite(before.npv_future_taxes)
+      ? after.npv_future_taxes - before.npv_future_taxes
       : null;
-  const dMc =
-    Number.isFinite(after.mc_success) && Number.isFinite(before.mc_success)
-      ? after.mc_success - before.mc_success
+  const dWorstCase =
+    Number.isFinite(after.terminal_nw_mc_p5) && Number.isFinite(before.terminal_nw_mc_p5)
+      ? after.terminal_nw_mc_p5 - before.terminal_nw_mc_p5
       : null;
   const heard = (summary && summary.model_heard_assumptions) || {};
   const hc = heard.healthcare || {};
@@ -796,61 +822,54 @@ export function buildImpactSuggestionsHtml(before, after, summary = {}) {
   const add = (title, text, context) =>
     suggestions.push([title, text, context]);
   const riskAvailable =
-    Number.isFinite(after.mc_success) || Number.isFinite(before.mc_success);
-  const riskWorse = Number.isFinite(dMc) && dMc < 0;
-  const riskLow = Number.isFinite(after.mc_success) && after.mc_success < 80;
-  const riskFloor = Number.isFinite(after.mc_success)
-    ? fmtPct(after.mc_success)
-    : "the current Monte Carlo result";
+    Number.isFinite(after.terminal_nw_mc_p5) || Number.isFinite(before.terminal_nw_mc_p5);
+  const riskWorse = Number.isFinite(dWorstCase) && dWorstCase < 0;
+  const riskFloor = Number.isFinite(after.terminal_nw_mc_p5)
+    ? fmtMoney(after.terminal_nw_mc_p5)
+    : "the current worst-case Monte Carlo result";
   if (riskWorse) {
     add(
-      "Recover Monte Carlo success before optimizing TNW",
-      `This build lowered Monte Carlo success by ${fmtPctDelta(dMc)}. Undo or offset the change before accepting any higher terminal net worth or lower tax result.`,
+      "Recover worst-case ending wealth before optimizing LCV",
+      `This build lowered Worst-Case Ending Wealth (5th %ile) by ${fmtDelta(dWorstCase)}. Undo or offset the change before accepting any higher LCV or lower tax result.`,
       `Current risk floor: ${riskFloor}.`,
-    );
-  } else if (riskLow) {
-    add(
-      "Lift the risk floor first",
-      `Monte Carlo success is ${riskFloor}, so the next what-if should improve probability of success before chasing terminal net worth. Start with flexible spending, large discretionary expenses, or retirement timing.`,
-      `Treat ${riskFloor} as the minimum acceptable result until you intentionally choose a different risk level.`,
     );
   } else if (riskAvailable) {
     add(
-      "Protect the current risk result",
-      `Use ${riskFloor} as a floor when testing tax or net-worth improvements; reject changes that lower it unless you intentionally accept more risk.`,
-      `Before/after risk move: ${Number.isFinite(dMc) ? fmtPctDelta(dMc) : "not available"}.`,
+      "Protect the current worst-case result",
+      `Use ${riskFloor} as a floor when testing tax or LCV improvements; reject changes that lower it unless you intentionally accept more risk.`,
+      `Before/after worst-case move: ${Number.isFinite(dWorstCase) ? fmtDelta(dWorstCase) : "not available"}.`,
     );
   } else {
     add(
       "Turn on a risk comparison",
-      "Run Monte Carlo or refresh the forecast package so Build Impact can judge whether a change improves taxes or net worth without lowering probability of success.",
-      "No probability-of-success result was available for this build.",
+      "Run Monte Carlo or refresh the forecast package so Build Impact can judge whether a change improves taxes or LCV without lowering the worst-case (5th percentile) outcome.",
+      "No worst-case Monte Carlo result was available for this build.",
     );
   }
   if (Number.isFinite(dTax) && dTax > 0) {
     add(
       "Look for tax-neutral or tax-lowering alternatives",
-      `Lifetime taxes increased by ${fmtDelta(dTax)}. Test Roth conversion caps, LTCG harvesting limits, and taxable-gain budgets while keeping Monte Carlo success flat or better.`,
-      `After-tax total: ${fmtMoney(after.lifetime_tax)}.`,
+      `NPV of Future Taxes increased by ${fmtDelta(dTax)}. Test Roth conversion caps, LTCG harvesting limits, and taxable-gain budgets while keeping Worst-Case Ending Wealth flat or better.`,
+      `NPV of Future Taxes: ${fmtMoney(after.npv_future_taxes)}.`,
     );
-  } else if (Number.isFinite(after.lifetime_tax)) {
+  } else if (Number.isFinite(after.npv_future_taxes)) {
     add(
       "Preserve the tax result while improving the plan",
-      `Lifetime taxes are ${fmtMoney(after.lifetime_tax)}${Number.isFinite(dTax) ? ` (${fmtDelta(dTax)} vs. prior build)` : ""}. Keep this tax result as a constraint while testing allocation, spending, or timing changes.`,
-      "Prefer tests that do not increase taxes unless they also improve risk-adjusted outcomes.",
+      `NPV of Future Taxes is ${fmtMoney(after.npv_future_taxes)}${Number.isFinite(dTax) ? ` (${fmtDelta(dTax)} vs. prior build)` : ""}. Keep this tax result as a constraint while testing allocation, spending, or timing changes.`,
+      "Prefer tests that do not increase NPV of Future Taxes unless they also improve risk-adjusted outcomes.",
     );
   }
-  if (Number.isFinite(dNw) && dNw < 0) {
+  if (Number.isFinite(dLcv) && dLcv < 0) {
     add(
-      "Recover terminal value without adding volatility",
-      `Terminal net worth fell by ${fmtDelta(dNw)}. Test lower cash drag, planned-spending timing, lower-cost ETF substitutions, or tax-aware turnover limits before increasing portfolio risk.`,
-      `After-build TNW: ${fmtMoney(after.terminal_nw)}.`,
+      "Recover LCV without adding volatility",
+      `Expected After-Tax LCV fell by ${fmtDelta(dLcv)}. Test lower cash drag, planned-spending timing, lower-cost ETF substitutions, or tax-aware turnover limits before increasing portfolio risk.`,
+      `After-build LCV: ${fmtMoney(after.lcv)}.`,
     );
-  } else if (Number.isFinite(after.terminal_nw)) {
+  } else if (Number.isFinite(after.lcv)) {
     add(
-      "Stress-test the terminal net-worth result",
-      `Terminal net worth is ${fmtMoney(after.terminal_nw)}${Number.isFinite(dNw) ? ` (${fmtDelta(dNw)} vs. prior build)` : ""}. Rerun with conservative return and inflation assumptions to confirm the value did not come from added downside risk.`,
-      "Keep Monte Carlo success flat or better during this stress test.",
+      "Stress-test the LCV result",
+      `Expected After-Tax LCV is ${fmtMoney(after.lcv)}${Number.isFinite(dLcv) ? ` (${fmtDelta(dLcv)} vs. prior build)` : ""}. Rerun with conservative return and inflation assumptions to confirm the value did not come from added downside risk.`,
+      "Keep Worst-Case Ending Wealth flat or better during this stress test.",
     );
   }
   const bridgePremium = Number(hc.bridge_premium_today || 0);
@@ -886,10 +905,10 @@ export function buildImpactSuggestionsHtml(before, after, summary = {}) {
   add(
     "Change one practical lever at a time",
     "Change only one lever—spending, retirement date, Roth conversions, allocation target, or rebalancing limits—then rebuild so the impact cards identify the tradeoff clearly.",
-    "This keeps suggestions tied to measured risk, tax, and TNW moves.",
+    "This keeps suggestions tied to measured risk, tax, and LCV moves.",
   );
   const shown = suggestions.slice(0, 6);
-  return `<details class="impact-suggestions collapsible-impact-section dynamic-suggestions-panel"><summary class="collapsible-summary"><span class="collapse-caret" aria-hidden="true"></span><span class="collapsible-title">Suggestions to improve the plan without lowering risk</span><span class="small collapsible-meta">${shown.length} dynamic tests</span></summary><div class="collapsible-content"><p class="small">These are generated from this build's terminal net worth, lifetime taxes, Monte Carlo result, and model-heard assumptions. Keep probability of success flat or better when improving terminal net worth or lifetime taxes.</p><ol>${shown.map((s) => `<li><b>${esc(s[0])}</b><span>${esc(s[1])}</span>${s[2] ? `<span class="change-context">${esc(s[2])}</span>` : ""}</li>`).join("")}</ol></div></details>`;
+  return `<details class="impact-suggestions collapsible-impact-section dynamic-suggestions-panel"><summary class="collapsible-summary"><span class="collapse-caret" aria-hidden="true"></span><span class="collapsible-title">Suggestions to improve the plan without lowering risk</span><span class="small collapsible-meta">${shown.length} dynamic tests</span></summary><div class="collapsible-content"><p class="small">These are generated from this build's LCV, NPV of Future Taxes, Worst-Case Ending Wealth (5th %ile), and model-heard assumptions. Keep Worst-Case Ending Wealth flat or better when improving LCV or lowering NPV of Future Taxes.</p><ol>${shown.map((s) => `<li><b>${esc(s[0])}</b><span>${esc(s[1])}</span>${s[2] ? `<span class="change-context">${esc(s[2])}</span>` : ""}</li>`).join("")}</ol></div></details>`;
 }
 
 // Every export above is also re-attached to window: dashboard.js calls these
