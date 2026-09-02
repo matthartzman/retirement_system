@@ -162,3 +162,21 @@ def test_phase_varying_minimal_config_never_crashes():
     schedule = spec['overrides']['roth_phase_schedule']
     assert len(schedule) == 2
     assert schedule[0][1] == 0.24
+
+
+def test_parse_client_sets_phase_config_defaults():
+    c = _base_config()
+    assert c['roth_phase_rate_1'] == pytest.approx(0.24)
+    assert c['roth_phase_rate_2'] == pytest.approx(0.22)
+    assert c['roth_phase_rate_3'] == pytest.approx(0.12)
+    assert c['roth_phase_count'] == 3
+
+
+def test_parse_client_accepts_phase_varying_as_bracket_strategy():
+    from src.data_io import load_csv, parse_client as _parse_client
+    raw = load_csv(TEST_INPUT_DIR / "client_data.csv")
+    # Directly inject the CSV row parse_client() reads via _v(), mirroring
+    # how the frozen fixture's own client_policy.csv rows are structured.
+    raw['Withdrawal Policy']['Roth Conversion']['roth_bracket_strategy'] = 'PHASE_VARYING'
+    c = _parse_client(raw, "")
+    assert c['roth_bracket_strategy'] == 'PHASE_VARYING'
