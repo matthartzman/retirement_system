@@ -112,7 +112,7 @@ def run(base_dir: str | Path, *, force: bool = False) -> dict[str, Any]:
         success=True,
         files_consumed=result["files_consumed"],
         rows_added=upsert_result["added"],
-        rows_updated=upsert_result["updated"],
+        rows_updated=upsert_result["updated"] + upsert_result["adopted"],
         rows_skipped=upsert_result["skipped"],
         errors=file_errors + mark_delivered_errors,
     )
