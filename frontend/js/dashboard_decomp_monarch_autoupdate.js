@@ -4,8 +4,11 @@
 // OS-level Windows Task Scheduler entry (this toggle keeps that entry in
 // sync via the server, which shells out to a PowerShell helper) -- this
 // card only shows status and lets the user enable/disable or run it now.
-// Mirrors dashboard_decomp_local_backups.js's structure; stays a classic
-// script for the same reason that module does (see its own header comment).
+// Mirrors dashboard_decomp_local_backups.js's structure, including its
+// conversion to type="module" (system_review 2026-08-31 item 3.11) -- see
+// that file's header comment for the full reasoning (dashboard.js's boot
+// chain now reaches refreshMonarchAutoUpdateStatus() via a dynamic import
+// instead of a bare global reference, for the same load-order reason).
 let monarchAutoUpdateStatus = null;
 function monarchAutoUpdateStatusLine() {
   const s = monarchAutoUpdateStatus || {};
@@ -93,3 +96,14 @@ async function runMonarchAutoUpdateNow() {
     );
   }
 }
+// Bare-global bridge (see this file's header comment): onclick handlers in
+// this file's own generated HTML and dashboard_decomp_checklist_closeout.js's
+// monarchAutoUpdateControlsHtml() call site reach these as plain
+// identifiers, not window.-prefixed.
+Object.assign(window, {
+  monarchAutoUpdateStatusLine,
+  monarchAutoUpdateControlsHtml,
+  refreshMonarchAutoUpdateStatus,
+  saveMonarchAutoUpdatePolicy,
+  runMonarchAutoUpdateNow,
+});

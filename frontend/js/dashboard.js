@@ -7221,8 +7221,35 @@ checkAppStatus(true).then(function (ok) {
       }
     })
     .catch(function () {});
-  refreshLocalBackupStatus(true).catch(function () {});
-  refreshMonarchAutoUpdateStatus(true).catch(function () {});
+  // Dynamic import, not a bare global call: dashboard_decomp_local_backups.js
+  // and dashboard_decomp_monarch_autoupdate.js are now type="module" scripts
+  // (system_review 2026-08-31 item 3.11), so their window bridges are only
+  // guaranteed installed once each module's own top-level code has actually
+  // run -- import() resolves that module's cached record (already fetched
+  // via the <script type="module"> tag; re-importing the same specifier does
+  // NOT re-run the file, so this is not a double-execution) and only THEN
+  // proceeds, which is correct regardless of these two files' <script> tag
+  // position relative to dashboard.js. The specifier string (including the
+  // ?v= query) must stay byte-identical to the corresponding <script src>
+  // tag in index.html, or the two would resolve to different module-map
+  // entries -- two separate instances of the same file, with their own
+  // independent localBackupStatus/monarchAutoUpdateStatus state, silently
+  // diverging. test_pywebview_bridge_load_order_regression.py's sibling,
+  // test_dashboard_startup_race_and_script_order.py, does not check this;
+  // see test_dynamic_import_specifiers_match_script_tags below instead.
+  // Call through window, not the import()'d namespace object: neither file
+  // uses `export` (same no-export convention dashboard.js itself follows,
+  // for eval()-as-plain-script test compatibility -- see
+  // frontend/js/modules/phase3_module_manifest.js's v3 note), so their
+  // functions reach every caller, including this one, only via the window
+  // bridge each file installs at its own module-evaluation time. import()
+  // here exists purely to force-await that evaluation before this call.
+  import("./dashboard_decomp_local_backups.js?v=1").then(function () {
+    return refreshLocalBackupStatus(true);
+  }).catch(function () {});
+  import("./dashboard_decomp_monarch_autoupdate.js?v=1").then(function () {
+    return refreshMonarchAutoUpdateStatus(true);
+  }).catch(function () {});
   api("/api/prefs")
     .then(function (p) {
       var fromServer =
