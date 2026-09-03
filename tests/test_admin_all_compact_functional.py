@@ -9,7 +9,7 @@ ADMIN_ROUTES = ROOT / "src" / "server" / "admin_routes.py"
 def test_admin_console_exposes_governance_reference_and_diagnostic_areas_only():
     html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
     for label in [
-        "Global optimizer and rebalancing governance",
+        "Global rebalancing controls",
         "Pricing / market data",
         "ETF universe / replacements",
         "Tax constants and source governance",

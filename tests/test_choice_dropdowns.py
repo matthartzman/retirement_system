@@ -37,7 +37,7 @@ def test_admin_ui_choice_renderer_covers_brackets_irmaa_and_schema_type():
     assert 'label === "irmaa_tier2_mfj_base_year"' not in js
     assert 'label === "roth_irmaa_target_tier"' in js
     assert "gridChoicesFor(profile, col, row, head)" in js
-    assert 'if (c === "type")\n    return [\n      "text",\n      "choice",\n      "boolean"' in js
+    assert 'if (c === "type" && (profile === "schema" || profile === "generic"))\n    return [\n      "text",\n      "choice",\n      "boolean"' in js
 
 
 def test_plan_data_contains_roth_irmaa_tier_choice_row():
