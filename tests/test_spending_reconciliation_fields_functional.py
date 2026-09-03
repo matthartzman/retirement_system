@@ -48,7 +48,7 @@ def test_spending_analysis_and_categories_use_same_reconciliation_labels():
     analysis = (
         Path(__file__).resolve().parents[1] / "frontend/js/spending_dashboard.js"
     ).read_text(encoding="utf-8")
-    for label in ["YTD Actual", "Annualized Actual", "Annual Budget", "Projection Seed"]:
+    for label in ["YTD Actual", "Annualized Actual", "Annual Budget", "Projection"]:
         assert label in dash
         assert label in analysis
     assert "spendYtd(row)" in analysis
