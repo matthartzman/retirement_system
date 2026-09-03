@@ -370,7 +370,7 @@ export function renderInsurancePolicyGroup(opts) {
         .filter((r) => r !== typeRow)
         .map(fieldHtml)
         .join("");
-      html += `<details><summary><span>${esc(typ)} ${counters[k]} · ${esc(sub)}</span> ${policyTypeSelect(typeRow, typ, types)} <button class="danger-link" type="button" onclick="deleteInsurancePolicy(event,'${escJs(sub)}')">Delete</button></summary><div class="field-list">${budgetNote}${body}</div></details>`;
+      html += `<details><summary><span>${esc(typ)} ${counters[k]} · ${esc(sub)}</span> ${policyTypeSelect(typeRow, typ, types)} ${deleteIconBtn(`deleteInsurancePolicy(event,'${escJs(sub)}')`)}</summary><div class="field-list">${budgetNote}${body}</div></details>`;
     });
   if (counts.length)
     html += renderEstateSection(

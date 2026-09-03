@@ -289,10 +289,10 @@ export function buildHistoryEntryHtml(entry, isCurrent, heat) {
       escJs(entry.id || "") +
       "')\" >Revert to this snapshot</button>"
     : "";
-  const deleteBtn =
-    '<button class="btn danger-link" type="button" onclick="deleteBuildHistoryEntry(\'' +
-    escJs(entry.id || "") +
-    "')\" >Delete</button>";
+  const deleteBtn = deleteIconBtn(
+    "deleteBuildHistoryEntry('" + escJs(entry.id || "") + "')",
+    { cls: "btn" },
+  );
   const actionsHtml =
     revertBtn || deleteBtn
       ? '<div class="build-history-actions">' + revertBtn + deleteBtn + "</div>"

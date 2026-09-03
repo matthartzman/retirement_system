@@ -3680,7 +3680,7 @@ async function recoverPriorSpendingBudget() {
 
 function domainBudgetNote(domain) {
   if (domain === "core")
-    return "Spending Categories is comprehensive: Income and every expense Tracking Type except taxes/transfers should appear in the hierarchy. Detailed budget authority still lives on Housing, Wellness, and Travel where applicable; this view keeps the full accounting model visible. Each group header shows both Annual Budget (what you entered) and Projection Seed (the value the projection engine actually uses as the starting spend amount). They are usually equal — expand the help below to see when and why they can differ.";
+    return "Spending Categories is comprehensive: Income and every expense Tracking Type except taxes/transfers should appear in the hierarchy. Detailed budget authority still lives on Housing, Wellness, and Travel where applicable; this view keeps the full accounting model visible. Each group header shows both Annual Budget (what you entered) and Projection (the value the projection engine actually uses as the starting spend amount). They are usually equal — expand the help below to see when and why they can differ.";
   if (domain === "housing")
     return "Housing is the only editable place for mortgage/rent, homeowners insurance, home maintenance, utilities, real-estate taxes, and home improvement projects.";
   if (domain === "healthcare")

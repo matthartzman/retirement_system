@@ -78,7 +78,7 @@ export function renderLiquidityBuffers() {
     html += `<tr><td colspan="5"><span class="small">No reserve rows yet. With no rows, the reserve requirement is 0 years.</span></td></tr>`;
   }
   liquidityBuffers.forEach((b, i) => {
-    html += `<tr data-liquidity-row="${i}"><td><input type="number" value="${esc(b.start_year || "")}" oninput="updateLiquidityBuffer(${i},'start_year',this.value)"></td><td><input type="number" value="${esc(b.end_year || "")}" oninput="updateLiquidityBuffer(${i},'end_year',this.value)"></td><td><input type="text" value="${esc(b.years_of_expenses || "0")}" oninput="updateLiquidityBuffer(${i},'years_of_expenses',this.value)"></td><td>${liquidityAccountSelect(i, b.reserve_account)}</td><td><button class="danger-link" type="button" onclick="deleteLiquidityBuffer(${i})">Delete</button></td></tr>`;
+    html += `<tr data-liquidity-row="${i}"><td><input type="number" value="${esc(b.start_year || "")}" oninput="updateLiquidityBuffer(${i},'start_year',this.value)"></td><td><input type="number" value="${esc(b.end_year || "")}" oninput="updateLiquidityBuffer(${i},'end_year',this.value)"></td><td><input type="text" value="${esc(b.years_of_expenses || "0")}" oninput="updateLiquidityBuffer(${i},'years_of_expenses',this.value)"></td><td>${liquidityAccountSelect(i, b.reserve_account)}</td><td>${deleteIconBtn(`deleteLiquidityBuffer(${i})`)}</td></tr>`;
   });
   html += `</tbody></table></div><p class="small">Tip: leave End year blank for an open-ended rule. If rows overlap, the first matching row is used by the model.</p></div>`;
   return html;
@@ -164,7 +164,7 @@ export function renderForcedConversionsTable() {
   }
   forcedConversions.forEach((e, i) => {
     const cur = e.source_account || "";
-    html += `<tr data-forced-row="${i}"><td><select onchange="updateForcedConversion(${i},'source_account',this.value)">${accounts.map((a) => `<option value="${esc(a)}" ${a === cur ? "selected" : ""}>${esc(accountDisplayLabel(a))}</option>`).join("")}${cur && !accounts.includes(cur) ? `<option value="${esc(cur)}" selected>${esc(accountDisplayLabel(cur))}</option>` : ""}</select></td><td><input class="tiny" type="text" value="${esc(e.year || "")}" placeholder="YYYY" oninput="updateForcedConversion(${i},'year',this.value)"></td><td><input type="text" value="${esc(currencyDisplay(e.amount || ""))}" placeholder="$0" onfocus="this.value=currencyRaw(this.value);this.select&&this.select()" oninput="updateForcedConversion(${i},'amount',currencyRaw(this.value))" onblur="this.value=currencyDisplay(this.value)"></td><td><button class="danger-link" type="button" onclick="deleteForcedConversion(${i})">Delete</button></td></tr>`;
+    html += `<tr data-forced-row="${i}"><td><select onchange="updateForcedConversion(${i},'source_account',this.value)">${accounts.map((a) => `<option value="${esc(a)}" ${a === cur ? "selected" : ""}>${esc(accountDisplayLabel(a))}</option>`).join("")}${cur && !accounts.includes(cur) ? `<option value="${esc(cur)}" selected>${esc(accountDisplayLabel(cur))}</option>` : ""}</select></td><td><input class="tiny" type="text" value="${esc(e.year || "")}" placeholder="YYYY" oninput="updateForcedConversion(${i},'year',this.value)"></td><td><input type="text" value="${esc(currencyDisplay(e.amount || ""))}" placeholder="$0" onfocus="this.value=currencyRaw(this.value);this.select&&this.select()" oninput="updateForcedConversion(${i},'amount',currencyRaw(this.value))" onblur="this.value=currencyDisplay(this.value)"></td><td>${deleteIconBtn(`deleteForcedConversion(${i})`)}</td></tr>`;
   });
   return html + `</tbody></table></div></div></details>`;
 }
@@ -274,7 +274,7 @@ export function renderHomeSaleSplits() {
   homeSaleSplits.forEach((s, i) => {
     const cur = s.account || "";
     const accts = homeSaleSplitAccounts;
-    html += `<tr data-home-sale-split-row="${i}"><td><select onchange="updateHomeSaleSplit(${i},'account',this.value)">${accts.map((a) => `<option value="${esc(a)}" ${a === cur ? "selected" : ""}>${esc(accountDisplayLabel(a))}</option>`).join("")}${cur && !accts.includes(cur) ? `<option value="${esc(cur)}" selected>${esc(accountDisplayLabel(cur))}</option>` : ""}</select></td><td><input class="tiny" type="text" value="${esc(s.percentage || "")}" placeholder="0%" oninput="updateHomeSaleSplit(${i},'percentage',this.value)"></td><td><button class="danger-link" type="button" onclick="deleteHomeSaleSplit(${i})">Delete</button></td></tr>`;
+    html += `<tr data-home-sale-split-row="${i}"><td><select onchange="updateHomeSaleSplit(${i},'account',this.value)">${accts.map((a) => `<option value="${esc(a)}" ${a === cur ? "selected" : ""}>${esc(accountDisplayLabel(a))}</option>`).join("")}${cur && !accts.includes(cur) ? `<option value="${esc(cur)}" selected>${esc(accountDisplayLabel(cur))}</option>` : ""}</select></td><td><input class="tiny" type="text" value="${esc(s.percentage || "")}" placeholder="0%" oninput="updateHomeSaleSplit(${i},'percentage',this.value)"></td><td>${deleteIconBtn(`deleteHomeSaleSplit(${i})`)}</td></tr>`;
   });
   html += `</tbody></table></div>`;
   if (homeSaleSplits.length) {
@@ -374,7 +374,7 @@ export function renderResidencySchedule() {
   }
   residencySchedule.forEach((p, i) => {
     const isLast = i === residencySchedule.length - 1;
-    html += `<tr data-residency-row="${i}"><td><input type="text" value="${esc(p.state || "")}" placeholder="Illinois" oninput="updateResidencyPeriod(${i},'state',this.value)"></td><td><input class="tiny" type="text" value="${esc(p.start_year || "")}" placeholder="YYYY" oninput="updateResidencyPeriod(${i},'start_year',this.value)"></td><td>${isLast ? `<span class="small" title="The last row is always open-ended">Open-ended</span>` : `<input class="tiny" type="text" value="${esc(p.end_year || "")}" placeholder="YYYY" oninput="updateResidencyPeriod(${i},'end_year',this.value)">`}</td><td><button class="danger-link" type="button" onclick="deleteResidencyPeriod(${i})">Delete</button></td></tr>`;
+    html += `<tr data-residency-row="${i}"><td><input type="text" value="${esc(p.state || "")}" placeholder="Illinois" oninput="updateResidencyPeriod(${i},'state',this.value)"></td><td><input class="tiny" type="text" value="${esc(p.start_year || "")}" placeholder="YYYY" oninput="updateResidencyPeriod(${i},'start_year',this.value)"></td><td>${isLast ? `<span class="small" title="The last row is always open-ended">Open-ended</span>` : `<input class="tiny" type="text" value="${esc(p.end_year || "")}" placeholder="YYYY" oninput="updateResidencyPeriod(${i},'end_year',this.value)">`}</td><td>${deleteIconBtn(`deleteResidencyPeriod(${i})`)}</td></tr>`;
   });
   html += `</tbody></table></div></div>`;
   return html;

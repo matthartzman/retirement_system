@@ -78,7 +78,7 @@ export function renderModelStatusPanel(d) {
   html += '<div class="spend-model-card-sub">' + (d.days_elapsed ? 'Based on ' + d.days_elapsed + ' days of transactions' : 'No transactions loaded') + '</div>';
   html += '</div>';
   html += '<div class="spend-model-card highlight">';
-  html += '<div class="spend-model-card-label">Projection Seed</div>';
+  html += '<div class="spend-model-card-label">Projection</div>';
   html += '<div class="spend-model-card-value">' + (modelCore ? fmtSpend(modelCore) : '—') + '</div>';
   html += '<div class="spend-model-card-sub">Current budget-derived amount used to seed projected cash flow</div>';
   html += '</div>';
@@ -280,7 +280,7 @@ export function renderSpendingBars(d) {
     var h = '<div class="spend-bar-values"><span>This Year ' + fmtSpend(ytd) + '</span>';
     h += '<span class="small">Annualized ' + fmtSpend(ann) + '</span>';
     h += '<span class="small">Budget ' + fmtSpend(bud) + '</span>';
-    h += '<span class="small">Projection Seed ' + fmtSpend(seed) + '</span>';
+    h += '<span class="small">Projection ' + fmtSpend(seed) + '</span>';
     if (bud && typeof st.vpct === 'number') h += '<span class="small ' + st.cls + '">' + fmtVariancePct(st.vpct) + '</span>';
     return h + '</div>';
   }
@@ -291,7 +291,7 @@ export function renderSpendingBars(d) {
     (window.spendingExpandedKeys.size ? ' <button class="btn tiny" type="button" onclick="collapseAllSpending()">Collapse all</button>' : '') +
     '</h3>';
   html += '<div class="spend-bars">';
-  html += '<div class="spend-bar-header"><span>Tracking type · Group · Category</span><span>Annualized Actual vs. Annual Budget</span><span>YTD Actual | Annualized Actual | Annual Budget | Projection Seed</span></div>';
+  html += '<div class="spend-bar-header"><span>Tracking type · Group · Category</span><span>Annualized Actual vs. Annual Budget</span><span>YTD Actual | Annualized Actual | Annual Budget | Projection</span></div>';
 
   var shownAny = false;
   types.forEach(function (t) {
@@ -325,7 +325,7 @@ export function renderSpendingBars(d) {
         if (exceptionsOnly && cs.cls === 'ok') return;
         var cytd = spendYtd(c), cseed = spendProjectionSeed(c);
         html += '<div class="spend-cat-row"><span><span class="spend-level-pill">Category</span>' + esc(c.label || c.id) + '</span>' +
-          '<span>YTD ' + fmtSpend(cytd) + ' · Annualized ' + fmtSpend(cann) + ' · Budget ' + fmtSpend(cbud) + ' · Projection Seed ' + fmtSpend(cseed) + (cbud ? ' <span class="small ' + cs.cls + '">' + fmtVariancePct(cs.vpct || 0) + '</span>' : '') + '</span></div>';
+          '<span>YTD ' + fmtSpend(cytd) + ' · Annualized ' + fmtSpend(cann) + ' · Budget ' + fmtSpend(cbud) + ' · Projection ' + fmtSpend(cseed) + (cbud ? ' <span class="small ' + cs.cls + '">' + fmtVariancePct(cs.vpct || 0) + '</span>' : '') + '</span></div>';
       });
       html += '</div>';
     });

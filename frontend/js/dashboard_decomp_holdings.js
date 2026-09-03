@@ -434,7 +434,7 @@ export function renderHoldings() {
           return `<td data-label="${esc(humanLabel(c))}"${c === "note" ? ' data-col-group="extra"' : ""}><input class="${cls}" data-hcol="${esc(c)}" type="${type}" value="${esc(display)}" ${input} ${focus}></td>`;
         })
         .join("") +
-      `<td data-label="Actions"><button class="danger-link" onclick="deleteHoldingLot(${i})">Delete</button></td></tr>`;
+      `<td data-label="Actions">${deleteIconBtn(`deleteHoldingLot(${i})`)}</td></tr>`;
   });
   html += `</tbody></table></div>`;
   // #235: moved here from Economic & Tax Assumptions -- dividend reinvestment
