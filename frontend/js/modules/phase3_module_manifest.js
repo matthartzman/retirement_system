@@ -15,22 +15,37 @@
     // (not originally named leaves, converted for the same reason).
     extraction_order:['plan_state_build','detailed_results','navigation','spending','holdings','strategy','settings'],
     extraction_order_status:'complete',
-    // dashboard_decomp_local_backups.js deliberately stays a classic script:
-    // dashboard.js's own synchronous top-level boot chain
-    // (checkAppStatus(true).then(...)) calls refreshLocalBackupStatus(),
-    // which only that file defines -- converting it to a deferred module
-    // would execute it AFTER dashboard.js's classic-script code instead of
-    // before, reversing the load-order guarantee
-    // test_dashboard_startup_race_and_script_order.py protects (a real
-    // 2026-07-22 outage). dashboard_shared_helpers.js and
-    // pywebview_bridge.js also stay classic: they're the FIRST scripts
-    // loaded, and everything after them depends on their globals being
-    // synchronously available at parse time, which a deferred module cannot
-    // guarantee.
-    // dashboard_decomp_monarch_autoupdate.js (ticket 305) stays classic for
-    // the identical reason: the boot chain also calls
-    // refreshMonarchAutoUpdateStatus(true), defined only there.
-    remaining_classic_by_design:['dashboard_decomp_local_backups.js','dashboard_decomp_monarch_autoupdate.js','dashboard_shared_helpers.js','pywebview_bridge.js'],
+    // v14 (system review 2026-08-31 item 3.11): the four files formerly
+    // listed in remaining_classic_by_design (below, kept empty now as a
+    // historical marker rather than removed) are all type="module" too.
+    // None of them converted the same way:
+    //  - dashboard_shared_helpers.js: genuinely safe -- its own top-level
+    //    code is inert, and nothing else in the codebase referenced its
+    //    exports (esc, escJs, fmtMoney, ...) as a bare top-level statement.
+    //    Just needed the window bridge every leaf module needs.
+    //  - pywebview_bridge.js: NOT safe by itself. It's shared by
+    //    admin.html, where admin.js (a separate classic app, still out of
+    //    scope) called showAppSettings()/checkApp() -- both firing real
+    //    fetch() calls -- as bare top-level statements. Converting the
+    //    bridge alone would have raced those calls against the unpatched
+    //    native fetch under pywebview. Fixed the actual prerequisite:
+    //    admin.js's boot sequence now waits for DOMContentLoaded (which
+    //    fires only after every deferred/module script has run), instead
+    //    of leaving the bridge classic.
+    //  - dashboard_decomp_local_backups.js / _monarch_autoupdate.js: the
+    //    boot-chain calls that kept these classic (refreshLocalBackupStatus/
+    //    refreshMonarchAutoUpdateStatus) now go through
+    //    import("./dashboard_decomp_*.js?v=1") in dashboard.js instead of a
+    //    bare global reference -- dynamic import force-awaits the target
+    //    module's evaluation regardless of script-tag order, which a
+    //    "convert and hope document order holds" approach would not have
+    //    guaranteed as robustly.
+    // See tests/test_dashboard_shared_helpers_load_order_regression.py,
+    // tests/test_pywebview_bridge_load_order_regression.py, and
+    // tests/test_dashboard_startup_race_and_script_order.py's
+    // test_dynamic_import_specifiers_match_script_tags for what guards each
+    // of these going forward.
+    remaining_classic_by_design:[],
     // v3 (docs/superpowers/plans/2026-08-06-dashboard-js-ast-module-conversion.md):
     // dashboard.js itself is now a real type="module" script too. Unlike
     // every leaf above (self-contained, a handful to ~30 functions, exposed
