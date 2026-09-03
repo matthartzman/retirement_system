@@ -7,7 +7,7 @@ as JSON. Run this to view trends interactively; the weekday-5pm log entry
 itself is written by tools/append_trends_log.py (headless, via Windows Task
 Scheduler), not by this server.
 
-Usage: python financial_trends_reporter/main.py [--retirement-system-dir PATH] [--port 5060]
+Usage: python financial_trends_reporter/main.py [--retirement-system-dir PATH] [--port 5057]
 """
 from __future__ import annotations
 
@@ -55,7 +55,10 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None) -> Fla
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--retirement-system-dir", default=str(_REPO_ROOT), help="retirement_system workspace root; defaults to this repo's own root")
-    parser.add_argument("--port", type=int, default=5060)
+    # 5060 (SIP) is deliberately avoided: it's on Chrome/Chromium's built-in
+    # restricted-ports list, so a browser tab opened against it fails with
+    # ERR_UNSAFE_PORT even though the server itself is listening fine.
+    parser.add_argument("--port", type=int, default=5057)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--no-open", action="store_true", help="Don't auto-open a browser tab")
     args = parser.parse_args(argv)
