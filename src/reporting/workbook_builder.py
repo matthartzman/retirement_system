@@ -51,7 +51,7 @@ from .sheets_summary_builder import build_sheet1, build_sheet2
 from .sheets_tax_reporter import build_sheet3
 from .sheets_allocation_helpers import build_sheet4
 from .sheets_projection_facade import build_sheet5, build_sheet6, build_sheet7, build_sheet8
-from .sheets_strategy import build_sheet9, build_sheet10, build_sheet11, build_sheet12, build_sheet_tlh, build_sheet_gain_harvest, build_sheet13, build_sheet14
+from .sheets_strategy import build_sheet9, build_sheet10, build_sheet11, build_sheet_hsa_drawdown, build_sheet12, build_sheet_tlh, build_sheet_gain_harvest, build_sheet13, build_sheet14
 from .sheets_tax_capacity import build_sheet_tax_capacity
 from .sheets_stress import build_sheet15, build_sheet16, build_sheet17, build_sheet18, build_sheet19, build_sheet20
 from .sheets_protection import build_existing_life, build_disability, build_pc_umbrella
@@ -734,7 +734,7 @@ def _extract_scorp_sheet(wb):
     if '9. Retirement Strategy' not in wb.sheetnames:
         return
     src = wb['9. Retirement Strategy']
-    _delete_sheet_if_present(wb, '2E. S-Corp vs LLC')
+    _delete_sheet_if_present(wb, '2F. S-Corp vs LLC')
     _delete_sheet_if_present(wb, 'S-Corp vs LLC')
     ws = wb.create_sheet('S-Corp vs LLC')
     ws.sheet_view.showGridLines = False
@@ -1055,6 +1055,9 @@ def main():
     if '11. Roth Conversion' in sheets:
         print('  Sheet 11 — Roth Conversion')
         build_sheet11(sheets['11. Roth Conversion'], c, rows)
+    if '11C. HSA Drawdown' in sheets:
+        print('  Sheet 11C — HSA Drawdown')
+        build_sheet_hsa_drawdown(sheets['11C. HSA Drawdown'], c, rows)
     if '11B. Tax Capacity' in sheets:
         print('  Sheet 11B — Tax Capacity')
         build_sheet_tax_capacity(sheets['11B. Tax Capacity'], c, rows)

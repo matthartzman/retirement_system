@@ -3,15 +3,17 @@
     "1A. Executive Summary",
     "4B. Assumptions",
     "2A. Roth Conversion",
-    "2G. Estate & Legacy Planning",
+    "2B. HSA Drawdown",
+    "2H. Estate & Legacy Planning",
     "4D. Quality Control",
-    "2K. Tax Capacity"
+    "2L. Tax Capacity"
   ],
   "required_phrases": {
     "1A. Executive Summary": ["RETIREMENT", "Roth"],
     "2A. Roth Conversion": ["AUTO-OPTIMIZED ROTH CONVERSION STRATEGY", "Target Bracket Top", "Binding Limit"],
+    "2B. HSA Drawdown": ["reports the optimizer's proposed HSA drawdown schedule"],
     "4D. Quality Control": ["WORKBOOK WARNINGS"],
-    "2K. Tax Capacity": ["TAX-CAPACITY WORKSHEET", "Room to Roth Target Bracket", "MAGI Used for IRMAA (2-yr lookback)"]
+    "2L. Tax Capacity": ["TAX-CAPACITY WORKSHEET", "Room to Roth Target Bracket", "MAGI Used for IRMAA (2-yr lookback)"]
   },
   "forbidden_roth_phrases": [
     "24% Brkt Top",

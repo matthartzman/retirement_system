@@ -581,6 +581,12 @@ SHEET_REGISTRY = {
     'S-Corp vs LLC':               _spec(None, '2', 4, '2', 4, 'S-Corp vs LLC'),
     '10. Social Security':         _spec('2', '2', 3, '2', 3, 'Social Security', 'social_security_timing'),
     '11. Roth Conversion':         _spec('2', '2', 0, '2', 0, 'Roth Conversion', 'roth_conversion_plan'),
+    # section_rank/letter_rank are sort keys, not slots -- 0.5 sits it right
+    # after Roth Conversion (rank 0) without renumbering anything else. Its
+    # content is optimizer-mode-gated (hsa_withdrawal_mode == 'optimize'),
+    # not a client_optional_functions.csv toggle, so module_key stays None
+    # like 11B: always created, self-gates its own content.
+    '11C. HSA Drawdown':           _spec('2', '2', 0.5, '2', 0.5, 'HSA Drawdown'),
     '11B. Tax Capacity':           _spec('2', '2', 16, '2', 14, 'Tax Capacity'),
     '12. Charitable Giving':       _spec('2', '2', 5, '2', 5, 'Charitable Giving', 'charitable_giving'),
     '12B. Tax-Loss Harvesting':    _spec('2', '2', 7, '2', 8, 'Tax-Loss Harvesting', 'tax_loss_harvesting'),

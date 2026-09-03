@@ -523,8 +523,12 @@ class HsaScheduleSheetSectionTests(unittest.TestCase):
         self.assertIn("planning choice, not a prediction", text)
         self.assertIn("If you outlive", text)
         self.assertIn("ordinary income", text)
-        # 4. Objective shared with Roth -> changing either retunes both.
-        self.assertIn("shares the Roth conversion objective", text)
+        # 4. Objective shared with Roth -> changing either retunes both. Wording
+        #    updated when the schedule moved to its own sheet ('11C. HSA
+        #    Drawdown'): it used to say "shown above" because the section was
+        #    appended directly below the Roth Conversion sheet's own content;
+        #    that spatial reference is gone now that they are on separate tabs.
+        self.assertIn("shares its objective with the Roth Conversion sheet", text)
         self.assertIn("retunes both", text)
 
         # The table itself: every funded year and its dollars, plus the
