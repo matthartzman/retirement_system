@@ -21,7 +21,7 @@ SCHEMA = "monarch_autoupdate_v1"
 STATUS_SCHEMA = "monarch_autoupdate_status_v1"
 SETTINGS_FILENAME = "monarch_autoupdate.json"
 STATUS_FILENAME = "monarch_autoupdate_status.json"
-DEFAULT_SOURCE_DIR = "../Monarch Extractor/output"
+DEFAULT_SOURCE_DIR = "Monarch Extractor/output"
 
 
 @dataclass(frozen=True)
