@@ -7,6 +7,7 @@ from .app_core import (
     BASE_DIR,
     Path,
     UI_NAMES,
+    WORKSPACE_ROOT,
     _authorized_and_identity,
     _csrf_token_for_current_request,
     _current_user,
@@ -111,12 +112,18 @@ def frontend_file(filename):
 
 @app.route("/api/prefs", methods=["GET"])
 def get_prefs():
-    return jsonify(base_service.read_prefs(BASE_DIR))
+    # Prefs are writable per-user data (like input/, output/, local_state/),
+    # not package assets -- must live under WORKSPACE_ROOT, not BASE_DIR.
+    # Reading from BASE_DIR made the E2E suite's isolated workspace fall
+    # through to the real repo's data/prefs.json (checked in with
+    # rpAutoLoad: true for normal desktop use), so every E2E page load
+    # kicked off an unwanted auto-load racing the test's own explicit one.
+    return jsonify(base_service.read_prefs(WORKSPACE_ROOT))
 
 
 @app.route("/api/prefs", methods=["POST"])
 def save_prefs():
-    payload, status = base_service.save_prefs(BASE_DIR, request.get_json(silent=True) or {})
+    payload, status = base_service.save_prefs(WORKSPACE_ROOT, request.get_json(silent=True) or {})
     return jsonify(payload), status
 
 
