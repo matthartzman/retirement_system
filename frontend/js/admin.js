@@ -560,6 +560,24 @@ function choicesFor(row) {
     solver_fallback_policy: ["HEURISTIC", "NONE"],
     app_mode: ["LOCAL"],
     config_backend: ["SQLITE", "CSV", "YAML", "JSON"],
+    // These five were declared units="choice" in system_config.csv but had no
+    // entry here, so choicesFor() fell through to a free-text input despite
+    // the data saying they're a fixed set. Values confirmed against the
+    // fields' own notes text and their Python readers (data_io.py,
+    // optimization.py's _apply_correlation_preset).
+    capital_market_assumption_mode: ["PRESET", "CUSTOM_FILE"],
+    capital_market_assumption_horizon_source: [
+      "manual",
+      "auto_from_withdrawals",
+    ],
+    capital_market_assumption_preset: [
+      "CONSERVATIVE",
+      "BASELINE",
+      "AGGRESSIVE",
+    ],
+    correlation_assumption_mode: ["PRESET", "ADVANCED", "CUSTOM_FILE"],
+    correlation_preset: ["LOW", "MODERATE", "HIGH", "STRESS"],
+    plan_data_canonical_format: ["CSV", "JSON", "YAML"],
     filing_status: ["MFJ", "Single", "HOH", "MFS"],
     survivor_filing_status: ["Single", "HOH", "MFS"],
     allocation_selection_mode: ["user_target", "optimizer_recommendation", "max_sharpe", "tangency"],
@@ -660,20 +678,53 @@ function choiceDisplay(label, value) {
     return v.replace(".00%", "%") + " bracket";
   return v.replace(/_/g, " ");
 }
+function settingHelpDataAttrs(row) {
+  const key = rowCell(row, 2).trim();
+  const choices = choicesFor(row);
+  // data-help-title is what the help panel displays as its heading -- must be
+  // the human label (titleCaseLabel), not the raw snake_case key, or the help
+  // panel would show "app_mode" right after the row itself stopped showing
+  // it. data-help-key stays the raw key: adminFieldGuidance/adminDefaultMeaning
+  // etc. match on it with substring/lowercase heuristics that depend on the
+  // original field name. data-help-choices carries the same pick-list options
+  // rendered in the control itself (pipe-joined; "|" cannot appear inside a
+  // single choice token -- see choicesFor's own pipe-list parsing) so the help
+  // panel can enumerate them instead of a generic "Expected format" line.
+  const choicesAttr = choices
+    ? ` data-help-choices="${esc(choices.join("|"))}"`
+    : "";
+  return ` data-help-title="${esc(titleCaseLabel(key))}" data-help-key="${esc(key)}" data-help-units="${esc(rowCell(row, 4))}" data-help-note="${esc(rowCell(row, 5))}" data-help-location="${esc(rowCell(row, 0) + (rowCell(row, 1) ? " / " + rowCell(row, 1) : ""))}"${choicesAttr}`;
+}
+// The literal "Help" column used to render an empty <td> -- a column header
+// with nothing under it in any row, i.e. a dormant help affordance. Every
+// setting row now gets a real "?" button here (matching the client UI's
+// per-field helpbtn convention), wired to the same showSettingHelp panel the
+// control's own onfocus/onclick already opens.
+function settingHelpButton(row, label) {
+  return `<button type="button" class="setting-help-btn" title="Help for ${esc(label)}" aria-label="Help for ${esc(label)}"${settingHelpDataAttrs(row)} onclick="showSettingHelpFromControl(this)">?</button>`;
+}
 function settingControl(row, i) {
   const value = rowCell(row, 3);
   const label = rowCell(row, 2).trim();
   const choices = choicesFor(row);
   const units = rowCell(row, 4).toLowerCase();
+  const helpDataAttrs = settingHelpDataAttrs(row);
   const helpAttrs = ` onfocus="showSettingHelpFromControl(this)" onclick="showSettingHelpFromControl(this)"`;
   if (choices) {
-    return `<select class="cfg-select" data-row="${i}" data-help-title="${esc(label)}" data-help-key="${esc(label)}" data-help-units="${esc(rowCell(row, 4))}" data-help-note="${esc(rowCell(row, 5))}" data-help-location="${esc(rowCell(row, 0) + (rowCell(row, 1) ? " / " + rowCell(row, 1) : ""))}" onchange="markActiveChanged(this)"${helpAttrs}>${choices.map((c) => `<option value="${esc(c)}" ${String(c) === value ? "selected" : ""}>${esc(choiceDisplay(label, c))}</option>`).join("")}<option value="${esc(value)}" ${choices.includes(value) ? "" : "selected"}>${choices.includes(value) ? "" : "Custom: " + esc(value)}</option></select>`;
+    // Only append a trailing "custom value" option when the stored value
+    // isn't already one of the known choices -- appending it unconditionally
+    // used to add a blank, unlabeled duplicate option to every select (e.g.
+    // a second, empty "SQLITE" entry) even when the value matched exactly.
+    const customOption = choices.includes(value)
+      ? ""
+      : `<option value="${esc(value)}" selected>Custom: ${esc(value)}</option>`;
+    return `<select class="cfg-select" data-row="${i}"${helpDataAttrs} onchange="markActiveChanged(this)"${helpAttrs}>${choices.map((c) => `<option value="${esc(c)}" ${String(c) === value ? "selected" : ""}>${esc(choiceDisplay(label, c))}</option>`).join("")}${customOption}</select>`;
   }
   const type =
     units === "secret" || /token|secret|password|api_key/i.test(label)
       ? "password"
       : "text";
-  return `<input class="cfg-input" type="${type}" data-row="${i}" data-help-title="${esc(label)}" data-help-key="${esc(label)}" data-help-units="${esc(rowCell(row, 4))}" data-help-note="${esc(rowCell(row, 5))}" data-help-location="${esc(rowCell(row, 0) + (rowCell(row, 1) ? " / " + rowCell(row, 1) : ""))}" value="${esc(value)}" oninput="markActiveChanged(this)"${helpAttrs}>`;
+  return `<input class="cfg-input" type="${type}" data-row="${i}"${helpDataAttrs} value="${esc(value)}" oninput="markActiveChanged(this)"${helpAttrs}>`;
 }
 function impactNote(row) {
   const label = rowCell(row, 2).trim();
@@ -872,7 +923,11 @@ function buildSectionSettings(rows, opts = {}) {
       const label = titleCaseLabel(rowCell(row, 2));
       const units = rowCell(row, 4);
       const note = impactText(row);
-      tbody += `<tr data-filter="${esc((section + " " + sub + " " + rowCell(row, 2) + " " + rowCell(row, 3) + " " + rowCell(row, 5)).toLowerCase())}"><td><span class="setting-name">${esc(label)}</span><span class="setting-key">${esc(rowCell(row, 2))}${units ? ` · ${esc(units)}` : ""}</span></td><td>${settingControl(row, i)}</td></tr>`;
+      // No raw key/type subtitle here (e.g. "app_mode · choice") -- matches
+      // the client UI, which never shows a field's internal name or data
+      // type, only its label plus help text. That detail still reaches the
+      // help panel via data-help-units on the control/button below.
+      tbody += `<tr data-filter="${esc((section + " " + sub + " " + rowCell(row, 2) + " " + rowCell(row, 3) + " " + rowCell(row, 5)).toLowerCase())}"><td><span class="setting-name">${esc(label)}</span></td><td>${settingControl(row, i)}</td><td>${settingHelpButton(row, label)}</td></tr>`;
     });
     const table = `<table><thead><tr><th style="width:45%">Setting</th><th>Value</th><th style="width:46px">Help</th></tr></thead><tbody>${tbody}</tbody></table>`;
     const help =
@@ -993,7 +1048,7 @@ function adminNorm(s) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_");
 }
-function adminValueOptionsHelp(key, units, value) {
+function adminValueOptionsHelp(key, units, value, choices) {
   const k = adminNorm(key),
     u = String(units || ""),
     v = String(value || "");
@@ -1001,6 +1056,19 @@ function adminValueOptionsHelp(key, units, value) {
     return "<ul><li><b>YES</b>: enable or include this behavior in the system/build.</li><li><b>NO</b>: disable or exclude this behavior.</li></ul>";
   if (k.includes("pricing_mode"))
     return "<ul><li><b>LIVE</b>: request fresh provider quotes and cache them when available.</li><li><b>CACHE</b>: use saved cached quotes first, then fallback only when needed.</li><li><b>OFFLINE</b>: avoid external calls and use local/fallback values.</li></ul>";
+  // Every other pick-list field: enumerate its real options instead of the
+  // generic "Expected format: choice." line below. choiceDisplay() reuses
+  // whatever hand-authored display text a field already has (e.g.
+  // mc_engine_mode's "Advanced Exact Scalar (slower, advisor-ready)"), so
+  // fields with richer labels get them here too, not just in the dropdown.
+  if (choices && choices.length)
+    return (
+      "<ul>" +
+      choices
+        .map((c) => `<li><b>${esc(choiceDisplay(key, c))}</b></li>`)
+        .join("") +
+      "</ul>"
+    );
   if (k.includes("max_build_seconds") || k.includes("timeout"))
     return "<p>Use seconds. Higher values let long Monte Carlo/workbook builds finish; lower values fail faster when a build is stuck.</p>";
   if (k.includes("percent") || k.endsWith("_pct") || u.includes("%"))
@@ -1109,10 +1177,14 @@ function showSettingHelp(ev, btn) {
     btn?.dataset?.helpNote ||
     "This value is used by workbook generation, planning logic, or recommendation output.";
   const location = btn?.dataset?.helpLocation || "";
+  const choices = btn?.dataset?.helpChoices
+    ? btn.dataset.helpChoices.split("|")
+    : null;
   const g = adminFieldGuidance(key, note, units, location) || {};
   const meaning = g.purpose || adminDefaultMeaning(key, note, units, location);
   const options =
-    g.options || adminValueOptionsHelp(key, units, btn?.value || "");
+    g.options ||
+    adminValueOptionsHelp(key, units, btn?.value || "", choices);
   const connections = g.connections || adminConnectionHelp(key, location);
   const impact = g.impact || adminImpactHelp(key, note, units);
   if (box)
@@ -1657,6 +1729,12 @@ async function showSystemConfig(pageId = "runtime") {
     profile: "section_settings",
     filterSections: page.filterSections || [],
     filterSubsections: page.filterSubsections || [],
+    // Was missing: SYSTEM_CONFIG_PAGES' "build_timeout" entry (and any future
+    // page scoped by exact setting key rather than by section/subsection)
+    // silently fell back to showing its whole section, since
+    // filteredSettingRows() only skips the filterKeys check when the field is
+    // absent/empty -- undefined here always counted as "no filter."
+    filterKeys: page.filterKeys || [],
     defaultOpen: false,
     collapseBySubsection: true,
     note: page.desc + " Changes save back to system_config.csv.",
