@@ -222,7 +222,24 @@
     // v10 to zero breakage on a 31-function cluster, after v9 broke four tests
     // moving 50.
     domain_split_status:'stopped at the four-cluster line, by the 2026-08-12 scope decision -- not incomplete',
-    loaded_by:'dashboard_source_truth_banners.js',
-    compatibility:'dashboard.js remains the public behavior owner; its top-level surface is now bridged to window explicitly and tool-verified (tests/test_dashboard_js_module_bridge_regression.py) instead of implicitly global.'
+    // Correction: nothing in this codebase actually reads window.RPPhase3Modules
+    // (verified by grep across frontend/js, tests/, and src/ -- this file is the
+    // only match). The 'loaded_by' claim below was aspirational/stale, not a
+    // real dependency; left as-is rather than deleted so the history above stays
+    // attributable, but do not add a real reader that assumes this ran
+    // synchronously -- see the v13 note below.
+    loaded_by:'dashboard_source_truth_banners.js (historical note only -- not an actual reader; see correction above)',
+    compatibility:'dashboard.js remains the public behavior owner; its top-level surface is now bridged to window explicitly and tool-verified (tests/test_dashboard_js_module_bridge_regression.py) instead of implicitly global.',
+    // v13 (system review 2026-08-31, item 3.11): converted this file itself
+    // to type="module" -- the fifth and last of the five files 3.11 named as
+    // still classic. Safe unlike the other four: this file has no reader
+    // (see the correction above) and no boot-chain caller, so there is no
+    // synchronous-availability guarantee to preserve. The other four
+    // (dashboard_decomp_local_backups.js, dashboard_decomp_monarch_autoupdate.js,
+    // dashboard_shared_helpers.js, pywebview_bridge.js, see
+    // remaining_classic_by_design above) stay classic for the load-order
+    // reasons already documented there -- do not convert them without first
+    // removing the boot-chain call or the first-script global dependency that
+    // reason describes, not just re-attempting the conversion.
   };
 })();
