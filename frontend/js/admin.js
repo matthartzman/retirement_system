@@ -252,7 +252,7 @@ const AREA_DEFS = {
         kind: "reference",
         file: "asset_correlations.csv",
         title: "Asset correlations",
-        profile: "generic",
+        profile: "asset_correlations",
         note: "Correlation matrix inputs used in portfolio diversification and covariance calculations.",
       },
     ],
@@ -272,7 +272,7 @@ const AREA_DEFS = {
         kind: "reference",
         file: "state_tax.csv",
         title: "State tax reference",
-        profile: "generic",
+        profile: "state_tax",
         note: "State tax assumptions used for residency, tax projections, and tax-law freshness output.",
       },
       {
@@ -341,6 +341,75 @@ const COLUMN_HELPERS = {
     tax_year: "Applicable tax year for the reference value.",
     value: "Tax threshold, deduction, rate, or dollar value.",
     source: "Citation/source note for auditability.",
+  },
+  asset_correlations: {
+    horizon_years:
+      "Forecast horizon bucket this correlation applies to. Blank applies to all horizons.",
+    preset:
+      "Correlation preset (LOW/MODERATE/HIGH/STRESS) this row belongs to; selected by the correlation_preset system setting.",
+    asset_class_a:
+      "One side of the asset-class pair. Must match a class name used in capital-market assumptions and the security master.",
+    asset_class_b:
+      "Other side of the asset-class pair. Correlation applies to this pair in both directions.",
+    correlation:
+      "Pairwise correlation coefficient, -1.00 to 1.00. Higher values reduce the diversification benefit between these two classes.",
+    notes: "Source or caution note shown for auditability.",
+  },
+  schema: {
+    section:
+      "Plan Data grouping this field belongs to in the client UI (matches a nav step/section there).",
+    subsection: "Subgroup within the section, if any.",
+    label: "Internal field key read by Plan Data parsing and validation.",
+    type:
+      "Input type: text, choice, boolean, date, percent, integer, year, number, currency, dollars, path, or secret. Controls how the client UI renders and validates the field.",
+    required:
+      "TRUE/FALSE. When TRUE, Plan Data validation blocks build-readiness until this field is filled in.",
+    default: "Value assumed when the field is left blank.",
+    min: "Minimum value accepted by validation, if bounded.",
+    max: "Maximum value accepted by validation, if bounded.",
+    description:
+      "Field-level help text shown to the client in the guided Plan Data UI.",
+  },
+  state_tax: {
+    state:
+      "State name. Matched against a household's or scenario's residency state.",
+    rate:
+      "Flat income tax rate, or top marginal rate for bracket states (see type).",
+    type:
+      "flat or bracket. Determines whether rate is applied uniformly or via a bracket table.",
+    exempt_retirement:
+      "TRUE/FALSE. Whether this state exempts retirement account distributions from state income tax.",
+    exempt_ss:
+      "TRUE/FALSE. Whether this state exempts Social Security benefits from state income tax.",
+    prop_rate:
+      "Effective property tax rate used for real-estate carrying-cost estimates.",
+    sales_rate:
+      "State plus average local sales tax rate, used for consumption-based estimates.",
+    estate:
+      "TRUE/FALSE. Whether this state levies its own estate tax separate from the federal estate tax.",
+    estate_exempt:
+      "State estate-tax exemption threshold, in dollars. Ignored when estate is FALSE.",
+    retirement_exempt_over_65:
+      "Additional retirement-income exemption amount available once a filer reaches 65.",
+    source: "Citation for the rates and rules in this row.",
+    estate_calc:
+      "Identifies which state-specific estate-tax calculation table/method the engine uses for this state.",
+  },
+  tax_update_dashboard: {
+    constant:
+      "Identifier for the tracked tax constant (matches its internal name in code).",
+    category: "High-level tax category this constant belongs to.",
+    year: "Tax year this value is current for.",
+    source:
+      "Where this value came from and where in the code it is embedded.",
+    source_url: "Authoritative source link to verify the value against.",
+    last_reviewed: "Date this constant was last confirmed against its source.",
+    review_frequency: "How often this constant should be re-verified.",
+    status:
+      "Current freshness/review status, shown on the Tax-law update dashboard.",
+    blocking:
+      "TRUE/FALSE. Whether a stale value here blocks advisor-ready/recommendation status.",
+    notes: "What to do when this constant needs updating.",
   },
 };
 
@@ -1220,7 +1289,14 @@ function tableColumnNote(profile, col) {
 }
 function gridChoicesFor(profile, col, row, head) {
   const c = String(col || "").toLowerCase();
-  if (c === "type")
+  // "type" means something different per profile -- schema.csv's type is a
+  // Plan Data field's input type, state_tax.csv's type is how its rate is
+  // applied. Matching on column name alone (pre-existing behavior) offered
+  // schema's 13 input-type choices on state_tax's flat/bracket column, a
+  // wrong pick list that happened to go unnoticed because state_tax fell
+  // through to the ungated "generic" profile rather than a dedicated one.
+  if (c === "type" && profile === "state_tax") return ["flat", "bracket"];
+  if (c === "type" && (profile === "schema" || profile === "generic"))
     return [
       "text",
       "choice",
@@ -1254,7 +1330,13 @@ function gridControl(profile, h, row, ri, ci, head) {
   const choices = gridChoicesFor(profile, h, row, head);
   const val = row[ci] || "";
   if (choices) {
-    return `<select class="grid-input" data-row="${ri + 1}" data-col="${ci}" onchange="markGridChanged(this)">${choices.map((c) => `<option value="${esc(c)}" ${String(c) === String(val) ? "selected" : ""}>${esc(c)}</option>`).join("")}<option value="${esc(val)}" ${choices.includes(val) ? "" : "selected"}>${choices.includes(val) ? "" : "Custom: " + esc(val)}</option></select>`;
+    // Same fix as settingControl(): only add a trailing "custom value" option
+    // when the stored value isn't already one of the known choices, instead
+    // of unconditionally appending a blank duplicate.
+    const customOption = choices.includes(val)
+      ? ""
+      : `<option value="${esc(val)}" selected>Custom: ${esc(val)}</option>`;
+    return `<select class="grid-input" data-row="${ri + 1}" data-col="${ci}" onchange="markGridChanged(this)">${choices.map((c) => `<option value="${esc(c)}" ${String(c) === String(val) ? "selected" : ""}>${esc(c)}</option>`).join("")}${customOption}</select>`;
   }
   return `<input class="grid-input" data-row="${ri + 1}" data-col="${ci}" value="${esc(val)}" oninput="markGridChanged(this)">`;
 }
@@ -1433,14 +1515,9 @@ async function loadCsvEditor(def, backAction = "showAppSettings()") {
     changed: false,
     backAction,
   };
-  const isSection =
-    rows[0] &&
-    rowCell(rows[0], 0).toLowerCase() === "section" &&
-    rowCell(rows[0], 1).toLowerCase() === "subsection";
-  const body =
-    isSection || def.profile === "section_settings"
-      ? buildSectionSettings(rows, def)
-      : buildDataGrid(rows, def.profile);
+  const body = shouldRenderAsSectionSettings(rows, def)
+    ? buildSectionSettings(rows, def)
+    : buildDataGrid(rows, def.profile);
   document.getElementById("main").innerHTML =
     `<h2>${esc(activeEditor.title)}</h2><p class="muted">${esc(out.path)} · Compact table view. Changes save to the system configuration store and maintain CSV adapter compatibility.</p>${def.note ? `<div class="note-box">${esc(def.note)}</div>` : ""}<div class="toolbar compact-toolbar"><input id="cfgSearch" class="cfg-input hidden" placeholder="Search rows, values, or helper notes..." oninput="filterActiveTable()"><span id="cfgResultCount" class="pill">${Math.max(0, rows.length - 1)} rows</span><span><button onclick="document.querySelectorAll('#editorBody details').forEach(d=>d.open=true)">Expand all</button><button onclick="document.querySelectorAll('#editorBody details').forEach(d=>d.open=false)">Collapse all</button><button onclick="toggleRawEditor()">Advanced raw CSV</button></span><div class="collapsed-note">Use the triangles to expand sections. Focus any value control to update the right help panel.</div></div><div id="editorBody">${body}</div><div id="rawBox" class="advanced-box"><h3>Advanced CSV adapter editor</h3><p class="muted">Use only for bulk adapter maintenance or adding columns. Normal planning edits belong in the main UI.</p><textarea id="rawCsv">${esc(rowsToCsv(rows))}</textarea></div><div class="cfg-actions"><button class="primary" onclick="saveActiveEditor()">Save</button><button onclick="loadCsvEditor(activeEditor,activeEditor.backAction)">Reload from disk</button><span class="mini">Save stays visible. Use the left navigation to move between pages; raw CSV fallback is preserved.</span></div>`;
   initEditorInteractions();
@@ -1471,14 +1548,41 @@ function deleteGridRow(i) {
 }
 function loadCsvEditorFromMemory() {
   const def = activeEditor;
-  const isSection =
-    def.rows[0] && rowCell(def.rows[0], 0).toLowerCase() === "section";
-  document.getElementById("editorBody").innerHTML = isSection
-    ? buildSectionSettings(def.rows, def)
-    : buildDataGrid(def.rows, def.profile);
+  document.getElementById("editorBody").innerHTML =
+    shouldRenderAsSectionSettings(def.rows, def)
+      ? buildSectionSettings(def.rows, def)
+      : buildDataGrid(def.rows, def.profile);
   initEditorInteractions();
   def.changed = true;
   msg("Unsaved changes in " + def.title);
+}
+// Profiles with their own dedicated column layout must never be coerced into
+// the section/subsection/label/value/units/notes shape settingControl()
+// assumes -- schema.csv's header row (section,subsection,label,TYPE,
+// required,default,min,max,description) used to pass the old bare "does row
+// 0 say 'section'?" heuristic below and get rendered through
+// buildSectionSettings anyway, which read its "type" column as if it were an
+// editable "value" and its "required" column as "units". Editing and saving
+// there would have silently corrupted schema.csv's real type/required data.
+// Profiles that DO want the settings-row UI (section_settings, and anything
+// with no profile at all -- legacy callers) keep using the heuristic.
+const GRID_ONLY_PROFILES = new Set([
+  "security_master",
+  "capital_market",
+  "tax_constants",
+  "asset_correlations",
+  "schema",
+  "state_tax",
+  "tax_update_dashboard",
+]);
+function shouldRenderAsSectionSettings(rows, def) {
+  if (def.profile === "section_settings") return true;
+  if (GRID_ONLY_PROFILES.has(def.profile)) return false;
+  return !!(
+    rows[0] &&
+    rowCell(rows[0], 0).toLowerCase() === "section" &&
+    rowCell(rows[0], 1).toLowerCase() === "subsection"
+  );
 }
 
 const SYSTEM_CONFIG_PAGES = [
@@ -1954,6 +2058,11 @@ async function showReferenceFiles() {
   msg("Reference files loaded");
 }
 function referenceImpact(name) {
+  // Bug fix: callers pass the full filename ("security_master.csv"), but
+  // this map's keys never carried the extension, so every lookup missed and
+  // fell to the generic fallback for every single reference file. Strip it
+  // before matching.
+  const key = String(name || "").replace(/\.csv$/i, "");
   return (
     {
       security_master:
@@ -1965,13 +2074,19 @@ function referenceImpact(name) {
       schema: "Validation metadata and helper notes for client Plan Data.",
       state_tax: "State tax assumptions used in residency and tax projections.",
       tax_constants: "Federal tax thresholds, deductions, and constants.",
-    }[name] || "Reference input used by workbook generation."
+      tax_update_dashboard:
+        "Review status and source dates behind the Tax-law update dashboard.",
+    }[key] || "Reference input used by workbook generation."
   );
 }
 function profileForFile(name) {
   if (name === "security_master.csv") return "security_master";
   if (name === "capital_market_assumptions.csv") return "capital_market";
   if (name === "tax_constants.csv") return "tax_constants";
+  if (name === "asset_correlations.csv") return "asset_correlations";
+  if (name === "schema.csv") return "schema";
+  if (name === "state_tax.csv") return "state_tax";
+  if (name === "tax_update_dashboard.csv") return "tax_update_dashboard";
   return "generic";
 }
 async function showWorkspaces() {
