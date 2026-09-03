@@ -634,7 +634,7 @@ def optimize_workbook_layout(wb, target_total_width=118):
             if any_wrap:
                 ws.row_dimensions[row_idx].height = min(90, max(15, max_lines * (18 if row_idx <= 2 else 15)))
 
-        if ws.title in {FINAL_SHEET_RENAMES.get('4. Asset Allocation', '2B. Asset Allocation'), '4. Asset Allocation'}:
+        if ws.title in {FINAL_SHEET_RENAMES.get('4. Asset Allocation', '2C. Asset Allocation'), '4. Asset Allocation'}:
             for row_idx in (211, 285):
                 cell = ws.cell(row=row_idx, column=1)
                 old = cell.alignment or _Alignment()

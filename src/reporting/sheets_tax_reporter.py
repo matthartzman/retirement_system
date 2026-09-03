@@ -166,7 +166,7 @@ def build_sheet3(ws, c, rows):
 
     # Tax-lot data coverage is surfaced as a System / Quality Control item.
     # Actionable lot-by-lot sell guidance appears directly under taxable SELL
-    # recommendations on 2B. Asset Allocation, so the Balance Sheet remains a
+    # recommendations on the Asset Allocation sheet, so the Balance Sheet remains a
     # pure balance-sheet report rather than a partial tax-lot engine surface.
 
 

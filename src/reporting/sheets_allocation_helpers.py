@@ -2298,7 +2298,7 @@ def build_sheet4(ws, c, rows=None):
                'optimizer recommendation but picks the equity sleeve with the best risk-adjusted return. '
                'Pure Tangency has no risk budget at all — it is the single portfolio with the highest '
                'possible Sharpe ratio, shown for reference. Both use the same Selection-driven candidate '
-               'classes as the optimizer recommendation (2B. Asset Allocation): a class set to Exclude is '
+               'classes as the optimizer recommendation (4. Asset Allocation): a class set to Exclude is '
                'never a candidate, and a class set to Consider alternate first and mapped to a covered '
                'source (guaranteed income, home equity, ...) is left out once that source meets the '
                'target — so large annuities/home equity already covering the bond/real-estate sleeves '

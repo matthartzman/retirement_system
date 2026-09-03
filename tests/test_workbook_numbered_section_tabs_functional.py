@@ -23,21 +23,27 @@ def test_workbook_uses_numbered_sections_and_lettered_children(built_workbook_pa
         '1H. Current vs. Proposed',
         '2. Optimizers',
         '2A. Roth Conversion',
-        '2B. Asset Allocation',
-        '2C. State Residency',
-        '2D. Social Security',
-        '2E. S-Corp vs LLC',
-        '2F. Charitable Giving',
-        '2G. Estate & Legacy Planning',
-        '2I. Tax-Loss Harvesting',
+        # HSA Drawdown always sits right after Roth Conversion (shares its
+        # objective, per sheets_strategy.py) -- always-on like Tax Capacity
+        # below, not module-gated, so it is never absent. Its insertion here
+        # pushed every subsequent '2'-prefix letter in this list down by one
+        # versus the pre-HSA-sheet numbering.
+        '2B. HSA Drawdown',
+        '2C. Asset Allocation',
+        '2D. State Residency',
+        '2E. Social Security',
+        '2F. S-Corp vs LLC',
+        '2G. Charitable Giving',
+        '2H. Estate & Legacy Planning',
+        '2J. Tax-Loss Harvesting',
         # #209/#210/#212/#228: letters are computed fresh per build from
         # whichever sheets survive module gating -- this fixture's plan has
-        # the advanced modules (2J-2M in the old static mapping) off, so Gain
-        # Harvesting lands densely at 2J instead of leaving a gap at 2N.
-        '2J. Gain Harvesting',
+        # the advanced modules (2K-2N in the old static mapping) off, so Gain
+        # Harvesting lands densely at 2K instead of leaving a gap.
+        '2K. Gain Harvesting',
         # system review 2026-08-31 item 1.17: new always-on core sheet, lands
         # densely at the end of section 2's letter order (highest letter_rank).
-        '2K. Tax Capacity',
+        '2L. Tax Capacity',
         '3. Risk & Stress Tests',
         '3A. Monte Carlo',
         '3B. Survivor',
@@ -45,7 +51,7 @@ def test_workbook_uses_numbered_sections_and_lettered_children(built_workbook_pa
         '4. System',
         '4A. Plan Data',
         '4B. Assumptions',
-        '2H. Planning Levers',
+        '2I. Planning Levers',
         '4C. Account Reconciliation',
         '4D. Quality Control',
         '4E. RMD Audit',
@@ -64,7 +70,7 @@ def test_summary_tabs_reference_child_tabs(built_workbook_path):
     wb = load_workbook(built_workbook_path, read_only=False, data_only=False)
     summary_expected = {
         '1. Reports': ['1A. Executive Summary', '1B. Net Worth', '1C. Cash Flow', '1D. Balance Sheet', '1E. Charts'],
-        '2. Optimizers': ['2A. Roth Conversion', '2B. Asset Allocation', '2C. State Residency', '2D. Social Security', '2E. S-Corp vs LLC', '2G. Estate & Legacy Planning'],
+        '2. Optimizers': ['2A. Roth Conversion', '2B. HSA Drawdown', '2C. Asset Allocation', '2D. State Residency', '2E. Social Security', '2F. S-Corp vs LLC', '2H. Estate & Legacy Planning'],
         '3. Risk & Stress Tests': ['3A. Monte Carlo', '3B. Survivor', '3C. LTC + Life Insurance'],
         '4. System': ['4A. Plan Data', '4B. Assumptions', '4C. Account Reconciliation', '4D. Quality Control', '4E. RMD Audit', '4F. Methodology', '4G. Glossary'],
     }
@@ -78,8 +84,8 @@ def test_summary_tabs_reference_child_tabs(built_workbook_path):
 def test_strategy_scorp_ltc_and_asset_location_merges_are_present(built_workbook_path):
     wb = load_workbook(built_workbook_path, read_only=False, data_only=False)
     exec_text = ' '.join(str(c.value or '') for row in wb['1A. Executive Summary'].iter_rows() for c in row)
-    scorp_text = ' '.join(str(c.value or '') for row in wb['2E. S-Corp vs LLC'].iter_rows() for c in row)
-    allocation_text = ' '.join(str(c.value or '') for row in wb['2B. Asset Allocation'].iter_rows() for c in row)
+    scorp_text = ' '.join(str(c.value or '') for row in wb['2F. S-Corp vs LLC'].iter_rows() for c in row)
+    allocation_text = ' '.join(str(c.value or '') for row in wb['2C. Asset Allocation'].iter_rows() for c in row)
     ltc_text = ' '.join(str(c.value or '') for row in wb['3C. LTC + Life Insurance'].iter_rows() for c in row)
     assert 'WITHDRAWAL SEQUENCE STRATEGY' in exec_text
     assert 'S-CORP vs LLC' in scorp_text and 'LLC / Sole-Prop' in scorp_text

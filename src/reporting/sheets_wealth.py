@@ -419,7 +419,12 @@ def build_business_succession(ws, c, rows):
     r += 2
 
     # ── Section C — Estate-Liquidity Interaction ─────────────────────────────
-    write_hdr(ws, r, 1, 'Section C — Estate-Liquidity Interaction (see 2G. Estate & Legacy Planning)', NAVY, WHITE, span=8); r += 1
+    # Stable name '14. Estate Plan', not a hardcoded final letter -- section
+    # letters are recomputed per build (workbook_common._replace_text_refs
+    # rewrites this exact substring to whatever that sheet's final tab name
+    # is), so a literal '2G.'/'2H.' here would silently go stale the next
+    # time a sheet is added or a module toggled.
+    write_hdr(ws, r, 1, 'Section C — Estate-Liquidity Interaction (see 14. Estate Plan)', NAVY, WHITE, span=8); r += 1
     for i, h in enumerate(["Owner's Business Value", 'Federal Exemption (MFJ)',
                            'IL Estate Exemption', 'Over IL Exemption?', 'Illiquid Estate Flag'], 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
@@ -444,7 +449,7 @@ def build_business_succession(ws, c, rows):
                'illiquid business interest into cash for heirs and sets the estate valuation. Key-person '
                'coverage protects operating value during a transition. Where the owner\'s share is a large '
                'share of the estate, life insurance in an ILIT can supply estate liquidity without '
-               'inflating the taxable estate. Estate-tax modeling lives on 2G. Estate & Legacy Planning.',
+               'inflating the taxable estate. Estate-tax modeling lives on 14. Estate Plan.',
                bg='F4F5F7', align='left')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
 

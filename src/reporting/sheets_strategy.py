@@ -782,29 +782,17 @@ def build_hsa_schedule_section(ws, c, rows, r):
     """Render the optimizer's proposed HSA drawdown schedule and its limits.
 
     Returns the next free row; renders NOTHING and returns `r` unchanged unless
-    `hsa_withdrawal_mode` is `'optimize'`.
+    `hsa_withdrawal_mode` is `'optimize'`. Called by `build_sheet_hsa_drawdown`
+    (this sheet's own tab, '11C. HSA Drawdown') rather than by Sheet 11 itself
+    -- see that function's docstring for why the schedule moved off the Roth
+    Conversion sheet.
 
     **Why the gate.** The other withdrawal modes (`spend_as_needed`,
     `annual_pct`, `smooth_window`) produce no schedule to report on. An empty or
     placeholder section for them would be worse than no section: it would put
     four modeling caveats in front of a reader as if they qualified a
     recommendation this build never made.
-
-    **Why this sheet.** The schedule is not an independent recommendation. The
-    same year-by-year bracket/IRMAA headroom is divided between HSA draws and
-    Roth conversions by one shared objective (`joint_headroom_used` /
-    `allocate_surplus`), so the two answers move together. Putting the schedule
-    anywhere else would let a reader adopt one and not the other, which is the
-    single misreading that makes both wrong.
     """
-    # NOTE (2026-08-19): 'optimize' is not yet a value data_io.py will accept --
-    # it coerces anything outside spend_as_needed/annual_pct/smooth_window back
-    # to spend_as_needed, so this branch is currently unreachable from real
-    # plan data. Admitting it in data_io is a deliberately separate, engine-
-    # level task: planning_engines.py's withdraw_hsa_window has no 'optimize'
-    # case either, and an admitted value would silently fall through to the
-    # smooth_window branch there today -- wrong semantics, not just inert.
-    # See the Task 15 entry in .superpowers/sdd/progress.md.
     if str(c.get('hsa_withdrawal_mode') or '').strip().lower() != 'optimize':
         return r
 
@@ -889,11 +877,12 @@ def build_hsa_schedule_section(ws, c, rows, r):
          'It is a planning choice, not a prediction: the household can and may outlive it. '
          + _residual_txt),
         ('Shared Objective With Roth Conversion',
-         'This schedule shares the Roth conversion objective shown above: one joint scorer divides the '
-         'same year-by-year bracket and IRMAA headroom between HSA withdrawals and Roth conversions. '
-         'Changing either retunes both. Adjust the Roth policy and expect these HSA amounts to move; '
-         'adjust the HSA schedule and expect the conversion plan to move. These are not two '
-         'independent recommendations and neither should be adopted on its own.'),
+         'This schedule shares its objective with the Roth Conversion sheet (11. Roth Conversion): one '
+         'joint scorer divides the same year-by-year bracket and IRMAA headroom between HSA withdrawals '
+         'and Roth conversions. Changing either retunes both. Adjust the Roth policy and expect these '
+         'HSA amounts to move; adjust the HSA schedule and expect the conversion plan to move. These are '
+         'not two independent recommendations and neither should be adopted on its own -- read both '
+         'sheets together.'),
     ]
     for label, text in limits:
         write_cell(ws, r, 1, label, bold=True, bg=LGRAY, align='left')
@@ -904,6 +893,53 @@ def build_hsa_schedule_section(ws, c, rows, r):
         r += 1
 
     return r + 1
+
+
+_HSA_MODE_LABELS = {
+    'spend_as_needed': 'Spend as needed',
+    'annual_pct': 'Annual percentage',
+    'smooth_window': 'Smooth window',
+    'optimize': 'Optimizer',
+}
+
+
+def build_sheet_hsa_drawdown(ws, c, rows):
+    """HSA Drawdown -- its own tab.
+
+    This schedule used to be appended below Sheet 11's content, where a
+    household with any other `hsa_withdrawal_mode` would never scroll far
+    enough to see it, and a household in `optimize` mode had to hunt for it
+    under an unrelated sheet name. Splitting it out makes both cases legible:
+    nothing is buried, and the tab strip itself tells a reader whether a
+    schedule exists to read.
+
+    Still gated the same way `build_hsa_schedule_section` always was: this
+    sheet only has a schedule to show when `hsa_withdrawal_mode` is
+    `'optimize'`. For every other mode it renders a short explanation instead
+    of either an empty tab or four modeling caveats that would not apply to
+    whatever mode is actually configured.
+    """
+    ws.sheet_view.showGridLines = False
+    section_title(ws, 1, 'HSA DRAWDOWN — Optimizer-Proposed Withdrawal Schedule', 14)
+    r = 3
+
+    mode = str(c.get('hsa_withdrawal_mode') or '').strip().lower()
+    if mode != 'optimize':
+        mode_label = _HSA_MODE_LABELS.get(mode, mode or 'Spend as needed')
+        write_cell(
+            ws, r, 1,
+            "This sheet reports the optimizer's proposed HSA drawdown schedule. It is blank because "
+            f"HSA Policy → Withdrawals → HSA Withdrawal Mode is currently set to '{mode_label}', "
+            "not 'Optimizer'. Switch that setting to see a year-by-year schedule here.",
+            align='left',
+        )
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=_HSA_SECTION_SPAN)
+        ws.row_dimensions[r].height = 40
+        qc('11C. HSA Drawdown', 'Optimizer-proposed HSA schedule and its modeling limits rendered when hsa_withdrawal_mode is optimize', True, f'Not applicable — mode is {mode_label}')
+        return
+
+    r = build_hsa_schedule_section(ws, c, rows, r)
+    qc('11C. HSA Drawdown', 'Optimizer-proposed HSA schedule and its modeling limits rendered', True, '')
 
 
 def build_sheet11(ws, c, rows):
@@ -1117,11 +1153,22 @@ def build_sheet11(ws, c, rows):
         ws.row_dimensions[r].height = 32
         r += 1
 
-    # The HSA drawdown schedule shares this sheet's objective, so it ships with
-    # this sheet's recommendation. Mode-gated: renders nothing unless the HSA
-    # schedule optimizer is the configured withdrawal mode.
-    r += 2
-    r = build_hsa_schedule_section(ws, c, rows, r)
+    # The HSA drawdown schedule shares this sheet's objective (same joint
+    # scorer, same year-by-year headroom) but now has its own tab -- '11C. HSA
+    # Drawdown' -- rather than being appended below this sheet's content.
+    # Point the reader there instead of re-rendering it here. Mode-gated: only
+    # relevant when the HSA schedule optimizer is the configured withdrawal
+    # mode; otherwise that sheet has nothing to show either.
+    if str(c.get('hsa_withdrawal_mode') or '').strip().lower() == 'optimize':
+        r += 1
+        write_cell(
+            ws, r, 1,
+            'The HSA drawdown schedule that shares this objective is on the '
+            "'11C. HSA Drawdown' sheet, not below -- read both together.",
+            align='left',
+        )
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=len(hdrs))
+        r += 1
 
     ws.column_dimensions['B'].width = 14
     ws.column_dimensions['C'].width = 28

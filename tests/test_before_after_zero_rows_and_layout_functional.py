@@ -82,7 +82,7 @@ def _row_is_sole_column_a(ws, row: int) -> bool:
 @pytest.mark.slow
 def test_before_after_rebalancing_omits_zero_before_and_after_rows(built_workbook_path):
     wb = load_workbook(built_workbook_path, data_only=False, read_only=True)
-    ws = wb['2B. Asset Allocation']
+    ws = wb['2C. Asset Allocation']
     start = next(r for r in range(1, ws.max_row + 1) if ws.cell(r, 1).value == 'BEFORE & AFTER REBALANCING')
     zero_rows = []
     in_table = False
@@ -118,7 +118,7 @@ def test_before_after_rebalancing_omits_zero_before_and_after_rows(built_workboo
 @pytest.mark.slow
 def test_asset_allocation_columns_are_compact_and_wrapped(built_workbook_path):
     wb = load_workbook(built_workbook_path, data_only=False)
-    ws = wb['2B. Asset Allocation']
+    ws = wb['2C. Asset Allocation']
     # #209/#210/#212/#228: TEMPLATE_LAYOUT is keyed by the sheet's stable
     # (build-time) name, not its final letter.
     pinned = TEMPLATE_LAYOUT.get('4. Asset Allocation', {}).get('cols', {})

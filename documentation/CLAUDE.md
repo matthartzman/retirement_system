@@ -161,7 +161,7 @@ When workbook sheet names change (e.g. `'1. Executive Summary'` → `'1A. Execut
 - **Route versioning**: routes in this codebase do NOT use a `/api/v8/` prefix — they are `/api/...`. Tests that use the old prefix will get 404.
 - **JS string checks**: `dashboard.js` is the authoritative source. Before asserting a string is present, grep for it: `grep "the_string" frontend/js/dashboard.js`.
 - **`refresh_api_keys()` clobbers manual test setup**: if a test manually sets provider API keys to `None`, also monkeypatch `refresh_api_keys` to a no-op, or the method will re-load keys from environment variables.
-- **Workbook sheet names**: sheets use hierarchical naming (`1A. Executive Summary`, `2B. Asset Allocation`, not `1. Executive Summary`, `4. Asset Allocation`). The mapping lives in `src/reporting/workbook_builder.py`.
+- **Workbook sheet names**: sheets use hierarchical naming (`1A. Executive Summary`, `2A. Roth Conversion`, not `1. Executive Summary`, `11. Roth Conversion`). Final letters are recomputed per build from `SHEET_REGISTRY` (`src/module_catalog.py`), so a given sheet's letter shifts whenever a sheet is added/removed or an optional module is toggled — never hardcode one. The mapping lives in `src/reporting/workbook_builder.py`.
 - **Regenerate plan_data_manifest**: after any schema change, run `python tools/check_plan_data_sync.py --write` to resync the manifest.
 
 ## Architecture

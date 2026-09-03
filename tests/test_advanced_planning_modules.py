@@ -27,13 +27,17 @@ os.environ.setdefault("RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS", "1")
 
 # (toggle key, legacy build-time sheet, final presentation tab, builder)
 MODULES = [
-    ("education_funding_529",       "30. Education Funding",       "2J. Education Funding",       build_education_funding),
-    ("equity_compensation",         "35. Equity Compensation",     "2K. Equity Compensation",     build_equity_comp),
-    ("special_needs_planning",      "36. Special-Needs Planning",  "2L. Special-Needs Planning",  build_special_needs),
+    # '2B. HSA Drawdown' inserted right after Roth Conversion pushed every
+    # later '2'-prefix letter down by one (2I->2J etc); '3'-prefix letters
+    # (existing life/disability/P&C, a different letter_prefix group) are
+    # untouched.
+    ("education_funding_529",       "30. Education Funding",       "2K. Education Funding",       build_education_funding),
+    ("equity_compensation",         "35. Equity Compensation",     "2L. Equity Compensation",     build_equity_comp),
+    ("special_needs_planning",      "36. Special-Needs Planning",  "2M. Special-Needs Planning",  build_special_needs),
     ("existing_life_insurance",     "31. Existing Life Insurance", "3D. Existing Life Insurance", build_existing_life),
     ("disability_income_insurance", "32. Disability Income",       "3E. Disability Income",       build_disability),
     ("property_casualty_umbrella",  "33. P&C Umbrella",            "3F. P&C Umbrella",            build_pc_umbrella),
-    ("business_succession",         "34. Business Succession",     "2M. Business Succession",     build_business_succession),
+    ("business_succession",         "34. Business Succession",     "2N. Business Succession",     build_business_succession),
 ]
 
 

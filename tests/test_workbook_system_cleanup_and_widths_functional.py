@@ -19,15 +19,18 @@ def test_system_section_uses_clean_sheet_sequence_without_feature_toggle(built_w
         # #221: Core Spending merged into Spending Summary -- densely 1G now.
         '1G. Spending Summary',
         '1H. Current vs. Proposed',
-        # #209/#210/#212/#228: 2J (not the old static 2N) -- this fixture's
+        # #209/#210/#212/#228: 2K (not the old static 2N) -- this fixture's
         # plan has the advanced modules off, so Gain Harvesting fills the gap
         # densely instead of leaving one.
-        '2. Optimizers','2A. Roth Conversion','2B. Asset Allocation','2C. State Residency','2D. Social Security','2E. S-Corp vs LLC','2F. Charitable Giving','2G. Estate & Legacy Planning','2I. Tax-Loss Harvesting','2J. Gain Harvesting',
+        # HSA Drawdown (2B) always sits right after Roth Conversion (shares
+        # its objective) and is never module-gated, so its insertion pushed
+        # every subsequent '2'-prefix letter here down by one.
+        '2. Optimizers','2A. Roth Conversion','2B. HSA Drawdown','2C. Asset Allocation','2D. State Residency','2E. Social Security','2F. S-Corp vs LLC','2G. Charitable Giving','2H. Estate & Legacy Planning','2J. Tax-Loss Harvesting','2K. Gain Harvesting',
         # system review 2026-08-31 item 1.17: new always-on core sheet, lands
         # densely at the end of section 2's letter order (highest letter_rank).
-        '2K. Tax Capacity',
+        '2L. Tax Capacity',
         '3. Risk & Stress Tests','3A. Monte Carlo','3B. Survivor','3C. LTC + Life Insurance',
-        '4. System','4A. Plan Data','4B. Assumptions','2H. Planning Levers','4C. Account Reconciliation','4D. Quality Control','4E. RMD Audit','4F. Methodology','4G. Glossary',
+        '4. System','4A. Plan Data','4B. Assumptions','2I. Planning Levers','4C. Account Reconciliation','4D. Quality Control','4E. RMD Audit','4F. Methodology','4G. Glossary',
     ]
     assert visible[:len(expected)] == expected
     assert '4D. Feature Toggle' not in visible

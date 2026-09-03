@@ -73,10 +73,10 @@ def test_disabled_module_sheets_are_absent(gated_build):
     out_dir, _ = gated_build
     names = _sheet_names(out_dir / "retirement_plan.xlsx")
     for gone in ["3A. Monte Carlo", "3B. Survivor", "3C. LTC + Life Insurance",
-                 "4G. Glossary", "2C. State Residency"]:
+                 "4G. Glossary", "2D. State Residency"]:
         assert gone not in names, f"{gone} should be gated out but was present"
     # Core, always-on sheets remain.
-    for present in ["1A. Executive Summary", "1C. Cash Flow", "2B. Asset Allocation",
+    for present in ["1A. Executive Summary", "1C. Cash Flow", "2C. Asset Allocation",
                     "4A. Plan Data", "4D. Quality Control"]:
         assert present in names, f"{present} is core and must always be present"
 

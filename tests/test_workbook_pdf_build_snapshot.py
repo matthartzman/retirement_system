@@ -201,10 +201,14 @@ class Phase5WorkbookSnapshotTests(unittest.TestCase):
     def test_hsa_schedule_discloses_its_modeling_limits(self):
         """A proposed HSA drawdown schedule must ship with its limits.
 
-        The schedule lands on the Roth Conversion sheet because it is not an
-        independent recommendation: it and the conversion plan are scored
-        against one shared objective (`joint_headroom_used`/`allocate_surplus`),
-        so they must be read together or not at all.
+        The schedule has its own sheet ('11C. HSA Drawdown') rather than being
+        appended below the Roth Conversion sheet's content: it used to be
+        buried at the bottom of Sheet 11, easy to miss for a household in
+        `optimize` mode and pure dead weight scrolled past by everyone else.
+        It is still not an independent recommendation -- it and the conversion
+        plan are scored against one shared objective
+        (`joint_headroom_used`/`allocate_surplus`), so the sheet says so and
+        points back to the Roth Conversion sheet explicitly.
 
         NOTE ON WHAT THIS GUARD CAN AND CANNOT PROVE. The section is gated on
         `hsa_withdrawal_mode == 'optimize'`, and the frozen fixture this class
@@ -222,15 +226,15 @@ class Phase5WorkbookSnapshotTests(unittest.TestCase):
         from src.reporting.workbook_format_config import stable_name_for_sheet_title
 
         wb = openpyxl.load_workbook(self.workbook_path, data_only=True, read_only=True)
-        # Resolved through the stable-name API, never a hardcoded '11. ...':
+        # Resolved through the stable-name API, never a hardcoded '11C. ...':
         # section letters/numbers are recomputed per build and shift whenever an
         # optional module is toggled.
         sheets = [
             name for name in wb.sheetnames
-            if stable_name_for_sheet_title(name) == '11. Roth Conversion'
+            if stable_name_for_sheet_title(name) == '11C. HSA Drawdown'
         ]
         if not sheets:
-            self.skipTest('Roth Conversion sheet is off in this build; nowhere to disclose')
+            self.skipTest('HSA Drawdown sheet is off in this build; nowhere to disclose')
 
         text = "\n".join(
             str(cell)
@@ -243,7 +247,7 @@ class Phase5WorkbookSnapshotTests(unittest.TestCase):
                 "(hsa_withdrawal_mode is not 'optimize'); no schedule to disclose on"
             )
         self.assertIn('optimized on the deterministic path', text)
-        self.assertIn('shares the Roth conversion objective', text)
+        self.assertIn('shares its objective with the Roth Conversion sheet', text)
 
     def test_monte_carlo_sheet_does_not_credit_the_liquidity_buffer_with_mitigating_sequence_risk(self):
         """The narrative sections must not claim what the Methodology section disclaims.
