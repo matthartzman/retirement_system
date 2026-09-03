@@ -24,6 +24,23 @@ import sys
 import threading
 import webbrowser
 
+# Windows defaults stdout/stderr to the legacy ANSI code page (cp1252) unless
+# PYTHONUTF8/PYTHONIOENCODING is set, which this app does not require of its
+# users. Any print()/logging call anywhere in the process -- including ones
+# that echo user-entered config text (e.g. a note containing "μ") -- then
+# raises UnicodeEncodeError the moment that text can't be represented in
+# cp1252, surfacing as a raw crash (or, via app_core.py's catch-all
+# @app.errorhandler(Exception), as an opaque "UnicodeEncodeError: 'charmap'
+# codec can't encode character..." shown to the user in place of whatever the
+# request was actually trying to do). reconfigure() with errors="replace" is
+# a no-op on platforms where the stream is already UTF-8-capable.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:  # noqa: BLE001 - never block startup over this
+            pass
+
 # ---------------------------------------------------------------------------
 # Script-runner mode (frozen exe only)
 # ---------------------------------------------------------------------------
