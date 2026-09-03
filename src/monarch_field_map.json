@@ -1,0 +1,14 @@
+{
+  "_comment": "Maps Monarch Extractor output CSV column names to this app's internal transaction fields. Column name matching is case-insensitive and whitespace-tolerant. 'id_column' is the only strictly required entry -- upsert_transactions_by_monarch_id() cannot upsert without a stable id. Confirmed 2026-09-02 against the real Monarch Extractor/monarch_extract.py: id/date/merchant/amount/account/category/run_id are fixed columns on every row of new_transactions.csv and changed_transactions.csv; original_statement/notes/tags/owner are best-effort passthrough (present only if Monarch's own export included them).",
+  "id_column": "id",
+  "date_column": "date",
+  "merchant_column": "merchant",
+  "category_column": "category",
+  "account_column": "account",
+  "original_statement_column": "original_statement",
+  "notes_column": "notes",
+  "amount_column": "amount",
+  "tags_column": "tags",
+  "owner_column": "owner",
+  "run_id_column": "run_id"
+}

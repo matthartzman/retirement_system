@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Financial trends</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 24px; background: #f7f7f8; color: #1a1a1a; }
+  @media (prefers-color-scheme: dark) { body { background: #14161a; color: #e8e8ea; } }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: #666; font-size: 13px; margin-bottom: 16px; }
+  .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
+  .toolbar button { border: 1px solid #ccc; background: #fff; border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+  .toolbar button.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+  @media (prefers-color-scheme: dark) { .toolbar button { background: #1e2126; color: #e8e8ea; border-color: #3a3d44; } }
+  input[type=date] { padding: 5px 8px; border-radius: 6px; border: 1px solid #ccc; font-size: 13px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  @media (prefers-color-scheme: dark) { .card { background: #1e2126; box-shadow: none; border: 1px solid #2a2d33; } }
+  .card h2 { font-size: 14px; margin: 0 0 12px; }
+  .empty { color: #888; font-size: 13px; }
+  #runNow { margin-left: auto; }
+  svg text { fill: currentColor; font-size: 10px; }
+  .legend { font-size: 11px; color: #888; margin-top: 6px; }
+</style>
+</head>
+<body>
+<h1>Financial trends</h1>
+<div class="sub">YTD expenses by category, holdings value/performance, net worth, and cashflow — one entry per weekday close.</div>
+<div class="toolbar" id="timeframeBar">
+  <button data-tf="day">Day</button>
+  <button data-tf="week">Week</button>
+  <button data-tf="month">Month</button>
+  <button data-tf="quarter">Quarter</button>
+  <button data-tf="ytd" class="active">YTD</button>
+  <button data-tf="12m">12-month</button>
+  <button data-tf="all">All time</button>
+  <input type="date" id="customFrom" style="display:none">
+  <input type="date" id="customTo" style="display:none">
+  <button data-tf="custom">Custom</button>
+  <button id="runNow">Run now</button>
+</div>
+<div class="grid">
+  <div class="card"><h2>Net worth</h2><div id="chartNetWorth"></div></div>
+  <div class="card"><h2>Holdings value</h2><div id="chartHoldings"></div></div>
+  <div class="card"><h2>Cashflow (income vs. expenses)</h2><div id="chartCashflow"></div></div>
+  <div class="card"><h2>YTD expenses by category (latest)</h2><div id="chartCategories"></div></div>
+</div>
+
+<script>
+let history = [];
+let timeframe = "ytd";
+
+function fmtMoney(v) {
+  if (v === null || v === undefined) return "-";
+  return "$" + Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
+}
+
+function filterByTimeframe(rows, tf) {
+  if (!rows.length) return rows;
+  const last = new Date(rows[rows.length - 1].as_of_date);
+  let from = null;
+  if (tf === "day") { from = new Date(last); from.setDate(from.getDate() - 1); }
+  else if (tf === "week") { from = new Date(last); from.setDate(from.getDate() - 7); }
+  else if (tf === "month") { from = new Date(last); from.setMonth(from.getMonth() - 1); }
+  else if (tf === "quarter") { from = new Date(last); from.setMonth(from.getMonth() - 3); }
+  else if (tf === "ytd") { from = new Date(last.getFullYear(), 0, 1); }
+  else if (tf === "12m") { from = new Date(last); from.setFullYear(from.getFullYear() - 1); }
+  else if (tf === "custom") {
+    const fromEl = document.getElementById("customFrom");
+    const toEl = document.getElementById("customTo");
+    const fromVal = fromEl.value ? new Date(fromEl.value) : null;
+    const toVal = toEl.value ? new Date(toEl.value) : null;
+    return rows.filter(r => {
+      const d = new Date(r.as_of_date);
+      return (!fromVal || d >= fromVal) && (!toVal || d <= toVal);
+    });
+  } else {
+    return rows; // all time
+  }
+  return rows.filter(r => new Date(r.as_of_date) >= from);
+}
+
+function lineChartSvg(points, opts) {
+  opts = opts || {};
+  const w = 560, h = 160, pad = 28;
+  if (!points.length) return '<div class="empty">No data yet for this range.</div>';
+  const values = points.map(p => p.value).filter(v => v !== null && v !== undefined);
+  if (!values.length) return '<div class="empty">No data yet for this range.</div>';
+  const min = Math.min(0, ...values), max = Math.max(...values, 1);
+  const xStep = points.length > 1 ? (w - 2 * pad) / (points.length - 1) : 0;
+  const y = v => h - pad - ((v - min) / (max - min || 1)) * (h - 2 * pad);
+  const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${pad + i * xStep},${y(p.value ?? 0)}`).join(" ");
+  const last = points[points.length - 1];
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}">
+    <line x1="${pad}" y1="${y(0)}" x2="${w - pad}" y2="${y(0)}" stroke="#ccc" stroke-width="1"/>
+    <path d="${path}" fill="none" stroke="${opts.color || '#2563eb'}" stroke-width="2"/>
+    <text x="${pad}" y="12">${points[0].label}</text>
+    <text x="${w - pad}" y="12" text-anchor="end">${last.label}</text>
+    <text x="${w - pad}" y="${y(last.value ?? 0) - 6}" text-anchor="end" font-weight="600">${fmtMoney(last.value)}</text>
+  </svg>`;
+}
+
+function barChartSvg(entries) {
+  if (!entries.length) return '<div class="empty">No expenses recorded yet.</div>';
+  const w = 560, barH = 18, gap = 6, pad = 120;
+  const max = Math.max(...entries.map(e => e[1]), 1);
+  const h = entries.length * (barH + gap);
+  const bars = entries.map((e, i) => {
+    const y = i * (barH + gap);
+    const bw = (e[1] / max) * (w - pad - 60);
+    return `<text x="0" y="${y + barH - 5}">${e[0]}</text>
+      <rect x="${pad}" y="${y}" width="${bw}" height="${barH}" fill="#2563eb" rx="3"/>
+      <text x="${pad + bw + 6}" y="${y + barH - 5}">${fmtMoney(e[1])}</text>`;
+  }).join("");
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}">${bars}</svg>`;
+}
+
+function render() {
+  const rows = filterByTimeframe(history, timeframe);
+  document.getElementById("chartNetWorth").innerHTML = lineChartSvg(
+    rows.map(r => ({ label: r.as_of_date.slice(5), value: r.net_worth && r.net_worth.total })), { color: "#16a34a" }
+  );
+  document.getElementById("chartHoldings").innerHTML = lineChartSvg(
+    rows.map(r => ({ label: r.as_of_date.slice(5), value: r.holdings && r.holdings.current_value })), { color: "#2563eb" }
+  );
+  document.getElementById("chartCashflow").innerHTML = lineChartSvg(
+    rows.map(r => ({ label: r.as_of_date.slice(5), value: r.cashflow && r.cashflow.net })), { color: "#d97706" }
+  );
+  const latest = rows[rows.length - 1];
+  const categories = latest && latest.ytd_expenses_by_category ? Object.entries(latest.ytd_expenses_by_category).sort((a, b) => b[1] - a[1]).slice(0, 10) : [];
+  document.getElementById("chartCategories").innerHTML = barChartSvg(categories);
+}
+
+async function loadHistory() {
+  const resp = await fetch("/api/history");
+  history = await resp.json();
+  render();
+}
+
+document.getElementById("timeframeBar").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-tf]");
+  if (!btn) return;
+  timeframe = btn.dataset.tf;
+  document.querySelectorAll("#timeframeBar button[data-tf]").forEach(b => b.classList.toggle("active", b === btn));
+  document.getElementById("customFrom").style.display = timeframe === "custom" ? "inline-block" : "none";
+  document.getElementById("customTo").style.display = timeframe === "custom" ? "inline-block" : "none";
+  render();
+});
+document.getElementById("customFrom").addEventListener("change", () => { if (timeframe === "custom") render(); });
+document.getElementById("customTo").addEventListener("change", () => { if (timeframe === "custom") render(); });
+document.getElementById("runNow").addEventListener("click", async () => {
+  const btn = document.getElementById("runNow");
+  btn.disabled = true;
+  btn.textContent = "Running…";
+  try {
+    await fetch("/api/run-now", { method: "POST" });
+    await loadHistory();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Run now";
+  }
+});
+
+loadHistory();
+</script>
+</body>
+</html>
