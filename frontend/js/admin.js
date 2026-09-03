@@ -225,32 +225,22 @@ function adminPane(title, desc, body, eyebrow = "System") {
   return `<div class="pane-head"><div class="eyebrow">${esc(eyebrow)}</div><h2>${esc(title)}</h2>${desc ? `<p>${esc(desc)}</p>` : ""}</div>${body}`;
 }
 
+// #combine-market-data: 'optimizer' area used to duplicate SYSTEM_CONFIG_PAGES'
+// 'rebalancing' page byte-for-byte (same file, same profile, same
+// filterSections -- both rendered system_config.csv's Rebalancing section
+// through loadCsvEditor with no other distinction), just reached through a
+// second nav entry ("Investment policy" group) with a different title.
+// Removed rather than kept as an intentional alternate view.
 const AREA_DEFS = {
-  optimizer: {
-    title: "Global optimizer and rebalancing governance",
-    desc: "System-level tax-aware trade optimizer settings, solver fallback rules, and global risk controls used across clients.",
-    files: [
-      {
-        kind: "system",
-        file: "system_config.csv",
-        title: "Global tax-location rebalancing controls",
-        profile: "section_settings",
-        filterSections: ["Rebalancing"],
-        note: "System-level optimizer settings affect recommended trades, tax-cost budgets, turnover, concentration limits, and workbook trade narratives for every build.",
-      },
-    ],
-  },
   etf: {
     title: "ETF universe / replacement securities",
     desc: "Reference tables that drive ETF ideas, one-ETF-per-account recommendations, asset-class mapping, and optimizer capital-market inputs.",
+    // #combine-market-data: security_master.csv used to be listed here too
+    // ("Security master / ETF universe") in addition to its own "Market data"
+    // nav entry (pricing_security / openSecurityMaster()) -- same file, same
+    // profile, same loadCsvEditor renderer, reached two different ways. The
+    // adminNavItems() Market data group now covers it once; see there.
     files: [
-      {
-        kind: "reference",
-        file: "security_master.csv",
-        title: "Security master / ETF universe",
-        profile: "security_master",
-        note: "Maps symbols to asset classes and sleeves. This affects holdings classification, replacement ideas, allocation drift, and recommendation output.",
-      },
       {
         kind: "reference",
         file: "capital_market_assumptions.csv",
@@ -1528,21 +1518,35 @@ function adminNavItems() {
       action: "openSecurityMaster()",
       helpKey: "pricing",
     },
-    {
-      id: "diagnostics",
-      group: "Operations",
-      title: "Workbook build diagnostics",
-      desc: "Last build source, QC, forecast package status",
-      action: "showDiagnostics()",
-      helpKey: "diagnostics",
-    },
   );
+  // #combine-market-data: the 'etf' area's remaining files (security_master.csv
+  // was removed above -- it duplicated the "Security master" entry just
+  // pushed) are folded in here, immediately after the other two "Market
+  // data" entries, so the group prints once as one consecutive block instead
+  // of appearing a second time later in the nav via the generic AREA_DEFS
+  // loop below.
+  (AREA_DEFS.etf?.files || []).forEach((f, idx) =>
+    items.push({
+      id: `area_etf_${idx}`,
+      group: "Market data",
+      title: f.title,
+      desc: f.note || AREA_DEFS.etf.title,
+      action: `openAreaFile('etf',${idx})`,
+      helpKey: "etf",
+    }),
+  );
+  items.push({
+    id: "diagnostics",
+    group: "Operations",
+    title: "Workbook build diagnostics",
+    desc: "Last build source, QC, forecast package status",
+    action: "showDiagnostics()",
+    helpKey: "diagnostics",
+  });
   Object.entries(AREA_DEFS || {}).forEach(([areaId, area]) => {
+    if (areaId === "etf") return; // handled above, kept in the Market data group
     const group =
       {
-        allocation: "Investment policy",
-        optimizer: "Investment policy",
-        etf: "Market data",
         accountsTax: "Tax & accounts",
         household: "Planning inputs",
         optional: "Workbook options",
@@ -1552,7 +1556,7 @@ function adminNavItems() {
         id: `area_${areaId}_${idx}`,
         group,
         title: f.title,
-        desc: area.title,
+        desc: f.note || area.title,
         action: `openAreaFile('${areaId}',${idx})`,
         helpKey: areaId,
       }),
