@@ -27,6 +27,7 @@ that is not stays out of the root.
 - `.github/` - CI workflow definitions.
 - `data/` - desktop runtime preferences and webview profile data.
 - `documentation/` - project documentation, API contracts, changelog, and design notes. Superseded plans live in `documentation/archive/`.
+- `financial_trends_reporter/` - standalone app (ticket 306): appends a weekday-5pm log entry (YTD expenses by category, holdings value/performance, net worth, cashflow) and renders it as trend charts with a timeframe selector. A separate app with its own entry point (`main.py`) and server, but imports `src/` calculation modules as a library rather than re-deriving them. Its own runtime log (`data/*.jsonl`) is gitignored, same as `input/`.
 - `frontend/` - browser UI assets.
 - `input/` - canonical local Plan Data files and `plan_data_manifest.json`.
 - `launchers/` - thin desktop entry scripts that delegate to `tools/launchers/`.

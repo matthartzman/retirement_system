@@ -300,6 +300,31 @@ Guardrails:
 - Retention pruning is capped by policy.
 - Backup files are `.rpx` SQLite copies with JSON manifests.
 
+## `/api/plan/monarch-autoupdate`
+
+Purpose: opt-in daily Monarch Extractor transaction auto-import status (ticket 305).
+
+Method:
+- `GET`.
+
+Schema:
+- `monarch_autoupdate_v1`.
+
+Response:
+- `success` (implied by HTTP 200), `schema`: `monarch_autoupdate_v1`.
+- `policy`: `enabled`, `source_dir`, `field_map_path`.
+- `status`: the most recent run's `monarch_autoupdate_status_v1` payload (`last_run_at`, `success`, `files_consumed`, `rows_added`, `rows_updated`, `rows_skipped`, `errors`), or `null` if it has never run.
+
+Related routes:
+- `POST /api/plan/monarch-autoupdate/config`: update the policy; also best-effort registers/unregisters the OS-level Windows Task Scheduler entry (`task_registration` in the response — `{attempted, success, error}`; a failure here does not undo the saved policy).
+- `POST /api/plan/monarch-autoupdate/run`: run the import now (`force: true` by default, bypassing the enabled check). Response includes `mark_delivered_errors` (see below).
+
+Guardrails:
+- Import is opt-in; the actual 4am trigger is an OS-level Task Scheduler entry, not an in-process timer (the app has no always-on background process).
+- Upserts by a stored Monarch id (`upsert_transactions_by_monarch_id` in `src/ytd_tracking.py`): replaces a changed transaction, adds a new one, no-ops an unchanged one. A row with no Monarch id falls back to the pre-existing hash-based dedup.
+- The headless job (`tools/monarch_autoimport.py` / `src/monarch_autoimport_job.py`) guards against OneDrive placeholder/truncated source files before reading, and mirrors the written CSVs into the SQLite plan-data store since it runs with no Flask request context.
+- Reads only `new_transactions.csv` and `changed_transactions.csv` from the Monarch Extractor's output folder (never `transactions.csv`, its full history, or `duplicates_removed.csv`) — confirmed 2026-09-02 against the real `Monarch Extractor/monarch_extract.py`. Those two files hold every still-pending event across every past extractor run, each tagged with a `run_id`; after a successful upsert, the job runs `python monarch_extract.py --mark-delivered <run_id>` (via the extractor's own `.venv`, since it imports Playwright unconditionally) for every distinct `run_id` it just imported, so that run's rows stop reappearing. This is best-effort: a failure is reported in `mark_delivered_errors` but does not fail the (already-committed) import — an unmarked run just means the same, already-upserted rows harmlessly reappear next cycle.
+
 ## `/api/plan/exit-snapshot`
 
 Purpose: local database restore point on app exit.

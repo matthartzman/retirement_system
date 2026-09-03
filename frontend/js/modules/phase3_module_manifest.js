@@ -27,7 +27,10 @@
     // loaded, and everything after them depends on their globals being
     // synchronously available at parse time, which a deferred module cannot
     // guarantee.
-    remaining_classic_by_design:['dashboard_decomp_local_backups.js','dashboard_shared_helpers.js','pywebview_bridge.js'],
+    // dashboard_decomp_monarch_autoupdate.js (ticket 305) stays classic for
+    // the identical reason: the boot chain also calls
+    // refreshMonarchAutoUpdateStatus(true), defined only there.
+    remaining_classic_by_design:['dashboard_decomp_local_backups.js','dashboard_decomp_monarch_autoupdate.js','dashboard_shared_helpers.js','pywebview_bridge.js'],
     // v3 (docs/superpowers/plans/2026-08-06-dashboard-js-ast-module-conversion.md):
     // dashboard.js itself is now a real type="module" script too. Unlike
     // every leaf above (self-contained, a handful to ~30 functions, exposed

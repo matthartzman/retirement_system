@@ -22,6 +22,11 @@ saved_plans/
 *.db-wal
 *.db-shm
 
+# financial_trends_reporter's own runtime log: real net worth, cashflow, and
+# spending-by-category figures for every logged day -- same PII sensitivity
+# class as input/, so it stays untracked for the same reason (see below).
+financial_trends_reporter/data/*.jsonl
+
 # Real plan data: a household's actual name, DOB, retirement date, SSA
 # benefit amounts, insurance premiums, and every other personal/financial
 # fact the app captures. Historically tracked, which put real client PII on
@@ -37,6 +42,14 @@ saved_plans/
 !/input/README_INPUT_PACKAGE.md
 !/input/README_YTD_INPUTS.md
 !/input/ytd_transactions_sample.csv
+
+# Monarch Extractor (ticket 305): only monarch_extract.py and run_monarch.ps1
+# are source. Everything else it creates at runtime is either a live browser
+# credential store or real transaction data, neither of which belongs in git.
+Monarch Extractor/monarch-browser/
+Monarch Extractor/.venv/
+Monarch Extractor/output/
+Monarch Extractor/raw/
 
 # Logs / scratch
 *.log

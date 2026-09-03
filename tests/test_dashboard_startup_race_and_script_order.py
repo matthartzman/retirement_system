@@ -53,6 +53,21 @@ def test_local_backups_module_loads_before_dashboard_js():
     )
 
 
+def test_monarch_autoupdate_module_loads_before_dashboard_js():
+    """Same guarantee as test_local_backups_module_loads_before_dashboard_js,
+    for dashboard_decomp_monarch_autoupdate.js (ticket 305): the boot chain
+    also calls refreshMonarchAutoUpdateStatus(true), defined only there, so
+    it must stay a classic script loaded before dashboard.js too."""
+    html = INDEX_HTML.read_text(encoding="utf-8")
+    monarch_pos = html.index('<script src="js/dashboard_decomp_monarch_autoupdate.js')
+    dashboard_pos = html.index('<script type="module" src="js/dashboard.js')
+    assert monarch_pos < dashboard_pos, (
+        "dashboard_decomp_monarch_autoupdate.js must load before dashboard.js: "
+        "dashboard.js's top-level boot chain calls refreshMonarchAutoUpdateStatus(), "
+        "which that file defines."
+    )
+
+
 def test_dashboard_boot_chain_has_no_bare_unhandled_promise():
     """The checkAppStatus(true).then(...) boot chain must end in a .catch —
     without one, any exception inside it (like the refreshLocalBackupStatus
