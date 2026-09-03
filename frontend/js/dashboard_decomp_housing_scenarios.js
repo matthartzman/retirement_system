@@ -997,7 +997,7 @@ export function renderSavedScenarioSetsHtml() {
     const date = set.created_at
       ? new Date(set.created_at).toLocaleString()
       : "";
-    html += `<details class="scenario-set-card"><summary><b>${esc(set.name)}</b><span>${esc(date)} · ${(set.items || []).length} assumption${(set.items || []).length === 1 ? "" : "s"}</span></summary><div class="scenario-set-body">${scenarioDiffTableHtml(diffs, "This saved set matches the current scenario assumptions.")}<div class="table-actions"><button class="btn" type="button" onclick="applySavedScenarioSet('${escJs(set.id)}')">Apply saved set</button><button class="danger-link" type="button" onclick="deleteSavedScenarioSet('${escJs(set.id)}')">Delete</button></div></div></details>`;
+    html += `<details class="scenario-set-card"><summary><b>${esc(set.name)}</b><span>${esc(date)} · ${(set.items || []).length} assumption${(set.items || []).length === 1 ? "" : "s"}</span></summary><div class="scenario-set-body">${scenarioDiffTableHtml(diffs, "This saved set matches the current scenario assumptions.")}<div class="table-actions"><button class="btn" type="button" onclick="applySavedScenarioSet('${escJs(set.id)}')">Apply saved set</button>${deleteIconBtn(`deleteSavedScenarioSet('${escJs(set.id)}')`)}</div></div></details>`;
   });
   html += "</div>";
   return html;

@@ -34,6 +34,13 @@ const esc = (s) =>
         m
       ],
   );
+const TRASH_SVG_ICON =
+  '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path fill="currentColor" d="M6 1.5h4a.5.5 0 0 1 .5.5v1h3a.5.5 0 0 1 0 1h-.6l-.7 9.4a1.5 1.5 0 0 1-1.5 1.4H5.3a1.5 1.5 0 0 1-1.5-1.4L3.1 4H2.5a.5.5 0 0 1 0-1h3V2a.5.5 0 0 1 .5-.5Zm-1.9 2.5.68 9.32a.5.5 0 0 0 .5.46h5.44a.5.5 0 0 0 .5-.46L11.9 4H4.1Zm2.15 1.75a.5.5 0 0 1 .5.5v5.5a.5.5 0 0 1-1 0v-5.5a.5.5 0 0 1 .5-.5Zm3.5 0a.5.5 0 0 1 .5.5v5.5a.5.5 0 0 1-1 0v-5.5a.5.5 0 0 1 .5-.5ZM7 2.5v.5h2v-.5H7Z"/></svg>';
+function deleteIconBtn(onclickExpr, opts) {
+  opts = opts || {};
+  const extraCls = opts.cls ? " " + opts.cls : "";
+  return `<button type="button" class="danger icon-btn${extraCls}" onclick="${onclickExpr}" title="Delete" aria-label="Delete">${TRASH_SVG_ICON}</button>`;
+}
 const msg = (s) => (document.getElementById("msg").textContent = s);
 let adminAppReady = true;
 async function checkApp() {
@@ -1193,7 +1200,7 @@ function buildDataGrid(rows, profile = "generic") {
   if (!rows.length) return '<div class="no-results">No rows found.</div>';
   const head = rows[0];
   const body = rows.slice(1);
-  return `<div class="scroll"><table class="data-table"><thead><tr>${head.map((h, ci) => `<th>${esc(titleCaseLabel(h))} <button type="button" class="column-help-btn" title="Column help" aria-label="Help for ${esc(h)}" data-col="${esc(h)}" data-note="${esc(tableColumnNote(profile, h))}" onclick="showColumnHelp(event,this)">?</button></th>`).join("")}<th>Actions</th></tr></thead><tbody>${body.map((r, ri) => `<tr data-filter="${esc(r.join(" ").toLowerCase())}">${head.map((h, ci) => `<td>${gridControl(profile, h, r, ri, ci, head)}</td>`).join("")}<td><button class="danger" onclick="deleteGridRow(${ri + 1})">Delete</button></td></tr>`).join("")}</tbody></table></div><button onclick="addGridRow()">Add row</button>`;
+  return `<div class="scroll"><table class="data-table"><thead><tr>${head.map((h, ci) => `<th>${esc(titleCaseLabel(h))} <button type="button" class="column-help-btn" title="Column help" aria-label="Help for ${esc(h)}" data-col="${esc(h)}" data-note="${esc(tableColumnNote(profile, h))}" onclick="showColumnHelp(event,this)">?</button></th>`).join("")}<th>Actions</th></tr></thead><tbody>${body.map((r, ri) => `<tr data-filter="${esc(r.join(" ").toLowerCase())}">${head.map((h, ci) => `<td>${gridControl(profile, h, r, ri, ci, head)}</td>`).join("")}<td>${deleteIconBtn(`deleteGridRow(${ri + 1})`)}</td></tr>`).join("")}</tbody></table></div><button onclick="addGridRow()">Add row</button>`;
 }
 function summarizeRows(rows) {
   const settings = rows.filter(isSetting);

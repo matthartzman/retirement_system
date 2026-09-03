@@ -94,7 +94,7 @@ export function renderOtherAssetItemsTable() {
   }
   html += `<div class="matrix-wrap" role="region" aria-label="Other assets" tabindex="0"><table class="matrix-table"><thead><tr><th>Type</th><th>Name</th><th>Value</th><th>As-of date</th><th>Annual +/- %</th><th>Basis</th><th>Sell date</th><th></th></tr></thead><tbody>`;
   subs.forEach((sub) => {
-    html += `<tr><td>${otherAssetTypeCell(otherAssetRow(sub, "type"))}</td><td>${otherAssetInputCell(sub, "name")}</td><td>${otherAssetInputCell(sub, "value")}</td><td>${otherAssetInputCell(sub, "as_of_date")}</td><td>${otherAssetInputCell(sub, "annual_appreciation_pct")}</td><td>${otherAssetInputCell(sub, "basis")}</td><td>${otherAssetInputCell(sub, "sell_date")}</td><td><button class="danger-link" type="button" onclick="deleteOtherAssetItem('${escJs(sub)}')">Delete</button></td></tr>`;
+    html += `<tr><td>${otherAssetTypeCell(otherAssetRow(sub, "type"))}</td><td>${otherAssetInputCell(sub, "name")}</td><td>${otherAssetInputCell(sub, "value")}</td><td>${otherAssetInputCell(sub, "as_of_date")}</td><td>${otherAssetInputCell(sub, "annual_appreciation_pct")}</td><td>${otherAssetInputCell(sub, "basis")}</td><td>${otherAssetInputCell(sub, "sell_date")}</td><td>${deleteIconBtn(`deleteOtherAssetItem('${escJs(sub)}')`)}</td></tr>`;
   });
   html +=
     '</tbody></table></div><p class="small">For appreciating assets such as start-up equity, art, or collectibles, enter a basis when you know the purchase price or tax basis. For depreciating assets, basis can be left blank unless it matters for a later sale scenario.</p></div></details>';
@@ -204,7 +204,7 @@ export function renderNoteReceivableTable() {
         .filter((r) => r.subsection === sub && norm(r.label) !== "name")
         .map(fieldHtml)
         .join("") + renderNoteInterestTable(sub);
-    html += `<details><summary><span>${esc(label)}</span> <button class="danger-link" type="button" onclick="deleteNoteReceivable('${escJs(sub)}')">Delete</button></summary><div class="field-list">${nameRow ? fieldHtml(nameRow) : ""}${body}</div></details>`;
+    html += `<details><summary><span>${esc(label)}</span> ${deleteIconBtn(`deleteNoteReceivable('${escJs(sub)}')`)}</summary><div class="field-list">${nameRow ? fieldHtml(nameRow) : ""}${body}</div></details>`;
   });
   return html;
 }
@@ -543,7 +543,7 @@ export function renderLiabilitiesTable() {
         html += `<td data-label="${lbl}"><input class="tiny" data-lcol="${esc(c)}" type="number" step="0.01" value="${esc(r[c] || "")}" oninput="updateLiability(${i},'${esc(c)}',this.value)"></td>`;
       }
     });
-    html += `<td data-label="Actions"><button class="danger-link" onclick="deleteLiability(${i})">Delete</button></td></tr>`;
+    html += `<td data-label="Actions">${deleteIconBtn(`deleteLiability(${i})`)}</td></tr>`;
   });
   html += `</tbody></table></div></div></details>`;
   return html;

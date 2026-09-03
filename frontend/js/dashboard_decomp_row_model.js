@@ -3249,7 +3249,7 @@ export function renderYtdAccounts() {
             : isMappedAnnuity
               ? 'disabled placeholder="From income stream"'
               : 'placeholder="$0"';
-        })()} onfocus="focusYtdAccountMoney(this)" oninput="updateYtdAccountMoney(${i},'Current Value',this)" onblur="blurYtdAccountMoney(${i},'Current Value',this)"></td><td class="ytd-delete-cell"><button class="danger-link" type="button" onclick="deleteYtdAccount(${i})">Delete</button></td></tr>`;
+        })()} onfocus="focusYtdAccountMoney(this)" oninput="updateYtdAccountMoney(${i},'Current Value',this)" onblur="blurYtdAccountMoney(${i},'Current Value',this)"></td><td class="ytd-delete-cell">${deleteIconBtn(`deleteYtdAccount(${i})`)}</td></tr>`;
       })
       .join("") ||
     `<tr><td colspan="6"><span class="small">No accounts yet. Upload transactions to seed transaction accounts automatically, or use the inline account/source controls for manual rows.</span></td></tr>`
@@ -3671,6 +3671,14 @@ export function updateTaxBudget(catId, field, val) {
   taxBudget[catId][field] = val;
   taxBudgetChanged = true;
   syncTaxonomyBudgetToBudgetLines();
+}
+
+// Flips the two-state Annualize icon (green=annualize, red=don't annualize)
+// for a category or group budget key. Re-renders so the icon's color/tooltip
+// picks up the new state immediately.
+export function toggleAnnualizeFlag(key, currentlyNoAnnualize) {
+  updateTaxBudget(key, "no_annualize", currentlyNoAnnualize ? "FALSE" : "TRUE");
+  renderMain();
 }
 
 export function domainBudgetTitle(domain) {
@@ -4909,6 +4917,7 @@ Object.assign(window, {
   syncTaxonomyBudgetToBudgetLines,
   titleWord,
   toIsoDateValue,
+  toggleAnnualizeFlag,
   translatePersonPlaceholders,
   unsavedChangeCount,
   updateCategoryDetail,

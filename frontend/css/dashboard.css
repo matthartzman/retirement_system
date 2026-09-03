@@ -361,9 +361,25 @@ body.chart-modal-open{overflow:hidden}
 .budget-cat-detail-list{padding:4px 0 8px 0}
 .budget-cat-entry{border-bottom:1px solid var(--line);padding:6px 0 4px 0}
 .budget-cat-entry:last-child{border-bottom:none}
-.budget-cat-header{display:flex;align-items:center;gap:8px;padding:5px 0;flex-wrap:wrap}
-.budget-cat-name{font-weight:600;font-size:13px}
+.budget-cat-header{display:flex;align-items:center;gap:8px;padding:5px 0;flex-wrap:nowrap;overflow-x:auto}
+.budget-cat-name{font-weight:600;font-size:13px;white-space:nowrap}
+.budget-cat-header>.small{white-space:nowrap}
+.budget-cat-header>label{white-space:nowrap;flex-shrink:0}
 .budget-cat-lines-table{min-width:580px;margin:2px 0 4px 12px;width:calc(100% - 12px)}
+.icon-btn{display:inline-flex;align-items:center;justify-content:center;padding:5px;border-radius:7px;flex-shrink:0}
+.icon-btn:hover:not(:disabled){background:#fef2f2}
+.icon-btn svg{display:block}
+.icon-annualize-toggle{display:inline-flex;align-items:center;justify-content:center;padding:5px;border:none;background:transparent;cursor:pointer;border-radius:7px;position:relative;flex-shrink:0}
+.icon-annualize-toggle svg{display:block}
+.icon-annualize-toggle.state-annualize{color:#16a34a}
+.icon-annualize-toggle.state-no-annualize{color:#dc2626}
+.icon-annualize-toggle:hover:not(:disabled){background:#f3f1ea}
+.icon-annualize-toggle:disabled{opacity:.5;cursor:not-allowed}
+.icon-annualize-toggle:hover:not(:disabled)::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);white-space:nowrap;font-size:11px;font-weight:800;padding:4px 8px;border-radius:6px;background:#1c2f4a;z-index:30;pointer-events:none}
+.icon-annualize-toggle.state-annualize:hover:not(:disabled)::after{color:#4ade80}
+.icon-annualize-toggle.state-no-annualize:hover:not(:disabled)::after{color:#f87171}
+.spend-bar-row,.spend-bar-header,.taxonomy-group-title,.table-actions{flex-wrap:nowrap}
+.spend-bar-row,.taxonomy-group-title{overflow-x:auto}
 .spend-model-card{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:12px}
 .spend-model-card-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;opacity:.75;margin-bottom:4px}
 .spend-model-card-value{font-size:22px;font-weight:900;font-variant-numeric:tabular-nums}
