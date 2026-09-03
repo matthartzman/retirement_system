@@ -1069,6 +1069,15 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
     transfer = 0.0
     investment_deposits = 0.0
     investment_withdrawals = 0.0
+    # Real estate taxes are paid in one or two lump installments a year, not
+    # smoothly across it -- day-prorating a lump payment into the YTD "spending"
+    # run rate wildly over- or under-states the full-year projection depending
+    # on whether the payment has landed yet this year. The plan's real annual
+    # RE tax figure is already modeled correctly and separately (see
+    # annual_real_estate_tax_spending, forecast.spending_plan_components), so
+    # RE tax transactions are tracked here for the category breakdown but kept
+    # out of the day-prorated spending/spending_annualized totals entirely.
+    real_estate_tax_actual = 0.0
     category_totals: dict[str, float] = {}
     income_category_totals: dict[str, float] = {}
     account_totals: dict[str, float] = {}
@@ -1145,15 +1154,21 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
             income_category_totals[cat] = income_category_totals.get(cat, 0.0) + val
         elif kind == "spending":
             val = abs(amount)
-            spending += val
-            monthly[d.month]["spending"] += val
             cat = str(row.get("Category", "") or "Uncategorized").strip() or "Uncategorized"
+            if _real_estate_tax_category(row):
+                real_estate_tax_actual += val
+            else:
+                spending += val
+                monthly[d.month]["spending"] += val
             category_totals[cat] = category_totals.get(cat, 0.0) + val
         elif kind == "spending_refund":
             val = abs(amount)
-            spending -= val
-            monthly[d.month]["spending"] -= val
             cat = str(row.get("Category", "") or "Uncategorized").strip() or "Uncategorized"
+            if _real_estate_tax_category(row):
+                real_estate_tax_actual -= val
+            else:
+                spending -= val
+                monthly[d.month]["spending"] -= val
             category_totals[cat] = category_totals.get(cat, 0.0) - val
 
         account = str(row.get("Account", "") or "Unassigned").strip() or "Unassigned"
@@ -1289,6 +1304,7 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
             "note_receivable_income": round(note_receivable_income, 2),
             "other_income": round(other_income, 2),
             "taxes": round(taxes, 2),
+            "real_estate_taxes": round(real_estate_tax_actual, 2),
             "growth": round(actual_growth, 2) if actual_growth is not None else None,
         },
         "forecast": {
