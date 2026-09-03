@@ -1,4 +1,4 @@
-# Final Report Template
+﻿# Final Report Template
 
 The generated Markdown report must contain:
 

@@ -1,4 +1,4 @@
-{
+﻿{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "System Review Finding Register",
   "type": "array",
@@ -14,8 +14,15 @@
       "inspection_status",
       "verification_status",
       "evidence",
+      "observed_behavior",
       "impact",
+      "affected_workflows",
+      "root_cause",
+      "options",
       "recommendation",
+      "dependencies",
+      "implementation_considerations",
+      "risk_of_change",
       "verification_method"
     ],
     "properties": {
@@ -39,7 +46,7 @@
       "category": {
         "type": "string",
         "not": {
-          "pattern": "(?i)ci|github actions|pipeline"
+          "pattern": "\\b[Cc][Ii]\\b|[Gg]it[Hh]ub\\s+[Aa]ctions|[Pp]ipeline"
         }
       },
       "severity": {
@@ -137,8 +144,24 @@
           }
         }
       },
+      "observed_behavior": {
+        "type": "string"
+      },
       "impact": {
         "type": "string"
+      },
+      "affected_workflows": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "root_cause": {
+        "type": "string"
+      },
+      "assumptions": {
+        "type": "string",
+        "description": "Assumptions relevant to the finding, when applicable. Optional alongside jurisdiction/rule_year."
       },
       "jurisdiction": {
         "type": "string"
@@ -146,11 +169,37 @@
       "rule_year": {
         "type": "string"
       },
+      "options": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "2-3 real options with tradeoffs, or a single entry stating 'No credible alternative; this is a correctness defect.' per review-criteria.md."
+      },
       "recommendation": {
+        "type": "string"
+      },
+      "dependencies": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "implementation_considerations": {
+        "type": "string"
+      },
+      "risk_of_change": {
         "type": "string"
       },
       "verification_method": {
         "type": "string"
+      },
+      "linked_implementation_items": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Populated once implementation waves are created; not expected to be present at initial finding creation."
       }
     }
   }

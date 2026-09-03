@@ -1,4 +1,4 @@
-/**
+﻿/**
  * System Review — GitHub MCP command-limited, CI-excluded workflow.
  *
  * Runs in a Claude Code project linked to a GitHub repository. GitHub interactions are
@@ -147,11 +147,34 @@ async function buildRepositoryInventory({ repository, refContext, scope }) {
   const queries = ["path:documentation", "path:docs", "filename:README", "filename:ARCHITECTURE", "filename:DESIGN", "filename:IMPLEMENTATION", "filename:ADR", "path:.github", "filename:package.json", "filename:pyproject.toml", "filename:requirements.txt", "filename:Cargo.toml", "filename:go.mod", "filename:docker-compose.yml", "filename:compose.yml", "filename:Makefile", "filename:README.md"];
   const results = await Promise.all(queries.map(query => github.search_code({ q: `repo:${repository.owner}/${repository.name} ${query}` })));
   const candidates = flattenAndDedupeCodeSearch(results);
-  const files = await Promise.all(candidates.slice(0, 250).map(async item => {
+  // Throttled instead of a single 250-wide Promise.all: an unbounded burst of get_file_contents
+  // calls risks GitHub secondary rate limits on larger repositories.
+  const files = await mapWithConcurrency(candidates.slice(0, 250), FILE_FETCH_CONCURRENCY, async item => {
     const content = await github.get_file_contents({ owner: repository.owner, repo: repository.name, ref: refContext.ref, path: item.path });
     return { path: item.path, sha: content.sha, content: decodeGitHubContent(content) };
-  }));
+  });
   return classifyInventory(files, scope);
+}
+
+const FILE_FETCH_CONCURRENCY = 8;
+
+/**
+ * Runs `worker` over `items` with at most `limit` in flight at once, preserving input order
+ * in the returned array. A plain Promise.all over hundreds of GitHub calls (e.g. the repository
+ * inventory fetch) can trip secondary rate limits; this bounds the burst instead.
+ */
+async function mapWithConcurrency(items, limit, worker) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  async function runLane() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex++;
+      results[currentIndex] = await worker(items[currentIndex], currentIndex);
+    }
+  }
+  const lanes = Array.from({ length: Math.min(limit, items.length) }, runLane);
+  await Promise.all(lanes);
+  return results;
 }
 
 async function hydratePullRequests({ repository, ref, candidates }) {
@@ -175,7 +198,13 @@ async function collectSecurityContext({ repository }) {
   return { secret_scanning: secretScan };
 }
 
-function notCiRelated(finding) { return !/(\bci\b|github actions|workflow run|workflow job|check run|pipeline)/i.test(JSON.stringify(finding)); }
+function notCiRelated(finding) {
+  // Scoped to category/title only. Stringifying the whole finding previously matched on
+  // legitimate content elsewhere in the object (e.g. an evidence path like src/pipeline/calc.py),
+  // silently dropping non-CI findings.
+  const scoped = `${finding.category || ""} ${finding.title || ""}`;
+  return !/(\bci\b|github actions|workflow run|workflow job|check run|pipeline)/i.test(scoped);
+}
 function removeCiContent(report) { return stripCiSectionsAndClaims(report, "CI was intentionally excluded from this review."); }
 function panelForDepth(depth) { const expert="expert_reasoning", standard="standard_reasoning"; return [{name:"architect",model:expert},{name:"financial-planner",model:expert},{name:"usability-accessibility",model:depth==="deep"?expert:standard},{name:"documentation",model:depth==="deep"?expert:standard},{name:"quality",model:depth==="deep"?expert:standard}]; }
 
@@ -186,3 +215,9 @@ function panelForDepth(depth) { const expert="expert_reasoning", standard="stand
 // normalizeAndDeduplicateFindings, verifyFindings, synthesizeReport, plannerSignOff,
 // applyPlannerChanges, reverifyAndResynthesize, stripCiSectionsAndClaims,
 // validateReportQualityGate, writeFinalReportOnly, completionSummary.
+//
+// The `github` object (github.get_me, github.search_repositories, etc.) is likewise a host-
+// provided binding, not imported here. Signatures, return shapes, and required failure
+// behavior for every adapter above are specified in
+// ../skills/system-review/references/adapter-contract.md — implement against that doc, not
+// against inferred usage in this file.
