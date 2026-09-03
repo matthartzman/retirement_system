@@ -6797,6 +6797,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "travelExtras",
       "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
       "kind": "assign",

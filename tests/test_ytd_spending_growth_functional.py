@@ -194,7 +194,16 @@ def test_ytd_real_estate_taxes_are_housing_spending_not_income_tax(tmp_path):
 
     s = ytd.ytd_summary(tmp_path, today=date(2026, 6, 30))
 
-    assert s['actual']['spending'] == 9000.0
+    # Real estate taxes are still not income tax (that distinction this test
+    # was originally written for), but they are also no longer folded into
+    # the day-prorated "spending" run-rate figure: a lump RE tax payment paid
+    # in one or two installments a year would otherwise get multiplied by
+    # (year_days / elapsed_days) and wildly distort the annualized spending
+    # projection. RE tax has its own actual bucket instead (not annualized --
+    # the correct full-year figure already comes from
+    # forecast.spending_plan_components.real_estate_taxes).
+    assert s['actual']['spending'] == 0.0
+    assert s['actual']['real_estate_taxes'] == 9000.0
     assert s['actual']['taxes'] == 3000.0
     assert s['category_totals'] == [{'category': 'Real Estate Taxes', 'amount': 9000.0}]
 

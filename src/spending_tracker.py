@@ -409,10 +409,65 @@ import re as _unified_re
 
 _TAXONOMY_HEADER = ["tracking_type", "group", "category_id", "label", "origin", "status", "notes"]
 _ALIAS_HEADER = ["match_value", "match_field", "exact", "priority", "category_id", "source"]
-_BUDGET_HEADER = ["kind", "key", "label", "annual_budget", "start_year", "end_year", "one_time_year", "notes", "_mode", "line_section", "line_mode"]
+_BUDGET_HEADER = ["kind", "key", "label", "annual_budget", "start_year", "end_year", "one_time_year", "notes", "_mode", "line_section", "line_mode", "no_annualize"]
 _EXCLUDED_TRACKING_TYPES_FOR_SPEND_BASE = {"Income", "Transfer", "Business", "Housing", "Wellness"}
 _TIME_BOUNDED_TRACKING_TYPES = {"Travel", "Large Discretionary"}
+# Lumpy/one-time categories -- paid in one or a few installments a year
+# rather than smoothly, so scaling the observed-so-far amount by
+# days-elapsed can overstate (or understate) the annualized figure several-
+# fold depending on when in the year the payment landed. Dangerous
+# specifically because this figure is what "Load annualized current spend"
+# (spending_service.load_actuals_payload) writes directly into the
+# household's annual budget, with no undo.
+#
+# This is the DEFAULT only. A category or group's own budget row
+# ("no_annualize" in client_spending_budget.csv, toggled from the Budgeting
+# UI -- see _row_no_annualize/_resolve_no_annualize below) always overrides
+# it, so a household can flag any other lumpy line item (or un-flag one of
+# these defaults) without a code change. Category id is used here rather
+# than the whole "Housing" tracking type, which also has genuinely smooth
+# monthly costs (mortgage, utilities) that should stay day-prorated by
+# default.
+_TIME_BOUNDED_CATEGORY_IDS = {"real_estate_taxes"}
 _TRANSFER_NAMES = {"Transfer", "Transfers"}
+
+
+def _parse_bool_or_none(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return None
+    text = str(value).strip().upper()
+    if text in ("TRUE", "YES", "1"):
+        return True
+    if text in ("FALSE", "NO", "0"):
+        return False
+    return None
+
+
+def _row_no_annualize(row: dict | None) -> bool | None:
+    if not row:
+        return None
+    return _parse_bool_or_none(row.get("no_annualize"))
+
+
+def _resolve_no_annualize(
+    *, tt: str, cid: str, cat_row: dict | None, group_row: dict | None,
+) -> bool:
+    """Whether this category's actual-to-date should be reported as-is
+    (True) instead of scaled by the elapsed-time annual_factor (False).
+
+    Resolution order: the category's own budget-row toggle, then the
+    group's (so a group-level budget -- "maybe all budgeted at group level
+    vs. detail" -- only needs the toggle set once), then the built-in
+    tracking-type/category-id defaults above.
+    """
+    override = _row_no_annualize(cat_row)
+    if override is None:
+        override = _row_no_annualize(group_row)
+    if override is not None:
+        return override
+    return tt == "Income" or tt in _TIME_BOUNDED_TRACKING_TYPES or cid in _TIME_BOUNDED_CATEGORY_IDS
 
 
 def slugify_category(value: str, max_len: int = 64) -> str:
@@ -940,6 +995,7 @@ def _legacy_budget_to_unified(root=None) -> list[dict]:
             "_mode": (row.get("_mode") or "").strip(),
             "line_section": (row.get("line_section") or "").strip(),
             "line_mode": (row.get("line_mode") or "").strip(),
+            "no_annualize": (row.get("no_annualize") or "").strip(),
         })
     return out
 
@@ -1077,6 +1133,15 @@ def save_unified_budget(root, rows: list[dict]) -> None:
             "_mode": (str(row.get("_mode") or "").strip()) if kind == "group" else "",
             "line_section": (str(row.get("line_section") or "").strip()) if kind == "line" else "",
             "line_mode": (str(row.get("line_mode") or "").strip()) if kind == "line" else "",
+            # TRUE/FALSE toggle for whether this category's (or group's,
+            # covering every category in it at once) actual-to-date spend
+            # should skip elapsed-time annualization -- blank means
+            # "inherit the built-in default" (see _resolve_no_annualize).
+            "no_annualize": (
+                "TRUE" if _parse_bool_or_none(row.get("no_annualize")) is True
+                else "FALSE" if _parse_bool_or_none(row.get("no_annualize")) is False
+                else ""
+            ) if kind in {"category", "group"} else "",
         }
         out.append(out_row)
     _write_csv_dicts(_root(root) / "input" / "client_spending_budget.csv", _BUDGET_HEADER, out)
@@ -1101,6 +1166,9 @@ def load_budget_by_category(root=None):
         entry = {"annual_budget": _safe_float(str(row.get("annual_budget", ""))), "notes": row.get("notes", "")}
         if row.get("_mode"):
             entry["_mode"] = row.get("_mode")
+        no_annualize_val = _row_no_annualize(row)
+        if no_annualize_val is not None:
+            entry["no_annualize"] = "TRUE" if no_annualize_val else "FALSE"
         result[key] = entry
     return result
 
@@ -1132,6 +1200,9 @@ def save_budget_by_category(root, budget):
         row_dict = {"kind": kind, "key": out_key, "label": label, "annual_budget": _safe_float(str((b or {}).get("annual_budget", ""))), "start_year": str((b or {}).get("start_year", "") or ""), "end_year": str((b or {}).get("end_year", "") or ""), "one_time_year": "", "notes": (b or {}).get("notes", "")}
         if (b or {}).get("_mode"):
             row_dict["_mode"] = (b or {}).get("_mode")
+        no_annualize_val = _parse_bool_or_none((b or {}).get("no_annualize"))
+        if no_annualize_val is not None:
+            row_dict["no_annualize"] = "TRUE" if no_annualize_val else "FALSE"
         rows.append(row_dict)
     rows.extend(existing_lines)
 
@@ -1432,13 +1503,13 @@ def spending_summary_taxonomy(root=None, year=None):
     order = TRACKING_TYPE_ORDER + [tt for tt in sorted(by_tt_group) if tt not in TRACKING_TYPE_ORDER]
     for tt in order:
         groups = by_tt_group.get(tt, {})
-        type_actual = type_budget = 0.0
+        type_actual = type_budget = type_ann = 0.0
         out_groups = []
         for grp in sorted(groups):
             gkey = f"{tt}::{grp}"
             group_row = group_budgets.get(gkey)
             group_mode = "group" if group_row is not None else "category"
-            ga = 0.0
+            ga = ga_ann = 0.0
             category_sum = 0.0
             out_cats = []
             for info in sorted(groups[grp], key=lambda x: (x.get("label", x["id"]).lower(), x["id"])):
@@ -1460,10 +1531,16 @@ def spending_summary_taxonomy(root=None, year=None):
                 # a single paycheck or gift by days-elapsed wildly overstates
                 # the year. Same exclusion set already used for the core
                 # spend-base run-rate floor (see _EXCLUDED_TRACKING_TYPES_FOR_SPEND_BASE
-                # / _TIME_BOUNDED_TRACKING_TYPES above); ticket 268.
-                ann = ca if (tt == "Income" or tt in _TIME_BOUNDED_TRACKING_TYPES) else ca * annual_factor
+                # / _TIME_BOUNDED_TRACKING_TYPES above); ticket 268. A category's
+                # or its group's own budget-row "no_annualize" toggle (Budgeting
+                # UI) always overrides this default -- see _resolve_no_annualize.
+                no_annualize = _resolve_no_annualize(
+                    tt=tt, cid=cid, cat_row=cat_budgets.get(cid), group_row=group_row,
+                )
+                ann = ca if no_annualize else ca * annual_factor
                 category_sum += cb
                 ga += ca
+                ga_ann += ann
                 aliases_for_cat = sorted(alias_hits.get(cid, set()) | aliases_by_category.get(cid, set()))
                 can_delete = (round(ca, 2) == 0 and round(cb, 2) == 0 and not (line_budgets.get(cid) or []))
                 out_cats.append({
@@ -1485,6 +1562,14 @@ def spending_summary_taxonomy(root=None, year=None):
                     "origin": info.get("origin", "custom"),
                     "status": info.get("status", "active"),
                     "notes": info.get("notes", ""),
+                    # Effective (resolved) state of the "don't annualize this
+                    # category's actual-to-date" toggle -- own row setting if
+                    # explicitly set, else inherited from the group, else the
+                    # built-in default. no_annualize_own_setting is None when
+                    # this category has no explicit override of its own
+                    # (Budgeting UI shows that as "inherited").
+                    "no_annualize": no_annualize,
+                    "no_annualize_own_setting": _row_no_annualize(cat_budgets.get(cid)),
                     "aliases": aliases_for_cat,
                     "can_delete": can_delete,
                     "delete_disabled_reason": "value must be zero before deleting" if not can_delete else "",
@@ -1493,7 +1578,13 @@ def spending_summary_taxonomy(root=None, year=None):
             group_projection_seed = group_budget
             if not out_cats and not (_nonzero_amount(ga) or _nonzero_amount(group_budget) or _nonzero_amount(group_projection_seed)):
                 continue
-            grp_ann = ga if (tt == "Income" or tt in _TIME_BOUNDED_TRACKING_TYPES) else ga * annual_factor
+            # Sum of each category's own already-correctly-scaled annualized
+            # figure (ga_ann), not a re-scale of the raw group total (ga) --
+            # a group can mix lumpy (e.g. Real Estate Taxes) and smooth
+            # (e.g. Utilities) categories, and re-scaling the blended raw sum
+            # would wrongly apply the day-based factor to the lumpy portion
+            # too.
+            grp_ann = ga_ann
             out_groups.append({
                 "group": grp,
                 "actual": round(ga, 2),  # compatibility alias for ytd_actual
@@ -1508,12 +1599,23 @@ def spending_summary_taxonomy(root=None, year=None):
                 "budget_mode": group_mode,
                 "template_available_count": template_available_by_group.get(gkey, 0),
                 "can_delete_group": False,
+                # This group's own "don't annualize" override, if explicitly
+                # set (None otherwise) -- setting it here covers every
+                # category in the group at once ("maybe all budgeted at
+                # group level vs. detail"), unless a category has its own
+                # override too (which wins for that category specifically).
+                "no_annualize_own_setting": _row_no_annualize(group_row),
                 "categories": out_cats,
             })
             type_actual += ga
             type_budget += group_budget
+            type_ann += grp_ann
         if out_groups:
-            tt_ann = type_actual if (tt == "Income" or tt in _TIME_BOUNDED_TRACKING_TYPES) else type_actual * annual_factor
+            # Sum of each group's own already-correctly-scaled figure
+            # (type_ann), not a re-scale of the raw type total -- same
+            # reasoning as grp_ann above, since e.g. "Housing" mixes Real
+            # Estate Taxes (lumpy) with Mortgage/Utilities (smooth) groups.
+            tt_ann = type_ann
             output_types.append({
                 "tracking_type": tt,
                 "actual": round(type_actual, 2),  # compatibility alias for ytd_actual
@@ -1531,10 +1633,11 @@ def spending_summary_taxonomy(root=None, year=None):
         if tt != "Income" and tt not in _TRANSFER_NAMES:
             grand_actual += type_actual
             grand_budget += type_budget
-            # Large Discretionary (Large Gifts, etc.) is lumpy/one-time -- don't
-            # scale it by days-elapsed when rolling into the grand annualized
-            # total (ticket 268), matching the per-type treatment above.
-            grand_ann_accum += type_actual if tt in _TIME_BOUNDED_TRACKING_TYPES else type_actual * annual_factor
+            # Sum of each tracking type's own already-correctly-scaled figure
+            # (type_ann), not a re-scale of the raw type total -- same
+            # reasoning as tt_ann/grp_ann above (ticket 268's Large
+            # Discretionary exclusion, plus Real Estate Taxes).
+            grand_ann_accum += type_ann
         if tt not in _EXCLUDED_TRACKING_TYPES_FOR_SPEND_BASE and tt not in _TIME_BOUNDED_TRACKING_TYPES:
             # Core spend base never includes Travel/Large Discretionary at any
             # level (mirrors spending_budget_resolver): those dollars project as
