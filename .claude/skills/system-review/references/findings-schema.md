@@ -1,6 +1,12 @@
-# Finding and Verification Schema
+﻿# Finding and Verification Schema
 
 The structured finding register is the source of truth. The Markdown report is a readable synthesis, not a divergent copy.
+
+The field list below is the narrative description. `../schemas/findings.schema.json` is the
+machine-checkable version and is authoritative on exact field names, types, and which fields are
+required versus conditional (e.g. `jurisdiction`/`rule_year`/`assumptions` and `github_context`
+apply only "when relevant"; `linked_implementation_items` is populated later, once implementation
+waves exist). Validate the finding register against that schema before finalizing.
 
 ## Required finding fields
 

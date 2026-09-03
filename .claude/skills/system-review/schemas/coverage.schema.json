@@ -1,4 +1,4 @@
-{
+﻿{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "System Review Coverage Matrix",
   "type": "array",
@@ -15,7 +15,7 @@
       "area": {
         "type": "string",
         "not": {
-          "pattern": "(?i)ci|github actions|pipeline"
+          "pattern": "\\b[Cc][Ii]\\b|[Gg]it[Hh]ub\\s+[Aa]ctions|[Pp]ipeline"
         }
       },
       "status": {

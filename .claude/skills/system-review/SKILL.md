@@ -1,4 +1,4 @@
----
+﻿---
 name: system-review
 description: Perform a read-only, evidence-backed, system-wide review of a retirement-planning application. Use for complete system reviews, health checks, consolidated improvement plans, expert-panel reviews, and full architectural, usability, documentation, quality, and financial-planning assessments. Do not use for a single diff or isolated change; use /code-review instead.
 ---
@@ -54,14 +54,25 @@ Workflow({
 })
 ```
 
-See linked references for detailed procedure:
+See linked references for detailed procedure. Read each when its phase of the review is reached, not all up front:
 
-- [Scope and evidence](references/scope-and-evidence.md)
-- [Review criteria](references/review-criteria.md)
-- [Finding schema](references/findings-schema.md)
-- [Financial governance](references/financial-domain-governance.md)
-- [Runtime-validation policy](references/runtime-validation.md)
-- [Report template](references/report-template.md)
+- [Scope and evidence](references/scope-and-evidence.md) — read before reconnaissance: read-only boundary, CI exclusion, the review manifest shape, document eligibility, and the evidence ledger.
+- [Review criteria](references/review-criteria.md) — read before running the expert panel: panel charters, coverage matrix areas, cross-cutting checks (calculations, boundaries, data integrity, security, accessibility).
+- [Finding schema](references/findings-schema.md) — read when recording or verifying findings: required fields, severity/confidence definitions, adversarial-verification dispositions. Findings must also satisfy `schemas/findings.schema.json`; the JSON schema is authoritative on field names and types where the two differ.
+- [Financial governance](references/financial-domain-governance.md) — read for any tax, retirement, benefits, healthcare, estate, or legal-rule finding: jurisdiction/rule-year requirements, planner sign-off process.
+- [Runtime-validation policy](references/runtime-validation.md) — read before claiming anything about test or runtime behavior.
+- [Report template](references/report-template.md) — read before synthesis: the 14-section report structure and the pre-finalization quality gate.
+- [Coverage schema](schemas/coverage.schema.json) / [Findings schema](schemas/findings.schema.json) — machine-checkable shapes for the coverage matrix and finding register; validate the structured data against these before treating the Markdown report as final.
+- [Host adapter contract](references/adapter-contract.md) — read only if implementing or debugging `workflows/system-review.js`: signatures and failure behavior for every host/project adapter the workflow calls.
+
+## If the `Workflow` tool is unavailable
+
+The skill and its references still load and are still useful without it: parse scope and depth,
+resolve GitHub context directly through the authorized MCP commands, and work through
+reconnaissance → coverage → expert review → findings → synthesis manually, one phase at a time,
+applying the same rules (read-only boundary, CI exclusion, evidence citation, adversarial
+verification) at each step. Say explicitly, up front, that this run is proceeding without
+workflow orchestration — do not silently emit the `Workflow(...)` instructions and stop.
 
 ## Completion response
 
