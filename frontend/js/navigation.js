@@ -173,7 +173,12 @@
       if(AUTOSAVE_STEPS.includes(fromStep)){
         Promise.resolve(saveCurrentStep(ctx,fromStep)).then(function(result){
           if(result===false){
-            safeCall(()=>ctx.showMessage('Fix the highlighted error before leaving this step.','error'));
+            // saveWorkingCopy() already called showMessage() with the specific
+            // reason (e.g. "Residency row 2 needs an end year...") before
+            // returning false -- showing a second, generic message here just
+            // overwrites that useful text with an unactionable one, and one
+            // that also falsely implies a field gets highlighted (nothing
+            // does). Leave the specific message on screen instead.
             return;
           }
           safeCall(()=>ctx.showMessage('Auto-saved.','success'));
