@@ -374,7 +374,7 @@ export function renderResidencySchedule() {
   }
   residencySchedule.forEach((p, i) => {
     const isLast = i === residencySchedule.length - 1;
-    html += `<tr data-residency-row="${i}"><td><input type="text" value="${esc(p.state || "")}" placeholder="Illinois" oninput="updateResidencyPeriod(${i},'state',this.value)"></td><td><input class="tiny" type="text" value="${esc(p.start_year || "")}" placeholder="YYYY" oninput="updateResidencyPeriod(${i},'start_year',this.value)"></td><td>${isLast ? `<span class="small" title="The last row is always open-ended">Open-ended</span>` : `<input class="tiny" type="text" value="${esc(p.end_year || "")}" placeholder="YYYY" oninput="updateResidencyPeriod(${i},'end_year',this.value)">`}</td><td>${deleteIconBtn(`deleteResidencyPeriod(${i})`)}</td></tr>`;
+    html += `<tr data-residency-row="${i}"><td><input type="text" value="${esc(p.state || "")}" placeholder="Illinois" data-focus-key="residency:${i}:state" oninput="updateResidencyPeriod(${i},'state',this.value)"></td><td><input class="tiny" type="text" value="${esc(p.start_year || "")}" placeholder="YYYY" data-focus-key="residency:${i}:start_year" oninput="updateResidencyPeriod(${i},'start_year',this.value)"></td><td>${isLast ? `<span class="small" title="The last row is always open-ended">Open-ended</span>` : `<input class="tiny" type="text" value="${esc(p.end_year || "")}" placeholder="YYYY" data-focus-key="residency:${i}:end_year" oninput="updateResidencyPeriod(${i},'end_year',this.value)">`}</td><td>${deleteIconBtn(`deleteResidencyPeriod(${i})`)}</td></tr>`;
   });
   html += `</tbody></table></div></div>`;
   return html;
