@@ -546,6 +546,12 @@
     },
     {
       "name": "rows",
+      "file": "frontend/js/admin.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
       "file": "frontend/js/app_store.js",
       "kind": "read",
       "scope": "inside-function"
@@ -2707,6 +2713,36 @@
     {
       "name": "downloadBlob",
       "file": "frontend/js/dashboard_decomp_misc.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_monarch_autoupdate.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_monarch_autoupdate.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_monarch_autoupdate.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_monarch_autoupdate.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_monarch_autoupdate.js",
       "kind": "call",
       "scope": "inside-function"
     },
@@ -5156,6 +5192,12 @@
       "name": "taxBudgetChanged",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "call",
       "scope": "inside-function"
     },
     {
