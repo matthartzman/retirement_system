@@ -1,19 +1,33 @@
 // ── Local backups (Settings → System Configuration → Local backups card) ────
 // Opt-in .rpx database backup status, policy controls, and manual/automatic
 // trigger points. Extracted from dashboard.js verbatim (first modularization
-// increment); shares the classic-script global scope with dashboard.js, so
-// these remain plain global functions/vars just as they were inline.
+// increment).
 //
-// Wave 6.4 ("leaves inward" ES-module migration): deliberately NOT converted
-// to type="module". dashboard.js's own synchronous top-level boot chain
-// (checkAppStatus(true).then(...)) calls refreshLocalBackupStatus() --
-// making this a deferred module would execute it AFTER dashboard.js's
-// classic-script code runs instead of before, reversing the load-order
-// guarantee test_dashboard_startup_race_and_script_order.py exists to
-// protect (a real 2026-07-22 outage where this exact function was undefined
-// when the boot chain called it). Every other extracted sibling file is only
-// ever called from later event handlers/rendering, not this boot chain, so
-// they don't share this constraint.
+// system_review 2026-08-31 item 3.11: converted to type="module". Wave 6.4
+// had deliberately kept this classic because dashboard.js's own synchronous
+// top-level boot chain (checkAppStatus(true).then(...)) calls
+// refreshLocalBackupStatus() -- a deferred module would have executed it
+// AFTER dashboard.js's classic-script code instead of before, reversing the
+// load-order guarantee test_dashboard_startup_race_and_script_order.py
+// exists to protect (a real 2026-07-22 outage where this exact function was
+// undefined when the boot chain called it).
+//
+// That boot chain now reaches this file through a dynamic import
+// (`await import('./dashboard_decomp_local_backups.js')`) instead of a bare
+// global reference -- see dashboard.js, right before the
+// refreshLocalBackupStatus(true) call. Dynamic import resolves the module's
+// module-record from the cache (already fetched via the <script
+// type="module"> tag below; re-importing the same specifier does not
+// re-run this file's top-level code) and only then proceeds, which is
+// correct regardless of script-tag order, unlike relying on "classic always
+// beats module" or "document order among modules" positioning. Every other
+// caller (the onclick handlers in this file's own HTML, and
+// localBackupControlsHtml()/maybeRunLocalBackup() called from
+// dashboard_decomp_checklist_closeout.js / dashboard_decomp_row_model.js)
+// still reaches these functions as bare globals via the window bridge below
+// -- those call sites all run from later event handlers/rendering, well
+// after every module has finished evaluating, so they don't need the
+// dynamic-import treatment the boot chain does.
 let localBackupStatus = null;
 function localBackupStatusLine() {
   const s = localBackupStatus || {};
@@ -119,3 +133,16 @@ async function maybeRunLocalBackup(trigger) {
   } catch (_e) {}
   return false;
 }
+// Bare-global bridge (see this file's header comment): onclick handlers in
+// this file's own generated HTML and cross-module callers
+// (dashboard_decomp_checklist_closeout.js's localBackupControlsHtml(),
+// dashboard_decomp_row_model.js's maybeRunLocalBackup()) all reach these as
+// plain identifiers, not window.-prefixed.
+Object.assign(window, {
+  localBackupStatusLine,
+  localBackupControlsHtml,
+  refreshLocalBackupStatus,
+  saveLocalBackupPolicy,
+  runLocalBackupNow,
+  maybeRunLocalBackup,
+});

@@ -18,6 +18,14 @@
    loadCanonicalGlossary()'s api("/api/glossary") call — two lines above the
    explicit startup checkAppStatus(true) — was enough to trigger this on
    every single load.
+
+system_review 2026-08-31 item 3.11 later converted both
+dashboard_decomp_local_backups.js and dashboard_decomp_monarch_autoupdate.js
+from classic to type="module" scripts, and changed the boot chain to reach
+them via dynamic import() instead of a bare global reference. See
+test_local_backups_and_monarch_autoupdate_are_now_modules and
+test_dynamic_import_specifiers_match_script_tags below for what that changed
+and what still needs guarding.
 """
 import re
 import subprocess
@@ -29,43 +37,66 @@ INDEX_HTML = ROOT / "frontend" / "index.html"
 DASH = ROOT / "frontend" / "js" / "dashboard.js"
 
 
-def test_local_backups_module_loads_before_dashboard_js():
-    """dashboard.js is now type="module" (docs/superpowers/plans/
-    2026-08-06-dashboard-js-ast-module-conversion.md) while
-    dashboard_decomp_local_backups.js stays classic. Per that plan's
-    script-order spike (tools/js_codemod/fixtures/script_order_spike.html):
-    ALL classic scripts finish executing before ANY module script runs, so
-    this is now a STRONGER guarantee than the original document-order-among-
-    classic-scripts check it replaces -- dashboard_decomp_local_backups.js is
-    guaranteed to finish before dashboard.js's module code (and therefore its
-    later async checkAppStatus().then(refreshLocalBackupStatus) boot chain)
-    runs, regardless of these two scripts' relative tag order in the HTML.
-    Still assert the tag order for documentation/intent, even though it's no
-    longer the thing actually providing the guarantee.
-    """
+def test_local_backups_and_monarch_autoupdate_are_now_modules():
+    """system_review 2026-08-31 item 3.11: both files converted from classic
+    to type="module". The load-order guarantee this test used to assert
+    (classic scripts always finish before module scripts, so tag order
+    didn't even matter) no longer applies now that both sides are modules --
+    module scripts without async run in relative document order, which is a
+    POSITIONAL guarantee, not a structural one. dashboard.js's boot chain no
+    longer relies on that positioning at all: it reaches these two files
+    through a dynamic import() that force-awaits each module's own
+    evaluation before calling into its window bridge, which is correct
+    regardless of script-tag order. See
+    test_dynamic_import_specifiers_match_script_tags below for the guard
+    that actually matters now, and dashboard_decomp_local_backups.js's own
+    header comment for the full reasoning."""
     html = INDEX_HTML.read_text(encoding="utf-8")
-    backups_pos = html.index('<script src="js/dashboard_decomp_local_backups.js')
-    dashboard_pos = html.index('<script type="module" src="js/dashboard.js')
-    assert backups_pos < dashboard_pos, (
-        "dashboard_decomp_local_backups.js must load before dashboard.js: "
-        "dashboard.js's top-level boot chain calls refreshLocalBackupStatus(), "
-        "which that file defines."
-    )
+    for name in (
+        "dashboard_decomp_local_backups.js",
+        "dashboard_decomp_monarch_autoupdate.js",
+    ):
+        assert f'<script src="js/{name}' not in html, (
+            f"{name} reverted to a classic <script src=...> tag -- see this "
+            "test's docstring."
+        )
+        assert f'<script type="module" src="js/{name}' in html, (
+            f"{name}'s type=\"module\" tag not found in index.html."
+        )
 
 
-def test_monarch_autoupdate_module_loads_before_dashboard_js():
-    """Same guarantee as test_local_backups_module_loads_before_dashboard_js,
-    for dashboard_decomp_monarch_autoupdate.js (ticket 305): the boot chain
-    also calls refreshMonarchAutoUpdateStatus(true), defined only there, so
-    it must stay a classic script loaded before dashboard.js too."""
+def test_dynamic_import_specifiers_match_script_tags():
+    """dashboard.js's boot chain calls
+    import("./dashboard_decomp_local_backups.js?v=1") /
+    import("./dashboard_decomp_monarch_autoupdate.js?v=1") instead of the
+    bare global refreshLocalBackupStatus()/refreshMonarchAutoUpdateStatus()
+    calls this file used to guard the load order of. A dynamic import
+    specifier is a literal cache key: if it doesn't byte-match the <script
+    src=...> tag's path+query exactly, the browser fetches and evaluates a
+    SECOND, independent copy of the module -- with its own independent
+    localBackupStatus/monarchAutoUpdateStatus closure state, silently
+    diverging from the one the rest of the page's window bridge and
+    onclick handlers use. Whoever next bumps one of these files' ?v= cache-
+    buster must bump both the <script> tag and this dynamic import together,
+    or this test catches the drift."""
     html = INDEX_HTML.read_text(encoding="utf-8")
-    monarch_pos = html.index('<script src="js/dashboard_decomp_monarch_autoupdate.js')
-    dashboard_pos = html.index('<script type="module" src="js/dashboard.js')
-    assert monarch_pos < dashboard_pos, (
-        "dashboard_decomp_monarch_autoupdate.js must load before dashboard.js: "
-        "dashboard.js's top-level boot chain calls refreshMonarchAutoUpdateStatus(), "
-        "which that file defines."
-    )
+    js = DASH.read_text(encoding="utf-8")
+    for name in (
+        "dashboard_decomp_local_backups.js",
+        "dashboard_decomp_monarch_autoupdate.js",
+    ):
+        m = re.search(
+            r'<script type="module" src="js/' + re.escape(name) + r'(\?[^"]*)?"',
+            html,
+        )
+        assert m, f"{name}'s <script type=\"module\"> tag not found in index.html"
+        query = m.group(1) or ""
+        expected_specifier = f'import("./{name}{query}")'
+        assert expected_specifier in js, (
+            f"dashboard.js's dynamic import of {name} does not match its "
+            f"<script> tag's src (including query string). Expected to find "
+            f"{expected_specifier!r} in dashboard.js."
+        )
 
 
 def test_dashboard_boot_chain_has_no_bare_unhandled_promise():

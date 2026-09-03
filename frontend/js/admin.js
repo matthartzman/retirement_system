@@ -2111,7 +2111,33 @@ window.addEventListener("beforeunload", (e) => {
   }
 });
 renderAdminNav();
-showAppSettings().catch((e) => msg("Error: " + e.message));
 updateAdminSearchToggle();
-checkApp();
-setInterval(checkApp, 5000);
+// system_review 2026-08-31 item 3.11: showAppSettings()/checkApp() fire real
+// fetch() calls (through api()) and used to run as bare top-level statements
+// here, synchronously, during this classic script's own execution. That was
+// fine while pywebview_bridge.js was ALSO classic -- classic scripts run in
+// document order, and its tag comes first. Once pywebview_bridge.js became
+// type="module" (frontend/admin.html), its fetch()/EventSource patch moved
+// to the deferred-module phase, which runs strictly after every classic
+// script -- including this one. Firing these calls unchanged would race the
+// unpatched native fetch under pywebview, the same failure shape
+// test_dashboard_startup_race_and_script_order.py guards against for
+// dashboard.js. DOMContentLoaded fires only after all deferred/module
+// scripts have run, so waiting for it here is what actually closes the race
+// (a queueMicrotask, dashboard.js's own boot-defer mechanism, does NOT --
+// microtasks queued during a classic script's execution flush within that
+// same pre-parsing-complete phase, before any deferred module runs).
+// See tests/test_pywebview_bridge_load_order_regression.py.
+function _bootAppStatus() {
+  showAppSettings().catch((e) => msg("Error: " + e.message));
+  checkApp();
+  setInterval(checkApp, 5000);
+}
+if (document.readyState === "loading") {
+  window.addEventListener("DOMContentLoaded", _bootAppStatus, { once: true });
+} else {
+  // Classic scripts always run before parsing finishes, so this branch is
+  // not expected in a real page load -- kept only so a script injected after
+  // DOMContentLoaded (e.g. a test harness) still boots instead of hanging.
+  _bootAppStatus();
+}

@@ -7,6 +7,16 @@
 // planning_workbench_ui.js, dashboard_batch_assumption_edit.js) with divergent
 // escJs behavior (only this version strips \n/\r, which the others didn't) —
 // a security-relevant drift for HTML-escaping code. One implementation now.
+//
+// system_review 2026-08-31 item 3.11: converted to type="module" (see
+// tests/test_dashboard_shared_helpers_load_order_regression.py for why that
+// was safe here specifically -- unlike pywebview_bridge.js, see
+// tests/test_pywebview_bridge_load_order_regression.py, which is not). Every
+// top-level function/const below stops being an implicit global the moment
+// this runs as a module, so the explicit window bridge below (mirroring the
+// convert_dashboard.mjs-generated bridges every other leaf module already
+// has) is what keeps esc(...), fmtMoney(...), etc. callable as bare
+// identifiers from every classic-or-module script that follows this one.
 function esc(s) {
   return String(s ?? "").replace(
     /[&<>"']/g,
@@ -143,4 +153,25 @@ if (typeof window !== "undefined") {
     currencyDisplay,
     percentDisplay,
   };
+  // Bare-global bridge: every one of this module's top-level bindings, so
+  // callers elsewhere keep writing esc(x), fmtMoney(x), etc. rather than
+  // window.esc(x). One-time value copies are correct here -- nothing in this
+  // file reassigns any of these after module evaluation, unlike dashboard.js's
+  // renderMain/showStepHelp, which need the get/set accessor treatment
+  // because other leaf modules monkey-patch them.
+  Object.assign(window, {
+    esc,
+    escJs,
+    TRASH_SVG_ICON,
+    CALENDAR_SVG_ICON,
+    deleteIconBtn,
+    annualizeToggleBtn,
+    fmtMoney,
+    fmtPct,
+    decimalTrim,
+    numberFromDisplay,
+    formatNumberValue,
+    currencyDisplay,
+    percentDisplay,
+  });
 }
