@@ -35,7 +35,7 @@ def test_disabled_toggle_skips_the_run(tmp_path):
 
 def test_first_run_imports_new_rows_and_syncs_to_db(tmp_path):
     base_dir = _workspace(tmp_path)
-    source_dir = base_dir.parent / "Monarch Extractor" / "output"
+    source_dir = base_dir / "Monarch Extractor" / "output"
     source_dir.mkdir(parents=True)
     (source_dir / "new_transactions.csv").write_text(
         "run_id,id,date,merchant,category,account,amount\n"
@@ -78,7 +78,7 @@ def test_first_run_imports_new_rows_and_syncs_to_db(tmp_path):
 
 def test_second_run_replaces_changed_row_and_adds_new_one(tmp_path):
     base_dir = _workspace(tmp_path)
-    source_dir = base_dir.parent / "Monarch Extractor" / "output"
+    source_dir = base_dir / "Monarch Extractor" / "output"
     source_dir.mkdir(parents=True)
     (source_dir / "new_transactions.csv").write_text(
         "run_id,id,date,merchant,category,account,amount\n"
@@ -112,7 +112,7 @@ def test_second_run_replaces_changed_row_and_adds_new_one(tmp_path):
 
 def test_empty_source_folder_is_a_clean_skip_not_a_failure(tmp_path):
     base_dir = _workspace(tmp_path)
-    (base_dir.parent / "Monarch Extractor" / "output").mkdir(parents=True)
+    (base_dir / "Monarch Extractor" / "output").mkdir(parents=True)
     mau.save_policy(base_dir, {"enabled": True})
     result = monarch_autoimport.run(base_dir)
     assert result["success"] is True
@@ -124,7 +124,7 @@ def test_only_transactions_csv_present_is_still_a_clean_skip(tmp_path):
     # transactions.csv (full history) alone, with no pending new/changed
     # files, must not be treated as something to import.
     base_dir = _workspace(tmp_path)
-    source_dir = base_dir.parent / "Monarch Extractor" / "output"
+    source_dir = base_dir / "Monarch Extractor" / "output"
     source_dir.mkdir(parents=True)
     (source_dir / "transactions.csv").write_text("id,date,merchant\nmid-1,2026-03-04,Kroger\n", encoding="utf-8")
     (source_dir / "duplicates_removed.csv").write_text("id,date,merchant\nmid-9,2026-03-04,Dup\n", encoding="utf-8")
@@ -151,7 +151,7 @@ def test_missing_source_folder_is_reported_not_crashed(tmp_path):
 
 def test_force_runs_even_when_disabled(tmp_path):
     base_dir = _workspace(tmp_path)
-    source_dir = base_dir.parent / "Monarch Extractor" / "output"
+    source_dir = base_dir / "Monarch Extractor" / "output"
     source_dir.mkdir(parents=True)
     (source_dir / "new_transactions.csv").write_text(
         "run_id,id,date,merchant,amount\nrun-1,mid-1,2026-03-04,Kroger,-52.10\n", encoding="utf-8"

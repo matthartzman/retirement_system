@@ -3,9 +3,9 @@ from __future__ import annotations
 """Monarch Extractor output -> internal transaction schema mapping.
 
 The Monarch Extractor is a separate system (its source lives at
-../Monarch Extractor, referenced relative to the workspace root -- see that
-folder's monarch_extract.py) that writes an outbox of pending transaction
-events to its own output folder. Confirmed against the real script
+Monarch Extractor, a subfolder of the workspace root -- see that folder's
+monarch_extract.py) that writes an outbox of pending transaction events to
+its own output folder. Confirmed against the real script
 (2026-09-02):
 
 - `output/new_transactions.csv` and `output/changed_transactions.csv` hold

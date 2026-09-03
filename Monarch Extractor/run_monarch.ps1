@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$ProjectDir = "C:\RetirementPlanning\Monarch Extractor"
+$ProjectDir = "C:\RetirementPlanning\Version 10\Monarch Extractor"
 $Python = "$ProjectDir\.venv\Scripts\python.exe"
 $Script = "$ProjectDir\monarch_extract.py"
 
