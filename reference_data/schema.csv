@@ -261,8 +261,10 @@ Education Funding,529 Plan 1,contribution_end_year,year,FALSE,,2026,2100,Last co
 Education Funding,529 Plan 1,expected_use_year,year,FALSE,,2026,2100,Expected first use or distribution year.
 Social Security,Member 1,monthly_pia_at_fra_today_dollars,dollars,FALSE,0,0,,Enter the monthly Social Security payment from the SSA statement at Full Retirement Age. PIA means Primary Insurance Amount: the base monthly benefit before early-claiming reductions or delayed-retirement credits.
 Social Security,Member 2,monthly_pia_at_fra_today_dollars,dollars,FALSE,0,0,,Enter the monthly Social Security payment from the SSA statement at Full Retirement Age. PIA means Primary Insurance Amount: the base monthly benefit before early-claiming reductions or delayed-retirement credits.
-Social Security,Member 1,claim_age,integer,FALSE,70,62,70,Social Security claim age for member 1.
-Social Security,Member 2,claim_age,integer,FALSE,70,62,70,Social Security claim age for member 2.
+Social Security,Member 1,claim_date,date,FALSE,,,,"Month and year Social Security benefits start for member 1 (claim age is calculated from this and date of birth). Leave blank to default to age 70, claimed in this person's own birth month."
+Social Security,Member 2,claim_date,date,FALSE,,,,"Month and year Social Security benefits start for member 2 (claim age is calculated from this and date of birth). Leave blank to default to age 70, claimed in this person's own birth month."
+Social Security,Member 1,claim_age,integer,FALSE,70,62,70,Legacy input, superseded by claim_date above. Kept only so plans saved before claim_date existed keep behaving the same; new plans should use claim_date instead.
+Social Security,Member 2,claim_age,integer,FALSE,70,62,70,Legacy input, superseded by claim_date above. Kept only so plans saved before claim_date existed keep behaving the same; new plans should use claim_date instead.
 Social Security,Member 1,fra_age,number,FALSE,0,0,70,"Full Retirement Age (SSA), in years, e.g. 66.67 for 66 years 8 months. 0 auto-derives from date of birth (67 for birth year 1960 or later); otherwise enter 60-70."
 Social Security,Member 2,fra_age,number,FALSE,0,0,70,"Full Retirement Age (SSA), in years, e.g. 66.67 for 66 years 8 months. 0 auto-derives from date of birth (67 for birth year 1960 or later); otherwise enter 60-70."
 Social Security,Policy,spousal_benefits_enabled,boolean,FALSE,TRUE,,,Approximate spousal benefit top-up.

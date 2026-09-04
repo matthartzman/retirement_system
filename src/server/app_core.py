@@ -807,6 +807,11 @@ SS_FRA_AGE_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Social Security", "Member 2", "fra_age", "0", "number", "Full Retirement Age (SSA), in years, e.g. 66.67 for 66 years 8 months. 0 auto-derives from date of birth (67 for birth year 1960 or later); otherwise enter 60-70."],
 ]
 
+SS_CLAIM_DATE_UI_PLAN_DATA_ROWS: list[list[str]] = [
+    ["Social Security", "Member 1", "claim_date", "", "date", "Month and year Social Security benefits start for member 1 (claim age is calculated from this and date of birth). Leave blank to default to age 70, claimed in this person's own birth month."],
+    ["Social Security", "Member 2", "claim_date", "", "date", "Month and year Social Security benefits start for member 2 (claim age is calculated from this and date of birth). Leave blank to default to age 70, claimed in this person's own birth month."],
+]
+
 HEALTHCARE_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Wellness", "Medicare", "part_g_base_premium_monthly", "$0", "dollars", "Current monthly Medicare Supplement Plan G / Medigap-style premium per Medicare-enrolled person. Enter $0 if no supplement is modeled."],
 ]
@@ -965,6 +970,13 @@ PLAN_DATA_BACKFILL_ENTRIES: list[plan_data_backfill.BackfillEntry] = [
         "client_income.csv", QLAC_UI_PLAN_DATA_ROWS,
         plan_data_backfill.insert_before(plan_data_backfill.section_subsection_is(
             "Income Streams", "Joint-and-Survivor Percentage")),
+    ),
+    plan_data_backfill.BackfillEntry(
+        "client_household.csv", SS_CLAIM_DATE_UI_PLAN_DATA_ROWS,
+        plan_data_backfill.insert_before(lambda row: (
+            str(row[0] if row else "").strip() == "Social Security"
+            and str(row[2] if len(row) > 2 else "").strip() == "claim_age"
+        )),
     ),
     plan_data_backfill.BackfillEntry(
         "client_household.csv", SS_FRA_AGE_UI_PLAN_DATA_ROWS,
