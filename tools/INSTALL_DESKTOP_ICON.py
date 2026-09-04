@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install desktop launchers for Retirement System v11."""
+"""Install desktop launchers for Retirement System v12."""
 from __future__ import annotations
 import platform, stat, subprocess
 from pathlib import Path

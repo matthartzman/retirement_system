@@ -1,5 +1,5 @@
 /**
- * PyWebView Bridge — Retirement System v11
+ * PyWebView Bridge — Retirement System v12
  *
  * Intercepts window.fetch() and window.EventSource so the unmodified
  * minified dashboard/admin scripts can run without an HTTP socket.

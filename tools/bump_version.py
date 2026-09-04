@@ -253,13 +253,13 @@ def apply_admin_html_version(html: str, old_version: str, new_version: str) -> s
     """Pure string transform, unit-testable without touching a real file (see
     tests/test_bump_version_folder_rename.py) -- only the exact "Retirement
     System v<N>" phrase is replaced (covers admin.html's <title> and <h1>),
-    NOT its cache-busting query strings like
-    "?v=v11-pricing-symbol-tester-msg-fix-1", which name a specific past fix
-    and are not meant to track the current app version. Plain substring
-    replacement, not regex, matching sweep_folder_references()'s own
-    reasoning: "Retirement System v11" cannot appear as a substring of
-    "?v=v11-..." (the query string has no space before "v11"), so no special
-    casing is needed to leave it alone."""
+    NOT its cache-busting query strings like "?v=vN-some-past-fix-name",
+    which name a specific past fix and are not meant to track the current
+    app version. Plain substring replacement, not regex, matching
+    sweep_folder_references()'s own reasoning: "Retirement System v<N>"
+    (with a space before the v) cannot appear as a substring of a
+    "?v=vN-..." query string (no space there), so no special casing is
+    needed to leave it alone."""
     return html.replace(f'Retirement System v{old_version}', f'Retirement System v{new_version}')
 
 

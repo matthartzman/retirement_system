@@ -38,14 +38,19 @@ def _is_inside_nested_checkout(path: Path) -> bool:
 def test_readmes_are_under_documentation_readme():
     # node_modules/ is gitignored, vendored, third-party code (added when
     # tests/e2e/'s Playwright suite landed) -- its own packages' READMEs are
-    # not this project's to relocate. Nested checkouts are skipped
-    # structurally; see _is_inside_nested_checkout.
+    # not this project's to relocate. .venv/ is the same kind of vendored
+    # third-party tree for a Python virtual environment (found 2026-09-04
+    # after Monarch Extractor/.venv/ moved from a sibling folder to inside
+    # this workspace -- its bundled playwright package ships its own
+    # driver/README.md). Nested checkouts are skipped structurally; see
+    # _is_inside_nested_checkout.
     outside = [
         p.relative_to(ROOT) for p in ROOT.rglob('*README*.md')
         if '.pytest_cache' not in p.parts
         and 'input' not in p.parts
         and 'dist' not in p.parts
         and 'node_modules' not in p.parts
+        and '.venv' not in p.parts
         and not p.is_relative_to(ROOT / 'documentation' / 'readme')
         and not _is_inside_nested_checkout(p)
     ]

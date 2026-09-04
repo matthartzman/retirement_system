@@ -1,15 +1,26 @@
 from __future__ import annotations
 import pytest
-import json, subprocess, sys, unittest
+import json, re, subprocess, sys, unittest
 from pathlib import Path
 from conftest import TEST_INPUT_DIR
 ROOT=Path(__file__).resolve().parents[1]
 
 class GovernanceHardeningTests(unittest.TestCase):
     def test_version_is_centralized_and_release_gate_detects_stale_surfaces(self):
+        """Deliberately does not hardcode a specific version number (found
+        2026-09-04, mid version bump: this test's original
+        `self.assertEqual(VERSION, '11')`/`assertIn('v11', ...)` needed a
+        manual edit on every single bump, exactly the hardcoding
+        bump_version.py's own comprehensiveness audit was trying to purge
+        elsewhere -- this test just wasn't in scope of that audit's file
+        scan, since it's a fixed-string comparison, not a filename or
+        display-text pattern). Checks the *shape* src/version.py's own
+        bump() already enforces (a plain integer string) plus that
+        RELEASE_LABEL is actually derived from VERSION, which is what this
+        test exists to guard -- not which specific number it currently is."""
         from src.version import VERSION, RELEASE_LABEL
-        self.assertEqual(VERSION, '11')
-        self.assertIn('v11', RELEASE_LABEL)
+        self.assertRegex(VERSION, r'^\d+$')
+        self.assertIn(f'v{VERSION}', RELEASE_LABEL)
         out=subprocess.run([sys.executable,'tools/check_version_surfaces.py'], cwd=ROOT, text=True, capture_output=True)
         self.assertEqual(out.returncode,0,out.stdout+out.stderr)
 

@@ -47,7 +47,7 @@ DOC_HISTORY_DIRS = {'reports', 'archive'}
 # This file's own fixtures are literal old-path strings used to test the
 # sweep/rename logic itself -- they are supposed to contain "stale" paths
 # forever and must never be flagged as a real leak.
-TEST_ALLOWLIST = {'test_bump_version_folder_rename.py'}
+TEST_ALLOWLIST = {'test_bump_version_folder_rename.py', 'test_bump_version_comprehensiveness_regression.py'}
 
 # Top-level documentation/*.md files that are dated records by nature (a
 # changelog, a one-time migration's completion summary) even though they

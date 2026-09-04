@@ -1,4 +1,4 @@
-"""Roth UI/build handoff guards for Retirement System v11.
+"""Roth UI/build handoff guards for Retirement System v12.
 
 These helpers keep user-selected Roth conversion settings canonical as they move
 from the browser UI to Plan Data CSVs, JSON/YAML mirrors, and the projection
