@@ -1256,6 +1256,25 @@ def _choice_options_for_config_row(section: str, subsection: str, label: str, un
             {"value": "smooth_window", "label": "Smooth window"},
             {"value": "optimize", "label": "Optimizer"},
         ]
+    if lbl == "capital_market_assumption_horizon_source":
+        # Same failure mode as hsa_withdrawal_mode above: this field's schema
+        # description reads "manual|auto_from_withdrawals. auto_from_withdrawals
+        # derives the effective horizon from..." with no semicolon before the
+        # trailing prose, so the generic _pipe_choice_options() fallback below
+        # split on "|" and kept the ENTIRE second sentence as the option's
+        # value/label -- "auto_from_withdrawals. auto_from_withdrawals derives
+        # the effective horizon from this household's own projected withdrawal
+        # schedule instead of the manual horizon_years value." That garbage
+        # string then gets silently persisted to client_policy.csv on save
+        # (schema_registry's choice-type validation doesn't check enum
+        # membership), which data_io.py's exact `== 'auto_from_withdrawals'`
+        # check never matches -- so the feature silently no-ops instead of
+        # activating. dashboard.js's own fixed[label] entry for this field is
+        # unreachable dead code for the same reason noted above.
+        return [
+            {"value": "manual", "label": "Manual (use the horizon selected above)"},
+            {"value": "auto_from_withdrawals", "label": "Auto-derive from projected withdrawals"},
+        ]
     if lbl == "roth_target_bracket_rate":
         return _federal_bracket_choice_options("MFJ")
     if lbl == "roth_irmaa_target_tier":

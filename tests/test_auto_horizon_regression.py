@@ -16,10 +16,27 @@ from pathlib import Path
 import pytest
 
 from src.data_io import load_csv, parse_client, _resolve_auto_horizon_and_reapply
+from src.server.app_core import _choice_options_for_config_row
 
 ROOT = Path(__file__).resolve().parents[1]
 
 from conftest import TEST_INPUT_DIR
+
+
+def test_horizon_source_dropdown_options_are_clean_enum_values():
+    # Regression: the schema description for this field is
+    # "manual|auto_from_withdrawals. auto_from_withdrawals derives the
+    # effective horizon from..." with no semicolon before the trailing
+    # prose, so the generic pipe-splitting fallback in
+    # _choice_options_for_config_row kept the whole trailing sentence as
+    # the second option's value -- silently persisting garbage into
+    # client_policy.csv on save that never matches data_io.py's exact
+    # 'auto_from_withdrawals' check (#horizon-source-dropdown-corruption).
+    opts = _choice_options_for_config_row(
+        "Asset Class Assumptions", "Global", "capital_market_assumption_horizon_source",
+        "choice", "", {"description": "manual|auto_from_withdrawals. auto_from_withdrawals derives the effective horizon from this household's own projected withdrawal schedule instead of the manual horizon_years value."},
+    )
+    assert {o["value"] for o in opts} == {"manual", "auto_from_withdrawals"}
 
 
 def sample_config():
