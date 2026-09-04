@@ -39,7 +39,7 @@ Output lands at `dist/retirement_planner/retirement_planner.exe` (onedir layout)
 
 ### Project location (moved off OneDrive)
 
-The current working copy lives at `C:\RetirementPlanning\Version 10 - ChatpGPT` on the local drive. It is deliberately **outside** OneDrive to avoid sync-induced file corruption (a OneDrive partial write once truncated `frontend/js/dashboard.js`). OneDrive is used only as the backup target via `tools/backup_to_onedrive.py`. All launcher/shortcut scripts resolve paths relative to their own location, so the tree is relocatable. To (re)create the desktop icon after a move, run `python tools/INSTALL_DESKTOP_ICON.py` (or double-click `launchers/install_desktop_shortcut.bat`). Launcher scripts (`START_APP.bat`, `BUILD.bat`, desktop-shortcut installers) live in `launchers/`; saved plan exports (`*.rpx`) in `saved_plans/`; long-form docs in `documentation/`.
+The current working copy lives at `C:\RetirementPlanning\Version 12 - ChatpGPT` on the local drive. It is deliberately **outside** OneDrive to avoid sync-induced file corruption (a OneDrive partial write once truncated `frontend/js/dashboard.js`). OneDrive is used only as the backup target via `tools/backup_to_onedrive.py`. All launcher/shortcut scripts resolve paths relative to their own location, so the tree is relocatable. To (re)create the desktop icon after a move, run `python tools/INSTALL_DESKTOP_ICON.py` (or double-click `launchers/install_desktop_shortcut.bat`). Launcher scripts (`START_APP.bat`, `BUILD.bat`, desktop-shortcut installers) live in `launchers/`; saved plan exports (`*.rpx`) in `saved_plans/`; long-form docs in `documentation/`.
 
 **Install dependencies:**
 ```

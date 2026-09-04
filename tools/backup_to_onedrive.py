@@ -121,7 +121,7 @@ def main() -> int:
                 # never include a backup-in-progress if root ever overlapped
                 if fpath == tmp_path:
                     continue
-                arc = Path("Version 10") / fpath.relative_to(PROJECT_ROOT)
+                arc = Path("Version 12") / fpath.relative_to(PROJECT_ROOT)
                 try:
                     zf.write(fpath, arc.as_posix())
                     count += 1
