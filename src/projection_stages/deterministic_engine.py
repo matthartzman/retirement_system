@@ -402,6 +402,26 @@ def run_deterministic_projection_stage(c):
     def _ss_ratio(year, claim_year):
         return _path_ratio('ss_cola_index_by_year', c['ss_cola'], year, claim_year)
 
+    def _ss_first_claim_year_month_fraction(year, claim_year, dob_month):
+        """Fraction of `year` (0.0-1.0) Social Security is actually payable.
+
+        Benefits begin the 1st of the month the claimant reaches their
+        configured claim age -- same convention as _medicare_month_fraction
+        (Medicare starts the 1st of the birth month) -- so only the claim
+        YEAR itself is ever partial; every later year is a full 12 months.
+        Before this, h_ss/w_ss paid a full 12 months even when claim_year
+        fell mid-year (h_ss_yr/w_ss_yr = dob_yr + claim_age has no month
+        component of its own), overstating first-year SS income.
+        """
+        if year != claim_year:
+            return 1.0
+        try:
+            m = int(dob_month) if dob_month else 1
+        except Exception:
+            m = 1
+        m = min(max(m, 1), 12)
+        return (12 - (m - 1)) / 12.0
+
     def _bracket_factor_for_year(year):
         return _tk.bracket_factor_for_year(c, year)
 
@@ -1085,7 +1105,7 @@ def run_deterministic_projection_stage(c):
                 _h_sp_start_age = max(h_ss_yr, w_ss_yr) - c['h_dob_yr']
                 _h_sp_factor = _ss_spousal_excess_factor(_h_sp_start_age, c['h_dob_yr'], h_fra_override)
                 h_monthly += max(0.0, 0.5 * w_pia - h_pia) * _h_sp_factor
-            h_ss = h_monthly * 12 * _ss_ratio(year, h_ss_yr)
+            h_ss = h_monthly * 12 * _ss_ratio(year, h_ss_yr) * _ss_first_claim_year_month_fraction(year, h_ss_yr, c.get('h_ss_claim_month', c.get('h_dob_month')))
         w_ss = 0.0
         if w_alive and year >= w_ss_yr:
             w_monthly = w_monthly_claim
@@ -1093,7 +1113,7 @@ def run_deterministic_projection_stage(c):
                 _w_sp_start_age = max(w_ss_yr, h_ss_yr) - c['w_dob_yr']
                 _w_sp_factor = _ss_spousal_excess_factor(_w_sp_start_age, c['w_dob_yr'], w_fra_override)
                 w_monthly += max(0.0, 0.5 * h_pia - w_pia) * _w_sp_factor
-            w_ss = w_monthly * 12 * _ss_ratio(year, w_ss_yr)
+            w_ss = w_monthly * 12 * _ss_ratio(year, w_ss_yr) * _ss_first_claim_year_month_fraction(year, w_ss_yr, c.get('w_ss_claim_month', c.get('w_dob_month')))
 
         # SS survivor benefit is symmetrical: survivor receives the larger
         # claimed benefit record (subject to survivor percentage), regardless of

@@ -385,9 +385,20 @@ export function spendingPageRecommendations() {
 
 export function socialSecurityPageRecommendations() {
   const recs = [];
-  const claims = recStepRows("income_retirement").filter(
-    (r) => norm(r.label) === "claim_age",
+  // claim_age is legacy (superseded by claim_date -- see schema.csv) and no
+  // longer rendered on this page, so linking a recommendation to it would
+  // send the user to a field they can't find. Read claim_date rows instead
+  // and derive the age the same way the compact table's own badge does --
+  // that also keeps this recommendation correct once a user has entered a
+  // claim_date, instead of judging by a claim_age value that stopped
+  // updating the moment claim_date took over.
+  const claimDateRows = recStepRows("income_retirement").filter(
+    (r) => norm(r.label) === "claim_date",
   );
+  const claims = claimDateRows.map((r) => ({
+    row: r,
+    age: ssClaimAgeFromDate(r.subsection, r),
+  }));
   const survivor =
     recFindBy(
       "Social Security",
@@ -395,12 +406,10 @@ export function socialSecurityPageRecommendations() {
       "survivor_benefit_uses_deceased_claim_age",
     ) ||
     recFindBy("Social Security", "Policy", "survivor_pct_of_higher_benefit");
-  const early = claims.find(
-    (r) => fieldNumericValue(r) > 0 && fieldNumericValue(r) < 67,
-  );
-  const not70 = claims.find(
-    (r) => fieldNumericValue(r) >= 67 && fieldNumericValue(r) < 70,
-  );
+  const earlyMatch = claims.find((c) => c.age > 0 && c.age < 67);
+  const not70Match = claims.find((c) => c.age >= 67 && c.age < 70);
+  const early = earlyMatch ? earlyMatch.row : null;
+  const not70 = not70Match ? not70Match.row : null;
   if (early) {
     recAdd(
       recs,

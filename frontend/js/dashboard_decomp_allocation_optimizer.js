@@ -784,10 +784,13 @@ export function ssClaimAgeCoordinationSummaryHtml() {
     { key: "Member 2", n: 2 },
   ]
     .map((p) => {
+      // ssPersonRows() fetches claim_date (claim_age was replaced -- see
+      // schema.csv); derive the age the same way the compact table's own
+      // badge does, so this summary never disagrees with what's shown there.
       const claim = ssPersonRows(p.key).find(
-        (x) => norm(x.label) === "claim_age",
+        (x) => norm(x.label) === "claim_date",
       );
-      const age = claim ? fieldNumericValue(claim) : 0;
+      const age = claim ? ssClaimAgeFromDate(p.key, claim) : 0;
       return age ? `${personDisplayName(p.n)}: age ${age}` : null;
     })
     .filter(Boolean);

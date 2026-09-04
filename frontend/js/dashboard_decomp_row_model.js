@@ -2232,6 +2232,14 @@ export function valueKind(r) {
   if (r && norm(r.label) === "down_payment") return "percent";
   if (r && l === "heloc_repayment_years") return "number";
   if (r && l === "tlh_transaction_cost_bps") return "number";
+  // exclusion_ratio is stored as a raw 0-1 fraction (0.738), unlike every
+  // other percent field in this app (stored already on a 0-100 scale, e.g.
+  // "5.00%") -- it needs its own kind so display/storage can scale by 100
+  // instead of just appending "%". Must be checked before the generic
+  // "exclusion" dollar-keyword match below, which would otherwise catch it
+  // (that keyword is for genuine dollar exclusions like
+  // section_121_exclusion_mfj and annual_exclusion_per_donee).
+  if (r && l === "exclusion_ratio") return "percent_fraction";
   if (
     !r ||
     isDateField(r) ||
@@ -2321,6 +2329,10 @@ export function storageValueForInput(row, value) {
   const kind = valueKind(row);
   if (kind === "currency") return currencyRaw(value);
   if (kind === "percent") return percentRaw(value);
+  if (kind === "percent_fraction") {
+    const n = numberFromDisplay(value);
+    return n === null ? String(value ?? "").trim() : decimalTrim(String(n / 100));
+  }
   if (kind === "number")
     return decimalTrim(
       String(numberFromDisplay(value) ?? String(value ?? "").trim()),
@@ -2340,6 +2352,27 @@ export function displayValueForInput(row, value) {
   if (kind === "currency") return currencyDisplay(value);
   if (kind === "percent")
     return percentDisplay(value, percentDisplayDecimals(row, value));
+  if (kind === "percent_fraction") {
+    const n = numberFromDisplay(value);
+    if (n === null) return String(value ?? "");
+    const scaled = n * 100;
+    // percentDisplayDecimals reads decimal-place counts straight off the raw
+    // text (row.value etc.), which is correct for a normal percent field but
+    // would misfire here: the *stored* fraction "0.738" has 3 decimal
+    // digits, while the *scaled* "73.8" needs only 1 -- ×100 shifts the
+    // decimal point left by 2. Subtract that shift from each source's raw
+    // decimal count instead of reusing percentDisplayDecimals directly.
+    const fractionDecimals = (text) => {
+      const m = String(text ?? "").match(/\.(\d+)/);
+      return m ? Math.max(0, Math.min(6, m[1].length - 2)) : 0;
+    };
+    const decimals = Math.max(
+      fractionDecimals(value),
+      fractionDecimals(row?.value),
+      fractionDecimals(row?.schema?.default),
+    );
+    return percentDisplay(scaled, decimals);
+  }
   if (kind === "number")
     return formatNumberValue(
       value,

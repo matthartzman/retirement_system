@@ -400,6 +400,57 @@ def _date_parts(v):
         return None
 
 
+def _month_year_parts(v):
+    """Return (year, month) for a MM/YYYY (or M/YYYY, YYYY-MM) string, else
+    None. Distinct from _date_parts, which requires a day component -- a
+    Social Security claim date is only ever precise to the month."""
+    s = str(v or '').strip()
+    if not s:
+        return None
+    try:
+        if '/' in s:
+            parts = [int(float(x)) for x in s.split('/') if str(x).strip()]
+            if len(parts) == 2:
+                m, y = parts[0], parts[1]
+                if y < 100:
+                    y += 2000
+                if 1 <= m <= 12:
+                    return (y, m)
+        if '-' in s:
+            parts = [int(float(x)) for x in s.split('-') if str(x).strip()]
+            if len(parts) == 2:
+                y, m = parts[0], parts[1]
+                if 1 <= m <= 12:
+                    return (y, m)
+    except Exception:
+        pass
+    return None
+
+
+def _ss_claim_from_date_or_age(data, person, dob_yr, dob_month, legacy_default_age):
+    """Resolve (claim_age, claim_year, claim_month) for one Social Security
+    claimant.
+
+    ``claim_date`` (MM/YYYY) is the primary input, replacing the older bare
+    ``claim_age`` (an integer with no month, which forced every claim year
+    to be treated as a full 12 months of benefits -- see
+    deterministic_engine._ss_first_claim_year_month_fraction). When a real
+    claim_date is present, claim_age is *derived* from it (claim_year -
+    dob_yr) rather than read directly, so the two can never disagree.
+
+    Falls back to the legacy claim_age field (defaulting to age 70, this
+    codebase's existing default) for plans that predate claim_date, using
+    the claimant's own birth month for proration -- the same assumption
+    _ss_first_claim_year_month_fraction relied on before claim_date existed.
+    """
+    parsed = _month_year_parts(_v(data, 'Social Security', person, 'claim_date', ''))
+    if parsed:
+        claim_year, claim_month = parsed
+        return claim_year - dob_yr, claim_year, claim_month
+    claim_age = int(_n(_v(data, 'Social Security', person, 'claim_age', legacy_default_age), 70))
+    return claim_age, dob_yr + claim_age, dob_month
+
+
 def _last_earned_income_year_from_retirement_date(v, default=0):
     """Convert retirement timing to the final year with earned income.
 
@@ -649,8 +700,12 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
         return table
     c['w_ss_benefit_table'] = _ss_benefit_table('Member 2')
     c['h_ss_benefit_table'] = _ss_benefit_table('Member 1')
-    c['w_ss_claim_age'] = int(_n(_v(data,'Social Security','Member 2','claim_age', _v(data,'Model Constants','Retirement','ss_claim_age','70')), 70))
-    c['h_ss_claim_age'] = int(_n(_v(data,'Social Security','Member 1','claim_age', _v(data,'Model Constants','Retirement','ss_claim_age','70')), 70))
+    c['w_ss_claim_age'], c['w_ss_claim_year'], c['w_ss_claim_month'] = _ss_claim_from_date_or_age(
+        data, 'Member 2', c['w_dob_yr'], c['w_dob_month'],
+        _v(data,'Model Constants','Retirement','ss_claim_age','70'))
+    c['h_ss_claim_age'], c['h_ss_claim_year'], c['h_ss_claim_month'] = _ss_claim_from_date_or_age(
+        data, 'Member 1', c['h_dob_yr'], c['h_dob_month'],
+        _v(data,'Model Constants','Retirement','ss_claim_age','70'))
     # Full Retirement Age override, in years (e.g. 66.67). Left at 0, the
     # engine auto-derives FRA from date of birth via the SSA birth-year table.
     c['w_fra_age'] = _n(_v(data,'Social Security','Member 2','fra_age','0'), 0) or None
@@ -1446,7 +1501,17 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
 
     def load_stream(name, annuitant='wife'):
         s = {}
-        s['first_yr'] = _y(_v(data,'Income Streams',name,'first_payment', str(c['plan_start'] + 3)).split('/')[-1], c['plan_start'] + 3)
+        _fp_raw = _v(data,'Income Streams',name,'first_payment', str(c['plan_start'] + 3))
+        s['first_yr'] = _y(_fp_raw.split('/')[-1], c['plan_start'] + 3)
+        # First-year cash-flow proration (annuity_cash_income() in core.py):
+        # a contract whose first_payment is mid-year (e.g. 6/1/2026) should
+        # only pay the remaining months of that calendar year, not a full 12
+        # -- see _date_parts' month component. None (not just month 1) for a
+        # legacy/year-only value on purpose: annuity_cash_income() treats a
+        # missing month as "don't prorate," matching this function's
+        # pre-existing behavior for data that never carried a real date.
+        _fp_parts = _date_parts(_fp_raw)
+        s['first_payment_month'] = _fp_parts[1] if _fp_parts else None
         s['base']     = _n(_v(data,'Income Streams',name,'base','0'), 0)
         s['div_rate'] = _n(_v(data,'Income Streams',name,'dividend_rate',str(c['ann_div'])), c['ann_div'])
         # add_pct = reinvested fraction (20% default); cash payout = 1 - add_pct
@@ -1634,8 +1699,10 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # those removed fields carried, so this is a documentation-only fallback,
     # not a behavior change.
     c['ss_claim_age']      = 70
-    c['h_ss_claim_age']    = int(_n(_v(data,'Social Security','Member 1','claim_age', '70'), 70))
-    c['w_ss_claim_age']    = int(_n(_v(data,'Social Security','Member 2','claim_age', '70'), 70))
+    c['h_ss_claim_age'], c['h_ss_claim_year'], c['h_ss_claim_month'] = _ss_claim_from_date_or_age(
+        data, 'Member 1', c['h_dob_yr'], c['h_dob_month'], '70')
+    c['w_ss_claim_age'], c['w_ss_claim_year'], c['w_ss_claim_month'] = _ss_claim_from_date_or_age(
+        data, 'Member 2', c['w_dob_yr'], c['w_dob_month'], '70')
     # Generic/household RMD start age, anchored to the primary member's (h)
     # birth year, for conversion_window_end_year and any legacy caller that
     # doesn't distinguish members. Purely derived now (no CSV override) - see

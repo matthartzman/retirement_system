@@ -8,7 +8,7 @@ export function findRows(sectionName, subsectionName, labels) {
 
 export function ssPersonRows(person) {
   return findRows("Social Security", person, [
-    "claim_age",
+    "claim_date",
     "monthly_pia_at_fra_today_dollars",
     "fra_age",
   ]);
@@ -17,6 +17,62 @@ export function ssPersonRows(person) {
 export function ssActiveCell(row) {
   if (!row) return '<span class="small">Missing</span>';
   return fieldControlOnly(row);
+}
+
+// month/YYYY <-> the native <input type="month"> value (YYYY-MM). This
+// codebase's other date fields store M/D/YYYY text in the CSV; claim_date
+// has no day component, so it gets its own tiny round-trip instead of
+// reusing isDateField()/toIsoDateValue(), which assume a 3-part date.
+export function claimDateToMonthInputValue(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  let m = s.match(/^(\d{1,2})\/(\d{4})$/);
+  if (m) return `${m[2]}-${m[1].padStart(2, "0")}`;
+  m = s.match(/^(\d{4})-(\d{1,2})$/);
+  if (m) return `${m[1]}-${m[2].padStart(2, "0")}`;
+  return "";
+}
+export function monthInputValueToClaimDate(raw) {
+  const m = String(raw || "").trim().match(/^(\d{4})-(\d{1,2})$/);
+  return m ? `${Number(m[2])}/${m[1]}` : "";
+}
+
+// household DOB lookup, keyed the same way ssPersonRows/ssMonthlyAtClaimAgeCell
+// key everything else ("Member 1" / "Member 2") -- the underlying CSV field
+// is member_1_dob / member_2_dob under Household, not Social Security.
+function ssPersonDobParts(person) {
+  const label = person === "Member 1" ? "member_1_dob" : "member_2_dob";
+  const row = findEditableRow("Household", "", label);
+  const raw = String((row ? valOf(row) : "") || "").trim();
+  const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (!m) return null;
+  let y = Number(m[3]);
+  if (y < 100) y += y > 40 ? 1900 : 2000;
+  return { year: y, month: Number(m[1]) };
+}
+
+// Mirrors src/data_io.py's _ss_claim_from_date_or_age(): claim_date present
+// -> age = claim year - birth year; blank -> the model default (age 70,
+// claimed in the person's own birth month), matching the engine exactly so
+// this displayed age is never out of sync with what actually gets modeled.
+export function ssClaimAgeFromDate(person, claimDateRow) {
+  const dob = ssPersonDobParts(person);
+  const raw = String((claimDateRow ? valOf(claimDateRow) : "") || "").trim();
+  const m = raw.match(/^(\d{1,2})\/(\d{4})$/);
+  if (m && dob) return Number(m[2]) - dob.year;
+  return 70;
+}
+
+export function ssClaimDateCell(person, claimDateRow) {
+  if (!claimDateRow) return '<span class="small">Missing</span>';
+  const monthValue = claimDateToMonthInputValue(valOf(claimDateRow));
+  const idx = claimDateRow.row_index;
+  const input = `<input type="month" data-row="${idx}" value="${esc(monthValue)}" oninput="editValue(${idx},monthInputValueToClaimDate(this.value),this)" onfocus="showFieldHelp(${idx})">`;
+  const raw = String(valOf(claimDateRow) || "").trim();
+  const ageBadge = raw
+    ? `<span class="computed-value small">Age ${ssClaimAgeFromDate(person, claimDateRow)} at claim</span>`
+    : '<span class="small">Blank = age 70, own birth month</span>';
+  return `${input}<div class="unit">${ageBadge}</div>`;
 }
 
 export function ssClaimFactor(claimAge, fra) {
@@ -28,11 +84,11 @@ export function ssClaimFactor(claimAge, fra) {
   return Math.max(0.0, 1.0 - first36 - extra);
 }
 
-export function ssMonthlyAtClaimAgeCell(person, claimAgeRow) {
-  if (!claimAgeRow) return '<span class="small">Missing</span>';
+export function ssMonthlyAtClaimAgeCell(person, claimDateRow) {
+  if (!claimDateRow) return '<span class="small">Missing</span>';
   const age = Math.max(
     62,
-    Math.min(70, Math.round(fieldNumericValue(claimAgeRow) || 70)),
+    Math.min(70, Math.round(ssClaimAgeFromDate(person, claimDateRow) || 70)),
   );
   const benefitRow = findEditableRow(
     "Social Security",
@@ -67,12 +123,12 @@ export function renderSsCompactTable() {
     { key: "Member 1", n: 1 },
     { key: "Member 2", n: 2 },
   ];
-  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Social Security</h3><div class="section-note">Enter each person’s FRA Age, Monthly at FRA, and claiming age. Monthly at Claim Age is calculated: it’s looked up from a saved SSA benefit-table entry for that exact age when available, otherwise it’s derived from FRA Age and Monthly at FRA using the SSA reduction/delayed-credit factor. FRA Age defaults to 67 (SSA birth-year rule) if left blank.</div><div class="lot-table-wrap"><table class="lot-table compact-table ss-compact-table"><thead><tr><th>Person</th><th>FRA Age</th><th>Monthly at FRA</th><th>Claim Age</th><th>Monthly at Claim Age</th></tr></thead><tbody>`;
+  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Social Security</h3><div class="section-note">Enter each person’s FRA Age, Monthly at FRA, and claim date (month/year benefits start). Claim Age is calculated from the claim date and date of birth, not entered directly. Monthly at Claim Age is calculated: it’s looked up from a saved SSA benefit-table entry for that exact age when available, otherwise it’s derived from FRA Age and Monthly at FRA using the SSA reduction/delayed-credit factor. FRA Age defaults to 67 (SSA birth-year rule) if left blank.</div><div class="lot-table-wrap"><table class="lot-table compact-table ss-compact-table"><thead><tr><th>Person</th><th>FRA Age</th><th>Monthly at FRA</th><th>Claim Date</th><th>Monthly at Claim Age</th></tr></thead><tbody>`;
   people.forEach((p) => {
     const r = ssPersonRows(p.key);
     const by = {};
     r.forEach((x) => (by[norm(x.label)] = x));
-    html += `<tr><td><b>${esc(personDisplayName(p.n))}</b></td><td>${ssActiveCell(by.fra_age)}</td><td>${ssActiveCell(by.monthly_pia_at_fra_today_dollars)}</td><td>${ssActiveCell(by.claim_age)}</td><td>${ssMonthlyAtClaimAgeCell(p.key, by.claim_age)}</td></tr>`;
+    html += `<tr><td><b>${esc(personDisplayName(p.n))}</b></td><td>${ssActiveCell(by.fra_age)}</td><td>${ssActiveCell(by.monthly_pia_at_fra_today_dollars)}</td><td>${ssClaimDateCell(p.key, by.claim_date)}</td><td>${ssMonthlyAtClaimAgeCell(p.key, by.claim_date)}</td></tr>`;
   });
   return html + "</tbody></table></div></div>";
 }
@@ -143,10 +199,14 @@ export function renderIncomeStreamsSection() {
 
 export function renderSsPolicySection() {
   const compactLabels = new Set([
-    "claim_age",
+    "claim_date",
     "monthly_pia_at_fra_today_dollars",
     "fra_age",
   ]);
+  // claim_age is legacy (superseded by claim_date, see schema.csv) -- never
+  // shown as its own editable field, only ever read as a fallback when a
+  // plan has no claim_date yet.
+  const legacyHiddenLabels = new Set(["claim_age"]);
   // Per-age SSA benefit-table entries (62-70) still drive the Monthly at
   // Claim Age lookup in the compact table above and the engine's benefit
   // calculation, but are not shown as an editable table on this page.
@@ -161,6 +221,7 @@ export function renderSsPolicySection() {
         r.section === "Social Security" &&
         !compactLabels.has(norm(r.label)) &&
         !hiddenLabels.has(norm(r.label)) &&
+        !legacyHiddenLabels.has(norm(r.label)) &&
         !excludedSubs.has(String(r.subsection || "").toLowerCase()),
     );
   const fundingRows = [
@@ -302,6 +363,10 @@ Object.assign(window, {
   ssPersonRows,
   ssActiveCell,
   ssClaimFactor,
+  ssClaimAgeFromDate,
+  ssClaimDateCell,
+  claimDateToMonthInputValue,
+  monthInputValueToClaimDate,
   ssMonthlyAtClaimAgeCell,
   renderSsCompactTable,
   fieldControlOnly,

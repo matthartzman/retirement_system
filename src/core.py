@@ -1438,6 +1438,27 @@ def annuity_purchase_rate(age, calib=None):
 def _annuity_reserve(reserve_start, yr_offset, calib=None):
     return _td.annuity_reserve_from_calib(reserve_start, yr_offset, calib)
 
+def _first_year_proration_fraction(stream):
+    """Fraction (0-1] of a 12-month year actually paid in the calendar year
+    a contract's first_payment falls in. 1.0 (no proration) unless a real
+    payment month (1-12) was captured -- streams with no explicit
+    first_payment date (or the legacy year-only default) keep paying a full
+    first year, matching this function's pre-proration behavior.
+
+    Same convention as deterministic_engine._medicare_month_fraction
+    (payments/coverage start the 1st of the given month): a June 1 start
+    leaves 7 of 12 months (Jun-Dec) payable in that calendar year.
+    """
+    month = stream.get('first_payment_month')
+    try:
+        m = int(month)
+    except (TypeError, ValueError):
+        return 1.0
+    if not (1 <= m <= 12):
+        return 1.0
+    return (12 - (m - 1)) / 12.0
+
+
 def annuity_cash_income(stream, year):
     fy = stream['first_yr']
     base_orig = stream['base']
@@ -1448,8 +1469,14 @@ def annuity_cash_income(stream, year):
     rec_age = stream.get('recovery_age', 86)
     recovery_yr = dob_yr + rec_age
     calib = stream.get('annuity_calib')
+    # Only the cash actually collected in the first (possibly partial)
+    # calendar year of income is prorated -- every later year's reserve
+    # growth/compounding below still runs on full 12-month increments, since
+    # the carrier's "guaranteed annual payment" is a full-year figure for
+    # crediting purposes regardless of when the first check went out.
+    first_year_frac = _first_year_proration_fraction(stream) if year == fy else 1.0
     if base_orig == 0:
-        return init_pmt * 12 if year >= fy else 0.0
+        return (init_pmt * 12 * first_year_frac) if year >= fy else 0.0
     if year < fy:
         return 0.0
     deferral_years = max(0, stream.get('deferral_years', 0))
@@ -1473,7 +1500,7 @@ def annuity_cash_income(stream, year):
             pmt += _annuity_reserve(reserve_start, yr_off, calib) * div_rate * add_pct * annuity_purchase_rate(age_at_start + yr_off, calib)
     stream[cache_key] = (year, pmt)
     cash_div = _annuity_reserve(reserve_start, years_of_income, calib) * div_rate * (1.0 - add_pct) if year < recovery_yr else 0.0
-    return pmt + cash_div
+    return (pmt + cash_div) * first_year_frac
 
 def annuity_pv(stream, start_year, end_year, discount_rate):
     return sum(annuity_cash_income(stream, yr) / (1 + discount_rate) ** (yr - start_year)

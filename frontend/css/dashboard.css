@@ -22,8 +22,15 @@
 .advanced-nav-body{display:flex;flex-direction:column;gap:8px;padding:8px}
 .compact-table{min-width:680px}
 .compact-table input,.compact-table select{min-width:110px}
-.ss-compact-table th:nth-child(2),.ss-compact-table td:nth-child(2),.ss-compact-table th:nth-child(4),.ss-compact-table td:nth-child(4){width:90px}
-.ss-compact-table td:nth-child(2) input,.ss-compact-table td:nth-child(4) input{width:64px;min-width:64px;max-width:70px}
+.ss-compact-table th:nth-child(2),.ss-compact-table td:nth-child(2){width:90px}
+.ss-compact-table td:nth-child(2) input{width:64px;min-width:64px;max-width:70px}
+/* Column 4 was "Claim Age" (a bare 2-digit integer, correctly narrow at
+   90px/64-70px above) before it became "Claim Date": a month input plus a
+   calculated-age badge underneath need more room, or the badge text wraps
+   to 2 lines -- give this column its own width instead of reusing the old
+   short-integer sizing. */
+.ss-compact-table th:nth-child(4),.ss-compact-table td:nth-child(4){width:190px}
+.ss-compact-table td:nth-child(4) input[type="month"]{width:100%;min-width:150px}
 .two-col-inline{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .two-col-inline .field{grid-template-columns:minmax(180px,1fr) minmax(140px,.8fr);margin:0}
 .retirement-income-section{padding-top:12px;padding-bottom:12px}
