@@ -202,9 +202,22 @@ class MarketDataProvider:
     alpha_vantage_min_interval_seconds: float = 1.1
 
     def __post_init__(self) -> None:
-        _project_root = Path(__file__).resolve().parent.parent
-        self.cache_path = Path(self.cache_path)
-        self.diagnostics_path = Path(self.diagnostics_path)
+        # Resolved via platform_runtime.resolve_workspace_path(), not a
+        # hardcoded Path(__file__).resolve().parent.parent: the latter always
+        # pointed at this source file's OWN repo checkout, bypassing the
+        # RETIREMENT_SYSTEM_WORKSPACE_ROOT redirect tests/conftest.py sets up
+        # for input/output/local_state/saved_plans. That meant every test run
+        # from a developer's real working copy read/wrote that copy's real
+        # output/market_price_cache.json (whatever live-cached prices happen
+        # to be sitting there from actual app usage) instead of an isolated
+        # per-test cache, silently diverging price-sensitive test output
+        # (e.g. Monte Carlo success rates) from a fresh checkout or CI, where
+        # no such cache file exists yet. resolve_workspace_path() honors the
+        # same redirect env var and falls back to the identical repo-root
+        # resolution otherwise, so normal/frozen-exe behavior is unchanged.
+        from .platform_runtime import resolve_workspace_path
+        self.cache_path = resolve_workspace_path(self.cache_path)
+        self.diagnostics_path = resolve_workspace_path(self.diagnostics_path)
         try:
             self.timeout_seconds = max(1, int(float(os.getenv("RETIREMENT_SYSTEM_PRICE_TIMEOUT_SECONDS", str(self.timeout_seconds)))))
         except Exception:
@@ -213,10 +226,6 @@ class MarketDataProvider:
             self.max_retries = max(1, int(float(os.getenv("RETIREMENT_SYSTEM_PRICE_MAX_RETRIES", str(self.max_retries)))))
         except Exception:
             pass
-        if not self.cache_path.is_absolute():
-            self.cache_path = _project_root / self.cache_path
-        if not self.diagnostics_path.is_absolute():
-            self.diagnostics_path = _project_root / self.diagnostics_path
         self.refresh_api_keys()
         self.cache: Dict[str, Dict[str, object]] = self._load_cache()
         self.failures: List[Dict[str, object]] = []
