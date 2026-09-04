@@ -1,3 +1,51 @@
+## 2026-09-04 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5460394.26 lifetime_tax=1262469.23 -->
+
+**Old pins.** terminal_nw=5,763,251.84, lifetime_tax=1,316,887.09
+
+**New pins.** terminal_nw=5,460,394.26, lifetime_tax=1,262,469.23
+
+**Reason.**
+
+Fixed a real bug where annuity/pension/Social Security income always paid a full
+12 months in the calendar year benefits actually started, regardless of what
+month the contract's first_payment (or a person's Social Security claim) fell
+in. A contract with first_payment 6/1/2026 showed 12 months of cash flow in
+2026 instead of 7 (June-December).
+
+Root cause: src/core.py's annuity_cash_income() only ever worked in whole
+calendar years -- src/data_io.py's load_stream() discarded the month/day of
+first_payment and kept only the year. Social Security had the same gap:
+deterministic_engine.py derived the claim year purely from birth year + claim
+age, with no month component, so h_ss/w_ss also paid a full first year.
+
+Fix:
+- src/core.py: annuity_cash_income() now prorates the cash actually paid in
+  the first income year by the fraction of that year remaining from the
+  first_payment month onward. Later years are unaffected -- the reserve/
+  compounding math that drives future-year growth still runs on full
+  12-month increments, since a carrier's "guaranteed annual payment" is a
+  full-year figure for crediting purposes regardless of when the first
+  check went out; only the dollars collected in a partial stub year shrink.
+- src/data_io.py: load_stream() now also captures first_payment's month.
+- Social Security claim_age (a bare integer with no month) was replaced by
+  claim_date (MM/YYYY) as the primary input, with claim age now calculated
+  and displayed rather than entered directly. claim_date's month drives the
+  same first-year proration for h_ss/w_ss. Plans with no claim_date (only
+  the legacy claim_age) keep the pre-existing default: age 70, claimed in
+  the person's own birth month -- so this only changes results for a plan
+  that actually has a non-January claim/first-payment month, which the
+  frozen sample plan does (claim_age 69/66, birth months August/May).
+
+The frozen sample plan's Member 1/2 claim_age (69/66) and several income
+streams' first_payment fields all fall in non-January months, so this
+correction changes its terminal net worth and lifetime tax -- both moved
+down, since less first-year income means less first-year Roth room but also
+less first-year tax; the net terminal effect here is a decrease because the
+prior version overstated Social Security and pension income in the claim
+year.
+
 ## 2026-09-02 — Ticket 305: additive `Monarch Id` transaction column
 
 **No pins moved.**

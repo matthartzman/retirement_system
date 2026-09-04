@@ -69,9 +69,10 @@ export function ssClaimDateCell(person, claimDateRow) {
   const idx = claimDateRow.row_index;
   const input = `<input type="month" data-row="${idx}" value="${esc(monthValue)}" oninput="editValue(${idx},monthInputValueToClaimDate(this.value),this)" onfocus="showFieldHelp(${idx})">`;
   const raw = String(valOf(claimDateRow) || "").trim();
-  const ageBadge = raw
-    ? `<span class="computed-value small">Age ${ssClaimAgeFromDate(person, claimDateRow)} at claim</span>`
-    : '<span class="small">Blank = age 70, own birth month</span>';
+  // The blank-defaults-to-70 explanation lives once in the section-note
+  // above the table, not repeated per row.
+  if (!raw) return input;
+  const ageBadge = `<span class="computed-value small">Age ${ssClaimAgeFromDate(person, claimDateRow)} at claim</span>`;
   return `${input}<div class="unit">${ageBadge}</div>`;
 }
 
@@ -123,7 +124,7 @@ export function renderSsCompactTable() {
     { key: "Member 1", n: 1 },
     { key: "Member 2", n: 2 },
   ];
-  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Social Security</h3><div class="section-note">Enter each person’s FRA Age, Monthly at FRA, and claim date (month/year benefits start). Claim Age is calculated from the claim date and date of birth, not entered directly. Monthly at Claim Age is calculated: it’s looked up from a saved SSA benefit-table entry for that exact age when available, otherwise it’s derived from FRA Age and Monthly at FRA using the SSA reduction/delayed-credit factor. FRA Age defaults to 67 (SSA birth-year rule) if left blank.</div><div class="lot-table-wrap"><table class="lot-table compact-table ss-compact-table"><thead><tr><th>Person</th><th>FRA Age</th><th>Monthly at FRA</th><th>Claim Date</th><th>Monthly at Claim Age</th></tr></thead><tbody>`;
+  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Social Security</h3><div class="section-note">Enter each person’s FRA Age, Monthly at FRA, and claim date (month/year benefits start) — leave claim date blank to default to age 70, claimed in that person’s own birth month. Claim Age is calculated from the claim date and date of birth, not entered directly. Monthly at Claim Age is calculated: it’s looked up from a saved SSA benefit-table entry for that exact age when available, otherwise it’s derived from FRA Age and Monthly at FRA using the SSA reduction/delayed-credit factor. FRA Age defaults to 67 (SSA birth-year rule) if left blank.</div><div class="lot-table-wrap"><table class="lot-table compact-table ss-compact-table"><thead><tr><th>Person</th><th>FRA Age</th><th>Monthly at FRA</th><th>Claim Date</th><th>Monthly at Claim Age</th></tr></thead><tbody>`;
   people.forEach((p) => {
     const r = ssPersonRows(p.key);
     const by = {};
