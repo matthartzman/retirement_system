@@ -25,7 +25,7 @@ What it does:
 
 Ticket 288 -- optional workspace folder rename
 -----------------------------------------------
-The workspace folder itself (currently "Version 10") is a separate surface this
+The workspace folder itself (currently "Version 12") is a separate surface this
 script did not know about. Two more flags handle it, deliberately split into a
 safe half and a dangerous half:
 
@@ -48,7 +48,7 @@ safe half and a dangerous half:
 Swept vs. excluded roots (decision, not a config default -- read this before
 wondering why a report didn't update): historical plans and dated review
 reports are records of what was true when they were written; rewriting a `cd
-"C:/.../Version 10"` command inside a 2026-07-18 report would falsify that
+"C:/.../Version 12"` command inside a 2026-07-18 report would falsify that
 record, not fix it. So the default sweep covers only roots where a stale path
 is a live bug, not a historical fact:
 
@@ -123,7 +123,7 @@ BINARY_SUFFIXES = {'.pyc', '.pyo', '.png', '.jpg', '.jpeg', '.ico', '.svg', '.db
 # documentation/*.md filenames that are dated records by nature (a
 # changelog, a one-time migration's completion summary) even though they
 # live at the top level rather than under reports/ or archive/ -- rewriting
-# a `cd "C:/.../Version 10"` line inside one would falsify that record, same
+# a `cd "C:/.../Version 12"` line inside one would falsify that record, same
 # reasoning as the two directories below. New files matching this naming
 # convention are excluded automatically; this is a name-pattern check, not a
 # one-off allowlist that needs a new entry per file.
@@ -141,7 +141,7 @@ def _top_level_doc_md_files(doc_dir: Path | None = None) -> list[Path]:
     this script was written is swept without needing this file edited too --
     found 2026-09-04: a single hardcoded `documentation/CLAUDE.md` entry let
     documentation/F0_F1_F2_COMPLETION_SUMMARY.md and
-    documentation/GOLDEN_MASTER_CHANGELOG.md's own "Version 10" text sit in
+    documentation/GOLDEN_MASTER_CHANGELOG.md's own "Version 12" text sit in
     neither the sweep nor the history exclusion -- a real gap, though both
     of those two turned out to belong in the exclusion above once actually
     looked at, not the sweep.
@@ -446,7 +446,7 @@ def sweep_folder_references(
     for every file that changed (or would change, if ``apply`` is False).
 
     Plain substring replacement, not regex -- ``old_name`` is a fixed string
-    like "Version 10", and a substring match against "Version 10 - ChatpGPT"
+    like "Version 12", and a substring match against "Version 12 - ChatpGPT"
     naturally leaves the " - ChatpGPT" suffix untouched without any special
     casing (the suffix is simply outside the matched span). This also means
     the deliberate "ChatpGPT" typo in that suffix is preserved verbatim,

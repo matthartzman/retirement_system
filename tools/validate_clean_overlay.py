@@ -4,7 +4,7 @@ from __future__ import annotations
 """Validate that an overlay zip can be applied cleanly to a pristine package.
 
 Usage:
-    python tools/validate_clean_overlay.py --base "Version 10 - ChatpGPT.zip" --overlay overlay.zip
+    python tools/validate_clean_overlay.py --base "Version 12 - ChatpGPT.zip" --overlay overlay.zip
 
 The script extracts the base package to a temporary directory, overlays changed
 files, then runs dependency-light smoke checks against the stdlib runtime and

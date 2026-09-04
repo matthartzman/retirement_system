@@ -12,7 +12,7 @@
   (New-ScheduledTaskAction / Register-ScheduledTask, available since
   Windows 8 / Server 2012) rather than hand-building a schtasks.exe /tr
   command-line string -- a manually quoted /tr value breaks when any path
-  involved contains a space (e.g. "C:\...\Version 10\..."), because
+  involved contains a space (e.g. "C:\...\Version 12\..."), because
   schtasks.exe's own command-line parsing and PowerShell's native-argument
   passing disagree about where the quoted boundaries are. The ScheduledTasks
   cmdlets take the executable and its arguments as separate parameters and
