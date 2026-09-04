@@ -77,11 +77,21 @@ def test_client_policy_note_that_originally_triggered_this_is_still_present():
     """Guards the regression's own premise: if this note's non-ASCII
     character is ever edited out, this suite is silently testing nothing
     about the real trigger. (Not asserting the fix is meaningless without a
-    real offending character in a real shipped input file.)"""
-    csv_path = ROOT / "input" / "client_policy.csv"
+    real offending character in a real shipped input file.)
+
+    Reads the committed frozen fixture, not input/client_policy.csv:
+    input/ is gitignored real client data (see CLAUDE.md's data-storage
+    section), so it does not exist on a fresh checkout -- this test was
+    failing with FileNotFoundError in CI for exactly that reason. The frozen
+    fixture is the same file tests/conftest.py stages into input/ for every
+    other test, and carries the same μ note (see its mc_sensitivity_simulations
+    row) since it was captured from a real shipped plan.
+    """
+    csv_path = ROOT / "tests" / "fixtures" / "sample_plan_frozen" / "client_policy.csv"
     text = csv_path.read_text(encoding="utf-8-sig")
     assert MU in text, (
-        "input/client_policy.csv no longer contains a μ character -- this "
-        "suite's premise (a real shipped file crashes the default Windows "
-        "console encoding) needs a new concrete example, not just removal."
+        "tests/fixtures/sample_plan_frozen/client_policy.csv no longer contains "
+        "a μ character -- this suite's premise (a real shipped file crashes the "
+        "default Windows console encoding) needs a new concrete example, not "
+        "just removal."
     )
