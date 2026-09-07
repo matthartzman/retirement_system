@@ -63,6 +63,20 @@ export function ssClaimAgeFromDate(person, claimDateRow) {
   return 70;
 }
 
+// System review 2026-09-07 N2: whole-year claim age (above) is correct for
+// the benefit-table lookup (SSA quotes are only ever given per whole age),
+// but the SSA reduction/delayed-credit factor (ssClaimFactor below) needs
+// month precision -- claim_year - dob_year alone can misattribute up to 11
+// months of credit. Mirrors src/data_io.py's _ss_claim_from_date_or_age
+// claim_age_precise computation exactly.
+export function ssClaimAgePreciseFromDate(person, claimDateRow) {
+  const dob = ssPersonDobParts(person);
+  const raw = String((claimDateRow ? valOf(claimDateRow) : "") || "").trim();
+  const m = raw.match(/^(\d{1,2})\/(\d{4})$/);
+  if (m && dob) return Number(m[2]) - dob.year + (Number(m[1]) - dob.month) / 12.0;
+  return 70;
+}
+
 export function ssClaimDateCell(person, claimDateRow) {
   if (!claimDateRow) return '<span class="small">Missing</span>';
   const monthValue = claimDateToMonthInputValue(valOf(claimDateRow));
@@ -115,7 +129,8 @@ export function ssMonthlyAtClaimAgeCell(person, claimDateRow) {
     (age67Row ? fieldNumericValue(age67Row) : 0);
   if (!pia)
     return `<span class="small">Enter Monthly at FRA</span>`;
-  const derived = pia * ssClaimFactor(age, fra);
+  const agePrecise = ssClaimAgePreciseFromDate(person, claimDateRow);
+  const derived = pia * ssClaimFactor(agePrecise, fra);
   return `<span class="computed-value">~${esc(fmtMoney(derived))} <span class="small">(derived from FRA)</span></span>`;
 }
 
@@ -365,6 +380,7 @@ Object.assign(window, {
   ssActiveCell,
   ssClaimFactor,
   ssClaimAgeFromDate,
+  ssClaimAgePreciseFromDate,
   ssClaimDateCell,
   claimDateToMonthInputValue,
   monthInputValueToClaimDate,

@@ -105,7 +105,15 @@ def run(base_dir: str | Path, *, force: bool = False) -> dict[str, Any]:
     # stop re-emitting these rows on the next cycle. Best-effort: a failure
     # here is reported but does not undo or fail the (already-committed)
     # import -- see _mark_runs_delivered's own docstring.
-    mark_delivered_errors = _mark_runs_delivered(source_dir.parent, result["run_ids"])
+    #
+    # System review 2026-09-07 SEC-2: the extractor directory (and therefore
+    # the interpreter _mark_runs_delivered executes) used to be derived from
+    # `source_dir.parent` -- an attacker-influenced value once `source_dir`
+    # was confined only loosely. It is now pinned to the one real location
+    # this app ships the extractor at, independent of the configured
+    # `source_dir` (which only ever needs to name the *output* subfolder).
+    extractor_dir = base_dir / "Monarch Extractor"
+    mark_delivered_errors = _mark_runs_delivered(extractor_dir, result["run_ids"])
 
     status = mau.write_status(
         base_dir,

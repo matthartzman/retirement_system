@@ -57,19 +57,49 @@ def status_path(base_dir: str | Path) -> Path:
     return Path(base_dir) / "local_state" / STATUS_FILENAME
 
 
+class SourceDirOutsideWorkspaceError(ValueError):
+    """Raised when a policy's source_dir would resolve outside the workspace root.
+
+    System review 2026-09-07 SEC-2: `source_dir` used to be accepted with no
+    confinement check at all. Because `resolve_source_dir` feeds directly
+    into a subprocess interpreter lookup (`monarch_autoimport_job.py`'s
+    `_resolve_extractor_python`, which executes `<source_dir's parent>/.venv/
+    .../python.exe`), an unconfined path let the `/api/plan/monarch-
+    autoupdate/config` route (which passes request bodies straight through
+    to `save_policy`) select an arbitrary interpreter to execute.
+    """
+
+
+def _confine_to_workspace(base_dir: str | Path, raw: str) -> Path:
+    base = Path(base_dir).resolve()
+    p = Path(raw).expanduser()
+    resolved = (p if p.is_absolute() else (base / p)).resolve()
+    try:
+        resolved.relative_to(base)
+    except ValueError:
+        raise SourceDirOutsideWorkspaceError(
+            f"source_dir must resolve to a path inside the workspace root ({base}); got {resolved}"
+        ) from None
+    return resolved
+
+
 def resolve_source_dir(base_dir: str | Path, policy: dict[str, Any] | AutoUpdatePolicy | None = None) -> Path:
     raw = DEFAULT_SOURCE_DIR
     if isinstance(policy, AutoUpdatePolicy):
         raw = policy.source_dir
     elif isinstance(policy, dict):
         raw = str(policy.get("source_dir") or DEFAULT_SOURCE_DIR)
-    p = Path(raw).expanduser()
-    return p if p.is_absolute() else (Path(base_dir) / p).resolve()
+    return _confine_to_workspace(base_dir, raw)
 
 
-def normalize_policy(data: dict[str, Any] | None = None) -> AutoUpdatePolicy:
+def normalize_policy(data: dict[str, Any] | None = None, *, base_dir: str | Path | None = None) -> AutoUpdatePolicy:
     data = data or {}
     source_dir = str(data.get("source_dir") or DEFAULT_SOURCE_DIR).strip() or DEFAULT_SOURCE_DIR
+    if base_dir is not None:
+        # Validate confinement eagerly (at save time) rather than only at
+        # resolve/execution time, so a bad value is rejected with a clear
+        # error instead of silently persisted and only failing later.
+        _confine_to_workspace(base_dir, source_dir)
     field_map_path = str(data.get("field_map_path") or "").strip()
     return AutoUpdatePolicy(
         enabled=bool(data.get("enabled", False)),
@@ -86,17 +116,22 @@ def load_policy(base_dir: str | Path) -> dict[str, Any]:
             raw = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             raw = {}
+    # Not confinement-checked on load: a value already on disk must still be
+    # readable (e.g. to display it back for correction) even if it would now
+    # be rejected on save; only save_policy (new/updated values) enforces it.
     policy = normalize_policy(raw.get("policy") if isinstance(raw.get("policy"), dict) else raw)
     return {"schema": SCHEMA, "policy": policy.as_dict(), "settings_path": str(path)}
 
 
 def save_policy(base_dir: str | Path, updates: dict[str, Any]) -> dict[str, Any]:
+    """Raises SourceDirOutsideWorkspaceError if `updates` sets a `source_dir`
+    that would resolve outside the workspace root."""
     current = load_policy(base_dir)["policy"]
     merged = dict(current)
     for key in ("enabled", "source_dir", "field_map_path"):
         if key in updates:
             merged[key] = updates[key]
-    policy = normalize_policy(merged)
+    policy = normalize_policy(merged, base_dir=base_dir)
     payload = {"schema": SCHEMA, "policy": policy.as_dict(), "updated_at": iso_utc()}
     path = settings_path(base_dir)
     path.parent.mkdir(parents=True, exist_ok=True)

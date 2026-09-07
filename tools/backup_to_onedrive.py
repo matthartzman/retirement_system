@@ -30,10 +30,23 @@ from pathlib import Path
 # --------------------------------------------------------------------------
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
-# Directory names skipped anywhere in the tree.  These are pure regenerable
-# caches / intermediate build artifacts -- never user data.  dist/ (the built
-# exe) is intentionally NOT excluded.
-EXCLUDE_DIRS = {"build", "__pycache__", ".pytest_cache", ".git"}
+# Directory names skipped anywhere in the tree.  "build", "__pycache__",
+# ".pytest_cache" and ".git" are pure regenerable caches / intermediate build
+# artifacts.  "monarch-browser" and ".venv" are added per system review
+# 2026-09-07 SEC-3: "monarch-browser" is the Monarch Extractor's Playwright
+# persistent profile directory (Monarch Extractor/monarch-browser/) -- it
+# holds a live, replayable browser login session, not project data, and
+# .gitignore already excludes it from git for the same reason. ".venv" is a
+# regenerable virtualenv that can appear under "Monarch Extractor/" too.
+# dist/ (the built exe) is intentionally NOT excluded.
+EXCLUDE_DIRS = {"build", "__pycache__", ".pytest_cache", ".git", "monarch-browser", ".venv"}
+
+# Individual files (relative to PROJECT_ROOT, forward-slash) skipped
+# regardless of directory. System review 2026-09-07 SEC-3: this is the
+# plaintext secrets store (API keys, etc.) -- see src/secrets_store.py -- and
+# should not leave the machine in an unencrypted, indefinitely-retained
+# rolling backup archive.
+EXCLUDE_FILES = {"local_state/secrets.local.json"}
 
 # Keep at most this many backups in the destination; older ones are pruned.
 KEEP_LAST = 10
@@ -69,7 +82,10 @@ def iter_files(root: Path):
         # prune excluded dirs in place so os.walk doesn't descend into them
         dirnames[:] = [d for d in dirnames if d not in EXCLUDE_DIRS]
         for name in filenames:
-            yield Path(dirpath) / name
+            fpath = Path(dirpath) / name
+            if fpath.relative_to(root).as_posix() in EXCLUDE_FILES:
+                continue
+            yield fpath
 
 
 def prune_old(backup_dir: Path) -> None:

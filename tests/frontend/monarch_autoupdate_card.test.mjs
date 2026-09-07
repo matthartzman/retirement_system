@@ -45,7 +45,14 @@ describe("monarchAutoUpdateControlsHtml (default/unfetched state)", () => {
   });
 
   test("renders the default Monarch Extractor source folder", () => {
-    assert.match(html, /value="\.\.\/Monarch Extractor\/output"/);
+    // System review 2026-09-07 UX-104: the client-side fallback default used
+    // to point at the pre-consolidation sibling path ("../Monarch
+    // Extractor/output"). Monarch Extractor is a child directory of the
+    // workspace root now (commit b0ac82a), matching the server's own
+    // DEFAULT_SOURCE_DIR (src/monarch_autoupdate.py) -- and the sibling path
+    // is now rejected outright by that module's workspace-confinement check
+    // (system review SEC-2), so this client default must agree with it.
+    assert.match(html, /value="Monarch Extractor\/output"/);
   });
 
   test("wires up save/run-now/refresh actions", () => {

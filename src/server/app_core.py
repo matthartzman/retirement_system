@@ -1959,23 +1959,15 @@ def _security_gate():
     # remain compatible with automation scripts.
 
 
-@app.after_request
-def _local_cors(response):
-    # Allow the local static UI opened via file:// or /frontend to call the local API.
-    # Local UI is served from the same origin; avoid broad CORS by default.
-    # System review 4.5: this package only ever ships as LOCAL, so the SaaS-
-    # only branch that used to set strict security headers here (CSP with no
-    # 'unsafe-inline', X-Frame-Options: DENY, ...) could never fire -- removed
-    # as dead code, not merged into the always-on path: frontend/js/dashboard.js
-    # relies extensively on inline onclick="..." handlers, which that CSP's
-    # script-src 'self' (no 'unsafe-inline') would silently break every one of.
-    try:
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-API-Token, X-User-Id, X-User-Email, X-User-Role, X-Workspace-Id, X-Client-Id"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    except Exception:
-        pass
-    return response
+# System review 2026-09-07 SEC-1: a wildcard `Access-Control-Allow-Origin: *`
+# used to be set here unconditionally, on the theory that a `file://`-opened
+# copy of the frontend needed cross-origin access to the local API. The
+# frontend is actually always served same-origin, from this same server, at
+# /frontend/<path> (see base_routes.py). Same-origin requests need no CORS
+# headers at all, and a wildcard ACAO instead let *any* web page the user's
+# browser had open read every API response -- full read/write of the
+# household's plan data -- since _security_gate() enforces no auth in LOCAL
+# mode. No replacement CORS handling is added: nothing legitimate needs it.
 
 
 # Export private helper names to route modules using star imports.

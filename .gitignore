@@ -4,6 +4,7 @@ build/
 __pycache__/
 *.pyc
 .pytest_cache/
+.venv/
 
 # output/js, output/css, output/index.html are a byte-for-byte copy of
 # frontend/ written by src/dashboard_ui/builder.py:write_dashboard_ui for

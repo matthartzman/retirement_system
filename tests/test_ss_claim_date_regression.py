@@ -51,22 +51,41 @@ class TestMonthYearParts:
 class TestSsClaimFromDateOrAge:
     def test_claim_date_present_derives_age_and_month(self):
         data = {"Social Security": {"Member 1": {"claim_date": "6/2029"}}}
-        age, year, month = _ss_claim_from_date_or_age(data, "Member 1", dob_yr=1962, dob_month=8, legacy_default_age="70")
+        age, year, month, age_precise = _ss_claim_from_date_or_age(data, "Member 1", dob_yr=1962, dob_month=8, legacy_default_age="70")
         assert (age, year, month) == (67, 2029, 6)
+        # Claimed 2 months before the birth month -> a fraction below 67, not
+        # exactly 67 (system review 2026-09-07 N2).
+        assert age_precise == 67 + (6 - 8) / 12.0
 
     def test_no_claim_date_falls_back_to_legacy_claim_age_and_birth_month(self):
         data = {"Social Security": {"Member 1": {"claim_age": "68"}}}
-        age, year, month = _ss_claim_from_date_or_age(data, "Member 1", dob_yr=1962, dob_month=8, legacy_default_age="70")
+        age, year, month, age_precise = _ss_claim_from_date_or_age(data, "Member 1", dob_yr=1962, dob_month=8, legacy_default_age="70")
         assert (age, year, month) == (68, 2030, 8)
+        assert age_precise == 68.0
 
     def test_nothing_set_defaults_to_age_70_in_birth_month(self):
         data = {}
-        age, year, month = _ss_claim_from_date_or_age(data, "Member 1", dob_yr=1962, dob_month=8, legacy_default_age="70")
+        age, year, month, age_precise = _ss_claim_from_date_or_age(data, "Member 1", dob_yr=1962, dob_month=8, legacy_default_age="70")
         assert (age, year, month) == (70, 2032, 8)
+        assert age_precise == 70.0
 
     def test_claim_date_takes_priority_over_a_stale_claim_age_row(self):
         # A plan migrated to claim_date but with an old claim_age row still
         # sitting in the CSV must use the date, not the stale age.
         data = {"Social Security": {"Member 1": {"claim_date": "1/2028", "claim_age": "70"}}}
-        age, year, month = _ss_claim_from_date_or_age(data, "Member 1", dob_yr=1962, dob_month=8, legacy_default_age="70")
+        age, year, month, age_precise = _ss_claim_from_date_or_age(data, "Member 1", dob_yr=1962, dob_month=8, legacy_default_age="70")
         assert (age, year, month) == (66, 2028, 1)
+        assert age_precise == 66 + (1 - 8) / 12.0
+
+    def test_claim_age_is_off_by_up_to_11_months_but_claim_age_precise_is_not(self):
+        """System review 2026-09-07 N2: claim_year - dob_yr alone can
+        misattribute up to 11 months of SSA reduction/delayed-credit --
+        claim_age_precise is what closes that gap (consumed by
+        deterministic_engine._ss_claim_factor, which already interpolates
+        by month)."""
+        # Born November 1960, claims March 2027: 66 years 4 months at claim,
+        # not the whole-year-subtraction answer of 67.
+        data = {"Social Security": {"Member 1": {"claim_date": "3/2027"}}}
+        age, year, month, age_precise = _ss_claim_from_date_or_age(data, "Member 1", dob_yr=1960, dob_month=11, legacy_default_age="70")
+        assert age == 67  # whole-year age: still used for the SSA benefit-table lookup
+        assert abs(age_precise - (66 + 4 / 12.0)) < 1e-9
