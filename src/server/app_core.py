@@ -1961,20 +1961,34 @@ def _security_gate():
 
 @app.after_request
 def _local_cors(response):
-    # Allow the local static UI opened via file:// or /frontend to call the local API.
-    # Local UI is served from the same origin; avoid broad CORS by default.
-    # System review 4.5: this package only ever ships as LOCAL, so the SaaS-
-    # only branch that used to set strict security headers here (CSP with no
-    # 'unsafe-inline', X-Frame-Options: DENY, ...) could never fire -- removed
-    # as dead code, not merged into the always-on path: frontend/js/dashboard.js
-    # relies extensively on inline onclick="..." handlers, which that CSP's
-    # script-src 'self' (no 'unsafe-inline') would silently break every one of.
-    try:
-        response.headers["Access-Control-Allow-Origin"] = "*"
+    # System review 2026-09-07, SEC-1: a wildcard Access-Control-Allow-Origin
+    # let ANY web page the user's browser had open read/write the full
+    # household plan via cross-origin fetch() to this local server -- the
+    # SaaS-era CORS relaxation was kept after the SaaS auth it depended on
+    # was deleted as dead code (see _security_gate's own "System review 4.5"
+    # comment above). The real UI is same-origin (server mode: a browser tab
+    # on this same 127.0.0.1:<port>; desktop mode: fetch() never reaches this
+    # server at all -- pywebview_bridge.js routes it in-process through
+    # DesktopApi.request(), so the file:// window this header would otherwise
+    # need to cover never opens an HTTP socket to it). So only echo the
+    # header back when the request's own Origin already matches this server;
+    # a different origin gets no CORS header and its fetch() is blocked by
+    # the browser, same-origin requests are unaffected (they carry no Origin
+    # header, or one that already matches, either way nothing here blocks
+    # them).
+    # No Flask here -- src/http_runtime/wsgi_facade.py's LocalRequest has no
+    # host_url; rebuild the server's own origin the same way LocalRequest.
+    # __post_init__ builds request.url (scheme from is_secure, host from the
+    # Host header).
+    origin = request.headers.get("Origin")
+    own_scheme = "https" if request.is_secure else "http"
+    own_host = request.headers.get("Host", "")
+    own_origin = f"{own_scheme}://{own_host}" if own_host else None
+    if origin and own_origin and origin == own_origin:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
         response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-API-Token, X-User-Id, X-User-Email, X-User-Role, X-Workspace-Id, X-Client-Id"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    except Exception:
-        pass
     return response
 
 
