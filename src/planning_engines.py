@@ -960,7 +960,13 @@ def compute_rmds(
             # the newer keyword arguments -- fall back to the plain call
             # rather than breaking existing single-arg callables.
             divisor = divisor_fn(age) if alive and age >= start_age else 0.0
-        amount = max(0.0, total_bal / divisor) if divisor and total_bal > 500 else 0.0
+        # Wave 5 item W5-9 (finding N6): the RMD is a statutory requirement
+        # with no de-minimis exception -- a prior `total_bal > 500` gate here
+        # was an undocumented magic number with no basis in 26 U.S.C. 401(a)
+        # (9) or its regulations. Removed; the only real floor is a zero/
+        # negative balance, which naturally produces a zero RMD via the
+        # division below regardless.
+        amount = max(0.0, total_bal / divisor) if divisor and total_bal > 0 else 0.0
         by_owner[owner_idx] = {
             "ids": ids,
             "balance": total_bal,

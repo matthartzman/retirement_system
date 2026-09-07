@@ -133,3 +133,21 @@ def test_age_72_floor_cannot_fire_ahead_of_statutory_rmd_start_age():
     result = pe.compute_rmds(c, bal, 2026, 72, 70, True, True)
     assert result["by_owner"][0]["divisor"] == 0.0
     assert result["h"] == 0.0
+
+
+def test_no_de_minimis_threshold_suppresses_a_small_rmd():
+    """Finding N6 / Wave 5 item W5-9: RMDs have no statutory de-minimis
+    exception (26 U.S.C. 401(a)(9) and its regulations require the full
+    computed distribution regardless of account size). A $400 IRA at age 80
+    must produce a small positive RMD, not be silently suppressed to zero by
+    an undocumented magic-number threshold."""
+    c = {
+        "account_registry": [
+            {"id": "Member_1_IRA", "owner_idx": 0, "tax": "pre_tax", "rmd": True},
+        ],
+        "rmd_start_age": 75,
+    }
+    bal = {"Member_1_IRA": 400.0}
+    result = pe.compute_rmds(c, bal, 2026, 80, 78, True, True)
+    assert result["h"] > 0.0
+    assert result["h"] == 400.0 / core.RMD_DIVISORS[80]
