@@ -89,14 +89,33 @@ Implemented Finding 2's `other_nominal` fix (using `eff['total_tax']`), the inco
 
 ---
 
-## Recommended next steps (revised)
+## Follow-up attempt 2 (same day) — fixing the double-count too: real progress (40.5pp → 27.0pp), but a fifth, sharper finding
 
-1. **Before attempting another code fix**, decide whether the vectorized engine should get a genuine per-path tax approximation (e.g., recompute marginal-bracket tax from that path's own actual withdrawal amounts and gains, not a scaled deterministic figure) — this is now believed to be the dominant remaining driver, larger in scope than Findings 1-3 combined. This is an architecture decision, not just a bug fix, and belongs with whoever owns the vectorized engine's design tradeoffs.
-2. Findings 1 (HSA ordering) and 3 (tax_drag double-count) are still real, correct, narrow fixes on their own — but per the two failed combined attempts, do not land Finding 2 (or Finding 2+3 together) without also addressing the per-path tax gap above, or the aggregate parity metric gets worse, not better.
-3. Once a per-path tax approach is decided, re-attempt Findings 1-3 together with it, re-running `tests/test_monte_carlo_default_engine_mode.py::test_exact_scalar_oracle_agrees_with_vectorized_default_within_tolerance` (200 sims, seconds) after every step.
-4. Once genuinely passing at 200 sims, re-measure at 2000 sims (matching the review's own methodology) to see whether the gate can be tightened back toward its original 1pp, per the review's Option 2/3 recommendation.
-5. Golden-master regen and a `documentation/GOLDEN_MASTER_CHANGELOG.md` entry are required once anything here actually ships, per this repo's standing discipline (`documentation/CLAUDE.md`) — none of the attempts here reached that point.
-6. Planner sign-off recommended before shipping, matching the review's own precedent for N2/N4 (financial-domain correctness changes that move simulated outcomes) — doubly so now that the scope includes a tax-modeling architecture decision.
+Re-examined the "structural" conclusion above before accepting it: `eff['total_tax']` is the deterministic engine's REAL tax bill for the baseline year, which already reflects tax owed on every dollar that year's tier withdrawals (essential/important/contingent_liability) pull from pretax. Once `'other'` correctly carries that real tax bill, the pre-existing `tax_drag` gross-up **still applied to every other tier's own pretax leg** (a few lines below `other_nominal`) is double-counting tax a second, independent way, on top of Finding 3's double-count: once via each tier's own grossed-up pretax withdrawal, and again via the mandatory `'other'` line item.
+
+**Fix implemented (both bugs together): `other_nominal = max(0, eff['total_tax'])`, `'other'` included in income-netting, `'other'`'s tax portion cascaded with no `tax_drag`, wellness-shock overflow split out and cascaded separately (still with `tax_drag`, since it's genuinely new spending the baseline couldn't have foreseen) — AND `tax_drag` removed from every other tier's own pretax leg too**, since `total_tax` already prices that tier's withdrawal in.
+
+**Result: real, substantial improvement — 40.5pp → 27.0pp** (vectorized success rate 26.0% → 39.5%, vs exact_scalar's 66.5%). Confirms the double-counting theory was directionally right and material. **Still failing, not shippable.**
+
+Also re-tested Finding 1 (HSA reorder) on top of this: made it slightly *worse* (27.0pp → 30.0pp) here too, consistent with every earlier test of that fix in isolation — reverted, kept only the tax-cascade fix.
+
+**Fifth finding, found while chasing the remaining gap: Roth-conversion tax has no funding-source model.** Diffed the taxable bucket specifically under the deterministic (zero-randomness) harness: vectorized's `taxable` balance for 2027 came out to **exactly** `2026's balance × (1 + mu)` — i.e., zero net withdrawal from taxable that year — while the real deterministic engine drew **$138,612** from taxable that same year. Cross-referencing the real row: that year the household also executed a **$169,382 Roth conversion** (pretax → Roth), and the real engine's actual strategy pays that conversion's tax bill *from taxable*, not from the conversion itself or from pretax — a deliberate, common Roth-conversion technique (paying conversion tax from outside funds maximizes the conversion's value). The vectorized engine tracks the conversion's principal transfer (`conversions_out`/`conversions_in`) correctly, but funds *all* of `total_tax` — ordinary tax and conversion tax alike — through one undifferentiated `cash→pretax→taxable→...` cascade with no concept of "this portion of the tax bill is conversion-specific and should be funded from taxable, not pretax."
+
+This is not a bucket-order tweak away. It means the vectorized engine would need to track *which purpose* each dollar of `total_tax` serves (ordinary income tax vs. conversion tax vs. other) and replay the deterministic engine's per-purpose funding-source decision for each — real, scoped engineering, not another cascade patch.
+
+**Reverted again.** Working tree clean; no code shipped.
+
+---
+
+## Recommended next steps (revised again)
+
+1. Land the tax-cascade fix from this follow-up (`other_nominal = total_tax`, income-netted once, no double gross-up anywhere) as its own step once the Roth-conversion funding-source gap (finding 5) is also addressed — landing it alone, per the two aggregate-test runs above, is real progress (40.5pp→27.0pp) but not yet passing, and this is financial-outcome code that shouldn't ship partially fixed.
+2. Design a funding-source model for conversion-specific tax before the parity gate can plausibly close: the deterministic engine already computes (or can be made to expose) which portion of a year's `total_tax` is attributable to a Roth conversion executed that year, if any — the vectorized engine needs that split and a distinct bucket_order for the conversion-tax portion (funded from taxable first, per the real strategy) versus ordinary tax (current `cash→pretax→taxable→...` order is presumably fine for that portion, but re-verify once the split exists).
+3. Finding 1 (HSA reorder) is still real and independently correct, but empirically makes the aggregate metric slightly worse every time it's been tested (3.5pp→8pp alone; 27.0pp→30.0pp atop the tax fix) — land it separately from the tax fixes and re-verify its aggregate effect once findings 2-5 are otherwise resolved, rather than assuming "correct" implies "improves this metric."
+4. Re-run `tests/test_monte_carlo_default_engine_mode.py::test_exact_scalar_oracle_agrees_with_vectorized_default_within_tolerance` (200 sims, seconds) after every step, exactly as this diagnostic has been doing — three separate attempts each produced a different, informative number; guessing at the aggregate effect has not worked once yet.
+5. Once genuinely passing at 200 sims, re-measure at 2000 sims (matching the review's own methodology) to see whether the gate can be tightened back toward its original 1pp, per the review's Option 2/3 recommendation.
+6. Golden-master regen and a `documentation/GOLDEN_MASTER_CHANGELOG.md` entry are required once anything here actually ships, per this repo's standing discipline (`documentation/CLAUDE.md`) — none of the attempts here reached that point.
+7. Planner sign-off recommended before shipping, matching the review's own precedent for N2/N4 (financial-domain correctness changes that move simulated outcomes) — doubly so now that the scope includes both a tax-modeling and a conversion-funding-source design decision.
 
 ---
 
