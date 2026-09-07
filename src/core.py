@@ -724,15 +724,13 @@ def rmd_divisor(age, spouse_age=None, sole_beneficiary_spouse=False):
     ``spouse_age`` is more than 10 years younger -- the one case where the
     Uniform Lifetime table understates the RMD reduction a household
     actually gets (finding F10 / item 2.9).
+
+    Wave 5 item W5-2 (finding N5): delegates to the single canonical
+    implementation in ``tax_kernel.rmd_divisor`` -- see that function's
+    docstring for why this used to disagree with
+    ``planning_engines.rmd_divisor`` for fractional ages.
     """
-    if age < 72:
-        return 0
-    if sole_beneficiary_spouse and spouse_age is not None and (age - spouse_age) > 10:
-        return joint_life_divisor(age, spouse_age)
-    if age in RMD_DIVISORS:
-        return RMD_DIVISORS[age]
-    # Conservative post-table continuation, never pretending old ages have long divisors.
-    return max(2.0, RMD_DIVISORS[115] - (age - 115) * 0.1)
+    return _tk.rmd_divisor(age, spouse_age=spouse_age, sole_beneficiary_spouse=sole_beneficiary_spouse)
 
 
 

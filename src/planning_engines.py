@@ -840,7 +840,7 @@ from . import core as _ar  # consolidated from account_registry
 BalanceMap = MutableMapping[str, float]
 
 
-def rmd_divisor(age: int | float, table: Mapping[int, float] | None = None,
+def _rmd_divisor_with_table_override(age: int | float, table: Mapping[int, float] | None = None,
                  spouse_age: int | float | None = None,
                  sole_beneficiary_spouse: bool = False) -> float:
     """Return the RMD divisor for an age: SECURE 2.0 Uniform Lifetime by
@@ -852,24 +852,15 @@ def rmd_divisor(age: int | float, table: Mapping[int, float] | None = None,
     `table` is injectable so build_workbook can keep its current source of
     truth while tests can exercise this helper independently; it only
     overrides the Uniform Lifetime lookup, not the Joint Life table.
+
+    Wave 5 item W5-2 (finding N5): delegates to the single canonical
+    implementation in `tax_kernel.rmd_divisor` -- see that function's
+    docstring for why this used to disagree with `core.rmd_divisor` for
+    fractional ages.
     """
-    age_i = int(age)
-    if age_i < 72:
-        return 0.0
-    if sole_beneficiary_spouse and spouse_age is not None and (age_i - spouse_age) > 10:
-        from .core import joint_life_divisor
-        return float(joint_life_divisor(age_i, spouse_age))
-    if table and age_i in table:
-        return float(table[age_i])
-    try:
-        from .core import RMD_DIVISORS  # consolidated from engine_core
-        if age_i in RMD_DIVISORS:
-            return float(RMD_DIVISORS[age_i])
-    except Exception:
-        pass
-    # Beyond table age, keep declining conservatively without corrupting
-    # known-table ages such as age 80 (20.2, not a linear approximation).
-    return max(2.0, 2.9 - max(0, age_i - 115) * 0.1)
+    from .tax_kernel import rmd_divisor as _tk_rmd_divisor
+    return _tk_rmd_divisor(age, spouse_age=spouse_age,
+                            sole_beneficiary_spouse=sole_beneficiary_spouse, table=table)
 
 
 def _spouse_is_sole_beneficiary(c: Mapping, ids: Sequence[str], spouse_name: str) -> bool:
@@ -2395,6 +2386,12 @@ only a workbook/report orchestration layer and delegates projection work here.
 
 
 from .core import *  # noqa: F401,F403  # consolidated from engine_core
+# Wave 5 item W5-2 (finding N5): the wildcard import above shadows this
+# module's own `rmd_divisor` (defined earlier as `_rmd_divisor_with_table_
+# override`) with core.rmd_divisor's narrower signature (no `table`
+# override param) -- restore the fuller binding every external caller of
+# `planning_engines.rmd_divisor` actually expects.
+rmd_divisor = _rmd_divisor_with_table_override  # noqa: F811
 
 def project(c):
     """Public projection orchestrator.
