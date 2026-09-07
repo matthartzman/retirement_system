@@ -31,6 +31,22 @@ export function planKpiMetricsHtml() {
     lastBuildSummary && lastBuildSummary.worst_modeled_spending_cut_pct;
   let successLabel = "Probability of Success";
   let successTitle = "Percentage of simulated scenarios where the plan stays solvent";
+  // W4-2 (N1) disclosure: the shipped default Monte Carlo engine
+  // (vectorized) is a documented approximation of the exact_scalar oracle,
+  // within a planner-signed-off tolerance -- see
+  // tests/test_monte_carlo_default_engine_mode.py and
+  // documentation/reports/N1_MC_PARITY_DIAGNOSTIC_2026-09-07.md. Surface
+  // that on the KPI tile itself, not just the workbook's "Model Risk
+  // Rating" headline, so it's visible before a download.
+  const approxStatus =
+    lastBuildSummary && lastBuildSummary.mc_approximation_status;
+  if (approxStatus && approxStatus !== "EXACT") {
+    successLabel += " (approximate)";
+    successTitle +=
+      " -- computed with the fast, approximate Monte Carlo engine; treat as directional. " +
+      (lastBuildSummary.model_risk_label ||
+        "Switch to the exact scalar engine mode for advisor-ready validation.");
+  }
   if (spendPolicyActive) {
     successLabel = "Probability of Success (conditional on modelled cuts)";
     successTitle =
