@@ -77,15 +77,26 @@ Every fix here individually looked correct and was backed by direct evidence, an
 
 ---
 
-## Recommended next steps
+## Follow-up attempt (same day) — Findings 2+3 fixed together: still a 40.5pp gap, and a fourth, structural issue
 
-1. Fix Finding 3 first (the `tax_drag`-on-tax double-count) in isolation — it's the one that caused a regression, so isolating and fixing it first, with the stochastic test as the checkpoint, is the safest order.
-2. Land Finding 2's `other_nominal` fix together with Finding 3's fix (they're causally linked — Finding 2 exposes Finding 3, so testing them together is the only way to see the real combined effect).
-3. Land Finding 1 (HSA ordering) either alongside or as a clean follow-up — it's independent of 2/3, real, but small.
-4. Re-run `tests/test_monte_carlo_default_engine_mode.py::test_exact_scalar_oracle_agrees_with_vectorized_default_within_tolerance` after each step (200 sims is fast — seconds) to see the drift move, rather than guessing.
-5. Once the three land together, re-measure at 2000 sims (matching the review's own methodology) to see whether the gate can be tightened back toward its original 1pp, per the review's Option 2/3 recommendation.
-6. Golden-master regen and a `documentation/GOLDEN_MASTER_CHANGELOG.md` entry are required once anything here actually ships, per this repo's standing discipline (`documentation/CLAUDE.md`) — none of the three fixes here reached that point.
-7. Planner sign-off recommended before shipping, matching the review's own precedent for N2/N4 (financial-domain correctness changes that move simulated outcomes).
+Implemented Finding 2's `other_nominal` fix (using `eff['total_tax']`), the income-netting correction it requires (removing `'other'`'s exclusion from the `income_avail` loop — the exclusion's own comment justified it only under the old, net-of-income formula), and Finding 3's fix (cascading `'other'`'s tax portion without `tax_drag`, splitting out any wellness-shock overflow into its own drag-eligible cascade) — all together, as the diagnostic above recommended.
+
+**Result: still failed, worse than the single-bug attempt.** Drift went to **40.5pp** (vectorized success rate 26.0% vs exact_scalar 66.5%) — better than the 49pp/17.5% seen with Finding 2 alone atop Finding 1, but nowhere near passing, and still a severe regression from the pre-fix baseline (~3.5pp).
+
+**Why: a fourth, structural issue, not another isolated bug.** `eff['total_tax']` (like `eff['spend_by_tier']`) is the **deterministic-baseline** tax figure for that plan year, only scaled for inflation (`spending_scale`) — it does not vary by simulated path. Bug 2 accidentally masked this because the tax-funding need was almost always zero; fixing it exposes that **every simulated path — including bad-market paths with much lower real capital gains and therefore a much lower real tax bill — is forced to withdraw the same baseline tax amount**, compounding losses fastest in exactly the market conditions that already drive most failures. This isn't a small logic error to patch; it's the vectorized engine's core simplification (replay one deterministic trajectory's numbers, scaled, instead of recomputing tax per path — which is what `exact_scalar` does by rerunning `project()` for real, and exactly why it's slower). Making vectorized MC tax-accurate per path would mean either giving it a genuine per-path tax approximation (a real, nontrivial engineering addition) or accepting that a scaled-deterministic-tax approximation is structurally going to disagree with `exact_scalar` under volatile returns, no matter how correctly the withdrawal cascade around it is fixed.
+
+**Reverted again.** Working tree is clean; no code shipped in this follow-up attempt either.
+
+---
+
+## Recommended next steps (revised)
+
+1. **Before attempting another code fix**, decide whether the vectorized engine should get a genuine per-path tax approximation (e.g., recompute marginal-bracket tax from that path's own actual withdrawal amounts and gains, not a scaled deterministic figure) — this is now believed to be the dominant remaining driver, larger in scope than Findings 1-3 combined. This is an architecture decision, not just a bug fix, and belongs with whoever owns the vectorized engine's design tradeoffs.
+2. Findings 1 (HSA ordering) and 3 (tax_drag double-count) are still real, correct, narrow fixes on their own — but per the two failed combined attempts, do not land Finding 2 (or Finding 2+3 together) without also addressing the per-path tax gap above, or the aggregate parity metric gets worse, not better.
+3. Once a per-path tax approach is decided, re-attempt Findings 1-3 together with it, re-running `tests/test_monte_carlo_default_engine_mode.py::test_exact_scalar_oracle_agrees_with_vectorized_default_within_tolerance` (200 sims, seconds) after every step.
+4. Once genuinely passing at 200 sims, re-measure at 2000 sims (matching the review's own methodology) to see whether the gate can be tightened back toward its original 1pp, per the review's Option 2/3 recommendation.
+5. Golden-master regen and a `documentation/GOLDEN_MASTER_CHANGELOG.md` entry are required once anything here actually ships, per this repo's standing discipline (`documentation/CLAUDE.md`) — none of the attempts here reached that point.
+6. Planner sign-off recommended before shipping, matching the review's own precedent for N2/N4 (financial-domain correctness changes that move simulated outcomes) — doubly so now that the scope includes a tax-modeling architecture decision.
 
 ---
 
