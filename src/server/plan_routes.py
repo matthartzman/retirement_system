@@ -373,7 +373,10 @@ def monarch_autoupdate_config():
     if denied:
         return denied
     body = request.get_json(silent=True) or {}
-    payload = monarch_autoupdate.save_policy(WORKSPACE_ROOT, body)
+    try:
+        payload = monarch_autoupdate.save_policy(WORKSPACE_ROOT, body)
+    except monarch_autoupdate.SourceDirOutsideWorkspaceError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
     # Best-effort: keep the OS-level Task Scheduler entry in sync with the
     # toggle. A failure here (non-Windows dev box, no PowerShell, missing
     # privilege) does not undo the just-saved policy -- it's surfaced to the

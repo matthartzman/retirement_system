@@ -428,8 +428,8 @@ def _month_year_parts(v):
 
 
 def _ss_claim_from_date_or_age(data, person, dob_yr, dob_month, legacy_default_age):
-    """Resolve (claim_age, claim_year, claim_month) for one Social Security
-    claimant.
+    """Resolve (claim_age, claim_year, claim_month, claim_age_precise) for one
+    Social Security claimant.
 
     ``claim_date`` (MM/YYYY) is the primary input, replacing the older bare
     ``claim_age`` (an integer with no month, which forced every claim year
@@ -437,6 +437,20 @@ def _ss_claim_from_date_or_age(data, person, dob_yr, dob_month, legacy_default_a
     deterministic_engine._ss_first_claim_year_month_fraction). When a real
     claim_date is present, claim_age is *derived* from it (claim_year -
     dob_yr) rather than read directly, so the two can never disagree.
+
+    ``claim_age`` (the whole-year value) is kept for the SSA benefit-table
+    lookup, which is genuinely keyed on whole ages (SSA quotes are only ever
+    given for ages 62-70) -- that part of the design is not a defect.
+    ``claim_age_precise`` is a *fractional* age (e.g. 66.333 for 4 months
+    past 66) for use only where SSA's reduction/delayed-credit schedule is
+    actually applied (_ss_claim_factor already interpolates by month; it was
+    simply never given anything but a whole-year age). System review
+    2026-09-07 finding N2: claim_year - dob_yr alone can misattribute up to
+    11 months of credit/reduction (e.g. a claim_date of March for a
+    November-birth-month claimant), a permanent, lifelong benefit-amount
+    error -- claim_age_precise closes that gap without changing the
+    whole-year claim_age used everywhere else (storage, UI, benefit-table
+    lookup, reporting).
 
     Falls back to the legacy claim_age field (defaulting to age 70, this
     codebase's existing default) for plans that predate claim_date, using
@@ -446,9 +460,11 @@ def _ss_claim_from_date_or_age(data, person, dob_yr, dob_month, legacy_default_a
     parsed = _month_year_parts(_v(data, 'Social Security', person, 'claim_date', ''))
     if parsed:
         claim_year, claim_month = parsed
-        return claim_year - dob_yr, claim_year, claim_month
+        claim_age = claim_year - dob_yr
+        claim_age_precise = claim_age + (claim_month - dob_month) / 12.0
+        return claim_age, claim_year, claim_month, claim_age_precise
     claim_age = int(_n(_v(data, 'Social Security', person, 'claim_age', legacy_default_age), 70))
-    return claim_age, dob_yr + claim_age, dob_month
+    return claim_age, dob_yr + claim_age, dob_month, float(claim_age)
 
 
 def _last_earned_income_year_from_retirement_date(v, default=0):
@@ -700,10 +716,10 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
         return table
     c['w_ss_benefit_table'] = _ss_benefit_table('Member 2')
     c['h_ss_benefit_table'] = _ss_benefit_table('Member 1')
-    c['w_ss_claim_age'], c['w_ss_claim_year'], c['w_ss_claim_month'] = _ss_claim_from_date_or_age(
+    c['w_ss_claim_age'], c['w_ss_claim_year'], c['w_ss_claim_month'], c['w_ss_claim_age_precise'] = _ss_claim_from_date_or_age(
         data, 'Member 2', c['w_dob_yr'], c['w_dob_month'],
         _v(data,'Model Constants','Retirement','ss_claim_age','70'))
-    c['h_ss_claim_age'], c['h_ss_claim_year'], c['h_ss_claim_month'] = _ss_claim_from_date_or_age(
+    c['h_ss_claim_age'], c['h_ss_claim_year'], c['h_ss_claim_month'], c['h_ss_claim_age_precise'] = _ss_claim_from_date_or_age(
         data, 'Member 1', c['h_dob_yr'], c['h_dob_month'],
         _v(data,'Model Constants','Retirement','ss_claim_age','70'))
     # Full Retirement Age override, in years (e.g. 66.67). Left at 0, the
@@ -1699,9 +1715,9 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # those removed fields carried, so this is a documentation-only fallback,
     # not a behavior change.
     c['ss_claim_age']      = 70
-    c['h_ss_claim_age'], c['h_ss_claim_year'], c['h_ss_claim_month'] = _ss_claim_from_date_or_age(
+    c['h_ss_claim_age'], c['h_ss_claim_year'], c['h_ss_claim_month'], c['h_ss_claim_age_precise'] = _ss_claim_from_date_or_age(
         data, 'Member 1', c['h_dob_yr'], c['h_dob_month'], '70')
-    c['w_ss_claim_age'], c['w_ss_claim_year'], c['w_ss_claim_month'] = _ss_claim_from_date_or_age(
+    c['w_ss_claim_age'], c['w_ss_claim_year'], c['w_ss_claim_month'], c['w_ss_claim_age_precise'] = _ss_claim_from_date_or_age(
         data, 'Member 2', c['w_dob_yr'], c['w_dob_month'], '70')
     # Generic/household RMD start age, anchored to the primary member's (h)
     # birth year, for conversion_window_end_year and any legacy caller that

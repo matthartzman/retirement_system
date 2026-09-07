@@ -1060,8 +1060,23 @@ def run_deterministic_projection_stage(c):
         # the correct direction (lower before FRA, higher after) by construction.
         h_claim_age = max(62, min(70, int(c.get('h_ss_claim_age', c.get('ss_claim_age', 70)) or 70)))
         w_claim_age = max(62, min(70, int(c.get('w_ss_claim_age', c.get('ss_claim_age', 70)) or 70)))
-        h_ss_yr = c['h_dob_yr'] + h_claim_age
-        w_ss_yr = c['w_dob_yr'] + w_claim_age
+        # System review 2026-09-07 N2: h_ss_claim_year/w_ss_claim_year are
+        # already the precise year derived from claim_date (when present) --
+        # deriving h_ss_yr as h_dob_yr + h_claim_age instead threw that
+        # precision away by round-tripping back through a whole-year age.
+        # Falls back to the age-derived year for callers that never ran
+        # through data_io._ss_claim_from_date_or_age (e.g. a bare synthetic
+        # config dict in a unit test).
+        h_ss_yr = int(c.get('h_ss_claim_year') or (c['h_dob_yr'] + h_claim_age))
+        w_ss_yr = int(c.get('w_ss_claim_year') or (c['w_dob_yr'] + w_claim_age))
+        # Fractional claim age (e.g. 66.33), used only for the SSA
+        # reduction/delayed-credit factor below, which already interpolates
+        # by month -- it was simply never given anything but a whole-year
+        # age before. The whole-year h_claim_age/w_claim_age above is kept
+        # for the benefit-table lookup, which is genuinely keyed on whole
+        # SSA-quoted ages.
+        h_claim_age_precise = float(c.get('h_ss_claim_age_precise', h_claim_age) or h_claim_age)
+        w_claim_age_precise = float(c.get('w_ss_claim_age_precise', w_claim_age) or w_claim_age)
         h_benefit_table = c.get('h_ss_benefit_table', {}) or {}
         w_benefit_table = c.get('w_ss_benefit_table', {}) or {}
         h_pia = float(c.get('h_ss_pia', 0.0) or 0.0) or h_benefit_table.get(67, 0.0)
@@ -1078,8 +1093,8 @@ def run_deterministic_projection_stage(c):
         # down.  The spousal excess is added only to the living benefit; it is
         # deliberately NOT baked into these records (a survivor benefit derives
         # from the deceased's own retirement record, never their spousal top-up).
-        h_monthly_claim = h_benefit_table.get(h_claim_age) or (h_pia * _ss_claim_factor(h_claim_age, c['h_dob_yr'], h_fra_override))
-        w_monthly_claim = w_benefit_table.get(w_claim_age) or (w_pia * _ss_claim_factor(w_claim_age, c['w_dob_yr'], w_fra_override))
+        h_monthly_claim = h_benefit_table.get(h_claim_age) or (h_pia * _ss_claim_factor(h_claim_age_precise, c['h_dob_yr'], h_fra_override))
+        w_monthly_claim = w_benefit_table.get(w_claim_age) or (w_pia * _ss_claim_factor(w_claim_age_precise, c['w_dob_yr'], w_fra_override))
         spousal_on = bool(c.get('spousal_benefits_enabled', True))
 
         # Excess-spousal benefit (SSA dual-entitlement method).  A claimant who is
