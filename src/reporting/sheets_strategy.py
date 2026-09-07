@@ -1786,16 +1786,25 @@ def build_sheet13(ws, c, rows):
         _estate_exempt = c['il_exempt'] if is_current else rules.get('estate_exempt', 0)
         # Item 291: this quick cross-state comparison's flat 8%-of-excess
         # heuristic was only ever validated against the il_credit_table
-        # mechanism (Illinois). Applying it to a state whose real estate tax
-        # this engine has not modeled (e.g. New York -- see state_estate_tax's
-        # docstring) would silently print a fabricated number here even
-        # though Sheet 14's own estate section explicitly discloses that
-        # state's tax as NOT MODELED -- the two sections would contradict
-        # each other. Gate the estimate to the one mechanism it was built
-        # for; flag the row instead of guessing for anything else.
+        # mechanism (Illinois), so it stays gated to that one state.
+        #
+        # System review 2026-09-07 (PR #92 follow-up): every OTHER state
+        # with a real, non-heuristic calc (currently just New York's
+        # 'ny_graduated_cliff', item 3.6) used to fall through to the
+        # not-modeled flag below -- a stale gate that predated that
+        # mechanism and made this table contradict Sheet 14's own detailed
+        # section for the same state (which correctly shows a computed
+        # figure). Route those through the shared state_estate_tax()
+        # dispatcher instead, same as Sheet 9's key-risks row and Sheet
+        # 14's own section above.
         if rules.get('estate_calc') == 'il_credit_table' and rows[-1]['total_nw'] > _estate_exempt:
             excess = rows[-1]['total_nw'] - _estate_exempt
             est_tax = excess * 0.08
+        elif rules.get('estate_calc') not in (None, 'none', 'il_credit_table'):
+            _gift_addback = max(0.0, float(rows[-1].get('gift_total_last_3yr', 0.0) or 0.0))
+            est_tax, _est_status = state_estate_tax(
+                state_name, rows[-1]['total_nw'], _estate_exempt, gift_addback=_gift_addback)
+            est_tax_not_modeled = (_est_status == 'not_modeled')
         elif rules.get('estate') and rows[-1]['total_nw'] > _estate_exempt:
             est_tax_not_modeled = True
         total = inc_tax + prop_tax + sales_tax + est_tax

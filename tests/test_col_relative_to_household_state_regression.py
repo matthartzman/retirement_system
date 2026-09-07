@@ -89,10 +89,30 @@ def test_illinois_household_still_reads_correctly_unchanged_claim():
     assert "even in Illinois" in text
 
 
-def test_new_york_estate_tax_not_modeled_flagged_not_silently_estimated():
-    """Class 2 dispatches New York's estate tax to 'not_modeled'. This
-    cross-state comparison table must not contradict that by silently
-    applying the Illinois-only 8%-of-excess heuristic to New York."""
+def test_new_york_estate_tax_uses_the_real_computed_mechanism_not_the_stale_not_modeled_flag():
+    """New York's estate tax was genuinely 'not_modeled' when this table's
+    local gate (build_sheet13, sheets_strategy.py) was first written, and
+    that gate correctly refused to apply the Illinois-only 8%-of-excess
+    heuristic to it. But item 3.6 later gave New York a real
+    'ny_graduated_cliff' computation via the shared state_estate_tax()
+    dispatcher (used correctly elsewhere in this same file, e.g. Sheet 9's
+    key-risks row and Sheet 14's own detailed estate section) -- the gate
+    here was never updated to match, so it kept flagging New York as
+    not-modeled whenever the projected estate exceeded its exemption,
+    contradicting Sheet 14's own computed figure for the same household.
+
+    This fixture's terminal net worth is below New York's $6.94M exemption
+    (confirmed: no NY estate tax is owed either way), so the fixed gate
+    must show a real (zero) computed result, not the stale placeholder.
+    """
     text = _sheet13_text("New York")
-    assert "Not modeled *" in text
-    assert "does not yet model" in text
+    assert "Not modeled *" not in text
+    assert "does not yet model" not in text
+    # Of the two states this engine models with a real estate-tax mechanism
+    # today (Illinois's il_credit_table, New York's ny_graduated_cliff --
+    # see reference_data/state_tax.csv), both are now routed through a real
+    # computation here; no currently-supported state still exercises the
+    # not-modeled fallback below it in build_sheet13, so that branch is
+    # currently dead code in practice (kept for the next state added with a
+    # real levy this engine hasn't modeled yet, per state_estate_tax's own
+    # documented 'not_modeled' contract in src/core.py).
