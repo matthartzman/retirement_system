@@ -1267,6 +1267,15 @@ def main():
         'validation_warn_count': int((validation_summary or {}).get('warn_count', 0) or 0),
         'validation_first_fail': (validation_summary or {}).get('first_fail'),
         'format_override_warning': format_override_warning,
+        # W4-2 (N1) disclosure: surface the vectorized-vs-exact_scalar
+        # approximation status on the KPI tile, not just the workbook's
+        # "Model Risk Rating" headline (sheets_summary_builder.py already
+        # reads mc_data['model_risk']). No calculation logic changes here --
+        # display-only, sourced from governance.model_risk_rating() via
+        # report_compute.run_projection_artifacts()'s advisor_readiness call.
+        'mc_approximation_status': None,
+        'model_risk_rating': None,
+        'model_risk_label': None,
     }
     try:
         after_tax_kpis = estimate_after_tax_terminal_net_worth(c, terminal)
@@ -1275,6 +1284,7 @@ def main():
         mc_success = float((mc_data or {}).get('success_rate', 0.0) or 0.0)
         baseline_lcv_eltr = compute_baseline_lcv_and_eltr(c, rows)
         future_fcv_eftr = compute_future_lcv_and_eftr(c, rows)
+        model_risk = (mc_data or {}).get('model_risk') or {}
         summary_data.update({
             'terminal_nw': float(terminal.get('total_nw', 0.0) or 0.0),
             'terminal_pretax_nw': float(terminal.get('pretax_nw', 0.0) or 0.0),
@@ -1288,6 +1298,9 @@ def main():
             'terminal_nw_mc_p5': float((mc_data or {}).get('terminal_total_nw', {}).get(5, 0.0) or 0.0),
             'total_roth_conversions': total_roth_conversions,
             'mc_success': mc_success,
+            'mc_approximation_status': (mc_data or {}).get('mc_approximation_status'),
+            'model_risk_rating': model_risk.get('rating') or (mc_data or {}).get('model_risk_rating'),
+            'model_risk_label': model_risk.get('label'),
             'after_tax_terminal_nw': float(after_tax_kpis.get('after_tax_terminal_nw', 0.0) or 0.0),
             'after_tax_terminal_net_worth': float(after_tax_kpis.get('after_tax_terminal_net_worth', 0.0) or 0.0),
             'terminal_deferred_pretax_tax': float(after_tax_kpis.get('terminal_deferred_pretax_tax', 0.0) or 0.0),
