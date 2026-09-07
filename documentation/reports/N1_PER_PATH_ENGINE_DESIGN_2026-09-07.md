@@ -267,3 +267,43 @@ engineering patch. The per-owner balance/flow plumbing kept here is
 useful groundwork if (b) is ever chosen, but Phase 1 alone, even done
 carefully and correctly, was not sufficient to justify continuing further
 down this specific path on its own.
+
+---
+
+## Correction and final close-out (2026-09-07, later same day)
+
+**The "(a) land Findings 2-4 on their own merits" framing above is wrong
+and must not be acted on.** Re-checked against the actual unmodified,
+currently-shipped baseline rather than against the diagnostic's own
+intermediate (already-broken-by-Finding-1) starting point:
+
+| State | Parity drift (seed 2026, 200 sims) | Vectorized success rate | exact_scalar success rate |
+|---|---|---|---|
+| **Unmodified `HEAD` (currently shipped)** | **3.50pp (passes 5pp gate)** | — | — |
+| Findings 2-4 combined ("40.5pp -> 27.0pp" improvement) | **27.0pp (fails)** | 39.5% | 66.5% |
+
+The diagnostic's "40.5pp -> 27.0pp" number was measured relative to a
+state already made worse by Finding 1's HSA reorder and the first
+single-bug Finding 2 attempt earlier in the *same* investigative chain --
+not relative to the real, currently-shipped baseline. Shipping "Findings
+2-4" would take the plan from a passing 3.50pp gap to a failing 27.0pp
+gap, with vectorized wildly *under*-stating success probability (39.5%
+vs. a real 66.5%) -- the opposite of an improvement, and a severe
+false-pessimism regression for actual users. This was caught before any
+such change was implemented or shipped; nothing resembling "Findings
+2-4" was ever committed to this branch.
+
+**Corrected final tally, all engine-level attempts, this diagnostic and
+its Phase 1 follow-up combined (7 total across two sessions):** Findings
+1, 2 alone, 2+3, 2-4 combined, 6, 7, and the Phase 1 per-owner RMD engine
+-- every single one regresses or is neutral relative to the true,
+currently-shipped 3.50pp baseline. None beat doing nothing.
+
+**Decision: stop the engine-modification track entirely.** No further
+cascade-level or per-path engineering attempts are planned. The
+vectorized engine ships unchanged. The only N1-related work still
+in scope is the disclosure half of the system review's original W4-2
+recommendation (Option 3: surface `mc_approximation_status` on the KPI
+tile and workbook) -- which touches no calculation logic and carries none
+of the regression risk documented above -- tracked separately, not as
+part of this design.
