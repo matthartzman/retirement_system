@@ -1,8 +1,12 @@
 # Retirement Planning System — Functional Spec
 
-Generated: 2026-08-29. Describes the system as the code currently behaves. This
-is not a changelog — it does not describe how the system got here, only what
-it does today.
+Generated: 2026-08-29, updated 2026-09-07 (Wave 5 item W4-8, finding DOC-201:
+backfilled QLAC, the Monarch Money auto-import module, the Financial Trends
+Reporter companion app, phase-varying Roth conversions, and the adoptable
+Guyton-Klinger/floor-ceiling spending policy -- all shipped after the
+original generation date and previously undocumented here). Describes the
+system as the code currently behaves. This is not a changelog — it does not
+describe how the system got here, only what it does today.
 
 ## 1. What the system is
 
@@ -84,11 +88,18 @@ source shown in-app.
   stays funded, percentile net-worth/spending bands, tax NPV, and ELTR. Two
   engines exist (see §7): an exact per-path re-run of the real projection
   engine, and a faster vectorized approximation used for large sample counts.
-- **Guyton-Klinger guardrail shadow** — a separate, simplified simulation
-  showing what the household's spending would have looked like under a
-  classic adaptive-withdrawal-rate system (raise/cut spending by fixed
-  triggers). Shown for comparison only; it never feeds back into the real
-  plan or the withdrawal cascade.
+- **Spending policy (Guyton-Klinger / floor-ceiling band)** — the household
+  can select an adoptable discretionary-spending policy (fixed real spend by
+  default, a classic Guyton-Klinger adaptive raise/cut guardrail, or a
+  floor-ceiling band), which genuinely governs the plan's actual
+  discretionary spend in both the deterministic projection and Monte Carlo
+  — this is no longer a shadow comparison. When a guardrail policy is
+  active, Monte Carlo's headline "Probability of Success" is relabeled
+  conditional on the plan's own modeled spending cuts, and the worst
+  single-year modeled cut is disclosed alongside it; essential spending's
+  own funded-probability is unaffected, since guardrails only govern
+  discretionary draw. An independent age-phased real-spending curve is
+  available under any policy.
 - **Holding-period / real-loss-aware allocation** — buckets today's liquid
   balance by how soon the plan's own withdrawal schedule will spend it (0–2,
   3–5, 6–10, 11–15, 16+ years out), then penalizes holding equities with
@@ -120,7 +131,11 @@ Enter member identity, dates of birth, retirement ages, filing status,
 survivor assumptions, and Social Security policy; enter earned income,
 self-employment income, pensions/annuities, and Social Security benefits per
 person (with a claiming-age calculator using the SSA early/delayed-credit
-reduction formula).
+reduction formula). A QLAC (Qualified Longevity Annuity Contract) can be
+funded from a member's pre-tax balance up to the statutory dollar cap (or
+remaining pre-tax balance if lower); the system recommends the largest
+fundable premium and excludes the funded amount from that member's RMD base
+until the contract itself starts paying deferred income.
 
 ### 4.2 Spending
 Maintain a category taxonomy (tracking type → group → category, with alias
@@ -148,9 +163,14 @@ household owns a business.
 
 ### 4.5 Strategy (the levers)
 - **Roth conversion policy** — choose a conversion strategy (bracket-fill
-  target, fixed amount, IRMAA-guardrail-aware, or let the optimizer
-  recommend one from ~30 candidates scored by LCV and gated by the 95%
-  feasibility threshold).
+  target, fixed amount, IRMAA-guardrail-aware, a phase-varying schedule that
+  targets a different bracket ceiling in successive phases of retirement, or
+  let the optimizer recommend one from ~30 candidates scored by LCV and
+  gated by the 95% feasibility threshold).
+- **Spending policy** — adopt fixed real spending (default), a
+  Guyton-Klinger adaptive guardrail, or a floor-ceiling band as the plan's
+  actual discretionary-spend policy (§3); optionally layer an age-phased
+  real-spending curve on top of any of the three.
 - **Withdrawal sequencing** — the account draw order is fixed by the
   cascade (§3), but the household can compare named alternative orders
   (current plan, taxable-first, proportional, Roth-first) as a simplified
@@ -192,16 +212,33 @@ growth vs. prior year, reconciliation back into the 30-year model).
 Upload or manually enter actual account transactions and balances for the
 current year (with add/replace/deduplicate import modes); the system blends
 these actuals into the current projection year and reconciles modeled vs.
-actual balances.
+actual balances. As an alternative to manual entry, Monarch Money account
+auto-import (below) can supply these transactions automatically.
 
-### 4.9 Settings
+### 4.9 Monarch Money auto-import
+An optional module that automatically syncs transactions and balances from
+a household's Monarch Money account into year-to-date actuals (§4.8),
+avoiding manual entry. Configured with a source directory (confined to the
+app's own workspace root) that a scheduled or on-demand job reads from;
+"Import now" runs the sync immediately. Newly-imported rows are matched
+against, not duplicated on top of, any rows the household already entered
+manually.
+
+### 4.10 Financial Trends Reporter (companion app)
+A companion browser app, run alongside the main planner, that charts a
+household's historical net worth and spending trends over time from saved
+snapshots — a longitudinal view the main single-plan-projection app does
+not otherwise provide. Runs as its own local process on its own port; not
+part of the main app's route registry.
+
+### 4.11 Settings
 Economic and tax assumptions (capital market assumptions, correlations, tax
 constants, state tax tables), optional-module toggles, a field-finder search
 across every plan input, per-sheet/column workbook formatting overrides, and
 data/maintenance tools (pricing snapshot management, local backups, CSV
 export, a low-level config console).
 
-### 4.10 Admin console (advisor/system scope)
+### 4.12 Admin console (advisor/system scope)
 A separate console for system-wide (not per-plan) settings: app/runtime
 configuration, pricing/market-data provider settings and security-master
 data, allocation policy and asset-class universe, optimizer/rebalancing
@@ -209,7 +246,7 @@ defaults, ETF universe and replacement rules, tax constants and tax-law
 update tracking, workbook build diagnostics, and reference-file editing. Any
 per-client plan data shown here is read-only.
 
-### 4.11 Planning Workbench
+### 4.13 Planning Workbench
 A cross-cutting workspace that unifies strategy, stress, and scenario tools
 into one flow: pick a baseline, build a change set, choose a run type, see
 the impact, decide. The Impact matrix (Unified Comparison Matrix) compares
