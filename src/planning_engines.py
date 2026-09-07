@@ -4460,16 +4460,29 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
 
 
 def _mc_bucket_starting_balances(c: dict) -> dict:
-    """Return beginning balances by projection bucket for vectorized MC."""
+    """Return beginning balances by projection bucket for vectorized MC.
+
+    N1 Phase 1 (per-path per-owner RMD engine): 'pretax' is also split into
+    'h_pretax'/'w_pretax' using each account's registry owner_idx (0 = h,
+    1 = w) -- mirrors how core.py's rmd_ids_by_owner/ids_by_owner filter by
+    owner_idx. 'pretax' itself is kept as h_pretax + w_pretax for any
+    existing caller that still reads the combined figure.
+    """
     balances = c.get('balances') or {}
     registry = c.get('account_registry') or []
-    result = {'pretax': 0.0, 'roth': 0.0, 'taxable': 0.0, 'hsa': 0.0, 'cash': 0.0}
+    result = {'pretax': 0.0, 'roth': 0.0, 'taxable': 0.0, 'hsa': 0.0, 'cash': 0.0,
+              'h_pretax': 0.0, 'w_pretax': 0.0}
     for acct in registry:
         aid = acct.get('id')
         tax = str(acct.get('tax') or '').lower()
         bal = float(balances.get(aid, acct.get('balance', 0.0)) or 0.0)
         if tax == 'pre_tax':
             result['pretax'] += bal
+            owner_idx = int(acct.get('owner_idx', 0) or 0)
+            if owner_idx == 1:
+                result['w_pretax'] += bal
+            else:
+                result['h_pretax'] += bal
         elif tax == 'roth':
             result['roth'] += bal
         elif tax == 'hsa':
@@ -4490,9 +4503,15 @@ def _mc_row_bucket_flows(c: dict, base_rows: list[dict]) -> dict:
     Carlo paths across simulations at once, rather than re-running the scalar
     projection for every path.
     """
-    registry = {a.get('id'): str(a.get('tax') or '').lower() for a in c.get('account_registry') or []}
+    registry = {a.get('id'): (str(a.get('tax') or '').lower(), int(a.get('owner_idx', 0) or 0))
+                for a in c.get('account_registry') or []}
     years = [int(r['year']) for r in base_rows]
-    buckets = ('pretax', 'roth', 'taxable', 'hsa', 'cash')
+    # N1 Phase 1: h_pretax/w_pretax carry the SAME dollars already counted in
+    # 'pretax' (owner-split, not a separate pool) -- read together with
+    # 'pretax' by _mc_vectorized_projection to track per-owner RMD-relevant
+    # balances while every existing reader of the combined 'pretax' arrays
+    # is untouched.
+    buckets = ('pretax', 'roth', 'taxable', 'hsa', 'cash', 'h_pretax', 'w_pretax')
     out = {name: {b: [] for b in buckets} for name in ('withdrawals', 'deposits', 'conversions_out', 'conversions_in')}
     total_spend = []
     total_tax = []
@@ -4512,7 +4531,24 @@ def _mc_row_bucket_flows(c: dict, base_rows: list[dict]) -> dict:
     # demand from investment buckets when most of it was already covered by
     # income the deterministic engine's own gap = total_cash_need -
     # income_from_streams already nets out.
-    _EXTRA_SCALAR_FIELDS = ('gross_cash_flow_yr', 'daf_contrib_yr', 'qcd_total_yr', 'gift_total_yr', 'income_funding')
+    # 'rmd_h'/'rmd_w' (N1 Phase 1): the deterministic baseline's OWN per-owner
+    # RMD for that year -- already fully embedded in this row's pretax
+    # withdrawal (an RMD is just a pretax-account withdrawal, indistinguishable
+    # at the account level from an elective one). Exposed so
+    # _mc_vectorized_projection can force only the EXTRA RMD a path's own
+    # diverged balance requires beyond what this baseline figure already
+    # accounts for, instead of double-forcing the whole RMD on top of a
+    # cascade that already replays it.
+    # 'h_ira_elective'/'w_ira_elective' (N1 Phase 1): the baseline's own
+    # ELECTIVE-only (non-RMD) per-owner pretax withdrawal shape, used to
+    # split the vectorized cascade's own elective pretax draw back onto
+    # h_pretax/w_pretax more accurately than the blended (RMD+elective)
+    # h_pretax/w_pretax withdrawal totals would (those totals are skewed
+    # toward whichever spouse's RMD happens to be larger that baseline
+    # year, which is not representative of the elective-only split once a
+    # path's own RMD is computed and forced out separately).
+    _EXTRA_SCALAR_FIELDS = ('gross_cash_flow_yr', 'daf_contrib_yr', 'qcd_total_yr', 'gift_total_yr',
+                             'income_funding', 'rmd_h', 'rmd_w', 'h_ira_elective', 'w_ira_elective')
     extra_scalar: dict[str, list] = {f: [] for f in _EXTRA_SCALAR_FIELDS}
     # Phase 1 (optimization refactor): the deterministic tier composition of
     # total_spend, per year, keyed by whatever SPENDING_TIERS keys the rows
@@ -4525,7 +4561,7 @@ def _mc_row_bucket_flows(c: dict, base_rows: list[dict]) -> dict:
     spend_by_tier: dict[str, list] = {t: [] for t in tier_keys}
 
     def _bucket_for_account(aid: str) -> str:
-        tax = registry.get(aid, '')
+        tax, _owner_idx = registry.get(aid, ('', 0))
         if tax == 'pre_tax':
             return 'pretax'
         if tax == 'roth':
@@ -4541,7 +4577,13 @@ def _mc_row_bucket_flows(c: dict, base_rows: list[dict]) -> dict:
                           ('conversions_out', '_account_conversions_out'), ('conversions_in', '_account_conversions_in')):
             vals = {b: 0.0 for b in buckets}
             for aid, amount in (row.get(key) or {}).items():
-                vals[_bucket_for_account(str(aid))] += max(0.0, float(amount or 0.0))
+                aid_s = str(aid)
+                b = _bucket_for_account(aid_s)
+                amt = max(0.0, float(amount or 0.0))
+                vals[b] += amt
+                if b == 'pretax':
+                    _tax, owner_idx = registry.get(aid_s, ('', 0))
+                    vals['w_pretax' if owner_idx == 1 else 'h_pretax'] += amt
             for b in buckets:
                 out[name][b].append(vals[b])
         total_spend.append(float(row.get('total_spend', 0.0) or 0.0))
@@ -4615,9 +4657,14 @@ def _mc_survivor_bucket_flows(c: dict, base_rows: list[dict]):
     # placeholder doesn't need to match any real second-death year.
     far_future = plan_end + 200
     withdrawal_names = ('withdrawals', 'deposits', 'conversions_out', 'conversions_in')
-    withdrawal_buckets = ('pretax', 'roth', 'taxable', 'hsa', 'cash')
+    # N1 Phase 1: h_pretax/w_pretax propagate through the same
+    # per-scenario project() reruns as every other bucket, so a path
+    # blended into a survivor-death bucket after its own first death still
+    # carries a correctly owner-split pretax trajectory.
+    withdrawal_buckets = ('pretax', 'roth', 'taxable', 'hsa', 'cash', 'h_pretax', 'w_pretax')
     scalar_fields = ('total_tax', 'gross_income', 'gross_cash_flow_yr',
-                      'daf_contrib_yr', 'qcd_total_yr', 'gift_total_yr', 'income_funding')
+                      'daf_contrib_yr', 'qcd_total_yr', 'gift_total_yr', 'income_funding',
+                      'rmd_h', 'rmd_w', 'h_ira_elective', 'w_ira_elective')
     n_buckets = 2 * n_years
     arrays: dict = {
         f'{name}.{b}': _np.zeros((n_buckets, n_years), dtype=float)
@@ -4669,7 +4716,7 @@ def _mc_effective_row_flows(flows: dict, survivor_buckets, bucket_id, use_bucket
     ``np.broadcast_to(flows[...], (n_sims, n_years))`` -- bit-identical to the
     pre-Phase-1-items-4-6 behavior by construction.
     """
-    withdrawal_buckets = ('pretax', 'roth', 'taxable', 'hsa', 'cash')
+    withdrawal_buckets = ('pretax', 'roth', 'taxable', 'hsa', 'cash', 'h_pretax', 'w_pretax')
     out: dict = {}
     for name in ('withdrawals', 'deposits', 'conversions_out', 'conversions_in'):
         out[name] = {}
@@ -4680,7 +4727,7 @@ def _mc_effective_row_flows(flows: dict, survivor_buckets, bucket_id, use_bucket
             else:
                 bucket_matrix = survivor_buckets['arrays'][f'{name}.{b}'][bucket_id, :]
                 out[name][b] = _np.where(use_bucket_mask, bucket_matrix, det_row)
-    for flow_field in ('total_tax', 'gross_income', 'gross_cash_flow_yr', 'daf_contrib_yr', 'qcd_total_yr', 'gift_total_yr', 'income_funding'):
+    for flow_field in ('total_tax', 'gross_income', 'gross_cash_flow_yr', 'daf_contrib_yr', 'qcd_total_yr', 'gift_total_yr', 'income_funding', 'rmd_h', 'rmd_w', 'h_ira_elective', 'w_ira_elective'):
         det_field = flows.get(flow_field)
         if det_field is None:
             continue
