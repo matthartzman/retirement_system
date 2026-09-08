@@ -507,6 +507,13 @@ from .parsing.advanced_modules import parse_advanced_modules  # noqa: F401
 # unchanged.
 from .parsing.daf import parse_daf  # noqa: F401
 
+# parse_note_receivable() extracted to src/parsing/note_receivable.py
+# System review 2026-08-31, finding A5 / Wave 3 item 3.13 ("split
+# parse_client into src/parsing/ siblings; move validation out"). Re-exported
+# here so existing callers (`from src.data_io import parse_note_receivable`)
+# keep working unchanged.
+from .parsing.note_receivable import parse_note_receivable  # noqa: F401
+
 
 def parse_client(data, url_template, *, skip_live_pricing=False):
     """Parse sectioned client data into an engine-ready config dict.
@@ -1125,62 +1132,9 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
         c['startup_sale_price'] = c['startup_eq'] * ((1.0 + c['startup_gr']) ** _years_to_sale if (1.0 + c['startup_gr']) > 0 else 1.0)
     # Straight-line depreciation: value / depreciation_years per year → $0 at end of life.
 
-    # Note Receivable — repeatable like other typed "Other Assets" (one or more
-    # named notes).  Each note is entered as its own "Note N" subsection with a
-    # descriptive name plus the same fields the single legacy note used to have
-    # (face value, first/last payment year, annual principal, final-year
-    # principal, and an interest-by-year schedule).  The projection engine
-    # consumes per-note detail via c['note_items'] and also needs simple
-    # scalar aggregates for legacy call sites (deterministic engine, balance
-    # sheet, optimization) — those are summed/derived across all notes below.
-    c['note_items'] = []
-    _note_section = data.get('Note Receivable') or {}
-    _note_subs = [s for s in _note_section.keys()
-                  if re.match(r'^Note\s+\d+$', str(s or '').strip(), re.I)]
-    # Backward compat: a pre-multi-note plan snapshot (single Note Receivable,
-    # subsection "Summary") predates the "Note N" repeatable-note convention.
-    # A stale plan_snapshots row using that older shape must still parse as
-    # one note instead of silently producing an empty note_items (zero note
-    # income/balance everywhere, with no error to say why).
-    if not _note_subs and 'Summary' in _note_section:
-        _note_subs = ['Summary']
-    _note_subs = sorted(_note_subs, key=lambda s: (0, int(re.search(r'(\d+)', s).group(1))) if re.search(r'(\d+)', s) else (1, s))
-    for _nsub in _note_subs:
-        _nvals = _note_section[_nsub]
-        _nname = str(_nvals.get('name') or _nsub).strip() or _nsub
-        _nface  = _n(_nvals.get('face_value', '0'), 0.0)
-        _nfirst = _y(_nvals.get('first_payment', f"1/2/{c['plan_start']}"), c['plan_start'])
-        _nlast  = _y(_nvals.get('last_payment', '1/2/2033'), 2033)
-        _nprinc = _n(_nvals.get(f'annual_principal_{TAX_BASE_YEAR}_{TAX_BASE_YEAR + 6}',
-                                 _nvals.get('annual_principal_base_period', '0')), 0.0)
-        _nprinc_final = _n(_nvals.get('final_principal_2033', _nvals.get('final_principal', '0')), 0.0)
-        _ninterest = {}
-        # The legacy single-note shape (subsection "Summary") kept its
-        # interest schedule under "Interest by Year" rather than
-        # "{subsection} Interest" -- matches the fallback above.
-        _nint_sub = 'Interest by Year' if _nsub == 'Summary' else f'{_nsub} Interest'
-        for yr in range(c['plan_start'], c['plan_start'] + 8):
-            iv = _v(data, 'Note Receivable', _nint_sub, str(yr), '0')
-            _ninterest[yr] = _n(iv, 0)
-        c['note_items'].append({
-            'section': _nsub, 'name': _nname, 'face_value': _nface,
-            'first_payment_year': _nfirst, 'last_payment_year': _nlast,
-            'annual_principal': _nprinc, 'final_principal': _nprinc_final,
-            'interest_by_year': _ninterest,
-        })
-
-    # Legacy scalar aggregates used by the deterministic engine, balance
-    # sheet, and optimization scoring.  face_value/annual_principal sum
-    # across notes; first/last payment years span the earliest start and
-    # latest end of any note; interest-by-year sums across notes.
-    c['note_face']   = sum(n['face_value'] for n in c['note_items']) if c['note_items'] else 0.0
-    c['note_first']  = min((n['first_payment_year'] for n in c['note_items']), default=c['plan_start'])
-    c['note_last']   = max((n['last_payment_year'] for n in c['note_items']), default=c['plan_start'])
-    c['note_princ']  = sum(n['annual_principal'] for n in c['note_items']) if c['note_items'] else 0.0
-    c['note_princ_final'] = sum(n['final_principal'] for n in c['note_items']) if c['note_items'] else 0.0
-    c['note_interest'] = {}
-    for yr in range(c['plan_start'], c['plan_start'] + 8):
-        c['note_interest'][yr] = sum(n['interest_by_year'].get(yr, 0) for n in c['note_items'])
+    # Note Receivable — see src/parsing/note_receivable.py for the full
+    # per-note parsing and legacy scalar aggregation logic.
+    c.update(parse_note_receivable(data, c['plan_start']))
 
     # HSA withdrawal policy. Default is spend_as_needed: do not schedule HSA draws;
     # use HSA only when needed for a funding gap before touching Roth. Optional
