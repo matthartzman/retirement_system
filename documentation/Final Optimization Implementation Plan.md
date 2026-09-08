@@ -1,3 +1,5 @@
+_See `documentation/OPTIMIZATION_DOCS_INDEX.md` for how this document relates to the other optimization-planning docs in this directory._
+
 # Final Optimization Implementation Plan
 
 **Status:** Design and implementation plan — no changes in this document have been executed.
