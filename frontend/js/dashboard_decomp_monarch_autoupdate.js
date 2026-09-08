@@ -15,6 +15,12 @@ let monarchAutoUpdateStatus = null;
 // no dirty/busy indicator, and "Import now" gave no feedback while running.
 let monarchAutoUpdateSaving = false;
 let monarchAutoUpdateRunning = false;
+// The value the in-flight save actually sent, captured from the DOM before
+// the busy-state render below fires -- without this, that render rebuilds
+// the checkbox/input from the still-stale pre-save monarchAutoUpdateStatus,
+// visibly snapping the control back to its old value (while disabled) the
+// instant a user toggles it, even though the save proceeds correctly.
+let monarchAutoUpdatePendingPolicy = null;
 function monarchAutoUpdateStatusLine() {
   const s = monarchAutoUpdateStatus || {};
   const p = s.policy || {};
@@ -29,7 +35,11 @@ function monarchAutoUpdateStatusLine() {
 }
 function monarchAutoUpdateControlsHtml() {
   const s = monarchAutoUpdateStatus || {};
-  const p = Object.assign({ enabled: false, source_dir: "Monarch Extractor/output" }, s.policy || {});
+  const p = Object.assign(
+    { enabled: false, source_dir: "Monarch Extractor/output" },
+    s.policy || {},
+    monarchAutoUpdateSaving ? monarchAutoUpdatePendingPolicy || {} : {},
+  );
   const busy = monarchAutoUpdateSaving || monarchAutoUpdateRunning;
   const disabledAttr = busy ? " disabled" : "";
   const statusSuffix = monarchAutoUpdateSaving
@@ -54,11 +64,12 @@ async function refreshMonarchAutoUpdateStatus(silent = false) {
   }
 }
 async function saveMonarchAutoUpdatePolicy() {
+  const enabled = !!(document.getElementById("monarchAutoUpdateEnabled") || {}).checked;
+  const sourceDir = (document.getElementById("monarchAutoUpdateSourceDir") || {}).value || "";
+  monarchAutoUpdatePendingPolicy = { enabled, source_dir: sourceDir };
   monarchAutoUpdateSaving = true;
   renderMain();
   try {
-    const enabled = !!(document.getElementById("monarchAutoUpdateEnabled") || {}).checked;
-    const sourceDir = (document.getElementById("monarchAutoUpdateSourceDir") || {}).value || "";
     const out = await api("/api/plan/monarch-autoupdate/config", {
       method: "POST",
       body: JSON.stringify({ enabled, source_dir: sourceDir }),
@@ -82,6 +93,7 @@ async function saveMonarchAutoUpdatePolicy() {
     );
   } finally {
     monarchAutoUpdateSaving = false;
+    monarchAutoUpdatePendingPolicy = null;
     renderMain();
   }
 }

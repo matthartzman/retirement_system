@@ -73,6 +73,18 @@ describe("Monarch auto-update card shows busy state while saving", () => {
     assert.match(busyHtml, /id="monarchAutoUpdateEnabled"[^>]*disabled/);
     assert.match(busyHtml, /id="monarchAutoUpdateSourceDir"[^>]*disabled/);
     assert.match(busyHtml, /Saving…/);
+    // The busy-state re-render must reflect what the user just submitted
+    // (checked=true, captured from the DOM before this render), not the
+    // stale pre-save server policy (enabled defaults to false at this
+    // point, since monarchAutoUpdateStatus hasn't been fetched yet in this
+    // test) -- a real bug caught by tests/e2e/monarch-autoupdate-card.spec.js
+    // where the busy render was clobbering a just-checked box back to
+    // unchecked while disabled, defeating every click.
+    assert.match(
+      busyHtml,
+      /id="monarchAutoUpdateEnabled" checked/,
+      "busy-state render must show the just-submitted value, not the stale pre-save policy",
+    );
 
     gate.resolve({ policy: { enabled: true, source_dir: "Monarch Extractor/output" } });
     await inFlight;
