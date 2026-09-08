@@ -34,6 +34,28 @@ For new frontend coverage, in preference order:
 Structural assertions -- "this file exists", "this module is under N lines" --
 are legitimately text-based and are not what this freezes; they do not assert
 behaviour.
+
+Wave 6 item W6-9 (finding QUA-303, system review 2026-09-07) investigated
+whether the baseline was absorbing entries that are actually structural-only
+and could be removed to restore headroom. Read individually (not by pattern
+alone) rather than trusting a keyword scan: test_allocation_policy_cleanup_
+functional.py and test_governance_hardening.py genuinely assert DOM/label
+text (real behavioural pins, correctly baselined).
+test_dashboard_extract_module_tool.py, test_optional_module_gating.py, and
+test_workbook_format_config_regression.py's matched literals turned out to
+be either a docstring's incidental filename mention or part of building a JS
+bundle for real vm-sandbox execution (the pattern this freeze recommends,
+not the one it warns against) -- in every case the file's *other* content
+still legitimately trips the mechanical detector on its own terms, so none
+could be removed from the baseline without either being wrong or requiring
+a disruptive rewrite unrelated to what actually needed fixing. No baseline
+entries were removed. This "headroom" framing was itself imprecise: unlike
+the suffix-shape ceiling, this baseline is an exact-set freeze by design --
+a new match is *meant* to force an explicit, reviewed baseline addition
+(see the assertion message below), not something that needs slack. The
+real, larger lever for shrinking it over time is converting individual
+baselined files to real vm-sandbox/e2e execution per the preference order
+above, file by file -- not a one-time exemption sweep.
 """
 from __future__ import annotations
 
