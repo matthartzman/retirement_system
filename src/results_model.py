@@ -568,6 +568,96 @@ def _net_worth_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, 
     ])])
 
 
+def _balance_sheet_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Snapshot-as-of-today (Y0) balance sheet.
+
+    Mirrors ``build_sheet3`` (src/reporting/sheets_tax_reporter.py) exactly so
+    this page's Net Worth reconciles with the Excel "3. Balance Sheet" sheet
+    and with the Net Worth page's Plan Start (Y0) column. Do not re-derive the
+    opening-balance / gross-vs-net-home-value logic here — copy it faithfully.
+    """
+    yr0 = rows[0] if rows else {}
+    headers = row([("Item", "text"), ("Value ($)", "text"), ("Notes", "text")])
+
+    def _group_section(title: str, items: list[tuple[str, float, str]]) -> tuple[dict[str, Any], float]:
+        data = [headers]
+        total = 0.0
+        for label, value, note in items:
+            value = _n(value)
+            total += value
+            data.append(row([(label, "text"), (value, "currency"), (note, "text")]))
+        data.append(row([(f"Total {title}", "text"), (total, "currency"), ("", "text")]))
+        return _section(title, data), total
+
+    _n1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
+    _n2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
+    ann_assets = [
+        (f'{_n2} Pension (PV of future income)', yr0.get('pension_pv', 0), 'PV through mortality'),
+        (f'{_n2} Single Annuity (PV)', yr0.get('w_single_pv', 0), ''),
+        (f'{_n2} Joint Annuity (PV)', yr0.get('w_joint_pv', 0), ''),
+        (f'{_n1} Single Annuity (PV)', yr0.get('h_single_pv', 0), ''),
+        (f'{_n1} Joint Annuity (PV)', yr0.get('h_joint_pv', 0), ''),
+    ]
+    ann_section, ann_total = _group_section('Annuities & Pension (PV)', ann_assets)
+
+    # #253: yr0[acct_id] is the engine's END-OF-YEAR Y0 balance, while the Net
+    # Worth sheet's "Plan Start" column uses the PRE-activity opening balance
+    # (row['_account_opening'], seeded from live holdings). Use the same
+    # opening map here so the Balance Sheet, Net Worth, and Asset Allocation
+    # pages all agree on "today's" account balances. Falls back to the
+    # year-end value for any account the opening map lacks.
+    _y0_opening = yr0.get('_account_opening') or {}
+
+    def _acct_items(tax_type: str, note: str) -> list[tuple[str, float, str]]:
+        return [(acct.get('label') or acct['id'],
+                  _y0_opening.get(acct['id'], yr0.get(acct['id'], 0)), note)
+                for acct in c.get('account_registry', []) if acct.get('tax') == tax_type]
+
+    pretax_section, pretax_total = _group_section('Pre-Tax (Tax-Deferred)', _acct_items('pre_tax', 'Tax-deferred'))
+    roth_section, roth_total = _group_section('Roth (Tax-Free)', _acct_items('roth', 'Tax-free'))
+    trust_section, trust_total = _group_section('Taxable / Trust', _acct_items('taxable', 'Taxable'))
+    hsa_section, hsa_total = _group_section('Health Savings Account', _acct_items('hsa', 'Triple tax-advantaged'))
+
+    # v7.5 normalization: gross primary residence in Assets, mortgage in
+    # Liabilities (not both gross value and net home equity as assets).
+    home_gross_value = _n(yr0.get('home_val', c.get('home_val', 0)))
+    home_net_equity = _n(yr0.get('home_equity', max(0, home_gross_value - _n(c.get('mort_bal', 0)))))
+    mort_val = max(0.0, home_gross_value - home_net_equity)
+    startup_val = yr0.get('startup_val', c.get('startup_eq', 0))
+    autos_val = yr0.get('autos_val', c.get('autos', 0))
+    note_val = yr0.get('note_bal', c.get('note_face', 0))
+    cash_val = c.get('cash_other', 0)
+
+    other_items = [
+        ('Primary Residence', home_gross_value, 'Gross home value; mortgage shown in Liabilities'),
+        ('Startup Equity', startup_val, 'Illiquid'),
+        ('Autos', autos_val, 'Depreciated Y0 value'),
+        ('Cash (Checking Accounts)', cash_val, 'Sum of _Checking positions'),
+        ('Note Receivable', note_val, f"Projected balance through {c.get('note_last', '')}"),
+    ]
+    other_section, other_total = _group_section('Other Assets', other_items)
+
+    total_assets = ann_total + pretax_total + roth_total + trust_total + hsa_total + other_total
+
+    liab_data = [headers]
+    liab_data.append(row([('Mortgage', 'text'), (mort_val, 'currency'),
+                           ('Offsets Primary Residence gross value; not double-counted as Home Equity', 'text')]))
+    liab_data.append(row([('Total Liabilities', 'text'), (mort_val, 'currency'), ('', 'text')]))
+    liab_section = _section('Liabilities', liab_data)
+
+    net_worth = total_assets - mort_val
+    nw_data = [
+        row([('Total Assets', 'text'), (total_assets, 'currency')]),
+        row([('Total Liabilities', 'text'), (mort_val, 'currency')]),
+        row([('NET WORTH', 'text'), (net_worth, 'currency')]),
+    ]
+    nw_section = _section('Net Worth', nw_data)
+
+    sections = [ann_section, pretax_section, roth_section, trust_section, hsa_section,
+                other_section, liab_section, nw_section]
+    return _page("1D. Balance Sheet", "Reports", sections)
+
+
 def _lifetime_tax_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, Any]:
     headers = row([("Year", "text"), ("Filing", "text"), ("AGI", "text"), ("Taxable Income", "text"), ("Roth Conv", "text"), ("Federal", "text"), ("State", "text"), ("NIIT", "text"), ("Total Tax", "text"), ("Effective Rate", "text")])
     data = [row([("Tax projection", "text")]), headers]
@@ -623,6 +713,7 @@ def build_result_explorer_model(c: dict[str, Any], rows: list[dict[str, Any]], m
     pages.append(_asset_allocation_page(c))
     pages.append(_net_worth_page(c, rows))
     pages.append(_cashflow_page(c, rows))
+    pages.append(_balance_sheet_page(c, rows))
     pages.append(_lifetime_tax_page(c, rows))
     chart_page, _ = _chart_page(c, rows, mc_data)
     pages.append(chart_page)
