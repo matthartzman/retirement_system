@@ -9,8 +9,11 @@ stage module.  Additional fine-grained stage files can replace pieces behind
 this same contract without changing callers.
 """
 
+from .appreciation_divorce_qlac import apply_appreciation_divorce_qlac as _apply_appreciation_divorce_qlac
 from .budget_rollups import category_budget_rollup, housing_budget_rollup
+from .cashflow_breakdown import compute_cashflow_breakdown as _compute_cashflow_breakdown
 from .effective_marginal_rate import compute_effective_marginal_rate as _compute_effective_marginal_rate
+from .spending_tiers import compute_spend_by_tier as _compute_spend_by_tier
 from .year_state import MutableYearState, create_initial_year_state
 # System review 4.2: explicit name list instead of `from ..planning_engines
 # import *` -- determined via AST analysis of every Name this module
@@ -679,75 +682,35 @@ def run_deterministic_projection_stage(c):
         row['cst_funded_yr'] = cst_funded_yr
         row['cst_excluded_from_survivor_estate'] = cst_funded_total
 
-        # ── Asset appreciation ───────────────────────────────────────────────
-        if cst_balance > 0:
-            cst_balance *= (1 + float(c.get('ret', 0.0) or 0.0))
-        row['cst_balance'] = cst_balance
-        # Note: home_val appreciation is handled inside the home sale block below
-        autos_val = max(0, c['autos'] - c['autos'] / max(1, c['auto_dep_yrs']) * (year - c['plan_start'] + 1))
-        # Startup equity: grow until sale year, then sell and deposit proceeds to Trust
-        sale_yr   = c.get('startup_sale_year', 0)
-        sale_px   = c.get('startup_sale_price', 0)
-        if sale_yr and year == sale_yr and startup > 0:
-            # Sale proceeds deposit to the first available taxable account.
-            proceeds = sale_px if sale_px > 0 else startup
-            _startup_acct = _aa.first_taxable(c)
-            _aa.deposit(bal, _startup_acct, proceeds)
-            _add_account_flow(row['_account_deposits'], _startup_acct, proceeds)
-            _tag_deposit_source(row, _startup_acct, 'Startup Equity Sale', proceeds)
-            startup = 0.0
-            row['startup_sale_proceeds'] = proceeds
-        elif startup > 0 and (not sale_yr or year < sale_yr):
-            # Only appreciate if growth_rate > 0; stays flat when 0
-            if c['startup_gr'] > 0:
-                startup *= (1 + c['startup_gr'])
-            row['startup_sale_proceeds'] = 0.0
-        else:
-            row['startup_sale_proceeds'] = 0.0
-
-        # ── Divorce/QDRO asset split (optimization-refactor Phase 6) ─────────
-        # A one-time reduction of every investment account at a configured
-        # year, modeling a QDRO/marital-asset division. Unlike a home sale,
-        # transfers incident to divorce are not a taxable event (IRC S1041):
-        # the departing share simply leaves the household's balance sheet,
-        # no capital gain, no basis adjustment, no tax pass needed.
-        row['divorce_split_amount'] = 0.0
-        if c.get('divorce_split_yr') and year == int(c['divorce_split_yr']):
-            _divorce_pct = max(0.0, min(1.0, float(c.get('divorce_split_pct', 0.0) or 0.0)))
-            if _divorce_pct > 0:
-                _divorce_split_total = 0.0
-                for _aid in _ar.all_investment_ids(c.get('account_registry', [])):
-                    _before = float(bal.get(_aid, 0.0) or 0.0)
-                    if _before > 0:
-                        _taken = _before * _divorce_pct
-                        bal[_aid] = _before - _taken
-                        _add_account_flow(row['_account_transfers_out'], _aid, _taken)
-                        _divorce_split_total += _taken
-                row['divorce_split_amount'] = _divorce_split_total
-
-        # ── QLAC purchase (#295) ──────────────────────────────────────────
-        # A one-time withdrawal of the premium from the configured pre-tax
-        # source account in the purchase year -- the dollars leave the IRA
-        # balance sheet the same way any other qualified-plan distribution
-        # would, becoming instead the deferred-income contract modeled via
-        # annuity_cash_income() (folded into h_single_ann/wife_single_ann
-        # above). Not a taxable distribution: a QLAC purchase inside a
-        # traditional IRA/401k is a same-character exchange (still pre-tax
-        # money, still taxed as ordinary income when the contract eventually
-        # pays out), not a withdrawal from the tax-deferred wrapper.
-        row['qlac_purchase_yr'] = 0.0
-        for _qlac_stream, _qlac_alive in ((c['h_qlac'], h_alive), (c['wife_qlac'], w_alive)):
-            if (_qlac_alive and _qlac_stream.get('enabled') and
-                    int(_qlac_stream.get('purchase_year', 0) or 0) == year):
-                _qlac_acct = _qlac_stream.get('source_account', '')
-                if _qlac_acct in bal and _qlac_acct in c.get('pre_tax_ids', []):
-                    _qlac_cap = qlac_premium_limit(year, c.get('brk_inf', 0.02))
-                    _qlac_amt = min(float(_qlac_stream.get('premium', 0.0) or 0.0), _qlac_cap,
-                                     float(bal.get(_qlac_acct, 0.0) or 0.0))
-                    if _qlac_amt > 0:
-                        bal[_qlac_acct] = float(bal.get(_qlac_acct, 0.0) or 0.0) - _qlac_amt
-                        _add_account_flow(row['_account_withdrawals'], _qlac_acct, _qlac_amt)
-                        row['qlac_purchase_yr'] += _qlac_amt
+        # ── Appreciation / Divorce / QLAC (extracted stage) ──────────────────
+        # Grow CST/startup equity, depreciate autos, apply the year's
+        # one-time divorce split and QLAC premium withdrawal. See
+        # appreciation_divorce_qlac.py for the full per-event breakdown.
+        # cst_balance/startup/autos_val are plain floats: Python does not
+        # mutate a caller's local through a function parameter, so the
+        # updated values must come back via the return value and be
+        # reassigned here -- NOT dropped. bal and the account-flow dicts
+        # mutate in place through the reference, same as any dict.
+        _stage3 = _apply_appreciation_divorce_qlac(
+            c,
+            year=year,
+            h_alive=h_alive,
+            w_alive=w_alive,
+            bal=bal,
+            cst_balance=cst_balance,
+            startup=startup,
+            account_deposits=row['_account_deposits'],
+            account_deposit_sources=row['_account_deposit_sources'],
+            account_transfers_out=row['_account_transfers_out'],
+            account_withdrawals=row['_account_withdrawals'],
+        )
+        cst_balance = _stage3.cst_balance
+        startup = _stage3.startup
+        autos_val = _stage3.autos_val
+        row['cst_balance'] = _stage3.cst_balance
+        row['startup_sale_proceeds'] = _stage3.startup_sale_proceeds
+        row['divorce_split_amount'] = _stage3.divorce_split_amount
+        row['qlac_purchase_yr'] = _stage3.qlac_purchase_yr
 
         # ── Home value appreciation & planned sale ───────────────────────────
         home_sold = home_val <= 0   # already sold in a prior year
@@ -1879,63 +1842,32 @@ def run_deterministic_projection_stage(c):
             row['total_spend'] = total_spend_need
 
         # ── Spending tiers (optimization-refactor Phase 0) ─────────────────
-        # Breaks total_spend_need into essential / important / discretionary /
-        # contingent_liability per the SPENDING_TIERS registry in
-        # spending_budget_resolver.py. Purely additive reporting: it never
-        # feeds back into total_spend_need, withdrawals, or taxes. spend_base
-        # is split using the household's actual category mix
-        # (spend_base_tier_shares); every other component maps to a single
-        # tier because it is already segregated in the row (e.g. mortgage /
-        # RE tax / utilities are Housing-essential). The wellness split
-        # additionally respects the ACA-recompute above and the n_alive == 0
-        # estate-mode zeroing by scaling its raw components to
-        # wellness_base_yr rather than using them directly.
-        #
-        # contingent_liability holds only ltc_prem_yr -- an insurance
-        # premium is a genuine (if painful) choice to forgo future coverage,
-        # so it is cuttable at the tier's documented cascade priority
-        # (SPENDING_TIER_CUT_ORDER: after important, before essential).
-        # wellness_shock_yr is routed into 'essential' instead: it is an
-        # already-incurred health/LTC event cost, not a discretionary
-        # spending choice, so it is protected at essential's level rather
-        # than bundled with the premium at a lower cascade priority.
-        _tier_totals: dict[str, float] = {}
-
-        def _tier_add(tier: str, amount: float) -> None:
-            if amount:
-                _tier_totals[tier] = _tier_totals.get(tier, 0.0) + amount
-
-        _base_shares = c.get('spend_base_tier_shares') or {}
-        if _base_shares:
-            for _tier, _frac in _base_shares.items():
-                _tier_add(_tier, spend * _frac)
-        elif spend:
-            _tier_add('important', spend)
-        _tier_add('discretionary', rec_extra + lump_yr + row.get('home_improvement_yr', 0.0))
-        _tier_add('essential', mort_yr + re_tax_yr + rent_yr + housing_operating_yr
-                   + heloc_interest_yr + heloc_repayment_principal_yr)
-        _wellness_essential_raw = (wellness_premium_yr + wellness_medical_yr + wellness_dental_yr
-                                    + wellness_vision_yr + wellness_rx_otc_yr)
-        _wellness_raw_total = _wellness_essential_raw + wellness_other_yr
-        if _wellness_raw_total > 0 and wellness_base_yr:
-            _wellness_scale = wellness_base_yr / _wellness_raw_total
-            _tier_add('essential', _wellness_essential_raw * _wellness_scale)
-            _tier_add('important', wellness_other_yr * _wellness_scale)
-        # Reconciled with 'claude/confit-optimization-refactor-cyyk9v' PR #70
-        # (merged first, then reverted here in favor of this branch's design,
-        # per user decision 2026-08-27): ltc_prem_yr (an insurance premium --
-        # a genuine choice to forgo future coverage) stays in
-        # contingent_liability, cuttable at that tier's documented cascade
-        # priority (see ffa142b/0e65806 below). wellness_shock_yr (an
-        # already-incurred health/LTC event cost, not a discretionary
-        # choice) routes into essential instead, protecting it at
-        # essential's cascade priority rather than bundling it with the
-        # premium at a lower one.
-        _tier_add('contingent_liability', ltc_prem_yr)
-        _tier_add('essential', wellness_shock_yr)
-        if business_expenses_yr:
-            _tier_add('unclassified', business_expenses_yr)
-        row['spend_by_tier'] = {k: round(v, 2) for k, v in _tier_totals.items() if v}
+        # See compute_spend_by_tier's docstring (spending_tiers.py) for the
+        # tier-split rules: purely additive reporting, never feeds back into
+        # total_spend_need, withdrawals, or taxes.
+        row['spend_by_tier'] = _compute_spend_by_tier(
+            c,
+            spend=spend,
+            rec_extra=rec_extra,
+            lump_yr=lump_yr,
+            home_improvement_yr=row.get('home_improvement_yr', 0.0),
+            mort_yr=mort_yr,
+            re_tax_yr=re_tax_yr,
+            rent_yr=rent_yr,
+            housing_operating_yr=housing_operating_yr,
+            heloc_interest_yr=heloc_interest_yr,
+            heloc_repayment_principal_yr=heloc_repayment_principal_yr,
+            wellness_premium_yr=wellness_premium_yr,
+            wellness_medical_yr=wellness_medical_yr,
+            wellness_dental_yr=wellness_dental_yr,
+            wellness_vision_yr=wellness_vision_yr,
+            wellness_rx_otc_yr=wellness_rx_otc_yr,
+            wellness_other_yr=wellness_other_yr,
+            wellness_base_yr=wellness_base_yr,
+            ltc_prem_yr=ltc_prem_yr,
+            wellness_shock_yr=wellness_shock_yr,
+            business_expenses_yr=business_expenses_yr,
+        )
 
         # SALT
         # Preliminary state tax estimate for SALT deduction (computed before final state_tax)
@@ -2996,107 +2928,13 @@ def run_deterministic_projection_stage(c):
         row['net_income'] = row.get('gross_income', agi) - total_tax
 
         # ── Canonical cash-flow breakdown (single source of truth) ───────────
-        # Purely additive, read-only snapshot of the income / portfolio-draw /
-        # spending / tax itemization that every downstream cash-flow consumer
-        # (sheets_projection_cashflow build_sheet6, sheets_projection_charts
-        # build_sheet8, results_model _cashflow_page + _chart_page) reads
-        # verbatim, so they can never re-derive divergent numbers again. Every
-        # value here already exists on `row` (or as the just-finalized `surplus`
-        # / `total_tax` locals) by this point in the cascade — this block
-        # computes nothing new and mutates no existing field.
-        #
-        # Reconciliation guarantees, all verified exact ($0 residual) for the
-        # live household in tests/test_cashflow_breakdown_single_source_of_truth.py:
-        #   sum(income)                          == Σ Income (build_sheet6)
-        #   sum(expense excl. other_cash_need)   == row['total_spend']  (engine spend need)
-        #   sum(tax)                             == row['total_tax']    (exact, by construction)
-        #   sum(income)+sum(draws) - (sum(expense)+sum(tax)) == surplus - unfunded_gap
-        # The tax dict decomposes total_tax into non-overlapping components:
-        # federal+state+niit+irmaa+payroll+home_sale+ltcg+tlh_credit+other,
-        # where ltcg is the portfolio LTCG *beyond* the home-sale portion,
-        # tlh_credit is the (negative) tax-loss-harvest ordinary-income credit,
-        # and `other` is the reconciling remainder (equity-comp LTCG/AMT etc.)
-        # so the itemization sums to row['total_tax'] exactly regardless of
-        # which optional modules ran. Housing is exposed at component grain
-        # (mortgage/rent/housing_operating, whose sum == housing_total_yr) so a
-        # consumer can show one rolled-up "Housing" figure or the 3-way split
-        # without any key double-counting sum(expense.values()).
-        _cfb_home_sale_tax = row.get('home_sale_tax', 0.0)
-        _cfb_ltcg_tax = row.get('ltcg_tax', 0.0)
-        _cfb_tlh_credit = row.get('tlh_ordinary_credit', 0.0)
-        _cfb_tax_named = (row.get('fed_tax', 0.0) + row.get('state_tax', 0.0)
-                          + row.get('niit', 0.0) + row.get('irmaa', 0.0)
-                          + row.get('payroll_tax', 0.0)
-                          + _cfb_ltcg_tax - _cfb_tlh_credit)
-        row['cashflow_breakdown'] = {
-            'income': {
-                'earned': row.get('earned', 0.0),
-                'h_ss': row.get('h_ss', 0.0),
-                'w_ss': row.get('w_ss', 0.0),
-                'pension': row.get('pension', 0.0),
-                'wife_single_ann': row.get('wife_single_ann', 0.0),
-                'wife_joint_ann': row.get('wife_joint_ann', 0.0),
-                'h_single_ann': row.get('h_single_ann', 0.0),
-                'h_joint_ann': row.get('h_joint_ann', 0.0),
-                'note_pi': row.get('note_princ', 0.0) + row.get('note_int', 0.0),
-                'rmd_total': row.get('rmd_total', 0.0),
-            },
-            'draws': {
-                'trust_wd': row.get('h_trust_wd', 0.0) + row.get('w_trust_wd', 0.0),
-                'hsa_wd': row.get('hsa_wd', 0.0),
-                'roth_wd': row.get('h_roth_wd', 0.0) + row.get('w_roth_wd', 0.0),
-                'ira_elective': row.get('h_ira_elective', 0.0) + row.get('w_ira_elective', 0.0),
-                'heloc_draw': row.get('heloc_draw', 0.0),
-            },
-            # Housing is exposed only at component grain (mortgage / rent /
-            # housing_operating); their sum == row['housing_total_yr'], which is
-            # what build_sheet6 and build_sheet8 display as a single "Housing"
-            # figure while _chart_page keeps its 3-way split. No rolled-up
-            # 'housing' key is stored, so sum(expense.values()) never
-            # double-counts. Every key except 'other_cash_need' sums to
-            # row['total_spend']; 'other_cash_need' is the separate purchase-cash
-            # component of total_cash_need (= total_spend + total_tax +
-            # other_cash_need).
-            'expense': {
-                'spend_base': row.get('spend_base_yr', 0.0),
-                'mortgage': row.get('mortgage', 0.0),
-                'rent': row.get('rent_yr', 0.0),
-                'housing_operating': row.get('housing_operating_yr', 0.0),
-                'wellness': (row.get('wellness_base_yr', 0.0)
-                             + row.get('wellness_shock_yr', 0.0)
-                             + row.get('ltc_prem_yr', 0.0)),
-                'travel': row.get('rec_extra', 0.0),
-                'other_lump': row.get('lump', 0.0),
-                'business_expenses': row.get('business_expenses_yr', 0.0),
-                'heloc_pai': (row.get('heloc_interest', 0.0)
-                              + row.get('heloc_repayment_principal', 0.0)),
-                'other_cash_need': row.get('other_cash_need_yr', 0.0),
-            },
-            'tax': {
-                'federal': row.get('fed_tax', 0.0),
-                'state': row.get('state_tax', 0.0),
-                'niit': row.get('niit', 0.0),
-                'irmaa': row.get('irmaa', 0.0),
-                'payroll': row.get('payroll_tax', 0.0),
-                'home_sale': _cfb_home_sale_tax,
-                'ltcg': _cfb_ltcg_tax - _cfb_home_sale_tax,
-                'tlh_credit': -_cfb_tlh_credit,
-                'other': total_tax - _cfb_tax_named,
-            },
-            'surplus': surplus,          # authoritative engine value, not re-derived
-            'unfunded_gap': row['unfunded_gap'],
-        }
-
-        # Optimization-refactor Phase 1 item 2: gross external cash flow, for
-        # ELTR (effective lifetime tax rate) and tax-NPV reporting. Reuses
-        # cashflow_breakdown's income/draws sub-dicts, which already exclude
-        # internal transfers (Roth conversion, DAF in-kind, gifting, spousal
-        # rollover, CST funding) by construction -- see the reconciliation
-        # guarantees documented above cashflow_breakdown.
-        row['gross_cash_flow_yr'] = (
-            sum(row['cashflow_breakdown']['income'].values())
-            + sum(row['cashflow_breakdown']['draws'].values())
-        )
+        # Extracted to cashflow_breakdown.compute_cashflow_breakdown (ticket
+        # 3.10 step 4): read-only reshape of fields already finalized on
+        # `row` by this point in the cascade. See that module's docstring
+        # for the reconciliation guarantees (verified exact in
+        # tests/test_cashflow_breakdown_single_source_of_truth.py) and why
+        # it takes the whole `row` dict rather than an enumerated param list.
+        row['cashflow_breakdown'], row['gross_cash_flow_yr'] = _compute_cashflow_breakdown(row)
 
         # ── Portfolio growth (end-of-year) ───────────────────────────────────
         port_ret = c['ret']
