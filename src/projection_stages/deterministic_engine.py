@@ -10,6 +10,7 @@ this same contract without changing callers.
 """
 
 from .budget_rollups import category_budget_rollup, housing_budget_rollup
+from .effective_marginal_rate import compute_effective_marginal_rate as _compute_effective_marginal_rate
 from .year_state import MutableYearState, create_initial_year_state
 # System review 4.2: explicit name list instead of `from ..planning_engines
 # import *` -- determined via AST analysis of every Name this module
@@ -2962,94 +2963,35 @@ def run_deterministic_projection_stage(c):
         row['total_tax'] = total_tax
 
         # ── Effective marginal rate ─────────────────────────────────────────
-        # The reported marginal rate (sheets_projection_tax) is the statutory
-        # bracket alone -- core.marginal_rate() just looks up the bracket
-        # containing taxable income. That understates what another dollar
-        # actually costs, sometimes badly: a household in the 12% bracket with
-        # taxable Social Security faces ~22.2% because each extra dollar also
-        # drags more benefit into taxation ("the Social Security torpedo"), and
-        # a dollar that crosses an IRMAA threshold costs hundreds.
-        #
-        # Perturb ordinary income by +$1,000 and re-run the pieces of the stack
-        # that respond to it within THIS year: SS inclusion, federal, state,
-        # and NIIT. Every function below is the same one the main path used
-        # this year, so the delta reflects this household's real position, not
-        # a table lookup.
-        #
-        # IRMAA is deliberately NOT perturbed here. `irmaa_yr` (this year's
-        # actual surcharge) is charged on `irmaa_magi`, the LOOKBACK MAGI from
-        # `c['irmaa_lookback_years']` years ago (line ~1672) -- already fixed
-        # by history, and structurally incapable of responding to a dollar
-        # earned this year. An earlier version bumped that locked value
-        # anyway, which could manufacture huge phantom "cliffs": a $1,000
-        # probe crossing a tier boundary on a value the dollar cannot actually
-        # move produced a measured 350% effective rate in a year with no real
-        # IRMAA event, caught by this file's own test_rate_is_never_absurd.
-        #
-        # What IS real: this year's marginal dollar raises irmaa_magi_current
-        # (this year's MAGI), which becomes the LOOKBACK figure for year+2 --
-        # so it can trigger a real, just deferred, IRMAA cost. That is flagged
-        # via effective_marginal_rate_irmaa_cliff without folding a dollar
-        # amount for it into effective_marginal_rate, since attributing a
-        # future year's cost to this year's rate would need that future
-        # year's household composition and threshold inflation, not available
-        # from a single forward pass. Sheet 7's note explains the flag.
-        #
-        # Also deliberately NOT included: the ACA premium-tax-credit cliff (it
-        # is resolved earlier in the year's flow and is not re-runnable from
-        # here) and LTCG stacking (this probe adds ordinary income, not gain).
-        # The rate is therefore a lower bound in ACA-subsidised bridge years
-        # and near an IRMAA threshold -- documented rather than silently
-        # approximated.
-        #
-        # Both sides of the delta are recomputed through the SAME calls.
-        # Comparing a recomputed "bumped" stack against the engine's own
-        # fed_tax/state_tax would be wrong: those carry true-up passes, AMT
-        # and settle-up adjustments this probe does not reproduce, so the
-        # difference would measure that mismatch rather than the marginal
-        # dollar.
-        _EMR_BUMP = 1000.0
-        # Anchor on the year's FINAL position, not the mid-loop `non_ss_income`
-        # snapshot: elective IRA/trust withdrawals are added to agi/taxable_inc
-        # after that variable is set, so probing from it evaluates a poorer
-        # household than the one the plan actually ends the year as -- which
-        # showed up as effective rates a full bracket BELOW statutory.
-        _emr_non_ss_base = max(0.0, agi - ss_taxable)
-
-        def _emr_stack(extra_ordinary):
-            _non_ss = _emr_non_ss_base + extra_ordinary
-            _ss_tax = social_security_taxable_amount(
-                ss_total, _non_ss + portfolio_tax_exempt, filing)
-            _agi = max(0.0, _non_ss + _ss_tax)
-            # `ded` is this year's actual deduction (max of standard vs itemized,
-            # incl. the senior bonus), so the probe inherits the same
-            # standard/itemized posture the real calculation landed on.
-            _taxable = max(0.0, _agi - ded)
-            _fed = _compute_fed_tax_path(_taxable, year, filing, c['brk_inf'])
-            _state = state_income_tax(
-                state_for_year(c, year), earned_net, retirement_dist + ira_wd + extra_ordinary, _ss_tax,
-                note_int_yr + portfolio_ordinary + portfolio_qualified, nonqual_ann, roth_conv,
-                year, h_over_65, filing=filing, brk_inf=c['brk_inf'])
-            _niit_v = niit_tax(row.get('nii', 0.0) or 0.0, _agi, filing)
-            return _fed + _state + _niit_v
-
-        try:
-            _base_stack = _emr_stack(0.0)
-            _bumped_stack = _emr_stack(_EMR_BUMP)
-            row['effective_marginal_rate'] = (_bumped_stack - _base_stack) / _EMR_BUMP
-            # A future (year+2) IRMAA event: does the marginal dollar push
-            # THIS year's own MAGI (irmaa_magi_current, not the locked
-            # lookback irmaa_magi) across a tier it would otherwise not cross?
-            if n_medicare > 0:
-                _base_tier = _irmaa_tier_path(irmaa_magi_current, year, filing)
-                _bump_tier = _irmaa_tier_path(irmaa_magi_current + _EMR_BUMP, year, filing)
-                row['effective_marginal_rate_irmaa_cliff'] = _bump_tier > _base_tier
-            else:
-                row['effective_marginal_rate_irmaa_cliff'] = False
-        except Exception:
-            # A diagnostic must never break a projection.
-            row['effective_marginal_rate'] = None
-            row['effective_marginal_rate_irmaa_cliff'] = False
+        # See `compute_effective_marginal_rate` in effective_marginal_rate.py
+        # for the full rationale (SS torpedo, why IRMAA is/isn't perturbed,
+        # why both sides of the delta are recomputed through the same calls).
+        row['effective_marginal_rate'], row['effective_marginal_rate_irmaa_cliff'] = (
+            _compute_effective_marginal_rate(
+                c,
+                year=year,
+                filing=filing,
+                agi=agi,
+                ded=ded,
+                ss_taxable=ss_taxable,
+                ss_total=ss_total,
+                portfolio_tax_exempt=portfolio_tax_exempt,
+                earned_net=earned_net,
+                retirement_dist=retirement_dist,
+                ira_wd=ira_wd,
+                note_int_yr=note_int_yr,
+                portfolio_ordinary=portfolio_ordinary,
+                portfolio_qualified=portfolio_qualified,
+                nonqual_ann=nonqual_ann,
+                roth_conv=roth_conv,
+                nii=row.get('nii', 0.0),
+                n_medicare=n_medicare,
+                irmaa_magi_current=irmaa_magi_current,
+                h_over_65=h_over_65,
+                compute_fed_tax=_compute_fed_tax_path,
+                irmaa_tier=_irmaa_tier_path,
+            )
+        )
 
         row['net_income'] = row.get('gross_income', agi) - total_tax
 
