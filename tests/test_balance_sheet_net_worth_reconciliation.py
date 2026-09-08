@@ -99,3 +99,63 @@ def test_net_worth_sheet_never_reads_the_nonexistent_cash_other_row_key():
     src = inspect.getsource(m)
     assert "row.get('cash_other'" not in src
     assert "row.get(\"cash_other\"" not in src
+
+
+def test_results_model_balance_sheet_page_reconciles_with_excel_balance_sheet():
+    """Ticket 3.12: results_model's "1D. Balance Sheet" page must reproduce
+    build_sheet3's Net Worth (and group totals) exactly, not approximately --
+    a semantic page that disagrees with the Excel sheet would be a worse
+    regression than not modeling the page at all."""
+    from src.results_model import _balance_sheet_page
+
+    c, rows = _real_config_and_rows()
+
+    wb3 = Workbook()
+    build_sheet3(wb3.active, c, rows)
+    ws3 = wb3.active
+    bs_net_worth = ws3.cell(_find_row(ws3, 'NET WORTH'), 2).value
+    bs_pretax = ws3.cell(_find_row(ws3, 'Total Pre-Tax (Tax-Deferred)'), 2).value
+    bs_roth = ws3.cell(_find_row(ws3, 'Total Roth (Tax-Free)'), 2).value
+    bs_trust = ws3.cell(_find_row(ws3, 'Total Taxable / Trust'), 2).value
+    bs_hsa = ws3.cell(_find_row(ws3, 'Total Health Savings Account'), 2).value
+
+    page = _balance_sheet_page(c, rows)
+    assert page["name"] == "1D. Balance Sheet"
+    assert page["category"] == "Reports"
+
+    def _section_total(title):
+        section = next(s for s in page["sections"] if s["title"] == title)
+        return section["rows"][-1]["cells"][1]["value"]
+
+    model_net_worth = _section_total("Net Worth")
+    model_pretax = _section_total("Pre-Tax (Tax-Deferred)")
+    model_roth = _section_total("Roth (Tax-Free)")
+    model_trust = _section_total("Taxable / Trust")
+    model_hsa = _section_total("Health Savings Account")
+
+    assert abs(model_net_worth - bs_net_worth) < 1.0, f"NW: model {model_net_worth} vs excel {bs_net_worth}"
+    assert abs(model_pretax - bs_pretax) < 1.0
+    assert abs(model_roth - bs_roth) < 1.0
+    assert abs(model_trust - bs_trust) < 1.0
+    assert abs(model_hsa - bs_hsa) < 1.0
+
+    # Also reconciles with the projection's own Y0 target -- the same value
+    # build_sheet3's internal QC check (_nw_reconciled) verifies against.
+    yr0 = rows[0]
+    ye_invest_y0 = sum(yr0.get(k, 0) for k in ('pretax_nw', 'roth_nw', 'trust_nw', 'hsa_nw'))
+    open_invest_y0 = model_pretax + model_roth + model_trust + model_hsa
+    projection_y0_nw = yr0.get('total_nw', 0) - ye_invest_y0 + open_invest_y0
+    assert abs(model_net_worth - projection_y0_nw) < 1.0, (
+        f"model NW {model_net_worth} vs projection Y0 target {projection_y0_nw}"
+    )
+
+
+def test_results_model_includes_balance_sheet_page():
+    from src.results_model import build_result_explorer_model
+
+    c, rows = _real_config_and_rows()
+    model = build_result_explorer_model(c, rows, {"success_rate": 1.0})
+    names = [p["name"] for p in model["sheets"]]
+    assert "1D. Balance Sheet" in names
+    idx = {n: i for i, n in enumerate(names)}
+    assert idx["1C. Cash Flow"] < idx["1D. Balance Sheet"] < idx["1E. Charts"]

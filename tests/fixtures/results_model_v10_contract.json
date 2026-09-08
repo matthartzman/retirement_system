@@ -2,7 +2,7 @@
   "schema": "results_model_v10",
   "source": "semantic_results_model",
   "version": "12",
-  "sheet_count": 6,
+  "sheet_count": 7,
   "category_names": [
     "Reports",
     "Strategy"
@@ -27,6 +27,13 @@
       "kind": "table",
       "category": "Reports",
       "section_count": 1,
+      "min_row_count": 1
+    },
+    {
+      "name": "1D. Balance Sheet",
+      "kind": "table",
+      "category": "Reports",
+      "section_count": 8,
       "min_row_count": 1
     },
     {
