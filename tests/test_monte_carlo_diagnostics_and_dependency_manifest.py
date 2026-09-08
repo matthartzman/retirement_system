@@ -34,7 +34,7 @@ class RoadmapCompletionTests(unittest.TestCase):
         from src.secrets_store import encryption_status
         status = encryption_status()
         self.assertEqual(status["mode"], "local-only")
-        self.assertTrue(status["configured"])
+        self.assertTrue(status["store_active"])
         self.assertTrue(require_secure_master_key("LOCAL"))
 
     def test_cma_reference_csv_is_authoritative(self):
