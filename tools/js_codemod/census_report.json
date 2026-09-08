@@ -2753,6 +2753,18 @@
       "scope": "inside-function"
     },
     {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_monarch_autoupdate.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_monarch_autoupdate.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
       "name": "activeStep",
       "file": "frontend/js/dashboard_decomp_monarch_autoupdate.js",
       "kind": "read",
