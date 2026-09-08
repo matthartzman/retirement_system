@@ -1446,10 +1446,9 @@ function renderStateResidency() {
   html += `</div>`;
   return html;
 }
-function renderEntityCharitable() {
-  let html = `<div class="section-note">Qualified charitable distributions (age 70½+) satisfy required distributions without the amount appearing as taxable income. S-Corp election is a self-employment decision, entered on <a href="#" onclick="setStep('income_work');return false">Work Income</a>.</div>`;
-  return html + renderFields("entity_charitable");
-}
+// renderEntityCharitable (and its entityCharitableGatedRows DAF/QCD gating
+// helper, #318) lives in dashboard_decomp_estate_insurance.js, alongside
+// renderToggleRows' matching QTIP/Credit Shelter Trust pattern.
 
 function chatMessageHtml(m) {
   const role = m.role === "user" ? "user" : "assistant";
@@ -7479,11 +7478,11 @@ Object.assign(window, {
   planningCaseSaveAll, planningCaseSourceButtons, planningWorkbenchBuildImpactHtml,
   planningWorkbenchStressSelectorHtml, primaryActionForStep, promotePlanningCase,
   recoverPriorSpendingBudget, recoverYtdAccountSetup, rememberBuildCompare, renderAssetsCashReserves,
-  renderDetailedResultsNav, renderDetailedResultsProgressTick, renderEntityCharitable,
-  renderEstateWithAnnuityLink, renderFieldFinderGroups, renderHouseholdPeople, renderMeta, renderNav,
-  renderOptionalFunctions, renderPlanningWorkbench, renderRetirementWellness,
-  renderSpecialStrategies, renderSpendingDashboardOrLoad, renderSpendingWorkflowBanner,
-  renderStateResidency, renderStrategyTabs, renderWithdrawalOrderTable, renderWithdrawalStrategy,
+  renderDetailedResultsNav, renderDetailedResultsProgressTick, renderEstateWithAnnuityLink,
+  renderFieldFinderGroups, renderHouseholdPeople, renderMeta, renderNav, renderOptionalFunctions,
+  renderPlanningWorkbench, renderRetirementWellness, renderSpecialStrategies,
+  renderSpendingDashboardOrLoad, renderSpendingWorkflowBanner, renderStateResidency,
+  renderStrategyTabs, renderWithdrawalOrderTable, renderWithdrawalStrategy,
   renderWorkspaceSubtabsNav, resetAllocationPreview, restoreGroupBudgetModes,
   restoreWorkbookViewState, revertLastBuildChanges, rollForwardYtdAccounts, rowConfigValue,
   rowIsRetirementWellness, saveAndExit, saveChanges, saveValueForRow, saveYtdAccountSetup,
