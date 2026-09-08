@@ -724,15 +724,13 @@ def rmd_divisor(age, spouse_age=None, sole_beneficiary_spouse=False):
     ``spouse_age`` is more than 10 years younger -- the one case where the
     Uniform Lifetime table understates the RMD reduction a household
     actually gets (finding F10 / item 2.9).
+
+    Wave 5 item W5-2 (finding N5): delegates to the single canonical
+    implementation in ``tax_kernel.rmd_divisor`` -- see that function's
+    docstring for why this used to disagree with
+    ``planning_engines.rmd_divisor`` for fractional ages.
     """
-    if age < 72:
-        return 0
-    if sole_beneficiary_spouse and spouse_age is not None and (age - spouse_age) > 10:
-        return joint_life_divisor(age, spouse_age)
-    if age in RMD_DIVISORS:
-        return RMD_DIVISORS[age]
-    # Conservative post-table continuation, never pretending old ages have long divisors.
-    return max(2.0, RMD_DIVISORS[115] - (age - 115) * 0.1)
+    return _tk.rmd_divisor(age, spouse_age=spouse_age, sole_beneficiary_spouse=sole_beneficiary_spouse)
 
 
 
@@ -1448,6 +1446,16 @@ def _first_year_proration_fraction(stream):
     Same convention as deterministic_engine._medicare_month_fraction
     (payments/coverage start the 1st of the given month): a June 1 start
     leaves 7 of 12 months (Jun-Dec) payable in that calendar year.
+
+    Wave 5 item W5-3 (finding N3) considered, then explicitly did NOT apply,
+    an arrears adjustment here (unlike the genuinely-entitlement-based SS
+    fix in deterministic_engine._ss_first_claim_year_month_fraction):
+    `first_payment` (src/data_io.py's load_stream()) is user-entered and
+    documented as the date the contract's FIRST CASH IS ACTUALLY RECEIVED,
+    not an entitlement/accrual start date -- so this formula's existing
+    in-advance-style month count is already correct arithmetic for that
+    field's real meaning; an additional arrears shift would double-count
+    the timing adjustment and understate first-year annuity/pension income.
     """
     month = stream.get('first_payment_month')
     try:

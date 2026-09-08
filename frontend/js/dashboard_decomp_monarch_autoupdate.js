@@ -10,6 +10,17 @@
 // chain now reaches refreshMonarchAutoUpdateStatus() via a dynamic import
 // instead of a bare global reference, for the same load-order reason).
 let monarchAutoUpdateStatus = null;
+// Finding UX-103 (system review 2026-09-07, Wave 5 item W5-8): this card
+// used a manual "Save setting" button in an otherwise-autosaving app, with
+// no dirty/busy indicator, and "Import now" gave no feedback while running.
+let monarchAutoUpdateSaving = false;
+let monarchAutoUpdateRunning = false;
+// The value the in-flight save actually sent, captured from the DOM before
+// the busy-state render below fires -- without this, that render rebuilds
+// the checkbox/input from the still-stale pre-save monarchAutoUpdateStatus,
+// visibly snapping the control back to its old value (while disabled) the
+// instant a user toggles it, even though the save proceeds correctly.
+let monarchAutoUpdatePendingPolicy = null;
 function monarchAutoUpdateStatusLine() {
   const s = monarchAutoUpdateStatus || {};
   const p = s.policy || {};
@@ -24,8 +35,18 @@ function monarchAutoUpdateStatusLine() {
 }
 function monarchAutoUpdateControlsHtml() {
   const s = monarchAutoUpdateStatus || {};
-  const p = Object.assign({ enabled: false, source_dir: "Monarch Extractor/output" }, s.policy || {});
-  return `<div class="feature-card monarch-autoupdate-card" tabindex="0" onclick="showConfigCardHelp('monarch_autoupdate')" onfocus="showConfigCardHelp('monarch_autoupdate')"><h3>Monarch auto-update</h3><p class="small">Import new and changed transactions from the Monarch Extractor's output folder automatically every day at 4am, matched and merged by Monarch id. Requires a Windows Task Scheduler entry (registered automatically when enabled).</p><label class="small"><input type="checkbox" id="monarchAutoUpdateEnabled" ${p.enabled ? "checked" : ""}> Enable daily auto-update (4am)</label><div class="table-actions"><label class="small">Source folder <input id="monarchAutoUpdateSourceDir" type="text" value="${esc(p.source_dir || "")}" style="width:260px"></label></div><p class="small"><b>Status:</b> ${esc(monarchAutoUpdateStatusLine())}</p><div class="table-actions"><button class="btn" type="button" onclick="event.stopPropagation();saveMonarchAutoUpdatePolicy()" onfocus="event.stopPropagation();showConfigCardHelp('monarch_autoupdate')">Save setting</button><button class="btn" type="button" onclick="event.stopPropagation();runMonarchAutoUpdateNow()" onfocus="event.stopPropagation();showConfigCardHelp('monarch_autoupdate')">Import now</button><button class="btn" type="button" onclick="event.stopPropagation();refreshMonarchAutoUpdateStatus()" onfocus="event.stopPropagation();showConfigCardHelp('monarch_autoupdate')">Refresh</button></div></div>`;
+  const p = Object.assign(
+    { enabled: false, source_dir: "Monarch Extractor/output" },
+    s.policy || {},
+    monarchAutoUpdateSaving ? monarchAutoUpdatePendingPolicy || {} : {},
+  );
+  const busy = monarchAutoUpdateSaving || monarchAutoUpdateRunning;
+  const disabledAttr = busy ? " disabled" : "";
+  const statusSuffix = monarchAutoUpdateSaving
+    ? ' <span class="small" style="color:var(--muted)">Saving…</span>'
+    : "";
+  const runLabel = monarchAutoUpdateRunning ? "Importing…" : "Import now";
+  return `<div class="feature-card monarch-autoupdate-card" tabindex="0" onclick="showConfigCardHelp('monarch_autoupdate')" onfocus="showConfigCardHelp('monarch_autoupdate')"><h3>Monarch auto-update</h3><p class="small">Import new and changed transactions from the Monarch Extractor's output folder automatically every day at 4am, matched and merged by Monarch id. Requires a Windows Task Scheduler entry (registered automatically when enabled).</p><label class="small"><input type="checkbox" id="monarchAutoUpdateEnabled" ${p.enabled ? "checked" : ""}${disabledAttr} onchange="event.stopPropagation();saveMonarchAutoUpdatePolicy()"> Enable daily auto-update (4am)</label><div class="table-actions"><label class="small">Source folder <input id="monarchAutoUpdateSourceDir" type="text" value="${esc(p.source_dir || "")}"${disabledAttr} onblur="event.stopPropagation();saveMonarchAutoUpdatePolicy()" style="width:260px"></label></div><p class="small"><b>Status:</b> ${esc(monarchAutoUpdateStatusLine())}${statusSuffix}</p><div class="table-actions"><button class="btn" type="button"${monarchAutoUpdateRunning ? " disabled" : ""} onclick="event.stopPropagation();runMonarchAutoUpdateNow()" onfocus="event.stopPropagation();showConfigCardHelp('monarch_autoupdate')">${runLabel}</button><button class="btn" type="button" onclick="event.stopPropagation();refreshMonarchAutoUpdateStatus()" onfocus="event.stopPropagation();showConfigCardHelp('monarch_autoupdate')">Refresh</button></div></div>`;
 }
 async function refreshMonarchAutoUpdateStatus(silent = false) {
   try {
@@ -43,9 +64,12 @@ async function refreshMonarchAutoUpdateStatus(silent = false) {
   }
 }
 async function saveMonarchAutoUpdatePolicy() {
+  const enabled = !!(document.getElementById("monarchAutoUpdateEnabled") || {}).checked;
+  const sourceDir = (document.getElementById("monarchAutoUpdateSourceDir") || {}).value || "";
+  monarchAutoUpdatePendingPolicy = { enabled, source_dir: sourceDir };
+  monarchAutoUpdateSaving = true;
+  renderMain();
   try {
-    const enabled = !!(document.getElementById("monarchAutoUpdateEnabled") || {}).checked;
-    const sourceDir = (document.getElementById("monarchAutoUpdateSourceDir") || {}).value || "";
     const out = await api("/api/plan/monarch-autoupdate/config", {
       method: "POST",
       body: JSON.stringify({ enabled, source_dir: sourceDir }),
@@ -62,15 +86,20 @@ async function saveMonarchAutoUpdatePolicy() {
     } else {
       showMessage(enabled ? "Monarch auto-update enabled." : "Monarch auto-update disabled.", "success");
     }
-    renderMain();
   } catch (e) {
     showMessage(
       "Could not save Monarch auto-update setting: " + (e && e.message ? e.message : e),
       "error",
     );
+  } finally {
+    monarchAutoUpdateSaving = false;
+    monarchAutoUpdatePendingPolicy = null;
+    renderMain();
   }
 }
 async function runMonarchAutoUpdateNow() {
+  monarchAutoUpdateRunning = true;
+  renderMain();
   try {
     const out = await api("/api/plan/monarch-autoupdate/run", {
       method: "POST",
@@ -88,12 +117,14 @@ async function runMonarchAutoUpdateNow() {
     } else {
       showMessage("Monarch import failed — see status for details.", "error");
     }
-    if (activeStep === "system_configuration") renderMain();
   } catch (e) {
     showMessage(
       "Monarch import failed: " + (e && e.message ? e.message : e),
       "error",
     );
+  } finally {
+    monarchAutoUpdateRunning = false;
+    if (activeStep === "system_configuration") renderMain();
   }
 }
 // Bare-global bridge (see this file's header comment): onclick handlers in

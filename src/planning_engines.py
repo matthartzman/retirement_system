@@ -532,12 +532,34 @@ def beneficiary_titling_audit(c: Mapping) -> list:
     estate_objective = str(c.get('estate_tax_objective_mode', 'BALANCED') or 'BALANCED').strip().upper()
     state = str(c.get('state', '') or '')
     household_regime = str(c.get('basis_step_up_property_regime', 'COMMON_LAW') or 'COMMON_LAW').strip().upper()
+    # Wave 5 item W5-1 (finding N4, 2026-09-08 planner sign-off): a >10-year
+    # spousal age gap with no titling on file no longer silently assumes
+    # Joint Life relief (see _spouse_is_sole_beneficiary) -- flag it here
+    # instead, so the household/advisor can make the designation explicit
+    # rather than lose the relief silently. Age gap is birth-year-invariant,
+    # so no projection year is needed.
+    h_dob = int(c.get('h_dob_yr', 0) or 0)
+    w_dob = int(c.get('w_dob_yr', 0) or 0)
+    age_gap_qualifies = bool(h_dob and w_dob and abs(h_dob - w_dob) > 10)
+    spouse_name_by_owner = {0: str(c.get('w_name') or ''), 1: str(c.get('h_name') or '')}
 
     findings = []
     for acct in registry:
         aid = acct.get('id')
         entry = titling_map.get(aid)
         if not entry:
+            if age_gap_qualifies and acct.get('rmd') and acct.get('tax') in {'pre_tax'}:
+                owner_idx = acct.get('owner_idx')
+                spouse_name = spouse_name_by_owner.get(owner_idx, '')
+                if not _spouse_is_sole_beneficiary(c, [aid], spouse_name):
+                    label = acct.get('label') or aid
+                    findings.append((aid, label, 'joint_life_relief_unconfirmed',
+                                      'This account has a >10-year spousal age gap that could qualify for '
+                                      'the more favorable IRS Table II (Joint and Last Survivor) RMD divisor, '
+                                      'but no beneficiary titling is on file, so RMDs are computed under the '
+                                      'standard Uniform Lifetime table instead. If the spouse is intended to '
+                                      'be the sole primary beneficiary, record that titling to apply the '
+                                      'larger divisor (lower RMDs); if not, no action is needed.'))
             continue
         label = acct.get('label') or aid
         tax = acct.get('tax')
@@ -840,7 +862,7 @@ from . import core as _ar  # consolidated from account_registry
 BalanceMap = MutableMapping[str, float]
 
 
-def rmd_divisor(age: int | float, table: Mapping[int, float] | None = None,
+def _rmd_divisor_with_table_override(age: int | float, table: Mapping[int, float] | None = None,
                  spouse_age: int | float | None = None,
                  sole_beneficiary_spouse: bool = False) -> float:
     """Return the RMD divisor for an age: SECURE 2.0 Uniform Lifetime by
@@ -852,41 +874,40 @@ def rmd_divisor(age: int | float, table: Mapping[int, float] | None = None,
     `table` is injectable so build_workbook can keep its current source of
     truth while tests can exercise this helper independently; it only
     overrides the Uniform Lifetime lookup, not the Joint Life table.
+
+    Wave 5 item W5-2 (finding N5): delegates to the single canonical
+    implementation in `tax_kernel.rmd_divisor` -- see that function's
+    docstring for why this used to disagree with `core.rmd_divisor` for
+    fractional ages.
     """
-    age_i = int(age)
-    if age_i < 72:
-        return 0.0
-    if sole_beneficiary_spouse and spouse_age is not None and (age_i - spouse_age) > 10:
-        from .core import joint_life_divisor
-        return float(joint_life_divisor(age_i, spouse_age))
-    if table and age_i in table:
-        return float(table[age_i])
-    try:
-        from .core import RMD_DIVISORS  # consolidated from engine_core
-        if age_i in RMD_DIVISORS:
-            return float(RMD_DIVISORS[age_i])
-    except Exception:
-        pass
-    # Beyond table age, keep declining conservatively without corrupting
-    # known-table ages such as age 80 (20.2, not a linear approximation).
-    return max(2.0, 2.9 - max(0, age_i - 115) * 0.1)
+    from .tax_kernel import rmd_divisor as _tk_rmd_divisor
+    return _tk_rmd_divisor(age, spouse_age=spouse_age,
+                            sole_beneficiary_spouse=sole_beneficiary_spouse, table=table)
 
 
 def _spouse_is_sole_beneficiary(c: Mapping, ids: Sequence[str], spouse_name: str) -> bool:
-    """True if per-account titling data names the spouse as sole primary
-    beneficiary for this owner's RMD-eligible accounts, or if no titling
-    record is on file for any of them at all.
+    """True only if per-account titling data EXPLICITLY names the spouse as
+    sole primary beneficiary for at least one of this owner's RMD-eligible
+    accounts, with none of them naming anyone else.
 
-    Finding F10 / item 2.9: "automatic detection via titling plus an
-    age-gap fallback." Absent an explicit record naming someone else, this
-    assumes the spouse is the beneficiary -- the common case for retirement
-    accounts, and the reason the age-gap alone is the documented fallback
-    rather than withholding the more favorable Joint Life divisor by
-    default. An explicit record naming a different beneficiary (not the
-    spouse) for any of these accounts overrides the fallback to False.
+    Finding N4 / Wave 5 item W5-1 (2026-09-08, explicit planner sign-off):
+    inverts item 2.9's original "automatic detection via titling plus an
+    age-gap fallback." That fallback assumed the spouse was the beneficiary
+    whenever no titling record existed at all, which silently OVERSTATED
+    Joint Life relief (understating RMDs, and understating the value of
+    Roth conversions) for any household with a qualifying age gap and no
+    titling on file -- the opposite-directional twin of item 2.9's own
+    original overstatement bug. The household must now have an explicit
+    record naming the spouse for this relief to apply; silence (no titling
+    record at all) now defaults to the standard, more conservative Uniform
+    Lifetime table, the same as an explicit record naming someone else
+    already did. See beneficiary_titling_audit()'s 'joint_life_relief_
+    unconfirmed' finding, which flags exactly this silent-default case for
+    the advisor/household to resolve explicitly.
     """
     titling = c.get('account_titling') or {}
     spouse_l = str(spouse_name or '').strip().lower()
+    explicit_spouse_designation = False
     for aid in ids:
         rec = titling.get(aid)
         if not rec:
@@ -894,12 +915,11 @@ def _spouse_is_sole_beneficiary(c: Mapping, ids: Sequence[str], spouse_name: str
         ben = str(rec.get('primary_beneficiary') or '').strip().lower()
         if not ben:
             continue
-        if 'spouse' in ben:
-            continue
-        if spouse_l and spouse_l in ben:
+        if 'spouse' in ben or (spouse_l and spouse_l in ben):
+            explicit_spouse_designation = True
             continue
         return False
-    return True
+    return explicit_spouse_designation
 
 
 def owner_account_ids(registry: Sequence[Mapping], owner_idx: int, tax_type: str | None = None) -> List[str]:
@@ -969,7 +989,13 @@ def compute_rmds(
             # the newer keyword arguments -- fall back to the plain call
             # rather than breaking existing single-arg callables.
             divisor = divisor_fn(age) if alive and age >= start_age else 0.0
-        amount = max(0.0, total_bal / divisor) if divisor and total_bal > 500 else 0.0
+        # Wave 5 item W5-9 (finding N6): the RMD is a statutory requirement
+        # with no de-minimis exception -- a prior `total_bal > 500` gate here
+        # was an undocumented magic number with no basis in 26 U.S.C. 401(a)
+        # (9) or its regulations. Removed; the only real floor is a zero/
+        # negative balance, which naturally produces a zero RMD via the
+        # division below regardless.
+        amount = max(0.0, total_bal / divisor) if divisor and total_bal > 0 else 0.0
         by_owner[owner_idx] = {
             "ids": ids,
             "balance": total_bal,
@@ -2395,6 +2421,12 @@ only a workbook/report orchestration layer and delegates projection work here.
 
 
 from .core import *  # noqa: F401,F403  # consolidated from engine_core
+# Wave 5 item W5-2 (finding N5): the wildcard import above shadows this
+# module's own `rmd_divisor` (defined earlier as `_rmd_divisor_with_table_
+# override`) with core.rmd_divisor's narrower signature (no `table`
+# override param) -- restore the fuller binding every external caller of
+# `planning_engines.rmd_divisor` actually expects.
+rmd_divisor = _rmd_divisor_with_table_override  # noqa: F811
 
 def project(c):
     """Public projection orchestrator.

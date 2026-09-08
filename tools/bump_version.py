@@ -263,6 +263,21 @@ def apply_admin_html_version(html: str, old_version: str, new_version: str) -> s
     return html.replace(f'Retirement System v{old_version}', f'Retirement System v{new_version}')
 
 
+def apply_project_manifest_version(text: str, old_version: str, new_version: str) -> str:
+    """Pure string transform, unit-testable without touching a real file --
+    mirrors apply_admin_html_version's reasoning (finding DOC-202, system
+    review 2026-09-07: PROJECT_MANIFEST.md's own "# Retirement Planning
+    v<N> Project Manifest" heading was never in this script's replace-set,
+    same gap admin.html had before item 3b). Only the exact heading phrase
+    is replaced, not the "Generated: <date>" line below it -- an unrelated
+    field this script does not own."""
+    return re.sub(
+        r'(# Retirement Planning )v' + re.escape(old_version) + r'( Project Manifest)',
+        r'\g<1>v' + new_version + r'\g<2>',
+        text,
+    )
+
+
 def bump(new_version: str) -> str | None:
     """Bump the version across the usual surfaces. Returns the OLD version string
     (needed by --sweep-folder-refs/--rename-folder to know what to rewrite), or
@@ -311,6 +326,25 @@ def bump(new_version: str) -> str | None:
         else:
             admin_html_path.write_text(updated_admin_html, encoding='utf-8')
             print(f'  updated {admin_html_path.relative_to(ROOT)}')
+
+    # 3c. PROJECT_MANIFEST.md's own "# Retirement Planning v<N> Project
+    # Manifest" heading (finding DOC-202, system review 2026-09-07: this
+    # file, like admin.html before item 3b, was never in this script's
+    # replace-set, so it kept reading "v11" a full version bump after the
+    # rest of the app moved to v12). documentation/readme/README.md's
+    # heading is deliberately NOT tracked here -- DOC-202 also removed the
+    # version number from it entirely, since the running app already
+    # reports its own version and a second hardcoded copy is just another
+    # thing to go stale.
+    manifest_path = ROOT / 'PROJECT_MANIFEST.md'
+    if manifest_path.exists():
+        manifest_text = manifest_path.read_text(encoding='utf-8')
+        updated_manifest = apply_project_manifest_version(manifest_text, old_version, new_version)
+        if updated_manifest == manifest_text:
+            print(f'  WARNING: "Retirement Planning v{old_version} Project Manifest" not found in PROJECT_MANIFEST.md — update manually')
+        else:
+            manifest_path.write_text(updated_manifest, encoding='utf-8')
+            print(f'  updated {manifest_path.relative_to(ROOT)}')
 
     # 4. system_config.csv
     csv_path = ROOT / 'system_config.csv'

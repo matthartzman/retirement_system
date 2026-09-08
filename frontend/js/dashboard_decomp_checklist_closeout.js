@@ -72,15 +72,18 @@ export function showYtdBlendChoiceModal(summary) {
       "<p><b>Use real actuals (recommended):</b> the new plan's current-year projection blends this real activity in for the remainder of the year — matches how the app models your actual ongoing plan.</p>" +
       '<p><b>Model as fully hypothetical:</b> ignores the real activity above and projects the whole current year from your entered assumptions only — use this for a detached "what-if" scenario that should not inherit real bank/brokerage activity.</p>' +
       '<p class="small">You can change this later from the YTD Account Setup page.</p>';
+    const previouslyFocused = document.activeElement;
     const overlay = document.createElement("div");
     overlay.className = "inapp-modal-overlay";
     overlay.innerHTML =
-      '<div class="inapp-modal"><b class="inapp-modal-title">New plan and real year-to-date actuals</b><div class="inapp-modal-body">' +
+      '<div class="inapp-modal" role="dialog" aria-modal="true" aria-labelledby="ytd-choice-modal-title"><b class="inapp-modal-title" id="ytd-choice-modal-title">New plan and real year-to-date actuals</b><div class="inapp-modal-body">' +
       body +
       '</div><div class="inapp-modal-actions"><button class="btn ytd-choice-cancel" type="button">Cancel</button><button class="btn ytd-choice-hypothetical" type="button">Model as fully hypothetical</button><button class="btn primary ytd-choice-blend" type="button">Use real actuals (recommended)</button></div></div>';
     document.body.appendChild(overlay);
     function close(v) {
       overlay.remove();
+      document.removeEventListener("keydown", onKey);
+      if (previouslyFocused && typeof previouslyFocused.focus === "function") previouslyFocused.focus();
       resolve(v);
     }
     overlay.querySelector(".ytd-choice-blend").onclick = function () {
@@ -98,7 +101,22 @@ export function showYtdBlendChoiceModal(summary) {
     function onKey(e) {
       if (e.key === "Escape") {
         close(null);
-        document.removeEventListener("keydown", onKey);
+        return;
+      }
+      if (e.key === "Tab") {
+        const focusable = overlay.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        );
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     }
     document.addEventListener("keydown", onKey);
