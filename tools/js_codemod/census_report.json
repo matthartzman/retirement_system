@@ -121,7 +121,6 @@
     "renderAssetsCashReserves",
     "renderDetailedResultsNav",
     "renderDetailedResultsProgressTick",
-    "renderEntityCharitable",
     "renderEstateWithAnnuityLink",
     "renderFieldFinderGroups",
     "renderHouseholdPeople",
@@ -2168,6 +2167,24 @@
       "name": "boolishValue",
       "file": "frontend/js/dashboard_decomp_estate_insurance.js",
       "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "boolishValue",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "boolishValue",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "searchText",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "read",
       "scope": "inside-function"
     },
     {

@@ -352,25 +352,6 @@ def _y(v, default=0):
     except Exception:
         return default
 
-def _insurance_policy_premium_sum(data, policy_type):
-    # #224: an Insurance Policy record (Insurance page) of this type becomes
-    # the source of truth for that baseline once one exists with a nonzero
-    # premium, instead of a separately-maintained comparison number that can
-    # drift from it. Gated behind the same "Existing Life Insurance" optional
-    # module every other Insurance In Force row is gated behind (see #226-
-    # style optional-module gating) -- otherwise this would activate policy
-    # rows the rest of the app is still treating as off/inactive.
-    if not _b(_v(data, 'Optional Functions', '', 'existing_life_insurance', 'FALSE')):
-        return 0.0
-    total = 0.0
-    target = policy_type.strip().lower()
-    for fields in (data.get('Insurance In Force') or {}).values():
-        if str(fields.get('policy_type', '')).strip().lower() != target:
-            continue
-        total += _n(fields.get('annual_premium', '0'), 0)
-    return total
-
-
 def _date_parts(v):
     """Return (year, month, day) for common plan-date strings, else None.
 
@@ -500,6 +481,34 @@ _LIFE_POLICY_TYPES = {'term', 'whole', 'universal', 'ul', 'iul', 'vul', 'gul', '
 # keep working unchanged.
 from .parsing.advanced_modules import parse_advanced_modules  # noqa: F401
 
+# parse_daf() extracted to src/parsing/daf.py
+# System review 2026-08-31, finding A5 / Wave 3 item 3.13 ("split
+# parse_client into src/parsing/ siblings; move validation out"). Re-exported
+# here so existing callers (`from src.data_io import parse_daf`) keep working
+# unchanged.
+from .parsing.daf import parse_daf  # noqa: F401
+
+# parse_note_receivable() extracted to src/parsing/note_receivable.py
+# System review 2026-08-31, finding A5 / Wave 3 item 3.13 ("split
+# parse_client into src/parsing/ siblings; move validation out"). Re-exported
+# here so existing callers (`from src.data_io import parse_note_receivable`)
+# keep working unchanged.
+from .parsing.note_receivable import parse_note_receivable  # noqa: F401
+
+# _insurance_policy_premium_sum() extracted to src/parsing/insurance.py
+# System review 2026-08-31, finding A5 / Wave 3 item 3.13 ("split
+# parse_client into src/parsing/ siblings; move validation out"). Re-exported
+# here so existing callers (`from src.data_io import
+# _insurance_policy_premium_sum`) keep working unchanged.
+from .parsing.insurance import _insurance_policy_premium_sum  # noqa: F401
+
+# parse_estate_planning() extracted to src/parsing/estate_planning.py
+# System review 2026-08-31, finding A5 / Wave 3 item 3.13 ("split
+# parse_client into src/parsing/ siblings; move validation out"). Re-exported
+# here so existing callers (`from src.data_io import parse_estate_planning`)
+# keep working unchanged.
+from .parsing.estate_planning import parse_estate_planning  # noqa: F401
+
 
 def parse_client(data, url_template, *, skip_live_pricing=False):
     """Parse sectioned client data into an engine-ready config dict.
@@ -589,7 +598,6 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
             'end_year': _rend if _rend else 9999,
         })
     c['residency_schedule'].sort(key=lambda p: p['start_year'])
-    c['trust_type']= _v(data,'Estate Planning','Trust Structure','trust_type','revocable living trust')
 
     # Market pricing settings live in multi_user/system_config.csv and are merged by the active config loader.
     configure_api_keys(
@@ -1118,62 +1126,9 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
         c['startup_sale_price'] = c['startup_eq'] * ((1.0 + c['startup_gr']) ** _years_to_sale if (1.0 + c['startup_gr']) > 0 else 1.0)
     # Straight-line depreciation: value / depreciation_years per year → $0 at end of life.
 
-    # Note Receivable — repeatable like other typed "Other Assets" (one or more
-    # named notes).  Each note is entered as its own "Note N" subsection with a
-    # descriptive name plus the same fields the single legacy note used to have
-    # (face value, first/last payment year, annual principal, final-year
-    # principal, and an interest-by-year schedule).  The projection engine
-    # consumes per-note detail via c['note_items'] and also needs simple
-    # scalar aggregates for legacy call sites (deterministic engine, balance
-    # sheet, optimization) — those are summed/derived across all notes below.
-    c['note_items'] = []
-    _note_section = data.get('Note Receivable') or {}
-    _note_subs = [s for s in _note_section.keys()
-                  if re.match(r'^Note\s+\d+$', str(s or '').strip(), re.I)]
-    # Backward compat: a pre-multi-note plan snapshot (single Note Receivable,
-    # subsection "Summary") predates the "Note N" repeatable-note convention.
-    # A stale plan_snapshots row using that older shape must still parse as
-    # one note instead of silently producing an empty note_items (zero note
-    # income/balance everywhere, with no error to say why).
-    if not _note_subs and 'Summary' in _note_section:
-        _note_subs = ['Summary']
-    _note_subs = sorted(_note_subs, key=lambda s: (0, int(re.search(r'(\d+)', s).group(1))) if re.search(r'(\d+)', s) else (1, s))
-    for _nsub in _note_subs:
-        _nvals = _note_section[_nsub]
-        _nname = str(_nvals.get('name') or _nsub).strip() or _nsub
-        _nface  = _n(_nvals.get('face_value', '0'), 0.0)
-        _nfirst = _y(_nvals.get('first_payment', f"1/2/{c['plan_start']}"), c['plan_start'])
-        _nlast  = _y(_nvals.get('last_payment', '1/2/2033'), 2033)
-        _nprinc = _n(_nvals.get(f'annual_principal_{TAX_BASE_YEAR}_{TAX_BASE_YEAR + 6}',
-                                 _nvals.get('annual_principal_base_period', '0')), 0.0)
-        _nprinc_final = _n(_nvals.get('final_principal_2033', _nvals.get('final_principal', '0')), 0.0)
-        _ninterest = {}
-        # The legacy single-note shape (subsection "Summary") kept its
-        # interest schedule under "Interest by Year" rather than
-        # "{subsection} Interest" -- matches the fallback above.
-        _nint_sub = 'Interest by Year' if _nsub == 'Summary' else f'{_nsub} Interest'
-        for yr in range(c['plan_start'], c['plan_start'] + 8):
-            iv = _v(data, 'Note Receivable', _nint_sub, str(yr), '0')
-            _ninterest[yr] = _n(iv, 0)
-        c['note_items'].append({
-            'section': _nsub, 'name': _nname, 'face_value': _nface,
-            'first_payment_year': _nfirst, 'last_payment_year': _nlast,
-            'annual_principal': _nprinc, 'final_principal': _nprinc_final,
-            'interest_by_year': _ninterest,
-        })
-
-    # Legacy scalar aggregates used by the deterministic engine, balance
-    # sheet, and optimization scoring.  face_value/annual_principal sum
-    # across notes; first/last payment years span the earliest start and
-    # latest end of any note; interest-by-year sums across notes.
-    c['note_face']   = sum(n['face_value'] for n in c['note_items']) if c['note_items'] else 0.0
-    c['note_first']  = min((n['first_payment_year'] for n in c['note_items']), default=c['plan_start'])
-    c['note_last']   = max((n['last_payment_year'] for n in c['note_items']), default=c['plan_start'])
-    c['note_princ']  = sum(n['annual_principal'] for n in c['note_items']) if c['note_items'] else 0.0
-    c['note_princ_final'] = sum(n['final_principal'] for n in c['note_items']) if c['note_items'] else 0.0
-    c['note_interest'] = {}
-    for yr in range(c['plan_start'], c['plan_start'] + 8):
-        c['note_interest'][yr] = sum(n['interest_by_year'].get(yr, 0) for n in c['note_items'])
+    # Note Receivable — see src/parsing/note_receivable.py for the full
+    # per-note parsing and legacy scalar aggregation logic.
+    c.update(parse_note_receivable(data, c['plan_start']))
 
     # HSA withdrawal policy. Default is spend_as_needed: do not schedule HSA draws;
     # use HSA only when needed for a funding gap before touching Roth. Optional
@@ -1421,54 +1376,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
                                    DEFAULT_ROTH_TAX_DISCOUNT_RATE)
 
     # Estate
-    c['fed_exempt']  = _n(_v(data,'Estate Planning','Federal','exemption_mfj','30000000'), 30000000)
-    # Section 'State' (item 291 Class 4; was 'Illinois' -- migrate_sectioned_data,
-    # called above, upgrades any legacy row to this shape before this read runs).
-    # Label itself was already state-generic (state_estate_exemption); only the
-    # subsection baked in the state name.
-    c['il_exempt']   = _n(_v(data,'Estate Planning','State','state_estate_exemption','4000000'), 4000000)
-    # #227/#303: a funded Credit Shelter Trust shelters decedent assets from the
-    # survivor's estate entirely (see cs_enabled/cs_amount below) rather than
-    # doubling il_exempt directly -- il_exempt itself must stay the survivor's
-    # own plain exemption or the trust benefit gets double-counted. This cap
-    # governs how much of the FIRST decedent's own exemption can be carried
-    # into the trust at first death, so it defaults to the same $4,000,000 as
-    # il_exempt: decedent's $4M (CST-sheltered) + survivor's own separate $4M
-    # (il_exempt) = the $8,000,000 combined household IL exemption Illinois'
-    # lack of portability otherwise loses at the first death. A default of
-    # $8,000,000 here would let the trust shelter the survivor's own exemption
-    # a second time, understating combined household exposure by up to $4M.
-    c['il_cst_shelter_cap'] = _n(_v(data,'Estate Planning','Credit Shelter Trust','shelter_cap','4000000'), 4000000)
-    c['cst_enabled'] = _b(_v(data,'Estate Planning','Credit Shelter Trust','enabled','FALSE'))
-    c['basis_step_up_at_death'] = _b(_v(data,'Estate Planning','Step-Up','basis_step_up_at_death','TRUE'))
-    c['basis_step_up_property_regime'] = str(_v(data,'Estate Planning','Step-Up','property_regime','COMMON_LAW') or 'COMMON_LAW').strip().upper()
-    if c['basis_step_up_property_regime'] not in ('COMMON_LAW','COMMUNITY_PROPERTY','HALF_STEP_UP','FULL_STEP_UP'):
-        c['basis_step_up_property_regime'] = 'COMMON_LAW'
-    c['federal_portability_enabled'] = _b(_v(data,'Estate Planning','Federal','portability_enabled','TRUE'))
-    # Item 4.7 (P8): optional, used only by beneficiary_titling_audit() to flag
-    # a former spouse still named as a beneficiary somewhere. Blank by default.
-    c['former_spouse_name'] = _v(data,'Estate Planning','Step-Up','former_spouse_name','')
-    c['qss_dependent'] = _b(_v(data,'Household','','survivor_has_dependent','FALSE'))
-    # Do not double the IL exemption as a shortcut.  The projection now tracks
-    # actual first-death credit-shelter funding and subtracts that funded amount
-    # from the survivor's taxable estate.
-    c['gift_excl']   = _n(_v(data,'Estate Planning','Gifting','annual_exclusion_per_donee','19000'), 19000)
-    # QTIP Trust — elected by executor to qualify marital deduction; controls disposition after survivor's death
-    c['qtip_enabled']      = _b(_v(data,'Estate Planning','QTIP Trust','enabled','FALSE'))
-    c['qtip_amount']       = _n(_v(data,'Estate Planning','QTIP Trust','funding_amount','0'), 0)
-    c['qtip_note']         = _v(data,'Estate Planning','QTIP Trust','note',
-                                 'Provides income to surviving spouse; controls ultimate beneficiaries')
-    # Credit Shelter Trust (Bypass Trust) — preserves IL $4M exemption at first death
-    c['cs_enabled']        = _b(_v(data,'Estate Planning','Credit Shelter Trust','enabled','TRUE'))
-    c['cs_amount']         = _n(_v(data,'Estate Planning','Credit Shelter Trust','amount',
-                                  str(c['il_cst_shelter_cap'])), c['il_cst_shelter_cap'])
-    c['cs_note']           = _v(data,'Estate Planning','Credit Shelter Trust','note',
-                                 'Funds up to the CST shelter cap (decedent\'s own $4M IL exemption by default); bypasses survivor estate for IL tax, on top of the survivor\'s own separate $4M IL exemption -- $8M combined by default')
-    # QTIP manages annuity income after first death (annuity held in QTIP for benefit of survivor)
-    c['qtip_manages_annuity'] = _b(_v(data,'Estate Planning','QTIP Trust','manages_annuity_after_first_death','TRUE'))
-    # Desired minimum after-tax terminal bequest; 0/unset means no target is configured.
-    # Consumed by monte_carlo()/monte_carlo_exact_scalar()'s probability_legacy_floor_met.
-    c['legacy_floor'] = _n(_v(data,'Estate Planning','Legacy','legacy_floor','0'), 0)
+    c.update(parse_estate_planning(data))
 
     # Forced Actions — supports normalized Roth Conversion N rows:
     # source_account / year / amount. Legacy date-subsection rows still parse.
@@ -2068,15 +1976,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['tax_table_currency_warnings'] = _td.tax_table_currency_warnings(max_lag_years=int(c.get('tax_table_currency_max_lag_years', 1) or 1))
 
     # DAF (Donor Advised Fund) parameters
-    c['daf_enabled']      = _b(_v(data,'DAF','Settings','enabled','FALSE'))
-    c['daf_amount']       = _n(_v(data,'DAF','Settings','contribution_amount','0'), 0)
-    c['daf_year']         = _y(_v(data,'DAF','Settings','contribution_year', str(c['plan_start'])), c['plan_start'])
-    c['daf_use_amount']   = _n(_v(data,'DAF','Settings','annual_grant_amount','0'), 0)
-    c['daf_use_start']    = _y(_v(data,'DAF','Settings','grant_start_year','2027'), 2027)
-    c['daf_use_end']      = _y(_v(data,'DAF','Settings','grant_end_year','2035'), 2035)
-    # Item 4.2 (P4): cash contributions are AGI-limited at 60%; a contribution
-    # of appreciated securities is limited to 30% instead (IRC 170(b)(1)(C)/(G)).
-    c['daf_contribution_is_appreciated'] = _b(_v(data,'DAF','Settings','contribution_is_appreciated','FALSE'))
+    c.update(parse_daf(data, c['plan_start']))
 
     # Hybrid Life/LTC parameters
     c['ltc_enabled']      = _b(_v(data,'Hybrid LTC','Settings','enabled','FALSE'))

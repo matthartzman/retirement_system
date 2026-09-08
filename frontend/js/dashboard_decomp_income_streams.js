@@ -77,6 +77,21 @@ export function ssClaimAgePreciseFromDate(person, claimDateRow) {
   return 70;
 }
 
+// Ticket 317: the badge under the claim-date input is a plain-language "how
+// old will this person actually be" readout, not the SSA whole-year
+// claim_age (claim_year - dob_year) that ssClaimAgeFromDate returns for the
+// benefit-table lookup elsewhere. Whole-year claim_age is right for that
+// lookup (SSA quotes are only ever given per whole age reached), but reading
+// it as a birthday-aware age is wrong whenever the claim month falls before
+// the person's birth month -- e.g. a January claim for a May-birthday person
+// shows "Age 66" a full 4 months before they've actually turned 66. Floor
+// ssClaimAgePreciseFromDate (which already accounts for birth month) instead
+// of reusing the whole-year value, so the badge matches a normal person's
+// idea of "how old they'll be" on the claim date.
+export function ssTrueAgeFromDate(person, claimDateRow) {
+  return Math.floor(ssClaimAgePreciseFromDate(person, claimDateRow));
+}
+
 export function ssClaimDateCell(person, claimDateRow) {
   if (!claimDateRow) return '<span class="small">Missing</span>';
   const monthValue = claimDateToMonthInputValue(valOf(claimDateRow));
@@ -86,7 +101,7 @@ export function ssClaimDateCell(person, claimDateRow) {
   // The blank-defaults-to-70 explanation lives once in the section-note
   // above the table, not repeated per row.
   if (!raw) return input;
-  const ageBadge = `<span class="computed-value small">Age ${ssClaimAgeFromDate(person, claimDateRow)} at claim</span>`;
+  const ageBadge = `<span class="computed-value small">Age ${ssTrueAgeFromDate(person, claimDateRow)} at claim</span>`;
   return `${input}<div class="unit">${ageBadge}</div>`;
 }
 
@@ -381,6 +396,7 @@ Object.assign(window, {
   ssClaimFactor,
   ssClaimAgeFromDate,
   ssClaimAgePreciseFromDate,
+  ssTrueAgeFromDate,
   ssClaimDateCell,
   claimDateToMonthInputValue,
   monthInputValueToClaimDate,

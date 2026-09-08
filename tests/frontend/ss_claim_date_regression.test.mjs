@@ -12,6 +12,7 @@ const {
   claimDateToMonthInputValue,
   monthInputValueToClaimDate,
   ssClaimAgeFromDate,
+  ssTrueAgeFromDate,
 } = sandbox;
 
 describe("claim date <-> <input type=month> conversion", () => {
@@ -57,5 +58,37 @@ describe("ssClaimAgeFromDate", () => {
 
   test("defaults to 70 when there is no claim_date row at all", () => {
     assert.equal(ssClaimAgeFromDate("Member 1", null), 70);
+  });
+});
+
+describe("ssTrueAgeFromDate", () => {
+  // Ticket 317: a January claim shown as "Age 66" for a person who doesn't
+  // turn 66 until May is wrong -- the badge under the claim-date input must
+  // account for birth month, not just claim_year - dob_year like the
+  // SSA-table-lookup claim_age does.
+  test("claim month before birth month: not yet had the birthday this year", () => {
+    sandbox.window.rows = [
+      { section: "Household", subsection: "", label: "member_1_dob", value: "5/12/1961" },
+    ];
+    // Claims 1/2027: birthday hasn't happened yet in 2027, so still 65, not 66.
+    assert.equal(ssTrueAgeFromDate("Member 1", { value: "1/2027" }), 65);
+  });
+
+  test("claim month on birth month: birthday has happened", () => {
+    sandbox.window.rows = [
+      { section: "Household", subsection: "", label: "member_1_dob", value: "5/12/1961" },
+    ];
+    assert.equal(ssTrueAgeFromDate("Member 1", { value: "5/2027" }), 66);
+  });
+
+  test("claim month after birth month: birthday already passed this year", () => {
+    sandbox.window.rows = [
+      { section: "Household", subsection: "", label: "member_1_dob", value: "5/12/1961" },
+    ];
+    assert.equal(ssTrueAgeFromDate("Member 1", { value: "9/2027" }), 66);
+  });
+
+  test("defaults to 70 when claim_date is blank", () => {
+    assert.equal(ssTrueAgeFromDate("Member 1", { value: "" }), 70);
   });
 });
