@@ -7,10 +7,16 @@
 // than leaking raw.
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { loadDashboardSandbox } from "./load_dashboard.mjs";
 
 const sandbox = loadDashboardSandbox();
 const { humanizeGroupKey } = sandbox;
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DASHBOARD_JS_PATH = path.join(__dirname, "..", "..", "frontend", "js", "dashboard.js");
 
 // A rendered heading should never look like snake_case.
 const LOOKS_INTERNAL = /[a-z0-9]_[a-z0-9]/i;
@@ -63,6 +69,59 @@ describe("humanizeGroupKey never emits a snake_case heading", () => {
         `humanizeGroupKey(${k}) leaked an internal-looking name: ${out}`,
       );
     });
+  }
+});
+
+describe("FIELD_GUIDANCE_OVERRIDES help text never leaks internal config keys/enum literals", () => {
+  // Finding DOC-203 (system review 2026-09-07, Wave 5 item W5-4): the
+  // PHASE_VARYING Roth conversion help text surfaced raw internal config
+  // keys (roth_phase_count, roth_phase_first_bracket_rate) and the literal
+  // strategy enum value "PHASE_VARYING" directly to end users -- the same
+  // pattern (D3) a prior review removed elsewhere, recurring on this new
+  // surface. humanizeGroupKey() (above) can't catch this: it maps section-
+  // heading KEYS to display copy, not arbitrary internal identifiers
+  // embedded inside free-text help strings. This is a source-text scan
+  // instead, run directly against the real file (not a hand-copied
+  // fixture) so it can't silently drift from what ships.
+  const FORBIDDEN_TOKENS = [
+    "roth_phase_count",
+    "roth_phase_first_bracket_rate",
+    "roth_phase_second_bracket_rate",
+    "roth_phase_third_bracket_rate",
+    "PHASE_VARYING",
+  ];
+  const ENTRY_KEYS = [
+    "roth_phase_count",
+    "roth_phase_first_bracket_rate",
+    "roth_phase_second_bracket_rate",
+    "roth_phase_third_bracket_rate",
+  ];
+
+  const src = fs.readFileSync(DASHBOARD_JS_PATH, "utf8");
+
+  for (const key of ENTRY_KEYS) {
+    // Extract just this one entry's object body (from `key: {` to its
+    // closing `},`) so a forbidden token elsewhere in the file (e.g. this
+    // very guard's own FORBIDDEN_TOKENS list, or the config-row definition
+    // that legitimately names the key) can never produce a false positive.
+    const startMarker = `${key}: {`;
+    const startIdx = src.indexOf(startMarker);
+    test(`${key} entry exists in FIELD_GUIDANCE_OVERRIDES`, () => {
+      assert.ok(startIdx !== -1, `could not find a "${startMarker}" entry in dashboard.js`);
+    });
+    if (startIdx === -1) continue;
+    const bodyStart = startIdx + startMarker.length;
+    const endIdx = src.indexOf("},", bodyStart);
+    const entryBody = src.slice(bodyStart, endIdx === -1 ? undefined : endIdx);
+
+    for (const token of FORBIDDEN_TOKENS) {
+      test(`${key} help text does not mention "${token}"`, () => {
+        assert.ok(
+          !entryBody.includes(token),
+          `dashboard.js's ${key} help text still contains the internal token "${token}"`,
+        );
+      });
+    }
   }
 });
 
