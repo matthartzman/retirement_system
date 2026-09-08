@@ -1446,6 +1446,16 @@ def _first_year_proration_fraction(stream):
     Same convention as deterministic_engine._medicare_month_fraction
     (payments/coverage start the 1st of the given month): a June 1 start
     leaves 7 of 12 months (Jun-Dec) payable in that calendar year.
+
+    Wave 5 item W5-3 (finding N3) considered, then explicitly did NOT apply,
+    an arrears adjustment here (unlike the genuinely-entitlement-based SS
+    fix in deterministic_engine._ss_first_claim_year_month_fraction):
+    `first_payment` (src/data_io.py's load_stream()) is user-entered and
+    documented as the date the contract's FIRST CASH IS ACTUALLY RECEIVED,
+    not an entitlement/accrual start date -- so this formula's existing
+    in-advance-style month count is already correct arithmetic for that
+    field's real meaning; an additional arrears shift would double-count
+    the timing adjustment and understate first-year annuity/pension income.
     """
     month = stream.get('first_payment_month')
     try:

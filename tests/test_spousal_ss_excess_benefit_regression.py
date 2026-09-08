@@ -110,12 +110,21 @@ class SpousalExcessTimingGateTests(unittest.TestCase):
                   "h_ss_claim_age": 70, "w_ss_claim_age": 62}
         ss = _ss_by_year(_build(_MEMBERS_SAME_AGE, income))
 
-        # Before Alex files: Blair own-only, Alex nothing.
-        for year in range(2026, 2034):
+        # Wave 5 item W5-3 (finding N3): SS pays in arrears, so each spouse's
+        # own January claim-year check is only 11/12 of the full amount
+        # (first check arrives Feb); every later year is a full 12 months.
+        # Blair claims 2026 (11/12 = 9,240); Alex claims 2034 (11/12 of his
+        # own 50,592 = 46,376) -- Blair's excess top-up itself is not
+        # separately prorated by Alex's filing month, only Blair's own claim
+        # year was ever prorated.
+        self.assertEqual(ss[2026], (0.0, 9_240.0),
+                         msg="2026: Blair's own claim-year arrears proration")
+        for year in range(2027, 2034):
             self.assertEqual(ss[year], (0.0, 10_080.0),
                              msg=f"{year}: expected own-only before worker files")
-        # 2034 onward: Blair steps up to own + full (unreduced) excess.
-        for year in range(2034, 2041):
+        self.assertEqual(ss[2034], (46_376.0, 16_080.0),
+                         msg="2034: Alex's own claim-year arrears proration, Blair's excess starts at full")
+        for year in range(2035, 2041):
             self.assertEqual(ss[year], (50_592.0, 16_080.0),
                              msg=f"{year}: expected own + excess after worker files")
 
@@ -145,9 +154,14 @@ class SpousalExcessTimingGateTests(unittest.TestCase):
                   "h_ss_claim_age": 64, "w_ss_claim_age": 62}
         ss = _ss_by_year(_build(members, income))
 
+        # Wave 5 item W5-3 (finding N3): SS pays in arrears, so each spouse's
+        # own January claim-year check is only 11/12 of the full amount.
         self.assertEqual(ss[2027], (0.0, 0.0))          # neither has claimed
-        self.assertEqual(ss[2028], (0.0, 10_080.0))     # Blair own-only, Alex not filed
-        for year in range(2029, 2041):
+        self.assertEqual(ss[2028], (0.0, 9_240.0),
+                         msg="2028: Blair's own claim-year arrears proration, Alex not filed")
+        self.assertEqual(ss[2029], (29_920.0, 14_280.0),
+                         msg="2029: Alex's own claim-year arrears proration, Blair's excess starts at full")
+        for year in range(2030, 2041):
             self.assertEqual(ss[year], (32_640.0, 14_280.0),
                              msg=f"{year}: own + reduced excess after worker files")
 
@@ -165,7 +179,12 @@ class SpousalExcessNoTopUpTests(unittest.TestCase):
         income = {"earned_income": 0.0, "h_ss_pia": 3_000.0, "w_ss_pia": 2_800.0,
                   "h_ss_claim_age": 62, "w_ss_claim_age": 62}
         ss = _ss_by_year(_build(_MEMBERS_SAME_AGE, income))
-        for year in range(2026, 2041):
+        # Wave 5 item W5-3 (finding N3): SS pays in arrears, so the January
+        # 2026 claim year itself pays only 11/12 (first check arrives Feb);
+        # 2027 onward is a full 12 months.
+        self.assertEqual(ss[2026], (23_100.0, 21_560.0),
+                         msg="2026: claim-year arrears proration, 11/12 of the full amount")
+        for year in range(2027, 2041):
             self.assertEqual(ss[year], (25_200.0, 23_520.0),
                              msg=f"{year}: neither spouse should receive any top-up")
 

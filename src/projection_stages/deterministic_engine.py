@@ -405,13 +405,18 @@ def run_deterministic_projection_stage(c):
     def _ss_first_claim_year_month_fraction(year, claim_year, dob_month):
         """Fraction of `year` (0.0-1.0) Social Security is actually payable.
 
-        Benefits begin the 1st of the month the claimant reaches their
-        configured claim age -- same convention as _medicare_month_fraction
-        (Medicare starts the 1st of the birth month) -- so only the claim
-        YEAR itself is ever partial; every later year is a full 12 months.
-        Before this, h_ss/w_ss paid a full 12 months even when claim_year
-        fell mid-year (h_ss_yr/w_ss_yr = dob_yr + claim_age has no month
-        component of its own), overstating first-year SS income.
+        Wave 5 item W5-3 (finding N3, 2026-09-08 explicit direction):
+        Social Security pays in ARREARS -- the check for a given month's
+        entitlement arrives the following month -- unlike Medicare coverage
+        (a genuine coverage-period concept correctly modeled as starting the
+        1st of the entitlement month by _medicare_month_fraction). Reusing
+        that same in-advance formula here was the root cause N3 identified:
+        an entitlement in month M pays (12-M) months that calendar year, not
+        (12-(M-1)) -- e.g. an August claim pays September-December (4
+        months), not August-December (5). A December claim pays zero SS
+        cash that calendar year (first check arrives the following January).
+        Only the claim YEAR itself is ever partial; every later year is a
+        full 12 months.
         """
         if year != claim_year:
             return 1.0
@@ -420,7 +425,7 @@ def run_deterministic_projection_stage(c):
         except Exception:
             m = 1
         m = min(max(m, 1), 12)
-        return (12 - (m - 1)) / 12.0
+        return (12 - m) / 12.0
 
     def _bracket_factor_for_year(year):
         return _tk.bracket_factor_for_year(c, year)
