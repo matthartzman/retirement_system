@@ -79,6 +79,8 @@ function annualizeToggleBtn(onclickExpr, isNoAnnualize, opts) {
     onclickExpr +
     '" aria-label="' +
     esc(tip) +
+    '" aria-pressed="' +
+    (isNoAnnualize ? "false" : "true") +
     '">' +
     CALENDAR_SVG_ICON +
     "</button>"

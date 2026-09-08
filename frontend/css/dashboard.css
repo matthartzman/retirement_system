@@ -382,9 +382,18 @@ body.chart-modal-open{overflow:hidden}
 .icon-annualize-toggle.state-no-annualize{color:#dc2626}
 .icon-annualize-toggle:hover:not(:disabled){background:#f3f1ea}
 .icon-annualize-toggle:disabled{opacity:.5;cursor:not-allowed}
-.icon-annualize-toggle:hover:not(:disabled)::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);white-space:nowrap;font-size:11px;font-weight:800;padding:4px 8px;border-radius:6px;background:#1c2f4a;z-index:30;pointer-events:none}
-.icon-annualize-toggle.state-annualize:hover:not(:disabled)::after{color:#4ade80}
-.icon-annualize-toggle.state-no-annualize:hover:not(:disabled)::after{color:#f87171}
+/* Finding UX-101 (system review 2026-09-07, Wave 5 item W4-7): the two
+   states were conveyed by icon color alone (green/red on an identical
+   calendar glyph) -- indistinguishable in grayscale and for colorblind
+   users. This corner badge (a checkmark vs. a slash) gives each state a
+   distinct shape, not just a distinct hue. */
+.icon-annualize-toggle::before{position:absolute;bottom:1px;right:1px;font-size:9px;line-height:1;font-weight:800;pointer-events:none}
+.icon-annualize-toggle.state-annualize::before{content:"\2713"}
+.icon-annualize-toggle.state-no-annualize::before{content:"\2715"}
+.icon-annualize-toggle:focus-visible{outline:2px solid #1c2f4a;outline-offset:1px}
+.icon-annualize-toggle:hover:not(:disabled)::after,.icon-annualize-toggle:focus-visible::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);white-space:nowrap;font-size:11px;font-weight:800;padding:4px 8px;border-radius:6px;background:#1c2f4a;z-index:30;pointer-events:none}
+.icon-annualize-toggle.state-annualize:hover:not(:disabled)::after,.icon-annualize-toggle.state-annualize:focus-visible::after{color:#4ade80}
+.icon-annualize-toggle.state-no-annualize:hover:not(:disabled)::after,.icon-annualize-toggle.state-no-annualize:focus-visible::after{color:#f87171}
 .spend-bar-row,.spend-bar-header,.taxonomy-group-title,.table-actions{flex-wrap:nowrap}
 .spend-bar-row,.taxonomy-group-title{overflow-x:auto}
 .spend-model-card{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:12px}
