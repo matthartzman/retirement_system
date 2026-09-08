@@ -502,6 +502,13 @@ from .parsing.note_receivable import parse_note_receivable  # noqa: F401
 # _insurance_policy_premium_sum`) keep working unchanged.
 from .parsing.insurance import _insurance_policy_premium_sum  # noqa: F401
 
+# parse_estate_planning() extracted to src/parsing/estate_planning.py
+# System review 2026-08-31, finding A5 / Wave 3 item 3.13 ("split
+# parse_client into src/parsing/ siblings; move validation out"). Re-exported
+# here so existing callers (`from src.data_io import parse_estate_planning`)
+# keep working unchanged.
+from .parsing.estate_planning import parse_estate_planning  # noqa: F401
+
 
 def parse_client(data, url_template, *, skip_live_pricing=False):
     """Parse sectioned client data into an engine-ready config dict.
@@ -591,7 +598,6 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
             'end_year': _rend if _rend else 9999,
         })
     c['residency_schedule'].sort(key=lambda p: p['start_year'])
-    c['trust_type']= _v(data,'Estate Planning','Trust Structure','trust_type','revocable living trust')
 
     # Market pricing settings live in multi_user/system_config.csv and are merged by the active config loader.
     configure_api_keys(
@@ -1370,54 +1376,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
                                    DEFAULT_ROTH_TAX_DISCOUNT_RATE)
 
     # Estate
-    c['fed_exempt']  = _n(_v(data,'Estate Planning','Federal','exemption_mfj','30000000'), 30000000)
-    # Section 'State' (item 291 Class 4; was 'Illinois' -- migrate_sectioned_data,
-    # called above, upgrades any legacy row to this shape before this read runs).
-    # Label itself was already state-generic (state_estate_exemption); only the
-    # subsection baked in the state name.
-    c['il_exempt']   = _n(_v(data,'Estate Planning','State','state_estate_exemption','4000000'), 4000000)
-    # #227/#303: a funded Credit Shelter Trust shelters decedent assets from the
-    # survivor's estate entirely (see cs_enabled/cs_amount below) rather than
-    # doubling il_exempt directly -- il_exempt itself must stay the survivor's
-    # own plain exemption or the trust benefit gets double-counted. This cap
-    # governs how much of the FIRST decedent's own exemption can be carried
-    # into the trust at first death, so it defaults to the same $4,000,000 as
-    # il_exempt: decedent's $4M (CST-sheltered) + survivor's own separate $4M
-    # (il_exempt) = the $8,000,000 combined household IL exemption Illinois'
-    # lack of portability otherwise loses at the first death. A default of
-    # $8,000,000 here would let the trust shelter the survivor's own exemption
-    # a second time, understating combined household exposure by up to $4M.
-    c['il_cst_shelter_cap'] = _n(_v(data,'Estate Planning','Credit Shelter Trust','shelter_cap','4000000'), 4000000)
-    c['cst_enabled'] = _b(_v(data,'Estate Planning','Credit Shelter Trust','enabled','FALSE'))
-    c['basis_step_up_at_death'] = _b(_v(data,'Estate Planning','Step-Up','basis_step_up_at_death','TRUE'))
-    c['basis_step_up_property_regime'] = str(_v(data,'Estate Planning','Step-Up','property_regime','COMMON_LAW') or 'COMMON_LAW').strip().upper()
-    if c['basis_step_up_property_regime'] not in ('COMMON_LAW','COMMUNITY_PROPERTY','HALF_STEP_UP','FULL_STEP_UP'):
-        c['basis_step_up_property_regime'] = 'COMMON_LAW'
-    c['federal_portability_enabled'] = _b(_v(data,'Estate Planning','Federal','portability_enabled','TRUE'))
-    # Item 4.7 (P8): optional, used only by beneficiary_titling_audit() to flag
-    # a former spouse still named as a beneficiary somewhere. Blank by default.
-    c['former_spouse_name'] = _v(data,'Estate Planning','Step-Up','former_spouse_name','')
-    c['qss_dependent'] = _b(_v(data,'Household','','survivor_has_dependent','FALSE'))
-    # Do not double the IL exemption as a shortcut.  The projection now tracks
-    # actual first-death credit-shelter funding and subtracts that funded amount
-    # from the survivor's taxable estate.
-    c['gift_excl']   = _n(_v(data,'Estate Planning','Gifting','annual_exclusion_per_donee','19000'), 19000)
-    # QTIP Trust — elected by executor to qualify marital deduction; controls disposition after survivor's death
-    c['qtip_enabled']      = _b(_v(data,'Estate Planning','QTIP Trust','enabled','FALSE'))
-    c['qtip_amount']       = _n(_v(data,'Estate Planning','QTIP Trust','funding_amount','0'), 0)
-    c['qtip_note']         = _v(data,'Estate Planning','QTIP Trust','note',
-                                 'Provides income to surviving spouse; controls ultimate beneficiaries')
-    # Credit Shelter Trust (Bypass Trust) — preserves IL $4M exemption at first death
-    c['cs_enabled']        = _b(_v(data,'Estate Planning','Credit Shelter Trust','enabled','TRUE'))
-    c['cs_amount']         = _n(_v(data,'Estate Planning','Credit Shelter Trust','amount',
-                                  str(c['il_cst_shelter_cap'])), c['il_cst_shelter_cap'])
-    c['cs_note']           = _v(data,'Estate Planning','Credit Shelter Trust','note',
-                                 'Funds up to the CST shelter cap (decedent\'s own $4M IL exemption by default); bypasses survivor estate for IL tax, on top of the survivor\'s own separate $4M IL exemption -- $8M combined by default')
-    # QTIP manages annuity income after first death (annuity held in QTIP for benefit of survivor)
-    c['qtip_manages_annuity'] = _b(_v(data,'Estate Planning','QTIP Trust','manages_annuity_after_first_death','TRUE'))
-    # Desired minimum after-tax terminal bequest; 0/unset means no target is configured.
-    # Consumed by monte_carlo()/monte_carlo_exact_scalar()'s probability_legacy_floor_met.
-    c['legacy_floor'] = _n(_v(data,'Estate Planning','Legacy','legacy_floor','0'), 0)
+    c.update(parse_estate_planning(data))
 
     # Forced Actions — supports normalized Roth Conversion N rows:
     # source_account / year / amount. Legacy date-subsection rows still parse.
