@@ -45,12 +45,15 @@ def test_rmd_divisor_uses_joint_life_table_only_when_gap_exceeds_ten_and_sole_be
     assert core.rmd_divisor(80, spouse_age=50, sole_beneficiary_spouse=False) == uniform
 
 
-def test_spouse_is_sole_beneficiary_defaults_true_with_no_titling_on_file():
-    # Item 2.9's documented "age-gap fallback when titling is not explicit":
-    # no account_titling record at all -> assume the spouse is the sole
-    # beneficiary rather than silently withholding the Joint Life divisor.
+def test_spouse_is_sole_beneficiary_defaults_false_with_no_titling_on_file():
+    # Finding N4 / Wave 5 item W5-1 (2026-09-08 planner sign-off): item 2.9's
+    # original "age-gap fallback when titling is not explicit" (assume the
+    # spouse absent any record) silently overstated Joint Life relief for
+    # any household with no titling on file. No account_titling record at
+    # all now defaults to False -- the household must explicitly designate
+    # the spouse to get the more favorable divisor.
     c = {"account_titling": {}}
-    assert pe._spouse_is_sole_beneficiary(c, ["Member_1_IRA"], "Patricia") is True
+    assert pe._spouse_is_sole_beneficiary(c, ["Member_1_IRA"], "Patricia") is False
 
 
 def test_spouse_is_sole_beneficiary_false_when_titling_names_someone_else():
@@ -73,15 +76,36 @@ def test_compute_rmds_applies_joint_life_table_for_a_much_younger_spouse():
             {"id": "Member_1_IRA", "owner_idx": 0, "tax": "pre_tax", "rmd": True},
         ],
         "rmd_start_age": 75,
+        "account_titling": {"Member_1_IRA": {"primary_beneficiary": "Patricia"}},
+        "h_name": "Matthew",
+        "w_name": "Patricia",
+    }
+    bal = {"Member_1_IRA": 1_000_000.0}
+    # h is 80, w is 65 -- a 15-year gap, EXPLICITLY titled to the spouse
+    # (Wave 5 item W5-1: no longer inferred by fallback absent titling).
+    result = pe.compute_rmds(c, bal, 2026, 80, 65, True, True)
+    assert result["by_owner"][0]["divisor"] == 23.8
+    assert result["h"] == 1_000_000.0 / 23.8
+
+
+def test_compute_rmds_uses_uniform_lifetime_for_a_much_younger_spouse_with_no_titling():
+    # Wave 5 item W5-1 (finding N4): the same 15-year gap as above, but with
+    # NO titling on file, must now fall back to Uniform Lifetime -- the
+    # opposite of pre-fix behavior, which silently granted Joint Life relief
+    # by assuming the spouse absent any record.
+    c = {
+        "account_registry": [
+            {"id": "Member_1_IRA", "owner_idx": 0, "tax": "pre_tax", "rmd": True},
+        ],
+        "rmd_start_age": 75,
         "account_titling": {},
         "h_name": "Matthew",
         "w_name": "Patricia",
     }
     bal = {"Member_1_IRA": 1_000_000.0}
-    # h is 80, w is 65 -- a 15-year gap, sole beneficiary by fallback.
     result = pe.compute_rmds(c, bal, 2026, 80, 65, True, True)
-    assert result["by_owner"][0]["divisor"] == 23.8
-    assert result["h"] == 1_000_000.0 / 23.8
+    assert result["by_owner"][0]["divisor"] == core.RMD_DIVISORS[80]
+    assert result["h"] == 1_000_000.0 / core.RMD_DIVISORS[80]
 
 
 def test_compute_rmds_falls_back_to_uniform_lifetime_when_spouse_gap_is_ten_or_less():
@@ -133,3 +157,21 @@ def test_age_72_floor_cannot_fire_ahead_of_statutory_rmd_start_age():
     result = pe.compute_rmds(c, bal, 2026, 72, 70, True, True)
     assert result["by_owner"][0]["divisor"] == 0.0
     assert result["h"] == 0.0
+
+
+def test_no_de_minimis_threshold_suppresses_a_small_rmd():
+    """Finding N6 / Wave 5 item W5-9: RMDs have no statutory de-minimis
+    exception (26 U.S.C. 401(a)(9) and its regulations require the full
+    computed distribution regardless of account size). A $400 IRA at age 80
+    must produce a small positive RMD, not be silently suppressed to zero by
+    an undocumented magic-number threshold."""
+    c = {
+        "account_registry": [
+            {"id": "Member_1_IRA", "owner_idx": 0, "tax": "pre_tax", "rmd": True},
+        ],
+        "rmd_start_age": 75,
+    }
+    bal = {"Member_1_IRA": 400.0}
+    result = pe.compute_rmds(c, bal, 2026, 80, 78, True, True)
+    assert result["h"] > 0.0
+    assert result["h"] == 400.0 / core.RMD_DIVISORS[80]

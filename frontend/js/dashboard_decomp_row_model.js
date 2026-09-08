@@ -2828,6 +2828,7 @@ export function householdPersonRow(n, suffix) {
 export function showInAppConfirm(message, opts) {
   opts = opts || {};
   return new Promise(function (resolve) {
+    const previouslyFocused = document.activeElement;
     const overlay = document.createElement("div");
     overlay.className = "inapp-modal-overlay";
     const variant = opts.variant || "";
@@ -2838,7 +2839,7 @@ export function showInAppConfirm(message, opts) {
     overlay.innerHTML =
       '<div class="inapp-modal' +
       (variant ? " modal-" + variant : "") +
-      '"><b class="inapp-modal-title">' +
+      '" role="dialog" aria-modal="true" aria-labelledby="inapp-modal-title-' + _inAppModalIdSeq + '"><b class="inapp-modal-title" id="inapp-modal-title-' + _inAppModalIdSeq++ + '">' +
       esc(title) +
       '</b><div class="inapp-modal-body">' +
       bodyHtml +
@@ -2850,6 +2851,8 @@ export function showInAppConfirm(message, opts) {
     document.body.appendChild(overlay);
     function close(v) {
       overlay.remove();
+      document.removeEventListener("keydown", onKey);
+      if (previouslyFocused && typeof previouslyFocused.focus === "function") previouslyFocused.focus();
       resolve(v);
     }
     overlay.querySelector(".inapp-confirm").onclick = function () {
@@ -2864,8 +2867,9 @@ export function showInAppConfirm(message, opts) {
     function onKey(e) {
       if (e.key === "Escape") {
         close(false);
-        document.removeEventListener("keydown", onKey);
+        return;
       }
+      if (e.key === "Tab") _trapTabWithinModal(e, overlay);
     }
     document.addEventListener("keydown", onKey);
     setTimeout(function () {
@@ -2874,16 +2878,33 @@ export function showInAppConfirm(message, opts) {
     }, 30);
   });
 }
+let _inAppModalIdSeq = 0;
+function _trapTabWithinModal(e, overlay) {
+  const focusable = overlay.querySelectorAll(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+  );
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+}
 
 export function showSaveDiscardStayModal(message, opts) {
   opts = opts || {};
   return new Promise(function (resolve) {
+    const previouslyFocused = document.activeElement;
     const overlay = document.createElement("div");
     overlay.className = "inapp-modal-overlay";
     const title = opts.title || "Unsaved Changes";
     const bodyHtml = opts.bodyIsHtml ? message : "<p>" + esc(message) + "</p>";
     overlay.innerHTML =
-      '<div class="inapp-modal modal-warn"><b class="inapp-modal-title">' +
+      '<div class="inapp-modal modal-warn" role="dialog" aria-modal="true" aria-labelledby="inapp-modal-title-' + _inAppModalIdSeq + '"><b class="inapp-modal-title" id="inapp-modal-title-' + _inAppModalIdSeq++ + '">' +
       esc(title) +
       '</b><div class="inapp-modal-body">' +
       bodyHtml +
@@ -2891,6 +2912,8 @@ export function showSaveDiscardStayModal(message, opts) {
     document.body.appendChild(overlay);
     function close(v) {
       overlay.remove();
+      document.removeEventListener("keydown", onKey);
+      if (previouslyFocused && typeof previouslyFocused.focus === "function") previouslyFocused.focus();
       resolve(v);
     }
     overlay.querySelector(".sds-save").onclick = function () {
@@ -2908,8 +2931,9 @@ export function showSaveDiscardStayModal(message, opts) {
     function onKey(e) {
       if (e.key === "Escape") {
         close("stay");
-        document.removeEventListener("keydown", onKey);
+        return;
       }
+      if (e.key === "Tab") _trapTabWithinModal(e, overlay);
     }
     document.addEventListener("keydown", onKey);
     setTimeout(function () {

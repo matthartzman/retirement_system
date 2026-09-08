@@ -6249,22 +6249,22 @@ const FIELD_GUIDANCE_OVERRIDES = {
     consider: "Set high if leaving money behind is a top priority; set low if comfortable retirement spending matters most.",
   },
   roth_phase_count: {
-    purpose: "If you're using the PHASE_VARYING strategy, this is how many rate phases the plan uses: 2 (fill one rate until your Social Security claim, then a second rate) or 3 (fill one rate until the first spouse's SS claim, a second rate until the second spouse's claim, then a third rate).",
+    purpose: "If you're using the phased Roth conversion strategy, this is how many rate phases the plan uses: 2 (fill one rate until your Social Security claim, then a second rate) or 3 (fill one rate until the first spouse's SS claim, a second rate until the second spouse's claim, then a third rate).",
     impact: "3 phases lets the plan step your conversion rate down twice as each spouse's SS income arrives, narrowing your bracket headroom. 2 phases uses one step-down at the first claim year, which is simpler and fine for a single filer or spouses claiming in the same year.",
     consider: "Use 3 if you and your spouse claim Social Security in different years and want the plan to react to each one separately. Use 2 for a single filer or if you just want one clean step-down.",
   },
   roth_phase_first_bracket_rate: {
-    purpose: "If you're using the PHASE_VARYING strategy, this is the tax bracket the plan fills with conversions before your first Social Security claim year, when you typically have the most bracket headroom.",
+    purpose: "If you're using the phased Roth conversion strategy, this is the tax bracket the plan fills with conversions before your first Social Security claim year, when you typically have the most bracket headroom.",
     impact: "A higher rate converts more aggressively in these early, lower-income years. A lower rate is more conservative.",
     consider: "This is usually the highest of the three phase rates, since pre-Social-Security years tend to have the most room before other income fills your bracket.",
   },
   roth_phase_second_bracket_rate: {
-    purpose: "If you're using the PHASE_VARYING strategy, this is the tax bracket the plan fills after the first phase ends -- either through the second spouse's Social Security claim year (roth_phase_count = 3) or through the end of the conversion window (roth_phase_count = 2).",
+    purpose: "If you're using the phased Roth conversion strategy, this is the tax bracket the plan fills after the first phase ends -- either through the second spouse's Social Security claim year (with a three-phase schedule) or through the end of the conversion window (with a two-phase schedule).",
     impact: "As Social Security income arrives, your remaining bracket headroom typically shrinks -- a lower rate here reflects that. A higher rate keeps converting aggressively despite the added income.",
-    consider: "Usually set lower than roth_phase_first_bracket_rate, reflecting less headroom once Social Security income is flowing.",
+    consider: "Usually set lower than the first phase's bracket rate, reflecting less headroom once Social Security income is flowing.",
   },
   roth_phase_third_bracket_rate: {
-    purpose: "If you're using the PHASE_VARYING strategy with roth_phase_count = 3, this is the tax bracket the plan fills after both spouses have claimed Social Security, through the end of the conversion window. Unused when roth_phase_count = 2.",
+    purpose: "If you're using the phased Roth conversion strategy with a three-phase schedule, this is the tax bracket the plan fills after both spouses have claimed Social Security, through the end of the conversion window. Unused with a two-phase schedule.",
     impact: "This is typically the most constrained phase -- both Social Security streams and any RMDs are competing for bracket room -- so a lower rate here is common.",
     consider: "Usually the lowest of the three phase rates. If RMDs are close behind, keep this conservative to avoid overshooting into a bracket you can't afford.",
   },

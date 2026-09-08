@@ -1,3 +1,55 @@
+## 2026-09-08 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5438505.25 lifetime_tax=1255734.10 -->
+
+**Old pins.** terminal_nw=5,460,394.26, lifetime_tax=1,262,469.23
+
+**New pins.** terminal_nw=5,438,505.25, lifetime_tax=1,255,734.10
+
+**Reason.**
+
+Fixed a real bug where Social Security first-year proration counted the
+entitlement month itself as a payment month (in-advance), when SSA actually
+pays benefits in arrears -- the check for a given month's entitlement
+arrives the following month. An August claim previously paid
+August-December (5 months); the corrected arrears convention pays only
+September-December (4 months), since the first actual check for an August
+entitlement arrives in September.
+
+Root cause: deterministic_engine.py's `_ss_first_claim_year_month_fraction`
+reused the exact same in-advance formula
+`(12 - (claim_month - 1)) / 12` that `_medicare_month_fraction` correctly
+uses for a genuine coverage-period concept (Medicare coverage really does
+start the 1st of the entitlement month). Reusing that formula for a
+payment-timing concept (when the SSA check itself arrives) was the actual
+bug (system review 2026-09-07, finding N3 / Wave 5 item W5-3).
+
+Fix: `_ss_first_claim_year_month_fraction` now computes
+`(12 - claim_month) / 12` -- a December claim now pays zero SS cash that
+calendar year (first check arrives the following January), matching SSA's
+actual arrears payment schedule.
+
+Scope note: this fix was deliberately NOT applied to
+`core.py::_first_year_proration_fraction` (the analogous annuity/pension
+first-year proration), even though the system review's finding N3 grouped
+"SS and ordinary annuities" together. Investigation found the two fields
+have different semantics in this codebase: an income stream's
+`first_payment` field (src/data_io.py's `load_stream()`) is user-entered
+and documented as the date the contract's first cash is ACTUALLY RECEIVED,
+not an entitlement/accrual date -- so its existing in-advance-style month
+count is already correct arithmetic for that field's real meaning. Only
+Social Security's claim/birth-month field is a genuine entitlement concept
+needing the arrears adjustment.
+
+This moves the frozen sample plan's terminal net worth and lifetime tax
+pins lower (less first-year SS income than before), and required updating
+three hardcoded dollar expectations in
+tests/test_spousal_ss_excess_benefit_regression.py and the synthetic golden
+master fixture (tests/fixtures/synthetic_golden_master_cases.json) for the
+same reason -- all re-derived directly from the corrected engine's own
+output, not hand-recomputed, and spot-checked against the arrears formula
+by hand before accepting.
+
 ## 2026-09-04 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
 <!-- pin-provenance: terminal_nw=5460394.26 lifetime_tax=1262469.23 -->

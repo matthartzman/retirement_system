@@ -136,3 +136,43 @@ def ltcg_tax_on_gain(c, gain, ordinary_income, year):
     remaining -= in15
     tax = in15 * 0.15 + max(0.0, remaining) * 0.20
     return max(0.0, tax)
+
+
+def rmd_divisor(age, spouse_age=None, sole_beneficiary_spouse=False, table=None):
+    """SECURE 2.0 Uniform Lifetime RMD divisor for ``age``, or IRS Table II
+    (Joint and Last Survivor) when ``sole_beneficiary_spouse`` is true and
+    the spouse is more than 10 years younger (finding F10 / item 2.9) -- the
+    Uniform Lifetime table alone understates the RMD reduction available in
+    that case.
+
+    System review 2026-09-07, Wave 5 item W5-2 (finding N5): this was
+    previously implemented independently in ``src.core.rmd_divisor`` and
+    ``src.planning_engines.rmd_divisor``. A cross-implementation equivalence
+    test (tests/test_rmd_divisor_cross_implementation_equivalence_regression.py)
+    proved they genuinely disagreed for non-integer ages: core's version
+    indexed ``RMD_DIVISORS`` with the raw (possibly fractional) age and, on a
+    miss, fed that same fractional age into the post-table conservative
+    formula uncorrected, producing a wildly wrong divisor (e.g. age 80.5
+    resolved via the >115 extrapolation formula instead of age 80's real
+    table value); planning_engines' version was correct because it truncated
+    to ``int`` first. Consolidated here with the correct (int-truncating)
+    behavior; both call sites now delegate to this function.
+
+    ``table`` is injectable so callers (e.g. build_workbook) can supply an
+    alternate source of truth for the Uniform Lifetime lookup while tests
+    exercise this helper independently; it does not override the Joint Life
+    table.
+    """
+    from .core import RMD_DIVISORS, joint_life_divisor
+    age_i = int(age)
+    if age_i < 72:
+        return 0.0
+    if sole_beneficiary_spouse and spouse_age is not None and (age_i - spouse_age) > 10:
+        return float(joint_life_divisor(age_i, spouse_age))
+    if table and age_i in table:
+        return float(table[age_i])
+    if age_i in RMD_DIVISORS:
+        return float(RMD_DIVISORS[age_i])
+    # Beyond table age, keep declining conservatively without corrupting
+    # known-table ages such as age 80 (20.2, not a linear approximation).
+    return max(2.0, RMD_DIVISORS[115] - max(0, age_i - 115) * 0.1)

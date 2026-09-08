@@ -66,6 +66,33 @@ def test_apply_admin_html_version_is_a_no_op_when_phrase_absent():
 
 
 # --------------------------------------------------------------------------
+# Gap 7 (finding DOC-202, system review 2026-09-07): PROJECT_MANIFEST.md was
+# never touched by a version bump, same shape of gap as admin.html's (Gap 1).
+# --------------------------------------------------------------------------
+
+
+def test_apply_project_manifest_version_updates_the_heading():
+    text = (
+        '# Retirement Planning v11 Project Manifest\n\n'
+        'Generated: 2026-07-18\n\n'
+        'Map of what lives at the repository root and why.\n'
+    )
+    updated = bv.apply_project_manifest_version(text, '11', '12')
+    assert '# Retirement Planning v12 Project Manifest' in updated
+
+
+def test_apply_project_manifest_version_leaves_the_generated_date_alone():
+    text = '# Retirement Planning v11 Project Manifest\n\nGenerated: 2026-07-18\n'
+    updated = bv.apply_project_manifest_version(text, '11', '12')
+    assert 'Generated: 2026-07-18' in updated
+
+
+def test_apply_project_manifest_version_is_a_no_op_when_phrase_absent():
+    text = 'Nothing version-related here.'
+    assert bv.apply_project_manifest_version(text, '11', '12') == text
+
+
+# --------------------------------------------------------------------------
 # Gap 2: check_version_surfaces.py's stale-token check was frozen to v7/v8
 # --------------------------------------------------------------------------
 
