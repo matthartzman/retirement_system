@@ -24,7 +24,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from src.http_runtime.server import run_local_server  # noqa: E402
-from src.http_runtime.wsgi_facade import Flask, Response  # noqa: E402
+from src.http_runtime.wsgi_facade import Flask, Response, request  # noqa: E402
 
 from financial_trends_reporter.trends_job import run as run_trends_job  # noqa: E402
 from financial_trends_reporter.trends_log import default_log_path, read_history  # noqa: E402
@@ -35,6 +35,35 @@ INDEX_HTML_PATH = _APP_ROOT / "frontend" / "index.html"
 def create_app(retirement_system_dir: Path, log_path: Path | None = None) -> Flask:
     app = Flask("financial_trends_reporter", static_folder=str(_APP_ROOT / "frontend"))
     resolved_log_path = log_path or default_log_path(_APP_ROOT)
+
+    @app.before_request
+    def _reject_cross_origin_requests():
+        # Finding ARC-4 (system review 2026-09-07, Wave 6 item W6-3): this
+        # server had zero auth/CORS/origin check of any kind on
+        # GET /api/history (the full net-worth/spending log) and
+        # POST /api/run-now. Mirrors the main app's own SEC-1 posture
+        # (src/server/app_core.py: no CORS headers are ever added, since
+        # nothing legitimate needs cross-origin access -- the frontend is
+        # always served same-origin, from this same server) by explicitly
+        # rejecting any request that carries a cross-origin Origin header,
+        # rather than merely omitting a header a browser might not enforce
+        # for a simple cross-origin POST. A request with no Origin header at
+        # all (ordinary same-origin navigation/fetch in most browsers, and
+        # every non-browser local script) is allowed through unchanged.
+        if request.method == "OPTIONS":
+            return None
+        origin = str(request.headers.get("Origin", "") or "")
+        if not origin:
+            return None
+        origin_netloc = origin.split("://", 1)[-1].rstrip("/")
+        host = str(request.headers.get("Host", "") or "")
+        if origin_netloc != host:
+            return Response(
+                json.dumps({"success": False, "error": "cross-origin requests are not allowed"}),
+                status=403,
+                content_type="application/json",
+            )
+        return None
 
     @app.route("/", methods=["GET"])
     def index():
