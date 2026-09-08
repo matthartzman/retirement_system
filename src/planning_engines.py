@@ -532,12 +532,34 @@ def beneficiary_titling_audit(c: Mapping) -> list:
     estate_objective = str(c.get('estate_tax_objective_mode', 'BALANCED') or 'BALANCED').strip().upper()
     state = str(c.get('state', '') or '')
     household_regime = str(c.get('basis_step_up_property_regime', 'COMMON_LAW') or 'COMMON_LAW').strip().upper()
+    # Wave 5 item W5-1 (finding N4, 2026-09-08 planner sign-off): a >10-year
+    # spousal age gap with no titling on file no longer silently assumes
+    # Joint Life relief (see _spouse_is_sole_beneficiary) -- flag it here
+    # instead, so the household/advisor can make the designation explicit
+    # rather than lose the relief silently. Age gap is birth-year-invariant,
+    # so no projection year is needed.
+    h_dob = int(c.get('h_dob_yr', 0) or 0)
+    w_dob = int(c.get('w_dob_yr', 0) or 0)
+    age_gap_qualifies = bool(h_dob and w_dob and abs(h_dob - w_dob) > 10)
+    spouse_name_by_owner = {0: str(c.get('w_name') or ''), 1: str(c.get('h_name') or '')}
 
     findings = []
     for acct in registry:
         aid = acct.get('id')
         entry = titling_map.get(aid)
         if not entry:
+            if age_gap_qualifies and acct.get('rmd') and acct.get('tax') in {'pre_tax'}:
+                owner_idx = acct.get('owner_idx')
+                spouse_name = spouse_name_by_owner.get(owner_idx, '')
+                if not _spouse_is_sole_beneficiary(c, [aid], spouse_name):
+                    label = acct.get('label') or aid
+                    findings.append((aid, label, 'joint_life_relief_unconfirmed',
+                                      'This account has a >10-year spousal age gap that could qualify for '
+                                      'the more favorable IRS Table II (Joint and Last Survivor) RMD divisor, '
+                                      'but no beneficiary titling is on file, so RMDs are computed under the '
+                                      'standard Uniform Lifetime table instead. If the spouse is intended to '
+                                      'be the sole primary beneficiary, record that titling to apply the '
+                                      'larger divisor (lower RMDs); if not, no action is needed.'))
             continue
         label = acct.get('label') or aid
         tax = acct.get('tax')
@@ -864,20 +886,28 @@ def _rmd_divisor_with_table_override(age: int | float, table: Mapping[int, float
 
 
 def _spouse_is_sole_beneficiary(c: Mapping, ids: Sequence[str], spouse_name: str) -> bool:
-    """True if per-account titling data names the spouse as sole primary
-    beneficiary for this owner's RMD-eligible accounts, or if no titling
-    record is on file for any of them at all.
+    """True only if per-account titling data EXPLICITLY names the spouse as
+    sole primary beneficiary for at least one of this owner's RMD-eligible
+    accounts, with none of them naming anyone else.
 
-    Finding F10 / item 2.9: "automatic detection via titling plus an
-    age-gap fallback." Absent an explicit record naming someone else, this
-    assumes the spouse is the beneficiary -- the common case for retirement
-    accounts, and the reason the age-gap alone is the documented fallback
-    rather than withholding the more favorable Joint Life divisor by
-    default. An explicit record naming a different beneficiary (not the
-    spouse) for any of these accounts overrides the fallback to False.
+    Finding N4 / Wave 5 item W5-1 (2026-09-08, explicit planner sign-off):
+    inverts item 2.9's original "automatic detection via titling plus an
+    age-gap fallback." That fallback assumed the spouse was the beneficiary
+    whenever no titling record existed at all, which silently OVERSTATED
+    Joint Life relief (understating RMDs, and understating the value of
+    Roth conversions) for any household with a qualifying age gap and no
+    titling on file -- the opposite-directional twin of item 2.9's own
+    original overstatement bug. The household must now have an explicit
+    record naming the spouse for this relief to apply; silence (no titling
+    record at all) now defaults to the standard, more conservative Uniform
+    Lifetime table, the same as an explicit record naming someone else
+    already did. See beneficiary_titling_audit()'s 'joint_life_relief_
+    unconfirmed' finding, which flags exactly this silent-default case for
+    the advisor/household to resolve explicitly.
     """
     titling = c.get('account_titling') or {}
     spouse_l = str(spouse_name or '').strip().lower()
+    explicit_spouse_designation = False
     for aid in ids:
         rec = titling.get(aid)
         if not rec:
@@ -885,12 +915,11 @@ def _spouse_is_sole_beneficiary(c: Mapping, ids: Sequence[str], spouse_name: str
         ben = str(rec.get('primary_beneficiary') or '').strip().lower()
         if not ben:
             continue
-        if 'spouse' in ben:
-            continue
-        if spouse_l and spouse_l in ben:
+        if 'spouse' in ben or (spouse_l and spouse_l in ben):
+            explicit_spouse_designation = True
             continue
         return False
-    return True
+    return explicit_spouse_designation
 
 
 def owner_account_ids(registry: Sequence[Mapping], owner_idx: int, tax_type: str | None = None) -> List[str]:

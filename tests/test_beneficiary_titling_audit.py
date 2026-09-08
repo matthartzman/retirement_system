@@ -121,6 +121,41 @@ class BeneficiaryTitlingAuditTests(unittest.TestCase):
         c = self._config_with_titling({})
         self.assertEqual(beneficiary_titling_audit(c), [])
 
+    def test_qualifying_age_gap_with_no_titling_flags_joint_life_relief_unconfirmed(self):
+        # Wave 5 item W5-1 (finding N4, 2026-09-08 planner sign-off): a
+        # >10-year spousal age gap with an RMD-eligible pre-tax account and
+        # no titling on file no longer silently assumes Joint Life relief
+        # (see _spouse_is_sole_beneficiary) -- it must surface an audit
+        # finding instead.
+        c = self._config_with_titling(
+            {},
+            h_dob_yr=1950, w_dob_yr=1965,  # 15-year gap
+            h_name='Alex', w_name='Blair',
+        )
+        c['account_registry'][0]['rmd'] = True
+        flags = [f[2] for f in beneficiary_titling_audit(c)]
+        self.assertIn('joint_life_relief_unconfirmed', flags)
+
+    def test_qualifying_age_gap_with_explicit_spouse_titling_does_not_flag(self):
+        c = self._config_with_titling(
+            {'H_IRA': {'primary_beneficiary': 'Blair'}},
+            h_dob_yr=1950, w_dob_yr=1965,
+            h_name='Alex', w_name='Blair',
+        )
+        c['account_registry'][0]['rmd'] = True
+        flags = [f[2] for f in beneficiary_titling_audit(c)]
+        self.assertNotIn('joint_life_relief_unconfirmed', flags)
+
+    def test_non_qualifying_age_gap_with_no_titling_does_not_flag(self):
+        c = self._config_with_titling(
+            {},
+            h_dob_yr=1958, w_dob_yr=1965,  # 7-year gap, below the >10 threshold
+            h_name='Alex', w_name='Blair',
+        )
+        c['account_registry'][0]['rmd'] = True
+        flags = [f[2] for f in beneficiary_titling_audit(c)]
+        self.assertNotIn('joint_life_relief_unconfirmed', flags)
+
     def test_retirement_account_with_no_primary_beneficiary_flags_estate_default(self):
         c = self._config_with_titling({'H_IRA': {'primary_beneficiary': '', 'contingent_beneficiary': ''}})
         flags = [f[2] for f in beneficiary_titling_audit(c)]
