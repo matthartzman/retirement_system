@@ -207,6 +207,46 @@ export function renderToggleRows(title, description, rs, open = false) {
     open,
   );
 }
+// #318: within the Charitable Giving page, the DAF and QCD field groups
+// each only show their own enable checkbox until it's turned on -- the
+// enable row itself always stays visible/editable so the user can turn the
+// group on. Same pattern as renderToggleRows above (its own "enabled" row),
+// just filtering two independent groups out of one step's rows instead of
+// gating a single renderToggleRows call, so it lives alongside it here
+// rather than in dashboard.js (frontend_size_ratchet keeps that file
+// shrinking, not growing -- see test_frontend_size_ratchet.py).
+export function entityCharitableGatedRows(rs) {
+  const dafRows = rs.filter((r) => r.section === "DAF");
+  const dafEnabled = dafRows.find((r) => norm(r.label) === "enabled");
+  const dafShown =
+    !dafEnabled || boolishValue(dafEnabled) ? dafRows : [dafEnabled];
+  const qcdRows = rs.filter(
+    (r) =>
+      r.section === "Cashflow" && norm(r.subsection) === "charitable_giving",
+  );
+  const qcdEnabled = qcdRows.find((r) => norm(r.label) === "qcd_enabled");
+  const qcdShown =
+    !qcdEnabled || boolishValue(qcdEnabled) ? qcdRows : [qcdEnabled];
+  const other = rs.filter((r) => !dafRows.includes(r) && !qcdRows.includes(r));
+  return [...dafShown, ...qcdShown, ...other];
+}
+export function renderEntityCharitable() {
+  let html = `<div class="section-note">Qualified charitable distributions (age 70½+) satisfy required distributions without the amount appearing as taxable income. S-Corp election is a self-employment decision, entered on <a href="#" onclick="setStep('income_work');return false">Work Income</a>.</div>`;
+  if (searchText.trim()) return html + renderFields("entity_charitable");
+  if (!optionalFunctionEnabled("charitable_giving"))
+    return (
+      html +
+      '<div class="field-list"><p>Charitable Giving inputs are hidden until the Charitable Giving optional workbook module is enabled on Optional Modules.</p></div>'
+    );
+  const rs = rowsForStep("entity_charitable");
+  const missing = rs.filter(isMissing);
+  if (missing.length)
+    html += `<div class="missing-list"><h3>${missing.length} required field${missing.length === 1 ? "" : "s"} missing in this view</h3><ul>${missing
+      .slice(0, 8)
+      .map((r) => `<li>${esc(humanLabel(r.label, r))}</li>`)
+      .join("")}</ul></div>`;
+  return html + renderFieldGroups(entityCharitableGatedRows(rs));
+}
 export function renderEstateInformation() {
   if (searchText.trim()) return renderFields("estate");
   const estate = rowsForStep("estate");
@@ -473,6 +513,8 @@ Object.assign(window, {
   renderAccountTitlingTable,
   accountTitlingCell,
   renderToggleRows,
+  entityCharitableGatedRows,
+  renderEntityCharitable,
   renderEstateInformation,
   setNewInsurancePolicyType,
   inferPolicyType,
