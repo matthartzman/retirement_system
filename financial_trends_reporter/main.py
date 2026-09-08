@@ -69,6 +69,17 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None) -> Fla
     def index():
         return Response(INDEX_HTML_PATH.read_text(encoding="utf-8"), content_type="text/html; charset=utf-8")
 
+    @app.route("/charts.js", methods=["GET"])
+    def charts_js():
+        # Finding QUA-302 (Wave 6 item W6-11): index.html's inline
+        # <script type="module"> imports this file -- it must actually be
+        # served, and with a JS-capable Content-Type (module scripts are
+        # rejected by browsers otherwise).
+        return Response(
+            (_APP_ROOT / "frontend" / "charts.js").read_text(encoding="utf-8"),
+            content_type="text/javascript; charset=utf-8",
+        )
+
     @app.route("/api/history", methods=["GET"])
     def history():
         return Response(json.dumps(read_history(resolved_log_path)), content_type="application/json")
