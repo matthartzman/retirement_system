@@ -500,6 +500,13 @@ _LIFE_POLICY_TYPES = {'term', 'whole', 'universal', 'ul', 'iul', 'vul', 'gul', '
 # keep working unchanged.
 from .parsing.advanced_modules import parse_advanced_modules  # noqa: F401
 
+# parse_daf() extracted to src/parsing/daf.py
+# System review 2026-08-31, finding A5 / Wave 3 item 3.13 ("split
+# parse_client into src/parsing/ siblings; move validation out"). Re-exported
+# here so existing callers (`from src.data_io import parse_daf`) keep working
+# unchanged.
+from .parsing.daf import parse_daf  # noqa: F401
+
 
 def parse_client(data, url_template, *, skip_live_pricing=False):
     """Parse sectioned client data into an engine-ready config dict.
@@ -2068,15 +2075,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['tax_table_currency_warnings'] = _td.tax_table_currency_warnings(max_lag_years=int(c.get('tax_table_currency_max_lag_years', 1) or 1))
 
     # DAF (Donor Advised Fund) parameters
-    c['daf_enabled']      = _b(_v(data,'DAF','Settings','enabled','FALSE'))
-    c['daf_amount']       = _n(_v(data,'DAF','Settings','contribution_amount','0'), 0)
-    c['daf_year']         = _y(_v(data,'DAF','Settings','contribution_year', str(c['plan_start'])), c['plan_start'])
-    c['daf_use_amount']   = _n(_v(data,'DAF','Settings','annual_grant_amount','0'), 0)
-    c['daf_use_start']    = _y(_v(data,'DAF','Settings','grant_start_year','2027'), 2027)
-    c['daf_use_end']      = _y(_v(data,'DAF','Settings','grant_end_year','2035'), 2035)
-    # Item 4.2 (P4): cash contributions are AGI-limited at 60%; a contribution
-    # of appreciated securities is limited to 30% instead (IRC 170(b)(1)(C)/(G)).
-    c['daf_contribution_is_appreciated'] = _b(_v(data,'DAF','Settings','contribution_is_appreciated','FALSE'))
+    c.update(parse_daf(data, c['plan_start']))
 
     # Hybrid Life/LTC parameters
     c['ltc_enabled']      = _b(_v(data,'Hybrid LTC','Settings','enabled','FALSE'))
