@@ -11,6 +11,7 @@ this same contract without changing callers.
 
 from .budget_rollups import category_budget_rollup, housing_budget_rollup
 from .effective_marginal_rate import compute_effective_marginal_rate as _compute_effective_marginal_rate
+from .spending_tiers import compute_spend_by_tier as _compute_spend_by_tier
 from .year_state import MutableYearState, create_initial_year_state
 # System review 4.2: explicit name list instead of `from ..planning_engines
 # import *` -- determined via AST analysis of every Name this module
@@ -1879,63 +1880,32 @@ def run_deterministic_projection_stage(c):
             row['total_spend'] = total_spend_need
 
         # ── Spending tiers (optimization-refactor Phase 0) ─────────────────
-        # Breaks total_spend_need into essential / important / discretionary /
-        # contingent_liability per the SPENDING_TIERS registry in
-        # spending_budget_resolver.py. Purely additive reporting: it never
-        # feeds back into total_spend_need, withdrawals, or taxes. spend_base
-        # is split using the household's actual category mix
-        # (spend_base_tier_shares); every other component maps to a single
-        # tier because it is already segregated in the row (e.g. mortgage /
-        # RE tax / utilities are Housing-essential). The wellness split
-        # additionally respects the ACA-recompute above and the n_alive == 0
-        # estate-mode zeroing by scaling its raw components to
-        # wellness_base_yr rather than using them directly.
-        #
-        # contingent_liability holds only ltc_prem_yr -- an insurance
-        # premium is a genuine (if painful) choice to forgo future coverage,
-        # so it is cuttable at the tier's documented cascade priority
-        # (SPENDING_TIER_CUT_ORDER: after important, before essential).
-        # wellness_shock_yr is routed into 'essential' instead: it is an
-        # already-incurred health/LTC event cost, not a discretionary
-        # spending choice, so it is protected at essential's level rather
-        # than bundled with the premium at a lower cascade priority.
-        _tier_totals: dict[str, float] = {}
-
-        def _tier_add(tier: str, amount: float) -> None:
-            if amount:
-                _tier_totals[tier] = _tier_totals.get(tier, 0.0) + amount
-
-        _base_shares = c.get('spend_base_tier_shares') or {}
-        if _base_shares:
-            for _tier, _frac in _base_shares.items():
-                _tier_add(_tier, spend * _frac)
-        elif spend:
-            _tier_add('important', spend)
-        _tier_add('discretionary', rec_extra + lump_yr + row.get('home_improvement_yr', 0.0))
-        _tier_add('essential', mort_yr + re_tax_yr + rent_yr + housing_operating_yr
-                   + heloc_interest_yr + heloc_repayment_principal_yr)
-        _wellness_essential_raw = (wellness_premium_yr + wellness_medical_yr + wellness_dental_yr
-                                    + wellness_vision_yr + wellness_rx_otc_yr)
-        _wellness_raw_total = _wellness_essential_raw + wellness_other_yr
-        if _wellness_raw_total > 0 and wellness_base_yr:
-            _wellness_scale = wellness_base_yr / _wellness_raw_total
-            _tier_add('essential', _wellness_essential_raw * _wellness_scale)
-            _tier_add('important', wellness_other_yr * _wellness_scale)
-        # Reconciled with 'claude/confit-optimization-refactor-cyyk9v' PR #70
-        # (merged first, then reverted here in favor of this branch's design,
-        # per user decision 2026-08-27): ltc_prem_yr (an insurance premium --
-        # a genuine choice to forgo future coverage) stays in
-        # contingent_liability, cuttable at that tier's documented cascade
-        # priority (see ffa142b/0e65806 below). wellness_shock_yr (an
-        # already-incurred health/LTC event cost, not a discretionary
-        # choice) routes into essential instead, protecting it at
-        # essential's cascade priority rather than bundling it with the
-        # premium at a lower one.
-        _tier_add('contingent_liability', ltc_prem_yr)
-        _tier_add('essential', wellness_shock_yr)
-        if business_expenses_yr:
-            _tier_add('unclassified', business_expenses_yr)
-        row['spend_by_tier'] = {k: round(v, 2) for k, v in _tier_totals.items() if v}
+        # See compute_spend_by_tier's docstring (spending_tiers.py) for the
+        # tier-split rules: purely additive reporting, never feeds back into
+        # total_spend_need, withdrawals, or taxes.
+        row['spend_by_tier'] = _compute_spend_by_tier(
+            c,
+            spend=spend,
+            rec_extra=rec_extra,
+            lump_yr=lump_yr,
+            home_improvement_yr=row.get('home_improvement_yr', 0.0),
+            mort_yr=mort_yr,
+            re_tax_yr=re_tax_yr,
+            rent_yr=rent_yr,
+            housing_operating_yr=housing_operating_yr,
+            heloc_interest_yr=heloc_interest_yr,
+            heloc_repayment_principal_yr=heloc_repayment_principal_yr,
+            wellness_premium_yr=wellness_premium_yr,
+            wellness_medical_yr=wellness_medical_yr,
+            wellness_dental_yr=wellness_dental_yr,
+            wellness_vision_yr=wellness_vision_yr,
+            wellness_rx_otc_yr=wellness_rx_otc_yr,
+            wellness_other_yr=wellness_other_yr,
+            wellness_base_yr=wellness_base_yr,
+            ltc_prem_yr=ltc_prem_yr,
+            wellness_shock_yr=wellness_shock_yr,
+            business_expenses_yr=business_expenses_yr,
+        )
 
         # SALT
         # Preliminary state tax estimate for SALT deduction (computed before final state_tax)
