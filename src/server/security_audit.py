@@ -31,7 +31,14 @@ import time
 from pathlib import Path
 
 from ..http_runtime.wsgi_facade import request
-from src.security import constant_time_token_ok, extract_bearer_or_header, get_server_token, redact_text
+from src.security import (
+    constant_time_token_ok,
+    extract_bearer_or_header,
+    get_server_token,
+    is_sensitive_change_label,
+    redact_secret,
+    redact_text,
+)
 from src.permissions import UserContext
 from src.workspace_context import sanitize_id, workspace_output_dir
 from src.config_backend import append_audit_event_sqlite, lookup_api_token
@@ -185,9 +192,23 @@ def _row_key_for_change(row: list[str], index: int) -> str:
 
 
 def _summarize_csv_row_changes(before_rows: list[list[str]], after_rows: list[list[str]], limit: int = 40) -> tuple[list[dict], int]:
-    """Return compact row/value changes between two CSV row lists."""
+    """Return compact row/value changes between two CSV row lists.
+
+    Finding SEC-4 (system review 2026-09-07, Wave 6 item W6-2): this diff feeds
+    directly into `_record_admin_config_change`'s on-disk log with no
+    redaction at all, unlike `_audit`'s own write path. A financial/PII-shaped
+    label (DOB, balance, SSN, merchant, ...) gets its before/after value
+    redacted here, gated by the same `redact_secrets_in_logs` config flag
+    `_audit` already respects -- redaction is a display-time concern for this
+    log, applied once at write time rather than re-derived by every reader.
+    """
     changes: list[dict] = []
     max_len = max(len(before_rows), len(after_rows))
+    redact = _app_core._runtime_config().redact_secrets_in_logs
+
+    def _redacted(label: str, value: str) -> str:
+        return redact_secret(value) if redact and is_sensitive_change_label(label) else value
+
     for i in range(max_len):
         before = before_rows[i] if i < len(before_rows) else []
         after = after_rows[i] if i < len(after_rows) else []
@@ -198,17 +219,19 @@ def _summarize_csv_row_changes(before_rows: list[list[str]], after_rows: list[li
             before_value = before[3] if len(before) > 3 else ""
             after_value = after[3] if len(after) > 3 else ""
             if before_value != after_value:
+                label = _row_key_for_change(after, i)
                 changes.append({
-                    "label": _row_key_for_change(after, i),
-                    "before": before_value,
-                    "after": after_value,
+                    "label": label,
+                    "before": _redacted(label, before_value),
+                    "after": _redacted(label, after_value),
                     "row_index": i,
                 })
                 continue
+        label = _row_key_for_change(after or before, i)
         changes.append({
-            "label": _row_key_for_change(after or before, i),
-            "before": ", ".join(str(x) for x in before[:6]) if before else "row added",
-            "after": ", ".join(str(x) for x in after[:6]) if after else "row removed",
+            "label": label,
+            "before": _redacted(label, ", ".join(str(x) for x in before[:6])) if before else "row added",
+            "after": _redacted(label, ", ".join(str(x) for x in after[:6])) if after else "row removed",
             "row_index": i,
         })
     return changes[:limit], len(changes)

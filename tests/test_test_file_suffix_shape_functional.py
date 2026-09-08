@@ -39,7 +39,7 @@ VALID_TYPES = ("regression", "functional", "contract", "smoke", "unit", "integra
 # that predates this checker and was never subject to it brought in several
 # new un-suffixed files at once, a one-time reconciliation rather than
 # ordinary new-file non-compliance.
-LEGACY_NO_SUFFIX_CEILING = 97
+LEGACY_NO_SUFFIX_CEILING = 92
 
 
 def _has_valid_type_suffix(name: str) -> bool:
