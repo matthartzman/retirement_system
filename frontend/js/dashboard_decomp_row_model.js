@@ -4608,7 +4608,25 @@ export async function saveAll(sync = true) {
     maybeRunLocalBackup("save");
     return true;
   } catch (e) {
-    showMessage("Error saving: " + e.message, "error");
+    // #315: the backend's structured validation-error list (api_client.js's
+    // request() attaches it as e.errors from the response body's `errors`
+    // array, e.g. /api/config/rows' 422 "Plan Data validation failed") was
+    // being discarded in favor of the generic e.message toast, so a save
+    // failure gave no clue which field(s) actually failed. Surface the full
+    // list in the message's expandable "Technical details" section (and to
+    // the console) whenever the backend supplied one; fall back to the
+    // plain message when it didn't.
+    const errs = e && Array.isArray(e.errors) ? e.errors : null;
+    if (typeof console !== "undefined" && console.error)
+      console.error("Save failed:", e, errs || undefined);
+    if (errs && errs.length) {
+      showMessage("Error saving: " + e.message, "error", {
+        persistent: true,
+        technicalDetail: errs.join("\n"),
+      });
+    } else {
+      showMessage("Error saving: " + e.message, "error");
+    }
     return false;
   }
 }
