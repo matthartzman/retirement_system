@@ -352,25 +352,6 @@ def _y(v, default=0):
     except Exception:
         return default
 
-def _insurance_policy_premium_sum(data, policy_type):
-    # #224: an Insurance Policy record (Insurance page) of this type becomes
-    # the source of truth for that baseline once one exists with a nonzero
-    # premium, instead of a separately-maintained comparison number that can
-    # drift from it. Gated behind the same "Existing Life Insurance" optional
-    # module every other Insurance In Force row is gated behind (see #226-
-    # style optional-module gating) -- otherwise this would activate policy
-    # rows the rest of the app is still treating as off/inactive.
-    if not _b(_v(data, 'Optional Functions', '', 'existing_life_insurance', 'FALSE')):
-        return 0.0
-    total = 0.0
-    target = policy_type.strip().lower()
-    for fields in (data.get('Insurance In Force') or {}).values():
-        if str(fields.get('policy_type', '')).strip().lower() != target:
-            continue
-        total += _n(fields.get('annual_premium', '0'), 0)
-    return total
-
-
 def _date_parts(v):
     """Return (year, month, day) for common plan-date strings, else None.
 
@@ -513,6 +494,13 @@ from .parsing.daf import parse_daf  # noqa: F401
 # here so existing callers (`from src.data_io import parse_note_receivable`)
 # keep working unchanged.
 from .parsing.note_receivable import parse_note_receivable  # noqa: F401
+
+# _insurance_policy_premium_sum() extracted to src/parsing/insurance.py
+# System review 2026-08-31, finding A5 / Wave 3 item 3.13 ("split
+# parse_client into src/parsing/ siblings; move validation out"). Re-exported
+# here so existing callers (`from src.data_io import
+# _insurance_policy_premium_sum`) keep working unchanged.
+from .parsing.insurance import _insurance_policy_premium_sum  # noqa: F401
 
 
 def parse_client(data, url_template, *, skip_live_pricing=False):
