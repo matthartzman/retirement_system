@@ -1,3 +1,5 @@
+_See `documentation/OPTIMIZATION_DOCS_INDEX.md` for how this document relates to the other optimization-planning docs in this directory._
+
 # F0-F2 Completion Summary
 
 **Date:** 2026-08-12  

@@ -1,3 +1,5 @@
+_See `documentation/OPTIMIZATION_DOCS_INDEX.md` for how this document relates to the other optimization-planning docs in this directory._
+
 ## Proposed Metric Changes
 Convert the high level metrics (displayed on Impact page, but mechanics throughout). A) From Terminal Net Worth to  Expected After-Tax Lifetime Consumption-and-Transfer Value (LCV): The total financial welfare an individual or household expects to consume or pass on as gifts/bequests over their entire lifetime, adjusted for income, capital gains, and estate taxes. B) From Lifetime Taxes to Net Present Value (NPV) of Future Taxes: Taxes paid discounted to today's dollars, allowing true apple-to-apples evaluation of early Roth conversions vs. late RMDs. C) From Probability of Success to Worst-Case Ending Wealth (5th Percentile Outcome): Evaluates portfolio durability in bear markets without relying solely on a binary pass/fail probability percentage. D) Add Effective Future Tax Rate (ELTR): Total Future Taxes divided by Total Future Gross Cashflow. Including current year – so Future = Scope of Plan
 

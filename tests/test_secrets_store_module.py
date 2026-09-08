@@ -143,7 +143,7 @@ def test_encryption_status_returns_local_only_stub():
     assert secrets_store.encryption_status() == {
         "mode": "local-only",
         "encrypted": False,
-        "configured": True,
+        "store_active": True,
     }
 
 
@@ -153,8 +153,27 @@ def test_encryption_status_ignores_any_arguments():
     assert secrets_store.encryption_status("workspace-1", db_path="/whatever") == {
         "mode": "local-only",
         "encrypted": False,
-        "configured": True,
+        "store_active": True,
     }
+
+
+def test_encryption_status_has_no_configured_key_to_collide_with_a_callers_own():
+    # Finding SEC-5 (Wave 6 W6-1): tools/manage_secret.py builds
+    # `{"configured": bool(val), **encryption_status()}` -- when this
+    # function's own return dict carried a "configured" key, the spread
+    # silently overwrote the caller's real "was a secret actually set" flag
+    # with this stub's unconditional True. Reproduce that exact merge here
+    # and confirm the caller's own "configured" key survives untouched now
+    # that this function no longer uses that name.
+    assert "configured" not in secrets_store.encryption_status()
+
+    for real_configured in (True, False):
+        merged = {"configured": real_configured, "fingerprint": "abc123", **secrets_store.encryption_status()}
+        assert merged["configured"] == real_configured, (
+            "encryption_status()'s own keys must never shadow a caller's unrelated "
+            "'configured' key in a dict-spread merge (the exact pattern "
+            "tools/manage_secret.py uses)"
+        )
 
 
 # ---------------------------------------------------------------------------

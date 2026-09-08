@@ -29,7 +29,7 @@ Model Constants,IRMAA,irmaa_annual_inflator,2.00%,pct,Annual IRMAA threshold inf
 Model Constants,Monte Carlo,mc_portfolio_sigma,12.00%,pct,"Portfolio return standard deviation for Monte Carlo (1,000 sims)",
 Model Constants,Monte Carlo,mc_simulations,1000,integer,Number of exact scalar Monte Carlo simulation paths for interactive builds; raise for final advisor runs,
 Model Constants,Monte Carlo,mc_sensitivity_simulations,50,integer,Exact scalar re-simulations per μ/σ sensitivity-grid cell; raise for final advisor runs if runtime allows.,
-Model Constants,Monte Carlo,mc_engine_mode,quick_vectorized,text,Advisor-ready default exact scalar path Monte Carlo; set to vectorized only for faster approximate diagnostics.
+Model Constants,Monte Carlo,mc_engine_mode,quick_vectorized,text,Quick Vectorized: a faster, approximate Monte Carlo path used here for faster demo/test runs. The app's advisor-ready default is Advanced Exact Scalar (see input/client_policy.csv).
 Model Constants,Monte Carlo,success_liquid_floor,0,USD,Minimum liquid assets required in every simulated year for funding success,
 Model Constants,Monte Carlo,stochastic_tax_brackets,TRUE,boolean,Add random noise to tax bracket inflation,
 Model Constants,Monte Carlo,stochastic_irmaa,TRUE,boolean,Add random noise to IRMAA thresholds,

@@ -29,6 +29,18 @@ def test_index_serves_the_dashboard_html(tmp_path):
     assert "<title>" in body or "Financial trends" in body
 
 
+def test_charts_js_is_served_with_a_js_capable_content_type(tmp_path):
+    # Finding QUA-302 (Wave 6 item W6-11): index.html's <script type="module">
+    # imports ./charts.js -- it must actually be served by this app, and
+    # with a Content-Type a browser will execute as a module script.
+    app = create_app(_workspace(tmp_path), log_path=tmp_path / "log.jsonl")
+    client = app.test_client()
+    resp = client.get("/charts.js")
+    assert resp.status_code == 200
+    assert "javascript" in resp.headers.get("Content-Type", "").lower()
+    assert "export function barChartSvg" in resp.get_data(as_text=True)
+
+
 def test_history_endpoint_returns_the_jsonl_log(tmp_path):
     log_path = tmp_path / "log.jsonl"
     append_or_replace_entry(log_path, {"as_of_date": "2026-01-01", "net_worth": {"total": 100}})

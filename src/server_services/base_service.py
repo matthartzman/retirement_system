@@ -120,7 +120,12 @@ def status_payload(*, version: str, cfg: Any, base_dir: Path, output_dir: Path, 
         "features": {
             "json_yaml_config": True,
             "sqlite_backend": False,
-            "encrypted_api_keys": True,
+            # Finding SEC-5 (system review 2026-09-07, Wave 6 item W6-1): this
+            # flatly contradicted the "encryption" key a few lines below in
+            # this same payload (secrets_store.encryption_status()'s
+            # "encrypted": False) -- the store is plaintext JSON, not
+            # encrypted at rest.
+            "encrypted_api_keys": False,
             "user_permissions": False,
             "build_queue": False,
             "web_dashboard": True,

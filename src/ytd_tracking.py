@@ -728,6 +728,12 @@ def is_ignored_ytd_spending_flow(row: dict[str, Any]) -> bool:
 
 
 def classify_cash_transaction(row: dict[str, Any]) -> str:
+    # Finding N9 (system review 2026-09-07, Wave 6 item W6-10): the Monarch
+    # export sign convention this function assumes -- negative amount =
+    # spending/debit (money left the account), positive amount = income/
+    # credit/refund (money arrived) -- was never asserted anywhere in
+    # tests/, only implicit in this branching. Pinned by
+    # tests/test_monarch_transaction_sign_convention_contract.py.
     amount = parse_money(row.get("Amount"))
     text = transaction_text(row)
     if is_ignored_ytd_spending_flow(row):

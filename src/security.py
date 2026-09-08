@@ -19,6 +19,33 @@ SECRET_PATTERNS = [
     re.compile(r'((?:apikey|api_key)=)[^&\s]+', re.I),
 ]
 
+# Finding SEC-4 (system review 2026-09-07, Wave 6 item W6-2): redact_text()
+# above only ever matched credential-shaped keys (api_key/token/secret/
+# password) -- balances, DOBs, and merchant names passed through untouched.
+# SECRET_PATTERNS's "key: value" regex approach doesn't fit every sink,
+# though: the admin-config-change diff log (src/server/security_audit.py's
+# _summarize_csv_row_changes) stores a human label ("Household / DOB /
+# Husband") and its before/after value as SEPARATE JSON keys, not collapsed
+# into one "key: value" string a regex could match. This keyword list lets
+# that call site (and any other label+value sink) decide per-field whether
+# to redact the value, by matching against the human label text instead.
+SENSITIVE_FIELD_LABEL_KEYWORDS = (
+    "dob",
+    "date of birth",
+    "birth date",
+    "ssn",
+    "social security",
+    "balance",
+    "account number",
+    "account #",
+    "merchant",
+)
+
+
+def is_sensitive_change_label(label: object) -> bool:
+    text = str(label or "").lower()
+    return any(keyword in text for keyword in SENSITIVE_FIELD_LABEL_KEYWORDS)
+
 
 def redact_secret(value: object) -> str:
     text = str(value or "")

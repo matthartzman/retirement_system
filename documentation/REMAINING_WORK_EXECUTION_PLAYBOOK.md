@@ -1,3 +1,5 @@
+_See `documentation/OPTIMIZATION_DOCS_INDEX.md` for how this document relates to the other optimization-planning docs in this directory._
+
 # Remaining Work Execution Playbook
 **Status: F0-F2 Complete | F3/F4/F5 Ready to Execute**
 

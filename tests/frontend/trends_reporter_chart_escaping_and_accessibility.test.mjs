@@ -8,15 +8,25 @@
 // history fetch or run showed the same "no data yet" empty state as a
 // household with genuinely no history.
 //
-// This extracts and runs the page's own inline <script> block (not a
-// hand-copied fixture) in a Node vm with a minimal DOM stub, so it exercises
-// the real shipped source.
+// Finding QUA-302 (Wave 6 item W6-11): the chart-rendering functions this
+// file tests (barChartSvg/lineChartSvg/...) used to live inline in
+// index.html's <script> block with no module boundary, so this file used to
+// regex-extract that whole block and vm-execute it. They now live in
+// ./charts.js as a real ES module -- imported directly below, a strictly
+// stronger test than the extraction it replaces. The remaining inline
+// <script type="module"> (render/loadHistory/error-handling/event wiring)
+// still can't be imported directly (it self-invokes loadHistory() and wires
+// DOM event listeners at module-evaluation time), so that half continues to
+// use the vm-sandbox extraction, with charts.js's real exports pre-populated
+// into the sandbox in place of the page's own `import` statement (which a
+// classic, non-module vm.Script can't parse).
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import { fileURLToPath } from "node:url";
+import * as charts from "../../financial_trends_reporter/frontend/charts.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const INDEX_HTML_PATH = path.join(
@@ -24,14 +34,19 @@ const INDEX_HTML_PATH = path.join(
 );
 
 function extractInlineScript(html) {
-  const match = html.match(/<script>([\s\S]*?)<\/script>/);
-  if (!match) throw new Error("could not find the page's inline <script> block");
+  const match = html.match(/<script type="module">([\s\S]*?)<\/script>/);
+  if (!match) throw new Error("could not find the page's inline <script type=\"module\"> block");
   return match[1];
 }
 
 function loadPageSandbox() {
   const html = fs.readFileSync(INDEX_HTML_PATH, "utf8");
-  const src = extractInlineScript(html);
+  let src = extractInlineScript(html);
+  // The real import is exercised directly via the top-level `charts` import
+  // above; strip the statement itself so a classic (non-module) vm.Script
+  // can parse the rest, and pre-populate the sandbox with the same real
+  // functions in its place.
+  src = src.replace(/^import\s*\{[^}]*\}\s*from\s*["'][^"']*["'];?\s*$/m, "");
 
   const elements = new Map();
   function makeStubElement(id) {
@@ -65,6 +80,7 @@ function loadPageSandbox() {
   let fetchImpl = async () => ({ ok: true, json: async () => [] });
 
   const sandbox = {
+    ...charts,
     document: documentStub,
     fetch: (...args) => fetchImpl(...args),
     console,
@@ -90,15 +106,13 @@ function loadPageSandbox() {
 
 describe("barChartSvg escapes category names", () => {
   test("a category name containing HTML/SVG-special characters is escaped, not injected", () => {
-    const { sandbox } = loadPageSandbox();
-    const svg = sandbox.barChartSvg([["R&D <script>", 1234.5]]);
+    const svg = charts.barChartSvg([["R&D <script>", 1234.5]]);
     assert.ok(!svg.includes("<script>"), "raw <script> tag leaked into chart markup");
     assert.ok(svg.includes("R&amp;D &lt;script&gt;"), "escaped category name not found");
   });
 
   test("bar chart declares role=img with a label, and includes a data-table fallback", () => {
-    const { sandbox } = loadPageSandbox();
-    const svg = sandbox.barChartSvg([["Groceries", 500]]);
+    const svg = charts.barChartSvg([["Groceries", 500]]);
     assert.ok(svg.includes('role="img"'), "missing role=img");
     assert.ok(svg.includes("aria-label="), "missing aria-label");
     assert.ok(svg.includes("<table"), "missing data-table fallback");
@@ -108,8 +122,7 @@ describe("barChartSvg escapes category names", () => {
 
 describe("lineChartSvg escapes labels", () => {
   test("a label containing HTML/SVG-special characters is escaped, not injected", () => {
-    const { sandbox } = loadPageSandbox();
-    const svg = sandbox.lineChartSvg(
+    const svg = charts.lineChartSvg(
       [{ label: '"><img src=x onerror=alert(1)>', value: 100 }],
       { title: "Test" },
     );
@@ -117,8 +130,7 @@ describe("lineChartSvg escapes labels", () => {
   });
 
   test("line chart declares role=img with a label, and includes a data-table fallback", () => {
-    const { sandbox } = loadPageSandbox();
-    const svg = sandbox.lineChartSvg([{ label: "Jan", value: 100 }], { title: "Net worth" });
+    const svg = charts.lineChartSvg([{ label: "Jan", value: 100 }], { title: "Net worth" });
     assert.ok(svg.includes('role="img"'), "missing role=img");
     assert.ok(svg.includes("aria-label="), "missing aria-label");
     assert.ok(svg.includes("<table"), "missing data-table fallback");

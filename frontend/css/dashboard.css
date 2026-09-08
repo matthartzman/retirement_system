@@ -924,3 +924,11 @@ body.chart-modal-open{overflow:hidden}
 .toggle-text-yes{display:none}
 .toggle-switch input:checked~.toggle-text-yes{display:inline;color:var(--ok)}
 .toggle-switch input:checked~.toggle-text-no{display:none}
+/* Finding UX-107 (system review 2026-09-07, Wave 6 item W6-7): no skip-link
+   existed, so a keyboard user had to tab through the entire ~45-step
+   guided-nav sidebar (frontend/index.html's #sideNav) before reaching
+   #mainPane on every page load. Visually hidden until focused, matching the
+   standard skip-link pattern. */
+.skip-link{position:absolute;top:-999px;left:0;z-index:200;background:#1c2f4a;color:#fff;padding:10px 16px;border-radius:0 0 9px 0;font-weight:800;text-decoration:none}
+.skip-link:focus{top:0}
+#mainPane:focus{outline:none}
