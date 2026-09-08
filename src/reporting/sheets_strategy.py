@@ -611,7 +611,7 @@ def build_sheet10(ws, c, rows):
     _s1 = str(c.get('h_nick') or c.get('h_name') or 'Member 1')
     _s2 = str(c.get('w_nick') or c.get('w_name') or 'Member 2')
     summary = [
-        (f'Recommended {_s1} Claim Age', best['h_age'], f'Highest score (LCV -- PV of lifetime spending plus PV of after-tax terminal transfer -- plus survivor-period SS income) among claim-age pairs meeting the essential-funding feasibility gate, from a {len(scenarios)}-pair coarse-then-refine sweep of the 62–70 × 62–70 grid.'),
+        (f'Recommended {_s1} Claim Age', best['h_age'], f'Highest score (LCV -- PV of lifetime spending plus PV of after-tax terminal transfer -- plus survivor-period SS income) among claim-age pairs meeting the essential-funding feasibility gate, from a {len(scenarios)}-pair coarse-then-refine sweep of the {h_floor}–70 × {w_floor}–70 grid (each spouse’s own current age through 70 -- ages already passed are never considered).'),
         (f'Recommended {_s2} Claim Age', best['w_age'], 'Projection uses the same tax, IRMAA, withdrawal, ACA, survivor, and estate machinery as the base plan.'),
         ('Current Configured Claim Ages', f"{_s1} {h_current} / {_s2} {w_current}", 'Current row shown below for comparison.'),
         ('Best vs Current LCV', (best['lcv'] - (current or best)['lcv']) if current else 0.0, 'Positive means the sweep’s selected pair improves Expected After-Tax Lifetime Consumption-and-Transfer Value versus current config.'),
@@ -664,7 +664,7 @@ def build_sheet10(ws, c, rows):
 
     r += 1
     write_hdr(ws, r, 1, 'Top 10 claiming pairs — coarse-then-refine projection ranking', NAVY, WHITE, span=14); r += 1
-    write_cell(ws, r, 1, f'Score (0-100) ranks these {len(scenarios)} claim-age pairs relative to each other (100 = best in this set). This is a coarse-then-refine sweep of the 62-70 x 62-70 grid, not every one of its up to 81 pairs -- an every-other-age coarse pass locates the strongest region, then every individual age around that region is scored. Objective Value is a present-value scoring unit (PV of lifetime spending plus PV of after-tax terminal transfer, plus survivor-period SS income) the ranking is computed from -- deliberately a different convention than the displayed LCV column (nominal lifetime spending plus Post-Tax Inheritance, the plan\'s headline figure), so Objective Value is not directly comparable to LCV dollar-for-dollar. The Recommended row above is chosen only from pairs whose modeled essential-spending funding probability clears a feasibility floor; other pairs still appear here, ranked, for comparison. Lifetime SS is a raw, undiscounted total across the whole plan horizon: it can be HIGHER for an earlier claim age even though delaying grows the monthly check, because delaying trades away entire years of checks for a larger one later (a breakeven-age effect, not a return comparison) -- Score already accounts for this by weighting survivor-period SS income instead of raw lifetime SS.', align='left')
+    write_cell(ws, r, 1, f'Score (0-100) ranks these {len(scenarios)} claim-age pairs relative to each other (100 = best in this set). This is a coarse-then-refine sweep of the {h_floor}-70 x {w_floor}-70 grid (each spouse\'s own current age through 70 -- an already-passed claim age is never swept), not every one of its up to 81 pairs -- an every-other-age coarse pass locates the strongest region, then every individual age around that region is scored. Objective Value is a present-value scoring unit (PV of lifetime spending plus PV of after-tax terminal transfer, plus survivor-period SS income) the ranking is computed from -- deliberately a different convention than the displayed LCV column (nominal lifetime spending plus Post-Tax Inheritance, the plan\'s headline figure), so Objective Value is not directly comparable to LCV dollar-for-dollar. The Recommended row above is chosen only from pairs whose modeled essential-spending funding probability clears a feasibility floor; other pairs still appear here, ranked, for comparison. Lifetime SS is a raw, undiscounted total across the whole plan horizon: it can be HIGHER for an earlier claim age even though delaying grows the monthly check, because delaying trades away entire years of checks for a larger one later (a breakeven-age effect, not a return comparison) -- Score already accounts for this by weighting survivor-period SS income instead of raw lifetime SS.', align='left')
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
     ws.row_dimensions[r].height = 40
     r += 1
@@ -739,7 +739,7 @@ def build_sheet10(ws, c, rows):
             r += 1
 
     r += 2
-    write_hdr(ws, r, 1, f'Coarse-then-refine 62–70 × 62–70 spouse-pair sweep ({len(scenarios)} pairs scored)', NAVY, WHITE, span=13); r += 1
+    write_hdr(ws, r, 1, f'Coarse-then-refine {h_floor}–70 × {w_floor}–70 spouse-pair sweep ({len(scenarios)} pairs scored)', NAVY, WHITE, span=13); r += 1
     hdrs = [f'{_s1} Claim', f'{_s2} Claim', 'Score (0-100)', 'Objective Value', 'After-Tax Terminal NW', 'Survivor-Period SS Income', 'LCV', 'Δ LCV', 'Lifetime SS', 'NPV of Future Taxes', 'IRMAA', 'Survivor Years', 'Worst-Case Ending Wealth (5th %ile)']
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
@@ -753,9 +753,10 @@ def build_sheet10(ws, c, rows):
         r += 1
 
     r += 1
-    note = (f'This sheet runs {_s1}/{_s2} claiming-age pairs from 62 through 70 through the projection engine using a coarse-then-refine '
-            'sweep (an every-other-age pass locates the strongest region, then every individual age around that region is scored) rather than '
-            'every one of the up to 81 possible pairs. '
+    note = (f'This sheet runs {_s1}/{_s2} claiming-age pairs from each spouse\'s own current age (never below 62) through 70 through the '
+            'projection engine using a coarse-then-refine sweep (an every-other-age pass locates the strongest region, then every individual '
+            'age around that region is scored) rather than every one of the up to 81 possible pairs. A claim age the person has already passed '
+            'is never considered, since it could not actually be claimed. '
             'It does not use a static break-even table or a hard-coded age-70 answer. The score ranks each pair on after-tax terminal net worth '
             'plus survivor-period SS income (the SS dollars received in the fixed years when only one spouse is alive, weighted 1:1 with wealth by default via ss_survivor_weight) -- '
             'not gross terminal net worth with lifetime SS added back and lifetime tax/IRMAA subtracted again, which double-counted both in the same direction. '
@@ -767,7 +768,7 @@ def build_sheet10(ws, c, rows):
 
     for col in range(1, 15):
         ws.column_dimensions[get_column_letter(col)].width = 16
-    qc('10. Social Security', 'Claim ages 62-70 swept by spouse against a coarse-then-refine projection', True, '')
+    qc('10. Social Security', 'Claim ages swept per spouse from their current age (floor 62) through 70 against a coarse-then-refine projection', True, '')
 
     return {
         'best': best, 'current': current, 'scenarios': scenarios,
