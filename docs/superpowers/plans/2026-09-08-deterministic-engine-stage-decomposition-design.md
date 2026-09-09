@@ -198,12 +198,148 @@ regression test staying green.
 
 ## Explicitly out of scope for this document
 
-- The internal decomposition of Stage 10 (Withdrawal Cascade) — flagged
-  above as needing its own design pass once stages 1–9/11–14 are done and
-  the pattern is proven.
 - Any change to golden-master *pinned values* — this is a pure refactor;
   if any pinned value changes, that's a bug in the extraction, not a golden
   master update.
 - Performance — `YearState` as a dataclass vs. dict has a marginal per-year
   allocation cost; not addressed here since correctness dominates for an XL
   refactor of tax-sensitive code.
+
+---
+
+## Addendum (2026-09-09): Stage 10 (Withdrawal Cascade) design pass
+
+Status at the time of this addendum: **13 of 14 stages extracted** (all of
+1–9, 11–14). This is the design pass for the last one, deferred until now
+per the original document's own instruction ("needs its own design pass
+once stages 1–9/11–14 are done and the pattern is proven").
+
+### The block
+
+`run_deterministic_projection_stage()` in `deterministic_engine.py`,
+lines ~959–1748 (~790 lines, matching the original estimate almost
+exactly). Everything after Stage 9 (AGI/Tax) and before the already-extracted
+Stage 11 (AMT/equity-comp true-up).
+
+### Sub-stage inventory (11 sub-stages, not 8–10 — the original estimate
+undercounted by treating "LTCG/NIIT + TLH + gain-harvest + cap-loss" as one
+unit; it's really 6 tightly-coupled pieces)
+
+| # | Sub-stage | Lines | Loop? | Risk |
+|---|---|---|---|---|
+| 0 | Gap assembly + HELOC + liability amortization | 959–1050 | no | Low — seeds `gap`, the cascade's central threading variable |
+| 1 | Priority 1b: HSA funds contingent liability | 1061–1094 | no | Low |
+| 2 | Priority 2: HSA scheduled window draw | 1096–1103 | no | Low |
+| 3 | HSA-reimbursement medical-deduction correction | 1105–1199 | no | **Very high** — the exact ordering this block's position guards is what the regression test exists for (see below) |
+| 4 | Priority 3: pre-tax elective withdrawal (bracket-capped) | 1201–1316 | yes (IRA true-up) | High — near-duplicate of #7 |
+| 5 | Priority 4: taxable/trust withdrawal | 1318–1332 | no | Low |
+| 6 | LTCG/NIIT fixed point + TLH + gain-harvest + cap-loss waterfall | 1334–1528 | yes (investment-tax loop) | **Very high** — largest (195 lines), most tangled, two inline closures over 5+ shared mutables |
+| 7 | Priority 4b: final pre-tax draw before Roth (cap override) | 1530–1628 | yes (IRA true-up, shares #4's pattern) | High — near-duplicate of #4 |
+| 8 | DAF carryforward make-up pass | 1630–1699 | no | Medium — documented as the mirror-image of #3 ("same shape, opposite sign") |
+| 9 | Priority 4c: final non-Roth HSA draw before Roth | 1700–1716 | no | Low |
+| 10 | Priority 5: Roth withdrawal (last resort) | 1718–1732 | no | Low — but the *invariant* "nothing before this has left liquid pretax/HSA" is exactly what the regression test checks |
+| 11 | Unfunded-gap / surplus sweep | 1733–1748 | no | Low |
+
+### The regression this cascade already broke once
+
+`tests/test_recommendations_functional.py::test_fixed_point_taxable_withdrawal_solver_runs_before_roth`
+asserts three things every year: the LTCG/NIIT fixed point actually ran when
+expected, it funded taxes via taxable draws, and — the load-bearing one —
+**zero years where `roth_wd > 1` while `pretax_nw + hsa_nw > 1`**. History
+(documented inline at lines 1113–1137): an earlier version placed sub-stage
+3 (HSA-reimbursement netting) *after* Priority 4c instead of between
+Priorities 2 and 3. That let the extra tax demand it creates land with
+"only Roth left to fund it" — 10 years failed the invariant. A second,
+independent regression (lines 1176–1186) came from writing `total_tax`
+directly inside sub-stage 3 instead of updating `total_tax_pre_niit`; the
+value was silently discarded by the later recombination
+(`total_tax = total_tax_pre_niit + ltcg_tax + niit - tlh_ordinary_credit`),
+producing a $178.21 residual caught by
+`test_cashflow_breakdown_single_source_of_truth.py`.
+
+**Both bugs were positional/ordering mistakes a type system or interface
+contract would not have caught — they were caught by behavior-level
+regression tests.** This is the strongest argument in the whole 3.10 effort
+for treating any decomposition of this block as gated on those two tests
+specifically, not just the two standing safety nets.
+
+### Fixed-point loops (3, not 1 — the original document only described one)
+
+All three share one config key, `c['tax_withdrawal_fixed_point_iterations']`
+(default 3), and the same shape: bounded loop, early `break` on a negligible
+delta, then an *unconditional* one-shot settle-up after the loop (even if it
+hit its iteration cap) so the final increment's tax is never left untrued-up.
+
+1. **Priority 3 IRA true-up** (1251–1292) — ordinary-tax delta vs.
+   incremental pretax draw.
+2. **LTCG/NIIT investment-tax loop** (1452–1483) — taxable/trust draw vs.
+   LTCG+NIIT delta; the one already described in the original document.
+3. **Priority 4b IRA true-up** (1555–1594) — structurally identical to #1,
+   reusing its same helper function and the *same* iteration counter
+   (`ira_tax_true_up_iterations` is cumulative across both).
+
+### Internal state (candidates for an internal `YearState`-like object)
+
+Unlike every stage extracted so far, this block's own internal sub-stages
+share far more mutable state with EACH OTHER than any two already-extracted
+stages ever shared: `gap`, `agi`/`taxable_inc`, `fed_tax`/`state_tax`,
+`total_tax_pre_niit`/`total_tax` (rebuilt by recombination, not written
+directly — itself an ordering hazard per the regression above),
+`ltcg_gain`/`ltcg_tax`/`niit`, `available_losses`/`cap_loss_carryforward`
+(the latter also crosses *year* boundaries), `item_ded`/`medical_ded`/`char`/`ded`,
+`ira_wd`/`h_ira_elective`/`w_ira_elective`/`pretax_by_account` (accumulated
+across #4 and #7), plus five per-account ledger dicts on `row` written
+incrementally by nearly every sub-stage.
+
+**This is the evidence the original document said would decide the
+`YearState` question.** It decides it: a block this internally
+interconnected is a legitimate case for a small, explicit, purpose-scoped
+mutable context object — NOT the full engine-wide `YearState` (still not
+needed for the boundary *between* stages, where a NamedTuple return has
+worked every time), but a `CascadeState`-shaped object scoped to just this
+block's own internal pipeline, passed by reference between its internal
+sub-stage functions the same way `bal`/`row` already are. Building that
+object's field list is >80% done by the "internal state" list above.
+
+### Recommended approach: this is not one more extraction, it's a sub-project
+
+Given the sub-stage count (11), the two independent fixed-point loops that
+must stay correctly sequenced relative to sub-stage 3's exact position, and
+a documented history of two distinct silent-regression bugs from exactly
+this kind of reordering, **do not attempt this as a single extraction PR**,
+even by the isolated-worktree-parallel pattern used for stages 1–9/11–14.
+Recommended path, in order:
+
+1. **Extract the 8 low-risk, no-loop, non-adjacent-to-#3 sub-stages
+   first**, each as its own small PR, gated on both safety nets AND the
+   `test_fixed_point_taxable_withdrawal_solver_runs_before_roth` /
+   `test_cashflow_breakdown_single_source_of_truth` regression tests
+   specifically: #0, #1, #2, #5, #9, #10, #11, and #8 (DAF make-up — medium
+   risk but well-isolated and well-documented). This shrinks the inline
+   block from ~790 to ~350 lines with the pattern already proven safe for
+   9 of the 11 pieces, and produces the `CascadeState`-shaped context
+   object's first working draft against low-stakes callers.
+2. **#4 and #7 together** (the two near-duplicate IRA true-up
+   priorities) — factor their shared true-up-loop-plus-settle-up pattern
+   into one internal helper both call, since they already are
+   near-identical code; this is a case where the extraction is also a
+   legitimate, low-risk de-duplication, not just a relocation.
+3. **#3 last among the "simple" pieces, on its own, with the ordering
+   regression test as the explicit acceptance gate** — do not bundle it
+   with anything else. Its function boundary must encode "runs after #2,
+   before #4, nets only #1+#2's `hsa_wd`" as an explicit precondition in
+   its own docstring and, ideally, an assertion or comment loud enough
+   that a future edit cannot silently relocate it the same way the
+   original regression happened.
+4. **#6 (LTCG/NIIT + TLH + gain-harvest + cap-loss) is its own
+   follow-up design pass**, not attempted here. At 195 lines with two
+   inline closures over 5+ shared mutables, this needs the same kind of
+   sub-stage inventory this addendum just did for the whole cascade,
+   scoped to just this one block, before any extraction is attempted.
+   Do not fold it into step 1–3's momentum.
+
+Each step in 1–3 is its own PR/commit, verified the same way every prior
+stage extraction in this ticket has been: both safety nets before and
+after, plus (new, specific to this block) both regression tests named
+above, plus a direct read of the diff confirming no dropped reassignment —
+the same review process already used for the 13 stages done so far.
