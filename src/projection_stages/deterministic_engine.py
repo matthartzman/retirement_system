@@ -26,6 +26,7 @@ from .roth_conversion_and_agi_tax import apply_roth_conversion_stage as _apply_r
 from .spending_and_rmd import apply_spending_and_rmd as _apply_spending_and_rmd
 from .withdrawal_cascade_gap_assembly import apply_gap_assembly as _apply_gap_assembly
 from .withdrawal_cascade_hsa_priority_draws import apply_hsa_priority_draws as _apply_hsa_priority_draws
+from .withdrawal_cascade_hsa_reimbursement_correction import apply_hsa_reimbursement_correction as _apply_hsa_reimbursement_correction
 from .withdrawal_cascade_taxable_trust import apply_taxable_trust_withdrawal as _apply_taxable_trust_withdrawal
 from .withdrawal_cascade_ira_true_up import (
     apply_priority_3_pretax_elective as _apply_priority_3_pretax_elective,
@@ -1002,101 +1003,30 @@ def run_deterministic_projection_stage(c):
         cl_hsa_wd = _hsa_priority.cl_hsa_wd
         hsa_wd = _hsa_priority.hsa_wd
 
-        # ── No double benefit: HSA-reimbursed medical is not also deductible ─
-        # A qualified medical expense cannot both be reimbursed tax-free from
-        # the HSA and deducted on Schedule A. `medical_expense_yr` above was
-        # computed from the full medical spend with no reduction for HSA
-        # dollars, so every HSA withdrawal was silently taking both benefits.
-        # Measured on the frozen fixture before this fix: all 123,301.40 of
-        # lifetime HSA withdrawals were also clearing the 7.5%-of-AGI floor.
-        #
-        # Placed HERE -- after Priority 2, before Priority 3 -- because this
-        # correction INCREASES tax, so the gap grows and the REST OF THE
-        # CASCADE MUST STILL BE ABLE TO FUND IT IN ORDER.
-        #
-        # An earlier version sat after Priority 4c, on the reasoning that
-        # `hsa_wd` is not final until 4c's gap-fill has run. That was wrong,
-        # and `test_recommendations_functional.py::
-        # test_fixed_point_taxable_withdrawal_solver_runs_before_roth` caught
-        # it: adding tax demand after 3/4b/4c leaves only Roth to fund it, so
-        # the plan drew Roth while pre-tax and HSA balances still remained --
-        # 10 violations of the cascade's Roth-last invariant. Correctness of
-        # the withdrawal ORDER outranks capturing every last netted dollar.
-        #
-        # The trade that buys: only the draws known by this point are netted --
-        # Priority 1b's contingent-liability draw (which exists precisely to
-        # pay qualified medical) and Priority 2's scheduled window draw.
-        # Priority 4c's gap-fill is excluded. That is defensible on the merits
-        # rather than merely convenient: 4c is a last-resort liquidity draw
-        # against a general cash shortfall, not a reimbursement of that year's
-        # medical spend. It also errs conservative -- it nets less, so the
-        # correction is never more aggressive than the evidence supports.
-        #
-        # (The DAF re-deduction block later in this function is the same shape
-        # with the opposite sign. It only ever LOWERS tax, which is why it can
-        # safely sit after the draws: a shrinking gap needs no funding.)
-        #
-        # Only the DEDUCTION is corrected. The medical spend itself is a real
-        # cash cost and `total_spend`/`row['wellness_*']` are untouched: this
-        # changes what is deductible, not what is spent.
-        _hsa_reimbursed = min(max(0.0, hsa_wd), max(0.0, medical_expense_yr))
-        if _hsa_reimbursed > 1e-6 and medical_ded > 1e-6:
-            # Net the reimbursed dollars out of the DEDUCTION directly rather
-            # than re-deriving `max(0, net_medical - 0.075*agi)` here.
-            #
-            # The two are algebraically identical while the deduction is above
-            # the floor AND `agi` is the same at both points -- and on the
-            # frozen fixture's own configuration they are: both forms produce
-            # byte-identical pins, so no test here distinguishes them. They
-            # diverge only where `agi` has been mutated between the deduction
-            # (computed early, off first-pass agi) and this correction
-            # (post-cascade); measured under a `roth_policy='none'`
-            # configuration, re-deriving stripped 18,439 against a 10,168
-            # reimbursement in one year.
-            #
-            # Netting directly is preferred anyway because it inherits
-            # whatever floor the engine already applied instead of silently
-            # re-basing it. Whether that floor should use first-pass or
-            # converged AGI is a real question, and a separate one from the
-            # double benefit this block exists to correct.
-            _new_medical_ded = max(0.0, medical_ded - _hsa_reimbursed)
-            _medical_ded_lost = medical_ded - _new_medical_ded
-            if _medical_ded_lost > 1e-6:
-                _cand_item_ded = item_ded - _medical_ded_lost
-                # std-vs-itemized is re-evaluated: a household pushed below the
-                # standard deduction by this correction takes the standard one,
-                # which caps the damage at (item_ded - std_ded) rather than the
-                # full lost medical deduction.
-                _new_ded = max(std_ded, _cand_item_ded + (qbi_ded if c['qbi_elig'] else 0.0))
-                _new_taxable_inc = max(0.0, agi - _new_ded)
-                _new_fed_tax = _compute_fed_tax_path(_new_taxable_inc, year, filing, c['brk_inf'])
-                _fed_tax_extra = max(0.0, _new_fed_tax - fed_tax)
-                fed_tax = _new_fed_tax
-                taxable_inc = _new_taxable_inc
-                # Update the PRE-NIIT subtotal, not `total_tax` directly.
-                # `total_tax` is rebuilt from scratch further down
-                # (`total_tax_pre_niit + ltcg_tax + niit - tlh_ordinary_credit`),
-                # so a direct `total_tax += ...` here is silently discarded
-                # while the `fed_tax` change survives -- leaving the two
-                # disagreeing. That showed up as a 178.21 cash-flow
-                # reconciliation residual in
-                # test_cashflow_breakdown_single_source_of_truth.py, with the
-                # breakdown's `other` remainder absorbing exactly the gap.
-                # Recomputing the subtotal from its own components is the
-                # idiom the engine already uses at its other two update sites.
-                total_tax_pre_niit = fed_tax + state_tax + payroll_tax + irmaa_yr
-                total_tax = total_tax_pre_niit + home_sale_ltcg_tax
-                gap += _fed_tax_extra
-                item_ded = _cand_item_ded
-                ded = _new_ded
-                medical_ded = _new_medical_ded
-                row['medical_expense_deduction'] = medical_ded
-                row['medical_expense_hsa_reimbursed'] = _hsa_reimbursed
-                row['taxable_inc'] = taxable_inc
-                row['fed_tax'] = fed_tax
-                row['total_tax'] = total_tax
-                row['net_income'] = row.get('gross_income', agi) - total_tax
-                row['total_cash_need'] = total_spend_need + total_tax + other_cash_need_yr
+        # ── HSA-reimbursement medical-deduction correction (design doc Stage 10, sub-stage #3) ──
+        # See withdrawal_cascade_hsa_reimbursement_correction.py's
+        # apply_hsa_reimbursement_correction docstring for the full
+        # rationale, including the load-bearing positional precondition
+        # (must run after Priority 2, before Priority 3) and the two
+        # historical regression bugs this exact position guards against.
+        _hsa_reimb = _apply_hsa_reimbursement_correction(
+            row, year=year, filing=filing, hsa_wd=hsa_wd,
+            medical_expense_yr=medical_expense_yr, medical_ded=medical_ded, agi=agi,
+            item_ded=item_ded, ded=ded, std_ded=std_ded, qbi_ded=qbi_ded, qbi_elig=c['qbi_elig'],
+            fed_tax=fed_tax, state_tax=state_tax, payroll_tax=payroll_tax, irmaa_yr=irmaa_yr,
+            home_sale_ltcg_tax=home_sale_ltcg_tax, taxable_inc=taxable_inc,
+            total_tax_pre_niit=total_tax_pre_niit, total_tax=total_tax, gap=gap,
+            total_spend_need=total_spend_need, other_cash_need_yr=other_cash_need_yr,
+            brk_inf=c['brk_inf'], compute_fed_tax_fn=_compute_fed_tax_path,
+        )
+        gap = _hsa_reimb.gap
+        fed_tax = _hsa_reimb.fed_tax
+        taxable_inc = _hsa_reimb.taxable_inc
+        total_tax_pre_niit = _hsa_reimb.total_tax_pre_niit
+        total_tax = _hsa_reimb.total_tax
+        item_ded = _hsa_reimb.item_ded
+        ded = _hsa_reimb.ded
+        medical_ded = _hsa_reimb.medical_ded
 
         # ── Priority 3: Pre-tax elective withdrawal (design doc Stage 10, sub-stage #4) ──
         _priority3 = _apply_priority_3_pretax_elective(
