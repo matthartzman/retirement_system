@@ -50,6 +50,7 @@ PLAN_START = 2026
 # the same snapshot tests/golden_pricing.py pins the provider to, so an
 # underwater lot stays underwater by exactly the amount intended.
 _VTI = FROZEN_GOLDEN_MASTER_PRICES["VTI"]
+_ITOT = FROZEN_GOLDEN_MASTER_PRICES["ITOT"]
 
 
 def _accounts() -> list[dict[str, Any]]:
@@ -227,29 +228,81 @@ def _disable_dividend_reinvestment(c: Dict[str, Any]) -> None:
 
 
 def _enable_tlh(c: Dict[str, Any]) -> None:
-    """Turn on tax-loss harvesting against deliberately underwater synthetic lots.
+    """Turn on TLH + 0%-bracket gain harvesting against seeded synthetic lots.
 
-    build_plan_from_json produces an empty lot book, so TLH would be a no-op
-    without lots to harvest. Two VTI lots are seeded in the taxable trust at a
-    cost basis well above the frozen price, so each has a realizable loss that
-    clears the min-loss floors. Prices come from the same frozen snapshot the
-    test pins the provider to, so the loss size is exact.
+    build_plan_from_json produces an empty lot book, so TLH/gain-harvesting
+    would both be no-ops without lots to work on. Three lots are seeded in
+    the taxable trust, all priced off the same frozen snapshot
+    (tests/golden_pricing.py) the test suite pins the provider to, so every
+    dollar figure below is exact and calendar-stable:
+
+    - Two VTI lots bought well above the frozen price (deliberately
+      underwater), sized ~3x the smallest harvest that would clear the
+      min-loss floors. This is large enough that the harvested loss in
+      year 1 (~$480k) exceeds that year's realized gains (there are none
+      yet — no taxable withdrawal has happened) by construction, forcing
+      the $3,000/yr ordinary-income offset path and a large rolled-forward
+      `cap_loss_carryforward` (see sub-stage #6 design addendum,
+      2026-09-09, "Recommended regression-test coverage"). Sized to
+      survive the plan's own big-gain years (~2031-2035, when taxable/
+      trust withdrawals ramp up and burn through most of the carryforward
+      against real LTCG) with a non-trivial balance still outstanding —
+      confirmed by direct simulation to still be ~$196k as of 2036.
+    - One ITOT lot bought well *below* the frozen price (deliberately
+      appreciated, long-term), for `gain_harvest_policy='apply'` to
+      realize once the household's income drops into 0%-LTCG-bracket
+      headroom — which happens here starting in plan year 2036 (income
+      settles once both members are retired and RMDs/conversions have
+      wound down). That is the same year `cap_loss_carryforward` is still
+      positive (~$196k, above), so this scenario's year 2036 is the one
+      row that exercises all three conditions the design addendum called
+      for at once: a pre-existing (seeded) carryforward, a TLH harvest
+      that exceeded its year's gains, and gain-harvesting run with real
+      0%-bracket headroom — see
+      docs/superpowers/plans/2026-09-08-deterministic-engine-stage-decomposition-design.md,
+      "Addendum (2026-09-09): Stage 10 sub-stage #6 ... — step 4".
+
+    Direct config seeding of `cap_loss_carryforward` (the addendum's first
+    preference, "seed it directly via the scenario override... makes the
+    carryforward-consumption path deterministic and testable in isolation")
+    is not available: `create_initial_year_state()`
+    (src/projection_stages/year_state.py) hardcodes `cap_loss_carryforward`
+    to 0.0 and never reads it from config, so there is no hook to seed it
+    without an engine-side change — out of scope for a fixture-only PR.
+    Producing it organically via a large year-1 TLH harvest (as this
+    scenario already did before this change) is the only reachable path,
+    and is sized here specifically so it also survives into the
+    gain-harvest window instead of decaying to zero first.
     """
     c["tlh_policy"] = "apply"
     c["tlh_transaction_cost_bps"] = 5.0
     c["tlh_min_loss_dollars"] = 500.0
     c["tlh_min_loss_pct"] = 0.05
     c["tlh_annual_ceiling"] = 0.0
+    c["gain_harvest_policy"] = "apply"
+    c["gain_harvest_transaction_cost_bps"] = 5.0
+    c["gain_harvest_min_gain_dollars"] = 500.0
+    c["gain_harvest_min_gain_pct"] = 0.0
     lots = {
         "Joint_Trust": {
             "VTI": [
-                # 1,000 sh bought at 1.35x the frozen price → ~$130k unrealized loss.
-                TaxLot(qty=1_000.0, cost_basis=1_000.0 * _VTI * 1.35,
+                # 3,000 sh bought at 1.35x the frozen price → ~$1.15M cost
+                # basis against ~$1.02M value: a large unrealized loss, big
+                # enough that the carryforward it produces outlives the
+                # plan's own big-LTCG years (see docstring above).
+                TaxLot(qty=3_000.0, cost_basis=3_000.0 * _VTI * 1.35,
                        purchase_date=f"{PLAN_START - 3}-02-15", symbol="VTI"),
-                # 400 sh bought at 1.20x → ~$30k unrealized loss.
-                TaxLot(qty=400.0, cost_basis=400.0 * _VTI * 1.20,
+                # 1,200 sh bought at 1.20x → a second, smaller underwater lot.
+                TaxLot(qty=1_200.0, cost_basis=1_200.0 * _VTI * 1.20,
                        purchase_date=f"{PLAN_START - 1}-09-01", symbol="VTI"),
-            ]
+            ],
+            # Appreciated long-term ITOT lot (cost basis 40% of the frozen
+            # price) for 0%-bracket gain harvesting once income drops enough
+            # to open real headroom — see docstring above.
+            "ITOT": [
+                TaxLot(qty=300.0, cost_basis=300.0 * _ITOT * 0.40,
+                       purchase_date=f"{PLAN_START - 6}-03-01", symbol="ITOT"),
+            ],
         }
     }
     c["lots_by_account"] = lots
@@ -389,9 +442,17 @@ SCENARIOS: Dict[str, Scenario] = {s.name: s for s in [
     ),
     Scenario(
         "tax_loss_harvesting",
-        "Baseline plus TLH enabled against seeded underwater VTI lots in the "
-        "taxable trust. Pins loss realization, the basis/holding-period reset, "
-        "the transaction-cost drag, and the carryforward that offsets later gains.",
+        "Baseline plus TLH and 0%-bracket gain harvesting, both enabled "
+        "against seeded synthetic lots in the taxable trust: two underwater "
+        "VTI lots sized so year 1's harvested loss exceeds that year's gains "
+        "(forcing the $3k ordinary-offset path and a carryforward that "
+        "outlives the plan's big-LTCG years), plus one appreciated ITOT lot "
+        "that gain-harvests once income drops into 0%-bracket headroom in "
+        "2036 -- the same year the carryforward is still positive. Pins loss "
+        "realization, gain harvesting, the basis/holding-period reset, "
+        "transaction-cost drag, and the cap-loss carryforward waterfall -- "
+        "the highest-risk remaining piece of the withdrawal cascade (Stage "
+        "10 sub-stage #6) ahead of its extraction.",
         override=_enable_tlh,
     ),
 ]}

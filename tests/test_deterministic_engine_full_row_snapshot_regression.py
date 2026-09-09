@@ -38,6 +38,17 @@ is still caught:
   first_death_done/filing state that persists across years -- exactly the
   kind of cross-year mutable state the design doc calls out as high risk
   for stages 1-2.
+- ``tax_loss_harvesting`` -- added 2026-09-09 per the Stage 10 sub-stage #6
+  design addendum. TLH and 0%-bracket gain harvesting both enabled against
+  seeded synthetic lots: a large year-1 loss harvest that exceeds that
+  year's gains (forcing the $3k ordinary-offset path and a cap-loss
+  carryforward sized to outlive the plan's own big-LTCG years), plus an
+  appreciated lot that gain-harvests once income drops into 0%-bracket
+  headroom while that carryforward is still positive. The only scenario
+  pinning the LTCG/NIIT fixed-point loop, TLH, gain harvesting, and the
+  cap-loss waterfall at the per-year level -- see
+  ``tests/synthetic_plans.py``'s ``_enable_tlh`` docstring for the exact
+  mechanics and line-item justification.
 
 Fixture format and regeneration
 --------------------------------
@@ -91,6 +102,13 @@ SNAPSHOT_SCENARIOS = (
     "baseline_balanced_couple",
     "single_filer",
     "early_survivor_compression",
+    # Added 2026-09-09 per the Stage 10 sub-stage #6 design addendum
+    # ("Recommended regression-test coverage"): the only scenario that
+    # exercises the LTCG/NIIT fixed-point loop, TLH, gain harvesting, and
+    # the cap-loss carryforward waterfall -- the highest-risk piece of the
+    # withdrawal cascade still inline, and previously unpinned at the
+    # per-year level.
+    "tax_loss_harvesting",
 )
 
 FLOAT_PLACES = 2  # cents -- matches the tolerance both existing golden masters use.
