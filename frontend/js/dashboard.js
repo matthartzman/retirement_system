@@ -7068,9 +7068,20 @@ function downloadFile(url) {
     return;
   }
   if (window.__is_desktop_app__) {
-    fetch(apiUrl(url)).catch(function (e) {
-      showMessage("Download error: " + e.message, "error");
-    });
+    fetch(apiUrl(url))
+      .then(function (r) {
+        return (r.json ? r.json() : Promise.resolve({})).then(function (out) {
+          if (!r.ok || (out && out.success === false)) {
+            showMessage(
+              "Download error: " + ((out && out.error) || "Unknown error"),
+              "error",
+            );
+          }
+        });
+      })
+      .catch(function (e) {
+        showMessage("Download error: " + e.message, "error");
+      });
     return;
   }
   window.location.href = apiUrl(url);
