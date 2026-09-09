@@ -509,6 +509,14 @@ from .parsing.insurance import _insurance_policy_premium_sum  # noqa: F401
 # keep working unchanged.
 from .parsing.estate_planning import parse_estate_planning  # noqa: F401
 
+# parse_account_draw_priority() extracted to src/parsing/withdrawal_order.py
+# Ticket 312 (see docs/superpowers/plans/
+# 2026-09-09-parse-client-remaining-sections-design.md, section 5).
+# Re-exported here so existing callers
+# (`from src.data_io import parse_account_draw_priority`) keep working
+# unchanged.
+from .parsing.withdrawal_order import parse_account_draw_priority  # noqa: F401
+
 
 def parse_client(data, url_template, *, skip_live_pricing=False):
     """Parse sectioned client data into an engine-ready config dict.
@@ -2241,21 +2249,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['hsa_state_conformity'] = _b(_v(data, 'HSA Policy', 'Withdrawals', 'hsa_state_conformity', 'TRUE'))
 
     # ── Individual-account withdrawal-order override (#276) ──────────────────
-    # Plan Data rows: [Withdrawal Policy][Account Order][<account_id>] =
-    # priority (lower draws first). Uses the same generic Section/Subsection/
-    # Label CSV convention as every other plan-data field (so the existing
-    # generic field editor/autosave UI can manage it with no new endpoint),
-    # rather than a bespoke file. Absent/empty by default, in which case
-    # accounts()/draw_order() fall back to their existing (account-type-level)
-    # ordering untouched -- see core.py's _apply_draw_priority docstring.
-    c['account_draw_priority'] = {}
-    for _aid, _pr in (data.get('Withdrawal Policy', {}).get('Account Order', {}) or {}).items():
-        _pr = str(_pr or '').strip()
-        if _pr:
-            try:
-                c['account_draw_priority'][str(_aid).strip()] = int(float(_pr))
-            except (TypeError, ValueError):
-                pass
+    c.update(parse_account_draw_priority(data))
 
     # Taxable portfolio income assumptions.  Taxable-account ETFs/funds distribute
     # dividends/interest that must enter AGI, SS provisional income, IRMAA MAGI,
