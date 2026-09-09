@@ -60,14 +60,19 @@ def _c(mode="optimize", plan_end=2030, schedule_by_year=None, hsa_ids=("hsa1",))
 def test_optimize_is_admitted_not_coerced_to_spend_as_needed():
     import re
 
-    src = open("src/data_io.py", encoding="utf-8").read()
+    # Extracted to src/parsing/hsa_policy.py (ticket 312,
+    # parse_hsa_policy) -- the allowlist now guards a local
+    # ``hsa_withdrawal_mode`` variable rather than ``c['hsa_withdrawal_mode']``
+    # directly, since parse_hsa_policy returns a plain dict merged into ``c``
+    # by its caller.
+    src = open("src/parsing/hsa_policy.py", encoding="utf-8").read()
     # The allowlist tuple must contain 'optimize' -- a source-text check, not
     # a functional one, because parse_client's full call graph needs a
     # complete plan fixture; the functional half is covered by the
     # withdraw_hsa_window tests below, which exercise the real consequence of
     # admission (a working 'optimize' mode) rather than the gate alone.
     m = re.search(
-        r"if c\['hsa_withdrawal_mode'\] not in \(([^)]*)\):",
+        r"if hsa_withdrawal_mode not in \(([^)]*)\):",
         src,
     )
     assert m is not None, "could not find the hsa_withdrawal_mode allowlist check"

@@ -25,6 +25,8 @@ def test_fill_to_irmaa_policy_does_not_duplicate_irmaa_guardrail_rows():
 
 
 def test_engine_derives_effective_irmaa_cap_from_guardrail_behavior():
-    data_io = (ROOT / 'src/data_io.py').read_text(encoding='utf-8')
-    assert "roth_irmaa_cap_legacy_value" not in data_io
-    assert "c['roth_irmaa_cap'] = c['irmaa_guardrail_mode'] not in ('IGNORE', 'WARN_ONLY')" in data_io
+    # Ticket 312: this logic moved into src/parsing/roth_conversion_policy.py
+    # when parse_client()'s Roth Conversion Policy section was extracted.
+    src = (ROOT / 'src/parsing/roth_conversion_policy.py').read_text(encoding='utf-8')
+    assert "roth_irmaa_cap_legacy_value" not in src
+    assert "out['roth_irmaa_cap'] = out['irmaa_guardrail_mode'] not in ('IGNORE', 'WARN_ONLY')" in src

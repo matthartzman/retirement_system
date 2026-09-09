@@ -509,6 +509,42 @@ from .parsing.insurance import _insurance_policy_premium_sum  # noqa: F401
 # keep working unchanged.
 from .parsing.estate_planning import parse_estate_planning  # noqa: F401
 
+# parse_account_draw_priority() extracted to src/parsing/withdrawal_order.py
+# Ticket 312 (see docs/superpowers/plans/
+# 2026-09-09-parse-client-remaining-sections-design.md, section 5).
+# Re-exported here so existing callers
+# (`from src.data_io import parse_account_draw_priority`) keep working
+# unchanged.
+from .parsing.withdrawal_order import parse_account_draw_priority  # noqa: F401
+
+# parse_hsa_policy() / parse_hsa_withdrawal_schedule() extracted to
+# src/parsing/hsa_policy.py. Ticket 312, per
+# docs/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md
+# (section 1, "HSA Policy scalars"). Re-exported here so existing callers
+# (`from src.data_io import parse_hsa_policy`) keep working unchanged.
+from .parsing.hsa_policy import parse_hsa_policy, parse_hsa_withdrawal_schedule  # noqa: F401
+
+# parse_allocation_optimizer_inputs() extracted to
+# src/parsing/allocation_optimizer_inputs.py. Ticket 312 (design doc
+# docs/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md,
+# section 4). Re-exported here so existing callers (`from src.data_io import
+# parse_allocation_optimizer_inputs`) keep working unchanged.
+from .parsing.allocation_optimizer_inputs import parse_allocation_optimizer_inputs  # noqa: F401
+
+# parse_roth_conversion_policy() extracted to src/parsing/roth_conversion_policy.py
+# Ticket 312 (docs/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md,
+# section 3). Re-exported here so existing callers (`from src.data_io import
+# parse_roth_conversion_policy`) keep working unchanged.
+from .parsing.roth_conversion_policy import parse_roth_conversion_policy  # noqa: F401
+
+# parse_withdrawal_spending_policy() extracted to src/parsing/withdrawal_policy.py
+# Ticket 312 ("parse_client() remaining sections", design doc
+# docs/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md,
+# section 2: "Withdrawal Policy bracket-target/spending-decline"). Re-exported
+# here so existing callers (`from src.data_io import
+# parse_withdrawal_spending_policy`) keep working unchanged.
+from .parsing.withdrawal_policy import parse_withdrawal_spending_policy  # noqa: F401
+
 
 def parse_client(data, url_template, *, skip_live_pricing=False):
     """Parse sectioned client data into an engine-ready config dict.
@@ -1130,43 +1166,13 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # per-note parsing and legacy scalar aggregation logic.
     c.update(parse_note_receivable(data, c['plan_start']))
 
-    # HSA withdrawal policy. Default is spend_as_needed: do not schedule HSA draws;
-    # use HSA only when needed for a funding gap before touching Roth. Optional
-    # annual_pct and smooth_window modes allow an advisor/user to spend HSA over a
-    # controlled window. Legacy withdrawal_window is still honored when present.
-    # optimize admitted 2026-08-19: see withdraw_hsa_window's own 'optimize'
-    # branch and c['hsa_schedule_rows'] below for what it actually does today --
-    # per-year override entries via resolve_year_amount, falling back to an
-    # even/level draw for any year with no schedule row. The automatic search
-    # (rerun_optimizer/build_schedule) is NOT wired into the projection yet;
-    # see the module docstring at the top of hsa_schedule.py.
-    c['hsa_withdrawal_mode'] = str(_v(data,'HSA Policy','Withdrawals','hsa_withdrawal_mode','spend_as_needed') or 'spend_as_needed').strip().lower()
-    if c['hsa_withdrawal_mode'] not in ('spend_as_needed','annual_pct','smooth_window','optimize'):
-        c['hsa_withdrawal_mode'] = 'spend_as_needed'
-    c['hsa_annual_spend_pct'] = min(1.0, max(0.0, _n(_v(data,'HSA Policy','Withdrawals','hsa_annual_spend_pct','10%'), 0.10)))
-    c['hsa_win_start'] = 9999
-    c['hsa_win_end']   = 0
-    hsa_start_raw = str(_v(data,'HSA Policy','Withdrawals','hsa_withdrawal_start_year','') or '').strip()
-    hsa_end_raw = str(_v(data,'HSA Policy','Withdrawals','hsa_withdrawal_end_year','') or '').strip()
-    try:
-        c['hsa_win_start'] = int(float(hsa_start_raw)) if hsa_start_raw else c['plan_start']
-        c['hsa_win_end'] = int(float(hsa_end_raw)) if hsa_end_raw else 9999
-    except Exception:
-        c['hsa_win_start'], c['hsa_win_end'] = 9999, 0
-    # Be forgiving with legacy UI/data entry: older files sometimes stored the
-    # HSA window as 2040/2031 instead of 2031/2040.  The Other Assets page now
-    # exposes the start/end controls directly, and the projection normalizes the
-    # window before applying scheduled HSA cash-flow withdrawals.
-    if c.get('hsa_withdrawal_mode') != 'spend_as_needed' and c.get('hsa_win_start', 9999) > c.get('hsa_win_end', 0):
-        c['hsa_win_start'], c['hsa_win_end'] = c['hsa_win_end'], c['hsa_win_start']
-    c['hsa_contrib_base'] = (
-        _n(_v(data,'HSA Policy','Contributions','family_annual_limit_base_year','8750'),8750) *
-        _n(_v(data,'HSA Policy','Contributions','coverage_base_year_family_months','6'),6)/12 +
-        _n(_v(data,'HSA Policy','Contributions','self_only_annual_limit_base_year','4400'),4400) *
-        _n(_v(data,'HSA Policy','Contributions','coverage_base_year_self_only_months','6'),6)/12 +
-        _n(_v(data,'HSA Policy','Contributions','catchup_amount','1000'),1000)
-    )
-    c['hsa_last_contrib'] = _y(_v(data,'HSA Policy','Contributions','contribution_last_year', str(c['plan_start'])), c['plan_start'])
+    # HSA Policy scalars (withdrawal mode/window/contribution, plus
+    # beneficiary/death-tax-treatment) — see src/parsing/hsa_policy.py for
+    # the full parsing logic. hsa_schedule_rows/hsa_schedule_by_year (loaded
+    # from client_hsa_schedule.csv) are parsed separately below by
+    # parse_hsa_withdrawal_schedule(), next to the liabilities-CSV load it
+    # mirrors.
+    c.update(parse_hsa_policy(data, c['plan_start']))
 
     # Liquidity reserve requirement
     # Reserve rules are defined only by start_year, end_year, and
@@ -1217,163 +1223,12 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # the dead input, its CSV rows, and the UI table that edited it were removed
     # rather than wired up.
 
-    # ── Elective Withdrawal Bracket-Target Policy (item 3.4, F1 Option 2) ────
-    # withdraw_pretax_elective (planning_engines.py) has always capped its
-    # Priority-3 draw at a bracket ceiling before falling through to taxable/
-    # trust -- but that ceiling was hardcoded to the 24% federal bracket in
-    # deterministic_engine.py (top_24_yr), with no input anywhere to change
-    # it. This is the input: the actual policy CFPs describe ("fill ordinary
-    # income to the Nth bracket, then draw taxable") without restructuring
-    # the fixed cascade itself (F1 Option 1, deferred). Default 0.24 exactly
-    # reproduces today's hardcoded rate, so an unconfigured plan is unaffected.
-    c['withdrawal_bracket_target_rate'] = percent_to_float(_v(data,'Withdrawal Policy','Elective Withdrawal',
-                                   'withdrawal_bracket_target_rate','0.24'), 0.24)
-
-    # ── Adoptable Spending Policy (item 3.5, F6) ──────────────────────────────
-    # fixed_real (default, today's behavior): spend_base grows with inflation
-    #   forever, never adjusted by portfolio performance.
-    # guyton_klinger: the 4-rule (minus portfolio-management) guardrail
-    #   already modeled as an MC shadow becomes the LIVE policy -- portfolio
-    #   draw grows with inflation each year (frozen after a down year in MC,
-    #   which has real per-path returns to react to; the deterministic
-    #   engine's single flat assumed return has none, so its freeze rule is a
-    #   documented no-op there), cut/raised 10% when the withdrawal rate
-    #   drifts >20% from the initial rate.
-    # floor_ceiling_band: simpler cousin -- withdrawal tracks current
-    #   portfolio value directly but is clamped to +/-10% of the plan's own
-    #   original real spending level.
-    _spending_policy = str(_v(data,'Withdrawal Policy','Spending Policy',
-                              'spending_policy','fixed_real') or 'fixed_real').strip().lower()
-    c['spending_policy'] = _spending_policy if _spending_policy in ('fixed_real','guyton_klinger','floor_ceiling_band') else 'fixed_real'
-    # Age-phased real spending curve (Option 2, independent of the selector
-    # above): discretionary spend declines by this fraction, phased in
-    # linearly between start_age and end_age (of the older/only member still
-    # alive that year), then holds at the reduced level. All default to 0 --
-    # a no-op multiplier of 1.0 for every existing plan.
-    c['spending_phase_decline_pct'] = percent_to_float(_v(data,'Withdrawal Policy','Spending Policy',
-                                   'spending_phase_decline_pct','0'), 0.0)
-    c['spending_phase_start_age'] = int(_n(_v(data,'Withdrawal Policy','Spending Policy',
-                                   'spending_phase_start_age','0'), 0))
-    c['spending_phase_end_age'] = int(_n(_v(data,'Withdrawal Policy','Spending Policy',
-                                   'spending_phase_end_age','0'), 0))
+    # Withdrawal Policy bracket-target / spending-decline pair extracted to
+    # src/parsing/withdrawal_policy.py (ticket 312).
+    c.update(parse_withdrawal_spending_policy(data))
 
     # ── Roth Conversion Policy (9.5) ──────────────────────────────────────────
-    # optimize_terminal_tax: evaluate multiple conversion policies and choose the
-    #                        weighted after-tax terminal NW / lifetime-tax optimum
-    # fill_to_bracket:       fill to top of target bracket, capped by IRMAA
-    # fill_to_irmaa:         fill to IRMAA tier threshold only (no bracket cap)
-    # fixed_dollar:          convert a fixed dollar amount per year
-    # none:                  no voluntary conversions (forced-only via Forced Actions)
-    c['roth_policy'] = normalize_roth_policy(_v(data,'Withdrawal Policy','Roth Conversion',
-                           'roth_conversion_policy','optimize_terminal_tax'), 'optimize_terminal_tax').strip().lower()
-    if c['roth_policy'] not in _td.ROTH_POLICIES:
-        c['roth_policy'] = 'optimize_terminal_tax'
-    if is_explicit_user_roth_policy(c['roth_policy']):
-        c['roth_policy_lock'] = 'USER_SELECTED'
-    _roth_bracket_strategy = str(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_bracket_strategy','OPTIMIZER_CHOOSES') or 'OPTIMIZER_CHOOSES').strip().upper()
-    if _roth_bracket_strategy not in ('NONE','FILL_CURRENT_BRACKET','FILL_TARGET_BRACKET','PARTIAL_TARGET_BRACKET','IRMAA_GUARDED','SURVIVOR_TAX_AWARE','RMD_REDUCTION','LEGACY_TARGETED','OPTIMIZER_CHOOSES','FIXED_DOLLAR','PHASE_VARYING'):
-        _roth_bracket_strategy = 'OPTIMIZER_CHOOSES'
-    if is_explicit_user_roth_policy(c['roth_policy']) and _roth_bracket_strategy == 'OPTIMIZER_CHOOSES':
-        _roth_bracket_strategy = strategy_for_roth_policy(c['roth_policy'], _roth_bracket_strategy)
-    c['roth_bracket_strategy'] = _roth_bracket_strategy
-    c['roth_target_rate'] = percent_to_float(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_target_bracket_rate','0.22'), 0.22)
-    c['roth_phase_rate_1'] = percent_to_float(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_phase_first_bracket_rate','24.00%'), 0.24)
-    c['roth_phase_rate_2'] = percent_to_float(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_phase_second_bracket_rate','22.00%'), 0.22)
-    c['roth_phase_rate_3'] = percent_to_float(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_phase_third_bracket_rate','12.00%'), 0.12)
-    try:
-        c['roth_phase_count'] = int(_n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_phase_count','3'), 3))
-    except Exception:
-        c['roth_phase_count'] = 3
-    if c['roth_phase_count'] not in (2, 3):
-        c['roth_phase_count'] = 3
-    _roth_irmaa_target_tier = str(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_irmaa_target_tier','TIER_2') or 'TIER_2').strip().upper().replace(' ', '_')
-    if _roth_irmaa_target_tier not in ('TIER_1','TIER_2','TIER_3','TIER_4','TIER_5'):
-        _roth_irmaa_target_tier = 'TIER_2'
-    c['roth_irmaa_target_tier'] = _roth_irmaa_target_tier
-    try:
-        _idx = int(_roth_irmaa_target_tier.split('_')[-1]) - 1
-        c['roth_irmaa_target_threshold_mfj'] = float(_td.IRMAA_TIERS_BASE_YEAR.get('MFJ', [])[max(0, _idx)][0])
-    except Exception:
-        c['roth_irmaa_target_threshold_mfj'] = 268000.0
-    c['roth_fixed_amount']= _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_fixed_annual_amount','50000'), 50000)
-    c['roth_max_annual_conversion_pct_of_traditional_ira'] = min(1.0, max(0.0, _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'max_annual_conversion_pct_of_traditional_ira','20%'), 0.20)))
-    try:
-        c['roth_max_conversion_years'] = int(_n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'max_conversion_years','10'), 10))
-    except Exception:
-        c['roth_max_conversion_years'] = 10
-    _roth_objective_mode = str(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_objective_mode','BALANCED_RETIREMENT') or 'BALANCED_RETIREMENT').strip().upper()
-    if _roth_objective_mode not in ('BALANCED_RETIREMENT','MINIMIZE_LIFETIME_TAX','MAXIMIZE_TERMINAL_NET_WORTH','LEGACY_OPTIMIZED','ESTATE_TAX_AWARE','CUSTOM_WEIGHTED'):
-        _roth_objective_mode = 'BALANCED_RETIREMENT'
-    c['roth_objective_mode'] = _roth_objective_mode
-    c['roth_headroom_usage_pct'] = min(1.0, max(0.0, _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_headroom_usage_pct','95%'), 0.95)))
-    c['roth_irmaa_headroom_usage_pct'] = min(1.0, max(0.0, _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_irmaa_headroom_usage_pct','95%'), 0.95)))
-    c['irmaa_guardrail_mode'] = normalize_irmaa_guardrail_mode(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'irmaa_guardrail_mode','AVOID_NEXT_TIER'), 'AVOID_NEXT_TIER')
-    if c['irmaa_guardrail_mode'] not in ('IGNORE','WARN_ONLY','AVOID_NEXT_TIER','AVOID_TIER_2_OR_ABOVE','CUSTOM_MAGI_CAP'):
-        c['irmaa_guardrail_mode'] = 'AVOID_NEXT_TIER'
-    # The single controlling setting is IRMAA Guardrail Behavior.
-    if c['roth_policy'] == 'fill_to_irmaa':
-        c['roth_irmaa_cap'] = True
-    else:
-        c['roth_irmaa_cap'] = c['irmaa_guardrail_mode'] not in ('IGNORE', 'WARN_ONLY')
-    _estate_mode = str(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'estate_tax_objective_mode','BALANCED') or 'BALANCED').strip().upper()
-    if _estate_mode not in ('OFF','MONITOR_ONLY','BALANCED','STRONG'):
-        _estate_mode = 'BALANCED'
-    c['estate_tax_objective_mode'] = _estate_mode
-    c['roth_optimize_terminal_weight'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_optimize_terminal_weight','1.0'), 1.0)
-    c['roth_optimize_tax_weight'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_optimize_lifetime_tax_weight','0.25'), 0.25)
-    c['roth_optimize_terminal_tax_rate'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_optimize_terminal_pretax_tax_rate','0.24'), 0.24)
-    # Legacy-aware Roth conversion objective controls. These inputs let the
-    # optimizer value tax-rate diversification, future ordinary-tax risk,
-    # survivor tax compression, and the tax burden inherited with pre-tax IRA
-    # balances. They are objective weights only; the projection cash-flow/tax
-    # mechanics still use the standard tax assumptions.
-    _legacy_mode = str(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'legacy_objective_mode','BALANCED') or 'BALANCED').strip().upper()
-    if _legacy_mode not in ('OFF', 'LOW', 'BALANCED', 'STRONG'):
-        _legacy_mode = 'BALANCED'
-    c['roth_legacy_objective_mode'] = _legacy_mode
-    c['roth_future_tax_rate_stress_pct'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'future_tax_rate_stress_pct','10%'), 0.10)
-    c['roth_future_tax_risk_weight'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'future_tax_risk_weight','0.35'), 0.35)
-    c['roth_inheritance_tax_burden_weight'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'inheritance_tax_burden_weight','0.25'), 0.25)
-    c['roth_heir_ordinary_tax_rate_assumption'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'heir_ordinary_tax_rate_assumption_pct','24%'), 0.24)
-    # Item 4.3: assumed beneficiary filing status. Drives the derived effective
-    # SECURE Act 10-year-rule ordinary tax rate on inherited pre-tax balances
-    # (used unless heir_ordinary_tax_rate_assumption_pct is set to a non-default
-    # value). Single is the common adult-child-beneficiary case.
-    _heir_filing = str(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'heir_filing_status','Single') or 'Single').strip()
-    c['roth_heir_filing_status'] = _heir_filing if _heir_filing in ('Single','MFJ','HOH','MFS') else 'Single'
-    c['roth_pre_tax_bequest_penalty_pct'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'pre_tax_bequest_penalty_pct','15%'), 0.15)
-    c['roth_bequest_preference_bonus_pct'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_bequest_preference_bonus_pct','5%'), 0.05)
-    c['roth_survivor_tax_risk_weight'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'survivor_tax_risk_weight','0.25'), 0.25)
-    c['roth_tax_discount_rate'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_tax_discount_rate', str(DEFAULT_ROTH_TAX_DISCOUNT_RATE)),
-                                   DEFAULT_ROTH_TAX_DISCOUNT_RATE)
+    c.update(parse_roth_conversion_policy(data))
 
     # Estate
     c.update(parse_estate_planning(data))
@@ -1744,228 +1599,8 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
                 c['annuity_calib'][key] = _n(_rd[key], _default_calib[key])
 
     # ── Allocation Optimizer Inputs ──────────────────────────────────────
-    # 1. Risk tolerance (1-10, 0 = auto-derive from age + withdrawal rate)
-    c['risk_tolerance'] = _n(_v(data,'Model Constants','Allocation',
-                                'risk_tolerance','0'), 0)
-    # 2. Asset class assumptions (use selected capital-market horizon/preset
-    # unless overridden). Returns/volatility are user-editable; full pairwise
-    # correlations are editable in advanced/expert mode.
-    c['asset_class_overrides'] = {}
-    c['asset_class_enabled'] = {}
-    c['asset_class_selection_action'] = {}
-    c['asset_class_alternate_first'] = {}
-    c['allocation_target_pct'] = {}
-    c['allocation_optimizer_override_pct'] = {}
-    c['allocation_target_notes'] = {}
-    c['allocation_target_sum'] = 0.0
-    c['allocation_selection_mode'] = 'user_target'
-    c['allocation_optimizer_comment'] = getattr(_ap, 'OPTIMIZER_RECOMMENDATION_COMMENT', '')
-    c['capital_market_config'] = {}
-    c['asset_correlation_overrides'] = {}
-    _aco = data.get('Asset Class Assumptions', {})
-    # Client-owned asset allocation policy lives separately from system-owned
-    # capital-market assumptions. Expected return/volatility and correlations
-    # come from Asset Class Assumptions / Asset Correlations in system_config.csv
-    # or reference files; include/min/max allocation controls come from
-    # client_policy.csv under Asset Allocation Policy.
-    _aap = data.get('Asset Allocation Policy', {})
-    _opt_controls = data.get('Asset Class Optimizer Controls', {})
-    _aap_global = _aap.get('Global', {}) if isinstance(_aap, dict) else {}
-    _aap_global = _aap_global if isinstance(_aap_global, dict) else {}
-    c['allocation_selection_mode'] = _ap.normalize_allocation_mode(
-        _aap_global.get('allocation_selection_mode',
-                        _aap_global.get('allocation_mode',
-                                        _aap_global.get('use_allocation_optimizer', 'user_target')))
-    )
-    # Time-segmented real-loss-probability floors (holding_period.py /
-    # real_loss_curves.py). Off by default so existing plans are byte-stable;
-    # when enabled, the optimizer/max-Sharpe recommendation modes nudge
-    # near-term liquid balance toward Cash and durable long-horizon balance
-    # toward growth classes, using this household's own withdrawal-derived
-    # holding-period profile rather than a flat risk-tolerance split alone.
-    c['holding_period_allocation_enabled'] = _b(_aap_global.get('holding_period_allocation_enabled', 'NO'))
-    c['holding_period_floor_strength'] = _n(_aap_global.get('holding_period_floor_strength', '1.0'), 1.0)
-    # Tuning knobs for allocation_selection_mode=real_loss_aware's per-bucket
-    # solver (_real_loss_aware_weights): risk_aversion is the same
-    # mean-variance risk-aversion coefficient optimize_equity_sleeve already
-    # uses; real_loss_aware_weight scales the added real-loss-probability
-    # penalty term relative to variance. Defaults match the values already
-    # baked into optimize_equity_sleeve's objective (risk_aversion=3.0) and a
-    # neutral 1:1 weighting of the two penalty terms.
-    c['real_loss_aware_risk_aversion'] = _n(_aap_global.get('real_loss_aware_risk_aversion', '3.0'), 3.0)
-    c['real_loss_aware_weight'] = _n(_aap_global.get('real_loss_aware_weight', '1.0'), 1.0)
-    _global = _aco.get('Global', {}) if isinstance(_aco, dict) else {}
-    if isinstance(_global, dict):
-        c['capital_market_config'] = {
-            'assumption_mode': (_global.get('capital_market_assumption_mode') or _global.get('assumption_mode') or 'PRESET'),
-            'horizon_years': _n(_global.get('capital_market_assumption_horizon_years', _global.get('horizon_years', '30')), 30),
-            # 'manual' (default): use horizon_years above as configured. 'auto_from_withdrawals':
-            # derive the effective horizon from this household's own projected withdrawal
-            # schedule instead (see data_io._resolve_auto_horizon_and_reapply). Off by default
-            # so existing plans are byte-stable unless a plan explicitly opts in.
-            'horizon_source': str(_global.get('capital_market_assumption_horizon_source') or _global.get('horizon_source') or 'manual').strip().lower(),
-            'preset': (_global.get('capital_market_assumption_preset') or _global.get('preset') or 'BASELINE'),
-            'use_custom_capital_market_file': _b(_global.get('use_custom_capital_market_file', 'NO')),
-            'custom_capital_market_file': (_global.get('custom_capital_market_file') or 'capital_market_assumptions.csv'),
-            'correlation_assumption_mode': (_global.get('correlation_assumption_mode') or 'PRESET'),
-            'correlation_preset': (_global.get('correlation_preset') or 'MODERATE'),
-            'use_custom_correlations_file': _b(_global.get('use_custom_correlations_file', 'NO')),
-            'custom_correlations_file': (_global.get('custom_correlations_file') or 'asset_correlations.csv'),
-        }
-    raw_class_names = set(getattr(_ap, 'DEFAULT_ALLOCATION_TARGETS', {}).keys())
-    if isinstance(_aco, dict):
-        raw_class_names.update(k for k in _aco.keys() if k != 'Global')
-    if isinstance(_aap, dict):
-        raw_class_names.update(k for k in _aap.keys() if k != 'Global')
-    if isinstance(_opt_controls, dict):
-        raw_class_names.update(k for k in _opt_controls.keys() if k != 'Global')
-    class_names = sorted({_ap.canonical_asset_class(k) for k in raw_class_names})
-    for cls_name in class_names:
-        # Gold/precious-metal sleeves are intentionally excluded from the v7.8
-        # recommendation model and from future allocation consideration.
-        if cls_name not in getattr(_ao, 'ASSET_CLASSES', {}):
-            continue
-        def _section_vals(src, canonical):
-            if not isinstance(src, dict):
-                return {}
-            for key, vals in src.items():
-                if key == 'Global':
-                    continue
-                if _ap.canonical_asset_class(key) == canonical and isinstance(vals, dict):
-                    return vals
-            return {}
-        cap_vals = _section_vals(_aco, cls_name)
-        policy_vals = _section_vals(_aap, cls_name)
-        opt_vals = _section_vals(_opt_controls, cls_name)
-        cap_vals = cap_vals if isinstance(cap_vals, dict) else {}
-        policy_vals = policy_vals if isinstance(policy_vals, dict) else {}
-        default_target = getattr(_ap, 'DEFAULT_ALLOCATION_TARGETS', {}).get(cls_name, 0.0)
-        raw_target = policy_vals.get('target_pct', '')
-        target_pct = _n(raw_target, default_target)
-        c['allocation_target_pct'][cls_name] = max(0.0, target_pct)
-        c['allocation_target_notes'][cls_name] = getattr(_ap, 'ASSET_CLASS_NOTES', {}).get(cls_name, '')
-        c['asset_class_overrides'][cls_name] = {
-            'ret': _n(cap_vals.get('expected_return', ''), -1),
-            'vol': _n(cap_vals.get('volatility', ''), -1),
-            'target_pct': max(0.0, target_pct),
-            'min_target': -1,
-            'max_target': -1,
-        }
-        raw_override = opt_vals.get('optimizer_override_pct', '')
-        c['allocation_optimizer_override_pct'][cls_name] = max(0.0, _n(raw_override, 0.0)) if str(raw_override).strip() else 0.0
-
-        raw_action = opt_vals.get('selection_action', '')
-        if str(raw_action).strip():
-            action = _ap.normalize_selection_action(raw_action)
-        else:
-            action = getattr(_ap, 'DEFAULT_SELECTION_ACTIONS', {}).get(cls_name, getattr(_ap, 'SELECTION_INCLUDE', 'include'))
-        c['asset_class_enabled'][cls_name] = action != getattr(_ap, 'SELECTION_EXCLUDE', 'exclude')
-        raw_alt = opt_vals.get('alternate_asset_class', '')
-        alt_text = str(raw_alt or '').strip()
-        alt_cls = _ap.canonical_asset_class(alt_text) if alt_text else ''
-        if alt_cls == cls_name:
-            alt_cls = ''
-        # If the alternate is another asset class, the optimizer redirects target
-        # weight to that class. If it is an existing plan asset/source (e.g.
-        # Social Security, Pension, Home Equity, Note Receivable), store the
-        # source-to-target mapping so compute_allocation_coverage can count that
-        # existing asset toward the selected class target.
-        if alt_cls and alt_cls not in getattr(_ao, 'ASSET_CLASSES', {}):
-            alt_cls = _ap.normalize_existing_asset_source(alt_cls)
-            if action == getattr(_ap, 'SELECTION_ALTERNATE_FIRST', 'consider_alternate_first'):
-                c.setdefault('allocation_source_target_class', {})[alt_cls] = cls_name
-        c['asset_class_selection_action'][cls_name] = action
-        c['asset_class_alternate_first'][cls_name] = alt_cls
-    c['allocation_target_sum'] = sum(c['allocation_target_pct'].values())
-    c['allocation_optimizer_override_sum'] = sum(c['allocation_optimizer_override_pct'].values())
-    _corrs = data.get('Asset Correlations', {})
-    if isinstance(_corrs, dict):
-        for pair_name, vals in _corrs.items():
-            if not isinstance(vals, dict):
-                continue
-            if '|' not in str(pair_name):
-                continue
-            _pair_parts = [_ap.canonical_asset_class(p.strip()) for p in str(pair_name).split('|', 1)]
-            if any(part not in getattr(_ao, 'ASSET_CLASSES', {}) for part in _pair_parts):
-                continue
-            corr_val = vals.get('correlation', vals.get('corr', ''))
-            if str(corr_val).strip():
-                c['asset_correlation_overrides']['|'.join(_pair_parts)] = corr_val
-    # 3. SS/pension bond PV — computed automatically from existing fields
-    # (no new input needed — computed in allocation_optimizer.compute_optimal_allocation)
-    # 4. Human capital stability factor (0-1, 0.8=stable W-2, 0.5=variable/SE)
-    c['human_capital_stability'] = _n(_v(data,'Model Constants','Allocation',
-                                          'human_capital_stability','0.80'), 0.80)
-    # 5. Concentration flags (% of total wealth already in these categories)
-    c['concentration_employer_stock'] = _n(_v(data,'Model Constants','Allocation',
-                                               'concentration_employer_stock','0'), 0)
-    c['concentration_real_estate'] = _n(_v(data,'Model Constants','Allocation',
-                                            'concentration_real_estate','0'), 0)
-    c['concentration_business'] = _n(_v(data,'Model Constants','Allocation',
-                                         'concentration_business','0'), 0)
-    # 6. Glide path: 'target_date' or 'static'
-    c['glide_path'] = (_v(data,'Model Constants','Allocation',
-                          'glide_path','target_date') or 'target_date').strip().lower()
-    # 7. Inflation-sensitive spending (fraction of total spending)
-    c['inflation_sensitive_spending_pct'] = _n(_v(data,'Model Constants','Allocation',
-                                                   'inflation_sensitive_spending_pct','0.15'), 0.15)
-    # Cash buffer target (% of portfolio to keep in cash as market-timing buffer).
-    # The guided UI exposes this in the first asset-allocation table as the
-    # Cash target_pct row.
-    c['cash_target_pct'] = _n(_v(data,'Model Constants','Allocation',
-                                  'cash_target_pct','0.05'), 0.05)
-    if c.get('allocation_target_pct', {}).get('Cash') is not None:
-        try:
-            c['cash_target_pct'] = float(c['allocation_target_pct'].get('Cash') or c['cash_target_pct'])
-        except Exception:
-            pass
-
-    # Allocation coverage policy is generated from the first allocation table.
-    # No separate count-* Plan Data switches are read.
-    c['allocation_coverage'] = {
-        'social_security_satisfies_fixed_income_target': False,
-        'pension_satisfies_fixed_income_target': False,
-        'annuities_satisfy_fixed_income_target': False,
-        'note_receivable_satisfies_fixed_income_target': False,
-        'include_home_equity_in_allocation_view': _b(_v(data,'Model Constants','Allocation','include_home_equity_in_allocation_view','YES')),
-        'home_equity_satisfies_reit_target': False,
-        'liquid_reit_target_pct_when_home_not_counted': _n(_v(data,'Model Constants','Allocation','liquid_reit_target_pct_when_home_not_counted','5%'), 0.05),
-    }
-    _source_targets = c.get('allocation_source_target_class') or {}
-    if _source_targets:
-        _known = {'Social Security', 'Pension', 'Annuities', 'Note Receivable', 'Guaranteed income + note receivable', 'Home Equity'}
-        if any(src in _known for src in _source_targets):
-            # When the first allocation table is used, it becomes authoritative
-            # for the old coverage-source-to-target flags.
-            c['allocation_coverage']['social_security_satisfies_fixed_income_target'] = False
-            c['allocation_coverage']['pension_satisfies_fixed_income_target'] = False
-            c['allocation_coverage']['annuities_satisfy_fixed_income_target'] = False
-            c['allocation_coverage']['note_receivable_satisfies_fixed_income_target'] = False
-            c['allocation_coverage']['home_equity_satisfies_reit_target'] = False
-        for _src, _target in _source_targets.items():
-            _target = _ap.canonical_asset_class(_target)
-            _is_fi = _target in getattr(_ap, 'FIXED_INCOME_CLASSES', set()) or _target in {'Bonds', 'Bonds/Fixed Income'}
-            _is_re = _target in getattr(_ap, 'REAL_ESTATE_CLASSES', set()) or _target in {'REITs', 'REITs/Real Estate'}
-            if _src == 'Guaranteed income + note receivable' and _is_fi:
-                c['allocation_coverage']['social_security_satisfies_fixed_income_target'] = True
-                c['allocation_coverage']['pension_satisfies_fixed_income_target'] = True
-                c['allocation_coverage']['annuities_satisfy_fixed_income_target'] = True
-                c['allocation_coverage']['note_receivable_satisfies_fixed_income_target'] = True
-            elif _src == 'Social Security' and _is_fi:
-                c['allocation_coverage']['social_security_satisfies_fixed_income_target'] = True
-            elif _src == 'Pension' and _is_fi:
-                c['allocation_coverage']['pension_satisfies_fixed_income_target'] = True
-            elif _src == 'Annuities' and _is_fi:
-                c['allocation_coverage']['annuities_satisfy_fixed_income_target'] = True
-            elif _src == 'Note Receivable' and _is_fi:
-                c['allocation_coverage']['note_receivable_satisfies_fixed_income_target'] = True
-            elif _src == 'Home Equity' and _is_re:
-                c['allocation_coverage']['include_home_equity_in_allocation_view'] = True
-                c['allocation_coverage']['home_equity_satisfies_reit_target'] = True
-    # Which account types should primarily accumulate cash (comma-separated)
-    _cash_acct_pref = _v(data,'Model Constants','Allocation',
-                          'cash_accumulation_accounts','taxable') or 'taxable'
-    c['cash_accumulation_tax_types'] = [s.strip() for s in _cash_acct_pref.split(',')]
+    # Extracted to src/parsing/allocation_optimizer_inputs.py (ticket 312).
+    c.update(parse_allocation_optimizer_inputs(data))
 
     # ── Tax Provenance Registry (9.6) ─────────────────────────────────────────
     # Load scalar overrides from tax_constants.csv; record provenance.
@@ -2109,49 +1744,12 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['liabilities'] = liabilities
 
     # ── Load HSA withdrawal schedule from client_hsa_schedule.csv ─────────────
-    # Flat table: year, optimizer_amount, override_amount, locked, note. Rows
-    # feed hsa_schedule.resolve_year_amount, consumed by
-    # withdraw_hsa_window's 'optimize' branch. Mirrors the liabilities load
-    # above; an absent/unparseable file yields an empty list, which
-    # resolve_year_amount treats as "no schedule entry for any year" (mode
-    # fallback for every year), matching a plan that never used this feature.
-    hsa_schedule_rows = []
-    hsa_sched_file = None
-    for _hs_path in candidate_input_files('client_hsa_schedule.csv', active_workspace_id()):
-        _hs = str(_hs_path)
-        if os.path.exists(_hs):
-            hsa_sched_file = _hs
-            break
-    if hsa_sched_file:
-        try:
-            with open(hsa_sched_file, newline='', encoding='utf-8-sig') as hf:
-                for row in _csv.DictReader(hf):
-                    year_raw = (row.get('year', '') or '').strip()
-                    if not year_raw:
-                        continue
-                    try:
-                        year = int(float(year_raw))
-                    except Exception:
-                        continue
-                    def _clean_opt_num(raw):
-                        raw = (str(raw or '')).replace('$', '').replace(',', '').strip()
-                        if not raw:
-                            return None
-                        try:
-                            return float(raw)
-                        except Exception:
-                            return None
-                    hsa_schedule_rows.append({
-                        'year': year,
-                        'optimizer_amount': _clean_opt_num(row.get('optimizer_amount')),
-                        'override_amount': _clean_opt_num(row.get('override_amount')),
-                        'locked': str(row.get('locked', '') or '').strip().lower() in ('true', '1', 'yes'),
-                        'note': (row.get('note', '') or '').strip(),
-                    })
-        except Exception:
-            hsa_schedule_rows = []
-    c['hsa_schedule_rows'] = hsa_schedule_rows
-    c['hsa_schedule_by_year'] = {r['year']: r for r in hsa_schedule_rows}
+    # See src/parsing/hsa_policy.py:parse_hsa_withdrawal_schedule — mirrors
+    # the liabilities load above; an absent/unparseable file yields an empty
+    # list, which resolve_year_amount treats as "no schedule entry for any
+    # year" (mode fallback for every year), matching a plan that never used
+    # this feature.
+    c.update(parse_hsa_withdrawal_schedule())
 
     # Keep an immutable copy for the workbook rebalancing tax optimizer.
     # Projection withdrawals can mutate c['lots_by_account'] through LotEngine,
@@ -2225,37 +1823,8 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['cash_ids']         = _ar.ids_by_tax(c['account_registry'], 'cash')
     c['invest_ids']       = _ar.all_investment_ids(c['account_registry'])
 
-    # ── HSA Policy ────────────────────────────────────────────────────────
-    # The engine currently treats an HSA as tax-free at every stage including
-    # death, which is wrong for a non-spouse beneficiary (the whole balance
-    # becomes ordinary income to them in the year of death). These inputs are
-    # consumed by later HSA-optimizer work; this task only parses them.
-    c['hsa_beneficiary_type'] = str(_v(data, 'HSA Policy', 'Beneficiary',
-                                       'hsa_beneficiary_type', 'spouse') or 'spouse').strip().lower()
-    c['hsa_consume_by'] = str(_v(data, 'HSA Policy', 'Withdrawals',
-                                 'hsa_consume_by', 'second_death_p90') or 'second_death_p90').strip()
-    _bank = _v(data, 'HSA Policy', 'Withdrawals', 'hsa_expense_bank', '')
-    c['hsa_expense_bank'] = None if (_bank is None or str(_bank).strip() == '') else _n(_bank, 0.0)
-    c['hsa_nonqualified_treatment'] = str(_v(data, 'HSA Policy', 'Withdrawals',
-                                             'hsa_nonqualified_treatment', 'block') or 'block').strip().lower()
-    c['hsa_state_conformity'] = _b(_v(data, 'HSA Policy', 'Withdrawals', 'hsa_state_conformity', 'TRUE'))
-
     # ── Individual-account withdrawal-order override (#276) ──────────────────
-    # Plan Data rows: [Withdrawal Policy][Account Order][<account_id>] =
-    # priority (lower draws first). Uses the same generic Section/Subsection/
-    # Label CSV convention as every other plan-data field (so the existing
-    # generic field editor/autosave UI can manage it with no new endpoint),
-    # rather than a bespoke file. Absent/empty by default, in which case
-    # accounts()/draw_order() fall back to their existing (account-type-level)
-    # ordering untouched -- see core.py's _apply_draw_priority docstring.
-    c['account_draw_priority'] = {}
-    for _aid, _pr in (data.get('Withdrawal Policy', {}).get('Account Order', {}) or {}).items():
-        _pr = str(_pr or '').strip()
-        if _pr:
-            try:
-                c['account_draw_priority'][str(_aid).strip()] = int(float(_pr))
-            except (TypeError, ValueError):
-                pass
+    c.update(parse_account_draw_priority(data))
 
     # Taxable portfolio income assumptions.  Taxable-account ETFs/funds distribute
     # dividends/interest that must enter AGI, SS provisional income, IRMAA MAGI,
