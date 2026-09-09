@@ -29,6 +29,10 @@ def test_hsa_window_is_normalized_before_cashflow_projection():
     assert "HSA withdrawal policy" in data_io
     assert "hsa_withdrawal_mode" in data_io
     assert "c['hsa_win_start'], c['hsa_win_end'] = c['hsa_win_end'], c['hsa_win_start']" in data_io
-    engine = read("src/projection_stages/deterministic_engine.py")
+    # Ticket 3.10: this logic moved into withdrawal_cascade_hsa_priority_draws.py
+    # (design doc Stage 10 addendum, sub-stages #1-#2) when
+    # deterministic_engine.py's inline withdrawal cascade was decomposed
+    # into stage modules.
+    engine = read("src/projection_stages/withdrawal_cascade_hsa_priority_draws.py")
     assert "withdraw_hsa_window(c, bal, year" in engine
     assert "row['hsa_wd']" in engine
