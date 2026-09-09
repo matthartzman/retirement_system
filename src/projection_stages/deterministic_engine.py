@@ -24,6 +24,11 @@ from .portfolio_growth_and_net_worth import apply_portfolio_growth_and_net_worth
 from .roth_conversion_and_agi_tax import apply_agi_and_tax as _apply_agi_and_tax
 from .roth_conversion_and_agi_tax import apply_roth_conversion_stage as _apply_roth_conversion_stage
 from .spending_and_rmd import apply_spending_and_rmd as _apply_spending_and_rmd
+from .withdrawal_cascade_gap_assembly import apply_gap_assembly as _apply_gap_assembly
+from .withdrawal_cascade_hsa_priority_draws import apply_hsa_priority_draws as _apply_hsa_priority_draws
+from .withdrawal_cascade_taxable_trust import apply_taxable_trust_withdrawal as _apply_taxable_trust_withdrawal
+from .withdrawal_cascade_daf_makeup import apply_daf_carryforward_makeup as _apply_daf_carryforward_makeup
+from .withdrawal_cascade_final_draws import apply_final_draws as _apply_final_draws
 from .year_state import MutableYearState, create_initial_year_state
 # System review 4.2: explicit name list instead of `from ..planning_engines
 # import *` -- determined via AST analysis of every Name this module
@@ -956,97 +961,21 @@ def run_deterministic_projection_stage(c):
         # ── Apply Trust portfolio growth BEFORE withdrawal cascade ────────────
         # (Trust growth is now applied at end-of-year with all other accounts below)
 
-        # ── Spending gap and withdrawal cascade ───────────────────────────────
-        income_from_streams = (h_ss + w_ss + pension + wife_single_ann +
-                               wife_joint_ann + h_single_ann + h_joint_ann +
-                               note_princ_yr + note_int_yr + rmd_taxable_total + earned_base +
-                               _equity_events['cash_proceeds'] + _di_cash)
+        # ── Spending gap and withdrawal cascade (design doc Stage 10, sub-stage #0) ──
         other_cash_need_yr = float(row.get('other_cash_need_yr', 0.0) or 0.0)
-        row['income_funding'] = income_from_streams
-        row['other_cash_need_yr'] = other_cash_need_yr
-        row['total_cash_need'] = total_spend_need + total_tax + other_cash_need_yr
-        gap = row['total_cash_need'] - income_from_streams
-
-        # ── HELOC draw: new borrowing offsets gap (P&I already in spending above) ─
-        # Interest and repayment principal were added to total_spend_need before
-        # the gap calculation, so gap already includes those costs. Here we only
-        # handle new draws (which reduce the gap) and balance updates.
-        if c.get('heloc_enabled', False) and c.get('heloc_credit_limit', 0) > 0:
-            _heloc_bal_now = float(bal.get('_heloc_balance', 0.0) or 0.0)
-            if year <= c.get('heloc_draw_end_year', 0):
-                _remaining_credit = max(0.0, float(c['heloc_credit_limit']) - _heloc_bal_now)
-                _disc_spend = float(rec_extra or 0.0) + float(lump_yr or 0.0)
-                heloc_draw_yr = min(_disc_spend, _remaining_credit, max(0.0, gap))
-                if heloc_draw_yr > 1e-6:
-                    gap -= heloc_draw_yr
-                    bal['_heloc_balance'] = _heloc_bal_now + heloc_draw_yr
-            elif _heloc_bal_now > 1.0:
-                # Repayment period: reduce balance by principal already counted in spending
-                bal['_heloc_balance'] = max(0.0, _heloc_bal_now - heloc_repayment_principal_yr)
-        row['heloc_draw'] = heloc_draw_yr
-        row['heloc_interest'] = heloc_interest_yr
-        row['heloc_repayment_principal'] = heloc_repayment_principal_yr
-        row['heloc_balance'] = float(bal.get('_heloc_balance', 0.0) or 0.0)
-        row['heloc_payoff'] = 0.0  # set to nonzero in home sale year below
-
-        # ── Additional liabilities: amortize into yearly cash outflow ──────────
-        # auto / student_loan / other / heloc line items use standard fixed
-        # amortization. Interest + principal for the year is added to `gap` (the
-        # cash need funded by income/withdrawals), mirroring how HELOC interest
-        # and repayment principal feed `gap` above. Outstanding balances reduce
-        # net worth below. A plan with no liabilities skips this loop entirely.
-        liability_payment_yr = 0.0
-        liability_interest_yr = 0.0
-        liability_principal_yr = 0.0
-        student_loan_interest_yr = 0.0
-        _liab_balances = bal.get('_liability_balances', {})
-        if c.get('liabilities'):
-            for _li_idx, _li in enumerate(c.get('liabilities', []) or []):
-                _li_key = _li.get('liability_id') or f'liability_{_li_idx}'
-                _li_bal = float(_liab_balances.get(_li_key, 0.0) or 0.0)
-                if _li_bal <= 1e-6:
-                    continue
-                _li_start = int(_li.get('start_year', 0) or 0)
-                _li_payoff = int(_li.get('payoff_year', 0) or 0)
-                # Not yet originated, or already past the scheduled payoff year.
-                if _li_start and year < _li_start:
-                    continue
-                if _li_payoff and year > _li_payoff:
-                    # Forgiven/assumed-settled after payoff year: drop the balance.
-                    _liab_balances[_li_key] = 0.0
-                    continue
-                _li_rate = float(_li.get('interest_rate', 0.0) or 0.0)
-                _li_annual_interest = _li_bal * _li_rate
-                _li_monthly_pmt = float(_li.get('monthly_payment', 0.0) or 0.0)
-                _li_annual_pmt = _li_monthly_pmt * 12.0
-                if _li_annual_pmt <= 0.0:
-                    # No payment specified: if a payoff year is given, level-amortize
-                    # the remaining balance over the years left; else interest-only.
-                    if _li_payoff and _li_payoff >= year:
-                        _yrs_left = max(1, _li_payoff - year + 1)
-                        _mrate = _li_rate / 12.0
-                        _n = _yrs_left * 12
-                        if _mrate > 1e-9:
-                            _li_annual_pmt = (_li_bal * _mrate / (1 - (1 + _mrate) ** (-_n))) * 12.0
-                        else:
-                            _li_annual_pmt = (_li_bal / max(1, _n)) * 12.0
-                    else:
-                        _li_annual_pmt = _li_annual_interest  # interest-only
-                # Cap the payment so it never overpays the balance + interest.
-                _li_annual_pmt = min(_li_annual_pmt, _li_bal + _li_annual_interest)
-                _li_principal = max(0.0, _li_annual_pmt - _li_annual_interest)
-                _li_principal = min(_li_principal, _li_bal)
-                _liab_balances[_li_key] = max(0.0, _li_bal - _li_principal)
-                liability_payment_yr += _li_annual_pmt
-                liability_interest_yr += _li_annual_interest
-                liability_principal_yr += _li_principal
-                if _li.get('type') == 'student_loan':
-                    student_loan_interest_yr += _li_annual_interest
-            gap += liability_payment_yr
-        row['liability_payment'] = liability_payment_yr
-        row['liability_interest'] = liability_interest_yr
-        row['liability_principal'] = liability_principal_yr
-        row['liability_student_loan_interest'] = student_loan_interest_yr
+        gap = _apply_gap_assembly(
+            c, bal, row,
+            year=year, h_ss=h_ss, w_ss=w_ss, pension=pension,
+            wife_single_ann=wife_single_ann, wife_joint_ann=wife_joint_ann,
+            h_single_ann=h_single_ann, h_joint_ann=h_joint_ann,
+            note_princ_yr=note_princ_yr, note_int_yr=note_int_yr,
+            rmd_taxable_total=rmd_taxable_total, earned_base=earned_base,
+            equity_events=_equity_events, di_cash=_di_cash,
+            total_spend_need=total_spend_need, total_tax=total_tax,
+            other_cash_need_yr=other_cash_need_yr, rec_extra=rec_extra, lump_yr=lump_yr,
+            heloc_draw_yr=heloc_draw_yr, heloc_interest_yr=heloc_interest_yr,
+            heloc_repayment_principal_yr=heloc_repayment_principal_yr,
+        )
 
         # ── Withdrawal Cascade — order matches client_data.csv Withdrawal Policy ──
         # Priority 1: RMD  (handled above, already applied to income)
@@ -1058,49 +987,16 @@ def run_deterministic_projection_stage(c):
 
         buf_yrs = liquidity_buffer_years_for_year(c, year)
 
-        # ── Priority 1b: contingent-liability spend draws HSA first ───────────
-        # Optimization refactor: the contingent_liability spending tier
-        # (ltc_prem_yr + wellness_shock_yr) is qualified medical expense, so
-        # the HSA -- the one account whose dollars come out tax-free for
-        # exactly this -- funds it ahead of the ordinary cascade. Runs BEFORE
-        # Priority 2 so the scheduled window draw sizes itself against
-        # whatever remains rather than double-counting the same balance.
-        # Gated on hsa_withdrawal_mode (see hsa_unscheduled_draw_allowed): a
-        # household that configured a scheduled drawdown keeps that schedule
-        # as the sole authority, so under those modes this is a no-op and
-        # Priority 2 behaves exactly as before.
-        #
-        # HSA expense-bank accumulation (Option B): this year's qualified
-        # medical spend accrues to the running bank BEFORE either draw this
-        # year is sized, so a receipt generated this year can justify a
-        # reimbursement this year. Only Priority 1b (here) and Priority 4c
-        # below enforce the bank -- Priority 2's scheduled/window draw is
-        # deliberately left uncapped; see the spec's "Implementation note".
-        hsa_bank_balance += medical_expense_yr
-        _hsa_bank_c = dict(c, hsa_expense_bank=hsa_bank_balance)
-        cl_res = _legacy_pe.fund_contingent_liability_from_hsa(
-            _hsa_bank_c, bal,
-            ltc_prem_yr=row.get('ltc_prem_yr', 0.0),
-            wellness_shock_yr=row.get('wellness_shock_yr', 0.0),
-            year=year, spend_floor_base=spend)
-        cl_hsa_wd = cl_res['amount']
-        hsa_bank_balance = max(0.0, hsa_bank_balance - cl_hsa_wd)
-        gap -= cl_hsa_wd
-        row['contingent_liability_hsa_wd'] = cl_hsa_wd
-        row['contingent_liability_unfunded_by_hsa'] = cl_res['residual']
-        cl_by_account = dict(cl_res.get('by_account', {}) or {})
-        row['_hsa_by_account'] = dict(cl_by_account)
-        for _aid, _amt in cl_by_account.items():
-            _add_account_flow(row['_account_withdrawals'], _aid, _amt)
-
-        # ── Priority 2: HSA (scheduled, not gap-driven) ────────────────────────
-        hsa_res = _legacy_pe.withdraw_hsa_window(c, bal, year, wellness_cost=row.get('wellness_base_yr', 0.0))
-        hsa_wd = cl_hsa_wd + hsa_res['amount']
-        gap -= hsa_res['amount']
-        row['hsa_wd'] = hsa_wd
-        for _aid, _amt in dict(hsa_res.get('by_account', {}) or {}).items():
-            row['_hsa_by_account'][_aid] = row['_hsa_by_account'].get(_aid, 0.0) + _amt
-            _add_account_flow(row['_account_withdrawals'], _aid, _amt)
+        # ── Priorities 1b + 2: HSA priority draws (design doc Stage 10, sub-stages #1-#2) ──
+        _hsa_priority = _apply_hsa_priority_draws(
+            c, bal, row,
+            year=year, medical_expense_yr=medical_expense_yr,
+            hsa_bank_balance=hsa_bank_balance, gap=gap, spend=spend,
+        )
+        gap = _hsa_priority.gap
+        hsa_bank_balance = _hsa_priority.hsa_bank_balance
+        cl_hsa_wd = _hsa_priority.cl_hsa_wd
+        hsa_wd = _hsa_priority.hsa_wd
 
         # ── No double benefit: HSA-reimbursed medical is not also deductible ─
         # A qualified medical expense cannot both be reimbursed tax-free from
@@ -1315,21 +1211,15 @@ def run_deterministic_projection_stage(c):
         row['irmaa_magi_current'] = irmaa_magi_current
         row['state_retirement'] = retirement_dist + ira_wd
 
-        # ── Priority 4: Taxable/trust withdrawal ─────────────────────────────
-        trust_res = _legacy_pe.withdraw_taxable_trust(c, bal, year, gap, spend)
-        trust_wd = trust_res['amount']
-        ht_wd = trust_res['h_amount']
-        wt_wd = trust_res['w_amount']
-        trust_by_account = dict(trust_res.get('by_account', {}) or {})
-        gap = trust_res['new_gap']
-        if trust_wd > 0:
-            emit(EvWithdraw(year, 4, 'Taxable', trust_wd, 'gap'))
-        row['trust_wd'] = trust_wd
-        row['h_trust_wd'] = ht_wd
-        row['w_trust_wd'] = wt_wd
-        row['_trust_by_account'] = dict(trust_by_account or {})
-        for _aid, _amt in row['_trust_by_account'].items():
-            _add_account_flow(row['_account_withdrawals'], _aid, _amt)
+        # ── Priority 4: Taxable/trust withdrawal (design doc Stage 10, sub-stage #5) ──
+        _taxable_trust = _apply_taxable_trust_withdrawal(
+            c, bal, row, year=year, gap=gap, spend=spend, emit=emit,
+        )
+        gap = _taxable_trust.gap
+        trust_wd = _taxable_trust.trust_wd
+        ht_wd = _taxable_trust.ht_wd
+        wt_wd = _taxable_trust.wt_wd
+        trust_by_account = _taxable_trust.trust_by_account
 
         # ── LTCG/NIIT fixed-point funding on taxable withdrawals ────────────
         # A taxable draw can create LTCG and NIIT; paying those taxes can in turn
@@ -1627,125 +1517,44 @@ def run_deterministic_projection_stage(c):
             row['net_income'] = row.get('gross_income', agi) - total_tax
             row['total_cash_need'] = total_spend_need + total_tax + other_cash_need_yr
 
-        # ── Item 4.2 follow-up: DAF carryforward make-up pass against converged AGI ──
+        # ── DAF carryforward make-up (design doc Stage 10, sub-stage #8) ─────
         # `agi` above is a first-pass estimate computed before the elective-
         # withdrawal sizing loop (Priority 3/4b) ran; by this point in the
         # cascade it has converged (Priority 3/4b are the only places agi is
-        # still mutated — see lines ~1861/~2127). For a retiree with no
-        # guaranteed income yet (pre-SS claim, pre-RMD, living entirely off
-        # elective withdrawals), first-pass agi can read near zero while this
-        # converged agi is substantial, understating the DAF 60%/30%-of-AGI
-        # limit and risking real carryforward capacity lapsing unused after 5
-        # years. salt/char/mortgage-interest absorb the same first-pass
-        # approximation harmlessly (one year of rounding, no lasting effect);
-        # DAF's multi-year carryforward is the one case that can cost a
-        # taxpayer a deduction permanently, so it alone gets a make-up pass
-        # here. Scoped narrowly to avoid touching salt/mortgage interest (both
-        # stay at their first-pass values — the high-risk iterative
-        # convergence loop this touches is already flagged by A2/A3 in the
-        # system review) and to only ever recognize *more* deduction (agi only
-        # rises across the cascade, never falls), never less.
-        #
-        # A household with a real no-guaranteed-income gap year — the exact
-        # case this exists for — typically has first-pass salt near zero too
-        # (salt is sized off the same first-pass agi), so first-pass item_ded
-        # is often already below std_ded and the household appears not to be
-        # itemizing at all. Gating this purely on "was already itemizing at
-        # first pass" would silently exclude that case. Instead, re-evaluate
-        # std-vs-itemized once against the corrected char figure: salt and
-        # mort_interest_yr are not recomputed (still first-pass values, left
-        # untouched as designed), but whether the now-larger item_ded clears
-        # std_ded is allowed to flip as a direct, mechanical consequence of
-        # the corrected DAF number — that comparison can't be avoided without
-        # discarding the correction itself.
-        if daf_deduction_carryforward:
-            _daf_final_limit = max(0.0, agi) * daf_agi_limit_pct
-            _daf_extra_room = max(0.0, _daf_final_limit - daf_agi_limit)
-            if _daf_extra_room > 1e-6:
-                _daf_unused_pool = sum(amt for _yr, amt in daf_deduction_carryforward)
-                _daf_extra_candidate = min(_daf_extra_room, _daf_unused_pool)
-                _candidate_item_ded = item_ded + _daf_extra_candidate
-                if _daf_extra_candidate > 1e-6 and _candidate_item_ded > std_ded:
-                    _daf_extra_used = _daf_extra_candidate
-                    _new_ded = _candidate_item_ded + (qbi_ded if c['qbi_elig'] else 0.0)
-                    _new_taxable_inc = max(0.0, agi - _new_ded)
-                    _new_fed_tax = _compute_fed_tax_path(_new_taxable_inc, year, filing, c['brk_inf'])
-                    _fed_tax_savings = max(0.0, fed_tax - _new_fed_tax)
-                    fed_tax = _new_fed_tax
-                    taxable_inc = _new_taxable_inc
-                    total_tax -= _fed_tax_savings
-                    gap -= _fed_tax_savings
-                    char += _daf_extra_used
-                    row['charitable_deduction_yr'] = char
-                    item_ded = _candidate_item_ded
-                    ded = _new_ded
-                    daf_deduction_yr += _daf_extra_used
-                    _daf_remaining = _daf_extra_used
-                    _daf_new_cf = []
-                    for _daf_origin_year, _daf_amt in daf_deduction_carryforward:
-                        _daf_used = min(_daf_amt, _daf_remaining)
-                        _daf_remaining -= _daf_used
-                        _daf_leftover = _daf_amt - _daf_used
-                        if _daf_leftover > 1e-6:
-                            _daf_new_cf.append([_daf_origin_year, _daf_leftover])
-                    daf_deduction_carryforward = _daf_new_cf
-                    row['daf_deduction_yr'] = daf_deduction_yr
-                    row['daf_deduction_carryforward'] = sum(amt for _yr, amt in daf_deduction_carryforward)
-                    row['taxable_inc'] = taxable_inc
-                    row['fed_tax'] = fed_tax
-                    row['total_tax'] = total_tax
-                    row['net_income'] = row.get('gross_income', agi) - total_tax
-                    row['total_cash_need'] = total_spend_need + total_tax + other_cash_need_yr
+        # still mutated). See withdrawal_cascade_daf_makeup.py's
+        # apply_daf_carryforward_makeup docstring for the full rationale.
+        _daf_makeup = _apply_daf_carryforward_makeup(
+            row, year=year, agi=agi, daf_agi_limit_pct=daf_agi_limit_pct,
+            daf_agi_limit=daf_agi_limit, daf_deduction_carryforward=daf_deduction_carryforward,
+            item_ded=item_ded, std_ded=std_ded, qbi_ded=qbi_ded, qbi_elig=c['qbi_elig'],
+            fed_tax=fed_tax, taxable_inc=taxable_inc, total_tax=total_tax, gap=gap,
+            char=char, ded=ded, daf_deduction_yr=daf_deduction_yr,
+            total_spend_need=total_spend_need, other_cash_need_yr=other_cash_need_yr,
+            filing=filing, brk_inf=c['brk_inf'], compute_fed_tax_fn=_compute_fed_tax_path,
+        )
+        gap = _daf_makeup.gap
+        fed_tax = _daf_makeup.fed_tax
+        taxable_inc = _daf_makeup.taxable_inc
+        total_tax = _daf_makeup.total_tax
+        char = _daf_makeup.char
+        item_ded = _daf_makeup.item_ded
+        ded = _daf_makeup.ded
+        daf_deduction_yr = _daf_makeup.daf_deduction_yr
+        daf_deduction_carryforward = _daf_makeup.daf_deduction_carryforward
 
-        # ── Priority 4c: Final non-Roth HSA draw before any Roth withdrawal ──
-        # Roth remains the last liquid source. If the planned HSA window left a
-        # remaining HSA balance and all pre-tax/taxable sources are exhausted or
-        # unavailable for the cash gap, draw HSA before touching Roth.
-        if gap > 0 and sum(max(0.0, float(bal.get(_aid, 0.0) or 0.0)) for _aid in c.get('hsa_ids', [])) > 0:
-            # Re-read the bank balance: Priority 1b (and this year's accrual)
-            # already ran above, so hsa_bank_balance reflects what remains.
-            hsa_res2 = _legacy_pe.withdraw_hsa_gap(
-                dict(c, hsa_expense_bank=hsa_bank_balance), bal, gap, year=year, spend_floor_base=spend)
-            hsa_bank_balance = max(0.0, hsa_bank_balance - hsa_res2['amount'])
-            hsa_wd += hsa_res2['amount']
-            gap = hsa_res2['new_gap']
-            for _aid, _amt in dict(hsa_res2.get('by_account', {}) or {}).items():
-                row['_hsa_by_account'][_aid] = row['_hsa_by_account'].get(_aid, 0.0) + _amt
-                _add_account_flow(row['_account_withdrawals'], _aid, _amt)
-            row['hsa_wd'] = hsa_wd
-        row['hsa_expense_bank_balance'] = hsa_bank_balance
-
-        # ── Priority 5: Roth withdrawal ─────────────────────────────────────
-        roth_res = _legacy_pe.withdraw_roth(c, bal, gap, year=year, spend_floor_base=spend)
-        roth_wd = roth_res['amount']
-        h_roth_wd = roth_res['h_amount']
-        w_roth_wd = roth_res['w_amount']
-        gap = roth_res['new_gap']
-        if roth_wd > 0:
-            emit(EvWithdraw(year, 5, 'Roth', roth_wd, 'gap'))
-        row['roth_wd'] = roth_wd
-        row['h_roth_wd'] = h_roth_wd
-        row['w_roth_wd'] = w_roth_wd
-        row['_roth_by_account'] = dict(roth_res.get('by_account', {}) or {})
-        for _aid, _amt in row['_roth_by_account'].items():
-            _add_account_flow(row['_account_withdrawals'], _aid, _amt)
-
-        row['home_eq_tap'] = 0.0  # eliminated; HELOC draw (in withdrawals) replaces this
-        # Residual cash shortfall after all modeled funding sources. Earlier
-        # Monte Carlo logic only tested ending net worth, which could remain
-        # positive due to home equity / annuity PV even when spendable assets
-        # were exhausted. Persist the unfunded gap so MC success can use a
-        # true funded-plan definition.
-        row['unfunded_gap'] = max(0.0, gap)
-
-        # Surplus
-        surplus = max(0, -gap)
-        if surplus > 0:
-            _surplus_target = _aa.first_taxable(c) or (_aa.first_account(c) if c.get('all_acct_ids') else None)
-            bal[_surplus_target] = bal.get(_surplus_target, 0) + surplus
-            _add_account_flow(row['_account_deposits'], _surplus_target, surplus)
-            _tag_deposit_source(row, _surplus_target, 'Year-End Surplus Sweep', surplus)
-        row['surplus'] = surplus
+        # ── Priority 4c, Priority 5, and unfunded-gap/surplus sweep ──────────
+        # (design doc Stage 10, sub-stages #9, #10, #11)
+        _final_draws = _apply_final_draws(
+            c, bal, row, year=year, gap=gap, hsa_bank_balance=hsa_bank_balance,
+            hsa_wd=hsa_wd, spend=spend, emit=emit,
+        )
+        gap = _final_draws.gap
+        hsa_bank_balance = _final_draws.hsa_bank_balance
+        hsa_wd = _final_draws.hsa_wd
+        roth_wd = _final_draws.roth_wd
+        h_roth_wd = _final_draws.h_roth_wd
+        w_roth_wd = _final_draws.w_roth_wd
+        surplus = _final_draws.surplus
 
         # ── Advanced modules: equity-comp long-term-gain and AMT post-pass ───
         # Extracted to amt_equity_comp_true_up.apply_amt_and_equity_comp_true_up
