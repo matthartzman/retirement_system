@@ -537,6 +537,14 @@ from .parsing.allocation_optimizer_inputs import parse_allocation_optimizer_inpu
 # parse_roth_conversion_policy`) keep working unchanged.
 from .parsing.roth_conversion_policy import parse_roth_conversion_policy  # noqa: F401
 
+# parse_withdrawal_spending_policy() extracted to src/parsing/withdrawal_policy.py
+# Ticket 312 ("parse_client() remaining sections", design doc
+# docs/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md,
+# section 2: "Withdrawal Policy bracket-target/spending-decline"). Re-exported
+# here so existing callers (`from src.data_io import
+# parse_withdrawal_spending_policy`) keep working unchanged.
+from .parsing.withdrawal_policy import parse_withdrawal_spending_policy  # noqa: F401
+
 
 def parse_client(data, url_template, *, skip_live_pricing=False):
     """Parse sectioned client data into an engine-ready config dict.
@@ -1215,45 +1223,9 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # the dead input, its CSV rows, and the UI table that edited it were removed
     # rather than wired up.
 
-    # ── Elective Withdrawal Bracket-Target Policy (item 3.4, F1 Option 2) ────
-    # withdraw_pretax_elective (planning_engines.py) has always capped its
-    # Priority-3 draw at a bracket ceiling before falling through to taxable/
-    # trust -- but that ceiling was hardcoded to the 24% federal bracket in
-    # deterministic_engine.py (top_24_yr), with no input anywhere to change
-    # it. This is the input: the actual policy CFPs describe ("fill ordinary
-    # income to the Nth bracket, then draw taxable") without restructuring
-    # the fixed cascade itself (F1 Option 1, deferred). Default 0.24 exactly
-    # reproduces today's hardcoded rate, so an unconfigured plan is unaffected.
-    c['withdrawal_bracket_target_rate'] = percent_to_float(_v(data,'Withdrawal Policy','Elective Withdrawal',
-                                   'withdrawal_bracket_target_rate','0.24'), 0.24)
-
-    # ── Adoptable Spending Policy (item 3.5, F6) ──────────────────────────────
-    # fixed_real (default, today's behavior): spend_base grows with inflation
-    #   forever, never adjusted by portfolio performance.
-    # guyton_klinger: the 4-rule (minus portfolio-management) guardrail
-    #   already modeled as an MC shadow becomes the LIVE policy -- portfolio
-    #   draw grows with inflation each year (frozen after a down year in MC,
-    #   which has real per-path returns to react to; the deterministic
-    #   engine's single flat assumed return has none, so its freeze rule is a
-    #   documented no-op there), cut/raised 10% when the withdrawal rate
-    #   drifts >20% from the initial rate.
-    # floor_ceiling_band: simpler cousin -- withdrawal tracks current
-    #   portfolio value directly but is clamped to +/-10% of the plan's own
-    #   original real spending level.
-    _spending_policy = str(_v(data,'Withdrawal Policy','Spending Policy',
-                              'spending_policy','fixed_real') or 'fixed_real').strip().lower()
-    c['spending_policy'] = _spending_policy if _spending_policy in ('fixed_real','guyton_klinger','floor_ceiling_band') else 'fixed_real'
-    # Age-phased real spending curve (Option 2, independent of the selector
-    # above): discretionary spend declines by this fraction, phased in
-    # linearly between start_age and end_age (of the older/only member still
-    # alive that year), then holds at the reduced level. All default to 0 --
-    # a no-op multiplier of 1.0 for every existing plan.
-    c['spending_phase_decline_pct'] = percent_to_float(_v(data,'Withdrawal Policy','Spending Policy',
-                                   'spending_phase_decline_pct','0'), 0.0)
-    c['spending_phase_start_age'] = int(_n(_v(data,'Withdrawal Policy','Spending Policy',
-                                   'spending_phase_start_age','0'), 0))
-    c['spending_phase_end_age'] = int(_n(_v(data,'Withdrawal Policy','Spending Policy',
-                                   'spending_phase_end_age','0'), 0))
+    # Withdrawal Policy bracket-target / spending-decline pair extracted to
+    # src/parsing/withdrawal_policy.py (ticket 312).
+    c.update(parse_withdrawal_spending_policy(data))
 
     # ── Roth Conversion Policy (9.5) ──────────────────────────────────────────
     c.update(parse_roth_conversion_policy(data))
