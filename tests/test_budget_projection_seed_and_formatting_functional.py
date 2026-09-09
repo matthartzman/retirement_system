@@ -66,7 +66,10 @@ def test_housing_ui_has_rent_buy_toggle_and_area_type_dropdown():
 
 
 def test_mortgage_budget_fallback_does_not_resurrect_configured_mortgage_after_payoff():
-    src = Path('src/projection_stages/deterministic_engine.py').read_text(encoding='utf-8')
+    # Ticket 3.10: this logic moved into spending_and_rmd.py (Stages 6+7,
+    # Spending + RMD sizing/application) when deterministic_engine.py's
+    # per-year loop body was decomposed into stage modules.
+    src = Path('src/projection_stages/spending_and_rmd.py').read_text(encoding='utf-8')
     assert 'mort_pmt_configured' in src
     assert 'never resurrect the budget amount after' in src
     assert "if mort_yr <= 0 and not (mort_pmt_configured and mort_end_configured):" in src

@@ -9,10 +9,20 @@ stage module.  Additional fine-grained stage files can replace pieces behind
 this same contract without changing callers.
 """
 
+from .amt_equity_comp_true_up import apply_amt_and_equity_comp_true_up as _apply_amt_and_equity_comp_true_up
 from .appreciation_divorce_qlac import apply_appreciation_divorce_qlac as _apply_appreciation_divorce_qlac
+from .deaths_and_spousal_rollover import (
+    apply_deaths_and_filing_status as _apply_deaths_and_filing_status,
+    apply_spousal_rollover_and_cst_funding as _apply_spousal_rollover_and_cst_funding,
+)
 from .budget_rollups import category_budget_rollup, housing_budget_rollup
 from .cashflow_breakdown import compute_cashflow_breakdown as _compute_cashflow_breakdown
 from .effective_marginal_rate import compute_effective_marginal_rate as _compute_effective_marginal_rate
+from .home_sale import apply_home_sale as _apply_home_sale
+from .home_sale import resolve_home_sale_gain_tax as _resolve_home_sale_gain_tax
+from .income import apply_income as _apply_income
+from .portfolio_growth_and_net_worth import apply_portfolio_growth_and_net_worth as _apply_portfolio_growth_and_net_worth
+from .spending_and_rmd import apply_spending_and_rmd as _apply_spending_and_rmd
 from .spending_tiers import compute_spend_by_tier as _compute_spend_by_tier
 from .year_state import MutableYearState, create_initial_year_state
 # System review 4.2: explicit name list instead of `from ..planning_engines
@@ -25,10 +35,7 @@ from .year_state import MutableYearState, create_initial_year_state
 from ..planning_engines import (
     EvConversion,
     EvDeath,
-    EvGrowth,
-    EvHomeSale,
     EvIncome,
-    EvRMD,
     EvTax,
     EvTransfer,
     EvWarning,
@@ -45,7 +52,6 @@ from ..planning_engines import (
     liquidity_buffer_years_for_year,
     marginal_rate,
     niit_tax,
-    rmd_divisor,
     salt_cap,
     senior_bonus_deduction,
     social_security_taxable_amount,
@@ -58,7 +64,6 @@ from .. import tlh as _tlh
 from .. import gain_harvest as _gh
 from .. import tax_kernel as _tk
 from ..equity_comp import equity_comp_year_events as _equity_comp_year_events
-from ..core import amt_tax as _amt_tax
 from ..core import state_for_year
 from ..core import qlac_premium_limit
 
@@ -608,75 +613,50 @@ def run_deterministic_projection_stage(c):
         row['_account_withdrawals'] = {}
         row['_account_growth'] = {}
 
-        # ── Deaths ──────────────────────────────────────────────────────────
-        h_alive = year <= c['h_death_yr']
-        w_alive = year <= c['w_death_yr']
+        # ── Deaths / filing status (extracted stage) ─────────────────────────
+        # filing/first_death_done are multi-year state: seeded once before
+        # the loop from year_state, then carried and reassigned across every
+        # iteration. Python does not mutate a caller's local through a
+        # function parameter, so the updated values must come back via the
+        # return value and be reassigned here -- NOT dropped, or every later
+        # year silently keeps the pre-death filing status. See
+        # deaths_and_spousal_rollover.py's Stage1Result docstring.
+        _stage1 = _apply_deaths_and_filing_status(
+            c,
+            year=year,
+            filing=filing,
+            first_death_done=first_death_done,
+        )
+        h_alive = _stage1.h_alive
+        w_alive = _stage1.w_alive
+        n_alive = _stage1.n_alive
+        filing = _stage1.filing
+        first_death_done = _stage1.first_death_done
         row['h_alive'] = h_alive
         row['w_alive'] = w_alive
-        n_alive = (1 if h_alive else 0) + (1 if w_alive else 0)
-
-        # Filing status change year after first death.  Year of death remains
-        # MFJ where applicable.  QSS is available for the next two years when
-        # the plan marks a dependent survivor; tax brackets use MFJ during QSS.
-        _survivor_filing = c.get('survivor_filing', 'Single')
-        _first_death_year = int(c.get('first_death_yr', 0) or 0)
-        if _first_death_year and c.get('qss_dependent', False) and _first_death_year < year <= _first_death_year + 2:
-            filing = 'MFJ'
-        elif not h_alive and not first_death_done and year == c['h_death_yr']+1:
-            filing = _survivor_filing
-            first_death_done = True
-        elif not w_alive and not first_death_done and year == c['w_death_yr']+1:
-            filing = _survivor_filing
-            first_death_done = True
-        elif _first_death_year and year > _first_death_year + 2 and c.get('qss_dependent', False):
-            filing = _survivor_filing
-            first_death_done = True
         row['filing'] = filing
 
-        # ── Spousal rollover & terminal estate consolidation ────────────────
-        inher = _legacy_pe.apply_death_transition(c, bal, year, h_alive, w_alive, bal_basis_free)
-        spousal_rollover = inher.description
-        estate_trust = inher.estate_account or _aa.first_taxable(c) or ''
-        if spousal_rollover:
-            emit(EvDeath(year, 'member', spousal_rollover))
-            for tr in inher.transfers:
-                emit(EvTransfer(year, tr.from_acct, tr.to_acct, tr.amount, tr.reason))
-                _add_account_flow(row['_account_transfers_out'], tr.from_acct, tr.amount)
-                _add_account_flow(row['_account_transfers_in'], tr.to_acct, tr.amount)
-        cst_funded_yr = 0.0
-        if spousal_rollover and inher.survivor_owner_idx is not None and c.get('cs_enabled', False):
-            available_from_decedent = sum(float(tr.amount or 0.0) for tr in inher.transfers)
-            # #227: capped by the CST shelter cap (what a funded bypass trust can
-            # remove from the survivor's estate), NOT il_exempt -- il_exempt is
-            # the survivor's own separate exemption applied later; conflating the
-            # two here would double-count the same dollars as both trust-sheltered
-            # and separately exempt.
-            _cst_cap = float(c.get('il_cst_shelter_cap', c.get('il_exempt', 0.0)) or 0.0)
-            cap = max(0.0, min(float(c.get('cs_amount', _cst_cap) or 0.0), _cst_cap))
-            cst_funded_yr = min(cap, max(0.0, available_from_decedent))
-            # Actual CST funding: remove the funded amount from survivor-accessible
-            # taxable/cash balances and track it as a separate estate-excluded trust
-            # value. It remains part of household net worth but is not available to
-            # the survivor withdrawal cascade or survivor estate base.
-            _remaining_cst = cst_funded_yr
-            _candidate_ids = []
-            try:
-                _candidate_ids.extend(_ar.ids_by_tax(c.get('account_registry', []), 'taxable', inher.survivor_owner_idx))
-            except Exception:
-                _candidate_ids.extend(c.get('taxable_ids', []))
-            _candidate_ids.extend(c.get('cash_ids', []))
-            for _aid in list(dict.fromkeys(_candidate_ids)):
-                if _remaining_cst <= 0:
-                    break
-                _take = min(_remaining_cst, float(bal.get(_aid, 0.0) or 0.0))
-                if _take > 0:
-                    bal[_aid] = float(bal.get(_aid, 0.0) or 0.0) - _take
-                    _add_account_flow(row['_account_transfers_out'], _aid, _take)
-                    _remaining_cst -= _take
-            _funded_actual = cst_funded_yr - max(0.0, _remaining_cst)
-            cst_balance += _funded_actual
-            cst_funded_total += _funded_actual
-            cst_funded_yr = _funded_actual
+        # ── Spousal rollover & CST funding (extracted stage) ─────────────────
+        # cst_balance/cst_funded_total are multi-year state, same care as
+        # filing/first_death_done above -- see Stage2Result's docstring.
+        _stage2 = _apply_spousal_rollover_and_cst_funding(
+            c,
+            year=year,
+            h_alive=h_alive,
+            w_alive=w_alive,
+            bal=bal,
+            bal_basis_free=bal_basis_free,
+            cst_balance=cst_balance,
+            cst_funded_total=cst_funded_total,
+            account_transfers_in=row['_account_transfers_in'],
+            account_transfers_out=row['_account_transfers_out'],
+            emit=emit,
+        )
+        cst_balance = _stage2.cst_balance
+        cst_funded_total = _stage2.cst_funded_total
+        spousal_rollover = _stage2.spousal_rollover
+        estate_trust = _stage2.estate_trust
+        cst_funded_yr = _stage2.cst_funded_yr
         row['spousal_rollover'] = spousal_rollover
         row['estate_trust'] = estate_trust
         row['cst_funded_yr'] = cst_funded_yr
@@ -712,122 +692,30 @@ def run_deterministic_projection_stage(c):
         row['divorce_split_amount'] = _stage3.divorce_split_amount
         row['qlac_purchase_yr'] = _stage3.qlac_purchase_yr
 
-        # ── Home value appreciation & planned sale ───────────────────────────
-        home_sold = home_val <= 0   # already sold in a prior year
-        # Mortgage balance — computed once here, used in both sale and non-sale branches
-        mort_bal_yr = c['mort_schedule'].get(year, 0.0)
-        if year > c['mort_end'] or home_sold:
-            mort_bal_yr = 0.0
-        # Estate disposition: the home is sold at the second death rather than
-        # carried by a household that no longer exists. Reuses the existing sale
-        # machinery below (mortgage payoff, selling costs, proceeds routing).
-        _estate_sale = (not home_sold) and year == _second_death_yr
-        if not home_sold and ((c.get('home_sale_yr') and year == c['home_sale_yr'])
-                              or _estate_sale):
-            # ── Home sale year ────────────────────────────────────────────────
-            # 1. Gross proceeds
-            # An estate sale is at MARKET value. home_sale_px is the user's assumed
-            # price for a specific planned downsizing; applying it to a later
-            # estate disposition would value the home at a stale figure -- on the
-            # frozen fixture that is 1,750,000 against a 3,282,605 market value,
-            # destroying 1.53M of estate value.
-            gross_proceeds = home_val if _estate_sale else (
-                c['home_sale_px'] if c['home_sale_px'] > 0 else home_val)
-            # 2. Selling costs (realtor commission + closing)
-            selling_costs = gross_proceeds * c['home_sell_cost_pct']
-            # 3. Pay off remaining mortgage (from amortization schedule)
-            mort_payoff = mort_bal_yr
-            mort_bal_yr = 0.0  # mortgage retired at sale
-            proceeds_after = max(0, gross_proceeds - selling_costs - mort_payoff)
-            # 4. Capital gain: (gross - selling costs) - basis  [selling costs reduce gain]
-            # Assets receive a basis step-up at death, so an estate sale in the
-            # year of the second death realizes no taxable gain.
-            basis = gross_proceeds if _estate_sale else (c.get('home_basis', 0) or c['home_val'] * 0.5)
-            cap_gain = max(0, gross_proceeds - selling_costs - basis)
-            # 5. §121 exclusion: $500k for MFJ, $250k otherwise. The filing
-            # status is already switched to survivor_filing after the configured
-            # survivor window, so post-window survivor sales do not over-exclude.
-            sec121_exclusion = 500000.0 if filing == 'MFJ' else 250000.0
-            sec121_exclusion = min(float(c.get('sec121', sec121_exclusion) or sec121_exclusion), sec121_exclusion)
-            taxable_gain = max(0, cap_gain - sec121_exclusion)
-            # 6. LTCG tax is computed later in this same-year tax pass after
-            # ordinary taxable income is known. Deposit gross-after-cost/mortgage
-            # proceeds now; the withdrawal cascade funds the tax like every other
-            # current-year liability.
-            home_sale_tax = 0.0
-            row['_home_sale_taxable_gain_pending'] = taxable_gain
-            # 7. Proceeds deposited to designated account (basis-free)
-            net_proceeds = max(0, proceeds_after)
-            # Pay off HELOC from home sale proceeds before depositing
-            if c.get('heloc_enabled', False):
-                _heloc_bal_at_sale = float(bal.get('_heloc_balance', 0.0) or 0.0)
-                heloc_payoff_yr = min(_heloc_bal_at_sale, net_proceeds)
-                net_proceeds = max(0.0, net_proceeds - heloc_payoff_yr)
-                bal['_heloc_balance'] = max(0.0, _heloc_bal_at_sale - heloc_payoff_yr)
-                row['heloc_payoff'] = heloc_payoff_yr
-            # #299: proceeds may be split across multiple accounts by
-            # percentage (home_sale_splits) instead of one designated
-            # account. Drop any split naming an account that doesn't exist
-            # in this plan's balances and renormalize the remaining
-            # percentages to 1.0, so the full net_proceeds is always
-            # deposited somewhere even if a configured account was removed
-            # after the split was set up.
-            _configured_splits = [
-                s for s in (c.get('home_sale_splits') or [])
-                if str(s.get('account', '')) in bal and float(s.get('pct', 0) or 0) > 0
-            ]
-            _split_pct_total = sum(float(s.get('pct', 0) or 0) for s in _configured_splits)
-            if _configured_splits and _split_pct_total > 0:
-                deposits = [
-                    (str(s['account']), net_proceeds * (float(s['pct']) / _split_pct_total))
-                    for s in _configured_splits
-                ]
-                acct = deposits[0][0]
-            else:
-                acct = c.get('home_sale_acct') or _aa.first_taxable(c)
-                if acct not in bal:
-                    acct = _aa.first_taxable(c)
-                deposits = [(acct, net_proceeds)]
-            for _dep_acct, _dep_amt in deposits:
-                if _dep_amt <= 0:
-                    continue
-                _aa.deposit(bal, _dep_acct, _dep_amt)
-                _add_account_flow(row['_account_deposits'], _dep_acct, _dep_amt)
-                _tag_deposit_source(row, _dep_acct, 'Home Sale Proceeds', _dep_amt)
-                # These dollars already had their gain taxed → stepped-up basis.
-                # Track as basis-free so future trust draws don't tax them again.
-                if _dep_acct in bal_basis_free:
-                    bal_basis_free[_dep_acct] += _dep_amt
-            row['home_sale_splits_applied'] = [
-                {'account': a, 'amount': amt} for a, amt in deposits if amt > 0
-            ] if len(deposits) > 1 else []
-            # 8. Zero out home value — no longer owned
-            home_val = 0.0
-            home_equity = 0.0
-            row['home_sale_gross']    = gross_proceeds
-            row['home_sale_costs']    = selling_costs
-            row['home_sale_mort_off'] = mort_payoff
-            row['home_sale_gain']     = cap_gain
-            row['home_sale_sec121_exclusion'] = sec121_exclusion
-            row['home_sale_taxable']  = taxable_gain
-            row['home_sale_tax']      = home_sale_tax
-            row['home_sale_net']      = net_proceeds
-            row['home_sale_acct']     = acct
-            emit(EvHomeSale(year, gross_proceeds, selling_costs, mort_payoff,
-                            home_sale_tax, net_proceeds, acct))
-        else:
-            # Normal year — appreciate home if still owned
-            if not home_sold:
-                home_val *= (1 + c['home_appr'])
-            home_equity = max(0, home_val - mort_bal_yr)
-            # Reduce home equity by outstanding HELOC balance in non-sale years
-            if c.get('heloc_enabled', False):
-                home_equity = max(0.0, home_equity - float(bal.get('_heloc_balance', 0.0) or 0.0))
-            row['home_sale_gross'] = row['home_sale_mort_off'] = 0
-            row['home_sale_gain']  = row['home_sale_taxable']  = 0
-            row['home_sale_tax']   = row['home_sale_net']      = 0
-            row['home_sale_costs'] = 0
-            row['home_sale_acct']  = ''
+        # ── Home value appreciation & planned sale (extracted stage) ─────────
+        # Appreciate or sell the home, pay off HELOC/mortgage at sale, and
+        # route sale proceeds. See home_sale.py for the full step-by-step
+        # breakdown and for why report fields are written directly onto
+        # `row` (in place) rather than bundled into the return value: the
+        # legacy engine sets a different subset of row keys depending on
+        # which branch runs, and the full-row snapshot regression test
+        # pins that exact key set. home_val/home_equity/mort_bal_yr ARE
+        # plain floats returned via HomeSaleResult and must be reassigned
+        # here -- same caveat as the appreciation/divorce/QLAC stage above.
+        _stage4 = _apply_home_sale(
+            c,
+            row,
+            year=year,
+            home_val=home_val,
+            filing=filing,
+            second_death_yr=_second_death_yr,
+            bal=bal,
+            bal_basis_free=bal_basis_free,
+            emit=emit,
+        )
+        home_val = _stage4.home_val
+        home_equity = _stage4.home_equity
+        mort_bal_yr = _stage4.mort_bal_yr
 
         # Note Receivable — sum principal/interest across every note, since
         # each note (e.g. "RedMane Note") can have its own face value,
@@ -844,808 +732,131 @@ def run_deterministic_projection_stage(c):
                 _note_bals[id(_nitem)] = max(0.0, _note_bals[id(_nitem)] - _nprinc_yr)
         note_bal = sum(_note_bals.values()) if _note_items else max(0, note_bal - note_princ_yr)
 
-        # ── Income ──────────────────────────────────────────────────────────
-        # Earned income — with optional scenario overrides for extension years
-        # (years beyond the base earn_end, used in Retire Later scenario re-runs)
-        if c['earn_start'] <= year <= c['earn_end']:
-            base_earn_end = c.get('base_earn_end', c['earn_end'])   # original before scenario
-            if year > base_earn_end:
-                # Extension years: use scenario-specific growth rate and base income
-                ext_growth  = c.get('scen_retire_inc_growth', c['earn_inc'])
-                ext_base    = c['earned'] * (1 + c['earn_inc']) ** (base_earn_end - c['earn_start'])
-                earned_base = ext_base * (1 + ext_growth) ** (year - base_earn_end)
-            else:
-                earned_base = c['earned'] * (1 + c['earn_inc']) ** (year - c['earn_start'])
-        else:
-            earned_base = 0.0
-        earned_base = c.get('ytd_blend_earned_override', {}).get(year, earned_base)
-
-        # ── Advanced modules: per-year tax events (all zero unless enabled) ───
-        _equity_events = {'ordinary_income': 0.0, 'amt_preference': 0.0, 'ltcg_gain': 0.0, 'cash_proceeds': 0.0}
-        if _equity_on:
-            _equity_events = _equity_comp_year_events(c.get('equity_comp', []), year, c['plan_start'])
-        _di_taxable = 0.0
-        _di_cash = 0.0
-        if _disability_on:
-            _di = c.get('disability', {}) or {}
-            _sim = int(_di.get('simulate_year', 0) or 0)
-            _pols = _di.get('policies', []) or []
-            if _sim and _pols:
-                _bp = max((int(p.get('benefit_period_years', 0) or 0) for p in _pols), default=0)
-                if _sim <= year < _sim + max(1, _bp):
-                    # Disability halts earned income; the DI benefit replaces it.
-                    earned_base = 0.0
-                    _annual = sum(float(p.get('monthly_benefit', 0.0) or 0.0) for p in _pols) * 12.0
-                    if year == _sim:
-                        _elim = max((int(p.get('elimination_days', 0) or 0) for p in _pols), default=0)
-                        _annual *= max(0.0, 365.0 - _elim) / 365.0
-                    _di_cash = _annual
-                    # Benefit is taxable ordinary income when funded with pre-tax premium.
-                    if any(p.get('premium_pre_tax') for p in _pols):
-                        _di_taxable = _annual
-                    row['disability_benefit'] = _annual
-                    row['disability_benefit_taxable'] = _di_taxable
-
-        row['earned'] = earned_base
+        # ── Income (extracted stage) ─────────────────────────────────────────
+        # Earned/payroll/401k/HSA-contrib/Social Security/annuity/note income.
+        # See income.py for the full per-topic breakdown. earned_base and the
+        # sixteen other returned locals are read as bare names by later
+        # stages this same iteration (spending, Roth sizing, AGI/tax, the
+        # withdrawal cascade, the equity-comp/AMT post-pass) -- Python does
+        # not propagate a reassigned scalar parameter back to the caller, so
+        # they must come back via the return value and be reassigned here,
+        # NOT dropped. bal and row mutate in place through the reference,
+        # same as any dict.
+        _stage5 = _apply_income(
+            c,
+            year=year,
+            h_age=h_age,
+            w_age=w_age,
+            h_alive=h_alive,
+            w_alive=w_alive,
+            bal=bal,
+            row=row,
+            note_princ_yr=note_princ_yr,
+            note_int_yr=note_int_yr,
+            equity_on=_equity_on,
+            disability_on=_disability_on,
+            sehi_deduction_source_amount=_sehi_deduction_source_amount,
+            ss_ratio=_ss_ratio,
+            ss_first_claim_year_month_fraction=_ss_first_claim_year_month_fraction,
+            ss_claim_factor=_ss_claim_factor,
+            ss_spousal_excess_factor=_ss_spousal_excess_factor,
+            ss_funding_factor=_ss_funding_factor,
+        )
+        earned_base = _stage5.earned_base
+        net_earned_taxable = _stage5.net_earned_taxable
+        half_se_ded = _stage5.half_se_ded
+        sehi_ded = _stage5.sehi_ded
+        qbi_ded = _stage5.qbi_ded
+        payroll_tax = _stage5.payroll_tax
+        business_expenses_yr = _stage5.business_expenses_yr
+        h_ss = _stage5.h_ss
+        w_ss = _stage5.w_ss
+        pension = _stage5.pension
+        wife_single_ann = _stage5.wife_single_ann
+        wife_joint_ann = _stage5.wife_joint_ann
+        h_single_ann = _stage5.h_single_ann
+        h_joint_ann = _stage5.h_joint_ann
+        _equity_events = _stage5.equity_events
+        _di_taxable = _stage5.di_taxable
+        _di_cash = _stage5.di_cash
         if earned_base > 0:
             emit(EvIncome(year, 'earned', earned_base, c['entity']))
-        if _equity_events['ordinary_income'] > 0:
-            row['equity_comp_ordinary_income'] = _equity_events['ordinary_income']
-        if _equity_events['amt_preference'] > 0:
-            row['equity_comp_amt_preference'] = _equity_events['amt_preference']
 
-        # Payroll / self-employment tax
-        se_tax = 0.0; half_se_ded = 0.0; sehi_ded = 0.0; qbi_ded = 0.0
-        payroll_tax = 0.0
-        # net_earned_taxable is the earned-income figure that should actually
-        # drive AGI/ordinary-income-tax and cash flow -- gross earned_base net
-        # of the real Schedule C business expenses / home office deduction
-        # (biz_exp/home_off), which previously only reduced the SE-tax and QBI
-        # bases and never reduced AGI or appeared as a cash outflow anywhere.
-        net_earned_taxable = 0.0
-        business_expenses_yr = 0.0
-        if earned_base > 0:
-            if c['entity'] == 'sole_prop':
-                net_se   = earned_base - c['biz_exp'] - c['home_off']
-                se_base  = net_se * c['se_factor']
-                ss_se    = min(se_base, c['ss_wage_base']) * c['ss_se_rate']
-                med_se   = se_base * c['med_se_rate']
-                se_tax   = ss_se + med_se
-                if c['se_half_ded']:
-                    half_se_ded = se_tax / 2
-                sehi_source = _sehi_deduction_source_amount(year, h_age, w_age, h_alive, w_alive)
-                sehi_ded = min(sehi_source, net_se)
-                if c['qbi_elig']:
-                    qbi_base = net_se - half_se_ded - sehi_ded
-                    qbi_ded  = qbi_base * 0.20
-                payroll_tax = se_tax
-                net_earned_taxable = net_se
-                business_expenses_yr = c['biz_exp'] + c['home_off']
-            else:
-                # S-Corp: payroll tax only on W-2 salary, not the full distribution
-                # Extension years may use a scenario salary override
-                base_earn_end = c.get('base_earn_end', c['earn_end'])
-                if year > base_earn_end and 'scen_retire_salary' in c:
-                    salary = c['scen_retire_salary']
-                else:
-                    salary = c['scorp_salary']
-                salary       = min(salary, earned_base)   # can't exceed total income
-                # Employee + employer FICA on salary only.  Employer FICA is a
-                # business expense that reduces distributable income/QBI.
-                ss_ee   = min(salary, c['ss_wage_base']) * c['ss_ee_rate']
-                ss_er   = min(salary, c['ss_wage_base']) * c['ss_ee_rate']   # employer match
-                med_ee  = salary * c['med_ee_rate']
-                med_er  = salary * c['med_ee_rate']
-                employer_fica = ss_er + med_er
-                payroll_tax  = ss_ee + ss_er + med_ee + med_er
-                distribution = max(0, earned_base - c['biz_exp'] - c['home_off'] - salary - employer_fica)
-                # SEHI: deducted via W-2 box 1 treatment. Real law requires the
-                # premium to actually be added to the shareholder-employee's W-2
-                # Box 1 wages for the personal SEHI deduction to be allowed at
-                # all; when sehi_added_to_w2 is off, no deduction is allowed.
-                sehi_source = _sehi_deduction_source_amount(year, h_age, w_age, h_alive, w_alive)
-                sehi_ded = min(sehi_source, salary + distribution) if c.get('scorp_sehi_on_w2', True) else 0.0
-                # QBI on distribution (salary excluded from QBI base)
-                if c['qbi_elig']:
-                    qbi_base = distribution - sehi_ded
-                    qbi_ded  = max(0, qbi_base * 0.20)
-                # IL corporate surcharge on distributable income
-                # (already captured in state_tax via AGI; no separate payroll item)
-                net_earned_taxable = salary + distribution
-                business_expenses_yr = c['biz_exp'] + c['home_off']
-
-            # Additional Medicare tax applies to Medicare wages / SE earnings,
-            # not to S-corp distributions.
-            add_med_base = se_base if c['entity'] == 'sole_prop' else salary
-            if add_med_base > c['add_med_thr']:
-                payroll_tax += (add_med_base - c['add_med_thr']) * c['add_med_rate']
-
-        row['sehi_deduction_source'] = _sehi_deduction_source_amount(year, h_age, w_age, h_alive, w_alive) if earned_base > 0 else 0.0
-        row['payroll_tax'] = payroll_tax
-        row['business_expenses_yr'] = business_expenses_yr
-
-        # Remaining-year proration for the current calendar year (see
-        # ytd_projection_blend.py) — today's live balance already reflects
-        # whatever contributions have actually happened so far this year, so
-        # only the remaining fraction of the year's contribution is added.
-        _contrib_proration = c.get('ytd_blend_contrib_proration', {}).get(year, 1.0)
-
-        # 401k contribution
-        k401_contrib = 0.0
-        if c['earn_start'] <= year <= c['earn_end']:
-            k401_limit_yr = c['k401_lim'] * ((1 + c.get('brk_inf', c.get('inf', 0.025))) ** max(0, year - c['plan_start'])) if c.get('k401_limit_indexed', True) else c['k401_lim']
-            k401_contrib = min(c['k401_mo']*12, k401_limit_yr) * _contrib_proration
-            row['k401_limit_used'] = k401_limit_yr
-            _k401_acct = _aa.first_account(c, owner_idx=0, acct_type='401k') or _aa.first_pretax(c, 0)
-            _aa.deposit(bal, _k401_acct, k401_contrib)
-            _add_account_flow(row['_account_deposits'], _k401_acct, k401_contrib)
-            _tag_deposit_source(row, _k401_acct, '401(k) Contribution', k401_contrib)
-        row['k401_contrib'] = k401_contrib
-
-        # workplace plan rollover after contributions end
-        ROLLOVER_401K_YEAR = c['rollover_401k_yr']
-        # Both sides are resolved with accounts() rather than first_account():
-        # first_account() falls back to all_acct_ids[0] when nothing matches, so
-        # a household with no owner-0 401(k) — or no owner-0 traditional IRA —
-        # would silently resolve to an arbitrary account of any tax type, and
-        # this block would move a whole balance into (or out of) e.g. checking.
-        # The destination also excludes the source: with a 401(k) and no IRA the
-        # pre-tax fallback used to resolve back to the source account, and
-        # crediting then zeroing the same account destroyed the balance outright.
-        _k401_ids = _aa.accounts(c, owner_idx=0, acct_type='401k')
-        _k401_id = _k401_ids[0] if _k401_ids else None
-        _dest_ids = list(_aa.accounts(c, owner_idx=0, acct_type='traditional_ira')) or [
-            _a for _a in _aa.accounts(c, owner_idx=0, tax='pre_tax') if _a != _k401_id]
-        _ira_dest = _dest_ids[0] if _dest_ids else None
-        _rolled = False
-        if year == ROLLOVER_401K_YEAR and _k401_id and _ira_dest and bal.get(_k401_id, 0) > 0:
-            amt = bal.get(_k401_id, 0)
-            bal[_ira_dest] = bal.get(_ira_dest, 0) + amt
-            bal[_k401_id] = 0.0
-            _add_account_flow(row['_account_transfers_out'], _k401_id, amt)
-            _add_account_flow(row['_account_transfers_in'], _ira_dest, amt)
-            _rolled = True
-        row['k401_rollover'] = 1.0 if _rolled else 0.0
-
-        # HSA contribution
-        hsa_contrib = 0.0
-        hsa_people_eligible = (1 if h_alive and h_age < 65 else 0) + (1 if w_alive and w_age < 65 else 0)
-        if year <= c['hsa_last_contrib'] and (not c.get('hsa_requires_hdhp', True) or hsa_people_eligible > 0):
-            hsa_limit_yr = c['hsa_contrib_base'] * ((1 + c.get('brk_inf', c.get('inf', 0.025))) ** max(0, year - c['plan_start'])) if c.get('hsa_limit_indexed', True) else c['hsa_contrib_base']
-            catchups = ((1 if h_alive and 55 <= h_age < 65 else 0) + (1 if w_alive and 55 <= w_age < 65 else 0)) * c.get('hsa_catchup', 0.0)
-            hsa_contrib = min(hsa_limit_yr + catchups, hsa_limit_yr + catchups) * _contrib_proration
-            row['hsa_limit_used'] = hsa_limit_yr
-            row['hsa_catchups_used'] = catchups
-            _hsa_acct = _aa.first_hsa(c, 0)
-            _aa.deposit(bal, _hsa_acct, hsa_contrib)
-            _add_account_flow(row['_account_deposits'], _hsa_acct, hsa_contrib)
-            _tag_deposit_source(row, _hsa_acct, 'HSA Contribution', hsa_contrib)
-        row['hsa_contrib'] = hsa_contrib
-
-        # Social Security.  Each spouse's benefit table (ss_benefit_age_62..70)
-        # holds the actual SSA-quoted monthly amount for every claim age - real
-        # government figures, not back-solved estimates. The claimed amount is
-        # a direct table lookup at the configured claim age, so it always moves
-        # the correct direction (lower before FRA, higher after) by construction.
-        h_claim_age = max(62, min(70, int(c.get('h_ss_claim_age', c.get('ss_claim_age', 70)) or 70)))
-        w_claim_age = max(62, min(70, int(c.get('w_ss_claim_age', c.get('ss_claim_age', 70)) or 70)))
-        # System review 2026-09-07 N2: h_ss_claim_year/w_ss_claim_year are
-        # already the precise year derived from claim_date (when present) --
-        # deriving h_ss_yr as h_dob_yr + h_claim_age instead threw that
-        # precision away by round-tripping back through a whole-year age.
-        # Falls back to the age-derived year for callers that never ran
-        # through data_io._ss_claim_from_date_or_age (e.g. a bare synthetic
-        # config dict in a unit test).
-        h_ss_yr = int(c.get('h_ss_claim_year') or (c['h_dob_yr'] + h_claim_age))
-        w_ss_yr = int(c.get('w_ss_claim_year') or (c['w_dob_yr'] + w_claim_age))
-        # Fractional claim age (e.g. 66.33), used only for the SSA
-        # reduction/delayed-credit factor below, which already interpolates
-        # by month -- it was simply never given anything but a whole-year
-        # age before. The whole-year h_claim_age/w_claim_age above is kept
-        # for the benefit-table lookup, which is genuinely keyed on whole
-        # SSA-quoted ages.
-        h_claim_age_precise = float(c.get('h_ss_claim_age_precise', h_claim_age) or h_claim_age)
-        w_claim_age_precise = float(c.get('w_ss_claim_age_precise', w_claim_age) or w_claim_age)
-        h_benefit_table = c.get('h_ss_benefit_table', {}) or {}
-        w_benefit_table = c.get('w_ss_benefit_table', {}) or {}
-        h_pia = float(c.get('h_ss_pia', 0.0) or 0.0) or h_benefit_table.get(67, 0.0)
-        w_pia = float(c.get('w_ss_pia', 0.0) or 0.0) or w_benefit_table.get(67, 0.0)
-        h_fra_override = c.get('h_fra_age')
-        w_fra_override = c.get('w_fra_age')
-        # Prefer the real SSA-quoted table entry for the chosen claim age. If
-        # that specific age wasn't entered, derive it from the FRA/PIA amount
-        # via the SSA reduction/delayed-credit factor instead of defaulting
-        # flatly to the FRA amount (which is only correct when claiming at FRA).
-        # h_monthly_claim / w_monthly_claim are each spouse's OWN reduced (or
-        # delayed-credited) retirement benefit — the record used both for the
-        # living benefit below and, unchanged, for the survivor benefit further
-        # down.  The spousal excess is added only to the living benefit; it is
-        # deliberately NOT baked into these records (a survivor benefit derives
-        # from the deceased's own retirement record, never their spousal top-up).
-        h_monthly_claim = h_benefit_table.get(h_claim_age) or (h_pia * _ss_claim_factor(h_claim_age_precise, c['h_dob_yr'], h_fra_override))
-        w_monthly_claim = w_benefit_table.get(w_claim_age) or (w_pia * _ss_claim_factor(w_claim_age_precise, c['w_dob_yr'], w_fra_override))
-        spousal_on = bool(c.get('spousal_benefits_enabled', True))
-
-        # Excess-spousal benefit (SSA dual-entitlement method).  A claimant who is
-        # also entitled to their own retirement benefit receives their own reduced
-        # benefit PLUS the excess spousal amount:
-        #     own_reduced + max(0, 0.5*worker_PIA - own_PIA) * excess_factor
-        # This is NOT max(own, 0.5*worker_PIA): the greater-of form would discard
-        # the claimant's permanent early-claim reduction on their own record and
-        # overstate the benefit for life.  The excess is computed off PIAs (full,
-        # unreduced benefits), floored at zero when the claimant's own PIA already
-        # meets/exceeds half the worker's PIA, and only THEN reduced on the
-        # spousal schedule (_ss_spousal_excess_factor, no delayed credits).  Two
-        # gates apply: (1) the WORKER must have actually filed — the spousal
-        # amount cannot be paid until the year the worker claims — and (2) both
-        # spouses must be alive (once a spouse dies the survivor logic below
-        # governs).  The reduction factor is set by the claimant's age when the
-        # spousal benefit first becomes payable, i.e. the later of their own
-        # filing year and the worker's filing year.
-        h_ss = 0.0
-        if h_alive and year >= h_ss_yr:
-            h_monthly = h_monthly_claim
-            if spousal_on and w_alive and year >= w_ss_yr:
-                _h_sp_start_age = max(h_ss_yr, w_ss_yr) - c['h_dob_yr']
-                _h_sp_factor = _ss_spousal_excess_factor(_h_sp_start_age, c['h_dob_yr'], h_fra_override)
-                h_monthly += max(0.0, 0.5 * w_pia - h_pia) * _h_sp_factor
-            h_ss = h_monthly * 12 * _ss_ratio(year, h_ss_yr) * _ss_first_claim_year_month_fraction(year, h_ss_yr, c.get('h_ss_claim_month', c.get('h_dob_month')))
-        w_ss = 0.0
-        if w_alive and year >= w_ss_yr:
-            w_monthly = w_monthly_claim
-            if spousal_on and h_alive and year >= h_ss_yr:
-                _w_sp_start_age = max(w_ss_yr, h_ss_yr) - c['w_dob_yr']
-                _w_sp_factor = _ss_spousal_excess_factor(_w_sp_start_age, c['w_dob_yr'], w_fra_override)
-                w_monthly += max(0.0, 0.5 * h_pia - w_pia) * _w_sp_factor
-            w_ss = w_monthly * 12 * _ss_ratio(year, w_ss_yr) * _ss_first_claim_year_month_fraction(year, w_ss_yr, c.get('w_ss_claim_month', c.get('w_dob_month')))
-
-        # SS survivor benefit is symmetrical: survivor receives the larger
-        # claimed benefit record (subject to survivor percentage), regardless of
-        # which spouse dies first.
-        if not h_alive and w_alive and year > c['h_death_yr']:
-            if c.get('survivor_benefit_uses_deceased_claim_age', True):
-                h_record = h_monthly_claim
-            else:
-                h_record = h_benefit_table.get(70, h_pia)
-            h_ss_at_death = h_record * 12 * _ss_ratio(c['h_death_yr'], h_ss_yr) if c['h_death_yr'] >= h_ss_yr else 0
-            w_ss_at_death = w_monthly_claim * 12 * _ss_ratio(c['h_death_yr'], w_ss_yr) if c['h_death_yr'] >= w_ss_yr else 0
-            w_ss = max(w_ss, h_ss_at_death * c['ss_surv'], w_ss_at_death)
-            h_ss = 0
-        if not w_alive and h_alive and year > c['w_death_yr']:
-            if c.get('survivor_benefit_uses_deceased_claim_age', True):
-                w_record = w_monthly_claim
-            else:
-                w_record = w_benefit_table.get(70, w_pia)
-            w_ss_at_death = w_record * 12 * _ss_ratio(c['w_death_yr'], w_ss_yr) if c['w_death_yr'] >= w_ss_yr else 0
-            h_ss_at_death = h_monthly_claim * 12 * _ss_ratio(c['w_death_yr'], h_ss_yr) if c['w_death_yr'] >= h_ss_yr else 0
-            h_ss = max(h_ss, w_ss_at_death * c['ss_surv'], h_ss_at_death)
-            w_ss = 0
-
-        row['h_ss_claim_age_used'] = h_claim_age
-        row['w_ss_claim_age_used'] = w_claim_age
-
-        ss_funding_factor = _ss_funding_factor(year)
-        if ss_funding_factor != 1.0:
-            h_ss *= ss_funding_factor
-            w_ss *= ss_funding_factor
-        row['ss_funding_factor'] = ss_funding_factor
-        row['ss_funding_discount_pct'] = max(0.0, 1.0 - ss_funding_factor)
-        row['h_ss'] = h_ss
-        row['w_ss'] = w_ss
-
-        # Annuity income (death-governed)
-        pension = annuity_cash_income(c['wife_pension'], year) if w_alive else 0
-        # #295: a QLAC is a deferred single-life annuity purchased with
-        # qualified (pre-tax) dollars -- same shape and tax treatment
-        # (100% taxable, no cash/dividend component) as this household's
-        # existing Single Annuity slot, so its income is folded directly
-        # into wife_single_ann/h_single_ann: every downstream consumer of
-        # that value (AGI, ACA premium credit, federal/state tax, terminal
-        # net worth's annuity PV) already treats it as "this person's fully
-        # taxable single-life annuity income for the year" and needs no
-        # separate wiring. wife_qlac_ann/h_qlac_ann are still tracked
-        # separately on the row for reporting visibility.
-        wife_qlac_ann = annuity_cash_income(c['wife_qlac'], year) if (w_alive and c['wife_qlac'].get('enabled')) else 0
-        h_qlac_ann = annuity_cash_income(c['h_qlac'], year) if (h_alive and c['h_qlac'].get('enabled')) else 0
-        wife_single_ann = (annuity_cash_income(c['wife_single'], year) if w_alive else 0) + wife_qlac_ann
-        wife_joint_ann  = (annuity_cash_income(c['wife_joint'], year)
-                          if (w_alive or h_alive) else 0)
-        if not w_alive and h_alive:
-            wife_joint_ann *= c['js_pct']
-        h_single_ann    = (annuity_cash_income(c['h_single'], year) if h_alive else 0) + h_qlac_ann
-        h_joint_ann     = (annuity_cash_income(c['h_joint'], year)
-                          if (h_alive or w_alive) else 0)
-        if not h_alive and w_alive:
-            h_joint_ann *= c['js_pct']
-
-        row.update({'pension': pension,
-                    'wife_single_ann': wife_single_ann,
-                    'wife_joint_ann': wife_joint_ann,
-                    'h_single_ann': h_single_ann,
-                    'h_joint_ann': h_joint_ann,
-                    'wife_qlac_ann': wife_qlac_ann,
-                    'h_qlac_ann': h_qlac_ann})
-
-        # Note income
-        row['note_princ'] = note_princ_yr
-        row['note_int']   = note_int_yr
-
-        # ── Spending ─────────────────────────────────────────────────────────
-        # Base spending (inflated until freeze year)
-        if year <= c['spending_freeze_yr']:
-            spend = c['spend_base'] * _spending_factor(year)
-        else:
-            spend = c['spend_base'] * _spending_factor(c['spending_freeze_yr'])
-        spend = c.get('ytd_blend_spend_override', {}).get(year, spend)
-        # Survivor scaling is applied last, after the YTD blend override, so a
-        # blended current-year figure is scaled too if that year ever became a
-        # survivor year.
-        survivor_factor_yr = _survivor_factor(n_alive)
-        row['survivor_spend_factor_yr'] = survivor_factor_yr
-        spend *= survivor_factor_yr
-
-        # ── Item 3.5 (F6): age-phased real spending curve (Option 2, always
-        # independently available) then the adoptable spending guardrail
-        # policy (fixed_real/guyton_klinger/floor_ceiling_band). Both are
-        # no-ops (factor 1.0 / policy passthrough) for every plan that
-        # hasn't configured them, so this is byte-identical to the prior
-        # unconditional `spend_base_yr = spend` for the shipped default.
-        _phase_age = max(h_age if h_alive else -1, w_age if w_alive else -1)
-        if _phase_age >= 0:
-            spend *= _legacy_pe.age_phased_spending_factor(
-                _phase_age, c.get('spending_phase_decline_pct', 0.0),
-                c.get('spending_phase_start_age', 0), c.get('spending_phase_end_age', 0),
-            )
-        _spend_policy = str(c.get('spending_policy', 'fixed_real') or 'fixed_real')
-        if _spend_policy in ('guyton_klinger', 'floor_ceiling_band') and spend > 0:
-            _portfolio_value_yr = sum(
-                max(0.0, float(bal.get(_aid, 0.0) or 0.0))
-                for _aid in (c.get('pre_tax_ids', []) + c.get('roth_ids', []) + c.get('taxable_ids', [])
-                             + c.get('hsa_ids', []) + c.get('cash_ids', []))
-            )
-            spend, _spend_guardrail_state, _spend_cut, _spend_raised = _legacy_pe.spending_guardrail_year(
-                _spend_policy, spend, _portfolio_value_yr, _spend_guardrail_state,
-                inflation_rate=c.get('inf', 0.025),
-                prior_return=None,  # documented no-op: single flat c['ret'], no year-to-year variation
-                years_remaining=c['plan_end'] - year,
-            )
-            row['spending_policy_cut_applied'] = bool(_spend_cut)
-            row['spending_policy_raise_applied'] = bool(_spend_raised)
-        row['spend_base_yr'] = spend
-
-        # Recurring extras — Home Improvement items route to housing costs; all others to rec_extra
-        rec_extra = 0.0
-        home_improvement_extra = 0.0
-        if year <= c.get('home_proj_end', c['plan_start'] - 1):
-            rec_extra += c.get('home_proj', 0.0) * _infl_factor(year)
-        if year <= c.get('vac_end', c['plan_start'] - 1):
-            rec_extra += c.get('vac', 0.0) * _infl_factor(year)
-        _travel_end_year = int(c.get('travel_end_year', 0) or 0)
-        for ev in c.get('recurring_extras', []):
-            start_yr = int(ev.get('start_year') or c['plan_start'])
-            end_yr = int(ev.get('end_year') or start_yr)
-            # Skip Travel group items after travel_end_year if configured
-            if _travel_end_year > 0 and year > _travel_end_year:
-                _ev_type = str(ev.get('type') or '').lower()
-                if _ev_type == 'travel':
-                    continue
-            if start_yr <= year <= end_yr:
-                base_yr = max(c['plan_start'], start_yr)
-                _ev_amt = float(ev.get('amount') or 0.0) * _infl_ratio(year, base_yr)
-                if ev.get('is_home_improvement'):
-                    home_improvement_extra += _ev_amt
-                else:
-                    rec_extra += _ev_amt
-        # Higher-of floor for Travel / Large Discretionary: a current-year top-up
-        # (annualized actual minus budget, when positive) computed by the YTD blend
-        # so the discretionary spend never projects below the client's run rate.
-        # Respect travel_end_year for the higher-of floor as well.
-        _topup = c.get('ytd_blend_extra_topup', {}).get(year, 0.0)
-        if _travel_end_year > 0 and year > _travel_end_year:
-            # ytd_blend_extra_topup is a Travel-only floor by construction
-            # (ytd_projection_blend._DISCRETIONARY_FLOOR_TRACKING_TYPES == ("Travel",);
-            # Large Discretionary is deliberately excluded), so zeroing the whole
-            # top-up after travel ends drops exactly the travel run-rate floor and
-            # nothing else.
-            _topup = 0.0
-        rec_extra += _topup
-        # Same survivor scaling as core spending. home_improvement_extra is
-        # deliberately excluded — it has already been routed to housing above.
-        rec_extra *= survivor_factor_yr
-        row['rec_extra'] = rec_extra
-        row['home_improvement_extra'] = home_improvement_extra
-
-        # Lump events (including a cash DAF contribution as a deductible lump)
-        lump_yr = c['lump'].get(year, 0)
-        # DAF contribution. A *cash* gift is a real cash outflow: it joins the
-        # lump line, lands in total_spend_need, and the withdrawal waterfall
-        # funds it like any other spending need.
-        #
-        # An *appreciated-securities* gift is not a cash transaction at all --
-        # the shares move in kind from a taxable account straight to the DAF.
-        # Routing it through the spending bridge forced a taxable draw that
-        # realized the embedded capital gain, which is precisely the tax the
-        # strategy exists to avoid. It is handled instead as a direct in-kind
-        # transfer below (search: daf_inkind_yr), after RMDs and the Roth
-        # conversion have settled this year's balances.
-        daf_contrib_yr = 0.0
-        daf_is_inkind = bool(c.get('daf_contribution_is_appreciated', False))
-        daf_gift_requested = 0.0
-        if c.get('daf_enabled', False) and year == c.get('daf_year', 0):
-            daf_gift_requested = float(c.get('daf_amount', 0) or 0.0)
-            if not daf_is_inkind:
-                daf_contrib_yr = daf_gift_requested
-                lump_yr += daf_contrib_yr
-        row['lump']          = lump_yr
-        row['daf_contrib_yr']= daf_contrib_yr
-        row['daf_inkind_yr'] = 0.0
-        # DAF grants (reduces annual charitable giving from the DAF balance, not new cash)
-        daf_grant_yr = 0.0
-        if (c.get('daf_enabled', False) and
-                c.get('daf_use_start', 9999) <= year <= c.get('daf_use_end', 9999)):
-            daf_grant_yr = c.get('daf_use_amount', 0)
-        row['daf_grant_yr'] = daf_grant_yr
-
-        # Mortgage, real-estate taxes, home improvement, and Housing Budget Detail.
-        # Current-year Housing budgets seed projection rows when the dedicated
-        # model inputs are blank. Dedicated inputs still win when configured.
-        housing_budget_groups = housing_budget_rollup(c, year, _infl_ratio)
-        mort_pmt_configured = float(c.get('mort_pmt', 0.0) or 0.0) > 0
-        mort_end_configured = int(c.get('mort_end', 0) or 0) >= int(c.get('plan_start', year) or year)
-        mort_yr = c['mort_pmt'] if (mort_pmt_configured and year <= c['mort_end']) else 0
-        # If the current mortgage detail is missing entirely, allow the Housing
-        # budget detail to seed mortgage cash flow.  Once a mortgage payment/end
-        # year is configured, however, never resurrect the budget amount after
-        # the payoff year.
-        if mort_yr <= 0 and not (mort_pmt_configured and mort_end_configured):
-            mort_yr = float(housing_budget_groups.get('Mortgage', 0.0) or 0.0)
-        sale_yr_active = c.get('home_sale_yr', 0)
-        owns_home_for_re_tax = not sale_yr_active or sale_yr_active <= 0 or year < sale_yr_active
-        re_tax_growth = float(c.get('real_estate_tax_growth_rate', c.get('inf', 0.0)) or 0.0)
-        re_tax_factor = (1.0 + re_tax_growth) ** max(0, year - int(c.get('plan_start', year)))
-        re_tax_base = float(c.get('real_estate_tax_base', 0.0) or 0.0)
-        if re_tax_base <= 0:
-            re_tax_base = float(housing_budget_groups.get('Real Estate Taxes', 0.0) or 0.0)
-        re_tax_yr = (re_tax_base * re_tax_factor) if owns_home_for_re_tax else 0.0
-        home_improvement_lump_yr = float(c.get('home_improvement_lump', {}).get(year, 0) or 0.0)
-        home_improvement_override_yr = home_improvement_extra + home_improvement_lump_yr
-        home_improvement_budget_yr = float(housing_budget_groups.get('Home Improvement', 0.0) or 0.0)
-        if home_improvement_budget_yr > 0:
-            home_improvement_budget_yr *= _infl_ratio(year, int(c.get('plan_start', year) or year))
-        home_improvement_yr = home_improvement_override_yr if home_improvement_override_yr > 0 else home_improvement_budget_yr
-        # Next Housing Step rows are authoritative future rent/buy events.
-        # They add ongoing Housing cash flow and, for purchases, home equity /
-        # mortgage liability.  Start-year down payment is a separate cash need.
-        next_housing_yr = _next_housing_for_year(year)
-        mort_yr += float(next_housing_yr.get('mortgage_payment', 0.0) or 0.0)
-        re_tax_yr += float(next_housing_yr.get('real_estate_tax', 0.0) or 0.0)
-
-        # Rent is modeled only through Housing Next Step rows.  The retired
-        # post-sale rent setting is intentionally ignored so there is one
-        # obvious place for rent, renters insurance, and rental utilities.
-        rent_yr = float(next_housing_yr.get('rent', 0.0) or 0.0)
-
-        current_home_operating_active = owns_home_for_re_tax
-        housing_budget_utilities_yr = float(housing_budget_groups.get('Utilities', 0.0) or 0.0) if current_home_operating_active else 0.0
-        housing_budget_maintenance_yr = float(housing_budget_groups.get('Maintenance', 0.0) or 0.0) if current_home_operating_active else 0.0
-        housing_budget_other_yr = float(housing_budget_groups.get('Other', 0.0) or 0.0) if current_home_operating_active else 0.0
-        housing_utilities_yr = housing_budget_utilities_yr + float(next_housing_yr.get('utilities', 0.0) or 0.0)
-        housing_maintenance_yr = housing_budget_maintenance_yr + float(next_housing_yr.get('maintenance', 0.0) or 0.0)
-        housing_other_yr = (housing_budget_other_yr + float(next_housing_yr.get('insurance', 0.0) or 0.0)
-                            + float(next_housing_yr.get('hoa', 0.0) or 0.0))
-        housing_operating_yr = housing_utilities_yr + housing_maintenance_yr + housing_other_yr
-        other_cash_need_yr = float(next_housing_yr.get('purchase_cash', 0.0) or 0.0)
-        row['next_housing_purchase_cash_yr'] = other_cash_need_yr
-        row['next_housing_home_value'] = float(next_housing_yr.get('home_value', 0.0) or 0.0)
-        row['next_housing_mortgage_balance'] = float(next_housing_yr.get('mortgage_balance', 0.0) or 0.0)
-        row['next_housing_equity'] = float(next_housing_yr.get('equity', 0.0) or 0.0)
-        row['next_housing_active'] = ', '.join(next_housing_yr.get('active_labels', []) or [])
-        row['mortgage_payment_yr'] = mort_yr
-        row['real_estate_tax_yr'] = re_tax_yr
-        row['home_improvement_yr'] = home_improvement_yr
-        row['mortgage'] = mort_yr + re_tax_yr + home_improvement_yr
-        row['rent_yr'] = rent_yr
-        row['housing_utilities_yr'] = housing_utilities_yr
-        row['housing_maintenance_yr'] = housing_maintenance_yr
-        row['housing_other_yr'] = housing_other_yr
-        row['housing_operating_yr'] = housing_operating_yr
-        row['housing_total_yr'] = (mort_yr + re_tax_yr + row['home_improvement_yr'] + rent_yr + housing_operating_yr)
-        row['other_cash_need_yr'] = other_cash_need_yr
-        # Hybrid LTC premium (if enabled)
-        ltc_prem_yr = 0.0
-        if (c.get('ltc_enabled', False) and c.get('ltc_annual_prem', 0) > 0
-                and year >= c.get('ltc_start_year', 9999)):
-            ltc_prem_yr = c.get('ltc_annual_prem', 0)
-        row['ltc_prem_yr'] = ltc_prem_yr
-
-        wellness_shock_yr = 0.0
-        _health_path = c.get('wellness_shock_by_year')
-        if isinstance(_health_path, dict):
-            wellness_shock_yr = float(_health_path.get(year, 0.0) or 0.0)
-        row['wellness_shock_yr'] = wellness_shock_yr
-
-        # Compute RMDs and taxable portfolio income before wellness and Roth
-        # conversion planning, because ACA PTC, SS provisional income, NIIT, and
-        # conversion headroom all depend on these income lines.
-        rmd_result = _legacy_pe.compute_rmds(c, bal, year, h_age, w_age, h_alive, w_alive, rmd_divisor)
-        rmd_h = rmd_result['h']; rmd_w = rmd_result['w']; rmd_total = rmd_result['total']
-
-        # Item 4.1 (P3): Qualified Charitable Distributions. Modeled as
-        # satisfying up to that year's own RMD (apply_rmds below draws the
-        # full rmd_h/rmd_w from the IRA either way — QCD doesn't change how
-        # much must leave the account), but the QCD portion goes straight to
-        # charity rather than becoming household income: it must be excluded
-        # from AGI (never claimed as a second deduction — see the itemized
-        # charitable component below) *and* from the cash the household has
-        # available to fund spending. rmd_taxable_total (not rmd_total) is
-        # therefore what feeds AGI, ACA MAGI, Roth-conversion headroom, and
-        # income_from_streams below; rmd_h/rmd_w/rmd_total keep reporting the
-        # true gross RMD for compliance/satisfaction purposes.
-        #
-        # Scope simplification (phase 1): a QCD larger than the current
-        # year's RMD, or a QCD taken in the age-70 1/2-to-RMD-start gap (no
-        # RMD due yet), is capped at that year's actual RMD rather than
-        # modeled as an independent extra IRA withdrawal — real but less
-        # common uses of QCD that would require their own account-balance
-        # draw outside the RMD mechanic. h_qcd_yr/w_qcd_yr below report the
-        # amount actually modeled, so a configured amount above the RMD is
-        # visibly capped, not silently accepted.
-        def _qcd_amount_for_member(owner_prefix, dob_yr, dob_month, alive, rmd_amount):
-            if not c.get('qcd_enabled', False) or not alive or rmd_amount <= 0:
-                return 0.0
-            annual = float(c.get(f'{owner_prefix}_qcd_annual_amount', 0.0) or 0.0)
-            if annual <= 0:
-                return 0.0
-            eligible_from = _ar.qcd_eligible_from_year(dob_yr, dob_month)
-            if eligible_from is None:
-                return 0.0
-            start_override = c.get(f'{owner_prefix}_qcd_start_year')
-            start_year = int(start_override) if start_override is not None else eligible_from
-            start_year = max(start_year, eligible_from)
-            if year < start_year:
-                return 0.0
-            end_override = c.get(f'{owner_prefix}_qcd_end_year')
-            if end_override is not None and year > int(end_override):
-                return 0.0
-            limit = _ar.qcd_annual_limit(year, c['brk_inf'])
-            return max(0.0, min(annual, limit, rmd_amount))
-
-        qcd_h_yr = _qcd_amount_for_member('h', c['h_dob_yr'], c.get('h_dob_month'), h_alive, rmd_h)
-        qcd_w_yr = _qcd_amount_for_member('w', c['w_dob_yr'], c.get('w_dob_month'), w_alive, rmd_w)
-        qcd_total_yr = qcd_h_yr + qcd_w_yr
-        rmd_taxable_total = max(0.0, rmd_total - qcd_total_yr)
-        row['h_qcd_yr'] = qcd_h_yr
-        row['w_qcd_yr'] = qcd_w_yr
-        row['qcd_total_yr'] = qcd_total_yr
-
-        # Item 4.8 (P11): gifting schedule. A genuinely new balance-mutating
-        # path outside the withdrawal cascade: gifted dollars leave the
-        # funding account directly (reducing the estate base as a natural
-        # consequence of touching `bal`) and never fund household spending,
-        # so they are not routed through income_from_streams/the withdrawal
-        # cascade at all -- unlike QCD/DAF, which only change tax treatment
-        # of money that still ends up funding the household.
-        gift_total_yr = 0.0
-        gift_excess_over_exclusion_yr = 0.0
-        for _gift in (c.get('gifting_schedule') or []):
-            _start = int(_gift.get('start_year', 0) or 0)
-            if not _start or year < _start:
-                continue
-            _end = int(_gift.get('end_year', 0) or 0)
-            if _end and year > _end:
-                continue
-            _per_donee = float(_gift.get('annual_amount_per_donee', 0.0) or 0.0)
-            _donees = max(1, int(_gift.get('donee_count', 1) or 1))
-            _requested = _per_donee * _donees
-            if _requested <= 0:
-                continue
-            _acct_id = _gift.get('funding_account')
-            _available = max(0.0, float(bal.get(_acct_id, 0.0) or 0.0))
-            _drawn = min(_requested, _available)
-            if _drawn <= 0:
-                continue
-            bal[_acct_id] = _available - _drawn
-            gift_total_yr += _drawn
-            # If the funding account couldn't cover the full requested gift,
-            # scale the exclusion-exceeding portion down by the same ratio
-            # actually delivered, rather than crediting exemption use for
-            # dollars that were never actually gifted.
-            _excess_requested = max(0.0, _per_donee - float(c.get('gift_excl', 19000.0) or 19000.0)) * _donees
-            gift_excess_over_exclusion_yr += _excess_requested * (_drawn / _requested)
-        lifetime_exemption_used += gift_excess_over_exclusion_yr
-        row['gift_total_yr'] = gift_total_yr
-        row['gift_excess_over_exclusion_yr'] = gift_excess_over_exclusion_yr
-        row['lifetime_exemption_used_cumulative'] = lifetime_exemption_used
-        _recent_gift_totals.append(gift_total_yr)
-        if len(_recent_gift_totals) > 3:
-            _recent_gift_totals.pop(0)
-        row['gift_total_last_3yr'] = sum(_recent_gift_totals)
-
-        portfolio_ordinary, portfolio_qualified, portfolio_tax_exempt = _taxable_portfolio_income_for_year()
-        # Informational only — taxable dividend/interest income for the year,
-        # for AGI/MAGI/NIIT/IRMAA. It no longer funds spending: the money
-        # never leaves the account (see apply_end_of_year_growth).
-        portfolio_income_total = portfolio_ordinary + portfolio_qualified + portfolio_tax_exempt
-        row['portfolio_ordinary_income'] = portfolio_ordinary
-        row['portfolio_qualified_dividends'] = portfolio_qualified
-        row['portfolio_tax_exempt_interest'] = portfolio_tax_exempt
-        row['portfolio_income_total'] = portfolio_income_total
-
-        # Deterministic wellness spending that earlier builds collected but
-        # did not spend: pre-65 bridge, Medicare B/D/G base premiums, and OOP.
-        # Item 182: the pre-65 bridge premium is the cost of health coverage
-        # (marketplace/COBRA/retiree) owed by anyone who is pre-65, whether or
-        # not they have retired yet — so it is NOT gated on the retirement year.
-        h_bridge = (1 if h_alive and h_age < 65 else 0)
-        w_bridge = (1 if w_alive and w_age < 65 else 0)
-        bridge_people = h_bridge + w_bridge  # integer count for ACA PTC eligibility/benchmark scaling
-        # Month-level proration of the actual premium dollars billed. In the
-        # calendar year someone turns 65, Medicare Part B/D eligibility begins
-        # the 1st of their birth month (standard CMS rule), so the pre-65
-        # bridge premium is only owed for the fraction of the year before that
-        # date, and Medicare Part B/D/G premiums only for the fraction after.
-        # Outside the transition year the fractions collapse to the prior
-        # binary 1.0/0.0 behavior exactly.
-        h_medicare_frac = _medicare_month_fraction(c['h_dob_yr'], c.get('h_dob_month'), year) if h_alive else 0.0
-        w_medicare_frac = _medicare_month_fraction(c['w_dob_yr'], c.get('w_dob_month'), year) if w_alive else 0.0
-        h_pre65_frac = (1.0 - h_medicare_frac) if h_alive else 0.0
-        w_pre65_frac = (1.0 - w_medicare_frac) if w_alive else 0.0
-        bridge_fraction_people = h_pre65_frac + w_pre65_frac
-        medicare_fraction_people = h_medicare_frac + w_medicare_frac
-        bridge_premium_gross = bridge_fraction_people * float(c.get('bridge_premium', 0.0) or 0.0) * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year)
-        # Preliminary ACA PTC estimate before Roth conversions; the conversion
-        # planner receives bridge_people to constrain avoidable MAGI spikes.
-        # The final PTC is recomputed after the actual Roth conversion and
-        # Social Security taxable amount are known, so conversion-driven MAGI
-        # changes reduce the subsidy before the withdrawal cascade runs.
-        _aca_pre_non_ss = (net_earned_taxable - half_se_ded - sehi_ded + rmd_taxable_total + pension + wife_single_ann + wife_joint_ann + h_single_ann + h_joint_ann + note_int_yr + portfolio_ordinary + portfolio_qualified)
-        _aca_pre_ss_tax = social_security_taxable_amount(h_ss + w_ss, _aca_pre_non_ss + portfolio_tax_exempt, filing)
-        aca_ptc_pre_conversion = aca_premium_tax_credit(c, year=year, magi=_aca_pre_non_ss + _aca_pre_ss_tax + portfolio_tax_exempt, bridge_people=bridge_people)
-        aca_ptc_yr = aca_ptc_pre_conversion
-        bridge_premium_yr = max(0.0, bridge_premium_gross - aca_ptc_yr)
-        partb_yr = medicare_fraction_people * float(c.get('partb', 0.0) or 0.0) * 12 * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year)
-        partd_yr = medicare_fraction_people * float(c.get('partd', 0.0) or 0.0) * 12 * _path_factor('partd_index_by_year', c.get('partd_inf', c.get('med_inf', c['inf'])), year)
-        partg_yr = medicare_fraction_people * float(c.get('partg', 0.0) or 0.0) * 12 * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year)
-        alive_count = (1 if h_alive else 0) + (1 if w_alive else 0)
-        oop_yr = (float(c.get('oop', 0.0) or 0.0) * float(c.get('oop_utilization_pct', 1.0) or 1.0)
-                  * (1.0 if alive_count >= 2 else (0.5 if alive_count == 1 else 0.0))
-                  * _path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year))
-        wellness_premium_yr = bridge_premium_yr + partb_yr + partd_yr + partg_yr
-        wellness_transaction_premium_yr = category_budget_rollup(c, year, [
-            'wellness_premium', 'pre65_wellness_premium', 'medicare_part_b',
-            'medicare_part_d', 'medigap_premium'
-        ], _path_factor, 'medical_index_by_year', 'med_inf')
-        if wellness_premium_yr <= 0:
-            wellness_premium_yr = wellness_transaction_premium_yr
-
-        # Wellness detail budgets (Medical, Dental, Vision, Rx/OTC and other
-        # Wellness categories) are the workbook/UI detail expansion. The household
-        # Medical OOP Cap is a cap/reference for non-premium medical spending, not a
-        # standalone expense. When detail rows exist, cap non-premium detail at
-        # the modeled Medical OOP Cap; when detail rows are absent, do not create a
-        # duplicate OOP expense.
-        wellness_medical_yr = category_budget_rollup(c, year, ['medical', 'dermatologist'], _path_factor, 'medical_index_by_year', 'med_inf')
-        wellness_dental_yr = category_budget_rollup(c, year, ['dentist', 'dental'], _path_factor, 'medical_index_by_year', 'med_inf')
-        wellness_vision_yr = category_budget_rollup(c, year, ['vision', 'eye_exams', 'glasses_contacts'], _path_factor, 'medical_index_by_year', 'med_inf')
-        wellness_rx_otc_yr = category_budget_rollup(c, year, ['drugs_rx_and_otc', 'prescription_drugs', 'otc_meds'], _path_factor, 'partd_index_by_year', 'partd_inf')
-        wellness_other_yr = category_budget_rollup(c, year, [
-            'health_club', 'exercise_health_equipment', 'vitamins_supplements',
-            'supplements', 'wellness_other'
-        ], _path_factor, 'medical_index_by_year', 'med_inf')
-        wellness_detail_budget_yr = wellness_medical_yr + wellness_dental_yr + wellness_vision_yr + wellness_rx_otc_yr + wellness_other_yr
-        if wellness_detail_budget_yr > 0 and oop_yr > 0 and wellness_detail_budget_yr > oop_yr:
-            scale = oop_yr / wellness_detail_budget_yr
-            wellness_medical_yr *= scale
-            wellness_dental_yr *= scale
-            wellness_vision_yr *= scale
-            wellness_rx_otc_yr *= scale
-            wellness_other_yr *= scale
-            wellness_detail_budget_yr = oop_yr
-        wellness_base_yr = wellness_premium_yr + wellness_detail_budget_yr
-        row['wellness_bridge_premium_gross'] = bridge_premium_gross
-        row['aca_premium_tax_credit_pre_conversion'] = aca_ptc_pre_conversion
-        row['aca_premium_tax_credit'] = aca_ptc_yr
-        row['aca_ptc_loss_from_conversion'] = 0.0
-        row['wellness_bridge_premium'] = bridge_premium_yr
-        row['medicare_base_premium'] = partb_yr + partd_yr + partg_yr
-        row['wellness_premiums_yr'] = wellness_premium_yr
-        row['medicare_part_g_premium'] = partg_yr
-        row['wellness_oop_max_reference_yr'] = oop_yr
-        row['wellness_medical_yr'] = wellness_medical_yr
-        row['wellness_dental_yr'] = wellness_dental_yr
-        row['wellness_vision_yr'] = wellness_vision_yr
-        row['wellness_rx_otc_yr'] = wellness_rx_otc_yr
-        row['wellness_other_yr'] = wellness_other_yr
-        row['wellness_detail_budget_yr'] = wellness_detail_budget_yr
-        row['wellness_oop_estimate'] = wellness_detail_budget_yr
-        row['wellness_base_yr'] = wellness_base_yr
-
-        # ── HELOC P&I: pre-computed here so it shows in spending, not withdrawals ─
-        # Interest accrues on the opening-of-year balance; repayment principal is
-        # amortized over the remaining repayment term. Both are spending obligations
-        # funded by the withdrawal cascade, exactly like mortgage P&I. The draw
-        # phase (new borrowing that offsets the gap) is handled further below.
-        heloc_draw_yr = 0.0
-        heloc_interest_yr = 0.0
-        heloc_payoff_yr = 0.0
-        heloc_repayment_principal_yr = 0.0
-        _heloc_rate_yr = 0.0
-        if c.get('heloc_enabled', False) and c.get('heloc_credit_limit', 0) > 0:
-            _heloc_bal_pre = float(bal.get('_heloc_balance', 0.0) or 0.0)
-            _heloc_years_elapsed = max(0, year - c.get('plan_start', year))
-            _heloc_rate_yr = (float(c.get('heloc_initial_rate_pct', 0.085) or 0.085)
-                              + _heloc_years_elapsed * float(c.get('heloc_rate_drift_bps_yr', 25) or 25) / 10000.0)
-            heloc_interest_yr = _heloc_bal_pre * _heloc_rate_yr
-            if year > c.get('heloc_draw_end_year', 0) and _heloc_bal_pre > 1.0:
-                _repay_total_yrs = max(1, int(c.get('heloc_repayment_years', 10) or 10))
-                _repay_end_yr = int(c.get('heloc_draw_end_year', 0)) + _repay_total_yrs
-                _repay_yrs_left = max(1, _repay_end_yr - year + 1)
-                _monthly_rate = _heloc_rate_yr / 12.0
-                _n_pmts = _repay_yrs_left * 12
-                if _monthly_rate > 1e-9:
-                    _monthly_pmt = _heloc_bal_pre * _monthly_rate / (1 - (1 + _monthly_rate) ** (-_n_pmts))
-                else:
-                    _monthly_pmt = _heloc_bal_pre / max(1, _n_pmts)
-                heloc_repayment_principal_yr = min(_heloc_bal_pre, max(0.0, _monthly_pmt * 12 - heloc_interest_yr))
-
-        # Total pre-tax spending need (including deterministic wellness, LTC
-        # premium, post-sale rent, stochastic MC wellness/LTC shocks, and
-        # HELOC P&I). home_improvement items included via home_improvement_extra
-        # and home_improvement_lump_yr.
-        # Item 184: real-estate tax is a real annual cash outflow (it is the sole
-        # representation of property tax — not in mort_yr or housing_operating_yr),
-        # so it must be funded from the portfolio. Previously it was used only for
-        # the SALT deduction and was missing here, understating cash need and
-        # overstating net worth by the property-tax amount each year.
-        # ── Estate mode: nobody is alive ─────────────────────────────────
-        # Past the second death there are no living expenses of any kind. The
-        # plan used to keep charging core spending and housing indefinitely --
-        # and kept inflating them -- so a household that no longer existed
-        # accumulated an unfunded gap. Taxes on estate income still apply and
-        # are computed elsewhere; this zeroes CONSUMPTION only.
-        #
-        # Latent on a default horizon: plan_end == the second death year, so a
-        # normal plan has no both-dead rows for this to touch.
-        if n_alive == 0:
-            spend = rec_extra = lump_yr = 0.0
-            mort_yr = rent_yr = housing_operating_yr = re_tax_yr = 0.0
-            ltc_prem_yr = wellness_base_yr = wellness_shock_yr = 0.0
-            heloc_interest_yr = heloc_repayment_principal_yr = 0.0
-            business_expenses_yr = 0.0
-            row['home_improvement_yr'] = 0.0
-            row['spend_base_yr'] = 0.0
-            row['rec_extra'] = 0.0
-            row['lump'] = 0.0
-            row['ltc_prem_yr'] = 0.0
-            row['wellness_base_yr'] = 0.0
-            row['wellness_shock_yr'] = 0.0
-            row['business_expenses_yr'] = 0.0
-            row['mortgage_payment_yr'] = 0.0
-            row['rent_yr'] = 0.0
-            row['real_estate_tax_yr'] = 0.0
-            row['housing_operating_yr'] = 0.0
-            row['housing_utilities_yr'] = 0.0
-            row['housing_maintenance_yr'] = 0.0
-            row['housing_other_yr'] = 0.0
-            row['housing_total_yr'] = 0.0
-
-        total_spend_need = (spend + rec_extra + lump_yr + mort_yr + row['home_improvement_yr']
-                            + rent_yr + housing_operating_yr + re_tax_yr + ltc_prem_yr
-                            + wellness_base_yr + wellness_shock_yr
-                            + heloc_interest_yr + heloc_repayment_principal_yr
-                            + business_expenses_yr)
-        row['total_spend'] = total_spend_need
-
-        # ── RMDs ─────────────────────────────────────────────────────────────
-        _rmd_draws = _legacy_pe.apply_rmds(bal, rmd_result)
-        row['_rmd_by_account'] = dict(_rmd_draws)
-        for _aid, _amt in _rmd_draws.items():
-            emit(EvRMD(year, _aid, 0, 0, _amt))
-            _add_account_flow(row['_account_withdrawals'], _aid, _amt)
-
-        row['rmd_h'] = rmd_h
-        row['rmd_w'] = rmd_w
-        row['rmd_total'] = rmd_total
+        # ── Spending + RMD sizing/application (design doc Stages 6+7, merged) ──
+        # These were split by ~270 lines in the legacy engine (RMD sizing feeds
+        # QCD, which feeds total_spend_need, before RMD application finally
+        # ran); see spending_and_rmd.py's module docstring for why they are
+        # now one extracted function/module instead, and why the internal
+        # statement order is preserved exactly rather than reordered.
+        _spending_rmd = _apply_spending_and_rmd(
+            c, year=year, h_age=h_age, w_age=w_age, h_alive=h_alive, w_alive=w_alive,
+            n_alive=n_alive, filing=filing, bal=bal, row=row,
+            net_earned_taxable=net_earned_taxable, half_se_ded=half_se_ded, sehi_ded=sehi_ded,
+            pension=pension, wife_single_ann=wife_single_ann, wife_joint_ann=wife_joint_ann,
+            h_single_ann=h_single_ann, h_joint_ann=h_joint_ann, note_int_yr=note_int_yr,
+            h_ss=h_ss, w_ss=w_ss, business_expenses_yr=business_expenses_yr,
+            lifetime_exemption_used=lifetime_exemption_used,
+            spend_guardrail_state=_spend_guardrail_state,
+            recent_gift_totals=_recent_gift_totals,
+            spending_factor=_spending_factor, survivor_factor=_survivor_factor,
+            infl_factor=_infl_factor, infl_ratio=_infl_ratio, path_factor=_path_factor,
+            next_housing_for_year=_next_housing_for_year,
+            medicare_month_fraction=_medicare_month_fraction,
+            taxable_portfolio_income_for_year=_taxable_portfolio_income_for_year,
+            emit=emit,
+        )
+        # Multi-year state: must be reassigned here, not just read, so next
+        # year's call sees this year's update (same reasoning as Stage 3's
+        # cst_balance/startup -- see Stage3Result's docstring).
+        lifetime_exemption_used = _spending_rmd.lifetime_exemption_used
+        _spend_guardrail_state = _spending_rmd.spend_guardrail_state
+        # This-year outputs read by later stages (withdrawal cascade, Stage 9's
+        # ACA/wellness patch, Roth conversion planner, spending-tier reporting).
+        total_spend_need = _spending_rmd.total_spend_need
+        spend = _spending_rmd.spend
+        rec_extra = _spending_rmd.rec_extra
+        lump_yr = _spending_rmd.lump_yr
+        mort_yr = _spending_rmd.mort_yr
+        re_tax_yr = _spending_rmd.re_tax_yr
+        rent_yr = _spending_rmd.rent_yr
+        housing_operating_yr = _spending_rmd.housing_operating_yr
+        ltc_prem_yr = _spending_rmd.ltc_prem_yr
+        business_expenses_yr = _spending_rmd.business_expenses_yr
+        rmd_h = _spending_rmd.rmd_h
+        rmd_w = _spending_rmd.rmd_w
+        rmd_taxable_total = _spending_rmd.rmd_taxable_total
+        heloc_interest_yr = _spending_rmd.heloc_interest_yr
+        heloc_repayment_principal_yr = _spending_rmd.heloc_repayment_principal_yr
+        heloc_draw_yr = _spending_rmd.heloc_draw_yr
+        bridge_people = _spending_rmd.bridge_people
+        bridge_premium_gross = _spending_rmd.bridge_premium_gross
+        bridge_premium_yr = _spending_rmd.bridge_premium_yr
+        aca_ptc_pre_conversion = _spending_rmd.aca_ptc_pre_conversion
+        aca_ptc_yr = _spending_rmd.aca_ptc_yr
+        partb_yr = _spending_rmd.partb_yr
+        partd_yr = _spending_rmd.partd_yr
+        partg_yr = _spending_rmd.partg_yr
+        medicare_fraction_people = _spending_rmd.medicare_fraction_people
+        h_medicare_frac = _spending_rmd.h_medicare_frac
+        w_medicare_frac = _spending_rmd.w_medicare_frac
+        wellness_shock_yr = _spending_rmd.wellness_shock_yr
+        wellness_base_yr = _spending_rmd.wellness_base_yr
+        wellness_premium_yr = _spending_rmd.wellness_premium_yr
+        wellness_transaction_premium_yr = _spending_rmd.wellness_transaction_premium_yr
+        wellness_detail_budget_yr = _spending_rmd.wellness_detail_budget_yr
+        wellness_medical_yr = _spending_rmd.wellness_medical_yr
+        wellness_dental_yr = _spending_rmd.wellness_dental_yr
+        wellness_vision_yr = _spending_rmd.wellness_vision_yr
+        wellness_rx_otc_yr = _spending_rmd.wellness_rx_otc_yr
+        wellness_other_yr = _spending_rmd.wellness_other_yr
+        portfolio_ordinary = _spending_rmd.portfolio_ordinary
+        portfolio_qualified = _spending_rmd.portfolio_qualified
+        portfolio_tax_exempt = _spending_rmd.portfolio_tax_exempt
+        qcd_total_yr = _spending_rmd.qcd_total_yr
+        daf_contrib_yr = _spending_rmd.daf_contrib_yr
+        daf_gift_requested = _spending_rmd.daf_gift_requested
+        daf_is_inkind = _spending_rmd.daf_is_inkind
+        daf_grant_yr = _spending_rmd.daf_grant_yr
 
         # ── Roth Conversions ─────────────────────────────────────────────────
         def _state_tax_estimate_for_conversion(_agi_est, _tax_year):
@@ -2042,10 +1253,13 @@ def run_deterministic_projection_stage(c):
         irmaa_yr = _irmaa_surcharge_path(irmaa_magi, year, n_medicare, filing) if n_medicare > 0 else 0.0
         row['irmaa_tier'] = _irmaa_tier_path(irmaa_magi, year, filing)
 
-        home_sale_ltcg_gain = float(row.get('_home_sale_taxable_gain_pending', 0.0) or 0.0)
-        home_sale_ltcg_tax = _ltcg_tax_on_gain_path(home_sale_ltcg_gain, max(0.0, taxable_inc), year) if home_sale_ltcg_gain > 0 else 0.0
-        if home_sale_ltcg_gain > 0:
-            row['home_sale_tax'] = home_sale_ltcg_tax
+        # Resolve the deferred home-sale taxable-gain tax (extracted stage):
+        # apply_home_sale() (earlier this same year) computed the gain but
+        # could not tax it without taxable_inc, which only exists here.
+        # See home_sale.py's resolve_home_sale_gain_tax() docstring.
+        _stage9_home_sale = _resolve_home_sale_gain_tax(c, row, year=year, taxable_inc=taxable_inc)
+        home_sale_ltcg_gain = _stage9_home_sale.gain
+        home_sale_ltcg_tax = _stage9_home_sale.tax
         total_tax_pre_niit = fed_tax + state_tax + payroll_tax + irmaa_yr
         total_tax = total_tax_pre_niit + home_sale_ltcg_tax  # updated below if NIIT/LTCG fixed-point applies
         if fed_tax > 0: emit(EvTax(year, 'federal', fed_tax, 0))
@@ -2863,33 +2077,32 @@ def run_deterministic_projection_stage(c):
         row['surplus'] = surplus
 
         # ── Advanced modules: equity-comp long-term-gain and AMT post-pass ───
-        # Runs only when the equity-compensation module is enabled. Equity
-        # ordinary income and DI benefits already flowed through the tax
-        # fixed-point above (via non_ss_income); here we add the two effects the
-        # fixed-point does not model: LTCG on an ISO/RSU sale, and AMT from the
-        # ISO bargain-element preference (with minimum-tax credit carryforward).
-        if _equity_on:
-            _extra_tax = 0.0
-            if _equity_events['ltcg_gain'] > 0:
-                _eq_ltcg_tax = _ltcg_tax_on_gain_path(_equity_events['ltcg_gain'], max(0.0, taxable_inc), year)
-                _extra_tax += _eq_ltcg_tax
-                row['equity_comp_ltcg_gain'] = _equity_events['ltcg_gain']
-                row['equity_comp_ltcg_tax'] = _eq_ltcg_tax
-            _amt_adj, amt_credit_carry = _amt_tax(
-                taxable_inc, fed_tax, _equity_events['amt_preference'], filing,
-                year, c.get('brk_inf', c.get('inf', 0.0)), amt_credit_carry)
-            if abs(_amt_adj) > 1e-9 or _equity_events['amt_preference'] > 0:
-                _extra_tax += _amt_adj
-                row['amt_tax'] = max(0.0, _amt_adj)
-                row['amt_credit_used'] = max(0.0, -_amt_adj)
-                row['amt_credit_carryforward'] = amt_credit_carry
-            if abs(_extra_tax) > 1e-9:
-                total_tax += _extra_tax
-                # Fund the extra tax (or refund the credit) through a taxable
-                # account so net worth reflects the cash paid/received.
-                _eq_tax_acct = _aa.first_taxable(c)
-                if _eq_tax_acct:
-                    bal[_eq_tax_acct] = bal.get(_eq_tax_acct, 0.0) - _extra_tax
+        # Extracted to amt_equity_comp_true_up.apply_amt_and_equity_comp_true_up
+        # (ticket 3.10 step 6). See that module's docstring for why
+        # total_tax/amt_credit_carry come back via Stage11Result rather than
+        # propagating through the function boundary on their own, and why
+        # the report fields are Optional.
+        _stage11 = _apply_amt_and_equity_comp_true_up(
+            c,
+            year=year,
+            filing=filing,
+            equity_on=_equity_on,
+            equity_events=_equity_events,
+            taxable_inc=taxable_inc,
+            fed_tax=fed_tax,
+            total_tax=total_tax,
+            amt_credit_carry=amt_credit_carry,
+            bal=bal,
+        )
+        total_tax = _stage11.total_tax
+        amt_credit_carry = _stage11.amt_credit_carry
+        if _stage11.equity_comp_ltcg_gain is not None:
+            row['equity_comp_ltcg_gain'] = _stage11.equity_comp_ltcg_gain
+            row['equity_comp_ltcg_tax'] = _stage11.equity_comp_ltcg_tax
+        if _stage11.amt_tax is not None:
+            row['amt_tax'] = _stage11.amt_tax
+            row['amt_credit_used'] = _stage11.amt_credit_used
+            row['amt_credit_carryforward'] = _stage11.amt_credit_carryforward
 
         # total_tax already includes current-year LTCG and NIIT from the fixed-point pass above.
         row['total_tax'] = total_tax
@@ -2936,128 +2149,28 @@ def run_deterministic_projection_stage(c):
         # it takes the whole `row` dict rather than an enumerated param list.
         row['cashflow_breakdown'], row['gross_cash_flow_yr'] = _compute_cashflow_breakdown(row)
 
-        # ── Portfolio growth (end-of-year) ───────────────────────────────────
-        port_ret = c['ret']
-        def _growth_event(acct, before, rate, growth):
-            return EvGrowth(year, acct, before, rate, growth)
-        growth_res = _legacy_pe.apply_end_of_year_growth(c, bal, port_ret, emit, _growth_event, year=year)
-        row['_account_growth'] = dict(growth_res.by_account or {})
-        for _msg in growth_res.warnings:
-            emit(EvWarning(year, 'GROWTH_WARNING', _msg))
-
-        # Snapshot end-of-year account balances so validators can use row[acct_id].
-        for _acct_id in c['all_acct_ids']:
-            row[_acct_id] = float(bal.get(_acct_id, 0.0) or 0.0)
-
-        # ── Annuity value for net worth ──────────────────────────────────────
-        # Value = PV of remaining income payments through the relevant death.
-        #   - Single-life: PV of payments from this year through annuitant's death
-        #   - Joint-life: PV through the second death (continues to survivor)
-        # PLUS, in the death year only, if the Cash Refund death benefit hasn't
-        # yet eroded to $0, add that year's death benefit (heirs receive the
-        # unrecovered contribution as a lump sum).
-        def ann_pv_to_death(stream, death_yr):
-            """PV of annuity payments from current year through death_yr."""
-            if year > death_yr:
-                return 0.0
-            pv = 0.0
-            for y in range(year, death_yr + 1):
-                pmt = annuity_cash_income(stream, y)
-                pv += pmt / ((1 + c['ret']) ** (y - year))
-            return pv
-
-        second_death = max(c['h_death_yr'], c['w_death_yr'])
-        db = c['ann_db'].get(year, {})
-
-        # Single-life: value through that annuitant's death. #295: QLAC
-        # income was folded into wife_single_ann/h_single_ann above, so its
-        # remaining PV is folded into this same terminal-value bucket too --
-        # a QLAC's own return-of-premium death benefit (if any) is not yet
-        # modeled here (only the guaranteed-payment PV), matching how a
-        # non-annuitized QLAC balance is otherwise absent from net worth.
-        w_single_val = (ann_pv_to_death(c['wife_single'], c['w_death_yr']) +
-                        (ann_pv_to_death(c['wife_qlac'], c['w_death_yr']) if c['wife_qlac'].get('enabled') else 0)) if w_alive else 0
-        h_single_val = (ann_pv_to_death(c['h_single'], c['h_death_yr']) +
-                        (ann_pv_to_death(c['h_qlac'], c['h_death_yr']) if c['h_qlac'].get('enabled') else 0)) if h_alive else 0
-        # Joint-life: value through second death
-        w_joint_val  = ann_pv_to_death(c['wife_joint'], second_death) if (w_alive or h_alive)  else 0
-        h_joint_val  = ann_pv_to_death(c['h_joint'], second_death) if (h_alive or w_alive) else 0
-        # Pension: PV through wife's death (no death benefit)
-        pension_val  = ann_pv_to_death(c['wife_pension'], c['w_death_yr']) if w_alive else 0
-
-        # Death benefit in the death year only (if DB still positive)
-        if year == c['w_death_yr']:
-            w_single_val += db.get('W_Single', 0)
-        if year == c['h_death_yr']:
-            h_single_val += db.get('H_Single', 0)
-        if year == second_death:
-            w_joint_val += db.get('W_Joint', 0)
-            h_joint_val += db.get('H_Joint', 0)
-
-        row.update({'pension_pv': pension_val,
-                    'w_single_pv': w_single_val, 'w_joint_pv': w_joint_val,
-                    'h_single_pv': h_single_val, 'h_joint_pv': h_joint_val})
-
-        # ── Net Worth ────────────────────────────────────────────────
-        ann_nw = pension_val + w_single_val + w_joint_val + h_single_val + h_joint_val
-        pretax_nw = sum(max(0.0, float(bal.get(_id, 0.0) or 0.0)) for _id in c.get('pre_tax_ids', []))
-        roth_nw   = sum(max(0.0, float(bal.get(_id, 0.0) or 0.0)) for _id in c.get('roth_ids', []))
-        trust_nw  = sum(max(0.0, float(bal.get(_id, 0.0) or 0.0)) for _id in c.get('taxable_ids', []))
-        hsa_nw    = sum(max(0.0, float(bal.get(_id, 0.0) or 0.0)) for _id in c.get('hsa_ids', []))
-        cash_nw   = sum(max(0.0, float(bal.get(_id, 0.0) or 0.0)) for _id in c.get('cash_ids', []))
-        cst_nw    = max(0.0, float(cst_balance or 0.0))
-
-        # other_nw = current home equity + next-housing equity + depreciating assets + note receivable + cash
-        next_housing_equity = float(row.get('next_housing_equity', 0.0) or 0.0)
-        other_nw = home_equity + next_housing_equity + autos_val + float(startup or 0.0) + float(note_bal or 0.0) + cash_nw
-
-        # Outstanding balances on additional liabilities (auto/student/other/heloc
-        # line items) directly reduce net worth. Empty for a liability-free plan.
-        additional_liabilities = float(sum((bal.get('_liability_balances', {}) or {}).values()))
-
-        total_nw = ann_nw + pretax_nw + roth_nw + trust_nw + cst_nw + hsa_nw + other_nw - additional_liabilities
-
-        # Inflation-adjusted real NW (for trend analysis)
-        inflation_cumu = float(row.get('inflation_cumu') or 1.0) or 1.0
-        total_nw_real = total_nw / inflation_cumu
-
-        # Liability decomposition (for NW chart and table)
-        heloc_liability = float(bal.get('_heloc_balance', 0.0) or 0.0)
-        next_housing_mortgage_balance = float(row.get('next_housing_mortgage_balance', 0.0) or 0.0)
-        total_liabilities = mort_bal_yr + next_housing_mortgage_balance + heloc_liability + additional_liabilities
-
-        row.update({
-            'ann_nw': ann_nw,
-            'pretax_nw': pretax_nw,
-            'roth_nw': roth_nw,
-            'trust_nw': trust_nw,
-            'hsa_nw': hsa_nw,
-            'cash_nw': cash_nw,
-            'cst_nw': cst_nw,
-            'other_nw': other_nw,
-            'total_nw': total_nw,
-            'total_nw_real': total_nw_real,
-            'home_equity': home_equity,
-            'home_val': home_val,
-            'next_housing_equity': next_housing_equity,
-            'next_housing_home_value': float(row.get('next_housing_home_value', 0.0) or 0.0),
-            'next_housing_mortgage_balance': next_housing_mortgage_balance,
-            'startup_val': float(startup or 0.0),
-            'autos_val': float(autos_val or 0.0),
-            'note_bal': float(note_bal or 0.0),
-            'mort_bal_yr': mort_bal_yr,
-            'heloc_liability': heloc_liability,
-            'additional_liabilities': additional_liabilities,
-            'total_liabilities': total_liabilities,
-        })
-        # Item 4.9 (P5 phase 2): a per-account balance snapshot, needed to
-        # inherit each retirement account individually at the second death
-        # (per-beneficiary drawdown reads whichever account the decedent's
-        # accounts actually held, not just the household pretax_nw/roth_nw
-        # aggregate). Captured only at the two possible death years and the
-        # final row -- not every year -- to avoid bloating every row's JSON/
-        # workbook serialization with a full account-balance copy.
-        if year in {int(c.get('h_death_yr', 0) or 0), int(c.get('w_death_yr', 0) or 0), int(c.get('plan_end', 0) or 0)}:
-            row['_account_balances'] = dict(bal)
+        # ── Portfolio growth (EOY) + annuity PV + Net Worth ──────────────────
+        # Extracted to portfolio_growth_and_net_worth.apply_portfolio_growth_
+        # and_net_worth (ticket 3.10 step: Stage 14, last stage in the loop).
+        # Mutates `bal` (growth) and `row` (balances, PVs, net-worth/liability
+        # breakdown) in place; nothing it computes is read again this year or
+        # carried into the next, so it returns None. See that module's
+        # docstring for the full rationale.
+        _apply_portfolio_growth_and_net_worth(
+            c,
+            year=year,
+            h_alive=h_alive,
+            w_alive=w_alive,
+            bal=bal,
+            row=row,
+            emit=emit,
+            home_equity=home_equity,
+            home_val=home_val,
+            autos_val=autos_val,
+            startup=startup,
+            note_bal=note_bal,
+            cst_balance=cst_balance,
+            mort_bal_yr=mort_bal_yr,
+        )
         rows.append(row)
     return rows
