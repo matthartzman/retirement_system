@@ -11,6 +11,10 @@ this same contract without changing callers.
 
 from .amt_equity_comp_true_up import apply_amt_and_equity_comp_true_up as _apply_amt_and_equity_comp_true_up
 from .appreciation_divorce_qlac import apply_appreciation_divorce_qlac as _apply_appreciation_divorce_qlac
+from .deaths_and_spousal_rollover import (
+    apply_deaths_and_filing_status as _apply_deaths_and_filing_status,
+    apply_spousal_rollover_and_cst_funding as _apply_spousal_rollover_and_cst_funding,
+)
 from .budget_rollups import category_budget_rollup, housing_budget_rollup
 from .cashflow_breakdown import compute_cashflow_breakdown as _compute_cashflow_breakdown
 from .effective_marginal_rate import compute_effective_marginal_rate as _compute_effective_marginal_rate
@@ -608,75 +612,50 @@ def run_deterministic_projection_stage(c):
         row['_account_withdrawals'] = {}
         row['_account_growth'] = {}
 
-        # ── Deaths ──────────────────────────────────────────────────────────
-        h_alive = year <= c['h_death_yr']
-        w_alive = year <= c['w_death_yr']
+        # ── Deaths / filing status (extracted stage) ─────────────────────────
+        # filing/first_death_done are multi-year state: seeded once before
+        # the loop from year_state, then carried and reassigned across every
+        # iteration. Python does not mutate a caller's local through a
+        # function parameter, so the updated values must come back via the
+        # return value and be reassigned here -- NOT dropped, or every later
+        # year silently keeps the pre-death filing status. See
+        # deaths_and_spousal_rollover.py's Stage1Result docstring.
+        _stage1 = _apply_deaths_and_filing_status(
+            c,
+            year=year,
+            filing=filing,
+            first_death_done=first_death_done,
+        )
+        h_alive = _stage1.h_alive
+        w_alive = _stage1.w_alive
+        n_alive = _stage1.n_alive
+        filing = _stage1.filing
+        first_death_done = _stage1.first_death_done
         row['h_alive'] = h_alive
         row['w_alive'] = w_alive
-        n_alive = (1 if h_alive else 0) + (1 if w_alive else 0)
-
-        # Filing status change year after first death.  Year of death remains
-        # MFJ where applicable.  QSS is available for the next two years when
-        # the plan marks a dependent survivor; tax brackets use MFJ during QSS.
-        _survivor_filing = c.get('survivor_filing', 'Single')
-        _first_death_year = int(c.get('first_death_yr', 0) or 0)
-        if _first_death_year and c.get('qss_dependent', False) and _first_death_year < year <= _first_death_year + 2:
-            filing = 'MFJ'
-        elif not h_alive and not first_death_done and year == c['h_death_yr']+1:
-            filing = _survivor_filing
-            first_death_done = True
-        elif not w_alive and not first_death_done and year == c['w_death_yr']+1:
-            filing = _survivor_filing
-            first_death_done = True
-        elif _first_death_year and year > _first_death_year + 2 and c.get('qss_dependent', False):
-            filing = _survivor_filing
-            first_death_done = True
         row['filing'] = filing
 
-        # ── Spousal rollover & terminal estate consolidation ────────────────
-        inher = _legacy_pe.apply_death_transition(c, bal, year, h_alive, w_alive, bal_basis_free)
-        spousal_rollover = inher.description
-        estate_trust = inher.estate_account or _aa.first_taxable(c) or ''
-        if spousal_rollover:
-            emit(EvDeath(year, 'member', spousal_rollover))
-            for tr in inher.transfers:
-                emit(EvTransfer(year, tr.from_acct, tr.to_acct, tr.amount, tr.reason))
-                _add_account_flow(row['_account_transfers_out'], tr.from_acct, tr.amount)
-                _add_account_flow(row['_account_transfers_in'], tr.to_acct, tr.amount)
-        cst_funded_yr = 0.0
-        if spousal_rollover and inher.survivor_owner_idx is not None and c.get('cs_enabled', False):
-            available_from_decedent = sum(float(tr.amount or 0.0) for tr in inher.transfers)
-            # #227: capped by the CST shelter cap (what a funded bypass trust can
-            # remove from the survivor's estate), NOT il_exempt -- il_exempt is
-            # the survivor's own separate exemption applied later; conflating the
-            # two here would double-count the same dollars as both trust-sheltered
-            # and separately exempt.
-            _cst_cap = float(c.get('il_cst_shelter_cap', c.get('il_exempt', 0.0)) or 0.0)
-            cap = max(0.0, min(float(c.get('cs_amount', _cst_cap) or 0.0), _cst_cap))
-            cst_funded_yr = min(cap, max(0.0, available_from_decedent))
-            # Actual CST funding: remove the funded amount from survivor-accessible
-            # taxable/cash balances and track it as a separate estate-excluded trust
-            # value. It remains part of household net worth but is not available to
-            # the survivor withdrawal cascade or survivor estate base.
-            _remaining_cst = cst_funded_yr
-            _candidate_ids = []
-            try:
-                _candidate_ids.extend(_ar.ids_by_tax(c.get('account_registry', []), 'taxable', inher.survivor_owner_idx))
-            except Exception:
-                _candidate_ids.extend(c.get('taxable_ids', []))
-            _candidate_ids.extend(c.get('cash_ids', []))
-            for _aid in list(dict.fromkeys(_candidate_ids)):
-                if _remaining_cst <= 0:
-                    break
-                _take = min(_remaining_cst, float(bal.get(_aid, 0.0) or 0.0))
-                if _take > 0:
-                    bal[_aid] = float(bal.get(_aid, 0.0) or 0.0) - _take
-                    _add_account_flow(row['_account_transfers_out'], _aid, _take)
-                    _remaining_cst -= _take
-            _funded_actual = cst_funded_yr - max(0.0, _remaining_cst)
-            cst_balance += _funded_actual
-            cst_funded_total += _funded_actual
-            cst_funded_yr = _funded_actual
+        # ── Spousal rollover & CST funding (extracted stage) ─────────────────
+        # cst_balance/cst_funded_total are multi-year state, same care as
+        # filing/first_death_done above -- see Stage2Result's docstring.
+        _stage2 = _apply_spousal_rollover_and_cst_funding(
+            c,
+            year=year,
+            h_alive=h_alive,
+            w_alive=w_alive,
+            bal=bal,
+            bal_basis_free=bal_basis_free,
+            cst_balance=cst_balance,
+            cst_funded_total=cst_funded_total,
+            account_transfers_in=row['_account_transfers_in'],
+            account_transfers_out=row['_account_transfers_out'],
+            emit=emit,
+        )
+        cst_balance = _stage2.cst_balance
+        cst_funded_total = _stage2.cst_funded_total
+        spousal_rollover = _stage2.spousal_rollover
+        estate_trust = _stage2.estate_trust
+        cst_funded_yr = _stage2.cst_funded_yr
         row['spousal_rollover'] = spousal_rollover
         row['estate_trust'] = estate_trust
         row['cst_funded_yr'] = cst_funded_yr
