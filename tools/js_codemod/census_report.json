@@ -18,9 +18,6 @@
     "changeKey",
     "chatMessageHtml",
     "checkAppStatus",
-    "choiceHelpText",
-    "choiceLabel",
-    "choiceOptions",
     "chooseDefaultDetailedSheet",
     "cloneSummary",
     "closeChartModal",
@@ -45,7 +42,6 @@
     "expandAllDetailColumnsOnPage",
     "expandAllDetailGroups",
     "fetchWithTimeout",
-    "fieldAllowedValues",
     "fieldConnection",
     "fieldDefaultMeaning",
     "fieldFinderCategoryName",
@@ -55,13 +51,11 @@
     "fieldSizeClass",
     "fieldTooltipHtml",
     "fieldTooltipPreview",
-    "filterChoiceOptionsForRow",
     "finiteOrNull",
     "focusYtdAccountMoney",
     "focusableEntries",
     "getStrategyTab",
     "groupModelData",
-    "helpList",
     "hideSpendingModelLoadOverlay",
     "hideUnusedTemplateCategories",
     "hideYtdLoadOverlay",
@@ -188,7 +182,6 @@
     "validateAllocationTargetsOrMessage",
     "wireStepNavigation",
     "withdrawalOtherRows",
-    "yesNoOptionHelp",
     "ytdAccountMoneyDisplay",
     "ytdAccountRoleOptions",
     "ytdInvestmentHoldingAccounts",
@@ -2152,18 +2145,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "choiceOptions",
-      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "choiceLabel",
-      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
       "name": "boolishValue",
       "file": "frontend/js/dashboard_decomp_estate_insurance.js",
       "kind": "call",
@@ -2233,6 +2214,18 @@
       "name": "renderMain",
       "file": "frontend/js/dashboard_decomp_estate_insurance.js",
       "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_field_choice_help.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_field_choice_help.js",
+      "kind": "read",
       "scope": "inside-function"
     },
     {
@@ -3889,18 +3882,6 @@
       "name": "dirty",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "choiceOptions",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "choiceLabel",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
       "scope": "inside-function"
     },
     {
@@ -5623,12 +5604,6 @@
       "name": "rows",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "fieldAllowedValues",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
       "scope": "inside-function"
     },
     {

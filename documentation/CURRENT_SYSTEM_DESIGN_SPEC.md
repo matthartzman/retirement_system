@@ -312,18 +312,37 @@ direction).
 
 `src/projection_stages/deterministic_engine.py::run_deterministic_
 projection_stage(c)` (imported as `project()` via `planning_engines.py`) is
-the actual year-by-year loop from `plan_start` to `plan_end`. Per year, in
-order: death/filing transitions → asset appreciation (incl. one-time
-divorce/QDRO split and home-sale logic) → income (earned, equity comp,
-disability, Social Security with the funding-cut haircut, annuity/pension)
-→ spending → RMDs → Roth conversions (IRMAA/ACA-PTC guardrail-aware) → tax
-assessment (federal/state/NIIT/IRMAA/AMT) → the withdrawal cascade (with
-in-loop TLH/gain harvesting) → end-of-year growth → net worth roll-up
-(nominal and CPI-deflated) → per-year event log entries
-(`EvIncome`/`EvWithdraw`/`EvTax`/`EvTransfer`/`EvHomeSale`/`EvGrowth`/
-`EvDeath`/`EvRMD`/`EvWarning`) for traceability. Output is a list of
-per-year row dicts — the shared contract consumed by reporting,
-optimization, and Monte Carlo alike.
+the actual year-by-year loop from `plan_start` to `plan_end`. As of ticket
+3.10 (engine decomposition, PRs #102–#106), the loop body itself is no
+longer one large inline function: `deterministic_engine.py` (~1,300 lines)
+drives the per-year sequence by calling out to real, independently-defined
+stage functions in ~17 sibling modules under `src/projection_stages/`,
+sharing per-year mutable state via `year_state.py`
+(`MutableYearState`/`create_initial_year_state`). Roughly:
+`deaths_and_spousal_rollover.py` (death/filing transitions),
+`appreciation_divorce_qlac.py` (asset appreciation, one-time divorce/QDRO
+split, QLAC premium logic), `income.py` (earned, equity comp, disability,
+Social Security, annuity/pension), `amt_equity_comp_true_up.py` (AMT/equity
+comp true-up), `spending_and_rmd.py` (spending and RMDs), `home_sale.py`
+(home-sale logic), `roth_conversion_and_agi_tax.py` (Roth conversions and
+AGI/tax assessment), a cluster of `withdrawal_cascade_*.py` modules (gap
+assembly, HSA priority draws and reimbursement correction, taxable/trust
+withdrawal, DAF carryforward makeup, final draws, IRA true-up, and
+investment-tax/TLH/gain-harvest handling), `portfolio_growth_and_net_worth.py`
+(end-of-year growth and net worth roll-up), plus `effective_marginal_rate.py`
+and `cashflow_breakdown.py` for supporting per-year computations. The
+per-year *order of operations* this decomposition implements is unchanged:
+death/filing → appreciation → income → spending → RMDs → Roth conversions
+(IRMAA/ACA-PTC guardrail-aware) → tax assessment (federal/state/NIIT/IRMAA/
+AMT) → the withdrawal cascade (with in-loop TLH/gain harvesting) →
+end-of-year growth → net worth roll-up (nominal and CPI-deflated) →
+per-year event log entries (`EvIncome`/`EvWithdraw`/`EvTax`/`EvTransfer`/
+`EvHomeSale`/`EvGrowth`/`EvDeath`/`EvRMD`/`EvWarning`) for traceability.
+Output is a list of per-year row dicts — the shared contract consumed by
+reporting, optimization, and Monte Carlo alike. This internal decomposition
+is a distinct effort from, and should not be confused with, the
+`projection_pipeline.py` narrative facade in §6.1, which remains unreal
+(empty `STAGE_IMPLEMENTATIONS`) and was not touched by this refactor.
 
 ### 6.3 Monte Carlo engines
 
