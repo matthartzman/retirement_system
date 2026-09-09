@@ -13,6 +13,8 @@ from .appreciation_divorce_qlac import apply_appreciation_divorce_qlac as _apply
 from .budget_rollups import category_budget_rollup, housing_budget_rollup
 from .cashflow_breakdown import compute_cashflow_breakdown as _compute_cashflow_breakdown
 from .effective_marginal_rate import compute_effective_marginal_rate as _compute_effective_marginal_rate
+from .home_sale import apply_home_sale as _apply_home_sale
+from .home_sale import resolve_home_sale_gain_tax as _resolve_home_sale_gain_tax
 from .spending_tiers import compute_spend_by_tier as _compute_spend_by_tier
 from .year_state import MutableYearState, create_initial_year_state
 # System review 4.2: explicit name list instead of `from ..planning_engines
@@ -26,7 +28,6 @@ from ..planning_engines import (
     EvConversion,
     EvDeath,
     EvGrowth,
-    EvHomeSale,
     EvIncome,
     EvRMD,
     EvTax,
@@ -712,122 +713,30 @@ def run_deterministic_projection_stage(c):
         row['divorce_split_amount'] = _stage3.divorce_split_amount
         row['qlac_purchase_yr'] = _stage3.qlac_purchase_yr
 
-        # ── Home value appreciation & planned sale ───────────────────────────
-        home_sold = home_val <= 0   # already sold in a prior year
-        # Mortgage balance — computed once here, used in both sale and non-sale branches
-        mort_bal_yr = c['mort_schedule'].get(year, 0.0)
-        if year > c['mort_end'] or home_sold:
-            mort_bal_yr = 0.0
-        # Estate disposition: the home is sold at the second death rather than
-        # carried by a household that no longer exists. Reuses the existing sale
-        # machinery below (mortgage payoff, selling costs, proceeds routing).
-        _estate_sale = (not home_sold) and year == _second_death_yr
-        if not home_sold and ((c.get('home_sale_yr') and year == c['home_sale_yr'])
-                              or _estate_sale):
-            # ── Home sale year ────────────────────────────────────────────────
-            # 1. Gross proceeds
-            # An estate sale is at MARKET value. home_sale_px is the user's assumed
-            # price for a specific planned downsizing; applying it to a later
-            # estate disposition would value the home at a stale figure -- on the
-            # frozen fixture that is 1,750,000 against a 3,282,605 market value,
-            # destroying 1.53M of estate value.
-            gross_proceeds = home_val if _estate_sale else (
-                c['home_sale_px'] if c['home_sale_px'] > 0 else home_val)
-            # 2. Selling costs (realtor commission + closing)
-            selling_costs = gross_proceeds * c['home_sell_cost_pct']
-            # 3. Pay off remaining mortgage (from amortization schedule)
-            mort_payoff = mort_bal_yr
-            mort_bal_yr = 0.0  # mortgage retired at sale
-            proceeds_after = max(0, gross_proceeds - selling_costs - mort_payoff)
-            # 4. Capital gain: (gross - selling costs) - basis  [selling costs reduce gain]
-            # Assets receive a basis step-up at death, so an estate sale in the
-            # year of the second death realizes no taxable gain.
-            basis = gross_proceeds if _estate_sale else (c.get('home_basis', 0) or c['home_val'] * 0.5)
-            cap_gain = max(0, gross_proceeds - selling_costs - basis)
-            # 5. §121 exclusion: $500k for MFJ, $250k otherwise. The filing
-            # status is already switched to survivor_filing after the configured
-            # survivor window, so post-window survivor sales do not over-exclude.
-            sec121_exclusion = 500000.0 if filing == 'MFJ' else 250000.0
-            sec121_exclusion = min(float(c.get('sec121', sec121_exclusion) or sec121_exclusion), sec121_exclusion)
-            taxable_gain = max(0, cap_gain - sec121_exclusion)
-            # 6. LTCG tax is computed later in this same-year tax pass after
-            # ordinary taxable income is known. Deposit gross-after-cost/mortgage
-            # proceeds now; the withdrawal cascade funds the tax like every other
-            # current-year liability.
-            home_sale_tax = 0.0
-            row['_home_sale_taxable_gain_pending'] = taxable_gain
-            # 7. Proceeds deposited to designated account (basis-free)
-            net_proceeds = max(0, proceeds_after)
-            # Pay off HELOC from home sale proceeds before depositing
-            if c.get('heloc_enabled', False):
-                _heloc_bal_at_sale = float(bal.get('_heloc_balance', 0.0) or 0.0)
-                heloc_payoff_yr = min(_heloc_bal_at_sale, net_proceeds)
-                net_proceeds = max(0.0, net_proceeds - heloc_payoff_yr)
-                bal['_heloc_balance'] = max(0.0, _heloc_bal_at_sale - heloc_payoff_yr)
-                row['heloc_payoff'] = heloc_payoff_yr
-            # #299: proceeds may be split across multiple accounts by
-            # percentage (home_sale_splits) instead of one designated
-            # account. Drop any split naming an account that doesn't exist
-            # in this plan's balances and renormalize the remaining
-            # percentages to 1.0, so the full net_proceeds is always
-            # deposited somewhere even if a configured account was removed
-            # after the split was set up.
-            _configured_splits = [
-                s for s in (c.get('home_sale_splits') or [])
-                if str(s.get('account', '')) in bal and float(s.get('pct', 0) or 0) > 0
-            ]
-            _split_pct_total = sum(float(s.get('pct', 0) or 0) for s in _configured_splits)
-            if _configured_splits and _split_pct_total > 0:
-                deposits = [
-                    (str(s['account']), net_proceeds * (float(s['pct']) / _split_pct_total))
-                    for s in _configured_splits
-                ]
-                acct = deposits[0][0]
-            else:
-                acct = c.get('home_sale_acct') or _aa.first_taxable(c)
-                if acct not in bal:
-                    acct = _aa.first_taxable(c)
-                deposits = [(acct, net_proceeds)]
-            for _dep_acct, _dep_amt in deposits:
-                if _dep_amt <= 0:
-                    continue
-                _aa.deposit(bal, _dep_acct, _dep_amt)
-                _add_account_flow(row['_account_deposits'], _dep_acct, _dep_amt)
-                _tag_deposit_source(row, _dep_acct, 'Home Sale Proceeds', _dep_amt)
-                # These dollars already had their gain taxed → stepped-up basis.
-                # Track as basis-free so future trust draws don't tax them again.
-                if _dep_acct in bal_basis_free:
-                    bal_basis_free[_dep_acct] += _dep_amt
-            row['home_sale_splits_applied'] = [
-                {'account': a, 'amount': amt} for a, amt in deposits if amt > 0
-            ] if len(deposits) > 1 else []
-            # 8. Zero out home value — no longer owned
-            home_val = 0.0
-            home_equity = 0.0
-            row['home_sale_gross']    = gross_proceeds
-            row['home_sale_costs']    = selling_costs
-            row['home_sale_mort_off'] = mort_payoff
-            row['home_sale_gain']     = cap_gain
-            row['home_sale_sec121_exclusion'] = sec121_exclusion
-            row['home_sale_taxable']  = taxable_gain
-            row['home_sale_tax']      = home_sale_tax
-            row['home_sale_net']      = net_proceeds
-            row['home_sale_acct']     = acct
-            emit(EvHomeSale(year, gross_proceeds, selling_costs, mort_payoff,
-                            home_sale_tax, net_proceeds, acct))
-        else:
-            # Normal year — appreciate home if still owned
-            if not home_sold:
-                home_val *= (1 + c['home_appr'])
-            home_equity = max(0, home_val - mort_bal_yr)
-            # Reduce home equity by outstanding HELOC balance in non-sale years
-            if c.get('heloc_enabled', False):
-                home_equity = max(0.0, home_equity - float(bal.get('_heloc_balance', 0.0) or 0.0))
-            row['home_sale_gross'] = row['home_sale_mort_off'] = 0
-            row['home_sale_gain']  = row['home_sale_taxable']  = 0
-            row['home_sale_tax']   = row['home_sale_net']      = 0
-            row['home_sale_costs'] = 0
-            row['home_sale_acct']  = ''
+        # ── Home value appreciation & planned sale (extracted stage) ─────────
+        # Appreciate or sell the home, pay off HELOC/mortgage at sale, and
+        # route sale proceeds. See home_sale.py for the full step-by-step
+        # breakdown and for why report fields are written directly onto
+        # `row` (in place) rather than bundled into the return value: the
+        # legacy engine sets a different subset of row keys depending on
+        # which branch runs, and the full-row snapshot regression test
+        # pins that exact key set. home_val/home_equity/mort_bal_yr ARE
+        # plain floats returned via HomeSaleResult and must be reassigned
+        # here -- same caveat as the appreciation/divorce/QLAC stage above.
+        _stage4 = _apply_home_sale(
+            c,
+            row,
+            year=year,
+            home_val=home_val,
+            filing=filing,
+            second_death_yr=_second_death_yr,
+            bal=bal,
+            bal_basis_free=bal_basis_free,
+            emit=emit,
+        )
+        home_val = _stage4.home_val
+        home_equity = _stage4.home_equity
+        mort_bal_yr = _stage4.mort_bal_yr
 
         # Note Receivable — sum principal/interest across every note, since
         # each note (e.g. "RedMane Note") can have its own face value,
@@ -2042,10 +1951,13 @@ def run_deterministic_projection_stage(c):
         irmaa_yr = _irmaa_surcharge_path(irmaa_magi, year, n_medicare, filing) if n_medicare > 0 else 0.0
         row['irmaa_tier'] = _irmaa_tier_path(irmaa_magi, year, filing)
 
-        home_sale_ltcg_gain = float(row.get('_home_sale_taxable_gain_pending', 0.0) or 0.0)
-        home_sale_ltcg_tax = _ltcg_tax_on_gain_path(home_sale_ltcg_gain, max(0.0, taxable_inc), year) if home_sale_ltcg_gain > 0 else 0.0
-        if home_sale_ltcg_gain > 0:
-            row['home_sale_tax'] = home_sale_ltcg_tax
+        # Resolve the deferred home-sale taxable-gain tax (extracted stage):
+        # apply_home_sale() (earlier this same year) computed the gain but
+        # could not tax it without taxable_inc, which only exists here.
+        # See home_sale.py's resolve_home_sale_gain_tax() docstring.
+        _stage9_home_sale = _resolve_home_sale_gain_tax(c, row, year=year, taxable_inc=taxable_inc)
+        home_sale_ltcg_gain = _stage9_home_sale.gain
+        home_sale_ltcg_tax = _stage9_home_sale.tax
         total_tax_pre_niit = fed_tax + state_tax + payroll_tax + irmaa_yr
         total_tax = total_tax_pre_niit + home_sale_ltcg_tax  # updated below if NIIT/LTCG fixed-point applies
         if fed_tax > 0: emit(EvTax(year, 'federal', fed_tax, 0))
