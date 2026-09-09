@@ -785,7 +785,7 @@ ROTH_UI_PLAN_DATA_ROWS: list[list[str]] = [
 
 
 MONTE_CARLO_UI_PLAN_DATA_ROWS: list[list[str]] = [
-    ["Model Constants", "Monte Carlo", "mc_engine_mode", "advanced_exact_scalar", "choice", "advanced_exact_scalar | quick_vectorized; User UI toggle: Complex/Advanced Exact Scalar is slower and advisor-ready; Simple/Quick Vectorized is faster and approximate for diagnostics."],
+    ["Model Constants", "Monte Carlo", "mc_engine_mode", "quick_vectorized", "choice", "advanced_exact_scalar | quick_vectorized; User UI toggle: Complex/Advanced Exact Scalar is slower and advisor-ready; Simple/Quick Vectorized is faster and approximate for diagnostics."],
 ]
 
 
