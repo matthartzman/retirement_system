@@ -27,6 +27,7 @@ from .spending_and_rmd import apply_spending_and_rmd as _apply_spending_and_rmd
 from .withdrawal_cascade_gap_assembly import apply_gap_assembly as _apply_gap_assembly
 from .withdrawal_cascade_hsa_priority_draws import apply_hsa_priority_draws as _apply_hsa_priority_draws
 from .withdrawal_cascade_hsa_reimbursement_correction import apply_hsa_reimbursement_correction as _apply_hsa_reimbursement_correction
+from .withdrawal_cascade_investment_tax import apply_investment_tax_cascade as _apply_investment_tax_cascade
 from .withdrawal_cascade_taxable_trust import apply_taxable_trust_withdrawal as _apply_taxable_trust_withdrawal
 from .withdrawal_cascade_ira_true_up import (
     apply_priority_3_pretax_elective as _apply_priority_3_pretax_elective,
@@ -45,9 +46,7 @@ from .year_state import MutableYearState, create_initial_year_state
 from ..planning_engines import (
     EvDeath,
     EvIncome,
-    EvTax,
     EvWarning,
-    EvWithdraw,
     FEDERAL_BRACKETS_BASE_YEAR,
     FEDERAL_BRACKETS_MFJ,
     IRMAA_TIERS_BASE_YEAR,
@@ -55,14 +54,11 @@ from ..planning_engines import (
     ensure_engine_config,
     liquidity_buffer_years_for_year,
     marginal_rate,
-    niit_tax,
     state_income_tax,
 )
 from .. import planning_engines as _legacy_pe
 from .. import core as _ar  # consolidated from account_registry
 from .. import core as _aa  # consolidated from account_access
-from .. import tlh as _tlh
-from .. import gain_harvest as _gh
 from .. import tax_kernel as _tk
 from ..equity_comp import equity_comp_year_events as _equity_comp_year_events
 from ..core import state_for_year
@@ -1077,195 +1073,35 @@ def run_deterministic_projection_stage(c):
         # NIIT result to the gap and let the next bucket fund it, which subtly
         # shifted depletion into pre-tax/Roth.  This bounded loop re-solves the
         # taxable-draw/investment-tax coupling before moving on.
-        ltcg_tax = home_sale_ltcg_tax; ltcg_gain = home_sale_ltcg_gain
-        investment_tax_iterations = 0
-        investment_tax_funded_by_taxable = 0.0
-
-        # ── Tax-loss harvesting (apply mode) ───────────────────────────────
-        # Harvest qualifying loss lots in taxable accounts: realize the loss now
-        # and reset each lot's basis to market with a current-year acquisition
-        # date. That single mutation models buying an equivalent replacement —
-        # a lower basis (so a larger future gain), a fresh holding-period clock,
-        # and no re-harvesting of the same lot next year. A transaction cost is
-        # charged against the account balance. The realized loss offsets this
-        # year's gains first, then up to $3k of ordinary income, with the
-        # remainder rolling into cap_loss_carryforward for future years.
-        harvested_loss = 0.0
-        tlh_txn_cost = 0.0
-        if str(c.get('tlh_policy', 'off')).lower() == 'apply':
-            _tlh_bps = float(c.get('tlh_transaction_cost_bps', 0.0) or 0.0) / 10000.0
-            for _cand in _tlh.select_harvest_lots(
-                c, year,
-                min_loss_dollars=float(c.get('tlh_min_loss_dollars', 500.0) or 0.0),
-                min_loss_pct=float(c.get('tlh_min_loss_pct', 0.05) or 0.0),
-                annual_ceiling=float(c.get('tlh_annual_ceiling', 0.0) or 0.0),
-            ):
-                _lot = _cand['lot']
-                harvested_loss += _cand['loss']
-                _cost = _cand['market_value'] * _tlh_bps
-                tlh_txn_cost += _cost
-                _lot.cost_basis = _cand['market_value']
-                _lot.purchase_date = f'{year}-01-01'
-                _acct = _cand['account']
-                bal[_acct] = max(0.0, float(bal.get(_acct, 0.0) or 0.0) - _cost)
-        row['tlh_harvested_loss'] = harvested_loss
-        row['tlh_transaction_cost'] = tlh_txn_cost
-        # Loss pool available to offset gains this year: prior-year carryforward
-        # plus anything harvested this year.
-        available_losses = cap_loss_carryforward + harvested_loss
-
-        # ── 0%-bracket gain harvesting (apply mode) ─────────────────────────
-        # Symmetric counterpart to TLH above (system review 2026-07-21, P2):
-        # realize appreciated long-term lots up to the remaining 0%-LTCG-
-        # bracket headroom, resetting basis to market value tax-free. Same
-        # single-mutation technique as TLH (reset cost_basis + purchase_date),
-        # but with no replacement-security logic -- wash-sale rules disallow
-        # claiming a *loss* on a repurchased "substantially identical"
-        # security; they have no counterpart for gains, so the exact same
-        # security can be repurchased instantly with no tax consequence.
-        # headroom is computed from `taxable_inc` (set above, already
-        # reflecting this year's Roth conversion decision), so this can never
-        # double-book the same ordinary-income bracket space the Roth
-        # conversion guardrail already consumed.
-        gain_harvest_realized = 0.0
-        gain_harvest_txn_cost = 0.0
-        if str(c.get('gain_harvest_policy', 'off')).lower() == 'apply':
-            _gh_bps = float(c.get('gain_harvest_transaction_cost_bps', 0.0) or 0.0) / 10000.0
-            _gh_bracket_factor = _bracket_factor_for_year(year)
-            _gh_headroom = _gh.compute_zero_bracket_headroom(
-                c.get('ltcg_0_top', 0.0), _gh_bracket_factor, taxable_inc,
-            )
-            for _cand in _gh.select_gain_harvest_lots(
-                c, year, headroom=_gh_headroom,
-                min_gain_dollars=float(c.get('gain_harvest_min_gain_dollars', 500.0) or 0.0),
-                min_gain_pct=float(c.get('gain_harvest_min_gain_pct', 0.0) or 0.0),
-            ):
-                _lot = _cand['lot']
-                gain_harvest_realized += _cand['gain']
-                _cost = _cand['market_value'] * _gh_bps
-                gain_harvest_txn_cost += _cost
-                _lot.cost_basis = _cand['market_value']
-                _lot.purchase_date = f'{year}-01-01'
-                _acct = _cand['account']
-                bal[_acct] = max(0.0, float(bal.get(_acct, 0.0) or 0.0) - _cost)
-        row['gain_harvest_realized'] = gain_harvest_realized
-        row['gain_harvest_transaction_cost'] = gain_harvest_txn_cost
-
-        def _realize_taxable_gain(draws_by_account):
-            gain = 0.0
-            taxable_draw = 0.0
-            lot_engine = c.get('lot_engine')
-            for _aid, _draw in dict(draws_by_account or {}).items():
-                _draw = float(_draw or 0.0)
-                bf = min(_draw, bal_basis_free.get(_aid, 0.0))
-                bal_basis_free[_aid] = max(0.0, bal_basis_free.get(_aid, 0.0) - bf)
-                acct_taxable_draw = max(0.0, _draw - bf)
-                taxable_draw += acct_taxable_draw
-                if acct_taxable_draw > 0 and lot_engine and getattr(lot_engine, 'use_lots', False):
-                    g, _ = lot_engine.gain_on_withdrawal(_aid, acct_taxable_draw, current_year=year, mutate=True)
-                    gain += g
-            if taxable_draw > 0 and not (lot_engine and getattr(lot_engine, 'use_lots', False)):
-                gain = taxable_draw * c.get('trust_gain_fraction', 0.50)
-            return gain
-
-        base_nii_without_ltcg = (note_int_yr + portfolio_ordinary + portfolio_qualified +
-                                 row.get('_niit_ws_taxable', 0) +
-                                 row.get('_niit_hs_taxable', 0))
-
-        def _refresh_investment_taxes():
-            nonlocal ltcg_tax, niit, total_tax
-            # Capital losses (carryforward + harvested) offset realized gains
-            # before any LTCG/NIIT is due.
-            net_gain = max(0.0, ltcg_gain - available_losses)
-            new_ltcg_tax = _ltcg_tax_on_gain_path(net_gain, max(0, taxable_inc), year) if net_gain > 0 else 0.0
-            delta_ltcg = max(0.0, new_ltcg_tax - ltcg_tax)
-            ltcg_tax = new_ltcg_tax
-            delta_niit = 0.0
-            if c['model_niit']:
-                # Keep the engine's existing MAGI convention but recompute on
-                # cumulative NII as additional taxable withdrawals are made.
-                new_niit = niit_tax(base_nii_without_ltcg + net_gain, agi, filing)
-                delta_niit = max(0.0, new_niit - niit)
-                niit = new_niit
-            return delta_ltcg + delta_niit
-
-        if ltcg_gain > 0 or available_losses > 0:
-            inv_tax_delta = _refresh_investment_taxes()
-            gap += inv_tax_delta
-        if trust_wd > 0:
-            ltcg_gain += _realize_taxable_gain(trust_by_account)
-            inv_tax_delta = _refresh_investment_taxes()
-            gap += inv_tax_delta
-
-        max_tax_iters = max(0, int(c.get('tax_withdrawal_fixed_point_iterations', 3) or 0))
-        for _tax_iter in range(max_tax_iters):
-            if gap <= 1e-6:
-                break
-            add_res = _legacy_pe.withdraw_taxable_trust(c, bal, year, gap, spend)
-            add_wd = float(add_res.get('amount', 0.0) or 0.0)
-            if add_wd <= 1e-6:
-                break
-            investment_tax_iterations += 1
-            investment_tax_funded_by_taxable += add_wd
-            trust_wd += add_wd
-            ht_wd += float(add_res.get('h_amount', 0.0) or 0.0)
-            wt_wd += float(add_res.get('w_amount', 0.0) or 0.0)
-            add_by_account = dict(add_res.get('by_account', {}) or {})
-            for _aid, _amt in add_by_account.items():
-                trust_by_account[_aid] = trust_by_account.get(_aid, 0.0) + _amt
-                row['_trust_by_account'][_aid] = row['_trust_by_account'].get(_aid, 0.0) + _amt
-                _add_account_flow(row['_account_withdrawals'], _aid, _amt)
-            gap = add_res['new_gap']
-            if add_wd > 0:
-                emit(EvWithdraw(year, 4, 'Taxable', add_wd, 'investment tax fixed-point'))
-            ltcg_gain += _realize_taxable_gain(add_by_account)
-            inv_tax_delta = _refresh_investment_taxes()
-            gap += inv_tax_delta
-
-        # ── Capital-loss waterfall settle-up ───────────────────────────────
-        # The gain-offset portion is already reflected in ltcg_tax/niit above.
-        # Whatever loss remains offsets up to $3,000 of ordinary income (valued
-        # at the federal marginal rate) and the rest rolls forward.
-        _used_vs_gain = min(available_losses, max(0.0, ltcg_gain))
-        _rem_loss = max(0.0, available_losses - _used_vs_gain)
-        _ordinary_offset = min(3000.0, _rem_loss)
-        cap_loss_carryforward = _rem_loss - _ordinary_offset
-        tlh_ordinary_credit = 0.0
-        if _ordinary_offset > 0 and taxable_inc > 0:
-            _mtr = (_compute_fed_tax_path(taxable_inc, year, filing)
-                    - _compute_fed_tax_path(max(0.0, taxable_inc - _ordinary_offset), year, filing)) / _ordinary_offset
-            tlh_ordinary_credit = _ordinary_offset * max(0.0, _mtr)
-        row['cap_loss_used'] = _used_vs_gain + _ordinary_offset
-        row['cap_loss_carryforward'] = cap_loss_carryforward
-        row['tlh_ordinary_credit'] = tlh_ordinary_credit
-        # Tax value the gain-offset portion avoided (LTCG that would have been
-        # due on the offset gain slice, stacked above ordinary income). Combined
-        # with the ordinary-offset credit this is the realized-this-year tax
-        # value of harvesting, which the Tax-Loss Harvesting sheet sums to a
-        # net-of-transaction-cost lifetime figure.
-        tlh_gain_offset_value = _ltcg_tax_on_gain_path(_used_vs_gain, max(0.0, taxable_inc), year) if _used_vs_gain > 0 else 0.0
-        row['tlh_gain_offset_value'] = tlh_gain_offset_value
-        row['tlh_tax_value'] = tlh_gain_offset_value + tlh_ordinary_credit
-
-        row['trust_wd'] = trust_wd
-        row['h_trust_wd'] = ht_wd
-        row['w_trust_wd'] = wt_wd
-        row['ltcg_gain'] = ltcg_gain
-        row['ltcg_tax'] = ltcg_tax
-        row['niit'] = niit
-        row['investment_tax_iterations'] = investment_tax_iterations
-        row['investment_tax_funded_by_taxable'] = investment_tax_funded_by_taxable
-        if niit > 0:
-            emit(EvTax(year, 'niit', niit, 0))
-        total_tax = total_tax_pre_niit + ltcg_tax + niit - tlh_ordinary_credit
-        row['total_tax'] = total_tax
-        row['net_income'] = row.get('gross_income', agi) - total_tax
-        # Refresh total_cash_need now that ltcg_tax/niit reflect the fixed-point
-        # investment-tax passes above; the earlier value (used to seed `gap`)
-        # predates those passes and would otherwise understate cash need,
-        # causing the cashflow sheet's recomputed Cash Bridge Gap to disagree
-        # with the true engine gap (Surplus/unfunded_gap).
-        row['total_cash_need'] = total_spend_need + total_tax + other_cash_need_yr
+        # (design doc Stage 10, sub-stage #6 -- see
+        # withdrawal_cascade_investment_tax.py's apply_investment_tax_cascade
+        # docstring, and cap_loss_carryforward's threading note on
+        # WithdrawalCascadeInvestmentTaxResult specifically.)
+        _inv_tax = _apply_investment_tax_cascade(
+            c, bal, bal_basis_free, row,
+            year=year, gap=gap, agi=agi, taxable_inc=taxable_inc, filing=filing,
+            total_tax_pre_niit=total_tax_pre_niit, total_spend_need=total_spend_need,
+            other_cash_need_yr=other_cash_need_yr,
+            home_sale_ltcg_tax=home_sale_ltcg_tax, home_sale_ltcg_gain=home_sale_ltcg_gain,
+            niit=niit, cap_loss_carryforward=cap_loss_carryforward,
+            trust_wd=trust_wd, ht_wd=ht_wd, wt_wd=wt_wd, trust_by_account=trust_by_account,
+            note_int_yr=note_int_yr, portfolio_ordinary=portfolio_ordinary,
+            portfolio_qualified=portfolio_qualified, spend=spend, emit=emit,
+            bracket_factor_fn=_bracket_factor_for_year, compute_fed_tax_fn=_compute_fed_tax_path,
+        )
+        gap = _inv_tax.gap
+        ltcg_gain = _inv_tax.ltcg_gain
+        ltcg_tax = _inv_tax.ltcg_tax
+        niit = _inv_tax.niit
+        tlh_ordinary_credit = _inv_tax.tlh_ordinary_credit
+        cap_loss_carryforward = _inv_tax.cap_loss_carryforward
+        trust_wd = _inv_tax.trust_wd
+        ht_wd = _inv_tax.ht_wd
+        wt_wd = _inv_tax.wt_wd
+        trust_by_account = _inv_tax.trust_by_account
+        total_tax = _inv_tax.total_tax
+        investment_tax_iterations = _inv_tax.investment_tax_iterations
+        investment_tax_funded_by_taxable = _inv_tax.investment_tax_funded_by_taxable
 
         # ── Priority 4b: Final pre-tax draw before any Roth withdrawal ───────
         # (design doc Stage 10, sub-stage #7 -- near-duplicate of sub-stage
