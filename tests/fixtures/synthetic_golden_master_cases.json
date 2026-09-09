@@ -146,16 +146,16 @@
   "tax_loss_harvesting": {
     "first_conversion_amount": 221138.88,
     "first_conversion_year": 2031,
-    "first_rmd_total": 58384.36,
+    "first_rmd_total": 58385.58,
     "first_rmd_year": 2039,
     "first_year_total_tax": 30742.56,
-    "lifetime_tax": 676906.17,
+    "lifetime_tax": 642036.93,
     "plan_end": 2058,
     "plan_start": 2026,
     "row_count": 33,
     "selected_roth_strategy": "RMD-reduction conversion",
-    "terminal_liquid_nw": 14080318.8,
-    "terminal_total_nw": 14200318.8,
+    "terminal_liquid_nw": 14174309.77,
+    "terminal_total_nw": 14294309.77,
     "terminal_year": 2058,
     "total_roth_conversion": 1150815.63
   }
