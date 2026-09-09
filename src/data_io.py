@@ -509,6 +509,12 @@ from .parsing.insurance import _insurance_policy_premium_sum  # noqa: F401
 # keep working unchanged.
 from .parsing.estate_planning import parse_estate_planning  # noqa: F401
 
+# parse_roth_conversion_policy() extracted to src/parsing/roth_conversion_policy.py
+# Ticket 312 (docs/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md,
+# section 3). Re-exported here so existing callers (`from src.data_io import
+# parse_roth_conversion_policy`) keep working unchanged.
+from .parsing.roth_conversion_policy import parse_roth_conversion_policy  # noqa: F401
+
 
 def parse_client(data, url_template, *, skip_live_pricing=False):
     """Parse sectioned client data into an engine-ready config dict.
@@ -1258,122 +1264,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
                                    'spending_phase_end_age','0'), 0))
 
     # ── Roth Conversion Policy (9.5) ──────────────────────────────────────────
-    # optimize_terminal_tax: evaluate multiple conversion policies and choose the
-    #                        weighted after-tax terminal NW / lifetime-tax optimum
-    # fill_to_bracket:       fill to top of target bracket, capped by IRMAA
-    # fill_to_irmaa:         fill to IRMAA tier threshold only (no bracket cap)
-    # fixed_dollar:          convert a fixed dollar amount per year
-    # none:                  no voluntary conversions (forced-only via Forced Actions)
-    c['roth_policy'] = normalize_roth_policy(_v(data,'Withdrawal Policy','Roth Conversion',
-                           'roth_conversion_policy','optimize_terminal_tax'), 'optimize_terminal_tax').strip().lower()
-    if c['roth_policy'] not in _td.ROTH_POLICIES:
-        c['roth_policy'] = 'optimize_terminal_tax'
-    if is_explicit_user_roth_policy(c['roth_policy']):
-        c['roth_policy_lock'] = 'USER_SELECTED'
-    _roth_bracket_strategy = str(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_bracket_strategy','OPTIMIZER_CHOOSES') or 'OPTIMIZER_CHOOSES').strip().upper()
-    if _roth_bracket_strategy not in ('NONE','FILL_CURRENT_BRACKET','FILL_TARGET_BRACKET','PARTIAL_TARGET_BRACKET','IRMAA_GUARDED','SURVIVOR_TAX_AWARE','RMD_REDUCTION','LEGACY_TARGETED','OPTIMIZER_CHOOSES','FIXED_DOLLAR','PHASE_VARYING'):
-        _roth_bracket_strategy = 'OPTIMIZER_CHOOSES'
-    if is_explicit_user_roth_policy(c['roth_policy']) and _roth_bracket_strategy == 'OPTIMIZER_CHOOSES':
-        _roth_bracket_strategy = strategy_for_roth_policy(c['roth_policy'], _roth_bracket_strategy)
-    c['roth_bracket_strategy'] = _roth_bracket_strategy
-    c['roth_target_rate'] = percent_to_float(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_target_bracket_rate','0.22'), 0.22)
-    c['roth_phase_rate_1'] = percent_to_float(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_phase_first_bracket_rate','24.00%'), 0.24)
-    c['roth_phase_rate_2'] = percent_to_float(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_phase_second_bracket_rate','22.00%'), 0.22)
-    c['roth_phase_rate_3'] = percent_to_float(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_phase_third_bracket_rate','12.00%'), 0.12)
-    try:
-        c['roth_phase_count'] = int(_n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_phase_count','3'), 3))
-    except Exception:
-        c['roth_phase_count'] = 3
-    if c['roth_phase_count'] not in (2, 3):
-        c['roth_phase_count'] = 3
-    _roth_irmaa_target_tier = str(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_irmaa_target_tier','TIER_2') or 'TIER_2').strip().upper().replace(' ', '_')
-    if _roth_irmaa_target_tier not in ('TIER_1','TIER_2','TIER_3','TIER_4','TIER_5'):
-        _roth_irmaa_target_tier = 'TIER_2'
-    c['roth_irmaa_target_tier'] = _roth_irmaa_target_tier
-    try:
-        _idx = int(_roth_irmaa_target_tier.split('_')[-1]) - 1
-        c['roth_irmaa_target_threshold_mfj'] = float(_td.IRMAA_TIERS_BASE_YEAR.get('MFJ', [])[max(0, _idx)][0])
-    except Exception:
-        c['roth_irmaa_target_threshold_mfj'] = 268000.0
-    c['roth_fixed_amount']= _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_fixed_annual_amount','50000'), 50000)
-    c['roth_max_annual_conversion_pct_of_traditional_ira'] = min(1.0, max(0.0, _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'max_annual_conversion_pct_of_traditional_ira','20%'), 0.20)))
-    try:
-        c['roth_max_conversion_years'] = int(_n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'max_conversion_years','10'), 10))
-    except Exception:
-        c['roth_max_conversion_years'] = 10
-    _roth_objective_mode = str(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_objective_mode','BALANCED_RETIREMENT') or 'BALANCED_RETIREMENT').strip().upper()
-    if _roth_objective_mode not in ('BALANCED_RETIREMENT','MINIMIZE_LIFETIME_TAX','MAXIMIZE_TERMINAL_NET_WORTH','LEGACY_OPTIMIZED','ESTATE_TAX_AWARE','CUSTOM_WEIGHTED'):
-        _roth_objective_mode = 'BALANCED_RETIREMENT'
-    c['roth_objective_mode'] = _roth_objective_mode
-    c['roth_headroom_usage_pct'] = min(1.0, max(0.0, _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_headroom_usage_pct','95%'), 0.95)))
-    c['roth_irmaa_headroom_usage_pct'] = min(1.0, max(0.0, _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_irmaa_headroom_usage_pct','95%'), 0.95)))
-    c['irmaa_guardrail_mode'] = normalize_irmaa_guardrail_mode(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'irmaa_guardrail_mode','AVOID_NEXT_TIER'), 'AVOID_NEXT_TIER')
-    if c['irmaa_guardrail_mode'] not in ('IGNORE','WARN_ONLY','AVOID_NEXT_TIER','AVOID_TIER_2_OR_ABOVE','CUSTOM_MAGI_CAP'):
-        c['irmaa_guardrail_mode'] = 'AVOID_NEXT_TIER'
-    # The single controlling setting is IRMAA Guardrail Behavior.
-    if c['roth_policy'] == 'fill_to_irmaa':
-        c['roth_irmaa_cap'] = True
-    else:
-        c['roth_irmaa_cap'] = c['irmaa_guardrail_mode'] not in ('IGNORE', 'WARN_ONLY')
-    _estate_mode = str(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'estate_tax_objective_mode','BALANCED') or 'BALANCED').strip().upper()
-    if _estate_mode not in ('OFF','MONITOR_ONLY','BALANCED','STRONG'):
-        _estate_mode = 'BALANCED'
-    c['estate_tax_objective_mode'] = _estate_mode
-    c['roth_optimize_terminal_weight'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_optimize_terminal_weight','1.0'), 1.0)
-    c['roth_optimize_tax_weight'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_optimize_lifetime_tax_weight','0.25'), 0.25)
-    c['roth_optimize_terminal_tax_rate'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_optimize_terminal_pretax_tax_rate','0.24'), 0.24)
-    # Legacy-aware Roth conversion objective controls. These inputs let the
-    # optimizer value tax-rate diversification, future ordinary-tax risk,
-    # survivor tax compression, and the tax burden inherited with pre-tax IRA
-    # balances. They are objective weights only; the projection cash-flow/tax
-    # mechanics still use the standard tax assumptions.
-    _legacy_mode = str(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'legacy_objective_mode','BALANCED') or 'BALANCED').strip().upper()
-    if _legacy_mode not in ('OFF', 'LOW', 'BALANCED', 'STRONG'):
-        _legacy_mode = 'BALANCED'
-    c['roth_legacy_objective_mode'] = _legacy_mode
-    c['roth_future_tax_rate_stress_pct'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'future_tax_rate_stress_pct','10%'), 0.10)
-    c['roth_future_tax_risk_weight'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'future_tax_risk_weight','0.35'), 0.35)
-    c['roth_inheritance_tax_burden_weight'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'inheritance_tax_burden_weight','0.25'), 0.25)
-    c['roth_heir_ordinary_tax_rate_assumption'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'heir_ordinary_tax_rate_assumption_pct','24%'), 0.24)
-    # Item 4.3: assumed beneficiary filing status. Drives the derived effective
-    # SECURE Act 10-year-rule ordinary tax rate on inherited pre-tax balances
-    # (used unless heir_ordinary_tax_rate_assumption_pct is set to a non-default
-    # value). Single is the common adult-child-beneficiary case.
-    _heir_filing = str(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'heir_filing_status','Single') or 'Single').strip()
-    c['roth_heir_filing_status'] = _heir_filing if _heir_filing in ('Single','MFJ','HOH','MFS') else 'Single'
-    c['roth_pre_tax_bequest_penalty_pct'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'pre_tax_bequest_penalty_pct','15%'), 0.15)
-    c['roth_bequest_preference_bonus_pct'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_bequest_preference_bonus_pct','5%'), 0.05)
-    c['roth_survivor_tax_risk_weight'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'survivor_tax_risk_weight','0.25'), 0.25)
-    c['roth_tax_discount_rate'] = _n(_v(data,'Withdrawal Policy','Roth Conversion',
-                                   'roth_tax_discount_rate', str(DEFAULT_ROTH_TAX_DISCOUNT_RATE)),
-                                   DEFAULT_ROTH_TAX_DISCOUNT_RATE)
+    c.update(parse_roth_conversion_policy(data))
 
     # Estate
     c.update(parse_estate_planning(data))
