@@ -26,9 +26,15 @@ def test_hsa_withdrawal_timing_lives_on_other_assets_page():
 
 def test_hsa_window_is_normalized_before_cashflow_projection():
     data_io = read("src/data_io.py")
-    assert "HSA withdrawal policy" in data_io
-    assert "hsa_withdrawal_mode" in data_io
-    assert "c['hsa_win_start'], c['hsa_win_end'] = c['hsa_win_end'], c['hsa_win_start']" in data_io
+    # Ticket 312: the HSA Policy scalar parsing (mode, window, and the
+    # window-swap normalization) moved from parse_client's own body into
+    # src/parsing/hsa_policy.py's parse_hsa_policy(); data_io.py re-exports
+    # it and merges its result into c via parse_hsa_policy(data, ...), so
+    # the field/logic checks themselves live against the new module.
+    assert "parse_hsa_policy" in data_io
+    hsa_policy = read("src/parsing/hsa_policy.py")
+    assert "hsa_withdrawal_mode" in hsa_policy
+    assert "hsa_win_start, hsa_win_end = hsa_win_end, hsa_win_start" in hsa_policy
     # Ticket 3.10: this logic moved into withdrawal_cascade_hsa_priority_draws.py
     # (design doc Stage 10 addendum, sub-stages #1-#2) when
     # deterministic_engine.py's inline withdrawal cascade was decomposed
