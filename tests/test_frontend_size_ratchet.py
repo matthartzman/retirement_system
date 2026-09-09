@@ -146,7 +146,12 @@ JS_DIR = ROOT / "frontend" / "js"
 # back), which is still above the prior 7,481 ceiling, so the ceiling here
 # is set to the new measured size with no slack rather than restored to
 # 7,481.
-DASHBOARD_JS_MAX_LINES = 7_504
+# 2026-09-09: lowered from 7,504 -- extracted 7 declaration(s) into
+# dashboard_decomp_field_choice_help.js via
+# tools/js_codemod/extract_module.mjs. Measured after regenerating the
+# census and bridge, so it includes the bridge shrinking as those names left
+# its Object.assign block.
+DASHBOARD_JS_MAX_LINES = 7_320
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling
