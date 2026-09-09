@@ -9,6 +9,7 @@ stage module.  Additional fine-grained stage files can replace pieces behind
 this same contract without changing callers.
 """
 
+from .amt_equity_comp_true_up import apply_amt_and_equity_comp_true_up as _apply_amt_and_equity_comp_true_up
 from .appreciation_divorce_qlac import apply_appreciation_divorce_qlac as _apply_appreciation_divorce_qlac
 from .budget_rollups import category_budget_rollup, housing_budget_rollup
 from .cashflow_breakdown import compute_cashflow_breakdown as _compute_cashflow_breakdown
@@ -58,7 +59,6 @@ from .. import tlh as _tlh
 from .. import gain_harvest as _gh
 from .. import tax_kernel as _tk
 from ..equity_comp import equity_comp_year_events as _equity_comp_year_events
-from ..core import amt_tax as _amt_tax
 from ..core import state_for_year
 from ..core import qlac_premium_limit
 
@@ -2863,33 +2863,32 @@ def run_deterministic_projection_stage(c):
         row['surplus'] = surplus
 
         # ── Advanced modules: equity-comp long-term-gain and AMT post-pass ───
-        # Runs only when the equity-compensation module is enabled. Equity
-        # ordinary income and DI benefits already flowed through the tax
-        # fixed-point above (via non_ss_income); here we add the two effects the
-        # fixed-point does not model: LTCG on an ISO/RSU sale, and AMT from the
-        # ISO bargain-element preference (with minimum-tax credit carryforward).
-        if _equity_on:
-            _extra_tax = 0.0
-            if _equity_events['ltcg_gain'] > 0:
-                _eq_ltcg_tax = _ltcg_tax_on_gain_path(_equity_events['ltcg_gain'], max(0.0, taxable_inc), year)
-                _extra_tax += _eq_ltcg_tax
-                row['equity_comp_ltcg_gain'] = _equity_events['ltcg_gain']
-                row['equity_comp_ltcg_tax'] = _eq_ltcg_tax
-            _amt_adj, amt_credit_carry = _amt_tax(
-                taxable_inc, fed_tax, _equity_events['amt_preference'], filing,
-                year, c.get('brk_inf', c.get('inf', 0.0)), amt_credit_carry)
-            if abs(_amt_adj) > 1e-9 or _equity_events['amt_preference'] > 0:
-                _extra_tax += _amt_adj
-                row['amt_tax'] = max(0.0, _amt_adj)
-                row['amt_credit_used'] = max(0.0, -_amt_adj)
-                row['amt_credit_carryforward'] = amt_credit_carry
-            if abs(_extra_tax) > 1e-9:
-                total_tax += _extra_tax
-                # Fund the extra tax (or refund the credit) through a taxable
-                # account so net worth reflects the cash paid/received.
-                _eq_tax_acct = _aa.first_taxable(c)
-                if _eq_tax_acct:
-                    bal[_eq_tax_acct] = bal.get(_eq_tax_acct, 0.0) - _extra_tax
+        # Extracted to amt_equity_comp_true_up.apply_amt_and_equity_comp_true_up
+        # (ticket 3.10 step 6). See that module's docstring for why
+        # total_tax/amt_credit_carry come back via Stage11Result rather than
+        # propagating through the function boundary on their own, and why
+        # the report fields are Optional.
+        _stage11 = _apply_amt_and_equity_comp_true_up(
+            c,
+            year=year,
+            filing=filing,
+            equity_on=_equity_on,
+            equity_events=_equity_events,
+            taxable_inc=taxable_inc,
+            fed_tax=fed_tax,
+            total_tax=total_tax,
+            amt_credit_carry=amt_credit_carry,
+            bal=bal,
+        )
+        total_tax = _stage11.total_tax
+        amt_credit_carry = _stage11.amt_credit_carry
+        if _stage11.equity_comp_ltcg_gain is not None:
+            row['equity_comp_ltcg_gain'] = _stage11.equity_comp_ltcg_gain
+            row['equity_comp_ltcg_tax'] = _stage11.equity_comp_ltcg_tax
+        if _stage11.amt_tax is not None:
+            row['amt_tax'] = _stage11.amt_tax
+            row['amt_credit_used'] = _stage11.amt_credit_used
+            row['amt_credit_carryforward'] = _stage11.amt_credit_carryforward
 
         # total_tax already includes current-year LTCG and NIIT from the fixed-point pass above.
         row['total_tax'] = total_tax
