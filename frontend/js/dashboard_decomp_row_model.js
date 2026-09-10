@@ -4839,7 +4839,15 @@ export async function reportsAndReviewDownloadWorkbook() {
     showMessage("Build reports before downloading the workbook.", "error");
     return;
   }
-  if (!unsavedChangeCount()) {
+  // planStateFresh(), not unsavedChangeCount() alone: this is the same
+  // "is it stale" signal the left-nav Stale badge (stepButton(), reportStale)
+  // and every other freshness indicator in the app already use. A first fix
+  // here checked unsavedChangeCount() only, so right after a plain page
+  // reload -- lastBuildOk resets to false every session regardless of
+  // whether the on-disk build is actually current, but there are zero
+  // unsaved edits -- the badge said "Stale" while this downloaded silently
+  // with no warning at all. Reproduced live, not hypothetical.
+  if (planStateFresh()) {
     performFileDownload("/api/xlsx");
     return;
   }

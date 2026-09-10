@@ -70,18 +70,22 @@ describe("Reports & Review redesign: no tabs, two always-visible sections", () =
     assert.doesNotMatch(out, /role="tablist"/);
   });
 
-  test("Impact content and Plan Data Review are both present, always visible (not a collapsed <details>)", () => {
+  test("Impact content is always visible; Plan Data Review is its own section, collapsed by default", () => {
     const sandbox = freshSandbox();
     const out = sandbox.renderReportsAndReview();
     assert.match(out, /<h3>No build history yet<\/h3>/); // renderImpactSectionContent()'s empty state
-    assert.match(out, /class="plan-data-review-section"/);
+    // Its own <details> (not nested inside Impact's plan-data-review-collapsible,
+    // and not force-opened) -- collapsed is the default <details> state whenever
+    // the "open" attribute is absent.
+    assert.match(out, /<details class="plan-data-review-section">/);
+    assert.doesNotMatch(out, /<details class="plan-data-review-section" open>/);
     assert.doesNotMatch(out, /plan-data-review-collapsible/);
   });
 
-  test("links out to the standalone Results page instead of embedding it", () => {
+  test("does not embed a Results link in the body -- that lives in the header now (View Workbook)", () => {
     const sandbox = freshSandbox();
     const out = sandbox.renderReportsAndReview();
-    assert.match(out, /data-step-id="detailed_results"/);
+    assert.doesNotMatch(out, /data-step-id="detailed_results"/);
   });
 
   test("no Refresh Status button on this page", () => {
@@ -122,6 +126,17 @@ describe("Reports & Review header: Build/Download buttons (primaryActionForStep)
     sandbox.window.lastBuildOk = true;
     assert.equal(sandbox.reportsAndReviewCanBuild(), false);
   });
+
+  test("View Workbook sits between Build Reports and Download Workbook, linking to the standalone Results page", () => {
+    const sandbox = freshSandbox();
+    sandbox.window.lastBuildOk = true;
+    const out = sandbox.primaryActionForStep("reports_and_review");
+    const buildIdx = out.indexOf("Build Reports");
+    const viewIdx = out.indexOf("View Workbook");
+    const downloadIdx = out.indexOf("Download Workbook");
+    assert.ok(buildIdx >= 0 && viewIdx > buildIdx && downloadIdx > viewIdx, out);
+    assert.match(out, /data-step-id="detailed_results"[^>]*>View Workbook</);
+  });
 });
 
 // Gated on planStateArtifactsReady() (do report output files actually
@@ -153,9 +168,18 @@ describe("reportsAndReviewDownloadWorkbook", () => {
     assert.match(messages[0], /Build reports before downloading/);
   });
 
-  test("downloads immediately, no confirm, when there are no unsaved changes", async () => {
+  test("downloads immediately, no confirm, when planStateFresh() says the build is current", async () => {
+    // planStateFresh() -- not unsavedChangeCount() alone -- is the gate: it's
+    // the same "is it stale" signal the left-nav Stale badge uses (stepButton(),
+    // reportStale in row_model.js), so this button agrees with what the rest
+    // of the app is telling the user. A prior version of this check used
+    // unsavedChangeCount() only, which disagreed with the badge right after a
+    // plain page reload (lastBuildOk resets every session, planStateFresh()
+    // reflects that, unsavedChangeCount() alone does not) -- reproduced live,
+    // see the comment on reportsAndReviewDownloadWorkbook() itself.
     const sandbox = freshSandbox();
     sandbox.planStateArtifactsReady = () => true;
+    sandbox.planStateFresh = () => true;
     let confirmCalled = false;
     sandbox.showInAppConfirm = () => {
       confirmCalled = true;
@@ -168,6 +192,24 @@ describe("reportsAndReviewDownloadWorkbook", () => {
     await sandbox.reportsAndReviewDownloadWorkbook();
     assert.equal(confirmCalled, false);
     assert.equal(downloadedUrl, "/api/xlsx");
+  });
+
+  test("warns even with zero unsaved edits when planStateFresh() says the build is stale (e.g. a fresh reload)", async () => {
+    const sandbox = freshSandbox();
+    sandbox.planStateArtifactsReady = () => true;
+    sandbox.planStateFresh = () => false; // e.g. lastBuildOk reset by a reload, not an edit
+    let confirmCalled = false;
+    sandbox.showInAppConfirm = () => {
+      confirmCalled = true;
+      return Promise.resolve(false);
+    };
+    let downloaded = false;
+    sandbox.performFileDownload = () => {
+      downloaded = true;
+    };
+    await sandbox.reportsAndReviewDownloadWorkbook();
+    assert.equal(confirmCalled, true);
+    assert.equal(downloaded, false);
   });
 
   test("stale build: confirming downloads the last build's workbook as-is", async () => {
