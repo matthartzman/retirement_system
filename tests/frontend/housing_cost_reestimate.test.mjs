@@ -97,3 +97,41 @@ describe("reestimateHousingCostsOnValueChange (ticket 298)", () => {
     });
   });
 });
+
+// estimateHousingFromState()'s "Estimate fields" action re-fetches geography
+// defaults for every field on a Next Housing Step. It must not clobber a
+// purchase_price/monthly_rent the user has since hand-typed, while still
+// refreshing every other field (insurance/utilities/maintenance/HOA/mortgage
+// rate) from the new geography. housingPriceWasUserEdited() is the pure
+// decision function that drives that behavior.
+describe("housingPriceWasUserEdited", () => {
+  test("false when there is no prior estimate to have diverged from", () => {
+    assert.equal(sandbox.housingPriceWasUserEdited(null, "purchase_price", "400000"), false);
+  });
+
+  test("false when the field was never part of the prior estimate", () => {
+    const previous = { insurance_annual: 2000 };
+    assert.equal(sandbox.housingPriceWasUserEdited(previous, "purchase_price", "400000"), false);
+  });
+
+  test("false when the current value still matches the last-fetched estimate", () => {
+    const previous = { purchase_price: 400000 };
+    assert.equal(sandbox.housingPriceWasUserEdited(previous, "purchase_price", "$400,000"), false);
+  });
+
+  test("true when the user has since typed a different purchase_price", () => {
+    const previous = { purchase_price: 400000 };
+    assert.equal(sandbox.housingPriceWasUserEdited(previous, "purchase_price", "525000"), true);
+  });
+
+  test("true when the user has since typed a different monthly_rent", () => {
+    const previous = { monthly_rent: 2000 };
+    assert.equal(sandbox.housingPriceWasUserEdited(previous, "monthly_rent", "2400"), true);
+  });
+
+  test("false when the current value is blank/unparsable", () => {
+    const previous = { purchase_price: 400000 };
+    assert.equal(sandbox.housingPriceWasUserEdited(previous, "purchase_price", ""), false);
+    assert.equal(sandbox.housingPriceWasUserEdited(previous, "purchase_price", null), false);
+  });
+});

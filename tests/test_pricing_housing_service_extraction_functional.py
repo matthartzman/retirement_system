@@ -27,6 +27,25 @@ def test_housing_state_estimate_payload_purchase_and_rent_contracts():
     assert 180 <= rent["insurance_annual"] <= 450
 
 
+def test_housing_state_estimate_scales_hoa_by_geography():
+    from src.server_services.strategy_asset_service import STATE_ESTIMATES, housing_state_estimate_payload
+
+    base_hoa_pct = STATE_ESTIMATES["TX"]["hoa_pct"]
+
+    urban_payload, _ = housing_state_estimate_payload({"state": "TX", "type": "purchase", "city_type": "urban", "population_size": 600_000})
+    suburban_payload, _ = housing_state_estimate_payload({"state": "TX", "type": "purchase", "city_type": "suburban", "population_size": 25_000})
+    rural_payload, _ = housing_state_estimate_payload({"state": "TX", "type": "purchase", "city_type": "rural", "population_size": 5_000})
+
+    urban_hoa = urban_payload["estimate"]["hoa_pct"]
+    suburban_hoa = suburban_payload["estimate"]["hoa_pct"]
+    rural_hoa = rural_payload["estimate"]["hoa_pct"]
+
+    # A flat per-state hoa_pct (the pre-fix behavior) would make all three equal.
+    assert urban_hoa > suburban_hoa > rural_hoa
+    # Suburban/25k population is the multiplier baseline (city_mult=1.00, pop_mult=1.00).
+    assert suburban_hoa == round(base_hoa_pct, 4)
+
+
 def test_route_manifest_and_contract_registry_include_extracted_endpoints():
     manifest = Path("src/server/route_manifest.py").read_text(encoding="utf-8")
     contracts = Path("src/api_contracts.py").read_text(encoding="utf-8")

@@ -206,7 +206,19 @@ export async function estimateHousingFromState(stepNum) {
       return;
     }
     const e = out.estimate;
-    const fieldMap = {
+    const priceLabel = isPurchase ? "purchase_price" : "monthly_rent";
+    const priceRow = rows.find(
+      (r) =>
+        r.section === "Housing" &&
+        norm(r.subsection || "") === sub &&
+        norm(r.label) === priceLabel,
+    );
+    const priceWasUserEdited = housingPriceWasUserEdited(
+      window.housingLastEstimate[stepNum] || null,
+      priceLabel,
+      priceRow ? valOf(priceRow) : null,
+    );
+    const rawFieldMap = {
       purchase_price: isPurchase ? e.purchase_price : null,
       monthly_rent: !isPurchase ? e.monthly_rent : null,
       insurance_annual: e.insurance_annual,
@@ -216,8 +228,14 @@ export async function estimateHousingFromState(stepNum) {
       hoa_pct: isPurchase ? e.hoa_pct : null,
       mortgage_rate_pct: isPurchase ? e.mortgage_rate_pct : null,
     };
-    // #266: cache for per-field restoreHousingEstimateField() below.
-    window.housingLastEstimate[stepNum] = fieldMap;
+    // #266: cache holds the fresh geography estimate regardless of whether
+    // price/rent gets applied below, so restoreHousingEstimateField() can
+    // still snap either of them back to it later even on a run that kept
+    // the user's own number.
+    window.housingLastEstimate[stepNum] = rawFieldMap;
+    const fieldMap = priceWasUserEdited
+      ? { ...rawFieldMap, [priceLabel]: null }
+      : rawFieldMap;
     let applied = 0;
     for (const label of Object.keys(fieldMap)) {
       if (window.applyHousingEstimateField(stepNum, label, fieldMap[label])) applied++;
@@ -228,11 +246,41 @@ export async function estimateHousingFromState(stepNum) {
         stateVal +
         " (" +
         applied +
-        " fields). Review and adjust as needed.",
+        " fields)." +
+        (priceWasUserEdited
+          ? ` Kept your ${priceLabel === "purchase_price" ? "purchase price" : "monthly rent"}; other fields recalculated.`
+          : "") +
+        " Review and adjust as needed.",
     );
   } catch (err) {
     showMessage("Error fetching estimate: " + err.message, "error");
   }
+}
+
+// A Next Housing Step's "Estimate fields" action (above) re-fetches geography
+// defaults for every field. Once a user has hand-typed their own
+// purchase_price/monthly_rent, a later re-estimate (e.g. after changing
+// city_type or population) should still refresh insurance/utilities/
+// maintenance/HOA/mortgage-rate to match the new geography, but must not
+// silently overwrite the price/rent number the user chose. Detected by
+// comparing the current displayed value against the last-cached estimate
+// for that field: if they no longer match, the user changed it since that
+// estimate was fetched (or there was no prior estimate to have matched, in
+// which case there's nothing to preserve). Pure/no side effects so it's
+// unit-testable without the DOM/network work estimateHousingFromState does
+// around it.
+export function housingPriceWasUserEdited(previousEstimate, priceLabel, currentDisplayValue) {
+  if (
+    !previousEstimate ||
+    !(priceLabel in previousEstimate) ||
+    previousEstimate[priceLabel] == null
+  ) {
+    return false;
+  }
+  const prevVal = Number(previousEstimate[priceLabel]);
+  const curVal = numberFromDisplay(currentDisplayValue);
+  if (!(prevVal > 0) || !(curVal > 0)) return false;
+  return Math.abs(curVal - prevVal) > 0.5;
 }
 
 // #298: utilities/maintenance/insurance were entered once against a home

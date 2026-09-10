@@ -123,6 +123,10 @@ def housing_state_estimate_payload(data: dict[str, Any]) -> tuple[dict[str, Any]
     estimate["purchase_price"] = round(float(estimate["purchase_price"]) * combined / 1000) * 1000
     estimate["monthly_rent"] = round(float(estimate["monthly_rent"]) * combined / 10) * 10
     estimate["maintenance_annual"] = round(float(estimate["purchase_price"]) * 0.01 / 100) * 100
+    # HOA fee prevalence/size tracks density (condos/townhomes cluster in
+    # urban, denser areas), so scale it the same way as the other purchase-side
+    # estimated fields rather than leaving it a flat per-state constant.
+    estimate["hoa_pct"] = round(float(estimate.get("hoa_pct", 0) or 0) * combined, 4)
     if is_rent:
         estimate["insurance_annual"] = round(max(180.0, min(450.0, float(estimate.get("insurance_annual", 0) or 0) * 0.15)) / 10) * 10
         estimate["utilities_annual"] = round(float(estimate.get("utilities_annual", 0) or 0) * 0.75 / 100) * 100
