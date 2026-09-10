@@ -1056,33 +1056,27 @@ export function planningWorkbenchContext() {
   };
 }
 
-export function renderBuildImpactPage() {
+// #<reports-redesign>: split out of renderBuildImpactPage() so Reports &
+// Review (which no longer embeds Build/Download/Plan-Data-Review here -- see
+// renderReportsAndReview()) can render the actual Impact content without the
+// blocks it now renders elsewhere. renderBuildImpactPage() below still
+// composes this the same way it always has, so the separate "Impact & Build
+// History" step this function also serves is unaffected.
+export function unsavedChangesPromptBar() {
   loadBuildHistory();
-  const unsaved = hasUnsavedPlanChanges();
-  let promptBar = "";
-  if (unsaved && buildHistory.length > 0)
-    promptBar =
-      '<div class="section-note warning build-snapshot-prompt"><b>You have unsaved changes.</b> Take a snapshot now to preserve the current state before rebuilding. <button class="btn" type="button" data-requires-app="1" onclick="takeBuildSnapshot()">Take Snapshot</button></div>';
-  // #301: Build and Download are buttons on the primary Impact page, not
-  // separate tabs -- renderReportsBuild()/renderReview() are the same
-  // status+action blocks the old standalone Build/Downloads tabs used.
-  const buildAndDownload = renderReportsBuild() + renderReview();
+  if (hasUnsavedPlanChanges() && buildHistory.length > 0)
+    return '<div class="section-note warning build-snapshot-prompt"><b>You have unsaved changes.</b> Take a snapshot now to preserve the current state before rebuilding. <button class="btn" type="button" data-requires-app="1" onclick="takeBuildSnapshot()">Take Snapshot</button></div>';
+  return "";
+}
+
+export function renderImpactSectionContent() {
+  loadBuildHistory();
   const headerActions =
     '<div class="pane-actions"><button class="btn" type="button" data-requires-app="1" onclick="takeBuildSnapshot()">Take Snapshot</button> <button class="btn danger" type="button" data-requires-app="1" onclick="revertLastBuildChanges()">Revert User Changes</button></div>';
-  const planDataReviewSection =
-    '<details class="plan-data-review-collapsible"><summary class="section-header">Plan Data Review</summary>' +
-    renderPlanDataReport() +
-    "</details>";
   if (!buildHistory.length)
     return (
-      '<div class="build-impact"><div class="impact-panel">' +
-      promptBar +
-      buildAndDownload +
       "<h3>No build history yet</h3><p>Build or download your workbook above to see before/after impact here, or take a snapshot to record the current state.</p>" +
-      headerActions +
-      "</div>" +
-      planDataReviewSection +
-      "</div>"
+      headerActions
     );
   // #293/#309: four dials read LCV / NPV of Future Taxes / 5th-percentile
   // worst-case ending wealth / EFTR -- the same four headline KPIs as the
@@ -1132,9 +1126,6 @@ export function renderBuildImpactPage() {
   const latestImpact =
     planningWorkbenchBuildImpactHtml() + latestBuildImpactHtml(buildHistory[0]);
   return (
-    '<div class="build-impact"><div class="impact-panel">' +
-    promptBar +
-    buildAndDownload +
     "<h3>Impact</h3><p class=\"small\">Dials are heat-mapped: green = best across all entries, red = worst. LCV (Expected After-Tax Lifetime Consumption-and-Transfer Value) is total lifetime spending plus the after-tax, after-estate-tax terminal transfer to heirs.</p>" +
     headerActions +
     latestImpact +
@@ -1142,7 +1133,26 @@ export function renderBuildImpactPage() {
     BUILD_HISTORY_MAX +
     ' builds and snapshots)</summary><div class="build-history-list">' +
     historyHtml +
-    "</div></details></div>" +
+    "</div></details>"
+  );
+}
+
+export function renderBuildImpactPage() {
+  const promptBar = unsavedChangesPromptBar();
+  // #301: Build and Download are buttons on the primary Impact page, not
+  // separate tabs -- renderReportsBuild()/renderReview() are the same
+  // status+action blocks the old standalone Build/Downloads tabs used.
+  const buildAndDownload = renderReportsBuild() + renderReview();
+  const planDataReviewSection =
+    '<details class="plan-data-review-collapsible"><summary class="section-header">Plan Data Review</summary>' +
+    renderPlanDataReport() +
+    "</details>";
+  return (
+    '<div class="build-impact"><div class="impact-panel">' +
+    promptBar +
+    buildAndDownload +
+    renderImpactSectionContent() +
+    "</div>" +
     planDataReviewSection +
     "</div>"
   );
@@ -2146,22 +2156,14 @@ export function renderSteps() {
       html += stepButton(s);
       // Workspace parents expose their tabs as indented nav children, so the
       // left nav is a complete map of every reachable destination and clicking
-      // a child opens the workspace on that tab.
-      if (s.id === "reports_and_review") {
-        html += `<div class="nav-subtabs">`;
-        REPORTS_TABS.forEach(function (tab) {
-          const isActiveTab =
-            activeStep === "reports_and_review" && reportsActiveTab === tab;
-          html += `<button class="nav-subtab${isActiveTab ? " active" : ""}" type="button" onclick="goToReportsTab('${escJs(tab)}')">${esc(tab)}</button>`;
-        });
-        html += `</div>`;
-        // U1: landing on this tab keeps activeStep "reports_and_review", but
-        // setDetailedResultSheet() (picking a specific sheet) flips activeStep
-        // to "detailed_results" directly, bypassing setStep()'s redirect —
-        // _isViewingDetailedResults() already covers both cases.
-        if (_isViewingDetailedResults()) {
-          html += renderDetailedResultsNav();
-        }
+      // a child opens the workspace on that tab. Reports & Review dropped its
+      // sub-nav in the redesign (it now shows Impact + Plan Data Review
+      // together, with no tabs to switch between) -- detailed_results is a
+      // hidden step (only appears in this loop when it IS activeStep, see the
+      // `s.hidden && s.id !== activeStep` filter above), so this branch's
+      // sheet-picker nav only ever renders while actually viewing it.
+      if (s.id === "detailed_results") {
+        html += renderDetailedResultsNav();
       } else if (STRATEGY_TABS[s.id]) {
         html += renderWorkspaceSubtabsNav(s.id);
       }
@@ -3320,10 +3322,7 @@ export function renderYtdAccounts() {
 }
 
 export function _isViewingDetailedResults() {
-  return (
-    activeStep === "detailed_results" ||
-    (activeStep === "reports_and_review" && reportsActiveTab === "Results")
-  );
+  return activeStep === "detailed_results";
 }
 
 export async function loadDetailedResultSheet(name, force = false) {
@@ -3794,19 +3793,6 @@ export function renderDomainBudgetPage(domain, opts) {
   return html;
 }
 
-export function setReportsTab(tab) {
-  reportsActiveTab = REPORTS_TABS.includes(tab) ? tab : "Build";
-  try {
-    localStorage.setItem("reports_active_tab", reportsActiveTab);
-  } catch (_e) {}
-  renderMain();
-}
-
-export function goToReportsTab(tab) {
-  activeStep = "reports_and_review";
-  setReportsTab(tab);
-}
-
 export function strategyTabKey(step) {
   return "strategy_tab_" + step;
 }
@@ -3894,7 +3880,6 @@ export function navigationContext() {
     getSearchScope: () => searchScope,
     renderMain: renderMain,
     renderSteps: renderSteps,
-    setReportsTab: setReportsTab,
     setAppControls: setAppControls,
     showStepHelp: showStepHelp,
     showMessage: showMessage,
@@ -4326,7 +4311,22 @@ export function showFieldHelp(idx) {
 export function setAppControls(on) {
   document.querySelectorAll('[data-requires-app="1"]').forEach((b) => {
     const needsBuild = b.getAttribute("data-download") === "1";
-    b.disabled = !on || (needsBuild && !lastBuildOk);
+    // #<reports-redesign>: Reports & Review's header Build button is only
+    // active when there's something to build (reportsAndReviewCanBuild()) --
+    // without this marker, this loop's unconditional `b.disabled = !on`
+    // silently clears whatever disabled state the button was rendered with
+    // whenever the app is reachable, regardless of that button's own logic.
+    const needsEdit = b.getAttribute("data-requires-edit") === "1";
+    // Reports & Review's header Download button: gated on report artifacts
+    // actually existing, not lastBuildOk -- see reportsAndReviewDownloadWorkbook()
+    // for why lastBuildOk (forced false by any unsaved edit) is the wrong
+    // signal for "is there a workbook to download at all."
+    const needsArtifacts = b.getAttribute("data-requires-artifacts") === "1";
+    b.disabled =
+      !on ||
+      (needsBuild && !lastBuildOk) ||
+      (needsEdit && !reportsAndReviewCanBuild()) ||
+      (needsArtifacts && !planStateArtifactsReady());
   });
   if (on) {
     const has = !!unsavedChangeCount();
@@ -4813,6 +4813,48 @@ export async function downloadWithBuild(url, label) {
   }
 }
 
+// #<reports-redesign>: Build/Download for Reports & Review's persistent
+// header (primaryActionForStep(), dashboard.js) -- distinct from
+// downloadWithBuild() above, which silently rebuilds before downloading.
+// This page instead asks: an explicit warning lets the user choose to
+// download the last successful build's workbook as-is rather than being
+// rebuilt out from under them.
+export function reportsAndReviewCanBuild() {
+  // Active whenever there's something a build would actually change: pending
+  // edits, or no successful build has ever completed (so a freshly loaded,
+  // never-built plan isn't permanently stuck with a disabled button).
+  return hasUnsavedPlanChanges() || !lastBuildOk;
+}
+
+export async function reportsAndReviewDownloadWorkbook() {
+  // Gated on planStateArtifactsReady() (do report output files actually
+  // exist), not lastBuildOk: updateUnsaved() forces lastBuildOk false as
+  // soon as ANY input is dirty, regardless of whether a build has ever
+  // succeeded -- exactly the case this button needs to allow (downloading
+  // the last real build despite newer unsaved edits). Calling
+  // performFileDownload() directly, rather than downloadFile(), for the same
+  // reason: downloadFile()'s own lastBuildOk gate would otherwise refuse
+  // right after the user has just confirmed "download anyway" below.
+  if (!planStateArtifactsReady()) {
+    showMessage("Build reports before downloading the workbook.", "error");
+    return;
+  }
+  if (!unsavedChangeCount()) {
+    performFileDownload("/api/xlsx");
+    return;
+  }
+  const proceed = await showInAppConfirm(
+    "The last build doesn't reflect changes made since then. Download that build's workbook anyway?",
+    {
+      title: "Build may be out of date",
+      confirmLabel: "Download anyway",
+      cancelLabel: "Cancel",
+      variant: "warn",
+    },
+  );
+  if (proceed) performFileDownload("/api/xlsx");
+}
+
 export async function shutdownAndClose() {
   appExiting = true;
   dirty.clear();
@@ -4885,7 +4927,6 @@ Object.assign(window, {
   focusBudgetMoney,
   formatAcronyms,
   friendlyGroup,
-  goToReportsTab,
   groupCatSum,
   groupIsSummary,
   groupKeyFor,
@@ -4943,8 +4984,11 @@ Object.assign(window, {
   renderDomainBudgetPage,
   renderFieldGroups,
   renderFields,
+  renderImpactSectionContent,
   renderSteps,
   renderYtdAccounts,
+  reportsAndReviewCanBuild,
+  reportsAndReviewDownloadWorkbook,
   reportsUiContext,
   requestAllocationPreview,
   rowActionValue,
@@ -4974,7 +5018,6 @@ Object.assign(window, {
   section,
   selectionActionRows,
   setAppControls,
-  setReportsTab,
   setStep,
   setYtdDirtyButtonStates,
   showFieldHelp,
@@ -4999,6 +5042,7 @@ Object.assign(window, {
   toggleAnnualizeFlag,
   translatePersonPlaceholders,
   unsavedChangeCount,
+  unsavedChangesPromptBar,
   updateCategoryDetail,
   updatePlanStateBanner,
   updateTaxBudget,

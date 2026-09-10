@@ -62,16 +62,11 @@ async function triggerBuildAndWaitPatiently(page) {
   let started = false;
   while (Date.now() < deadline) {
     if (!(await build.isVisible().catch(() => false))) {
+      // Reports & Review's redesign put "Build Reports" in the page's
+      // persistent header (primaryActionForStep(), dashboard.js) -- it
+      // renders as soon as activeStep is "reports_and_review", with no tab
+      // to also select.
       await navigateToStep(page, 'reports_and_review', 'Reports & Review');
-      // Reports & Review is a tabbed workspace (Preflight | Build | Impact |
-      // Results | Downloads | Plan Data Review) that does NOT open on Build,
-      // so arriving on the step is not enough -- "Build Reports" only exists
-      // once the Build tab is selected. exact:true so this does not match
-      // the "Build Reports" button itself.
-      const buildTab = page.getByRole('button', { name: 'Build', exact: true }).first();
-      if (await buildTab.isVisible().catch(() => false)) {
-        await buildTab.click();
-      }
     }
     if (!(await build.isVisible().catch(() => false))) {
       await page.waitForTimeout(500);

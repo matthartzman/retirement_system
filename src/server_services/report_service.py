@@ -9,10 +9,18 @@ for permissions, request parsing, JSON/file response serialization, and audits.
 """
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from ..report_package import REPORT_PACKAGE_FILENAME, REPORT_PACKAGE_SCHEMA, read_report_package
+from ..system_config import (
+    discover_system_config_csv,
+    load_system_config,
+    upsert_system_setting,
+    workbook_desktop_download_folder,
+    workbook_filename_root,
+)
 
 
 def resolve_output_file(output_dir: Path, name: str, fallback_output_dir: Path | None = None) -> Path:
@@ -33,6 +41,42 @@ def downloadable_artifact(name: str, output_dir: Path, fallback_output_dir: Path
     if path.exists() and path.is_file():
         return {"success": True, "path": str(path), "name": name}, 200
     return {"success": False, "error": f"{name} not found; run build first", "name": name, "path": str(path)}, 404
+
+
+def workbook_download_filename(now: datetime | None = None, config_path: Path | str | None = None) -> str:
+    """The name presented to the browser/desktop app for a workbook download.
+
+    Distinct from the on-disk artifact name ("retirement_plan.xlsx", which
+    never changes) -- this is what the user actually sees, so it carries a
+    configurable root plus a build-time timestamp instead of the same
+    generic name on every download.
+    """
+    data = load_system_config(config_path)
+    root = workbook_filename_root(data)
+    stamp = (now or datetime.now()).strftime("%Y%m%d %H%M")
+    return f"{root} {stamp}.xlsx"
+
+
+def workbook_download_settings_payload(config_path: Path | str | None = None) -> dict[str, Any]:
+    data = load_system_config(config_path)
+    return {
+        "success": True,
+        "filename_root": workbook_filename_root(data),
+        "desktop_download_folder": workbook_desktop_download_folder(data),
+    }
+
+
+def save_workbook_download_settings(body: dict[str, Any], config_path: Path | str | None = None) -> tuple[dict[str, Any], int]:
+    path = Path(config_path) if config_path is not None else discover_system_config_csv()
+    if "filename_root" in body:
+        root = str(body.get("filename_root") or "").strip()
+        if not root:
+            return {"success": False, "error": "filename_root cannot be blank"}, 400
+        upsert_system_setting(path, "Downloads", "filename_root", root, units="text", notes="Root name for downloaded workbook files.")
+    if "desktop_download_folder" in body:
+        folder = str(body.get("desktop_download_folder") or "").strip()
+        upsert_system_setting(path, "Downloads", "desktop_download_folder", folder, units="path", notes="Desktop app only: folder workbook downloads are saved to. Blank uses the OS Downloads folder.")
+    return workbook_download_settings_payload(path), 200
 
 
 def detailed_results_payload(

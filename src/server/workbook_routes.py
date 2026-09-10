@@ -412,7 +412,7 @@ def save_csv():
     return jsonify({"success": True})
 
 
-def _download_file(name: str):
+def _download_file(name: str, download_name: str | None = None):
     denied = _require("download")
     if denied:
         return denied
@@ -422,7 +422,7 @@ def _download_file(name: str):
     payload, status = report_service.downloadable_artifact(name, _workspace_output(), fallback)
     if status == 200:
         _audit("file_downloaded", {"file": name})
-        return send_file(str(payload["path"]), as_attachment=True, download_name=name)
+        return send_file(str(payload["path"]), as_attachment=True, download_name=download_name or name)
     return jsonify(payload), status
 
 
@@ -457,7 +457,27 @@ def get_report_package():
 
 @app.route("/api/xlsx", methods=["GET"])
 def get_xlsx():
-    return _download_file("retirement_plan.xlsx")
+    return _download_file("retirement_plan.xlsx", report_service.workbook_download_filename())
+
+
+@app.route("/api/settings/workbook-download", methods=["GET"])
+def get_workbook_download_settings():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    return jsonify(report_service.workbook_download_settings_payload())
+
+
+@app.route("/api/settings/workbook-download", methods=["POST"])
+def save_workbook_download_settings():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    body = request.get_json(silent=True) or {}
+    payload, status = report_service.save_workbook_download_settings(body)
+    if status == 200:
+        _audit("workbook_download_settings_saved", body)
+    return jsonify(payload), status
 
 
 @app.route("/api/workbook-format", methods=["GET"])

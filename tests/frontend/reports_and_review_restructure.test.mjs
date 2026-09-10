@@ -47,19 +47,224 @@ describe("Reports & Review restructure (ticket 301)", () => {
   });
 });
 
-describe("REPORTS_TABS / reportsActiveTab source (ticket 301)", () => {
-  test("dashboard.js no longer defines Build/Downloads/Plan Data Review as separate report tabs", async () => {
-    const fs = await import("node:fs");
-    const path = await import("node:path");
-    const { fileURLToPath } = await import("node:url");
-    const __dirname = path.dirname(fileURLToPath(import.meta.url));
-    const src = fs.readFileSync(
-      path.join(__dirname, "..", "..", "frontend", "js", "dashboard.js"),
-      "utf8",
-    );
-    const m = src.match(/const REPORTS_TABS = \[([\s\S]*?)\];/);
-    assert.ok(m, "REPORTS_TABS declaration not found");
-    const tabs = m[1].split(",").map((s) => s.trim().replace(/"/g, "")).filter(Boolean);
-    assert.deepEqual(tabs, ["Preflight", "Impact", "Results"]);
+// Reports & Review redesign: the 3-tab strip (Preflight/Impact/Results) is
+// gone. The page always shows Impact (unchanged content -- see the
+// renderBuildImpactPage() tests above, which cover the same
+// renderImpactSectionContent() this page also renders) and Plan Data Review
+// together; Preflight folds into a compact note and Results becomes a link
+// to its own standalone page instead of a tab.
+describe("Reports & Review redesign: no tabs, two always-visible sections", () => {
+  function freshSandbox() {
+    const sandbox = loadDashboardSandbox();
+    sandbox.loadBuildHistory = () => {};
+    sandbox.window.dirty = new Map();
+    sandbox.window.rows = [];
+    sandbox.window.buildHistory = [];
+    return sandbox;
+  }
+
+  test("renders with no tab strip markup", () => {
+    const sandbox = freshSandbox();
+    const out = sandbox.renderReportsAndReview();
+    assert.doesNotMatch(out, /workspace-tabs/);
+    assert.doesNotMatch(out, /role="tablist"/);
+  });
+
+  test("Impact content and Plan Data Review are both present, always visible (not a collapsed <details>)", () => {
+    const sandbox = freshSandbox();
+    const out = sandbox.renderReportsAndReview();
+    assert.match(out, /<h3>No build history yet<\/h3>/); // renderImpactSectionContent()'s empty state
+    assert.match(out, /class="plan-data-review-section"/);
+    assert.doesNotMatch(out, /plan-data-review-collapsible/);
+  });
+
+  test("links out to the standalone Results page instead of embedding it", () => {
+    const sandbox = freshSandbox();
+    const out = sandbox.renderReportsAndReview();
+    assert.match(out, /data-step-id="detailed_results"/);
+  });
+
+  test("no Refresh Status button on this page", () => {
+    const sandbox = freshSandbox();
+    const out = sandbox.renderReportsAndReview();
+    assert.doesNotMatch(out, /Refresh Status/);
+  });
+
+  test("no required fields missing: no preflight warning note", () => {
+    const sandbox = freshSandbox();
+    const out = sandbox.renderReportsAndReview();
+    assert.doesNotMatch(out, /required field/);
+  });
+});
+
+describe("Reports & Review header: Build/Download buttons (primaryActionForStep)", () => {
+  function freshSandbox() {
+    const sandbox = loadDashboardSandbox();
+    sandbox.window.dirty = new Map();
+    return sandbox;
+  }
+
+  test("Build is active when there are unsaved edits", () => {
+    const sandbox = freshSandbox();
+    sandbox.window.dirty.set(1, "x");
+    sandbox.window.lastBuildOk = true;
+    assert.equal(sandbox.reportsAndReviewCanBuild(), true);
+  });
+
+  test("Build is active on a never-built plan even with no edits", () => {
+    const sandbox = freshSandbox();
+    sandbox.window.lastBuildOk = false;
+    assert.equal(sandbox.reportsAndReviewCanBuild(), true);
+  });
+
+  test("Build is inactive once built and nothing has changed since", () => {
+    const sandbox = freshSandbox();
+    sandbox.window.lastBuildOk = true;
+    assert.equal(sandbox.reportsAndReviewCanBuild(), false);
+  });
+});
+
+// Gated on planStateArtifactsReady() (do report output files actually
+// exist), not lastBuildOk: updateUnsaved() (row_model.js) forces lastBuildOk
+// false as soon as ANY input is dirty, regardless of whether a build has
+// ever succeeded -- exactly the case this button needs to allow (downloading
+// the last real build despite newer unsaved edits). It downloads via
+// performFileDownload() (dashboard.js), not downloadFile(), for the same
+// reason: downloadFile()'s own lastBuildOk gate would otherwise refuse right
+// after the user has just confirmed "download anyway".
+describe("reportsAndReviewDownloadWorkbook", () => {
+  function freshSandbox() {
+    const sandbox = loadDashboardSandbox();
+    sandbox.window.dirty = new Map();
+    return sandbox;
+  }
+
+  test("refuses with a message when no report artifacts exist yet", async () => {
+    const sandbox = freshSandbox();
+    sandbox.planStateArtifactsReady = () => false;
+    const messages = [];
+    sandbox.showMessage = (msg) => messages.push(msg);
+    let downloaded = false;
+    sandbox.performFileDownload = () => {
+      downloaded = true;
+    };
+    await sandbox.reportsAndReviewDownloadWorkbook();
+    assert.equal(downloaded, false);
+    assert.match(messages[0], /Build reports before downloading/);
+  });
+
+  test("downloads immediately, no confirm, when there are no unsaved changes", async () => {
+    const sandbox = freshSandbox();
+    sandbox.planStateArtifactsReady = () => true;
+    let confirmCalled = false;
+    sandbox.showInAppConfirm = () => {
+      confirmCalled = true;
+      return Promise.resolve(true);
+    };
+    let downloadedUrl = null;
+    sandbox.performFileDownload = (url) => {
+      downloadedUrl = url;
+    };
+    await sandbox.reportsAndReviewDownloadWorkbook();
+    assert.equal(confirmCalled, false);
+    assert.equal(downloadedUrl, "/api/xlsx");
+  });
+
+  test("stale build: confirming downloads the last build's workbook as-is", async () => {
+    const sandbox = freshSandbox();
+    sandbox.planStateArtifactsReady = () => true;
+    sandbox.window.dirty.set(1, "x");
+    sandbox.showInAppConfirm = () => Promise.resolve(true);
+    let downloadedUrl = null;
+    sandbox.performFileDownload = (url) => {
+      downloadedUrl = url;
+    };
+    await sandbox.reportsAndReviewDownloadWorkbook();
+    assert.equal(downloadedUrl, "/api/xlsx");
+  });
+
+  test("stale build: cancelling does not download", async () => {
+    const sandbox = freshSandbox();
+    sandbox.planStateArtifactsReady = () => true;
+    sandbox.window.dirty.set(1, "x");
+    sandbox.showInAppConfirm = () => Promise.resolve(false);
+    let downloaded = false;
+    sandbox.performFileDownload = () => {
+      downloaded = true;
+    };
+    await sandbox.reportsAndReviewDownloadWorkbook();
+    assert.equal(downloaded, false);
+  });
+});
+
+// setAppControls() (row_model.js) is the OTHER half of the disabled-state
+// story: primaryActionForStep() (dashboard.js) computes the initial disabled
+// attribute, but setAppControls() runs after every render and unconditionally
+// re-derives .disabled for every [data-requires-app="1"] button -- without
+// the data-requires-edit/data-requires-artifacts markers it checks here, it
+// would silently clear whatever the initial render decided (a real bug this
+// suite caught live in the browser, not something the render-output-only
+// tests above could have caught).
+describe("setAppControls: Reports & Review's Build/Download markers", () => {
+  function freshSandbox() {
+    const sandbox = loadDashboardSandbox();
+    sandbox.document.querySelectorAll = (sel) =>
+      sel === '[data-requires-app="1"]' ? sandbox.__testButtons || [] : [];
+    return sandbox;
+  }
+  function fakeButton(attrs) {
+    const store = { ...attrs };
+    return {
+      getAttribute: (name) => (name in store ? store[name] : null),
+      disabled: false,
+    };
+  }
+
+  test("a data-requires-edit button is disabled when reportsAndReviewCanBuild() is false", () => {
+    const sandbox = freshSandbox();
+    const btn = fakeButton({ "data-requires-edit": "1" });
+    sandbox.__testButtons = [btn];
+    sandbox.reportsAndReviewCanBuild = () => false;
+    sandbox.setAppControls(true);
+    assert.equal(btn.disabled, true);
+  });
+
+  test("a data-requires-edit button is enabled when reportsAndReviewCanBuild() is true", () => {
+    const sandbox = freshSandbox();
+    const btn = fakeButton({ "data-requires-edit": "1" });
+    sandbox.__testButtons = [btn];
+    sandbox.reportsAndReviewCanBuild = () => true;
+    sandbox.setAppControls(true);
+    assert.equal(btn.disabled, false);
+  });
+
+  test("a data-requires-artifacts button is disabled when planStateArtifactsReady() is false", () => {
+    const sandbox = freshSandbox();
+    const btn = fakeButton({ "data-requires-artifacts": "1" });
+    sandbox.__testButtons = [btn];
+    sandbox.planStateArtifactsReady = () => false;
+    sandbox.setAppControls(true);
+    assert.equal(btn.disabled, true);
+  });
+
+  test("a data-requires-artifacts button stays enabled through unsaved edits, unlike a plain data-download button", () => {
+    const sandbox = freshSandbox();
+    const artifactsBtn = fakeButton({ "data-requires-artifacts": "1" });
+    const downloadBtn = fakeButton({ "data-download": "1" });
+    sandbox.__testButtons = [artifactsBtn, downloadBtn];
+    sandbox.planStateArtifactsReady = () => true;
+    sandbox.window.lastBuildOk = false; // e.g. forced false by an unsaved edit
+    sandbox.setAppControls(true);
+    assert.equal(artifactsBtn.disabled, false);
+    assert.equal(downloadBtn.disabled, true);
+  });
+
+  test("every marked button is disabled when the app itself isn't ready", () => {
+    const sandbox = freshSandbox();
+    const btn = fakeButton({ "data-requires-edit": "1" });
+    sandbox.__testButtons = [btn];
+    sandbox.reportsAndReviewCanBuild = () => true;
+    sandbox.setAppControls(false);
+    assert.equal(btn.disabled, true);
   });
 });

@@ -135,3 +135,5 @@ Market Pricing,Holdings,advisor_ready_max_fallback_value_pct,10.00%,pct,Block ad
 System Configuration,Plan Chat,require_consent,YES,yes/no,Require per-request client consent before any context can be sent to a third-party AI provider.
 System Configuration,Plan Chat,redact_context,YES,yes/no,"Redact names, emails, phone numbers, and addresses before sending Plan Chat context to third-party AI."
 System Configuration,Runtime,max_build_seconds,1800,seconds,"Maximum local workbook build runtime before timeout. Default is 30 minutes; increase for very large Advanced Exact Scalar Monte Carlo, sensitivity grids, or slower machines."
+System Configuration,Downloads,filename_root,Retirement Workbook,text,Root name for downloaded workbook files.
+System Configuration,Downloads,desktop_download_folder,,path,Desktop app only: folder workbook downloads are saved to. Blank uses the OS Downloads folder.

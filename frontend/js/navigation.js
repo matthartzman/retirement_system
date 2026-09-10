@@ -7,16 +7,13 @@
   // plan-independent/admin pages) stay on the explicit-save + 3-way guard below.
   const AUTOSAVE_STEPS=['household_people','income_work','income_retirement','lifestyle_spending','spending_core','spending_setup','retirement_wellness','spending_mortgage_events','ytd_transactions','holdings','assets_home_cash','annuity_death_benefits','assets_special','estate','distribution_strategy','state_residency','special_strategies','economic_tax_assumptions','optional_functions','all_assumptions'];
   const PLAN_INDEPENDENT_STEPS=['start','system_configuration','workbook_formatting','detailed_results','planning_workbench','reports_and_review'];
-  // #301: Reports & Review is primarily the Impact page now -- Downloads and
-  // Plan Data Review no longer have their own tabs (folded into Impact as
-  // action buttons / collapsible sections), so jump-links to those step ids
-  // land on Impact too rather than a tab that no longer exists.
-  const REPORTS_REDIRECTS={
-    detailed_results:'Results',
-    build_impact:'Impact',
-    review:'Impact',
-    plan_data_report:'Impact'
-  };
+  // Reports & Review redesign: it now shows Impact and Plan Data Review
+  // together with no tabs to pick between, so a jump-link to either former
+  // tab's step id just lands on the one page -- no tab argument to pass.
+  // detailed_results is deliberately NOT in this list: Results is a real,
+  // separately reachable page now (linked from Reports & Review rather than
+  // embedded in it), so a jump-link to it should land there directly.
+  const REPORTS_REDIRECT_IDS=['build_impact','review','plan_data_report'];
   const STEP_REDIRECTS={
     spending_travel:'lifestyle_spending',
     spending_travel_extras:'lifestyle_spending',
@@ -67,8 +64,7 @@
     ctx=ctx||{};
     opts=opts||{};
     const planLoaded=!!safeCall(ctx.getPlanLoaded);
-    if(REPORTS_REDIRECTS[id]){
-      safeCall(()=>ctx.setReportsTab(REPORTS_REDIRECTS[id]));
+    if(REPORTS_REDIRECT_IDS.includes(id)){
       id='reports_and_review';
     }else if(STEP_REDIRECTS[id]){
       id=STEP_REDIRECTS[id];
