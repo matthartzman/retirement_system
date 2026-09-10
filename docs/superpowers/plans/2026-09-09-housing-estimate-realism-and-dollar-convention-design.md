@@ -1,6 +1,8 @@
 # Housing next-step estimate: realism + dollar-convention — design & implementation plan
 
-**Status:** design only. Nothing in this document has been implemented.
+**Status:** design only. Nothing in this document has been implemented. All
+nine open decisions (§8) resolved 2026-09-10. Implementation plan (§7) phased
+into four slices in a follow-up pass.
 **Date:** 2026-09-09
 **Subject:** `housing_state_estimate_payload()` (`src/server_services/strategy_asset_service.py:94-129`),
 its route (`src/server/plan_routes.py:742`), its one frontend caller
@@ -299,12 +301,22 @@ machinery is exactly what this design now needs, not something it can skip.**
    a small neighborhood (±1 on each axis around the winner, echoing SS's own
    "every individual age around that region is scored" refine step) — on the
    order of **5–10 real MC runs**, not hundreds.
-3. **This is coordinate descent, not an exhaustive joint search, and the sheet
-   must disclose that**, the same way SS's own text row discloses its sweep is
-   coarse-then-refine over a bounded grid rather than a true brute force
-   (`sheets_strategy.py:667`). A coordinate descent can miss a joint optimum
-   that no single-axis move would find — worth stating plainly rather than
-   implying a false completeness.
+3. **Run the coarse pass twice, from two different axis orderings, and keep
+   the better trajectory (open decision #8, resolved 2026-09-10).** Coordinate
+   descent's known risk is missing a joint optimum that no single-axis move
+   would find. Since the coarse pass is already ≤36 deterministic calls,
+   running it a second time starting from a different axis order — (b)→(c)→(a)
+   instead of (a)→(b)→(c) — roughly doubles coarse-pass cost to ≤72 calls,
+   still cheap, and keeps whichever of the two resulting trajectories scores
+   higher before the refine pass runs on it. This reduces, but does not
+   eliminate, the joint-optimum-miss risk (decided: acceptable — see §8's
+   resolution).
+4. **This is coordinate descent (now run twice, per point 3), not an
+   exhaustive joint search, and the sheet must disclose that**, the same way
+   SS's own text row discloses its sweep is coarse-then-refine over a bounded
+   grid rather than a true brute force (`sheets_strategy.py:667`). Say plainly
+   that two axis orderings were tried and the better kept — not just "coarse
+   then refine" — so the disclosure matches what actually ran.
 
 ### 4.3 Candidate pricing — a shared function, now needed by two callers instead of one
 
@@ -357,7 +369,7 @@ originally designed and are not affected by the candidate-space revision:
 | Objective | `lcv_score = consumption_pv + after_tax_terminal_nw_pv` (PV via `_roth_discount_rate`, `sheets_strategy.py:417-418`), no survivor-income term (nothing housing-specific plays that role) |
 | Normalization | `100 * (raw_score - score_lo) / score_span` (`sheets_strategy.py:1012`) |
 | Feasibility gate | `feasibility_probability >= LCV_FEASIBILITY_GATE_THRESHOLD` |
-| Mechanism | `strategy_sweep.run_sweep(specs, evaluate_fn, sort_key=..., feasibility_key=...)` — called once per coarse-pass axis and once for the refine pass, not once for the whole sweep, since each stage has its own `specs` list |
+| Mechanism | `strategy_sweep.run_sweep(specs, evaluate_fn, sort_key=..., feasibility_key=...)` — called once per coarse-pass axis, for *each* of the two axis orderings (§4.2 point 3), and once for the refine pass, not once for the whole sweep, since each stage has its own `specs` list |
 
 ### 4.5 Sheet layout
 
@@ -380,11 +392,12 @@ coordinate-descent methodology as a real joint ranking if it tried. Instead:
    another despite a higher monthly cost.
 3. **Three sensitivity mini-tables** — one per axis, mirroring SS's own
    "Longevity sensitivity of the top-ranked pairs" section
-   (`sheets_strategy.py:633`): for each axis, show the coarse pass's
-   deterministic Objective Value across every point on that axis, holding the
-   other two at the winning trajectory's values. Cheap (already computed in
-   §4.2 step 1, nothing new to run) and far more honest than trying to compress
-   a 1,568-point space into one table — it shows the reader "here's the full
+   (`sheets_strategy.py:633`): for each axis, show the *winning* axis
+   ordering's (§4.2 point 3) coarse-pass deterministic Objective Value across
+   every point on that axis, holding the other two at the winning trajectory's
+   values. Cheap (already computed in §4.2 step 1, nothing new to run) and far
+   more honest than trying to compress a 1,568-point space into one table — it
+   shows the reader "here's the full
    range we actually considered on each axis," which a top-10-of-1,568 table
    would not.
 
@@ -523,123 +536,199 @@ shape of (`city_type`/`population_size` for §3's fields; `build_sheet10`'s SS
 sweep for §4's sheet), not an open-ended refactor, so it does not need the
 higher tiers the two large modularization plans required.
 
+### 7.0 Delivery is phased into four slices, not big-bang
+
+Resolved in a follow-up session after §8's decisions (asked explicitly:
+is there a natural phase-in of value, or does this ship as one unit).
+Called **Slices** here, deliberately not
+*Phases*, to avoid colliding with the already-named "Deferred — Phase 2"
+(§4.6's alt-location sweep) later in this section — the two are unrelated
+groupings. Each slice below is independently valuable and shippable on its
+own; nothing later in the list is required to get value from something
+earlier.
+
+- **Slice 1 fixes the actual correctness bug** (§1a/b — today's-dollars
+  numbers silently written into future-dollars fields) **with zero new UI.**
+  This is the single highest-value item in the whole document and needs
+  nothing else in this plan to ship.
+- **Slice 2 adds the five realism characteristics** (§3.3) on top of an
+  already-correct Slice 1. Real value, but strictly additive — nobody is
+  blocked on it to get Slice 1's fix.
+- **Slice 3 ships a sheet early, in the first draft's original shape** — a
+  plain 2-candidate "as-configured vs. the opposite type" comparison at Step 1
+  only, no sale-year or Step 2 sweep, no coordinate descent. This is
+  literally the design this document's own §4 intro describes as superseded
+  — resurrected here on purpose as a real, cheap, shippable interim version of
+  the *same* sheet Slice 4 later upgrades in place.
+- **Slice 4 upgrades that sheet to the full three-axis coordinate-descent
+  sweep** (§4.1–§4.5, including the open-decision-#8 double-ordering
+  mitigation) — same `SHEET_REGISTRY` entry, same disclosure convention,
+  replacing Slice 3's candidate generation and rendering rather than adding a
+  second sheet.
+
+**This costs real rework, and that cost is stated plainly rather than
+hidden.** Slice 3 builds a scoring/rendering shape that Slice 4 then replaces
+rather than extends — H9a/H11a below are not wasted (they're what makes Slice
+3 shippable at all, and H10/H11 in Slice 4 reuse the scoring block H9a
+establishes), but they are real turns spent on something Slice 4 supersedes.
+The phased total below (22–35) is a few turns higher than shipping
+non-phased (19–31, §7's prior revision) for exactly this reason — the
+trade is earlier delivered value for a small amount of throwaway-adjacent
+work, not a free lunch.
+
+**Dependencies across slices:** Slice 2 has no dependency on Slice 1 and may
+run in parallel with it (same as H1–H6's original independence). Slice 3
+depends on Slice 1 specifically (H8 extracts the function H2 writes the
+translation logic into) — not on Slice 2. Slice 4 depends on Slice 3 (it
+upgrades the same sheet H7/H8/H9a/H11a stand up). Recommended sequence:
+**Slice 1 → Slice 3 → Slice 4**, with **Slice 2 run in parallel with Slice 1**
+(it can land before or after Slice 3/4 with no effect on either).
+
+#### Slice 1 — Dollar-convention fix (ship first)
+
+| ID | Item | Model · effort | Turns |
+|---|---|---|---:|
+| H2 | Backend: §3.2 translation (start_year/home_appr/inflation_general params, per-field rates, exemption list respected); extend `note`. | sonnet · medium | 1–2 |
+| H3 | Frontend: thread `start_year`/`home_appr`/`inflation_general` through `estimateHousingFromState`; render `note`; close the rent `city_type`/`population_size` gap (§3.4). | sonnet · medium | 1–2 |
+| H5 | **The one item that needs a stronger check, not a stronger model.** The ongoing-escalation regression test (§6 item 1) — its value is in what it proves (directive 3 held), not in any judgment call, so it stays sonnet, but it must exist and pass before H2/H3 are considered done, not after. | sonnet · medium | 1–2 |
+| | **Slice 1 subtotal** | | **3–6** |
+
+#### Slice 2 — Realism characteristics (parallel-capable with Slice 1)
+
 | ID | Item | Model · effort | Turns |
 |---|---|---|---:|
 | H1 | Backend: 5 new `HOUSING_SEED_ROWS` entries × 2 steps; multiplier tables; characteristic-combined pricing (§3.3). | sonnet · medium | 2–3 |
-| H2 | Backend: §3.2 translation (start_year/home_appr/inflation_general params, per-field rates, exemption list respected); extend `note`. | sonnet · medium | 1–2 |
-| H3 | Frontend: thread `start_year`/`home_appr`/`inflation_general` through `estimateHousingFromState`; render `note`; close the rent `city_type`/`population_size` gap (§3.4). | sonnet · medium | 1–2 |
 | H4 | Frontend: 5 new fields in `PURCHASE_REST`/`RENT_REST`, `filterChoiceOptionsForRow`, row_model label overrides, `FIELD_GUIDANCE_OVERRIDES` copy. | sonnet · medium | 2–3 |
-| H5 | **The one item that needs a stronger check, not a stronger model.** The ongoing-escalation regression test (§6 item 1) — its value is in what it proves (directive 3 held), not in any judgment call, so it stays sonnet, but it must exist and pass before H1–H4 are considered done, not after. | sonnet · medium | 1–2 |
 | H6 | Estimator unit tests + golden-master confirmation run (§6 items 2–3). | sonnet · low | 1–2 |
+| | **Slice 2 subtotal** | | **5–8** |
+
+#### Slice 3 — Simple comparison sheet (v0: 2-candidate, no coordinate descent)
+
+| ID | Item | Model · effort | Turns |
+|---|---|---|---:|
 | H7 | `SHEET_REGISTRY`/`OPTIONAL_MODULE_SHEETS`/`workbook_builder.py` wiring for the new sheet (§4.7) — mechanical, three files, each with an exact existing pattern to copy per row. | sonnet · low | 1 |
-| H8 | Extract `estimate_housing_cost(...)` (§4.3) as a pure function out of `housing_state_estimate_payload`, which becomes a thin HTTP-shaped wrapper around it. Mechanical — H2 already wrote the logic being moved, this just gives it a second caller. Depends on H1–H2 landing first. | sonnet · low | 1 |
-| H9 | Coarse pass (§4.2 step 1): coordinate descent across the three axes, `skip_mc=True`, ≤36 `project()` calls, each stage fixing the other two axes at their current-best value before sweeping the third. | **opus · medium** | 2–3 |
-| H10 | Refine pass (§4.2 step 2) + scoring/`run_sweep()` wiring (§4.4): real `monte_carlo()` on the coarse winner plus its neighborhood, `lcv_score`/PV/feasibility-gate block copied from `build_sheet10` essentially verbatim. | **opus · medium** | 2–3 |
-| H11 | Sheet rendering (§4.5): recommended-trajectory row, refine-pass table, three per-axis sensitivity mini-tables, the methodology-and-real-vs-modeled disclosure text. | sonnet · medium | 2–3 |
+| H8 | Extract `estimate_housing_cost(...)` (§4.3) as a pure function out of `housing_state_estimate_payload`, which becomes a thin HTTP-shaped wrapper around it. Mechanical — H2 already wrote the logic being moved, this just gives it a second caller. Depends on Slice 1 (H2) landing first. | sonnet · low | 1 |
+| H9a | **Slice 3's candidate scoring — the first draft's original shape, resurrected.** Exactly two candidates: the household's configured Step 1 (type, year, location) as entered, and the opposite type (buy↔rent swap) at the same year/location, priced via `estimate_housing_cost` (H8). Both scored with real `monte_carlo()` directly — no `skip_mc` coarse pass needed, two candidates is already cheap — using the `lcv_score`/PV/feasibility-gate block `build_sheet10` already establishes. **Superseded by H9 in Slice 4.** | sonnet · medium | 1–2 |
+| H11a | **Slice 3's sheet rendering.** One row for the configured choice's score, one row for the alternative — with only two candidates, the table *is* the recommendation, so no separate recommended-trajectory block. A short disclosure line: "compares your configured Step 1 choice against the opposite (buy vs. rent) at the same year." No sensitivity tables — nothing swept yet to show sensitivity over. Registered under the same `SHEET_REGISTRY` entry H7 creates, so Slice 4 upgrades this sheet in place. **Superseded by H11 in Slice 4.** | sonnet · low | 1–2 |
+| | **Slice 3 subtotal** | | **4–6** |
+
+#### Slice 4 — Full three-axis coordinate-descent sweep (upgrades Slice 3's sheet in place)
+
+| ID | Item | Model · effort | Turns |
+|---|---|---|---:|
+| H9 | Coarse pass (§4.2 steps 1 & 3): coordinate descent across the three axes, `skip_mc=True`, ≤36 `project()` calls, each stage fixing the other two axes at their current-best value before sweeping the third — run twice, from two different axis orderings (open decision #8), keeping whichever trajectory scores higher. **Supersedes H9a's 2-candidate scoring on the same sheet.** | **opus · medium** | 3–4 |
+| H10 | Refine pass (§4.2 step 2) + scoring/`run_sweep()` wiring (§4.4): real `monte_carlo()` on the winning coarse-pass trajectory plus its neighborhood, reusing the `lcv_score`/PV/feasibility-gate block H9a already established rather than writing it fresh. | **opus · medium** | 2–3 |
+| H11 | Sheet rendering (§4.5): recommended-trajectory row, refine-pass table, three per-axis sensitivity mini-tables (sourced from the winning ordering's coarse pass), the methodology-and-real-vs-modeled disclosure text (stating two axis orderings were tried and the better kept). **Extends H11a's rendering in place** — same sheet, same registry entry, the 2-row table becomes the refine-pass table. | sonnet · medium | 2–3 |
 | H12 | New test: comparison-sheet scores are on the same scale as `10. Social Security`'s (a synthetic fixture where both sheets score the same underlying plan should produce comparable `Objective Value` magnitudes) — the concrete check that "scored like SS" was actually achieved, not just stated. | sonnet · medium | 1–2 |
-| H13 | New test: coordinate-descent correctness — a synthetic fixture with a known-best (sale year, Step 1, Step 2) combination planted in it; assert each coarse-pass stage actually carries the prior stage's winner forward into `c2` (the concrete check for H9/H10's silent-failure risk, playing the same role H5 plays for directive 3). | sonnet · medium | 1–2 |
-| | **Total (v1, three-axis sweep)** | | **18–29** |
+| H13 | New test: coordinate-descent correctness — a synthetic fixture with a known-best (sale year, Step 1, Step 2) combination planted in it; assert each coarse-pass stage actually carries the prior stage's winner forward into `c2`, and that the two-orderings comparison in H9 actually keeps the higher-scoring trajectory (the concrete check for H9/H10's silent-failure risk, playing the same role H5 plays for directive 3). | sonnet · medium | 2–3 |
+| | **Slice 4 subtotal** | | **10–15** |
+
+| | **Total (v1, all four slices)** | | **22–35** |
 
 **Why H9/H10 are opus · medium and nothing else in this plan is above
 sonnet.** Every other item has a fully specified answer to copy (a formula, a
 table, an existing file's pattern). H9/H10 are where getting something subtly
 wrong — a coarse-pass stage that sweeps axis (b) without actually holding
 axis (a)'s winner fixed in `c2`, a feasibility gate that silently always
-passes, an off-by-one in the PV discount — produces a sheet that *looks*
-right (renders, has plausible-looking numbers, ranks something) while quietly
-failing the premise of the request: that the search is real and the score
-means what it means on `10. Social Security`. Same silent-failure shape the
-two modularization designs used to justify their opus-tier items.
+passes, an off-by-one in the PV discount, or the two-orderings comparison
+(open decision #8) silently keeping the wrong trajectory — produces a sheet
+that *looks* right (renders, has plausible-looking numbers, ranks something)
+while quietly failing the premise of the request: that the search is real and
+the score means what it means on `10. Social Security`. Same silent-failure
+shape the two modularization designs used to justify their opus-tier items.
 
-**This total grew from the first draft's 15–23 to 18–29, and that growth is
-real, not padding.** The three-axis sweep replaces a 2-candidate comparison
-with a coordinate-descent search plus a genuine refine pass plus three
-sensitivity tables — H9/H10/H13 didn't exist in the first draft because the
-problem they solve (tractability of a combinatorial candidate space) didn't
-exist at 4 candidates.
+**This total's history: 15–23 (first draft) → 18–29 (three-axis sweep) →
+19–31 (open decision #8's double-ordering mitigation) → 22–35 (phased into
+four slices).** Each growth is real, not padding. H9/H10/H13 didn't exist in
+the first draft because the problem they solve (tractability of a
+combinatorial candidate space) didn't exist at 4 candidates. H9a/H11a exist
+only because of the phasing decision itself — the price of Slice 3 shipping
+real value before Slice 4 is ready, paid once.
 
-**Two lanes, not one — unchanged from the first draft's revision.** §3's fix
-(H1–H6) touches `strategy_asset_service.py` and the frontend housing module;
-§4's sheet (H7–H13) touches `sheets_strategy.py`, `module_catalog.py`,
+**Two lanes, four slices.** §3's fix (Slices 1–2, H1–H6) touches
+`strategy_asset_service.py` and the frontend housing module; §4's sheet
+(Slices 3–4, H7–H13) touches `sheets_strategy.py`, `module_catalog.py`,
 `workbook_builder.py`, and `strategy_sweep.py` (read-only). H8 has a stated
-dependency on H1–H2 (it extracts the function H1–H2 write the logic into), and
-H9/H10 depend on H8. Sequence H1–H2 → H8 → H9 → H10 → H11; H3–H7 and H12/H13's
-test-fixture setup have no such dependency and may run alongside H1–H2.
+dependency on Slice 1 (H2) — it extracts the function H2 writes the logic
+into — and H9/H10 depend on H8/H9a. Recommended sequence: **Slice 1 → Slice 3
+→ Slice 4**, with **Slice 2 running in parallel** at any point.
 
-### Deferred — Phase 2 (§4.6), not in the total above
+### Deferred (post-v1): alt-location sweep (§4.6), not in the total above
+
+Named "Phase 2" in earlier revisions of this document, before Slice
+terminology existed above for a different grouping — kept here as P1/P2 to
+avoid renumbering, but read as "the post-v1 deferred work," not as a fifth
+slice.
 
 | ID | Item | Model · effort | Turns |
 |---|---|---|---:|
 | P1 | `next_step_N_alt_2`/`alt_3` `HOUSING_SEED_ROWS` rows + a repeatable sub-form UI for entering additional candidate locations per Housing step. A genuinely new UI pattern (repeatable sub-form), not just more fields — larger than H1/H4 individually. | sonnet · medium | 4–6 |
 | P2 | Extend §4.1(b)/(c)'s axes to include each step's populated alt-slots as additional discrete options — multiplies, does not replace, the existing type×year sweep. | sonnet · medium | 2–3 |
-| | **Phase 2 subtotal** | | **6–9** |
+| | **Deferred subtotal** | | **6–9** |
 
-Sequenced after v1 ships and its coordinate-descent mechanics are verified
-(H9/H10/H13) — bundling Phase 2 into v1 would make the sweep depend on unshipped
-UI before its own search logic could be tested in isolation.
+Sequenced after Slice 4 ships and its coordinate-descent mechanics are
+verified (H9/H10/H13) — bundling this into v1 would make the sweep depend on
+unshipped UI before its own search logic could be tested in isolation.
 
 ---
 
 ## 8. Open decisions
 
-1. **Should `built_within_years` also feed the ongoing per-year math** (e.g., a
-   newer home needing less maintenance escalation over time)? Out of scope per
-   directive 3 — this design only changes what number the Estimator writes
-   once, not any ongoing year-by-year behavior. Flagging in case product intent
-   was broader than the literal directive.
-2. **Multiplier table values are illustrative, not sourced.** Same character as
-   the existing `city_type`/`population_size` multipliers — someone with real
-   comparative market data should tune these before they're treated as
-   authoritative, not just before this ships.
-3. **Does `home_appr` or a distinct "market appreciation until purchase" rate
-   belong in §3.2's price translation?** This design uses the plan's single
-   `home_appr` value for consistency with the field's own post-purchase growth
-   (§3.2's stated rationale). A plan that expects a hot near-term market
-   followed by normal long-term appreciation would need a second rate this
-   design doesn't add — reasonable to decline unless real usage shows the single
-   rate is a poor fit.
+All nine resolved 2026-09-10, asked explicitly and answered one by one. Each
+entry below keeps the original question for context, then records the
+decision and where it changed (or confirmed unchanged) the design above.
+
+1. ~~**Should `built_within_years` also feed the ongoing per-year math**
+   (e.g., a newer home needing less maintenance escalation over time)?~~
+   **Resolved: out of scope for v1.** Confirms directive 3 as originally
+   stated — this design only changes what number the Estimator writes once,
+   not any ongoing year-by-year engine behavior. No change to the design.
+2. ~~**Multiplier table values are illustrative, not sourced.**~~
+   **Resolved: ship as illustrative defaults, tune later.** Same treatment as
+   the existing `city_type`/`population_size` multipliers already in
+   production. No change to the design — §3.3's tables stand as written.
+3. ~~**Does `home_appr` or a distinct "market appreciation until purchase"
+   rate belong in §3.2's price translation?**~~ **Resolved: single `home_appr`
+   rate, as originally designed.** No second rate added. No change to the
+   design — §3.2's table and rationale stand as written.
 4. ~~**Should the comparison sheet (§4) sweep more than Buy vs. Rent?**~~
    **Superseded 2026-09-09** — the directive that produced this open question
    also answered it: candidates are now a three-axis sweep (sale year × Step 1
    × Step 2), not a single binary choice. §4.1–§4.2 are the resolution.
 5. ~~**Does the sheet compare `next_step_1` and `next_step_2` against each
-   other?**~~ **Reframed, not fully resolved, by the revision.** The two steps
-   are now jointly part of one swept trajectory (§4.1(b)/(c)) rather than
-   independent binary choices, which is closer to what this question was
-   asking for — but the sheet still doesn't answer "should I do Step 2 at all,
-   or stop after Step 1" as its own question; axis (c) only ever asks "when
-   and how, given axis (a)/(b)'s winners," not "whether." Worth a specific
-   look at implementation time — it may already be implicitly answered by the
-   refine table (a "no second move" trajectory scoring highest would say so),
-   or it may need its own disclosure line.
+   other?**~~ **Resolved: implicit is fine — no explicit "should I even do
+   Step 2" disclosure line.** If a "no second move" trajectory scores highest,
+   it already wins the ranking and appears as the Recommended trajectory
+   (§4.5 item 1); H11 does not gain extra rendering work for this. No change
+   to the design beyond this confirmation.
 6. **Sheet placement number.** §4.7 deliberately leaves the exact `X.`/rank
    values for implementation time, per `SHEET_REGISTRY`'s own precedent of
    non-sequential ranks — but section `'2'` (Strategy) alongside SS/Roth/State
    Residency is a design commitment, not just a placeholder, since it's what
    makes "scored like SS" legible to a reader flipping between sheets in the
-   same workbook section.
-7. **Window size `K=3` for all three axes is a single, unjustified constant.**
-   §4.1 uses the same ±3-year window for sale year, Step 1, and Step 2 purely
-   for uniformity — there's no reason all three should have the same
-   uncertainty band. A household with a firmly fixed Step 1 date but an
-   uncertain sale year would be better served by asymmetric windows. Left as a
-   single tunable constant (not per-axis) for v1 simplicity; revisit if the
-   coarse pass's sensitivity tables (§4.5 item 3) show a winner sitting at the
-   edge of its window, which would be a real signal the window is too narrow
-   rather than a modeling choice.
-8. **Coordinate descent can miss a joint optimum a true grid search would
-   find.** §4.2 states this as a disclosed limitation, not a solved problem.
-   Whether that matters in practice depends on how correlated the three axes'
-   effects actually are for a typical household — untested. If early use shows
-   the coordinate-descent winner and a plausible joint winner disagree often,
-   the fix is a second coordinate-descent pass starting from a different axis
-   order (cheap, since the coarse pass is already ≤36 calls) before reaching
-   for a real joint search.
-9. **The `home_sale_yr` unset → fall back to Step 1's `start_year`** rule
+   same workbook section. Not asked as a decision (no real alternative was on
+   the table) — recorded here as confirmed, not open.
+7. ~~**Window size `K=3` for all three axes is a single, unjustified
+   constant.**~~ **Resolved: uniform ±3 years for all three axes, as
+   originally designed.** No asymmetric per-axis windows for v1. No change to
+   the design — §4.1's window stands as written. Revisit only if the
+   sensitivity tables (§4.5 item 3) show a winner sitting at the edge of its
+   window.
+8. ~~**Coordinate descent can miss a joint optimum a true grid search would
+   find.**~~ **Resolved: add the mitigation now — run the coarse pass twice,
+   from two different axis orderings, and keep the better trajectory.**
+   **This changed the design**, not just this section: see §4.2 point 3 (new),
+   §4.5's Mechanism row and sensitivity-table sourcing, and §7's H9/H10/H13
+   turn estimates (total moved from 18–29 to 19–31). The residual risk —
+   coordinate descent, even run twice, can still miss a joint optimum a true
+   grid search would find — remains a disclosed limitation, not a solved
+   problem; a real joint search is still not in v1's scope.
+9. ~~**The `home_sale_yr` unset → fall back to Step 1's `start_year`** rule
    (§4.1(a)) assumes a household's first future move coincides with, or
-   follows soon after, selling the current home. That's the common case but
-   not guaranteed — a household renting out (not selling) their current home
-   while buying elsewhere would be modeled wrong by this fallback. No such
-   "keep and rent out" state exists in the current Housing data model at all
-   (`home_sale_yr` is binary: sell at this year, or 0/never) — a real gap, but
-   one that predates this design and is out of scope to fix here.
+   follows soon after, selling the current home.~~ **Resolved: accept as a
+   known, pre-existing gap — out of scope for v1.** The "keep and rent out the
+   current home while buying elsewhere" state doesn't exist anywhere in the
+   Housing data model today (`home_sale_yr` is binary: sell at this year, or
+   0/never) — fixing that is a separate, larger data-model change, not
+   something this design's fallback rule should attempt. No change to the
+   design — §4.1(a)'s fallback stands as written.
