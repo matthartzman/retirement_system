@@ -3803,6 +3803,7 @@ function primaryActionForStep(stepId) {
     // doesn't survive that call.
     return (
       `<button class="btn primary" type="button" data-requires-app="1" data-requires-edit="1" onclick="runBuild(false)"${canBuild ? "" : " disabled"}>Build Reports</button>` +
+      `<button class="btn" type="button" data-step-id="detailed_results">View Workbook</button>` +
       `<button class="btn" type="button" data-requires-app="1" data-requires-artifacts="1" onclick="reportsAndReviewDownloadWorkbook()"${artifactsReady ? "" : " disabled"}>Download Workbook</button>`
     );
   }

@@ -1232,17 +1232,18 @@ export function renderReportsAndReview() {
     unsavedChangesPromptBar() +
     renderImpactSectionContent() +
     "</div></div>";
-  const resultsLink =
-    '<div class="section-note"><button class="btn" type="button" data-step-id="detailed_results">View Detailed Results &rarr;</button></div>';
+  // Collapsed by default: this is a full read-only dump of every plan input,
+  // useful for a final review pass but not something to land open on every
+  // visit to this page (the View Workbook link in the header, not this
+  // section, is the "check my results" affordance).
   const planDataSection =
-    '<div class="plan-data-review-section"><h3 class="section-header">Plan Data Review</h3>' +
+    '<details class="plan-data-review-section"><summary class="section-header">Plan Data Review</summary>' +
     renderPlanDataReport() +
-    "</div>";
+    "</details>";
   return (
     '<div class="reports-and-review">' +
     preflightNote +
     impactSection +
-    resultsLink +
     planDataSection +
     "</div>"
   );
