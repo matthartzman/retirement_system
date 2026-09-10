@@ -1,23 +1,14 @@
 {
   "schema": "dashboard_clusters_v1",
   "cutoff": 3,
-  "total_functions": 202,
+  "total_functions": 189,
   "hubs": [
     {
       "name": "renderMain",
-      "fan_in": 20
+      "fan_in": 19
     }
   ],
   "components": [
-    [
-      "choiceHelpText",
-      "choiceLabel",
-      "choiceOptions",
-      "fieldAllowedValues",
-      "filterChoiceOptionsForRow",
-      "helpList",
-      "yesNoOptionHelp"
-    ],
     [
       "chooseDefaultDetailedSheet",
       "detailProgressState",
@@ -72,11 +63,6 @@
       "openNextCollapsedSectionFrom"
     ],
     [
-      "getStrategyTab",
-      "goToStrategyTab",
-      "renderWorkspaceSubtabsNav"
-    ],
-    [
       "personCellInput",
       "personNickPlaceholder",
       "renderHouseholdPeople"
@@ -96,16 +82,16 @@
       "makeYtdAccountRow"
     ],
     [
+      "addParentheticals",
+      "pageHelp"
+    ],
+    [
       "allocationPreviewFingerprint",
       "allocationPreviewRowsForPost"
     ],
     [
       "allocationTargetsValid",
       "validateAllocationTargetsOrMessage"
-    ],
-    [
-      "autoCollapseHelpForNarrowLaptop",
-      "showHelpAutoCollapseNoticeOnce"
     ],
     [
       "blurYtdAccountMoney",
@@ -132,6 +118,10 @@
       "fieldTooltipPreview"
     ],
     [
+      "getStrategyTab",
+      "renderWorkspaceSubtabsNav"
+    ],
+    [
       "humanizeGroupKey",
       "personTokenLabel"
     ],
@@ -148,23 +138,12 @@
       "promotePlanningCase"
     ],
     [
-      "renderEntityCharitable",
-      "renderSpecialStrategies"
-    ],
-    [
-      "renderIncomeWork",
-      "rowSortKeyForIncomeWork"
-    ],
-    [
       "renderStrategyTabs",
       "setStrategyTab"
     ],
     [
       "setDetailedResultSheet",
       "setDetailedResultsNavOpen"
-    ],
-    [
-      "addParentheticals"
     ],
     [
       "artifactHashFromPreflight"
@@ -278,9 +257,6 @@
       "optionalModuleState"
     ],
     [
-      "pageHelp"
-    ],
-    [
       "pageStatusHtml"
     ],
     [
@@ -372,6 +348,9 @@
     ],
     [
       "renderRetirementWellness"
+    ],
+    [
+      "renderSpecialStrategies"
     ],
     [
       "renderSpendingDashboardOrLoad"

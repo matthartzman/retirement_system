@@ -102,10 +102,13 @@ def test_schema_exposes_roth_optimizer_governance_controls():
 
 def test_engine_parses_and_uses_headroom_and_estate_controls():
     """Engine reads and applies roth objective, headroom, and estate tax controls."""
-    data_io = (ROOT / 'src/data_io.py').read_text(encoding='utf-8')
+    # roth_objective_mode / estate_tax_objective_mode parsing lives in
+    # src/parsing/roth_conversion_policy.py (ticket 312 extraction), not
+    # inline in src/data_io.py anymore.
+    roth_policy_module = (ROOT / 'src/parsing/roth_conversion_policy.py').read_text(encoding='utf-8')
     engine = (ROOT / 'src/planning_engines.py').read_text(encoding='utf-8')
-    assert "c['roth_objective_mode']" in data_io
-    assert "c['estate_tax_objective_mode']" in data_io
+    assert "out['roth_objective_mode']" in roth_policy_module
+    assert "out['estate_tax_objective_mode']" in roth_policy_module
     assert "c.get('roth_headroom_usage_pct'" in engine
     assert "estate_tax_penalty" in engine
 
@@ -161,8 +164,11 @@ def test_phase_varying_added_to_bracket_strategy_choice_enum():
     assert '"PHASE_VARYING"' in js
     app_core = (ROOT / 'src/server/app_core.py').read_text(encoding='utf-8')
     assert '"PHASE_VARYING"' in app_core
-    data_io = (ROOT / 'src/data_io.py').read_text(encoding='utf-8')
-    assert "'PHASE_VARYING'" in data_io
+    # roth_bracket_strategy enum validation lives in
+    # src/parsing/roth_conversion_policy.py (ticket 312 extraction), not
+    # inline in src/data_io.py anymore.
+    roth_policy_module = (ROOT / 'src/parsing/roth_conversion_policy.py').read_text(encoding='utf-8')
+    assert "'PHASE_VARYING'" in roth_policy_module
 
 
 def test_phase_varying_config_fields_present_in_schema_and_backfill():
