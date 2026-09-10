@@ -6,6 +6,60 @@ export function showConfigCardHelp(key) {
     SYSTEM_CONFIG_FIELD_HELP[key] || STEP_HELP.system_configuration;
 }
 
+// ── Workbook download (Settings → Data & Maintenance → Workbook download) ──
+// Configurable filename root and desktop-only save folder for the workbook
+// download, so "Download Workbook" stops handing back a same-name-every-time
+// file (browser) or a cryptic OS-temp-file path (desktop app) -- see
+// report_service.workbook_download_filename() and desktop_api.py's
+// DesktopApi._convert() for the server/desktop halves of this fix.
+let workbookDownloadSettings = null;
+export function workbookDownloadControlsHtml() {
+  const s = Object.assign(
+    { filename_root: "Retirement Workbook", desktop_download_folder: "" },
+    workbookDownloadSettings || {},
+  );
+  return `<div class="feature-card" tabindex="0" onclick="showConfigCardHelp('workbook_download')" onfocus="showConfigCardHelp('workbook_download')"><h3>Workbook download</h3><p class="small">Names downloaded workbooks "&lt;filename&gt; YYYYMMDD HHMM.xlsx" instead of a generic or cryptic name. The folder setting applies to the desktop app only — a browser tab always saves to the browser's own download location.</p><label class="small">Filename <input id="workbookFilenameRoot" type="text" value="${esc(s.filename_root)}" style="width:220px"></label><label class="small">Desktop download folder <input id="workbookDownloadFolder" type="text" value="${esc(s.desktop_download_folder)}" placeholder="Default: OS Downloads folder" style="width:260px"></label><div class="table-actions"><button class="btn" type="button" onclick="event.stopPropagation();saveWorkbookDownloadSettings()" onfocus="event.stopPropagation();showConfigCardHelp('workbook_download')">Save</button> <button class="btn" type="button" onclick="event.stopPropagation();refreshWorkbookDownloadSettings()" onfocus="event.stopPropagation();showConfigCardHelp('workbook_download')">Refresh</button></div></div>`;
+}
+export async function refreshWorkbookDownloadSettings(silent = false) {
+  try {
+    workbookDownloadSettings = await api("/api/settings/workbook-download");
+    if (!silent) showMessage("Workbook download settings refreshed.", "success");
+    if (activeStep === "system_configuration") renderMain();
+    return workbookDownloadSettings;
+  } catch (e) {
+    if (!silent)
+      showMessage(
+        "Workbook download settings unavailable: " + (e && e.message ? e.message : e),
+        "error",
+      );
+    return null;
+  }
+}
+export async function saveWorkbookDownloadSettings() {
+  try {
+    const filename_root =
+      (document.getElementById("workbookFilenameRoot") || {}).value || "";
+    const desktop_download_folder =
+      (document.getElementById("workbookDownloadFolder") || {}).value || "";
+    const out = await api("/api/settings/workbook-download", {
+      method: "POST",
+      body: JSON.stringify({ filename_root, desktop_download_folder }),
+    });
+    if (out && out.success === false) {
+      showMessage(out.error || "Save failed.", "error");
+      return;
+    }
+    workbookDownloadSettings = out;
+    showMessage("Workbook download settings saved.", "success");
+    renderMain();
+  } catch (e) {
+    showMessage(
+      "Error saving workbook download settings: " + (e && e.message ? e.message : e),
+      "error",
+    );
+  }
+}
+
 export function recentChangesLogHtml() {
   const changes = [...sessionChanges.values()];
   const specials = [...sessionSpecialChanges];
@@ -227,7 +281,7 @@ export function renderWelcome() {
 }
 
 export function renderSystemConfiguration() {
-  return `<div class="system-config-panel"><div class="section-note">Maintenance utilities for this workspace — pricing snapshots, backups, CSV export, the recent-change log, and the raw System Configuration Console. Plan assumptions, optional modules, the field finder, and workbook formatting are now pages in the left nav under Settings.</div><section class="system-config-section"><div class="system-config-grid"><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('pricing_mode')" onfocus="showConfigCardHelp('pricing_mode')"><h3>Pricing mode</h3><p class="small">Check live/cache/fallback pricing status, refresh live quotes when the cache looks stale, then freeze a saved price snapshot when reports need reproducible advisor values.</p><button class="btn" type="button" data-step-id="build_impact" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Open Build History</button> <button class="btn primary" type="button" onclick="event.stopPropagation();refreshLivePrices()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Refresh Prices</button> <button class="btn" type="button" onclick="event.stopPropagation();freezePricingSnapshot()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Freeze latest prices</button> <button class="btn" type="button" onclick="event.stopPropagation();unfreezePricingSnapshot()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Unfreeze prices</button></div>${localBackupControlsHtml()}${monarchAutoUpdateControlsHtml()}<div class="feature-card" tabindex="0" onclick="showConfigCardHelp('session_changes')" onfocus="showConfigCardHelp('session_changes')"><h3>Session changes</h3>${recentChangesLogHtml()}</div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('system_config_console')" onfocus="showConfigCardHelp('system_config_console')"><h3>System configuration console</h3><p class="small">Maintain pricing providers, build timeout, tax constants, reference files, diagnostics, and raw system configuration rows. Opens as its own page.</p><button class="btn primary" type="button" onclick="event.stopPropagation();openSystemConfigurationConsole()" onfocus="event.stopPropagation();showConfigCardHelp('system_config_console')">Open System Configuration Console</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('annualized_actuals')" onfocus="showConfigCardHelp('annualized_actuals')"><h3>Annualized actuals</h3><p class="small">Re-baseline the plan by overwriting <b>every</b> category budget with its annualized current-year spend. New transaction categories are merged into the taxonomy. Bulk overwrite with no undo — export a backup first.</p><button class="btn" type="button" onclick="event.stopPropagation();loadAnnualizedActuals()" onfocus="event.stopPropagation();showConfigCardHelp('annualized_actuals')">Load annualized current spend</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('csv_backup')" onfocus="showConfigCardHelp('csv_backup')"><h3>CSV backup</h3><p class="small">Export a CSV backup of holdings, transactions, target allocations, and reference data for recovery or external review.</p><button class="btn" type="button" onclick="event.stopPropagation();exportCsvBackup()" onfocus="event.stopPropagation();showConfigCardHelp('csv_backup')">Export CSV backup</button></div></div></section></div>`;
+  return `<div class="system-config-panel"><div class="section-note">Maintenance utilities for this workspace — pricing snapshots, backups, CSV export, the recent-change log, and the raw System Configuration Console. Plan assumptions, optional modules, the field finder, and workbook formatting are now pages in the left nav under Settings.</div><section class="system-config-section"><div class="system-config-grid"><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('pricing_mode')" onfocus="showConfigCardHelp('pricing_mode')"><h3>Pricing mode</h3><p class="small">Check live/cache/fallback pricing status, refresh live quotes when the cache looks stale, then freeze a saved price snapshot when reports need reproducible advisor values.</p><button class="btn" type="button" data-step-id="build_impact" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Open Build History</button> <button class="btn primary" type="button" onclick="event.stopPropagation();refreshLivePrices()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Refresh Prices</button> <button class="btn" type="button" onclick="event.stopPropagation();freezePricingSnapshot()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Freeze latest prices</button> <button class="btn" type="button" onclick="event.stopPropagation();unfreezePricingSnapshot()" onfocus="event.stopPropagation();showConfigCardHelp('pricing_mode')">Unfreeze prices</button></div>${localBackupControlsHtml()}${monarchAutoUpdateControlsHtml()}${workbookDownloadControlsHtml()}<div class="feature-card" tabindex="0" onclick="showConfigCardHelp('session_changes')" onfocus="showConfigCardHelp('session_changes')"><h3>Session changes</h3>${recentChangesLogHtml()}</div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('system_config_console')" onfocus="showConfigCardHelp('system_config_console')"><h3>System configuration console</h3><p class="small">Maintain pricing providers, build timeout, tax constants, reference files, diagnostics, and raw system configuration rows. Opens as its own page.</p><button class="btn primary" type="button" onclick="event.stopPropagation();openSystemConfigurationConsole()" onfocus="event.stopPropagation();showConfigCardHelp('system_config_console')">Open System Configuration Console</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('annualized_actuals')" onfocus="showConfigCardHelp('annualized_actuals')"><h3>Annualized actuals</h3><p class="small">Re-baseline the plan by overwriting <b>every</b> category budget with its annualized current-year spend. New transaction categories are merged into the taxonomy. Bulk overwrite with no undo — export a backup first.</p><button class="btn" type="button" onclick="event.stopPropagation();loadAnnualizedActuals()" onfocus="event.stopPropagation();showConfigCardHelp('annualized_actuals')">Load annualized current spend</button></div><div class="feature-card" tabindex="0" onclick="showConfigCardHelp('csv_backup')" onfocus="showConfigCardHelp('csv_backup')"><h3>CSV backup</h3><p class="small">Export a CSV backup of holdings, transactions, target allocations, and reference data for recovery or external review.</p><button class="btn" type="button" onclick="event.stopPropagation();exportCsvBackup()" onfocus="event.stopPropagation();showConfigCardHelp('csv_backup')">Export CSV backup</button></div></div></section></div>`;
 }
 
 export async function refreshLivePrices() {
@@ -726,7 +780,7 @@ export function renderReview() {
   if (unsaved)
     statusHtml = `<div class="section-note warning"><b>${unsaved} unsaved change${unsaved === 1 ? "" : "s"}.</b> Changes are saved automatically before download. <button class="btn tiny" type="button" data-requires-app="1" onclick="saveAll(true)">Save Now</button></div>`;
   else if (!fresh)
-    statusHtml = `<div class="section-note warning"><b>Outputs may be stale.</b> Inputs changed since last build. <button class="btn tiny" type="button" onclick="goToReportsTab('Impact')">Go to Build →</button></div>`;
+    statusHtml = `<div class="section-note warning"><b>Outputs may be stale.</b> Inputs changed since last build. <button class="btn tiny" type="button" data-step-id="reports_and_review">Go to Build →</button></div>`;
   else if (arts)
     statusHtml =
       '<div class="section-note ok">Report outputs are current.</div>';
@@ -734,6 +788,53 @@ export function renderReview() {
     statusHtml =
       '<div class="section-note">No report outputs yet — build first, then download.</div>';
   return `<div class="reports-panel"><h3>Downloads</h3><p class="small">Download the workbook. Downloads save and rebuild automatically if outputs are not current.</p>${statusHtml}<div class="pane-actions"><button class="btn good" data-requires-app="1" onclick="downloadWithBuild('/api/xlsx','Workbook')">Download Workbook</button></div></div>`;
+}
+
+// The actual file-fetch mechanism, with no readiness gate of its own --
+// separated out so a caller with its own gating logic (e.g.
+// reportsAndReviewDownloadWorkbook(), row_model.js, which deliberately
+// allows downloading a stale-but-real build after an explicit warning,
+// something lastBuildOk's dirty-coupled semantics below would otherwise
+// always block) can perform the download without going through
+// downloadFile()'s lastBuildOk check.
+export function performFileDownload(url) {
+  if (window.__is_desktop_app__) {
+    fetch(apiUrl(url))
+      .then(function (r) {
+        return (r.json ? r.json() : Promise.resolve({})).then(function (out) {
+          if (!r.ok || (out && out.success === false)) {
+            showMessage(
+              "Download error: " + ((out && out.error) || "Unknown error"),
+              "error",
+            );
+          }
+        });
+      })
+      .catch(function (e) {
+        showMessage("Download error: " + e.message, "error");
+      });
+    return;
+  }
+  window.location.href = apiUrl(url);
+}
+
+export function downloadFile(url) {
+  // lastBuildOk is forced false by updateUnsaved() as soon as ANY input is
+  // dirty (row_model.js), regardless of whether an earlier build in this
+  // session actually succeeded -- so this gate really means "the saved plan
+  // has unsaved edits or nothing has ever built successfully," not
+  // specifically "no build exists." That's the right gate for this
+  // function's callers (which all want a fresh build first), but wrong for
+  // reportsAndReviewDownloadWorkbook()'s deliberate stale-download path --
+  // see performFileDownload() above.
+  if (!lastBuildOk) {
+    showMessage(
+      "Download is available after a successful build in this session. Click Build Reports first.",
+      "error",
+    );
+    return;
+  }
+  performFileDownload(url);
 }
 
 export function renderPlanDataReport() {
@@ -802,7 +903,7 @@ export function renderPlanDataReport() {
   });
   nav += "</div>";
   var tools =
-    '<div class="plan-data-preview-tools"><div><b>Plan Data Summary preview</b><span>Read-only saved input packet for final review. Print or save this section as PDF before sharing reports.</span></div><div class="pane-actions"><button class="btn primary" type="button" onclick="window.print()">Print / Save PDF</button><button class="btn" type="button" onclick="goToReportsTab(\'Impact\')">Go to Build</button></div></div>';
+    '<div class="plan-data-preview-tools"><div><b>Plan Data Summary preview</b><span>Read-only saved input packet for final review. Print or save this section as PDF before sharing reports.</span></div><div class="pane-actions"><button class="btn primary" type="button" onclick="window.print()">Print / Save PDF</button></div></div>';
 
   var body = "";
 
@@ -1091,38 +1192,6 @@ export function renderPlanDataReport() {
   );
 }
 
-export function renderTabbedWorkspace(tabs, active, handlerName) {
-  return `<div class="workspace-tabs" role="tablist">${tabs.map((t) => `<button class="workspace-tab ${t === active ? "active" : ""}" type="button" role="tab" aria-selected="${t === active ? "true" : "false"}" onclick="${handlerName}('${escJs(t)}')">${esc(t)}</button>`).join("")}</div>`;
-}
-
-// #301: Preflight is its own tab again (superseding item 2.19's earlier
-// "merged into Build" restructuring) -- the readiness checklist is a
-// distinct workflow (a full pre-build gate) from the Build tab's own
-// status/action panel, so folding it in there buried it instead of
-// simplifying it.
-export function renderReportsPreflight() {
-  const stats = overallStats();
-  const missing = stats.missing || [];
-  let html =
-    '<div class="reports-panel"><h3>Preflight</h3><p class="small">Check whether the plan is complete enough to build reports.</p>' +
-    firstRunChecklistHtml(true) +
-    renderBuildPreflightPanel();
-  if (missing.length) {
-    html += `<div class="missing-list"><h3>Needs attention</h3><ul>${missing
-      .slice(0, 20)
-      .map(
-        (r) =>
-          `<li>${esc(humanLabel(r.label, r))} <span class="small">(${esc(friendlyGroup(r))})</span></li>`,
-      )
-      .join("")}</ul></div>`;
-  } else {
-    html +=
-      '<div class="section-note ok"><b>Plan is ready to build.</b> Warnings may still appear, but no required fields are missing.</div>';
-  }
-  html += `<div class="pane-actions"><button class="btn primary" type="button" onclick="setReportsTab('Build');runBuild(false)">Build Now</button></div></div>`;
-  return html;
-}
-
 export function renderReportsBuild() {
   const fresh = planStateFresh();
   const arts = planStateArtifactsReady();
@@ -1142,15 +1211,41 @@ export function renderReportsBuild() {
   return `<div class="reports-panel"><h3>Build</h3><p class="small">Save the current plan and run the full projection engine. Creates the workbook and Results Explorer model. Progress appears in the build overlay.</p><div class="pane-actions"><button class="btn primary" type="button" data-requires-app="1" onclick="runBuild(false)">Build Reports</button><button class="btn" type="button" onclick="refreshBuildStatus()">Refresh Status</button></div>${statusHtml}</div>`;
 }
 
+// Reports & Review redesign: no tab strip -- Build/Download/Compare live in
+// the persistent page header (primaryActionForStep(), dashboard.js) instead,
+// and this page always shows Impact (unchanged content, extracted into
+// renderImpactSectionContent() -- see dashboard_decomp_row_model.js) and
+// Plan Data Review together. Preflight's blockers fold into a compact note
+// instead of their own tab; Results links out to its own standalone page
+// instead of embedding the full detailed-workbook dashboard inline.
 export function renderReportsAndReview() {
-  const active = REPORTS_TABS.includes(reportsActiveTab)
-    ? reportsActiveTab
-    : "Impact";
-  let body = "";
-  if (active === "Preflight") body = renderReportsPreflight();
-  else if (active === "Impact") body = renderBuildImpactPage();
-  else if (active === "Results") body = renderDetailedResults();
-  return `<div class="tabbed-workspace reports-workspace">${renderTabbedWorkspace(REPORTS_TABS, active, "setReportsTab")}<div class="workspace-tab-body">${body}</div></div>`;
+  const stats = overallStats();
+  const missing = stats.missing || [];
+  const preflightNote = missing.length
+    ? `<div class="section-note warn"><b>${missing.length} required field${missing.length === 1 ? "" : "s"} missing.</b> ${missing
+        .slice(0, 5)
+        .map((r) => esc(humanLabel(r.label, r)))
+        .join(", ")}${missing.length > 5 ? ", …" : ""}</div>`
+    : "";
+  const impactSection =
+    '<div class="build-impact"><div class="impact-panel">' +
+    unsavedChangesPromptBar() +
+    renderImpactSectionContent() +
+    "</div></div>";
+  const resultsLink =
+    '<div class="section-note"><button class="btn" type="button" data-step-id="detailed_results">View Detailed Results &rarr;</button></div>';
+  const planDataSection =
+    '<div class="plan-data-review-section"><h3 class="section-header">Plan Data Review</h3>' +
+    renderPlanDataReport() +
+    "</div>";
+  return (
+    '<div class="reports-and-review">' +
+    preflightNote +
+    impactSection +
+    resultsLink +
+    planDataSection +
+    "</div>"
+  );
 }
 
 export async function startNewPlan() {
@@ -1273,9 +1368,12 @@ Object.assign(window, {
   renderBuildPreflightPanel,
   renderReview,
   renderPlanDataReport,
-  renderTabbedWorkspace,
   renderReportsBuild,
-  renderReportsPreflight,
   renderReportsAndReview,
+  performFileDownload,
+  downloadFile,
+  workbookDownloadControlsHtml,
+  refreshWorkbookDownloadSettings,
+  saveWorkbookDownloadSettings,
   startNewPlan,
 });

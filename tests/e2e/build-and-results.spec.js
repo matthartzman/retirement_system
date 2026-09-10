@@ -38,8 +38,11 @@ test('triggering a build renders real results in Results Explorer', async ({ pag
   expect(finalTitle, 'the build failed -- see this spec file\'s comment for the bug this line guards against').toBe('Build complete');
 
   // --- Results -------------------------------------------------------------
-  await navigateToStep(page, 'detailed_results', 'Reports & Review');
-  await page.getByRole('button', { name: 'Results', exact: true }).click();
+  // detailed_results is its own standalone page (Reports & Review links out
+  // to it rather than embedding it -- see the Reports & Review redesign), so
+  // navigating here lands directly on it under its own "Results" heading,
+  // with no tab to additionally select.
+  await navigateToStep(page, 'detailed_results', 'Results');
 
   // Real content from the real build, not a placeholder/empty state. The
   // sheet list and the "N rows" summaries only appear once

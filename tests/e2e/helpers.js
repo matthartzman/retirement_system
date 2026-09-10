@@ -150,31 +150,26 @@ export async function navigateToStep(page, stepId, headingText) {
 export async function triggerBuildAndWaitForOverlay(page) {
   const title = page.locator('.build-overlay .build-progress-title');
 
-  // "Build Reports" only exists in the Reports & Review step's "Build" tab
-  // content (frontend/js/dashboard_decomp_checklist_closeout.js) -- it is
-  // simply absent from the DOM unless activeStep is "reports_and_review" AND
-  // the "Build" tab is active.
+  // "Build Reports" lives in the Reports & Review step's persistent page
+  // header (primaryActionForStep(), frontend/js/dashboard.js) since the
+  // Reports & Review redesign removed its tab strip -- it renders whenever
+  // activeStep is "reports_and_review", with no tab to also select.
   //
-  // Root-caused directly against the running app (2026-09-01), correcting an
-  // earlier version of this comment: openCurrentPlan() never navigates
-  // activeStep to "reports_and_review" -- it stays whatever it defaulted to
-  // ("start"). A call site that goes straight from openCurrentPlan() into
-  // this helper with NO prior build in the suite happens to still find a
-  // "Build Reports" button, but that is a DIFFERENT one -- the plan-state
-  // banner on the welcome page (updatePlanStateBanner(),
-  // dashboard_decomp_row_model.js) renders its own "Build Reports" button
-  // whenever no report package exists yet. Once a real build succeeds
-  // anywhere earlier in a shared-server suite run, that decoy stops
-  // rendering (the banner goes "ok"), activeStep is STILL "start", and the
-  // old `window.setReportsTab('Build')` call here only ever changed
-  // reportsActiveTab, never activeStep -- so the real Build Reports button
-  // on the Reports & Review step never rendered either, and the wait below
-  // failed outright instead of hanging. window.goToReportsTab is exposed on
-  // window the same way window.setStep is (see navigateToStep above) and
-  // sets both activeStep and reportsActiveTab together; use it here instead
-  // so this helper doesn't depend on whichever step/tab a previous test in
-  // the suite left active.
-  await page.evaluate(() => window.goToReportsTab('Build'));
+  // Root-caused directly against the running app (2026-09-01): openCurrentPlan()
+  // never navigates activeStep to "reports_and_review" -- it stays whatever
+  // it defaulted to ("start"). A call site that goes straight from
+  // openCurrentPlan() into this helper with NO prior build in the suite
+  // happens to still find a "Build Reports" button, but that is a DIFFERENT
+  // one -- the plan-state banner on the welcome page
+  // (updatePlanStateBanner(), dashboard_decomp_row_model.js) renders its own
+  // "Build Reports" button whenever no report package exists yet. Once a
+  // real build succeeds anywhere earlier in a shared-server suite run, that
+  // decoy stops rendering (the banner goes "ok"), and activeStep is STILL
+  // "start" -- so explicitly navigating here, rather than assuming a prior
+  // test left activeStep on "reports_and_review", is what makes this
+  // reliable regardless of suite order. window.setStep is exposed on window
+  // the same way it is for navigateToStep above.
+  await page.evaluate(() => window.setStep('reports_and_review'));
   await expect(page.getByRole('button', { name: 'Build Reports' }).first()).toBeVisible({
     timeout: 10_000,
   });

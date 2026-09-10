@@ -971,6 +971,13 @@ function pageHelp(title, meaning, connections, options, impact) {
   return `<div class="help-title">${esc(title)}</div><div class="help-body"><h3>What this page is for</h3><p>${esc(addParentheticals(meaning))}</p><h3>How the values work together</h3><p>${esc(addParentheticals(connections))}</p><h3>How to choose values</h3><p>${esc(addParentheticals(options))}</p><h3>Likely planning impact</h3><p>${esc(addParentheticals(impact))}</p>${acronyms}</div>`;
 }
 const SYSTEM_CONFIG_FIELD_HELP = {
+  workbook_download: pageHelp(
+    "Workbook download",
+    "Controls the filename downloaded workbooks use — a configurable root name plus the date and time of the download.",
+    "Filename sets the root text (e.g. \"Retirement Workbook\" becomes \"Retirement Workbook 20260910 1432.xlsx\"). Desktop download folder applies only to the desktop app — it saves the workbook there directly instead of a temp file; a plain browser tab always uses the browser's own download location.",
+    "Set the filename root to something identifying (a household or advisor name) if you download for multiple households from the same install.",
+    "No planning impact — this only changes the downloaded file's name and, for the desktop app, where it's saved.",
+  ),
   local_backups: pageHelp(
     "Local backups",
     "Opt-in .rpx database backups with automatic retention, run opportunistically after Save Changes or a successful build.",
@@ -3662,20 +3669,6 @@ function renderOptionalFunctions() {
   html += "</div>";
   return html;
 }
-// #301: Reports & Review is primarily the Impact page (Build/Download live
-// as buttons on it, not separate tabs -- see renderBuildImpactPage()'s
-// headerActions), with Plan Data Review and Build History folded into
-// collapsible <details> sections on that same page instead of their own
-// tabs. Preflight and Results stay separate tabs -- distinct enough
-// workflows (readiness checklist; full workbook sheet browser) that folding
-// them in would bury rather than simplify. Supersedes item 2.19's earlier
-// "Preflight merged into Build" 5-tab shape.
-const REPORTS_TABS = ["Preflight", "Impact", "Results"];
-let reportsActiveTab = "Impact";
-try {
-  reportsActiveTab = localStorage.getItem("reports_active_tab") || "Impact";
-} catch (_e) {}
-
 
 function renderStrategyTabs(step, tabs, active) {
   return `<div class="workspace-tabs" role="tablist">${tabs.map((t) => `<button class="workspace-tab ${t === active ? "active" : ""}" type="button" role="tab" aria-selected="${t === active ? "true" : "false"}" onclick="setStrategyTab('${escJs(step)}','${escJs(t)}')">${esc(t)}</button>`).join("")}</div>`;
@@ -3800,7 +3793,19 @@ function pageStatusHtml(stepId) {
   return '<span class="page-status in-progress">● Has Data</span>';
 }
 function primaryActionForStep(stepId) {
-  if (stepId === "reports_and_review") return "";
+  if (stepId === "reports_and_review") {
+    const canBuild = reportsAndReviewCanBuild();
+    const artifactsReady = planStateArtifactsReady();
+    // data-requires-edit/data-requires-artifacts tell setAppControls()
+    // (row_model.js) to keep enforcing these buttons' own disabled
+    // conditions on every render, not just the initial one -- see its
+    // comment for why the plain ${cond ? "" : " disabled"} string alone
+    // doesn't survive that call.
+    return (
+      `<button class="btn primary" type="button" data-requires-app="1" data-requires-edit="1" onclick="runBuild(false)"${canBuild ? "" : " disabled"}>Build Reports</button>` +
+      `<button class="btn" type="button" data-requires-app="1" data-requires-artifacts="1" onclick="reportsAndReviewDownloadWorkbook()"${artifactsReady ? "" : " disabled"}>Download Workbook</button>`
+    );
+  }
   if (stepId === "planning_workbench")
     return `<button class="btn primary" type="button" onclick="planningCaseCreate('manual')">Save Case</button>`;
   if (hasUnsavedPlanChanges())
@@ -6868,34 +6873,6 @@ async function buildWithDesktopProgress(buildBody) {
   });
 }
 
-function downloadFile(url) {
-  if (!lastBuildOk) {
-    showMessage(
-      "Download is available after a successful build in this session. Click Build Reports first.",
-      "error",
-    );
-    return;
-  }
-  if (window.__is_desktop_app__) {
-    fetch(apiUrl(url))
-      .then(function (r) {
-        return (r.json ? r.json() : Promise.resolve({})).then(function (out) {
-          if (!r.ok || (out && out.success === false)) {
-            showMessage(
-              "Download error: " + ((out && out.error) || "Unknown error"),
-              "error",
-            );
-          }
-        });
-      })
-      .catch(function (e) {
-        showMessage("Download error: " + e.message, "error");
-      });
-    return;
-  }
-  window.location.href = apiUrl(url);
-}
-
 function openExitModal() {
   document.getElementById("exitModal").style.display = "flex";
 }
@@ -7069,6 +7046,7 @@ checkAppStatus(true).then(function (ok) {
   import("./dashboard_decomp_monarch_autoupdate.js?v=1").then(function () {
     return refreshMonarchAutoUpdateStatus(true);
   }).catch(function () {});
+  refreshWorkbookDownloadSettings(true);
   api("/api/prefs")
     .then(function (p) {
       var fromServer =
@@ -7140,7 +7118,6 @@ Object.defineProperty(window, "PLAN_DATA_FILES", { get: () => PLAN_DATA_FILES, c
 Object.defineProperty(window, "PROTECTED_CLIENT_DATA_KEYS", { get: () => PROTECTED_CLIENT_DATA_KEYS, configurable: true });
 Object.defineProperty(window, "RECOMMENDATION_ENGINE_VERSION", { get: () => RECOMMENDATION_ENGINE_VERSION, configurable: true });
 Object.defineProperty(window, "RECOMMENDATION_STEP_IDS", { get: () => RECOMMENDATION_STEP_IDS, configurable: true });
-Object.defineProperty(window, "REPORTS_TABS", { get: () => REPORTS_TABS, configurable: true });
 Object.defineProperty(window, "REQUIRED_PLAN_DATA_FILES", { get: () => REQUIRED_PLAN_DATA_FILES, configurable: true });
 Object.defineProperty(window, "ROTH_LEGACY_LABELS", { get: () => ROTH_LEGACY_LABELS, configurable: true });
 Object.defineProperty(window, "ROTH_WINDOW_LABELS", { get: () => ROTH_WINDOW_LABELS, configurable: true });
@@ -7228,7 +7205,6 @@ Object.defineProperty(window, "planLoaded", { get: () => planLoaded, set: (v) =>
 Object.defineProperty(window, "planSource", { get: () => planSource, set: (v) => { planSource = v; }, configurable: true });
 Object.defineProperty(window, "planningLeverInputs", { get: () => planningLeverInputs, set: (v) => { planningLeverInputs = v; }, configurable: true });
 Object.defineProperty(window, "renderMain", { get: () => renderMain, set: (v) => { renderMain = v; }, configurable: true });
-Object.defineProperty(window, "reportsActiveTab", { get: () => reportsActiveTab, set: (v) => { reportsActiveTab = v; }, configurable: true });
 Object.defineProperty(window, "residencySchedule", { get: () => residencySchedule, set: (v) => { residencySchedule = v; }, configurable: true });
 Object.defineProperty(window, "residencyScheduleChanged", { get: () => residencyScheduleChanged, set: (v) => { residencyScheduleChanged = v; }, configurable: true });
 Object.defineProperty(window, "rows", { get: () => rows, set: (v) => { rows = v; }, configurable: true });
@@ -7278,7 +7254,7 @@ Object.assign(window, {
   closeNavDrawer, collapseAllDetailGroups, currentManualOverrideItems, currentScenarioOverrideItems,
   decimalsFromText, deleteYtdAccount, dependencyRank, deriveTotalRothConversions,
   detailProgressState, detailedProgressHtml, detailedSheetByName, discardAndExit, dismissMessage,
-  domainBudgetNote, downloadBlob, downloadFile, exitApp, expandAllDetailColumnsOnPage,
+  domainBudgetNote, downloadBlob, exitApp, expandAllDetailColumnsOnPage,
   expandAllDetailGroups, fetchWithTimeout, fieldConnection, fieldDefaultMeaning,
   fieldFinderCategoryName, fieldFinderCategoryOrder, fieldLabelNoteHtml, fieldLikelyImpact,
   fieldSizeClass, fieldTooltipHtml, fieldTooltipPreview, finiteOrNull, focusYtdAccountMoney,

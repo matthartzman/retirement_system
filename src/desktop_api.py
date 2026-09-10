@@ -148,8 +148,6 @@ class DesktopApi:
                 "_content_type": ct,
             }
 
-        import tempfile  # noqa: PLC0415
-
         filename = ""
         cd = resp.headers.get("Content-Disposition", "")
         for part in cd.split(";"):
@@ -158,9 +156,38 @@ class DesktopApi:
                 filename = part[9:].strip("\"'")
                 break
 
-        if "spreadsheet" in ct or "excel" in ct or (filename and filename.endswith(".xlsx")):
-            suffix = ".xlsx"
-        elif "pdf" in ct or (filename and filename.endswith(".pdf")):
+        is_xlsx = "spreadsheet" in ct or "excel" in ct or (filename and filename.endswith(".xlsx"))
+        if is_xlsx:
+            # Ticket <workbook-filename>: this used to always fall through to
+            # the generic tempfile.NamedTemporaryFile branch below, so every
+            # workbook download landed at a random path like
+            # AppData\Local\Temp\tmpXXXXXXXX.xlsx and Excel's title bar showed
+            # that cryptic name -- the file was never actually saved anywhere
+            # the user could find it again. The server now sends a real name
+            # via Content-Disposition (report_service.workbook_download_filename()),
+            # so this saves it under that name in the configured folder
+            # (Data & Maintenance > Downloads; blank falls back to the OS
+            # Downloads folder, same default used by save_text_file() below)
+            # instead of a temp directory.
+            from src import system_config  # noqa: PLC0415
+
+            data = system_config.load_system_config()
+            configured = system_config.workbook_desktop_download_folder(data)
+            folder = Path(configured) if configured else None
+            if not folder or not folder.is_dir():
+                folder = next(
+                    (p for p in (Path.home() / "Downloads", Path.home() / "Documents", Path.home())
+                     if p.is_dir()),
+                    Path.home(),
+                )
+            dest = folder / (filename or "Retirement Workbook.xlsx")
+            dest.write_bytes(raw)
+            self._open_path(dest)
+            return {"success": True, "opened": True, "path": str(dest)}
+
+        import tempfile  # noqa: PLC0415
+
+        if "pdf" in ct or (filename and filename.endswith(".pdf")):
             suffix = ".pdf"
         else:
             suffix = Path(filename).suffix if filename else ".bin"
@@ -168,16 +195,20 @@ class DesktopApi:
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tf:
             tf.write(raw)
             tmp = Path(tf.name)
+        self._open_path(tmp)
+        return {"success": True, "opened": True}
+
+    @staticmethod
+    def _open_path(path: Path) -> None:
         import subprocess  # noqa: PLC0415
         import sys  # noqa: PLC0415
-        if sys.platform == "win32":
-            os.startfile(str(tmp))  # Windows-only os attribute
-        elif sys.platform == "darwin":
-            subprocess.Popen(["open", str(tmp)])
-        else:
-            subprocess.Popen(["xdg-open", str(tmp)])
 
-        return {"success": True, "opened": True}
+        if sys.platform == "win32":
+            os.startfile(str(path))  # Windows-only os attribute
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", str(path)])
+        else:
+            subprocess.Popen(["xdg-open", str(path)])
 
     def _push_build_progress(self, job: dict) -> None:
         """Forward a build progress snapshot to the JS layer via evaluate_js."""
