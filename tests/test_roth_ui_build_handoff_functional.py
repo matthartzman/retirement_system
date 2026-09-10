@@ -38,7 +38,11 @@ def test_engine_parse_uses_roth_handoff_helpers():
     assert "normalize_roth_policy" in src
     assert "percent_to_float" in src
     assert "normalize_irmaa_guardrail_mode" in src
-    assert "roth_policy_lock" in src
+    # roth_policy_lock itself is set in src/parsing/roth_conversion_policy.py
+    # (ticket 312 extraction) rather than inline in src/data_io.py; data_io
+    # still re-exports parse_roth_conversion_policy for backward compat.
+    roth_policy_module = (ROOT / "src/parsing/roth_conversion_policy.py").read_text(encoding="utf-8")
+    assert "roth_policy_lock" in roth_policy_module
 
 
 
