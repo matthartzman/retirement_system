@@ -54,7 +54,7 @@ const STEPS = [
     id: "spending_core",
     group: "Spending",
     title: "Spending Model",
-    desc: "Comprehensive income/expense category hierarchy, budget references, and projection spending controls. Also the entry point for Actual Spending (YTD), Spending Analysis, and Other Spending -- see the tabs above the content.",
+    desc: "Comprehensive income/expense category hierarchy, budget references, and projection spending controls, plus Travel and Large Items budgets below them. Also the entry point for Actual Spending (YTD) and Spending Analysis -- see the tabs above the content.",
     intro:
       "Review the full Tracking Type → Group → Category model here. It should account for all income and all expenses except taxes/transfers; lifestyle detail pages still hold scheduled spending inputs.",
     help: "Spending Model is the category manager. Transaction assignment appears here as Advanced Auto-Mapping Rules only when needed.",
@@ -509,7 +509,7 @@ const STEP_HELP = {
   ),
   spending_core: pageHelp(
     "Spending Categories",
-    "This page is the comprehensive category model for income and expenses, excluding taxes/transfers. Projection spending controls remain here, while Housing, Wellness, and Travel detailed budget inputs stay on their own pages.",
+    "This page is the comprehensive category model for income and expenses, excluding taxes/transfers. Projection spending controls, plus Travel and Large Items budgets, live here; Housing and Wellness detailed budget inputs stay on their own pages.",
     "Core spending flows directly into annual withdrawals, taxable income, liquidity stress, Monte Carlo success, and planning-lever sensitivity. Growth mode and freeze year determine how that spending changes over time.",
     "Use CPI/general inflation when spending should rise with inflation. Use manual override when lifestyle spending should grow at a different rate. Use the freeze year when spending increases stop or intentionally flatten.",
     "Higher recurring spending usually lowers terminal net worth and probability of success. Lower spending or earlier spending freezes usually improve both, especially in the first retirement decade.",
