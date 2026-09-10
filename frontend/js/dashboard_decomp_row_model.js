@@ -2446,12 +2446,16 @@ export function fieldHtml(r) {
         })
         .join("")}</select>`;
     } else {
-      control = `<input type="text" data-row="${r.row_index}" value="${esc(String(value || ""))}" placeholder="${esc(r.schema?.default || "")}" oninput="editValue(${r.row_index},this.value,this)" onfocus="beginEdit(${r.row_index},this)" onblur="finishEdit(${r.row_index},this)">`;
+      // #<housing focus loss>: a stable data-focus-key lets ticket 285's
+      // captureMainPaneFocus/restoreMainPaneFocus revive this exact input
+      // (and its caret) if something -- e.g. a Housing row's reestimate
+      // ripple -- calls renderMain() synchronously while it's focused.
+      control = `<input type="text" data-row="${r.row_index}" data-focus-key="field:${r.row_index}" value="${esc(String(value || ""))}" placeholder="${esc(r.schema?.default || "")}" oninput="editValue(${r.row_index},this.value,this)" onfocus="beginEdit(${r.row_index},this)" onblur="finishEdit(${r.row_index},this)">`;
     }
   } else {
     const inputType = isDateField(r) ? "date" : "text";
     const inputValue = displayValueForInput(r, value);
-    control = `<input type="${inputType}" data-row="${r.row_index}" value="${esc(inputValue)}" placeholder="${esc(r.schema?.default || "")}" oninput="editValue(${r.row_index},this.value,this)" onfocus="beginEdit(${r.row_index},this)" onblur="finishEdit(${r.row_index},this)">`;
+    control = `<input type="${inputType}" data-row="${r.row_index}" data-focus-key="field:${r.row_index}" value="${esc(inputValue)}" placeholder="${esc(r.schema?.default || "")}" oninput="editValue(${r.row_index},this.value,this)" onfocus="beginEdit(${r.row_index},this)" onblur="finishEdit(${r.row_index},this)">`;
   }
   const note = formatAcronyms(r.schema?.description || r.notes || "");
   const req = missing ? '<span class="badge req">Required</span>' : "";
