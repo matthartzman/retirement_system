@@ -20,12 +20,13 @@
     build_impact:
       "This shows the impact of your last build. Rebuild after edits to see updated numbers.",
   };
-  const SPENDING_STEPS = [
-    "spending_core",
-    "ytd_transactions",
-    "spending_dashboard",
-    "review",
-  ];
+  // ytd_transactions, spending_dashboard, and review can no longer actually
+  // be activeStep (navigation.js's WORKSPACE_TAB_REDIRECTS/REPORTS_REDIRECT_IDS
+  // redirect all three elsewhere before activeStep is ever set) -- listed
+  // here as the values spendingFlowHtml()'s stage buttons still navigate TO
+  // and can still highlight AS, via effectiveSpendingStage() below, not as
+  // literal activeStep values this array is tested against.
+  const SPENDING_STEPS = ["spending_core", "reports_and_review"];
   // Glossary terms come from the canonical source (src/glossary.py, served by
   // GET /api/glossary and merged into dashboard.js's ACRONYM_DEFINITIONS at
   // startup). This file previously carried its OWN third copy, which the
@@ -133,8 +134,27 @@
     }
   }
 
+  // Resolves which of the four workflow stages the user is effectively on.
+  // step (activeStep) can only ever be "spending_core" or
+  // "reports_and_review" now that every other stage id redirects on real
+  // navigation (navigation.js) -- so distinguishing Categories/Transactions/
+  // Spending Analysis while on spending_core means checking the current
+  // workspace tab instead of comparing step directly.
+  function effectiveSpendingStage(step) {
+    if (step === "spending_core") {
+      const tab =
+        typeof getStrategyTab === "function" ? getStrategyTab("spending_core") : "";
+      if (tab === "Actual Spending (YTD)") return "ytd_transactions";
+      if (tab === "Spending Analysis") return "spending_dashboard";
+      return "spending_core";
+    }
+    if (step === "reports_and_review") return "review";
+    return step;
+  }
+
   function spendingFlowHtml(step) {
     if (!SPENDING_STEPS.includes(step)) return "";
+    const stage = effectiveSpendingStage(step);
     const labels = [
       ["spending_core", "Categories"],
       ["ytd_transactions", "Transactions"],
@@ -146,7 +166,7 @@
     labels.forEach(function (pair) {
       html +=
         '<button type="button" class="btn ' +
-        (pair[0] === step ? "primary" : "") +
+        (pair[0] === stage ? "primary" : "") +
         '" data-step-id="' +
         pair[0] +
         '">' +

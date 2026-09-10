@@ -558,13 +558,18 @@ export async function loadAnnualizedActuals() {
 
 export function trackingBudgetTypesForDomain(domain) {
   if (domain === "core")
+    // Used only as a Set-membership filter (currentSpendingTreeForDomain()
+    // below preserves the incoming modelTypes order, not this array's own
+    // order) -- kept in sync with src/spending_tracker.py's
+    // TRACKING_TYPE_ORDER purely so a reader doesn't have to check whether
+    // this list's order matters too.
     return [
       "Core Expenses",
-      "Wellness",
-      "Housing",
       "Travel",
       "Large Discretionary",
       "Business",
+      "Wellness",
+      "Housing",
     ];
   if (domain === "housing") return ["Housing"];
   if (domain === "healthcare") return ["Wellness"];
@@ -749,6 +754,10 @@ export function renderCoreSpendingUnified() {
   html +=
     '<div style="margin-top:32px">' + renderDomainBudgetPage("core") + "</div>";
   html += '<div style="margin-top:32px">' + renderTaxonomyManager() + "</div>";
+  // Other Spending (Travel + Large Items) folded in here rather than kept as
+  // its own workspace tab -- same editable accordions renderLifestyleSpending()
+  // always rendered, just relocated onto the page they logically belong on.
+  html += '<div style="margin-top:32px">' + renderLifestyleSpending() + "</div>";
   return html;
 }
 
