@@ -300,12 +300,25 @@ export async function captureBuildBaseline() {
   return cloneSummary(sessionBaselineSummary || {});
 }
 
-export function renderBuildImpactAfterBuild(message) {
-  activeStep = "build_impact";
+// #<reports-redesign follow-up>: this used to force-navigate to the old
+// standalone build_impact step after EVERY build, regardless of where the
+// build was started -- including from Reports & Review's own header, which
+// already shows Impact inline (renderReportsAndReview()/
+// renderImpactSectionContent()). A user building from Reports & Review got
+// yanked to a different page instead of seeing the fresh results in place.
+// originStep (runBuild()'s stepBeforeBuild, previously captured and never
+// used) lets this stay put when the build already started somewhere that
+// shows Impact itself; every other origin (Planning Workbench, the welcome
+// banner, the standalone build_impact page) keeps the original "jump to
+// Impact" behavior.
+export function renderBuildImpactAfterBuild(message, originStep) {
+  if (originStep !== "reports_and_review") {
+    activeStep = "build_impact";
+  }
   planLoaded = true;
   renderMain();
   setAppControls(appReady);
-  showStepHelp("build_impact");
+  showStepHelp(activeStep);
   setTimeout(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
     const panel = document.querySelector(".build-impact");

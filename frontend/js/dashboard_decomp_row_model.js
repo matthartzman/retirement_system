@@ -4778,7 +4778,7 @@ export async function runBuild(queue = false, opts = {}) {
         showMessage("Build successful.");
         renderMain();
       } else {
-        renderBuildImpactAfterBuild("Build successful. Build impact is ready.");
+        renderBuildImpactAfterBuild("Build successful. Build impact is ready.", stepBeforeBuild);
       }
       maybeRunLocalBackup("build");
       if (folderWarning)
