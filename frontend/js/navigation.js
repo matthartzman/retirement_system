@@ -14,9 +14,39 @@
   // separately reachable page now (linked from Reports & Review rather than
   // embedded in it), so a jump-link to it should land there directly.
   const REPORTS_REDIRECT_IDS=['build_impact','review','plan_data_report'];
+  // Reported live: clicking "Spending Analysis" from Spending Model's
+  // workspace opened a NEW "Reports" group in the left nav, with "Spending
+  // Analysis" nested under it -- surprising, since the workspace already has
+  // its own "Spending Analysis" tab that does nothing of the sort. Root
+  // cause: spending_dashboard is a real, hidden STEPS entry (group
+  // "Reports") that a few real buttons navigate to directly (the
+  // "Recommended spending flow" banner, a "Review vs Plan" link, a
+  // suggested-next footer) -- and visibleSteps() only hides a step while it
+  // is NOT the active one, so navigating there makes its group appear.
+  // spending_dashboard renders the exact same function
+  // (renderSpendingDashboardOrLoad()) the in-workspace tab already does, so
+  // there's nothing lost by landing on the tab instead of the standalone
+  // page. Scanned for the same dual-registration shape (a real STEPS entry
+  // duplicating a STRATEGY_TABS-registered tab, both rendering the same
+  // function) and found two more with a live trigger: ytd_transactions
+  // (several real buttons point at it directly) and lifestyle_spending
+  // (Other Spending's own former step id, now that its content -- see
+  // renderCoreSpendingUnified(), dashboard_decomp_spending_taxonomy.js --
+  // lives on the Spending Model tab rather than a tab of its own).
+  // withdrawal_strategy has the same shape but already redirects elsewhere
+  // via STEP_REDIRECTS below, so it never reaches this bug.
+  const WORKSPACE_TAB_REDIRECTS={
+    spending_dashboard:{step:'spending_core',tab:'Spending Analysis'},
+    ytd_transactions:{step:'spending_core',tab:'Actual Spending (YTD)'},
+    lifestyle_spending:{step:'spending_core',tab:'Spending Model'}
+  };
   const STEP_REDIRECTS={
-    spending_travel:'lifestyle_spending',
-    spending_travel_extras:'lifestyle_spending',
+    // Travel's own step ids now land directly on Spending Model (the
+    // WORKSPACE_TAB_REDIRECTS entry above), not on lifestyle_spending's old
+    // standalone page -- that page's content moved onto Spending Model too,
+    // so the extra hop through it would have been redundant.
+    spending_travel:'spending_core',
+    spending_travel_extras:'spending_core',
     ss_timing:'income_retirement',
     timing_tax:'state_residency',
     heloc_strategy:'special_strategies',
@@ -66,6 +96,10 @@
     const planLoaded=!!safeCall(ctx.getPlanLoaded);
     if(REPORTS_REDIRECT_IDS.includes(id)){
       id='reports_and_review';
+    }else if(WORKSPACE_TAB_REDIRECTS[id]){
+      const _wtr=WORKSPACE_TAB_REDIRECTS[id];
+      safeCall(()=>window.setStrategyTab(_wtr.step,_wtr.tab));
+      id=_wtr.step;
     }else if(STEP_REDIRECTS[id]){
       id=STEP_REDIRECTS[id];
     }

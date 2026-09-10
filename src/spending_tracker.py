@@ -331,10 +331,13 @@ def seed_budget_from_actuals(root: Path | None = None, year: int | None = None,
 # Taxonomy  —  3-tier (Tracking Type → Group → Category)
 # ==================================================================
 
-#: Canonical display order for the 7 tracking types.
+#: Canonical display order for the 7 tracking types. Wellness and Housing
+#: sort last (moved 2026-09) -- both have their own dedicated detail pages
+#: elsewhere in the app, so pushing them past the categories entered directly
+#: on the Spending Model page keeps that page's own content up front.
 TRACKING_TYPE_ORDER = [
-    "Income", "Core Expenses", "Wellness", "Housing",
-    "Travel", "Large Discretionary", "Business",
+    "Income", "Core Expenses", "Travel", "Large Discretionary", "Business",
+    "Wellness", "Housing",
 ]
 
 #: Map legacy flat-tracking strings to canonical tracking-type names.

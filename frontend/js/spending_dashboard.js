@@ -27,7 +27,12 @@ window.getSpendingDivergencePct = getSpendingDivergencePct;
 // same render function its old standalone step used, so behavior (including
 // the Wave 1.4 jump-to-field fix inside renderLifestyleSpending()'s accordions)
 // is unchanged -- only the navigation surface merges Spending Model, Actual
-// Spending (YTD), Spending Analysis, and Other Spending into one workspace.
+// Spending (YTD), and Spending Analysis into one workspace. Other Spending's
+// former tab is gone too, but not by merging navigation surfaces -- its
+// content (renderLifestyleSpending()) is now folded directly into the
+// Spending Model tab's own output (renderCoreSpendingUnified(),
+// dashboard_decomp_spending_taxonomy.js), since it belongs there, not beside
+// it as a separate stop.
 // Lives here (not dashboard.js) to keep dashboard.js under its size ratchet --
 // this module runs after dashboard.js's own top-level code, so its globals
 // (getStrategyTab, renderStrategyTabs, renderYtdTransactionsStep, etc.) are
@@ -37,7 +42,6 @@ export function renderSpendingWorkspace(tabs) {
   var body;
   if (tab === 'Actual Spending (YTD)') body = window.renderYtdTransactionsStep();
   else if (tab === 'Spending Analysis') body = window.renderSpendingDashboardOrLoad();
-  else if (tab === 'Other Spending') body = window.renderLifestyleSpending();
   // Ticket 286: withdrawal order moved here from the Distribution Strategy
   // sub-nav. It answers "which account does spending come out of", which is a
   // spending question, and it was the only reason that sub-nav still existed.
@@ -78,9 +82,9 @@ export function renderModelStatusPanel(d) {
   html += '<div class="spend-model-card-sub">' + (d.days_elapsed ? 'Based on ' + d.days_elapsed + ' days of transactions' : 'No transactions loaded') + '</div>';
   html += '</div>';
   html += '<div class="spend-model-card highlight">';
-  html += '<div class="spend-model-card-label">Projection</div>';
+  html += '<div class="spend-model-card-label">Retirement Model Spending</div>';
   html += '<div class="spend-model-card-value">' + (modelCore ? fmtSpend(modelCore) : '—') + '</div>';
-  html += '<div class="spend-model-card-sub">Current budget-derived amount used to seed projected cash flow</div>';
+  html += '<div class="spend-model-card-sub">Current annual spending assumption used by the 30-year projection — this is the "model" the status message and Actual vs. Model figure below compare against</div>';
   html += '</div>';
   html += '</div>';
   html += '<div class="spend-model-status-row">';
@@ -234,7 +238,7 @@ export function renderSpendingSummary(d) {
   html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(d.budget_total || d.model_core_spending) + '</span><span class="spend-kpi-label">' + (d.budget_total ? 'Annual Budget' : 'Model Spending Categories') + '</span></div>';
   var vpct = d.variance_pct || 0;
   var cls = vpct > 15 ? 'spend-kpi over' : vpct > 5 ? 'spend-kpi watch' : 'spend-kpi ok';
-  html += '<div class="' + cls + '"><span class="spend-kpi-value">' + fmtVariancePct(vpct) + '</span><span class="spend-kpi-label">Actual vs. Model</span></div>';
+  html += '<div class="' + cls + '"><span class="spend-kpi-value">' + fmtVariancePct(vpct) + '</span><span class="spend-kpi-label">Annualized Actual vs. Retirement Model Spending</span></div>';
   html += '</div>';
   html += '<p class="small" style="margin:0 0 12px">' + d.days_elapsed + ' days elapsed &middot; annualization factor ' + (d.annualization_factor || 1).toFixed(2) + 'x</p>';
   return html;

@@ -2561,6 +2561,12 @@ function renderEstateWithAnnuityLink() {
 // (first modularization increment).
 
 /* ── 4.2 + 4.3 Spending step completion notes and auto-advance ── */
+// ytd_transactions and spending_dashboard used to have their own entries
+// here (each a distinct standalone step at the time), but both ids now
+// redirect onto spending_core before activeStep is ever set to them
+// (navigation.js's WORKSPACE_TAB_REDIRECTS) -- spendingFlowFooterHtml() below
+// is only ever called with the literal activeStep, so those two entries
+// could never be looked up again. Removed rather than left dead.
 const SPENDING_COMPLETION = {
   spending_core: {
     note: "Done when: budget amounts are entered for the categories you track.",
@@ -2568,24 +2574,6 @@ const SPENDING_COMPLETION = {
       !!(planLoaded && !stepStats("spending_core").missing.length),
     nextStep: "ytd_transactions",
     nextLabel: "Import Transactions",
-  },
-  ytd_transactions: {
-    note: "Done when: at least one transaction file has been imported.",
-    isDoneFn: () =>
-      !!(
-        ytdData &&
-        ytdData.summary &&
-        ytdData.summary.enabled &&
-        (ytdData.summary.transaction_count || 0) > 0
-      ),
-    nextStep: "spending_dashboard",
-    nextLabel: "Review vs Plan",
-  },
-  spending_dashboard: {
-    note: "Done when: you have reviewed the YTD rate vs. your spending model, and synced or decided no sync is needed.",
-    isDoneFn: () => false,
-    nextStep: null,
-    nextLabel: null,
   },
 };
 function spendingFlowFooterHtml(stepId) {
@@ -3682,7 +3670,7 @@ function renderStrategyTabs(step, tabs, active) {
 // Spending workspace below, and Roth Conversion / Allocation & Location are now
 // embedded in the Strategy decide box (renderPlanningLevers).
 const STRATEGY_TABS = {
-  spending_core: ["Spending Model", "Other Spending", "Actual Spending (YTD)", "Spending Analysis", "Withdrawal Order"],
+  spending_core: ["Spending Model", "Actual Spending (YTD)", "Spending Analysis", "Withdrawal Order"],
 };
 
 // Shared left-nav sub-tab strip for any STRATEGY_TABS-registered workspace step.
@@ -3744,7 +3732,17 @@ const SPENDING_WORKFLOW_INDEX = {
   spending_dashboard: 2,
 };
 function renderSpendingWorkflowBanner(stepId) {
-  const activeIdx = SPENDING_WORKFLOW_INDEX[stepId] ?? -1;
+  // stepId (activeStep) can only be "spending_core" now for this banner --
+  // ytd_transactions/spending_dashboard both redirect there instead
+  // (navigation.js's WORKSPACE_TAB_REDIRECTS) -- so resolve which workflow
+  // stage is effectively active from the current tab instead.
+  let effectiveStepId = stepId;
+  if (stepId === "spending_core") {
+    const tab = getStrategyTab("spending_core");
+    if (tab === "Actual Spending (YTD)") effectiveStepId = "ytd_transactions";
+    else if (tab === "Spending Analysis") effectiveStepId = "spending_dashboard";
+  }
+  const activeIdx = SPENDING_WORKFLOW_INDEX[effectiveStepId] ?? -1;
   if (activeIdx < 0) return "";
   const parts = [];
   SPENDING_WORKFLOW_STEPS.forEach((s, i) => {
@@ -3771,8 +3769,10 @@ const SUGGESTED_NEXT = {
   spending_core: "reports_and_review",
   distribution_strategy: "state_residency",
   state_residency: "reports_and_review",
-  lifestyle_spending: "ytd_transactions",
-  ytd_transactions: "reports_and_review",
+  // lifestyle_spending and ytd_transactions removed: both now redirect onto
+  // spending_core before activeStep is ever set to them (navigation.js's
+  // WORKSPACE_TAB_REDIRECTS), and suggestedNext() below is only ever called
+  // with the literal activeStep -- these entries could never be looked up.
 };
 function suggestedNext(stepId) {
   const nextId = SUGGESTED_NEXT[stepId];
