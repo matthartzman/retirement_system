@@ -1,12 +1,15 @@
 # Housing optimization — design
 
-**Date:** 2026-09-09 · **Status:** v1 shipped ([PR #109](https://github.com/matthartzman/retirement_system/pull/109)) · **Revision:** 3
+**Date:** 2026-09-09 · **Status:** v1 shipped ([PR #109](https://github.com/matthartzman/retirement_system/pull/109)) · **Revision:** 5
 
 **Revision 3 (2026-09-11):** v1 landed per this spec. Three implementation-time gaps were
 discovered that the original design didn't anticipate — see §8. §8 also reprioritizes the
 existing §7 out-of-scope list against those gaps for the next chunk of work.
 
 **Revision 4 (2026-09-11):** §8.2 P0 landed — see the note at the end of §8.2.
+
+**Revision 5 (2026-09-11):** §8.2 P2 landed — see the P2 note in §8.2. The full grid stays the
+default (`search_mode='full'`); narrowed search is opt-in (`search_mode='narrowed'`).
 
 **Scope:** given the current home, recommend the sale year, next-purchase year (or "rent
 indefinitely"), and location for the household's next housing move — and optionally a **second**
@@ -275,9 +278,15 @@ two-move recommendation at all:
    environment is available (or via `/run-skill-generator` to capture a working driver for this
    repo). Low effort, closes gap (3); do this before or alongside P0, whichever environment allows
    first.
-3. **P2 — Narrowed/gradient search within a single move's grid** (§7). Only worth doing after P0,
-   since refining a search that still mis-prices move 2 doesn't help. Addresses runtime at larger
-   search windows, not correctness.
+3. **P2 — Narrowed/gradient search within a single move's grid. Done (2026-09-11).** `optimize_housing`
+   gained an opt-in `search_mode='narrowed'` (default stays `'full'`, byte-for-byte unchanged) that
+   replaces, per candidate location, the full `(sale_year x purchase_year)` grid with a bounded
+   integer coordinate/pattern search — a handful of seed points followed by hill-climbing to the
+   best-improving neighbor — plus the same style of 1D search for the rent-indefinitely branch and
+   for move 2's window; scoring/filtering/ranking are reused unchanged. This is a local-search
+   heuristic that can miss the global optimum on a non-unimodal score surface, by design (see
+   `src/housing_optimizer.py`'s module docstring) — trading completeness for a small, documented
+   cap on engine evaluations at larger search windows.
 4. **P3 — Full cross-product search across move 1 and move 2** (§7), replacing the anchor-based
    approach in §3.2/§4. Highest effort, lowest urgency: the anchor approach already produces a
    *good* answer; this would only matter once P0 makes move-2 scoring trustworthy enough that the

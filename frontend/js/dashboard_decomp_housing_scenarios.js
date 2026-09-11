@@ -1176,6 +1176,12 @@ export function renderHousingOptimizePanelHtml() {
         <option value="mc_success_rate">Monte Carlo success rate</option>
       </select>
     </label>
+    <label>Search mode
+      <select id="housingOptSearchMode">
+        <option value="full">Full grid (thorough, slower)</option>
+        <option value="narrowed">Narrowed search (faster, may miss the best candidate)</option>
+      </select>
+    </label>
     <div class="subsection-label">Family presence (optional)</div>
     <label>Region (state) <input type="text" id="housingOptPresenceRegion" placeholder="e.g. Illinois"></label>
     <label>From year <input type="number" id="housingOptPresenceStart"></label>
@@ -1264,6 +1270,7 @@ export async function runHousingOptimization() {
     anchor_count: Number(document.getElementById("housingOptAnchorCount")?.value || 5),
     no_dual_ownership: !!document.getElementById("housingOptNoDualOwnership")?.checked,
     objective: String(document.getElementById("housingOptObjective")?.value || "net_worth"),
+    search_mode: String(document.getElementById("housingOptSearchMode")?.value || "full"),
   };
   if (document.getElementById("housingOptMove2Enabled")?.checked) {
     body.move2_window = {

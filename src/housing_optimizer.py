@@ -30,16 +30,36 @@ of ownership duration). Per §3.1.3 of the design doc, failing candidates are
 not dropped, only flagged -- so ``sec121_exclusion_lost`` here is an
 informational flag (ownership span < 2 years) that never changes a computed
 dollar figure, for either move.
+
+**Narrowed search mode (§8.2 P2).** ``optimize_housing``'s default
+``search_mode='full'`` is the grid above, byte-for-byte unchanged. Opting
+into ``search_mode='narrowed'`` replaces, per candidate location, the full
+``(sale_year x purchase_year)`` grid with a bounded coordinate/pattern search
+(``_coordinate_search_2d``): a handful of seed points (grid corners plus
+center) followed by hill-climbing to the best-improving integer-year
+neighbor until none improves, capped at a small evaluation budget -- and
+replaces the rent-indefinitely branch's full ``sale_year`` sweep with the
+same style of 1D neighbor search (``_coordinate_search_1d``). Move 2's
+window is narrowed the same way when both ``search_mode='narrowed'`` and a
+``move2_window`` are given. This is a local-search heuristic on whatever
+score surface the real engine happens to produce -- it is not guaranteed
+unimodal, so narrowed mode can converge on a local rather than the global
+optimum and trades completeness for far fewer engine runs (see §7/§8.2 of
+the design doc). Candidate *generation* is the only thing that differs;
+scoring, filtering, and ranking (``_run_engine``/``score_candidate``/
+``family_presence_ok``/``no_dual_ownership``/``rank_candidates``) are shared
+unmodified with the full-grid path.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 from . import planning_engines as _pe
 from .server_services.strategy_asset_service import housing_state_estimate_payload
 
 OBJECTIVES = ('net_worth', 'lifetime_cost', 'mc_success_rate')
+SEARCH_MODES = ('full', 'narrowed')
 
 _DEFAULT_MORTGAGE_RATE = 0.0685
 _DEFAULT_DOWN_PAYMENT_PCT = 0.20
@@ -289,6 +309,117 @@ def generate_move2_candidates(
 
 
 # ---------------------------------------------------------------------------
+# Narrowed/gradient search (§8.2 P2, §7) -- opt-in alternative to the full
+# grid above. Pure integer coordinate/pattern search, decoupled from the
+# engine so it's unit-testable against a synthetic score surface: callers
+# supply a ``score_fn`` where higher is always better (the engine-scoring
+# wrappers below flip the sign for the lifetime_cost objective) and that
+# returns ``None`` for a point that must be skipped (e.g. filtered out by
+# no_dual_ownership or family_presence) without spending eval budget on it.
+# ---------------------------------------------------------------------------
+
+def _coordinate_search_2d(
+    x_bounds: tuple[int, int],
+    y_bounds: tuple[int, int],
+    score_fn: "Any",
+    max_evals: int = 25,
+) -> dict[tuple[int, int], float]:
+    """Bounded hill-climb over the integer grid ``x_bounds x y_bounds``.
+    Seeds with the four corners and the center, then repeatedly moves to
+    the best-improving 4-neighbor of the current best point until none
+    improves or ``max_evals`` is reached. Returns every point actually
+    scored (``score_fn`` returned non-``None``), keyed by score -- callers
+    that also need the ScoredCandidate objects build them alongside calling
+    this. This is a local search: on a non-unimodal surface it can settle
+    on a local rather than the global optimum (see module docstring).
+    """
+    x_lo, x_hi = x_bounds
+    y_lo, y_hi = y_bounds
+    evaluated: dict[tuple[int, int], float] = {}
+
+    def ev(x: int, y: int) -> float | None:
+        if (x, y) in evaluated:
+            return evaluated[(x, y)]
+        if len(evaluated) >= max_evals:
+            return None
+        v = score_fn(x, y)
+        if v is not None:
+            evaluated[(x, y)] = v
+        return v
+
+    seeds = {
+        (x_lo, y_lo), (x_lo, y_hi), (x_hi, y_lo), (x_hi, y_hi),
+        ((x_lo + x_hi) // 2, (y_lo + y_hi) // 2),
+    }
+    best_pt: tuple[int, int] | None = None
+    best_val: float | None = None
+    for x, y in seeds:
+        v = ev(x, y)
+        if v is not None and (best_val is None or v > best_val):
+            best_pt, best_val = (x, y), v
+
+    if best_pt is None:
+        return evaluated
+
+    improved = True
+    while improved and len(evaluated) < max_evals:
+        improved = False
+        x, y = best_pt
+        for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+            if not (x_lo <= nx <= x_hi and y_lo <= ny <= y_hi):
+                continue
+            v = ev(nx, ny)
+            if v is not None and v > best_val:
+                best_pt, best_val = (nx, ny), v
+                improved = True
+    return evaluated
+
+
+def _coordinate_search_1d(
+    bounds: tuple[int, int],
+    score_fn: "Any",
+    max_evals: int = 8,
+) -> dict[int, float]:
+    """1D analogue of ``_coordinate_search_2d`` (endpoints + midpoint seeds,
+    then hill-climb to the better neighbor) for a single-dimension window,
+    e.g. the rent-indefinitely branch's ``sale_year`` only."""
+    lo, hi = bounds
+    evaluated: dict[int, float] = {}
+
+    def ev(x: int) -> float | None:
+        if x in evaluated:
+            return evaluated[x]
+        if len(evaluated) >= max_evals:
+            return None
+        v = score_fn(x)
+        if v is not None:
+            evaluated[x] = v
+        return v
+
+    best_x: int | None = None
+    best_val: float | None = None
+    for x in {lo, hi, (lo + hi) // 2}:
+        v = ev(x)
+        if v is not None and (best_val is None or v > best_val):
+            best_x, best_val = x, v
+
+    if best_x is None:
+        return evaluated
+
+    improved = True
+    while improved and len(evaluated) < max_evals:
+        improved = False
+        for nx in (best_x + 1, best_x - 1):
+            if not (lo <= nx <= hi):
+                continue
+            v = ev(nx)
+            if v is not None and v > best_val:
+                best_x, best_val = nx, v
+                improved = True
+    return evaluated
+
+
+# ---------------------------------------------------------------------------
 # Constraint filters (§3.1.2 / §3.2.2)
 # ---------------------------------------------------------------------------
 
@@ -412,6 +543,124 @@ def select_anchors(ranked_move1: list[ScoredCandidate], anchor_count: int) -> li
 
 
 # ---------------------------------------------------------------------------
+# Narrowed search: engine-scoring wrappers (§8.2 P2)
+# ---------------------------------------------------------------------------
+
+def _pass1_value(sc: ScoredCandidate, pass1_objective: str) -> float:
+    """Orient a ScoredCandidate's Pass-1 score so higher is always better,
+    matching what ``_coordinate_search_2d``/``_coordinate_search_1d`` expect
+    (``rank_candidates`` sorts lifetime_cost ascending instead)."""
+    return -sc.lifetime_cost if pass1_objective == 'lifetime_cost' else sc.net_worth
+
+
+def _score_move1_point(
+    c0: dict[str, Any], base_state: str, loc: Location, family_presence: FamilyPresence | None,
+    no_dual_ownership: bool, pass1_objective: str, sink: list[ScoredCandidate],
+    sale_year: int, purchase_year: int | None,
+) -> float | None:
+    if no_dual_ownership and purchase_year is not None and purchase_year < sale_year:
+        return None
+    cand = HousingCandidate(location_1=loc, sale_year=sale_year, purchase_year=purchase_year)
+    ok, via_rental = family_presence_ok(base_state, cand, family_presence)
+    if not ok:
+        return None
+    c2, rows = _run_engine(c0, cand)
+    if not rows:
+        return None
+    sc = score_candidate(c2, cand, rows)
+    sc.family_presence_via_rental = via_rental
+    sink.append(sc)
+    return _pass1_value(sc, pass1_objective)
+
+
+def generate_move1_candidates_narrowed(
+    c0: dict[str, Any], base_state: str, locations: list[Location], window: SearchWindow,
+    no_dual_ownership: bool, family_presence: FamilyPresence | None, pass1_objective: str,
+) -> list[ScoredCandidate]:
+    """Narrowed-mode replacement for ``generate_move1_candidates`` that
+    scores candidates as it searches (§8.2 P2 module docstring): per
+    location, a bounded 2D coordinate search over ``(sale_year,
+    purchase_year)`` plus a bounded 1D search over the rent-indefinitely
+    branch's ``sale_year``. Rough upper bound on engine runs: per location,
+    at most 25 (2D grid, ``_coordinate_search_2d``'s default ``max_evals``)
+    + 8 (rent branch, ``_coordinate_search_1d``'s default) = 33 -- vs. a
+    full grid's ``(sale_years * (purchase_years + 1))``, which exceeds that
+    for any window bigger than a few years on a side.
+    """
+    scored: list[ScoredCandidate] = []
+    for loc in locations:
+        _coordinate_search_2d(
+            (window.earliest_sale_year, window.latest_sale_year),
+            (window.earliest_purchase_year, window.latest_purchase_year),
+            lambda sy, py: _score_move1_point(
+                c0, base_state, loc, family_presence, no_dual_ownership, pass1_objective, scored, sy, py,
+            ),
+        )
+        _coordinate_search_1d(
+            (window.earliest_sale_year, window.latest_sale_year),
+            lambda sy: _score_move1_point(
+                c0, base_state, loc, family_presence, no_dual_ownership, pass1_objective, scored, sy, None,
+            ),
+        )
+    return scored
+
+
+def _score_move2_point(
+    c0: dict[str, Any], base_state: str, anchor: HousingCandidate, loc: Location,
+    family_presence: FamilyPresence | None, no_dual_ownership: bool, pass1_objective: str,
+    sink: list[ScoredCandidate], sale_year_2: int, purchase_year_2: int | None,
+) -> float | None:
+    if no_dual_ownership and purchase_year_2 is not None and purchase_year_2 < sale_year_2:
+        return None
+    cand = HousingCandidate(
+        location_1=anchor.location_1, sale_year=anchor.sale_year, purchase_year=anchor.purchase_year,
+        location_2=loc, sale_year_2=sale_year_2, purchase_year_2=purchase_year_2, anchor_of=anchor,
+    )
+    ok, via_rental = family_presence_ok(base_state, cand, family_presence)
+    if not ok:
+        return None
+    c2, rows = _run_engine(c0, cand)
+    if not rows:
+        return None
+    sc = score_candidate(c2, cand, rows)
+    sc.family_presence_via_rental = via_rental
+    sink.append(sc)
+    return _pass1_value(sc, pass1_objective)
+
+
+def generate_move2_candidates_narrowed(
+    c0: dict[str, Any], base_state: str, anchors: list[HousingCandidate], locations: list[Location],
+    move2_window: Move2Window, no_dual_ownership: bool, family_presence: FamilyPresence | None,
+    pass1_objective: str,
+) -> list[ScoredCandidate]:
+    """Narrowed-mode replacement for ``generate_move2_candidates`` -- same
+    per-(anchor, location) 2D-grid-plus-1D-rent-branch search as
+    ``generate_move1_candidates_narrowed``, bounded the same way (§8.2 P2)."""
+    scored: list[ScoredCandidate] = []
+    for anchor in anchors:
+        if anchor.purchase_year is None:
+            continue
+        earliest_sale_2 = anchor.purchase_year
+        for loc in locations:
+            _coordinate_search_2d(
+                (earliest_sale_2, move2_window.latest_sale_year_2),
+                (earliest_sale_2, move2_window.latest_purchase_year_2),
+                lambda sy2, py2: _score_move2_point(
+                    c0, base_state, anchor, loc, family_presence, no_dual_ownership, pass1_objective,
+                    scored, sy2, py2,
+                ),
+            )
+            _coordinate_search_1d(
+                (earliest_sale_2, move2_window.latest_sale_year_2),
+                lambda sy2: _score_move2_point(
+                    c0, base_state, anchor, loc, family_presence, no_dual_ownership, pass1_objective,
+                    scored, sy2, None,
+                ),
+            )
+    return scored
+
+
+# ---------------------------------------------------------------------------
 # Orchestrator (§4)
 # ---------------------------------------------------------------------------
 
@@ -426,32 +675,26 @@ def optimize_housing(
     family_presence: FamilyPresence | None = None,
     objective: str = 'net_worth',
     shortlist_size: int = 5,
+    search_mode: Literal['full', 'narrowed'] = 'full',
 ) -> dict[str, Any]:
     if objective not in OBJECTIVES:
         raise ValueError(f"Unknown objective: {objective!r}")
+    if search_mode not in SEARCH_MODES:
+        raise ValueError(f"Unknown search_mode: {search_mode!r}")
     if not (2 <= len(locations) <= 4):
         raise ValueError("Provide 2-4 candidate locations.")
 
     base_state = str(c0.get('state', '') or '')
     pass1_objective = _pass1_objective(objective)
+    narrowed = search_mode == 'narrowed'
 
-    move1_scored: list[ScoredCandidate] = []
-    for cand in generate_move1_candidates(locations, move1_window, no_dual_ownership):
-        ok, via_rental = family_presence_ok(base_state, cand, family_presence)
-        if not ok:
-            continue
-        c2, rows = _run_engine(c0, cand)
-        if not rows:
-            continue
-        sc = score_candidate(c2, cand, rows)
-        sc.family_presence_via_rental = via_rental
-        move1_scored.append(sc)
-    move1_scored = rank_candidates(move1_scored, pass1_objective)
-
-    move2_scored: list[ScoredCandidate] = []
-    if move2_window is not None:
-        anchors = select_anchors(move1_scored, anchor_count)
-        for cand in generate_move2_candidates(anchors, locations, move2_window, no_dual_ownership):
+    if narrowed:
+        move1_scored = generate_move1_candidates_narrowed(
+            c0, base_state, locations, move1_window, no_dual_ownership, family_presence, pass1_objective,
+        )
+    else:
+        move1_scored = []
+        for cand in generate_move1_candidates(locations, move1_window, no_dual_ownership):
             ok, via_rental = family_presence_ok(base_state, cand, family_presence)
             if not ok:
                 continue
@@ -460,7 +703,28 @@ def optimize_housing(
                 continue
             sc = score_candidate(c2, cand, rows)
             sc.family_presence_via_rental = via_rental
-            move2_scored.append(sc)
+            move1_scored.append(sc)
+    move1_scored = rank_candidates(move1_scored, pass1_objective)
+
+    move2_scored: list[ScoredCandidate] = []
+    if move2_window is not None:
+        anchors = select_anchors(move1_scored, anchor_count)
+        if narrowed:
+            move2_scored = generate_move2_candidates_narrowed(
+                c0, base_state, anchors, locations, move2_window, no_dual_ownership, family_presence,
+                pass1_objective,
+            )
+        else:
+            for cand in generate_move2_candidates(anchors, locations, move2_window, no_dual_ownership):
+                ok, via_rental = family_presence_ok(base_state, cand, family_presence)
+                if not ok:
+                    continue
+                c2, rows = _run_engine(c0, cand)
+                if not rows:
+                    continue
+                sc = score_candidate(c2, cand, rows)
+                sc.family_presence_via_rental = via_rental
+                move2_scored.append(sc)
         move2_scored = rank_candidates(move2_scored, pass1_objective)
 
     combined = rank_candidates(move1_scored + move2_scored, pass1_objective)
@@ -478,7 +742,7 @@ def optimize_housing(
     else:
         final_ranked = combined
 
-    return _format_output(final_ranked, objective)
+    return _format_output(final_ranked, objective, search_mode)
 
 
 def _format_move(location: Location | None, sale_year: int | None, purchase_year: int | None,
@@ -519,10 +783,11 @@ def _format_candidate(sc: ScoredCandidate, objective: str) -> dict[str, Any]:
     }
 
 
-def _format_output(ranked: list[ScoredCandidate], objective: str) -> dict[str, Any]:
+def _format_output(ranked: list[ScoredCandidate], objective: str, search_mode: str = 'full') -> dict[str, Any]:
     formatted = [_format_candidate(sc, objective) for sc in ranked]
     return {
         'objective': objective,
+        'search_mode': search_mode,
         'recommendation': formatted[0] if formatted else None,
         'alternatives': formatted[1:11],
         'candidates_evaluated': len(ranked),
@@ -595,6 +860,10 @@ def optimize_housing_from_request(c0: dict[str, Any], body: dict[str, Any]) -> t
         if objective not in OBJECTIVES:
             return {'success': False, 'error': f"Unknown objective: {objective!r}"}, 400
 
+        search_mode = str(body.get('search_mode', 'full') or 'full')
+        if search_mode not in SEARCH_MODES:
+            return {'success': False, 'error': f"Unknown search_mode: {search_mode!r}"}, 400
+
         result = optimize_housing(
             c0,
             locations=locations,
@@ -604,6 +873,7 @@ def optimize_housing_from_request(c0: dict[str, Any], body: dict[str, Any]) -> t
             no_dual_ownership=bool(body.get('no_dual_ownership', True)),
             family_presence=family_presence,
             objective=objective,
+            search_mode=search_mode,
         )
         result['success'] = True
         result['schema'] = 'housing_optimize_v1'

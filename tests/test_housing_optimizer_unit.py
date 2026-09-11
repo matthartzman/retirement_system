@@ -15,6 +15,8 @@ from src.housing_optimizer import (
     Move2Window,
     ScoredCandidate,
     SearchWindow,
+    _coordinate_search_1d,
+    _coordinate_search_2d,
     family_presence_ok,
     generate_move1_candidates,
     generate_move2_candidates,
@@ -221,6 +223,67 @@ def test_rank_candidates_mc_success_rate_uses_the_computed_rate_when_present():
 
 
 # ---------------------------------------------------------------------------
+# Narrowed/gradient search (§8.2 P2): pure-algorithm coverage against a
+# synthetic scoring surface, no engine involved -- see the module docstring
+# for why this is a local search, not a global-optimum guarantee.
+# ---------------------------------------------------------------------------
+
+def test_coordinate_search_2d_finds_the_optimum_on_a_unimodal_surface_with_far_fewer_evals():
+    # Single peak (paraboloid) at (5, 4) over a 10x10 window -- unimodal, so
+    # hill-climbing is guaranteed to reach it.
+    peak_x, peak_y = 5, 4
+
+    def score_fn(x, y):
+        return -((x - peak_x) ** 2 + (y - peak_y) ** 2)
+
+    evaluated = _coordinate_search_2d((0, 9), (0, 9), score_fn, max_evals=25)
+    best_point = max(evaluated, key=evaluated.get)
+    assert best_point == (peak_x, peak_y)
+    full_grid_size = 10 * 10
+    assert len(evaluated) < full_grid_size
+    assert len(evaluated) <= 25
+
+
+def test_coordinate_search_2d_respects_max_evals_budget():
+    calls = 0
+
+    def score_fn(x, y):
+        nonlocal calls
+        calls += 1
+        return -((x - 3) ** 2 + (y - 3) ** 2)
+
+    _coordinate_search_2d((0, 9), (0, 9), score_fn, max_evals=10)
+    assert calls <= 10
+
+
+def test_coordinate_search_2d_skips_points_the_score_fn_flags_as_invalid():
+    # score_fn returns None for the true optimum (e.g. filtered out by
+    # no_dual_ownership/family_presence) -- search must not select it, and
+    # must still make forward progress among the remaining valid points.
+    def score_fn(x, y):
+        if (x, y) == (5, 5):
+            return None
+        return -((x - 5) ** 2 + (y - 5) ** 2)
+
+    evaluated = _coordinate_search_2d((0, 9), (0, 9), score_fn, max_evals=25)
+    assert (5, 5) not in evaluated
+    assert evaluated  # some valid neighbor was still found and scored
+
+
+def test_coordinate_search_1d_finds_the_optimum_with_far_fewer_evals_than_the_full_range():
+    peak = 7
+
+    def score_fn(x):
+        return -abs(x - peak)
+
+    evaluated = _coordinate_search_1d((0, 19), score_fn, max_evals=8)
+    best_point = max(evaluated, key=evaluated.get)
+    assert best_point == peak
+    assert len(evaluated) < 20
+    assert len(evaluated) <= 8
+
+
+# ---------------------------------------------------------------------------
 # Request-adapter validation (no engine call needed for these error paths)
 # ---------------------------------------------------------------------------
 
@@ -247,3 +310,15 @@ def test_request_adapter_rejects_unknown_objective():
     payload, status = optimize_housing_from_request({}, body)
     assert status == 400
     assert "objective" in payload["error"].lower()
+
+
+def test_request_adapter_rejects_unknown_search_mode():
+    body = {
+        "locations": [{"state": "Texas"}, {"state": "Florida"}],
+        "move1_window": {"earliest_sale_year": 2027, "latest_sale_year": 2027,
+                          "earliest_purchase_year": 2027, "latest_purchase_year": 2027},
+        "search_mode": "not_a_real_mode",
+    }
+    payload, status = optimize_housing_from_request({}, body)
+    assert status == 400
+    assert "search_mode" in payload["error"].lower()

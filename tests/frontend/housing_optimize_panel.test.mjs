@@ -66,6 +66,7 @@ describe("renderHousingOptimizePanelHtml", () => {
     assert.match(html, /id="housingOptEarliestSale"/);
     assert.match(html, /id="housingOptLatestPurchase"/);
     assert.match(html, /id="housingOptObjective"/);
+    assert.match(html, /id="housingOptSearchMode"/);
     assert.match(html, /id="housingOptNoDualOwnership"[^>]*checked/);
     assert.match(html, /id="housingOptimizeResults"/);
   });
@@ -180,6 +181,7 @@ describe("runHousingOptimization", () => {
       housingOptLatestPurchase: "2028",
       housingOptAnchorCount: "5",
       housingOptObjective: "net_worth",
+      housingOptSearchMode: "narrowed",
     };
     const resultsEl = { innerHTML: "" };
     const noDualOwnership = { checked: true };
@@ -203,6 +205,7 @@ describe("runHousingOptimization", () => {
     assert.equal(capturedBody.locations.length, 2);
     assert.equal(capturedBody.locations[0].state, "Texas");
     assert.equal(capturedBody.no_dual_ownership, true);
+    assert.equal(capturedBody.search_mode, "narrowed");
     assert.equal(capturedBody.move2_window, undefined);
     assert.equal(capturedBody.move1_window.earliest_sale_year, 2027);
     assert.match(resultsEl.innerHTML, /No candidates satisfied/);

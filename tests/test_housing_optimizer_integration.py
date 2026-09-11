@@ -177,6 +177,60 @@ def test_request_adapter_runs_end_to_end_through_the_http_shaped_entry_point():
     assert payload["recommendation"] is not None
 
 
+def test_search_mode_full_is_unchanged_by_default():
+    """search_mode defaults to 'full' and must behave exactly as before
+    (§8.2 P2 module docstring): identical candidates_evaluated and ranking
+    whether or not search_mode is passed explicitly."""
+    c0 = _base_config()
+    window = ho.SearchWindow(earliest_sale_year=2027, latest_sale_year=2028,
+                              earliest_purchase_year=2027, latest_purchase_year=2028)
+    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+        omitted = ho.optimize_housing(
+            c0, locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
+            move1_window=window, objective="net_worth",
+        )
+        explicit_full = ho.optimize_housing(
+            c0, locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
+            move1_window=window, objective="net_worth", search_mode="full",
+        )
+    assert explicit_full["search_mode"] == "full"
+    assert omitted["candidates_evaluated"] == explicit_full["candidates_evaluated"]
+    assert omitted["recommendation"] == explicit_full["recommendation"]
+
+
+def test_search_mode_narrowed_runs_end_to_end_with_fewer_evaluations_than_full_grid():
+    c0 = _base_config()
+    # A wide window: full grid is 5 sale years x (6 purchase years + 1 rent)
+    # per location x 2 locations = 70 candidates; narrowed should use far
+    # fewer engine runs per the module docstring's ~33/location bound.
+    window = ho.SearchWindow(earliest_sale_year=2027, latest_sale_year=2031,
+                              earliest_purchase_year=2027, latest_purchase_year=2032)
+    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+        full = ho.optimize_housing(
+            c0, locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
+            move1_window=window, objective="net_worth", search_mode="full",
+        )
+        narrowed = ho.optimize_housing(
+            c0, locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
+            move1_window=window, objective="net_worth", search_mode="narrowed",
+        )
+    assert narrowed["search_mode"] == "narrowed"
+    assert narrowed["recommendation"] is not None
+    assert narrowed["candidates_evaluated"] > 0
+    assert narrowed["candidates_evaluated"] < full["candidates_evaluated"]
+    values = [c["net_worth"] for c in [narrowed["recommendation"], *narrowed["alternatives"]]]
+    assert values == sorted(values, reverse=True)
+
+
+def test_search_mode_narrowed_rejects_unknown_value():
+    c0 = _base_config()
+    with pytest.raises(ValueError, match="search_mode"):
+        ho.optimize_housing(
+            c0, locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
+            move1_window=ho.SearchWindow(2027, 2027, 2027, 2027), search_mode="bogus",
+        )
+
+
 def test_optimizer_never_mutates_the_base_plan_config():
     c0 = _base_config()
     before_next_steps = c0.get("next_housing_steps")
