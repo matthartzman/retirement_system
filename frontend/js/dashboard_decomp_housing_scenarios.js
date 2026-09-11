@@ -1067,7 +1067,7 @@ export function renderCurrentScenarioOverridesHtml(rs) {
 }
 
 export function renderScenarioManagementPanel(rs) {
-  return `<section class="scenario-management"><div class="scenario-management-head"><div><span class="eyebrow">Planning Workbench</span><h3>Scenario Change Sets</h3><p class="small">Templates stage common deterministic what-if overrides. Saved sets are browser-local change sets; review the diff, apply a set, then Save Changes, rebuild, and compare in the Planning Workbench.</p></div><button class="btn primary" type="button" onclick="saveCurrentScenarioSet()">Save current scenario set</button></div><details><summary>Scenario templates</summary>${renderScenarioTemplatesHtml()}</details><details><summary>Saved named scenario sets</summary>${renderSavedScenarioSetsHtml()}</details><details><summary>Current scenario overrides</summary>${renderCurrentScenarioOverridesHtml(rs)}</details></section>`;
+  return `<section class="scenario-management"><div class="scenario-management-head"><div><span class="eyebrow">Planning Workbench</span><h3>Scenario Change Sets</h3><p class="small">Templates stage common deterministic what-if overrides. Saved sets are browser-local change sets; review the diff, apply a set, then Save Changes, rebuild, and compare in the Planning Workbench.</p></div><button class="btn primary" type="button" onclick="saveCurrentScenarioSet()">Save current scenario set</button></div><details><summary>Scenario templates</summary>${renderScenarioTemplatesHtml()}</details>${renderHousingOptimizePanelHtml()}<details><summary>Saved named scenario sets</summary>${renderSavedScenarioSetsHtml()}</details><details><summary>Current scenario overrides</summary>${renderCurrentScenarioOverridesHtml(rs)}</details></section>`;
 }
 
 export function renderScenarios() {
@@ -1110,6 +1110,190 @@ export function renderScenarios() {
   }
   html += renderFieldGroups(other);
   return html;
+}
+
+// Housing move optimizer (docs/superpowers/specs/2026-09-09-housing-optimization-design.md):
+// a search over candidate sale/purchase years and locations, run through the
+// existing deterministic engine and Monte Carlo runner via POST
+// /api/housing/optimize. Lives next to the scenario templates above and
+// reuses this file's diff-table styling for its results table rather than
+// introducing new results UI.
+const HOUSING_OPT_MAX_LOCATIONS = 4;
+
+export function toggleHousingOptLocationRows() {
+  const n = Number(document.getElementById("housingOptLocCount")?.value || 2);
+  for (let i = 0; i < HOUSING_OPT_MAX_LOCATIONS; i++) {
+    const row = document.getElementById(`housingOptLocRow${i}`);
+    if (row) row.hidden = i >= n;
+  }
+}
+
+export function toggleHousingOptMove2Fields() {
+  const el = document.getElementById("housingOptMove2Fields");
+  const enabled = !!document.getElementById("housingOptMove2Enabled")?.checked;
+  if (el) el.hidden = !enabled;
+}
+
+function housingOptLocationRowHtml(i) {
+  return `<div class="housing-opt-location-row" id="housingOptLocRow${i}" ${i >= 2 ? "hidden" : ""}>
+    <input type="text" id="housingOptLocState${i}" placeholder="State (e.g. Texas)" style="width:10em">
+    <select id="housingOptLocCity${i}">
+      <option value="urban">Urban</option>
+      <option value="suburban" selected>Suburban</option>
+      <option value="exurban">Exurban</option>
+      <option value="rural">Rural</option>
+    </select>
+    <input type="number" id="housingOptLocPop${i}" value="20000" min="0" style="width:8em" placeholder="Population">
+  </div>`;
+}
+
+export function renderHousingOptimizePanelHtml() {
+  const locationRows = Array.from({ length: HOUSING_OPT_MAX_LOCATIONS }, (_, i) => housingOptLocationRowHtml(i)).join("");
+  return `<details class="housing-optimize-panel"><summary>Optimize next housing move</summary><div class="field-list">
+    <div class="section-note">Search candidate sale/purchase years and locations for the household's next housing move (optionally a second), reusing the same deterministic engine and Monte Carlo runner as the rest of the plan -- no separate tax model. Results below reuse this page's scenario-diff table styling.</div>
+    <div class="subsection-label">Candidate locations (2-4)</div>
+    <label>Number of candidate locations
+      <select id="housingOptLocCount" onchange="toggleHousingOptLocationRows()"><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+    </label>
+    ${locationRows}
+    <div class="subsection-label">Move 1 search window</div>
+    <label>Earliest sale year <input type="number" id="housingOptEarliestSale"></label>
+    <label>Latest sale year <input type="number" id="housingOptLatestSale"></label>
+    <label>Earliest purchase year <input type="number" id="housingOptEarliestPurchase"></label>
+    <label>Latest purchase year <input type="number" id="housingOptLatestPurchase"></label>
+    <div class="subsection-label"><label><input type="checkbox" id="housingOptMove2Enabled" onchange="toggleHousingOptMove2Fields()"> Consider a second move</label></div>
+    <div id="housingOptMove2Fields" hidden>
+      <label>Move-2 latest sale year <input type="number" id="housingOptLatestSale2"></label>
+      <label>Move-2 latest purchase year <input type="number" id="housingOptLatestPurchase2"></label>
+      <label>Anchor count <input type="number" id="housingOptAnchorCount" value="5" min="1" max="10"></label>
+    </div>
+    <div class="subsection-label">Constraints and objective</div>
+    <label><input type="checkbox" id="housingOptNoDualOwnership" checked> Never own two homes at once</label>
+    <label>Objective
+      <select id="housingOptObjective">
+        <option value="net_worth">Ending net worth</option>
+        <option value="lifetime_cost">Lifetime housing cost</option>
+        <option value="mc_success_rate">Monte Carlo success rate</option>
+      </select>
+    </label>
+    <div class="subsection-label">Family presence (optional)</div>
+    <label>Region (state) <input type="text" id="housingOptPresenceRegion" placeholder="e.g. Illinois"></label>
+    <label>From year <input type="number" id="housingOptPresenceStart"></label>
+    <label>Through year <input type="number" id="housingOptPresenceEnd"></label>
+    <div class="table-actions"><button class="btn primary" type="button" onclick="runHousingOptimization()">Run optimization</button></div>
+    <div id="housingOptimizeResults"></div>
+  </div></details>`;
+}
+
+function housingOptMoveText(move) {
+  if (!move) return "";
+  const action = move.rent_indefinitely ? "Rent indefinitely" : `Buy ${move.purchase_year}`;
+  const flag = move.sec121_exclusion_lost
+    ? ' <span class="small warning">(likely loses §121 exclusion)</span>'
+    : "";
+  return `Sell ${move.sale_year} → ${action} in ${esc(move.location.state)}${flag}`;
+}
+
+const HOUSING_OPT_OBJECTIVE_LABELS = {
+  net_worth: "Ending net worth",
+  lifetime_cost: "Lifetime housing cost",
+  mc_success_rate: "Monte Carlo success rate",
+};
+
+function housingOptValueText(row, objective) {
+  const v = row && row.objective_value;
+  if (v === null || v === undefined) return "—";
+  if (objective === "mc_success_rate") return (v * 100).toFixed(1) + "%";
+  return "$" + Math.round(v).toLocaleString();
+}
+
+function housingOptMcText(row) {
+  if (row.mc_success_rate === null || row.mc_success_rate === undefined) return "—";
+  return (row.mc_success_rate * 100).toFixed(1) + "%";
+}
+
+function housingOptNotesText(row) {
+  const notes = [];
+  if (row.family_presence_via_rental) notes.push("family presence via rental");
+  if (row.mc_approximate) notes.push("MC success rate excludes estimated move-2 sale proceeds");
+  return notes.join("; ");
+}
+
+export function renderHousingOptimizeResultsHtml(payload) {
+  if (!payload) return "";
+  if (!payload.recommendation) {
+    return '<p class="small">No candidates satisfied the search windows and constraints (check no_dual_ownership and family presence).</p>';
+  }
+  const rec = payload.recommendation;
+  const objLabel = HOUSING_OPT_OBJECTIVE_LABELS[payload.objective] || payload.objective;
+  const head = `<div class="section-note"><b>Recommended:</b> ${rec.moves.map(housingOptMoveText).join(" then ")} — ${esc(objLabel)}: ${housingOptValueText(rec, payload.objective)}${housingOptNotesText(rec) ? " · " + esc(housingOptNotesText(rec)) : ""}</div>`;
+  const altRows = (payload.alternatives || [])
+    .map(
+      (row) =>
+        `<tr><td>${row.moves.map(housingOptMoveText).join("<br>")}</td><td>${housingOptValueText(row, payload.objective)}</td><td>${housingOptMcText(row)}</td><td>${esc(housingOptNotesText(row))}</td></tr>`,
+    )
+    .join("");
+  const table = altRows
+    ? `<table class="lot-table scenario-diff-table housing-optimize-table"><thead><tr><th>Alternative</th><th>${esc(objLabel)}</th><th>MC success</th><th>Notes</th></tr></thead><tbody>${altRows}</tbody></table>`
+    : '<p class="small">No additional ranked alternatives.</p>';
+  return head + table;
+}
+
+export async function runHousingOptimization() {
+  const numLocs = Number(document.getElementById("housingOptLocCount")?.value || 2);
+  const locations = [];
+  for (let i = 0; i < numLocs; i++) {
+    const state = String(document.getElementById(`housingOptLocState${i}`)?.value || "").trim();
+    if (!state) {
+      showMessage(`Enter a state for candidate location ${i + 1}.`, "error");
+      return;
+    }
+    locations.push({
+      state,
+      city_type: String(document.getElementById(`housingOptLocCity${i}`)?.value || "suburban"),
+      population_size: Number(document.getElementById(`housingOptLocPop${i}`)?.value || 20000),
+    });
+  }
+  const body = {
+    locations,
+    move1_window: {
+      earliest_sale_year: Number(document.getElementById("housingOptEarliestSale")?.value || 0),
+      latest_sale_year: Number(document.getElementById("housingOptLatestSale")?.value || 0),
+      earliest_purchase_year: Number(document.getElementById("housingOptEarliestPurchase")?.value || 0),
+      latest_purchase_year: Number(document.getElementById("housingOptLatestPurchase")?.value || 0),
+    },
+    anchor_count: Number(document.getElementById("housingOptAnchorCount")?.value || 5),
+    no_dual_ownership: !!document.getElementById("housingOptNoDualOwnership")?.checked,
+    objective: String(document.getElementById("housingOptObjective")?.value || "net_worth"),
+  };
+  if (document.getElementById("housingOptMove2Enabled")?.checked) {
+    body.move2_window = {
+      latest_sale_year_2: Number(document.getElementById("housingOptLatestSale2")?.value || 0),
+      latest_purchase_year_2: Number(document.getElementById("housingOptLatestPurchase2")?.value || 0),
+    };
+  }
+  const region = String(document.getElementById("housingOptPresenceRegion")?.value || "").trim();
+  if (region) {
+    body.family_presence = {
+      region,
+      start_year: Number(document.getElementById("housingOptPresenceStart")?.value || 0),
+      end_year: Number(document.getElementById("housingOptPresenceEnd")?.value || 0),
+    };
+  }
+  const resultsEl = document.getElementById("housingOptimizeResults");
+  if (resultsEl) resultsEl.innerHTML = '<p class="small">Running optimization — this searches many plan variants and can take a little while…</p>';
+  try {
+    const resp = await api("/api/housing/optimize", { method: "POST", body: JSON.stringify(body) });
+    if (resp && resp.success) {
+      if (resultsEl) resultsEl.innerHTML = renderHousingOptimizeResultsHtml(resp);
+    } else {
+      showMessage("Optimization error: " + (resp && resp.error ? resp.error : "unknown error"), "error");
+      if (resultsEl) resultsEl.innerHTML = "";
+    }
+  } catch (e) {
+    showMessage("Error running housing optimization: " + e.message, "error");
+    if (resultsEl) resultsEl.innerHTML = "";
+  }
 }
 
 export async function seedHousingRows() {
@@ -1179,4 +1363,9 @@ Object.assign(window, {
   renderScenarioManagementPanel,
   renderScenarios,
   seedHousingRows,
+  toggleHousingOptLocationRows,
+  toggleHousingOptMove2Fields,
+  renderHousingOptimizePanelHtml,
+  renderHousingOptimizeResultsHtml,
+  runHousingOptimization,
 });

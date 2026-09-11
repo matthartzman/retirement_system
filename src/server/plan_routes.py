@@ -746,6 +746,17 @@ def housing_state_estimate():
         return denied
     return _service_json(strategy_asset_service.housing_state_estimate_payload(request.get_json(force=True, silent=True) or {}))
 
+@app.route("/api/housing/optimize", methods=["POST"])
+def housing_optimize():
+    denied = _require("read_config")
+    if denied:
+        return denied
+    from ..housing_optimizer import optimize_housing_from_request
+    from ..report_compute import prepare_config_from_sectioned_data
+    data, _meta = load_active_config()
+    c0 = prepare_config_from_sectioned_data(data, "", optimize_roth=False)
+    return _service_json(optimize_housing_from_request(c0, request.get_json(force=True, silent=True) or {}))
+
 @app.route("/api/config/sync", methods=["POST"])
 def config_sync():
     denied = _require("write_config")
