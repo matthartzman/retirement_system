@@ -195,7 +195,7 @@ export function renderSpendingSummary(d) {
   var vpct = budget ? ((annualized - budget) / budget) * 100 : 0;
   var html = '<div class="spend-summary">';
   html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(d.income_total||0) + '</span><span class="spend-kpi-label">This Year Income</span></div>';
-  html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(d.actuals_total) + '</span><span class="spend-kpi-label">This Year Expenses excl. taxes</span></div>';
+  html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(d.actuals_total) + '</span><span class="spend-kpi-label">This Year Expenses</span></div>';
   html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(annualized) + '</span><span class="spend-kpi-label">Annualized Actual Expenses</span>';
   if (annualized > 0) {
     html += '<button class="btn tiny good" data-requires-app="1" onclick="applySpendingForecast()" title="Updates the retirement model\'s core spending assumption to this annualized rate">Sync Actual Rate → 30-Year Model</button>';
@@ -205,7 +205,7 @@ export function renderSpendingSummary(d) {
   var cls = vpct > 15 ? 'spend-kpi over' : vpct > 5 ? 'spend-kpi watch' : 'spend-kpi ok';
   html += '<div class="' + cls + '"><span class="spend-kpi-value">' + fmtVariancePct(vpct) + '</span><span class="spend-kpi-label">' + (budget ? 'Annualized Actual vs. Annual Budget' : 'Annualized Actual vs. Model Spending Categories') + '</span></div>';
   html += '</div>';
-  html += '<p class="small" style="margin:0 0 12px">' + d.days_elapsed + ' days elapsed &middot; annualization factor ' + (d.annualization_factor || 1).toFixed(2) + 'x</p>';
+  html += '<p class="small" style="margin:0 0 12px">' + d.days_elapsed + ' days elapsed &middot; annualization factor ' + (d.annualization_factor || 1).toFixed(2) + 'x &middot; all five figures above exclude income taxes and transfers (real estate taxes still count as Housing spending)</p>';
   return html;
 }
 
