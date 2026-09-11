@@ -34,7 +34,6 @@ function samplePayload() {
       mc_success_rate: 1.0,
       objective_value: 11447476.74,
       family_presence_via_rental: false,
-      mc_approximate: false,
     },
     alternatives: [
       {
@@ -52,7 +51,6 @@ function samplePayload() {
         mc_success_rate: null,
         objective_value: 11375199.93,
         family_presence_via_rental: true,
-        mc_approximate: false,
       },
     ],
     candidates_evaluated: 12,

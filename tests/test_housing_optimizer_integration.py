@@ -96,7 +96,10 @@ def test_family_presence_hard_filter_drops_disqualifying_candidates():
     assert filtered["recommendation"] is None
 
 
-def test_two_move_candidate_is_flagged_as_mc_approximate():
+def test_two_move_candidate_has_no_mc_approximate_flag():
+    """Move 2's sale now runs through the engine's own second-sale pathway
+    (design doc §8.2 P0) -- there is no more out-of-loop estimate, so the
+    API response no longer carries an mc_approximate flag at all."""
     c0 = _base_config()
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
         result = ho.optimize_housing(
@@ -110,12 +113,31 @@ def test_two_move_candidate_is_flagged_as_mc_approximate():
     two_move_rows = [row for row in [result["recommendation"], *result["alternatives"]]
                       if row and len(row["moves"]) == 2]
     assert two_move_rows, "expected at least one two-move candidate in the ranked results"
-    for row in two_move_rows:
-        assert row["mc_approximate"] is True
-    one_move_rows = [row for row in [result["recommendation"], *result["alternatives"]]
-                      if row and len(row["moves"]) == 1]
-    for row in one_move_rows:
-        assert row["mc_approximate"] is False
+    for row in [result["recommendation"], *result["alternatives"]]:
+        if row is None:
+            continue
+        assert "mc_approximate" not in row
+
+
+def test_two_move_candidate_sale_produces_a_real_engine_deposit():
+    """Move 2's sale must be a real, cascade-visible deposit -- not merely
+    reflected in the final score. Run the engine directly (bypassing the
+    optimizer's own scoring) and check the second sale's row fields land
+    where home_sale.py's apply_next_housing_sale writes them."""
+    c0 = _base_config()
+    cand = ho.HousingCandidate(
+        location_1=ho.Location(state="Texas"), sale_year=2027, purchase_year=2027,
+        location_2=ho.Location(state="Florida"), sale_year_2=2032, purchase_year_2=None,
+    )
+    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+        c2, rows = ho._run_engine(c0, cand)
+    by_year = {int(r["year"]): r for r in rows}
+    sale_row = by_year[2032]
+    assert sale_row["next_housing_sale_gross"] > 0
+    assert sale_row["next_housing_sale_net"] > 0
+    # The deposit is visible on the account-flow ledger the engine's own
+    # cascade reads from, not just folded into a post-hoc adjustment.
+    assert sum(sale_row["_account_deposits"].values()) >= sale_row["next_housing_sale_net"] - 1.0
 
 
 def test_monte_carlo_success_rate_is_only_populated_for_the_shortlist():

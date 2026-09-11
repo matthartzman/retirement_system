@@ -1215,7 +1215,6 @@ function housingOptMcText(row) {
 function housingOptNotesText(row) {
   const notes = [];
   if (row.family_presence_via_rental) notes.push("family presence via rental");
-  if (row.mc_approximate) notes.push("MC success rate excludes estimated move-2 sale proceeds");
   return notes.join("; ");
 }
 

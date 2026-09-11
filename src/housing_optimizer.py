@@ -6,24 +6,23 @@ variants, runs them through the existing deterministic engine
 (``planning_engines.run_scenario`` -> ``projection_stages.deterministic_engine``)
 and Monte Carlo runner (``planning_engines.monte_carlo``) unmodified, filters
 by ``no_dual_ownership``/``family_presence``, scores by the selected
-objective, and ranks. No new tax logic is added for move 1 (the sale of the
-household's *current* home): it reuses ``c['home_sale_yr']`` /
-``home_sale.py`` exactly as a manually-configured plan would.
+objective, and ranks. No new tax logic is added, for move 1 or move 2: both
+sales reuse the engine's own gain/§121 pathway in ``home_sale.py`` exactly as
+a manually-configured plan would.
 
-**Move 2 is a documented approximation.** The engine has exactly one
-sale-with-capital-gain pathway (``c['home_sale_yr']``, tied to the original
-home) and no mechanism to sell a *second*, ``next_housing_steps``-purchased
-home -- a ``next_housing_steps`` entry only ever stops accruing cash flow at
-its ``end_year``; it is never "sold" with a gain/§121 computation. So a
-two-move candidate's move-2 sale is priced here by reading the engine's own
-modeled home value/mortgage balance for the move-1 home just before its
-``next_housing_steps`` entry ends, then applying the *same* LTCG primitive
-``home_sale.py`` uses (``tax_kernel.ltcg_tax_on_gain``) and the same §121
-exclusion arithmetic -- not a new tax model, but an out-of-loop application
-of the existing one, and the resulting net-after-tax proceeds are folded into
-net worth/lifetime cost as a one-time adjustment rather than a deposit the
-engine's own cascade can see (so Monte Carlo on a two-move candidate does not
-reflect the move-2 proceeds; see ``mc_approximate`` in the output).
+**Move 2 is a real, cascade-visible sale (§8.2 P0 of the design doc).** The
+engine now has a second sale-with-capital-gain pathway --
+``home_sale.py``'s ``apply_next_housing_sale``, sharing the same gain/§121
+arithmetic ``apply_home_sale`` uses for the original home -- that a
+``next_housing_steps`` purchase step can be pointed at via a ``sale_year``
+field. This module sets that field (``_apply_candidate`` below) instead of
+computing move-2's gain/tax itself: the engine's own run produces a real
+deposit its withdrawal cascade and Monte Carlo runner both see, so
+``net_worth``/``lifetime_cost``/``mc_success_rate`` for a two-move candidate
+are as accurate as for a one-move candidate -- no separate out-of-loop
+estimate, and no ``mc_approximate`` flag (removed; see git history for the
+prior out-of-loop ``Move2SaleEstimate``/``_estimate_move2_sale`` approach
+this replaced).
 
 The §121 two-of-five-year ownership/use test is not modeled by the engine at
 all (``home_sale.py`` always grants the full statutory exclusion regardless
@@ -38,7 +37,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from . import planning_engines as _pe
-from . import tax_kernel as _tk
 from .server_services.strategy_asset_service import housing_state_estimate_payload
 
 OBJECTIVES = ('net_worth', 'lifetime_cost', 'mc_success_rate')
@@ -125,7 +123,6 @@ class ScoredCandidate:
     mc_success_rate: float | None
     sec121_exclusion_lost: list[bool]
     family_presence_via_rental: bool = False
-    mc_approximate: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -216,7 +213,15 @@ def _apply_candidate(c: dict[str, Any], cand: HousingCandidate) -> None:
     if cand.purchase_year is None:
         steps.append(_rent_step('opt_move1', cand.location_1, cand.sale_year, move1_end))
     else:
-        steps.append(_purchase_step('opt_move1', cand.location_1, cand.purchase_year, move1_end))
+        move1_step = _purchase_step('opt_move1', cand.location_1, cand.purchase_year, move1_end)
+        if cand.is_two_move:
+            # Real second-sale pathway (design doc §8.2 P0): the engine sells
+            # this step itself -- see home_sale.py's apply_next_housing_sale
+            # -- instead of this module estimating move 2's gain/tax
+            # out-of-loop. `move1_end` above is already `sale_year_2 - 1`, so
+            # the step also stops accruing ongoing cash flow the year before.
+            move1_step['sale_year'] = cand.sale_year_2
+        steps.append(move1_step)
 
     if cand.is_two_move:
         move2_start = cand.sale_year_2 if cand.purchase_year_2 is None else cand.purchase_year_2
@@ -336,88 +341,47 @@ def sec121_exclusion_flag(purchase_year: int | None, sale_year: int) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Move-2 sale estimate (documented approximation -- see module docstring)
-# ---------------------------------------------------------------------------
-
-@dataclass
-class Move2SaleEstimate:
-    gross: float
-    selling_costs: float
-    mortgage_payoff: float
-    net_proceeds_after_costs: float
-    cap_gain: float
-    sec121_exclusion: float
-    taxable_gain: float
-    tax: float
-    net_after_tax: float
-
-
-def _estimate_move2_sale(c: dict[str, Any], cand: HousingCandidate, rows: list[dict[str, Any]]) -> Move2SaleEstimate | None:
-    if not cand.is_two_move:
-        return None
-    last_active_year = cand.sale_year_2 - 1
-    row = next((r for r in rows if int(r.get('year', 0) or 0) == last_active_year), None)
-    if row is None:
-        return None
-    gross = float(row.get('next_housing_home_value', 0.0) or 0.0)
-    mortgage_payoff = float(row.get('next_housing_mortgage_balance', 0.0) or 0.0)
-    sell_cost_pct = float(c.get('home_sell_cost_pct', 0.06) or 0.06)
-    selling_costs = gross * sell_cost_pct
-    basis = _purchase_price_for_location(cand.location_1)
-    net_proceeds_after_costs = max(0.0, gross - selling_costs - mortgage_payoff)
-    cap_gain = max(0.0, gross - selling_costs - basis)
-    filing = str(c.get('filing_status', 'MFJ') or 'MFJ')
-    default_exclusion = 500000.0 if filing == 'MFJ' else 250000.0
-    sec121_exclusion = min(float(c.get('sec121', default_exclusion) or default_exclusion), default_exclusion)
-    taxable_gain = max(0.0, cap_gain - sec121_exclusion)
-    ordinary_income = float(row.get('agi', 0.0) or 0.0)
-    tax = _tk.ltcg_tax_on_gain(c, taxable_gain, ordinary_income, cand.sale_year_2) if taxable_gain > 0 else 0.0
-    return Move2SaleEstimate(
-        gross=gross, selling_costs=selling_costs, mortgage_payoff=mortgage_payoff,
-        net_proceeds_after_costs=net_proceeds_after_costs, cap_gain=cap_gain,
-        sec121_exclusion=sec121_exclusion, taxable_gain=taxable_gain, tax=tax,
-        net_after_tax=net_proceeds_after_costs - tax,
-    )
-
-
-# ---------------------------------------------------------------------------
 # Scoring (§4)
 # ---------------------------------------------------------------------------
 
 def _lifetime_cost(rows: list[dict[str, Any]]) -> float:
     """Total after-tax housing-attributable cost (§4): ongoing housing cash
     flow (mortgage P&I, RE tax, insurance/HOA/utilities/maintenance, rent --
-    already summed by the engine into ``housing_total_yr``) plus the
-    original home's sale-gain tax, minus its pretax capital gain (selling
-    costs already netted out of ``home_sale_gain``) -- i.e. cost net of
+    already summed by the engine into ``housing_total_yr``) plus each sale's
+    gain tax, minus its pretax capital gain (selling costs already netted
+    out of ``home_sale_gain``/``next_housing_sale_gain``) -- i.e. cost net of
     equity growth realized at sale, computed entirely from this run's
-    existing cashflow breakdown, per §4.
+    existing cashflow breakdown, per §4. Covers both the original home's
+    sale (``home_sale_*``) and, for a two-move candidate, move 2's sale of
+    the ``next_housing_steps`` home (``next_housing_sale_*`` -- see
+    home_sale.py's ``apply_next_housing_sale``); both are 0 in every year
+    without that sale, so this needs no candidate-specific branching.
     """
     total = 0.0
     for r in rows:
         total += float(r.get('housing_total_yr', 0.0) or 0.0)
         total += float(r.get('home_sale_tax', 0.0) or 0.0)
         total -= float(r.get('home_sale_gain', 0.0) or 0.0)
+        total += float(r.get('next_housing_sale_tax', 0.0) or 0.0)
+        total -= float(r.get('next_housing_sale_gain', 0.0) or 0.0)
     return total
 
 
 def score_candidate(c: dict[str, Any], cand: HousingCandidate, rows: list[dict[str, Any]]) -> ScoredCandidate:
+    """Score one engine run. Both moves' sale proceeds are already real
+    deposits the engine's own run reflects in ``rows[-1]['total_nw']`` (see
+    home_sale.py's ``apply_next_housing_sale`` and this module's docstring),
+    so -- unlike the out-of-loop estimate this replaced -- no post-hoc net
+    worth/lifetime cost adjustment is needed for move 2.
+    """
     net_worth = float(rows[-1].get('total_nw', 0.0) or 0.0) if rows else 0.0
     lifetime_cost = _lifetime_cost(rows)
     sec121_flags = [False]  # move 1 sells the current/original home -- ownership start isn't tracked, assume met
-    move2_est = _estimate_move2_sale(c, cand, rows)
-    if move2_est is not None:
-        plan_end = int(c.get('plan_end', cand.sale_year_2) or cand.sale_year_2)
-        ret = float(c.get('ret', 0.06) or 0.06)
-        years_grown = max(0, plan_end - cand.sale_year_2)
-        grown_proceeds = move2_est.net_after_tax * ((1.0 + ret) ** years_grown)
-        net_worth += grown_proceeds
-        lifetime_cost += move2_est.tax - move2_est.cap_gain
+    if cand.is_two_move:
         sec121_flags.append(sec121_exclusion_flag(cand.purchase_year, cand.sale_year_2))
     return ScoredCandidate(
         candidate=cand, net_worth=net_worth, lifetime_cost=lifetime_cost,
         mc_success_rate=None, sec121_exclusion_lost=sec121_flags,
-        mc_approximate=cand.is_two_move,
     )
 
 
@@ -552,7 +516,6 @@ def _format_candidate(sc: ScoredCandidate, objective: str) -> dict[str, Any]:
             'mc_success_rate': sc.mc_success_rate,
         }[objective],
         'family_presence_via_rental': sc.family_presence_via_rental,
-        'mc_approximate': sc.mc_approximate,
     }
 
 
