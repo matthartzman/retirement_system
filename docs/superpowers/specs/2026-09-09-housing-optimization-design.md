@@ -1,6 +1,6 @@
 # Housing optimization — design
 
-**Date:** 2026-09-09 · **Status:** v1 shipped ([PR #109](https://github.com/matthartzman/retirement_system/pull/109)) · **Revision:** 5
+**Date:** 2026-09-09 · **Status:** v1 shipped ([PR #109](https://github.com/matthartzman/retirement_system/pull/109)) · **Revision:** 7
 
 **Revision 3 (2026-09-11):** v1 landed per this spec. Three implementation-time gaps were
 discovered that the original design didn't anticipate — see §8. §8 also reprioritizes the
@@ -12,8 +12,13 @@ existing §7 out-of-scope list against those gaps for the next chunk of work.
 default (`search_mode='full'`); narrowed search is opt-in (`search_mode='narrowed'`).
 
 **Revision 6 (2026-09-11):** §8.2 P1 confirmed done (live-browser verification, both search modes).
-P3 is in progress. §8.2 reordered and its priority reasoning revised based on what P0-P2 actually
-cost to build — see the new §8.3.
+§8.2 reordered and its priority reasoning revised based on what P0-P2 actually cost to build —
+see the new §8.3.
+
+**Revision 7 (2026-09-11):** §8.2 P3 landed — see the P3 note in §8.2. Anchoring stays the
+default (`move2_strategy='anchored'`); the full cross-product is opt-in
+(`move2_strategy='cross_product'`), guarded by a pre-engine candidate-count cap. All of §8.2's
+priority list (P0-P3) is now done; only P4 (no user request yet) remains open.
 
 **Scope:** given the current home, recommend the sale year, next-purchase year (or "rent
 indefinitely"), and location for the household's next housing move — and optionally a **second**
