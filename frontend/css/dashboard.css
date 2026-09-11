@@ -896,6 +896,29 @@ body.chart-modal-open{overflow:hidden}
 .lot-table-wrap.cols-collapsed .lot-table [data-col-group="extra"]{display:none}
 .col-group-toggle{margin-left:auto}
 
+/* YTD Transactions table (Actual Spending (YTD) tab) was unreadable next to
+   an open Context Help panel: .ytd-tx-table has a flat min-width:1420px
+   (sized for the "show all columns" state), so even with the extra columns
+   collapsed away, Merchant/Category/Account -- the only cells with no
+   explicit width -- expanded to fill that same 1420px, forcing horizontal
+   scroll inside a help-open center column (minmax(700px,1fr)). Collapsed
+   view only needs Date/Merchant/Category/Account/Amount/delete, so give it
+   its own much smaller min-width and cap the three flexible columns instead
+   of leaving them to fill whatever space .ytd-tx-table{min-width:1420px}
+   forces into existence. */
+.ytd-tx-table-wrap.cols-collapsed .ytd-tx-table{min-width:0}
+.ytd-tx-table-wrap.cols-collapsed .ytd-tx-table th:nth-child(2),
+.ytd-tx-table-wrap.cols-collapsed .ytd-tx-table td:nth-child(2){width:115px;min-width:115px;max-width:115px}
+.ytd-tx-table-wrap.cols-collapsed .ytd-tx-table th:nth-child(3),
+.ytd-tx-table-wrap.cols-collapsed .ytd-tx-table td:nth-child(3){width:95px;min-width:95px;max-width:95px}
+.ytd-tx-table-wrap.cols-collapsed .ytd-tx-table th:nth-child(4),
+.ytd-tx-table-wrap.cols-collapsed .ytd-tx-table td:nth-child(4){width:95px;min-width:95px;max-width:95px}
+.ytd-tx-table-wrap.cols-collapsed .ytd-tx-table td:nth-child(2) input,
+.ytd-tx-table-wrap.cols-collapsed .ytd-tx-table td:nth-child(3) input,
+.ytd-tx-table-wrap.cols-collapsed .ytd-tx-table td:nth-child(4) input{min-width:0}
+.ytd-tx-table-wrap.cols-collapsed .ytd-tx-table th:nth-child(10),
+.ytd-tx-table-wrap.cols-collapsed .ytd-tx-table td:nth-child(10){width:44px;min-width:44px;max-width:44px}
+
 /* Graphical YES/NO toggle switch, replacing plain <select> dropdowns for
    every boolean field. Two text spans (toggle-text-yes/-no) are shown/hidden
    purely via the :checked sibling selector so the visible label updates
