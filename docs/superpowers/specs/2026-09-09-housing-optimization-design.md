@@ -6,6 +6,8 @@
 discovered that the original design didn't anticipate — see §8. §8 also reprioritizes the
 existing §7 out-of-scope list against those gaps for the next chunk of work.
 
+**Revision 4 (2026-09-11):** §8.2 P0 landed — see the note at the end of §8.2.
+
 **Scope:** given the current home, recommend the sale year, next-purchase year (or "rent
 indefinitely"), and location for the household's next housing move — and optionally a **second**
 subsequent move — as a new action inside the existing housing scenario manager.
@@ -221,7 +223,7 @@ logic — the engine has never had to model a second home sale before:
 
 ### 8.1 Gaps found during implementation
 
-1. **Move 2's sale bypasses the engine's own sale pathway (accuracy gap, real).**
+1. **Move 2's sale bypasses the engine's own sale pathway (accuracy gap, real). Closed by §8.2 P0.**
    `home_sale.py` has exactly one sale-with-capital-gain pathway, hard-tied to the household's
    *original* home (`c['home_sale_yr']`). A `next_housing_steps` entry — which is how the engine
    represents a purchased home after move 1 — only ever stops accruing cashflow at its
@@ -232,11 +234,14 @@ logic — the engine has never had to model a second home sale before:
    applied one level outside the engine's own run loop rather than inside it. The net-after-tax
    proceeds are folded into net worth/lifetime cost as a one-time adjustment — a deposit the
    engine's own cascade never sees.
-2. **Consequence of (1): Monte Carlo on two-move candidates is approximate.** Because move-2
-   proceeds aren't a deposit the engine's MC run can see, MC success rate on a two-move candidate
-   doesn't reflect that cash coming in. Every two-move result is marked `mc_approximate: true` in
-   the API response and flagged in the UI, so this is visible, not silent — but it means Pass 2
-   (§4) MC validation is weaker for two-move candidates than for single-move ones.
+2. **Consequence of (1): Monte Carlo on two-move candidates is approximate. Closed by §8.2 P0.**
+   Because move-2 proceeds aren't a deposit the engine's MC run can see, MC success rate on a
+   two-move candidate doesn't reflect that cash coming in. Every two-move result is marked
+   `mc_approximate: true` in the API response and flagged in the UI, so this is visible, not
+   silent — but it means Pass 2 (§4) MC validation is weaker for two-move candidates than for
+   single-move ones. *(Now that move 2's sale is a real deposit, MC sees it naturally — the
+   `mc_approximate` flag has been removed from the API response and the UI note; there is no
+   residual approximate case.)*
 3. **No live-browser verification of the new panel in this environment.** Not a product gap, an
    environment one: this sandbox has no Playwright driver installed (`@playwright/test` is a
    declared devDependency but `node_modules` was never populated — the same pre-existing gap noted
@@ -252,13 +257,20 @@ were explicit decisions in §3.1.3/§7 of this spec, not implementation shortfal
 Ordered by (a) correctness first, (b) cost/effort to close, (c) how much it blocks trusting a
 two-move recommendation at all:
 
-1. **P0 — Give the engine a real second-sale pathway.** Extend `home_sale.py` (or add a sibling
-   function it shares tax logic with) so a `next_housing_steps`-purchased home can be sold with a
-   proper gain/§121/cascade-visible deposit computation, the same way the original home is sold
-   today. This removes gap (1) at the root and, as a consequence, gap (2) — once move-2 proceeds
-   are a real deposit the engine's own MC run sees them naturally. This is engine work, not
-   optimizer work, and is the one item that changes the "no new tax logic" boundary from §1 — it's
-   not *new* tax logic, it's making existing tax logic (already used once) usable a second time.
+1. **P0 — Give the engine a real second-sale pathway. Done (2026-09-11).** `home_sale.py` gained
+   `apply_next_housing_sale`, sharing its gain/§121 arithmetic with the original-home path via a
+   new `_compute_home_sale_economics` helper both call. A `next_housing_steps` purchase step is
+   sold by setting `sale_year` on it; `deterministic_engine.py` fires the sale in its own year
+   loop, depositing net proceeds onto the same cascade-visible ledger `apply_home_sale` uses (both
+   sales' pending gains stack into one correct LTCG computation if they land in the same year).
+   `housing_optimizer.py` now sets `sale_year` on move 1's purchase step for a two-move candidate
+   instead of estimating move 2's gain/tax out-of-loop, and the `mc_approximate` flag/UI note are
+   removed — every two-move candidate's `net_worth`/`lifetime_cost`/`mc_success_rate` now comes
+   from the same real engine run a one-move candidate gets, with no residual approximate case.
+   This removes gap (1) at the root and, as a consequence, gap (2). See
+   `tests/test_next_housing_sale.py` for engine-level coverage of the gain/§121/cascade/Monte
+   Carlo behavior, and `tests/test_housing_optimizer_integration.py` for the optimizer-level
+   wiring.
 2. **P1 — Manual/live smoke test of the panel in a real browser** once a Playwright-capable
    environment is available (or via `/run-skill-generator` to capture a working driver for this
    repo). Low effort, closes gap (3); do this before or alongside P0, whichever environment allows
