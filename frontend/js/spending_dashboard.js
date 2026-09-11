@@ -51,52 +51,6 @@ export function renderSpendingWorkspace(tabs) {
 }
 window.renderSpendingWorkspace = renderSpendingWorkspace;
 
-export function renderModelStatusPanel(d) {
-  var budget = d.budget_total || 0;
-  var annualized = d.annualized_total || 0;
-  var modelCore = d.model_core_spending || 0;
-  var diff = annualized - modelCore;
-  var absDiff = Math.abs(diff);
-  var isOk = modelCore > 0 && absDiff < modelCore * 0.03;
-  var statusMsg = '';
-  if (!modelCore) {
-    statusMsg = 'Retirement model spending categories not set. Set it on the Spending Categories tab or sync from actuals below.';
-  } else if (isOk) {
-    statusMsg = '✓ Annualized actual is within 3% of your retirement model — you\'re in sync.';
-  } else if (diff > 0) {
-    statusMsg = '⚠ Spending is running ' + fmtSpend(absDiff) + '/yr ABOVE the retirement model assumption.';
-  } else {
-    statusMsg = '↓ Spending is running ' + fmtSpend(absDiff) + '/yr below the retirement model assumption.';
-  }
-  var html = '<div class="spend-model-status">';
-  html += '<h3>Retirement Model — Spending Status</h3>';
-  html += '<div class="spend-model-grid">';
-  html += '<div class="spend-model-card">';
-  html += '<div class="spend-model-card-label">Annual Budget</div>';
-  html += '<div class="spend-model-card-value">' + (budget ? fmtSpend(budget) : '—') + '</div>';
-  html += '<div class="spend-model-card-sub">' + (budget ? 'Current-year category/group budget total' : 'Not set — initialize below') + '</div>';
-  html += '</div>';
-  html += '<div class="spend-model-card">';
-  html += '<div class="spend-model-card-label">This Year Annualized Rate</div>';
-  html += '<div class="spend-model-card-value">' + (annualized ? fmtSpend(annualized) : '—') + '</div>';
-  html += '<div class="spend-model-card-sub">' + (d.days_elapsed ? 'Based on ' + d.days_elapsed + ' days of transactions' : 'No transactions loaded') + '</div>';
-  html += '</div>';
-  html += '<div class="spend-model-card highlight">';
-  html += '<div class="spend-model-card-label">Retirement Model Spending</div>';
-  html += '<div class="spend-model-card-value">' + (modelCore ? fmtSpend(modelCore) : '—') + '</div>';
-  html += '<div class="spend-model-card-sub">Current annual spending assumption used by the 30-year projection — this is the "model" the status message and Actual vs. Model figure below compare against</div>';
-  html += '</div>';
-  html += '</div>';
-  html += '<div class="spend-model-status-row">';
-  html += '<span class="spend-model-status-msg ' + (isOk ? 'ok' : 'warn') + '">' + statusMsg + '</span>';
-  if (annualized > 0) {
-    html += '<button class="btn good" data-requires-app="1" onclick="applySpendingForecast()" title="Updates the spending categories assumption used by the 30-year projection">Sync Actual Rate → 30-Year Model</button>';
-  }
-  html += '</div>';
-  html += '</div>';
-  return html;
-}
-
 export function fmtSpend(n) { var v = Math.round(Number(n) || 0); return (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('en-US') }
 // Signed variance display (e.g. "+3.2%" over budget) — distinct from the
 // global fmtPct (dashboard_shared_helpers.js), which has no +sign and
@@ -214,7 +168,6 @@ export function renderSpendingDashboard() {
     html += ytdSummaryHtml;
     html += '<h3 class="group-title" style="margin:16px 20px 8px">Spending Budget Tracker</h3>';
   }
-  html += renderModelStatusPanel(d);
   html += renderSpendingSummary(d);
   html += renderSpendingBars(d);
   html += renderSpendingMonthly(d);
@@ -231,14 +184,26 @@ export function renderSpendingDashboard() {
 }
 
 export function renderSpendingSummary(d) {
+  var annualized = d.annualized_total || 0;
+  var budget = d.budget_total || 0;
+  // Apples-to-apples: both annualized_total and budget_total sum the same
+  // set of Tracking Types, unlike d.variance_pct (backend), which compares
+  // annualized_total against model_core_spending -- the retirement model's
+  // Core-only spending assumption, a much narrower scope that made the old
+  // "Actual vs. Model" figure misleading (see spending_dashboard blue-box
+  // removal, 2026-09).
+  var vpct = budget ? ((annualized - budget) / budget) * 100 : 0;
   var html = '<div class="spend-summary">';
   html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(d.income_total||0) + '</span><span class="spend-kpi-label">This Year Income</span></div>';
   html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(d.actuals_total) + '</span><span class="spend-kpi-label">This Year Expenses excl. taxes</span></div>';
-  html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(d.annualized_total) + '</span><span class="spend-kpi-label">Annualized Actual Expenses</span></div>';
-  html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(d.budget_total || d.model_core_spending) + '</span><span class="spend-kpi-label">' + (d.budget_total ? 'Annual Budget' : 'Model Spending Categories') + '</span></div>';
-  var vpct = d.variance_pct || 0;
+  html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(annualized) + '</span><span class="spend-kpi-label">Annualized Actual Expenses</span>';
+  if (annualized > 0) {
+    html += '<button class="btn tiny good" data-requires-app="1" onclick="applySpendingForecast()" title="Updates the retirement model\'s core spending assumption to this annualized rate">Sync Actual Rate → 30-Year Model</button>';
+  }
+  html += '</div>';
+  html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(budget || d.model_core_spending) + '</span><span class="spend-kpi-label">' + (budget ? 'Annual Budget' : 'Model Spending Categories') + '</span></div>';
   var cls = vpct > 15 ? 'spend-kpi over' : vpct > 5 ? 'spend-kpi watch' : 'spend-kpi ok';
-  html += '<div class="' + cls + '"><span class="spend-kpi-value">' + fmtVariancePct(vpct) + '</span><span class="spend-kpi-label">Annualized Actual vs. Retirement Model Spending</span></div>';
+  html += '<div class="' + cls + '"><span class="spend-kpi-value">' + fmtVariancePct(vpct) + '</span><span class="spend-kpi-label">' + (budget ? 'Annualized Actual vs. Annual Budget' : 'Annualized Actual vs. Model Spending Categories') + '</span></div>';
   html += '</div>';
   html += '<p class="small" style="margin:0 0 12px">' + d.days_elapsed + ' days elapsed &middot; annualization factor ' + (d.annualization_factor || 1).toFixed(2) + 'x</p>';
   return html;
@@ -444,7 +409,7 @@ export function renderUnmappedWarning(d) {
 // the window.* form; this bridge exists only for callers that can't be
 // converted in the same pass.
 Object.assign(window, {
-  renderModelStatusPanel, fmtSpend, fmtVariancePct, spendYtd, spendAnnualized,
+  fmtSpend, fmtVariancePct, spendYtd, spendAnnualized,
   spendBudget, spendProjectionSeed, spendHasReconcileValue, loadSpendingDashboard,
   seedSpendingBudget, applySpendingForecast, toggleSpendingKey, toggleSpendingGroup,
   toggleSpendingCat, toggleSpendingType, collapseAllSpending, toggleSpendingExceptionsOnly,
