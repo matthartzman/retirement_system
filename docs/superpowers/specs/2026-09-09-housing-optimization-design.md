@@ -11,6 +11,10 @@ existing §7 out-of-scope list against those gaps for the next chunk of work.
 **Revision 5 (2026-09-11):** §8.2 P2 landed — see the P2 note in §8.2. The full grid stays the
 default (`search_mode='full'`); narrowed search is opt-in (`search_mode='narrowed'`).
 
+**Revision 6 (2026-09-11):** §8.2 P1 confirmed done (live-browser verification, both search modes).
+P3 is in progress. §8.2 reordered and its priority reasoning revised based on what P0-P2 actually
+cost to build — see the new §8.3.
+
 **Scope:** given the current home, recommend the sale year, next-purchase year (or "rent
 indefinitely"), and location for the household's next housing move — and optionally a **second**
 subsequent move — as a new action inside the existing housing scenario manager.
@@ -245,12 +249,18 @@ logic — the engine has never had to model a second home sale before:
    single-move ones. *(Now that move 2's sale is a real deposit, MC sees it naturally — the
    `mc_approximate` flag has been removed from the API response and the UI note; there is no
    residual approximate case.)*
-3. **No live-browser verification of the new panel in this environment.** Not a product gap, an
-   environment one: this sandbox has no Playwright driver installed (`@playwright/test` is a
-   declared devDependency but `node_modules` was never populated — the same pre-existing gap noted
-   in the PR's CI section). The panel is covered by 9 passing unit tests
-   (`tests/frontend/housing_optimize_panel.test.mjs`) plus a direct `POST /api/housing/optimize`
-   round-trip against the demo plan, but nobody has clicked through it in an actual browser yet.
+3. **No live-browser verification of the new panel in this environment. Closed by §8.2 P1.** Not a
+   product gap, an environment one: this sandbox had no Playwright driver installed
+   (`@playwright/test` is a declared devDependency but `node_modules` was never populated — the
+   same pre-existing gap noted in the PR's CI section). *(Resolved: `npm install` with
+   `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` set populated `node_modules` against the pre-installed
+   Chromium at `/opt/pw-browsers` without re-downloading a browser — this also fixed the unrelated
+   `@babel/parser`-missing test failures noted in the PR's CI section, since both came from the
+   same "`node_modules` never populated" root cause. An ad-hoc Playwright script then drove the
+   actual panel end-to-end: opened the demo plan, expanded the panel, filled every field, clicked
+   "Run optimization" for both `search_mode` values, and confirmed real ranked results rendered
+   with zero console/page errors. This environment fix is reusable for any future work in this
+   worktree that needs a real browser — it is not specific to this feature.)*
 
 (§121-as-flag-only and the full-grid/no-gradient-search/two-move-cap items are **not** gaps — they
 were explicit decisions in §3.1.3/§7 of this spec, not implementation shortfalls.)
@@ -274,10 +284,9 @@ two-move recommendation at all:
    `tests/test_next_housing_sale.py` for engine-level coverage of the gain/§121/cascade/Monte
    Carlo behavior, and `tests/test_housing_optimizer_integration.py` for the optimizer-level
    wiring.
-2. **P1 — Manual/live smoke test of the panel in a real browser** once a Playwright-capable
-   environment is available (or via `/run-skill-generator` to capture a working driver for this
-   repo). Low effort, closes gap (3); do this before or alongside P0, whichever environment allows
-   first.
+2. **P1 — Manual/live smoke test of the panel in a real browser. Done (2026-09-11).** Turned out to
+   be a `node_modules` populate, not an environment rebuild — see the §8.1 point 3 note. Verified
+   end-to-end against the real server and demo plan, both search modes.
 3. **P2 — Narrowed/gradient search within a single move's grid. Done (2026-09-11).** `optimize_housing`
    gained an opt-in `search_mode='narrowed'` (default stays `'full'`, byte-for-byte unchanged) that
    replaces, per candidate location, the full `(sale_year x purchase_year)` grid with a bounded
@@ -287,13 +296,51 @@ two-move recommendation at all:
    heuristic that can miss the global optimum on a non-unimodal score surface, by design (see
    `src/housing_optimizer.py`'s module docstring) — trading completeness for a small, documented
    cap on engine evaluations at larger search windows.
-4. **P3 — Full cross-product search across move 1 and move 2** (§7), replacing the anchor-based
-   approach in §3.2/§4. Highest effort, lowest urgency: the anchor approach already produces a
-   *good* answer; this would only matter once P0 makes move-2 scoring trustworthy enough that the
-   gap between "good" and "provably optimal" is worth the added runtime.
-5. **P4 — Chains of three or more moves** (§7). No user request for this yet; lowest priority,
-   revisit only if it comes up.
+4. **P3 — Full cross-product search across move 1 and move 2** (§7), offered as an opt-in
+   `move2_strategy='cross_product'` alongside the unchanged default `'anchored'` approach — the
+   same opt-in-with-unchanged-default pattern P2 established (see §8.3). **In progress
+   (2026-09-11).** Guarded by a pre-flight candidate-count cap (reject with a clear error before
+   invoking the engine, rather than silently running an enormous job) since this is combinatorially
+   larger than the anchored default and composes with `search_mode='narrowed'` to stay tractable.
+5. **P4 — Chains of three or more moves** (§7). No user request for this yet. Its priority stays
+   low, but its *cost estimate is revised down* — see §8.3.
 
 No action item here reopens §1's "no new tax logic" decision except P0, and P0 is reuse (applying
 `home_sale.py`'s existing gain/§121 computation to a second home) rather than a new tax model —
 consistent with the spirit of that decision, not a violation of it.
+
+### 8.3 What P0-P2 taught us, and how it changes the plan
+
+Three things came out of actually building P0-P2 that weren't visible when §8.2 was first written:
+
+1. **The opt-in-with-unchanged-default pattern works and should be the template for P3/P4 too.**
+   P2 added `search_mode='narrowed'` without touching the `'full'` code path at all — the existing
+   full-grid tests kept passing unmodified, and the new behavior only activates when a caller asks
+   for it. P3 (in progress) follows the identical shape: `move2_strategy='cross_product'` opt-in,
+   `'anchored'` untouched. This is now the default assumption for *any* future search-behavior
+   change here, not a case-by-case decision — it's cheap insurance against regressing the v1
+   behavior every existing test and the shipped UI already depend on.
+2. **P0 accidentally did most of the hard part of P4.** The original §8.2 priced P4 (3+ moves) as
+   low-priority *and* implicitly high-effort, on the assumption that each additional move would need
+   its own engine-level sale mechanism, the way move 2 did before P0. That assumption is now wrong:
+   `apply_next_housing_sale` in `home_sale.py` is written against "a `next_housing_steps` entry with
+   a `sale_year` set," not against "the specific move-2 home" — nothing about it is move-2-specific.
+   A third move's sale is not a new engine feature; it's the same function called again on a third
+   step. What P4 actually still needs is optimizer-level: a third search dimension, a second
+   anchoring/cross-product decision (does move 3 anchor off move 2's winners the way move 2 anchors
+   off move 1's, or reuse whatever P3 ships?), and the UI/API surface for a third window. That's a
+   real but *substantially smaller* lift than originally estimated. P4's priority stays low because
+   there's still no user request for it, but it should no longer be treated as a major undertaking
+   if one comes in — re-estimate it against P3's actual diff size once P3 lands, not against the
+   original §7 write-up.
+3. **The panel's option surface is growing faster than its layout.** v1 shipped with one dropdown
+   (objective). P2 added a second (search mode). P3 (in progress) adds a third (move-2 strategy).
+   Each addition is individually justified and individually opt-in-safe, but three-plus dropdowns
+   plus the location/window/constraint fields is approaching the point where a casual user opening
+   "Optimize next housing move" sees a wall of controls before they see a result. This wasn't
+   anticipated in the original §5/§6 output-and-surface design. **New backlog item, not yet
+   prioritized against P3/P4:** once P3 lands, revisit the panel's layout — e.g. collapse
+   `search_mode`/`move2_strategy`/`anchor_count` into a single "Search strategy" sub-section
+   (advanced, collapsed by default) separate from the objective and location/window fields a casual
+   user actually needs to set. Not scheduled as a P-numbered item yet because it's a UX judgment
+   call, not a correctness or capability gap — flagging it here so it isn't lost.
