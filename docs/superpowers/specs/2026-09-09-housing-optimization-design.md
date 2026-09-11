@@ -301,12 +301,16 @@ two-move recommendation at all:
    heuristic that can miss the global optimum on a non-unimodal score surface, by design (see
    `src/housing_optimizer.py`'s module docstring) — trading completeness for a small, documented
    cap on engine evaluations at larger search windows.
-4. **P3 — Full cross-product search across move 1 and move 2** (§7), offered as an opt-in
-   `move2_strategy='cross_product'` alongside the unchanged default `'anchored'` approach — the
-   same opt-in-with-unchanged-default pattern P2 established (see §8.3). **In progress
-   (2026-09-11).** Guarded by a pre-flight candidate-count cap (reject with a clear error before
-   invoking the engine, rather than silently running an enormous job) since this is combinatorially
-   larger than the anchored default and composes with `search_mode='narrowed'` to stay tractable.
+4. **P3 — Full cross-product search across move 1 and move 2. Done (2026-09-11).** `optimize_housing`
+   gained an opt-in `move2_strategy='cross_product'` (default stays `'anchored'`, byte-for-byte
+   unchanged) — the same opt-in-with-unchanged-default pattern P2 established (see §8.3). It builds
+   move-2 candidates against every move-1 candidate ending in ownership, not just the top
+   `anchor_count`, sourced from whatever `move1_scored` the active `search_mode` already produced
+   (so it composes with `search_mode='narrowed'`, which is what makes a full cross-product
+   tractable at all on a wide window). Guarded by a pre-flight candidate-count cap
+   (`MOVE2_CROSS_PRODUCT_CAP = 3000`, computed exactly for `'full'` and estimated for `'narrowed'`)
+   that raises a clear `ValueError` before invoking the engine, rather than silently running or
+   truncating an enormous job.
 5. **P4 — Chains of three or more moves** (§7). No user request for this yet. Its priority stays
    low, but its *cost estimate is revised down* — see §8.3.
 
@@ -321,7 +325,7 @@ Three things came out of actually building P0-P2 that weren't visible when §8.2
 1. **The opt-in-with-unchanged-default pattern works and should be the template for P3/P4 too.**
    P2 added `search_mode='narrowed'` without touching the `'full'` code path at all — the existing
    full-grid tests kept passing unmodified, and the new behavior only activates when a caller asks
-   for it. P3 (in progress) follows the identical shape: `move2_strategy='cross_product'` opt-in,
+   for it. P3 followed the identical shape: `move2_strategy='cross_product'` opt-in,
    `'anchored'` untouched. This is now the default assumption for *any* future search-behavior
    change here, not a case-by-case decision — it's cheap insurance against regressing the v1
    behavior every existing test and the shipped UI already depend on.
@@ -339,12 +343,12 @@ Three things came out of actually building P0-P2 that weren't visible when §8.2
    if one comes in — re-estimate it against P3's actual diff size once P3 lands, not against the
    original §7 write-up.
 3. **The panel's option surface is growing faster than its layout.** v1 shipped with one dropdown
-   (objective). P2 added a second (search mode). P3 (in progress) adds a third (move-2 strategy).
+   (objective). P2 added a second (search mode). P3 added a third (move-2 strategy).
    Each addition is individually justified and individually opt-in-safe, but three-plus dropdowns
    plus the location/window/constraint fields is approaching the point where a casual user opening
    "Optimize next housing move" sees a wall of controls before they see a result. This wasn't
    anticipated in the original §5/§6 output-and-surface design. **New backlog item, not yet
-   prioritized against P3/P4:** once P3 lands, revisit the panel's layout — e.g. collapse
+   prioritized against P4:** revisit the panel's layout — e.g. collapse
    `search_mode`/`move2_strategy`/`anchor_count` into a single "Search strategy" sub-section
    (advanced, collapsed by default) separate from the objective and location/window fields a casual
    user actually needs to set. Not scheduled as a P-numbered item yet because it's a UX judgment
