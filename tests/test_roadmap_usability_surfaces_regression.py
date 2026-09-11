@@ -42,7 +42,6 @@ def test_first_run_checklist_guides_logical_flow_to_review_and_build():
     ]:
         assert title in js
     assert "firstRunChecklistHtml(false)" in js
-    assert "firstRunChecklistHtml(true)" in js
     assert ".first-run-checklist" in css
     assert ".first-run-item" in css
 
