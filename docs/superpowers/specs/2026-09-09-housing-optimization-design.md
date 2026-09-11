@@ -1,6 +1,10 @@
 # Housing optimization — design
 
-**Date:** 2026-09-09 · **Status:** design, approved · **Revision:** 2
+**Date:** 2026-09-09 · **Status:** v1 shipped ([PR #109](https://github.com/matthartzman/retirement_system/pull/109)) · **Revision:** 3
+
+**Revision 3 (2026-09-11):** v1 landed per this spec. Three implementation-time gaps were
+discovered that the original design didn't anticipate — see §8. §8 also reprioritizes the
+existing §7 out-of-scope list against those gaps for the next chunk of work.
 
 **Scope:** given the current home, recommend the sale year, next-purchase year (or "rent
 indefinitely"), and location for the household's next housing move — and optionally a **second**
@@ -206,3 +210,69 @@ keep Pass 1a/1b runtime reasonable; this is a UI/config-level bound, not a new e
 - New tax modeling of any kind — every tax factor in scope is already produced by the existing
   engine (see §1); if a future request needs a tax treatment the engine doesn't have, that is a
   separate spec.
+
+---
+
+## 8. v1 implementation gaps and next-chunk priorities (Revision 3)
+
+v1 shipped in `src/housing_optimizer.py` per §§1-6. Building it surfaced three gaps this design
+didn't anticipate, because they come from a limit in the *engine*, not the optimizer's own search
+logic — the engine has never had to model a second home sale before:
+
+### 8.1 Gaps found during implementation
+
+1. **Move 2's sale bypasses the engine's own sale pathway (accuracy gap, real).**
+   `home_sale.py` has exactly one sale-with-capital-gain pathway, hard-tied to the household's
+   *original* home (`c['home_sale_yr']`). A `next_housing_steps` entry — which is how the engine
+   represents a purchased home after move 1 — only ever stops accruing cashflow at its
+   `end_year`; it has no "sell this and compute gain/§121" step at all. So move 2's sale is priced
+   by `housing_optimizer.py` itself: read the engine's own modeled home value/mortgage balance for
+   the move-1 home just before its `next_housing_steps` entry ends, then apply the same
+   `tax_kernel.ltcg_tax_on_gain` primitive and §121 arithmetic `home_sale.py` uses. Same tax math,
+   applied one level outside the engine's own run loop rather than inside it. The net-after-tax
+   proceeds are folded into net worth/lifetime cost as a one-time adjustment — a deposit the
+   engine's own cascade never sees.
+2. **Consequence of (1): Monte Carlo on two-move candidates is approximate.** Because move-2
+   proceeds aren't a deposit the engine's MC run can see, MC success rate on a two-move candidate
+   doesn't reflect that cash coming in. Every two-move result is marked `mc_approximate: true` in
+   the API response and flagged in the UI, so this is visible, not silent — but it means Pass 2
+   (§4) MC validation is weaker for two-move candidates than for single-move ones.
+3. **No live-browser verification of the new panel in this environment.** Not a product gap, an
+   environment one: this sandbox has no Playwright driver installed (`@playwright/test` is a
+   declared devDependency but `node_modules` was never populated — the same pre-existing gap noted
+   in the PR's CI section). The panel is covered by 9 passing unit tests
+   (`tests/frontend/housing_optimize_panel.test.mjs`) plus a direct `POST /api/housing/optimize`
+   round-trip against the demo plan, but nobody has clicked through it in an actual browser yet.
+
+(§121-as-flag-only and the full-grid/no-gradient-search/two-move-cap items are **not** gaps — they
+were explicit decisions in §3.1.3/§7 of this spec, not implementation shortfalls.)
+
+### 8.2 Reprioritized next chunk of work
+
+Ordered by (a) correctness first, (b) cost/effort to close, (c) how much it blocks trusting a
+two-move recommendation at all:
+
+1. **P0 — Give the engine a real second-sale pathway.** Extend `home_sale.py` (or add a sibling
+   function it shares tax logic with) so a `next_housing_steps`-purchased home can be sold with a
+   proper gain/§121/cascade-visible deposit computation, the same way the original home is sold
+   today. This removes gap (1) at the root and, as a consequence, gap (2) — once move-2 proceeds
+   are a real deposit the engine's own MC run sees them naturally. This is engine work, not
+   optimizer work, and is the one item that changes the "no new tax logic" boundary from §1 — it's
+   not *new* tax logic, it's making existing tax logic (already used once) usable a second time.
+2. **P1 — Manual/live smoke test of the panel in a real browser** once a Playwright-capable
+   environment is available (or via `/run-skill-generator` to capture a working driver for this
+   repo). Low effort, closes gap (3); do this before or alongside P0, whichever environment allows
+   first.
+3. **P2 — Narrowed/gradient search within a single move's grid** (§7). Only worth doing after P0,
+   since refining a search that still mis-prices move 2 doesn't help. Addresses runtime at larger
+   search windows, not correctness.
+4. **P3 — Full cross-product search across move 1 and move 2** (§7), replacing the anchor-based
+   approach in §3.2/§4. Highest effort, lowest urgency: the anchor approach already produces a
+   *good* answer; this would only matter once P0 makes move-2 scoring trustworthy enough that the
+   gap between "good" and "provably optimal" is worth the added runtime.
+5. **P4 — Chains of three or more moves** (§7). No user request for this yet; lowest priority,
+   revisit only if it comes up.
+
+No action item here reopens §1's "no new tax logic" decision except P0, and P0 is reuse (applying
+`home_sale.py`'s existing gain/§121 computation to a second home) rather than a new tax model —
+consistent with the spirit of that decision, not a violation of it.
