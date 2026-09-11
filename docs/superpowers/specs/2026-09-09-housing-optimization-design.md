@@ -286,7 +286,7 @@ two-move recommendation at all:
    removed — every two-move candidate's `net_worth`/`lifetime_cost`/`mc_success_rate` now comes
    from the same real engine run a one-move candidate gets, with no residual approximate case.
    This removes gap (1) at the root and, as a consequence, gap (2). See
-   `tests/test_next_housing_sale.py` for engine-level coverage of the gain/§121/cascade/Monte
+   `tests/test_next_housing_sale_functional.py` for engine-level coverage of the gain/§121/cascade/Monte
    Carlo behavior, and `tests/test_housing_optimizer_integration.py` for the optimizer-level
    wiring.
 2. **P1 — Manual/live smoke test of the panel in a real browser. Done (2026-09-11).** Turned out to
