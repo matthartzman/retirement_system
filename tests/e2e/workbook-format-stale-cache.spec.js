@@ -72,11 +72,44 @@ async function triggerBuildAndWaitPatiently(page) {
       await page.waitForTimeout(500);
       continue;
     }
+    // Reports & Review redesign (2026-09-10): this header button is disabled
+    // once a build has already succeeded and nothing is dirty
+    // (reportsAndReviewCanBuild(), dashboard_decomp_row_model.js) -- "there's
+    // nothing a build would change." In the shared-server E2E suite an
+    // earlier spec's real build leaves exactly that state behind, and
+    // Playwright's .click() auto-wait on a disabled button silently consumes
+    // this whole loop's budget (confirmed directly: the failure here was a
+    // hang to exactly this function's 700s test timeout, not a real stuck
+    // build) instead of failing fast. Same fix as helpers.js's
+    // triggerBuildAndWaitForOverlay: flip the same plain boolean flag a real
+    // edit would and re-render so the button's disabled state recomputes.
+    let forcedDirtyToEnableBuild = false;
+    if (!(await build.isEnabled().catch(() => false))) {
+      await page.evaluate(() => {
+        window.liabilitiesChanged = true;
+        window.renderMain();
+      });
+      await build.waitFor({ state: 'visible' }).catch(() => {});
+      if (!(await build.isEnabled().catch(() => false))) {
+        await page.waitForTimeout(500);
+        continue;
+      }
+      forcedDirtyToEnableBuild = true;
+    }
     await build.click();
     started = await Promise.race([
       overlay.waitFor({ state: 'visible', timeout: 3_000 }).then(() => true),
       continueBuild.waitFor({ state: 'visible', timeout: 3_000 }).then(() => true),
     ]).catch(() => false);
+    // Belt-and-suspenders alongside helpers.js's triggerBuildAndWaitForOverlay
+    // fix -- this test's own builds are real (not intercepted), so the
+    // normal save-success path already clears liabilitiesChanged, but don't
+    // depend on that for a build this loop had to force-dirty to even reach.
+    if (forcedDirtyToEnableBuild) {
+      await page.evaluate(() => {
+        window.liabilitiesChanged = false;
+      });
+    }
     if (started) break;
   }
   // Bounded wait so a genuinely missing button fails fast and legibly instead

@@ -37,7 +37,6 @@
     "dismissMessage",
     "domainBudgetNote",
     "downloadBlob",
-    "downloadFile",
     "exitApp",
     "expandAllDetailColumnsOnPage",
     "expandAllDetailGroups",
@@ -210,7 +209,6 @@
     "PROTECTED_CLIENT_DATA_KEYS",
     "RECOMMENDATION_ENGINE_VERSION",
     "RECOMMENDATION_STEP_IDS",
-    "REPORTS_TABS",
     "REQUIRED_PLAN_DATA_FILES",
     "ROTH_ENGINE_LABELS",
     "ROTH_IRMAA_LABELS",
@@ -310,7 +308,6 @@
     "planLoaded",
     "planSource",
     "planningLeverInputs",
-    "reportsActiveTab",
     "residencySchedule",
     "residencyScheduleChanged",
     "rows",
@@ -370,7 +367,6 @@
     "PROTECTED_CLIENT_DATA_KEYS",
     "RECOMMENDATION_ENGINE_VERSION",
     "RECOMMENDATION_STEP_IDS",
-    "REPORTS_TABS",
     "REQUIRED_PLAN_DATA_FILES",
     "ROTH_ENGINE_LABELS",
     "ROTH_IRMAA_LABELS",
@@ -1593,6 +1589,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "SYSTEM_CONFIG_FIELD_HELP",
       "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
       "kind": "read",
@@ -1602,6 +1604,24 @@
       "name": "STEP_HELP",
       "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
       "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "call",
       "scope": "inside-function"
     },
     {
@@ -1821,6 +1841,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "activePlanReportSection",
       "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
       "kind": "read",
@@ -1852,30 +1878,6 @@
     },
     {
       "name": "lastBuildSummary",
-      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "REPORTS_TABS",
-      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "reportsActiveTab",
-      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "reportsActiveTab",
-      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "REPORTS_TABS",
       "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
       "kind": "read",
       "scope": "inside-function"
@@ -2422,6 +2424,12 @@
     },
     {
       "name": "planLoaded",
+      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
       "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
       "kind": "read",
       "scope": "inside-function"
@@ -3777,24 +3785,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "REPORTS_TABS",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "activeStep",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "reportsActiveTab",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
       "name": "renderDetailedResultsNav",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "call",
@@ -4522,18 +4512,6 @@
     },
     {
       "name": "activeStep",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "activeStep",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "reportsActiveTab",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
       "scope": "inside-function"
@@ -5274,36 +5252,6 @@
       "name": "taxonomyData",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "reportsActiveTab",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "REPORTS_TABS",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "reportsActiveTab",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "activeStep",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
       "scope": "inside-function"
     },
     {
@@ -6309,15 +6257,9 @@
       "scope": "inside-function"
     },
     {
-      "name": "downloadFile",
+      "name": "lastBuildOk",
       "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "downloadFile",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
+      "kind": "read",
       "scope": "inside-function"
     },
     {
@@ -8613,6 +8555,18 @@
       "scope": "inside-function"
     },
     {
+      "name": "getStrategyTab",
+      "file": "frontend/js/dashboard_source_truth_banners.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "getStrategyTab",
+      "file": "frontend/js/dashboard_source_truth_banners.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
       "name": "planLoaded",
       "file": "frontend/js/dashboard_source_truth_banners.js",
       "kind": "read",
@@ -9136,7 +9090,6 @@
     "PROTECTED_CLIENT_DATA_KEYS",
     "RECOMMENDATION_ENGINE_VERSION",
     "RECOMMENDATION_STEP_IDS",
-    "REPORTS_TABS",
     "REQUIRED_PLAN_DATA_FILES",
     "ROTH_LEGACY_LABELS",
     "ROTH_WINDOW_LABELS",
@@ -9223,7 +9176,6 @@
     "planLoaded",
     "planSource",
     "planningLeverInputs",
-    "reportsActiveTab",
     "residencySchedule",
     "residencyScheduleChanged",
     "rows",

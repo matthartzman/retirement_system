@@ -8,7 +8,14 @@ import { openCurrentPlan, navigateToStep } from './helpers.js';
 
 test('YTD Transactions table pins its first column and collapses secondary columns by default', async ({ page }) => {
   await openCurrentPlan(page);
-  await navigateToStep(page, 'ytd_transactions', 'Actual Spending (This Year)');
+  // ytd_transactions was folded into the Spending workspace as its "Actual
+  // Spending (YTD)" tab (Merge Other Spending tab into Spending Model,
+  // 2026-09-10) -- window.setStep('ytd_transactions') now redirects onto
+  // spending_core (WORKSPACE_TAB_REDIRECTS, navigation.js), whose own <h2>
+  // is always "Spending Model" regardless of which tab is active, so
+  // navigating by the old step id/heading pair never resolves anymore.
+  await navigateToStep(page, 'spending_core', 'Spending Model');
+  await page.getByRole('tab', { name: 'Actual Spending (YTD)' }).click();
 
   const wrap = page.locator('.ytd-tx-table-wrap');
   await expect(wrap).toHaveClass(/pinned-col/);

@@ -61,7 +61,14 @@ test('navigating to the old standalone Spending Analysis/YTD/Other-Spending step
 
   await page.evaluate(() => window.setStep('spending_dashboard'));
   await expect(page.getByRole('tab', { name: 'Spending Analysis' })).toHaveClass(/active/);
-  await expect(page.locator('.nav-group-summary', { hasText: 'Reports' })).toHaveCount(0);
+  // Exact match, not a substring: "Reports & Review" is a real, always-
+  // visible top-level nav group since the Reports & Review redesign
+  // (2026-09-10) and legitimately contains "Reports" -- this assertion
+  // guards against the distinct bug of a *"Reports"* group (spending_dashboard's
+  // own hidden STEPS entry, see WORKSPACE_TAB_REDIRECTS' comment above)
+  // spawning from navigating here, which `hasText: 'Reports'`'s substring
+  // match can no longer tell apart from "Reports & Review" always being present.
+  await expect(page.locator('.nav-group-summary', { hasText: /^Reports$/ })).toHaveCount(0);
 
   await page.evaluate(() => window.setStep('ytd_transactions'));
   await expect(page.getByRole('tab', { name: 'Actual Spending (YTD)' })).toHaveClass(/active/);

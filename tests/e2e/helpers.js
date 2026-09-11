@@ -170,9 +170,36 @@ export async function triggerBuildAndWaitForOverlay(page) {
   // reliable regardless of suite order. window.setStep is exposed on window
   // the same way it is for navigateToStep above.
   await page.evaluate(() => window.setStep('reports_and_review'));
-  await expect(page.getByRole('button', { name: 'Build Reports' }).first()).toBeVisible({
-    timeout: 10_000,
-  });
+  const buildButton = page.getByRole('button', { name: 'Build Reports' }).first();
+  await expect(buildButton).toBeVisible({ timeout: 10_000 });
+
+  // Reports & Review redesign (2026-09-10): Build Reports is now disabled
+  // once a build has already succeeded and nothing is dirty
+  // (reportsAndReviewCanBuild(), dashboard_decomp_row_model.js) -- "there's
+  // nothing a build would change." In the shared-server E2E suite, a REAL
+  // build from an earlier spec (e.g. build-and-results.spec.js) leaves
+  // exactly that state behind for whichever spec runs next, permanently
+  // disabling this button for callers that never edit anything first
+  // (build-failure.spec.js included -- it only intercepts the build API
+  // calls, it never dirties the plan). Flip the same plain boolean flag a
+  // real holdings/liabilities edit would (liabilitiesChanged has a get+set
+  // window accessor purely for this "is anything unsaved" bookkeeping, with
+  // no row-identity assumptions the way `dirty`'s Map keys would have) so
+  // the button re-enables exactly like it would for a user who made one
+  // small edit before rebuilding. setAppControls() itself is a local helper
+  // (not on the window bridge -- it's only ever called from within
+  // row_model.js's own module), so re-render via window.renderMain()
+  // instead, which recomputes primaryActionForStep() (and calls
+  // setAppControls() internally) the same way any other state change would.
+  let forcedDirtyToEnableBuild = false;
+  if (!(await buildButton.isEnabled())) {
+    await page.evaluate(() => {
+      window.liabilitiesChanged = true;
+      window.renderMain();
+    });
+    await expect(buildButton).toBeEnabled({ timeout: 5_000 });
+    forcedDirtyToEnableBuild = true;
+  }
 
   // The openCurrentPlan()/waitForPlanSettled() guard above closes the
   // planLoaded race for the COMMON case, but it cannot guarantee a second
@@ -214,6 +241,25 @@ export async function triggerBuildAndWaitForOverlay(page) {
       'Build Reports click never advanced the overlay past its pre-click state after 2 attempts -- ' +
         `stuck on "${await title.innerText().catch(() => '(no overlay)')}"`,
     );
+  }
+
+  // Undo the forced-dirty workaround above now that the click has landed and
+  // runBuild() has synchronously read the plan's dirty state to kick off its
+  // save -- otherwise a caller whose build never genuinely succeeds (e.g.
+  // build-failure.spec.js's intercepted/synthetic failure, which never runs
+  // the real save-success code path that would normally clear this) leaves
+  // liabilitiesChanged=true stuck for the rest of the shared-server suite,
+  // permanently marking the plan dirty for every spec that runs after it.
+  // Root-caused directly against CI (2026-09-11): with this workaround added
+  // but not undone, four unrelated LATER specs (focus-restoration-ytd-search,
+  // pinned-collapsible-columns, both spending-workspace-tabs tests) started
+  // timing out in waitForPlanSettled -- a symptom of the plan permanently
+  // reading as unsaved.
+  if (forcedDirtyToEnableBuild) {
+    await page.evaluate(() => {
+      window.liabilitiesChanged = false;
+      window.renderMain();
+    });
   }
 
   // locator.isVisible({timeout}) does NOT poll -- it is a one-shot immediate
