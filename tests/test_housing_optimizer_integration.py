@@ -231,6 +231,102 @@ def test_search_mode_narrowed_rejects_unknown_value():
         )
 
 
+def test_move2_strategy_anchored_default_is_unchanged():
+    """move2_strategy defaults to 'anchored' and must behave exactly as
+    before (§8.2 P3 module docstring): identical results whether or not
+    move2_strategy is passed explicitly."""
+    c0 = _base_config()
+    kwargs = dict(
+        locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
+        move1_window=ho.SearchWindow(2027, 2027, 2027, 2027),
+        move2_window=ho.Move2Window(latest_sale_year_2=2032, latest_purchase_year_2=2032),
+        anchor_count=2,
+        objective="net_worth",
+    )
+    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+        omitted = ho.optimize_housing(c0, **kwargs)
+        explicit_anchored = ho.optimize_housing(c0, move2_strategy="anchored", **kwargs)
+    assert explicit_anchored["move2_strategy"] == "anchored"
+    assert omitted["candidates_evaluated"] == explicit_anchored["candidates_evaluated"]
+    assert omitted["recommendation"] == explicit_anchored["recommendation"]
+
+
+def test_move2_strategy_cross_product_runs_end_to_end_against_more_than_anchor_count_anchors():
+    """A small search window (2 years each, 2 locations) with anchor_count=1
+    should still let cross_product build move-2 candidates against every
+    eligible move-1 candidate, not just the single anchor 'anchored' would
+    use -- confirmed by cross_product evaluating strictly more move-2
+    candidates than the equivalent anchored run with the same anchor_count.
+    """
+    c0 = _base_config()
+    move1_window = ho.SearchWindow(earliest_sale_year=2027, latest_sale_year=2028,
+                                    earliest_purchase_year=2027, latest_purchase_year=2028)
+    move2_window = ho.Move2Window(latest_sale_year_2=2030, latest_purchase_year_2=2031)
+    locations = [ho.Location(state="Texas"), ho.Location(state="Florida")]
+    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+        anchored = ho.optimize_housing(
+            c0, locations=locations, move1_window=move1_window, move2_window=move2_window,
+            anchor_count=1, objective="net_worth", move2_strategy="anchored",
+        )
+        cross = ho.optimize_housing(
+            c0, locations=locations, move1_window=move1_window, move2_window=move2_window,
+            anchor_count=1, objective="net_worth", move2_strategy="cross_product",
+        )
+    assert cross["move2_strategy"] == "cross_product"
+    assert cross["recommendation"] is not None
+    two_move_cross = [r for r in [cross["recommendation"], *cross["alternatives"]] if r and len(r["moves"]) == 2]
+    two_move_anchored = [r for r in [anchored["recommendation"], *anchored["alternatives"]]
+                          if r and len(r["moves"]) == 2]
+    assert two_move_cross, "expected two-move candidates in the cross_product results"
+    # cross_product ignores anchor_count and searches every eligible move-1
+    # candidate, so its total candidate pool must be strictly larger than
+    # the anchor_count=1 anchored run's (same windows/locations otherwise).
+    assert cross["candidates_evaluated"] > anchored["candidates_evaluated"]
+
+
+def test_move2_strategy_cross_product_composes_with_narrowed_search_mode():
+    c0 = _base_config()
+    move1_window = ho.SearchWindow(earliest_sale_year=2027, latest_sale_year=2028,
+                                    earliest_purchase_year=2027, latest_purchase_year=2028)
+    move2_window = ho.Move2Window(latest_sale_year_2=2030, latest_purchase_year_2=2031)
+    locations = [ho.Location(state="Texas"), ho.Location(state="Florida")]
+    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+        result = ho.optimize_housing(
+            c0, locations=locations, move1_window=move1_window, move2_window=move2_window,
+            anchor_count=1, objective="net_worth", search_mode="narrowed", move2_strategy="cross_product",
+        )
+    assert result["search_mode"] == "narrowed"
+    assert result["move2_strategy"] == "cross_product"
+    assert result["candidates_evaluated"] > 0
+
+
+def test_move2_strategy_cross_product_rejects_a_too_large_search_before_running_the_engine():
+    c0 = _base_config()
+    # Keep move1_window small (cheap real-engine Pass 1a, like the other
+    # tests here) but move2_window huge -- estimate_move2_candidate_count is
+    # computed (and this raised) before any move-2 engine call, so a wide
+    # move2 window alone is enough to trip the cap without this test paying
+    # for a wide move1 grid too.
+    move1_window = ho.SearchWindow(earliest_sale_year=2027, latest_sale_year=2028,
+                                    earliest_purchase_year=2027, latest_purchase_year=2028)
+    move2_window = ho.Move2Window(latest_sale_year_2=2100, latest_purchase_year_2=2100)
+    locations = [ho.Location(state="Texas"), ho.Location(state="Florida")]
+    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES), pytest.raises(ValueError, match="cross_product"):
+        ho.optimize_housing(
+            c0, locations=locations, move1_window=move1_window, move2_window=move2_window,
+            objective="net_worth", move2_strategy="cross_product",
+        )
+
+
+def test_move2_strategy_rejects_unknown_value():
+    c0 = _base_config()
+    with pytest.raises(ValueError, match="move2_strategy"):
+        ho.optimize_housing(
+            c0, locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
+            move1_window=ho.SearchWindow(2027, 2027, 2027, 2027), move2_strategy="bogus",
+        )
+
+
 def test_optimizer_never_mutates_the_base_plan_config():
     c0 = _base_config()
     before_next_steps = c0.get("next_housing_steps")

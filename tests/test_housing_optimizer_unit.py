@@ -22,7 +22,6 @@ from src.housing_optimizer import (
     family_presence_ok,
     generate_move1_candidates,
     generate_move2_candidates,
-    optimize_housing,
     optimize_housing_from_request,
     rank_candidates,
     sec121_exclusion_flag,
@@ -175,35 +174,30 @@ def test_estimate_move2_candidate_count_narrowed_uses_the_documented_per_anchor_
     assert estimated == 4 * 2 * 33
 
 
-def test_cross_product_cap_guard_fires_before_generating_move2_candidates(monkeypatch):
-    """A wide-enough move2_window makes the exact full-grid count exceed the
-    cap; optimize_housing must raise ValueError from the pre-engine guard
-    (estimate_move2_candidate_count) without ever calling
-    generate_move2_candidates to build the (huge) actual candidate list."""
-    from src import housing_optimizer as ho
-
-    called = {"generate_move2_candidates": False}
-    real_generate = ho.generate_move2_candidates
-
-    def spy(*args, **kwargs):
-        called["generate_move2_candidates"] = True
-        return real_generate(*args, **kwargs)
-
-    monkeypatch.setattr(ho, "generate_move2_candidates", spy)
-
+def test_cross_product_cap_guard_number_exceeds_cap_for_a_wide_window():
+    """A wide-enough move2_window pushes the exact (no-engine-call) full-grid
+    count over MOVE2_CROSS_PRODUCT_CAP -- this is exactly the number
+    optimize_housing's cross_product guard compares against before touching
+    the engine (see optimize_housing's move2_strategy=='cross_product'
+    branch, which raises ValueError precisely when this condition holds)."""
     eligible = [HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2027 + i) for i in range(50)]
     move2_window = Move2Window(latest_sale_year_2=2100, latest_purchase_year_2=2100)
     estimated = estimate_move2_candidate_count(
         eligible, [TX, FL], move2_window, no_dual_ownership=True, narrowed=False,
     )
     assert estimated > MOVE2_CROSS_PRODUCT_CAP
-    # The guard inside optimize_housing calls estimate_move2_candidate_count
-    # (which itself calls the real generate_move2_candidates to count exactly
-    # -- that's cheap, pure Python, no engine); confirm the guard trips at
-    # that stage by exercising it directly the same way optimize_housing does.
-    with pytest.raises(ValueError):
-        if estimated > MOVE2_CROSS_PRODUCT_CAP:
-            raise ValueError(f"would evaluate ~{estimated} move-2 candidates")
+
+
+def test_request_adapter_rejects_unknown_move2_strategy():
+    body = {
+        "locations": [{"state": "Texas"}, {"state": "Florida"}],
+        "move1_window": {"earliest_sale_year": 2027, "latest_sale_year": 2027,
+                          "earliest_purchase_year": 2027, "latest_purchase_year": 2027},
+        "move2_strategy": "not_a_real_strategy",
+    }
+    payload, status = optimize_housing_from_request({}, body)
+    assert status == 400
+    assert "move2_strategy" in payload["error"].lower()
 
 
 # ---------------------------------------------------------------------------
