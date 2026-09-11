@@ -49,6 +49,27 @@ the design doc). Candidate *generation* is the only thing that differs;
 scoring, filtering, and ranking (``_run_engine``/``score_candidate``/
 ``family_presence_ok``/``no_dual_ownership``/``rank_candidates``) are shared
 unmodified with the full-grid path.
+
+**Move-2 strategy (§8.2 P3).** ``optimize_housing``'s default
+``move2_strategy='anchored'`` is §3.2's anchor-on-move-1's-top-N approach
+above, byte-for-byte unchanged. Opting into ``move2_strategy='cross_product'``
+builds move-2 candidates against *every* move-1 candidate that ends in
+ownership (the same eligibility rule ``select_anchors`` uses, just not
+narrowed to the top ``anchor_count`` -- so ``anchor_count`` is ignored under
+this strategy) out of whatever ``move1_scored`` the active ``search_mode``
+already produced (narrowed or full -- there is no separate re-generation).
+This is the full cross-product §7 deferred, now offered as an opt-in trade of
+runtime for a better shot at the global optimum. Because it can blow up
+combinatorially, ``optimize_housing`` computes (exactly, for ``'full'``; by
+the documented per-point evaluation-budget estimate, for ``'narrowed'``) the
+number of move-2 candidates it would evaluate *before* invoking the engine on
+any of them, and raises ``ValueError`` rather than silently running or
+truncating an enormous job if that exceeds
+``MOVE2_CROSS_PRODUCT_CAP`` (3000 -- generous enough for a real narrowed
+search or a handful of eligible full-grid anchors, small enough to keep a
+runaway wide-window full-grid cross-product from ever reaching the engine;
+see the error message for the caller's options: narrow the window, use fewer
+locations, or switch to ``search_mode='narrowed'``).
 """
 from __future__ import annotations
 
@@ -60,6 +81,21 @@ from .server_services.strategy_asset_service import housing_state_estimate_paylo
 
 OBJECTIVES = ('net_worth', 'lifetime_cost', 'mc_success_rate')
 SEARCH_MODES = ('full', 'narrowed')
+MOVE2_STRATEGIES = ('anchored', 'cross_product')
+
+# Hard cap on move-2 candidates ``move2_strategy='cross_product'`` will
+# evaluate through the real engine, checked before any engine invocation
+# (§8.2 P3). Chosen to comfortably cover a realistic use of cross_product --
+# a handful of eligible move-1 anchors from a `search_mode='narrowed'` Pass 1,
+# or a small number of eligible full-grid anchors against a modest move-2
+# window -- while refusing a wide-window full-grid cross_product outright
+# rather than letting it silently run for a very long time.
+MOVE2_CROSS_PRODUCT_CAP = 3000
+
+# Upper bound on engine evaluations per (eligible move-1 candidate, location)
+# pair under `search_mode='narrowed'` -- see
+# generate_move1_candidates_narrowed's docstring for where 25 + 8 comes from.
+_NARROWED_EVALS_PER_ANCHOR_LOCATION = 25 + 8
 
 _DEFAULT_MORTGAGE_RATE = 0.0685
 _DEFAULT_DOWN_PAYMENT_PCT = 0.20
@@ -542,6 +578,35 @@ def select_anchors(ranked_move1: list[ScoredCandidate], anchor_count: int) -> li
     return owned[:max(0, anchor_count)]
 
 
+def select_all_eligible_move1_candidates(move1_scored: list[ScoredCandidate]) -> list[HousingCandidate]:
+    """Every move-1 candidate eligible to carry a move 2 -- same rule
+    ``select_anchors`` applies (ended in ownership; a rent-indefinitely-
+    forever outcome is not extended), just not narrowed to the top
+    ``anchor_count``. Used by ``move2_strategy='cross_product'`` (§8.2 P3).
+    """
+    return [s.candidate for s in move1_scored if s.candidate.purchase_year is not None]
+
+
+def estimate_move2_candidate_count(
+    eligible: list[HousingCandidate], locations: list[Location],
+    move2_window: Move2Window, no_dual_ownership: bool, narrowed: bool,
+) -> int:
+    """Candidates ``move2_strategy='cross_product'`` would evaluate, computed
+    (or, for ``narrowed``, estimated) before any engine call -- see
+    ``MOVE2_CROSS_PRODUCT_CAP``'s docstring for why this check exists.
+
+    ``'full'`` mode builds the actual candidate list -- cheap, no engine
+    calls -- and counts it exactly. ``'narrowed'`` mode can't be counted that
+    way: ``generate_move2_candidates_narrowed`` scores each point as it
+    searches rather than building a list first, so this instead uses the
+    same fixed per-(anchor, location) evaluation budget its docstring
+    documents as an upper-bound estimate.
+    """
+    if narrowed:
+        return len(eligible) * len(locations) * _NARROWED_EVALS_PER_ANCHOR_LOCATION
+    return len(generate_move2_candidates(eligible, locations, move2_window, no_dual_ownership))
+
+
 # ---------------------------------------------------------------------------
 # Narrowed search: engine-scoring wrappers (§8.2 P2)
 # ---------------------------------------------------------------------------
@@ -676,11 +741,14 @@ def optimize_housing(
     objective: str = 'net_worth',
     shortlist_size: int = 5,
     search_mode: Literal['full', 'narrowed'] = 'full',
+    move2_strategy: Literal['anchored', 'cross_product'] = 'anchored',
 ) -> dict[str, Any]:
     if objective not in OBJECTIVES:
         raise ValueError(f"Unknown objective: {objective!r}")
     if search_mode not in SEARCH_MODES:
         raise ValueError(f"Unknown search_mode: {search_mode!r}")
+    if move2_strategy not in MOVE2_STRATEGIES:
+        raise ValueError(f"Unknown move2_strategy: {move2_strategy!r}")
     if not (2 <= len(locations) <= 4):
         raise ValueError("Provide 2-4 candidate locations.")
 
@@ -708,7 +776,23 @@ def optimize_housing(
 
     move2_scored: list[ScoredCandidate] = []
     if move2_window is not None:
-        anchors = select_anchors(move1_scored, anchor_count)
+        if move2_strategy == 'cross_product':
+            # anchor_count is irrelevant here by design (§8.2 P3 module
+            # docstring): every eligible move-1 candidate is used, not just
+            # the top N.
+            anchors = select_all_eligible_move1_candidates(move1_scored)
+            estimated = estimate_move2_candidate_count(
+                anchors, locations, move2_window, no_dual_ownership, narrowed,
+            )
+            if estimated > MOVE2_CROSS_PRODUCT_CAP:
+                raise ValueError(
+                    f"move2_strategy='cross_product' would evaluate ~{estimated} move-2 "
+                    f"candidates, over the safety cap of {MOVE2_CROSS_PRODUCT_CAP}. Narrow "
+                    "the search window(s), use fewer candidate locations, or set "
+                    "search_mode='narrowed' to make cross-product search tractable."
+                )
+        else:
+            anchors = select_anchors(move1_scored, anchor_count)
         if narrowed:
             move2_scored = generate_move2_candidates_narrowed(
                 c0, base_state, anchors, locations, move2_window, no_dual_ownership, family_presence,
@@ -742,7 +826,7 @@ def optimize_housing(
     else:
         final_ranked = combined
 
-    return _format_output(final_ranked, objective, search_mode)
+    return _format_output(final_ranked, objective, search_mode, move2_strategy)
 
 
 def _format_move(location: Location | None, sale_year: int | None, purchase_year: int | None,
@@ -783,11 +867,15 @@ def _format_candidate(sc: ScoredCandidate, objective: str) -> dict[str, Any]:
     }
 
 
-def _format_output(ranked: list[ScoredCandidate], objective: str, search_mode: str = 'full') -> dict[str, Any]:
+def _format_output(
+    ranked: list[ScoredCandidate], objective: str, search_mode: str = 'full',
+    move2_strategy: str = 'anchored',
+) -> dict[str, Any]:
     formatted = [_format_candidate(sc, objective) for sc in ranked]
     return {
         'objective': objective,
         'search_mode': search_mode,
+        'move2_strategy': move2_strategy,
         'recommendation': formatted[0] if formatted else None,
         'alternatives': formatted[1:11],
         'candidates_evaluated': len(ranked),
@@ -864,6 +952,10 @@ def optimize_housing_from_request(c0: dict[str, Any], body: dict[str, Any]) -> t
         if search_mode not in SEARCH_MODES:
             return {'success': False, 'error': f"Unknown search_mode: {search_mode!r}"}, 400
 
+        move2_strategy = str(body.get('move2_strategy', 'anchored') or 'anchored')
+        if move2_strategy not in MOVE2_STRATEGIES:
+            return {'success': False, 'error': f"Unknown move2_strategy: {move2_strategy!r}"}, 400
+
         result = optimize_housing(
             c0,
             locations=locations,
@@ -874,6 +966,7 @@ def optimize_housing_from_request(c0: dict[str, Any], body: dict[str, Any]) -> t
             family_presence=family_presence,
             objective=objective,
             search_mode=search_mode,
+            move2_strategy=move2_strategy,
         )
         result['success'] = True
         result['schema'] = 'housing_optimize_v1'

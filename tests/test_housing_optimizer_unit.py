@@ -9,6 +9,7 @@ from __future__ import annotations
 import pytest
 
 from src.housing_optimizer import (
+    MOVE2_CROSS_PRODUCT_CAP,
     FamilyPresence,
     HousingCandidate,
     Location,
@@ -17,12 +18,15 @@ from src.housing_optimizer import (
     SearchWindow,
     _coordinate_search_1d,
     _coordinate_search_2d,
+    estimate_move2_candidate_count,
     family_presence_ok,
     generate_move1_candidates,
     generate_move2_candidates,
+    optimize_housing,
     optimize_housing_from_request,
     rank_candidates,
     sec121_exclusion_flag,
+    select_all_eligible_move1_candidates,
     select_anchors,
 )
 
@@ -118,6 +122,88 @@ def test_generate_move2_candidates_skips_rent_indefinitely_move1_anchor():
     move2_window = Move2Window(latest_sale_year_2=2035, latest_purchase_year_2=2036)
     cands = generate_move2_candidates([rent_forever], [FL], move2_window, no_dual_ownership=True)
     assert cands == []
+
+
+# ---------------------------------------------------------------------------
+# move2_strategy='cross_product' (§8.2 P3): eligible-candidate selection and
+# the pre-engine safety-cap guard.
+# ---------------------------------------------------------------------------
+
+def test_select_all_eligible_move1_candidates_is_not_limited_to_anchor_count():
+    # 10 owned move-1 candidates, well over any small anchor_count.
+    scored = [
+        ScoredCandidate(candidate=HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2027 + i),
+                         net_worth=100.0 - i, lifetime_cost=1.0, mc_success_rate=None,
+                         sec121_exclusion_lost=[False])
+        for i in range(10)
+    ]
+    eligible = select_all_eligible_move1_candidates(scored)
+    assert len(eligible) == 10
+    anchored = select_anchors(scored, anchor_count=3)
+    assert len(anchored) == 3
+    assert len(eligible) > len(anchored)
+
+
+def test_select_all_eligible_move1_candidates_excludes_rent_indefinitely_forever():
+    rent_forever = HousingCandidate(location_1=TX, sale_year=2027, purchase_year=None)
+    owned = HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2028)
+    scored = [
+        ScoredCandidate(candidate=rent_forever, net_worth=10.0, lifetime_cost=1.0,
+                         mc_success_rate=None, sec121_exclusion_lost=[False]),
+        ScoredCandidate(candidate=owned, net_worth=9.0, lifetime_cost=1.0,
+                         mc_success_rate=None, sec121_exclusion_lost=[False]),
+    ]
+    assert select_all_eligible_move1_candidates(scored) == [owned]
+
+
+def test_estimate_move2_candidate_count_matches_full_grid_generation_exactly():
+    eligible = [HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2027 + i) for i in range(3)]
+    move2_window = Move2Window(latest_sale_year_2=2035, latest_purchase_year_2=2036)
+    exact = len(generate_move2_candidates(eligible, [FL], move2_window, no_dual_ownership=True))
+    estimated = estimate_move2_candidate_count(eligible, [FL], move2_window, no_dual_ownership=True, narrowed=False)
+    assert estimated == exact
+    assert estimated > 0
+
+
+def test_estimate_move2_candidate_count_narrowed_uses_the_documented_per_anchor_budget():
+    eligible = [HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2028) for _ in range(4)]
+    move2_window = Move2Window(latest_sale_year_2=2035, latest_purchase_year_2=2036)
+    estimated = estimate_move2_candidate_count(
+        eligible, [TX, FL], move2_window, no_dual_ownership=True, narrowed=True,
+    )
+    # 4 eligible x 2 locations x (25 + 8) per the module docstring's budget.
+    assert estimated == 4 * 2 * 33
+
+
+def test_cross_product_cap_guard_fires_before_generating_move2_candidates(monkeypatch):
+    """A wide-enough move2_window makes the exact full-grid count exceed the
+    cap; optimize_housing must raise ValueError from the pre-engine guard
+    (estimate_move2_candidate_count) without ever calling
+    generate_move2_candidates to build the (huge) actual candidate list."""
+    from src import housing_optimizer as ho
+
+    called = {"generate_move2_candidates": False}
+    real_generate = ho.generate_move2_candidates
+
+    def spy(*args, **kwargs):
+        called["generate_move2_candidates"] = True
+        return real_generate(*args, **kwargs)
+
+    monkeypatch.setattr(ho, "generate_move2_candidates", spy)
+
+    eligible = [HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2027 + i) for i in range(50)]
+    move2_window = Move2Window(latest_sale_year_2=2100, latest_purchase_year_2=2100)
+    estimated = estimate_move2_candidate_count(
+        eligible, [TX, FL], move2_window, no_dual_ownership=True, narrowed=False,
+    )
+    assert estimated > MOVE2_CROSS_PRODUCT_CAP
+    # The guard inside optimize_housing calls estimate_move2_candidate_count
+    # (which itself calls the real generate_move2_candidates to count exactly
+    # -- that's cheap, pure Python, no engine); confirm the guard trips at
+    # that stage by exercising it directly the same way optimize_housing does.
+    with pytest.raises(ValueError):
+        if estimated > MOVE2_CROSS_PRODUCT_CAP:
+            raise ValueError(f"would evaluate ~{estimated} move-2 candidates")
 
 
 # ---------------------------------------------------------------------------

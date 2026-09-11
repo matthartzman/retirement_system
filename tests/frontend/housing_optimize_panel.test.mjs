@@ -67,6 +67,7 @@ describe("renderHousingOptimizePanelHtml", () => {
     assert.match(html, /id="housingOptLatestPurchase"/);
     assert.match(html, /id="housingOptObjective"/);
     assert.match(html, /id="housingOptSearchMode"/);
+    assert.match(html, /id="housingOptMove2Strategy"/);
     assert.match(html, /id="housingOptNoDualOwnership"[^>]*checked/);
     assert.match(html, /id="housingOptimizeResults"/);
   });
@@ -182,6 +183,7 @@ describe("runHousingOptimization", () => {
       housingOptAnchorCount: "5",
       housingOptObjective: "net_worth",
       housingOptSearchMode: "narrowed",
+      housingOptMove2Strategy: "cross_product",
     };
     const resultsEl = { innerHTML: "" };
     const noDualOwnership = { checked: true };
@@ -206,8 +208,42 @@ describe("runHousingOptimization", () => {
     assert.equal(capturedBody.locations[0].state, "Texas");
     assert.equal(capturedBody.no_dual_ownership, true);
     assert.equal(capturedBody.search_mode, "narrowed");
+    assert.equal(capturedBody.move2_strategy, "cross_product");
     assert.equal(capturedBody.move2_window, undefined);
     assert.equal(capturedBody.move1_window.earliest_sale_year, 2027);
     assert.match(resultsEl.innerHTML, /No candidates satisfied/);
+  });
+
+  test("surfaces a cross_product cap-rejection error via showMessage", async () => {
+    const sandbox = freshSandbox();
+    const values = {
+      housingOptLocCount: "2",
+      housingOptLocState0: "Texas",
+      housingOptLocState1: "Florida",
+      housingOptEarliestSale: "2027",
+      housingOptLatestSale: "2030",
+      housingOptEarliestPurchase: "2027",
+      housingOptLatestPurchase: "2032",
+      housingOptObjective: "net_worth",
+      housingOptSearchMode: "full",
+      housingOptMove2Strategy: "cross_product",
+    };
+    const resultsEl = { innerHTML: "" };
+    sandbox.document.getElementById = (id) => {
+      if (id === "housingOptimizeResults") return resultsEl;
+      if (id in values) return { value: values[id] };
+      return { value: "" };
+    };
+    sandbox.api = async () => ({
+      success: false,
+      error: "move2_strategy='cross_product' would evaluate ~5000 move-2 candidates, over the safety cap of 3000.",
+    });
+    const messages = [];
+    sandbox.showMessage = (msg, kind) => messages.push([msg, kind]);
+    await sandbox.runHousingOptimization();
+    assert.ok(messages.length >= 1);
+    assert.match(messages[0][0], /cross_product/);
+    assert.equal(messages[0][1], "error");
+    assert.equal(resultsEl.innerHTML, "");
   });
 });
