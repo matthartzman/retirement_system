@@ -57,6 +57,49 @@ def status_path(base_dir: str | Path) -> Path:
     return Path(base_dir) / "local_state" / STATUS_FILENAME
 
 
+# 2026-09 outage: RetirementSystem_MonarchAutoImport only reads whatever CSVs
+# already exist in Monarch Extractor/output -- nothing scheduled the actual
+# scrape (Monarch Extractor/run_monarch.ps1) that produces them, so it went
+# stale for over a week while the import job kept reporting success ("no new
+# rows" looks identical to "extractor is broken" from the import job's own
+# status alone). EXTRACTOR_STALE_HOURS is deliberately looser than the daily
+# schedule to avoid false alarms from one slow/retried run.
+EXTRACTOR_STALE_HOURS = 36
+
+
+def extractor_raw_dir(base_dir: str | Path) -> Path:
+    """Where the Monarch Extractor itself (not the downstream import job)
+    writes one file per scrape attempt. Fixed relative to base_dir --
+    independent of the policy's (user-configurable) source_dir, which only
+    ever names the *output* folder the import job reads from."""
+    return Path(base_dir) / "Monarch Extractor" / "raw"
+
+
+def get_extractor_freshness(base_dir: str | Path, *, now: datetime | None = None) -> dict[str, Any]:
+    """Report when the extractor's scrape step last actually produced
+    anything, independent of whether the downstream auto-import job found
+    new rows to consume. See EXTRACTOR_STALE_HOURS for why this exists."""
+    raw_dir = extractor_raw_dir(base_dir)
+    files = list(raw_dir.glob("*.csv")) if raw_dir.exists() else []
+    now = now or now_utc()
+    if not files:
+        return {
+            "last_extract_at": None,
+            "age_hours": None,
+            "stale": True,
+            "stale_after_hours": EXTRACTOR_STALE_HOURS,
+        }
+    newest_mtime = max(f.stat().st_mtime for f in files)
+    last_extract_dt = datetime.fromtimestamp(newest_mtime, tz=timezone.utc)
+    age_hours = (now - last_extract_dt).total_seconds() / 3600
+    return {
+        "last_extract_at": iso_utc(last_extract_dt),
+        "age_hours": round(age_hours, 1),
+        "stale": age_hours > EXTRACTOR_STALE_HOURS,
+        "stale_after_hours": EXTRACTOR_STALE_HOURS,
+    }
+
+
 class SourceDirOutsideWorkspaceError(ValueError):
     """Raised when a policy's source_dir would resolve outside the workspace root.
 
@@ -178,21 +221,9 @@ def write_status(
     return payload
 
 
-def register_scheduled_task(base_dir: str | Path, enabled: bool) -> dict[str, Any]:
-    """Best-effort sync of the OS-level 4am Task Scheduler entry with the
-    in-app toggle, via the PowerShell helper script.
-
-    Never raises: a registration failure (non-Windows dev machine, no
-    PowerShell, insufficient privilege) must not block saving the toggle
-    itself -- the caller surfaces {"attempted", "success", "error"} to the
-    UI's status chip instead.
-    """
-    if sys.platform != "win32":
-        return {"attempted": False, "success": False, "error": "Not running on Windows; scheduled-task registration skipped."}
-    script = Path(base_dir) / "tools" / "launchers" / "register_monarch_autoimport_task.ps1"
+def _run_registration_script(script: Path, action: str) -> dict[str, Any]:
     if not script.exists():
         return {"attempted": False, "success": False, "error": f"Registration script not found: {script}"}
-    action = "Register" if enabled else "Unregister"
     try:
         proc = subprocess.run(
             ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script), "-Action", action],
@@ -204,3 +235,43 @@ def register_scheduled_task(base_dir: str | Path, enabled: bool) -> dict[str, An
         return {"attempted": True, "success": proc.returncode == 0, "error": None if proc.returncode == 0 else proc.stderr.strip()}
     except (OSError, subprocess.SubprocessError) as exc:
         return {"attempted": True, "success": False, "error": str(exc)}
+
+
+def register_scheduled_task(base_dir: str | Path, enabled: bool) -> dict[str, Any]:
+    """Best-effort sync of the OS-level Task Scheduler entries with the
+    in-app toggle, via the PowerShell helper scripts.
+
+    Registers/unregisters *two* tasks, not one: the downstream import
+    (tools/monarch_autoimport.py, 4am) and the extractor itself (Monarch
+    Extractor/run_monarch.ps1, 3:30am -- see that script's own header for
+    why this one exists). Before 2026-09, only the import task was wired
+    to this toggle; the extractor was never scheduled anywhere, so nothing
+    ever refreshed the data the import job reads. Both are now driven by
+    the same toggle so enabling "Monarch auto-update" always yields a
+    complete, self-refreshing pipeline rather than half of one.
+
+    Never raises: a registration failure (non-Windows dev machine, no
+    PowerShell, insufficient privilege) must not block saving the toggle
+    itself -- the caller surfaces {"attempted", "success", "error"} to the
+    UI's status chip instead.
+    """
+    if sys.platform != "win32":
+        return {"attempted": False, "success": False, "error": "Not running on Windows; scheduled-task registration skipped."}
+    action = "Register" if enabled else "Unregister"
+    results = {
+        "extract": _run_registration_script(
+            Path(base_dir) / "Monarch Extractor" / "register_monarch_extract_task.ps1", action
+        ),
+        "import": _run_registration_script(
+            Path(base_dir) / "tools" / "launchers" / "register_monarch_autoimport_task.ps1", action
+        ),
+    }
+    attempted = any(r["attempted"] for r in results.values())
+    success = attempted and all(r["success"] for r in results.values() if r["attempted"])
+    errors = [f"{name}: {r['error']}" for name, r in results.items() if r["attempted"] and not r["success"]]
+    return {
+        "attempted": attempted,
+        "success": success,
+        "error": "; ".join(errors) or None,
+        "details": results,
+    }

@@ -4,6 +4,10 @@ src/local_backup_scheduler.py's policy pattern.
 """
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
+import pytest
+
 from src import monarch_autoupdate as mau
 
 
@@ -67,3 +71,49 @@ def test_resolve_source_dir_is_relative_to_base_dir(tmp_path):
     resolved = mau.resolve_source_dir(tmp_path, policy)
     assert resolved.name == "output"
     assert resolved.parent.name == "Monarch Extractor"
+
+
+def _touch_raw_file(base_dir, name, mtime: datetime) -> None:
+    raw_dir = mau.extractor_raw_dir(base_dir)
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    path = raw_dir / name
+    path.write_text("id,date,merchant,amount\n", encoding="utf-8")
+    ts = mtime.timestamp()
+    import os
+
+    os.utime(path, (ts, ts))
+
+
+def test_extractor_freshness_with_no_raw_files_is_stale(tmp_path):
+    freshness = mau.get_extractor_freshness(tmp_path)
+    assert freshness["last_extract_at"] is None
+    assert freshness["stale"] is True
+
+
+def test_extractor_freshness_recent_file_is_not_stale(tmp_path):
+    now = datetime(2026, 9, 14, 12, 0, 0, tzinfo=timezone.utc)
+    _touch_raw_file(tmp_path, "monarch-20260914-060000-attempt1.csv", now - timedelta(hours=6))
+    freshness = mau.get_extractor_freshness(tmp_path, now=now)
+    assert freshness["stale"] is False
+    assert freshness["last_extract_at"] is not None
+    assert freshness["age_hours"] == 6.0
+
+
+def test_extractor_freshness_old_file_is_stale(tmp_path):
+    """This is the exact shape of the 2026-09 outage: the extractor's own
+    raw/ output goes untouched for days while the downstream import job
+    keeps reporting success (nothing new to import isn't the same as
+    nothing wrong)."""
+    now = datetime(2026, 9, 14, 12, 0, 0, tzinfo=timezone.utc)
+    _touch_raw_file(tmp_path, "monarch-20260909-114609-attempt1.csv", now - timedelta(days=5))
+    freshness = mau.get_extractor_freshness(tmp_path, now=now)
+    assert freshness["stale"] is True
+    assert freshness["age_hours"] == pytest.approx(120.0)
+
+
+def test_extractor_freshness_picks_newest_of_multiple_files(tmp_path):
+    now = datetime(2026, 9, 14, 12, 0, 0, tzinfo=timezone.utc)
+    _touch_raw_file(tmp_path, "monarch-20260903-075154-attempt2.csv", now - timedelta(days=11))
+    _touch_raw_file(tmp_path, "monarch-20260909-114609-attempt1.csv", now - timedelta(days=5))
+    freshness = mau.get_extractor_freshness(tmp_path, now=now)
+    assert freshness["age_hours"] == pytest.approx(120.0)

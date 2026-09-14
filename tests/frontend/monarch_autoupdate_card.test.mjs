@@ -61,3 +61,15 @@ describe("monarchAutoUpdateControlsHtml (default/unfetched state)", () => {
     assert.match(html, /refreshMonarchAutoUpdateStatus\(\)/);
   });
 });
+
+describe("monarchAutoUpdateFreshnessWarningHtml (default/unfetched state)", () => {
+  // 2026-09 outage follow-up: a stalled extractor (Monarch Extractor/
+  // run_monarch.ps1 never actually scheduled) used to be invisible because
+  // the downstream import job reports success with nothing new to import.
+  // This banner surfaces src/monarch_autoupdate.py's get_extractor_freshness
+  // in the same card. Auto-update is off/unfetched by default, so no
+  // warning should render regardless of freshness.
+  test("renders nothing when no status has been fetched yet", () => {
+    assert.equal(sandbox.monarchAutoUpdateFreshnessWarningHtml(), "");
+  });
+});
