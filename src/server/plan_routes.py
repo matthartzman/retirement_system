@@ -364,6 +364,7 @@ def monarch_autoupdate_status():
         return denied
     payload = monarch_autoupdate.load_policy(WORKSPACE_ROOT)
     payload["status"] = monarch_autoupdate.load_status(WORKSPACE_ROOT)
+    payload["extractor_freshness"] = monarch_autoupdate.get_extractor_freshness(WORKSPACE_ROOT)
     return jsonify(payload)
 
 
