@@ -186,21 +186,40 @@ def _bathrooms_label(bathrooms: float) -> str:
     return "3.5+" if bathrooms >= 3.5 else (f"{bathrooms:g}")
 
 
-def housing_state_estimate_payload(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    state = str((data or {}).get("state", "")).strip().upper()
-    housing_type = str((data or {}).get("type", (data or {}).get("housing_type", "purchase")) or "purchase").strip().lower()
-    is_rent = housing_type == "rent"
-    city_type = str((data or {}).get("city_type", "suburban")).strip().lower()
-    try:
-        population_size = int((data or {}).get("population_size", 20000) or 20000)
-    except (ValueError, TypeError):
-        population_size = 20000
-    bedrooms = _parse_bedrooms((data or {}).get("bedrooms", 3))
-    bathrooms = _parse_bathrooms((data or {}).get("bathrooms", 2))
-    property_type = _parse_property_type((data or {}).get("property_type", "single_family"))
-    sqft_band = _parse_sqft_band((data or {}).get("sqft_band", "1800_2500"))
-    built_within_years = _parse_built_within_years((data or {}).get("built_within_years"))
+def estimate_housing_cost(
+    *,
+    state: str,
+    housing_type: str,
+    city_type: str,
+    population_size: int,
+    bedrooms: int,
+    bathrooms: float,
+    property_type: str,
+    sqft_band: str,
+    built_within_years: int | None,
+    start_year: int,
+    home_appr: float,
+    inflation_general: float,
+) -> dict[str, Any]:
+    """Pure pricing core for a state/city/characteristics housing estimate --
+    state base price, city/population/characteristic multipliers, condo/
+    townhome HOA-floor + maintenance discount (Slice 2), and start_year-
+    dollars translation (Slice 1). Extracted (Slice 3, H8) from
+    ``housing_state_estimate_payload`` so a second caller (the comparison
+    sheet's "opposite type" candidate, H9a) can price a synthesized housing
+    step without going through an HTTP request body.
 
+    Every input is already parsed/validated by the caller (the HTTP wrapper
+    below, or any other caller) -- this function does no parsing of its own.
+
+    Returns the ``estimate`` dict the HTTP response's ``estimate`` field is
+    built from, plus one caller-only key, ``basis_note``: the "Reflects
+    ``start_year`` dollars: ..." clause (empty string when ``start_year`` is
+    this year or earlier), left for the caller to fold into its own
+    human-readable ``note`` text rather than duplicated here -- this function
+    builds no narrative strings of its own.
+    """
+    is_rent = housing_type == "rent"
     estimate = dict(STATE_ESTIMATES.get(state) or dict(purchase_price=350000, monthly_rent=1600, insurance_annual=1600, utilities_annual=2800, maintenance_annual=3500, re_tax_pct=0.0100, hoa_pct=0.001))
     city_multipliers = {"urban": 1.30, "city": 1.30, "suburban": 1.00, "exurban": 0.85, "rural": 0.75}
     city_mult = city_multipliers.get(city_type, 1.00)
@@ -247,7 +266,6 @@ def housing_state_estimate_payload(data: dict[str, Any]) -> tuple[dict[str, Any]
     if property_type in ("condo", "townhome"):
         estimate["hoa_pct"] = max(estimate.get("hoa_pct", 0.0), 0.004)
         estimate["maintenance_annual"] *= 0.4
-    built_clause = f", built within the last {built_within_years} years" if built_within_years is not None else ""
 
     # --- Slice 1: today's-dollars -> start_year-dollars translation ---------
     # housing-estimate-realism-and-dollar-convention-design.md §3.2. This is a
@@ -259,20 +277,7 @@ def housing_state_estimate_payload(data: dict[str, Any]) -> tuple[dict[str, Any]
     # today().year exactly, so years_out lines up with what the engine will
     # later compute for the same step once it's saved.
     plan_start = _platform_runtime.today().year
-    try:
-        start_year = int((data or {}).get("start_year") or 0)
-    except (TypeError, ValueError):
-        start_year = 0
     years_out = max(0, start_year - plan_start) if start_year > 0 else 0
-
-    try:
-        home_appr = float((data or {}).get("home_appr"))
-    except (TypeError, ValueError):
-        home_appr = HOME_APPR_DEFAULT
-    try:
-        inflation_general = float((data or {}).get("inflation_general"))
-    except (TypeError, ValueError):
-        inflation_general = INFLATION_GENERAL_DEFAULT
 
     today_purchase_price = estimate["purchase_price"]
     today_monthly_rent = estimate["monthly_rent"]
@@ -311,13 +316,52 @@ def housing_state_estimate_payload(data: dict[str, Any]) -> tuple[dict[str, Any]
         "property_type": property_type,
         "sqft_band": sqft_band,
         "built_within_years": built_within_years,
-        "note": (
-            f"Estimated costs for a {bedrooms}{'+' if bedrooms == 5 else ''}BR/"
-            f"{_bathrooms_label(bathrooms)}BA {property_type.replace('_', ' ')} home, "
-            f"{SQFT_BAND_LABELS[sqft_band]}{built_clause}, in a {city_type or 'suburban'} "
-            f"area (~{population_size:,} population) in {state}.{basis_note} All values are editable."
-        ),
+        "basis_note": basis_note,
     })
+    return estimate
+
+
+def housing_state_estimate_payload(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
+    state = str((data or {}).get("state", "")).strip().upper()
+    housing_type = str((data or {}).get("type", (data or {}).get("housing_type", "purchase")) or "purchase").strip().lower()
+    city_type = str((data or {}).get("city_type", "suburban")).strip().lower()
+    try:
+        population_size = int((data or {}).get("population_size", 20000) or 20000)
+    except (ValueError, TypeError):
+        population_size = 20000
+    bedrooms = _parse_bedrooms((data or {}).get("bedrooms", 3))
+    bathrooms = _parse_bathrooms((data or {}).get("bathrooms", 2))
+    property_type = _parse_property_type((data or {}).get("property_type", "single_family"))
+    sqft_band = _parse_sqft_band((data or {}).get("sqft_band", "1800_2500"))
+    built_within_years = _parse_built_within_years((data or {}).get("built_within_years"))
+    try:
+        start_year = int((data or {}).get("start_year") or 0)
+    except (TypeError, ValueError):
+        start_year = 0
+    try:
+        home_appr = float((data or {}).get("home_appr"))
+    except (TypeError, ValueError):
+        home_appr = HOME_APPR_DEFAULT
+    try:
+        inflation_general = float((data or {}).get("inflation_general"))
+    except (TypeError, ValueError):
+        inflation_general = INFLATION_GENERAL_DEFAULT
+
+    estimate = estimate_housing_cost(
+        state=state, housing_type=housing_type, city_type=city_type,
+        population_size=population_size, bedrooms=bedrooms, bathrooms=bathrooms,
+        property_type=property_type, sqft_band=sqft_band,
+        built_within_years=built_within_years, start_year=start_year,
+        home_appr=home_appr, inflation_general=inflation_general,
+    )
+    basis_note = estimate.pop("basis_note", "")
+    built_clause = f", built within the last {built_within_years} years" if built_within_years is not None else ""
+    estimate["note"] = (
+        f"Estimated costs for a {bedrooms}{'+' if bedrooms == 5 else ''}BR/"
+        f"{_bathrooms_label(bathrooms)}BA {property_type.replace('_', ' ')} home, "
+        f"{SQFT_BAND_LABELS[sqft_band]}{built_clause}, in a {city_type or 'suburban'} "
+        f"area (~{population_size:,} population) in {state}.{basis_note} All values are editable."
+    )
     return {"success": True, "schema": "housing_state_estimate_v1", "estimate": estimate}, 200
 
 
