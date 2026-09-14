@@ -281,6 +281,16 @@ export function humanLabel(label, row) {
     return "Mortgage Rate";
   if (row && row.section === "Housing" && norm(row.label) === "down_payment")
     return "Down Payment";
+  if (row && row.section === "Housing" && norm(row.label) === "bedrooms")
+    return "Bedrooms";
+  if (row && row.section === "Housing" && norm(row.label) === "bathrooms")
+    return "Bathrooms";
+  if (row && row.section === "Housing" && norm(row.label) === "property_type")
+    return "Property Type";
+  if (row && row.section === "Housing" && norm(row.label) === "sqft_band")
+    return "Square Footage";
+  if (row && row.section === "Housing" && norm(row.label) === "built_within_years")
+    return "Built Within (Years)";
   if (
     row &&
     row.section === "Wellness" &&

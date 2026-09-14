@@ -163,6 +163,36 @@ export async function estimateHousingFromState(stepNum) {
       norm(r.subsection || "") === "next_step_" + stepNum &&
       norm(r.label) === "population_size",
   );
+  const bedroomsRow = rows.find(
+    (r) =>
+      r.section === "Housing" &&
+      norm(r.subsection || "") === "next_step_" + stepNum &&
+      norm(r.label) === "bedrooms",
+  );
+  const bathroomsRow = rows.find(
+    (r) =>
+      r.section === "Housing" &&
+      norm(r.subsection || "") === "next_step_" + stepNum &&
+      norm(r.label) === "bathrooms",
+  );
+  const propertyTypeRow = rows.find(
+    (r) =>
+      r.section === "Housing" &&
+      norm(r.subsection || "") === "next_step_" + stepNum &&
+      norm(r.label) === "property_type",
+  );
+  const sqftBandRow = rows.find(
+    (r) =>
+      r.section === "Housing" &&
+      norm(r.subsection || "") === "next_step_" + stepNum &&
+      norm(r.label) === "sqft_band",
+  );
+  const builtWithinYearsRow = rows.find(
+    (r) =>
+      r.section === "Housing" &&
+      norm(r.subsection || "") === "next_step_" + stepNum &&
+      norm(r.label) === "built_within_years",
+  );
   const startYearRow = rows.find(
     (r) =>
       r.section === "Housing" &&
@@ -209,6 +239,17 @@ export async function estimateHousingFromState(stepNum) {
   const popVal = popRow
     ? String(valOf(popRow) || "20000").replace(/[^0-9]/g, "")
     : "20000";
+  const bedroomsVal = bedroomsRow ? String(valOf(bedroomsRow) || "3").trim() : "3";
+  const bathroomsVal = bathroomsRow ? String(valOf(bathroomsRow) || "2").trim() : "2";
+  const propertyTypeVal = propertyTypeRow
+    ? String(valOf(propertyTypeRow) || "single_family").trim()
+    : "single_family";
+  const sqftBandVal = sqftBandRow
+    ? String(valOf(sqftBandRow) || "1800_2500").trim()
+    : "1800_2500";
+  const builtWithinYearsVal = builtWithinYearsRow
+    ? String(valOf(builtWithinYearsRow) || "").trim()
+    : "";
   const startYearVal = startYearRow
     ? parseInt(String(valOf(startYearRow) || "").replace(/[^0-9]/g, ""), 10)
     : NaN;
@@ -227,6 +268,11 @@ export async function estimateHousingFromState(stepNum) {
         type: typeVal,
         city_type: cityTypeVal,
         population_size: parseInt(popVal) || 20000,
+        bedrooms: bedroomsVal,
+        bathrooms: bathroomsVal,
+        property_type: propertyTypeVal,
+        sqft_band: sqftBandVal,
+        built_within_years: builtWithinYearsVal,
         start_year: Number.isFinite(startYearVal) ? startYearVal : "",
         home_appr: homeApprVal,
         inflation_general: inflationVal,
@@ -441,6 +487,11 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
     "maintenance_annual",
     "re_tax_pct",
     "hoa_pct",
+    "bedrooms",
+    "bathrooms",
+    "property_type",
+    "sqft_band",
+    "built_within_years",
   ];
   var RENT_FIRST = ["state", "city_type", "population_size"];
   var RENT_REST = [
@@ -449,6 +500,11 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
     "monthly_rent",
     "insurance_annual",
     "utilities_annual",
+    "bedrooms",
+    "bathrooms",
+    "property_type",
+    "sqft_band",
+    "built_within_years",
   ];
 
   function pickRows(labels) {
