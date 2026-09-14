@@ -26,7 +26,12 @@
   // here as the values spendingFlowHtml()'s stage buttons still navigate TO
   // and can still highlight AS, via effectiveSpendingStage() below, not as
   // literal activeStep values this array is tested against.
-  const SPENDING_STEPS = ["spending_core", "reports_and_review"];
+  //
+  // reports_and_review (Reports & Review) is deliberately excluded (#320):
+  // that page already has its own build/review flow (Compare & Decide ->
+  // Build Reports -> View/Download), so surfacing the spending-input flow
+  // guide there too is out of place, not merely redundant.
+  const SPENDING_STEPS = ["spending_core"];
   // Glossary terms come from the canonical source (src/glossary.py, served by
   // GET /api/glossary and merged into dashboard.js's ACRONYM_DEFINITIONS at
   // startup). This file previously carried its OWN third copy, which the
