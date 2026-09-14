@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Golden-master recovery tool for the frozen sample-plan pins.
 
-Ticket 286. See ``documentation/GOLDEN_MASTER_RECOVERY_RUNBOOK.md`` for the
+Ticket 286. See ``documentation/reference/GOLDEN_MASTER_RECOVERY_RUNBOOK.md`` for the
 decision tree this tool supports. This script never reimplements the
 measurement itself -- every subcommand that needs a computed value invokes
 ``tests/test_frozen_sample_plan_golden_master_regression.py``'s own
@@ -36,14 +36,14 @@ regen --reason <file>
     Recompute the pins via the reused measurement, rewrite
     ``PINNED_TERMINAL_NW`` / ``PINNED_LIFETIME_TAX`` and the machine-checked
     PROVENANCE line above them, and append a dated entry to
-    ``documentation/GOLDEN_MASTER_CHANGELOG.md``. Refuses without
+    ``documentation/reference/GOLDEN_MASTER_CHANGELOG.md``. Refuses without
     ``--reason``, and refuses if the reason text is empty, too short, or a
     recognizable placeholder -- a pin must never move silently.
 
 Every subcommand sets ``RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS=1``
 internally. A forgotten env var is how ordinary price drift gets
 misdiagnosed as an engine change (see the module docstring of the test file
-itself, and ``documentation/GOLDEN_MASTER_RECOVERY_RUNBOOK.md``).
+itself, and ``documentation/reference/GOLDEN_MASTER_RECOVERY_RUNBOOK.md``).
 """
 from __future__ import annotations
 
@@ -60,7 +60,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PIN_FILE = ROOT / "tests" / "test_frozen_sample_plan_golden_master_regression.py"
-CHANGELOG_FILE = ROOT / "documentation" / "GOLDEN_MASTER_CHANGELOG.md"
+CHANGELOG_FILE = ROOT / "documentation" / "reference" / "GOLDEN_MASTER_CHANGELOG.md"
 REGEN_MODULE = "tests.test_frozen_sample_plan_golden_master_regression"
 TEST_NODE = (
     "tests/test_frozen_sample_plan_golden_master_regression.py"
@@ -232,7 +232,7 @@ def cmd_verify_endpoint(args) -> int:
             print(
                 f"PIN DID NOT HOLD at {sha}: the frozen golden-master test failed at this "
                 "commit. Do not use this commit as a bisect 'good' endpoint -- see trap #1 "
-                "in documentation/GOLDEN_MASTER_RECOVERY_RUNBOOK.md."
+                "in documentation/reference/GOLDEN_MASTER_RECOVERY_RUNBOOK.md."
             )
         return proc.returncode
     finally:
@@ -254,7 +254,7 @@ def cmd_origin(args) -> int:
     print(
         "(--follow is required: a plain `git log -S` can name the wrong origin "
         "commit when a file rename makes the value look newly added -- trap #2 "
-        "in documentation/GOLDEN_MASTER_RECOVERY_RUNBOOK.md.)\n"
+        "in documentation/reference/GOLDEN_MASTER_RECOVERY_RUNBOOK.md.)\n"
     )
     if not proc.stdout.strip():
         print("No candidates found.")

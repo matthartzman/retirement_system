@@ -1,6 +1,6 @@
 """The scalar and vectorized Monte Carlo paths must agree about cash.
 
-Finding S5 (documentation/reports/PLANNER_SIGNOFF_2026-08-17.md): the vectorized
+Finding S5 (documentation/archive/reports/PLANNER_SIGNOFF_2026-08-17.md): the vectorized
 path excludes cash-tax accounts from tilting -- it grows cash on a short-rate
 proxy tied to inflation, so a tilt measured against the equity draw is
 meaningless there -- while the scalar/loop path

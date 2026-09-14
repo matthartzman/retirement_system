@@ -4,7 +4,7 @@ ROOT = Path(__file__).resolve().parents[1]
 from tests._decomp_dashboard import dashboard_js_text
 DASHBOARD_CSS = ROOT / "frontend" / "css" / "dashboard.css"
 RECOMMENDATIONS_JS = ROOT / "frontend" / "js" / "dashboard_decomp_page_recommendations.js"
-CHANGELOG = ROOT / "documentation" / "GOLDEN_MASTER_CHANGELOG.md"
+CHANGELOG = ROOT / "documentation" / "reference" / "GOLDEN_MASTER_CHANGELOG.md"
 
 
 def test_page_recommendations_are_explainable_and_source_linked():

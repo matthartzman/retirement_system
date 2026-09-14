@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 from tests._decomp_dashboard import dashboard_js_text
 DASHBOARD_JS = ROOT / "frontend" / "js" / "dashboard.js"
 DASHBOARD_CSS = ROOT / "frontend" / "css" / "dashboard.css"
-CHANGELOG = ROOT / "documentation" / "GOLDEN_MASTER_CHANGELOG.md"
+CHANGELOG = ROOT / "documentation" / "reference" / "GOLDEN_MASTER_CHANGELOG.md"
 
 
 def test_scenarios_page_has_templates_saved_sets_and_diffs():

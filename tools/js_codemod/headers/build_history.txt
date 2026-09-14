@@ -5,7 +5,7 @@
    extracted from dashboard.js by tools/js_codemod/extract_module.mjs.
 
    Fourth domain cluster of the Wave 6.4 domain-module split (see
-   docs/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md),
+   documentation/archive/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md),
    after dashboard_decomp_assets_other.js,
    dashboard_decomp_spending_taxonomy.js and
    dashboard_decomp_housing_scenarios.js. Selected as a connected component of

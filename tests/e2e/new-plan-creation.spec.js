@@ -6,7 +6,7 @@
 // Intercepts POST /api/plan-data/blank (frontend/js/dashboard_decomp_checklist_closeout.js's
 // startNewPlan()) rather than letting it run for real: the real endpoint
 // overwrites every input/client_*.csv file on the shared E2E server this
-// whole suite runs against (documentation/CLAUDE.md's "Start New Plan"
+// whole suite runs against (documentation/reference/CLAUDE.md's "Start New Plan"
 // section), and this suite's other specs -- and a same-run re-execution of
 // this one -- depend on the frozen fixture household staying intact. The
 // backend blanking logic itself (PlanDataFileService.start_blank_payload())

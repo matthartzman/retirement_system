@@ -3,7 +3,7 @@
    extracted from dashboard.js by tools/js_codemod/extract_module.mjs.
 
    Second domain cluster of the Wave 6.4 domain-module split (see
-   docs/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md),
+   documentation/archive/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md),
    following dashboard_decomp_assets_other.js. Selected as a connected component
    of dashboard.js's internal call graph (tools/js_codemod/find_clusters.mjs):
    39 declarations, the largest coherent single-domain component remaining.

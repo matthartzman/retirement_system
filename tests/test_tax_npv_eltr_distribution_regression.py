@@ -1,6 +1,6 @@
 """Optimization-refactor Phase 3: tax NPV / ELTR (effective lifetime tax
 rate) distribution across the Monte Carlo batch, per
-docs/superpowers/plans/2026-08-27-phase3-tax-npv-eltr-spec.md's Option A.
+documentation/archive/superpowers/plans/2026-08-27-phase3-tax-npv-eltr-spec.md's Option A.
 
 Generalizes the PV-discounting pattern `_roth_strategy_metrics` already
 uses to score a single deterministic Roth-conversion candidate

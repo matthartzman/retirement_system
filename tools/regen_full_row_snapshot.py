@@ -2,7 +2,7 @@
 """Regeneration tool for the full-row engine snapshot fixture.
 
 Ticket 3.10 step 1. See
-``docs/superpowers/plans/2026-09-08-deterministic-engine-stage-decomposition-design.md``
+``documentation/archive/superpowers/plans/2026-09-08-deterministic-engine-stage-decomposition-design.md``
 for why this fixture exists: the two pre-existing golden-master suites only
 pin ~10 aggregate scalars per scenario and would not notice a stage
 extraction that quietly changed an intermediate per-year field (an account

@@ -12,7 +12,7 @@ a field the frontend depends on) can slip through both of those layers
 tested in isolation. These tests catch that class of failure directly,
 using ``src.server.app`` (app_core.py's stdlib local route-registry test
 client -- the same one desktop mode routes fetch() calls through, per
-documentation/CLAUDE.md's "Local server" section) against the real
+documentation/reference/CLAUDE.md's "Local server" section) against the real
 conftest.py-staged test workspace.
 """
 from __future__ import annotations

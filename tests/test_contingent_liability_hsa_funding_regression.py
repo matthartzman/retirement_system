@@ -1,6 +1,6 @@
 """Optimization refactor: contingent-liability spending draws the HSA first.
 
-Design: docs/superpowers/plans/2026-08-26-contingent-liability-funding-rules-design.md
+Design: documentation/archive/superpowers/plans/2026-08-26-contingent-liability-funding-rules-design.md
 
 The `contingent_liability` spending tier (`ltc_prem_yr + wellness_shock_yr`)
 previously had NO dedicated funding treatment -- both components were summed

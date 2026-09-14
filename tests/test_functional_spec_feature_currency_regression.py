@@ -23,7 +23,7 @@ from __future__ import annotations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SPEC_PATH = ROOT / "documentation" / "FUNCTIONAL_SPEC.md"
+SPEC_PATH = ROOT / "documentation" / "reference" / "FUNCTIONAL_SPEC.md"
 
 # (marker substring, human-readable feature name, case-sensitive?)
 FEATURE_MARKERS = [
@@ -47,7 +47,7 @@ def test_functional_spec_mentions_every_known_shipped_feature():
     assert missing == [], (
         f"FUNCTIONAL_SPEC.md is missing documentation for: {missing}. "
         "Add a description under the relevant '## 4. What the household can "
-        "do' subsection (see documentation/FUNCTIONAL_SPEC.md's own "
+        "do' subsection (see documentation/reference/FUNCTIONAL_SPEC.md's own "
         "structure) -- this guard exists because the spec already went "
         "stale once (finding DOC-201, system review 2026-09-07)."
     )

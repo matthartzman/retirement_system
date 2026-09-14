@@ -6,7 +6,7 @@
 // components are the candidate domain modules for
 // tools/js_codemod/extract_module.mjs to pull out.
 //
-// This tool exists because the numbers in docs/superpowers/plans/
+// This tool exists because the numbers in documentation/archive/superpowers/plans/
 // 2026-08-06-dashboard-js-domain-module-split-SCOPE.md are already stale: that
 // analysis ran BEFORE the shared-core extraction (dashboard_decomp_row_model.js)
 // removed the 172 fan-in>=3 hub functions it was measuring. Every extraction

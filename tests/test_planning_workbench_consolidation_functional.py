@@ -69,8 +69,8 @@ def test_legacy_pages_use_workbench_language_and_preserve_routes():
 
 
 def test_docs_mark_consolidation_implemented():
-    proposal = (ROOT / "documentation" / "PLANNING_WORKBENCH_CONSOLIDATION_PROPOSAL.md").read_text(encoding="utf-8")
-    contracts = (ROOT / "documentation" / "API_CONTRACTS.md").read_text(encoding="utf-8")
+    proposal = (ROOT / "documentation" / "archive" / "PLANNING_WORKBENCH_CONSOLIDATION_PROPOSAL.md").read_text(encoding="utf-8")
+    contracts = (ROOT / "documentation" / "reference" / "API_CONTRACTS.md").read_text(encoding="utf-8")
 
     assert "## Implementation Status" in proposal
     assert "Implemented in the Planning Workbench consolidation pass" in proposal

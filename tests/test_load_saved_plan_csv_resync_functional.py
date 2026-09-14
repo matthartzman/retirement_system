@@ -4,7 +4,7 @@ from __future__ import annotations
 
 Root cause: `/api/plan/load-file` swaps the SQLite database wholesale but the
 on-disk `input/*.csv` files are read *first* by `_read_plan_data_file()` (see
-documentation/CLAUDE.md's data storage hierarchy), so a load left every guided
+documentation/reference/CLAUDE.md's data storage hierarchy), so a load left every guided
 page showing the previous session's stale CSV content. The fix in
 `src/server/plan_routes.py::plan_load_file` widened the file list passed to
 `materialize_workspace_files()` from a narrow hardcoded set (holdings,

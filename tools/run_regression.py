@@ -113,7 +113,7 @@ for py_file in [
 # ---------------------------------------------------------------------------
 heading("Boot sequence")
 # dashboard.js is progressively being split into frontend/js/dashboard_decomp_*.js
-# modules (see docs/superpowers/plans/2026-08-06-dashboard-js-domain-module-split-SCOPE.md).
+# modules (see documentation/archive/superpowers/plans/2026-08-06-dashboard-js-domain-module-split-SCOPE.md).
 # Every one of those files is code that USED to live in dashboard.js, so for the
 # purposes of these "is this behavior still present" greps they are all one unit:
 # searching dashboard.js alone reported 11 false failures (shutdownAndClose,

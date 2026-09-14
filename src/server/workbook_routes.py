@@ -579,7 +579,7 @@ def append_history():
 @app.route("/api/kpi-snapshots", methods=["GET"])
 def get_kpi_snapshots():
     """Newest-first list of archived build KPI snapshots (Wave 1 item 1.15 --
-    documentation/reports/SYSTEM_REVIEW_2026-08-31.md, finding F13).
+    documentation/archive/reports/SYSTEM_REVIEW_2026-08-31.md, finding F13).
 
     Comparison-only, no attribution -- see get_kpi_snapshot_compare() below.
     """

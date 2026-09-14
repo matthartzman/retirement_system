@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Dead-code sweep for the dashboard front end. Originally written as a
 // pre-flight for the AST module-conversion pass
-// (docs/superpowers/plans/2026-08-06-dashboard-js-ast-module-conversion.md) so
+// (documentation/archive/superpowers/plans/2026-08-06-dashboard-js-ast-module-conversion.md) so
 // we didn't bother exporting/bridging functions nothing calls.
 //
 // A function is a dead-code CANDIDATE only if it has ZERO *real* references

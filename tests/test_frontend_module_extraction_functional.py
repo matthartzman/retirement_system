@@ -23,7 +23,7 @@ def test_new_frontend_modules_are_loaded_before_dashboard():
     # test_dashboard_startup_race_and_script_order.py's docstring for the
     # real 2026-07-22 outage that guard protects against.
     #
-    # dashboard.js itself became type="module" too (docs/superpowers/plans/
+    # dashboard.js itself became type="module" too (documentation/archive/superpowers/plans/
     # 2026-08-06-dashboard-js-ast-module-conversion.md) -- module scripts run
     # in document order relative to each other, so dashboard_pos below is no
     # longer "the classic-script boundary these five must beat"; it's kept

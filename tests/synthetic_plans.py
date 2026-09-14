@@ -259,7 +259,7 @@ def _enable_tlh(c: Dict[str, Any]) -> None:
       for at once: a pre-existing (seeded) carryforward, a TLH harvest
       that exceeded its year's gains, and gain-harvesting run with real
       0%-bracket headroom — see
-      docs/superpowers/plans/2026-09-08-deterministic-engine-stage-decomposition-design.md,
+      documentation/archive/superpowers/plans/2026-09-08-deterministic-engine-stage-decomposition-design.md,
       "Addendum (2026-09-09): Stage 10 sub-stage #6 ... — step 4".
 
     Direct config seeding of `cap_loss_carryforward` (the addendum's first

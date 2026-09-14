@@ -1,10 +1,10 @@
 """End-user README staleness guard (finding DOC-204, system review
 2026-09-07, Wave 6 item W6-5).
 
-The shipped README (documentation/readme/README.md) mentioned neither the
+The shipped README (documentation/reference/readme/README.md) mentioned neither the
 Monarch auto-update feature nor the Financial Trends Reporter companion app
 at all -- both were documented only in maintainer-facing surfaces
-(docs/superpowers/), leaving the household running the packaged app with
+(documentation/archive/superpowers/ and documentation/future/superpowers/), leaving the household running the packaged app with
 no in-README pointer to either. A plain-language section was added in this
 same change.
 
@@ -17,7 +17,7 @@ from __future__ import annotations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-README_PATH = ROOT / "documentation" / "readme" / "README.md"
+README_PATH = ROOT / "documentation" / "reference" / "readme" / "README.md"
 
 FEATURE_MARKERS = [
     ("Monarch auto-update", "Monarch auto-update"),
@@ -29,7 +29,7 @@ def test_readme_mentions_every_known_shipped_optional_feature():
     text = README_PATH.read_text(encoding="utf-8")
     missing = [name for marker, name in FEATURE_MARKERS if marker not in text]
     assert missing == [], (
-        f"documentation/readme/README.md is missing a mention of: {missing}. "
+        f"documentation/reference/readme/README.md is missing a mention of: {missing}. "
         "Add a short plain-language section under '## Optional features' -- "
         "this guard exists because the README went stale on exactly this "
         "point once already (finding DOC-204, system review 2026-09-07)."

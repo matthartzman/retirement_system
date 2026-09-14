@@ -1,5 +1,5 @@
 """Optimization-refactor Phase 2 follow-on ("Not done" item 1 in
-documentation/OPTIMIZATION_REFACTOR_STATUS.md): "Redirecting actual
+documentation/reference/OPTIMIZATION_REFACTOR_STATUS.md): "Redirecting actual
 withdrawal amounts by tier priority inside the MC engines (today's uniform
 cut_mult would become tier-prioritized)."
 
@@ -21,7 +21,7 @@ changed.
 
 That invariant was deliberately SUPERSEDED by the "Genuinely redirecting
 withdrawal requests... by tier priority" increment (Option B,
-docs/superpowers/plans/2026-08-27-mc-tier-priority-withdrawal-redirection-
+documentation/archive/superpowers/plans/2026-08-27-mc-tier-priority-withdrawal-redirection-
 spec.md): `_mc_tier_priority_retained`'s per-tier "need" figures now
 genuinely DRIVE which bucket each tier's spending draws from
 (SPENDING_TIER_BUCKET_POLICY: essential/contingent_liability keep the full

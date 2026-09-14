@@ -8,7 +8,7 @@ codebase already shipped once, when two copies of the same definition drifted.
 Each helper returns ``None`` when the underlying analysis is unavailable, rather
 than a placeholder or an approximation. Callers are expected to omit the row in
 that case. Printing an invented figure on a client-facing page is the defect this
-module exists to remove -- see documentation/reports/SYSTEM_REVIEW_2026-08-04.md
+module exists to remove -- see documentation/archive/reports/SYSTEM_REVIEW_2026-08-04.md
 findings C1 and C2.
 """
 
@@ -74,7 +74,7 @@ def roth_strategy_benefit(c):
 # forward-looking -- an estate at 92% of the exemption crosses it on ordinary
 # growth -- but an estate at a third of the exemption is not a CST conversation,
 # and printing the recommendation anyway is finding F2
-# (documentation/reports/SYSTEM_REVIEW_2026-08-31.md).
+# (documentation/archive/reports/SYSTEM_REVIEW_2026-08-31.md).
 CST_MATERIALITY_MARGIN = 0.10
 
 

@@ -1324,7 +1324,7 @@ def main():
         print(f'Warning: KPI computation for plan summary failed (defaults used): {_kpi_exc}')
 
     # Archive a small dated headline-KPI snapshot (Wave 1 item 1.15 --
-    # documentation/reports/SYSTEM_REVIEW_2026-08-31.md, finding F13). This is
+    # documentation/archive/reports/SYSTEM_REVIEW_2026-08-31.md, finding F13). This is
     # comparison-only: no attribution logic, that is Wave 3's job once a real
     # snapshot series exists. Best-effort -- a snapshot failure must never
     # fail an otherwise-successful build.

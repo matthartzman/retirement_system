@@ -75,7 +75,7 @@ def test_withdrawal_order_is_fixed_and_reserve_ui_controls_are_dropdown_based():
     # The withdrawal priority table used to be editable (WITHDRAWAL_TYPES,
     # withdrawalPrioritySelect/withdrawalTypeSelect/withdrawalOptionSelect),
     # but that UI wrote to CSV rows the engine never read (see
-    # documentation/reports/SYSTEM_REVIEW_2026-07-18.md §10.1). It was
+    # documentation/archive/reports/SYSTEM_REVIEW_2026-07-18.md §10.1). It was
     # deliberately removed and replaced with a fixed, read-only cascade
     # description; test_withdrawal_roth_ui_cleanup.py covers that in detail.
     user_js = dashboard_js_sources()

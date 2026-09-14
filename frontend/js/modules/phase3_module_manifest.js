@@ -46,7 +46,7 @@
     // test_dynamic_import_specifiers_match_script_tags for what guards each
     // of these going forward.
     remaining_classic_by_design:[],
-    // v3 (docs/superpowers/plans/2026-08-06-dashboard-js-ast-module-conversion.md):
+    // v3 (documentation/archive/superpowers/plans/2026-08-06-dashboard-js-ast-module-conversion.md):
     // dashboard.js itself is now a real type="module" script too. Unlike
     // every leaf above (self-contained, a handful to ~30 functions, exposed
     // through one namespace object), dashboard.js declares ~760 top-level
@@ -75,7 +75,7 @@
     // others, to group them into non-circular modules) using the same
     // census/codemod tooling as a starting point, not a continuation of
     // this pass.
-    // v4 (docs/superpowers/plans/2026-08-06-dashboard-js-domain-module-split-SCOPE.md):
+    // v4 (documentation/archive/superpowers/plans/2026-08-06-dashboard-js-domain-module-split-SCOPE.md):
     // shared-core extraction, the first step that scope doc recommended.
     // Built an internal call-graph over dashboard.js's ~760 top-level
     // functions (jscodeshift-based, tools/js_codemod/extract_core.mjs) and
@@ -93,7 +93,7 @@
     // ~19,400 to ~15,300 lines. Domain clustering (the REST of the scope
     // doc's plan -- ~10-15 modules for the remaining ~586 functions) is
     // still not attempted: that's a separate pass on top of this one.
-    // v5 (docs/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md):
+    // v5 (documentation/archive/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md):
     // first DOMAIN cluster extracted, and the first one done by a general
     // tool rather than by hand. Built tools/js_codemod/extract_module.mjs: it
     // discovers byte offsets via the AST, splices the source string, then

@@ -40,7 +40,7 @@ def test_score_is_lcv_score_plus_weighted_survivor_period_ss_income():
     # Optimization-refactor Phase 4 (Option C, full sign-off): the score's
     # wealth basis is now the LCV score (PV of lifetime spending plus PV of
     # after-tax terminal transfer), not bare after_tax_terminal_nw -- see
-    # docs/superpowers/plans/2026-08-27-phase4-lcv-feasibility-gate-spec.md.
+    # documentation/archive/superpowers/plans/2026-08-27-phase4-lcv-feasibility-gate-spec.md.
     # The survivor-period SS income term is untouched.
     result = _run()
     best = result["best"]

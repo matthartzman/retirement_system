@@ -2,7 +2,7 @@
 changed transaction, add a new one -- keyed on a stored Monarch id, instead
 of the existing append-only content-hash dedup used by manual CSV uploads.
 
-See docs/superpowers/specs/2026-09-02-monarch-autoupdate-reporting-design.md.
+See documentation/archive/superpowers/specs/2026-09-02-monarch-autoupdate-reporting-design.md.
 """
 from __future__ import annotations
 

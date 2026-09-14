@@ -5,7 +5,7 @@
 // accessors for the small number of functions another already-converted
 // module reassigns as a monkey-patch decorator chain, and for every
 // externally read/written top-level state variable). See the "Design
-// correction" note in docs/superpowers/plans/2026-08-06-dashboard-js-ast-module-conversion.md
+// correction" note in documentation/archive/superpowers/plans/2026-08-06-dashboard-js-ast-module-conversion.md
 // for why a naive one-time Object.assign value copy alone is not safe for
 // everything.
 //

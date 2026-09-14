@@ -28,7 +28,7 @@ DEFAULT_DB = platform_runtime.workspace_root() / "local_state" / "retirement_sys
 DEFAULT_RESULT_SNAPSHOT_RETENTION = 10
 
 # KPI snapshots are a small dated series of headline build outputs (Wave 1 item
-# 1.15 -- documentation/reports/SYSTEM_REVIEW_2026-08-31.md, finding F13 and
+# 1.15 -- documentation/archive/reports/SYSTEM_REVIEW_2026-08-31.md, finding F13 and
 # the §3.2 cross-cutting note on why this must exist before the engine/policy
 # changes that move "probability of success"). Kept at the same retention
 # depth as the local_state/*.db.version_* backup convention documented in
@@ -555,7 +555,7 @@ def compare_kpi_snapshots(
 
     Deliberately no attribution (market vs. spending vs. assumption change) --
     that is Wave 3's job once a real snapshot series exists to validate it
-    against (documentation/reports/SYSTEM_REVIEW_2026-08-31.md, F13). This
+    against (documentation/archive/reports/SYSTEM_REVIEW_2026-08-31.md, F13). This
     only ever reports *what* changed.
 
     When ``from_id``/``to_id`` are omitted, compares the two most recent

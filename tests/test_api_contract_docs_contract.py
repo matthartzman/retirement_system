@@ -6,7 +6,7 @@ pytestmark = pytest.mark.contract
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DOC = ROOT / "documentation" / "API_CONTRACTS.md"
+DOC = ROOT / "documentation" / "reference" / "API_CONTRACTS.md"
 
 
 def test_api_contract_doc_covers_p1_canonical_endpoints():

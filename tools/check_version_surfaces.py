@@ -25,7 +25,7 @@ from src.version import VERSION
 # stale "Version <old>" path text after a bump, and (2) a hardcoded absolute
 # "C:\...\Version <old>" path could creep back into a test file with no
 # regression guard (this happened for real once -- 33 test files, per
-# documentation/GOLDEN_MASTER_CHANGELOG.md). Both are now covered below,
+# documentation/reference/GOLDEN_MASTER_CHANGELOG.md). Both are now covered below,
 # each with its own narrow allowance for legitimate non-current-version text
 # (dated historical docs, and this tool's own fixture-only test file).
 USER_SURFACES=[ROOT/'src',ROOT/'frontend',ROOT/'tools',ROOT/'system_config.csv']
@@ -148,7 +148,7 @@ def _check_top_level_docs(stale_patterns: list[str], errors: list[str]) -> None:
 
 def _check_tests_for_hardcoded_workspace_path(old_version: str, errors: list[str]) -> None:
     """Regression guard for a real past incident (see
-    documentation/GOLDEN_MASTER_CHANGELOG.md): 33 test files once hardcoded
+    documentation/reference/GOLDEN_MASTER_CHANGELOG.md): 33 test files once hardcoded
     the absolute "C:\\...\\Version <N>" workspace path, which breaks the
     instant that folder is renamed. tests/ is deliberately NOT part of the
     general sweep (fixture files legitimately contain literal path/version

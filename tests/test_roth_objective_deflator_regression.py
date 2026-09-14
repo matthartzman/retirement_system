@@ -39,7 +39,7 @@ def test_terminal_component_is_discounted_below_nominal_after_tax_nw():
     after_tax_terminal_nw_pv`` alone -- it is ``weight * lcv_score``, where
     ``lcv_score = consumption_pv + after_tax_terminal_nw_pv`` (LCV = Lifetime
     Consumption-and-Transfer Value; see
-    docs/superpowers/plans/2026-08-27-phase4-lcv-feasibility-gate-spec.md).
+    documentation/archive/superpowers/plans/2026-08-27-phase4-lcv-feasibility-gate-spec.md).
     Both addends are still plan-start present values, so the deflation
     guarantee this test exists to pin still holds; it is asserted against
     ``lcv_score`` (the actual objective input) instead of

@@ -59,8 +59,9 @@ is a live bug, not a historical fact:
                          one-time migration's completion summary -- those are
                          dated records wherever they happen to live, same
                          reasoning as the two excluded directories below)
-    Excluded by default: documentation/reports/, documentation/archive/,
-                         docs/superpowers/plans/, dist/, build/, node_modules/,
+    Excluded by default: documentation/archive/ (covers the former
+                         documentation/reports/ and docs/superpowers/plans/,
+                         both now nested under it), dist/, build/, node_modules/,
                          output/, saved_plans/, tests/ (see next paragraph)
 
 --include-history adds the three excluded documentation roots back in, for the
@@ -73,7 +74,7 @@ itself), and blindly rewriting "Version <old>" inside such a fixture would
 corrupt the test rather than fix a real reference. What tests/ needs instead
 is a narrow regression guard against one specific, previously-real failure
 mode -- a hardcoded absolute "C:\\...\\Version <old>" workspace path that
-breaks the moment the folder is renamed (documentation/GOLDEN_MASTER_CHANGELOG.md
+breaks the moment the folder is renamed (documentation/reference/GOLDEN_MASTER_CHANGELOG.md
 records 33 test files once doing exactly this). That narrow check lives in
 check_version_surfaces.py's --old-version path, not here.
 
@@ -139,9 +140,9 @@ def _top_level_doc_md_files(doc_dir: Path | None = None) -> list[Path]:
     subdirs, which are separately excluded below), minus history-named
     files. Computed at call time, not a static list, so a doc added after
     this script was written is swept without needing this file edited too --
-    found 2026-09-04: a single hardcoded `documentation/CLAUDE.md` entry let
-    documentation/F0_F1_F2_COMPLETION_SUMMARY.md and
-    documentation/GOLDEN_MASTER_CHANGELOG.md's own "Version 12" text sit in
+    found 2026-09-04: a single hardcoded `documentation/reference/CLAUDE.md` entry let
+    documentation/archive/F0_F1_F2_COMPLETION_SUMMARY.md and
+    documentation/reference/GOLDEN_MASTER_CHANGELOG.md's own "Version 12" text sit in
     neither the sweep nor the history exclusion -- a real gap, though both
     of those two turned out to belong in the exclusion above once actually
     looked at, not the sweep.
@@ -175,9 +176,7 @@ def _default_sweep_roots() -> list[Path]:
 # default because these are dated records of what was true at the time --
 # see the module docstring.
 HISTORY_ROOTS = [
-    ROOT / 'documentation' / 'reports',
     ROOT / 'documentation' / 'archive',
-    ROOT / 'docs' / 'superpowers' / 'plans',
 ]
 
 
@@ -331,12 +330,12 @@ def bump(new_version: str) -> str | None:
     # Manifest" heading (finding DOC-202, system review 2026-09-07: this
     # file, like admin.html before item 3b, was never in this script's
     # replace-set, so it kept reading "v11" a full version bump after the
-    # rest of the app moved to v12). documentation/readme/README.md's
+    # rest of the app moved to v12). documentation/reference/readme/README.md's
     # heading is deliberately NOT tracked here -- DOC-202 also removed the
     # version number from it entirely, since the running app already
     # reports its own version and a second hardcoded copy is just another
     # thing to go stale.
-    manifest_path = ROOT / 'PROJECT_MANIFEST.md'
+    manifest_path = ROOT / 'documentation' / 'archive' / 'PROJECT_MANIFEST.md'
     if manifest_path.exists():
         manifest_text = manifest_path.read_text(encoding='utf-8')
         updated_manifest = apply_project_manifest_version(manifest_text, old_version, new_version)
@@ -688,7 +687,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         '--include-history', action='store_true',
-        help='Also sweep documentation/reports, documentation/archive, docs/superpowers/plans.',
+        help='Also sweep documentation/archive (covers reports/ and superpowers/plans/ within it).',
     )
     parser.add_argument(
         '--apply', action='store_true',

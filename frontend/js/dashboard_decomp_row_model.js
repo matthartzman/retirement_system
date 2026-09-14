@@ -4,7 +4,7 @@
 // isEditable/fieldHtml/rowsForStep/humanLabel/... plus app-shell orchestration
 // like api/showMessage/setStep/loadAll/saveAll). Selected as the fan-in >= 3
 // hub set from the internal call-graph analysis in
-// docs/superpowers/plans/2026-08-06-dashboard-js-domain-module-split-SCOPE.md.
+// documentation/archive/superpowers/plans/2026-08-06-dashboard-js-domain-module-split-SCOPE.md.
 // renderMain and showStepHelp stay in dashboard.js: other leaf modules
 // reassign them as a monkey-patch decorator chain, which this pass does not
 // touch. A real ES module (type="module"), same export+window-bridge pattern

@@ -1,5 +1,5 @@
 """Optimization-refactor Phase 4: LCV (Lifetime Consumption-and-Transfer
-Value) scoring and feasibility gate, per docs/superpowers/plans/2026-08-27-
+Value) scoring and feasibility gate, per documentation/archive/superpowers/plans/2026-08-27-
 phase4-lcv-feasibility-gate-spec.md's Option C (full sign-off: LCV replaces
 the Roth optimizer's and SS claim-age sweep's terminal-wealth basis
 entirely, both optimizers together, hard-exclude gate, essential tier only

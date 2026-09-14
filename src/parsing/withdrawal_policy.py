@@ -2,7 +2,7 @@
 parameter parsing.
 
 Extracted from src/data_io.py's parse_client() as part of ticket 312 (see
-docs/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md,
+documentation/archive/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md,
 section 2: "Withdrawal Policy bracket-target/spending-decline"). Follows the
 same pattern as the four siblings already extracted in PR #101
 (src/parsing/daf.py, note_receivable.py, insurance.py, estate_planning.py):

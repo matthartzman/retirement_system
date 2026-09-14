@@ -7,14 +7,14 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_release_notes_are_under_documentation_release_notes():
     root_notes = list(ROOT.glob('RELEASE_NOTES*.md'))
     assert root_notes == []
-    notes_dir = ROOT / 'documentation' / 'release_notes'
+    notes_dir = ROOT / 'documentation' / 'reference' / 'release_notes'
     assert notes_dir.exists()
 
 
 def _is_inside_nested_checkout(path: Path) -> bool:
     """True if `path` lives inside a git worktree nested under ROOT.
 
-    Parallel checkouts each carry their own documentation/readme/ copy, which
+    Parallel checkouts each carry their own documentation/reference/readme/ copy, which
     is out of scope for THIS project's README-location policy. This used to be
     handled by excluding the literal path component 'worktrees', which only
     covered .claude/worktrees/ -- a worktree created anywhere else (e.g.
@@ -51,12 +51,12 @@ def test_readmes_are_under_documentation_readme():
         and 'dist' not in p.parts
         and 'node_modules' not in p.parts
         and '.venv' not in p.parts
-        and not p.is_relative_to(ROOT / 'documentation' / 'readme')
+        and not p.is_relative_to(ROOT / 'documentation' / 'reference' / 'readme')
         and not _is_inside_nested_checkout(p)
     ]
     assert outside == []
-    assert (ROOT / 'documentation' / 'readme' / 'README.md').exists()
-    assert (ROOT / 'documentation' / 'readme' / 'CLEAN_PACKAGE_README.md').exists()
+    assert (ROOT / 'documentation' / 'reference' / 'readme' / 'README.md').exists()
+    assert (ROOT / 'documentation' / 'reference' / 'readme' / 'CLEAN_PACKAGE_README.md').exists()
 
 
 def test_launchers_and_desktop_installer_are_consolidated_under_tools():

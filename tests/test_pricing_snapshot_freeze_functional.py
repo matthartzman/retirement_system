@@ -56,7 +56,7 @@ def test_market_data_provider_frozen_mode_uses_snapshot_without_live_calls():
 
 
 def test_pricing_freeze_routes_and_docs_are_registered():
-    docs = open("documentation/API_CONTRACTS.md", encoding="utf-8").read()
+    docs = open("documentation/reference/API_CONTRACTS.md", encoding="utf-8").read()
     routes = open("src/server/plan_routes.py", encoding="utf-8").read()
     js = dashboard_js_text()
 

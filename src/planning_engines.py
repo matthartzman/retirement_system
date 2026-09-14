@@ -45,7 +45,7 @@ GrowthResult = namedtuple('GrowthResult', ['total_growth', 'by_account', 'warnin
 # Value) feasibility gate threshold. A conversion/claim-age candidate whose
 # essential_fully_funded_probability falls below this bar is excluded from
 # ranking entirely, regardless of how favorable its LCV score is -- see
-# docs/superpowers/plans/2026-08-27-phase4-lcv-feasibility-gate-spec.md.
+# documentation/archive/superpowers/plans/2026-08-27-phase4-lcv-feasibility-gate-spec.md.
 # Fixed per explicit product sign-off (not household-configurable yet).
 LCV_FEASIBILITY_GATE_THRESHOLD = 0.95
 
@@ -2737,7 +2737,7 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
     # side of the objective consumption-aware, not just bequest-aware) while
     # tax_component, legacy/estate/survivor/ACA/liquidity components, and the
     # Roth-leakage guard are untouched -- see
-    # docs/superpowers/plans/2026-08-27-phase4-lcv-feasibility-gate-spec.md.
+    # documentation/archive/superpowers/plans/2026-08-27-phase4-lcv-feasibility-gate-spec.md.
     consumption_pv = sum(float(r.get('total_spend', 0.0) or 0.0) / _disc(r) for r in rows)
     lcv_score = consumption_pv + after_tax_terminal_nw_pv
 
@@ -3066,8 +3066,8 @@ def optimize_roth_conversion_strategy(c: dict) -> dict:
     a lifetime-tax penalty, gated by feasibility: a candidate whose modeled
     essential_fully_funded_probability falls below
     ``LCV_FEASIBILITY_GATE_THRESHOLD`` is excluded from selection regardless
-    of its LCV score (see docs/superpowers/plans/2026-08-27-phase4-lcv-
-    feasibility-gate-spec.md). Each candidate still obeys the withdrawal
+    of its LCV score (see documentation/archive/superpowers/plans/2026-08-27-
+    phase4-lcv-feasibility-gate-spec.md). Each candidate still obeys the withdrawal
     engine's Roth-last rule.
 
     When ``roth_policy`` requests optimization ('optimize', 'optimize_terminal_tax',
@@ -3670,8 +3670,8 @@ def _adjust_annuity_pmt_for_mc(stream: dict, returns: dict, inflation_paths: dic
 def _mc_scalar_tier_bucket_reconstruction(c: dict, rows: list[dict]):
     """Scalar-engine analogue of the vectorized engine's genuine per-tier
     withdrawal redirection (optimization-refactor "Not done" item, Option B
-    -- docs/superpowers/plans/2026-08-27-mc-tier-priority-withdrawal-
-    redirection-spec.md).
+    -- documentation/archive/superpowers/plans/2026-08-27-mc-tier-priority-
+    withdrawal-redirection-spec.md).
 
     ``monte_carlo_exact_scalar`` has no independent withdrawal mechanism to
     redirect: each path is a full rerun of ``project()`` (the deterministic
@@ -3807,7 +3807,7 @@ def _mc_scalar_tier_bucket_reconstruction(c: dict, rows: list[dict]):
 def _mc_scalar_guyton_klinger_shadow(c: dict, rows: list[dict], returns: dict, inflation_by_year: dict):
     """Scalar-engine analogue of the vectorized engine's Guyton-Klinger
     guardrail SHADOW simulation (optimization-refactor Phase 5, see
-    docs/superpowers/plans/2026-08-27-phase5-adaptive-guardrails-spec.md
+    documentation/archive/superpowers/plans/2026-08-27-phase5-adaptive-guardrails-spec.md
     and the matching, more fully-commented block in
     ``_mc_vectorized_projection`` for the full rule description and
     rationale -- this function implements the identical algorithm, not a
@@ -4104,7 +4104,7 @@ def monte_carlo_exact_scalar(c, n_sims=1000, seed=42, base_rows=None):
         # balance trajectory is a materially bigger and more consequential
         # decision than adding genuine tier-attribution reporting, and was
         # not part of what this increment's product decision covered. See
-        # documentation/OPTIMIZATION_REFACTOR_STATUS.md for the open
+        # documentation/reference/OPTIMIZATION_REFACTOR_STATUS.md for the open
         # question this leaves: the vectorized engine's headline success
         # rate DOES already reflect genuine redirection (its unfunded/
         # success computation and its tier cascade share one recursion), so
@@ -5143,8 +5143,8 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
 
     # Optimization-refactor "Not done" item, Option B ("Genuinely
     # redirecting withdrawal requests... by tier priority" --
-    # docs/superpowers/plans/2026-08-27-mc-tier-priority-withdrawal-
-    # redirection-spec.md): computed BEFORE the recursion below (unlike the
+    # documentation/archive/superpowers/plans/2026-08-27-mc-tier-priority-
+    # withdrawal-redirection-spec.md): computed BEFORE the recursion below (unlike the
     # pre-existing reporting-only version of this block, which ran after the
     # recursion had already finalized withdrawals/balances) because these
     # per-tier real dollar needs now DRIVE which bucket the cascade below
@@ -5357,7 +5357,7 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
         out['gift_charity_real'] = gift_charity_total
 
     # Phase 3 (optimization refactor): tax NPV / ELTR (effective lifetime
-    # tax rate), per docs/superpowers/plans/2026-08-27-phase3-tax-npv-eltr-
+    # tax rate), per documentation/archive/superpowers/plans/2026-08-27-phase3-tax-npv-eltr-
     # spec.md's Option A. Generalizes the PV-discounting pattern
     # _roth_strategy_metrics already uses to score a single deterministic
     # Roth-conversion candidate (planning_engines.py's _roth_discount_rate)
@@ -5395,7 +5395,7 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
         )
 
     # Phase 5 (optimization refactor): Guyton-Klinger adaptive-guardrail
-    # SHADOW simulation, per docs/superpowers/plans/2026-08-27-phase5-
+    # SHADOW simulation, per documentation/archive/superpowers/plans/2026-08-27-phase5-
     # adaptive-guardrails-spec.md's Option A (full 4-rule GK, fixed default
     # bands, both engines together -- per explicit user sign-off, since no
     # prior implementation existed anywhere in this codebase to anchor a

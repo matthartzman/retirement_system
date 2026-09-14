@@ -1,7 +1,7 @@
 """allocation_optimizer_inputs.py — Allocation Optimizer input parsing.
 
 Extracted from src/data_io.py's parse_client() as part of ticket 312 (design
-doc docs/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md,
+doc documentation/archive/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md,
 section 4, "Allocation Optimizer inputs"). src/data_io.py re-exports
 parse_allocation_optimizer_inputs for backward compatibility with existing
 callers.

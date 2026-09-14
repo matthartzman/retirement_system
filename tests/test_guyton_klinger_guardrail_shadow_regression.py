@@ -1,5 +1,5 @@
 """Optimization-refactor Phase 5: Guyton-Klinger adaptive-guardrail SHADOW
-simulation, per docs/superpowers/plans/2026-08-27-phase5-adaptive-
+simulation, per documentation/archive/superpowers/plans/2026-08-27-phase5-adaptive-
 guardrails-spec.md's Option A (full 4-rule GK, fixed default bands, both
 engines together -- per explicit user sign-off).
 

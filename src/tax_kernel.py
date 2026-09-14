@@ -39,7 +39,7 @@ ordinary federal brackets are already treated: as statutory-vintage data
 inflated forward from the year it was published, using the household's
 configured bracket inflator -- not the Medicare IRMAA index, which governs a
 conceptually unrelated threshold. See
-``documentation/GOLDEN_MASTER_CHANGELOG.md`` for the resulting golden-master
+``documentation/reference/GOLDEN_MASTER_CHANGELOG.md`` for the resulting golden-master
 delta.
 """
 

@@ -2,7 +2,7 @@
 
 Ticket 286. The recovery process for this repo's golden-master pins
 (`tools/regen_golden_master.py`,
-`documentation/GOLDEN_MASTER_RECOVERY_RUNBOOK.md`) is only as strong as its
+`documentation/reference/GOLDEN_MASTER_RECOVERY_RUNBOOK.md`) is only as strong as its
 weakest enforcement point, and a tool that merely *asks nicely* for a
 justification is not an enforcement point at all: under time pressure,
 someone editing `PINNED_TERMINAL_NW`/`PINNED_LIFETIME_TAX` by hand to make a
@@ -10,7 +10,7 @@ failing test go green bypasses any tool entirely. So this is a TEST, not a
 CLI flag -- it has to fail the suite, not just refuse a command.
 
 This repo has shipped five guards that could not fail (see
-`documentation/GOLDEN_MASTER_CHANGELOG.md`'s 2026-08-17 (c) entry for the
+`documentation/reference/GOLDEN_MASTER_CHANGELOG.md`'s 2026-08-17 (c) entry for the
 most recent one). The specific failure mode to avoid here is a guard that
 only checks "is there a comment nearby" -- that is trivially satisfied by a
 STALE comment left over from the previous pin value, which is exactly the
@@ -61,7 +61,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PIN_FILE = ROOT / "tests" / "test_frozen_sample_plan_golden_master_regression.py"
-CHANGELOG_FILE = ROOT / "documentation" / "GOLDEN_MASTER_CHANGELOG.md"
+CHANGELOG_FILE = ROOT / "documentation" / "reference" / "GOLDEN_MASTER_CHANGELOG.md"
 
 # Written by `tools/regen_golden_master.py regen`. Prose cannot satisfy this by
 # accident, which is the entire point -- see this module's docstring.
@@ -81,7 +81,7 @@ CHANGELOG_ENTRY_HEADER_RE = re.compile(r"^## (\d{4}-\d{2}-\d{2}).*$", re.MULTILI
 
 HELP = (
     "Regenerate via `py -3.14 tools/regen_golden_master.py regen --reason <file>` "
-    "(see documentation/GOLDEN_MASTER_RECOVERY_RUNBOOK.md) -- never hand-edit "
+    "(see documentation/reference/GOLDEN_MASTER_RECOVERY_RUNBOOK.md) -- never hand-edit "
     "PINNED_TERMINAL_NW / PINNED_LIFETIME_TAX directly."
 )
 

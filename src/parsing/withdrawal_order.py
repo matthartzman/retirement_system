@@ -1,7 +1,7 @@
 """withdrawal_order.py — per-account withdrawal-order override parsing.
 
 Extracted from src/data_io.py's parse_client() per ticket 312 (see
-docs/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md,
+documentation/archive/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md,
 section 5, "Per-account withdrawal-order overrides"). src/data_io.py
 re-exports parse_account_draw_priority for backward compatibility with
 existing callers.

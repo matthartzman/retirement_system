@@ -616,7 +616,7 @@ def build_sheet16(ws, c, rows):
     # Optimization-refactor Phase 6: Divorce/QDRO asset split. A one-time,
     # tax-free division of every investment account at a configured year
     # (default 2029, 50/50) -- asset-split only, does not model ongoing
-    # spousal support/alimony (see docs/superpowers/plans/2026-08-28-
+    # spousal support/alimony (see documentation/archive/superpowers/plans/2026-08-28-
     # phase6-scenario-implementation-design.md's Option D1).
     nw_divorce, tax_divorce = run_scenario({
         'divorce_split_yr': c['scen_divorce_yr'],

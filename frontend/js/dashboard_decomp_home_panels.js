@@ -35,7 +35,7 @@ export function planKpiMetricsHtml() {
   // (vectorized) is a documented approximation of the exact_scalar oracle,
   // within a planner-signed-off tolerance -- see
   // tests/test_monte_carlo_default_engine_mode.py and
-  // documentation/reports/N1_MC_PARITY_DIAGNOSTIC_2026-09-07.md. Surface
+  // documentation/archive/reports/N1_MC_PARITY_DIAGNOSTIC_2026-09-07.md. Surface
   // that on the KPI tile itself, not just the workbook's "Model Risk
   // Rating" headline, so it's visible before a download.
   const approxStatus =

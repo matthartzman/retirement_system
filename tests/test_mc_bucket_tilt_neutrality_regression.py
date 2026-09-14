@@ -27,7 +27,7 @@ i.e. a tailwind that grows through exactly the late years where Monte Carlo
 success or failure is decided, and which every recommended Roth conversion
 feeds, because converted dollars inherit the Roth account's holdings tilt.
 
-See documentation/reports/PLANNER_SIGNOFF_2026-08-17.md findings S2/S3 -- S3
+See documentation/archive/reports/PLANNER_SIGNOFF_2026-08-17.md findings S2/S3 -- S3
 being that the pre-existing test named "..._and_market_neutral" checked dollar
 weighting and never checked neutrality, which is why this went unnoticed. That
 test has since been renamed to test_bucket_return_tilts_are_dollar_weighted

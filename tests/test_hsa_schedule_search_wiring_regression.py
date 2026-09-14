@@ -1,6 +1,6 @@
 """The HSA schedule search is wired into the build (`run_schedule_search`).
 
-Spec: docs/superpowers/plans/2026-08-26-hsa-schedule-search-contingent-liability-spec.md
+Spec: documentation/archive/superpowers/plans/2026-08-26-hsa-schedule-search-contingent-liability-spec.md
 
 `hsa_schedule.py`'s header recorded that `build_schedule`/`rerun_optimizer`
 were "NOT called anywhere in the projection pipeline": the search needs full

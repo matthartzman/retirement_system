@@ -1,4 +1,4 @@
-"""Pre-conversion dead-code sweep (docs/superpowers/plans/2026-08-06-dashboard-js-
+"""Pre-conversion dead-code sweep (documentation/archive/superpowers/plans/2026-08-06-dashboard-js-
 ast-module-conversion.md) removed three top-level bindings from dashboard.js that
 had zero references anywhere in the repo (confirmed via tools/js_codemod/
 find_dead_functions.mjs plus a manual variable-usage cross-check): the string

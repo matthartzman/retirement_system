@@ -38,8 +38,8 @@ def test_normal_settings_exposes_backup_controls() -> None:
 
 
 def test_backup_contract_is_documented() -> None:
-    api = read("documentation/API_CONTRACTS.md")
-    changelog = read("documentation/GOLDEN_MASTER_CHANGELOG.md")
+    api = read("documentation/reference/API_CONTRACTS.md")
+    changelog = read("documentation/reference/GOLDEN_MASTER_CHANGELOG.md")
     assert "local_backup_scheduler_v1" in api
     assert "/api/plan/backups/run" in api
     assert "# v11 local backup scheduler" in changelog
