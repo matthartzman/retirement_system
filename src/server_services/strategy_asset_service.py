@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from .. import platform_runtime as _platform_runtime
 from ..plan_file_io import plan_file_lock, write_text_atomic
 
 AuditFn = Callable[[str, dict[str, Any] | None], None]
@@ -83,6 +84,13 @@ HEALTHCARE_OOP_SEED_ROWS: list[list[str]] = [
     ["Wellness","Out-of-Pocket","pharmacy_annual","","money","Annual pharmacy/drugs out-of-pocket"],
 ]
 
+# Slice 1 (dollar-convention fix) defaults, matching data_io.py's own
+# plan-level defaults for these assumptions (appreciation_rate/inflation_general),
+# so a caller that omits them still gets a sane translation rather than a
+# crash or a silent 0% rate.
+HOME_APPR_DEFAULT = 0.03
+INFLATION_GENERAL_DEFAULT = 0.025
+
 STATE_ESTIMATES = {
     "TX": dict(purchase_price=360000, monthly_rent=1700, insurance_annual=2800, utilities_annual=2800, maintenance_annual=3600, re_tax_pct=0.0181, hoa_pct=0.003),
     "IL": dict(purchase_price=310000, monthly_rent=1600, insurance_annual=1600, utilities_annual=2800, maintenance_annual=3100, re_tax_pct=0.0205, hoa_pct=0.001),
@@ -131,13 +139,65 @@ def housing_state_estimate_payload(data: dict[str, Any]) -> tuple[dict[str, Any]
         estimate["insurance_annual"] = round(max(180.0, min(450.0, float(estimate.get("insurance_annual", 0) or 0) * 0.15)) / 10) * 10
         estimate["utilities_annual"] = round(float(estimate.get("utilities_annual", 0) or 0) * 0.75 / 100) * 100
         estimate["maintenance_annual"] = 0
+
+    # --- Slice 1: today's-dollars -> start_year-dollars translation ---------
+    # housing-estimate-realism-and-dollar-convention-design.md §3.2. This is a
+    # one-time Estimator-side correction to what number gets written into a
+    # field; it does not touch deterministic_engine.py's ongoing (within-step)
+    # escalation, which stays exactly as it was (directive 3).
+    #
+    # plan_start mirrors data_io.py's own c['plan_start'] = platform_runtime.
+    # today().year exactly, so years_out lines up with what the engine will
+    # later compute for the same step once it's saved.
+    plan_start = _platform_runtime.today().year
+    try:
+        start_year = int((data or {}).get("start_year") or 0)
+    except (TypeError, ValueError):
+        start_year = 0
+    years_out = max(0, start_year - plan_start) if start_year > 0 else 0
+
+    try:
+        home_appr = float((data or {}).get("home_appr"))
+    except (TypeError, ValueError):
+        home_appr = HOME_APPR_DEFAULT
+    try:
+        inflation_general = float((data or {}).get("inflation_general"))
+    except (TypeError, ValueError):
+        inflation_general = INFLATION_GENERAL_DEFAULT
+
+    today_purchase_price = estimate["purchase_price"]
+    today_monthly_rent = estimate["monthly_rent"]
+    basis_note = ""
+    if years_out:
+        price_factor = (1 + home_appr) ** years_out
+        cpi_factor = (1 + inflation_general) ** years_out
+        # purchase_price escalates at home_appr -- the same rate the field
+        # uses for its own post-purchase growth (deterministic_engine.py),
+        # so one rate governs the home's value before and after the
+        # transaction. monthly_rent and the flat recurring dollar costs
+        # (insurance/utilities/maintenance) escalate at CPI, per directive 2.
+        # re_tax_pct/hoa_pct/mortgage_rate_pct/down_payment are percentages
+        # (or rate assumptions), not monetary quantities that compound with
+        # inflation -- not translated, per §3.2.
+        estimate["purchase_price"] = round(estimate["purchase_price"] * price_factor / 1000) * 1000
+        estimate["monthly_rent"] = round(estimate["monthly_rent"] * cpi_factor / 10) * 10
+        estimate["insurance_annual"] = round(float(estimate.get("insurance_annual", 0) or 0) * cpi_factor)
+        estimate["utilities_annual"] = round(float(estimate.get("utilities_annual", 0) or 0) * cpi_factor)
+        estimate["maintenance_annual"] = round(float(estimate.get("maintenance_annual", 0) or 0) * cpi_factor)
+        basis_note = (
+            f" Reflects {start_year} dollars: today's "
+            f"${(today_monthly_rent if is_rent else today_purchase_price):,.0f} projected to "
+            f"${(estimate['monthly_rent'] if is_rent else estimate['purchase_price']):,.0f} "
+            f"({years_out} year{'s' if years_out != 1 else ''} out)."
+        )
+
     estimate.update({
         "mortgage_rate_pct": estimate.get("mortgage_rate_pct", 0.0685),
         "type": "rent" if is_rent else "purchase",
         "city_type": city_type or "suburban",
         "population_size": population_size,
         "state": state,
-        "note": f"Estimated costs for a 3BR/2BA home with at least a 40x40 ft backyard in a {city_type or 'suburban'} area (~{population_size:,} population) in {state}. All values are editable.",
+        "note": f"Estimated costs for a 3BR/2BA home with at least a 40x40 ft backyard in a {city_type or 'suburban'} area (~{population_size:,} population) in {state}.{basis_note} All values are editable.",
     })
     return {"success": True, "schema": "housing_state_estimate_v1", "estimate": estimate}, 200
 

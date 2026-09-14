@@ -143,7 +143,7 @@ class RegressionV781Tests(unittest.TestCase):
     def test_niit_is_added_to_funding_need(self):
         # Note interest is read per-note from c['note_items'] (each note has its
         # own face value/payment schedule/interest-by-year detail, since Note
-        # Receivable is repeatable) — the old flat note_interest/note_first/
+        # Receivable is repeatable) -- the old flat note_interest/note_first/
         # note_last/note_princ/note_face override keys were retired when that
         # became a list and are silently ignored by the engine, which is why
         # this test previously observed niit == 0 despite the intended $500k
@@ -161,7 +161,7 @@ class RegressionV781Tests(unittest.TestCase):
         # withdrawal loop fires, trust_wd > 0, and NIIT is recomputed as
         # intended. If the sample household's income profile changes again
         # such that year 1 spend is once more fully income-covered, this can
-        # regress back to niit == 0 — that's the pre-existing
+        # regress back to niit == 0 -- that's the pre-existing
         # _refresh_investment_taxes() gating gap, not a bug in this test.
         c = sample_config()
         year = c['plan_start']
@@ -231,6 +231,75 @@ class RegressionV781Tests(unittest.TestCase):
         # Travel should be zero in the year after travel_end_year
         self.assertEqual(rows[year_after_end - year_start]['rec_extra'], 0.0,
                         msg=f'Travel should be zero at year {year_after_end}')
+
+    def test_housing_estimator_dollar_translation_does_not_touch_ongoing_engine_escalation(self):
+        """Directive 3 (housing-estimate-realism-and-dollar-convention-design.md
+        section 2, section 3.1): the Slice 1 today's-dollars -> start_year-dollars
+        translation lives entirely in housing_state_estimate_payload() (a
+        one-time, at-estimate-time correction to what number gets written
+        into a field). deterministic_engine.py's ongoing (within-step)
+        escalation -- mortgage P&I flat post-origination, rent growing by CPI
+        every active year -- is untouched by that change. This test builds a
+        30-year purchase step and a multi-year rent step directly (bypassing
+        the Estimator entirely, exactly as a user typing numbers by hand
+        would) and pins the ongoing math, so an accidental edit to
+        deterministic_engine.py's escalation logic (the one thing this
+        design must never touch) fails here.
+        """
+        c = sample_config()
+        year0 = c['plan_start']
+        c.update({
+            'plan_end': year0 + 29,
+            'home_sale_yr': year0,
+            'home_sale_px': c.get('home_val', 1_000_000.0),
+            'mort_pmt': 0.0,
+            'mort_end': year0 - 1,
+            'mort_schedule': {},
+            'next_housing_steps': [{
+                'id': 'purchase_30yr',
+                'type': 'purchase',
+                'start_year': year0,
+                'purchase_price': 500_000.0,
+                'down_payment_pct': 0.20,
+                'mortgage_rate_pct': 0.06,
+                'insurance_annual': 0.0,
+                'utilities_annual': 0.0,
+                'maintenance_annual': 0.0,
+                'real_estate_tax_pct': 0.0,
+                'hoa_pct': 0.0,
+            }],
+        })
+        rows = project(c)
+        pmts = [r['mortgage_payment_yr'] for r in rows if r['year'] < year0 + 29]
+        self.assertTrue(all(p > 0 for p in pmts))
+        first = pmts[0]
+        for p in pmts[1:]:
+            self.assertAlmostEqual(p, first, places=6)
+
+        c2 = sample_config()
+        year0b = c2['plan_start']
+        c2.update({
+            'plan_end': year0b + 4,
+            'home_sale_yr': year0b,
+            'home_sale_px': c2.get('home_val', 1_000_000.0),
+            'mort_pmt': 0.0,
+            'mort_end': year0b - 1,
+            'mort_schedule': {},
+            'next_housing_steps': [{
+                'id': 'rent_5yr',
+                'type': 'rent',
+                'start_year': year0b,
+                'monthly_rent': 2000.0,
+                'utilities_annual': 0.0,
+                'insurance_annual': 0.0,
+            }],
+        })
+        rent_rows = project(c2)
+        base_rent = rent_rows[0]['rent_yr']
+        self.assertGreater(base_rent, 0)
+        for i, r in enumerate(rent_rows):
+            expected = base_rent * ((1.0 + c2['inf']) ** i)
+            self.assertAlmostEqual(r['rent_yr'], expected, places=4)
 
     def test_percentiles_are_interpolated(self):
         p = _percentiles([0, 100])
