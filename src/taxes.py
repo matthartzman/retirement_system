@@ -474,7 +474,7 @@ ROTH_POLICIES = ['optimize_terminal_tax', 'optimize', 'balanced_optimize', 'term
 # window, tax-sensitive pre-tax, taxable/trust, a final uncapped pre-tax/HSA
 # pass, Roth as a true last resort, then home equity via HELOC. There is no
 # input anywhere that changes this order — see
-# documentation/reports/SYSTEM_REVIEW_2026-07-18.md §10.1. This description
+# documentation/archive/reports/SYSTEM_REVIEW_2026-07-18.md §10.1. This description
 # is the single source of truth for reporting that sequence; both the QC
 # sheet (sheets_qc_reference.py) and the Methodology sheet reference this
 # constant instead of hardcoding their own copy, so they cannot drift apart.

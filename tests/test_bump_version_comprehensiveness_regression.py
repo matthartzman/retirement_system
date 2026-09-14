@@ -5,7 +5,7 @@ check_version_surfaces.py's stale-token check was frozen to a one-time v7/v8
 migration and could not have caught the current bump's own leftovers,
 top-level documentation/*.md files outside CLAUDE.md fell through the sweep,
 tests/ had no guard against a hardcoded absolute workspace path recurring
-(it did once, for real -- see documentation/GOLDEN_MASTER_CHANGELOG.md), and
+(it did once, for real -- see documentation/reference/GOLDEN_MASTER_CHANGELOG.md), and
 hardcoded "name_v<N>" filename/schema literals (e.g.
 "retirement_system_v10.db") were invisible to every check.
 
@@ -127,9 +127,9 @@ def test_dynamic_stale_patterns_do_not_flag_architecture_era_comments():
 
 
 def test_is_history_doc_excludes_changelog_and_completion_summary_by_name():
-    assert cvs._is_history_doc(Path('documentation/GOLDEN_MASTER_CHANGELOG.md'))
-    assert cvs._is_history_doc(Path('documentation/F0_F1_F2_COMPLETION_SUMMARY.md'))
-    assert not cvs._is_history_doc(Path('documentation/API_CONTRACTS.md'))
+    assert cvs._is_history_doc(Path('documentation/reference/GOLDEN_MASTER_CHANGELOG.md'))
+    assert cvs._is_history_doc(Path('documentation/archive/F0_F1_F2_COMPLETION_SUMMARY.md'))
+    assert not cvs._is_history_doc(Path('documentation/reference/API_CONTRACTS.md'))
 
 
 def test_check_tests_for_hardcoded_workspace_path_flags_a_real_leak(tmp_path, monkeypatch):

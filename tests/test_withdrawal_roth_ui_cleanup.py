@@ -11,7 +11,7 @@ def test_withdrawal_page_excludes_roth_and_shows_fixed_cascade():
     assert "renderWithdrawalOrderTable" in js
     assert "Withdrawal order" in js
     # The withdrawal cascade is fixed by the engine and is not a user-editable
-    # priority table (see documentation/reports/SYSTEM_REVIEW_2026-07-18.md
+    # priority table (see documentation/archive/reports/SYSTEM_REVIEW_2026-07-18.md
     # §10.1 — the old editable table wrote CSV rows the engine never read).
     assert "not user-configurable" in js
     assert 'api("/api/withdrawal-order"' not in js

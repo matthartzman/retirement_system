@@ -1,7 +1,7 @@
 """Guards the output of tools/js_codemod/convert_dashboard.mjs staying in sync
 with frontend/js/dashboard.js -- catches someone hand-editing the generated
 bridge block later and drifting from the census, which the Wave 6.4 manifest
-note this plan (docs/superpowers/plans/2026-08-06-dashboard-js-ast-module-
+note this plan (documentation/archive/superpowers/plans/2026-08-06-dashboard-js-ast-module-
 conversion.md) closes out was explicitly trying to prevent.
 """
 from __future__ import annotations

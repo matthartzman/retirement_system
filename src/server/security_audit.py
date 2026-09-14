@@ -194,6 +194,14 @@ def _row_key_for_change(row: list[str], index: int) -> str:
 def _summarize_csv_row_changes(before_rows: list[list[str]], after_rows: list[list[str]], limit: int = 40) -> tuple[list[dict], int]:
     """Return compact row/value changes between two CSV row lists.
 
+    Rows are matched by identity (type/key/label, the same columns
+    `_row_key_for_change` derives the display label from), not by position.
+    A row inserted, removed, or reordered anywhere in the CSV shifts every
+    positional index after it, and a purely index-based zip of before/after
+    rows then pairs each row with whatever unrelated row happens to share its
+    new index -- producing a "before" value from one field and an "after"
+    value from a completely different one under a single factor label. #320.
+
     Finding SEC-4 (system review 2026-09-07, Wave 6 item W6-2): this diff feeds
     directly into `_record_admin_config_change`'s on-disk log with no
     redaction at all, unlike `_audit`'s own write path. A financial/PII-shaped
@@ -202,38 +210,66 @@ def _summarize_csv_row_changes(before_rows: list[list[str]], after_rows: list[li
     `_audit` already respects -- redaction is a display-time concern for this
     log, applied once at write time rather than re-derived by every reader.
     """
-    changes: list[dict] = []
-    max_len = max(len(before_rows), len(after_rows))
     redact = _app_core._runtime_config().redact_secrets_in_logs
 
     def _redacted(label: str, value: str) -> str:
         return redact_secret(value) if redact and is_sensitive_change_label(label) else value
 
-    for i in range(max_len):
-        before = before_rows[i] if i < len(before_rows) else []
-        after = after_rows[i] if i < len(after_rows) else []
-        if before == after:
-            continue
-        # Prefer value-column differences for section/subsection/label/value settings.
-        if len(before) >= 4 and len(after) >= 4 and before[:3] == after[:3]:
-            before_value = before[3] if len(before) > 3 else ""
-            after_value = after[3] if len(after) > 3 else ""
-            if before_value != after_value:
-                label = _row_key_for_change(after, i)
-                changes.append({
-                    "label": label,
-                    "before": _redacted(label, before_value),
-                    "after": _redacted(label, after_value),
-                    "row_index": i,
-                })
+    def _identity_key(row: list[str], index: int) -> tuple:
+        vals = [str(x) for x in row]
+        if len(vals) >= 4 and vals[0].strip() and vals[2].strip():
+            return (vals[0].strip(), vals[1].strip(), vals[2].strip())
+        return ("__row__", index)
+
+    before_by_key: dict[tuple, list[list[str]]] = {}
+    for i, row in enumerate(before_rows):
+        before_by_key.setdefault(_identity_key(row, i), []).append(row)
+    after_by_key: dict[tuple, list[list[str]]] = {}
+    for i, row in enumerate(after_rows):
+        after_by_key.setdefault(_identity_key(row, i), []).append(row)
+
+    ordered_keys: list[tuple] = []
+    seen_keys: set[tuple] = set()
+    for i, row in enumerate(before_rows):
+        key = _identity_key(row, i)
+        if key not in seen_keys:
+            seen_keys.add(key)
+            ordered_keys.append(key)
+    for i, row in enumerate(after_rows):
+        key = _identity_key(row, i)
+        if key not in seen_keys:
+            seen_keys.add(key)
+            ordered_keys.append(key)
+
+    changes: list[dict] = []
+    for key in ordered_keys:
+        before_group = before_by_key.get(key, [])
+        after_group = after_by_key.get(key, [])
+        for j in range(max(len(before_group), len(after_group))):
+            before = before_group[j] if j < len(before_group) else []
+            after = after_group[j] if j < len(after_group) else []
+            if before == after:
                 continue
-        label = _row_key_for_change(after or before, i)
-        changes.append({
-            "label": label,
-            "before": _redacted(label, ", ".join(str(x) for x in before[:6])) if before else "row added",
-            "after": _redacted(label, ", ".join(str(x) for x in after[:6])) if after else "row removed",
-            "row_index": i,
-        })
+            # Prefer value-column differences for section/subsection/label/value settings.
+            if len(before) >= 4 and len(after) >= 4 and before[:3] == after[:3]:
+                before_value = before[3] if len(before) > 3 else ""
+                after_value = after[3] if len(after) > 3 else ""
+                if before_value != after_value:
+                    label = _row_key_for_change(after, 0)
+                    changes.append({
+                        "label": label,
+                        "before": _redacted(label, before_value),
+                        "after": _redacted(label, after_value),
+                        "row_index": j,
+                    })
+                    continue
+            label = _row_key_for_change(after or before, 0)
+            changes.append({
+                "label": label,
+                "before": _redacted(label, ", ".join(str(x) for x in before[:6])) if before else "row added",
+                "after": _redacted(label, ", ".join(str(x) for x in after[:6])) if after else "row removed",
+                "row_index": j,
+            })
     return changes[:limit], len(changes)
 
 

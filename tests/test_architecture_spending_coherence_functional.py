@@ -23,8 +23,8 @@ def _write_csv(path: Path, fieldnames: list[str], rows: list[dict]) -> None:
 
 
 def test_flask_removal_and_workbench_proposals_are_documented():
-    flask_doc = (ROOT / 'documentation' / 'FLASK_REMOVAL_ARCHITECTURE.md').read_text()
-    workbench_doc = (ROOT / 'documentation' / 'PLANNING_WORKBENCH_CONSOLIDATION_PROPOSAL.md').read_text()
+    flask_doc = (ROOT / 'documentation' / 'archive' / 'FLASK_REMOVAL_ARCHITECTURE.md').read_text()
+    workbench_doc = (ROOT / 'documentation' / 'archive' / 'PLANNING_WORKBENCH_CONSOLIDATION_PROPOSAL.md').read_text()
 
     assert 'Stdlib Local HTTP Runtime' in flask_doc
     assert 'Preserve public URLs first' in flask_doc

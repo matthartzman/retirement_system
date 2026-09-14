@@ -116,8 +116,8 @@ SPENDING_TIER_CUT_ORDER = tuple(
 
 #: Genuine per-tier funding policy (optimization-refactor "Not done" item:
 #: "which bucket gets drawn down to fund which tier"), Option B from
-#: ``docs/superpowers/plans/2026-08-27-mc-tier-priority-withdrawal-
-#: redirection-spec.md``. Each tier's tuple is the ONLY buckets that tier's
+#: ``documentation/archive/superpowers/plans/2026-08-27-mc-tier-priority-
+#: withdrawal-redirection-spec.md``. Each tier's tuple is the ONLY buckets that tier's
 #: spending may draw from, walked in this order; a tier's need that survives
 #: every bucket in its own tuple is a genuine shortfall for that tier -- it
 #: never falls through to a bucket outside this list (e.g. discretionary

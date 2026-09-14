@@ -40,7 +40,7 @@ Default depth is `standard`. Use `deep` for deep, thorough, exhaustive, full, co
 
 ## Output and invocation
 
-Default: `documentation/reports/SYSTEM_REVIEW_<YYYY-MM-DD>.md`. Use the date from context, not `Date.now()`. If occupied, append `-2`, `-3`, and so on; never overwrite.
+Default: `documentation/archive/reports/SYSTEM_REVIEW_<YYYY-MM-DD>.md`. Use the date from context, not `Date.now()`. If occupied, append `-2`, `-3`, and so on; never overwrite.
 
 ```text
 Workflow({

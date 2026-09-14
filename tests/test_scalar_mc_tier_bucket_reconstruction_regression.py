@@ -1,6 +1,6 @@
 """Optimization-refactor "Not done" item, Option B ("Genuinely redirecting
 withdrawal requests... by tier priority" --
-docs/superpowers/plans/2026-08-27-mc-tier-priority-withdrawal-redirection-
+documentation/archive/superpowers/plans/2026-08-27-mc-tier-priority-withdrawal-redirection-
 spec.md), scalar-engine parity.
 
 ``monte_carlo_exact_scalar`` has no independent withdrawal mechanism to

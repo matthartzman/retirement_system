@@ -1111,7 +1111,7 @@ def run_schedule_search(c: MutableMapping[str, Any]) -> dict:
     ``c`` as `hsa_schedule_rows`/`hsa_schedule_by_year`. Cost is one extra
     `project()` per candidate; a full-horizon projection measures ~20-60ms,
     which is not the class of cost that caused the 81x Monte Carlo CI
-    timeouts (see documentation/OPTIMIZATION_REFACTOR_STATUS.md).
+    timeouts (see documentation/reference/OPTIMIZATION_REFACTOR_STATUS.md).
 
     Never raises into a build: any failure returns ``ran=False`` with a
     reason and leaves ``c`` untouched, so the incumbent schedule stands.

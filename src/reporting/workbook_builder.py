@@ -1250,6 +1250,7 @@ def main():
         'terminal_roth_nw': 0.0,
         'lifetime_tax': 0.0,
         'lcv': 0.0,
+        'lcv_all_in_including_taxes': 0.0,
         'eltr': 0.0,
         'fcv': 0.0,
         'eftr': 0.0,
@@ -1294,6 +1295,14 @@ def main():
             'terminal_roth_nw': float(terminal.get('roth_nw', 0.0) or 0.0),
             'lifetime_tax': lifetime_tax,
             'lcv': float(baseline_lcv_eltr.get('lcv', 0.0) or 0.0),
+            # All-in companion to LCV: nominal lifetime spending + nominal
+            # lifetime taxes paid + after-tax terminal transfer (PTI). LCV
+            # itself intentionally stays tax-exclusive (spending + PTI) so it
+            # stays comparable to the separate NPV-of-Future-Taxes dial
+            # without double-counting; this figure is the "everything, incl.
+            # taxes" total for users who want one all-in number. Both terms
+            # are nominal/undiscounted, matching lcv's own convention.
+            'lcv_all_in_including_taxes': float(baseline_lcv_eltr.get('lcv', 0.0) or 0.0) + lifetime_tax,
             'eltr': float(baseline_lcv_eltr.get('eltr', 0.0) or 0.0),
             'fcv': float(future_fcv_eftr.get('fcv', 0.0) or 0.0),
             'eftr': float(future_fcv_eftr.get('eftr', 0.0) or 0.0),
@@ -1318,7 +1327,7 @@ def main():
         print(f'Warning: KPI computation for plan summary failed (defaults used): {_kpi_exc}')
 
     # Archive a small dated headline-KPI snapshot (Wave 1 item 1.15 --
-    # documentation/reports/SYSTEM_REVIEW_2026-08-31.md, finding F13). This is
+    # documentation/archive/reports/SYSTEM_REVIEW_2026-08-31.md, finding F13). This is
     # comparison-only: no attribution logic, that is Wave 3's job once a real
     # snapshot series exists. Best-effort -- a snapshot failure must never
     # fail an otherwise-successful build.

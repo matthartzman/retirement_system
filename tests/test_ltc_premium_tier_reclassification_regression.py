@@ -3,8 +3,8 @@
 Design: commit `0e65806` on `claude/plan-execution-tg1rps` (merged into
 `claude/confit-optimization-refactor-cyyk9v` 2026-08-27), reconciled against
 this branch's own earlier, opposite-direction attempt (PR #70, reverted --
-see the "Reconciliation note" in `documentation/OPTIMIZATION_REFACTOR_STATUS.md`
-and `documentation/GOLDEN_MASTER_CHANGELOG.md`).
+see the "Reconciliation note" in `documentation/reference/OPTIMIZATION_REFACTOR_STATUS.md`
+and `documentation/reference/GOLDEN_MASTER_CHANGELOG.md`).
 
 `contingent_liability` bundled two different kinds of dollars: `ltc_prem_yr`
 (an LTC insurance premium -- a genuine choice to forgo future coverage) and

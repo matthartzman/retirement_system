@@ -3,7 +3,7 @@
 // module, and PROVES it moved them without altering them.
 //
 // Why a tool instead of hand-editing: the predecessor pass
-// (docs/superpowers/plans/2026-08-06-dashboard-js-ast-module-conversion.md)
+// (documentation/archive/superpowers/plans/2026-08-06-dashboard-js-ast-module-conversion.md)
 // established that hand-editing this file at scale is not a responsible
 // approach for production financial software. The holdings leaf was moved by
 // hand because it was one self-contained block; the remaining ~10-15 domain

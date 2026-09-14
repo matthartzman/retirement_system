@@ -95,7 +95,7 @@ def test_sweep_skips_binary_suffixes(tmp_path):
 
 
 def test_sweep_preserves_the_chatpgpt_suffix_verbatim(tmp_path):
-    """The specific wrinkle the brief calls out: documentation/CLAUDE.md says
+    """The specific wrinkle the brief calls out: documentation/reference/CLAUDE.md says
     "Version 10 - ChatpGPT", not bare "Version 10". Plain substring replacement
     must rewrite only the "Version 10" prefix and leave " - ChatpGPT" -- typo
     included -- exactly as it was; correcting the typo is a different ticket."""

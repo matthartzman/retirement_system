@@ -1,4 +1,4 @@
-"""Generate documentation/SYSTEM_ARCHITECTURE_DIAGRAM.md from the live codebase.
+"""Generate documentation/reference/SYSTEM_ARCHITECTURE_DIAGRAM.md from the live codebase.
 
 This is the maintainable alternative to a hand-drawn architecture diagram: it
 statically parses `src/` for imports (stdlib vs. third-party vs. internal),
@@ -28,7 +28,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 FRONTEND = ROOT / "frontend"
-OUT_PATH = ROOT / "documentation" / "SYSTEM_ARCHITECTURE_DIAGRAM.md"
+OUT_PATH = ROOT / "documentation" / "reference" / "SYSTEM_ARCHITECTURE_DIAGRAM.md"
 
 sys.path.insert(0, str(ROOT))
 
@@ -455,7 +455,7 @@ def write_doc(
         "**Keeping this current:** rerun `python tools/generate_system_diagram.py` after any "
         "module add/move/delete, import change, or edit to `module_catalog.py` / "
         "`route_manifest.py`. For automatic drift detection, add a CI step that runs the "
-        "generator and fails the build if `git diff --exit-code documentation/SYSTEM_ARCHITECTURE_DIAGRAM.md` "
+        "generator and fails the build if `git diff --exit-code documentation/reference/SYSTEM_ARCHITECTURE_DIAGRAM.md` "
         "is non-empty."
     )
     lines.append("")

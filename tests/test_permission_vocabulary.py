@@ -6,7 +6,7 @@ PATCH /api/plan/forms/<section_path> both called ``_require("edit_config")``,
 but LOCAL_PERMISSIONS has no such member. ``permissions.require()`` raises
 PermissionError for any unlisted permission and app_core converts that to a
 403, so the DB-first Plan Forms write API -- named in
-documentation/DB_CANONICAL_MIGRATION_PLAN.md as the Phase 2/3 target shape for
+documentation/archive/DB_CANONICAL_MIGRATION_PLAN.md as the Phase 2/3 target shape for
 all writes -- could never succeed. It went unnoticed because the only test
 touching it asserted the route string appears in the route manifest, never
 that it responds.

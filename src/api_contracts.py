@@ -123,6 +123,19 @@ CONTRACTS: tuple[EndpointContract, ...] = (
         response_fields=(_f("success", "bool", True), _f("schema", "str"), _f("estimate", "dict", True)),
     ),
     EndpointContract(
+        "/api/housing/optimize", "POST", "housing_optimize_v1",
+        request_fields=(
+            _f("locations", "list", True), _f("move1_window", "dict", True), _f("move2_window", "dict"),
+            _f("anchor_count", "int"), _f("no_dual_ownership", "bool"), _f("family_presence", "dict"),
+            _f("objective", "str"),
+        ),
+        response_fields=(
+            _f("success", "bool", True), _f("schema", "str", True), _f("objective", "str", True),
+            _f("recommendation", "dict"), _f("alternatives", "list", True), _f("candidates_evaluated", "int", True),
+        ),
+        notes="Grid search over sale/purchase year and candidate location for the household's next housing move(s); reuses the deterministic engine and Monte Carlo runner unmodified (docs/superpowers/specs/2026-09-09-housing-optimization-design.md).",
+    ),
+    EndpointContract(
         "/api/portfolio/drift", "GET", "portfolio_drift_v1",
         response_fields=(_f("success", "bool", True), _f("rows", "list", True), _f("stderr", "str")),
     ),

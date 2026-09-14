@@ -510,7 +510,7 @@ from .parsing.insurance import _insurance_policy_premium_sum  # noqa: F401
 from .parsing.estate_planning import parse_estate_planning  # noqa: F401
 
 # parse_account_draw_priority() extracted to src/parsing/withdrawal_order.py
-# Ticket 312 (see docs/superpowers/plans/
+# Ticket 312 (see documentation/archive/superpowers/plans/
 # 2026-09-09-parse-client-remaining-sections-design.md, section 5).
 # Re-exported here so existing callers
 # (`from src.data_io import parse_account_draw_priority`) keep working
@@ -519,27 +519,27 @@ from .parsing.withdrawal_order import parse_account_draw_priority  # noqa: F401
 
 # parse_hsa_policy() / parse_hsa_withdrawal_schedule() extracted to
 # src/parsing/hsa_policy.py. Ticket 312, per
-# docs/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md
+# documentation/archive/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md
 # (section 1, "HSA Policy scalars"). Re-exported here so existing callers
 # (`from src.data_io import parse_hsa_policy`) keep working unchanged.
 from .parsing.hsa_policy import parse_hsa_policy, parse_hsa_withdrawal_schedule  # noqa: F401
 
 # parse_allocation_optimizer_inputs() extracted to
 # src/parsing/allocation_optimizer_inputs.py. Ticket 312 (design doc
-# docs/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md,
+# documentation/archive/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md,
 # section 4). Re-exported here so existing callers (`from src.data_io import
 # parse_allocation_optimizer_inputs`) keep working unchanged.
 from .parsing.allocation_optimizer_inputs import parse_allocation_optimizer_inputs  # noqa: F401
 
 # parse_roth_conversion_policy() extracted to src/parsing/roth_conversion_policy.py
-# Ticket 312 (docs/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md,
+# Ticket 312 (documentation/archive/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md,
 # section 3). Re-exported here so existing callers (`from src.data_io import
 # parse_roth_conversion_policy`) keep working unchanged.
 from .parsing.roth_conversion_policy import parse_roth_conversion_policy  # noqa: F401
 
 # parse_withdrawal_spending_policy() extracted to src/parsing/withdrawal_policy.py
 # Ticket 312 ("parse_client() remaining sections", design doc
-# docs/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md,
+# documentation/archive/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md,
 # section 2: "Withdrawal Policy bracket-target/spending-decline"). Re-exported
 # here so existing callers (`from src.data_io import
 # parse_withdrawal_spending_policy`) keep working unchanged.
@@ -1219,7 +1219,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # NOTE: this CSV section used to also carry a "Withdrawal Policy > Priority N"
     # sub-table that a planner could reorder. It never reached the withdrawal
     # engine (the engine's cascade is fixed — see taxes.FIXED_WITHDRAWAL_CASCADE_
-    # DESCRIPTION and documentation/reports/SYSTEM_REVIEW_2026-07-18.md §10.1) so
+    # DESCRIPTION and documentation/archive/reports/SYSTEM_REVIEW_2026-07-18.md §10.1) so
     # the dead input, its CSV rows, and the UI table that edited it were removed
     # rather than wired up.
 

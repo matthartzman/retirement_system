@@ -1,7 +1,7 @@
 """The dashboard.js module-conversion census (tools/js_codemod/census.mjs) must
 stay runnable and its invariants must hold, since the conversion codemod
 (tools/js_codemod/convert_dashboard.mjs, see
-docs/superpowers/plans/2026-08-06-dashboard-js-ast-module-conversion.md)
+documentation/archive/superpowers/plans/2026-08-06-dashboard-js-ast-module-conversion.md)
 depends on this report being accurate.
 
 v2: an early run of the census found dashboard_source_truth_banners.js and
@@ -44,7 +44,7 @@ def test_census_script_runs_successfully():
 def test_census_function_and_variable_counts_are_in_expected_bands():
     report = json.loads(REPORT_PATH.read_text(encoding="utf-8"))
     # 2026-08-06: band lowered from 700-900 to 500-650 -- domain-module-split
-    # shared-core extraction (docs/superpowers/plans/
+    # shared-core extraction (documentation/archive/superpowers/plans/
     # 2026-08-06-dashboard-js-domain-module-split-SCOPE.md) moved 172
     # fan-in>=3 hub functions out of dashboard.js into
     # dashboard_decomp_row_model.js; census.mjs only counts dashboard.js's own
