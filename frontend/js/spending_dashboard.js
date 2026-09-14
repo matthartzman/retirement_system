@@ -193,6 +193,8 @@ export function renderSpendingSummary(d) {
   // "Actual vs. Model" figure misleading (see spending_dashboard blue-box
   // removal, 2026-09).
   var vpct = budget ? ((annualized - budget) / budget) * 100 : 0;
+  var annualizedAllIn = d.annualized_total_all_in || 0;
+  var budgetAllIn = d.annual_budget_total_all_in || 0;
   var html = '<div class="spend-summary">';
   html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(d.income_total||0) + '</span><span class="spend-kpi-label">This Year Income</span></div>';
   html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(d.actuals_total) + '</span><span class="spend-kpi-label">This Year Expenses</span></div>';
@@ -205,7 +207,15 @@ export function renderSpendingSummary(d) {
   var cls = vpct > 15 ? 'spend-kpi over' : vpct > 5 ? 'spend-kpi watch' : 'spend-kpi ok';
   html += '<div class="' + cls + '"><span class="spend-kpi-value">' + fmtVariancePct(vpct) + '</span><span class="spend-kpi-label">' + (budget ? 'Annualized Actual vs. Annual Budget' : 'Annualized Actual vs. Model Spending Categories') + '</span></div>';
   html += '</div>';
-  html += '<p class="small" style="margin:0 0 12px">' + d.days_elapsed + ' days elapsed &middot; annualization factor ' + (d.annualization_factor || 1).toFixed(2) + 'x &middot; all five figures above exclude income taxes and transfers (real estate taxes still count as Housing spending)</p>';
+  // Companion all-in figures (incl. all taxes, e.g. Income Taxes) -- kept as
+  // a separate row rather than folded into the KPI tiles above, so the
+  // Actual-vs-Budget comparison stays scoped consistently while still
+  // surfacing the household's true out-the-door annual spend including taxes.
+  html += '<div class="spend-summary spend-summary-all-in">';
+  html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(annualizedAllIn) + '</span><span class="spend-kpi-label">Annualized Actual, All-In (Incl. All Taxes)</span></div>';
+  html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(budgetAllIn) + '</span><span class="spend-kpi-label">Annual Budget, All-In (Incl. All Taxes)</span></div>';
+  html += '</div>';
+  html += '<p class="small" style="margin:0 0 12px">' + d.days_elapsed + ' days elapsed &middot; annualization factor ' + (d.annualization_factor || 1).toFixed(2) + 'x &middot; the five KPI tiles above exclude income taxes and transfers (real estate taxes still count as Housing spending); the All-In row adds income taxes back in</p>';
   return html;
 }
 

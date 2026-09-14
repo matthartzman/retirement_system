@@ -664,6 +664,7 @@ export function currentKpi(summary) {
     // compute_future_lcv_and_eftr (its "from today, no upper bound" row set
     // already covers the current year through plan end).
     lcv: firstFinite(summary.lcv),
+    lcv_all_in_including_taxes: firstFinite(summary.lcv_all_in_including_taxes),
     npv_future_taxes: firstFinite(summary.npv_future_taxes),
     terminal_nw_mc_p5: firstFinite(summary.terminal_nw_mc_p5),
     eftr: firstFinite(summary.eftr),
@@ -1086,6 +1087,10 @@ export function renderImpactSectionContent() {
     .map((e) => e.kpi && e.kpi.lcv)
     .filter((v) => v !== null && v !== undefined && Number.isFinite(Number(v)))
     .map(Number);
+  const allNwAllIn = buildHistory
+    .map((e) => e.kpi && e.kpi.lcv_all_in_including_taxes)
+    .filter((v) => v !== null && v !== undefined && Number.isFinite(Number(v)))
+    .map(Number);
   const allTax = buildHistory
     .map((e) => e.kpi && e.kpi.npv_future_taxes)
     .filter((v) => v !== null && v !== undefined && Number.isFinite(Number(v)))
@@ -1115,6 +1120,7 @@ export function renderImpactSectionContent() {
   }
   const heat = {
     nwHeat: heatRange(allNw, true),
+    nwAllInHeat: heatRange(allNwAllIn, true),
     taxHeat: heatRange(allTax, false),
     mcHeat: heatRange(allMc, true),
     eftrHeat: heatRange(allEftr, false),
@@ -1126,7 +1132,7 @@ export function renderImpactSectionContent() {
   const latestImpact =
     planningWorkbenchBuildImpactHtml() + latestBuildImpactHtml(buildHistory[0]);
   return (
-    "<h3>Impact</h3><p class=\"small\">Dials are heat-mapped: green = best across all entries, red = worst. LCV (Expected After-Tax Lifetime Consumption-and-Transfer Value) is total lifetime spending plus the after-tax, after-estate-tax terminal transfer to heirs.</p>" +
+    "<h3>Impact</h3><p class=\"small\">Dials are heat-mapped: green = best across all entries, red = worst. LCV (Expected After-Tax Lifetime Consumption-and-Transfer Value) is total lifetime spending plus the after-tax, after-estate-tax terminal transfer to heirs. All-In LCV adds lifetime taxes paid back in, for a single figure that includes every tax dollar.</p>" +
     headerActions +
     latestImpact +
     '<details class="build-history-collapsible"><summary class="section-header">Build History (up to ' +

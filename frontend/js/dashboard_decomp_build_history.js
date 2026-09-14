@@ -253,6 +253,12 @@ export function buildHistoryEntryHtml(entry, isCurrent, heat) {
     heat.nwHeat,
     fmtMoney,
   );
+  const nwAllInDial = buildKpiDial(
+    "All-In LCV (Incl. All Taxes)",
+    kpi.lcv_all_in_including_taxes,
+    heat.nwAllInHeat,
+    fmtMoney,
+  );
   const taxDial = buildKpiDial(
     "NPV of Future Taxes",
     kpi.npv_future_taxes,
@@ -311,6 +317,7 @@ export function buildHistoryEntryHtml(entry, isCurrent, heat) {
     elapsed +
     '</span></div><div class="build-history-dials">' +
     nwDial +
+    nwAllInDial +
     taxDial +
     mcDial +
     eftrDial +
