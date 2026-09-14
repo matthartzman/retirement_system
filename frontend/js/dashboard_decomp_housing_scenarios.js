@@ -163,6 +163,22 @@ export async function estimateHousingFromState(stepNum) {
       norm(r.subsection || "") === "next_step_" + stepNum &&
       norm(r.label) === "population_size",
   );
+  const startYearRow = rows.find(
+    (r) =>
+      r.section === "Housing" &&
+      norm(r.subsection || "") === "next_step_" + stepNum &&
+      norm(r.label) === "start_year",
+  );
+  // Same accessor pattern displayValueForInput/valueKind use elsewhere for a
+  // "percent" field: the row stores the percentage on a 0-100 scale (e.g.
+  // "3.00%" -> 3), so divide by 100 to get the fraction rate the backend's
+  // (1 + rate) ** years_out translation (design doc §3.2) expects.
+  const homeApprRow = rows.find(
+    (r) => r.section === "Other Assets" && norm(r.subsection || "") === "home" && norm(r.label) === "appreciation_rate",
+  );
+  const inflationRow = rows.find(
+    (r) => r.section === "Economic Assumptions" && norm(r.label) === "inflation_general",
+  );
   const stateVal = stateRow
     ? String(valOf(stateRow) || "")
         .trim()
@@ -176,11 +192,14 @@ export async function estimateHousingFromState(stepNum) {
     showMessage("Enter a state abbreviation first (e.g. IL, TX, FL).", "error");
     return;
   }
-  if (isPurchase && cityTypeRow && !String(valOf(cityTypeRow) || "").trim()) {
+  // Area Type and Population are required for both purchase and rent -- the
+  // rent estimate used to silently assume suburban/20,000 (see
+  // housing-estimate-realism-and-dollar-convention-design.md §3.4).
+  if (cityTypeRow && !String(valOf(cityTypeRow) || "").trim()) {
     showMessage("Select an Area Type before estimating.", "error");
     return;
   }
-  if (isPurchase && popRow && !String(valOf(popRow) || "").trim()) {
+  if (popRow && !String(valOf(popRow) || "").trim()) {
     showMessage("Enter a Population before estimating.", "error");
     return;
   }
@@ -190,6 +209,15 @@ export async function estimateHousingFromState(stepNum) {
   const popVal = popRow
     ? String(valOf(popRow) || "20000").replace(/[^0-9]/g, "")
     : "20000";
+  const startYearVal = startYearRow
+    ? parseInt(String(valOf(startYearRow) || "").replace(/[^0-9]/g, ""), 10)
+    : NaN;
+  const homeApprVal = homeApprRow
+    ? numberFromDisplay(valOf(homeApprRow)) / 100
+    : null;
+  const inflationVal = inflationRow
+    ? numberFromDisplay(valOf(inflationRow)) / 100
+    : null;
   try {
     const out = await api("/api/housing/state-estimate", {
       method: "POST",
@@ -199,6 +227,9 @@ export async function estimateHousingFromState(stepNum) {
         type: typeVal,
         city_type: cityTypeVal,
         population_size: parseInt(popVal) || 20000,
+        start_year: Number.isFinite(startYearVal) ? startYearVal : "",
+        home_appr: homeApprVal,
+        inflation_general: inflationVal,
       }),
     });
     if (!out || !out.estimate) {
@@ -250,7 +281,8 @@ export async function estimateHousingFromState(stepNum) {
         (priceWasUserEdited
           ? ` Kept your ${priceLabel === "purchase_price" ? "purchase price" : "monthly rent"}; other fields recalculated.`
           : "") +
-        " Review and adjust as needed.",
+        " Review and adjust as needed." +
+        (e.note ? " " + e.note : ""),
     );
   } catch (err) {
     showMessage("Error fetching estimate: " + err.message, "error");
@@ -394,8 +426,9 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
   var cityTypeVal = cityTypeRow ? String(valOf(cityTypeRow) || "").trim() : "";
   var popVal = popRow ? String(valOf(popRow) || "").trim() : "";
 
-  // Purchase: State → Area Type → Population → [Estimate] → remaining fields
-  // Rent: State → [Estimate] → remaining fields (no Area Type, Population, or HOA)
+  // Both purchase and rent: State → Area Type → Population → [Estimate] →
+  // remaining fields. Rent used to skip Area Type/Population (silently
+  // defaulting to suburban/20,000) -- see design doc §3.4.
   var PURCHASE_FIRST = ["state", "city_type", "population_size"];
   var PURCHASE_REST = [
     "start_year",
@@ -409,7 +442,7 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
     "re_tax_pct",
     "hoa_pct",
   ];
-  var RENT_FIRST = ["state"];
+  var RENT_FIRST = ["state", "city_type", "population_size"];
   var RENT_REST = [
     "start_year",
     "end_year",
@@ -431,13 +464,12 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
   var firstRows = pickRows(isPurchase ? PURCHASE_FIRST : RENT_FIRST);
   var restRows = pickRows(isPurchase ? PURCHASE_REST : RENT_REST);
 
-  // Estimate button: Purchase requires all 3 inputs; Rent requires state only
-  var estimateReady = isPurchase
-    ? stateVal && cityTypeVal && popVal
-    : !!stateVal;
-  var estimateHint = isPurchase
-    ? "Enter State, Area Type, and Population to enable"
-    : "Enter State to enable";
+  // Estimate button: both Purchase and Rent require State, Area Type, and
+  // Population -- rent estimates used to silently default to whatever stale
+  // city_type/population_size happened to be on those (hidden) rows; both
+  // are now surfaced and required for rent too, symmetric with purchase.
+  var estimateReady = stateVal && cityTypeVal && popVal;
+  var estimateHint = "Enter State, Area Type, and Population to enable";
   var estimateBtn =
     '<div class="section-note" style="margin-top:4px;margin-bottom:8px">' +
     '<button class="btn btn-sm" type="button" data-requires-app="1"' +
@@ -457,7 +489,7 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
   if (cachedEst) {
     var restoreLinks = Object.keys(restoreFieldLabels)
       .filter((lbl) => cachedEst[lbl] !== null && cachedEst[lbl] !== undefined)
-      .map((lbl) => '<button class="btn tiny" type="button" onclick="restoreHousingEstimateField(' + stepNum + ",'" + lbl + '\')">↺ ' + esc(restoreFieldLabels[lbl]) + "</button>")
+      .map((lbl) => '<button class="btn tiny" type="button" onclick="restoreHousingEstimateField(' + stepNum + ",'" + lbl + '\')">⇺ ' + esc(restoreFieldLabels[lbl]) + "</button>")
       .join(" ");
     if (restoreLinks) estimateBtn += '<div class="section-note small" style="margin-bottom:8px">Restore app estimate for one field: ' + restoreLinks + "</div>";
   }
