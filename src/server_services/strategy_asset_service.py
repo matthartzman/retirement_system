@@ -60,6 +60,11 @@ HOUSING_SEED_ROWS: list[list[str]] = [
     ["Housing","next_step_1","maintenance_annual","","money","Annual home maintenance (purchase only)"],
     ["Housing","next_step_1","re_tax_pct","","pct","Real-estate tax as % of value (purchase only)"],
     ["Housing","next_step_1","hoa_pct","","pct","HOA fee as % of value, optional (purchase only)"],
+    ["Housing","next_step_1","bedrooms","3","int","Bedrooms for the Estimate button (2-5, 5=5+); does not affect a hand-typed price"],
+    ["Housing","next_step_1","bathrooms","2","choice","Bathrooms for the Estimate button: 1|1.5|2|2.5|3|3.5+; does not affect a hand-typed price"],
+    ["Housing","next_step_1","property_type","single_family","choice","Property type for the Estimate button: single_family|townhome|condo|duplex"],
+    ["Housing","next_step_1","sqft_band","1800_2500","choice","Square footage band for the Estimate button: under_1200|1200_1800|1800_2500|2500_3500|over_3500"],
+    ["Housing","next_step_1","built_within_years","","int","Built within the last N years for the Estimate button; blank = no preference"],
     ["Housing","next_step_2","type","purchase","choice","purchase|rent"],
     ["Housing","next_step_2","start_year","","int","Year this housing step begins"],
     ["Housing","next_step_2","end_year","","int","Year this housing step ends (0 = indefinite)"],
@@ -75,6 +80,11 @@ HOUSING_SEED_ROWS: list[list[str]] = [
     ["Housing","next_step_2","maintenance_annual","","money","Annual home maintenance (purchase only)"],
     ["Housing","next_step_2","re_tax_pct","","pct","Real-estate tax as % of value (purchase only)"],
     ["Housing","next_step_2","hoa_pct","","pct","HOA fee as % of value, optional (purchase only)"],
+    ["Housing","next_step_2","bedrooms","3","int","Bedrooms for the Estimate button (2-5, 5=5+); does not affect a hand-typed price"],
+    ["Housing","next_step_2","bathrooms","2","choice","Bathrooms for the Estimate button: 1|1.5|2|2.5|3|3.5+; does not affect a hand-typed price"],
+    ["Housing","next_step_2","property_type","single_family","choice","Property type for the Estimate button: single_family|townhome|condo|duplex"],
+    ["Housing","next_step_2","sqft_band","1800_2500","choice","Square footage band for the Estimate button: under_1200|1200_1800|1800_2500|2500_3500|over_3500"],
+    ["Housing","next_step_2","built_within_years","","int","Built within the last N years for the Estimate button; blank = no preference"],
 ]
 
 HEALTHCARE_OOP_SEED_ROWS: list[list[str]] = [
@@ -98,6 +108,83 @@ STATE_ESTIMATES = {
     "AZ": dict(purchase_price=385000, monthly_rent=1750, insurance_annual=1600, utilities_annual=2600, maintenance_annual=3850, re_tax_pct=0.0062, hoa_pct=0.002),
 }
 
+# Slice 2 (2026-09-09 design, §3.3): replace the fixed 3BR/2BA/single-family/
+# 1800-2500sqft profile implicit in the estimate above with five optional,
+# defaulted characteristics, each a multiplicative factor on the state base
+# price alongside city_mult/pop_mult. Values are illustrative starting points
+# (design §8 decision 2), not sourced from a dataset -- same treatment as the
+# pre-existing city_type/population_size multipliers.
+BEDROOM_MULT = {2: 0.85, 3: 1.00, 4: 1.15, 5: 1.30}
+BATHROOM_MULT = {1: 0.90, 1.5: 0.95, 2: 1.00, 2.5: 1.05, 3: 1.12, 3.5: 1.18}
+PROPERTY_TYPE_MULT = {"single_family": 1.00, "townhome": 0.85, "condo": 0.75, "duplex": 0.90}
+SQFT_BAND_MULT = {
+    "under_1200": 0.75,
+    "1200_1800": 0.90,
+    "1800_2500": 1.00,
+    "2500_3500": 1.20,
+    "over_3500": 1.45,
+}
+SQFT_BAND_LABELS = {
+    "under_1200": "under 1,200 sqft",
+    "1200_1800": "1,200-1,800 sqft",
+    "1800_2500": "1,800-2,500 sqft",
+    "2500_3500": "2,500-3,500 sqft",
+    "over_3500": "over 3,500 sqft",
+}
+
+
+def built_within_years_mult(years: int | None) -> float:
+    if years is None:
+        return 1.00  # no preference -- same as today
+    if years <= 2:
+        return 1.15  # new construction
+    if years <= 10:
+        return 1.05
+    if years <= 30:
+        return 1.00
+    return 0.90
+
+
+def _parse_bedrooms(raw: Any) -> int:
+    try:
+        n = int(float(raw))
+    except (ValueError, TypeError):
+        return 3
+    return max(2, min(5, n))  # clamped to {2,3,4,5}, 5 = "5+" (design §3.3)
+
+
+def _parse_bathrooms(raw: Any) -> float:
+    s = str(raw if raw is not None else "").strip().rstrip("+")
+    try:
+        n = float(s)
+    except (ValueError, TypeError):
+        return 2.0
+    return n if n in BATHROOM_MULT else 2.0
+
+
+def _parse_property_type(raw: Any) -> str:
+    s = str(raw or "").strip().lower()
+    return s if s in PROPERTY_TYPE_MULT else "single_family"
+
+
+def _parse_sqft_band(raw: Any) -> str:
+    s = str(raw or "").strip().lower()
+    return s if s in SQFT_BAND_MULT else "1800_2500"
+
+
+def _parse_built_within_years(raw: Any) -> int | None:
+    if raw is None or str(raw).strip() == "":
+        return None
+    try:
+        n = int(float(raw))
+    except (ValueError, TypeError):
+        return None
+    return max(0, n)
+
+
+def _bathrooms_label(bathrooms: float) -> str:
+    return "3.5+" if bathrooms >= 3.5 else (f"{bathrooms:g}")
+
 
 def housing_state_estimate_payload(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     state = str((data or {}).get("state", "")).strip().upper()
@@ -108,6 +195,11 @@ def housing_state_estimate_payload(data: dict[str, Any]) -> tuple[dict[str, Any]
         population_size = int((data or {}).get("population_size", 20000) or 20000)
     except (ValueError, TypeError):
         population_size = 20000
+    bedrooms = _parse_bedrooms((data or {}).get("bedrooms", 3))
+    bathrooms = _parse_bathrooms((data or {}).get("bathrooms", 2))
+    property_type = _parse_property_type((data or {}).get("property_type", "single_family"))
+    sqft_band = _parse_sqft_band((data or {}).get("sqft_band", "1800_2500"))
+    built_within_years = _parse_built_within_years((data or {}).get("built_within_years"))
 
     estimate = dict(STATE_ESTIMATES.get(state) or dict(purchase_price=350000, monthly_rent=1600, insurance_annual=1600, utilities_annual=2800, maintenance_annual=3500, re_tax_pct=0.0100, hoa_pct=0.001))
     city_multipliers = {"urban": 1.30, "city": 1.30, "suburban": 1.00, "exurban": 0.85, "rural": 0.75}
@@ -127,7 +219,15 @@ def housing_state_estimate_payload(data: dict[str, Any]) -> tuple[dict[str, Any]
     else:
         pop_mult = 0.85
 
-    combined = city_mult * pop_mult
+    combined = (
+        city_mult
+        * pop_mult
+        * BEDROOM_MULT[bedrooms]
+        * BATHROOM_MULT[bathrooms]
+        * PROPERTY_TYPE_MULT[property_type]
+        * SQFT_BAND_MULT[sqft_band]
+        * built_within_years_mult(built_within_years)
+    )
     estimate["purchase_price"] = round(float(estimate["purchase_price"]) * combined / 1000) * 1000
     estimate["monthly_rent"] = round(float(estimate["monthly_rent"]) * combined / 10) * 10
     estimate["maintenance_annual"] = round(float(estimate["purchase_price"]) * 0.01 / 100) * 100
@@ -139,6 +239,15 @@ def housing_state_estimate_payload(data: dict[str, Any]) -> tuple[dict[str, Any]
         estimate["insurance_annual"] = round(max(180.0, min(450.0, float(estimate.get("insurance_annual", 0) or 0) * 0.15)) / 10) * 10
         estimate["utilities_annual"] = round(float(estimate.get("utilities_annual", 0) or 0) * 0.75 / 100) * 100
         estimate["maintenance_annual"] = 0
+
+    # Slice 2: property type also floors HOA and discounts maintenance
+    # (HOA typically covers exterior/structure for condo/townhome) -- applied
+    # to today's-dollars values, before Slice 1's translation below scales
+    # everything forward to start_year dollars.
+    if property_type in ("condo", "townhome"):
+        estimate["hoa_pct"] = max(estimate.get("hoa_pct", 0.0), 0.004)
+        estimate["maintenance_annual"] *= 0.4
+    built_clause = f", built within the last {built_within_years} years" if built_within_years is not None else ""
 
     # --- Slice 1: today's-dollars -> start_year-dollars translation ---------
     # housing-estimate-realism-and-dollar-convention-design.md §3.2. This is a
@@ -197,7 +306,17 @@ def housing_state_estimate_payload(data: dict[str, Any]) -> tuple[dict[str, Any]
         "city_type": city_type or "suburban",
         "population_size": population_size,
         "state": state,
-        "note": f"Estimated costs for a 3BR/2BA home with at least a 40x40 ft backyard in a {city_type or 'suburban'} area (~{population_size:,} population) in {state}.{basis_note} All values are editable.",
+        "bedrooms": bedrooms,
+        "bathrooms": bathrooms,
+        "property_type": property_type,
+        "sqft_band": sqft_band,
+        "built_within_years": built_within_years,
+        "note": (
+            f"Estimated costs for a {bedrooms}{'+' if bedrooms == 5 else ''}BR/"
+            f"{_bathrooms_label(bathrooms)}BA {property_type.replace('_', ' ')} home, "
+            f"{SQFT_BAND_LABELS[sqft_band]}{built_clause}, in a {city_type or 'suburban'} "
+            f"area (~{population_size:,} population) in {state}.{basis_note} All values are editable."
+        ),
     })
     return {"success": True, "schema": "housing_state_estimate_v1", "estimate": estimate}, 200
 

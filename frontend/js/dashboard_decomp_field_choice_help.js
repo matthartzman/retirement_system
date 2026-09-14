@@ -90,6 +90,9 @@ export function choiceOptions(r) {
     ],
     city_type: ["urban", "suburban", "rural"],
     type: ["purchase", "rent"],
+    bathrooms: ["1", "1.5", "2", "2.5", "3", "3.5+"],
+    property_type: ["single_family", "townhome", "condo", "duplex"],
+    sqft_band: ["under_1200", "1200_1800", "1800_2500", "2500_3500", "over_3500"],
     allocation_selection_mode: [
       { value: "user_target", label: "Use user-specified allocation" },
       { value: "optimizer_recommendation", label: "Use allocation optimizer recommendation" },
