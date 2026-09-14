@@ -1,6 +1,24 @@
 # Housing optimization — design
 
-**Date:** 2026-09-09 · **Status:** design, approved · **Revision:** 2
+**Date:** 2026-09-09 · **Status:** v1 shipped ([PR #109](https://github.com/matthartzman/retirement_system/pull/109)) · **Revision:** 7
+
+**Revision 3 (2026-09-11):** v1 landed per this spec. Three implementation-time gaps were
+discovered that the original design didn't anticipate — see §8. §8 also reprioritizes the
+existing §7 out-of-scope list against those gaps for the next chunk of work.
+
+**Revision 4 (2026-09-11):** §8.2 P0 landed — see the note at the end of §8.2.
+
+**Revision 5 (2026-09-11):** §8.2 P2 landed — see the P2 note in §8.2. The full grid stays the
+default (`search_mode='full'`); narrowed search is opt-in (`search_mode='narrowed'`).
+
+**Revision 6 (2026-09-11):** §8.2 P1 confirmed done (live-browser verification, both search modes).
+§8.2 reordered and its priority reasoning revised based on what P0-P2 actually cost to build —
+see the new §8.3.
+
+**Revision 7 (2026-09-11):** §8.2 P3 landed — see the P3 note in §8.2. Anchoring stays the
+default (`move2_strategy='anchored'`); the full cross-product is opt-in
+(`move2_strategy='cross_product'`), guarded by a pre-engine candidate-count cap. All of §8.2's
+priority list (P0-P3) is now done; only P4 (no user request yet) remains open.
 
 **Scope:** given the current home, recommend the sale year, next-purchase year (or "rent
 indefinitely"), and location for the household's next housing move — and optionally a **second**
@@ -206,3 +224,132 @@ keep Pass 1a/1b runtime reasonable; this is a UI/config-level bound, not a new e
 - New tax modeling of any kind — every tax factor in scope is already produced by the existing
   engine (see §1); if a future request needs a tax treatment the engine doesn't have, that is a
   separate spec.
+
+---
+
+## 8. v1 implementation gaps and next-chunk priorities (Revision 3)
+
+v1 shipped in `src/housing_optimizer.py` per §§1-6. Building it surfaced three gaps this design
+didn't anticipate, because they come from a limit in the *engine*, not the optimizer's own search
+logic — the engine has never had to model a second home sale before:
+
+### 8.1 Gaps found during implementation
+
+1. **Move 2's sale bypasses the engine's own sale pathway (accuracy gap, real). Closed by §8.2 P0.**
+   `home_sale.py` has exactly one sale-with-capital-gain pathway, hard-tied to the household's
+   *original* home (`c['home_sale_yr']`). A `next_housing_steps` entry — which is how the engine
+   represents a purchased home after move 1 — only ever stops accruing cashflow at its
+   `end_year`; it has no "sell this and compute gain/§121" step at all. So move 2's sale is priced
+   by `housing_optimizer.py` itself: read the engine's own modeled home value/mortgage balance for
+   the move-1 home just before its `next_housing_steps` entry ends, then apply the same
+   `tax_kernel.ltcg_tax_on_gain` primitive and §121 arithmetic `home_sale.py` uses. Same tax math,
+   applied one level outside the engine's own run loop rather than inside it. The net-after-tax
+   proceeds are folded into net worth/lifetime cost as a one-time adjustment — a deposit the
+   engine's own cascade never sees.
+2. **Consequence of (1): Monte Carlo on two-move candidates is approximate. Closed by §8.2 P0.**
+   Because move-2 proceeds aren't a deposit the engine's MC run can see, MC success rate on a
+   two-move candidate doesn't reflect that cash coming in. Every two-move result is marked
+   `mc_approximate: true` in the API response and flagged in the UI, so this is visible, not
+   silent — but it means Pass 2 (§4) MC validation is weaker for two-move candidates than for
+   single-move ones. *(Now that move 2's sale is a real deposit, MC sees it naturally — the
+   `mc_approximate` flag has been removed from the API response and the UI note; there is no
+   residual approximate case.)*
+3. **No live-browser verification of the new panel in this environment. Closed by §8.2 P1.** Not a
+   product gap, an environment one: this sandbox had no Playwright driver installed
+   (`@playwright/test` is a declared devDependency but `node_modules` was never populated — the
+   same pre-existing gap noted in the PR's CI section). *(Resolved: `npm install` with
+   `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` set populated `node_modules` against the pre-installed
+   Chromium at `/opt/pw-browsers` without re-downloading a browser — this also fixed the unrelated
+   `@babel/parser`-missing test failures noted in the PR's CI section, since both came from the
+   same "`node_modules` never populated" root cause. An ad-hoc Playwright script then drove the
+   actual panel end-to-end: opened the demo plan, expanded the panel, filled every field, clicked
+   "Run optimization" for both `search_mode` values, and confirmed real ranked results rendered
+   with zero console/page errors. This environment fix is reusable for any future work in this
+   worktree that needs a real browser — it is not specific to this feature.)*
+
+(§121-as-flag-only and the full-grid/no-gradient-search/two-move-cap items are **not** gaps — they
+were explicit decisions in §3.1.3/§7 of this spec, not implementation shortfalls.)
+
+### 8.2 Reprioritized next chunk of work
+
+Ordered by (a) correctness first, (b) cost/effort to close, (c) how much it blocks trusting a
+two-move recommendation at all:
+
+1. **P0 — Give the engine a real second-sale pathway. Done (2026-09-11).** `home_sale.py` gained
+   `apply_next_housing_sale`, sharing its gain/§121 arithmetic with the original-home path via a
+   new `_compute_home_sale_economics` helper both call. A `next_housing_steps` purchase step is
+   sold by setting `sale_year` on it; `deterministic_engine.py` fires the sale in its own year
+   loop, depositing net proceeds onto the same cascade-visible ledger `apply_home_sale` uses (both
+   sales' pending gains stack into one correct LTCG computation if they land in the same year).
+   `housing_optimizer.py` now sets `sale_year` on move 1's purchase step for a two-move candidate
+   instead of estimating move 2's gain/tax out-of-loop, and the `mc_approximate` flag/UI note are
+   removed — every two-move candidate's `net_worth`/`lifetime_cost`/`mc_success_rate` now comes
+   from the same real engine run a one-move candidate gets, with no residual approximate case.
+   This removes gap (1) at the root and, as a consequence, gap (2). See
+   `tests/test_next_housing_sale_functional.py` for engine-level coverage of the gain/§121/cascade/Monte
+   Carlo behavior, and `tests/test_housing_optimizer_integration.py` for the optimizer-level
+   wiring.
+2. **P1 — Manual/live smoke test of the panel in a real browser. Done (2026-09-11).** Turned out to
+   be a `node_modules` populate, not an environment rebuild — see the §8.1 point 3 note. Verified
+   end-to-end against the real server and demo plan, both search modes.
+3. **P2 — Narrowed/gradient search within a single move's grid. Done (2026-09-11).** `optimize_housing`
+   gained an opt-in `search_mode='narrowed'` (default stays `'full'`, byte-for-byte unchanged) that
+   replaces, per candidate location, the full `(sale_year x purchase_year)` grid with a bounded
+   integer coordinate/pattern search — a handful of seed points followed by hill-climbing to the
+   best-improving neighbor — plus the same style of 1D search for the rent-indefinitely branch and
+   for move 2's window; scoring/filtering/ranking are reused unchanged. This is a local-search
+   heuristic that can miss the global optimum on a non-unimodal score surface, by design (see
+   `src/housing_optimizer.py`'s module docstring) — trading completeness for a small, documented
+   cap on engine evaluations at larger search windows.
+4. **P3 — Full cross-product search across move 1 and move 2. Done (2026-09-11).** `optimize_housing`
+   gained an opt-in `move2_strategy='cross_product'` (default stays `'anchored'`, byte-for-byte
+   unchanged) — the same opt-in-with-unchanged-default pattern P2 established (see §8.3). It builds
+   move-2 candidates against every move-1 candidate ending in ownership, not just the top
+   `anchor_count`, sourced from whatever `move1_scored` the active `search_mode` already produced
+   (so it composes with `search_mode='narrowed'`, which is what makes a full cross-product
+   tractable at all on a wide window). Guarded by a pre-flight candidate-count cap
+   (`MOVE2_CROSS_PRODUCT_CAP = 3000`, computed exactly for `'full'` and estimated for `'narrowed'`)
+   that raises a clear `ValueError` before invoking the engine, rather than silently running or
+   truncating an enormous job.
+5. **P4 — Chains of three or more moves** (§7). No user request for this yet. Its priority stays
+   low, but its *cost estimate is revised down* — see §8.3.
+
+No action item here reopens §1's "no new tax logic" decision except P0, and P0 is reuse (applying
+`home_sale.py`'s existing gain/§121 computation to a second home) rather than a new tax model —
+consistent with the spirit of that decision, not a violation of it.
+
+### 8.3 What P0-P2 taught us, and how it changes the plan
+
+Three things came out of actually building P0-P2 that weren't visible when §8.2 was first written:
+
+1. **The opt-in-with-unchanged-default pattern works and should be the template for P3/P4 too.**
+   P2 added `search_mode='narrowed'` without touching the `'full'` code path at all — the existing
+   full-grid tests kept passing unmodified, and the new behavior only activates when a caller asks
+   for it. P3 followed the identical shape: `move2_strategy='cross_product'` opt-in,
+   `'anchored'` untouched. This is now the default assumption for *any* future search-behavior
+   change here, not a case-by-case decision — it's cheap insurance against regressing the v1
+   behavior every existing test and the shipped UI already depend on.
+2. **P0 accidentally did most of the hard part of P4.** The original §8.2 priced P4 (3+ moves) as
+   low-priority *and* implicitly high-effort, on the assumption that each additional move would need
+   its own engine-level sale mechanism, the way move 2 did before P0. That assumption is now wrong:
+   `apply_next_housing_sale` in `home_sale.py` is written against "a `next_housing_steps` entry with
+   a `sale_year` set," not against "the specific move-2 home" — nothing about it is move-2-specific.
+   A third move's sale is not a new engine feature; it's the same function called again on a third
+   step. What P4 actually still needs is optimizer-level: a third search dimension, a second
+   anchoring/cross-product decision (does move 3 anchor off move 2's winners the way move 2 anchors
+   off move 1's, or reuse whatever P3 ships?), and the UI/API surface for a third window. That's a
+   real but *substantially smaller* lift than originally estimated. P4's priority stays low because
+   there's still no user request for it, but it should no longer be treated as a major undertaking
+   if one comes in — re-estimate it against P3's actual diff size once P3 lands, not against the
+   original §7 write-up.
+3. **The panel's option surface is growing faster than its layout.** v1 shipped with one dropdown
+   (objective). P2 added a second (search mode). P3 added a third (move-2 strategy).
+   Each addition is individually justified and individually opt-in-safe, but three-plus dropdowns
+   plus the location/window/constraint fields is approaching the point where a casual user opening
+   "Optimize next housing move" sees a wall of controls before they see a result. This wasn't
+   anticipated in the original §5/§6 output-and-surface design. **New backlog item, not yet
+   prioritized against P4:** revisit the panel's layout — e.g. collapse
+   `search_mode`/`move2_strategy`/`anchor_count` into a single "Search strategy" sub-section
+   (advanced, collapsed by default) separate from the objective and location/window fields a casual
+   user actually needs to set. Not scheduled as a P-numbered item yet because it's a UX judgment
+   call, not a correctness or capability gap — flagging it here so it isn't lost.

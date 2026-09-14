@@ -19,6 +19,7 @@ from .budget_rollups import category_budget_rollup, housing_budget_rollup
 from .cashflow_breakdown import compute_cashflow_breakdown as _compute_cashflow_breakdown
 from .effective_marginal_rate import compute_effective_marginal_rate as _compute_effective_marginal_rate
 from .home_sale import apply_home_sale as _apply_home_sale
+from .home_sale import apply_next_housing_sale as _apply_next_housing_sale
 from .income import apply_income as _apply_income
 from .portfolio_growth_and_net_worth import apply_portfolio_growth_and_net_worth as _apply_portfolio_growth_and_net_worth
 from .roth_conversion_and_agi_tax import apply_agi_and_tax as _apply_agi_and_tax
@@ -160,6 +161,20 @@ def run_deterministic_projection_stage(c):
                 end = 0
             if end and year > end:
                 continue
+            # A step marked for sale (see apply_next_housing_sale below) stops
+            # contributing ongoing cash flow/value from its sale year onward,
+            # same as if it had been sold -- regardless of whether its own
+            # `end_year` was also set to `sale_year - 1` (the well-formed
+            # case). This is a safety net, not the primary mechanism: a
+            # caller that sets `sale_year` without also setting `end_year`
+            # still gets correct behavior instead of double-counting a home
+            # that has already been sold.
+            try:
+                sale_yr = int(step.get('sale_year') or 0)
+            except Exception:
+                sale_yr = 0
+            if sale_yr and year >= sale_yr:
+                continue
             typ = str(step.get('type') or 'purchase').strip().lower()
             base = start
             infl = _infl_ratio(year, base)
@@ -197,6 +212,36 @@ def run_deterministic_projection_stage(c):
             out['maintenance'] += float(step.get('maintenance_annual', 0.0) or 0.0) * infl
             out['hoa'] += price * float(step.get('hoa_pct', 0.0) or 0.0) * infl
         return out
+
+    def _next_housing_sale_inputs(step, sale_year):
+        """Gross value and mortgage payoff for selling a next_housing_steps
+        purchase step in `sale_year`, valued as of the end of the PRIOR
+        year -- the same convention apply_home_sale uses for the original
+        home (a sale year's gross proceeds come from last year's ending
+        value; the sale year itself doesn't add another year of
+        appreciation). Mirrors the per-step formula in
+        `_next_housing_for_year` above (kept as a small separate
+        computation, not a shared helper, so that function's already-tested
+        aggregate-across-steps behavior is untouched). Returns None for a
+        rent step or a purchase step with no positive price -- nothing to
+        sell.
+        """
+        if str(step.get('type') or 'purchase').strip().lower() != 'purchase':
+            return None
+        price = float(step.get('purchase_price', 0.0) or 0.0)
+        try:
+            start = int(step.get('start_year') or 0)
+        except Exception:
+            start = 0
+        if price <= 0.0 or not start:
+            return None
+        valuation_year = sale_year - 1
+        home_value = price * ((1.0 + float(c.get('home_appr', 0.0) or 0.0)) ** max(0, valuation_year - start + 1))
+        down_pct = max(0.0, min(1.0, float(step.get('down_payment_pct', 0.20) or 0.20)))
+        loan = max(0.0, price * (1.0 - down_pct))
+        year_index = max(0, valuation_year - start)
+        _pmt, mort_bal = _mortgage_payment_and_balance(loan, float(step.get('mortgage_rate_pct', 0.0) or 0.0), year_index)
+        return home_value, mort_bal
 
     # TCJA warning
     emit(EvWarning(0, 'TCJA_PERMANENT',
@@ -713,6 +758,37 @@ def run_deterministic_projection_stage(c):
         home_val = _stage4.home_val
         home_equity = _stage4.home_equity
         mort_bal_yr = _stage4.mort_bal_yr
+
+        # ── Second-home sale (next_housing_steps `sale_year`) ────────────────
+        # A next_housing_steps purchase step can itself be sold with a real
+        # gain/§121/cascade-visible deposit, the same treatment the original
+        # home gets above -- see home_sale.py's apply_next_housing_sale
+        # docstring for why this needs no cross-year state (unlike
+        # home_val/mort_bal_yr just above, a step's own value/mortgage
+        # balance is a pure function of its config and the year).
+        for _nh_step in c.get('next_housing_steps', []) or []:
+            try:
+                _nh_sale_year = int(_nh_step.get('sale_year') or 0)
+            except Exception:
+                _nh_sale_year = 0
+            if _nh_sale_year != year:
+                continue
+            _nh_inputs = _next_housing_sale_inputs(_nh_step, _nh_sale_year)
+            if _nh_inputs is None:
+                continue
+            _nh_gross, _nh_mort_payoff = _nh_inputs
+            _apply_next_housing_sale(
+                c, row,
+                year=year,
+                step_id=str(_nh_step.get('id') or 'next_housing'),
+                gross_proceeds=_nh_gross,
+                mort_payoff=_nh_mort_payoff,
+                basis=float(_nh_step.get('purchase_price', 0.0) or 0.0),
+                filing=filing,
+                bal=bal,
+                bal_basis_free=bal_basis_free,
+                emit=emit,
+            )
 
         # Note Receivable — sum principal/interest across every note, since
         # each note (e.g. "RedMane Note") can have its own face value,
