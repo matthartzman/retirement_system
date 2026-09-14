@@ -2326,64 +2326,185 @@ def build_sheet14(ws, c, rows):
 
 
 
-def build_sheet_housing_comparison(ws, c, rows):
-    """Housing Trajectory Comparison (Slice 3, H11a) -- the household's
-    configured Housing Step 1 choice vs. the opposite type (buy vs. rent) at
-    the same year/location. Two rows, each scored with a real Monte Carlo
-    run; with only two candidates the table IS the recommendation, so unlike
-    Sheet 10 there is no separate "recommended trajectory" summary block, and
-    nothing is swept yet, so no sensitivity tables -- both are Slice 4 scope
-    (see ``housing_comparison.py``'s module docstring)."""
-    ws.sheet_view.showGridLines = False
-    section_title(ws, 1, 'HOUSING TRAJECTORY COMPARISON', 8)
+_HOUSING_AXIS_LABELS = {
+    'sale_year': 'Current-home sale year',
+    'step1': 'Housing Step 1 (type / year)',
+    'step2': 'Housing Step 2 (type / year)',
+}
 
-    from ..housing_comparison import compare_housing_candidates
+
+def build_sheet_housing_comparison(ws, c, rows):
+    """Housing Comparison (Slice 4, H11) -- the full three-axis
+    coordinate-descent sweep of §4 of the 2026-09-09 housing-estimate design:
+    a recommended-trajectory block, the refine pass's real-Monte-Carlo
+    candidates ranked, and one deterministic sensitivity mini-table per axis.
+
+    Replaces Slice 3's 2-row "configured vs. opposite type" table in place --
+    same sheet, same registry entry, same signature (see
+    ``housing_comparison.py``'s module docstring for the search itself)."""
+    ws.sheet_view.showGridLines = False
+    section_title(ws, 1, 'HOUSING TRAJECTORY COMPARISON', 13)
+
+    from ..housing_comparison import (
+        AXES as _AXES,
+        describe_sale_year,
+        describe_trajectory_step,
+        sweep_housing_trajectories,
+    )
 
     r = 3
-    comparison = compare_housing_candidates(c, rows)
-    if comparison is None:
+    sweep = sweep_housing_trajectories(c, rows)
+    if sweep is None:
         write_cell(ws, r, 1,
                    'No Step 1 housing change (Housing > next_step_1) is configured -- nothing to compare.',
                    bg='FFF4E5', align='left')
-        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=13)
         qc('38. Housing Comparison', 'No Step 1 housing change configured', True, 'nothing to compare')
-        return
+        return None
 
-    write_cell(ws, r, 1,
-               'Compares the configured Housing Step 1 choice against the opposite type (purchase <-> rent) '
-               'at the same year, state, city type, and population size -- both scored with a full Monte Carlo '
-               'run. This is a 2-candidate comparison (v0); it does not sweep the year or location.',
-               bg='FFF4E5', align='left')
-    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
-    ws.row_dimensions[r].height = 30
-    r += 2
+    def _traj_cells(traj):
+        return (describe_sale_year(traj.sale_year),
+                describe_trajectory_step(traj.step1),
+                describe_trajectory_step(traj.step2))
 
-    headers = ['Choice', 'Type', 'Year', 'State', 'City Type', 'Population',
-               'Terminal Net Worth', 'LCV (Lifetime Consumption + Transfer)',
-               'NPV Future Taxes', 'MC Success Rate', 'Essential-Spend Feasibility', 'Feasibility Gate Met']
-    for i, h in enumerate(headers):
-        write_hdr(ws, r, 1 + i, h)
-    r += 1
+    configured = sweep['configured']
+    best = sweep['recommended']
+    best_traj = best['trajectory']
+    winning_order = sweep['winning_order']
+    order_label = ' -> '.join(_HOUSING_AXIS_LABELS[a].split(' (')[0] for a in winning_order['order'])
 
-    rows_out = [('Configured (as entered)', comparison['configured']),
-                ('Alternative (opposite type)', comparison['alternative'])]
-    for label, cand in rows_out:
+    write_hdr(ws, r, 1, 'Recommended housing trajectory from a two-ordering coordinate-descent sweep', NAVY, WHITE, span=13); r += 1
+    _cfg_sale, _cfg_s1, _cfg_s2 = _traj_cells(configured)
+    _best_sale, _best_s1, _best_s2 = _traj_cells(best_traj)
+    summary = [
+        ('Recommended Current-Home Sale Year', _best_sale,
+         f'Highest-scoring trajectory (LCV -- PV of lifetime spending plus PV of after-tax terminal transfer) among the '
+         f'{len(sweep["refine_candidates"])} refine-pass candidates meeting the essential-funding feasibility gate.'),
+        ('Recommended Housing Step 1', _best_s1,
+         f'Coarse pass: {sweep["deterministic_calls"]} deterministic projections across the three axes, run from two '
+         f'axis orderings; the better trajectory ({order_label}) was kept and refined.'),
+        ('Recommended Housing Step 2', _best_s2,
+         'Axis (c) collapses to a single "no second move" candidate when no Housing Step 2 is configured.'
+         if not sweep['step2_configured'] else
+         'Step 2 is swept over the same type x year shape as Step 1.'),
+        ('Currently Configured Trajectory', f'{_cfg_sale} / {_cfg_s1} / {_cfg_s2}',
+         'Sale year / Step 1 / Step 2 exactly as entered -- the one grid point priced with the real entered dollars.'),
+        ('Best vs Configured LCV', best.get('delta_lcv', 0.0),
+         'Positive means the recommended trajectory improves Lifetime Consumption-and-Transfer Value versus the configured plan.'),
+        ('Equity at Plan End', best.get('equity_at_plan_end', 0.0),
+         'Current-home plus next-housing equity in the final projection year -- the housing-specific figure that most '
+         'directly explains why one trajectory beats another despite a higher monthly cost.'),
+    ]
+    if sweep['all_infeasible']:
+        summary.append((
+            'Feasibility Gate', 'Not met by any candidate',
+            'No refine-pass trajectory reached the essential-spending funding probability floor -- the recommendation '
+            'above is the best-scoring trajectory anyway (feasibility could not gate the choice).',
+        ))
+    for label, value, note in summary:
         write_cell(ws, r, 1, label, bold=True, bg=LGRAY)
-        write_cell(ws, r, 2, str(cand.get('type', '')).title())
-        write_cell(ws, r, 3, cand.get('start_year'), fmt=FMT_YEAR)
-        write_cell(ws, r, 4, cand.get('state'))
-        write_cell(ws, r, 5, str(cand.get('city_type', '')).title())
-        write_cell(ws, r, 6, cand.get('population_size'))
-        write_cell(ws, r, 7, cand.get('net_worth', 0.0), fmt=FMT_DOLLAR)
-        write_cell(ws, r, 8, cand.get('lcv', 0.0), fmt=FMT_DOLLAR)
-        write_cell(ws, r, 9, cand.get('npv_future_taxes', 0.0), fmt=FMT_DOLLAR)
-        write_cell(ws, r, 10, cand.get('mc_success_rate', 0.0), fmt=FMT_PCT)
-        write_cell(ws, r, 11, cand.get('feasibility_probability', 0.0), fmt=FMT_PCT)
-        write_cell(ws, r, 12, 'Yes' if cand.get('feasibility_gate_met') else 'No')
+        write_cell(ws, r, 2, value, fmt=FMT_DOLLAR if isinstance(value, (int, float)) else None)
+        write_cell(ws, r, 3, note)
+        ws.merge_cells(start_row=r, start_column=3, end_row=r, end_column=13)
         r += 1
 
-    qc('38. Housing Comparison', 'Configured vs. opposite-type Step 1 choice scored', True,
-       f"configured={comparison['configured'].get('type')}, alternative={comparison['alternative'].get('type')}")
+    r += 2
+    write_hdr(ws, r, 1, 'Refine pass -- Monte Carlo ranking of the winning trajectory and its neighbourhood', NAVY, WHITE, span=13); r += 1
+    write_cell(
+        ws, r, 1,
+        f'Score (0-100) ranks these {len(sweep["refine_candidates"])} trajectories relative to each other (100 = best in this set). '
+        'Objective Value is a present-value scoring unit (PV of lifetime spending plus PV of after-tax terminal transfer) -- the same '
+        'convention "10. Social Security" ranks its claim-age pairs by, so the two sheets\' Objective Values are on the same scale. It is '
+        'deliberately a different convention than the displayed LCV column (nominal lifetime spending plus Post-Tax Inheritance), so the two '
+        'are not comparable dollar-for-dollar. The Recommended row above is chosen only from trajectories whose modeled essential-spending '
+        'funding probability clears a feasibility floor; other trajectories still appear here, ranked, for comparison.',
+        align='left')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=13)
+    ws.row_dimensions[r].height = 40
+    r += 1
+
+    headers = ['Rank', 'Sale Year', 'Step 1 (Type / Year)', 'Step 2 (Type / Year)', 'Score (0-100)',
+               'Objective Value', 'After-Tax Terminal NW', 'LCV', 'Δ LCV', 'NPV of Future Taxes',
+               'Equity at Plan End', 'Feasibility Gate Met', 'Worst-Case Ending Wealth (5th %ile)']
+    for i, h in enumerate(headers, 1):
+        write_hdr(ws, r, i, h, DGRAY, WHITE)
+    r += 1
+    for rank, cand in enumerate(sweep['refine_candidates'], 1):
+        sale, s1, s2 = _traj_cells(cand['trajectory'])
+        vals = [rank, sale, s1, s2, cand['rank_score'], cand['objective_value'],
+                cand['after_tax_terminal_nw'], cand['lcv'], cand['delta_lcv'],
+                cand['npv_future_taxes'], cand['equity_at_plan_end'],
+                'Yes' if cand['feasibility_gate_met'] else 'No', cand.get('mc_p5_terminal_nw')]
+        bg = 'E2EFDA' if rank == 1 else ('F4F5F7' if cand['trajectory'] == configured else None)
+        for i, v in enumerate(vals, 1):
+            write_cell(ws, r, i, v, fmt=FMT_DOLLAR if isinstance(v, float) else None, bg=bg)
+        r += 1
+
+    r += 2
+    write_hdr(ws, r, 1, 'Per-axis sensitivity of the coarse pass (deterministic, no Monte Carlo)', NAVY, WHITE, span=13); r += 1
+    write_cell(
+        ws, r, 1,
+        'One table per axis, showing every point the winning axis ordering actually visited on that axis and the deterministic '
+        'Objective Value it scored. These are the coarse pass\'s own already-computed numbers -- nothing extra was run for them -- '
+        'so the other two axes are held at the values they had at THAT stage of the descent, which for the last axis swept is the '
+        'winning trajectory itself and for earlier axes is the descent\'s running best at that point. Read them as "here is the full '
+        'range considered on each axis," not as a joint ranking.',
+        align='left')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=13)
+    ws.row_dimensions[r].height = 40
+    r += 1
+    for axis in _AXES:
+        candidates = winning_order['axis_candidates'].get(axis) or []
+        write_cell(ws, r, 1, _HOUSING_AXIS_LABELS[axis], bold=True, bg=LGRAY)
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=4)
+        r += 1
+        write_hdr(ws, r, 1, 'Axis point', DGRAY, WHITE)
+        write_hdr(ws, r, 2, 'Objective Value (deterministic)', DGRAY, WHITE)
+        r += 1
+        # Displayed in axis order (not score order) so the reader sees the
+        # shape of the axis; run_sweep returns them best-first.
+        by_value = {x['value']: x for x in candidates}
+        best_axis_value = candidates[0]['value'] if candidates else None
+        for value in sweep['axes'][axis]:
+            entry = by_value.get(value)
+            if entry is None:
+                continue
+            label = describe_sale_year(value) if axis == 'sale_year' else describe_trajectory_step(value)
+            is_best = value == best_axis_value
+            write_cell(ws, r, 1, label, bold=is_best, bg='E2EFDA' if is_best else None)
+            write_cell(ws, r, 2, entry['objective_value'], fmt=FMT_DOLLAR, bold=is_best,
+                       bg='E2EFDA' if is_best else None)
+            r += 1
+        r += 1
+
+    write_hdr(ws, r, 1, 'How this sheet was computed', NAVY, WHITE, span=13); r += 1
+    write_cell(
+        ws, r, 1,
+        'Methodology: this is a COORDINATE-DESCENT search, not an exhaustive joint one. The full cross-product of the three axes '
+        '(current-home sale year, Housing Step 1 type x year, Housing Step 2 type x year) is on the order of 1,568 trajectories, far too '
+        'many to project. Instead one axis at a time was swept with the other two held at the running best, deterministically and with no '
+        f'Monte Carlo ({sweep["deterministic_calls"]} projections). That whole coarse pass was run TWICE, from two different axis orderings '
+        f'(sale year first, and Step 1 first), and the better-scoring of the two resulting trajectories was kept -- here, the '
+        f'"{order_label}" ordering. Only that survivor and its immediate neighbourhood (one step on each axis) were then re-scored with real '
+        f'Monte Carlo ({sweep["mc_calls"]} runs). Two orderings reduce, but do not eliminate, the risk that a joint optimum no single-axis '
+        'move would reach was missed.\n'
+        'Real vs. modeled dollars, per grid point: ONLY the point matching the household\'s exact configured (sale year, Step 1, Step 2) '
+        'combination uses their real entered purchase price / rent and operating costs end-to-end. Every other point on this sheet -- '
+        'including the points the coarse pass visited and discarded -- has its price, rent, taxes, insurance, utilities and maintenance '
+        'SYNTHESIZED from state/city/population averages translated into that candidate year\'s dollars, because a saved step\'s parsed '
+        'price is a flat figure for its own configured year and would be stale at any other year. Location and dwelling characteristics '
+        'are held at whatever was entered for each step; they are not swept in this version.',
+        align='left')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=13)
+    ws.row_dimensions[r].height = 120
+    r += 1
+
+    qc('38. Housing Comparison', 'Three-axis coordinate-descent housing sweep scored', True,
+       f'{sweep["deterministic_calls"]} deterministic + {sweep["mc_calls"]} Monte Carlo trajectories, '
+       f'winning ordering {order_label}')
+    # Returned for the same reason build_sheet10 returns its own sweep result:
+    # tests read the scored candidates directly rather than parsing cells.
+    return sweep
 
 
 __all__ = ['build_sheet9', 'build_sheet10', 'build_sheet11', 'build_sheet12', 'build_sheet13', 'build_sheet14',
