@@ -1028,7 +1028,6 @@ function dismissMessage() {
   if (el) el.classList.add("hidden");
 }
 
-
 function stripUiLabelPrefix(text) {
   return String(text || "")
     .replace(/^[^/]{1,80}\s*\/\s*/, "")
