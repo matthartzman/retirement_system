@@ -276,6 +276,18 @@ _OUTPUTS: List[OutputModule] = [
         dashboard_step="state_residency",
     ),
     OutputModule(
+        # Slice 3 (2026-09-09 housing-estimate design, §7.0 H7/H9a/H11a): a
+        # 2-candidate v0 -- configured Housing Step 1 vs. the opposite type
+        # (purchase <-> rent) at the same year/location, each scored with a
+        # real Monte Carlo run. Slice 4 (not yet built) upgrades this in
+        # place into a full type/year/location coordinate-descent sweep.
+        "housing_trajectory_comparison", "Housing Comparison", OPTIMIZATION, LOW,
+        "Configured Step 1 housing choice vs. the opposite type (buy vs. rent) at the same year/location.",
+        optional=True, sheet="38. Housing Comparison", tab="2M. Housing Comparison",
+        requires_inputs=(_in("household", "next_housing_steps"), _in("assumptions", "growth")),
+        requires_outputs=BASE_PROJECTION,
+    ),
+    OutputModule(
         "estate_legacy_plan", "Estate & Legacy", OPTIMIZATION, MEDIUM,
         "Estate-tax exposure, legacy/bequest structure, beneficiary/titling audit, "
         "gifting schedule, and per-beneficiary 10-year drawdown sensitivity.",
@@ -615,6 +627,16 @@ SHEET_REGISTRY = {
     '35. Equity Compensation':     _spec('2', '2', 10, '2', 10, 'Equity Compensation', 'equity_compensation'),
     '36. Special-Needs Planning':  _spec('2', '2', 11, '2', 11, 'Special-Needs Planning', 'special_needs_planning'),
     '37. Current vs Proposed':     _spec('1', '1', 7, '1', 7, 'Current vs. Proposed'),
+    # Slice 3 (2026-09-09 housing-estimate design, §7.0 H7): 2-candidate
+    # (configured Step 1 vs. opposite type) comparison -- see
+    # src/housing_comparison.py. section_rank/letter_rank 17/15 sit right
+    # after '11B. Tax Capacity' (16/14), the highest currently used in
+    # section '2'/letter_prefix '2', without renumbering anything else.
+    # Kept short ("Comparison", not "Trajectory Comparison") because a
+    # build-time sheet TITLE is a real openpyxl worksheet name, capped at 31
+    # characters -- "38. Housing Trajectory Comparison" (33 chars) tripped
+    # that limit.
+    '38. Housing Comparison':      _spec('2', '2', 17, '2', 15, 'Housing Comparison', 'housing_trajectory_comparison'),
 }
 
 # OPTIONAL_MODULE_SHEETS maps each client_optional_functions.csv toggle key to

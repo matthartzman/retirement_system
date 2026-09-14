@@ -2326,4 +2326,65 @@ def build_sheet14(ws, c, rows):
 
 
 
-__all__ = ['build_sheet9', 'build_sheet10', 'build_sheet11', 'build_sheet12', 'build_sheet13', 'build_sheet14']
+def build_sheet_housing_comparison(ws, c, rows):
+    """Housing Trajectory Comparison (Slice 3, H11a) -- the household's
+    configured Housing Step 1 choice vs. the opposite type (buy vs. rent) at
+    the same year/location. Two rows, each scored with a real Monte Carlo
+    run; with only two candidates the table IS the recommendation, so unlike
+    Sheet 10 there is no separate "recommended trajectory" summary block, and
+    nothing is swept yet, so no sensitivity tables -- both are Slice 4 scope
+    (see ``housing_comparison.py``'s module docstring)."""
+    ws.sheet_view.showGridLines = False
+    section_title(ws, 1, 'HOUSING TRAJECTORY COMPARISON', 8)
+
+    from ..housing_comparison import compare_housing_candidates
+
+    r = 3
+    comparison = compare_housing_candidates(c, rows)
+    if comparison is None:
+        write_cell(ws, r, 1,
+                   'No Step 1 housing change (Housing > next_step_1) is configured -- nothing to compare.',
+                   bg='FFF4E5', align='left')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
+        qc('38. Housing Comparison', 'No Step 1 housing change configured', True, 'nothing to compare')
+        return
+
+    write_cell(ws, r, 1,
+               'Compares the configured Housing Step 1 choice against the opposite type (purchase <-> rent) '
+               'at the same year, state, city type, and population size -- both scored with a full Monte Carlo '
+               'run. This is a 2-candidate comparison (v0); it does not sweep the year or location.',
+               bg='FFF4E5', align='left')
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=8)
+    ws.row_dimensions[r].height = 30
+    r += 2
+
+    headers = ['Choice', 'Type', 'Year', 'State', 'City Type', 'Population',
+               'Terminal Net Worth', 'LCV (Lifetime Consumption + Transfer)',
+               'NPV Future Taxes', 'MC Success Rate', 'Essential-Spend Feasibility', 'Feasibility Gate Met']
+    for i, h in enumerate(headers):
+        write_hdr(ws, r, 1 + i, h)
+    r += 1
+
+    rows_out = [('Configured (as entered)', comparison['configured']),
+                ('Alternative (opposite type)', comparison['alternative'])]
+    for label, cand in rows_out:
+        write_cell(ws, r, 1, label, bold=True, bg=LGRAY)
+        write_cell(ws, r, 2, str(cand.get('type', '')).title())
+        write_cell(ws, r, 3, cand.get('start_year'), fmt=FMT_YEAR)
+        write_cell(ws, r, 4, cand.get('state'))
+        write_cell(ws, r, 5, str(cand.get('city_type', '')).title())
+        write_cell(ws, r, 6, cand.get('population_size'))
+        write_cell(ws, r, 7, cand.get('net_worth', 0.0), fmt=FMT_DOLLAR)
+        write_cell(ws, r, 8, cand.get('lcv', 0.0), fmt=FMT_DOLLAR)
+        write_cell(ws, r, 9, cand.get('npv_future_taxes', 0.0), fmt=FMT_DOLLAR)
+        write_cell(ws, r, 10, cand.get('mc_success_rate', 0.0), fmt=FMT_PCT)
+        write_cell(ws, r, 11, cand.get('feasibility_probability', 0.0), fmt=FMT_PCT)
+        write_cell(ws, r, 12, 'Yes' if cand.get('feasibility_gate_met') else 'No')
+        r += 1
+
+    qc('38. Housing Comparison', 'Configured vs. opposite-type Step 1 choice scored', True,
+       f"configured={comparison['configured'].get('type')}, alternative={comparison['alternative'].get('type')}")
+
+
+__all__ = ['build_sheet9', 'build_sheet10', 'build_sheet11', 'build_sheet12', 'build_sheet13', 'build_sheet14',
+           'build_sheet_housing_comparison']

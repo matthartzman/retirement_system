@@ -5,7 +5,7 @@
    tools/js_codemod/extract_module.mjs.
 
    Third domain cluster of the Wave 6.4 domain-module split (see
-   documentation/archive/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md),
+   docs/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md),
    after dashboard_decomp_assets_other.js and
    dashboard_decomp_spending_taxonomy.js. Selected as a connected component of
    dashboard.js's internal call graph (tools/js_codemod/find_clusters.mjs),
@@ -163,6 +163,22 @@ export async function estimateHousingFromState(stepNum) {
       norm(r.subsection || "") === "next_step_" + stepNum &&
       norm(r.label) === "population_size",
   );
+  const startYearRow = rows.find(
+    (r) =>
+      r.section === "Housing" &&
+      norm(r.subsection || "") === "next_step_" + stepNum &&
+      norm(r.label) === "start_year",
+  );
+  // Same accessor pattern displayValueForInput/valueKind use elsewhere for a
+  // "percent" field: the row stores the percentage on a 0-100 scale (e.g.
+  // "3.00%" -> 3), so divide by 100 to get the fraction rate the backend's
+  // (1 + rate) ** years_out translation (design doc §3.2) expects.
+  const homeApprRow = rows.find(
+    (r) => r.section === "Other Assets" && norm(r.subsection || "") === "home" && norm(r.label) === "appreciation_rate",
+  );
+  const inflationRow = rows.find(
+    (r) => r.section === "Economic Assumptions" && norm(r.label) === "inflation_general",
+  );
   const bedroomsRow = rows.find(
     (r) =>
       r.section === "Housing" &&
@@ -192,22 +208,6 @@ export async function estimateHousingFromState(stepNum) {
       r.section === "Housing" &&
       norm(r.subsection || "") === "next_step_" + stepNum &&
       norm(r.label) === "built_within_years",
-  );
-  const startYearRow = rows.find(
-    (r) =>
-      r.section === "Housing" &&
-      norm(r.subsection || "") === "next_step_" + stepNum &&
-      norm(r.label) === "start_year",
-  );
-  // Same accessor pattern displayValueForInput/valueKind use elsewhere for a
-  // "percent" field: the row stores the percentage on a 0-100 scale (e.g.
-  // "3.00%" -> 3), so divide by 100 to get the fraction rate the backend's
-  // (1 + rate) ** years_out translation (design doc §3.2) expects.
-  const homeApprRow = rows.find(
-    (r) => r.section === "Other Assets" && norm(r.subsection || "") === "home" && norm(r.label) === "appreciation_rate",
-  );
-  const inflationRow = rows.find(
-    (r) => r.section === "Economic Assumptions" && norm(r.label) === "inflation_general",
   );
   const stateVal = stateRow
     ? String(valOf(stateRow) || "")
@@ -239,6 +239,15 @@ export async function estimateHousingFromState(stepNum) {
   const popVal = popRow
     ? String(valOf(popRow) || "20000").replace(/[^0-9]/g, "")
     : "20000";
+  const startYearVal = startYearRow
+    ? parseInt(String(valOf(startYearRow) || "").replace(/[^0-9]/g, ""), 10)
+    : NaN;
+  const homeApprVal = homeApprRow
+    ? numberFromDisplay(valOf(homeApprRow)) / 100
+    : null;
+  const inflationVal = inflationRow
+    ? numberFromDisplay(valOf(inflationRow)) / 100
+    : null;
   const bedroomsVal = bedroomsRow ? String(valOf(bedroomsRow) || "3").trim() : "3";
   const bathroomsVal = bathroomsRow ? String(valOf(bathroomsRow) || "2").trim() : "2";
   const propertyTypeVal = propertyTypeRow
@@ -250,15 +259,6 @@ export async function estimateHousingFromState(stepNum) {
   const builtWithinYearsVal = builtWithinYearsRow
     ? String(valOf(builtWithinYearsRow) || "").trim()
     : "";
-  const startYearVal = startYearRow
-    ? parseInt(String(valOf(startYearRow) || "").replace(/[^0-9]/g, ""), 10)
-    : NaN;
-  const homeApprVal = homeApprRow
-    ? numberFromDisplay(valOf(homeApprRow)) / 100
-    : null;
-  const inflationVal = inflationRow
-    ? numberFromDisplay(valOf(inflationRow)) / 100
-    : null;
   try {
     const out = await api("/api/housing/state-estimate", {
       method: "POST",
@@ -268,14 +268,14 @@ export async function estimateHousingFromState(stepNum) {
         type: typeVal,
         city_type: cityTypeVal,
         population_size: parseInt(popVal) || 20000,
+        start_year: Number.isFinite(startYearVal) ? startYearVal : "",
+        home_appr: homeApprVal,
+        inflation_general: inflationVal,
         bedrooms: bedroomsVal,
         bathrooms: bathroomsVal,
         property_type: propertyTypeVal,
         sqft_band: sqftBandVal,
         built_within_years: builtWithinYearsVal,
-        start_year: Number.isFinite(startYearVal) ? startYearVal : "",
-        home_appr: homeApprVal,
-        inflation_general: inflationVal,
       }),
     });
     if (!out || !out.estimate) {
@@ -1463,10 +1463,10 @@ Object.assign(window, {
   renderCurrentScenarioOverridesHtml,
   renderScenarioManagementPanel,
   renderScenarios,
-  seedHousingRows,
   toggleHousingOptLocationRows,
   toggleHousingOptMove2Fields,
   renderHousingOptimizePanelHtml,
   renderHousingOptimizeResultsHtml,
   runHousingOptimization,
+  seedHousingRows,
 });

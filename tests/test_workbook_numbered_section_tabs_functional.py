@@ -44,6 +44,10 @@ def test_workbook_uses_numbered_sections_and_lettered_children(built_workbook_pa
         # system review 2026-08-31 item 1.17: new always-on core sheet, lands
         # densely at the end of section 2's letter order (highest letter_rank).
         '2L. Tax Capacity',
+        # housing-estimate-realism-and-dollar-convention-design.md Slice 3:
+        # new optional sheet, lands densely at the end of section 2's letter
+        # order (highest letter_rank), same pattern as 2L above.
+        '2M. Housing Comparison',
         '3. Risk & Stress Tests',
         '3A. Monte Carlo',
         '3B. Survivor',
