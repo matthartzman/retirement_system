@@ -29,6 +29,10 @@ def test_system_section_uses_clean_sheet_sequence_without_feature_toggle(built_w
         # system review 2026-08-31 item 1.17: new always-on core sheet, lands
         # densely at the end of section 2's letter order (highest letter_rank).
         '2L. Tax Capacity',
+        # housing-estimate-realism-and-dollar-convention-design.md Slice 3:
+        # new optional sheet, lands densely at the end of section 2's letter
+        # order (highest letter_rank), same pattern as 2L above.
+        '2M. Housing Comparison',
         '3. Risk & Stress Tests','3A. Monte Carlo','3B. Survivor','3C. LTC + Life Insurance',
         '4. System','4A. Plan Data','4B. Assumptions','2I. Planning Levers','4C. Account Reconciliation','4D. Quality Control','4E. RMD Audit','4F. Methodology','4G. Glossary',
     ]

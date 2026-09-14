@@ -285,7 +285,7 @@ _OUTPUTS: List[OutputModule] = [
         "housing_trajectory_comparison", "Housing Comparison", OPTIMIZATION, LOW,
         "Sweeps the current-home sale year and both future housing steps (buy vs. rent x year) "
         "by coordinate descent, ranked on the same LCV basis as the Social Security sweep.",
-        optional=True, sheet="38. Housing Comparison", tab="2O. Housing Comparison",
+        optional=True, sheet="38. Housing Comparison", tab="2M. Housing Comparison",
         requires_inputs=(_in("household", "next_housing_steps"), _in("assumptions", "growth")),
         requires_outputs=BASE_PROJECTION,
     ),
