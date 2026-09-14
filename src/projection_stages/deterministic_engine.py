@@ -299,7 +299,7 @@ def run_deterministic_projection_stage(c):
     # HSA expense-bank accumulation (optimization refactor, Option B):
     # cumulative substantiated unreimbursed qualified medical expense,
     # available to justify a tax-free HSA draw at any later date (the
-    # "shoebox strategy" -- see docs/superpowers/plans/
+    # "shoebox strategy" -- see documentation/archive/superpowers/plans/
     # 2026-08-26-hsa-expense-bank-and-double-dip-spec.md). Seeded from the
     # user's entered historical figure (blank means nothing entered yet, not
     # unlimited -- it accrues from here); grown every year by that year's

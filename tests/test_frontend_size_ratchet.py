@@ -31,7 +31,7 @@ JS_DIR = ROOT / "frontend" / "js"
 # extraction (dashboard_decomp_holdings.js) moved the Plan Holdings lot
 # table and its CRUD/CSV-import/pricing-tester helpers out of dashboard.js.
 # 2026-08-06: lowered from 19,188 to 19,167 -- pre-conversion dead-code sweep
-# (docs/superpowers/plans/2026-08-06-dashboard-js-ast-module-conversion.md)
+# (documentation/archive/superpowers/plans/2026-08-06-dashboard-js-ast-module-conversion.md)
 # removed three top-level bindings with zero references anywhere in the repo:
 # APP_UNAVAILABLE_MESSAGE, BUDGET_SECTION_DEFS, planFileHandles.
 # 2026-08-06: RAISED from 19,167 to 19,403 -- the one deliberate exception this
@@ -47,7 +47,7 @@ JS_DIR = ROOT / "frontend" / "js"
 # and is the explicit-interface list the "frontend-single-global-namespace"
 # finding this ratchet exists for was asking for in the first place.
 # 2026-08-06: lowered from 19,403 to 15,411 -- domain-module-split shared-core
-# extraction (docs/superpowers/plans/2026-08-06-dashboard-js-domain-module-split-SCOPE.md):
+# extraction (documentation/archive/superpowers/plans/2026-08-06-dashboard-js-domain-module-split-SCOPE.md):
 # moved the 172 fan-in>=3 hub functions (row-model DSL + app-shell) into
 # frontend/js/dashboard_decomp_row_model.js. renderMain/showStepHelp stayed
 # (other leaf modules reassign them as a monkey-patch chain).
@@ -60,7 +60,7 @@ JS_DIR = ROOT / "frontend" / "js"
 # failure bugs (those filter/search inputs updating an accidental implicit
 # global instead of the real state). 3 new generated lines, no slack added.
 # 2026-08-10: lowered from 15,308 -- first domain-cluster extraction
-# (docs/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md):
+# (documentation/archive/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md):
 # tools/js_codemod/extract_module.mjs moved the 24-function assets cluster
 # (liabilities, note receivables, 529s, other-asset items) plus the 4 constant
 # tables only it reads into frontend/js/dashboard_decomp_assets_other.js.

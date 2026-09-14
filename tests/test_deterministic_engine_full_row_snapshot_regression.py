@@ -1,7 +1,7 @@
 """Full per-year row snapshot regression -- prerequisite for ticket 3.10.
 
 See
-``docs/superpowers/plans/2026-09-08-deterministic-engine-stage-decomposition-design.md``
+``documentation/archive/superpowers/plans/2026-09-08-deterministic-engine-stage-decomposition-design.md``
 for the full rationale. Short version: both pre-existing golden-master
 suites (``test_frozen_sample_plan_golden_master_regression.py`` and
 ``test_synthetic_golden_master.py``) pin only ~10 AGGREGATE scalars per

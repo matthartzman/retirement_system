@@ -1,6 +1,6 @@
 """HSA-reimbursed medical expense is not also deducted on Schedule A.
 
-Design: docs/superpowers/plans/2026-08-26-hsa-expense-bank-and-double-dip-spec.md
+Design: documentation/archive/superpowers/plans/2026-08-26-hsa-expense-bank-and-double-dip-spec.md
 
 A qualified medical expense cannot both be reimbursed tax-free from an HSA
 and deducted on Schedule A. Before this fix, `medical_expense_yr` fed the

@@ -1,7 +1,7 @@
 """roth_conversion_policy.py — Roth Conversion Policy parameter parsing.
 
 Extracted from src/data_io.py's parse_client() per ticket 312 / the design
-doc docs/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md
+doc documentation/archive/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md
 (section 3, "Roth Conversion Policy"). Follows the same pattern as the
 sibling modules (src/parsing/daf.py, note_receivable.py, insurance.py,
 estate_planning.py): a pure function reading only the sectioned ``data``

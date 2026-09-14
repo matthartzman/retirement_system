@@ -1,5 +1,5 @@
 """Optimization-refactor Phase 6: expanded stress scenarios, per
-docs/superpowers/plans/2026-08-27-phase6-expanded-stress-scenarios-spec.md
+documentation/archive/superpowers/plans/2026-08-27-phase6-expanded-stress-scenarios-spec.md
 and its 2026-08-28 implementation-design follow-up.
 
 Two new Sheet 16 ("Scenario Analysis") rows, both Option A (add a scenario

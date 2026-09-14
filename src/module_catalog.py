@@ -1,6 +1,6 @@
 """Module catalog — the single source of truth for the Inputs/Outputs reframing.
 
-This is the codified form of ``documentation/MODULE_REFRAMING_INPUTS_OUTPUTS.md``
+This is the codified form of ``documentation/archive/MODULE_REFRAMING_INPUTS_OUTPUTS.md``
 (v2). It classifies every workbook output module by the *question it answers*
 and records, for each, the inputs and prerequisite outputs it needs plus a
 demand band. Later phases (UI page gating, prerequisite auto-selection, section

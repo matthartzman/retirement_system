@@ -1,5 +1,5 @@
 """Two real workbook builds a week apart produce a comparable KPI series
-(Wave 1 item 1.15 -- documentation/reports/SYSTEM_REVIEW_2026-08-31.md,
+(Wave 1 item 1.15 -- documentation/archive/reports/SYSTEM_REVIEW_2026-08-31.md,
 finding F13, and the §3.2 cross-cutting note explaining why this must land
 *before* the four items that move the headline probability of success).
 

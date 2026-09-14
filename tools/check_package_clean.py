@@ -59,12 +59,12 @@ def main() -> int:
         errors.append('Deprecated sample_plan_data/ folder must not be packaged.')
 
     for path in ROOT.glob('RELEASE_NOTES*.md'):
-        errors.append(f'Release note must be under documentation/release_notes/: {path.relative_to(ROOT)}')
+        errors.append(f'Release note must be under documentation/reference/release_notes/: {path.relative_to(ROOT)}')
     for path in ROOT.glob('*README*.md'):
-        errors.append(f'README must be under documentation/readme/: {path.relative_to(ROOT)}')
+        errors.append(f'README must be under documentation/reference/readme/: {path.relative_to(ROOT)}')
     for path in ROOT.rglob('*README*.md'):
-        if not path.is_relative_to(ROOT / 'documentation' / 'readme'):
-            errors.append(f'README must be under documentation/readme/: {path.relative_to(ROOT)}')
+        if not path.is_relative_to(ROOT / 'documentation' / 'reference' / 'readme'):
+            errors.append(f'README must be under documentation/reference/readme/: {path.relative_to(ROOT)}')
     for name in ROOT_LAUNCHER_NAMES:
         if (ROOT / name).exists():
             errors.append(f'Launcher/desktop helper must be under tools/: {name}')

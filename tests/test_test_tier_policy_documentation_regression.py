@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _claude_md() -> str:
-    return (ROOT / "documentation" / "CLAUDE.md").read_text(encoding="utf-8")
+    return (ROOT / "documentation" / "reference" / "CLAUDE.md").read_text(encoding="utf-8")
 
 
 def test_claude_md_documents_change_level_to_test_tier_table():

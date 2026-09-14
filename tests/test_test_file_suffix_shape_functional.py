@@ -5,12 +5,12 @@ re-inflating").
 Q6 found the `_regression` suffix conflated three different things (golden-
 master comparisons, grep-based DOM-literal pinning, and genuine bug-fix
 regression tests) across 159 of 313 files -- 51% of the whole suite. The
-review's own target shape (documentation/reports/SYSTEM_REVIEW_2026-08-31.md
+review's own target shape (documentation/archive/reports/SYSTEM_REVIEW_2026-08-31.md
 section 5.5) is a "_regression vs _functional rename pass with a mechanical
 suffix-shape checker to stop it re-inflating." The 159-file semantic
 reclassification (which files are a documented prior bug fix vs. a
 structural/DOM check) is a separate, judgment-heavy pass not done by this
-checker -- see `documentation/CLAUDE.md`'s test-naming section, which
+checker -- see `documentation/reference/CLAUDE.md`'s test-naming section, which
 already documents the type-suffix convention as "not separately enforced"
 for existing files.
 
@@ -54,7 +54,7 @@ def test_legacy_no_suffix_test_file_count_has_not_grown():
         f"{len(no_suffix)} test files now have no recognized type suffix "
         f"(regression/functional/contract/smoke/unit/integration), up from "
         f"the {LEGACY_NO_SUFFIX_CEILING} ceiling. New test files should end "
-        "in one of the six types (documentation/CLAUDE.md's test-naming "
+        "in one of the six types (documentation/reference/CLAUDE.md's test-naming "
         "convention) rather than adding to this legacy count. If this file "
         "was intentionally renamed onto a real type suffix, lower "
         "LEGACY_NO_SUFFIX_CEILING in the same commit."

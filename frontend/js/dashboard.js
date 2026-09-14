@@ -2688,7 +2688,7 @@ function withdrawalOtherRows() {
 // (src/projection_stages/deterministic_engine.py) has always run a fixed,
 // hardcoded cascade and never read that table's output, so editing it and
 // clicking Save silently changed nothing in the workbook. See
-// documentation/reports/SYSTEM_REVIEW_2026-07-18.md §10.1. This block now
+// documentation/archive/reports/SYSTEM_REVIEW_2026-07-18.md §10.1. This block now
 // just states the fixed order as read-only text. Keep this string in sync
 // with FIXED_WITHDRAWAL_CASCADE_DESCRIPTION in src/taxes.py (both describe
 // the same hardcoded engine sequence) — test_withdrawal_roth_ui_cleanup.py

@@ -259,7 +259,7 @@ def test_startup_wrapper_never_raises_on_a_broken_store(monkeypatch, tmp_path):
 # --- Phase 3: wellness -> healthcare, namespaces 2 and 3 only -----------------
 #
 # Scope was set by the inventory at
-# docs/superpowers/plans/2026-08-10-wellness-rename-inventory.md. The section
+# documentation/archive/superpowers/plans/2026-08-10-wellness-rename-inventory.md. The section
 # name "Wellness" is the PARENT of Healthcare in this product's hierarchy
 # (healthcare = premiums/doctor/dentist; wellness also covers gym, massage,
 # supplements), so it is correct as-is and deliberately not renamed.

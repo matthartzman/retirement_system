@@ -10,7 +10,7 @@ def test_v11_version_surfaces_are_v11():
 
 
 def test_v11_local_only_user_visible_package_text():
-    for path in [Path('frontend/index.html'), Path('documentation/readme/README.md'), Path('documentation/readme/CLEAN_PACKAGE_README.md')]:
+    for path in [Path('frontend/index.html'), Path('documentation/reference/readme/README.md'), Path('documentation/reference/readme/CLEAN_PACKAGE_README.md')]:
         text = path.read_text(encoding='utf-8')
         assert 'multi_user' not in text
         assert 'SaaS' not in text

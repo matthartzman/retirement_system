@@ -32,7 +32,7 @@ def test_index_loads_modular_overlay_and_manifest():
 
 def test_css_and_docs_record_roadmap_steps_1_11():
     css = read("frontend/css/dashboard.css")
-    api = read("documentation/API_CONTRACTS.md")
+    api = read("documentation/reference/API_CONTRACTS.md")
     assert "source-truth-label" in css
     assert "plan_snapshot_restore_v1" in api
 
