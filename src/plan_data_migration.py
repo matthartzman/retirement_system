@@ -57,7 +57,7 @@ _LABEL_RENAMES = {
         "wife_retire_year": "member_2_retire_year",
     },
     # wellness -> healthcare, 2026-08-17. Scope set by
-    # docs/superpowers/plans/2026-08-10-wellness-rename-inventory.md.
+    # documentation/archive/superpowers/plans/2026-08-10-wellness-rename-inventory.md.
     #
     # Only the MEDICAL keys move. "Wellness" is the parent group in this
     # product's hierarchy and "Healthcare" is the medical subset of it --

@@ -1,4 +1,4 @@
-// Empirical spike for docs/superpowers/plans/2026-08-06-dashboard-js-ast-module-conversion.md
+// Empirical spike for documentation/archive/superpowers/plans/2026-08-06-dashboard-js-ast-module-conversion.md
 // Task 2: confirms real browser behavior for classic-vs-module script
 // execution order BEFORE relying on any assumption about it when
 // frontend/js/dashboard.js is converted to type="module" (Task 4/5).

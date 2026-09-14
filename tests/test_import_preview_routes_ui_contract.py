@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_import_preview_routes_are_documented_and_side_effect_named():
     plan_routes = (ROOT / "src" / "server" / "plan_routes.py").read_text(encoding="utf-8")
     workbook_routes = (ROOT / "src" / "server" / "workbook_routes.py").read_text(encoding="utf-8")
-    docs = (ROOT / "documentation" / "API_CONTRACTS.md").read_text(encoding="utf-8")
+    docs = (ROOT / "documentation" / "reference" / "API_CONTRACTS.md").read_text(encoding="utf-8")
 
     assert '@app.route("/api/ytd/transactions/preview", methods=["POST"])' in plan_routes
     assert "preview_ytd_transactions_import" in plan_routes

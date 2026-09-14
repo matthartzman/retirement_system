@@ -1,6 +1,6 @@
 """HSA 'optimize' mode wiring (2026-08-19).
 
-The prior session's own closing note (docs/superpowers/plans/2026-08-17-
+The prior session's own closing note (documentation/archive/superpowers/plans/2026-08-17-
 hsa-withdrawal-optimizer.md, line 1104) found the entire H0-H5 optimizer
 feature had no way to be turned on by a real household: data_io.py coerced
 any hsa_withdrawal_mode outside spend_as_needed/annual_pct/smooth_window back

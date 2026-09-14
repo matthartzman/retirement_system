@@ -33,6 +33,23 @@ function monarchAutoUpdateStatusLine() {
     : "failed — " + (Array.isArray(last.errors) && last.errors.length ? last.errors[0] : "see status");
   return `Last run ${when}: ${outcome}.`;
 }
+// 2026-09 outage: the import job above reports success every day even when
+// the extractor (the thing that actually fetches new transactions from
+// Monarch) has been silently dead for weeks -- "nothing new to import"
+// and "nothing is producing anything to import" render identically in
+// monarchAutoUpdateStatusLine() alone. This surfaces the extractor's own
+// last-run freshness (src/monarch_autoupdate.py's get_extractor_freshness)
+// so that gap is visible without checking file timestamps by hand.
+function monarchAutoUpdateFreshnessWarningHtml() {
+  const s = monarchAutoUpdateStatus || {};
+  const p = s.policy || {};
+  const freshness = s.extractor_freshness;
+  if (!p.enabled || !freshness || !freshness.stale) return "";
+  const detail = freshness.last_extract_at
+    ? `last successful extraction was ${String(freshness.last_extract_at).replace("T", " ").replace("Z", " UTC")} (${freshness.age_hours}h ago)`
+    : "no extraction has ever run";
+  return `<p class="small" style="color:var(--warn)"><b>Warning:</b> the Monarch Extractor itself looks stalled — ${esc(detail)}, past the ${Number(freshness.stale_after_hours)}h freshness threshold. The import above can keep reporting success with nothing new to consume. Check that the "RetirementSystem_MonarchExtract" scheduled task is registered and running.</p>`;
+}
 function monarchAutoUpdateControlsHtml() {
   const s = monarchAutoUpdateStatus || {};
   const p = Object.assign(
@@ -46,7 +63,7 @@ function monarchAutoUpdateControlsHtml() {
     ? ' <span class="small" style="color:var(--muted)">Saving…</span>'
     : "";
   const runLabel = monarchAutoUpdateRunning ? "Importing…" : "Import now";
-  return `<div class="feature-card monarch-autoupdate-card" tabindex="0" onclick="showConfigCardHelp('monarch_autoupdate')" onfocus="showConfigCardHelp('monarch_autoupdate')"><h3>Monarch auto-update</h3><p class="small">Import new and changed transactions from the Monarch Extractor's output folder automatically every day at 4am, matched and merged by Monarch id. Requires a Windows Task Scheduler entry (registered automatically when enabled).</p><label class="small"><input type="checkbox" id="monarchAutoUpdateEnabled" ${p.enabled ? "checked" : ""}${disabledAttr} onchange="event.stopPropagation();saveMonarchAutoUpdatePolicy()"> Enable daily auto-update (4am)</label><div class="table-actions"><label class="small">Source folder <input id="monarchAutoUpdateSourceDir" type="text" value="${esc(p.source_dir || "")}"${disabledAttr} onblur="event.stopPropagation();saveMonarchAutoUpdatePolicy()" style="width:260px"></label></div><p class="small"><b>Status:</b> ${esc(monarchAutoUpdateStatusLine())}${statusSuffix}</p><div class="table-actions"><button class="btn" type="button"${monarchAutoUpdateRunning ? " disabled" : ""} onclick="event.stopPropagation();runMonarchAutoUpdateNow()" onfocus="event.stopPropagation();showConfigCardHelp('monarch_autoupdate')">${runLabel}</button><button class="btn" type="button" onclick="event.stopPropagation();refreshMonarchAutoUpdateStatus()" onfocus="event.stopPropagation();showConfigCardHelp('monarch_autoupdate')">Refresh</button></div></div>`;
+  return `<div class="feature-card monarch-autoupdate-card" tabindex="0" onclick="showConfigCardHelp('monarch_autoupdate')" onfocus="showConfigCardHelp('monarch_autoupdate')"><h3>Monarch auto-update</h3><p class="small">Import new and changed transactions from the Monarch Extractor's output folder automatically every day at 4am, matched and merged by Monarch id. Requires Windows Task Scheduler entries (registered automatically when enabled).</p><label class="small"><input type="checkbox" id="monarchAutoUpdateEnabled" ${p.enabled ? "checked" : ""}${disabledAttr} onchange="event.stopPropagation();saveMonarchAutoUpdatePolicy()"> Enable daily auto-update (4am)</label><div class="table-actions"><label class="small">Source folder <input id="monarchAutoUpdateSourceDir" type="text" value="${esc(p.source_dir || "")}"${disabledAttr} onblur="event.stopPropagation();saveMonarchAutoUpdatePolicy()" style="width:260px"></label></div><p class="small"><b>Status:</b> ${esc(monarchAutoUpdateStatusLine())}${statusSuffix}</p>${monarchAutoUpdateFreshnessWarningHtml()}<div class="table-actions"><button class="btn" type="button"${monarchAutoUpdateRunning ? " disabled" : ""} onclick="event.stopPropagation();runMonarchAutoUpdateNow()" onfocus="event.stopPropagation();showConfigCardHelp('monarch_autoupdate')">${runLabel}</button><button class="btn" type="button" onclick="event.stopPropagation();refreshMonarchAutoUpdateStatus()" onfocus="event.stopPropagation();showConfigCardHelp('monarch_autoupdate')">Refresh</button></div></div>`;
 }
 async function refreshMonarchAutoUpdateStatus(silent = false) {
   try {
@@ -78,9 +95,9 @@ async function saveMonarchAutoUpdatePolicy() {
     const reg = out.task_registration;
     if (enabled && reg && reg.attempted && !reg.success) {
       showMessage(
-        "Auto-update enabled, but the scheduled task could not be registered: " +
+        "Auto-update enabled, but one or more scheduled tasks could not be registered: " +
           (reg.error || "unknown error") +
-          ". Run tools/launchers/register_monarch_autoimport_task.ps1 manually.",
+          ". Run tools/launchers/register_monarch_autoimport_task.ps1 and Monarch Extractor/register_monarch_extract_task.ps1 manually.",
         "warn",
       );
     } else {
@@ -105,7 +122,11 @@ async function runMonarchAutoUpdateNow() {
       method: "POST",
       body: JSON.stringify({ force: true }),
     });
-    monarchAutoUpdateStatus = { policy: (monarchAutoUpdateStatus || {}).policy, status: out.status };
+    monarchAutoUpdateStatus = {
+      policy: (monarchAutoUpdateStatus || {}).policy,
+      status: out.status,
+      extractor_freshness: (monarchAutoUpdateStatus || {}).extractor_freshness,
+    };
     if (out.skipped) {
       showMessage("Monarch import: " + (out.skip_reason || "nothing to do") + ".", "warn");
     } else if (out.success) {
@@ -133,6 +154,7 @@ async function runMonarchAutoUpdateNow() {
 // identifiers, not window.-prefixed.
 Object.assign(window, {
   monarchAutoUpdateStatusLine,
+  monarchAutoUpdateFreshnessWarningHtml,
   monarchAutoUpdateControlsHtml,
   refreshMonarchAutoUpdateStatus,
   saveMonarchAutoUpdatePolicy,

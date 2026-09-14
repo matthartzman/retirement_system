@@ -1,5 +1,5 @@
 """Unit coverage for the KPI snapshot archive (Wave 1 item 1.15 --
-documentation/reports/SYSTEM_REVIEW_2026-08-31.md, finding F13 and the §3.2
+documentation/archive/reports/SYSTEM_REVIEW_2026-08-31.md, finding F13 and the §3.2
 cross-cutting note on why a snapshot series must exist before the engine/
 policy changes that move "probability of success").
 

@@ -5,7 +5,7 @@ conversion) -- in both the UI and the workbook, matching the P4/P7 house
 style ("state what the model does do, then name the lever it does not
 have").
 
-See docs/superpowers/plans/2026-08-17-roth-guide-audit.md for the audit
+See documentation/archive/superpowers/plans/2026-08-17-roth-guide-audit.md for the audit
 these enhancements are drawn from.
 """
 from __future__ import annotations

@@ -27,7 +27,7 @@ Last regenerated against commit fa6652b.
 
 When this file's mandatory test fails (PINNED_TERMINAL_NW / PINNED_LIFETIME_TAX
 no longer match), do NOT hand-edit the two constants below -- see
-documentation/GOLDEN_MASTER_RECOVERY_RUNBOOK.md for the full recovery process
+documentation/reference/GOLDEN_MASTER_RECOVERY_RUNBOOK.md for the full recovery process
 (decision tree, the two method traps that previously produced a confidently
 wrong bisect result, and tools/regen_golden_master.py). A hand-edited pin with
 no matching provenance update is caught by
@@ -181,11 +181,11 @@ FROZEN_TODAY = "2026-08-04"
 # --- Machine-checked provenance (tests/test_golden_master_pin_provenance.py) ---
 # The line below is a test-enforced gate, not decoration: the provenance test
 # parses it and fails if its date/values do not match this file's current
-# PINNED_* constants AND documentation/GOLDEN_MASTER_CHANGELOG.md's newest
+# PINNED_* constants AND documentation/reference/GOLDEN_MASTER_CHANGELOG.md's newest
 # entry. Do not hand-edit the constants below without updating this line and
 # the changelog -- use `py -3.14 tools/regen_golden_master.py regen --reason
 # <file>`, which updates all three together. See
-# documentation/GOLDEN_MASTER_RECOVERY_RUNBOOK.md.
+# documentation/reference/GOLDEN_MASTER_RECOVERY_RUNBOOK.md.
 # 2026-09-08: PINNED_TERMINAL_NW=5438505.25 PINNED_LIFETIME_TAX=1255734.10
 PINNED_TERMINAL_NW = 5438505.25
 PINNED_LIFETIME_TAX = 1255734.10

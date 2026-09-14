@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Census tool for the dashboard.js module-conversion plan (docs/superpowers/plans/
+// Census tool for the dashboard.js module-conversion plan (documentation/archive/superpowers/plans/
 // 2026-08-06-dashboard-js-ast-module-conversion.md). Read-only: never modifies source.
 // Usage: node tools/js_codemod/census.mjs
 //
@@ -141,7 +141,7 @@ function findExternalReferences(names, source, fileLabel) {
 }
 
 // v4 (2026-08-06): a hand-caught real bug (ytdTxColsCollapsed's startup
-// freeze fix, see docs/superpowers/plans/2026-08-06-dashboard-js-domain-
+// freeze fix, see documentation/archive/superpowers/plans/2026-08-06-dashboard-js-domain-
 // module-split-SCOPE.md's follow-up) showed a whole class this census
 // missed: top-level variables assigned from INLINE HTML EVENT-HANDLER
 // ATTRIBUTES embedded in a rendered template literal

@@ -54,7 +54,7 @@ def test_system_config_api_contracts_are_registered():
 
 
 def test_docs_mark_batch_assumption_editing_complete():
-    api = read("documentation/API_CONTRACTS.md")
-    changelog = read("documentation/GOLDEN_MASTER_CHANGELOG.md")
+    api = read("documentation/reference/API_CONTRACTS.md")
+    changelog = read("documentation/reference/GOLDEN_MASTER_CHANGELOG.md")
     assert "`/api/admin/system-config`" in api
     assert "Roadmap continuation: batch assumption editing" in changelog

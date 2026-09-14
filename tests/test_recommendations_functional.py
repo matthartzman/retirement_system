@@ -62,7 +62,7 @@ class RecommendationCompletionTests(unittest.TestCase):
         # fails test_frozen_sample_plan_golden_master_regression.py to the cent
         # instead of emitting a warning nobody reads. That file's __main__ regen
         # block is the single place to update. See
-        # documentation/GOLDEN_MASTER_CHANGELOG.md.
+        # documentation/reference/GOLDEN_MASTER_CHANGELOG.md.
         with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
             c = sample_config()
             rows = project(c)

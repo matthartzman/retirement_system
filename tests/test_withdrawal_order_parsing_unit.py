@@ -5,7 +5,7 @@ extractions with a real coverage gap: no dedicated backend test exercised
 c['account_draw_priority'] before this extraction (only a frontend .mjs
 test, tests/frontend/withdrawal_other_rows.test.mjs, touched the
 "Account Order" marker string). See
-docs/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md,
+documentation/archive/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md,
 section 5, "Test coverage check".
 
 These assert the dict shape and int-coercion/skip-on-blank behavior

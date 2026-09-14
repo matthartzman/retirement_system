@@ -1,6 +1,6 @@
 """Optimization-refactor "Not done" item, Option B ("Genuinely redirecting
 withdrawal requests... by tier priority" --
-docs/superpowers/plans/2026-08-27-mc-tier-priority-withdrawal-redirection-
+documentation/archive/superpowers/plans/2026-08-27-mc-tier-priority-withdrawal-redirection-
 spec.md): SPENDING_TIER_BUCKET_POLICY restricts WHICH bucket each spend tier
 may draw from, not just how much money moves in total.
 

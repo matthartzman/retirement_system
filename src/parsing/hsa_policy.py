@@ -1,7 +1,7 @@
 """hsa_policy.py — "HSA Policy" input-section parsing.
 
 Extracted from src/data_io.py's parse_client() per ticket 312 and the
-design doc docs/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md
+design doc documentation/archive/superpowers/plans/2026-09-09-parse-client-remaining-sections-design.md
 (section 1, "HSA Policy scalars"), following the pattern already
 established by src/parsing/daf.py, note_receivable.py, insurance.py, and
 estate_planning.py. src/data_io.py re-exports both functions below for

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Extracts dashboard.js's shared "row model + app shell" hub functions
 // (fan-in >= 3 in the internal call graph, per
-// docs/superpowers/plans/2026-08-06-dashboard-js-domain-module-split-SCOPE.md)
+// documentation/archive/superpowers/plans/2026-08-06-dashboard-js-domain-module-split-SCOPE.md)
 // into frontend/js/dashboard_decomp_row_model.js as a real ES module.
 // Named dashboard_decomp_*.js (not dashboard_row_model.js) deliberately: several
 // existing tests already glob JS_DIR.glob("dashboard_decomp_*.js") to build a
@@ -102,7 +102,7 @@ const header = `// ── Row-model + app-shell core (Wave 6.4 domain-module-spl
 // isEditable/fieldHtml/rowsForStep/humanLabel/... plus app-shell orchestration
 // like api/showMessage/setStep/loadAll/saveAll). Selected as the fan-in >= ${CUTOFF}
 // hub set from the internal call-graph analysis in
-// docs/superpowers/plans/2026-08-06-dashboard-js-domain-module-split-SCOPE.md.
+// documentation/archive/superpowers/plans/2026-08-06-dashboard-js-domain-module-split-SCOPE.md.
 // renderMain and showStepHelp stay in dashboard.js: other leaf modules
 // reassign them as a monkey-patch decorator chain, which this pass does not
 // touch. A real ES module (type="module"), same export+window-bridge pattern

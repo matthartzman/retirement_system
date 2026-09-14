@@ -5,7 +5,7 @@
    extracted from dashboard.js by tools/js_codemod/extract_module.mjs.
 
    Fourth domain cluster of the Wave 6.4 domain-module split (see
-   docs/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md),
+   documentation/archive/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md),
    after dashboard_decomp_assets_other.js,
    dashboard_decomp_spending_taxonomy.js and
    dashboard_decomp_housing_scenarios.js. Selected as a connected component of
@@ -253,6 +253,12 @@ export function buildHistoryEntryHtml(entry, isCurrent, heat) {
     heat.nwHeat,
     fmtMoney,
   );
+  const nwAllInDial = buildKpiDial(
+    "All-In LCV (Incl. All Taxes)",
+    kpi.lcv_all_in_including_taxes,
+    heat.nwAllInHeat,
+    fmtMoney,
+  );
   const taxDial = buildKpiDial(
     "NPV of Future Taxes",
     kpi.npv_future_taxes,
@@ -311,6 +317,7 @@ export function buildHistoryEntryHtml(entry, isCurrent, heat) {
     elapsed +
     '</span></div><div class="build-history-dials">' +
     nwDial +
+    nwAllInDial +
     taxDial +
     mcDial +
     eftrDial +

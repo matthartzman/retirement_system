@@ -1,4 +1,4 @@
-"""Item 3.2 Option 2 (docs/superpowers/specs/2026-09-02-roth-phase-varying-
+"""Item 3.2 Option 2 (documentation/archive/superpowers/specs/2026-09-02-roth-phase-varying-
 conversion-design.md): a configurable PHASE_VARYING Roth conversion strategy
 that steps its target bracket rate down by Social Security claim year.
 """

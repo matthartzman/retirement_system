@@ -152,7 +152,7 @@ class Phase5WorkbookSnapshotTests(unittest.TestCase):
 
         Per-account returns reach Monte Carlo as a constant per-bucket return
         offset, not as sleeve-level draws with their own volatility (see
-        documentation/reports/PLANNER_SIGNOFF_2026-08-17.md finding S1). Within
+        documentation/archive/reports/PLANNER_SIGNOFF_2026-08-17.md finding S1). Within
         the taxable/pretax/Roth/HSA buckets every account takes the SAME annual
         market shock and differs only by that constant, so the success rate is
         structurally blind to de-risking INSIDE those buckets -- a bond tent or
