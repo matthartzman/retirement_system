@@ -443,7 +443,7 @@ class StrategyAssetService:
     # (src/projection_stages/deterministic_engine.py), and never read that
     # CSV data, so the control let a planner "save" a change that silently
     # had zero effect on the workbook. See
-    # documentation/reports/SYSTEM_REVIEW_2026-07-18.md §10.1 and
+    # documentation/archive/reports/SYSTEM_REVIEW_2026-07-18.md §10.1 and
     # src/taxes.py's FIXED_WITHDRAWAL_CASCADE_DESCRIPTION.
     #
     # #276: the account-TYPE-level cascade above is still fixed/hardcoded --
