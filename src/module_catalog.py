@@ -283,7 +283,7 @@ _OUTPUTS: List[OutputModule] = [
         # place into a full type/year/location coordinate-descent sweep.
         "housing_trajectory_comparison", "Housing Comparison", OPTIMIZATION, LOW,
         "Configured Step 1 housing choice vs. the opposite type (buy vs. rent) at the same year/location.",
-        optional=True, sheet="38. Housing Comparison", tab="2O. Housing Comparison",
+        optional=True, sheet="38. Housing Comparison", tab="2M. Housing Comparison",
         requires_inputs=(_in("household", "next_housing_steps"), _in("assumptions", "growth")),
         requires_outputs=BASE_PROJECTION,
     ),
