@@ -1669,8 +1669,23 @@ def spending_summary_taxonomy(root=None, year=None):
         "budget_derived_core_spend_base": round(core_budget_base, 2),
         "income_actual": round(sum(t.get("actual", 0.0) for t in output_types if t.get("tracking_type") == "Income"), 2),
         "income_annualized": round(sum(t.get("annualized", 0.0) for t in output_types if t.get("tracking_type") == "Income"), 2),
-        "expense_actual": round(sum(t.get("actual", 0.0) for t in output_types if t.get("tracking_type") != "Income"), 2),
-        "expense_annualized": round(sum(t.get("annualized", 0.0) for t in output_types if t.get("tracking_type") != "Income"), 2),
+        # Bug fix: these previously excluded only "Income", so Income Taxes
+        # (tracking_type "Transfer") leaked into the "This Year Expenses" /
+        # "Annualized Actual Expenses" KPI tiles while grand_budget above
+        # excluded them -- contradicting the UI's own "all figures exclude
+        # income taxes and transfers" disclaimer (spending_dashboard.js) and
+        # making "Annualized Actual vs. Annual Budget" a scope mismatch.
+        # Now excludes Income + Transfer, matching grand_actual/grand_budget.
+        "expense_actual": round(sum(t.get("actual", 0.0) for t in output_types if t.get("tracking_type") != "Income" and t.get("tracking_type") not in _TRANSFER_NAMES), 2),
+        "expense_annualized": round(sum(t.get("annualized", 0.0) for t in output_types if t.get("tracking_type") != "Income" and t.get("tracking_type") not in _TRANSFER_NAMES), 2),
+        # All-in companion totals (incl. all taxes): same scope as
+        # expense_actual/expense_annualized used to have before the fix
+        # above -- everything except Income, i.e. Income Taxes stay in.
+        # Surfaced as a separate figure rather than folding taxes back into
+        # the exclusive totals, so Actual vs. Budget stays apples-to-apples.
+        "expense_actual_all_in": round(sum(t.get("actual", 0.0) for t in output_types if t.get("tracking_type") != "Income"), 2),
+        "expense_annualized_all_in": round(sum(t.get("annualized", 0.0) for t in output_types if t.get("tracking_type") != "Income"), 2),
+        "grand_budget_all_in": round(sum(t.get("budget", 0.0) for t in output_types if t.get("tracking_type") != "Income"), 2),
         "unmatched_categories": sorted(unmatched, key=lambda x: -x.get("actual", 0.0)),
         "deleted_tray": sorted(deleted_tray, key=lambda x: (x.get("tracking_type") or "", x.get("group") or "", x.get("label") or "")),
         "aliases": aliases,
@@ -1802,6 +1817,13 @@ def spending_dashboard(root: Path | None = None, year: int | None = None, core_s
         "annual_budget_total": summary.get("grand_annual_budget", summary.get("grand_budget", 0.0)),
         "projection_seed_total": summary.get("grand_projection_seed", summary.get("grand_budget", 0.0)),
         "forecast_total": summary.get("expense_annualized", summary.get("grand_annualized", 0.0)),
+        # All-in companion figures (incl. all taxes, e.g. Income Taxes) --
+        # kept separate from the tax-exclusive totals above so Actual vs.
+        # Budget stays apples-to-apples; use these to show the household's
+        # full out-the-door spend including taxes.
+        "actuals_total_all_in": summary.get("expense_actual_all_in", 0.0),
+        "annualized_total_all_in": summary.get("expense_annualized_all_in", 0.0),
+        "annual_budget_total_all_in": summary.get("grand_budget_all_in", 0.0),
         "variance_from_model": round(summary.get("grand_annualized", 0.0) - model_spend, 2) if model_spend else 0,
         "variance_pct": round((summary.get("grand_annualized", 0.0) - model_spend) / model_spend * 100, 1) if model_spend else 0,
         "groups": groups,
