@@ -364,6 +364,7 @@ def monarch_autoupdate_status():
         return denied
     payload = monarch_autoupdate.load_policy(WORKSPACE_ROOT)
     payload["status"] = monarch_autoupdate.load_status(WORKSPACE_ROOT)
+    payload["extractor_freshness"] = monarch_autoupdate.get_extractor_freshness(WORKSPACE_ROOT)
     return jsonify(payload)
 
 
@@ -745,6 +746,17 @@ def housing_state_estimate():
     if denied:
         return denied
     return _service_json(strategy_asset_service.housing_state_estimate_payload(request.get_json(force=True, silent=True) or {}))
+
+@app.route("/api/housing/optimize", methods=["POST"])
+def housing_optimize():
+    denied = _require("read_config")
+    if denied:
+        return denied
+    from ..housing_optimizer import optimize_housing_from_request
+    from ..report_compute import prepare_config_from_sectioned_data
+    data, _meta = load_active_config()
+    c0 = prepare_config_from_sectioned_data(data, "", optimize_roth=False)
+    return _service_json(optimize_housing_from_request(c0, request.get_json(force=True, silent=True) or {}))
 
 @app.route("/api/config/sync", methods=["POST"])
 def config_sync():
