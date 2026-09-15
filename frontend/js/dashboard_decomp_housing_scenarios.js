@@ -1383,6 +1383,37 @@ export function renderHousingOptimizePanelHtml() {
         <input type="number" id="housingOptMinScore" value="60" min="0" max="100" style="width:6em">
       </label>
       <div class="small">Measures housing and economic stability. Does not measure crime or safety.</div>
+      <div class="subsection-label">What you're looking for</div>
+      <select id="housingOptZipBedrooms" title="Bedrooms">
+        <option value="2">2BR</option>
+        <option value="3" selected>3BR</option>
+        <option value="4">4BR</option>
+        <option value="5">5+BR</option>
+      </select>
+      <select id="housingOptZipBathrooms" title="Bathrooms">
+        <option value="1">1BA</option>
+        <option value="1.5">1.5BA</option>
+        <option value="2" selected>2BA</option>
+        <option value="2.5">2.5BA</option>
+        <option value="3">3BA</option>
+        <option value="3.5">3.5+BA</option>
+      </select>
+      <select id="housingOptZipPropertyType" title="Property type">
+        <option value="single_family" selected>Single family</option>
+        <option value="townhome">Townhome</option>
+        <option value="condo">Condo</option>
+        <option value="duplex">Duplex</option>
+      </select>
+      <select id="housingOptZipSqftBand" title="Square footage">
+        <option value="under_1200">Under 1,200 sqft</option>
+        <option value="1200_1800">1,200-1,800 sqft</option>
+        <option value="1800_2500" selected>1,800-2,500 sqft</option>
+        <option value="2500_3500">2,500-3,500 sqft</option>
+        <option value="over_3500">Over 3,500 sqft</option>
+      </select>
+      <input type="number" id="housingOptZipBuiltWithinYears" min="0" style="width:8em" placeholder="Built within N yrs (optional)">
+      <label>Target price, min <input type="number" id="housingOptZipPriceMin" min="0" style="width:9em" placeholder="e.g. 400000"></label>
+      <label>Target price, max <input type="number" id="housingOptZipPriceMax" min="0" style="width:9em" placeholder="e.g. 700000"></label>
       <label>Candidates to send to the optimizer
         <select id="housingOptShortlistSize">
           <option value="2">2</option><option value="3">3</option>
@@ -1696,18 +1727,26 @@ function housingOptZipSearchBody() {
   const anchorZip =
     String(document.getElementById("housingOptAnchorZip")?.value || "").trim() ||
     String(document.getElementById("housingOptAnchorCity")?.value || "").trim();
+  const priceMinRaw = document.getElementById("housingOptZipPriceMin")?.value;
+  const priceMaxRaw = document.getElementById("housingOptZipPriceMax")?.value;
+  const priceMin = priceMinRaw ? Number(priceMinRaw) : null;
+  const priceMax = priceMaxRaw ? Number(priceMaxRaw) : null;
+  const propertySpec = {
+    bedrooms: Number(document.getElementById("housingOptZipBedrooms")?.value || 3),
+    bathrooms: Number(document.getElementById("housingOptZipBathrooms")?.value || 2),
+    property_type: String(document.getElementById("housingOptZipPropertyType")?.value || "single_family"),
+    sqft_band: String(document.getElementById("housingOptZipSqftBand")?.value || "1800_2500"),
+    built_within_years: Number(document.getElementById("housingOptZipBuiltWithinYears")?.value) || null,
+  };
+  if (priceMin !== null && priceMax !== null) {
+    propertySpec.target_purchase_price_range = [priceMin, priceMax];
+  }
   return {
     anchor: { zip: anchorZip },
     radius_miles: Number(document.getElementById("housingOptRadius")?.value || 25),
     min_quality_score: Number(document.getElementById("housingOptMinScore")?.value || 60),
     shortlist_size: Number(document.getElementById("housingOptShortlistSize")?.value || 4),
-    property_spec: {
-      bedrooms: Number(document.getElementById("housingOptLocBedrooms0")?.value || 3),
-      bathrooms: Number(document.getElementById("housingOptLocBathrooms0")?.value || 2),
-      property_type: String(document.getElementById("housingOptLocPropertyType0")?.value || "single_family"),
-      sqft_band: String(document.getElementById("housingOptLocSqftBand0")?.value || "1800_2500"),
-      built_within_years: Number(document.getElementById("housingOptLocBuiltWithinYears0")?.value) || null,
-    },
+    property_spec: propertySpec,
   };
 }
 
