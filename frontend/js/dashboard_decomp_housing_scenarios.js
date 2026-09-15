@@ -1290,11 +1290,25 @@ export function renderHousingOptimizePanelHtml() {
     <label>Latest sale year <input type="number" id="housingOptLatestSale"></label>
     <label>Earliest purchase year <input type="number" id="housingOptEarliestPurchase"></label>
     <label>Latest purchase year <input type="number" id="housingOptLatestPurchase"></label>
+    <label>Move 1 action
+      <select id="housingOptMove1Action">
+        <option value="auto" selected>Auto (search buy &amp; rent)</option>
+        <option value="buy">Buy only</option>
+        <option value="rent">Rent only</option>
+      </select>
+    </label>
     <div class="subsection-label"><label><input type="checkbox" id="housingOptMove2Enabled" onchange="toggleHousingOptMove2Fields()"> Consider a second move</label></div>
     <div id="housingOptMove2Fields" hidden>
       <label>Move-2 latest sale year <input type="number" id="housingOptLatestSale2"></label>
       <label>Move-2 latest purchase year <input type="number" id="housingOptLatestPurchase2"></label>
       <label>Anchor count <input type="number" id="housingOptAnchorCount" value="5" min="1" max="10"></label>
+      <label>Move 2 action
+        <select id="housingOptMove2Action">
+          <option value="auto" selected>Auto (search buy &amp; rent)</option>
+          <option value="buy">Buy only</option>
+          <option value="rent">Rent only</option>
+        </select>
+      </label>
     </div>
     <div class="subsection-label">Constraints and objective</div>
     <label><input type="checkbox" id="housingOptNoDualOwnership" checked> Never own two homes at once</label>
@@ -1428,6 +1442,8 @@ export async function runHousingOptimization() {
     objective: String(document.getElementById("housingOptObjective")?.value || "net_worth"),
     search_mode: String(document.getElementById("housingOptSearchMode")?.value || "full"),
     move2_strategy: String(document.getElementById("housingOptMove2Strategy")?.value || "anchored"),
+    move1_action: String(document.getElementById("housingOptMove1Action")?.value || "auto"),
+    move2_action: String(document.getElementById("housingOptMove2Action")?.value || "auto"),
   };
   if (document.getElementById("housingOptMove2Enabled")?.checked) {
     body.move2_window = {

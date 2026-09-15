@@ -311,4 +311,29 @@ describe("runHousingOptimization", () => {
     assert.equal(messages[0][1], "error");
     assert.equal(resultsEl.innerHTML, "");
   });
+
+  test("defaults move1_action/move2_action to auto and reads the selects when present", async () => {
+    const sandbox = freshSandbox();
+    const values = {
+      housingOptLocCount: "2", housingOptLocState0: "Texas", housingOptLocState1: "Florida",
+      housingOptEarliestSale: "2027", housingOptLatestSale: "2028",
+      housingOptEarliestPurchase: "2027", housingOptLatestPurchase: "2028",
+      housingOptObjective: "net_worth", housingOptSearchMode: "full",
+      housingOptMove2Strategy: "anchored", housingOptMove1Action: "rent",
+    };
+    const resultsEl = { innerHTML: "" };
+    sandbox.document.getElementById = (id) => {
+      if (id === "housingOptimizeResults") return resultsEl;
+      if (id in values) return { value: values[id] };
+      return { value: "" };
+    };
+    let capturedBody = null;
+    sandbox.api = async (url, opts) => {
+      capturedBody = JSON.parse(opts.body);
+      return { success: true, recommendation: null, alternatives: [] };
+    };
+    await sandbox.runHousingOptimization();
+    assert.equal(capturedBody.move1_action, "rent");
+    assert.equal(capturedBody.move2_action, "auto");
+  });
 });
