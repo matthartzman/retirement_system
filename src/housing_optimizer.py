@@ -517,6 +517,22 @@ def sec121_exclusion_flag(purchase_year: int | None, sale_year: int) -> bool:
     return (sale_year - purchase_year) < 2
 
 
+def filter_candidates_by_action(
+    candidates: list[HousingCandidate], action: str, purchase_year_attr: str,
+) -> list[HousingCandidate]:
+    """Drops candidates inconsistent with a 'buy only'/'rent only' move
+    constraint. ``purchase_year_attr`` is ``'purchase_year'`` for move 1,
+    ``'purchase_year_2'`` for move 2 -- both fields use the same None-means-
+    rent convention (module docstring)."""
+    if action == 'auto':
+        return candidates
+    if action == 'buy':
+        return [c for c in candidates if getattr(c, purchase_year_attr) is not None]
+    if action == 'rent':
+        return [c for c in candidates if getattr(c, purchase_year_attr) is None]
+    raise ValueError(f"Unknown action: {action!r}")
+
+
 # ---------------------------------------------------------------------------
 # Scoring (§4)
 # ---------------------------------------------------------------------------
@@ -630,10 +646,14 @@ def _pass1_value(sc: ScoredCandidate, pass1_objective: str) -> float:
 
 def _score_move1_point(
     c0: dict[str, Any], base_state: str, loc: Location, family_presence: FamilyPresence | None,
-    no_dual_ownership: bool, pass1_objective: str, sink: list[ScoredCandidate],
+    no_dual_ownership: bool, move1_action: str, pass1_objective: str, sink: list[ScoredCandidate],
     sale_year: int, purchase_year: int | None,
 ) -> float | None:
     if no_dual_ownership and purchase_year is not None and purchase_year < sale_year:
+        return None
+    if move1_action == 'buy' and purchase_year is None:
+        return None
+    if move1_action == 'rent' and purchase_year is not None:
         return None
     cand = HousingCandidate(location_1=loc, sale_year=sale_year, purchase_year=purchase_year)
     ok, via_rental = family_presence_ok(base_state, cand, family_presence)
@@ -650,7 +670,7 @@ def _score_move1_point(
 
 def generate_move1_candidates_narrowed(
     c0: dict[str, Any], base_state: str, locations: list[Location], window: SearchWindow,
-    no_dual_ownership: bool, family_presence: FamilyPresence | None, pass1_objective: str,
+    no_dual_ownership: bool, move1_action: str, family_presence: FamilyPresence | None, pass1_objective: str,
 ) -> list[ScoredCandidate]:
     """Narrowed-mode replacement for ``generate_move1_candidates`` that
     scores candidates as it searches (§8.2 P2 module docstring): per
@@ -668,24 +688,29 @@ def generate_move1_candidates_narrowed(
             (window.earliest_sale_year, window.latest_sale_year),
             (window.earliest_purchase_year, window.latest_purchase_year),
             lambda sy, py: _score_move1_point(
-                c0, base_state, loc, family_presence, no_dual_ownership, pass1_objective, scored, sy, py,
+                c0, base_state, loc, family_presence, no_dual_ownership, move1_action, pass1_objective, scored, sy, py,
             ),
         )
-        _coordinate_search_1d(
-            (window.earliest_sale_year, window.latest_sale_year),
-            lambda sy: _score_move1_point(
-                c0, base_state, loc, family_presence, no_dual_ownership, pass1_objective, scored, sy, None,
-            ),
-        )
+        if move1_action != 'buy':
+            _coordinate_search_1d(
+                (window.earliest_sale_year, window.latest_sale_year),
+                lambda sy: _score_move1_point(
+                    c0, base_state, loc, family_presence, no_dual_ownership, move1_action, pass1_objective, scored, sy, None,
+                ),
+            )
     return scored
 
 
 def _score_move2_point(
     c0: dict[str, Any], base_state: str, anchor: HousingCandidate, loc: Location,
-    family_presence: FamilyPresence | None, no_dual_ownership: bool, pass1_objective: str,
+    family_presence: FamilyPresence | None, no_dual_ownership: bool, move2_action: str, pass1_objective: str,
     sink: list[ScoredCandidate], sale_year_2: int, purchase_year_2: int | None,
 ) -> float | None:
     if no_dual_ownership and purchase_year_2 is not None and purchase_year_2 < sale_year_2:
+        return None
+    if move2_action == 'buy' and purchase_year_2 is None:
+        return None
+    if move2_action == 'rent' and purchase_year_2 is not None:
         return None
     cand = HousingCandidate(
         location_1=anchor.location_1, sale_year=anchor.sale_year, purchase_year=anchor.purchase_year,
@@ -705,7 +730,7 @@ def _score_move2_point(
 
 def generate_move2_candidates_narrowed(
     c0: dict[str, Any], base_state: str, anchors: list[HousingCandidate], locations: list[Location],
-    move2_window: Move2Window, no_dual_ownership: bool, family_presence: FamilyPresence | None,
+    move2_window: Move2Window, no_dual_ownership: bool, move2_action: str, family_presence: FamilyPresence | None,
     pass1_objective: str,
 ) -> list[ScoredCandidate]:
     """Narrowed-mode replacement for ``generate_move2_candidates`` -- same
@@ -721,17 +746,18 @@ def generate_move2_candidates_narrowed(
                 (earliest_sale_2, move2_window.latest_sale_year_2),
                 (earliest_sale_2, move2_window.latest_purchase_year_2),
                 lambda sy2, py2: _score_move2_point(
-                    c0, base_state, anchor, loc, family_presence, no_dual_ownership, pass1_objective,
+                    c0, base_state, anchor, loc, family_presence, no_dual_ownership, move2_action, pass1_objective,
                     scored, sy2, py2,
                 ),
             )
-            _coordinate_search_1d(
-                (earliest_sale_2, move2_window.latest_sale_year_2),
-                lambda sy2: _score_move2_point(
-                    c0, base_state, anchor, loc, family_presence, no_dual_ownership, pass1_objective,
-                    scored, sy2, None,
-                ),
-            )
+            if move2_action != 'buy':
+                _coordinate_search_1d(
+                    (earliest_sale_2, move2_window.latest_sale_year_2),
+                    lambda sy2: _score_move2_point(
+                        c0, base_state, anchor, loc, family_presence, no_dual_ownership, move2_action, pass1_objective,
+                        scored, sy2, None,
+                    ),
+                )
     return scored
 
 
@@ -752,6 +778,8 @@ def optimize_housing(
     shortlist_size: int = 5,
     search_mode: Literal['full', 'narrowed'] = 'full',
     move2_strategy: Literal['anchored', 'cross_product'] = 'anchored',
+    move1_action: Literal['auto', 'buy', 'rent'] = 'auto',
+    move2_action: Literal['auto', 'buy', 'rent'] = 'auto',
 ) -> dict[str, Any]:
     if objective not in OBJECTIVES:
         raise ValueError(f"Unknown objective: {objective!r}")
@@ -759,6 +787,10 @@ def optimize_housing(
         raise ValueError(f"Unknown search_mode: {search_mode!r}")
     if move2_strategy not in MOVE2_STRATEGIES:
         raise ValueError(f"Unknown move2_strategy: {move2_strategy!r}")
+    if move1_action not in ('auto', 'buy', 'rent'):
+        raise ValueError(f"Unknown move1_action: {move1_action!r}")
+    if move2_action not in ('auto', 'buy', 'rent'):
+        raise ValueError(f"Unknown move2_action: {move2_action!r}")
     if not (2 <= len(locations) <= 4):
         raise ValueError("Provide 2-4 candidate locations.")
 
@@ -768,11 +800,14 @@ def optimize_housing(
 
     if narrowed:
         move1_scored = generate_move1_candidates_narrowed(
-            c0, base_state, locations, move1_window, no_dual_ownership, family_presence, pass1_objective,
+            c0, base_state, locations, move1_window, no_dual_ownership, move1_action, family_presence, pass1_objective,
         )
     else:
         move1_scored = []
-        for cand in generate_move1_candidates(locations, move1_window, no_dual_ownership):
+        move1_cands = filter_candidates_by_action(
+            generate_move1_candidates(locations, move1_window, no_dual_ownership), move1_action, 'purchase_year',
+        )
+        for cand in move1_cands:
             ok, via_rental = family_presence_ok(base_state, cand, family_presence)
             if not ok:
                 continue
@@ -805,11 +840,15 @@ def optimize_housing(
             anchors = select_anchors(move1_scored, anchor_count)
         if narrowed:
             move2_scored = generate_move2_candidates_narrowed(
-                c0, base_state, anchors, locations, move2_window, no_dual_ownership, family_presence,
+                c0, base_state, anchors, locations, move2_window, no_dual_ownership, move2_action, family_presence,
                 pass1_objective,
             )
         else:
-            for cand in generate_move2_candidates(anchors, locations, move2_window, no_dual_ownership):
+            move2_cands = filter_candidates_by_action(
+                generate_move2_candidates(anchors, locations, move2_window, no_dual_ownership),
+                move2_action, 'purchase_year_2',
+            )
+            for cand in move2_cands:
                 ok, via_rental = family_presence_ok(base_state, cand, family_presence)
                 if not ok:
                     continue
@@ -987,6 +1026,8 @@ def optimize_housing_from_request(c0: dict[str, Any], body: dict[str, Any]) -> t
             objective=objective,
             search_mode=search_mode,
             move2_strategy=move2_strategy,
+            move1_action=str(body.get('move1_action', 'auto') or 'auto'),
+            move2_action=str(body.get('move2_action', 'auto') or 'auto'),
         )
         result['success'] = True
         result['schema'] = 'housing_optimize_v1'
