@@ -390,6 +390,41 @@ def test_move2_strategy_cross_product_rejects_a_too_large_search_before_running_
         )
 
 
+def test_move2_concurrent_rejects_a_too_large_search_before_running_the_engine():
+    # move2_concurrent generates its own candidate set (independent of
+    # move2_strategy) that, before this fix, was never counted against
+    # MOVE2_CROSS_PRODUCT_CAP -- so even the default move2_strategy='anchored'
+    # (not just 'cross_product') could reach the real engine with an
+    # uncapped, runaway number of concurrent candidates for a wide-enough
+    # move2_window. move2_strategy is left at its default ('anchored'), so
+    # estimated starts at 0 and is entirely the concurrent count -- proving
+    # concurrent's contribution alone (not the pre-existing cross_product
+    # check) is what trips the cap.
+    #
+    # With only 2 candidate locations and this move1_window, move1 Pass 1a
+    # produces just 6 owned (extendable) candidates -- not enough anchors for
+    # the concurrent count (anchors * locations * move2-window-years * 2) to
+    # clear MOVE2_CROSS_PRODUCT_CAP=3000 on its own (verified: only ~1760,
+    # under the cap, which let the real engine run to completion instead of
+    # raising -- silently defeating the point of this test by taking
+    # minutes). A third candidate location raises the number of owned move1
+    # candidates to 9, which is enough: 9 anchors * 3 locations * 74
+    # move2-window-years * 2 (buy/rent variants) = 3996 concurrent
+    # candidates, comfortably over the cap, so optimize_housing raises
+    # ValueError before ever calling the engine (verified this test now
+    # completes in well under a second, unlike before the fix).
+    move1_window = ho.SearchWindow(earliest_sale_year=2027, latest_sale_year=2028,
+                                    earliest_purchase_year=2027, latest_purchase_year=2028)
+    move2_window = ho.Move2Window(latest_sale_year_2=2100, latest_purchase_year_2=2100)
+    locations = [ho.Location(state="Texas"), ho.Location(state="Florida"), ho.Location(state="California")]
+    c0 = _base_config()
+    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES), pytest.raises(ValueError, match="cap"):
+        ho.optimize_housing(
+            c0, locations=locations, move1_window=move1_window, move2_window=move2_window,
+            anchor_count=20, objective="net_worth", move2_concurrent=True,
+        )
+
+
 def test_move2_strategy_rejects_unknown_value():
     c0 = _base_config()
     with pytest.raises(ValueError, match="move2_strategy"):
@@ -420,3 +455,72 @@ def test_optimizer_never_mutates_the_base_plan_config():
     assert c0.get("next_housing_steps") == before_next_steps
     assert c0.get("residency_schedule") == before_residency
     assert c0.get("home_sale_yr") == before_sale_yr
+
+
+def test_estimate_for_location_passes_characteristics_through_to_pricing():
+    from src.housing_optimizer import Location, _estimate_for_location
+
+    baseline = _estimate_for_location(Location(state="Texas"), "purchase")
+    bigger = _estimate_for_location(
+        Location(state="Texas", bedrooms=5, sqft_band="over_3500"), "purchase",
+    )
+    assert bigger["purchase_price"] > baseline["purchase_price"]
+
+
+def test_move1_action_rent_only_is_honored_in_both_search_modes():
+    c0 = _base_config()
+    locations = [ho.Location(state="Texas"), ho.Location(state="Florida")]
+    window = ho.SearchWindow(earliest_sale_year=2027, latest_sale_year=2027,
+                              earliest_purchase_year=2027, latest_purchase_year=2028)
+    for mode in ("full", "narrowed"):
+        with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+            result = ho.optimize_housing(
+                c0, locations=locations, move1_window=window,
+                move1_action="rent", search_mode=mode, shortlist_size=1,
+            )
+        for cand in [result["recommendation"], *result["alternatives"]]:
+            if cand is None:
+                continue
+            assert cand["moves"][0]["rent_indefinitely"] is True
+
+
+def test_move2_concurrent_candidate_is_generated_and_scored_by_the_real_engine():
+    """Engine-backed proof that move2_concurrent=True actually reaches the
+    real engine and produces a genuine two-simultaneous-residence run (not
+    just a code path that's never exercised).
+
+    Note: unlike the sequential two-move case, a concurrent candidate can
+    never outrank a move1-only candidate that already satisfies
+    family_presence on its own -- the anchor a concurrent candidate extends
+    must independently pass family_presence_ok before it's even eligible to
+    anchor a move 2 (see family_presence_ok's docstring and the existing
+    test_family_presence_hard_filter_drops_disqualifying_candidates), so
+    concurrent mode only ever adds cost on top of an anchor that already
+    satisfies presence by itself; it structurally cannot become the #1
+    full-search recommendation on net_worth. This mirrors
+    test_two_move_candidate_has_no_mc_approximate_flag's pattern below:
+    assert a concurrent-mode candidate is present among the ranked results,
+    not that it's ranked first.
+    """
+    c0 = _base_config()
+    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+        result = ho.optimize_housing(
+            c0,
+            locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
+            move1_window=ho.SearchWindow(2027, 2027, 2027, 2027),
+            move2_window=ho.Move2Window(latest_sale_year_2=2028, latest_purchase_year_2=2028),
+            move2_concurrent=True,
+            anchor_count=1,
+            family_presence=ho.FamilyPresence(region="Florida", start_year=2028, end_year=2028),
+            shortlist_size=3,
+        )
+    assert result["recommendation"] is not None
+    rows = [result["recommendation"], *result["alternatives"]]
+    concurrent_rows = [
+        r for r in rows
+        if r and len(r["moves"]) == 2 and r["moves"][1]["mode"] == "concurrent"
+    ]
+    assert concurrent_rows, "expected at least one concurrent-mode candidate in the ranked results"
+    move2 = concurrent_rows[0]["moves"][1]
+    assert move2["sale_year"] is None
+    assert move2["start_year"] is not None

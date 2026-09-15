@@ -3,12 +3,16 @@ name: Nightly full suite
 # Runs the complete test suite once a day, including everything the PR-tier
 # `test` job excludes for speed: @pytest.mark.slow (full workbook-build
 # subprocess tests) and @pytest.mark.nightly (engine-internals-only
-# equivalence/sweep-breadth checks that an ordinary UI/config-only PR change
-# cannot trigger -- see documentation/reference/
-# TESTING_REFACTOR_RECOMMENDATIONS.md item 7). Also the one place coverage
-# is collected and uploaded, since instrumenting every PR run cost ~85
-# minutes for an XML file that was previously discarded by a condition that
-# could never be true (see ci.yml's `test` job history).
+# equivalence/sweep-breadth checks, and the module-off build sweep over the
+# rarely-changing module_catalog.py registry, that an ordinary UI/config-only
+# PR change cannot trigger -- see documentation/reference/
+# TESTING_REFACTOR_RECOMMENDATIONS.md item 7 and pyproject.toml's `nightly`
+# marker doc). Also the one place coverage is collected and uploaded, since
+# instrumenting every PR run cost ~85 minutes for an XML file that was
+# previously discarded by a condition that could never be true (see ci.yml's
+# `test` job history). `workflow_dispatch` lets a maintainer also run it on
+# demand (e.g. right after actually changing module_catalog.py, instead of
+# waiting for the next scheduled run).
 on:
   schedule:
     # 09:00 UTC daily.

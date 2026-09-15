@@ -3,7 +3,7 @@
 // against a REAL browser instead of the synthetic DOM probe used to verify it
 // interactively. System review 2026-08-04, finding
 // `no-browser-execution-testing` / `ui-accordion-breaks-jump-to-field`.
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 import { openCurrentPlan } from './helpers.js';
 
 // Steps that fetch build/results-derived data as part of their own render
@@ -26,6 +26,12 @@ function isExpectedPreBuild404(url) {
 // actually used (one continuous session), and it avoids paying the
 // open-the-plan flow's cost twice.
 test('guided-step navigation has no dead ends, and jump-to-field opens a closed accordion', async ({ page }) => {
+  // Iterates every top-level nav step (15+) in sequence -- comfortably under
+  // the 120s default in isolation, but fixtures.js's per-worker parallelism
+  // means this can now run alongside another worker's real build under CPU
+  // contention (see waitForPlanSettled's own comment on this class of
+  // slowdown), so give it the same headroom a build-triggering spec gets.
+  test.setTimeout(240_000);
   const consoleErrors = [];
   const unexpected404s = [];
   page.on('console', (msg) => {

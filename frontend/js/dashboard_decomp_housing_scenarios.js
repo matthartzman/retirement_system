@@ -1223,11 +1223,57 @@ export function toggleHousingOptMove2Fields() {
   const el = document.getElementById("housingOptMove2Fields");
   const enabled = !!document.getElementById("housingOptMove2Enabled")?.checked;
   if (el) el.hidden = !enabled;
+  if (!enabled) {
+    // Move 2 is being disabled -- concurrent mode (and anything it implies)
+    // is moot, so reset it rather than silently posting a stale
+    // move2_concurrent=true with no move2_window.
+    const concurrentCb = document.getElementById("housingOptMove2Concurrent");
+    if (concurrentCb) concurrentCb.checked = false;
+    const narrowedNote = document.getElementById("housingOptMove2ConcurrentNarrowedNote");
+    if (narrowedNote) narrowedNote.hidden = true;
+    toggleHousingOptNoDualOwnershipAvailability();
+  }
+}
+
+export function toggleHousingOptMove2ConcurrentAvailability() {
+  const searchMode = String(document.getElementById("housingOptSearchMode")?.value || "full");
+  const concurrentCb = document.getElementById("housingOptMove2Concurrent");
+  const note = document.getElementById("housingOptMove2ConcurrentNarrowedNote");
+  const narrowed = searchMode === "narrowed";
+  if (concurrentCb) {
+    if (narrowed) concurrentCb.checked = false;
+    concurrentCb.disabled = narrowed;
+  }
+  if (note) note.hidden = !narrowed;
+  toggleHousingOptNoDualOwnershipAvailability();
+}
+
+// no_dual_ownership does not apply to concurrent mode: concurrent candidates
+// always keep both homes, so the checkbox's value is ignored by the backend
+// (generate_move2_concurrent_candidates takes no no_dual_ownership argument).
+// Disable it and explain why whenever concurrent mode is active, without
+// touching its checked state.
+export function toggleHousingOptNoDualOwnershipAvailability() {
+  const concurrent = !!document.getElementById("housingOptMove2Concurrent")?.checked;
+  const noDualCb = document.getElementById("housingOptNoDualOwnership");
+  const note = document.getElementById("housingOptNoDualOwnershipConcurrentNote");
+  if (noDualCb) noDualCb.disabled = concurrent;
+  if (note) note.hidden = !concurrent;
+}
+
+function housingOptStateSelectHtml(id, selectedValue) {
+  const options = _stateNameChoiceOptions()
+    .map(
+      (o) =>
+        `<option value="${esc(o.value)}"${o.value === selectedValue ? " selected" : ""}>${esc(o.label)}</option>`,
+    )
+    .join("");
+  return `<select id="${id}"><option value="">Select a state</option>${options}</select>`;
 }
 
 function housingOptLocationRowHtml(i) {
   return `<div class="housing-opt-location-row" id="housingOptLocRow${i}" ${i >= 2 ? "hidden" : ""}>
-    <input type="text" id="housingOptLocState${i}" placeholder="State (e.g. Texas)" style="width:10em">
+    ${housingOptStateSelectHtml(`housingOptLocState${i}`, "")}
     <select id="housingOptLocCity${i}">
       <option value="urban">Urban</option>
       <option value="suburban" selected>Suburban</option>
@@ -1235,6 +1281,34 @@ function housingOptLocationRowHtml(i) {
       <option value="rural">Rural</option>
     </select>
     <input type="number" id="housingOptLocPop${i}" value="20000" min="0" style="width:8em" placeholder="Population">
+    <select id="housingOptLocBedrooms${i}" title="Bedrooms">
+      <option value="2">2BR</option>
+      <option value="3" selected>3BR</option>
+      <option value="4">4BR</option>
+      <option value="5">5+BR</option>
+    </select>
+    <select id="housingOptLocBathrooms${i}" title="Bathrooms">
+      <option value="1">1BA</option>
+      <option value="1.5">1.5BA</option>
+      <option value="2" selected>2BA</option>
+      <option value="2.5">2.5BA</option>
+      <option value="3">3BA</option>
+      <option value="3.5">3.5+BA</option>
+    </select>
+    <select id="housingOptLocPropertyType${i}" title="Property type">
+      <option value="single_family" selected>Single family</option>
+      <option value="townhome">Townhome</option>
+      <option value="condo">Condo</option>
+      <option value="duplex">Duplex</option>
+    </select>
+    <select id="housingOptLocSqftBand${i}" title="Square footage">
+      <option value="under_1200">Under 1,200 sqft</option>
+      <option value="1200_1800">1,200-1,800 sqft</option>
+      <option value="1800_2500" selected>1,800-2,500 sqft</option>
+      <option value="2500_3500">2,500-3,500 sqft</option>
+      <option value="over_3500">Over 3,500 sqft</option>
+    </select>
+    <input type="number" id="housingOptLocBuiltWithinYears${i}" min="0" style="width:8em" placeholder="Built within N yrs (optional)">
   </div>`;
 }
 
@@ -1252,14 +1326,31 @@ export function renderHousingOptimizePanelHtml() {
     <label>Latest sale year <input type="number" id="housingOptLatestSale"></label>
     <label>Earliest purchase year <input type="number" id="housingOptEarliestPurchase"></label>
     <label>Latest purchase year <input type="number" id="housingOptLatestPurchase"></label>
+    <label>Move 1 action
+      <select id="housingOptMove1Action">
+        <option value="auto" selected>Auto (search buy &amp; rent)</option>
+        <option value="buy">Buy only</option>
+        <option value="rent">Rent only</option>
+      </select>
+    </label>
     <div class="subsection-label"><label><input type="checkbox" id="housingOptMove2Enabled" onchange="toggleHousingOptMove2Fields()"> Consider a second move</label></div>
     <div id="housingOptMove2Fields" hidden>
       <label>Move-2 latest sale year <input type="number" id="housingOptLatestSale2"></label>
       <label>Move-2 latest purchase year <input type="number" id="housingOptLatestPurchase2"></label>
       <label>Anchor count <input type="number" id="housingOptAnchorCount" value="5" min="1" max="10"></label>
+      <label>Move 2 action
+        <select id="housingOptMove2Action">
+          <option value="auto" selected>Auto (search buy &amp; rent)</option>
+          <option value="buy">Buy only</option>
+          <option value="rent">Rent only</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="housingOptMove2Concurrent" onchange="toggleHousingOptMove2ConcurrentAvailability(); toggleHousingOptNoDualOwnershipAvailability()"> Concurrent with move 1 (keep move-1 home, add this as a second residence)</label>
+      <div id="housingOptMove2ConcurrentNarrowedNote" class="small" hidden>Concurrent mode is only available with Full grid search mode; switch Search mode above to enable it.</div>
     </div>
     <div class="subsection-label">Constraints and objective</div>
     <label><input type="checkbox" id="housingOptNoDualOwnership" checked> Never own two homes at once</label>
+    <div id="housingOptNoDualOwnershipConcurrentNote" class="small" hidden>Not applicable in concurrent mode -- both homes are always kept.</div>
     <label>Objective
       <select id="housingOptObjective">
         <option value="net_worth">Ending net worth</option>
@@ -1268,7 +1359,7 @@ export function renderHousingOptimizePanelHtml() {
       </select>
     </label>
     <label>Search mode
-      <select id="housingOptSearchMode">
+      <select id="housingOptSearchMode" onchange="toggleHousingOptMove2ConcurrentAvailability()">
         <option value="full">Full grid (thorough, slower)</option>
         <option value="narrowed">Narrowed search (faster, may miss the best candidate)</option>
       </select>
@@ -1280,7 +1371,7 @@ export function renderHousingOptimizePanelHtml() {
       </select>
     </label>
     <div class="subsection-label">Family presence (optional)</div>
-    <label>Region (state) <input type="text" id="housingOptPresenceRegion" placeholder="e.g. Illinois"></label>
+    <label>Region (state) ${housingOptStateSelectHtml("housingOptPresenceRegion", "")}</label>
     <label>From year <input type="number" id="housingOptPresenceStart"></label>
     <label>Through year <input type="number" id="housingOptPresenceEnd"></label>
     <div class="table-actions"><button class="btn primary" type="button" onclick="runHousingOptimization()">Run optimization</button></div>
@@ -1288,13 +1379,34 @@ export function renderHousingOptimizePanelHtml() {
   </div></details>`;
 }
 
-function housingOptMoveText(move) {
+function housingOptMoveText(move, soldHomeLabel) {
   if (!move) return "";
-  const action = move.rent_indefinitely ? "Rent indefinitely" : `Buy ${move.purchase_year}`;
   const flag = move.sec121_exclusion_lost
     ? ' <span class="small warning">(likely loses §121 exclusion)</span>'
     : "";
-  return `Sell ${move.sale_year} → ${action} in ${esc(move.location.state)}${flag}`;
+  if (move.mode === "concurrent") {
+    const action = move.rent_indefinitely
+      ? `Also rent in ${esc(move.location.state)} from ${move.start_year}`
+      : `Also buy in ${esc(move.location.state)} (${move.start_year})`;
+    return `${action} (concurrent with move 1, home 1 kept)${flag}`;
+  }
+  if (move.rent_indefinitely) {
+    return `Sell ${esc(soldHomeLabel)} (${move.sale_year}) then Rent in ${esc(move.location.state)}${flag}`;
+  }
+  const buyText = `Buy in ${esc(move.location.state)} (${move.purchase_year})`;
+  const sellText = `Sell ${esc(soldHomeLabel)} (${move.sale_year})`;
+  const overlapNote =
+    move.purchase_year < move.sale_year
+      ? ` <span class="small">(own both homes ${move.purchase_year}-${move.sale_year})</span>`
+      : "";
+  const ordered = move.purchase_year < move.sale_year ? [buyText, sellText] : [sellText, buyText];
+  return ordered.join(" then ") + overlapNote + flag;
+}
+
+function housingOptMovesText(moves) {
+  return (moves || [])
+    .map((m, idx) => housingOptMoveText(m, idx === 0 ? "original home" : `${moves[0].location.state} home`))
+    .join(" then ");
 }
 
 const HOUSING_OPT_OBJECTIVE_LABELS = {
@@ -1328,11 +1440,11 @@ export function renderHousingOptimizeResultsHtml(payload) {
   }
   const rec = payload.recommendation;
   const objLabel = HOUSING_OPT_OBJECTIVE_LABELS[payload.objective] || payload.objective;
-  const head = `<div class="section-note"><b>Recommended:</b> ${rec.moves.map(housingOptMoveText).join(" then ")} — ${esc(objLabel)}: ${housingOptValueText(rec, payload.objective)}${housingOptNotesText(rec) ? " · " + esc(housingOptNotesText(rec)) : ""}</div>`;
+  const head = `<div class="section-note"><b>Recommended:</b> ${housingOptMovesText(rec.moves)} — ${esc(objLabel)}: ${housingOptValueText(rec, payload.objective)}${housingOptNotesText(rec) ? " · " + esc(housingOptNotesText(rec)) : ""}</div>`;
   const altRows = (payload.alternatives || [])
     .map(
       (row) =>
-        `<tr><td>${row.moves.map(housingOptMoveText).join("<br>")}</td><td>${housingOptValueText(row, payload.objective)}</td><td>${housingOptMcText(row)}</td><td>${esc(housingOptNotesText(row))}</td></tr>`,
+        `<tr><td>${housingOptMovesText(row.moves).replace(/ then /g, "<br>")}</td><td>${housingOptValueText(row, payload.objective)}</td><td>${housingOptMcText(row)}</td><td>${esc(housingOptNotesText(row))}</td></tr>`,
     )
     .join("");
   const table = altRows
@@ -1350,10 +1462,16 @@ export async function runHousingOptimization() {
       showMessage(`Enter a state for candidate location ${i + 1}.`, "error");
       return;
     }
+    const builtWithinYearsRaw = document.getElementById(`housingOptLocBuiltWithinYears${i}`)?.value;
     locations.push({
       state,
       city_type: String(document.getElementById(`housingOptLocCity${i}`)?.value || "suburban"),
       population_size: Number(document.getElementById(`housingOptLocPop${i}`)?.value || 20000),
+      bedrooms: Number(document.getElementById(`housingOptLocBedrooms${i}`)?.value || 3),
+      bathrooms: Number(document.getElementById(`housingOptLocBathrooms${i}`)?.value || 2),
+      property_type: String(document.getElementById(`housingOptLocPropertyType${i}`)?.value || "single_family"),
+      sqft_band: String(document.getElementById(`housingOptLocSqftBand${i}`)?.value || "1800_2500"),
+      built_within_years: builtWithinYearsRaw ? Number(builtWithinYearsRaw) : null,
     });
   }
   const body = {
@@ -1369,6 +1487,9 @@ export async function runHousingOptimization() {
     objective: String(document.getElementById("housingOptObjective")?.value || "net_worth"),
     search_mode: String(document.getElementById("housingOptSearchMode")?.value || "full"),
     move2_strategy: String(document.getElementById("housingOptMove2Strategy")?.value || "anchored"),
+    move1_action: String(document.getElementById("housingOptMove1Action")?.value || "auto"),
+    move2_action: String(document.getElementById("housingOptMove2Action")?.value || "auto"),
+    move2_concurrent: !!document.getElementById("housingOptMove2Concurrent")?.checked,
   };
   if (document.getElementById("housingOptMove2Enabled")?.checked) {
     body.move2_window = {
@@ -1468,6 +1589,8 @@ Object.assign(window, {
   renderScenarios,
   toggleHousingOptLocationRows,
   toggleHousingOptMove2Fields,
+  toggleHousingOptMove2ConcurrentAvailability,
+  toggleHousingOptNoDualOwnershipAvailability,
   renderHousingOptimizePanelHtml,
   renderHousingOptimizeResultsHtml,
   runHousingOptimization,

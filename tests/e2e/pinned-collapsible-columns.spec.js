@@ -3,7 +3,7 @@
 // get a pinned identifying column (stays visible while scrolling horizontally)
 // and a collapsible "extra" column group (secondary columns hidden by default,
 // toggle button reveals them) instead of every column scrolling together.
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 import { openCurrentPlan, navigateToStep } from './helpers.js';
 
 test('YTD Transactions table pins its first column and collapses secondary columns by default', async ({ page }) => {

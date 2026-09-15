@@ -31,7 +31,7 @@
 //    staged workspace and holds no Monarch export files, so it exercises
 //    the real success+"no_rows" skip branch (mau.write_status runs, the
 //    status line changes) without needing real Monarch Extractor output.
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 import { openCurrentPlan, navigateToStep } from './helpers.js';
 
 test('Monarch settings card: toggle persists via autosave, and Import now updates status', async ({ page }) => {

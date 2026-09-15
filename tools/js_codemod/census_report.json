@@ -2459,6 +2459,54 @@
       "scope": "inside-function"
     },
     {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "renderMain",
       "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
       "kind": "call",

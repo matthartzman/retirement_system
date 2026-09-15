@@ -17,9 +17,24 @@ it runs. Monte Carlo sim counts are reduced the same way that file's
 subprocess build reduces them, since J2 (build -> results) would otherwise
 pay full simulation cost on every CI run.
 
-Intended to be launched by playwright.config.js's `webServer` option, which
-owns starting it, polling for readiness, and killing it after the run --
-nothing here manages its own lifecycle beyond serve_forever().
+E2E efficiency review (2026-09-15): this file previously ALSO ran a real
+workbook build here, in-process, before starting to listen -- on the theory
+that doing the one setup build every workbook-formatting spec needed here,
+once, would be cheaper than three separate specs each triggering their own.
+Measured directly against this environment: that blocks the server from
+answering ANY request (including Playwright's own readiness ping) until the
+build finishes, which taxes every worker -- including the 16 of 21 specs
+that never touch a workbook at all -- with the full build's wall-clock cost
+before their first request can even land. That is a worse trade than the
+thing it replaced. The pre-build was removed; tests/e2e/helpers.js's
+ensureWorkbookBuilt() is the actual fix -- it lazily triggers (and only
+once per worker, reusing whatever an earlier spec already built) a real
+build the first time a spec that needs one actually asks, and every other
+spec never pays for it at all.
+
+Intended to be launched per-worker by tests/e2e/fixtures.js, which owns
+starting it, polling for readiness, and killing it after the run -- nothing
+here manages its own lifecycle beyond serve_forever().
 """
 from __future__ import annotations
 

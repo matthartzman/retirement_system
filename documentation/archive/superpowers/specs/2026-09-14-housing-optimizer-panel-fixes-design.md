@@ -179,11 +179,17 @@ places simultaneously.
   `move2_mode == 'concurrent'`, the region/window requirement is
   satisfied if *either* concurrent location matches, not just the single
   active location on the (now branching) timeline.
-- This is why a candidate search evaluating `Concurrent` can win outright
-  when family presence in two different regions is otherwise
-  unsatisfiable any other way (today's only proxy for this,
-  `family_presence_via_rental`, is a single-location flag and doesn't
-  cover it).
+- Concurrent mode is a real, evaluable option that always appears among
+  ranked candidates when enabled -- but it cannot win the objective
+  outright given the current anchor-eligibility architecture: a
+  concurrent candidate's anchor must already satisfy `family_presence_ok`
+  on its own before it is eligible to become an anchor at all (see
+  `select_anchors`/`select_all_eligible_move1_candidates`, which draw only
+  from already-filtered `move1_scored`), so concurrent's second home can
+  only ever add cost on top of an anchor that already passes presence --
+  it is provably not cost-competitive with the sequential-only anchor it
+  extends. (Verified by two independent task-reviews and a live manual
+  smoke test; see `.superpowers/sdd/progress.md`.)
 
 ## Testing
 

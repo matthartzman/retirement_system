@@ -12,7 +12,7 @@
 // is allowed to run (src/server/workbook_routes.py's build_start route),
 // it is not read anywhere on the request/response path this suite's other
 // specs exercise, and it is restored before the test ends either way.
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 
 test('a real system_config.csv setting round-trips through the admin UI save/reload path', async ({ page }) => {
   await page.goto('/admin');

@@ -78,6 +78,35 @@ describe("renderHousingOptimizePanelHtml", () => {
     assert.match(html, /id="housingOptLocRow2" hidden/);
     assert.match(html, /id="housingOptLocRow3" hidden/);
   });
+
+  test("renders state fields as dropdowns of the canonical state list, not free text", () => {
+    const sandbox = freshSandbox();
+    const html = sandbox.renderHousingOptimizePanelHtml();
+    assert.doesNotMatch(html, /id="housingOptLocState0" type="text"/);
+    assert.match(html, /<select id="housingOptLocState0">[\s\S]*?<\/select>/);
+    assert.match(html, /<option value="Illinois">Illinois<\/option>/);
+    assert.doesNotMatch(html, /id="housingOptPresenceRegion" type="text"/);
+    assert.match(html, /<select id="housingOptPresenceRegion">[\s\S]*?<\/select>/);
+  });
+
+  test("disables the concurrent checkbox when narrowed search is selected, with an inline note", () => {
+    const sandbox = freshSandbox();
+    const html = sandbox.renderHousingOptimizePanelHtml();
+    assert.match(html, /id="housingOptMove2Concurrent"/);
+    assert.match(html, /concurrent[\s\S]{0,200}narrowed/i);
+  });
+});
+
+describe("housingOptLocationRowHtml five-criteria fields", () => {
+  test("renders bedrooms/bathrooms/property type/sqft band/built-within-years inputs", () => {
+    const sandbox = freshSandbox();
+    const html = sandbox.renderHousingOptimizePanelHtml();
+    assert.match(html, /id="housingOptLocBedrooms0"/);
+    assert.match(html, /id="housingOptLocBathrooms0"/);
+    assert.match(html, /id="housingOptLocPropertyType0"/);
+    assert.match(html, /id="housingOptLocSqftBand0"/);
+    assert.match(html, /id="housingOptLocBuiltWithinYears0"/);
+  });
 });
 
 describe("toggleHousingOptLocationRows", () => {
@@ -115,16 +144,58 @@ describe("toggleHousingOptMove2Fields", () => {
   });
 });
 
+describe("toggleHousingOptNoDualOwnershipAvailability", () => {
+  test("disables no-dual-ownership and shows the note when concurrent is checked, re-enables and hides it when unchecked", () => {
+    const sandbox = freshSandbox();
+    const elements = {
+      housingOptMove2Concurrent: { checked: true },
+      housingOptNoDualOwnership: { disabled: false, checked: true },
+      housingOptNoDualOwnershipConcurrentNote: { hidden: true },
+    };
+    sandbox.document.getElementById = (id) => elements[id] || null;
+    sandbox.toggleHousingOptNoDualOwnershipAvailability();
+    assert.equal(elements.housingOptNoDualOwnership.disabled, true);
+    assert.equal(elements.housingOptNoDualOwnership.checked, true);
+    assert.equal(elements.housingOptNoDualOwnershipConcurrentNote.hidden, false);
+
+    elements.housingOptMove2Concurrent.checked = false;
+    sandbox.toggleHousingOptNoDualOwnershipAvailability();
+    assert.equal(elements.housingOptNoDualOwnership.disabled, false);
+    assert.equal(elements.housingOptNoDualOwnershipConcurrentNote.hidden, true);
+  });
+});
+
+describe("toggleHousingOptMove2Fields resets concurrent mode", () => {
+  test("unchecking move 2 also unchecks concurrent and clears its notes", () => {
+    const sandbox = freshSandbox();
+    const elements = {
+      housingOptMove2Enabled: { checked: false },
+      housingOptMove2Fields: { hidden: false },
+      housingOptMove2Concurrent: { checked: true },
+      housingOptMove2ConcurrentNarrowedNote: { hidden: false },
+      housingOptNoDualOwnership: { disabled: true, checked: true },
+      housingOptNoDualOwnershipConcurrentNote: { hidden: false },
+    };
+    sandbox.document.getElementById = (id) => elements[id] || null;
+    sandbox.toggleHousingOptMove2Fields();
+    assert.equal(elements.housingOptMove2Fields.hidden, true);
+    assert.equal(elements.housingOptMove2Concurrent.checked, false);
+    assert.equal(elements.housingOptMove2ConcurrentNarrowedNote.hidden, true);
+    assert.equal(elements.housingOptNoDualOwnership.disabled, false);
+    assert.equal(elements.housingOptNoDualOwnershipConcurrentNote.hidden, true);
+  });
+});
+
 describe("renderHousingOptimizeResultsHtml", () => {
   test("renders the headline recommendation and the ranked alternatives table", () => {
     const sandbox = freshSandbox();
     const html = sandbox.renderHousingOptimizeResultsHtml(samplePayload());
     assert.match(html, /Recommended/);
-    assert.match(html, /Sell 2027/);
-    assert.match(html, /Buy 2028/);
+    assert.match(html, /Sell original home \(2027\)/);
+    assert.match(html, /Buy in Texas \(2028\)/);
     assert.match(html, /Texas/);
     assert.match(html, /Florida/);
-    assert.match(html, /Rent indefinitely/);
+    assert.match(html, /Rent in Florida/);
     assert.match(html, /family presence via rental/);
     assert.match(html, /scenario-diff-table/);
   });
@@ -141,6 +212,66 @@ describe("renderHousingOptimizeResultsHtml", () => {
     const sandbox = freshSandbox();
     const html = sandbox.renderHousingOptimizeResultsHtml({ recommendation: null, alternatives: [] });
     assert.match(html, /No candidates satisfied/);
+  });
+
+  test("orders a bridge-purchase move chronologically (buy before sell) instead of always 'Sell -> Buy'", () => {
+    const sandbox = freshSandbox();
+    const payload = samplePayload();
+    payload.recommendation.moves[0] = {
+      sale_year: 2035,
+      purchase_year: 2032,
+      rent_indefinitely: false,
+      location: { state: "Illinois", city_type: "suburban", population_size: 20000 },
+      sec121_exclusion_lost: false,
+    };
+    const html = sandbox.renderHousingOptimizeResultsHtml(payload);
+    const buyIdx = html.indexOf("Buy in Illinois (2032)");
+    const sellIdx = html.indexOf("Sell original home (2035)");
+    assert.ok(buyIdx >= 0, "expected a 'Buy in Illinois (2032)' label");
+    assert.ok(sellIdx >= 0, "expected a 'Sell original home (2035)' label");
+    assert.ok(buyIdx < sellIdx, "buy year (2032) precedes sell year (2035), should render first");
+    assert.match(html, /own both homes 2032.{0,3}2035/i);
+  });
+
+  test("labels move 2's sale as the move-1 home, not the original home", () => {
+    const sandbox = freshSandbox();
+    const payload = samplePayload();
+    payload.recommendation.moves = [
+      {
+        sale_year: 2030, purchase_year: 2030, rent_indefinitely: false,
+        location: { state: "Texas", city_type: "suburban", population_size: 150000 },
+        sec121_exclusion_lost: false,
+      },
+      {
+        sale_year: 2032, purchase_year: 2038, rent_indefinitely: false,
+        location: { state: "Florida", city_type: "urban", population_size: 300000 },
+        sec121_exclusion_lost: false,
+      },
+    ];
+    const html = sandbox.renderHousingOptimizeResultsHtml(payload);
+    assert.match(html, /Sell Texas home \(2032\)/);
+    assert.match(html, /Buy in Florida \(2038\)/);
+  });
+
+  test("renders a concurrent move 2 distinctly from a sequential one", () => {
+    const sandbox = freshSandbox();
+    const payload = samplePayload();
+    // Isolate the concurrent move so the "no Sell wording" assertion below
+    // tests this move's own rendering, not an unrelated prior sequential
+    // move's "Sell original home" text (samplePayload()'s stock move 0 always
+    // renders a "Sell" since it is a real sale, not a concurrent addition).
+    payload.recommendation.moves = [
+      {
+        sale_year: null, purchase_year: 2030, start_year: 2030, mode: "concurrent",
+        rent_indefinitely: false,
+        location: { state: "Illinois", city_type: "suburban", population_size: 20000 },
+        sec121_exclusion_lost: false,
+      },
+    ];
+    const html = sandbox.renderHousingOptimizeResultsHtml(payload);
+    assert.match(html, /concurrent/i);
+    assert.match(html, /Illinois/);
+    assert.doesNotMatch(html, /Sell.*Illinois/);
   });
 });
 
@@ -173,6 +304,8 @@ describe("runHousingOptimization", () => {
       housingOptLocState0: "Texas",
       housingOptLocCity0: "suburban",
       housingOptLocPop0: "150000",
+      housingOptLocBedrooms0: "3",
+      housingOptLocPropertyType0: "single_family",
       housingOptLocState1: "Florida",
       housingOptLocCity1: "urban",
       housingOptLocPop1: "300000",
@@ -206,6 +339,8 @@ describe("runHousingOptimization", () => {
     assert.equal(capturedUrl, "/api/housing/optimize");
     assert.equal(capturedBody.locations.length, 2);
     assert.equal(capturedBody.locations[0].state, "Texas");
+    assert.equal(capturedBody.locations[0].bedrooms, 3);
+    assert.equal(capturedBody.locations[0].property_type, "single_family");
     assert.equal(capturedBody.no_dual_ownership, true);
     assert.equal(capturedBody.search_mode, "narrowed");
     assert.equal(capturedBody.move2_strategy, "cross_product");
@@ -245,5 +380,56 @@ describe("runHousingOptimization", () => {
     assert.match(messages[0][0], /cross_product/);
     assert.equal(messages[0][1], "error");
     assert.equal(resultsEl.innerHTML, "");
+  });
+
+  test("defaults move1_action/move2_action to auto and reads the selects when present", async () => {
+    const sandbox = freshSandbox();
+    const values = {
+      housingOptLocCount: "2", housingOptLocState0: "Texas", housingOptLocState1: "Florida",
+      housingOptEarliestSale: "2027", housingOptLatestSale: "2028",
+      housingOptEarliestPurchase: "2027", housingOptLatestPurchase: "2028",
+      housingOptObjective: "net_worth", housingOptSearchMode: "full",
+      housingOptMove2Strategy: "anchored", housingOptMove1Action: "rent",
+    };
+    const resultsEl = { innerHTML: "" };
+    sandbox.document.getElementById = (id) => {
+      if (id === "housingOptimizeResults") return resultsEl;
+      if (id in values) return { value: values[id] };
+      return { value: "" };
+    };
+    let capturedBody = null;
+    sandbox.api = async (url, opts) => {
+      capturedBody = JSON.parse(opts.body);
+      return { success: true, recommendation: null, alternatives: [] };
+    };
+    await sandbox.runHousingOptimization();
+    assert.equal(capturedBody.move1_action, "rent");
+    assert.equal(capturedBody.move2_action, "auto");
+  });
+
+  test("posts move2_concurrent to the API", async () => {
+    const sandbox = freshSandbox();
+    const values = {
+      housingOptLocCount: "2", housingOptLocState0: "Texas", housingOptLocState1: "Florida",
+      housingOptEarliestSale: "2027", housingOptLatestSale: "2028",
+      housingOptEarliestPurchase: "2027", housingOptLatestPurchase: "2028",
+      housingOptObjective: "net_worth", housingOptSearchMode: "full",
+      housingOptMove2Strategy: "anchored",
+    };
+    const resultsEl = { innerHTML: "" };
+    const move2Concurrent = { checked: true };
+    sandbox.document.getElementById = (id) => {
+      if (id === "housingOptimizeResults") return resultsEl;
+      if (id === "housingOptMove2Concurrent") return move2Concurrent;
+      if (id in values) return { value: values[id] };
+      return { value: "" };
+    };
+    let capturedBody = null;
+    sandbox.api = async (url, opts) => {
+      capturedBody = JSON.parse(opts.body);
+      return { success: true, recommendation: null, alternatives: [] };
+    };
+    await sandbox.runHousingOptimization();
+    assert.equal(capturedBody.move2_concurrent, true);
   });
 });

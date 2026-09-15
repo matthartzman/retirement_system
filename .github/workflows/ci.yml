@@ -155,6 +155,14 @@ jobs:
     # diagnostics. thread-method interrupts a stuck test without relying on
     # signals (unreliable on Windows) and still reports which test hung.
     #
+    # -m "not slow and not nightly": `nightly` (E2E/CI efficiency review,
+    # 2026-09-15, R6, folded into this same marker) also now covers
+    # test_all_modules_off_build_functional.py's 24-build single-module-off
+    # sweep, which remained the single largest component of this job's
+    # runtime even under -n auto -- a 2-core CI runner only buys ~2x on a
+    # sweep that is 26x more expensive than one build. See pyproject.toml's
+    # `nightly` marker doc and nightly.yml, which runs it (and everything
+    # else this excludes) once a day.
     - name: Run tests
       shell: bash
       run: |
@@ -242,8 +250,20 @@ jobs:
     - name: Install Node dependencies
       run: npm ci
 
+    # Cache the downloaded browser binary keyed on the exact @playwright/test
+    # version (from package-lock.json, not package.json's range) -- `npx
+    # playwright install` otherwise re-downloads Chromium on every single CI
+    # run. Invalidates itself automatically on a version bump.
+    - name: Cache Playwright browsers
+      uses: actions/cache@v4
+      id: playwright-cache
+      with:
+        path: ~/AppData/Local/ms-playwright
+        key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
     - name: Install Playwright Chromium
-      run: npx playwright install chromium
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      run: npx playwright install chromium --with-deps
 
     - name: Run E2E suite
       run: npx playwright test
