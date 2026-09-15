@@ -26,6 +26,16 @@ markers = [
     # gitignored (real financial data), so these cannot run on CI or in a fresh
     # worktree. See the handler in tests/conftest.py.
     "requires_live_input: reads the live, gitignored input/ plan CSVs",
+    # 2026-09-15 CI-time profiling (documentation/reference/
+    # TESTING_REFACTOR_RECOMMENDATIONS.md): tests whose failure mode is an
+    # engine-internals-only equivalence check (scalar engine agrees with the
+    # vectorized one) or a sweep/optimizer breadth check, neither of which an
+    # ordinary UI/config-only PR change can trigger. These are the ~2% of the
+    # fast tier that cost ~92% of its CPU time. Excluded from the PR-tier `-m
+    # "not slow and not nightly"` run; the nightly scheduled workflow runs
+    # everything, this marker included. A cheap vectorized-only assertion for
+    # the same behavior stays in the PR tier in each affected file.
+    "nightly: expensive engine-equivalence or sweep-breadth check; PR tier skips it, the nightly workflow runs it",
 ]
 # Timeout safety net removed: pytest-timeout configuration was causing
 # silent crashes in CI despite plugin installation attempts. Tests will

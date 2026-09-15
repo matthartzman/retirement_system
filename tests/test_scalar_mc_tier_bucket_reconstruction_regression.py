@@ -26,6 +26,7 @@ from src.planning_engines import (
     monte_carlo_exact_scalar,
     project,
 )
+import pytest
 
 
 def _config_with_balances(balances: dict):
@@ -148,6 +149,12 @@ def test_second_year_balance_carries_forward_from_reconstructed_state():
     assert result[2031]["tier_actual_spend"]["essential"] == 3000.0
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_scalar_engine_essential_fully_funded_probability_still_sane_on_real_fixture():
     c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
     c["roth_policy"] = "none"
