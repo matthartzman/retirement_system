@@ -1223,6 +1223,16 @@ export function toggleHousingOptMove2Fields() {
   const el = document.getElementById("housingOptMove2Fields");
   const enabled = !!document.getElementById("housingOptMove2Enabled")?.checked;
   if (el) el.hidden = !enabled;
+  if (!enabled) {
+    // Move 2 is being disabled -- concurrent mode (and anything it implies)
+    // is moot, so reset it rather than silently posting a stale
+    // move2_concurrent=true with no move2_window.
+    const concurrentCb = document.getElementById("housingOptMove2Concurrent");
+    if (concurrentCb) concurrentCb.checked = false;
+    const narrowedNote = document.getElementById("housingOptMove2ConcurrentNarrowedNote");
+    if (narrowedNote) narrowedNote.hidden = true;
+    toggleHousingOptNoDualOwnershipAvailability();
+  }
 }
 
 export function toggleHousingOptMove2ConcurrentAvailability() {
@@ -1235,6 +1245,20 @@ export function toggleHousingOptMove2ConcurrentAvailability() {
     concurrentCb.disabled = narrowed;
   }
   if (note) note.hidden = !narrowed;
+  toggleHousingOptNoDualOwnershipAvailability();
+}
+
+// no_dual_ownership does not apply to concurrent mode: concurrent candidates
+// always keep both homes, so the checkbox's value is ignored by the backend
+// (generate_move2_concurrent_candidates takes no no_dual_ownership argument).
+// Disable it and explain why whenever concurrent mode is active, without
+// touching its checked state.
+export function toggleHousingOptNoDualOwnershipAvailability() {
+  const concurrent = !!document.getElementById("housingOptMove2Concurrent")?.checked;
+  const noDualCb = document.getElementById("housingOptNoDualOwnership");
+  const note = document.getElementById("housingOptNoDualOwnershipConcurrentNote");
+  if (noDualCb) noDualCb.disabled = concurrent;
+  if (note) note.hidden = !concurrent;
 }
 
 function housingOptStateSelectHtml(id, selectedValue) {
@@ -1321,11 +1345,12 @@ export function renderHousingOptimizePanelHtml() {
           <option value="rent">Rent only</option>
         </select>
       </label>
-      <label><input type="checkbox" id="housingOptMove2Concurrent" onchange="toggleHousingOptMove2ConcurrentAvailability()"> Concurrent with move 1 (keep move-1 home, add this as a second residence)</label>
+      <label><input type="checkbox" id="housingOptMove2Concurrent" onchange="toggleHousingOptMove2ConcurrentAvailability(); toggleHousingOptNoDualOwnershipAvailability()"> Concurrent with move 1 (keep move-1 home, add this as a second residence)</label>
       <div id="housingOptMove2ConcurrentNarrowedNote" class="small" hidden>Concurrent mode is only available with Full grid search mode; switch Search mode above to enable it.</div>
     </div>
     <div class="subsection-label">Constraints and objective</div>
     <label><input type="checkbox" id="housingOptNoDualOwnership" checked> Never own two homes at once</label>
+    <div id="housingOptNoDualOwnershipConcurrentNote" class="small" hidden>Not applicable in concurrent mode -- both homes are always kept.</div>
     <label>Objective
       <select id="housingOptObjective">
         <option value="net_worth">Ending net worth</option>
@@ -1565,6 +1590,7 @@ Object.assign(window, {
   toggleHousingOptLocationRows,
   toggleHousingOptMove2Fields,
   toggleHousingOptMove2ConcurrentAvailability,
+  toggleHousingOptNoDualOwnershipAvailability,
   renderHousingOptimizePanelHtml,
   renderHousingOptimizeResultsHtml,
   runHousingOptimization,

@@ -318,6 +318,41 @@ def test_move2_strategy_cross_product_rejects_a_too_large_search_before_running_
         )
 
 
+def test_move2_concurrent_rejects_a_too_large_search_before_running_the_engine():
+    # move2_concurrent generates its own candidate set (independent of
+    # move2_strategy) that, before this fix, was never counted against
+    # MOVE2_CROSS_PRODUCT_CAP -- so even the default move2_strategy='anchored'
+    # (not just 'cross_product') could reach the real engine with an
+    # uncapped, runaway number of concurrent candidates for a wide-enough
+    # move2_window. move2_strategy is left at its default ('anchored'), so
+    # estimated starts at 0 and is entirely the concurrent count -- proving
+    # concurrent's contribution alone (not the pre-existing cross_product
+    # check) is what trips the cap.
+    #
+    # With only 2 candidate locations and this move1_window, move1 Pass 1a
+    # produces just 6 owned (extendable) candidates -- not enough anchors for
+    # the concurrent count (anchors * locations * move2-window-years * 2) to
+    # clear MOVE2_CROSS_PRODUCT_CAP=3000 on its own (verified: only ~1760,
+    # under the cap, which let the real engine run to completion instead of
+    # raising -- silently defeating the point of this test by taking
+    # minutes). A third candidate location raises the number of owned move1
+    # candidates to 9, which is enough: 9 anchors * 3 locations * 74
+    # move2-window-years * 2 (buy/rent variants) = 3996 concurrent
+    # candidates, comfortably over the cap, so optimize_housing raises
+    # ValueError before ever calling the engine (verified this test now
+    # completes in well under a second, unlike before the fix).
+    move1_window = ho.SearchWindow(earliest_sale_year=2027, latest_sale_year=2028,
+                                    earliest_purchase_year=2027, latest_purchase_year=2028)
+    move2_window = ho.Move2Window(latest_sale_year_2=2100, latest_purchase_year_2=2100)
+    locations = [ho.Location(state="Texas"), ho.Location(state="Florida"), ho.Location(state="California")]
+    c0 = _base_config()
+    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES), pytest.raises(ValueError, match="cap"):
+        ho.optimize_housing(
+            c0, locations=locations, move1_window=move1_window, move2_window=move2_window,
+            anchor_count=20, objective="net_worth", move2_concurrent=True,
+        )
+
+
 def test_move2_strategy_rejects_unknown_value():
     c0 = _base_config()
     with pytest.raises(ValueError, match="move2_strategy"):

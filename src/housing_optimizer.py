@@ -907,15 +907,56 @@ def optimize_housing(
             estimated = estimate_move2_candidate_count(
                 anchors, locations, move2_window, no_dual_ownership, narrowed,
             )
-            if estimated > MOVE2_CROSS_PRODUCT_CAP:
-                raise ValueError(
-                    f"move2_strategy='cross_product' would evaluate ~{estimated} move-2 "
-                    f"candidates, over the safety cap of {MOVE2_CROSS_PRODUCT_CAP}. Narrow "
-                    "the search window(s), use fewer candidate locations, or set "
-                    "search_mode='narrowed' to make cross-product search tractable."
-                )
         else:
+            # anchor_count alone does not bound this branch's candidate count
+            # the way the comment above claims for cross_product: nothing in
+            # optimize_housing validates anchor_count's upper bound (a caller
+            # -- e.g. optimize_housing_from_request -- can pass anything), and
+            # even a small anchor_count times a wide move2_window/location
+            # count can still be large. The non-concurrent anchored count
+            # itself is left unchecked here (unchanged pre-existing
+            # behavior, out of scope for this fix), but move2_concurrent's
+            # contribution below is not exempt from that same risk, so it
+            # still gets counted and capped.
             anchors = select_anchors(move1_scored, anchor_count)
+            estimated = 0
+
+        # move2_concurrent generates its own separate candidate set (§8.2
+        # move-2 concurrent mode) via generate_move2_concurrent_candidates,
+        # independent of move2_strategy and not covered by
+        # estimate_move2_candidate_count above. It's cheap to build (no
+        # engine calls), so count it exactly and fold it into the same
+        # pre-generation cap check rather than letting it bypass
+        # MOVE2_CROSS_PRODUCT_CAP entirely (move2_concurrent is disallowed
+        # with search_mode='narrowed' above, so `narrowed` is always False
+        # here and generate_move2_concurrent_candidates's real, non-estimated
+        # count applies).
+        concurrent_estimated = 0
+        if move2_concurrent:
+            concurrent_estimated = len(generate_move2_concurrent_candidates(anchors, locations, move2_window))
+            estimated += concurrent_estimated
+
+        if estimated > MOVE2_CROSS_PRODUCT_CAP:
+            if concurrent_estimated and move2_strategy == 'cross_product':
+                raise ValueError(
+                    f"move2_strategy='cross_product' with move2_concurrent=True would evaluate "
+                    f"~{estimated} move-2 candidates (including {concurrent_estimated} concurrent "
+                    f"candidates), over the safety cap of {MOVE2_CROSS_PRODUCT_CAP}. Narrow the "
+                    "search window(s), use fewer candidate locations, or set search_mode='narrowed' "
+                    "to make cross-product search tractable."
+                )
+            if concurrent_estimated:
+                raise ValueError(
+                    f"move2_concurrent=True would evaluate ~{concurrent_estimated} concurrent "
+                    f"move-2 candidates, over the safety cap of {MOVE2_CROSS_PRODUCT_CAP}. Narrow "
+                    "the move-2 window, use fewer candidate locations, or reduce anchor_count."
+                )
+            raise ValueError(
+                f"move2_strategy='cross_product' would evaluate ~{estimated} move-2 "
+                f"candidates, over the safety cap of {MOVE2_CROSS_PRODUCT_CAP}. Narrow "
+                "the search window(s), use fewer candidate locations, or set "
+                "search_mode='narrowed' to make cross-product search tractable."
+            )
         if narrowed:
             move2_scored = generate_move2_candidates_narrowed(
                 c0, base_state, anchors, locations, move2_window, no_dual_ownership, move2_action, family_presence,
