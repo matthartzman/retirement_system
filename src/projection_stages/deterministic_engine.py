@@ -1198,6 +1198,7 @@ def run_deterministic_projection_stage(c):
             pretax_by_account=pretax_by_account, ira_tax_true_up_iterations=ira_tax_true_up_iterations,
             top_24_yr=top_24_yr, irmaa_thr_yr=irmaa_thr_yr, marg=marg,
             ira_taxable_inc_orig=_ira_taxable_inc_orig, ira_retirement_dist_orig=_ira_retirement_dist_orig,
+            brk_inf=c['brk_inf'], inflate_brackets_fn=_inflate_brackets_path,
             ira_elective_tax_delta_fn=_ira_elective_ordinary_tax_delta,
         )
         gap = _priority4b.gap

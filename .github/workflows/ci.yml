@@ -14,7 +14,81 @@ on:
       - 'documentation/**'
       - 'docs/**'
 
+# A force-push to a PR branch used to leave its previous ~90-minute run
+# burning to a result nobody would read. Cancel any in-flight run for the
+# same ref before starting a new one. Scoped per-ref (not per-workflow) so
+# unrelated branches/PRs never cancel each other.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # Runs first and reports in well under a minute: ruff, the source-text-only
+  # test files (no src/ import -- line-count ratchets, string-presence and
+  # doc-currency checks), and tools/run_regression.py's static assertions.
+  # Motivation (2026-09-15 CI-time profiling, see documentation/reference/
+  # TESTING_REFACTOR_RECOMMENDATIONS.md item 10): at least five recent
+  # `Fix CI:` commits (RENT_FIRST, RENT_REST, the dashboard.js line ratchet
+  # twice, sheet-tab-order fixtures) were failures of exactly this class,
+  # each discovered only after an ~85-minute wait for the `test` job because
+  # nothing ran these cheap checks first. `regression-checks` used to be its
+  # own job whose 51s of setup dwarfed its own 4s of check time; folded in
+  # here instead of paying that setup cost twice.
+  fast-gates:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v7
+
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.14'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt -r requirements-dev.txt
+
+    # A handful of the source-text-only files below (test_dashboard_codemod_*,
+    # test_dashboard_extract_module_tool, test_dashboard_js_module_bridge_*)
+    # import no src/ code but still shell out to tools/js_codemod/*.mjs,
+    # which needs node_modules (@babel/parser, jscodeshift) -- same
+    # requirement as the `test` job below. Confirmed locally: omitting this
+    # step makes those files fail here with ERR_MODULE_NOT_FOUND, not the
+    # regression they're meant to catch.
+    - uses: actions/setup-node@v6
+      with:
+        node-version: "22"
+
+    - name: Install Node dependencies
+      run: npm ci
+
+    - name: Lint with ruff
+      run: |
+        ruff check src/ tests/
+
+    - name: Static source-text test files (no engine import)
+      shell: bash
+      run: |
+        files=$(for f in tests/test_*.py; do
+          if ! grep -qE "^\s*(import|from)\s+(src|numpy|openpyxl|scipy|matplotlib)" "$f"; then
+            echo "$f"
+          fi
+        done)
+        echo "$files" | tr '\n' ' '
+        # -m "not slow": the file-selection heuristic above only looks at
+        # imports, so it can still pick up a file that is otherwise static
+        # but has one @pytest.mark.slow test requesting the built_workbook_*
+        # fixture (confirmed locally: test_allocation_pie_labels_functional.py
+        # cost 91s here before this filter was added, dwarfing the other 83
+        # files combined). This mirrors the same exclusion the `test` job
+        # applies.
+        pytest $files -m "not slow and not nightly" --tb=short -q
+
+    - name: Run regression checks (static analysis, not pytest)
+      run: |
+        python tools/run_regression.py
+
   test:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -51,14 +125,6 @@ jobs:
     - name: Install Node dependencies
       run: npm ci
 
-    - name: Remove pytest-timeout plugin
-      run: |
-        pip uninstall -y pytest-timeout || true
-
-    - name: Lint with ruff
-      run: |
-        ruff check src/ tests/
-
     - name: Type check (mypy, informational — not yet a merge gate)
       run: mypy src/ --ignore-missing-imports || true
 
@@ -69,46 +135,67 @@ jobs:
     # the step died with "Could not find a part of the path" BEFORE pytest ran.
     # The job then reported failure on every commit -- including docs-only ones
     # -- while executing zero tests, so a red CI here meant nothing at all.
-    # -n auto (pytest-xdist, already in requirements-dev.txt) runs
-    # independent build-subprocess tests concurrently instead of serially.
-    # Same command documentation/reference/CLAUDE.md already tells
-    # developers to use locally; CI was the one place still running serial.
     #
-    # -m "not nightly" (E2E/CI efficiency review, 2026-09-15, R6): excludes
+    # -n auto --dist loadfile: matches the full-suite command CLAUDE.md
+    # already documents (measured 3.3x wall-clock speedup on 4 cores locally,
+    # 2026-09-15). --dist loadfile keeps each file's tests on a single
+    # worker so module-scoped fixtures stay shared and the documented
+    # WinError 5 (antivirus scanning a just-written temp path) mitigation
+    # below still applies per-file. Coverage instrumentation was removed
+    # from this PR-tier run: the old `if: matrix.python-version == '3.11'`
+    # upload condition could never be true against this job's 3.14 matrix,
+    # so --cov=src --cov-report=xml ran on every PR for ~85 minutes and the
+    # XML was silently discarded every time. Coverage now runs once a day
+    # in nightly.yml against the full suite instead.
+    #
+    # --timeout=300 --timeout-method=thread: pytest-timeout was previously
+    # fully removed ("pip uninstall -y pytest-timeout") after it "caused
+    # silent crashes despite plugin installation attempts", which traded a
+    # rare crash for a hang costing the entire job's time limit with zero
+    # diagnostics. thread-method interrupts a stuck test without relying on
+    # signals (unreliable on Windows) and still reports which test hung.
+    #
+    # -m "not slow and not nightly": `nightly` (E2E/CI efficiency review,
+    # 2026-09-15, R6, folded into this same marker) also now covers
     # test_all_modules_off_build_functional.py's 24-build single-module-off
     # sweep, which remained the single largest component of this job's
-    # runtime even parallelized -- a 2-core CI runner only buys ~2x on a
-    # sweep that is 26x more expensive than one build. nightly.yml runs the
-    # full, unfiltered suite (this marker included) on a daily schedule, so
-    # a regression that sweep alone would catch still surfaces within 24h,
-    # just not on every push/PR. See pyproject.toml's `nightly` marker doc.
+    # runtime even under -n auto -- a 2-core CI runner only buys ~2x on a
+    # sweep that is 26x more expensive than one build. See pyproject.toml's
+    # `nightly` marker doc and nightly.yml, which runs it (and everything
+    # else this excludes) once a day.
     - name: Run tests
       shell: bash
       run: |
-        pytest tests/ -n auto -m "not nightly" --tb=short -q --cov=src --cov-report=xml -v > /tmp/pytest_output.txt 2>&1 || TEST_EXIT=$?
+        set +e
+        pytest tests/ -m "not slow and not nightly" -n auto --dist loadfile --timeout=300 --timeout-method=thread --tb=short -q > /tmp/pytest_output.txt 2>&1
+        PARALLEL_EXIT=$?
         cat /tmp/pytest_output.txt
-        exit ${TEST_EXIT:-0}
-
-    - name: Verify frozen golden-master gate executed (F0.3)
-      shell: bash
-      run: |
-        if grep -q "test_frozen_plan_dollar_figures_are_exact PASSED\|test_frozen_plan_dollar_figures_are_exact" /tmp/pytest_output.txt; then
-          echo "✓ Frozen golden-master test executed and passed"
-        else
-          echo "✗ FAIL: Frozen golden-master test did not execute or was skipped"
-          echo "  This is a mandatory gate. Check pytest output above."
-          exit 1
+        if [ "$PARALLEL_EXIT" -eq 0 ]; then
+          exit 0
         fi
+        echo "Parallel run failed or flaked -- retrying just the failures serially (matches CLAUDE.md's documented WinError 5 file-lock flake mitigation) before treating this as a real failure."
+        pytest tests/ -m "not slow and not nightly" --lf --tb=short -q > /tmp/pytest_retry_output.txt 2>&1
+        RETRY_EXIT=$?
+        echo "--- serial retry of failures ---"
+        cat /tmp/pytest_retry_output.txt
+        exit $RETRY_EXIT
+
+    # F0.3 used to grep the captured -q/-v output above for this test's
+    # PASSED line. That broke on this PR's own first CI run: the earlier
+    # draft of this file dropped -v as "redundant with addopts' -q" (it
+    # is not -- verbosity flags count, they don't cancel), so the grep had
+    # nothing to match even though the actual run was green. Rather than
+    # re-reasoning about pytest's verbosity arithmetic (checked against a
+    # real prior CI log and still ambiguous -- not confidently resolved),
+    # this gate now runs the mandatory pin directly and checks its own
+    # exit code: unambiguous, immune to any future change in the main
+    # run's flags or log format, and costs under a second.
+    - name: Verify frozen golden-master gate executed (F0.3)
+      run: |
+        pytest "tests/test_frozen_sample_plan_golden_master_regression.py::FrozenSamplePlanGoldenMasterTests::test_frozen_plan_dollar_figures_are_exact" -q
 
     - name: Fail if the test suite mutated input/
       run: git diff --exit-code -- input/
-
-    - name: Upload coverage
-      uses: codecov/codecov-action@v7
-      if: matrix.python-version == '3.11'
-      with:
-        files: ./coverage.xml
-        fail_ci_if_error: false
 
   frontend-tests:
     runs-on: windows-latest
@@ -145,7 +232,10 @@ jobs:
 
     - uses: actions/setup-python@v6
       with:
-        python-version: '3.11'
+        # Aligned to the `test` job's 3.14 (was 3.11 here and in `build`
+        # below) so the e2e suite exercises the same interpreter the
+        # shipped executable is built on. 2026-09-15 CI-time profiling.
+        python-version: '3.14'
         cache: 'pip'
 
     - name: Install Python dependencies
@@ -186,36 +276,20 @@ jobs:
         path: playwright-report/
         retention-days: 7
 
-  regression-checks:
-    runs-on: windows-latest
-    steps:
-    - uses: actions/checkout@v7
-
-    - name: Set up Python
-      uses: actions/setup-python@v6
-      with:
-        python-version: '3.11'
-        cache: 'pip'
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-
-    - name: Run regression checks
-      run: |
-        python tools/run_regression.py
-
   build:
     runs-on: windows-latest
-    needs: [test]
+    # No longer `needs: [test]`: this is 2m24s of PyInstaller packaging with
+    # no dependency on test output. It previously idled for the ~85 minutes
+    # the `test` job ran, then added its own time on top of the critical
+    # path. Runs in parallel now; `fast-gates` and `test` still gate the
+    # merge via branch protection regardless of `build`'s own result.
     steps:
     - uses: actions/checkout@v7
 
     - name: Set up Python
       uses: actions/setup-python@v6
       with:
-        python-version: '3.11'
+        python-version: '3.14'
         cache: 'pip'
 
     - name: Install dependencies

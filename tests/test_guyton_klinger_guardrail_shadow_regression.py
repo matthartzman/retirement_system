@@ -32,6 +32,7 @@ from src.planning_engines import (
     monte_carlo_exact_scalar,
     project,
 )
+import pytest
 
 
 def _gk_setup(n_years: int, starting_balance: float, year0_draw: float,
@@ -209,6 +210,12 @@ def test_empty_rows_returns_none():
     assert _mc_scalar_guyton_klinger_shadow({}, [], {}, {}) is None
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_both_engines_surface_guardrail_fields_and_agree_in_ballpark_on_real_fixture():
     c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
     c["roth_policy"] = "none"

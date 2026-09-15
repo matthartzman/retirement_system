@@ -85,6 +85,36 @@ pytest tests/ --tb=short -q   # no -n: serial fallback if a run looks flaky, or 
 
 **New tests that spawn a subprocess to build a workbook must be marked `@pytest.mark.slow`.** Prefer the shared `built_workbook_dir`/`built_workbook_path` fixtures over a bespoke `subprocess.run` when your test can use the same module/env configuration those fixtures already build with — that amortizes to one build per session instead of one per test. When your test genuinely needs a different module configuration (e.g. all-modules-off, a custom `RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES` set), a fixture-shared build isn't safe to force — scope your own build to a `module`-or-narrower fixture so it's still paid for once per file, not once per test, and mark it `slow` regardless.
 
+### CI tiers: `not slow` is not the whole story
+
+CI (`.github/workflows/ci.yml`) runs a third exclusion PRs don't need to
+reason about locally in the common case: `-m "not slow and not nightly"`.
+`@pytest.mark.nightly` (2026-09-15 CI-time profiling, see
+`documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md`) marks a test
+whose failure mode is an engine-internals-only equivalence check (the scalar
+engine agrees with the vectorized one) or a sweep/optimizer breadth check —
+neither of which an ordinary UI/config-only PR change can trigger. These
+were 2% of the fast tier costing ~92% of its CPU time. `.github/workflows/
+nightly.yml` runs the complete suite (including `slow` and `nightly`, with
+coverage) once a day. Mark a new test `nightly` only when it fits that
+description — a cheap vectorized-only assertion for the same behavior
+should stay unmarked so a real regression still surfaces in-PR.
+
+### Sharing an expensive Monte Carlo run across tests in one file
+
+If your file has multiple tests that would otherwise call `monte_carlo()`
+with the *same* config and seed (a common pattern when one test checks
+field A of the result and another checks field B), don't call it once per
+test. Use a `scope="module"` fixture keyed by whatever actually varies
+between the tests that can share it (e.g. one fixture per seed), the way
+`tests/test_adoptable_spending_policy_functional.py` and the
+`test_housing_optimizer_integration.py` family already do — this cut that
+file's Monte Carlo calls from six to three with no coverage loss. Prefer the
+session-scoped `mc_sims`/`mc_sensitivity_sims` fixtures in `tests/conftest.py`
+over a fresh hardcoded `n_sims=...` literal so the nightly run (or a local
+`RETIREMENT_MC_SIMS=500 pytest ...` investigation) can scale every such test
+up at once.
+
 ### Test file naming
 
 `test_<succinct_scope>_<type>.py` — the name alone should say what it covers, not which roadmap item/wave/issue shipped it (that belongs in the docstring and git history, both of which survive; a "wave 5.6" or "item 172" reference in a filename does not mean anything once the roadmap moves on). `type` is one of `regression`, `functional`, `contract`, `smoke`, `unit`, `integration`. `tests/test_no_tracking_id_test_names_regression.py` enforces the "no wave/issue/phase number in the name" half of this mechanically; the type-suffix half is a convention to follow for new files, not separately enforced.

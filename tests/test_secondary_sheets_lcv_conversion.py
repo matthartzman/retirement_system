@@ -20,6 +20,7 @@ from src.reporting.sheets_strategy import build_sheet10
 from tests.golden_pricing import FROZEN_GOLDEN_MASTER_PRICES, frozen_holdings_prices
 
 from conftest import TEST_INPUT_DIR
+import pytest
 
 
 def _sample_config_and_rows():
@@ -81,6 +82,12 @@ def _fast_ss_sweep_config():
 
 
 class SsTimingSweepLcvConversionTests(unittest.TestCase):
+    # @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+    # check identified in the 2026-09-15 CI-time profiling (see
+    # documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+    # triggered by an ordinary UI/config change, so it moved off the PR fast
+    # tier and runs in the nightly full-suite workflow instead.
+    @pytest.mark.nightly
     def test_headers_show_lcv_and_npv_of_future_taxes_not_terminal_nw_or_mc_success(self):
         c = _fast_ss_sweep_config()
         rows = project(c)
