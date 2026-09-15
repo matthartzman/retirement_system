@@ -1225,6 +1225,18 @@ export function toggleHousingOptMove2Fields() {
   if (el) el.hidden = !enabled;
 }
 
+export function toggleHousingOptMove2ConcurrentAvailability() {
+  const searchMode = String(document.getElementById("housingOptSearchMode")?.value || "full");
+  const concurrentCb = document.getElementById("housingOptMove2Concurrent");
+  const note = document.getElementById("housingOptMove2ConcurrentNarrowedNote");
+  const narrowed = searchMode === "narrowed";
+  if (concurrentCb) {
+    if (narrowed) concurrentCb.checked = false;
+    concurrentCb.disabled = narrowed;
+  }
+  if (note) note.hidden = !narrowed;
+}
+
 function housingOptStateSelectHtml(id, selectedValue) {
   const options = _stateNameChoiceOptions()
     .map(
@@ -1309,6 +1321,8 @@ export function renderHousingOptimizePanelHtml() {
           <option value="rent">Rent only</option>
         </select>
       </label>
+      <label><input type="checkbox" id="housingOptMove2Concurrent" onchange="toggleHousingOptMove2ConcurrentAvailability()"> Concurrent with move 1 (keep move-1 home, add this as a second residence)</label>
+      <div id="housingOptMove2ConcurrentNarrowedNote" class="small" hidden>Concurrent mode is only available with Full grid search mode; switch Search mode above to enable it.</div>
     </div>
     <div class="subsection-label">Constraints and objective</div>
     <label><input type="checkbox" id="housingOptNoDualOwnership" checked> Never own two homes at once</label>
@@ -1320,7 +1334,7 @@ export function renderHousingOptimizePanelHtml() {
       </select>
     </label>
     <label>Search mode
-      <select id="housingOptSearchMode">
+      <select id="housingOptSearchMode" onchange="toggleHousingOptMove2ConcurrentAvailability()">
         <option value="full">Full grid (thorough, slower)</option>
         <option value="narrowed">Narrowed search (faster, may miss the best candidate)</option>
       </select>
@@ -1345,6 +1359,12 @@ function housingOptMoveText(move, soldHomeLabel) {
   const flag = move.sec121_exclusion_lost
     ? ' <span class="small warning">(likely loses §121 exclusion)</span>'
     : "";
+  if (move.mode === "concurrent") {
+    const action = move.rent_indefinitely
+      ? `Also rent in ${esc(move.location.state)} from ${move.start_year}`
+      : `Also buy in ${esc(move.location.state)} (${move.start_year})`;
+    return `${action} (concurrent with move 1, home 1 kept)${flag}`;
+  }
   if (move.rent_indefinitely) {
     return `Sell ${esc(soldHomeLabel)} (${move.sale_year}) then Rent in ${esc(move.location.state)}${flag}`;
   }
@@ -1444,6 +1464,7 @@ export async function runHousingOptimization() {
     move2_strategy: String(document.getElementById("housingOptMove2Strategy")?.value || "anchored"),
     move1_action: String(document.getElementById("housingOptMove1Action")?.value || "auto"),
     move2_action: String(document.getElementById("housingOptMove2Action")?.value || "auto"),
+    move2_concurrent: !!document.getElementById("housingOptMove2Concurrent")?.checked,
   };
   if (document.getElementById("housingOptMove2Enabled")?.checked) {
     body.move2_window = {
@@ -1543,6 +1564,7 @@ Object.assign(window, {
   renderScenarios,
   toggleHousingOptLocationRows,
   toggleHousingOptMove2Fields,
+  toggleHousingOptMove2ConcurrentAvailability,
   renderHousingOptimizePanelHtml,
   renderHousingOptimizeResultsHtml,
   runHousingOptimization,
