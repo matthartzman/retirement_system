@@ -1326,13 +1326,28 @@ export function renderHousingOptimizePanelHtml() {
   </div></details>`;
 }
 
-function housingOptMoveText(move) {
+function housingOptMoveText(move, soldHomeLabel) {
   if (!move) return "";
-  const action = move.rent_indefinitely ? "Rent indefinitely" : `Buy ${move.purchase_year}`;
   const flag = move.sec121_exclusion_lost
     ? ' <span class="small warning">(likely loses §121 exclusion)</span>'
     : "";
-  return `Sell ${move.sale_year} → ${action} in ${esc(move.location.state)}${flag}`;
+  if (move.rent_indefinitely) {
+    return `Sell ${esc(soldHomeLabel)} (${move.sale_year}) then Rent in ${esc(move.location.state)}${flag}`;
+  }
+  const buyText = `Buy in ${esc(move.location.state)} (${move.purchase_year})`;
+  const sellText = `Sell ${esc(soldHomeLabel)} (${move.sale_year})`;
+  const overlapNote =
+    move.purchase_year < move.sale_year
+      ? ` <span class="small">(own both homes ${move.purchase_year}-${move.sale_year})</span>`
+      : "";
+  const ordered = move.purchase_year < move.sale_year ? [buyText, sellText] : [sellText, buyText];
+  return ordered.join(" then ") + overlapNote + flag;
+}
+
+function housingOptMovesText(moves) {
+  return (moves || [])
+    .map((m, idx) => housingOptMoveText(m, idx === 0 ? "original home" : `${moves[0].location.state} home`))
+    .join(" then ");
 }
 
 const HOUSING_OPT_OBJECTIVE_LABELS = {
@@ -1366,11 +1381,11 @@ export function renderHousingOptimizeResultsHtml(payload) {
   }
   const rec = payload.recommendation;
   const objLabel = HOUSING_OPT_OBJECTIVE_LABELS[payload.objective] || payload.objective;
-  const head = `<div class="section-note"><b>Recommended:</b> ${rec.moves.map(housingOptMoveText).join(" then ")} — ${esc(objLabel)}: ${housingOptValueText(rec, payload.objective)}${housingOptNotesText(rec) ? " · " + esc(housingOptNotesText(rec)) : ""}</div>`;
+  const head = `<div class="section-note"><b>Recommended:</b> ${housingOptMovesText(rec.moves)} — ${esc(objLabel)}: ${housingOptValueText(rec, payload.objective)}${housingOptNotesText(rec) ? " · " + esc(housingOptNotesText(rec)) : ""}</div>`;
   const altRows = (payload.alternatives || [])
     .map(
       (row) =>
-        `<tr><td>${row.moves.map(housingOptMoveText).join("<br>")}</td><td>${housingOptValueText(row, payload.objective)}</td><td>${housingOptMcText(row)}</td><td>${esc(housingOptNotesText(row))}</td></tr>`,
+        `<tr><td>${housingOptMovesText(row.moves).replace(/ then /g, "<br>")}</td><td>${housingOptValueText(row, payload.objective)}</td><td>${housingOptMcText(row)}</td><td>${esc(housingOptNotesText(row))}</td></tr>`,
     )
     .join("");
   const table = altRows

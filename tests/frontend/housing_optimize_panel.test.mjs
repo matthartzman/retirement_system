@@ -142,11 +142,11 @@ describe("renderHousingOptimizeResultsHtml", () => {
     const sandbox = freshSandbox();
     const html = sandbox.renderHousingOptimizeResultsHtml(samplePayload());
     assert.match(html, /Recommended/);
-    assert.match(html, /Sell 2027/);
-    assert.match(html, /Buy 2028/);
+    assert.match(html, /Sell original home \(2027\)/);
+    assert.match(html, /Buy in Texas \(2028\)/);
     assert.match(html, /Texas/);
     assert.match(html, /Florida/);
-    assert.match(html, /Rent indefinitely/);
+    assert.match(html, /Rent in Florida/);
     assert.match(html, /family presence via rental/);
     assert.match(html, /scenario-diff-table/);
   });
@@ -163,6 +163,45 @@ describe("renderHousingOptimizeResultsHtml", () => {
     const sandbox = freshSandbox();
     const html = sandbox.renderHousingOptimizeResultsHtml({ recommendation: null, alternatives: [] });
     assert.match(html, /No candidates satisfied/);
+  });
+
+  test("orders a bridge-purchase move chronologically (buy before sell) instead of always 'Sell -> Buy'", () => {
+    const sandbox = freshSandbox();
+    const payload = samplePayload();
+    payload.recommendation.moves[0] = {
+      sale_year: 2035,
+      purchase_year: 2032,
+      rent_indefinitely: false,
+      location: { state: "Illinois", city_type: "suburban", population_size: 20000 },
+      sec121_exclusion_lost: false,
+    };
+    const html = sandbox.renderHousingOptimizeResultsHtml(payload);
+    const buyIdx = html.indexOf("Buy in Illinois (2032)");
+    const sellIdx = html.indexOf("Sell original home (2035)");
+    assert.ok(buyIdx >= 0, "expected a 'Buy in Illinois (2032)' label");
+    assert.ok(sellIdx >= 0, "expected a 'Sell original home (2035)' label");
+    assert.ok(buyIdx < sellIdx, "buy year (2032) precedes sell year (2035), should render first");
+    assert.match(html, /own both homes 2032.{0,3}2035/i);
+  });
+
+  test("labels move 2's sale as the move-1 home, not the original home", () => {
+    const sandbox = freshSandbox();
+    const payload = samplePayload();
+    payload.recommendation.moves = [
+      {
+        sale_year: 2030, purchase_year: 2030, rent_indefinitely: false,
+        location: { state: "Texas", city_type: "suburban", population_size: 150000 },
+        sec121_exclusion_lost: false,
+      },
+      {
+        sale_year: 2032, purchase_year: 2038, rent_indefinitely: false,
+        location: { state: "Florida", city_type: "urban", population_size: 300000 },
+        sec121_exclusion_lost: false,
+      },
+    ];
+    const html = sandbox.renderHousingOptimizeResultsHtml(payload);
+    assert.match(html, /Sell Texas home \(2032\)/);
+    assert.match(html, /Buy in Florida \(2038\)/);
   });
 });
 
