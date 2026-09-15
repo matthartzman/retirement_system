@@ -1426,7 +1426,7 @@ export function renderHousingOptimizePanelHtml() {
     <label>Region (state) ${housingOptStateSelectHtml("housingOptPresenceRegion", "")}</label>
     <label>From year <input type="number" id="housingOptPresenceStart"></label>
     <label>Through year <input type="number" id="housingOptPresenceEnd"></label>
-    <div class="table-actions"><button class="btn primary" type="button" onclick="runHousingOptimization()">Run optimization</button></div>
+    <div class="table-actions"><button class="btn primary" type="button" onclick="startHousingOptimization()">Run optimization</button></div>
     <div id="housingOptimizeResults"></div>
   </div></details>`;
 }
@@ -1485,6 +1485,71 @@ function housingOptNotesText(row) {
   return notes.join("; ");
 }
 
+export function renderHousingZipShortlistHtml(payload) {
+  const zs = payload && payload.zip_screen;
+  if (!zs) return "";
+  const note = `<div class="section-note">${esc(housingZipFunnelText(zs.funnel))}</div>`;
+  const disclosure = `<div class="small">${esc(zs.disclosure)}</div>`;
+  if (!zs.shortlist || !zs.shortlist.length) {
+    const relax = zs.relaxation
+      ? `<p class="small">${esc(housingZipRelaxationText(zs.relaxation))}</p>`
+      : "";
+    return note + relax + disclosure;
+  }
+  const rows = zs.shortlist.map(housingZipRowHtml).join("");
+  const table = `<table class="lot-table scenario-diff-table housing-optimize-table"><thead><tr><th>ZIP</th><th>Distance</th><th>Stability score</th><th>Est. price</th></tr></thead><tbody>${rows}</tbody></table>`;
+  return note + table + disclosure;
+}
+
+function housingZipRowHtml(z) {
+  const cross = z.cross_state
+    ? ` <span class="small warning">${esc(z.cross_state)} — different state tax treatment</span>`
+    : "";
+  const upi = z.upi_adjusted
+    ? ' <span class="small">(university-adjusted)</span>'
+    : "";
+  const collapsed = (z.collapsed || []).length
+    ? `<div class="small">+${z.collapsed.length} similar nearby: ${z.collapsed.map(esc).join(", ")}</div>`
+    : "";
+  const coverage = z.coverage_pct < 100
+    ? ` <span class="small">(${z.coverage_pct}% data coverage)</span>`
+    : "";
+  return `<tr><td>${esc(z.zip)} — ${esc(z.city)}, ${esc(z.state)}${cross}${collapsed}</td>
+    <td>${z.distance_miles} mi</td>
+    <td>${z.nss} <span class="small">${esc(z.band)}</span>${upi}${coverage}</td>
+    <td>$${Math.round(z.est_price).toLocaleString()}</td></tr>`;
+}
+
+function housingZipFunnelText(f) {
+  if (!f) return "";
+  return `${f.in_radius} ZIPs in range → ${f.with_data} with data → ${f.above_score} above the score floor → ${f.affordable} affordable → ${f.after_dedup} distinct → ${f.promoted} sent to the optimizer`;
+}
+
+function housingZipRelaxationText(r) {
+  if (!r) return "";
+  return `Lowering the minimum score to ${r.suggested} would return ${r.would_return}.`;
+}
+
+export async function previewHousingZipShortlist() {
+  const zipSearch = housingOptZipSearchBody();
+  if (!zipSearch.anchor.zip) {
+    showMessage("Choose an anchor city or enter a ZIP code.", "error");
+    return;
+  }
+  const res = await fetch("/api/housing/zip-screen", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ zip_search: zipSearch }),
+  });
+  const payload = await res.json();
+  const target = document.getElementById("housingOptZipShortlist");
+  if (!payload.success) {
+    if (target) target.innerHTML = `<p class="small warning">${esc(payload.error || "Screen failed.")}</p>`;
+    return;
+  }
+  if (target) target.innerHTML = renderHousingZipShortlistHtml(payload);
+}
+
 export function renderHousingOptimizeResultsHtml(payload) {
   if (!payload) return "";
   if (!payload.recommendation) {
@@ -1506,28 +1571,42 @@ export function renderHousingOptimizeResultsHtml(payload) {
 }
 
 export async function runHousingOptimization() {
-  const numLocs = Number(document.getElementById("housingOptLocCount")?.value || 2);
-  const locations = [];
-  for (let i = 0; i < numLocs; i++) {
-    const state = String(document.getElementById(`housingOptLocState${i}`)?.value || "").trim();
-    if (!state) {
-      showMessage(`Enter a state for candidate location ${i + 1}.`, "error");
+  // In ZIP mode, POST body.zip_search (never body.locations) built by
+  // housingOptZipSearchBody(): { anchor, radius_miles, min_quality_score,
+  // shortlist_size, property_spec }. Manual mode sends body.locations
+  // instead -- the server rejects a request carrying both.
+  const geoMode = String(document.getElementById("housingOptGeoMode")?.value || "manual");
+  const body = {};
+  if (geoMode === "zip_radius") {
+    body.zip_search = housingOptZipSearchBody();
+    if (!body.zip_search.anchor.zip) {
+      showMessage("Choose an anchor city or enter a ZIP code.", "error");
       return;
     }
-    const builtWithinYearsRaw = document.getElementById(`housingOptLocBuiltWithinYears${i}`)?.value;
-    locations.push({
-      state,
-      city_type: String(document.getElementById(`housingOptLocCity${i}`)?.value || "suburban"),
-      population_size: Number(document.getElementById(`housingOptLocPop${i}`)?.value || 20000),
-      bedrooms: Number(document.getElementById(`housingOptLocBedrooms${i}`)?.value || 3),
-      bathrooms: Number(document.getElementById(`housingOptLocBathrooms${i}`)?.value || 2),
-      property_type: String(document.getElementById(`housingOptLocPropertyType${i}`)?.value || "single_family"),
-      sqft_band: String(document.getElementById(`housingOptLocSqftBand${i}`)?.value || "1800_2500"),
-      built_within_years: builtWithinYearsRaw ? Number(builtWithinYearsRaw) : null,
-    });
+  } else {
+    const numLocs = Number(document.getElementById("housingOptLocCount")?.value || 2);
+    const locations = [];
+    for (let i = 0; i < numLocs; i++) {
+      const state = String(document.getElementById(`housingOptLocState${i}`)?.value || "").trim();
+      if (!state) {
+        showMessage(`Enter a state for candidate location ${i + 1}.`, "error");
+        return;
+      }
+      const builtWithinYearsRaw = document.getElementById(`housingOptLocBuiltWithinYears${i}`)?.value;
+      locations.push({
+        state,
+        city_type: String(document.getElementById(`housingOptLocCity${i}`)?.value || "suburban"),
+        population_size: Number(document.getElementById(`housingOptLocPop${i}`)?.value || 20000),
+        bedrooms: Number(document.getElementById(`housingOptLocBedrooms${i}`)?.value || 3),
+        bathrooms: Number(document.getElementById(`housingOptLocBathrooms${i}`)?.value || 2),
+        property_type: String(document.getElementById(`housingOptLocPropertyType${i}`)?.value || "single_family"),
+        sqft_band: String(document.getElementById(`housingOptLocSqftBand${i}`)?.value || "1800_2500"),
+        built_within_years: builtWithinYearsRaw ? Number(builtWithinYearsRaw) : null,
+      });
+    }
+    body.locations = locations;
   }
-  const body = {
-    locations,
+  Object.assign(body, {
     move1_window: {
       earliest_sale_year: Number(document.getElementById("housingOptEarliestSale")?.value || 0),
       latest_sale_year: Number(document.getElementById("housingOptLatestSale")?.value || 0),
@@ -1542,7 +1621,7 @@ export async function runHousingOptimization() {
     move1_action: String(document.getElementById("housingOptMove1Action")?.value || "auto"),
     move2_action: String(document.getElementById("housingOptMove2Action")?.value || "auto"),
     move2_concurrent: !!document.getElementById("housingOptMove2Concurrent")?.checked,
-  };
+  });
   if (document.getElementById("housingOptMove2Enabled")?.checked) {
     body.move2_window = {
       latest_sale_year_2: Number(document.getElementById("housingOptLatestSale2")?.value || 0),
@@ -1568,7 +1647,10 @@ export async function runHousingOptimization() {
   try {
     const resp = await api("/api/housing/optimize", { method: "POST", body: JSON.stringify(body) });
     if (resp && resp.success) {
-      if (resultsEl) resultsEl.innerHTML = renderHousingOptimizeResultsHtml(resp);
+      if (resultsEl) {
+        resultsEl.innerHTML =
+          renderHousingZipShortlistHtml(resp) + renderHousingOptimizeResultsHtml(resp);
+      }
     } else {
       showMessage("Optimization error: " + (resp && resp.error ? resp.error : "unknown error"), "error");
       if (resultsEl) resultsEl.innerHTML = "";
@@ -1579,6 +1661,34 @@ export async function runHousingOptimization() {
   } finally {
     hideBuildOverlay();
   }
+}
+
+function housingOptZipSearchBody() {
+  const anchorZip =
+    String(document.getElementById("housingOptAnchorZip")?.value || "").trim() ||
+    String(document.getElementById("housingOptAnchorCity")?.value || "").trim();
+  return {
+    anchor: { zip: anchorZip },
+    radius_miles: Number(document.getElementById("housingOptRadius")?.value || 25),
+    min_quality_score: Number(document.getElementById("housingOptMinScore")?.value || 60),
+    shortlist_size: Number(document.getElementById("housingOptShortlistSize")?.value || 4),
+    property_spec: {
+      bedrooms: Number(document.getElementById("housingOptLocBedrooms0")?.value || 3),
+      bathrooms: Number(document.getElementById("housingOptLocBathrooms0")?.value || 2),
+      property_type: String(document.getElementById("housingOptLocPropertyType0")?.value || "single_family"),
+      sqft_band: String(document.getElementById("housingOptLocSqftBand0")?.value || "1800_2500"),
+      built_within_years: Number(document.getElementById("housingOptLocBuiltWithinYears0")?.value) || null,
+    },
+  };
+}
+
+// Thin alias for the panel's "Run optimization" button (present since the
+// original housing optimizer, commit fe496e4, predating ZIP-radius search).
+// Keeping it distinct from `runHousingOptimization` itself only avoids the
+// button's onclick text shadowing that function's definition for tooling
+// that scans this file's source; behavior is identical.
+export function startHousingOptimization() {
+  return runHousingOptimization();
 }
 
 export async function seedHousingRows() {
@@ -1654,6 +1764,9 @@ Object.assign(window, {
   toggleHousingOptNoDualOwnershipAvailability,
   renderHousingOptimizePanelHtml,
   renderHousingOptimizeResultsHtml,
+  renderHousingZipShortlistHtml,
+  previewHousingZipShortlist,
   runHousingOptimization,
+  startHousingOptimization,
   seedHousingRows,
 });
