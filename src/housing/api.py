@@ -90,7 +90,7 @@ def optimize_housing_from_request(
             if not isinstance(raw_zip_search, dict):
                 return {'success': False, 'error': 'zip_search must be an object.'}, 400
             req = parse_zip_search(raw_zip_search)
-            table = load_table(table_path) if table_path else None
+            table = load_table(table_path)
             result = run_screen(req, table=table,
                                 current_state=str(c0.get('state', '') or ''))
             screen_block = screen_payload(result)
@@ -107,8 +107,7 @@ def optimize_housing_from_request(
                 }, 200
             nss_by_zip = {z.zcta: z.nss for z in result.shortlist}
             locations = [
-                resolve_location(load_table(table_path)[z.zcta] if table_path
-                                 else load_table()[z.zcta], req.property_spec)
+                resolve_location(table[z.zcta], req.property_spec)
                 for z in result.shortlist
             ]
         else:
