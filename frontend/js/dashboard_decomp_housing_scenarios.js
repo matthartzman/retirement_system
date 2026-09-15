@@ -1245,6 +1245,34 @@ function housingOptLocationRowHtml(i) {
       <option value="rural">Rural</option>
     </select>
     <input type="number" id="housingOptLocPop${i}" value="20000" min="0" style="width:8em" placeholder="Population">
+    <select id="housingOptLocBedrooms${i}" title="Bedrooms">
+      <option value="2">2BR</option>
+      <option value="3" selected>3BR</option>
+      <option value="4">4BR</option>
+      <option value="5">5+BR</option>
+    </select>
+    <select id="housingOptLocBathrooms${i}" title="Bathrooms">
+      <option value="1">1BA</option>
+      <option value="1.5">1.5BA</option>
+      <option value="2" selected>2BA</option>
+      <option value="2.5">2.5BA</option>
+      <option value="3">3BA</option>
+      <option value="3.5">3.5+BA</option>
+    </select>
+    <select id="housingOptLocPropertyType${i}" title="Property type">
+      <option value="single_family" selected>Single family</option>
+      <option value="townhome">Townhome</option>
+      <option value="condo">Condo</option>
+      <option value="duplex">Duplex</option>
+    </select>
+    <select id="housingOptLocSqftBand${i}" title="Square footage">
+      <option value="under_1200">Under 1,200 sqft</option>
+      <option value="1200_1800">1,200-1,800 sqft</option>
+      <option value="1800_2500" selected>1,800-2,500 sqft</option>
+      <option value="2500_3500">2,500-3,500 sqft</option>
+      <option value="over_3500">Over 3,500 sqft</option>
+    </select>
+    <input type="number" id="housingOptLocBuiltWithinYears${i}" min="0" style="width:8em" placeholder="Built within N yrs (optional)">
   </div>`;
 }
 
@@ -1360,10 +1388,16 @@ export async function runHousingOptimization() {
       showMessage(`Enter a state for candidate location ${i + 1}.`, "error");
       return;
     }
+    const builtWithinYearsRaw = document.getElementById(`housingOptLocBuiltWithinYears${i}`)?.value;
     locations.push({
       state,
       city_type: String(document.getElementById(`housingOptLocCity${i}`)?.value || "suburban"),
       population_size: Number(document.getElementById(`housingOptLocPop${i}`)?.value || 20000),
+      bedrooms: Number(document.getElementById(`housingOptLocBedrooms${i}`)?.value || 3),
+      bathrooms: Number(document.getElementById(`housingOptLocBathrooms${i}`)?.value || 2),
+      property_type: String(document.getElementById(`housingOptLocPropertyType${i}`)?.value || "single_family"),
+      sqft_band: String(document.getElementById(`housingOptLocSqftBand${i}`)?.value || "1800_2500"),
+      built_within_years: builtWithinYearsRaw ? Number(builtWithinYearsRaw) : null,
     });
   }
   const body = {
