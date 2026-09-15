@@ -32,8 +32,13 @@ def test_snapshot_covers_the_three_pilot_states(table):
     assert PILOT_STATES <= {r.state for r in table.values()}
 
 
-def test_snapshot_has_a_plausible_pilot_row_count(table):
-    assert 2500 <= len(table) <= 5000
+def test_snapshot_has_a_plausible_national_row_count(table):
+    # ~33k ZCTAs nationally; allow for vintage-to-vintage drift.
+    assert 30000 <= len(table) <= 36000
+
+
+def test_snapshot_covers_every_state(table):
+    assert len({r.state for r in table.values()}) >= 50
 
 
 def test_every_row_has_usable_coordinates(table):
