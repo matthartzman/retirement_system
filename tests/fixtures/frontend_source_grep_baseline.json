@@ -72,5 +72,7 @@
   "test_workbook_format_config_regression.py",
   "test_workbook_formatting_column_label_truncation_regression.py",
   "test_workflow_journey_guards_regression.py",
-  "test_ytd_account_currency_display_functional.py"
+  "test_ytd_account_currency_display_functional.py",
+  "test_zip_screen_panel_functional.py",
+  "test_zip_screen_shortlist_render_functional.py"
 ]
