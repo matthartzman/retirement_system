@@ -78,6 +78,16 @@ describe("renderHousingOptimizePanelHtml", () => {
     assert.match(html, /id="housingOptLocRow2" hidden/);
     assert.match(html, /id="housingOptLocRow3" hidden/);
   });
+
+  test("renders state fields as dropdowns of the canonical state list, not free text", () => {
+    const sandbox = freshSandbox();
+    const html = sandbox.renderHousingOptimizePanelHtml();
+    assert.doesNotMatch(html, /id="housingOptLocState0" type="text"/);
+    assert.match(html, /<select id="housingOptLocState0">[\s\S]*?<\/select>/);
+    assert.match(html, /<option value="Illinois">Illinois<\/option>/);
+    assert.doesNotMatch(html, /id="housingOptPresenceRegion" type="text"/);
+    assert.match(html, /<select id="housingOptPresenceRegion">[\s\S]*?<\/select>/);
+  });
 });
 
 describe("toggleHousingOptLocationRows", () => {
