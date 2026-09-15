@@ -1271,6 +1271,25 @@ function housingOptStateSelectHtml(id, selectedValue) {
   return `<select id="${id}"><option value="">Select a state</option>${options}</select>`;
 }
 
+// Populated from src/housing/zip_screen/data/top_cities.csv, served alongside
+// the screen endpoint. Falls back to the free-entry ZIP field when unavailable.
+let HOUSING_OPT_TOP_CITIES = [];
+
+function housingOptAnchorCitySelectHtml() {
+  const options = HOUSING_OPT_TOP_CITIES.map(
+    (c) => `<option value="${esc(c.anchor_zip)}">${esc(c.city)}, ${esc(c.state_abbrev)}</option>`,
+  ).join("");
+  return `<select id="housingOptAnchorCity"><option value="">Select a city</option>${options}</select>`;
+}
+
+export function toggleHousingOptSearchMode() {
+  const zip = String(document.getElementById("housingOptGeoMode")?.value || "manual") === "zip_radius";
+  const zipFields = document.getElementById("housingOptZipFields");
+  const manualFields = document.getElementById("housingOptManualFields");
+  if (zipFields) zipFields.hidden = !zip;
+  if (manualFields) manualFields.hidden = zip;
+}
+
 function housingOptLocationRowHtml(i) {
   return `<div class="housing-opt-location-row" id="housingOptLocRow${i}" ${i >= 2 ? "hidden" : ""}>
     ${housingOptStateSelectHtml(`housingOptLocState${i}`, "")}
@@ -1316,11 +1335,44 @@ export function renderHousingOptimizePanelHtml() {
   const locationRows = Array.from({ length: HOUSING_OPT_MAX_LOCATIONS }, (_, i) => housingOptLocationRowHtml(i)).join("");
   return `<details class="housing-optimize-panel"><summary>Optimize next housing move</summary><div class="field-list">
     <div class="section-note">Search candidate sale/purchase years and locations for the household's next housing move (optionally a second), reusing the same deterministic engine and Monte Carlo runner as the rest of the plan -- no separate tax model. Results below reuse this page's scenario-diff table styling.</div>
-    <div class="subsection-label">Candidate locations (2-4)</div>
-    <label>Number of candidate locations
-      <select id="housingOptLocCount" onchange="toggleHousingOptLocationRows()"><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+    <label>Location search mode
+      <select id="housingOptGeoMode" onchange="toggleHousingOptSearchMode()">
+        <option value="manual" selected>Choose locations manually</option>
+        <option value="zip_radius">Search by ZIP radius</option>
+      </select>
     </label>
-    ${locationRows}
+    <div id="housingOptZipFields" hidden>
+      <div class="subsection-label">Anchor</div>
+      <label>City ${housingOptAnchorCitySelectHtml()}</label>
+      <label>or ZIP code <input type="text" id="housingOptAnchorZip" maxlength="5" style="width:6em" placeholder="60521"></label>
+      <label>Distance from anchor
+        <select id="housingOptRadius">
+          <option value="5">Within 5 miles</option>
+          <option value="10">Within 10 miles</option>
+          <option value="25" selected>Within 25 miles</option>
+          <option value="50">Within 50 miles</option>
+        </select>
+      </label>
+      <label>Minimum quality score
+        <input type="number" id="housingOptMinScore" value="60" min="0" max="100" style="width:6em">
+      </label>
+      <div class="small">Measures housing and economic stability. Does not measure crime or safety.</div>
+      <label>Candidates to send to the optimizer
+        <select id="housingOptShortlistSize">
+          <option value="2">2</option><option value="3">3</option>
+          <option value="4" selected>4</option>
+        </select>
+      </label>
+      <div class="table-actions"><button class="btn" type="button" onclick="previewHousingZipShortlist()">Preview shortlist</button></div>
+      <div id="housingOptZipShortlist"></div>
+    </div>
+    <div id="housingOptManualFields">
+      <div class="subsection-label">Candidate locations (2-4)</div>
+      <label>Number of candidate locations
+        <select id="housingOptLocCount" onchange="toggleHousingOptLocationRows()"><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+      </label>
+      ${locationRows}
+    </div>
     <div class="subsection-label">Move 1 search window</div>
     <label>Earliest sale year <input type="number" id="housingOptEarliestSale"></label>
     <label>Latest sale year <input type="number" id="housingOptLatestSale"></label>
@@ -1595,6 +1647,7 @@ Object.assign(window, {
   renderCurrentScenarioOverridesHtml,
   renderScenarioManagementPanel,
   renderScenarios,
+  toggleHousingOptSearchMode,
   toggleHousingOptLocationRows,
   toggleHousingOptMove2Fields,
   toggleHousingOptMove2ConcurrentAvailability,
