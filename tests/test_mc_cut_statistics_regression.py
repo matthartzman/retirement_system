@@ -29,6 +29,7 @@ from src.planning_engines import (
     monte_carlo_exact_scalar,
     project,
 )
+import pytest
 
 
 def _base_config():
@@ -187,6 +188,12 @@ def test_monte_carlo_output_carries_cut_statistics_vectorized():
         assert key in mc
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_scalar_engine_reports_the_same_cut_statistics():
     c = _base_config()
     base_rows = project(c)

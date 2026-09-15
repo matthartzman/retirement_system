@@ -103,6 +103,12 @@ def test_module_enabled_toggle_gates_the_sheet():
     assert module_enabled(c_off, TOGGLE) is False
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_refine_table_uses_the_designs_exact_column_shape(built_sheet):
     ws, _result = built_sheet
     assert _row_values(ws, REFINE_TABLE_HEADERS) is not None, \
