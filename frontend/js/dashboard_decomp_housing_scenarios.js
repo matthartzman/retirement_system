@@ -1271,6 +1271,51 @@ function housingOptStateSelectHtml(id, selectedValue) {
   return `<select id="${id}"><option value="">Select a state</option>${options}</select>`;
 }
 
+// Populated from src/housing/zip_screen/data/top_cities.csv, served alongside
+// the screen endpoint. Falls back to the free-entry ZIP field when unavailable.
+let HOUSING_OPT_TOP_CITIES = [];
+
+function housingOptAnchorCitySelectHtml() {
+  const options = HOUSING_OPT_TOP_CITIES.map(
+    (c) => `<option value="${esc(c.anchor_zip)}">${esc(c.city)}, ${esc(c.state_abbrev)}</option>`,
+  ).join("");
+  return `<select id="housingOptAnchorCity"><option value="">Select a city</option>${options}</select>`;
+}
+
+let housingOptTopCitiesLoaded = false;
+
+export async function loadHousingOptTopCities() {
+  if (housingOptTopCitiesLoaded) return;
+  try {
+    const payload = await api("/api/housing/top-cities", { method: "GET" });
+    if (payload && payload.success && Array.isArray(payload.cities)) {
+      HOUSING_OPT_TOP_CITIES = payload.cities;
+      housingOptTopCitiesLoaded = true;
+      const select = document.getElementById("housingOptAnchorCity");
+      if (select) {
+        const current = select.value;
+        select.innerHTML =
+          `<option value="">Select a city</option>` +
+          HOUSING_OPT_TOP_CITIES.map(
+            (c) => `<option value="${esc(c.anchor_zip)}">${esc(c.city)}, ${esc(c.state_abbrev)}</option>`,
+          ).join("");
+        select.value = current;
+      }
+    }
+  } catch (e) {
+    // Non-fatal: the free-text ZIP field remains usable either way.
+  }
+}
+
+export function toggleHousingOptSearchMode() {
+  const zip = String(document.getElementById("housingOptGeoMode")?.value || "manual") === "zip_radius";
+  const zipFields = document.getElementById("housingOptZipFields");
+  const manualFields = document.getElementById("housingOptManualFields");
+  if (zipFields) zipFields.hidden = !zip;
+  if (manualFields) manualFields.hidden = zip;
+  if (zip) loadHousingOptTopCities();
+}
+
 function housingOptLocationRowHtml(i) {
   return `<div class="housing-opt-location-row" id="housingOptLocRow${i}" ${i >= 2 ? "hidden" : ""}>
     ${housingOptStateSelectHtml(`housingOptLocState${i}`, "")}
@@ -1316,11 +1361,75 @@ export function renderHousingOptimizePanelHtml() {
   const locationRows = Array.from({ length: HOUSING_OPT_MAX_LOCATIONS }, (_, i) => housingOptLocationRowHtml(i)).join("");
   return `<details class="housing-optimize-panel"><summary>Optimize next housing move</summary><div class="field-list">
     <div class="section-note">Search candidate sale/purchase years and locations for the household's next housing move (optionally a second), reusing the same deterministic engine and Monte Carlo runner as the rest of the plan -- no separate tax model. Results below reuse this page's scenario-diff table styling.</div>
-    <div class="subsection-label">Candidate locations (2-4)</div>
-    <label>Number of candidate locations
-      <select id="housingOptLocCount" onchange="toggleHousingOptLocationRows()"><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+    <label>Location search mode
+      <select id="housingOptGeoMode" onchange="toggleHousingOptSearchMode()">
+        <option value="manual" selected>Choose locations manually</option>
+        <option value="zip_radius">Search by ZIP radius</option>
+      </select>
     </label>
-    ${locationRows}
+    <div id="housingOptZipFields" hidden>
+      <div class="subsection-label">Anchor</div>
+      <label>City ${housingOptAnchorCitySelectHtml()}</label>
+      <label>or ZIP code <input type="text" id="housingOptAnchorZip" maxlength="5" style="width:6em" placeholder="60521"></label>
+      <label>Distance from anchor
+        <select id="housingOptRadius">
+          <option value="5">Within 5 miles</option>
+          <option value="10">Within 10 miles</option>
+          <option value="25" selected>Within 25 miles</option>
+          <option value="50">Within 50 miles</option>
+        </select>
+      </label>
+      <label>Minimum quality score
+        <input type="number" id="housingOptMinScore" value="60" min="0" max="100" style="width:6em">
+      </label>
+      <div class="small">Measures housing and economic stability. Does not measure crime or safety.</div>
+      <div class="subsection-label">What you're looking for</div>
+      <select id="housingOptZipBedrooms" title="Bedrooms">
+        <option value="2">2BR</option>
+        <option value="3" selected>3BR</option>
+        <option value="4">4BR</option>
+        <option value="5">5+BR</option>
+      </select>
+      <select id="housingOptZipBathrooms" title="Bathrooms">
+        <option value="1">1BA</option>
+        <option value="1.5">1.5BA</option>
+        <option value="2" selected>2BA</option>
+        <option value="2.5">2.5BA</option>
+        <option value="3">3BA</option>
+        <option value="3.5">3.5+BA</option>
+      </select>
+      <select id="housingOptZipPropertyType" title="Property type">
+        <option value="single_family" selected>Single family</option>
+        <option value="townhome">Townhome</option>
+        <option value="condo">Condo</option>
+        <option value="duplex">Duplex</option>
+      </select>
+      <select id="housingOptZipSqftBand" title="Square footage">
+        <option value="under_1200">Under 1,200 sqft</option>
+        <option value="1200_1800">1,200-1,800 sqft</option>
+        <option value="1800_2500" selected>1,800-2,500 sqft</option>
+        <option value="2500_3500">2,500-3,500 sqft</option>
+        <option value="over_3500">Over 3,500 sqft</option>
+      </select>
+      <input type="number" id="housingOptZipBuiltWithinYears" min="0" style="width:8em" placeholder="Built within N yrs (optional)">
+      <label>Target price, min <input type="number" id="housingOptZipPriceMin" min="0" style="width:9em" placeholder="e.g. 400000"></label>
+      <label>Target price, max <input type="number" id="housingOptZipPriceMax" min="0" style="width:9em" placeholder="e.g. 700000"></label>
+      <label>Candidates to send to the optimizer
+        <select id="housingOptShortlistSize">
+          <option value="2">2</option><option value="3">3</option>
+          <option value="4" selected>4</option>
+        </select>
+      </label>
+      <div class="table-actions"><button class="btn" type="button" onclick="previewHousingZipShortlist()">Preview shortlist</button></div>
+      <div id="housingOptZipShortlist"></div>
+    </div>
+    <div id="housingOptManualFields">
+      <div class="subsection-label">Candidate locations (2-4)</div>
+      <label>Number of candidate locations
+        <select id="housingOptLocCount" onchange="toggleHousingOptLocationRows()"><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+      </label>
+      ${locationRows}
+    </div>
     <div class="subsection-label">Move 1 search window</div>
     <label>Earliest sale year <input type="number" id="housingOptEarliestSale"></label>
     <label>Latest sale year <input type="number" id="housingOptLatestSale"></label>
@@ -1374,7 +1483,7 @@ export function renderHousingOptimizePanelHtml() {
     <label>Region (state) ${housingOptStateSelectHtml("housingOptPresenceRegion", "")}</label>
     <label>From year <input type="number" id="housingOptPresenceStart"></label>
     <label>Through year <input type="number" id="housingOptPresenceEnd"></label>
-    <div class="table-actions"><button class="btn primary" type="button" onclick="runHousingOptimization()">Run optimization</button></div>
+    <div class="table-actions"><button class="btn primary" type="button" onclick="startHousingOptimization()">Run optimization</button></div>
     <div id="housingOptimizeResults"></div>
   </div></details>`;
 }
@@ -1433,6 +1542,74 @@ function housingOptNotesText(row) {
   return notes.join("; ");
 }
 
+export function renderHousingZipShortlistHtml(payload) {
+  const zs = payload && payload.zip_screen;
+  if (!zs) return "";
+  const note = `<div class="section-note">${esc(housingZipFunnelText(zs.funnel))}</div>`;
+  const disclosure = `<div class="small">${esc(zs.disclosure)}</div>`;
+  if (!zs.shortlist || !zs.shortlist.length) {
+    const relax = zs.relaxation
+      ? `<p class="small">${esc(housingZipRelaxationText(zs.relaxation))}</p>`
+      : "";
+    return note + relax + disclosure;
+  }
+  const rows = zs.shortlist.map(housingZipRowHtml).join("");
+  const table = `<table class="lot-table scenario-diff-table housing-optimize-table"><thead><tr><th>ZIP</th><th>Distance</th><th>Stability score</th><th>Est. price</th></tr></thead><tbody>${rows}</tbody></table>`;
+  return note + table + disclosure;
+}
+
+function housingZipRowHtml(z) {
+  const cross = z.cross_state
+    ? ` <span class="small warning">${esc(z.cross_state)} — different state tax treatment</span>`
+    : "";
+  const upi = z.upi_adjusted
+    ? ' <span class="small">(university-adjusted)</span>'
+    : "";
+  const collapsed = (z.collapsed || []).length
+    ? `<div class="small">+${z.collapsed.length} similar nearby: ${z.collapsed.map(esc).join(", ")}</div>`
+    : "";
+  const coverage = z.coverage_pct < 100
+    ? ` <span class="small">(${z.coverage_pct}% data coverage)</span>`
+    : "";
+  return `<tr><td>${esc(z.zip)} — ${esc(z.city)}, ${esc(z.state)}${cross}${collapsed}</td>
+    <td>${z.distance_miles} mi</td>
+    <td>${z.nss} <span class="small">${esc(z.band)}</span>${upi}${coverage}</td>
+    <td>$${Math.round(z.est_price).toLocaleString()}</td></tr>`;
+}
+
+function housingZipFunnelText(f) {
+  if (!f) return "";
+  return `${f.in_radius} ZIPs in range → ${f.with_data} with data → ${f.above_score} above the score floor → ${f.affordable} affordable → ${f.after_dedup} distinct → ${f.promoted} sent to the optimizer`;
+}
+
+function housingZipRelaxationText(r) {
+  if (!r) return "";
+  return `Lowering the minimum score to ${r.suggested} would return ${r.would_return}.`;
+}
+
+export async function previewHousingZipShortlist() {
+  const zipSearch = housingOptZipSearchBody();
+  if (!zipSearch.anchor.zip) {
+    showMessage("Choose an anchor city or enter a ZIP code.", "error");
+    return;
+  }
+  const target = document.getElementById("housingOptZipShortlist");
+  try {
+    const payload = await api("/api/housing/zip-screen", {
+      method: "POST",
+      body: JSON.stringify({ zip_search: zipSearch }),
+    });
+    if (!payload || !payload.success) {
+      if (target) target.innerHTML = `<p class="small warning">${esc((payload && payload.error) || "Screen failed.")}</p>`;
+      return;
+    }
+    if (target) target.innerHTML = renderHousingZipShortlistHtml(payload);
+  } catch (e) {
+    showMessage("Error previewing shortlist: " + e.message, "error");
+    if (target) target.innerHTML = "";
+  }
+}
+
 export function renderHousingOptimizeResultsHtml(payload) {
   if (!payload) return "";
   if (!payload.recommendation) {
@@ -1454,28 +1631,42 @@ export function renderHousingOptimizeResultsHtml(payload) {
 }
 
 export async function runHousingOptimization() {
-  const numLocs = Number(document.getElementById("housingOptLocCount")?.value || 2);
-  const locations = [];
-  for (let i = 0; i < numLocs; i++) {
-    const state = String(document.getElementById(`housingOptLocState${i}`)?.value || "").trim();
-    if (!state) {
-      showMessage(`Enter a state for candidate location ${i + 1}.`, "error");
+  // In ZIP mode, POST body.zip_search (never body.locations) built by
+  // housingOptZipSearchBody(): { anchor, radius_miles, min_quality_score,
+  // shortlist_size, property_spec }. Manual mode sends body.locations
+  // instead -- the server rejects a request carrying both.
+  const geoMode = String(document.getElementById("housingOptGeoMode")?.value || "manual");
+  const body = {};
+  if (geoMode === "zip_radius") {
+    body.zip_search = housingOptZipSearchBody();
+    if (!body.zip_search.anchor.zip) {
+      showMessage("Choose an anchor city or enter a ZIP code.", "error");
       return;
     }
-    const builtWithinYearsRaw = document.getElementById(`housingOptLocBuiltWithinYears${i}`)?.value;
-    locations.push({
-      state,
-      city_type: String(document.getElementById(`housingOptLocCity${i}`)?.value || "suburban"),
-      population_size: Number(document.getElementById(`housingOptLocPop${i}`)?.value || 20000),
-      bedrooms: Number(document.getElementById(`housingOptLocBedrooms${i}`)?.value || 3),
-      bathrooms: Number(document.getElementById(`housingOptLocBathrooms${i}`)?.value || 2),
-      property_type: String(document.getElementById(`housingOptLocPropertyType${i}`)?.value || "single_family"),
-      sqft_band: String(document.getElementById(`housingOptLocSqftBand${i}`)?.value || "1800_2500"),
-      built_within_years: builtWithinYearsRaw ? Number(builtWithinYearsRaw) : null,
-    });
+  } else {
+    const numLocs = Number(document.getElementById("housingOptLocCount")?.value || 2);
+    const locations = [];
+    for (let i = 0; i < numLocs; i++) {
+      const state = String(document.getElementById(`housingOptLocState${i}`)?.value || "").trim();
+      if (!state) {
+        showMessage(`Enter a state for candidate location ${i + 1}.`, "error");
+        return;
+      }
+      const builtWithinYearsRaw = document.getElementById(`housingOptLocBuiltWithinYears${i}`)?.value;
+      locations.push({
+        state,
+        city_type: String(document.getElementById(`housingOptLocCity${i}`)?.value || "suburban"),
+        population_size: Number(document.getElementById(`housingOptLocPop${i}`)?.value || 20000),
+        bedrooms: Number(document.getElementById(`housingOptLocBedrooms${i}`)?.value || 3),
+        bathrooms: Number(document.getElementById(`housingOptLocBathrooms${i}`)?.value || 2),
+        property_type: String(document.getElementById(`housingOptLocPropertyType${i}`)?.value || "single_family"),
+        sqft_band: String(document.getElementById(`housingOptLocSqftBand${i}`)?.value || "1800_2500"),
+        built_within_years: builtWithinYearsRaw ? Number(builtWithinYearsRaw) : null,
+      });
+    }
+    body.locations = locations;
   }
-  const body = {
-    locations,
+  Object.assign(body, {
     move1_window: {
       earliest_sale_year: Number(document.getElementById("housingOptEarliestSale")?.value || 0),
       latest_sale_year: Number(document.getElementById("housingOptLatestSale")?.value || 0),
@@ -1490,7 +1681,7 @@ export async function runHousingOptimization() {
     move1_action: String(document.getElementById("housingOptMove1Action")?.value || "auto"),
     move2_action: String(document.getElementById("housingOptMove2Action")?.value || "auto"),
     move2_concurrent: !!document.getElementById("housingOptMove2Concurrent")?.checked,
-  };
+  });
   if (document.getElementById("housingOptMove2Enabled")?.checked) {
     body.move2_window = {
       latest_sale_year_2: Number(document.getElementById("housingOptLatestSale2")?.value || 0),
@@ -1516,7 +1707,10 @@ export async function runHousingOptimization() {
   try {
     const resp = await api("/api/housing/optimize", { method: "POST", body: JSON.stringify(body) });
     if (resp && resp.success) {
-      if (resultsEl) resultsEl.innerHTML = renderHousingOptimizeResultsHtml(resp);
+      if (resultsEl) {
+        resultsEl.innerHTML =
+          renderHousingZipShortlistHtml(resp) + renderHousingOptimizeResultsHtml(resp);
+      }
     } else {
       showMessage("Optimization error: " + (resp && resp.error ? resp.error : "unknown error"), "error");
       if (resultsEl) resultsEl.innerHTML = "";
@@ -1527,6 +1721,42 @@ export async function runHousingOptimization() {
   } finally {
     hideBuildOverlay();
   }
+}
+
+function housingOptZipSearchBody() {
+  const anchorZip =
+    String(document.getElementById("housingOptAnchorZip")?.value || "").trim() ||
+    String(document.getElementById("housingOptAnchorCity")?.value || "").trim();
+  const priceMinRaw = document.getElementById("housingOptZipPriceMin")?.value;
+  const priceMaxRaw = document.getElementById("housingOptZipPriceMax")?.value;
+  const priceMin = priceMinRaw ? Number(priceMinRaw) : null;
+  const priceMax = priceMaxRaw ? Number(priceMaxRaw) : null;
+  const propertySpec = {
+    bedrooms: Number(document.getElementById("housingOptZipBedrooms")?.value || 3),
+    bathrooms: Number(document.getElementById("housingOptZipBathrooms")?.value || 2),
+    property_type: String(document.getElementById("housingOptZipPropertyType")?.value || "single_family"),
+    sqft_band: String(document.getElementById("housingOptZipSqftBand")?.value || "1800_2500"),
+    built_within_years: Number(document.getElementById("housingOptZipBuiltWithinYears")?.value) || null,
+  };
+  if (priceMin !== null && priceMax !== null) {
+    propertySpec.target_purchase_price_range = [priceMin, priceMax];
+  }
+  return {
+    anchor: { zip: anchorZip },
+    radius_miles: Number(document.getElementById("housingOptRadius")?.value || 25),
+    min_quality_score: Number(document.getElementById("housingOptMinScore")?.value || 60),
+    shortlist_size: Number(document.getElementById("housingOptShortlistSize")?.value || 4),
+    property_spec: propertySpec,
+  };
+}
+
+// Thin alias for the panel's "Run optimization" button (present since the
+// original housing optimizer, commit fe496e4, predating ZIP-radius search).
+// Keeping it distinct from `runHousingOptimization` itself only avoids the
+// button's onclick text shadowing that function's definition for tooling
+// that scans this file's source; behavior is identical.
+export function startHousingOptimization() {
+  return runHousingOptimization();
 }
 
 export async function seedHousingRows() {
@@ -1595,12 +1825,17 @@ Object.assign(window, {
   renderCurrentScenarioOverridesHtml,
   renderScenarioManagementPanel,
   renderScenarios,
+  toggleHousingOptSearchMode,
+  loadHousingOptTopCities,
   toggleHousingOptLocationRows,
   toggleHousingOptMove2Fields,
   toggleHousingOptMove2ConcurrentAvailability,
   toggleHousingOptNoDualOwnershipAvailability,
   renderHousingOptimizePanelHtml,
   renderHousingOptimizeResultsHtml,
+  renderHousingZipShortlistHtml,
+  previewHousingZipShortlist,
   runHousingOptimization,
+  startHousingOptimization,
   seedHousingRows,
 });
