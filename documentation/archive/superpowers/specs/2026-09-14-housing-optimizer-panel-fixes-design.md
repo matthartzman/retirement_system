@@ -208,3 +208,13 @@ places simultaneously.
 - Changing `FamilyPresence` to carry more than one region — concurrent
   mode's dual-location check works against the existing single-region
   field by testing both active locations against it.
+- `move2_mode='concurrent'` candidate generation ships for `search_mode='full'`
+  only in this pass. `search_mode='narrowed'`'s coordinate/pattern search
+  (`_coordinate_search_2d`/`_coordinate_search_1d`) is a separate, more
+  intricate code path; concurrent mode there is deferred to a follow-up
+  rather than risked in this change. The UI disables "Concurrent" whenever
+  "Narrowed search" is selected, with an inline note, rather than silently
+  ignoring the combination. `move2_strategy='cross_product'` is likewise
+  untouched — concurrent candidates are generated independently of, and in
+  addition to, whatever the sequential path (anchored or cross_product)
+  produces.
