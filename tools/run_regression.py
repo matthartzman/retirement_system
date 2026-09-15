@@ -176,8 +176,8 @@ check("Housing: PURCHASE_FIRST has state/city_type/population_size",
       has_code(dash, "PURCHASE_FIRST=['state','city_type','population_size']"))
 check("Housing: RENT_FIRST has state/city_type/population_size (housing-estimate-realism-and-dollar-convention-design.md SS3.4: rent estimates now require Area Type/Population, symmetric with purchase)",
       has_code(dash, "RENT_FIRST=['state','city_type','population_size']"))
-check("Housing: RENT_REST has no city_type/population_size/hoa",
-      has_code(dash, "RENT_REST=['start_year','end_year','monthly_rent','insurance_annual','utilities_annual']"))
+check("Housing: RENT_REST includes the Slice 2 characteristic fields (housing-estimate-realism-and-dollar-convention-design.md SS3.3: bedrooms/bathrooms/property_type/sqft_band/built_within_years are optional, defaulted fields on both purchase and rent)",
+      has_code(dash, "RENT_REST=['start_year','end_year','monthly_rent','insurance_annual','utilities_annual','bedrooms','bathrooms','property_type','sqft_band','built_within_years']"))
 check("Housing: Estimate button references 3BR/2BA/40x40",
       "40×40 ft backyard" in dash or "40x40 ft backyard" in dash)
 check("Housing: city_type/population_size excluded from current home",

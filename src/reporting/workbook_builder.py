@@ -51,7 +51,7 @@ from .sheets_summary_builder import build_sheet1, build_sheet2
 from .sheets_tax_reporter import build_sheet3
 from .sheets_allocation_helpers import build_sheet4
 from .sheets_projection_facade import build_sheet5, build_sheet6, build_sheet7, build_sheet8
-from .sheets_strategy import build_sheet9, build_sheet10, build_sheet11, build_sheet_hsa_drawdown, build_sheet12, build_sheet_tlh, build_sheet_gain_harvest, build_sheet13, build_sheet14
+from .sheets_strategy import build_sheet9, build_sheet10, build_sheet11, build_sheet_hsa_drawdown, build_sheet12, build_sheet_tlh, build_sheet_gain_harvest, build_sheet13, build_sheet14, build_sheet_housing_comparison
 from .sheets_tax_capacity import build_sheet_tax_capacity
 from .sheets_stress import build_sheet15, build_sheet16, build_sheet17, build_sheet18, build_sheet19, build_sheet20
 from .sheets_protection import build_existing_life, build_disability, build_pc_umbrella
@@ -1139,6 +1139,9 @@ def main():
     if '34. Business Succession' in sheets:
         print('  Sheet 34 — Business Succession')
         build_business_succession(sheets['34. Business Succession'], c, rows)
+    if '38. Housing Comparison' in sheets:
+        print('  Sheet 38 — Housing Trajectory Comparison')
+        build_sheet_housing_comparison(sheets['38. Housing Comparison'], c, rows)
 
     # QC last
     print('  Sheet 21 — Quality Control')
