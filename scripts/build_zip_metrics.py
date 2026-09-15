@@ -51,6 +51,13 @@ import tempfile
 import urllib.request
 import zipfile
 
+# `src` depends on nothing in this script (this script is NOT imported at
+# runtime -- see the module docstring), so the reverse import is safe: pull
+# COLUMNS/VACANCY_IDEAL_RATE from schema.py instead of hand-duplicating them
+# here, where they could silently drift out of sync on a future schema change.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.housing.zip_screen.schema import COLUMNS, VACANCY_IDEAL_RATE  # noqa: E402
+
 ACS_VINTAGE_YEAR = 2024
 ACS_SF_BASE = (
     f'https://www2.census.gov/programs-surveys/acs/summary_file/'
@@ -81,7 +88,6 @@ drop it beside this script, and join it through REL_ZCTA_TRACT (the Census
 ZCTA<->tract relationship file) weighting each tract by AREALAND_PART.
 """
 
-VACANCY_IDEAL_RATE = 0.06  # mirrors schema.VACANCY_IDEAL_RATE
 SQ_METERS_PER_SQ_MILE = 2_589_988.11
 
 # GEO_ID prefixes in the table-based Summary File.
@@ -92,15 +98,6 @@ P_PLACE = '1600000US'
 OUT_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     'src', 'housing', 'zip_screen', 'data', 'zip_metrics.csv.gz',
-)
-
-COLUMNS = (
-    'zcta', 'state', 'state_abbrev', 'primary_place', 'place_population',
-    'zcta_population', 'land_area_sqmi', 'lat', 'lon',
-    'median_home_value', 'state_median_home_value', 'upi',
-    'pctl_owner_occupied', 'pctl_poverty', 'pctl_non_student_poverty',
-    'pctl_tenure', 'pctl_tenure_nonstudent', 'pctl_vacancy_deviation',
-    'pctl_eviction_execution', 'pctl_eviction_filing', 'pctl_median_income',
 )
 
 PILOT_STATES = ('IL', 'FL', 'CO')
@@ -417,6 +414,16 @@ def build(states: tuple[str, ...], out_path: str) -> int:
         income = (acs['B19013'].get(gid) or {}).get('001')
         home_value = (acs['B25077'].get(gid) or {}).get('001')
 
+        # UPI (University Presence Index) exists to flag genuine university
+        # towns for the PDF methodology's student-population adjustment (see
+        # schema.UPI_THRESHOLD = 0.15). It deliberately uses only college and
+        # graduate/professional enrollment (B14007 categories 017-018), not
+        # total school enrollment: K-12 enrollment is near-universal across
+        # nearly every ZCTA, so folding it into the numerator would push
+        # almost all ZCTAs over the threshold and destroy the index's ability
+        # to tell an actual college town (e.g. DeKalb, home to NIU) apart
+        # from an ordinary suburb. College/grad enrollment is the signal that
+        # actually discriminates.
         college = (b14007.get('017') or 0.0) + (b14007.get('018') or 0.0)
         upi = (college / pop) if pop > 0 else 0.0
 
