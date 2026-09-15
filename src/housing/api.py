@@ -122,3 +122,88 @@ def optimize_housing_from_request(c0: dict[str, Any], body: dict[str, Any]) -> t
         return {'success': False, 'error': str(exc)}, 400
     except Exception as exc:  # pragma: no cover - defensive
         return {'success': False, 'error': str(exc)}, 500
+
+
+from .zip_screen.schema import (
+    ALLOWED_RADII_MILES,
+    NSS_DISCLOSURE,
+    RESPONSE_SCHEMA,
+    SCORE_MODEL_VERSION,
+)
+from .zip_screen.screen import AnchorNotFoundError, ScreenRequest, run_screen
+from .zip_screen.table import load_table
+
+
+def parse_zip_search(raw: dict[str, Any]) -> ScreenRequest:
+    """Parse a ``zip_search`` block. Raises ValueError with a wire-ready message."""
+    anchor = raw.get('anchor') or {}
+    anchor_zip = str(anchor.get('zip', '') or '').strip()
+    if not anchor_zip:
+        raise ValueError('zip_search.anchor.zip is required.')
+    try:
+        radius = int(raw.get('radius_miles'))
+    except (TypeError, ValueError):
+        radius = -1
+    if radius not in ALLOWED_RADII_MILES:
+        allowed = ', '.join(str(r) for r in ALLOWED_RADII_MILES)
+        raise ValueError(f'radius_miles must be one of {allowed}.')
+    try:
+        min_score = float(raw.get('min_quality_score', 0) or 0)
+    except (TypeError, ValueError):
+        raise ValueError('min_quality_score must be a number between 0 and 100.')
+    if not (0.0 <= min_score <= 100.0):
+        raise ValueError('min_quality_score must be between 0 and 100.')
+    size = int(raw.get('shortlist_size', 4) or 4)
+    return ScreenRequest(
+        anchor_zip=anchor_zip,
+        radius_miles=radius,
+        min_quality_score=min_score,
+        shortlist_size=max(2, min(4, size)),
+        property_spec=dict(raw.get('property_spec') or {}),
+    )
+
+
+def _screened_zip_payload(z: Any) -> dict[str, Any]:
+    return {
+        'zip': z.zcta, 'city': z.city, 'state': z.state,
+        'distance_miles': z.distance_miles, 'nss': z.nss, 'band': z.band,
+        'components': z.components, 'coverage_pct': z.coverage_pct,
+        'est_price': z.est_price, 'upi_adjusted': z.upi_adjusted,
+        'cross_state': z.cross_state, 'promoted': z.promoted,
+        'collapsed': z.collapsed,
+    }
+
+
+def screen_payload(result: Any) -> dict[str, Any]:
+    """The ``zip_screen`` block shared by both endpoints."""
+    return {
+        'schema': RESPONSE_SCHEMA,
+        'score_model': SCORE_MODEL_VERSION,
+        'disclosure': NSS_DISCLOSURE,
+        'anchor': result.anchor,
+        'radius_miles': result.radius_miles,
+        'funnel': result.funnel,
+        'relaxation': result.relaxation,
+        'shortlist': [_screened_zip_payload(z) for z in result.shortlist],
+    }
+
+
+def zip_screen_from_request(
+    c0: dict[str, Any], body: dict[str, Any], table_path: str | None = None
+) -> tuple[dict[str, Any], int]:
+    """Run Stage 1 alone -- the "Preview shortlist" endpoint. No engine runs."""
+    raw = body.get('zip_search')
+    if not isinstance(raw, dict):
+        return {'success': False, 'error': 'zip_search block is required.'}, 400
+    try:
+        req = parse_zip_search(raw)
+        result = run_screen(
+            req,
+            table=load_table(table_path) if table_path else None,
+            current_state=str(c0.get('state', '') or ''),
+        )
+    except AnchorNotFoundError as exc:
+        return {'success': False, 'error': str(exc).strip("'")}, 400
+    except ValueError as exc:
+        return {'success': False, 'error': str(exc)}, 400
+    return {'success': True, 'zip_screen': screen_payload(result)}, 200
