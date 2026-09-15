@@ -402,3 +402,37 @@ def test_request_adapter_rejects_unknown_search_mode():
     payload, status = optimize_housing_from_request({}, body)
     assert status == 400
     assert "search_mode" in payload["error"].lower()
+
+
+# ---------------------------------------------------------------------------
+# Housing characteristics threaded through Location / _parse_location
+# ---------------------------------------------------------------------------
+
+def test_location_defaults_match_todays_implicit_assumption():
+    loc = Location(state="Texas")
+    assert loc.bedrooms == 3
+    assert loc.bathrooms == 2.0
+    assert loc.property_type == "single_family"
+    assert loc.sqft_band == "1800_2500"
+    assert loc.built_within_years is None
+
+
+def test_parse_location_reads_the_five_characteristics():
+    from src.housing_optimizer import _parse_location
+
+    loc = _parse_location({
+        "state": "Texas", "bedrooms": "4", "bathrooms": 2.5,
+        "property_type": "Condo", "sqft_band": "2500_3500", "built_within_years": "3",
+    })
+    assert loc.bedrooms == 4
+    assert loc.bathrooms == 2.5
+    assert loc.property_type == "condo"
+    assert loc.sqft_band == "2500_3500"
+    assert loc.built_within_years == 3
+
+
+def test_parse_location_blank_built_within_years_is_none():
+    from src.housing_optimizer import _parse_location
+
+    loc = _parse_location({"state": "Texas", "built_within_years": ""})
+    assert loc.built_within_years is None

@@ -119,7 +119,11 @@ CONTRACTS: tuple[EndpointContract, ...] = (
     ),
     EndpointContract(
         "/api/housing/state-estimate", "POST", "housing_state_estimate_v1",
-        request_fields=(_f("state", "str", True), _f("type", "str"), _f("city_type", "str"), _f("population_size", "int")),
+        request_fields=(
+            _f("state", "str", True), _f("type", "str"), _f("city_type", "str"), _f("population_size", "int"),
+            _f("bedrooms", "int"), _f("bathrooms", "float"), _f("property_type", "str"), _f("sqft_band", "str"),
+            _f("built_within_years", "int"),
+        ),
         response_fields=(_f("success", "bool", True), _f("schema", "str"), _f("estimate", "dict", True)),
     ),
     EndpointContract(
