@@ -74,5 +74,6 @@
   "test_workflow_journey_guards_regression.py",
   "test_ytd_account_currency_display_functional.py",
   "test_zip_screen_panel_functional.py",
-  "test_zip_screen_shortlist_render_functional.py"
+  "test_zip_screen_shortlist_render_functional.py",
+  "test_zip_screen_top_cities_panel_functional.py"
 ]

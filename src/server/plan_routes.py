@@ -769,6 +769,14 @@ def housing_zip_screen():
     c0 = prepare_config_from_sectioned_data(data, "", optimize_roth=False)
     return _service_json(zip_screen_from_request(c0, request.get_json(force=True, silent=True) or {}))
 
+@app.route("/api/housing/top-cities", methods=["GET"])
+def housing_top_cities():
+    denied = _require("read_config")
+    if denied:
+        return denied
+    from ..housing import top_cities_payload
+    return _service_json(top_cities_payload())
+
 @app.route("/api/config/sync", methods=["POST"])
 def config_sync():
     denied = _require("write_config")

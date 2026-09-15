@@ -253,3 +253,38 @@ def zip_screen_from_request(
     except ValueError as exc:
         return {'success': False, 'error': str(exc)}, 400
     return {'success': True, 'zip_screen': screen_payload(result)}, 200
+
+
+import csv as _csv
+import os as _os
+
+
+def _top_cities_path() -> str:
+    return _os.path.join(
+        _os.path.dirname(_os.path.abspath(__file__)),
+        'zip_screen', 'data', 'top_cities.csv',
+    )
+
+
+def top_cities_payload() -> tuple[dict[str, Any], int]:
+    """The bundled top-cities list, for the ZIP-radius panel's anchor dropdown.
+
+    Static, bundled data (built by scripts/build_zip_metrics.py) -- this is
+    a read of a committed file, not a live query, matching the rest of the
+    zip_screen package's offline-first design.
+    """
+    path = _top_cities_path()
+    if not _os.path.exists(path):
+        return {'success': False, 'error': 'top_cities.csv not found; run scripts/build_zip_metrics.py'}, 500
+    with open(path, newline='', encoding='utf-8') as fh:
+        rows = list(_csv.DictReader(fh))
+    cities = [
+        {
+            'city_id': r['city_id'], 'city': r['city'], 'state': r['state'],
+            'state_abbrev': r['state_abbrev'], 'population': int(r['population']),
+            'anchor_zip': r['anchor_zip'],
+        }
+        for r in rows
+    ]
+    cities.sort(key=lambda c: -c['population'])
+    return {'success': True, 'cities': cities}, 200
