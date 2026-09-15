@@ -23,6 +23,7 @@ def _format_move(location: Location | None, sale_year: int | None, purchase_year
             'state': location.state,
             'city_type': location.city_type,
             'population_size': location.population_size,
+            'zip_code': location.zip_code,
         },
         'sec121_exclusion_lost': sec121_lost,
     }

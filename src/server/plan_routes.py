@@ -758,6 +758,17 @@ def housing_optimize():
     c0 = prepare_config_from_sectioned_data(data, "", optimize_roth=False)
     return _service_json(optimize_housing_from_request(c0, request.get_json(force=True, silent=True) or {}))
 
+@app.route("/api/housing/zip-screen", methods=["POST"])
+def housing_zip_screen():
+    denied = _require("read_config")
+    if denied:
+        return denied
+    from ..housing import zip_screen_from_request
+    from ..report_compute import prepare_config_from_sectioned_data
+    data, _meta = load_active_config()
+    c0 = prepare_config_from_sectioned_data(data, "", optimize_roth=False)
+    return _service_json(zip_screen_from_request(c0, request.get_json(force=True, silent=True) or {}))
+
 @app.route("/api/config/sync", methods=["POST"])
 def config_sync():
     denied = _require("write_config")
