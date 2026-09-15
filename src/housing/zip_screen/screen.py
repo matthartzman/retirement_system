@@ -12,7 +12,12 @@ from typing import Any
 
 from .geo import haversine_miles, zips_within
 from .quality import score_zip
-from .schema import COVERAGE_FLOOR_PCT, ZipRecord
+from .schema import (
+    COVERAGE_FLOOR_PCT,
+    DEDUP_RADIUS_MILES,
+    DEDUP_SCORE_POINTS,
+    ZipRecord,
+)
 from .table import load_table
 
 
@@ -79,6 +84,46 @@ def _base_estimate(rec: ZipRecord) -> float:
     return float(rec.state_median_home_value or 0.0)
 
 
+def deduplicate(
+    candidates: list[ScreenedZip], coords: dict[str, tuple[float, float]]
+) -> list[ScreenedZip]:
+    """Collapse near-identical neighbours, highest score first.
+
+    A candidate is suppressed when an already-kept candidate is within
+    DEDUP_RADIUS_MILES, in the same state, and within DEDUP_SCORE_POINTS.
+    Without this the top 4 of a metro search are routinely four adjacent
+    suburbs of one town, and the engine spends four full runs comparing
+    near-duplicates.
+
+    Suppressed ZIPs are recorded on their survivor's ``collapsed`` list, never
+    silently discarded -- a hidden ranking policy is indistinguishable from a
+    bug to the person reading the results.
+    """
+    kept: list[ScreenedZip] = []
+    collapsed_by: dict[str, list[str]] = {}
+    for cand in sorted(candidates, key=lambda z: (-z.nss, z.distance_miles, z.zcta)):
+        lat, lon = coords[cand.zcta]
+        survivor = None
+        for k in kept:
+            klat, klon = coords[k.zcta]
+            if (
+                k.state == cand.state
+                and abs(k.nss - cand.nss) <= DEDUP_SCORE_POINTS
+                and haversine_miles(klat, klon, lat, lon) <= DEDUP_RADIUS_MILES
+            ):
+                survivor = k
+                break
+        if survivor is None:
+            kept.append(cand)
+            collapsed_by.setdefault(cand.zcta, [])
+        else:
+            collapsed_by[survivor.zcta].append(cand.zcta)
+    return [
+        ScreenedZip(**{**z.__dict__, 'collapsed': sorted(collapsed_by.get(z.zcta, []))})
+        for z in kept
+    ]
+
+
 def run_screen(
     req: ScreenRequest,
     table: dict[str, ZipRecord] | None = None,
@@ -129,7 +174,8 @@ def run_screen(
         ))
     funnel['affordable'] = len(passing)
 
-    passing.sort(key=lambda z: (-z.nss, z.distance_miles, z.zcta))
+    coords = {rec.zcta: (rec.lat, rec.lon) for rec, _, _ in above_score}
+    passing = deduplicate(passing, coords)
     funnel['after_dedup'] = len(passing)
 
     shortlist = [
