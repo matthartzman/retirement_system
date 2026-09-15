@@ -249,7 +249,7 @@ def zip_screen_from_request(
             current_state=str(c0.get('state', '') or ''),
         )
     except AnchorNotFoundError as exc:
-        return {'success': False, 'error': str(exc).strip("'")}, 400
+        return {'success': False, 'error': str(exc)}, 400
     except ValueError as exc:
         return {'success': False, 'error': str(exc)}, 400
     return {'success': True, 'zip_screen': screen_payload(result)}, 200

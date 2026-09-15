@@ -53,7 +53,18 @@ PCTL_COLUMN = {
 # model's Score = 100 * (1 - Percentile) (PDF section 2.2).
 HIGHER_IS_BETTER = {'owner_occupied', 'tenure', 'median_income'}
 
-COVERAGE_FLOOR_PCT = 70.0
+# Originally calibrated at 70.0 on the assumption that Eviction Lab data
+# (eviction_execution + eviction_filing, 21.2 of the 100 NSS weight points
+# combined) would usually be present. Task 12's real national ingest found
+# Eviction Lab now gates all downloads behind signup, so both eviction
+# columns are empty for every ZIP in the shipped snapshot -- a ZIP with all
+# other metrics present tops out at 78.8% coverage, and a ZIP ALSO missing
+# only median_income (9.09 weight) drops to 69.7%, just under the old 70.0
+# floor. That excluded ~6.7% of ZCTAs nationally over one missing metric
+# rather than genuine data sparsity. 60.0 keeps the floor meaningful --
+# still rejects rows missing 2+ of the 5 currently-available metrics -- while
+# admitting the 69.7% near-miss tier.
+COVERAGE_FLOOR_PCT = 60.0
 
 # "Balanced market vacancy scored higher" (PDF section 2.3) made concrete: the
 # metric is scored on the percentile of the ABSOLUTE DEVIATION from this rate,

@@ -1536,18 +1536,21 @@ export async function previewHousingZipShortlist() {
     showMessage("Choose an anchor city or enter a ZIP code.", "error");
     return;
   }
-  const res = await fetch("/api/housing/zip-screen", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ zip_search: zipSearch }),
-  });
-  const payload = await res.json();
   const target = document.getElementById("housingOptZipShortlist");
-  if (!payload.success) {
-    if (target) target.innerHTML = `<p class="small warning">${esc(payload.error || "Screen failed.")}</p>`;
-    return;
+  try {
+    const payload = await api("/api/housing/zip-screen", {
+      method: "POST",
+      body: JSON.stringify({ zip_search: zipSearch }),
+    });
+    if (!payload || !payload.success) {
+      if (target) target.innerHTML = `<p class="small warning">${esc((payload && payload.error) || "Screen failed.")}</p>`;
+      return;
+    }
+    if (target) target.innerHTML = renderHousingZipShortlistHtml(payload);
+  } catch (e) {
+    showMessage("Error previewing shortlist: " + e.message, "error");
+    if (target) target.innerHTML = "";
   }
-  if (target) target.innerHTML = renderHousingZipShortlistHtml(payload);
 }
 
 export function renderHousingOptimizeResultsHtml(payload) {

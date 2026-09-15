@@ -22,7 +22,7 @@ from .schema import (
 from .table import load_table
 
 
-class AnchorNotFoundError(KeyError):
+class AnchorNotFoundError(ValueError):
     """The anchor ZIP is not in the snapshot."""
 
 
