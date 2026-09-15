@@ -1506,7 +1506,13 @@ export async function runHousingOptimization() {
     };
   }
   const resultsEl = document.getElementById("housingOptimizeResults");
-  if (resultsEl) resultsEl.innerHTML = '<p class="small">Running optimization — this searches many plan variants and can take a little while…</p>';
+  if (resultsEl) resultsEl.innerHTML = "";
+  setBuildOverlay(
+    true,
+    "Optimizing next housing move",
+    "Searching candidate sale/purchase years and locations against the plan engine. This can take a little while…",
+    "waiting",
+  );
   try {
     const resp = await api("/api/housing/optimize", { method: "POST", body: JSON.stringify(body) });
     if (resp && resp.success) {
@@ -1518,6 +1524,8 @@ export async function runHousingOptimization() {
   } catch (e) {
     showMessage("Error running housing optimization: " + e.message, "error");
     if (resultsEl) resultsEl.innerHTML = "";
+  } finally {
+    hideBuildOverlay();
   }
 }
 

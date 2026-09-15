@@ -14,6 +14,19 @@ function freshSandbox() {
   return loadDashboardSandbox();
 }
 
+// Fallback for ids these tests don't care about (e.g. the "buildOverlay"
+// progress popup runHousingOptimization() now shows/hides around its API
+// call) -- needs classList (setBuildOverlay/hideBuildOverlay toggle it) on
+// top of the plain `value` field these tests read from form inputs.
+function unstubbedElement() {
+  return {
+    value: "",
+    style: {},
+    classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
+    setAttribute() {},
+  };
+}
+
 function samplePayload() {
   return {
     success: true,
@@ -326,7 +339,7 @@ describe("runHousingOptimization", () => {
       if (id === "housingOptNoDualOwnership") return noDualOwnership;
       if (id === "housingOptMove2Enabled") return move2Enabled;
       if (id in values) return { value: values[id] };
-      return { value: "" };
+      return unstubbedElement();
     };
     let capturedUrl = null;
     let capturedBody = null;
@@ -367,7 +380,7 @@ describe("runHousingOptimization", () => {
     sandbox.document.getElementById = (id) => {
       if (id === "housingOptimizeResults") return resultsEl;
       if (id in values) return { value: values[id] };
-      return { value: "" };
+      return unstubbedElement();
     };
     sandbox.api = async () => ({
       success: false,
@@ -395,7 +408,7 @@ describe("runHousingOptimization", () => {
     sandbox.document.getElementById = (id) => {
       if (id === "housingOptimizeResults") return resultsEl;
       if (id in values) return { value: values[id] };
-      return { value: "" };
+      return unstubbedElement();
     };
     let capturedBody = null;
     sandbox.api = async (url, opts) => {
@@ -422,7 +435,7 @@ describe("runHousingOptimization", () => {
       if (id === "housingOptimizeResults") return resultsEl;
       if (id === "housingOptMove2Concurrent") return move2Concurrent;
       if (id in values) return { value: values[id] };
-      return { value: "" };
+      return unstubbedElement();
     };
     let capturedBody = null;
     sandbox.api = async (url, opts) => {
