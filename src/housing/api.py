@@ -67,19 +67,58 @@ def _parse_family_presence(raw: dict[str, Any]) -> FamilyPresence:
     )
 
 
-def optimize_housing_from_request(c0: dict[str, Any], body: dict[str, Any]) -> tuple[dict[str, Any], int]:
+def optimize_housing_from_request(
+    c0: dict[str, Any], body: dict[str, Any], table_path: str | None = None
+) -> tuple[dict[str, Any], int]:
     """Parse an ``/api/housing/optimize`` request body, run the optimizer
     against the current plan config ``c0``, and return a ``(payload, status)``
-    pair ready for ``jsonify``. Never mutates ``c0`` (every candidate runs on
-    a deep copy via ``planning_engines.run_scenario``).
+    pair ready for ``jsonify``. Never mutates ``c0``.
+
+    Candidate locations arrive one of two ways, never both: ``locations`` (the
+    hand-picked path) or ``zip_search`` (Stage 1 discovers them -- see
+    src/housing/zip_screen/).
     """
     try:
         raw_locations = body.get('locations') or []
-        if not isinstance(raw_locations, list) or not (2 <= len(raw_locations) <= 4):
-            return {'success': False, 'error': 'Provide 2-4 candidate locations.'}, 400
-        locations = [_parse_location(x) for x in raw_locations]
-        if any(not loc.state for loc in locations):
-            return {'success': False, 'error': 'Every candidate location needs a state.'}, 400
+        raw_zip_search = body.get('zip_search')
+        if raw_zip_search and raw_locations:
+            return {'success': False,
+                    'error': 'locations and zip_search are mutually exclusive.'}, 400
+
+        screen_block: dict[str, Any] | None = None
+        if raw_zip_search:
+            if not isinstance(raw_zip_search, dict):
+                return {'success': False, 'error': 'zip_search must be an object.'}, 400
+            req = parse_zip_search(raw_zip_search)
+            table = load_table(table_path) if table_path else None
+            result = run_screen(req, table=table,
+                                current_state=str(c0.get('state', '') or ''))
+            screen_block = screen_payload(result)
+            if len(result.shortlist) < 2:
+                return {
+                    'success': True, 'schema': 'housing_optimize_v1',
+                    'zip_screen': screen_block, 'recommendation': None,
+                    'alternatives': [],
+                    'message': (
+                        'The screen returned fewer than 2 ZIPs; the optimizer needs '
+                        'at least 2 candidate locations. Widen the radius or lower '
+                        'the minimum quality score.'
+                    ),
+                }, 200
+            nss_by_zip = {z.zcta: z.nss for z in result.shortlist}
+            locations = [
+                resolve_location(load_table(table_path)[z.zcta] if table_path
+                                 else load_table()[z.zcta], req.property_spec)
+                for z in result.shortlist
+            ]
+        else:
+            if not isinstance(raw_locations, list) or not (2 <= len(raw_locations) <= 4):
+                return {'success': False,
+                        'error': 'Provide 2-4 candidate locations, or a zip_search block.'}, 400
+            nss_by_zip = {}
+            locations = [_parse_location(x) for x in raw_locations]
+            if any(not loc.state for loc in locations):
+                return {'success': False, 'error': 'Every candidate location needs a state.'}, 400
 
         move1_window = _parse_search_window(body.get('move1_window') or {})
         move2_raw = body.get('move2_window')
@@ -115,6 +154,13 @@ def optimize_housing_from_request(c0: dict[str, Any], body: dict[str, Any]) -> t
             move2_action=str(body.get('move2_action', 'auto') or 'auto'),
             move2_concurrent=bool(body.get('move2_concurrent', False)),
         )
+        if screen_block is not None:
+            result['zip_screen'] = screen_block
+            for row in [result.get('recommendation')] + list(result.get('alternatives') or []):
+                for move in (row or {}).get('moves', []):
+                    zc = (move.get('location') or {}).get('zip_code')
+                    if zc in nss_by_zip:
+                        move['location']['nss'] = nss_by_zip[zc]
         result['success'] = True
         result['schema'] = 'housing_optimize_v1'
         return result, 200
@@ -130,6 +176,7 @@ from .zip_screen.schema import (
     RESPONSE_SCHEMA,
     SCORE_MODEL_VERSION,
 )
+from .zip_screen.resolve import resolve_location
 from .zip_screen.screen import AnchorNotFoundError, ScreenRequest, run_screen
 from .zip_screen.table import load_table
 

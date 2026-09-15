@@ -76,12 +76,12 @@ def estimate_price(rec: ZipRecord, base_estimate: float) -> float:
 
 
 def _base_estimate(rec: ZipRecord) -> float:
-    """Placeholder anchor for the affordability ratio.
+    """State-median anchor for the affordability ratio.
 
-    Task 11 replaces this with the real STATE_ESTIMATES lookup once the screen
-    is wired to the optimizer; until then the ratio is applied to the state
-    median itself, which is exactly the right shape and keeps this module free
-    of an engine dependency.
+    ``estimate_price`` multiplies this by the ZIP's median-home-value ratio to
+    its state. Keeping the anchor at the state median leaves this module free
+    of any engine or STATE_ESTIMATES dependency; the optimizer does the real
+    cost modelling in Stage 2 on the resolved Location.
     """
     return float(rec.state_median_home_value or 0.0)
 
