@@ -46,7 +46,10 @@ def score_candidate(c: dict[str, Any], cand: HousingCandidate, rows: list[dict[s
     lifetime_cost = _lifetime_cost(rows)
     sec121_flags = [False]  # move 1 sells the current/original home -- ownership start isn't tracked, assume met
     if cand.is_two_move:
-        sec121_flags.append(sec121_exclusion_flag(cand.purchase_year, cand.sale_year_2))
+        if cand.move2_mode == 'concurrent':
+            sec121_flags.append(False)  # concurrent mode never sells anything -- nothing to flag
+        else:
+            sec121_flags.append(sec121_exclusion_flag(cand.purchase_year, cand.sale_year_2))
     return ScoredCandidate(
         candidate=cand, net_worth=net_worth, lifetime_cost=lifetime_cost,
         mc_success_rate=None, sec121_exclusion_lost=sec121_flags,

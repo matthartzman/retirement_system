@@ -10,12 +10,14 @@ from typing import Any
 from .models import Location, ScoredCandidate
 
 def _format_move(location: Location | None, sale_year: int | None, purchase_year: int | None,
-                  sec121_lost: bool) -> dict[str, Any] | None:
+                  sec121_lost: bool, mode: str = 'sequential', start_year: int | None = None) -> dict[str, Any] | None:
     if location is None:
         return None
     return {
         'sale_year': sale_year,
         'purchase_year': purchase_year,
+        'start_year': start_year,
+        'mode': mode,
         'rent_indefinitely': purchase_year is None,
         'location': {
             'state': location.state,
@@ -31,8 +33,12 @@ def _format_candidate(sc: ScoredCandidate, objective: str) -> dict[str, Any]:
     moves = [_format_move(cand.location_1, cand.sale_year, cand.purchase_year,
                            sc.sec121_exclusion_lost[0] if sc.sec121_exclusion_lost else False)]
     if cand.is_two_move:
-        moves.append(_format_move(cand.location_2, cand.sale_year_2, cand.purchase_year_2,
-                                   sc.sec121_exclusion_lost[1] if len(sc.sec121_exclusion_lost) > 1 else False))
+        sec121_2 = sc.sec121_exclusion_lost[1] if len(sc.sec121_exclusion_lost) > 1 else False
+        if cand.move2_mode == 'concurrent':
+            moves.append(_format_move(cand.location_2, None, cand.purchase_year_2, sec121_2,
+                                       mode='concurrent', start_year=cand.concurrent_start_year_2))
+        else:
+            moves.append(_format_move(cand.location_2, cand.sale_year_2, cand.purchase_year_2, sec121_2))
     return {
         'moves': moves,
         'net_worth': sc.net_worth,

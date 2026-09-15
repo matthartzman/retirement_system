@@ -45,6 +45,11 @@ def _estimate_for_location(loc: Location, housing_type: str) -> dict[str, Any]:
         'type': housing_type,
         'city_type': loc.city_type,
         'population_size': loc.population_size,
+        'bedrooms': loc.bedrooms,
+        'bathrooms': loc.bathrooms,
+        'property_type': loc.property_type,
+        'sqft_band': loc.sqft_band,
+        'built_within_years': loc.built_within_years,
     })
     return payload['estimate']
 
@@ -113,31 +118,43 @@ def _apply_candidate(c: dict[str, Any], cand: HousingCandidate) -> None:
     """
     base_state = str(c.get('state', '') or '')
     c['home_sale_yr'] = cand.sale_year
+    concurrent = cand.is_two_move and cand.move2_mode == 'concurrent'
 
     move1_start = cand.sale_year if cand.purchase_year is None else cand.purchase_year
-    move1_end = (cand.sale_year_2 - 1) if cand.is_two_move else None
+    move1_end = None if concurrent else ((cand.sale_year_2 - 1) if cand.is_two_move else None)
     steps = []
     transitions: list[tuple[int, str]] = [(move1_start, cand.location_1.state)]
     if cand.purchase_year is None:
         steps.append(_rent_step('opt_move1', cand.location_1, cand.sale_year, move1_end))
     else:
         move1_step = _purchase_step('opt_move1', cand.location_1, cand.purchase_year, move1_end)
-        if cand.is_two_move:
+        if cand.is_two_move and not concurrent:
             # Real second-sale pathway (design doc §8.2 P0): the engine sells
             # this step itself -- see home_sale.py's apply_next_housing_sale
             # -- instead of this package estimating move 2's gain/tax
             # out-of-loop. `move1_end` above is already `sale_year_2 - 1`, so
             # the step also stops accruing ongoing cash flow the year before.
+            # Concurrent mode never sets this: the move-1 home is never sold.
             move1_step['sale_year'] = cand.sale_year_2
         steps.append(move1_step)
 
     if cand.is_two_move:
-        move2_start = cand.sale_year_2 if cand.purchase_year_2 is None else cand.purchase_year_2
-        transitions.append((move2_start, cand.location_2.state))
-        if cand.purchase_year_2 is None:
-            steps.append(_rent_step('opt_move2', cand.location_2, cand.sale_year_2, None))
+        if concurrent:
+            # location_2 is a second, ongoing residence alongside location_1
+            # -- no residency_schedule transition (tax residency stays with
+            # location_1; concurrent mode is a second home, not a move).
+            move2_start = cand.concurrent_start_year_2
+            if cand.purchase_year_2 is None:
+                steps.append(_rent_step('opt_move2', cand.location_2, move2_start, None))
+            else:
+                steps.append(_purchase_step('opt_move2', cand.location_2, cand.purchase_year_2, None))
         else:
-            steps.append(_purchase_step('opt_move2', cand.location_2, cand.purchase_year_2, None))
+            move2_start = cand.sale_year_2 if cand.purchase_year_2 is None else cand.purchase_year_2
+            transitions.append((move2_start, cand.location_2.state))
+            if cand.purchase_year_2 is None:
+                steps.append(_rent_step('opt_move2', cand.location_2, cand.sale_year_2, None))
+            else:
+                steps.append(_purchase_step('opt_move2', cand.location_2, cand.purchase_year_2, None))
 
     c['next_housing_steps'] = steps
     c['residency_schedule'] = _residency_schedule(base_state, transitions)
