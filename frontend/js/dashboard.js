@@ -1028,7 +1028,6 @@ function dismissMessage() {
   if (el) el.classList.add("hidden");
 }
 
-
 function stripUiLabelPrefix(text) {
   return String(text || "")
     .replace(/^[^/]{1,80}\s*\/\s*/, "")
@@ -5072,6 +5071,31 @@ const FIELD_GUIDANCE_OVERRIDES = {
     purpose: "This is your annual property tax expressed as a percentage of the home's market value. Property tax rates vary enormously by state and county and are one of the largest ongoing housing costs.",
     impact: "A higher tax rate increases your annual housing costs permanently. Some states have low property taxes (under 0.5% of value) while others can exceed 2%, so this assumption matters greatly for long-term planning.",
     consider: "Look up the property tax rate for the specific county or state where you plan to live — it's public information and a quick online search will give you an accurate number.",
+  },
+  bedrooms: {
+    purpose: "How many bedrooms the next home should have. This shapes the Estimate button's typical purchase price or rent for the area — it does not change a price or rent you've typed in by hand.",
+    impact: "More bedrooms pushes the estimated price or rent up; fewer pulls it down. It has no effect at all unless you click Estimate afterward.",
+    consider: "Leave at the default (3) if you haven't settled on a size yet. Use 5 for \"5 or more\" — the estimate treats 5+ as one bucket.",
+  },
+  bathrooms: {
+    purpose: "How many bathrooms the next home should have, including half-baths. This shapes the Estimate button's typical purchase price or rent for the area — it does not change a price or rent you've typed in by hand.",
+    impact: "More bathrooms pushes the estimated price or rent up; fewer pulls it down. It has no effect at all unless you click Estimate afterward.",
+    consider: "Pick 3.5+ for anything with three or more full baths plus a half-bath or more — the estimate treats that as one bucket.",
+  },
+  property_type: {
+    purpose: "The kind of property the next home is — single-family, townhome, condo, or duplex. This shapes the Estimate button's typical purchase price or rent, and (for condo/townhome) also sets a minimum HOA assumption and discounts the estimated maintenance cost, since an HOA typically covers exterior upkeep for those property types.",
+    impact: "Condos and townhomes estimate lower than a single-family home at the same size, but with a nonzero HOA percentage floored in and roughly 60% less estimated maintenance. It has no effect at all unless you click Estimate afterward.",
+    consider: "If you're planning to buy a condo or townhome, set this before estimating so the HOA and maintenance numbers come back realistic instead of at the single-family defaults.",
+  },
+  sqft_band: {
+    purpose: "The approximate square footage range for the next home, in bands rather than an exact number — the underlying state-level price data isn't precise enough to support an exact square footage. This shapes the Estimate button's typical purchase price or rent for the area.",
+    impact: "A larger band pushes the estimated price or rent up; a smaller band pulls it down. It has no effect at all unless you click Estimate afterward.",
+    consider: "Pick the band your target home is most likely to fall in — you don't need an exact number, just the right range.",
+  },
+  built_within_years: {
+    purpose: "How new the next home should be, expressed as \"built within the last N years\" rather than a specific age -- you likely don't have the exact future home picked out yet, so this is a preference, not a fact about a property you own.",
+    impact: "Newer construction typically costs more upfront but may need less near-term maintenance; leaving this blank uses a neutral (neither premium nor discount) assumption.",
+    consider: "Leave blank if you have no preference. A small number (0-2) means new construction; 30+ means you're comfortable with an older, more established home.",
   },
   state: {
     purpose: "This is the US state where your home is or will be located. The plan uses this to estimate property taxes, HOA fees, insurance, and other housing costs that vary by state and region.",
