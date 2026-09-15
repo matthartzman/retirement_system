@@ -505,23 +505,48 @@ def _cell(value: object) -> str:
 def build_top_cities(out_path: str, snapshot_path: str, limit: int = 200) -> int:
     """Largest places in the snapshot's states, each anchored to a ZCTA.
 
-    The anchor is the ZCTA whose Gazetteer centroid is nearest the Census
-    place's internal point, restricted to ZCTAs actually present in the
-    snapshot so every anchor resolves.
+    The anchor is the ZCTA with the LARGEST LAND-AREA OVERLAP with the
+    place (from the same ZCTA<->place relationship file `build()` uses for
+    state/place assignment), restricted to ZCTAs with nonzero population
+    that are present in the snapshot.
+
+    This is deliberately NOT nearest-centroid-to-the-place's-internal-point:
+    a place's legal boundary can pull its internal point somewhere
+    unrepresentative (San Francisco's city limits include the Farallon
+    Islands 27 miles offshore, which used to anchor "San Francisco" on
+    Bolinas, a Marin County ZIP across the Golden Gate) and nearest-centroid
+    has no population floor (which used to anchor "Jacksonville" on a
+    PO-box-only ZIP with zero residents). Land-area overlap directly answers
+    "is this ZIP really part of the city," and the population floor rules
+    out non-residential ZIPs outright.
     """
     with gzip.open(snapshot_path, 'rt', encoding='utf-8', newline='') as fh:
         snap = list(csv.DictReader(fh))
-    by_state: dict[str, list[tuple[str, float, float]]] = {}
-    for r in snap:
-        by_state.setdefault(r['state_abbrev'], []).append(
-            (r['zcta'], float(r['lat']), float(r['lon'])))
-    states = set(by_state)
+    zcta_pop = {r['zcta']: int(float(r['zcta_population'] or 0)) for r in snap}
+    zcta_state = {r['zcta']: r['state_abbrev'] for r in snap}
+    states = set(zcta_state.values())
 
     places = _gazetteer(GAZETTEER_PLACE_URL, 'gaz_place.zip')
     pop = {
         gid[len(P_PLACE):]: (row.get('001') or 0.0)
         for gid, row in _acs_table('B01003', (P_PLACE,)).items()
     }
+
+    # Invert the ZCTA->place relationship into place->[(zcta, area)], kept to
+    # only ZCTAs the snapshot actually carries with nonzero population.
+    _, place_rows = _relationship(REL_ZCTA_PLACE, 'rel_zcta_place.txt')
+    overlaps_by_place: dict[str, list[tuple[str, float]]] = {}
+    for r in place_rows:
+        zcta, place, area = r[1], r[9], r[16]
+        if not zcta or not place:
+            continue
+        if zcta not in zcta_pop or zcta_pop[zcta] <= 0:
+            continue
+        try:
+            a = float(area or 0)
+        except ValueError:
+            a = 0.0
+        overlaps_by_place.setdefault(place, []).append((zcta, a))
 
     ranked = []
     for p in places:
@@ -531,6 +556,8 @@ def build_top_cities(out_path: str, snapshot_path: str, limit: int = 200) -> int
         population = pop.get(p['GEOID'])
         if not population:
             continue
+        if p['GEOID'] not in overlaps_by_place:
+            continue  # no snapshot ZCTA overlaps this place at all
         ranked.append((population, p, abbrev))
     ranked.sort(key=lambda t: -t[0])
     ranked = ranked[:limit]
@@ -540,9 +567,7 @@ def build_top_cities(out_path: str, snapshot_path: str, limit: int = 200) -> int
         writer.writerow(['city_id', 'city', 'state', 'state_abbrev',
                          'population', 'anchor_zip'])
         for population, p, abbrev in ranked:
-            lat, lon = float(p['INTPTLAT']), float(p['INTPTLONG'])
-            anchor = min(by_state[abbrev],
-                         key=lambda z: _haversine(lat, lon, z[1], z[2]))[0]
+            anchor = max(overlaps_by_place[p['GEOID']], key=lambda t: t[1])[0]
             writer.writerow([p['GEOID'], _place_name(p['NAME']),
                              STATE_FIPS[ABBREV_TO_FIPS[abbrev]][1], abbrev,
                              int(population), anchor])
@@ -557,12 +582,19 @@ def main(argv: list[str]) -> int:
     ap.add_argument('--out', default=OUT_PATH)
     ap.add_argument('--cities', type=int, default=200,
                     help='rows to write into top_cities.csv')
+    ap.add_argument('--top-cities-only', action='store_true',
+                    help='regenerate top_cities.csv from the existing snapshot '
+                         'at --out, without re-running the full ACS ingest')
     args = ap.parse_args(argv)
+    cities_path = os.path.join(os.path.dirname(args.out), 'top_cities.csv')
+    if args.top_cities_only:
+        n = build_top_cities(cities_path, args.out, args.cities)
+        print(f'wrote {n} cities to {cities_path}')
+        return 0
     states = () if args.all_states else tuple(s.strip().upper()
                                               for s in args.states.split(',') if s.strip())
     rows = build(states, args.out)
     print(f'wrote {rows} rows to {args.out}')
-    cities_path = os.path.join(os.path.dirname(args.out), 'top_cities.csv')
     n = build_top_cities(cities_path, args.out, args.cities)
     print(f'wrote {n} cities to {cities_path}')
     return 0
