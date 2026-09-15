@@ -27,6 +27,7 @@ from src.planning_engines import (
     monte_carlo_exact_scalar,
     project,
 )
+import pytest
 
 
 def _base_config(**overrides):
@@ -47,6 +48,12 @@ def test_no_floor_configured_reports_none_vectorized():
     assert mc["probability_legacy_floor_met"] is None
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_no_floor_configured_reports_none_scalar():
     c = _base_config()
     base_rows = project(c)
@@ -63,6 +70,12 @@ def test_trivially_low_floor_is_almost_always_met_vectorized():
     assert mc["probability_legacy_floor_met"] >= 0.99
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_trivially_low_floor_is_almost_always_met_scalar():
     c = _base_config(legacy_floor=1000.0)
     base_rows = project(c)
@@ -79,6 +92,12 @@ def test_absurdly_high_floor_is_almost_never_met_vectorized():
     assert mc["probability_legacy_floor_met"] <= 0.01
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_absurdly_high_floor_is_almost_never_met_scalar():
     c = _base_config(legacy_floor=999_999_999.0)
     base_rows = project(c)

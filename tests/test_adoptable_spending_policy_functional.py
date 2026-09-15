@@ -7,6 +7,8 @@ per-year helper functions.
 import contextlib
 import io
 
+import pytest
+
 from src.data_io import load_csv, parse_client
 from src.planning_engines import project, monte_carlo
 
@@ -20,6 +22,37 @@ def _project(policy=None, **overrides):
         c["spending_policy"] = policy
     c.update(overrides)
     return c, project(c)
+
+
+def _mc_pair(seed):
+    """Run monte_carlo() once each for fixed_real and guyton_klinger at the
+    given seed. Module-scoped and keyed by seed (not by test) so the two
+    tests that each need the same seed (see the seed=13 pair below) share
+    one pair of MC runs instead of duplicating it -- these are real
+    150-path Monte Carlo calls (~7s each), not pure-function calls, so this
+    is where this file's cost actually lives.
+    """
+    c_fixed, _ = _project("fixed_real")
+    c_gk, _ = _project("guyton_klinger")
+    with contextlib.redirect_stdout(io.StringIO()):
+        mc_fixed = monte_carlo(c_fixed, n_sims=150, seed=seed)
+        mc_gk = monte_carlo(c_gk, n_sims=150, seed=seed)
+    return mc_fixed, mc_gk
+
+
+@pytest.fixture(scope="module")
+def mc_seed7():
+    return _mc_pair(seed=7)
+
+
+@pytest.fixture(scope="module")
+def mc_seed11():
+    return _mc_pair(seed=11)
+
+
+@pytest.fixture(scope="module")
+def mc_seed13():
+    return _mc_pair(seed=13)
 
 
 def test_default_is_fixed_real_and_matches_unconfigured_behavior():
@@ -60,12 +93,8 @@ def test_age_phased_curve_is_independent_of_the_policy_selector():
     assert late_phased < late_baseline
 
 
-def test_monte_carlo_success_rate_reflects_the_active_guardrail_policy():
-    c_fixed, rows_fixed = _project("fixed_real")
-    c_gk, rows_gk = _project("guyton_klinger")
-    with contextlib.redirect_stdout(io.StringIO()):
-        mc_fixed = monte_carlo(c_fixed, n_sims=150, seed=7)
-        mc_gk = monte_carlo(c_gk, n_sims=150, seed=7)
+def test_monte_carlo_success_rate_reflects_the_active_guardrail_policy(mc_seed7):
+    mc_fixed, mc_gk = mc_seed7
     assert mc_fixed["spending_policy_active"] is False
     assert mc_gk["spending_policy_active"] is True
     # A guardrail policy self-cuts specifically to avoid running dry, so its
@@ -76,7 +105,7 @@ def test_monte_carlo_success_rate_reflects_the_active_guardrail_policy():
     assert "conditional on the modelled spending cuts" in mc_gk["success_definition"]
 
 
-def test_essential_funding_probability_is_materially_unaffected_by_the_guardrail_policy():
+def test_essential_funding_probability_is_materially_unaffected_by_the_guardrail_policy(mc_seed11):
     # Guardrails resize the DISCRETIONARY/"important" spend tier (spend_base_yr),
     # never essential's own tier components (housing, wellness) directly --
     # essential_fully_funded_probability must keep meaning "funded as asked",
@@ -87,25 +116,17 @@ def test_essential_funding_probability_is_materially_unaffected_by_the_guardrail
     # amounts -- this asserts "materially unaffected" (a few points), not
     # byte-identical, which would overclaim a total tier isolation this
     # item's design never intended to guarantee.
-    c_fixed, rows_fixed = _project("fixed_real")
-    c_gk, rows_gk = _project("guyton_klinger")
-    with contextlib.redirect_stdout(io.StringIO()):
-        mc_fixed = monte_carlo(c_fixed, n_sims=150, seed=11)
-        mc_gk = monte_carlo(c_gk, n_sims=150, seed=11)
+    mc_fixed, mc_gk = mc_seed11
     assert abs(mc_fixed["essential_fully_funded_probability"] - mc_gk["essential_fully_funded_probability"]) < 0.02
 
 
-def test_mandatory_cut_disclosure_is_populated_when_a_guardrail_policy_is_active():
-    c, rows = _project("guyton_klinger")
-    with contextlib.redirect_stdout(io.StringIO()):
-        mc = monte_carlo(c, n_sims=150, seed=13)
-    assert mc["worst_modeled_spending_cut_pct"] is not None
-    assert mc["worst_modeled_spending_cut_pct"] >= 0.0
-    assert mc["guardrail_probability_ever_cut"] is not None
+def test_mandatory_cut_disclosure_is_populated_when_a_guardrail_policy_is_active(mc_seed13):
+    _, mc_gk = mc_seed13
+    assert mc_gk["worst_modeled_spending_cut_pct"] is not None
+    assert mc_gk["worst_modeled_spending_cut_pct"] >= 0.0
+    assert mc_gk["guardrail_probability_ever_cut"] is not None
 
 
-def test_mandatory_cut_disclosure_is_absent_under_fixed_real():
-    c, rows = _project("fixed_real")
-    with contextlib.redirect_stdout(io.StringIO()):
-        mc = monte_carlo(c, n_sims=150, seed=13)
-    assert mc["spending_policy_active"] is False
+def test_mandatory_cut_disclosure_is_absent_under_fixed_real(mc_seed13):
+    mc_fixed, _ = mc_seed13
+    assert mc_fixed["spending_policy_active"] is False

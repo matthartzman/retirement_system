@@ -36,6 +36,12 @@ def _run(config_overrides=None):
     return build_sheet10(ws, c, rows)
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_score_is_lcv_score_plus_weighted_survivor_period_ss_income():
     # Optimization-refactor Phase 4 (Option C, full sign-off): the score's
     # wealth basis is now the LCV score (PV of lifetime spending plus PV of
@@ -56,6 +62,12 @@ def test_score_is_lcv_score_plus_weighted_survivor_period_ss_income():
     assert best["objective_value"] != old_style_score
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_survivor_years_reflects_fixed_mortality_not_claim_timing_mismatch():
     # h_alive/w_alive-derived survivor_years is set by each member's death
     # year (dob_yr + mortality_age), which does not depend on SS claim age.
@@ -73,6 +85,12 @@ def test_survivor_years_reflects_fixed_mortality_not_claim_timing_mismatch():
     )
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_survivor_period_ss_income_varies_meaningfully_across_claim_age_pairs():
     # Unlike the year-count, the SS dollars received during the (fixed)
     # survivor window DOES vary by claim-age pair -- delaying the higher
@@ -84,6 +102,12 @@ def test_survivor_period_ss_income_varies_meaningfully_across_claim_age_pairs():
     assert len(values) > 1, "survivor_period_ss_income should differ across claim-age pairs"
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_survivor_weight_is_load_bearing_not_a_no_op():
     # With the weight zeroed out, the score collapses to after-tax terminal
     # NW alone; with it active (default 1.0), the survivor-income term must
@@ -96,6 +120,12 @@ def test_survivor_weight_is_load_bearing_not_a_no_op():
     assert unweighted_scores != weighted_scores
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_after_tax_terminal_nw_is_sane_relative_to_gross_terminal_nw():
     # Deliberately not cross-checked against an independently re-projected
     # config: project() carries forward in-place engine state (e.g. lot cost
