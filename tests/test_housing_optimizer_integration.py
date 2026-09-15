@@ -342,3 +342,13 @@ def test_optimizer_never_mutates_the_base_plan_config():
     assert c0.get("next_housing_steps") == before_next_steps
     assert c0.get("residency_schedule") == before_residency
     assert c0.get("home_sale_yr") == before_sale_yr
+
+
+def test_estimate_for_location_passes_characteristics_through_to_pricing():
+    from src.housing_optimizer import Location, _estimate_for_location
+
+    baseline = _estimate_for_location(Location(state="Texas"), "purchase")
+    bigger = _estimate_for_location(
+        Location(state="Texas", bedrooms=5, sqft_band="over_3500"), "purchase",
+    )
+    assert bigger["purchase_price"] > baseline["purchase_price"]

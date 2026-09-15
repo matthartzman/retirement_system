@@ -127,6 +127,11 @@ class Location:
     city_type: str = 'suburban'
     population_size: int = 20000
     target_purchase_price_range: tuple[float, float] | None = None
+    bedrooms: int = 3
+    bathrooms: float = 2.0
+    property_type: str = 'single_family'
+    sqft_band: str = '1800_2500'
+    built_within_years: int | None = None
 
 
 @dataclass(frozen=True)
@@ -193,6 +198,11 @@ def _estimate_for_location(loc: Location, housing_type: str) -> dict[str, Any]:
         'type': housing_type,
         'city_type': loc.city_type,
         'population_size': loc.population_size,
+        'bedrooms': loc.bedrooms,
+        'bathrooms': loc.bathrooms,
+        'property_type': loc.property_type,
+        'sqft_band': loc.sqft_band,
+        'built_within_years': loc.built_within_years,
     })
     return payload['estimate']
 
@@ -891,11 +901,21 @@ def _parse_location(raw: dict[str, Any]) -> Location:
     parsed_range = None
     if isinstance(price_range, (list, tuple)) and len(price_range) == 2:
         parsed_range = (float(price_range[0]), float(price_range[1]))
+    built_within_years_raw = raw.get('built_within_years')
+    try:
+        built_within_years = int(built_within_years_raw) if built_within_years_raw not in (None, '') else None
+    except (TypeError, ValueError):
+        built_within_years = None
     return Location(
         state=str(raw.get('state', '') or '').strip(),
         city_type=str(raw.get('city_type', 'suburban') or 'suburban').strip().lower(),
         population_size=int(raw.get('population_size', 20000) or 20000),
         target_purchase_price_range=parsed_range,
+        bedrooms=int(raw.get('bedrooms', 3) or 3),
+        bathrooms=float(raw.get('bathrooms', 2.0) or 2.0),
+        property_type=str(raw.get('property_type', 'single_family') or 'single_family').strip().lower(),
+        sqft_band=str(raw.get('sqft_band', '1800_2500') or '1800_2500').strip().lower(),
+        built_within_years=built_within_years,
     )
 
 
