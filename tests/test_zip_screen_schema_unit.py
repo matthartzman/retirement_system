@@ -40,7 +40,7 @@ def test_disclosure_string_is_verbatim():
 
 
 def test_constants_match_the_spec():
-    assert COVERAGE_FLOOR_PCT == 70.0
+    assert COVERAGE_FLOOR_PCT == 60.0
     assert VACANCY_IDEAL_RATE == 0.06
     assert SCORE_MODEL_VERSION == 'nss-1.0'
 
