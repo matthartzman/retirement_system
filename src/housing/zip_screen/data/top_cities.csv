@@ -1,0 +1,201 @@
+city_id,city,state,state_abbrev,population,anchor_zip
+1714000,Chicago,Illinois,IL,2711226,60608
+1235000,Jacksonville,Florida,FL,977670,32203
+0820000,Denver,Colorado,CO,718877,80238
+0816000,Colorado Springs,Colorado,CO,487887,80909
+1245000,Miami,Florida,FL,459745,33128
+1271000,Tampa,Florida,FL,401618,33603
+0804000,Aurora,Colorado,CO,394432,80018
+1253000,Orlando,Florida,FL,319758,32827
+1263000,St. Petersburg,Florida,FL,262732,33701
+1258715,Port St. Lucie,Florida,FL,232491,34953
+1230000,Hialeah,Florida,FL,226165,33012
+1210275,Cape Coral,Florida,FL,215536,33991
+1270600,Tallahassee,Florida,FL,201875,32301
+1224000,Fort Lauderdale,Florida,FL,185604,33311
+1703012,Aurora,Illinois,IL,179898,60505
+1255775,Pembroke Pines,Florida,FL,173194,33028
+0827425,Fort Collins,Colorado,CO,170229,80525
+0843000,Lakewood,Colorado,CO,156583,80226
+1232000,Hollywood,Florida,FL,155082,33020
+1751622,Naperville,Illinois,IL,150692,60540
+1738570,Joliet,Illinois,IL,150445,60431
+1765000,Rockford,Illinois,IL,147521,61104
+1225175,Gainesville,Florida,FL,145702,32605
+0877290,Thornton,Colorado,CO,144187,80241
+1245975,Miramar,Florida,FL,138600,33027
+1214400,Coral Springs,Florida,FL,136103,33065
+1239925,Lehigh Acres,Florida,FL,132353,33972
+1254000,Palm Bay,Florida,FL,130132,32908
+0803455,Arvada,Colorado,CO,122634,80005
+1276600,West Palm Beach,Florida,FL,122290,33417
+1268350,Spring Hill,Florida,FL,119983,34609
+1238250,Lakeland,Florida,FL,119961,33815
+1208150,Brandon,Florida,FL,119767,33510
+1212875,Clearwater,Florida,FL,117247,33755
+0883835,Westminster,Colorado,CO,115484,80031
+1723074,Elgin,Illinois,IL,114934,60123
+1258050,Pompano Beach,Florida,FL,114147,33060
+1260950,Riverview,Florida,FL,113697,33569
+1772000,Springfield,Illinois,IL,113330,62701
+1245060,Miami Gardens,Florida,FL,113177,33056
+1759000,Peoria,Illinois,IL,112169,61614
+0862000,Pueblo,Colorado,CO,111561,81003
+0832155,Greeley,Colorado,CO,110806,80634
+1216475,Davie,Florida,FL,108346,33328
+0812815,Centennial,Colorado,CO,108201,80112
+0807850,Boulder,Colorado,CO,106433,80310
+0836410,Highlands Ranch,Colorado,CO,102257,80126
+1207300,Boca Raton,Florida,FL,100234,33431
+0845970,Longmont,Colorado,CO,99406,80501
+1254200,Palm Coast,Florida,FL,98258,32137
+1269700,Sunrise,Florida,FL,97918,33351
+1217200,Deltona,Florida,FL,97334,32738
+1257425,Plantation,Florida,FL,96293,33388
+1224125,Fort Myers,Florida,FL,95051,33916
+1200410,Alafaya,Florida,FL,92449,32828
+1712385,Champaign,Illinois,IL,89996,61821
+1779293,Waukegan,Illinois,IL,89076,60085
+1216725,Deerfield Beach,Florida,FL,88093,33442
+1243975,Melbourne,Florida,FL,86576,32935
+1272145,Town 'n' Country,Florida,FL,85928,33615
+1249675,North Port,Florida,FL,84605,34287
+1271625,The Villages,Florida,FL,83498,32162
+1232275,Homestead,Florida,FL,82807,33033
+1714351,Cicero,Illinois,IL,82797,60804
+1239425,Largo,Florida,FL,82617,33771
+1245025,Miami Beach,Florida,FL,82031,33140
+1236950,Kissimmee,Florida,FL,81479,34741
+1207875,Boynton Beach,Florida,FL,81435,33426
+1256825,Pine Hills,Florida,FL,80105,32808
+1236100,Kendall,Florida,FL,79562,33176
+1217935,Doral,Florida,FL,79216,33172
+0812415,Castle Rock,Colorado,CO,79123,80109
+1216525,Daytona Beach,Florida,FL,78992,32114
+1706613,Bloomington,Illinois,IL,78907,61701
+0846465,Loveland,Colorado,CO,78410,80528
+1768003,Schaumburg,Illinois,IL,76868,60193
+1724582,Evanston,Illinois,IL,76340,60201
+0809280,Broomfield,Colorado,CO,76304,80020
+1275875,Wesley Chapel,Florida,FL,76011,33543
+1702154,Arlington Heights,Illinois,IL,76005,60004
+1257900,Poinciana,Florida,FL,75068,34759
+1239550,Lauderhill,Florida,FL,74896,33313
+1707133,Bolingbrook,Illinois,IL,74096,60440
+1270675,Tamarac,Florida,FL,73019,33321
+1718823,Decatur,Illinois,IL,69815,62523
+1276582,Weston,Florida,FL,68837,33326
+0831660,Grand Junction,Colorado,CO,68142,81501
+1217100,Delray Beach,Florida,FL,67979,33444
+1232610,Horizon West,Florida,FL,67416,34787
+1250750,Ocala,Florida,FL,66584,34471
+0816495,Commerce City,Colorado,CO,66445,80022
+1757225,Palatine,Illinois,IL,66293,60067
+1770122,Skokie,Illinois,IL,66219,60076
+1258350,Port Charlotte,Florida,FL,66133,33952
+1262625,St. Cloud,Florida,FL,65130,34769
+1224581,Four Corners,Florida,FL,65048,34747
+1258575,Port Orange,Florida,FL,64767,32129
+1263650,Sanford,Florida,FL,63730,32773
+1275812,Wellington,Florida,FL,62146,33414
+1235875,Jupiter,Florida,FL,61883,33458
+0857630,Parker,Colorado,CO,61783,80134
+1254350,Palm Harbor,Florida,FL,61512,34683
+1254075,Palm Beach Gardens,Florida,FL,60959,33418
+1249450,North Miami,Florida,FL,60344,33161
+1243125,Margate,Florida,FL,59198,33063
+1719642,Des Plaines,Illinois,IL,59156,60016
+1271569,The Hammocks,Florida,FL,58838,33186
+1213275,Coconut Creek,Florida,FL,58330,33073
+1201700,Apopka,Florida,FL,58232,32768
+1756640,Orland Park,Illinois,IL,57916,60467
+1207950,Bradenton,Florida,FL,57014,34205
+1264175,Sarasota,Florida,FL,56970,34236
+1754820,Oak Lawn,Illinois,IL,56861,60453
+1207525,Bonita Springs,Florida,FL,55904,34134
+1224562,Fountainebleau,Florida,FL,55665,33174
+1705573,Berwyn,Illinois,IL,55595,60402
+1751089,Mount Prospect,Illinois,IL,55472,60056
+1278275,Winter Haven,Florida,FL,55200,33881
+1775484,Tinley Park,Illinois,IL,54842,60477
+1255925,Pensacola,Florida,FL,54036,32503
+1753234,Normal,Illinois,IL,53569,61761
+1256975,Pinellas Park,Florida,FL,53560,33782
+1781048,Wheaton,Illinois,IL,53557,60187
+1754885,Oak Park,Illinois,IL,53292,60301
+1236062,Kendale Lakes,Florida,FL,52622,33183
+1276075,Westchester,Florida,FL,52032,33165
+1214895,Country Club,Florida,FL,51296,33015
+1735411,Hoffman Estates,Illinois,IL,51175,60169
+1720591,Downers Grove,Illinois,IL,50054,60515
+1214250,Coral Gables,Florida,FL,49802,33156
+1270700,Tamiami,Florida,FL,49752,33184
+1271900,Titusville,Florida,FL,49385,32796
+1224300,Fort Pierce,Florida,FL,49082,34950
+1251075,Ocoee,Florida,FL,49033,34761
+1273163,University,Florida,FL,48127,33613
+1278250,Winter Garden,Florida,FL,47872,34760
+1729938,Glenview,Illinois,IL,47752,60026
+1212925,Clermont,Florida,FL,46853,34711
+1760287,Plainfield,Illinois,IL,46708,60544
+1200950,Altamonte Springs,Florida,FL,46116,32714
+1723620,Elmhurst,Illinois,IL,45671,60126
+1249425,North Lauderdale,Florida,FL,45234,33068
+1215968,Cutler Bay,Florida,FL,45070,33189
+1249350,North Fort Myers,Florida,FL,44993,33917
+0845255,Littleton,Colorado,CO,44710,80120
+1250575,Oakland Park,Florida,FL,44682,33334
+1227322,Greenacres,Florida,FL,44373,33415
+1253150,Ormond Beach,Florida,FL,43976,32174
+1239067,Lakewood Ranch,Florida,FL,43945,34202
+1249475,North Miami Beach,Florida,FL,43898,33162
+1744407,Lombard,Illinois,IL,43619,60148
+1239081,Lake Worth Beach,Florida,FL,43365,33460
+1709447,Buffalo Grove,Illinois,IL,42891,60089
+1243800,Meadow Woods,Florida,FL,42852,32824
+1258975,Princeton,Florida,FL,42625,33032
+1749867,Moline,Illinois,IL,42197,61265
+0808675,Brighton,Colorado,CO,42059,80601
+1273172,University,Florida,FL,41902,32816
+1228452,Hallandale Beach,Florida,FL,41854,33009
+1216875,DeLand,Florida,FL,41611,32723
+1704845,Belleville,Illinois,IL,41370,62226
+1765442,Romeoville,Illinois,IL,41152,60446
+1257550,Plant City,Florida,FL,40887,33563
+1271564,The Acreage,Florida,FL,40843,33412
+1253575,Oviedo,Florida,FL,40599,32765
+1717887,Crystal Lake,Illinois,IL,40579,60014
+1704013,Bartlett,Illinois,IL,40501,60103
+1719161,DeKalb,Illinois,IL,40443,60115
+1262100,Royal Palm Beach,Florida,FL,40344,33411
+1273700,Valrico,Florida,FL,40239,33594
+1202681,Aventura,Florida,FL,39885,33180
+1248050,Navarre,Florida,FL,39838,32566
+1711332,Carol Stream,Illinois,IL,39460,60188
+1777005,Urbana,Illinois,IL,39341,61801
+1762367,Quincy,Illinois,IL,39109,62301
+1773157,Streamwood,Illinois,IL,39001,60107
+1278325,Winter Springs,Florida,FL,38951,32708
+1239200,Land O' Lakes,Florida,FL,38910,33559
+1267575,South Miami Heights,Florida,FL,38766,33177
+1757875,Park Ridge,Illinois,IL,38667,60068
+1260975,Riviera Beach,Florida,FL,38657,33404
+1781087,Wheeling,Illinois,IL,38433,60090
+0854330,Northglenn,Colorado,CO,38014,80234
+0885485,Windsor,Colorado,CO,37914,80550
+1221150,Estero,Florida,FL,37858,33967
+1711358,Carpentersville,Illinois,IL,37346,60110
+0868847,Security-Widefield,Colorado,CO,37345,80911
+1255125,Parkland,Florida,FL,37178,33076
+1732746,Hanover Park,Illinois,IL,36732,60133
+1210825,Carrollwood,Florida,FL,36725,33618
+1239525,Lauderdale Lakes,Florida,FL,36404,33319
+1756887,Oswego,Illinois,IL,36375,60543
+1765078,Rock Island,Illinois,IL,36151,61201
+1218575,Dunedin,Florida,FL,36062,34698
+1236121,Kendall West,Florida,FL,35912,33185
+1224925,Fruit Cove,Florida,FL,35877,32259
+1220108,Egypt Lake-Leto,Florida,FL,35873,33614
+0862220,Pueblo West,Colorado,CO,35681,81007
+1260230,Richmond West,Florida,FL,35593,33177
+1700243,Addison,Illinois,IL,35489,60101
