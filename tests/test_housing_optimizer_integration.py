@@ -369,3 +369,45 @@ def test_move1_action_rent_only_is_honored_in_both_search_modes():
             if cand is None:
                 continue
             assert cand["moves"][0]["rent_indefinitely"] is True
+
+
+def test_move2_concurrent_candidate_is_generated_and_scored_by_the_real_engine():
+    """Engine-backed proof that move2_concurrent=True actually reaches the
+    real engine and produces a genuine two-simultaneous-residence run (not
+    just a code path that's never exercised).
+
+    Note: unlike the sequential two-move case, a concurrent candidate can
+    never outrank a move1-only candidate that already satisfies
+    family_presence on its own -- the anchor a concurrent candidate extends
+    must independently pass family_presence_ok before it's even eligible to
+    anchor a move 2 (see family_presence_ok's docstring and the existing
+    test_family_presence_hard_filter_drops_disqualifying_candidates), so
+    concurrent mode only ever adds cost on top of an anchor that already
+    satisfies presence by itself; it structurally cannot become the #1
+    full-search recommendation on net_worth. This mirrors
+    test_two_move_candidate_has_no_mc_approximate_flag's pattern below:
+    assert a concurrent-mode candidate is present among the ranked results,
+    not that it's ranked first.
+    """
+    c0 = _base_config()
+    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+        result = ho.optimize_housing(
+            c0,
+            locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
+            move1_window=ho.SearchWindow(2027, 2027, 2027, 2027),
+            move2_window=ho.Move2Window(latest_sale_year_2=2028, latest_purchase_year_2=2028),
+            move2_concurrent=True,
+            anchor_count=1,
+            family_presence=ho.FamilyPresence(region="Florida", start_year=2028, end_year=2028),
+            shortlist_size=3,
+        )
+    assert result["recommendation"] is not None
+    rows = [result["recommendation"], *result["alternatives"]]
+    concurrent_rows = [
+        r for r in rows
+        if r and len(r["moves"]) == 2 and r["moves"][1]["mode"] == "concurrent"
+    ]
+    assert concurrent_rows, "expected at least one concurrent-mode candidate in the ranked results"
+    move2 = concurrent_rows[0]["moves"][1]
+    assert move2["sale_year"] is None
+    assert move2["start_year"] is not None

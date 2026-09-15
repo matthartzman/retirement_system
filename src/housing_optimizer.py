@@ -160,8 +160,15 @@ class HousingCandidate:
     """One fully-specified plan variant: move 1, and optionally move 2.
 
     ``purchase_year is None`` means "rent indefinitely" after ``sale_year``
-    (move 1) or after ``sale_year_2`` (move 2, when ``purchase_year_2`` is
-    also ``None``).
+    (move 1) or after ``sale_year_2``/``concurrent_start_year_2`` (move 2,
+    when ``purchase_year_2`` is also ``None``).
+
+    ``move2_mode='sequential'`` (default): move 2 sells the move-1 home
+    (``sale_year_2``) and relocates to ``location_2``, exactly as before this
+    field existed. ``move2_mode='concurrent'``: the move-1 home is never sold
+    -- ``location_2`` becomes a second, simultaneous residence starting at
+    ``concurrent_start_year_2``. ``sale_year_2`` is always ``None`` in
+    concurrent mode (nothing is ever sold under it).
     """
     location_1: Location
     sale_year: int
@@ -169,6 +176,8 @@ class HousingCandidate:
     location_2: Location | None = None
     sale_year_2: int | None = None
     purchase_year_2: int | None = None
+    move2_mode: Literal['sequential', 'concurrent'] = 'sequential'
+    concurrent_start_year_2: int | None = None
     anchor_of: "HousingCandidate | None" = None
 
     @property
@@ -271,31 +280,43 @@ def _apply_candidate(c: dict[str, Any], cand: HousingCandidate) -> None:
     """
     base_state = str(c.get('state', '') or '')
     c['home_sale_yr'] = cand.sale_year
+    concurrent = cand.is_two_move and cand.move2_mode == 'concurrent'
 
     move1_start = cand.sale_year if cand.purchase_year is None else cand.purchase_year
-    move1_end = (cand.sale_year_2 - 1) if cand.is_two_move else None
+    move1_end = None if concurrent else ((cand.sale_year_2 - 1) if cand.is_two_move else None)
     steps = []
     transitions: list[tuple[int, str]] = [(move1_start, cand.location_1.state)]
     if cand.purchase_year is None:
         steps.append(_rent_step('opt_move1', cand.location_1, cand.sale_year, move1_end))
     else:
         move1_step = _purchase_step('opt_move1', cand.location_1, cand.purchase_year, move1_end)
-        if cand.is_two_move:
+        if cand.is_two_move and not concurrent:
             # Real second-sale pathway (design doc §8.2 P0): the engine sells
             # this step itself -- see home_sale.py's apply_next_housing_sale
             # -- instead of this module estimating move 2's gain/tax
             # out-of-loop. `move1_end` above is already `sale_year_2 - 1`, so
             # the step also stops accruing ongoing cash flow the year before.
+            # Concurrent mode never sets this: the move-1 home is never sold.
             move1_step['sale_year'] = cand.sale_year_2
         steps.append(move1_step)
 
     if cand.is_two_move:
-        move2_start = cand.sale_year_2 if cand.purchase_year_2 is None else cand.purchase_year_2
-        transitions.append((move2_start, cand.location_2.state))
-        if cand.purchase_year_2 is None:
-            steps.append(_rent_step('opt_move2', cand.location_2, cand.sale_year_2, None))
+        if concurrent:
+            # location_2 is a second, ongoing residence alongside location_1
+            # -- no residency_schedule transition (tax residency stays with
+            # location_1; concurrent mode is a second home, not a move).
+            move2_start = cand.concurrent_start_year_2
+            if cand.purchase_year_2 is None:
+                steps.append(_rent_step('opt_move2', cand.location_2, move2_start, None))
+            else:
+                steps.append(_purchase_step('opt_move2', cand.location_2, cand.purchase_year_2, None))
         else:
-            steps.append(_purchase_step('opt_move2', cand.location_2, cand.purchase_year_2, None))
+            move2_start = cand.sale_year_2 if cand.purchase_year_2 is None else cand.purchase_year_2
+            transitions.append((move2_start, cand.location_2.state))
+            if cand.purchase_year_2 is None:
+                steps.append(_rent_step('opt_move2', cand.location_2, cand.sale_year_2, None))
+            else:
+                steps.append(_purchase_step('opt_move2', cand.location_2, cand.purchase_year_2, None))
 
     c['next_housing_steps'] = steps
     c['residency_schedule'] = _residency_schedule(base_state, transitions)
@@ -351,6 +372,41 @@ def generate_move2_candidates(
                         location_1=anchor.location_1, sale_year=anchor.sale_year, purchase_year=anchor.purchase_year,
                         location_2=loc, sale_year_2=sale_year_2, purchase_year_2=purchase_year_2, anchor_of=anchor,
                     ))
+    return out
+
+
+def generate_move2_concurrent_candidates(
+    anchors: list[HousingCandidate], locations: list[Location], move2_window: Move2Window,
+) -> list[HousingCandidate]:
+    """Concurrent-mode move-2 candidates: the anchor's move-1 home
+    (``location_1``) is kept as an ongoing residence and never sold;
+    ``location_2`` is added as a second, simultaneous residence starting
+    anywhere in ``[anchor.purchase_year, move2_window.latest_purchase_year_2]``
+    (``latest_sale_year_2`` is not meaningful here -- nothing is ever sold,
+    so it's not used). Both a purchase and a rent-indefinitely variant of
+    location_2 are generated per (anchor, location, start_year) point,
+    mirroring ``generate_move2_candidates``'s purchase/rent split. Anchors
+    that ended move 1 in rent-indefinitely-forever are skipped -- same rule
+    ``generate_move2_candidates`` applies (nothing to add a concurrent
+    second home to).
+    """
+    out: list[HousingCandidate] = []
+    for anchor in anchors:
+        if anchor.purchase_year is None:
+            continue
+        earliest_start = anchor.purchase_year
+        for loc in locations:
+            for start_year in range(earliest_start, move2_window.latest_purchase_year_2 + 1):
+                out.append(HousingCandidate(
+                    location_1=anchor.location_1, sale_year=anchor.sale_year, purchase_year=anchor.purchase_year,
+                    location_2=loc, sale_year_2=None, purchase_year_2=start_year,
+                    move2_mode='concurrent', concurrent_start_year_2=start_year, anchor_of=anchor,
+                ))
+                out.append(HousingCandidate(
+                    location_1=anchor.location_1, sale_year=anchor.sale_year, purchase_year=anchor.purchase_year,
+                    location_2=loc, sale_year_2=None, purchase_year_2=None,
+                    move2_mode='concurrent', concurrent_start_year_2=start_year, anchor_of=anchor,
+                ))
     return out
 
 
@@ -471,11 +527,15 @@ def _coordinate_search_1d(
 
 def _location_timeline(base_state: str, cand: HousingCandidate) -> list[tuple[int, int, str, bool]]:
     """Ordered ``(start_year, end_year_inclusive, state, is_rental)`` legs
-    covering the whole plan horizon for this candidate."""
+    covering the whole plan horizon for the household's PRIMARY residence.
+    For ``move2_mode='concurrent'``, this deliberately excludes location_2
+    (a second, simultaneous residence, not a relocation) -- see
+    ``family_presence_ok``, which checks location_2 separately for that case.
+    """
     move1_start = cand.sale_year if cand.purchase_year is None else cand.purchase_year
     move1_is_rental = cand.purchase_year is None
     legs = [(1, move1_start - 1, base_state, False)]
-    if cand.is_two_move:
+    if cand.is_two_move and cand.move2_mode != 'concurrent':
         move2_start = cand.sale_year_2 if cand.purchase_year_2 is None else cand.purchase_year_2
         move2_is_rental = cand.purchase_year_2 is None
         legs.append((move1_start, move2_start - 1, cand.location_1.state, move1_is_rental))
@@ -489,18 +549,30 @@ def family_presence_ok(base_state: str, cand: HousingCandidate, presence: Family
     """Hard filter (§3.1.2/§3.2.2): returns ``(covered, via_rental)``.
     ``covered`` is False if any year in the presence window lacks an
     owned-or-rented residence in ``presence.region``. ``via_rental`` is True
-    when a rent leg (rather than the current home or an owned purchase) is
-    what satisfies coverage for at least one of those years.
+    when a rent leg is what satisfies coverage for at least one of those
+    years. For ``move2_mode='concurrent'``, coverage in a given year is
+    satisfied by EITHER the primary residence (``_location_timeline``) or
+    the concurrent second residence (location_2, active from
+    ``concurrent_start_year_2`` onward) -- the whole point of concurrent mode
+    is representing family presence in two places at once.
     """
     if presence is None:
         return True, False
     legs = _location_timeline(base_state, cand)
+    concurrent = cand.is_two_move and cand.move2_mode == 'concurrent'
     via_rental = False
     for year in range(presence.start_year, presence.end_year + 1):
         leg = next((l for l in legs if l[0] <= year <= l[1]), None)
-        if leg is None or leg[2] != presence.region:
+        primary_match = leg is not None and leg[2] == presence.region
+        primary_rental = bool(leg and leg[3])
+        concurrent_match = (
+            concurrent and cand.concurrent_start_year_2 is not None
+            and year >= cand.concurrent_start_year_2 and cand.location_2.state == presence.region
+        )
+        concurrent_rental = concurrent_match and cand.purchase_year_2 is None
+        if not (primary_match or concurrent_match):
             return False, False
-        if leg[3]:
+        if (primary_match and primary_rental) or (concurrent_match and concurrent_rental):
             via_rental = True
     return True, via_rental
 
@@ -571,7 +643,10 @@ def score_candidate(c: dict[str, Any], cand: HousingCandidate, rows: list[dict[s
     lifetime_cost = _lifetime_cost(rows)
     sec121_flags = [False]  # move 1 sells the current/original home -- ownership start isn't tracked, assume met
     if cand.is_two_move:
-        sec121_flags.append(sec121_exclusion_flag(cand.purchase_year, cand.sale_year_2))
+        if cand.move2_mode == 'concurrent':
+            sec121_flags.append(False)  # concurrent mode never sells anything -- nothing to flag
+        else:
+            sec121_flags.append(sec121_exclusion_flag(cand.purchase_year, cand.sale_year_2))
     return ScoredCandidate(
         candidate=cand, net_worth=net_worth, lifetime_cost=lifetime_cost,
         mc_success_rate=None, sec121_exclusion_lost=sec121_flags,
@@ -780,6 +855,7 @@ def optimize_housing(
     move2_strategy: Literal['anchored', 'cross_product'] = 'anchored',
     move1_action: Literal['auto', 'buy', 'rent'] = 'auto',
     move2_action: Literal['auto', 'buy', 'rent'] = 'auto',
+    move2_concurrent: bool = False,
 ) -> dict[str, Any]:
     if objective not in OBJECTIVES:
         raise ValueError(f"Unknown objective: {objective!r}")
@@ -791,6 +867,8 @@ def optimize_housing(
         raise ValueError(f"Unknown move1_action: {move1_action!r}")
     if move2_action not in ('auto', 'buy', 'rent'):
         raise ValueError(f"Unknown move2_action: {move2_action!r}")
+    if move2_concurrent and search_mode == 'narrowed':
+        raise ValueError("move2_concurrent is not supported with search_mode='narrowed'.")
     if not (2 <= len(locations) <= 4):
         raise ValueError("Provide 2-4 candidate locations.")
 
@@ -860,6 +938,24 @@ def optimize_housing(
                 move2_scored.append(sc)
         move2_scored = rank_candidates(move2_scored, pass1_objective)
 
+        if move2_concurrent:
+            concurrent_cands = filter_candidates_by_action(
+                generate_move2_concurrent_candidates(anchors, locations, move2_window),
+                move2_action, 'purchase_year_2',
+            )
+            concurrent_scored = []
+            for cand in concurrent_cands:
+                ok, via_rental = family_presence_ok(base_state, cand, family_presence)
+                if not ok:
+                    continue
+                c2, rows = _run_engine(c0, cand)
+                if not rows:
+                    continue
+                sc = score_candidate(c2, cand, rows)
+                sc.family_presence_via_rental = via_rental
+                concurrent_scored.append(sc)
+            move2_scored = rank_candidates(move2_scored + concurrent_scored, pass1_objective)
+
     combined = rank_candidates(move1_scored + move2_scored, pass1_objective)
 
     shortlist = combined[:max(3, min(5, shortlist_size))]
@@ -879,12 +975,14 @@ def optimize_housing(
 
 
 def _format_move(location: Location | None, sale_year: int | None, purchase_year: int | None,
-                  sec121_lost: bool) -> dict[str, Any] | None:
+                  sec121_lost: bool, mode: str = 'sequential', start_year: int | None = None) -> dict[str, Any] | None:
     if location is None:
         return None
     return {
         'sale_year': sale_year,
         'purchase_year': purchase_year,
+        'start_year': start_year,
+        'mode': mode,
         'rent_indefinitely': purchase_year is None,
         'location': {
             'state': location.state,
@@ -900,8 +998,12 @@ def _format_candidate(sc: ScoredCandidate, objective: str) -> dict[str, Any]:
     moves = [_format_move(cand.location_1, cand.sale_year, cand.purchase_year,
                            sc.sec121_exclusion_lost[0] if sc.sec121_exclusion_lost else False)]
     if cand.is_two_move:
-        moves.append(_format_move(cand.location_2, cand.sale_year_2, cand.purchase_year_2,
-                                   sc.sec121_exclusion_lost[1] if len(sc.sec121_exclusion_lost) > 1 else False))
+        sec121_2 = sc.sec121_exclusion_lost[1] if len(sc.sec121_exclusion_lost) > 1 else False
+        if cand.move2_mode == 'concurrent':
+            moves.append(_format_move(cand.location_2, None, cand.purchase_year_2, sec121_2,
+                                       mode='concurrent', start_year=cand.concurrent_start_year_2))
+        else:
+            moves.append(_format_move(cand.location_2, cand.sale_year_2, cand.purchase_year_2, sec121_2))
     return {
         'moves': moves,
         'net_worth': sc.net_worth,
@@ -1028,6 +1130,7 @@ def optimize_housing_from_request(c0: dict[str, Any], body: dict[str, Any]) -> t
             move2_strategy=move2_strategy,
             move1_action=str(body.get('move1_action', 'auto') or 'auto'),
             move2_action=str(body.get('move2_action', 'auto') or 'auto'),
+            move2_concurrent=bool(body.get('move2_concurrent', False)),
         )
         result['success'] = True
         result['schema'] = 'housing_optimize_v1'
