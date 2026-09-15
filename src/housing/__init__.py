@@ -122,7 +122,7 @@ from .search import (
     generate_move2_candidates_narrowed,
 )
 from .optimizer import optimize_housing
-from .api import optimize_housing_from_request
+from .api import optimize_housing_from_request, zip_screen_from_request
 
 __all__ = [
     'MOVE2_CROSS_PRODUCT_CAP',
@@ -150,4 +150,5 @@ __all__ = [
     'sec121_exclusion_flag',
     'select_all_eligible_move1_candidates',
     'select_anchors',
+    'zip_screen_from_request',
 ]
