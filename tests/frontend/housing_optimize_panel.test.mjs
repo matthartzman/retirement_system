@@ -144,6 +144,48 @@ describe("toggleHousingOptMove2Fields", () => {
   });
 });
 
+describe("toggleHousingOptNoDualOwnershipAvailability", () => {
+  test("disables no-dual-ownership and shows the note when concurrent is checked, re-enables and hides it when unchecked", () => {
+    const sandbox = freshSandbox();
+    const elements = {
+      housingOptMove2Concurrent: { checked: true },
+      housingOptNoDualOwnership: { disabled: false, checked: true },
+      housingOptNoDualOwnershipConcurrentNote: { hidden: true },
+    };
+    sandbox.document.getElementById = (id) => elements[id] || null;
+    sandbox.toggleHousingOptNoDualOwnershipAvailability();
+    assert.equal(elements.housingOptNoDualOwnership.disabled, true);
+    assert.equal(elements.housingOptNoDualOwnership.checked, true);
+    assert.equal(elements.housingOptNoDualOwnershipConcurrentNote.hidden, false);
+
+    elements.housingOptMove2Concurrent.checked = false;
+    sandbox.toggleHousingOptNoDualOwnershipAvailability();
+    assert.equal(elements.housingOptNoDualOwnership.disabled, false);
+    assert.equal(elements.housingOptNoDualOwnershipConcurrentNote.hidden, true);
+  });
+});
+
+describe("toggleHousingOptMove2Fields resets concurrent mode", () => {
+  test("unchecking move 2 also unchecks concurrent and clears its notes", () => {
+    const sandbox = freshSandbox();
+    const elements = {
+      housingOptMove2Enabled: { checked: false },
+      housingOptMove2Fields: { hidden: false },
+      housingOptMove2Concurrent: { checked: true },
+      housingOptMove2ConcurrentNarrowedNote: { hidden: false },
+      housingOptNoDualOwnership: { disabled: true, checked: true },
+      housingOptNoDualOwnershipConcurrentNote: { hidden: false },
+    };
+    sandbox.document.getElementById = (id) => elements[id] || null;
+    sandbox.toggleHousingOptMove2Fields();
+    assert.equal(elements.housingOptMove2Fields.hidden, true);
+    assert.equal(elements.housingOptMove2Concurrent.checked, false);
+    assert.equal(elements.housingOptMove2ConcurrentNarrowedNote.hidden, true);
+    assert.equal(elements.housingOptNoDualOwnership.disabled, false);
+    assert.equal(elements.housingOptNoDualOwnershipConcurrentNote.hidden, true);
+  });
+});
+
 describe("renderHousingOptimizeResultsHtml", () => {
   test("renders the headline recommendation and the ranked alternatives table", () => {
     const sandbox = freshSandbox();

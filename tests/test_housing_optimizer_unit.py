@@ -22,6 +22,7 @@ from src.housing_optimizer import (
     family_presence_ok,
     generate_move1_candidates,
     generate_move2_candidates,
+    generate_move2_concurrent_candidates,
     optimize_housing_from_request,
     rank_candidates,
     score_candidate,
@@ -187,6 +188,25 @@ def test_cross_product_cap_guard_number_exceeds_cap_for_a_wide_window():
         eligible, [TX, FL], move2_window, no_dual_ownership=True, narrowed=False,
     )
     assert estimated > MOVE2_CROSS_PRODUCT_CAP
+
+
+def test_concurrent_candidate_count_alone_can_exceed_the_cap():
+    """move2_concurrent generates its own candidate set via
+    generate_move2_concurrent_candidates, independent of move2_strategy and
+    not counted by estimate_move2_candidate_count -- before the fix,
+    optimize_housing's pre-engine MOVE2_CROSS_PRODUCT_CAP guard never saw
+    this count at all, so a large-enough anchor/window combination could
+    reach the real engine uncapped. This proves that, for a large-enough
+    anchor/window combination, the concurrent count by itself is big enough
+    to trip the same MOVE2_CROSS_PRODUCT_CAP the cross_product guard checks
+    against -- exactly the number optimize_housing's move2_concurrent block
+    now folds into `estimated` before raising ValueError (mirrors
+    test_cross_product_cap_guard_number_exceeds_cap_for_a_wide_window
+    above)."""
+    anchors = [HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2027 + i) for i in range(50)]
+    move2_window = Move2Window(latest_sale_year_2=2100, latest_purchase_year_2=2100)
+    concurrent = generate_move2_concurrent_candidates(anchors, [TX, FL], move2_window)
+    assert len(concurrent) > MOVE2_CROSS_PRODUCT_CAP
 
 
 def test_request_adapter_rejects_unknown_move2_strategy():
