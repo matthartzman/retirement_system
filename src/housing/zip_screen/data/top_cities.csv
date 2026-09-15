@@ -1,0 +1,201 @@
+city_id,city,state,state_abbrev,population,anchor_zip
+3651000,New York,New York,NY,8483844,10314
+0644000,Los Angeles,California,CA,3857263,90272
+1714000,Chicago,Illinois,IL,2711226,60617
+4835000,Houston,Texas,TX,2328253,77032
+0455000,Phoenix,Arizona,AZ,1642323,85085
+4260000,Philadelphia,Pennsylvania,PA,1579706,19153
+4865000,San Antonio,Texas,TX,1479835,78023
+0666000,San Diego,California,CA,1389526,92131
+4819000,Dallas,Texas,TX,1307930,75217
+0668000,San Jose,California,CA,990138,95037
+4805000,Austin,Texas,TX,979539,78744
+1235000,Jacksonville,Florida,FL,977670,32218
+4827000,Fort Worth,Texas,TX,963194,76179
+3918000,Columbus,Ohio,OH,914802,43207
+3712000,Charlotte,North Carolina,NC,903844,28269
+1836003,Indianapolis,Indiana,IN,885860,46239
+0667000,San Francisco,California,CA,830235,94124
+5363000,Seattle,Washington,WA,754195,98115
+0820000,Denver,Colorado,CO,718877,80249
+4055000,Oklahoma City,Oklahoma,OK,697125,73099
+4752006,Nashville-Davidson metropolitan government,Tennessee,TN,690130,37221
+1150000,Washington,District of Columbia,DC,681294,20019
+4824000,El Paso,Texas,TX,680130,79934
+2507000,Boston,Massachusetts,MA,666442,02132
+3240000,Las Vegas,Nevada,NV,660400,89138
+4159000,Portland,Oregon,OR,641165,97203
+2622000,Detroit,Michigan,MI,638530,48228
+2148006,Louisville/Jefferson County metro government,Kentucky,KY,631818,40299
+4748000,Memphis,Tennessee,TN,618980,38109
+2404000,Baltimore,Maryland,MD,573243,21224
+5553000,Milwaukee,Wisconsin,WI,566973,53224
+3502000,Albuquerque,New Mexico,NM,562218,87120
+0477000,Tucson,Arizona,AZ,547073,85756
+0627000,Fresno,California,CA,545970,93706
+0664000,Sacramento,California,CA,528706,95838
+0446000,Mesa,Arizona,AZ,511764,85212
+2938000,Kansas City,Missouri,MO,510612,64153
+1304000,Atlanta,Georgia,GA,505268,30318
+3137000,Omaha,Nebraska,NE,488837,68110
+0816000,Colorado Springs,Colorado,CO,487887,80916
+3755000,Raleigh,North Carolina,NC,481031,27610
+1245000,Miami,Florida,FL,459745,33125
+5182000,Virginia Beach,Virginia,VA,456349,23457
+0643000,Long Beach,California,CA,455548,90805
+0653000,Oakland,California,CA,439418,94605
+2743000,Minneapolis,Minnesota,MN,427246,55418
+4075000,Tulsa,Oklahoma,OK,413794,74115
+0603526,Bakersfield,California,CA,411986,93306
+1271000,Tampa,Florida,FL,401618,33647
+2079000,Wichita,Kansas,KS,397945,67209
+4804000,Arlington,Texas,TX,397742,76001
+0804000,Aurora,Colorado,CO,394432,80137
+2255000,New Orleans,Louisiana,LA,371853,70129
+3916000,Cleveland,Ohio,OH,366097,44135
+1571550,Urban Honolulu,Hawaii,HI,345482,96819
+0602000,Anaheim,California,CA,344521,92807
+3231900,Henderson,Nevada,NV,332141,89015
+2146027,Lexington-Fayette urban county,Kentucky,KY,323725,40511
+0675000,Stockton,California,CA,322326,95206
+1253000,Orlando,Florida,FL,319758,32827
+0662000,Riverside,California,CA,319069,92507
+4817000,Corpus Christi,Texas,TX,317419,78418
+0669000,Santa Ana,California,CA,312534,92704
+0636770,Irvine,California,CA,311690,92618
+3915000,Cincinnati,Ohio,OH,311224,45230
+3451000,Newark,New Jersey,NJ,310178,07114
+2758000,St. Paul,Minnesota,MN,307284,55106
+4261000,Pittsburgh,Pennsylvania,PA,304759,15206
+3728000,Greensboro,North Carolina,NC,301198,27410
+3128000,Lincoln,Nebraska,NE,294856,68516
+3436000,Jersey City,New Jersey,NJ,294078,07305
+3719000,Durham,North Carolina,NC,291467,27703
+4858016,Plano,Texas,TX,290594,75074
+0203000,Anchorage,Alaska,AK,288976,99567
+2965000,St. Louis,Missouri,MO,288512,63110
+0427400,Gilbert,Arizona,AZ,280262,85298
+0412000,Chandler,Arizona,AZ,280136,85286
+3251800,North Las Vegas,Nevada,NV,278595,89084
+5548000,Madison,Wisconsin,WI,278001,53704
+3611000,Buffalo,New York,NY,276854,14215
+0613392,Chula Vista,California,CA,276375,91910
+3260600,Reno,Nevada,NV,273212,89506
+1825000,Fort Wayne,Indiana,IN,268589,46804
+3977000,Toledo,Ohio,OH,267463,43612
+4845000,Lubbock,Texas,TX,264814,79403
+1263000,St. Petersburg,Florida,FL,262732,33702
+4841464,Laredo,Texas,TX,257619,78045
+4837000,Irving,Texas,TX,256492,75063
+0427820,Glendale,Arizona,AZ,252833,85308
+5116000,Chesapeake,Virginia,VA,252583,23322
+3775000,Winston-Salem,North Carolina,NC,252037,27105
+4829000,Garland,Texas,TX,246844,75040
+0465000,Scottsdale,Arizona,AZ,243821,85262
+3223770,Enterprise,Nevada,NV,240464,89178
+1608830,Boise City,Idaho,ID,237242,83716
+5103000,Arlington,Virginia,VA,236254,22207
+5157000,Norfolk,Virginia,VA,233596,23502
+1258715,Port St. Lucie,Florida,FL,232491,34987
+5367000,Spokane,Washington,WA,230293,99224
+0669088,Santa Clarita,California,CA,230221,91350
+5167000,Richmond,Virginia,VA,229359,23225
+0626000,Fremont,California,CA,228295,94539
+1230000,Hialeah,Florida,FL,226165,33012
+0137000,Huntsville,Alabama,AL,222791,35756
+2205000,Baton Rouge,Louisiana,LA,222771,70820
+5370000,Tacoma,Washington,WA,222758,98409
+0665000,San Bernardino,California,CA,222724,92407
+4827684,Frisco,Texas,TX,219304,75035
+0648354,Modesto,California,CA,219215,95355
+3268585,Spring Valley,Nevada,NV,219187,89148
+1210275,Cape Coral,Florida,FL,215536,33993
+0624680,Fontana,California,CA,214169,92336
+1921000,Des Moines,Iowa,IA,212421,50317
+0649270,Moreno Valley,California,CA,211666,92555
+3722920,Fayetteville,North Carolina,NC,210815,28310
+4845744,McKinney,Texas,TX,210600,75071
+3684000,Yonkers,New York,NY,209978,10710
+3663000,Rochester,New York,NY,208772,14621
+4967000,Salt Lake City,Utah,UT,208007,84116
+2582000,Worcester,Massachusetts,MA,207055,01604
+1319000,Columbus,Georgia,GA,203711,31904
+0541000,Little Rock,Arkansas,AR,203436,72209
+0150000,Mobile,Alabama,AL,203416,36608
+4803000,Amarillo,Texas,TX,201885,79107
+4830464,Grand Prairie,Texas,TX,201883,75050
+1270600,Tallahassee,Florida,FL,201875,32309
+1304204,Augusta-Richmond County consolidated government,Georgia,GA,201528,30906
+4659020,Sioux Falls,South Dakota,SD,201469,57104
+0654652,Oxnard,California,CA,200928,93030
+2053775,Overland Park,Kansas,KS,200306,66221
+3271400,Sunrise Manor,Nevada,NV,200218,89156
+2634000,Grand Rapids,Michigan,MI,198535,49504
+0107000,Birmingham,Alabama,AL,198173,35211
+0151000,Montgomery,Alabama,AL,197494,36108
+0454050,Peoria,Arizona,AZ,196906,85383
+5374060,Vancouver,Washington,WA,195300,98660
+0636000,Huntington Beach,California,CA,195240,92646
+4740000,Knoxville,Tennessee,TN,195185,37920
+4459000,Providence,Rhode Island,RI,191767,02908
+0630000,Glendale,California,CA,190748,91208
+3901000,Akron,Ohio,OH,189247,44313
+4810768,Brownsville,Texas,TX,189177,78526
+0473000,Tempe,Arizona,AZ,188065,85281
+3254600,Paradise,Nevada,NV,185913,89119
+4714000,Chattanooga,Tennessee,TN,185783,37421
+1224000,Fort Lauderdale,Florida,FL,185604,33312
+5156000,Newport News,Virginia,VA,184216,23602
+2270000,Shreveport,Louisiana,LA,180982,71107
+0653896,Ontario,California,CA,180547,91761
+1703012,Aurora,Illinois,IL,179898,60506
+4123850,Eugene,Oregon,OR,179591,97402
+3710740,Cary,North Carolina,NC,179306,27519
+0622020,Elk Grove,California,CA,179155,95624
+4164900,Salem,Oregon,OR,178865,97302
+0670098,Santa Rosa,California,CA,177090,95409
+4715160,Clarksville,Tennessee,TN,176456,37042
+0659451,Rancho Cucamonga,California,CA,175411,91730
+1255775,Pembroke Pines,Florida,FL,173194,33029
+0653322,Oceanside,California,CA,172242,92057
+0629000,Garden Grove,California,CA,170964,92840
+0827425,Fort Collins,Colorado,CO,170229,80525
+2970000,Springfield,Missouri,MO,169954,65803
+0640130,Lancaster,California,CA,169169,93536
+0655156,Palmdale,California,CA,164634,93551
+0664224,Salinas,California,CA,161761,93906
+4751560,Murfreesboro,Tennessee,TN,161445,37129
+0616350,Corona,California,CA,159670,92882
+0633000,Hayward,California,CA,158801,94545
+3457000,Paterson,New Jersey,NJ,158735,07501
+4839148,Killeen,Texas,TX,158159,76542
+5101000,Alexandria,Virginia,VA,156976,22304
+0843000,Lakewood,Colorado,CO,156583,80228
+1349008,Macon-Bibb County,Georgia,GA,156578,31216
+0662938,Roseville,California,CA,155955,95747
+2036000,Kansas City,Kansas,KS,155135,66109
+1232000,Hollywood,Florida,FL,155082,33021
+0471510,Surprise,Arizona,AZ,154948,85387
+2567000,Springfield,Massachusetts,MA,154749,01109
+4513330,Charleston,South Carolina,SC,154338,29492
+0677000,Sunnyvale,California,CA,154236,94087
+4819972,Denton,Texas,TX,152866,76207
+5305210,Bellevue,Washington,WA,151847,98006
+1751622,Naperville,Illinois,IL,150692,60540
+1738570,Joliet,Illinois,IL,150445,60436
+0622804,Escondido,California,CA,149668,92027
+4856000,Pasadena,Texas,TX,149433,77505
+4847892,Mesquite,Texas,TX,149299,75149
+0908000,Bridgeport,Connecticut,CT,149153,06606
+0658072,Pomona,California,CA,147943,91766
+1369000,Savannah,Georgia,GA,147898,31419
+1765000,Rockford,Illinois,IL,147521,61109
+2836000,Jackson,Mississippi,MS,146631,39212
+3673000,Syracuse,New York,NY,146384,13204
+1225175,Gainesville,Florida,FL,145702,32609
+4845384,McAllen,Texas,TX,145385,78503
+2052575,Olathe,Kansas,KS,145057,66061
+0877290,Thornton,Colorado,CO,144187,80602
+0682954,Visalia,California,CA,143939,93291
+4876000,Waco,Texas,TX,143570,76708
+0680000,Torrance,California,CA,142130,90505
