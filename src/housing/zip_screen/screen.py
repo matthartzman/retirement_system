@@ -7,6 +7,7 @@ different bets rather than three hundred near-duplicates.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -58,6 +59,7 @@ class ScreenResult:
     funnel: dict[str, int]
     shortlist: list[ScreenedZip]
     all_passing: list[ScreenedZip]
+    relaxation: dict[str, Any] | None = None
 
 
 def estimate_price(rec: ZipRecord, base_estimate: float) -> float:
@@ -122,6 +124,27 @@ def deduplicate(
         ScreenedZip(**{**z.__dict__, 'collapsed': sorted(collapsed_by.get(z.zcta, []))})
         for z in kept
     ]
+
+
+def _relaxation(
+    with_data: list[tuple[ZipRecord, float, Any]], min_quality_score: float
+) -> dict[str, Any] | None:
+    """What would the user have to give up to get results?
+
+    A bare "no results" on a ten-criterion search is unusable: the user cannot
+    tell which of ten constraints emptied the funnel. When the score floor is
+    what did it, name the floor that would return something.
+    """
+    scores = sorted((t[2].score for t in with_data), reverse=True)
+    if not scores or scores[0] >= min_quality_score:
+        return None
+    suggested = math.floor(scores[0] * 10) / 10
+    return {
+        'field': 'min_quality_score',
+        'current': min_quality_score,
+        'suggested': suggested,
+        'would_return': sum(1 for s in scores if s >= suggested),
+    }
 
 
 def run_screen(
@@ -191,4 +214,5 @@ def run_screen(
         funnel=funnel,
         shortlist=shortlist,
         all_passing=passing,
+        relaxation=_relaxation(with_data, req.min_quality_score) if not shortlist else None,
     )
