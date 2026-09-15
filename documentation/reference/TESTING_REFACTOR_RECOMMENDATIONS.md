@@ -78,9 +78,14 @@ engine run rather than before it.
    PR for 85 minutes and the XML was always discarded. `--cov` is now
    dropped from the PR-tier command entirely; a nightly workflow runs the
    full instrumented suite and uploads coverage once a day.
-3. **Dropped `-v`** and the addopts already set at the tool level
-   (`--tb=short -q` is configured in `pyproject.toml`'s `addopts`; the CI
-   command no longer repeats it).
+3. **Dropped the redundant `--tb=short -q`** already set at the tool level
+   via `pyproject.toml`'s `addopts` (the CI command no longer repeats
+   them). Initially also dropped `-v` on the same reasoning; that was
+   wrong -- verbosity flags count rather than cancel, and dropping it
+   broke the F0.3 golden-master gate (below) on this PR's own first CI
+   run by removing the per-test PASSED line its old grep-based check
+   depended on. Fixed by making F0.3 not depend on log-scraping at all
+   (see item 6a) rather than re-tuning verbosity flags to satisfy it.
 4. **Added a `concurrency` group with `cancel-in-progress: true`** so a
    force-push to a PR branch cancels its own in-flight run instead of
    burning a full ~90 minutes to a result nobody will read.
@@ -90,6 +95,15 @@ engine run rather than before it.
    thread method) instead of the prior full removal, so a hang costs 5
    minutes of diagnostics instead of the entire job's time limit with no
    trace of which test hung.
+6a. **Made the F0.3 golden-master gate self-contained.** It used to grep
+   the big suite's captured `-q`/`-v` output for
+   `test_frozen_plan_dollar_figures_are_exact`'s PASSED line -- a design
+   that (per item 3 above) silently broke the moment the main run's
+   verbosity flags changed, and was already fragile before that (the
+   check could pass on a stale prior run's output file if a step above
+   it failed to overwrite it). It now runs that one test standalone and
+   checks its own exit code -- unambiguous, immune to any future change
+   in the main run's flags or log format, and costs under a second.
 
 ## Tier 2 -- caps the long tail, small documented risk trade (~25 min -> ~10 min)
 

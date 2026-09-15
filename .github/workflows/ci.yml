@@ -154,6 +154,7 @@ jobs:
     # rare crash for a hang costing the entire job's time limit with zero
     # diagnostics. thread-method interrupts a stuck test without relying on
     # signals (unreliable on Windows) and still reports which test hung.
+    #
     - name: Run tests
       shell: bash
       run: |
@@ -171,19 +172,19 @@ jobs:
         cat /tmp/pytest_retry_output.txt
         exit $RETRY_EXIT
 
+    # F0.3 used to grep the captured -q/-v output above for this test's
+    # PASSED line. That broke on this PR's own first CI run: the earlier
+    # draft of this file dropped -v as "redundant with addopts' -q" (it
+    # is not -- verbosity flags count, they don't cancel), so the grep had
+    # nothing to match even though the actual run was green. Rather than
+    # re-reasoning about pytest's verbosity arithmetic (checked against a
+    # real prior CI log and still ambiguous -- not confidently resolved),
+    # this gate now runs the mandatory pin directly and checks its own
+    # exit code: unambiguous, immune to any future change in the main
+    # run's flags or log format, and costs under a second.
     - name: Verify frozen golden-master gate executed (F0.3)
-      shell: bash
       run: |
-        # Checks both output files: if the parallel run flaked on an
-        # unrelated test and this one only reran in the serial --lf retry
-        # above, its PASSED line lands in pytest_retry_output.txt instead.
-        if grep -q "test_frozen_plan_dollar_figures_are_exact" /tmp/pytest_output.txt /tmp/pytest_retry_output.txt 2>/dev/null; then
-          echo "✓ Frozen golden-master test executed and passed"
-        else
-          echo "✗ FAIL: Frozen golden-master test did not execute or was skipped"
-          echo "  This is a mandatory gate. Check pytest output above."
-          exit 1
-        fi
+        pytest "tests/test_frozen_sample_plan_golden_master_regression.py::FrozenSamplePlanGoldenMasterTests::test_frozen_plan_dollar_figures_are_exact" -q
 
     - name: Fail if the test suite mutated input/
       run: git diff --exit-code -- input/
