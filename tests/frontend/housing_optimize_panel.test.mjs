@@ -90,6 +90,18 @@ describe("renderHousingOptimizePanelHtml", () => {
   });
 });
 
+describe("housingOptLocationRowHtml five-criteria fields", () => {
+  test("renders bedrooms/bathrooms/property type/sqft band/built-within-years inputs", () => {
+    const sandbox = freshSandbox();
+    const html = sandbox.renderHousingOptimizePanelHtml();
+    assert.match(html, /id="housingOptLocBedrooms0"/);
+    assert.match(html, /id="housingOptLocBathrooms0"/);
+    assert.match(html, /id="housingOptLocPropertyType0"/);
+    assert.match(html, /id="housingOptLocSqftBand0"/);
+    assert.match(html, /id="housingOptLocBuiltWithinYears0"/);
+  });
+});
+
 describe("toggleHousingOptLocationRows", () => {
   test("shows exactly as many location rows as selected", () => {
     const sandbox = freshSandbox();
@@ -183,6 +195,8 @@ describe("runHousingOptimization", () => {
       housingOptLocState0: "Texas",
       housingOptLocCity0: "suburban",
       housingOptLocPop0: "150000",
+      housingOptLocBedrooms0: "3",
+      housingOptLocPropertyType0: "single_family",
       housingOptLocState1: "Florida",
       housingOptLocCity1: "urban",
       housingOptLocPop1: "300000",
@@ -216,6 +230,8 @@ describe("runHousingOptimization", () => {
     assert.equal(capturedUrl, "/api/housing/optimize");
     assert.equal(capturedBody.locations.length, 2);
     assert.equal(capturedBody.locations[0].state, "Texas");
+    assert.equal(capturedBody.locations[0].bedrooms, 3);
+    assert.equal(capturedBody.locations[0].property_type, "single_family");
     assert.equal(capturedBody.no_dual_ownership, true);
     assert.equal(capturedBody.search_mode, "narrowed");
     assert.equal(capturedBody.move2_strategy, "cross_product");
