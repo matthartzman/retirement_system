@@ -436,3 +436,36 @@ def test_parse_location_blank_built_within_years_is_none():
 
     loc = _parse_location({"state": "Texas", "built_within_years": ""})
     assert loc.built_within_years is None
+
+
+# ---------------------------------------------------------------------------
+# Per-move buy/rent action constraint
+# ---------------------------------------------------------------------------
+
+def test_move1_action_buy_only_excludes_rent_indefinitely_candidates():
+    window = SearchWindow(earliest_sale_year=2027, latest_sale_year=2027,
+                           earliest_purchase_year=2027, latest_purchase_year=2028)
+    from src.housing_optimizer import filter_candidates_by_action
+    cands = generate_move1_candidates([TX], window, no_dual_ownership=False)
+    buy_only = filter_candidates_by_action(cands, "buy", purchase_year_attr="purchase_year")
+    assert buy_only
+    assert all(c.purchase_year is not None for c in buy_only)
+
+
+def test_move1_action_rent_only_excludes_purchase_candidates():
+    window = SearchWindow(earliest_sale_year=2027, latest_sale_year=2027,
+                           earliest_purchase_year=2027, latest_purchase_year=2028)
+    from src.housing_optimizer import filter_candidates_by_action
+    cands = generate_move1_candidates([TX], window, no_dual_ownership=False)
+    rent_only = filter_candidates_by_action(cands, "rent", purchase_year_attr="purchase_year")
+    assert rent_only
+    assert all(c.purchase_year is None for c in rent_only)
+
+
+def test_move1_action_auto_keeps_everything():
+    window = SearchWindow(earliest_sale_year=2027, latest_sale_year=2027,
+                           earliest_purchase_year=2027, latest_purchase_year=2028)
+    from src.housing_optimizer import filter_candidates_by_action
+    cands = generate_move1_candidates([TX], window, no_dual_ownership=False)
+    auto = filter_candidates_by_action(cands, "auto", purchase_year_attr="purchase_year")
+    assert len(auto) == len(cands)

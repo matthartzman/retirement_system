@@ -131,7 +131,7 @@ CONTRACTS: tuple[EndpointContract, ...] = (
         request_fields=(
             _f("locations", "list", True), _f("move1_window", "dict", True), _f("move2_window", "dict"),
             _f("anchor_count", "int"), _f("no_dual_ownership", "bool"), _f("family_presence", "dict"),
-            _f("objective", "str"),
+            _f("objective", "str"), _f("move1_action", "str"), _f("move2_action", "str"),
         ),
         response_fields=(
             _f("success", "bool", True), _f("schema", "str", True), _f("objective", "str", True),

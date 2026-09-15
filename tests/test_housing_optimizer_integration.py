@@ -352,3 +352,20 @@ def test_estimate_for_location_passes_characteristics_through_to_pricing():
         Location(state="Texas", bedrooms=5, sqft_band="over_3500"), "purchase",
     )
     assert bigger["purchase_price"] > baseline["purchase_price"]
+
+
+def test_move1_action_rent_only_is_honored_in_both_search_modes():
+    c0 = _base_config()
+    locations = [ho.Location(state="Texas"), ho.Location(state="Florida")]
+    window = ho.SearchWindow(earliest_sale_year=2027, latest_sale_year=2027,
+                              earliest_purchase_year=2027, latest_purchase_year=2028)
+    for mode in ("full", "narrowed"):
+        with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+            result = ho.optimize_housing(
+                c0, locations=locations, move1_window=window,
+                move1_action="rent", search_mode=mode, shortlist_size=1,
+            )
+        for cand in [result["recommendation"], *result["alternatives"]]:
+            if cand is None:
+                continue
+            assert cand["moves"][0]["rent_indefinitely"] is True
