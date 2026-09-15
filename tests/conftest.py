@@ -232,6 +232,31 @@ def pytest_collection_modifyitems(config, items):
             )
 
 
+@pytest.fixture(scope="session")
+def mc_sims() -> int:
+    """Default Monte Carlo path count for tests that don't need a specific
+    value pinned for statistical stability (a distribution-percentile
+    assertion, a "this metric is materially different" comparison).
+
+    Honors the same RETIREMENT_MC_SIMS env var the built_workbook_dir fixture
+    already reads, so `RETIREMENT_MC_SIMS=500 pytest ...` scales every test
+    using this fixture up at once -- e.g. for the nightly full-suite run --
+    without touching test bodies. New tests should prefer this over a fresh
+    hardcoded `n_sims=...` literal; see documentation/reference/
+    TESTING_REFACTOR_RECOMMENDATIONS.md item 8 for the profiling that
+    motivated it (n_sims was hardcoded at 30+ call sites, only 5 of which
+    honored this env var).
+    """
+    return int(os.environ.get("RETIREMENT_MC_SIMS", "16"))
+
+
+@pytest.fixture(scope="session")
+def mc_sensitivity_sims() -> int:
+    """Default path count for the (usually much larger, multi-scenario)
+    sensitivity-sweep style Monte Carlo calls. See `mc_sims` above."""
+    return int(os.environ.get("RETIREMENT_MC_SENSITIVITY_SIMS", "3"))
+
+
 def dashboard_js_sources() -> str:
     """frontend/js/dashboard.js concatenated with every dashboard_decomp_*.js.
 

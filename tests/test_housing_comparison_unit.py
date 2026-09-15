@@ -146,6 +146,12 @@ def test_sweep_returns_none_when_no_step1_is_configured():
     assert sweep_housing_trajectories(c, []) is None
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_sweep_stays_within_the_designs_call_budget(swept):
     _c, result = swept
     # §4.2: <=36 deterministic project() calls per ordering, <=72 for both.
