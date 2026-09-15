@@ -1225,9 +1225,19 @@ export function toggleHousingOptMove2Fields() {
   if (el) el.hidden = !enabled;
 }
 
+function housingOptStateSelectHtml(id, selectedValue) {
+  const options = _stateNameChoiceOptions()
+    .map(
+      (o) =>
+        `<option value="${esc(o.value)}"${o.value === selectedValue ? " selected" : ""}>${esc(o.label)}</option>`,
+    )
+    .join("");
+  return `<select id="${id}"><option value="">Select a state</option>${options}</select>`;
+}
+
 function housingOptLocationRowHtml(i) {
   return `<div class="housing-opt-location-row" id="housingOptLocRow${i}" ${i >= 2 ? "hidden" : ""}>
-    <input type="text" id="housingOptLocState${i}" placeholder="State (e.g. Texas)" style="width:10em">
+    ${housingOptStateSelectHtml(`housingOptLocState${i}`, "")}
     <select id="housingOptLocCity${i}">
       <option value="urban">Urban</option>
       <option value="suburban" selected>Suburban</option>
@@ -1280,7 +1290,7 @@ export function renderHousingOptimizePanelHtml() {
       </select>
     </label>
     <div class="subsection-label">Family presence (optional)</div>
-    <label>Region (state) <input type="text" id="housingOptPresenceRegion" placeholder="e.g. Illinois"></label>
+    <label>Region (state) ${housingOptStateSelectHtml("housingOptPresenceRegion", "")}</label>
     <label>From year <input type="number" id="housingOptPresenceStart"></label>
     <label>Through year <input type="number" id="housingOptPresenceEnd"></label>
     <div class="table-actions"><button class="btn primary" type="button" onclick="runHousingOptimization()">Run optimization</button></div>
