@@ -8,6 +8,7 @@ one file. See ``src.housing``'s package docstring for the design narrative.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 OBJECTIVES = ('net_worth', 'lifetime_cost', 'mc_success_rate')
 SEARCH_MODES = ('full', 'narrowed')
@@ -45,6 +46,11 @@ class Location:
     city_type: str = 'suburban'
     population_size: int = 20000
     target_purchase_price_range: tuple[float, float] | None = None
+    bedrooms: int = 3
+    bathrooms: float = 2.0
+    property_type: str = 'single_family'
+    sqft_band: str = '1800_2500'
+    built_within_years: int | None = None
 
 
 @dataclass(frozen=True)
@@ -73,8 +79,15 @@ class HousingCandidate:
     """One fully-specified plan variant: move 1, and optionally move 2.
 
     ``purchase_year is None`` means "rent indefinitely" after ``sale_year``
-    (move 1) or after ``sale_year_2`` (move 2, when ``purchase_year_2`` is
-    also ``None``).
+    (move 1) or after ``sale_year_2``/``concurrent_start_year_2`` (move 2,
+    when ``purchase_year_2`` is also ``None``).
+
+    ``move2_mode='sequential'`` (default): move 2 sells the move-1 home
+    (``sale_year_2``) and relocates to ``location_2``, exactly as before this
+    field existed. ``move2_mode='concurrent'``: the move-1 home is never sold
+    -- ``location_2`` becomes a second, simultaneous residence starting at
+    ``concurrent_start_year_2``. ``sale_year_2`` is always ``None`` in
+    concurrent mode (nothing is ever sold under it).
     """
     location_1: Location
     sale_year: int
@@ -82,6 +95,8 @@ class HousingCandidate:
     location_2: Location | None = None
     sale_year_2: int | None = None
     purchase_year_2: int | None = None
+    move2_mode: Literal['sequential', 'concurrent'] = 'sequential'
+    concurrent_start_year_2: int | None = None
     anchor_of: "HousingCandidate | None" = None
 
     @property

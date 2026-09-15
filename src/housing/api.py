@@ -25,11 +25,21 @@ def _parse_location(raw: dict[str, Any]) -> Location:
     parsed_range = None
     if isinstance(price_range, (list, tuple)) and len(price_range) == 2:
         parsed_range = (float(price_range[0]), float(price_range[1]))
+    built_within_years_raw = raw.get('built_within_years')
+    try:
+        built_within_years = int(built_within_years_raw) if built_within_years_raw not in (None, '') else None
+    except (TypeError, ValueError):
+        built_within_years = None
     return Location(
         state=str(raw.get('state', '') or '').strip(),
         city_type=str(raw.get('city_type', 'suburban') or 'suburban').strip().lower(),
         population_size=int(raw.get('population_size', 20000) or 20000),
         target_purchase_price_range=parsed_range,
+        bedrooms=int(raw.get('bedrooms', 3) or 3),
+        bathrooms=float(raw.get('bathrooms', 2.0) or 2.0),
+        property_type=str(raw.get('property_type', 'single_family') or 'single_family').strip().lower(),
+        sqft_band=str(raw.get('sqft_band', '1800_2500') or '1800_2500').strip().lower(),
+        built_within_years=built_within_years,
     )
 
 
@@ -101,6 +111,9 @@ def optimize_housing_from_request(c0: dict[str, Any], body: dict[str, Any]) -> t
             objective=objective,
             search_mode=search_mode,
             move2_strategy=move2_strategy,
+            move1_action=str(body.get('move1_action', 'auto') or 'auto'),
+            move2_action=str(body.get('move2_action', 'auto') or 'auto'),
+            move2_concurrent=bool(body.get('move2_concurrent', False)),
         )
         result['success'] = True
         result['schema'] = 'housing_optimize_v1'
