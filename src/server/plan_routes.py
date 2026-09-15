@@ -752,7 +752,7 @@ def housing_optimize():
     denied = _require("read_config")
     if denied:
         return denied
-    from ..housing_optimizer import optimize_housing_from_request
+    from ..housing import optimize_housing_from_request
     from ..report_compute import prepare_config_from_sectioned_data
     data, _meta = load_active_config()
     c0 = prepare_config_from_sectioned_data(data, "", optimize_roth=False)
