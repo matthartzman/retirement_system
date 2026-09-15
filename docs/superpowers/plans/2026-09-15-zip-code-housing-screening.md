@@ -1891,6 +1891,9 @@ class ScreenResult:
 Add the helper:
 
 ```python
+import math
+
+
 def _relaxation(
     with_data: list[tuple[ZipRecord, float, Any]], min_quality_score: float
 ) -> dict[str, Any] | None:
@@ -1899,11 +1902,16 @@ def _relaxation(
     A bare "no results" on a ten-criterion search is unusable: the user cannot
     tell which of ten constraints emptied the funnel. When the score floor is
     what did it, name the floor that would return something.
+
+    Uses floor, not round: round(72.97, 1) == 73.0, which is GREATER than the
+    actual highest available score -- suggesting a floor that would itself
+    return zero results on retry. Flooring guarantees suggested <= scores[0],
+    so would_return is always >= 1 whenever a relaxation is returned.
     """
     scores = sorted((t[2].score for t in with_data), reverse=True)
     if not scores or scores[0] >= min_quality_score:
         return None
-    suggested = round(scores[0], 1)
+    suggested = math.floor(scores[0] * 10) / 10
     return {
         'field': 'min_quality_score',
         'current': min_quality_score,
