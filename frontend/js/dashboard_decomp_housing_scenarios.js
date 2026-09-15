@@ -1282,12 +1282,38 @@ function housingOptAnchorCitySelectHtml() {
   return `<select id="housingOptAnchorCity"><option value="">Select a city</option>${options}</select>`;
 }
 
+let housingOptTopCitiesLoaded = false;
+
+export async function loadHousingOptTopCities() {
+  if (housingOptTopCitiesLoaded) return;
+  try {
+    const payload = await api("/api/housing/top-cities", { method: "GET" });
+    if (payload && payload.success && Array.isArray(payload.cities)) {
+      HOUSING_OPT_TOP_CITIES = payload.cities;
+      housingOptTopCitiesLoaded = true;
+      const select = document.getElementById("housingOptAnchorCity");
+      if (select) {
+        const current = select.value;
+        select.innerHTML =
+          `<option value="">Select a city</option>` +
+          HOUSING_OPT_TOP_CITIES.map(
+            (c) => `<option value="${esc(c.anchor_zip)}">${esc(c.city)}, ${esc(c.state_abbrev)}</option>`,
+          ).join("");
+        select.value = current;
+      }
+    }
+  } catch (e) {
+    // Non-fatal: the free-text ZIP field remains usable either way.
+  }
+}
+
 export function toggleHousingOptSearchMode() {
   const zip = String(document.getElementById("housingOptGeoMode")?.value || "manual") === "zip_radius";
   const zipFields = document.getElementById("housingOptZipFields");
   const manualFields = document.getElementById("housingOptManualFields");
   if (zipFields) zipFields.hidden = !zip;
   if (manualFields) manualFields.hidden = zip;
+  if (zip) loadHousingOptTopCities();
 }
 
 function housingOptLocationRowHtml(i) {
@@ -1761,6 +1787,7 @@ Object.assign(window, {
   renderScenarioManagementPanel,
   renderScenarios,
   toggleHousingOptSearchMode,
+  loadHousingOptTopCities,
   toggleHousingOptLocationRows,
   toggleHousingOptMove2Fields,
   toggleHousingOptMove2ConcurrentAvailability,
