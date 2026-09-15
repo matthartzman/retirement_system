@@ -21,19 +21,13 @@
 // `data-focus-key` and retries focus/select once the render has settled.
 // See both functions' own comments for the full mechanism.
 //
-// This is a real, full-build test (matching workbook-format-stale-cache.spec.js's
-// precedent) because Workbook Formatting has nothing to show until a
-// workbook has actually been built once -- see tools/e2e_server.py, which
-// stages an isolated workspace with no prior build. All cases below share
-// the ONE build triggered in the first test: Playwright's shared server
-// process (playwright.config.js: `fullyParallel: false, workers: 1`)
-// persists the built workbook on disk for the life of the run, so later
-// tests in this file can navigate straight to Workbook Formatting without
-// paying for a second ~110s+ build. test.describe.serial keeps that build
-// ordered first and the suite from being reordered/parallelized underneath
-// that assumption.
-import { test, expect } from '@playwright/test';
-import { openCurrentPlan, navigateToStep, triggerBuildAndWaitForOverlay } from './helpers.js';
+// Workbook Formatting has nothing to show until a workbook has actually
+// been built once. tools/e2e_server.py now builds the workbook once at
+// server startup (rather than a dedicated test here doing it), so every
+// test below can navigate straight to Workbook Formatting without any of
+// them paying for a ~110s+ build of its own.
+import { test, expect } from './fixtures.js';
+import { openCurrentPlan, navigateToStep, ensureWorkbookBuilt } from './helpers.js';
 
 // Sheet/table <details> are collapsed by default and their open/closed state
 // is tracked in a JS Set (wfOpen) that a re-render regenerates the <details>
@@ -84,16 +78,15 @@ async function activeElementInfo(page) {
   });
 }
 
-test.describe.serial('Workbook Formatting: Tab/Shift+Tab column-width traversal survives autosave rerenders', () => {
-  test('building the workbook once so Workbook Formatting has data to show', async ({ page }) => {
+test.describe('Workbook Formatting: Tab/Shift+Tab column-width traversal survives autosave rerenders', () => {
+  test('Tab after editing a width moves focus (and selects the value) in the next field, surviving both the synchronous and the async autosave rerender', async ({ page }) => {
+    // Any of this describe block's 3 tests could be the first one Playwright
+    // schedules onto a fresh worker, in which case ensureWorkbookBuilt()
+    // below triggers a real ~110s build; each needs the budget for that on
+    // top of its own assertions, same as build-and-results.spec.js.
     test.setTimeout(300_000);
     await openCurrentPlan(page);
-    const finalTitle = await triggerBuildAndWaitForOverlay(page);
-    expect(finalTitle).toBe('Build complete');
-  });
-
-  test('Tab after editing a width moves focus (and selects the value) in the next field, surviving both the synchronous and the async autosave rerender', async ({ page }) => {
-    await openCurrentPlan(page);
+    await ensureWorkbookBuilt(page);
     await navigateToStep(page, 'workbook_formatting', 'Workbook Formatting');
     await expandSheet(page, 0);
 
@@ -156,7 +149,9 @@ test.describe.serial('Workbook Formatting: Tab/Shift+Tab column-width traversal 
   });
 
   test('Shift+Tab moves focus (and selects the value) back to the previous field', async ({ page }) => {
+    test.setTimeout(300_000); // see the previous test's comment
     await openCurrentPlan(page);
+    await ensureWorkbookBuilt(page);
     await navigateToStep(page, 'workbook_formatting', 'Workbook Formatting');
     await expandSheet(page, 0);
 
@@ -185,7 +180,9 @@ test.describe.serial('Workbook Formatting: Tab/Shift+Tab column-width traversal 
   });
 
   test('Tab from the last field of a collapsed sheet opens the next sheet and focuses its first field', async ({ page }) => {
+    test.setTimeout(300_000); // see the first test's comment
     await openCurrentPlan(page);
+    await ensureWorkbookBuilt(page);
     await navigateToStep(page, 'workbook_formatting', 'Workbook Formatting');
 
     // .count() does not auto-wait the way .click()/.toBeVisible() do, and

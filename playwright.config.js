@@ -5,42 +5,43 @@
 // broken onclick handler, a JS exception on render, or a navigation dead end
 // -- none of which a string match or a sandboxed pure-function call can see.
 //
-// webServer below owns the whole server lifecycle: it runs
-// tools/e2e_server.py (which stages an isolated, frozen-fixture workspace and
-// calls the same run_local_server() primitive main.py uses, without
-// main.py's own unconditional webbrowser.open() side effect), polls the URL
-// until it answers, and tears the process down when the run ends.
+// E2E efficiency review (2026-09-15), recommendation R3: this used to start
+// ONE shared tools/e2e_server.py via `webServer` below, with every spec
+// (fullyParallel: false, workers: 1) racing to mutate the same server-side
+// plan. tests/e2e/fixtures.js now starts one isolated server+workspace PER
+// WORKER instead (a worker-scoped `baseURL` fixture), so there is no
+// `webServer` entry here any more -- each spec file imports `test`/`expect`
+// from './fixtures.js' rather than '@playwright/test' directly, and that
+// import is what actually starts its worker's server. See fixtures.js for
+// why this specific class of bug (documented at length across
+// tests/e2e/helpers.js's git history) motivated the change.
 import { defineConfig, devices } from '@playwright/test';
-
-const PORT = process.env.RETIREMENT_SYSTEM_E2E_PORT || '5951';
-const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 export default defineConfig({
   testDir: './tests/e2e',
   // The build journey (J2) alone waits up to 80s for a real Monte Carlo
   // build to finish (see helpers.js triggerBuildAndWaitForOverlay's own
   // comment on why); this must clear that plus the rest of the test.
+  // Individual build-triggering specs (and ensureWorkbookBuilt() callers
+  // whose worker hasn't built a workbook yet) raise this further with their
+  // own test.setTimeout() for the real build they end up running.
   timeout: 120_000,
-  fullyParallel: false, // shares one server instance; specs run in file order
+  fullyParallel: true, // safe now: each worker has its own isolated server
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: 1,
+  // GitHub-hosted windows-latest runners have 2 cores; each worker also
+  // spawns its own Python backend (plus, for the workers that draw a
+  // build-triggering spec, a real ~110s workbook build), so an unbounded
+  // worker count would oversubscribe the runner rather than help it. Local
+  // dev machines typically have more cores, so leave it to Playwright's own
+  // default (CPU count) there.
+  workers: process.env.CI ? 2 : undefined,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
-    baseURL: BASE_URL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
   ],
-  webServer: {
-    command: `python tools/e2e_server.py`,
-    url: BASE_URL,
-    env: { RETIREMENT_SYSTEM_E2E_PORT: PORT },
-    reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
-    stdout: 'pipe',
-    stderr: 'pipe',
-  },
 });

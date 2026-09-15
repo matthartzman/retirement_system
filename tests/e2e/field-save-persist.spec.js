@@ -8,7 +8,7 @@
 // save happened) were verified interactively against the real running app
 // before being encoded here -- see the harness verification in the Wave 2.1
 // scoping pass, not assumed from reading the source.
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 import { openCurrentPlan, navigateToStep } from './helpers.js';
 
 // Real target on the frozen fixture: row 28 is "Residence State" on the
