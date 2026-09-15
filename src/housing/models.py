@@ -35,6 +35,13 @@ NARROWED_1D_MAX_EVALS = 8
 # docstring.
 _NARROWED_EVALS_PER_ANCHOR_LOCATION = NARROWED_2D_MAX_EVALS + NARROWED_1D_MAX_EVALS
 
+# ZIP -> city_type thresholds, people per square mile (spec section 5.1). The
+# optimizer's cost estimate is keyed on city_type, so these decide which
+# STATE_ESTIMATES bucket a resolved ZIP lands in.
+DENSITY_URBAN = 3000.0
+DENSITY_SUBURBAN = 1000.0
+DENSITY_EXURBAN = 200.0
+
 
 # ---------------------------------------------------------------------------
 # Input types
@@ -51,6 +58,9 @@ class Location:
     property_type: str = 'single_family'
     sqft_band: str = '1800_2500'
     built_within_years: int | None = None
+    # Display/traceability only when this Location came from a ZIP search.
+    # Nothing downstream reads it -- see src/housing/zip_screen/resolve.py.
+    zip_code: str | None = None
 
 
 @dataclass(frozen=True)
