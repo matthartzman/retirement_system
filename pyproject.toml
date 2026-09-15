@@ -26,6 +26,19 @@ markers = [
     # gitignored (real financial data), so these cannot run on CI or in a fresh
     # worktree. See the handler in tests/conftest.py.
     "requires_live_input: reads the live, gitignored input/ plan CSVs",
+    # E2E/CI efficiency review (2026-09-15), recommendation R6. Applied so far
+    # only to test_all_modules_off_build_functional.py's single-module-off
+    # sweep (24 real builds, ~90s each -- even parallelized with pytest-xdist
+    # on a 2-core CI runner, ~2x is nowhere near enough to make a 26x-larger
+    # sweep cheap, and it remained the single largest component of the `test`
+    # job's runtime). CI's push/PR "Run tests" step excludes this marker
+    # (`-m "not nightly"`); .github/workflows/nightly.yml runs the full,
+    # unfiltered suite (this marker included) on a daily schedule, so a
+    # regression a specific module's build sweep would catch still surfaces
+    # within 24h, just not on every PR. A rarely-changing module registry
+    # (module_catalog.py) is exactly the kind of coverage this tradeoff suits;
+    # do not apply this marker to a test whose failure mode changes often.
+    "nightly: full coverage that is expensive relative to how often it changes; runs on the nightly schedule, not on push/PR",
 ]
 # Timeout safety net removed: pytest-timeout configuration was causing
 # silent crashes in CI despite plugin installation attempts. Tests will

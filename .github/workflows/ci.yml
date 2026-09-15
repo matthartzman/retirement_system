@@ -69,16 +69,23 @@ jobs:
     # the step died with "Could not find a part of the path" BEFORE pytest ran.
     # The job then reported failure on every commit -- including docs-only ones
     # -- while executing zero tests, so a red CI here meant nothing at all.
-    # -n auto (pytest-xdist, already in requirements-dev.txt) runs the
-    # ~20+ independent build-subprocess tests in
-    # test_all_modules_off_build_functional.py concurrently instead of
-    # serially -- that sweep alone was the dominant cost of a full run.
+    # -n auto (pytest-xdist, already in requirements-dev.txt) runs
+    # independent build-subprocess tests concurrently instead of serially.
     # Same command documentation/reference/CLAUDE.md already tells
     # developers to use locally; CI was the one place still running serial.
+    #
+    # -m "not nightly" (E2E/CI efficiency review, 2026-09-15, R6): excludes
+    # test_all_modules_off_build_functional.py's 24-build single-module-off
+    # sweep, which remained the single largest component of this job's
+    # runtime even parallelized -- a 2-core CI runner only buys ~2x on a
+    # sweep that is 26x more expensive than one build. nightly.yml runs the
+    # full, unfiltered suite (this marker included) on a daily schedule, so
+    # a regression that sweep alone would catch still surfaces within 24h,
+    # just not on every push/PR. See pyproject.toml's `nightly` marker doc.
     - name: Run tests
       shell: bash
       run: |
-        pytest tests/ -n auto --tb=short -q --cov=src --cov-report=xml -v > /tmp/pytest_output.txt 2>&1 || TEST_EXIT=$?
+        pytest tests/ -n auto -m "not nightly" --tb=short -q --cov=src --cov-report=xml -v > /tmp/pytest_output.txt 2>&1 || TEST_EXIT=$?
         cat /tmp/pytest_output.txt
         exit ${TEST_EXIT:-0}
 
