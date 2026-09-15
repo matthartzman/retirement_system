@@ -1061,7 +1061,7 @@ export async function deleteSavedScenarioSet(id) {
 export function renderScenarioTemplatesHtml() {
   let html = '<div class="scenario-template-grid">';
   SCENARIO_TEMPLATES.forEach((t) => {
-    html += `<div class="scenario-template-card"><div><h4>${esc(t.title)}</h4><p class="small">${esc(t.desc)}</p></div>${scenarioDiffTableHtml(scenarioTemplateDiffItems(t), "Template assumptions are already set this way.")}<button class="btn" type="button" onclick="applyScenarioTemplate('${escJs(t.id)}')">Apply template</button></div>`;
+    html += `<div class="scenario-template-card"><div class="scenario-template-card-head"><h4>${esc(t.title)}</h4><p class="small">${esc(t.desc)}</p><button class="btn" type="button" onclick="applyScenarioTemplate('${escJs(t.id)}')">Apply template</button></div>${scenarioDiffTableHtml(scenarioTemplateDiffItems(t), "Template assumptions are already set this way.")}</div>`;
   });
   html += "</div>";
   return html;

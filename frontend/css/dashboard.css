@@ -589,6 +589,30 @@ body.chart-modal-open{overflow:hidden}
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
   gap:10px;
+  align-items:start;
+}
+.scenario-template-card{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  border:1px solid var(--line2);
+  border-radius:8px;
+  padding:12px;
+  background:#fafcff;
+}
+.scenario-template-card-head{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.scenario-template-card-head h4{
+  margin:0;
+}
+.scenario-template-card-head p{
+  margin:0;
+}
+.scenario-template-card-head .btn{
+  align-self:flex-start;
 }
 .scenario-set-card,
 .recommendation-card{
