@@ -120,13 +120,21 @@ def _apply_candidate(c: dict[str, Any], cand: HousingCandidate) -> None:
     c['home_sale_yr'] = cand.sale_year
     concurrent = cand.is_two_move and cand.move2_mode == 'concurrent'
 
-    move1_start = cand.sale_year if cand.purchase_year is None else cand.purchase_year
     move1_end = None if concurrent else ((cand.sale_year_2 - 1) if cand.is_two_move else None)
     steps = []
-    transitions: list[tuple[int, str]] = [(move1_start, cand.location_1.state)]
+    # The household leaves the original home at sale_year regardless of
+    # whether/when it buys next, so that -- not purchase_year -- is when
+    # residency (and, below, rent liability) at location_1 actually starts.
+    transitions: list[tuple[int, str]] = [(cand.sale_year, cand.location_1.state)]
     if cand.purchase_year is None:
         steps.append(_rent_step('opt_move1', cand.location_1, cand.sale_year, move1_end))
     else:
+        if cand.purchase_year > cand.sale_year:
+            # Gap between selling and buying: rent at the destination
+            # location_1 in the meantime, rather than modeling it as free
+            # housing (the previous behavior -- no step at all covered
+            # these years).
+            steps.append(_rent_step('opt_move1_gap', cand.location_1, cand.sale_year, cand.purchase_year - 1))
         move1_step = _purchase_step('opt_move1', cand.location_1, cand.purchase_year, move1_end)
         if cand.is_two_move and not concurrent:
             # Real second-sale pathway (design doc §8.2 P0): the engine sells
@@ -149,11 +157,13 @@ def _apply_candidate(c: dict[str, Any], cand: HousingCandidate) -> None:
             else:
                 steps.append(_purchase_step('opt_move2', cand.location_2, cand.purchase_year_2, None))
         else:
-            move2_start = cand.sale_year_2 if cand.purchase_year_2 is None else cand.purchase_year_2
-            transitions.append((move2_start, cand.location_2.state))
+            transitions.append((cand.sale_year_2, cand.location_2.state))
             if cand.purchase_year_2 is None:
                 steps.append(_rent_step('opt_move2', cand.location_2, cand.sale_year_2, None))
             else:
+                if cand.purchase_year_2 > cand.sale_year_2:
+                    steps.append(_rent_step(
+                        'opt_move2_gap', cand.location_2, cand.sale_year_2, cand.purchase_year_2 - 1))
                 steps.append(_purchase_step('opt_move2', cand.location_2, cand.purchase_year_2, None))
 
     c['next_housing_steps'] = steps
