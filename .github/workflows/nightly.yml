@@ -1,0 +1,56 @@
+name: Nightly full suite
+
+# Runs the complete test suite once a day, including everything the PR-tier
+# `test` job excludes for speed: @pytest.mark.slow (full workbook-build
+# subprocess tests) and @pytest.mark.nightly (engine-internals-only
+# equivalence/sweep-breadth checks that an ordinary UI/config-only PR change
+# cannot trigger -- see documentation/reference/
+# TESTING_REFACTOR_RECOMMENDATIONS.md item 7). Also the one place coverage
+# is collected and uploaded, since instrumenting every PR run cost ~85
+# minutes for an XML file that was previously discarded by a condition that
+# could never be true (see ci.yml's `test` job history).
+on:
+  schedule:
+    # 09:00 UTC daily.
+    - cron: '0 9 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  full-suite:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v7
+
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.14'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt -r requirements-dev.txt
+
+    - uses: actions/setup-node@v6
+      with:
+        node-version: "22"
+
+    - name: Install Node dependencies
+      run: npm ci
+
+    - name: Run full test suite (slow + nightly included, with coverage)
+      shell: bash
+      run: |
+        pytest tests/ -n auto --dist loadfile --timeout=600 --timeout-method=thread --cov=src --cov-report=xml --tb=short -q > /tmp/pytest_nightly_output.txt 2>&1 || TEST_EXIT=$?
+        cat /tmp/pytest_nightly_output.txt
+        exit ${TEST_EXIT:-0}
+
+    - name: Upload coverage
+      uses: codecov/codecov-action@v7
+      if: always()
+      with:
+        files: ./coverage.xml
+        fail_ci_if_error: false
+
+    - name: Fail if the test suite mutated input/
+      run: git diff --exit-code -- input/

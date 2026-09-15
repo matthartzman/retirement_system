@@ -3,5 +3,13 @@
 pytest>=8.0,<10
 pytest-cov>=5.0,<8
 pytest-xdist>=3.5,<4
+# Re-added 2026-09-15 (CI-time profiling): a prior removal note said this
+# plugin "caused silent crashes despite plugin installation attempts" and
+# dropped timeout enforcement entirely, which traded a rare crash for a hang
+# that burns the whole CI job's time limit with zero diagnostics. CI now
+# passes --timeout=300 --timeout-method=thread explicitly (see ci.yml); the
+# thread method interrupts a stuck test without relying on signals, which are
+# unreliable on the Windows runners this suite runs on.
+pytest-timeout>=2.3,<3
 ruff>=0.6,<1
 mypy>=1.10,<2

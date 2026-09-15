@@ -24,6 +24,12 @@ def _base_config():
         return ensure_engine_config(dict(c), source="test")
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_move1_only_optimization_returns_a_headline_and_ranked_alternatives():
     c0 = _base_config()
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
@@ -43,6 +49,12 @@ def test_move1_only_optimization_returns_a_headline_and_ranked_alternatives():
     assert values == sorted(values, reverse=True)
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_lifetime_cost_objective_ranks_ascending():
     c0 = _base_config()
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
@@ -56,6 +68,12 @@ def test_lifetime_cost_objective_ranks_ascending():
     assert values == sorted(values)
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_no_dual_ownership_excludes_purchase_before_sale_from_results():
     c0 = _base_config()
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
@@ -73,6 +91,12 @@ def test_no_dual_ownership_excludes_purchase_before_sale_from_results():
             assert move["purchase_year"] >= move["sale_year"]
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_family_presence_hard_filter_drops_disqualifying_candidates():
     c0 = _base_config()
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
@@ -96,6 +120,12 @@ def test_family_presence_hard_filter_drops_disqualifying_candidates():
     assert filtered["recommendation"] is None
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_two_move_candidate_has_no_mc_approximate_flag():
     """Move 2's sale now runs through the engine's own second-sale pathway
     (design doc §8.2 P0) -- there is no more out-of-loop estimate, so the
@@ -140,6 +170,12 @@ def test_two_move_candidate_sale_produces_a_real_engine_deposit():
     assert sum(sale_row["_account_deposits"].values()) >= sale_row["next_housing_sale_net"] - 1.0
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_monte_carlo_success_rate_is_only_populated_for_the_shortlist():
     c0 = _base_config()
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
@@ -159,6 +195,12 @@ def test_monte_carlo_success_rate_is_only_populated_for_the_shortlist():
     assert without_mc
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_request_adapter_runs_end_to_end_through_the_http_shaped_entry_point():
     c0 = _base_config()
     body = {
@@ -177,6 +219,12 @@ def test_request_adapter_runs_end_to_end_through_the_http_shaped_entry_point():
     assert payload["recommendation"] is not None
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_search_mode_full_is_unchanged_by_default():
     """search_mode defaults to 'full' and must behave exactly as before
     (§8.2 P2 module docstring): identical candidates_evaluated and ranking
@@ -198,6 +246,12 @@ def test_search_mode_full_is_unchanged_by_default():
     assert omitted["recommendation"] == explicit_full["recommendation"]
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_search_mode_narrowed_runs_end_to_end_with_fewer_evaluations_than_full_grid():
     c0 = _base_config()
     # A wide window: full grid is 5 sale years x (6 purchase years + 1 rent)
@@ -231,6 +285,12 @@ def test_search_mode_narrowed_rejects_unknown_value():
         )
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_move2_strategy_anchored_default_is_unchanged():
     """move2_strategy defaults to 'anchored' and must behave exactly as
     before (§8.2 P3 module docstring): identical results whether or not
@@ -251,6 +311,12 @@ def test_move2_strategy_anchored_default_is_unchanged():
     assert omitted["recommendation"] == explicit_anchored["recommendation"]
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_move2_strategy_cross_product_runs_end_to_end_against_more_than_anchor_count_anchors():
     """A small search window (2 years each, 2 locations) with anchor_count=1
     should still let cross_product build move-2 candidates against every
@@ -284,6 +350,12 @@ def test_move2_strategy_cross_product_runs_end_to_end_against_more_than_anchor_c
     assert cross["candidates_evaluated"] > anchored["candidates_evaluated"]
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_move2_strategy_cross_product_composes_with_narrowed_search_mode():
     c0 = _base_config()
     move1_window = ho.SearchWindow(earliest_sale_year=2027, latest_sale_year=2028,
@@ -327,6 +399,12 @@ def test_move2_strategy_rejects_unknown_value():
         )
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_optimizer_never_mutates_the_base_plan_config():
     c0 = _base_config()
     before_next_steps = c0.get("next_housing_steps")

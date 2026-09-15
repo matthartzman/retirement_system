@@ -27,6 +27,7 @@ from src.reporting.sheets_strategy import build_sheet10
 ROOT = Path(__file__).resolve().parents[1]
 
 from conftest import TEST_INPUT_DIR
+import pytest
 
 
 def _run():
@@ -39,6 +40,12 @@ def _run():
     return build_sheet10(ws, c, rows)
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_scores_three_longevity_variants_for_the_top_three_pairs():
     result = _run()
     longevity_rows = result["longevity_rows"]
@@ -49,6 +56,12 @@ def test_scores_three_longevity_variants_for_the_top_three_pairs():
         assert len(pair_scores) == 3  # top 3 ranked pairs, re-scored under this variant
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_longevity_variants_actually_change_the_score():
     # Regression guard for the h_death_yr staleness bug this item's own
     # commit message documents: h_mort_age alone has zero effect on the
@@ -68,6 +81,12 @@ def test_longevity_variants_actually_change_the_score():
         )
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_configured_variant_matches_the_scenarios_already_computed():
     # The "Configured lifespan" row must reuse the main sweep's own
     # already-computed objective_value for each top pair (no re-run), both
@@ -82,11 +101,23 @@ def test_configured_variant_matches_the_scenarios_already_computed():
         assert configured_scores[(pair["h_age"], pair["w_age"])] == pair["objective_value"]
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_flags_whether_the_recommendation_is_stable_across_longevity():
     result = _run()
     assert isinstance(result["longevity_pair_is_stable"], bool)
 
 
+# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
+# check identified in the 2026-09-15 CI-time profiling (see
+# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
+# triggered by an ordinary UI/config change, so it moved off the PR fast
+# tier and runs in the nightly full-suite workflow instead.
+@pytest.mark.nightly
 def test_stays_within_a_reasonable_build_time_budget():
     # This item's own acceptance criterion (system review Wave 3 table):
     # "build time within budget". A prior implementation that let the
