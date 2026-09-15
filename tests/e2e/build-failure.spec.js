@@ -15,7 +15,7 @@
 // the overlay reaching "Build failed", and the toast surfacing the real
 // error message) without spending ~90s on the real build subprocess and
 // without touching the shared E2E server's actual plan data at all.
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 import { openCurrentPlan, triggerBuildAndWaitForOverlay } from './helpers.js';
 
 test('a failed build surfaces "Build failed" and the real error message, not a silent hang', async ({ page }) => {

@@ -143,10 +143,14 @@ def _coordinate_search_1d(
 
 def _score_move1_point(
     c0: dict[str, Any], base_state: str, loc: Location, family_presence: FamilyPresence | None,
-    no_dual_ownership: bool, pass1_objective: str, sink: list[ScoredCandidate],
+    no_dual_ownership: bool, move1_action: str, pass1_objective: str, sink: list[ScoredCandidate],
     sale_year: int, purchase_year: int | None,
 ) -> float | None:
     if no_dual_ownership and purchase_year is not None and purchase_year < sale_year:
+        return None
+    if move1_action == 'buy' and purchase_year is None:
+        return None
+    if move1_action == 'rent' and purchase_year is not None:
         return None
     cand = HousingCandidate(location_1=loc, sale_year=sale_year, purchase_year=purchase_year)
     ok, via_rental = family_presence_ok(base_state, cand, family_presence)
@@ -163,7 +167,7 @@ def _score_move1_point(
 
 def generate_move1_candidates_narrowed(
     c0: dict[str, Any], base_state: str, locations: list[Location], window: SearchWindow,
-    no_dual_ownership: bool, family_presence: FamilyPresence | None, pass1_objective: str,
+    no_dual_ownership: bool, move1_action: str, family_presence: FamilyPresence | None, pass1_objective: str,
 ) -> list[ScoredCandidate]:
     """Narrowed-mode replacement for ``generate_move1_candidates`` that
     scores candidates as it searches (§8.2 P2 of ``src.housing``'s package
@@ -182,24 +186,29 @@ def generate_move1_candidates_narrowed(
             (window.earliest_sale_year, window.latest_sale_year),
             (window.earliest_purchase_year, window.latest_purchase_year),
             lambda sy, py: _score_move1_point(
-                c0, base_state, loc, family_presence, no_dual_ownership, pass1_objective, scored, sy, py,
+                c0, base_state, loc, family_presence, no_dual_ownership, move1_action, pass1_objective, scored, sy, py,
             ),
         )
-        _coordinate_search_1d(
-            (window.earliest_sale_year, window.latest_sale_year),
-            lambda sy: _score_move1_point(
-                c0, base_state, loc, family_presence, no_dual_ownership, pass1_objective, scored, sy, None,
-            ),
-        )
+        if move1_action != 'buy':
+            _coordinate_search_1d(
+                (window.earliest_sale_year, window.latest_sale_year),
+                lambda sy: _score_move1_point(
+                    c0, base_state, loc, family_presence, no_dual_ownership, move1_action, pass1_objective, scored, sy, None,
+                ),
+            )
     return scored
 
 
 def _score_move2_point(
     c0: dict[str, Any], base_state: str, anchor: HousingCandidate, loc: Location,
-    family_presence: FamilyPresence | None, no_dual_ownership: bool, pass1_objective: str,
+    family_presence: FamilyPresence | None, no_dual_ownership: bool, move2_action: str, pass1_objective: str,
     sink: list[ScoredCandidate], sale_year_2: int, purchase_year_2: int | None,
 ) -> float | None:
     if no_dual_ownership and purchase_year_2 is not None and purchase_year_2 < sale_year_2:
+        return None
+    if move2_action == 'buy' and purchase_year_2 is None:
+        return None
+    if move2_action == 'rent' and purchase_year_2 is not None:
         return None
     cand = HousingCandidate(
         location_1=anchor.location_1, sale_year=anchor.sale_year, purchase_year=anchor.purchase_year,
@@ -219,7 +228,7 @@ def _score_move2_point(
 
 def generate_move2_candidates_narrowed(
     c0: dict[str, Any], base_state: str, anchors: list[HousingCandidate], locations: list[Location],
-    move2_window: Move2Window, no_dual_ownership: bool, family_presence: FamilyPresence | None,
+    move2_window: Move2Window, no_dual_ownership: bool, move2_action: str, family_presence: FamilyPresence | None,
     pass1_objective: str,
 ) -> list[ScoredCandidate]:
     """Narrowed-mode replacement for ``generate_move2_candidates`` -- same
@@ -235,15 +244,16 @@ def generate_move2_candidates_narrowed(
                 (earliest_sale_2, move2_window.latest_sale_year_2),
                 (earliest_sale_2, move2_window.latest_purchase_year_2),
                 lambda sy2, py2: _score_move2_point(
-                    c0, base_state, anchor, loc, family_presence, no_dual_ownership, pass1_objective,
+                    c0, base_state, anchor, loc, family_presence, no_dual_ownership, move2_action, pass1_objective,
                     scored, sy2, py2,
                 ),
             )
-            _coordinate_search_1d(
-                (earliest_sale_2, move2_window.latest_sale_year_2),
-                lambda sy2: _score_move2_point(
-                    c0, base_state, anchor, loc, family_presence, no_dual_ownership, pass1_objective,
-                    scored, sy2, None,
-                ),
-            )
+            if move2_action != 'buy':
+                _coordinate_search_1d(
+                    (earliest_sale_2, move2_window.latest_sale_year_2),
+                    lambda sy2: _score_move2_point(
+                        c0, base_state, anchor, loc, family_presence, no_dual_ownership, move2_action, pass1_objective,
+                        scored, sy2, None,
+                    ),
+                )
     return scored

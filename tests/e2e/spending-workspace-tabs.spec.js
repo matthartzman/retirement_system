@@ -8,7 +8,7 @@
 // is now folded directly into the Spending Model tab's own output instead of
 // living beside it as a separate stop -- see renderCoreSpendingUnified(),
 // dashboard_decomp_spending_taxonomy.js.
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 import { openCurrentPlan, navigateToStep } from './helpers.js';
 
 // Ticket 286 added a fifth tab: Withdrawal Order, moved here from the

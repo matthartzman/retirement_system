@@ -18,6 +18,9 @@ This file closes both gaps:
   * every optional module ON at once, including the 8 the canonical fixture skips
   * each optional module OFF individually, all others ON — a regression here
     means some other module's builder assumes a sheet exists unconditionally
+    (marked `nightly`: see that test's own docstring and
+    .github/workflows/nightly.yml — this one runs on the nightly schedule,
+    not on every push/PR, per E2E/CI efficiency review recommendation R6)
 """
 from __future__ import annotations
 
@@ -109,6 +112,7 @@ def test_build_succeeds_with_every_optional_module_on(tmp_path_factory):
 
 
 @pytest.mark.slow
+@pytest.mark.nightly
 @pytest.mark.parametrize("module_key", _all_optional_modules())
 def test_build_succeeds_with_single_module_off(tmp_path_factory, module_key):
     """Sweep: each optional module off individually, everything else on.
@@ -116,6 +120,18 @@ def test_build_succeeds_with_single_module_off(tmp_path_factory, module_key):
     Catches a builder that references another module's sheet unconditionally
     (a cross-sheet formula, a nav index, a PDF section) instead of checking
     whether that module is actually enabled.
+
+    E2E/CI efficiency review (2026-09-15), recommendation R6: marked
+    `nightly` (see pyproject.toml's marker doc) because this is 24 real
+    builds, ~90s each, and remained the single largest cost in the `test`
+    job even after parallelizing with pytest-xdist on a 2-core CI runner.
+    test_build_succeeds_with_every_optional_module_off/_on above (the "all
+    off" and "all on" extremes) are NOT marked nightly and still run on
+    every push/PR -- they're 2 builds, not 24, and catch the same class of
+    "assumes another module's sheet exists" bug for the two configurations
+    most likely to actually occur. A regression this sweep alone would catch
+    (one specific module's build breaking while everything else is fine)
+    still surfaces within 24h via nightly.yml, not on every PR.
     """
     out_dir, result = _run_build(
         tmp_path_factory,

@@ -104,3 +104,4 @@ coverage.xml
 ~$*.ppt
 ~$*.pptx
 ~WRL*.tmp
+.superpowers/

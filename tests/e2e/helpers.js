@@ -94,7 +94,17 @@ export async function openCurrentPlan(page) {
 //
 // A null probe (steps that render no rows at all) is treated as a stable
 // state rather than a failure -- there are no row nodes to be clobbered.
-export async function waitForPlanSettled(page, { quietMs = 750, timeout = 20_000 } = {}) {
+//
+// Default timeout raised 20s -> 35s (E2E efficiency review, 2026-09-15):
+// this predates fixtures.js's per-worker parallelism -- with >1 worker now
+// genuinely running concurrent page renders (and, when one worker draws a
+// build-triggering spec, a real subprocess build) against the same machine,
+// CPU contention alone can push a render past the old ceiling even though
+// nothing is actually stuck. helpers.js's own triggerBuildAndWaitForOverlay
+// already documents this exact class of slowdown ("under concurrent load...
+// a real build can run well past [its budget] without being stuck, just
+// slow"); this timeout gets the same allowance.
+export async function waitForPlanSettled(page, { quietMs = 750, timeout = 35_000 } = {}) {
   await page.waitForFunction(
     (quiet) => {
       const probe = document.querySelector('[data-row]');
@@ -295,4 +305,36 @@ export async function triggerBuildAndWaitForOverlay(page) {
     { timeout: 240_000 },
   );
   return title.innerText();
+}
+
+// E2E efficiency review (2026-09-15): Workbook Formatting has nothing to
+// show until a real workbook has been built at least once, but a real build
+// costs ~110s -- three specs used to each pay for their own "just build it
+// so there's data" setup build, which is pure waste once more than one of
+// them can land on the same worker (fixtures.js gives each Playwright
+// WORKER its own server+workspace, so tests within a worker share whatever
+// gets built there, same as they always shared the old single suite-wide
+// server). Call this instead of triggerBuildAndWaitForOverlay() when a spec
+// merely needs SOME workbook to exist, not specifically to exercise the
+// build-trigger UI flow itself (that's what build-and-results.spec.js and
+// build-failure.spec.js are for) -- it is a no-op if this worker's server
+// already has a build (from an earlier spec on the same worker, real or via
+// a prior call here), and triggers exactly one real build otherwise.
+//
+// Deliberately checks the server's own /api/build/status rather than a
+// client-side flag: the flag lives in page-local JS state that a fresh
+// page.goto('/') (which openCurrentPlan() always does) does not carry
+// forward, but the build itself is server-side and persists across
+// navigations within one worker's server for the life of the run.
+export async function ensureWorkbookBuilt(page) {
+  const status = await page.evaluate(() =>
+    fetch('/api/build/status')
+      .then((r) => r.json())
+      .catch(() => null),
+  );
+  if (status && status.current) return;
+  const finalTitle = await triggerBuildAndWaitForOverlay(page);
+  if (finalTitle !== 'Build complete') {
+    throw new Error(`ensureWorkbookBuilt(): setup build failed (overlay read "${finalTitle}")`);
+  }
 }

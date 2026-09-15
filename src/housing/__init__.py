@@ -108,8 +108,10 @@ from .models import (
 )
 from .candidates import (
     estimate_move2_candidate_count,
+    filter_candidates_by_action,
     generate_move1_candidates,
     generate_move2_candidates,
+    generate_move2_concurrent_candidates,
     select_all_eligible_move1_candidates,
     select_anchors,
 )
@@ -135,10 +137,12 @@ __all__ = [
     'SearchWindow',
     'estimate_move2_candidate_count',
     'family_presence_ok',
+    'filter_candidates_by_action',
     'generate_move1_candidates',
     'generate_move1_candidates_narrowed',
     'generate_move2_candidates',
     'generate_move2_candidates_narrowed',
+    'generate_move2_concurrent_candidates',
     'optimize_housing',
     'optimize_housing_from_request',
     'rank_candidates',

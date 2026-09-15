@@ -65,6 +65,57 @@ def generate_move2_candidates(
     return out
 
 
+def generate_move2_concurrent_candidates(
+    anchors: list[HousingCandidate], locations: list[Location], move2_window: Move2Window,
+) -> list[HousingCandidate]:
+    """Concurrent-mode move-2 candidates: the anchor's move-1 home
+    (``location_1``) is kept as an ongoing residence and never sold;
+    ``location_2`` is added as a second, simultaneous residence starting
+    anywhere in ``[anchor.purchase_year, move2_window.latest_purchase_year_2]``
+    (``latest_sale_year_2`` is not meaningful here -- nothing is ever sold,
+    so it's not used). Both a purchase and a rent-indefinitely variant of
+    location_2 are generated per (anchor, location, start_year) point,
+    mirroring ``generate_move2_candidates``'s purchase/rent split. Anchors
+    that ended move 1 in rent-indefinitely-forever are skipped -- same rule
+    ``generate_move2_candidates`` applies (nothing to add a concurrent
+    second home to).
+    """
+    out: list[HousingCandidate] = []
+    for anchor in anchors:
+        if anchor.purchase_year is None:
+            continue
+        earliest_start = anchor.purchase_year
+        for loc in locations:
+            for start_year in range(earliest_start, move2_window.latest_purchase_year_2 + 1):
+                out.append(HousingCandidate(
+                    location_1=anchor.location_1, sale_year=anchor.sale_year, purchase_year=anchor.purchase_year,
+                    location_2=loc, sale_year_2=None, purchase_year_2=start_year,
+                    move2_mode='concurrent', concurrent_start_year_2=start_year, anchor_of=anchor,
+                ))
+                out.append(HousingCandidate(
+                    location_1=anchor.location_1, sale_year=anchor.sale_year, purchase_year=anchor.purchase_year,
+                    location_2=loc, sale_year_2=None, purchase_year_2=None,
+                    move2_mode='concurrent', concurrent_start_year_2=start_year, anchor_of=anchor,
+                ))
+    return out
+
+
+def filter_candidates_by_action(
+    candidates: list[HousingCandidate], action: str, purchase_year_attr: str,
+) -> list[HousingCandidate]:
+    """Drops candidates inconsistent with a 'buy only'/'rent only' move
+    constraint. ``purchase_year_attr`` is ``'purchase_year'`` for move 1,
+    ``'purchase_year_2'`` for move 2 -- both fields use the same None-means-
+    rent convention (module docstring)."""
+    if action == 'auto':
+        return candidates
+    if action == 'buy':
+        return [c for c in candidates if getattr(c, purchase_year_attr) is not None]
+    if action == 'rent':
+        return [c for c in candidates if getattr(c, purchase_year_attr) is None]
+    raise ValueError(f"Unknown action: {action!r}")
+
+
 # ---------------------------------------------------------------------------
 # Anchor selection and pre-flight cost estimation (§3.2 / §8.2 P3)
 # ---------------------------------------------------------------------------

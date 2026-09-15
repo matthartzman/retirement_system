@@ -14,7 +14,7 @@
 // is the FRONTEND flow: the button reaches the real endpoint with a
 // well-formed request and the app then navigates to a fresh plan's first
 // step, exactly as a user watching the browser would see it.
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 import { waitForPlanSettled } from './helpers.js';
 
 test('Start New Plan calls the blank-plan endpoint and lands on the first step of a fresh plan', async ({ page }) => {

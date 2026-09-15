@@ -27,7 +27,7 @@
 // fix) cascade unrelated to what this test is checking. Calling
 // goToStrategyTab() with the YTD tab directly exercises the exact code path
 // ticket 290 was filed against without that unrelated noise.
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 import { openCurrentPlan, navigateToStep } from './helpers.js';
 
 test('the overlay is shown before Actual Spending (YTD)\'s render runs, not after', async ({ page }) => {
