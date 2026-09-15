@@ -7,18 +7,61 @@ from .. import planning_engines as _legacy_pe
 from .. import tax_kernel as _tk
 
 
+def _bracket_caps_and_marginal_rate(
+    c: dict[str, Any],
+    *,
+    year: int,
+    filing: str,
+    taxable_inc: float,
+    brk_inf: Any,
+    inflate_brackets_fn: Callable[[Any, Any, int], Any],
+) -> tuple[float, float, float]:
+    """The three tax inputs ``withdraw_pretax_elective`` needs:
+    ``(top_24_yr, irmaa_thr_yr, marg)``.
+
+    Extracted from Priority 3 (sub-stage #4) so Priority 4b (#7) can derive
+    them itself in the one case #4 never runs -- see
+    ``apply_priority_4b_final_pretax_draw``. Byte-for-byte the computation
+    #4 has always done, moved, not changed.
+    """
+    brk_yr = inflate_brackets_fn(FEDERAL_BRACKETS_MFJ, brk_inf, year - c['plan_start'])
+    # Item 3.4 (F1 Option 2): the Priority-3 elective pre-tax draw
+    # caps itself at a bracket ceiling before falling through to
+    # taxable/trust -- the withdrawal-order-equivalent CFPs actually
+    # implement ("fill ordinary income to the Nth bracket, then draw
+    # taxable") without the full cascade reorder F1 Option 1 would
+    # require. That ceiling used to be hardcoded to the 24% bracket;
+    # withdrawal_bracket_target_rate (data_io.py, default 0.24 --
+    # reproduces today's behavior exactly) makes it a real input.
+    _wd_target_rate = float(c.get('withdrawal_bracket_target_rate', 0.24) or 0.24)
+    top_24_yr = next((hi for _lo, hi, rate in brk_yr if rate == _wd_target_rate), None)
+    if top_24_yr is None:
+        raise ValueError(
+            f"withdrawal_bracket_target_rate={_wd_target_rate!r} matches no federal bracket rate "
+            f"in year={year} (available rates: {sorted({rate for _lo, _hi, rate in brk_yr})}) -- "
+            "fix withdrawal_bracket_target_rate rather than silently capping pre-tax withdrawals "
+            "against a hardcoded $400,000 bracket top"
+        )
+    irmaa_thr_yr = c['irmaa_base'] * _tk.irmaa_factor_for_year(c, year)
+    marg = marginal_rate(taxable_inc, year, filing, c['brk_inf'])
+    return top_24_yr, irmaa_thr_yr, marg
+
+
 class Priority3Result(NamedTuple):
     """Everything Priority 3 (sub-stage #4) produces that code outside it
     still needs.
 
     ``top_24_yr``/``irmaa_thr_yr``/``marg``/``ira_taxable_inc_orig``/
-    ``ira_retirement_dist_orig`` are only ever computed when ``gap > 0``
+    ``ira_retirement_dist_orig`` are only computed when ``gap > 0``
     entering this sub-stage (``None`` otherwise, matching the original
     inline code's ``if gap > 0:`` guard exactly -- the still-inline
     sub-stage #6 and the paired Priority 4b sub-stage (#7, see
     ``apply_priority_4b_final_pretax_draw`` below) both reuse these
-    unchanged rather than recomputing them, so they must be threaded
-    through the caller rather than dropped.
+    unchanged whenever they are present, so they must be threaded
+    through the caller rather than dropped). When they are ``None`` and
+    #7's own guard fires anyway, #7 derives its own from
+    ``_bracket_caps_and_marginal_rate`` rather than passing ``None`` into
+    the withdrawal helper.
 
     ``ira_wd``/``h_ira_elective``/``w_ira_elective``/``pretax_by_account``/
     ``ira_tax_true_up_iterations`` are cumulative across Priority 3 *and*
@@ -140,26 +183,10 @@ def apply_priority_3_pretax_elective(
     irmaa_thr_yr = None
     marg = None
     if gap > 0:
-        brk_yr = inflate_brackets_fn(FEDERAL_BRACKETS_MFJ, brk_inf, year - c['plan_start'])
-        # Item 3.4 (F1 Option 2): the Priority-3 elective pre-tax draw
-        # caps itself at a bracket ceiling before falling through to
-        # taxable/trust -- the withdrawal-order-equivalent CFPs actually
-        # implement ("fill ordinary income to the Nth bracket, then draw
-        # taxable") without the full cascade reorder F1 Option 1 would
-        # require. That ceiling used to be hardcoded to the 24% bracket;
-        # withdrawal_bracket_target_rate (data_io.py, default 0.24 --
-        # reproduces today's behavior exactly) makes it a real input.
-        _wd_target_rate = float(c.get('withdrawal_bracket_target_rate', 0.24) or 0.24)
-        top_24_yr = next((hi for _lo, hi, rate in brk_yr if rate == _wd_target_rate), None)
-        if top_24_yr is None:
-            raise ValueError(
-                f"withdrawal_bracket_target_rate={_wd_target_rate!r} matches no federal bracket rate "
-                f"in year={year} (available rates: {sorted({rate for _lo, _hi, rate in brk_yr})}) -- "
-                "fix withdrawal_bracket_target_rate rather than silently capping pre-tax withdrawals "
-                "against a hardcoded $400,000 bracket top"
-            )
-        irmaa_thr_yr = c['irmaa_base'] * _tk.irmaa_factor_for_year(c, year)
-        marg = marginal_rate(taxable_inc, year, filing, c['brk_inf'])
+        top_24_yr, irmaa_thr_yr, marg = _bracket_caps_and_marginal_rate(
+            c, year=year, filing=filing, taxable_inc=taxable_inc,
+            brk_inf=brk_inf, inflate_brackets_fn=inflate_brackets_fn,
+        )
         pretax_res = _legacy_pe.withdraw_pretax_elective(
             c, bal, gap, agi, taxable_inc, year, filing, top_24_yr, irmaa_thr_yr, marg,
             spend_floor_base=spend,
@@ -291,6 +318,8 @@ def apply_priority_4b_final_pretax_draw(
     marg: float | None,
     ira_taxable_inc_orig: float | None,
     ira_retirement_dist_orig: float | None,
+    brk_inf: Any,
+    inflate_brackets_fn: Callable[[Any, Any, int], Any],
     ira_elective_tax_delta_fn: Callable[..., tuple],
 ) -> Priority4bResult:
     """Withdrawal Cascade sub-stage #7 (design doc addendum): Priority 4b,
@@ -302,9 +331,13 @@ def apply_priority_4b_final_pretax_draw(
     ``ira_wd``/``h_ira_elective``/``w_ira_elective``/``pretax_by_account``/
     ``ira_tax_true_up_iterations`` (cumulative across both sub-stages, not
     reset here) and its ``top_24_yr``/``irmaa_thr_yr``/``marg``/
-    ``ira_taxable_inc_orig``/``ira_retirement_dist_orig``, which are only
-    ever computed by sub-stage #4 and never recomputed here. ``respect_tax_
-    caps=False`` is the one behavioral difference: Priority 3 respects the
+    ``ira_taxable_inc_orig``/``ira_retirement_dist_orig`` whenever #4
+    computed them -- reused untouched, never recomputed on top. The one
+    case they arrive ``None`` (#4's ``gap > 0`` guard did not fire but
+    this sub-stage's does, because Priority 4 and the LTCG/NIIT loop
+    reopened the gap) is handled in the body below rather than crashing
+    inside the withdrawal helper. ``respect_tax_caps=False`` is the one
+    behavioral difference: Priority 3 respects the
     bracket/IRMAA cap and can stop short of the full gap; this pass is the
     explicit last-resort override so Roth (Priority 5) is never tapped
     while pre-tax capacity remains -- the exact invariant
@@ -327,6 +360,35 @@ def apply_priority_4b_final_pretax_draw(
     original inline code's ``if`` gate exactly.
     """
     if gap > 0 and sum(max(0.0, float(bal.get(_aid, 0.0) or 0.0)) for _aid in c.get('pre_tax_ids', [])) > 0:
+        if top_24_yr is None or irmaa_thr_yr is None or marg is None:
+            # Sub-stage #4 left these ``None`` because its own ``gap > 0``
+            # guard did not fire, yet this sub-stage's guard does: the
+            # cascade between the two (Priority 4's taxable/trust draw and
+            # the LTCG/NIIT fixed-point loop) can reopen a gap that was
+            # closed, or zero, when #4 looked at it. Passing the ``None``s
+            # straight through crashed inside
+            # ``withdraw_pretax_elective``'s ``min(bracket_top_24,
+            # irmaa_threshold)`` (TypeError: NoneType < NoneType), which
+            # took down the whole projection over what is usually a
+            # sub-dollar residual gap. Derive them the same way #4 would
+            # have, from this sub-stage's own (post-#4, post-#5, post-#6)
+            # taxable income. When #4 did run, its values are reused
+            # untouched exactly as before -- this branch cannot fire, so no
+            # pinned figure moves.
+            top_24_yr, irmaa_thr_yr, marg = _bracket_caps_and_marginal_rate(
+                c, year=year, filing=filing, taxable_inc=taxable_inc,
+                brk_inf=brk_inf, inflate_brackets_fn=inflate_brackets_fn,
+            )
+        if ira_taxable_inc_orig is None:
+            # Same cause, same reasoning: the true-up helper's contract is
+            # new_tax = tax_fn(baseline + cumulative ira_wd). #4 captures
+            # the baselines before its own draw mutates taxable_inc; with
+            # #4 skipped, ``ira_wd`` is still 0 here, so this sub-stage's
+            # entry values ARE the untouched pre-elective-withdrawal
+            # baselines.
+            ira_taxable_inc_orig = taxable_inc
+        if ira_retirement_dist_orig is None:
+            ira_retirement_dist_orig = retirement_dist
         pretax_res2 = _legacy_pe.withdraw_pretax_elective(
             c, bal, gap, agi, taxable_inc, year, filing, top_24_yr, irmaa_thr_yr, marg,
             respect_tax_caps=False, spend_floor_base=spend,
