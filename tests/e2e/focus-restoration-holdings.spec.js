@@ -14,7 +14,7 @@
 // dashboard_decomp_holdings.js) calls renderMain() synchronously, replacing
 // the <select> itself out from under the very change event that is still
 // being handled.
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 import { openCurrentPlan, navigateToStep } from './helpers.js';
 
 test('changing the Holdings account filter keeps it focused after the autosave rerender', async ({ page }) => {

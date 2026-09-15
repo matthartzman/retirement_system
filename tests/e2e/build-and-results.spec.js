@@ -4,7 +4,7 @@
 // This spec found a genuine, previously-undetected server-side bug while
 // being written, not a test-infrastructure issue: see the "Build failed"
 // section below.
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 import { openCurrentPlan, navigateToStep, triggerBuildAndWaitForOverlay } from './helpers.js';
 
 test('triggering a build renders real results in Results Explorer', async ({ page }) => {

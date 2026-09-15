@@ -16,7 +16,7 @@
 // call setSelectionRange/.select()) does not misbehave for a value that
 // legitimately changed because the user just picked a new option -- e.g. by
 // somehow leaving the select showing the OLD option, or throwing.
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 import { openCurrentPlan, navigateToStep } from './helpers.js';
 
 test('changing the YTD category filter keeps it focused, on the newly chosen option, after the autosave rerender', async ({ page }) => {

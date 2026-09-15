@@ -4,7 +4,7 @@
 // the content (aside.card.side{position:static}), pushing every step's
 // content down a full screen height on a narrow desktop/tablet window.
 // dashboard.css now reuses the same drawer pattern up through 1180px.
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 import { openCurrentPlan } from './helpers.js';
 
 test('the off-canvas nav drawer activates on a narrow desktop window (1000px), not just phone widths', async ({ page }) => {

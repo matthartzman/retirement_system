@@ -69,10 +69,16 @@ jobs:
     # the step died with "Could not find a part of the path" BEFORE pytest ran.
     # The job then reported failure on every commit -- including docs-only ones
     # -- while executing zero tests, so a red CI here meant nothing at all.
+    # -n auto (pytest-xdist, already in requirements-dev.txt) runs the
+    # ~20+ independent build-subprocess tests in
+    # test_all_modules_off_build_functional.py concurrently instead of
+    # serially -- that sweep alone was the dominant cost of a full run.
+    # Same command documentation/reference/CLAUDE.md already tells
+    # developers to use locally; CI was the one place still running serial.
     - name: Run tests
       shell: bash
       run: |
-        pytest tests/ --tb=short -q --cov=src --cov-report=xml -v > /tmp/pytest_output.txt 2>&1 || TEST_EXIT=$?
+        pytest tests/ -n auto --tb=short -q --cov=src --cov-report=xml -v > /tmp/pytest_output.txt 2>&1 || TEST_EXIT=$?
         cat /tmp/pytest_output.txt
         exit ${TEST_EXIT:-0}
 
@@ -147,8 +153,20 @@ jobs:
     - name: Install Node dependencies
       run: npm ci
 
+    # Cache the downloaded browser binary keyed on the exact @playwright/test
+    # version (from package-lock.json, not package.json's range) -- `npx
+    # playwright install` otherwise re-downloads Chromium on every single CI
+    # run. Invalidates itself automatically on a version bump.
+    - name: Cache Playwright browsers
+      uses: actions/cache@v4
+      id: playwright-cache
+      with:
+        path: ~/AppData/Local/ms-playwright
+        key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
     - name: Install Playwright Chromium
-      run: npx playwright install chromium
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      run: npx playwright install chromium --with-deps
 
     - name: Run E2E suite
       run: npx playwright test

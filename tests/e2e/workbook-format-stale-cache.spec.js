@@ -15,120 +15,18 @@
 // sandbox test (see tests/frontend/) cannot exercise -- that harness only
 // targets pure functions with no shared state or network dependency, and
 // this fix is neither.
-import { test, expect } from '@playwright/test';
-import { openCurrentPlan, navigateToStep } from './helpers.js';
+import { test, expect } from './fixtures.js';
+import { openCurrentPlan, navigateToStep, triggerBuildAndWaitForOverlay, ensureWorkbookBuilt } from './helpers.js';
 
-// helpers.js's triggerBuildAndWaitForOverlay hard-codes an 80s wait, sized
-// for a build running in isolation. Under concurrent load (multiple build
-// subprocesses contending for the same machine -- observed directly while
-// writing this test) a real build can run well past that without being
-// stuck, just slow, so this test polls with its own more patient timeout
-// instead of adopting the shared helper's budget for every other spec too.
-async function triggerBuildAndWaitPatiently(page) {
-  // "Build Reports" is rendered contextually (onclick="runBuild(false)"), not
-  // by the app shell -- the home page has one, the Workbook Formatting page
-  // does not. This test's SECOND build is triggered while sitting on Workbook
-  // Formatting, whose only build affordance is a "Rebuild now" button that is
-  // pure navigation (data-step-id="reports_and_review"), not a trigger. The
-  // previous unconditional click therefore auto-waited on a button that page
-  // never renders, silently consuming the entire test budget and surfacing as
-  // a timeout inside the finally block rather than a missing-button error --
-  // which is why raising the timeout from 700s to 1800s changed nothing.
-  // Go where the page's own "Rebuild now" shortcut points, then build.
-  //
-  // The click-and-verify loop below exists because of a real DOM race, not
-  // timing that a longer wait fixes: right after openCurrentPlan() resolves,
-  // the header banner (the thing that decides whether "Build Reports" exists
-  // at all) is still catching up to two of loadAll()'s deliberately
-  // un-awaited tail promises (refreshBuildStatus(), fetchCurrentSummaryKpi()
-  // -- see #201's comment on loadAll() for why they're fire-and-forget).
-  // openCurrentPlan() waits for window.planLoaded, which is necessary but
-  // not sufficient: the banner can still re-render (a raw innerHTML swap,
-  // not a framework with stable element identity) in the same window
-  // Playwright resolves "Build Reports" as visible and dispatches the click.
-  // When that lands badly, .click() succeeds against a DOM node whose
-  // onclick reference is detached microtasks later, runBuild() never starts,
-  // and the overlay sits on "Loading plan" (loadAll()'s own title) for the
-  // rest of the test's budget -- reproduced directly by instrumenting this
-  // exact sequence; no single flag to await closes the window. So each
-  // attempt below confirms the click actually landed (the overlay going
-  // active, or the preflight-warnings modal appearing, are only possible
-  // once runBuild() has genuinely started) and retries the full find+click
-  // cycle if it didn't, rather than trusting one click blindly.
-  const build = page.getByRole('button', { name: 'Build Reports' }).first();
-  const overlay = page.locator('#buildOverlay.active');
-  const continueBuild = page.locator('.inapp-confirm', { hasText: 'Continue Build' });
-  const deadline = Date.now() + 60_000;
-  let started = false;
-  while (Date.now() < deadline) {
-    if (!(await build.isVisible().catch(() => false))) {
-      // Reports & Review's redesign put "Build Reports" in the page's
-      // persistent header (primaryActionForStep(), dashboard.js) -- it
-      // renders as soon as activeStep is "reports_and_review", with no tab
-      // to also select.
-      await navigateToStep(page, 'reports_and_review', 'Reports & Review');
-    }
-    if (!(await build.isVisible().catch(() => false))) {
-      await page.waitForTimeout(500);
-      continue;
-    }
-    // Reports & Review redesign (2026-09-10): this header button is disabled
-    // once a build has already succeeded and nothing is dirty
-    // (reportsAndReviewCanBuild(), dashboard_decomp_row_model.js) -- "there's
-    // nothing a build would change." In the shared-server E2E suite an
-    // earlier spec's real build leaves exactly that state behind, and
-    // Playwright's .click() auto-wait on a disabled button silently consumes
-    // this whole loop's budget (confirmed directly: the failure here was a
-    // hang to exactly this function's 700s test timeout, not a real stuck
-    // build) instead of failing fast. Same fix as helpers.js's
-    // triggerBuildAndWaitForOverlay: flip the same plain boolean flag a real
-    // edit would and re-render so the button's disabled state recomputes.
-    let forcedDirtyToEnableBuild = false;
-    if (!(await build.isEnabled().catch(() => false))) {
-      await page.evaluate(() => {
-        window.liabilitiesChanged = true;
-        window.renderMain();
-      });
-      await build.waitFor({ state: 'visible' }).catch(() => {});
-      if (!(await build.isEnabled().catch(() => false))) {
-        await page.waitForTimeout(500);
-        continue;
-      }
-      forcedDirtyToEnableBuild = true;
-    }
-    await build.click();
-    started = await Promise.race([
-      overlay.waitFor({ state: 'visible', timeout: 3_000 }).then(() => true),
-      continueBuild.waitFor({ state: 'visible', timeout: 3_000 }).then(() => true),
-    ]).catch(() => false);
-    // Belt-and-suspenders alongside helpers.js's triggerBuildAndWaitForOverlay
-    // fix -- this test's own builds are real (not intercepted), so the
-    // normal save-success path already clears liabilitiesChanged, but don't
-    // depend on that for a build this loop had to force-dirty to even reach.
-    if (forcedDirtyToEnableBuild) {
-      await page.evaluate(() => {
-        window.liabilitiesChanged = false;
-      });
-    }
-    if (started) break;
-  }
-  // Bounded wait so a genuinely missing button fails fast and legibly instead
-  // of hanging until the test timeout.
-  if (!started) {
-    await expect(build, 'clicking "Build Reports" never started a build').toBeVisible({
-      timeout: 5_000,
-    });
-  }
-  if (await continueBuild.isVisible().catch(() => false)) {
-    await continueBuild.click();
-  }
-  const title = page.locator('.build-overlay .build-progress-title');
-  await expect(title, 'build overlay never reached a terminal state').toHaveText(
-    /^Build (complete|failed)$/,
-    { timeout: 300_000 },
-  );
-  return title.innerText();
-}
+// This file used to fork its own copy of helpers.js's triggerBuildAndWaitForOverlay
+// (a "more patient" version, on the theory that this test's build could run
+// under heavier concurrent load than every other spec's). E2E efficiency
+// review (2026-09-15): with per-worker isolated servers (fixtures.js) that
+// contention no longer applies -- this test's build competes with, at most,
+// the small number of OTHER workers' builds, the same as any other
+// build-triggering spec -- so the fork bought nothing but a second place for
+// this exact retry/force-dirty logic to drift out of sync with the shared
+// one. Use the shared helper.
 
 // Sheet/table <details> are collapsed by default, and their open/closed
 // state is tracked in a JS Set (wfOpen) that a re-render regenerates the
@@ -147,15 +45,16 @@ async function expandFirstColumn(page) {
 }
 
 test('a rebuilt column width replaces the stale "Last built" value after navigating away and back', async ({ page }) => {
-  // Two full builds in this one test (the isolated e2e workspace starts with
-  // no workbook at all, so Workbook Formatting has nothing to show until one
-  // exists; the second is the actual regression this test guards), each
-  // potentially slow under load -- see triggerBuildAndWaitPatiently above.
-  test.setTimeout(700_000);
+  // This test always triggers one real build itself below -- the actual
+  // cache-invalidation regression under test. If it also happens to be the
+  // first spec Playwright schedules onto a fresh worker, ensureWorkbookBuilt()
+  // pays for a SECOND real build first (Workbook Formatting has nothing to
+  // show, and no "Last built" baseline to compare against, until one
+  // exists). Budget for both in the worst case.
+  test.setTimeout(500_000);
 
   await openCurrentPlan(page);
-  expect(await triggerBuildAndWaitPatiently(page)).toBe('Build complete');
-
+  await ensureWorkbookBuilt(page);
   await navigateToStep(page, 'workbook_formatting', 'Workbook Formatting');
 
   const firstRow = await expandFirstColumn(page);
@@ -180,7 +79,7 @@ test('a rebuilt column width replaces the stale "Last built" value after navigat
   await expect(firstRow.locator('.wf-col-default')).toHaveText(`Last built: ${originalWidth}`);
 
   try {
-    const finalTitle = await triggerBuildAndWaitPatiently(page);
+    const finalTitle = await triggerBuildAndWaitForOverlay(page);
     expect(finalTitle).toBe('Build complete');
 
     // The actual regression: navigate away, then back, with no page reload.

@@ -15,7 +15,7 @@
 // fighting fast typing -- if capture-and-restore raced with the next
 // keystroke, or restored a stale caret position, typing several characters
 // quickly could visibly stutter, drop characters, or misplace the cursor.
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.js';
 import { openCurrentPlan, navigateToStep } from './helpers.js';
 
 test('typing in the YTD transaction search box survives the per-keystroke re-render, including under fast typing', async ({ page }) => {
