@@ -58,9 +58,15 @@ def _estimate_for_location(loc: Location, housing_type: str) -> dict[str, Any]:
 
 
 def _purchase_price_for_location(loc: Location) -> float:
+    """Price range midpoint, else the ZIP-scaled screening estimate
+    (Location.est_price), else a flat state-level estimate. The middle tier
+    makes a buy move's actual cost basis match the ZIP-specific number the
+    results table shows -- see Location.est_price's docstring in models.py."""
     if loc.target_purchase_price_range:
         lo, hi = loc.target_purchase_price_range
         return (float(lo) + float(hi)) / 2.0
+    if loc.est_price:
+        return float(loc.est_price)
     return float(_estimate_for_location(loc, 'purchase')['purchase_price'])
 
 
