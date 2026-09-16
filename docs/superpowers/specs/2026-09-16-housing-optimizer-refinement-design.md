@@ -4240,12 +4240,35 @@ exercised. What was confirmed live, not by proxy:
   restore on re-entering the step, the results area comes back empty, and
   nothing result-shaped is ever stored.
 
-A full optimization could not be run end to end: this worktree has an empty
-local database, so `require_residence_state_for_build` rejects the request at
-`plan_routes.py:758` before the optimizer is reached. That is environmental,
-not a defect in this work — but it means **the optimizer has still never been
-run against a real plan through the HTTP layer.** Do that against a populated
-plan folder before merging; `tools/housing_lab.py` is the cheaper way to do it.
+### End-to-end runs against a real plan (done 2026-09-16)
+
+`tools/housing_lab.py` was run against `input/demo` (residence_state=Illinois),
+which drives the real `optimize_housing` path, the real deterministic engine and
+the real Monte Carlo runner:
+
+| Run | Candidates | Result |
+|---|---|---|
+| One move, 2 locations, sale 2030–31, acquire 2030–32 | 22 in 57.6s | Top: `Sell 2030 / Rent 2032 Texas` — NW 8,910,188, MC 97.8%. `rejected {'dual_ownership': 2}` |
+| Two moves, `--dispositions auto`, move 2 2033–34 | 58 in 38.3s | Top: `Sell 2030 / Rent 2031 TX / Rent 2034 TX` — NW 8,896,713. `rejected {'dual_ownership': 6}` |
+| `--dispositions keep` | 2 in 15.3s | `Keep / Rent 2031 TX` — NW 6,588,349, lifetime cost 2,284,392, MC 78.7% |
+
+What these prove that no unit test did:
+
+- **Sale and acquisition really are independent** — `Sell 2030 / Rent 2032` is a
+  candidate the old welded model could not express.
+- **Rent is an action with a real year**, not a missing one.
+- **`Keep` is generated, scored and honest.** Against selling it costs ~2.3M
+  more in lifetime housing cost and ~2.3M less in ending net worth, which is
+  what a cost centre with no rental income should look like. It is not silently
+  dropped, and it does not spuriously win.
+- **The rejection tally populates in a real run**, and rises with the candidate
+  count (2 → 6) as keep+buy and buy-before-sale combinations are refused.
+
+Still only unit-tested: `api.py`'s HTTP request parsing. The harness calls
+`optimize_housing` directly, so the route itself (`POST /api/housing/optimize`)
+has not carried a real plan end to end — the dev server in this worktree has an
+empty database and rejects at `plan_routes.py:758` before the optimizer runs.
+Exercise the route against a populated plan folder before merging.
 
 ### Still not verified
 
