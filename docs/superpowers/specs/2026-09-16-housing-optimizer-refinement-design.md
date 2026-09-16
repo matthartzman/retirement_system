@@ -2528,6 +2528,20 @@ regardless of distance. Unknown ZIPs fail closed."
   emitting `schema='housing_optimize_v2'`, a `candidates` list, and `recommendation` as an
   alias of `candidates[0]`.
 
+> **Amendment, 2026-09-16 (before Task 8).** The screening-derived display fields are
+> **real optional fields on `Location`**, not attributes spliced on dynamically. This
+> plan originally had `api.py` attach them with `object.__setattr__` on a copy and
+> `results.py` read them back with `getattr(loc, 'city', None)`. That works — a frozen
+> dataclass without `slots=True` still has a `__dict__` — but it is untyped, invisible
+> to readers and tooling, and any `dataclasses.replace()` on the Location silently drops
+> them. `Location.zip_code` is already documented as display-only, so these belong
+> beside it.
+>
+> Add to `Location`, all defaulting to `None`: `city: str | None`, `nss: float | None`,
+> `band: str | None`, `distance_miles: float | None`, `family_distance_miles: float |
+> None`, `est_price: float | None`. `_format_location` then reads them directly, and
+> Task 10's splice becomes `dataclasses.replace(loc, city=..., nss=..., ...)`.
+
 - [ ] **Step 1: Write the failing test**
 
 ```python
