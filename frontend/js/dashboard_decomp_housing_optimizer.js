@@ -684,10 +684,23 @@ export async function previewHousingZipShortlist(moveIndex) {
 }
 
 // ---------------------------------------------------------------------------
-// Results (§9.4) -- Task 13 rewrites these for the v2 candidates payload.
+// Results (§9.4)
 // ---------------------------------------------------------------------------
 
-export function renderHousingZipShortlistHtml(payload) {
+// Human labels for the emptying-funnel field a relaxation hint names, so the
+// suggestion reads as "the population cap" rather than the raw field name --
+// and never defaults to "lowering the minimum score", which is only correct
+// when `stage` really is `above_score` (design §9.4, Task 10's relaxation
+// carries a `stage` naming the binding constraint precisely so this doesn't
+// have to guess).
+const HOUSING_ZIP_RELAX_FIELD_LABELS = {
+  min_quality_score: "the minimum score",
+  area_type: "the area type filter",
+  max_population: "the population cap",
+  target_purchase_price_range: "the target price range",
+};
+
+export function renderHousingZipShortlistHtml(payload, opts = {}) {
   const zs = payload && payload.zip_screen;
   if (!zs) return "";
   const note = `<div class="section-note">${esc(housingZipFunnelText(zs.funnel))}</div>`;
@@ -698,12 +711,22 @@ export function renderHousingZipShortlistHtml(payload) {
       : "";
     return note + relax + disclosure;
   }
-  const rows = zs.shortlist.map(housingZipRowHtml).join("");
-  const table = `<table class="lot-table scenario-diff-table housing-optimize-table"><thead><tr><th>ZIP</th><th>Distance</th><th>Stability score</th><th>Est. price</th></tr></thead><tbody>${rows}</tbody></table>`;
+  // "From family" only earns a column when there is family data to show --
+  // the plain zip-screen preview never annotates family_distance_miles (only
+  // a full optimizer run with family_presence set does), so an explicit
+  // opts.familyPresence lets a caller force it while the data itself is the
+  // default signal.
+  const familyPresence =
+    opts.familyPresence != null
+      ? !!opts.familyPresence
+      : zs.shortlist.some((z) => z.family_distance_miles != null);
+  const rows = zs.shortlist.map((z) => housingZipRowHtml(z, familyPresence)).join("");
+  const familyHeader = familyPresence ? "<th>From family</th>" : "";
+  const table = `<table class="lot-table scenario-diff-table housing-optimize-table"><thead><tr><th>ZIP</th><th>Distance</th><th>Area type</th><th>Population</th><th>Stability score</th><th>Est. price</th>${familyHeader}</tr></thead><tbody>${rows}</tbody></table>`;
   return note + table + disclosure;
 }
 
-function housingZipRowHtml(z) {
+function housingZipRowHtml(z, familyPresence) {
   const cross = z.cross_state
     ? ` <span class="small warning">${esc(z.cross_state)} — different state tax treatment</span>`
     : "";
@@ -713,37 +736,180 @@ function housingZipRowHtml(z) {
     : "";
   const coverage =
     z.coverage_pct < 100 ? ` <span class="small">(${z.coverage_pct}% data coverage)</span>` : "";
+  const areaType = z.area_type
+    ? esc(z.area_type.charAt(0).toUpperCase() + z.area_type.slice(1))
+    : "—";
+  const population = z.population != null ? Number(z.population).toLocaleString() : "—";
+  const familyCell = familyPresence
+    ? `<td>${z.family_distance_miles != null ? `${z.family_distance_miles} mi` : "—"}</td>`
+    : "";
   return `<tr><td>${esc(z.zip)} — ${esc(z.city)}, ${esc(z.state)}${cross}${collapsed}</td>
     <td>${z.distance_miles} mi</td>
+    <td>${areaType}</td>
+    <td>${population}</td>
     <td>${z.nss} <span class="small">${esc(z.band)}</span>${upi}${coverage}</td>
-    <td>$${Math.round(z.est_price).toLocaleString()}</td></tr>`;
+    <td>$${Math.round(z.est_price).toLocaleString()}</td>${familyCell}</tr>`;
 }
 
+// Nine stages (design §9.4/§7.2): in_radius -> with_data -> above_score ->
+// matching_area_type -> under_population_cap -> affordable -> distinct ->
+// near_family -> promoted. `distinct` replaced the old `after_dedup` name
+// when the multi-anchor union and the near-family stage were added.
 function housingZipFunnelText(f) {
   if (!f) return "";
-  return `${f.in_radius} ZIPs in range → ${f.with_data} with data → ${f.above_score} above the score floor → ${f.affordable} affordable → ${f.after_dedup} distinct → ${f.promoted} sent to the optimizer`;
+  return (
+    `${f.in_radius} ZIPs in range → ${f.with_data} with data → ` +
+    `${f.above_score} above the score floor → ${f.matching_area_type} matching area type → ` +
+    `${f.under_population_cap} under the population cap → ${f.affordable} affordable → ` +
+    `${f.distinct} distinct → ${f.near_family} near family → ${f.promoted} sent to the optimizer`
+  );
 }
 
+// `r.stage` names the binding constraint precisely (Task 10); using it rather
+// than always saying "lowering the minimum score" matters because the
+// population cap or the area-type filter can just as easily be what emptied
+// the funnel.
 function housingZipRelaxationText(r) {
   if (!r) return "";
-  return `Lowering the minimum score to ${r.suggested} would return ${r.would_return}.`;
+  const label = HOUSING_ZIP_RELAX_FIELD_LABELS[r.field] || r.field;
+  const stageNote = r.stage ? `The "${r.stage.replace(/_/g, " ")}" stage emptied the funnel. ` : "";
+  return `${stageNote}Relaxing ${label} to ${r.suggested} would return ${r.would_return}.`;
+}
+
+// Human labels for the `rejections` tally (design §9.4/Task 10's known gap).
+const HOUSING_OPT_REJECTION_LABELS = {
+  dual_ownership: "dual ownership",
+  family_presence: "family presence",
+  move_order: "move order",
+};
+
+// A zero count is omitted rather than rendered: `rejections['move_order']` is
+// only measured in `search_mode='full'` -- in narrowed mode the generators
+// drop out-of-order move-2 points inside their own loops before the tally
+// ever sees them, so it reads 0 there even though the rule was never
+// actually checked. Displaying "0 rejected for move order" would assert
+// something the optimizer did not measure (design §8, "Known gap (Task 9,
+// 2026-09-16)").
+function housingOptRejectionParts(rejections) {
+  const parts = [];
+  for (const key of Object.keys(rejections || {})) {
+    const n = rejections[key];
+    if (!n) continue;
+    parts.push(`${n} rejected for ${HOUSING_OPT_REJECTION_LABELS[key] || key}`);
+  }
+  return parts;
+}
+
+// The zip screen's own relaxation hint (if any) names the binding constraint
+// that emptied ITS funnel, which is a different diagnosis than the
+// optimizer-level rejections tally: a move's shortlist can be non-empty while
+// the optimizer still rejects every combination it produces (e.g. every
+// candidate would require dual ownership).
+function housingOptEmptyFunnelParts(zipScreens) {
+  const parts = [];
+  for (const key of ["move1", "move2"]) {
+    const zs = zipScreens && zipScreens[key];
+    if (zs && zs.relaxation) {
+      const label = key === "move1" ? "Move 1" : "Move 2";
+      parts.push(`${label}: ${housingZipRelaxationText(zs.relaxation)}`);
+    }
+  }
+  return parts;
+}
+
+function renderHousingOptimizeEmptyHtml(payload) {
+  const rejectionParts = housingOptRejectionParts(payload.rejections);
+  const funnelParts = housingOptEmptyFunnelParts(payload.zip_screens);
+  if (!rejectionParts.length && !funnelParts.length) {
+    return '<p class="small">No candidates satisfied the search windows and constraints.</p>';
+  }
+  const rejectionHtml = rejectionParts.length
+    ? `<p class="small">${esc(rejectionParts.join("; ") + ".")}</p>`
+    : "";
+  const funnelHtml = funnelParts.length
+    ? `<p class="small">${funnelParts.map((p) => esc(p)).join("</p><p class=\"small\">")}</p>`
+    : "";
+  return `<div class="housing-opt-empty">${rejectionHtml}${funnelHtml}</div>`;
+}
+
+function housingOptCurrentHomeHtml(originalHome) {
+  if (!originalHome) return "—";
+  if (originalHome.disposition === "keep") return "Keep";
+  return originalHome.sale_year != null ? `Sell ${originalHome.sale_year}` : "Sell";
+}
+
+function housingOptActionLabel(action) {
+  if (!action) return "";
+  return action.charAt(0).toUpperCase() + action.slice(1);
+}
+
+// `${year} · ${Buy|Rent} · ${zip} ${city}, ${state} · ${price} · ${distance} mi`
+// (design §9.4), appending `· ${n} mi from family` only when
+// family_distance_miles is non-null, so a plain search (no family presence)
+// never implies a family-distance measurement that was never taken.
+function housingOptMoveCellHtml(move) {
+  if (!move) return "—";
+  const loc = move.location || {};
+  const price = loc.est_price != null ? `$${Math.round(loc.est_price).toLocaleString()}` : "—";
+  const distance = loc.distance_miles != null ? `${Number(loc.distance_miles).toFixed(1)} mi` : "—";
+  let text =
+    `${move.acquisition_year} · ${housingOptActionLabel(move.action)} · ` +
+    `${loc.zip_code || ""} ${loc.city || ""}, ${loc.state || ""} · ${price} · ${distance}`;
+  if (loc.family_distance_miles != null) {
+    text += ` · ${loc.family_distance_miles} mi from family`;
+  }
+  return esc(text);
+}
+
+const HOUSING_OPT_OBJECTIVE_FORMATTERS = {
+  net_worth: (v) => (v != null ? `$${Math.round(v).toLocaleString()}` : "—"),
+  lifetime_cost: (v) => (v != null ? `$${Math.round(v).toLocaleString()}` : "—"),
+  mc_success_rate: (v) => (v != null ? `${Math.round(v * 100)}%` : "—"),
+};
+
+function housingOptResultObjectiveHtml(c, objective) {
+  const fmt = HOUSING_OPT_OBJECTIVE_FORMATTERS[objective] || ((v) => (v != null ? String(v) : "—"));
+  return esc(fmt(c.objective_value));
+}
+
+// One row per candidate (design §9.4): a rank badge, current-home
+// disposition, both move cells, the objective value, MC success, and notes.
+// Rank 1 carries the "Recommended" label and the `housing-opt-result-top`
+// class so the recommendation stays findable after the table wraps or the
+// viewer scrolls -- alternating shading and a heavy rule between results
+// (Task 14 CSS) are the other two boundary cues design §9.4 asks for.
+function housingOptResultRowHtml(c, objective) {
+  const shade = c.rank % 2 ? "housing-opt-result-odd" : "housing-opt-result-even";
+  const topClass = c.rank === 1 ? " housing-opt-result-top" : "";
+  const recommended = c.rank === 1 ? ' <span class="housing-opt-badge">Recommended</span>' : "";
+  const rankCell = `<span class="housing-opt-rank">${esc(String(c.rank))}</span>${recommended}`;
+  const moves = c.moves || [];
+  const mc = c.mc_success_rate != null ? `${Math.round(c.mc_success_rate * 100)}%` : "—";
+  const notes = (c.notes || []).length ? esc(c.notes.join("; ")) : "—";
+  return `<tr class="housing-opt-result ${shade}${topClass}">
+    <td>${rankCell}</td>
+    <td>${esc(housingOptCurrentHomeHtml(c.original_home))}</td>
+    <td>${housingOptMoveCellHtml(moves[0])}</td>
+    <td>${housingOptMoveCellHtml(moves[1])}</td>
+    <td>${housingOptResultObjectiveHtml(c, objective)}</td>
+    <td>${esc(mc)}</td>
+    <td>${notes}</td>
+  </tr>`;
 }
 
 export function renderHousingOptimizeResultsHtml(payload) {
   if (!payload) return "";
   const candidates = payload.candidates || [];
   if (!candidates.length) {
-    return '<p class="small">No candidates satisfied the search windows and constraints.</p>';
+    return renderHousingOptimizeEmptyHtml(payload);
   }
-  const objLabel =
-    HOUSING_OPT_OBJECTIVE_LABELS[payload.objective] || String(payload.objective || "");
-  const rows = candidates
-    .map(
-      (c) =>
-        `<tr><td>${esc(String(c.rank))}</td><td>${esc(objLabel)}</td><td>${esc((c.notes || []).join("; "))}</td></tr>`,
-    )
-    .join("");
-  return `<table class="lot-table scenario-diff-table housing-optimize-table"><thead><tr><th>Rank</th><th>${esc(objLabel)}</th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const rows = candidates.map((c) => housingOptResultRowHtml(c, payload.objective)).join("");
+  return (
+    '<table class="lot-table scenario-diff-table housing-optimize-table"><thead><tr>' +
+    "<th>Rank</th><th>Current home</th><th>Move 1</th><th>Move 2</th>" +
+    "<th>Objective</th><th>MC success</th><th>Notes</th>" +
+    `</tr></thead><tbody>${rows}</tbody></table>`
+  );
 }
 
 // ---------------------------------------------------------------------------
