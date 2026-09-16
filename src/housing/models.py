@@ -57,6 +57,7 @@ class Location:
     bathrooms: float = 2.0
     property_type: str = 'single_family'
     sqft_band: str = '1800_2500'
+    lot_size_band: str = 'quarter_half'
     built_within_years: int | None = None
     # Display/traceability only when this Location came from a ZIP search.
     # Nothing downstream reads it -- see src/housing/zip_screen/resolve.py.
