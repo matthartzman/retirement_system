@@ -2458,8 +2458,9 @@ function allocationTargetsValid() {
 function validateAllocationTargetsOrMessage() {
   const mode = allocationSelectionMode();
   if (mode === "user_target" && !allocationTargetsValid()) {
-    activeStep = "allocation_assets";
-    renderMain();
+    // #323: setStep() (calls renderMain() itself) so SECTION_REDIRECTS lands
+    // on Strategy -> Optimize with the section open, not a bare activeStep write.
+    setStep("allocation_assets");
     showMessage(
       "Active included/alternate target rows must total 100.00% before saving or building.",
       "error",
@@ -2467,8 +2468,7 @@ function validateAllocationTargetsOrMessage() {
     return false;
   }
   if (mode === "optimizer_recommendation" && !optimizerOverrideValid()) {
-    activeStep = "allocation_assets";
-    renderMain();
+    setStep("allocation_assets");
     showMessage(
       "Optimizer override allocation must total 100.00% when any override percentage is entered. Leave all optimizer override rows blank to use the computed optimizer target.",
       "error",
@@ -3856,8 +3856,6 @@ let renderMain = function() {
     content += renderRetirementIncome();
   else if (activeStep === "retirement_wellness")
     content += renderRetirementWellness();
-  else if (activeStep === "distribution_strategy")
-    content += renderDistributionStrategy();
   else if (activeStep === "strategy_optimize") content += renderStrategyOptimize();
   else if (activeStep === "strategy_stress") content += renderStrategyStress();
   else if (activeStep === "strategy_scenarios")

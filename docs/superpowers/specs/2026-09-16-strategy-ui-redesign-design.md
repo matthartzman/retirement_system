@@ -328,20 +328,41 @@ exist in `STEPS` and the new screens gate each section by calling
 
 ## 8. Tests affected
 
-| File | Why |
-| --- | --- |
-| `tests/test_distribution_strategy_buttons_regression.py` | Asserts on the removed hub buttons. |
-| `tests/test_planning_levers_layout_functional.py` | Asserts on the levers page layout. |
-| `tests/test_planning_levers_module_gating.py` | Its `LEVER_NAV_STEPS` list and `leverNavButton()` both die with the hub. The gating contract it protects moves to the new screens' section gates and must be re-asserted there, not dropped. |
-| `tests/test_planning_workbench_consolidation_functional.py` | Workbench becomes a section. |
-| `tests/test_optional_module_gating.py` | `state_residency` loses its `dashboard_step`. |
-| `tests/frontend/step_help_live_links.test.mjs` | Help links retarget. |
-| `tests/fixtures/frontend_source_grep_baseline.json` | Source census regenerates. |
-| `tests/test_frontend_size_ratchet.py` | `DASHBOARD_JS_MAX_LINES` drops to the new size. |
+As actually landed, not as originally predicted:
 
-New coverage: section gating on all three screens, `SECTION_REDIRECTS`
-resolution for every row of the table in §2, and `rowsForStep()` aggregation for
-the three new ids.
+| File | What happened |
+| --- | --- |
+| `tests/test_distribution_strategy_buttons_regression.py` | Trimmed: the two tests asserting on the deleted hub/`renderDistributionStrategy()` are replaced by two "gone" checks; the three tests protecting things that survived (`allocation_policy` nesting, the live `activeStep` branches, the redirect table) are untouched. |
+| `tests/test_planning_levers_layout_functional.py` | One test rewritten from "the LTC quick-nav button is correctly gated" to "the hub is gone entirely, including the LTC button" — the gating contract itself moved, not disappeared. |
+| `tests/test_planning_levers_module_gating.py` | **Deleted**, not edited — superseded outright by `tests/test_strategy_workspace_module_gating.py`, which asserts the same `stepGatedByOptionalModule()`/`step_gate_map()` contract against the eleven `strategySection()` gates in their new home. Keeping both would have left one permanently failing. |
+| `tests/test_strategy_workspace_module_gating.py` | New. Added to `frontend_source_grep_baseline.json` — it's a genuine cross-language check (JS `gate:` literals against Python's `step_gate_map()`) that can't move to the Node sandbox, which is what that guard's own preference order asks for first. |
+| `tests/test_planning_workbench_consolidation_functional.py` | Updated in Task 3, not Task 5 — its pre-plan-route assertions moved to `strategy_scenarios`. |
+| `tests/test_optional_module_gating.py` | Needed no change — none of its assertions touch `state_residency`'s `dashboard_step`. |
+| `tests/frontend/step_help_live_links.test.mjs` | Updated in Task 3: the three `helpLink`s that pointed at `distribution_strategy` now point at `roth_conversion`, plus a reachability check. |
+| `tests/fixtures/frontend_source_grep_baseline.json` | One line added (`test_strategy_workspace_module_gating.py`), not regenerated wholesale. |
+| `tests/test_frontend_size_ratchet.py` | `DASHBOARD_JS_MAX_LINES` lowered from 7,320 to 7,293, the size after every deletion in this ticket. |
+| `tests/test_holding_period_ui_wiring_functional.py` | Not predicted. Its smoke test poked `activeStep = 'distribution_strategy'` directly to prove `requestAllocationPreview()`'s guard fired; retargeted to `strategy_optimize`, the id that guard now actually checks. |
+
+New coverage beyond what was predicted: `requestAllocationPreview()`'s
+activeStep guard now checks `strategy_optimize` (two call sites, both found by
+reading the function rather than assumed from the redirect table);
+`validateAllocationTargetsOrMessage()` — a direct `activeStep` write that
+bypassed `setStep()` entirely and was the only other live path setting
+`activeStep` to a since-retired id — now routes through `setStep()` so
+`SECTION_REDIRECTS` resolves it like everything else; the dead `State
+Comparison` block deletion is backed by a routing-level proof (a synthetic row
+never reaches `rawRowsForStep("scenarios")`) rather than a source-text check.
+
+**Known follow-up, not actioned in this ticket:** `validateAllocationTargetsOrMessage()`'s fix was the *only* remaining direct write to `activeStep` for a
+step id `SECTION_REDIRECTS` also covers. With it fixed, `renderMain()`'s
+`activeStep === "roth_conversion"` / `"allocation_assets"` branches (and by the
+same reasoning, likely several other SECTION_REDIRECTS-covered branches) are
+now provably unreachable through any real navigation path — confirmed by
+grepping every direct write to `activeStep` in the file. They are harmless
+(the branches never run, so nothing is broken) but are new dead code, a
+smaller instance of the exact pattern this redesign removes elsewhere. Left
+in place rather than pulled into this already-large task; worth a follow-up
+pass to verify each one and remove what's confirmed dead.
 
 ---
 

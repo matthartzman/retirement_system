@@ -64,6 +64,7 @@
   "test_spending_reconciliation_fields_functional.py",
   "test_spending_tracker_refinements_functional.py",
   "test_state_input_dropdown_functional.py",
+  "test_strategy_workspace_module_gating.py",
   "test_strategy_workspace_screens_functional.py",
   "test_ui_dependency_ordering_functional.py",
   "test_ui_responsibility_split.py",

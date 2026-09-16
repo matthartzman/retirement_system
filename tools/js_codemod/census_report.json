@@ -4041,12 +4041,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "activeStep",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
       "name": "allocationPreviewFingerprint",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "call",
@@ -4174,12 +4168,6 @@
     },
     {
       "name": "allocationPreviewSeq",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "activeStep",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
       "scope": "inside-function"

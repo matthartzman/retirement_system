@@ -1,12 +1,20 @@
-"""Ticket 284: Roth Conversion and Asset Allocation are plain navigation
-buttons on the Distribution Strategy page, not embedded <details> sections.
+"""Ticket 284 (superseded in part by ticket 323): Roth Conversion and Asset
+Allocation were plain navigation buttons on the Distribution Strategy page,
+not embedded <details> sections.
 
-Guards the three things that regress silently if this is undone:
-  - the decide card renders data-step-id nav buttons for roth_conversion and
-    allocation_assets (not inline embeds)
-  - the decide-embed markup is gone from renderDistributionStrategy
-  - allocation_policy stays reachable, nested under allocation_assets, without
-    getting its own nav entry / seventh button
+Ticket 323 deleted both renderDistributionStrategy() (a one-line wrapper
+around renderPlanningLevers()) and the Planning Levers quick-nav hub that
+held the "decide card" buttons this file used to assert on -- every one of
+those destinations now has a real, permanent nav entry of its own instead
+(one of the three Strategy screens), so the hub was exactly the redundancy
+the redesign removes. The two tests that asserted directly on that deleted
+code are gone with it.
+
+What ticket 284 actually still protects -- that allocation_policy stays
+reachable, nested under allocation_assets, without an entry of its own --
+remains true and is still asserted below, now against
+dashboard_decomp_strategy_workspace.js's Asset Allocation section, which is
+where that nesting now lives.
 """
 
 import re
@@ -28,41 +36,22 @@ def _planning_levers_body(js):
     return m.group(1)
 
 
-def test_distribution_strategy_is_lever_hub_with_no_embeds():
+def test_render_distribution_strategy_is_gone():
     js = dashboard_js_text()
-    m = re.search(
-        r"export function renderDistributionStrategy\(\) \{\n(.*?)\n\}\n",
-        js,
-        re.S,
-    )
-    assert m, "renderDistributionStrategy body not found"
-    body = m.group(1)
-
-    assert "decide-embed" not in body
-    assert "renderPlanningLevers()" in body
-    assert "renderRothConversion(" not in body
-    assert "renderAllocationRecommendation(" not in body
+    assert "function renderDistributionStrategy" not in js
+    assert 'activeStep === "distribution_strategy"' not in js
 
 
-def test_decide_card_has_six_buttons_including_roth_and_allocation():
+def test_planning_levers_no_longer_has_a_decide_card():
+    # The quick-nav hub (and leverNavButton(), its helper) that used to sit
+    # here is fully removed -- see
+    # test_planning_levers_layout_functional.py::test_planning_levers_no_longer_carries_its_own_quick_nav_hub
+    # and test_strategy_workspace_module_gating.py for the module-gating
+    # contract that moved with it onto the new screens.
     js = dashboard_js_text()
     fn = _planning_levers_body(js)
-
-    assert 'leverNavButton("roth_conversion", "Roth conversion")' in fn
-    assert (
-        'leverNavButton("allocation_assets", "Asset allocation & location")' in fn
-    )
-    assert 'leverNavButton("spending_core", "Withdrawal order")' in fn
-    assert 'leverNavButton("income_retirement", "Social Security")' in fn
-    assert 'leverNavButton("entity_charitable", "Charitable giving")' in fn
-    assert 'leverNavButton("heloc_strategy", "HELOC strategy")' in fn
-
-    decide_button_calls = re.findall(
-        r'leverNavButton\("(roth_conversion|allocation_assets|spending_core|'
-        r'income_retirement|entity_charitable|heloc_strategy)"',
-        fn,
-    )
-    assert len(decide_button_calls) == 6
+    assert "function leverNavButton" not in fn
+    assert "= leverNavButton(" not in fn
     assert "function renderPlanningLevers(embedded)" not in js
     assert "embedded ?" not in fn
 

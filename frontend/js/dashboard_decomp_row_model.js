@@ -2765,15 +2765,13 @@ export function rowActionValue(row) {
 }
 
 export function requestAllocationPreview() {
-  // "allocation_assets" is the legacy standalone step id; the current
-  // guided-steps UI hosts the Allocation & Location tab inside the combined
-  // "distribution_strategy" step. Accept both so the preview actually loads
-  // on the current UI instead of silently never firing.
-  if (
-    !planLoaded ||
-    (activeStep !== "allocation_assets" && activeStep !== "distribution_strategy")
-  )
-    return;
+  // #323: allocation_assets and distribution_strategy were both legacy step
+  // ids for pages that hosted the Allocation & Location panel; both now
+  // redirect to strategy_optimize (SECTION_REDIRECTS in navigation.js), and
+  // activeStep can never actually equal either of them once the redesign's
+  // nav is in place. strategy_optimize is the only id the panel is shown
+  // under now -- this is a replacement, not an additional accepted value.
+  if (!planLoaded || activeStep !== "strategy_optimize") return;
   const key = allocationPreviewFingerprint();
   if (allocationPreviewLoading && allocationPreviewKey === key) return;
   if (
@@ -2812,10 +2810,7 @@ export function requestAllocationPreview() {
       allocationPreviewError = e.message || String(e);
     })
     .finally(() => {
-      if (
-        seq === allocationPreviewSeq &&
-        (activeStep === "allocation_assets" || activeStep === "distribution_strategy")
-      )
+      if (seq === allocationPreviewSeq && activeStep === "strategy_optimize")
         renderMain();
     });
 }
