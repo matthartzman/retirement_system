@@ -5,9 +5,19 @@ Everything it does is delegated -- candidate generation to ``candidates``/
 ``search``, filtering to ``constraints``, scoring to ``scoring``, engine
 runs to ``plan_variant``, output shaping to ``results`` -- so this file
 reads as the algorithm and nothing else.
+
+Rejections are counted, not discarded. A zero-candidate run used to come back
+with a generic sentence that named neither the constraint nor the field; the
+``rejections`` tally threaded through ``format_output`` says which rule
+emptied the search, which is the only thing that makes such a run actionable.
+To make that tally possible the generators are called PERMISSIVELY
+(``no_dual_ownership=False``) and the rule is applied here in
+``_score_or_reject``, where a rejection can be attributed before any engine
+run is paid for.
 """
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any, Literal
 
 from .. import planning_engines as _pe
@@ -16,46 +26,75 @@ from .models import (
     Location,
     MOVE2_CROSS_PRODUCT_CAP,
     MOVE2_STRATEGIES,
-    Move2Window,
+    MoveWindow,
     OBJECTIVES,
     SEARCH_MODES,
+    SaleWindow,
     ScoredCandidate,
-    SearchWindow,
 )
 from .candidates import (
+    _actions,
+    dual_ownership_ok,
     estimate_move2_candidate_count,
-    filter_candidates_by_action,
-    generate_move1_candidates,
-    generate_move2_candidates,
-    generate_move2_concurrent_candidates,
-    select_all_eligible_move1_candidates,
+    extend_with_move2,
+    generate_candidates,
+    select_all_eligible,
     select_anchors,
 )
 from .constraints import family_presence_ok
 from .plan_variant import _run_engine
-from .results import _format_output
+from .results import format_output
 from .scoring import _pass1_objective, rank_candidates, score_candidate
 from .search import (
     generate_move1_candidates_narrowed,
     generate_move2_candidates_narrowed,
 )
+from .zip_screen.screen import family_distance_for_zip
+
+
+def _with_family_distance(
+    locations: list[Location], family_presence: FamilyPresence | None,
+    family_coords: dict[str, tuple[float, float]],
+) -> list[Location]:
+    """Splice each Location's distance-to-family onto it for display.
+
+    Uses the screen's own ``family_distance_for_zip`` so the number in a
+    results row and the number in a screen row are the same calculation.
+    Without this the results table shows ``family_distance_miles: null`` for
+    every row even when a family ZIP was given.
+    """
+    if family_presence is None:
+        return list(locations)
+    out = []
+    for loc in locations:
+        dist = family_distance_for_zip(loc.zip_code, family_presence.zip_code, family_coords)
+        out.append(loc if dist is None else replace(loc, family_distance_miles=dist))
+    return out
+
 
 def optimize_housing(
     c0: dict[str, Any],
     *,
-    locations: list[Location],
-    move1_window: SearchWindow,
-    move2_window: Move2Window | None = None,
-    anchor_count: int = 5,
-    no_dual_ownership: bool = True,
-    family_presence: FamilyPresence | None = None,
-    objective: str = 'net_worth',
-    shortlist_size: int = 5,
-    search_mode: Literal['full', 'narrowed'] = 'full',
-    move2_strategy: Literal['anchored', 'cross_product'] = 'anchored',
+    locations1: list[Location],
+    locations2: list[Location] | None = None,
+    sale_window: SaleWindow,
+    move1_window: MoveWindow,
+    move2_window: MoveWindow | None = None,
+    dispositions: tuple[str, ...] = ('sell',),
     move1_action: Literal['auto', 'buy', 'rent'] = 'auto',
     move2_action: Literal['auto', 'buy', 'rent'] = 'auto',
     move2_concurrent: bool = False,
+    no_dual_ownership: bool = True,
+    family_presence: FamilyPresence | None = None,
+    family_coords: dict[str, tuple[float, float]] | None = None,
+    anchor_count: int = 5,
+    objective: str = 'net_worth',
+    search_mode: Literal['full', 'narrowed'] = 'full',
+    move2_strategy: Literal['anchored', 'cross_product'] = 'anchored',
+    zip_screens: dict[str, Any] | None = None,
+    down_payment_pct: float = 0.20,
+    mortgage_rate_pct: float | None = None,
+    shortlist_size: int = 5,
 ) -> dict[str, Any]:
     if objective not in OBJECTIVES:
         raise ValueError(f"Unknown objective: {objective!r}")
@@ -69,71 +108,106 @@ def optimize_housing(
         raise ValueError(f"Unknown move2_action: {move2_action!r}")
     if move2_concurrent and search_mode == 'narrowed':
         raise ValueError("move2_concurrent is not supported with search_mode='narrowed'.")
-    if not (2 <= len(locations) <= 4):
-        raise ValueError("Provide 2-4 candidate locations.")
+    if not locations1:
+        raise ValueError("Provide at least one move-1 candidate location.")
 
-    base_state = str(c0.get('state', '') or '')
+    dispositions = tuple(dispositions or ('sell',))
+    if 'auto' in dispositions:
+        # 'auto' is a request-level value: generation expands it into both
+        # concrete dispositions and the objective decides (§5.4).
+        dispositions = ('sell', 'keep')
+    unknown = [d for d in dispositions if d not in ('sell', 'keep')]
+    if unknown:
+        raise ValueError(f"Unknown disposition: {unknown[0]!r}")
+
+    family_coords = dict(family_coords or {})
+    zip_screens = dict(zip_screens or {})
+    locations1 = _with_family_distance(list(locations1), family_presence, family_coords)
+    locations2 = _with_family_distance(list(locations2 or []), family_presence, family_coords)
+
     pass1_objective = _pass1_objective(objective)
     narrowed = search_mode == 'narrowed'
+    rejections = {'dual_ownership': 0, 'family_presence': 0, 'move_order': 0}
 
+    def _score_or_reject(cand) -> ScoredCandidate | None:
+        """The one place a candidate is refused, so every refusal is counted.
+
+        Order matters: the two pure predicates run before ``_run_engine``, so
+        a rejected candidate costs no engine time.
+        """
+        m2 = cand.move2
+        if (m2 is not None and m2.mode != 'concurrent'
+                and m2.acquisition_year <= cand.move1.acquisition_year):
+            rejections['move_order'] += 1
+            return None
+        if no_dual_ownership and not dual_ownership_ok(cand):
+            rejections['dual_ownership'] += 1
+            return None
+        covered, via_rental = family_presence_ok(cand, family_presence, family_coords)
+        if not covered:
+            rejections['family_presence'] += 1
+            return None
+        c2, rows = _run_engine(c0, cand, down_payment_pct=down_payment_pct,
+                               mortgage_rate_pct=mortgage_rate_pct)
+        if not rows:
+            return None
+        return score_candidate(c2, cand, rows, via_rental=via_rental)
+
+    # ---- Pass 1a: move 1 -------------------------------------------------
     if narrowed:
         move1_scored = generate_move1_candidates_narrowed(
-            c0, base_state, locations, move1_window, no_dual_ownership, move1_action, family_presence, pass1_objective,
+            locations1=locations1, move1_window=move1_window, sale_window=sale_window,
+            dispositions=dispositions, move1_action=move1_action,
+            # Permissive: _score_or_reject owns the rule so it can tally.
+            no_dual_ownership=False, score_fn=_score_or_reject,
+            objective=pass1_objective,
         )
     else:
         move1_scored = []
-        move1_cands = filter_candidates_by_action(
-            generate_move1_candidates(locations, move1_window, no_dual_ownership), move1_action, 'purchase_year',
-        )
-        for cand in move1_cands:
-            ok, via_rental = family_presence_ok(base_state, cand, family_presence)
-            if not ok:
-                continue
-            c2, rows = _run_engine(c0, cand)
-            if not rows:
-                continue
-            sc = score_candidate(c2, cand, rows)
-            sc.family_presence_via_rental = via_rental
-            move1_scored.append(sc)
+        for cand in generate_candidates(
+            locations1=locations1, move1_window=move1_window, sale_window=sale_window,
+            dispositions=dispositions, move1_action=move1_action,
+            no_dual_ownership=False,
+        ):
+            sc = _score_or_reject(cand)
+            if sc is not None:
+                move1_scored.append(sc)
     move1_scored = rank_candidates(move1_scored, pass1_objective)
 
+    # ---- Pass 1b: move 2 -------------------------------------------------
     move2_scored: list[ScoredCandidate] = []
-    if move2_window is not None:
+    if move2_window is not None and locations2:
         if move2_strategy == 'cross_product':
-            # anchor_count is irrelevant here by design (§8.2 P3 module
-            # docstring): every eligible move-1 candidate is used, not just
-            # the top N.
-            anchors = select_all_eligible_move1_candidates(move1_scored)
+            # anchor_count is irrelevant here by design (§8.2 P3): every
+            # scored move-1 candidate is used, not just the top N.
+            anchors = select_all_eligible(move1_scored)
             estimated = estimate_move2_candidate_count(
-                anchors, locations, move2_window, no_dual_ownership, narrowed,
+                anchors, locations2=locations2, move2_window=move2_window,
+                move2_action=move2_action, concurrent=False,
+                no_dual_ownership=no_dual_ownership, narrowed=narrowed,
             )
         else:
-            # anchor_count alone does not bound this branch's candidate count
-            # the way the comment above claims for cross_product: nothing in
-            # optimize_housing validates anchor_count's upper bound (a caller
-            # -- e.g. optimize_housing_from_request -- can pass anything), and
-            # even a small anchor_count times a wide move2_window/location
-            # count can still be large. The non-concurrent anchored count
-            # itself is left unchecked here (unchanged pre-existing
-            # behavior, out of scope for this fix), but move2_concurrent's
-            # contribution below is not exempt from that same risk, so it
-            # still gets counted and capped.
+            # anchor_count alone does not bound this branch's candidate count:
+            # nothing here validates its upper bound, and even a small
+            # anchor_count times a wide move2_window/location count can be
+            # large. The non-concurrent anchored count is left unchecked
+            # (pre-existing behavior), but move2_concurrent's contribution is
+            # not exempt, so it is still counted and capped below.
             anchors = select_anchors(move1_scored, anchor_count)
             estimated = 0
 
-        # move2_concurrent generates its own separate candidate set (§8.2
-        # move-2 concurrent mode) via generate_move2_concurrent_candidates,
-        # independent of move2_strategy and not covered by
-        # estimate_move2_candidate_count above. It's cheap to build (no
-        # engine calls), so count it exactly and fold it into the same
-        # pre-generation cap check rather than letting it bypass
-        # MOVE2_CROSS_PRODUCT_CAP entirely (move2_concurrent is disallowed
-        # with search_mode='narrowed' above, so `narrowed` is always False
-        # here and generate_move2_concurrent_candidates's real, non-estimated
-        # count applies).
+        # move2_concurrent generates its own separate candidate set
+        # (``extend_with_move2(..., concurrent=True)``), independent of
+        # move2_strategy and not covered by the estimate above. Count it
+        # exactly and fold it into the same pre-generation cap check rather
+        # than letting it bypass MOVE2_CROSS_PRODUCT_CAP entirely.
         concurrent_estimated = 0
         if move2_concurrent:
-            concurrent_estimated = len(generate_move2_concurrent_candidates(anchors, locations, move2_window))
+            concurrent_estimated = estimate_move2_candidate_count(
+                anchors, locations2=locations2, move2_window=move2_window,
+                move2_action=move2_action, concurrent=True,
+                no_dual_ownership=no_dual_ownership, narrowed=False,
+            )
             estimated += concurrent_estimated
 
         if estimated > MOVE2_CROSS_PRODUCT_CAP:
@@ -157,51 +231,35 @@ def optimize_housing(
                 "the search window(s), use fewer candidate locations, or set "
                 "search_mode='narrowed' to make cross-product search tractable."
             )
+
         if narrowed:
             move2_scored = generate_move2_candidates_narrowed(
-                c0, base_state, anchors, locations, move2_window, no_dual_ownership, move2_action, family_presence,
-                pass1_objective,
+                anchors, locations2=locations2, move2_window=move2_window,
+                move2_action=move2_action, concurrent=False,
+                no_dual_ownership=False, score_fn=_score_or_reject,
+                objective=pass1_objective,
             )
         else:
-            move2_cands = filter_candidates_by_action(
-                generate_move2_candidates(anchors, locations, move2_window, no_dual_ownership),
-                move2_action, 'purchase_year_2',
+            move2_scored = _extend_and_score(
+                anchors, locations2, move2_window, move2_action,
+                concurrent=False, score_fn=_score_or_reject, rejections=rejections,
             )
-            for cand in move2_cands:
-                ok, via_rental = family_presence_ok(base_state, cand, family_presence)
-                if not ok:
-                    continue
-                c2, rows = _run_engine(c0, cand)
-                if not rows:
-                    continue
-                sc = score_candidate(c2, cand, rows)
-                sc.family_presence_via_rental = via_rental
-                move2_scored.append(sc)
         move2_scored = rank_candidates(move2_scored, pass1_objective)
 
         if move2_concurrent:
-            concurrent_cands = filter_candidates_by_action(
-                generate_move2_concurrent_candidates(anchors, locations, move2_window),
-                move2_action, 'purchase_year_2',
+            concurrent_scored = _extend_and_score(
+                anchors, locations2, move2_window, move2_action,
+                concurrent=True, score_fn=_score_or_reject, rejections=rejections,
             )
-            concurrent_scored = []
-            for cand in concurrent_cands:
-                ok, via_rental = family_presence_ok(base_state, cand, family_presence)
-                if not ok:
-                    continue
-                c2, rows = _run_engine(c0, cand)
-                if not rows:
-                    continue
-                sc = score_candidate(c2, cand, rows)
-                sc.family_presence_via_rental = via_rental
-                concurrent_scored.append(sc)
             move2_scored = rank_candidates(move2_scored + concurrent_scored, pass1_objective)
 
     combined = rank_candidates(move1_scored + move2_scored, pass1_objective)
 
+    # ---- Pass 2: Monte Carlo the shortlist --------------------------------
     shortlist = combined[:max(3, min(5, shortlist_size))]
     for sc in shortlist:
-        c2, rows = _run_engine(c0, sc.candidate)
+        c2, rows = _run_engine(c0, sc.candidate, down_payment_pct=down_payment_pct,
+                               mortgage_rate_pct=mortgage_rate_pct)
         mc = _pe.monte_carlo(c2, base_rows=rows)
         sc.mc_success_rate = float(mc.get('success_rate', 0.0) or 0.0)
 
@@ -212,4 +270,37 @@ def optimize_housing(
     else:
         final_ranked = combined
 
-    return _format_output(final_ranked, objective, search_mode, move2_strategy)
+    return format_output(
+        final_ranked, objective=objective, search_mode=search_mode,
+        move2_strategy=move2_strategy, zip_screens=zip_screens,
+        rejections=rejections,
+    )
+
+
+def _extend_and_score(
+    anchors, locations2, move2_window, move2_action, *,
+    concurrent: bool, score_fn, rejections: dict[str, int],
+) -> list[ScoredCandidate]:
+    """Build move-2 candidates and score them, tallying the ordering rule.
+
+    ``extend_with_move2`` drops an out-of-order sequential move 2 inside its
+    own loop, so those points never reach ``score_fn`` and cannot be counted
+    there. The full cross-product size is known exactly from the loop bounds,
+    so the drop count is the difference -- no duplicated ordering logic.
+    """
+    cands = extend_with_move2(
+        anchors, locations2=locations2, move2_window=move2_window,
+        move2_action=move2_action, concurrent=concurrent,
+        no_dual_ownership=False,
+    )
+    if not concurrent:
+        span = (move2_window.latest_acquisition_year
+                - move2_window.earliest_acquisition_year + 1)
+        full = len(anchors) * len(locations2) * max(0, span) * len(_actions(move2_action))
+        rejections['move_order'] += max(0, full - len(cands))
+    out = []
+    for cand in cands:
+        sc = score_fn(cand)
+        if sc is not None:
+            out.append(sc)
+    return out

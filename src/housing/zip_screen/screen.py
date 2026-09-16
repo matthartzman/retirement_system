@@ -146,6 +146,22 @@ def deduplicate(
     ]
 
 
+def family_distance_for_zip(
+    zip_code: str | None, family_zip: str | None,
+    coords: dict[str, tuple[float, float]],
+) -> float | None:
+    """Miles from ``zip_code`` to ``family_zip``, or None if either is
+    unknown. The one distance-to-family calculation, shared by the screen's
+    ``annotate_family_distance`` below and by the optimizer, which annotates
+    the ``Location``s it was handed rather than ``ScreenedZip``s.
+    """
+    family = coords.get(family_zip) if family_zip else None
+    here = coords.get(zip_code) if zip_code else None
+    if family is None or here is None:
+        return None
+    return round(haversine_miles(family[0], family[1], here[0], here[1]), 2)
+
+
 def annotate_family_distance(
     shortlist: list[ScreenedZip], family_zip: str | None,
     coords: dict[str, tuple[float, float]],
@@ -156,16 +172,14 @@ def annotate_family_distance(
     the user sees zero candidates with no indication of how close the search
     came.
     """
-    family = coords.get(family_zip) if family_zip else None
-    if family is None:
+    if not family_zip or coords.get(family_zip) is None:
         return list(shortlist)
-    out = []
-    for z in shortlist:
-        here = coords.get(z.zcta)
-        dist = None if here is None else round(
-            haversine_miles(family[0], family[1], here[0], here[1]), 2)
-        out.append(ScreenedZip(**{**z.__dict__, 'family_distance_miles': dist}))
-    return out
+    return [
+        ScreenedZip(**{**z.__dict__,
+                       'family_distance_miles': family_distance_for_zip(
+                           z.zcta, family_zip, coords)})
+        for z in shortlist
+    ]
 
 
 def _relaxation(

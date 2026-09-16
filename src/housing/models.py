@@ -28,10 +28,21 @@ MOVE2_CROSS_PRODUCT_CAP = 3000
 # it widens narrowed mode's search at a proportional cost in engine runs.
 NARROWED_MAX_EVALS_PER_AXIS = 25
 
-# Upper bound on engine evaluations per (eligible move-1 candidate, location)
-# pair under `search_mode='narrowed'`; see generate_move1_candidates_narrowed's
-# docstring.
-_NARROWED_EVALS_PER_ANCHOR_LOCATION = NARROWED_MAX_EVALS_PER_AXIS * 2
+# How many year axes each narrowed descent actually searches. The evaluation
+# budget a descent is given is ``NARROWED_MAX_EVALS_PER_AXIS * <axes>``, and
+# ``search.py``'s two ``generate_*_narrowed`` defaults and
+# ``candidates.estimate_move2_candidate_count``'s projection are all derived
+# from these two constants so they cannot drift apart again.
+#
+# They did drift: a single ``_NARROWED_EVALS_PER_ANCHOR_LOCATION =
+# NARROWED_MAX_EVALS_PER_AXIS * 2`` was used to project the move-2 cost even
+# though move 2 searches ONE axis (its acquisition year -- the sale year is a
+# move-1 axis, already fixed by the anchor), so the projection was 2x high;
+# meanwhile it ignored the buy/rent ``actions`` loop, which is a real 2x under
+# ``move2_action='auto'``. The two errors cancelled for 'auto' and left a clean
+# 2x overstatement for 'buy'/'rent'. The projection is now axes x actions.
+NARROWED_MOVE1_AXES = 2   # original-home sale year, move-1 acquisition year
+NARROWED_MOVE2_AXES = 1   # move-2 acquisition year only
 
 # ZIP -> city_type thresholds, people per square mile (spec section 5.1). The
 # optimizer's cost estimate is keyed on city_type, so these decide which

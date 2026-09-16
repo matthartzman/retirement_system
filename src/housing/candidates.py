@@ -18,9 +18,10 @@ from .models import (
     Move,
     MoveWindow,
     OriginalHome,
+    NARROWED_MAX_EVALS_PER_AXIS,
+    NARROWED_MOVE2_AXES,
     SaleWindow,
     ScoredCandidate,
-    _NARROWED_EVALS_PER_ANCHOR_LOCATION,
 )
 
 
@@ -169,7 +170,13 @@ def estimate_move2_candidate_count(
     misfire. Keyword-only makes that a TypeError instead.
     """
     if narrowed:
-        return len(eligible) * len(locations2) * _NARROWED_EVALS_PER_ANCHOR_LOCATION
+        # axes x actions, from the same constants the search itself uses:
+        # ``generate_move2_candidates_narrowed`` runs one descent per
+        # (anchor, location, action) with a budget of
+        # NARROWED_MAX_EVALS_PER_AXIS * NARROWED_MOVE2_AXES.
+        return (len(eligible) * len(locations2)
+                * NARROWED_MAX_EVALS_PER_AXIS * NARROWED_MOVE2_AXES
+                * len(_actions(move2_action)))
     return len(extend_with_move2(
         eligible, locations2=locations2, move2_window=move2_window,
         move2_action=move2_action, concurrent=concurrent,

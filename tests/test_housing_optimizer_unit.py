@@ -1,8 +1,15 @@
-"""Pure-function unit coverage for src/housing_optimizer.py: candidate grid
-generation and bounds, no_dual_ownership filtering, the family_presence hard
-filter, §121 informational flagging, move-2 anchoring, and objective-specific
-ranking. No engine projection is run here -- see
-test_housing_optimizer_functional.py for engine-backed coverage.
+"""Pure-function unit coverage for the housing optimizer's ORCHESTRATION
+layer: engine-config translation (``plan_variant``), scoring/ranking
+(``scoring``), move-2 anchoring and the pre-engine safety cap
+(``candidates``), and ``optimize_housing``'s own argument validation and
+rejection tally. No engine projection is run here -- see
+test_housing_optimizer_integration.py for engine-backed coverage.
+
+Candidate GENERATION, the family-presence radius, the coordinate descent and
+the v2 payload shape each have their own module now
+(test_housing_candidates_decoupled / test_housing_family_presence_radius /
+test_housing_coordinate_descent_unit / test_housing_results_v2); this file no
+longer duplicates them.
 """
 from __future__ import annotations
 
@@ -10,26 +17,24 @@ import pytest
 
 from src.housing_optimizer import (
     MOVE2_CROSS_PRODUCT_CAP,
-    FamilyPresence,
     HousingCandidate,
     Location,
-    Move2Window,
+    Move,
+    MoveWindow,
+    OriginalHome,
+    SaleWindow,
     ScoredCandidate,
-    SearchWindow,
-    _coordinate_search_1d,
-    _coordinate_search_2d,
     estimate_move2_candidate_count,
-    family_presence_ok,
-    generate_move1_candidates,
-    generate_move2_candidates,
-    generate_move2_concurrent_candidates,
-    optimize_housing_from_request,
+    extend_with_move2,
+    optimize_housing,
     rank_candidates,
     score_candidate,
     sec121_exclusion_flag,
-    select_all_eligible_move1_candidates,
+    select_all_eligible,
     select_anchors,
 )
+from src.housing.models import NARROWED_MAX_EVALS_PER_AXIS, NARROWED_MOVE2_AXES
+from src.housing.plan_variant import _apply_candidate
 
 pytestmark = pytest.mark.unit
 
@@ -37,396 +42,341 @@ TX = Location(state="Texas", city_type="suburban", population_size=150000)
 FL = Location(state="Florida", city_type="urban", population_size=300000)
 
 
-# ---------------------------------------------------------------------------
-# Candidate generation / grid bounds
-# ---------------------------------------------------------------------------
-
-def test_move1_grid_covers_the_full_sale_by_purchase_rectangle_plus_rent():
-    window = SearchWindow(earliest_sale_year=2027, latest_sale_year=2028,
-                           earliest_purchase_year=2027, latest_purchase_year=2029)
-    cands = generate_move1_candidates([TX], window, no_dual_ownership=False)
-    # 2 sale years x (3 purchase years + 1 rent-indefinitely) per location.
-    assert len(cands) == 2 * (3 + 1)
-    assert any(c.purchase_year is None for c in cands)
-    assert all(window.earliest_sale_year <= c.sale_year <= window.latest_sale_year for c in cands)
+def _minimal_config() -> dict:
+    """Enough config for ``_apply_candidate`` and for the argument-validation
+    and all-rejected paths of ``optimize_housing``, which never reach the
+    engine."""
+    return {"state": "Illinois", "home_sale_yr": 0}
 
 
-def test_move1_grid_respects_two_locations():
-    window = SearchWindow(2027, 2027, 2027, 2027)
-    cands = generate_move1_candidates([TX, FL], window, no_dual_ownership=False)
-    assert len(cands) == 2 * (1 + 1)
-    assert {c.location_1.state for c in cands} == {"Texas", "Florida"}
+def _cand(*moves, disposition="sell", sale_year=2030) -> HousingCandidate:
+    return HousingCandidate(
+        original_home=OriginalHome(disposition=disposition, sale_year=sale_year),
+        moves=tuple(moves),
+    )
 
 
-def test_no_dual_ownership_drops_purchase_before_sale():
-    window = SearchWindow(earliest_sale_year=2030, latest_sale_year=2030,
-                           earliest_purchase_year=2027, latest_purchase_year=2032)
-    with_toggle = generate_move1_candidates([TX], window, no_dual_ownership=True)
-    without_toggle = generate_move1_candidates([TX], window, no_dual_ownership=False)
-    owned_with = [c for c in with_toggle if c.purchase_year is not None]
-    owned_without = [c for c in without_toggle if c.purchase_year is not None]
-    assert all(c.purchase_year >= c.sale_year for c in owned_with)
-    assert any(c.purchase_year < c.sale_year for c in owned_without)
-    assert len(owned_with) < len(owned_without)
-
-
-def test_no_dual_ownership_applies_to_move2_purchase_as_well():
-    anchor = HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2027)
-    move2_window = Move2Window(latest_sale_year_2=2035, latest_purchase_year_2=2038)
-    strict = generate_move2_candidates([anchor], [FL], move2_window, no_dual_ownership=True)
-    relaxed = generate_move2_candidates([anchor], [FL], move2_window, no_dual_ownership=False)
-    owned_strict = [c for c in strict if c.purchase_year_2 is not None]
-    owned_relaxed = [c for c in relaxed if c.purchase_year_2 is not None]
-    assert all(c.purchase_year_2 >= c.sale_year_2 for c in owned_strict)
-    assert any(c.purchase_year_2 < c.sale_year_2 for c in owned_relaxed)
-
-
-def test_move2_sale_cannot_precede_move1_purchase():
-    anchor = HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2030)
-    move2_window = Move2Window(latest_sale_year_2=2032, latest_purchase_year_2=2033)
-    cands = generate_move2_candidates([anchor], [FL], move2_window, no_dual_ownership=True)
-    assert cands  # non-empty: sale_year_2 can equal purchase_year (2030)
-    assert all(c.sale_year_2 >= anchor.purchase_year for c in cands)
+def _move(index=1, year=2031, action="buy", loc=TX, mode="sequential") -> Move:
+    return Move(index=index, acquisition_year=year, action=action, location=loc, mode=mode)
 
 
 # ---------------------------------------------------------------------------
-# Move-2 anchoring (§3.2/§4)
+# plan_variant: candidate -> engine config
 # ---------------------------------------------------------------------------
 
-def test_move2_anchors_exclude_rent_indefinitely_forever_outcomes():
-    rent_forever = HousingCandidate(location_1=TX, sale_year=2027, purchase_year=None)
-    owned = HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2028)
-    ranked = [
-        ScoredCandidate(candidate=rent_forever, net_worth=10.0, lifetime_cost=1.0,
-                         mc_success_rate=None, sec121_exclusion_lost=[False]),
-        ScoredCandidate(candidate=owned, net_worth=9.0, lifetime_cost=1.0,
-                         mc_success_rate=None, sec121_exclusion_lost=[False]),
-    ]
-    anchors = select_anchors(ranked, anchor_count=5)
-    assert anchors == [owned]
+def test_apply_candidate_mutates_in_place_and_returns_none():
+    """It is ``run_scenario``'s ``mutate`` callback, so it writes to the
+    config it is handed rather than returning a new one."""
+    c = _minimal_config()
+    assert _apply_candidate(c, _cand(_move()), down_payment_pct=0.20,
+                            mortgage_rate_pct=0.065) is None
+    assert c["next_housing_steps"]
 
 
-def test_move2_anchors_respect_anchor_count():
+def test_keep_leaves_home_sale_yr_at_zero():
+    c = _minimal_config()
+    cand = _cand(_move(action="rent", year=2033, loc=FL),
+                 disposition="keep", sale_year=None)
+    _apply_candidate(c, cand, down_payment_pct=0.20, mortgage_rate_pct=0.065)
+    assert c["home_sale_yr"] == 0
+
+
+def test_sell_writes_the_searched_sale_year_to_home_sale_yr():
+    c = _minimal_config()
+    _apply_candidate(c, _cand(_move(year=2032), sale_year=2032),
+                     down_payment_pct=0.20, mortgage_rate_pct=0.065)
+    assert c["home_sale_yr"] == 2032
+
+
+def test_down_payment_and_rate_come_from_the_request_not_a_constant():
+    c = _minimal_config()
+    cand = _cand(_move(year=2033, action="buy", loc=FL), sale_year=2032)
+    _apply_candidate(c, cand, down_payment_pct=0.35, mortgage_rate_pct=0.055)
+    step = c["next_housing_steps"][0]
+    # The wire key is down_payment_pct -- unchanged; only its SOURCE moved.
+    assert step["down_payment_pct"] == 0.35
+    assert step["mortgage_rate_pct"] == 0.055
+
+
+def test_a_rental_move_is_a_rent_step_because_the_action_says_so():
+    c = _minimal_config()
+    _apply_candidate(c, _cand(_move(year=2031, action="rent")),
+                     down_payment_pct=0.20, mortgage_rate_pct=0.065)
+    step = c["next_housing_steps"][0]
+    assert step["type"] == "rent"
+    assert step["start_year"] == 2031
+    assert step["monthly_rent"] > 0
+
+
+def test_a_sequential_move2_ends_move1_and_points_the_engines_second_sale_at_it():
+    c = _minimal_config()
+    cand = _cand(_move(index=1, year=2031, action="buy", loc=TX),
+                 _move(index=2, year=2036, action="buy", loc=FL))
+    _apply_candidate(c, cand, down_payment_pct=0.20, mortgage_rate_pct=0.065)
+    move1, move2 = c["next_housing_steps"]
+    assert move1["end_year"] == 2035
+    assert move1["sale_year"] == 2036   # apply_next_housing_sale's trigger
+    assert move2["start_year"] == 2036
+    assert move2["end_year"] == 0       # open-ended
+
+
+def test_a_concurrent_move2_keeps_move1_open_and_is_never_sold():
+    c = _minimal_config()
+    cand = _cand(_move(index=1, year=2031, action="buy", loc=TX),
+                 _move(index=2, year=2033, action="rent", loc=FL, mode="concurrent"))
+    _apply_candidate(c, cand, down_payment_pct=0.20, mortgage_rate_pct=0.065)
+    move1, move2 = c["next_housing_steps"]
+    assert move1["end_year"] == 0
+    assert "sale_year" not in move1
+    assert move2["type"] == "rent"
+    # A second home is not a relocation: tax residency stays with move 1.
+    assert [s["state"] for s in c["residency_schedule"]] == ["Illinois", "Texas"]
+
+
+def test_a_sequential_move2_adds_a_residency_transition():
+    c = _minimal_config()
+    cand = _cand(_move(index=1, year=2031, loc=TX),
+                 _move(index=2, year=2036, loc=FL))
+    _apply_candidate(c, cand, down_payment_pct=0.20, mortgage_rate_pct=0.065)
+    assert [s["state"] for s in c["residency_schedule"]] == ["Illinois", "Texas", "Florida"]
+
+
+# ---------------------------------------------------------------------------
+# scoring: notes replace the family_presence_via_rental boolean
+# ---------------------------------------------------------------------------
+
+def test_via_rental_is_a_note_not_a_boolean_field():
+    sc = score_candidate({}, _cand(_move(action="rent")), [{"total_nw": 1.0}],
+                         via_rental=True)
+    assert "family presence via rental" in sc.notes
+    assert not hasattr(sc, "family_presence_via_rental")
+
+
+def test_a_short_ownership_span_is_flagged_and_noted():
+    cand = _cand(_move(index=1, year=2031, action="buy"),
+                 _move(index=2, year=2032, action="buy", loc=FL))
+    sc = score_candidate({}, cand, [{"total_nw": 1.0}])
+    assert sc.sec121_exclusion_lost == [False, True]
+    assert any("121" in n for n in sc.notes)
+
+
+def test_concurrent_mode_never_flags_sec121_for_move_2():
+    cand = _cand(_move(index=1, year=2031, action="buy"),
+                 _move(index=2, year=2032, action="buy", loc=FL, mode="concurrent"))
+    sc = score_candidate({}, cand, [{"total_nw": 1.0}])
+    assert sc.sec121_exclusion_lost == [False, False]
+
+
+def test_an_overlapping_buy_carries_a_dual_ownership_note():
+    """With the checkbox off the overlap is generated and scored, so the row
+    has to SAY it overlaps (§5.3)."""
+    cand = _cand(_move(year=2028, action="buy"), sale_year=2031)
+    sc = score_candidate({}, cand, [{"total_nw": 1.0}])
+    assert any(n.startswith("dual_ownership_years") for n in sc.notes)
+
+
+@pytest.mark.parametrize("acquisition_year,sale_year,expected", [
+    (2027, 2028, True),   # < 2 years owned
+    (2027, 2029, False),  # exactly 2 years
+    (2020, 2030, False),
+    (None, 2030, False),  # nothing bought under this leg
+    (2027, None, False),  # kept, never sold
+])
+def test_sec121_exclusion_flag_is_purely_informational(acquisition_year, sale_year, expected):
+    assert sec121_exclusion_flag(acquisition_year, sale_year) is expected
+
+
+def _scored(net_worth, lifetime_cost, mc_success_rate=None):
+    return ScoredCandidate(candidate=_cand(_move()), net_worth=net_worth,
+                           lifetime_cost=lifetime_cost, mc_success_rate=mc_success_rate,
+                           sec121_exclusion_lost=[False])
+
+
+def test_rank_candidates_net_worth_is_descending():
+    ranked = rank_candidates([_scored(100, 5), _scored(300, 5), _scored(200, 5)], "net_worth")
+    assert [s.net_worth for s in ranked] == [300, 200, 100]
+
+
+def test_rank_candidates_lifetime_cost_is_ascending_lower_is_better():
+    ranked = rank_candidates([_scored(100, 30), _scored(100, 10), _scored(100, 20)],
+                             "lifetime_cost")
+    assert [s.lifetime_cost for s in ranked] == [10, 20, 30]
+
+
+def test_rank_candidates_mc_success_rate_falls_back_to_net_worth_when_unset():
+    ranked = rank_candidates([_scored(100, 5), _scored(300, 5)], "mc_success_rate")
+    assert [s.net_worth for s in ranked] == [300, 100]
+
+
+def test_rank_candidates_mc_success_rate_uses_the_computed_rate_when_present():
+    ranked = rank_candidates([_scored(300, 5, 0.70), _scored(100, 5, 0.95)], "mc_success_rate")
+    assert [s.mc_success_rate for s in ranked] == [0.95, 0.70]
+
+
+# ---------------------------------------------------------------------------
+# Anchoring and the pre-engine safety cap
+# ---------------------------------------------------------------------------
+
+def test_a_rental_move1_is_now_a_legitimate_anchor():
+    """The old rule required move 1 to end in ownership. With sale decoupled
+    from acquisition, renting first and buying at move 2 is an ordinary plan
+    (§5.1), so anchor selection no longer filters on ownership at all."""
+    rented = ScoredCandidate(candidate=_cand(_move(action="rent")), net_worth=10.0,
+                             lifetime_cost=1.0, mc_success_rate=None,
+                             sec121_exclusion_lost=[False])
+    owned = ScoredCandidate(candidate=_cand(_move(action="buy")), net_worth=9.0,
+                            lifetime_cost=1.0, mc_success_rate=None,
+                            sec121_exclusion_lost=[False])
+    assert select_anchors([rented, owned], anchor_count=5) == [rented.candidate, owned.candidate]
+    assert select_all_eligible([rented, owned]) == [rented.candidate, owned.candidate]
+
+
+def test_anchors_respect_anchor_count_but_all_eligible_does_not():
     scored = [
-        ScoredCandidate(candidate=HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2027 + i),
-                         net_worth=100.0 - i, lifetime_cost=1.0, mc_success_rate=None,
-                         sec121_exclusion_lost=[False])
+        ScoredCandidate(candidate=_cand(_move(year=2031 + i)), net_worth=100.0 - i,
+                        lifetime_cost=1.0, mc_success_rate=None, sec121_exclusion_lost=[False])
         for i in range(10)
     ]
     anchors = select_anchors(scored, anchor_count=3)
-    assert len(anchors) == 3
-    assert [a.purchase_year for a in anchors] == [2027, 2028, 2029]
-
-
-def test_generate_move2_candidates_skips_rent_indefinitely_move1_anchor():
-    rent_forever = HousingCandidate(location_1=TX, sale_year=2027, purchase_year=None)
-    move2_window = Move2Window(latest_sale_year_2=2035, latest_purchase_year_2=2036)
-    cands = generate_move2_candidates([rent_forever], [FL], move2_window, no_dual_ownership=True)
-    assert cands == []
-
-
-# ---------------------------------------------------------------------------
-# move2_strategy='cross_product' (§8.2 P3): eligible-candidate selection and
-# the pre-engine safety-cap guard.
-# ---------------------------------------------------------------------------
-
-def test_select_all_eligible_move1_candidates_is_not_limited_to_anchor_count():
-    # 10 owned move-1 candidates, well over any small anchor_count.
-    scored = [
-        ScoredCandidate(candidate=HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2027 + i),
-                         net_worth=100.0 - i, lifetime_cost=1.0, mc_success_rate=None,
-                         sec121_exclusion_lost=[False])
-        for i in range(10)
-    ]
-    eligible = select_all_eligible_move1_candidates(scored)
-    assert len(eligible) == 10
-    anchored = select_anchors(scored, anchor_count=3)
-    assert len(anchored) == 3
-    assert len(eligible) > len(anchored)
-
-
-def test_select_all_eligible_move1_candidates_excludes_rent_indefinitely_forever():
-    rent_forever = HousingCandidate(location_1=TX, sale_year=2027, purchase_year=None)
-    owned = HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2028)
-    scored = [
-        ScoredCandidate(candidate=rent_forever, net_worth=10.0, lifetime_cost=1.0,
-                         mc_success_rate=None, sec121_exclusion_lost=[False]),
-        ScoredCandidate(candidate=owned, net_worth=9.0, lifetime_cost=1.0,
-                         mc_success_rate=None, sec121_exclusion_lost=[False]),
-    ]
-    assert select_all_eligible_move1_candidates(scored) == [owned]
+    assert [a.move1.acquisition_year for a in anchors] == [2031, 2032, 2033]
+    assert len(select_all_eligible(scored)) == 10
 
 
 def test_estimate_move2_candidate_count_matches_full_grid_generation_exactly():
-    eligible = [HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2027 + i) for i in range(3)]
-    move2_window = Move2Window(latest_sale_year_2=2035, latest_purchase_year_2=2036)
-    exact = len(generate_move2_candidates(eligible, [FL], move2_window, no_dual_ownership=True))
-    estimated = estimate_move2_candidate_count(eligible, [FL], move2_window, no_dual_ownership=True, narrowed=False)
-    assert estimated == exact
-    assert estimated > 0
-
-
-def test_estimate_move2_candidate_count_narrowed_uses_the_documented_per_anchor_budget():
-    eligible = [HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2028) for _ in range(4)]
-    move2_window = Move2Window(latest_sale_year_2=2035, latest_purchase_year_2=2036)
+    eligible = [_cand(_move(year=2031 + i)) for i in range(3)]
+    window = MoveWindow(2035, 2038)
+    exact = len(extend_with_move2(
+        eligible, locations2=[FL], move2_window=window, move2_action="auto",
+        concurrent=False, no_dual_ownership=True,
+    ))
     estimated = estimate_move2_candidate_count(
-        eligible, [TX, FL], move2_window, no_dual_ownership=True, narrowed=True,
+        eligible, locations2=[FL], move2_window=window, move2_action="auto",
+        concurrent=False, no_dual_ownership=True, narrowed=False,
     )
-    # 4 eligible x 2 locations x (25 + 8) per the module docstring's budget.
-    assert estimated == 4 * 2 * 33
+    assert estimated == exact > 0
+
+
+@pytest.mark.parametrize("move2_action,actions", [("auto", 2), ("buy", 1), ("rent", 1)])
+def test_narrowed_projection_is_axes_times_actions(move2_action, actions):
+    """The projection used a standalone ``NARROWED_MAX_EVALS_PER_AXIS * 2``
+    constant while the move-2 descent searches ONE axis and loops over
+    actions -- 2x high except under 'auto', where ignoring the actions loop
+    cancelled it. It is now derived from the constants the search itself
+    uses."""
+    eligible = [_cand(_move(year=2031)) for _ in range(4)]
+    estimated = estimate_move2_candidate_count(
+        eligible, locations2=[TX, FL], move2_window=MoveWindow(2035, 2038),
+        move2_action=move2_action, concurrent=False, no_dual_ownership=True, narrowed=True,
+    )
+    assert estimated == 4 * 2 * NARROWED_MAX_EVALS_PER_AXIS * NARROWED_MOVE2_AXES * actions
+
+
+def test_estimate_move2_candidate_count_is_keyword_only_past_eligible():
+    """It gained ``move2_action``/``concurrent`` in the MIDDLE of the old
+    positional order, so a stale positional call would silently bind
+    ``no_dual_ownership`` to ``move2_action`` and return a wrong count. The
+    keyword-only marker turns that into a TypeError."""
+    with pytest.raises(TypeError):
+        estimate_move2_candidate_count(
+            [_cand(_move())], [FL], MoveWindow(2035, 2038), True, False,
+        )
 
 
 def test_cross_product_cap_guard_number_exceeds_cap_for_a_wide_window():
-    """A wide-enough move2_window pushes the exact (no-engine-call) full-grid
-    count over MOVE2_CROSS_PRODUCT_CAP -- this is exactly the number
-    optimize_housing's cross_product guard compares against before touching
-    the engine (see optimize_housing's move2_strategy=='cross_product'
-    branch, which raises ValueError precisely when this condition holds)."""
-    eligible = [HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2027 + i) for i in range(50)]
-    move2_window = Move2Window(latest_sale_year_2=2100, latest_purchase_year_2=2100)
+    eligible = [_cand(_move(year=2031 + i)) for i in range(50)]
     estimated = estimate_move2_candidate_count(
-        eligible, [TX, FL], move2_window, no_dual_ownership=True, narrowed=False,
+        eligible, locations2=[TX, FL], move2_window=MoveWindow(2036, 2100),
+        move2_action="auto", concurrent=False, no_dual_ownership=True, narrowed=False,
     )
     assert estimated > MOVE2_CROSS_PRODUCT_CAP
 
 
 def test_concurrent_candidate_count_alone_can_exceed_the_cap():
-    """move2_concurrent generates its own candidate set via
-    generate_move2_concurrent_candidates, independent of move2_strategy and
-    not counted by estimate_move2_candidate_count -- before the fix,
-    optimize_housing's pre-engine MOVE2_CROSS_PRODUCT_CAP guard never saw
-    this count at all, so a large-enough anchor/window combination could
-    reach the real engine uncapped. This proves that, for a large-enough
-    anchor/window combination, the concurrent count by itself is big enough
-    to trip the same MOVE2_CROSS_PRODUCT_CAP the cross_product guard checks
-    against -- exactly the number optimize_housing's move2_concurrent block
-    now folds into `estimated` before raising ValueError (mirrors
-    test_cross_product_cap_guard_number_exceeds_cap_for_a_wide_window
-    above)."""
-    anchors = [HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2027 + i) for i in range(50)]
-    move2_window = Move2Window(latest_sale_year_2=2100, latest_purchase_year_2=2100)
-    concurrent = generate_move2_concurrent_candidates(anchors, [TX, FL], move2_window)
-    assert len(concurrent) > MOVE2_CROSS_PRODUCT_CAP
-
-
-def test_request_adapter_rejects_unknown_move2_strategy():
-    body = {
-        "locations": [{"state": "Texas"}, {"state": "Florida"}],
-        "move1_window": {"earliest_sale_year": 2027, "latest_sale_year": 2027,
-                          "earliest_purchase_year": 2027, "latest_purchase_year": 2027},
-        "move2_strategy": "not_a_real_strategy",
-    }
-    payload, status = optimize_housing_from_request({}, body)
-    assert status == 400
-    assert "move2_strategy" in payload["error"].lower()
+    anchors = [_cand(_move(year=2031 + i)) for i in range(50)]
+    concurrent = estimate_move2_candidate_count(
+        anchors, locations2=[TX, FL], move2_window=MoveWindow(2036, 2100),
+        move2_action="auto", concurrent=True, no_dual_ownership=True, narrowed=False,
+    )
+    assert concurrent > MOVE2_CROSS_PRODUCT_CAP
 
 
 # ---------------------------------------------------------------------------
-# family_presence hard filter (§3.1.2/§3.2.2)
+# optimize_housing: argument validation and the rejection tally. None of
+# these reach the engine.
 # ---------------------------------------------------------------------------
 
-def test_family_presence_none_always_passes():
-    cand = HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2028)
-    ok, via_rental = family_presence_ok("Illinois", cand, None)
-    assert ok is True
-    assert via_rental is False
+def _kwargs(**overrides):
+    base = dict(
+        locations1=[Location(state="Colorado", zip_code="80014")],
+        locations2=[],
+        sale_window=SaleWindow(2030, 2030),
+        move1_window=MoveWindow(2029, 2029),
+        move2_window=None,
+        dispositions=("sell",), move1_action="buy", move2_action="auto",
+        move2_concurrent=False, no_dual_ownership=True,
+        family_presence=None, family_coords={}, anchor_count=5,
+        objective="net_worth", search_mode="full", move2_strategy="anchored",
+        zip_screens={}, down_payment_pct=0.20, mortgage_rate_pct=0.065,
+    )
+    base.update(overrides)
+    return base
 
 
-def test_family_presence_satisfied_by_current_home_before_the_move():
-    cand = HousingCandidate(location_1=TX, sale_year=2030, purchase_year=2030)
-    presence = FamilyPresence(region="Illinois", start_year=2026, end_year=2029)
-    ok, via_rental = family_presence_ok("Illinois", cand, presence)
-    assert ok is True
-    assert via_rental is False
+def test_rejection_reasons_are_tallied_for_an_empty_run():
+    """A zero-candidate run must say WHY. Buying in 2029 while the original
+    home sells in 2030 is the only point in this grid, so every candidate is
+    refused by no_dual_ownership and nothing reaches the engine."""
+    out = optimize_housing(_minimal_config(), **_kwargs())
+    assert out["candidates"] == []
+    assert out["recommendation"] is None
+    assert out["rejections"]["dual_ownership"] > 0
+    assert out["rejections"]["family_presence"] == 0
 
 
-def test_family_presence_dropped_when_window_falls_outside_the_region():
-    cand = HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2028)
-    presence = FamilyPresence(region="Illinois", start_year=2029, end_year=2031)
-    ok, _via_rental = family_presence_ok("Illinois", cand, presence)
-    assert ok is False
+def test_rejections_are_reported_even_when_zero():
+    out = optimize_housing(_minimal_config(), **_kwargs())
+    assert set(out["rejections"]) == {"dual_ownership", "family_presence", "move_order"}
 
 
-def test_family_presence_satisfied_via_rental_flag():
-    cand = HousingCandidate(location_1=TX, sale_year=2027, purchase_year=None)  # rent indefinitely
-    presence = FamilyPresence(region="Texas", start_year=2028, end_year=2030)
-    ok, via_rental = family_presence_ok("Illinois", cand, presence)
-    assert ok is True
-    assert via_rental is True
+def test_family_presence_rejections_are_tallied_separately():
+    """An unknown ZIP fails presence closed, so the tally must attribute the
+    empty result to family_presence rather than to the ownership rule."""
+    from src.housing_optimizer import FamilyPresence
+
+    out = optimize_housing(_minimal_config(), **_kwargs(
+        no_dual_ownership=False,
+        family_presence=FamilyPresence(zip_code="60614", radius_miles=25,
+                                       from_year=2029, through_year=2035),
+    ))
+    assert out["candidates"] == []
+    assert out["rejections"]["family_presence"] > 0
+    assert out["rejections"]["dual_ownership"] == 0
 
 
-def test_family_presence_satisfied_via_ownership_is_not_flagged_as_rental():
-    cand = HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2027)
-    presence = FamilyPresence(region="Texas", start_year=2028, end_year=2030)
-    ok, via_rental = family_presence_ok("Illinois", cand, presence)
-    assert ok is True
-    assert via_rental is False
-
-
-def test_family_presence_checked_across_full_two_move_timeline():
-    cand = HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2027,
-                             location_2=FL, sale_year_2=2035, purchase_year_2=2035)
-    # Presence window spans the move-2 gap year -- must resolve to Florida there.
-    presence_ok = FamilyPresence(region="Florida", start_year=2035, end_year=2040)
-    presence_bad = FamilyPresence(region="Texas", start_year=2036, end_year=2040)
-    ok1, _ = family_presence_ok("Illinois", cand, presence_ok)
-    ok2, _ = family_presence_ok("Illinois", cand, presence_bad)
-    assert ok1 is True
-    assert ok2 is False
-
-
-# ---------------------------------------------------------------------------
-# §121 informational flag (not a tax-computation change -- see module docstring)
-# ---------------------------------------------------------------------------
-
-@pytest.mark.parametrize("purchase_year,sale_year,expected", [
-    (2027, 2028, True),   # < 2 years owned -- test would fail
-    (2027, 2029, False),  # exactly 2 years -- test passes
-    (2020, 2030, False),  # well past 2 years
-    (None, 2030, False),  # nothing purchased under this leg -- nothing to flag
+@pytest.mark.parametrize("overrides,expected", [
+    (dict(objective="not_a_real_objective"), "objective"),
+    (dict(search_mode="not_a_real_mode"), "search_mode"),
+    (dict(move2_strategy="not_a_real_strategy"), "move2_strategy"),
+    (dict(move1_action="maybe"), "move1_action"),
+    (dict(move2_action="maybe"), "move2_action"),
+    (dict(dispositions=("donate",)), "disposition"),
+    (dict(locations1=[]), "location"),
 ])
-def test_sec121_exclusion_flag_is_purely_informational_years_owned_check(purchase_year, sale_year, expected):
-    assert sec121_exclusion_flag(purchase_year, sale_year) is expected
+def test_optimize_housing_rejects_unknown_arguments(overrides, expected):
+    with pytest.raises(ValueError, match=expected):
+        optimize_housing(_minimal_config(), **_kwargs(**overrides))
+
+
+def test_optimize_housing_rejects_concurrent_with_narrowed_search():
+    with pytest.raises(ValueError, match="narrowed"):
+        optimize_housing(_minimal_config(), **_kwargs(
+            move2_concurrent=True, search_mode="narrowed",
+            move2_window=MoveWindow(2035, 2036), locations2=[FL],
+        ))
 
 
 # ---------------------------------------------------------------------------
-# Scoring / ranking per objective
-# ---------------------------------------------------------------------------
-
-def _scored(net_worth, lifetime_cost, mc_success_rate=None):
-    cand = HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2028)
-    return ScoredCandidate(candidate=cand, net_worth=net_worth, lifetime_cost=lifetime_cost,
-                            mc_success_rate=mc_success_rate, sec121_exclusion_lost=[False])
-
-
-def test_rank_candidates_net_worth_is_descending():
-    scored = [_scored(100, 5), _scored(300, 5), _scored(200, 5)]
-    ranked = rank_candidates(scored, "net_worth")
-    assert [s.net_worth for s in ranked] == [300, 200, 100]
-
-
-def test_rank_candidates_lifetime_cost_is_ascending_lower_is_better():
-    scored = [_scored(100, 30), _scored(100, 10), _scored(100, 20)]
-    ranked = rank_candidates(scored, "lifetime_cost")
-    assert [s.lifetime_cost for s in ranked] == [10, 20, 30]
-
-
-def test_rank_candidates_mc_success_rate_falls_back_to_net_worth_when_unset():
-    scored = [_scored(100, 5, mc_success_rate=None), _scored(300, 5, mc_success_rate=None)]
-    ranked = rank_candidates(scored, "mc_success_rate")
-    assert [s.net_worth for s in ranked] == [300, 100]
-
-
-def test_rank_candidates_mc_success_rate_uses_the_computed_rate_when_present():
-    scored = [_scored(300, 5, mc_success_rate=0.70), _scored(100, 5, mc_success_rate=0.95)]
-    ranked = rank_candidates(scored, "mc_success_rate")
-    assert [s.mc_success_rate for s in ranked] == [0.95, 0.70]
-
-
-# ---------------------------------------------------------------------------
-# Narrowed/gradient search (§8.2 P2): pure-algorithm coverage against a
-# synthetic scoring surface, no engine involved -- see the module docstring
-# for why this is a local search, not a global-optimum guarantee.
-# ---------------------------------------------------------------------------
-
-def test_coordinate_search_2d_finds_the_optimum_on_a_unimodal_surface_with_far_fewer_evals():
-    # Single peak (paraboloid) at (5, 4) over a 10x10 window -- unimodal, so
-    # hill-climbing is guaranteed to reach it.
-    peak_x, peak_y = 5, 4
-
-    def score_fn(x, y):
-        return -((x - peak_x) ** 2 + (y - peak_y) ** 2)
-
-    evaluated = _coordinate_search_2d((0, 9), (0, 9), score_fn, max_evals=25)
-    best_point = max(evaluated, key=evaluated.get)
-    assert best_point == (peak_x, peak_y)
-    full_grid_size = 10 * 10
-    assert len(evaluated) < full_grid_size
-    assert len(evaluated) <= 25
-
-
-def test_coordinate_search_2d_respects_max_evals_budget():
-    calls = 0
-
-    def score_fn(x, y):
-        nonlocal calls
-        calls += 1
-        return -((x - 3) ** 2 + (y - 3) ** 2)
-
-    _coordinate_search_2d((0, 9), (0, 9), score_fn, max_evals=10)
-    assert calls <= 10
-
-
-def test_coordinate_search_2d_skips_points_the_score_fn_flags_as_invalid():
-    # score_fn returns None for the true optimum (e.g. filtered out by
-    # no_dual_ownership/family_presence) -- search must not select it, and
-    # must still make forward progress among the remaining valid points.
-    def score_fn(x, y):
-        if (x, y) == (5, 5):
-            return None
-        return -((x - 5) ** 2 + (y - 5) ** 2)
-
-    evaluated = _coordinate_search_2d((0, 9), (0, 9), score_fn, max_evals=25)
-    assert (5, 5) not in evaluated
-    assert evaluated  # some valid neighbor was still found and scored
-
-
-def test_coordinate_search_1d_finds_the_optimum_with_far_fewer_evals_than_the_full_range():
-    peak = 7
-
-    def score_fn(x):
-        return -abs(x - peak)
-
-    evaluated = _coordinate_search_1d((0, 19), score_fn, max_evals=8)
-    best_point = max(evaluated, key=evaluated.get)
-    assert best_point == peak
-    assert len(evaluated) < 20
-    assert len(evaluated) <= 8
-
-
-# ---------------------------------------------------------------------------
-# Request-adapter validation (no engine call needed for these error paths)
-# ---------------------------------------------------------------------------
-
-def test_request_adapter_rejects_fewer_than_two_locations():
-    payload, status = optimize_housing_from_request({}, {"locations": [{"state": "Texas"}]})
-    assert status == 400
-    assert payload["success"] is False
-
-
-def test_request_adapter_rejects_more_than_four_locations():
-    body = {"locations": [{"state": "Texas"}] * 5}
-    payload, status = optimize_housing_from_request({}, body)
-    assert status == 400
-    assert payload["success"] is False
-
-
-def test_request_adapter_rejects_unknown_objective():
-    body = {
-        "locations": [{"state": "Texas"}, {"state": "Florida"}],
-        "move1_window": {"earliest_sale_year": 2027, "latest_sale_year": 2027,
-                          "earliest_purchase_year": 2027, "latest_purchase_year": 2027},
-        "objective": "not_a_real_objective",
-    }
-    payload, status = optimize_housing_from_request({}, body)
-    assert status == 400
-    assert "objective" in payload["error"].lower()
-
-
-def test_request_adapter_rejects_unknown_search_mode():
-    body = {
-        "locations": [{"state": "Texas"}, {"state": "Florida"}],
-        "move1_window": {"earliest_sale_year": 2027, "latest_sale_year": 2027,
-                          "earliest_purchase_year": 2027, "latest_purchase_year": 2027},
-        "search_mode": "not_a_real_mode",
-    }
-    payload, status = optimize_housing_from_request({}, body)
-    assert status == 400
-    assert "search_mode" in payload["error"].lower()
-
-
-# ---------------------------------------------------------------------------
-# Housing characteristics threaded through Location / _parse_location
+# Location characteristics (still the optimizer's own input type)
 # ---------------------------------------------------------------------------
 
 def test_location_defaults_match_todays_implicit_assumption():
@@ -436,152 +386,3 @@ def test_location_defaults_match_todays_implicit_assumption():
     assert loc.property_type == "single_family"
     assert loc.sqft_band == "1800_2500"
     assert loc.built_within_years is None
-
-
-def test_parse_location_reads_the_five_characteristics():
-    from src.housing_optimizer import _parse_location
-
-    loc = _parse_location({
-        "state": "Texas", "bedrooms": "4", "bathrooms": 2.5,
-        "property_type": "Condo", "sqft_band": "2500_3500", "built_within_years": "3",
-    })
-    assert loc.bedrooms == 4
-    assert loc.bathrooms == 2.5
-    assert loc.property_type == "condo"
-    assert loc.sqft_band == "2500_3500"
-    assert loc.built_within_years == 3
-
-
-def test_parse_location_blank_built_within_years_is_none():
-    from src.housing_optimizer import _parse_location
-
-    loc = _parse_location({"state": "Texas", "built_within_years": ""})
-    assert loc.built_within_years is None
-
-
-# ---------------------------------------------------------------------------
-# Per-move buy/rent action constraint
-# ---------------------------------------------------------------------------
-
-def test_move1_action_buy_only_excludes_rent_indefinitely_candidates():
-    window = SearchWindow(earliest_sale_year=2027, latest_sale_year=2027,
-                           earliest_purchase_year=2027, latest_purchase_year=2028)
-    from src.housing_optimizer import filter_candidates_by_action
-    cands = generate_move1_candidates([TX], window, no_dual_ownership=False)
-    buy_only = filter_candidates_by_action(cands, "buy", purchase_year_attr="purchase_year")
-    assert buy_only
-    assert all(c.purchase_year is not None for c in buy_only)
-
-
-def test_move1_action_rent_only_excludes_purchase_candidates():
-    window = SearchWindow(earliest_sale_year=2027, latest_sale_year=2027,
-                           earliest_purchase_year=2027, latest_purchase_year=2028)
-    from src.housing_optimizer import filter_candidates_by_action
-    cands = generate_move1_candidates([TX], window, no_dual_ownership=False)
-    rent_only = filter_candidates_by_action(cands, "rent", purchase_year_attr="purchase_year")
-    assert rent_only
-    assert all(c.purchase_year is None for c in rent_only)
-
-
-def test_move1_action_auto_keeps_everything():
-    window = SearchWindow(earliest_sale_year=2027, latest_sale_year=2027,
-                           earliest_purchase_year=2027, latest_purchase_year=2028)
-    from src.housing_optimizer import filter_candidates_by_action
-    cands = generate_move1_candidates([TX], window, no_dual_ownership=False)
-    auto = filter_candidates_by_action(cands, "auto", purchase_year_attr="purchase_year")
-    assert len(auto) == len(cands)
-
-
-# ---------------------------------------------------------------------------
-# Concurrent (non-sequential) move-2 mode
-# ---------------------------------------------------------------------------
-
-def test_generate_move2_concurrent_candidates_keeps_move1_home_and_adds_location_2():
-    from src.housing_optimizer import generate_move2_concurrent_candidates
-
-    anchor = HousingCandidate(location_1=TX, sale_year=2027, purchase_year=2028)
-    move2_window = Move2Window(latest_sale_year_2=9999, latest_purchase_year_2=2032)
-    cands = generate_move2_concurrent_candidates([anchor], [FL], move2_window)
-    assert cands
-    assert all(c.move2_mode == "concurrent" for c in cands)
-    assert all(c.sale_year_2 is None for c in cands)  # nothing is ever sold in concurrent mode
-    assert all(c.location_1.state == "Texas" and c.location_2.state == "Florida" for c in cands)
-    assert any(c.purchase_year_2 is not None for c in cands)  # buy variant
-    assert any(c.purchase_year_2 is None for c in cands)      # rent variant
-    assert all(c.concurrent_start_year_2 >= anchor.purchase_year for c in cands)
-
-
-def test_generate_move2_concurrent_candidates_skips_rent_indefinitely_move1_anchor():
-    from src.housing_optimizer import generate_move2_concurrent_candidates
-
-    rent_forever = HousingCandidate(location_1=TX, sale_year=2027, purchase_year=None)
-    move2_window = Move2Window(latest_sale_year_2=9999, latest_purchase_year_2=2032)
-    assert generate_move2_concurrent_candidates([rent_forever], [FL], move2_window) == []
-
-
-def test_family_presence_ok_concurrent_mode_covers_either_location():
-    cand = HousingCandidate(
-        location_1=TX, sale_year=2027, purchase_year=2027,
-        location_2=FL, sale_year_2=None, purchase_year_2=2030,
-        move2_mode="concurrent", concurrent_start_year_2=2030,
-    )
-    presence_matches_location_2_only = FamilyPresence(region="Florida", start_year=2031, end_year=2032)
-    ok, via_rental = family_presence_ok("Texas", cand, presence_matches_location_2_only)
-    assert ok is True
-    assert via_rental is False
-
-    presence_before_location_2_exists = FamilyPresence(region="Florida", start_year=2028, end_year=2029)
-    ok2, _ = family_presence_ok("Texas", cand, presence_before_location_2_exists)
-    assert ok2 is False
-
-
-def test_family_presence_ok_concurrent_mode_via_rental_when_location_2_is_rented():
-    cand = HousingCandidate(
-        location_1=TX, sale_year=2027, purchase_year=2027,
-        location_2=FL, sale_year_2=None, purchase_year_2=None,
-        move2_mode="concurrent", concurrent_start_year_2=2030,
-    )
-    presence = FamilyPresence(region="Florida", start_year=2031, end_year=2031)
-    ok, via_rental = family_presence_ok("Texas", cand, presence)
-    assert ok is True
-    assert via_rental is True
-
-
-def test_score_candidate_concurrent_mode_never_flags_sec121_for_move_2():
-    cand = HousingCandidate(
-        location_1=TX, sale_year=2027, purchase_year=2027,
-        location_2=FL, sale_year_2=None, purchase_year_2=2028,
-        move2_mode="concurrent", concurrent_start_year_2=2028,
-    )
-    sc = score_candidate({}, cand, [{"total_nw": 100.0}])
-    assert sc.sec121_exclusion_lost == [False, False]
-
-
-def test_format_candidate_concurrent_move_carries_mode_and_start_year():
-    from src.housing_optimizer import _format_candidate
-
-    cand = HousingCandidate(
-        location_1=TX, sale_year=2027, purchase_year=2027,
-        location_2=FL, sale_year_2=None, purchase_year_2=None,
-        move2_mode="concurrent", concurrent_start_year_2=2030,
-    )
-    sc = ScoredCandidate(candidate=cand, net_worth=1.0, lifetime_cost=1.0, mc_success_rate=None,
-                          sec121_exclusion_lost=[False, False])
-    formatted = _format_candidate(sc, "net_worth")
-    move2 = formatted["moves"][1]
-    assert move2["mode"] == "concurrent"
-    assert move2["start_year"] == 2030
-    assert move2["sale_year"] is None
-    assert move2["rent_indefinitely"] is True
-
-
-def test_optimize_housing_rejects_concurrent_with_narrowed_search():
-    payload, status = optimize_housing_from_request({}, {
-        "locations": [{"state": "Texas"}, {"state": "Florida"}],
-        "move1_window": {"earliest_sale_year": 2027, "latest_sale_year": 2027,
-                          "earliest_purchase_year": 2027, "latest_purchase_year": 2027},
-        "move2_window": {"latest_sale_year_2": 9999, "latest_purchase_year_2": 2030},
-        "move2_concurrent": True, "search_mode": "narrowed",
-    })
-    assert status == 400
-    assert "narrowed" in payload["error"]
