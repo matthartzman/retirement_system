@@ -423,12 +423,44 @@ export function rowIsRentInput(r) {
   return l === "monthly_rent";
 }
 
+// Dwelling-spec selects (Task 16, design doc §10/§14): area type, bedrooms,
+// bathrooms, property type, square footage and lot size all render from
+// HOUSING_DWELLING_OPTIONS (dashboard_shared_helpers.js), the same arrays
+// the optimizer panel (dashboard_decomp_housing_optimizer.js) renders from,
+// so the two screens describe the same dwelling by construction rather than
+// by coincidence. Unlike the optimizer, this screen records one concrete
+// dwelling, so area type omits the optimizer's "any" search wildcard.
+function _housingDwellingSelect(row, options) {
+  const cur = String(valOf(row) || "").trim();
+  return `<select data-row="${row.row_index}" onchange="editValue(${row.row_index},this.value,this)" onfocus="showFieldHelp(${row.row_index})">${options.map((o) => `<option value="${esc(o.value)}" ${norm(o.value) === norm(cur) ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>`;
+}
+
 export function housingAreaTypeSelect(row) {
   const cur = String(valOf(row) || "")
     .trim()
     .toLowerCase();
-  const opts = ["urban", "suburban", "rural"];
-  return `<select data-row="${row.row_index}" onchange="editValue(${row.row_index},this.value,this)" onfocus="showFieldHelp(${row.row_index})"><option value="">Select area type</option>${opts.map((o) => `<option value="${o}" ${norm(o) === norm(cur) ? "selected" : ""}>${titleWord(o)}</option>`).join("")}</select>`;
+  const opts = HOUSING_DWELLING_OPTIONS.areaTypes;
+  return `<select data-row="${row.row_index}" onchange="editValue(${row.row_index},this.value,this)" onfocus="showFieldHelp(${row.row_index})"><option value="">Select area type</option>${opts.map((o) => `<option value="${o.value}" ${norm(o.value) === norm(cur) ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>`;
+}
+
+export function housingBedroomsSelect(row) {
+  return _housingDwellingSelect(row, HOUSING_DWELLING_OPTIONS.bedrooms);
+}
+
+export function housingBathroomsSelect(row) {
+  return _housingDwellingSelect(row, HOUSING_DWELLING_OPTIONS.bathrooms);
+}
+
+export function housingPropertyTypeSelect(row) {
+  return _housingDwellingSelect(row, HOUSING_DWELLING_OPTIONS.propertyTypes);
+}
+
+export function housingSqftBandSelect(row) {
+  return _housingDwellingSelect(row, HOUSING_DWELLING_OPTIONS.sqftBands);
+}
+
+export function housingLotSizeSelect(row) {
+  return _housingDwellingSelect(row, HOUSING_DWELLING_OPTIONS.lotSizeBands);
 }
 
 export async function clearHousingNextStep(stepNum) {
@@ -475,7 +507,7 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
   // Both purchase and rent: State → Area Type → Population → [Estimate] →
   // remaining fields. Rent used to skip Area Type/Population (silently
   // defaulting to suburban/20,000) -- see design doc §3.4.
-  var PURCHASE_FIRST = ["state", "city_type", "population_size"];
+  var PURCHASE_FIRST = ["state", "city_type", "population_size", "zip_code"];
   var PURCHASE_REST = [
     "start_year",
     "end_year",
@@ -491,9 +523,10 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
     "bathrooms",
     "property_type",
     "sqft_band",
+    "lot_size_band",
     "built_within_years",
   ];
-  var RENT_FIRST = ["state", "city_type", "population_size"];
+  var RENT_FIRST = ["state", "city_type", "population_size", "zip_code"];
   var RENT_REST = [
     "start_year",
     "end_year",
@@ -591,9 +624,32 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
         .join("") +
       "</div>";
   html += estimateBtn;
+  // Bedrooms, bathrooms, property type, sqft and lot size render from the
+  // shared HOUSING_DWELLING_OPTIONS selects (Task 16) rather than fieldHtml's
+  // generic CSV-driven choice control, the same way Area Type already bypasses
+  // it above -- so the rendered option set is the shared array, not whatever
+  // choiceOptions() happens to parse out of the row's description text.
+  var DWELLING_SELECT_FIELDS = {
+    bedrooms: { label: "Bedrooms", render: housingBedroomsSelect },
+    bathrooms: { label: "Bathrooms", render: housingBathroomsSelect },
+    property_type: { label: "Property Type", render: housingPropertyTypeSelect },
+    sqft_band: { label: "Square Footage", render: housingSqftBandSelect },
+    lot_size_band: { label: "Lot Size", render: housingLotSizeSelect },
+  };
+  function restFieldHtml(r) {
+    var spec = DWELLING_SELECT_FIELDS[norm(r.label)];
+    if (!spec) return fieldHtml(r);
+    return (
+      '<div class="field"><div class="field-label">' +
+      spec.label +
+      "</div>" +
+      spec.render(r) +
+      "</div>"
+    );
+  }
   if (restRows.length)
     html +=
-      '<div class="field-list">' + restRows.map(fieldHtml).join("") + "</div>";
+      '<div class="field-list">' + restRows.map(restFieldHtml).join("") + "</div>";
   html += "</div></details>";
   return html;
 }
@@ -689,7 +745,7 @@ export function renderSpendingHousing() {
   html += renderBaseHomeSaleRows(rs);
 
   html +=
-    '<div class="section-note">Not sure what year or location to plan for? The <a href="#" onclick="setStep(\'scenarios\');return false">Optimize next housing move</a> tool (Strategy → Scenario Change Sets) searches candidate sale/purchase years and locations and reuses the same engine as the rest of the plan -- run it, then enter the winning combination into the fields below.</div>';
+    '<div class="section-note">Not sure what year or location to plan for? The <a href="#" onclick="setStep(\'scenarios\');return false">Optimize next housing move</a> tool (Strategy → Scenario Change Sets) searches candidate sale/purchase years, locations, and dwelling specs (area type, bedrooms, bathrooms, property type, square footage, lot size) and reuses the same engine as the rest of the plan. Each of its results now reports the ZIP code, an estimated price, and the distance to your anchor -- run it, then transcribe the winning candidate\'s state, area type, population, ZIP, and dwelling fields into the fields below.</div>';
 
   if (nextStep1Rows.length) {
     html += renderNextHousingStepSection(
@@ -1243,6 +1299,11 @@ Object.assign(window, {
   housingRentIsConfigured,
   rowIsRentInput,
   housingAreaTypeSelect,
+  housingBedroomsSelect,
+  housingBathroomsSelect,
+  housingPropertyTypeSelect,
+  housingSqftBandSelect,
+  housingLotSizeSelect,
   clearHousingNextStep,
   renderNextHousingStepSection,
   renderCollapsibleDomainBudgetSection,

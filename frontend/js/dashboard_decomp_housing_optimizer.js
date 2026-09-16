@@ -481,53 +481,50 @@ function housingOptSelect(id, options, extraAttrs) {
 // ---------------------------------------------------------------------------
 // Shared option sets (§6.2, §6.3, §7.1)
 // ---------------------------------------------------------------------------
+//
+// The concrete value/label pairs live in HOUSING_DWELLING_OPTIONS
+// (dashboard_shared_helpers.js), read here as a bare global via that file's
+// window bridge, so this panel and the spending screen's next-housing-step
+// fields (dashboard_decomp_housing_scenarios.js) render from one source
+// (Task 16, design doc §10/§14). Only this panel's own defaults and its
+// "any" search wildcard -- meaningless on the spending screen, which records
+// one concrete dwelling -- are added locally.
+
+function _withSelected(opts, selectedValue) {
+  return opts.map((o) =>
+    o.value === selectedValue ? { ...o, selected: true } : { ...o },
+  );
+}
 
 const HOUSING_OPT_AREA_TYPES = [
   { value: "any", label: "Any", selected: true },
-  { value: "urban", label: "Urban" },
-  { value: "suburban", label: "Suburban" },
-  { value: "exurban", label: "Exurban" },
-  { value: "rural", label: "Rural" },
+  ...HOUSING_DWELLING_OPTIONS.areaTypes,
 ];
 
-const HOUSING_OPT_BEDROOMS = [
-  { value: "2", label: "2 BR" },
-  { value: "3", label: "3 BR", selected: true },
-  { value: "4", label: "4 BR" },
-  { value: "5", label: "5+ BR" },
-];
+const HOUSING_OPT_BEDROOMS = _withSelected(
+  HOUSING_DWELLING_OPTIONS.bedrooms,
+  "3",
+);
 
-const HOUSING_OPT_BATHROOMS = [
-  { value: "1", label: "1 BA" },
-  { value: "1.5", label: "1.5 BA" },
-  { value: "2", label: "2 BA", selected: true },
-  { value: "2.5", label: "2.5 BA" },
-  { value: "3", label: "3 BA" },
-  { value: "3.5", label: "3.5+ BA" },
-];
+const HOUSING_OPT_BATHROOMS = _withSelected(
+  HOUSING_DWELLING_OPTIONS.bathrooms,
+  "2",
+);
 
-const HOUSING_OPT_PROPERTY_TYPES = [
-  { value: "single_family", label: "Single family", selected: true },
-  { value: "townhome", label: "Townhome" },
-  { value: "condo", label: "Condo" },
-  { value: "duplex", label: "Duplex" },
-];
+const HOUSING_OPT_PROPERTY_TYPES = _withSelected(
+  HOUSING_DWELLING_OPTIONS.propertyTypes,
+  "single_family",
+);
 
-const HOUSING_OPT_SQFT_BANDS = [
-  { value: "under_1200", label: "Under 1,200 sqft" },
-  { value: "1200_1800", label: "1,200-1,800 sqft" },
-  { value: "1800_2500", label: "1,800-2,500 sqft", selected: true },
-  { value: "2500_3500", label: "2,500-3,500 sqft" },
-  { value: "over_3500", label: "Over 3,500 sqft" },
-];
+const HOUSING_OPT_SQFT_BANDS = _withSelected(
+  HOUSING_DWELLING_OPTIONS.sqftBands,
+  "1800_2500",
+);
 
-const HOUSING_OPT_LOT_SIZE_BANDS = [
-  { value: "under_quarter", label: "Under 1/4 acre" },
-  { value: "quarter_half", label: "1/4 to 1/2 acre", selected: true },
-  { value: "half_one", label: "1/2 to 1 acre" },
-  { value: "one_three", label: "1 to 3 acres" },
-  { value: "over_three", label: "Over 3 acres" },
-];
+const HOUSING_OPT_LOT_SIZE_BANDS = _withSelected(
+  HOUSING_DWELLING_OPTIONS.lotSizeBands,
+  "quarter_half",
+);
 
 const HOUSING_OPT_MOVE_ACTIONS = [
   { value: "auto", label: "Auto (search buy & rent)", selected: true },
