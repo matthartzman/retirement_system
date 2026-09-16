@@ -26,6 +26,8 @@ from .models import (
     Move,
     MoveWindow,
     NARROWED_MAX_EVALS_PER_AXIS,
+    NARROWED_MOVE1_AXES,
+    NARROWED_MOVE2_AXES,
     OriginalHome,
     SaleWindow,
     ScoredCandidate,
@@ -111,7 +113,7 @@ def _axes_for_move1(sale_window, move1_window, disposition):
 def generate_move1_candidates_narrowed(
     *, locations1: list[Location], move1_window: MoveWindow, sale_window: SaleWindow,
     dispositions: tuple[str, ...], move1_action: str, no_dual_ownership: bool,
-    score_fn: ScoreFn, max_evals: int = NARROWED_MAX_EVALS_PER_AXIS * 2,
+    score_fn: ScoreFn, max_evals: int = NARROWED_MAX_EVALS_PER_AXIS * NARROWED_MOVE1_AXES,
     objective: str = 'net_worth',
 ) -> list[ScoredCandidate]:
     """Bounded descent per (disposition, location, action) over the year axes.
@@ -149,7 +151,7 @@ def generate_move2_candidates_narrowed(
     anchors: list[HousingCandidate], *, locations2: list[Location],
     move2_window: MoveWindow, move2_action: str, concurrent: bool,
     no_dual_ownership: bool, score_fn: ScoreFn,
-    max_evals: int = NARROWED_MAX_EVALS_PER_AXIS,
+    max_evals: int = NARROWED_MAX_EVALS_PER_AXIS * NARROWED_MOVE2_AXES,
     objective: str = 'net_worth',
 ) -> list[ScoredCandidate]:
     """Bounded descent over move 2's OWN declared acquisition window.

@@ -1,8 +1,9 @@
-"""Engine-backed functional coverage for src/housing_optimizer.py: candidates
+"""Engine-backed functional coverage for the housing optimizer: candidates
 actually run through the real deterministic engine and Monte Carlo runner
-(no new tax logic -- see module docstring), on the frozen sample plan fixture.
-Pure-logic coverage (grid bounds, filters, ranking) lives in
-test_housing_optimizer_unit.py, which needs no engine run and stays fast.
+(no new tax logic -- see src/housing's module docstring), on the frozen
+sample plan fixture. Pure-logic coverage (config translation, filters,
+ranking, the safety cap) lives in test_housing_optimizer_unit.py, which needs
+no engine run and stays fast.
 """
 from __future__ import annotations
 
@@ -24,129 +25,125 @@ def _base_config():
         return ensure_engine_config(dict(c), source="test")
 
 
+TX = ho.Location(state="Texas", population_size=150000, zip_code="78701")
+FL = ho.Location(state="Florida", population_size=300000, zip_code="33101")
+# Austin TX and Miami FL, far enough apart that a 25-mile family radius can
+# only ever be satisfied by one of them.
+COORDS = {"78701": (30.27, -97.74), "33101": (25.77, -80.19)}
+
+
+def _kwargs(**overrides):
+    base = dict(
+        locations1=[TX, FL],
+        locations2=[],
+        sale_window=ho.SaleWindow(2027, 2027),
+        move1_window=ho.MoveWindow(2027, 2028),
+        move2_window=None,
+        dispositions=("sell",),
+        move1_action="auto",
+        move2_action="auto",
+        move2_concurrent=False,
+        no_dual_ownership=True,
+        family_presence=None,
+        family_coords=COORDS,
+        anchor_count=5,
+        objective="net_worth",
+        search_mode="full",
+        move2_strategy="anchored",
+        zip_screens={},
+        down_payment_pct=0.20,
+        mortgage_rate_pct=0.065,
+    )
+    base.update(overrides)
+    return base
+
+
+def _run(**overrides):
+    c0 = _base_config()
+    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+        return ho.optimize_housing(c0, **_kwargs(**overrides))
+
+
 # @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
 # check identified in the 2026-09-15 CI-time profiling (see
 # documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
 # triggered by an ordinary UI/config change, so it moved off the PR fast
 # tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly
-def test_move1_only_optimization_returns_a_headline_and_ranked_alternatives():
-    c0 = _base_config()
-    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
-        result = ho.optimize_housing(
-            c0,
-            locations=[ho.Location(state="Texas", population_size=150000),
-                       ho.Location(state="Florida", population_size=300000)],
-            move1_window=ho.SearchWindow(2027, 2028, 2027, 2028),
-            objective="net_worth",
-        )
+def test_move1_only_optimization_returns_one_ranked_candidates_list():
+    """v2 returns a single ``candidates`` list with ``recommendation`` as an
+    alias of its head -- not a recommendation plus a disjoint
+    ``alternatives`` list that duplicated the rank-1 row (§7.2)."""
+    result = _run()
     assert result["objective"] == "net_worth"
-    assert result["recommendation"] is not None
+    assert result["schema"] == "housing_optimize_v2"
+    assert result["recommendation"] == result["candidates"][0]
     assert len(result["recommendation"]["moves"]) == 1
     assert result["candidates_evaluated"] > 0
-    # Ranked descending by net worth for the net_worth objective.
-    values = [c["net_worth"] for c in [result["recommendation"], *result["alternatives"]]]
+    values = [c["net_worth"] for c in result["candidates"]]
     assert values == sorted(values, reverse=True)
 
 
-# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
-# check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
-# triggered by an ordinary UI/config change, so it moved off the PR fast
-# tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly
 def test_lifetime_cost_objective_ranks_ascending():
-    c0 = _base_config()
-    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
-        result = ho.optimize_housing(
-            c0,
-            locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
-            move1_window=ho.SearchWindow(2027, 2027, 2027, 2028),
-            objective="lifetime_cost",
-        )
-    values = [c["lifetime_cost"] for c in [result["recommendation"], *result["alternatives"]]]
+    result = _run(objective="lifetime_cost")
+    values = [c["lifetime_cost"] for c in result["candidates"]]
     assert values == sorted(values)
 
 
-# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
-# check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
-# triggered by an ordinary UI/config change, so it moved off the PR fast
-# tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly
-def test_no_dual_ownership_excludes_purchase_before_sale_from_results():
-    c0 = _base_config()
-    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
-        result = ho.optimize_housing(
-            c0,
-            locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
-            move1_window=ho.SearchWindow(earliest_sale_year=2030, latest_sale_year=2030,
-                                          earliest_purchase_year=2027, latest_purchase_year=2032),
-            no_dual_ownership=True,
-            objective="net_worth",
-        )
-    for row in [result["recommendation"], *result["alternatives"]]:
+def test_no_dual_ownership_excludes_buying_before_the_sale_and_tallies_it():
+    result = _run(
+        sale_window=ho.SaleWindow(2030, 2030),
+        move1_window=ho.MoveWindow(2027, 2031),
+        no_dual_ownership=True,
+    )
+    for row in result["candidates"]:
         move = row["moves"][0]
-        if not move["rent_indefinitely"]:
-            assert move["purchase_year"] >= move["sale_year"]
+        if move["action"] == "buy":
+            assert move["acquisition_year"] >= row["original_home"]["sale_year"]
+    # The rows that were dropped are counted, not silently discarded.
+    assert result["rejections"]["dual_ownership"] > 0
 
 
-# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
-# check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
-# triggered by an ordinary UI/config change, so it moved off the PR fast
-# tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly
-def test_family_presence_hard_filter_drops_disqualifying_candidates():
-    c0 = _base_config()
-    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
-        unfiltered = ho.optimize_housing(
-            c0,
-            locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
-            move1_window=ho.SearchWindow(2027, 2027, 2027, 2027),
-            objective="net_worth",
-        )
-        filtered = ho.optimize_housing(
-            c0,
-            locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
-            move1_window=ho.SearchWindow(2027, 2027, 2027, 2027),
-            family_presence=ho.FamilyPresence(region="Illinois", start_year=2026, end_year=2040),
-            objective="net_worth",
-        )
-    # Neither candidate location keeps the household in Illinois past 2027,
-    # so every candidate must be dropped by the hard filter.
+def test_renting_before_the_sale_is_allowed_and_is_the_intended_bridge():
+    """``no_dual_ownership`` constrains OWNERSHIP only (§5.3): renting at the
+    destination while still owning the old home is always permitted."""
+    result = _run(
+        sale_window=ho.SaleWindow(2030, 2030),
+        move1_window=ho.MoveWindow(2027, 2028),
+        move1_action="rent",
+        no_dual_ownership=True,
+    )
+    assert result["candidates"]
+    assert all(r["moves"][0]["action"] == "rent" for r in result["candidates"])
+    assert any(r["moves"][0]["acquisition_year"] < 2030 for r in result["candidates"])
+    assert result["rejections"]["dual_ownership"] == 0
+
+
+@pytest.mark.nightly
+def test_family_presence_is_a_radius_not_a_state_and_empty_runs_say_so():
+    unfiltered = _run()
+    filtered = _run(family_presence=ho.FamilyPresence(
+        zip_code="60614", radius_miles=25, from_year=2029, through_year=2040))
     assert unfiltered["candidates_evaluated"] > 0
+    # The family ZIP is not in COORDS, so presence fails closed for every
+    # candidate -- and the payload names the constraint that emptied it.
     assert filtered["candidates_evaluated"] == 0
     assert filtered["recommendation"] is None
+    assert filtered["rejections"]["family_presence"] > 0
 
 
-# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
-# check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
-# triggered by an ordinary UI/config change, so it moved off the PR fast
-# tier and runs in the nightly full-suite workflow instead.
-@pytest.mark.nightly
-def test_two_move_candidate_has_no_mc_approximate_flag():
-    """Move 2's sale now runs through the engine's own second-sale pathway
-    (design doc §8.2 P0) -- there is no more out-of-loop estimate, so the
-    API response no longer carries an mc_approximate flag at all."""
-    c0 = _base_config()
-    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
-        result = ho.optimize_housing(
-            c0,
-            locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
-            move1_window=ho.SearchWindow(2027, 2027, 2027, 2027),
-            move2_window=ho.Move2Window(latest_sale_year_2=2035, latest_purchase_year_2=2035),
-            anchor_count=2,
-            objective="net_worth",
-        )
-    two_move_rows = [row for row in [result["recommendation"], *result["alternatives"]]
-                      if row and len(row["moves"]) == 2]
-    assert two_move_rows, "expected at least one two-move candidate in the ranked results"
-    for row in [result["recommendation"], *result["alternatives"]]:
-        if row is None:
-            continue
-        assert "mc_approximate" not in row
+def test_a_keep_disposition_runs_the_engine_with_home_sale_yr_at_zero():
+    """A kept home has no sale year at all -- previously unrepresentable,
+    because the sale year was the grid's outer loop."""
+    result = _run(dispositions=("keep",), move1_action="rent",
+                  move1_window=ho.MoveWindow(2027, 2027))
+    assert result["candidates"]
+    for row in result["candidates"]:
+        assert row["original_home"]["disposition"] == "keep"
+        assert row["original_home"]["sale_year"] is None
 
 
 def test_two_move_candidate_sale_produces_a_real_engine_deposit():
@@ -156,11 +153,12 @@ def test_two_move_candidate_sale_produces_a_real_engine_deposit():
     where home_sale.py's apply_next_housing_sale writes them."""
     c0 = _base_config()
     cand = ho.HousingCandidate(
-        location_1=ho.Location(state="Texas"), sale_year=2027, purchase_year=2027,
-        location_2=ho.Location(state="Florida"), sale_year_2=2032, purchase_year_2=None,
+        original_home=ho.OriginalHome(disposition="sell", sale_year=2027),
+        moves=(ho.Move(index=1, acquisition_year=2027, action="buy", location=TX),
+               ho.Move(index=2, acquisition_year=2032, action="rent", location=FL)),
     )
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
-        c2, rows = ho._run_engine(c0, cand)
+        c2, rows = ho._run_engine(c0, cand, down_payment_pct=0.20, mortgage_rate_pct=0.065)
     by_year = {int(r["year"]): r for r in rows}
     sale_row = by_year[2032]
     assert sale_row["next_housing_sale_gross"] > 0
@@ -170,291 +168,163 @@ def test_two_move_candidate_sale_produces_a_real_engine_deposit():
     assert sum(sale_row["_account_deposits"].values()) >= sale_row["next_housing_sale_net"] - 1.0
 
 
-# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
-# check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
-# triggered by an ordinary UI/config change, so it moved off the PR fast
-# tier and runs in the nightly full-suite workflow instead.
+def test_run_engine_returns_the_mutated_config_the_run_actually_used():
+    """``_run_engine`` returns a ``(config, rows)`` PAIR, and the config is
+    the deep copy ``_apply_candidate`` wrote to -- ``score_candidate`` and
+    ``monte_carlo`` must be handed that, not the caller's base config."""
+    c0 = _base_config()
+    cand = ho.HousingCandidate(
+        original_home=ho.OriginalHome(disposition="sell", sale_year=2027),
+        moves=(ho.Move(index=1, acquisition_year=2028, action="buy", location=TX),),
+    )
+    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+        c2, rows = ho._run_engine(c0, cand, down_payment_pct=0.31, mortgage_rate_pct=0.055)
+    assert rows
+    assert c2 is not c0
+    assert c2["home_sale_yr"] == 2027
+    assert c2["next_housing_steps"][0]["down_payment_pct"] == 0.31
+    assert c2["next_housing_steps"][0]["mortgage_rate_pct"] == 0.055
+    assert c0.get("next_housing_steps") != c2["next_housing_steps"]
+
+
 @pytest.mark.nightly
 def test_monte_carlo_success_rate_is_only_populated_for_the_shortlist():
-    c0 = _base_config()
-    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
-        result = ho.optimize_housing(
-            c0,
-            locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
-            move1_window=ho.SearchWindow(earliest_sale_year=2027, latest_sale_year=2029,
-                                          earliest_purchase_year=2027, latest_purchase_year=2029),
-            objective="net_worth",
-            shortlist_size=3,
-        )
-    all_rows = [result["recommendation"], *result["alternatives"]]
-    assert len(all_rows) > 3, "grid should produce more candidates than the MC shortlist"
-    with_mc = [r for r in all_rows if r["mc_success_rate"] is not None]
-    without_mc = [r for r in all_rows if r["mc_success_rate"] is None]
+    result = _run(
+        sale_window=ho.SaleWindow(2027, 2029),
+        move1_window=ho.MoveWindow(2027, 2029),
+        shortlist_size=3,
+    )
+    rows = result["candidates"]
+    assert len(rows) > 3, "grid should produce more candidates than the MC shortlist"
+    with_mc = [r for r in rows if r["mc_success_rate"] is not None]
+    without_mc = [r for r in rows if r["mc_success_rate"] is None]
     assert 0 < len(with_mc) <= 3
     assert without_mc
 
 
-# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
-# check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
-# triggered by an ordinary UI/config change, so it moved off the PR fast
-# tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly
-def test_request_adapter_runs_end_to_end_through_the_http_shaped_entry_point():
-    c0 = _base_config()
-    body = {
-        "locations": [{"state": "Texas", "city_type": "suburban", "population_size": 150000},
-                      {"state": "Florida", "city_type": "urban", "population_size": 300000}],
-        "move1_window": {"earliest_sale_year": 2027, "latest_sale_year": 2027,
-                          "earliest_purchase_year": 2027, "latest_purchase_year": 2027},
-        "objective": "net_worth",
-        "no_dual_ownership": True,
-    }
-    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
-        payload, status = ho.optimize_housing_from_request(c0, body)
-    assert status == 200
-    assert payload["success"] is True
-    assert payload["schema"] == "housing_optimize_v1"
-    assert payload["recommendation"] is not None
+def test_search_mode_full_is_the_default():
+    omitted = _run()
+    explicit = _run(search_mode="full")
+    assert explicit["search_mode"] == "full"
+    assert omitted["candidates_evaluated"] == explicit["candidates_evaluated"]
+    assert omitted["recommendation"] == explicit["recommendation"]
 
 
-# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
-# check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
-# triggered by an ordinary UI/config change, so it moved off the PR fast
-# tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly
-def test_search_mode_full_is_unchanged_by_default():
-    """search_mode defaults to 'full' and must behave exactly as before
-    (§8.2 P2 module docstring): identical candidates_evaluated and ranking
-    whether or not search_mode is passed explicitly."""
-    c0 = _base_config()
-    window = ho.SearchWindow(earliest_sale_year=2027, latest_sale_year=2028,
-                              earliest_purchase_year=2027, latest_purchase_year=2028)
-    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
-        omitted = ho.optimize_housing(
-            c0, locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
-            move1_window=window, objective="net_worth",
-        )
-        explicit_full = ho.optimize_housing(
-            c0, locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
-            move1_window=window, objective="net_worth", search_mode="full",
-        )
-    assert explicit_full["search_mode"] == "full"
-    assert omitted["candidates_evaluated"] == explicit_full["candidates_evaluated"]
-    assert omitted["recommendation"] == explicit_full["recommendation"]
-
-
-# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
-# check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
-# triggered by an ordinary UI/config change, so it moved off the PR fast
-# tier and runs in the nightly full-suite workflow instead.
-@pytest.mark.nightly
-def test_search_mode_narrowed_runs_end_to_end_with_fewer_evaluations_than_full_grid():
-    c0 = _base_config()
-    # A wide window: full grid is 5 sale years x (6 purchase years + 1 rent)
-    # per location x 2 locations = 70 candidates; narrowed should use far
-    # fewer engine runs per the module docstring's ~33/location bound.
-    window = ho.SearchWindow(earliest_sale_year=2027, latest_sale_year=2031,
-                              earliest_purchase_year=2027, latest_purchase_year=2032)
-    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
-        full = ho.optimize_housing(
-            c0, locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
-            move1_window=window, objective="net_worth", search_mode="full",
-        )
-        narrowed = ho.optimize_housing(
-            c0, locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
-            move1_window=window, objective="net_worth", search_mode="narrowed",
-        )
+def test_search_mode_narrowed_runs_end_to_end_with_fewer_evaluations():
+    window = ho.MoveWindow(2027, 2032)
+    sale = ho.SaleWindow(2027, 2031)
+    full = _run(search_mode="full", sale_window=sale, move1_window=window)
+    narrowed = _run(search_mode="narrowed", sale_window=sale, move1_window=window)
     assert narrowed["search_mode"] == "narrowed"
     assert narrowed["recommendation"] is not None
-    assert narrowed["candidates_evaluated"] > 0
-    assert narrowed["candidates_evaluated"] < full["candidates_evaluated"]
-    values = [c["net_worth"] for c in [narrowed["recommendation"], *narrowed["alternatives"]]]
+    assert 0 < narrowed["candidates_evaluated"] < full["candidates_evaluated"]
+    values = [c["net_worth"] for c in narrowed["candidates"]]
     assert values == sorted(values, reverse=True)
 
 
 def test_search_mode_narrowed_rejects_unknown_value():
-    c0 = _base_config()
     with pytest.raises(ValueError, match="search_mode"):
-        ho.optimize_housing(
-            c0, locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
-            move1_window=ho.SearchWindow(2027, 2027, 2027, 2027), search_mode="bogus",
-        )
+        _run(search_mode="bogus")
 
 
-# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
-# check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
-# triggered by an ordinary UI/config change, so it moved off the PR fast
-# tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly
-def test_move2_strategy_anchored_default_is_unchanged():
-    """move2_strategy defaults to 'anchored' and must behave exactly as
-    before (§8.2 P3 module docstring): identical results whether or not
-    move2_strategy is passed explicitly."""
-    c0 = _base_config()
-    kwargs = dict(
-        locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
-        move1_window=ho.SearchWindow(2027, 2027, 2027, 2027),
-        move2_window=ho.Move2Window(latest_sale_year_2=2032, latest_purchase_year_2=2032),
+def test_move2_uses_its_own_declared_window():
+    """The old implementation derived move 2's lower bound from move 1's
+    purchase year, silently overriding the declared window."""
+    result = _run(
+        locations2=[FL],
+        move1_window=ho.MoveWindow(2027, 2027),
+        move2_window=ho.MoveWindow(2033, 2034),
         anchor_count=2,
-        objective="net_worth",
     )
-    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
-        omitted = ho.optimize_housing(c0, **kwargs)
-        explicit_anchored = ho.optimize_housing(c0, move2_strategy="anchored", **kwargs)
-    assert explicit_anchored["move2_strategy"] == "anchored"
-    assert omitted["candidates_evaluated"] == explicit_anchored["candidates_evaluated"]
-    assert omitted["recommendation"] == explicit_anchored["recommendation"]
+    two_move = [r for r in result["candidates"] if len(r["moves"]) == 2]
+    assert two_move
+    for row in two_move:
+        assert 2033 <= row["moves"][1]["acquisition_year"] <= 2034
 
 
-# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
-# check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
-# triggered by an ordinary UI/config change, so it moved off the PR fast
-# tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly
-def test_move2_strategy_cross_product_runs_end_to_end_against_more_than_anchor_count_anchors():
-    """A small search window (2 years each, 2 locations) with anchor_count=1
-    should still let cross_product build move-2 candidates against every
-    eligible move-1 candidate, not just the single anchor 'anchored' would
-    use -- confirmed by cross_product evaluating strictly more move-2
-    candidates than the equivalent anchored run with the same anchor_count.
-    """
-    c0 = _base_config()
-    move1_window = ho.SearchWindow(earliest_sale_year=2027, latest_sale_year=2028,
-                                    earliest_purchase_year=2027, latest_purchase_year=2028)
-    move2_window = ho.Move2Window(latest_sale_year_2=2030, latest_purchase_year_2=2031)
-    locations = [ho.Location(state="Texas"), ho.Location(state="Florida")]
-    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
-        anchored = ho.optimize_housing(
-            c0, locations=locations, move1_window=move1_window, move2_window=move2_window,
-            anchor_count=1, objective="net_worth", move2_strategy="anchored",
-        )
-        cross = ho.optimize_housing(
-            c0, locations=locations, move1_window=move1_window, move2_window=move2_window,
-            anchor_count=1, objective="net_worth", move2_strategy="cross_product",
-        )
+def test_move2_strategy_anchored_is_the_default():
+    kwargs = dict(locations2=[FL], move1_window=ho.MoveWindow(2027, 2027),
+                  move2_window=ho.MoveWindow(2032, 2032), anchor_count=2)
+    omitted = _run(**kwargs)
+    explicit = _run(move2_strategy="anchored", **kwargs)
+    assert explicit["move2_strategy"] == "anchored"
+    assert omitted["candidates_evaluated"] == explicit["candidates_evaluated"]
+    assert omitted["recommendation"] == explicit["recommendation"]
+
+
+@pytest.mark.nightly
+def test_move2_strategy_cross_product_uses_more_anchors_than_anchor_count():
+    kwargs = dict(locations2=[FL], move1_window=ho.MoveWindow(2027, 2028),
+                  move2_window=ho.MoveWindow(2030, 2031), anchor_count=1)
+    anchored = _run(move2_strategy="anchored", **kwargs)
+    cross = _run(move2_strategy="cross_product", **kwargs)
     assert cross["move2_strategy"] == "cross_product"
     assert cross["recommendation"] is not None
-    two_move_cross = [r for r in [cross["recommendation"], *cross["alternatives"]] if r and len(r["moves"]) == 2]
-    two_move_anchored = [r for r in [anchored["recommendation"], *anchored["alternatives"]]
-                          if r and len(r["moves"]) == 2]
-    assert two_move_cross, "expected two-move candidates in the cross_product results"
-    # cross_product ignores anchor_count and searches every eligible move-1
-    # candidate, so its total candidate pool must be strictly larger than
-    # the anchor_count=1 anchored run's (same windows/locations otherwise).
+    assert [r for r in cross["candidates"] if len(r["moves"]) == 2]
     assert cross["candidates_evaluated"] > anchored["candidates_evaluated"]
 
 
-# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
-# check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
-# triggered by an ordinary UI/config change, so it moved off the PR fast
-# tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly
 def test_move2_strategy_cross_product_composes_with_narrowed_search_mode():
-    c0 = _base_config()
-    move1_window = ho.SearchWindow(earliest_sale_year=2027, latest_sale_year=2028,
-                                    earliest_purchase_year=2027, latest_purchase_year=2028)
-    move2_window = ho.Move2Window(latest_sale_year_2=2030, latest_purchase_year_2=2031)
-    locations = [ho.Location(state="Texas"), ho.Location(state="Florida")]
-    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
-        result = ho.optimize_housing(
-            c0, locations=locations, move1_window=move1_window, move2_window=move2_window,
-            anchor_count=1, objective="net_worth", search_mode="narrowed", move2_strategy="cross_product",
-        )
+    result = _run(search_mode="narrowed", move2_strategy="cross_product",
+                  locations2=[FL], move1_window=ho.MoveWindow(2027, 2028),
+                  move2_window=ho.MoveWindow(2030, 2031), anchor_count=1)
     assert result["search_mode"] == "narrowed"
     assert result["move2_strategy"] == "cross_product"
     assert result["candidates_evaluated"] > 0
 
 
-def test_move2_strategy_cross_product_rejects_a_too_large_search_before_running_the_engine():
-    c0 = _base_config()
-    # Keep move1_window small (cheap real-engine Pass 1a, like the other
-    # tests here) but move2_window huge -- estimate_move2_candidate_count is
-    # computed (and this raised) before any move-2 engine call, so a wide
-    # move2 window alone is enough to trip the cap without this test paying
-    # for a wide move1 grid too.
-    move1_window = ho.SearchWindow(earliest_sale_year=2027, latest_sale_year=2028,
-                                    earliest_purchase_year=2027, latest_purchase_year=2028)
-    move2_window = ho.Move2Window(latest_sale_year_2=2100, latest_purchase_year_2=2100)
-    locations = [ho.Location(state="Texas"), ho.Location(state="Florida")]
-    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES), pytest.raises(ValueError, match="cross_product"):
-        ho.optimize_housing(
-            c0, locations=locations, move1_window=move1_window, move2_window=move2_window,
-            objective="net_worth", move2_strategy="cross_product",
-        )
+CA = ho.Location(state="California", population_size=200000, zip_code="90001")
 
 
-def test_move2_concurrent_rejects_a_too_large_search_before_running_the_engine():
-    # move2_concurrent generates its own candidate set (independent of
-    # move2_strategy) that, before this fix, was never counted against
-    # MOVE2_CROSS_PRODUCT_CAP -- so even the default move2_strategy='anchored'
-    # (not just 'cross_product') could reach the real engine with an
-    # uncapped, runaway number of concurrent candidates for a wide-enough
-    # move2_window. move2_strategy is left at its default ('anchored'), so
-    # estimated starts at 0 and is entirely the concurrent count -- proving
-    # concurrent's contribution alone (not the pre-existing cross_product
-    # check) is what trips the cap.
+def test_move2_strategy_cross_product_rejects_a_too_large_search_before_the_engine():
+    # move1_window stays small (cheap real-engine Pass 1a) but move2_window is
+    # huge -- the estimate is computed, and this raised, before any move-2
+    # engine call.
     #
-    # With only 2 candidate locations and this move1_window, move1 Pass 1a
-    # produces just 6 owned (extendable) candidates -- not enough anchors for
-    # the concurrent count (anchors * locations * move2-window-years * 2) to
-    # clear MOVE2_CROSS_PRODUCT_CAP=3000 on its own (verified: only ~1760,
-    # under the cap, which let the real engine run to completion instead of
-    # raising -- silently defeating the point of this test by taking
-    # minutes). A third candidate location raises the number of owned move1
-    # candidates to 9, which is enough: 9 anchors * 3 locations * 74
-    # move2-window-years * 2 (buy/rent variants) = 3996 concurrent
-    # candidates, comfortably over the cap, so optimize_housing raises
-    # ValueError before ever calling the engine (verified this test now
-    # completes in well under a second, unlike before the fix).
-    move1_window = ho.SearchWindow(earliest_sale_year=2027, latest_sale_year=2028,
-                                    earliest_purchase_year=2027, latest_purchase_year=2028)
-    move2_window = ho.Move2Window(latest_sale_year_2=2100, latest_purchase_year_2=2100)
-    locations = [ho.Location(state="Texas"), ho.Location(state="Florida"), ho.Location(state="California")]
-    c0 = _base_config()
-    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES), pytest.raises(ValueError, match="cap"):
-        ho.optimize_housing(
-            c0, locations=locations, move1_window=move1_window, move2_window=move2_window,
-            anchor_count=20, objective="net_worth", move2_concurrent=True,
-        )
+    # Sizing, since the anchor rule changed: this move1_window/sale_window
+    # gives 8 move-1 candidates (1 sale year x 2 acquisition years x 2
+    # locations x buy/rent), all of which are anchors now that a rental move 1
+    # is eligible (§5.1) -- 4 under the old ownership-filtered rule. Against
+    # THREE move-2 locations that is 8 x 3 x 72 window-years x 2 actions =
+    # 3456, over MOVE2_CROSS_PRODUCT_CAP=3000; two locations would be 2304 and
+    # would not trip it.
+    with pytest.raises(ValueError, match="cross_product"):
+        _run(move2_strategy="cross_product", locations2=[TX, FL, CA],
+             move1_window=ho.MoveWindow(2027, 2028),
+             move2_window=ho.MoveWindow(2029, 2100))
+
+
+def test_move2_concurrent_rejects_a_too_large_search_before_the_engine():
+    """move2_concurrent generates its own candidate set, independent of
+    move2_strategy. move2_strategy is left at its default ('anchored'), so
+    ``estimated`` starts at 0 and is entirely the concurrent count -- proving
+    concurrent's contribution alone trips the cap. Same 3456 sizing as the
+    cross_product test above."""
+    with pytest.raises(ValueError, match="cap"):
+        _run(move2_concurrent=True, locations2=[TX, FL, CA],
+             move1_window=ho.MoveWindow(2027, 2028),
+             move2_window=ho.MoveWindow(2029, 2100), anchor_count=20)
 
 
 def test_move2_strategy_rejects_unknown_value():
-    c0 = _base_config()
     with pytest.raises(ValueError, match="move2_strategy"):
-        ho.optimize_housing(
-            c0, locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
-            move1_window=ho.SearchWindow(2027, 2027, 2027, 2027), move2_strategy="bogus",
-        )
+        _run(move2_strategy="bogus")
 
 
-# @pytest.mark.nightly: engine-internals-only equivalence/sweep-breadth
-# check identified in the 2026-09-15 CI-time profiling (see
-# documentation/reference/TESTING_REFACTOR_RECOMMENDATIONS.md); cannot be
-# triggered by an ordinary UI/config change, so it moved off the PR fast
-# tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly
 def test_optimizer_never_mutates_the_base_plan_config():
     c0 = _base_config()
-    before_next_steps = c0.get("next_housing_steps")
-    before_residency = c0.get("residency_schedule")
-    before_sale_yr = c0.get("home_sale_yr")
+    before = (c0.get("next_housing_steps"), c0.get("residency_schedule"),
+              c0.get("home_sale_yr"))
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
-        ho.optimize_housing(
-            c0,
-            locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
-            move1_window=ho.SearchWindow(2027, 2027, 2027, 2027),
-            objective="net_worth",
-        )
-    assert c0.get("next_housing_steps") == before_next_steps
-    assert c0.get("residency_schedule") == before_residency
-    assert c0.get("home_sale_yr") == before_sale_yr
+        ho.optimize_housing(c0, **_kwargs(move1_window=ho.MoveWindow(2027, 2027)))
+    assert (c0.get("next_housing_steps"), c0.get("residency_schedule"),
+            c0.get("home_sale_yr")) == before
 
 
 def test_estimate_for_location_passes_characteristics_through_to_pricing():
@@ -468,59 +338,51 @@ def test_estimate_for_location_passes_characteristics_through_to_pricing():
 
 
 def test_move1_action_rent_only_is_honored_in_both_search_modes():
-    c0 = _base_config()
-    locations = [ho.Location(state="Texas"), ho.Location(state="Florida")]
-    window = ho.SearchWindow(earliest_sale_year=2027, latest_sale_year=2027,
-                              earliest_purchase_year=2027, latest_purchase_year=2028)
     for mode in ("full", "narrowed"):
-        with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
-            result = ho.optimize_housing(
-                c0, locations=locations, move1_window=window,
-                move1_action="rent", search_mode=mode, shortlist_size=1,
-            )
-        for cand in [result["recommendation"], *result["alternatives"]]:
-            if cand is None:
-                continue
-            assert cand["moves"][0]["rent_indefinitely"] is True
+        result = _run(move1_action="rent", search_mode=mode, shortlist_size=1,
+                      move1_window=ho.MoveWindow(2027, 2028))
+        assert result["candidates"]
+        for cand in result["candidates"]:
+            assert cand["moves"][0]["action"] == "rent"
 
 
+@pytest.mark.nightly
 def test_move2_concurrent_candidate_is_generated_and_scored_by_the_real_engine():
-    """Engine-backed proof that move2_concurrent=True actually reaches the
-    real engine and produces a genuine two-simultaneous-residence run (not
-    just a code path that's never exercised).
+    """Engine-backed proof that move2_concurrent=True reaches the real engine
+    and produces a genuine two-simultaneous-residence run.
 
-    Note: unlike the sequential two-move case, a concurrent candidate can
-    never outrank a move1-only candidate that already satisfies
-    family_presence on its own -- the anchor a concurrent candidate extends
-    must independently pass family_presence_ok before it's even eligible to
-    anchor a move 2 (see family_presence_ok's docstring and the existing
-    test_family_presence_hard_filter_drops_disqualifying_candidates), so
-    concurrent mode only ever adds cost on top of an anchor that already
-    satisfies presence by itself; it structurally cannot become the #1
-    full-search recommendation on net_worth. This mirrors
-    test_two_move_candidate_has_no_mc_approximate_flag's pattern below:
-    assert a concurrent-mode candidate is present among the ranked results,
-    not that it's ranked first.
+    A concurrent candidate can never outrank a move1-only candidate that
+    already satisfies family_presence on its own -- the anchor it extends had
+    to pass family_presence_ok before it was eligible to anchor a move 2 --
+    so assert it is PRESENT among the ranked results, not that it is first.
     """
-    c0 = _base_config()
-    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
-        result = ho.optimize_housing(
-            c0,
-            locations=[ho.Location(state="Texas"), ho.Location(state="Florida")],
-            move1_window=ho.SearchWindow(2027, 2027, 2027, 2027),
-            move2_window=ho.Move2Window(latest_sale_year_2=2028, latest_purchase_year_2=2028),
-            move2_concurrent=True,
-            anchor_count=1,
-            family_presence=ho.FamilyPresence(region="Florida", start_year=2028, end_year=2028),
-            shortlist_size=3,
-        )
+    result = _run(
+        locations1=[TX], locations2=[FL],
+        move1_window=ho.MoveWindow(2027, 2027),
+        move2_window=ho.MoveWindow(2028, 2028),
+        move2_concurrent=True, anchor_count=1, shortlist_size=3,
+    )
     assert result["recommendation"] is not None
-    rows = [result["recommendation"], *result["alternatives"]]
     concurrent_rows = [
-        r for r in rows
-        if r and len(r["moves"]) == 2 and r["moves"][1]["mode"] == "concurrent"
+        r for r in result["candidates"]
+        if len(r["moves"]) == 2 and r["moves"][1]["mode"] == "concurrent"
     ]
-    assert concurrent_rows, "expected at least one concurrent-mode candidate in the ranked results"
-    move2 = concurrent_rows[0]["moves"][1]
-    assert move2["sale_year"] is None
-    assert move2["start_year"] is not None
+    assert concurrent_rows, "expected at least one concurrent-mode candidate"
+    assert concurrent_rows[0]["moves"][1]["acquisition_year"] == 2028
+
+
+def test_family_distance_is_annotated_onto_the_locations_it_was_handed():
+    """An empty result under a tight radius is otherwise undiagnosable: the
+    row has to show how close the search actually came."""
+    result = _run(
+        locations1=[TX, FL],
+        move1_window=ho.MoveWindow(2027, 2027),
+        family_presence=ho.FamilyPresence(zip_code="78701", radius_miles=25,
+                                          from_year=2027, through_year=2040),
+        shortlist_size=1,
+    )
+    assert result["candidates"]
+    for row in result["candidates"]:
+        loc = row["moves"][0]["location"]
+        assert loc["zip_code"] == "78701"
+        assert loc["family_distance_miles"] == 0.0
