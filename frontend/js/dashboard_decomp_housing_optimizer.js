@@ -24,6 +24,19 @@
 const HOUSING_OPT_MIN_ANCHORS = 2;
 const HOUSING_OPT_MAX_ANCHORS = 5;
 
+// Enum/range constants mirroring src/housing/models.py and
+// src/housing/zip_screen/schema.py exactly (Task 12) -- validateHousingOptForm
+// checks these client-side so the Run button disables before a doomed request
+// is ever sent, but src/housing/api.py's validate_request is the copy that is
+// trusted. Both lists must be kept in sync by hand; there is no shared source
+// a browser script can import from a Python module.
+const HOUSING_OPT_OBJECTIVES = ["net_worth", "lifetime_cost", "mc_success_rate"];
+const HOUSING_OPT_SEARCH_MODES = ["full", "narrowed"];
+const HOUSING_OPT_MOVE2_STRATEGIES = ["anchored", "cross_product"];
+const HOUSING_OPT_DISPOSITIONS = ["sell", "keep", "auto"];
+const HOUSING_OPT_ALLOWED_RADII_MILES = [5, 10, 25, 50];
+const HOUSING_OPT_FAMILY_RADII_MILES = [10, 25, 50, 100];
+
 // Per-move anchor counts, keyed by move index. Rendered markup and the
 // add/remove controls both read this, so the two never disagree.
 const housingOptAnchorCounts = { 1: HOUSING_OPT_MIN_ANCHORS, 2: HOUSING_OPT_MIN_ANCHORS };
@@ -173,10 +186,10 @@ export function housingOptAnchorEntryHtml(moveIndex, i) {
       { value: "city", label: "City", selected: true },
       { value: "zip", label: "ZIP" },
     ],
-    `onchange="toggleHousingOptAnchorMode(${moveIndex}, ${i})"`,
+    `onchange="toggleHousingOptAnchorMode(${moveIndex}, ${i}); debouncedRefreshHousingOptValidation()"`,
   );
-  const city = `<select id="${cityId}" class="housing-opt-anchor-city">${housingOptAnchorCityOptionsHtml()}</select>`;
-  const zip = `<input type="text" id="${zipId}" class="zip housing-opt-anchor-zip" maxlength="5" inputmode="numeric" placeholder="60521" hidden>`;
+  const city = `<select id="${cityId}" class="housing-opt-anchor-city" onchange="debouncedRefreshHousingOptValidation()">${housingOptAnchorCityOptionsHtml()}</select>`;
+  const zip = `<input type="text" id="${zipId}" class="zip housing-opt-anchor-zip" maxlength="5" inputmode="numeric" placeholder="60521" hidden oninput="debouncedRefreshHousingOptValidation()">`;
   const remove =
     i >= HOUSING_OPT_MIN_ANCHORS
       ? `<button class="btn small housing-opt-anchor-remove" type="button" onclick="removeHousingOptAnchor(${moveIndex}, ${i})" aria-label="Remove anchor ${i + 1}">&times;</button>`
@@ -339,7 +352,7 @@ function housingOptMoveWhereRowHtml(n) {
       housingOptField(
         `${p}Radius`,
         "Within",
-        housingOptSelect(`${p}Radius`, HOUSING_OPT_MOVE_RADII),
+        housingOptSelect(`${p}Radius`, HOUSING_OPT_MOVE_RADII, 'onchange="debouncedRefreshHousingOptValidation()"'),
         "How far from each anchor a candidate ZIP may be.",
       ) +
       housingOptField(
@@ -351,7 +364,7 @@ function housingOptMoveWhereRowHtml(n) {
       housingOptField(
         `${p}AreaType`,
         "Area type",
-        housingOptSelect(`${p}AreaType`, HOUSING_OPT_AREA_TYPES),
+        housingOptSelect(`${p}AreaType`, HOUSING_OPT_AREA_TYPES, 'onchange="debouncedRefreshHousingOptValidation()"'),
         "Compared against the ZIP's density-derived area type. Any skips the filter.",
       ) +
       housingOptField(
@@ -412,13 +425,13 @@ function housingOptMoveWhatRowHtml(n) {
       housingOptField(
         `${p}PriceMin`,
         "Price min",
-        `<input type="number" id="${p}PriceMin" class="money" min="0" placeholder="e.g. 400000">`,
+        `<input type="number" id="${p}PriceMin" class="money" min="0" placeholder="e.g. 400000" oninput="debouncedRefreshHousingOptValidation()">`,
         "The only dwelling input that filters the funnel: ZIPs whose estimated price falls outside the range are dropped.",
       ) +
       housingOptField(
         `${p}PriceMax`,
         "Price max",
-        `<input type="number" id="${p}PriceMax" class="money" min="0" placeholder="e.g. 700000">`,
+        `<input type="number" id="${p}PriceMax" class="money" min="0" placeholder="e.g. 700000" oninput="debouncedRefreshHousingOptValidation()">`,
         "The only dwelling input that filters the funnel: ZIPs whose estimated price falls outside the range are dropped.",
       ) +
       `<div class="housing-opt-field-actions"><button class="btn small" type="button" id="${p}Preview" onclick="previewHousingZipShortlist(${n})">Preview shortlist</button></div><div class="housing-opt-shortlist" id="${p}Shortlist"></div>`,
@@ -432,19 +445,19 @@ function housingOptMoveWhenRowHtml(n) {
     housingOptField(
       `${p}Earliest`,
       "Earliest year",
-      `<input type="number" id="${p}Earliest" class="year">`,
+      `<input type="number" id="${p}Earliest" class="year" oninput="debouncedRefreshHousingOptValidation()">`,
       "The first year this move may be acquired -- the closing year for a purchase, the lease start year for a rental.",
     ) +
       housingOptField(
         `${p}Latest`,
         "Latest year",
-        `<input type="number" id="${p}Latest" class="year">`,
+        `<input type="number" id="${p}Latest" class="year" oninput="debouncedRefreshHousingOptValidation()">`,
         "The last year this move may be acquired. Must not be earlier than the earliest year.",
       ) +
       housingOptField(
         `${p}Action`,
         "Action",
-        housingOptSelect(`${p}Action`, HOUSING_OPT_MOVE_ACTIONS),
+        housingOptSelect(`${p}Action`, HOUSING_OPT_MOVE_ACTIONS, 'onchange="debouncedRefreshHousingOptValidation()"'),
         "Auto searches both buying and renting and lets the objective decide.",
       ),
   );
@@ -475,7 +488,7 @@ export function renderHousingOptimizePanelHtml() {
               label: "Narrowed (faster, may miss the best candidate)",
             },
           ],
-          'onchange="toggleHousingOptMove2ConcurrentAvailability()"',
+          'onchange="toggleHousingOptMove2ConcurrentAvailability(); debouncedRefreshHousingOptValidation()"',
         ),
         "Full evaluates the whole grid; narrowed runs coordinate descent per axis.",
       ) +
@@ -491,7 +504,7 @@ export function renderHousingOptimizePanelHtml() {
       housingOptField(
         "housingOptNoDualOwnership",
         "Never own two homes at once",
-        `<input type="checkbox" id="housingOptNoDualOwnership" checked><span class="housing-opt-note small" id="housingOptNoDualOwnershipConcurrentNote" hidden>Not applicable in concurrent mode -- both homes are always kept.</span>`,
+        `<input type="checkbox" id="housingOptNoDualOwnership" checked onchange="debouncedRefreshHousingOptValidation()"><span class="housing-opt-note small" id="housingOptNoDualOwnershipConcurrentNote" hidden>Not applicable in concurrent mode -- both homes are always kept.</span>`,
         "Constrains ownership only. Renting a residence while still owning the previous home is always permitted.",
       ),
   );
@@ -501,31 +514,31 @@ export function renderHousingOptimizePanelHtml() {
     housingOptField(
       "housingOptPresenceEnabled",
       "Enable",
-      `<input type="checkbox" id="housingOptPresenceEnabled">`,
+      `<input type="checkbox" id="housingOptPresenceEnabled" onchange="debouncedRefreshHousingOptValidation()">`,
       "When on, a candidate is dropped if the household lives farther than the radius from the family ZIP in any year of the window.",
     ) +
       housingOptField(
         "housingOptPresenceZip",
         "Family ZIP",
-        `<input type="text" id="housingOptPresenceZip" class="zip" maxlength="5" inputmode="numeric" placeholder="60521">`,
+        `<input type="text" id="housingOptPresenceZip" class="zip" maxlength="5" inputmode="numeric" placeholder="60521" oninput="debouncedRefreshHousingOptValidation()">`,
         "The 5-digit ZIP proximity is measured from.",
       ) +
       housingOptField(
         "housingOptPresenceRadius",
         "Within",
-        housingOptSelect("housingOptPresenceRadius", HOUSING_OPT_PRESENCE_RADII),
+        housingOptSelect("housingOptPresenceRadius", HOUSING_OPT_PRESENCE_RADII, 'onchange="debouncedRefreshHousingOptValidation()"'),
         "How far from the family ZIP the household may live during the presence window.",
       ) +
       housingOptField(
         "housingOptPresenceFrom",
         "From year",
-        `<input type="number" id="housingOptPresenceFrom" class="year">`,
+        `<input type="number" id="housingOptPresenceFrom" class="year" oninput="debouncedRefreshHousingOptValidation()">`,
         "First year of the presence window. Must not be later than the through year.",
       ) +
       housingOptField(
         "housingOptPresenceThrough",
         "Through year",
-        `<input type="number" id="housingOptPresenceThrough" class="year">`,
+        `<input type="number" id="housingOptPresenceThrough" class="year" oninput="debouncedRefreshHousingOptValidation()">`,
         "Last year of the presence window.",
       ),
   );
@@ -542,20 +555,20 @@ export function renderHousingOptimizePanelHtml() {
           { value: "sell", label: "Sell" },
           { value: "keep", label: "Keep" },
         ],
-        'onchange="toggleHousingOptDispositionFields()"',
+        'onchange="toggleHousingOptDispositionFields(); debouncedRefreshHousingOptValidation()"',
       ),
       "Auto searches selling and keeping and lets the objective decide.",
     ) +
       housingOptField(
         "housingOptEarliestSale",
         "Earliest sale year",
-        `<input type="number" id="housingOptEarliestSale" class="year">`,
+        `<input type="number" id="housingOptEarliestSale" class="year" oninput="debouncedRefreshHousingOptValidation()">`,
         "First year the current home may be sold. Ignored when the disposition is Keep.",
       ) +
       housingOptField(
         "housingOptLatestSale",
         "Latest sale year",
-        `<input type="number" id="housingOptLatestSale" class="year">`,
+        `<input type="number" id="housingOptLatestSale" class="year" oninput="debouncedRefreshHousingOptValidation()">`,
         "Last year the current home may be sold. Must not be earlier than the earliest sale year.",
       ) +
       `<div class="housing-opt-note small" id="housingOptKeepNote" hidden>Keeping the current home means its costs keep accruing. Rental income from a kept home is not modelled -- see the help panel.</div>`,
@@ -566,7 +579,7 @@ export function renderHousingOptimizePanelHtml() {
     housingOptField(
       "housingOptMove2Enabled",
       "Consider a second move",
-      `<input type="checkbox" id="housingOptMove2Enabled" onchange="toggleHousingOptMove2Fields()">`,
+      `<input type="checkbox" id="housingOptMove2Enabled" onchange="toggleHousingOptMove2Fields(); debouncedRefreshHousingOptValidation()">`,
       "Adds a second acquisition with its own anchors, window and dwelling spec.",
     ) +
       `<div class="housing-opt-move2" id="housingOptMove2Fields" hidden>${housingOptMoveWhereRowHtml(2)}${housingOptMoveWhatRowHtml(2)}${housingOptMoveWhenRowHtml(2)}${housingOptRow(
@@ -574,13 +587,13 @@ export function renderHousingOptimizePanelHtml() {
         housingOptField(
           "housingOptMove2Concurrent",
           "Concurrent with move 1",
-          `<input type="checkbox" id="housingOptMove2Concurrent" onchange="toggleHousingOptMove2ConcurrentAvailability()"><span class="housing-opt-note small" id="housingOptMove2ConcurrentNarrowedNote" hidden>Concurrent mode is only available with Full grid search mode.</span>`,
+          `<input type="checkbox" id="housingOptMove2Concurrent" onchange="toggleHousingOptMove2ConcurrentAvailability(); debouncedRefreshHousingOptValidation()"><span class="housing-opt-note small" id="housingOptMove2ConcurrentNarrowedNote" hidden>Concurrent mode is only available with Full grid search mode.</span>`,
           "Keeps the move-1 home and adds this as a second residence rather than replacing it.",
         ) +
           housingOptField(
             "housingOptMove2AnchorCount",
             "Anchor count",
-            `<input type="number" id="housingOptMove2AnchorCount" class="count" value="5" min="1" max="10">`,
+            `<input type="number" id="housingOptMove2AnchorCount" class="count" value="5" min="1" max="10" oninput="debouncedRefreshHousingOptValidation()">`,
             "How many move-1 winners the anchored move-2 strategy branches from.",
           ),
       )}</div>`,
@@ -734,17 +747,254 @@ export function renderHousingOptimizeResultsHtml(payload) {
 }
 
 // ---------------------------------------------------------------------------
+// Request building (§7.1) and inline validation (§8)
+// ---------------------------------------------------------------------------
+//
+// validateHousingOptForm() fires the same rules as src/housing/api.py's
+// validate_request, in the same order, with character-identical messages
+// (Task 12). The two copies are kept in sync by hand -- there is no shared
+// source a browser script can import from a Python module -- but this is the
+// fast/local check only; validate_request is the one that is trusted.
+
+function housingOptDomVal(id) {
+  return String(document.getElementById(id)?.value || "").trim();
+}
+
+function housingOptDomNum(id) {
+  const raw = housingOptDomVal(id);
+  return raw === "" ? 0 : Number(raw);
+}
+
+function housingOptDomChecked(id) {
+  return !!document.getElementById(id)?.checked;
+}
+
+// Python's repr() of a str wraps it in single quotes -- validate_request's
+// "Unknown X" messages are built with `{val!r}`, so this mirrors that exactly
+// rather than JS's own (double-quoted) String() formatting.
+function housingOptRepr(v) {
+  return `'${v}'`;
+}
+
+// Builds the §7.1 v2 request body straight off the DOM. Never emits a
+// `locations` key -- every candidate location comes from a per-move
+// ZIP-radius screen (housingOptMoveSearchBody), not a hand-picked list.
+export function buildHousingOptRequest() {
+  const objective = housingOptDomVal("housingOptObjective") || "net_worth";
+  const search_mode = housingOptDomVal("housingOptSearchMode") || "full";
+  const move2_strategy = housingOptDomVal("housingOptMove2Strategy") || "anchored";
+  const no_dual_ownership = housingOptDomChecked("housingOptNoDualOwnership");
+
+  const disposition = (housingOptDomVal("housingOptDisposition") || "auto").toLowerCase();
+  const original_home = { disposition };
+  if (disposition !== "keep") {
+    original_home.earliest_sale_year = housingOptDomNum("housingOptEarliestSale");
+    original_home.latest_sale_year = housingOptDomNum("housingOptLatestSale");
+  }
+
+  const move1 = {
+    earliest_acquisition_year: housingOptDomNum("housingOptMove1Earliest"),
+    latest_acquisition_year: housingOptDomNum("housingOptMove1Latest"),
+    action: housingOptDomVal("housingOptMove1Action") || "auto",
+    search: housingOptMoveSearchBody(1),
+  };
+
+  const body = {
+    objective,
+    search_mode,
+    move2_strategy,
+    no_dual_ownership,
+    original_home,
+    move1,
+  };
+
+  if (housingOptDomChecked("housingOptMove2Enabled")) {
+    body.move2 = {
+      earliest_acquisition_year: housingOptDomNum("housingOptMove2Earliest"),
+      latest_acquisition_year: housingOptDomNum("housingOptMove2Latest"),
+      action: housingOptDomVal("housingOptMove2Action") || "auto",
+      concurrent: housingOptDomChecked("housingOptMove2Concurrent"),
+      anchor_count: housingOptDomNum("housingOptMove2AnchorCount") || 5,
+      search: housingOptMoveSearchBody(2),
+    };
+  }
+
+  if (housingOptDomChecked("housingOptPresenceEnabled")) {
+    body.family_presence = {
+      zip: housingOptDomVal("housingOptPresenceZip"),
+      radius_miles: housingOptDomNum("housingOptPresenceRadius"),
+      from_year: housingOptDomNum("housingOptPresenceFrom"),
+      through_year: housingOptDomNum("housingOptPresenceThrough"),
+    };
+  }
+
+  return body;
+}
+
+// Mirrors src/housing/api.py's validate_request rule-for-rule and in the same
+// order (the `locations` check is omitted: the panel has no control that
+// could ever produce that key). Returns the first violated rule's message,
+// or null when the form is valid.
+export function validateHousingOptForm() {
+  const objective = housingOptDomVal("housingOptObjective") || "net_worth";
+  if (!HOUSING_OPT_OBJECTIVES.includes(objective)) {
+    return `Unknown objective: ${housingOptRepr(objective)}.`;
+  }
+
+  const search_mode = housingOptDomVal("housingOptSearchMode") || "full";
+  if (!HOUSING_OPT_SEARCH_MODES.includes(search_mode)) {
+    return `Unknown search_mode: ${housingOptRepr(search_mode)}.`;
+  }
+
+  const move2_strategy = housingOptDomVal("housingOptMove2Strategy") || "anchored";
+  if (!HOUSING_OPT_MOVE2_STRATEGIES.includes(move2_strategy)) {
+    return `Unknown move2_strategy: ${housingOptRepr(move2_strategy)}.`;
+  }
+
+  const disposition = (housingOptDomVal("housingOptDisposition") || "auto").toLowerCase();
+  if (!HOUSING_OPT_DISPOSITIONS.includes(disposition)) {
+    return `Unknown disposition: ${housingOptRepr(disposition)}.`;
+  }
+
+  const sells = disposition === "sell" || disposition === "auto";
+  const earliestSale = housingOptDomNum("housingOptEarliestSale");
+  const latestSale = housingOptDomNum("housingOptLatestSale");
+  if (sells && earliestSale > latestSale) {
+    return "Earliest sale year must not be after the latest sale year.";
+  }
+
+  const e1 = housingOptDomNum("housingOptMove1Earliest");
+  const l1 = housingOptDomNum("housingOptMove1Latest");
+  if (e1 > l1) {
+    return "Earliest move-1 year must not be after the latest.";
+  }
+
+  const move1Action = housingOptDomVal("housingOptMove1Action") || "auto";
+  const move2Enabled = housingOptDomChecked("housingOptMove2Enabled");
+  if (move2Enabled) {
+    const e2 = housingOptDomNum("housingOptMove2Earliest");
+    const l2 = housingOptDomNum("housingOptMove2Latest");
+    const concurrent = housingOptDomChecked("housingOptMove2Concurrent");
+    if (e2 > l2) {
+      return "Earliest move-2 year must not be after the latest.";
+    }
+    if (!concurrent && l2 <= e1) {
+      return `Move 2 must be able to happen after move 1. Raise the move-2 latest year above ${e1}.`;
+    }
+    if (concurrent && search_mode !== "full") {
+      return "Concurrent mode is only available with Full grid search mode.";
+    }
+  }
+
+  const noDual = housingOptDomChecked("housingOptNoDualOwnership");
+  const actions = [move1Action];
+  if (move2Enabled) actions.push(housingOptDomVal("housingOptMove2Action") || "auto");
+  if (noDual && disposition === "keep" && actions.length && actions.every((a) => a === "buy")) {
+    return (
+      "Keeping the current home and buying another means owning two " +
+      "homes. Choose Rent, sell the current home, or turn off " +
+      "'Never own two homes at once'."
+    );
+  }
+  if (noDual && disposition === "sell" && move1Action === "buy" && l1 < earliestSale) {
+    return (
+      "With no dual ownership, move 1 cannot be bought before the home " +
+      `is sold. Raise the move-1 latest year to at least ${earliestSale}.`
+    );
+  }
+
+  const areaTypeValues = HOUSING_OPT_AREA_TYPES.map((o) => o.value);
+  const movesToCheck = move2Enabled ? [1, 2] : [1];
+  for (const n of movesToCheck) {
+    const search = housingOptMoveSearchBody(n);
+    const label = `move ${n}`;
+    if (!(search.anchors.length >= HOUSING_OPT_MIN_ANCHORS && search.anchors.length <= HOUSING_OPT_MAX_ANCHORS)) {
+      return `Choose between 2 and 5 anchors for ${label}.`;
+    }
+    if (!HOUSING_OPT_ALLOWED_RADII_MILES.includes(search.radius_miles)) {
+      return `Radius must be one of ${HOUSING_OPT_ALLOWED_RADII_MILES.join(", ")} miles.`;
+    }
+    if (!areaTypeValues.includes(search.area_type)) {
+      return `Unknown area type ${housingOptRepr(search.area_type)}.`;
+    }
+    const rng = search.dwelling && search.dwelling.target_purchase_price_range;
+    if (rng && Number(rng[0]) > Number(rng[1])) {
+      return "Minimum target price must not exceed the maximum.";
+    }
+  }
+
+  if (housingOptDomChecked("housingOptPresenceEnabled")) {
+    const zip = housingOptDomVal("housingOptPresenceZip");
+    const fromYear = housingOptDomNum("housingOptPresenceFrom");
+    const throughYear = housingOptDomNum("housingOptPresenceThrough");
+    if (zip.length !== 5 || !/^\d{5}$/.test(zip) || fromYear > throughYear) {
+      return (
+        "Family presence needs a 5-digit ZIP and a from-year no later " +
+        "than the through-year."
+      );
+    }
+    const radius = housingOptDomNum("housingOptPresenceRadius");
+    if (!HOUSING_OPT_FAMILY_RADII_MILES.includes(radius)) {
+      return `Family radius must be one of ${HOUSING_OPT_FAMILY_RADII_MILES.join(", ")} miles.`;
+    }
+  }
+
+  return null;
+}
+
+let housingOptValidationTimer = null;
+
+// Runs validateHousingOptForm() immediately, disables the Run button while
+// any rule fails, and writes the first violated message into
+// #housingOptValidation (design §8: "renders messages next to the offending
+// group[s] ... disables the Run button while any rule fails").
+export function refreshHousingOptValidation() {
+  const msg = validateHousingOptForm();
+  const runBtn = document.getElementById("housingOptRun");
+  if (runBtn) runBtn.disabled = !!msg;
+  const box = document.getElementById("housingOptValidation");
+  if (box) {
+    box.textContent = msg || "";
+    box.hidden = !msg;
+  }
+  return msg;
+}
+
+// Debounced entry point wired to oninput/onchange on every year, ZIP and
+// price field (design §8: "Validation runs on every input event"), so a fast
+// typist does not re-run validation on every keystroke.
+export function debouncedRefreshHousingOptValidation() {
+  if (housingOptValidationTimer) clearTimeout(housingOptValidationTimer);
+  housingOptValidationTimer = setTimeout(refreshHousingOptValidation, 200);
+}
+
+// ---------------------------------------------------------------------------
 // Run
 // ---------------------------------------------------------------------------
 
-// Task 12 replaces this stub with buildHousingOptRequest()/
-// validateHousingOptForm() and the real POST. It is deliberately inert rather
-// than posting a half-built v1 body against the v2 contract.
 export async function runHousingOptimization() {
-  showMessage(
-    "The optimizer request builder is not wired up yet in this build.",
-    "warn",
-  );
+  const msg = refreshHousingOptValidation();
+  if (msg) {
+    showMessage(msg, "error");
+    return;
+  }
+  const body = buildHousingOptRequest();
+  const target = document.getElementById("housingOptimizeResults");
+  try {
+    const payload = await api("/api/housing/optimize", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    if (!payload || !payload.success) {
+      if (target)
+        target.innerHTML = `<p class="small warning">${esc((payload && payload.error) || "Optimization failed.")}</p>`;
+      return;
+    }
+    if (target) target.innerHTML = renderHousingOptimizeResultsHtml(payload);
+  } catch (e) {
+    showMessage("Error running optimization: " + e.message, "error");
+    if (target) target.innerHTML = "";
+  }
 }
 
 // Thin alias for the panel's "Run optimization" button, kept distinct from
@@ -776,6 +1026,10 @@ Object.assign(window, {
   previewHousingZipShortlist,
   renderHousingZipShortlistHtml,
   renderHousingOptimizeResultsHtml,
+  buildHousingOptRequest,
+  validateHousingOptForm,
+  refreshHousingOptValidation,
+  debouncedRefreshHousingOptValidation,
   runHousingOptimization,
   startHousingOptimization,
 });
