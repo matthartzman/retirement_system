@@ -55,6 +55,7 @@ class ScreenedZip:
     cross_state: str | None = None
     promoted: bool = False
     collapsed: list[str] = field(default_factory=list)
+    nearest_anchor_zip: str = ''
 
 
 @dataclass(frozen=True)
@@ -65,6 +66,19 @@ class ScreenResult:
     shortlist: list[ScreenedZip]
     all_passing: list[ScreenedZip]
     relaxation: dict[str, Any] | None = None
+    anchors: list[dict[str, Any]] = field(default_factory=list)
+    stage_zctas: dict[str, list[str]] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class MultiAnchorRequest:
+    anchor_zips: list[str]
+    radius_miles: int
+    min_quality_score: float
+    shortlist_size: int
+    property_spec: dict[str, Any]
+    area_type: str = 'any'
+    max_population: int | None = None
 
 
 def estimate_price(rec: ZipRecord, base_estimate: float) -> float:
@@ -254,6 +268,21 @@ def run_screen(
     ]
     funnel['promoted'] = len(shortlist)
 
+    # Which ZCTAs survived each stage, not just how many. A multi-anchor union
+    # needs the identities to count distinct ZIPs; summing per-anchor counts
+    # would double-count every ZIP that sits inside two overlapping radii.
+    stage_zctas = {
+        'in_radius': [r.zcta for r, _ in in_radius],
+        'with_data': [t[0].zcta for t in with_data],
+        'above_score': [t[0].zcta for t in above_score],
+        'matching_area_type': [t[0].zcta for t in matching_area],
+        'under_population_cap': [t[0].zcta for t in under_cap],
+        'affordable': [z.zcta for z in affordable_passing],
+        'distinct': [z.zcta for z in passing],
+        'near_family': [z.zcta for z in passing],
+        'promoted': [z.zcta for z in shortlist],
+    }
+
     return ScreenResult(
         anchor={'zip': anchor.zcta, 'city': anchor.primary_place,
                 'state': anchor.state, 'lat': anchor.lat, 'lon': anchor.lon},
@@ -261,10 +290,76 @@ def run_screen(
         funnel=funnel,
         shortlist=shortlist,
         all_passing=passing,
+        stage_zctas=stage_zctas,
         relaxation=_relaxation(
             {'with_data': with_data, 'above_score': above_score,
              'matching_area_type': matching_area, 'under_population_cap': under_cap,
              'affordable': affordable_passing},
             req.min_quality_score, area_type, req.max_population,
         ) if not shortlist else None,
+    )
+
+
+def run_multi_anchor_screen(
+    req: MultiAnchorRequest, table: dict[str, ZipRecord] | None = None,
+    current_state: str = '',
+) -> ScreenResult:
+    """Screen each anchor, then union before dedup and promotion.
+
+    Unioning first is what makes two overlapping metros behave like one
+    search: dedup and the shortlist cap both then operate on distinct ZIPs, so
+    a ZIP in both radii cannot occupy two shortlist slots and the funnel counts
+    ZIPs rather than (ZIP, anchor) pairs.
+    """
+    data = table if table is not None else load_table()
+    per_anchor: list[ScreenResult] = []
+    for zip_code in req.anchor_zips:
+        per_anchor.append(run_screen(
+            ScreenRequest(
+                anchor_zip=zip_code, radius_miles=req.radius_miles,
+                min_quality_score=req.min_quality_score,
+                shortlist_size=len(data),          # no per-anchor truncation
+                property_spec=req.property_spec,
+                area_type=req.area_type, max_population=req.max_population,
+            ),
+            table=data, current_state=current_state,
+        ))
+
+    best: dict[str, ScreenedZip] = {}
+    for anchor_result, zip_code in zip(per_anchor, req.anchor_zips):
+        for z in anchor_result.all_passing:
+            tagged = ScreenedZip(**{**z.__dict__, 'nearest_anchor_zip': zip_code,
+                                    'promoted': False})
+            prior = best.get(z.zcta)
+            if prior is None or tagged.distance_miles < prior.distance_miles:
+                best[z.zcta] = tagged
+
+    # Per-anchor stages are unioned on ZCTA identity; the three stages that
+    # follow dedup are recomputed below on the unioned set, overwriting these.
+    funnel = {k: 0 for k in per_anchor[0].funnel} if per_anchor else {}
+    for key in funnel:
+        seen: set[str] = set()
+        for anchor_result in per_anchor:
+            seen |= set(anchor_result.stage_zctas.get(key, ()))
+        funnel[key] = len(seen)
+
+    union = sorted(best.values(), key=lambda z: (-z.nss, z.distance_miles, z.zcta))
+    coords = {z.zcta: (data[z.zcta].lat, data[z.zcta].lon) for z in union}
+    distinct = deduplicate(union, coords)
+    funnel['distinct'] = len(distinct)
+    funnel['near_family'] = len(distinct)
+
+    shortlist = [ScreenedZip(**{**z.__dict__, 'promoted': True})
+                 for z in distinct[: max(0, int(req.shortlist_size))]]
+    funnel['promoted'] = len(shortlist)
+
+    return ScreenResult(
+        anchor=per_anchor[0].anchor if per_anchor else {},
+        anchors=[r.anchor for r in per_anchor],
+        radius_miles=req.radius_miles,
+        funnel=funnel,
+        shortlist=shortlist,
+        all_passing=distinct,
+        relaxation=next((r.relaxation for r in per_anchor if r.relaxation), None)
+        if not shortlist else None,
     )
