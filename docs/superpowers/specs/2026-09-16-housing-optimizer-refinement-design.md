@@ -442,6 +442,15 @@ When a run completes with zero candidates despite passing validation, the result
 renders the `rejections` breakdown and the emptying funnel stage instead of the current
 generic sentence.
 
+> **Known gap (Task 9, 2026-09-16).** `rejections['move_order']` is tallied only in
+> `search_mode='full'`. Both generators drop out-of-order move-2 points inside their own
+> loops, so the count is *derived* — exact cross-product size minus returned count — and
+> in narrowed mode `search.py`'s `guarded` rejects those points before `score_fn` sees
+> them, leaving the tally at 0. `dual_ownership` and `family_presence` tally correctly in
+> both modes. Task 13 must therefore omit a zero count rather than render it: a displayed
+> "0 rejected for move order" in narrowed mode would assert something the optimizer did
+> not measure.
+
 ## 9. UI
 
 ### 9.1 Structure
@@ -2982,6 +2991,24 @@ Down payment and mortgage rate come from the request instead of a hardcoded
   `zip_screen_from_request(c0, body, table_path=None) -> tuple[dict, int]`,
   `parse_move_search(raw) -> MultiAnchorRequest`, `validate_request(body) -> str | None`
   returning the first violated rule's message or `None`.
+
+> **Inherited obligation from Task 9 (2026-09-16).** Task 9 rewrote
+> `tests/test_housing_optimizer_unit.py` against the new model and dropped five
+> request-contract tests whose home is this task, on the grounds that they assert a
+> contract `api.py` had not yet grown. They must reappear here or the coverage is
+> permanently lost:
+>
+> - `test_request_adapter_rejects_unknown_objective`
+> - `test_request_adapter_rejects_unknown_search_mode`
+> - `test_request_adapter_rejects_unknown_move2_strategy`
+> - `test_request_adapter_rejects_fewer_than_two_locations` → becomes the 2–5 **anchor**
+>   bound, which §8 rule 6 already covers
+> - `test_request_adapter_rejects_more_than_four_locations` → same
+>
+> The three enum rejections are **not** covered by §8's numbered rules — add them.
+> `test_parse_location_reads_the_five_characteristics` and
+> `test_parse_location_blank_built_within_years_is_none` are genuinely obsolete:
+> `_parse_location` served the manual-location mode, which §14 removes.
 
 - [ ] **Step 1: Write the failing test**
 
