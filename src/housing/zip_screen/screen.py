@@ -13,6 +13,7 @@ from typing import Any
 
 from .geo import haversine_miles, zips_within
 from .quality import score_zip
+from .resolve import city_type_for_density
 from .schema import (
     COVERAGE_FLOOR_PCT,
     DEDUP_RADIUS_MILES,
@@ -33,6 +34,8 @@ class ScreenRequest:
     min_quality_score: float
     shortlist_size: int
     property_spec: dict[str, Any]
+    area_type: str = 'any'
+    max_population: int | None = None
 
 
 @dataclass(frozen=True)
@@ -46,6 +49,8 @@ class ScreenedZip:
     coverage_pct: float
     est_price: float
     components: dict[str, float]
+    area_type: str = 'suburban'
+    population: int = 0
     upi_adjusted: bool = False
     cross_state: str | None = None
     promoted: bool = False
@@ -127,24 +132,46 @@ def deduplicate(
 
 
 def _relaxation(
-    with_data: list[tuple[ZipRecord, float, Any]], min_quality_score: float
+    stages: dict[str, list], min_quality_score: float,
+    area_type: str, max_population: int | None,
 ) -> dict[str, Any] | None:
     """What would the user have to give up to get results?
 
-    A bare "no results" on a ten-criterion search is unusable: the user cannot
-    tell which of ten constraints emptied the funnel. When the score floor is
-    what did it, name the floor that would return something.
+    A bare "no results" on a nine-stage funnel is unusable: the user cannot
+    tell which constraint emptied it. Report the FIRST stage that went to zero
+    while its predecessor had survivors -- that is the binding constraint, and
+    relaxing anything later would change nothing.
     """
-    scores = sorted((t[2].score for t in with_data), reverse=True)
-    if not scores or scores[0] >= min_quality_score:
+    with_data = stages['with_data']
+    if not with_data:
         return None
-    suggested = math.floor(scores[0] * 10) / 10
-    return {
-        'field': 'min_quality_score',
-        'current': min_quality_score,
-        'suggested': suggested,
-        'would_return': sum(1 for s in scores if s >= suggested),
-    }
+
+    scores = sorted((t[2].score for t in with_data), reverse=True)
+    if not stages['above_score']:
+        suggested = math.floor(scores[0] * 10) / 10
+        return {'stage': 'above_score', 'field': 'min_quality_score',
+                'current': min_quality_score, 'suggested': suggested,
+                'would_return': sum(1 for s in scores if s >= suggested)}
+
+    if not stages['matching_area_type']:
+        available = sorted({city_type_for_density(t[0].density)
+                            for t in stages['above_score']})
+        return {'stage': 'matching_area_type', 'field': 'area_type',
+                'current': area_type, 'suggested': available[0] if available else 'any',
+                'would_return': len(stages['above_score'])}
+
+    if not stages['under_population_cap']:
+        pops = sorted((t[0].place_population or t[0].zcta_population or 0)
+                      for t in stages['matching_area_type'])
+        return {'stage': 'under_population_cap', 'field': 'max_population',
+                'current': max_population, 'suggested': pops[0],
+                'would_return': sum(1 for p in pops if p <= pops[0])}
+
+    if not stages['affordable']:
+        return {'stage': 'affordable', 'field': 'target_purchase_price_range',
+                'current': None, 'suggested': None,
+                'would_return': len(stages['under_population_cap'])}
+    return None
 
 
 def run_screen(
@@ -177,8 +204,24 @@ def run_screen(
     above_score = [t for t in with_data if t[2].score >= req.min_quality_score]
     funnel['above_score'] = len(above_score)
 
+    area_type = str(req.area_type or 'any').strip().lower()
+    if area_type in ('', 'any'):
+        matching_area = above_score
+    else:
+        matching_area = [t for t in above_score
+                         if city_type_for_density(t[0].density) == area_type]
+    funnel['matching_area_type'] = len(matching_area)
+
+    cap = req.max_population
+    if cap is None:
+        under_cap = matching_area
+    else:
+        under_cap = [t for t in matching_area
+                     if (t[0].place_population or t[0].zcta_population or 0) <= int(cap)]
+    funnel['under_population_cap'] = len(under_cap)
+
     passing: list[ScreenedZip] = []
-    for rec, dist, nss in above_score:
+    for rec, dist, nss in under_cap:
         price = estimate_price(rec, _base_estimate(rec))
         if lo is not None and not (lo <= price <= hi):
             continue
@@ -192,14 +235,18 @@ def run_screen(
             coverage_pct=round(nss.coverage_pct, 1),
             est_price=round(price, 2),
             components={k: round(v, 1) for k, v in nss.components.items()},
+            area_type=city_type_for_density(rec.density),
+            population=rec.place_population or rec.zcta_population or 0,
             upi_adjusted=nss.upi_adjusted,
             cross_state=rec.state if current_state and rec.state != current_state else None,
         ))
     funnel['affordable'] = len(passing)
+    affordable_passing = list(passing)
 
-    coords = {rec.zcta: (rec.lat, rec.lon) for rec, _, _ in above_score}
+    coords = {rec.zcta: (rec.lat, rec.lon) for rec, _, _ in under_cap}
     passing = deduplicate(passing, coords)
-    funnel['after_dedup'] = len(passing)
+    funnel['distinct'] = len(passing)
+    funnel['near_family'] = len(passing)
 
     shortlist = [
         ScreenedZip(**{**z.__dict__, 'promoted': True})
@@ -214,5 +261,10 @@ def run_screen(
         funnel=funnel,
         shortlist=shortlist,
         all_passing=passing,
-        relaxation=_relaxation(with_data, req.min_quality_score) if not shortlist else None,
+        relaxation=_relaxation(
+            {'with_data': with_data, 'above_score': above_score,
+             'matching_area_type': matching_area, 'under_population_cap': under_cap,
+             'affordable': affordable_passing},
+            req.min_quality_score, area_type, req.max_population,
+        ) if not shortlist else None,
     )
