@@ -34,7 +34,7 @@ from src.housing_optimizer import (
     select_anchors,
 )
 from src.housing.models import NARROWED_MAX_EVALS_PER_AXIS, NARROWED_MOVE2_AXES
-from src.housing.plan_variant import _apply_candidate
+from src.housing.plan_variant import _apply_candidate, _purchase_price_for_location
 
 pytestmark = pytest.mark.unit
 
@@ -96,6 +96,28 @@ def test_down_payment_and_rate_come_from_the_request_not_a_constant():
     # The wire key is down_payment_pct -- unchanged; only its SOURCE moved.
     assert step["down_payment_pct"] == 0.35
     assert step["mortgage_rate_pct"] == 0.055
+
+
+def test_purchase_price_prefers_target_range_midpoint():
+    loc = Location(state="Texas", target_purchase_price_range=(400000.0, 500000.0), est_price=999999.0)
+    assert _purchase_price_for_location(loc) == 450000.0
+
+
+def test_purchase_price_falls_back_to_the_zip_scaled_estimate():
+    """No price range set: use the ZIP screen's own scaled estimate, not a
+    flatter state-wide number."""
+    loc = Location(state="Texas", est_price=612345.0)
+    assert _purchase_price_for_location(loc) == 612345.0
+
+
+def test_purchase_price_falls_back_to_state_estimate_when_no_est_price():
+    """A hand-built Location with neither a price range nor an est_price
+    (never happens for an optimizer-generated candidate, since
+    _splice_screen_detail always sets est_price) still returns something
+    sane rather than raising."""
+    loc = Location(state="Texas", city_type="suburban", population_size=150000)
+    price = _purchase_price_for_location(loc)
+    assert price > 0
 
 
 def test_a_rental_move_is_a_rent_step_because_the_action_says_so():
