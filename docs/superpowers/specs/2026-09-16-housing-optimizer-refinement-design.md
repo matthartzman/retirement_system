@@ -801,7 +801,7 @@ a `Location` already has the field to populate.
 - Produces: `LOT_SIZE_BAND_MULT: dict[str, float]`, `LOT_SIZE_BAND_LABELS: dict[str, str]`,
   `Location.lot_size_band: str = 'quarter_half'`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_housing_lot_size_multiplier.py
@@ -852,12 +852,12 @@ def test_an_unknown_band_falls_back_to_neutral_rather_than_raising():
     assert junk['purchase_price'] == neutral['purchase_price']
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pytest tests/test_housing_lot_size_multiplier.py -v`
 Expected: FAIL with `ImportError: cannot import name 'LOT_SIZE_BAND_MULT'`
 
-- [ ] **Step 3: Add the multipliers**
+- [x] **Step 3: Add the multipliers**
 
 In `src/server_services/strategy_asset_service.py`, immediately after `SQFT_BAND_LABELS`
 (currently ending line 133):
@@ -884,7 +884,7 @@ LOT_SIZE_BAND_LABELS = {
 }
 ```
 
-- [ ] **Step 4: Apply the multiplier in `estimate_housing_cost`**
+- [x] **Step 4: Apply the multiplier in `estimate_housing_cost`**
 
 In `estimate_housing_cost` (`:189-321`), find where `SQFT_BAND_MULT` is applied to the
 price and multiply by the lot factor in the same expression. Read the surrounding lines
@@ -900,7 +900,7 @@ lot_mult = LOT_SIZE_BAND_MULT.get(
 neutral, not an error, because this value arrives from a stored config row that may predate
 the field.
 
-- [ ] **Step 5: Add the field to `Location` and `resolve_location`**
+- [x] **Step 5: Add the field to `Location` and `resolve_location`**
 
 `src/housing/models.py`, in `Location` after `sqft_band` (`:59`):
 
@@ -914,7 +914,7 @@ the field.
         lot_size_band=str(spec.get('lot_size_band', 'quarter_half') or 'quarter_half'),
 ```
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 Run: `pytest tests/test_housing_lot_size_multiplier.py -v`
 Expected: 5 passed
@@ -923,7 +923,7 @@ Run: `pytest tests/ -m "not slow and not nightly" -q`
 Expected: no new failures — `Location` gained a defaulted field, so existing construction
 sites are unaffected.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/server_services/strategy_asset_service.py src/housing/models.py \
@@ -955,7 +955,7 @@ build against and the suite stays green in between.
   - `DISPOSITIONS = ('sell', 'keep', 'auto')`, `AREA_TYPES = ('any', 'urban', 'suburban',
     'exurban', 'rural')`, `FAMILY_RADII_MILES = (10, 25, 50, 100)`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_housing_models_decoupled.py
@@ -1041,12 +1041,12 @@ def test_enumerations_match_the_spec_exactly():
     assert FAMILY_RADII_MILES == (10, 25, 50, 100)
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pytest tests/test_housing_models_decoupled.py -v`
 Expected: FAIL with `ImportError: cannot import name 'OriginalHome'`
 
-- [ ] **Step 3: Replace the input types in `models.py`**
+- [x] **Step 3: Replace the input types in `models.py`**
 
 Replace `SearchWindow` (`:66-71`), `Move2Window` (`:74-77`), `FamilyPresence` (`:80-85`),
 `HousingCandidate` (`:87-114`) and `ScoredCandidate` (`:117-124`) with:
@@ -1152,12 +1152,12 @@ NARROWED_MAX_EVALS_PER_AXIS = 25
 _NARROWED_EVALS_PER_ANCHOR_LOCATION = NARROWED_MAX_EVALS_PER_AXIS * 2
 ```
 
-- [ ] **Step 4: Run the new test**
+- [x] **Step 4: Run the new test**
 
 Run: `pytest tests/test_housing_models_decoupled.py -v`
 Expected: 7 passed
 
-- [ ] **Step 5: Confirm the expected breakage and its extent**
+- [x] **Step 5: Confirm the expected breakage and its extent**
 
 Run: `pytest tests/ -m "not slow and not nightly" -q 2>&1 | tail -40`
 
@@ -1167,7 +1167,7 @@ Expected: failures across `test_housing_optimizer_unit.py`,
 the failing count in the commit message so the next task can confirm it is shrinking, and
 do not attempt to fix them here.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/housing/models.py tests/test_housing_models_decoupled.py
@@ -1196,7 +1196,7 @@ api.py rewrite."
   - `estimate_move2_candidate_count(eligible, locations2, move2_window, move2_action, concurrent, no_dual_ownership, narrowed) -> int`
   - `dual_ownership_ok(candidate) -> bool`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_housing_candidates_decoupled.py
@@ -1317,12 +1317,12 @@ def test_dual_ownership_ok_is_the_single_predicate():
     assert dual_ownership_ok(sell_then_buy) is True
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pytest tests/test_housing_candidates_decoupled.py -v`
 Expected: FAIL with `ImportError: cannot import name 'generate_candidates'`
 
-- [ ] **Step 3: Rewrite `candidates.py`**
+- [x] **Step 3: Rewrite `candidates.py`**
 
 Replace the whole file body below the docstring:
 
@@ -1487,12 +1487,12 @@ def estimate_move2_candidate_count(
 `filter_candidates_by_action` is deleted: action is now generated rather than filtered
 after the fact, so a post-hoc filter would have nothing to remove.
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 Run: `pytest tests/test_housing_candidates_decoupled.py -v`
 Expected: 12 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/housing/candidates.py tests/test_housing_candidates_decoupled.py
@@ -1530,7 +1530,7 @@ from move 1's purchase year, which silently overrode the user's input."
   `score_fn: Callable[[HousingCandidate], ScoredCandidate | None]` — returns `None` for a
   candidate the constraints reject, which the search treats as an infeasible point.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_housing_coordinate_descent_unit.py
@@ -1639,12 +1639,12 @@ def test_an_all_infeasible_search_returns_empty_rather_than_looping():
     assert out == []
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pytest tests/test_housing_coordinate_descent_unit.py -v`
 Expected: FAIL — the new keyword-only signature does not exist.
 
-- [ ] **Step 3: Rewrite the search**
+- [x] **Step 3: Rewrite the search**
 
 Replace `_coordinate_search_2d` (`:38-93`), `_coordinate_search_1d` (`:96-137`),
 `_score_move1_point` (`:144-165`), `generate_move1_candidates_narrowed` (`:168-199`),
@@ -1792,12 +1792,12 @@ def generate_move2_candidates_narrowed(
     return out
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 Run: `pytest tests/test_housing_coordinate_descent_unit.py -v`
 Expected: 5 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/housing/search.py tests/test_housing_coordinate_descent_unit.py
@@ -1823,7 +1823,7 @@ than scored, so a constraint rejection cannot steer the climb."
   `matching_area_type`, `under_population_cap`; `_relaxation(...) -> dict | None` gaining a
   `stage` key naming what emptied the funnel.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_zip_screen_filters.py
@@ -1919,12 +1919,12 @@ def test_relaxation_still_names_the_score_floor_when_that_is_the_cause():
     assert result.relaxation['field'] == 'min_quality_score'
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pytest tests/test_zip_screen_filters.py -v`
 Expected: FAIL — `ScreenRequest` has no `area_type` field.
 
-- [ ] **Step 3: Extend the request and result types**
+- [x] **Step 3: Extend the request and result types**
 
 `src/housing/zip_screen/screen.py`, in `ScreenRequest` (`:29-35`) after `property_spec`:
 
@@ -1946,7 +1946,7 @@ Add the import at the top of the file:
 from .resolve import city_type_for_density
 ```
 
-- [ ] **Step 4: Add the two stages to `run_screen`**
+- [x] **Step 4: Add the two stages to `run_screen`**
 
 Between `funnel['above_score']` (`:178`) and the `passing` loop (`:180`):
 
@@ -1987,7 +1987,7 @@ Rename the `after_dedup` funnel key to `distinct` at `:202` and add a placeholde
 Also update `coords` at `:200` to build from `under_cap` rather than `above_score`, so a
 ZIP filtered out by the new stages cannot reappear as a dedup reference point.
 
-- [ ] **Step 5: Make `_relaxation` name the stage**
+- [x] **Step 5: Make `_relaxation` name the stage**
 
 Replace `_relaxation` (`:129-147`) with:
 
@@ -2047,7 +2047,7 @@ Update the call site at `:217` to pass the stage lists:
 Capture `affordable_passing = list(passing)` immediately after `funnel['affordable']` is
 set, before `deduplicate` reassigns `passing`.
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 Run: `pytest tests/test_zip_screen_filters.py -v`
 Expected: 8 passed
@@ -2056,7 +2056,7 @@ Run: `pytest tests/ -k zip_screen -q`
 Expected: failures only in tests asserting the old `after_dedup` funnel key. Update those
 assertions to `distinct` — the rename is deliberate (§6.2).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/housing/zip_screen/screen.py tests/
@@ -2081,7 +2081,7 @@ score floor."
   `ScreenResult` gains `anchors: list[dict]` and whose `ScreenedZip` gains
   `nearest_anchor_zip: str`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_housing_multi_anchor_screen.py
@@ -2146,12 +2146,12 @@ def test_a_single_anchor_behaves_exactly_like_the_one_anchor_screen():
     assert all(z.nearest_anchor_zip == '80001' for z in result.shortlist)
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pytest tests/test_housing_multi_anchor_screen.py -v`
 Expected: FAIL with `ImportError: cannot import name 'MultiAnchorRequest'`
 
-- [ ] **Step 3: Add the multi-anchor request and the union**
+- [x] **Step 3: Add the multi-anchor request and the union**
 
 Append to `src/housing/zip_screen/screen.py`. Add `nearest_anchor_zip: str = ''` to
 `ScreenedZip` and `anchors: list[dict[str, Any]] = field(default_factory=list)` to
@@ -2232,7 +2232,7 @@ def run_multi_anchor_screen(
     )
 ```
 
-- [ ] **Step 4: Record per-stage ZCTAs in `run_screen` so the union can count them**
+- [x] **Step 4: Record per-stage ZCTAs in `run_screen` so the union can count them**
 
 The union funnel needs to know *which* ZIPs survived each stage, not just how many, or
 overlapping anchors double-count. Add `stage_zctas: dict[str, list[str]] = field(default_factory=dict)`
@@ -2254,12 +2254,12 @@ to `ScreenResult` and populate it in `run_screen` alongside each `funnel[...]` a
 
 and pass `stage_zctas=stage_zctas` to the returned `ScreenResult`.
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 Run: `pytest tests/test_housing_multi_anchor_screen.py tests/test_zip_screen_filters.py -v`
 Expected: 13 passed
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/housing/zip_screen/screen.py tests/test_housing_multi_anchor_screen.py
@@ -2288,7 +2288,7 @@ so overlapping metros do not double-count or occupy two shortlist slots."
   - `annotate_family_distance(shortlist, family_zip, coords) -> list[ScreenedZip]` setting
     `ScreenedZip.family_distance_miles`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_housing_family_presence_radius.py
@@ -2388,12 +2388,12 @@ def test_an_unknown_zip_fails_closed_rather_than_passing_silently():
     assert ok is False
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pytest tests/test_housing_family_presence_radius.py -v`
 Expected: FAIL — `family_presence_ok` still takes `(base_state, cand, presence)`.
 
-- [ ] **Step 3: Rewrite `constraints.py`**
+- [x] **Step 3: Rewrite `constraints.py`**
 
 ```python
 """Hard filters applied to a candidate before it is ever run, plus the
@@ -2487,7 +2487,7 @@ def sec121_exclusion_flag(acquisition_year: int | None, sale_year: int | None) -
     return (sale_year - acquisition_year) < 2
 ```
 
-- [ ] **Step 4: Fill in the `near_family` screening stage**
+- [x] **Step 4: Fill in the `near_family` screening stage**
 
 In `src/housing/zip_screen/screen.py`, add `family_distance_miles: float | None = None`
 to `ScreenedZip`, then add beside `deduplicate`:
@@ -2514,12 +2514,12 @@ def annotate_family_distance(shortlist, family_zip, coords):
 
 Task 9 calls this from the optimizer, where the family ZIP is known.
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 Run: `pytest tests/test_housing_family_presence_radius.py -v`
 Expected: 9 passed
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/housing/constraints.py src/housing/zip_screen/screen.py \
@@ -2558,7 +2558,7 @@ regardless of distance. Unknown ZIPs fail closed."
 > None`, `est_price: float | None`. `_format_location` then reads them directly, and
 > Task 10's splice becomes `dataclasses.replace(loc, city=..., nss=..., ...)`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_housing_results_v2.py
@@ -2658,12 +2658,12 @@ def test_candidates_are_capped_at_ten():
     assert out['candidates_evaluated'] == 25
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `pytest tests/test_housing_results_v2.py -v`
 Expected: FAIL with `ImportError: cannot import name 'format_output'`
 
-- [ ] **Step 3: Rewrite `results.py`**
+- [x] **Step 3: Rewrite `results.py`**
 
 ```python
 """Shaping ranked ``ScoredCandidate``s into the ``housing_optimize_v2``
@@ -2767,12 +2767,12 @@ def format_output(
     return payload
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 Run: `pytest tests/test_housing_results_v2.py -v`
 Expected: 9 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/housing/results.py tests/test_housing_results_v2.py
@@ -2797,7 +2797,7 @@ alternatives merge into one ranked candidates list."
 - Consumes: Tasks 3, 4, 7, 8.
 - Produces: `optimize_housing(c0, *, locations1, locations2, sale_window, move1_window, move2_window, dispositions, move1_action, move2_action, move2_concurrent, no_dual_ownership, family_presence, family_coords, anchor_count, objective, search_mode, move2_strategy, zip_screens, down_payment_pct, mortgage_rate_pct) -> dict`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `tests/test_housing_optimizer_unit.py`:
 
@@ -2846,13 +2846,13 @@ def test_down_payment_and_rate_come_from_the_request_not_a_constant():
     assert step['mortgage_rate_pct'] == 0.055
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `pytest tests/test_housing_optimizer_unit.py -v`
 Expected: FAIL — `optimize_housing` still takes `locations`/`move1_window` positionally
 with the old names.
 
-- [ ] **Step 3: Rewire `plan_variant.py`**
+- [x] **Step 3: Rewire `plan_variant.py`**
 
 Delete `_DEFAULT_DOWN_PAYMENT_PCT` (`:16-17`). Change `_apply_candidate`'s signature to
 `_apply_candidate(c, cand, *, down_payment_pct, mortgage_rate_pct)` and inside it:
@@ -2879,7 +2879,7 @@ Build each step from `Move.action` rather than from `purchase_year is None`:
 `move2.acquisition_year - 1`, which is what triggers `apply_next_housing_sale`; a
 concurrent move 2 leaves move 1's `end_year` at 0 so both run indefinitely.
 
-- [ ] **Step 4: Rewire `scoring.py`**
+- [x] **Step 4: Rewire `scoring.py`**
 
 `score_candidate` keeps its shape but builds `notes` instead of the
 `family_presence_via_rental` boolean, and `sec121_exclusion_flag` is now called with
@@ -2932,7 +2932,7 @@ def score_candidate(c, cand, rows, *, via_rental: bool) -> ScoredCandidate:
 >    them here: the projection must be `axes × actions`, derived from the same constants
 >    the search actually uses rather than a separately maintained product.
 
-- [ ] **Step 5: Rewire `optimizer.py`**
+- [x] **Step 5: Rewire `optimizer.py`**
 
 Replace the signature and the generation calls. The tally is a plain dict incremented at
 each rejection point:
@@ -2965,14 +2965,14 @@ latter to call `estimate_move2_candidate_count` with its new keyword signature. 
 `format_output(ranked, objective=..., search_mode=..., move2_strategy=...,
 zip_screens=zip_screens, rejections=rejections)`.
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 Run: `pytest tests/test_housing_optimizer_unit.py tests/test_housing_optimizer_integration.py -v`
 Expected: all pass. Where an existing test asserts on `alternatives` or
 `family_presence_via_rental`, update it to `candidates` and `notes` — those are the
 intended renames (§7.2).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/housing/optimizer.py src/housing/plan_variant.py src/housing/scoring.py tests/
@@ -3017,7 +3017,7 @@ Down payment and mortgage rate come from the request instead of a hardcoded
 > `test_parse_location_blank_built_within_years_is_none` are genuinely obsolete:
 > `_parse_location` served the manual-location mode, which §14 removes.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_housing_api_validation.py
@@ -3132,12 +3132,12 @@ def test_locations_is_no_longer_accepted():
     assert validate_request(_body(locations=[{'state': 'CO'}])) is not None
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `pytest tests/test_housing_api_validation.py -v`
 Expected: FAIL with `ImportError: cannot import name 'validate_request'`
 
-- [ ] **Step 3: Write `validate_request`**
+- [x] **Step 3: Write `validate_request`**
 
 In `src/housing/api.py`, as a list of `(predicate, message)` checks evaluated in order so
 the first violation is the one reported:
@@ -3226,7 +3226,7 @@ def validate_request(body: dict[str, Any]) -> str | None:
     return None
 ```
 
-- [ ] **Step 4: Rewrite the request adapter**
+- [x] **Step 4: Rewrite the request adapter**
 
 `optimize_housing_from_request` calls `validate_request` first and returns
 `({'success': False, 'error': msg}, 400)` on a message. It then parses each move's search
@@ -3258,13 +3258,13 @@ def _splice_screen_detail(location, screened, family_zip, coords):
 `zip_screen_from_request` accepts `{'search': {...}}` and returns a `zip_screen_v2`
 payload, so "Preview shortlist" works for either move.
 
-- [ ] **Step 5: Update the contract registry and routes**
+- [x] **Step 5: Update the contract registry and routes**
 
 `src/api_contracts.py:130`: `"housing_optimize_v1"` → `"housing_optimize_v2"`.
 `src/server/plan_routes.py:761-770`: the `/api/housing/zip-screen` handler passes the body
 through unchanged; no signature change is needed there.
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 Run: `pytest tests/test_housing_api_validation.py -v`
 Expected: 11 passed
@@ -3272,7 +3272,7 @@ Expected: 11 passed
 Run: `pytest tests/ -m "not slow and not nightly" -q`
 Expected: the whole suite is green again for the first time since Task 2.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/housing/api.py src/api_contracts.py src/server/plan_routes.py tests/
@@ -3301,7 +3301,7 @@ from the behaviour tasks keeps the diff reviewable.
   `addHousingOptAnchor(moveIndex)`, `removeHousingOptAnchor(moveIndex, i)`,
   `showHousingOptFieldHelp(key)`, `HOUSING_OPT_FIELD_HELP`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```js
 // tests/frontend/housing_optimize_panel.test.mjs
@@ -3372,12 +3372,12 @@ test('every field carries a help affordance instead of inline helper text', () =
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npm test`
 Expected: FAIL — the module does not exist.
 
-- [ ] **Step 3: Create the module with the new markup**
+- [x] **Step 3: Create the module with the new markup**
 
 Build `renderHousingOptimizePanelHtml()` from a small field helper so the label-above rule
 and the help hook are structural rather than repeated by hand:
@@ -3415,7 +3415,7 @@ home, Move 1 (where / what / when), Consider a second move, Run. Each control's 
 the `key` passed to `housingOptField`, so the help registry, the persistence snapshot and
 the DOM all agree on one name.
 
-- [ ] **Step 4: Delete the old block and re-export**
+- [x] **Step 4: Delete the old block and re-export**
 
 Remove lines 1206–1489 from `dashboard_decomp_housing_scenarios.js` and the optimizer
 functions in 1491–1760, plus their entries in the window bridge at 1787–1841. Replace
@@ -3427,7 +3427,7 @@ import { renderHousingOptimizePanelHtml } from './dashboard_decomp_housing_optim
 
 Add the new module's window bridge next to the existing ones in `dashboard.js`.
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 Run: `npm test`
 Expected: 8 passed
@@ -3436,7 +3436,7 @@ Run: `pytest tests/ -k "zip_screen and functional" -q`
 Expected: failures in the functional tests that assert on the old markup. Update them to
 the new ids — the markup change is the point of this task.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/js/ tests/
@@ -3459,7 +3459,7 @@ mode, and a help affordance per field."
 - Produces: `buildHousingOptRequest() -> object`, `validateHousingOptForm() -> string | null`
   (mirroring §8 rule-for-rule), `runHousingOptimization()`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```js
 // tests/frontend/housing_optimize_request.test.mjs
@@ -3520,12 +3520,12 @@ test('the run button is disabled while the form is invalid', () => {
 and applies the given overrides; create it alongside, following whatever DOM stub the
 existing `housing_optimize_panel.test.mjs` already uses.
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npm test`
 Expected: FAIL — `buildHousingOptRequest` is not exported.
 
-- [ ] **Step 3: Implement the builder and the validator**
+- [x] **Step 3: Implement the builder and the validator**
 
 `validateHousingOptForm()` implements the same nine rules as §8 in the same order and
 returns the same messages, so client and server never disagree about which rule fired.
@@ -3536,12 +3536,12 @@ Wire `oninput` on every year, ZIP and price field to a debounced
 `refreshHousingOptValidation()` that sets `#housingOptRun.disabled` and writes the message
 into `#housingOptValidation`.
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 Run: `npm test`
 Expected: all pass
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/js/dashboard_decomp_housing_optimizer.js tests/frontend/
@@ -3561,7 +3561,7 @@ git commit -m "feat(housing): build v2 requests and block impossible windows inl
 - Produces: `renderHousingOptimizeResultsHtml(payload)`,
   `renderHousingZipShortlistHtml(screen, opts)`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```js
 // tests/frontend/housing_optimize_results.test.mjs
@@ -3636,12 +3636,12 @@ test('family distance appears only when family presence was used', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npm test`
 Expected: FAIL — the renderer still reads `payload.alternatives`.
 
-- [ ] **Step 3: Implement the renderer**
+- [x] **Step 3: Implement the renderer**
 
 One `<tr>` per candidate with `class="housing-opt-result housing-opt-result-${rank % 2 ? 'odd' : 'even'}"`,
 a rank badge cell, a current-home cell, one cell per move, then objective, MC and notes.
@@ -3649,12 +3649,12 @@ a rank badge cell, a current-home cell, one cell per move, then objective, MC an
 `${year} · ${Buy|Rent} · ${zip} ${city}, ${state} · ${price} · ${distance} mi`, appending
 `· ${n} mi from family` only when `family_distance_miles` is non-null.
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 Run: `npm test`
 Expected: all pass
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/js/dashboard_decomp_housing_optimizer.js tests/frontend/
@@ -3677,7 +3677,7 @@ distance. An empty run reports why."
 - Consumes: `ensureHelpPanelVisible()` (`dashboard_decomp_row_model.js:4288`), `pageHelp()` (`dashboard.js:963`).
 - Produces: `HOUSING_OPT_FIELD_HELP: Record<string, string>`, `showHousingOptFieldHelp(key)`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_housing_optimizer_panel_functional.py
@@ -3743,12 +3743,12 @@ def test_a_result_boundary_is_ruled():
     assert rule and 'border-top' in rule.group(0)
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `pytest tests/test_housing_optimizer_panel_functional.py -v`
 Expected: FAIL — the CSS rules do not exist.
 
-- [ ] **Step 3: Add the CSS**
+- [x] **Step 3: Add the CSS**
 
 Append to `frontend/css/dashboard.css`:
 
@@ -3775,7 +3775,7 @@ Append to `frontend/css/dashboard.css`:
 .housing-opt-result-top .housing-opt-rank{color:#1d4ed8}
 ```
 
-- [ ] **Step 4: Write the help registry**
+- [x] **Step 4: Write the help registry**
 
 One entry per field id used in Task 11, built with the app's `pageHelp()` so the headings
 match every other help entry. Fields with real content to carry — `housingOptDisposition`,
@@ -3795,12 +3795,12 @@ export function showHousingOptFieldHelp(key) {
 }
 ```
 
-- [ ] **Step 5: Run the tests**
+- [x] **Step 5: Run the tests**
 
 Run: `pytest tests/test_housing_optimizer_panel_functional.py -v`
 Expected: 9 passed
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/css/dashboard.css frontend/js/ tests/
@@ -3822,7 +3822,7 @@ field is only as wide as its control."
 - Produces: `HOUSING_OPT_STORAGE_KEY = 'retirement.housing_optimizer.v1'`,
   `saveHousingOptInputs()`, `loadHousingOptInputs() -> object`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```js
 // tests/frontend/housing_optimize_persistence.test.mjs
@@ -3881,12 +3881,12 @@ test('unavailable storage degrades silently', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npm test`
 Expected: FAIL — `HOUSING_OPT_STORAGE_KEY` is not exported.
 
-- [ ] **Step 3: Implement persistence**
+- [x] **Step 3: Implement persistence**
 
 Follow the `scenarioWriteSets` pattern in the same area of the codebase
 (`dashboard_decomp_housing_scenarios.js:936-947`): one JSON object, every access wrapped
@@ -3914,12 +3914,12 @@ recommendation can never be mistaken for a fresh one.
 Call `saveHousingOptInputs` from a debounced `oninput`/`onchange` on the panel container,
 and apply `loadHousingOptInputs()` at the end of `renderHousingOptimizePanelHtml()`.
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 Run: `npm test`
 Expected: all pass
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/js/dashboard_decomp_housing_optimizer.js tests/frontend/
@@ -3941,7 +3941,7 @@ be mistaken for a fresh one."
 **Interfaces:**
 - Consumes: Task 1's `LOT_SIZE_BAND_LABELS`, Task 11's option lists.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 # tests/test_housing_screen_parity.py
@@ -4012,12 +4012,12 @@ def test_the_cross_link_names_what_carries_across():
         assert word in SPENDING
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `pytest tests/test_housing_screen_parity.py -v`
 Expected: FAIL — `lot_size_band` and `zip_code` are not in the seed rows.
 
-- [ ] **Step 3: Add the missing seed rows**
+- [x] **Step 3: Add the missing seed rows**
 
 For both `next_step_1` and `next_step_2`, after `sqft_band`:
 
@@ -4029,7 +4029,7 @@ For both `next_step_1` and `next_step_2`, after `sqft_band`:
 and change every `city_type` description from `Area type: urban|suburban|rural` to
 `Area type: urban|suburban|exurban|rural`, including `current_home`'s.
 
-- [ ] **Step 4: Align the option lists**
+- [x] **Step 4: Align the option lists**
 
 Add `<option value="exurban">Exurban</option>` to `housingAreaTypeSelect` (`:426-432`).
 Extract the bedroom, bathroom, property-type, sqft and lot-size option lists into named
@@ -4037,12 +4037,12 @@ select helpers with the ids the test expects, so the two screens read from marku
 visibly the same rather than agreeing by coincidence. Add `lot_size_band` and `zip_code`
 to the purchase and rent field orders at `:478-508`.
 
-- [ ] **Step 5: Rewrite the cross-link copy**
+- [x] **Step 5: Rewrite the cross-link copy**
 
 Replace the paragraph at `:692` so it names the fields that carry across and states that
 the optimizer's results now include ZIP, estimated price and distance.
 
-- [ ] **Step 6: Run the tests**
+- [x] **Step 6: Run the tests**
 
 Run: `pytest tests/test_housing_screen_parity.py -v`
 Expected: all pass
@@ -4050,7 +4050,7 @@ Expected: all pass
 Run: `pytest tests/ -m "not slow and not nightly" -q && npm test`
 Expected: green
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/server_services/strategy_asset_service.py frontend/js/ tests/
@@ -4070,13 +4070,13 @@ produce but the screen could not record."
 - Move: `documentation/archive/superpowers/specs/` ← the two superseded specs
 - Test: existing suite
 
-- [ ] **Step 1: Update the CLI harness**
+- [x] **Step 1: Update the CLI harness**
 
 `tools/housing_lab.py` builds a v1 body and prints `recommendation`/`alternatives`. Update
 it to the v2 request shape and to print the ranked `candidates` list with the same columns
 the panel shows, so the harness and the UI stay comparable.
 
-- [ ] **Step 2: Update the package narrative**
+- [x] **Step 2: Update the package narrative**
 
 `src/housing/__init__.py`'s docstring describes the sale/purchase-welded model and the
 state-level family presence. Rewrite those paragraphs to describe the decoupled model and
@@ -4102,7 +4102,7 @@ The `_EXPORTS` map and `__all__` were already rewritten during Task 2 (commit `f
 > `tests/test_housing_optimizer_integration.py` import through that shim, which is why
 > Task 9 owns repairing them.
 
-- [ ] **Step 3: Archive the superseded specs**
+- [x] **Step 3: Archive the superseded specs**
 
 ```bash
 git mv docs/superpowers/specs/2026-09-15-zip-code-housing-screening-design.md \
@@ -4113,7 +4113,7 @@ git mv docs/superpowers/plans/2026-09-15-zip-code-housing-screening-followup.md 
        documentation/archive/superpowers/plans/
 ```
 
-- [ ] **Step 4: Full verification**
+- [x] **Step 4: Full verification**
 
 Run: `pytest tests/ -m "not slow and not nightly" -q`
 Expected: green
@@ -4124,7 +4124,7 @@ Expected: green
 Run: `python tools/housing_lab.py --help`
 Expected: exits 0
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tools/housing_lab.py src/housing/__init__.py docs/ documentation/
@@ -4204,3 +4204,43 @@ tests and the implementation snippets. `dual_ownership_ok` is defined once in Ta
 imported by Tasks 4 and 9. `format_output` is keyword-only in both its definition (Task 8)
 and its call site (Task 9). `run_multi_anchor_screen` returns the same `ScreenResult` type
 `run_screen` does, so `screen_payload` needs no second code path.
+
+---
+
+## Completion status (2026-09-16)
+
+Phase 1 Tasks 1–17 are implemented and committed. Every step above is ticked
+because its task's verification commands passed. That is not the same as the
+feature being proven, so the gaps are listed here rather than left implied.
+
+### Not verified
+
+- **The panel has never been loaded in a browser.** Every frontend test in this
+  plan is text- or Node-level: markup is asserted as strings, modules are
+  evaluated in a `vm` sandbox with a stubbed `document`. Nothing has rendered
+  the panel, clicked a field, watched the help pane open, or run an
+  optimization end to end through the real server. The CSS in particular is
+  asserted only by grepping `dashboard.css` for selectors — no one has seen
+  whether a row actually wraps well, whether a result row is legible, or
+  whether the label-above rule achieves what it was meant to achieve.
+  **This is the first thing to do before merging.**
+- **`tests/test_zip_screen_*_functional.py` are weaker than their names.** They
+  assert loose token presence within a character window of a function
+  definition, so a whole column could disappear from a rendered table and they
+  would still pass. They caught the Task 11 file move only because the file
+  path changed, not because the markup did.
+
+### Known limitations, recorded deliberately
+
+- `rejections['move_order']` is only measured in `search_mode='full'`; the
+  narrowed generators reject out-of-order points before the tally sees them.
+  The UI omits zero counts rather than asserting an unmeasured zero.
+- Lot size adjusts the estimated price but filters no ZIPs — the snapshot has
+  no lot-area column. Stated in the field's help text.
+- §121's two-of-five-year test still changes no dollar figure; it remains an
+  informational flag, unchanged from before this work.
+
+### Phase 2
+
+Keep-and-rent-out (§13) is specified but not implemented. `Keep` currently
+means "costs keep accruing, no income" and says so in its help text.
