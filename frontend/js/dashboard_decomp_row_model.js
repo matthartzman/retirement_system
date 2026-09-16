@@ -1313,7 +1313,59 @@ export function rowIsMonteCarlo(r) {
   );
 }
 
+// #323: the three Strategy screens (strategy_optimize/strategy_stress/
+// strategy_scenarios) are STEPS entries with no case of their own below --
+// every plan row still routes to the legacy shell id it always did (that
+// switch is deliberately untouched; row routing for the Field Finder, the
+// build change summary, and every source-jump button in the app all key off
+// the shell ids directly, see spec S1). Without this aggregation,
+// rawRowsForStep() falls through the switch's `default: return false` for
+// the three new ids and returns [] forever, which makes stepStats() report
+// zero required/zero missing for them permanently -- and since the Strategy
+// nav group's readiness badge sums stepStats(id).missing over every step in
+// the group, that badge would silently and permanently read zero, the one
+// nav group in the app with no readiness signal at all.
+//
+// planning_levers and planning_workbench have no case below and own no rows
+// -- both are derived/computed pages, not editable input pages -- so they
+// are correctly absent here, not an oversight.
+const STRATEGY_SCREEN_MEMBER_STEPS = {
+  strategy_optimize: [
+    "roth_conversion",
+    "allocation_assets",
+    "allocation_policy",
+    "entity_charitable",
+    "heloc_strategy",
+  ],
+  strategy_stress: [
+    "monte_carlo_options",
+    "survivor_stress",
+    "ltc_stress",
+    "divorce_options",
+  ],
+  strategy_scenarios: ["scenarios"],
+};
+
 export function rawRowsForStep(id) {
+  const members = STRATEGY_SCREEN_MEMBER_STEPS[id];
+  if (members) {
+    // Union rather than replacement: each member id must keep returning its
+    // own rows unaggregated (tested directly), since every other surface in
+    // the app still keys off them. Deduped by row_index as a defensive
+    // measure -- the member lists are disjoint today, but a future addition
+    // that overlaps another must not silently inflate stepStats() totals.
+    const seen = new Set();
+    const out = [];
+    for (const memberId of members) {
+      for (const r of rawRowsForStep(memberId)) {
+        if (!seen.has(r.row_index)) {
+          seen.add(r.row_index);
+          out.push(r);
+        }
+      }
+    }
+    return out;
+  }
   return rows.filter(isEditable).filter((r) => {
     const lbl = norm(r.label),
       sub = norm(r.subsection),
@@ -1964,6 +2016,14 @@ export function stepStats(id) {
     ].includes(id) &&
     (rulesChanged || taxBudgetChanged || budgetLinesChanged)
   )
+    d.push({});
+  // #323 gap S7.6: the State residency over time table is now a collapsible
+  // on the Housing page. Its own edit-tracking flag was already read by the
+  // global unsaved-changes guard (unsavedChangeCount()) but was never wired
+  // into ANY step's stepStats() -- editing the table has never raised an
+  // "Edited" nav badge on its own page. The gap moved with the table onto
+  // spending_mortgage_events; it does not fix itself.
+  if (id === "spending_mortgage_events" && residencyScheduleChanged)
     d.push({});
   if (
     id === "ytd_transactions" &&

@@ -3549,6 +3549,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "residencyScheduleChanged",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "ytdTransactionsChanged",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
