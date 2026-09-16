@@ -60,6 +60,15 @@ class Location:
     # Display/traceability only when this Location came from a ZIP search.
     # Nothing downstream reads it -- see src/housing/zip_screen/resolve.py.
     zip_code: str | None = None
+    # Populated by the ZIP screen (Task 10 splices them via
+    # ``dataclasses.replace``). Display/traceability only, like ``zip_code``
+    # above -- None for a Location that never came from a screen.
+    city: str | None = None
+    nss: float | None = None
+    band: str | None = None
+    distance_miles: float | None = None
+    family_distance_miles: float | None = None
+    est_price: float | None = None
 
 
 DISPOSITIONS = ('sell', 'keep', 'auto')
