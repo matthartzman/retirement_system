@@ -56,6 +56,7 @@ class ScreenedZip:
     promoted: bool = False
     collapsed: list[str] = field(default_factory=list)
     nearest_anchor_zip: str = ''
+    family_distance_miles: float | None = None
 
 
 @dataclass(frozen=True)
@@ -143,6 +144,28 @@ def deduplicate(
         ScreenedZip(**{**z.__dict__, 'collapsed': sorted(collapsed_by.get(z.zcta, []))})
         for z in kept
     ]
+
+
+def annotate_family_distance(
+    shortlist: list[ScreenedZip], family_zip: str | None,
+    coords: dict[str, tuple[float, float]],
+) -> list[ScreenedZip]:
+    """Record each ZIP's distance to the family ZIP for display.
+
+    An empty result under a tight family radius is otherwise undiagnosable:
+    the user sees zero candidates with no indication of how close the search
+    came.
+    """
+    family = coords.get(family_zip) if family_zip else None
+    if family is None:
+        return list(shortlist)
+    out = []
+    for z in shortlist:
+        here = coords.get(z.zcta)
+        dist = None if here is None else round(
+            haversine_miles(family[0], family[1], here[0], here[1]), 2)
+        out.append(ScreenedZip(**{**z.__dict__, 'family_distance_miles': dist}))
+    return out
 
 
 def _relaxation(
