@@ -1,4 +1,20 @@
-"""Housing move optimizer (grid search over sale/purchase year and location).
+"""Housing move optimizer (search over the current home's disposition, each
+move's acquisition year, and location).
+
+**The 2026-09-16 refinement decoupled selling from moving** (see
+docs/superpowers/specs/2026-09-16-housing-optimizer-refinement-design.md,
+§5.1). A candidate is no longer one welded ``(sale_year, purchase_year)``
+pair. It is an ``OriginalHome`` -- sold in a searched year, or kept -- plus a
+tuple of ``Move``s, each with its own ``acquisition_year`` and an explicit
+``buy``/``rent`` action. Renting for two years while the old home sits on the
+market is now representable; previously it was not. ``purchase_year`` no
+longer exists anywhere in this package.
+
+``Keep`` means ``home_sale_yr = 0``: carrying costs keep accruing and **no
+rental income is modelled**. Treating a kept home as an income property needs
+a rental-income channel, Schedule E netting, depreciation, §1250 recapture and
+a real §121 non-qualified-use test, none of which the engine has. That is
+Phase 2 (§13 of the same design doc) and is deliberately out of scope here.
 
 Where things live (all of the below is a pure carve-up of the former
 single-file ``src/housing_optimizer.py``; behavior is unchanged and that
@@ -10,11 +26,15 @@ path still works as a re-export shim):
                      or calls the engine (``_apply_candidate``/``_run_engine``).
 * ``constraints`` -- ``no_dual_ownership``/``family_presence`` filters and the
                      informational §121 flag. Pure, engine-free.
+                     ``family_presence`` is ZIP proximity (§6.4), not residence
+                     in a state: a candidate is dropped when its residence
+                     in any presence year is farther than the chosen radius
+                     from the family ZIP. Unknown ZIPs fail closed.
 * ``candidates``  -- full-grid enumeration and move-2 anchor selection. Pure.
 * ``search``      -- narrowed mode: engine-free coordinate-search primitives,
                      then the wrappers that bind them to real engine runs.
 * ``scoring``     -- row-reading objectives and ranking.
-* ``results``     -- ``housing_optimize_v1`` payload shaping.
+* ``results``     -- ``housing_optimize_v2`` payload shaping.
 * ``optimizer``   -- the orchestrator; delegates all of the above.
 * ``api``         -- request parsing for ``POST /api/housing/optimize``.
 
@@ -56,8 +76,9 @@ dollar figure, for either move.
 **Narrowed search mode (§8.2 P2).** ``optimize_housing``'s default
 ``search_mode='full'`` is the grid above, byte-for-byte unchanged. Opting
 into ``search_mode='narrowed'`` replaces, per candidate location, the full
-``(sale_year x purchase_year)`` grid with a bounded coordinate/pattern search
-(``_coordinate_search_2d``): a handful of seed points (grid corners plus
+``(sale_year x acquisition_year)`` grid with a bounded coordinate/pattern search
+(``search._descend``, which now climbs the sale-year, move-1 and move-2 axes
+together and collapses the sale axis entirely for a kept home): a handful of seed points (grid corners plus
 center) followed by hill-climbing to the best-improving integer-year
 neighbor until none improves, capped at a small evaluation budget -- and
 replaces the rent-indefinitely branch's full ``sale_year`` sweep with the
