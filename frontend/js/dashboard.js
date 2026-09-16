@@ -38,7 +38,7 @@ const STEPS = [
     intro:
       "Contribution amounts here add to account balances annually until the retirement date. Business salary level affects payroll tax and business-income deductions.",
     help: "High earned income in late working years compresses Roth conversion room below the bracket ceiling — coordinate with the Roth Conversion tab when the retirement date is near.",
-    helpLink: { id: "distribution_strategy", label: "Open Distribution Strategy (Roth conversion is on that page)" },
+    helpLink: { id: "roth_conversion", label: "Open Strategy → Optimize (Roth Conversion)" },
   },
   {
     id: "income_retirement",
@@ -48,7 +48,7 @@ const STEPS = [
     intro:
       "Enter each person’s Social Security benefit from their statement along with the planned claiming age and the household spousal/survivor policy. Delaying past full retirement age adds about 8% per year up to age 70; the higher earner’s delay has the greatest survivor income impact. Survivor percentages control how much pension or annuity income continues after the first death.",
     help: "Early claiming opens gap years for Roth conversion if other income is low — model the joint timing strategy with the Roth Conversion tab. Pensions and annuities with survivor protection can be treated as fixed-income-equivalent coverage in the allocation analysis — set the coverage option on the Asset allocation & location tab.",
-    helpLink: { id: "distribution_strategy", label: "Open Distribution Strategy (Roth conversion and allocation are on that page)" },
+    helpLink: { id: "roth_conversion", label: "Open Strategy → Optimize (Roth Conversion and Asset Allocation)" },
   },
   {
     id: "spending_core",
@@ -275,7 +275,7 @@ const STEPS = [
     intro:
       "Earlier priority means a bucket is drawn sooner. Drawing taxable accounts first can manage required distributions but may realize capital gains; preserving Roth typically maximizes tax-free compounding for legacy.",
     help: "When required distributions exceed annual spending needs, the excess is reinvested in taxable unless converted to Roth — Roth conversion policy is set on the Roth Conversion tab. HSA timing controls are under Other Assets and Liabilities.",
-    helpLink: { id: "distribution_strategy", label: "Open Distribution Strategy (Roth conversion is on that page)" },
+    helpLink: { id: "roth_conversion", label: "Open Strategy → Optimize (Roth Conversion)" },
     hidden: true,
   },
   {
@@ -1882,6 +1882,8 @@ function pageSaveMode(stepId) {
     };
   if (
     [
+      "strategy_stress",
+      "strategy_scenarios",
       "planning_workbench",
       "planning_levers",
       "scenarios",
@@ -3739,8 +3741,8 @@ const SUGGESTED_NEXT = {
   holdings: "assets_home_cash",
   assets_home_cash: "spending_core",
   spending_core: "reports_and_review",
-  distribution_strategy: "state_residency",
-  state_residency: "reports_and_review",
+  strategy_optimize: "strategy_stress",
+  strategy_stress: "reports_and_review",
   // lifestyle_spending and ytd_transactions removed: both now redirect onto
   // spending_core before activeStep is ever set to them (navigation.js's
   // WORKSPACE_TAB_REDIRECTS), and suggestedNext() below is only ever called
@@ -3807,7 +3809,7 @@ let renderMain = function() {
       ![
         "detailed_results",
         "system_configuration",
-        "planning_workbench",
+        "strategy_scenarios",
         "reports_and_review",
       ].includes(activeStep)) ||
     activeStep === "start"

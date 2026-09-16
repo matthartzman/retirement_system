@@ -2150,7 +2150,10 @@ export function renderSteps() {
         "start",
         "system_configuration",
         "detailed_results",
-        "planning_workbench",
+        // #323: the Workbench is a section of strategy_scenarios now, and that
+        // screen has a real nav button -- so the button, not the retired step
+        // id, is what must stay enabled before a plan is open.
+        "strategy_scenarios",
         "reports_and_review",
       ].includes(s.id);
     let badge = "";

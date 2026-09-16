@@ -687,14 +687,14 @@ export function renderSpendingHousing() {
   html += "</div></details>";
 
   html +=
-    '<details><summary class="section-header">State residency over time</summary><div class="section-body">';
+    '<details data-dkey="housing:residency"><summary class="section-header">State residency over time</summary><div class="section-body">';
   html += renderResidencySchedule();
   html += "</div></details>";
 
   html += renderBaseHomeSaleRows(rs);
 
   html +=
-    '<div class="section-note">Not sure what year or location to plan for? The <a href="#" onclick="setStep(\'scenarios\');return false">Optimize next housing move</a> tool (Strategy → Scenario Change Sets) searches candidate sale/purchase years and locations and reuses the same engine as the rest of the plan -- run it, then enter the winning combination into the fields below.</div>';
+    '<div class="section-note">Not sure what year or location to plan for? The <a href="#" onclick="setStep(\'scenarios\');return false">Optimize next housing move</a> tool (Strategy → Scenarios → Scenario Change Sets) searches candidate sale/purchase years and locations and reuses the same engine as the rest of the plan -- run it, then enter the winning combination into the fields below.</div>';
 
   if (nextStep1Rows.length) {
     html += renderNextHousingStepSection(
