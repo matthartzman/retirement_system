@@ -735,6 +735,12 @@ assert on rendered markup. No new dependencies.
 - Lot-size band values are exactly `under_quarter|quarter_half|half_one|one_three|over_three`.
 - Family radii are exactly `10|25|50|100`; search radii are exactly `5|10|25|50`.
 - Commit after every task. Never commit with a failing suite.
+- **`ZipRecord.pctl_*` values are fractions in 0.0–1.0, not 0–100.** Task 5's fixture
+  originally used integers and `score_zip` returned 1884.6 instead of a 0–100 score.
+  Any test building a `ZipRecord` follows `tests/test_zip_screen_quality_unit.py`.
+- **Test ZIPs must sit more than `DEDUP_RADIUS_MILES` (5.0) apart** unless the test is
+  specifically about dedup. Two fixture ZIPs with identical percentiles score identically
+  and will collapse into one, which reads as a filter bug rather than as dedup working.
 
 ## File Structure
 
