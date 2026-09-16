@@ -170,8 +170,36 @@ const STEPS = [
     help: "Planning cases are browser-local change sets. They do not alter the saved plan until you explicitly jump to source pages, edit inputs, save, and rebuild.",
   },
   {
-    id: "distribution_strategy",
+    id: "strategy_optimize",
     group: "Strategy",
+    title: "Optimize",
+    desc: "Roth conversions, asset allocation and location, charitable giving, and home-equity borrowing in one decision workspace.",
+    intro:
+      "Open a section to work on one lever at a time. Each section is the same input page it always was — collapsed sections are not rendered, so the page stays fast while you edit.",
+    help: "Decide the strategy here, then test its resilience on Stress Test and compare alternatives on Scenarios. Sections whose optional module is off show how to enable it.",
+  },
+  {
+    id: "strategy_stress",
+    group: "Strategy",
+    title: "Stress Test",
+    desc: "Adverse-assumption tests: Monte Carlo probability, survivor/early death, long-term care, and divorce.",
+    intro:
+      "Stress assumptions are adverse tests, not forecasts. Set the inputs for whichever tests apply, then rebuild to see them in the workbook.",
+    help: "Every section here is an optional workbook module — a section only has inputs once its module is enabled on Optional Modules, and this whole page is hidden when all four are off.",
+  },
+  {
+    id: "strategy_scenarios",
+    group: "Strategy",
+    title: "Scenarios",
+    desc: "Ranked strategy levers, named scenario change sets, and the Planning Workbench for comparing and adopting them.",
+    intro:
+      "Levers rank the isolated impact of one change at a time. Change sets are named deterministic cases you can compare side by side in the workbench.",
+    help: "Use change sets for questions with a specific answer (retire two years later, sell the home in 2028). Use Stress Test for probability ranges and adverse assumptions.",
+  },
+  {
+    id: "distribution_strategy",
+    group: null,
+    hidden: true,
     title: "Distribution Strategy",
     desc: "Planning levers, Roth conversions, withdrawal order, and allocation & location in one decision workspace.",
     intro:
@@ -180,7 +208,8 @@ const STEPS = [
   },
   {
     id: "state_residency",
-    group: "Strategy",
+    group: null,
+    hidden: true,
     title: "State Residency Analysis",
     desc: "Compare state income-tax treatment and estimate geographic cost differences for auto insurance, homeowners insurance, utilities, and maintenance if you relocate.",
     intro:
@@ -189,7 +218,8 @@ const STEPS = [
   },
   {
     id: "special_strategies",
-    group: "Strategy",
+    group: null,
+    hidden: true,
     title: "Special Strategies",
     desc: "Home equity and charitable strategies for advanced planning cases.",
     intro:
@@ -268,7 +298,7 @@ const STEPS = [
     hidden: true,  },
   {
     id: "monte_carlo_options",
-    group: "Stress Tests",
+    group: null,
     title: "Probability Analysis",
     desc: "Adverse-assumption and probability settings: simulation engine, trial count, return volatility, liquidity floor, and Wellness shock settings.",
     intro:
@@ -288,7 +318,7 @@ const STEPS = [
   },
   {
     id: "survivor_stress",
-    group: "Stress Tests",
+    group: null,
     title: "Survivor / Early Death",
     desc: "Mortality ages, survivor filing status, income reduction, and account rollover treatment.",
     intro:
@@ -298,7 +328,7 @@ const STEPS = [
   },
   {
     id: "ltc_stress",
-    group: "Stress Tests",
+    group: null,
     title: "Long-Term Care",
     desc: "Annual care cost, duration, and coverage benefit — showing the net out-of-pocket gap the portfolio must fund.",
     intro:
@@ -308,7 +338,7 @@ const STEPS = [
   },
   {
     id: "divorce_options",
-    group: "Stress Tests",
+    group: null,
     title: "Divorce Planning",
     desc: "Retirement account transfer, alimony terms, asset division, and post-divorce Wellness — applied as a scenario overlay on the base plan.",
     intro:
@@ -1412,41 +1442,6 @@ function leverPctPoints(v) {
   return Math.max(-30, Math.min(30, Number(v) || 0));
 }
 
-
-function renderStateResidency() {
-  const rs = rowsForStep("state_residency");
-  const stateComp = rs.filter(
-    (r) => String(r.section || "").trim() === "State Comparison",
-  );
-  let html = renderResidencySchedule();
-  html += `<div class="section-note">Baseline state is set on <a href="#" onclick="setStep('household_people');return false">Household People</a>. Enter the target state and cost differences below — the workbook State Residency sheet shows annual and lifetime impact.</div>`;
-  if (!stateComp.length)
-    return (
-      html +
-      `<div class="field-list"><p>No state comparison rows found. Reload the current plan to backfill them.</p></div>`
-    );
-  const hwRows = stateComp.filter(
-    (r) => norm(r.subsection || "") === "homeowners_insurance",
-  );
-  const autoRows = stateComp.filter(
-    (r) => norm(r.subsection || "") === "auto_insurance",
-  );
-  const otherRows = stateComp.filter(
-    (r) => !hwRows.includes(r) && !autoRows.includes(r),
-  );
-  html += `<div class="field-list">`;
-  if (otherRows.length) html += otherRows.map(fieldHtml).join("");
-  if (hwRows.length)
-    html +=
-      `<div class="subsection-label">Homeowners insurance</div>` +
-      hwRows.map(fieldHtml).join("");
-  if (autoRows.length)
-    html +=
-      `<div class="subsection-label">Auto insurance</div>` +
-      autoRows.map(fieldHtml).join("");
-  html += `</div>`;
-  return html;
-}
 // renderEntityCharitable (and its entityCharitableGatedRows DAF/QCD gating
 // helper, #318) lives in dashboard_decomp_estate_insurance.js, alongside
 // renderToggleRows' matching QTIP/Credit Shelter Trust pattern.
@@ -3697,28 +3692,6 @@ function setStrategyTab(step, tab) {
 // the size ratchet after its overlay-ordering fix) -- it is still reachable
 // as a bare global via that file's own window bridge, matching every other
 // cross-module onclick target in this codebase.
-// Ticket 286: the sub-nav is gone. Its four tabs were alternate routes into
-// steps that already existed at top level, so every one of them appeared twice
-// in the left nav. Withdrawal Order moved to the Spending workspace; Roth
-// Conversion and Allocation & Location are embedded here, inside the decide
-// box, and no longer carry their own nav entries.
-function renderSpecialStrategies() {
-  let html = '<div class="special-strategy-workspace">';
-  if (helocModuleEnabled()) {
-    html += `<details><summary>Home Equity Line</summary>${analysisFrame(renderFields("heloc_strategy"), "strategy")}</details>`;
-  } else {
-    html +=
-      '<div class="section-note">Home Equity Line strategy is off. Enable it on <a href="#" onclick="setStep(\'heloc_strategy\');return false">HELOC → Setup → Enable HELOC Strategy</a> to use it.</div>';
-  }
-  if (optionalFunctionEnabled("charitable_giving")) {
-    html += `<details><summary>Charitable Giving</summary>${analysisFrame(renderEntityCharitable(), "strategy")}</details>`;
-  } else {
-    html +=
-      '<div class="section-note">Charitable Giving strategies are off. Enable Charitable Giving on <a href="#" onclick="setStep(\'optional_functions\');return false">Optional Modules</a> to use them.</div>';
-  }
-  html += "</div>";
-  return html;
-}
 const SPENDING_WORKFLOW_STEPS = [
   { label: "Spending Model", stepId: "spending_core" },
   { label: "Import Transactions", stepId: "ytd_transactions" },
@@ -3883,8 +3856,10 @@ let renderMain = function() {
     content += renderRetirementWellness();
   else if (activeStep === "distribution_strategy")
     content += renderDistributionStrategy();
-  else if (activeStep === "special_strategies")
-    content += renderSpecialStrategies();
+  else if (activeStep === "strategy_optimize") content += renderStrategyOptimize();
+  else if (activeStep === "strategy_stress") content += renderStrategyStress();
+  else if (activeStep === "strategy_scenarios")
+    content += renderStrategyScenarios();
   else if (activeStep === "reports_and_review")
     content += renderReportsAndReview();
   else if (activeStep === "scenarios")
@@ -3893,8 +3868,6 @@ let renderMain = function() {
     content += analysisFrame(renderMonteCarloOptions(), "stress");
   else if (activeStep === "divorce_options")
     content += analysisFrame(renderDivorceOptions(), "stress");
-  else if (activeStep === "state_residency")
-    content += analysisFrame(renderStateResidency(), "strategy");
   else if (activeStep === "entity_charitable")
     content += analysisFrame(renderEntityCharitable(), "strategy");
   else if (activeStep === "survivor_stress")
@@ -7300,14 +7273,14 @@ Object.assign(window, {
   rememberBuildCompare, renderAssetsCashReserves, renderDetailedResultsNav,
   renderDetailedResultsProgressTick, renderEstateWithAnnuityLink, renderFieldFinderGroups,
   renderHouseholdPeople, renderMeta, renderNav, renderOptionalFunctions, renderPlanningWorkbench,
-  renderRetirementWellness, renderSpecialStrategies, renderSpendingDashboardOrLoad,
-  renderSpendingWorkflowBanner, renderStateResidency, renderStrategyTabs, renderWithdrawalOrderTable,
-  renderWithdrawalStrategy, renderWorkspaceSubtabsNav, resetAllocationPreview,
-  restoreGroupBudgetModes, restoreWorkbookViewState, revertLastBuildChanges, rollForwardYtdAccounts,
-  rowConfigValue, rowIsRetirementWellness, saveAndExit, saveChanges, saveValueForRow,
-  saveYtdAccountSetup, saveYtdPending, scenarioRowKeyFromParts, sectionFlagEnabled,
-  setAllDetailColumnGroups, setCombinedSearch, setDetailedResultSheet, setDetailedResultsNavOpen,
-  setNavSearch, setPlanningCaseActive, setSearchScope, setStrategyTab, showPlanDataFileManifest,
+  renderRetirementWellness, renderSpendingDashboardOrLoad, renderSpendingWorkflowBanner,
+  renderStrategyTabs, renderWithdrawalOrderTable, renderWithdrawalStrategy,
+  renderWorkspaceSubtabsNav, resetAllocationPreview, restoreGroupBudgetModes,
+  restoreWorkbookViewState, revertLastBuildChanges, rollForwardYtdAccounts, rowConfigValue,
+  rowIsRetirementWellness, saveAndExit, saveChanges, saveValueForRow, saveYtdAccountSetup,
+  saveYtdPending, scenarioRowKeyFromParts, sectionFlagEnabled, setAllDetailColumnGroups,
+  setCombinedSearch, setDetailedResultSheet, setDetailedResultsNavOpen, setNavSearch,
+  setPlanningCaseActive, setSearchScope, setStrategyTab, showPlanDataFileManifest,
   showSpendingModelLoadOverlay, showYtdLoadOverlay, sleep, spendingFlowFooterHtml,
   startDetailedResultsProgress, stepHelpLinkHtml, stepIdForRow, stepSearchText,
   stopDetailedResultsProgress, strategyLeverOverrideItems, stressHomeSaleYearRow,

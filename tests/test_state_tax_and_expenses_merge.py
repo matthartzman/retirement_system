@@ -132,4 +132,10 @@ def test_state_residency_button_removed_from_planning_levers_decide_card():
     # The State Residency page/nav step itself must still exist elsewhere --
     # this only removes the lever quick-nav shortcut, not the whole feature.
     assert 'id: "state_residency"' in js
-    assert 'function renderStateResidency' in js
+    # Ticket 323 moved the residency schedule itself onto the Housing page
+    # (renderSpendingHousing), and deleted renderStateResidency along with
+    # its dead State Comparison half. The feature still has to exist
+    # somewhere -- that somewhere is now Housing.
+    assert 'renderResidencySchedule()' in dashboard_function_source(
+        'renderSpendingHousing', js
+    )
