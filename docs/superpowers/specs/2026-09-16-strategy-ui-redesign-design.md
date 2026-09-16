@@ -364,6 +364,31 @@ smaller instance of the exact pattern this redesign removes elsewhere. Left
 in place rather than pulled into this already-large task; worth a follow-up
 pass to verify each one and remove what's confirmed dead.
 
+### Phase 6 coverage
+
+Section gating on all three screens, `SECTION_REDIRECTS` resolution for every
+row of the §2 table, and `rowsForStep()` aggregation for the three new ids —
+the coverage originally planned for this phase — were written incrementally
+inside Tasks 2–4 as each piece landed, rather than deferred to the end. What
+remained genuinely open going into this phase:
+
+- `tests/frontend/housing_residency_section_render.test.mjs` — proves
+  `renderSpendingHousing()` actually renders the residency collapsible (with
+  its `data-dkey`, a real configured period, and correct position after
+  "Current home"), not merely that the redirect table targets the right key.
+- `tests/frontend/insurance_auto_baseline_routing.test.mjs` — proves the one
+  live `State Comparison` row (`auto_insurance/current_state_baseline_annual`)
+  routes to `annuity_death_benefits` and *not* to `state_residency`, that
+  every other `State Comparison` row is unaffected, and that
+  `sourceStepForRow()` — what every Source-jump button actually reads —
+  agrees with `rawRowsForStep()`. All four passed immediately; this closes a
+  coverage gap Task 1's review left open, it does not fix a bug.
+
+A sweep of the entire test tree (including `slow`-marked and `tests/e2e/`,
+neither exercised by the `pytest -m "not slow"` runs used throughout this
+ticket) found no functional reference to any retired id or deleted function —
+only historical comments, left alone as accurate history.
+
 ---
 
 # Implementation Plan
