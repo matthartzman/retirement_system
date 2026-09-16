@@ -15,8 +15,7 @@ from __future__ import annotations
 from .housing import *  # noqa: F401,F403 -- public API, see src/housing/__init__.py
 from .housing import __all__ as _public_all
 from .housing.models import (  # noqa: F401
-    NARROWED_1D_MAX_EVALS,
-    NARROWED_2D_MAX_EVALS,
+    NARROWED_MAX_EVALS_PER_AXIS,
     _NARROWED_EVALS_PER_ANCHOR_LOCATION,
 )
 from .housing.plan_variant import (  # noqa: F401
