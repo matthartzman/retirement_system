@@ -28,6 +28,13 @@
       "runtimeArgs": ["/c", "set RETIREMENT_SYSTEM_DASHBOARD_PORT=5352&& C:\\Users\\MattHartzman\\AppData\\Local\\Python\\bin\\python.exe main.py --mode server"],
       "port": 5352,
       "autoPort": false
+    },
+    {
+      "name": "financial-trends-reporter",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["financial_trends_reporter/main.py", "--port", "5958"],
+      "port": 5958,
+      "autoPort": false
     }
   ]
 }

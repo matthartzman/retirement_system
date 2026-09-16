@@ -33,6 +33,58 @@ function escJs(s) {
     .replace(/\n/g, "\\n")
     .replace(/\r/g, "");
 }
+// Housing dwelling-spec option sets (Task 16, design doc §10/§14): the
+// optimizer panel (dashboard_decomp_housing_optimizer.js) and the spending
+// screen's next-housing-step fields (dashboard_decomp_housing_scenarios.js)
+// describe the same dwelling, so both render their bedroom/bathroom/property
+// type/sqft/lot-size/area-type selects from these arrays instead of each
+// screen maintaining its own list and agreeing (or, per the design doc's
+// decision log, disagreeing) by coincidence. `areaTypes` holds only the four
+// concrete values; the optimizer alone prepends its own "any" search
+// wildcard, since the spending screen records a specific dwelling and must
+// not offer it.
+const HOUSING_DWELLING_OPTIONS = {
+  areaTypes: [
+    { value: "urban", label: "Urban" },
+    { value: "suburban", label: "Suburban" },
+    { value: "exurban", label: "Exurban" },
+    { value: "rural", label: "Rural" },
+  ],
+  bedrooms: [
+    { value: "2", label: "2 BR" },
+    { value: "3", label: "3 BR" },
+    { value: "4", label: "4 BR" },
+    { value: "5", label: "5+ BR" },
+  ],
+  bathrooms: [
+    { value: "1", label: "1 BA" },
+    { value: "1.5", label: "1.5 BA" },
+    { value: "2", label: "2 BA" },
+    { value: "2.5", label: "2.5 BA" },
+    { value: "3", label: "3 BA" },
+    { value: "3.5", label: "3.5+ BA" },
+  ],
+  propertyTypes: [
+    { value: "single_family", label: "Single family" },
+    { value: "townhome", label: "Townhome" },
+    { value: "condo", label: "Condo" },
+    { value: "duplex", label: "Duplex" },
+  ],
+  sqftBands: [
+    { value: "under_1200", label: "Under 1,200 sqft" },
+    { value: "1200_1800", label: "1,200-1,800 sqft" },
+    { value: "1800_2500", label: "1,800-2,500 sqft" },
+    { value: "2500_3500", label: "2,500-3,500 sqft" },
+    { value: "over_3500", label: "Over 3,500 sqft" },
+  ],
+  lotSizeBands: [
+    { value: "under_quarter", label: "Under 1/4 acre" },
+    { value: "quarter_half", label: "1/4 to 1/2 acre" },
+    { value: "half_one", label: "1/2 to 1 acre" },
+    { value: "one_three", label: "1 to 3 acres" },
+    { value: "over_three", label: "Over 3 acres" },
+  ],
+};
 // Shared row-action icons (A13-style single copy): a trash can for delete
 // buttons and a calendar for the spending-screen Annualize control, both with
 // title/aria-label so a rollover still shows the word they replace.
@@ -175,5 +227,6 @@ if (typeof window !== "undefined") {
     formatNumberValue,
     currencyDisplay,
     percentDisplay,
+    HOUSING_DWELLING_OPTIONS,
   });
 }

@@ -23,6 +23,8 @@
   .empty { color: #888; font-size: 13px; }
   #runNow { margin-left: auto; }
   svg text { fill: currentColor; font-size: 12px; }
+  .chart-dot { cursor: pointer; }
+  .chart-dot:hover { r: 5; }
   .legend { font-size: 11px; color: #888; margin-top: 6px; }
   .error { color: #b91c1c; font-size: 13px; }
   @media (prefers-color-scheme: dark) { .error { color: #f87171; } }
@@ -59,23 +61,27 @@
 // Finding QUA-302 (Wave 6 item W6-11): the chart-rendering logic below used
 // to be defined inline, right here, with no module boundary. It now lives
 // in ./charts.js, importable and testable directly.
-import { fmtMoney, escSvg, filterByTimeframe, dataTableFallbackHtml, lineChartSvg, barChartSvg } from "./charts.js";
+import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, dataTableFallbackHtml, lineChartSvg, barChartSvg } from "./charts.js";
 
 let history = [];
 let timeframe = "ytd";
 
 function render() {
-  const rows = filterByTimeframe(history, timeframe);
+  const filtered = filterByTimeframe(history, timeframe);
+  // Granularity: daily for day/week/month, weekly for quarter, monthly
+  // for ytd/12-month/all-time (custom infers from the span it covers).
+  const granularity = granularityForTimeframe(timeframe, filtered);
+  const rows = aggregateByGranularity(filtered, granularity);
   document.getElementById("chartNetWorth").innerHTML = lineChartSvg(
-    rows.map(r => ({ label: r.as_of_date.slice(5), value: r.net_worth && r.net_worth.total })), { color: "#16a34a", title: "Net worth" }
+    rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: r.net_worth && r.net_worth.total })), { color: "#16a34a", title: "Net worth" }
   );
   document.getElementById("chartHoldings").innerHTML = lineChartSvg(
-    rows.map(r => ({ label: r.as_of_date.slice(5), value: r.holdings && r.holdings.current_value })), { color: "#2563eb", title: "Holdings value" }
+    rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: r.holdings && r.holdings.current_value })), { color: "#2563eb", title: "Holdings value" }
   );
   document.getElementById("chartCashflow").innerHTML = lineChartSvg(
-    rows.map(r => ({ label: r.as_of_date.slice(5), value: r.cashflow && r.cashflow.net })), { color: "#d97706", title: "Cashflow" }
+    rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: r.cashflow && r.cashflow.net })), { color: "#d97706", title: "Cashflow" }
   );
-  const latest = rows[rows.length - 1];
+  const latest = filtered[filtered.length - 1];
   const categories = latest && latest.ytd_expenses_by_category ? Object.entries(latest.ytd_expenses_by_category).sort((a, b) => b[1] - a[1]).slice(0, 10) : [];
   document.getElementById("chartCategories").innerHTML = barChartSvg(categories);
 }

@@ -49,15 +49,17 @@ def test_unknown_anchor_is_named_in_the_error(table):
 
 def test_funnel_reports_every_stage(table):
     res = run_screen(_req(), table=table)
-    for key in ('in_radius', 'with_data', 'above_score', 'affordable',
-                'after_dedup', 'promoted'):
+    for key in ('in_radius', 'with_data', 'above_score', 'matching_area_type',
+                'under_population_cap', 'affordable', 'distinct', 'near_family',
+                'promoted'):
         assert key in res.funnel
 
 
 def test_funnel_counts_are_monotonically_non_increasing(table):
     f = run_screen(_req(), table=table).funnel
     counts = [f['in_radius'], f['with_data'], f['above_score'],
-              f['affordable'], f['after_dedup'], f['promoted']]
+              f['matching_area_type'], f['under_population_cap'],
+              f['affordable'], f['distinct'], f['near_family'], f['promoted']]
     assert counts == sorted(counts, reverse=True)
 
 

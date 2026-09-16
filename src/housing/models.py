@@ -7,7 +7,7 @@ one file. See ``src.housing``'s package docstring for the design narrative.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 OBJECTIVES = ('net_worth', 'lifetime_cost', 'mc_success_rate')
@@ -23,17 +23,26 @@ MOVE2_STRATEGIES = ('anchored', 'cross_product')
 # rather than letting it silently run for a very long time.
 MOVE2_CROSS_PRODUCT_CAP = 3000
 
-# Evaluation budgets for the bounded coordinate searches in ``search.py``
-# (used as those functions' default ``max_evals``). Raising either widens
-# narrowed mode's search at a proportional cost in engine runs.
-NARROWED_2D_MAX_EVALS = 25
-NARROWED_1D_MAX_EVALS = 8
+# Evaluation budget for the bounded coordinate searches in ``search.py``
+# (used as those functions' default ``max_evals``), applied per axis. Raising
+# it widens narrowed mode's search at a proportional cost in engine runs.
+NARROWED_MAX_EVALS_PER_AXIS = 25
 
-# Upper bound on engine evaluations per (eligible move-1 candidate, location)
-# pair under `search_mode='narrowed'` -- the two budgets above, one 2D search
-# plus one 1D rent-branch search; see generate_move1_candidates_narrowed's
-# docstring.
-_NARROWED_EVALS_PER_ANCHOR_LOCATION = NARROWED_2D_MAX_EVALS + NARROWED_1D_MAX_EVALS
+# How many year axes each narrowed descent actually searches. The evaluation
+# budget a descent is given is ``NARROWED_MAX_EVALS_PER_AXIS * <axes>``, and
+# ``search.py``'s two ``generate_*_narrowed`` defaults and
+# ``candidates.estimate_move2_candidate_count``'s projection are all derived
+# from these two constants so they cannot drift apart again.
+#
+# They did drift: a single ``_NARROWED_EVALS_PER_ANCHOR_LOCATION =
+# NARROWED_MAX_EVALS_PER_AXIS * 2`` was used to project the move-2 cost even
+# though move 2 searches ONE axis (its acquisition year -- the sale year is a
+# move-1 axis, already fixed by the anchor), so the projection was 2x high;
+# meanwhile it ignored the buy/rent ``actions`` loop, which is a real 2x under
+# ``move2_action='auto'``. The two errors cancelled for 'auto' and left a clean
+# 2x overstatement for 'buy'/'rent'. The projection is now axes x actions.
+NARROWED_MOVE1_AXES = 2   # original-home sale year, move-1 acquisition year
+NARROWED_MOVE2_AXES = 1   # move-2 acquisition year only
 
 # ZIP -> city_type thresholds, people per square mile (spec section 5.1). The
 # optimizer's cost estimate is keyed on city_type, so these decide which
@@ -57,61 +66,96 @@ class Location:
     bathrooms: float = 2.0
     property_type: str = 'single_family'
     sqft_band: str = '1800_2500'
+    lot_size_band: str = 'quarter_half'
     built_within_years: int | None = None
     # Display/traceability only when this Location came from a ZIP search.
     # Nothing downstream reads it -- see src/housing/zip_screen/resolve.py.
     zip_code: str | None = None
+    # Populated by the ZIP screen (Task 10 splices them via
+    # ``dataclasses.replace``). Display/traceability only, like ``zip_code``
+    # above -- None for a Location that never came from a screen.
+    city: str | None = None
+    nss: float | None = None
+    band: str | None = None
+    distance_miles: float | None = None
+    family_distance_miles: float | None = None
+    est_price: float | None = None
+
+
+DISPOSITIONS = ('sell', 'keep', 'auto')
+AREA_TYPES = ('any', 'urban', 'suburban', 'exurban', 'rural')
+FAMILY_RADII_MILES = (10, 25, 50, 100)
+MOVE_ACTIONS = ('auto', 'buy', 'rent')
 
 
 @dataclass(frozen=True)
-class SearchWindow:
+class SaleWindow:
     earliest_sale_year: int
     latest_sale_year: int
-    earliest_purchase_year: int
-    latest_purchase_year: int
 
 
 @dataclass(frozen=True)
-class Move2Window:
-    latest_sale_year_2: int
-    latest_purchase_year_2: int
+class MoveWindow:
+    earliest_acquisition_year: int
+    latest_acquisition_year: int
 
 
 @dataclass(frozen=True)
 class FamilyPresence:
-    region: str
-    start_year: int
-    end_year: int
+    """Proximity to a fixed ZIP, not residence in a state (design §6.4)."""
+    zip_code: str
+    radius_miles: int
+    from_year: int
+    through_year: int
+
+
+@dataclass(frozen=True)
+class OriginalHome:
+    """What happens to the home the household owns today.
+
+    ``disposition`` is resolved per candidate: 'sell' carries a searched
+    ``sale_year``; 'keep' carries ``None`` and leaves ``home_sale_yr`` at 0.
+    'auto' is a request-level value only -- it never reaches a candidate,
+    because generation expands it into both concrete dispositions.
+    """
+    disposition: str
+    sale_year: int | None = None
+
+
+@dataclass(frozen=True)
+class Move:
+    """One acquisition. Independent of any sale (design §5.1).
+
+    ``action`` is 'buy' or 'rent' -- never 'auto', which is a request-level
+    value expanded during generation. ``acquisition_year`` is the closing year
+    for a purchase and the lease-start year for a rental; the old model's
+    ``purchase_year=None``-means-rent convention is gone, so a rental now has
+    a real year and an explicit action.
+    """
+    index: int
+    acquisition_year: int
+    action: str
+    location: Location
+    mode: str = 'sequential'   # 'sequential' | 'concurrent' (index 2 only)
 
 
 @dataclass
 class HousingCandidate:
-    """One fully-specified plan variant: move 1, and optionally move 2.
-
-    ``purchase_year is None`` means "rent indefinitely" after ``sale_year``
-    (move 1) or after ``sale_year_2``/``concurrent_start_year_2`` (move 2,
-    when ``purchase_year_2`` is also ``None``).
-
-    ``move2_mode='sequential'`` (default): move 2 sells the move-1 home
-    (``sale_year_2``) and relocates to ``location_2``, exactly as before this
-    field existed. ``move2_mode='concurrent'``: the move-1 home is never sold
-    -- ``location_2`` becomes a second, simultaneous residence starting at
-    ``concurrent_start_year_2``. ``sale_year_2`` is always ``None`` in
-    concurrent mode (nothing is ever sold under it).
-    """
-    location_1: Location
-    sale_year: int
-    purchase_year: int | None
-    location_2: Location | None = None
-    sale_year_2: int | None = None
-    purchase_year_2: int | None = None
-    move2_mode: Literal['sequential', 'concurrent'] = 'sequential'
-    concurrent_start_year_2: int | None = None
+    original_home: OriginalHome
+    moves: tuple[Move, ...]
     anchor_of: "HousingCandidate | None" = None
 
     @property
+    def move1(self) -> Move:
+        return self.moves[0]
+
+    @property
+    def move2(self) -> Move | None:
+        return self.moves[1] if len(self.moves) > 1 else None
+
+    @property
     def is_two_move(self) -> bool:
-        return self.location_2 is not None
+        return len(self.moves) > 1
 
 
 @dataclass
@@ -121,4 +165,4 @@ class ScoredCandidate:
     lifetime_cost: float
     mc_success_rate: float | None
     sec121_exclusion_lost: list[bool]
-    family_presence_via_rental: bool = False
+    notes: list[str] = field(default_factory=list)

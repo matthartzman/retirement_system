@@ -1,448 +1,195 @@
-// Housing move optimizer panel
-// (docs/superpowers/specs/2026-09-09-housing-optimization-design.md):
-// renderHousingOptimizeResultsHtml() renders the §5 headline recommendation
-// and ranked alternatives table (reusing this page's scenario-diff table
-// styling); toggleHousingOptLocationRows()/toggleHousingOptMove2Fields()
-// show/hide inputs; runHousingOptimization() gathers form values and posts
-// to /api/housing/optimize.
+// Housing move optimizer panel markup
+// (docs/superpowers/specs/2026-09-16-housing-optimizer-refinement-design.md
+// §9.1-§9.3). The panel now lives in its own module,
+// frontend/js/dashboard_decomp_housing_optimizer.js.
+//
+// The design plan's own version of this file imports
+// renderHousingOptimizePanelHtml directly from that module. That is not how
+// this repo's frontend modules can be exercised: none of them are standalone
+// ES modules -- they resolve `esc`, `api`, `showMessage`,
+// `ensureHelpPanelVisible` and friends as bare globals supplied by
+// dashboard.js and its siblings, in the load order index.html declares. The
+// assertions below are the plan's; only the way the HTML is obtained differs,
+// via loadDashboardSandbox() like every other frontend test here.
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { loadDashboardSandbox } from "./load_dashboard.mjs";
 
-function freshSandbox() {
-  return loadDashboardSandbox();
-}
-
-// Fallback for ids these tests don't care about (e.g. the "buildOverlay"
-// progress popup runHousingOptimization() now shows/hides around its API
-// call) -- needs classList (setBuildOverlay/hideBuildOverlay toggle it) on
-// top of the plain `value` field these tests read from form inputs.
-function unstubbedElement() {
-  return {
-    value: "",
-    style: {},
-    classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
-    setAttribute() {},
-  };
-}
-
-function samplePayload() {
-  return {
-    success: true,
-    schema: "housing_optimize_v1",
-    objective: "net_worth",
-    recommendation: {
-      moves: [
-        {
-          sale_year: 2027,
-          purchase_year: 2028,
-          rent_indefinitely: false,
-          location: { state: "Texas", city_type: "suburban", population_size: 150000 },
-          sec121_exclusion_lost: false,
-        },
-      ],
-      net_worth: 11447476.74,
-      lifetime_cost: 607683.2,
-      mc_success_rate: 1.0,
-      objective_value: 11447476.74,
-      family_presence_via_rental: false,
-    },
-    alternatives: [
-      {
-        moves: [
-          {
-            sale_year: 2028,
-            purchase_year: null,
-            rent_indefinitely: true,
-            location: { state: "Florida", city_type: "urban", population_size: 300000 },
-            sec121_exclusion_lost: false,
-          },
-        ],
-        net_worth: 11375199.93,
-        lifetime_cost: 576773.85,
-        mc_success_rate: null,
-        objective_value: 11375199.93,
-        family_presence_via_rental: true,
-      },
-    ],
-    candidates_evaluated: 12,
-  };
-}
+const sandbox = loadDashboardSandbox();
+const panelHtml = () => sandbox.renderHousingOptimizePanelHtml();
 
 describe("renderHousingOptimizePanelHtml", () => {
-  test("renders location rows, search-window inputs, and the objective dropdown", () => {
-    const sandbox = freshSandbox();
-    const html = sandbox.renderHousingOptimizePanelHtml();
-    assert.match(html, /id="housingOptLocState0"/);
-    assert.match(html, /id="housingOptLocState1"/);
-    assert.match(html, /id="housingOptEarliestSale"/);
-    assert.match(html, /id="housingOptLatestPurchase"/);
-    assert.match(html, /id="housingOptObjective"/);
-    assert.match(html, /id="housingOptSearchMode"/);
-    assert.match(html, /id="housingOptMove2Strategy"/);
-    assert.match(html, /id="housingOptNoDualOwnership"[^>]*checked/);
+  test("the manual-location mode is gone", () => {
+    const html = panelHtml();
+    assert.ok(!html.includes("Choose locations manually"));
+    assert.ok(!html.includes("housingOptGeoMode"));
+    assert.ok(!html.includes("housingOptLocCount"));
+  });
+
+  test("global constraints and objective come before the move sections", () => {
+    const html = panelHtml();
+    assert.ok(html.indexOf("housingOptObjective") < html.indexOf("housingOptMove1Earliest"));
+    assert.ok(html.indexOf("housingOptPresenceZip") < html.indexOf("housingOptMove1Earliest"));
+  });
+
+  test("the current home is its own section with a disposition control", () => {
+    const html = panelHtml();
+    assert.ok(html.includes("housingOptDisposition"));
+    assert.ok(html.includes("housingOptEarliestSale"));
+    assert.ok(html.includes("housingOptLatestSale"));
+  });
+
+  test("each move has an acquisition window, not a purchase window", () => {
+    const html = panelHtml();
+    assert.ok(html.includes("housingOptMove1Earliest"));
+    assert.ok(html.includes("housingOptMove2Earliest"));
+    assert.ok(!html.includes("housingOptEarliestPurchase"));
+  });
+
+  test("family presence is a ZIP plus a proximity radius", () => {
+    const html = panelHtml();
+    assert.ok(html.includes("housingOptPresenceZip"));
+    assert.ok(html.includes("housingOptPresenceRadius"));
+    for (const r of ["10", "25", "50", "100"]) {
+      assert.ok(html.includes(`value="${r}"`), `radius ${r} missing`);
+    }
+    assert.ok(!html.includes("housingOptPresenceRegion"));
+  });
+
+  test("both moves expose the new candidate and dwelling constraints", () => {
+    const html = panelHtml();
+    for (const n of [1, 2]) {
+      for (const f of ["AreaType", "MaxPopulation", "LotSize", "Bedrooms", "Bathrooms"]) {
+        assert.ok(html.includes(`housingOptMove${n}${f}`), `move ${n} ${f} missing`);
+      }
+    }
+  });
+
+  test("labels are stacked above their control, never inline before it", () => {
+    const html = panelHtml();
+    assert.ok(html.includes("housing-opt-field"));
+    assert.ok(
+      !/<label>[^<]*<input/.test(html),
+      "found an inline label immediately followed by its input",
+    );
+  });
+
+  test("every field carries a help affordance instead of inline helper text", () => {
+    const html = panelHtml();
+    const fields = (html.match(/class="housing-opt-field"/g) || []).length;
+    const helps = (html.match(/showHousingOptFieldHelp\(/g) || []).length;
+    assert.ok(fields > 0);
+    assert.ok(helps >= fields, `${helps} help hooks for ${fields} fields`);
+  });
+
+  test("sizing is CSS classes, never an inline style width", () => {
+    assert.ok(!panelHtml().includes('style="width:'));
+  });
+
+  test("the run button, validation area and results area are present", () => {
+    const html = panelHtml();
+    assert.match(html, /id="housingOptRun"/);
+    assert.match(html, /id="housingOptValidation"/);
     assert.match(html, /id="housingOptimizeResults"/);
   });
-
-  test("hides candidate locations 3 and 4 by default", () => {
-    const sandbox = freshSandbox();
-    const html = sandbox.renderHousingOptimizePanelHtml();
-    assert.match(html, /id="housingOptLocRow2" hidden/);
-    assert.match(html, /id="housingOptLocRow3" hidden/);
-  });
-
-  test("renders state fields as dropdowns of the canonical state list, not free text", () => {
-    const sandbox = freshSandbox();
-    const html = sandbox.renderHousingOptimizePanelHtml();
-    assert.doesNotMatch(html, /id="housingOptLocState0" type="text"/);
-    assert.match(html, /<select id="housingOptLocState0">[\s\S]*?<\/select>/);
-    assert.match(html, /<option value="Illinois">Illinois<\/option>/);
-    assert.doesNotMatch(html, /id="housingOptPresenceRegion" type="text"/);
-    assert.match(html, /<select id="housingOptPresenceRegion">[\s\S]*?<\/select>/);
-  });
-
-  test("disables the concurrent checkbox when narrowed search is selected, with an inline note", () => {
-    const sandbox = freshSandbox();
-    const html = sandbox.renderHousingOptimizePanelHtml();
-    assert.match(html, /id="housingOptMove2Concurrent"/);
-    assert.match(html, /concurrent[\s\S]{0,200}narrowed/i);
-  });
 });
 
-describe("housingOptLocationRowHtml five-criteria fields", () => {
-  test("renders bedrooms/bathrooms/property type/sqft band/built-within-years inputs", () => {
-    const sandbox = freshSandbox();
-    const html = sandbox.renderHousingOptimizePanelHtml();
-    assert.match(html, /id="housingOptLocBedrooms0"/);
-    assert.match(html, /id="housingOptLocBathrooms0"/);
-    assert.match(html, /id="housingOptLocPropertyType0"/);
-    assert.match(html, /id="housingOptLocSqftBand0"/);
-    assert.match(html, /id="housingOptLocBuiltWithinYears0"/);
+describe("anchors control (§9.3)", () => {
+  test("two compact anchor entries per move are shown by default, each with a City/ZIP mode toggle", () => {
+    const html = panelHtml();
+    for (const n of [1, 2]) {
+      assert.match(html, new RegExp(`id="housingOptMove${n}Anchor0"`));
+      assert.match(html, new RegExp(`id="housingOptMove${n}Anchor1"`));
+      assert.ok(
+        !html.includes(`id="housingOptMove${n}Anchor2"`),
+        `move ${n} shows more than two anchors by default`,
+      );
+      assert.match(html, new RegExp(`id="housingOptMove${n}AnchorCity0"`));
+      assert.match(html, new RegExp(`id="housingOptMove${n}AnchorZip0"`));
+    }
+    assert.match(html, /\+ Add anchor/);
   });
-});
 
-describe("toggleHousingOptLocationRows", () => {
-  test("shows exactly as many location rows as selected", () => {
-    const sandbox = freshSandbox();
-    const elements = {
-      housingOptLocCount: { value: "3" },
-      housingOptLocRow0: { hidden: false },
-      housingOptLocRow1: { hidden: false },
-      housingOptLocRow2: { hidden: true },
-      housingOptLocRow3: { hidden: true },
-    };
-    sandbox.document.getElementById = (id) => elements[id] || null;
-    sandbox.toggleHousingOptLocationRows();
-    assert.equal(elements.housingOptLocRow0.hidden, false);
-    assert.equal(elements.housingOptLocRow1.hidden, false);
-    assert.equal(elements.housingOptLocRow2.hidden, false);
-    assert.equal(elements.housingOptLocRow3.hidden, true);
+  test("addHousingOptAnchor grows the list to five and stops, with a remove control past the second", () => {
+    const local = loadDashboardSandbox();
+    let rendered = "";
+    local.document.getElementById = (id) =>
+      id === "housingOptMove1Anchors"
+        ? {
+            set innerHTML(v) {
+              rendered = v;
+            },
+            get innerHTML() {
+              return rendered;
+            },
+          }
+        : null;
+    for (let i = 0; i < 10; i++) local.addHousingOptAnchor(1);
+    assert.match(rendered, /id="housingOptMove1Anchor4"/);
+    assert.ok(!rendered.includes('id="housingOptMove1Anchor5"'));
+    assert.ok(!/removeHousingOptAnchor\(1, 1\)/.test(rendered));
+    assert.match(rendered, /removeHousingOptAnchor\(1, 2\)/);
+    local.removeHousingOptAnchor(1, 4);
+    assert.ok(!rendered.includes('id="housingOptMove1Anchor4"'));
   });
 });
 
 describe("toggleHousingOptMove2Fields", () => {
   test("reveals the move-2 fields only when the checkbox is checked", () => {
-    const sandbox = freshSandbox();
+    const local = loadDashboardSandbox();
     const elements = {
       housingOptMove2Enabled: { checked: true },
       housingOptMove2Fields: { hidden: true },
     };
-    sandbox.document.getElementById = (id) => elements[id] || null;
-    sandbox.toggleHousingOptMove2Fields();
+    local.document.getElementById = (id) => elements[id] || null;
+    local.toggleHousingOptMove2Fields();
     assert.equal(elements.housingOptMove2Fields.hidden, false);
     elements.housingOptMove2Enabled.checked = false;
-    sandbox.toggleHousingOptMove2Fields();
+    local.toggleHousingOptMove2Fields();
     assert.equal(elements.housingOptMove2Fields.hidden, true);
   });
 });
 
 describe("toggleHousingOptNoDualOwnershipAvailability", () => {
-  test("disables no-dual-ownership and shows the note when concurrent is checked, re-enables and hides it when unchecked", () => {
-    const sandbox = freshSandbox();
+  test("disables no-dual-ownership and shows the note when concurrent is checked", () => {
+    const local = loadDashboardSandbox();
     const elements = {
       housingOptMove2Concurrent: { checked: true },
       housingOptNoDualOwnership: { disabled: false, checked: true },
       housingOptNoDualOwnershipConcurrentNote: { hidden: true },
     };
-    sandbox.document.getElementById = (id) => elements[id] || null;
-    sandbox.toggleHousingOptNoDualOwnershipAvailability();
+    local.document.getElementById = (id) => elements[id] || null;
+    local.toggleHousingOptNoDualOwnershipAvailability();
     assert.equal(elements.housingOptNoDualOwnership.disabled, true);
     assert.equal(elements.housingOptNoDualOwnership.checked, true);
     assert.equal(elements.housingOptNoDualOwnershipConcurrentNote.hidden, false);
 
     elements.housingOptMove2Concurrent.checked = false;
-    sandbox.toggleHousingOptNoDualOwnershipAvailability();
+    local.toggleHousingOptNoDualOwnershipAvailability();
     assert.equal(elements.housingOptNoDualOwnership.disabled, false);
     assert.equal(elements.housingOptNoDualOwnershipConcurrentNote.hidden, true);
   });
 });
 
-describe("toggleHousingOptMove2Fields resets concurrent mode", () => {
-  test("unchecking move 2 also unchecks concurrent and clears its notes", () => {
-    const sandbox = freshSandbox();
+describe("toggleHousingOptDispositionFields", () => {
+  test("disables the sale window and shows the kept-home note under Keep", () => {
+    const local = loadDashboardSandbox();
     const elements = {
-      housingOptMove2Enabled: { checked: false },
-      housingOptMove2Fields: { hidden: false },
-      housingOptMove2Concurrent: { checked: true },
-      housingOptMove2ConcurrentNarrowedNote: { hidden: false },
-      housingOptNoDualOwnership: { disabled: true, checked: true },
-      housingOptNoDualOwnershipConcurrentNote: { hidden: false },
+      housingOptDisposition: { value: "keep" },
+      housingOptEarliestSale: { disabled: false },
+      housingOptLatestSale: { disabled: false },
+      housingOptKeepNote: { hidden: true },
     };
-    sandbox.document.getElementById = (id) => elements[id] || null;
-    sandbox.toggleHousingOptMove2Fields();
-    assert.equal(elements.housingOptMove2Fields.hidden, true);
-    assert.equal(elements.housingOptMove2Concurrent.checked, false);
-    assert.equal(elements.housingOptMove2ConcurrentNarrowedNote.hidden, true);
-    assert.equal(elements.housingOptNoDualOwnership.disabled, false);
-    assert.equal(elements.housingOptNoDualOwnershipConcurrentNote.hidden, true);
-  });
-});
+    local.document.getElementById = (id) => elements[id] || null;
+    local.toggleHousingOptDispositionFields();
+    assert.equal(elements.housingOptEarliestSale.disabled, true);
+    assert.equal(elements.housingOptLatestSale.disabled, true);
+    assert.equal(elements.housingOptKeepNote.hidden, false);
 
-describe("renderHousingOptimizeResultsHtml", () => {
-  test("renders the headline recommendation and the ranked alternatives table", () => {
-    const sandbox = freshSandbox();
-    const html = sandbox.renderHousingOptimizeResultsHtml(samplePayload());
-    assert.match(html, /Recommended/);
-    assert.match(html, /Sell original home \(2027\)/);
-    assert.match(html, /Buy in Texas \(2028\)/);
-    assert.match(html, /Texas/);
-    assert.match(html, /Florida/);
-    assert.match(html, /Rent in Florida/);
-    assert.match(html, /family presence via rental/);
-    assert.match(html, /scenario-diff-table/);
-  });
-
-  test("flags a lost §121 exclusion on the move it applies to", () => {
-    const sandbox = freshSandbox();
-    const payload = samplePayload();
-    payload.recommendation.moves[0].sec121_exclusion_lost = true;
-    const html = sandbox.renderHousingOptimizeResultsHtml(payload);
-    assert.match(html, /likely loses.*121 exclusion/);
-  });
-
-  test("shows a no-candidates message when nothing satisfied the constraints", () => {
-    const sandbox = freshSandbox();
-    const html = sandbox.renderHousingOptimizeResultsHtml({ recommendation: null, alternatives: [] });
-    assert.match(html, /No candidates satisfied/);
-  });
-
-  test("orders a bridge-purchase move chronologically (buy before sell) instead of always 'Sell -> Buy'", () => {
-    const sandbox = freshSandbox();
-    const payload = samplePayload();
-    payload.recommendation.moves[0] = {
-      sale_year: 2035,
-      purchase_year: 2032,
-      rent_indefinitely: false,
-      location: { state: "Illinois", city_type: "suburban", population_size: 20000 },
-      sec121_exclusion_lost: false,
-    };
-    const html = sandbox.renderHousingOptimizeResultsHtml(payload);
-    const buyIdx = html.indexOf("Buy in Illinois (2032)");
-    const sellIdx = html.indexOf("Sell original home (2035)");
-    assert.ok(buyIdx >= 0, "expected a 'Buy in Illinois (2032)' label");
-    assert.ok(sellIdx >= 0, "expected a 'Sell original home (2035)' label");
-    assert.ok(buyIdx < sellIdx, "buy year (2032) precedes sell year (2035), should render first");
-    assert.match(html, /own both homes 2032.{0,3}2035/i);
-  });
-
-  test("labels move 2's sale as the move-1 home, not the original home", () => {
-    const sandbox = freshSandbox();
-    const payload = samplePayload();
-    payload.recommendation.moves = [
-      {
-        sale_year: 2030, purchase_year: 2030, rent_indefinitely: false,
-        location: { state: "Texas", city_type: "suburban", population_size: 150000 },
-        sec121_exclusion_lost: false,
-      },
-      {
-        sale_year: 2032, purchase_year: 2038, rent_indefinitely: false,
-        location: { state: "Florida", city_type: "urban", population_size: 300000 },
-        sec121_exclusion_lost: false,
-      },
-    ];
-    const html = sandbox.renderHousingOptimizeResultsHtml(payload);
-    assert.match(html, /Sell Texas home \(2032\)/);
-    assert.match(html, /Buy in Florida \(2038\)/);
-  });
-
-  test("renders a concurrent move 2 distinctly from a sequential one", () => {
-    const sandbox = freshSandbox();
-    const payload = samplePayload();
-    // Isolate the concurrent move so the "no Sell wording" assertion below
-    // tests this move's own rendering, not an unrelated prior sequential
-    // move's "Sell original home" text (samplePayload()'s stock move 0 always
-    // renders a "Sell" since it is a real sale, not a concurrent addition).
-    payload.recommendation.moves = [
-      {
-        sale_year: null, purchase_year: 2030, start_year: 2030, mode: "concurrent",
-        rent_indefinitely: false,
-        location: { state: "Illinois", city_type: "suburban", population_size: 20000 },
-        sec121_exclusion_lost: false,
-      },
-    ];
-    const html = sandbox.renderHousingOptimizeResultsHtml(payload);
-    assert.match(html, /concurrent/i);
-    assert.match(html, /Illinois/);
-    assert.doesNotMatch(html, /Sell.*Illinois/);
-  });
-});
-
-describe("runHousingOptimization", () => {
-  test("rejects when a candidate location has no state, without calling the API", async () => {
-    const sandbox = freshSandbox();
-    const elements = {
-      housingOptLocCount: { value: "2" },
-      housingOptLocState0: { value: "" },
-      housingOptimizeResults: { innerHTML: "" },
-    };
-    sandbox.document.getElementById = (id) => elements[id] || { value: "" };
-    let apiCalled = false;
-    sandbox.api = async () => {
-      apiCalled = true;
-      return { success: true };
-    };
-    const messages = [];
-    sandbox.showMessage = (msg, kind) => messages.push([msg, kind]);
-    await sandbox.runHousingOptimization();
-    assert.equal(apiCalled, false);
-    assert.ok(messages.length >= 1);
-    assert.match(messages[0][0], /state/i);
-  });
-
-  test("posts the gathered form values to /api/housing/optimize and renders the response", async () => {
-    const sandbox = freshSandbox();
-    const values = {
-      housingOptLocCount: "2",
-      housingOptLocState0: "Texas",
-      housingOptLocCity0: "suburban",
-      housingOptLocPop0: "150000",
-      housingOptLocBedrooms0: "3",
-      housingOptLocPropertyType0: "single_family",
-      housingOptLocState1: "Florida",
-      housingOptLocCity1: "urban",
-      housingOptLocPop1: "300000",
-      housingOptEarliestSale: "2027",
-      housingOptLatestSale: "2028",
-      housingOptEarliestPurchase: "2027",
-      housingOptLatestPurchase: "2028",
-      housingOptAnchorCount: "5",
-      housingOptObjective: "net_worth",
-      housingOptSearchMode: "narrowed",
-      housingOptMove2Strategy: "cross_product",
-    };
-    const resultsEl = { innerHTML: "" };
-    const noDualOwnership = { checked: true };
-    const move2Enabled = { checked: false };
-    sandbox.document.getElementById = (id) => {
-      if (id === "housingOptimizeResults") return resultsEl;
-      if (id === "housingOptNoDualOwnership") return noDualOwnership;
-      if (id === "housingOptMove2Enabled") return move2Enabled;
-      if (id in values) return { value: values[id] };
-      return unstubbedElement();
-    };
-    let capturedUrl = null;
-    let capturedBody = null;
-    sandbox.api = async (url, opts) => {
-      capturedUrl = url;
-      capturedBody = JSON.parse(opts.body);
-      return { success: true, recommendation: null, alternatives: [] };
-    };
-    await sandbox.runHousingOptimization();
-    assert.equal(capturedUrl, "/api/housing/optimize");
-    assert.equal(capturedBody.locations.length, 2);
-    assert.equal(capturedBody.locations[0].state, "Texas");
-    assert.equal(capturedBody.locations[0].bedrooms, 3);
-    assert.equal(capturedBody.locations[0].property_type, "single_family");
-    assert.equal(capturedBody.no_dual_ownership, true);
-    assert.equal(capturedBody.search_mode, "narrowed");
-    assert.equal(capturedBody.move2_strategy, "cross_product");
-    assert.equal(capturedBody.move2_window, undefined);
-    assert.equal(capturedBody.move1_window.earliest_sale_year, 2027);
-    assert.match(resultsEl.innerHTML, /No candidates satisfied/);
-  });
-
-  test("surfaces a cross_product cap-rejection error via showMessage", async () => {
-    const sandbox = freshSandbox();
-    const values = {
-      housingOptLocCount: "2",
-      housingOptLocState0: "Texas",
-      housingOptLocState1: "Florida",
-      housingOptEarliestSale: "2027",
-      housingOptLatestSale: "2030",
-      housingOptEarliestPurchase: "2027",
-      housingOptLatestPurchase: "2032",
-      housingOptObjective: "net_worth",
-      housingOptSearchMode: "full",
-      housingOptMove2Strategy: "cross_product",
-    };
-    const resultsEl = { innerHTML: "" };
-    sandbox.document.getElementById = (id) => {
-      if (id === "housingOptimizeResults") return resultsEl;
-      if (id in values) return { value: values[id] };
-      return unstubbedElement();
-    };
-    sandbox.api = async () => ({
-      success: false,
-      error: "move2_strategy='cross_product' would evaluate ~5000 move-2 candidates, over the safety cap of 3000.",
-    });
-    const messages = [];
-    sandbox.showMessage = (msg, kind) => messages.push([msg, kind]);
-    await sandbox.runHousingOptimization();
-    assert.ok(messages.length >= 1);
-    assert.match(messages[0][0], /cross_product/);
-    assert.equal(messages[0][1], "error");
-    assert.equal(resultsEl.innerHTML, "");
-  });
-
-  test("defaults move1_action/move2_action to auto and reads the selects when present", async () => {
-    const sandbox = freshSandbox();
-    const values = {
-      housingOptLocCount: "2", housingOptLocState0: "Texas", housingOptLocState1: "Florida",
-      housingOptEarliestSale: "2027", housingOptLatestSale: "2028",
-      housingOptEarliestPurchase: "2027", housingOptLatestPurchase: "2028",
-      housingOptObjective: "net_worth", housingOptSearchMode: "full",
-      housingOptMove2Strategy: "anchored", housingOptMove1Action: "rent",
-    };
-    const resultsEl = { innerHTML: "" };
-    sandbox.document.getElementById = (id) => {
-      if (id === "housingOptimizeResults") return resultsEl;
-      if (id in values) return { value: values[id] };
-      return unstubbedElement();
-    };
-    let capturedBody = null;
-    sandbox.api = async (url, opts) => {
-      capturedBody = JSON.parse(opts.body);
-      return { success: true, recommendation: null, alternatives: [] };
-    };
-    await sandbox.runHousingOptimization();
-    assert.equal(capturedBody.move1_action, "rent");
-    assert.equal(capturedBody.move2_action, "auto");
-  });
-
-  test("posts move2_concurrent to the API", async () => {
-    const sandbox = freshSandbox();
-    const values = {
-      housingOptLocCount: "2", housingOptLocState0: "Texas", housingOptLocState1: "Florida",
-      housingOptEarliestSale: "2027", housingOptLatestSale: "2028",
-      housingOptEarliestPurchase: "2027", housingOptLatestPurchase: "2028",
-      housingOptObjective: "net_worth", housingOptSearchMode: "full",
-      housingOptMove2Strategy: "anchored",
-    };
-    const resultsEl = { innerHTML: "" };
-    const move2Concurrent = { checked: true };
-    sandbox.document.getElementById = (id) => {
-      if (id === "housingOptimizeResults") return resultsEl;
-      if (id === "housingOptMove2Concurrent") return move2Concurrent;
-      if (id in values) return { value: values[id] };
-      return unstubbedElement();
-    };
-    let capturedBody = null;
-    sandbox.api = async (url, opts) => {
-      capturedBody = JSON.parse(opts.body);
-      return { success: true, recommendation: null, alternatives: [] };
-    };
-    await sandbox.runHousingOptimization();
-    assert.equal(capturedBody.move2_concurrent, true);
+    elements.housingOptDisposition.value = "auto";
+    local.toggleHousingOptDispositionFields();
+    assert.equal(elements.housingOptEarliestSale.disabled, false);
+    assert.equal(elements.housingOptKeepNote.hidden, true);
   });
 });
