@@ -116,3 +116,29 @@ describe("rawRowsForStep aggregates the constituent legacy ids (ticket 323)", ()
     }
   });
 });
+
+// Ticket 323 / Phase 5: renderScenarios() used to carry a "State comparison —
+// insurance costs" block gated on rowsForStep("scenarios") containing
+// section === "State Comparison" rows. That precondition is never true --
+// State Comparison rows route to state_residency (now the Housing page's
+// residency section), never to scenarios -- so the block has never rendered.
+// This proves the precondition false at the routing layer, which is what
+// justifies deleting the dead consumer in
+// dashboard_decomp_housing_scenarios.js rather than merely asserting the
+// string is gone from source.
+describe("State Comparison rows never route to the scenarios step (ticket 323)", () => {
+  test("a State Comparison row is absent from rawRowsForStep(\"scenarios\")", () => {
+    const stateCompRow = {
+      row_index: 100,
+      section: "State Comparison",
+      subsection: "homeowners_insurance",
+      label: "target_state_annual",
+    };
+    sandbox.window.rows = [stateCompRow];
+    const scenarios = sandbox.rawRowsForStep("scenarios");
+    assert.ok(
+      !scenarios.some((r) => r.row_index === 100),
+      "a State Comparison row leaked into the scenarios step",
+    );
+  });
+});

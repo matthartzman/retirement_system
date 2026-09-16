@@ -228,14 +228,20 @@ describe("STEPS wiring for the three Strategy screens (ticket 323)", () => {
   });
 });
 
-describe("deletions stay deleted and the survivor stays (ticket 323)", () => {
-  test("renderStateResidency and renderSpecialStrategies are gone -- no stale window bridge to throw at load", () => {
+describe("deletions stay deleted (ticket 323)", () => {
+  test("renderStateResidency, renderSpecialStrategies and renderDistributionStrategy are gone -- no stale window bridge to throw at load", () => {
     assert.equal(typeof sandbox.renderStateResidency, "undefined");
     assert.equal(typeof sandbox.renderSpecialStrategies, "undefined");
+    // renderDistributionStrategy was a one-line wrapper around
+    // renderPlanningLevers(); its inbound links were redirected to
+    // strategy_optimize before this deletion landed (SECTION_REDIRECTS,
+    // tests/frontend/strategy_section_redirects.test.mjs), so nothing can
+    // reach the dead renderMain branch this function backed.
+    assert.equal(typeof sandbox.renderDistributionStrategy, "undefined");
   });
 
-  test("renderDistributionStrategy still exists (its redirects land in a later phase)", () => {
-    assert.equal(typeof sandbox.renderDistributionStrategy, "function");
+  test("ssClaimAgeCoordinationSummaryHtml is gone -- Optimize has no Social Security section", () => {
+    assert.equal(typeof sandbox.ssClaimAgeCoordinationSummaryHtml, "undefined");
   });
 });
 

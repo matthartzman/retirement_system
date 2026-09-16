@@ -291,13 +291,16 @@ class DashboardJsRuntimeBehaviorTests(unittest.TestCase):
             """)
             self.assertIn("OK", out)
 
-    def test_request_allocation_preview_fires_on_distribution_strategy_step(self):
-        # Regression guard: requestAllocationPreview() originally only
-        # fired when activeStep === "allocation_assets", a legacy standalone
-        # step id. The current guided-steps UI hosts Allocation & Location
-        # inside the combined "distribution_strategy" step, so the preview
-        # (and therefore the real_loss_aware bucket table) never loaded
-        # without this fix. Checks the synchronous portion of
+    def test_request_allocation_preview_fires_on_strategy_optimize_step(self):
+        # Regression guard: requestAllocationPreview() originally only fired
+        # when activeStep === "allocation_assets", a legacy standalone step
+        # id. #323's Strategy redesign folded Allocation & Location into the
+        # Asset Allocation section of the Optimize screen -- activeStep can
+        # no longer literally equal "allocation_assets" or the older
+        # "distribution_strategy" id this test used to check (both now
+        # redirect to strategy_optimize before activeStep is ever set), so
+        # the preview (and therefore the real_loss_aware bucket table) would
+        # never load without this fix. Checks the synchronous portion of
         # requestAllocationPreview (allocationPreviewLoading flips to true
         # before the guard would have returned early) rather than mocking
         # fetch/api's async chain, which is more robust to that layer's
@@ -309,10 +312,10 @@ class DashboardJsRuntimeBehaviorTests(unittest.TestCase):
                 {row_index:1,section:'Asset Allocation Policy',subsection:'Global',label:'allocation_selection_mode',value:'real_loss_aware'}
               ];
               planLoaded = true;
-              activeStep = 'distribution_strategy';
+              activeStep = 'strategy_optimize';
               requestAllocationPreview();
               if (allocationPreviewLoading !== true) {
-                throw new Error('requestAllocationPreview returned early on distribution_strategy step (guard not updated)');
+                throw new Error('requestAllocationPreview returned early on strategy_optimize step (guard not updated)');
               }
               console.log('OK');
             """)

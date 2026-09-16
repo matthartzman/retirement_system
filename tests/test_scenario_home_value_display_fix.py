@@ -24,7 +24,14 @@ def test_scenario_home_value_routes_to_home_sale_group_not_other_scenario_group(
     js = dashboard_js()
 
     assert 'const homeSale = rs.filter((r) => rowIsHomeSaleAssumption(r));' in js
-    assert '!rowIsEconomyScenario(r) &&\n      !homeSale.includes(r) &&' in js
+    # #323: this used to be a three-condition filter (also excluding a
+    # `stateComp` bucket that renderScenarios() no longer computes -- see
+    # tests/frontend/strategy_screen_rows_aggregate.test.mjs for the routing
+    # proof that bucket was always empty). The exact substring changed shape
+    # when the third condition was removed; the thing this test actually
+    # protects -- home-sale-assumption rows must not leak into the generic
+    # "other" fields bucket -- is unchanged and still asserted here.
+    assert '(r) => !rowIsEconomyScenario(r) && !homeSale.includes(r)' in js
 
 
 def test_money_like_scenario_labels_get_currency_formatting_even_without_units():
