@@ -23,6 +23,18 @@ export function stepGatedByOptionalModule(stepId) {
   // "advanced workflow" preference.
   if (stepId === "special_strategies")
     return !helocModuleEnabled() && !optionalFunctionEnabled("charitable_giving");
+  // Ticket 323: Stress Test is a screen of four optional sections, so unlike
+  // Optimize and Scenarios (each of which has a never-gated section) it can
+  // end up with nothing live at all -- hide it when all four of its modules
+  // are off. The module keys are read out of step_gates for the four legacy
+  // step ids rather than hand-listed, for the same reason as the comment
+  // below: server-declared gating is the single source of truth.
+  if (stepId === "strategy_stress") {
+    const gates = moduleGates.step_gates || {};
+    return ["monte_carlo_options", "survivor_stress", "ltc_stress", "divorce_options"]
+      .map((id) => gates[id])
+      .every((m) => m && !optionalFunctionEnabled(m));
+  }
   // §7.4: every other module-gated step is server-declared (module_catalog's
   // dashboard_step, via moduleGates.step_gates) rather than hand-listed here —
   // when the module is off, no computation runs and no sheet is built, so the

@@ -14,7 +14,10 @@ def test_dashboard_top_level_groups():
     # Item 178: the "Accounts" group was dissolved — Investment Holdings and
     # Reserve Requirements now live under "Assets & Protection".
     # Item 197: "Profile" renamed to "People and Income".
-    assert groups == ["Plan Status", "People and Income", "Spending", "Assets & Protection", "Strategy", "Stress Tests", "Reports & Review", "Reports", "Settings"]
+    # Ticket 323: the "Stress Tests" group label is gone -- its four members are
+    # now collapsible sections on the Strategy group's "Stress Test" screen, and
+    # the group had no visible members of its own anyway (all four were hidden).
+    assert groups == ["Plan Status", "People and Income", "Spending", "Assets & Protection", "Strategy", "Reports & Review", "Reports", "Settings"]
     assert "Advanced Options" not in re.search(r"function renderSteps\(\).*?box\.innerHTML", js, re.S).group(0)
 
 

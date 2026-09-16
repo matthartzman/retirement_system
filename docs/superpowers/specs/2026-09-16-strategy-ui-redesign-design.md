@@ -104,7 +104,23 @@ rewritten.
 
 Every section is a collapsible heading with a **lazy body**: while collapsed it
 renders a stub, and the real renderer runs on first open and on every pass while
-open. Open state persists per section in `localStorage`.
+open.
+
+Open state is held in memory and persisted per section to `localStorage`.
+Memory is the source of truth, not storage. If a storage write throws (private
+mode, blocked site data, quota) and storage were authoritative, the persisted
+map would stay stale while the DOM had already toggled; `renderMain()`'s restore
+pass would then flip the element back, firing another toggle event, which would
+fail to persist again — an unbounded render loop in exactly the environment the
+`try`/`catch` exists to tolerate. A toggle that changes nothing is also a no-op,
+as a second guard against re-entry.
+
+On a first visit, the first section a reader can actually use opens by default,
+so landing on a screen shows content rather than a stack of collapsed bars.
+Gated-off sections are skipped when picking it — this matters on Optimize, whose
+first section is module-gated, where defaulting that one open would greet a
+reader with an enable-note and everything else collapsed. Once the reader opens
+or closes anything, their stored choice wins from then on.
 
 Lazy rather than eager because `renderMain()` re-renders the whole tree on every
 field edit, and `renderAllocationRecommendation()` alone emits the mode note,
@@ -132,12 +148,18 @@ encoded is superseded by the screen-level rule below.
 | Section | Body | Gated by |
 | --- | --- | --- |
 | Roth Conversion | `renderRothConversion()` | `roth_conversion_plan` |
-| Asset Allocation | `allocationModeHtml()` + `renderAllocationRecommendation()`, with the nested "Allocation policy settings" details | never — `asset_allocation` is not optional |
+| Asset Allocation | `renderAllocationRecommendation()`, with the nested "Allocation policy settings" details | never — `asset_allocation` is not optional |
 | Charitable Giving | `renderEntityCharitable()` | `charitable_giving` |
 | HELOC | `renderFields("heloc_strategy")` | `heloc_enabled` plan-data flag, via the existing `heloc_strategy` special case |
 
 Because Asset Allocation is never gated, the Optimize screen always has at least
 one live section and is never itself hidden.
+
+The Asset Allocation body is `renderAllocationRecommendation()` alone. An
+earlier draft of this spec paired it with `allocationModeHtml()`; that was
+wrong. `renderAllocationRecommendation()` already opens with
+`renderCurrentAllocationModeNote()`, which is a one-line wrapper returning
+`allocationModeHtml()`, so pairing them renders the mode selector twice.
 
 There is no Social Security section. The only Strategy-side Social Security
 artifact was a link to the People and Income page; the Social Security claiming

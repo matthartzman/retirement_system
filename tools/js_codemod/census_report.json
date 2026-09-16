@@ -123,10 +123,8 @@
     "renderOptionalFunctions",
     "renderPlanningWorkbench",
     "renderRetirementWellness",
-    "renderSpecialStrategies",
     "renderSpendingDashboardOrLoad",
     "renderSpendingWorkflowBanner",
-    "renderStateResidency",
     "renderStrategyTabs",
     "renderWithdrawalOrderTable",
     "renderWithdrawalStrategy",
@@ -2911,6 +2909,12 @@
     {
       "name": "RECOMMENDATION_ENGINE_VERSION",
       "file": "frontend/js/dashboard_decomp_page_recommendations.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleGates",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
       "scope": "inside-function"
     },
@@ -6866,6 +6870,18 @@
       "name": "taxBudget",
       "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
       "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_strategy_workspace.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderPlanningWorkbench",
+      "file": "frontend/js/dashboard_decomp_strategy_workspace.js",
+      "kind": "call",
       "scope": "inside-function"
     },
     {

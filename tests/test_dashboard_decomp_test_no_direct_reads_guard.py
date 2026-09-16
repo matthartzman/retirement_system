@@ -47,6 +47,10 @@ ALLOWED = {
     "test_dashboard_startup_race_and_script_order.py": "asserts on boot code + script order",
     # reports dashboard.js line numbers; concatenation makes those numbers lie
     "test_help_text_no_html_entities_regression.py": "reports dashboard.js line numbers",
+    # asserts the three Strategy screen renderers are NOT in dashboard.js
+    # (placement) -- dashboard_js_text() concatenates every module, so it
+    # cannot express "absent from this one file"
+    "test_strategy_workspace_screens_functional.py": "asserts renderers are absent from dashboard.js specifically (placement)",
 }
 
 # A read of dashboard.js, in the forms this repo actually uses. Kept as separate
