@@ -132,6 +132,26 @@ SQFT_BAND_LABELS = {
     "over_3500": "over 3,500 sqft",
 }
 
+# Lot-size band, added 2026-09-16 (design §6.3). Same footing as the bedroom,
+# bathroom, property-type and sqft multipliers above: illustrative starting
+# points, not sourced from a dataset. Lot size deliberately does NOT filter
+# ZIPs -- the screening snapshot has no lot-area column -- so this is the only
+# place it has any effect.
+LOT_SIZE_BAND_MULT = {
+    "under_quarter": 0.92,
+    "quarter_half": 1.00,
+    "half_one": 1.08,
+    "one_three": 1.20,
+    "over_three": 1.35,
+}
+LOT_SIZE_BAND_LABELS = {
+    "under_quarter": "under 1/4 acre",
+    "quarter_half": "1/4 to 1/2 acre",
+    "half_one": "1/2 to 1 acre",
+    "one_three": "1 to 3 acres",
+    "over_three": "over 3 acres",
+}
+
 
 def built_within_years_mult(years: int | None) -> float:
     if years is None:
@@ -172,6 +192,11 @@ def _parse_sqft_band(raw: Any) -> str:
     return s if s in SQFT_BAND_MULT else "1800_2500"
 
 
+def _parse_lot_size_band(raw: Any) -> str:
+    s = str(raw or "").strip().lower()
+    return s if s in LOT_SIZE_BAND_MULT else "quarter_half"
+
+
 def _parse_built_within_years(raw: Any) -> int | None:
     if raw is None or str(raw).strip() == "":
         return None
@@ -200,6 +225,7 @@ def estimate_housing_cost(
     start_year: int,
     home_appr: float,
     inflation_general: float,
+    lot_size_band: str = 'quarter_half',
 ) -> dict[str, Any]:
     """Pure pricing core for a state/city/characteristics housing estimate --
     state base price, city/population/characteristic multipliers, condo/
@@ -246,6 +272,10 @@ def estimate_housing_cost(
         * PROPERTY_TYPE_MULT[property_type]
         * SQFT_BAND_MULT[sqft_band]
         * built_within_years_mult(built_within_years)
+        # .get(..., 1.00) (not direct indexing like its neighbors above): this
+        # field is new and may be blank/absent in an already-saved plan
+        # config, so an unrecognized value must be neutral, not a KeyError.
+        * LOT_SIZE_BAND_MULT.get(lot_size_band, 1.00)
     )
     estimate["purchase_price"] = round(float(estimate["purchase_price"]) * combined / 1000) * 1000
     estimate["monthly_rent"] = round(float(estimate["monthly_rent"]) * combined / 10) * 10
@@ -333,6 +363,7 @@ def housing_state_estimate_payload(data: dict[str, Any]) -> tuple[dict[str, Any]
     bathrooms = _parse_bathrooms((data or {}).get("bathrooms", 2))
     property_type = _parse_property_type((data or {}).get("property_type", "single_family"))
     sqft_band = _parse_sqft_band((data or {}).get("sqft_band", "1800_2500"))
+    lot_size_band = _parse_lot_size_band((data or {}).get("lot_size_band", "quarter_half"))
     built_within_years = _parse_built_within_years((data or {}).get("built_within_years"))
     try:
         start_year = int((data or {}).get("start_year") or 0)
@@ -353,6 +384,7 @@ def housing_state_estimate_payload(data: dict[str, Any]) -> tuple[dict[str, Any]
         property_type=property_type, sqft_band=sqft_band,
         built_within_years=built_within_years, start_year=start_year,
         home_appr=home_appr, inflation_general=inflation_general,
+        lot_size_band=lot_size_band,
     )
     basis_note = estimate.pop("basis_note", "")
     built_clause = f", built within the last {built_within_years} years" if built_within_years is not None else ""
