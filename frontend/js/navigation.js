@@ -171,6 +171,12 @@
       id=STEP_REDIRECTS[id];
     }
     if(!planLoaded&&!PLAN_INDEPENDENT_STEPS.includes(id)){
+      // A SECTION_REDIRECTS hop above may have already set pendingSectionDkey
+      // for this navigation before this plan-loaded check ran. This branch
+      // aborts that navigation (bounces to "start" instead), so the pending
+      // reveal must be dropped here too -- otherwise it survives to fire on
+      // some later, unrelated navigation once a plan does load.
+      pendingSectionDkey='';
       safeCall(()=>ctx.setActiveStep('start'));
       if(!opts.skipHistory)pushHistory('start');
       updateHistoryNavButtons();

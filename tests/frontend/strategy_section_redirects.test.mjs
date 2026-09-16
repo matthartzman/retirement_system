@@ -206,3 +206,36 @@ describe("autosave coverage follows the steps that replaced the old ones", () =>
     assert.ok(nav.AUTOSAVE_STEPS.includes("spending_mortgage_events"));
   });
 });
+
+describe("pendingSectionDkey does not leak across an aborted redirect (final review finding)", () => {
+  // setStep() resolves SECTION_REDIRECTS (which sets the module-level
+  // pendingSectionDkey) BEFORE it checks planLoaded. If the plan-not-loaded
+  // early-return branch below that fires instead -- bouncing to "start" --
+  // it must not leave pendingSectionDkey set. Otherwise the reveal-and-scroll
+  // meant for THIS aborted navigation fires later, on an unrelated
+  // navigation, forcing open and scrolling to whatever page happens to still
+  // have that data-dkey in the DOM -- a surprise side effect disconnected
+  // from the user's actual action.
+  test("a SECTION_REDIRECTS id clicked before a plan is loaded does not leave a stale pending reveal", () => {
+    // roth_conversion resolves through SECTION_REDIRECTS to strategy_optimize,
+    // which is NOT in PLAN_INDEPENDENT_STEPS -- the early-return path fires.
+    go("roth_conversion", false);
+    assert.equal(landedOn[landedOn.length - 1], "start");
+
+    // Now load a plan and navigate somewhere else entirely. If the bug is
+    // present, revealPendingSection() still holds "strategy:roth_conversion"
+    // from the aborted navigation above and will act on it here even though
+    // this navigation has nothing to do with Roth Conversion.
+    let queried = null;
+    sandbox.document.querySelector = (sel) => {
+      queried = sel;
+      return null;
+    };
+    go("holdings", true);
+    assert.equal(
+      queried,
+      null,
+      `a stale pending section reveal from the aborted navigation leaked into an unrelated one (queried ${queried})`,
+    );
+  });
+});

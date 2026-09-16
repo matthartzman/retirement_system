@@ -139,8 +139,21 @@ describe("strategySection lazy body (ticket 323)", () => {
   });
 });
 
+// Note: the file-level beforeEach leaves localStorage empty and
+// stepGatedByOptionalModule stubbed to "nothing is gated" -- exactly the
+// first-visit state renderStrategyScreen()'s default-open logic is built
+// for. That means each screen's FIRST section listed below genuinely renders
+// open with its real body on these calls; the other three/two stay collapsed
+// stubs. (An earlier version of this block asserted only that every
+// data-dkey was present and claimed in its title that nothing was open --
+// that claim was true before the first-visit default-open behavior was
+// added later in the same ticket, and was never updated to match. The
+// deeper default-open semantics -- explicit stored state beating the
+// default, gated sections being skipped when picking it -- are covered in
+// their own "first-visit default open state" block below; this block only
+// needs to correctly describe what these three specific calls produce.)
 describe("the three Strategy screens (ticket 323)", () => {
-  test("Optimize renders its four sections, collapsed, with no body calls", () => {
+  test("Optimize renders its four sections; the first (Roth Conversion) opens with its real body, the rest stay collapsed", () => {
     const html = sandbox.renderStrategyOptimize();
     for (const key of [
       "roth_conversion",
@@ -153,9 +166,16 @@ describe("the three Strategy screens (ticket 323)", () => {
         `missing section ${key}`,
       );
     }
+    assert.match(html, /data-dkey="strategy:roth_conversion"[^>]*\sopen/);
+    for (const key of ["asset_allocation", "charitable_giving", "heloc"]) {
+      assert.doesNotMatch(
+        html,
+        new RegExp(`data-dkey="strategy:${key}"[^>]*\\sopen`),
+      );
+    }
   });
 
-  test("Stress Test renders its four sections", () => {
+  test("Stress Test renders its four sections; the first (Monte Carlo) opens, the rest stay collapsed", () => {
     const html = sandbox.renderStrategyStress();
     for (const key of ["monte_carlo", "survivor", "ltc", "divorce"]) {
       assert.ok(
@@ -163,15 +183,28 @@ describe("the three Strategy screens (ticket 323)", () => {
         `missing section ${key}`,
       );
     }
-    assert.ok(html.includes("Monte Carlo"));
+    assert.match(html, /data-dkey="strategy:monte_carlo"[^>]*\sopen/);
+    for (const key of ["survivor", "ltc", "divorce"]) {
+      assert.doesNotMatch(
+        html,
+        new RegExp(`data-dkey="strategy:${key}"[^>]*\\sopen`),
+      );
+    }
   });
 
-  test("Scenarios renders its three sections", () => {
+  test("Scenarios renders its three sections; the first (Strategy Levers) opens, the rest stay collapsed", () => {
     const html = sandbox.renderStrategyScenarios();
     for (const key of ["levers", "change_sets", "workbench"]) {
       assert.ok(
         html.includes(`data-dkey="strategy:${key}"`),
         `missing section ${key}`,
+      );
+    }
+    assert.match(html, /data-dkey="strategy:levers"[^>]*\sopen/);
+    for (const key of ["change_sets", "workbench"]) {
+      assert.doesNotMatch(
+        html,
+        new RegExp(`data-dkey="strategy:${key}"[^>]*\\sopen`),
       );
     }
   });
