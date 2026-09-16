@@ -1482,6 +1482,17 @@ from move 1's purchase year, which silently overrode the user's input."
 - Rewrite: `src/housing/search.py`
 - Test: `tests/test_housing_coordinate_descent_unit.py` (rewrite in place)
 
+> **Correction, 2026-09-16 (during Task 4).** "Rewrite in place" was written on the
+> assumption that this file tested `src/housing/search.py`. It did not — it tested
+> `src/housing_comparison.py`'s `_coarse_descent`/`sweep_housing_trajectories` (H13),
+> and the rewrite deleted 4 tests of a live module that nothing in this plan replaces.
+> Those tests guard a documented silent-failure mode: a coarse pass that sweeps one
+> axis without holding the previous stage's winner fixed still renders plausible
+> numbers while never performing the search it claims. They were restored verbatim as
+> `tests/test_housing_comparison_coarse_descent_unit.py` in commit `98b56a1`.
+> **Lesson for later tasks: confirm what a test file covers before rewriting it; the
+> filename is not evidence.**
+
 **Interfaces:**
 - Consumes: Task 3's generation, Task 2's types.
 - Produces:
@@ -2869,6 +2880,15 @@ def score_candidate(c, cand, rows, *, via_rental: bool) -> ScoredCandidate:
 >    the cap reflexively: first confirm the new count is legitimate breadth rather than a
 >    generation bug, and if the cap genuinely needs raising, say so in the commit message
 >    with the measured before/after counts.
+> 3. **`_NARROWED_EVALS_PER_ANCHOR_LOCATION` no longer matches the move-2 budget.**
+>    `models.py` defines it as `NARROWED_MAX_EVALS_PER_AXIS * 2`, and
+>    `estimate_move2_candidate_count` uses it to project narrowed move-2 cost against
+>    the cap. But `generate_move2_candidates_narrowed` defaults to `max_evals=
+>    NARROWED_MAX_EVALS_PER_AXIS` — one axis, not two — so the projection overstates by
+>    2×, while the `actions` loop understates by 2× when `move2_action='auto'`. The two
+>    errors cancel for `auto` and leave a clean 2× overstatement otherwise. Reconcile
+>    them here: the projection must be `axes × actions`, derived from the same constants
+>    the search actually uses rather than a separately maintained product.
 
 - [ ] **Step 5: Rewire `optimizer.py`**
 
