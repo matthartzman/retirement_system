@@ -1,4 +1,20 @@
-"""Housing move optimizer (grid search over sale/purchase year and location).
+"""Housing move optimizer (search over the current home's disposition, each
+move's acquisition year, and location).
+
+**The 2026-09-16 refinement decoupled selling from moving** (see
+docs/superpowers/specs/2026-09-16-housing-optimizer-refinement-design.md,
+§5.1). A candidate is no longer one welded ``(sale_year, purchase_year)``
+pair. It is an ``OriginalHome`` -- sold in a searched year, or kept -- plus a
+tuple of ``Move``s, each with its own ``acquisition_year`` and an explicit
+``buy``/``rent`` action. Renting for two years while the old home sits on the
+market is now representable; previously it was not. ``purchase_year`` no
+longer exists anywhere in this package.
+
+``Keep`` means ``home_sale_yr = 0``: carrying costs keep accruing and **no
+rental income is modelled**. Treating a kept home as an income property needs
+a rental-income channel, Schedule E netting, depreciation, §1250 recapture and
+a real §121 non-qualified-use test, none of which the engine has. That is
+Phase 2 (§13 of the same design doc) and is deliberately out of scope here.
 
 Where things live (all of the below is a pure carve-up of the former
 single-file ``src/housing_optimizer.py``; behavior is unchanged and that
@@ -10,11 +26,15 @@ path still works as a re-export shim):
                      or calls the engine (``_apply_candidate``/``_run_engine``).
 * ``constraints`` -- ``no_dual_ownership``/``family_presence`` filters and the
                      informational §121 flag. Pure, engine-free.
+                     ``family_presence`` is ZIP proximity (§6.4), not residence
+                     in a state: a candidate is dropped when its residence
+                     in any presence year is farther than the chosen radius
+                     from the family ZIP. Unknown ZIPs fail closed.
 * ``candidates``  -- full-grid enumeration and move-2 anchor selection. Pure.
 * ``search``      -- narrowed mode: engine-free coordinate-search primitives,
                      then the wrappers that bind them to real engine runs.
 * ``scoring``     -- row-reading objectives and ranking.
-* ``results``     -- ``housing_optimize_v1`` payload shaping.
+* ``results``     -- ``housing_optimize_v2`` payload shaping.
 * ``optimizer``   -- the orchestrator; delegates all of the above.
 * ``api``         -- request parsing for ``POST /api/housing/optimize``.
 
@@ -56,8 +76,9 @@ dollar figure, for either move.
 **Narrowed search mode (§8.2 P2).** ``optimize_housing``'s default
 ``search_mode='full'`` is the grid above, byte-for-byte unchanged. Opting
 into ``search_mode='narrowed'`` replaces, per candidate location, the full
-``(sale_year x purchase_year)`` grid with a bounded coordinate/pattern search
-(``_coordinate_search_2d``): a handful of seed points (grid corners plus
+``(sale_year x acquisition_year)`` grid with a bounded coordinate/pattern search
+(``search._descend``, which now climbs the sale-year, move-1 and move-2 axes
+together and collapses the sale axis entirely for a kept home): a handful of seed points (grid corners plus
 center) followed by hill-climbing to the best-improving integer-year
 neighbor until none improves, capped at a small evaluation budget -- and
 replaces the rent-indefinitely branch's full ``sale_year`` sweep with the
@@ -94,62 +115,58 @@ see the error message for the caller's options: narrow the window, use fewer
 locations, or switch to ``search_mode='narrowed'``)."""
 from __future__ import annotations
 
-from .models import (
-    MOVE2_CROSS_PRODUCT_CAP,
-    MOVE2_STRATEGIES,
-    OBJECTIVES,
-    SEARCH_MODES,
-    FamilyPresence,
-    HousingCandidate,
-    Location,
-    Move2Window,
-    ScoredCandidate,
-    SearchWindow,
-)
-from .candidates import (
-    estimate_move2_candidate_count,
-    filter_candidates_by_action,
-    generate_move1_candidates,
-    generate_move2_candidates,
-    generate_move2_concurrent_candidates,
-    select_all_eligible_move1_candidates,
-    select_anchors,
-)
-from .constraints import family_presence_ok, sec121_exclusion_flag
-from .scoring import rank_candidates, score_candidate
-from .search import (
-    generate_move1_candidates_narrowed,
-    generate_move2_candidates_narrowed,
-)
-from .optimizer import optimize_housing
-from .api import optimize_housing_from_request, top_cities_payload, zip_screen_from_request
+# Re-exports are LAZY (PEP 562). The eager version imported every submodule at
+# package import time, which meant `import src.housing.models` transitively
+# pulled in optimizer.py and api.py: a syntax or name error anywhere in the
+# package made every module in it unimportable, and a mid-refactor submodule
+# took the whole package down with it. Resolving on first attribute access
+# instead keeps `from src.housing import Location` working while letting a
+# single submodule be imported, and tested, on its own.
+_EXPORTS = {
+    'MOVE2_CROSS_PRODUCT_CAP': 'models',
+    'MOVE2_STRATEGIES': 'models',
+    'OBJECTIVES': 'models',
+    'SEARCH_MODES': 'models',
+    'DISPOSITIONS': 'models',
+    'AREA_TYPES': 'models',
+    'FAMILY_RADII_MILES': 'models',
+    'MOVE_ACTIONS': 'models',
+    'FamilyPresence': 'models',
+    'HousingCandidate': 'models',
+    'Location': 'models',
+    'Move': 'models',
+    'MoveWindow': 'models',
+    'OriginalHome': 'models',
+    'SaleWindow': 'models',
+    'ScoredCandidate': 'models',
+    'dual_ownership_ok': 'candidates',
+    'estimate_move2_candidate_count': 'candidates',
+    'extend_with_move2': 'candidates',
+    'generate_candidates': 'candidates',
+    'select_all_eligible': 'candidates',
+    'select_anchors': 'candidates',
+    'family_presence_ok': 'constraints',
+    'sec121_exclusion_flag': 'constraints',
+    'rank_candidates': 'scoring',
+    'score_candidate': 'scoring',
+    'generate_move1_candidates_narrowed': 'search',
+    'generate_move2_candidates_narrowed': 'search',
+    'optimize_housing': 'optimizer',
+    'optimize_housing_from_request': 'api',
+    'top_cities_payload': 'api',
+    'zip_screen_from_request': 'api',
+}
 
-__all__ = [
-    'MOVE2_CROSS_PRODUCT_CAP',
-    'MOVE2_STRATEGIES',
-    'OBJECTIVES',
-    'SEARCH_MODES',
-    'FamilyPresence',
-    'HousingCandidate',
-    'Location',
-    'Move2Window',
-    'ScoredCandidate',
-    'SearchWindow',
-    'estimate_move2_candidate_count',
-    'family_presence_ok',
-    'filter_candidates_by_action',
-    'generate_move1_candidates',
-    'generate_move1_candidates_narrowed',
-    'generate_move2_candidates',
-    'generate_move2_candidates_narrowed',
-    'generate_move2_concurrent_candidates',
-    'optimize_housing',
-    'optimize_housing_from_request',
-    'rank_candidates',
-    'score_candidate',
-    'sec121_exclusion_flag',
-    'select_all_eligible_move1_candidates',
-    'select_anchors',
-    'top_cities_payload',
-    'zip_screen_from_request',
-]
+__all__ = sorted(_EXPORTS)
+
+
+def __getattr__(name):
+    module = _EXPORTS.get(name)
+    if module is None:
+        raise AttributeError(f'module {__name__!r} has no attribute {name!r}')
+    from importlib import import_module
+    return getattr(import_module(f'.{module}', __name__), name)
+
+
+def __dir__():
+    return sorted(set(globals()) | set(_EXPORTS))

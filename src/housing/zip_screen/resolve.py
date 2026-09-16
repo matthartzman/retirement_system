@@ -51,6 +51,7 @@ def resolve_location(rec: ZipRecord, spec: dict[str, Any]) -> Location:
         bathrooms=float(spec.get('bathrooms', 2.0) or 2.0),
         property_type=str(spec.get('property_type', 'single_family') or 'single_family'),
         sqft_band=str(spec.get('sqft_band', '1800_2500') or '1800_2500'),
+        lot_size_band=str(spec.get('lot_size_band', 'quarter_half') or 'quarter_half'),
         built_within_years=spec.get('built_within_years') or None,
         zip_code=rec.zcta,
     )

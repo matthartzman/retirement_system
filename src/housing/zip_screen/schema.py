@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 SCORE_MODEL_VERSION = 'nss-1.0'
-RESPONSE_SCHEMA = 'zip_screen_v1'
+RESPONSE_SCHEMA = 'zip_screen_v2'
 
 NSS_DISCLOSURE = (
     'Measures housing and economic stability. Does not measure crime or safety.'

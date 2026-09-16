@@ -13,6 +13,7 @@ from typing import Any
 
 from .geo import haversine_miles, zips_within
 from .quality import score_zip
+from .resolve import city_type_for_density
 from .schema import (
     COVERAGE_FLOOR_PCT,
     DEDUP_RADIUS_MILES,
@@ -33,6 +34,8 @@ class ScreenRequest:
     min_quality_score: float
     shortlist_size: int
     property_spec: dict[str, Any]
+    area_type: str = 'any'
+    max_population: int | None = None
 
 
 @dataclass(frozen=True)
@@ -46,10 +49,14 @@ class ScreenedZip:
     coverage_pct: float
     est_price: float
     components: dict[str, float]
+    area_type: str = 'suburban'
+    population: int = 0
     upi_adjusted: bool = False
     cross_state: str | None = None
     promoted: bool = False
     collapsed: list[str] = field(default_factory=list)
+    nearest_anchor_zip: str = ''
+    family_distance_miles: float | None = None
 
 
 @dataclass(frozen=True)
@@ -60,6 +67,19 @@ class ScreenResult:
     shortlist: list[ScreenedZip]
     all_passing: list[ScreenedZip]
     relaxation: dict[str, Any] | None = None
+    anchors: list[dict[str, Any]] = field(default_factory=list)
+    stage_zctas: dict[str, list[str]] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class MultiAnchorRequest:
+    anchor_zips: list[str]
+    radius_miles: int
+    min_quality_score: float
+    shortlist_size: int
+    property_spec: dict[str, Any]
+    area_type: str = 'any'
+    max_population: int | None = None
 
 
 def estimate_price(rec: ZipRecord, base_estimate: float) -> float:
@@ -126,25 +146,83 @@ def deduplicate(
     ]
 
 
+def family_distance_for_zip(
+    zip_code: str | None, family_zip: str | None,
+    coords: dict[str, tuple[float, float]],
+) -> float | None:
+    """Miles from ``zip_code`` to ``family_zip``, or None if either is
+    unknown. The one distance-to-family calculation, shared by the screen's
+    ``annotate_family_distance`` below and by the optimizer, which annotates
+    the ``Location``s it was handed rather than ``ScreenedZip``s.
+    """
+    family = coords.get(family_zip) if family_zip else None
+    here = coords.get(zip_code) if zip_code else None
+    if family is None or here is None:
+        return None
+    return round(haversine_miles(family[0], family[1], here[0], here[1]), 2)
+
+
+def annotate_family_distance(
+    shortlist: list[ScreenedZip], family_zip: str | None,
+    coords: dict[str, tuple[float, float]],
+) -> list[ScreenedZip]:
+    """Record each ZIP's distance to the family ZIP for display.
+
+    An empty result under a tight family radius is otherwise undiagnosable:
+    the user sees zero candidates with no indication of how close the search
+    came.
+    """
+    if not family_zip or coords.get(family_zip) is None:
+        return list(shortlist)
+    return [
+        ScreenedZip(**{**z.__dict__,
+                       'family_distance_miles': family_distance_for_zip(
+                           z.zcta, family_zip, coords)})
+        for z in shortlist
+    ]
+
+
 def _relaxation(
-    with_data: list[tuple[ZipRecord, float, Any]], min_quality_score: float
+    stages: dict[str, list], min_quality_score: float,
+    area_type: str, max_population: int | None,
 ) -> dict[str, Any] | None:
     """What would the user have to give up to get results?
 
-    A bare "no results" on a ten-criterion search is unusable: the user cannot
-    tell which of ten constraints emptied the funnel. When the score floor is
-    what did it, name the floor that would return something.
+    A bare "no results" on a nine-stage funnel is unusable: the user cannot
+    tell which constraint emptied it. Report the FIRST stage that went to zero
+    while its predecessor had survivors -- that is the binding constraint, and
+    relaxing anything later would change nothing.
     """
-    scores = sorted((t[2].score for t in with_data), reverse=True)
-    if not scores or scores[0] >= min_quality_score:
+    with_data = stages['with_data']
+    if not with_data:
         return None
-    suggested = math.floor(scores[0] * 10) / 10
-    return {
-        'field': 'min_quality_score',
-        'current': min_quality_score,
-        'suggested': suggested,
-        'would_return': sum(1 for s in scores if s >= suggested),
-    }
+
+    scores = sorted((t[2].score for t in with_data), reverse=True)
+    if not stages['above_score']:
+        suggested = math.floor(scores[0] * 10) / 10
+        return {'stage': 'above_score', 'field': 'min_quality_score',
+                'current': min_quality_score, 'suggested': suggested,
+                'would_return': sum(1 for s in scores if s >= suggested)}
+
+    if not stages['matching_area_type']:
+        available = sorted({city_type_for_density(t[0].density)
+                            for t in stages['above_score']})
+        return {'stage': 'matching_area_type', 'field': 'area_type',
+                'current': area_type, 'suggested': available[0] if available else 'any',
+                'would_return': len(stages['above_score'])}
+
+    if not stages['under_population_cap']:
+        pops = sorted((t[0].place_population or t[0].zcta_population or 0)
+                      for t in stages['matching_area_type'])
+        return {'stage': 'under_population_cap', 'field': 'max_population',
+                'current': max_population, 'suggested': pops[0],
+                'would_return': sum(1 for p in pops if p <= pops[0])}
+
+    if not stages['affordable']:
+        return {'stage': 'affordable', 'field': 'target_purchase_price_range',
+                'current': None, 'suggested': None,
+                'would_return': len(stages['under_population_cap'])}
+    return None
 
 
 def run_screen(
@@ -177,8 +255,24 @@ def run_screen(
     above_score = [t for t in with_data if t[2].score >= req.min_quality_score]
     funnel['above_score'] = len(above_score)
 
+    area_type = str(req.area_type or 'any').strip().lower()
+    if area_type in ('', 'any'):
+        matching_area = above_score
+    else:
+        matching_area = [t for t in above_score
+                         if city_type_for_density(t[0].density) == area_type]
+    funnel['matching_area_type'] = len(matching_area)
+
+    cap = req.max_population
+    if cap is None:
+        under_cap = matching_area
+    else:
+        under_cap = [t for t in matching_area
+                     if (t[0].place_population or t[0].zcta_population or 0) <= int(cap)]
+    funnel['under_population_cap'] = len(under_cap)
+
     passing: list[ScreenedZip] = []
-    for rec, dist, nss in above_score:
+    for rec, dist, nss in under_cap:
         price = estimate_price(rec, _base_estimate(rec))
         if lo is not None and not (lo <= price <= hi):
             continue
@@ -192,20 +286,39 @@ def run_screen(
             coverage_pct=round(nss.coverage_pct, 1),
             est_price=round(price, 2),
             components={k: round(v, 1) for k, v in nss.components.items()},
+            area_type=city_type_for_density(rec.density),
+            population=rec.place_population or rec.zcta_population or 0,
             upi_adjusted=nss.upi_adjusted,
             cross_state=rec.state if current_state and rec.state != current_state else None,
         ))
     funnel['affordable'] = len(passing)
+    affordable_passing = list(passing)
 
-    coords = {rec.zcta: (rec.lat, rec.lon) for rec, _, _ in above_score}
+    coords = {rec.zcta: (rec.lat, rec.lon) for rec, _, _ in under_cap}
     passing = deduplicate(passing, coords)
-    funnel['after_dedup'] = len(passing)
+    funnel['distinct'] = len(passing)
+    funnel['near_family'] = len(passing)
 
     shortlist = [
         ScreenedZip(**{**z.__dict__, 'promoted': True})
         for z in passing[: max(0, int(req.shortlist_size))]
     ]
     funnel['promoted'] = len(shortlist)
+
+    # Which ZCTAs survived each stage, not just how many. A multi-anchor union
+    # needs the identities to count distinct ZIPs; summing per-anchor counts
+    # would double-count every ZIP that sits inside two overlapping radii.
+    stage_zctas = {
+        'in_radius': [r.zcta for r, _ in in_radius],
+        'with_data': [t[0].zcta for t in with_data],
+        'above_score': [t[0].zcta for t in above_score],
+        'matching_area_type': [t[0].zcta for t in matching_area],
+        'under_population_cap': [t[0].zcta for t in under_cap],
+        'affordable': [z.zcta for z in affordable_passing],
+        'distinct': [z.zcta for z in passing],
+        'near_family': [z.zcta for z in passing],
+        'promoted': [z.zcta for z in shortlist],
+    }
 
     return ScreenResult(
         anchor={'zip': anchor.zcta, 'city': anchor.primary_place,
@@ -214,5 +327,76 @@ def run_screen(
         funnel=funnel,
         shortlist=shortlist,
         all_passing=passing,
-        relaxation=_relaxation(with_data, req.min_quality_score) if not shortlist else None,
+        stage_zctas=stage_zctas,
+        relaxation=_relaxation(
+            {'with_data': with_data, 'above_score': above_score,
+             'matching_area_type': matching_area, 'under_population_cap': under_cap,
+             'affordable': affordable_passing},
+            req.min_quality_score, area_type, req.max_population,
+        ) if not shortlist else None,
+    )
+
+
+def run_multi_anchor_screen(
+    req: MultiAnchorRequest, table: dict[str, ZipRecord] | None = None,
+    current_state: str = '',
+) -> ScreenResult:
+    """Screen each anchor, then union before dedup and promotion.
+
+    Unioning first is what makes two overlapping metros behave like one
+    search: dedup and the shortlist cap both then operate on distinct ZIPs, so
+    a ZIP in both radii cannot occupy two shortlist slots and the funnel counts
+    ZIPs rather than (ZIP, anchor) pairs.
+    """
+    data = table if table is not None else load_table()
+    per_anchor: list[ScreenResult] = []
+    for zip_code in req.anchor_zips:
+        per_anchor.append(run_screen(
+            ScreenRequest(
+                anchor_zip=zip_code, radius_miles=req.radius_miles,
+                min_quality_score=req.min_quality_score,
+                shortlist_size=len(data),          # no per-anchor truncation
+                property_spec=req.property_spec,
+                area_type=req.area_type, max_population=req.max_population,
+            ),
+            table=data, current_state=current_state,
+        ))
+
+    best: dict[str, ScreenedZip] = {}
+    for anchor_result, zip_code in zip(per_anchor, req.anchor_zips):
+        for z in anchor_result.all_passing:
+            tagged = ScreenedZip(**{**z.__dict__, 'nearest_anchor_zip': zip_code,
+                                    'promoted': False})
+            prior = best.get(z.zcta)
+            if prior is None or tagged.distance_miles < prior.distance_miles:
+                best[z.zcta] = tagged
+
+    # Per-anchor stages are unioned on ZCTA identity; the three stages that
+    # follow dedup are recomputed below on the unioned set, overwriting these.
+    funnel = {k: 0 for k in per_anchor[0].funnel} if per_anchor else {}
+    for key in funnel:
+        seen: set[str] = set()
+        for anchor_result in per_anchor:
+            seen |= set(anchor_result.stage_zctas.get(key, ()))
+        funnel[key] = len(seen)
+
+    union = sorted(best.values(), key=lambda z: (-z.nss, z.distance_miles, z.zcta))
+    coords = {z.zcta: (data[z.zcta].lat, data[z.zcta].lon) for z in union}
+    distinct = deduplicate(union, coords)
+    funnel['distinct'] = len(distinct)
+    funnel['near_family'] = len(distinct)
+
+    shortlist = [ScreenedZip(**{**z.__dict__, 'promoted': True})
+                 for z in distinct[: max(0, int(req.shortlist_size))]]
+    funnel['promoted'] = len(shortlist)
+
+    return ScreenResult(
+        anchor=per_anchor[0].anchor if per_anchor else {},
+        anchors=[r.anchor for r in per_anchor],
+        radius_miles=req.radius_miles,
+        funnel=funnel,
+        shortlist=shortlist,
+        all_passing=distinct,
+        relaxation=next((r.relaxation for r in per_anchor if r.relaxation), None)
+        if not shortlist else None,
     )

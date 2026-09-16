@@ -7,7 +7,7 @@ import pytest
 
 pytestmark = pytest.mark.unit
 
-PANEL = pathlib.Path('frontend/js/dashboard_decomp_housing_scenarios.js')
+PANEL = pathlib.Path('frontend/js/dashboard_decomp_housing_optimizer.js')
 
 
 @pytest.fixture(scope='module')
