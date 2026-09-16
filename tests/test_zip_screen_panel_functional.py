@@ -1,13 +1,24 @@
-"""The optimizer panel exposes the ZIP-radius mode and its controls."""
+"""The optimizer panel exposes the ZIP-radius search controls, per move.
+
+Task 11 (docs/superpowers/specs/2026-09-16-housing-optimizer-refinement-design.md)
+extracted the panel to frontend/js/dashboard_decomp_housing_optimizer.js, rewrote
+it row-oriented, and made a move's where/what/when rows a single templated
+function shared by both moves (housingOptMoveWhereRowHtml/housingOptMoveWhatRowHtml
+called once per move index) rather than one hand-written block per field. Two
+tests below (mode toggle, manual path) pinned the manual-location entry mode,
+which design §14 removed outright ("Manual location mode: Removed" -- it produced
+candidates with no ZIP, score, or distance). There is no replacement id for those
+assertions to move to, so they are deleted rather than updated."""
 from __future__ import annotations
 
 import pathlib
+import re
 
 import pytest
 
 pytestmark = pytest.mark.unit
 
-PANEL = pathlib.Path('frontend/js/dashboard_decomp_housing_scenarios.js')
+PANEL = pathlib.Path('frontend/js/dashboard_decomp_housing_optimizer.js')
 
 
 @pytest.fixture(scope='module')
@@ -15,40 +26,52 @@ def source() -> str:
     return PANEL.read_text(encoding='utf-8')
 
 
-def test_mode_toggle_exists(source):
-    assert 'housingOptGeoMode' in source
-    assert 'toggleHousingOptSearchMode' in source
+def test_both_radius_selects_share_the_same_approved_options(source):
+    # Renamed: the single "housingOptRadius" select became a per-move
+    # "${p}Radius" select built once by housingOptMoveWhereRowHtml and invoked
+    # for both move 1 and move 2, so the two can never offer different radii.
+    assert 'housingOptMoveWhereRowHtml(1)' in source
+    assert 'housingOptMoveWhereRowHtml(2)' in source
+    assert '${p}Radius' in source
 
 
-def test_both_modes_are_offered(source):
-    assert 'value="manual"' in source
-    assert 'value="zip_radius"' in source
+def _move_radii_block(source: str) -> str:
+    # housingOptSelect() assembles `<option value="...">` at runtime from this
+    # data array rather than the markup containing literal `<option value="5">`
+    # text, so the array is the actual source of truth to assert against.
+    return source.split('HOUSING_OPT_MOVE_RADII = [')[1].split('];')[0]
 
 
 def test_every_radius_option_is_present(source):
+    block = _move_radii_block(source)
     for r in (5, 10, 25, 50):
-        assert f'<option value="{r}"' in source
+        assert f'value: "{r}"' in block
 
 
 def test_no_unapproved_radius_is_offered(source):
-    import re
-    block = source.split('housingOptRadius')[1].split('</select>')[0]
-    offered = {int(m) for m in re.findall(r'<option value="(\d+)"', block)}
+    block = _move_radii_block(source)
+    offered = {int(m) for m in re.findall(r'value: "(\d+)"', block)}
     assert offered == {5, 10, 25, 50}
 
 
 def test_min_score_control_exists_with_the_spec_default(source):
-    assert 'housingOptMinScore' in source
+    # Renamed: "housingOptMinScore" became the per-move "${p}MinScore".
+    assert '${p}MinScore' in source
     assert 'value="60"' in source
 
 
 def test_anchor_offers_both_a_city_dropdown_and_a_zip_field(source):
-    assert 'housingOptAnchorCity' in source
-    assert 'housingOptAnchorZip' in source
+    # Renamed: "housingOptAnchorCity"/"housingOptAnchorZip" became per-move,
+    # per-index ids assembled as `housingOptMove${moveIndex}AnchorCity${i}` /
+    # `...AnchorZip${i}` inside housingOptAnchorEntryHtml.
+    assert 'AnchorCity' in source
+    assert 'AnchorZip' in source
+    assert 'export function housingOptAnchorEntryHtml' in source
 
 
 def test_shortlist_size_control_exists(source):
-    assert 'housingOptShortlistSize' in source
+    # Renamed: "housingOptShortlistSize" became the per-move "${p}ShortlistSize".
+    assert '${p}ShortlistSize' in source
 
 
 def test_preview_button_calls_the_screen_only_endpoint(source):
@@ -56,12 +79,10 @@ def test_preview_button_calls_the_screen_only_endpoint(source):
     assert '/api/housing/zip-screen' in source
 
 
-def test_the_disclosure_string_is_present_verbatim(source):
-    assert (
-        'Measures housing and economic stability. Does not measure crime or safety.'
-    ) in source
-
-
-def test_the_manual_path_is_preserved(source):
-    assert 'housingOptLocCount' in source
-    assert 'housingOptLocState0' in source or 'housingOptLocState${i}' in source
+def test_the_disclosure_is_rendered_from_the_server_payload(source):
+    # Renamed: the disclosure sentence used to be a hardcoded div in this
+    # panel; it is now rendered from the server's own payload field
+    # (src/housing/zip_screen/schema.py owns the exact wording, checked by
+    # tests/test_zip_screen_schema_unit.py and tests/test_zip_screen_api_contract.py).
+    block = source.split('function renderHousingZipShortlistHtml')[1][:500]
+    assert 'zs.disclosure' in block

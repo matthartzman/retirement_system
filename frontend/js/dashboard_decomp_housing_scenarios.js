@@ -423,12 +423,44 @@ export function rowIsRentInput(r) {
   return l === "monthly_rent";
 }
 
+// Dwelling-spec selects (Task 16, design doc §10/§14): area type, bedrooms,
+// bathrooms, property type, square footage and lot size all render from
+// HOUSING_DWELLING_OPTIONS (dashboard_shared_helpers.js), the same arrays
+// the optimizer panel (dashboard_decomp_housing_optimizer.js) renders from,
+// so the two screens describe the same dwelling by construction rather than
+// by coincidence. Unlike the optimizer, this screen records one concrete
+// dwelling, so area type omits the optimizer's "any" search wildcard.
+function _housingDwellingSelect(row, options) {
+  const cur = String(valOf(row) || "").trim();
+  return `<select data-row="${row.row_index}" onchange="editValue(${row.row_index},this.value,this)" onfocus="showFieldHelp(${row.row_index})">${options.map((o) => `<option value="${esc(o.value)}" ${norm(o.value) === norm(cur) ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>`;
+}
+
 export function housingAreaTypeSelect(row) {
   const cur = String(valOf(row) || "")
     .trim()
     .toLowerCase();
-  const opts = ["urban", "suburban", "rural"];
-  return `<select data-row="${row.row_index}" onchange="editValue(${row.row_index},this.value,this)" onfocus="showFieldHelp(${row.row_index})"><option value="">Select area type</option>${opts.map((o) => `<option value="${o}" ${norm(o) === norm(cur) ? "selected" : ""}>${titleWord(o)}</option>`).join("")}</select>`;
+  const opts = HOUSING_DWELLING_OPTIONS.areaTypes;
+  return `<select data-row="${row.row_index}" onchange="editValue(${row.row_index},this.value,this)" onfocus="showFieldHelp(${row.row_index})"><option value="">Select area type</option>${opts.map((o) => `<option value="${o.value}" ${norm(o.value) === norm(cur) ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>`;
+}
+
+export function housingBedroomsSelect(row) {
+  return _housingDwellingSelect(row, HOUSING_DWELLING_OPTIONS.bedrooms);
+}
+
+export function housingBathroomsSelect(row) {
+  return _housingDwellingSelect(row, HOUSING_DWELLING_OPTIONS.bathrooms);
+}
+
+export function housingPropertyTypeSelect(row) {
+  return _housingDwellingSelect(row, HOUSING_DWELLING_OPTIONS.propertyTypes);
+}
+
+export function housingSqftBandSelect(row) {
+  return _housingDwellingSelect(row, HOUSING_DWELLING_OPTIONS.sqftBands);
+}
+
+export function housingLotSizeSelect(row) {
+  return _housingDwellingSelect(row, HOUSING_DWELLING_OPTIONS.lotSizeBands);
 }
 
 export async function clearHousingNextStep(stepNum) {
@@ -475,7 +507,7 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
   // Both purchase and rent: State → Area Type → Population → [Estimate] →
   // remaining fields. Rent used to skip Area Type/Population (silently
   // defaulting to suburban/20,000) -- see design doc §3.4.
-  var PURCHASE_FIRST = ["state", "city_type", "population_size"];
+  var PURCHASE_FIRST = ["state", "city_type", "population_size", "zip_code"];
   var PURCHASE_REST = [
     "start_year",
     "end_year",
@@ -491,9 +523,10 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
     "bathrooms",
     "property_type",
     "sqft_band",
+    "lot_size_band",
     "built_within_years",
   ];
-  var RENT_FIRST = ["state", "city_type", "population_size"];
+  var RENT_FIRST = ["state", "city_type", "population_size", "zip_code"];
   var RENT_REST = [
     "start_year",
     "end_year",
@@ -591,9 +624,32 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
         .join("") +
       "</div>";
   html += estimateBtn;
+  // Bedrooms, bathrooms, property type, sqft and lot size render from the
+  // shared HOUSING_DWELLING_OPTIONS selects (Task 16) rather than fieldHtml's
+  // generic CSV-driven choice control, the same way Area Type already bypasses
+  // it above -- so the rendered option set is the shared array, not whatever
+  // choiceOptions() happens to parse out of the row's description text.
+  var DWELLING_SELECT_FIELDS = {
+    bedrooms: { label: "Bedrooms", render: housingBedroomsSelect },
+    bathrooms: { label: "Bathrooms", render: housingBathroomsSelect },
+    property_type: { label: "Property Type", render: housingPropertyTypeSelect },
+    sqft_band: { label: "Square Footage", render: housingSqftBandSelect },
+    lot_size_band: { label: "Lot Size", render: housingLotSizeSelect },
+  };
+  function restFieldHtml(r) {
+    var spec = DWELLING_SELECT_FIELDS[norm(r.label)];
+    if (!spec) return fieldHtml(r);
+    return (
+      '<div class="field"><div class="field-label">' +
+      spec.label +
+      "</div>" +
+      spec.render(r) +
+      "</div>"
+    );
+  }
   if (restRows.length)
     html +=
-      '<div class="field-list">' + restRows.map(fieldHtml).join("") + "</div>";
+      '<div class="field-list">' + restRows.map(restFieldHtml).join("") + "</div>";
   html += "</div></details>";
   return html;
 }
@@ -689,7 +745,7 @@ export function renderSpendingHousing() {
   html += renderBaseHomeSaleRows(rs);
 
   html +=
-    '<div class="section-note">Not sure what year or location to plan for? The <a href="#" onclick="setStep(\'scenarios\');return false">Optimize next housing move</a> tool (Strategy → Scenario Change Sets) searches candidate sale/purchase years and locations and reuses the same engine as the rest of the plan -- run it, then enter the winning combination into the fields below.</div>';
+    '<div class="section-note">Not sure what year or location to plan for? The <a href="#" onclick="setStep(\'scenarios\');return false">Optimize next housing move</a> tool (Strategy → Scenario Change Sets) searches candidate sale/purchase years, locations, and dwelling specs (area type, bedrooms, bathrooms, property type, square footage, lot size) and reuses the same engine as the rest of the plan. Each of its results now reports the ZIP code, an estimated price, and the distance to your anchor -- run it, then transcribe the winning candidate\'s state, area type, population, ZIP, and dwelling fields into the fields below.</div>';
 
   if (nextStep1Rows.length) {
     html += renderNextHousingStepSection(
@@ -1203,562 +1259,6 @@ export function renderScenarios() {
   return html;
 }
 
-// Housing move optimizer (docs/superpowers/specs/2026-09-09-housing-optimization-design.md):
-// a search over candidate sale/purchase years and locations, run through the
-// existing deterministic engine and Monte Carlo runner via POST
-// /api/housing/optimize. Lives next to the scenario templates above and
-// reuses this file's diff-table styling for its results table rather than
-// introducing new results UI.
-const HOUSING_OPT_MAX_LOCATIONS = 4;
-
-export function toggleHousingOptLocationRows() {
-  const n = Number(document.getElementById("housingOptLocCount")?.value || 2);
-  for (let i = 0; i < HOUSING_OPT_MAX_LOCATIONS; i++) {
-    const row = document.getElementById(`housingOptLocRow${i}`);
-    if (row) row.hidden = i >= n;
-  }
-}
-
-export function toggleHousingOptMove2Fields() {
-  const el = document.getElementById("housingOptMove2Fields");
-  const enabled = !!document.getElementById("housingOptMove2Enabled")?.checked;
-  if (el) el.hidden = !enabled;
-  if (!enabled) {
-    // Move 2 is being disabled -- concurrent mode (and anything it implies)
-    // is moot, so reset it rather than silently posting a stale
-    // move2_concurrent=true with no move2_window.
-    const concurrentCb = document.getElementById("housingOptMove2Concurrent");
-    if (concurrentCb) concurrentCb.checked = false;
-    const narrowedNote = document.getElementById("housingOptMove2ConcurrentNarrowedNote");
-    if (narrowedNote) narrowedNote.hidden = true;
-    toggleHousingOptNoDualOwnershipAvailability();
-  }
-}
-
-export function toggleHousingOptMove2ConcurrentAvailability() {
-  const searchMode = String(document.getElementById("housingOptSearchMode")?.value || "full");
-  const concurrentCb = document.getElementById("housingOptMove2Concurrent");
-  const note = document.getElementById("housingOptMove2ConcurrentNarrowedNote");
-  const narrowed = searchMode === "narrowed";
-  if (concurrentCb) {
-    if (narrowed) concurrentCb.checked = false;
-    concurrentCb.disabled = narrowed;
-  }
-  if (note) note.hidden = !narrowed;
-  toggleHousingOptNoDualOwnershipAvailability();
-}
-
-// no_dual_ownership does not apply to concurrent mode: concurrent candidates
-// always keep both homes, so the checkbox's value is ignored by the backend
-// (generate_move2_concurrent_candidates takes no no_dual_ownership argument).
-// Disable it and explain why whenever concurrent mode is active, without
-// touching its checked state.
-export function toggleHousingOptNoDualOwnershipAvailability() {
-  const concurrent = !!document.getElementById("housingOptMove2Concurrent")?.checked;
-  const noDualCb = document.getElementById("housingOptNoDualOwnership");
-  const note = document.getElementById("housingOptNoDualOwnershipConcurrentNote");
-  if (noDualCb) noDualCb.disabled = concurrent;
-  if (note) note.hidden = !concurrent;
-}
-
-function housingOptStateSelectHtml(id, selectedValue) {
-  const options = _stateNameChoiceOptions()
-    .map(
-      (o) =>
-        `<option value="${esc(o.value)}"${o.value === selectedValue ? " selected" : ""}>${esc(o.label)}</option>`,
-    )
-    .join("");
-  return `<select id="${id}"><option value="">Select a state</option>${options}</select>`;
-}
-
-// Populated from src/housing/zip_screen/data/top_cities.csv, served alongside
-// the screen endpoint. Falls back to the free-entry ZIP field when unavailable.
-let HOUSING_OPT_TOP_CITIES = [];
-
-function housingOptAnchorCitySelectHtml() {
-  const options = HOUSING_OPT_TOP_CITIES.map(
-    (c) => `<option value="${esc(c.anchor_zip)}">${esc(c.city)}, ${esc(c.state_abbrev)}</option>`,
-  ).join("");
-  return `<select id="housingOptAnchorCity"><option value="">Select a city</option>${options}</select>`;
-}
-
-let housingOptTopCitiesLoaded = false;
-
-export async function loadHousingOptTopCities() {
-  if (housingOptTopCitiesLoaded) return;
-  try {
-    const payload = await api("/api/housing/top-cities", { method: "GET" });
-    if (payload && payload.success && Array.isArray(payload.cities)) {
-      HOUSING_OPT_TOP_CITIES = payload.cities;
-      housingOptTopCitiesLoaded = true;
-      const select = document.getElementById("housingOptAnchorCity");
-      if (select) {
-        const current = select.value;
-        select.innerHTML =
-          `<option value="">Select a city</option>` +
-          HOUSING_OPT_TOP_CITIES.map(
-            (c) => `<option value="${esc(c.anchor_zip)}">${esc(c.city)}, ${esc(c.state_abbrev)}</option>`,
-          ).join("");
-        select.value = current;
-      }
-    }
-  } catch (e) {
-    // Non-fatal: the free-text ZIP field remains usable either way.
-  }
-}
-
-export function toggleHousingOptSearchMode() {
-  const zip = String(document.getElementById("housingOptGeoMode")?.value || "manual") === "zip_radius";
-  const zipFields = document.getElementById("housingOptZipFields");
-  const manualFields = document.getElementById("housingOptManualFields");
-  if (zipFields) zipFields.hidden = !zip;
-  if (manualFields) manualFields.hidden = zip;
-  if (zip) loadHousingOptTopCities();
-}
-
-function housingOptLocationRowHtml(i) {
-  return `<div class="housing-opt-location-row" id="housingOptLocRow${i}" ${i >= 2 ? "hidden" : ""}>
-    ${housingOptStateSelectHtml(`housingOptLocState${i}`, "")}
-    <select id="housingOptLocCity${i}">
-      <option value="urban">Urban</option>
-      <option value="suburban" selected>Suburban</option>
-      <option value="exurban">Exurban</option>
-      <option value="rural">Rural</option>
-    </select>
-    <input type="number" id="housingOptLocPop${i}" value="20000" min="0" style="width:8em" placeholder="Population">
-    <select id="housingOptLocBedrooms${i}" title="Bedrooms">
-      <option value="2">2BR</option>
-      <option value="3" selected>3BR</option>
-      <option value="4">4BR</option>
-      <option value="5">5+BR</option>
-    </select>
-    <select id="housingOptLocBathrooms${i}" title="Bathrooms">
-      <option value="1">1BA</option>
-      <option value="1.5">1.5BA</option>
-      <option value="2" selected>2BA</option>
-      <option value="2.5">2.5BA</option>
-      <option value="3">3BA</option>
-      <option value="3.5">3.5+BA</option>
-    </select>
-    <select id="housingOptLocPropertyType${i}" title="Property type">
-      <option value="single_family" selected>Single family</option>
-      <option value="townhome">Townhome</option>
-      <option value="condo">Condo</option>
-      <option value="duplex">Duplex</option>
-    </select>
-    <select id="housingOptLocSqftBand${i}" title="Square footage">
-      <option value="under_1200">Under 1,200 sqft</option>
-      <option value="1200_1800">1,200-1,800 sqft</option>
-      <option value="1800_2500" selected>1,800-2,500 sqft</option>
-      <option value="2500_3500">2,500-3,500 sqft</option>
-      <option value="over_3500">Over 3,500 sqft</option>
-    </select>
-    <input type="number" id="housingOptLocBuiltWithinYears${i}" min="0" style="width:8em" placeholder="Built within N yrs (optional)">
-  </div>`;
-}
-
-export function renderHousingOptimizePanelHtml() {
-  const locationRows = Array.from({ length: HOUSING_OPT_MAX_LOCATIONS }, (_, i) => housingOptLocationRowHtml(i)).join("");
-  return `<details class="housing-optimize-panel"><summary>Optimize next housing move</summary><div class="field-list">
-    <div class="section-note">Search candidate sale/purchase years and locations for the household's next housing move (optionally a second), reusing the same deterministic engine and Monte Carlo runner as the rest of the plan -- no separate tax model. Results below reuse this page's scenario-diff table styling.</div>
-    <label>Location search mode
-      <select id="housingOptGeoMode" onchange="toggleHousingOptSearchMode()">
-        <option value="manual" selected>Choose locations manually</option>
-        <option value="zip_radius">Search by ZIP radius</option>
-      </select>
-    </label>
-    <div id="housingOptZipFields" hidden>
-      <div class="subsection-label">Anchor</div>
-      <label>City ${housingOptAnchorCitySelectHtml()}</label>
-      <label>or ZIP code <input type="text" id="housingOptAnchorZip" maxlength="5" style="width:6em" placeholder="60521"></label>
-      <label>Distance from anchor
-        <select id="housingOptRadius">
-          <option value="5">Within 5 miles</option>
-          <option value="10">Within 10 miles</option>
-          <option value="25" selected>Within 25 miles</option>
-          <option value="50">Within 50 miles</option>
-        </select>
-      </label>
-      <label>Minimum quality score
-        <input type="number" id="housingOptMinScore" value="60" min="0" max="100" style="width:6em">
-      </label>
-      <div class="small">Measures housing and economic stability. Does not measure crime or safety.</div>
-      <div class="subsection-label">What you're looking for</div>
-      <select id="housingOptZipBedrooms" title="Bedrooms">
-        <option value="2">2BR</option>
-        <option value="3" selected>3BR</option>
-        <option value="4">4BR</option>
-        <option value="5">5+BR</option>
-      </select>
-      <select id="housingOptZipBathrooms" title="Bathrooms">
-        <option value="1">1BA</option>
-        <option value="1.5">1.5BA</option>
-        <option value="2" selected>2BA</option>
-        <option value="2.5">2.5BA</option>
-        <option value="3">3BA</option>
-        <option value="3.5">3.5+BA</option>
-      </select>
-      <select id="housingOptZipPropertyType" title="Property type">
-        <option value="single_family" selected>Single family</option>
-        <option value="townhome">Townhome</option>
-        <option value="condo">Condo</option>
-        <option value="duplex">Duplex</option>
-      </select>
-      <select id="housingOptZipSqftBand" title="Square footage">
-        <option value="under_1200">Under 1,200 sqft</option>
-        <option value="1200_1800">1,200-1,800 sqft</option>
-        <option value="1800_2500" selected>1,800-2,500 sqft</option>
-        <option value="2500_3500">2,500-3,500 sqft</option>
-        <option value="over_3500">Over 3,500 sqft</option>
-      </select>
-      <input type="number" id="housingOptZipBuiltWithinYears" min="0" style="width:8em" placeholder="Built within N yrs (optional)">
-      <label>Target price, min <input type="number" id="housingOptZipPriceMin" min="0" style="width:9em" placeholder="e.g. 400000"></label>
-      <label>Target price, max <input type="number" id="housingOptZipPriceMax" min="0" style="width:9em" placeholder="e.g. 700000"></label>
-      <label>Candidates to send to the optimizer
-        <select id="housingOptShortlistSize">
-          <option value="2">2</option><option value="3">3</option>
-          <option value="4" selected>4</option>
-        </select>
-      </label>
-      <div class="table-actions"><button class="btn" type="button" onclick="previewHousingZipShortlist()">Preview shortlist</button></div>
-      <div id="housingOptZipShortlist"></div>
-    </div>
-    <div id="housingOptManualFields">
-      <div class="subsection-label">Candidate locations (2-4)</div>
-      <label>Number of candidate locations
-        <select id="housingOptLocCount" onchange="toggleHousingOptLocationRows()"><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
-      </label>
-      ${locationRows}
-    </div>
-    <div class="subsection-label">Move 1 search window</div>
-    <label>Earliest sale year <input type="number" id="housingOptEarliestSale"></label>
-    <label>Latest sale year <input type="number" id="housingOptLatestSale"></label>
-    <label>Earliest purchase year <input type="number" id="housingOptEarliestPurchase"></label>
-    <label>Latest purchase year <input type="number" id="housingOptLatestPurchase"></label>
-    <label>Move 1 action
-      <select id="housingOptMove1Action">
-        <option value="auto" selected>Auto (search buy &amp; rent)</option>
-        <option value="buy">Buy only</option>
-        <option value="rent">Rent only</option>
-      </select>
-    </label>
-    <div class="subsection-label"><label><input type="checkbox" id="housingOptMove2Enabled" onchange="toggleHousingOptMove2Fields()"> Consider a second move</label></div>
-    <div id="housingOptMove2Fields" hidden>
-      <label>Move-2 latest sale year <input type="number" id="housingOptLatestSale2"></label>
-      <label>Move-2 latest purchase year <input type="number" id="housingOptLatestPurchase2"></label>
-      <label>Anchor count <input type="number" id="housingOptAnchorCount" value="5" min="1" max="10"></label>
-      <label>Move 2 action
-        <select id="housingOptMove2Action">
-          <option value="auto" selected>Auto (search buy &amp; rent)</option>
-          <option value="buy">Buy only</option>
-          <option value="rent">Rent only</option>
-        </select>
-      </label>
-      <label><input type="checkbox" id="housingOptMove2Concurrent" onchange="toggleHousingOptMove2ConcurrentAvailability(); toggleHousingOptNoDualOwnershipAvailability()"> Concurrent with move 1 (keep move-1 home, add this as a second residence)</label>
-      <div id="housingOptMove2ConcurrentNarrowedNote" class="small" hidden>Concurrent mode is only available with Full grid search mode; switch Search mode above to enable it.</div>
-    </div>
-    <div class="subsection-label">Constraints and objective</div>
-    <label><input type="checkbox" id="housingOptNoDualOwnership" checked> Never own two homes at once</label>
-    <div id="housingOptNoDualOwnershipConcurrentNote" class="small" hidden>Not applicable in concurrent mode -- both homes are always kept.</div>
-    <label>Objective
-      <select id="housingOptObjective">
-        <option value="net_worth">Ending net worth</option>
-        <option value="lifetime_cost">Lifetime housing cost</option>
-        <option value="mc_success_rate">Monte Carlo success rate</option>
-      </select>
-    </label>
-    <label>Search mode
-      <select id="housingOptSearchMode" onchange="toggleHousingOptMove2ConcurrentAvailability()">
-        <option value="full">Full grid (thorough, slower)</option>
-        <option value="narrowed">Narrowed search (faster, may miss the best candidate)</option>
-      </select>
-    </label>
-    <label>Move-2 strategy
-      <select id="housingOptMove2Strategy">
-        <option value="anchored">Anchored on move-1 winners (faster, default)</option>
-        <option value="cross_product">Full cross-product (thorough, may be slow or rejected for large windows)</option>
-      </select>
-    </label>
-    <div class="subsection-label">Family presence (optional)</div>
-    <label>Region (state) ${housingOptStateSelectHtml("housingOptPresenceRegion", "")}</label>
-    <label>From year <input type="number" id="housingOptPresenceStart"></label>
-    <label>Through year <input type="number" id="housingOptPresenceEnd"></label>
-    <div class="table-actions"><button class="btn primary" type="button" onclick="startHousingOptimization()">Run optimization</button></div>
-    <div id="housingOptimizeResults"></div>
-  </div></details>`;
-}
-
-function housingOptMoveText(move, soldHomeLabel) {
-  if (!move) return "";
-  const flag = move.sec121_exclusion_lost
-    ? ' <span class="small warning">(likely loses §121 exclusion)</span>'
-    : "";
-  if (move.mode === "concurrent") {
-    const action = move.rent_indefinitely
-      ? `Also rent in ${esc(move.location.state)} from ${move.start_year}`
-      : `Also buy in ${esc(move.location.state)} (${move.start_year})`;
-    return `${action} (concurrent with move 1, home 1 kept)${flag}`;
-  }
-  if (move.rent_indefinitely) {
-    return `Sell ${esc(soldHomeLabel)} (${move.sale_year}) then Rent in ${esc(move.location.state)}${flag}`;
-  }
-  const buyText = `Buy in ${esc(move.location.state)} (${move.purchase_year})`;
-  const sellText = `Sell ${esc(soldHomeLabel)} (${move.sale_year})`;
-  const overlapNote =
-    move.purchase_year < move.sale_year
-      ? ` <span class="small">(own both homes ${move.purchase_year}-${move.sale_year})</span>`
-      : "";
-  const ordered = move.purchase_year < move.sale_year ? [buyText, sellText] : [sellText, buyText];
-  return ordered.join(" then ") + overlapNote + flag;
-}
-
-function housingOptMovesText(moves) {
-  return (moves || [])
-    .map((m, idx) => housingOptMoveText(m, idx === 0 ? "original home" : `${moves[0].location.state} home`))
-    .join(" then ");
-}
-
-const HOUSING_OPT_OBJECTIVE_LABELS = {
-  net_worth: "Ending net worth",
-  lifetime_cost: "Lifetime housing cost",
-  mc_success_rate: "Monte Carlo success rate",
-};
-
-function housingOptValueText(row, objective) {
-  const v = row && row.objective_value;
-  if (v === null || v === undefined) return "—";
-  if (objective === "mc_success_rate") return (v * 100).toFixed(1) + "%";
-  return "$" + Math.round(v).toLocaleString();
-}
-
-function housingOptMcText(row) {
-  if (row.mc_success_rate === null || row.mc_success_rate === undefined) return "—";
-  return (row.mc_success_rate * 100).toFixed(1) + "%";
-}
-
-function housingOptNotesText(row) {
-  const notes = [];
-  if (row.family_presence_via_rental) notes.push("family presence via rental");
-  return notes.join("; ");
-}
-
-export function renderHousingZipShortlistHtml(payload) {
-  const zs = payload && payload.zip_screen;
-  if (!zs) return "";
-  const note = `<div class="section-note">${esc(housingZipFunnelText(zs.funnel))}</div>`;
-  const disclosure = `<div class="small">${esc(zs.disclosure)}</div>`;
-  if (!zs.shortlist || !zs.shortlist.length) {
-    const relax = zs.relaxation
-      ? `<p class="small">${esc(housingZipRelaxationText(zs.relaxation))}</p>`
-      : "";
-    return note + relax + disclosure;
-  }
-  const rows = zs.shortlist.map(housingZipRowHtml).join("");
-  const table = `<table class="lot-table scenario-diff-table housing-optimize-table"><thead><tr><th>ZIP</th><th>Distance</th><th>Stability score</th><th>Est. price</th></tr></thead><tbody>${rows}</tbody></table>`;
-  return note + table + disclosure;
-}
-
-function housingZipRowHtml(z) {
-  const cross = z.cross_state
-    ? ` <span class="small warning">${esc(z.cross_state)} — different state tax treatment</span>`
-    : "";
-  const upi = z.upi_adjusted
-    ? ' <span class="small">(university-adjusted)</span>'
-    : "";
-  const collapsed = (z.collapsed || []).length
-    ? `<div class="small">+${z.collapsed.length} similar nearby: ${z.collapsed.map(esc).join(", ")}</div>`
-    : "";
-  const coverage = z.coverage_pct < 100
-    ? ` <span class="small">(${z.coverage_pct}% data coverage)</span>`
-    : "";
-  return `<tr><td>${esc(z.zip)} — ${esc(z.city)}, ${esc(z.state)}${cross}${collapsed}</td>
-    <td>${z.distance_miles} mi</td>
-    <td>${z.nss} <span class="small">${esc(z.band)}</span>${upi}${coverage}</td>
-    <td>$${Math.round(z.est_price).toLocaleString()}</td></tr>`;
-}
-
-function housingZipFunnelText(f) {
-  if (!f) return "";
-  return `${f.in_radius} ZIPs in range → ${f.with_data} with data → ${f.above_score} above the score floor → ${f.affordable} affordable → ${f.after_dedup} distinct → ${f.promoted} sent to the optimizer`;
-}
-
-function housingZipRelaxationText(r) {
-  if (!r) return "";
-  return `Lowering the minimum score to ${r.suggested} would return ${r.would_return}.`;
-}
-
-export async function previewHousingZipShortlist() {
-  const zipSearch = housingOptZipSearchBody();
-  if (!zipSearch.anchor.zip) {
-    showMessage("Choose an anchor city or enter a ZIP code.", "error");
-    return;
-  }
-  const target = document.getElementById("housingOptZipShortlist");
-  try {
-    const payload = await api("/api/housing/zip-screen", {
-      method: "POST",
-      body: JSON.stringify({ zip_search: zipSearch }),
-    });
-    if (!payload || !payload.success) {
-      if (target) target.innerHTML = `<p class="small warning">${esc((payload && payload.error) || "Screen failed.")}</p>`;
-      return;
-    }
-    if (target) target.innerHTML = renderHousingZipShortlistHtml(payload);
-  } catch (e) {
-    showMessage("Error previewing shortlist: " + e.message, "error");
-    if (target) target.innerHTML = "";
-  }
-}
-
-export function renderHousingOptimizeResultsHtml(payload) {
-  if (!payload) return "";
-  if (!payload.recommendation) {
-    return '<p class="small">No candidates satisfied the search windows and constraints (check no_dual_ownership and family presence).</p>';
-  }
-  const rec = payload.recommendation;
-  const objLabel = HOUSING_OPT_OBJECTIVE_LABELS[payload.objective] || payload.objective;
-  const head = `<div class="section-note"><b>Recommended:</b> ${housingOptMovesText(rec.moves)} — ${esc(objLabel)}: ${housingOptValueText(rec, payload.objective)}${housingOptNotesText(rec) ? " · " + esc(housingOptNotesText(rec)) : ""}</div>`;
-  const altRows = (payload.alternatives || [])
-    .map(
-      (row) =>
-        `<tr><td>${housingOptMovesText(row.moves).replace(/ then /g, "<br>")}</td><td>${housingOptValueText(row, payload.objective)}</td><td>${housingOptMcText(row)}</td><td>${esc(housingOptNotesText(row))}</td></tr>`,
-    )
-    .join("");
-  const table = altRows
-    ? `<table class="lot-table scenario-diff-table housing-optimize-table"><thead><tr><th>Alternative</th><th>${esc(objLabel)}</th><th>MC success</th><th>Notes</th></tr></thead><tbody>${altRows}</tbody></table>`
-    : '<p class="small">No additional ranked alternatives.</p>';
-  return head + table;
-}
-
-export async function runHousingOptimization() {
-  // In ZIP mode, POST body.zip_search (never body.locations) built by
-  // housingOptZipSearchBody(): { anchor, radius_miles, min_quality_score,
-  // shortlist_size, property_spec }. Manual mode sends body.locations
-  // instead -- the server rejects a request carrying both.
-  const geoMode = String(document.getElementById("housingOptGeoMode")?.value || "manual");
-  const body = {};
-  if (geoMode === "zip_radius") {
-    body.zip_search = housingOptZipSearchBody();
-    if (!body.zip_search.anchor.zip) {
-      showMessage("Choose an anchor city or enter a ZIP code.", "error");
-      return;
-    }
-  } else {
-    const numLocs = Number(document.getElementById("housingOptLocCount")?.value || 2);
-    const locations = [];
-    for (let i = 0; i < numLocs; i++) {
-      const state = String(document.getElementById(`housingOptLocState${i}`)?.value || "").trim();
-      if (!state) {
-        showMessage(`Enter a state for candidate location ${i + 1}.`, "error");
-        return;
-      }
-      const builtWithinYearsRaw = document.getElementById(`housingOptLocBuiltWithinYears${i}`)?.value;
-      locations.push({
-        state,
-        city_type: String(document.getElementById(`housingOptLocCity${i}`)?.value || "suburban"),
-        population_size: Number(document.getElementById(`housingOptLocPop${i}`)?.value || 20000),
-        bedrooms: Number(document.getElementById(`housingOptLocBedrooms${i}`)?.value || 3),
-        bathrooms: Number(document.getElementById(`housingOptLocBathrooms${i}`)?.value || 2),
-        property_type: String(document.getElementById(`housingOptLocPropertyType${i}`)?.value || "single_family"),
-        sqft_band: String(document.getElementById(`housingOptLocSqftBand${i}`)?.value || "1800_2500"),
-        built_within_years: builtWithinYearsRaw ? Number(builtWithinYearsRaw) : null,
-      });
-    }
-    body.locations = locations;
-  }
-  Object.assign(body, {
-    move1_window: {
-      earliest_sale_year: Number(document.getElementById("housingOptEarliestSale")?.value || 0),
-      latest_sale_year: Number(document.getElementById("housingOptLatestSale")?.value || 0),
-      earliest_purchase_year: Number(document.getElementById("housingOptEarliestPurchase")?.value || 0),
-      latest_purchase_year: Number(document.getElementById("housingOptLatestPurchase")?.value || 0),
-    },
-    anchor_count: Number(document.getElementById("housingOptAnchorCount")?.value || 5),
-    no_dual_ownership: !!document.getElementById("housingOptNoDualOwnership")?.checked,
-    objective: String(document.getElementById("housingOptObjective")?.value || "net_worth"),
-    search_mode: String(document.getElementById("housingOptSearchMode")?.value || "full"),
-    move2_strategy: String(document.getElementById("housingOptMove2Strategy")?.value || "anchored"),
-    move1_action: String(document.getElementById("housingOptMove1Action")?.value || "auto"),
-    move2_action: String(document.getElementById("housingOptMove2Action")?.value || "auto"),
-    move2_concurrent: !!document.getElementById("housingOptMove2Concurrent")?.checked,
-  });
-  if (document.getElementById("housingOptMove2Enabled")?.checked) {
-    body.move2_window = {
-      latest_sale_year_2: Number(document.getElementById("housingOptLatestSale2")?.value || 0),
-      latest_purchase_year_2: Number(document.getElementById("housingOptLatestPurchase2")?.value || 0),
-    };
-  }
-  const region = String(document.getElementById("housingOptPresenceRegion")?.value || "").trim();
-  if (region) {
-    body.family_presence = {
-      region,
-      start_year: Number(document.getElementById("housingOptPresenceStart")?.value || 0),
-      end_year: Number(document.getElementById("housingOptPresenceEnd")?.value || 0),
-    };
-  }
-  const resultsEl = document.getElementById("housingOptimizeResults");
-  if (resultsEl) resultsEl.innerHTML = "";
-  setBuildOverlay(
-    true,
-    "Optimizing next housing move",
-    "Searching candidate sale/purchase years and locations against the plan engine. This can take a little while…",
-    "waiting",
-  );
-  try {
-    const resp = await api("/api/housing/optimize", { method: "POST", body: JSON.stringify(body) });
-    if (resp && resp.success) {
-      if (resultsEl) {
-        resultsEl.innerHTML =
-          renderHousingZipShortlistHtml(resp) + renderHousingOptimizeResultsHtml(resp);
-      }
-    } else {
-      showMessage("Optimization error: " + (resp && resp.error ? resp.error : "unknown error"), "error");
-      if (resultsEl) resultsEl.innerHTML = "";
-    }
-  } catch (e) {
-    showMessage("Error running housing optimization: " + e.message, "error");
-    if (resultsEl) resultsEl.innerHTML = "";
-  } finally {
-    hideBuildOverlay();
-  }
-}
-
-function housingOptZipSearchBody() {
-  const anchorZip =
-    String(document.getElementById("housingOptAnchorZip")?.value || "").trim() ||
-    String(document.getElementById("housingOptAnchorCity")?.value || "").trim();
-  const priceMinRaw = document.getElementById("housingOptZipPriceMin")?.value;
-  const priceMaxRaw = document.getElementById("housingOptZipPriceMax")?.value;
-  const priceMin = priceMinRaw ? Number(priceMinRaw) : null;
-  const priceMax = priceMaxRaw ? Number(priceMaxRaw) : null;
-  const propertySpec = {
-    bedrooms: Number(document.getElementById("housingOptZipBedrooms")?.value || 3),
-    bathrooms: Number(document.getElementById("housingOptZipBathrooms")?.value || 2),
-    property_type: String(document.getElementById("housingOptZipPropertyType")?.value || "single_family"),
-    sqft_band: String(document.getElementById("housingOptZipSqftBand")?.value || "1800_2500"),
-    built_within_years: Number(document.getElementById("housingOptZipBuiltWithinYears")?.value) || null,
-  };
-  if (priceMin !== null && priceMax !== null) {
-    propertySpec.target_purchase_price_range = [priceMin, priceMax];
-  }
-  return {
-    anchor: { zip: anchorZip },
-    radius_miles: Number(document.getElementById("housingOptRadius")?.value || 25),
-    min_quality_score: Number(document.getElementById("housingOptMinScore")?.value || 60),
-    shortlist_size: Number(document.getElementById("housingOptShortlistSize")?.value || 4),
-    property_spec: propertySpec,
-  };
-}
-
-// Thin alias for the panel's "Run optimization" button (present since the
-// original housing optimizer, commit fe496e4, predating ZIP-radius search).
-// Keeping it distinct from `runHousingOptimization` itself only avoids the
-// button's onclick text shadowing that function's definition for tooling
-// that scans this file's source; behavior is identical.
-export function startHousingOptimization() {
-  return runHousingOptimization();
-}
-
 export async function seedHousingRows() {
   try {
     const resp = await api("/api/housing/seed", { method: "POST" });
@@ -1799,6 +1299,11 @@ Object.assign(window, {
   housingRentIsConfigured,
   rowIsRentInput,
   housingAreaTypeSelect,
+  housingBedroomsSelect,
+  housingBathroomsSelect,
+  housingPropertyTypeSelect,
+  housingSqftBandSelect,
+  housingLotSizeSelect,
   clearHousingNextStep,
   renderNextHousingStepSection,
   renderCollapsibleDomainBudgetSection,
@@ -1825,17 +1330,5 @@ Object.assign(window, {
   renderCurrentScenarioOverridesHtml,
   renderScenarioManagementPanel,
   renderScenarios,
-  toggleHousingOptSearchMode,
-  loadHousingOptTopCities,
-  toggleHousingOptLocationRows,
-  toggleHousingOptMove2Fields,
-  toggleHousingOptMove2ConcurrentAvailability,
-  toggleHousingOptNoDualOwnershipAvailability,
-  renderHousingOptimizePanelHtml,
-  renderHousingOptimizeResultsHtml,
-  renderHousingZipShortlistHtml,
-  previewHousingZipShortlist,
-  runHousingOptimization,
-  startHousingOptimization,
   seedHousingRows,
 });

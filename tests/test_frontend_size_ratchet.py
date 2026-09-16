@@ -156,7 +156,20 @@ DASHBOARD_JS_MAX_LINES = 7_320
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling
 # only catches wholesale duplication.
-TOTAL_JS_MAX_LINES = 32_000
+# 2026-09-16: raised from 32,000 to 32,730, the measured size with no slack.
+# The housing-optimizer refinement (docs/superpowers/specs/2026-09-16-housing-
+# optimizer-refinement-design.md) added frontend/js/dashboard_decomp_housing_
+# optimizer.js. Checked against what this ceiling is actually for -- wholesale
+# duplication -- rather than against the number: dashboard.js is byte-for-byte
+# unchanged at 7,320, and the panel's former host shrank by 641 lines, so
+# nothing was duplicated out of the monolith. The net +1,379 is new behaviour
+# the old ~635-line panel did not have: 2-5 anchors per move, the nine §8
+# validation rules mirrored from the server, ~50 context-help entries, input
+# persistence, and the per-recommendation results table. Unlike
+# DASHBOARD_JS_MAX_LINES above, this constant's own contract is that it MAY
+# rise for genuine new code; it is set to the measured size so it keeps
+# constraining the next change.
+TOTAL_JS_MAX_LINES = 32_730
 
 
 def _line_count(path: Path) -> int:

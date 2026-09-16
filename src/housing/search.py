@@ -1,259 +1,187 @@
-"""Narrowed search: bounded integer coordinate/pattern search (§8.2 P2, §7).
+"""Narrowed search: bounded integer coordinate descent (§8.2 P2, §7).
 
-Two layers, deliberately separate: ``_coordinate_search_2d``/``_1d`` are
-pure integer hill-climbs over a caller-supplied ``score_fn`` (so a search
-change can be exercised against a synthetic surface with no engine at all),
-and the ``generate_*_narrowed`` wrappers below bind that ``score_fn`` to a
-real engine run. Scoring, filtering, and ranking are shared unmodified with
-the full-grid path in ``candidates.py``.
+Two layers, deliberately separate: ``_descend`` is a pure integer hill-climb
+over a caller-supplied ``score_fn`` (so a search change can be exercised
+against a synthetic surface with no engine at all), and the
+``generate_*_narrowed`` wrappers below bind that ``score_fn`` to a real
+engine run. Scoring, filtering and ranking are shared unmodified with the
+full-grid path in ``candidates.py``.
+
+The axes are the year variables of the decoupled model: the original home's
+sale year (collapsed away entirely when it is kept) and each move's
+acquisition year. Rent is an ``action`` now rather than a missing purchase
+year, so the pre-2026-09-16 version's separate 1D "rent indefinitely" branch
+is gone -- a rental is just another point on the same acquisition axis, and
+the action is an outer loop instead of a search dimension.
 """
 from __future__ import annotations
 
-from typing import Any
+from itertools import product
+from typing import Callable
 
+from .candidates import dual_ownership_ok
 from .models import (
-    FamilyPresence,
     HousingCandidate,
     Location,
-    Move2Window,
-    NARROWED_1D_MAX_EVALS,
-    NARROWED_2D_MAX_EVALS,
+    Move,
+    MoveWindow,
+    NARROWED_MAX_EVALS_PER_AXIS,
+    NARROWED_MOVE1_AXES,
+    NARROWED_MOVE2_AXES,
+    OriginalHome,
+    SaleWindow,
     ScoredCandidate,
-    SearchWindow,
 )
-from .constraints import family_presence_ok
-from .plan_variant import _run_engine
-from .scoring import _pass1_value, score_candidate
+from .scoring import _pass1_objective, _pass1_value
+
+ScoreFn = Callable[[HousingCandidate], "ScoredCandidate | None"]
 
 
-# ---------------------------------------------------------------------------
-# Search primitives -- decoupled from the engine so they are testable
-# against a synthetic score surface: callers supply a ``score_fn`` where
-# higher is always better (the engine-scoring wrappers below flip the sign
-# for the lifetime_cost objective) and that returns ``None`` for a point
-# that must be skipped (e.g. filtered out by no_dual_ownership or
-# family_presence) without spending eval budget on it.
-# ---------------------------------------------------------------------------
+def _descend(axes, build, score_fn, max_evals, objective: str = 'net_worth'):
+    """Seed at each axis corner plus the centre, then hill-climb one axis at a
+    time until no single-step neighbour improves.
 
-def _coordinate_search_2d(
-    x_bounds: tuple[int, int],
-    y_bounds: tuple[int, int],
-    score_fn: "Any",
-    max_evals: int = NARROWED_2D_MAX_EVALS,
-) -> dict[tuple[int, int], float]:
-    """Bounded hill-climb over the integer grid ``x_bounds x y_bounds``.
-    Seeds with the four corners and the center, then repeatedly moves to
-    the best-improving 4-neighbor of the current best point until none
-    improves or ``max_evals`` is reached. Returns every point actually
-    scored (``score_fn`` returned non-``None``), keyed by score -- callers
-    that also need the ScoredCandidate objects build them alongside calling
-    this. This is a local search: on a non-unimodal surface it can settle
-    on a local rather than the global optimum (see ``src.housing``'s
-    package docstring).
+    ``axes`` is a list of ``range`` objects; ``build(point)`` turns a tuple of
+    axis values into a candidate. A point whose ``score_fn`` returns ``None``
+    is infeasible: it is recorded as visited so it is never re-scored, but it
+    never becomes the incumbent. Treating it as a very low score instead would
+    push the climb away from a feasible region it has not reached yet.
+
+    The incumbent is chosen with ``_pass1_value``, which orients the score so
+    higher is always better. Comparing raw ``net_worth`` would be wrong for
+    ``objective='lifetime_cost'``: that objective is MINIMISED, so a raw
+    comparison would climb towards the worst candidate on the surface while
+    still returning a plausible-looking list of scored points.
     """
-    x_lo, x_hi = x_bounds
-    y_lo, y_hi = y_bounds
-    evaluated: dict[tuple[int, int], float] = {}
+    pass1_objective = _pass1_objective(objective)
+    seen: dict[tuple[int, ...], ScoredCandidate | None] = {}
+    results: list[ScoredCandidate] = []
 
-    def ev(x: int, y: int) -> float | None:
-        if (x, y) in evaluated:
-            return evaluated[(x, y)]
-        if len(evaluated) >= max_evals:
+    def evaluate(point):
+        if point in seen:
+            return seen[point]
+        if len(seen) >= max_evals:
             return None
-        v = score_fn(x, y)
-        if v is not None:
-            evaluated[(x, y)] = v
-        return v
+        scored = score_fn(build(point))
+        seen[point] = scored
+        if scored is not None:
+            results.append(scored)
+        return scored
 
-    seeds = {
-        (x_lo, y_lo), (x_lo, y_hi), (x_hi, y_lo), (x_hi, y_hi),
-        ((x_lo + x_hi) // 2, (y_lo + y_hi) // 2),
-    }
-    best_pt: tuple[int, int] | None = None
-    best_val: float | None = None
-    for x, y in seeds:
-        v = ev(x, y)
-        if v is not None and (best_val is None or v > best_val):
-            best_pt, best_val = (x, y), v
+    corners = [tuple(v) for v in product(*[(a[0], a[-1]) for a in axes])]
+    centre = tuple(a[len(a) // 2] for a in axes)
+    incumbent, incumbent_score = None, None
+    for seed in list(dict.fromkeys(corners + [centre])):
+        scored = evaluate(seed)
+        if scored is None:
+            continue
+        value = _pass1_value(scored, pass1_objective)
+        if incumbent_score is None or value > incumbent_score:
+            incumbent, incumbent_score = seed, value
 
-    if best_pt is None:
-        return evaluated
-
-    improved = True
-    while improved and len(evaluated) < max_evals:
+    while incumbent is not None and len(seen) < max_evals:
         improved = False
-        x, y = best_pt
-        for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
-            if not (x_lo <= nx <= x_hi and y_lo <= ny <= y_hi):
-                continue
-            v = ev(nx, ny)
-            if v is not None and v > best_val:
-                best_pt, best_val = (nx, ny), v
-                improved = True
-    return evaluated
+        for i, axis in enumerate(axes):
+            for delta in (-1, 1):
+                nxt = list(incumbent)
+                nxt[i] += delta
+                if nxt[i] < axis[0] or nxt[i] > axis[-1]:
+                    continue
+                scored = evaluate(tuple(nxt))
+                if scored is None:
+                    continue
+                value = _pass1_value(scored, pass1_objective)
+                if value > incumbent_score:
+                    incumbent, incumbent_score, improved = tuple(nxt), value, True
+        if not improved:
+            break
+    return results
 
 
-def _coordinate_search_1d(
-    bounds: tuple[int, int],
-    score_fn: "Any",
-    max_evals: int = NARROWED_1D_MAX_EVALS,
-) -> dict[int, float]:
-    """1D analogue of ``_coordinate_search_2d`` (endpoints + midpoint seeds,
-    then hill-climb to the better neighbor) for a single-dimension window,
-    e.g. the rent-indefinitely branch's ``sale_year`` only."""
-    lo, hi = bounds
-    evaluated: dict[int, float] = {}
-
-    def ev(x: int) -> float | None:
-        if x in evaluated:
-            return evaluated[x]
-        if len(evaluated) >= max_evals:
-            return None
-        v = score_fn(x)
-        if v is not None:
-            evaluated[x] = v
-        return v
-
-    best_x: int | None = None
-    best_val: float | None = None
-    for x in {lo, hi, (lo + hi) // 2}:
-        v = ev(x)
-        if v is not None and (best_val is None or v > best_val):
-            best_x, best_val = x, v
-
-    if best_x is None:
-        return evaluated
-
-    improved = True
-    while improved and len(evaluated) < max_evals:
-        improved = False
-        for nx in (best_x + 1, best_x - 1):
-            if not (lo <= nx <= hi):
-                continue
-            v = ev(nx)
-            if v is not None and v > best_val:
-                best_x, best_val = nx, v
-                improved = True
-    return evaluated
-
-
-# ---------------------------------------------------------------------------
-# Engine-scoring wrappers (§8.2 P2)
-# ---------------------------------------------------------------------------
-
-def _score_move1_point(
-    c0: dict[str, Any], base_state: str, loc: Location, family_presence: FamilyPresence | None,
-    no_dual_ownership: bool, move1_action: str, pass1_objective: str, sink: list[ScoredCandidate],
-    sale_year: int, purchase_year: int | None,
-) -> float | None:
-    if no_dual_ownership and purchase_year is not None and purchase_year < sale_year:
-        return None
-    if move1_action == 'buy' and purchase_year is None:
-        return None
-    if move1_action == 'rent' and purchase_year is not None:
-        return None
-    cand = HousingCandidate(location_1=loc, sale_year=sale_year, purchase_year=purchase_year)
-    ok, via_rental = family_presence_ok(base_state, cand, family_presence)
-    if not ok:
-        return None
-    c2, rows = _run_engine(c0, cand)
-    if not rows:
-        return None
-    sc = score_candidate(c2, cand, rows)
-    sc.family_presence_via_rental = via_rental
-    sink.append(sc)
-    return _pass1_value(sc, pass1_objective)
+def _axes_for_move1(sale_window, move1_window, disposition):
+    """One axis when the original home is kept (there is no sale year to
+    search), otherwise (sale year, acquisition year). ``build`` below indexes
+    ``point`` accordingly."""
+    axes = [range(move1_window.earliest_acquisition_year,
+                  move1_window.latest_acquisition_year + 1)]
+    if disposition != 'keep':
+        axes.insert(0, range(sale_window.earliest_sale_year,
+                             sale_window.latest_sale_year + 1))
+    return axes
 
 
 def generate_move1_candidates_narrowed(
-    c0: dict[str, Any], base_state: str, locations: list[Location], window: SearchWindow,
-    no_dual_ownership: bool, move1_action: str, family_presence: FamilyPresence | None, pass1_objective: str,
+    *, locations1: list[Location], move1_window: MoveWindow, sale_window: SaleWindow,
+    dispositions: tuple[str, ...], move1_action: str, no_dual_ownership: bool,
+    score_fn: ScoreFn, max_evals: int = NARROWED_MAX_EVALS_PER_AXIS * NARROWED_MOVE1_AXES,
+    objective: str = 'net_worth',
 ) -> list[ScoredCandidate]:
-    """Narrowed-mode replacement for ``generate_move1_candidates`` that
-    scores candidates as it searches (§8.2 P2 of ``src.housing``'s package
-    docstring): per
-    location, a bounded 2D coordinate search over ``(sale_year,
-    purchase_year)`` plus a bounded 1D search over the rent-indefinitely
-    branch's ``sale_year``. Rough upper bound on engine runs: per location,
-    at most 25 (2D grid, ``_coordinate_search_2d``'s default ``max_evals``)
-    + 8 (rent branch, ``_coordinate_search_1d``'s default) = 33 -- vs. a
-    full grid's ``(sale_years * (purchase_years + 1))``, which exceeds that
-    for any window bigger than a few years on a side.
+    """Bounded descent per (disposition, location, action) over the year axes.
+
+    ``objective`` is the caller's Pass-1 objective; it only decides which
+    direction is "better" for the incumbent, and defaults to ``'net_worth'``
+    so existing call sites keep their behaviour.
     """
-    scored: list[ScoredCandidate] = []
-    for loc in locations:
-        _coordinate_search_2d(
-            (window.earliest_sale_year, window.latest_sale_year),
-            (window.earliest_purchase_year, window.latest_purchase_year),
-            lambda sy, py: _score_move1_point(
-                c0, base_state, loc, family_presence, no_dual_ownership, move1_action, pass1_objective, scored, sy, py,
-            ),
-        )
-        if move1_action != 'buy':
-            _coordinate_search_1d(
-                (window.earliest_sale_year, window.latest_sale_year),
-                lambda sy: _score_move1_point(
-                    c0, base_state, loc, family_presence, no_dual_ownership, move1_action, pass1_objective, scored, sy, None,
-                ),
-            )
-    return scored
+    actions = ('buy', 'rent') if move1_action == 'auto' else (move1_action,)
+    out: list[ScoredCandidate] = []
+    for disposition in dispositions:
+        axes = _axes_for_move1(sale_window, move1_window, disposition)
+        keep = disposition == 'keep'
+        for loc in locations1:
+            for action in actions:
+                def build(point, _loc=loc, _action=action, _keep=keep, _d=disposition):
+                    sale_year = None if _keep else point[0]
+                    year = point[0] if _keep else point[1]
+                    return HousingCandidate(
+                        original_home=OriginalHome(disposition=_d, sale_year=sale_year),
+                        moves=(Move(index=1, acquisition_year=year,
+                                    action=_action, location=_loc),),
+                    )
 
+                def guarded(cand, _fn=score_fn):
+                    if no_dual_ownership and not dual_ownership_ok(cand):
+                        return None
+                    return _fn(cand)
 
-def _score_move2_point(
-    c0: dict[str, Any], base_state: str, anchor: HousingCandidate, loc: Location,
-    family_presence: FamilyPresence | None, no_dual_ownership: bool, move2_action: str, pass1_objective: str,
-    sink: list[ScoredCandidate], sale_year_2: int, purchase_year_2: int | None,
-) -> float | None:
-    if no_dual_ownership and purchase_year_2 is not None and purchase_year_2 < sale_year_2:
-        return None
-    if move2_action == 'buy' and purchase_year_2 is None:
-        return None
-    if move2_action == 'rent' and purchase_year_2 is not None:
-        return None
-    cand = HousingCandidate(
-        location_1=anchor.location_1, sale_year=anchor.sale_year, purchase_year=anchor.purchase_year,
-        location_2=loc, sale_year_2=sale_year_2, purchase_year_2=purchase_year_2, anchor_of=anchor,
-    )
-    ok, via_rental = family_presence_ok(base_state, cand, family_presence)
-    if not ok:
-        return None
-    c2, rows = _run_engine(c0, cand)
-    if not rows:
-        return None
-    sc = score_candidate(c2, cand, rows)
-    sc.family_presence_via_rental = via_rental
-    sink.append(sc)
-    return _pass1_value(sc, pass1_objective)
+                out.extend(_descend(axes, build, guarded, max_evals, objective))
+    return out
 
 
 def generate_move2_candidates_narrowed(
-    c0: dict[str, Any], base_state: str, anchors: list[HousingCandidate], locations: list[Location],
-    move2_window: Move2Window, no_dual_ownership: bool, move2_action: str, family_presence: FamilyPresence | None,
-    pass1_objective: str,
+    anchors: list[HousingCandidate], *, locations2: list[Location],
+    move2_window: MoveWindow, move2_action: str, concurrent: bool,
+    no_dual_ownership: bool, score_fn: ScoreFn,
+    max_evals: int = NARROWED_MAX_EVALS_PER_AXIS * NARROWED_MOVE2_AXES,
+    objective: str = 'net_worth',
 ) -> list[ScoredCandidate]:
-    """Narrowed-mode replacement for ``generate_move2_candidates`` -- same
-    per-(anchor, location) 2D-grid-plus-1D-rent-branch search as
-    ``generate_move1_candidates_narrowed``, bounded the same way (§8.2 P2)."""
-    scored: list[ScoredCandidate] = []
+    """Bounded descent over move 2's OWN declared acquisition window.
+
+    The window is authoritative -- the ordering rule (a sequential move 2 must
+    come strictly after move 1) is a guard on the point, not a clamp on the
+    axis, matching ``candidates.extend_with_move2``.
+    """
+    actions = ('buy', 'rent') if move2_action == 'auto' else (move2_action,)
+    mode = 'concurrent' if concurrent else 'sequential'
+    out: list[ScoredCandidate] = []
+    axis = range(move2_window.earliest_acquisition_year,
+                 move2_window.latest_acquisition_year + 1)
     for anchor in anchors:
-        if anchor.purchase_year is None:
-            continue
-        earliest_sale_2 = anchor.purchase_year
-        for loc in locations:
-            _coordinate_search_2d(
-                (earliest_sale_2, move2_window.latest_sale_year_2),
-                (earliest_sale_2, move2_window.latest_purchase_year_2),
-                lambda sy2, py2: _score_move2_point(
-                    c0, base_state, anchor, loc, family_presence, no_dual_ownership, move2_action, pass1_objective,
-                    scored, sy2, py2,
-                ),
-            )
-            if move2_action != 'buy':
-                _coordinate_search_1d(
-                    (earliest_sale_2, move2_window.latest_sale_year_2),
-                    lambda sy2: _score_move2_point(
-                        c0, base_state, anchor, loc, family_presence, no_dual_ownership, move2_action, pass1_objective,
-                        scored, sy2, None,
-                    ),
-                )
-    return scored
+        for loc in locations2:
+            for action in actions:
+                def build(point, _a=anchor, _loc=loc, _action=action, _mode=mode):
+                    return HousingCandidate(
+                        original_home=_a.original_home,
+                        moves=_a.moves + (Move(index=2, acquisition_year=point[0],
+                                               action=_action, location=_loc, mode=_mode),),
+                        anchor_of=_a,
+                    )
+
+                def guarded(cand, _fn=score_fn, _a=anchor):
+                    if not concurrent and cand.move2.acquisition_year <= _a.move1.acquisition_year:
+                        return None
+                    if no_dual_ownership and not concurrent and not dual_ownership_ok(cand):
+                        return None
+                    return _fn(cand)
+
+                out.extend(_descend([axis], build, guarded, max_evals, objective))
+    return out
