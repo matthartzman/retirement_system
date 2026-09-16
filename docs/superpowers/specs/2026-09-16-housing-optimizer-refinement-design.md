@@ -3983,8 +3983,26 @@ the panel shows, so the harness and the UI stay comparable.
 `src/housing/__init__.py`'s docstring describes the sale/purchase-welded model and the
 state-level family presence. Rewrite those paragraphs to describe the decoupled model and
 the ZIP-radius filter, and keep the §121 caveat at `:49-54` — it is still accurate in
-Phase 1 and is the hook Phase 2 extends. Update `__all__` (`:140-155`) for the renamed
-exports.
+Phase 1 and is the hook Phase 2 extends.
+
+The `_EXPORTS` map and `__all__` were already rewritten during Task 2 (commit `fd98412`)
+— only the docstring is left. Do not restore eager imports; see the note below.
+
+> **Amendment, 2026-09-16 (during Task 2).** `__init__.py` originally re-exported by
+> importing every submodule at package import time, so `import src.housing.models` also
+> ran `optimizer.py` and `api.py`. One mid-refactor submodule therefore broke the entire
+> package: after Task 2 landed, all 17 housing and zip-screen test modules failed to
+> collect — including the 133 screening tests that touch none of the changed code, and
+> including Task 2's own test, which made the task unverifiable. Re-exports are now lazy
+> via PEP 562 `__getattr__`. This was not in the original plan; it is a prerequisite for
+> Tasks 3–9 being testable at all, since each leaves some sibling module temporarily
+> broken.
+>
+> `src/housing_optimizer.py` (the back-compat shim) had its renamed-constant import fixed
+> in the same commit, but stays broken until Task 9 because its `from .housing import *`
+> resolves every name in `__all__` eagerly. `tests/test_housing_optimizer_unit.py` and
+> `tests/test_housing_optimizer_integration.py` import through that shim, which is why
+> Task 9 owns repairing them.
 
 - [ ] **Step 3: Archive the superseded specs**
 
@@ -4073,6 +4091,13 @@ Task 16. §11 → distributed across every task's test step. §12 → the file-s
 **Known sequencing hazard.** Task 2 deliberately leaves the housing suite red; it returns
 to green at Task 10. Anyone stopping between those two tasks has a broken `/api/housing/*`
 endpoint. If the work must be interrupted, stop at Task 1 or at Task 10, not between.
+
+The red state is bounded to 5 collecting modules — `test_housing_optimizer_unit.py`,
+`test_housing_optimizer_integration.py`, `test_zip_screen_api_contract.py`,
+`test_zip_screen_optimizer_integration.py`, `test_zip_screen_top_cities_api_contract.py`
+— only because of the lazy-export fix recorded in Task 17 Step 2. Before it, the count was
+17. A task that finds more than 5 red modules has broken something the plan did not
+intend; that is the signal to stop rather than to keep going.
 
 **Type consistency.** `acquisition_year`, `action`, `disposition`, `sale_year`,
 `nearest_anchor_zip`, `family_distance_miles`, `area_type`, `population`, `notes`,
