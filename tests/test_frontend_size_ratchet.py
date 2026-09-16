@@ -169,7 +169,13 @@ DASHBOARD_JS_MAX_LINES = 7_320
 # DASHBOARD_JS_MAX_LINES above, this constant's own contract is that it MAY
 # rise for genuine new code; it is set to the measured size so it keeps
 # constraining the next change.
-TOTAL_JS_MAX_LINES = 32_730
+# 2026-09-16: raised from 32,730 to 32,792. dashboard_decomp_housing_optimizer.js
+# gained a shared progress-popup overlay for the panel's two async calls
+# (preview shortlist, run optimization) and a snapshot/restore fix for a bug
+# where adding or removing an anchor wiped out the values already entered for
+# the other anchors. Neither is lines moved from elsewhere -- both are new,
+# so the ceiling is raised to the measured size with no slack, same as before.
+TOTAL_JS_MAX_LINES = 32_792
 
 
 def _line_count(path: Path) -> int:
