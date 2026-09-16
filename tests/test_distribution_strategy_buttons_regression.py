@@ -71,10 +71,18 @@ def test_navigation_no_longer_redirects_roth_or_allocation_off_their_steps():
     navigation = (ROOT / "frontend" / "js" / "navigation.js").read_text(
         encoding="utf-8"
     )
-    assert "roth_conversion:'distribution_strategy'" not in navigation
-    assert "allocation_assets:'distribution_strategy'" not in navigation
-    # Untouched: allocation_policy has no button of its own and still redirects.
-    assert "allocation_policy:'distribution_strategy'" in navigation
+    # #323: distribution_strategy is retired as a destination, so nothing may
+    # redirect TO it any more. What this test has always protected is that
+    # roth_conversion and allocation_assets keep their own identity rather than
+    # being folded into a parent page -- they now resolve to their own named
+    # sections of Strategy -> Optimize, asserted behaviorally in
+    # tests/frontend/strategy_section_redirects.test.mjs.
+    assert "'distribution_strategy'" not in navigation
+    assert "roth_conversion:{step:'strategy_optimize',section:'roth_conversion'}" in navigation
+    assert "allocation_assets:{step:'strategy_optimize',section:'asset_allocation'}" in navigation
+    # allocation_policy still has no section of its own; it rides along with
+    # asset_allocation, which is where its fields render.
+    assert "allocation_policy:{step:'strategy_optimize',section:'asset_allocation'}" in navigation
 
 
 def test_roth_conversion_and_allocation_assets_activestep_branches_still_live():

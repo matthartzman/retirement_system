@@ -43,17 +43,22 @@ export function strategySectionResetOpenCache() {
 // dashboard.js), so the state this reads must already be current by the time
 // the re-render runs. Otherwise a section comes back open while still holding
 // the collapsed stub body.
-export function strategySectionToggle(key, open) {
+export function strategySectionSetOpen(key, open) {
   const map = strategySectionOpenMap();
-  // A toggle that changes nothing must not re-render. Besides being wasted
-  // work, this is the second guard against re-entry: renderMain()'s restore
-  // pass can fire a toggle event of its own, and without this it would call
-  // back in here on every render.
-  if (map[key] === !!open) return;
+  if (map[key] === !!open) return false;
   map[key] = !!open;
   try {
     localStorage.setItem(STRATEGY_OPEN_STORAGE_KEY, JSON.stringify(map));
   } catch (_e) {}
+  return true;
+}
+
+export function strategySectionToggle(key, open) {
+  // A toggle that changes nothing must not re-render. Besides being wasted
+  // work, this is the second guard against re-entry: renderMain()'s restore
+  // pass can fire a toggle event of its own, and without this it would call
+  // back in here on every render.
+  if (!strategySectionSetOpen(key, open)) return;
   renderMain();
 }
 
@@ -191,6 +196,7 @@ export function renderStrategyScenarios() {
 Object.assign(window, {
   strategySectionOpenMap,
   strategySectionResetOpenCache,
+  strategySectionSetOpen,
   strategySectionToggle,
   strategySectionGatedNote,
   strategySection,
