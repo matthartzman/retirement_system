@@ -625,7 +625,7 @@ export function addHousingOptAnchor(moveIndex) {
   const n = housingOptAnchorCounts[moveIndex] || HOUSING_OPT_MIN_ANCHORS;
   if (n >= HOUSING_OPT_MAX_ANCHORS) return;
   housingOptAnchorCounts[moveIndex] = n + 1;
-  redrawHousingOptAnchors(moveIndex);
+  redrawHousingOptAnchors(moveIndex, n);
   // +/- Add anchor is a click, not an input/change event, so it does not
   // reach the panel's delegated oninput/onchange listener (§9.6) on its own.
   debouncedSaveHousingOptInputs();
@@ -635,17 +635,50 @@ export function removeHousingOptAnchor(moveIndex, i) {
   const n = housingOptAnchorCounts[moveIndex] || HOUSING_OPT_MIN_ANCHORS;
   if (n <= HOUSING_OPT_MIN_ANCHORS || i < HOUSING_OPT_MIN_ANCHORS) return;
   housingOptAnchorCounts[moveIndex] = n - 1;
-  redrawHousingOptAnchors(moveIndex);
+  redrawHousingOptAnchors(moveIndex, n);
   debouncedSaveHousingOptInputs();
 }
 
-function redrawHousingOptAnchors(moveIndex) {
+// Snapshots each existing anchor's mode/city/zip before a redraw rebuilds the
+// container's innerHTML from scratch -- innerHTML replacement discards the
+// live <select>/<input> elements (and whatever the user had chosen or typed
+// into them), so add/remove would otherwise reset every prior anchor back to
+// its just-rendered default instead of only appending or dropping the one
+// anchor that actually changed.
+function housingOptAnchorSnapshot(moveIndex, n) {
+  const snap = [];
+  for (let i = 0; i < n; i++) {
+    snap.push({
+      mode: document.getElementById(`housingOptMove${moveIndex}Anchor${i}`)?.value,
+      city: document.getElementById(`housingOptMove${moveIndex}AnchorCity${i}`)?.value,
+      zip: document.getElementById(`housingOptMove${moveIndex}AnchorZip${i}`)?.value,
+    });
+  }
+  return snap;
+}
+
+function housingOptAnchorRestore(moveIndex, snap) {
+  snap.forEach((s, i) => {
+    if (!s) return;
+    const modeEl = document.getElementById(`housingOptMove${moveIndex}Anchor${i}`);
+    if (modeEl && s.mode != null) modeEl.value = s.mode;
+    const cityEl = document.getElementById(`housingOptMove${moveIndex}AnchorCity${i}`);
+    if (cityEl && s.city != null) cityEl.value = s.city;
+    const zipEl = document.getElementById(`housingOptMove${moveIndex}AnchorZip${i}`);
+    if (zipEl && s.zip != null) zipEl.value = s.zip;
+    toggleHousingOptAnchorMode(moveIndex, i);
+  });
+}
+
+function redrawHousingOptAnchors(moveIndex, prevN) {
   const container = document.getElementById(`housingOptMove${moveIndex}Anchors`);
   if (!container) return;
   const n = housingOptAnchorCounts[moveIndex] || HOUSING_OPT_MIN_ANCHORS;
+  const snap = housingOptAnchorSnapshot(moveIndex, Math.min(n, prevN ?? n));
   container.innerHTML = Array.from({ length: n }, (_, i) =>
     housingOptAnchorEntryHtml(moveIndex, i),
   ).join("");
+  housingOptAnchorRestore(moveIndex, snap);
 }
 
 export async function loadHousingOptTopCities() {
@@ -1293,6 +1326,10 @@ export async function previewHousingZipShortlist(moveIndex) {
     return;
   }
   const target = document.getElementById(`housingOptMove${n}Shortlist`);
+  showHousingOptOverlay(
+    "Screening ZIPs",
+    "Searching housing data around the chosen anchors for candidate ZIPs.",
+  );
   try {
     const payload = await api("/api/housing/zip-screen", {
       method: "POST",
@@ -1307,6 +1344,8 @@ export async function previewHousingZipShortlist(moveIndex) {
   } catch (e) {
     showMessage("Error previewing shortlist: " + e.message, "error");
     if (target) target.innerHTML = "";
+  } finally {
+    hideHousingOptOverlay();
   }
 }
 
@@ -1765,6 +1804,23 @@ export function debouncedRefreshHousingOptValidation() {
 // Run
 // ---------------------------------------------------------------------------
 
+// Shared progress popup for the panel's async calls (preview shortlist, run
+// optimization): both hit the backend with no incremental progress to
+// report, so this reuses the generic buildOverlay in "waiting" (indeterminate
+// spinner) mode rather than a bespoke one, matching showYtdLoadOverlay /
+// showSpendingModelLoadOverlay elsewhere in the dashboard. no-cancel is set
+// because neither call is cancellable.
+function showHousingOptOverlay(title, detail) {
+  setBuildOverlay(true, title, detail, "waiting");
+  const overlay = document.getElementById("buildOverlay");
+  if (overlay) overlay.classList.add("no-cancel");
+}
+function hideHousingOptOverlay() {
+  const overlay = document.getElementById("buildOverlay");
+  if (overlay) overlay.classList.remove("no-cancel");
+  hideBuildOverlay();
+}
+
 export async function runHousingOptimization() {
   const msg = refreshHousingOptValidation();
   if (msg) {
@@ -1773,6 +1829,10 @@ export async function runHousingOptimization() {
   }
   const body = buildHousingOptRequest();
   const target = document.getElementById("housingOptimizeResults");
+  showHousingOptOverlay(
+    "Running Housing Optimization",
+    "Searching move combinations across the configured anchors and windows. This can take a few seconds on a full grid search.",
+  );
   try {
     const payload = await api("/api/housing/optimize", {
       method: "POST",
@@ -1787,6 +1847,8 @@ export async function runHousingOptimization() {
   } catch (e) {
     showMessage("Error running optimization: " + e.message, "error");
     if (target) target.innerHTML = "";
+  } finally {
+    hideHousingOptOverlay();
   }
 }
 
