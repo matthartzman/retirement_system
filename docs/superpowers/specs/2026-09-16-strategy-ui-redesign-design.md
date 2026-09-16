@@ -452,7 +452,23 @@ than one shell id.
 
 ## Sequencing note
 
-Phases 1–4 are additive and independently committable. Phase 5 must come after
-Phase 2, since the redirects are what keep the deleted screens' inbound links
-alive. Phase 6 can start after Phase 1 for the new coverage, but its updates to
-the eight existing files must land with or after Phase 5.
+**Execution order is 4 → 1 → 2 → 3 → 5 → 6**, not the numbering above.
+
+The original ordering was wrong. `frontend/js/dashboard.js` sits at exactly the
+`DASHBOARD_JS_MAX_LINES` ratchet with zero headroom, and Phase 1 adds roughly 36
+lines to it (three `STEPS` entries and three `renderMain` branches). The lines
+Phase 1 needs are precisely the ones Phase 5 was scheduled to free, so Phase 1
+as originally sequenced could not commit green, and
+`test_frontend_size_ratchet.py` forbids raising the ceiling to compensate.
+
+Resolution: Phase 4 runs first, so Housing owns the residency table. Phase 1
+then deletes `renderStateResidency()` (~30 lines), `renderSpecialStrategies()`
+(~17 lines) and the three superseded `renderMain` branches (~6 lines) in the
+same commit that adds the new screens — net ~17 lines below the ratchet, which
+drops to match. Those three deletions move out of Phase 5; Phase 5 keeps the
+rest.
+
+Phase 5 must still come after Phase 2, since the redirects are what keep the
+deleted screens' inbound links alive. Phase 6 can start after Phase 1 for the
+new coverage, but its updates to the eight existing files must land with or
+after Phase 5.
