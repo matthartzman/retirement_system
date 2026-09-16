@@ -34,25 +34,55 @@ def _lifetime_cost(rows: list[dict[str, Any]]) -> float:
     return total
 
 
-def score_candidate(c: dict[str, Any], cand: HousingCandidate, rows: list[dict[str, Any]]) -> ScoredCandidate:
-    """Score one engine run. Both moves' sale proceeds are already real
-    deposits the engine's own run reflects in ``rows[-1]['total_nw']`` (see
-    home_sale.py's ``apply_next_housing_sale`` and ``src.housing``'s package
-    docstring),
-    so -- unlike the out-of-loop estimate this replaced -- no post-hoc net
+def score_candidate(c: dict[str, Any], cand: HousingCandidate, rows: list[dict[str, Any]],
+                    *, via_rental: bool = False) -> ScoredCandidate:
+    """Score one engine run. ``c`` is the config the run actually used (the
+    mutated copy ``_run_engine`` returns), not the caller's base config.
+
+    Both moves' sale proceeds are already real deposits the engine's own run
+    reflects in ``rows[-1]['total_nw']`` (see home_sale.py's
+    ``apply_next_housing_sale`` and ``src.housing``'s package docstring), so
+    -- unlike the out-of-loop estimate this replaced -- no post-hoc net
     worth/lifetime cost adjustment is needed for move 2.
+
+    The old ``family_presence_via_rental`` boolean is now one entry in a free
+    ``notes`` list (§7.2): a result row needs to carry several unrelated
+    caveats, and a new boolean field per caveat forced every consumer to grow
+    a branch for each one.
     """
     net_worth = float(rows[-1].get('total_nw', 0.0) or 0.0) if rows else 0.0
     lifetime_cost = _lifetime_cost(rows)
-    sec121_flags = [False]  # move 1 sells the current/original home -- ownership start isn't tracked, assume met
-    if cand.is_two_move:
-        if cand.move2_mode == 'concurrent':
-            sec121_flags.append(False)  # concurrent mode never sells anything -- nothing to flag
+    notes: list[str] = []
+    if via_rental:
+        notes.append('family presence via rental')
+
+    sale_year = cand.original_home.sale_year
+    # The original home's own sale is never flagged: ownership start is not
+    # tracked for a home the household already lives in, so the two-of-five
+    # test is assumed met. Each MOVE's home is flagged on its own span.
+    sec121_flags = [False]
+    m2 = cand.move2
+    if m2 is not None:
+        if m2.mode == 'concurrent':
+            # Concurrent mode never sells the move-1 home -- nothing to flag.
+            sec121_flags.append(False)
         else:
-            sec121_flags.append(sec121_exclusion_flag(cand.purchase_year, cand.sale_year_2))
+            # A sequential move 2 sells the move-1 home in its acquisition
+            # year -- but only if move 1 actually bought one.
+            bought1 = cand.move1.acquisition_year if cand.move1.action == 'buy' else None
+            sec121_flags.append(sec121_exclusion_flag(bought1, m2.acquisition_year))
+    if any(sec121_flags):
+        notes.append('likely loses §121 exclusion')
+
+    buys = [m for m in cand.moves if m.action == 'buy' and m.mode != 'concurrent']
+    overlapping = [m.acquisition_year for m in buys
+                   if sale_year is not None and m.acquisition_year < sale_year]
+    if overlapping:
+        notes.append(f'dual_ownership_years {min(overlapping)}-{sale_year}')
+
     return ScoredCandidate(
         candidate=cand, net_worth=net_worth, lifetime_cost=lifetime_cost,
-        mc_success_rate=None, sec121_exclusion_lost=sec121_flags,
+        mc_success_rate=None, sec121_exclusion_lost=sec121_flags, notes=notes,
     )
 
 

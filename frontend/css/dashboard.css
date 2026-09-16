@@ -967,3 +967,24 @@ body.chart-modal-open{overflow:hidden}
 .skip-link{position:absolute;top:-999px;left:0;z-index:200;background:#1c2f4a;color:#fff;padding:10px 16px;border-radius:0 0 9px 0;font-weight:800;text-decoration:none}
 .skip-link:focus{top:0}
 #mainPane:focus{outline:none}
+
+/* Housing optimizer panel (design 2026-09-16 §9.2). Labels stack above their
+   control so each field is only as wide as the control needs; a left-hand
+   label would add its width to every field and force horizontal scrolling. */
+.housing-opt-row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+.housing-opt-row-label{flex:0 0 100%;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.housing-opt-row-fields{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start}
+.housing-opt-field{display:flex;flex-direction:column;gap:3px}
+.housing-opt-field label{font-size:12px;color:var(--muted);white-space:nowrap}
+.housing-opt-field select{width:auto}
+.housing-opt-field input.year{width:5em}
+.housing-opt-field input.zip{width:5em}
+.housing-opt-field input.money,.housing-opt-field input.count{width:8em}
+
+/* A result may wrap to several lines. Three cues together keep the boundary
+   obvious: alternating shade, a heavy rule, and the persistent rank badge. */
+.housing-opt-result-odd{background:#fff}
+.housing-opt-result-even{background:#f6f7f9}
+.housing-opt-result + .housing-opt-result{border-top:2px solid var(--line)}
+.housing-opt-rank{font-weight:850;font-variant-numeric:tabular-nums;white-space:nowrap}
+.housing-opt-result-top .housing-opt-rank{color:#1d4ed8}
