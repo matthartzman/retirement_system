@@ -2411,6 +2411,24 @@
       "scope": "inside-function"
     },
     {
+      "name": "pageHelp",
+      "file": "frontend/js/dashboard_decomp_housing_optimizer.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_housing_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_housing_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "inactiveEditReveals",
       "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
       "kind": "read",
@@ -2574,12 +2592,6 @@
     },
     {
       "name": "searchText",
-      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
       "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
       "kind": "read",
       "scope": "inside-function"
