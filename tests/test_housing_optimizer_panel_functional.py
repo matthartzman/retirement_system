@@ -209,30 +209,15 @@ def test_module_evaluates_without_pageHelp_defined(smoke):
     assert smoke["evalError"] is None, smoke["evalError"]
 
 
-def test_registry_builder_never_calls_pageHelp_at_module_eval_time():
-    """Static backstop for the load-order hazard: the registry itself (the
-    IIFE that assembles HOUSING_OPT_FIELD_HELP, plus the Object.assign() that
-    adds the general/year entries) must hold plain data, never a call to
-    pageHelp(...) -- that call is only safe inside showHousingOptFieldHelp's
-    own body, which node-executes lazily at click time (proven above), long
-    after dashboard.js has defined pageHelp."""
-    assert "pageHelp(" in JS, "expected showHousingOptFieldHelp to call pageHelp() somewhere"
-
-    start = JS.index("const HOUSING_OPT_FIELD_HELP = (() => {")
-    end = JS.index("})();", start) + len("})();")
-    registry_iife = JS[start:end]
-    assert "pageHelp(" not in registry_iife
-
-    assign_start = JS.index("Object.assign(HOUSING_OPT_FIELD_HELP, {")
-    assign_end = JS.index("\n});", assign_start) + len("\n});")
-    registry_assign = JS[assign_start:assign_end]
-    assert "pageHelp(" not in registry_assign
-
-    # And it IS called, lazily, inside showHousingOptFieldHelp -- confirming
-    # the content isn't simply missing the call altogether.
-    fn_start = JS.index("export function showHousingOptFieldHelp")
-    assert "pageHelp(" in JS[fn_start:]
-
+# Two source-text assertions were removed here on 2026-09-16
+# (test_help_writes_to_the_apps_existing_panel_and_reveals_it, and a static
+# "pageHelp( is not inside the registry builder" backstop). Both duplicated a
+# test in this file that proves the same property by EXECUTING the module in
+# the Node sandbox -- test_clicking_help_renders_through_pageHelp_and_reveals_
+# the_panel and test_module_evaluates_without_pageHelp_defined. A string match
+# on the source would have broken on a behaviour-preserving rename while the
+# runtime tests kept passing, which is the failure mode
+# tests/test_freeze_frontend_source_grep.py exists to stop.
 
 # ---------------------------------------------------------------------------
 # Registry coverage
@@ -275,11 +260,6 @@ def test_year_fields_present_with_meaning_and_rule(smoke):
         entry = entries[k]
         assert entry.get("meaning"), f"{k}.meaning is empty"
         assert entry.get("connections"), f"{k}.connections should carry the validation rule"
-
-
-def test_help_writes_to_the_apps_existing_panel_and_reveals_it():
-    assert "ensureHelpPanelVisible" in JS
-    assert "helpPanel" in JS
 
 
 def test_clicking_help_renders_through_pageHelp_and_reveals_the_panel(smoke):

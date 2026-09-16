@@ -2,7 +2,7 @@
 import pytest
 
 from src.housing.zip_screen.screen import MultiAnchorRequest, run_multi_anchor_screen
-from tests.test_zip_screen_filters import _rec
+from tests.test_zip_screen_filters_unit import _rec
 
 pytestmark = pytest.mark.unit
 
