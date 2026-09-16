@@ -686,6 +686,11 @@ export function renderSpendingHousing() {
       "</div>";
   html += "</div></details>";
 
+  html +=
+    '<details><summary class="section-header">State residency over time</summary><div class="section-body">';
+  html += renderResidencySchedule();
+  html += "</div></details>";
+
   html += renderBaseHomeSaleRows(rs);
 
   html +=

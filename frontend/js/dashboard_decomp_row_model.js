@@ -1389,7 +1389,16 @@ export function rawRowsForStep(id) {
       case "estate":
         return sec === "Estate Planning" || sec === "Account Titling";
       case "annuity_death_benefits":
-        return sec === "Annuity Death Benefits" || sec === "Insurance In Force";
+        return (
+          sec === "Annuity Death Benefits" ||
+          sec === "Insurance In Force" ||
+          // #323: the live auto-insurance baseline (data_io.py's fallback
+          // Auto Ins. Delta source when no Auto policy exists) belongs beside
+          // the Auto policies it falls back from, not on State Residency.
+          (sec === "State Comparison" &&
+            sub === "auto_insurance" &&
+            lbl === "current_state_baseline_annual")
+        );
       case "allocation_policy":
         return (
           (sec === "Model Constants" && sub === "allocation") ||
@@ -1473,7 +1482,13 @@ export function rawRowsForStep(id) {
       case "divorce_options":
         return rowIsDivorceScenario(r);
       case "state_residency":
-        return sec === "State Comparison";
+        // #323: current_state_baseline_annual moved to the Insurance page's
+        // annuity_death_benefits step above; every other State Comparison row
+        // stays here.
+        return (
+          sec === "State Comparison" &&
+          !(sub === "auto_insurance" && lbl === "current_state_baseline_annual")
+        );
       case "heloc_strategy":
         return sec === "HELOC";
       case "entity_charitable":
