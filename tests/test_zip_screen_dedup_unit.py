@@ -75,9 +75,9 @@ def test_a_nearby_zip_with_a_distant_score_is_not_collapsed(table):
 
 def test_funnel_after_dedup_reflects_the_collapse(table):
     res = run_screen(_req(), table=table)
-    assert res.funnel['after_dedup'] < res.funnel['affordable']
+    assert res.funnel['distinct'] < res.funnel['affordable']
 
 
 def test_dedup_never_reduces_below_what_was_available(table):
     res = run_screen(_req(shortlist_size=4), table=table)
-    assert res.funnel['promoted'] <= res.funnel['after_dedup']
+    assert res.funnel['promoted'] <= res.funnel['distinct']
