@@ -202,7 +202,11 @@ Gains one collapsible, "State residency over time", rendering
   duplication this redesign removes. The per-lever `Source` jump buttons stay —
   they point at input pages, not at strategy screens.
 
-New code lands in a new `frontend/js/strategy_workspace.js`. `dashboard.js` only
+New code lands in a new `frontend/js/dashboard_decomp_strategy_workspace.js`.
+The `dashboard_decomp_` prefix is load-bearing, not cosmetic: `tests/_decomp_dashboard.py`
+globs `dashboard_decomp_*.js` to assemble the "full dashboard source" that every
+content-assertion test reads, so a module outside that pattern would be invisible
+to them. `dashboard.js` only
 loses lines; `DASHBOARD_JS_MAX_LINES` drops to match in the same commit, because
 `test_ratchet_is_not_slack` fails if more than 500 lines of headroom open up.
 
@@ -335,7 +339,8 @@ npm test
 
 ## Phase 1 — New module and the three screens
 
-Create `frontend/js/strategy_workspace.js`:
+Create `frontend/js/dashboard_decomp_strategy_workspace.js` (see the naming note
+in §4) and register it in `frontend/index.html` alongside its siblings:
 
 - `strategySection(key, title, renderFn, gateStepId)` — the lazy collapsible
   primitive. Renders a `<details>` whose body is a stub unless open; reads and
