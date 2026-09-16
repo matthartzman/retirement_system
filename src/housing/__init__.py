@@ -94,62 +94,59 @@ see the error message for the caller's options: narrow the window, use fewer
 locations, or switch to ``search_mode='narrowed'``)."""
 from __future__ import annotations
 
-from .models import (
-    MOVE2_CROSS_PRODUCT_CAP,
-    MOVE2_STRATEGIES,
-    OBJECTIVES,
-    SEARCH_MODES,
-    FamilyPresence,
-    HousingCandidate,
-    Location,
-    Move2Window,
-    ScoredCandidate,
-    SearchWindow,
-)
-from .candidates import (
-    estimate_move2_candidate_count,
-    filter_candidates_by_action,
-    generate_move1_candidates,
-    generate_move2_candidates,
-    generate_move2_concurrent_candidates,
-    select_all_eligible_move1_candidates,
-    select_anchors,
-)
-from .constraints import family_presence_ok, sec121_exclusion_flag
-from .scoring import rank_candidates, score_candidate
-from .search import (
-    generate_move1_candidates_narrowed,
-    generate_move2_candidates_narrowed,
-)
-from .optimizer import optimize_housing
-from .api import optimize_housing_from_request, top_cities_payload, zip_screen_from_request
+# Re-exports are LAZY (PEP 562). The eager version imported every submodule at
+# package import time, which meant `import src.housing.models` transitively
+# pulled in optimizer.py and api.py: a syntax or name error anywhere in the
+# package made every module in it unimportable, and a mid-refactor submodule
+# took the whole package down with it. Resolving on first attribute access
+# instead keeps `from src.housing import Location` working while letting a
+# single submodule be imported, and tested, on its own.
+_EXPORTS = {
+    'MOVE2_CROSS_PRODUCT_CAP': 'models',
+    'MOVE2_STRATEGIES': 'models',
+    'OBJECTIVES': 'models',
+    'SEARCH_MODES': 'models',
+    'DISPOSITIONS': 'models',
+    'AREA_TYPES': 'models',
+    'FAMILY_RADII_MILES': 'models',
+    'MOVE_ACTIONS': 'models',
+    'FamilyPresence': 'models',
+    'HousingCandidate': 'models',
+    'Location': 'models',
+    'Move': 'models',
+    'MoveWindow': 'models',
+    'OriginalHome': 'models',
+    'SaleWindow': 'models',
+    'ScoredCandidate': 'models',
+    'estimate_move2_candidate_count': 'candidates',
+    'filter_candidates_by_action': 'candidates',
+    'generate_move1_candidates': 'candidates',
+    'generate_move2_candidates': 'candidates',
+    'generate_move2_concurrent_candidates': 'candidates',
+    'select_all_eligible_move1_candidates': 'candidates',
+    'select_anchors': 'candidates',
+    'family_presence_ok': 'constraints',
+    'sec121_exclusion_flag': 'constraints',
+    'rank_candidates': 'scoring',
+    'score_candidate': 'scoring',
+    'generate_move1_candidates_narrowed': 'search',
+    'generate_move2_candidates_narrowed': 'search',
+    'optimize_housing': 'optimizer',
+    'optimize_housing_from_request': 'api',
+    'top_cities_payload': 'api',
+    'zip_screen_from_request': 'api',
+}
 
-__all__ = [
-    'MOVE2_CROSS_PRODUCT_CAP',
-    'MOVE2_STRATEGIES',
-    'OBJECTIVES',
-    'SEARCH_MODES',
-    'FamilyPresence',
-    'HousingCandidate',
-    'Location',
-    'Move2Window',
-    'ScoredCandidate',
-    'SearchWindow',
-    'estimate_move2_candidate_count',
-    'family_presence_ok',
-    'filter_candidates_by_action',
-    'generate_move1_candidates',
-    'generate_move1_candidates_narrowed',
-    'generate_move2_candidates',
-    'generate_move2_candidates_narrowed',
-    'generate_move2_concurrent_candidates',
-    'optimize_housing',
-    'optimize_housing_from_request',
-    'rank_candidates',
-    'score_candidate',
-    'sec121_exclusion_flag',
-    'select_all_eligible_move1_candidates',
-    'select_anchors',
-    'top_cities_payload',
-    'zip_screen_from_request',
-]
+__all__ = sorted(_EXPORTS)
+
+
+def __getattr__(name):
+    module = _EXPORTS.get(name)
+    if module is None:
+        raise AttributeError(f'module {__name__!r} has no attribute {name!r}')
+    from importlib import import_module
+    return getattr(import_module(f'.{module}', __name__), name)
+
+
+def __dir__():
+    return sorted(set(globals()) | set(_EXPORTS))
