@@ -24,6 +24,27 @@
 const HOUSING_OPT_MIN_ANCHORS = 2;
 const HOUSING_OPT_MAX_ANCHORS = 5;
 
+// Persistence (§9.6). The <details> wrapper renderHousingOptimizePanelHtml()
+// returns carries this id so saveHousingOptInputs() can scope its
+// querySelectorAll to just the panel (never picking up unrelated page
+// controls that happen to share an id-less coincidence) and so the details
+// open/closed state has something stable to read and restore.
+export const HOUSING_OPT_PANEL_ID = "housingOptPanel";
+const HOUSING_OPT_RESULTS_ID = "housingOptimizeResults";
+export const HOUSING_OPT_STORAGE_KEY = "retirement.housing_optimizer.v1";
+
+// Keys in the stored payload that are not themselves a DOM element's id --
+// the per-move anchor *count* has no backing control (it is the module-level
+// housingOptAnchorCounts map below) and the details open state belongs to
+// the panel wrapper itself, not a form field. Prefixed with a double
+// underscore so they can never collide with a real field id, which are all
+// plain camelCase.
+const HOUSING_OPT_PERSIST_META_KEYS = new Set([
+  "__move1AnchorCount",
+  "__move2AnchorCount",
+  "__detailsOpen",
+]);
+
 // Enum/range constants mirroring src/housing/models.py and
 // src/housing/zip_screen/schema.py exactly (Task 12) -- validateHousingOptForm
 // checks these client-side so the Run button disables before a doomed request
@@ -608,6 +629,9 @@ export function addHousingOptAnchor(moveIndex) {
   if (n >= HOUSING_OPT_MAX_ANCHORS) return;
   housingOptAnchorCounts[moveIndex] = n + 1;
   redrawHousingOptAnchors(moveIndex);
+  // +/- Add anchor is a click, not an input/change event, so it does not
+  // reach the panel's delegated oninput/onchange listener (§9.6) on its own.
+  debouncedSaveHousingOptInputs();
 }
 
 export function removeHousingOptAnchor(moveIndex, i) {
@@ -615,6 +639,7 @@ export function removeHousingOptAnchor(moveIndex, i) {
   if (n <= HOUSING_OPT_MIN_ANCHORS || i < HOUSING_OPT_MIN_ANCHORS) return;
   housingOptAnchorCounts[moveIndex] = n - 1;
   redrawHousingOptAnchors(moveIndex);
+  debouncedSaveHousingOptInputs();
 }
 
 function redrawHousingOptAnchors(moveIndex) {
@@ -643,6 +668,193 @@ export async function loadHousingOptTopCities() {
   } catch (e) {
     // Non-fatal: the free-entry ZIP mode remains usable either way.
   }
+}
+
+// ---------------------------------------------------------------------------
+// Persistence (§9.6)
+//
+// Follows the scenarioWriteSets pattern (dashboard_decomp_housing_scenarios.js
+// SCENARIO_SET_STORAGE_KEY): one JSON object under one key, every access
+// wrapped in try/catch, silently ignored when storage is blocked, cleared or
+// unparseable -- the form simply starts at its defaults rather than surfacing
+// an error the user can do nothing about.
+//
+// Stored: every panel input's value, the anchor lists (as a count -- see
+// HOUSING_OPT_PERSIST_META_KEYS), the move-2 enabled flag and the <details>
+// open state. Deliberately NOT stored: anything derived from a run --
+// results, candidates, shortlists. saveHousingOptInputs() only reads actual
+// form controls (input/select/textarea) and explicitly skips the results
+// container and everything inside it, so a restored form always starts with
+// an empty result area and a stale recommendation can never be mistaken for
+// a fresh one. Unknown keys in a stored payload are simply never matched by
+// housingOptHydratePanelHtml() below, and missing keys leave the
+// already-rendered default in place, so the shape can grow without a
+// migration.
+// ---------------------------------------------------------------------------
+
+export function loadHousingOptInputs() {
+  try {
+    return JSON.parse(localStorage.getItem(HOUSING_OPT_STORAGE_KEY) || "{}") || {};
+  } catch (e) {
+    // Blocked, cleared, or corrupt storage is not an error worth surfacing:
+    // the form simply starts at its defaults.
+    return {};
+  }
+}
+
+export function saveHousingOptInputs() {
+  try {
+    const root = document.getElementById(HOUSING_OPT_PANEL_ID);
+    if (!root || typeof root.querySelectorAll !== "function") return;
+    const resultsRoot = document.getElementById(HOUSING_OPT_RESULTS_ID);
+    const data = {};
+    root.querySelectorAll("[id]").forEach((el) => {
+      if (!el || !el.id) return;
+      if (el.id === HOUSING_OPT_RESULTS_ID) return;
+      if (
+        resultsRoot &&
+        typeof resultsRoot.contains === "function" &&
+        resultsRoot.contains(el)
+      ) {
+        // Never persist anything living inside the results container -- it
+        // is entirely derived from a run.
+        return;
+      }
+      const tag = String(el.tagName || "").toUpperCase();
+      if (tag === "INPUT") {
+        data[el.id] =
+          String(el.type || "").toLowerCase() === "checkbox" ? !!el.checked : el.value;
+      } else if (tag === "SELECT" || tag === "TEXTAREA") {
+        data[el.id] = el.value;
+      }
+    });
+    data.__move1AnchorCount = housingOptAnchorCounts[1] || HOUSING_OPT_MIN_ANCHORS;
+    data.__move2AnchorCount = housingOptAnchorCounts[2] || HOUSING_OPT_MIN_ANCHORS;
+    data.__detailsOpen = !!root.open;
+    localStorage.setItem(HOUSING_OPT_STORAGE_KEY, JSON.stringify(data));
+  } catch (e) {
+    // Blocked or unavailable storage is not worth surfacing -- the form
+    // simply will not be remembered for next time.
+  }
+}
+
+let housingOptSaveTimer = null;
+
+// Wired to a single delegated oninput/onchange/ontoggle on the panel's
+// <details> wrapper (they all bubble to it except ontoggle, which fires on
+// the element itself) rather than to each of the ~30 individual fields, so
+// adding a field never means remembering to also wire its persistence.
+export function debouncedSaveHousingOptInputs() {
+  if (housingOptSaveTimer) clearTimeout(housingOptSaveTimer);
+  housingOptSaveTimer = setTimeout(saveHousingOptInputs, 400);
+}
+
+// ---- string-level hydration -------------------------------------------
+//
+// renderHousingOptimizePanelHtml() only ever returns an HTML *string* for a
+// caller to assign into innerHTML -- by the time it runs there is no
+// element tree yet for a restored value to be applied to via
+// document.getElementById(...).value = ... . These helpers instead patch
+// the generated markup itself before it is returned, which also means
+// restoration works identically however the caller chooses to mount it.
+
+// Finds the [start, end) range of the single element carrying id="id" --
+// its whole `<select ...>...</select>` block if it is a select (so option
+// `selected` flags can be rewritten), otherwise just its opening tag.
+function housingOptFindTagRange(html, id) {
+  const idAttr = `id="${id}"`;
+  const idx = html.indexOf(idAttr);
+  if (idx === -1) return null;
+  const tagStart = html.lastIndexOf("<", idx);
+  if (tagStart === -1) return null;
+  const tagNameMatch = /^<(\w+)/.exec(html.slice(tagStart));
+  const tagName = tagNameMatch ? tagNameMatch[1].toLowerCase() : "";
+  const openTagEnd = html.indexOf(">", idx) + 1;
+  if (openTagEnd <= 0) return null;
+  if (tagName === "select") {
+    const closeIdx = html.indexOf("</select>", openTagEnd);
+    if (closeIdx !== -1) return [tagStart, closeIdx + "</select>".length];
+  }
+  return [tagStart, openTagEnd];
+}
+
+function housingOptHydrateOne(html, id, transform) {
+  const range = housingOptFindTagRange(html, id);
+  if (!range) return html; // unknown/removed id -- leave the default alone
+  const [start, end] = range;
+  return html.slice(0, start) + transform(html.slice(start, end)) + html.slice(end);
+}
+
+function housingOptSetAttr(block, attr, value) {
+  const openEnd = block.indexOf(">");
+  const openTag = openEnd === -1 ? block : block.slice(0, openEnd + 1);
+  const rest = openEnd === -1 ? "" : block.slice(openEnd + 1);
+  const re = new RegExp(` ${attr}="[^"]*"`);
+  const newOpenTag = re.test(openTag)
+    ? openTag.replace(re, ` ${attr}="${value}"`)
+    : openTag.replace(/^<(\w+)/, `<$1 ${attr}="${value}"`);
+  return newOpenTag + rest;
+}
+
+function housingOptSetBooleanAttr(block, attr, on) {
+  const openEnd = block.indexOf(">");
+  const openTag = openEnd === -1 ? block : block.slice(0, openEnd + 1);
+  const rest = openEnd === -1 ? "" : block.slice(openEnd + 1);
+  const has = new RegExp(`[ "]${attr}(=|>| |$)`).test(openTag);
+  let newOpenTag = openTag;
+  if (on && !has) newOpenTag = openTag.replace(/^<(\w+)/, `<$1 ${attr}`);
+  if (!on && has) newOpenTag = openTag.replace(new RegExp(` ${attr}(="[^"]*")?`), "");
+  return newOpenTag + rest;
+}
+
+function housingOptHydrateSelectBlock(block, rawValue) {
+  let out = block.replace(/ selected(?=[ >])/g, "");
+  const marker = `value="${rawValue}"`;
+  const idx = out.indexOf(marker);
+  if (idx === -1) return out; // stored value no longer a valid option: keep default
+  const tagEnd = out.indexOf(">", idx);
+  if (tagEnd === -1) return out;
+  return out.slice(0, tagEnd) + " selected" + out.slice(tagEnd);
+}
+
+// Applies every key of a loadHousingOptInputs() payload onto freshly
+// generated panel markup. Keys that do not correspond to any id in the
+// markup (removed fields, or garbage from a corrupt/foreign payload) are
+// simply no-ops -- see housingOptHydrateOne -- which is what lets the
+// stored shape grow or shrink without a migration.
+function housingOptHydratePanelHtml(html, stored) {
+  let out = html;
+  for (const [id, raw] of Object.entries(stored || {})) {
+    if (HOUSING_OPT_PERSIST_META_KEYS.has(id)) continue;
+    out = housingOptHydrateOne(out, id, (block) => {
+      if (typeof raw === "boolean") return housingOptSetBooleanAttr(block, "checked", raw);
+      if (/^<select/i.test(block)) return housingOptHydrateSelectBlock(block, raw);
+      return housingOptSetAttr(block, "value", esc(String(raw)));
+    });
+    // An anchor's City/ZIP mode select has no `checked`/`selected` bearing on
+    // which of its two sibling controls is visible -- that is a separate
+    // `hidden` attribute toggleHousingOptAnchorMode() otherwise only sets at
+    // click time. Restore it here too, or a restored "zip" mode would show
+    // the city dropdown and hide the very zip field that holds the value.
+    const anchorMode = /^housingOptMove(\d)Anchor(\d+)$/.exec(id);
+    if (anchorMode && typeof raw !== "boolean") {
+      const mode = String(raw);
+      const cityId = `housingOptMove${anchorMode[1]}AnchorCity${anchorMode[2]}`;
+      const zipId = `housingOptMove${anchorMode[1]}AnchorZip${anchorMode[2]}`;
+      out = housingOptHydrateOne(out, cityId, (block) =>
+        housingOptSetBooleanAttr(block, "hidden", mode !== "city"),
+      );
+      out = housingOptHydrateOne(out, zipId, (block) =>
+        housingOptSetBooleanAttr(block, "hidden", mode !== "zip"),
+      );
+    }
+  }
+  if (stored && "__detailsOpen" in stored) {
+    out = housingOptHydrateOne(out, HOUSING_OPT_PANEL_ID, (block) =>
+      housingOptSetBooleanAttr(block, "open", !!stored.__detailsOpen),
+    );
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -858,6 +1070,23 @@ function housingOptMoveWhenRowHtml(n) {
 }
 
 export function renderHousingOptimizePanelHtml() {
+  // Loaded first so the per-move anchor *count* (which has no backing DOM
+  // element -- see HOUSING_OPT_PERSIST_META_KEYS above) can be applied to
+  // housingOptAnchorCounts before the anchor rows below are built from it.
+  // Everything else in the stored payload is applied afterwards, as a
+  // string-level hydration pass over the fully-built markup (see
+  // housingOptHydratePanelHtml).
+  const housingOptStored = loadHousingOptInputs();
+  const clampAnchorCount = (n) => {
+    const v = Math.round(Number(n));
+    if (!Number.isFinite(v)) return null;
+    return Math.min(HOUSING_OPT_MAX_ANCHORS, Math.max(HOUSING_OPT_MIN_ANCHORS, v));
+  };
+  const storedMove1Anchors = clampAnchorCount(housingOptStored.__move1AnchorCount);
+  if (storedMove1Anchors) housingOptAnchorCounts[1] = storedMove1Anchors;
+  const storedMove2Anchors = clampAnchorCount(housingOptStored.__move2AnchorCount);
+  if (storedMove2Anchors) housingOptAnchorCounts[2] = storedMove2Anchors;
+
   const objectiveRow = housingOptRow(
     "Objective & constraints",
     housingOptField(
@@ -993,7 +1222,7 @@ export function renderHousingOptimizePanelHtml() {
       )}</div>`,
   );
 
-  return `<details class="housing-optimize-panel"><summary>Optimize next housing move</summary><div class="housing-opt-body">
+  const html = `<details class="housing-optimize-panel" id="${HOUSING_OPT_PANEL_ID}" oninput="debouncedSaveHousingOptInputs()" onchange="debouncedSaveHousingOptInputs()" ontoggle="debouncedSaveHousingOptInputs()"><summary>Optimize next housing move</summary><div class="housing-opt-body">
     <div class="housing-opt-head"><div class="section-note">Search the three decisions independently -- what happens to the current home, and where/what/when each move is -- against the same deterministic engine and Monte Carlo runner as the rest of the plan.</div><button class="btn small" type="button" id="housingOptPanelHelp" onclick="showHousingOptFieldHelp('_panel')">Help</button></div>
     ${objectiveRow}
     ${presenceRow}
@@ -1003,8 +1232,15 @@ export function renderHousingOptimizePanelHtml() {
     ${housingOptMoveWhenRowHtml(1)}
     ${move2Row}
     <div class="housing-opt-run"><div class="housing-opt-validation" id="housingOptValidation" hidden></div><button class="btn primary" type="button" id="housingOptRun" onclick="startHousingOptimization()">Run optimization</button></div>
-    <div id="housingOptimizeResults"></div>
+    <div id="${HOUSING_OPT_RESULTS_ID}"></div>
   </div></details>`;
+  // Restore (§9.6) happens last, against the fully-built markup string above,
+  // not against live DOM: this function only ever returns HTML for a caller
+  // to assign into innerHTML, so there is no element tree to query yet. Only
+  // inputs are restored -- the results div above is always emitted empty, so
+  // a stale recommendation from a previous session can never be mistaken for
+  // a fresh one.
+  return housingOptHydratePanelHtml(html, housingOptStored);
 }
 
 // ---------------------------------------------------------------------------
@@ -1569,12 +1805,17 @@ export function startHousingOptimization() {
 // of module scoping, and dashboard_decomp_housing_scenarios.js calls
 // renderHousingOptimizePanelHtml() as a bare global.
 Object.assign(window, {
+  HOUSING_OPT_PANEL_ID,
+  HOUSING_OPT_STORAGE_KEY,
   housingOptAnchorEntryHtml,
   renderHousingOptAnchorsHtml,
   toggleHousingOptAnchorMode,
   addHousingOptAnchor,
   removeHousingOptAnchor,
   loadHousingOptTopCities,
+  loadHousingOptInputs,
+  saveHousingOptInputs,
+  debouncedSaveHousingOptInputs,
   showHousingOptFieldHelp,
   HOUSING_OPT_FIELD_HELP,
   toggleHousingOptMove2Fields,
