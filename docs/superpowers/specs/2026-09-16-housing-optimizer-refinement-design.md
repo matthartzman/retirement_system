@@ -4017,6 +4017,50 @@ git commit -m "chore(housing): update the lab harness and archive superseded spe
 
 ---
 
+## Task assignment
+
+Model, reasoning effort and a forecast of agent turns per task, for
+subagent-driven execution (one fresh agent per task, review between). "Turns"
+counts the executing agent's own turns, not the reviewer's.
+
+The split is by *judgment required*, not by size. A task whose code is given
+verbatim in the plan is a transcription job however long it runs; a task that
+has to invent an algorithm or repair callers the plan cannot fully enumerate
+needs the stronger model.
+
+| # | Task | Model | Effort | Turns | Why |
+|---|---|---|---|---|---|
+| 1 | Lot-size multiplier | Sonnet | low | 6–8 | Additive constants and one defaulted field. Code given verbatim; the only judgment is where the sqft multiplier is applied. |
+| 2 | Decoupled value types | Sonnet | medium | 8–10 | Mechanical dataclass replacement, but it must be exact — everything downstream is typed against it. Ends deliberately red, so the agent must resist "fixing" the fallout. |
+| 3 | Candidate generation | **Opus** | high | 14–18 | The core semantic change. Three independent axes, the dual-ownership predicate, and the ordering rule all have to be right together, and 12 tests pin subtle interactions. |
+| 4 | Coordinate descent | **Opus** | high | 16–20 | Hardest algorithmic piece. N-dimensional descent with per-axis collapse, closure capture in loops, and infeasible-vs-bad-score handling — a class of bug tests catch late. |
+| 5 | Screening filters | Sonnet | high | 12–15 | Insertions into a working funnel with exact ordering, plus a `_relaxation` rewrite whose first-binding-stage logic needs care. |
+| 6 | Multi-anchor union | **Opus** | high | 14–18 | `stage_zctas` plumbing, dedup over a union rather than one radius, and nearest-anchor resolution. Easy to make quietly wrong — a double-counted funnel still looks plausible. |
+| 7 | Family presence radius | Sonnet | high | 10–14 | Clear tests and given code, but the timeline logic and the fail-closed rule for unknown ZIPs both need to be understood, not pattern-matched. |
+| 8 | v2 payload | Sonnet | medium | 8–10 | Presentation shaping. Code given verbatim; low ambiguity. |
+| 9 | Orchestration | **Opus** | high | 18–24 | Highest integration risk: three files, the two-pass structure preserved, the cross-product pre-flight rewired, and existing tests repaired that the plan can only partly enumerate. |
+| 10 | API validation | Sonnet | high | 12–16 | Long but the rules are given verbatim in order. Effort is high because rule interaction (auto vs. explicit disposition) is where it goes wrong. |
+| 11 | Frontend module extraction | **Opus** | medium | 16–20 | Large mechanical move, but deleting ~640 lines from a 1,841-line file without breaking the window bridge or the scenarios panel is where silent breakage lives. |
+| 12 | Request build + validation | Sonnet | high | 12–16 | Mirrors Task 10's rules, plus the agent must build the DOM test helper the later frontend tasks reuse. |
+| 13 | Results rendering | Sonnet | medium | 10–12 | Well-specified markup against a fixed payload shape. |
+| 14 | CSS + help registry | Sonnet | medium | 12–16 | CSS given verbatim; the bulk is writing ~25 help entries. High volume, low difficulty. |
+| 15 | Persistence | Sonnet | low | 8–10 | Small, one established pattern to follow, five sharp tests. |
+| 16 | Spending screen parity | Sonnet | high | 12–15 | Seed-row edits are trivial; extracting shared select helpers so both screens read from the same markup is the real work. |
+| 17 | Harness, docs, archive | Sonnet | low | 6–8 | `git mv` plus a harness update. The package docstring rewrite is the only judgment call. |
+
+**Totals:** 5 Opus tasks, 12 Sonnet. Forecast **195–260 turns** for the executing
+agents, before review turns.
+
+Haiku is not assigned anywhere. Every task here writes code against tests it
+must not weaken, and the cheapest failure mode — quietly relaxing an assertion
+to get green — is the one that would cost the most to find later.
+
+**Sequencing note for schedulers.** Tasks 1–10 are strictly sequential (each
+consumes the previous task's types). Tasks 11–15 are sequential among
+themselves but depend only on Task 10's wire contract, and Task 16 depends on
+Tasks 1 and 11. So once Task 10 lands, Task 16's seed-row half can run
+alongside Tasks 12–15 if wall-clock matters more than review simplicity.
+
 ## Plan self-review
 
 **Spec coverage.** §5.1 → Tasks 2, 3. §5.2 → Task 9. §5.3 → Tasks 3, 10. §5.4 → Tasks 3, 4.
