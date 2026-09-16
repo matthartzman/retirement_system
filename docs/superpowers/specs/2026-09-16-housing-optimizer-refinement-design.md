@@ -4213,22 +4213,49 @@ Phase 1 Tasks 1–17 are implemented and committed. Every step above is ticked
 because its task's verification commands passed. That is not the same as the
 feature being proven, so the gaps are listed here rather than left implied.
 
-### Not verified
+### Browser verification (done 2026-09-16)
 
-- **The panel has never been loaded in a browser.** Every frontend test in this
-  plan is text- or Node-level: markup is asserted as strings, modules are
-  evaluated in a `vm` sandbox with a stubbed `document`. Nothing has rendered
-  the panel, clicked a field, watched the help pane open, or run an
-  optimization end to end through the real server. The CSS in particular is
-  asserted only by grepping `dashboard.css` for selectors — no one has seen
-  whether a row actually wraps well, whether a result row is legible, or
-  whether the label-above rule achieves what it was meant to achieve.
-  **This is the first thing to do before merging.**
-- **`tests/test_zip_screen_*_functional.py` are weaker than their names.** They
-  assert loose token presence within a character window of a function
-  definition, so a whole column could disappear from a rendered table and they
-  would still pass. They caught the Task 11 file move only because the file
-  path changed, not because the markup did.
+The panel was loaded in a real browser against the dev server on :5050 and
+exercised. What was confirmed live, not by proxy:
+
+- **No console errors on load.** The lazy help registry holds — the module
+  evaluates with `pageHelp` still undefined, which the eager version in this
+  plan's original Task 14 text would not have.
+- **The panel renders**: 11 rows, 53 fields, `<details>` opens.
+- **No horizontal overflow on any row** at 1600px, and `.housing-opt-field`
+  computes `flex-direction: column` — the label-above rule does what §9.2
+  claims it does.
+- **Help pane works**: clicking a field opens `#helpPanel` with the app's four
+  standard headings, and the disposition entry does say "no rental income".
+- **The screenshot case is blocked live.** Move-1 window 2031–2046 with
+  move-2 latest 2030 disables Run and reads *"Move 2 must be able to happen
+  after move 1. Raise the move-2 latest year above 2031."* Correcting the
+  window clears it and validation advances to the next unsatisfied rule.
+  `keep` + `buy` fires its own rule.
+- **The request body is the v2 shape** — `anchors`, no `locations` key.
+- **Results table**: alternating shading (`#fff` / `#f6f7f9`), a 2px rule
+  between results, rank badge on rank 1. One row carries sell year, both
+  moves' year/action/ZIP/city/state/price/distance, and the family distance.
+- **Persistence round-trips through real `localStorage`**: stored values
+  restore on re-entering the step, the results area comes back empty, and
+  nothing result-shaped is ever stored.
+
+A full optimization could not be run end to end: this worktree has an empty
+local database, so `require_residence_state_for_build` rejects the request at
+`plan_routes.py:758` before the optimizer is reached. That is environmental,
+not a defect in this work — but it means **the optimizer has still never been
+run against a real plan through the HTTP layer.** Do that against a populated
+plan folder before merging; `tools/housing_lab.py` is the cheaper way to do it.
+
+### Still not verified
+
+- Visual judgement of the layout. Screenshots in the test pane were too
+  cramped to assess legibility; the checks above are DOM and computed-style
+  measurements, which prove structure but not that it *looks* right.
+- `tests/test_zip_screen_*_functional.py` assert loose token presence within a
+  character window of a function definition, so a whole column could vanish
+  from a rendered table and they would still pass. They are not the safety net
+  their names suggest.
 
 ### Known limitations, recorded deliberately
 
