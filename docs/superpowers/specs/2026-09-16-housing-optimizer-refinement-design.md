@@ -1489,7 +1489,7 @@ from move 1's purchase year, which silently overrode the user's input."
 > Those tests guard a documented silent-failure mode: a coarse pass that sweeps one
 > axis without holding the previous stage's winner fixed still renders plausible
 > numbers while never performing the search it claims. They were restored verbatim as
-> `tests/test_housing_comparison_coarse_descent_unit.py` in commit `98b56a1`.
+> `tests/test_housing_comparison_coarse_descent_unit.py` in commit `c2ab588`.
 > **Lesson for later tasks: confirm what a test file covers before rewriting it; the
 > filename is not evidence.**
 
