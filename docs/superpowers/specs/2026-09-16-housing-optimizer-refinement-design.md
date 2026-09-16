@@ -738,6 +738,13 @@ assert on rendered markup. No new dependencies.
   `2>&1 | tail -12` when you only want the tail.
 - The full suite takes ~3 minutes. Verify with the targeted sets each task names, not a
   full run.
+- **Frontend changes break Python tests.** `tests/test_zip_screen_panel_functional.py`,
+  `test_zip_screen_property_controls_functional.py` and
+  `test_zip_screen_shortlist_render_functional.py` read the panel's `.js` file as text
+  and assert on element ids and function names. Task 11 moved the panel to a new file
+  and renamed its ids, breaking 24 of them. **Every task touching `frontend/js/` must run
+  these three files, not just `npm test`.** A grep over `frontend/js/` does not find
+  them — they live in `tests/`.
 - New test files carry a tier marker from `pyproject.toml`: `unit`, `integration`,
   `contract`, `golden_master`, or `e2e`.
 - No engine changes. `src/projection_stages/` is not modified in Phase 1.
