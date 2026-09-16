@@ -149,6 +149,7 @@ def select_all_eligible(scored: list[ScoredCandidate]) -> list[HousingCandidate]
 
 def estimate_move2_candidate_count(
     eligible: list[HousingCandidate],
+    *,
     locations2: list[Location],
     move2_window: MoveWindow,
     move2_action: str,
@@ -157,7 +158,16 @@ def estimate_move2_candidate_count(
     narrowed: bool,
 ) -> int:
     """Move-2 candidates cross_product would evaluate, computed before any
-    engine call (see MOVE2_CROSS_PRODUCT_CAP)."""
+    engine call (see MOVE2_CROSS_PRODUCT_CAP).
+
+    Keyword-only past ``eligible`` on purpose. This signature gained
+    ``move2_action`` and ``concurrent`` in the MIDDLE of the old positional
+    order ``(eligible, locations, move2_window, no_dual_ownership, narrowed)``.
+    A caller left on the old order would bind ``no_dual_ownership`` to
+    ``move2_action`` and ``narrowed`` to ``concurrent`` -- all truthy, so the
+    count would come back silently wrong and the cross-product cap would
+    misfire. Keyword-only makes that a TypeError instead.
+    """
     if narrowed:
         return len(eligible) * len(locations2) * _NARROWED_EVALS_PER_ANCHOR_LOCATION
     return len(extend_with_move2(

@@ -2852,6 +2852,24 @@ def score_candidate(c, cand, rows, *, via_rental: bool) -> ScoredCandidate:
     )
 ```
 
+> **Two hazards surfaced by Task 3 (2026-09-16), both landing in this task.**
+>
+> 1. `estimate_move2_candidate_count` is now **keyword-only past `eligible`**. Its
+>    positional order used to be `(eligible, locations, move2_window,
+>    no_dual_ownership, narrowed)`; it gained `move2_action` and `concurrent` in the
+>    middle. The call at `optimizer.py:134-159` is positional and must be rewritten to
+>    keywords. It was made keyword-only precisely so a stale call raises `TypeError`
+>    rather than binding `no_dual_ownership` to `move2_action` and returning a silently
+>    wrong count.
+> 2. `select_anchors` and `select_all_eligible` **no longer filter for ownership**. A
+>    rental move 1 is now a legitimate anchor (§5.1 — renting first and buying at move 2
+>    is an ordinary plan), which widens the cross-product space that
+>    `MOVE2_CROSS_PRODUCT_CAP = 3000` guards. That cap was calibrated against the old,
+>    narrower eligibility rule, so inputs that used to pass may now trip it. Do not raise
+>    the cap reflexively: first confirm the new count is legitimate breadth rather than a
+>    generation bug, and if the cap genuinely needs raising, say so in the commit message
+>    with the measured before/after counts.
+
 - [ ] **Step 5: Rewire `optimizer.py`**
 
 Replace the signature and the generation calls. The tally is a plain dict incremented at
