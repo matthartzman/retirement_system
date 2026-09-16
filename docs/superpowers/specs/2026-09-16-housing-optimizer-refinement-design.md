@@ -723,6 +723,12 @@ assert on rendered markup. No new dependencies.
 
 - Python ≥ 3.11. No new runtime dependencies in `requirements.txt`.
 - Run Python tests as `pytest` from the repo root; run JS tests as `npm test`.
+- **Do not pass `-q`.** `pyproject.toml`'s `addopts` already contains it, and a second
+  `-q` suppresses the pass/fail summary line entirely — you get dots and no count. Every
+  `-q` written in this plan's verification steps is a mistake; drop it. Use
+  `2>&1 | tail -12` when you only want the tail.
+- The full suite takes ~3 minutes. Verify with the targeted sets each task names, not a
+  full run.
 - New test files carry a tier marker from `pyproject.toml`: `unit`, `integration`,
   `contract`, `golden_master`, or `e2e`.
 - No engine changes. `src/projection_stages/` is not modified in Phase 1.
