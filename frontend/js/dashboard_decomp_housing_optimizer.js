@@ -46,10 +46,392 @@ const housingOptAnchorCounts = { 1: HOUSING_OPT_MIN_ANCHORS, 2: HOUSING_OPT_MIN_
 let HOUSING_OPT_TOP_CITIES = [];
 let housingOptTopCitiesLoaded = false;
 
-// Field help content registry (design §9.5). Task 14 fills this with the
-// four-section pageHelp() entries keyed by field id; the call sites below
-// already exist so that task is content-only.
-const HOUSING_OPT_FIELD_HELP = {};
+// Field help content registry (design §9.5), keyed by field id. Each value
+// is DATA -- {title, meaning, connections, options, impact} -- not the
+// rendered HTML. It is turned into HTML by calling the app's pageHelp()
+// (dashboard.js:963) lazily, inside showHousingOptFieldHelp() below, at the
+// moment a field is actually clicked.
+//
+// This has to be lazy rather than `pageHelp(...)` calls made right here at
+// module-eval time: index.html loads dashboard_decomp_*.js modules (this one
+// included -- see the file banner above) BEFORE dashboard.js, so pageHelp is
+// not yet defined while this module's top level runs. Calling it here would
+// throw a ReferenceError on every page load and take down the whole panel,
+// not just housing help. Building a plain data object costs nothing at
+// load time and defers the pageHelp() call to a point where dashboard.js has
+// long since finished loading.
+//
+// Per-move fields (Move 1 and Move 2 share the same six real-content
+// controls -- anchors, radius, min score, area type, max population,
+// shortlist size, lot size) are generated once by housingOptMoveHelpEntries()
+// below and registered under both `housingOptMove1<Field>` and
+// `housingOptMove2<Field>` so the wording only has to be written once.
+function housingOptMoveHelpEntries() {
+  return {
+    Anchors: {
+      title: "Anchors",
+      meaning:
+        "The cities or ZIPs the search radiates from for this move. Between 2 and 5 are required.",
+      connections:
+        "Every anchor's radius search runs independently and the results are unioned and de-duplicated before the rest of the funnel (in_radius -> with_data -> ...) runs, so more anchors widen the candidate pool rather than narrowing it.",
+      options:
+        "Pick a handful of places the household would actually consider, spread out enough that their radii do not just overlap the same ZIPs. Toggle City/ZIP per anchor; City uses the built-in top-cities list, ZIP accepts any 5-digit code.",
+      impact:
+        "More anchors (up to 5) can only add candidates to the shortlist, never remove one; fewer anchors narrows the search area the optimizer can consider.",
+    },
+    Radius: {
+      title: "Within (radius)",
+      meaning: "How far from each anchor a candidate ZIP may be, in miles.",
+      connections:
+        "Applied per anchor at the in_radius funnel stage, the very first filter -- everything downstream (score, area type, population, price) only ever sees ZIPs that passed this test for at least one anchor.",
+      options:
+        "One of 5, 10, 25, or 50 miles. A tighter radius keeps the search close to the anchor; a wider one trades relevance for a larger candidate pool, which matters most when a small anchor area has few ZIPs with data.",
+      impact:
+        "Widening the radius can only add candidates (never removes ones already in range); narrowing it can empty the funnel if the anchor area is sparse.",
+    },
+    MinScore: {
+      title: "Min score",
+      meaning:
+        "A floor on the ZIP's neighborhood stability score (0-100), which measures housing and economic stability -- not crime or safety.",
+      connections:
+        "Enforced at the above_score funnel stage, after in_radius and with_data. A ZIP below this floor is dropped regardless of how well it otherwise fits the dwelling spec.",
+      options:
+        "Raise it to bias the shortlist toward more established neighborhoods; lower it (default 60) to admit more ZIPs, especially in areas where high-quality data is thin.",
+      impact:
+        "Raising the floor shrinks the shortlist and can empty the funnel entirely in a sparsely-covered area; the shortlist preview's relaxation hint names this stage explicitly when it is the one that emptied the funnel.",
+    },
+    AreaType: {
+      title: "Area type",
+      meaning:
+        "A single choice -- Any, Urban, Suburban, Exurban, or Rural -- compared against each ZIP's density-derived area type.",
+      connections:
+        "Enforced at the matching_area_type funnel stage. Any is the default and always passes every ZIP through this stage without hiding the stage from the funnel readout.",
+      options:
+        "Choose a specific type only when the household has a real preference for density; leave it at Any otherwise so the search is not narrowed on a dimension nobody cares about.",
+      impact:
+        "Choosing anything other than Any removes every ZIP whose density classification does not match, which can be severe in areas that skew heavily toward one type.",
+    },
+    MaxPopulation: {
+      title: "Max population",
+      meaning:
+        "An optional ceiling on the ZIP's population (its place population, falling back to ZCTA population when that is absent). There is no minimum -- a small town is never excluded for being small.",
+      connections:
+        "Enforced at the under_population_cap funnel stage. Leaving it blank skips the stage entirely; it is the only funnel stage with no default value.",
+      options:
+        "Set it to keep the search away from large cities; leave it blank for no ceiling at all.",
+      impact:
+        "A ceiling can remove every candidate anchored on or near a dense city; the shortlist preview's relaxation hint calls this out by name (\"the population cap\") when it is the stage that emptied the funnel.",
+    },
+    ShortlistSize: {
+      title: "Shortlist size",
+      meaning:
+        "How many screened ZIPs are promoted from this move's funnel into the optimizer, at the final `promoted` stage.",
+      connections:
+        "Everything upstream (radius, score, area type, population cap, price range, distinctness, family presence) narrows the candidate pool; this is the last step, capping how many of the survivors actually reach candidate generation.",
+      options:
+        "A larger shortlist (up to 5) lets the optimizer consider more locations per move at the cost of a larger search (and, with a second move, a larger cross-product); a smaller one runs faster but may drop a ZIP that would have scored well.",
+      impact:
+        "Increasing it only ever adds candidates for the optimizer to score; it never changes which ZIPs pass screening, only how many of the survivors are kept.",
+    },
+    LotSize: {
+      title: "Lot size",
+      meaning:
+        "A lot-size band (Under 1/4 acre through Over 3 acres) used only to adjust the estimated purchase price for this move's dwelling spec, the same way bedrooms, bathrooms, property type, and square footage do.",
+      connections:
+        "This value never screens ZIPs. The ZIP snapshot the search runs against has no per-ZIP lot-area column, so there is nothing for the funnel to filter on -- the shortlist reflects estimated price and the other funnel stages only, not lot size.",
+      options:
+        "Set it to match the kind of home the household actually wants; treat it purely as a price-estimate input, not as a way to narrow which ZIPs show up.",
+      impact:
+        "Changing the band shifts the estimated price up or down (and therefore whether a ZIP passes the price-range filter), but never adds or removes a ZIP on lot size itself -- do not read the shortlist as having been screened on lot size.",
+    },
+  };
+}
+
+// The remaining per-move dwelling-spec fields (§6.3): they only shape the
+// estimated price a move's price-range filter is tested against, so their
+// help is intentionally brief rather than a full four-section essay each --
+// the real content for this group is "this feeds the price estimate, not
+// the ZIP screen" (Lot size gets its own richer entry above, since it is the
+// one of these most likely to be misread as a ZIP filter).
+function housingOptMoveDwellingHelpEntries() {
+  const pricesEstimate =
+    "Feeds estimate_housing_cost as a multiplicative factor on the estimated purchase price for this move, exactly like bedrooms, bathrooms, property type, and square footage do.";
+  const pricesEstimateConnections =
+    "The estimated price this produces is what Price min/Price max are tested against at the affordable funnel stage -- this field does not filter ZIPs by itself.";
+  return {
+    Bedrooms: {
+      title: "Bedrooms",
+      meaning: "The bedroom count used for this move's dwelling spec.",
+      connections: pricesEstimateConnections,
+      options: "Match the household's real space needs; higher counts raise the estimated price.",
+      impact: pricesEstimate,
+    },
+    Bathrooms: {
+      title: "Bathrooms",
+      meaning: "The bathroom count used for this move's dwelling spec.",
+      connections: pricesEstimateConnections,
+      options: "Match the household's real space needs; higher counts raise the estimated price.",
+      impact: pricesEstimate,
+    },
+    PropertyType: {
+      title: "Property type",
+      meaning: "The property type (single family, townhome, condo, duplex) used for this move's dwelling spec.",
+      connections: pricesEstimateConnections,
+      options: "Pick the type the household would actually buy or rent; it shapes the price estimate, not which ZIPs are offered.",
+      impact: pricesEstimate,
+    },
+    SqftBand: {
+      title: "Square footage",
+      meaning: "The square-footage band used for this move's dwelling spec.",
+      connections: pricesEstimateConnections,
+      options: "Pick the band that matches the size of home the household wants; a wider band is a reasonable choice when the exact size is undecided.",
+      impact: pricesEstimate,
+    },
+    BuiltWithin: {
+      title: "Built within",
+      meaning: "An optional age ceiling, in years, on the dwelling used for the price estimate. Leave it blank for no ceiling.",
+      connections: pricesEstimateConnections,
+      options: "Set it only when new-construction-or-newer is a real requirement; otherwise leave it blank so older, otherwise-suitable homes are not excluded from the price estimate's basis.",
+      impact: pricesEstimate,
+    },
+    PriceMin: {
+      title: "Price min",
+      meaning: "The low end of the target purchase-price range for this move.",
+      connections:
+        "Unlike the other dwelling fields, this one DOES filter the funnel directly: it is the affordable stage, applied to each ZIP's estimated price (shaped by bedrooms/bathrooms/property type/sqft/lot size/built-within above). Validation requires min <= max when both are set.",
+      options: "Leave both price fields blank to skip the price filter entirely; set them to the range the household can actually afford.",
+      impact: "Narrowing the range removes ZIPs whose estimated price falls outside it; setting min above max blocks the Run button.",
+    },
+    PriceMax: {
+      title: "Price max",
+      meaning: "The high end of the target purchase-price range for this move.",
+      connections:
+        "Unlike the other dwelling fields, this one DOES filter the funnel directly: it is the affordable stage, applied to each ZIP's estimated price. Validation requires min <= max when both are set.",
+      options: "Leave both price fields blank to skip the price filter entirely; set them to the range the household can actually afford.",
+      impact: "Narrowing the range removes ZIPs whose estimated price falls outside it; setting max below min blocks the Run button.",
+    },
+    Action: {
+      title: "Action",
+      meaning: "Whether this move buys, rents, or lets Auto search both and let the objective decide.",
+      connections:
+        "Buy makes the move's acquisition-year rules interact with dual-ownership and sale-timing validation (rules 4 and 5); Rent never does, since renting never creates an ownership conflict.",
+      options: "Use Auto to compare buying and renting on the objective; force Buy or Rent only when the household has already decided.",
+      impact: "Forcing Rent when 'Never own two homes at once' is on can resolve an otherwise-blocked combination, since renting is always permitted alongside owning the previous home.",
+    },
+  };
+}
+
+const HOUSING_OPT_FIELD_HELP = (() => {
+  const help = {};
+  const moveEntries = { ...housingOptMoveHelpEntries(), ...housingOptMoveDwellingHelpEntries() };
+  for (const moveIndex of [1, 2]) {
+    for (const field of Object.keys(moveEntries)) {
+      help[`housingOptMove${moveIndex}${field}`] = moveEntries[field];
+    }
+  }
+
+  help._panel = {
+    title: "Optimize next housing move",
+    meaning:
+      "Searches three independent decisions -- what happens to the current home, and where/what/when each of up to two moves is -- against the same deterministic engine and Monte Carlo runner as the rest of the plan, and ranks every resulting candidate by one objective.",
+    connections:
+      "Objective picks what is ranked: Ending net worth, Lifetime housing cost (minimized), or Monte Carlo success rate. Each searched move runs its own ZIP-radius screen -- a funnel of in_radius -> with_data -> above_score -> matching_area_type -> under_population_cap -> affordable -> distinct -> near_family -> promoted -- before the survivors are combined into candidates and scored.",
+    options:
+      "Start with Full grid search mode for a thorough run; switch to Narrowed only when the search space is too large to run in full. Use the per-move 'Preview shortlist' button to see which ZIPs a move's screen would return before running the whole optimization.",
+    impact:
+      "Phase 1 limitation: keeping the current home (Disposition = Keep) is scored as a pure cost center -- its carrying costs keep accruing and no rental income is modelled. A kept home can still win on net worth or lifetime cost by avoiding a sale's costs and capital-gains tax while it appreciates, but the comparison does not yet credit any rent it could earn. That comparison is Phase 2 (see the Disposition field's help for the same note in context).",
+  };
+
+  return help;
+})();
+
+// General (non-per-move) field help. Real-content fields get all four
+// sections; year fields get a short "what this means" plus the §8
+// validation rule that governs them (their real content is the rule, not a
+// four-section essay about a single number).
+Object.assign(HOUSING_OPT_FIELD_HELP, {
+  housingOptObjective: {
+    title: "Objective",
+    meaning:
+      "What the ranking maximizes -- or, for lifetime housing cost, minimizes -- across every candidate the search generates.",
+    connections:
+      "Applied only after every candidate has already been generated and simulated; it never changes which candidates exist, only their order in the results table.",
+    options:
+      "Ending net worth for the household's overall financial outcome, Lifetime housing cost to minimize what housing costs over the plan, or Monte Carlo success rate to optimize for plan resilience under simulated market returns.",
+    impact:
+      "Changing the objective can reorder the results table -- including which candidate is rank 1 and carries the 'Recommended' label -- without re-running the search.",
+  },
+  housingOptSearchMode: {
+    title: "Search mode",
+    meaning: "Controls how thoroughly the where/what/when grid is searched.",
+    connections:
+      "Full evaluates the entire grid of candidates exhaustively. Narrowed instead runs coordinate descent, one axis at a time, which is faster but is not guaranteed to find the same best candidate. Concurrent second-move mode (validation rule 8) is only available when this is Full.",
+    options:
+      "Use Full grid for a thorough search when the grid is small enough to run in reasonable time; switch to Narrowed only when Full is too slow for the number of anchors, moves, and windows involved.",
+    impact:
+      "Narrowed can miss the single best candidate that Full would have found, in exchange for materially faster runs; it also disables the 'Concurrent with move 1' option for move 2.",
+  },
+  housingOptMove2Strategy: {
+    title: "Move-2 strategy",
+    meaning:
+      "How move 2's search space is built when a second move is enabled.",
+    connections:
+      "Anchored branches move 2's search from each of move 1's winning candidates. Cross-product instead searches every move-2 possibility against every move-1 possibility independently.",
+    options:
+      "Anchored on move-1 winners keeps the search tractable for most windows. Full cross-product is more thorough but can be rejected outright by the safety cap on large search windows.",
+    impact:
+      "Cross-product can surface a move-2 combination that Anchored would never reach (because it did not originate from a move-1 winner), at the cost of a much larger search that may hit the safety cap.",
+  },
+  housingOptNoDualOwnership: {
+    title: "Never own two homes at once",
+    meaning:
+      "Constrains ownership only. Renting a residence while still owning the previous home is always permitted and is the intended way to bridge a timing gap -- this checkbox never blocks that.",
+    connections:
+      "When on, two combinations are rejected during candidate generation: keeping the current home while any move buys (no rental income exists to offset owning two homes in Phase 1), and buying a move before the current home's sale year. Concurrent second-move mode always keeps both homes, so this checkbox is disabled and ignored while concurrent is active.",
+    options:
+      "Leave it on for a household that genuinely cannot carry two mortgages/insurance/tax bills at once. Turn it off to let the optimizer consider overlapping ownership windows and let the objective decide whether the overlap is worth it.",
+    impact:
+      "Turning it off can surface candidates with a dual-ownership window (flagged with a note on that result row) that would otherwise never be generated; turning it on can eliminate the Keep + Buy combination entirely, which validation blocks the Run button for if it is the only combination available.",
+  },
+  housingOptPresenceEnabled: {
+    title: "Family presence -- enable",
+    meaning:
+      "Turns on a hard filter that drops any candidate whose residence, in any year of the presence window, is farther than the radius from the family ZIP.",
+    connections:
+      "When enabled, this becomes the near_family funnel stage, the last screen before scoring -- it runs after price and distinctness. A concurrent second residence satisfies presence for the years it is held, the same as it does today.",
+    options:
+      "Enable it when staying near a specific place (family, school, a job) during specific years is a real requirement, not merely a preference; leave it off otherwise so it does not needlessly shrink the candidate pool.",
+    impact:
+      "Enabling it can empty the funnel if the radius is too tight for the anchors chosen -- the near_family stage count in the funnel readout, and each shortlist row's distance-to-family annotation, are there to help diagnose that.",
+  },
+  housingOptPresenceZip: {
+    title: "Family ZIP",
+    meaning: "The 5-digit ZIP that proximity is measured from when family presence is enabled.",
+    connections:
+      "Distance from every candidate's residence to this ZIP is computed with the same haversine calculation used for anchor-radius screening, and is enforced by the near_family funnel stage.",
+    options:
+      "Use the ZIP of the place the household actually needs to stay near -- a relative's home, a school, or similar -- not necessarily an anchor ZIP for either move.",
+    impact:
+      "Changing it re-centers which candidates satisfy the presence requirement; combined with a tight radius this can flip a previously-passing candidate to rejected or vice versa.",
+  },
+  housingOptPresenceRadius: {
+    title: "Family presence -- within",
+    meaning: "How far from the family ZIP the household may live during the presence window.",
+    connections:
+      "Enforced by the near_family funnel stage together with the family ZIP and the from/through years -- all four values act as one combined filter.",
+    options:
+      "One of 10, 25, 50, or 100 miles. Use the smallest radius that still reflects the real requirement; an unnecessarily tight radius is a common way to accidentally empty the funnel.",
+    impact:
+      "A tighter radius removes more candidates (and can empty the funnel entirely); a wider one is more forgiving but weakens the guarantee that the household stays near the family ZIP.",
+  },
+  housingOptDisposition: {
+    title: "Disposition (current home)",
+    meaning:
+      "What happens to the current home: Sell, Keep, or Auto (search both and let the objective decide).",
+    connections:
+      "Sell searches an earliest/latest sale-year window. Keep sets no sale at all -- the home's carrying costs keep accruing for the rest of the plan. Important: Keep does NOT mean the home is rented out. No rental income is modelled for a kept home in this phase; it is scored purely as an ongoing cost. (Turning a kept home into an income property is a separate, not-yet-built feature -- Phase 2.) 'Never own two homes at once' also treats Keep + any Buy move as disallowed by default, since there is no rental income in Phase 1 to justify owning two homes.",
+    options:
+      "Choose Sell or Keep only when the household has already decided; choose Auto to let the search compare both and report whichever wins on the objective.",
+    impact:
+      "Keep avoids selling costs and capital-gains tax and lets the home keep appreciating, which can make it win on net worth or lifetime cost despite earning no rental income -- but it also disables the sale-year fields and, with 'Never own two homes at once' on, rules out buying while keeping.",
+  },
+  housingOptMove2Enabled: {
+    title: "Consider a second move",
+    meaning:
+      "Adds a second acquisition to the search, with its own anchors, where/what/when rows, and mode (sequential or concurrent).",
+    connections:
+      "When on, move 2 is combined with move 1 either by the Anchored or Cross-product strategy (see Move-2 strategy) and, unless Concurrent is checked, must be able to happen after move 1 (validation rule 3).",
+    options:
+      "Leave it off for a plan with a single relocation; turn it on to search a two-move sequence, such as an initial downsize followed by a later move, or a concurrent second residence.",
+    impact:
+      "Enabling it roughly squares the size of the search (every move-1 candidate combined with every move-2 candidate under the chosen strategy), which is the main driver of how long a run takes.",
+  },
+  housingOptMove2Concurrent: {
+    title: "Concurrent with move 1",
+    meaning:
+      "Keeps the move-1 home and adds move 2 as a second residence, rather than move 2 replacing move 1's home.",
+    connections:
+      "Only available when Search mode is Full grid (validation rule 8); selecting Narrowed search mode disables and unchecks it. While concurrent, 'Never own two homes at once' is disabled and ignored, because both homes are always kept together.",
+    options:
+      "Check it to model owning two homes at once by design -- for example a second residence used for family presence -- rather than a sequential relocation.",
+    impact:
+      "Turning it on removes the requirement that move 2 happen after move 1 and forces dual ownership to be permitted for the years both homes are held; turning it off (or switching to Narrowed search mode, which forces it off) restores the sequential move-2 timing rule.",
+  },
+  housingOptMove2AnchorCount: {
+    title: "Anchor count",
+    meaning:
+      "How many of move 1's winning candidates the Anchored move-2 strategy branches its search from.",
+    connections:
+      "Only meaningful when Move-2 strategy is Anchored -- Cross-product searches every move-2 possibility against every move-1 possibility and ignores this value.",
+    options:
+      "A higher count considers more of move 1's near-best outcomes as starting points for move 2, at the cost of a larger search; the default of 5 is a reasonable middle ground.",
+    impact:
+      "Raising it can surface a move-2 combination that branches from a move-1 candidate outside the top few, which a lower count would have excluded before move 2 was ever searched.",
+  },
+  // Year fields: a short "what this means" plus the §8 validation rule that
+  // governs them, rather than a full four-section essay about a single
+  // number -- the rule IS the content that matters for a year field.
+  housingOptEarliestSale: {
+    title: "Earliest sale year",
+    meaning: "The first year the current home may be sold, when the disposition searches or forces a sale.",
+    connections:
+      "Validation rule 1 (design §8): must not be after the latest sale year. Ignored entirely -- and disabled in the form -- when Disposition is Keep, since there is no sale to schedule.",
+    options: "Pick a year within the plan's timeline that reflects the earliest the household would realistically list the home.",
+    impact: "Raising it narrows the sale-year window the optimizer may choose from; setting it past the latest sale year blocks the Run button until fixed.",
+  },
+  housingOptLatestSale: {
+    title: "Latest sale year",
+    meaning: "The last year the current home may be sold, when the disposition searches or forces a sale.",
+    connections:
+      "Validation rule 1 (design §8): must not be before the earliest sale year. Also interacts with rule 5: with 'Never own two homes at once' on and move 1 buying, move 1's latest acquisition year must be at least this value.",
+    options: "Pick a year within the plan's timeline that reflects the latest the household would still consider selling.",
+    impact: "Lowering it narrows the sale-year window; setting it before the earliest sale year, or before move 1's forced-buy year under no-dual-ownership, blocks the Run button until fixed.",
+  },
+  housingOptMove1Earliest: {
+    title: "Move 1 -- earliest year",
+    meaning: "The first year move 1 may be acquired -- the closing year for a purchase, the lease start year for a rental.",
+    connections: "Validation rule 2 (design §8): must not be after move 1's latest year.",
+    options: "Pick a year within the plan's timeline that reflects the earliest this move could realistically happen.",
+    impact: "Raising it narrows the acquisition-year window the optimizer may choose move 1 within; setting it past the latest year blocks the Run button until fixed.",
+  },
+  housingOptMove1Latest: {
+    title: "Move 1 -- latest year",
+    meaning: "The last year move 1 may be acquired.",
+    connections:
+      "Validation rule 2 (design §8): must not be before move 1's earliest year. Also interacts with rule 3 (move 2 must be able to happen after move 1, when sequential) and rule 5 (no-dual-ownership forced-buy timing).",
+    options: "Pick a year within the plan's timeline that reflects the latest this move could realistically happen.",
+    impact: "Lowering it narrows the window and can conflict with move 2's timing or the no-dual-ownership rule, both of which block the Run button until resolved.",
+  },
+  housingOptMove2Earliest: {
+    title: "Move 2 -- earliest year",
+    meaning: "The first year move 2 may be acquired, when a second move is enabled.",
+    connections: "Validation rule applied alongside move 1's: move 2's earliest year must not be after move 2's latest year.",
+    options: "Pick a year within the plan's timeline that reflects the earliest move 2 could realistically happen.",
+    impact: "Raising it narrows move 2's acquisition-year window; combined with a low latest year it can also violate rule 3 (move 2 must be able to happen after move 1) unless Concurrent is checked.",
+  },
+  housingOptMove2Latest: {
+    title: "Move 2 -- latest year",
+    meaning: "The last year move 2 may be acquired, when a second move is enabled.",
+    connections:
+      "Validation rule 3 (design §8): in sequential mode, must be after move 1's earliest year -- 'Move 2 must be able to happen after move 1.' Not enforced when Concurrent is checked.",
+    options: "Pick a year within the plan's timeline that reflects the latest move 2 could realistically happen.",
+    impact: "Lowering it too close to (or before) move 1's earliest year blocks the Run button with the rule-3 message, unless Concurrent mode is on.",
+  },
+  housingOptPresenceFrom: {
+    title: "Family presence -- from year",
+    meaning: "The first year of the family-presence window, when family presence is enabled.",
+    connections: "Validation rule 7 (design §8): must not be after the through year, alongside the 5-digit-ZIP requirement.",
+    options: "Pick the year the presence requirement should start applying.",
+    impact: "Raising it narrows the window of years the near_family filter is enforced over; setting it past the through year blocks the Run button until fixed.",
+  },
+  housingOptPresenceThrough: {
+    title: "Family presence -- through year",
+    meaning: "The last year of the family-presence window, when family presence is enabled.",
+    connections: "Validation rule 7 (design §8): must not be before the from year.",
+    options: "Pick the year the presence requirement should stop applying.",
+    impact: "Lowering it narrows the window of years the near_family filter is enforced over; setting it before the from year blocks the Run button until fixed.",
+  },
+});
 
 // ---------------------------------------------------------------------------
 // Layout primitives
@@ -268,11 +650,23 @@ export async function loadHousingOptTopCities() {
 // ---------------------------------------------------------------------------
 
 export function showHousingOptFieldHelp(key) {
-  const entry = HOUSING_OPT_FIELD_HELP[key];
+  const entry = HOUSING_OPT_FIELD_HELP[key] || HOUSING_OPT_FIELD_HELP._panel;
   if (!entry) return;
   ensureHelpPanelVisible();
   const panel = document.getElementById("helpPanel");
-  if (panel) panel.innerHTML = entry;
+  // pageHelp() is defined in dashboard.js, which loads AFTER this module (see
+  // the file banner above) -- it is only called here, lazily, at click time,
+  // never at module-eval time, so its absence during page load never breaks
+  // this module's own evaluation.
+  if (panel) {
+    panel.innerHTML = pageHelp(
+      entry.title,
+      entry.meaning,
+      entry.connections,
+      entry.options,
+      entry.impact,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
