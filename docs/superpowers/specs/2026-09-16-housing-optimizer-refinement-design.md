@@ -45,7 +45,12 @@ Five further problems:
 - Screen candidates on the constraints a person actually shops with: distance, quality,
   area type, population, price, dwelling size.
 - Never spend a search on an impossible window.
-- Reduce the form to labelled horizontal rows with help in the existing right-hand panel.
+- Reduce the form to horizontal rows of compact fields, each field labelled *above* its
+  control rather than to the left of it. A left-hand label adds its own width to every
+  field, which is what forces horizontal scrolling once a row holds more than three or
+  four controls; stacking the label costs a little height instead and lets each field
+  occupy only the width its control actually needs. Help goes in the existing right-hand
+  panel, not inline, for the same reason.
 
 ## 3. Non-goals
 
@@ -464,7 +469,13 @@ Global settings first, then the decisions in the order they happen:
 | | **Run optimization** |
 
 Each field is a vertical cell — label above, control below — laid out in a horizontal
-flex row that wraps. Sizing rules, applied as CSS in `frontend/css/dashboard.css` under a
+flex row that wraps. Labels are never placed to the left of their control: that would add
+label width to every field and push a six- or seven-field row into horizontal scrolling,
+whereas a stacked label lets the cell be exactly as wide as its control. This replaces
+today's one-`<label>`-per-line markup (`:1433-1485`), where the label sits inline before
+the input.
+
+Sizing rules, applied as CSS in `frontend/css/dashboard.css` under a
 `.housing-optimize-panel` scope rather than inline `style=` attributes:
 
 - Year inputs: `width: 5em`. Population and price inputs: `width: 8em`. ZIP inputs:
@@ -679,6 +690,7 @@ Phase 2 also revisits the Phase 1 disclosure text, which exists only to be remov
 | Family presence | Hard filter, candidate level | Stated requirement: the final screen. Soft ranking would let the optimizer recommend a move away from family on a small dollar edge. |
 | `recommendation` + `alternatives` | Merged into `candidates` | They duplicated the rank-1 candidate and forced two rendering paths. |
 | Schema versioning | v2, no v1 shim | The panel is the only consumer and ships in the same change. |
+| Label placement | Above the control, never left of it | A left label adds its width to every field and forces horizontal scrolling in a multi-field row; stacking costs height instead. |
 | Helper text | Right-hand Context Help pane, not inline | Inline text widens every row; the app already has this surface and its heading conventions. |
 | Down payment / mortgage rate | Added to the optimizer | Otherwise the two screens price the same house differently. |
 | Keep-and-rent-out | Phase 2 | Needs a tax subsystem that does not exist; `Keep` is still a valid Phase 1 outcome without it. |
