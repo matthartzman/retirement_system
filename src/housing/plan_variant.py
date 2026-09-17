@@ -70,6 +70,43 @@ def _purchase_price_for_location(loc: Location) -> float:
     return float(_estimate_for_location(loc, 'purchase')['purchase_price'])
 
 
+def _effective_mortgage_rate(loc: Location, mortgage_rate_pct: float | None) -> float:
+    """Same three-way fallback _purchase_step already applies: an explicit
+    rate wins, else the location's own cost-estimate rate, else the flat
+    default. Extracted so results.py's display-only payment estimate and
+    the engine's actual cost basis can never disagree about which rate a
+    given location uses."""
+    if mortgage_rate_pct is not None:
+        return float(mortgage_rate_pct)
+    est = _estimate_for_location(loc, 'purchase')
+    return float(est.get('mortgage_rate_pct', _DEFAULT_MORTGAGE_RATE) or _DEFAULT_MORTGAGE_RATE)
+
+
+def estimate_monthly_pi_payment(
+    purchase_price: float, down_payment_pct: float, mortgage_rate_pct: float,
+    term_years: int = 30,
+) -> float:
+    """Level-payment fixed-rate monthly principal+interest.
+
+    For DISPLAY only (results.py) -- deliberately mirrors
+    deterministic_engine.py's own ``_mortgage_payment_and_balance`` formula
+    (same principal/rate/term inputs, same standard amortization formula)
+    without calling it, so a bug here cannot alter what a plan run actually
+    charges. A fixed-rate, fully-amortizing mortgage's payment is constant
+    for the life of the loan (only the principal/interest split changes
+    year to year), so there is no year-index parameter -- this is the
+    payment for any year before payoff.
+    """
+    principal = max(0.0, purchase_price * (1.0 - down_payment_pct))
+    if principal <= 0.0:
+        return 0.0
+    monthly_rate = max(0.0, mortgage_rate_pct) / 12.0
+    n = max(1, term_years) * 12
+    if monthly_rate <= 1e-9:
+        return principal / n
+    return principal * monthly_rate / (1 - (1 + monthly_rate) ** (-n))
+
+
 def _purchase_step(step_id: str, loc: Location, start_year: int, end_year: int | None,
                    *, down_payment_pct: float | None = None,
                    mortgage_rate_pct: float | None = None) -> dict[str, Any]:
@@ -80,14 +117,13 @@ def _purchase_step(step_id: str, loc: Location, start_year: int, end_year: int |
     estimate's own rate, which is the pre-2026-09-16 behavior.
     """
     est = _estimate_for_location(loc, 'purchase')
-    est_rate = float(est.get('mortgage_rate_pct', _DEFAULT_MORTGAGE_RATE) or _DEFAULT_MORTGAGE_RATE)
     return {
         'id': step_id, 'type': 'purchase',
         'start_year': start_year, 'end_year': end_year or 0,
         'state': loc.state, 'city_type': loc.city_type, 'population_size': loc.population_size,
         'purchase_price': _purchase_price_for_location(loc),
         'down_payment_pct': float(DEFAULT_DOWN_PAYMENT_PCT if down_payment_pct is None else down_payment_pct),
-        'mortgage_rate_pct': est_rate if mortgage_rate_pct is None else float(mortgage_rate_pct),
+        'mortgage_rate_pct': _effective_mortgage_rate(loc, mortgage_rate_pct),
         'monthly_rent': 0.0,
         'insurance_annual': float(est.get('insurance_annual', 0.0) or 0.0),
         'utilities_annual': float(est.get('utilities_annual', 0.0) or 0.0),

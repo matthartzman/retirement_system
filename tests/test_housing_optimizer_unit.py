@@ -34,7 +34,13 @@ from src.housing_optimizer import (
     select_anchors,
 )
 from src.housing.models import NARROWED_MAX_EVALS_PER_AXIS, NARROWED_MOVE2_AXES
-from src.housing.plan_variant import _apply_candidate, _purchase_price_for_location
+from src.housing.plan_variant import (
+    _DEFAULT_MORTGAGE_RATE,
+    _apply_candidate,
+    _effective_mortgage_rate,
+    _purchase_price_for_location,
+    estimate_monthly_pi_payment,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -118,6 +124,32 @@ def test_purchase_price_falls_back_to_state_estimate_when_no_est_price():
     loc = Location(state="Texas", city_type="suburban", population_size=150000)
     price = _purchase_price_for_location(loc)
     assert price > 0
+
+
+def test_effective_mortgage_rate_prefers_the_explicit_value():
+    assert _effective_mortgage_rate(TX, 0.05) == 0.05
+
+
+def test_effective_mortgage_rate_falls_back_to_the_location_estimate():
+    rate = _effective_mortgage_rate(TX, None)
+    assert rate > 0
+
+
+def test_monthly_pi_payment_matches_a_hand_computed_amortization():
+    # $400,000 price, 20% down -> $320,000 principal, 6% annual rate, 30yr.
+    # Standard level-payment formula: 320000 * 0.005 / (1 - 1.005**-360)
+    payment = estimate_monthly_pi_payment(400000.0, 0.20, 0.06)
+    assert round(payment, 2) == 1918.56
+
+
+def test_monthly_pi_payment_is_zero_rate_safe():
+    # 0% rate: straight-line principal / n_payments, no division by zero.
+    payment = estimate_monthly_pi_payment(360000.0, 0.20, 0.0)
+    assert round(payment, 2) == round(288000.0 / 360, 2)
+
+
+def test_monthly_pi_payment_is_zero_when_fully_down():
+    assert estimate_monthly_pi_payment(400000.0, 1.0, 0.06) == 0.0
 
 
 def test_a_rental_move_is_a_rent_step_because_the_action_says_so():
