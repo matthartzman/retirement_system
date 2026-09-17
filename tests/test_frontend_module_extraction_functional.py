@@ -74,7 +74,12 @@ def test_planning_workbench_case_store_moved_out_of_dashboard():
     assert "window.RetirementPlanningWorkbench" in workbench
     assert "retirement.planning_case_v1" in workbench
     assert "planning_case_v1" in workbench
-    assert 'function renderPlanningWorkbench() {\n  return window.RetirementPlanningWorkbench.renderWorkbench' in dashboard
+    # renderWorkbench() and dashboard.js's renderPlanningWorkbench() wrapper
+    # around it were deleted (Planning Workbench Strategy Integration Task 4
+    # removed renderWorkbench() from this module; Task 5 removed the now-dead
+    # wrapper and its unreachable renderMain() call site from dashboard.js).
+    assert "function renderWorkbench(" not in workbench
+    assert "renderPlanningWorkbench" not in dashboard
     assert 'function planningWorkbenchBuildImpactHtml() {\n  return window.RetirementPlanningWorkbench.renderBuildImpactContext' in dashboard
 
 

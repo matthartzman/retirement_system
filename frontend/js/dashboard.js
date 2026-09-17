@@ -163,6 +163,7 @@ const STEPS = [
   {
     id: "planning_workbench",
     group: null,
+    hidden: true,
     title: "Planning Workbench",
     desc: "Unified place to review the baseline, assemble change sets, compare scenarios, run stress suites, and decide what to adopt.",
     intro:
@@ -191,10 +192,19 @@ const STEPS = [
     id: "strategy_scenarios",
     group: "Strategy",
     title: "Scenarios",
-    desc: "Ranked strategy levers, named scenario change sets, and the Planning Workbench for comparing and adopting them.",
+    desc: "Named scenario change sets you stage and save from any source page.",
     intro:
-      "Levers rank the isolated impact of one change at a time. Change sets are named deterministic cases you can compare side by side in the workbench.",
+      "Change sets are named deterministic cases you can compare side by side in the Workbench. Rank individual levers and review saved cases there.",
     help: "Use change sets for questions with a specific answer (retire two years later, sell the home in 2028). Use Stress Test for probability ranges and adverse assumptions.",
+  },
+  {
+    id: "strategy_workbench",
+    group: "Strategy",
+    title: "Workbench",
+    desc: "Compare the baseline, named change sets, and stress-suite results in one place, then decide what to adopt.",
+    intro:
+      "Pick a baseline, stage a change set to test, choose Scenario or Stress as the run type, then review Impact and record a Decision.",
+    help: "Planning cases are browser-local change sets. They do not alter the saved plan until you explicitly jump to source pages, edit inputs, save, and rebuild.",
   },
   {
     id: "distribution_strategy",
@@ -1502,26 +1512,6 @@ function planningCaseOverrideFromRow(row, source, reason) {
     reason,
   );
 }
-function currentManualOverrideItems() {
-  return window.RetirementPlanningWorkbench.currentManualOverrideItems(
-    planningWorkbenchContext(),
-  );
-}
-function currentScenarioOverrideItems() {
-  return window.RetirementPlanningWorkbench.currentScenarioOverrideItems(
-    planningWorkbenchContext(),
-  );
-}
-function strategyLeverOverrideItems() {
-  return window.RetirementPlanningWorkbench.strategyLeverOverrideItems(
-    planningWorkbenchContext(),
-  );
-}
-function stressOverrideItems() {
-  return window.RetirementPlanningWorkbench.stressOverrideItems(
-    planningWorkbenchContext(),
-  );
-}
 function planningCaseOverridesForSource(source) {
   return window.RetirementPlanningWorkbench.overridesForSource(
     planningWorkbenchContext(),
@@ -1660,11 +1650,6 @@ function planningWorkbenchStressSelectorHtml(cases) {
   return window.RetirementPlanningWorkbench.stressSelectorHtml(
     planningWorkbenchContext(),
     cases,
-  );
-}
-function renderPlanningWorkbench() {
-  return window.RetirementPlanningWorkbench.renderWorkbench(
-    planningWorkbenchContext(),
   );
 }
 function planningWorkbenchBuildImpactHtml() {
@@ -1884,8 +1869,7 @@ function pageSaveMode(stepId) {
     [
       "strategy_stress",
       "strategy_scenarios",
-      "planning_workbench",
-      "planning_levers",
+      "strategy_workbench",
       "scenarios",
       "monte_carlo_options",
       "survivor_stress",
@@ -3810,6 +3794,7 @@ let renderMain = function() {
         "detailed_results",
         "system_configuration",
         "strategy_scenarios",
+        "strategy_workbench",
         "reports_and_review",
       ].includes(activeStep)) ||
     activeStep === "start"
@@ -3860,6 +3845,8 @@ let renderMain = function() {
   else if (activeStep === "strategy_stress") content += renderStrategyStress();
   else if (activeStep === "strategy_scenarios")
     content += renderStrategyScenarios();
+  else if (activeStep === "strategy_workbench")
+    content += renderStrategyWorkbench();
   else if (activeStep === "reports_and_review")
     content += renderReportsAndReview();
   else if (activeStep === "scenarios")
@@ -3899,9 +3886,6 @@ let renderMain = function() {
   else if (activeStep === "allocation_assets")
     content += analysisFrame(renderAllocationRecommendation(), "strategy") + `<details class="decide-embed-sub" open><summary>Allocation policy settings</summary>${renderAllocationPolicy()}</details>`;
   else if (activeStep === "build_impact") content += renderBuildImpactPage();
-  else if (activeStep === "planning_workbench")
-    content += renderPlanningWorkbench();
-  else if (activeStep === "planning_levers") content += renderPlanningLevers();
   else if (activeStep === "detailed_results")
     content += renderDetailedResults();
   else if (activeStep === "plan_data_report") content += renderPlanDataReport();
@@ -7249,7 +7233,7 @@ Object.assign(window, {
   assetActionForSubsection, baseHomeSaleYearRow, blurYtdAccountMoney, boolishValue,
   buildWithDesktopProgress, catEffectiveBudget, changeImpactScope, changeKey, chatMessageHtml,
   checkAppStatus, chooseDefaultDetailedSheet, cloneSummary, closeChartModal, closeExitModal,
-  closeNavDrawer, collapseAllDetailGroups, currentManualOverrideItems, currentScenarioOverrideItems,
+  closeNavDrawer, collapseAllDetailGroups,
   decimalsFromText, deleteYtdAccount, dependencyRank, deriveTotalRothConversions,
   detailProgressState, detailedProgressHtml, detailedSheetByName, discardAndExit, dismissMessage,
   domainBudgetNote, downloadBlob, exitApp, expandAllDetailColumnsOnPage, expandAllDetailGroups,
@@ -7272,7 +7256,7 @@ Object.assign(window, {
   primaryActionForStep, promotePlanningCase, recoverPriorSpendingBudget, recoverYtdAccountSetup,
   rememberBuildCompare, renderAssetsCashReserves, renderDetailedResultsNav,
   renderDetailedResultsProgressTick, renderEstateWithAnnuityLink, renderFieldFinderGroups,
-  renderHouseholdPeople, renderMeta, renderNav, renderOptionalFunctions, renderPlanningWorkbench,
+  renderHouseholdPeople, renderMeta, renderNav, renderOptionalFunctions,
   renderRetirementWellness, renderSpendingDashboardOrLoad, renderSpendingWorkflowBanner,
   renderStrategyTabs, renderWithdrawalOrderTable, renderWithdrawalStrategy,
   renderWorkspaceSubtabsNav, resetAllocationPreview, restoreGroupBudgetModes,
@@ -7283,8 +7267,8 @@ Object.assign(window, {
   setPlanningCaseActive, setSearchScope, setStrategyTab, showPlanDataFileManifest,
   showSpendingModelLoadOverlay, showYtdLoadOverlay, sleep, spendingFlowFooterHtml,
   startDetailedResultsProgress, stepHelpLinkHtml, stepIdForRow, stepSearchText,
-  stopDetailedResultsProgress, strategyLeverOverrideItems, stressHomeSaleYearRow,
-  stressOverrideItems, stripUiLabelPrefix, suggestedNext, summaryFromApiPayload, takeBuildSnapshot,
+  stopDetailedResultsProgress, stressHomeSaleYearRow,
+  stripUiLabelPrefix, suggestedNext, summaryFromApiPayload, takeBuildSnapshot,
   toggleDetailColGroup, toggleDetailColumnGroup, toggleHelpSheet, toggleNavDrawer,
   translatePersonValueLabel, updateSearchToggle, updateYtdAccountMoney,
   validateAllocationTargetsOrMessage, wireStepNavigation, withdrawalOtherRows,

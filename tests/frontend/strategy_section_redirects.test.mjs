@@ -119,13 +119,26 @@ describe("legacy Strategy step ids land on the right screen and section", () => 
   }
 
   const SCENARIOS = {
-    planning_levers: "levers",
     scenarios: "change_sets",
-    planning_workbench: "workbench",
   };
   for (const [legacy, section] of Object.entries(SCENARIOS)) {
     test(`${legacy} -> Scenarios / ${section}`, () => {
       assert.equal(go(legacy), "strategy_scenarios");
+      assert.deepEqual(openedSections, [[section, true]]);
+    });
+  }
+
+  // planning_levers and planning_workbench were folded into strategy_scenarios
+  // as the "levers"/"workbench" sections; they now redirect to the standalone
+  // Workbench screen instead (ticket 323 + Workbench), both opening its
+  // default "levers" section.
+  const WORKBENCH = {
+    planning_levers: "levers",
+    planning_workbench: "levers",
+  };
+  for (const [legacy, section] of Object.entries(WORKBENCH)) {
+    test(`${legacy} -> Workbench / ${section}`, () => {
+      assert.equal(go(legacy), "strategy_workbench");
       assert.deepEqual(openedSections, [[section, true]]);
     });
   }
@@ -159,10 +172,10 @@ describe("destinations that left Strategy entirely", () => {
 
 describe("Compare & Decide stays reachable before a plan is open", () => {
   // planning_workbench was plan-independent and is reached from a button in
-  // every page header. Folding it into a section of strategy_scenarios must
-  // not make that button bounce to the start page when no plan is loaded.
+  // every page header. Redirecting it to strategy_workbench must not make
+  // that button bounce to the start page when no plan is loaded.
   test("planning_workbench still resolves rather than bouncing to start", () => {
-    assert.equal(go("planning_workbench", false), "strategy_scenarios");
+    assert.equal(go("planning_workbench", false), "strategy_workbench");
   });
 
   test("a genuinely plan-dependent Strategy screen still bounces to start", () => {

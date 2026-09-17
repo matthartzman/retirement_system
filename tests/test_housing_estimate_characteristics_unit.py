@@ -57,6 +57,16 @@ def test_property_type_unrecognized_value_falls_back_to_single_family():
     assert _base_purchase_price(property_type="mansion") == _base_purchase_price(property_type="single_family")
 
 
+def test_apartment_is_the_cheapest_property_type():
+    # Apartment is rental-only in the optimizer (see actions_for_location in
+    # candidates.py); its price multiplier still needs to exist here for the
+    # manual Housing page's "Estimate fields" button and the state-level
+    # fallback price estimate (plan_variant._estimate_for_location), both of
+    # which price any property_type unconditionally.
+    prices = {t: _base_purchase_price(property_type=t) for t in PROPERTY_TYPE_MULT}
+    assert prices["apartment"] < prices["condo"]
+
+
 def test_sqft_band_multiplier_ordering():
     prices = {
         b: _base_purchase_price(sqft_band=b)

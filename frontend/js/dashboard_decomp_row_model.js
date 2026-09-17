@@ -1067,9 +1067,7 @@ export function planningWorkbenchContext() {
     displayValueForInput: displayValueForInput,
     scenarioActiveOverrideItems: scenarioActiveOverrideItems,
     planningLeverRows: planningLeverRows,
-    renderWorkbenchLeverEditorHtml: renderWorkbenchLeverEditorHtml,
     renderScenarios: renderScenarios,
-    renderWorkbenchStressHtml: renderWorkbenchStressHtml,
     confirm: function (msg, opts) {
       return showInAppConfirm(msg, opts);
     },
@@ -1344,6 +1342,7 @@ const STRATEGY_SCREEN_MEMBER_STEPS = {
     "divorce_options",
   ],
   strategy_scenarios: ["scenarios"],
+  strategy_workbench: [],
 };
 
 export function rawRowsForStep(id) {
@@ -2210,10 +2209,13 @@ export function renderSteps() {
         "start",
         "system_configuration",
         "detailed_results",
-        // #323: the Workbench is a section of strategy_scenarios now, and that
-        // screen has a real nav button -- so the button, not the retired step
-        // id, is what must stay enabled before a plan is open.
+        // #323/Planning Workbench Strategy Integration: strategy_scenarios and
+        // strategy_workbench are the real nav buttons the retired
+        // planning_workbench/planning_levers/scenarios step ids redirect
+        // into -- these must stay enabled before a plan is open so those
+        // redirects (and the header's "Compare & Decide" button) still work.
         "strategy_scenarios",
+        "strategy_workbench",
         "reports_and_review",
       ].includes(s.id);
     let badge = "";

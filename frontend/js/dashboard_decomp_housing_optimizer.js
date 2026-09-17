@@ -3,10 +3,12 @@
 // spending/housing screen and had reached 1,841 lines, and the optimizer block
 // roughly doubles in size under the refinement design
 // (docs/superpowers/specs/2026-09-16-housing-optimizer-refinement-design.md
-// §9.1). renderScenarioManagementPanel() still embeds the panel, so its
-// position in Strategy -> Scenarios is unchanged; index.html loads this module
-// BEFORE dashboard_decomp_housing_scenarios.js so the bare-global call in
-// renderScenarioManagementPanel resolves.
+// §9.1). 2026-09-17: relocated from Strategy -> Scenarios -> Scenario Change
+// Sets to its own tab, Strategy -> Optimize -> Next Housing Move
+// (dashboard_decomp_strategy_workspace.js's renderStrategyOptimize()), a
+// better fit alongside the plan's other major planning-lever decisions.
+// index.html loads this module BEFORE dashboard_decomp_strategy_workspace.js
+// so the bare-global call in renderStrategyOptimize() resolves.
 //
 // Layout rule (design §9.2): every control is wrapped by housingOptField,
 // which stacks the label ABOVE the control. A label placed to the left adds
@@ -21,7 +23,7 @@
 // so the widths stay in one place and can be tuned without touching this
 // markup. Task 14 defines those classes.
 
-const HOUSING_OPT_MIN_ANCHORS = 2;
+const HOUSING_OPT_MIN_ANCHORS = 1;
 const HOUSING_OPT_MAX_ANCHORS = 5;
 
 // Persistence (§9.6). The <details> wrapper renderHousingOptimizePanelHtml()
@@ -92,7 +94,7 @@ function housingOptMoveHelpEntries() {
     Anchors: {
       title: "Anchors",
       meaning:
-        "The cities or ZIPs the search radiates from for this move. Between 2 and 5 are required.",
+        "The cities or ZIPs the search radiates from for this move. Between 1 and 5 are required.",
       connections:
         "Every anchor's radius search runs independently and the results are unioned and de-duplicated before the rest of the funnel (in_radius -> with_data -> ...) runs, so more anchors widen the candidate pool rather than narrowing it.",
       options:
@@ -196,9 +198,9 @@ function housingOptMoveDwellingHelpEntries() {
     },
     PropertyType: {
       title: "Property type",
-      meaning: "The property type (single family, townhome, condo, duplex) used for this move's dwelling spec.",
+      meaning: "The property type (single family, townhome, condo, duplex, apartment) used for this move's dwelling spec. Apartment is rental-only.",
       connections: pricesEstimateConnections,
-      options: "Pick the type the household would actually buy or rent; it shapes the price estimate, not which ZIPs are offered.",
+      options: "Pick the type the household would actually buy or rent; it shapes the price estimate, not which ZIPs are offered. Choosing Apartment forces this move's action to Rent or Auto -- Buy is blocked for apartments.",
       impact: pricesEstimate,
     },
     SqftBand: {
@@ -615,7 +617,7 @@ export function housingOptAnchorEntryHtml(moveIndex, i) {
     key,
     `Anchor ${i + 1}`,
     control,
-    "A city or ZIP the search radiates from. Each searched move takes 2-5 anchors.",
+    "A city or ZIP the search radiates from. Each searched move takes 1-5 anchors.",
   );
 }
 
@@ -997,7 +999,7 @@ function housingOptMoveWhereRowHtml(n) {
     `Move ${n} — where`,
     housingOptField(
       `${p}Anchors`,
-      "Anchors (2-5)",
+      "Anchors (1-5)",
       renderHousingOptAnchorsHtml(n),
       "The search screens ZIPs around each anchor and unions the results before dedup.",
     ) +
@@ -1355,7 +1357,7 @@ export async function previewHousingZipShortlist(moveIndex) {
   const n = moveIndex || 1;
   const search = housingOptMoveSearchBody(n);
   if (search.anchors.length < HOUSING_OPT_MIN_ANCHORS) {
-    showMessage(`Choose between 2 and 5 anchors for move ${n}.`, "error");
+    showMessage(`Choose between 1 and 5 anchors for move ${n}.`, "error");
     return;
   }
   const target = document.getElementById(`housingOptMove${n}Shortlist`);
@@ -1802,7 +1804,7 @@ export function validateHousingOptForm() {
     const search = housingOptMoveSearchBody(n);
     const label = `move ${n}`;
     if (!(search.anchors.length >= HOUSING_OPT_MIN_ANCHORS && search.anchors.length <= HOUSING_OPT_MAX_ANCHORS)) {
-      return `Choose between 2 and 5 anchors for ${label}.`;
+      return `Choose between 1 and 5 anchors for ${label}.`;
     }
     if (!HOUSING_OPT_ALLOWED_RADII_MILES.includes(search.radius_miles)) {
       return `Radius must be one of ${HOUSING_OPT_ALLOWED_RADII_MILES.join(", ")} miles.`;
@@ -1813,6 +1815,10 @@ export function validateHousingOptForm() {
     const rng = search.dwelling && search.dwelling.target_purchase_price_range;
     if (rng && Number(rng[0]) > Number(rng[1])) {
       return "Minimum target price must not exceed the maximum.";
+    }
+    const moveAction = housingOptDomVal(`housingOptMove${n}Action`) || "auto";
+    if (search.dwelling && search.dwelling.property_type === "apartment" && moveAction === "buy") {
+      return `Apartment is rental-only for ${label}. Choose Rent or Auto, or a different property type to buy.`;
     }
   }
 
