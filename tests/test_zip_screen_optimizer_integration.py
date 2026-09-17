@@ -106,6 +106,26 @@ def test_an_empty_shortlist_returns_200_without_running_the_engine():
     assert 'message' in payload
 
 
+def test_a_down_payment_pct_of_zero_is_honored_not_rewritten_to_20_pct():
+    """An explicit 0% down payment must not be silently replaced by the
+    20% default (`0 or 0.20` truthiness bug -- see api.py's
+    `optimize_housing_from_request`). A $0-down purchase finances the full
+    purchase price, so its monthly P&I must be strictly higher than the
+    20%-down default's."""
+    body = _body()
+    body['move1']['action'] = 'buy'
+    zero_down_payload, status = optimize_housing_from_request(
+        _base_config(), dict(body, down_payment_pct=0), table_path=FIXTURE)
+    assert status == 200
+    default_payload, status = optimize_housing_from_request(
+        _base_config(), body, table_path=FIXTURE)
+    assert status == 200
+
+    zero_down_pi = zero_down_payload['recommendation']['moves'][0]['financing']['monthly_pi_payment']
+    default_pi = default_payload['recommendation']['moves'][0]['financing']['monthly_pi_payment']
+    assert zero_down_pi > default_pi
+
+
 def test_a_second_move_produces_a_second_zip_screens_block():
     body = _body(move2={
         'earliest_acquisition_year': 2032, 'latest_acquisition_year': 2033,

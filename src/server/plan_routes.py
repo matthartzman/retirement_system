@@ -777,6 +777,14 @@ def housing_top_cities():
     from ..housing import top_cities_payload
     return _service_json(top_cities_payload())
 
+@app.route("/api/housing/zip-lookup", methods=["GET"])
+def housing_zip_lookup():
+    denied = _require("read_config")
+    if denied:
+        return denied
+    from ..housing import zip_lookup
+    return _service_json(zip_lookup(request.args.get("zip", "")))
+
 @app.route("/api/config/sync", methods=["POST"])
 def config_sync():
     denied = _require("write_config")
