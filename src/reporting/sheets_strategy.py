@@ -1,3 +1,4 @@
+import os
 from .workbook_common import (
     BLUE,
     DGRAY,
@@ -377,9 +378,40 @@ def build_sheet10(ws, c, rows):
             _evaluated[key] = _safe_project_pair(spec['h_age'], spec['w_age'])
         return _evaluated[key]
 
+    def _evaluate_pairs(specs: list[dict]) -> list[dict]:
+        """Score claim-age pairs in parallel, filling the _evaluated cache.
+
+        Results are collected BY INDEX, not by completion order: the sweep's
+        rank_score normalization and tie-breaking both depend on a stable
+        candidate order. Falls back to serial evaluation if a pool cannot be
+        created (restricted/frozen environments, single-core hosts) -- a slow
+        sheet is always better than a failed build.
+        """
+        pending = [s for s in specs if (s['h_age'], s['w_age']) not in _evaluated]
+        if len(pending) > 1:
+            try:
+                from concurrent.futures import ProcessPoolExecutor
+                workers = min(len(pending), max(1, (os.cpu_count() or 2) - 1))
+                with ProcessPoolExecutor(max_workers=workers) as pool:
+                    futures = [
+                        pool.submit(evaluate_claim_age_pair, c, s, _sweep_settings)
+                        for s in pending
+                    ]
+                    for s, fut in zip(pending, futures):
+                        _evaluated[(s['h_age'], s['w_age'])] = fut.result()
+            except Exception as _pool_exc:
+                print(f'  Sheet 10: parallel sweep unavailable ({_pool_exc}); scoring serially.')
+                for s in pending:
+                    _evaluated[(s['h_age'], s['w_age'])] = _safe_project_pair(s['h_age'], s['w_age'])
+        else:
+            for s in pending:
+                _evaluated[(s['h_age'], s['w_age'])] = _safe_project_pair(s['h_age'], s['w_age'])
+        return [_evaluated[(s['h_age'], s['w_age'])] for s in specs]
+
     _coarse_h = sorted(set(range(h_floor, 71, _COARSE_STEP)) | {70})
     _coarse_w = sorted(set(range(w_floor, 71, _COARSE_STEP)) | {70})
     _coarse_pairs = [{'h_age': h, 'w_age': w} for h in _coarse_h for w in _coarse_w]
+    _evaluate_pairs(_coarse_pairs)
     _coarse_sweep = strategy_sweep.run_sweep(
         _coarse_pairs, _evaluate_pair, sort_key=lambda d: d['objective_value'],
     )
@@ -394,6 +426,7 @@ def build_sheet10(ws, c, rows):
         if (h, w) not in _seen_pairs
     ]
 
+    _evaluate_pairs(_refine_pairs)
     _sweep = strategy_sweep.run_sweep(
         _coarse_pairs + _refine_pairs,
         _evaluate_pair,
