@@ -2451,6 +2451,19 @@ def project(c):
         return run_deterministic_projection_stage(c)
 
 
+# Derived build outputs carried on the config that no projection stage reads.
+# plan_result alone measured ~11.7ms of a 13-33ms run_scenario deepcopy, and
+# run_scenario is called 250x per build. Shared by reference into the copy:
+# a scenario never reads them, and the callers that want them gone
+# (sheets_strategy._safe_project_pair) already pop them from the copy.
+_SCENARIO_IRRELEVANT_KEYS = frozenset({
+    'plan_result',
+    'report_spec',
+    'roth_strategy_result',
+    'advisor_readiness',
+})
+
+
 def run_scenario(base_config, overrides=None, mutate=None):
     """Deep-copy ``base_config``, apply a what-if change, and run ``project()``
     on the copy without mutating the caller's config.
@@ -2477,7 +2490,15 @@ def run_scenario(base_config, overrides=None, mutate=None):
     without a verified win. Revisit only if profiling shows real duplicate
     project() calls.
     """
-    c2 = copy.deepcopy(base_config)
+    _carried = {k: base_config[k] for k in _SCENARIO_IRRELEVANT_KEYS if k in base_config}
+    if _carried:
+        _slim = {k: v for k, v in base_config.items() if k not in _SCENARIO_IRRELEVANT_KEYS}
+        c2 = copy.deepcopy(_slim)
+        # Re-attach by reference. Safe because no projection stage reads these,
+        # and deep-copying them was the single largest cost in this function.
+        c2.update(_carried)
+    else:
+        c2 = copy.deepcopy(base_config)
     if overrides:
         c2.update(overrides)
     if mutate is not None:
