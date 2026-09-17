@@ -21,18 +21,57 @@ export function formatElapsed(ms) {
     sec = String(total % 60).padStart(2, "0");
   return `${m}:${sec}`;
 }
+
+// Per-popup average run-time (#326): each progress popup (build, plan load,
+// YTD load, spending model load, housing optimizer screen/run, load-all-
+// assumptions) shares this one overlay, so run-time history is bucketed by
+// the caller-supplied popupId rather than by title (titles change mid-run,
+// e.g. the build sequence cycles through several). Persisted client-side
+// only -- this is a display nicety, not data the app needs to survive a
+// reinstall or sync across machines.
+const POPUP_RUNTIME_HISTORY_LS_KEY = "popupRuntimeHistory_v1";
+const POPUP_RUNTIME_HISTORY_MAX = 20;
+let buildOverlayPopupId = "";
+function loadPopupRuntimeHistory() {
+  try {
+    const raw = localStorage.getItem(POPUP_RUNTIME_HISTORY_LS_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (_e) {
+    return {};
+  }
+}
+function recordPopupRuntime(popupId, durationMs) {
+  if (!popupId || !Number.isFinite(durationMs) || durationMs <= 0) return;
+  const history = loadPopupRuntimeHistory();
+  const runs = Array.isArray(history[popupId]) ? history[popupId] : [];
+  runs.unshift(durationMs);
+  history[popupId] = runs.slice(0, POPUP_RUNTIME_HISTORY_MAX);
+  try {
+    localStorage.setItem(POPUP_RUNTIME_HISTORY_LS_KEY, JSON.stringify(history));
+  } catch (_e) {}
+}
+function averageRuntimeText(popupId) {
+  if (!popupId) return null;
+  const runs = loadPopupRuntimeHistory()[popupId];
+  if (!Array.isArray(runs) || runs.length < 2) return null;
+  const avgMs = runs.reduce((sum, v) => sum + v, 0) / runs.length;
+  return `The average run-time over the last ${runs.length} runs has been ${formatElapsed(avgMs)}`;
+}
+
 export function refreshBuildOverlayTimer() {
   const d = document.getElementById("buildOverlayDetail");
   if (!d || !buildOverlayStartedAt) return;
   d.textContent = `Elapsed ${formatElapsed(Date.now() - buildOverlayStartedAt)}`;
 }
-export function setBuildOverlay(active, title, detail, pct) {
+export function setBuildOverlay(active, title, detail, pct, popupId) {
   const overlay = document.getElementById("buildOverlay");
   if (!overlay) return;
   if (active) {
     buildOverlayDepth++;
     if (buildOverlayDepth === 1) {
       buildOverlayStartedAt = Date.now();
+      buildOverlayPopupId = popupId || title || "";
       if (buildOverlayTimer) clearInterval(buildOverlayTimer);
       buildOverlayTimer = setInterval(refreshBuildOverlayTimer, 1000);
     }
@@ -77,7 +116,7 @@ export function updateBuildOverlay(title, detail, pct, state) {
     b.style.animation = "none";
   }
   if (p) {
-    p.textContent = value === null ? "Working…" : Math.round(value) + "%";
+    p.textContent = averageRuntimeText(buildOverlayPopupId) || "Working…";
   }
   refreshBuildOverlayTimer();
 }
@@ -100,6 +139,9 @@ export async function cancelBuild() {
 export function hideBuildOverlay() {
   if (buildOverlayDepth > 0) buildOverlayDepth--;
   if (buildOverlayDepth > 0) return;
+  if (buildOverlayStartedAt) {
+    recordPopupRuntime(buildOverlayPopupId, Date.now() - buildOverlayStartedAt);
+  }
   stopSmoothProgress();
   const overlay = document.getElementById("buildOverlay");
   if (!overlay) return;
@@ -110,6 +152,7 @@ export function hideBuildOverlay() {
   buildOverlayStartedAt = 0;
   buildOverlayLastTitle = "";
   buildOverlayLastPct = 0;
+  buildOverlayPopupId = "";
   overlay.classList.remove("active", "done", "error", "waiting");
   overlay.setAttribute("aria-hidden", "true");
   document.body.classList.remove("is-busy");

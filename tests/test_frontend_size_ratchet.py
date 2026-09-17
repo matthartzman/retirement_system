@@ -192,7 +192,24 @@ DASHBOARD_JS_MAX_LINES = 7_293
 # its own. Two independently-sufficient ceilings, combined by a merge neither
 # side's diff alone could see coming; raised to the genuinely measured total
 # of both real, non-duplicate additions.
-TOTAL_JS_MAX_LINES = 33_076
+# 2026-09-17: raised from 33,076 to 33,217 -- merging the housing-financing-
+# and-zip-ux branch (docs/superpowers/specs/2026-09-16-housing-financing-and-
+# zip-ux-design.md) into main, which by then already carried the ticket-323
+# Strategy redesign's own raise to 33,076. dashboard_decomp_housing_optimizer.js
+# gained a Purchase assumptions section (down payment %/mortgage rate % inputs,
+# help entries) and rent/buy-specific results rendering; dashboard_decomp_
+# housing_scenarios.js gained ZIP-first location entry (resolveHousingStepZip,
+# a read-only City/State display, auto-filled Area Type/Population). Neither
+# branch's own diff could see the other's prior raise; raised here to the
+# genuinely measured total of both real, non-duplicate additions.
+# 2026-09-17: raised from 33,217 to 33,265 -- ticket-326 per-popup average
+# run-time (dashboard_decomp_build_lifecycle.js gained history storage/lookup
+# helpers keyed by popup id, replacing "Working…"/percent text below the bar
+# with "average run-time over the last N runs" once 2+ runs are recorded).
+# dashboard.js is unchanged (still 7,293); the new lines are the history
+# helpers plus a popupId argument threaded through the existing setBuildOverlay
+# call sites, none of it moved from elsewhere, so raised to the measured size.
+TOTAL_JS_MAX_LINES = 33_265
 
 
 def _line_count(path: Path) -> int:

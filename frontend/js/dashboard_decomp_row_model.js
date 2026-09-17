@@ -4499,6 +4499,7 @@ export async function loadAll(opts = {}) {
     opts.overlayTitle || "Loading plan",
     opts.overlayDetail || "",
     "waiting",
+    opts.overlayId || "loadPlan",
   );
   try {
     await checkAppStatus(false);
@@ -4746,6 +4747,7 @@ export async function runBuild(queue = false, opts = {}) {
       "Preparing build",
       "Capturing the current workbook baseline...",
       0,
+      "build",
     );
     const before = await captureBuildBaseline();
     const hadUnsaved = hasUnsavedPlanChanges();
@@ -4818,6 +4820,7 @@ export async function runBuild(queue = false, opts = {}) {
         "Starting build",
         "Continuing after preflight warning review.",
         12,
+        "build",
       );
     }
     let folderWarning = "";

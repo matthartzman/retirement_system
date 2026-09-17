@@ -356,6 +356,22 @@ Object.assign(HOUSING_OPT_FIELD_HELP, {
     impact:
       "Keep avoids selling costs and capital-gains tax and lets the home keep appreciating, which can make it win on net worth or lifetime cost despite earning no rental income -- but it also disables the sale-year fields and, with 'Never own two homes at once' on, rules out buying while keeping.",
   },
+  housingOptDownPaymentPct: {
+    title: "Down payment %",
+    meaning: "The share of the purchase price paid up front, as a percentage. Applies to every move that ends up buying in this search.",
+    connections:
+      "Feeds the buy-move cost basis the same way api.py's own default (20%) does when this field is left at its default -- the principal financed is purchase price x (1 - down payment %).",
+    options: "Raise it to shrink the financed principal and the monthly P&I payment shown in the results table; lower it to keep more cash available for other goals.",
+    impact: "A higher down payment lowers the monthly P&I payment and total interest paid, at the cost of more cash committed up front -- it does not change the purchase price itself.",
+  },
+  housingOptMortgageRatePct: {
+    title: "Mortgage rate %",
+    meaning: "The fixed annual mortgage interest rate used for every move that ends up buying. Pre-filled with the app's own flat default rate.",
+    connections:
+      "Feeds the same monthly P&I calculation as Down payment %, using a fixed 30-year term (there is no loan-term input anywhere in this app). Clearing this field entirely reverts to a per-location rate lookup instead of one flat rate for every candidate -- but today every location resolves to the same flat default rate (6.85%), so clearing the field currently has no effect versus leaving it at its pre-filled value. The per-location lookup exists for when location-specific rates are added.",
+    options: "Leave the pre-filled default if unsure; set a specific rate for a rate lock already in hand; clearing the field has no effect today (see Connections) but is available for when per-location rates are added.",
+    impact: "A higher rate raises the monthly P&I payment shown in results without changing the purchase price. Clearing the field currently has no effect on ranking, since every location resolves to the same flat default rate today.",
+  },
   housingOptMove2Enabled: {
     title: "Consider a second move",
     meaning:
@@ -986,6 +1002,12 @@ function housingOptMoveWhereRowHtml(n) {
       "The search screens ZIPs around each anchor and unions the results before dedup.",
     ) +
       housingOptField(
+        `${p}AreaType`,
+        "Area type",
+        housingOptSelect(`${p}AreaType`, HOUSING_OPT_AREA_TYPES, 'onchange="debouncedRefreshHousingOptValidation()"'),
+        "Compared against the ZIP's density-derived area type. Any skips the filter.",
+      ) +
+      housingOptField(
         `${p}Radius`,
         "Within",
         housingOptSelect(`${p}Radius`, HOUSING_OPT_MOVE_RADII, 'onchange="debouncedRefreshHousingOptValidation()"'),
@@ -996,12 +1018,6 @@ function housingOptMoveWhereRowHtml(n) {
         "Min score",
         `<input type="number" id="${p}MinScore" class="count" value="60" min="0" max="100">`,
         "Neighborhood stability score floor. Measures housing and economic stability, not crime or safety.",
-      ) +
-      housingOptField(
-        `${p}AreaType`,
-        "Area type",
-        housingOptSelect(`${p}AreaType`, HOUSING_OPT_AREA_TYPES, 'onchange="debouncedRefreshHousingOptValidation()"'),
-        "Compared against the ZIP's density-derived area type. Any skips the filter.",
       ) +
       housingOptField(
         `${p}MaxPopulation`,
@@ -1227,6 +1243,22 @@ export function renderHousingOptimizePanelHtml() {
       `<div class="housing-opt-note small" id="housingOptKeepNote" hidden>Keeping the current home means its costs keep accruing. Rental income from a kept home is not modelled -- see the help panel.</div>`,
   );
 
+  const purchaseAssumptionsRow = housingOptRow(
+    "Purchase assumptions",
+    housingOptField(
+      "housingOptDownPaymentPct",
+      "Down payment %",
+      `<input type="number" id="housingOptDownPaymentPct" class="count" value="20" min="0" max="100" oninput="debouncedRefreshHousingOptValidation()">`,
+      "Share of the purchase price paid up front. Applies to every move that ends up buying.",
+    ) +
+      housingOptField(
+        "housingOptMortgageRatePct",
+        "Mortgage rate %",
+        `<input type="number" id="housingOptMortgageRatePct" class="count" value="6.85" min="0" max="100" step="0.01" oninput="debouncedRefreshHousingOptValidation()">`,
+        "Fixed annual rate for every buy move. Clear this field to use each candidate's own location-based rate instead.",
+      ),
+  );
+
   const move2Row = housingOptRow(
     "Consider a second move",
     housingOptField(
@@ -1257,6 +1289,7 @@ export function renderHousingOptimizePanelHtml() {
     ${objectiveRow}
     ${presenceRow}
     ${currentHomeRow}
+    ${purchaseAssumptionsRow}
     ${housingOptMoveWhereRowHtml(1)}
     ${housingOptMoveWhatRowHtml(1)}
     ${housingOptMoveWhenRowHtml(1)}
@@ -1329,6 +1362,7 @@ export async function previewHousingZipShortlist(moveIndex) {
   showHousingOptOverlay(
     "Screening ZIPs",
     "Searching housing data around the chosen anchors for candidate ZIPs.",
+    "housingOptScreen",
   );
   try {
     const payload = await api("/api/housing/zip-screen", {
@@ -1509,18 +1543,38 @@ function housingOptActionLabel(action) {
   return action.charAt(0).toUpperCase() + action.slice(1);
 }
 
-// `${year} · ${Buy|Rent} · ${zip} ${city}, ${state} · ${price} · ${distance} mi`
-// (design §9.4), appending `· ${n} mi from family` only when
-// family_distance_miles is non-null, so a plain search (no family presence)
-// never implies a family-distance measurement that was never taken.
+// `${year} · ${Buy|Rent} · ${zip} ${city}, ${state} · ${distance} mi · ${money}`
+// (design §9.4), where ${money} is:
+//   - for rent: `$${monthly_rent}/mo rent`
+//   - for buy: `$${purchase_price} purchase · $${monthly_pi_payment}/mo P&I`
+// Appends `· ${n} mi from family` only when family_distance_miles is non-null,
+// so a plain search (no family presence) never implies a family-distance
+// measurement that was never taken.
 function housingOptMoveCellHtml(move) {
   if (!move) return "—";
   const loc = move.location || {};
-  const price = loc.est_price != null ? `$${Math.round(loc.est_price).toLocaleString()}` : "—";
+  const financing = move.financing || {};
   const distance = loc.distance_miles != null ? `${Number(loc.distance_miles).toFixed(1)} mi` : "—";
+  let money;
+  if (move.action === "rent") {
+    money =
+      financing.monthly_rent != null
+        ? `$${Math.round(financing.monthly_rent).toLocaleString()}/mo rent`
+        : "—";
+  } else {
+    const price =
+      financing.purchase_price != null
+        ? `$${Math.round(financing.purchase_price).toLocaleString()} purchase`
+        : "—";
+    const pi =
+      financing.monthly_pi_payment != null
+        ? `$${Math.round(financing.monthly_pi_payment).toLocaleString()}/mo P&I`
+        : "—";
+    money = `${price} · ${pi}`;
+  }
   let text =
     `${move.acquisition_year} · ${housingOptActionLabel(move.action)} · ` +
-    `${loc.zip_code || ""} ${loc.city || ""}, ${loc.state || ""} · ${price} · ${distance}`;
+    `${loc.zip_code || ""} ${loc.city || ""}, ${loc.state || ""} · ${distance} · ${money}`;
   if (loc.family_distance_miles != null) {
     text += ` · ${loc.family_distance_miles} mi from family`;
   }
@@ -1631,6 +1685,11 @@ export function buildHousingOptRequest() {
     search: housingOptMoveSearchBody(1),
   };
 
+  const downPaymentRaw = housingOptDomVal("housingOptDownPaymentPct");
+  const down_payment_pct = (downPaymentRaw === "" ? 20 : Number(downPaymentRaw)) / 100;
+  const mortgageRaw = housingOptDomVal("housingOptMortgageRatePct");
+  const mortgage_rate_pct = mortgageRaw === "" ? null : Number(mortgageRaw) / 100;
+
   const body = {
     objective,
     search_mode,
@@ -1638,6 +1697,8 @@ export function buildHousingOptRequest() {
     no_dual_ownership,
     original_home,
     move1,
+    down_payment_pct,
+    mortgage_rate_pct,
   };
 
   if (housingOptDomChecked("housingOptMove2Enabled")) {
@@ -1771,6 +1832,15 @@ export function validateHousingOptForm() {
     }
   }
 
+  const downPaymentRaw = housingOptDomVal("housingOptDownPaymentPct");
+  if (downPaymentRaw !== "" && !(Number(downPaymentRaw) >= 0 && Number(downPaymentRaw) <= 100)) {
+    return "Down payment % must be between 0 and 100.";
+  }
+  const mortgageRaw = housingOptDomVal("housingOptMortgageRatePct");
+  if (mortgageRaw !== "" && !(Number(mortgageRaw) >= 0 && Number(mortgageRaw) <= 100)) {
+    return "Mortgage rate % must be between 0 and 100.";
+  }
+
   return null;
 }
 
@@ -1810,8 +1880,8 @@ export function debouncedRefreshHousingOptValidation() {
 // spinner) mode rather than a bespoke one, matching showYtdLoadOverlay /
 // showSpendingModelLoadOverlay elsewhere in the dashboard. no-cancel is set
 // because neither call is cancellable.
-function showHousingOptOverlay(title, detail) {
-  setBuildOverlay(true, title, detail, "waiting");
+function showHousingOptOverlay(title, detail, popupId) {
+  setBuildOverlay(true, title, detail, "waiting", popupId);
   const overlay = document.getElementById("buildOverlay");
   if (overlay) overlay.classList.add("no-cancel");
 }
@@ -1832,6 +1902,7 @@ export async function runHousingOptimization() {
   showHousingOptOverlay(
     "Running Housing Optimization",
     "Searching move combinations across the configured anchors and windows. This can take a few seconds on a full grid search.",
+    "housingOptRun",
   );
   try {
     const payload = await api("/api/housing/optimize", {

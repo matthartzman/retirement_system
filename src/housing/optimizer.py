@@ -274,6 +274,7 @@ def optimize_housing(
         final_ranked, objective=objective, search_mode=search_mode,
         move2_strategy=move2_strategy, zip_screens=zip_screens,
         rejections=rejections,
+        down_payment_pct=down_payment_pct, mortgage_rate_pct=mortgage_rate_pct,
     )
 
 
