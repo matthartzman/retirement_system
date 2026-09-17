@@ -8,6 +8,12 @@ from __future__ import annotations
 from typing import Any
 
 from .models import Location, Move, ScoredCandidate
+from .plan_variant import (
+    _effective_mortgage_rate,
+    _estimate_for_location,
+    _purchase_price_for_location,
+    estimate_monthly_pi_payment,
+)
 
 SCHEMA = 'housing_optimize_v2'
 MAX_CANDIDATES = 10
@@ -32,7 +38,21 @@ def _format_location(loc: Location) -> dict[str, Any]:
     }
 
 
-def _format_move(move: Move, sec121_lost: bool) -> dict[str, Any]:
+def _format_move(
+    move: Move, sec121_lost: bool, *,
+    down_payment_pct: float, mortgage_rate_pct: float | None,
+) -> dict[str, Any]:
+    if move.action == 'rent':
+        financing = {
+            'monthly_rent': float(_estimate_for_location(move.location, 'rent')['monthly_rent']),
+        }
+    else:
+        price = _purchase_price_for_location(move.location)
+        rate = _effective_mortgage_rate(move.location, mortgage_rate_pct)
+        financing = {
+            'purchase_price': price,
+            'monthly_pi_payment': estimate_monthly_pi_payment(price, down_payment_pct, rate),
+        }
     return {
         'index': move.index,
         'acquisition_year': move.acquisition_year,
@@ -40,10 +60,14 @@ def _format_move(move: Move, sec121_lost: bool) -> dict[str, Any]:
         'mode': move.mode,
         'location': _format_location(move.location),
         'sec121_exclusion_lost': sec121_lost,
+        'financing': financing,
     }
 
 
-def _format_candidate(sc: ScoredCandidate, objective: str, rank: int) -> dict[str, Any]:
+def _format_candidate(
+    sc: ScoredCandidate, objective: str, rank: int, *,
+    down_payment_pct: float, mortgage_rate_pct: float | None,
+) -> dict[str, Any]:
     cand = sc.candidate
     lost = list(sc.sec121_exclusion_lost)
     return {
@@ -53,7 +77,10 @@ def _format_candidate(sc: ScoredCandidate, objective: str, rank: int) -> dict[st
             'sale_year': cand.original_home.sale_year,
         },
         'moves': [
-            _format_move(m, lost[i] if i < len(lost) else False)
+            _format_move(
+                m, lost[i] if i < len(lost) else False,
+                down_payment_pct=down_payment_pct, mortgage_rate_pct=mortgage_rate_pct,
+            )
             for i, m in enumerate(cand.moves)
         ],
         'net_worth': sc.net_worth,
@@ -72,15 +99,23 @@ def format_output(
     ranked: list[ScoredCandidate], *, objective: str, search_mode: str,
     move2_strategy: str, zip_screens: dict[str, Any],
     rejections: dict[str, int], message: str | None = None,
+    down_payment_pct: float = 0.20, mortgage_rate_pct: float | None = None,
 ) -> dict[str, Any]:
     """One ranked ``candidates`` list, not a recommendation plus a disjoint
     alternatives list -- v1 duplicated the rank-1 candidate across both and
     forced the frontend to render it two different ways. ``recommendation``
     remains as an alias of ``candidates[0]``. ``candidates`` is capped at
     ``MAX_CANDIDATES``, but ``candidates_evaluated`` reports the full count.
+
+    ``down_payment_pct``/``mortgage_rate_pct`` default to the same values
+    api.py itself defaults to (20%, location-based rate) so every existing
+    caller that omits them keeps working unchanged.
     """
     formatted = [
-        _format_candidate(sc, objective, i + 1)
+        _format_candidate(
+            sc, objective, i + 1,
+            down_payment_pct=down_payment_pct, mortgage_rate_pct=mortgage_rate_pct,
+        )
         for i, sc in enumerate(ranked[:MAX_CANDIDATES])
     ]
     payload = {

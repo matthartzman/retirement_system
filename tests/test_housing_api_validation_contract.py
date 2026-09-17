@@ -139,3 +139,19 @@ def test_request_adapter_rejects_unknown_move2_strategy():
     msg = validate_request(_body(move2_strategy='not_a_real_strategy'))
     assert msg is not None
     assert 'move2_strategy' in msg.lower()
+
+
+def test_rule10_down_payment_pct_must_be_a_fraction_between_0_and_1():
+    msg = validate_request(_body(down_payment_pct=1.5))
+    assert msg is not None
+    assert 'down payment' in msg.lower()
+
+
+def test_rule10_mortgage_rate_pct_must_be_a_fraction_between_0_and_1():
+    msg = validate_request(_body(mortgage_rate_pct=-0.01))
+    assert msg is not None
+    assert 'mortgage rate' in msg.lower()
+
+
+def test_rule10_omitted_financing_fields_are_fine():
+    assert validate_request(_body()) is None

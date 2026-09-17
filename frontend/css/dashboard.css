@@ -36,6 +36,7 @@
 .retirement-income-section{padding-top:12px;padding-bottom:12px}
 .field-list.inline-row{display:flex;flex-wrap:wrap;gap:10px}
 .field-list.inline-row .field{flex:1 1 105px;grid-template-columns:1fr;margin:0;padding:10px}
+.field-readonly{padding:8px 10px;color:var(--muted);background:var(--soft);border-radius:4px;font-size:14px}
 @media(max-width:1180px){.two-col-inline{grid-template-columns:1fr}}
 
 /* U2/U3: guided-step forms were one field per full-width row even though the

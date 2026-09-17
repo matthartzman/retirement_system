@@ -36,7 +36,7 @@ from .zip_screen.schema import (
     RESPONSE_SCHEMA,
     SCORE_MODEL_VERSION,
 )
-from .zip_screen.resolve import resolve_location
+from .zip_screen.resolve import city_type_for_density, resolve_location
 from .zip_screen.screen import (
     AnchorNotFoundError,
     MultiAnchorRequest,
@@ -146,6 +146,12 @@ def validate_request(body: dict[str, Any]) -> str | None:
                     'than the through-year.')
         if int(fp.get('radius_miles') or 0) not in FAMILY_RADII_MILES:
             return f'Family radius must be one of {", ".join(map(str, FAMILY_RADII_MILES))} miles.'
+    dp_raw = body.get('down_payment_pct')
+    if dp_raw is not None and not (0.0 <= float(dp_raw) <= 1.0):
+        return 'Down payment % must be between 0 and 100.'
+    mr_raw = body.get('mortgage_rate_pct')
+    if mr_raw is not None and not (0.0 <= float(mr_raw) <= 1.0):
+        return 'Mortgage rate % must be between 0 and 100.'
     return None
 
 
@@ -337,7 +343,8 @@ def optimize_housing_from_request(
                 ),
             }, 200
 
-        down_payment_pct = float(body.get('down_payment_pct', 0.20) or 0.20)
+        dp_raw = body.get('down_payment_pct')
+        down_payment_pct = 0.20 if dp_raw in (None, '') else float(dp_raw)
         mortgage_rate_raw = body.get('mortgage_rate_pct')
         mortgage_rate_pct = (
             float(mortgage_rate_raw) if mortgage_rate_raw not in (None, '') else None
@@ -374,6 +381,28 @@ def optimize_housing_from_request(
         return {'success': False, 'error': str(exc)}, 400
     except Exception as exc:  # pragma: no cover - defensive
         return {'success': False, 'error': str(exc)}, 500
+
+
+def zip_lookup(zip_code: str, table_path: str | None = None) -> tuple[dict[str, Any], int]:
+    """ZIP -> city/state/area_type/population, for the Spending -> Housing
+    page's ZIP-first location entry. Reuses the same ZCTA table the
+    optimizer's ZIP screen uses, so a manually-entered ZIP resolves to the
+    same city_type/population the optimizer would have derived for it.
+    """
+    zip_code = str(zip_code or '').strip()
+    if len(zip_code) != 5 or not zip_code.isdigit():
+        return {'success': False, 'error': 'ZIP must be 5 digits.'}, 400
+    table = load_table(table_path) if table_path else load_table()
+    rec = table.get(zip_code)
+    if not rec:
+        return {'success': False, 'error': f'ZIP {zip_code} not recognized.'}, 404
+    return {
+        'success': True,
+        'city': rec.primary_place,
+        'state': rec.state,
+        'area_type': city_type_for_density(rec.density),
+        'population': rec.place_population or rec.zcta_population or 0,
+    }, 200
 
 
 def _screened_zip_payload(z: ScreenedZip) -> dict[str, Any]:

@@ -72,8 +72,11 @@ class Location:
     # Nothing downstream reads it -- see src/housing/zip_screen/resolve.py.
     zip_code: str | None = None
     # Populated by the ZIP screen (Task 10 splices them via
-    # ``dataclasses.replace``). Display/traceability only, like ``zip_code``
-    # above -- None for a Location that never came from a screen.
+    # ``dataclasses.replace``); None for a Location that never came from a
+    # screen. ``est_price`` is READ by ``plan_variant._purchase_price_for_location``
+    # as the buy-move cost basis when no explicit price range is set -- it is
+    # not purely cosmetic. The other four fields below remain
+    # display/traceability only.
     city: str | None = None
     nss: float | None = None
     band: str | None = None
