@@ -92,3 +92,49 @@ def test_candidates_are_capped_at_ten():
     out = _out([_scored(nw=float(i)) for i in range(25)])
     assert len(out['candidates']) == 10
     assert out['candidates_evaluated'] == 25
+
+
+def test_a_rent_move_reports_monthly_rent_and_no_purchase_price():
+    move = _out([_scored(two_move=True)])['candidates'][0]['moves'][1]
+    assert move['action'] == 'rent'
+    assert 'monthly_rent' in move['financing']
+    assert move['financing']['monthly_rent'] > 0
+    assert 'purchase_price' not in move['financing']
+    assert 'monthly_pi_payment' not in move['financing']
+
+
+def test_a_buy_move_reports_purchase_price_and_monthly_pi():
+    move = _out([_scored()])['candidates'][0]['moves'][0]
+    assert move['action'] == 'buy'
+    assert move['financing']['purchase_price'] > 0
+    assert move['financing']['monthly_pi_payment'] > 0
+    assert 'monthly_rent' not in move['financing']
+
+
+def test_purchase_price_matches_the_plan_variant_helper_directly():
+    """The results payload's purchase_price must be the SAME number the
+    engine's own cost basis uses -- not a separately-computed estimate."""
+    from src.housing.plan_variant import _purchase_price_for_location
+    sc = _scored()
+    loc = sc.candidate.moves[0].location
+    expected = _purchase_price_for_location(loc)
+    move = _out([sc])['candidates'][0]['moves'][0]
+    assert move['financing']['purchase_price'] == expected
+
+
+def test_down_payment_and_mortgage_rate_change_the_monthly_pi():
+    sc = _scored()
+    low_down = _out([sc], down_payment_pct=0.05, mortgage_rate_pct=0.04)
+    high_down = _out([sc], down_payment_pct=0.50, mortgage_rate_pct=0.04)
+    pi_low = low_down['candidates'][0]['moves'][0]['financing']['monthly_pi_payment']
+    pi_high = high_down['candidates'][0]['moves'][0]['financing']['monthly_pi_payment']
+    assert pi_low > pi_high
+
+
+def test_format_output_defaults_match_the_api_defaults_when_omitted():
+    """Every existing call to format_output() (including every other test in
+    this file) omits these two params -- they must still produce a sane
+    financing block, matching api.py's own 20%/location-rate defaults."""
+    move = _out([_scored()])['candidates'][0]['moves'][0]
+    assert move['financing']['purchase_price'] > 0
+    assert move['financing']['monthly_pi_payment'] > 0
