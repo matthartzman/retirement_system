@@ -177,10 +177,15 @@ check("Housing: renderNextHousingStepSection defined", "function renderNextHousi
 # spending screen needs somewhere to record the one a step was priced for.
 # These checks' original intent -- Area Type and Population are present on
 # BOTH purchase and rent, symmetric -- is unchanged and still asserted.
-check("Housing: PURCHASE_FIRST has state/city_type/population_size/zip_code",
-      has_code(dash, "PURCHASE_FIRST=['state','city_type','population_size','zip_code']"))
-check("Housing: RENT_FIRST has state/city_type/population_size/zip_code (housing-estimate-realism-and-dollar-convention-design.md SS3.4: rent estimates now require Area Type/Population, symmetric with purchase)",
-      has_code(dash, "RENT_FIRST=['state','city_type','population_size','zip_code']"))
+# 2026-09-16: zip_code moved to the front of both lists (commit 4332fa9,
+# "ZIP-first location entry on the Spending -> Housing page") -- the ZIP is
+# now the first thing entered, with State/Area Type/Population auto-filled
+# from it, so it leads the row order instead of trailing it. This check's
+# order was never updated to match and had been silently failing.
+check("Housing: PURCHASE_FIRST has zip_code/state/city_type/population_size",
+      has_code(dash, "PURCHASE_FIRST=['zip_code','state','city_type','population_size']"))
+check("Housing: RENT_FIRST has zip_code/state/city_type/population_size (housing-estimate-realism-and-dollar-convention-design.md SS3.4: rent estimates now require Area Type/Population, symmetric with purchase)",
+      has_code(dash, "RENT_FIRST=['zip_code','state','city_type','population_size']"))
 check("Housing: RENT_REST includes the Slice 2 characteristic fields (housing-estimate-realism-and-dollar-convention-design.md SS3.3: bedrooms/bathrooms/property_type/sqft_band/built_within_years are optional, defaulted fields on both purchase and rent)",
       has_code(dash, "RENT_REST=['start_year','end_year','monthly_rent','insurance_annual','utilities_annual','bedrooms','bathrooms','property_type','sqft_band','built_within_years']"))
 check("Housing: Estimate button references 3BR/2BA/40x40",
