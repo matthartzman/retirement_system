@@ -3,10 +3,12 @@
 // spending/housing screen and had reached 1,841 lines, and the optimizer block
 // roughly doubles in size under the refinement design
 // (docs/superpowers/specs/2026-09-16-housing-optimizer-refinement-design.md
-// §9.1). renderScenarioManagementPanel() still embeds the panel, so its
-// position in Strategy -> Scenarios is unchanged; index.html loads this module
-// BEFORE dashboard_decomp_housing_scenarios.js so the bare-global call in
-// renderScenarioManagementPanel resolves.
+// §9.1). 2026-09-17: relocated from Strategy -> Scenarios -> Scenario Change
+// Sets to its own tab, Strategy -> Optimize -> Next Housing Move
+// (dashboard_decomp_strategy_workspace.js's renderStrategyOptimize()), a
+// better fit alongside the plan's other major planning-lever decisions.
+// index.html loads this module BEFORE dashboard_decomp_strategy_workspace.js
+// so the bare-global call in renderStrategyOptimize() resolves.
 //
 // Layout rule (design §9.2): every control is wrapped by housingOptField,
 // which stacks the label ABOVE the control. A label placed to the left adds

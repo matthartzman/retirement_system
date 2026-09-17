@@ -127,6 +127,19 @@ export function renderStrategyOptimize() {
         `<details class="decide-embed-sub" open><summary>Allocation policy settings</summary>${renderAllocationPolicy()}</details>`,
     },
     {
+      key: "housing",
+      title: "Next Housing Move",
+      gate: null,
+      // Not analysisFrame-wrapped, unlike its siblings above: this is a
+      // self-contained search tool with its own Run button and results
+      // table, not a "set inputs, preview impact against the baseline"
+      // planning-lever workflow -- analysisFrame's "Preview impact
+      // (Planning overview)" footer would not apply to it. Matches
+      // "Strategy Levers" (renderStrategyScenarios below), the other
+      // non-lever tab in this file.
+      body: () => renderHousingOptimizePanelHtml(),
+    },
+    {
       key: "charitable_giving",
       title: "Charitable Giving",
       gate: "entity_charitable",

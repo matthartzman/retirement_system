@@ -821,7 +821,7 @@ export function renderSpendingHousing() {
   html += renderBaseHomeSaleRows(rs);
 
   html +=
-    '<div class="section-note">Not sure what year or location to plan for? The <a href="#" onclick="setStep(\'scenarios\');return false">Optimize next housing move</a> tool (Strategy → Scenarios → Scenario Change Sets) searches candidate sale/purchase years, locations, and dwelling specs (area type, bedrooms, bathrooms, property type, square footage, lot size) and reuses the same engine as the rest of the plan. Each of its results now reports the ZIP code, an estimated price, and the distance to your anchor -- run it, then transcribe the winning candidate\'s state, area type, population, ZIP, and dwelling fields into the fields below.</div>';
+    '<div class="section-note">Not sure what year or location to plan for? The <a href="#" onclick="setStep(\'strategy_optimize\');return false">Optimize next housing move</a> tool (Strategy → Optimize → Next Housing Move) searches candidate sale/purchase years, locations, and dwelling specs (area type, bedrooms, bathrooms, property type, square footage, lot size) and reuses the same engine as the rest of the plan. Each of its results now reports the ZIP code, an estimated price, and the distance to your anchor -- run it, then transcribe the winning candidate\'s state, area type, population, ZIP, and dwelling fields into the fields below.</div>';
 
   if (nextStep1Rows.length) {
     html += renderNextHousingStepSection(
@@ -1290,7 +1290,7 @@ export function renderCurrentScenarioOverridesHtml(rs) {
 }
 
 export function renderScenarioManagementPanel(rs) {
-  return `<section class="scenario-management"><div class="scenario-management-head"><div><span class="eyebrow">Planning Workbench</span><h3>Scenario Change Sets</h3><p class="small">Templates stage common deterministic what-if overrides. Saved sets are browser-local change sets; review the diff, apply a set, then Save Changes, rebuild, and compare in the Planning Workbench.</p></div><button class="btn primary" type="button" onclick="saveCurrentScenarioSet()">Save current scenario set</button></div><details><summary>Scenario templates</summary>${renderScenarioTemplatesHtml()}</details>${renderHousingOptimizePanelHtml()}<details><summary>Saved named scenario sets</summary>${renderSavedScenarioSetsHtml()}</details><details><summary>Current scenario overrides</summary>${renderCurrentScenarioOverridesHtml(rs)}</details></section>`;
+  return `<section class="scenario-management"><div class="scenario-management-head"><div><span class="eyebrow">Planning Workbench</span><h3>Scenario Change Sets</h3><p class="small">Templates stage common deterministic what-if overrides. Saved sets are browser-local change sets; review the diff, apply a set, then Save Changes, rebuild, and compare in the Planning Workbench.</p></div><button class="btn primary" type="button" onclick="saveCurrentScenarioSet()">Save current scenario set</button></div><details><summary>Scenario templates</summary>${renderScenarioTemplatesHtml()}</details><details><summary>Saved named scenario sets</summary>${renderSavedScenarioSetsHtml()}</details><details><summary>Current scenario overrides</summary>${renderCurrentScenarioOverridesHtml(rs)}</details></section>`;
 }
 
 export function renderScenarios() {
