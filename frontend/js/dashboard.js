@@ -192,9 +192,9 @@ const STEPS = [
     id: "strategy_scenarios",
     group: "Strategy",
     title: "Scenarios",
-    desc: "Ranked strategy levers, named scenario change sets, and the Planning Workbench for comparing and adopting them.",
+    desc: "Named scenario change sets you stage and save from any source page.",
     intro:
-      "Levers rank the isolated impact of one change at a time. Change sets are named deterministic cases you can compare side by side in the workbench.",
+      "Change sets are named deterministic cases you can compare side by side in the Workbench. Rank individual levers and review saved cases there.",
     help: "Use change sets for questions with a specific answer (retire two years later, sell the home in 2028). Use Stress Test for probability ranges and adverse assumptions.",
   },
   {
@@ -1869,8 +1869,7 @@ function pageSaveMode(stepId) {
     [
       "strategy_stress",
       "strategy_scenarios",
-      "planning_workbench",
-      "planning_levers",
+      "strategy_workbench",
       "scenarios",
       "monte_carlo_options",
       "survivor_stress",
@@ -3795,6 +3794,7 @@ let renderMain = function() {
         "detailed_results",
         "system_configuration",
         "strategy_scenarios",
+        "strategy_workbench",
         "reports_and_review",
       ].includes(activeStep)) ||
     activeStep === "start"
