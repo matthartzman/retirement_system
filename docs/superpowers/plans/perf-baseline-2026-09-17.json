@@ -1,0 +1,14 @@
+{
+  "total_s": 76.91,
+  "phases": {
+    "config_parse_and_roth_optimizer": 11.74,
+    "projection_and_monte_carlo": 11.317,
+    "workbook_start": 0.012,
+    "sheet10_social_security": 37.84,
+    "sheet10_end_other_sheets": 8.57,
+    "save_and_dashboard": 6.561,
+    "done": 0.004
+  },
+  "model_sha256": "1de6dbdb9650909d118fa9b2f618002c88896707c5b349b15e06775be691b101",
+  "summary_sha256": "4ae556ce6e08689ed53ca049c05b974a32a15b2e170d1728f9309c7b8fd4b93f"
+}
