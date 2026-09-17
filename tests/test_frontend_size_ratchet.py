@@ -202,7 +202,15 @@ DASHBOARD_JS_MAX_LINES = 7_293
 # a read-only City/State display, auto-filled Area Type/Population). Neither
 # branch's own diff could see the other's prior raise; raised here to the
 # genuinely measured total of both real, non-duplicate additions.
-TOTAL_JS_MAX_LINES = 33_217
+# 2026-09-17: raised from 33,217 to 33,237 -- relocated the housing optimizer
+# to Strategy -> Optimize (a new tab entry in dashboard_decomp_strategy_
+# workspace.js, plus its own removal from dashboard_decomp_housing_scenarios.js's
+# Scenario Change Sets, a net add since the new tab's wrapping/help text is
+# more than what was removed), added the "Apartment (rent only)" property
+# type option and its validation-rule/help-copy additions in
+# dashboard_decomp_housing_optimizer.js, and the 1-5 (was 2-5) anchor range's
+# message-text updates. All new behaviour, not lines moved from elsewhere.
+TOTAL_JS_MAX_LINES = 33_237
 
 
 def _line_count(path: Path) -> int:
