@@ -153,11 +153,12 @@ describe("strategySection lazy body (ticket 323)", () => {
 // their own "first-visit default open state" block below; this block only
 // needs to correctly describe what these three specific calls produce.)
 describe("the three Strategy screens (ticket 323)", () => {
-  test("Optimize renders its four sections; the first (Roth Conversion) opens with its real body, the rest stay collapsed", () => {
+  test("Optimize renders its five sections; the first (Roth Conversion) opens with its real body, the rest stay collapsed", () => {
     const html = sandbox.renderStrategyOptimize();
     for (const key of [
       "roth_conversion",
       "asset_allocation",
+      "housing",
       "charitable_giving",
       "heloc",
     ]) {
@@ -167,7 +168,7 @@ describe("the three Strategy screens (ticket 323)", () => {
       );
     }
     assert.match(html, /data-dkey="strategy:roth_conversion"[^>]*\sopen/);
-    for (const key of ["asset_allocation", "charitable_giving", "heloc"]) {
+    for (const key of ["asset_allocation", "housing", "charitable_giving", "heloc"]) {
       assert.doesNotMatch(
         html,
         new RegExp(`data-dkey="strategy:${key}"[^>]*\\sopen`),

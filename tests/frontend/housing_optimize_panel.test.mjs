@@ -250,3 +250,21 @@ describe("housingOptMoveCellHtml", () => {
     assert.ok(!/rent/i.test(html));
   });
 });
+
+// 2026-09-17: relocated from Strategy -> Scenarios -> Scenario Change Sets to
+// its own Strategy -> Optimize tab, alongside the plan's other major
+// planning-lever decisions (Roth Conversion, Asset Allocation).
+describe("panel location (2026-09-17 relocation)", () => {
+  test("the panel renders inside Strategy -> Optimize's housing section", () => {
+    const html = sandbox.renderStrategyOptimize();
+    assert.match(html, /data-dkey="strategy:housing"/);
+  });
+
+  test("Scenario Change Sets no longer embeds the panel", () => {
+    const html = sandbox.renderScenarioManagementPanel([]);
+    assert.ok(
+      !html.includes(`id="${sandbox.HOUSING_OPT_PANEL_ID}"`),
+      "renderScenarioManagementPanel still embeds the housing optimizer panel",
+    );
+  });
+});
