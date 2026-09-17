@@ -4673,7 +4673,7 @@ def _survivor_bucket_cache_key(c: dict, base_rows: list[dict]) -> str:
         # then hash differently, which is the direction we want to err in.
         if isinstance(obj, dict):
             return {
-                (k if isinstance(k, (str, int, float, bool)) or k is None else repr(k)): _json_safe(v)
+                str(k): _json_safe(v)
                 for k, v in obj.items()
             }
         if isinstance(obj, (list, tuple)):
