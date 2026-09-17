@@ -273,7 +273,6 @@ _OUTPUTS: List[OutputModule] = [
         optional=True, sheet="13. State Residency", tab="2C. State Residency",
         requires_inputs=(_in("planning_levers", "residency_choice"), _in("income"),
                          _in("assumptions", "state_tax")),
-        dashboard_step="state_residency",
     ),
     OutputModule(
         # Slice 4 (2026-09-09 housing-estimate design, §4, §7.0 H9-H11):

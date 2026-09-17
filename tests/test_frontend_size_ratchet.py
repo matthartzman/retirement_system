@@ -151,7 +151,17 @@ JS_DIR = ROOT / "frontend" / "js"
 # tools/js_codemod/extract_module.mjs. Measured after regenerating the
 # census and bridge, so it includes the bridge shrinking as those names left
 # its Object.assign block.
-DASHBOARD_JS_MAX_LINES = 7_320
+# 2026-09-16: lowered from 7,320 to 7,293 -- ticket 323's Strategy redesign.
+# New code (the three Strategy screens and their lazy-section primitive)
+# landed entirely in a new module, dashboard_decomp_strategy_workspace.js,
+# not here. dashboard.js itself only lost lines: three renderMain branches
+# (distribution_strategy, special_strategies, state_residency) collapsed to
+# three (the new screens), and renderStateResidency()/
+# renderSpecialStrategies() were deleted outright. Measured after every
+# deletion in the ticket landed, including the ones in sibling
+# dashboard_decomp_*.js files that don't move this number but do free the
+# module-bridge lines that made room for it.
+DASHBOARD_JS_MAX_LINES = 7_293
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling
@@ -175,7 +185,14 @@ DASHBOARD_JS_MAX_LINES = 7_320
 # where adding or removing an anchor wiped out the values already entered for
 # the other anchors. Neither is lines moved from elsewhere -- both are new,
 # so the ceiling is raised to the measured size with no slack, same as before.
-TOTAL_JS_MAX_LINES = 32_792
+# 2026-09-16: raised from 32,792 to 33,076 -- merging main (the housing-
+# optimizer raise above) into the ticket-323 Strategy redesign branch, whose
+# own new module (dashboard_decomp_strategy_workspace.js, the three Strategy
+# screens' lazy-section primitive) had never needed to touch this ceiling on
+# its own. Two independently-sufficient ceilings, combined by a merge neither
+# side's diff alone could see coming; raised to the genuinely measured total
+# of both real, non-duplicate additions.
+TOTAL_JS_MAX_LINES = 33_076
 
 
 def _line_count(path: Path) -> int:

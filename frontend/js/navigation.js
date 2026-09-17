@@ -5,8 +5,18 @@
   // data-entry step. Steps deliberately excluded (read-only/build-gated reports,
   // scenario/stress-test previews that don't touch the saved plan, and
   // plan-independent/admin pages) stay on the explicit-save + 3-way guard below.
-  const AUTOSAVE_STEPS=['household_people','income_work','income_retirement','lifestyle_spending','spending_core','spending_setup','retirement_wellness','spending_mortgage_events','ytd_transactions','holdings','assets_home_cash','annuity_death_benefits','assets_special','estate','distribution_strategy','state_residency','special_strategies','economic_tax_assumptions','optional_functions','all_assumptions'];
-  const PLAN_INDEPENDENT_STEPS=['start','system_configuration','workbook_formatting','detailed_results','planning_workbench','reports_and_review'];
+  // #323: of the three Strategy screens only strategy_optimize autosaves. It
+  // replaced distribution_strategy/special_strategies, which did; strategy_stress
+  // and strategy_scenarios replaced monte_carlo_options/scenarios/planning_levers
+  // and friends, which were deliberately excluded as previews that do not touch
+  // the saved plan. state_residency's autosave moved with its table to
+  // spending_mortgage_events, already listed.
+  const AUTOSAVE_STEPS=['household_people','income_work','income_retirement','lifestyle_spending','spending_core','spending_setup','retirement_wellness','spending_mortgage_events','ytd_transactions','holdings','assets_home_cash','annuity_death_benefits','assets_special','estate','strategy_optimize','economic_tax_assumptions','optional_functions','all_assumptions'];
+  // #323: planning_workbench is now a section of strategy_scenarios, and the
+  // plan-loaded check below runs on the POST-redirect id -- so the screen that
+  // now holds it is what has to be listed here, or the "Compare & Decide"
+  // button in every page header bounces to Plan Status before a plan is open.
+  const PLAN_INDEPENDENT_STEPS=['start','system_configuration','workbook_formatting','detailed_results','strategy_scenarios','reports_and_review'];
   // Reports & Review redesign: it now shows Impact and Plan Data Review
   // together with no tabs to pick between, so a jump-link to either former
   // tab's step id just lands on the one page -- no tab argument to pass.
@@ -38,7 +48,11 @@
   const WORKSPACE_TAB_REDIRECTS={
     spending_dashboard:{step:'spending_core',tab:'Spending Analysis'},
     ytd_transactions:{step:'spending_core',tab:'Actual Spending (YTD)'},
-    lifestyle_spending:{step:'spending_core',tab:'Spending Model'}
+    lifestyle_spending:{step:'spending_core',tab:'Spending Model'},
+    // #323: Withdrawal Order left Strategy scope entirely. It used to hop
+    // through distribution_strategy; it now lands on the Spending workspace
+    // tab that has been its only real home since ticket 286.
+    withdrawal_strategy:{step:'spending_core',tab:'Withdrawal Order'}
   };
   const STEP_REDIRECTS={
     // Travel's own step ids now land directly on Spending Model (the
@@ -47,13 +61,40 @@
     // so the extra hop through it would have been redundant.
     spending_travel:'spending_core',
     spending_travel_extras:'spending_core',
-    ss_timing:'income_retirement',
-    timing_tax:'state_residency',
-    heloc_strategy:'special_strategies',
-    entity_charitable:'special_strategies',
-    withdrawal_strategy:'distribution_strategy',
-    allocation_policy:'distribution_strategy',
-    investment_strategy:'distribution_strategy'
+    ss_timing:'income_retirement'
+  };
+  // #323: the Strategy section became three screens -- Optimize, Stress Test
+  // and Scenarios -- each a stack of collapsible sections. Roughly thirty
+  // buttons, helpLink entries and SUGGESTED_NEXT values still navigate by the
+  // OLD step ids, and a plain STEP_REDIRECTS entry would drop every one of
+  // them at the top of a four-section screen. These carry the section too, so
+  // an inbound link still lands on the thing it named.
+  //
+  // `section` is a strategySection key: it is forced open (and persisted, so
+  // the reader's own state picks up from there) before the render. `dkey` is
+  // a raw data-dkey for a collapsible that is not a strategySection -- the
+  // residency table that moved to the Housing page is the only one.
+  const SECTION_REDIRECTS={
+    distribution_strategy:{step:'strategy_optimize'},
+    investment_strategy:{step:'strategy_optimize'},
+    roth_conversion:{step:'strategy_optimize',section:'roth_conversion'},
+    allocation_assets:{step:'strategy_optimize',section:'asset_allocation'},
+    allocation_policy:{step:'strategy_optimize',section:'asset_allocation'},
+    entity_charitable:{step:'strategy_optimize',section:'charitable_giving'},
+    heloc_strategy:{step:'strategy_optimize',section:'heloc'},
+    special_strategies:{step:'strategy_optimize',section:'heloc'},
+    monte_carlo_options:{step:'strategy_stress',section:'monte_carlo'},
+    survivor_stress:{step:'strategy_stress',section:'survivor'},
+    ltc_stress:{step:'strategy_stress',section:'ltc'},
+    divorce_options:{step:'strategy_stress',section:'divorce'},
+    planning_levers:{step:'strategy_scenarios',section:'levers'},
+    scenarios:{step:'strategy_scenarios',section:'change_sets'},
+    planning_workbench:{step:'strategy_scenarios',section:'workbench'},
+    // State Residency Analysis is gone; its residency-over-time table is now a
+    // section of the Housing page and the rest of that page had no backend
+    // reader at all. timing_tax used to hop through it.
+    state_residency:{step:'spending_mortgage_events',dkey:'housing:residency'},
+    timing_tax:{step:'spending_mortgage_events',dkey:'housing:residency'}
   };
 
   function noop(){}
@@ -63,6 +104,23 @@
   // app is a single page with no URL routing). Tracks the resolved step id --
   // the same value ctx.setActiveStep() receives -- so Back/Forward retraces
   // exactly the pages the user actually saw, not raw pre-redirect step ids.
+  // Set by a SECTION_REDIRECTS hop and consumed once by the scroll pass after
+  // the render, so a later plain navigation does not re-scroll to it.
+  let pendingSectionDkey='';
+  function revealPendingSection(){
+    const dkey=pendingSectionDkey;
+    pendingSectionDkey='';
+    if(!dkey)return;
+    try{
+      const el=document.querySelector('[data-dkey="'+dkey+'"]');
+      if(!el)return;
+      // A non-strategySection collapsible (the Housing residency table) has no
+      // persisted open state of its own, so open it here. For a strategySection
+      // this is already true and assigning it again changes nothing.
+      if(el.open===false)el.open=true;
+      if(el.scrollIntoView)el.scrollIntoView({block:'start',behavior:'smooth'});
+    }catch(_e){}
+  }
   let historyStack=[];
   let historyIndex=-1;
   function pushHistory(id){
@@ -100,10 +158,25 @@
       const _wtr=WORKSPACE_TAB_REDIRECTS[id];
       safeCall(()=>window.setStrategyTab(_wtr.step,_wtr.tab));
       id=_wtr.step;
+    }else if(SECTION_REDIRECTS[id]){
+      const _sr=SECTION_REDIRECTS[id];
+      // Force the target section open BEFORE the render below, not after, so
+      // the section renders with its body on the first pass. strategySection
+      // bodies are lazy -- opening afterwards would show the collapsed stub
+      // until something triggered a second render.
+      if(_sr.section)safeCall(()=>window.strategySectionSetOpen(_sr.section,true));
+      pendingSectionDkey=_sr.dkey||(_sr.section?'strategy:'+_sr.section:'');
+      id=_sr.step;
     }else if(STEP_REDIRECTS[id]){
       id=STEP_REDIRECTS[id];
     }
     if(!planLoaded&&!PLAN_INDEPENDENT_STEPS.includes(id)){
+      // A SECTION_REDIRECTS hop above may have already set pendingSectionDkey
+      // for this navigation before this plan-loaded check ran. This branch
+      // aborts that navigation (bounces to "start" instead), so the pending
+      // reveal must be dropped here too -- otherwise it survives to fire on
+      // some later, unrelated navigation once a plan does load.
+      pendingSectionDkey='';
       safeCall(()=>ctx.setActiveStep('start'));
       if(!opts.skipHistory)pushHistory('start');
       updateHistoryNavButtons();
@@ -130,6 +203,7 @@
     }
     const scrollAndFocus=()=>setTimeout(()=>{
       try{window.scrollTo({top:0,behavior:'smooth'});}catch(_e){}
+      revealPendingSection();
       const entries=safeCall(ctx.focusableEntries)||[];
       const first=entries.find(el=>el&&el.closest&&el.closest('#mainPane'));
       if(first&&first.focus)first.focus();

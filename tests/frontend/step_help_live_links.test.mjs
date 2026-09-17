@@ -5,8 +5,12 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import vm from "node:vm";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { loadDashboardSandbox } from "./load_dashboard.mjs";
 
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 const sandbox = loadDashboardSandbox();
 
 function stepById(id) {
@@ -22,10 +26,10 @@ function stepById(id) {
 describe("stepHelpLinkHtml (pure render helper)", () => {
   test("renders a clickable setStep() link when helpLink is present", () => {
     const html = sandbox.stepHelpLinkHtml({
-      helpLink: { id: "distribution_strategy", label: "Open Distribution Strategy" },
+      helpLink: { id: "roth_conversion", label: "Open Roth Conversion" },
     });
-    assert.match(html, /<a href="#" onclick="setStep\('distribution_strategy'\);return false">/);
-    assert.match(html, />Open Distribution Strategy<\/a>/);
+    assert.match(html, /<a href="#" onclick="setStep\('roth_conversion'\);return false">/);
+    assert.match(html, />Open Roth Conversion<\/a>/);
   });
   test("escapes the label text", () => {
     const html = sandbox.stepHelpLinkHtml({
@@ -40,13 +44,31 @@ describe("stepHelpLinkHtml (pure render helper)", () => {
   });
 });
 
-describe("STEPS entries carry a helpLink to distribution_strategy", () => {
+// #323: these three steps point the reader at wherever Roth conversion is
+// actually configured. That used to be the Distribution Strategy page; it is
+// now the Roth Conversion section of Strategy -> Optimize. The guard is the
+// same one it always was -- the link must name a destination that still
+// resolves -- so it asserts the id is one navigation.js knows how to route,
+// rather than hard-coding whichever screen currently owns the section.
+describe("STEPS entries link to a live Roth conversion destination", () => {
   for (const id of ["income_work", "income_retirement", "withdrawal_strategy"]) {
-    test(`${id}.helpLink points at distribution_strategy`, () => {
+    test(`${id}.helpLink points at the Roth conversion destination`, () => {
       const step = stepById(id);
       assert.ok(step, `expected a STEPS entry with id ${id}`);
-      assert.equal(step.helpLink?.id, "distribution_strategy");
+      assert.equal(step.helpLink?.id, "roth_conversion");
       assert.ok(String(step.helpLink?.label || "").length > 0);
     });
   }
+
+  test("that destination is routable rather than a dead id", () => {
+    const navSrc = fs.readFileSync(
+      path.join(HERE, "..", "..", "frontend", "js", "navigation.js"),
+      "utf8",
+    );
+    // Cheap reachability check: navigation.js must carry a redirect entry for
+    // the id, since roth_conversion is a hidden shell step with no nav button
+    // of its own. tests/frontend/strategy_section_redirects.test.mjs asserts
+    // where it actually lands.
+    assert.match(navSrc, /roth_conversion:\s*\{\s*step:\s*'strategy_optimize'/);
+  });
 });

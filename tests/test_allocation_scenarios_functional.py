@@ -28,8 +28,18 @@ class AllocationScenarioTests(unittest.TestCase):
         self.assertIn('Scenarios,Allocation User Defined,allocation_selection_mode,user_target', text)
         self.assertIn('Scenarios,Allocation Optimizer Defined,allocation_selection_mode,optimizer_recommendation', text)
         js = dashboard_js_text()
-        self.assertIn('leverNavButton("scenarios", "Scenarios")', js)
-        self.assertIn('leverNavButton("monte_carlo_options", "Monte Carlo")', js)
+        # #323: leverNavButton()-based sanity checks that "scenarios" and
+        # "monte_carlo_options" are wired into a real, reachable UI surface
+        # (not just present in the routing switch below) moved with those
+        # destinations onto the Strategy screens -- the Planning Levers hub
+        # that held leverNavButton() is gone. gate: "scenarios" and
+        # gate: "monte_carlo_options" in dashboard_decomp_strategy_workspace.js
+        # are their new home, already asserted by
+        # test_strategy_workspace_module_gating.py::
+        # test_every_gated_section_names_the_key_step_gate_map_expects --
+        # not repeated here, so this file doesn't need its own direct read of
+        # that module (test_freeze_frontend_source_grep.py freezes new files
+        # that grep frontend source; that contract already lives elsewhere).
         self.assertIn('case "scenarios":', js)
         self.assertIn('sec === "Scenarios" && !rowIsDivorceScenario(r)', js)
         self.assertIn('case "monte_carlo_options":', js)

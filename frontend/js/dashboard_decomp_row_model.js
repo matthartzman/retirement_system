@@ -23,6 +23,18 @@ export function stepGatedByOptionalModule(stepId) {
   // "advanced workflow" preference.
   if (stepId === "special_strategies")
     return !helocModuleEnabled() && !optionalFunctionEnabled("charitable_giving");
+  // Ticket 323: Stress Test is a screen of four optional sections, so unlike
+  // Optimize and Scenarios (each of which has a never-gated section) it can
+  // end up with nothing live at all -- hide it when all four of its modules
+  // are off. The module keys are read out of step_gates for the four legacy
+  // step ids rather than hand-listed, for the same reason as the comment
+  // below: server-declared gating is the single source of truth.
+  if (stepId === "strategy_stress") {
+    const gates = moduleGates.step_gates || {};
+    return ["monte_carlo_options", "survivor_stress", "ltc_stress", "divorce_options"]
+      .map((id) => gates[id])
+      .every((m) => m && !optionalFunctionEnabled(m));
+  }
   // §7.4: every other module-gated step is server-declared (module_catalog's
   // dashboard_step, via moduleGates.step_gates) rather than hand-listed here —
   // when the module is off, no computation runs and no sheet is built, so the
@@ -1301,7 +1313,59 @@ export function rowIsMonteCarlo(r) {
   );
 }
 
+// #323: the three Strategy screens (strategy_optimize/strategy_stress/
+// strategy_scenarios) are STEPS entries with no case of their own below --
+// every plan row still routes to the legacy shell id it always did (that
+// switch is deliberately untouched; row routing for the Field Finder, the
+// build change summary, and every source-jump button in the app all key off
+// the shell ids directly, see spec S1). Without this aggregation,
+// rawRowsForStep() falls through the switch's `default: return false` for
+// the three new ids and returns [] forever, which makes stepStats() report
+// zero required/zero missing for them permanently -- and since the Strategy
+// nav group's readiness badge sums stepStats(id).missing over every step in
+// the group, that badge would silently and permanently read zero, the one
+// nav group in the app with no readiness signal at all.
+//
+// planning_levers and planning_workbench have no case below and own no rows
+// -- both are derived/computed pages, not editable input pages -- so they
+// are correctly absent here, not an oversight.
+const STRATEGY_SCREEN_MEMBER_STEPS = {
+  strategy_optimize: [
+    "roth_conversion",
+    "allocation_assets",
+    "allocation_policy",
+    "entity_charitable",
+    "heloc_strategy",
+  ],
+  strategy_stress: [
+    "monte_carlo_options",
+    "survivor_stress",
+    "ltc_stress",
+    "divorce_options",
+  ],
+  strategy_scenarios: ["scenarios"],
+};
+
 export function rawRowsForStep(id) {
+  const members = STRATEGY_SCREEN_MEMBER_STEPS[id];
+  if (members) {
+    // Union rather than replacement: each member id must keep returning its
+    // own rows unaggregated (tested directly), since every other surface in
+    // the app still keys off them. Deduped by row_index as a defensive
+    // measure -- the member lists are disjoint today, but a future addition
+    // that overlaps another must not silently inflate stepStats() totals.
+    const seen = new Set();
+    const out = [];
+    for (const memberId of members) {
+      for (const r of rawRowsForStep(memberId)) {
+        if (!seen.has(r.row_index)) {
+          seen.add(r.row_index);
+          out.push(r);
+        }
+      }
+    }
+    return out;
+  }
   return rows.filter(isEditable).filter((r) => {
     const lbl = norm(r.label),
       sub = norm(r.subsection),
@@ -1389,7 +1453,16 @@ export function rawRowsForStep(id) {
       case "estate":
         return sec === "Estate Planning" || sec === "Account Titling";
       case "annuity_death_benefits":
-        return sec === "Annuity Death Benefits" || sec === "Insurance In Force";
+        return (
+          sec === "Annuity Death Benefits" ||
+          sec === "Insurance In Force" ||
+          // #323: the live auto-insurance baseline (data_io.py's fallback
+          // Auto Ins. Delta source when no Auto policy exists) belongs beside
+          // the Auto policies it falls back from, not on State Residency.
+          (sec === "State Comparison" &&
+            sub === "auto_insurance" &&
+            lbl === "current_state_baseline_annual")
+        );
       case "allocation_policy":
         return (
           (sec === "Model Constants" && sub === "allocation") ||
@@ -1473,7 +1546,13 @@ export function rawRowsForStep(id) {
       case "divorce_options":
         return rowIsDivorceScenario(r);
       case "state_residency":
-        return sec === "State Comparison";
+        // #323: current_state_baseline_annual moved to the Insurance page's
+        // annuity_death_benefits step above; every other State Comparison row
+        // stays here.
+        return (
+          sec === "State Comparison" &&
+          !(sub === "auto_insurance" && lbl === "current_state_baseline_annual")
+        );
       case "heloc_strategy":
         return sec === "HELOC";
       case "entity_charitable":
@@ -1938,6 +2017,14 @@ export function stepStats(id) {
     (rulesChanged || taxBudgetChanged || budgetLinesChanged)
   )
     d.push({});
+  // #323 gap S7.6: the State residency over time table is now a collapsible
+  // on the Housing page. Its own edit-tracking flag was already read by the
+  // global unsaved-changes guard (unsavedChangeCount()) but was never wired
+  // into ANY step's stepStats() -- editing the table has never raised an
+  // "Edited" nav badge on its own page. The gap moved with the table onto
+  // spending_mortgage_events; it does not fix itself.
+  if (id === "spending_mortgage_events" && residencyScheduleChanged)
+    d.push({});
   if (
     id === "ytd_transactions" &&
     (ytdTransactionsChanged || ytdAccountsChanged)
@@ -2123,7 +2210,10 @@ export function renderSteps() {
         "start",
         "system_configuration",
         "detailed_results",
-        "planning_workbench",
+        // #323: the Workbench is a section of strategy_scenarios now, and that
+        // screen has a real nav button -- so the button, not the retired step
+        // id, is what must stay enabled before a plan is open.
+        "strategy_scenarios",
         "reports_and_review",
       ].includes(s.id);
     let badge = "";
@@ -2675,15 +2765,13 @@ export function rowActionValue(row) {
 }
 
 export function requestAllocationPreview() {
-  // "allocation_assets" is the legacy standalone step id; the current
-  // guided-steps UI hosts the Allocation & Location tab inside the combined
-  // "distribution_strategy" step. Accept both so the preview actually loads
-  // on the current UI instead of silently never firing.
-  if (
-    !planLoaded ||
-    (activeStep !== "allocation_assets" && activeStep !== "distribution_strategy")
-  )
-    return;
+  // #323: allocation_assets and distribution_strategy were both legacy step
+  // ids for pages that hosted the Allocation & Location panel; both now
+  // redirect to strategy_optimize (SECTION_REDIRECTS in navigation.js), and
+  // activeStep can never actually equal either of them once the redesign's
+  // nav is in place. strategy_optimize is the only id the panel is shown
+  // under now -- this is a replacement, not an additional accepted value.
+  if (!planLoaded || activeStep !== "strategy_optimize") return;
   const key = allocationPreviewFingerprint();
   if (allocationPreviewLoading && allocationPreviewKey === key) return;
   if (
@@ -2722,10 +2810,7 @@ export function requestAllocationPreview() {
       allocationPreviewError = e.message || String(e);
     })
     .finally(() => {
-      if (
-        seq === allocationPreviewSeq &&
-        (activeStep === "allocation_assets" || activeStep === "distribution_strategy")
-      )
+      if (seq === allocationPreviewSeq && activeStep === "strategy_optimize")
         renderMain();
     });
 }

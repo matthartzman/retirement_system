@@ -42,18 +42,6 @@ export function renderPlanningLevers() {
   if (!planningLeversBaselineReady()) return planningLeversPlaceholder();
   const b = planningLeverBase();
   const rows = planningLeverRows();
-  // #256: quick-nav buttons for an optional-module-gated page must not show
-  // when that module is off (was hardcoded per-button for divorce_qdro and
-  // long_term_care_stress separately, which drifted -- reuses the same
-  // server-declared stepGatedByOptionalModule() single source of truth
-  // every other nav surface in the app already uses, so this covers every
-  // current and future optional module uniformly, not just the ones
-  // someone happened to special-case here).
-  function leverNavButton(stepId, label) {
-    return stepGatedByOptionalModule(stepId)
-      ? ""
-      : `<button class="btn" type="button" data-step-id="${esc(stepId)}">${esc(label)}</button> `;
-  }
   const tnw = rows
     .slice()
     .sort((a, b) => b.tnw - a.tnw)
@@ -72,21 +60,14 @@ export function renderPlanningLevers() {
   function tr(r) {
     return `<tr><td>${esc(r.focus)}</td><td><b>${esc(r.lever)}</b><div class="small">${esc(r.note)}</div></td><td class="lever-source-cell">${sourceCell(r)}</td><td>${inputCell(r)}</td><td>${fmtMoney(r.tnw)}</td><td>${fmtPct(r.success)}</td></tr>`;
   }
-  const decideButtons =
-    leverNavButton("roth_conversion", "Roth conversion") +
-    leverNavButton("allocation_assets", "Asset allocation & location") +
-    leverNavButton("spending_core", "Withdrawal order");
-  const otherDecideButtons =
-    leverNavButton("income_retirement", "Social Security") +
-    leverNavButton("entity_charitable", "Charitable giving") +
-    leverNavButton("heloc_strategy", "HELOC strategy");
-  const resilienceButtons =
-    leverNavButton("monte_carlo_options", "Monte Carlo") +
-    leverNavButton("scenarios", "Scenarios") +
-    leverNavButton("survivor_stress", "Survivor") +
-    leverNavButton("ltc_stress", "Long-term care") +
-    leverNavButton("divorce_options", "Divorce / QDRO");
-  return `<div class="holdings planning-levers"><h3 class="group-title">Strategy Levers</h3><p class="small"><button class="btn tiny" type="button" data-step-id="planning_workbench">Back to Planning Workbench</button></p><p class="small">Estimates assume all other inputs stay fixed. Change the test amount to resize any estimate without affecting your plan. Use the Source column beside each lever to jump to the page where the actual plan value is changed, then rebuild to confirm the real effect.</p><div class="feature-grid optimizer-hub" style="margin:10px 0 14px"><div class="feature-card"><h3>Strategy · decide</h3><div class="pane-actions">${decideButtons}${otherDecideButtons}</div></div><div class="feature-card"><h3>Stress tests · resilience</h3><div class="pane-actions">${resilienceButtons}</div></div></div><div class="ytd-status-grid"><div class="pill"><b>Current terminal NW</b><span>${fmtMoney(b.terminal)}</span></div><div class="pill" title="Post-Tax Inheritance: terminal net worth minus the embedded taxes heirs would owe on pre-tax accounts and unrealized gains — what beneficiaries actually keep."><b>Post-Tax Inheritance (PTI)</b><span>${Number.isFinite(b.pti) ? fmtMoney(b.pti) : "—"}</span></div><div class="pill"><b>Lifetime taxes</b><span>${Number.isFinite(b.lifetime_tax) ? fmtMoney(b.lifetime_tax) : "—"}</span></div><div class="pill"><b>Current success rate</b><span>${fmtPct(b.success)}</span></div><div class="pill"><b>Core annual spending</b><span>${fmtMoney(b.spend)}</span></div><div class="pill"><b>Earned income assumption</b><span>${fmtMoney(b.earned)}</span></div></div><div class="section-note small" style="margin:4px 0 10px"><b>TNW</b> = Terminal Net Worth (projected portfolio at end of plan horizon) · <b>PTI</b> = Post-Tax Inheritance (TNW minus embedded taxes heirs would owe) · <b>Success rate</b> = Monte Carlo trials where the plan maintains the reserve floor through the planning horizon</div><div><div><h3>Ranked by estimated TNW lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${tnw.map(tr).join("")}</tbody></table></div></div><div><h3>Ranked by estimated success lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${suc.map(tr).join("")}</tbody></table></div></div></div><p class="section-note">After ranking, use the Source button beside a lever to change the actual input → rebuild → check Build History to see the measured effect on projected net worth and success rate.</p></div>`;
+  // #323: the two-card quick-nav hub that used to sit here (leverNavButton()
+  // and its eleven calls) is gone. Every one of those eleven destinations now
+  // has a real, permanent nav entry of its own -- one of the three Strategy
+  // screens (Optimize / Stress Test / Scenarios) -- so an in-page launcher
+  // grid duplicating them was exactly the redundancy the redesign removes.
+  // The per-lever Source column below still jumps to the input page a
+  // lever's real value lives on, which is a different, still-needed link.
+  return `<div class="holdings planning-levers"><h3 class="group-title">Strategy Levers</h3><p class="small"><button class="btn tiny" type="button" data-step-id="planning_workbench">Back to Planning Workbench</button></p><p class="small">Estimates assume all other inputs stay fixed. Change the test amount to resize any estimate without affecting your plan. Use the Source column beside each lever to jump to the page where the actual plan value is changed, then rebuild to confirm the real effect.</p><div class="ytd-status-grid"><div class="pill"><b>Current terminal NW</b><span>${fmtMoney(b.terminal)}</span></div><div class="pill" title="Post-Tax Inheritance: terminal net worth minus the embedded taxes heirs would owe on pre-tax accounts and unrealized gains — what beneficiaries actually keep."><b>Post-Tax Inheritance (PTI)</b><span>${Number.isFinite(b.pti) ? fmtMoney(b.pti) : "—"}</span></div><div class="pill"><b>Lifetime taxes</b><span>${Number.isFinite(b.lifetime_tax) ? fmtMoney(b.lifetime_tax) : "—"}</span></div><div class="pill"><b>Current success rate</b><span>${fmtPct(b.success)}</span></div><div class="pill"><b>Core annual spending</b><span>${fmtMoney(b.spend)}</span></div><div class="pill"><b>Earned income assumption</b><span>${fmtMoney(b.earned)}</span></div></div><div class="section-note small" style="margin:4px 0 10px"><b>TNW</b> = Terminal Net Worth (projected portfolio at end of plan horizon) · <b>PTI</b> = Post-Tax Inheritance (TNW minus embedded taxes heirs would owe) · <b>Success rate</b> = Monte Carlo trials where the plan maintains the reserve floor through the planning horizon</div><div><div><h3>Ranked by estimated TNW lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${tnw.map(tr).join("")}</tbody></table></div></div><div><h3>Ranked by estimated success lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${suc.map(tr).join("")}</tbody></table></div></div></div><p class="section-note">After ranking, use the Source button beside a lever to change the actual input → rebuild → check Build History to see the measured effect on projected net worth and success rate.</p></div>`;
 }
 
 export function renderWorkbenchLeverEditorHtml() {
@@ -778,28 +759,6 @@ export function renderRothMissingNotice() {
   return `<div class="missing-list"><h3>Roth controls need to be backfilled</h3><p>The page is missing ${missing.length} primary control${missing.length === 1 ? "" : "s"}: ${missing.map(humanLabel).join(", ")}. Reload the current plan or start the app again; v11 now backfills these rows into client_policy.csv without overwriting existing values.</p></div>`;
 }
 
-export function ssClaimAgeCoordinationSummaryHtml() {
-  const parts = [
-    { key: "Member 1", n: 1 },
-    { key: "Member 2", n: 2 },
-  ]
-    .map((p) => {
-      // ssPersonRows() fetches claim_date (claim_age was replaced -- see
-      // schema.csv); derive the age the same way the compact table's own
-      // badge does, so this summary never disagrees with what's shown there.
-      const claim = ssPersonRows(p.key).find(
-        (x) => norm(x.label) === "claim_date",
-      );
-      const age = claim ? ssClaimAgeFromDate(p.key, claim) : 0;
-      return age ? `${personDisplayName(p.n)}: age ${age}` : null;
-    })
-    .filter(Boolean);
-  const claimText = parts.length
-    ? `Social Security claim ages — ${esc(parts.join(" · "))}`
-    : "Social Security claim ages are not yet set";
-  return `<div class="section-note coordination-summary">${claimText} <button class="btn tiny" type="button" data-step-id="income_work">Open Work Income &rarr;</button> <button class="btn tiny" type="button" data-step-id="income_retirement">Open SS, Pensions, &amp; Annuities &rarr;</button></div>`;
-}
-
 export function renderRothConversion() {
   if (searchText.trim()) return renderFields("roth_conversion");
   const policy = rothPolicyValue();
@@ -905,12 +864,14 @@ export function renderRothConversion() {
       !norm(r.label).startsWith("roth_conversion_") &&
       !norm(r.label).startsWith("forced_"),
   );
-  // Item 2.20 (U4): read-only coordination card -- this page's own help
-  // text tells the user to model conversion timing jointly with work
-  // income and Social Security claiming, both on distant pages. Surface
-  // each person's claim age inline instead of making that a round trip.
-  let html = ssClaimAgeCoordinationSummaryHtml();
-  html += renderRothMissingNotice();
+  // #323: the Social Security coordination card (ssClaimAgeCoordinationSummaryHtml)
+  // that used to open this page was removed -- it was only ever a link to
+  // the People and Income page where claim age is actually set, and the
+  // Strategy redesign dropped Social Security as an Optimize section for
+  // the same reason. The SS claim-age optimization itself is unaffected: it
+  // runs server-side (sheets_strategy.py's 9x9 claim-age grid sweep) and was
+  // never driven by this card.
+  let html = renderRothMissingNotice();
   // Ticket 289: disclose two Roth Conversion Modeling Guide levers this engine
   // does not implement. Gated on the ABSENCE of a row for either future
   // plan-data key, so building the lever removes its own disclosure -- see
@@ -969,10 +930,6 @@ export function renderRothConversion() {
   return html;
 }
 
-export function renderDistributionStrategy() {
-  return `<div class="tabbed-workspace strategy-workspace"><div class="workspace-tab-body">${renderPlanningLevers()}</div></div>`;
-}
-
 // Every export above is also re-attached to window: dashboard.js calls these
 // as bare globals, and this file's own rendered HTML uses inline
 // onclick="..." handlers, which always resolve through window regardless of
@@ -1025,7 +982,5 @@ Object.assign(window, {
   irmaaModeValue,
   renderRothRows,
   renderRothMissingNotice,
-  ssClaimAgeCoordinationSummaryHtml,
   renderRothConversion,
-  renderDistributionStrategy,
 });
