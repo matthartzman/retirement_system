@@ -265,12 +265,12 @@ describe("the four Strategy screens (ticket 323 + Workbench)", () => {
 // tools/js_codemod/convert_dashboard.mjs for dashboard.js's reassignable
 // `let`/`const` top-level bindings -- see load_dashboard.mjs's header comment
 // and the `window.renderMain` accessor used above.
-describe("STEPS wiring for the three Strategy screens (ticket 323)", () => {
-  const NEW_STEPS = ["strategy_optimize", "strategy_stress", "strategy_scenarios"];
+describe("STEPS wiring for the four Strategy screens (ticket 323 + Workbench)", () => {
+  const NEW_STEPS = ["strategy_optimize", "strategy_stress", "strategy_scenarios", "strategy_workbench"];
   const stepById = (id) => sandbox.window.STEPS.find((s) => s.id === id);
 
   test("each new step is a Strategy-group nav entry with desc/intro/help", () => {
-    const titles = { strategy_optimize: "Optimize", strategy_stress: "Stress Test", strategy_scenarios: "Scenarios" };
+    const titles = { strategy_optimize: "Optimize", strategy_stress: "Stress Test", strategy_scenarios: "Scenarios", strategy_workbench: "Workbench" };
     for (const id of NEW_STEPS) {
       const step = stepById(id);
       assert.ok(step, `missing STEPS entry for ${id}`);
@@ -302,7 +302,32 @@ describe("STEPS wiring for the three Strategy screens (ticket 323)", () => {
   test('the "Stress Tests" nav group label no longer exists', () => {
     assert.ok(sandbox.window.STEPS.every((s) => s.group !== "Stress Tests"));
   });
+
+  test("strategy_workbench is a Strategy-group nav entry with desc/intro/help", () => {
+    const step = stepById("strategy_workbench");
+    assert.ok(step, "missing STEPS entry for strategy_workbench");
+    assert.equal(step.group, "Strategy");
+    assert.equal(step.title, "Workbench");
+    assert.ok(step.desc, "strategy_workbench missing desc");
+    assert.ok(step.intro, "strategy_workbench missing intro");
+    assert.ok(step.help, "strategy_workbench missing help");
+  });
+
+  test("planning_workbench and planning_levers are now hidden shells", () => {
+    for (const id of ["planning_workbench", "planning_levers"]) {
+      const step = stepById(id);
+      assert.ok(step, `missing STEPS shell for ${id}`);
+      assert.equal(step.hidden, true, id);
+    }
+  });
 });
+
+// SECTION_REDIRECTS lives in navigation.js, which this file's dashboard
+// sandbox (load_dashboard.mjs) deliberately does not load -- see that file's
+// header comment. Behavioral coverage of planning_workbench/planning_levers
+// redirecting to strategy_workbench lives in
+// tests/frontend/strategy_section_redirects.test.mjs (the "Compare & Decide"
+// and legacy-step-id describe blocks), which loads navigation.js directly.
 
 describe("deletions stay deleted (ticket 323)", () => {
   test("renderStateResidency, renderSpecialStrategies and renderDistributionStrategy are gone -- no stale window bridge to throw at load", () => {

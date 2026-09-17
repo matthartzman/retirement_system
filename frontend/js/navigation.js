@@ -12,11 +12,12 @@
   // the saved plan. state_residency's autosave moved with its table to
   // spending_mortgage_events, already listed.
   const AUTOSAVE_STEPS=['household_people','income_work','income_retirement','lifestyle_spending','spending_core','spending_setup','retirement_wellness','spending_mortgage_events','ytd_transactions','holdings','assets_home_cash','annuity_death_benefits','assets_special','estate','strategy_optimize','economic_tax_assumptions','optional_functions','all_assumptions'];
-  // #323: planning_workbench is now a section of strategy_scenarios, and the
-  // plan-loaded check below runs on the POST-redirect id -- so the screen that
-  // now holds it is what has to be listed here, or the "Compare & Decide"
-  // button in every page header bounces to Plan Status before a plan is open.
-  const PLAN_INDEPENDENT_STEPS=['start','system_configuration','workbook_formatting','detailed_results','strategy_scenarios','reports_and_review'];
+  // #323 + Workbench: planning_workbench/planning_levers now redirect to
+  // strategy_workbench, and the plan-loaded check below runs on the
+  // POST-redirect id -- so the screen that now holds them is what has to be
+  // listed here, or the "Compare & Decide" button in every page header
+  // bounces to Plan Status before a plan is open.
+  const PLAN_INDEPENDENT_STEPS=['start','system_configuration','workbook_formatting','detailed_results','strategy_scenarios','strategy_workbench','reports_and_review'];
   // Reports & Review redesign: it now shows Impact and Plan Data Review
   // together with no tabs to pick between, so a jump-link to either former
   // tab's step id just lands on the one page -- no tab argument to pass.
@@ -87,9 +88,9 @@
     survivor_stress:{step:'strategy_stress',section:'survivor'},
     ltc_stress:{step:'strategy_stress',section:'ltc'},
     divorce_options:{step:'strategy_stress',section:'divorce'},
-    planning_levers:{step:'strategy_scenarios',section:'levers'},
+    planning_levers:{step:'strategy_workbench',section:'levers'},
     scenarios:{step:'strategy_scenarios',section:'change_sets'},
-    planning_workbench:{step:'strategy_scenarios',section:'workbench'},
+    planning_workbench:{step:'strategy_workbench',section:'levers'},
     // State Residency Analysis is gone; its residency-over-time table is now a
     // section of the Housing page and the rest of that page had no backend
     // reader at all. timing_tax used to hop through it.
