@@ -356,6 +356,22 @@ Object.assign(HOUSING_OPT_FIELD_HELP, {
     impact:
       "Keep avoids selling costs and capital-gains tax and lets the home keep appreciating, which can make it win on net worth or lifetime cost despite earning no rental income -- but it also disables the sale-year fields and, with 'Never own two homes at once' on, rules out buying while keeping.",
   },
+  housingOptDownPaymentPct: {
+    title: "Down payment %",
+    meaning: "The share of the purchase price paid up front, as a percentage. Applies to every move that ends up buying in this search.",
+    connections:
+      "Feeds the buy-move cost basis the same way api.py's own default (20%) does when this field is left at its default -- the principal financed is purchase price x (1 - down payment %).",
+    options: "Raise it to shrink the financed principal and the monthly P&I payment shown in the results table; lower it to keep more cash available for other goals.",
+    impact: "A higher down payment lowers the monthly P&I payment and total interest paid, at the cost of more cash committed up front -- it does not change the purchase price itself.",
+  },
+  housingOptMortgageRatePct: {
+    title: "Mortgage rate %",
+    meaning: "The fixed annual mortgage interest rate used for every move that ends up buying. Pre-filled with the app's own flat default rate.",
+    connections:
+      "Feeds the same monthly P&I calculation as Down payment %, using a fixed 30-year term (there is no loan-term input anywhere in this app). Clearing this field entirely reverts to each candidate ZIP's own location-based rate instead of one flat rate for every candidate.",
+    options: "Leave the pre-filled default if unsure; set a specific rate for a rate lock already in hand; clear the field to let each location use its own typical rate instead.",
+    impact: "A higher rate raises the monthly P&I payment shown in results without changing the purchase price; clearing the field can make different candidates use different rates, which changes their relative ranking on lifetime cost.",
+  },
   housingOptMove2Enabled: {
     title: "Consider a second move",
     meaning:
@@ -986,6 +1002,12 @@ function housingOptMoveWhereRowHtml(n) {
       "The search screens ZIPs around each anchor and unions the results before dedup.",
     ) +
       housingOptField(
+        `${p}AreaType`,
+        "Area type",
+        housingOptSelect(`${p}AreaType`, HOUSING_OPT_AREA_TYPES, 'onchange="debouncedRefreshHousingOptValidation()"'),
+        "Compared against the ZIP's density-derived area type. Any skips the filter.",
+      ) +
+      housingOptField(
         `${p}Radius`,
         "Within",
         housingOptSelect(`${p}Radius`, HOUSING_OPT_MOVE_RADII, 'onchange="debouncedRefreshHousingOptValidation()"'),
@@ -996,12 +1018,6 @@ function housingOptMoveWhereRowHtml(n) {
         "Min score",
         `<input type="number" id="${p}MinScore" class="count" value="60" min="0" max="100">`,
         "Neighborhood stability score floor. Measures housing and economic stability, not crime or safety.",
-      ) +
-      housingOptField(
-        `${p}AreaType`,
-        "Area type",
-        housingOptSelect(`${p}AreaType`, HOUSING_OPT_AREA_TYPES, 'onchange="debouncedRefreshHousingOptValidation()"'),
-        "Compared against the ZIP's density-derived area type. Any skips the filter.",
       ) +
       housingOptField(
         `${p}MaxPopulation`,
@@ -1227,6 +1243,22 @@ export function renderHousingOptimizePanelHtml() {
       `<div class="housing-opt-note small" id="housingOptKeepNote" hidden>Keeping the current home means its costs keep accruing. Rental income from a kept home is not modelled -- see the help panel.</div>`,
   );
 
+  const purchaseAssumptionsRow = housingOptRow(
+    "Purchase assumptions",
+    housingOptField(
+      "housingOptDownPaymentPct",
+      "Down payment %",
+      `<input type="number" id="housingOptDownPaymentPct" class="count" value="20" min="0" max="100" oninput="debouncedRefreshHousingOptValidation()">`,
+      "Share of the purchase price paid up front. Applies to every move that ends up buying.",
+    ) +
+      housingOptField(
+        "housingOptMortgageRatePct",
+        "Mortgage rate %",
+        `<input type="number" id="housingOptMortgageRatePct" class="count" value="6.85" min="0" max="100" step="0.01" oninput="debouncedRefreshHousingOptValidation()">`,
+        "Fixed annual rate for every buy move. Clear this field to use each candidate's own location-based rate instead.",
+      ),
+  );
+
   const move2Row = housingOptRow(
     "Consider a second move",
     housingOptField(
@@ -1257,6 +1289,7 @@ export function renderHousingOptimizePanelHtml() {
     ${objectiveRow}
     ${presenceRow}
     ${currentHomeRow}
+    ${purchaseAssumptionsRow}
     ${housingOptMoveWhereRowHtml(1)}
     ${housingOptMoveWhatRowHtml(1)}
     ${housingOptMoveWhenRowHtml(1)}
@@ -1631,6 +1664,11 @@ export function buildHousingOptRequest() {
     search: housingOptMoveSearchBody(1),
   };
 
+  const downPaymentRaw = housingOptDomVal("housingOptDownPaymentPct");
+  const down_payment_pct = (downPaymentRaw === "" ? 20 : Number(downPaymentRaw)) / 100;
+  const mortgageRaw = housingOptDomVal("housingOptMortgageRatePct");
+  const mortgage_rate_pct = mortgageRaw === "" ? null : Number(mortgageRaw) / 100;
+
   const body = {
     objective,
     search_mode,
@@ -1638,6 +1676,8 @@ export function buildHousingOptRequest() {
     no_dual_ownership,
     original_home,
     move1,
+    down_payment_pct,
+    mortgage_rate_pct,
   };
 
   if (housingOptDomChecked("housingOptMove2Enabled")) {
@@ -1769,6 +1809,15 @@ export function validateHousingOptForm() {
     if (!HOUSING_OPT_FAMILY_RADII_MILES.includes(radius)) {
       return `Family radius must be one of ${HOUSING_OPT_FAMILY_RADII_MILES.join(", ")} miles.`;
     }
+  }
+
+  const downPaymentRaw = housingOptDomVal("housingOptDownPaymentPct");
+  if (downPaymentRaw !== "" && !(Number(downPaymentRaw) >= 0 && Number(downPaymentRaw) <= 100)) {
+    return "Down payment % must be between 0 and 100.";
+  }
+  const mortgageRaw = housingOptDomVal("housingOptMortgageRatePct");
+  if (mortgageRaw !== "" && !(Number(mortgageRaw) >= 0 && Number(mortgageRaw) <= 100)) {
+    return "Mortgage rate % must be between 0 and 100.";
   }
 
   return null;
