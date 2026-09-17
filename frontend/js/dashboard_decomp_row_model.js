@@ -2516,7 +2516,8 @@ export function finishEdit(idx, el) {
   }
 }
 
-export function fieldHtml(r) {
+export function fieldHtml(r, opts) {
+  const hideUnit = !!(opts && opts.hideUnit);
   const value = valOf(r);
   const missing = isMissing(r);
   const dirtyHere = dirty.has(r.row_index);
@@ -2575,7 +2576,9 @@ export function fieldHtml(r) {
   const inactiveBadge = inactiveRevealed
     ? '<span class="badge warn">Inactive unless activated</span>'
     : "";
-  const unit = units
+  // hideUnit: some callers (e.g. the Next Housing Step editor) render their
+  // own compact hint and opt out of this raw type-token caption.
+  const unit = units && !hideUnit
     ? `<div class="unit">${esc(formatAcronyms(units))}</div>`
     : "";
   const kind = valueKind(r);

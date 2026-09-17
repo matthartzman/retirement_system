@@ -230,7 +230,10 @@ DASHBOARD_JS_MAX_LINES = 7_293
 # final-review fix pass for three plan-independence gates plus stale copy)
 # -- raised here to the genuinely measured total of all real, non-duplicate
 # additions across both branches.
-TOTAL_JS_MAX_LINES = 33_214
+# 2026-09-17 (housing-screen-fixes): the Housing screen's inconsistency/gap-
+# year/ZIP-input fixes plus an inline HELOC-enabled toggle on Optimize are
+# real new logic, not duplication -- raised to the measured total.
+TOTAL_JS_MAX_LINES = 33_275
 
 
 def _line_count(path: Path) -> int:

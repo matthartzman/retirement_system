@@ -124,11 +124,9 @@ test("a zero rejection count is omitted, not rendered as zero", () => {
   assert.ok(!/\bdual ownership\b/.test(html));
 });
 
-test("family distance appears only when family presence was used", () => {
-  assert.ok(render(payload()).includes("18.4"));
-  const p = payload();
-  p.candidates[0].moves[0].location.family_distance_miles = null;
-  assert.ok(!render(p).includes("from family"));
+test("family distance is never shown in a move cell (duplicates the search criteria, was the widest part of the row)", () => {
+  assert.ok(!render(payload()).includes("18.4"));
+  assert.ok(!render(payload()).includes("from family"));
 });
 
 test("a genuinely empty run with no rejections and no funnel data keeps the generic sentence", () => {

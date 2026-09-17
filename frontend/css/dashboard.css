@@ -66,6 +66,15 @@
 .field.w-long input{max-width:none}
 @media(max-width:1180px){.field-list{grid-template-columns:1fr;max-width:none}}
 
+/* Next Housing Step 1/2 editor (dashboard_decomp_housing_scenarios.js):
+   denser grid, smaller cards, label stacked above the control instead of
+   fieldHtml's default label|control two-column .field -- matching the
+   Housing Optimizer panel's compact style instead of one wide bordered
+   card per field. */
+.next-housing-compact{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.next-housing-compact .field{grid-template-columns:1fr;padding:6px 8px;margin:0;gap:2px}
+.next-housing-compact .field-label{font-size:12px;color:var(--muted)}
+
 .mc-engine-card{background:#eaf2ff;border-color:#9bc4f5}.mc-engine-card p{margin:6px 0 10px}.mc-engine-card .field{margin:8px 0 0;background:#fff}.mc-engine-card .field-label{font-size:15px}
 
 
@@ -989,3 +998,6 @@ body.chart-modal-open{overflow:hidden}
 .housing-opt-result + .housing-opt-result{border-top:2px solid var(--line)}
 .housing-opt-rank{font-weight:850;font-variant-numeric:tabular-nums;white-space:nowrap}
 .housing-opt-result-top .housing-opt-rank{color:#1d4ed8}
+/* Compact 3-line move cell (year/action, location/distance, cost) keeps the
+   Move 1/Move 2 columns from forcing the table into horizontal scroll. */
+.housing-opt-move-cell{display:inline-block;line-height:1.4;white-space:nowrap}
