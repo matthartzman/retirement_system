@@ -123,8 +123,8 @@ def validate_request(body: dict[str, Any]) -> str | None:
             continue
         search = block.get('search') or {}
         anchors = search.get('anchors') or []
-        if not (2 <= len(anchors) <= 5):
-            return f'Choose between 2 and 5 anchors for {key.replace("move", "move ")}.'
+        if not (1 <= len(anchors) <= 5):
+            return f'Choose between 1 and 5 anchors for {key.replace("move", "move ")}.'
         if any(not str(a.get('anchor_zip', '')).strip() for a in anchors):
             return f'Every anchor for {key.replace("move", "move ")} needs a ZIP.'
         if int(search.get('radius_miles') or 0) not in ALLOWED_RADII_MILES:
@@ -134,6 +134,10 @@ def validate_request(body: dict[str, Any]) -> str | None:
         rng = (search.get('dwelling') or {}).get('target_purchase_price_range')
         if rng and float(rng[0]) > float(rng[1]):
             return 'Minimum target price must not exceed the maximum.'
+        property_type = str((search.get('dwelling') or {}).get('property_type', '') or '')
+        if property_type == 'apartment' and str(block.get('action', 'auto')) == 'buy':
+            return (f'Apartment is rental-only for {key.replace("move", "move ")}. '
+                    "Choose Rent or Auto, or a different property type to buy.")
 
     fp = body.get('family_presence')
     if fp:
@@ -161,8 +165,8 @@ def parse_move_search(raw: dict[str, Any]) -> MultiAnchorRequest:
     anchors = raw.get('anchors') or []
     anchor_zips = [str(a.get('anchor_zip', '') or '').strip() for a in anchors]
     anchor_zips = [z for z in anchor_zips if z]
-    if not (2 <= len(anchor_zips) <= 5):
-        raise ValueError('Choose between 2 and 5 anchors.')
+    if not (1 <= len(anchor_zips) <= 5):
+        raise ValueError('Choose between 1 and 5 anchors.')
 
     try:
         radius = int(raw.get('radius_miles'))

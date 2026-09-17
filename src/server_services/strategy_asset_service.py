@@ -63,7 +63,7 @@ HOUSING_SEED_ROWS: list[list[str]] = [
     ["Housing","next_step_1","hoa_pct","","pct","HOA fee as % of value, optional (purchase only)"],
     ["Housing","next_step_1","bedrooms","3","int","Bedrooms for the Estimate button (2-5, 5=5+); does not affect a hand-typed price"],
     ["Housing","next_step_1","bathrooms","2","choice","Bathrooms for the Estimate button: 1|1.5|2|2.5|3|3.5 (3.5 means 3.5+); does not affect a hand-typed price"],
-    ["Housing","next_step_1","property_type","single_family","choice","Property type for the Estimate button: single_family|townhome|condo|duplex"],
+    ["Housing","next_step_1","property_type","single_family","choice","Property type for the Estimate button: single_family|townhome|condo|duplex|apartment"],
     ["Housing","next_step_1","sqft_band","1800_2500","choice","Square footage band for the Estimate button: under_1200|1200_1800|1800_2500|2500_3500|over_3500"],
     ["Housing","next_step_1","lot_size_band","quarter_half","choice","Lot size band for the Estimate button: under_quarter|quarter_half|half_one|one_three|over_three (purchase only)"],
     ["Housing","next_step_1","built_within_years","","int","Built within the last N years for the Estimate button; blank = no preference"],
@@ -85,7 +85,7 @@ HOUSING_SEED_ROWS: list[list[str]] = [
     ["Housing","next_step_2","hoa_pct","","pct","HOA fee as % of value, optional (purchase only)"],
     ["Housing","next_step_2","bedrooms","3","int","Bedrooms for the Estimate button (2-5, 5=5+); does not affect a hand-typed price"],
     ["Housing","next_step_2","bathrooms","2","choice","Bathrooms for the Estimate button: 1|1.5|2|2.5|3|3.5 (3.5 means 3.5+); does not affect a hand-typed price"],
-    ["Housing","next_step_2","property_type","single_family","choice","Property type for the Estimate button: single_family|townhome|condo|duplex"],
+    ["Housing","next_step_2","property_type","single_family","choice","Property type for the Estimate button: single_family|townhome|condo|duplex|apartment"],
     ["Housing","next_step_2","sqft_band","1800_2500","choice","Square footage band for the Estimate button: under_1200|1200_1800|1800_2500|2500_3500|over_3500"],
     ["Housing","next_step_2","lot_size_band","quarter_half","choice","Lot size band for the Estimate button: under_quarter|quarter_half|half_one|one_three|over_three (purchase only)"],
     ["Housing","next_step_2","built_within_years","","int","Built within the last N years for the Estimate button; blank = no preference"],
@@ -120,7 +120,7 @@ STATE_ESTIMATES = {
 # pre-existing city_type/population_size multipliers.
 BEDROOM_MULT = {2: 0.85, 3: 1.00, 4: 1.15, 5: 1.30}
 BATHROOM_MULT = {1: 0.90, 1.5: 0.95, 2: 1.00, 2.5: 1.05, 3: 1.12, 3.5: 1.18}
-PROPERTY_TYPE_MULT = {"single_family": 1.00, "townhome": 0.85, "condo": 0.75, "duplex": 0.90}
+PROPERTY_TYPE_MULT = {"single_family": 1.00, "townhome": 0.85, "condo": 0.75, "duplex": 0.90, "apartment": 0.60}
 SQFT_BAND_MULT = {
     "under_1200": 0.75,
     "1200_1800": 0.90,

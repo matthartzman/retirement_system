@@ -67,6 +67,30 @@ def test_auto_action_generates_both_buy_and_rent():
     assert {c.move1.action for c in _gen(move1_action='auto')} == {'buy', 'rent'}
 
 
+def test_apartment_locations_never_generate_a_buy_candidate_under_auto():
+    apt_locs = [Location(state='CO', property_type='apartment'),
+                Location(state='AZ', property_type='apartment')]
+    cands = _gen(locations1=apt_locs, move1_action='auto')
+    assert cands
+    assert {c.move1.action for c in cands} == {'rent'}
+
+
+def test_apartment_locations_generate_no_candidates_at_all_under_an_explicit_buy():
+    apt_locs = [Location(state='CO', property_type='apartment')]
+    assert _gen(locations1=apt_locs, move1_action='buy') == []
+
+
+def test_a_mixed_shortlist_only_excludes_buy_for_the_apartment_locations():
+    mixed = [Location(state='CO', property_type='apartment'),
+              Location(state='AZ', property_type='single_family')]
+    cands = _gen(locations1=mixed, move1_action='auto')
+    by_state = {}
+    for c in cands:
+        by_state.setdefault(c.move1.location.state, set()).add(c.move1.action)
+    assert by_state['CO'] == {'rent'}
+    assert by_state['AZ'] == {'buy', 'rent'}
+
+
 def test_move2_uses_its_own_window_not_the_move1_acquisition_year():
     """The screenshot bug: move 2's lower bound used to be derived from move 1's
     purchase year, so a declared move-2 window was silently overridden."""
