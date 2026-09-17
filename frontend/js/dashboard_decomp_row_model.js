@@ -1067,9 +1067,7 @@ export function planningWorkbenchContext() {
     displayValueForInput: displayValueForInput,
     scenarioActiveOverrideItems: scenarioActiveOverrideItems,
     planningLeverRows: planningLeverRows,
-    renderWorkbenchLeverEditorHtml: renderWorkbenchLeverEditorHtml,
     renderScenarios: renderScenarios,
-    renderWorkbenchStressHtml: renderWorkbenchStressHtml,
     confirm: function (msg, opts) {
       return showInAppConfirm(msg, opts);
     },
