@@ -163,6 +163,7 @@ const STEPS = [
   {
     id: "planning_workbench",
     group: null,
+    hidden: true,
     title: "Planning Workbench",
     desc: "Unified place to review the baseline, assemble change sets, compare scenarios, run stress suites, and decide what to adopt.",
     intro:
@@ -195,6 +196,15 @@ const STEPS = [
     intro:
       "Levers rank the isolated impact of one change at a time. Change sets are named deterministic cases you can compare side by side in the workbench.",
     help: "Use change sets for questions with a specific answer (retire two years later, sell the home in 2028). Use Stress Test for probability ranges and adverse assumptions.",
+  },
+  {
+    id: "strategy_workbench",
+    group: "Strategy",
+    title: "Workbench",
+    desc: "Compare the baseline, named change sets, and stress-suite results in one place, then decide what to adopt.",
+    intro:
+      "Pick a baseline, stage a change set to test, choose Scenario or Stress as the run type, then review Impact and record a Decision.",
+    help: "Planning cases are browser-local change sets. They do not alter the saved plan until you explicitly jump to source pages, edit inputs, save, and rebuild.",
   },
   {
     id: "distribution_strategy",
@@ -3860,6 +3870,8 @@ let renderMain = function() {
   else if (activeStep === "strategy_stress") content += renderStrategyStress();
   else if (activeStep === "strategy_scenarios")
     content += renderStrategyScenarios();
+  else if (activeStep === "strategy_workbench")
+    content += renderStrategyWorkbench();
   else if (activeStep === "reports_and_review")
     content += renderReportsAndReview();
   else if (activeStep === "scenarios")

@@ -1344,6 +1344,7 @@ const STRATEGY_SCREEN_MEMBER_STEPS = {
     "divorce_options",
   ],
   strategy_scenarios: ["scenarios"],
+  strategy_workbench: [],
 };
 
 export function rawRowsForStep(id) {
