@@ -69,6 +69,7 @@ const HOUSING_DWELLING_OPTIONS = {
     { value: "townhome", label: "Townhome" },
     { value: "condo", label: "Condo" },
     { value: "duplex", label: "Duplex" },
+    { value: "apartment", label: "Apartment (rent only)" },
   ],
   sqftBands: [
     { value: "under_1200", label: "Under 1,200 sqft" },

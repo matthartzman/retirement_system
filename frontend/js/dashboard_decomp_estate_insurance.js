@@ -247,6 +247,24 @@ export function renderEntityCharitable() {
       .join("")}</ul></div>`;
   return html + renderFieldGroups(entityCharitableGatedRows(rs));
 }
+// Keeps HELOC's own enable toggle visible on the Optimize screen (like
+// QCD/DAF above) -- renderFields("heloc_strategy") hard-hides the toggle
+// itself when off, fine for the dedicated Setup page but not here.
+export function helocGatedRows(rs) {
+  const enabled = rs.find((r) => norm(r.label) === "heloc_enabled");
+  return !enabled || boolishValue(enabled) ? rs : [enabled];
+}
+export function renderHelocOptimizePanel() {
+  const rs = rowsForStep("heloc_strategy");
+  const missing = rs.filter(isMissing);
+  const html = missing.length
+    ? `<div class="missing-list"><h3>${missing.length} required field${missing.length === 1 ? "" : "s"} missing in this view</h3><ul>${missing
+        .slice(0, 8)
+        .map((r) => `<li>${esc(humanLabel(r.label, r))}</li>`)
+        .join("")}</ul></div>`
+    : "";
+  return html + renderFieldGroups(helocGatedRows(rs));
+}
 export function renderEstateInformation() {
   if (searchText.trim()) return renderFields("estate");
   const estate = rowsForStep("estate");
@@ -515,6 +533,8 @@ Object.assign(window, {
   renderToggleRows,
   entityCharitableGatedRows,
   renderEntityCharitable,
+  helocGatedRows,
+  renderHelocOptimizePanel,
   renderEstateInformation,
   setNewInsurancePolicyType,
   inferPolicyType,

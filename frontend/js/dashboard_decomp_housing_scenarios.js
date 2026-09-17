@@ -473,7 +473,7 @@ window.housingStepZipLookup = window.housingStepZipLookup || {};
 export async function resolveHousingStepZip(stepNum, rawZip) {
   var zip = String(rawZip || "").trim();
   if (zip.length !== 5 || !/^\d{5}$/.test(zip)) {
-    window.housingStepZipLookup[stepNum] = { error: "ZIP must be 5 digits." };
+    window.housingStepZipLookup[stepNum] = { error: "ZIP must be 5 digits.", zip: zip };
     renderMain();
     return;
   }
@@ -489,18 +489,18 @@ export async function resolveHousingStepZip(stepNum, rawZip) {
   try {
     payload = await api("/api/housing/zip-lookup?zip=" + encodeURIComponent(zip));
   } catch (e) {
-    window.housingStepZipLookup[stepNum] = { error: "Error looking up ZIP: " + e.message };
+    window.housingStepZipLookup[stepNum] = { error: "Error looking up ZIP: " + e.message, zip: zip };
     renderMain();
     return;
   }
   if (!payload || !payload.success) {
     // Leave state/city_type/population_size exactly as they were -- an
     // existing configured plan must not go blank on an unresolved ZIP.
-    window.housingStepZipLookup[stepNum] = { error: (payload && payload.error) || "ZIP not recognized." };
+    window.housingStepZipLookup[stepNum] = { error: (payload && payload.error) || "ZIP not recognized.", zip: zip };
     renderMain();
     return;
   }
-  window.housingStepZipLookup[stepNum] = { city: payload.city, state: payload.state };
+  window.housingStepZipLookup[stepNum] = { city: payload.city, state: payload.state, zip: zip };
   if (stateRow) editValue(stateRow.row_index, payload.state, null);
   if (cityTypeRow) editValue(cityTypeRow.row_index, payload.area_type, null);
   if (popRow) editValue(popRow.row_index, String(payload.population), null);
@@ -551,7 +551,11 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
   // Both purchase and rent: State → Area Type → Population → [Estimate] →
   // remaining fields. Rent used to skip Area Type/Population (silently
   // defaulting to suburban/20,000) -- see design doc §3.4.
-  var PURCHASE_FIRST = ["zip_code", "state", "city_type", "population_size"];
+  // "zip_code" is deliberately not in this list: no such row exists in the
+  // plan's data, so pickRows() below always dropped it and the ZIP box
+  // silently never rendered. It's rendered unconditionally further down
+  // instead, off the ephemeral window.housingStepZipLookup cache.
+  var PURCHASE_FIRST = ["state", "city_type", "population_size"];
   var PURCHASE_REST = [
     "start_year",
     "end_year",
@@ -570,7 +574,7 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
     "lot_size_band",
     "built_within_years",
   ];
-  var RENT_FIRST = ["zip_code", "state", "city_type", "population_size"];
+  var RENT_FIRST = ["state", "city_type", "population_size"];
   var RENT_REST = [
     "start_year",
     "end_year",
@@ -654,46 +658,44 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
     stepNum +
     ')">Clear This Step</button>';
   html += typeToggle;
-  if (firstRows.length)
-    html +=
-      '<div class="field-list inline-row">' +
-      firstRows
-        .map(function (r) {
-          if (norm(r.label) === "zip_code") {
-            var cached = window.housingStepZipLookup[stepNum];
-            var errorHtml =
-              cached && cached.error
-                ? '<div class="small warning">' + esc(cached.error) + "</div>"
-                : "";
-            return (
-              '<div class="field"><div class="field-label">ZIP</div>' +
-              '<input type="text" class="zip" maxlength="5" inputmode="numeric" ' +
-              'data-row="' + r.row_index + '" data-focus-key="field:' + r.row_index + '" value="' + esc(valOf(r) || "") + '" ' +
-              'oninput="editValue(' + r.row_index + ',this.value,this)" onchange="resolveHousingStepZip(' + stepNum + ',this.value)" ' +
-              'onfocus="beginEdit(' + r.row_index + ',this)" onblur="finishEdit(' + r.row_index + ',this)">' +
-              errorHtml +
+  // ZIP is not row/schema-backed (see comment above) -- renders
+  // unconditionally, keyed on the ephemeral zip-lookup cache.
+  var zipCache = window.housingStepZipLookup[stepNum];
+  var zipValue = zipCache && zipCache.zip ? zipCache.zip : "";
+  var zipErrorHtml =
+    zipCache && zipCache.error
+      ? '<div class="small warning">' + esc(zipCache.error) + "</div>"
+      : "";
+  var zipFieldHtml =
+    '<div class="field"><div class="field-label">ZIP</div>' +
+    '<input type="text" class="zip" maxlength="5" inputmode="numeric" value="' + esc(zipValue) + '" ' +
+    'onchange="resolveHousingStepZip(' + stepNum + ',this.value)">' +
+    zipErrorHtml +
+    "</div>";
+  html +=
+    '<div class="field-list inline-row next-housing-compact">' +
+    zipFieldHtml +
+    firstRows
+      .map(function (r) {
+        if (norm(r.label) === "state") {
+          var cachedCity = window.housingStepZipLookup[stepNum];
+          var display = cachedCity && cachedCity.city
+            ? esc(cachedCity.city) + ", " + esc(valOf(r) || "")
+            : esc(valOf(r) || "Enter a ZIP above");
+          return (
+            '<div class="field"><div class="field-label">City, State</div>' +
+            '<div class="field-readonly" data-row="' + r.row_index + '">' + display + "</div>" +
+            "</div>"
+          );
+        }
+        return norm(r.label) === "city_type"
+          ? '<div class="field"><div class="field-label">Area Type</div>' +
+              housingAreaTypeSelect(r) +
               "</div>"
-            );
-          }
-          if (norm(r.label) === "state") {
-            var cachedCity = window.housingStepZipLookup[stepNum];
-            var display = cachedCity && cachedCity.city
-              ? esc(cachedCity.city) + ", " + esc(valOf(r) || "")
-              : esc(valOf(r) || "Enter a ZIP above");
-            return (
-              '<div class="field"><div class="field-label">City, State</div>' +
-              '<div class="field-readonly" data-row="' + r.row_index + '">' + display + "</div>" +
-              "</div>"
-            );
-          }
-          return norm(r.label) === "city_type"
-            ? '<div class="field"><div class="field-label">Area Type</div>' +
-                housingAreaTypeSelect(r) +
-                "</div>"
-            : fieldHtml(r);
-        })
-        .join("") +
-      "</div>";
+          : fieldHtml(r, { hideUnit: true });
+      })
+      .join("") +
+    "</div>";
   html += estimateBtn;
   // Bedrooms, bathrooms, property type, sqft and lot size render from the
   // shared HOUSING_DWELLING_OPTIONS selects (Task 16) rather than fieldHtml's
@@ -709,7 +711,7 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
   };
   function restFieldHtml(r) {
     var spec = DWELLING_SELECT_FIELDS[norm(r.label)];
-    if (!spec) return fieldHtml(r);
+    if (!spec) return fieldHtml(r, { hideUnit: true });
     return (
       '<div class="field"><div class="field-label">' +
       spec.label +
@@ -720,7 +722,7 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
   }
   if (restRows.length)
     html +=
-      '<div class="field-list">' + restRows.map(restFieldHtml).join("") + "</div>";
+      '<div class="field-list next-housing-compact">' + restRows.map(restFieldHtml).join("") + "</div>";
   html += "</div></details>";
   return html;
 }
@@ -821,7 +823,7 @@ export function renderSpendingHousing() {
   html += renderBaseHomeSaleRows(rs);
 
   html +=
-    '<div class="section-note">Not sure what year or location to plan for? The <a href="#" onclick="setStep(\'scenarios\');return false">Optimize next housing move</a> tool (Strategy → Scenarios → Scenario Change Sets) searches candidate sale/purchase years, locations, and dwelling specs (area type, bedrooms, bathrooms, property type, square footage, lot size) and reuses the same engine as the rest of the plan. Each of its results now reports the ZIP code, an estimated price, and the distance to your anchor -- run it, then transcribe the winning candidate\'s state, area type, population, ZIP, and dwelling fields into the fields below.</div>';
+    '<div class="section-note">Not sure what year or location to plan for? The <a href="#" onclick="setStep(\'strategy_optimize\');return false">Optimize next housing move</a> tool (Strategy → Optimize → Next Housing Move) searches candidate sale/purchase years, locations, and dwelling specs (area type, bedrooms, bathrooms, property type, square footage, lot size) and reuses the same engine as the rest of the plan. Each of its results now reports the ZIP code, an estimated price, and the distance to your anchor -- run it, then transcribe the winning candidate\'s state, area type, population, ZIP, and dwelling fields into the fields below.</div>';
 
   if (nextStep1Rows.length) {
     html += renderNextHousingStepSection(
@@ -1290,7 +1292,7 @@ export function renderCurrentScenarioOverridesHtml(rs) {
 }
 
 export function renderScenarioManagementPanel(rs) {
-  return `<section class="scenario-management"><div class="scenario-management-head"><div><span class="eyebrow">Planning Workbench</span><h3>Scenario Change Sets</h3><p class="small">Templates stage common deterministic what-if overrides. Saved sets are browser-local change sets; review the diff, apply a set, then Save Changes, rebuild, and compare in the Planning Workbench.</p></div><button class="btn primary" type="button" onclick="saveCurrentScenarioSet()">Save current scenario set</button></div><details><summary>Scenario templates</summary>${renderScenarioTemplatesHtml()}</details>${renderHousingOptimizePanelHtml()}<details><summary>Saved named scenario sets</summary>${renderSavedScenarioSetsHtml()}</details><details><summary>Current scenario overrides</summary>${renderCurrentScenarioOverridesHtml(rs)}</details></section>`;
+  return `<section class="scenario-management"><div class="scenario-management-head"><div><span class="eyebrow">Planning Workbench</span><h3>Scenario Change Sets</h3><p class="small">Templates stage common deterministic what-if overrides. Saved sets are browser-local change sets; review the diff, apply a set, then Save Changes, rebuild, and compare in the Planning Workbench.</p></div><button class="btn primary" type="button" onclick="saveCurrentScenarioSet()">Save current scenario set</button></div><details><summary>Scenario templates</summary>${renderScenarioTemplatesHtml()}</details><details><summary>Saved named scenario sets</summary>${renderSavedScenarioSetsHtml()}</details><details><summary>Current scenario overrides</summary>${renderCurrentScenarioOverridesHtml(rs)}</details></section>`;
 }
 
 export function renderScenarios() {

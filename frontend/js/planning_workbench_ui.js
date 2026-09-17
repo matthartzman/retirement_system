@@ -389,59 +389,6 @@
       .join("");
     return `<div class="feature-card"><h3>Stress suite target</h3><p class="small">Run adverse assumptions against the baseline or a saved planning case. Stress tests remain labels and inputs until you save/build deliberately.</p><label class="small">Apply stress assumptions to</label><select class="compact-input" onchange="setPlanningCaseActive(this.value==='baseline'?'':this.value)">${opts}</select><div class="pane-actions"><button class="btn" type="button" data-step-id="monte_carlo_options">Configure Stress Suite</button><button class="btn" type="button" onclick="planningCaseCreate('stress')">Save stress case</button></div></div>`;
   }
-  function renderWorkbench(ctx) {
-    const cases = readAll();
-    const aid = activeId();
-    const active =
-      cases.find((c) => c.case_id === aid) ||
-      cases.find((c) => !c.archived) ||
-      null;
-    const staged = currentManualOverrideItems(ctx);
-    let html = '<div class="planning-workbench">';
-    html +=
-      '<div class="section-note workbench-model"><b>Planning Workbench model:</b> Baseline → Change Set → Run Type → Impact → Decision. A Planning Case is browser-local and never changes the saved plan by itself.</div>';
-    html +=
-      '<div class="feature-grid workbench-overview"><div class="feature-card"><h3>1. Review baseline</h3><p>Use the latest saved and built plan as the comparison anchor.</p><button class="btn" type="button" data-step-id="build_impact">Open Impact & Build History</button></div><div class="feature-card"><h3>2. Try a strategy lever</h3><p>Adjust test amounts in the Strategy Levers panel below to rank ideas, then save the selected set as a case.</p><button class="btn" type="button" data-step-id="distribution_strategy">Open Distribution Strategy &rarr;</button></div><div class="feature-card"><h3>3. Compare scenarios</h3><p>Set deterministic what-if overrides on the Scenario Change Sets page, save as a named set, then compare in the matrix.</p><button class="btn" type="button" data-step-id="scenarios">Open Scenario Change Sets &rarr;</button></div><div class="feature-card"><h3>4. Run stress suite</h3><p>Set adverse assumptions in the Stress &amp; Probability panel below, rebuild, then compare results in the matrix.</p></div></div>';
-    html +=
-      '<details><summary><b>Strategy Levers</b><span class="small"> test amounts and directional estimates — edit source pages to change the actual plan</span></summary><div class="scenario-set-body">' +
-      call(ctx.renderWorkbenchLeverEditorHtml) +
-      "</div></details>";
-    html +=
-      '<details><summary><b>Stress &amp; Probability</b><span class="small"> Monte Carlo settings, survivor, long-term care, and adverse scenarios</span></summary><div class="scenario-set-body">' +
-      call(ctx.renderWorkbenchStressHtml) +
-      "</div></details>";
-    html +=
-      '<details><summary><b>Change Set Builder</b><span class="small"> staged edits, strategy levers, scenarios, and stresses share one override list</span></summary><div class="scenario-set-body">' +
-      sourceButtons() +
-      "<h4>Currently staged manual edits</h4>" +
-      overrideTable(
-        ctx,
-        staged,
-        "No unsaved field edits are currently staged.",
-      ) +
-      "</div></details>";
-    html +=
-      '<details><summary><b>Unified Comparison Matrix</b><span class="small"> one vocabulary for every run type</span></summary>' +
-      matrixHtml(ctx, cases) +
-      "</details>";
-    html += forwardLookingHtml(ctx);
-    html +=
-      '<div class="feature-grid">' +
-      stressSelectorHtml(ctx, cases) +
-      '<div class="feature-card"><h3>Decision panel</h3><p class="small">Every comparison ends with one deliberate choice: adopt selected changes into the saved plan via source pages, keep as a named scenario only, or archive/no action.</p>' +
-      (active
-        ? `<p><b>Selected:</b> ${esc(ctx, active.name)}</p><div class="pane-actions"><button class="btn primary" type="button" onclick="planningCaseAdopt('${escJs(ctx, active.case_id)}')">Adopt via source pages</button><button class="btn" type="button" data-step-id="build_impact">View impact</button><button class="btn" type="button" onclick="planningCaseArchive('${escJs(ctx, active.case_id)}')">Archive/no action</button></div>`
-        : '<p class="small">Select or create a case to make a decision.</p>') +
-      "</div></div>";
-    html +=
-      "<details " +
-      (active ? "open" : "") +
-      '><summary><b>Saved Planning Cases</b><span class="small"> planning_case_v1 browser-local store</span></summary>' +
-      cardsHtml(ctx, cases, active) +
-      "</details>";
-    html += "</div>";
-    return html;
-  }
   function renderBuildImpactContext(ctx) {
     const cases = readAll().filter((c) => !c.archived);
     if (!cases.length) return "";
@@ -477,7 +424,6 @@
     forwardLookingHtml,
     cardsHtml,
     stressSelectorHtml,
-    renderWorkbench,
     renderBuildImpactContext,
   };
 })();

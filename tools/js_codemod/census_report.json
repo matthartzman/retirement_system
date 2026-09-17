@@ -24,8 +24,6 @@
     "closeExitModal",
     "closeNavDrawer",
     "collapseAllDetailGroups",
-    "currentManualOverrideItems",
-    "currentScenarioOverrideItems",
     "decimalsFromText",
     "deleteYtdAccount",
     "dependencyRank",
@@ -121,7 +119,6 @@
     "renderMeta",
     "renderNav",
     "renderOptionalFunctions",
-    "renderPlanningWorkbench",
     "renderRetirementWellness",
     "renderSpendingDashboardOrLoad",
     "renderSpendingWorkflowBanner",
@@ -162,9 +159,7 @@
     "stepIdForRow",
     "stepSearchText",
     "stopDetailedResultsProgress",
-    "strategyLeverOverrideItems",
     "stressHomeSaleYearRow",
-    "stressOverrideItems",
     "stripUiLabelPrefix",
     "suggestedNext",
     "summaryFromApiPayload",
@@ -670,12 +665,6 @@
     },
     {
       "name": "rows",
-      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "planningLeverInputs",
       "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
       "kind": "read",
       "scope": "inside-function"
@@ -2538,6 +2527,36 @@
       "name": "rows",
       "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
       "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
+      "kind": "call",
       "scope": "inside-function"
     },
     {
@@ -6885,12 +6904,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "renderPlanningWorkbench",
-      "file": "frontend/js/dashboard_decomp_strategy_workspace.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
       "name": "travelExtras",
       "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
       "kind": "assign",
@@ -8787,61 +8800,7 @@
       "scope": "inside-function"
     },
     {
-      "name": "currentScenarioOverrideItems",
-      "file": "frontend/js/planning_workbench_ui.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "strategyLeverOverrideItems",
-      "file": "frontend/js/planning_workbench_ui.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "stressOverrideItems",
-      "file": "frontend/js/planning_workbench_ui.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "currentManualOverrideItems",
-      "file": "frontend/js/planning_workbench_ui.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
       "name": "rows",
-      "file": "frontend/js/planning_workbench_ui.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "currentManualOverrideItems",
-      "file": "frontend/js/planning_workbench_ui.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "currentManualOverrideItems",
-      "file": "frontend/js/planning_workbench_ui.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "currentScenarioOverrideItems",
-      "file": "frontend/js/planning_workbench_ui.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "strategyLeverOverrideItems",
-      "file": "frontend/js/planning_workbench_ui.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "stressOverrideItems",
       "file": "frontend/js/planning_workbench_ui.js",
       "kind": "read",
       "scope": "inside-function"
