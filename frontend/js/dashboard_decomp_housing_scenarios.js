@@ -742,10 +742,15 @@ export function renderSpendingHousing() {
       "</div>";
   html += "</div></details>";
 
+  html +=
+    '<details data-dkey="housing:residency"><summary class="section-header">State residency over time</summary><div class="section-body">';
+  html += renderResidencySchedule();
+  html += "</div></details>";
+
   html += renderBaseHomeSaleRows(rs);
 
   html +=
-    '<div class="section-note">Not sure what year or location to plan for? The <a href="#" onclick="setStep(\'scenarios\');return false">Optimize next housing move</a> tool (Strategy → Scenario Change Sets) searches candidate sale/purchase years, locations, and dwelling specs (area type, bedrooms, bathrooms, property type, square footage, lot size) and reuses the same engine as the rest of the plan. Each of its results now reports the ZIP code, an estimated price, and the distance to your anchor -- run it, then transcribe the winning candidate\'s state, area type, population, ZIP, and dwelling fields into the fields below.</div>';
+    '<div class="section-note">Not sure what year or location to plan for? The <a href="#" onclick="setStep(\'scenarios\');return false">Optimize next housing move</a> tool (Strategy → Scenarios → Scenario Change Sets) searches candidate sale/purchase years, locations, and dwelling specs (area type, bedrooms, bathrooms, property type, square footage, lot size) and reuses the same engine as the rest of the plan. Each of its results now reports the ZIP code, an estimated price, and the distance to your anchor -- run it, then transcribe the winning candidate\'s state, area type, population, ZIP, and dwelling fields into the fields below.</div>';
 
   if (nextStep1Rows.length) {
     html += renderNextHousingStepSection(
@@ -1221,15 +1226,17 @@ export function renderScenarios() {
   if (searchText.trim()) return renderFields("scenarios");
   const rs = rowsForStep("scenarios");
   const economy = rs.filter(rowIsEconomyScenario);
-  const stateComp = rs.filter(
-    (r) => String(r.section || "").trim() === "State Comparison",
-  );
   const homeSale = rs.filter((r) => rowIsHomeSaleAssumption(r));
+  // #323: this used to also exclude a `stateComp` bucket, gated behind an
+  // `if (stateComp.length)` block rendering a "State comparison — insurance
+  // costs" heading. That precondition was never true -- State Comparison
+  // rows route to state_residency (now the Housing page's residency
+  // section), never to scenarios -- so the block never rendered. Removed
+  // along with the dead bucket; see
+  // tests/frontend/strategy_screen_rows_aggregate.test.mjs for the routing
+  // proof.
   const other = rs.filter(
-    (r) =>
-      !rowIsEconomyScenario(r) &&
-      !homeSale.includes(r) &&
-      !stateComp.includes(r),
+    (r) => !rowIsEconomyScenario(r) && !homeSale.includes(r),
   );
   let html = `<div class="field-list"><div class="section-note"><b>Scenario Change Sets are deterministic planning cases.</b> Use the Stress Suite & Monte Carlo page for probabilistic or adverse-assumption testing. Economy shocks and scenario enable/year controls are grouped first because they determine which dependent assumptions matter. Home sale here is the stress-test panel only, affecting scenario sheets; the base-plan home sale is entered once on the Housing page under Spending.</div></div>`;
   html += renderScenarioManagementPanel(rs);
@@ -1237,24 +1244,6 @@ export function renderScenarios() {
     ? `<details><summary>Economy</summary><div class="field-list">${sortRowsByDependency(economy).map(fieldHtml).join("")}</div></details>`
     : "";
   html += renderHomeSaleScenarioRows(rs);
-  if (stateComp.length) {
-    const hwRows = stateComp.filter(
-      (r) => norm(r.subsection || "") === "homeowners_insurance",
-    );
-    const autoRows = stateComp.filter(
-      (r) => norm(r.subsection || "") === "auto_insurance",
-    );
-    html += `<details><summary>State comparison — insurance costs</summary><div class="field-list"><div class="section-note">Compare insurance costs between your current state (baseline) and a target relocation state. These are reference inputs only — they do not feed the projection model but appear in the scenario outputs for advisor review.</div>`;
-    if (hwRows.length) {
-      html += `<div class="subsection-label">Homeowners insurance</div>`;
-      html += hwRows.map(fieldHtml).join("");
-    }
-    if (autoRows.length) {
-      html += `<div class="subsection-label">Auto insurance</div>`;
-      html += autoRows.map(fieldHtml).join("");
-    }
-    html += `</div></details>`;
-  }
   html += renderFieldGroups(other);
   return html;
 }

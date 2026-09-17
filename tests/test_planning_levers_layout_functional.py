@@ -16,23 +16,28 @@ def test_planning_levers_ui_has_source_column_and_compact_inputs():
     assert 'white-space:nowrap' in css
 
 
-def test_planning_levers_gates_ltc_quick_nav_button_on_optional_function():
-    # #256 (and its follow-up "make sure applied to all optional modules"):
-    # the "Stress tests - resilience" quick-nav card must not show the
-    # "Long-term care" button when the long_term_care_stress optional module
-    # is disabled. Originally a hand-picked ltcLeverButton conditional (like
-    # divorce_qdro's own hand-picked conditional); both were superseded by
-    # leverNavButton(), which gates every quick-nav button here through the
-    # same server-declared stepGatedByOptionalModule() the rest of the app's
-    # navigation already uses -- see test_planning_levers_module_gating.py
-    # for the full cross-module coverage.
+def test_planning_levers_no_longer_carries_its_own_quick_nav_hub():
+    # #256's original fix (and its follow-up "make sure applied to all
+    # optional modules") gated a "Stress tests - resilience" quick-nav card
+    # here through leverNavButton()/stepGatedByOptionalModule(), so the
+    # Long-term care button correctly disappeared when long_term_care_stress
+    # was off. Ticket 323 removed that hub entirely: every one of its former
+    # destinations, including Long-Term Care, now has a real, permanent nav
+    # entry of its own (one of the three Strategy screens), so an in-page
+    # launcher grid duplicating them was exactly the redundancy the redesign
+    # removes. The module-gating contract for Long-Term Care did not
+    # disappear with the hub -- it moved onto strategySection()'s `gate`
+    # parameter in dashboard_decomp_strategy_workspace.js, asserted against
+    # the same server-declared step_gate_map() in
+    # test_strategy_workspace_module_gating.py.
     fn = dashboard_function_source('renderPlanningLevers')
-    assert 'leverNavButton("ltc_stress", "Long-term care")' in fn
-    assert 'stepGatedByOptionalModule(stepId)' in fn
-    # The only reference to the ltc_stress button should be the single
-    # leverNavButton(...) call, not a second hardcoded copy in the template.
-    assert fn.count('data-step-id="ltc_stress"') == 0
-    assert fn.count('"ltc_stress"') == 1
+    # Checks the function's actual code shape (the declaration and a real
+    # call), not comment prose that legitimately names the removed helper
+    # while explaining its removal.
+    assert 'function leverNavButton(stepId' not in fn
+    assert '= leverNavButton(' not in fn
+    assert '"ltc_stress"' not in fn
+    assert 'data-step-id="ltc_stress"' not in fn
 
 
 def test_planning_levers_workbook_has_source_section_column():

@@ -23,7 +23,8 @@ export function getSpendingDivergencePct() { return window.spendingDivergencePct
 window.getSpendingDivergencePct = getSpendingDivergencePct;
 
 // Wave 6.2 (system review 2026-08-04, finding `ui-spending-domain-fragmentation`):
-// mirrors dashboard.js's renderDistributionStrategy(). Each tab still calls the
+// same shape as the tabbed workspaces the ticket 323 Strategy redesign later
+// adopted (Optimize/Stress Test/Scenarios). Each tab still calls the
 // same render function its old standalone step used, so behavior (including
 // the Wave 1.4 jump-to-field fix inside renderLifestyleSpending()'s accordions)
 // is unchanged -- only the navigation surface merges Spending Model, Actual

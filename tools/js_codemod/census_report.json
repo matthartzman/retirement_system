@@ -123,10 +123,8 @@
     "renderOptionalFunctions",
     "renderPlanningWorkbench",
     "renderRetirementWellness",
-    "renderSpecialStrategies",
     "renderSpendingDashboardOrLoad",
     "renderSpendingWorkflowBanner",
-    "renderStateResidency",
     "renderStrategyTabs",
     "renderWithdrawalOrderTable",
     "renderWithdrawalStrategy",
@@ -2933,6 +2931,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "moduleGates",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "navSearchText",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
@@ -3557,6 +3561,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "residencyScheduleChanged",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "ytdTransactionsChanged",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
@@ -4043,12 +4053,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "activeStep",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
       "name": "allocationPreviewFingerprint",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "call",
@@ -4176,12 +4180,6 @@
     },
     {
       "name": "allocationPreviewSeq",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "activeStep",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
       "scope": "inside-function"
@@ -6878,6 +6876,18 @@
       "name": "taxBudget",
       "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
       "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_strategy_workspace.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderPlanningWorkbench",
+      "file": "frontend/js/dashboard_decomp_strategy_workspace.js",
+      "kind": "call",
       "scope": "inside-function"
     },
     {
