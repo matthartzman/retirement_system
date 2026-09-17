@@ -463,6 +463,50 @@ export function housingLotSizeSelect(row) {
   return _housingDwellingSelect(row, HOUSING_DWELLING_OPTIONS.lotSizeBands);
 }
 
+// Cache for the read-only City/State display and any lookup error, keyed by
+// step number -- mirrors window.housingLastEstimate's existing pattern for
+// the "Estimate fields" button's cached result. Not persisted: a fresh page
+// load simply shows nothing until the user (re-)enters a ZIP, same as that
+// existing cache.
+window.housingStepZipLookup = window.housingStepZipLookup || {};
+
+export async function resolveHousingStepZip(stepNum, rawZip) {
+  var zip = String(rawZip || "").trim();
+  if (zip.length !== 5 || !/^\d{5}$/.test(zip)) {
+    window.housingStepZipLookup[stepNum] = { error: "ZIP must be 5 digits." };
+    renderMain();
+    return;
+  }
+  var sub = "next_step_" + stepNum;
+  var stepRows = rows.filter(function (r) {
+    return r.section === "Housing" && norm(r.subsection || "") === sub;
+  });
+  var stateRow = stepRows.find(function (r) { return norm(r.label) === "state"; });
+  var cityTypeRow = stepRows.find(function (r) { return norm(r.label) === "city_type"; });
+  var popRow = stepRows.find(function (r) { return norm(r.label) === "population_size"; });
+
+  var payload;
+  try {
+    payload = await api("/api/housing/zip-lookup?zip=" + encodeURIComponent(zip));
+  } catch (e) {
+    window.housingStepZipLookup[stepNum] = { error: "Error looking up ZIP: " + e.message };
+    renderMain();
+    return;
+  }
+  if (!payload || !payload.success) {
+    // Leave state/city_type/population_size exactly as they were -- an
+    // existing configured plan must not go blank on an unresolved ZIP.
+    window.housingStepZipLookup[stepNum] = { error: (payload && payload.error) || "ZIP not recognized." };
+    renderMain();
+    return;
+  }
+  window.housingStepZipLookup[stepNum] = { city: payload.city, state: payload.state };
+  if (stateRow) editValue(stateRow.row_index, payload.state, null);
+  if (cityTypeRow) editValue(cityTypeRow.row_index, payload.area_type, null);
+  if (popRow) editValue(popRow.row_index, String(payload.population), null);
+  renderMain();
+}
+
 export async function clearHousingNextStep(stepNum) {
   if (
     !(await showInAppConfirm(
@@ -507,7 +551,7 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
   // Both purchase and rent: State → Area Type → Population → [Estimate] →
   // remaining fields. Rent used to skip Area Type/Population (silently
   // defaulting to suburban/20,000) -- see design doc §3.4.
-  var PURCHASE_FIRST = ["state", "city_type", "population_size", "zip_code"];
+  var PURCHASE_FIRST = ["zip_code", "state", "city_type", "population_size"];
   var PURCHASE_REST = [
     "start_year",
     "end_year",
@@ -526,7 +570,7 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
     "lot_size_band",
     "built_within_years",
   ];
-  var RENT_FIRST = ["state", "city_type", "population_size", "zip_code"];
+  var RENT_FIRST = ["zip_code", "state", "city_type", "population_size"];
   var RENT_REST = [
     "start_year",
     "end_year",
@@ -612,9 +656,36 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
   html += typeToggle;
   if (firstRows.length)
     html +=
-      '<div class="field-list">' +
+      '<div class="field-list inline-row">' +
       firstRows
         .map(function (r) {
+          if (norm(r.label) === "zip_code") {
+            var cached = window.housingStepZipLookup[stepNum];
+            var errorHtml =
+              cached && cached.error
+                ? '<div class="small warning">' + esc(cached.error) + "</div>"
+                : "";
+            return (
+              '<div class="field"><div class="field-label">ZIP</div>' +
+              '<input type="text" class="zip" maxlength="5" inputmode="numeric" ' +
+              'data-row="' + r.row_index + '" value="' + esc(valOf(r) || "") + '" ' +
+              'oninput="editValue(' + r.row_index + ',this.value,this)" ' +
+              'onchange="resolveHousingStepZip(' + stepNum + ',this.value)">' +
+              errorHtml +
+              "</div>"
+            );
+          }
+          if (norm(r.label) === "state") {
+            var cachedCity = window.housingStepZipLookup[stepNum];
+            var display = cachedCity && cachedCity.city
+              ? cachedCity.city + ", " + esc(valOf(r) || "")
+              : esc(valOf(r) || "Enter a ZIP above");
+            return (
+              '<div class="field"><div class="field-label">City, State</div>' +
+              '<div class="field-readonly" data-row="' + r.row_index + '">' + display + "</div>" +
+              "</div>"
+            );
+          }
           return norm(r.label) === "city_type"
             ? '<div class="field"><div class="field-label">Area Type</div>' +
                 housingAreaTypeSelect(r) +
@@ -1305,6 +1376,7 @@ Object.assign(window, {
   housingSqftBandSelect,
   housingLotSizeSelect,
   clearHousingNextStep,
+  resolveHousingStepZip,
   renderNextHousingStepSection,
   renderCollapsibleDomainBudgetSection,
   renderSpendingHousing,
