@@ -185,18 +185,11 @@ export function renderStrategyStress() {
 
 export function renderStrategyScenarios() {
   return renderStrategyScreen([
-    { key: "levers", title: "Strategy Levers", gate: null, body: () => renderPlanningLevers() },
     {
       key: "change_sets",
       title: "Scenario Change Sets",
       gate: "scenarios",
       body: () => analysisFrame(renderScenarios(), "strategy"),
-    },
-    {
-      key: "workbench",
-      title: "Planning Workbench",
-      gate: null,
-      body: () => renderPlanningWorkbench(),
     },
   ]);
 }
