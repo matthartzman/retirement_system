@@ -67,29 +67,7 @@ export function renderPlanningLevers() {
   // grid duplicating them was exactly the redundancy the redesign removes.
   // The per-lever Source column below still jumps to the input page a
   // lever's real value lives on, which is a different, still-needed link.
-  return `<div class="holdings planning-levers"><h3 class="group-title">Strategy Levers</h3><p class="small"><button class="btn tiny" type="button" data-step-id="planning_workbench">Back to Planning Workbench</button></p><p class="small">Estimates assume all other inputs stay fixed. Change the test amount to resize any estimate without affecting your plan. Use the Source column beside each lever to jump to the page where the actual plan value is changed, then rebuild to confirm the real effect.</p><div class="ytd-status-grid"><div class="pill"><b>Current terminal NW</b><span>${fmtMoney(b.terminal)}</span></div><div class="pill" title="Post-Tax Inheritance: terminal net worth minus the embedded taxes heirs would owe on pre-tax accounts and unrealized gains — what beneficiaries actually keep."><b>Post-Tax Inheritance (PTI)</b><span>${Number.isFinite(b.pti) ? fmtMoney(b.pti) : "—"}</span></div><div class="pill"><b>Lifetime taxes</b><span>${Number.isFinite(b.lifetime_tax) ? fmtMoney(b.lifetime_tax) : "—"}</span></div><div class="pill"><b>Current success rate</b><span>${fmtPct(b.success)}</span></div><div class="pill"><b>Core annual spending</b><span>${fmtMoney(b.spend)}</span></div><div class="pill"><b>Earned income assumption</b><span>${fmtMoney(b.earned)}</span></div></div><div class="section-note small" style="margin:4px 0 10px"><b>TNW</b> = Terminal Net Worth (projected portfolio at end of plan horizon) · <b>PTI</b> = Post-Tax Inheritance (TNW minus embedded taxes heirs would owe) · <b>Success rate</b> = Monte Carlo trials where the plan maintains the reserve floor through the planning horizon</div><div><div><h3>Ranked by estimated TNW lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${tnw.map(tr).join("")}</tbody></table></div></div><div><h3>Ranked by estimated success lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${suc.map(tr).join("")}</tbody></table></div></div></div><p class="section-note">After ranking, use the Source button beside a lever to change the actual input → rebuild → check Build History to see the measured effect on projected net worth and success rate.</p></div>`;
-}
-
-export function renderWorkbenchLeverEditorHtml() {
-  if (!planningLeversBaselineReady())
-    return '<p class="small" style="color:var(--muted)">Build reports once to unlock lever estimates in this panel.</p><div class="pane-actions"><button class="btn primary" type="button" data-requires-app="1" onclick="runBuild(false)">Build Reports</button></div>';
-  const lrows = planningLeverRows();
-  const inp = planningLeverInputs;
-  function srcBtn(r) {
-    return r.sourceStep
-      ? `<button class="btn tiny source-jump" type="button" data-step-id="${esc(r.sourceStep)}">${esc(r.source)}</button>`
-      : "—";
-  }
-  function inputCell(r) {
-    return `<span class="lever-input-wrap"><input class="compact-input lever-test-input" value="${esc(inp[r.key])}" onchange="setPlanningLeverInput('${escJs(r.key)}',this.value)"><small class="lever-unit">${esc(r.unit)}</small></span>`;
-  }
-  const trs = lrows
-    .map(
-      (r) =>
-        `<tr><td><b>${esc(r.lever)}</b><div class="small">${esc(r.note)}</div></td><td>${srcBtn(r)}</td><td>${inputCell(r)}</td><td>${fmtMoney(r.tnw)}</td><td>${fmtPct(r.success)}</td></tr>`,
-    )
-    .join("");
-  return `<div class="wb-lever-editor"><p class="small">Test amounts resize estimates without changing the plan. Use Source to open the page where the actual value is changed — save and rebuild to confirm the effect.</p><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${trs}</tbody></table></div><div class="pane-actions" style="margin-top:8px"><button class="btn" type="button" data-step-id="distribution_strategy">Open Distribution Strategy &rarr;</button></div></div>`;
+  return `<div class="holdings planning-levers"><h3 class="group-title">Strategy Levers</h3><p class="small">Estimates assume all other inputs stay fixed. Change the test amount to resize any estimate without affecting your plan. Use the Source column beside each lever to jump to the page where the actual plan value is changed, then rebuild to confirm the real effect.</p><div class="ytd-status-grid"><div class="pill"><b>Current terminal NW</b><span>${fmtMoney(b.terminal)}</span></div><div class="pill" title="Post-Tax Inheritance: terminal net worth minus the embedded taxes heirs would owe on pre-tax accounts and unrealized gains — what beneficiaries actually keep."><b>Post-Tax Inheritance (PTI)</b><span>${Number.isFinite(b.pti) ? fmtMoney(b.pti) : "—"}</span></div><div class="pill"><b>Lifetime taxes</b><span>${Number.isFinite(b.lifetime_tax) ? fmtMoney(b.lifetime_tax) : "—"}</span></div><div class="pill"><b>Current success rate</b><span>${fmtPct(b.success)}</span></div><div class="pill"><b>Core annual spending</b><span>${fmtMoney(b.spend)}</span></div><div class="pill"><b>Earned income assumption</b><span>${fmtMoney(b.earned)}</span></div></div><div class="section-note small" style="margin:4px 0 10px"><b>TNW</b> = Terminal Net Worth (projected portfolio at end of plan horizon) · <b>PTI</b> = Post-Tax Inheritance (TNW minus embedded taxes heirs would owe) · <b>Success rate</b> = Monte Carlo trials where the plan maintains the reserve floor through the planning horizon</div><div><div><h3>Ranked by estimated TNW lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${tnw.map(tr).join("")}</tbody></table></div></div><div><h3>Ranked by estimated success lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${suc.map(tr).join("")}</tbody></table></div></div></div><p class="section-note">After ranking, use the Source button beside a lever to change the actual input → rebuild → check Build History to see the measured effect on projected net worth and success rate.</p></div>`;
 }
 
 export function allocationModeIsComputed(mode) {
@@ -941,7 +919,6 @@ Object.assign(window, {
   planningLeversBaselineReady,
   planningLeversPlaceholder,
   renderPlanningLevers,
-  renderWorkbenchLeverEditorHtml,
   allocationModeIsComputed,
   setAllocationSelectionMode,
   allocationModeHtml,
