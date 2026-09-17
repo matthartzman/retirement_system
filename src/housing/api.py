@@ -146,6 +146,12 @@ def validate_request(body: dict[str, Any]) -> str | None:
                     'than the through-year.')
         if int(fp.get('radius_miles') or 0) not in FAMILY_RADII_MILES:
             return f'Family radius must be one of {", ".join(map(str, FAMILY_RADII_MILES))} miles.'
+    dp_raw = body.get('down_payment_pct')
+    if dp_raw is not None and not (0.0 <= float(dp_raw) <= 1.0):
+        return 'Down payment % must be between 0 and 100.'
+    mr_raw = body.get('mortgage_rate_pct')
+    if mr_raw is not None and not (0.0 <= float(mr_raw) <= 1.0):
+        return 'Mortgage rate % must be between 0 and 100.'
     return None
 
 
