@@ -221,3 +221,32 @@ describe("toggleHousingOptDispositionFields", () => {
     assert.equal(elements.housingOptKeepNote.hidden, true);
   });
 });
+
+describe("housingOptMoveCellHtml", () => {
+  function moveFixture(overrides = {}) {
+    return {
+      acquisition_year: 2033,
+      action: "buy",
+      location: { zip_code: "80014", city: "Aurora", state: "Colorado", distance_miles: 3.2 },
+      financing: { purchase_price: 450000, monthly_pi_payment: 1918.56 },
+      ...overrides,
+    };
+  }
+
+  test("a rent move shows monthly rent and no price", () => {
+    const html = sandbox.housingOptMoveCellHtml(moveFixture({
+      action: "rent",
+      financing: { monthly_rent: 1850 },
+    }));
+    assert.match(html, /\$1,850\/mo rent/);
+    assert.ok(!/purchase/i.test(html));
+    assert.ok(!/P&I/i.test(html));
+  });
+
+  test("a buy move shows purchase price and monthly P&I", () => {
+    const html = sandbox.housingOptMoveCellHtml(moveFixture());
+    assert.match(html, /\$450,000 purchase/);
+    assert.match(html, /\$1,919\/mo P&amp;I/);
+    assert.ok(!/rent/i.test(html));
+  });
+});
