@@ -93,6 +93,23 @@ describe("renderHousingOptimizePanelHtml", () => {
     assert.match(html, /id="housingOptValidation"/);
     assert.match(html, /id="housingOptimizeResults"/);
   });
+
+  test("a Purchase assumptions section sits between Current home and Move 1", () => {
+    const html = panelHtml();
+    assert.match(html, /id="housingOptDownPaymentPct"/);
+    assert.match(html, /id="housingOptMortgageRatePct"/);
+    const currentHomeIdx = html.indexOf("housingOptDisposition");
+    const purchaseAssumptionsIdx = html.indexOf("housingOptDownPaymentPct");
+    const move1Idx = html.indexOf("housingOptMove1Earliest");
+    assert.ok(currentHomeIdx < purchaseAssumptionsIdx, "assumptions come after Current home");
+    assert.ok(purchaseAssumptionsIdx < move1Idx, "assumptions come before Move 1");
+  });
+
+  test("down payment and mortgage rate show real editable defaults, not placeholders", () => {
+    const html = panelHtml();
+    assert.match(html, /id="housingOptDownPaymentPct"[^>]*value="20"/);
+    assert.match(html, /id="housingOptMortgageRatePct"[^>]*value="6\.85"/);
+  });
 });
 
 describe("anchors control (§9.3)", () => {
@@ -132,6 +149,17 @@ describe("anchors control (§9.3)", () => {
     assert.match(rendered, /removeHousingOptAnchor\(1, 2\)/);
     local.removeHousingOptAnchor(1, 4);
     assert.ok(!rendered.includes('id="housingOptMove1Anchor4"'));
+  });
+});
+
+describe("Move N -- where row field order", () => {
+  test("Area type renders immediately after the anchors block", () => {
+    const html = panelHtml();
+    const anchorsIdx = html.indexOf('id="housingOptMove1Anchors"');
+    const areaTypeIdx = html.indexOf('id="housingOptMove1AreaType"');
+    const radiusIdx = html.indexOf('id="housingOptMove1Radius"');
+    assert.ok(anchorsIdx < areaTypeIdx, "area type comes after anchors");
+    assert.ok(areaTypeIdx < radiusIdx, "area type comes before radius");
   });
 });
 
