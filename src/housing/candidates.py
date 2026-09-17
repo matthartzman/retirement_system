@@ -88,6 +88,27 @@ def dual_ownership_ok(cand: HousingCandidate) -> bool:
     return all(m.acquisition_year >= home.sale_year for m in buys)
 
 
+def no_housing_gap_ok(cand: HousingCandidate) -> bool:
+    """Reject a candidate that would leave the household with no housing
+    arrangement for one or more years.
+
+    Sale year and move-1 acquisition year are searched on independent axes
+    (see ``generate_candidates`` below), so a candidate can pair an early
+    sale with a much later move-in with nothing bridging the years between
+    -- the deterministic engine has no housing step covering those years at
+    all, not even a placeholder rental, which is the "gap year" bug this
+    guards against. Selling and acquiring in the same year, or acquiring the
+    year right after the sale, is the transition itself, not a gap, so only
+    a larger separation is rejected. Move 1 to move 2 needs no equivalent
+    check: ``plan_variant._apply_candidate`` builds their steps back-to-back
+    by construction, so a sequential move 2 never leaves a gap after move 1.
+    """
+    home = cand.original_home
+    if home.disposition != 'sell' or home.sale_year is None:
+        return True
+    return cand.move1.acquisition_year <= home.sale_year + 1
+
+
 def generate_candidates(
     *,
     locations1: list[Location],

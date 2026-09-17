@@ -148,8 +148,10 @@ export function renderStrategyOptimize() {
     {
       key: "heloc",
       title: "HELOC",
-      gate: "heloc_strategy",
-      body: () => analysisFrame(renderFields("heloc_strategy"), "strategy"),
+      // Not full-section gated (unlike before): the toggle itself must
+      // render here so it can be turned on in-place, like QCD/DAF above.
+      gate: null,
+      body: () => analysisFrame(renderHelocOptimizePanel(), "strategy"),
     },
   ]);
 }

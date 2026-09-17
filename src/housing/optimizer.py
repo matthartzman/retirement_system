@@ -38,12 +38,13 @@ from .candidates import (
     estimate_move2_candidate_count,
     extend_with_move2,
     generate_candidates,
+    no_housing_gap_ok,
     select_all_eligible,
     select_anchors,
 )
 from .constraints import family_presence_ok
 from .plan_variant import _run_engine
-from .results import format_output
+from .results import format_output, MAX_CANDIDATES
 from .scoring import _pass1_objective, rank_candidates, score_candidate
 from .search import (
     generate_move1_candidates_narrowed,
@@ -127,18 +128,21 @@ def optimize_housing(
 
     pass1_objective = _pass1_objective(objective)
     narrowed = search_mode == 'narrowed'
-    rejections = {'dual_ownership': 0, 'family_presence': 0, 'move_order': 0}
+    rejections = {'dual_ownership': 0, 'family_presence': 0, 'move_order': 0, 'housing_gap': 0}
 
     def _score_or_reject(cand) -> ScoredCandidate | None:
         """The one place a candidate is refused, so every refusal is counted.
 
-        Order matters: the two pure predicates run before ``_run_engine``, so
-        a rejected candidate costs no engine time.
+        Order matters: the pure predicates run before ``_run_engine``, so a
+        rejected candidate costs no engine time.
         """
         m2 = cand.move2
         if (m2 is not None and m2.mode != 'concurrent'
                 and m2.acquisition_year <= cand.move1.acquisition_year):
             rejections['move_order'] += 1
+            return None
+        if not no_housing_gap_ok(cand):
+            rejections['housing_gap'] += 1
             return None
         if no_dual_ownership and not dual_ownership_ok(cand):
             rejections['dual_ownership'] += 1
@@ -254,6 +258,18 @@ def optimize_housing(
             move2_scored = rank_candidates(move2_scored + concurrent_scored, pass1_objective)
 
     combined = rank_candidates(move1_scored + move2_scored, pass1_objective)
+
+    # A two-move plan almost always scores worse on a pure objective value
+    # than a one-move plan (one fewer transaction/moving cost), so when a
+    # move-2 search was actually requested and run, its candidates can be
+    # crowded out of every one of the MAX_CANDIDATES rows the UI ever sees --
+    # "Move 2" then reads as broken/unpopulated even though the search found
+    # results. Guarantee the best move-2 candidate a visible seat instead of
+    # silently dropping the thing the user explicitly asked to search for.
+    if move2_scored and not any(
+        sc.candidate.move2 is not None for sc in combined[:MAX_CANDIDATES]
+    ):
+        combined = combined[:MAX_CANDIDATES - 1] + [move2_scored[0]]
 
     # ---- Pass 2: Monte Carlo the shortlist --------------------------------
     shortlist = combined[:max(3, min(5, shortlist_size))]

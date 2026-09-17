@@ -397,7 +397,7 @@ def test_rejection_reasons_are_tallied_for_an_empty_run():
 
 def test_rejections_are_reported_even_when_zero():
     out = optimize_housing(_minimal_config(), **_kwargs())
-    assert set(out["rejections"]) == {"dual_ownership", "family_presence", "move_order"}
+    assert set(out["rejections"]) == {"dual_ownership", "family_presence", "move_order", "housing_gap"}
 
 
 def test_family_presence_rejections_are_tallied_separately():
