@@ -175,7 +175,15 @@ DASHBOARD_JS_MAX_LINES = 7_320
 # where adding or removing an anchor wiped out the values already entered for
 # the other anchors. Neither is lines moved from elsewhere -- both are new,
 # so the ceiling is raised to the measured size with no slack, same as before.
-TOTAL_JS_MAX_LINES = 32_792
+# 2026-09-16: raised from 32,792 to 32,933 (docs/superpowers/specs/2026-09-16-
+# housing-financing-and-zip-ux-design.md). dashboard_decomp_housing_optimizer.js
+# gained a Purchase assumptions section (down payment %/mortgage rate % inputs,
+# help entries) and rent/buy-specific results rendering; dashboard_decomp_
+# housing_scenarios.js gained ZIP-first location entry (resolveHousingStepZip,
+# a read-only City/State display, auto-filled Area Type/Population). All new
+# behaviour, not lines moved from elsewhere, so the ceiling is raised to the
+# measured size with no slack, same as before.
+TOTAL_JS_MAX_LINES = 32_933
 
 
 def _line_count(path: Path) -> int:
