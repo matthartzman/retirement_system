@@ -80,9 +80,19 @@ def test_missing_search_is_a_400():
     assert 'search' in payload['error']
 
 
-def test_fewer_than_two_anchors_is_a_400():
+def test_single_anchor_is_valid():
+    # Housing move anchors now accept 1-5 (was 2-5) -- see
+    # src/housing/api.py parse_move_search.
     payload, status = zip_screen_from_request(
         C0, _body(search={'anchors': [{'kind': 'zip', 'anchor_zip': '60521'}]}),
+        table_path=FIXTURE)
+    assert status == 200
+    assert payload['success'] is True
+
+
+def test_zero_anchors_is_a_400():
+    payload, status = zip_screen_from_request(
+        C0, _body(search={'anchors': []}),
         table_path=FIXTURE)
     assert status == 400
     assert 'anchors' in payload['error'].lower()
