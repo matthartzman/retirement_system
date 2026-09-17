@@ -36,6 +36,10 @@ const MOVE1 = {
     family_distance_miles: 18.4,
     est_price: 539400,
   },
+  financing: {
+    purchase_price: 539400,
+    monthly_pi_payment: 2848.12,
+  },
   sec121_exclusion_lost: false,
 };
 

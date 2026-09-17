@@ -1542,18 +1542,38 @@ function housingOptActionLabel(action) {
   return action.charAt(0).toUpperCase() + action.slice(1);
 }
 
-// `${year} · ${Buy|Rent} · ${zip} ${city}, ${state} · ${price} · ${distance} mi`
-// (design §9.4), appending `· ${n} mi from family` only when
-// family_distance_miles is non-null, so a plain search (no family presence)
-// never implies a family-distance measurement that was never taken.
+// `${year} · ${Buy|Rent} · ${zip} ${city}, ${state} · ${distance} mi · ${money}`
+// (design §9.4), where ${money} is:
+//   - for rent: `$${monthly_rent}/mo rent`
+//   - for buy: `$${purchase_price} purchase · $${monthly_pi_payment}/mo P&I`
+// Appends `· ${n} mi from family` only when family_distance_miles is non-null,
+// so a plain search (no family presence) never implies a family-distance
+// measurement that was never taken.
 function housingOptMoveCellHtml(move) {
   if (!move) return "—";
   const loc = move.location || {};
-  const price = loc.est_price != null ? `$${Math.round(loc.est_price).toLocaleString()}` : "—";
+  const financing = move.financing || {};
   const distance = loc.distance_miles != null ? `${Number(loc.distance_miles).toFixed(1)} mi` : "—";
+  let money;
+  if (move.action === "rent") {
+    money =
+      financing.monthly_rent != null
+        ? `$${Math.round(financing.monthly_rent).toLocaleString()}/mo rent`
+        : "—";
+  } else {
+    const price =
+      financing.purchase_price != null
+        ? `$${Math.round(financing.purchase_price).toLocaleString()} purchase`
+        : "—";
+    const pi =
+      financing.monthly_pi_payment != null
+        ? `$${Math.round(financing.monthly_pi_payment).toLocaleString()}/mo P&I`
+        : "—";
+    money = `${price} · ${pi}`;
+  }
   let text =
     `${move.acquisition_year} · ${housingOptActionLabel(move.action)} · ` +
-    `${loc.zip_code || ""} ${loc.city || ""}, ${loc.state || ""} · ${price} · ${distance}`;
+    `${loc.zip_code || ""} ${loc.city || ""}, ${loc.state || ""} · ${distance} · ${money}`;
   if (loc.family_distance_miles != null) {
     text += ` · ${loc.family_distance_miles} mi from family`;
   }
