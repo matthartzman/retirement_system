@@ -1512,26 +1512,6 @@ function planningCaseOverrideFromRow(row, source, reason) {
     reason,
   );
 }
-function currentManualOverrideItems() {
-  return window.RetirementPlanningWorkbench.currentManualOverrideItems(
-    planningWorkbenchContext(),
-  );
-}
-function currentScenarioOverrideItems() {
-  return window.RetirementPlanningWorkbench.currentScenarioOverrideItems(
-    planningWorkbenchContext(),
-  );
-}
-function strategyLeverOverrideItems() {
-  return window.RetirementPlanningWorkbench.strategyLeverOverrideItems(
-    planningWorkbenchContext(),
-  );
-}
-function stressOverrideItems() {
-  return window.RetirementPlanningWorkbench.stressOverrideItems(
-    planningWorkbenchContext(),
-  );
-}
 function planningCaseOverridesForSource(source) {
   return window.RetirementPlanningWorkbench.overridesForSource(
     planningWorkbenchContext(),
@@ -1670,11 +1650,6 @@ function planningWorkbenchStressSelectorHtml(cases) {
   return window.RetirementPlanningWorkbench.stressSelectorHtml(
     planningWorkbenchContext(),
     cases,
-  );
-}
-function renderPlanningWorkbench() {
-  return window.RetirementPlanningWorkbench.renderWorkbench(
-    planningWorkbenchContext(),
   );
 }
 function planningWorkbenchBuildImpactHtml() {
@@ -3911,9 +3886,6 @@ let renderMain = function() {
   else if (activeStep === "allocation_assets")
     content += analysisFrame(renderAllocationRecommendation(), "strategy") + `<details class="decide-embed-sub" open><summary>Allocation policy settings</summary>${renderAllocationPolicy()}</details>`;
   else if (activeStep === "build_impact") content += renderBuildImpactPage();
-  else if (activeStep === "planning_workbench")
-    content += renderPlanningWorkbench();
-  else if (activeStep === "planning_levers") content += renderPlanningLevers();
   else if (activeStep === "detailed_results")
     content += renderDetailedResults();
   else if (activeStep === "plan_data_report") content += renderPlanDataReport();
@@ -7261,7 +7233,7 @@ Object.assign(window, {
   assetActionForSubsection, baseHomeSaleYearRow, blurYtdAccountMoney, boolishValue,
   buildWithDesktopProgress, catEffectiveBudget, changeImpactScope, changeKey, chatMessageHtml,
   checkAppStatus, chooseDefaultDetailedSheet, cloneSummary, closeChartModal, closeExitModal,
-  closeNavDrawer, collapseAllDetailGroups, currentManualOverrideItems, currentScenarioOverrideItems,
+  closeNavDrawer, collapseAllDetailGroups,
   decimalsFromText, deleteYtdAccount, dependencyRank, deriveTotalRothConversions,
   detailProgressState, detailedProgressHtml, detailedSheetByName, discardAndExit, dismissMessage,
   domainBudgetNote, downloadBlob, exitApp, expandAllDetailColumnsOnPage, expandAllDetailGroups,
@@ -7284,7 +7256,7 @@ Object.assign(window, {
   primaryActionForStep, promotePlanningCase, recoverPriorSpendingBudget, recoverYtdAccountSetup,
   rememberBuildCompare, renderAssetsCashReserves, renderDetailedResultsNav,
   renderDetailedResultsProgressTick, renderEstateWithAnnuityLink, renderFieldFinderGroups,
-  renderHouseholdPeople, renderMeta, renderNav, renderOptionalFunctions, renderPlanningWorkbench,
+  renderHouseholdPeople, renderMeta, renderNav, renderOptionalFunctions,
   renderRetirementWellness, renderSpendingDashboardOrLoad, renderSpendingWorkflowBanner,
   renderStrategyTabs, renderWithdrawalOrderTable, renderWithdrawalStrategy,
   renderWorkspaceSubtabsNav, resetAllocationPreview, restoreGroupBudgetModes,
@@ -7295,8 +7267,8 @@ Object.assign(window, {
   setPlanningCaseActive, setSearchScope, setStrategyTab, showPlanDataFileManifest,
   showSpendingModelLoadOverlay, showYtdLoadOverlay, sleep, spendingFlowFooterHtml,
   startDetailedResultsProgress, stepHelpLinkHtml, stepIdForRow, stepSearchText,
-  stopDetailedResultsProgress, strategyLeverOverrideItems, stressHomeSaleYearRow,
-  stressOverrideItems, stripUiLabelPrefix, suggestedNext, summaryFromApiPayload, takeBuildSnapshot,
+  stopDetailedResultsProgress, stressHomeSaleYearRow,
+  stripUiLabelPrefix, suggestedNext, summaryFromApiPayload, takeBuildSnapshot,
   toggleDetailColGroup, toggleDetailColumnGroup, toggleHelpSheet, toggleNavDrawer,
   translatePersonValueLabel, updateSearchToggle, updateYtdAccountMoney,
   validateAllocationTargetsOrMessage, wireStepNavigation, withdrawalOtherRows,
