@@ -7,6 +7,7 @@ Workbook/report orchestration layer. Financial engines live in extracted modules
 import csv, math, random, datetime, sys, traceback
 from copy import copy
 from collections import defaultdict
+from functools import lru_cache
 
 from .. import taxes as _td  # consolidated from tax_data
 from .. import core as _ar  # consolidated from account_registry
@@ -72,6 +73,27 @@ def input_style(ws, cell):
     cell.font = Font(name='Arial', color=BLUE_TEXT, size=10)
     cell.border = thin_border()
 
+
+@lru_cache(maxsize=None)
+def _cached_font(bold: bool, fg: str):
+    return Font(name='Arial', bold=bold, color=fg, size=10)
+
+
+@lru_cache(maxsize=None)
+def _cached_alignment(align: str):
+    return Alignment(horizontal=align, vertical='center')
+
+
+@lru_cache(maxsize=None)
+def _cached_fill(bg: str):
+    return fill(bg)
+
+
+@lru_cache(maxsize=None)
+def _cached_border():
+    return thin_border()
+
+
 FMT_DOLLAR   = '$#,##0;($#,##0);"-"'
 FMT_DOLLAR_K = '$#,##0;($#,##0);"-"'
 # Cash Flow / Net Worth sheets: amounts strictly between -$1 and $1 are
@@ -100,12 +122,12 @@ def write_hdr(ws, row, col, text, bg=NAVY, fg=WHITE, bold=True, span=1, size=11)
 def write_cell(ws, row, col, value, fmt=None, bold=False, bg=None, fg='000000',
                align='left', border=True):
     c = ws.cell(row=row, column=col, value=value)
-    c.font = Font(name='Arial', bold=bold, color=fg, size=10)
-    c.alignment = Alignment(horizontal=align, vertical='center')
+    c.font = _cached_font(bold, fg)
+    c.alignment = _cached_alignment(align)
     if border:
-        c.border = thin_border()
+        c.border = _cached_border()
     if bg:
-        c.fill = fill(bg)
+        c.fill = _cached_fill(bg)
     if fmt:
         c.number_format = fmt
     return c
