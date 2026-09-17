@@ -38,10 +38,16 @@ function mountWithZipApi(apiResponse) {
     renderCount++;
   };
   let calledUrl = null;
-  sandbox.api = async (url) => {
-    calledUrl = url;
-    return apiResponse;
-  };
+  sandbox.api =
+    typeof apiResponse === "function"
+      ? async (url) => {
+          calledUrl = url;
+          return apiResponse(url);
+        }
+      : async (url) => {
+          calledUrl = url;
+          return apiResponse;
+        };
   return {
     sandbox,
     rows: rowsArr,
@@ -77,7 +83,30 @@ describe("resolveHousingStepZip", () => {
   });
 
   test("an invalid ZIP records an error and leaves existing state alone", async () => {
-    const { sandbox, rows, dirty } = mountWithZipApi({ success: false, error: "ZIP 00000 not recognized." });
+    // In production, api()'s RetirementApiClient.request() throws on any
+    // non-2xx response, and the real /api/housing/zip-lookup endpoint always
+    // signals failure via HTTP status -- never via a 200 body with
+    // `success: false`. So the realistic mock here is a rejection, which
+    // drives resolveHousingStepZip's `catch` branch, not its
+    // `!payload.success` branch.
+    const { sandbox, rows, dirty } = mountWithZipApi(async () => {
+      throw new Error("ZIP 00000 not recognized.");
+    });
+    dirty.clear();
+    const stateRow = rows.find((r) => r.row_index === 1);
+    stateRow.value = "Colorado";
+    await sandbox.resolveHousingStepZip(1, "00000");
+    assert.equal(dirty.has(stateRow.row_index), false, "state must not be touched");
+    assert.equal(
+      sandbox.window.housingStepZipLookup[1].error,
+      "Error looking up ZIP: ZIP 00000 not recognized."
+    );
+  });
+
+  test("a defensive 200-with-success:false body also records its error and leaves state alone (not the primary production path -- the real endpoint always fails via HTTP status -- but resolveHousingStepZip guards against it anyway)", async () => {
+    const { sandbox, rows, dirty } = mountWithZipApi({
+      success: false, error: "ZIP 00000 not recognized.",
+    });
     dirty.clear();
     const stateRow = rows.find((r) => r.row_index === 1);
     stateRow.value = "Colorado";
