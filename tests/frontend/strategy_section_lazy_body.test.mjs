@@ -193,21 +193,12 @@ describe("the four Strategy screens (ticket 323 + Workbench)", () => {
     }
   });
 
-  test("Scenarios renders its three sections; the first (Strategy Levers) opens, the rest stay collapsed", () => {
+  test("Scenarios renders only Scenario Change Sets, which opens by default", () => {
     const html = sandbox.renderStrategyScenarios();
-    for (const key of ["levers", "change_sets", "workbench"]) {
-      assert.ok(
-        html.includes(`data-dkey="strategy:${key}"`),
-        `missing section ${key}`,
-      );
-    }
-    assert.match(html, /data-dkey="strategy:levers"[^>]*\sopen/);
-    for (const key of ["change_sets", "workbench"]) {
-      assert.doesNotMatch(
-        html,
-        new RegExp(`data-dkey="strategy:${key}"[^>]*\\sopen`),
-      );
-    }
+    assert.ok(html.includes('data-dkey="strategy:change_sets"'));
+    assert.ok(!html.includes('data-dkey="strategy:levers"'), "levers must no longer live under Scenarios");
+    assert.ok(!html.includes('data-dkey="strategy:workbench"'), "workbench must no longer live under Scenarios");
+    assert.match(html, /data-dkey="strategy:change_sets"[^>]*\sopen/);
   });
 
   test("Workbench renders its five sections; the first (Strategy Levers) opens, the rest stay collapsed", () => {
