@@ -368,9 +368,9 @@ Object.assign(HOUSING_OPT_FIELD_HELP, {
     title: "Mortgage rate %",
     meaning: "The fixed annual mortgage interest rate used for every move that ends up buying. Pre-filled with the app's own flat default rate.",
     connections:
-      "Feeds the same monthly P&I calculation as Down payment %, using a fixed 30-year term (there is no loan-term input anywhere in this app). Clearing this field entirely reverts to each candidate ZIP's own location-based rate instead of one flat rate for every candidate.",
-    options: "Leave the pre-filled default if unsure; set a specific rate for a rate lock already in hand; clear the field to let each location use its own typical rate instead.",
-    impact: "A higher rate raises the monthly P&I payment shown in results without changing the purchase price; clearing the field can make different candidates use different rates, which changes their relative ranking on lifetime cost.",
+      "Feeds the same monthly P&I calculation as Down payment %, using a fixed 30-year term (there is no loan-term input anywhere in this app). Clearing this field entirely reverts to a per-location rate lookup instead of one flat rate for every candidate -- but today every location resolves to the same flat default rate (6.85%), so clearing the field currently has no effect versus leaving it at its pre-filled value. The per-location lookup exists for when location-specific rates are added.",
+    options: "Leave the pre-filled default if unsure; set a specific rate for a rate lock already in hand; clearing the field has no effect today (see Connections) but is available for when per-location rates are added.",
+    impact: "A higher rate raises the monthly P&I payment shown in results without changing the purchase price. Clearing the field currently has no effect on ranking, since every location resolves to the same flat default rate today.",
   },
   housingOptMove2Enabled: {
     title: "Consider a second move",
