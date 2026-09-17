@@ -202,13 +202,6 @@ DASHBOARD_JS_MAX_LINES = 7_293
 # a read-only City/State display, auto-filled Area Type/Population). Neither
 # branch's own diff could see the other's prior raise; raised here to the
 # genuinely measured total of both real, non-duplicate additions.
-# 2026-09-17: raised from 33,217 to 33,265 -- ticket-326 per-popup average
-# run-time (dashboard_decomp_build_lifecycle.js gained history storage/lookup
-# helpers keyed by popup id, replacing "Working…"/percent text below the bar
-# with "average run-time over the last N runs" once 2+ runs are recorded).
-# dashboard.js is unchanged (still 7,293); the new lines are the history
-# helpers plus a popupId argument threaded through the existing setBuildOverlay
-# call sites, none of it moved from elsewhere, so raised to the measured size.
 # 2026-09-17: raised from 33,217 to 33,237 on a separate branch -- relocated
 # the housing optimizer to Strategy -> Optimize (a new tab entry in
 # dashboard_decomp_strategy_workspace.js, plus its own removal from
@@ -218,8 +211,15 @@ DASHBOARD_JS_MAX_LINES = 7_293
 # validation-rule/help-copy additions in dashboard_decomp_housing_optimizer.js,
 # and the 1-5 (was 2-5) anchor range's message-text updates. All new
 # behaviour, not lines moved from elsewhere.
-# 2026-09-17: merging the two branches above (ticket-326's 33,265 and the
-# housing-optimize-nav-and-anchors branch's 33,237, each independently
+# 2026-09-17: raised from 33,217 to 33,265 -- ticket-326 per-popup average
+# run-time (dashboard_decomp_build_lifecycle.js gained history storage/lookup
+# helpers keyed by popup id, replacing "Working…"/percent text below the bar
+# with "average run-time over the last N runs" once 2+ runs are recorded).
+# dashboard.js is unchanged (still 7,293); the new lines are the history
+# helpers plus a popupId argument threaded through the existing setBuildOverlay
+# call sites, none of it moved from elsewhere, so raised to the measured size.
+# 2026-09-17: merging the two branches above (ticket-326's 33,265, PR #124,
+# and the housing-optimize-nav-and-anchors branch's 33,237, each independently
 # sufficient, neither diff able to see the other's prior raise) plus that
 # second branch's own later Planning Workbench Strategy Integration work
 # (a new consolidated strategy_workbench screen composed mostly from
