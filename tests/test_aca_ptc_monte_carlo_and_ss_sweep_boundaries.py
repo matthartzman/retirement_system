@@ -6,7 +6,7 @@ from pathlib import Path
 
 from src.data_io import load_csv, parse_client
 from src.planning_engines import aca_premium_tax_credit, monte_carlo, project, illinois_estate_tax
-from src.reporting import sheets_strategy
+from src.reporting import sheets_strategy, sheets_strategy_pair_worker
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -44,7 +44,17 @@ class FullChecklistRemainingTests(unittest.TestCase):
         # planning_engines.run_scenario() helper, so the literal "project(c2)"
         # call no longer appears in this sheet's own source -- check that it
         # delegates to the shared runner instead.
-        self.assertIn("_run_scenario(c, mutate=_mutate)", src)
+        # The pair-evaluation body itself was extracted to the module-level
+        # (picklable) evaluate_claim_age_pair so it can also run on a process
+        # pool -- Windows spawn cannot pickle the closure it used to be. The
+        # delegation guard therefore now inspects the worker's source; the
+        # requirement is unchanged (the shared runner, never a literal
+        # project(c2) shortcut), just relocated.
+        worker_src = inspect.getsource(
+            sheets_strategy_pair_worker.evaluate_claim_age_pair
+        )
+        self.assertIn("_run_scenario(c, mutate=_mutate)", worker_src)
+        self.assertIn("evaluate_claim_age_pair(c, {", src)
         self.assertNotIn("[67, 68, 69, 70]", src)
         self.assertNotIn("claim at age 70 to maximize", src)
 
