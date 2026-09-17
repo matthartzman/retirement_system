@@ -47,17 +47,18 @@ def test_planning_workbench_route_is_available_before_plan_load():
     dashboard = dashboard_js_text()
     navigation = (ROOT / "frontend" / "js" / "navigation.js").read_text(encoding="utf-8")
 
-    # #323: the Workbench is a section of the strategy_scenarios screen now.
-    # Each of these gates runs on the id the user actually lands on, so the
-    # screen -- not the retired step id -- is what has to be listed, or the
-    # "Compare & Decide" button in every page header bounces to Plan Status
-    # whenever no plan is open. Where it lands is asserted behaviorally in
-    # tests/frontend/strategy_section_redirects.test.mjs.
-    assert '"strategy_scenarios",\n        "reports_and_review",\n      ].includes(s.id)' in dashboard
-    assert '"strategy_scenarios",\n        "reports_and_review",\n      ].includes(activeStep)' in dashboard
-    assert "'detailed_results','strategy_scenarios','reports_and_review']" in navigation
+    # Planning Workbench Strategy Integration: the Workbench is the
+    # strategy_workbench screen now (previously a section of
+    # strategy_scenarios, per #323). Each of these gates runs on the id the
+    # user actually lands on, so the screen -- not the retired step id -- is
+    # what has to be listed, or the "Compare & Decide" button in every page
+    # header bounces to Plan Status whenever no plan is open. Where it lands
+    # is asserted behaviorally in tests/frontend/strategy_section_redirects.test.mjs.
+    assert '"strategy_scenarios",\n        "strategy_workbench",\n        "reports_and_review",\n      ].includes(s.id)' in dashboard
+    assert '"strategy_scenarios",\n        "strategy_workbench",\n        "reports_and_review",\n      ].includes(activeStep)' in dashboard
+    assert "strategy_scenarios','strategy_workbench','reports_and_review'" in navigation
     assert "!PLAN_INDEPENDENT_STEPS.includes(id)" in navigation
-    assert "planning_workbench:{step:'strategy_scenarios',section:'workbench'}" in navigation
+    assert "planning_workbench:{step:'strategy_workbench',section:'levers'}" in navigation
 
 
 def test_legacy_pages_use_workbench_language_and_preserve_routes():
