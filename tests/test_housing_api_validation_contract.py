@@ -79,14 +79,44 @@ def test_rule5_buying_before_the_sale_window_opens_is_rejected():
     assert '2040' in msg
 
 
-def test_rule6_anchor_count_must_be_between_two_and_five():
+def test_rule6_anchor_count_must_be_between_one_and_five():
     body = _body()
-    body['move1']['search']['anchors'] = [{'kind': 'zip', 'anchor_zip': '80014'}]
-    assert 'between 2 and 5' in validate_request(body)
+    body['move1']['search']['anchors'] = []
+    assert 'between 1 and 5' in validate_request(body)
 
     body['move1']['search']['anchors'] = [
         {'kind': 'zip', 'anchor_zip': f'8001{i}'} for i in range(6)]
-    assert 'between 2 and 5' in validate_request(body)
+    assert 'between 1 and 5' in validate_request(body)
+
+
+def test_rule6_a_single_anchor_is_now_allowed():
+    body = _body()
+    body['move1']['search']['anchors'] = [{'kind': 'zip', 'anchor_zip': '80014'}]
+    assert validate_request(body) is None
+
+
+def test_rule6b_apartment_property_type_cannot_be_forced_to_buy():
+    body = _body()
+    body['move1']['action'] = 'buy'
+    body['move1']['search']['dwelling'] = {'property_type': 'apartment'}
+    msg = validate_request(body)
+    assert msg is not None
+    assert 'apartment' in msg.lower()
+
+
+def test_rule6b_apartment_property_type_is_fine_under_rent_or_auto():
+    for action in ('rent', 'auto'):
+        body = _body()
+        body['move1']['action'] = action
+        body['move1']['search']['dwelling'] = {'property_type': 'apartment'}
+        assert validate_request(body) is None, action
+
+
+def test_rule6b_only_applies_to_apartment_not_other_property_types():
+    body = _body()
+    body['move1']['action'] = 'buy'
+    body['move1']['search']['dwelling'] = {'property_type': 'condo'}
+    assert validate_request(body) is None
 
 
 def test_rule7_family_presence_needs_a_five_digit_zip_and_an_ordered_window():
