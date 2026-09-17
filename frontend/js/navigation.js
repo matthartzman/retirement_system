@@ -214,7 +214,7 @@
       // synchronous renderMain() on the same tick never gave the browser a
       // chance to paint the overlay first -- the page just froze for several
       // seconds with no visible progress bar. Yield one tick so it paints.
-      safeCall(()=>setBuildOverlay(true,'Loading all assumptions','Aggregating all plan fields across sections. This takes a moment.','waiting'));
+      safeCall(()=>setBuildOverlay(true,'Loading all assumptions','Aggregating all plan fields across sections. This takes a moment.','waiting','loadAllAssumptions'));
       setTimeout(()=>{
         safeCall(ctx.renderMain);
         setTimeout(()=>safeCall(hideBuildOverlay),50);

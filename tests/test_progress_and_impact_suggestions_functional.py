@@ -15,7 +15,7 @@ def test_build_overlay_has_static_percent_not_looping_bar():
     assert "buildPulse" not in text
     assert "build-overlay.active .build-overlay-bar span{animation" not in text
     assert 'pct === "waiting" || pct === "indeterminate" || pct === null' in text
-    assert 'p.textContent = value === null ? "Working…" : Math.round(value) + "%"' in text
+    assert 'p.textContent = averageRuntimeText(buildOverlayPopupId) || "Working…"' in text
 
 
 def test_build_impact_adds_actionable_suggestions_under_three_metrics():
