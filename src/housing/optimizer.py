@@ -33,7 +33,7 @@ from .models import (
     ScoredCandidate,
 )
 from .candidates import (
-    _actions,
+    _action_count,
     dual_ownership_ok,
     estimate_move2_candidate_count,
     extend_with_move2,
@@ -297,7 +297,7 @@ def _extend_and_score(
     if not concurrent:
         span = (move2_window.latest_acquisition_year
                 - move2_window.earliest_acquisition_year + 1)
-        full = len(anchors) * len(locations2) * max(0, span) * len(_actions(move2_action))
+        full = len(anchors) * len(locations2) * max(0, span) * _action_count(move2_action)
         rejections['move_order'] += max(0, full - len(cands))
     out = []
     for cand in cands:

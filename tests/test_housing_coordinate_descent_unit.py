@@ -94,6 +94,35 @@ def test_move2_narrowed_respects_its_own_window_and_the_ordering_rule():
     assert all(s.candidate.move2.acquisition_year > 2035 for s in out)
 
 
+def test_apartment_locations_never_produce_a_buy_candidate_under_auto():
+    apt_locs = [Location(state='CO', property_type='apartment')]
+    calls = []
+    out = generate_move1_candidates_narrowed(
+        locations1=apt_locs, move1_window=MoveWindow(2030, 2032),
+        sale_window=SaleWindow(2030, 2032), dispositions=('sell',),
+        move1_action='auto', no_dual_ownership=False, score_fn=_scorer(calls),
+    )
+    assert calls
+    assert all(c.move1.action == 'rent' for c in calls)
+
+
+def test_move2_narrowed_also_excludes_buy_for_an_apartment_location():
+    apt_locs = [Location(state='CO', property_type='apartment')]
+    anchors = generate_move1_candidates_narrowed(
+        locations1=LOCS, move1_window=MoveWindow(2035, 2035),
+        sale_window=SaleWindow(2033, 2033), dispositions=('sell',),
+        move1_action='buy', no_dual_ownership=False, score_fn=_scorer([]),
+    )
+    calls = []
+    generate_move2_candidates_narrowed(
+        [s.candidate for s in anchors], locations2=apt_locs,
+        move2_window=MoveWindow(2036, 2038), move2_action='auto',
+        concurrent=False, no_dual_ownership=False, score_fn=_scorer(calls),
+    )
+    assert calls
+    assert all(c.move2.action == 'rent' for c in calls)
+
+
 def test_an_all_infeasible_search_returns_empty_rather_than_looping():
     out = generate_move1_candidates_narrowed(
         locations1=LOCS, move1_window=MoveWindow(2030, 2040),

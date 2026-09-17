@@ -209,7 +209,28 @@ DASHBOARD_JS_MAX_LINES = 7_293
 # dashboard.js is unchanged (still 7,293); the new lines are the history
 # helpers plus a popupId argument threaded through the existing setBuildOverlay
 # call sites, none of it moved from elsewhere, so raised to the measured size.
-TOTAL_JS_MAX_LINES = 33_265
+# 2026-09-17: raised from 33,217 to 33,237 on a separate branch -- relocated
+# the housing optimizer to Strategy -> Optimize (a new tab entry in
+# dashboard_decomp_strategy_workspace.js, plus its own removal from
+# dashboard_decomp_housing_scenarios.js's Scenario Change Sets, a net add
+# since the new tab's wrapping/help text is more than what was removed),
+# added the "Apartment (rent only)" property type option and its
+# validation-rule/help-copy additions in dashboard_decomp_housing_optimizer.js,
+# and the 1-5 (was 2-5) anchor range's message-text updates. All new
+# behaviour, not lines moved from elsewhere.
+# 2026-09-17: merging the two branches above (ticket-326's 33,265 and the
+# housing-optimize-nav-and-anchors branch's 33,237, each independently
+# sufficient, neither diff able to see the other's prior raise) plus that
+# second branch's own later Planning Workbench Strategy Integration work
+# (a new consolidated strategy_workbench screen composed mostly from
+# existing exports, plus a net cleanup that deleted more duplicate/dead
+# code -- old renderWorkbench(), renderWorkbenchLeverEditorHtml(),
+# renderWorkbenchStressHtml(), several orphaned wrapper functions, and two
+# unreachable renderMain() branches -- than the new screen added, and a
+# final-review fix pass for three plan-independence gates plus stale copy)
+# -- raised here to the genuinely measured total of all real, non-duplicate
+# additions across both branches.
+TOTAL_JS_MAX_LINES = 33_214
 
 
 def _line_count(path: Path) -> int:
