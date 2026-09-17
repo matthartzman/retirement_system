@@ -42,6 +42,28 @@ try:
 except ImportError:  # pragma: no cover
     requests = None  # type: ignore
 
+_SESSION = None
+_SESSION_LOCK = threading.Lock()
+
+
+def _session():
+    """One process-wide requests.Session for all quote fetches.
+
+    Bare requests.get builds a new connection pool AND a new SSLContext per
+    call, re-reading the CA bundle every time (measured: 30 CA-bundle loads
+    per build, ~3s). Returns None when requests is unavailable so callers
+    keep their existing urllib fallback path.
+    """
+    global _SESSION
+    if requests is None:
+        return None
+    if _SESSION is None:
+        with _SESSION_LOCK:
+            if _SESSION is None:
+                _SESSION = requests.Session()
+    return _SESSION
+
+
 FMP_QUOTE_SHORT_URL = "https://financialmodelingprep.com/api/v3/quote-short/{symbol}?apikey={api_key}"
 FMP_QUOTE_URL = "https://financialmodelingprep.com/api/v3/quote/{symbol}?apikey={api_key}"
 YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?range=1d&interval=1d"
@@ -530,7 +552,8 @@ class MarketDataProvider:
         for attempt in range(self.max_retries):
             if requests is not None:
                 try:
-                    resp = requests.get(url, timeout=self.timeout_seconds, headers=_quote_headers("application/json,*/*"))
+                    _sess = _session()
+                    resp = _sess.get(url, timeout=self.timeout_seconds, headers=_quote_headers("application/json,*/*"))
                     if resp.status_code != 200:
                         cause = self._best_guess_cause(provider, status_code=resp.status_code)
                         self._record_failure(symbol, provider, url, cause, resp.text[:300], resp.status_code)
@@ -826,7 +849,8 @@ class MarketDataProvider:
         if requests is not None:
             started = _now()
             try:
-                resp = requests.get(url, timeout=self.timeout_seconds, headers=_quote_headers("application/json,*/*"))
+                _sess = _session()
+                resp = _sess.get(url, timeout=self.timeout_seconds, headers=_quote_headers("application/json,*/*"))
                 elapsed_ms = int((_now() - started) * 1000)
                 preview = (resp.text or "")[:900]
                 attempt = {
