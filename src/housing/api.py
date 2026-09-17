@@ -343,7 +343,8 @@ def optimize_housing_from_request(
                 ),
             }, 200
 
-        down_payment_pct = float(body.get('down_payment_pct', 0.20) or 0.20)
+        dp_raw = body.get('down_payment_pct')
+        down_payment_pct = 0.20 if dp_raw in (None, '') else float(dp_raw)
         mortgage_rate_raw = body.get('mortgage_rate_pct')
         mortgage_rate_pct = (
             float(mortgage_rate_raw) if mortgage_rate_raw not in (None, '') else None
