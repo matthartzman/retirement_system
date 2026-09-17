@@ -116,6 +116,14 @@ def test_purchase_price_falls_back_to_the_zip_scaled_estimate():
     assert _purchase_price_for_location(loc) == 612345.0
 
 
+def test_purchase_price_honors_an_explicit_zero_est_price():
+    """est_price=0.0 (never legitimately produced today) must not be treated
+    as falsy and fall through to the state-level estimate -- an explicit
+    None is the only thing that should fall through."""
+    loc = Location(state="Texas", est_price=0.0)
+    assert _purchase_price_for_location(loc) == 0.0
+
+
 def test_purchase_price_falls_back_to_state_estimate_when_no_est_price():
     """A hand-built Location with neither a price range nor an est_price
     (never happens for an optimizer-generated candidate, since

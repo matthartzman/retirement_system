@@ -65,7 +65,7 @@ def _purchase_price_for_location(loc: Location) -> float:
     if loc.target_purchase_price_range:
         lo, hi = loc.target_purchase_price_range
         return (float(lo) + float(hi)) / 2.0
-    if loc.est_price:
+    if loc.est_price is not None:
         return float(loc.est_price)
     return float(_estimate_for_location(loc, 'purchase')['purchase_price'])
 
