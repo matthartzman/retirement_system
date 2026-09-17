@@ -4645,6 +4645,52 @@ def _mc_row_bucket_flows(c: dict, base_rows: list[dict]) -> dict:
     return out
 
 
+def _survivor_bucket_cache_key(c: dict, base_rows: list[dict]) -> str:
+    """Fingerprint everything the survivor-bucket build actually depends on.
+
+    The buckets are produced by 70 full run_scenario() projections off ``c``,
+    so ANY config value the projection reads changes them -- not just the
+    death years. This hashes the whole config with unhashable/derived entries
+    dropped, deliberately erring toward MORE invalidation: a missed key would
+    serve a different household's survivor trajectories, which is a silently
+    wrong workbook, while an extra miss only costs ~1.5s.
+    """
+    import hashlib as _hashlib
+    import json as _json
+
+    # Derived outputs and memos -- never inputs to the bucket build. Including
+    # them would make every key unique and defeat the memo entirely.
+    skip = {
+        '_survivor_bucket_memo', '_ann_pmt_memo', 'plan_result',
+        'report_spec', 'roth_strategy_result', 'advisor_readiness',
+    }
+    def _json_safe(obj):
+        # Config values can carry dict keys or container types (tuples, sets,
+        # objects) json.dumps can't handle even with default=repr, since
+        # default only rescues values, not keys. Recursively coerce
+        # everything into a shape json.dumps can serialize, falling back to
+        # repr() for anything still unrecognized -- any two distinct configs
+        # then hash differently, which is the direction we want to err in.
+        if isinstance(obj, dict):
+            return {
+                (k if isinstance(k, (str, int, float, bool)) or k is None else repr(k)): _json_safe(v)
+                for k, v in obj.items()
+            }
+        if isinstance(obj, (list, tuple)):
+            return [_json_safe(v) for v in obj]
+        if isinstance(obj, (set, frozenset)):
+            return sorted(repr(v) for v in obj)
+        if isinstance(obj, (str, int, float, bool)) or obj is None:
+            return obj
+        return repr(obj)
+
+    payload = {k: v for k, v in c.items() if k not in skip}
+    h = _hashlib.sha256(_json.dumps(_json_safe(payload), sort_keys=True).encode('utf-8'))
+    h.update(b'\0')
+    h.update(_json.dumps([int(r['year']) for r in base_rows]).encode('utf-8'))
+    return h.hexdigest()
+
+
 def _mc_survivor_bucket_flows(c: dict, base_rows: list[dict]):
     """Optimization-refactor Phase 1 items 4-6: precomputed survivor-period
     deterministic trajectories for the vectorized MC engine.
@@ -4675,6 +4721,13 @@ def _mc_survivor_bucket_flows(c: dict, base_rows: list[dict]):
     its cost (2 * n_years project() calls) by the ~26-90 vectorized-engine
     invocations a single monte_carlo() call can make.
     """
+    _key = _survivor_bucket_cache_key(c, base_rows)
+    _memo = c.get('_survivor_bucket_memo')
+    if _memo is None:
+        _memo = c['_survivor_bucket_memo'] = {}
+    if _key in _memo:
+        return _memo[_key]
+
     members = c.get('members') or []
     years = [int(r['year']) for r in base_rows]
     n_years = len(years)
@@ -4728,7 +4781,7 @@ def _mc_survivor_bucket_flows(c: dict, base_rows: list[dict]):
                     tier_arrays[tier] = _np.zeros((n_buckets, n_years), dtype=float)
                 tier_arrays[tier][bucket_id] = arr
 
-    return {
+    _result = {
         'years': years,
         'n_years': n_years,
         'n_buckets': n_buckets,
@@ -4736,6 +4789,8 @@ def _mc_survivor_bucket_flows(c: dict, base_rows: list[dict]):
         'arrays': arrays,
         'spend_by_tier': tier_arrays,
     }
+    _memo[_key] = _result
+    return _result
 
 
 def _mc_effective_row_flows(flows: dict, survivor_buckets, bucket_id, use_bucket_mask, n_sims: int, n_years: int) -> dict:
