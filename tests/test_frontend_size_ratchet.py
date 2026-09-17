@@ -185,7 +185,14 @@ DASHBOARD_JS_MAX_LINES = 7_293
 # where adding or removing an anchor wiped out the values already entered for
 # the other anchors. Neither is lines moved from elsewhere -- both are new,
 # so the ceiling is raised to the measured size with no slack, same as before.
-TOTAL_JS_MAX_LINES = 32_792
+# 2026-09-16: raised from 32,792 to 33,076 -- merging main (the housing-
+# optimizer raise above) into the ticket-323 Strategy redesign branch, whose
+# own new module (dashboard_decomp_strategy_workspace.js, the three Strategy
+# screens' lazy-section primitive) had never needed to touch this ceiling on
+# its own. Two independently-sufficient ceilings, combined by a merge neither
+# side's diff alone could see coming; raised to the genuinely measured total
+# of both real, non-duplicate additions.
+TOTAL_JS_MAX_LINES = 33_076
 
 
 def _line_count(path: Path) -> int:

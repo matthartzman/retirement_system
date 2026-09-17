@@ -34,13 +34,12 @@ class AllocationScenarioTests(unittest.TestCase):
         # destinations onto the Strategy screens -- the Planning Levers hub
         # that held leverNavButton() is gone. gate: "scenarios" and
         # gate: "monte_carlo_options" in dashboard_decomp_strategy_workspace.js
-        # are their new home; see test_strategy_workspace_module_gating.py
-        # for the fuller gating contract.
-        workspace_js = (
-            ROOT / 'frontend' / 'js' / 'dashboard_decomp_strategy_workspace.js'
-        ).read_text(encoding='utf-8')
-        self.assertIn('gate: "scenarios"', workspace_js)
-        self.assertIn('gate: "monte_carlo_options"', workspace_js)
+        # are their new home, already asserted by
+        # test_strategy_workspace_module_gating.py::
+        # test_every_gated_section_names_the_key_step_gate_map_expects --
+        # not repeated here, so this file doesn't need its own direct read of
+        # that module (test_freeze_frontend_source_grep.py freezes new files
+        # that grep frontend source; that contract already lives elsewhere).
         self.assertIn('case "scenarios":', js)
         self.assertIn('sec === "Scenarios" && !rowIsDivorceScenario(r)', js)
         self.assertIn('case "monte_carlo_options":', js)
