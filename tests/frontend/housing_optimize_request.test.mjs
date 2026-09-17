@@ -27,6 +27,8 @@ function defaultElements() {
     housingOptSearchMode: { value: "full" },
     housingOptMove2Strategy: { value: "anchored" },
     housingOptNoDualOwnership: { checked: true },
+    housingOptDownPaymentPct: { value: "20" },
+    housingOptMortgageRatePct: { value: "6.85" },
 
     housingOptPresenceEnabled: { checked: false },
     housingOptPresenceZip: { value: "" },
@@ -163,6 +165,26 @@ describe("buildHousingOptRequest", () => {
     assert.equal(body.move2.earliest_acquisition_year, 2040);
     assert.equal(body.move2.latest_acquisition_year, 2050);
   });
+
+  test("down payment % is sent as a fraction", () => {
+    const { sandbox } = mountHousingOptPanel({ housingOptDownPaymentPct: { value: "15" } });
+    assert.equal(sandbox.buildHousingOptRequest().down_payment_pct, 0.15);
+  });
+
+  test("an empty down payment field defaults to 20%", () => {
+    const { sandbox } = mountHousingOptPanel({ housingOptDownPaymentPct: { value: "" } });
+    assert.equal(sandbox.buildHousingOptRequest().down_payment_pct, 0.2);
+  });
+
+  test("mortgage rate % is sent as a fraction", () => {
+    const { sandbox } = mountHousingOptPanel({ housingOptMortgageRatePct: { value: "5" } });
+    assert.equal(sandbox.buildHousingOptRequest().mortgage_rate_pct, 0.05);
+  });
+
+  test("clearing the mortgage rate field sends null, not zero", () => {
+    const { sandbox } = mountHousingOptPanel({ housingOptMortgageRatePct: { value: "" } });
+    assert.equal(sandbox.buildHousingOptRequest().mortgage_rate_pct, null);
+  });
 });
 
 describe("validateHousingOptForm", () => {
@@ -247,6 +269,23 @@ describe("validateHousingOptForm", () => {
       sandbox.validateHousingOptForm(),
       "Family presence needs a 5-digit ZIP and a from-year no later than the through-year.",
     );
+  });
+});
+
+describe("validateHousingOptForm -- purchase assumptions bounds", () => {
+  test("down payment over 100 is rejected", () => {
+    const { sandbox } = mountHousingOptPanel({ housingOptDownPaymentPct: { value: "150" } });
+    assert.match(sandbox.validateHousingOptForm(), /down payment/i);
+  });
+
+  test("a negative mortgage rate is rejected", () => {
+    const { sandbox } = mountHousingOptPanel({ housingOptMortgageRatePct: { value: "-1" } });
+    assert.match(sandbox.validateHousingOptForm(), /mortgage rate/i);
+  });
+
+  test("the pre-filled defaults are valid", () => {
+    const { sandbox } = mountHousingOptPanel();
+    assert.equal(sandbox.validateHousingOptForm(), null);
   });
 });
 

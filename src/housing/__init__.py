@@ -154,6 +154,7 @@ _EXPORTS = {
     'optimize_housing': 'optimizer',
     'optimize_housing_from_request': 'api',
     'top_cities_payload': 'api',
+    'zip_lookup': 'api',
     'zip_screen_from_request': 'api',
 }
 

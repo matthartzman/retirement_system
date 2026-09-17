@@ -93,6 +93,23 @@ describe("renderHousingOptimizePanelHtml", () => {
     assert.match(html, /id="housingOptValidation"/);
     assert.match(html, /id="housingOptimizeResults"/);
   });
+
+  test("a Purchase assumptions section sits between Current home and Move 1", () => {
+    const html = panelHtml();
+    assert.match(html, /id="housingOptDownPaymentPct"/);
+    assert.match(html, /id="housingOptMortgageRatePct"/);
+    const currentHomeIdx = html.indexOf("housingOptDisposition");
+    const purchaseAssumptionsIdx = html.indexOf("housingOptDownPaymentPct");
+    const move1Idx = html.indexOf("housingOptMove1Earliest");
+    assert.ok(currentHomeIdx < purchaseAssumptionsIdx, "assumptions come after Current home");
+    assert.ok(purchaseAssumptionsIdx < move1Idx, "assumptions come before Move 1");
+  });
+
+  test("down payment and mortgage rate show real editable defaults, not placeholders", () => {
+    const html = panelHtml();
+    assert.match(html, /id="housingOptDownPaymentPct"[^>]*value="20"/);
+    assert.match(html, /id="housingOptMortgageRatePct"[^>]*value="6\.85"/);
+  });
 });
 
 describe("anchors control (§9.3)", () => {
@@ -132,6 +149,17 @@ describe("anchors control (§9.3)", () => {
     assert.match(rendered, /removeHousingOptAnchor\(1, 2\)/);
     local.removeHousingOptAnchor(1, 4);
     assert.ok(!rendered.includes('id="housingOptMove1Anchor4"'));
+  });
+});
+
+describe("Move N -- where row field order", () => {
+  test("Area type renders immediately after the anchors block", () => {
+    const html = panelHtml();
+    const anchorsIdx = html.indexOf('id="housingOptMove1Anchors"');
+    const areaTypeIdx = html.indexOf('id="housingOptMove1AreaType"');
+    const radiusIdx = html.indexOf('id="housingOptMove1Radius"');
+    assert.ok(anchorsIdx < areaTypeIdx, "area type comes after anchors");
+    assert.ok(areaTypeIdx < radiusIdx, "area type comes before radius");
   });
 });
 
@@ -191,5 +219,34 @@ describe("toggleHousingOptDispositionFields", () => {
     local.toggleHousingOptDispositionFields();
     assert.equal(elements.housingOptEarliestSale.disabled, false);
     assert.equal(elements.housingOptKeepNote.hidden, true);
+  });
+});
+
+describe("housingOptMoveCellHtml", () => {
+  function moveFixture(overrides = {}) {
+    return {
+      acquisition_year: 2033,
+      action: "buy",
+      location: { zip_code: "80014", city: "Aurora", state: "Colorado", distance_miles: 3.2 },
+      financing: { purchase_price: 450000, monthly_pi_payment: 1918.56 },
+      ...overrides,
+    };
+  }
+
+  test("a rent move shows monthly rent and no price", () => {
+    const html = sandbox.housingOptMoveCellHtml(moveFixture({
+      action: "rent",
+      financing: { monthly_rent: 1850 },
+    }));
+    assert.match(html, /\$1,850\/mo rent/);
+    assert.ok(!/purchase/i.test(html));
+    assert.ok(!/P&I/i.test(html));
+  });
+
+  test("a buy move shows purchase price and monthly P&I", () => {
+    const html = sandbox.housingOptMoveCellHtml(moveFixture());
+    assert.match(html, /\$450,000 purchase/);
+    assert.match(html, /\$1,919\/mo P&amp;I/);
+    assert.ok(!/rent/i.test(html));
   });
 });
