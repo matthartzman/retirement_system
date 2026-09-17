@@ -120,6 +120,11 @@ describe("buildHousingOptRequest", () => {
       housingOptMove1Anchor1: { value: "zip" },
       housingOptMove1AnchorZip1: { value: "60521" },
     });
+    // The anchor count now defaults to 1 (§ 1-5 anchors, was 2-5) -- this
+    // test wants both anchor slots read, so grow move 1 to 2 first (the
+    // stubbed getElementById tolerates addHousingOptAnchor's container
+    // lookup the same way it tolerates every other id it doesn't know).
+    sandbox.addHousingOptAnchor(1);
     const body = sandbox.buildHousingOptRequest();
     // Array.from() re-materializes the sandbox (vm-realm) array/objects as
     // host-realm values -- assert/strict's deepEqual otherwise fails a
@@ -240,11 +245,19 @@ describe("validateHousingOptForm", () => {
     assert.equal(sandbox.validateHousingOptForm(), null);
   });
 
-  test("too few anchors for move 1 is rejected", () => {
+  test("zero anchors for move 1 is rejected", () => {
+    const { sandbox } = mountHousingOptPanel({
+      housingOptMove1AnchorCity0: { value: "" },
+      housingOptMove1AnchorCity1: { value: "" },
+    });
+    assert.equal(sandbox.validateHousingOptForm(), "Choose between 1 and 5 anchors for move 1.");
+  });
+
+  test("a single anchor for move 1 is now allowed", () => {
     const { sandbox } = mountHousingOptPanel({
       housingOptMove1AnchorCity1: { value: "" },
     });
-    assert.equal(sandbox.validateHousingOptForm(), "Choose between 2 and 5 anchors for move 1.");
+    assert.equal(sandbox.validateHousingOptForm(), null);
   });
 
   test("an inverted price range is rejected", () => {
@@ -256,6 +269,26 @@ describe("validateHousingOptForm", () => {
       sandbox.validateHousingOptForm(),
       "Minimum target price must not exceed the maximum.",
     );
+  });
+
+  test("apartment forced to buy is rejected", () => {
+    const { sandbox } = mountHousingOptPanel({
+      housingOptMove1Action: { value: "buy" },
+      housingOptMove1PropertyType: { value: "apartment" },
+    });
+    const msg = sandbox.validateHousingOptForm();
+    assert.match(msg, /apartment/i);
+    assert.match(msg, /move 1/i);
+  });
+
+  test("apartment is fine under rent or auto", () => {
+    for (const action of ["rent", "auto"]) {
+      const { sandbox } = mountHousingOptPanel({
+        housingOptMove1Action: { value: action },
+        housingOptMove1PropertyType: { value: "apartment" },
+      });
+      assert.equal(sandbox.validateHousingOptForm(), null, action);
+    }
   });
 
   test("family presence needs a 5-digit zip and an ordered window", () => {

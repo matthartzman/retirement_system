@@ -19,7 +19,7 @@ from __future__ import annotations
 from itertools import product
 from typing import Callable
 
-from .candidates import dual_ownership_ok
+from .candidates import actions_for_location, dual_ownership_ok
 from .models import (
     HousingCandidate,
     Location,
@@ -122,13 +122,12 @@ def generate_move1_candidates_narrowed(
     direction is "better" for the incumbent, and defaults to ``'net_worth'``
     so existing call sites keep their behaviour.
     """
-    actions = ('buy', 'rent') if move1_action == 'auto' else (move1_action,)
     out: list[ScoredCandidate] = []
     for disposition in dispositions:
         axes = _axes_for_move1(sale_window, move1_window, disposition)
         keep = disposition == 'keep'
         for loc in locations1:
-            for action in actions:
+            for action in actions_for_location(move1_action, loc):
                 def build(point, _loc=loc, _action=action, _keep=keep, _d=disposition):
                     sale_year = None if _keep else point[0]
                     year = point[0] if _keep else point[1]
@@ -160,14 +159,13 @@ def generate_move2_candidates_narrowed(
     come strictly after move 1) is a guard on the point, not a clamp on the
     axis, matching ``candidates.extend_with_move2``.
     """
-    actions = ('buy', 'rent') if move2_action == 'auto' else (move2_action,)
     mode = 'concurrent' if concurrent else 'sequential'
     out: list[ScoredCandidate] = []
     axis = range(move2_window.earliest_acquisition_year,
                  move2_window.latest_acquisition_year + 1)
     for anchor in anchors:
         for loc in locations2:
-            for action in actions:
+            for action in actions_for_location(move2_action, loc):
                 def build(point, _a=anchor, _loc=loc, _action=action, _mode=mode):
                     return HousingCandidate(
                         original_home=_a.original_home,

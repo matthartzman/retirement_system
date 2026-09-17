@@ -212,11 +212,20 @@ export function renderSpendingSummary(d) {
   // a separate row rather than folded into the KPI tiles above, so the
   // Actual-vs-Budget comparison stays scoped consistently while still
   // surfacing the household's true out-the-door annual spend including taxes.
-  html += '<div class="spend-summary spend-summary-all-in">';
-  html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(annualizedAllIn) + '</span><span class="spend-kpi-label">Annualized Actual, All-In (Incl. All Taxes)</span></div>';
-  html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(budgetAllIn) + '</span><span class="spend-kpi-label">Annual Budget, All-In (Incl. All Taxes)</span></div>';
-  html += '</div>';
-  html += '<p class="small" style="margin:0 0 12px">' + d.days_elapsed + ' days elapsed &middot; annualization factor ' + (d.annualization_factor || 1).toFixed(2) + 'x &middot; the five KPI tiles above exclude income taxes and transfers (real estate taxes still count as Housing spending); the All-In row adds income taxes back in</p>';
+  // Only rendered when it actually differs from the KPI tiles above -- with
+  // no taxes logged, annualizedAllIn===annualized and repeating identical
+  // figures reads as a contradiction, not confirmation.
+  var taxAnnualized = annualizedAllIn - annualized;
+  var taxBudget = budgetAllIn - budget;
+  var hasAllInDelta = Math.abs(taxAnnualized) >= 0.5 || Math.abs(taxBudget) >= 0.5;
+  if (hasAllInDelta) {
+    html += '<div class="spend-summary spend-summary-all-in">';
+    html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(annualizedAllIn) + '</span><span class="spend-kpi-label">Annualized Actual, All-In (Incl. All Taxes)</span></div>';
+    html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(budgetAllIn) + '</span><span class="spend-kpi-label">Annual Budget, All-In (Incl. All Taxes)</span></div>';
+    html += '</div>';
+  }
+  html += '<p class="small" style="margin:0 0 12px">' + d.days_elapsed + ' days elapsed &middot; annualization factor ' + (d.annualization_factor || 1).toFixed(2) + 'x &middot; the five KPI tiles above exclude income taxes and transfers (real estate taxes still count as Housing spending)' +
+    (hasAllInDelta ? '; the All-In row adds income taxes back in' : '; no income tax or transfer transactions are logged this year, so the All-In totals would match the tiles above and are omitted') + '</p>';
   return html;
 }
 

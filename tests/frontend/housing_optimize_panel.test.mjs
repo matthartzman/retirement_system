@@ -113,14 +113,13 @@ describe("renderHousingOptimizePanelHtml", () => {
 });
 
 describe("anchors control (§9.3)", () => {
-  test("two compact anchor entries per move are shown by default, each with a City/ZIP mode toggle", () => {
+  test("one compact anchor entry per move is shown by default, with a City/ZIP mode toggle", () => {
     const html = panelHtml();
     for (const n of [1, 2]) {
       assert.match(html, new RegExp(`id="housingOptMove${n}Anchor0"`));
-      assert.match(html, new RegExp(`id="housingOptMove${n}Anchor1"`));
       assert.ok(
-        !html.includes(`id="housingOptMove${n}Anchor2"`),
-        `move ${n} shows more than two anchors by default`,
+        !html.includes(`id="housingOptMove${n}Anchor1"`),
+        `move ${n} shows more than one anchor by default`,
       );
       assert.match(html, new RegExp(`id="housingOptMove${n}AnchorCity0"`));
       assert.match(html, new RegExp(`id="housingOptMove${n}AnchorZip0"`));
@@ -145,8 +144,8 @@ describe("anchors control (§9.3)", () => {
     for (let i = 0; i < 10; i++) local.addHousingOptAnchor(1);
     assert.match(rendered, /id="housingOptMove1Anchor4"/);
     assert.ok(!rendered.includes('id="housingOptMove1Anchor5"'));
-    assert.ok(!/removeHousingOptAnchor\(1, 1\)/.test(rendered));
-    assert.match(rendered, /removeHousingOptAnchor\(1, 2\)/);
+    assert.ok(!/removeHousingOptAnchor\(1, 0\)/.test(rendered));
+    assert.match(rendered, /removeHousingOptAnchor\(1, 1\)/);
     local.removeHousingOptAnchor(1, 4);
     assert.ok(!rendered.includes('id="housingOptMove1Anchor4"'));
   });
@@ -248,5 +247,23 @@ describe("housingOptMoveCellHtml", () => {
     assert.match(html, /\$450,000 purchase/);
     assert.match(html, /\$1,919\/mo P&amp;I/);
     assert.ok(!/rent/i.test(html));
+  });
+});
+
+// 2026-09-17: relocated from Strategy -> Scenarios -> Scenario Change Sets to
+// its own Strategy -> Optimize tab, alongside the plan's other major
+// planning-lever decisions (Roth Conversion, Asset Allocation).
+describe("panel location (2026-09-17 relocation)", () => {
+  test("the panel renders inside Strategy -> Optimize's housing section", () => {
+    const html = sandbox.renderStrategyOptimize();
+    assert.match(html, /data-dkey="strategy:housing"/);
+  });
+
+  test("Scenario Change Sets no longer embeds the panel", () => {
+    const html = sandbox.renderScenarioManagementPanel([]);
+    assert.ok(
+      !html.includes(`id="${sandbox.HOUSING_OPT_PANEL_ID}"`),
+      "renderScenarioManagementPanel still embeds the housing optimizer panel",
+    );
   });
 });

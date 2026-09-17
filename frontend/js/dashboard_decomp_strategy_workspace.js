@@ -127,6 +127,19 @@ export function renderStrategyOptimize() {
         `<details class="decide-embed-sub" open><summary>Allocation policy settings</summary>${renderAllocationPolicy()}</details>`,
     },
     {
+      key: "housing",
+      title: "Next Housing Move",
+      gate: null,
+      // Not analysisFrame-wrapped, unlike its siblings above: this is a
+      // self-contained search tool with its own Run button and results
+      // table, not a "set inputs, preview impact against the baseline"
+      // planning-lever workflow -- analysisFrame's "Preview impact
+      // (Planning overview)" footer would not apply to it. Matches
+      // "Strategy Levers" (renderStrategyScenarios below), the other
+      // non-lever tab in this file.
+      body: () => renderHousingOptimizePanelHtml(),
+    },
+    {
       key: "charitable_giving",
       title: "Charitable Giving",
       gate: "entity_charitable",
@@ -135,8 +148,10 @@ export function renderStrategyOptimize() {
     {
       key: "heloc",
       title: "HELOC",
-      gate: "heloc_strategy",
-      body: () => analysisFrame(renderFields("heloc_strategy"), "strategy"),
+      // Not full-section gated (unlike before): the toggle itself must
+      // render here so it can be turned on in-place, like QCD/DAF above.
+      gate: null,
+      body: () => analysisFrame(renderHelocOptimizePanel(), "strategy"),
     },
   ]);
 }
@@ -172,20 +187,69 @@ export function renderStrategyStress() {
 
 export function renderStrategyScenarios() {
   return renderStrategyScreen([
-    { key: "levers", title: "Strategy Levers", gate: null, body: () => renderPlanningLevers() },
     {
       key: "change_sets",
       title: "Scenario Change Sets",
       gate: "scenarios",
       body: () => analysisFrame(renderScenarios(), "strategy"),
     },
-    {
-      key: "workbench",
-      title: "Planning Workbench",
-      gate: null,
-      body: () => renderPlanningWorkbench(),
-    },
   ]);
+}
+
+export function renderStrategyWorkbench() {
+  const W = window.RetirementPlanningWorkbench;
+  const ctx = planningWorkbenchContext();
+  const cases = W.readAll();
+  const active =
+    cases.find((c) => c.case_id === W.activeId()) ||
+    cases.find((c) => !c.archived) ||
+    null;
+  return (
+    '<div class="section-note workbench-model"><b>Planning Workbench model:</b> Baseline -> Change Set -> Run Type -> Impact -> Decision. A Planning Case is browser-local and never changes the saved plan by itself.</div>' +
+    renderStrategyScreen([
+      {
+        key: "levers",
+        title: "Strategy Levers",
+        gate: null,
+        body: () => renderPlanningLevers(),
+      },
+      {
+        key: "change_sets",
+        title: "Change Set Builder",
+        gate: null,
+        body: () =>
+          W.sourceButtons() +
+          "<h4>Currently staged manual edits</h4>" +
+          W.overrideTable(ctx, W.currentManualOverrideItems(ctx), "No unsaved field edits are currently staged."),
+      },
+      {
+        key: "comparison",
+        title: "Unified Comparison Matrix",
+        gate: null,
+        body: () => W.matrixHtml(ctx, cases),
+      },
+      {
+        key: "decision",
+        title: "Decision",
+        gate: null,
+        body: () =>
+          W.forwardLookingHtml(ctx) +
+          '<div class="feature-grid">' +
+          W.stressSelectorHtml(ctx, cases) +
+          '<div class="feature-card"><h3>Decision panel</h3><p class="small">Every comparison ends with one deliberate choice: adopt selected changes into the saved plan via source pages, keep as a named scenario only, or archive/no action.</p>' +
+          (active
+            ? `<p><b>Selected:</b> ${esc(active.name)}</p><div class="pane-actions"><button class="btn primary" type="button" onclick="planningCaseAdopt('${escJs(active.case_id)}')">Adopt via source pages</button><button class="btn" type="button" data-step-id="build_impact">View impact</button><button class="btn" type="button" onclick="planningCaseArchive('${escJs(active.case_id)}')">Archive/no action</button></div>`
+            : '<p class="small">Select or create a case to make a decision.</p>') +
+          "</div></div>",
+      },
+      {
+        key: "saved_cases",
+        title: "Saved Planning Cases",
+        gate: null,
+        body: () => W.cardsHtml(ctx, cases, active),
+      },
+    ])
+  );
 }
 
 // Every export above is also re-attached to window: dashboard.js calls these
@@ -204,4 +268,5 @@ Object.assign(window, {
   renderStrategyOptimize,
   renderStrategyStress,
   renderStrategyScenarios,
+  renderStrategyWorkbench,
 });

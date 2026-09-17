@@ -122,6 +122,27 @@ test("a checkbox and a select round-trip too", () => {
   assert.equal(selectedOptionValue(html, "housingOptObjective"), "lifetime_cost");
 });
 
+test("a restored Move 2 enabled checkbox also un-hides the Move 2 fields block", () => {
+  // Regression: restoring `checked` on housingOptMove2Enabled via markup
+  // patching does not fire its onchange handler, so
+  // toggleHousingOptMove2Fields() never runs on its own -- without this,
+  // reopening the panel after a save with Move 2 enabled left the checkbox
+  // showing checked while #housingOptMove2Fields stayed hidden, even though
+  // the fields underneath still held real values and were submitted with
+  // the next run.
+  const sandbox = loadDashboardSandbox();
+  sandbox.localStorage = fakeLocalStorage();
+  const root = fakePanelRoot([
+    { id: "housingOptMove2Enabled", tagName: "INPUT", type: "checkbox", checked: true },
+  ]);
+  wireDom(sandbox, root);
+
+  sandbox.saveHousingOptInputs();
+  const html = sandbox.renderHousingOptimizePanelHtml();
+  assert.ok(hasBooleanAttr(html, "housingOptMove2Enabled", "checked"));
+  assert.ok(!hasBooleanAttr(html, "housingOptMove2Fields", "hidden"));
+});
+
 test("the <details> open state round-trips", () => {
   const sandbox = loadDashboardSandbox();
   sandbox.localStorage = fakeLocalStorage();

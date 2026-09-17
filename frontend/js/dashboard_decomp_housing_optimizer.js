@@ -3,10 +3,12 @@
 // spending/housing screen and had reached 1,841 lines, and the optimizer block
 // roughly doubles in size under the refinement design
 // (docs/superpowers/specs/2026-09-16-housing-optimizer-refinement-design.md
-// §9.1). renderScenarioManagementPanel() still embeds the panel, so its
-// position in Strategy -> Scenarios is unchanged; index.html loads this module
-// BEFORE dashboard_decomp_housing_scenarios.js so the bare-global call in
-// renderScenarioManagementPanel resolves.
+// §9.1). 2026-09-17: relocated from Strategy -> Scenarios -> Scenario Change
+// Sets to its own tab, Strategy -> Optimize -> Next Housing Move
+// (dashboard_decomp_strategy_workspace.js's renderStrategyOptimize()), a
+// better fit alongside the plan's other major planning-lever decisions.
+// index.html loads this module BEFORE dashboard_decomp_strategy_workspace.js
+// so the bare-global call in renderStrategyOptimize() resolves.
 //
 // Layout rule (design §9.2): every control is wrapped by housingOptField,
 // which stacks the label ABOVE the control. A label placed to the left adds
@@ -21,7 +23,7 @@
 // so the widths stay in one place and can be tuned without touching this
 // markup. Task 14 defines those classes.
 
-const HOUSING_OPT_MIN_ANCHORS = 2;
+const HOUSING_OPT_MIN_ANCHORS = 1;
 const HOUSING_OPT_MAX_ANCHORS = 5;
 
 // Persistence (§9.6). The <details> wrapper renderHousingOptimizePanelHtml()
@@ -92,7 +94,7 @@ function housingOptMoveHelpEntries() {
     Anchors: {
       title: "Anchors",
       meaning:
-        "The cities or ZIPs the search radiates from for this move. Between 2 and 5 are required.",
+        "The cities or ZIPs the search radiates from for this move. Between 1 and 5 are required.",
       connections:
         "Every anchor's radius search runs independently and the results are unioned and de-duplicated before the rest of the funnel (in_radius -> with_data -> ...) runs, so more anchors widen the candidate pool rather than narrowing it.",
       options:
@@ -196,9 +198,9 @@ function housingOptMoveDwellingHelpEntries() {
     },
     PropertyType: {
       title: "Property type",
-      meaning: "The property type (single family, townhome, condo, duplex) used for this move's dwelling spec.",
+      meaning: "The property type (single family, townhome, condo, duplex, apartment) used for this move's dwelling spec. Apartment is rental-only.",
       connections: pricesEstimateConnections,
-      options: "Pick the type the household would actually buy or rent; it shapes the price estimate, not which ZIPs are offered.",
+      options: "Pick the type the household would actually buy or rent; it shapes the price estimate, not which ZIPs are offered. Choosing Apartment forces this move's action to Rent or Auto -- Buy is blocked for apartments.",
       impact: pricesEstimate,
     },
     SqftBand: {
@@ -615,7 +617,7 @@ export function housingOptAnchorEntryHtml(moveIndex, i) {
     key,
     `Anchor ${i + 1}`,
     control,
-    "A city or ZIP the search radiates from. Each searched move takes 2-5 anchors.",
+    "A city or ZIP the search radiates from. Each searched move takes 1-5 anchors.",
   );
 }
 
@@ -894,6 +896,13 @@ function housingOptHydratePanelHtml(html, stored) {
         housingOptSetBooleanAttr(block, "hidden", mode !== "zip"),
       );
     }
+    // Same problem as the anchor mode above: restoring `checked` here does
+    // not fire onchange, so the fields block would stay hidden.
+    if (id === "housingOptMove2Enabled" && typeof raw === "boolean") {
+      out = housingOptHydrateOne(out, "housingOptMove2Fields", (block) =>
+        housingOptSetBooleanAttr(block, "hidden", !raw),
+      );
+    }
   }
   if (stored && "__detailsOpen" in stored) {
     out = housingOptHydrateOne(out, HOUSING_OPT_PANEL_ID, (block) =>
@@ -997,7 +1006,7 @@ function housingOptMoveWhereRowHtml(n) {
     `Move ${n} — where`,
     housingOptField(
       `${p}Anchors`,
-      "Anchors (2-5)",
+      "Anchors (1-5)",
       renderHousingOptAnchorsHtml(n),
       "The search screens ZIPs around each anchor and unions the results before dedup.",
     ) +
@@ -1355,7 +1364,7 @@ export async function previewHousingZipShortlist(moveIndex) {
   const n = moveIndex || 1;
   const search = housingOptMoveSearchBody(n);
   if (search.anchors.length < HOUSING_OPT_MIN_ANCHORS) {
-    showMessage(`Choose between 2 and 5 anchors for move ${n}.`, "error");
+    showMessage(`Choose between 1 and 5 anchors for move ${n}.`, "error");
     return;
   }
   const target = document.getElementById(`housingOptMove${n}Shortlist`);
@@ -1481,6 +1490,7 @@ const HOUSING_OPT_REJECTION_LABELS = {
   dual_ownership: "dual ownership",
   family_presence: "family presence",
   move_order: "move order",
+  housing_gap: "leaving a housing gap year",
 };
 
 // A zero count is omitted rather than rendered: `rejections['move_order']` is
@@ -1543,13 +1553,10 @@ function housingOptActionLabel(action) {
   return action.charAt(0).toUpperCase() + action.slice(1);
 }
 
-// `${year} · ${Buy|Rent} · ${zip} ${city}, ${state} · ${distance} mi · ${money}`
-// (design §9.4), where ${money} is:
-//   - for rent: `$${monthly_rent}/mo rent`
-//   - for buy: `$${purchase_price} purchase · $${monthly_pi_payment}/mo P&I`
-// Appends `· ${n} mi from family` only when family_distance_miles is non-null,
-// so a plain search (no family presence) never implies a family-distance
-// measurement that was never taken.
+// 3 stacked lines (year/action, location/distance, cost) instead of one long
+// `·`-joined string, so a move cell doesn't force horizontal scrolling.
+// Family distance is dropped: it duplicated the search criteria shown
+// elsewhere and was the single biggest source of the cell's width.
 function housingOptMoveCellHtml(move) {
   if (!move) return "—";
   const loc = move.location || {};
@@ -1572,13 +1579,10 @@ function housingOptMoveCellHtml(move) {
         : "—";
     money = `${price} · ${pi}`;
   }
-  let text =
-    `${move.acquisition_year} · ${housingOptActionLabel(move.action)} · ` +
-    `${loc.zip_code || ""} ${loc.city || ""}, ${loc.state || ""} · ${distance} · ${money}`;
-  if (loc.family_distance_miles != null) {
-    text += ` · ${loc.family_distance_miles} mi from family`;
-  }
-  return esc(text);
+  const line1 = esc(`${move.acquisition_year} · ${housingOptActionLabel(move.action)}`);
+  const line2 = esc(`${loc.zip_code || ""} ${loc.city || ""}, ${loc.state || ""} · ${distance}`);
+  const line3 = esc(money);
+  return `<span class="housing-opt-move-cell">${line1}<br>${line2}<br>${line3}</span>`;
 }
 
 const HOUSING_OPT_OBJECTIVE_FORMATTERS = {
@@ -1587,32 +1591,56 @@ const HOUSING_OPT_OBJECTIVE_FORMATTERS = {
   mc_success_rate: (v) => (v != null ? `${Math.round(v * 100)}%` : "—"),
 };
 
-function housingOptResultObjectiveHtml(c, objective) {
+// true when a HIGHER objective_value is better (false for lifetime_cost) --
+// decides which side of zero counts as "good" for the coloring below.
+const HOUSING_OPT_OBJECTIVE_HIGHER_IS_BETTER = {
+  net_worth: true,
+  lifetime_cost: false,
+  mc_success_rate: true,
+};
+
+// Rank 1 shows the absolute objective value; every other row shows its
+// impact relative to rank 1, colored with the app's positive/negative-money
+// convention.
+function housingOptResultObjectiveHtml(c, objective, bestValue) {
   const fmt = HOUSING_OPT_OBJECTIVE_FORMATTERS[objective] || ((v) => (v != null ? String(v) : "—"));
-  return esc(fmt(c.objective_value));
+  if (c.rank === 1 || bestValue == null || c.objective_value == null) {
+    return esc(fmt(c.objective_value));
+  }
+  const higherIsBetter = HOUSING_OPT_OBJECTIVE_HIGHER_IS_BETTER[objective] !== false;
+  const delta = c.objective_value - bestValue;
+  const good = higherIsBetter ? delta >= 0 : delta <= 0;
+  const cls = good ? "positive-money" : "negative-money";
+  let text;
+  if (objective === "mc_success_rate") {
+    const pts = Math.round(delta * 100);
+    text = `${pts > 0 ? "+" : ""}${pts} pts`;
+  } else {
+    const rounded = Math.round(delta);
+    text = `${rounded > 0 ? "+" : rounded < 0 ? "-" : ""}$${Math.abs(rounded).toLocaleString()}`;
+  }
+  return `<span class="${cls}">${esc(text)}</span>`;
 }
 
-// One row per candidate (design §9.4): a rank badge, current-home
-// disposition, both move cells, the objective value, MC success, and notes.
-// Rank 1 carries the "Recommended" label and the `housing-opt-result-top`
-// class so the recommendation stays findable after the table wraps or the
-// viewer scrolls -- alternating shading and a heavy rule between results
-// (Task 14 CSS) are the other two boundary cues design §9.4 asks for.
-function housingOptResultRowHtml(c, objective) {
+// One row per candidate: a compact rank badge (a star, not "Recommended"
+// text, so the column stays narrow), current-home disposition, both move
+// cells, the objective's impact vs. the recommendation, and notes. MC
+// success is dropped: with only 3-5 candidates simulated it reads as a
+// near-binary 100%/0%, not a meaningful probability.
+function housingOptResultRowHtml(c, objective, bestValue) {
   const shade = c.rank % 2 ? "housing-opt-result-odd" : "housing-opt-result-even";
   const topClass = c.rank === 1 ? " housing-opt-result-top" : "";
-  const recommended = c.rank === 1 ? ' <span class="housing-opt-badge">Recommended</span>' : "";
-  const rankCell = `<span class="housing-opt-rank">${esc(String(c.rank))}</span>${recommended}`;
+  const rankCell = c.rank === 1
+    ? `<span class="housing-opt-rank housing-opt-rank-top" title="Recommended">&#9733; 1</span>`
+    : `<span class="housing-opt-rank">${esc(String(c.rank))}</span>`;
   const moves = c.moves || [];
-  const mc = c.mc_success_rate != null ? `${Math.round(c.mc_success_rate * 100)}%` : "—";
   const notes = (c.notes || []).length ? esc(c.notes.join("; ")) : "—";
   return `<tr class="housing-opt-result ${shade}${topClass}">
     <td>${rankCell}</td>
     <td>${esc(housingOptCurrentHomeHtml(c.original_home))}</td>
     <td>${housingOptMoveCellHtml(moves[0])}</td>
     <td>${housingOptMoveCellHtml(moves[1])}</td>
-    <td>${housingOptResultObjectiveHtml(c, objective)}</td>
-    <td>${esc(mc)}</td>
+    <td>${housingOptResultObjectiveHtml(c, objective, bestValue)}</td>
     <td>${notes}</td>
   </tr>`;
 }
@@ -1623,11 +1651,12 @@ export function renderHousingOptimizeResultsHtml(payload) {
   if (!candidates.length) {
     return renderHousingOptimizeEmptyHtml(payload);
   }
-  const rows = candidates.map((c) => housingOptResultRowHtml(c, payload.objective)).join("");
+  const bestValue = candidates[0].objective_value;
+  const rows = candidates.map((c) => housingOptResultRowHtml(c, payload.objective, bestValue)).join("");
   return (
     '<table class="lot-table scenario-diff-table housing-optimize-table"><thead><tr>' +
     "<th>Rank</th><th>Current home</th><th>Move 1</th><th>Move 2</th>" +
-    "<th>Objective</th><th>MC success</th><th>Notes</th>" +
+    "<th>Objective (impact)</th><th>Notes</th>" +
     `</tr></thead><tbody>${rows}</tbody></table>`
   );
 }
@@ -1802,7 +1831,7 @@ export function validateHousingOptForm() {
     const search = housingOptMoveSearchBody(n);
     const label = `move ${n}`;
     if (!(search.anchors.length >= HOUSING_OPT_MIN_ANCHORS && search.anchors.length <= HOUSING_OPT_MAX_ANCHORS)) {
-      return `Choose between 2 and 5 anchors for ${label}.`;
+      return `Choose between 1 and 5 anchors for ${label}.`;
     }
     if (!HOUSING_OPT_ALLOWED_RADII_MILES.includes(search.radius_miles)) {
       return `Radius must be one of ${HOUSING_OPT_ALLOWED_RADII_MILES.join(", ")} miles.`;
@@ -1813,6 +1842,10 @@ export function validateHousingOptForm() {
     const rng = search.dwelling && search.dwelling.target_purchase_price_range;
     if (rng && Number(rng[0]) > Number(rng[1])) {
       return "Minimum target price must not exceed the maximum.";
+    }
+    const moveAction = housingOptDomVal(`housingOptMove${n}Action`) || "auto";
+    if (search.dwelling && search.dwelling.property_type === "apartment" && moveAction === "buy") {
+      return `Apartment is rental-only for ${label}. Choose Rent or Auto, or a different property type to buy.`;
     }
   }
 
