@@ -29,7 +29,13 @@ def test_dashboard_adds_planning_workbench_step_and_case_store():
     assert 'id: "planning_workbench"' in js
     assert 'title: "Planning Workbench"' in js
     assert "retirement.planning_case_v1" in js
-    assert "function renderPlanningWorkbench()" in js
+    # renderPlanningWorkbench() was a wrapper around planning_workbench_ui.js's
+    # renderWorkbench(), which Planning Workbench Strategy Integration Task 4
+    # deleted; Task 5 removed the now-dead wrapper (it would throw if called)
+    # along with its unreachable renderMain() call site -- see
+    # tests/test_frontend_module_extraction_functional.py::
+    # test_planning_workbench_case_store_moved_out_of_dashboard.
+    assert "renderPlanningWorkbench" not in js
     assert "function planningCaseCreate(source)" in js
     assert "function stepIdForRow(row) {\n  return sourceStepForRow(row);\n}" in js
     assert 'planning_workbench: pageHelp(\n    "Planning Workbench"' in js
