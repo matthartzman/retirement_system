@@ -668,9 +668,12 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
             return (
               '<div class="field"><div class="field-label">ZIP</div>' +
               '<input type="text" class="zip" maxlength="5" inputmode="numeric" ' +
-              'data-row="' + r.row_index + '" value="' + esc(valOf(r) || "") + '" ' +
+              'data-row="' + r.row_index + '" data-focus-key="field:' + r.row_index + '" ' +
+              'value="' + esc(valOf(r) || "") + '" ' +
               'oninput="editValue(' + r.row_index + ',this.value,this)" ' +
-              'onchange="resolveHousingStepZip(' + stepNum + ',this.value)">' +
+              'onchange="resolveHousingStepZip(' + stepNum + ',this.value)" ' +
+              'onfocus="beginEdit(' + r.row_index + ',this)" ' +
+              'onblur="finishEdit(' + r.row_index + ',this)">' +
               errorHtml +
               "</div>"
             );
@@ -678,7 +681,7 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
           if (norm(r.label) === "state") {
             var cachedCity = window.housingStepZipLookup[stepNum];
             var display = cachedCity && cachedCity.city
-              ? cachedCity.city + ", " + esc(valOf(r) || "")
+              ? esc(cachedCity.city) + ", " + esc(valOf(r) || "")
               : esc(valOf(r) || "Enter a ZIP above");
             return (
               '<div class="field"><div class="field-label">City, State</div>' +
