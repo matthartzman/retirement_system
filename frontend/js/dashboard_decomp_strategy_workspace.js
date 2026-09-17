@@ -201,6 +201,62 @@ export function renderStrategyScenarios() {
   ]);
 }
 
+export function renderStrategyWorkbench() {
+  const W = window.RetirementPlanningWorkbench;
+  const ctx = planningWorkbenchContext();
+  const cases = W.readAll();
+  const active =
+    cases.find((c) => c.case_id === W.activeId()) ||
+    cases.find((c) => !c.archived) ||
+    null;
+  return (
+    '<div class="section-note workbench-model"><b>Planning Workbench model:</b> Baseline -> Change Set -> Run Type -> Impact -> Decision. A Planning Case is browser-local and never changes the saved plan by itself.</div>' +
+    renderStrategyScreen([
+      {
+        key: "levers",
+        title: "Strategy Levers",
+        gate: null,
+        body: () => renderPlanningLevers(),
+      },
+      {
+        key: "change_sets",
+        title: "Change Set Builder",
+        gate: null,
+        body: () =>
+          W.sourceButtons() +
+          "<h4>Currently staged manual edits</h4>" +
+          W.overrideTable(ctx, W.currentManualOverrideItems(ctx), "No unsaved field edits are currently staged."),
+      },
+      {
+        key: "comparison",
+        title: "Unified Comparison Matrix",
+        gate: null,
+        body: () => W.matrixHtml(ctx, cases),
+      },
+      {
+        key: "decision",
+        title: "Decision",
+        gate: null,
+        body: () =>
+          W.forwardLookingHtml(ctx) +
+          '<div class="feature-grid">' +
+          W.stressSelectorHtml(ctx, cases) +
+          '<div class="feature-card"><h3>Decision panel</h3><p class="small">Every comparison ends with one deliberate choice: adopt selected changes into the saved plan via source pages, keep as a named scenario only, or archive/no action.</p>' +
+          (active
+            ? `<p><b>Selected:</b> ${esc(active.name)}</p><div class="pane-actions"><button class="btn primary" type="button" onclick="planningCaseAdopt('${escJs(active.case_id)}')">Adopt via source pages</button><button class="btn" type="button" data-step-id="build_impact">View impact</button><button class="btn" type="button" onclick="planningCaseArchive('${escJs(active.case_id)}')">Archive/no action</button></div>`
+            : '<p class="small">Select or create a case to make a decision.</p>') +
+          "</div></div>",
+      },
+      {
+        key: "saved_cases",
+        title: "Saved Planning Cases",
+        gate: null,
+        body: () => W.cardsHtml(ctx, cases, active),
+      },
+    ])
+  );
+}
+
 // Every export above is also re-attached to window: dashboard.js calls these
 // as bare globals, and this file's own rendered HTML uses inline
 // ontoggle="..." handlers, which always resolve through window regardless of
@@ -217,4 +273,5 @@ Object.assign(window, {
   renderStrategyOptimize,
   renderStrategyStress,
   renderStrategyScenarios,
+  renderStrategyWorkbench,
 });

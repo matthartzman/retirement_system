@@ -152,7 +152,7 @@ describe("strategySection lazy body (ticket 323)", () => {
 // default, gated sections being skipped when picking it -- are covered in
 // their own "first-visit default open state" block below; this block only
 // needs to correctly describe what these three specific calls produce.)
-describe("the three Strategy screens (ticket 323)", () => {
+describe("the four Strategy screens (ticket 323 + Workbench)", () => {
   test("Optimize renders its five sections; the first (Roth Conversion) opens with its real body, the rest stay collapsed", () => {
     const html = sandbox.renderStrategyOptimize();
     for (const key of [
@@ -208,6 +208,48 @@ describe("the three Strategy screens (ticket 323)", () => {
         new RegExp(`data-dkey="strategy:${key}"[^>]*\\sopen`),
       );
     }
+  });
+
+  test("Workbench renders its five sections; the first (Strategy Levers) opens, the rest stay collapsed", () => {
+    // load_dashboard.mjs only loads dashboard.js/dashboard_shared_helpers.js/
+    // dashboard_decomp_*.js into the sandbox (see its `wanted` filter), so
+    // planning_workbench_ui.js -- and therefore the real
+    // window.RetirementPlanningWorkbench -- is never present here. Only
+    // readAll/activeId run unconditionally inside renderStrategyWorkbench()
+    // (the other W.* methods live inside lazy bodies that stay collapsed and
+    // uncalled in this test), so a minimal stub is enough, matching the same
+    // stubbing pattern reports_and_review_restructure.test.mjs already uses.
+    sandbox.window.RetirementPlanningWorkbench = {
+      readAll: () => [],
+      activeId: () => "",
+    };
+    const html = sandbox.renderStrategyWorkbench();
+    for (const key of ["levers", "change_sets", "comparison", "decision", "saved_cases"]) {
+      assert.ok(
+        html.includes(`data-dkey="strategy:${key}"`),
+        `missing section ${key}`,
+      );
+    }
+    assert.match(html, /data-dkey="strategy:levers"[^>]*\sopen/);
+    for (const key of ["change_sets", "comparison", "decision", "saved_cases"]) {
+      assert.doesNotMatch(
+        html,
+        new RegExp(`data-dkey="strategy:${key}"[^>]*\\sopen`),
+      );
+    }
+  });
+
+  test("Workbench keeps its top model-note intro above the sections", () => {
+    sandbox.window.RetirementPlanningWorkbench = {
+      readAll: () => [],
+      activeId: () => "",
+    };
+    const html = sandbox.renderStrategyWorkbench();
+    assert.match(html, /Planning Workbench model/);
+    assert.ok(
+      html.indexOf("Planning Workbench model") < html.indexOf('data-dkey="strategy:levers"'),
+      "the model note must render before the first section",
+    );
   });
 });
 
