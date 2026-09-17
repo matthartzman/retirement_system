@@ -2868,7 +2868,7 @@ function showYtdLoadOverlay() {
     true,
     "Loading transactions",
     "Reading saved transactions and account mappings. Large transaction histories can take a few seconds.",
-    "waiting",
+    "waiting", "loadYtd",
   );
   const overlay = document.getElementById("buildOverlay");
   if (overlay) overlay.classList.add("no-cancel");
@@ -3459,7 +3459,7 @@ function showSpendingModelLoadOverlay() {
     true,
     "Loading Spending Model",
     "Reading transaction history and computing category rollups. This can take a few seconds on large transaction histories.",
-    "waiting",
+    "waiting", "loadSpendingModel",
   );
   const overlay = document.getElementById("buildOverlay");
   if (overlay) overlay.classList.add("no-cancel");

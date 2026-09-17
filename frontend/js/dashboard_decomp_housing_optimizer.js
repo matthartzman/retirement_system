@@ -1362,6 +1362,7 @@ export async function previewHousingZipShortlist(moveIndex) {
   showHousingOptOverlay(
     "Screening ZIPs",
     "Searching housing data around the chosen anchors for candidate ZIPs.",
+    "housingOptScreen",
   );
   try {
     const payload = await api("/api/housing/zip-screen", {
@@ -1879,8 +1880,8 @@ export function debouncedRefreshHousingOptValidation() {
 // spinner) mode rather than a bespoke one, matching showYtdLoadOverlay /
 // showSpendingModelLoadOverlay elsewhere in the dashboard. no-cancel is set
 // because neither call is cancellable.
-function showHousingOptOverlay(title, detail) {
-  setBuildOverlay(true, title, detail, "waiting");
+function showHousingOptOverlay(title, detail, popupId) {
+  setBuildOverlay(true, title, detail, "waiting", popupId);
   const overlay = document.getElementById("buildOverlay");
   if (overlay) overlay.classList.add("no-cancel");
 }
@@ -1901,6 +1902,7 @@ export async function runHousingOptimization() {
   showHousingOptOverlay(
     "Running Housing Optimization",
     "Searching move combinations across the configured anchors and windows. This can take a few seconds on a full grid search.",
+    "housingOptRun",
   );
   try {
     const payload = await api("/api/housing/optimize", {
