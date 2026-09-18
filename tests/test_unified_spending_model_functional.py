@@ -144,7 +144,7 @@ category,groceries,Groceries,1000,,,,
     assert set(restored) == {"meal_delivery", "restaurants"}
 
 
-def test_spending_analysis_includes_income_and_expenses_but_excludes_taxes(tmp_path):
+def test_spending_analysis_includes_income_expenses_and_taxes(tmp_path):
     root = tmp_path
     write(root / "input/client_spending_taxonomy.csv", """tracking_type,group,category_id,label,origin,status,notes
 Income,Income,paychecks,Paychecks,transaction,active,
@@ -167,6 +167,38 @@ Income Taxes,category,1,80,income_taxes,seed
 """)
     dash = st.spending_dashboard(root, year=2026)
     assert dash["income_total"] == 10000
-    assert dash["actuals_total"] == 150
+    assert dash["actuals_total"] == 650  # 100 groceries + 50 business + 500 income taxes
     assert any(g["tracking_type"] == "Income" for g in dash["groups"])
+    assert any(g["tracking_type"] == "Taxes" for g in dash["groups"])
+    assert not any(g["tracking_type"] == "Transfer" for g in dash["groups"])
+
+
+def test_a_second_income_taxes_category_id_with_the_same_label_is_also_reclassified(tmp_path):
+    # A household can end up with two taxonomy rows that both display as
+    # "Income Taxes" -- e.g. a merchant-based alias rule routing some tax
+    # payments to a second, never-fixed category_id while the original
+    # income_taxes id is the one the cid-exact-match normalization catches.
+    # Both must land on the Taxes tracking type, or the second id's dollars
+    # silently undercount the household's true tax total with no visible
+    # sign beyond the shortfall itself (every transaction still shows
+    # "Income Taxes" as its category either way).
+    root = tmp_path
+    write(root / "input/client_spending_taxonomy.csv", """tracking_type,group,category_id,label,origin,status,notes
+Transfer,Tax,income_taxes,Income Taxes,transaction,active,
+Transfer,Tax,state_income_tax,Income Taxes,transaction,active,
+""")
+    write(root / "input/client_spending_aliases.csv", """match_value,match_field,exact,priority,category_id,source
+Income Taxes,category,1,80,income_taxes,seed
+Franchise Tax Board,merchant,1,90,state_income_tax,seed
+""")
+    write(root / "input/client_spending_budget.csv", "kind,key,label,annual_budget,start_year,end_year,one_time_year,notes\n")
+    write(root / "input/ytd_transactions.csv", """Date,Merchant,Category,Account,Amount,Owner
+2026-01-13,IRS,Income Taxes,Bank,-500,Shared
+2026-01-14,Franchise Tax Board,Income Taxes,Bank,-200,Shared
+""")
+    dash = st.spending_dashboard(root, year=2026)
+    assert dash["actuals_total"] == 700  # 500 federal + 200 state, both reclassified to Taxes
+    taxes_groups = [g for g in dash["groups"] if g["tracking_type"] == "Taxes"]
+    assert taxes_groups
+    assert sum(g["actual"] for g in taxes_groups) == 700
     assert not any(g["tracking_type"] == "Transfer" for g in dash["groups"])

@@ -2451,6 +2451,19 @@ def project(c):
         return run_deterministic_projection_stage(c)
 
 
+# Derived build outputs carried on the config that no projection stage reads.
+# plan_result alone measured ~11.7ms of a 13-33ms run_scenario deepcopy, and
+# run_scenario is called 250x per build. Shared by reference into the copy:
+# a scenario never reads them, and the callers that want them gone
+# (sheets_strategy._safe_project_pair) already pop them from the copy.
+_SCENARIO_IRRELEVANT_KEYS = frozenset({
+    'plan_result',
+    'report_spec',
+    'roth_strategy_result',
+    'advisor_readiness',
+})
+
+
 def run_scenario(base_config, overrides=None, mutate=None):
     """Deep-copy ``base_config``, apply a what-if change, and run ``project()``
     on the copy without mutating the caller's config.
@@ -2477,7 +2490,15 @@ def run_scenario(base_config, overrides=None, mutate=None):
     without a verified win. Revisit only if profiling shows real duplicate
     project() calls.
     """
-    c2 = copy.deepcopy(base_config)
+    _carried = {k: base_config[k] for k in _SCENARIO_IRRELEVANT_KEYS if k in base_config}
+    if _carried:
+        _slim = {k: v for k, v in base_config.items() if k not in _SCENARIO_IRRELEVANT_KEYS}
+        c2 = copy.deepcopy(_slim)
+        # Re-attach by reference. Safe because no projection stage reads these,
+        # and deep-copying them was the single largest cost in this function.
+        c2.update(_carried)
+    else:
+        c2 = copy.deepcopy(base_config)
     if overrides:
         c2.update(overrides)
     if mutate is not None:
@@ -4645,6 +4666,52 @@ def _mc_row_bucket_flows(c: dict, base_rows: list[dict]) -> dict:
     return out
 
 
+def _survivor_bucket_cache_key(c: dict, base_rows: list[dict]) -> str:
+    """Fingerprint everything the survivor-bucket build actually depends on.
+
+    The buckets are produced by 70 full run_scenario() projections off ``c``,
+    so ANY config value the projection reads changes them -- not just the
+    death years. This hashes the whole config with unhashable/derived entries
+    dropped, deliberately erring toward MORE invalidation: a missed key would
+    serve a different household's survivor trajectories, which is a silently
+    wrong workbook, while an extra miss only costs ~1.5s.
+    """
+    import hashlib as _hashlib
+    import json as _json
+
+    # Derived outputs and memos -- never inputs to the bucket build. Including
+    # them would make every key unique and defeat the memo entirely.
+    skip = {
+        '_survivor_bucket_memo', '_ann_pmt_memo', 'plan_result',
+        'report_spec', 'roth_strategy_result', 'advisor_readiness',
+    }
+    def _json_safe(obj):
+        # Config values can carry dict keys or container types (tuples, sets,
+        # objects) json.dumps can't handle even with default=repr, since
+        # default only rescues values, not keys. Recursively coerce
+        # everything into a shape json.dumps can serialize, falling back to
+        # repr() for anything still unrecognized -- any two distinct configs
+        # then hash differently, which is the direction we want to err in.
+        if isinstance(obj, dict):
+            return {
+                str(k): _json_safe(v)
+                for k, v in obj.items()
+            }
+        if isinstance(obj, (list, tuple)):
+            return [_json_safe(v) for v in obj]
+        if isinstance(obj, (set, frozenset)):
+            return sorted(repr(v) for v in obj)
+        if isinstance(obj, (str, int, float, bool)) or obj is None:
+            return obj
+        return repr(obj)
+
+    payload = {k: v for k, v in c.items() if k not in skip}
+    h = _hashlib.sha256(_json.dumps(_json_safe(payload), sort_keys=True).encode('utf-8'))
+    h.update(b'\0')
+    h.update(_json.dumps([int(r['year']) for r in base_rows]).encode('utf-8'))
+    return h.hexdigest()
+
+
 def _mc_survivor_bucket_flows(c: dict, base_rows: list[dict]):
     """Optimization-refactor Phase 1 items 4-6: precomputed survivor-period
     deterministic trajectories for the vectorized MC engine.
@@ -4675,6 +4742,13 @@ def _mc_survivor_bucket_flows(c: dict, base_rows: list[dict]):
     its cost (2 * n_years project() calls) by the ~26-90 vectorized-engine
     invocations a single monte_carlo() call can make.
     """
+    _key = _survivor_bucket_cache_key(c, base_rows)
+    _memo = c.get('_survivor_bucket_memo')
+    if _memo is None:
+        _memo = c['_survivor_bucket_memo'] = {}
+    if _key in _memo:
+        return _memo[_key]
+
     members = c.get('members') or []
     years = [int(r['year']) for r in base_rows]
     n_years = len(years)
@@ -4728,7 +4802,7 @@ def _mc_survivor_bucket_flows(c: dict, base_rows: list[dict]):
                     tier_arrays[tier] = _np.zeros((n_buckets, n_years), dtype=float)
                 tier_arrays[tier][bucket_id] = arr
 
-    return {
+    _result = {
         'years': years,
         'n_years': n_years,
         'n_buckets': n_buckets,
@@ -4736,6 +4810,8 @@ def _mc_survivor_bucket_flows(c: dict, base_rows: list[dict]):
         'arrays': arrays,
         'spend_by_tier': tier_arrays,
     }
+    _memo[_key] = _result
+    return _result
 
 
 def _mc_effective_row_flows(flows: dict, survivor_buckets, bucket_id, use_bucket_mask, n_sims: int, n_years: int) -> dict:

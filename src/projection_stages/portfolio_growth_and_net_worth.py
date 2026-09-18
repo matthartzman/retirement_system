@@ -6,6 +6,30 @@ from .. import planning_engines as _legacy_pe
 from ..planning_engines import EvGrowth, EvWarning, annuity_cash_income
 
 
+def _annuity_pmt(c: dict, stream_key: str, stream: dict, year: int) -> float:
+    """Memoized ``annuity_cash_income`` for one projection run.
+
+    The memo lives on ``c`` -- the per-scenario config -- because ``project(c)``
+    is entered once per scenario AFTER run_scenario applied any ``mutate=``
+    overrides. Storing it on the stream dict instead would let a memo built
+    before a per-stream override survive run_scenario's deepcopy and serve
+    stale payments (sheets_stress.py mutates annuity streams this way).
+
+    Exists purely to remove an O(n^2) re-walk: ann_pv_to_death below sums
+    payments from each projection year through death, so the same
+    (stream, year) payment was previously recomputed once per PV start year --
+    6,087,342 annuity_cash_income calls in a single build.
+    """
+    memo = c.get('_ann_pmt_memo')
+    if memo is None:
+        memo = c['_ann_pmt_memo'] = {}
+    key = (stream_key, year)
+    val = memo.get(key)
+    if val is None:
+        val = memo[key] = annuity_cash_income(stream, year)
+    return val
+
+
 def apply_portfolio_growth_and_net_worth(
     c: dict[str, Any],
     *,
@@ -97,13 +121,14 @@ def apply_portfolio_growth_and_net_worth(
     # PLUS, in the death year only, if the Cash Refund death benefit hasn't
     # yet eroded to $0, add that year's death benefit (heirs receive the
     # unrecovered contribution as a lump sum).
-    def ann_pv_to_death(stream, death_yr):
+    def ann_pv_to_death(stream_key, death_yr):
         """PV of annuity payments from current year through death_yr."""
+        stream = c[stream_key]
         if year > death_yr:
             return 0.0
         pv = 0.0
         for y in range(year, death_yr + 1):
-            pmt = annuity_cash_income(stream, y)
+            pmt = _annuity_pmt(c, stream_key, stream, y)
             pv += pmt / ((1 + c['ret']) ** (y - year))
         return pv
 
@@ -116,15 +141,15 @@ def apply_portfolio_growth_and_net_worth(
     # a QLAC's own return-of-premium death benefit (if any) is not yet
     # modeled here (only the guaranteed-payment PV), matching how a
     # non-annuitized QLAC balance is otherwise absent from net worth.
-    w_single_val = (ann_pv_to_death(c['wife_single'], c['w_death_yr']) +
-                    (ann_pv_to_death(c['wife_qlac'], c['w_death_yr']) if c['wife_qlac'].get('enabled') else 0)) if w_alive else 0
-    h_single_val = (ann_pv_to_death(c['h_single'], c['h_death_yr']) +
-                    (ann_pv_to_death(c['h_qlac'], c['h_death_yr']) if c['h_qlac'].get('enabled') else 0)) if h_alive else 0
+    w_single_val = (ann_pv_to_death('wife_single', c['w_death_yr']) +
+                    (ann_pv_to_death('wife_qlac', c['w_death_yr']) if c['wife_qlac'].get('enabled') else 0)) if w_alive else 0
+    h_single_val = (ann_pv_to_death('h_single', c['h_death_yr']) +
+                    (ann_pv_to_death('h_qlac', c['h_death_yr']) if c['h_qlac'].get('enabled') else 0)) if h_alive else 0
     # Joint-life: value through second death
-    w_joint_val  = ann_pv_to_death(c['wife_joint'], second_death) if (w_alive or h_alive)  else 0
-    h_joint_val  = ann_pv_to_death(c['h_joint'], second_death) if (h_alive or w_alive) else 0
+    w_joint_val  = ann_pv_to_death('wife_joint', second_death) if (w_alive or h_alive)  else 0
+    h_joint_val  = ann_pv_to_death('h_joint', second_death) if (h_alive or w_alive) else 0
     # Pension: PV through wife's death (no death benefit)
-    pension_val  = ann_pv_to_death(c['wife_pension'], c['w_death_yr']) if w_alive else 0
+    pension_val  = ann_pv_to_death('wife_pension', c['w_death_yr']) if w_alive else 0
 
     # Death benefit in the death year only (if DB still positive)
     if year == c['w_death_yr']:
