@@ -100,6 +100,7 @@ def format_output(
     move2_strategy: str, zip_screens: dict[str, Any],
     rejections: dict[str, int], message: str | None = None,
     down_payment_pct: float = 0.20, mortgage_rate_pct: float | None = None,
+    baseline: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """One ranked ``candidates`` list, not a recommendation plus a disjoint
     alternatives list -- v1 duplicated the rank-1 candidate across both and
@@ -110,6 +111,11 @@ def format_output(
     ``down_payment_pct``/``mortgage_rate_pct`` default to the same values
     api.py itself defaults to (20%, location-based rate) so every existing
     caller that omits them keeps working unchanged.
+
+    ``baseline`` is the do-nothing (no sale, no move) run's own
+    net_worth/lifetime_cost/mc_success_rate, so a consumer can show every
+    candidate's impact relative to staying put rather than relative to
+    whichever candidate happens to rank 1.
     """
     formatted = [
         _format_candidate(
@@ -129,6 +135,8 @@ def format_output(
         'candidates': formatted,
         'candidates_evaluated': len(ranked),
         'rejections': dict(rejections),
+        'baseline': baseline,
+        'baseline_objective_value': baseline[objective] if baseline else None,
     }
     if message:
         payload['message'] = message
