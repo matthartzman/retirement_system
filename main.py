@@ -168,4 +168,18 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    # MUST be the first statement in this block. This app ships as a
+    # PyInstaller onedir exe, and a workbook build inside it creates a
+    # ProcessPoolExecutor (the Sheet 10 claim-age sweep). Under sys.frozen,
+    # multiprocessing spawns children as
+    # [sys.executable, '--multiprocessing-fork', <fds>] -- i.e. re-runs THIS
+    # exe. PyInstaller's runtime hook only rebinds freeze_support() to a
+    # working implementation; it never calls it. Without this call the child
+    # would fall through and re-enter main() (launching a second app window
+    # or hanging the parent's fut.result()) instead of becoming a pool
+    # worker. In a non-frozen, non-child run this is a no-op.
+    import multiprocessing
+
+    multiprocessing.freeze_support()
+
     raise SystemExit(main())
