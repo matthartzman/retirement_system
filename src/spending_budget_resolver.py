@@ -16,7 +16,7 @@ try:  # package import
 except ImportError:  # direct script/test import
     import spending_tracker as st  # type: ignore
 
-EXCLUDED_FROM_SPEND_BASE = {"Income", "Transfer", "Transfers", "Business", "Housing", "Wellness"}
+EXCLUDED_FROM_SPEND_BASE = {"Income", "Transfer", "Transfers", "Business", "Housing", "Wellness", "Taxes"}
 TIME_BOUNDED_LINE_TRACKING_TYPES = {"Travel", "Large Discretionary"}
 
 # ======================================================================
@@ -162,9 +162,9 @@ MC_TIER_FUNDING_ORDER: tuple[str, ...] = (
 
 #: Tracking types that are never household lifestyle spending and are
 #: therefore left untiered (Income/Transfer are cash-flow sources, not
-#: spending; Business is tracked for reference only and is already excluded
-#: from spend_base -- see EXCLUDED_FROM_SPEND_BASE above).
-_TIER_UNCLASSIFIED_TRACKING_TYPES = {"Income", "Transfer", "Transfers", "Business"}
+#: spending; Business and Taxes are tracked for reference only and are
+#: already excluded from spend_base -- see EXCLUDED_FROM_SPEND_BASE above).
+_TIER_UNCLASSIFIED_TRACKING_TYPES = {"Income", "Transfer", "Transfers", "Business", "Taxes"}
 
 _TIER_OVERRIDE_HEADER = ["category_id", "tier", "notes"]
 
