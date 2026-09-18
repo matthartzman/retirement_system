@@ -1,9 +1,8 @@
 """Cash Flow Projection sheet builder (Sheet 6).
 
 Displays year-by-year cash flow analysis including:
-- Income streams (earned, Social Security, pension, annuities, RMDs, note P+I)
-- Tax & RMD columns (Roth conversions, AGI, taxable income, federal/state taxes, NIIT, IRMAA,
-  payroll tax, LTCG tax)
+- Income streams (earned, Social Security, pension, annuities, RMDs, note P+I, Roth conversions)
+- Taxes (AGI, taxable income, federal/state taxes, NIIT, IRMAA, payroll tax, LTCG tax)
 - Spending breakdown (base, housing detail, wellness detail, travel, other, HELOC P&I)
 - Account-level withdrawals (trust, HSA, Roth, IRA by type with collapsible detail)
 - Cash bridge (income vs. expense gap analysis)
@@ -40,8 +39,8 @@ def build_sheet6(ws, c, rows):
 
     # Column layout:
     # 1-3: Identifiers (Year, H Age, W Age)
-    # 4-14: INCOME (Earned, H SS, W SS, Pension, W Sgl, W Jnt, H Sgl, H Jnt, Note, RMD, Σ)
-    # 15-23: TAX (Roth Conv, AGI, Taxable, Fed, State, NIIT, IRMAA, Payroll, LTCG)
+    # 4-15: INCOME (Earned, H SS, W SS, Pension, W Sgl, W Jnt, H Sgl, H Jnt, Note, RMD, Σ, Roth Conv)
+    # 16-23: TAXES (AGI, Taxable, Fed, State, NIIT, IRMAA, Payroll, LTCG)
     # 24-38: SPENDING (Base, Housing detail, Wellness detail, Travel, Other, HELOC P&I, Σ)
     # 37-52: WITHDRAWALS — account level
     #   37: H Trust WD   38: W Trust WD   39: Σ Trust
@@ -96,14 +95,16 @@ def build_sheet6(ws, c, rows):
         'HELOC_Draw', 'HELOC_Bal', 'Σ_WD', 'NW_Check'
     ]:
         COL[key] = col; col += 1
+    income_span = COL['Roth_Conv'] - COL['Earned'] + 1
+    tax_span = COL['LTCG'] - COL['AGI'] + 1
     spending_span = COL['Other_Cash_Need'] - COL['Spend_Base'] + 1
     cash_bridge_span = COL['Cash_Bridge_Gap'] - COL['Total_Tax'] + 1
     withdrawal_span = COL['Σ_WD'] - COL['H_Trust_WD'] + 1
 
     # ── Group header row 1 ────────────────────────────────────────────────────
     write_hdr(ws, 1, COL['Year'],     'Identifiers', DGRAY, WHITE, span=3)
-    write_hdr(ws, 1, COL['Earned'],   'INCOME',       BLUE,  WHITE, span=11)
-    write_hdr(ws, 1, COL['Roth_Conv'],'TAX & RMD',   ORANGE,WHITE, span=9)
+    write_hdr(ws, 1, COL['Earned'],   'INCOME',       BLUE,  WHITE, span=income_span)
+    write_hdr(ws, 1, COL['AGI'],      'TAXES',        ORANGE,WHITE, span=tax_span)
     write_hdr(ws, 1, COL['Spend_Base'],'SPENDING',   RED,   WHITE, span=spending_span)
     write_hdr(ws, 1, COL['Total_Tax'], 'CASH BRIDGE', NAVY, WHITE, span=cash_bridge_span)
     write_hdr(ws, 1, COL['H_Trust_WD'],'ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS', GREEN, WHITE, span=withdrawal_span)
