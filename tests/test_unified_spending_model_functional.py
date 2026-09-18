@@ -144,7 +144,7 @@ category,groceries,Groceries,1000,,,,
     assert set(restored) == {"meal_delivery", "restaurants"}
 
 
-def test_spending_analysis_includes_income_and_expenses_but_excludes_taxes(tmp_path):
+def test_spending_analysis_includes_income_expenses_and_taxes(tmp_path):
     root = tmp_path
     write(root / "input/client_spending_taxonomy.csv", """tracking_type,group,category_id,label,origin,status,notes
 Income,Income,paychecks,Paychecks,transaction,active,
@@ -167,6 +167,7 @@ Income Taxes,category,1,80,income_taxes,seed
 """)
     dash = st.spending_dashboard(root, year=2026)
     assert dash["income_total"] == 10000
-    assert dash["actuals_total"] == 150
+    assert dash["actuals_total"] == 650  # 100 groceries + 50 business + 500 income taxes
     assert any(g["tracking_type"] == "Income" for g in dash["groups"])
+    assert any(g["tracking_type"] == "Taxes" for g in dash["groups"])
     assert not any(g["tracking_type"] == "Transfer" for g in dash["groups"])
