@@ -54,7 +54,6 @@ function defaultElements() {
     housingOptMove1SqftBand: { value: "1800_2500" },
     housingOptMove1LotSize: { value: "quarter_half" },
     housingOptMove1BuiltWithin: { value: "" },
-    housingOptMove1PriceMin: { value: "" },
     housingOptMove1PriceMax: { value: "" },
     housingOptMove1Anchor0: { value: "city" },
     housingOptMove1AnchorCity0: { value: "80014" },
@@ -80,7 +79,6 @@ function defaultElements() {
     housingOptMove2SqftBand: { value: "1800_2500" },
     housingOptMove2LotSize: { value: "quarter_half" },
     housingOptMove2BuiltWithin: { value: "" },
-    housingOptMove2PriceMin: { value: "" },
     housingOptMove2PriceMax: { value: "" },
     housingOptMove2Anchor0: { value: "city" },
     housingOptMove2AnchorCity0: { value: "80014" },
@@ -260,15 +258,13 @@ describe("validateHousingOptForm", () => {
     assert.equal(sandbox.validateHousingOptForm(), null);
   });
 
-  test("an inverted price range is rejected", () => {
+  test("a price max builds a [0, max] target range with no min field to set", () => {
     const { sandbox } = mountHousingOptPanel({
-      housingOptMove1PriceMin: { value: "700000" },
-      housingOptMove1PriceMax: { value: "400000" },
+      housingOptMove1PriceMax: { value: "700000" },
     });
-    assert.equal(
-      sandbox.validateHousingOptForm(),
-      "Minimum target price must not exceed the maximum.",
-    );
+    assert.equal(sandbox.validateHousingOptForm(), null);
+    const search = sandbox.housingOptMoveSearchBody(1);
+    assert.deepEqual(Array.from(search.dwelling.target_purchase_price_range), [0, 700000]);
   });
 
   test("apartment forced to buy is rejected", () => {

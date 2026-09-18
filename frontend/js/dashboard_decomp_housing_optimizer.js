@@ -180,7 +180,7 @@ function housingOptMoveDwellingHelpEntries() {
   const pricesEstimate =
     "Feeds estimate_housing_cost as a multiplicative factor on the estimated purchase price for this move, exactly like bedrooms, bathrooms, property type, and square footage do.";
   const pricesEstimateConnections =
-    "The estimated price this produces is what Price min/Price max are tested against at the affordable funnel stage -- this field does not filter ZIPs by itself.";
+    "The estimated price this produces is what Price max is tested against at the affordable funnel stage -- this field does not filter ZIPs by itself.";
   return {
     Bedrooms: {
       title: "Bedrooms",
@@ -217,21 +217,13 @@ function housingOptMoveDwellingHelpEntries() {
       options: "Set it only when new-construction-or-newer is a real requirement; otherwise leave it blank so older, otherwise-suitable homes are not excluded from the price estimate's basis.",
       impact: pricesEstimate,
     },
-    PriceMin: {
-      title: "Price min",
-      meaning: "The low end of the target purchase-price range for this move.",
-      connections:
-        "Unlike the other dwelling fields, this one DOES filter the funnel directly: it is the affordable stage, applied to each ZIP's estimated price (shaped by bedrooms/bathrooms/property type/sqft/lot size/built-within above). Validation requires min <= max when both are set.",
-      options: "Leave both price fields blank to skip the price filter entirely; set them to the range the household can actually afford.",
-      impact: "Narrowing the range removes ZIPs whose estimated price falls outside it; setting min above max blocks the Run button.",
-    },
     PriceMax: {
       title: "Price max",
-      meaning: "The high end of the target purchase-price range for this move.",
+      meaning: "The top of the target purchase price for this move.",
       connections:
-        "Unlike the other dwelling fields, this one DOES filter the funnel directly: it is the affordable stage, applied to each ZIP's estimated price. Validation requires min <= max when both are set.",
-      options: "Leave both price fields blank to skip the price filter entirely; set them to the range the household can actually afford.",
-      impact: "Narrowing the range removes ZIPs whose estimated price falls outside it; setting max below min blocks the Run button.",
+        "Unlike the other dwelling fields, this one DOES filter the funnel directly: it is the affordable stage, applied to each ZIP's estimated price.",
+      options: "Leave it blank to skip the price filter entirely; set it to the most the household can actually afford.",
+      impact: "Lowering it removes ZIPs whose estimated price is above it.",
     },
     Action: {
       title: "Action",
@@ -1084,12 +1076,6 @@ function housingOptMoveWhatRowHtml(n) {
         "Optional age ceiling, in years, on the dwelling used for the price estimate.",
       ) +
       housingOptField(
-        `${p}PriceMin`,
-        "Price min",
-        `<input type="number" id="${p}PriceMin" class="money" min="0" placeholder="e.g. 400000" oninput="debouncedRefreshHousingOptValidation()">`,
-        "The only dwelling input that filters the funnel: ZIPs whose estimated price falls outside the range are dropped.",
-      ) +
-      housingOptField(
         `${p}PriceMax`,
         "Price max",
         `<input type="number" id="${p}PriceMax" class="money" min="0" placeholder="e.g. 700000" oninput="debouncedRefreshHousingOptValidation()">`,
@@ -1344,10 +1330,9 @@ export function housingOptMoveSearchBody(moveIndex) {
     lot_size_band: val(`${p}LotSize`) || "quarter_half",
     built_within_years: num(`${p}BuiltWithin`),
   };
-  const priceMin = num(`${p}PriceMin`);
   const priceMax = num(`${p}PriceMax`);
-  if (priceMin !== null && priceMax !== null) {
-    dwelling.target_purchase_price_range = [priceMin, priceMax];
+  if (priceMax !== null) {
+    dwelling.target_purchase_price_range = [0, priceMax];
   }
   return {
     anchors,
@@ -1599,16 +1584,18 @@ const HOUSING_OPT_OBJECTIVE_HIGHER_IS_BETTER = {
   mc_success_rate: true,
 };
 
-// Rank 1 shows the absolute objective value; every other row shows its
-// impact relative to rank 1, colored with the app's positive/negative-money
-// convention.
-function housingOptResultObjectiveHtml(c, objective, bestValue) {
+// Every row -- including rank 1 -- shows its impact relative to the
+// do-nothing baseline (no sale, no move), colored with the app's
+// positive/negative-money convention. Without a baseline (older cached
+// payload, or a run that could not produce one) the raw objective value is
+// shown instead, since there is nothing to take a delta against.
+function housingOptResultObjectiveHtml(c, objective, baselineValue) {
   const fmt = HOUSING_OPT_OBJECTIVE_FORMATTERS[objective] || ((v) => (v != null ? String(v) : "—"));
-  if (c.rank === 1 || bestValue == null || c.objective_value == null) {
+  if (baselineValue == null || c.objective_value == null) {
     return esc(fmt(c.objective_value));
   }
   const higherIsBetter = HOUSING_OPT_OBJECTIVE_HIGHER_IS_BETTER[objective] !== false;
-  const delta = c.objective_value - bestValue;
+  const delta = c.objective_value - baselineValue;
   const good = higherIsBetter ? delta >= 0 : delta <= 0;
   const cls = good ? "positive-money" : "negative-money";
   let text;
@@ -1624,10 +1611,10 @@ function housingOptResultObjectiveHtml(c, objective, bestValue) {
 
 // One row per candidate: a compact rank badge (a star, not "Recommended"
 // text, so the column stays narrow), current-home disposition, both move
-// cells, the objective's impact vs. the recommendation, and notes. MC
-// success is dropped: with only 3-5 candidates simulated it reads as a
-// near-binary 100%/0%, not a meaningful probability.
-function housingOptResultRowHtml(c, objective, bestValue) {
+// cells, the objective's impact vs. staying put, and notes. MC success is
+// dropped: with only 3-5 candidates simulated it reads as a near-binary
+// 100%/0%, not a meaningful probability.
+function housingOptResultRowHtml(c, objective, baselineValue) {
   const shade = c.rank % 2 ? "housing-opt-result-odd" : "housing-opt-result-even";
   const topClass = c.rank === 1 ? " housing-opt-result-top" : "";
   const rankCell = c.rank === 1
@@ -1640,7 +1627,7 @@ function housingOptResultRowHtml(c, objective, bestValue) {
     <td>${esc(housingOptCurrentHomeHtml(c.original_home))}</td>
     <td>${housingOptMoveCellHtml(moves[0])}</td>
     <td>${housingOptMoveCellHtml(moves[1])}</td>
-    <td>${housingOptResultObjectiveHtml(c, objective, bestValue)}</td>
+    <td>${housingOptResultObjectiveHtml(c, objective, baselineValue)}</td>
     <td>${notes}</td>
   </tr>`;
 }
@@ -1651,12 +1638,14 @@ export function renderHousingOptimizeResultsHtml(payload) {
   if (!candidates.length) {
     return renderHousingOptimizeEmptyHtml(payload);
   }
-  const bestValue = candidates[0].objective_value;
-  const rows = candidates.map((c) => housingOptResultRowHtml(c, payload.objective, bestValue)).join("");
+  const baselineValue = payload.baseline_objective_value;
+  const rows = candidates
+    .map((c) => housingOptResultRowHtml(c, payload.objective, baselineValue))
+    .join("");
   return (
     '<table class="lot-table scenario-diff-table housing-optimize-table"><thead><tr>' +
     "<th>Rank</th><th>Current home</th><th>Move 1</th><th>Move 2</th>" +
-    "<th>Objective (impact)</th><th>Notes</th>" +
+    "<th>Objective (impact vs. staying put)</th><th>Notes</th>" +
     `</tr></thead><tbody>${rows}</tbody></table>`
   );
 }
@@ -1838,10 +1827,6 @@ export function validateHousingOptForm() {
     }
     if (!areaTypeValues.includes(search.area_type)) {
       return `Unknown area type ${housingOptRepr(search.area_type)}.`;
-    }
-    const rng = search.dwelling && search.dwelling.target_purchase_price_range;
-    if (rng && Number(rng[0]) > Number(rng[1])) {
-      return "Minimum target price must not exceed the maximum.";
     }
     const moveAction = housingOptDomVal(`housingOptMove${n}Action`) || "auto";
     if (search.dwelling && search.dwelling.property_type === "apartment" && moveAction === "buy") {

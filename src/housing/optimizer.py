@@ -45,7 +45,7 @@ from .candidates import (
 from .constraints import family_presence_ok
 from .plan_variant import _run_engine
 from .results import format_output, MAX_CANDIDATES
-from .scoring import _pass1_objective, rank_candidates, score_candidate
+from .scoring import _lifetime_cost, _pass1_objective, rank_candidates, score_candidate
 from .search import (
     generate_move1_candidates_narrowed,
     generate_move2_candidates_narrowed,
@@ -286,11 +286,34 @@ def optimize_housing(
     else:
         final_ranked = combined
 
+    # The do-nothing baseline (no sale, no move -- c0 run unmutated), so the
+    # results table's "impact" column can read as "vs. staying put" instead
+    # of "vs. the recommendation" (whose own value has no baseline of its
+    # own to compare against). Only run it when there is at least one
+    # candidate to show it against -- a zero-candidate (all-rejected) run
+    # never reaches the engine at all today, and this must not be the one
+    # path that changes that. mc_success_rate is only run through Monte
+    # Carlo when it is the active objective, matching the shortlist's own
+    # policy of not paying for MC on every candidate.
+    baseline = None
+    if final_ranked:
+        baseline_c2, baseline_rows = _pe.run_scenario(c0)
+        baseline_mc_success_rate = None
+        if objective == 'mc_success_rate':
+            baseline_mc = _pe.monte_carlo(baseline_c2, base_rows=baseline_rows)
+            baseline_mc_success_rate = float(baseline_mc.get('success_rate', 0.0) or 0.0)
+        baseline = {
+            'net_worth': float(baseline_rows[-1].get('total_nw', 0.0) or 0.0) if baseline_rows else 0.0,
+            'lifetime_cost': _lifetime_cost(baseline_rows),
+            'mc_success_rate': baseline_mc_success_rate,
+        }
+
     return format_output(
         final_ranked, objective=objective, search_mode=search_mode,
         move2_strategy=move2_strategy, zip_screens=zip_screens,
         rejections=rejections,
         down_payment_pct=down_payment_pct, mortgage_rate_pct=mortgage_rate_pct,
+        baseline=baseline,
     )
 
 
