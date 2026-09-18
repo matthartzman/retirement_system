@@ -66,7 +66,7 @@ def test_travel_detail_is_not_an_active_group():
     assert not any(r.get('group') == 'Travel Detail' for r in active_travel_rows)
 
 
-def test_monthly_trajectory_includes_all_non_tax_spending(tmp_path):
+def test_monthly_trajectory_includes_all_non_transfer_spending_including_taxes(tmp_path):
     input_dir = tmp_path / 'input'
     _write_csv(input_dir / 'client_spending_taxonomy.csv',
                ['tracking_type', 'group', 'category_id', 'label', 'origin', 'status', 'notes'], [
@@ -108,6 +108,6 @@ def test_monthly_trajectory_includes_all_non_tax_spending(tmp_path):
     ])
 
     series = monthly_series(tmp_path, 2026, total_budget=1200)
-    assert series[0]['actual'] == 210.0
+    assert series[0]['actual'] == 280.0  # 210 (groceries+mortgage+premium+travel+wedding+office) + 70 income taxes
     assert series[0]['budget'] == 100.0
     assert all(m['actual'] == 0.0 for m in series[1:])
