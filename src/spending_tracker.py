@@ -543,7 +543,15 @@ def _normalize_spending_group_assignment(tracking_type: str, group: str, categor
     # stored, so it stops being silently excluded as a transfer. This is a
     # read-time normalization (like the entertainment_recreation rule below),
     # not a one-time migration script, so it self-heals every plan.
-    if cid == "income_taxes":
+    #
+    # Matched on label as well as category_id (like entertainment_recreation
+    # below): a household can end up with a second "Income Taxes"-labeled
+    # category under a different internal id (e.g. manually re-added at some
+    # point while the original was still misbehaving) whose transactions
+    # would otherwise still be silently dropped even after this fix, with no
+    # visible sign beyond an undercounted total -- every transaction still
+    # displays the same "Income Taxes" category text either way.
+    if cid == "income_taxes" or lab in {"income taxes", "income tax"}:
         return "Taxes", "Taxes"
 
     # Cross-cutting group consolidation requested in the spending architecture follow-ups.
