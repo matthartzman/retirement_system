@@ -33,6 +33,28 @@ from ..person_labels import display_accounts_in_text as _display_accounts_in_tex
 from .. import strategy_sweep
 from . import summary_figures
 from .sheets_strategy_pair_worker import evaluate_claim_age_pair
+from ..planning_engines import _SCENARIO_IRRELEVANT_KEYS
+
+# Keys stripped from the config handed to a pool worker. The first group is
+# planning_engines._SCENARIO_IRRELEVANT_KEYS -- derived outputs no projection
+# stage reads, which run_scenario() itself already excludes from its own
+# deep-copy scope precisely because copying them was the dominant cost. The
+# second group is the per-projection-run memo caches: a freshly spawned worker
+# calls run_scenario(), which deep-copies whatever config it is given and
+# rebuilds its memos from scratch, so shipping a populated memo (numpy arrays
+# and all) across the process boundary buys the worker nothing and costs a
+# full pickle round-trip on every one of the ~33 submits in a sweep.
+_WORKER_STRIPPED_CONFIG_KEYS = frozenset(_SCENARIO_IRRELEVANT_KEYS) | {
+    '_ann_pmt_memo',
+    '_survivor_bucket_memo',
+}
+
+# Per-pair ceiling on how long we will wait for a pool worker. A single pair
+# evaluation (projection plus its Monte Carlo run) normally takes well under a
+# second to a few seconds, so this is generous headroom rather than a tight
+# bound -- its only job is to make sure one wedged worker degrades the build
+# to the serial path instead of hanging it forever.
+_PAIR_RESULT_TIMEOUT_S = 120.0
 def build_sheet9(ws, c, rows):
     """Retirement Strategy"""
     ws.sheet_view.showGridLines = False
@@ -378,6 +400,18 @@ def build_sheet10(ws, c, rows):
             _evaluated[key] = _safe_project_pair(spec['h_age'], spec['w_age'])
         return _evaluated[key]
 
+    # Worker-isolation invariant (read this before changing anything the
+    # sweep imports): pool workers are SPAWNED, so each re-imports the
+    # whole module stack from scratch in a fresh interpreter. That is only
+    # safe because (a) nothing in the projection stack a worker calls
+    # imports market_data / live pricing -- if it ever does, each worker
+    # would fetch its own quotes and Sheet 10 could silently score against
+    # different prices than the rest of the workbook -- and (b)
+    # TAX_REFERENCE_YEAR is read from os.environ at import time, which a
+    # spawned child inherits from this process, so every worker resolves
+    # the same tax year. If either fact ever changes, this sweep must pass
+    # the value explicitly through _sweep_settings instead of relying on
+    # the worker's fresh re-import reproducing it.
     def _evaluate_pairs(specs: list[dict]) -> list[dict]:
         """Score claim-age pairs in parallel, filling the _evaluated cache.
 
@@ -389,23 +423,68 @@ def build_sheet10(ws, c, rows):
         """
         pending = [s for s in specs if (s['h_age'], s['w_age']) not in _evaluated]
         if len(pending) > 1:
+            pool = None
             try:
                 from concurrent.futures import ProcessPoolExecutor
                 workers = min(len(pending), max(1, (os.cpu_count() or 2) - 1))
-                with ProcessPoolExecutor(max_workers=workers) as pool:
-                    futures = [
-                        pool.submit(evaluate_claim_age_pair, c, s, _sweep_settings)
-                        for s in pending
-                    ]
-                    for s, fut in zip(pending, futures):
-                        _evaluated[(s['h_age'], s['w_age'])] = fut.result()
+                # Strip derived outputs and per-run memos before the config is
+                # pickled once per submit; see _WORKER_STRIPPED_CONFIG_KEYS.
+                _worker_config = {
+                    k: v for k, v in c.items()
+                    if k not in _WORKER_STRIPPED_CONFIG_KEYS
+                }
+                pool = ProcessPoolExecutor(max_workers=workers)
+                futures = [
+                    pool.submit(evaluate_claim_age_pair, _worker_config, s, _sweep_settings)
+                    for s in pending
+                ]
+                for s, fut in zip(pending, futures):
+                    # concurrent.futures.TimeoutError IS a subclass of
+                    # Exception (it is builtins.TimeoutError -> OSError ->
+                    # Exception on 3.11+, and a plain Exception subclass
+                    # before that), so a timed-out pair lands in the handler
+                    # below and is re-scored serially like any other pool
+                    # failure -- verified on this interpreter, not assumed.
+                    _evaluated[(s['h_age'], s['w_age'])] = fut.result(
+                        timeout=_PAIR_RESULT_TIMEOUT_S,
+                    )
             except Exception as _pool_exc:
-                print(f'  Sheet 10: parallel sweep unavailable ({_pool_exc}); scoring serially.')
+                # Print the exception TYPE as well as its message: this
+                # handler wraps pool creation, submission AND every
+                # fut.result(), so a genuine per-pair engine bug would
+                # otherwise be mislabelled as "pool unavailable". The serial
+                # re-run below is still the right fallback either way -- a
+                # real bug re-raises loudly there.
+                print(
+                    f'  Sheet 10: parallel sweep unavailable '
+                    f'({type(_pool_exc).__name__}: {_pool_exc}); scoring serially.'
+                )
+                if pool is not None:
+                    # Don't leave a hung/queued pool running behind the serial
+                    # re-run. cancel_futures only drops work that has not
+                    # started (CPython cannot kill a worker already mid-call),
+                    # but it stops new work being handed out, and wait=False
+                    # lets the serial fallback start immediately.
+                    pool.shutdown(wait=False, cancel_futures=True)
+                    pool = None
                 for s in pending:
-                    _evaluated[(s['h_age'], s['w_age'])] = _safe_project_pair(s['h_age'], s['w_age'])
+                    _evaluated[(s['h_age'], s['w_age'])] = _safe_project_pair(
+                        s['h_age'], s['w_age'],
+                        h_mort_age=s.get('h_mort_age'),
+                        w_mort_age=s.get('w_mort_age'),
+                        skip_mc=s.get('skip_mc', False),
+                    )
+            finally:
+                if pool is not None:
+                    pool.shutdown(wait=True)
         else:
             for s in pending:
-                _evaluated[(s['h_age'], s['w_age'])] = _safe_project_pair(s['h_age'], s['w_age'])
+                _evaluated[(s['h_age'], s['w_age'])] = _safe_project_pair(
+                    s['h_age'], s['w_age'],
+                    h_mort_age=s.get('h_mort_age'),
+                    w_mort_age=s.get('w_mort_age'),
+                    skip_mc=s.get('skip_mc', False),
+                )
         return [_evaluated[(s['h_age'], s['w_age'])] for s in specs]
 
     _coarse_h = sorted(set(range(h_floor, 71, _COARSE_STEP)) | {70})
