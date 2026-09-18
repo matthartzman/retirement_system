@@ -50,10 +50,11 @@ def test_zip_panel_has_its_own_property_type_and_sqft_controls(source):
 
 
 def test_zip_panel_has_price_range_controls(source):
+    # Price min was dropped (housing optimizer refinement): the range is now
+    # [0, PriceMax] rather than a user-set floor.
     block = source.split('function housingOptMoveWhatRowHtml')[1].split(
         'function housingOptMoveWhenRowHtml'
     )[0]
-    assert '${p}PriceMin' in block
     assert '${p}PriceMax' in block
 
 
@@ -67,7 +68,7 @@ def test_zip_search_body_reads_the_zip_panels_own_fields_not_a_fixed_row(source)
 
 
 def test_zip_search_body_sends_a_price_range_when_provided(source):
+    # Price min was dropped: the range sent is [0, PriceMax].
     block = source.split('function housingOptMoveSearchBody')[1][:2000]
     assert 'target_purchase_price_range' in block
-    assert '${p}PriceMin' in block
     assert '${p}PriceMax' in block
