@@ -56,7 +56,7 @@ const STEPS = [
     title: "Spending Model",
     desc: "Comprehensive income/expense category hierarchy, budget references, and projection spending controls, plus Travel and Large Items budgets below them. Also the entry point for Actual Spending (YTD) and Spending Analysis -- see the tabs above the content.",
     intro:
-      "Review the full Tracking Type → Group → Category model here. It should account for all income and all expenses except taxes/transfers; lifestyle detail pages still hold scheduled spending inputs.",
+      "Review the full Tracking Type → Group → Category model here. It should account for all income and all expenses, including taxes, except internal transfers; lifestyle detail pages still hold scheduled spending inputs.",
     help: "Spending Model is the category manager. Transaction assignment appears here as Advanced Auto-Mapping Rules only when needed.",
   },
   {
@@ -549,7 +549,7 @@ const STEP_HELP = {
   ),
   spending_core: pageHelp(
     "Spending Categories",
-    "This page is the comprehensive category model for income and expenses, excluding taxes/transfers. Projection spending controls, plus Travel and Large Items budgets, live here; Housing and Wellness detailed budget inputs stay on their own pages.",
+    "This page is the comprehensive category model for income and expenses, including taxes but excluding internal transfers (401k/HSA contributions, brokerage buys/sells, credit card payments). Projection spending controls, plus Travel and Large Items budgets, live here; Housing and Wellness detailed budget inputs stay on their own pages.",
     "Core spending flows directly into annual withdrawals, taxable income, liquidity stress, Monte Carlo success, and planning-lever sensitivity. Growth mode and freeze year determine how that spending changes over time.",
     "Use CPI/general inflation when spending should rise with inflation. Use manual override when lifestyle spending should grow at a different rate. Use the freeze year when spending increases stop or intentionally flatten.",
     "Higher recurring spending usually lowers terminal net worth and probability of success. Lower spending or earlier spending freezes usually improve both, especially in the first retirement decade.",
@@ -3529,7 +3529,7 @@ async function recoverPriorSpendingBudget() {
 
 function domainBudgetNote(domain) {
   if (domain === "core")
-    return "Spending Categories is comprehensive: Income and every expense Tracking Type except taxes/transfers should appear in the hierarchy. Detailed budget authority still lives on Housing, Wellness, and Travel where applicable; this view keeps the full accounting model visible. Each group header shows both Annual Budget (what you entered) and Projection (the value the projection engine actually uses as the starting spend amount). They are usually equal — expand the help below to see when and why they can differ.";
+    return "Spending Categories is comprehensive: Income and every expense Tracking Type, including Taxes, should appear in the hierarchy -- only internal transfers are excluded. Detailed budget authority still lives on Housing, Wellness, and Travel where applicable; this view keeps the full accounting model visible. Each group header shows both Annual Budget (what you entered) and Projection (the value the projection engine actually uses as the starting spend amount). They are usually equal — expand the help below to see when and why they can differ.";
   if (domain === "housing")
     return "Housing is the only editable place for mortgage/rent, homeowners insurance, home maintenance, utilities, real-estate taxes, and home improvement projects.";
   if (domain === "healthcare")

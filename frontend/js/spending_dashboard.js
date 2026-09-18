@@ -1,4 +1,4 @@
-/* Spending Dashboard — comprehensive income and expense tracker (excludes taxes/transfers).
+/* Spending Dashboard — comprehensive income and expense tracker (excludes internal transfers).
    Loaded by index.html, renders when activeStep === 'spending_dashboard'. */
 
 // This shared mutable state is written from OUTSIDE this module too
@@ -160,8 +160,8 @@ export function renderSpendingDashboard() {
   var html = '<div class="holdings spending-dashboard">';
   html += '<div class="spend-taxonomy-card"><b>How spending is organized:</b> ' +
     '<span><b>Hierarchy</b> — Tracking Type → Group → Category;</span> ' +
-    '<span><b>Included</b> — all Income and all expense Tracking Types;</span> ' +
-    '<span><b>Excluded</b> — taxes and transfers.</span></div>';
+    '<span><b>Included</b> — all Income and all expense Tracking Types, including Taxes;</span> ' +
+    '<span><b>Excluded</b> — internal transfers only.</span></div>';
   // This-year performance summary (badges + charts + top categories)
   var ytdSummaryHtml = (typeof renderYtdSummary === 'function') ? renderYtdSummary() : '';
   if (ytdSummaryHtml) {
@@ -208,30 +208,31 @@ export function renderSpendingSummary(d) {
   var cls = vpct > 15 ? 'spend-kpi over' : vpct > 5 ? 'spend-kpi watch' : 'spend-kpi ok';
   html += '<div class="' + cls + '"><span class="spend-kpi-value">' + fmtVariancePct(vpct) + '</span><span class="spend-kpi-label">' + (budget ? 'Annualized Actual vs. Annual Budget' : 'Annualized Actual vs. Model Spending Categories') + '</span></div>';
   html += '</div>';
-  // Companion all-in figures (incl. all taxes, e.g. Income Taxes) -- kept as
-  // a separate row rather than folded into the KPI tiles above, so the
-  // Actual-vs-Budget comparison stays scoped consistently while still
-  // surfacing the household's true out-the-door annual spend including taxes.
-  // Only rendered when it actually differs from the KPI tiles above -- with
-  // no taxes logged, annualizedAllIn===annualized and repeating identical
-  // figures reads as a contradiction, not confirmation.
-  var taxAnnualized = annualizedAllIn - annualized;
-  var taxBudget = budgetAllIn - budget;
-  var hasAllInDelta = Math.abs(taxAnnualized) >= 0.5 || Math.abs(taxBudget) >= 0.5;
+  // Companion all-in figures (incl. internal transfers, e.g. credit card
+  // payments, brokerage buys/sells, 401k/HSA contributions) -- kept as a
+  // separate row rather than folded into the KPI tiles above, so the
+  // Actual-vs-Budget comparison stays scoped to real spending. Taxes are
+  // already included in the KPI tiles above as of the Taxes tracking type
+  // (see spending_tracker.py); this row now only ever differs when a
+  // household has transfer-categorized transactions with real dollars.
+  // Only rendered when it actually differs from the KPI tiles above.
+  var transferAnnualized = annualizedAllIn - annualized;
+  var transferBudget = budgetAllIn - budget;
+  var hasAllInDelta = Math.abs(transferAnnualized) >= 0.5 || Math.abs(transferBudget) >= 0.5;
   if (hasAllInDelta) {
     html += '<div class="spend-summary spend-summary-all-in">';
-    html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(annualizedAllIn) + '</span><span class="spend-kpi-label">Annualized Actual, All-In (Incl. All Taxes)</span></div>';
-    html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(budgetAllIn) + '</span><span class="spend-kpi-label">Annual Budget, All-In (Incl. All Taxes)</span></div>';
+    html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(annualizedAllIn) + '</span><span class="spend-kpi-label">Annualized Actual, All-In (Incl. Transfers)</span></div>';
+    html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(budgetAllIn) + '</span><span class="spend-kpi-label">Annual Budget, All-In (Incl. Transfers)</span></div>';
     html += '</div>';
   }
-  html += '<p class="small" style="margin:0 0 12px">' + d.days_elapsed + ' days elapsed &middot; annualization factor ' + (d.annualization_factor || 1).toFixed(2) + 'x &middot; the five KPI tiles above exclude income taxes and transfers (real estate taxes still count as Housing spending)' +
-    (hasAllInDelta ? '; the All-In row adds income taxes back in' : '; no income tax or transfer transactions are logged this year, so the All-In totals would match the tiles above and are omitted') + '</p>';
+  html += '<p class="small" style="margin:0 0 12px">' + d.days_elapsed + ' days elapsed &middot; annualization factor ' + (d.annualization_factor || 1).toFixed(2) + 'x &middot; the five KPI tiles above include income taxes and exclude only internal transfers' +
+    (hasAllInDelta ? '; the All-In row adds transfer transactions back in' : '; no transfer transactions are logged this year, so the All-In totals would match the tiles above and are omitted') + '</p>';
   return html;
 }
 
 export function renderSpendingBars(d) {
   // Full Tracking Type -> Group -> Category hierarchy from the taxonomy summary
-  // (each level carries annualized actual + budget). Income is included; taxes/transfers are filtered in the backend.
+  // (each level carries annualized actual + budget). Income and Taxes are included; internal transfers are filtered in the backend.
   var tax = (d.taxonomy_summary && d.taxonomy_summary.tracking_types) || [];
   var types = tax.filter(function (t) { return t.groups && t.groups.length; });
   if (!types.length) return '';
@@ -329,8 +330,8 @@ export function renderSpendingBars(d) {
 export function renderSpendingMonthly(d) {
   var series = d.monthly_series || [];
   if (!series.length) return '';
-  var html = '<h3 class="group-title">Monthly Trajectory <span class="small">(all spending except taxes/transfers)</span></h3>';
-  html += '<div class="section-note">Includes Housing, Wellness/healthcare, Travel, Large Discretionary, Business, and Core Expense outflows when present in transactions. Taxes and transfers are excluded.</div>';
+  var html = '<h3 class="group-title">Monthly Trajectory <span class="small">(all spending except internal transfers)</span></h3>';
+  html += '<div class="section-note">Includes Housing, Wellness/healthcare, Travel, Large Discretionary, Business, Core Expense, and Taxes outflows when present in transactions. Internal transfers are excluded.</div>';
   html += '<div class="lot-table-wrap"><table class="lot-table spend-monthly-table">';
   html += '<thead><tr><th>Month</th><th>Actual</th><th>Budget</th><th>Cum Actual</th><th>Cum Budget</th><th>Cum Δ</th></tr></thead>';
   html += '<tbody>';
