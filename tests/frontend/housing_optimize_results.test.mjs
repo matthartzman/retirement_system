@@ -90,6 +90,28 @@ test("rank 1 is badged and labelled Recommended", () => {
   assert.ok(html.includes("Recommended"));
 });
 
+test("the objective column reads as impact vs. the do-nothing baseline, not vs. rank 1", () => {
+  const p = payload({ baseline_objective_value: 3800000 });
+  p.candidates.push({ ...p.candidates[0], rank: 2, objective_value: 3900000 });
+  const html = render(p);
+  // Rank 1 ($4,210,000) vs. baseline ($3,800,000): +$410,000.
+  assert.ok(html.includes("+$410,000"), html);
+  // Rank 2 ($3,900,000) vs. the SAME baseline (not vs. rank 1): +$100,000.
+  assert.ok(html.includes("+$100,000"), html);
+});
+
+test("a negative impact vs. baseline is colored as negative even for rank 1", () => {
+  const p = payload({ baseline_objective_value: 5000000 });
+  const html = render(p);
+  assert.ok(html.includes("negative-money"));
+  assert.ok(html.includes("-$790,000"));
+});
+
+test("no baseline in the payload falls back to the raw objective value", () => {
+  const html = render(payload());
+  assert.ok(html.includes("$4,210,000"));
+});
+
 test("adjacent results alternate shading so a wrapped row stays one block", () => {
   const p = payload();
   p.candidates.push({ ...p.candidates[0], rank: 2 });
