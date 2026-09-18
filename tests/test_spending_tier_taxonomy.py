@@ -94,6 +94,9 @@ class ResolveSpendingTierDefaultsTests(unittest.TestCase):
     def test_business_is_unclassified(self):
         self.assertIsNone(sbr.resolve_spending_tier("business_travel_meals", "Business", "Business"))
 
+    def test_income_taxes_are_untiered_like_income_and_transfer(self):
+        self.assertIsNone(sbr.resolve_spending_tier("income_taxes", "Taxes", "Taxes"))
+
     def test_unmapped_category_falls_back_to_important(self):
         self.assertEqual(
             sbr.resolve_spending_tier("some_brand_new_category", "Core Expenses", "Some New Group"),
