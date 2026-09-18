@@ -121,7 +121,7 @@ export function renderSpendingCore() {
     (!have.core_spending_manual_growth_rate && mode === "manual_override")
   )
     missingMsg = `<div class="section-note warning" id="coreSpendingRowsMissing"><b>Core spending controls are being created:</b> save or reload Plan Data if any control is missing. Expected rows are Core Spending Base, Core Spending Increase Stops, Core Spending Increase Method, and the relevant increase-rate field.</div>`;
-  let html = `<div class="section-note"><b>Projection controls:</b> Core spending base/growth controls feed recurring lifestyle spending. The category hierarchy below is the comprehensive income/expense model except taxes/transfers. Category assignment happens here; Accounts & Sources lives on Income & Expense Transactions.</div>${missingMsg}`;
+  let html = `<div class="section-note"><b>Projection controls:</b> Core spending base/growth controls feed recurring lifestyle spending. The category hierarchy below is the comprehensive income/expense model, including taxes, except internal transfers. Category assignment happens here; Accounts & Sources lives on Income & Expense Transactions.</div>${missingMsg}`;
   html += `<div class="field-list core-spending-flat">${ordered.map(fieldHtml).join("")}</div>`;
   return html;
 }
@@ -565,6 +565,7 @@ export function trackingBudgetTypesForDomain(domain) {
     // this list's order matters too.
     return [
       "Core Expenses",
+      "Taxes",
       "Travel",
       "Large Discretionary",
       "Business",
